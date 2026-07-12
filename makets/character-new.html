@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ru"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CharGen 🟡 — Создание персонажа</title>
+<link rel="stylesheet" href="common.css">
+<style>
+.selection-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+.selection-card { border: 2px solid #e0e0e0; border-radius: 8px; background: #fff; padding: 20px; cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+.selection-card:hover { border-color: #90caf9; }
+.selection-card.selected { border-color: #1976D2; box-shadow: 0 0 0 2px rgba(25,118,210,.15); }
+.selection-card .card-radio { width: 20px; height: 20px; border: 2px solid #c0c0c0; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.selection-card.selected .card-radio { border-color: #1976D2; }
+.selection-card.selected .card-radio::after { content: ''; width: 10px; height: 10px; border-radius: 50%; background: #1976D2; }
+.selection-card h3 { font-size: 15px; font-weight: 500; }
+.selection-card .desc { font-size: 13px; color: #757575; margin-top: 4px; }
+
+.form-section { display: none; border: 1px solid #e0e0e0; border-radius: 8px; background: #fff; padding: 20px; margin-bottom: 24px; }
+.form-section.visible { display: block; }
+.form-section h4 { font-size: 14px; font-weight: 500; margin-bottom: 12px; color: #555; }
+</style>
+</head><body>
+<div class="layout">
+  <div class="sidebar">
+    <div class="user-block">
+      <div class="avatar" onclick="location.href='profile-edit.html'" style="cursor:pointer">JD</div>
+      <div class="user-info"><strong>Иван Петров</strong><br><span style="font-size:12px;color:#999">@ivan_p</span></div>
+      <button class="logout-btn" title="Выйти" onclick="location.href='login.html'">⏻</button>
+    </div>
+    <div class="nav-item active"><span class="nav-icon">👤</span><span class="nav-label">Персонажи</span></div>
+    <div class="nav-item" onclick="location.href='games-list.html'"><span class="nav-icon">🎲</span><span class="nav-label">Игры</span></div>
+    <div class="nav-item"><span class="nav-icon">👥</span><span class="nav-label">Пользователи</span></div>
+    <div class="nav-item" onclick="location.href='spaces-list.html'"><span class="nav-icon">📚</span><span class="nav-label">Пространства</span></div>
+    <div class="spacer"></div>
+    <div class="nav-item" style="color:#999"><span class="nav-icon">⚙️</span><span class="nav-label">Администрирование</span></div>
+  </div>
+  <div class="main">
+    <div class="topbar">
+      <button class="menu-btn">≡</button>
+      <div class="page-title">Создание персонажа</div>
+      <div class="notif-bell" onclick="toggleNotifSlider()">
+        🔔
+        <span class="badge">3</span>
+      </div>
+    </div>
+    <div class="content">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+        <h2 style="font-size:20px">Новый персонаж</h2>
+        <span class="status status-draft">🟡 черновик</span>
+      </div>
+      <p style="font-size:14px;color:#757575;margin-bottom:8px">Выберите способ создания персонажа</p>
+      <p style="font-size:12px;color:#999;margin-bottom:20px">Лимиты ОС и ОР можно задать сейчас или позже — в редакторе персонажа. Лимит ОЛ определяется возрастом и расой.</p>
+
+      <div class="selection-grid">
+        <div class="selection-card selected" onclick="selectOption(this, 'free')">
+          <div style="display:flex;align-items:flex-start;gap:12px">
+            <div class="card-radio"></div>
+            <div>
+              <h3>Свободное создание</h3>
+              <div class="desc">ОС, ОЛ и ОР задаются вручную. Персонаж не привязан к игре.</div>
+            </div>
+          </div>
+        </div>
+        <div class="selection-card" onclick="selectOption(this, 'game')">
+          <div style="display:flex;align-items:flex-start;gap:12px">
+            <div class="card-radio"></div>
+            <div>
+              <h3>Через игру</h3>
+              <div class="desc">Лимиты ОС, ОЛ и ОР берутся из выбранной игры. Персонаж сразу в игре.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section visible" id="freeForm">
+        <h4>Бюджет персонажа <span style="font-size:12px;color:#999;font-weight:400">— можно задать позже</span></h4>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px">
+          <div class="form-group">
+            <label class="form-label">ОС (Очки создания) <span style="color:#999;font-weight:400">опционально</span></label>
+            <input class="form-input" type="number" placeholder="макс., например 10">
+          </div>
+          <div class="form-group">
+            <label class="form-label">ОР (Очки развития) <span style="color:#999;font-weight:400">опционально</span></label>
+            <input class="form-input" type="number" placeholder="макс., например 15">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Пространство правил</label>
+          <select class="form-input">
+            <option>Основные правила</option>
+            <option>Расширенные правила</option>
+            <option>Пользовательские</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-section" id="gameForm">
+        <h4>Выберите игру <span style="font-size:12px;color:#999;font-weight:400">— лимиты можно изменить позже</span></h4>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <label style="display:flex;align-items:center;gap:12px;padding:12px;border:1px solid #e0e0e0;border-radius:6px;cursor:pointer">
+            <input type="radio" name="game" checked>
+            <div>
+              <div style="font-weight:500;font-size:14px">Подземелье дракона</div>
+              <div style="font-size:12px;color:#757575">ОС 10 · ОЛ 3 · ОР 15 · Правила: Основные правила</div>
+            </div>
+          </label>
+          <label style="display:flex;align-items:center;gap:12px;padding:12px;border:1px solid #e0e0e0;border-radius:6px;cursor:pointer">
+            <input type="radio" name="game">
+            <div>
+              <div style="font-weight:500;font-size:14px">Космические рейнджеры</div>
+              <div style="font-size:12px;color:#757575">ОС 12 · ОЛ 4 · ОР 20 · Правила: Основные правила</div>
+            </div>
+          </label>
+          <label style="display:flex;align-items:center;gap:12px;padding:12px;border:1px solid #e0e0e0;border-radius:6px;cursor:pointer">
+            <input type="radio" name="game">
+            <div>
+              <div style="font-weight:500;font-size:14px">Школа волшебства</div>
+              <div style="font-size:12px;color:#757575">ОС 10 · ОЛ 5 · ОР 20 · Правила: Расширенные правила магии</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn btn-outline" onclick="location.href='characters-list.html'">Отмена</button>
+        <button class="btn btn-primary" onclick="location.href='character-editor.html'">Далее →</button>
+      </div>
+    </div>
+    <div class="footer">CharGen &copy; 2026</div>
+  </div>
+</div>
+<div class="notif-overlay" id="notifOverlay" onclick="closeNotifSlider()"></div>
+<div class="notif-slider" id="notifSlider">
+  <div class="notif-header">
+    <span>Уведомления</span>
+    <button class="btn-close" onclick="closeNotifSlider()">✕</button>
+  </div>
+  <div class="notif-list">
+    <div class="notif-item unread">
+      <div class="notif-icon">🎲</div>
+      <div class="notif-body">
+        <div class="notif-title">Приглашение в игру «Подземелье дракона»</div>
+        <div class="notif-preview">Ведущий Иван П. приглашает вас присоединиться</div>
+        <div class="notif-actions">
+          <button class="btn btn-sm btn-primary">Принять</button>
+          <button class="btn btn-sm btn-outline">Отклонить</button>
+        </div>
+      </div>
+      <div class="notif-time">5 минут назад</div>
+    </div>
+    <div class="notif-item unread">
+      <div class="notif-icon">👤</div>
+      <div class="notif-body">
+        <div class="notif-title">Персонаж на модерации</div>
+        <div class="notif-preview">Финн Светлый ожидает проверки в «Школе волшебства»</div>
+      </div>
+      <div class="notif-time">1 час назад</div>
+    </div>
+    <div class="notif-item">
+      <div class="notif-icon">📚</div>
+      <div class="notif-body">
+        <div class="notif-title">Опубликована новая версия правил</div>
+        <div class="notif-preview">Пространство «Основные правила» обновлено до версии 3</div>
+      </div>
+      <div class="notif-time">3 часа назад</div>
+    </div>
+  </div>
+  <div class="notif-footer">
+    <a href="notifications.html">Все уведомления →</a>
+  </div>
+</div>
+<script>
+function toggleNotifSlider() {
+  document.getElementById('notifOverlay').classList.toggle('open');
+  document.getElementById('notifSlider').classList.toggle('open');
+}
+function closeNotifSlider() {
+  document.getElementById('notifOverlay').classList.remove('open');
+  document.getElementById('notifSlider').classList.remove('open');
+}
+function selectOption(el, type) {
+  document.querySelectorAll('.selection-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('freeForm').classList.toggle('visible', type === 'free');
+  document.getElementById('gameForm').classList.toggle('visible', type === 'game');
+}
+</script>
+</body></html>

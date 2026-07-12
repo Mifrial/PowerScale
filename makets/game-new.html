@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ru"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CharGen 🟡 — Новая игра</title>
+<link rel="stylesheet" href="common.css">
+<style>
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.tag-selector { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 8px; border: 1px solid #e0e0e0; border-radius: 6px; min-height: 38px; cursor: text; }
+.tag-selector .tag { cursor: pointer; }
+.tag-selector .tag-remove { cursor: pointer; margin-left: 2px; color: #999; font-size: 12px; }
+.tag-selector .tag-remove:hover { color: #e53935; }
+.tag-selector input { border: none; outline: none; font-size: 14px; flex: 1; min-width: 80px; }
+</style>
+</head><body>
+<div class="layout">
+  <div class="sidebar">
+    <div class="user-block">
+      <div class="avatar" onclick="location.href='profile-edit.html'" style="cursor:pointer">JD</div>
+      <div class="user-info"><strong>Иван Петров</strong><br><span style="font-size:12px;color:#999">@ivan_p</span></div>
+      <button class="logout-btn" title="Выйти" onclick="location.href='login.html'">⏻</button>
+    </div>
+    <div class="nav-item" onclick="location.href='characters-list.html'"><span class="nav-icon">👤</span><span class="nav-label">Персонажи</span></div>
+    <div class="nav-item active" onclick="location.href='games-list.html'"><span class="nav-icon">🎲</span><span class="nav-label">Игры</span></div>
+    <div class="nav-item"><span class="nav-icon">👥</span><span class="nav-label">Пользователи</span></div>
+    <div class="nav-item" onclick="location.href='spaces-list.html'"><span class="nav-icon">📚</span><span class="nav-label">Пространства</span></div>
+    <div class="spacer"></div>
+    <div class="nav-item" style="color:#999"><span class="nav-icon">⚙️</span><span class="nav-label">Администрирование</span></div>
+  </div>
+  <div class="main">
+    <div class="topbar">
+      <button class="menu-btn">≡</button>
+      <div class="page-title">Новая игра</div>
+      <div class="notif-bell" onclick="toggleNotifSlider()">
+        🔔
+        <span class="badge">3</span>
+      </div>
+    </div>
+    <div class="content">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+        <h2 style="font-size:20px">Создание игры</h2>
+        <span class="status status-draft">🟡 черновик</span>
+      </div>
+
+      <div class="card" style="max-width:720px">
+        <div class="form-group">
+          <label class="form-label">Название</label>
+          <input class="form-input" placeholder="Например: Подземелье дракона">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Краткое описание <span style="color:#999;font-weight:400">— для карточки в списке</span></label>
+          <input class="form-input" placeholder="Коротко о чём игра">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Полное описание <span style="color:#999;font-weight:400">— HTML</span></label>
+          <div style="border:1px solid #e0e0e0;border-radius:6px;overflow:hidden">
+            <div style="display:flex;gap:2px;padding:6px 8px;border-bottom:1px solid #e0e0e0;background:#fafafa;flex-wrap:wrap">
+              <span style="padding:2px 6px;border-radius:3px;font-size:13px;cursor:pointer;color:#555">B</span>
+              <span style="padding:2px 6px;border-radius:3px;font-size:13px;cursor:pointer;color:#555;font-style:italic">I</span>
+              <span style="padding:2px 6px;border-radius:3px;font-size:13px;cursor:pointer;color:#555;text-decoration:underline">U</span>
+              <span style="padding:2px 6px;border-radius:3px;font-size:13px;cursor:pointer;color:#555">H<sub>1</sub></span>
+              <span style="padding:2px 6px;border-radius:3px;font-size:13px;cursor:pointer;color:#555">H<sub>2</sub></span>
+              <span style="padding:2px 6px;border-radius:3px;font-size:13px;cursor:pointer;color:#555">• Список</span>
+              <span style="padding:2px 6px;border-radius:3px;font-size:13px;cursor:pointer;color:#555">1. Нум.</span>
+              <span style="padding:2px 6px;border-radius:3px;font-size:13px;cursor:pointer;color:#555">«Цитата</span>
+              <span style="padding:2px 6px;border-radius:3px;font-size:13px;cursor:pointer;color:#555">🔗</span>
+              <span style="padding:2px 6px;border-radius:3px;font-size:13px;cursor:pointer;color:#555;margin-left:auto">⎓</span>
+            </div>
+            <div style="padding:10px 12px;min-height:120px;font-size:14px;color:#555;outline:none" contenteditable>
+              <p>Классическое фэнтези-приключение. Игроки исследуют <strong>подземелья</strong>, сражаются с монстрами и ищут сокровища.</p>
+              <p>Система: упор на боевую механику, минимальная социальная ролевая игра.</p>
+              <ul><li>Начальный уровень: 1</li><li>Доступные расы: все</li><li>Запрещённая магия: кровь</li></ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Пространство правил</label>
+          <select class="form-input">
+            <option>Основные правила</option>
+            <option>Расширенные правила магии</option>
+            <option>Киберпанк-сеттинг</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Версия правил <span style="color:#999;font-weight:400">— от какой даты</span></label>
+          <input class="form-input" type="date" value="2026-06-01">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Лимиты <span style="color:#999;font-weight:400">— можно изменить позже</span></label>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" style="font-size:13px">ОС (Очки создания)</label>
+              <input class="form-input" type="number" placeholder="например 10">
+            </div>
+            <div class="form-group">
+              <label class="form-label" style="font-size:13px">ОР (Очки развития)</label>
+              <input class="form-input" type="number" placeholder="например 15">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Теги</label>
+          <div class="tag-selector">
+            <span class="tag">фэнтези <span class="tag-remove">✕</span></span>
+            <span class="tag">боёвка <span class="tag-remove">✕</span></span>
+            <span class="tag">подземелья <span class="tag-remove">✕</span></span>
+            <input placeholder="добавить тег...">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Статус</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <label style="display:flex;align-items:center;gap:6px;padding:8px 12px;border:1px solid #e0e0e0;border-radius:6px;cursor:pointer">
+              <input type="radio" name="status" checked>
+              <span style="font-size:13px">Черновик</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;padding:8px 12px;border:1px solid #e0e0e0;border-radius:6px;cursor:pointer">
+              <input type="radio" name="status">
+              <span style="font-size:13px">Открытая</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;padding:8px 12px;border:1px solid #e0e0e0;border-radius:6px;cursor:pointer">
+              <input type="radio" name="status">
+              <span style="font-size:13px">Закрытая для просмотра</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;padding:8px 12px;border:1px solid #e0e0e0;border-radius:6px;cursor:pointer">
+              <input type="radio" name="status">
+              <span style="font-size:13px">Закрытая для вступления</span>
+            </label>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px">
+          <button class="btn btn-outline" onclick="location.href='games-list.html'">Отмена</button>
+          <button class="btn btn-primary" onclick="location.href='game-detail.html'">Создать</button>
+        </div>
+      </div>
+    </div>
+    <div class="footer">CharGen &copy; 2026</div>
+  </div>
+</div>
+<div class="notif-overlay" id="notifOverlay" onclick="closeNotifSlider()"></div>
+<div class="notif-slider" id="notifSlider">
+  <div class="notif-header">
+    <span>Уведомления</span>
+    <button class="btn-close" onclick="closeNotifSlider()">✕</button>
+  </div>
+  <div class="notif-list">
+    <div class="notif-item unread">
+      <div class="notif-icon">🎲</div>
+      <div class="notif-body">
+        <div class="notif-title">Приглашение в игру «Подземелье дракона»</div>
+        <div class="notif-preview">Ведущий Иван П. приглашает вас присоединиться</div>
+        <div class="notif-actions">
+          <button class="btn btn-sm btn-primary">Принять</button>
+          <button class="btn btn-sm btn-outline">Отклонить</button>
+        </div>
+      </div>
+      <div class="notif-time">5 минут назад</div>
+    </div>
+    <div class="notif-item unread">
+      <div class="notif-icon">👤</div>
+      <div class="notif-body">
+        <div class="notif-title">Персонаж на модерации</div>
+        <div class="notif-preview">Финн Светлый ожидает проверки в «Школе волшебства»</div>
+      </div>
+      <div class="notif-time">1 час назад</div>
+    </div>
+    <div class="notif-item">
+      <div class="notif-icon">📚</div>
+      <div class="notif-body">
+        <div class="notif-title">Опубликована новая версия правил</div>
+        <div class="notif-preview">Пространство «Основные правила» обновлено до версии 3</div>
+      </div>
+      <div class="notif-time">3 часа назад</div>
+    </div>
+  </div>
+  <div class="notif-footer">
+    <a href="notifications.html">Все уведомления →</a>
+  </div>
+</div>
+<script>
+function toggleNotifSlider() {
+  document.getElementById('notifOverlay').classList.toggle('open');
+  document.getElementById('notifSlider').classList.toggle('open');
+}
+function closeNotifSlider() {
+  document.getElementById('notifOverlay').classList.remove('open');
+  document.getElementById('notifSlider').classList.remove('open');
+}
+</script>
+</body></html>

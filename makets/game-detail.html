@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="ru"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CharGen — Игра</title>
+<link rel="stylesheet" href="common.css">
+<style>
+.overview { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; margin: 4px 0 12px; }
+.overview-item { font-size: 13px; color: #555; }
+.summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-top: 16px; }
+.summary-card { border: 1px solid #e0e0e0; border-radius: 8px; background: #fff; padding: 16px; }
+.summary-card h4 { font-size: 14px; font-weight: 500; margin-bottom: 8px; color: #555; }
+.summary-card .stat-row { display: flex; justify-content: space-between; font-size: 14px; padding: 4px 0; }
+.summary-card .stat-row + .stat-row { border-top: 1px solid #f5f5f5; }
+.summary-card .stat-label { color: #757575; }
+.summary-card .stat-value { font-weight: 500; }
+</style>
+</head><body>
+<div class="layout">
+  <div class="sidebar">
+    <div class="user-block">
+      <div class="avatar" onclick="location.href='profile-edit.html'" style="cursor:pointer">JD</div>
+      <div class="user-info"><strong>Иван Петров</strong><br><span style="font-size:12px;color:#999">@ivan_p</span></div>
+      <button class="logout-btn" title="Выйти" onclick="location.href='login.html'">⏻</button>
+    </div>
+    <div class="nav-item" onclick="location.href='characters-list.html'"><span class="nav-icon">👤</span><span class="nav-label">Персонажи</span></div>
+    <div class="nav-item active" onclick="location.href='games-list.html'"><span class="nav-icon">🎲</span><span class="nav-label">Игры</span></div>
+    <div class="nav-item"><span class="nav-icon">👥</span><span class="nav-label">Пользователи</span></div>
+    <div class="nav-item" onclick="location.href='spaces-list.html'"><span class="nav-icon">📚</span><span class="nav-label">Пространства</span></div>
+    <div class="spacer"></div>
+    <div class="nav-item" style="color:#999"><span class="nav-icon">⚙️</span><span class="nav-label">Администрирование</span></div>
+  </div>
+  <div class="main">
+    <div class="topbar">
+      <button class="menu-btn">≡</button>
+      <div class="page-title">Подземелье дракона</div>
+      <div class="notif-bell" onclick="toggleNotifSlider()">
+        🔔
+        <span class="badge">3</span>
+      </div>
+    </div>
+    <div class="content">
+      <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:4px">
+        <div>
+          <h2 style="font-size:20px">Подземелье дракона</h2>
+          <p style="color:#757575;font-size:14px">Ведущий: Иван Петров</p>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-outline">⚙️ Настройки</button>
+          <button class="btn btn-outline">✉️ Пригласить</button>
+        </div>
+      </div>
+      <div class="overview">
+        <span class="status status-in-game">В игре</span>
+        <span class="overview-item">5 участников</span>
+        <span class="overview-item">📅 Правила: Основные правила v.3 от 01.06.2026</span>
+      </div>
+
+      <div class="subnav" style="margin-top:12px">
+        <span class="subnav-item active">Сводка</span>
+        <span class="subnav-item" onclick="location.href='game-detail-characters.html'">Персонажи</span>
+        <span class="subnav-item">Настройки</span>
+        <span class="subnav-item">Правила</span>
+        <span class="subnav-item">Участники</span>
+        <span class="subnav-item">Приглашения</span>
+        <span class="subnav-item" onclick="location.href='game-moderate.html'">Модерация <span class="badge">2</span></span>
+      </div>
+
+      <div class="summary-grid">
+        <div class="summary-card">
+          <h4>Персонажи</h4>
+          <div class="stat-row">
+            <span class="stat-label">Всего</span>
+            <span class="stat-value">8</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">В игре</span>
+            <span class="stat-value">5</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">На модерации</span>
+            <span class="stat-value">2</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Черновики</span>
+            <span class="stat-value">1</span>
+          </div>
+          <div style="margin-top:8px"><a href="game-detail-characters.html" style="font-size:13px;color:#1976D2;text-decoration:none">Все персонажи →</a></div>
+        </div>
+        <div class="summary-card">
+          <h4>Бюджет</h4>
+          <div class="stat-row">
+            <span class="stat-label">ОС (Очки создания)</span>
+            <span class="stat-value">10</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">ОЛ (Очки личности)</span>
+            <span class="stat-value">3</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">ОР (Очки развития)</span>
+            <span class="stat-value">15</span>
+          </div>
+        </div>
+        <div class="summary-card">
+          <h4>Теги</h4>
+          <div style="display:flex;flex-wrap:wrap;gap:4px">
+            <span class="tag">фэнтези</span>
+            <span class="tag">боёвка</span>
+            <span class="tag">подземелья</span>
+            <span class="tag">драконы</span>
+          </div>
+        </div>
+        <div class="summary-card">
+          <h4>Пространство правил</h4>
+          <div style="font-size:14px;margin-bottom:4px">Основные правила</div>
+          <div style="font-size:13px;color:#757575">Версия 3 от 01.06.2026</div>
+          <div style="margin-top:8px"><a href="space-rules.html" style="font-size:13px;color:#1976D2;text-decoration:none">Перейти к правилам →</a></div>
+        </div>
+      </div>
+    </div>
+    <div class="footer">CharGen &copy; 2026</div>
+  </div>
+</div>
+<div class="notif-overlay" id="notifOverlay" onclick="closeNotifSlider()"></div>
+<div class="notif-slider" id="notifSlider">
+  <div class="notif-header">
+    <span>Уведомления</span>
+    <button class="btn-close" onclick="closeNotifSlider()">✕</button>
+  </div>
+  <div class="notif-list">
+    <div class="notif-item unread">
+      <div class="notif-icon">🎲</div>
+      <div class="notif-body">
+        <div class="notif-title">Приглашение в игру «Подземелье дракона»</div>
+        <div class="notif-preview">Ведущий Иван П. приглашает вас присоединиться</div>
+        <div class="notif-actions">
+          <button class="btn btn-sm btn-primary">Принять</button>
+          <button class="btn btn-sm btn-outline">Отклонить</button>
+        </div>
+      </div>
+      <div class="notif-time">5 минут назад</div>
+    </div>
+    <div class="notif-item unread">
+      <div class="notif-icon">👤</div>
+      <div class="notif-body">
+        <div class="notif-title">Персонаж на модерации</div>
+        <div class="notif-preview">Финн Светлый ожидает проверки в «Школе волшебства»</div>
+      </div>
+      <div class="notif-time">1 час назад</div>
+    </div>
+    <div class="notif-item">
+      <div class="notif-icon">📚</div>
+      <div class="notif-body">
+        <div class="notif-title">Опубликована новая версия правил</div>
+        <div class="notif-preview">Пространство «Основные правила» обновлено до версии 3</div>
+      </div>
+      <div class="notif-time">3 часа назад</div>
+    </div>
+  </div>
+  <div class="notif-footer">
+    <a href="notifications.html">Все уведомления →</a>
+  </div>
+</div>
+<script>
+function toggleNotifSlider() {
+  document.getElementById('notifOverlay').classList.toggle('open');
+  document.getElementById('notifSlider').classList.toggle('open');
+}
+function closeNotifSlider() {
+  document.getElementById('notifOverlay').classList.remove('open');
+  document.getElementById('notifSlider').classList.remove('open');
+}
+</script>
+</body></html>

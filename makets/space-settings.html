@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="ru"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CharGen 🟡 — Настройки пространства</title>
+<link rel="stylesheet" href="common.css">
+<style>
+.overview { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; margin: 4px 0 12px; }
+.overview-item { font-size: 13px; color: #555; }
+.table-wrap { overflow-x: auto; }
+.perm-toggle { width: 20px; height: 20px; border: 2px solid #c0c0c0; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; background: #fff; flex-shrink: 0; }
+.perm-toggle.on { background: #1976D2; border-color: #1976D2; }
+.perm-toggle.on::after { content: '✓'; color: #fff; font-size: 12px; font-weight: 700; }
+.perm-toggle.off::after { content: '—'; color: #ccc; font-size: 12px; }
+.perm-toggle.locked { cursor: not-allowed; opacity: 0.6; background: #e3f2fd; border-color: #90caf9; }
+.perm-toggle.locked.on::after { content: '✓'; color: #1976D2; font-size: 12px; font-weight: 700; }
+</style>
+</head><body>
+<div class="layout">
+  <div class="sidebar">
+    <div class="user-block">
+      <div class="avatar" onclick="location.href='profile-edit.html'" style="cursor:pointer">JD</div>
+      <div class="user-info"><strong>Иван Петров</strong><br><span style="font-size:12px;color:#999">@ivan_p</span></div>
+      <button class="logout-btn" title="Выйти" onclick="location.href='login.html'">⏻</button>
+    </div>
+    <div class="nav-item" onclick="location.href='characters-list.html'"><span class="nav-icon">👤</span><span class="nav-label">Персонажи</span></div>
+    <div class="nav-item" onclick="location.href='games-list.html'"><span class="nav-icon">🎲</span><span class="nav-label">Игры</span></div>
+    <div class="nav-item"><span class="nav-icon">👥</span><span class="nav-label">Пользователи</span></div>
+    <div class="nav-item active" onclick="location.href='spaces-list.html'"><span class="nav-icon">📚</span><span class="nav-label">Пространства</span></div>
+    <div class="spacer"></div>
+    <div class="nav-item" style="color:#999"><span class="nav-icon">⚙️</span><span class="nav-label">Администрирование</span></div>
+  </div>
+  <div class="main">
+    <div class="topbar">
+      <button class="menu-btn">≡</button>
+      <div class="page-title">Основные правила</div>
+      <div class="notif-bell" onclick="toggleNotifSlider()">
+        🔔
+        <span class="badge">3</span>
+      </div>
+    </div>
+    <div class="content">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <h2 style="font-size:20px">Настройки пространства</h2>
+        <span class="status status-draft">🟡 черновик</span>
+      </div>
+      <p style="color:#757575;font-size:14px;margin-bottom:16px">Основные правила · версия 3 от 01.06.2026</p>
+
+      <div class="subnav">
+        <span class="subnav-item" onclick="location.href='space-rules.html'">Правила</span>
+        <span class="subnav-item active">Настройки</span>
+        <span class="subnav-item" onclick="location.href='space-publish.html'">Публикация</span>
+      </div>
+
+      <!-- Основные настройки -->
+      <div class="card" style="max-width:960px;margin-bottom:16px">
+        <div class="card-header">
+          <span class="card-title">Основное</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Название</label>
+          <input class="form-input" value="Основные правила">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Описание</label>
+          <textarea class="form-input" rows="2">Базовая система правил для фэнтези-сеттингов.</textarea>
+        </div>
+      </div>
+
+      <!-- Права доступа: группы -->
+      <div class="card" style="max-width:960px;margin-bottom:16px">
+        <div class="card-header">
+          <span class="card-title">Права доступа — группы</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="min-width:140px">Группа</th>
+                <th style="text-align:center;min-width:90px">Просмотр</th>
+                <th style="text-align:center;min-width:120px">Создание правил</th>
+                <th style="text-align:center;min-width:110px">Редактирование</th>
+                <th style="text-align:center;min-width:100px">Публикация</th>
+                <th style="text-align:center;min-width:90px">Настройки</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Администраторы <span style="font-size:11px;color:#999">(заблокировано)</span></td>
+                <td style="text-align:center"><span class="perm-toggle on locked"></span></td>
+                <td style="text-align:center"><span class="perm-toggle on locked"></span></td>
+                <td style="text-align:center"><span class="perm-toggle on locked"></span></td>
+                <td style="text-align:center"><span class="perm-toggle on locked"></span></td>
+                <td style="text-align:center"><span class="perm-toggle on locked"></span></td>
+              </tr>
+              <tr>
+                <td>Редакторы</td>
+                <td style="text-align:center"><span class="perm-toggle on" onclick="this.classList.toggle('on')"></span></td>
+                <td style="text-align:center"><span class="perm-toggle on" onclick="this.classList.toggle('on')"></span></td>
+                <td style="text-align:center"><span class="perm-toggle on" onclick="this.classList.toggle('on')"></span></td>
+                <td style="text-align:center"><span class="perm-toggle" onclick="this.classList.toggle('on')"></span></td>
+                <td style="text-align:center"><span class="perm-toggle" onclick="this.classList.toggle('on')"></span></td>
+              </tr>
+              <tr>
+                <td>Игроки</td>
+                <td style="text-align:center"><span class="perm-toggle on" onclick="this.classList.toggle('on')"></span></td>
+                <td style="text-align:center"><span class="perm-toggle" onclick="this.classList.toggle('on')"></span></td>
+                <td style="text-align:center"><span class="perm-toggle" onclick="this.classList.toggle('on')"></span></td>
+                <td style="text-align:center"><span class="perm-toggle" onclick="this.classList.toggle('on')"></span></td>
+                <td style="text-align:center"><span class="perm-toggle" onclick="this.classList.toggle('on')"></span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="margin-top:12px">
+          <button class="btn btn-sm btn-outline">+ Добавить группу</button>
+        </div>
+      </div>
+
+      <!-- Индивидуальные права -->
+      <div class="card" style="max-width:960px;margin-bottom:16px">
+        <div class="card-header">
+          <span class="card-title">Индивидуальные права</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="min-width:140px">Пользователь</th>
+                <th style="text-align:center;min-width:90px">Просмотр</th>
+                <th style="text-align:center;min-width:120px">Создание правил</th>
+                <th style="text-align:center;min-width:110px">Редактирование</th>
+                <th style="text-align:center;min-width:100px">Публикация</th>
+                <th style="text-align:center;min-width:90px">Настройки</th>
+                <th style="min-width:50px"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>@anna_s (Анна С.)</td>
+                <td style="text-align:center"><span class="perm-toggle on" onclick="this.classList.toggle('on')"></span></td>
+                <td style="text-align:center"><span class="perm-toggle on" onclick="this.classList.toggle('on')"></span></td>
+                <td style="text-align:center"><span class="perm-toggle on" onclick="this.classList.toggle('on')"></span></td>
+                <td style="text-align:center"><span class="perm-toggle" onclick="this.classList.toggle('on')"></span></td>
+                <td style="text-align:center"><span class="perm-toggle" onclick="this.classList.toggle('on')"></span></td>
+                <td><button class="btn btn-sm btn-outline" style="color:#e53935;font-size:12px">✕</button></td>
+              </tr>
+              <tr>
+                <td>@pavel_k (Павел К.)</td>
+                <td style="text-align:center"><span class="perm-toggle on" onclick="this.classList.toggle('on')"></span></td>
+                <td style="text-align:center"><span class="perm-toggle" onclick="this.classList.toggle('on')"></span></td>
+                <td style="text-align:center"><span class="perm-toggle" onclick="this.classList.toggle('on')"></span></td>
+                <td style="text-align:center"><span class="perm-toggle" onclick="this.classList.toggle('on')"></span></td>
+                <td style="text-align:center"><span class="perm-toggle" onclick="this.classList.toggle('on')"></span></td>
+                <td><button class="btn btn-sm btn-outline" style="color:#e53935;font-size:12px">✕</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:8px">
+          <input class="form-input" placeholder="логин пользователя..." style="max-width:200px">
+          <button class="btn btn-sm btn-outline">+ Добавить</button>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;justify-content:flex-end;max-width:960px">
+        <button class="btn btn-outline" onclick="location.href='space-rules.html'">Отмена</button>
+        <button class="btn btn-primary">Сохранить</button>
+      </div>
+    </div>
+    <div class="footer">CharGen &copy; 2026</div>
+  </div>
+</div>
+<div class="notif-overlay" id="notifOverlay" onclick="closeNotifSlider()"></div>
+<div class="notif-slider" id="notifSlider">
+  <div class="notif-header">
+    <span>Уведомления</span>
+    <button class="btn-close" onclick="closeNotifSlider()">✕</button>
+  </div>
+  <div class="notif-list">
+    <div class="notif-item unread">
+      <div class="notif-icon">🎲</div>
+      <div class="notif-body">
+        <div class="notif-title">Приглашение в игру «Подземелье дракона»</div>
+        <div class="notif-preview">Ведущий Иван П. приглашает вас присоединиться</div>
+        <div class="notif-actions">
+          <button class="btn btn-sm btn-primary">Принять</button>
+          <button class="btn btn-sm btn-outline">Отклонить</button>
+        </div>
+      </div>
+      <div class="notif-time">5 минут назад</div>
+    </div>
+    <div class="notif-item unread">
+      <div class="notif-icon">👤</div>
+      <div class="notif-body">
+        <div class="notif-title">Персонаж на модерации</div>
+        <div class="notif-preview">Финн Светлый ожидает проверки в «Школе волшебства»</div>
+      </div>
+      <div class="notif-time">1 час назад</div>
+    </div>
+    <div class="notif-item">
+      <div class="notif-icon">📚</div>
+      <div class="notif-body">
+        <div class="notif-title">Опубликована новая версия правил</div>
+        <div class="notif-preview">Пространство «Основные правила» обновлено до версии 3</div>
+      </div>
+      <div class="notif-time">3 часа назад</div>
+    </div>
+  </div>
+  <div class="notif-footer">
+    <a href="notifications.html">Все уведомления →</a>
+  </div>
+</div>
+<script>
+function toggleNotifSlider() {
+  document.getElementById('notifOverlay').classList.toggle('open');
+  document.getElementById('notifSlider').classList.toggle('open');
+}
+function closeNotifSlider() {
+  document.getElementById('notifOverlay').classList.remove('open');
+  document.getElementById('notifSlider').classList.remove('open');
+}
+</script>
+</body></html>

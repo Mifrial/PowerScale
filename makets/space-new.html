@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ru"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CharGen 🟡 — Новое пространство</title>
+<link rel="stylesheet" href="common.css">
+<style>
+.inherit-snapshot { border: 1px solid #e0e0e0; border-radius: 6px; background: #fafafa; padding: 12px; font-size: 13px; color: #555; margin-top: 6px; display: none; }
+.inherit-snapshot.visible { display: block; }
+</style>
+</head><body>
+<div class="layout">
+  <div class="sidebar">
+    <div class="user-block">
+      <div class="avatar" onclick="location.href='profile-edit.html'" style="cursor:pointer">JD</div>
+      <div class="user-info"><strong>Иван Петров</strong><br><span style="font-size:12px;color:#999">@ivan_p</span></div>
+      <button class="logout-btn" title="Выйти" onclick="location.href='login.html'">⏻</button>
+    </div>
+    <div class="nav-item" onclick="location.href='characters-list.html'"><span class="nav-icon">👤</span><span class="nav-label">Персонажи</span></div>
+    <div class="nav-item" onclick="location.href='games-list.html'"><span class="nav-icon">🎲</span><span class="nav-label">Игры</span></div>
+    <div class="nav-item"><span class="nav-icon">👥</span><span class="nav-label">Пользователи</span></div>
+    <div class="nav-item active" onclick="location.href='spaces-list.html'"><span class="nav-icon">📚</span><span class="nav-label">Пространства</span></div>
+    <div class="spacer"></div>
+    <div class="nav-item" style="color:#999"><span class="nav-icon">⚙️</span><span class="nav-label">Администрирование</span></div>
+  </div>
+  <div class="main">
+    <div class="topbar">
+      <button class="menu-btn">≡</button>
+      <div class="page-title">Новое пространство</div>
+      <div class="notif-bell" onclick="toggleNotifSlider()">
+        🔔
+        <span class="badge">3</span>
+      </div>
+    </div>
+    <div class="content">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+        <h2 style="font-size:20px">Создание пространства</h2>
+        <span class="status status-draft">🟡 черновик</span>
+      </div>
+
+      <div class="card" style="max-width:640px">
+        <div class="form-group">
+          <label class="form-label">Название</label>
+          <input class="form-input" placeholder="Например: Правила магии 2.0">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Описание</label>
+          <textarea class="form-input" rows="3" placeholder="Для чего это пространство, какие правила включает..." style="resize:vertical"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Наследовать от <span style="color:#999;font-weight:400">— опционально, одноразово</span></label>
+          <select class="form-input" onchange="toggleSnapshot(this.value)">
+            <option value="">Не наследовать</option>
+            <option value="1">Основные правила</option>
+            <option value="2">Расширенные правила магии</option>
+            <option value="3">Киберпанк-сеттинг</option>
+          </select>
+          <div class="inherit-snapshot" id="snapshotPreview">
+            <strong>Будет скопировано:</strong>
+            <div style="margin-top:6px;display:grid;grid-template-columns:1fr 1fr;gap:4px">
+              <span>✓ 12 характеристик</span>
+              <span>✓ 5 валют</span>
+              <span>✓ 8 рас</span>
+              <span>✓ 34 черты</span>
+              <span>✓ 6 навыков</span>
+              <span>✓ 42 заклинания</span>
+            </div>
+            <div style="margin-top:6px;font-size:12px;color:#999">Снепшот правил на текущий момент. После создания наследование изменить нельзя.</div>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px">
+          <button class="btn btn-outline" onclick="location.href='spaces-list.html'">Отмена</button>
+          <button class="btn btn-primary" onclick="location.href='space-rules.html'">Создать</button>
+        </div>
+      </div>
+    </div>
+    <div class="footer">CharGen &copy; 2026</div>
+  </div>
+</div>
+<div class="notif-overlay" id="notifOverlay" onclick="closeNotifSlider()"></div>
+<div class="notif-slider" id="notifSlider">
+  <div class="notif-header">
+    <span>Уведомления</span>
+    <button class="btn-close" onclick="closeNotifSlider()">✕</button>
+  </div>
+  <div class="notif-list">
+    <div class="notif-item unread">
+      <div class="notif-icon">🎲</div>
+      <div class="notif-body">
+        <div class="notif-title">Приглашение в игру «Подземелье дракона»</div>
+        <div class="notif-preview">Ведущий Иван П. приглашает вас присоединиться</div>
+        <div class="notif-actions">
+          <button class="btn btn-sm btn-primary">Принять</button>
+          <button class="btn btn-sm btn-outline">Отклонить</button>
+        </div>
+      </div>
+      <div class="notif-time">5 минут назад</div>
+    </div>
+    <div class="notif-item unread">
+      <div class="notif-icon">👤</div>
+      <div class="notif-body">
+        <div class="notif-title">Персонаж на модерации</div>
+        <div class="notif-preview">Финн Светлый ожидает проверки в «Школе волшебства»</div>
+      </div>
+      <div class="notif-time">1 час назад</div>
+    </div>
+    <div class="notif-item">
+      <div class="notif-icon">📚</div>
+      <div class="notif-body">
+        <div class="notif-title">Опубликована новая версия правил</div>
+        <div class="notif-preview">Пространство «Основные правила» обновлено до версии 3</div>
+      </div>
+      <div class="notif-time">3 часа назад</div>
+    </div>
+  </div>
+  <div class="notif-footer">
+    <a href="notifications.html">Все уведомления →</a>
+  </div>
+</div>
+<script>
+function toggleNotifSlider() {
+  document.getElementById('notifOverlay').classList.toggle('open');
+  document.getElementById('notifSlider').classList.toggle('open');
+}
+function closeNotifSlider() {
+  document.getElementById('notifOverlay').classList.remove('open');
+  document.getElementById('notifSlider').classList.remove('open');
+}
+function toggleSnapshot(val) {
+  document.getElementById('snapshotPreview').classList.toggle('visible', val !== '');
+}
+</script>
+</body></html>

@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="ru"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CharGen 🟡 — Модерация</title>
+<link rel="stylesheet" href="common.css">
+<style>
+.overview { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; margin: 4px 0 12px; }
+.overview-item { font-size: 13px; color: #555; }
+.moderate-card { border: 1px solid #e0e0e0; border-radius: 8px; background: #fff; padding: 16px; margin-bottom: 12px; }
+.moderate-card .header { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.moderate-card .header .info { flex: 1; }
+.moderate-card .header .info .name { font-weight: 500; font-size: 14px; }
+.moderate-card .header .info .meta { font-size: 12px; color: #757575; }
+.moderate-card .comment-box { margin: 8px 0; display: none; }
+.moderate-card .comment-box.open { display: block; }
+</style>
+</head><body>
+<div class="layout">
+  <div class="sidebar">
+    <div class="user-block">
+      <div class="avatar" onclick="location.href='profile-edit.html'" style="cursor:pointer">JD</div>
+      <div class="user-info"><strong>Иван Петров</strong><br><span style="font-size:12px;color:#999">@ivan_p</span></div>
+      <button class="logout-btn" title="Выйти" onclick="location.href='login.html'">⏻</button>
+    </div>
+    <div class="nav-item" onclick="location.href='characters-list.html'"><span class="nav-icon">👤</span><span class="nav-label">Персонажи</span></div>
+    <div class="nav-item active" onclick="location.href='games-list.html'"><span class="nav-icon">🎲</span><span class="nav-label">Игры</span></div>
+    <div class="nav-item"><span class="nav-icon">👥</span><span class="nav-label">Пользователи</span></div>
+    <div class="nav-item" onclick="location.href='spaces-list.html'"><span class="nav-icon">📚</span><span class="nav-label">Пространства</span></div>
+    <div class="spacer"></div>
+    <div class="nav-item" style="color:#999"><span class="nav-icon">⚙️</span><span class="nav-label">Администрирование</span></div>
+  </div>
+  <div class="main">
+    <div class="topbar">
+      <button class="menu-btn">≡</button>
+      <div class="page-title">Подземелье дракона</div>
+      <div class="notif-bell" onclick="toggleNotifSlider()">
+        🔔
+        <span class="badge">3</span>
+      </div>
+    </div>
+    <div class="content">
+      <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:4px">
+        <div>
+          <h2 style="font-size:20px">Подземелье дракона</h2>
+          <p style="color:#757575;font-size:14px">Ведущий: Иван Петров · Пространство: «Основные правила»</p>
+        </div>
+      </div>
+      <div class="overview">
+        <span class="status status-in-game">В игре</span>
+        <span class="overview-item">5 участников</span>
+      </div>
+
+      <div class="subnav" style="margin-top:12px">
+        <span class="subnav-item" onclick="location.href='game-detail.html'">Сводка</span>
+        <span class="subnav-item" onclick="location.href='game-detail-characters.html'">Персонажи</span>
+        <span class="subnav-item">Настройки</span>
+        <span class="subnav-item">Правила</span>
+        <span class="subnav-item">Участники</span>
+        <span class="subnav-item">Приглашения</span>
+        <span class="subnav-item active">Модерация <span class="badge">2</span></span>
+      </div>
+
+      <div class="filter-wrap">
+        <div class="filter-bar" onclick="toggleFilterPopup()">
+          <div class="filter-inner">
+            <div class="filter-chips" id="filterChips">
+              <span class="filter-chip">Статус: Ожидает <span class="chip-remove" onclick="event.stopPropagation();this.parentElement.remove()">✕</span></span>
+            </div>
+            <input class="filter-input" placeholder="Фильтр + поиск" onfocus="openFilterPopup()">
+          </div>
+          <span class="filter-input-icon">🔍</span>
+        </div>
+        <div class="filter-popup" id="filterPopup">
+          <div class="filter-row">
+            <span class="filter-toggle"></span>
+            <span class="filter-field-label">Персонаж</span>
+            <input class="form-input" placeholder="имя...">
+          </div>
+          <div class="filter-row">
+            <span class="filter-toggle"></span>
+            <span class="filter-field-label">Игрок</span>
+            <input class="form-input" placeholder="логин...">
+          </div>
+          <div class="filter-row">
+            <span class="filter-toggle on"></span>
+            <span class="filter-field-label">Статус</span>
+            <select class="form-input">
+              <option>Ожидает</option>
+              <option>На доработке</option>
+              <option>Отклонён</option>
+            </select>
+          </div>
+          <div class="filter-actions">
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-sm btn-outline" onclick="resetFilter()">Сбросить</button>
+              <button class="btn btn-sm btn-primary" onclick="applyFilter()">Применить</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Карточка 1: ожидает -->
+      <div class="moderate-card">
+        <div class="header">
+          <div class="avatar" style="width:32px;height:32px;font-size:13px">М</div>
+          <div class="info">
+            <div class="name"><a href="character-card.html" style="color:inherit;text-decoration:none">Мэллорн</a> <span class="tag" style="font-size:11px">Полуэльф</span></div>
+            <div class="meta">Игрок: @alex_f · создан 2 часа назад</div>
+          </div>
+          <span class="status status-moderation">Ожидает</span>
+        </div>
+        <div style="font-size:13px;color:#555;margin-bottom:8px">
+          ОС 6/10 · ОР 0/15 · Характеристики: Сила 3, Ловкость 4, Выносливость 3, Восприятие 4, Интеллект 3
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-sm btn-primary" onclick="this.closest('.moderate-card').querySelector('.comment-box').classList.toggle('open')">✓ Утвердить</button>
+          <button class="btn btn-sm btn-outline" onclick="this.closest('.moderate-card').querySelector('.comment-box').classList.toggle('open')">↻ На доработку</button>
+          <button class="btn btn-sm btn-outline" onclick="this.closest('.moderate-card').querySelector('.comment-box').classList.toggle('open')">✗ Отклонить</button>
+        </div>
+        <div class="comment-box">
+          <textarea class="form-input" rows="2" placeholder="Комментарий для игрока (опционально)" style="margin-bottom:6px"></textarea>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-sm btn-primary">Подтвердить</button>
+            <button class="btn btn-sm btn-outline" onclick="this.closest('.comment-box').classList.remove('open')">Отмена</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Карточка 2: на доработке -->
+      <div class="moderate-card">
+        <div class="header">
+          <div class="avatar" style="width:32px;height:32px;font-size:13px">Ф</div>
+          <div class="info">
+            <div class="name"><a href="character-card.html" style="color:inherit;text-decoration:none">Финн Светлый</a> <span class="tag" style="font-size:11px">Человек</span></div>
+            <div class="meta">Игрок: @lev_ko · создан вчера</div>
+          </div>
+          <span class="status status-draft">На доработке</span>
+        </div>
+        <div style="font-size:13px;color:#555;margin-bottom:8px">
+          ОС 7/10 · ОР 0/15 · Характеристики: Сила 2, Ловкость 5, Интеллект 4
+        </div>
+        <div style="font-size:13px;color:#e65100;background:#fff3e0;padding:8px 12px;border-radius:6px;margin-bottom:8px">
+          <strong>Комментарий ведущего:</strong> Слишком высокая Ловкость для начального уровня (макс. 4). Уменьшите до 4 или обоснуйте предысторией.
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-sm btn-primary" onclick="this.closest('.moderate-card').querySelector('.comment-box').classList.toggle('open')">✓ Утвердить</button>
+          <button class="btn btn-sm btn-outline" onclick="this.closest('.moderate-card').querySelector('.comment-box').classList.toggle('open')">↻ На доработку</button>
+          <button class="btn btn-sm btn-outline" onclick="this.closest('.moderate-card').querySelector('.comment-box').classList.toggle('open')">✗ Отклонить</button>
+        </div>
+        <div class="comment-box">
+          <textarea class="form-input" rows="2" placeholder="Комментарий для игрока" style="margin-bottom:6px"></textarea>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-sm btn-primary">Подтвердить</button>
+            <button class="btn btn-sm btn-outline" onclick="this.closest('.comment-box').classList.remove('open')">Отмена</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="footer">CharGen &copy; 2026</div>
+  </div>
+</div>
+<div class="notif-overlay" id="notifOverlay" onclick="closeNotifSlider()"></div>
+<div class="notif-slider" id="notifSlider">
+  <div class="notif-header">
+    <span>Уведомления</span>
+    <button class="btn-close" onclick="closeNotifSlider()">✕</button>
+  </div>
+  <div class="notif-list">
+    <div class="notif-item unread">
+      <div class="notif-icon">🎲</div>
+      <div class="notif-body">
+        <div class="notif-title">Приглашение в игру «Подземелье дракона»</div>
+        <div class="notif-preview">Ведущий Иван П. приглашает вас присоединиться</div>
+        <div class="notif-actions">
+          <button class="btn btn-sm btn-primary">Принять</button>
+          <button class="btn btn-sm btn-outline">Отклонить</button>
+        </div>
+      </div>
+      <div class="notif-time">5 минут назад</div>
+    </div>
+    <div class="notif-item unread">
+      <div class="notif-icon">👤</div>
+      <div class="notif-body">
+        <div class="notif-title">Персонаж на модерации</div>
+        <div class="notif-preview">Финн Светлый ожидает проверки в «Школе волшебства»</div>
+      </div>
+      <div class="notif-time">1 час назад</div>
+    </div>
+    <div class="notif-item">
+      <div class="notif-icon">📚</div>
+      <div class="notif-body">
+        <div class="notif-title">Опубликована новая версия правил</div>
+        <div class="notif-preview">Пространство «Основные правила» обновлено до версии 3</div>
+      </div>
+      <div class="notif-time">3 часа назад</div>
+    </div>
+  </div>
+  <div class="notif-footer">
+    <a href="notifications.html">Все уведомления →</a>
+  </div>
+</div>
+<script>
+function toggleNotifSlider() {
+  document.getElementById('notifOverlay').classList.toggle('open');
+  document.getElementById('notifSlider').classList.toggle('open');
+}
+function closeNotifSlider() {
+  document.getElementById('notifOverlay').classList.remove('open');
+  document.getElementById('notifSlider').classList.remove('open');
+}
+function toggleFilterPopup() {
+  var p = document.getElementById('filterPopup');
+  p.classList.contains('open') ? p.classList.remove('open') : p.classList.add('open');
+}
+function openFilterPopup() {
+  document.getElementById('filterPopup').classList.add('open');
+}
+function resetFilter() {
+  document.getElementById('filterChips').innerHTML = '';
+  document.getElementById('filterPopup').classList.remove('open');
+}
+function applyFilter() {
+  document.getElementById('filterChips').innerHTML = '<span class="filter-chip">Статус: Ожидает <span class="chip-remove" onclick="event.stopPropagation();this.parentElement.remove()">✕</span></span>';
+  document.getElementById('filterPopup').classList.remove('open');
+}
+document.querySelectorAll('.filter-toggle').forEach(function(t) {
+  t.addEventListener('click', function(e) {
+    e.stopPropagation();
+    this.classList.toggle('on');
+    this.closest('.filter-row').classList.toggle('disabled');
+  });
+});
+</script>
+</body></html>

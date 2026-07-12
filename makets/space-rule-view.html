@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="ru"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CharGen 🟡 — Правило</title>
+<link rel="stylesheet" href="common.css">
+<style>
+.overview { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; margin: 4px 0 12px; }
+.overview-item { font-size: 13px; color: #555; }
+.version-list { list-style: none; padding: 0; }
+.version-list li { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+.version-list li:last-child { border-bottom: none; }
+.version-list .v-current { font-weight: 500; color: #1976D2; }
+.version-list .v-tag { font-size: 11px; padding: 2px 6px; border-radius: 4px; background: #e3f2fd; color: #1565C0; }
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; }
+.stat-item { padding: 4px 10px; background: #fafafa; border-radius: 6px; display: flex; justify-content: space-between; font-size: 13px; }
+.stat-item .stat-name { color: #555; }
+.stat-item .stat-val { font-weight: 500; }
+.stat-item .stat-up { color: #2e7d32; }
+.exp-panel.selected { border-color: #1976D2; background: #f5f9ff; }
+</style>
+</head><body>
+<div class="layout">
+  <div class="sidebar">
+    <div class="user-block">
+      <div class="avatar" onclick="location.href='profile-edit.html'" style="cursor:pointer">JD</div>
+      <div class="user-info"><strong>Иван Петров</strong><br><span style="font-size:12px;color:#999">@ivan_p</span></div>
+      <button class="logout-btn" title="Выйти" onclick="location.href='login.html'">⏻</button>
+    </div>
+    <div class="nav-item" onclick="location.href='characters-list.html'"><span class="nav-icon">👤</span><span class="nav-label">Персонажи</span></div>
+    <div class="nav-item" onclick="location.href='games-list.html'"><span class="nav-icon">🎲</span><span class="nav-label">Игры</span></div>
+    <div class="nav-item"><span class="nav-icon">👥</span><span class="nav-label">Пользователи</span></div>
+    <div class="nav-item active" onclick="location.href='spaces-list.html'"><span class="nav-icon">📚</span><span class="nav-label">Пространства</span></div>
+    <div class="spacer"></div>
+    <div class="nav-item" style="color:#999"><span class="nav-icon">⚙️</span><span class="nav-label">Администрирование</span></div>
+  </div>
+  <div class="main">
+    <div class="topbar">
+      <button class="menu-btn">≡</button>
+      <div class="page-title">Эльф — просмотр правила</div>
+      <div class="notif-bell" onclick="toggleNotifSlider()">
+        🔔
+        <span class="badge">3</span>
+      </div>
+    </div>
+    <div class="content">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <h2 style="font-size:20px">Эльф</h2>
+        <span class="status status-draft">🟡 черновик</span>
+        <span style="font-size:12px;color:#999;margin-left:auto">тип: Раса · версия 3 (текущая)</span>
+      </div>
+      <p style="color:#757575;font-size:14px;margin-bottom:16px">
+        Пространство: «Основные правила» · обновлено 01.06.2026
+      </p>
+
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <button class="btn btn-outline" onclick="location.href='#'">✏️ Редактировать</button>
+        <button class="btn btn-outline" onclick="location.href='space-rules.html'">← К списку правил</button>
+      </div>
+
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px">
+        <!-- Основная информация -->
+        <div>
+          <!-- Описание -->
+          <div class="card" style="margin-bottom:16px">
+            <div class="card-header">
+              <span class="card-title">Описание</span>
+            </div>
+            <div style="font-size:14px;color:#555;line-height:1.5">
+              <p>Эльфы — древняя раса, известная своим изяществом, острым слухом и связью с природой. Живут в лесных поселениях, почитают магию и искусство.</p>
+            </div>
+          </div>
+
+          <!-- Спецификация -->
+          <div class="card" style="margin-bottom:16px">
+            <div class="card-header">
+              <span class="card-title">Спецификация</span>
+            </div>
+            <div style="font-size:13px;color:#555;font-family:monospace;background:#fafafa;padding:12px;border-radius:4px;white-space:pre-wrap;line-height:1.4">
+{<br>
+&nbsp;&nbsp;"cost": [8],<br>
+&nbsp;&nbsp;"parent_race_id": null,<br>
+&nbsp;&nbsp;"characteristics": {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;"Ловкость": 4,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;"Восприятие": 3<br>
+&nbsp;&nbsp;},<br>
+&nbsp;&nbsp;"automatic_abilities": ["Острый слух", "Ночное зрение"],<br>
+&nbsp;&nbsp;"traits": ["Эльфийская грация", "Чувство природы"]<br>
+}
+            </div>
+          </div>
+
+          <!-- Отображение (превью) -->
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Отображение</span>
+              <span style="font-size:12px;color:#999">как будет выглядеть при создании персонажа</span>
+            </div>
+            <div style="font-size:13px">
+              <div class="exp-panel selected">
+                <div class="exp-panel-header">
+                  <span class="exp-arrow">▶</span>
+                  <div class="avatar" style="width:28px;height:28px;font-size:12px">Э</div>
+                  <span style="font-weight:500;flex:1">Эльф</span>
+                  <span style="color:#757575;font-size:12px">8 ОС</span>
+                </div>
+                <div class="exp-panel-body">
+                  <div style="color:#555">Эльфы — древняя раса, известная своим изяществом и связью с природой.</div>
+                  <div style="margin-top:8px">
+                    <div style="font-weight:500;margin-bottom:4px">Характеристики</div>
+                    <div class="stat-grid">
+                      <div class="stat-item"><span class="stat-name">Ловкость</span><span class="stat-val stat-up">4↑</span></div>
+                      <div class="stat-item"><span class="stat-name">Восприятие</span><span class="stat-val">3</span></div>
+                    </div>
+                  </div>
+                  <div style="margin-top:8px">
+                    <div style="font-weight:500;margin-bottom:4px">Автоматические способности</div>
+                    <div style="display:flex;gap:4px;flex-wrap:wrap">
+                      <span class="tag">Острый слух</span>
+                      <span class="tag">Ночное зрение</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Теги -->
+          <div style="margin-top:12px">
+            <span class="tag">раса</span>
+            <span class="tag">эльф</span>
+            <span class="tag">фэнтези</span>
+            <span class="tag">магия</span>
+          </div>
+        </div>
+
+        <!-- История версий -->
+        <div>
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">История версий</span>
+            </div>
+            <ul class="version-list">
+              <li class="v-current">
+                <span class="v-tag">текущая</span>
+                <span>v.3 — уменьшена стоимость до 8 ОС</span>
+                <span style="margin-left:auto;color:#999">01.06.2026</span>
+              </li>
+              <li>
+                <span>v.2 — добавлены automatic_abilities</span>
+                <span style="margin-left:auto;color:#999">15.05.2026</span>
+              </li>
+              <li>
+                <span>v.1 — создание расы</span>
+                <span style="margin-left:auto;color:#999">01.04.2026</span>
+              </li>
+            </ul>
+            <div style="margin-top:8px">
+              <button class="btn btn-sm btn-outline">Сравнить версии</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="footer">CharGen &copy; 2026</div>
+  </div>
+</div>
+<div class="notif-overlay" id="notifOverlay" onclick="closeNotifSlider()"></div>
+<div class="notif-slider" id="notifSlider">
+  <div class="notif-header">
+    <span>Уведомления</span>
+    <button class="btn-close" onclick="closeNotifSlider()">✕</button>
+  </div>
+  <div class="notif-list">
+    <div class="notif-item unread">
+      <div class="notif-icon">🎲</div>
+      <div class="notif-body">
+        <div class="notif-title">Приглашение в игру «Подземелье дракона»</div>
+        <div class="notif-preview">Ведущий Иван П. приглашает вас присоединиться</div>
+        <div class="notif-actions">
+          <button class="btn btn-sm btn-primary">Принять</button>
+          <button class="btn btn-sm btn-outline">Отклонить</button>
+        </div>
+      </div>
+      <div class="notif-time">5 минут назад</div>
+    </div>
+    <div class="notif-item unread">
+      <div class="notif-icon">👤</div>
+      <div class="notif-body">
+        <div class="notif-title">Персонаж на модерации</div>
+        <div class="notif-preview">Финн Светлый ожидает проверки в «Школе волшебства»</div>
+      </div>
+      <div class="notif-time">1 час назад</div>
+    </div>
+    <div class="notif-item">
+      <div class="notif-icon">📚</div>
+      <div class="notif-body">
+        <div class="notif-title">Опубликована новая версия правил</div>
+        <div class="notif-preview">Пространство «Основные правила» обновлено до версии 3</div>
+      </div>
+      <div class="notif-time">3 часа назад</div>
+    </div>
+  </div>
+  <div class="notif-footer">
+    <a href="notifications.html">Все уведомления →</a>
+  </div>
+</div>
+<script>
+function toggleNotifSlider() {
+  document.getElementById('notifOverlay').classList.toggle('open');
+  document.getElementById('notifSlider').classList.toggle('open');
+}
+function closeNotifSlider() {
+  document.getElementById('notifOverlay').classList.remove('open');
+  document.getElementById('notifSlider').classList.remove('open');
+}
+</script>
+</body></html>

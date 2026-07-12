@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="ru"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CharGen — Вход</title>
+<link rel="stylesheet" href="common.css">
+</head><body>
+<div class="auth-page">
+  <div class="auth-card">
+    <h1>CharGen</h1>
+    <p class="subtitle">Войдите в систему управления персонажами</p>
+    <form>
+      <div class="form-group">
+        <label class="form-label">Логин или email</label>
+        <input class="form-input" type="text" placeholder="login@example.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Пароль</label>
+        <input class="form-input" type="password" placeholder="••••••••">
+      </div>
+      <div class="form-group" style="display:flex;align-items:center;gap:8px">
+        <input type="checkbox" id="remember">
+        <label for="remember" style="font-size:14px;color:#555">Запомнить меня</label>
+      </div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="location.href='games-list.html'">Войти</button>
+      <div class="form-footer">
+        <a href="forgot-password.html">Забыли пароль?</a> &middot;
+        <a href="register.html">Регистрация</a>
+      </div>
+    </form>
+  </div>
+</div>
+</body></html>

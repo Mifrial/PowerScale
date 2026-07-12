@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ru"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CharGen — Пространства правил</title>
+<link rel="stylesheet" href="common.css">
+<style>
+.spaces-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; }
+.space-card { border: 1px solid #e0e0e0; border-radius: 8px; background: #fff; padding: 16px; cursor: pointer; transition: box-shadow .15s; }
+.space-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+.space-card h3 { font-size: 16px; margin-bottom: 2px; }
+.space-card .desc { font-size: 13px; color: #757575; margin-bottom: 8px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.space-card .meta { font-size: 12px; color: #999; margin-top: 8px; }
+</style>
+</head><body>
+<div class="layout">
+  <div class="sidebar">
+    <div class="user-block">
+      <div class="avatar" onclick="location.href='profile-edit.html'" style="cursor:pointer">JD</div>
+      <div class="user-info"><strong>Иван Петров</strong><br><span style="font-size:12px;color:#999">@ivan_p</span></div>
+      <button class="logout-btn" title="Выйти" onclick="location.href='login.html'">⏻</button>
+    </div>
+    <div class="nav-item" onclick="location.href='characters-list.html'"><span class="nav-icon">👤</span><span class="nav-label">Персонажи</span></div>
+    <div class="nav-item" onclick="location.href='games-list.html'"><span class="nav-icon">🎲</span><span class="nav-label">Игры</span></div>
+    <div class="nav-item"><span class="nav-icon">👥</span><span class="nav-label">Пользователи</span></div>
+    <div class="nav-item active" onclick="location.href='spaces-list.html'"><span class="nav-icon">📚</span><span class="nav-label">Пространства</span></div>
+    <div class="spacer"></div>
+    <div class="nav-item" style="color:#999"><span class="nav-icon">⚙️</span><span class="nav-label">Администрирование</span></div>
+  </div>
+  <div class="main">
+    <div class="topbar">
+      <button class="menu-btn">≡</button>
+      <div class="page-title">Пространства правил</div>
+      <div class="notif-bell" onclick="toggleNotifSlider()">
+        🔔
+        <span class="badge">3</span>
+      </div>
+    </div>
+    <div class="content">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <div class="subnav">
+          <span class="subnav-item active">Все</span>
+          <span class="subnav-item">Мои</span>
+          <span class="subnav-item">Опубликованные</span>
+        </div>
+        <button class="btn btn-primary" onclick="location.href='space-new.html'">➕ Новое пространство</button>
+      </div>
+
+      <div class="filter-wrap">
+        <div class="filter-bar" onclick="toggleFilterPopup()">
+          <div class="filter-inner">
+            <div class="filter-chips" id="filterChips">
+            </div>
+            <input class="filter-input" placeholder="Фильтр + поиск" onfocus="openFilterPopup()">
+          </div>
+          <span class="filter-input-icon">🔍</span>
+        </div>
+        <div class="filter-popup" id="filterPopup">
+          <div class="filter-row">
+            <span class="filter-toggle on"></span>
+            <span class="filter-field-label">Название</span>
+            <input class="form-input" placeholder="текст...">
+          </div>
+          <div class="filter-actions">
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-sm btn-outline" onclick="resetFilter()">Сбросить</button>
+              <button class="btn btn-sm btn-primary" onclick="applyFilter()">Применить</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <script>
+        function toggleFilterPopup() {
+          var p = document.getElementById('filterPopup');
+          p.classList.contains('open') ? p.classList.remove('open') : p.classList.add('open');
+        }
+        function openFilterPopup() {
+          document.getElementById('filterPopup').classList.add('open');
+        }
+        function resetFilter() {
+          document.getElementById('filterChips').innerHTML = '';
+          document.getElementById('filterPopup').classList.remove('open');
+        }
+        function applyFilter() {
+          document.getElementById('filterChips').innerHTML = '';
+          document.getElementById('filterPopup').classList.remove('open');
+        }
+        document.querySelectorAll('.filter-toggle').forEach(function(t) {
+          t.addEventListener('click', function(e) {
+            e.stopPropagation();
+            this.classList.toggle('on');
+            this.closest('.filter-row').classList.toggle('disabled');
+          });
+        });
+      </script>
+
+      <div class="spaces-grid">
+        <div class="space-card" onclick="location.href='space-rules.html'">
+          <h3>Основные правила</h3>
+          <div class="desc">Базовые правила для фэнтези-сеттинга. Расы, характеристики, способности.</div>
+          <div><span class="tag">24 правила</span> <span class="status status-ready">Опубликовано</span></div>
+          <div class="meta">Создано: 01.06.2026 · Версия: 3</div>
+        </div>
+        <div class="space-card" onclick="location.href='space-rules.html'">
+          <h3>Космическая опера</h3>
+          <div class="desc">Правила для Sci-Fi кампаний: технологии, космические расы, кибернетика.</div>
+          <div><span class="tag">18 правил</span> <span class="status status-draft">Черновик</span></div>
+          <div class="meta">Создано: 15.06.2026 · Унаследовано от: Основные правила</div>
+        </div>
+        <div class="space-card" onclick="location.href='space-rules.html'">
+          <h3>Магическая система</h3>
+          <div class="desc">Расширенные правила магии: школы, заклинания, артефакты.</div>
+          <div><span class="tag">36 правил</span> <span class="status status-ready">Опубликовано</span></div>
+          <div class="meta">Создано: 20.05.2026 · Версия: 5</div>
+        </div>
+      </div>
+    </div>
+    <div class="footer">CharGen &copy; 2026</div>
+  </div>
+</div>
+<div class="notif-overlay" id="notifOverlay" onclick="closeNotifSlider()"></div>
+<div class="notif-slider" id="notifSlider">
+  <div class="notif-header">
+    <span>Уведомления</span>
+    <button class="btn-close" onclick="closeNotifSlider()">✕</button>
+  </div>
+  <div class="notif-list">
+    <div class="notif-item unread">
+      <div class="notif-icon">🎲</div>
+      <div class="notif-body">
+        <div class="notif-title">Приглашение в игру «Подземелье дракона»</div>
+        <div class="notif-preview">Ведущий Иван П. приглашает вас присоединиться</div>
+        <div class="notif-actions">
+          <button class="btn btn-sm btn-primary">Принять</button>
+          <button class="btn btn-sm btn-outline">Отклонить</button>
+        </div>
+      </div>
+      <div class="notif-time">5 минут назад</div>
+    </div>
+    <div class="notif-item unread">
+      <div class="notif-icon">👤</div>
+      <div class="notif-body">
+        <div class="notif-title">Персонаж на модерации</div>
+        <div class="notif-preview">Финн Светлый ожидает проверки в «Школе волшебства»</div>
+      </div>
+      <div class="notif-time">1 час назад</div>
+    </div>
+    <div class="notif-item">
+      <div class="notif-icon">📚</div>
+      <div class="notif-body">
+        <div class="notif-title">Опубликована новая версия правил</div>
+        <div class="notif-preview">Пространство «Основные правила» обновлено до версии 3</div>
+      </div>
+      <div class="notif-time">3 часа назад</div>
+    </div>
+  </div>
+  <div class="notif-footer">
+    <a href="notifications.html">Все уведомления →</a>
+  </div>
+</div>
+<script>
+function toggleNotifSlider() {
+  document.getElementById('notifOverlay').classList.toggle('open');
+  document.getElementById('notifSlider').classList.toggle('open');
+}
+function closeNotifSlider() {
+  document.getElementById('notifOverlay').classList.remove('open');
+  document.getElementById('notifSlider').classList.remove('open');
+}
+</script>
+</body></html>

@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ru"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CharGen — Редактирование профиля</title>
+<link rel="stylesheet" href="common.css">
+<style>
+.profile-layout { display: flex; gap: 24px; }
+.profile-side { width: 200px; text-align: center; }
+.profile-main { flex: 1; }
+.avatar-upload { margin: 12px 0; position: relative; display: inline-block; }
+.avatar-upload .big-avatar { width: 120px; height: 120px; border-radius: 50%; background: #1976D2; color: #fff; font-size: 40px; display: flex; align-items: center; justify-content: center; margin: 0 auto; position: relative; overflow: hidden; cursor: pointer; }
+.avatar-upload .big-avatar .upload-overlay { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.5); color: #fff; font-size: 12px; padding: 6px 0; text-align: center; opacity: 0; transition: opacity 0.2s; }
+.avatar-upload .big-avatar:hover .upload-overlay { opacity: 1; }
+.avatar-upload input[type="file"] { display: none; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+</style>
+</head><body>
+<div class="layout">
+  <div class="sidebar">
+    <div class="user-block">
+      <div class="avatar" onclick="location.href='profile-edit.html'" style="cursor:pointer">JD</div>
+      <div class="user-info"><strong>Иван Петров</strong><br><span style="font-size:12px;color:#999">@ivan_p</span></div>
+      <button class="logout-btn" title="Выйти" onclick="location.href='login.html'">⏻</button>
+    </div>
+    <div class="nav-item" onclick="location.href='characters-list.html'"><span class="nav-icon">👤</span><span class="nav-label">Персонажи</span></div>
+    <div class="nav-item" onclick="location.href='games-list.html'"><span class="nav-icon">🎲</span><span class="nav-label">Игры</span></div>
+    <div class="nav-item active"><span class="nav-icon">👥</span><span class="nav-label">Пользователи</span></div>
+    <div class="nav-item" onclick="location.href='spaces-list.html'"><span class="nav-icon">📚</span><span class="nav-label">Пространства</span></div>
+    <div class="spacer"></div>
+    <div class="nav-item" style="color:#999"><span class="nav-icon">⚙️</span><span class="nav-label">Администрирование</span></div>
+  </div>
+  <div class="main">
+    <div class="topbar">
+      <button class="menu-btn">≡</button>
+      <div class="page-title">Редактирование профиля</div>
+      <div class="notif-bell" onclick="toggleNotifSlider()">
+        🔔
+        <span class="badge">3</span>
+      </div>
+    </div>
+    <div class="content">
+      <div class="profile-layout">
+        <div class="profile-side">
+          <div class="avatar-upload">
+            <div class="big-avatar" onclick="document.getElementById('avatarInput').click()">
+              JD
+              <div class="upload-overlay">Загрузить</div>
+            </div>
+            <input type="file" id="avatarInput" accept="image/png,image/jpeg">
+            <p style="font-size:12px;color:#bbb;margin-top:4px">PNG, JPG, до 2 MB</p>
+          </div>
+        </div>
+        <div class="profile-main">
+          <div class="card">
+            <div class="card-header"><span class="card-title">Основная информация</span></div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Логин</label>
+                <input class="form-input" type="text" value="ivan_p">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Email</label>
+                <input class="form-input" type="email" value="ivan@example.com">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Имя</label>
+                <input class="form-input" type="text" value="Иван">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Фамилия</label>
+                <input class="form-input" type="text" value="Петров">
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Псевдоним (никнейм)</label>
+              <input class="form-input" type="text" value="IvanTheGreat">
+            </div>
+          </div>
+
+          <div class="card" style="margin-top:16px">
+            <div class="card-header"><span class="card-title">Смена пароля</span></div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Текущий пароль</label>
+                <input class="form-input" type="password" placeholder="••••••••">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Новый пароль</label>
+                <input class="form-input" type="password" placeholder="••••••••">
+              </div>
+            </div>
+            <button class="btn btn-primary" style="margin-top:8px">Сохранить изменения</button>
+          </div>
+
+          <div class="card" style="margin-top:16px;background:#fff3e0;border-color:#ffe0b2">
+            <div class="card-header"><span class="card-title">Группы</span></div>
+            <div style="font-size:14px">
+              <span class="tag" style="background:#e8f5e9;color:#2e7d32">Игрок</span>
+              <span style="color:#999;font-size:13px;margin-left:8px">(изменение групп — только с правом `user.edit`)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="footer">CharGen &copy; 2026</div>
+  </div>
+</div>
+<div class="notif-overlay" id="notifOverlay" onclick="closeNotifSlider()"></div>
+<div class="notif-slider" id="notifSlider">
+  <div class="notif-header">
+    <span>Уведомления</span>
+    <button class="btn-close" onclick="closeNotifSlider()">✕</button>
+  </div>
+  <div class="notif-list">
+    <div class="notif-item unread">
+      <div class="notif-icon">🎲</div>
+      <div class="notif-body">
+        <div class="notif-title">Приглашение в игру «Подземелье дракона»</div>
+        <div class="notif-preview">Ведущий Иван П. приглашает вас присоединиться</div>
+        <div class="notif-actions">
+          <button class="btn btn-sm btn-primary">Принять</button>
+          <button class="btn btn-sm btn-outline">Отклонить</button>
+        </div>
+      </div>
+      <div class="notif-time">5 минут назад</div>
+    </div>
+    <div class="notif-item unread">
+      <div class="notif-icon">👤</div>
+      <div class="notif-body">
+        <div class="notif-title">Персонаж на модерации</div>
+        <div class="notif-preview">Финн Светлый ожидает проверки в «Школе волшебства»</div>
+      </div>
+      <div class="notif-time">1 час назад</div>
+    </div>
+    <div class="notif-item">
+      <div class="notif-icon">📚</div>
+      <div class="notif-body">
+        <div class="notif-title">Опубликована новая версия правил</div>
+        <div class="notif-preview">Пространство «Основные правила» обновлено до версии 3</div>
+      </div>
+      <div class="notif-time">3 часа назад</div>
+    </div>
+  </div>
+  <div class="notif-footer">
+    <a href="notifications.html">Все уведомления →</a>
+  </div>
+</div>
+<script>
+function toggleNotifSlider() {
+  document.getElementById('notifOverlay').classList.toggle('open');
+  document.getElementById('notifSlider').classList.toggle('open');
+}
+function closeNotifSlider() {
+  document.getElementById('notifOverlay').classList.remove('open');
+  document.getElementById('notifSlider').classList.remove('open');
+}
+</script>
+</body></html>

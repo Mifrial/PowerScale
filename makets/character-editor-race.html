@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="ru"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CharGen — Редактор персонажа (выбор расы)</title>
+<link rel="stylesheet" href="common.css">
+<style>
+.editor-panel { display: flex; align-items: stretch; background: #fff; border-bottom: 1px solid #e0e0e0; padding: 0 8px; min-height: 52px; overflow: hidden; }
+.editor-panel .ep-block { display: flex; flex-direction: column; justify-content: center; align-items: flex-start; padding: 6px 12px; margin: 6px 2px; border-radius: 6px; cursor: pointer; transition: background .15s; background: #fafafa; border: 1px solid #eee; }
+.editor-panel .ep-block:hover { background: #f0f0f0; border-color: #ddd; }
+.editor-panel .ep-block.active { background: #e3f2fd; border-color: #bbdefb; }
+.editor-panel .ep-block .ep-title { font-size: 13px; color: #333; font-weight: 500; line-height: 1.3; }
+.editor-panel .ep-block .ep-sub { font-size: 11px; color: #999; margin-top: 1px; }
+.editor-panel .ep-block .ep-chip { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; background: #e3f2fd; color: #1565C0; margin-top: 2px; }
+.editor-panel .ep-block.active .ep-chip { background: #1976D2; color: #fff; }
+.editor-panel .ep-divider { width: 1px; background: #e0e0e0; margin: 8px 4px; flex-shrink: 0; }
+.editor-panel .ep-spacer { flex: 1; }
+.editor-panel .ep-stats-block { display: flex; align-items: center; padding: 4px 10px; background: #fafafa; border: 1px solid #eee; border-radius: 6px; margin: 6px 2px; }
+.editor-panel .ep-stats-block .ep-stats { display: grid; grid-template-columns: repeat(2, auto); gap: 4px 10px; align-content: center; }
+.editor-panel .ep-stats-block .stat-chip { padding: 3px 8px; border-radius: 4px; font-size: 12px; background: #e3f2fd; color: #1565C0; }
+
+/* Quick filter buttons */
+.quick-filter { display: flex; gap: 4px; margin-bottom: 12px; flex-wrap: wrap; }
+.quick-filter .qf-btn { padding: 4px 12px; border-radius: 14px; font-size: 12px; border: 1px solid #e0e0e0; background: #fff; color: #555; cursor: pointer; }
+.quick-filter .qf-btn:hover { background: #f5f5f5; }
+.quick-filter .qf-btn.active { background: #1976D2; color: #fff; border-color: #1976D2; }
+
+/* Race header in expansion panel */
+.race-header { display: flex; align-items: center; gap: 12px; flex: 1; }
+.race-header .r-name { font-weight: 500; font-size: 14px; }
+.race-header .r-cost { font-size: 12px; color: #757575; white-space: nowrap; }
+.race-header .r-stats { font-size: 12px; color: #999; }
+.race-header .r-select { margin-left: auto; }
+
+.edit-btn { width: 28px; height: 28px; border-radius: 6px; border: none; background: transparent; cursor: pointer; font-size: 14px; color: #999; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.edit-btn:hover { background: #f0f0f0; color: #555; }
+
+.editor-content { padding: 20px 0; }
+.topbar-actions { display: flex; gap: 8px; margin-left: auto; }
+</style>
+</head><body>
+<div class="layout">
+  <div class="sidebar">
+    <div class="user-block">
+      <div class="avatar" onclick="location.href='profile-edit.html'" style="cursor:pointer">JD</div>
+      <div class="user-info"><strong>Иван Петров</strong><br><span style="font-size:12px;color:#999">@ivan_p</span></div>
+      <button class="logout-btn" title="Выйти" onclick="location.href='login.html'">⏻</button>
+    </div>
+    <div class="nav-item active" onclick="location.href='characters-list.html'"><span class="nav-icon">👤</span><span class="nav-label">Персонажи</span></div>
+    <div class="nav-item" onclick="location.href='games-list.html'"><span class="nav-icon">🎲</span><span class="nav-label">Игры</span></div>
+    <div class="nav-item"><span class="nav-icon">👥</span><span class="nav-label">Пользователи</span></div>
+    <div class="nav-item" onclick="location.href='spaces-list.html'"><span class="nav-icon">📚</span><span class="nav-label">Пространства</span></div>
+    <div class="spacer"></div>
+    <div class="nav-item" style="color:#999"><span class="nav-icon">⚙️</span><span class="nav-label">Администрирование</span></div>
+  </div>
+  <div class="main">
+    <div class="topbar">
+      <button class="menu-btn">≡</button>
+      <div class="page-title">Редактирование: Элиандра</div>
+      <div class="notif-bell" onclick="toggleNotifSlider()">
+        🔔
+        <span class="badge">3</span>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn btn-sm btn-outline">💾 Черновик</button>
+        <button class="btn btn-sm btn-primary">✅ Готово</button>
+      </div>
+    </div>
+
+    <!-- Horizontal panel: вкладка расы активна -->
+    <div class="editor-panel">
+      <div class="ep-block active" style="margin-left:16px">
+        <div class="ep-title">Выберите расу</div>
+      </div>
+      <div class="ep-block" style="opacity:.5;pointer-events:none">
+        <div class="ep-title">Врождённые черты</div>
+        <div class="ep-sub">0 / 20 ОС</div>
+      </div>
+      <div class="ep-block" style="opacity:.5;pointer-events:none">
+        <div class="ep-title">Личность</div>
+        <div class="ep-sub">0 / 3 ОЛ</div>
+      </div>
+      <div class="ep-block" style="opacity:.5;pointer-events:none">
+        <div class="ep-title">Развитие</div>
+        <div class="ep-sub">0 / 15 ОР</div>
+      </div>
+      <div class="ep-divider"></div>
+      <div class="ep-block" style="color:#bbb;cursor:default;opacity:.5">
+        <div class="ep-title">Инвентарь</div>
+        <div class="ep-sub" style="font-size:10px">не скоро</div>
+      </div>
+      <div class="ep-spacer"></div>
+    </div>
+
+    <div class="content">
+      <!-- Контент выбора расы -->
+      <div class="editor-content">
+
+        <!-- Быстрые фильтры по типу рас -->
+        <div class="quick-filter">
+          <span class="qf-btn active">Все</span>
+          <span class="qf-btn">Эльфы</span>
+          <span class="qf-btn">Люди</span>
+          <span class="qf-btn">Дварфы</span>
+          <span class="qf-btn">Нелюди</span>
+          <span class="qf-btn">Зверолюди</span>
+        </div>
+
+        <!-- Bitrix-фильтр -->
+        <div class="filter-wrap">
+          <div class="filter-bar" onclick="toggleFilterPopup()">
+            <div class="filter-inner">
+              <div class="filter-chips" id="filterChips"></div>
+              <input class="filter-input" placeholder="Фильтр + поиск" onfocus="openFilterPopup()">
+            </div>
+            <span class="filter-input-icon">🔍</span>
+          </div>
+          <div class="filter-popup" id="filterPopup">
+            <div class="filter-row">
+              <span class="filter-toggle on"></span>
+              <span class="filter-field-label">Название</span>
+              <input class="form-input" placeholder="текст...">
+            </div>
+            <div class="filter-row">
+              <span class="filter-toggle"></span>
+              <span class="filter-field-label">Тип расы</span>
+              <select class="form-input">
+                <option>Любая</option>
+                <option>Эльф</option>
+                <option>Человек</option>
+                <option>Дварф</option>
+              </select>
+            </div>
+            <div class="filter-row">
+              <span class="filter-toggle on"></span>
+              <span class="filter-field-label">ОС</span>
+              <select class="form-input">
+                <option>Любая</option>
+                <option>≥ 8</option>
+                <option>≥ 10</option>
+                <option>≥ 12</option>
+              </select>
+            </div>
+            <div class="filter-actions">
+              <div style="display:flex;gap:8px">
+                <button class="btn btn-sm btn-outline" onclick="resetFilter()">Сбросить</button>
+                <button class="btn btn-sm btn-primary" onclick="applyFilter()">Применить</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Список рас — expansion panels -->
+        <div class="exp-panel selected">
+          <div class="exp-panel-header">
+            <span class="exp-arrow">▶</span>
+            <div class="race-header">
+              <span class="r-name">Эльф</span>
+              <span class="r-cost">ОС: 10</span>
+              <span class="r-stats">Ловк 4, Воспр 4</span>
+            </div>
+            <button class="btn btn-sm btn-primary" style="margin-right:8px" onclick="event.stopPropagation();location.href='character-editor.html'">Выбрать</button>
+            <button class="edit-btn" title="Редактировать правило">✏️</button>
+          </div>
+          <div class="exp-panel-body">
+            <p style="font-size:14px;color:#555">Эльфы — древний народ, отличающийся грацией и острым восприятием. Обладают природной склонностью к магии и тонким чувством прекрасного.</p>
+            <div style="display:flex;gap:16px;margin-top:10px;flex-wrap:wrap">
+              <div><span style="font-size:12px;color:#999">Базовые характеристики:</span><br><span style="font-size:13px">Ловкость 4, Восприятие 4</span></div>
+              <div><span style="font-size:12px;color:#999">Базовые черты:</span><br><span style="font-size:13px">Острый слух (2 ОС), Ночное зрение (2 ОС)</span></div>
+              <div><span style="font-size:12px;color:#999">Доступные черты:</span><br><span style="font-size:13px">Лёгкая походка (1 ОС), Магическая интуиция (3 ОС)</span></div>
+            </div>
+            <div style="margin-top:10px;display:flex;gap:4px">
+              <span class="tag">эльф</span>
+              <span class="tag">фэнтези</span>
+              <span class="tag">гуманоид</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="exp-panel">
+          <div class="exp-panel-header">
+            <span class="exp-arrow">▶</span>
+            <div class="race-header">
+              <span class="r-name">Человек</span>
+              <span class="r-cost">ОС: 12</span>
+              <span class="r-stats">Любая хар-ка 4</span>
+            </div>
+            <button class="btn btn-sm btn-outline" style="margin-right:8px" onclick="event.stopPropagation();location.href='character-editor.html'">Выбрать</button>
+            <button class="edit-btn" title="Редактировать правило">✏️</button>
+          </div>
+          <div class="exp-panel-body">
+            <p style="font-size:14px;color:#555">Люди — универсальная раса, способная адаптироваться к любым условиям. Их сила — в разносторонности.</p>
+            <div style="display:flex;gap:16px;margin-top:10px;flex-wrap:wrap">
+              <div><span style="font-size:12px;color:#999">Особенность:</span><br><span style="font-size:13px">Одна характеристика на 4, остальные на 3</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="exp-panel">
+          <div class="exp-panel-header">
+            <span class="exp-arrow">▶</span>
+            <div class="race-header">
+              <span class="r-name">Дварф</span>
+              <span class="r-cost">ОС: 8</span>
+              <span class="r-stats">Вын 5, Сил 4</span>
+            </div>
+            <button class="btn btn-sm btn-outline" style="margin-right:8px" onclick="event.stopPropagation();location.href='character-editor.html'">Выбрать</button>
+            <button class="edit-btn" title="Редактировать правило">✏️</button>
+          </div>
+          <div class="exp-panel-body">
+            <p style="font-size:14px;color:#555">Дварфы — коренные жители гор, известные своей стойкостью и мастерством в ремеслах.</p>
+            <div style="display:flex;gap:16px;margin-top:10px;flex-wrap:wrap">
+              <div><span style="font-size:12px;color:#999">Базовые характеристики:</span><br><span style="font-size:13px">Выносливость 5, Сила 4</span></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleFilterPopup() {
+  var p = document.getElementById('filterPopup');
+  p.classList.contains('open') ? p.classList.remove('open') : p.classList.add('open');
+}
+function openFilterPopup() {
+  document.getElementById('filterPopup').classList.add('open');
+}
+function resetFilter() {
+  document.getElementById('filterChips').innerHTML = '';
+  document.getElementById('filterPopup').classList.remove('open');
+}
+function applyFilter() {
+  document.getElementById('filterChips').innerHTML = '';
+  document.getElementById('filterPopup').classList.remove('open');
+}
+document.querySelectorAll('.filter-toggle').forEach(function(t) {
+  t.addEventListener('click', function(e) {
+    e.stopPropagation();
+    this.classList.toggle('on');
+    this.closest('.filter-row').classList.toggle('disabled');
+  });
+});
+</script>
+<div class="notif-overlay" id="notifOverlay" onclick="closeNotifSlider()"></div>
+<div class="notif-slider" id="notifSlider">
+  <div class="notif-header">
+    <span>Уведомления</span>
+    <button class="btn-close" onclick="closeNotifSlider()">✕</button>
+  </div>
+  <div class="notif-list">
+    <div class="notif-item unread">
+      <div class="notif-icon">🎲</div>
+      <div class="notif-body">
+        <div class="notif-title">Приглашение в игру «Подземелье дракона»</div>
+        <div class="notif-preview">Ведущий Иван П. приглашает вас присоединиться</div>
+        <div class="notif-actions">
+          <button class="btn btn-sm btn-primary">Принять</button>
+          <button class="btn btn-sm btn-outline">Отклонить</button>
+        </div>
+      </div>
+      <div class="notif-time">5 минут назад</div>
+    </div>
+    <div class="notif-item unread">
+      <div class="notif-icon">👤</div>
+      <div class="notif-body">
+        <div class="notif-title">Персонаж на модерации</div>
+        <div class="notif-preview">Финн Светлый ожидает проверки в «Школе волшебства»</div>
+      </div>
+      <div class="notif-time">1 час назад</div>
+    </div>
+    <div class="notif-item">
+      <div class="notif-icon">📚</div>
+      <div class="notif-body">
+        <div class="notif-title">Опубликована новая версия правил</div>
+        <div class="notif-preview">Пространство «Основные правила» обновлено до версии 3</div>
+      </div>
+      <div class="notif-time">3 часа назад</div>
+    </div>
+  </div>
+  <div class="notif-footer">
+    <a href="notifications.html">Все уведомления →</a>
+  </div>
+</div>
+<script>
+function toggleNotifSlider() {
+  document.getElementById('notifOverlay').classList.toggle('open');
+  document.getElementById('notifSlider').classList.toggle('open');
+}
+function closeNotifSlider() {
+  document.getElementById('notifOverlay').classList.remove('open');
+  document.getElementById('notifSlider').classList.remove('open');
+}
+</script>
+</body></html>
