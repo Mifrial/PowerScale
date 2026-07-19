@@ -11,6 +11,15 @@
 .game-card h3 { font-size: 16px; margin-bottom: 2px; }
 .game-card .desc { font-size: 13px; color: #757575; margin-bottom: 8px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .game-card .meta { font-size: 12px; color: #999; margin-top: 8px; }
+.game-card .visibility { font-size: 12px; color: #999; margin-top: 4px; }
+.search-row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.search-row .filter-wrap { flex: 1; margin-bottom: 0; }
+.search-row .btn { flex-shrink: 0; }
+
+.status-recruitment { background: #e8f5e9; color: #2e7d32; }
+.status-progress { background: #e3f2fd; color: #1565C0; }
+.status-paused { background: #fff3e0; color: #e65100; }
+.status-completed { background: #f3e5f5; color: #7b1fa2; }
 </style>
 </head><body>
 <div class="layout">
@@ -37,61 +46,62 @@
       </div>
     </div>
     <div class="content">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-        <div class="subnav">
-          <span class="subnav-item active">Все игры</span>
-          <span class="subnav-item">Мои игры</span>
-          <span class="subnav-item">С ведущим</span>
-        </div>
-        <button class="btn btn-primary" onclick="location.href='game-new.html'">➕ Новая игра</button>
+      <div class="subnav">
+        <span class="subnav-item active">Все игры</span>
+        <span class="subnav-item">Мои игры</span>
+        <span class="subnav-item">Набор игроков</span>
       </div>
 
-      <!-- Bitrix-style фильтр -->
-      <div class="filter-wrap">
-        <div class="filter-bar" onclick="toggleFilterPopup()">
-          <div class="filter-inner">
-            <div class="filter-chips" id="filterChips">
-            <span class="filter-chip">Статус: Закрыта для вступления <span class="chip-remove" onclick="event.stopPropagation();this.parentElement.remove()">✕</span></span>
-            <span class="filter-chip">Ведущий: Иван <span class="chip-remove" onclick="event.stopPropagation();this.parentElement.remove()">✕</span></span>
+      <div class="search-row">
+        <div class="filter-wrap">
+          <div class="filter-bar" onclick="toggleFilterPopup()">
+            <div class="filter-inner">
+              <div class="filter-chips" id="filterChips">
+              <span class="filter-chip">Статус: Черновик <span class="chip-remove" onclick="event.stopPropagation();this.parentElement.remove()">✕</span></span>
+              <span class="filter-chip">Ведущий: Иван <span class="chip-remove" onclick="event.stopPropagation();this.parentElement.remove()">✕</span></span>
+              </div>
+              <input class="filter-input" placeholder="Фильтр + поиск" onfocus="openFilterPopup()">
             </div>
-            <input class="filter-input" placeholder="Фильтр + поиск" onfocus="openFilterPopup()">
+            <span class="filter-input-icon">🔍</span>
           </div>
-          <span class="filter-input-icon">🔍</span>
-        </div>
-        <div class="filter-popup" id="filterPopup">
-          <div class="filter-row">
-            <span class="filter-toggle on"></span>
-            <span class="filter-field-label">Название</span>
-            <input class="form-input" placeholder="текст...">
-          </div>
-          <div class="filter-row">
-            <span class="filter-toggle"></span>
-            <span class="filter-field-label">Ведущий</span>
-            <input class="form-input" placeholder="имя...">
-          </div>
-          <div class="filter-row">
-            <span class="filter-toggle on"></span>
-            <span class="filter-field-label">Статус</span>
-            <select class="form-input">
+          <div class="filter-popup" id="filterPopup">
+            <div class="filter-row">
+              <span class="filter-toggle on"></span>
+              <span class="filter-field-label">Название</span>
+              <input class="form-input" placeholder="текст...">
+            </div>
+            <div class="filter-row">
+              <span class="filter-toggle"></span>
+              <span class="filter-field-label">Ведущий</span>
+              <input class="form-input" placeholder="имя...">
+            </div>
+            <div class="filter-row">
+              <span class="filter-toggle on"></span>
+              <span class="filter-field-label">Статус</span>
+              <select class="form-input">
                 <option>Любой</option>
                 <option>Черновик</option>
-                <option>Открытая</option>
-                <option>Закрыта для просмотра</option>
-                <option>Закрыта для вступления</option>
-            </select>
-          </div>
-          <div class="filter-row">
-            <span class="filter-toggle"></span>
-            <span class="filter-field-label">Тег</span>
-            <input class="form-input" placeholder="фэнтези, sci-fi...">
-          </div>
-          <div class="filter-actions">
-            <div style="display:flex;gap:8px">
-              <button class="btn btn-sm btn-outline" onclick="resetFilter()">Сбросить</button>
-              <button class="btn btn-sm btn-primary" onclick="applyFilter()">Применить</button>
+                <option>Набор игроков</option>
+                <option>В процессе</option>
+                <option>На паузе</option>
+                <option>Идёт игра</option>
+                <option>Завершена</option>
+              </select>
+            </div>
+            <div class="filter-row">
+              <span class="filter-toggle"></span>
+              <span class="filter-field-label">Тег</span>
+              <input class="form-input" placeholder="фэнтези, sci-fi...">
+            </div>
+            <div class="filter-actions">
+              <div style="display:flex;gap:8px">
+                <button class="btn btn-sm btn-outline" onclick="resetFilter()">Сбросить</button>
+                <button class="btn btn-sm btn-primary" onclick="applyFilter()">Применить</button>
+              </div>
             </div>
           </div>
         </div>
+        <button class="btn btn-primary" onclick="location.href='game-new.html'">➕ Новая игра</button>
       </div>
 
       <script>
@@ -107,7 +117,7 @@
           document.getElementById('filterPopup').classList.remove('open');
         }
         function applyFilter() {
-          document.getElementById('filterChips').innerHTML = '<span class="filter-chip">Статус: Закрыта для вступления <span class="chip-remove" onclick="event.stopPropagation();this.parentElement.remove()">✕</span></span><span class="filter-chip">Название: дракон <span class="chip-remove" onclick="event.stopPropagation();this.parentElement.remove()">✕</span></span>';
+          document.getElementById('filterChips').innerHTML = '<span class="filter-chip">Статус: Набор игроков <span class="chip-remove" onclick="event.stopPropagation();this.parentElement.remove()">✕</span></span><span class="filter-chip">Название: дракон <span class="chip-remove" onclick="event.stopPropagation();this.parentElement.remove()">✕</span></span>';
           document.getElementById('filterPopup').classList.remove('open');
         }
         document.querySelectorAll('.filter-toggle').forEach(function(t) {
@@ -123,25 +133,29 @@
         <div class="game-card" onclick="location.href='game-detail.html'">
           <h3>Подземелье дракона</h3>
           <div class="desc">Классическое фэнтези-приключение с упором на боевую систему. Подходит для новичков.</div>
-          <div><span class="status status-moderation">Закрыта для вступления</span> <span class="tag">фэнтези</span> <span class="tag">боёвка</span></div>
+          <div><span class="status status-progress">В процессе</span> <span class="tag">фэнтези</span> <span class="tag">боёвка</span></div>
+          <div class="visibility">🔓 Видно: все · 📥 Вступление: по заявке</div>
           <div class="meta">Ведущий: Иван П. · 5 участников</div>
         </div>
         <div class="game-card" onclick="location.href='game-detail.html'">
           <h3>Космические рейнджеры</h3>
           <div class="desc">Открытый мир в далёком космосе. Торговля, пиратство, исследования.</div>
-          <div><span class="status status-ready">Открытая</span> <span class="tag">Sci-Fi</span> <span class="tag">песочница</span></div>
+          <div><span class="status status-recruitment">Набор игроков</span> <span class="tag">Sci-Fi</span> <span class="tag">песочница</span></div>
+          <div class="visibility">🔓 Видно: все · 📥 Вступление: свободное</div>
           <div class="meta">Ведущий: Анна С. · 3 участника</div>
         </div>
         <div class="game-card" onclick="location.href='game-detail.html'">
           <h3>Тень над Инсмутом</h3>
           <div class="desc">Хоррор-расследование в духе Лавкрафта.</div>
           <div><span class="status status-draft">Черновик</span> <span class="tag">хоррор</span> <span class="tag">расследование</span></div>
+          <div class="visibility">🔒 Видно: ведущий · 📥 Вступление: закрыто</div>
           <div class="meta">Ведущий: Пётр К. · 0 участников</div>
         </div>
         <div class="game-card" onclick="location.href='game-detail.html'">
           <h3>Школа волшебства</h3>
           <div class="desc">Магическая академия, социальное взаимодействие и развитие персонажа.</div>
-          <div><span class="status status-moderation">Закрыта для просмотра</span> <span class="tag">магия</span> <span class="tag">повседневность</span></div>
+          <div><span class="status status-in-game">Идёт игра</span> <span class="tag">магия</span> <span class="tag">повседневность</span></div>
+          <div class="visibility">🔓 Видно: все · 📥 Вступление: по заявке</div>
           <div class="meta">Ведущий: Иван П. · 8 участников</div>
         </div>
       </div>

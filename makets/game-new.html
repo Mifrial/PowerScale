@@ -11,6 +11,10 @@
 .tag-selector .tag-remove { cursor: pointer; margin-left: 2px; color: #999; font-size: 12px; }
 .tag-selector .tag-remove:hover { color: #e53935; }
 .tag-selector input { border: none; outline: none; font-size: 14px; flex: 1; min-width: 80px; }
+.multi-select { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 12px; border: 1px solid #e0e0e0; border-radius: 6px; min-height: 38px; }
+.multi-select .chip { display: flex; align-items: center; gap: 4px; padding: 3px 10px; border: 1px solid #e0e0e0; border-radius: 16px; font-size: 13px; cursor: pointer; background: #fafafa; }
+.multi-select .chip.selected { background: #e3f2fd; border-color: #1976D2; color: #1565C0; }
+.multi-select .chip.selected::after { content: '✓'; font-size: 11px; margin-left: 4px; }
 </style>
 </head><body>
 <div class="layout">
@@ -54,7 +58,7 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label">Полное описание <span style="color:#999;font-weight:400">— HTML</span></label>
+          <label class="form-label">Полное описание <span style="color:#999;font-weight:400">— WYSIWYG</span></label>
           <div style="border:1px solid #e0e0e0;border-radius:6px;overflow:hidden">
             <div style="display:flex;gap:2px;padding:6px 8px;border-bottom:1px solid #e0e0e0;background:#fafafa;flex-wrap:wrap">
               <span style="padding:2px 6px;border-radius:3px;font-size:13px;cursor:pointer;color:#555">B</span>
@@ -105,34 +109,76 @@
         </div>
 
         <div class="form-group">
+          <label class="form-label">Допустимые / рекомендуемые расы</label>
+          <div class="multi-select">
+            <span class="chip selected">Человек</span>
+            <span class="chip selected">Эльф</span>
+            <span class="chip selected">Дварф</span>
+            <span class="chip">Орк</span>
+            <span class="chip">Гном</span>
+            <span class="chip">Полурослик</span>
+            <span class="chip">Зверолюд</span>
+            <span class="chip">Драконорождённый</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Видимость (кто может видеть)</label>
+          <select class="form-input">
+            <option>Все (публичная)</option>
+            <option>Только участники</option>
+            <option>По приглашению</option>
+            <option>Черновик (скрыта)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Вступление (кто может присоединиться)</label>
+          <select class="form-input">
+            <option>Свободное вступление</option>
+            <option>По заявке (одобрение ведущего)</option>
+            <option>Только по приглашению</option>
+            <option>Закрыта (никто)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Жизненный цикл</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <label style="display:flex;align-items:center;gap:6px;padding:8px 12px;border:1px solid #e0e0e0;border-radius:6px;cursor:pointer">
+              <input type="radio" name="lifecycle" checked>
+              <span style="font-size:13px">Черновик</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;padding:8px 12px;border:1px solid #e0e0e0;border-radius:6px;cursor:pointer">
+              <input type="radio" name="lifecycle">
+              <span style="font-size:13px">Набор игроков</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;padding:8px 12px;border:1px solid #e0e0e0;border-radius:6px;cursor:pointer">
+              <input type="radio" name="lifecycle">
+              <span style="font-size:13px">В процессе</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;padding:8px 12px;border:1px solid #e0e0e0;border-radius:6px;cursor:pointer">
+              <input type="radio" name="lifecycle">
+              <span style="font-size:13px">На паузе</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;padding:8px 12px;border:1px solid #e0e0e0;border-radius:6px;cursor:pointer">
+              <input type="radio" name="lifecycle">
+              <span style="font-size:13px">Идёт игра</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;padding:8px 12px;border:1px solid #e0e0e0;border-radius:6px;cursor:pointer">
+              <input type="radio" name="lifecycle">
+              <span style="font-size:13px">Завершена</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group">
           <label class="form-label">Теги</label>
           <div class="tag-selector">
             <span class="tag">фэнтези <span class="tag-remove">✕</span></span>
             <span class="tag">боёвка <span class="tag-remove">✕</span></span>
             <span class="tag">подземелья <span class="tag-remove">✕</span></span>
             <input placeholder="добавить тег...">
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Статус</label>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <label style="display:flex;align-items:center;gap:6px;padding:8px 12px;border:1px solid #e0e0e0;border-radius:6px;cursor:pointer">
-              <input type="radio" name="status" checked>
-              <span style="font-size:13px">Черновик</span>
-            </label>
-            <label style="display:flex;align-items:center;gap:6px;padding:8px 12px;border:1px solid #e0e0e0;border-radius:6px;cursor:pointer">
-              <input type="radio" name="status">
-              <span style="font-size:13px">Открытая</span>
-            </label>
-            <label style="display:flex;align-items:center;gap:6px;padding:8px 12px;border:1px solid #e0e0e0;border-radius:6px;cursor:pointer">
-              <input type="radio" name="status">
-              <span style="font-size:13px">Закрытая для просмотра</span>
-            </label>
-            <label style="display:flex;align-items:center;gap:6px;padding:8px 12px;border:1px solid #e0e0e0;border-radius:6px;cursor:pointer">
-              <input type="radio" name="status">
-              <span style="font-size:13px">Закрытая для вступления</span>
-            </label>
           </div>
         </div>
 

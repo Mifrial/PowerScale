@@ -8,6 +8,32 @@
 .time-selector { display: flex; align-items: center; gap: 8px; background: #fff; border: 1px solid #e0e0e0; border-radius: 6px; padding: 6px 12px; font-size: 14px; }
 .time-selector input { border: none; outline: none; font-size: 14px; width: 180px; }
 .rule-list { display: flex; flex-direction: column; gap: 8px; }
+
+.search-row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.search-row .filter-wrap { flex: 1; margin-bottom: 0; }
+.search-row .btn { flex-shrink: 0; }
+
+.kebab-menu { position: relative; display: inline-block; flex-shrink: 0; }
+.kebab-btn { background: transparent; border: 1px solid #e0e0e0; border-radius: 6px; cursor: pointer; padding: 6px 10px; font-size: 18px; line-height: 1; color: #555; }
+.kebab-btn:hover { background: #f5f5f5; }
+.kebab-dropdown { display: none; position: absolute; right: 0; top: calc(100% + 4px); background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.12); min-width: 200px; z-index: 50; padding: 4px 0; }
+.kebab-dropdown.open { display: block; }
+.kebab-dropdown .kebab-item { padding: 10px 16px; font-size: 14px; cursor: pointer; color: #333; display: flex; align-items: center; gap: 8px; }
+.kebab-dropdown .kebab-item:hover { background: #f5f5f5; }
+
+.changes-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 200; }
+.changes-overlay.open { display: block; }
+.changes-slider { position: fixed; top: 0; right: -580px; width: 580px; height: 100vh; background: #fff; box-shadow: -4px 0 16px rgba(0,0,0,.1); z-index: 201; display: flex; flex-direction: column; transition: right .25s; }
+.changes-slider.open { right: 0; }
+.changes-slider .changes-header { display: flex; align-items: center; justify-content: space-between; padding: 16px; border-bottom: 1px solid #e0e0e0; font-weight: 500; font-size: 16px; }
+.changes-slider .changes-header .btn-close { font-size: 18px; background: none; border: none; cursor: pointer; color: #999; padding: 4px 8px; border-radius: 4px; }
+.changes-slider .changes-header .btn-close:hover { background: #f0f0f0; }
+.changes-slider .changes-list { flex: 1; overflow-y: auto; padding: 12px; }
+.changes-slider .changes-list .changes-item { padding: 12px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; display: flex; align-items: flex-start; gap: 12px; }
+.changes-slider .changes-list .changes-item .changes-icon { font-size: 16px; padding-top: 2px; }
+.changes-slider .changes-list .changes-item .changes-body { flex: 1; }
+.changes-slider .changes-list .changes-item .changes-desc { color: #555; }
+.changes-slider .changes-list .changes-item .changes-meta { font-size: 12px; color: #bbb; margin-top: 2px; }
 </style>
 </head><body>
 <div class="layout">
@@ -34,13 +60,84 @@
       </div>
     </div>
     <div class="content">
-      <!-- Верхняя панель -->
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <div style="display:flex;gap:8px">
-          <button class="btn btn-primary">➕ Создать правило</button>
-          <button class="btn btn-outline" onclick="location.href='space-publish.html'">📤 Опубликовать</button>
+      <!-- Верхняя панель: поиск + действия -->
+      <div class="search-row">
+        <div class="filter-wrap">
+          <div class="filter-bar" onclick="toggleFilterPopup()">
+            <div class="filter-inner">
+              <div class="filter-chips" id="filterChips">
+                <span class="filter-chip">Тип: Способность <span class="chip-remove" onclick="event.stopPropagation();this.parentElement.remove()">✕</span></span>
+              </div>
+              <input class="filter-input" placeholder="Фильтр + поиск" onfocus="openFilterPopup()">
+            </div>
+            <span class="filter-input-icon">🔍</span>
+          </div>
+          <div class="filter-popup" id="filterPopup">
+            <div class="filter-row">
+              <span class="filter-toggle on"></span>
+              <span class="filter-field-label">Название</span>
+              <input class="form-input" placeholder="текст...">
+            </div>
+            <div class="filter-row">
+              <span class="filter-toggle on"></span>
+              <span class="filter-field-label">Статус</span>
+              <select class="form-input">
+                <option>Любой</option>
+                <option>Черновик</option>
+                <option>Опубликовано</option>
+                <option>Архив</option>
+              </select>
+            </div>
+            <div class="filter-row">
+              <span class="filter-toggle"></span>
+              <span class="filter-field-label">Владелец</span>
+              <input class="form-input" placeholder="имя...">
+            </div>
+            <div class="filter-row">
+              <span class="filter-toggle"></span>
+              <span class="filter-field-label">Тег</span>
+              <input class="form-input" placeholder="тег...">
+            </div>
+            <div class="filter-row">
+              <span class="filter-toggle on"></span>
+              <span class="filter-field-label">Тип</span>
+              <select class="form-input">
+                <option>Любой</option>
+                <option>Раса</option>
+                <option>Характеристика</option>
+                <option>Способность</option>
+                <option>Предмет</option>
+                <option>Валюта</option>
+                <option>Простое</option>
+              </select>
+            </div>
+            <div class="filter-row">
+              <span class="filter-toggle on"></span>
+              <span class="filter-field-label">Версия от</span>
+              <input class="form-input" type="text" value="07.07.2026 15:00" placeholder="дд.мм.гггг чч:мм">
+            </div>
+            <div class="filter-row">
+              <span class="filter-toggle"></span>
+              <span class="filter-field-label">Дата обновления</span>
+              <input class="form-input" type="text" placeholder="дд.мм.гггг">
+            </div>
+            <div class="filter-actions">
+              <div style="display:flex;gap:8px">
+                <button class="btn btn-sm btn-outline" onclick="resetFilter()">Сбросить</button>
+                <button class="btn btn-sm btn-primary" onclick="applyFilter()">Применить</button>
+              </div>
+            </div>
+          </div>
         </div>
-        <button class="btn btn-outline" onclick="location.href='space-settings.html'">⚙️ Настройки пространства</button>
+        <button class="btn btn-primary">➕ Создать правило</button>
+        <div class="kebab-menu" id="actionMenu">
+          <button class="kebab-btn" onclick="toggleActionMenu(event)">⋮</button>
+          <div class="kebab-dropdown" id="actionDropdown">
+            <div class="kebab-item" onclick="location.href='space-publish.html'">📤 Опубликовать</div>
+            <div class="kebab-item" onclick="location.href='space-settings.html'">⚙️ Настройки пространства</div>
+            <div class="kebab-item" onclick="openChangesSlider()">📋 Изменения</div>
+          </div>
+        </div>
       </div>
 
       <!-- Подменю по типам правил -->
@@ -49,56 +146,9 @@
         <span class="subnav-item">Расы</span>
         <span class="subnav-item">Характеристики</span>
         <span class="subnav-item">Способности</span>
+        <span class="subnav-item">Предмет</span>
         <span class="subnav-item">Валюты</span>
         <span class="subnav-item">Простые</span>
-      </div>
-
-      <!-- Фильтр: Bitrix-style -->
-      <div class="filter-wrap">
-        <div class="filter-bar" onclick="toggleFilterPopup()">
-          <div class="filter-inner">
-            <div class="filter-chips" id="filterChips">
-              <span class="filter-chip">Тип: Способность <span class="chip-remove" onclick="event.stopPropagation();this.parentElement.remove()">✕</span></span>
-            </div>
-            <input class="filter-input" placeholder="Фильтр + поиск" onfocus="openFilterPopup()">
-          </div>
-          <span class="filter-input-icon">🔍</span>
-        </div>
-        <div class="filter-popup" id="filterPopup">
-          <div class="filter-row">
-            <span class="filter-toggle on"></span>
-            <span class="filter-field-label">Название</span>
-            <input class="form-input" placeholder="текст...">
-          </div>
-          <div class="filter-row">
-            <span class="filter-toggle"></span>
-            <span class="filter-field-label">Тег</span>
-            <input class="form-input" placeholder="тег...">
-          </div>
-          <div class="filter-row">
-            <span class="filter-toggle on"></span>
-            <span class="filter-field-label">Тип</span>
-            <select class="form-input">
-              <option>Любой</option>
-              <option>Раса</option>
-              <option>Характеристика</option>
-              <option>Способность</option>
-              <option>Валюта</option>
-              <option>Простое</option>
-            </select>
-          </div>
-          <div class="filter-row">
-            <span class="filter-toggle on"></span>
-            <span class="filter-field-label">Версия от</span>
-            <input class="form-input" type="text" value="07.07.2026 15:00" placeholder="дд.мм.гггг чч:мм">
-          </div>
-          <div class="filter-actions">
-            <div style="display:flex;gap:8px">
-              <button class="btn btn-sm btn-outline" onclick="resetFilter()">Сбросить</button>
-              <button class="btn btn-sm btn-primary" onclick="applyFilter()">Применить</button>
-            </div>
-          </div>
-        </div>
       </div>
 
       <script>
@@ -124,6 +174,24 @@
             this.closest('.filter-row').classList.toggle('disabled');
           });
         });
+
+        function toggleActionMenu(e) {
+          e.stopPropagation();
+          document.getElementById('actionDropdown').classList.toggle('open');
+        }
+        document.addEventListener('click', function() {
+          document.getElementById('actionDropdown').classList.remove('open');
+        });
+
+        function openChangesSlider() {
+          document.getElementById('actionDropdown').classList.remove('open');
+          document.getElementById('changesOverlay').classList.add('open');
+          document.getElementById('changesSlider').classList.add('open');
+        }
+        function closeChangesSlider() {
+          document.getElementById('changesOverlay').classList.remove('open');
+          document.getElementById('changesSlider').classList.remove('open');
+        }
       </script>
 
       <!-- Список правил — expansion panels -->
@@ -170,7 +238,7 @@
           <span style="font-weight:500;flex:1">Острый слух</span>
           <span class="tag">способность</span>
           <span class="tag">расовая</span>
-          <span class="tag">пассивная</span>
+          <span class="tag">черта</span>
           <span class="status status-ready" style="font-size:11px">v2</span>
           <button class="btn btn-sm btn-outline" style="margin-left:8px">✏️</button>
         </div>
@@ -182,6 +250,40 @@
     <div class="footer">CharGen &copy; 2026</div>
   </div>
 </div>
+
+<!-- Changes slider -->
+<div class="changes-overlay" id="changesOverlay" onclick="closeChangesSlider()"></div>
+<div class="changes-slider" id="changesSlider">
+  <div class="changes-header">
+    <span>Изменения</span>
+    <button class="btn-close" onclick="closeChangesSlider()">✕</button>
+  </div>
+  <div class="changes-list">
+    <div class="changes-item">
+      <span class="changes-icon">➕</span>
+      <div class="changes-body">
+        <div class="changes-desc">Добавлено правило «Эльф» (раса)</div>
+        <div class="changes-meta">Иван П. · 10 минут назад</div>
+      </div>
+    </div>
+    <div class="changes-item">
+      <span class="changes-icon">✏️</span>
+      <div class="changes-body">
+        <div class="changes-desc">Изменена характеристика «Сила» — диапазон [3, 5]</div>
+        <div class="changes-meta">Иван П. · 1 час назад</div>
+      </div>
+    </div>
+    <div class="changes-item">
+      <span class="changes-icon">🗑️</span>
+      <div class="changes-body">
+        <div class="changes-desc">Удалено правило «Магия огня» (способность)</div>
+        <div class="changes-meta">Анна С. · 3 часа назад</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Notifications slider -->
 <div class="notif-overlay" id="notifOverlay" onclick="closeNotifSlider()"></div>
 <div class="notif-slider" id="notifSlider">
   <div class="notif-header">

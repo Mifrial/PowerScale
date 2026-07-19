@@ -2,7 +2,7 @@
 <html lang="ru"><head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CharGen 🟡 — Создание персонажа</title>
+<title>CharGen — Создание персонажа</title>
 <link rel="stylesheet" href="common.css">
 <style>
 .selection-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
@@ -14,10 +14,11 @@
 .selection-card.selected .card-radio::after { content: ''; width: 10px; height: 10px; border-radius: 50%; background: #1976D2; }
 .selection-card h3 { font-size: 15px; font-weight: 500; }
 .selection-card .desc { font-size: 13px; color: #757575; margin-top: 4px; }
-
 .form-section { display: none; border: 1px solid #e0e0e0; border-radius: 8px; background: #fff; padding: 20px; margin-bottom: 24px; }
 .form-section.visible { display: block; }
 .form-section h4 { font-size: 14px; font-weight: 500; margin-bottom: 12px; color: #555; }
+.limits-row { display: flex; gap: 12px; flex-wrap: wrap; }
+.limits-row .form-group { flex: 1; min-width: 120px; }
 </style>
 </head><body>
 <div class="layout">
@@ -38,10 +39,7 @@
     <div class="topbar">
       <button class="menu-btn">≡</button>
       <div class="page-title">Создание персонажа</div>
-      <div class="notif-bell" onclick="toggleNotifSlider()">
-        🔔
-        <span class="badge">3</span>
-      </div>
+      <div class="notif-bell" onclick="toggleNotifSlider()">🔔<span class="badge">3</span></div>
     </div>
     <div class="content">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
@@ -49,7 +47,7 @@
         <span class="status status-draft">🟡 черновик</span>
       </div>
       <p style="font-size:14px;color:#757575;margin-bottom:8px">Выберите способ создания персонажа</p>
-      <p style="font-size:12px;color:#999;margin-bottom:20px">Лимиты ОС и ОР можно задать сейчас или позже — в редакторе персонажа. Лимит ОЛ определяется возрастом и расой.</p>
+      <p style="font-size:12px;color:#999;margin-bottom:20px">Лимиты ОС, ОР и GM можно задать сейчас или позже — в редакторе персонажа. Лимит ОЛ определяется расой и возрастом.</p>
 
       <div class="selection-grid">
         <div class="selection-card selected" onclick="selectOption(this, 'free')">
@@ -57,7 +55,7 @@
             <div class="card-radio"></div>
             <div>
               <h3>Свободное создание</h3>
-              <div class="desc">ОС, ОЛ и ОР задаются вручную. Персонаж не привязан к игре.</div>
+              <div class="desc">ОС, ОЛ, ОР и GM задаются вручную. Персонаж не привязан к игре.</div>
             </div>
           </div>
         </div>
@@ -66,123 +64,72 @@
             <div class="card-radio"></div>
             <div>
               <h3>Через игру</h3>
-              <div class="desc">Лимиты ОС, ОЛ и ОР берутся из выбранной игры. Персонаж сразу в игре.</div>
+              <div class="desc">Персонаж создаётся для конкретной игры. Лимиты наследуются от игры. Можно изменить позже.</div>
             </div>
           </div>
         </div>
       </div>
 
-      <div class="form-section visible" id="freeForm">
-        <h4>Бюджет персонажа <span style="font-size:12px;color:#999;font-weight:400">— можно задать позже</span></h4>
-        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px">
-          <div class="form-group">
-            <label class="form-label">ОС (Очки создания) <span style="color:#999;font-weight:400">опционально</span></label>
-            <input class="form-input" type="number" placeholder="макс., например 10">
-          </div>
-          <div class="form-group">
-            <label class="form-label">ОР (Очки развития) <span style="color:#999;font-weight:400">опционально</span></label>
-            <input class="form-input" type="number" placeholder="макс., например 15">
-          </div>
-        </div>
+      <div class="form-section visible" id="freeSettings">
+        <h4>Параметры создания</h4>
         <div class="form-group">
           <label class="form-label">Пространство правил</label>
-          <select class="form-input">
-            <option>Основные правила</option>
-            <option>Расширенные правила</option>
-            <option>Пользовательские</option>
-          </select>
+          <select class="form-input"><option>Основные правила v.1.3.2</option><option>Боевые правила v.2.1.0</option><option>Магические правила v.0.9.1</option></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Наборы правил (опционально)</label>
+          <select class="form-input" multiple style="height:80px"><option>Основные</option><option>Магия</option><option>Боевые искусства</option></select>
+        </div>
+        <div class="limits-row">
+          <div class="form-group">
+            <label class="form-label">Лимит ОС</label>
+            <input class="form-input" type="number" value="10" min="0">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Лимит ОР</label>
+            <input class="form-input" type="number" value="8" min="0">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Лимит GM (бюджет)</label>
+            <input class="form-input" type="number" value="100" min="0">
+          </div>
         </div>
       </div>
 
-      <div class="form-section" id="gameForm">
-        <h4>Выберите игру <span style="font-size:12px;color:#999;font-weight:400">— лимиты можно изменить позже</span></h4>
-        <div style="display:flex;flex-direction:column;gap:8px">
-          <label style="display:flex;align-items:center;gap:12px;padding:12px;border:1px solid #e0e0e0;border-radius:6px;cursor:pointer">
-            <input type="radio" name="game" checked>
-            <div>
-              <div style="font-weight:500;font-size:14px">Подземелье дракона</div>
-              <div style="font-size:12px;color:#757575">ОС 10 · ОЛ 3 · ОР 15 · Правила: Основные правила</div>
-            </div>
-          </label>
-          <label style="display:flex;align-items:center;gap:12px;padding:12px;border:1px solid #e0e0e0;border-radius:6px;cursor:pointer">
-            <input type="radio" name="game">
-            <div>
-              <div style="font-weight:500;font-size:14px">Космические рейнджеры</div>
-              <div style="font-size:12px;color:#757575">ОС 12 · ОЛ 4 · ОР 20 · Правила: Основные правила</div>
-            </div>
-          </label>
-          <label style="display:flex;align-items:center;gap:12px;padding:12px;border:1px solid #e0e0e0;border-radius:6px;cursor:pointer">
-            <input type="radio" name="game">
-            <div>
-              <div style="font-weight:500;font-size:14px">Школа волшебства</div>
-              <div style="font-size:12px;color:#757575">ОС 10 · ОЛ 5 · ОР 20 · Правила: Расширенные правила магии</div>
-            </div>
-          </label>
+      <div class="form-section" id="gameSettings">
+        <h4>Выбор игры</h4>
+        <div class="form-group">
+          <label class="form-label">Игра</label>
+          <select class="form-input"><option>Подземелье дракона</option><option>Тени прошлого</option><option>Морская одиссея</option></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" style="font-size:13px;color:#757575">Лимиты будут унаследованы от игры</label>
         </div>
       </div>
 
-      <div style="display:flex;gap:8px;justify-content:flex-end">
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn btn-primary" onclick="location.href='character-editor.html'">Создать и перейти к редактору</button>
         <button class="btn btn-outline" onclick="location.href='characters-list.html'">Отмена</button>
-        <button class="btn btn-primary" onclick="location.href='character-editor.html'">Далее →</button>
       </div>
     </div>
-    <div class="footer">CharGen &copy; 2026</div>
   </div>
 </div>
-<div class="notif-overlay" id="notifOverlay" onclick="closeNotifSlider()"></div>
+<div class="notif-overlay" id="notifOverlay" onclick="toggleNotifSlider()"></div>
 <div class="notif-slider" id="notifSlider">
-  <div class="notif-header">
-    <span>Уведомления</span>
-    <button class="btn-close" onclick="closeNotifSlider()">✕</button>
-  </div>
-  <div class="notif-list">
-    <div class="notif-item unread">
-      <div class="notif-icon">🎲</div>
-      <div class="notif-body">
-        <div class="notif-title">Приглашение в игру «Подземелье дракона»</div>
-        <div class="notif-preview">Ведущий Иван П. приглашает вас присоединиться</div>
-        <div class="notif-actions">
-          <button class="btn btn-sm btn-primary">Принять</button>
-          <button class="btn btn-sm btn-outline">Отклонить</button>
-        </div>
-      </div>
-      <div class="notif-time">5 минут назад</div>
-    </div>
-    <div class="notif-item unread">
-      <div class="notif-icon">👤</div>
-      <div class="notif-body">
-        <div class="notif-title">Персонаж на модерации</div>
-        <div class="notif-preview">Финн Светлый ожидает проверки в «Школе волшебства»</div>
-      </div>
-      <div class="notif-time">1 час назад</div>
-    </div>
-    <div class="notif-item">
-      <div class="notif-icon">📚</div>
-      <div class="notif-body">
-        <div class="notif-title">Опубликована новая версия правил</div>
-        <div class="notif-preview">Пространство «Основные правила» обновлено до версии 3</div>
-      </div>
-      <div class="notif-time">3 часа назад</div>
-    </div>
-  </div>
-  <div class="notif-footer">
-    <a href="notifications.html">Все уведомления →</a>
-  </div>
+  <div class="notif-header"><span>Уведомления</span><button class="btn-close" onclick="toggleNotifSlider()">✕</button></div>
+  <div class="notif-list" id="notifList"></div>
+  <div class="notif-footer"><a href="notifications.html">Все уведомления →</a></div>
 </div>
 <script>
 function toggleNotifSlider() {
   document.getElementById('notifOverlay').classList.toggle('open');
   document.getElementById('notifSlider').classList.toggle('open');
 }
-function closeNotifSlider() {
-  document.getElementById('notifOverlay').classList.remove('open');
-  document.getElementById('notifSlider').classList.remove('open');
-}
 function selectOption(el, type) {
   document.querySelectorAll('.selection-card').forEach(c => c.classList.remove('selected'));
   el.classList.add('selected');
-  document.getElementById('freeForm').classList.toggle('visible', type === 'free');
-  document.getElementById('gameForm').classList.toggle('visible', type === 'game');
+  document.getElementById('freeSettings').classList.toggle('visible', type === 'free');
+  document.getElementById('gameSettings').classList.toggle('visible', type === 'game');
 }
 </script>
 </body></html>

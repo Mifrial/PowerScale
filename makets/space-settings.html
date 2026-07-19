@@ -14,6 +14,9 @@
 .perm-toggle.off::after { content: '—'; color: #ccc; font-size: 12px; }
 .perm-toggle.locked { cursor: not-allowed; opacity: 0.6; background: #e3f2fd; border-color: #90caf9; }
 .perm-toggle.locked.on::after { content: '✓'; color: #1976D2; font-size: 12px; font-weight: 700; }
+.mod-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid #f0f0f0; }
+.mod-row:last-child { border-bottom: none; }
+.owner-badge { font-size: 11px; color: #fff; background: #FFA000; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
 </style>
 </head><body>
 <div class="layout">
@@ -44,7 +47,7 @@
         <h2 style="font-size:20px">Настройки пространства</h2>
         <span class="status status-draft">🟡 черновик</span>
       </div>
-      <p style="color:#757575;font-size:14px;margin-bottom:16px">Основные правила · версия 3 от 01.06.2026</p>
+      <p style="color:#757575;font-size:14px;margin-bottom:16px">Основные правила · версия <strong>1.3.2</strong> от 01.06.2026</p>
 
       <div class="subnav">
         <span class="subnav-item" onclick="location.href='space-rules.html'">Правила</span>
@@ -65,6 +68,39 @@
           <label class="form-label">Описание</label>
           <textarea class="form-input" rows="2">Базовая система правил для фэнтези-сеттингов.</textarea>
         </div>
+        <div class="form-group">
+          <label class="form-label">Версия <span style="color:#999;font-weight:400">— A.B.C.x</span></label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input class="form-input" value="1.3.2" style="max-width:120px;text-align:center">
+            <span style="font-size:13px;color:#999">мажорная.минорная.патч</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Модераторы -->
+      <div class="card" style="max-width:960px;margin-bottom:16px">
+        <div class="card-header">
+          <span class="card-title">Модераторы</span>
+        </div>
+        <div class="mod-row">
+          <div class="avatar" style="width:32px;height:32px;font-size:12px">JD</div>
+          <div style="flex:1"><strong>Иван Петров</strong> <span style="font-size:12px;color:#999">@ivan_p</span></div>
+          <span class="owner-badge">Владелец</span>
+        </div>
+        <div class="mod-row">
+          <div class="avatar" style="width:32px;height:32px;font-size:12px;background:#e3f2fd;color:#1976D2">AS</div>
+          <div style="flex:1"><strong>Анна Смирнова</strong> <span style="font-size:12px;color:#999">@anna_s</span></div>
+          <button class="btn btn-sm btn-outline" style="font-size:12px;color:#e53935">Убрать</button>
+        </div>
+        <div class="mod-row">
+          <div class="avatar" style="width:32px;height:32px;font-size:12px;background:#e8f5e9;color:#2e7d32">PK</div>
+          <div style="flex:1"><strong>Павел Кузнецов</strong> <span style="font-size:12px;color:#999">@pavel_k</span></div>
+          <button class="btn btn-sm btn-outline" style="font-size:12px;color:#e53935">Убрать</button>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:8px">
+          <input class="form-input" placeholder="логин пользователя..." style="max-width:200px">
+          <button class="btn btn-sm btn-outline">+ Добавить модератора</button>
+        </div>
       </div>
 
       <!-- Права доступа: группы -->
@@ -82,6 +118,7 @@
                 <th style="text-align:center;min-width:110px">Редактирование</th>
                 <th style="text-align:center;min-width:100px">Публикация</th>
                 <th style="text-align:center;min-width:90px">Настройки</th>
+                <th style="text-align:center;min-width:80px">Управление</th>
               </tr>
             </thead>
             <tbody>
@@ -92,6 +129,16 @@
                 <td style="text-align:center"><span class="perm-toggle on locked"></span></td>
                 <td style="text-align:center"><span class="perm-toggle on locked"></span></td>
                 <td style="text-align:center"><span class="perm-toggle on locked"></span></td>
+                <td style="text-align:center"><span class="perm-toggle on locked"></span></td>
+              </tr>
+              <tr>
+                <td>Модераторы</td>
+                <td style="text-align:center"><span class="perm-toggle on" onclick="this.classList.toggle('on')"></span></td>
+                <td style="text-align:center"><span class="perm-toggle on" onclick="this.classList.toggle('on')"></span></td>
+                <td style="text-align:center"><span class="perm-toggle on" onclick="this.classList.toggle('on')"></span></td>
+                <td style="text-align:center"><span class="perm-toggle on" onclick="this.classList.toggle('on')"></span></td>
+                <td style="text-align:center"><span class="perm-toggle" onclick="this.classList.toggle('on')"></span></td>
+                <td style="text-align:center"><span class="perm-toggle" onclick="this.classList.toggle('on')"></span></td>
               </tr>
               <tr>
                 <td>Редакторы</td>
@@ -100,10 +147,12 @@
                 <td style="text-align:center"><span class="perm-toggle on" onclick="this.classList.toggle('on')"></span></td>
                 <td style="text-align:center"><span class="perm-toggle" onclick="this.classList.toggle('on')"></span></td>
                 <td style="text-align:center"><span class="perm-toggle" onclick="this.classList.toggle('on')"></span></td>
+                <td style="text-align:center"><span class="perm-toggle" onclick="this.classList.toggle('on')"></span></td>
               </tr>
               <tr>
                 <td>Игроки</td>
                 <td style="text-align:center"><span class="perm-toggle on" onclick="this.classList.toggle('on')"></span></td>
+                <td style="text-align:center"><span class="perm-toggle" onclick="this.classList.toggle('on')"></span></td>
                 <td style="text-align:center"><span class="perm-toggle" onclick="this.classList.toggle('on')"></span></td>
                 <td style="text-align:center"><span class="perm-toggle" onclick="this.classList.toggle('on')"></span></td>
                 <td style="text-align:center"><span class="perm-toggle" onclick="this.classList.toggle('on')"></span></td>
@@ -132,6 +181,7 @@
                 <th style="text-align:center;min-width:110px">Редактирование</th>
                 <th style="text-align:center;min-width:100px">Публикация</th>
                 <th style="text-align:center;min-width:90px">Настройки</th>
+                <th style="text-align:center;min-width:80px">Управление</th>
                 <th style="min-width:50px"></th>
               </tr>
             </thead>
@@ -143,11 +193,13 @@
                 <td style="text-align:center"><span class="perm-toggle on" onclick="this.classList.toggle('on')"></span></td>
                 <td style="text-align:center"><span class="perm-toggle" onclick="this.classList.toggle('on')"></span></td>
                 <td style="text-align:center"><span class="perm-toggle" onclick="this.classList.toggle('on')"></span></td>
+                <td style="text-align:center"><span class="perm-toggle" onclick="this.classList.toggle('on')"></span></td>
                 <td><button class="btn btn-sm btn-outline" style="color:#e53935;font-size:12px">✕</button></td>
               </tr>
               <tr>
                 <td>@pavel_k (Павел К.)</td>
                 <td style="text-align:center"><span class="perm-toggle on" onclick="this.classList.toggle('on')"></span></td>
+                <td style="text-align:center"><span class="perm-toggle" onclick="this.classList.toggle('on')"></span></td>
                 <td style="text-align:center"><span class="perm-toggle" onclick="this.classList.toggle('on')"></span></td>
                 <td style="text-align:center"><span class="perm-toggle" onclick="this.classList.toggle('on')"></span></td>
                 <td style="text-align:center"><span class="perm-toggle" onclick="this.classList.toggle('on')"></span></td>

@@ -14,6 +14,64 @@
 .summary-card .stat-row + .stat-row { border-top: 1px solid #f5f5f5; }
 .summary-card .stat-label { color: #757575; }
 .summary-card .stat-value { font-weight: 500; }
+
+.description-block { margin: 8px 0 16px; padding: 12px 16px; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; font-size: 14px; color: #424242; line-height: 1.6; }
+
+.creator-hosts { margin: 4px 0 8px; }
+.creator-hosts .ch-row { font-size: 14px; padding: 2px 0; color: #555; }
+.creator-hosts .ch-label { color: #757575; }
+
+.status-lifecycle { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin: 4px 0 12px; }
+.status-step { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; padding: 3px 10px; border-radius: 12px; background: #f5f5f5; color: #bbb; }
+.status-step.active { background: #e3f2fd; color: #1565C0; font-weight: 500; }
+.status-step.done { background: #e8f5e9; color: #2e7d32; }
+.status-lifecycle .step-arrow { color: #ddd; font-size: 10px; }
+
+.section-card { margin-top: 24px; }
+
+.race-group { margin-bottom: 12px; }
+.race-group .race-label { font-size: 13px; color: #757575; margin-bottom: 4px; }
+
+.vis-settings { margin-bottom: 12px; }
+.vis-settings .vis-row { font-size: 14px; padding: 3px 0; color: #555; }
+.vis-settings .vis-label { color: #757575; }
+
+.rules-link-block { font-size: 14px; padding: 6px 0; }
+.rules-link-block a { color: #1976D2; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+.rules-link-block a:hover { text-decoration: underline; }
+
+.npc-add-row { display: flex; gap: 8px; margin-top: 8px; padding: 8px 0; align-items: center; }
+.npc-add-row input { padding: 6px 10px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 13px; outline: none; flex: 1; }
+.npc-add-row input:focus { border-color: #1976D2; }
+.npc-add-row select { padding: 6px 10px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 13px; outline: none; background: #fff; }
+.npc-add-row .btn-icon { padding: 6px 10px; background: #1976D2; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 15px; line-height: 1; }
+
+.chat-interface { border: 1px solid #e0e0e0; border-radius: 8px; background: #fff; overflow: hidden; }
+.chat-messages { height: 320px; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.chat-msg { display: flex; gap: 8px; padding: 8px 10px; border-radius: 8px; max-width: 85%; }
+.chat-msg.incoming { background: #f5f5f5; align-self: flex-start; }
+.chat-msg.outgoing { background: #e3f2fd; align-self: flex-end; }
+.chat-msg .msg-avatar { width: 28px; height: 28px; border-radius: 50%; background: #1976D2; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; flex-shrink: 0; }
+.chat-msg .msg-body { flex: 1; min-width: 0; }
+.chat-msg .msg-author { font-size: 12px; font-weight: 500; color: #555; }
+.chat-msg .msg-text { font-size: 13px; margin-top: 2px; }
+.chat-msg .msg-time { font-size: 11px; color: #bbb; margin-top: 2px; }
+.chat-input-area { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-top: 1px solid #e0e0e0; background: #fafafa; }
+.chat-input-area select { padding: 6px 10px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 13px; background: #fff; outline: none; min-width: 140px; }
+.chat-input-area input { flex: 1; padding: 8px 12px; border: 1px solid #e0e0e0; border-radius: 20px; font-size: 13px; outline: none; }
+.chat-input-area input:focus { border-color: #1976D2; }
+.chat-input-area .btn-send { padding: 6px 16px; background: #1976D2; color: #fff; border: none; border-radius: 20px; cursor: pointer; font-size: 13px; }
+
+.chronicle-timeline { position: relative; padding-left: 24px; margin-top: 4px; }
+.chronicle-timeline::before { content: ''; position: absolute; left: 8px; top: 0; bottom: 0; width: 2px; background: #e0e0e0; }
+.chronicle-entry { position: relative; margin-bottom: 16px; padding-left: 16px; }
+.chronicle-entry::before { content: ''; position: absolute; left: -20px; top: 4px; width: 10px; height: 10px; border-radius: 50%; background: #1976D2; border: 2px solid #fff; box-shadow: 0 0 0 2px #1976D2; }
+.chronicle-entry .ce-date { font-size: 12px; color: #999; margin-bottom: 2px; }
+.chronicle-entry .ce-desc { font-size: 14px; color: #424242; }
+
+.action-link { color: #1976D2; cursor: pointer; font-size: 13px; text-decoration: none; }
+.action-link:hover { text-decoration: underline; }
+.action-link.danger { color: #e53935; }
 </style>
 </head><body>
 <div class="layout">
@@ -43,17 +101,39 @@
       <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:4px">
         <div>
           <h2 style="font-size:20px">Подземелье дракона</h2>
-          <p style="color:#757575;font-size:14px">Ведущий: Иван Петров</p>
         </div>
         <div style="display:flex;gap:8px">
           <button class="btn btn-outline">⚙️ Настройки</button>
           <button class="btn btn-outline">✉️ Пригласить</button>
         </div>
       </div>
+
+      <div class="creator-hosts">
+        <div class="ch-row"><span class="ch-label">Создатель:</span> Иван Петров</div>
+        <div class="ch-row"><span class="ch-label">Ведущие:</span> Иван Петров, Анна С.</div>
+      </div>
+
+      <div class="description-block">
+        Добро пожаловать в мир Эрафии! Вам предстоит исследовать древние подземелья, сражаться с драконами и находить легендарные артефакты. Приготовьтесь к опасным приключениям в компании отважных спутников.
+      </div>
+
+      <div class="status-lifecycle">
+        <span class="status-step done"><span class="step-icon">✓</span> Черновик</span>
+        <span class="step-arrow">→</span>
+        <span class="status-step active">Набор игроков</span>
+        <span class="step-arrow">→</span>
+        <span class="status-step">В процессе</span>
+        <span class="step-arrow">→</span>
+        <span class="status-step">На паузе</span>
+        <span class="step-arrow">→</span>
+        <span class="status-step">Идёт игра</span>
+        <span class="step-arrow">→</span>
+        <span class="status-step">Завершена</span>
+      </div>
+
       <div class="overview">
-        <span class="status status-in-game">В игре</span>
-        <span class="overview-item">5 участников</span>
-        <span class="overview-item">📅 Правила: Основные правила v.3 от 01.06.2026</span>
+        <span class="overview-item">👥 5 участников</span>
+        <span class="rules-link-block overview-item"><a href="space-rules.html">📋 Основные правила от 01.06.2026</a></span>
       </div>
 
       <div class="subnav" style="margin-top:12px">
@@ -64,6 +144,35 @@
         <span class="subnav-item">Участники</span>
         <span class="subnav-item">Приглашения</span>
         <span class="subnav-item" onclick="location.href='game-moderate.html'">Модерация <span class="badge">2</span></span>
+      </div>
+
+      <div class="card section-card">
+        <div class="card-header">
+          <span class="card-title">Обзор игры</span>
+        </div>
+        <div class="race-group">
+          <div class="race-label">Допустимые расы:</div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px">
+            <span class="tag">человек</span>
+            <span class="tag">эльф</span>
+            <span class="tag">дварф</span>
+            <span class="tag">полурослик</span>
+            <span class="tag">полуорк</span>
+            <span class="tag">тифлинг</span>
+          </div>
+        </div>
+        <div class="race-group">
+          <div class="race-label">Рекомендуемые расы:</div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px">
+            <span class="tag">человек</span>
+            <span class="tag">эльф</span>
+            <span class="tag">дварф</span>
+          </div>
+        </div>
+        <div class="vis-settings">
+          <div class="vis-row"><span class="vis-label">Видимость:</span> все пользователи платформы</div>
+          <div class="vis-row"><span class="vis-label">Вступление:</span> по заявке (одобрение ведущего)</div>
+        </div>
       </div>
 
       <div class="summary-grid">
@@ -118,6 +227,89 @@
           <div style="margin-top:8px"><a href="space-rules.html" style="font-size:13px;color:#1976D2;text-decoration:none">Перейти к правилам →</a></div>
         </div>
       </div>
+
+      <div class="card section-card">
+        <div class="card-header">
+          <span class="card-title">NPC</span>
+        </div>
+        <table>
+          <thead><tr><th>Имя</th><th>Статус</th><th>Действия</th></tr></thead>
+          <tbody>
+            <tr><td>Торгрим Железобород</td><td><span class="tag" style="background:#e8f5e9;color:#2e7d32">виден игрокам</span></td><td><span class="action-link">✏️</span> <span class="action-link danger">🗑️</span></td></tr>
+            <tr><td>Лираэль Ветрокрылая</td><td><span class="tag" style="background:#e8f5e9;color:#2e7d32">виден игрокам</span></td><td><span class="action-link">✏️</span> <span class="action-link danger">🗑️</span></td></tr>
+            <tr><td>Моргар Тёмный</td><td><span class="tag" style="background:#f5f5f5;color:#999">скрыт</span></td><td><span class="action-link">✏️</span> <span class="action-link danger">🗑️</span></td></tr>
+          </tbody>
+        </table>
+        <div class="npc-add-row">
+          <input type="text" placeholder="Имя NPC">
+          <select><option>виден игрокам</option><option>скрыт</option></select>
+          <button class="btn-icon" title="Добавить NPC">＋</button>
+        </div>
+      </div>
+
+      <div class="card section-card">
+        <div class="card-header">
+          <span class="card-title">Игровой чат</span>
+        </div>
+        <div class="chat-interface">
+          <div class="chat-messages">
+            <div class="chat-msg incoming">
+              <div class="msg-avatar">Т</div>
+              <div class="msg-body">
+                <div class="msg-author">Торгрим Железобород</div>
+                <div class="msg-text">Я беру свой топор и захожу в пещеру слева. Там темно, но я слышу звук капающей воды.</div>
+                <div class="msg-time">14:23</div>
+              </div>
+            </div>
+            <div class="chat-msg incoming">
+              <div class="msg-avatar">Л</div>
+              <div class="msg-body">
+                <div class="msg-author">Лираэль Ветрокрылая</div>
+                <div class="msg-text">Я зажигаю магический свет и следую за Торгримом. Держитесь настороже.</div>
+                <div class="msg-time">14:25</div>
+              </div>
+            </div>
+            <div class="chat-msg outgoing">
+              <div class="msg-avatar">К</div>
+              <div class="msg-body">
+                <div class="msg-author">Капитан команды (Ведущий)</div>
+                <div class="msg-text">Вы слышите низкий рык, доносящийся из глубины пещеры. Похоже, там кто-то есть...</div>
+                <div class="msg-time">14:27</div>
+              </div>
+            </div>
+          </div>
+          <div class="chat-input-area">
+            <select>
+              <option>Торгрим Железобород</option>
+              <option>Лираэль Ветрокрылая</option>
+              <option>Ведущий</option>
+            </select>
+            <input type="text" placeholder="Написать сообщение...">
+            <button class="btn-send">➤</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card section-card">
+        <div class="card-header">
+          <span class="card-title">Хроника</span>
+        </div>
+        <div class="chronicle-timeline">
+          <div class="chronicle-entry">
+            <div class="ce-date">29.06.2026 — Первая встреча</div>
+            <div class="ce-desc">Герои собрались в таверне «Пьяный единорог» и получили задание от старейшины. Набор в группу завершён.</div>
+          </div>
+          <div class="chronicle-entry">
+            <div class="ce-date">15.07.2026 — Вход в подземелье</div>
+            <div class="ce-desc">Отряд вошёл в древнее подземелье. Первая стычка с гоблинами — победа. Найден карта нижних уровней.</div>
+          </div>
+          <div class="chronicle-entry">
+            <div class="ce-date">22.07.2026 — Встреча с драконом</div>
+            <div class="ce-desc">На третьем уровне отряд обнаружил гнездо молодого дракона. Бой отложен — решено подготовиться и вернуться.</div>
+          </div>
+        </div>
+      </div>
+
     </div>
     <div class="footer">CharGen &copy; 2026</div>
   </div>

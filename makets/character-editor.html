@@ -5,7 +5,6 @@
 <title>CharGen — Редактор персонажа</title>
 <link rel="stylesheet" href="common.css">
 <style>
-/* Horizontal editor panel */
 .editor-panel { display: flex; align-items: stretch; background: #fff; border-bottom: 1px solid #e0e0e0; padding: 0 8px; min-height: 52px; overflow: hidden; }
 .editor-panel .ep-block { display: flex; flex-direction: column; justify-content: center; align-items: flex-start; padding: 6px 12px; margin: 6px 2px; border-radius: 6px; cursor: pointer; transition: background .15s; background: #fafafa; border: 1px solid #eee; }
 .editor-panel .ep-block:hover { background: #f0f0f0; border-color: #ddd; }
@@ -21,13 +20,18 @@
 .editor-panel .ep-stats-block .stat-chip { padding: 3px 8px; border-radius: 4px; font-size: 12px; background: #e3f2fd; color: #1565C0; }
 .editor-panel .ep-stats-block .stat-chip b { font-weight: 600; }
 
-/* Quick filter buttons */
+.name-fields { margin-bottom: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.name-fields .nf-full { grid-column: 1 / -1; }
+.name-fields .nf-label { font-size: 13px; font-weight: 500; color: #555; margin-bottom: 4px; }
+.name-fields .nf-input { width: 100%; padding: 8px 12px; border: 1px solid #e0e0e0; border-radius: 6px; font-size: 14px; outline: none; }
+.name-fields .nf-input:focus { border-color: #1976D2; box-shadow: 0 0 0 2px rgba(25,118,210,.15); }
+.name-fields textarea.nf-input { resize: vertical; min-height: 60px; }
+
 .quick-filter { display: flex; gap: 4px; margin-bottom: 12px; flex-wrap: wrap; }
 .quick-filter .qf-btn { padding: 4px 12px; border-radius: 14px; font-size: 12px; border: 1px solid #e0e0e0; background: #fff; color: #555; cursor: pointer; }
 .quick-filter .qf-btn:hover { background: #f5f5f5; }
 .quick-filter .qf-btn.active { background: #1976D2; color: #fff; border-color: #1976D2; }
 
-/* Trait item inside expansion panel */
 .trait-header { display: flex; align-items: center; gap: 12px; flex: 1; }
 .trait-header .t-cost { font-weight: 600; color: #1976D2; font-size: 13px; white-space: nowrap; }
 .trait-header .t-name { font-weight: 500; font-size: 14px; }
@@ -36,21 +40,51 @@
 .trait-header .t-counter button:hover { background: #f0f0f0; }
 .trait-header .t-counter .t-val { min-width: 18px; text-align: center; font-size: 14px; font-weight: 500; }
 
-/* Selected trait highlight */
 .exp-panel.selected { border-color: #1976D2; background: #fafbff; }
 
-/* Race item inside expansion panel */
 .race-header { display: flex; align-items: center; gap: 12px; flex: 1; }
 .race-header .r-name { font-weight: 500; font-size: 14px; }
 .race-header .r-cost { font-size: 12px; color: #757575; }
 .race-header .r-tags { display: flex; gap: 4px; margin-left: auto; }
 
-/* Edit button */
 .edit-btn { width: 28px; height: 28px; border-radius: 6px; border: none; background: transparent; cursor: pointer; font-size: 14px; color: #999; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .edit-btn:hover { background: #f0f0f0; color: #555; }
 
 .editor-content { padding: 20px 0; }
-.topbar-actions { display: flex; gap: 8px; margin-left: auto; }
+
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+.vis-toggle { cursor: pointer; font-size: 16px; padding: 4px 6px; border-radius: 4px; user-select: none; }
+.vis-toggle:hover { background: #f0f0f0; }
+
+.content-header { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+.content-header .ch-title { font-size: 18px; font-weight: 500; }
+.content-header .ch-spacer { flex: 1; }
+
+.keyword-row { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 10px; padding-top: 8px; border-top: 1px solid #f0f0f0; }
+.keyword-row .kw { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; background: #f5f5f5; color: #777; font-weight: 500; }
+
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 300; align-items: center; justify-content: center; }
+.modal-overlay.open { display: flex; }
+.modal-box { background: #fff; border-radius: 12px; padding: 24px; max-width: 420px; width: 90%; box-shadow: 0 8px 32px rgba(0,0,0,.15); }
+.modal-box .modal-title { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+.modal-box .modal-body { font-size: 14px; color: #555; margin-bottom: 16px; }
+.modal-box .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+.topbar-actions { display: flex; gap: 8px; }
+.topbar .notif-bell { position: relative; cursor: pointer; font-size: 20px; padding: 6px; border-radius: 8px; }
+.topbar .notif-bell:hover { background: #f0f0f0; }
+.topbar .notif-bell .badge { position: absolute; top: 0; right: -2px; font-size: 10px; min-width: 16px; height: 16px; padding: 0 4px; }
+
+.race-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 8px; cursor: pointer; background: #fff; }
+.race-item:hover { border-color: #1976D2; background: #fafbff; }
+.race-item.selected { border-color: #1976D2; background: #e3f2fd; }
+.race-item .ri-name { font-weight: 500; font-size: 15px; flex: 1; }
+.race-item .ri-desc { font-size: 13px; color: #757575; }
+.race-item .ri-cost { font-size: 13px; color: #1976D2; font-weight: 500; }
+
+.topbar .page-title { flex: 1; }
 </style>
 </head><body>
 <div class="layout">
@@ -71,38 +105,40 @@
     <div class="topbar">
       <button class="menu-btn">≡</button>
       <div class="page-title">Редактирование: Элиандра</div>
-      <div class="notif-bell" onclick="toggleNotifSlider()">
-        🔔
-        <span class="badge">3</span>
-      </div>
       <div class="topbar-actions">
         <button class="btn btn-sm btn-outline">💾 Черновик</button>
         <button class="btn btn-sm btn-primary">✅ Готово</button>
       </div>
+      <div class="notif-bell" onclick="toggleNotifSlider()">
+        🔔
+        <span class="badge">3</span>
+      </div>
     </div>
 
-    <!-- Horizontal panel: навигация по этапам + статистика -->
     <div class="editor-panel">
-      <div class="ep-block" style="margin-left:16px">
-        <div class="ep-title">Эльф</div>
-        <div class="ep-sub">Стоимость: 10 ОС</div>
+      <div class="ep-block" data-tab="description" onclick="switchTab('description')">
+        <div class="ep-title">Описание</div>
+        <div class="ep-sub">Имя, биография</div>
       </div>
-      <div class="ep-block active">
-        <div class="ep-title">Врождённые черты</div>
+      <div class="ep-block active" data-tab="race" onclick="switchTab('race')">
+        <div class="ep-title">Раса</div>
+        <div class="ep-sub">Эльф · 10 ОС</div>
+      </div>
+      <div class="ep-block" data-tab="base" onclick="switchTab('base')">
+        <div class="ep-title">Основа</div>
         <div class="ep-sub">ОС: 14 / 20</div>
       </div>
-      <div class="ep-block">
+      <div class="ep-block" data-tab="personality" onclick="switchTab('personality')">
         <div class="ep-title">Личность</div>
         <div class="ep-sub">0 / 3 ОЛ</div>
       </div>
-      <div class="ep-block">
+      <div class="ep-block" data-tab="development" onclick="switchTab('development')">
         <div class="ep-title">Развитие</div>
         <div class="ep-sub">5 / 15 ОР</div>
       </div>
-      <div class="ep-divider"></div>
-      <div class="ep-block" style="color:#bbb;cursor:default">
+      <div class="ep-block" data-tab="inventory" onclick="switchTab('inventory')">
         <div class="ep-title">Инвентарь</div>
-        <div class="ep-sub" style="font-size:10px">не скоро</div>
+        <div class="ep-sub">0 / 10 кг</div>
       </div>
       <div class="ep-spacer"></div>
       <div class="ep-stats-block">
@@ -118,10 +154,59 @@
     </div>
 
     <div class="content">
-      <!-- Контент этапа «Основа» (активный блок) -->
-      <div class="editor-content">
 
-        <!-- Быстрые фильтры по доступности черт -->
+      <div class="tab-panel" id="tab-description">
+        <div class="content-header">
+          <span class="ch-title">Описание персонажа</span>
+          <div class="ch-spacer"></div>
+          <span class="vis-toggle" onclick="cycleVis(this)" title="Видимость раздела">👁</span>
+        </div>
+        <div class="name-fields" style="border:none;padding:0;margin:0">
+          <div class="nf-full">
+            <div class="nf-label">Имя персонажа</div>
+            <input class="nf-input" type="text" value="Элиандра" placeholder="Введите имя">
+          </div>
+          <div>
+            <div class="nf-label">Краткое описание</div>
+            <input class="nf-input" type="text" value="Эльфийская следопытка" placeholder="Кратко о персонаже">
+          </div>
+          <div>
+            <div class="nf-label">Полное описание</div>
+            <textarea class="nf-input" placeholder="Подробное описание персонажа">Элиандра родилась в лесном эльфийском поселении на восточных склонах Туманных гор. С юных лет обучалась искусству слежения и стрельбы из лука.</textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-panel active" id="tab-race">
+        <div class="content-header">
+          <span class="ch-title">Выбор расы</span>
+          <div class="ch-spacer"></div>
+          <span class="vis-toggle" onclick="cycleVis(this)" title="Видимость раздела">👁</span>
+        </div>
+        <div class="race-item selected" onclick="selectRace(this)">
+          <div class="ri-name">Эльф</div>
+          <div class="ri-desc">Лесные эльфы, искусные лучники и следопыты</div>
+          <div class="ri-cost">10 ОС</div>
+        </div>
+        <div class="race-item" onclick="selectRace(this)">
+          <div class="ri-name">Человек</div>
+          <div class="ri-desc">Универсальная раса, быстрая адаптация</div>
+          <div class="ri-cost">0 ОС</div>
+        </div>
+        <div class="race-item" onclick="selectRace(this)">
+          <div class="ri-name">Дварф</div>
+          <div class="ri-desc">Крепкие горные жители, мастера ремесла</div>
+          <div class="ri-cost">5 ОС</div>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="tab-base">
+        <div class="content-header">
+          <span class="ch-title">Врождённые черты</span>
+          <div class="ch-spacer"></div>
+          <span class="vis-toggle" onclick="cycleVis(this)" title="Видимость раздела">👁</span>
+        </div>
+
         <div class="quick-filter">
           <span class="qf-btn active">Все</span>
           <span class="qf-btn">Доступные</span>
@@ -130,7 +215,6 @@
           <span class="qf-btn">Общедоступные</span>
         </div>
 
-        <!-- Bitrix-фильтр -->
         <div class="filter-wrap">
           <div class="filter-bar" onclick="toggleFilterPopup()">
             <div class="filter-inner">
@@ -177,121 +261,215 @@
           </div>
         </div>
 
-        <!-- Список черт — expansion panels -->
-        <!-- Выбранные (selected) — вверху -->
         <div class="exp-panel selected">
-          <div class="exp-panel-header">
+          <div class="exp-panel-header" onclick="toggleExpPanel(this)">
             <span class="exp-arrow">▶</span>
             <div class="trait-header">
               <span class="t-cost">+2 ОС</span>
               <span class="t-name">Острый слух</span>
-              <span class="tag">расовая</span>
-              <span class="tag">пассивная</span>
+              <span class="tag">Расовая</span>
               <div class="t-counter">
-                <button>−</button>
+                <button onclick="event.stopPropagation();decVal(this)">−</button>
                 <span class="t-val">1</span>
-                <button onclick="void(0)" style="opacity:.4;pointer-events:none">+</button>
+                <button onclick="event.stopPropagation();incVal(this)">+</button>
               </div>
             </div>
-            <button class="edit-btn" title="Редактировать правило">✏️</button>
+            <button class="edit-btn" title="Редактировать правило" onclick="event.stopPropagation()">✏️</button>
           </div>
           <div class="exp-panel-body">
             <p style="font-size:14px;color:#555">Персонаж обладает исключительным слухом. Бонус +1 к проверкам восприятия, связанным со слухом. Дальность слышимости увеличена вдвое.</p>
-            <p style="font-size:13px;color:#999;margin-top:8px">Требования: раса Эльф</p>
+            <div class="keyword-row">
+              <span class="kw">[Слух]</span>
+              <span class="kw">[Восприятие]</span>
+              <span class="kw">[Пассивный]</span>
+            </div>
           </div>
         </div>
 
         <div class="exp-panel selected">
-          <div class="exp-panel-header">
+          <div class="exp-panel-header" onclick="toggleExpPanel(this)">
             <span class="exp-arrow">▶</span>
             <div class="trait-header">
               <span class="t-cost">2 ОС</span>
               <span class="t-name">Ночное зрение</span>
-              <span class="tag">расовая</span>
+              <span class="tag">Расовая</span>
               <div class="t-counter">
-                <button>−</button>
+                <button onclick="event.stopPropagation();decVal(this)">−</button>
                 <span class="t-val">1</span>
-                <button onclick="void(0)" style="opacity:.4;pointer-events:none">+</button>
+                <button onclick="event.stopPropagation();incVal(this)">+</button>
               </div>
             </div>
-            <button class="edit-btn" title="Редактировать правило">✏️</button>
-          </div>
+            <button class="edit-btn" title="Редактировать правило" onclick="event.stopPropagation()">✏️</button>
           </div>
           <div class="exp-panel-body">
             <p style="font-size:14px;color:#555">Персонаж видит в темноте до 30 метров. Чёрно-белое зрение.</p>
-            <p style="font-size:13px;color:#999;margin-top:8px">Требования: раса Эльф</p>
+            <div class="keyword-row">
+              <span class="kw">[Зрение]</span>
+              <span class="kw">[Темнота]</span>
+              <span class="kw">[Пассивный]</span>
+            </div>
           </div>
         </div>
 
-        <!-- Остальные черты -->
         <div class="exp-panel">
-          <div class="exp-panel-header">
+          <div class="exp-panel-header" onclick="toggleExpPanel(this)">
             <span class="exp-arrow">▶</span>
             <div class="trait-header">
               <span class="t-cost">1 ОС</span>
               <span class="t-name">Лёгкая походка</span>
-              <span class="tag">расовая</span>
-              <span class="tag">пассивная</span>
+              <span class="tag">Расовая</span>
               <div class="t-counter">
-                <button>−</button>
+                <button onclick="event.stopPropagation();decVal(this)">−</button>
                 <span class="t-val">0</span>
-                <button>+</button>
+                <button onclick="event.stopPropagation();incVal(this)">+</button>
               </div>
             </div>
-            <button class="edit-btn" title="Редактировать правило">✏️</button>
+            <button class="edit-btn" title="Редактировать правило" onclick="event.stopPropagation()">✏️</button>
           </div>
           <div class="exp-panel-body">
             <p style="font-size:14px;color:#555">Персонаж передвигается бесшумно. Штрафы к скрытности от брони уменьшены на 1.</p>
+            <div class="keyword-row">
+              <span class="kw">[Скрытность]</span>
+              <span class="kw">[Броня]</span>
+              <span class="kw">[Пассивный]</span>
+            </div>
           </div>
         </div>
 
         <div class="exp-panel">
-          <div class="exp-panel-header">
+          <div class="exp-panel-header" onclick="toggleExpPanel(this)">
             <span class="exp-arrow">▶</span>
             <div class="trait-header">
-              <span class="t-cost">3 ОС</span>
-              <span class="t-name">Магическая интуиция</span>
-              <span class="tag">магическая</span>
+              <span class="t-cost">+3 ОС</span>
+              <span class="t-name">Живучесть эльфов</span>
+              <span class="tag">Обязательная</span>
               <div class="t-counter">
-                <button>−</button>
-                <span class="t-val">0</span>
-                <button>+</button>
+                <button onclick="event.stopPropagation();decVal(this)">−</button>
+                <span class="t-val">1</span>
+                <button onclick="event.stopPropagation();incVal(this)" style="opacity:.4;pointer-events:none">+</button>
               </div>
             </div>
-            <button class="edit-btn" title="Редактировать правило">✏️</button>
+            <button class="edit-btn" title="Редактировать правило" onclick="event.stopPropagation()">✏️</button>
           </div>
           <div class="exp-panel-body">
-            <p style="font-size:14px;color:#555">Персонаж чувствует магические поля. Позволяет определить наличие магии в радиусе 10 метров.</p>
+            <p style="font-size:14px;color:#555">Эльфы устойчивы к болезням и ядам. Бонус +2 к спасброскам против отравления.</p>
+            <div class="keyword-row">
+              <span class="kw">[Устойчивость]</span>
+              <span class="kw">[Яды]</span>
+              <span class="kw">[Пассивный]</span>
+            </div>
           </div>
         </div>
 
         <div class="exp-panel">
-          <div class="exp-panel-header">
+          <div class="exp-panel-header" onclick="toggleExpPanel(this)">
             <span class="exp-arrow">▶</span>
             <div class="trait-header">
               <span class="t-cost">4 ОС</span>
               <span class="t-name">Крепкое телосложение</span>
-              <span class="tag">доступная</span>
-              <span class="tag">пассивная</span>
+              <span class="tag">Общедоступная</span>
               <div class="t-counter">
-                <button>−</button>
+                <button onclick="event.stopPropagation();decVal(this)">−</button>
                 <span class="t-val">0</span>
-                <button>+</button>
+                <button onclick="event.stopPropagation();incVal(this)">+</button>
               </div>
             </div>
-            <button class="edit-btn" title="Редактировать правило">✏️</button>
+            <button class="edit-btn" title="Редактировать правило" onclick="event.stopPropagation()">✏️</button>
           </div>
           <div class="exp-panel-body">
             <p style="font-size:14px;color:#555">Увеличение максимального значения Выносливости на 1. Нельзя взять более одного раза.</p>
+            <div class="keyword-row">
+              <span class="kw">[Выносливость]</span>
+              <span class="kw">[Улучшение]</span>
+            </div>
           </div>
         </div>
 
       </div>
+
+      <div class="tab-panel" id="tab-personality">
+        <div class="content-header">
+          <span class="ch-title">Личность</span>
+          <div class="ch-spacer"></div>
+          <span class="vis-toggle" onclick="cycleVis(this)" title="Видимость раздела">👁</span>
+        </div>
+        <p style="font-size:14px;color:#757575">Черты характера, идеалы, привязанности и слабости. Выберите до 3 ОЛ.</p>
+      </div>
+
+      <div class="tab-panel" id="tab-development">
+        <div class="content-header">
+          <span class="ch-title">Развитие</span>
+          <div class="ch-spacer"></div>
+          <span class="vis-toggle" onclick="cycleVis(this)" title="Видимость раздела">👁</span>
+        </div>
+        <p style="font-size:14px;color:#757575">Очки развития, навыки, способности. Доступно 5 / 15 ОР.</p>
+      </div>
+
+      <div class="tab-panel" id="tab-inventory">
+        <div class="content-header">
+          <span class="ch-title">Инвентарь</span>
+          <div class="ch-spacer"></div>
+          <span class="vis-toggle" onclick="cycleVis(this)" title="Видимость раздела">👁</span>
+        </div>
+        <p style="font-size:14px;color:#757575">Снаряжение, оружие, броня, расходники. Максимальная нагрузка: 10 кг.</p>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="raceWarningModal">
+  <div class="modal-box">
+    <div class="modal-title">⚠️ Смена расы</div>
+    <div class="modal-body">При смене расы будут сброшены все несовместимые черты и способности. Продолжить?</div>
+    <div class="modal-actions">
+      <button class="btn btn-sm btn-outline" onclick="closeRaceWarning()">Отмена</button>
+      <button class="btn btn-sm btn-primary" onclick="confirmRaceChange()">Продолжить</button>
     </div>
   </div>
 </div>
 
 <script>
+function switchTab(tabId) {
+  document.querySelectorAll('.ep-block[data-tab]').forEach(function(el) {
+    el.classList.remove('active');
+  });
+  document.querySelectorAll('.tab-panel').forEach(function(el) {
+    el.classList.remove('active');
+  });
+  document.querySelector('.ep-block[data-tab="' + tabId + '"]').classList.add('active');
+  document.getElementById('tab-' + tabId).classList.add('active');
+}
+
+function toggleExpPanel(header) {
+  var panel = header.closest('.exp-panel');
+  panel.classList.toggle('open');
+}
+
+function decVal(btn) {
+  var val = btn.parentElement.querySelector('.t-val');
+  var v = parseInt(val.textContent);
+  if (v > 0) val.textContent = v - 1;
+}
+function incVal(btn) {
+  var val = btn.parentElement.querySelector('.t-val');
+  var v = parseInt(val.textContent);
+  val.textContent = v + 1;
+}
+
+function cycleVis(el) {
+  if (el.textContent === '👁') {
+    el.textContent = '🚫';
+    el.title = 'Скрыто от всех';
+  } else if (el.textContent === '🚫') {
+    el.textContent = '👥';
+    el.title = 'Видно избранным';
+  } else {
+    el.textContent = '👁';
+    el.title = 'Видно всем';
+  }
+}
+
 function toggleFilterPopup() {
   var p = document.getElementById('filterPopup');
   p.classList.contains('open') ? p.classList.remove('open') : p.classList.add('open');
@@ -314,6 +492,35 @@ document.querySelectorAll('.filter-toggle').forEach(function(t) {
     this.closest('.filter-row').classList.toggle('disabled');
   });
 });
+
+var pendingRaceEl = null;
+
+function selectRace(el) {
+  if (el.classList.contains('selected')) return;
+  pendingRaceEl = el;
+  document.getElementById('raceWarningModal').classList.add('open');
+}
+function closeRaceWarning() {
+  document.getElementById('raceWarningModal').classList.remove('open');
+  pendingRaceEl = null;
+}
+function confirmRaceChange() {
+  document.querySelectorAll('.race-item').forEach(function(r) { r.classList.remove('selected'); });
+  if (pendingRaceEl) pendingRaceEl.classList.add('selected');
+  var name = pendingRaceEl.querySelector('.ri-name').textContent;
+  var cost = pendingRaceEl.querySelector('.ri-cost').textContent;
+  document.querySelector('.ep-block[data-tab="race"] .ep-sub').textContent = name + ' · ' + cost;
+  closeRaceWarning();
+}
+
+function toggleNotifSlider() {
+  document.getElementById('notifOverlay').classList.toggle('open');
+  document.getElementById('notifSlider').classList.toggle('open');
+}
+function closeNotifSlider() {
+  document.getElementById('notifOverlay').classList.remove('open');
+  document.getElementById('notifSlider').classList.remove('open');
+}
 </script>
 <div class="notif-overlay" id="notifOverlay" onclick="closeNotifSlider()"></div>
 <div class="notif-slider" id="notifSlider">
@@ -355,14 +562,4 @@ document.querySelectorAll('.filter-toggle').forEach(function(t) {
     <a href="notifications.html">Все уведомления →</a>
   </div>
 </div>
-<script>
-function toggleNotifSlider() {
-  document.getElementById('notifOverlay').classList.toggle('open');
-  document.getElementById('notifSlider').classList.toggle('open');
-}
-function closeNotifSlider() {
-  document.getElementById('notifOverlay').classList.remove('open');
-  document.getElementById('notifSlider').classList.remove('open');
-}
-</script>
 </body></html>

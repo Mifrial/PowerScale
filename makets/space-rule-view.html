@@ -5,6 +5,39 @@
 <title>CharGen 🟡 — Правило</title>
 <link rel="stylesheet" href="common.css">
 <style>
+.type-tabs { display: flex; gap: 4px; margin-bottom: 16px; }
+.type-tab { padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; color: #555; background: #fff; border: 1px solid #e0e0e0; }
+.type-tab:hover { background: #f5f5f5; }
+.type-tab.active { background: #e3f2fd; color: #1976D2; border-color: #1976D2; }
+
+.keywords { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+.keywords .tag { font-size: 14px; padding: 5px 14px; }
+
+/* Type-aware visibility */
+.show-for-race,
+.show-for-ability,
+.show-for-item { display: none; }
+[data-type="race"] .show-for-race,
+[data-type="ability"] .show-for-ability,
+[data-type="item"] .show-for-item { display: block; }
+
+.keywords-race,
+.keywords-ability,
+.keywords-item { display: none; }
+[data-type="race"] .keywords-race,
+[data-type="ability"] .keywords-ability,
+[data-type="item"] .keywords-item { display: flex; }
+
+.spec-field { margin-bottom: 12px; }
+.spec-field:last-child { margin-bottom: 0; }
+.spec-field-label { font-size: 13px; font-weight: 500; color: #555; margin-bottom: 4px; }
+.spec-field-value { font-size: 14px; }
+
+.chips { display: flex; gap: 4px; flex-wrap: wrap; }
+.chip { display: inline-block; padding: 2px 10px; border-radius: 4px; font-size: 12px; background: #e3f2fd; color: #1976D2; }
+.chip-ability { background: #e8f5e9; color: #2e7d32; }
+.chip-required { background: #fff3e0; color: #e65100; }
+
 .overview { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; margin: 4px 0 12px; }
 .overview-item { font-size: 13px; color: #555; }
 .version-list { list-style: none; padding: 0; }
@@ -17,7 +50,6 @@
 .stat-item .stat-name { color: #555; }
 .stat-item .stat-val { font-weight: 500; }
 .stat-item .stat-up { color: #2e7d32; }
-.exp-panel.selected { border-color: #1976D2; background: #f5f9ff; }
 </style>
 </head><body>
 <div class="layout">
@@ -37,7 +69,7 @@
   <div class="main">
     <div class="topbar">
       <button class="menu-btn">≡</button>
-      <div class="page-title">Эльф — просмотр правила</div>
+      <div class="page-title" id="pageTitle">Эльф — просмотр правила</div>
       <div class="notif-bell" onclick="toggleNotifSlider()">
         🔔
         <span class="badge">3</span>
@@ -45,9 +77,9 @@
     </div>
     <div class="content">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-        <h2 style="font-size:20px">Эльф</h2>
+        <h2 id="ruleTitle" style="font-size:20px">Эльф</h2>
         <span class="status status-draft">🟡 черновик</span>
-        <span style="font-size:12px;color:#999;margin-left:auto">тип: Раса · версия 3 (текущая)</span>
+        <span id="typeLabel" style="font-size:12px;color:#999;margin-left:auto">тип: Раса · версия 3 (текущая)</span>
       </div>
       <p style="color:#757575;font-size:14px;margin-bottom:16px">
         Пространство: «Основные правила» · обновлено 01.06.2026
@@ -58,45 +90,160 @@
         <button class="btn btn-outline" onclick="location.href='space-rules.html'">← К списку правил</button>
       </div>
 
-      <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px">
-        <!-- Основная информация -->
+      <div class="type-tabs">
+        <span class="type-tab active" data-type="race" onclick="switchType('race')">Раса</span>
+        <span class="type-tab" data-type="ability" onclick="switchType('ability')">Способность</span>
+        <span class="type-tab" data-type="item" onclick="switchType('item')">Предмет</span>
+      </div>
+
+      <div id="ruleContainer" data-type="race" style="display:grid;grid-template-columns:2fr 1fr;gap:20px">
         <div>
           <!-- Описание -->
-          <div class="card" style="margin-bottom:16px">
-            <div class="card-header">
+          <div class="exp-panel open">
+            <div class="exp-panel-header" onclick="toggleExpPanel(this)">
+              <span class="exp-arrow">▶</span>
               <span class="card-title">Описание</span>
             </div>
-            <div style="font-size:14px;color:#555;line-height:1.5">
-              <p>Эльфы — древняя раса, известная своим изяществом, острым слухом и связью с природой. Живут в лесных поселениях, почитают магию и искусство.</p>
+            <div class="exp-panel-body">
+              <div style="font-size:14px;color:#555;line-height:1.5">
+                <p>Эльфы — древняя раса, известная своим изяществом, острым слухом и связью с природой. Живут в лесных поселениях, почитают магию и искусство.</p>
+              </div>
             </div>
           </div>
 
-          <!-- Спецификация -->
-          <div class="card" style="margin-bottom:16px">
-            <div class="card-header">
-              <span class="card-title">Спецификация</span>
+          <!-- Кейворды / Признаки -->
+          <div class="keywords keywords-race">
+            <span class="tag">Гуманоид</span>
+            <span class="tag">Эльф</span>
+            <span class="tag">Верто</span>
+            <span class="tag">Терон</span>
+          </div>
+          <div class="keywords keywords-ability">
+            <span class="tag">Активная</span>
+            <span class="tag">Боевая</span>
+            <span class="tag">Расовая</span>
+          </div>
+          <div class="keywords keywords-item">
+            <span class="tag">Оружие</span>
+            <span class="tag">Двуручное</span>
+            <span class="tag">Дальний бой</span>
+          </div>
+
+          <!-- Параметры (спецификация) -->
+          <div class="exp-panel open">
+            <div class="exp-panel-header" onclick="toggleExpPanel(this)">
+              <span class="exp-arrow">▶</span>
+              <span class="card-title">Параметры</span>
             </div>
-            <div style="font-size:13px;color:#555;font-family:monospace;background:#fafafa;padding:12px;border-radius:4px;white-space:pre-wrap;line-height:1.4">
-{<br>
-&nbsp;&nbsp;"cost": [8],<br>
-&nbsp;&nbsp;"parent_race_id": null,<br>
-&nbsp;&nbsp;"characteristics": {<br>
-&nbsp;&nbsp;&nbsp;&nbsp;"Ловкость": 4,<br>
-&nbsp;&nbsp;&nbsp;&nbsp;"Восприятие": 3<br>
-&nbsp;&nbsp;},<br>
-&nbsp;&nbsp;"automatic_abilities": ["Острый слух", "Ночное зрение"],<br>
-&nbsp;&nbsp;"traits": ["Эльфийская грация", "Чувство природы"]<br>
-}
+            <div class="exp-panel-body">
+              <!-- Cost — все типы -->
+              <div class="spec-field show-for-all">
+                <div class="spec-field-label">Стоимость</div>
+                <div class="spec-field-value" id="fieldCost"><strong>8</strong> ОС</div>
+              </div>
+
+              <!-- Раса -->
+              <div class="spec-field show-for-race">
+                <div class="spec-field-label">Родительская раса</div>
+                <div class="spec-field-value">—</div>
+              </div>
+
+              <div class="spec-field show-for-race">
+                <div class="spec-field-label">Характеристики</div>
+                <div class="spec-field-value">
+                  <div class="stat-grid">
+                    <div class="stat-item"><span class="stat-name">Ловкость</span><span class="stat-val stat-up">4↑</span></div>
+                    <div class="stat-item"><span class="stat-name">Восприятие</span><span class="stat-val">3</span></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="spec-field show-for-race">
+                <div class="spec-field-label">Автоматические способности</div>
+                <div class="spec-field-value">
+                  <div class="chips">
+                    <span class="chip">Острый слух</span>
+                    <span class="chip">Ночное зрение</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="spec-field show-for-race">
+                <div class="spec-field-label">Признаки</div>
+                <div class="spec-field-value">
+                  <div class="chips">
+                    <span class="chip">Эльфийская грация</span>
+                    <span class="chip">Чувство природы</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Способность -->
+              <div class="spec-field show-for-ability">
+                <div class="spec-field-label">Тип</div>
+                <div class="spec-field-value">
+                  <div class="chips">
+                    <span class="chip chip-ability">Расовая</span>
+                    <span class="chip chip-required">Обязательная</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="spec-field show-for-ability">
+                <div class="spec-field-label">Требования</div>
+                <div class="spec-field-value">Ловкость 4+, Раса «Эльф»</div>
+              </div>
+
+              <div class="spec-field show-for-ability">
+                <div class="spec-field-label">Эффект</div>
+                <div class="spec-field-value">Увеличивает урон от стрелкового оружия на 2.</div>
+              </div>
+
+              <div class="spec-field show-for-ability">
+                <div class="spec-field-label">Длительность</div>
+                <div class="spec-field-value">Мгновенно</div>
+              </div>
+
+              <!-- Предмет -->
+              <div class="spec-field show-for-item">
+                <div class="spec-field-label">Тип предмета</div>
+                <div class="spec-field-value">Оружие (лук)</div>
+              </div>
+
+              <div class="spec-field show-for-item">
+                <div class="spec-field-label">Требования</div>
+                <div class="spec-field-value">Ловкость 4+, Раса «Эльф»</div>
+              </div>
+
+              <div class="spec-field show-for-item">
+                <div class="spec-field-label">Вес</div>
+                <div class="spec-field-value">1.5 кг</div>
+              </div>
+
+              <div class="spec-field show-for-item">
+                <div class="spec-field-label">Урон</div>
+                <div class="spec-field-value">1К6 + 2</div>
+              </div>
+
+              <div class="spec-field show-for-item">
+                <div class="spec-field-label">Характеристики</div>
+                <div class="spec-field-value">
+                  <div class="stat-grid">
+                    <div class="stat-item"><span class="stat-name">Ловкость</span><span class="stat-val stat-up">1↑</span></div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
           <!-- Отображение (превью) -->
-          <div class="card">
-            <div class="card-header">
+          <div class="exp-panel">
+            <div class="exp-panel-header" onclick="toggleExpPanel(this)">
+              <span class="exp-arrow">▶</span>
               <span class="card-title">Отображение</span>
-              <span style="font-size:12px;color:#999">как будет выглядеть при создании персонажа</span>
+              <span style="font-size:12px;color:#999;margin-left:auto">как будет выглядеть при создании персонажа</span>
             </div>
-            <div style="font-size:13px">
+            <div class="exp-panel-body" style="font-size:13px">
               <div class="exp-panel selected">
                 <div class="exp-panel-header">
                   <span class="exp-arrow">▶</span>
@@ -123,14 +270,6 @@
                 </div>
               </div>
             </div>
-          </div>
-
-          <!-- Теги -->
-          <div style="margin-top:12px">
-            <span class="tag">раса</span>
-            <span class="tag">эльф</span>
-            <span class="tag">фэнтези</span>
-            <span class="tag">магия</span>
           </div>
         </div>
 
@@ -206,13 +345,27 @@
   </div>
 </div>
 <script>
+function toggleExpPanel(header) {
+  header.parentElement.classList.toggle('open');
+}
+
 function toggleNotifSlider() {
   document.getElementById('notifOverlay').classList.toggle('open');
   document.getElementById('notifSlider').classList.toggle('open');
 }
+
 function closeNotifSlider() {
   document.getElementById('notifOverlay').classList.remove('open');
   document.getElementById('notifSlider').classList.remove('open');
+}
+
+function switchType(type) {
+  document.querySelectorAll('.type-tab').forEach(function(t) { t.classList.remove('active'); });
+  document.querySelector('.type-tab[data-type="' + type + '"]').classList.add('active');
+  document.getElementById('ruleContainer').setAttribute('data-type', type);
+
+  var labels = { race: 'Раса', ability: 'Способность', item: 'Предмет' };
+  document.getElementById('typeLabel').textContent = 'тип: ' + labels[type] + ' · версия 3 (текущая)';
 }
 </script>
 </body></html>

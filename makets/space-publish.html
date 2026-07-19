@@ -11,6 +11,11 @@
 .diff-added { background: #e8f5e9; color: #2e7d32; }
 .diff-removed { background: #ffebee; color: #c62828; }
 .diff-header { background: #e3f2fd; color: #1565C0; font-weight: 500; }
+.warn-block { background: #fff8e1; border: 1px solid #ffe082; border-radius: 6px; padding: 10px 14px; margin-bottom: 8px; }
+.warn-block .warn-title { font-weight: 600; font-size: 13px; color: #f57f17; margin-bottom: 4px; }
+.warn-block .warn-item { font-size: 13px; color: #795548; padding: 2px 0; padding-left: 16px; }
+.warn-block .warn-item::before { content: '⚠️ '; }
+.tx-note { font-size: 12px; color: #757575; background: #f5f5f5; padding: 8px 12px; border-radius: 6px; margin-top: 8px; }
 </style>
 </head><body>
 <div class="layout">
@@ -41,12 +46,22 @@
         <h2 style="font-size:20px">Публикация пространства</h2>
         <span class="status status-draft">🟡 черновик</span>
       </div>
-      <p style="color:#757575;font-size:14px;margin-bottom:16px">Основные правила</p>
+      <p style="color:#757575;font-size:14px;margin-bottom:16px">Основные правила · v<span style="font-weight:600">1.3.2</span> (черновик) → v<span style="font-weight:600">1.3.3</span> (публикация)</p>
 
       <div class="subnav">
         <span class="subnav-item" onclick="location.href='space-rules.html'">Правила</span>
         <span class="subnav-item" onclick="location.href='space-settings.html'">Настройки</span>
         <span class="subnav-item active">Публикация</span>
+      </div>
+
+      <!-- Предупреждения валидации -->
+      <div style="max-width:720px;margin-bottom:16px">
+        <div class="warn-block">
+          <div class="warn-title">Обнаружены проблемы</div>
+          <div class="warn-item">Способность «Ночное зрение» требует характеристики «Восприятие &ge; 4» — цель не настроена</div>
+          <div class="warn-item">Умение «Владение луком» зависит от правила «Эльф» — будет опубликовано вместе</div>
+          <div class="warn-item">Раса «Драконорождённый» ссылается на неопубликованную способность «Дыхание огня»</div>
+        </div>
       </div>
 
       <!-- Выбор целевого пространства -->
@@ -96,6 +111,8 @@
             <div class="diff-line diff-added">+ Стоимость: 10 → 8 ОС</div>
             <div class="diff-line diff-header">Автоматические способности</div>
             <div class="diff-line diff-added">+ Острый слух (новая)</div>
+            <div class="diff-line diff-header">Требования</div>
+            <div class="diff-line diff-added">+ Возраст &ge; 100 лет</div>
           </div>
         </div>
 
@@ -109,6 +126,8 @@
           </div>
           <div style="padding:8px 12px">
             <div class="diff-line diff-added">+ Новое правило (будет создано)</div>
+            <div class="diff-line diff-header">Зависимости</div>
+            <div class="diff-line diff-added">+ Зависит от: Эльф, Полурослик, Гном</div>
           </div>
         </div>
 
@@ -122,14 +141,38 @@
           </div>
           <div style="padding:8px 12px">
             <div class="diff-line diff-removed">- Правило удалено из исходного пространства</div>
+            <div class="diff-line diff-header">Зависимости</div>
+            <div class="diff-line diff-removed">- Зависит от: Магия крови (не выбрано)</div>
+          </div>
+        </div>
+
+        <!-- Правило 4 -->
+        <div style="border:1px solid #e0e0e0;border-radius:6px;margin-bottom:8px;overflow:hidden">
+          <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:#fafafa;border-bottom:1px solid #e0e0e0">
+            <input type="checkbox" checked>
+            <span style="font-weight:500;font-size:14px;flex:1">Владение луком</span>
+            <span class="tag">Умение</span>
+            <span style="font-size:12px;color:#757575">изменено</span>
+          </div>
+          <div style="padding:8px 12px">
+            <div class="diff-line diff-header">Характеристики</div>
+            <div class="diff-line diff-added">+ Мин. Ловкость: 2</div>
+            <div class="diff-line diff-header">Зависимости</div>
+            <div class="diff-line diff-added">+ Требует: Эльф (будет опубликовано)</div>
           </div>
         </div>
       </div>
 
       <!-- Подтверждение -->
-      <div style="display:flex;gap:8px;justify-content:flex-end;max-width:720px">
-        <button class="btn btn-outline" onclick="location.href='space-rules.html'">Отмена</button>
-        <button class="btn btn-primary">Опубликовать</button>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;max-width:720px">
+        <div class="tx-note">
+          После публикации будет создана новая версия <strong>1.3.3</strong> в пространстве «Расширенные правила магии».<br>
+          Выбранные правила: <strong>4</strong> опубликовано, <strong>1</strong> удалено, <strong>1</strong> пропущено.
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-outline" onclick="location.href='space-rules.html'">Отмена</button>
+          <button class="btn btn-primary" onclick="location.href='space-publish.html'">Опубликовать изменения</button>
+        </div>
       </div>
     </div>
     <div class="footer">CharGen &copy; 2026</div>

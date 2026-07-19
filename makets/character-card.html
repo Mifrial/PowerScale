@@ -11,7 +11,8 @@
 .char-block-header { padding: 12px 16px; font-size: 14px; font-weight: 500; border-bottom: 1px solid #e0e0e0; color: #555; }
 .char-block-body { padding: 12px 16px; }
 .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
-.stat-item { padding: 6px 12px; background: #fafafa; border-radius: 6px; display: flex; justify-content: space-between; font-size: 14px; }
+.stat-item { padding: 6px 12px; background: #fafafa; border-radius: 6px; display: flex; justify-content: space-between; font-size: 14px; cursor: pointer; }
+.stat-item:hover { background: #f0f0f0; }
 .stat-item .stat-name { color: #555; }
 .stat-item .stat-val { font-weight: 500; }
 .stat-item .stat-up { color: #2e7d32; }
@@ -22,6 +23,8 @@
 .resource-item .res-bar { width: 120px; height: 8px; background: #e0e0e0; border-radius: 4px; overflow: hidden; }
 .resource-item .res-bar-fill { height: 100%; border-radius: 4px; }
 .resource-item .res-text { font-size: 13px; color: #555; }
+.res-btn { width: 22px; height: 22px; border: 1px solid #e0e0e0; border-radius: 4px; background: #fff; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; font-size: 14px; color: #555; line-height: 1; }
+.res-btn:hover { background: #f0f0f0; border-color: #1976D2; color: #1976D2; }
 
 .ability-filters { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 12px; }
 .ability-filter { padding: 4px 10px; border-radius: 12px; font-size: 12px; cursor: pointer; border: 1px solid #e0e0e0; background: #fff; color: #555; }
@@ -34,10 +37,64 @@
 .defense-item .def-val { font-weight: 500; }
 .defense-item .def-reliable { font-size: 11px; color: #999; }
 
-.attack-item { padding: 8px 12px; background: #fafafa; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; }
+.attack-item { padding: 8px 12px; background: #fafafa; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .attack-item .atk-name { font-weight: 500; font-size: 14px; }
-.attack-item .atk-dice { font-size: 13px; color: #555; }
+.attack-item .atk-type { font-size: 12px; color: #757575; }
+.attack-item .atk-acc { font-size: 13px; color: #1976D2; }
 .attack-item .atk-damage { font-size: 13px; color: #c62828; }
+
+.attack-plate { display: flex; align-items: center; gap: 8px; background: #e3f2fd; border: 1px solid #bbdefb; border-radius: 6px; padding: 6px 12px; margin-top: 8px; cursor: pointer; }
+.attack-plate:hover { background: #bbdefb; }
+.attack-plate .plate-dice { font-size: 18px; }
+.attack-plate .plate-label { font-size: 13px; font-weight: 500; color: #1565C0; }
+.attack-plate .plate-summary { font-size: 12px; color: #555; }
+
+.cond-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 6px; }
+.cond-item { padding: 4px 10px; background: #fafafa; border-radius: 6px; display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.cond-item .cond-icon { font-size: 16px; }
+.cond-item .cond-label { color: #555; }
+.cond-item .cond-val { margin-left: auto; font-weight: 500; }
+.cond-item .cond-bar { width: 60px; height: 6px; background: #e0e0e0; border-radius: 3px; overflow: hidden; }
+.cond-item .cond-bar-fill { height: 100%; border-radius: 3px; }
+
+.defense-sum { display: flex; align-items: center; gap: 12px; padding: 8px 12px; background: #e8f5e9; border: 1px solid #c8e6c9; border-radius: 6px; font-size: 13px; }
+.defense-sum .sum-label { color: #2e7d32; font-weight: 500; }
+.defense-sum .sum-val { font-weight: 600; font-size: 16px; color: #1b5e20; }
+
+.blocking-item { padding: 6px 12px; background: #fff8e1; border: 1px solid #ffe082; border-radius: 6px; font-size: 13px; display: flex; align-items: center; gap: 16px; }
+.blocking-item .blk-label { color: #f57f17; font-weight: 500; }
+.blocking-item .blk-stat { color: #555; }
+
+.tabs { display: flex; gap: 2px; margin-bottom: 20px; border-bottom: 2px solid #e0e0e0; }
+.tab-btn { padding: 10px 16px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; background: none; color: #757575; position: relative; white-space: nowrap; }
+.tab-btn:hover { color: #1976D2; }
+.tab-btn.active { color: #1976D2; }
+.tab-btn.active::after { content: ''; position: absolute; bottom: -2px; left: 0; right: 0; height: 2px; background: #1976D2; }
+.tab-btn .tab-owner { font-size: 10px; color: #f57f17; margin-left: 4px; }
+
+.inv-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.inv-header .inv-money { font-size: 14px; color: #555; }
+.inv-header .inv-money strong { color: #212121; }
+.inv-item { display: flex; align-items: center; gap: 12px; padding: 6px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+.inv-item:last-child { border-bottom: none; }
+.inv-item .inv-qty { min-width: 28px; color: #999; font-size: 12px; }
+.inv-item .inv-name { flex: 1; color: #333; }
+
+.tooltip-overlay { display: none; position: fixed; inset: 0; z-index: 300; }
+.tooltip-overlay.open { display: block; }
+.tooltip-popup { display: none; position: fixed; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.15); padding: 16px; z-index: 301; min-width: 260px; max-width: 340px; }
+.tooltip-popup.open { display: block; }
+.tooltip-popup .tip-title { font-weight: 500; font-size: 14px; margin-bottom: 8px; }
+.tooltip-popup .tip-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; border-bottom: 1px solid #f5f5f5; }
+.tooltip-popup .tip-row:last-child { border-bottom: none; }
+.tooltip-popup .tip-row .tip-source { color: #555; min-width: 80px; }
+.tooltip-popup .tip-row .tip-value { color: #1976D2; font-weight: 500; min-width: 36px; text-align: center; }
+.tooltip-popup .tip-row .tip-target { color: #999; }
+.tooltip-popup .tip-empty { font-size: 13px; color: #999; padding: 8px 0; text-align: center; }
+
+.skill-level { font-size: 12px; color: #1976D2; margin-left: 4px; }
+
+.spells-empty { padding: 20px; text-align: center; font-size: 13px; color: #bbb; }
 </style>
 </head><body>
 <div class="layout">
@@ -65,7 +122,7 @@
     </div>
     <div class="content">
       <!-- Шапка персонажа -->
-      <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:12px">
         <div class="avatar" style="width:56px;height:56px;font-size:22px">Э</div>
         <div>
           <h2 style="font-size:20px">Элиандра</h2>
@@ -83,215 +140,418 @@
         </div>
       </div>
 
-      <!-- Валюты -->
-      <div class="char-block">
-        <div class="char-block-header">Валюты</div>
-        <div class="char-block-body">
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
-            <div class="stat-item"><span class="stat-name">ОС</span><span class="stat-val">6 / 10</span></div>
-            <div class="stat-item"><span class="stat-name">ОЛ</span><span class="stat-val">0 / 3</span></div>
-            <div class="stat-item"><span class="stat-name">ОР</span><span class="stat-val">5 / 15</span></div>
-          </div>
-        </div>
+      <!-- Табы -->
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="overview" onclick="switchTab('overview')">Обзор</button>
+        <button class="tab-btn" data-tab="abilities" onclick="switchTab('abilities')">Способности</button>
+        <button class="tab-btn" data-tab="inventory" onclick="switchTab('inventory')">Инвентарь</button>
+        <button class="tab-btn" data-tab="description" onclick="switchTab('description')">Описание</button>
+        <button class="tab-btn" data-tab="notes" onclick="switchTab('notes')">Заметки<span class="tab-owner">только владелец</span></button>
+        <button class="tab-btn" data-tab="discussion" onclick="switchTab('discussion')">Обсуждение</button>
       </div>
 
-      <!-- Характеристики -->
-      <div class="char-block">
-        <div class="char-block-header">Характеристики</div>
-        <div class="char-block-body">
-          <div style="margin-bottom:12px">
-            <div style="font-size:13px;color:#757575;margin-bottom:6px">Основные</div>
-            <div class="stat-grid">
-              <div class="stat-item"><span class="stat-name">Сила</span><span class="stat-val">3</span></div>
-              <div class="stat-item"><span class="stat-name">Стойкость</span><span class="stat-val">4</span></div>
-              <div class="stat-item"><span class="stat-name">Ловкость</span><span class="stat-val stat-up">4↑</span></div>
-              <div class="stat-item"><span class="stat-name">Восприятие</span><span class="stat-val">3</span></div>
-              <div class="stat-item"><span class="stat-name">Внимательность</span><span class="stat-val stat-up">4↑</span></div>
-              <div class="stat-item"><span class="stat-name">Реакция</span><span class="stat-val">3</span></div>
-              <div class="stat-item"><span class="stat-name">Интеллект</span><span class="stat-val">3</span></div>
-              <div class="stat-item"><span class="stat-name">Память</span><span class="stat-val">3</span></div>
-              <div class="stat-item"><span class="stat-name">Мышление</span><span class="stat-val">2</span></div>
-              <div class="stat-item"><span class="stat-name">Магия</span><span class="stat-val">4</span></div>
-            </div>
-          </div>
-          <div>
-            <div style="font-size:13px;color:#757575;margin-bottom:6px">Мастерство боя</div>
-            <div class="stat-grid">
-              <div class="stat-item"><span class="stat-name">Бой руками</span><span class="stat-val">1</span></div>
-              <div class="stat-item"><span class="stat-name">Лёгкое оружие</span><span class="stat-val">2</span></div>
-              <div class="stat-item"><span class="stat-name">Лук</span><span class="stat-val stat-up">3↑</span></div>
-              <div class="stat-item"><span class="stat-name">Метательное</span><span class="stat-val">1</span></div>
+      <!-- ======================= TAB: ОБЗОР ======================= -->
+      <div id="tab-overview" class="tab-content">
+
+        <!-- Валюты -->
+        <div class="char-block">
+          <div class="char-block-header">Валюты</div>
+          <div class="char-block-body">
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+              <div class="stat-item"><span class="stat-name">ОС</span><span class="stat-val">6 / 10</span></div>
+              <div class="stat-item"><span class="stat-name">ОЛ</span><span class="stat-val">0 / 3</span></div>
+              <div class="stat-item"><span class="stat-name">ОР</span><span class="stat-val">5 / 15</span></div>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- Ресурсы -->
-      <div class="char-block">
-        <div class="char-block-header">Ресурсы</div>
-        <div class="char-block-body">
-          <div class="resource-row">
-            <div class="resource-item">
-              <span class="res-icon">💫</span>
-              <div>
-                <div style="font-size:12px;color:#757575">Усталость</div>
-                <div style="display:flex;align-items:center;gap:6px">
-                  <div class="res-bar" style="width:120px"><div class="res-bar-fill" style="width:30%;background:#e53935"></div></div>
-                  <span class="res-text">3</span>
-                </div>
+        <!-- Характеристики -->
+        <div class="char-block">
+          <div class="char-block-header">Характеристики</div>
+          <div class="char-block-body">
+            <div style="margin-bottom:12px">
+              <div style="font-size:13px;color:#757575;margin-bottom:6px">Основные</div>
+              <div class="stat-grid">
+                <div class="stat-item" onclick="showModTip(event, 'Сила')"><span class="stat-name">Сила</span><span class="stat-val">3</span></div>
+                <div class="stat-item" onclick="showModTip(event, 'Стойкость')"><span class="stat-name">Стойкость</span><span class="stat-val">4</span></div>
+                <div class="stat-item" onclick="showModTip(event, 'Ловкость')"><span class="stat-name">Ловкость</span><span class="stat-val stat-up">4↑</span></div>
+                <div class="stat-item" onclick="showModTip(event, 'Восприятие')"><span class="stat-name">Восприятие</span><span class="stat-val">3</span></div>
+                <div class="stat-item" onclick="showModTip(event, 'Внимательность')"><span class="stat-name">Внимательность</span><span class="stat-val stat-up">5↑</span></div>
+                <div class="stat-item" onclick="showModTip(event, 'Реакция')"><span class="stat-name">Реакция</span><span class="stat-val">3</span></div>
+                <div class="stat-item" onclick="showModTip(event, 'Интеллект')"><span class="stat-name">Интеллект</span><span class="stat-val">3</span></div>
+                <div class="stat-item" onclick="showModTip(event, 'Память')"><span class="stat-name">Память</span><span class="stat-val">3</span></div>
+                <div class="stat-item" onclick="showModTip(event, 'Мышление')"><span class="stat-name">Мышление</span><span class="stat-val">3</span></div>
+                <div class="stat-item" onclick="showModTip(event, 'Магия')"><span class="stat-name">Магия</span><span class="stat-val">4</span></div>
               </div>
             </div>
-            <div class="resource-item">
-              <span class="res-icon">⚡</span>
-              <div>
-                <div style="font-size:12px;color:#757575">ОД</div>
-                <div style="display:flex;align-items:center;gap:6px">
-                  <div class="res-bar"><div class="res-bar-fill" style="width:60%;background:#1976D2"></div></div>
-                  <span class="res-text">3 / 5</span>
-                </div>
+            <div>
+              <div style="font-size:13px;color:#757575;margin-bottom:6px">Мастерство боя</div>
+              <div class="stat-grid">
+                <div class="stat-item" onclick="showModTip(event, 'Бой руками')"><span class="stat-name">Бой руками</span><span class="stat-val">3</span></div>
+                <div class="stat-item" onclick="showModTip(event, 'Лёгкое оружие')"><span class="stat-name">Лёгкое оружие</span><span class="stat-val">3</span></div>
+                <div class="stat-item" onclick="showModTip(event, 'Лук')"><span class="stat-name">Лук</span><span class="stat-val stat-up">4↑</span></div>
+                <div class="stat-item" onclick="showModTip(event, 'Метательное')"><span class="stat-name">Метательное</span><span class="stat-val">3</span></div>
               </div>
             </div>
-            <div class="resource-item">
-              <span class="res-icon">◎</span>
-              <div>
-                <div style="font-size:12px;color:#757575">Ци Духа <span style="font-size:11px;color:#999">↓маленькая</span></div>
-                <div style="display:flex;align-items:center;gap:6px">
-                  <div style="display:flex;gap:2px">
-                    <span style="font-size:14px;color:#1976D2">◉</span>
-                    <span style="font-size:14px;color:#1976D2">◉</span>
-                    <span style="font-size:14px;color:#1976D2">◉</span>
-                    <span style="font-size:14px;color:#e0e0e0">◉</span>
-                    <span style="font-size:14px;color:#e0e0e0">◉</span>
-                    <span style="font-size:14px;color:#e0e0e0">◉</span>
-                    <span style="font-size:14px;color:#e0e0e0">◉</span>
+          </div>
+        </div>
+
+        <!-- Ресурсы -->
+        <div class="char-block">
+          <div class="char-block-header">Ресурсы</div>
+          <div class="char-block-body">
+            <div class="resource-row">
+              <div class="resource-item">
+                <span class="res-icon">⚡</span>
+                <div>
+                  <div style="font-size:12px;color:#757575">ОД</div>
+                  <div style="display:flex;align-items:center;gap:6px">
+                    <button class="res-btn" onclick="event.stopPropagation()">−</button>
+                    <div class="res-bar"><div class="res-bar-fill" style="width:60%;background:#1976D2"></div></div>
+                    <span class="res-text">3 / 5</span>
+                    <button class="res-btn" onclick="event.stopPropagation()">+</button>
                   </div>
-                  <span class="res-text" style="font-size:12px">3↓ / 7↓</span>
+                </div>
+              </div>
+              <div class="resource-item">
+                <span class="res-icon">◎</span>
+                <div>
+                  <div style="font-size:12px;color:#757575">Ци Духа <span style="font-size:11px;color:#999">↓маленькая</span></div>
+                  <div style="display:flex;align-items:center;gap:6px">
+                    <button class="res-btn" onclick="event.stopPropagation()">−</button>
+                    <div style="display:flex;gap:2px">
+                      <span style="font-size:14px;color:#1976D2">◉</span>
+                      <span style="font-size:14px;color:#1976D2">◉</span>
+                      <span style="font-size:14px;color:#1976D2">◉</span>
+                      <span style="font-size:14px;color:#e0e0e0">◉</span>
+                      <span style="font-size:14px;color:#e0e0e0">◉</span>
+                      <span style="font-size:14px;color:#e0e0e0">◉</span>
+                      <span style="font-size:14px;color:#e0e0e0">◉</span>
+                    </div>
+                    <span class="res-text" style="font-size:12px">3↓ / 7↓</span>
+                    <button class="res-btn" onclick="event.stopPropagation()">+</button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- Защиты -->
-      <div class="char-block">
-        <div class="char-block-header">Защиты</div>
-        <div class="char-block-body">
-          <div class="defense-grid">
-            <div class="defense-item">
-              <span class="def-name">Доспех (кольчуга)</span>
-              <div><span class="def-val">4</span> <span class="def-reliable">надёж. 2</span></div>
+        <!-- Состояния (collapsible) -->
+        <div class="char-block">
+          <div class="exp-panel open" style="margin:0;border:none;border-radius:0">
+            <div class="char-block-header" onclick="this.parentElement.classList.toggle('open')" style="cursor:pointer;border-bottom:1px solid #e0e0e0;user-select:none">
+              <span class="exp-arrow" style="transition:transform .2s;color:#999;display:inline-block;margin-right:8px">▶</span>
+              Состояния
             </div>
-            <div class="defense-item">
-              <span class="def-name">Кожа</span>
-              <div><span class="def-val">1</span> <span class="def-reliable">надёж. 10</span></div>
+            <div class="exp-panel-body" style="display:block">
+              <div class="cond-grid">
+                <div class="cond-item">
+                  <span class="cond-icon">💫</span>
+                  <span class="cond-label">Усталость</span>
+                  <div class="cond-bar"><div class="cond-bar-fill" style="width:30%;background:#e53935"></div></div>
+                  <span class="cond-val">3</span>
+                </div>
+                <div class="cond-item">
+                  <span class="cond-icon">🩸</span>
+                  <span class="cond-label">Раны</span>
+                  <div class="cond-bar"><div class="cond-bar-fill" style="width:40%;background:#e53935"></div></div>
+                  <span class="cond-val">2 / 6</span>
+                </div>
+                <div class="cond-item">
+                  <span class="cond-icon">🦴</span>
+                  <span class="cond-label">Увечья</span>
+                  <span class="cond-val" style="color:#999">—</span>
+                </div>
+                <div class="cond-item">
+                  <span class="cond-icon">🔥</span>
+                  <span class="cond-label">Горение</span>
+                  <span class="cond-val" style="color:#999">—</span>
+                </div>
+                <div class="cond-item">
+                  <span class="cond-icon">☠️</span>
+                  <span class="cond-label">Отравление</span>
+                  <span class="cond-val" style="color:#999">—</span>
+                </div>
+              </div>
             </div>
-            <div class="defense-item">
-              <span class="def-name">Щит</span>
-              <div><span class="def-val">2</span> <span class="def-reliable">надёж. 4</span></div>
+          </div>
+        </div>
+
+        <!-- Защита -->
+        <div class="char-block">
+          <div class="char-block-header">Защита</div>
+          <div class="char-block-body">
+            <div class="defense-grid" style="margin-bottom:8px">
+              <div class="defense-item">
+                <span class="def-name">Доспех (кольчуга)</span>
+                <div><span class="def-val">4</span> <span class="def-reliable">надёж. 2</span></div>
+              </div>
+              <div class="defense-item">
+                <span class="def-name">Кожа</span>
+                <div><span class="def-val">1</span> <span class="def-reliable">надёж. 10</span></div>
+              </div>
+            </div>
+            <div class="defense-sum" style="margin-bottom:8px">
+              <span class="sum-label">Суммарная защита</span>
+              <span class="sum-val">5</span>
+            </div>
+            <div class="blocking-item">
+              <span class="blk-label">Блокирование:</span>
+              <span class="blk-stat">Щит</span>
+              <span class="blk-stat">Защита: 2</span>
+              <span class="blk-stat">Эффективность: 4</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Атаки -->
+        <div class="char-block">
+          <div class="char-block-header">Атаки</div>
+          <div class="char-block-body">
+            <div style="display:grid;gap:8px">
+              <div class="attack-item">
+                <div>
+                  <div class="atk-name">Короткий лук</div>
+                  <div class="atk-type">выстрел (дальняя, 50 м)</div>
+                </div>
+                <div style="text-align:right">
+                  <div class="atk-acc">Точность +3</div>
+                  <div style="font-size:13px;color:#c62828">4 колющего</div>
+                  <div style="font-size:12px;color:#757575">пробитие 2</div>
+                </div>
+              </div>
+              <div class="attack-plate" onclick="alert('Бросок атаки: Короткий лук (d20 + 3)')">
+                <span class="plate-dice">🎲</span>
+                <span class="plate-label">Быстрая атака</span>
+                <span class="plate-summary">Короткий лук · Точн. +3 · Урон 4к</span>
+              </div>
+            </div>
+            <div style="display:grid;gap:8px;margin-top:8px">
+              <div class="attack-item">
+                <div>
+                  <div class="atk-name">Кинжал</div>
+                  <div class="atk-type">удар (ближняя, вплотную)</div>
+                </div>
+                <div style="text-align:right">
+                  <div class="atk-acc">Точность +1</div>
+                  <div style="font-size:13px;color:#c62828">2 колющего</div>
+                  <div style="font-size:12px;color:#757575">пробитие 0</div>
+                </div>
+              </div>
+              <div class="attack-plate" onclick="alert('Бросок атаки: Кинжал (d20 + 1)')">
+                <span class="plate-dice">🎲</span>
+                <span class="plate-label">Быстрая атака</span>
+                <span class="plate-summary">Кинжал · Точн. +1 · Урон 2к</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Атаки -->
-      <div class="char-block">
-        <div class="char-block-header">Атаки</div>
-        <div class="char-block-body">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-            <div class="attack-item">
-              <div>
-                <div class="atk-name">Короткий лук</div>
-                <div class="atk-dice">Мастерство 3 · дальняя</div>
+      <!-- ======================= TAB: СПОСОБНОСТИ ======================= -->
+      <div id="tab-abilities" class="tab-content" style="display:none">
+
+        <div class="char-block">
+          <div class="char-block-header">Способности</div>
+          <div class="char-block-body">
+            <div class="ability-filters">
+              <span class="ability-filter active">⭐ Избранные</span>
+              <span class="ability-filter">Все</span>
+              <span class="ability-filter">Расовые</span>
+              <span class="ability-filter">Навыки</span>
+              <span class="ability-filter">Заклинания</span>
+              <span class="ability-filter">Боевые</span>
+              <span class="ability-filter">Пассивные</span>
+            </div>
+
+            <div style="margin-bottom:12px">
+              <div class="exp-panel exp-panel-sm selected">
+                <div class="exp-panel-header">
+                  <span class="exp-arrow">▶</span>
+                  <span style="color:#f57f17;font-size:14px;margin-right:4px">★</span>
+                  <span style="flex:1">Ночное зрение <span style="color:#999;font-size:12px">расовая</span></span>
+                  <span style="color:#757575;font-size:12px">3 ОС</span>
+                </div>
+                <div class="exp-panel-body" style="font-size:13px;color:#555">
+                  Позволяет видеть в темноте до 30 м.
+                </div>
               </div>
-              <div style="text-align:right">
-                <div style="font-size:13px;color:#c62828">4 колющего</div>
-                <div style="font-size:12px;color:#757575">пробитие 2</div>
+              <div class="exp-panel exp-panel-sm selected">
+                <div class="exp-panel-header">
+                  <span class="exp-arrow">▶</span>
+                  <span style="color:#f57f17;font-size:14px;margin-right:4px">★</span>
+                  <span style="flex:1">Владение луком <span class="skill-level">1 из 5</span> <span style="color:#999;font-size:12px">навык, боевая</span></span>
+                  <span style="color:#757575;font-size:12px">5 ОР</span>
+                </div>
+                <div class="exp-panel-body" style="font-size:13px;color:#555">
+                  Дальнобойная атака: 2d6.
+                </div>
               </div>
             </div>
-            <div class="attack-item">
-              <div>
-                <div class="atk-name">Кинжал</div>
-                <div class="atk-dice">Мастерство 1 · ближняя</div>
-              </div>
-              <div style="text-align:right">
-                <div style="font-size:13px;color:#c62828">2 колющего</div>
-                <div style="font-size:12px;color:#757575">пробитие 0</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
 
-      <!-- Способности (избранные + полный список) -->
-      <div class="char-block">
-        <div class="char-block-header">Способности</div>
-        <div class="char-block-body">
-          <div class="ability-filters">
-            <span class="ability-filter active">⭐ Избранные</span>
-            <span class="ability-filter">Все</span>
-            <span class="ability-filter">Расовые</span>
-            <span class="ability-filter">Навыки</span>
-            <span class="ability-filter">Заклинания</span>
-            <span class="ability-filter">Боевые</span>
-            <span class="ability-filter">Пассивные</span>
-          </div>
-
-          <!-- Избранные -->
-          <div style="margin-bottom:12px">
-            <div class="exp-panel exp-panel-sm selected">
+            <div class="exp-panel exp-panel-sm">
               <div class="exp-panel-header">
                 <span class="exp-arrow">▶</span>
-                <span style="color:#f57f17;font-size:14px;margin-right:4px">★</span>
-                <span style="flex:1">Ночное зрение <span style="color:#999;font-size:12px">расовая</span></span>
-                <span style="color:#757575;font-size:12px">3 ОС</span>
+                <span style="flex:1">Острый слух <span style="color:#999;font-size:12px">расовая</span></span>
+                <span style="color:#757575;font-size:12px">2 ОС</span>
+                <span style="color:#f57f17;font-size:14px;margin-left:8px;cursor:pointer">☆</span>
               </div>
               <div class="exp-panel-body" style="font-size:13px;color:#555">
-                Позволяет видеть в темноте до 30 м.
+                Бонус +1 к проверкам слуха.
               </div>
             </div>
-            <div class="exp-panel exp-panel-sm selected">
+            <div class="exp-panel exp-panel-sm">
               <div class="exp-panel-header">
                 <span class="exp-arrow">▶</span>
-                <span style="color:#f57f17;font-size:14px;margin-right:4px">★</span>
-                <span style="flex:1">Владение луком <span style="color:#999;font-size:12px">навык, боевая</span></span>
-                <span style="color:#757575;font-size:12px">ур. 1 · 5 ОР</span>
+                <span style="flex:1">Меткий выстрел <span class="skill-level">1 из 5</span> <span style="color:#999;font-size:12px">боевая</span></span>
+                <span style="color:#757575;font-size:12px">4 ОР</span>
+                <span style="color:#f57f17;font-size:14px;margin-left:8px;cursor:pointer">★</span>
               </div>
               <div class="exp-panel-body" style="font-size:13px;color:#555">
-                Дальнобойная атака: 2d6.
+                +2 к атаке при прицеливании.
               </div>
             </div>
           </div>
+        </div>
 
-          <!-- Полный список -->
-          <div class="exp-panel exp-panel-sm">
-            <div class="exp-panel-header">
-              <span class="exp-arrow">▶</span>
-              <span style="flex:1">Острый слух <span style="color:#999;font-size:12px">расовая</span></span>
-              <span style="color:#757575;font-size:12px">2 ОС</span>
-              <span style="color:#f57f17;font-size:14px;margin-left:8px;cursor:pointer">☆</span>
+        <!-- Заклинания (отдельный блок, скрыт если пусто) -->
+        <div class="char-block" id="spells-section">
+          <div class="char-block-header">Заклинания</div>
+          <div class="char-block-body">
+            <div class="exp-panel exp-panel-sm">
+              <div class="exp-panel-header">
+                <span class="exp-arrow">▶</span>
+                <span style="flex:1">Магическая стрела <span style="color:#999;font-size:12px">заклинание</span></span>
+                <span style="color:#757575;font-size:12px">1 ОД</span>
+              </div>
+              <div class="exp-panel-body" style="font-size:13px;color:#555">
+                Выпускает магический снаряд, наносящий 1d6 + Интеллект урона.
+              </div>
             </div>
-            <div class="exp-panel-body" style="font-size:13px;color:#555">
-              Бонус +1 к проверкам слуха.
-            </div>
-          </div>
-          <div class="exp-panel exp-panel-sm">
-            <div class="exp-panel-header">
-              <span class="exp-arrow">▶</span>
-              <span style="flex:1">Меткий выстрел <span style="color:#999;font-size:12px">боевая</span></span>
-              <span style="color:#757575;font-size:12px">ур. 1 · 4 ОР</span>
-              <span style="color:#f57f17;font-size:14px;margin-left:8px;cursor:pointer">★</span>
-            </div>
-            <div class="exp-panel-body" style="font-size:13px;color:#555">
-              +2 к атаке при прицеливании.
+            <div class="exp-panel exp-panel-sm">
+              <div class="exp-panel-header">
+                <span class="exp-arrow">▶</span>
+                <span style="flex:1">Свет <span style="color:#999;font-size:12px">заклинание</span></span>
+                <span style="color:#757575;font-size:12px">0 ОД</span>
+              </div>
+              <div class="exp-panel-body" style="font-size:13px;color:#555">
+                Создаёт источник света на 1 час.
+              </div>
             </div>
           </div>
         </div>
       </div>
+
+      <!-- ======================= TAB: ИНВЕНТАРЬ ======================= -->
+      <div id="tab-inventory" class="tab-content" style="display:none">
+        <div class="char-block">
+          <div class="char-block-header">Инвентарь</div>
+          <div class="char-block-body">
+            <div class="inv-header">
+              <span style="font-weight:500">Снаряжение</span>
+              <span class="inv-money">💰 <strong>125 зм</strong> · 45 мм</span>
+            </div>
+            <div class="inv-item">
+              <span class="inv-qty">1</span>
+              <span class="inv-name">Короткий лук</span>
+              <span style="color:#999;font-size:12px">оружие</span>
+            </div>
+            <div class="inv-item">
+              <span class="inv-qty">1</span>
+              <span class="inv-name">Кинжал</span>
+              <span style="color:#999;font-size:12px">оружие</span>
+            </div>
+            <div class="inv-item">
+              <span class="inv-qty">20</span>
+              <span class="inv-name">Стрелы</span>
+              <span style="color:#999;font-size:12px">расходники</span>
+            </div>
+            <div class="inv-item">
+              <span class="inv-qty">1</span>
+              <span class="inv-name">Кольчуга</span>
+              <span style="color:#999;font-size:12px">доспех</span>
+            </div>
+            <div class="inv-item">
+              <span class="inv-qty">1</span>
+              <span class="inv-name">Щит</span>
+              <span style="color:#999;font-size:12px">снаряжение</span>
+            </div>
+            <div class="inv-item">
+              <span class="inv-qty">1</span>
+              <span class="inv-name">Зелье лечения</span>
+              <span style="color:#999;font-size:12px">расходники</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======================= TAB: ОПИСАНИЕ ======================= -->
+      <div id="tab-description" class="tab-content" style="display:none">
+        <div class="char-block">
+          <div class="char-block-header">Описание</div>
+          <div class="char-block-body" style="font-size:14px;color:#555;line-height:1.6">
+            <p style="margin-bottom:8px">Элиандра — молодая эльфийка из лесного племени, обученная владению луком и основам магии. Легка на подъём, любопытна, всегда готова к приключениям.</p>
+            <p style="margin-bottom:8px"><strong>Внешность:</strong> Рост 168 см, длинные светлые волосы, зелёные глаза. Носит лёгкий кожаный доспех поверх льняной рубахи.</p>
+            <p><strong>Характер:</strong> Дружелюбная, но настороженная к незнакомцам. Ценит свободу и не терпит несправедливости.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======================= TAB: ЗАМЕТКИ (только владелец) ======================= -->
+      <div id="tab-notes" class="tab-content" style="display:none">
+        <div class="char-block">
+          <div class="char-block-header">
+            Заметки
+            <span style="font-size:11px;color:#f57f17;margin-left:8px">🔒 только владелец</span>
+          </div>
+          <div class="char-block-body">
+            <div style="background:#fffde7;border:1px solid #fff9c4;border-radius:6px;padding:12px;font-size:13px;color:#555;line-height:1.5">
+              <p style="margin-bottom:6px"><strong>Личные цели:</strong> Найти древний артефакт в руинах.</p>
+              <p style="margin-bottom:6px"><strong>Долги/отношения:</strong> Должна 50 зм торговцу в порту.</p>
+              <p><strong>Квесты:</strong> Взять заказ в гильдии искателей.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======================= TAB: ОБСУЖДЕНИЕ ======================= -->
+      <div id="tab-discussion" class="tab-content" style="display:none">
+        <div class="char-block">
+          <div class="char-block-header">Обсуждение</div>
+          <div class="char-block-body">
+            <div class="notif-item" style="margin-bottom:8px">
+              <div style="display:flex;gap:8px;width:100%">
+                <div class="avatar" style="width:32px;height:32px;font-size:14px">ГМ</div>
+                <div style="flex:1">
+                  <div style="font-weight:500;font-size:13px">Мастер <span style="color:#999;font-weight:400">· 2 часа назад</span></div>
+                  <div style="font-size:13px;color:#555;margin-top:2px">Элиандра, сделай проверку Восприятия, прежде чем войти в пещеру.</div>
+                </div>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:12px">
+              <input class="form-input" placeholder="Написать сообщение..." style="flex:1">
+              <button class="btn btn-primary btn-sm">Отправить</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
     <div class="footer">CharGen &copy; 2026</div>
   </div>
 </div>
+
+<!-- Tooltip overlay -->
+<div class="tooltip-overlay" id="tooltipOverlay" onclick="closeModTip()"></div>
+<div class="tooltip-popup" id="tooltipPopup">
+  <div class="tip-title" id="tipTitle">Характеристика</div>
+  <div id="tipBody">
+    <div class="tip-empty">Нет активных модификаторов</div>
+  </div>
+</div>
+
+<!-- Notification slider -->
 <div class="notif-overlay" id="notifOverlay" onclick="closeNotifSlider()"></div>
 <div class="notif-slider" id="notifSlider">
   <div class="notif-header">
@@ -332,14 +592,87 @@
     <a href="notifications.html">Все уведомления →</a>
   </div>
 </div>
+
 <script>
+const MODIFIERS = {
+  'Сила': [{ source: 'Раса (эльф)', value: '-1', target: 'Сила' }, { source: 'Кольцо силы', value: '+1', target: 'Сила' }],
+  'Стойкость': [{ source: 'Раса (эльф)', value: '+0', target: 'Стойкость' }],
+  'Ловкость': [{ source: 'Раса (эльф)', value: '+1', target: 'Ловкость' }, { source: 'Лёгкий доспех', value: '+1', target: 'Ловкость' }],
+  'Восприятие': [{ source: 'Базовое', value: '3', target: 'Восприятие' }],
+  'Внимательность': [{ source: 'Острый слух', value: '+1', target: 'Внимательность' }, { source: 'Базовое', value: '4', target: 'Внимательность' }],
+  'Реакция': [{ source: 'Базовое', value: '3', target: 'Реакция' }],
+  'Интеллект': [{ source: 'Базовое', value: '3', target: 'Интеллект' }],
+  'Память': [{ source: 'Базовое', value: '3', target: 'Память' }],
+  'Мышление': [{ source: 'Базовое', value: '3', target: 'Мышление' }],
+  'Магия': [{ source: 'Раса (эльф)', value: '+1', target: 'Магия' }, { source: 'Базовое', value: '3', target: 'Магия' }],
+  'Бой руками': [{ source: 'Базовое', value: '3', target: 'Бой руками' }],
+  'Лёгкое оружие': [{ source: 'Базовое', value: '3', target: 'Лёгкое оружие' }],
+  'Лук': [{ source: 'Владение луком', value: '+1', target: 'Лук' }, { source: 'Базовое', value: '3', target: 'Лук' }],
+  'Метательное': [{ source: 'Базовое', value: '3', target: 'Метательное' }]
+};
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab-content').forEach(function(el) { el.style.display = 'none'; });
+  document.querySelectorAll('.tab-btn').forEach(function(el) { el.classList.remove('active'); });
+  document.getElementById('tab-' + tab).style.display = 'block';
+  document.querySelector('.tab-btn[data-tab="' + tab + '"]').classList.add('active');
+}
+
 function toggleNotifSlider() {
   document.getElementById('notifOverlay').classList.toggle('open');
   document.getElementById('notifSlider').classList.toggle('open');
 }
+
 function closeNotifSlider() {
   document.getElementById('notifOverlay').classList.remove('open');
   document.getElementById('notifSlider').classList.remove('open');
 }
+
+function showModTip(event, name) {
+  var mods = MODIFIERS[name] || [];
+  var tip = document.getElementById('tooltipPopup');
+  var overlay = document.getElementById('tooltipOverlay');
+  document.getElementById('tipTitle').textContent = name;
+
+  var body = document.getElementById('tipBody');
+  if (mods.length === 0) {
+    body.innerHTML = '<div class="tip-empty">Нет активных модификаторов</div>';
+  } else {
+    body.innerHTML = mods.map(function(m) {
+      return '<div class="tip-row"><span class="tip-source">' + m.source + '</span><span class="tip-value">' + m.value + '</span><span class="tip-target">' + m.target + '</span></div>';
+    }).join('');
+  }
+
+  var rect = event.currentTarget.getBoundingClientRect();
+  var top = rect.bottom + 6;
+  var left = rect.left;
+
+  if (left + 340 > window.innerWidth) {
+    left = window.innerWidth - 350;
+  }
+  if (top + 300 > window.innerHeight) {
+    top = rect.top - 200;
+  }
+  if (top < 4) top = 4;
+
+  tip.style.top = top + 'px';
+  tip.style.left = left + 'px';
+  tip.classList.add('open');
+  overlay.classList.add('open');
+}
+
+function closeModTip() {
+  document.getElementById('tooltipPopup').classList.remove('open');
+  document.getElementById('tooltipOverlay').classList.remove('open');
+}
+
+document.querySelectorAll('.exp-panel').forEach(function(panel) {
+  var header = panel.querySelector('.exp-panel-header');
+  if (header) {
+    header.addEventListener('click', function() {
+      panel.classList.toggle('open');
+    });
+  }
+});
 </script>
 </body></html>

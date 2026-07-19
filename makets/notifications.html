@@ -5,7 +5,32 @@
 <title>CharGen — Уведомления</title>
 <link rel="stylesheet" href="common.css">
 <style>
-.notif-list { display: flex; flex-direction: column; }
+.notify-list { display: flex; flex-direction: column; }
+.notify-item { display: flex; gap: 12px; padding: 14px 16px; border-radius: 8px; border: 1px solid #e0e0e0; background: #fff; cursor: pointer; margin-bottom: 8px; }
+.notify-item:hover { border-color: #1976D2; }
+.notify-item.unread { background: #e3f2fd; border-color: #bbdefb; }
+.notify-item .notify-icon { font-size: 20px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.notify-item .notify-body { flex: 1; min-width: 0; }
+.notify-item .notify-header-row { display: flex; justify-content: space-between; align-items: center; }
+.notify-item .notify-title { font-weight: 500; font-size: 14px; }
+.notify-item .notify-time { font-size: 12px; color: #bbb; white-space: nowrap; flex-shrink: 0; }
+.notify-item .notify-preview { font-size: 13px; color: #757575; margin-top: 2px; }
+.notify-item .notify-actions { display: flex; gap: 6px; margin-top: 8px; }
+.notify-item .notify-actions:empty { display: none; }
+
+/* Slider overrides */
+.notif-slider .notify-header { display: flex; align-items: center; justify-content: space-between; padding: 16px; border-bottom: 1px solid #e0e0e0; font-weight: 500; font-size: 16px; }
+.notif-slider .notify-list { flex: 1; overflow-y: auto; padding: 12px; }
+.notif-slider .notify-list .notify-item { border-radius: 8px; margin-bottom: 6px; }
+
+/* Quick filters in slider */
+.notify-filters { display: flex; gap: 6px; padding: 8px 16px; border-bottom: 1px solid #e0e0e0; flex-wrap: wrap; }
+.notify-filters .filter-btn { padding: 4px 10px; border-radius: 12px; border: 1px solid #e0e0e0; background: #fff; font-size: 12px; cursor: pointer; color: #555; }
+.notify-filters .filter-btn:hover { background: #f5f5f5; }
+.notify-filters .filter-btn.active { background: #e3f2fd; color: #1976D2; border-color: #1976D2; }
+
+/* Dedup indicator */
+.dup-note { font-size: 12px; color: #999; padding: 8px 16px; text-align: center; font-style: italic; }
 </style>
 </head><body>
 <div class="layout">
@@ -37,85 +62,108 @@
           <button class="btn btn-sm btn-outline">Непрочитанные</button>
           <button class="btn btn-sm btn-outline">Приглашения</button>
         </div>
-        <div class="notif-list">
-          <div class="notif-item unread">
-            <div class="notif-icon">🎮</div>
-            <div class="notif-body">
-              <div class="notif-title">Приглашение в игру «Школа волшебства»</div>
-              <div class="notif-preview">Ведущий Анна С. приглашает вас присоединиться к игре</div>
-              <div class="notif-actions">
+        <div class="notify-list">
+          <div class="notify-item unread">
+            <div class="notify-icon">🎮</div>
+            <div class="notify-body">
+              <div class="notify-header-row">
+                <span class="notify-title">Приглашение в игру «Школа волшебства»</span>
+                <span class="notify-time">5 мин</span>
+              </div>
+              <div class="notify-preview">Ведущий Анна С. приглашает вас присоединиться к игре</div>
+              <div class="notify-actions">
                 <button class="btn btn-sm btn-primary">Принять</button>
                 <button class="btn btn-sm btn-outline">Отклонить</button>
               </div>
             </div>
-            <div class="notif-time">5 мин</div>
           </div>
-          <div class="notif-item unread">
-            <div class="notif-icon">👤</div>
-            <div class="notif-body">
-              <div class="notif-title">Модерация персонажа «Мэллорн»</div>
-              <div class="notif-preview">Персонаж ожидает проверки ведущим игры «Подземелье дракона»</div>
-              <div class="notif-actions">
+          <div class="notify-item unread">
+            <div class="notify-icon">👤</div>
+            <div class="notify-body">
+              <div class="notify-header-row">
+                <span class="notify-title">Модерация персонажа «Мэллорн»</span>
+                <span class="notify-time">1 час</span>
+              </div>
+              <div class="notify-preview">Персонаж ожидает проверки ведущим игры «Подземелье дракона»</div>
+              <div class="notify-actions">
                 <button class="btn btn-sm btn-primary">Проверить</button>
               </div>
             </div>
-            <div class="notif-time">1 час</div>
           </div>
-          <div class="notif-item">
-            <div class="notif-icon">🔄</div>
-            <div class="notif-body">
-              <div class="notif-title">Миграция версии завершена</div>
-              <div class="notif-preview">Персонаж «Элиандра» успешно перенесён на новую версию правил</div>
+          <div class="notify-item">
+            <div class="notify-icon">🔄</div>
+            <div class="notify-body">
+              <div class="notify-header-row">
+                <span class="notify-title">Миграция версии завершена</span>
+                <span class="notify-time">3 часа</span>
+              </div>
+              <div class="notify-preview">Персонаж «Элиандра» успешно перенесён на новую версию правил</div>
             </div>
-            <div class="notif-time">3 часа</div>
           </div>
-          <div class="notif-item">
-            <div class="notif-icon">🎮</div>
-            <div class="notif-body">
-              <div class="notif-title">Приглашение принято</div>
-              <div class="notif-preview">Пётр К. принял приглашение в игру «Подземелье дракона»</div>
+          <div class="notify-item">
+            <div class="notify-icon">🎮</div>
+            <div class="notify-body">
+              <div class="notify-header-row">
+                <span class="notify-title">Приглашение принято</span>
+                <span class="notify-time">вчера</span>
+              </div>
+              <div class="notify-preview">Пётр К. принял приглашение в игру «Подземелье дракона»</div>
             </div>
-            <div class="notif-time">вчера</div>
           </div>
       </div>
+      <div class="dup-note">⚠️ Повторяющиеся уведомления автоматически скрываются</div>
     </div>
     <div class="footer">CharGen &copy; 2026</div>
   </div>
 </div>
 <div class="notif-overlay" id="notifOverlay" onclick="closeNotifSlider()"></div>
 <div class="notif-slider" id="notifSlider">
-  <div class="notif-header">
+  <div class="notify-header">
     <span>Уведомления</span>
     <button class="btn-close" onclick="closeNotifSlider()">✕</button>
   </div>
-  <div class="notif-list">
-    <div class="notif-item unread">
-      <div class="notif-icon">🎲</div>
-      <div class="notif-body">
-        <div class="notif-title">Приглашение в игру «Подземелье дракона»</div>
-        <div class="notif-preview">Ведущий Иван П. приглашает вас присоединиться</div>
-        <div class="notif-actions">
+  <div class="notify-filters">
+    <button class="filter-btn active">Все</button>
+    <button class="filter-btn">Не просмотренные</button>
+    <button class="filter-btn">Ожидают действия</button>
+  </div>
+  <div class="notify-list">
+    <div class="notify-item unread">
+      <div class="notify-icon">🎲</div>
+      <div class="notify-body">
+        <div class="notify-header-row">
+          <span class="notify-title">Приглашение в игру «Подземелье дракона»</span>
+          <span class="notify-time">5 минут назад</span>
+        </div>
+        <div class="notify-preview">Ведущий Иван П. приглашает вас присоединиться</div>
+        <div class="notify-actions">
           <button class="btn btn-sm btn-primary">Принять</button>
           <button class="btn btn-sm btn-outline">Отклонить</button>
         </div>
       </div>
-      <div class="notif-time">5 минут назад</div>
     </div>
-    <div class="notif-item unread">
-      <div class="notif-icon">👤</div>
-      <div class="notif-body">
-        <div class="notif-title">Персонаж на модерации</div>
-        <div class="notif-preview">Финн Светлый ожидает проверки в «Школе волшебства»</div>
+    <div class="notify-item unread">
+      <div class="notify-icon">👤</div>
+      <div class="notify-body">
+        <div class="notify-header-row">
+          <span class="notify-title">Персонаж на модерации</span>
+          <span class="notify-time">1 час назад</span>
+        </div>
+        <div class="notify-preview">Финн Светлый ожидает проверки в «Школе волшебства»</div>
+        <div class="notify-actions">
+          <button class="btn btn-sm btn-primary">Проверить</button>
+        </div>
       </div>
-      <div class="notif-time">1 час назад</div>
     </div>
-    <div class="notif-item">
-      <div class="notif-icon">📚</div>
-      <div class="notif-body">
-        <div class="notif-title">Опубликована новая версия правил</div>
-        <div class="notif-preview">Пространство «Основные правила» обновлено до версии 3</div>
+    <div class="notify-item">
+      <div class="notify-icon">📚</div>
+      <div class="notify-body">
+        <div class="notify-header-row">
+          <span class="notify-title">Опубликована новая версия правил</span>
+          <span class="notify-time">3 часа назад</span>
+        </div>
+        <div class="notify-preview">Пространство «Основные правила» обновлено до версии 3</div>
       </div>
-      <div class="notif-time">3 часа назад</div>
     </div>
   </div>
   <div class="notif-footer">
