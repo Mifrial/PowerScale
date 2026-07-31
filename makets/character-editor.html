@@ -90,7 +90,7 @@
 <div class="layout">
   <div class="sidebar">
     <div class="user-block">
-      <div class="avatar" onclick="location.href='profile-edit.html'" style="cursor:pointer">JD</div>
+      <div class="avatar" onclick="location.href='profile-view.html'" style="cursor:pointer">JD</div>
       <div class="user-info"><strong>Иван Петров</strong><br><span style="font-size:12px;color:#999">@ivan_p</span></div>
       <button class="logout-btn" title="Выйти" onclick="location.href='login.html'">⏻</button>
     </div>
@@ -104,7 +104,12 @@
   <div class="main">
     <div class="topbar">
       <button class="menu-btn">≡</button>
-      <div class="page-title">Редактирование: Элиандра</div>
+      <div class="top-menu">
+        <a class="tm-item active" href="characters-list.html">Персонажи</a>
+        <a class="tm-item" href="games-list.html">Игры</a>
+        <a class="tm-item" href="#">Пользователи</a>
+        <a class="tm-item" href="spaces-list.html">Пространства</a>
+      </div>
       <div class="topbar-actions">
         <button class="btn btn-sm btn-outline">💾 Черновик</button>
         <button class="btn btn-sm btn-primary">✅ Готово</button>
@@ -116,10 +121,6 @@
     </div>
 
     <div class="editor-panel">
-      <div class="ep-block" data-tab="description" onclick="switchTab('description')">
-        <div class="ep-title">Описание</div>
-        <div class="ep-sub">Имя, биография</div>
-      </div>
       <div class="ep-block active" data-tab="race" onclick="switchTab('race')">
         <div class="ep-title">Раса</div>
         <div class="ep-sub">Эльф · 10 ОС</div>
@@ -130,7 +131,7 @@
       </div>
       <div class="ep-block" data-tab="personality" onclick="switchTab('personality')">
         <div class="ep-title">Личность</div>
-        <div class="ep-sub">0 / 3 ОЛ</div>
+        <div class="ep-sub">Возраст · 1 / 3 ОЛ</div>
       </div>
       <div class="ep-block" data-tab="development" onclick="switchTab('development')">
         <div class="ep-title">Развитие</div>
@@ -138,7 +139,11 @@
       </div>
       <div class="ep-block" data-tab="inventory" onclick="switchTab('inventory')">
         <div class="ep-title">Инвентарь</div>
-        <div class="ep-sub">0 / 10 кг</div>
+        <div class="ep-sub">Магазин · 100 зм</div>
+      </div>
+      <div class="ep-block" data-tab="description" onclick="switchTab('description')">
+        <div class="ep-title">Описание</div>
+        <div class="ep-sub">Имя, внешность, история</div>
       </div>
       <div class="ep-spacer"></div>
       <div class="ep-stats-block">
@@ -166,13 +171,38 @@
             <div class="nf-label">Имя персонажа</div>
             <input class="nf-input" type="text" value="Элиандра" placeholder="Введите имя">
           </div>
-          <div>
+        </div>
+        <div class="name-fields" style="border:none;padding:0;margin:12px 0 0">
+          <div class="nf-full">
             <div class="nf-label">Краткое описание</div>
             <input class="nf-input" type="text" value="Эльфийская следопытка" placeholder="Кратко о персонаже">
           </div>
-          <div>
-            <div class="nf-label">Полное описание</div>
-            <textarea class="nf-input" placeholder="Подробное описание персонажа">Элиандра родилась в лесном эльфийском поселении на восточных склонах Туманных гор. С юных лет обучалась искусству слежения и стрельбы из лука.</textarea>
+        </div>
+        <div class="exp-panel open" style="margin-top:12px">
+          <div class="exp-panel-header" onclick="toggleExpPanel(this)">
+            <span class="exp-arrow">▶</span>
+            <span style="font-weight:500;flex:1">Внешность</span>
+          </div>
+          <div class="exp-panel-body">
+            <textarea class="nf-input" rows="3" placeholder="Рост, цвет волос, особые приметы...">Рост 168 см, длинные светлые волосы, зелёные глаза. Носит лёгкий кожаный доспех.</textarea>
+          </div>
+        </div>
+        <div class="exp-panel">
+          <div class="exp-panel-header" onclick="toggleExpPanel(this)">
+            <span class="exp-arrow">▶</span>
+            <span style="font-weight:500;flex:1">Характер</span>
+          </div>
+          <div class="exp-panel-body">
+            <textarea class="nf-input" rows="3" placeholder="Черты характера, привычки...">Дружелюбная, но настороженная к незнакомцам. Ценит свободу.</textarea>
+          </div>
+        </div>
+        <div class="exp-panel">
+          <div class="exp-panel-header" onclick="toggleExpPanel(this)">
+            <span class="exp-arrow">▶</span>
+            <span style="font-weight:500;flex:1">Предыстория</span>
+          </div>
+          <div class="exp-panel-body">
+            <textarea class="nf-input" rows="4" placeholder="Биография...">Элиандра родилась в лесном эльфийском поселении на восточных склонах Туманных гор. С юных лет обучалась искусству слежения и стрельбы из лука.</textarea>
           </div>
         </div>
       </div>
@@ -183,20 +213,53 @@
           <div class="ch-spacer"></div>
           <span class="vis-toggle" onclick="cycleVis(this)" title="Видимость раздела">👁</span>
         </div>
-        <div class="race-item selected" onclick="selectRace(this)">
-          <div class="ri-name">Эльф</div>
-          <div class="ri-desc">Лесные эльфы, искусные лучники и следопыты</div>
-          <div class="ri-cost">10 ОС</div>
+        <div style="margin-bottom:12px">
+          <input class="form-input" placeholder="🔍 Фильтр по расам..." style="max-width:300px">
         </div>
-        <div class="race-item" onclick="selectRace(this)">
-          <div class="ri-name">Человек</div>
-          <div class="ri-desc">Универсальная раса, быстрая адаптация</div>
-          <div class="ri-cost">0 ОС</div>
+        <div class="exp-panel selected">
+          <div class="exp-panel-header" onclick="toggleExpPanel(this)">
+            <span class="exp-arrow">▶</span>
+            <div class="race-header" style="flex:1">
+              <span class="r-name">Эльф</span>
+              <span class="r-cost">10 ОС</span>
+            </div>
+            <button class="btn btn-sm btn-primary" onclick="event.stopPropagation();selectRace(this)">Выбрать</button>
+          </div>
+          <div class="exp-panel-body">
+            <p style="font-size:14px;color:#555">Лесные эльфы, искусные лучники и следопыты. Живут в гармонии с природой, отличаются грацией и острым слухом.</p>
+            <div class="keyword-row" style="border-top:none;padding-top:0;margin-top:0">
+              <span class="tag">Ловкость 4</span>
+              <span class="tag">Восприятие 4</span>
+              <span class="tag">Ночное зрение</span>
+              <span class="tag">Острый слух</span>
+            </div>
+          </div>
         </div>
-        <div class="race-item" onclick="selectRace(this)">
-          <div class="ri-name">Дварф</div>
-          <div class="ri-desc">Крепкие горные жители, мастера ремесла</div>
-          <div class="ri-cost">5 ОС</div>
+        <div class="exp-panel">
+          <div class="exp-panel-header" onclick="toggleExpPanel(this)">
+            <span class="exp-arrow">▶</span>
+            <div class="race-header" style="flex:1">
+              <span class="r-name">Человек</span>
+              <span class="r-cost">0 ОС</span>
+            </div>
+            <button class="btn btn-sm btn-outline" onclick="event.stopPropagation();selectRace(this)">Выбрать</button>
+          </div>
+          <div class="exp-panel-body">
+            <p style="font-size:14px;color:#555">Универсальная раса, быстрая адаптация. Одна характеристика на 4.</p>
+          </div>
+        </div>
+        <div class="exp-panel">
+          <div class="exp-panel-header" onclick="toggleExpPanel(this)">
+            <span class="exp-arrow">▶</span>
+            <div class="race-header" style="flex:1">
+              <span class="r-name">Дварф</span>
+              <span class="r-cost">5 ОС</span>
+            </div>
+            <button class="btn btn-sm btn-outline" onclick="event.stopPropagation();selectRace(this)">Выбрать</button>
+          </div>
+          <div class="exp-panel-body">
+            <p style="font-size:14px;color:#555">Крепкие горные жители, мастера ремесла. Стойкость 4.</p>
+          </div>
         </div>
       </div>
 
@@ -279,9 +342,9 @@
           <div class="exp-panel-body">
             <p style="font-size:14px;color:#555">Персонаж обладает исключительным слухом. Бонус +1 к проверкам восприятия, связанным со слухом. Дальность слышимости увеличена вдвое.</p>
             <div class="keyword-row">
-              <span class="kw">[Слух]</span>
-              <span class="kw">[Восприятие]</span>
-              <span class="kw">[Пассивный]</span>
+              <span class="kw">Слух</span>
+              <span class="kw">Восприятие</span>
+              <span class="kw">Пассивный</span>
             </div>
           </div>
         </div>
@@ -304,9 +367,9 @@
           <div class="exp-panel-body">
             <p style="font-size:14px;color:#555">Персонаж видит в темноте до 30 метров. Чёрно-белое зрение.</p>
             <div class="keyword-row">
-              <span class="kw">[Зрение]</span>
-              <span class="kw">[Темнота]</span>
-              <span class="kw">[Пассивный]</span>
+              <span class="kw">Зрение</span>
+              <span class="kw">Темнота</span>
+              <span class="kw">Пассивный</span>
             </div>
           </div>
         </div>
@@ -329,9 +392,9 @@
           <div class="exp-panel-body">
             <p style="font-size:14px;color:#555">Персонаж передвигается бесшумно. Штрафы к скрытности от брони уменьшены на 1.</p>
             <div class="keyword-row">
-              <span class="kw">[Скрытность]</span>
-              <span class="kw">[Броня]</span>
-              <span class="kw">[Пассивный]</span>
+              <span class="kw">Скрытность</span>
+              <span class="kw">Броня</span>
+              <span class="kw">Пассивный</span>
             </div>
           </div>
         </div>
@@ -354,9 +417,9 @@
           <div class="exp-panel-body">
             <p style="font-size:14px;color:#555">Эльфы устойчивы к болезням и ядам. Бонус +2 к спасброскам против отравления.</p>
             <div class="keyword-row">
-              <span class="kw">[Устойчивость]</span>
-              <span class="kw">[Яды]</span>
-              <span class="kw">[Пассивный]</span>
+              <span class="kw">Устойчивость</span>
+              <span class="kw">Яды</span>
+              <span class="kw">Пассивный</span>
             </div>
           </div>
         </div>
@@ -379,8 +442,8 @@
           <div class="exp-panel-body">
             <p style="font-size:14px;color:#555">Увеличение максимального значения Выносливости на 1. Нельзя взять более одного раза.</p>
             <div class="keyword-row">
-              <span class="kw">[Выносливость]</span>
-              <span class="kw">[Улучшение]</span>
+              <span class="kw">Выносливость</span>
+              <span class="kw">Улучшение</span>
             </div>
           </div>
         </div>
@@ -393,7 +456,64 @@
           <div class="ch-spacer"></div>
           <span class="vis-toggle" onclick="cycleVis(this)" title="Видимость раздела">👁</span>
         </div>
-        <p style="font-size:14px;color:#757575">Черты характера, идеалы, привязанности и слабости. Выберите до 3 ОЛ.</p>
+        <div style="margin-bottom:16px;padding:12px;background:#fff;border:1px solid #e0e0e0;border-radius:8px">
+          <div class="form-group">
+            <label class="form-label">Возраст</label>
+            <select class="form-input" style="max-width:200px">
+              <option>Младенец</option>
+              <option>Ребёнок</option>
+              <option>Юный</option>
+              <option selected>Молодой</option>
+              <option>Взрослый</option>
+              <option>Зрелый</option>
+              <option>Пожилой</option>
+              <option>Старый</option>
+            </select>
+            <span style="font-size:12px;color:#999;margin-left:8px">ОЛ: +1 · Черта возраста: «Молодость» · Предел особенностей: 3</span>
+          </div>
+        </div>
+        <div style="margin-bottom:8px;font-size:14px;font-weight:500;color:#555">Особенности</div>
+        <div class="quick-filter">
+          <span class="qf-btn active">Все</span>
+          <span class="qf-btn">Преимущества</span>
+          <span class="qf-btn">Недостатки</span>
+        </div>
+        <div class="exp-panel">
+          <div class="exp-panel-header" onclick="toggleExpPanel(this)">
+            <span class="exp-arrow">▶</span>
+            <div class="trait-header">
+              <span class="t-cost">1 черта</span>
+              <span class="t-name">Везучий</span>
+              <span class="tag" style="background:#e8f5e9;color:#2e7d32">Преимущество</span>
+              <div class="t-counter">
+                <button onclick="event.stopPropagation();decVal(this)">−</button>
+                <span class="t-val">0</span>
+                <button onclick="event.stopPropagation();incVal(this)">+</button>
+              </div>
+            </div>
+          </div>
+          <div class="exp-panel-body">
+            <p style="font-size:14px;color:#555">Один раз за сессию можно перебросить неудачный бросок.</p>
+          </div>
+        </div>
+        <div class="exp-panel">
+          <div class="exp-panel-header" onclick="toggleExpPanel(this)">
+            <span class="exp-arrow">▶</span>
+            <div class="trait-header">
+              <span class="t-cost">1 черта</span>
+              <span class="t-name">Травма прошлого</span>
+              <span class="tag" style="background:#ffebee;color:#c62828">Недостаток</span>
+              <div class="t-counter">
+                <button onclick="event.stopPropagation();decVal(this)">−</button>
+                <span class="t-val">0</span>
+                <button onclick="event.stopPropagation();incVal(this)">+</button>
+              </div>
+            </div>
+          </div>
+          <div class="exp-panel-body">
+            <p style="font-size:14px;color:#555">Штраф -1 к проверкам при стрессе.</p>
+          </div>
+        </div>
       </div>
 
       <div class="tab-panel" id="tab-development">
@@ -402,7 +522,68 @@
           <div class="ch-spacer"></div>
           <span class="vis-toggle" onclick="cycleVis(this)" title="Видимость раздела">👁</span>
         </div>
-        <p style="font-size:14px;color:#757575">Очки развития, навыки, способности. Доступно 5 / 15 ОР.</p>
+        <div class="quick-filter">
+          <span class="qf-btn active">Все</span>
+          <span class="qf-btn">Навыки</span>
+          <span class="qf-btn">Заклинания</span>
+          <span class="qf-btn">Боевые</span>
+          <span class="qf-btn">Знания</span>
+        </div>
+        <div class="exp-panel selected">
+          <div class="exp-panel-header" onclick="toggleExpPanel(this)">
+            <span class="exp-arrow">▶</span>
+            <div class="trait-header">
+              <span class="t-cost">5 ОР</span>
+              <span class="t-name">Владение луком</span>
+              <span class="tag">Навык</span>
+              <span class="tag">Боевая</span>
+              <div class="t-counter">
+                <button onclick="event.stopPropagation();decVal(this)">−</button>
+                <span class="t-val">1</span>
+                <button onclick="event.stopPropagation();incVal(this)">+</button>
+              </div>
+            </div>
+          </div>
+          <div class="exp-panel-body">
+            <p style="font-size:14px;color:#555">Дальнобойная атака: 2d6. Требует Ловкость 3+.</p>
+          </div>
+        </div>
+        <div class="exp-panel">
+          <div class="exp-panel-header" onclick="toggleExpPanel(this)">
+            <span class="exp-arrow">▶</span>
+            <div class="trait-header">
+              <span class="t-cost">3 ОР</span>
+              <span class="t-name">Скрытность</span>
+              <span class="tag">Навык</span>
+              <div class="t-counter">
+                <button onclick="event.stopPropagation();decVal(this)">−</button>
+                <span class="t-val">0</span>
+                <button onclick="event.stopPropagation();incVal(this)">+</button>
+              </div>
+            </div>
+          </div>
+          <div class="exp-panel-body">
+            <p style="font-size:14px;color:#555">+2 к проверкам скрытности.</p>
+          </div>
+        </div>
+        <div class="exp-panel">
+          <div class="exp-panel-header" onclick="toggleExpPanel(this)">
+            <span class="exp-arrow">▶</span>
+            <div class="trait-header">
+              <span class="t-cost">4 ОР</span>
+              <span class="t-name">Магическая стрела</span>
+              <span class="tag">Заклинание</span>
+              <div class="t-counter">
+                <button onclick="event.stopPropagation();decVal(this)">−</button>
+                <span class="t-val">0</span>
+                <button onclick="event.stopPropagation();incVal(this)">+</button>
+              </div>
+            </div>
+          </div>
+          <div class="exp-panel-body">
+            <p style="font-size:14px;color:#555">Выпускает магический снаряд. Урон 1d6 + Интеллект.</p>
+          </div>
+        </div>
       </div>
 
       <div class="tab-panel" id="tab-inventory">
@@ -411,7 +592,81 @@
           <div class="ch-spacer"></div>
           <span class="vis-toggle" onclick="cycleVis(this)" title="Видимость раздела">👁</span>
         </div>
-        <p style="font-size:14px;color:#757575">Снаряжение, оружие, броня, расходники. Максимальная нагрузка: 10 кг.</p>
+        <div style="display:flex;gap:16px;flex-wrap:wrap">
+          <div style="flex:1;min-width:280px">
+            <div class="card" style="margin-bottom:12px">
+              <div class="card-header"><span class="card-title">Магазин</span></div>
+              <div style="padding:12px">
+                <input class="form-input" placeholder="🔍 Поиск предметов..." style="margin-bottom:8px">
+                <div class="exp-panel">
+                  <div class="exp-panel-header" onclick="toggleExpPanel(this)">
+                    <span class="exp-arrow">▶</span>
+                    <span style="flex:1;font-size:14px">Короткий лук</span>
+                    <span style="color:#1976D2;font-size:13px">50 зм</span>
+                    <button class="btn btn-sm btn-primary" onclick="event.stopPropagation()">Купить</button>
+                  </div>
+                  <div class="exp-panel-body" style="font-size:13px;color:#555">
+                    Лёгкое дальнобойное оружие. Дистанция 10/40 ипари. Точность 3.
+                  </div>
+                </div>
+                <div class="exp-panel">
+                  <div class="exp-panel-header" onclick="toggleExpPanel(this)">
+                    <span class="exp-arrow">▶</span>
+                    <span style="flex:1;font-size:14px">Кольчуга</span>
+                    <span style="color:#1976D2;font-size:13px">120 зм</span>
+                    <button class="btn btn-sm btn-primary" onclick="event.stopPropagation()">Купить</button>
+                  </div>
+                  <div class="exp-panel-body" style="font-size:13px;color:#555">
+                    Доспех. Защита 4. Надёжность 2.
+                  </div>
+                </div>
+                <div class="exp-panel">
+                  <div class="exp-panel-header" onclick="toggleExpPanel(this)">
+                    <span class="exp-arrow">▶</span>
+                    <span style="flex:1;font-size:14px">Зелье лечения</span>
+                    <span style="color:#1976D2;font-size:13px">25 зм</span>
+                    <button class="btn btn-sm btn-primary" onclick="event.stopPropagation()">Купить</button>
+                  </div>
+                  <div class="exp-panel-body" style="font-size:13px;color:#555">
+                    Восстанавливает 1d6 здоровья.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style="flex:1;min-width:280px">
+            <div class="card" style="margin-bottom:12px">
+              <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+                <span class="card-title">Инвентарь</span>
+                <span style="font-size:13px;color:#555">💰 <strong>100 зм</strong></span>
+              </div>
+              <div style="padding:12px">
+                <div class="inv-item" style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f0f0f0;font-size:13px">
+                  <span style="color:#999;font-size:12px">1×</span>
+                  <span style="flex:1">Короткий лук</span>
+                  <span style="color:#999;font-size:12px">экипировано</span>
+                  <button class="btn btn-sm btn-outline" style="font-size:12px;padding:2px 8px">✕</button>
+                </div>
+                <div class="inv-item" style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f0f0f0;font-size:13px">
+                  <span style="color:#999;font-size:12px">1×</span>
+                  <span style="flex:1">Кинжал</span>
+                  <span style="color:#999;font-size:12px">экипировано</span>
+                  <button class="btn btn-sm btn-outline" style="font-size:12px;padding:2px 8px">✕</button>
+                </div>
+                <div class="inv-item" style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f0f0f0;font-size:13px">
+                  <span style="color:#999;font-size:12px">20×</span>
+                  <span style="flex:1">Стрелы</span>
+                  <span style="color:#999;font-size:12px">расходники</span>
+                  <button class="btn btn-sm btn-outline" style="font-size:12px;padding:2px 8px">✕</button>
+                </div>
+                <div style="margin-top:8px;display:flex;gap:8px">
+                  <button class="btn btn-sm btn-outline">+💰 Начислить</button>
+                  <button class="btn btn-sm btn-outline" style="color:#e53935">-💰 Списать</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
     </div>
@@ -493,22 +748,23 @@ document.querySelectorAll('.filter-toggle').forEach(function(t) {
   });
 });
 
-var pendingRaceEl = null;
+var pendingRacePanel = null;
 
-function selectRace(el) {
-  if (el.classList.contains('selected')) return;
-  pendingRaceEl = el;
+function selectRace(btn) {
+  var panel = btn.closest('.exp-panel');
+  if (panel.classList.contains('selected')) return;
+  pendingRacePanel = panel;
   document.getElementById('raceWarningModal').classList.add('open');
 }
 function closeRaceWarning() {
   document.getElementById('raceWarningModal').classList.remove('open');
-  pendingRaceEl = null;
+  pendingRacePanel = null;
 }
 function confirmRaceChange() {
-  document.querySelectorAll('.race-item').forEach(function(r) { r.classList.remove('selected'); });
-  if (pendingRaceEl) pendingRaceEl.classList.add('selected');
-  var name = pendingRaceEl.querySelector('.ri-name').textContent;
-  var cost = pendingRaceEl.querySelector('.ri-cost').textContent;
+  document.querySelectorAll('.exp-panel[data-tab="race"]').forEach(function(r) { r.classList.remove('selected'); });
+  if (pendingRacePanel) pendingRacePanel.classList.add('selected');
+  var name = pendingRacePanel.querySelector('.r-name').textContent;
+  var cost = pendingRacePanel.querySelector('.r-cost').textContent;
   document.querySelector('.ep-block[data-tab="race"] .ep-sub').textContent = name + ' · ' + cost;
   closeRaceWarning();
 }
@@ -522,40 +778,59 @@ function closeNotifSlider() {
   document.getElementById('notifSlider').classList.remove('open');
 }
 </script>
+<div class="chat-sidebar">
+  <div class="chat-circle" onclick="alert('Чат: Анна')" title="Анна С.">А<span class="cc-badge">2</span></div>
+  <div class="chat-circle" onclick="alert('Чат: Элиандра')" title="Элиандра (обсуждение)">Э</div>
+  <div class="chat-circle" onclick="alert('Чат: Подземелье дракона')" title="Подземелье дракона">П<span class="cc-badge">5</span></div>
+</div>
 <div class="notif-overlay" id="notifOverlay" onclick="closeNotifSlider()"></div>
 <div class="notif-slider" id="notifSlider">
   <div class="notif-header">
     <span>Уведомления</span>
     <button class="btn-close" onclick="closeNotifSlider()">✕</button>
   </div>
-  <div class="notif-list">
-    <div class="notif-item unread">
-      <div class="notif-icon">🎲</div>
-      <div class="notif-body">
-        <div class="notif-title">Приглашение в игру «Подземелье дракона»</div>
-        <div class="notif-preview">Ведущий Иван П. приглашает вас присоединиться</div>
-        <div class="notif-actions">
+  <div class="notif-filters">
+    <button class="filter-btn active">Все</button>
+    <button class="filter-btn">Не просмотренные</button>
+    <button class="filter-btn">Ожидают действия</button>
+  </div>
+  <div class="notify-list">
+    <div class="notify-item unread">
+      <div class="notify-icon">🎲</div>
+      <div class="notify-body">
+        <div class="notify-header-row">
+          <span class="notify-title">Приглашение в игру «Подземелье дракона»</span>
+          <span class="notify-time">5 минут назад</span>
+        </div>
+        <div class="notify-preview">Ведущий Иван П. приглашает вас присоединиться</div>
+        <div class="notify-actions">
           <button class="btn btn-sm btn-primary">Принять</button>
           <button class="btn btn-sm btn-outline">Отклонить</button>
         </div>
       </div>
-      <div class="notif-time">5 минут назад</div>
     </div>
-    <div class="notif-item unread">
-      <div class="notif-icon">👤</div>
-      <div class="notif-body">
-        <div class="notif-title">Персонаж на модерации</div>
-        <div class="notif-preview">Финн Светлый ожидает проверки в «Школе волшебства»</div>
+    <div class="notify-item unread">
+      <div class="notify-icon">👤</div>
+      <div class="notify-body">
+        <div class="notify-header-row">
+          <span class="notify-title">Персонаж на модерации</span>
+          <span class="notify-time">1 час назад</span>
+        </div>
+        <div class="notify-preview">Финн Светлый ожидает проверки в «Школе волшебства»</div>
+        <div class="notify-actions">
+          <button class="btn btn-sm btn-primary">Проверить</button>
+        </div>
       </div>
-      <div class="notif-time">1 час назад</div>
     </div>
-    <div class="notif-item">
-      <div class="notif-icon">📚</div>
-      <div class="notif-body">
-        <div class="notif-title">Опубликована новая версия правил</div>
-        <div class="notif-preview">Пространство «Основные правила» обновлено до версии 3</div>
+    <div class="notify-item">
+      <div class="notify-icon">📚</div>
+      <div class="notify-body">
+        <div class="notify-header-row">
+          <span class="notify-title">Опубликована новая версия правил</span>
+          <span class="notify-time">3 часа назад</span>
+        </div>
+        <div class="notify-preview">Пространство «Основные правила» обновлено до версии 3</div>
       </div>
-      <div class="notif-time">3 часа назад</div>
     </div>
   </div>
   <div class="notif-footer">

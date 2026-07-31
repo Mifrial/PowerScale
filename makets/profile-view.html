@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ru"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CharGen — Профиль пользователя</title>
+<link rel="stylesheet" href="common.css">
+<style>
+.profile-layout { display: flex; gap: 24px; }
+.profile-side { width: 200px; text-align: center; }
+.profile-main { flex: 1; }
+.big-avatar { width: 120px; height: 120px; border-radius: 50%; background: #1976D2; color: #fff; font-size: 40px; display: flex; align-items: center; justify-content: center; margin: 0 auto; }
+.info-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
+.info-row:last-child { border-bottom: none; }
+.info-row .info-label { color: #757575; }
+.info-row .info-value { font-weight: 500; }
+</style>
+</head><body>
+<div class="layout">
+  <div class="sidebar">
+    <div class="user-block">
+      <div class="avatar" onclick="location.href='profile-view.html'" style="cursor:pointer">JD</div>
+      <div class="user-info"><strong>Иван Петров</strong><br><span style="font-size:12px;color:#999">@ivan_p</span></div>
+      <button class="logout-btn" title="Выйти" onclick="location.href='login.html'">⏻</button>
+    </div>
+    <div class="nav-item" onclick="location.href='characters-list.html'"><span class="nav-icon">👤</span><span class="nav-label">Персонажи</span></div>
+    <div class="nav-item" onclick="location.href='games-list.html'"><span class="nav-icon">🎲</span><span class="nav-label">Игры</span></div>
+    <div class="nav-item active"><span class="nav-icon">👥</span><span class="nav-label">Пользователи</span></div>
+    <div class="nav-item" onclick="location.href='spaces-list.html'"><span class="nav-icon">📚</span><span class="nav-label">Пространства</span></div>
+    <div class="spacer"></div>
+    <div class="nav-item" style="color:#999"><span class="nav-icon">⚙️</span><span class="nav-label">Администрирование</span></div>
+  </div>
+  <div class="main">
+    <div class="topbar">
+      <button class="menu-btn">≡</button>
+      <div class="top-menu">
+        <a class="tm-item" href="characters-list.html">Персонажи</a>
+        <a class="tm-item" href="games-list.html">Игры</a>
+        <a class="tm-item active" href="#">Пользователи</a>
+        <a class="tm-item" href="spaces-list.html">Пространства</a>
+      </div>
+      <div class="notif-bell" onclick="toggleNotifSlider()">
+        🔔
+        <span class="badge">3</span>
+      </div>
+    </div>
+    <div class="content">
+      <div class="profile-layout">
+        <div class="profile-side">
+          <div class="big-avatar">JD</div>
+          <p style="font-size:13px;color:#555;margin-top:8px">@ivan_p</p>
+          <button class="btn btn-sm btn-outline" onclick="location.href='profile-edit.html'" style="margin-top:8px">✏️ Редактировать</button>
+        </div>
+        <div class="profile-main">
+          <div class="card">
+            <div class="card-header"><span class="card-title">Основная информация</span></div>
+            <div class="info-row"><span class="info-label">Имя</span><span class="info-value">Иван Петров</span></div>
+            <div class="info-row"><span class="info-label">Логин</span><span class="info-value">ivan_p</span></div>
+            <div class="info-row"><span class="info-label">Email</span><span class="info-value">ivan@example.com</span></div>
+            <div class="info-row"><span class="info-label">Дата регистрации</span><span class="info-value">01.01.2026</span></div>
+          </div>
+          <div class="card" style="margin-top:16px">
+            <div class="card-header"><span class="card-title">Группы</span></div>
+            <div style="padding:12px 16px;font-size:14px">
+              <span class="tag" style="background:#e8f5e9;color:#2e7d32">Игрок</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="footer">CharGen &copy; 2026</div>
+  </div>
+</div>
+<div class="chat-sidebar">
+  <div class="chat-circle" onclick="alert('Чат: Анна')" title="Анна С.">А<span class="cc-badge">2</span></div>
+  <div class="chat-circle" onclick="alert('Чат: Элиандра')" title="Элиандра (обсуждение)">Э</div>
+  <div class="chat-circle" onclick="alert('Чат: Подземелье дракона')" title="Подземелье дракона">П<span class="cc-badge">5</span></div>
+</div>
+<div class="notif-overlay" id="notifOverlay" onclick="closeNotifSlider()"></div>
+<div class="notif-slider" id="notifSlider">
+  <div class="notif-header">
+    <span>Уведомления</span>
+    <button class="btn-close" onclick="closeNotifSlider()">✕</button>
+  </div>
+  <div class="notif-filters">
+    <button class="filter-btn active">Все</button>
+    <button class="filter-btn">Не просмотренные</button>
+    <button class="filter-btn">Ожидают действия</button>
+  </div>
+  <div class="notify-list">
+    <div class="notify-item unread">
+      <div class="notify-icon">🎲</div>
+      <div class="notify-body">
+        <div class="notify-header-row">
+          <span class="notify-title">Приглашение в игру «Подземелье дракона»</span>
+          <span class="notify-time">5 минут назад</span>
+        </div>
+        <div class="notify-preview">Ведущий Иван П. приглашает вас присоединиться</div>
+        <div class="notify-actions">
+          <button class="btn btn-sm btn-primary">Принять</button>
+          <button class="btn btn-sm btn-outline">Отклонить</button>
+        </div>
+      </div>
+    </div>
+    <div class="notify-item unread">
+      <div class="notify-icon">👤</div>
+      <div class="notify-body">
+        <div class="notify-header-row">
+          <span class="notify-title">Персонаж на модерации</span>
+          <span class="notify-time">1 час назад</span>
+        </div>
+        <div class="notify-preview">Финн Светлый ожидает проверки в «Школе волшебства»</div>
+        <div class="notify-actions">
+          <button class="btn btn-sm btn-primary">Проверить</button>
+        </div>
+      </div>
+    </div>
+    <div class="notify-item">
+      <div class="notify-icon">📚</div>
+      <div class="notify-body">
+        <div class="notify-header-row">
+          <span class="notify-title">Опубликована новая версия правил</span>
+          <span class="notify-time">3 часа назад</span>
+        </div>
+        <div class="notify-preview">Пространство «Основные правила» обновлено до версии 3</div>
+      </div>
+    </div>
+  </div>
+  <div class="notif-footer">
+    <a href="notifications.html">Все уведомления →</a>
+  </div>
+</div>
+<script>
+function toggleNotifSlider() {
+  document.getElementById('notifOverlay').classList.toggle('open');
+  document.getElementById('notifSlider').classList.toggle('open');
+}
+function closeNotifSlider() {
+  document.getElementById('notifOverlay').classList.remove('open');
+  document.getElementById('notifSlider').classList.remove('open');
+}
+</script>
+</body></html>

@@ -19,7 +19,7 @@
 <div class="layout">
   <div class="sidebar">
     <div class="user-block">
-      <div class="avatar" onclick="location.href='profile-edit.html'" style="cursor:pointer">JD</div>
+      <div class="avatar" onclick="location.href='profile-view.html'" style="cursor:pointer">JD</div>
       <div class="user-info"><strong>Иван Петров</strong><br><span style="font-size:12px;color:#999">@ivan_p</span></div>
       <button class="logout-btn" title="Выйти" onclick="location.href='login.html'">⏻</button>
     </div>
@@ -33,7 +33,12 @@
   <div class="main">
     <div class="topbar">
       <button class="menu-btn">≡</button>
-      <div class="page-title">Подземелье дракона</div>
+      <div class="top-menu">
+        <a class="tm-item" href="characters-list.html">Персонажи</a>
+        <a class="tm-item active" href="games-list.html">Игры</a>
+        <a class="tm-item" href="#">Пользователи</a>
+        <a class="tm-item" href="spaces-list.html">Пространства</a>
+      </div>
       <div class="notif-bell" onclick="toggleNotifSlider()">
         🔔
         <span class="badge">3</span>
@@ -159,6 +164,11 @@
     </div>
     <div class="footer">CharGen &copy; 2026</div>
   </div>
+</div>
+<div class="chat-sidebar">
+  <div class="chat-circle" onclick="alert('Чат: Анна')" title="Анна С.">А<span class="cc-badge">2</span></div>
+  <div class="chat-circle" onclick="alert('Чат: Элиандра')" title="Элиандра (обсуждение)">Э</div>
+  <div class="chat-circle" onclick="alert('Чат: Подземелье дракона')" title="Подземелье дракона">П<span class="cc-badge">5</span></div>
 </div>
 <div class="notif-overlay" id="notifOverlay" onclick="closeNotifSlider()"></div>
 <div class="notif-slider" id="notifSlider">

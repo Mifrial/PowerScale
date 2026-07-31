@@ -100,7 +100,7 @@
 <div class="layout">
   <div class="sidebar">
     <div class="user-block">
-      <div class="avatar" onclick="location.href='profile-edit.html'" style="cursor:pointer">JD</div>
+      <div class="avatar" onclick="location.href='profile-view.html'" style="cursor:pointer">JD</div>
       <div class="user-info"><strong>Иван Петров</strong><br><span style="font-size:12px;color:#999">@ivan_p</span></div>
       <button class="logout-btn" title="Выйти" onclick="location.href='login.html'">⏻</button>
     </div>
@@ -114,7 +114,12 @@
   <div class="main">
     <div class="topbar">
       <button class="menu-btn">≡</button>
-      <div class="page-title">Элиандра</div>
+      <div class="top-menu">
+        <a class="tm-item active" href="characters-list.html">Персонажи</a>
+        <a class="tm-item" href="games-list.html">Игры</a>
+        <a class="tm-item" href="#">Пользователи</a>
+        <a class="tm-item" href="spaces-list.html">Пространства</a>
+      </div>
       <div class="notif-bell" onclick="toggleNotifSlider()">
         🔔
         <span class="badge">3</span>
@@ -152,18 +157,6 @@
 
       <!-- ======================= TAB: ОБЗОР ======================= -->
       <div id="tab-overview" class="tab-content">
-
-        <!-- Валюты -->
-        <div class="char-block">
-          <div class="char-block-header">Валюты</div>
-          <div class="char-block-body">
-            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
-              <div class="stat-item"><span class="stat-name">ОС</span><span class="stat-val">6 / 10</span></div>
-              <div class="stat-item"><span class="stat-name">ОЛ</span><span class="stat-val">0 / 3</span></div>
-              <div class="stat-item"><span class="stat-name">ОР</span><span class="stat-val">5 / 15</span></div>
-            </div>
-          </div>
-        </div>
 
         <!-- Характеристики -->
         <div class="char-block">
@@ -280,7 +273,10 @@
 
         <!-- Защита -->
         <div class="char-block">
-          <div class="char-block-header">Защита</div>
+          <div class="char-block-header" style="display:flex;justify-content:space-between;align-items:center">
+            <span>Защита</span>
+            <span style="font-size:13px;color:#2e7d32;font-weight:500">Постоянная защита: 5</span>
+          </div>
           <div class="char-block-body">
             <div class="defense-grid" style="margin-bottom:8px">
               <div class="defense-item">
@@ -291,10 +287,6 @@
                 <span class="def-name">Кожа</span>
                 <div><span class="def-val">1</span> <span class="def-reliable">надёж. 10</span></div>
               </div>
-            </div>
-            <div class="defense-sum" style="margin-bottom:8px">
-              <span class="sum-label">Суммарная защита</span>
-              <span class="sum-val">5</span>
             </div>
             <div class="blocking-item">
               <span class="blk-label">Блокирование:</span>
@@ -313,36 +305,36 @@
               <div class="attack-item">
                 <div>
                   <div class="atk-name">Короткий лук</div>
-                  <div class="atk-type">выстрел (дальняя, 50 м)</div>
+                  <div class="atk-type">выстрел · 10/40 ипари</div>
                 </div>
                 <div style="text-align:right">
-                  <div class="atk-acc">Точность +3</div>
+                  <div class="atk-acc">3 точность</div>
                   <div style="font-size:13px;color:#c62828">4 колющего</div>
                   <div style="font-size:12px;color:#757575">пробитие 2</div>
                 </div>
               </div>
-              <div class="attack-plate" onclick="alert('Бросок атаки: Короткий лук (d20 + 3)')">
+              <div class="attack-plate" onclick="alert('Бросок атаки: Короткий лук (3 точность)')">
                 <span class="plate-dice">🎲</span>
                 <span class="plate-label">Быстрая атака</span>
-                <span class="plate-summary">Короткий лук · Точн. +3 · Урон 4к</span>
+                <span class="plate-summary">Короткий лук · 3 точн. · 4к</span>
               </div>
             </div>
             <div style="display:grid;gap:8px;margin-top:8px">
               <div class="attack-item">
                 <div>
                   <div class="atk-name">Кинжал</div>
-                  <div class="atk-type">удар (ближняя, вплотную)</div>
+                  <div class="atk-type">удар</div>
                 </div>
                 <div style="text-align:right">
-                  <div class="atk-acc">Точность +1</div>
+                  <div class="atk-acc">1 точность</div>
                   <div style="font-size:13px;color:#c62828">2 колющего</div>
                   <div style="font-size:12px;color:#757575">пробитие 0</div>
                 </div>
               </div>
-              <div class="attack-plate" onclick="alert('Бросок атаки: Кинжал (d20 + 1)')">
+              <div class="attack-plate" onclick="alert('Бросок атаки: Кинжал (1 точность)')">
                 <span class="plate-dice">🎲</span>
                 <span class="plate-label">Быстрая атака</span>
-                <span class="plate-summary">Кинжал · Точн. +1 · Урон 2к</span>
+                <span class="plate-summary">Кинжал · 1 точн. · 2к</span>
               </div>
             </div>
           </div>
@@ -449,8 +441,17 @@
           <div class="char-block-header">Инвентарь</div>
           <div class="char-block-body">
             <div class="inv-header">
-              <span style="font-weight:500">Снаряжение</span>
-              <span class="inv-money">💰 <strong>125 зм</strong> · 45 мм</span>
+              <div style="display:flex;gap:6px">
+                <input class="form-input" placeholder="🔍 Фильтр..." style="max-width:200px;padding:4px 10px;font-size:13px">
+              </div>
+              <div style="display:flex;gap:6px;align-items:center">
+                <span class="inv-money">💰 <strong>125 зм</strong> · 45 мм</span>
+                <button class="btn btn-sm btn-outline" onclick="alert('+ деньги')" style="font-size:12px">+💰</button>
+                <button class="btn btn-sm btn-outline" onclick="alert('- деньги')" style="font-size:12px">-💰</button>
+              </div>
+            </div>
+            <div style="display:flex;gap:6px;margin-bottom:8px">
+              <button class="btn btn-sm btn-outline" onclick="alert('Быстрое добавление')" style="font-size:12px">＋ Предмет</button>
             </div>
             <div class="inv-item">
               <span class="inv-qty">1</span>
@@ -551,6 +552,13 @@
   </div>
 </div>
 
+<!-- Chat sidebar -->
+<div class="chat-sidebar">
+  <div class="chat-circle" onclick="alert('Чат: Анна')" title="Анна С.">А<span class="cc-badge">2</span></div>
+  <div class="chat-circle" onclick="alert('Чат: Элиандра')" title="Элиандра (обсуждение)">Э</div>
+  <div class="chat-circle" onclick="alert('Чат: Подземелье дракона')" title="Подземелье дракона">П<span class="cc-badge">5</span></div>
+</div>
+
 <!-- Notification slider -->
 <div class="notif-overlay" id="notifOverlay" onclick="closeNotifSlider()"></div>
 <div class="notif-slider" id="notifSlider">
@@ -558,34 +566,48 @@
     <span>Уведомления</span>
     <button class="btn-close" onclick="closeNotifSlider()">✕</button>
   </div>
-  <div class="notif-list">
-    <div class="notif-item unread">
-      <div class="notif-icon">🎲</div>
-      <div class="notif-body">
-        <div class="notif-title">Приглашение в игру «Подземелье дракона»</div>
-        <div class="notif-preview">Ведущий Иван П. приглашает вас присоединиться</div>
-        <div class="notif-actions">
+  <div class="notif-filters">
+    <button class="filter-btn active">Все</button>
+    <button class="filter-btn">Не просмотренные</button>
+    <button class="filter-btn">Ожидают действия</button>
+  </div>
+  <div class="notify-list">
+    <div class="notify-item unread">
+      <div class="notify-icon">🎲</div>
+      <div class="notify-body">
+        <div class="notify-header-row">
+          <span class="notify-title">Приглашение в игру «Подземелье дракона»</span>
+          <span class="notify-time">5 минут назад</span>
+        </div>
+        <div class="notify-preview">Ведущий Иван П. приглашает вас присоединиться</div>
+        <div class="notify-actions">
           <button class="btn btn-sm btn-primary">Принять</button>
           <button class="btn btn-sm btn-outline">Отклонить</button>
         </div>
       </div>
-      <div class="notif-time">5 минут назад</div>
     </div>
-    <div class="notif-item unread">
-      <div class="notif-icon">👤</div>
-      <div class="notif-body">
-        <div class="notif-title">Персонаж на модерации</div>
-        <div class="notif-preview">Финн Светлый ожидает проверки в «Школе волшебства»</div>
+    <div class="notify-item unread">
+      <div class="notify-icon">👤</div>
+      <div class="notify-body">
+        <div class="notify-header-row">
+          <span class="notify-title">Персонаж на модерации</span>
+          <span class="notify-time">1 час назад</span>
+        </div>
+        <div class="notify-preview">Финн Светлый ожидает проверки в «Школе волшебства»</div>
+        <div class="notify-actions">
+          <button class="btn btn-sm btn-primary">Проверить</button>
+        </div>
       </div>
-      <div class="notif-time">1 час назад</div>
     </div>
-    <div class="notif-item">
-      <div class="notif-icon">📚</div>
-      <div class="notif-body">
-        <div class="notif-title">Опубликована новая версия правил</div>
-        <div class="notif-preview">Пространство «Основные правила» обновлено до версии 3</div>
+    <div class="notify-item">
+      <div class="notify-icon">📚</div>
+      <div class="notify-body">
+        <div class="notify-header-row">
+          <span class="notify-title">Опубликована новая версия правил</span>
+          <span class="notify-time">3 часа назад</span>
+        </div>
+        <div class="notify-preview">Пространство «Основные правила» обновлено до версии 3</div>
       </div>
-      <div class="notif-time">3 часа назад</div>
     </div>
   </div>
   <div class="notif-footer">

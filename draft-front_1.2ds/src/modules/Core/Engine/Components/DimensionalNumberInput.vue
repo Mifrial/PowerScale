@@ -1,0 +1,73 @@
+<template>
+  <div style="flex: 1 1 auto; min-width: 0; position: relative; border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)); border-radius: 4px; padding: 8px 8px 4px;">
+    <span v-if="label" class="text-medium-emphasis text-caption" style="position: absolute; top: -8px; left: 8px; background: rgb(var(--v-theme-surface)); padding: 0 4px;">
+      {{ label }}
+    </span>
+    <div class="d-flex align-center ga-2">
+      <DimensionalNumber
+        v-if="modelValue && !isNaN(modelValue.base) && !isNaN(modelValue.size)"
+        :base="modelValue.base"
+        :size="modelValue.size"
+      />
+      <v-chip v-else size="x-small" variant="outlined">-</v-chip>
+      <ClampedNumberField
+        :model-value="modelValue?.base ?? 3"
+        @update:model-value="updateBase"
+        label="База"
+        :min="mode === 'characteristic' ? 3 : 0"
+        :max="mode === 'characteristic' ? 5 : undefined"
+        density="compact"
+        hide-details
+        style="flex: 1 1 auto;"
+      />
+      <ClampedNumberField
+        :model-value="modelValue?.size ?? 0"
+        @update:model-value="updateSize"
+        label="Размер"
+        reverse
+        density="compact"
+        hide-details
+        style="flex: 1 1 auto;"
+      />
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import DimensionalNumber from './DimensionalNumber.vue'
+import ClampedNumberField from '@/modules/Core/UI/Components/Input/ClampedNumberField.vue'
+
+export interface DimensionalNumberValue {
+  base: number
+  size: number
+}
+
+const props = withDefaults(defineProps<{
+  modelValue: DimensionalNumberValue | null
+  label?: string
+  mode?: 'characteristic' | 'default'
+}>(), {
+  label: undefined,
+  mode: 'default'
+})
+
+const emit = defineEmits<{
+  'update:modelValue': [value: DimensionalNumberValue | null]
+}>()
+
+function updateBase(val: number) {
+  const current = props.modelValue ?? { base: 3, size: 0 }
+  emit('update:modelValue', {
+    base: val,
+    size: current.size
+  })
+}
+
+function updateSize(val: number) {
+  const current = props.modelValue ?? { base: 3, size: 0 }
+  emit('update:modelValue', {
+    base: current.base,
+    size: val
+  })
+}
+</script>
