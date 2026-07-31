@@ -12,7 +12,7 @@ export interface Rule {
   updatedAt?: string
 }
 
-export type RuleType = 'simple' | 'race' | 'characteristic' | 'ability' | 'resource' | 'item' | 'damage_type'
+export type RuleType = 'simple' | 'race' | 'species' | 'characteristic' | 'resource' | 'points' | 'ability' | 'item' | 'damage_type'
 
 export interface RuleVersion {
   id: number

@@ -22,6 +22,8 @@
           <RuleEditorBase
             :name="name"
             @update:name="(v) => emit('update:name', v)"
+            :code="code"
+            @update:code="(v) => emit('update:code', v)"
             :description="description"
             @update:description="(v) => emit('update:description', v)"
             :mechanic-id="mechanicId"
@@ -40,8 +42,8 @@
         <v-expansion-panel-title>Зоны и стоимость</v-expansion-panel-title>
         <v-expansion-panel-text>
           <div class="text-body-2 text-medium-emphasis mb-2">
-            Валюта определяется зоной: Создание — ОС, Личность — ОЛ, Развитие — ОР.
-            Зона без галочки — способность в ней не представлена.
+            Очки определяются зоной: каждая зона — очки-правило пространства. Зона без галочки —
+            способность в ней не представлена.
           </div>
           <div class="d-flex flex-wrap ga-4">
             <v-checkbox
@@ -445,6 +447,7 @@ export type { AbilitySpec, ZoneId, AbilityCost, Grant } from '@/modules/Roleplay
 
 const props = defineProps<{
   name: string
+  code: string
   description: string
   mechanicId: number | null
   tagIds: number[]
@@ -456,6 +459,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:name': [value: string]
+  'update:code': [value: string]
   'update:description': [value: string]
   'update:mechanicId': [value: number | null]
   'update:tagIds': [value: number[]]
@@ -535,11 +539,11 @@ const abilityTags = computed<TagRef[]>(() => tags.value)
 
 const sources = computed<SourceRef[]>(() => sourceStore.sources)
 
-const zoneOptions: { label: string; value: ZoneId }[] = [
-  { label: 'Создание (ОС)', value: 'creation' },
-  { label: 'Личность (ОЛ)', value: 'personality' },
-  { label: 'Развитие (ОР)', value: 'live' },
-]
+const zoneOptions = computed<{ label: string; value: string }[]>(() =>
+  spaceRules.value
+    .filter((rule: Rule) => rule.type === 'points')
+    .map(rule => ({ label: rule.name, value: rule.code }))
+)
 
 function hasZone(zone: ZoneId): boolean {
   return !!innerSpec.value.zones[zone]

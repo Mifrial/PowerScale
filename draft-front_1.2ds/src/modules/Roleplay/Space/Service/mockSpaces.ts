@@ -78,7 +78,7 @@ const revisionRulePool: Rule[] = [
   { id: 'rule-16', code: 'mana', type: 'resource', name: 'Мана', description: 'Магическая энергия для заклинаний.', spaceId: 1, spec: { is_dimensional: false, initial_value: 10 }, tagIds: [3], mechanicId: null, createdAt: '2026-01-20T10:00:00Z' },
   { id: 'rule-4', code: 'double-strike', type: 'ability', name: 'Двойной удар', description: 'Атака, наносящая два удара подряд.', spaceId: 1, spec: {
     type: 'action',
-    zones: { live: { kind: 'array', levels_cost: [2, 3, 4] } },
+    zones: { or: { kind: 'array', levels_cost: [2, 3, 4] } },
     requirements: [{ level: 1, requirements: [{ type: 'has_ability', ability_code: 'melee-fighting', min_level: 1 }] }],
     grants: [],
     action_costs: [{ resource_code: 'action-points', amount: 1 }],
@@ -87,8 +87,8 @@ const revisionRulePool: Rule[] = [
   { id: 'rule-17', code: 'melee-fighting', type: 'ability', name: 'Ближний бой', description: 'Владение оружием ближнего боя.', spaceId: 1, spec: {
     type: 'skill',
     zones: {
-      creation: { kind: 'array', levels_cost: [1, 2, 3] },
-      live: { kind: 'array', levels_cost: [2, 3, 4] },
+      os: { kind: 'array', levels_cost: [1, 2, 3] },
+      or: { kind: 'array', levels_cost: [2, 3, 4] },
     },
     requirements: [
       {
@@ -110,7 +110,7 @@ const revisionRulePool: Rule[] = [
   }, tagIds: [5, 13], mechanicId: null, createdAt: '2026-01-18T10:00:00Z' },
   { id: 'rule-18', code: 'movement', type: 'ability', name: 'Движение', description: 'Процесс перемещения: Ходьба, Бег, Спринт. Каждый шаг стоит 1 ОД; переключение — на соседний шаг.', spaceId: 1, spec: {
     type: 'process',
-    zones: { live: { kind: 'array', levels_cost: [1] } },
+    zones: { or: { kind: 'array', levels_cost: [1] } },
     requirements: [],
     grants: [],
     action_costs: [],
@@ -128,7 +128,7 @@ const revisionRulePool: Rule[] = [
   }, tagIds: [13, 14, 15], mechanicId: null, createdAt: '2026-01-21T10:00:00Z' },
   { id: 'rule-19', code: 'fire-bolt', type: 'ability', name: 'Огненная стрела', description: 'Порождает сгусток пламени, бросаемый во врага.', spaceId: 1, spec: {
     type: 'spell',
-    zones: { live: { kind: 'array', levels_cost: [3, 4, 5] } },
+    zones: { or: { kind: 'array', levels_cost: [3, 4, 5] } },
     requirements: [{ level: 1, requirements: [{ type: 'has_tag', tag_code: 'magic' }] }],
     grants: [],
     action_costs: [{ resource_code: 'action-points', amount: 1, label: 'Сотворение' }],
@@ -142,6 +142,50 @@ const revisionRulePool: Rule[] = [
     },
     parent_ability_code: null,
   }, tagIds: [3, 13, 14, 16], mechanicId: null, createdAt: '2026-01-21T10:00:00Z' },
+  { id: 'rule-20', code: 'keen-hearing', type: 'ability', name: 'Острый слух', description: 'Тонкий слух.', spaceId: 1, spec: {
+    type: 'trait',
+    zones: { os: { kind: 'automatic' } },
+    requirements: [], grants: [],
+    action_costs: [], parent_ability_code: null,
+  }, tagIds: [8, 11], mechanicId: null, createdAt: '2026-01-22T10:00:00Z' },
+  { id: 'rule-21', code: 'night-vision', type: 'ability', name: 'Ночное зрение', description: 'Видеть в темноте.', spaceId: 1, spec: {
+    type: 'trait',
+    zones: { os: { kind: 'automatic' } },
+    requirements: [], grants: [],
+    action_costs: [], parent_ability_code: null,
+  }, tagIds: [8, 11], mechanicId: null, createdAt: '2026-01-22T10:00:00Z' },
+  { id: 'rule-22', code: 'elves', type: 'species', name: 'Эльфы', description: 'Вид эльфов.', spaceId: 1, spec: {
+    parent_race_code: null,
+    abilities: [{ ability_code: 'keen-hearing', automatic: true }],
+  }, tagIds: [8], mechanicId: null, createdAt: '2026-01-23T10:00:00Z' },
+  { id: 'rule-23', code: 'wood-elves', type: 'species', name: 'Лесные эльфы', description: 'Подвид эльфов.', spaceId: 1, spec: {
+    parent_race_code: 'elves',
+    abilities: [],
+  }, tagIds: [8], mechanicId: null, createdAt: '2026-01-23T10:00:00Z' },
+  { id: 'rule-24', code: 'elf', type: 'race', name: 'Эльф', description: 'Эльфийская раса.', spaceId: 1, spec: {
+    parent_race_code: 'elves',
+    cost_os: 8,
+    characteristics: [
+      { characteristic_code: 'dexterity', mode: 'fixed', base: { base: 4, size: 0 } },
+      { characteristic_code: 'memory', mode: 'fixed', base: { base: 3, size: 0 } },
+    ],
+    abilities: [{ ability_code: 'night-vision', automatic: true }],
+  }, tagIds: [8, 11], mechanicId: null, createdAt: '2026-01-24T10:00:00Z' },
+  { id: 'rule-25', code: 'wood-elf', type: 'race', name: 'Лесной эльф', description: 'Лесной эльф.', spaceId: 1, spec: {
+    parent_race_code: 'wood-elves',
+    cost_os: 10,
+    characteristics: [
+      { characteristic_code: 'dexterity', mode: 'fixed', base: { base: 4, size: 0 } },
+      { characteristic_code: 'memory', mode: 'fixed', base: { base: 3, size: 0 } },
+    ],
+    abilities: [
+      { ability_code: 'night-vision', automatic: true },
+      { ability_code: 'keen-hearing', automatic: true },
+    ],
+  }, tagIds: [8, 11], mechanicId: null, createdAt: '2026-01-24T10:00:00Z' },
+  { id: 'rule-26', code: 'os', type: 'points', name: 'Очки Создания', description: 'Очки этапа «Создание».', spaceId: 1, tagIds: [], mechanicId: null, createdAt: '2026-01-25T10:00:00Z' },
+  { id: 'rule-27', code: 'ol', type: 'points', name: 'Очки Личности', description: 'Очки этапа «Личность».', spaceId: 1, tagIds: [], mechanicId: null, createdAt: '2026-01-25T10:00:00Z' },
+  { id: 'rule-28', code: 'or', type: 'points', name: 'Очки Развития', description: 'Очки этапа «Развитие».', spaceId: 1, tagIds: [], mechanicId: null, createdAt: '2026-01-25T10:00:00Z' },
 ]
 
 const spaces: Space[] = [
@@ -265,11 +309,11 @@ function generateRevisionRules(spaceId: number, revision: number): Rule[] {
     }
   }
 
-  // Ресурсы и способности попадают в срез всегда — на них ссылаются
-  // из других правил (requirements, action_costs, grants), поэтому их
-  // отсутствие ломает «в наличии». Срез по count применяется к остальным.
-  const alwaysIncluded = revisionRulePool.filter(r => r.type === 'resource' || r.type === 'ability')
-  const sliced = revisionRulePool.filter(r => r.type !== 'resource' && r.type !== 'ability').slice(0, count)
+  // Ресурсы, способности и очки попадают в срез всегда — на них ссылаются
+  // из других правил (requirements, action_costs, grants, зоны способностей),
+  // поэтому их отсутствие ломает «в наличии». Срез по count применяется к остальным.
+  const alwaysIncluded = revisionRulePool.filter(r => r.type === 'resource' || r.type === 'ability' || r.type === 'points')
+  const sliced = revisionRulePool.filter(r => r.type !== 'resource' && r.type !== 'ability' && r.type !== 'points').slice(0, count)
 
   for (const rule of alwaysIncluded) addRule(rule)
   for (const rule of sliced) addRule(rule)

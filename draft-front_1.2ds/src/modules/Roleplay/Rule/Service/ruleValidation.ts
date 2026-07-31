@@ -20,8 +20,10 @@ function expectedTypeLabel(type: ReferenceTargetType): string {
   const labels: Record<ReferenceTargetType, string> = {
     simple: 'простое правило',
     race: 'раса',
+    species: 'вид/подвид',
     characteristic: 'характеристика',
     resource: 'ресурс',
+    points: 'очки',
     ability: 'способность',
     item: 'предмет',
     damage_type: 'тип урона',
@@ -141,6 +143,9 @@ function collectSpecRefs(
       if (spec.parent_ability_code) {
         collect({ code: spec.parent_ability_code, type: 'ability' })
       }
+      for (const zone of Object.keys(spec.zones ?? {})) {
+        if (zone) collect({ code: zone, type: 'points' })
+      }
       for (const entry of spec.requirements ?? []) {
         for (const req of entry.requirements ?? []) {
           walkRequirements(req, collect)
@@ -177,6 +182,33 @@ function collectSpecRefs(
         for (const ref of refs) {
           if (ref === 'min' || ref === 'max') continue
           collect({ code: ref, type: 'characteristic' })
+        }
+      }
+      break
+
+    case 'race':
+      if (spec.parent_race_code) {
+        collect({ code: spec.parent_race_code, type: 'species' })
+      }
+      for (const c of spec.characteristics ?? []) {
+        if (c?.characteristic_code) {
+          collect({ code: c.characteristic_code, type: 'characteristic' })
+        }
+      }
+      for (const ref of spec.abilities ?? []) {
+        if (ref?.ability_code) {
+          collect({ code: ref.ability_code, type: 'ability' })
+        }
+      }
+      break
+
+    case 'species':
+      if (spec.parent_race_code) {
+        collect({ code: spec.parent_race_code, type: 'species' })
+      }
+      for (const ref of spec.abilities ?? []) {
+        if (ref?.ability_code) {
+          collect({ code: ref.ability_code, type: 'ability' })
         }
       }
       break
@@ -363,4 +395,181 @@ export function validateAbilityStructure(
 
 export function formatAbilityStructureError(err: AbilityStructureError): string {
   return `${err.ruleName} → ${err.message}`
+}
+
+export interface RaceStructureError {
+  ruleName: string
+  ruleCode: string
+  message: string
+}
+
+function duplicateCodes(codes: (string | null | undefined)[]): string[] {
+  const seen = new Set<string>()
+  const dups = new Set<string>()
+  for (const c of codes) {
+    if (!c) continue
+    if (seen.has(c)) dups.add(c)
+    seen.add(c)
+  }
+  return Array.from(dups)
+}
+
+/** Структурная валидация рас: стоимость, пустые/дубли коды, уровни закупки. */
+export function validateRaceStructure(rules: Rule[]): RaceStructureError[] {
+  const errors: RaceStructureError[] = []
+
+  for (const rule of rules) {
+    if (rule.type !== 'race') continue
+    const spec = rule.spec
+    if (!spec || typeof spec !== 'object') continue
+
+    if (typeof spec.cost_os !== 'number' || !Number.isInteger(spec.cost_os)) {
+      errors.push({
+        ruleName: rule.name,
+        ruleCode: rule.code,
+        message: 'стоимость расы (cost_os) должна быть целым числом',
+      })
+    }
+
+    const characteristics: any[] = spec.characteristics ?? []
+    for (const code of duplicateCodes(characteristics.map((c: any) => c?.characteristic_code))) {
+      errors.push({
+        ruleName: rule.name,
+        ruleCode: rule.code,
+        message: `характеристика «${code}» указана несколько раз`,
+      })
+    }
+    for (const c of characteristics) {
+      const label = c?.characteristic_code || 'без кода'
+      if (!c?.characteristic_code) {
+        errors.push({
+          ruleName: rule.name,
+          ruleCode: rule.code,
+          message: 'у характеристики не указан код',
+        })
+      }
+      if (c?.mode === 'purchased') {
+        const costs: unknown[] = (c.purchase ?? []).map((l: any) => l?.cost)
+        for (const cost of costs) {
+          if (typeof cost !== 'number' || cost < 1) {
+            errors.push({
+              ruleName: rule.name,
+              ruleCode: rule.code,
+              message: `уровень закупки «${label}»: стоимость должна быть ≥ 1`,
+            })
+          }
+        }
+        for (const cost of duplicateCodes(costs.map(String))) {
+          errors.push({
+            ruleName: rule.name,
+            ruleCode: rule.code,
+            message: `уровень закупки «${label}»: стоимость ${cost} указана несколько раз`,
+          })
+        }
+      }
+    }
+
+    const abilities: any[] = spec.abilities ?? []
+    for (const code of duplicateCodes(abilities.map((a: any) => a?.ability_code))) {
+      errors.push({
+        ruleName: rule.name,
+        ruleCode: rule.code,
+        message: `способность «${code}» указана несколько раз`,
+      })
+    }
+    for (const a of abilities) {
+      if (!a?.ability_code) {
+        errors.push({
+          ruleName: rule.name,
+          ruleCode: rule.code,
+          message: 'у способности не указан код',
+        })
+      }
+    }
+  }
+
+  return errors
+}
+
+/** Структурная валидация видов/подвидов: пустые/дубли кодов способностей. */
+export function validateSpeciesStructure(rules: Rule[]): RaceStructureError[] {
+  const errors: RaceStructureError[] = []
+
+  for (const rule of rules) {
+    if (rule.type !== 'species') continue
+    const spec = rule.spec
+    if (!spec || typeof spec !== 'object') continue
+
+    const abilities: any[] = spec.abilities ?? []
+    for (const code of duplicateCodes(abilities.map((a: any) => a?.ability_code))) {
+      errors.push({
+        ruleName: rule.name,
+        ruleCode: rule.code,
+        message: `способность «${code}» указана несколько раз`,
+      })
+    }
+    for (const a of abilities) {
+      if (!a?.ability_code) {
+        errors.push({
+          ruleName: rule.name,
+          ruleCode: rule.code,
+          message: 'у способности не указан код',
+        })
+      }
+    }
+  }
+
+  return errors
+}
+
+/**
+ * Ищет цикл в цепочке видов (species) через parent_race_code. Возвращает строку цикла
+ * вида «a → b → a» или null. Расы не участвуют (родитель расы — всегда species).
+ */
+export function findSpeciesCycle(rules: Rule[]): string | null {
+  const byCode = new Map<string, Rule>()
+  for (const r of rules) {
+    if (r.type === 'species') byCode.set(r.code, r)
+  }
+
+  const color = new Map<string, number>() // 0 white, 1 gray, 2 black
+
+  function visit(code: string, stack: string[]): string | null {
+    const state = color.get(code) ?? 0
+    if (state === 1) {
+      const start = stack.indexOf(code)
+      return [...stack.slice(start), code].join(' → ')
+    }
+    if (state === 2) return null
+
+    color.set(code, 1)
+    stack.push(code)
+
+    const rule = byCode.get(code)
+    const parent = rule?.spec?.parent_race_code
+    if (parent && byCode.has(parent)) {
+      const cycle = visit(parent, stack)
+      if (cycle) return cycle
+    }
+
+    stack.pop()
+    color.set(code, 2)
+    return null
+  }
+
+  for (const code of byCode.keys()) {
+    if ((color.get(code) ?? 0) !== 0) continue
+    const cycle = visit(code, [])
+    if (cycle) return cycle
+  }
+
+  return null
+}
+
+export function formatRaceStructureError(err: RaceStructureError): string {
+  return `${err.ruleName} → ${err.message}`
+}
+
+export function formatSpeciesCycle(cycle: string): string {
+  return `Цикл в цепочке видов: ${cycle}`
 }

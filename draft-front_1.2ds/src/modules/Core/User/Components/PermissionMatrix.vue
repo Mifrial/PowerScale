@@ -56,7 +56,7 @@ const allActions = computed(() => {
 
 function hasPermission(category: string, action: string): boolean {
   const perms = PERMISSION_KEYS[category as keyof typeof PERMISSION_KEYS]
-  return perms?.includes(action) ?? false
+  return (perms as readonly string[] | undefined)?.includes(action) ?? false
 }
 
 function isChecked(category: string, action: string): boolean {

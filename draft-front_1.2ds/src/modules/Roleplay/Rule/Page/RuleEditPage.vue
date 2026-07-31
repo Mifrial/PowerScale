@@ -24,6 +24,7 @@
         <SimpleRuleEditor
           v-if="type === 'simple'"
           v-model:name="name"
+          v-model:code="ruleCode"
           v-model:description="description"
           v-model:mechanicId="mechanicId"
           v-model:tagIds="tagIds"
@@ -35,6 +36,7 @@
         <CharacteristicEditor
           v-else-if="type === 'characteristic'"
           v-model:name="name"
+          v-model:code="ruleCode"
           v-model:description="description"
           v-model:mechanicId="mechanicId"
           v-model:tagIds="tagIds"
@@ -47,6 +49,7 @@
         <ResourceEditor
           v-else-if="type === 'resource'"
           v-model:name="name"
+          v-model:code="ruleCode"
           v-model:description="description"
           v-model:mechanicId="mechanicId"
           v-model:tagIds="tagIds"
@@ -58,6 +61,7 @@
         <AbilityEditor
           v-else-if="type === 'ability'"
           v-model:name="name"
+          v-model:code="ruleCode"
           v-model:description="description"
           v-model:mechanicId="mechanicId"
           v-model:tagIds="tagIds"
@@ -70,6 +74,7 @@
         <ItemEditor
           v-else-if="type === 'item'"
           v-model:name="name"
+          v-model:code="ruleCode"
           v-model:description="description"
           v-model:mechanicId="mechanicId"
           v-model:tagIds="tagIds"
@@ -79,9 +84,49 @@
           :space-id="spaceId"
         />
 
+        <RaceEditor
+          v-else-if="type === 'race'"
+          v-model:name="name"
+          v-model:code="ruleCode"
+          v-model:description="description"
+          v-model:mechanicId="mechanicId"
+          v-model:tagIds="tagIds"
+          v-model:spec="spec"
+          :mechanic-options="mechanicOptions"
+          :tag-options="tagOptions"
+          :space-id="spaceId"
+          :rule-id="ruleId"
+        />
+
+        <SpeciesEditor
+          v-else-if="type === 'species'"
+          v-model:name="name"
+          v-model:code="ruleCode"
+          v-model:description="description"
+          v-model:mechanicId="mechanicId"
+          v-model:tagIds="tagIds"
+          v-model:spec="spec"
+          :mechanic-options="mechanicOptions"
+          :tag-options="tagOptions"
+          :space-id="spaceId"
+          :rule-id="ruleId"
+        />
+
+        <PointsEditor
+          v-else-if="type === 'points'"
+          v-model:name="name"
+          v-model:code="ruleCode"
+          v-model:description="description"
+          v-model:mechanicId="mechanicId"
+          v-model:tagIds="tagIds"
+          :mechanic-options="mechanicOptions"
+          :tag-options="tagOptions"
+        />
+
         <DamageTypeEditor
           v-else-if="type === 'damage_type'"
           v-model:name="name"
+          v-model:code="ruleCode"
           v-model:description="description"
           v-model:mechanicId="mechanicId"
           v-model:tagIds="tagIds"
@@ -138,6 +183,9 @@ import CharacteristicEditor from '../Components/Editors/CharacteristicEditor.vue
 import ResourceEditor from '../Components/Editors/ResourceEditor.vue'
 import AbilityEditor from '../Components/Editors/AbilityEditor.vue'
 import ItemEditor from '../Components/Editors/ItemEditor.vue'
+import RaceEditor from '../Components/Editors/RaceEditor.vue'
+import SpeciesEditor from '../Components/Editors/SpeciesEditor.vue'
+import PointsEditor from '../Components/Editors/PointsEditor.vue'
 import DamageTypeEditor from '../Components/Editors/DamageTypeEditor.vue'
 import type { RuleType, Rule } from '../Interface/types'
 import { fetchMechanics } from '../Service/mockMechanics'
@@ -162,6 +210,7 @@ const isRevisionContext = computed(() => !!ctx.value && ctx.value !== 'draft')
 const spaceId = ref(0)
 const type = ref<RuleType>('simple')
 const name = ref('')
+const ruleCode = ref('')
 const description = ref('')
 const mechanicId = ref<number | null>(null)
 const tagIds = ref<number[]>([])
@@ -176,8 +225,10 @@ const baseLoaded = ref<string | null>(null)
 const ruleTypes = [
   { title: 'Простое правило', value: 'simple' },
   { title: 'Раса', value: 'race' },
+  { title: 'Вид/Подвид', value: 'species' },
   { title: 'Характеристика', value: 'characteristic' },
   { title: 'Ресурс', value: 'resource' },
+  { title: 'Очки', value: 'points' },
   { title: 'Способность', value: 'ability' },
   { title: 'Предмет', value: 'item' },
   { title: 'Тип урона', value: 'damage_type' },
@@ -189,10 +240,9 @@ const tagOptions = computed(() =>
 )
 
 function buildRule(): Rule {
-  const base = revisionStore.effectiveRules.find(r => r.id === ruleId.value)
   return {
     id: isEdit.value ? ruleId.value : `draft-${Date.now()}`,
-    code: base?.code ?? slugify(name.value),
+    code: ruleCode.value.trim() || slugify(name.value),
     type: type.value,
     name: name.value,
     description: description.value,
@@ -207,6 +257,7 @@ function buildRule(): Rule {
 function loadRule(rule: Rule) {
   type.value = rule.type
   name.value = rule.name
+  ruleCode.value = rule.code
   description.value = rule.description
   mechanicId.value = rule.mechanicId ?? null
   tagIds.value = rule.tagIds ?? []

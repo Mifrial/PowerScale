@@ -7,6 +7,8 @@
           <RuleEditorBase
             :name="name"
             @update:name="(v) => emit('update:name', v)"
+            :code="code"
+            @update:code="(v) => emit('update:code', v)"
             :description="description"
             @update:description="(v) => emit('update:description', v)"
             :mechanic-id="mechanicId"
@@ -233,6 +235,7 @@ import ClampedNumberField from '@/modules/Core/UI/Components/Input/ClampedNumber
 
 const props = defineProps<{
   name: string
+  code: string
   description: string
   mechanicId: number | null
   tagIds: number[]
@@ -244,6 +247,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:name': [value: string]
+  'update:code': [value: string]
   'update:description': [value: string]
   'update:mechanicId': [value: number | null]
   'update:tagIds': [value: number[]]

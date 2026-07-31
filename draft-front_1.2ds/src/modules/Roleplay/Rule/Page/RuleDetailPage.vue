@@ -42,6 +42,26 @@
       class="mb-4"
     />
 
+    <RaceCard
+      v-if="rule.type === 'race'"
+      :rule="rule"
+      :rules="revisionStore.effectiveRules"
+      class="mb-4"
+    />
+
+    <SpeciesCard
+      v-if="rule.type === 'species'"
+      :rule="rule"
+      :rules="revisionStore.effectiveRules"
+      class="mb-4"
+    />
+
+    <PointsCard
+      v-if="rule.type === 'points'"
+      :rule="rule"
+      class="mb-4"
+    />
+
     <v-card v-if="mechanic" class="mb-4">
       <v-card-title>Механика</v-card-title>
       <v-card-text>
@@ -97,6 +117,9 @@ import type { Rule, RuleVersion } from '../Interface/types'
 import type { Mechanic } from '../Service/mockMechanics'
 import { fetchMechanics } from '../Service/mockMechanics'
 import AbilityCard from '../Components/Cards/AbilityCard.vue'
+import RaceCard from '../Components/Cards/RaceCard.vue'
+import SpeciesCard from '../Components/Cards/SpeciesCard.vue'
+import PointsCard from '../Components/Cards/PointsCard.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -119,8 +142,10 @@ const loaded = ref<string | null>(null)
 const typeLabels: Record<string, string> = {
   simple: 'Простое',
   race: 'Раса',
+  species: 'Вид/Подвид',
   characteristic: 'Характеристика',
   resource: 'Ресурс',
+  points: 'Очки',
   ability: 'Способность',
   item: 'Предмет',
   damage_type: 'Тип урона',

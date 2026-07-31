@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { validateRuleReferences, validateAbilityStructure } from '../ruleValidation'
+import { validateRuleReferences, validateAbilityStructure, validateRaceStructure, validateSpeciesStructure, findSpeciesCycle } from '../ruleValidation'
 import { resolveAbilityTypeFromTags, pruneAbilitySpecForType } from '../../Interface/abilityTypes'
 import { pruneItemSpecBySubtypes } from '../../Interface/itemTypes'
+import { collectInheritedAbilities } from '../../Interface/raceTypes'
 import type { Rule } from '../../Interface/types'
 
 const baseRule = (id: string, code: string, type: Rule['type'], spec?: any): Rule => ({
@@ -191,6 +192,85 @@ describe('validateRuleReferences', () => {
     const errors = validateRuleReferences(bad, [])
     expect(errors).toHaveLength(1)
     expect(errors[0]).toMatchObject({ refCode: 'dexterity', expectedType: 'characteristic' })
+  })
+
+  it('validates race references: parent species, characteristics, abilities', () => {
+    const rules: Rule[] = [
+      baseRule('sp', 'elves', 'species', { parent_race_code: null, abilities: [] }),
+      baseRule('s', 'strength', 'characteristic'),
+      baseRule('a', 'keen-hearing', 'ability'),
+      baseRule('r', 'elf', 'race', {
+        parent_race_code: 'elves',
+        cost_os: 8,
+        characteristics: [{ characteristic_code: 'strength', mode: 'fixed', base: { base: 3, size: 0 } }],
+        abilities: [{ ability_code: 'keen-hearing', automatic: true }],
+      }),
+    ]
+    expect(validateRuleReferences(rules, [])).toEqual([])
+  })
+
+  it('reports race parent referencing a race instead of a species', () => {
+    const rules: Rule[] = [
+      baseRule('r2', 'human', 'race'),
+      baseRule('r', 'elf', 'race', {
+        parent_race_code: 'human',
+        cost_os: 8,
+        characteristics: [],
+        abilities: [],
+      }),
+    ]
+    const errors = validateRuleReferences(rules, [])
+    expect(errors).toHaveLength(1)
+    expect(errors[0]).toMatchObject({ refCode: 'human', expectedType: 'species' })
+  })
+
+  it('reports missing characteristic in race characteristics', () => {
+    const rules: Rule[] = [
+      baseRule('r', 'elf', 'race', {
+        parent_race_code: null,
+        cost_os: 8,
+        characteristics: [{ characteristic_code: 'missing-stat', mode: 'fixed', base: { base: 3, size: 0 } }],
+        abilities: [],
+      }),
+    ]
+    const errors = validateRuleReferences(rules, [])
+    expect(errors).toHaveLength(1)
+    expect(errors[0]).toMatchObject({ refCode: 'missing-stat', expectedType: 'characteristic' })
+  })
+
+  it('validates species references: parent species and abilities', () => {
+    const rules: Rule[] = [
+      baseRule('sp', 'elves', 'species', { parent_race_code: null, abilities: [] }),
+      baseRule('a', 'keen-hearing', 'ability'),
+      baseRule('sp2', 'wood-elves', 'species', {
+        parent_race_code: 'elves',
+        abilities: [{ ability_code: 'keen-hearing', automatic: true }],
+      }),
+    ]
+    expect(validateRuleReferences(rules, [])).toEqual([])
+  })
+
+  it('validates ability zone keys reference point rules', () => {
+    const rules: Rule[] = [
+      baseRule('p', 'os', 'points'),
+      baseRule('a', 'keen-hearing', 'ability', {
+        zones: { os: { kind: 'automatic' } },
+        requirements: [], grants: [], action_costs: [], parent_ability_code: null,
+      }),
+    ]
+    expect(validateRuleReferences(rules, [])).toEqual([])
+  })
+
+  it('reports a missing point rule for a zone key', () => {
+    const rules: Rule[] = [
+      baseRule('a', 'keen-hearing', 'ability', {
+        zones: { missing: { kind: 'automatic' } },
+        requirements: [], grants: [], action_costs: [], parent_ability_code: null,
+      }),
+    ]
+    const errors = validateRuleReferences(rules, [])
+    expect(errors).toHaveLength(1)
+    expect(errors[0]).toMatchObject({ refCode: 'missing', expectedType: 'points' })
   })
 })
 
@@ -450,5 +530,218 @@ describe('pruneItemSpecBySubtypes', () => {
     expect(out.weapon).toBeUndefined()
     expect(out.armor).toBeUndefined()
     expect(out.shield).toBeUndefined()
+  })
+})
+
+describe('validateRaceStructure', () => {
+  it('passes for a well-formed race', () => {
+    const rules: Rule[] = [
+      baseRule('r', 'elf', 'race', {
+        parent_race_code: null,
+        cost_os: 8,
+        characteristics: [
+          { characteristic_code: 'dexterity', mode: 'fixed', base: { base: 4, size: 0 } },
+          {
+            characteristic_code: 'strength',
+            mode: 'purchased',
+            base: { base: 3, size: 0 },
+            purchase: [
+              { cost: 1, value: { base: 4, size: 0 } },
+              { cost: 3, value: { base: 5, size: 0 } },
+            ],
+          },
+        ],
+        abilities: [{ ability_code: 'keen-hearing', automatic: true }],
+      }),
+    ]
+    expect(validateRaceStructure(rules)).toEqual([])
+  })
+
+  it('flags non-integer cost_os', () => {
+    const rules: Rule[] = [
+      baseRule('r', 'elf', 'race', {
+        parent_race_code: null,
+        cost_os: 8.5,
+        characteristics: [],
+        abilities: [],
+      }),
+    ]
+    const errors = validateRaceStructure(rules)
+    expect(errors.some(e => e.message.includes('cost_os'))).toBe(true)
+  })
+
+  it('flags duplicate characteristic codes', () => {
+    const rules: Rule[] = [
+      baseRule('r', 'elf', 'race', {
+        parent_race_code: null,
+        cost_os: 8,
+        characteristics: [
+          { characteristic_code: 'dexterity', mode: 'fixed', base: { base: 4, size: 0 } },
+          { characteristic_code: 'dexterity', mode: 'fixed', base: { base: 5, size: 0 } },
+        ],
+        abilities: [],
+      }),
+    ]
+    const errors = validateRaceStructure(rules)
+    expect(errors.some(e => e.message.includes('«dexterity» указана несколько раз'))).toBe(true)
+  })
+
+  it('flags empty characteristic code', () => {
+    const rules: Rule[] = [
+      baseRule('r', 'elf', 'race', {
+        parent_race_code: null,
+        cost_os: 8,
+        characteristics: [{ characteristic_code: '', mode: 'fixed', base: { base: 3, size: 0 } }],
+        abilities: [],
+      }),
+    ]
+    const errors = validateRaceStructure(rules)
+    expect(errors.some(e => e.message.includes('не указан код'))).toBe(true)
+  })
+
+  it('flags purchase level with cost < 1 and duplicate costs', () => {
+    const rules: Rule[] = [
+      baseRule('r', 'elf', 'race', {
+        parent_race_code: null,
+        cost_os: 8,
+        characteristics: [
+          {
+            characteristic_code: 'strength',
+            mode: 'purchased',
+            base: { base: 3, size: 0 },
+            purchase: [
+              { cost: 0, value: { base: 4, size: 0 } },
+              { cost: 2, value: { base: 5, size: 0 } },
+              { cost: 2, value: { base: 5, size: 0 } },
+            ],
+          },
+        ],
+        abilities: [],
+      }),
+    ]
+    const errors = validateRaceStructure(rules)
+    expect(errors.some(e => e.message.includes('стоимость должна быть ≥ 1'))).toBe(true)
+    expect(errors.some(e => e.message.includes('стоимость 2 указана несколько раз'))).toBe(true)
+  })
+
+  it('flags duplicate ability codes', () => {
+    const rules: Rule[] = [
+      baseRule('r', 'elf', 'race', {
+        parent_race_code: null,
+        cost_os: 8,
+        characteristics: [],
+        abilities: [
+          { ability_code: 'keen-hearing', automatic: true },
+          { ability_code: 'keen-hearing', automatic: false },
+        ],
+      }),
+    ]
+    const errors = validateRaceStructure(rules)
+    expect(errors.some(e => e.message.includes('«keen-hearing» указана несколько раз'))).toBe(true)
+  })
+})
+
+describe('validateSpeciesStructure', () => {
+  it('passes for a well-formed species', () => {
+    const rules: Rule[] = [
+      baseRule('sp', 'elves', 'species', { parent_race_code: null, abilities: [{ ability_code: 'keen-hearing', automatic: true }] }),
+    ]
+    expect(validateSpeciesStructure(rules)).toEqual([])
+  })
+
+  it('flags duplicate ability codes', () => {
+    const rules: Rule[] = [
+      baseRule('sp', 'elves', 'species', {
+        parent_race_code: null,
+        abilities: [
+          { ability_code: 'keen-hearing', automatic: true },
+          { ability_code: 'keen-hearing', automatic: false },
+        ],
+      }),
+    ]
+    const errors = validateSpeciesStructure(rules)
+    expect(errors.some(e => e.message.includes('«keen-hearing» указана несколько раз'))).toBe(true)
+  })
+
+  it('flags empty ability code', () => {
+    const rules: Rule[] = [
+      baseRule('sp', 'elves', 'species', {
+        parent_race_code: null,
+        abilities: [{ ability_code: '', automatic: false }],
+      }),
+    ]
+    const errors = validateSpeciesStructure(rules)
+    expect(errors.some(e => e.message.includes('не указан код'))).toBe(true)
+  })
+})
+
+describe('findSpeciesCycle', () => {
+  it('returns null for an acyclic chain', () => {
+    const rules: Rule[] = [
+      baseRule('sp1', 'a', 'species', { parent_race_code: null, abilities: [] }),
+      baseRule('sp2', 'b', 'species', { parent_race_code: 'a', abilities: [] }),
+      baseRule('sp3', 'c', 'species', { parent_race_code: 'b', abilities: [] }),
+    ]
+    expect(findSpeciesCycle(rules)).toBeNull()
+  })
+
+  it('detects a two-node cycle', () => {
+    const rules: Rule[] = [
+      baseRule('sp1', 'a', 'species', { parent_race_code: 'b', abilities: [] }),
+      baseRule('sp2', 'b', 'species', { parent_race_code: 'a', abilities: [] }),
+    ]
+    expect(findSpeciesCycle(rules)).toContain('a')
+    expect(findSpeciesCycle(rules)).toContain('b')
+  })
+
+  it('detects a longer cycle', () => {
+    const rules: Rule[] = [
+      baseRule('sp1', 'a', 'species', { parent_race_code: 'c', abilities: [] }),
+      baseRule('sp2', 'b', 'species', { parent_race_code: 'a', abilities: [] }),
+      baseRule('sp3', 'c', 'species', { parent_race_code: 'b', abilities: [] }),
+    ]
+    expect(findSpeciesCycle(rules)).toBeTruthy()
+  })
+
+  it('ignores races in the chain', () => {
+    const rules: Rule[] = [
+      baseRule('sp1', 'a', 'species', { parent_race_code: null, abilities: [] }),
+      baseRule('sp2', 'b', 'species', { parent_race_code: 'a', abilities: [] }),
+      baseRule('r', 'elf', 'race', { parent_race_code: 'b', cost_os: 8, characteristics: [], abilities: [] }),
+    ]
+    expect(findSpeciesCycle(rules)).toBeNull()
+  })
+})
+
+describe('collectInheritedAbilities', () => {
+  it('collects abilities from the whole ancestor chain', () => {
+    const rules: Rule[] = [
+      baseRule('sp1', 'elves', 'species', { parent_race_code: null, abilities: [{ ability_code: 'keen-hearing', automatic: true }] }),
+      baseRule('sp2', 'wood-elves', 'species', { parent_race_code: 'elves', abilities: [{ ability_code: 'night-vision', automatic: false }] }),
+      baseRule('r', 'elf', 'race', { parent_race_code: 'wood-elves', cost_os: 8, characteristics: [], abilities: [] }),
+    ]
+    const byCode = new Map(rules.map(r => [r.code, r]))
+    const inherited = collectInheritedAbilities('wood-elves', byCode)
+    expect(inherited).toHaveLength(2)
+    expect(inherited[0]).toMatchObject({ ability_code: 'night-vision', fromName: 'wood-elves' })
+    expect(inherited[1]).toMatchObject({ ability_code: 'keen-hearing', fromName: 'elves' })
+  })
+
+  it('returns empty when no parent is set', () => {
+    const rules: Rule[] = [
+      baseRule('r', 'human', 'race', { parent_race_code: null, cost_os: 0, characteristics: [], abilities: [] }),
+    ]
+    const byCode = new Map(rules.map(r => [r.code, r]))
+    expect(collectInheritedAbilities(null, byCode)).toEqual([])
+  })
+
+  it('stops at a cycle instead of looping forever', () => {
+    const rules: Rule[] = [
+      baseRule('sp1', 'a', 'species', { parent_race_code: 'b', abilities: [{ ability_code: 'x', automatic: true }] }),
+      baseRule('sp2', 'b', 'species', { parent_race_code: 'a', abilities: [] }),
+    ]
+    const byCode = new Map(rules.map(r => [r.code, r]))
+    const inherited = collectInheritedAbilities('a', byCode)
+    expect(inherited.length).toBeLessThanOrEqual(1)
   })
 })

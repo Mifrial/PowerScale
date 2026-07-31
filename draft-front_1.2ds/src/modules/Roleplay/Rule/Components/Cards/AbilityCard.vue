@@ -142,14 +142,16 @@ const sortedGrants = computed(() =>
   [...(spec.value?.grants ?? [])].sort((a, b) => a.level - b.level)
 )
 
-const zoneLabels: Record<string, string> = {
-  creation: 'Создание (ОС)',
-  personality: 'Личность (ОЛ)',
-  live: 'Развитие (ОР)',
-}
+const pointNames = computed(() => {
+  const map = new Map<string, string>()
+  for (const r of props.rules) {
+    if (r.type === 'points') map.set(r.code, r.name)
+  }
+  return map
+})
 
 function zoneLabel(zone: string): string {
-  return zoneLabels[zone] ?? zone
+  return pointNames.value.get(zone) ?? zone
 }
 
 function resourceName(code: string): string {

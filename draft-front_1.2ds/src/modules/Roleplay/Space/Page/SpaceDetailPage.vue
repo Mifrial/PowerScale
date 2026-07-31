@@ -63,8 +63,10 @@
       <v-tab value="all">Все</v-tab>
       <v-tab value="simple">Простые</v-tab>
       <v-tab value="race">Расы</v-tab>
+      <v-tab value="species">Виды</v-tab>
       <v-tab value="characteristic">Характеристики</v-tab>
       <v-tab value="resource">Ресурсы</v-tab>
+      <v-tab value="points">Очки</v-tab>
       <v-tab value="ability">Способности</v-tab>
       <v-tab value="item">Предметы</v-tab>
       <v-tab value="damage_type">Типы урона</v-tab>
@@ -202,7 +204,7 @@ import { useSpaceStore } from '../Store/spaces'
 import { useSpaceRevisionStore } from '../Store/spaceRevision'
 import { useDraftRuleStore } from '@/modules/Roleplay/Rule/Store/draftRules'
 import { useTagStore } from '@/modules/Roleplay/Rule/Tag/Store/tags'
-import { validateRuleReferences, formatReferenceError, validateAbilityStructure, formatAbilityStructureError } from '@/modules/Roleplay/Rule/Service/ruleValidation'
+import { validateRuleReferences, formatReferenceError, validateAbilityStructure, formatAbilityStructureError, validateRaceStructure, validateSpeciesStructure, formatRaceStructureError, findSpeciesCycle, formatSpeciesCycle } from '@/modules/Roleplay/Rule/Service/ruleValidation'
 import { useAbortable } from '@/modules/Core/Composables/useAbortable'
 import type { Space } from '../Interface/types'
 
@@ -231,8 +233,10 @@ const isDraftContext = computed(() => ctx.value === 'draft')
 const typeLabels: Record<string, string> = {
   simple: 'Простое',
   race: 'Раса',
+  species: 'Вид/Подвид',
   characteristic: 'Характеристика',
   resource: 'Ресурс',
+  points: 'Очки',
   ability: 'Способность',
   item: 'Предмет',
   damage_type: 'Тип урона',
@@ -355,9 +359,15 @@ async function publishDraft() {
       tagStore.tags.map(t => ({ code: t.code, name: t.name }))
     )
     const abilityErrors = validateAbilityStructure(revisionStore.effectiveRules, tagStore.tags)
+    const raceErrors = validateRaceStructure(revisionStore.effectiveRules)
+    const speciesErrors = validateSpeciesStructure(revisionStore.effectiveRules)
+    const cycle = findSpeciesCycle(revisionStore.effectiveRules)
     const allErrors = [
       ...errors.map(formatReferenceError),
       ...abilityErrors.map(formatAbilityStructureError),
+      ...raceErrors.map(formatRaceStructureError),
+      ...speciesErrors.map(formatRaceStructureError),
+      ...(cycle ? [formatSpeciesCycle(cycle)] : []),
     ]
     if (allErrors.length > 0) {
       validationErrors.value = allErrors

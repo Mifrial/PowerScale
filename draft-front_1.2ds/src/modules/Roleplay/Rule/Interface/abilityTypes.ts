@@ -3,7 +3,8 @@ export interface DimensionalNumber {
   size: number
 }
 
-export type ZoneId = 'creation' | 'personality' | 'live'
+/** Ключ зоны = код очков-правила (type='points'), напр. 'os' | 'ol' | 'or'. */
+export type ZoneId = string
 
 export type AbilityCost =
   | { kind: 'array'; levels_cost: number[] }
