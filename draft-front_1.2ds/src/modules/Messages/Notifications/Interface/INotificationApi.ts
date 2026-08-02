@@ -1,6 +1,5 @@
-import type { Notification } from './types'
-
-export type NotifFilter = 'all' | 'unread' | 'action'
+import type { Notification } from '@/modules/Messages/Notifications/Dto/Notification'
+import type { NotifFilter } from '@/modules/Messages/Notifications/Enum/NotifFilter'
 
 export interface NotificationFilters {
   filter?: NotifFilter

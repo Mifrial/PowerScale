@@ -38,7 +38,7 @@
       v-if="rule.type === 'ability'"
       :rule="rule"
       :rules="revisionStore.effectiveRules"
-      :tags="tagStore.tags"
+      :keywords="keywordStore.keywords"
       class="mb-4"
     />
 
@@ -78,8 +78,8 @@
     <v-card v-if="ruleTags.length > 0" class="mb-4">
       <v-card-title>Признаки</v-card-title>
       <v-card-text>
-        <v-chip v-for="tag in ruleTags" :key="tag.id" class="mr-2 mb-2" size="small">
-          {{ tag.name }}
+        <v-chip v-for="keyword in ruleTags" :key="keyword.id" class="mr-2 mb-2" size="small">
+          {{ keyword.name }}
         </v-chip>
       </v-card-text>
     </v-card>
@@ -103,6 +103,14 @@
       </v-card-text>
     </v-card>
   </v-container>
+  <div v-else-if="loading" class="d-flex justify-center pa-8">
+    <v-progress-circular indeterminate width="2" size="28" color="primary" />
+  </div>
+  <div v-else-if="error" class="text-center pa-8">
+    <v-icon icon="mdi-alert-circle" size="64" color="error" class="mb-4" />
+    <p class="text-body-1 mb-4">{{ error }}</p>
+    <v-btn color="primary" @click="retry">Попробовать снова</v-btn>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -111,22 +119,23 @@ import { useRoute, useRouter } from 'vue-router'
 import { useSpaceStore } from '@/modules/Roleplay/Space/Store/spaces'
 import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision'
 import { useRuleStore } from '../Store/rules'
-import { useTagStore } from '@/modules/Roleplay/Rule/Tag/Store/tags'
-import { useAbortable } from '@/modules/Core/Composables/useAbortable'
-import type { Rule, RuleVersion } from '../Interface/types'
-import type { Mechanic } from '../Service/mockMechanics'
-import { fetchMechanics } from '../Service/mockMechanics'
-import AbilityCard from '../Components/Cards/AbilityCard.vue'
-import RaceCard from '../Components/Cards/RaceCard.vue'
-import SpeciesCard from '../Components/Cards/SpeciesCard.vue'
-import PointsCard from '../Components/Cards/PointsCard.vue'
+import { useKeywordStore } from '@/modules/Roleplay/Rule/Store/keywords'
+import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable'
+import type { Rule } from '../Dto/Rule'
+import type { RuleVersion } from '../Dto/RuleVersion'
+import type { Mechanic } from '../Dto/Mechanic'
+import { getRuleApi } from '../init'
+import AbilityCard from '../Component/Cards/AbilityCard.vue'
+import RaceCard from '../Component/Cards/RaceCard.vue'
+import SpeciesCard from '../Component/Cards/SpeciesCard.vue'
+import PointsCard from '../Component/Cards/PointsCard.vue'
 
 const route = useRoute()
 const router = useRouter()
 const spaceStore = useSpaceStore()
 const revisionStore = useSpaceRevisionStore()
 const store = useRuleStore()
-const tagStore = useTagStore()
+const keywordStore = useKeywordStore()
 const { signal } = useAbortable()
 
 const code = computed(() => route.params.code as string)
@@ -138,6 +147,8 @@ const rule = ref<Rule | null>(null)
 const ruleVersions = ref<RuleVersion[]>([])
 const mechanics = ref<Mechanic[]>([])
 const loaded = ref<string | null>(null)
+const loading = ref(true)
+const error = ref<string | null>(null)
 
 const typeLabels: Record<string, string> = {
   simple: 'Простое',
@@ -157,8 +168,8 @@ const mechanic = computed(() => {
 })
 
 const ruleTags = computed(() => {
-  if (!rule.value?.tagIds || rule.value.tagIds.length === 0) return []
-  return tagStore.tags.filter(t => rule.value!.tagIds!.includes(t.id))
+  if (!rule.value?.keywordIds || rule.value.keywordIds.length === 0) return []
+  return keywordStore.keywords.filter(t => rule.value!.keywordIds!.includes(t.id))
 })
 
 const editLink = computed(() => `/space/${code.value}/${ctx.value}/rules/${ruleId.value}/edit`)
@@ -167,6 +178,10 @@ async function resolveRoute(): Promise<void> {
   const key = `${code.value}|${ctx.value}|${ruleId.value}`
   if (loaded.value === key) return
   loaded.value = key
+
+  loading.value = true
+  error.value = null
+  rule.value = null
 
   try {
     const space = await spaceStore.fetchSpaceByCode(code.value, signal.value)
@@ -179,27 +194,33 @@ async function resolveRoute(): Promise<void> {
       router.replace(`/space/${code.value}`)
       return
     }
+
+    // Ищем правило в effectiveRules (уже смержено с черновиками в draft-контексте)
+    const found = revisionStore.effectiveRules.find(r => r.id === ruleId.value)
+
+    if (found) {
+      rule.value = found
+    } else {
+      // Fallback: загружаем напрямую из API
+      rule.value = await store.fetchRule(ruleId.value, signal.value)
+    }
+
+    await store.fetchRuleVersions(ruleId.value, signal.value)
+    ruleVersions.value = store.ruleVersions
+
+    await keywordStore.fetchTags(signal.value)
+    mechanics.value = await getRuleApi().getMechanics(signal.value)
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') return
-    router.replace(`/space/${code.value}`)
-    return
+    error.value = e instanceof Error ? e.message : 'Ошибка загрузки правила'
+  } finally {
+    loading.value = false
   }
+}
 
-  // Ищем правило в effectiveRules (уже смержено с черновиками в draft-контексте)
-  const found = revisionStore.effectiveRules.find(r => r.id === ruleId.value)
-
-  if (found) {
-    rule.value = found
-  } else {
-    // Fallback: загружаем напрямую из API
-    rule.value = await store.fetchRule(ruleId.value, signal.value)
-  }
-
-  await store.fetchRuleVersions(ruleId.value, signal.value)
-  ruleVersions.value = store.ruleVersions
-
-  await tagStore.fetchTags(signal.value)
-  mechanics.value = await fetchMechanics(signal.value)
+function retry() {
+  loaded.value = null
+  resolveRoute()
 }
 
 onMounted(resolveRoute)

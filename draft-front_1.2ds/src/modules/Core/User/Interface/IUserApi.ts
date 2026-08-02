@@ -1,4 +1,4 @@
-import type { User } from './types'
+import type { User } from '@/modules/Core/User/Dto/User'
 
 export interface CreateUserData {
   name: string

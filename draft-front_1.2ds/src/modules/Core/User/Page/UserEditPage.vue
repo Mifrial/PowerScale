@@ -27,9 +27,9 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/modules/Core/User/Store/users'
-import type { User } from '@/modules/Core/User/Interface/types'
+import type { User } from '@/modules/Core/User/Dto/User'
 import type { CreateUserData, UpdateUserData } from '@/modules/Core/User/Interface/IUserApi'
-import UserForm from '@/modules/Core/User/Components/UserForm.vue'
+import UserForm from '@/modules/Core/User/Component/UserForm.vue'
 
 const route = useRoute()
 const router = useRouter()

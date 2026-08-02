@@ -57,7 +57,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSpaceStore } from '../Store/spaces'
-import { useAbortable } from '@/modules/Core/Composables/useAbortable'
+import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable'
 
 const router = useRouter()
 const store = useSpaceStore()

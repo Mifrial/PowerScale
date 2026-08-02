@@ -1,5 +1,5 @@
-import type { User } from '@/modules/Core/User/Interface/types'
-import type { PasswordPolicy } from './types'
+import type { User } from '@/modules/Core/User/Dto/User'
+import type { PasswordPolicy } from '@/modules/Core/Auth/Dto/PasswordPolicy'
 
 export interface IAuthApi {
   login(loginOrEmail: string, password: string): Promise<User>

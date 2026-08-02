@@ -1,5 +1,6 @@
 import type { RouteRecordRaw } from 'vue-router'
-import { routes as dashboardRoutes } from '@/modules/Dashboard/routes'
+import { routes as dashboardRoutes } from '@/modules/Roleplay/Home/routes'
+import { routes as notFoundRoutes } from '@/modules/Core/UI/routes'
 import { routes as chatRoutes } from '@/modules/Messages/Chat/routes'
 import {
   routes as notificationRoutes,
@@ -31,6 +32,7 @@ export const moduleChildren: RouteRecordRaw[] = [
   ...userRoutes,
   ...roleplayRoutes,
   adminRoutes,
+  ...notFoundRoutes,
 ]
 
 function assertUniqueRoutes(records: RouteRecordRaw[], level: string): void {

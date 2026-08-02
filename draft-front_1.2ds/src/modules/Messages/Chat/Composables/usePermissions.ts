@@ -1,7 +1,8 @@
 import { computed } from 'vue'
 import { useAuthStore } from '@/modules/Core/Auth/Store/auth'
 import { useUserStore } from '@/modules/Core/User/Store/users'
-import type { Chat } from '@/modules/Messages/Chat/Interface/types'
+import { isAdmin } from '@/modules/Core/User/init'
+import type { Chat } from '@/modules/Messages/Chat/Dto/Chat'
 
 export type ChatPermission = 'chat.read' | 'chat.write' | 'chat.kick' | 'chat.manage'
 
@@ -9,12 +10,11 @@ export function usePermissions() {
   const auth = useAuthStore()
   const currentUser = useUserStore()
 
-  const groups = computed(() => currentUser.currentUser?.groups ?? [])
   const isGuest = computed(() => auth.isGuest)
 
   function canInChat(chat: Pick<Chat, 'members' | 'visibility' | 'type'> | null, permission: ChatPermission): boolean {
     if (!chat || !auth.userId) return false
-    if (groups.value.includes('Администратор')) return true
+    if (isAdmin(currentUser.currentUser)) return true
 
     const me = chat.members?.find(m => m.userId === auth.userId)
 
@@ -39,20 +39,5 @@ export function usePermissions() {
     }
   }
 
-  function canKick(chat: Pick<Chat, 'members' | 'visibility' | 'type'> | null, targetUserId: number): boolean {
-    if (!chat || !auth.userId) return false
-    if (!canInChat(chat, 'chat.kick')) return false
-    const target = chat.members?.find(m => m.userId === targetUserId)
-    if (!target) return false
-    if (target.status === 'creator') return false
-    if (meStatus(chat) === 'admin' && target.status === 'admin') return false
-    return true
-  }
-
-  function meStatus(chat: Pick<Chat, 'members'> | null): string | null {
-    if (!chat || !auth.userId) return null
-    return chat.members?.find(m => m.userId === auth.userId)?.status ?? null
-  }
-
-  return { groups, isGuest, canInChat, canKick, meStatus }
+  return { isGuest, canInChat }
 }

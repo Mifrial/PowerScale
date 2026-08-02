@@ -11,8 +11,8 @@
 </template>
 
 <script setup lang="ts">
-import Messenger from '@/modules/Messages/Chat/Components/Messenger.vue'
-import MessengerTabs from '@/modules/Messages/Chat/Components/MessengerTabs.vue'
+import Messenger from '@/modules/Messages/Chat/Component/Messenger.vue'
+import MessengerTabs from '@/modules/Messages/Chat/Component/MessengerTabs.vue'
 </script>
 
 <style scoped>

@@ -1,4 +1,4 @@
-import type { NotificationTemplate } from './types'
+import type { NotificationTemplate } from '@/modules/Messages/Notifications/Dto/NotificationTemplate'
 
 export interface CreateTemplateData {
   key: string
@@ -19,5 +19,5 @@ export interface INotificationTemplateApi {
   getTemplate(id: number, signal?: AbortSignal): Promise<NotificationTemplate>
   createTemplate(data: CreateTemplateData, signal?: AbortSignal): Promise<NotificationTemplate>
   updateTemplate(id: number, data: UpdateTemplateData, signal?: AbortSignal): Promise<NotificationTemplate>
-  deleteTemplate(id: number, signal?: AbortSignal): Promise<void>
+  deactivateTemplate(id: number, signal?: AbortSignal): Promise<void>
 }

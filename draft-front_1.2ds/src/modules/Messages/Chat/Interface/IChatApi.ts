@@ -1,4 +1,7 @@
-import type { Chat, ChatMessage, DiceRollSpec, SyncResponse } from './types'
+import type { Chat } from '@/modules/Messages/Chat/Dto/Chat'
+import type { ChatMessage } from '@/modules/Messages/Chat/Dto/ChatMessage'
+import type { SyncResponse } from '@/modules/Messages/Chat/Dto/SyncResponse'
+import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec'
 
 export interface IChatApi {
   getChats(): Promise<Chat[]>

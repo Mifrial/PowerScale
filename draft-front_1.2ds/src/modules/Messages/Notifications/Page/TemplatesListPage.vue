@@ -32,56 +32,55 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTemplateStore } from '../Store/templates'
-import { useAbortable } from '@/modules/Core/Composables/useAbortable'
-import FilterBar from '@/modules/Core/UI/Components/FilterBar.vue'
-import SmartGrid from '@/modules/Core/UI/Components/Grid/SmartGrid.vue'
-import type { FilterField } from '@/modules/Core/UI/Interfaces/FilterField'
-import type { ColumnDefinition } from '@/modules/Core/UI/Interfaces/ColumnDefinition'
-import type { Row } from '@/modules/Core/UI/Interfaces/Row'
-import type { Sort } from '@/modules/Core/UI/Interfaces/Sort'
-import type { Pagination } from '@/modules/Core/UI/Interfaces/Pagination'
+import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable'
+import { useGridPage } from '@/modules/Core/Engine/Composables/useGridPage'
+import FilterBar from '@/modules/Core/UI/Component/FilterBar.vue'
+import SmartGrid from '@/modules/Core/UI/Component/Grid/SmartGrid.vue'
+import type { FilterField } from '@/modules/Core/UI/Dto/FilterField'
+import type { ColumnDefinition } from '@/modules/Core/UI/Dto/ColumnDefinition'
+import type { Row } from '@/modules/Core/UI/Dto/Row'
+import type { FilterValue } from '@/modules/Core/UI/Dto/FilterValue'
+import { extractFilterValue } from '@/modules/Core/UI/Utils/filterExtract'
 
 const router = useRouter()
 const store = useTemplateStore()
 const { signal } = useAbortable()
 
-const sort = ref<Sort | null>(null)
-const pagination = ref<Pagination>({ page: 1, perPage: 10 })
-const appliedFilters = ref<Record<string, any>>({})
+const { sort, pagination, appliedFilters, pageRows, onSortChange, onPaginationChange, onFilterChange: gridFilterChange } =
+  useGridPage(() => store.filteredTemplates)
 
 onMounted(() => store.fetchTemplates(signal.value))
 
 const columns: ColumnDefinition[] = [
   { key: 'key', label: 'Ключ', type: 'string', meta: { clickable: true } },
   { key: 'titleTemplate', label: 'Заголовок', type: 'string' },
+  {
+    key: 'active',
+    label: 'Статус',
+    type: 'boolean',
+    meta: {
+      trueLabel: 'Активен',
+      falseLabel: 'Удалён',
+      trueIcon: 'mdi-check-circle',
+      falseIcon: 'mdi-cancel',
+      trueColor: 'success',
+      falseColor: 'grey',
+    },
+  },
 ]
 
 const filterFields: FilterField[] = [
   { key: 'key', label: 'Ключ', type: 'string' },
+  { key: 'active', label: 'Статус', type: 'select', options: [{ label: 'Активен', value: true }, { label: 'Удалён', value: false }] },
 ]
 
-function extractFilterValue(v: any): string {
-  if (!v) return ''
-  if (typeof v === 'string') return v
-  if (typeof v === 'object' && v.value) return v.value
-  return ''
-}
-
-function onFilterChange(filters: Record<string, any>) {
-  appliedFilters.value = filters
+function onFilterChange(filters: Record<string, FilterValue>) {
+  gridFilterChange(filters)
   store.filterKey = extractFilterValue(filters.key)
-  pagination.value.page = 1
-}
-
-function onSortChange(s: Sort | null) {
-  sort.value = s
-}
-
-function onPaginationChange(p: Pagination) {
-  pagination.value = p
+  store.filterActive = filters.active !== undefined ? String(filters.active) : ''
 }
 
 function onRowAction(payload: { action: string; row: Row }) {
@@ -92,31 +91,4 @@ function onRowAction(payload: { action: string; row: Row }) {
     }
   }
 }
-
-const sortedTemplates = computed(() => {
-  const s = sort.value
-  if (!s) return store.filteredTemplates
-  const arr = [...store.filteredTemplates]
-  arr.sort((a, b) => {
-    const va = a[s.key as keyof typeof a]
-    const vb = b[s.key as keyof typeof b]
-    if (va == null) return 1
-    if (vb == null) return -1
-    if (typeof va === 'string') {
-      const cmp = va.localeCompare(String(vb))
-      return s.order === 'asc' ? cmp : -cmp
-    }
-    if (typeof va === 'number') {
-      return s.order === 'asc' ? va - Number(vb) : Number(vb) - va
-    }
-    return 0
-  })
-  return arr
-})
-
-const pageRows = computed(() => {
-  const p = pagination.value
-  const start = (p.page - 1) * p.perPage
-  return sortedTemplates.value.slice(start, start + p.perPage)
-})
 </script>

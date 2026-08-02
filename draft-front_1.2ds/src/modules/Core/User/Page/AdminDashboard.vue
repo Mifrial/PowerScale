@@ -20,10 +20,10 @@
       </v-col>
 
       <v-col cols="12" sm="6" md="4">
-        <v-card to="/admin/tags" class="admin-card">
+        <v-card to="/admin/keywords" class="admin-card">
           <v-card-title class="d-flex align-center">
             <v-icon class="mr-2">mdi-tag-multiple</v-icon>
-            Теги
+            Признаки
           </v-card-title>
           <v-card-text>
             Справочник тегов для правил
@@ -61,6 +61,6 @@
 }
 .admin-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+  box-shadow: 0 4px 12px rgba(var(--v-theme-scrim), var(--v-shadow-sm-opacity));
 }
 </style>

@@ -1,4 +1,4 @@
-import type { ChatType } from '../Interface/types'
+import type { ChatType } from '@/modules/Messages/Chat/Enum/ChatType'
 
 export const CHAT_CONFIG: Record<ChatType, { icon: string; color: string }> = {
   private: { icon: 'mdi-account', color: 'primary' },

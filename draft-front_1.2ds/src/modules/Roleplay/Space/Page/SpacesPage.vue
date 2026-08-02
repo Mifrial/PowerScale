@@ -51,16 +51,18 @@ import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useSpaceStore } from '../Store/spaces'
-import { useAbortable } from '@/modules/Core/Composables/useAbortable'
-import FilterBar from '@/modules/Core/UI/Components/FilterBar.vue'
-import type { FilterField } from '@/modules/Core/UI/Interfaces/FilterField'
+import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable'
+import FilterBar from '@/modules/Core/UI/Component/FilterBar.vue'
+import type { FilterField } from '@/modules/Core/UI/Dto/FilterField'
+import type { FilterValue } from '@/modules/Core/UI/Dto/FilterValue'
+import { extractFilterValue, extractStringFilter } from '@/modules/Core/UI/Utils/filterExtract'
 
 const router = useRouter()
 const store = useSpaceStore()
 const { filteredSpaces, loading } = storeToRefs(store)
 const { signal } = useAbortable()
 
-const appliedFilters = ref<Record<string, any>>({})
+const appliedFilters = ref<Record<string, FilterValue>>({})
 
 onMounted(() => store.fetchSpaces(signal.value))
 
@@ -69,28 +71,7 @@ const filterFields: FilterField[] = [
   { key: 'active', label: 'Активность', type: 'active', options: [{ label: 'Активен', value: true }, { label: 'Неактивен', value: false }] },
 ]
 
-function extractFilterValue(v: any): string {
-  if (v === undefined || v === null) return ''
-  if (typeof v === 'string') return v
-  if (typeof v === 'boolean') return String(v)
-  if (typeof v === 'object') {
-    if (v.value !== undefined) return String(v.value)
-  }
-  return ''
-}
-
-function extractStringFilter(v: any): { mode: 'equals' | 'contains'; value: string } | null {
-  if (v === undefined || v === null) return null
-  if (typeof v === 'string') {
-    return v ? { mode: 'contains', value: v } : null
-  }
-  if (typeof v === 'object' && v.value !== undefined) {
-    return { mode: v.mode === 'equals' ? 'equals' : 'contains', value: String(v.value) }
-  }
-  return null
-}
-
-function onFilterChange(filters: Record<string, any>) {
+function onFilterChange(filters: Record<string, FilterValue>) {
   appliedFilters.value = filters
   store.quickFilter = extractFilterValue(filters.q)
   store.filterName = extractStringFilter(filters.name)
@@ -106,7 +87,7 @@ function onFilterChange(filters: Record<string, any>) {
 }
 .space-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+  box-shadow: 0 4px 12px rgba(var(--v-theme-scrim), var(--v-shadow-sm-opacity));
 }
 .space-card-title {
   min-width: 0;

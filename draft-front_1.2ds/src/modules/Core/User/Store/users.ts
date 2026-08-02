@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { User } from '@/modules/Core/User/Interface/types'
+import type { User } from '@/modules/Core/User/Dto/User'
 import type { CreateUserData, UpdateUserData } from '@/modules/Core/User/Interface/IUserApi'
 import { getUserApi } from '@/modules/Core/User/init'
 
@@ -146,7 +146,11 @@ export const useUserStore = defineStore('users', () => {
   async function deactivateUser(id: number, reason?: string, deactivatedUntil?: string, signal?: AbortSignal): Promise<void> {
     await getUserApi().deactivateUser(id, reason, deactivatedUntil, signal)
     const user = users.value.find(u => u.id === id)
-    if (user) user.active = false
+    if (user) {
+      user.active = false
+      user.deactivate_reason = reason
+      user.deactivated_until = deactivatedUntil
+    }
   }
 
   return {

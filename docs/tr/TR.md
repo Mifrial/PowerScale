@@ -37,7 +37,7 @@
 - **Пользователь** — учётная запись (имя, логин, пароль). Набор полей может расширяться.
 - **Группа пользователей** — набор прав. Пользователь может быть в нескольких группах, права суммируются.
 - **Правило** — единица контента. Имеет **глобальный ID** (сквозной для пространств и времён).
-- **Пространство** — изолированная среда правил. По умолчанию «Разработка» и «Актуальные правила». Редактирование возможно в любом пространстве. Пространство имеет версию правил в формате **A.B.C.x** (A — глобальная, B — серьёзные, C — небольшие — устанавливаются админом в настройках; x — автоинкремент при каждой публикации).
+- **Пространство** — изолированная среда правил. По умолчанию «Разработка» и «Актуальные правила». Редактирование возможно в любом пространстве. Пространство имеет **revision (x)** — автоинкремент при каждой публикации (см. решение 30.1).
 - **Версия правила** — комбинация `(rule_global_id, space_id, created_at)`. Две версии одного правила в разных пространствах — разные. Версии не перетираются.
 - **Версия правил** (набор) — состояние всех правил в данном пространстве на данный момент времени.
 - **Персонаж** — привязан к версии правил (`space_id`, `created_at`). Сам версионируется.
@@ -90,7 +90,7 @@
 - Параметр фабрики называется `$serviceLocator` (не $sl)
 
 **Фронтенд:**
-- `Core/Engine/ServiceLocator.ts` — generic SL (set/get/reset)
+- `Core/Engine/Service/ServiceLocator.ts` — generic SL (set/get/reset), export `serviceLocator`
 - Per-модуль `init.ts`: `registerXApi(impl)` + `getXApi(): IXApi`
 - `main.ts`: регистрация всех API (mock или real), вызов `getCsrfApi().initToken()`
 - **Core-правило:** Core-модули не импортируют из не-Core; не-Core могут импортировать из Core
@@ -107,82 +107,113 @@
 
 ### Фронтенд (Shell + модули)
 
-**Структура:**
+**Структура (актуализировано 2026-08-02, фаза 2.5 — анатомия модулей: `Interface/`=контракты сервисов, `Dto/`=контракты данных, `Enum/`=string-literal union, `Service/`=классы, `Constant/`=справочники, `Component/`=Vue, `Mock/`=моки, `Utils/`, `Store/`, `Page/`, `__tests__/`; папки в единственном числе; в корне модуля — только `init.ts`/`routes.ts`):**
 ```
 src/
   modules/
     Core/
       Engine/
-        Engine.ts               — runAction-клиент (fetch + CSRF + baseUrl)
-        HttpClient.ts           — fetch-клиент, интерцепторы (401, CSRF)
-        ActionResponse.ts       — DTO ответа runAction
-        ServiceLocator.ts       — DI-контейнер (set/get/reset)
-        Utils/
-          debounce.ts           — debounce utility
-      Auth/
-        Interface/
-          IAuthApi.ts           — интерфейс сервиса аутентификации
-          types.ts              — PasswordPolicy
+        init.ts                 — публичная точка модуля (HttpClient, Engine, ActionResponse, serviceLocator, register/getCsrfApi)
         Service/
-          AuthApi.ts            — реализация через Engine.runAction()
-          mockAuth.ts           — мок (логика в памяти, httpOnly cookie-симуляция)
-          mockAuthApi.ts        — обёртка mockAuth для IAuthApi
-        Store/
-          auth.ts               — Pinia-store (userId, loading, login, logout, checkAuth)
-        Utils/
-          validatePassword.ts   — чистая функция валидации пароля
-        init.ts                 — registerAuthApi() / getAuthApi()
-      User/
-        Interface/
-          IUserApi.ts
-          types.ts              — User (с avatar_file_id, super_admin)
-        Service/
-          UserApi.ts
-          mockUserApi.ts
-          mockUsers.ts
-        Store/
-          users.ts
-        init.ts                 — registerUserApi() / getUserApi()
-      CSRF/
+          ServiceLocator.ts     — DI-контейнер (set/get/reset) → export serviceLocator
+          HttpClient.ts         — fetch-клиент, интерцепторы (401, CSRF)
+          CsrfApi.ts            — чтение csrf-token из document.cookie
+          Engine.ts             — runAction-клиент (fetch + CSRF + baseUrl)
         Interface/
           ICSRFApi.ts           — getToken(), initToken()
-        Service/
-          CsrfApi.ts            — чтение csrf-token из document.cookie
+        Dto/
+          ActionResponse.ts     — DTO ответа runAction
+        Mock/
           mockCsrf.ts           — генерация UUID в памяти
-        init.ts                 — registerCsrfApi() / getCsrfApi()
-      Composables/
-        useAbortable.ts         — AbortController composable
+        Value/
+          DateTime.ts
+          DimensionalNumber.ts  — value-класс (plain-тип DimensionalNumberValue)
+        Composables/
+          useAbortable.ts       — AbortController composable
+          useGridPage.ts        — сортировка/пагинация/фильтры для Grid
+      Auth/
+        Interface/ IAuthApi.ts
+        Dto/ PasswordPolicy.ts
+        Service/ AuthApi.ts, PasswordValidatorService.ts
+        Constant/ passwordPolicy.ts — DEFAULT_PASSWORD_POLICY
+        Mock/ mockAuth.ts, mockAuthApi.ts
+        Store/ auth.ts
+        init.ts                 — registerAuthApi() / getAuthApi()
+      User/
+        Interface/ IUserApi.ts, IGroupApi.ts
+        Dto/ User.ts, Group.ts, ProfileSection.ts
+        Service/ UserApi.ts, GroupApi.ts, AccessService.ts (hasAny/hasAll, super-admin bypass)
+        Constant/ permissions.ts — категории прав Core/User (user, user_group) + админ-секция groups
+        Interface/ IPermissionRegistry.ts — типы PermissionCategory/AdminSection
+        Mock/ mockUserApi.ts, mockUsers.ts, mockGroupApi.ts, mockGroups.ts, groupPermissions.ts
+        Store/ users.ts, groups.ts
+        init.ts                 — registerUserApi()/getUserApi(); registerProfileSection(); реестр прав:
+                                  registerPermissionCategory()/getPermissionCategories()/getPermissionKeys(),
+                                  registerAdminSection()/getAdminSections()/getAdminSectionPermissions(), isAdmin(),
+                                  resetPermissionRegistries(); registerUserModule()
       UI/
-        Components/
+        Component/
           Grid/                 — SmartGrid (рендеры, редакторы)
           FilterBar/            — фильтры
-          Input/
-            PasswordField.vue   — чистый UI-компонент (принимает :rules)
+          Input/                — PasswordField.vue, DimensionalNumber.vue, DimensionalNumberInput.vue
+        Utils/
+          debounce.ts           — UI-утилита
     Messages/
       Chat/
-        Interface/
-          IChatApi.ts
-        Service/
-          ChatApi.ts
-          mockChatApi.ts
-          ChatSyncService.ts    — SSE/polling sync
-        Store/
-          chat.ts
-        init.ts                 — registerChatApi() / getChatApi()
+        Interface/ IChatApi.ts, ICommandHandler.ts, IContentRenderer.ts, IChatToolbarExtension.ts
+        Dto/ Chat.ts, ChatMessage.ts, SyncResponse.ts, MemberInfo.ts
+        Enum/ ChatType.ts, ChatVisibility.ts
+        Service/ ChatApi.ts, ChatSyncService.ts (SSE/polling)
+        Mock/ mockChatApi.ts, mockChat.ts
+        Store/ chat.ts
+        init.ts                 — registerChatApi()/getChatApi(); реестры: registerCommandHandler(), registerContentRenderer(), registerToolbarExtension() — плагинная точка (Game регистрирует /roll, рендер результата, тулбар)
       Notifications/
-        Interface/
-          INotificationApi.ts
-        Service/
-          NotificationApi.ts
-          mockNotificationApi.ts
-        Store/
-          notifications.ts
+        Interface/ INotificationApi.ts, INotificationTemplateApi.ts
+        Dto/ Notification.ts, NotificationAction.ts, NotificationTemplate.ts, NotificationButton.ts
+        Enum/ NotifFilter.ts
+        Service/ NotificationApi.ts, NotificationTemplateApi.ts
+        Mock/ mockNotificationApi.ts, mockNotifications.ts, mockTemplateApi.ts, mockTemplates.ts
+        Store/ notifications.ts, templates.ts
         init.ts                 — registerNotificationApi() / getNotificationApi()
+    Roleplay/
+      Rule/
+        Interface/ IRuleApi.ts
+        Dto/ Rule.ts, RuleVersion.ts, Mechanic.ts, ResourceSpec.ts, CreateRuleData.ts, UpdateRuleData.ts, Ability/, Item/, Race/
+        Enum/ RuleType.ts, Ability/AbilityType.ts, Race/RaceCharacteristicMode.ts
+        Service/ RuleApi.ts, RuleValidationService.ts, RuleDiffService.ts, Spec/
+        Constant/ Ability/, Item/
+        Mock/ mockRuleApi.ts, mockRules.ts, mockMechanics.ts
+        Component/ — редакторы (Ability, Item, Race, Spell, ...), карточки, FormulaInput
+        Store/ rules.ts, draftRules.ts
+        init.ts, routes.ts
+        Dto/ Source-правила (тип rule 'source'): источники модификаторов — часть правил, не справочник
+      Game/
+        Interface/ IMacroApi.ts
+        Dto/ DiceRollSpec.ts, DiceRollResult.ts, UserMacro.ts, MacroRollSpec.ts
+        Service/ RollService.ts (парсер /roll + разрешение бросков, синглтон rollService), MacroApi.ts
+        Mock/ mockMacroApi.ts, mockMacros.ts
+        Store/ macros.ts
+        Component/ DiceRollForm.vue, DiceRollResult.vue, RollFormExtension.vue, MacroBarExtension.vue, MacrosSection.vue
+        Page/ GamesPage.vue
+        init.ts                 — registerMacroApi()/getMacroApi(); registerGameModule() (права + плагины Chat + секция профиля)
+        routes.ts
+        Interface/ IKeywordApi.ts — признаки (keywords), плоский справочник
+        Dto/ Keyword.ts, Service/ KeywordApi.ts, Mock/ mockKeywordApi.ts, mockKeywords.ts, Store/ keywords.ts
+        Page/ KeywordsListPage.vue, KeywordEditPage.vue
+      Space/
+        Interface/ ISpaceApi.ts
+        Dto/ Space.ts, SpaceRevision.ts, SpaceRevisionMeta.ts, SpaceCreateData.ts, SpaceUpdateData.ts
+        Service/ SpaceApi.ts
+        Mock/ mockSpaceApi.ts, mockSpaces.ts
+        Store/ spaces.ts, spaceRevision.ts
+        init.ts, routes.ts
+      Home/
+        Page/ DashboardPage.vue
+      Game/, Character/ — стабы
   router/
-    index.ts
+    index.ts, access.ts          — route guard (права через AccessService)
   shell/
     Shell.vue                   — корневой компонент (topbar + sidebar + router-view)
-    TopBar.vue                  — меню + аватар + уведомления
     SideBar.vue                 — collapsible rail menu
   App.vue                       — точка входа (ErrorBoundary)
   main.ts                       — инициализация Vite + плагины
@@ -190,8 +221,10 @@ src/
     vuetify.ts                  — Vuetify config
 ```
 
+**Конвенция страниц:** страницы живут в `modules/<Module>/Page/*.vue`; корневой layout — `shell/`, роутер — `router/index.ts`.
+
 **Архитектурные решения:**
-- DI: `ServiceLocator` (генерализованный set/get/reset)
+- DI: `serviceLocator` (генерализованный set/get/reset, `Core/Engine/Service/ServiceLocator.ts`)
 - Per-модуль `init.ts`: `registerXApi(impl)` + `getXApi(): IXApi`
 - `main.ts`: регистрация всех API (mock или real), вызов `getCsrfApi().initToken()`
 - **CSRF:** `HttpClient` принимает коллбэк `getCsrfToken`; добавляет заголовок `X-CSRF-Token` на POST-запросы
@@ -288,7 +321,7 @@ user_groups(
 
 group_permissions(                         -- глобальные права
   group_id → groups.id NOT NULL,
-  permission_key VARCHAR NOT NULL,         -- user.* | user_group.* | game.* | space.* | character.* | tag.* | notification_template.*
+  permission_key VARCHAR NOT NULL,         -- user.* | user_group.* | game.* | space.* | character.* | keyword.* | rule.* | notification_template.*
   PRIMARY KEY (group_id, permission_key)
 )
 ```
@@ -332,13 +365,14 @@ space_revisions(                           -- мета-информация о �
 INDEX: (space_id, revision)
 
 tags(
-  id, string_id VARCHAR UNIQUE NOT NULL,
+  id, code VARCHAR UNIQUE NOT NULL,
   name VARCHAR NOT NULL, description TEXT,
   active BOOL DEFAULT true NOT NULL
 )
 
 rules(                                     -- реестр правил (глобальный ID)
   rule_id UUID PRIMARY KEY,
+  code VARCHAR UNIQUE NOT NULL,            -- глобальный семантический ключ правила (общий для всех версий и пространств; задаётся при создании, неизменяем)
   type VARCHAR NOT NULL                    -- simple | race | species | characteristic | resource | points | ability | item | damage_type
 )
 
@@ -365,10 +399,10 @@ INDEX: (space_id, rule_id, created_at DESC),   -- основной запрос 
        (space_id),                             -- все версии в пространстве
        (mechanic_id)                           -- поиск правил по механике
 
-rule_tags(
+rule_keywords(
   rule_version_id → rule_versions.id NOT NULL,
-  tag_id → tags.id NOT NULL,
-  PRIMARY KEY (rule_version_id, tag_id)
+  keyword_id → keywords.id NOT NULL,
+  PRIMARY KEY (rule_version_id, keyword_id)
 )
 ```
 
@@ -552,6 +586,15 @@ character_inventory(
 INDEX: (character_version_id)
 ```
 
+```sql
+character_moderation(                    -- волна 4: модерация персонажей
+  id,
+  character_id → characters.id NOT NULL,
+  chat_message_id → chat_messages.id NULL,  -- ссылка на сообщение модерации (§12, волна 4)
+  created_at
+)
+```
+
 ### Уведомления
 
 ```sql
@@ -561,6 +604,7 @@ notification_templates(
   body_template TEXT NOT NULL,          -- HTML с плейсхолдерами
   buttons_json JSON                     -- [{"label":"Принять","action_type":"event","action":"accept_invite","payload":{}}]
                                         -- action_type: "event" | "url" | "action"
+  active BOOL DEFAULT true NOT NULL     -- soft-delete: неактивные скрыты, связи сохраняются
 )
 
 notifications(
@@ -581,16 +625,19 @@ INDEX: (to_user_id, read, created_at DESC),  -- лента уведомлени�
 
 ```sql
 chats(
-  id, type VARCHAR NOT NULL,            -- private | group | game
+  id, type VARCHAR NOT NULL,            -- private | group | game | game_discussion | character_discussion
   game_id → games.id NULL,
   name VARCHAR NULL,
-  created_at
+  created_at,
+  updated_at                            -- для lastMessageAt на фронте (см. §9)
 )
 
 chat_members(
   chat_id → chats.id NOT NULL,
   user_id → users.id NOT NULL,
   joined_at,
+  last_read_message_id INT NULL,        -- id последнего прочитанного сообщения чата
+                                        -- unreadCount = COUNT(messages WHERE id > last_read_message_id AND user_id != me)
   PRIMARY KEY (chat_id, user_id)
 )
 INDEX: (user_id)
@@ -600,19 +647,31 @@ chat_messages(
   user_id → users.id NOT NULL,
   content TEXT NOT NULL,
   dice_result JSON NULL,                -- результат броска: {roll: ..., results: [...], successes: ..., size: ...}
-  created_at
+  created_at,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 )
-INDEX: (chat_id, created_at DESC)
+INDEX: (chat_id, created_at DESC)  -- пагинация
+INDEX: (chat_id, updated_at)       -- sync (см. §9)
 
 user_macros(
   id, user_id → users.id NOT NULL,
   name VARCHAR NOT NULL,
-  text_template TEXT NOT NULL,
-  roll_formula VARCHAR NOT NULL,        -- например "3d6"
-  efficiency INT NOT NULL,
+  text_template TEXT NOT NULL DEFAULT '',  -- может быть пустым
   created_at
 )
 INDEX: (user_id)
+
+user_macro_rolls(
+  id, macro_id → user_macros.id NOT NULL ON DELETE CASCADE,
+  position INT NOT NULL,                   -- порядок броска в макросе
+  roll_formula VARCHAR NOT NULL,           -- например "3d6"
+  efficiency INT NOT NULL DEFAULT 3,
+  adv INT NOT NULL DEFAULT 0,              -- преимущества (>0) / помехи (<0)
+  die_size INT NOT NULL DEFAULT 0,         -- размерность успехов (суффикс в выводе)
+  roll_label VARCHAR NULL,                 -- подпись броска (метка карточки, мульти-броски)
+  variable_adv BOOLEAN NOT NULL DEFAULT false,  -- спрашивать число преимуществ при отправке
+)
+INDEX: (macro_id, position)
 ```
 
 ### Летопись
@@ -755,13 +814,13 @@ INDEX: (chronicle_id, sort_order)
 | `character.create` | Создание персонажей (свободное и в игры) |
 | `character.view` | Просмотр чужих персонажей (свои всегда видны владельцу) |
 
-#### Права тегов
+#### Права признаков (keywords)
 | Ключ | Что даёт |
 |------|----------|
-| `tag.view` | Просмотр списка тегов |
-| `tag.create` | Создание тегов |
-| `tag.edit` | Редактирование тегов |
-| `tag.delete` | Удаление (soft-delete) тегов |
+| `keyword.view` | Просмотр списка признаков |
+| `keyword.create` | Создание признаков |
+| `keyword.edit` | Редактирование признаков |
+| `keyword.delete` | Удаление (soft-delete) признаков |
 
 #### Права шаблонов уведомлений
 | Ключ | Что даёт |
@@ -791,6 +850,8 @@ INDEX: (chronicle_id, sort_order)
 
 Все ключи расширяемы — новые добавляются без миграции схемы.
 
+На фронте таксономия прав — **реестр категорий модулей** (`Core/User/init.ts`): каждый модуль объявляет свою категорию (`Constant/permissions.ts`) и регистрирует через `register*Module()` из своего `init.ts`; админ-разделы — реестр `AdminSection` (`/admin` guard `meta.admin` + пункты меню). Композиция — единый плоский блок `register*Module()` в `main.ts` (после API-слоя; порядок вызова не важен — админ-права мока ленивы). Признаки — `keyword.*` (модуль Rule), шаблоны уведомлений — `notification_template.*` (Notifications), группы — `user_group.*` (Core/User).
+
 ### Система авторизации
 
 #### Принцип
@@ -818,7 +879,7 @@ INDEX: (chronicle_id, sort_order)
 | Игра (`/games/:id`) | Владелец и ведущие — полный доступ | По статусу игры + `game.edit_all` |
 | Правило (`/space/:code/:ctx/rules/:ruleId`) | — | `space.view` / `space.edit` |
 | Группа пользователей (`/admin/groups/:id`) | — | `user_group.*` |
-| Теги (`/admin/tags`) | — | `tag.*` |
+| Признаки (`/admin/keywords`) | — | `keyword.*` |
 | Шаблоны уведомлений | — | `notification_template.*` |
 
 > *\* `character.view` — новый ключ. По умолчанию персонажи видны только владельцу и участникам игры.*
@@ -946,18 +1007,21 @@ draftRuleStore {
 1. Все изменения накапливаются в клиентском `draftRuleStore`
 2. Перед публикацией фронт загружает `getLatestRevision` (актуальные опубликованные правила)
 3. Для каждой changedRule вычисляется diff с её published-версией
-4. **Блоки diff:**
+4. **Блоки diff в диалоге подтверждения:**
    - Изменённые правила (есть в draft и в published — различаются)
    - Новые правила (есть в draft, нет в published)
-   - Возвращённые правила (удалены в latest revision, но изменены в draft — обязательное подтверждение)
-5. Пользователь подтверждает → `commitDraft({ spaceId, rules: changedRules })`
-6. Бэк:
+   - Проблемные правила (не прошли фронт-валидацию: битые ссылки, структура способности/расы/вида, циклы видов) — блокируют публикацию
+5. Фронт валидирует черновик до коммита; при ошибках валидации проблемные правила показываются в диалоге, кнопка подтверждения неактивна
+6. Пользователь отмечает галочками, какие правила черновика войдут в публикацию (по умолчанию отмечены все) → `commitDraft({ spaceId, rules: выбранные changedRules })`
+7. Бэк:
    - Для каждой changedRule создаёт новую запись в `rule_versions`
    - Инкрементит `spaces.revision`
    - Вставляет запись в `space_revisions`
    - Возвращает новый `SpaceRevision`
-7. Фронт: `draftRuleStore.discard(spaceId)`, кеш revision N инвалидируется (если был), revision N+1 кешируется, **навигация** → `/space/:code/:newRev`
-8. При откате последнего изменённого правила (draft стал пустым) → `router.replace('/space/:code/:latestRev')`
+8. Фронт: из черновика удаляются только закоммиченные правила (`removeRule` по выбранным id), неотмеченные остаются в черновике; кеш revision N инвалидируется (если был), revision N+1 кешируется, **навигация** → `/space/:code/:newRev` (номер из возвращённого `SpaceRevision`, не локальный инкремент)
+9. При откате последнего изменённого правила (draft стал пустым) → `router.replace('/space/:code/:latestRev')`
+
+> **Требуется реализовать:** выбор подмножества правил черновика галочками в диалоге публикации с коммитом только выбранных и удалением из черновика только их. Сейчас коммитится весь черновик и он очищается полностью.
 
 ### Раздел `/space`
 
@@ -972,7 +1036,7 @@ draftRuleStore {
 | `/space/:code/:ctx/rules/:ruleId` | **Просмотр правила** в контексте `:ctx` (`draft` или ревизия). Отображение адаптируется под тип правила. Текущее состояние, история версий, diff. Кнопка «Редактировать» (см. модель редактирования). | `space.view` |
 | `/space/:code/:ctx/rules/:ruleId/edit` | **Редактирование.** Принцип: читать из контекста → писать в draft. База = правило из `:ctx`, запись = всегда в черновик по кнопке «Сохранить». | `rule.edit` |
 | `/space/:code/settings` | **Настройки.** Название, описание, ревизия (read-only), права доступа (per-space: группы + индивидуально). | `space.edit` |
-| `/space/:code/deactivate` | **Деактивация пространства.** | `space.edit` |
+| `/space/:code/deactivate` | **Деактивация пространства.** В UI — кнопка «Деактивировать» на странице настроек (`/space/:code/settings`) с диалогом подтверждения; отдельной страницы нет. | `space.edit` |
 
 ### Модель редактирования правил («читать из контекста → писать в draft»)
 
@@ -1039,6 +1103,8 @@ actions: {
 }
 ```
 
+**Персистентность (F42):** черновик сериализуется в `localStorage` (ключ `powerscale.drafts.v1`). Восстанавливается при старте, обновляется после каждого изменения и очищается при `discardDraft`/`clearAll` (и после коммита). Ключ версионируется — при изменении формата старые данные игнорируются (невалидный JSON безопасно отбрасывается). Переживает F5, но остаётся «до коммита»; если localStorage недоступен (квота/режим) — черновик живёт in-memory.
+
 ---
 
 ## 6. Правила
@@ -1063,7 +1129,7 @@ actions: {
 
 Все типы — правила: версионируются, имеют глобальный ID, хранятся в `rule_versions`.
 
-**Базовые поля всех правил:** `name`, `description` (HTML), `spec` (JSON-блоки — «Спецификация», структурированные данные), `tagIds` (связь с тегами через rule_tags), `mechanic_id` (nullable — ссылка на механику). Ниже указаны только типоспецифичные поля.
+**Базовые поля всех правил:** `name`, `description` (HTML), `spec` (JSON-блоки — «Спецификация», структурированные данные), `keywordIds` (связь с признаками через rule_keywords), `mechanic_id` (nullable — ссылка на механику). Ниже указаны только типоспецифичные поля.
 
 | Тип | Описание |
 |-----|----------|
@@ -1072,11 +1138,12 @@ actions: {
 | **Вид/Подвид** | Узел дерева рас (вид → подвид → раса). Контента не несёт, кроме наследуемых расой способностей. |
 | **Характеристика** | Размерное число с базой 3-5. Может быть производной (формула). |
 | **Ресурс** | Числовое значение. Может быть размерным или безразмерным. |
-| **Очки** | ОС/ОЛ/ОР — этап и «валюта» создания персонажа. Ключ (`code`) используется как ключ зон способностей. Базовые значения не хранятся. |
-| **Способность** | Общий тип. Делится на подтипы через теги. |
+| **Очки** | ОС/ОЛ/ОР — этап и «очки» создания персонажа. Ключ (`code`) используется как ключ зон способностей. Базовые значения не хранятся. |
+| **Способность** | Общий тип. Делится на подтипы через признаки. |
 | **Предмет** | Именованная сущность с категорией, стоимостью, весом. Подтипы: деньги, снаряжение (оружие/броня/щит), прочее. |
 | **Тип урона** | Справочник типов урона и сопротивлений (рубящий, колющий, огонь и т.д.). |
-| **Эффект** | Runtime-статус с уровнями. Правила: наложение, длительность, снятие. |
+| **Источник** | Правило-метка происхождения модификаторов (`"armor"`, `"shield"`, `"spell"`, `"training"`, `"innate"`); группировка не-суммирования модификаторов. |
+| **Эффект** | Runtime-статус с уровнями. Правила: наложение, длительность, снятие. **Отложен** (см. «Отложенное» п.4). |
 | **Состояние** | Не тип правила. Агрегат runtime-данных (усталость + эффекты + увечья). |
 
 #### Размерные числа
@@ -1095,22 +1162,23 @@ actions: {
 **Округление:** `[{B|x}]` — округление вниз
 - `[{3|-1}] = 1`
 
-**Модификация:** при изменении значения происходит автоматический переход между размерами
+**Модификация (характеристики, с диапазоном):** при изменении значения происходит автоматический переход между размерами — каждые `max−min+1` пунктов базы = один размер (`CHARACTERISTIC_BASE_RANGE = { min: 3, max: 5 }`)
 - `{4|0}.modify(+1) = {5|0}`
 - `{5|0}.modify(+1) = {3|+1}` (переполнение базы → увеличение размера)
 - `{3|0}.modify(-1) = {5|-1}` (недостаток базы → уменьшение размера)
 
-**Хранение в БД:** JSON `{ "base": 3, "size": 1 }`
+**Модификация (без диапазона):** `{B|x}.modify(delta)` — простой сдвиг базы `{B+delta|x}` (ресурсы, веса — границ нет).
 
-**Отображение в UI:** компонент `DimensionalNumber` с tooltip
-- `{3|+1}` → `3↑` (tooltip: `{3|+1}`)
-- `{3|-1}` → `3↓` (tooltip: `{3|-1}`)
-- `{3|+2}` → `3↑²` (tooltip: `{3|+2}`)
-- `{3|0}` → `3` (tooltip: `{3|0}`)
+**Хранение в БД:** JSON `{ "base": 3, "size": 1 }` (plain-тип `DimensionalNumberValue`)
 
-**Реализация:** класс `DimensionalNumber` с методами:
-- `toNumber()` — преобразование в обычное число
-- `modify(delta)` — модификация с автоматическим переходом размеров
+**Отображение в UI:** компонент `DimensionalNumber` рендерит базу + стрелку + модуль размера (визуал унаследован, без tooltip): `{3|+1}` → `3↑1`, `{3|-1}` → `3↓1`, `{3|0}` → `3|0`
+
+**Формат `toString()`:** `{3|+2}` → `3↑²`, `{3|+1}` → `3↑`, `{3|-1}` → `3↓`, `{3|0}` → `3`
+
+**Реализация:** класс `DimensionalNumber` в `Core/Engine/Value/DimensionalNumber.ts` (значение — plain-тип `DimensionalNumberValue { base, size }`); типы импортируются в Rule-слой (`Dto/Ability`, `Dto/Item`, `Dto/Race`) как `DimensionalNumberValue`:
+- `toNumber()` — преобразование в обычное число (округление вниз)
+- `modify(delta, range?)` — сдвиг базы; при `range` — с автопереносом между размерами
+- `add/subtract(other)` — арифметика ресурсов: выравнивание по меньшему размеру, результат без нормализации (отрицательный допустим, guard на вызывающем)
 - `toString()` — форматирование для отображения
 
 #### Простое правило
@@ -1154,7 +1222,7 @@ actions: {
 - Формула: только `min()` или `max()` из двух базовых характеристик (без формулы)
 - Выбор характеристик для формулы ограничен текущим пространством
 
-**Группировка:** осуществляется через признаки (теги). Например: "Характеристика" + "Физическая" + "Основная".
+**Группировка:** осуществляется через признаки. Например: "Характеристика" + "Физическая" + "Основная".
 
 #### Ресурс
 
@@ -1179,12 +1247,12 @@ interface ResourceSpec {
 - Правило хранит только **определение** ресурса; текущее/максимум живут на персонаже (модуль Character)
 - Ссылается на ресурсы по `code` (`resource_code`)
 
-**Группировка:** осуществляется через признаки (теги). Например: "Ресурс" + "Магический" + "Основной".
+**Группировка:** осуществляется через признаки. Например: "Ресурс" + "Магический" + "Основной".
 
 #### Очки
 
-ОС/ОЛ/ОР (Очки Создания / Личности / Развития) — «валюта» создания персонажа, привязанная к этапу. Тип правила `points`:
-- `name` — название («Очки Создания»), `code` — системное имя (`os`/`ol`/`or`), `description`, теги. Спецификация отсутствует.
+ОС/ОЛ/ОР (Очки Создания / Личности / Развития) — «очки» создания персонажа, привязанные к этапу. Тип правила `points`:
+- `name` — название («Очки Создания»), `code` — системное имя (`os`/`ol`/`or`), `description`, признаки. Спецификация отсутствует.
 - **Базовые значения не хранятся**: ОС/ОР определяются игрой, ОЛ — правилами возраста (модуль Game/Character).
 - Код очков используется как **ключ зоны** способности (`zones: Record<code, AbilityCost>`). Редактор способностей заполняет зоны из очков-правил пространства.
 - Этапы создания персонажа = набор очков-правил в версии (версионно-осведомлённость, см. ТЗ).
@@ -1192,7 +1260,7 @@ interface ResourceSpec {
 
 #### Способность
 
-**Не жёсткие подтипы, а категоризация через теги + набор общих полей.**
+**Не жёсткие подтипы, а категоризация через признаки + набор общих полей.**
 
 Черты и особенности могут иметь уровни, стоимость, быть отрицательными. Разница между ними — в **контексте использования** (на каком этапе создания доступны, какими **очками** оплачиваются). Очки привязаны к этапу (зоне), отдельную сущность очков не указываем:
 - Зона `os` → Очки Создания (ОС) — расы и врождённые черты
@@ -1212,7 +1280,7 @@ type AbilityCost =
   | { kind: 'automatic' }                                            // авто-получение при выполнении требований (не покупается)
 
 interface AbilitySpec {
-  type?: AbilityType                                    // 'trait'|'feature'|'skill'|'action'|'process'|'spell' — источник истины; легаси деривируется из тегов
+  type?: AbilityType                                    // 'trait'|'feature'|'skill'|'action'|'process'|'spell' — источник истины; легаси деривируется из признаков
   zones: Partial<Record<ZoneId, AbilityCost>>
   requirements: { level: number, requirements: Requirement[] }[]  // карта уровней; ур. 1 = получение; накапливаются естественно
   grants: { level: number, grants: Grant[] }[]                    // карта уровней; ур. 1 = получение (бывший general)
@@ -1222,6 +1290,8 @@ interface AbilitySpec {
   parent_ability_code: string | null
 }
 ```
+
+> **Два слоя (30.43):** в редакторе работает `AbilitySpecDraft` (широкий тип — разрешает несовместимые с текущим `type` поля на время правки); при сохранении `pruneAbilitySpecForType(spec, type)` усекает до чистого `AbilitySpec` (убирает поля/структуры, не принадлежащие типу). Полная детализация — `docs/specs/ability-resource-design.md` §4.5/§4.9.
 
 - Бесплатная покупаемая: `{ kind: 'array', levels_cost: [0] }`.
 - Макс. уровень выводится из `levels_cost.length` или `max_level` (для `automatic` — 1).
@@ -1242,8 +1312,8 @@ interface AbilitySpec {
 type Requirement =
   | { type: 'has_ability'; ability_code: string; min_level?: number }
   | { type: 'has_ability_tag'; tag_code: string; min_count: number }
-  | { type: 'has_tag'; tag_code: string; min_count?: number }
-  | { type: 'characteristic_value'; characteristic_code: string; min: number }
+  | { type: 'has_tag'; tag_code: string }
+  | { type: 'characteristic_value'; characteristic_code: string; min: DimensionalNumber }
   | { type: 'resource_limit'; resource_code: string; min?: number }
   | { type: 'and'; children: Requirement[] }
   | { type: 'or'; children: Requirement[] }
@@ -1259,21 +1329,23 @@ type Formula =
   | { type: 'ability_level', ability_code: string, multiplier?: number, offset?: number } // уровень способности (code обязателен)
 
 type Grant =
-  | { type: 'characteristic', characteristic_code: string }                       // даёт характеристику
-  | { type: 'characteristic_modify', characteristic_code: string, amount: Formula } // +N к существующей
-  | { type: 'resource', resource_code: string }                                   // даёт ресурс
-  | { type: 'resource_limit_change', resource_code: string, amount: Formula }     // меняет актуальное значение ресурса на amount (отрицательный = вниз)
-  | { type: 'ability', ability_code: string }                                     // даёт другую способность
-  | { type: 'tag', tag_code: string, remove?: boolean }                           // добавить/убрать признак
-  | { type: 'item', item_code: string }                                           // даёт предмет/врождённое
+  | { type: 'characteristic', characteristic_code: string, value: DimensionalNumber, permanent?: boolean }      // даёт характеристику (значение — размерное)
+  | { type: 'characteristic_modify', characteristic_code: string, amount: Formula, source_code: string }          // +N к существующей
+  | { type: 'resource', resource_code: string, limit: DimensionalNumber | number, permanent?: boolean }           // даёт ресурс (лимит адаптивен: размерный или числовой)
+  | { type: 'resource_limit_change', resource_code: string, amount: Formula, source_code: string }                // меняет актуальное значение ресурса на amount (отрицательный = вниз)
+  | { type: 'ability', ability_code: string }                                                                     // даёт другую способность
+  | { type: 'keyword', keyword_code: string, remove?: boolean }                                                   // добавить/убрать признак
+  | { type: 'item', item_code: string }                                                                           // даёт предмет/врождённое
 ```
+
+- `source_code` у `characteristic_modify`/`resource_limit_change` — ссылка (по `code`) на правило-источник типа `source` (для трассировки происхождения модификатора и группировки не-суммирования).
 
 - Уровневые эффекты: формула дара может ссылаться на уровень способности — `{ type: 'ability_level', ability_code: "ближний-бой" }` (например «Ближний бой х из 3» = `+x` к «Мастерству ближнего боя»).
 - **Постоянность** (с 30.44): у каждого дара `permanent?: boolean` (default true). `true` — эффект копится на всех уровнях ≥ уровня дара; `false` — действует строго на своём уровне.
 - `characteristic` (дать) vs `characteristic_modify` (изменить) — разные дары; симметрично ресурсу: `resource` vs `resource_limit_change`.
 - Естественное оружие/броня — через врождённые итемы (grant `item` + `innate` у предмета).
 
-Подтипы — это **теги** и (с 30.36) явное поле `type` в `AbilitySpec`: `черта`, `особенность личности`, `навык`, `действие`, `процесс`, `заклинание`. Тип определяет видимость блоков редактора и карточку; типообразующие теги авто-синхронизируются при смене типа. Пользователь фильтрует по ним.
+Подтипы — это **признаки** и (с 30.36) явное поле `type` в `AbilitySpec`: `черта`, `особенность личности`, `навык`, `действие`, `процесс`, `заклинание`. Тип определяет видимость блоков редактора и карточку; типообразующие признаки авто-синхронизируются при смене типа. Пользователь фильтрует по ним.
 
 > Полная детализация и обоснование: `docs/specs/ability-resource-design.md`.
 
@@ -1312,12 +1384,12 @@ type Grant =
 - `defense_slots: DefenseSlot[]` — слоты защиты:
   - `defense: int` — значение защиты
   - `durability: int` — надёжность защиты
-  - `source_id: rule_id | null` — источник защиты (ссылка на справочник источников)
+  - `source_code: rule_code | null` — источник защиты (ссылка на правило-источник типа `source`)
 - `resistance_slots: ResistanceSlot[]` — слоты сопротивлений:
   - `damage_type_code: rule_code` — ссылка на правило типа урона
   - `value: int` — значение сопротивления
   - `durability: int` — надёжность сопротивления
-  - `source_id: rule_id | null` — источник сопротивления
+  - `source_code: rule_code | null` — источник сопротивления (правило-источник)
 - `characteristic_limits: CharacteristicLimit[]` — ограничения характеристик:
   - `characteristic_code: rule_code` — какая характеристика ограничивается
   - `limit: Formula` — формула ограничения (например, Выносливость.modify(-3))
@@ -1356,68 +1428,44 @@ type Formula =
 - Определения типа урона в профилях оружия
 - Определения типа сопротивления в броне и щитах
 
-### Справочник источников
+### Источники модификаторов — правила типа `source`
 
-Источники модификаторов (защита, сопротивления и т.д.) хранятся в отдельном справочнике. Модификаторы от одного источника не суммируются — берётся только самый большой бонус и штраф.
+✅ **Источник модификатора — правило типа `source`** (версионируется и живёт в ревизии спейса, как все правила), а не глобальный справочник: набор источников меняется между версиями правил, поэтому он — часть контента правил, а не фреймворка. Ссылка по `code` (поле `source_code`).
 
-```sql
-sources(
-  id,
-  code VARCHAR UNIQUE NOT NULL, -- код источника (например "armor", "shield", "spell")
-  name VARCHAR NOT NULL -- отображаемое имя (например "от Доспеха", "от Щита")
-)
-```
+- `code` — уникальный код источника (`"armor"`, `"shield"`, `"spell"`, `"training"`, `"innate"`)
+- `name` — отображаемое имя («от Доспеха», «от Щита», «от Заклинания», «Тренировка», «Врождённый»)
+- Типоспецифичного `spec` нет (простое правило-метка).
 
-Примеры:
-- `code: "armor"`, `name: "от Доспеха"`
-- `code: "shield"`, `name: "от Щита"`
-- `code: "spell"`, `name: "от Заклинания"`
+Используются для:
+- Определения источника защиты в слотах брони (`defense_slots[].source_code`)
+- Определения источника сопротивлений (`resistance_slots[].source_code`)
+- Источника модификаторов у даров (`characteristic_modify`/`resource_limit_change` → `source_code`)
+- Логика суммирования модификаторов: модификаторы от одного источника не суммируются, берётся только самый большой бонус и штраф
 
+Пример: `{Защита 0} {+2 от Доспеха} {+10 от Доспеха} = {Защита 10}` (не +12, а +10, так как оба от одного источника `armor`).
 
-### Теги
+### Признаки (keywords)
 
-✅ **Теги — плоский справочник, единый для всей системы, без версионирования.**
+✅ **Признаки — плоский справочник, единый для всей системы, без версионирования.** (ранее — «теги»; код-идентификатор `Keyword`)
 
 ```
-tags(id, string_id, name, description, active)
+keywords(id, code, name, description, active)
 ```
 
-- `string_id` — уникальный строковой идентификатор (`"melee"`, `"magic"`, `"stealth"`)
+- `code` — уникальный строковой идентификатор (`"melee"`, `"magic"`, `"stealth"`)
 - `name` — отображаемое имя («Ближний бой», «Магия», «Скрытность»)
 - `description` — описание (необязательно)
-- `active` — soft-delete (тег скрывается из выбора, старые связи сохраняются)
+- `active` — soft-delete (признак скрывается из выбора, старые связи сохраняются)
 
 Используются для:
 - Фильтрации и поиска правил
 - Группировки способностей в UI
-- Условных бонусов (`+1 к Восприятию, если владеете двумя навыками с тегом X`)
+- Условных бонусов (`+1 к Восприятию, если владеете двумя навыками с признаком X`)
 - Определения подтипов (черта, навык, действие и т.д.)
 
-Привязка к правилу: `rule_tags(rule_version_id, tag_id)`. Конкретная версия правила имеет определённый набор тегов. При создании новой версии набор тегов может меняться.
+Привязка к правилу: `rule_keywords(rule_version_id, keyword_id)`. Конкретная версия правила имеет определённый набор признаков. При создании новой версии набор признаков может меняться.
 
 Варианты реализации: **плоский список** (без иерархии). Иерархию добавить при необходимости.
-
-### Источники модификаторов
-
-✅ **Источники — справочник для определения происхождения модификаторов (защита, сопротивления и т.д.).**
-
-```sql
-sources(
-  id,
-  code VARCHAR UNIQUE NOT NULL, -- код источника (например "armor", "shield", "spell")
-  name VARCHAR NOT NULL -- отображаемое имя (например "от Доспеха", "от Щита")
-)
-```
-
-- `code` — уникальный код источника (`"armor"`, `"shield"`, `"spell"`)
-- `name` — отображаемое имя для UI («от Доспеха», «от Щита», «от Заклинания»)
-
-Используются для:
-- Определения источника защиты в слотах брони
-- Определения источника сопротивлений
-- Логика суммирования модификаторов: модификаторы от одного источника не суммируются, берётся только самый большой бонус и штраф
-
-Пример: `{Защита 0} {+2 от Доспеха} {+10 от Доспеха} = {Защита 10}` (не +12, а +10, так как оба от одного источника)
 
 ### Описание и Спецификация
 
@@ -1446,6 +1494,8 @@ sources(
 ---
 
 ## 7. Персонажи
+
+> **Статус фронта:** в текущем прототипе модуль представлен стаб-страницей `/characters` («будет реализовано в следующих волнах»). Полная реализация — волна 4 (§12). Раздел описывает целевую функциональность; таблицы доступа ниже действуют после реализации.
 
 ### Этапы создания
 
@@ -1579,6 +1629,8 @@ sources(
 
 ## 8. Игры
 
+> **Статус фронта:** в текущем прототипе модуль представлен стаб-страницей `/games` («будет реализовано в следующих волнах»). Полная реализация — волна 5 (§12). Раздел описывает целевую функциональность; таблицы доступа ниже действуют после реализации.
+
 ### Статусы игры
 
 Статус игры — это этап жизненного цикла, не смешивается с видимостью.
@@ -1670,8 +1722,12 @@ sources(
 | `private` | Личный чат 1-на-1 между двумя пользователями |
 | `group` | Групповой чат (произвольный набор участников) |
 | `game` | Чат игры (все участники игры автоматически в нём) |
+| `game_discussion` | Чат в рамках игры (обсуждение игры и её персонажей) |
+| `character_discussion` | Чат к персонажу (обсуждение конкретного персонажа) |
 
 Новые типы добавляются без миграции схемы.
+
+**Гость и список чатов:** гость видит в списке только публичные чаты (`group`, `game`, `game_discussion`, `character_discussion`), `private`-чаты ему скрыты. Писать в чаты гость не может (см. §11). На фронте (прототип) фильтрация идёт по флагу гостя (`auth.isGuest`); на бэкенде фильтрация по доступным чатам — через ролевую модель/права.
 
 ### Сообщения
 
@@ -1682,13 +1738,18 @@ sources(
 ### Команда броска кубиков
 
 ```
-/roll Nd6[:efficiency] [adv:N] [dis:N] [label:текст]
+/roll Nd6[:efficiency] [adv:N] [dis:N] [size:N] [label:текст]
 ```
+
+Алиасы: `e:` = эффективность, `prem:`/`adv:` = преимущество, `pom:`/`dis:` = помеха,
+`size:`/`dim:` = размерность. Максимумы парсера: кубы ≤ 30, adv/dis ≤ 10, эффективность ≤ 20,
+грань 2..100, размерность |N| ≤ 10. Невалидные параметры игнорируются (эффективность — дефолт 3).
 
 Примеры:
 - `/roll 5d6 e:3` — 5 кубов, эффективность 3
 - `/roll 5d6 e:3 adv:1` — 5 кубов + 1 преимущество → всего 6, убрать 1 худший результат
 - `/roll 5d6 e:3 dis:2` — 5 кубов + 2 помехи → всего 7, убрать 2 лучших результата
+- `/roll 4d6 e:2 size:1 Проверка на силу` — с размерностью в итоге
 
 **Подсчёт успехов для каждого куба d6:**
 - `1` → 2 успеха
@@ -1716,16 +1777,45 @@ sources(
 Сила большая → 4↑ успеха.
 ```
 
+> **Ревизия 2026-08-02:** модификатор броска **не используется** (удалён из спецификации броска,
+> формы и вывода). Результат выводится встроенной карточкой броска (`DiceRollResult`):
+> снятые преимуществом/помехой кубы отображаются зачёркнутыми + нота «убрано N худших/лучших».
+> Размерность выводится суффиксом в итоге («Итого: 4↑ успехов» при размерности ↑), из шапки
+> карточки поле размерности убрано. Размерность не влияет на подсчёт кубов.
+
 ### Макросы
 
-Хранятся в `user_macros(id, user_id, name, text_template, roll_formula, efficiency, created_at)`.
+Хранятся в `user_macros(id, user_id, name, text_template, created_at)` + `user_macro_rolls`
+(список бросков, см. схему §3).
 
-- Пользователь создаёт макрос в своём профиле
+Макрос — **преднастроенное сообщение**: текст и/или один или несколько бросков, всё опционально.
+Валиден при непустом `name` и (`text_template` **ИЛИ** `rolls` непуст). При отправке используется
+общий путь сообщений: `send(text, rolls)` — текст-only макрос шлёт текст без карточек,
+бросок-only — карточки без текста.
+
+- Пользователь создаёт/редактирует макрос в своём профиле:
+  - **Текст сообщения** — опционально
+  - Список бросков, добавляется кнопкой «Добавить бросок» в любом количестве. Каждый бросок:
+    **Кубы/Грань** (собирается `NdM`), **Эффективность**, **Преимущества** (−10..+10,
+    отрицательное = помеха), **Размерность**, **Подпись броска**, **«Переменные преимущества»**
+  - Живой превью-чип (текст + чипы всех бросков)
+- **Подпись броска** (`roll_label`) — метка карточки броска (шапка `DiceRollResult`), нужна для
+  мульти-бросочных сообщений: «1 удар», «2 удар», «уклонение». Пустая → стандартное «Бросок N».
+- **Переменные преимущества** (`variable_adv`, пер-бросковый флаг): при нажатии макроса в чате,
+  если хотя бы один бросок отмечен, открывается диалог «Число преимуществ» (дефолт = `adv`
+  первого отмеченного броска). Введённое значение применяется **только к отмеченным броскам**,
+  остальные используют свой `adv`. Если отмеченных бросков нет — макрос отправляется сразу.
 - Макрос отображается как кнопка в интерфейсе чата
-- По нажатию: в чат отправляется сообщение вида `"text_template. Бросок Nd6 = ... Итого: X успехов."`
-- Пример: `name: "Удар", text: "Атака мечом", roll: "3d6", efficiency: 3`
+- По нажатию: в чат отправляется `text_template` как текст сообщения + вложенные карточки бросков (`DiceRollResult`)
+- Пример: `name: "Полная атака", text: "Атакую дважды"`, броски `"5d6" (adv: 1, label: "1 удар")`
+  и `"5d6" (label: "2 удар")` — две карточки, у каждой своя подпись и преимущество
 
 ### Real-time синхронизация чатов (SSE)
+
+> **Состояние транспорта (2026-08-01):** SSE — **целевой протокол реального бэка**. Пока бэка нет
+> (mock-режим), фронт использует **polling** (`ChatSyncService.mode: 'poll'`, интервал 5 с) —
+> временная мера. Режим выбирается конфигом сервиса (`'poll' | 'sse'`); при появлении
+> SSE-бэкенда переключается на `'sse'` без изменения остального кода.
 
 **Задача:** Получать новые сообщения и обновления чатов без polling каждого чата по отдельности.
 
@@ -1740,7 +1830,7 @@ sources(
 {
   "now": "2026-07-27T15:00:10Z",
   "chats": [
-    { "id": 1, "unreadCount": 3, "lastMessage": "...", "lastMessageAt": "..." }
+    { "id": 1, "unreadCount": 3, "lastReadMessageId": 45, "lastMessage": "...", "lastMessageAt": "..." }
   ],
   "newChats": [{ "id": 26, ... }],
   "messages": {
@@ -1797,7 +1887,7 @@ LIMIT 200
   - `/admin/notification-templates` — список шаблонов (`notification_template.view`)
   - `/admin/notification-templates/new` — создание (`notification_template.create`)
   - `/admin/notification-templates/:id/edit` — редактирование (`notification_template.edit`)
-  - `/admin/notification-templates/:id/delete` — удаление (`notification_template.delete`)
+  - Удаление шаблона — **soft-delete** (флаг `active`): кнопка «Удалить» на странице редактирования (`/admin/notification-templates/:id/edit`) с диалогом подтверждения; отдельной страницы нет (`notification_template.delete`)
 - **Типы уведомлений:** приглашение в игру (кнопки Принять/Отклонить), модерация персонажа, миграция версии завершена.
 - **Дедупликация:** при повторной отправке уведомления того же типа тому же пользователю (с теми же ключевыми параметрами) — обновляется существующее, новая запись не создаётся.
 
@@ -1829,7 +1919,7 @@ LIMIT 200
 
 Гостевой вход — вход без регистрации, с ограниченными правами:
 - Гость видит публичные страницы: список игр (только публичные), список пространств (только публичные), главную страницу.
-- Гость НЕ может: создавать/редактировать персонажи, игры, пространства, правила; писать в чаты.
+- Гость НЕ может: создавать/редактировать персонажи, игры, пространства, правила; писать в чаты. Читать может только публичные чаты (см. §9 — private скрыты).
 - Гостю не нужен пароль — достаточно кнопки «Войти как гость» на странице логина.
 - Сессия гостя временная (до закрытия браузера), без опции «Запомнить меня».
 - Гостю показывается кнопка «Войти» / «Регистрация» в топбаре вместо аватара.
@@ -1843,9 +1933,9 @@ LIMIT 200
 | `/users/new` | **Создание пользователя.** | `user.create` |
 | `/users/:id` | **Профиль.** Аватар, имя, фамилия, логин, персонажи, игры. Права/группы — если есть доступ. Кнопка «Редактировать» — c `user.edit`. | `user.view` |
 | `/users/:id/edit` | **Редактирование пользователя.** Аватар (drag-n-drop / выбор файла), логин, пароль, email, имя, фамилия, псевдоним. Группы — только с `user.edit`. | `user.edit` |
-| `/users/:id/deactivate` | **Деактивация пользователя.** Отдельная страница: дата окончания (опционально), причина. | `user.deactivate` |
+| `/users/:id/deactivate` | **Деактивация пользователя.** Единый паттерн: **не отдельная страница** — кнопка «Отключить» на `/users/:id` с диалогом: дата окончания (опционально), причина. | `user.deactivate` |
 
-> **Деактивация других сущностей:** для игр (`/games/:id/deactivate`), пространств (`/space/:code/deactivate`), персонажей (`/characters/:id/deactivate`) — кнопка с попап-подтверждением, без даты и причины.
+> **Единый паттерн деактивации:** деактивация — кнопка с попап-подтверждением на странице сущности, отдельные страницы не создаются. Для игр (`/games/:id/deactivate`), пространств (`/space/:code/deactivate`), персонажей (`/characters/:id/deactivate`) — без даты и причины. Для пользователей и групп — см. строки выше.
 
 ### Раздел «Группы» (`/admin/groups`)
 
@@ -1857,18 +1947,20 @@ LIMIT 200
 | `/admin/groups/:id/edit` | **Редактирование группы пользователей.** Изменение названия, участников, прав. | `user_group.edit` |
 | `/admin/groups/:id/deactivate` | **Деактивация группы пользователей.** | `user_group.deactivate` |
 
-### Раздел «Теги» (`/admin/tags`)
+### Раздел «Признаки» (`/admin/keywords`)
 
 | Путь | Страница | Доступ |
 |------|----------|--------|
-| `/admin/tags` | **Список тегов.** `string_id`, `name`, `description`, флаг активности. | `tag.view` |
-| `/admin/tags/new` | **Создание тега.** `string_id` (уникальный, латиница/цифры/подчёркивание), `name` (отображаемое имя), `description` (опционально). | `tag.create` |
-| `/admin/tags/:id/edit` | **Редактирование тега.** | `tag.edit` |
-| `/admin/tags/:id/delete` | **Удаление тега (soft-delete).** | `tag.delete` |
+| `/admin/keywords` | **Список признаков.** `code`, `name`, `description`, флаг активности. | `keyword.view` |
+| `/admin/keywords/new` | **Создание признака.** `code` (уникальный, латиница/цифры/подчёркивание), `name` (отображаемое имя), `description` (опционально). | `keyword.create` |
+| `/admin/keywords/:id/edit` | **Редактирование признака.** | `keyword.edit` |
+| `/admin/keywords/:id/delete` | **Удаление признака (soft-delete).** В UI — кнопка «Удалить» на странице редактирования (`/admin/keywords/:id/edit`) с диалогом подтверждения; отдельной страницы нет. | `keyword.delete` |
 
-> **Добавление тегов к правилу:** во время редактирования правила — выпадающий список / combobox с поиском по `name`. Справа кнопка «+» — открывает попап создания нового тега (`string_id` генерируется из `name` или вводится вручную). После сохранения попапа тег сразу доступен для выбора без перезагрузки.
+> **Добавление признаков к правилу:** во время редактирования правила — выпадающий список / combobox с поиском по `name`. Справа кнопка «+» — открывает попап создания нового признака (`code` генерируется из `name` или вводится вручную). После сохранения попапа признак сразу доступен для выбора без перезагрузки.
 
 ### Общий лейаут
+
+> **Решение (2026-08-02):** топ-меню в топбаре и футер `v-footer` **не реализуются** (отказались по решению; на фронте их нет). Актуальный топбар: `≡` + хлебные крошки + 🔔. Навигация — сайдбар; вход для гостя — кнопка в блоке пользователя сайдбара. Пункты про топ-меню, стрелку-`↑` с хлебными крошками и футер ниже — устаревшие формулировки, оставлены для истории.
 
 #### Топбар (`v-app-bar`)
 - Слева: кнопка `≡` — скрыть/показать сайдбар
@@ -1914,13 +2006,13 @@ LIMIT 200
 Раскрывающийся список для рас, черт, способностей и любых сущностей с краткой и полной информацией:
 - **Header** (кликабельный, открывает/закрывает тело):
   - Стрелка `▶` (поворачивается при открытии)
-  - Краткая информация (название, стоимость, теги)
+  - Краткая информация (название, стоимость, признаки)
   - **Кнопка ✏️** — в крайней правой части шапа. Отображается только при наличии права `rule.edit`. Открывает редактирование правила в попапе или сайдпанели.
   - **Счётчик +/-** (только для черт/способностей с уровнями)
 - **Body** (скрыт по умолчанию):
   - Полное описание правила
   - Требования и условия
-  - Теги
+  - Признаки
   - Дополнительная информация (характеристики, стоимость по уровням и т.д.)
 - Состояния:
   - **`open`** — тело видимо, стрелка повёрнута вниз
@@ -1938,7 +2030,7 @@ init-релиз — полнофункциональная система упр
 
 **Пользователи:** открытая регистрация, группы, права (объект.действие), деактивация, супер-админ.
 
-**Правила:** пространства с наследованием, версионирование A.B.C.x, гибридное хранение (базовые поля + spec_json).
+**Правила:** пространства с наследованием, версии A.B.C (свойство правила) + revision пространства (x), гибридное хранение (базовые поля + spec_json).
 
 **Персонажи:** свободное создание/через игру, 4 этапа (раса+ОС→личность→развитие→инвентарь), сессионная модель в игре, модерация.
 
@@ -1955,6 +2047,8 @@ init-релиз — полнофункциональная система упр
 Волна 4 (Персонажи):  Roleplay/Character → модерация (ссылка chat_message_id, чат позже)
 Волна 5 (Игры + Чат): Roleplay/Game → Messages/Chat (доработка модерации)
 ```
+
+**Статус фронта (прототип):** Chat (волна 5) реализован; Character (§7) и Game (§8) — стаб-страницы до своих волн (F10).
 
 **Волна 1** — самодостаточна, может быть запущена в разработку параллельно с проектированием волн 2–5. На старте загружаются только модули Core/*; остальные — лениво, через includeModule().
 
@@ -2221,91 +2315,54 @@ Core/Auth/
 
 **Внешние зависимости:** Auth (runAction), Vuetify.
 
-**Файловая структура:**
+**Файловая структура** (актуальна на 2026-08-02; полная анатомия модулей — в разделе «Фронтенд (Shell + модули)»):
 ```
 frontend/
   src/
     modules/
       Core/
         Engine/
-          Engine.ts               — runAction-клиент (fetch + CSRF + baseUrl)
-          HttpClient.ts           — fetch-клиент, интерцепторы (401, CSRF)
-          ActionResponse.ts       — DTO ответа runAction
-          ServiceLocator.ts       — DI-контейнер (set/get/reset)
+          init.ts               — публичная точка (HttpClient, Engine, ActionResponse, serviceLocator, register/getCsrfApi)
+          Service/
+            ServiceLocator.ts   — DI-контейнер (set/get/reset) → serviceLocator
+            HttpClient.ts       — fetch-клиент, интерцепторы (401, CSRF)
+            CsrfApi.ts          — чтение csrf-token из document.cookie
+            Engine.ts           — runAction-клиент
+          Interface/ICSRFApi.ts
+          Dto/ActionResponse.ts
+          Mock/mockCsrf.ts
+          Value/DateTime.ts, DimensionalNumber.ts
         Auth/
-          Interface/
-            IAuthApi.ts           — интерфейс сервиса аутентификации
-            types.ts              — User, AuthRequest и др.
-          Service/
-            AuthApi.ts            — реализация через Engine.runAction()
-            mockAuth.ts           — мок (логика в памяти, httpOnly cookie-симуляция)
-            mockAuthApi.ts        — обёртка mockAuth для IAuthApi
-          Store/
-            auth.ts               — Pinia-store (user, loading, login, logout, checkAuth)
-          init.ts                 — registerAuthApi() / getAuthApi()
+          Interface/IAuthApi.ts, Dto/PasswordPolicy.ts, Service/AuthApi.ts + PasswordValidatorService.ts,
+          Constant/passwordPolicy.ts, Mock/, Store/auth.ts, init.ts
         User/
-          Interface/
-            IUserApi.ts
-          Service/
-            UserApi.ts
-            mockUserApi.ts
-          Store/
-            users.ts
-          init.ts                 — registerUserApi() / getUserApi()
-        CSRF/
-          Interface/
-            ICSRFApi.ts           — getToken(), initToken()
-          Service/
-            CsrfApi.ts            — чтение csrf-token из document.cookie
-            mockCsrf.ts           — генерация UUID в памяти
-          init.ts                 — registerCsrfApi() / getCsrfApi()
+          Interface/IUserApi.ts + IGroupApi.ts, Dto/User|Group|ProfileSection,
+          Service/UserApi|GroupApi|AccessService.ts, Constant/permissions.ts, Mock/, Store/, init.ts
         UI/
-          Components/
-            Grid/                 — SmartGrid (рендеры, редакторы)
-            FilterBar/            — фильтры
+          Component/Grid/, FilterBar/, Input/ (PasswordField, DimensionalNumber…)
+          Utils/debounce.ts
       Messages/
         Chat/
-          Interface/
-            IChatApi.ts
-          Service/
-            ChatApi.ts
-            mockChatApi.ts
-          Store/
-            chat.ts
-          init.ts                 — registerChatApi() / getChatApi()
+          Interface/IChatApi|ICommandHandler|IContentRenderer|IChatToolbarExtension, Dto/, Enum/ChatType|ChatVisibility,
+          Service/ChatApi|ChatSyncService, Mock/, Store/chat.ts, init.ts (плагинная точка: командные хендлеры, рендеры, тулбар)
         Notifications/
-          Interface/
-            INotificationApi.ts
-          Service/
-            NotificationApi.ts
-            mockNotificationApi.ts
-          Store/
-            notifications.ts
-          init.ts                 — registerNotificationApi() / getNotificationApi()
-    router/
-      index.ts
-    pages/
-      auth/
-        LoginPage.vue           — вход (логин/email + пароль + запомнить меня + гость)
-        RegisterPage.vue        — регистрация (логин + email + пароль + подтверждение)
-        ForgotPasswordPage.vue  — запрос сброса пароля (логин или email)
-        ResetPasswordPage.vue   — сброс пароля (новый пароль + подтверждение)
-    components/
-      common/
-        PasswordField.vue       — поле пароля с валидацией политики (обёртка v-text-field)
-    shell/
-      Shell.vue                 — корневой компонент (topbar + sidebar + router-view)
-      TopBar.vue                — меню + аватар + уведомления
-      SideBar.vue               — collapsible rail menu
-    app/
-      App.vue                   — точка входа
-    main.ts                     — инициализация Vite + плагины (регистрация API, CSRF)
-    plugins/
-      vuetify.ts                — Vuetify config
+          Interface/INotificationApi|INotificationTemplateApi, Dto/, Enum/NotifFilter,
+          Service/, Mock/, Store/, init.ts
+      Roleplay/
+        Rule/  (Interface/IRuleApi, Dto/, Enum/, Service/ (+Spec/), Constant/, Mock/, Component/, Store/, init.ts, routes.ts)
+        Game/  (RPG-кластер: Interface/IMacroApi, Dto/ (DiceRollSpec|DiceRollResult|UserMacro|MacroRollSpec),
+                Service/RollService|MacroApi, Mock/, Store/macros.ts, Component/ (dice-UI, MacrosSection, тулбар),
+                init.ts (registerMacroApi + registerGameModule), routes.ts)
+        Space/ (Interface/ISpaceApi, Dto/, Service/, Mock/, Store/, init.ts, routes.ts)
+        Home/, Character/
+    router/ index.ts, access.ts
+    shell/ Shell.vue, SideBar.vue
+    App.vue, main.ts
+    plugins/vuetify.ts
 ```
 
 **Архитектура фронта:**
-- DI: `ServiceLocator` (генерализованный set/get/reset)
+- DI: `serviceLocator` (генерализованный set/get/reset)
 - Per-модуль `init.ts`: `registerXApi(impl)` + `getXApi(): IXApi`
 - `main.ts`: регистрация всех API (mock или real), вызов `getCsrfApi().initToken()`
 - **CSRF:** `HttpClient` принимает коллбэк `getCsrfToken`; добавляет заголовок `X-CSRF-Token` на POST-запросы
@@ -2316,16 +2373,16 @@ frontend/
 - Inline-стили (`:style`) допустимы **только** для динамических значений (URL импортированного ассета, вычисляемые значения). Всё остальное — через CSS-классы.
 - `!important` запрещён. Для переопределения Vuetify-стилей использовать селекторы с более высокой специфичностью (например, `.my-class.v-btn--variant-text` вместо `!important`).
 
-**Шаги реализации:**
-1. `modules/Core/Engine/` — HttpClient (fetch + CSRF), Engine (runAction), ActionResponse, ServiceLocator
+**Шаги реализации (волна 1):**
+1. `modules/Core/Engine/` — HttpClient (fetch + CSRF), Engine (runAction), ActionResponse (Dto), serviceLocator
 2. `router/index.ts` — Router, RouteGuard (guard использует auth store)
-3. `modules/Core/Auth/` — Interface/IAuthApi + Service/AuthApi + Service/mockAuth + Store/auth + init.ts
-4. `modules/Core/CSRF/` — Interface/ICSRFApi + Service/CsrfApi + Service/mockCsrf + init.ts
-5. `modules/Core/User/` — Interface/IUserApi + Service/UserApi + Service/mockUserApi + Store/users + init.ts
-6. `modules/Messages/Chat/` — Interface/IChatApi + Service/ChatApi + Service/mockChat + Store/chat + init.ts
+3. `modules/Core/Auth/` — Interface/IAuthApi + Service/AuthApi + Mock/mockAuth + Store/auth + init.ts
+4. CSRF — внутри `Core/Engine/`: Interface/ICSRFApi + Service/CsrfApi + Mock/mockCsrf + register/getCsrfApi в init.ts
+5. `modules/Core/User/` — Interface/IUserApi + Service/UserApi + Mock/mockUserApi + Store/users + init.ts
+6. `modules/Messages/Chat/` — Interface/IChatApi + Service/ChatApi + Mock/mockChat + Store/chat + init.ts
 7. `modules/Messages/Notifications/` — Interface/INotificationApi + Service/NotificationApi + Store/notifications + init.ts
-8. `shell/` — Shell.vue, TopBar, SideBar
-9. `pages/auth/` — LoginPage, RegisterPage, ForgotPasswordPage, ResetPasswordPage
+8. `shell/` — Shell.vue, SideBar
+9. `modules/Core/Auth/Page/` — LoginPage, RegisterPage, ResetPasswordPage
 10. Vuetify — плагин, тема (CSS-переменные)
 11. `main.ts` — регистрация всех API (mock/real), вызов `getCsrfApi().initToken()`
 
@@ -2388,45 +2445,45 @@ Core/User/
 7. Супер-админ (защита от удаления, группа «Администраторы»)
 8. Контроллеры + валидация
 
-#### Roleplay/Rule (Tag)
+#### Roleplay/Rule (Признаки + Источники)
 
-**Назначение:** плоский справочник тегов при правиле.
+**Назначение:** плоский справочник признаков при правиле (keywords); источники модификаторов — правила типа `source` (общая часть модуля Rule). Модуль двухуровневый: `Roleplay/Rule`, без вложенных подмодулей.
 
 **Внешние зависимости:** Core/SmartTable.
 
-**Файловая структура:**
+**Файловая структура (признаки — часть модуля Rule, не подмодуль):**
 ```
 Roleplay/Rule/
-  module.config.php               — сервисы модуля (Tag + Rule + справочники)
-  Tag/
-    Interface/
-      Service/
-        TagServiceInterface.php
-      Repository/
-        TagRepositoryInterface.php
-    SmartTable/
-      TagTable.php               — extends SmartTableDefinition (tags)
+  module.config.php               — сервисы модуля (Rule + справочники: признаки, механики)
+  Service/
+    KeywordService.php            — CRUD признаков (code, name, description, active)
+    ...
+  SmartTable/
+    KeywordTable.php              — extends SmartTableDefinition (keywords)
+  Interface/
     Service/
-      TagService.php             — implements TagServiceInterface
+      KeywordServiceInterface.php
     Repository/
-      TagRepository.php          — implements TagRepositoryInterface
-    Controller/
-      TagController.php
-    Entity/
-      Tag.php
-    Error/
-      TagNotFoundError.php       — extends NotFoundError
-      TagValidationError.php     — extends ValidationError
+      KeywordRepositoryInterface.php
+  Repository/
+    KeywordRepository.php         — implements KeywordRepositoryInterface
+  Controller/
+    KeywordController.php
+  Entity/
+    Keyword.php
+  Error/
+    KeywordNotFoundError.php      — extends NotFoundError
+    KeywordValidationError.php    — extends ValidationError
 ```
 
 **Шаги реализации:**
-1. SmartTable/TagTable — extends SmartTableDefinition
-2. Interface/ — TagServiceInterface, TagRepositoryInterface
-3. Error/ — TagNotFoundError, TagValidationError
-4. TagRepository + TagService — CRUD (string_id, name, description, active)
+1. SmartTable/KeywordTable — extends SmartTableDefinition
+2. Interface/ — KeywordServiceInterface, KeywordRepositoryInterface
+3. Error/ — KeywordNotFoundError, KeywordValidationError
+4. KeywordRepository + KeywordService — CRUD (code, name, description, active)
 5. Создание таблицы через MigrationService (addTable)
-6. Привязка к правилам (rule_tags — rule_version_id + tag_id)
-7. Контроллеры + поиск по имени/string_id
+6. Привязка к правилам (rule_keywords — rule_version_id + keyword_id)
+7. Контроллеры + поиск по имени/code
 
 #### Messages/Notifications
 
@@ -2483,7 +2540,7 @@ Messages/Notifications/
 
 #### Roleplay/Space
 
-**Назначение:** управление пространствами, версионирование A.B.C.x, наследование (snapshot copy).
+**Назначение:** управление пространствами, revision (автоинкремент x при публикации), наследование (snapshot copy).
 
 **Внешние зависимости:** Core/SmartTable, Core/User.
 
@@ -2524,13 +2581,13 @@ Roleplay/Space/
 4. Создание таблицы через MigrationService
 5. CRUD пространств (name, description, version_a/b/c/x)
 6. Единый черновик пространства — изменения накапливаются, публикация одним коммитом
-7. Версионирование A.B.C.x — автоинкремент x при публикации
+7. Ревизии пространства — автоинкремент x при публикации (версия A.B.C — свойство правила)
 8. Наследование (snapshot copy) — асинхронно через очередь, UI с прогрессом
 9. Публикация — выбор правил → diff → подтверждение → транзакция
 
 #### Roleplay/Rule (Nation, Language, WritingSystem)
 
-**Назначение:** CRUD правил, версионирование, spec_json (типы: race, stat, ability, currency, item, simple). Справочники Nation, Language, WritingSystem.
+**Назначение:** CRUD правил, версионирование, spec_json (типы: race, species, characteristic, resource, points, ability, item, damage_type, simple; spell/effect — отложены). Справочники Nation, Language, WritingSystem.
 
 **Внешние зависимости:** Roleplay/Space, Core/SmartTable, Roleplay/Rule/Tag.
 
@@ -2561,10 +2618,14 @@ Roleplay/Rule/
     RuleController.php
   Hydrator/
     RaceHydrator.php
-    StatHydrator.php
+    SpeciesHydrator.php
+    CharacteristicHydrator.php
+    ResourceHydrator.php
+    PointsHydrator.php
     AbilityHydrator.php
-    CurrencyHydrator.php
     ItemHydrator.php
+    DamageTypeHydrator.php
+    SimpleHydrator.php
   Entity/
     Rule.php
     RuleVersion.php
@@ -2648,7 +2709,7 @@ Roleplay/Character/
 6. Редактор (табы: Раса → Основа → Личность → Развитие → Инвентарь)
 7. Расчёт ОС/ОЛ/ОР — модификаторы, live-пересчёт на фронте
 8. Сессионная модель — черновик во время игры, модерация после
-9. Модерация — в таблице `character_moderation` хранится `chat_message_id` (внешний ключ на `chat_messages.id`, nullable). Сам модуль Chat реализуется в волне 5; диалог модерации донашивается после.
+9. Модерация — в таблице `character_moderation` (описана в §3) хранится `chat_message_id` (внешний ключ на `chat_messages.id`, nullable). Сам модуль Chat реализуется в волне 5; диалог модерации донашивается после.
 
 ### Волна 5: Игры и коммуникации
 
@@ -2781,7 +2842,7 @@ Messages/Chat/
 
 ### 1. ServiceLocator (фронт)
 
-**Решение:** `Core/Engine/ServiceLocator.ts` — generic SL (set/get/reset)
+**Решение:** `Core/Engine/Service/ServiceLocator.ts` — generic SL (set/get/reset), export `serviceLocator`
 
 **Реализация:**
 - Per-модуль `init.ts`: `registerXApi(impl)` + `getXApi(): IXApi`
@@ -2809,10 +2870,10 @@ Messages/Chat/
 **Решение:** CSRF Token (Synchronizer Token Pattern) — заголовок `X-CSRF-Token`
 
 **Реализация:**
-- Создан модуль `Core/CSRF/`:
+- CSRF живёт в `Core/Engine/` (после фазы 2.5 — внутри модуля Engine):
   - `Interface/ICSRFApi` — `initToken()`, `getToken()`
   - `Service/CsrfApi` — читает `csrf-token` из `document.cookie` (реальный режим)
-  - `Service/mockCsrf` — генерирует UUID в памяти (mock-режим)
+  - `Mock/mockCsrf` — генерирует UUID в памяти (mock-режим)
   - `init.ts` — `registerCsrfApi() / getCsrfApi()`
 - `HttpClient.ts` — добавлен конфигурационный коллбэк `getCsrfToken`. POST-запросы автоматически добавляют `X-CSRF-Token` из него.
 - `main.ts` — регистрирует `CsrfApi` (real) / `mockCsrfApi` (mock), вызывает `initToken()`
@@ -2825,11 +2886,11 @@ Messages/Chat/
 **Решение:** `IAuthApi.getPasswordPolicy()` — политика на бэке, фронт получает через API
 
 **Реализация:**
-- `PasswordPolicy` type в `Core/Auth/Interface/types.ts`
+- `PasswordPolicy` type в `Core/Auth/Dto/PasswordPolicy.ts`
 - `IAuthApi.getPasswordPolicy(): Promise<PasswordPolicy>`
-- `validatePassword()` вынесена в чистую функцию `Core/Auth/Utils/validatePassword.ts`
-- `PasswordField` — принимает `:rules` (стандартный проп Vuetify), не импортирует validatePassword
-- `RegisterPage` — fetch политики на mount, формирует правила валидации, передаёт в PasswordField через `:rules`
+- `validatePassword()` — метод сервиса `PasswordValidatorService` (`Core/Auth/Service/PasswordValidatorService.ts`, дефолтная политика в `Core/Auth/Constant/passwordPolicy.ts`)
+- `PasswordField` — принимает `:rules` (стандартный проп Vuetify), не импортирует валидатор
+- `RegisterPage` и `ResetPasswordPage` — fetch политики на mount, формируют правила валидации, передают в PasswordField через `:rules` (ResetPasswordPage подключён 2026-08-02, F13)
 - Mock: `{ minLength: 4, requireMixedCase: false, requireDigit: false, requireSpecialChar: false }`
 
 **Обоснование:** Политика пароля должна быть на бэке, фронт получает её через API. PasswordField — чистый UI-компонент.
@@ -2839,8 +2900,8 @@ Messages/Chat/
 **Решение:** `User` тип перенесён из `Core/Auth` в `Core/User`
 
 **Реализация:**
-- `Core/User/Interface/types.ts` — новый `User` (включая `avatar_file_id`, `super_admin`)
-- `Core/Auth/Interface/types.ts` — только `PasswordPolicy`
+- `Core/User/Dto/User.ts` — новый `User` (включая `avatar_file_id`, `super_admin`)
+- `Core/Auth/Dto/PasswordPolicy.ts` — только `PasswordPolicy`
 - Auth store: `user` → `userId`, удалены `username/avatarLetters/userLogin`
 - `users` store: добавлены `currentUser`, `setCurrent/clearCurrent/setGuest`, `username/avatarLetters/userLogin`
 - Обновлены импорты User (11 файлов), обновлены `auth.user` → `auth.userId` / `userStore.currentUser` (8 файлов)
@@ -2874,15 +2935,15 @@ Messages/Chat/
 
 ### 8. markChatRead оптимизация
 
-**Решение:** Проверка `unreadCount > 0` перед вызовом `markChatRead`
+**Решение:** Проверка `unreadCount > 0` перед вызовом `markChatRead` в sync-пути; `openChat`/`sendMessage` — безусловно.
+
+**Семантика прочтения:** позиция прочтения хранится в `chat_members.last_read_message_id`; `unreadCount` — вычисляемый (`COUNT(messages WHERE id > last_read_message_id AND user_id != me)`), приходит в данных чата вместе с `lastReadMessageId`. Разделитель «Новые сообщения» в списке сообщений строится по `lastReadMessageId` — без поуровневой таблицы прочтений. Разделитель виден при новых сообщениях во время чтения истории (автоскролл выключен); открытие чата помечает его прочитанным сразу, поэтому при обычном открытии разделитель не показывается.
 
 **Реализация:**
-- Добавлена проверка `chat.unreadCount > 0` перед вызовом `markChatRead`
-- Если `unreadCount === 0` — API не вызывается
-- При первом sync с новыми сообщениями → вызывается один раз
-- При последующих sync → не вызывается (пока не откроется чат заново)
+- `applySyncResponse` (sync-путь): `markChatRead` вызывается только если `chat.unreadCount > 0`; при вызове `unreadCount = 0` и `lastReadMessageId` обновляется на последнее полученное сообщение. При первом sync с новыми сообщениями → вызывается один раз, при последующих — нет (пока чат не откроется заново).
+- `openChat`/`sendMessage`: `markChatRead` вызывается безусловно (явное действие пользователя — не тики, спам невозможен); `unreadCount = 0` и `lastReadMessageId` обновляются локально.
 
-**Обоснование:** Устранение спама API вызовов на каждый sync-тик.
+**Обоснование:** Устранение спама API вызовов на каждый sync-тик; при этом открытие чата и отправка сообщения всегда сбрасывают прочтение.
 
 ### 9. Generic Row тип
 
@@ -2963,6 +3024,30 @@ Messages/Chat/
 
 **Обоснование:** После логина пользователь на Dashboard, но чаты загружаются только в Messenger.vue.
 
+### 16. Виртуализация списков в SmartGrid (F22)
+
+**Решение:** Отложено осознанно. В SmartGrid используется `items-per-page="-1"` — встроенная пагинация Vuetify отключена, потому что списки уже пагинированы родителем через `pageRows` (perPage ≤ 100). Виртуализация/`v-memo` не добавлялись.
+
+**Реализация:** не реализовано; добавить при появлении больших **непагинированных** списков.
+
+**Обоснование:** Пагинация родителем исключает большие DOM-наборы; виртуализация на текущих объёмах — преждевременная оптимизация.
+
+### 17. Per-object права на фронте (F25)
+
+**Решение:** Отложено на бэкенд-фазу. Per-object ключи (`space.view/edit`, `rule.*` per-space, `game.edit/moderate/manage`) описаны в §4, но на фронте через группы назначаются только глобальные ключи — `PERMISSION_KEYS` содержит лишь `space.create/view_all/edit_all`, `game.create/view_all/edit_all`. Проверки идут через `hasAnyPermission(user, keys)` по плоскому списку `user.permissions`.
+
+**Реализация:** не реализовано; per-object проверки — задача бэкенд middleware (§4 «Алгоритм проверки») + передачи прав конкретного объекта в данных API.
+
+**Обоснование:** Per-object права требуют хранения привязки к объекту (`space_permissions`, `game_members`) и вычисления на стороне API; на прототипе это ведёт к N+1. Реализуется вместе с бэкендом.
+
+### 18. Персистентность черновика правил (F42)
+
+**Решение:** черновик `draftRuleStore` сериализуется в `localStorage` (ключ `powerscale.drafts.v1`). Восстанавливается при старте, обновляется после каждого изменения, очищается при `discardDraft`/`clearAll` и после коммита.
+
+**Реализация:** `draftRules.ts` — загрузка при инициализации стора (невалидный JSON/неверная структура безопасно отбрасываются), `persist()` после каждого мутатора; пустой черновик удаляет ключ. Ключ версионируется.
+
+**Обоснование:** по §5 черновик «живёт в браузере до коммита»; in-memory терял его при F5 (случайная перезагрузка во время правки — потеря работы). localStorage переживает F5, но сбрасывается логикой очистки при коммите/отказе; sessionStorage хватало бы на вкладку, но localStorage единообразен с другими клиентскими хранилищами.
+
 ---
 
 ## Отложенное
@@ -3024,7 +3109,7 @@ Messages/Chat/
 30.3. ✅ Размерные числа — фундаментальный тип данных `{B|x}`, хранятся как JSON, отображаются через компонент DimensionalNumber
 30.4. ✅ Характеристика — всегда размерная, база 3-5, может быть производной (min/max из двух базовых)
 30.5. ✅ Ресурс — может быть размерным или безразмерным, не может быть производной
-30.6. ✅ Группировка характеристик и ресурсов — через признаки (теги), а не через поле group
+30.6. ✅ Группировка характеристик и ресурсов — через признаки, а не через поле group
 30.7. ✅ Предмет — категория (money/equipment/other), подтипы через checkboxes (weapon/armor/shield)
 30.8. ✅ Тип урона — отдельный тип правила для справочника типов урона и сопротивлений
 30.9. ✅ Источники модификаторов — справочник для определения происхождения (защита, сопротивления и т.д.), модификаторы от одного источника не суммируются
@@ -3035,7 +3120,7 @@ Messages/Chat/
 30.14. ✅ SpaceRevision — иммутабельный снимок правил на момент публикации; кеш по (spaceId, revision); API: getRevisions, getRevision, commitDraft
 30.15. ✅ Черновик (draft) — клиентский (draftRuleStore), живёт в браузере до коммита; commit отправляет пачку изменённых правил
 30.16. ✅ Контекст просмотра: published (latest) / history:N / draft — явный селектор на странице пространства
-30.17. ✅ Строковые ссылки между правилами — по семантичному `code`, не по `id`; `Rule`/`RuleVersion` получили поле `code`
+30.17. ✅ Строковые ссылки между правилами — по семантичному `code`, не по `id`. `code` — глобальный семантический ключ **правила** (`Rule`), общий для всех версий и пространств; живёт в `rules.code`, `RuleVersion` его НЕ несёт (убрано). Задаётся при создании, после создания не изменяется.
 30.18. ✅ Способность: цена живёт в зонах (`zones: Partial<Record<ZoneId, AbilityCost>>`, ключи = коды очков-правил), `AbilityCost` = array/progression/automatic; `levels`/`hard`/`automatic` как отдельные поля убраны
 30.19. ✅ Ресурс — отдельный тип правила (`ResourceSpec: is_dimensional + initial_value`); подтип `resource` из характеристики удалён; правило хранит только определение
 30.20. ✅ Дары (Grants): `characteristic`/`characteristic_modify`, `resource`/`resource_limit_change`, `ability`, `tag`, `item`; формула `ability_level` с обязательным `ability_code`
@@ -3046,7 +3131,7 @@ Messages/Chat/
 30.25. ✅ `FormulaInput` — ссылки по `code` (`characteristic_code`, `damage_type_code`), узел `ability_level` виден только при prop `abilities`
 30.26. ✅ Валидация ссылок подключена в `publishDraft` (блокировка публикации с диалогом ошибок); моки: ресурсы (ОД/Ци Духа/Мана), способности (Ближний бой, Двойной удар), `generateRevisionRules` — замыкание ссылок, подтипы-теги (combat/utility/passive/active)
 30.27. ✅ `generateRevisionRules`: ресурсы/способности попадают в срез всегда (независимо от `count`) — решена проблема «нет в наличии»
-30.28. ✅ Единая схема типов способности — `Rule/Interface/abilityTypes.ts` (`Requirement`, `Grant`, `Formula`, `AbilitySpec` с `requirements_by_level`, `DimensionalNumber`); `FormulaInput`/редакторы импортируют из неё
+30.28. ✅ Единая схема типов способности — `Rule/Dto/Ability/` (`Requirement`, `Grant`, `Formula`, `AbilitySpec` с `requirements_by_level`, `DimensionalNumber`); `FormulaInput`/редакторы импортируют из неё
 30.29. ✅ Источник модификатора — `source_id` из `sourceStore.sources` (универсальный справочник, не только предметы); закреплено в дизайн-доке; моки + «Тренировка»/«Развитие»
 30.30. ✅ Зоны способности — `v-checkbox` по зонам (Создание/Личность/Развитие) вместо `v-select`; редактор стоимости на каждую включённую зону
 30.31. ✅ Требования: `RequirementListEditor` (список, неявное И) + рекурсивный `RequirementNodeEditor` (И/ИЛИ-группы); подписи-описания в селекторе условий; `has_tag` без кол-ва; `characteristic_value.min` → `DimensionalNumber`; `resource_limit.min` адаптивно (число ↔ размерное)

@@ -44,3 +44,29 @@ function ruleDetailCrumb(to: RouteLocationNormalizedLoaded) {
 function ruleEditCrumb() {
   return [{ title: 'Редактирование' }]
 }
+
+export const adminChildren: RouteRecordRaw[] = [
+  {
+    path: 'keywords',
+    meta: { crumb: () => [{ title: 'Признаки', to: '/admin/keywords' }], requiresAny: ['keyword.view'] },
+    children: [
+      {
+        path: '',
+        name: 'Keywords',
+        component: () => import('./Page/KeywordsListPage.vue'),
+      },
+      {
+        path: 'new',
+        name: 'KeywordNew',
+        component: () => import('./Page/KeywordEditPage.vue'),
+        meta: { title: 'Создание тега', crumb: () => [{ title: 'Создание тега' }], requiresAny: ['keyword.create'] },
+      },
+      {
+        path: ':id/edit',
+        name: 'KeywordEdit',
+        component: () => import('./Page/KeywordEditPage.vue'),
+        meta: { title: 'Редактирование тега', crumb: () => [{ title: 'Редактирование тега' }], requiresAny: ['keyword.edit'] },
+      },
+    ],
+  },
+]

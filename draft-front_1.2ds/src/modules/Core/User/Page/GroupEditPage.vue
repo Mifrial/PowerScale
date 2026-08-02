@@ -27,8 +27,8 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useGroupStore } from '../Store/groups'
-import { useAbortable } from '@/modules/Core/Composables/useAbortable'
-import PermissionMatrix from '../Components/PermissionMatrix.vue'
+import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable'
+import PermissionMatrix from '../Component/PermissionMatrix.vue'
 
 const route = useRoute()
 const router = useRouter()

@@ -1,6 +1,6 @@
-import type { Engine } from '@/modules/Core/Engine/Action/Engine'
+import type { Engine } from '@/modules/Core/Engine/Service/Engine'
 import type { INotificationTemplateApi, CreateTemplateData, UpdateTemplateData } from '../Interface/INotificationTemplateApi'
-import type { NotificationTemplate } from '../Interface/types'
+import type { NotificationTemplate } from '@/modules/Messages/Notifications/Dto/NotificationTemplate'
 
 export class NotificationTemplateApi implements INotificationTemplateApi {
   constructor(private engine: Engine) {}
@@ -28,7 +28,7 @@ export class NotificationTemplateApi implements INotificationTemplateApi {
     return res.data
   }
 
-  async deleteTemplate(id: number, signal?: AbortSignal): Promise<void> {
-    await this.engine.runAction('notificationTemplate.delete', { id }, signal)
+  async deactivateTemplate(id: number, signal?: AbortSignal): Promise<void> {
+    await this.engine.runAction('notificationTemplate.deactivate', { id }, signal)
   }
 }

@@ -12,7 +12,7 @@ export const routes: RouteRecordRaw[] = [
 export const adminChildren: RouteRecordRaw[] = [
   {
     path: 'notification-templates',
-    meta: { crumb: () => [{ title: 'Шаблоны уведомлений', to: '/admin/notification-templates' }] },
+    meta: { crumb: () => [{ title: 'Шаблоны уведомлений', to: '/admin/notification-templates' }], requiresAny: ['notification_template.view'] },
     children: [
       {
         path: '',
@@ -23,13 +23,13 @@ export const adminChildren: RouteRecordRaw[] = [
         path: 'new',
         name: 'TemplateNew',
         component: () => import('./Page/TemplateEditPage.vue'),
-        meta: { title: 'Создание шаблона', crumb: () => [{ title: 'Создание шаблона' }] },
+        meta: { title: 'Создание шаблона', crumb: () => [{ title: 'Создание шаблона' }], requiresAny: ['notification_template.create'] },
       },
       {
         path: ':id/edit',
         name: 'TemplateEdit',
         component: () => import('./Page/TemplateEditPage.vue'),
-        meta: { title: 'Редактирование шаблона', crumb: () => [{ title: 'Редактирование шаблона' }] },
+        meta: { title: 'Редактирование шаблона', crumb: () => [{ title: 'Редактирование шаблона' }], requiresAny: ['notification_template.edit'] },
       },
     ],
   },

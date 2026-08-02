@@ -1,6 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { Space, SpaceCreateData, SpaceUpdateData } from '../Interface/types'
+import type { Space } from '@/modules/Roleplay/Space/Dto/Space'
+import type { SpaceCreateData } from '@/modules/Roleplay/Space/Dto/SpaceCreateData'
+import type { SpaceUpdateData } from '@/modules/Roleplay/Space/Dto/SpaceUpdateData'
 import { getSpaceApi } from '../init'
 
 export const useSpaceStore = defineStore('spaces', () => {

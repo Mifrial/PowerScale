@@ -1,6 +1,9 @@
 import type { IChatApi } from '../Interface/IChatApi'
-import type { Engine } from '@/modules/Core/Engine/Action/Engine'
-import type { Chat, ChatMessage, DiceRollSpec, SyncResponse } from '../Interface/types'
+import type { Engine } from '@/modules/Core/Engine/Service/Engine'
+import type { Chat } from '@/modules/Messages/Chat/Dto/Chat'
+import type { ChatMessage } from '@/modules/Messages/Chat/Dto/ChatMessage'
+import type { SyncResponse } from '@/modules/Messages/Chat/Dto/SyncResponse'
+import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec'
 
 export class ChatApi implements IChatApi {
   constructor(private engine: Engine) {}

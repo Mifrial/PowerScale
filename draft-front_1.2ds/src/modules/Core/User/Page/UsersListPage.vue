@@ -26,25 +26,25 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/modules/Core/User/Store/users'
-import { useAbortable } from '@/modules/Core/Composables/useAbortable'
-import FilterBar from '@/modules/Core/UI/Components/FilterBar.vue'
-import SmartGrid from '@/modules/Core/UI/Components/Grid/SmartGrid.vue'
-import type { FilterField } from '@/modules/Core/UI/Interfaces/FilterField'
-import type { ColumnDefinition } from '@/modules/Core/UI/Interfaces/ColumnDefinition'
-import type { Row } from '@/modules/Core/UI/Interfaces/Row'
-import type { Sort } from '@/modules/Core/UI/Interfaces/Sort'
-import type { Pagination } from '@/modules/Core/UI/Interfaces/Pagination'
+import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable'
+import { useGridPage } from '@/modules/Core/Engine/Composables/useGridPage'
+import FilterBar from '@/modules/Core/UI/Component/FilterBar.vue'
+import SmartGrid from '@/modules/Core/UI/Component/Grid/SmartGrid.vue'
+import type { FilterField } from '@/modules/Core/UI/Dto/FilterField'
+import type { ColumnDefinition } from '@/modules/Core/UI/Dto/ColumnDefinition'
+import type { Row } from '@/modules/Core/UI/Dto/Row'
+import type { FilterValue } from '@/modules/Core/UI/Dto/FilterValue'
+import { extractFilterValue, extractStringFilter } from '@/modules/Core/UI/Utils/filterExtract'
 
 const router = useRouter()
 const store = useUserStore()
 const { signal } = useAbortable()
 
-const sort = ref<Sort | null>(null)
-const pagination = ref<Pagination>({ page: 1, perPage: 10 })
-const appliedFilters = ref<Record<string, any>>({})
+const { sort, pagination, appliedFilters, pageRows, onSortChange, onPaginationChange, onFilterChange: gridFilterChange } =
+  useGridPage(() => store.filteredUsers)
 
 onMounted(() => store.fetchUsers(signal.value))
 
@@ -68,29 +68,8 @@ const filterFields: FilterField[] = [
   { key: 'lastLogin', label: 'Последний вход', type: 'datetime' },
 ]
 
-function extractFilterValue(v: any): string {
-  if (v === undefined || v === null) return ''
-  if (typeof v === 'string') return v
-  if (typeof v === 'boolean') return String(v)
-  if (typeof v === 'object') {
-    if (v.value !== undefined) return String(v.value)
-  }
-  return ''
-}
-
-function extractStringFilter(v: any): { mode: 'equals' | 'contains'; value: string } | null {
-  if (v === undefined || v === null) return null
-  if (typeof v === 'string') {
-    return v ? { mode: 'contains', value: v } : null
-  }
-  if (typeof v === 'object' && v.value !== undefined) {
-    return { mode: v.mode === 'equals' ? 'equals' : 'contains', value: String(v.value) }
-  }
-  return null
-}
-
-function onFilterChange(filters: Record<string, any>) {
-  appliedFilters.value = filters
+function onFilterChange(filters: Record<string, FilterValue>) {
+  gridFilterChange(filters)
   store.quickFilter = extractFilterValue(filters.q)
   store.filterName = extractStringFilter(filters.name)
   store.filterSurname = extractStringFilter(filters.surname)
@@ -99,15 +78,6 @@ function onFilterChange(filters: Record<string, any>) {
   store.filterEmail = extractStringFilter(filters.email)
   store.filterActive = extractFilterValue(filters.active)
   store.filterLastLogin = extractFilterValue(filters.lastLogin)
-  pagination.value.page = 1
-}
-
-function onSortChange(s: Sort | null) {
-  sort.value = s
-}
-
-function onPaginationChange(p: Pagination) {
-  pagination.value = p
 }
 
 function onRowAction(payload: { action: string; row: Row }) {
@@ -115,32 +85,4 @@ function onRowAction(payload: { action: string; row: Row }) {
     router.push(`/users/${payload.row.id}`)
   }
 }
-
-const sortedUsers = computed(() => {
-  const s = sort.value
-  if (!s) return store.filteredUsers
-  const arr = [...store.filteredUsers]
-  arr.sort((a, b) => {
-    const va = a[s.key as keyof typeof a]
-    const vb = b[s.key as keyof typeof b]
-    if (va == null) return 1
-    if (vb == null) return -1
-    if (typeof va === 'string') {
-      const cmp = va.localeCompare(String(vb))
-      return s.order === 'asc' ? cmp : -cmp
-    }
-    if (typeof va === 'number') {
-      return s.order === 'asc' ? va - Number(vb) : Number(vb) - va
-    }
-    const cmp = String(va).localeCompare(String(vb))
-    return s.order === 'asc' ? cmp : -cmp
-  })
-  return arr
-})
-
-const pageRows = computed(() => {
-  const p = pagination.value
-  const start = (p.page - 1) * p.perPage
-  return sortedUsers.value.slice(start, start + p.perPage)
-})
 </script>

@@ -1,6 +1,10 @@
-import type { Engine } from '@/modules/Core/Engine/Action/Engine'
+import type { Engine } from '@/modules/Core/Engine/Service/Engine'
 import type { IRuleApi } from '../Interface/IRuleApi'
-import type { Rule, CreateRuleData, UpdateRuleData, RuleVersion } from '../Interface/types'
+import type { Rule } from '../Dto/Rule'
+import type { CreateRuleData } from '../Dto/CreateRuleData'
+import type { UpdateRuleData } from '../Dto/UpdateRuleData'
+import type { RuleVersion } from '../Dto/RuleVersion'
+import type { Mechanic } from '../Dto/Mechanic'
 
 export class RuleApi implements IRuleApi {
   constructor(private engine: Engine) {}
@@ -35,5 +39,10 @@ export class RuleApi implements IRuleApi {
 
   async deleteRule(ruleId: string, signal?: AbortSignal): Promise<void> {
     await this.engine.runAction('rule.delete', { ruleId }, signal)
+  }
+
+  async getMechanics(signal?: AbortSignal): Promise<Mechanic[]> {
+    const res = await this.engine.runAction<Mechanic[]>('rule.getMechanics', {}, signal)
+    return res.data ?? []
   }
 }

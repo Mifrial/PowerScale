@@ -1,4 +1,4 @@
-import type { Group } from './types'
+import type { Group } from '@/modules/Core/User/Dto/Group'
 
 export interface CreateGroupData {
   name: string

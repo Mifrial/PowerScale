@@ -1,6 +1,9 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { Rule, CreateRuleData, UpdateRuleData, RuleVersion } from '../Interface/types'
+import type { Rule } from '../Dto/Rule'
+import type { CreateRuleData } from '../Dto/CreateRuleData'
+import type { UpdateRuleData } from '../Dto/UpdateRuleData'
+import type { RuleVersion } from '../Dto/RuleVersion'
 import { getRuleApi } from '../init'
 
 export const useRuleStore = defineStore('rules', () => {

@@ -44,6 +44,7 @@
                 <PasswordField
                   v-model="newPassword"
                   label="Новый пароль *"
+                  :rules="passwordRules"
                   autocomplete="new-password"
                   class="mb-3"
                 />
@@ -51,8 +52,8 @@
                 <PasswordField
                   v-model="confirmPassword"
                   label="Подтверждение пароля *"
+                  :rules="[...passwordRules, v => v === newPassword || 'Пароли не совпадают']"
                   autocomplete="new-password"
-                  :rules="[v => v === newPassword || 'Пароли не совпадают']"
                   class="mb-3"
                 />
 
@@ -82,10 +83,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/modules/Core/Auth/Store/auth'
-import PasswordField from '@/modules/Core/UI/Components/Input/PasswordField.vue'
+import { passwordValidatorService } from '@/modules/Core/Auth/Service/PasswordValidatorService'
+import PasswordField from '@/modules/Core/UI/Component/Input/PasswordField.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -108,6 +110,17 @@ const messageType = ref<'success' | 'error'>('success')
 
 const routeLogin = computed(() => (route.query.login as string) || '')
 const routeToken = computed(() => (route.query.token as string) || '')
+
+onMounted(() => {
+  auth.fetchPasswordPolicy()
+})
+
+const passwordRules = computed(() => [
+  (v: string) => {
+    const errors = passwordValidatorService.validate(v, auth.passwordPolicy)
+    return errors.length === 0 ? true : errors[0]
+  },
+])
 
 async function handleReset() {
   const { valid } = await formRef.value?.validate() ?? { valid: false }

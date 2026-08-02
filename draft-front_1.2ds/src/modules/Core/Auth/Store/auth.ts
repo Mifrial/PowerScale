@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { getAuthApi } from '@/modules/Core/Auth/init'
 import { useUserStore } from '@/modules/Core/User/Store/users'
-import type { PasswordPolicy } from '@/modules/Core/Auth/Interface/types'
+import type { PasswordPolicy } from '@/modules/Core/Auth/Dto/PasswordPolicy'
 
 export const useAuthStore = defineStore('auth', () => {
   const userId = ref<number | null>(null)

@@ -1,5 +1,9 @@
-import type { Space, SpaceCreateData, SpaceUpdateData, SpaceRevisionMeta, SpaceRevision } from './types'
-import type { Rule } from '@/modules/Roleplay/Rule/Interface/types'
+import type { Space } from '@/modules/Roleplay/Space/Dto/Space'
+import type { SpaceCreateData } from '@/modules/Roleplay/Space/Dto/SpaceCreateData'
+import type { SpaceUpdateData } from '@/modules/Roleplay/Space/Dto/SpaceUpdateData'
+import type { SpaceRevisionMeta } from '@/modules/Roleplay/Space/Dto/SpaceRevisionMeta'
+import type { SpaceRevision } from '@/modules/Roleplay/Space/Dto/SpaceRevision'
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule'
 
 export interface ISpaceApi {
   getSpaces(signal?: AbortSignal): Promise<Space[]>

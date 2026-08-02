@@ -1,9 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
-import type { Notification } from '@/modules/Messages/Notifications/Interface/types'
+import type { Notification } from '@/modules/Messages/Notifications/Dto/Notification'
+import type { NotifFilter } from '@/modules/Messages/Notifications/Enum/NotifFilter'
 import { getNotificationApi } from '@/modules/Messages/Notifications/init'
-
-export type NotifFilter = 'all' | 'unread' | 'action'
 
 export const useNotificationStore = defineStore('notifications', () => {
   const items = ref<Notification[]>([])

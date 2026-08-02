@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { NotificationTemplate } from '../Interface/types'
+import type { NotificationTemplate } from '@/modules/Messages/Notifications/Dto/NotificationTemplate'
 import type { CreateTemplateData, UpdateTemplateData } from '../Interface/INotificationTemplateApi'
 import { getTemplateApi } from '../init'
 
@@ -9,6 +9,7 @@ export const useTemplateStore = defineStore('templates', () => {
   const currentTemplate = ref<NotificationTemplate | null>(null)
   const loading = ref(false)
   const filterKey = ref('')
+  const filterActive = ref('')
 
   const filteredTemplates = computed(() => {
     let result = templates.value
@@ -18,6 +19,11 @@ export const useTemplateStore = defineStore('templates', () => {
         t.key.toLowerCase().includes(q) ||
         t.titleTemplate.toLowerCase().includes(q)
       )
+    }
+    if (filterActive.value === 'true') {
+      result = result.filter(t => t.active)
+    } else if (filterActive.value === 'false') {
+      result = result.filter(t => !t.active)
     }
     return result
   })
@@ -54,10 +60,11 @@ export const useTemplateStore = defineStore('templates', () => {
     return template
   }
 
-  async function deleteTemplate(id: number, signal?: AbortSignal): Promise<void> {
-    await getTemplateApi().deleteTemplate(id, signal)
-    templates.value = templates.value.filter(t => t.id !== id)
-    if (currentTemplate.value?.id === id) currentTemplate.value = null
+  async function deactivateTemplate(id: number, signal?: AbortSignal): Promise<void> {
+    await getTemplateApi().deactivateTemplate(id, signal)
+    const t = templates.value.find(t => t.id === id)
+    if (t) t.active = false
+    if (currentTemplate.value?.id === id) currentTemplate.value.active = false
   }
 
   function clearCurrent() {
@@ -66,8 +73,8 @@ export const useTemplateStore = defineStore('templates', () => {
 
   return {
     templates, currentTemplate, loading,
-    filterKey,
+    filterKey, filterActive,
     filteredTemplates,
-    fetchTemplates, fetchTemplate, createTemplate, updateTemplate, deleteTemplate, clearCurrent,
+    fetchTemplates, fetchTemplate, createTemplate, updateTemplate, deactivateTemplate, clearCurrent,
   }
 })

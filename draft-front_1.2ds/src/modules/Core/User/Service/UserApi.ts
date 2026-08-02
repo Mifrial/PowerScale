@@ -1,6 +1,6 @@
-import type { Engine } from '@/modules/Core/Engine/Action/Engine'
+import type { Engine } from '@/modules/Core/Engine/Service/Engine'
 import type { IUserApi, CreateUserData, UpdateUserData } from '../Interface/IUserApi'
-import type { User } from '../Interface/types'
+import type { User } from '../Dto/User'
 
 export class UserApi implements IUserApi {
   constructor(private engine: Engine) {}

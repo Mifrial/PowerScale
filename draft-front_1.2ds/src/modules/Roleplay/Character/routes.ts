@@ -5,6 +5,8 @@ export const routes: RouteRecordRaw[] = [
     path: 'characters',
     name: 'Characters',
     component: () => import('./Page/CharactersPage.vue'),
-    meta: { title: 'Персонажи' },
+    // Стаб-страница (F10): заглушка показывается и гостю. При реализации волны 4
+    // guestAllowed снимается — по §11 ТР гость персонажей не видит.
+    meta: { title: 'Персонажи', guestAllowed: true },
   },
 ]

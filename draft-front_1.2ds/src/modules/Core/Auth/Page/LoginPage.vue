@@ -107,7 +107,7 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/modules/Core/Auth/Store/auth'
-import PasswordField from '@/modules/Core/UI/Components/Input/PasswordField.vue'
+import PasswordField from '@/modules/Core/UI/Component/Input/PasswordField.vue'
 import bgUrl from '@/assets/img/login_background.jpg'
 
 const router = useRouter()

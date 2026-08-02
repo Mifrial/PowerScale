@@ -1,6 +1,6 @@
 <template>
   <v-container>
-    <div class="d-flex align-center mb-4">
+    <div v-if="!loading && !error" class="d-flex align-center mb-4">
       <h1 class="text-h5">{{ isEdit ? 'Редактирование правила' : 'Создание правила' }}</h1>
       <v-spacer />
       <v-chip color="warning" variant="tonal" size="small">
@@ -11,7 +11,7 @@
       </v-chip>
     </div>
 
-    <v-card>
+    <v-card v-if="!loading && !error">
       <v-card-text>
         <v-select
           v-if="!isEdit"
@@ -25,11 +25,12 @@
           v-if="type === 'simple'"
           v-model:name="name"
           v-model:code="ruleCode"
+          :code-disabled="isEdit"
           v-model:description="description"
           v-model:mechanicId="mechanicId"
-          v-model:tagIds="tagIds"
+          v-model:keywordIds="keywordIds"
           :mechanic-options="mechanicOptions"
-          :tag-options="tagOptions"
+          :keyword-options="keywordOptions"
           class="mt-4"
         />
 
@@ -37,12 +38,13 @@
           v-else-if="type === 'characteristic'"
           v-model:name="name"
           v-model:code="ruleCode"
+          :code-disabled="isEdit"
           v-model:description="description"
           v-model:mechanicId="mechanicId"
-          v-model:tagIds="tagIds"
+          v-model:keywordIds="keywordIds"
           v-model:spec="spec"
           :mechanic-options="mechanicOptions"
-          :tag-options="tagOptions"
+          :keyword-options="keywordOptions"
           :space-id="spaceId"
         />
 
@@ -50,24 +52,26 @@
           v-else-if="type === 'resource'"
           v-model:name="name"
           v-model:code="ruleCode"
+          :code-disabled="isEdit"
           v-model:description="description"
           v-model:mechanicId="mechanicId"
-          v-model:tagIds="tagIds"
+          v-model:keywordIds="keywordIds"
           v-model:spec="spec"
           :mechanic-options="mechanicOptions"
-          :tag-options="tagOptions"
+          :keyword-options="keywordOptions"
         />
 
         <AbilityEditor
           v-else-if="type === 'ability'"
           v-model:name="name"
           v-model:code="ruleCode"
+          :code-disabled="isEdit"
           v-model:description="description"
           v-model:mechanicId="mechanicId"
-          v-model:tagIds="tagIds"
+          v-model:keywordIds="keywordIds"
           v-model:spec="spec"
           :mechanic-options="mechanicOptions"
-          :tag-options="tagOptions"
+          :keyword-options="keywordOptions"
           :space-id="spaceId"
         />
 
@@ -75,12 +79,13 @@
           v-else-if="type === 'item'"
           v-model:name="name"
           v-model:code="ruleCode"
+          :code-disabled="isEdit"
           v-model:description="description"
           v-model:mechanicId="mechanicId"
-          v-model:tagIds="tagIds"
+          v-model:keywordIds="keywordIds"
           v-model:spec="spec"
           :mechanic-options="mechanicOptions"
-          :tag-options="tagOptions"
+          :keyword-options="keywordOptions"
           :space-id="spaceId"
         />
 
@@ -88,12 +93,13 @@
           v-else-if="type === 'race'"
           v-model:name="name"
           v-model:code="ruleCode"
+          :code-disabled="isEdit"
           v-model:description="description"
           v-model:mechanicId="mechanicId"
-          v-model:tagIds="tagIds"
+          v-model:keywordIds="keywordIds"
           v-model:spec="spec"
           :mechanic-options="mechanicOptions"
-          :tag-options="tagOptions"
+          :keyword-options="keywordOptions"
           :space-id="spaceId"
           :rule-id="ruleId"
         />
@@ -102,12 +108,13 @@
           v-else-if="type === 'species'"
           v-model:name="name"
           v-model:code="ruleCode"
+          :code-disabled="isEdit"
           v-model:description="description"
           v-model:mechanicId="mechanicId"
-          v-model:tagIds="tagIds"
+          v-model:keywordIds="keywordIds"
           v-model:spec="spec"
           :mechanic-options="mechanicOptions"
-          :tag-options="tagOptions"
+          :keyword-options="keywordOptions"
           :space-id="spaceId"
           :rule-id="ruleId"
         />
@@ -116,22 +123,24 @@
           v-else-if="type === 'points'"
           v-model:name="name"
           v-model:code="ruleCode"
+          :code-disabled="isEdit"
           v-model:description="description"
           v-model:mechanicId="mechanicId"
-          v-model:tagIds="tagIds"
+          v-model:keywordIds="keywordIds"
           :mechanic-options="mechanicOptions"
-          :tag-options="tagOptions"
+          :keyword-options="keywordOptions"
         />
 
         <DamageTypeEditor
           v-else-if="type === 'damage_type'"
           v-model:name="name"
           v-model:code="ruleCode"
+          :code-disabled="isEdit"
           v-model:description="description"
           v-model:mechanicId="mechanicId"
-          v-model:tagIds="tagIds"
+          v-model:keywordIds="keywordIds"
           :mechanic-options="mechanicOptions"
-          :tag-options="tagOptions"
+          :keyword-options="keywordOptions"
         />
 
         <div v-else class="text-body-2 text-medium-emphasis text-center pa-8">
@@ -143,8 +152,17 @@
         <v-spacer />
         <v-btn variant="text" @click="router.back()">Отмена</v-btn>
         <v-btn color="primary" :loading="saving" @click="save">Сохранить</v-btn>
-      </v-card-actions>
+        </v-card-actions>
     </v-card>
+
+    <div v-else-if="loading" class="d-flex justify-center pa-8">
+      <v-progress-circular indeterminate width="2" size="28" color="primary" />
+    </div>
+    <div v-else-if="error" class="text-center pa-8">
+      <v-icon icon="mdi-alert-circle" size="64" color="error" class="mb-4" />
+      <p class="text-body-1 mb-4">{{ error }}</p>
+      <v-btn color="primary" @click="retry">Попробовать снова</v-btn>
+    </div>
 
     <!-- Conflict dialog: в черновике уже есть версия этого правила -->
     <v-dialog v-model="showConflictDialog" max-width="500" persistent>
@@ -176,20 +194,21 @@ import { useSpaceStore } from '@/modules/Roleplay/Space/Store/spaces'
 import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision'
 import { useRuleStore } from '../Store/rules'
 import { useDraftRuleStore } from '../Store/draftRules'
-import { useTagStore } from '@/modules/Roleplay/Rule/Tag/Store/tags'
-import { useAbortable } from '@/modules/Core/Composables/useAbortable'
-import SimpleRuleEditor from '../Components/Editors/SimpleRuleEditor.vue'
-import CharacteristicEditor from '../Components/Editors/CharacteristicEditor.vue'
-import ResourceEditor from '../Components/Editors/ResourceEditor.vue'
-import AbilityEditor from '../Components/Editors/AbilityEditor.vue'
-import ItemEditor from '../Components/Editors/ItemEditor.vue'
-import RaceEditor from '../Components/Editors/RaceEditor.vue'
-import SpeciesEditor from '../Components/Editors/SpeciesEditor.vue'
-import PointsEditor from '../Components/Editors/PointsEditor.vue'
-import DamageTypeEditor from '../Components/Editors/DamageTypeEditor.vue'
-import type { RuleType, Rule } from '../Interface/types'
-import { fetchMechanics } from '../Service/mockMechanics'
-import { slugify } from '@/modules/Core/Utils/slugify'
+import { useKeywordStore } from '@/modules/Roleplay/Rule/Store/keywords'
+import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable'
+import SimpleRuleEditor from '../Component/Editors/SimpleRuleEditor.vue'
+import CharacteristicEditor from '../Component/Editors/CharacteristicEditor.vue'
+import ResourceEditor from '../Component/Editors/ResourceEditor.vue'
+import AbilityEditor from '../Component/Editors/AbilityEditor.vue'
+import ItemEditor from '../Component/Editors/ItemEditor.vue'
+import RaceEditor from '../Component/Editors/RaceEditor.vue'
+import SpeciesEditor from '../Component/Editors/SpeciesEditor.vue'
+import PointsEditor from '../Component/Editors/PointsEditor.vue'
+import DamageTypeEditor from '../Component/Editors/DamageTypeEditor.vue'
+import type { RuleType } from '../Enum/RuleType'
+import type { Rule } from '../Dto/Rule'
+import { getRuleApi } from '../init'
+import { slugify } from '@/modules/Roleplay/Rule/Utils/Text/slugify'
 
 const route = useRoute()
 const router = useRouter()
@@ -197,7 +216,7 @@ const spaceStore = useSpaceStore()
 const store = useRuleStore()
 const revisionStore = useSpaceRevisionStore()
 const draftStore = useDraftRuleStore()
-const tagStore = useTagStore()
+const keywordStore = useKeywordStore()
 const { signal } = useAbortable()
 
 const code = computed(() => route.params.code as string)
@@ -211,11 +230,17 @@ const spaceId = ref(0)
 const type = ref<RuleType>('simple')
 const name = ref('')
 const ruleCode = ref('')
+/** Исходный code загруженного правила — неизменяем после создания. */
+const loadedCode = ref('')
 const description = ref('')
 const mechanicId = ref<number | null>(null)
-const tagIds = ref<number[]>([])
-const spec = ref<any>(null)
+const keywordIds = ref<number[]>([])
+import type { RuleSpec } from '@/modules/Roleplay/Rule/Enum/RuleSpec'
+
+const spec = ref<RuleSpec | null>(null)
 const saving = ref(false)
+const loading = ref(true)
+const error = ref<string | null>(null)
 
 const showConflictDialog = ref(false)
 const conflictRuleName = ref('')
@@ -235,20 +260,20 @@ const ruleTypes = [
 ]
 
 const mechanicOptions = ref<{ title: string; value: number }[]>([])
-const tagOptions = computed(() =>
-  tagStore.tags.map(t => ({ title: t.name, value: t.id }))
+const keywordOptions = computed(() =>
+  keywordStore.keywords.map(t => ({ title: t.name, value: t.id }))
 )
 
 function buildRule(): Rule {
   return {
     id: isEdit.value ? ruleId.value : `draft-${Date.now()}`,
-    code: ruleCode.value.trim() || slugify(name.value),
+    code: isEdit.value ? loadedCode.value : ruleCode.value.trim() || slugify(name.value),
     type: type.value,
     name: name.value,
     description: description.value,
     spaceId: spaceId.value,
     spec: spec.value ?? undefined,
-    tagIds: tagIds.value,
+    keywordIds: keywordIds.value,
     mechanicId: mechanicId.value,
     createdAt: new Date().toISOString(),
   }
@@ -258,9 +283,10 @@ function loadRule(rule: Rule) {
   type.value = rule.type
   name.value = rule.name
   ruleCode.value = rule.code
+  loadedCode.value = rule.code
   description.value = rule.description
   mechanicId.value = rule.mechanicId ?? null
-  tagIds.value = rule.tagIds ?? []
+  keywordIds.value = rule.keywordIds ?? []
   spec.value = rule.spec ?? null
 }
 
@@ -269,12 +295,15 @@ async function resolveRoute(): Promise<void> {
   if (baseLoaded.value === key) return
   baseLoaded.value = key
 
-  const mechanics = await fetchMechanics(signal.value)
-  mechanicOptions.value = mechanics.map(m => ({ title: `${m.name} (v${m.version})`, value: m.id }))
-
-  await tagStore.fetchTags(signal.value)
+  loading.value = true
+  error.value = null
 
   try {
+    const mechanics = await getRuleApi().getMechanics(signal.value)
+    mechanicOptions.value = mechanics.map(m => ({ title: `${m.name} (v${m.version})`, value: m.id }))
+
+    await keywordStore.fetchTags(signal.value)
+
     const space = await spaceStore.fetchSpaceByCode(code.value, signal.value)
     spaceId.value = space.id
 
@@ -286,29 +315,35 @@ async function resolveRoute(): Promise<void> {
       router.replace(`/space/${code.value}`)
       return
     }
+
+    if (isEdit.value) {
+      // База из контекста (draft или ревизии) через effectiveRules
+      const found = revisionStore.effectiveRules.find(r => r.id === ruleId.value)
+      if (found) {
+        loadRule(found)
+      } else {
+        const rule = await store.fetchRule(ruleId.value, signal.value)
+        loadRule(rule)
+      }
+
+      // Конфликт: редактируем на основе ревизии, а в черновике уже есть версия
+      if (isRevisionContext.value && draftHasRule(ruleId.value)) {
+        conflictRuleName.value = name.value
+        conflictRuleId.value = ruleId.value
+        showConflictDialog.value = true
+      }
+    }
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') return
-    router.replace(`/space/${code.value}`)
-    return
+    error.value = e instanceof Error ? e.message : 'Ошибка загрузки правила'
+  } finally {
+    loading.value = false
   }
+}
 
-  if (isEdit.value) {
-    // База из контекста (draft или ревизии) через effectiveRules
-    const found = revisionStore.effectiveRules.find(r => r.id === ruleId.value)
-    if (found) {
-      loadRule(found)
-    } else {
-      const rule = await store.fetchRule(ruleId.value, signal.value)
-      loadRule(rule)
-    }
-
-    // Конфликт: редактируем на основе ревизии, а в черновике уже есть версия
-    if (isRevisionContext.value && draftHasRule(ruleId.value)) {
-      conflictRuleName.value = name.value
-      conflictRuleId.value = ruleId.value
-      showConflictDialog.value = true
-    }
-  }
+function retry() {
+  baseLoaded.value = null
+  resolveRoute()
 }
 
 function draftHasRule(id: string): boolean {

@@ -1,6 +1,6 @@
 import { computed } from 'vue'
 import { useUserStore } from '@/modules/Core/User/Store/users'
-import type { User } from '@/modules/Core/User/Interface/types'
+import type { User } from '@/modules/Core/User/Dto/User'
 
 export function useChatUsers() {
   const userStore = useUserStore()

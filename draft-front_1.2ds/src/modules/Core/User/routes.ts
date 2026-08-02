@@ -4,7 +4,7 @@ import { useGroupStore } from './Store/groups'
 export const routes: RouteRecordRaw[] = [
   {
     path: 'users',
-    meta: { crumb: () => [{ title: 'Пользователи', to: '/users' }] },
+    meta: { crumb: () => [{ title: 'Пользователи', to: '/users' }], requiresAny: ['user.view'] },
     children: [
       {
         path: '',
@@ -15,7 +15,7 @@ export const routes: RouteRecordRaw[] = [
         path: 'new',
         name: 'UserNew',
         component: () => import('./Page/UserEditPage.vue'),
-        meta: { title: 'Новый пользователь', crumb: () => [{ title: 'Новый пользователь' }] },
+        meta: { title: 'Новый пользователь', crumb: () => [{ title: 'Новый пользователь' }], requiresAny: ['user.create'] },
       },
       {
         path: ':id',
@@ -27,7 +27,7 @@ export const routes: RouteRecordRaw[] = [
         path: ':id/edit',
         name: 'UserEdit',
         component: () => import('./Page/UserEditPage.vue'),
-        meta: { title: 'Редактирование', crumb: () => [{ title: 'Редактирование' }] },
+        meta: { title: 'Редактирование', crumb: () => [{ title: 'Редактирование' }], requiresAny: ['user.edit'] },
       },
     ],
   },
@@ -38,10 +38,11 @@ export const adminChildren: RouteRecordRaw[] = [
     path: '',
     name: 'Admin',
     component: () => import('./Page/AdminDashboard.vue'),
+    meta: { admin: true },
   },
   {
     path: 'groups',
-    meta: { crumb: () => [{ title: 'Группы пользователей', to: '/admin/groups' }] },
+    meta: { crumb: () => [{ title: 'Группы пользователей', to: '/admin/groups' }], requiresAny: ['user_group.view'] },
     children: [
       {
         path: '',
@@ -52,7 +53,7 @@ export const adminChildren: RouteRecordRaw[] = [
         path: 'new',
         name: 'GroupNew',
         component: () => import('./Page/GroupEditPage.vue'),
-        meta: { title: 'Создание группы', crumb: () => [{ title: 'Создание группы' }] },
+        meta: { title: 'Создание группы', crumb: () => [{ title: 'Создание группы' }], requiresAny: ['user_group.create'] },
       },
       {
         path: ':id',
@@ -73,6 +74,7 @@ export const adminChildren: RouteRecordRaw[] = [
             const name = useGroupStore().currentGroup?.name
             return [{ title: name ? `Редактирование: ${name}` : 'Редактирование группы' }]
           },
+          requiresAny: ['user_group.edit'],
         },
       },
     ],

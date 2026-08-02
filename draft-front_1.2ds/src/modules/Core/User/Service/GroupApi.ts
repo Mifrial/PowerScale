@@ -1,6 +1,6 @@
-import type { Engine } from '@/modules/Core/Engine/Action/Engine'
+import type { Engine } from '@/modules/Core/Engine/Service/Engine'
 import type { IGroupApi, CreateGroupData, UpdateGroupData } from '../Interface/IGroupApi'
-import type { Group } from '../Interface/types'
+import type { Group } from '../Dto/Group'
 
 export class GroupApi implements IGroupApi {
   constructor(private engine: Engine) {}

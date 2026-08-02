@@ -91,8 +91,8 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/modules/Core/Auth/Store/auth'
-import { validatePassword } from '@/modules/Core/Auth/Utils/validatePassword'
-import PasswordField from '@/modules/Core/UI/Components/Input/PasswordField.vue'
+import { passwordValidatorService } from '@/modules/Core/Auth/Service/PasswordValidatorService'
+import PasswordField from '@/modules/Core/UI/Component/Input/PasswordField.vue'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -115,7 +115,7 @@ onMounted(() => {
 
 const passwordRules = computed(() => [
   (v: string) => {
-    const errors = validatePassword(v, auth.passwordPolicy)
+    const errors = passwordValidatorService.validate(v, auth.passwordPolicy)
     return errors.length === 0 ? true : errors[0]
   },
 ])

@@ -1,7 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { SpaceRevisionMeta, SpaceRevision } from '../Interface/types'
-import type { Rule } from '@/modules/Roleplay/Rule/Interface/types'
+import type { SpaceRevisionMeta } from '@/modules/Roleplay/Space/Dto/SpaceRevisionMeta'
+import type { SpaceRevision } from '@/modules/Roleplay/Space/Dto/SpaceRevision'
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule'
 import { getSpaceApi } from '../init'
 import { useDraftRuleStore } from '@/modules/Roleplay/Rule/Store/draftRules'
 

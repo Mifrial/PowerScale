@@ -8,26 +8,25 @@
 
 Все строковые ссылки между правилами — по семантичному коду (`code`), НЕ по внутреннему `id`.
 
-- `Rule` и `RuleVersion` получают поле `code: string` (как у тегов: `melee`, `magic`).
+- `Rule` получает поле `code: string` (как у тегов: `melee`, `magic`) — **глобальный семантический ключ правила**, общий для всех версий и пространств (в БД — `rules.code UNIQUE`). Задаётся при создании (или генерируется slug-ом из имени), после создания **не изменяется**. `RuleVersion` поле `code` НЕ несёт.
 - Ссылки в спецификациях: `characteristic_code`, `resource_code`, `ability_code`,
   `damage_type_code`, `special_rule_codes`, `parent_ability_code` и т.д.
-- Числовые внутренние id (`spaceId`, `tagId`, `mechanicId`, `source_id`) — НЕ трогаем,
+- Числовые внутренние id (`spaceId`, `keywordId`, `mechanicId`, `source_code`) — НЕ трогаем,
   это служебные ключи, а не ссылки на правила.
 - При создании правила `code` генерится slug-ом из имени (утилита `slugify` из `mockSpaces`).
 
 **Слои (зоны ответственности):**
 - **Правила (пространство)** = *определения*: какие характеристики/ресурсы/способности/
-  предметы/теги существуют (с базами) и **шаблоны модификаторов** («эта способность даёт
-  +N к характеристике X с источником `source_id`»). Редактор авторит только эту сторону.
+  предметы/признаки существуют (с базами) и **шаблоны модификаторов** («эта способность даёт
+  +N к характеристике X с источником `source_code`»). Редактор авторит только эту сторону.
 - **Персонаж (модуль Character, позже)** = *экземпляр*: текущие значения характеристик,
-  ресурсы (текущее/лимит), теги; применяет grants как модификаторы «к этой конкретной
+  ресурсы (текущее/лимит), признаки; применяет grants как модификаторы «к этой конкретной
   характеристике этого персонажа» (`.modify(+N)` по ключу `code`). Правила при этом не меняются.
 - Вычисляемые значения (Защита, Опыт волшебства/ближнего боя) — считаются на персонаже
   из агрегации его правил; в правилах их НЕТ.
 
-**Источник модификатора — `source_id` из универсального справочника `sourceStore.sources`**
-(«Тренировка», «Доспех», «Щит», «Заклинание», «врождённый» и т.п.), а НЕ код способности
-и НЕ «она сама». Справочник общий — источники не привязаны к предметам. Правило:
+**Источник модификатора — правило типа `source`** (решение 2026-08-02: набор источников меняется между версиями правил → источник — контент ревизии, а не глобальный справочник). Ссылка по `code` — `source_code` («Тренировка», «Доспех», «Щит», «Заклинание», «врождённый» и т.п.), а НЕ код способности
+и НЕ «она сама». Правило:
 **модификаторы одного источника не суммируются — берётся наибольший бонус/штраф**
 (применяется и к Защите в §3, и к характеристикам/ресурсам).
 
@@ -137,9 +136,9 @@ grants: { level: number; grants: Grant[] }[]        // уровень 1 = пол
 
 type Grant =
   | { type: 'characteristic'; characteristic_code: string; value: DimensionalNumber; permanent?: boolean }            // даёт характеристику со значением (появляется)
-  | { type: 'characteristic_modify'; characteristic_code: string; amount: Formula; source_id: number; permanent?: boolean } // модификатор характеристики (Число или Уровень способности; источник обязателен)
+  | { type: 'characteristic_modify'; characteristic_code: string; amount: Formula; source_code: string; permanent?: boolean } // модификатор характеристики (Число или Уровень способности; источник обязателен)
   | { type: 'resource'; resource_code: string; limit: DimensionalNumber | number; permanent?: boolean }                // даёт ресурс с лимитом (адаптивно)
-  | { type: 'resource_limit_change'; resource_code: string; amount: Formula; source_id: number; permanent?: boolean }  // меняет лимит ресурса на amount (источник обязателен)
+  | { type: 'resource_limit_change'; resource_code: string; amount: Formula; source_code: string; permanent?: boolean }  // меняет лимит ресурса на amount (источник обязателен)
   | { type: 'ability'; ability_code: string; permanent?: boolean }                                                     // даёт другую способность
   | { type: 'tag'; tag_code: string; remove?: boolean; permanent?: boolean }                                           // добавить/убрать признак
   | { type: 'item'; item_code: string; permanent?: boolean }                                                           // даёт предмет/врождённое
@@ -150,8 +149,8 @@ type Grant =
 - У модификатора характеристики (`characteristic_modify`) `amount` ограничен типами
   **«Число»** (`fixed`) и **«Уровень способности»** (`ability_level`) — UI-подпись «Модификатор
   характеристики». Другие типы формулы в этом даре недоступны.
-- **Источник обязателен** у `characteristic_modify` и `resource_limit_change`: `source_id`
-  из `sourceStore.sources` (см. §1). У «дать»-даров источника нет.
+- **Источник обязателен** у `characteristic_modify` и `resource_limit_change`: `source_code`
+  из правил-источников (см. §1). У «дать»-даров источника нет.
 - **Значение/лимит**: `characteristic.value` — размерное число (характеристика всегда
   размерная); `resource.limit` — адаптивно (размерное у размерного ресурса, число у обычного).
 - **Постоянность** — `permanent?: boolean` на каждом даре (default true):
@@ -217,7 +216,7 @@ type AbilitySpec =
 ### 4.6 Тип способности (AbilityType)
 
 Тип — **явное поле `spec.type`** (источник истины). Он определяет, какие блоки показывает
-редактор и как рендерится карточка. Типообразующие теги-признаки авто-синхронизируются
+редактор и как рендерится карточка. Типообразующие признаки авто-синхронизируются
 редактором при смене типа; для старых правил без `type` тип деривируется из тегов.
 
 ```ts
@@ -238,7 +237,7 @@ const ABILITY_TYPE_TAGS: Record<AbilityType, string[]> = {
 }
 
 // приоритет: заклинание > процесс > действие > навык > особенность > черта (по различающему тегу)
-function resolveAbilityTypeFromTags(tags: string[]): AbilityType | null
+function resolveAbilityTypeFromKeywords(keywords: string[]): AbilityType | null
 ```
 
 - Тип «Действие» (и производные process/spell) требует ОД-стоимость: **любое действие стоит
@@ -351,7 +350,7 @@ function pruneItemSpecBySubtypes(spec: ItemSpecDraft, subtypes: string[]): ItemS
 ## 5. Валидация ссылок при публикации
 
 - Ссылки из спецификаций проверяются перед commit в `publishDraft`:
-  `validateRuleReferences(effectiveRules, tags)` из `Rule/Service/ruleValidation.ts`.
+  `ruleValidationService.validateRuleReferences(effectiveRules, keywords)` из `Rule/Service/RuleValidationService.ts`.
 - Извлекает все `*_code` из spec по типу правила (item: `damage_type_code`,
   `characteristic_code`, `special_rule_codes`; ability: все поля; characteristic: формула)
   и проверяет, что код существует и имеет нужный тип.
@@ -431,6 +430,4 @@ function pruneItemSpecBySubtypes(spec: ItemSpecDraft, subtypes: string[]): ItemS
 - Вычисляемые значения (Защита, Опыт) в интерфейсе — зона Character.
 - Скилл, смещающий на ±2 шага процесса — модификатор `max_shift`, зона Character.
 - Логика переходов/провалов процесса на персонаже — зона Character; сейчас только карточка.
-- id правил в `mockRules.ts` и ревизионном пуле `mockSpaces.ts` не совпадают (в пуле предметы
-  rule-9/10/11, в mockRules те же id — характеристики/тип урона) — частично закроется
-  переходом на `code`, расхождение всё ещё надо развести.
+- id правил в `mockRules.ts` и ревизионном пуле `mockSpaces.ts` не совпадали — **разведено 2026-08-01**: единый каталог `ruleCatalog` в `mockRules.ts`, пул ревизий импортирует его (`mockSpaces.revisionRulePool = ruleCatalog`). Ссылки по `code`, ID согласованы по построению.

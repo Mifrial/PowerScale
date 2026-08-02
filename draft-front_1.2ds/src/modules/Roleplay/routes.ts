@@ -3,7 +3,7 @@ import { routes as characterRoutes } from './Character/routes'
 import { routes as gameRoutes } from './Game/routes'
 import { createSpaceRoutes } from './Space/routes'
 import { ruleCtxChildren } from './Rule/routes'
-import { adminChildren as tagAdminChildren } from './Rule/Tag/routes'
+import { adminChildren as tagAdminChildren } from './Rule/routes'
 
 export const roleplayRoutes: RouteRecordRaw[] = [
   ...characterRoutes,

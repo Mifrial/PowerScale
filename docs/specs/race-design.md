@@ -32,8 +32,8 @@
 ## 2. Общие принципы (наследуются из ability-resource-design.md)
 
 - Все строковые ссылки между правилами — по семантичному `code`, НЕ по внутреннему `id`.
-- `Rule`/`RuleVersion` уже содержат `code`; числовые внутренние id (`spaceId`, `tagId`,
-  `mechanicId`, `source_id`) не трогаем.
+- `Rule`/`RuleVersion` уже содержат `code`; числовые внутренние id (`spaceId`, `keywordId`,
+  `mechanicId`) не трогаем; `source_code` — строковая ссылка на правило-источник.
 - Модификаторы характеристик и «дать характеристику сразу» (напр. Магия) — **уже покрыты**
   дарами способностей `characteristic_modify` / `characteristic` из `abilityTypes.ts`.
   Раса лишь объявляет **стартовый профиль** характеристик; сами модификаторы — зона
@@ -143,7 +143,7 @@ interface RaceSpec {
 
 ## 6. Валидация ссылок при публикации
 
-- В `ruleValidation.ts` расширяется `collectSpecRefs`/`validateRuleReferences`:
+- В `RuleValidationService.ts` расширяется `collectSpecRefs`/`validateRuleReferences`:
   - `race`: `parent_race_code` → тип `species`; `characteristics[].characteristic_code` →
     тип `characteristic`; `abilities[].ability_code` → тип `ability`.
   - `species`: `parent_race_code` → тип `species`; `abilities[].ability_code` → тип `ability`.

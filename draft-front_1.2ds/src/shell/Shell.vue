@@ -24,14 +24,16 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useChatStore } from '@/modules/Messages/Chat/Store/chat'
+import { useNotificationStore } from '@/modules/Messages/Notifications/Store/notifications'
 import TopBar from './TopBar.vue'
 import SideBar from './SideBar.vue'
-import ChatBar from '@/modules/Messages/Chat/Components/ChatBar.vue'
-import NotificationSlider from '@/modules/Messages/Notifications/Components/NotificationSlider.vue'
-import ChatSlider from '@/modules/Messages/Chat/Components/ChatSlider.vue'
+import ChatBar from '@/modules/Messages/Chat/Component/ChatBar.vue'
+import NotificationSlider from '@/modules/Messages/Notifications/Component/NotificationSlider.vue'
+import ChatSlider from '@/modules/Messages/Chat/Component/ChatSlider.vue'
 
 const route = useRoute()
 const chatStore = useChatStore()
+const notificationStore = useNotificationStore()
 const isMessenger = computed(() => route.path === '/messenger')
 
 const sidebarCollapsed = ref(false)
@@ -42,6 +44,7 @@ onMounted(async () => {
   if (chatStore.chats.length === 0) {
     await chatStore.fetchChats()
   }
+  notificationStore.fetchData()
 })
 </script>
 

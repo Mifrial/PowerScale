@@ -40,7 +40,7 @@
           color="success"
           size="small"
           prepend-icon="mdi-source-branch"
-          @click="showPublishDialog = true"
+          @click="openPublishDialog"
         >
           Опубликовать
         </v-btn>
@@ -102,7 +102,7 @@
         <template #append>
           <div class="d-flex align-center gap-2">
             <v-chip size="x-small" variant="tonal">
-              {{ typeLabels[rule.type] }}
+              {{ RULE_TYPE_LABELS[rule.type] }}
             </v-chip>
             <v-btn
               v-if="isDraftContext && isRuleInDraft(rule.id)"
@@ -124,55 +124,12 @@
     </div>
 
     <!-- Publish dialog -->
-    <v-dialog v-model="showPublishDialog" max-width="600">
-      <v-card>
-        <v-card-title>Публикация черновика</v-card-title>
-        <v-card-text>
-          <div class="text-body-2 mb-4">
-            Будут опубликованы {{ draftStore.getDraftRules(space.id).length }} изменённых правил
-            поверх версии {{ space.revision }}.
-          </div>
-          <div
-            v-for="rule in draftStore.getDraftRules(space.id)"
-            :key="rule.id"
-            class="d-flex align-center pa-2 mb-1 bg-surface-variant rounded"
-          >
-            <span class="text-body-2">{{ rule.name }}</span>
-            <v-chip size="x-small" class="ml-2" variant="tonal">{{ typeLabels[rule.type] }}</v-chip>
-          </div>
-        </v-card-text>
-        <v-card-actions>
-          <v-btn variant="text" @click="showPublishDialog = false">Отмена</v-btn>
-          <v-btn color="primary" variant="tonal" :loading="publishing" @click="publishDraft">
-            Подтвердить публикацию
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-    <!-- Validation errors dialog -->
-    <v-dialog v-model="showValidationDialog" max-width="600">
-      <v-card>
-        <v-card-title>Невозможно опубликовать</v-card-title>
-        <v-card-text>
-          <div class="text-body-2 mb-4">
-            В черновике есть ссылки на отсутствующие или неподходящие правила.
-            Исправьте ошибки и попробуйте снова.
-          </div>
-          <div
-            v-for="(err, index) in validationErrors"
-            :key="index"
-            class="text-body-2 text-error pa-1"
-          >
-            {{ err }}
-          </div>
-        </v-card-text>
-        <v-card-actions>
-          <v-btn color="primary" variant="tonal" @click="showValidationDialog = false">
-            Понятно
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <PublishDialog
+      v-model="showPublishDialog"
+      :space="space"
+      @published="onPublished"
+      @error="(m) => snackbar = { show: true, text: m, color: 'error' }"
+    />
 
     <!-- Discard rule dialog -->
     <v-dialog v-model="showDiscardDialog" max-width="500">
@@ -194,7 +151,19 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <v-snackbar v-model="snackbar.show" :color="snackbar.color" timeout="3000">
+      {{ snackbar.text }}
+    </v-snackbar>
   </v-container>
+  <div v-else-if="loading" class="d-flex justify-center pa-8">
+    <v-progress-circular indeterminate width="2" size="28" color="primary" />
+  </div>
+  <div v-else-if="error" class="text-center pa-8">
+    <v-icon icon="mdi-alert-circle" size="64" color="error" class="mb-4" />
+    <p class="text-body-1 mb-4">{{ error }}</p>
+    <v-btn color="primary" @click="retry">Попробовать снова</v-btn>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -203,44 +172,32 @@ import { useRoute, useRouter } from 'vue-router'
 import { useSpaceStore } from '../Store/spaces'
 import { useSpaceRevisionStore } from '../Store/spaceRevision'
 import { useDraftRuleStore } from '@/modules/Roleplay/Rule/Store/draftRules'
-import { useTagStore } from '@/modules/Roleplay/Rule/Tag/Store/tags'
-import { validateRuleReferences, formatReferenceError, validateAbilityStructure, formatAbilityStructureError, validateRaceStructure, validateSpeciesStructure, formatRaceStructureError, findSpeciesCycle, formatSpeciesCycle } from '@/modules/Roleplay/Rule/Service/ruleValidation'
-import { useAbortable } from '@/modules/Core/Composables/useAbortable'
-import type { Space } from '../Interface/types'
+import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable'
+import { RULE_TYPE_LABELS } from '@/modules/Roleplay/Rule/Constant/RULE_TYPE_LABELS'
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule'
+import type { Space } from '@/modules/Roleplay/Space/Dto/Space'
+import PublishDialog from '../Component/PublishDialog.vue'
 
 const route = useRoute()
 const router = useRouter()
 const spaceStore = useSpaceStore()
 const revisionStore = useSpaceRevisionStore()
 const draftStore = useDraftRuleStore()
-const tagStore = useTagStore()
 const { signal } = useAbortable()
 
 const space = ref<Space | null>(null)
+const loading = ref(true)
+const error = ref<string | null>(null)
 const loadedCode = ref('')
 const activeTab = ref<string>('all')
 const searchQuery = ref('')
 const showPublishDialog = ref(false)
-const publishing = ref(false)
 const showDiscardDialog = ref(false)
-const ruleToDiscard = ref<any>(null)
-const validationErrors = ref<string[]>([])
-const showValidationDialog = ref(false)
+const ruleToDiscard = ref<Rule | null>(null)
+const snackbar = ref({ show: false, text: '', color: '' })
 
 const ctx = computed(() => route.params.ctx as string | undefined)
 const isDraftContext = computed(() => ctx.value === 'draft')
-
-const typeLabels: Record<string, string> = {
-  simple: 'Простое',
-  race: 'Раса',
-  species: 'Вид/Подвид',
-  characteristic: 'Характеристика',
-  resource: 'Ресурс',
-  points: 'Очки',
-  ability: 'Способность',
-  item: 'Предмет',
-  damage_type: 'Тип урона',
-}
 
 function formatPublished(iso: string): string {
   const d = new Date(iso)
@@ -324,65 +281,49 @@ async function applyContext(): Promise<void> {
 async function resolveRoute(): Promise<void> {
   const code = route.params.code as string
   const c = ctx.value
+  loading.value = true
+  error.value = null
   try {
     if (code !== loadedCode.value) {
       await loadSpace(code)
     }
+    if (!space.value) return
+
+    if (c === undefined) {
+      await redirectPortal()
+      return
+    }
+    if (c !== 'draft' && !/^\d+$/.test(c)) {
+      router.replace(`/space/${code}`)
+      return
+    }
+    await applyContext()
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') return
     space.value = null
-    return
+    error.value = e instanceof Error ? e.message : 'Ошибка загрузки пространства'
+  } finally {
+    loading.value = false
   }
-  if (!space.value) return
+}
 
-  if (c === undefined) {
-    await redirectPortal()
-    return
-  }
-  if (c !== 'draft' && !/^\d+$/.test(c)) {
-    router.replace(`/space/${code}`)
-    return
-  }
-  await applyContext()
+function retry() {
+  loadedCode.value = ''
+  resolveRoute()
 }
 
 onMounted(resolveRoute)
 
 watch(() => [route.params.code, route.params.ctx], resolveRoute)
 
-async function publishDraft() {
+function openPublishDialog() {
+  showPublishDialog.value = true
+}
+
+function onPublished(revision: number) {
   if (!space.value) return
-  publishing.value = true
-  try {
-    const errors = validateRuleReferences(
-      revisionStore.effectiveRules,
-      tagStore.tags.map(t => ({ code: t.code, name: t.name }))
-    )
-    const abilityErrors = validateAbilityStructure(revisionStore.effectiveRules, tagStore.tags)
-    const raceErrors = validateRaceStructure(revisionStore.effectiveRules)
-    const speciesErrors = validateSpeciesStructure(revisionStore.effectiveRules)
-    const cycle = findSpeciesCycle(revisionStore.effectiveRules)
-    const allErrors = [
-      ...errors.map(formatReferenceError),
-      ...abilityErrors.map(formatAbilityStructureError),
-      ...raceErrors.map(formatRaceStructureError),
-      ...speciesErrors.map(formatRaceStructureError),
-      ...(cycle ? [formatSpeciesCycle(cycle)] : []),
-    ]
-    if (allErrors.length > 0) {
-      validationErrors.value = allErrors
-      showValidationDialog.value = true
-      return
-    }
-    const rules = draftStore.getDraftRules(space.value.id)
-    await revisionStore.commitDraft(space.value.id, rules)
-    draftStore.discardDraft(space.value.id)
-    showPublishDialog.value = false
-    space.value = { ...space.value, revision: space.value.revision + 1 }
-    router.push(`/space/${space.value.code}/${space.value.revision}`)
-  } finally {
-    publishing.value = false
-  }
+  space.value = { ...space.value, revision }
+  router.push(`/space/${space.value.code}/${revision}`)
 }
 
 function isRuleInDraft(ruleId: string): boolean {
@@ -391,7 +332,7 @@ function isRuleInDraft(ruleId: string): boolean {
   return draftRules.some(r => r.id === ruleId)
 }
 
-function showDiscardRuleDialog(rule: any) {
+function showDiscardRuleDialog(rule: Rule) {
   ruleToDiscard.value = rule
   showDiscardDialog.value = true
 }

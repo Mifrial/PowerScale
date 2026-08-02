@@ -20,7 +20,7 @@ export function createSpaceRoutes(ruleCtxChildren: RouteRecordRaw[]): RouteRecor
   return [
     {
       path: 'spaces',
-      meta: { crumb: spaceRoot },
+      meta: { crumb: spaceRoot, guestAllowed: true },
       children: [
         {
           path: '',
@@ -34,6 +34,7 @@ export function createSpaceRoutes(ruleCtxChildren: RouteRecordRaw[]): RouteRecor
           meta: {
             title: 'Создание пространства',
             crumb: () => [{ title: 'Создание пространства' }],
+            requiresAny: ['space.create'],
           },
         },
       ],

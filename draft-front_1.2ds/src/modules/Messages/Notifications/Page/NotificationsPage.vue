@@ -51,9 +51,9 @@
 <script setup lang="ts">
 import { ref, watch, onMounted } from 'vue'
 import { useNotificationStore } from '@/modules/Messages/Notifications/Store/notifications'
-import { debounce } from '@/modules/Core/Engine/Utils/debounce'
-import ChipFilter from '@/modules/Core/UI/Components/ChipFilter.vue'
-import NotificationList from '@/modules/Messages/Notifications/Components/NotificationList.vue'
+import { debounce } from '@/modules/Core/UI/Utils/debounce'
+import ChipFilter from '@/modules/Core/UI/Component/ChipFilter.vue'
+import NotificationList from '@/modules/Messages/Notifications/Component/NotificationList.vue'
 
 const store = useNotificationStore()
 const localSearch = ref(store.searchQuery)

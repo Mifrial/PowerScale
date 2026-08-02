@@ -13,7 +13,7 @@
       <v-btn v-if="editing" variant="text" color="medium-emphasis" @click="cancelEdit">
         <v-icon start size="small">mdi-close</v-icon>Отмена
       </v-btn>
-      <v-btn v-if="user.active && isAdmin" variant="tonal" color="error" @click="confirmDeactivate = true">Отключить</v-btn>
+      <v-btn v-if="user.active && canDeactivate" variant="tonal" color="error" @click="confirmDeactivate = true">Отключить</v-btn>
     </div>
 
     <div class="d-flex ga-6">
@@ -69,6 +69,14 @@
                   <v-chip :color="user.active ? 'success' : 'grey'" size="x-small" label>
                     {{ user.active ? 'Активен' : 'Отключён' }}
                   </v-chip>
+                  <template v-if="!user.active">
+                    <div v-if="user.deactivate_reason" class="text-caption mt-1">
+                      Причина: {{ user.deactivate_reason }}
+                    </div>
+                    <div v-if="user.deactivated_until" class="text-caption">
+                      Отключён до: {{ user.deactivated_until }}
+                    </div>
+                  </template>
                 </template>
               </v-list-item>
             </v-list>
@@ -129,6 +137,15 @@
       </div>
     </div>
 
+    <div v-if="isOwnProfile" class="mt-4">
+      <component
+        v-for="section in profileSections"
+        :key="section.id"
+        :is="section.component"
+        class="mt-4"
+      />
+    </div>
+
     <v-dialog v-model="confirmDeactivate" max-width="460">
       <v-card>
         <v-card-title>Отключить пользователя</v-card-title>
@@ -180,8 +197,12 @@ import { ref, onMounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '@/modules/Core/User/Store/users'
 import { useAuthStore } from '@/modules/Core/Auth/Store/auth'
-import { useAbortable } from '@/modules/Core/Composables/useAbortable'
-import type { User } from '@/modules/Core/User/Interface/types'
+import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable'
+import type { User } from '@/modules/Core/User/Dto/User'
+import { accessService } from '@/modules/Core/User/Service/AccessService'
+import { getProfileSections } from '@/modules/Core/User/init'
+
+const profileSections = getProfileSections()
 
 const route = useRoute()
 const store = useUserStore()
@@ -198,7 +219,7 @@ const deactivateUntil = ref('')
 const editing = ref(false)
 const saving = ref(false)
 const snackbar = ref({ show: false, text: '', color: '' })
-const editForm = ref<Record<string, any>>({})
+const editForm = ref<Record<string, string>>({})
 
 const initials = computed(() => {
   if (!user.value) return '??'
@@ -213,9 +234,9 @@ const displayName = computed(() => {
   return parts.join(' ') || user.value.login
 })
 
-const isAdmin = computed(() => store.currentUser?.groups?.includes('Администратор') ?? false)
 const isOwnProfile = computed(() => store.currentUser?.id === user.value?.id)
-const canEdit = computed(() => isOwnProfile.value || isAdmin.value)
+const canEdit = computed(() => isOwnProfile.value || accessService.hasAnyPermission(store.currentUser, ['user.edit']))
+const canDeactivate = computed(() => accessService.hasAnyPermission(store.currentUser, ['user.deactivate']))
 
 function startEdit() {
   if (!user.value) return
@@ -259,7 +280,11 @@ async function handleDeactivate() {
       deactivateReason.value || undefined,
       deactivateUntil.value || undefined,
     )
-    if (user.value) user.value.active = false
+    if (user.value) {
+      user.value.active = false
+      user.value.deactivate_reason = deactivateReason.value || undefined
+      user.value.deactivated_until = deactivateUntil.value || undefined
+    }
     const parts = ['Пользователь отключён']
     if (deactivateReason.value) parts.push(`: ${deactivateReason.value}`)
     if (deactivateUntil.value) parts.push(` до ${deactivateUntil.value}`)

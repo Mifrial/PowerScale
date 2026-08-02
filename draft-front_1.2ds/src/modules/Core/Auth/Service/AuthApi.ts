@@ -1,7 +1,7 @@
 import type { IAuthApi } from '../Interface/IAuthApi'
-import type { Engine } from '@/modules/Core/Engine/Action/Engine'
-import type { User } from '@/modules/Core/User/Interface/types'
-import type { PasswordPolicy } from '../Interface/types'
+import type { Engine } from '@/modules/Core/Engine/Service/Engine'
+import type { User } from '@/modules/Core/User/Dto/User'
+import type { PasswordPolicy } from '@/modules/Core/Auth/Dto/PasswordPolicy'
 
 export class AuthApi implements IAuthApi {
   constructor(private engine: Engine) {}

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { sl } from '@/modules/Core/Engine/ServiceLocator'
+import { serviceLocator } from '@/modules/Core/Engine/Service/ServiceLocator'
 import type { IAuthApi } from '@/modules/Core/Auth/Interface/IAuthApi'
 import type { IChatApi } from '@/modules/Messages/Chat/Interface/IChatApi'
 import type { INotificationApi } from '@/modules/Messages/Notifications/Interface/INotificationApi'
@@ -42,39 +42,39 @@ const createMockUserApi = (): IUserApi => ({
 })
 
 beforeEach(() => {
-  sl.reset()
+  serviceLocator.reset()
 })
 
 describe('ServiceLocator', () => {
   it('throws on get before set', () => {
-    expect(() => sl.get('test')).toThrow('Service "test" not registered')
+    expect(() => serviceLocator.get('test')).toThrow('Service "test" not registered')
   })
 
   it('set + get roundtrip', () => {
     const obj = { foo: 1 }
-    sl.set('test', obj)
-    expect(sl.get<typeof obj>('test')).toBe(obj)
+    serviceLocator.set('test', obj)
+    expect(serviceLocator.get<typeof obj>('test')).toBe(obj)
   })
 
   it('reset clears all', () => {
-    sl.set('a', 1)
-    sl.set('b', 2)
-    sl.reset()
-    expect(() => sl.get('a')).toThrow()
-    expect(() => sl.get('b')).toThrow()
+    serviceLocator.set('a', 1)
+    serviceLocator.set('b', 2)
+    serviceLocator.reset()
+    expect(() => serviceLocator.get('a')).toThrow()
+    expect(() => serviceLocator.get('b')).toThrow()
   })
 
   it('override existing key', () => {
-    sl.set('x', 1)
-    sl.set('x', 2)
-    expect(sl.get<number>('x')).toBe(2)
+    serviceLocator.set('x', 1)
+    serviceLocator.set('x', 2)
+    expect(serviceLocator.get<number>('x')).toBe(2)
   })
 
   it('generic typing works', () => {
     interface Foo { bar: string }
     const impl: Foo = { bar: 'hello' }
-    sl.set<Foo>('foo', impl)
-    const got = sl.get<Foo>('foo')
+    serviceLocator.set<Foo>('foo', impl)
+    const got = serviceLocator.get<Foo>('foo')
     expect(got.bar).toBe('hello')
   })
 })

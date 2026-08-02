@@ -1,7 +1,9 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/modules/Core/Auth/Store/auth'
+import { useUserStore } from '@/modules/Core/User/Store/users'
 import { standaloneRoutes } from '@/modules/Core/Auth/routes'
 import { moduleChildren } from './moduleRoutes'
+import { evaluateRouteAccess } from './access'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -20,24 +22,20 @@ let authChecked = false
 
 router.beforeEach(async (to, _from, next) => {
   const auth = useAuthStore()
+  const userStore = useUserStore()
 
   if (!authChecked) {
-    await auth.checkAuth()
-    authChecked = true
+    authChecked = await auth.checkAuth()
   }
 
-  const publicRoutes = ['Login', 'Register', 'ForgotPassword', 'ResetPassword']
-  if (to.meta.layout === 'auth') {
-    if (auth.isAuthenticated && !auth.isGuest) {
-      next({ name: 'Dashboard' })
-    } else {
-      next()
-    }
-  } else if (!auth.isAuthenticated) {
-    next({ name: 'Login' })
-  } else {
-    next()
-  }
+  const decision = evaluateRouteAccess(to, {
+    isAuthenticated: auth.isAuthenticated,
+    isGuest: auth.isGuest,
+    user: userStore.currentUser,
+  })
+
+  if (decision.allow) next()
+  else next(decision.redirect)
 })
 
 export default router

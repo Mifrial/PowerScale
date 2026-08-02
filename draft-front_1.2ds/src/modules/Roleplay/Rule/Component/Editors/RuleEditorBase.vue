@@ -1,0 +1,58 @@
+<template>
+  <div>
+    <SimpleRuleEditor
+      v-model:name="localName"
+      v-model:code="localCode"
+      v-model:description="localDescription"
+      v-model:mechanicId="localMechanicId"
+      v-model:keywordIds="localTagIds"
+      :mechanic-options="mechanicOptions"
+      :keyword-options="keywordOptions"
+      :code-disabled="codeDisabled"
+    />
+    <slot name="spec" />
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, watch } from 'vue'
+import SimpleRuleEditor from './SimpleRuleEditor.vue'
+
+const props = defineProps<{
+  name: string
+  code: string
+  description: string
+  mechanicId: number | null
+  keywordIds: number[]
+  mechanicOptions: { title: string; value: number }[]
+  keywordOptions: { title: string; value: number }[]
+  /** Код неизменяем после создания — поле блокируется при редактировании. */
+  codeDisabled?: boolean
+}>()
+
+const emit = defineEmits<{
+  'update:name': [value: string]
+  'update:code': [value: string]
+  'update:description': [value: string]
+  'update:mechanicId': [value: number | null]
+  'update:keywordIds': [value: number[]]
+}>()
+
+const localName = ref(props.name)
+const localCode = ref(props.code)
+const localDescription = ref(props.description)
+const localMechanicId = ref(props.mechanicId)
+const localTagIds = ref(props.keywordIds)
+
+watch(() => props.name, (v) => { localName.value = v })
+watch(() => props.code, (v) => { localCode.value = v })
+watch(() => props.description, (v) => { localDescription.value = v })
+watch(() => props.mechanicId, (v) => { localMechanicId.value = v })
+watch(() => props.keywordIds, (v) => { localTagIds.value = v })
+
+watch(localName, (v) => emit('update:name', v))
+watch(localCode, (v) => emit('update:code', v))
+watch(localDescription, (v) => emit('update:description', v))
+watch(localMechanicId, (v) => emit('update:mechanicId', v))
+watch(localTagIds, (v) => emit('update:keywordIds', v))
+</script>

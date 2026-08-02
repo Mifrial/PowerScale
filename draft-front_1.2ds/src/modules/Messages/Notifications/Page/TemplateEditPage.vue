@@ -79,11 +79,34 @@
       </v-card-text>
 
       <v-card-actions>
+        <v-btn
+          v-if="isEdit && canDelete && active"
+          variant="text"
+          color="error"
+          prepend-icon="mdi-trash-can-outline"
+          @click="showDeleteDialog = true"
+        >
+          Удалить
+        </v-btn>
         <v-spacer />
         <v-btn variant="text" @click="router.back()">Отмена</v-btn>
         <v-btn color="primary" :loading="saving" @click="save">Сохранить</v-btn>
       </v-card-actions>
     </v-card>
+
+    <v-dialog v-model="showDeleteDialog" max-width="400">
+      <v-card>
+        <v-card-title>Удалить шаблон?</v-card-title>
+        <v-card-text>
+          Шаблон «{{ key }}» будет деактивирован (soft-delete): скроется из списка активных, старые уведомления сохранятся.
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="showDeleteDialog = false">Отмена</v-btn>
+          <v-btn color="error" :loading="deleting" @click="handleDelete">Удалить</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 
@@ -91,12 +114,15 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useTemplateStore } from '../Store/templates'
-import { useAbortable } from '@/modules/Core/Composables/useAbortable'
-import type { NotificationButton } from '../Interface/types'
+import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable'
+import { useUserStore } from '@/modules/Core/User/Store/users'
+import { accessService } from '@/modules/Core/User/init'
+import type { NotificationButton } from '@/modules/Messages/Notifications/Dto/NotificationButton'
 
 const route = useRoute()
 const router = useRouter()
 const store = useTemplateStore()
+const userStore = useUserStore()
 const { signal } = useAbortable()
 
 const isEdit = computed(() => !!route.params.id)
@@ -106,7 +132,12 @@ const key = ref('')
 const titleTemplate = ref('')
 const bodyTemplate = ref('')
 const buttons = ref<NotificationButton[]>([])
+const active = ref(true)
 const saving = ref(false)
+const showDeleteDialog = ref(false)
+const deleting = ref(false)
+
+const canDelete = computed(() => accessService.hasAnyPermission(userStore.currentUser, ['notification_template.delete']))
 
 const actionTypes = [
   { title: 'Событие', value: 'event' },
@@ -121,6 +152,7 @@ onMounted(async () => {
     titleTemplate.value = template.titleTemplate
     bodyTemplate.value = template.bodyTemplate
     buttons.value = template.buttonsJson ? [...template.buttonsJson] : []
+    active.value = template.active
   }
 })
 
@@ -157,6 +189,18 @@ async function save() {
     console.error('save template failed', e)
   } finally {
     saving.value = false
+  }
+}
+
+async function handleDelete() {
+  deleting.value = true
+  try {
+    await store.deactivateTemplate(templateId.value, signal.value)
+    router.push('/admin/notification-templates')
+  } catch (e) {
+    console.error('delete template failed', e)
+  } finally {
+    deleting.value = false
   }
 }
 </script>

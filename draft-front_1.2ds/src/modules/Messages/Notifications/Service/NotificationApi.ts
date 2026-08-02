@@ -1,5 +1,5 @@
 import type { INotificationApi, NotificationFilters, NotificationPage } from '../Interface/INotificationApi'
-import type { Engine } from '@/modules/Core/Engine/Action/Engine'
+import type { Engine } from '@/modules/Core/Engine/Service/Engine'
 
 export class NotificationApi implements INotificationApi {
   constructor(private engine: Engine) {}

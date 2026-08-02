@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { Group } from '../Interface/types'
+import type { Group } from '../Dto/Group'
 import type { CreateGroupData, UpdateGroupData } from '../Interface/IGroupApi'
 import { getGroupApi } from '../init'
 

@@ -104,6 +104,7 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/modules/Core/Auth/Store/auth'
 import { useUserStore } from '@/modules/Core/User/Store/users'
+import { isAdmin as checkIsAdmin, getAdminSections } from '@/modules/Core/User/init'
 
 const props = defineProps<{ collapsed: boolean }>()
 const emit = defineEmits<{ 'update:collapsed': [value: boolean] }>()
@@ -120,7 +121,7 @@ function expand() {
   emit('update:collapsed', false)
 }
 
-const isAdmin = computed(() => userStore.currentUser?.groups?.includes('Администратор') ?? false)
+const isAdmin = computed(() => checkIsAdmin(userStore.currentUser))
 
 function confirmLogout() {
   showLogoutDialog.value = false
@@ -137,9 +138,5 @@ const navItems = [
   { icon: 'mdi-account-multiple', label: 'Пользователи', to: '/users' },
 ]
 
-const adminItems = [
-  { icon: 'mdi-account-group', label: 'Группы', to: '/admin/groups' },
-  { icon: 'mdi-tag-multiple', label: 'Теги', to: '/admin/tags' },
-  { icon: 'mdi-bell-cog', label: 'Шаблоны уведомлений', to: '/admin/notification-templates' },
-]
+const adminItems = getAdminSections().map(s => ({ icon: s.icon, label: s.title, to: s.to }))
 </script>
