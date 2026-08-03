@@ -1,4 +1,4 @@
-import type { PermissionCategory } from '@/modules/Core/User/Interface/IPermissionRegistry'
+import type { PermissionCategory } from '@/modules/Core/User/Interface/IPermissionRegistry';
 
 export const CHARACTER_PERMISSION_CATEGORY: PermissionCategory = {
   key: 'character',
@@ -7,4 +7,4 @@ export const CHARACTER_PERMISSION_CATEGORY: PermissionCategory = {
     { key: 'create', label: 'Создание' },
     { key: 'view', label: 'Просмотр' },
   ],
-}
+};

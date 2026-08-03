@@ -1,20 +1,20 @@
-import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule'
-import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec'
-import type { RuleType } from '@/modules/Roleplay/Rule/Enum/RuleType'
-import { slugify } from '@/modules/Roleplay/Rule/Utils/Text/slugify'
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec';
+import type { RuleType } from '@/modules/Roleplay/Rule/Enum/RuleType';
+import { slugify } from '@/modules/Roleplay/Rule/Utils/Text/slugify';
 
 export interface CreateDraftParams {
-  isEdit: boolean
-  id: string
-  type: RuleType
-  name: string
-  code: string
-  loadedCode: string
-  description: string
-  spaceId: number
-  spec?: RuleSpec | null
-  keywordIds: number[]
-  mechanicId?: number | null
+  isEdit: boolean;
+  id: string;
+  type: RuleType;
+  name: string;
+  code: string;
+  loadedCode: string;
+  description: string;
+  spaceId: number;
+  spec?: RuleSpec | null;
+  keywordIds: number[];
+  mechanicId?: number | null;
 }
 
 export class RuleDraftService {
@@ -30,8 +30,8 @@ export class RuleDraftService {
       keywordIds: params.keywordIds,
       mechanicId: params.mechanicId,
       createdAt: new Date().toISOString(),
-    }
+    };
   }
 }
 
-export const ruleDraftService = new RuleDraftService()
+export const ruleDraftService = new RuleDraftService();

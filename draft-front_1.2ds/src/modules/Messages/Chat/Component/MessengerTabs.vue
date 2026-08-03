@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { useChatStore } from '@/modules/Messages/Chat/Store/chat'
+import { useChatStore } from '@/modules/Messages/Chat/Store/chat';
 
-const store = useChatStore()
+const store = useChatStore();
 </script>
 
 <template>

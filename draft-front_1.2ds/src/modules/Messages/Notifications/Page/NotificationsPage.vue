@@ -1,25 +1,25 @@
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
-import { useNotificationStore } from '@/modules/Messages/Notifications/Store/notifications'
-import { debounce } from '@/modules/Core/UI/Utils/debounce'
-import ChipFilter from '@/modules/Core/UI/Component/ChipFilter.vue'
-import NotificationList from '@/modules/Messages/Notifications/Component/NotificationList.vue'
-import { filters } from '@/modules/Messages/Notifications/Constant/notificationsFilters'
+import { ref, watch, onMounted } from 'vue';
+import { useNotificationStore } from '@/modules/Messages/Notifications/Store/notifications';
+import { debounce } from '@/modules/Core/UI/Utils/debounce';
+import ChipFilter from '@/modules/Core/UI/Component/ChipFilter.vue';
+import NotificationList from '@/modules/Messages/Notifications/Component/NotificationList.vue';
+import { filters } from '@/modules/Messages/Notifications/Constant/notificationsFilters';
 
-const store = useNotificationStore()
-const localSearch = ref(store.searchQuery)
+const store = useNotificationStore();
+const localSearch = ref(store.searchQuery);
 
 const debouncedUpdateSearch = debounce((value: string) => {
-  store.searchQuery = value
-}, 300)
+  store.searchQuery = value;
+}, 300);
 
 watch(localSearch, (value) => {
-  debouncedUpdateSearch(value ?? '')
-})
+  debouncedUpdateSearch(value ?? '');
+});
 
 onMounted(() => {
-  store.fetchData()
-})
+  store.fetchData();
+});
 </script>
 
 <template>
@@ -39,35 +39,19 @@ onMounted(() => {
     <div class="d-flex ga-2 mb-4 align-center">
       <ChipFilter v-model="store.filter" :items="filters" />
       <v-spacer />
-      <v-btn
-        v-if="store.unreadCount > 0"
-        variant="text"
-        color="primary"
-        size="small"
-        @click="store.markAllAsRead()"
-      >
+      <v-btn v-if="store.unreadCount > 0" variant="text" color="primary" size="small" @click="store.markAllAsRead()">
         Отметить все прочитанными
       </v-btn>
     </div>
 
-    <NotificationList
-      :items="store.items"
-      icon-size="24"
-      action-size="small"
-      @action="store.markAsRead"
-    >
+    <NotificationList :items="store.items" icon-size="24" action-size="small" @action="store.markAsRead">
       <template #empty>
         {{ store.filter === 'unread' ? 'Нет непрочитанных уведомлений' : 'Нет уведомлений' }}
       </template>
     </NotificationList>
 
     <div v-if="store.totalPages > 1" class="d-flex justify-center mt-6">
-      <v-pagination
-        v-model="store.page"
-        :length="store.totalPages"
-        :total-visible="7"
-        color="primary"
-      />
+      <v-pagination v-model="store.page" :length="store.totalPages" :total-visible="7" color="primary" />
     </div>
   </div>
 </template>

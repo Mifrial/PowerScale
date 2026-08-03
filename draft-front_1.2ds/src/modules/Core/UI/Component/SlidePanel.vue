@@ -1,71 +1,82 @@
 <script setup lang="ts">
-import { watch, onUnmounted } from 'vue'
+import { watch, onUnmounted } from 'vue';
 
-const props = withDefaults(defineProps<{
-  width?: string
-  maxWidth?: string
-  bodyFlex?: boolean
-  closeOnBackdrop?: boolean
-}>(), {
-  width: '520px',
-  bodyFlex: false,
-  closeOnBackdrop: true,
-})
+withDefaults(
+  defineProps<{
+    width?: string;
+    maxWidth?: string;
+    bodyFlex?: boolean;
+    closeOnBackdrop?: boolean;
+  }>(),
+  {
+    width: '520px',
+    bodyFlex: false,
+    closeOnBackdrop: true,
+  },
+);
 
-const open = defineModel<boolean>({ default: false })
+const open = defineModel<boolean>({ default: false });
 
 function close() {
-  open.value = false
+  open.value = false;
 }
 
 function onKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape') {
-    close()
+    close();
   }
 }
 
-watch(open, (val) => {
-  if (val) {
-    document.documentElement.style.overflow = 'hidden'
-    document.body.style.overflow = 'hidden'
-    window.addEventListener('keydown', onKeydown)
-  } else {
-    document.documentElement.style.overflow = ''
-    document.body.style.overflow = ''
-    window.removeEventListener('keydown', onKeydown)
-  }
-}, { immediate: true })
+watch(
+  open,
+  (val) => {
+    if (val) {
+      document.documentElement.style.overflow = 'hidden';
+      document.body.style.overflow = 'hidden';
+      window.addEventListener('keydown', onKeydown);
+    } else {
+      document.documentElement.style.overflow = '';
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', onKeydown);
+    }
+  },
+  { immediate: true },
+);
 
 onUnmounted(() => {
-  document.documentElement.style.overflow = ''
-  document.body.style.overflow = ''
-  window.removeEventListener('keydown', onKeydown)
-})
+  document.documentElement.style.overflow = '';
+  document.body.style.overflow = '';
+  window.removeEventListener('keydown', onKeydown);
+});
 </script>
 
 <template>
   <Teleport to="body">
     <Transition name="slide">
       <div v-if="open" class="slide-wrapper" @keydown.esc="close">
-      <div class="slide-backdrop" :class="{ 'slide-backdrop--closable': closeOnBackdrop }" @click="closeOnBackdrop && close()" />
-      <div class="slide-panel" :style="{ width, maxWidth }">
-        <div class="slide-close-tab" aria-label="Закрыть" @click="close">
-          <v-icon>mdi-close</v-icon>
-        </div>
+        <div
+          class="slide-backdrop"
+          :class="{ 'slide-backdrop--closable': closeOnBackdrop }"
+          @click="closeOnBackdrop && close()"
+        />
+        <div class="slide-panel" :style="{ width, maxWidth }">
+          <div class="slide-close-tab" aria-label="Закрыть" @click="close">
+            <v-icon>mdi-close</v-icon>
+          </div>
 
-        <div v-if="$slots.header" class="slide-header">
-          <slot name="header" />
-        </div>
+          <div v-if="$slots.header" class="slide-header">
+            <slot name="header" />
+          </div>
 
-        <div class="slide-body" :class="{ 'slide-body--flex': bodyFlex }">
-          <slot />
-        </div>
+          <div class="slide-body" :class="{ 'slide-body--flex': bodyFlex }">
+            <slot />
+          </div>
 
-        <div v-if="$slots.footer" class="slide-footer">
-          <slot name="footer" />
+          <div v-if="$slots.footer" class="slide-footer">
+            <slot name="footer" />
+          </div>
         </div>
       </div>
-    </div>
     </Transition>
   </Teleport>
 </template>
@@ -115,7 +126,9 @@ onUnmounted(() => {
   border-radius: 8px 0 0 8px;
   cursor: pointer;
   color: rgba(var(--v-theme-on-surface), var(--v-text-disabled-opacity));
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
 }
 .slide-close-tab:hover {
   background-color: rgb(var(--v-theme-primaryLight));

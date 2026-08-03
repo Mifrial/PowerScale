@@ -1,45 +1,45 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { useAuthStore } from '@/modules/Core/Auth/Store/auth'
+import { ref } from 'vue';
+import { useRouter } from 'vue-router';
+import { useAuthStore } from '@/modules/Core/Auth/Store/auth';
 
-const router = useRouter()
-const auth = useAuthStore()
+const router = useRouter();
+const auth = useAuthStore();
 
 interface FormRef {
-  validate: () => Promise<{ valid: boolean }>
-  reset: () => void
-  resetValidation: () => void
+  validate: () => Promise<{ valid: boolean }>;
+  reset: () => void;
+  resetValidation: () => void;
 }
 
-const formRef = ref<FormRef | null>(null)
-const loginOrEmail = ref('')
-const loading = ref(false)
-const message = ref('')
-const messageType = ref<'success' | 'error'>('success')
+const formRef = ref<FormRef | null>(null);
+const loginOrEmail = ref('');
+const loading = ref(false);
+const message = ref('');
+const messageType = ref<'success' | 'error'>('success');
 
 async function handleReset() {
-  const { valid } = await formRef.value?.validate() ?? { valid: false }
-  if (!valid) return
-  loading.value = true
-  message.value = ''
+  const { valid } = (await formRef.value?.validate()) ?? { valid: false };
+  if (!valid) return;
+  loading.value = true;
+  message.value = '';
   try {
-    const user = await auth.findUser(loginOrEmail.value)
+    const user = await auth.findUser(loginOrEmail.value);
     if (!user) {
-      messageType.value = 'error'
-      message.value = 'Аккаунт с таким логином или email не найден'
+      messageType.value = 'error';
+      message.value = 'Аккаунт с таким логином или email не найден';
     } else if (!user.email) {
-      messageType.value = 'error'
-      message.value = 'Для этого аккаунта не указан email, обратитесь к администратору'
+      messageType.value = 'error';
+      message.value = 'Для этого аккаунта не указан email, обратитесь к администратору';
     } else {
-      messageType.value = 'success'
-      message.value = `Инструкция по сбросу пароля отправлена на ${user.email}`
+      messageType.value = 'success';
+      message.value = `Инструкция по сбросу пароля отправлена на ${user.email}`;
       setTimeout(() => {
-        router.push({ name: 'ResetPassword', query: { login: user.login } })
-      }, 1500)
+        router.push({ name: 'ResetPassword', query: { login: user.login } });
+      }, 1500);
     }
   } finally {
-    loading.value = false
+    loading.value = false;
   }
 }
 </script>
@@ -59,13 +59,7 @@ async function handleReset() {
 
             <v-card-text class="pa-0">
               <v-form ref="formRef" @submit.prevent="handleReset">
-                <v-alert
-                  v-if="message"
-                  :type="messageType"
-                  variant="tonal"
-                  density="compact"
-                  class="mb-3 mt-2"
-                >
+                <v-alert v-if="message" :type="messageType" variant="tonal" density="compact" class="mb-3 mt-2">
                   {{ message }}
                 </v-alert>
 
@@ -73,25 +67,16 @@ async function handleReset() {
                   v-model="loginOrEmail"
                   label="Логин или email"
                   prepend-inner-icon="mdi-account-outline"
-                  :rules="[v => !!v || 'Введите логин или email']"
+                  :rules="[(v) => !!v || 'Введите логин или email']"
                   class="mb-3"
                 />
 
-                <v-btn
-                  type="submit"
-                  color="primary"
-                  size="large"
-                  block
-                  :loading="loading"
-                  class="mb-3"
-                >
+                <v-btn type="submit" color="primary" size="large" block :loading="loading" class="mb-3">
                   Сбросить пароль
                 </v-btn>
 
                 <div class="text-center text-body-2">
-                  <router-link to="/login" class="text-primary text-decoration-none">
-                    Вернуться ко входу
-                  </router-link>
+                  <router-link to="/login" class="text-primary text-decoration-none"> Вернуться ко входу </router-link>
                 </div>
               </v-form>
             </v-card-text>

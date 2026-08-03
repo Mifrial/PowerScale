@@ -1,30 +1,30 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec'
-import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue'
+import { ref, computed } from 'vue';
+import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec';
+import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
 
-defineProps<{ modelValue: boolean }>()
+defineProps<{ modelValue: boolean }>();
 const emit = defineEmits<{
-  'update:modelValue': [value: boolean]
-  add: [spec: DiceRollSpec]
-}>()
+  'update:modelValue': [value: boolean];
+  add: [spec: DiceRollSpec];
+}>();
 
-const diceCount = ref(5)
-const dieSize = ref(0)
-const dieFaces = ref(6)
-const efficiency = ref(3)
-const adv = ref(0)
-const label = ref('')
-const showAdvanced = ref(false)
+const diceCount = ref(5);
+const dieSize = ref(0);
+const dieFaces = ref(6);
+const efficiency = ref(3);
+const adv = ref(0);
+const label = ref('');
+const showAdvanced = ref(false);
 
-const valid = computed(() => diceCount.value > 0)
+const valid = computed(() => diceCount.value > 0);
 
 function toggleAdvanced() {
-  showAdvanced.value = !showAdvanced.value
+  showAdvanced.value = !showAdvanced.value;
 }
 
 function add() {
-  if (!valid.value) return
+  if (!valid.value) return;
   emit('add', {
     diceCount: diceCount.value,
     dieSize: dieSize.value,
@@ -32,22 +32,22 @@ function add() {
     efficiency: efficiency.value,
     adv: adv.value,
     label: label.value || undefined,
-  })
-  reset()
+  });
+  reset();
 }
 
 function reset() {
-  diceCount.value = 5
-  dieSize.value = 0
-  dieFaces.value = 6
-  efficiency.value = 3
-  adv.value = 0
-  label.value = ''
-  showAdvanced.value = false
+  diceCount.value = 5;
+  dieSize.value = 0;
+  dieFaces.value = 6;
+  efficiency.value = 3;
+  adv.value = 0;
+  label.value = '';
+  showAdvanced.value = false;
 }
 
 function close() {
-  emit('update:modelValue', false)
+  emit('update:modelValue', false);
 }
 </script>
 
@@ -61,11 +61,32 @@ function close() {
         </v-btn>
       </div>
       <div class="roll-inline">
-        <ClampedNumberField v-model="diceCount" :min="1" :max="30" density="compact" hide-details class="roll-inline-num" />
+        <ClampedNumberField
+          v-model="diceCount"
+          :min="1"
+          :max="30"
+          density="compact"
+          hide-details
+          class="roll-inline-num"
+        />
         <span>d</span>
-        <ClampedNumberField v-model="dieFaces" :min="2" :max="100" density="compact" hide-details class="roll-inline-num" />
+        <ClampedNumberField
+          v-model="dieFaces"
+          :min="2"
+          :max="100"
+          density="compact"
+          hide-details
+          class="roll-inline-num"
+        />
         <span> при </span>
-        <ClampedNumberField v-model="efficiency" :min="1" :max="6" density="compact" hide-details class="roll-inline-num" />
+        <ClampedNumberField
+          v-model="efficiency"
+          :min="1"
+          :max="6"
+          density="compact"
+          hide-details
+          class="roll-inline-num"
+        />
         <span> эффективности с </span>
         <ClampedNumberField v-model="adv" :min="-10" :max="10" density="compact" hide-details class="roll-inline-num" />
         <span> преимуществами</span>
@@ -80,7 +101,14 @@ function close() {
       </div>
       <div v-if="showAdvanced" class="roll-advanced-row">
         <span class="text-caption">Размерность</span>
-        <ClampedNumberField v-model="dieSize" :min="0" :max="10" density="compact" hide-details class="roll-inline-num" />
+        <ClampedNumberField
+          v-model="dieSize"
+          :min="0"
+          :max="10"
+          density="compact"
+          hide-details
+          class="roll-inline-num"
+        />
         <input v-model="label" placeholder="метка" class="roll-inline-text" />
       </div>
     </div>

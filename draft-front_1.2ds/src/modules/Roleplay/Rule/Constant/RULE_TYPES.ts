@@ -1,4 +1,4 @@
-import type { RuleType } from '@/modules/Roleplay/Rule/Enum/RuleType'
+import type { RuleType } from '@/modules/Roleplay/Rule/Enum/RuleType';
 
 export const RULE_TYPES: { title: string; value: RuleType }[] = [
   { title: 'Простое правило', value: 'simple' },
@@ -10,4 +10,4 @@ export const RULE_TYPES: { title: string; value: RuleType }[] = [
   { title: 'Способность', value: 'ability' },
   { title: 'Предмет', value: 'item' },
   { title: 'Тип урона', value: 'damage_type' },
-]
+];

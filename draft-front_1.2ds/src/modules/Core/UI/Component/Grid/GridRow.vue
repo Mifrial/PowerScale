@@ -1,21 +1,21 @@
 <script setup lang="ts">
-import { getRenderer } from '@/modules/Core/UI/Component/Grid/cells/registry'
-import StringCell from '@/modules/Core/UI/Component/Grid/cells/StringCell.vue'
-import type { ColumnDefinition } from '@/modules/Core/UI/Dto/ColumnDefinition'
-import type { Row } from '@/modules/Core/UI/Dto/Row'
+import { getRenderer } from '@/modules/Core/UI/Component/Grid/cells/registry';
+import StringCell from '@/modules/Core/UI/Component/Grid/cells/StringCell.vue';
+import type { ColumnDefinition } from '@/modules/Core/UI/Dto/ColumnDefinition';
+import type { Row } from '@/modules/Core/UI/Dto/Row';
 
 defineProps<{
-  gridId?: string
-  columns: ColumnDefinition[]
-  item: Row
-}>()
+  gridId?: string;
+  columns: ColumnDefinition[];
+  item: Row;
+}>();
 
 const emit = defineEmits<{
-  'row-action': [payload: { action: string; row: Row }]
-}>()
+  'row-action': [payload: { action: string; row: Row }];
+}>();
 
 function cellComponent(type: string) {
-  return getRenderer(type) ?? StringCell
+  return getRenderer(type) ?? StringCell;
 }
 </script>
 

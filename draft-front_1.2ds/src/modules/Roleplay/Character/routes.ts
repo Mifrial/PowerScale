@@ -1,4 +1,4 @@
-import type { RouteRecordRaw } from 'vue-router'
+import type { RouteRecordRaw } from 'vue-router';
 
 export const routes: RouteRecordRaw[] = [
   {
@@ -9,4 +9,4 @@ export const routes: RouteRecordRaw[] = [
     // guestAllowed снимается — по §11 ТР гость персонажей не видит.
     meta: { title: 'Персонажи', guestAllowed: true },
   },
-]
+];

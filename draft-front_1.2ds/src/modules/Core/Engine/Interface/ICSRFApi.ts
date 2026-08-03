@@ -1,4 +1,4 @@
 export interface ICSRFApi {
-  initToken(): Promise<void>
-  getToken(): string | null
+  initToken(): Promise<void>;
+  getToken(): string | null;
 }

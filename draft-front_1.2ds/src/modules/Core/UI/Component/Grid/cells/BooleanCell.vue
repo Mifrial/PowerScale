@@ -1,18 +1,16 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import type { ColumnDefinition } from '@/modules/Core/UI/Dto/ColumnDefinition'
+import { computed } from 'vue';
+import type { ColumnDefinition } from '@/modules/Core/UI/Dto/ColumnDefinition';
 
 const props = defineProps<{
-  value: unknown
-  column?: ColumnDefinition
-}>()
+  value: unknown;
+  column?: ColumnDefinition;
+}>();
 
-const cfg = computed(() => props.column?.meta ?? {})
-const label = computed(() =>
-  props.value ? (cfg.value.trueLabel ?? 'Да') : (cfg.value.falseLabel ?? 'Нет'),
-)
-const icon = computed(() => (props.value ? cfg.value.trueIcon : cfg.value.falseIcon) || undefined)
-const color = computed(() => (props.value ? cfg.value.trueColor : cfg.value.falseColor) || undefined)
+const cfg = computed(() => props.column?.meta ?? {});
+const label = computed(() => (props.value ? (cfg.value.trueLabel ?? 'Да') : (cfg.value.falseLabel ?? 'Нет')));
+const icon = computed(() => (props.value ? cfg.value.trueIcon : cfg.value.falseIcon) || undefined);
+const color = computed(() => (props.value ? cfg.value.trueColor : cfg.value.falseColor) || undefined);
 </script>
 
 <template>

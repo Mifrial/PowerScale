@@ -1,43 +1,45 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { useTemplateStore } from '@/modules/Messages/Notifications/Store/templates'
-import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable'
-import { useUserStore } from '@/modules/Core/User/Store/users'
-import { accessService } from '@/modules/Core/User/init'
-import type { NotificationButton } from '@/modules/Messages/Notifications/Dto/NotificationButton'
-import { actionTypes } from '@/modules/Messages/Notifications/Constant/templateActionTypes'
+import { computed, onMounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { useTemplateStore } from '@/modules/Messages/Notifications/Store/templates';
+import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
+import { useUserStore } from '@/modules/Core/User/Store/users';
+import { accessService } from '@/modules/Core/User/init';
+import type { NotificationButton } from '@/modules/Messages/Notifications/Dto/NotificationButton';
+import { actionTypes } from '@/modules/Messages/Notifications/Constant/templateActionTypes';
 
-const route = useRoute()
-const router = useRouter()
-const store = useTemplateStore()
-const userStore = useUserStore()
-const { signal } = useAbortable()
+const route = useRoute();
+const router = useRouter();
+const store = useTemplateStore();
+const userStore = useUserStore();
+const { signal } = useAbortable();
 
-const isEdit = computed(() => !!route.params.id)
-const templateId = computed(() => Number(route.params.id))
+const isEdit = computed(() => !!route.params.id);
+const templateId = computed(() => Number(route.params.id));
 
-const key = ref('')
-const titleTemplate = ref('')
-const bodyTemplate = ref('')
-const buttons = ref<NotificationButton[]>([])
-const active = ref(true)
-const saving = ref(false)
-const showDeleteDialog = ref(false)
-const deleting = ref(false)
+const key = ref('');
+const titleTemplate = ref('');
+const bodyTemplate = ref('');
+const buttons = ref<NotificationButton[]>([]);
+const active = ref(true);
+const saving = ref(false);
+const showDeleteDialog = ref(false);
+const deleting = ref(false);
 
-const canDelete = computed(() => accessService.hasAnyPermission(userStore.currentUser, ['notification_template.delete']))
+const canDelete = computed(() =>
+  accessService.hasAnyPermission(userStore.currentUser, ['notification_template.delete']),
+);
 
 onMounted(async () => {
   if (isEdit.value) {
-    const template = await store.fetchTemplate(templateId.value, signal.value)
-    key.value = template.key
-    titleTemplate.value = template.titleTemplate
-    bodyTemplate.value = template.bodyTemplate
-    buttons.value = template.buttonsJson ? [...template.buttonsJson] : []
-    active.value = template.active
+    const template = await store.fetchTemplate(templateId.value, signal.value);
+    key.value = template.key;
+    titleTemplate.value = template.titleTemplate;
+    bodyTemplate.value = template.bodyTemplate;
+    buttons.value = template.buttonsJson ? [...template.buttonsJson] : [];
+    active.value = template.active;
   }
-})
+});
 
 function addButton() {
   buttons.value.push({
@@ -45,45 +47,45 @@ function addButton() {
     actionType: 'event',
     action: '',
     payload: {},
-  })
+  });
 }
 
 function removeButton(idx: number) {
-  buttons.value.splice(idx, 1)
+  buttons.value.splice(idx, 1);
 }
 
 async function save() {
-  if (!key.value.trim() || !titleTemplate.value.trim() || !bodyTemplate.value.trim()) return
-  saving.value = true
+  if (!key.value.trim() || !titleTemplate.value.trim() || !bodyTemplate.value.trim()) return;
+  saving.value = true;
   try {
     const data = {
       key: key.value,
       titleTemplate: titleTemplate.value,
       bodyTemplate: bodyTemplate.value,
       buttonsJson: buttons.value.length > 0 ? buttons.value : undefined,
-    }
+    };
     if (isEdit.value) {
-      await store.updateTemplate(templateId.value, data, signal.value)
+      await store.updateTemplate(templateId.value, data, signal.value);
     } else {
-      await store.createTemplate(data, signal.value)
+      await store.createTemplate(data, signal.value);
     }
-    router.push('/admin/notification-templates')
+    router.push('/admin/notification-templates');
   } catch (e) {
-    console.error('save template failed', e)
+    console.error('save template failed', e);
   } finally {
-    saving.value = false
+    saving.value = false;
   }
 }
 
 async function handleDelete() {
-  deleting.value = true
+  deleting.value = true;
   try {
-    await store.deactivateTemplate(templateId.value, signal.value)
-    router.push('/admin/notification-templates')
+    await store.deactivateTemplate(templateId.value, signal.value);
+    router.push('/admin/notification-templates');
   } catch (e) {
-    console.error('delete template failed', e)
+    console.error('delete template failed', e);
   } finally {
-    deleting.value = false
+    deleting.value = false;
   }
 }
 </script>
@@ -97,7 +99,10 @@ async function handleDelete() {
         <v-text-field
           v-model="key"
           label="Ключ шаблона"
-          :rules="[v => !!v || 'Обязательное поле', v => /^[a-z0-9_]+$/.test(v) || 'Только латиница, цифры и подчёркивание']"
+          :rules="[
+            (v) => !!v || 'Обязательное поле',
+            (v) => /^[a-z0-9_]+$/.test(v) || 'Только латиница, цифры и подчёркивание',
+          ]"
           :disabled="isEdit"
           hint="Уникальный идентификатор, например: game_invite, character_moderation"
           persistent-hint
@@ -106,7 +111,7 @@ async function handleDelete() {
         <v-text-field
           v-model="titleTemplate"
           label="Шаблон заголовка"
-          :rules="[v => !!v || 'Обязательное поле']"
+          :rules="[(v) => !!v || 'Обязательное поле']"
           class="mt-4"
           hint="Поддерживает плейсхолдеры: {{game_name}}, {{character_name}}"
           persistent-hint
@@ -115,7 +120,7 @@ async function handleDelete() {
         <v-textarea
           v-model="bodyTemplate"
           label="Шаблон содержимого (HTML)"
-          :rules="[v => !!v || 'Обязательное поле']"
+          :rules="[(v) => !!v || 'Обязательное поле']"
           rows="5"
           class="mt-4"
           hint="Поддерживает HTML и плейсхолдеры"
@@ -134,26 +139,13 @@ async function handleDelete() {
           <v-card-text>
             <v-row>
               <v-col cols="12" md="4">
-                <v-text-field
-                  v-model="btn.label"
-                  label="Текст кнопки"
-                  density="compact"
-                />
+                <v-text-field v-model="btn.label" label="Текст кнопки" density="compact" />
               </v-col>
               <v-col cols="12" md="4">
-                <v-select
-                  v-model="btn.actionType"
-                  :items="actionTypes"
-                  label="Тип действия"
-                  density="compact"
-                />
+                <v-select v-model="btn.actionType" :items="actionTypes" label="Тип действия" density="compact" />
               </v-col>
               <v-col cols="12" md="4">
-                <v-text-field
-                  v-model="btn.action"
-                  label="Действие / URL"
-                  density="compact"
-                />
+                <v-text-field v-model="btn.action" label="Действие / URL" density="compact" />
               </v-col>
             </v-row>
           </v-card-text>
@@ -188,7 +180,8 @@ async function handleDelete() {
       <v-card>
         <v-card-title>Удалить шаблон?</v-card-title>
         <v-card-text>
-          Шаблон «{{ key }}» будет деактивирован (soft-delete): скроется из списка активных, старые уведомления сохранятся.
+          Шаблон «{{ key }}» будет деактивирован (soft-delete): скроется из списка активных, старые уведомления
+          сохранятся.
         </v-card-text>
         <v-card-actions>
           <v-spacer />

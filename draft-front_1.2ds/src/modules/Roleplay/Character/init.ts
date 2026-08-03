@@ -1,6 +1,6 @@
-import { registerPermissionCategory } from '@/modules/Core/User/init'
-import { CHARACTER_PERMISSION_CATEGORY } from '@/modules/Roleplay/Character/Constant/permissions'
+import { registerPermissionCategory } from '@/modules/Core/User/init';
+import { CHARACTER_PERMISSION_CATEGORY } from '@/modules/Roleplay/Character/Constant/permissions';
 
 export function registerCharacterModule(): void {
-  registerPermissionCategory(CHARACTER_PERMISSION_CATEGORY)
+  registerPermissionCategory(CHARACTER_PERMISSION_CATEGORY);
 }

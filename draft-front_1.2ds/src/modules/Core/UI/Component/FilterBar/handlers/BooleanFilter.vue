@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import type { FilterField } from '@/modules/Core/UI/Dto/FilterField'
+import type { FilterField } from '@/modules/Core/UI/Dto/FilterField';
 
 defineProps<{
-  field: FilterField
-  modelValue?: boolean | null
-}>()
+  field: FilterField;
+  modelValue?: boolean | null;
+}>();
 
 defineEmits<{
-  'update:modelValue': [value: boolean | null | undefined]
-}>()
+  'update:modelValue': [value: boolean | null | undefined];
+}>();
 </script>
 
 <template>

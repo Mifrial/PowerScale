@@ -1,8 +1,8 @@
-import { createVuetify } from 'vuetify'
-import 'vuetify/styles'
-import '@mdi/font/css/materialdesignicons.css'
-import 'roboto-fontface/css/roboto/roboto-fontface.css'
-import { ru } from 'vuetify/locale'
+import { createVuetify } from 'vuetify';
+import 'vuetify/styles';
+import '@mdi/font/css/materialdesignicons.css';
+import 'roboto-fontface/css/roboto/roboto-fontface.css';
+import { ru } from 'vuetify/locale';
 
 // Компоненты/директивы НЕ регистрируем глобально — их подтягивает
 // vite-plugin-vuetify ({ autoImport: true }) по использованию в SFC (tree-shaking).
@@ -50,6 +50,6 @@ const vuetify = createVuetify({
       elevation: 0,
     },
   },
-})
+});
 
-export default vuetify
+export default vuetify;

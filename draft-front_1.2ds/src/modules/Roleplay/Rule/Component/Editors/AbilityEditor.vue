@@ -1,82 +1,83 @@
 <script setup lang="ts">
-import { computed, ref, watch, onMounted } from 'vue'
-import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision'
-import { useKeywordStore } from '@/modules/Roleplay/Rule/Store/keywords'
-import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule'
-import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpec'
-import type { AbilitySpecDraft } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpecDraft'
-import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec'
-import type { AbilityType } from '@/modules/Roleplay/Rule/Enum/Ability/AbilityType'
-import type { Requirement } from '@/modules/Roleplay/Rule/Dto/Ability/Requirement'
-import type { Grant } from '@/modules/Roleplay/Rule/Dto/Ability/Grant'
-import type { CharacteristicRef } from '@/modules/Roleplay/Rule/Dto/Ability/CharacteristicRef'
-import type { ResourceRef } from '@/modules/Roleplay/Rule/Dto/Ability/ResourceRef'
-import type { CharacteristicSpec } from '@/modules/Roleplay/Rule/Dto/CharacteristicSpec'
-import type { ResourceSpec } from '@/modules/Roleplay/Rule/Dto/ResourceSpec'
-import type { AbilityRef } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityRef'
-import type { KeywordRef } from '@/modules/Roleplay/Rule/Dto/Ability/KeywordRef'
-import type { SourceRef } from '@/modules/Roleplay/Rule/Dto/Ability/SourceRef'
-import { ABILITY_TYPE_LABELS } from '@/modules/Roleplay/Rule/Constant/Ability/ABILITY_TYPE_LABELS'
-import { ABILITY_SPEC_FIELDS } from '@/modules/Roleplay/Rule/Constant/Ability/ABILITY_SPEC_FIELDS'
-import { abilitySpecService } from '@/modules/Roleplay/Rule/Service/Spec/AbilitySpecService'
-import RuleEditorBase from '@/modules/Roleplay/Rule/Component/Editors/RuleEditorBase.vue'
-import RequirementListEditor from '@/modules/Roleplay/Rule/Component/Editors/RequirementListEditor.vue'
-import GrantEditor from '@/modules/Roleplay/Rule/Component/Editors/GrantEditor.vue'
-import ProcessEditor from '@/modules/Roleplay/Rule/Component/Editors/ProcessEditor.vue'
-import SpellEditor from '@/modules/Roleplay/Rule/Component/Editors/SpellEditor.vue'
-import ZoneCostsEditor from '@/modules/Roleplay/Rule/Component/Editors/ZoneCostsEditor.vue'
-import ActionCostsEditor from '@/modules/Roleplay/Rule/Component/Editors/ActionCostsEditor.vue'
-import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue'
+import { computed, ref, watch, onMounted } from 'vue';
+import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
+import { useKeywordStore } from '@/modules/Roleplay/Rule/Store/keywords';
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpec';
+import type { AbilitySpecDraft } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpecDraft';
+import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec';
+import type { AbilityType } from '@/modules/Roleplay/Rule/Enum/Ability/AbilityType';
+import type { Requirement } from '@/modules/Roleplay/Rule/Dto/Ability/Requirement';
+import type { Grant } from '@/modules/Roleplay/Rule/Dto/Ability/Grant';
+import type { CharacteristicRef } from '@/modules/Roleplay/Rule/Dto/Ability/CharacteristicRef';
+import type { ResourceRef } from '@/modules/Roleplay/Rule/Dto/Ability/ResourceRef';
+import type { CharacteristicSpec } from '@/modules/Roleplay/Rule/Dto/CharacteristicSpec';
+import type { ResourceSpec } from '@/modules/Roleplay/Rule/Dto/ResourceSpec';
+import type { AbilityRef } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityRef';
+import type { KeywordRef } from '@/modules/Roleplay/Rule/Dto/Ability/KeywordRef';
+import type { SourceRef } from '@/modules/Roleplay/Rule/Dto/Ability/SourceRef';
+import { ABILITY_TYPE_LABELS } from '@/modules/Roleplay/Rule/Constant/Ability/ABILITY_TYPE_LABELS';
+import { ABILITY_SPEC_FIELDS } from '@/modules/Roleplay/Rule/Constant/Ability/ABILITY_SPEC_FIELDS';
+import { abilitySpecService } from '@/modules/Roleplay/Rule/Service/Spec/AbilitySpecService';
+import RuleEditorBase from '@/modules/Roleplay/Rule/Component/Editors/RuleEditorBase.vue';
+import RequirementListEditor from '@/modules/Roleplay/Rule/Component/Editors/RequirementListEditor.vue';
+import GrantEditor from '@/modules/Roleplay/Rule/Component/Editors/GrantEditor.vue';
+import ProcessEditor from '@/modules/Roleplay/Rule/Component/Editors/ProcessEditor.vue';
+import SpellEditor from '@/modules/Roleplay/Rule/Component/Editors/SpellEditor.vue';
+import ZoneCostsEditor from '@/modules/Roleplay/Rule/Component/Editors/ZoneCostsEditor.vue';
+import ActionCostsEditor from '@/modules/Roleplay/Rule/Component/Editors/ActionCostsEditor.vue';
+import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
 
 const props = defineProps<{
-  name: string
-  code: string
-  codeDisabled?: boolean
-  description: string
-  mechanicId: number | null
-  keywordIds: number[]
-  spec: RuleSpec | null
-  mechanicOptions: { title: string; value: number }[]
-  keywordOptions: { title: string; value: number }[]
-  spaceId: number
-}>()
+  name: string;
+  code: string;
+  codeDisabled?: boolean;
+  description: string;
+  mechanicId: number | null;
+  keywordIds: number[];
+  spec: RuleSpec | null;
+  mechanicOptions: { title: string; value: number }[];
+  keywordOptions: { title: string; value: number }[];
+  spaceId: number;
+}>();
 
 const emit = defineEmits<{
-  'update:name': [value: string]
-  'update:code': [value: string]
-  'update:description': [value: string]
-  'update:mechanicId': [value: number | null]
-  'update:keywordIds': [value: number[]]
-  'update:spec': [value: AbilitySpec]
-}>()
+  'update:name': [value: string];
+  'update:code': [value: string];
+  'update:description': [value: string];
+  'update:mechanicId': [value: number | null];
+  'update:keywordIds': [value: number[]];
+  'update:spec': [value: AbilitySpec];
+}>();
 
-const revisionStore = useSpaceRevisionStore()
-const keywordStore = useKeywordStore()
+const revisionStore = useSpaceRevisionStore();
+const keywordStore = useKeywordStore();
 
-const expandedPanels = ref<string[]>(['general', 'zones', 'requirements', 'grants', 'action', 'upgrade'])
+const expandedPanels = ref<string[]>(['general', 'zones', 'requirements', 'grants', 'action', 'upgrade']);
 
 const typeOptions = Object.entries(ABILITY_TYPE_LABELS).map(([value, label]) => ({
   label,
   value: value as AbilityType,
-}))
+}));
 
 const currentType = computed<AbilityType | null>(() => {
-  if (innerSpec.value.type) return innerSpec.value.type
+  if (innerSpec.value.type) return innerSpec.value.type;
   const codes = props.keywordIds
-    .map(id => keywordStore.keywords.find(t => t.id === id)?.code)
-    .filter((c): c is string => !!c)
-  return abilitySpecService.resolveTypeFromKeywords(codes)
-})
+    .map((id) => keywordStore.keywords.find((t) => t.id === id)?.code)
+    .filter((c): c is string => !!c);
 
-const currentFields = computed(() => (currentType.value ? ABILITY_SPEC_FIELDS[currentType.value] : []))
-const showAction = computed(() => currentFields.value.includes('action_costs'))
-const isProcess = computed(() => currentFields.value.includes('process'))
-const isSpell = computed(() => currentFields.value.includes('spell'))
+  return abilitySpecService.resolveTypeFromKeywords(codes);
+});
+
+const currentFields = computed(() => (currentType.value ? ABILITY_SPEC_FIELDS[currentType.value] : []));
+const showAction = computed(() => currentFields.value.includes('action_costs'));
+const isProcess = computed(() => currentFields.value.includes('process'));
+const isSpell = computed(() => currentFields.value.includes('spell'));
 
 const typeModel = computed<AbilityType | null>({
   get: () => currentType.value,
   set: (v) => setType(v),
-})
+});
 
 const innerSpec = ref<AbilitySpecDraft>({
   zones: {},
@@ -84,123 +85,131 @@ const innerSpec = ref<AbilitySpecDraft>({
   grants: [],
   action_costs: [],
   parent_ability_code: null,
-})
+});
 
-const spaceRules = computed(() => revisionStore.effectiveRules)
+const spaceRules = computed(() => revisionStore.effectiveRules);
 
 const characteristics = computed<CharacteristicRef[]>(() =>
   spaceRules.value
-    .filter((rule: Rule) => rule.type === 'characteristic' && rule.spaceId === props.spaceId && !(rule.spec as CharacteristicSpec | undefined)?.formula)
-    .map(rule => ({ code: rule.code, name: rule.name }))
-)
+    .filter(
+      (rule: Rule) =>
+        rule.type === 'characteristic' &&
+        rule.spaceId === props.spaceId &&
+        !(rule.spec as CharacteristicSpec | undefined)?.formula,
+    )
+    .map((rule) => ({ code: rule.code, name: rule.name })),
+);
 
 const resources = computed<ResourceRef[]>(() =>
   spaceRules.value
     .filter((rule: Rule) => rule.type === 'resource')
-    .map(rule => ({ code: rule.code, name: rule.name, isDimensional: !!(rule.spec as ResourceSpec | undefined)?.is_dimensional }))
-)
+    .map((rule) => ({
+      code: rule.code,
+      name: rule.name,
+      isDimensional: !!(rule.spec as ResourceSpec | undefined)?.is_dimensional,
+    })),
+);
 
 const abilities = computed<AbilityRef[]>(() =>
   spaceRules.value
     .filter((rule: Rule) => rule.type === 'ability')
-    .map(rule => ({ code: rule.code, name: rule.name }))
-)
+    .map((rule) => ({ code: rule.code, name: rule.name })),
+);
 
 const items = computed(() =>
-  spaceRules.value
-    .filter((rule: Rule) => rule.type === 'item')
-    .map(rule => ({ code: rule.code, name: rule.name }))
-)
+  spaceRules.value.filter((rule: Rule) => rule.type === 'item').map((rule) => ({ code: rule.code, name: rule.name })),
+);
 
-const keywords = computed<KeywordRef[]>(() =>
-  keywordStore.keywords.map(t => ({ code: t.code, name: t.name }))
-)
+const keywords = computed<KeywordRef[]>(() => keywordStore.keywords.map((t) => ({ code: t.code, name: t.name })));
 
-const abilityKeywords = computed<KeywordRef[]>(() => keywords.value)
+const abilityKeywords = computed<KeywordRef[]>(() => keywords.value);
 
 const sources = computed<SourceRef[]>(() =>
-  spaceRules.value
-    .filter((rule: Rule) => rule.type === 'source')
-    .map(rule => ({ code: rule.code, name: rule.name }))
-)
+  spaceRules.value.filter((rule: Rule) => rule.type === 'source').map((rule) => ({ code: rule.code, name: rule.name })),
+);
 
 const zoneOptions = computed<{ label: string; value: string }[]>(() =>
   spaceRules.value
     .filter((rule: Rule) => rule.type === 'points')
-    .map(rule => ({ label: rule.name, value: rule.code }))
-)
+    .map((rule) => ({ label: rule.name, value: rule.code })),
+);
 
 function updateReqLevel(levelIndex: number, value: number) {
-  innerSpec.value = abilitySpecService.updateReqLevel(innerSpec.value, levelIndex, value)
+  innerSpec.value = abilitySpecService.updateReqLevel(innerSpec.value, levelIndex, value);
 }
 
 function updateRequirementLevelRequirements(levelIndex: number, reqs: Requirement[]) {
-  innerSpec.value = abilitySpecService.updateRequirementLevelRequirements(innerSpec.value, levelIndex, reqs)
+  innerSpec.value = abilitySpecService.updateRequirementLevelRequirements(innerSpec.value, levelIndex, reqs);
 }
 
 function removeRequirementLevel(levelIndex: number) {
-  innerSpec.value = abilitySpecService.removeRequirementLevel(innerSpec.value, levelIndex)
+  innerSpec.value = abilitySpecService.removeRequirementLevel(innerSpec.value, levelIndex);
 }
 
 function addRequirementLevel() {
-  innerSpec.value = abilitySpecService.addRequirementLevel(innerSpec.value)
+  innerSpec.value = abilitySpecService.addRequirementLevel(innerSpec.value);
 }
 
 function updateGrantLevel(levelIndex: number, value: number) {
-  innerSpec.value = abilitySpecService.updateGrantLevel(innerSpec.value, levelIndex, value)
+  innerSpec.value = abilitySpecService.updateGrantLevel(innerSpec.value, levelIndex, value);
 }
 
 function updateGrant(levelIndex: number, grantIndex: number, grant: Grant) {
-  innerSpec.value = abilitySpecService.updateGrant(innerSpec.value, levelIndex, grantIndex, grant)
+  innerSpec.value = abilitySpecService.updateGrant(innerSpec.value, levelIndex, grantIndex, grant);
 }
 
 function removeGrant(levelIndex: number, grantIndex: number) {
-  innerSpec.value = abilitySpecService.removeGrant(innerSpec.value, levelIndex, grantIndex)
+  innerSpec.value = abilitySpecService.removeGrant(innerSpec.value, levelIndex, grantIndex);
 }
 
 function addGrant(levelIndex: number) {
-  innerSpec.value = abilitySpecService.addGrant(innerSpec.value, levelIndex)
+  innerSpec.value = abilitySpecService.addGrant(innerSpec.value, levelIndex);
 }
 
 function removeGrantLevel(levelIndex: number) {
-  innerSpec.value = abilitySpecService.removeGrantLevel(innerSpec.value, levelIndex)
+  innerSpec.value = abilitySpecService.removeGrantLevel(innerSpec.value, levelIndex);
 }
 
 function addGrantLevel() {
-  innerSpec.value = abilitySpecService.addGrantLevel(innerSpec.value)
+  innerSpec.value = abilitySpecService.addGrantLevel(innerSpec.value);
 }
 
 function patchSpec(key: string, value: unknown) {
-  innerSpec.value = { ...innerSpec.value, [key]: value }
+  innerSpec.value = { ...innerSpec.value, [key]: value };
 }
 
 function setType(value: string | null) {
-  const type = (value as AbilityType | null) ?? null
-  innerSpec.value = { ...innerSpec.value, type: type ?? undefined }
+  const type = (value as AbilityType | null) ?? null;
+  innerSpec.value = { ...innerSpec.value, type: type ?? undefined };
   if (type) {
-    emit('update:keywordIds', abilitySpecService.syncTypeTags(type, props.keywordIds, keywordStore.keywords))
+    emit('update:keywordIds', abilitySpecService.syncTypeTags(type, props.keywordIds, keywordStore.keywords));
   }
   if (type === 'spell' || type === 'action') {
-    innerSpec.value = abilitySpecService.ensureActionCost(innerSpec.value, isSpell.value)
+    innerSpec.value = abilitySpecService.ensureActionCost(innerSpec.value, isSpell.value);
   }
 }
 
 const specToEmit = computed<AbilitySpec | AbilitySpecDraft>(() => {
-  const type = currentType.value
-  if (!type) return innerSpec.value
-  return abilitySpecService.prune(innerSpec.value, type)
-})
+  const type = currentType.value;
+  if (!type) return innerSpec.value;
 
-watch(specToEmit, (value) => {
-  emit('update:spec', structuredClone(value) as AbilitySpec)
-}, { deep: true })
+  return abilitySpecService.prune(innerSpec.value, type);
+});
+
+watch(
+  specToEmit,
+  (value) => {
+    emit('update:spec', structuredClone(value) as AbilitySpec);
+  },
+  { deep: true },
+);
 
 onMounted(async () => {
   if (keywordStore.keywords.length === 0) {
-    await keywordStore.fetchTags()
+    await keywordStore.fetchTags();
   }
   if (props.spec) {
-    const loaded = structuredClone(props.spec as AbilitySpecDraft)
+    const loaded = structuredClone(props.spec as AbilitySpecDraft);
     innerSpec.value = {
       type: loaded.type,
       zones: loaded.zones ?? {},
@@ -210,15 +219,15 @@ onMounted(async () => {
       process: loaded.process,
       spell: loaded.spell,
       parent_ability_code: loaded.parent_ability_code ?? null,
-    }
+    };
     if ((innerSpec.value.type === 'spell' || innerSpec.value.type === 'action') && !hasActionPointCost()) {
-      innerSpec.value = abilitySpecService.ensureActionCost(innerSpec.value, isSpell.value)
+      innerSpec.value = abilitySpecService.ensureActionCost(innerSpec.value, isSpell.value);
     }
   }
-})
+});
 
 function hasActionPointCost(): boolean {
-  return innerSpec.value.action_costs.some(c => c.resource_code === 'action-points')
+  return innerSpec.value.action_costs.some((c) => c.resource_code === 'action-points');
 }
 </script>
 
@@ -267,8 +276,8 @@ function hasActionPointCost(): boolean {
         <v-expansion-panel-title>Зоны и стоимость</v-expansion-panel-title>
         <v-expansion-panel-text>
           <div class="text-body-2 text-medium-emphasis mb-2">
-            Очки определяются зоной: каждая зона — очки-правило пространства. Зона без галочки —
-            способность в ней не представлена.
+            Очки определяются зоной: каждая зона — очки-правило пространства. Зона без галочки — способность в ней не
+            представлена.
           </div>
           <ZoneCostsEditor
             :model-value="innerSpec.zones"
@@ -282,8 +291,8 @@ function hasActionPointCost(): boolean {
         <v-expansion-panel-title>Требования</v-expansion-panel-title>
         <v-expansion-panel-text>
           <div class="text-body-2 text-medium-emphasis mb-2">
-            Требования по уровням: уровень 1 — получение способности, уровни N — для взятия
-            N-го уровня. Требования накапливаются (взял уровень N — уровни ниже уже выполнены).
+            Требования по уровням: уровень 1 — получение способности, уровни N — для взятия N-го уровня. Требования
+            накапливаются (взял уровень N — уровни ниже уже выполнены).
           </div>
           <div
             v-for="(entry, levelIndex) in innerSpec.requirements"
@@ -299,25 +308,13 @@ function hasActionPointCost(): boolean {
                   :min="1"
                   density="compact"
                   hide-details
-                  style="min-width: 120px;"
+                  style="min-width: 120px"
                 />
-                <v-chip
-                  v-if="entry.level === 1"
-                  class="ml-2"
-                  size="x-small"
-                  color="primary"
-                  variant="tonal"
-                >
+                <v-chip v-if="entry.level === 1" class="ml-2" size="x-small" color="primary" variant="tonal">
                   Получение
                 </v-chip>
                 <v-spacer />
-                <v-btn
-                  icon
-                  size="x-small"
-                  color="error"
-                  variant="text"
-                  @click="removeRequirementLevel(levelIndex)"
-                >
+                <v-btn icon size="x-small" color="error" variant="text" @click="removeRequirementLevel(levelIndex)">
                   <v-icon>mdi-delete</v-icon>
                 </v-btn>
               </div>
@@ -332,12 +329,7 @@ function hasActionPointCost(): boolean {
               />
             </div>
           </div>
-          <v-btn
-            variant="text"
-            color="primary"
-            size="small"
-            @click="addRequirementLevel"
-          >
+          <v-btn variant="text" color="primary" size="small" @click="addRequirementLevel">
             <v-icon start>mdi-plus</v-icon>
             Добавить уровень
           </v-btn>
@@ -348,9 +340,9 @@ function hasActionPointCost(): boolean {
         <v-expansion-panel-title>Дары</v-expansion-panel-title>
         <v-expansion-panel-text>
           <div class="text-body-2 text-medium-emphasis mb-2">
-            Дары по уровням: уровень 1 — при получении, уровни N — при достижении N-го уровня.
-            «Постоянный» — дар действует на всех уровнях ≥ этого (по умолчанию);
-            без него — строго на своём уровне. Формулы уровня масштабируются сами — не дублируйте.
+            Дары по уровням: уровень 1 — при получении, уровни N — при достижении N-го уровня. «Постоянный» — дар
+            действует на всех уровнях ≥ этого (по умолчанию); без него — строго на своём уровне. Формулы уровня
+            масштабируются сами — не дублируйте.
           </div>
           <div
             v-for="(entry, levelIndex) in innerSpec.grants"
@@ -366,33 +358,17 @@ function hasActionPointCost(): boolean {
                   :min="1"
                   density="compact"
                   hide-details
-                  style="min-width: 120px;"
+                  style="min-width: 120px"
                 />
-                <v-chip
-                  v-if="entry.level === 1"
-                  class="ml-2"
-                  size="x-small"
-                  color="primary"
-                  variant="tonal"
-                >
+                <v-chip v-if="entry.level === 1" class="ml-2" size="x-small" color="primary" variant="tonal">
                   Получение
                 </v-chip>
                 <v-spacer />
-                <v-btn
-                  icon
-                  size="x-small"
-                  color="error"
-                  variant="text"
-                  @click="removeGrantLevel(levelIndex)"
-                >
+                <v-btn icon size="x-small" color="error" variant="text" @click="removeGrantLevel(levelIndex)">
                   <v-icon>mdi-delete</v-icon>
                 </v-btn>
               </div>
-              <div
-                v-for="(grant, grantIndex) in entry.grants"
-                :key="`l-${levelIndex}-${grantIndex}`"
-                class="mb-1"
-              >
+              <div v-for="(grant, grantIndex) in entry.grants" :key="`l-${levelIndex}-${grantIndex}`" class="mb-1">
                 <GrantEditor
                   :model-value="grant"
                   :characteristics="characteristics"
@@ -405,23 +381,13 @@ function hasActionPointCost(): boolean {
                   @remove="removeGrant(levelIndex, grantIndex)"
                 />
               </div>
-              <v-btn
-                variant="text"
-                color="primary"
-                size="small"
-                @click="addGrant(levelIndex)"
-              >
+              <v-btn variant="text" color="primary" size="small" @click="addGrant(levelIndex)">
                 <v-icon start>mdi-plus</v-icon>
                 Добавить дар
               </v-btn>
             </div>
           </div>
-          <v-btn
-            variant="text"
-            color="primary"
-            size="small"
-            @click="addGrantLevel"
-          >
+          <v-btn variant="text" color="primary" size="small" @click="addGrantLevel">
             <v-icon start>mdi-plus</v-icon>
             Добавить уровень
           </v-btn>

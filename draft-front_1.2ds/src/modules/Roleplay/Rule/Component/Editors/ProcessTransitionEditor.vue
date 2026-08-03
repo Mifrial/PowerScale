@@ -1,70 +1,73 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import type { ProcessTransition } from '@/modules/Roleplay/Rule/Dto/Ability/ProcessTransition'
-import type { ProcessSpec } from '@/modules/Roleplay/Rule/Dto/Ability/ProcessSpec'
-import { PROCESS_TRANSITION_MODES } from '@/modules/Roleplay/Rule/Constant/PROCESS_TRANSITION_MODES'
-import { processSpecService } from '@/modules/Roleplay/Rule/Service/Spec/ProcessSpecService'
-import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue'
-import { useVModelSync } from '@/modules/Core/UI/Composables/useVModelSync'
+import { computed } from 'vue';
+import type { ProcessTransition } from '@/modules/Roleplay/Rule/Dto/Ability/ProcessTransition';
+import type { ProcessSpec } from '@/modules/Roleplay/Rule/Dto/Ability/ProcessSpec';
+import { PROCESS_TRANSITION_MODES } from '@/modules/Roleplay/Rule/Constant/PROCESS_TRANSITION_MODES';
+import { processSpecService } from '@/modules/Roleplay/Rule/Service/Spec/ProcessSpecService';
+import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
+import { useVModelSync } from '@/modules/Core/UI/Composables/useVModelSync';
 
 const props = defineProps<{
-  transition: ProcessTransition
-  stepRefs: { name: string; code: string }[]
-}>()
+  transition: ProcessTransition;
+  stepRefs: { name: string; code: string }[];
+}>();
 
 const emit = defineEmits<{
-  'update:transition': [value: ProcessTransition]
-}>()
+  'update:transition': [value: ProcessTransition];
+}>();
 
 const directionOptions = [
   { label: 'В обе стороны', value: 'both' },
   { label: 'Только вперёд', value: 'forward' },
-]
+];
 
 const { inner } = useVModelSync<ProcessTransition>({
   modelValue: () => props.transition,
   onCommit: (value) => emit('update:transition', value),
   clone: true,
-})
+});
 
 function transitionSpec(transition: ProcessTransition): ProcessSpec {
-  return { steps: [], start_step_code: undefined, transition, failure: null }
+  return { steps: [], start_step_code: undefined, transition, failure: null };
 }
 
 function updateMode(mode: string) {
-  inner.value = processSpecService.updateTransitionMode(transitionSpec(inner.value), mode).transition
+  inner.value = processSpecService.updateTransitionMode(transitionSpec(inner.value), mode).transition;
 }
 
 function patchTransition(key: string, value: unknown) {
-  inner.value = processSpecService.patchTransition(transitionSpec(inner.value), key, value).transition
+  inner.value = processSpecService.patchTransition(transitionSpec(inner.value), key, value).transition;
 }
 
 function patchEdge(edgeIndex: number, key: string, value: unknown) {
-  inner.value = processSpecService.patchEdge(transitionSpec(inner.value), edgeIndex, key, value).transition
+  inner.value = processSpecService.patchEdge(transitionSpec(inner.value), edgeIndex, key, value).transition;
 }
 
 function addEdge() {
-  inner.value = processSpecService.addEdge(transitionSpec(inner.value)).transition
+  inner.value = processSpecService.addEdge(transitionSpec(inner.value)).transition;
 }
 
 function removeEdge(edgeIndex: number) {
-  inner.value = processSpecService.removeEdge(transitionSpec(inner.value), edgeIndex).transition
+  inner.value = processSpecService.removeEdge(transitionSpec(inner.value), edgeIndex).transition;
 }
 
 const maxShift = computed<number>(() => {
-  const t = inner.value
-  return t.mode === 'chain' ? t.max_shift : 1
-})
+  const t = inner.value;
+
+  return t.mode === 'chain' ? t.max_shift : 1;
+});
 
 const direction = computed<'forward' | 'both'>(() => {
-  const t = inner.value
-  return t.mode === 'chain' ? (t.direction ?? 'both') : 'both'
-})
+  const t = inner.value;
+
+  return t.mode === 'chain' ? (t.direction ?? 'both') : 'both';
+});
 
 const edges = computed(() => {
-  const t = inner.value
-  return t.mode === 'custom' ? t.edges ?? [] : []
-})
+  const t = inner.value;
+
+  return t.mode === 'custom' ? (t.edges ?? []) : [];
+});
 </script>
 
 <template>
@@ -90,7 +93,7 @@ const edges = computed(() => {
           :min="1"
           density="compact"
           hide-details
-          style="min-width: 120px;"
+          style="min-width: 120px"
         />
         <v-select
           :model-value="direction"
@@ -117,11 +120,7 @@ const edges = computed(() => {
       <div class="text-body-2 text-medium-emphasis mt-2 mb-1">
         Явные переходы графа. Повтор шага = ребро «из шага в себя».
       </div>
-      <div
-        v-for="(edge, edgeIndex) in edges"
-        :key="`edge-${edgeIndex}`"
-        class="d-flex gap-2 mb-1"
-      >
+      <div v-for="(edge, edgeIndex) in edges" :key="`edge-${edgeIndex}`" class="d-flex gap-2 mb-1">
         <v-autocomplete
           :model-value="edge.from"
           @update:model-value="(v) => patchEdge(edgeIndex, 'from', v)"
@@ -147,22 +146,11 @@ const edges = computed(() => {
           clearable
           class="flex-grow-1"
         />
-        <v-btn
-          icon
-          size="small"
-          color="error"
-          variant="text"
-          @click="removeEdge(edgeIndex)"
-        >
+        <v-btn icon size="small" color="error" variant="text" @click="removeEdge(edgeIndex)">
           <v-icon>mdi-delete</v-icon>
         </v-btn>
       </div>
-      <v-btn
-        variant="text"
-        color="primary"
-        size="small"
-        @click="addEdge"
-      >
+      <v-btn variant="text" color="primary" size="small" @click="addEdge">
         <v-icon start>mdi-plus</v-icon>
         Добавить переход
       </v-btn>

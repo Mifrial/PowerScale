@@ -1,45 +1,53 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
-import { useUserStore } from '@/modules/Core/User/Store/users'
-import type { User } from '@/modules/Core/User/Dto/User'
-import SlidePanel from '@/modules/Core/UI/Component/SlidePanel.vue'
-import { initials as userInitials, displayName as userDisplayName } from '@/modules/Core/User/Utils/profile'
+import { ref, computed, watch } from 'vue';
+import { useUserStore } from '@/modules/Core/User/Store/users';
+import type { User } from '@/modules/Core/User/Dto/User';
+import SlidePanel from '@/modules/Core/UI/Component/SlidePanel.vue';
+import { initials as userInitials, displayName as userDisplayName } from '@/modules/Core/User/Utils/profile';
 
 const props = defineProps<{
-  userId: number | null
-}>()
+  userId: number | null;
+}>();
 
-const open = defineModel<boolean>('open', { default: false })
+const open = defineModel<boolean>('open', { default: false });
 
-const userStore = useUserStore()
-const userData = ref<User | null>(null)
+const userStore = useUserStore();
+const userData = ref<User | null>(null);
 
 const initials = computed(() => {
-  if (!userData.value) return '??'
-  return userInitials(userData.value.name, userData.value.surname)
-})
+  if (!userData.value) return '??';
+
+  return userInitials(userData.value.name, userData.value.surname);
+});
 
 const displayName = computed(() => {
-  if (!userData.value) return ''
-  return userDisplayName(userData.value.name, userData.value.surname, userData.value.login)
-})
+  if (!userData.value) return '';
 
-watch(() => props.userId, async (id) => {
-  if (id == null) {
-    userData.value = null
-    return
-  }
-  const existing = userStore.users.find(u => u.id === id)
-  if (existing) {
-    userData.value = existing
-    return
-  }
-  try {
-    userData.value = await userStore.getUser(id)
-  } catch {
-    userData.value = null
-  }
-}, { immediate: true })
+  return userDisplayName(userData.value.name, userData.value.surname, userData.value.login);
+});
+
+watch(
+  () => props.userId,
+  async (id) => {
+    if (id == null) {
+      userData.value = null;
+
+      return;
+    }
+    const existing = userStore.users.find((u) => u.id === id);
+    if (existing) {
+      userData.value = existing;
+
+      return;
+    }
+    try {
+      userData.value = await userStore.getUser(id);
+    } catch {
+      userData.value = null;
+    }
+  },
+  { immediate: true },
+);
 </script>
 
 <template>

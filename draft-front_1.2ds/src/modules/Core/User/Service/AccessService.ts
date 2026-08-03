@@ -1,4 +1,4 @@
-import type { User } from '@/modules/Core/User/Dto/User'
+import type { User } from '@/modules/Core/User/Dto/User';
 
 /**
  * Проверка прав текущего пользователя по плоскому списку ключей.
@@ -8,18 +8,20 @@ import type { User } from '@/modules/Core/User/Dto/User'
  */
 export class AccessService {
   hasAnyPermission(user: User | null | undefined, keys: string[]): boolean {
-    if (!user) return false
-    if (user.super_admin) return true
-    const perms = user.permissions ?? []
-    return keys.some(k => perms.includes(k))
+    if (!user) return false;
+    if (user.super_admin) return true;
+    const perms = user.permissions ?? [];
+
+    return keys.some((k) => perms.includes(k));
   }
 
   hasAllPermissions(user: User | null | undefined, keys: string[]): boolean {
-    if (!user) return false
-    if (user.super_admin) return true
-    const perms = user.permissions ?? []
-    return keys.every(k => perms.includes(k))
+    if (!user) return false;
+    if (user.super_admin) return true;
+    const perms = user.permissions ?? [];
+
+    return keys.every((k) => perms.includes(k));
   }
 }
 
-export const accessService = new AccessService()
+export const accessService = new AccessService();

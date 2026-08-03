@@ -1,41 +1,40 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import type { PermissionCategory } from '@/modules/Core/User/Interface/IPermissionRegistry'
-import { getPermissionCategories } from '@/modules/Core/User/init'
+import { computed } from 'vue';
+import type { PermissionCategory } from '@/modules/Core/User/Interface/IPermissionRegistry';
+import { getPermissionCategories } from '@/modules/Core/User/init';
 
 const props = defineProps<{
-  modelValue: string[]
-  disabled?: boolean
-}>()
+  modelValue: string[];
+  disabled?: boolean;
+}>();
 
 const emit = defineEmits<{
-  'update:modelValue': [value: string[]]
-}>()
+  'update:modelValue': [value: string[]];
+}>();
 
-const categories: PermissionCategory[] = getPermissionCategories()
+const categories: PermissionCategory[] = getPermissionCategories();
 
 const allActions = computed(() => {
-  const map = new Map<string, string>()
+  const map = new Map<string, string>();
   for (const category of categories) {
-    for (const action of category.actions) map.set(action.key, action.label)
+    for (const action of category.actions) map.set(action.key, action.label);
   }
-  return Array.from(map, ([key, label]) => ({ key, label }))
-})
+
+  return Array.from(map, ([key, label]) => ({ key, label }));
+});
 
 function hasPermission(category: PermissionCategory, action: string): boolean {
-  return category.actions.some(a => a.key === action)
+  return category.actions.some((a) => a.key === action);
 }
 
 function isChecked(category: PermissionCategory, action: string): boolean {
-  return props.modelValue.includes(`${category.key}.${action}`)
+  return props.modelValue.includes(`${category.key}.${action}`);
 }
 
 function toggle(category: PermissionCategory, action: string, value: boolean | null) {
-  const key = `${category.key}.${action}`
-  const newPerms = value
-    ? [...props.modelValue, key]
-    : props.modelValue.filter(p => p !== key)
-  emit('update:modelValue', newPerms)
+  const key = `${category.key}.${action}`;
+  const newPerms = value ? [...props.modelValue, key] : props.modelValue.filter((p) => p !== key);
+  emit('update:modelValue', newPerms);
 }
 </script>
 

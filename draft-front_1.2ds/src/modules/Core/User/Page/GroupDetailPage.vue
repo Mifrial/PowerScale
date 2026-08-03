@@ -1,30 +1,30 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { useGroupStore } from '@/modules/Core/User/Store/groups'
-import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable'
-import { mockGroupMembers } from '@/modules/Core/User/Mock/mockGroupMembers'
-import PermissionMatrix from '@/modules/Core/User/Component/PermissionMatrix.vue'
+import { onMounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { useGroupStore } from '@/modules/Core/User/Store/groups';
+import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
+import { mockGroupMembers } from '@/modules/Core/User/Mock/mockGroupMembers';
+import PermissionMatrix from '@/modules/Core/User/Component/PermissionMatrix.vue';
 
-const route = useRoute()
-const router = useRouter()
-const store = useGroupStore()
-const { signal } = useAbortable()
+const route = useRoute();
+const router = useRouter();
+const store = useGroupStore();
+const { signal } = useAbortable();
 
-const group = ref(store.currentGroup)
-const showDeactivateDialog = ref(false)
+const group = ref(store.currentGroup);
+const showDeactivateDialog = ref(false);
 
 onMounted(async () => {
-  const id = Number(route.params.id)
-  await store.fetchGroup(id, signal.value)
-  group.value = store.currentGroup
-})
+  const id = Number(route.params.id);
+  await store.fetchGroup(id, signal.value);
+  group.value = store.currentGroup;
+});
 
 async function deactivate() {
-  if (!group.value) return
-  await store.deactivateGroup(group.value.id, signal.value)
-  group.value = store.currentGroup
-  showDeactivateDialog.value = false
+  if (!group.value) return;
+  await store.deactivateGroup(group.value.id, signal.value);
+  group.value = store.currentGroup;
+  showDeactivateDialog.value = false;
 }
 </script>
 
@@ -78,9 +78,7 @@ async function deactivate() {
     <v-dialog v-model="showDeactivateDialog" max-width="400">
       <v-card>
         <v-card-title>Деактивировать группу?</v-card-title>
-        <v-card-text>
-          Группа «{{ group.name }}» перестанет давать права участникам.
-        </v-card-text>
+        <v-card-text> Группа «{{ group.name }}» перестанет давать права участникам. </v-card-text>
         <v-card-actions>
           <v-spacer />
           <v-btn variant="text" @click="showDeactivateDialog = false">Отмена</v-btn>

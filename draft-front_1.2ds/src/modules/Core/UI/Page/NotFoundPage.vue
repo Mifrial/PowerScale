@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { useRouter } from 'vue-router'
+import { useRouter } from 'vue-router';
 
-const router = useRouter()
+const router = useRouter();
 
 function goBack() {
-  if (window.history.length > 1) router.back()
-  else router.push({ name: 'Home' })
+  if (window.history.length > 1) router.back();
+  else router.push({ name: 'Home' });
 }
 </script>
 

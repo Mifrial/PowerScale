@@ -1,4 +1,4 @@
 export interface Sort {
-  key: string
-  order: 'asc' | 'desc'
+  key: string;
+  order: 'asc' | 'desc';
 }

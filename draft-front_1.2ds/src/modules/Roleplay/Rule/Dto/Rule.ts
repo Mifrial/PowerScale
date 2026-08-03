@@ -1,17 +1,17 @@
-import type { RuleType } from '@/modules/Roleplay/Rule/Enum/RuleType'
-import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec'
+import type { RuleType } from '@/modules/Roleplay/Rule/Enum/RuleType';
+import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec';
 
 export interface Rule {
-  id: string
+  id: string;
   /** Семантический ключ правила (глобально уникален). Задаётся при создании и не меняется. */
-  code: string
-  type: RuleType
-  name: string
-  description: string
-  spaceId: number
-  spec?: RuleSpec
-  keywordIds?: number[]
-  mechanicId?: number | null
-  createdAt: string
-  updatedAt?: string
+  code: string;
+  type: RuleType;
+  name: string;
+  description: string;
+  spaceId: number;
+  spec?: RuleSpec;
+  keywordIds?: number[];
+  mechanicId?: number | null;
+  createdAt: string;
+  updatedAt?: string;
 }

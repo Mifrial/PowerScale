@@ -1,1 +1,1 @@
-export type NotifFilter = 'all' | 'unread' | 'action'
+export type NotifFilter = 'all' | 'unread' | 'action';

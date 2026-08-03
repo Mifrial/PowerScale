@@ -1,42 +1,38 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
-import { useAuthStore } from '@/modules/Core/Auth/Store/auth'
-import { useUserStore } from '@/modules/Core/User/Store/users'
-import { isAdmin as checkIsAdmin, getAdminSections } from '@/modules/Core/User/init'
-import { navItems } from '@/shell/navItems'
+import { ref, computed } from 'vue';
+import { useRouter } from 'vue-router';
+import { useAuthStore } from '@/modules/Core/Auth/Store/auth';
+import { useUserStore } from '@/modules/Core/User/Store/users';
+import { isAdmin as checkIsAdmin, getAdminSections } from '@/modules/Core/User/init';
+import { navItems } from '@/shell/navItems';
 
-const props = defineProps<{ collapsed: boolean }>()
-const emit = defineEmits<{ 'update:collapsed': [value: boolean] }>()
+const props = defineProps<{ collapsed: boolean }>();
+const emit = defineEmits<{ 'update:collapsed': [value: boolean] }>();
 
-const router = useRouter()
-const auth = useAuthStore()
-const userStore = useUserStore()
+const router = useRouter();
+const auth = useAuthStore();
+const userStore = useUserStore();
 
-const isCollapsed = computed(() => props.collapsed)
-const showLogoutDialog = ref(false)
-const adminOpen = ref(false)
+const isCollapsed = computed(() => props.collapsed);
+const showLogoutDialog = ref(false);
+const adminOpen = ref(false);
 
 function expand() {
-  emit('update:collapsed', false)
+  emit('update:collapsed', false);
 }
 
-const isAdmin = computed(() => checkIsAdmin(userStore.currentUser))
+const isAdmin = computed(() => checkIsAdmin(userStore.currentUser));
 
 function confirmLogout() {
-  showLogoutDialog.value = false
-  auth.logout()
+  showLogoutDialog.value = false;
+  auth.logout();
 }
 
-const adminItems = getAdminSections().map(s => ({ icon: s.icon, label: s.title, to: s.to }))
+const adminItems = getAdminSections().map((s) => ({ icon: s.icon, label: s.title, to: s.to }));
 </script>
 
 <template>
-  <v-navigation-drawer
-    :rail="isCollapsed"
-    permanent
-    @click="isCollapsed && expand()"
-  >
+  <v-navigation-drawer :rail="isCollapsed" permanent @click="isCollapsed && expand()">
     <template #prepend>
       <v-list-item
         class="px-2 py-3"
@@ -51,9 +47,7 @@ const adminItems = getAdminSections().map(s => ({ icon: s.icon, label: s.title, 
         <v-list-item-title class="font-weight-medium text-body-2">
           {{ userStore.username }}
         </v-list-item-title>
-        <v-list-item-subtitle class="text-caption">
-          @{{ userStore.userLogin }}
-        </v-list-item-subtitle>
+        <v-list-item-subtitle class="text-caption"> @{{ userStore.userLogin }} </v-list-item-subtitle>
         <template #append>
           <v-btn
             v-if="auth.isAuthenticated && !auth.isGuest"
@@ -100,11 +94,7 @@ const adminItems = getAdminSections().map(s => ({ icon: s.icon, label: s.title, 
       <v-list density="compact" nav>
         <v-list-group v-if="isAdmin" v-model="adminOpen">
           <template #activator="{ props }">
-            <v-list-item
-              v-bind="props"
-              prepend-icon="mdi-shield-crown"
-              title="Администрирование"
-            />
+            <v-list-item v-bind="props" prepend-icon="mdi-shield-crown" title="Администрирование" />
           </template>
           <v-list-item
             v-for="item in adminItems"

@@ -4,6 +4,6 @@
  * для непроизводной характеристики; `type` внутри спеки дублирует Rule.type (исторически).
  */
 export interface CharacteristicSpec {
-  type: 'characteristic'
-  formula?: string | null
+  type: 'characteristic';
+  formula?: string | null;
 }

@@ -1,30 +1,29 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useChatStore } from '@/modules/Messages/Chat/Store/chat'
-import type { ChatType } from '@/modules/Messages/Chat/Enum/ChatType'
-import { chatIcon, chatColor } from '@/modules/Messages/Chat/Constant/chatType'
+import { computed } from 'vue';
+import { useChatStore } from '@/modules/Messages/Chat/Store/chat';
+import type { ChatType } from '@/modules/Messages/Chat/Enum/ChatType';
+import { chatIcon, chatColor } from '@/modules/Messages/Chat/Constant/chatType';
 
 const emit = defineEmits<{
-  (e: 'open-chat', chatId: number): void
-}>()
+  (e: 'open-chat', chatId: number): void;
+}>();
 
-const store = useChatStore()
+const store = useChatStore();
 
 const sortedChats = computed(() =>
-  [...store.chats]
-    .sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt))
-    .slice(0, 10),
-)
+  [...store.chats].sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt)).slice(0, 10),
+);
 
 function handleChatClick(id: number) {
-  store.openChat(id)
-  emit('open-chat', id)
+  store.openChat(id);
+  emit('open-chat', id);
 }
 
 function hasGameDiscussionAfter(chat: { id: number; type: ChatType }): boolean {
-  const idx = sortedChats.value.findIndex(c => c.id === chat.id)
-  const next = sortedChats.value[idx + 1]
-  return next?.type === 'game_discussion'
+  const idx = sortedChats.value.findIndex((c) => c.id === chat.id);
+  const next = sortedChats.value[idx + 1];
+
+  return next?.type === 'game_discussion';
 }
 </script>
 
@@ -42,13 +41,7 @@ function hasGameDiscussionAfter(chat: { id: number; type: ChatType }): boolean {
           :color="ch.id === store.activeChatId ? chatColor(ch.type) : 'default'"
           @click="handleChatClick(ch.id)"
         >
-          <v-badge
-            v-if="ch.unreadCount > 0"
-            :content="ch.unreadCount"
-            color="error"
-            size="x-small"
-            dot
-          >
+          <v-badge v-if="ch.unreadCount > 0" :content="ch.unreadCount" color="error" size="x-small" dot>
             <v-icon size="small">{{ chatIcon(ch.type) }}</v-icon>
           </v-badge>
           <v-icon v-else size="small">{{ chatIcon(ch.type) }}</v-icon>

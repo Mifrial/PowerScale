@@ -1,8 +1,8 @@
 export interface NavItem {
-  icon: string
-  label: string
-  to: string
-  exact?: boolean
+  icon: string;
+  label: string;
+  to: string;
+  exact?: boolean;
 }
 
 export const navItems: NavItem[] = [
@@ -13,4 +13,4 @@ export const navItems: NavItem[] = [
   { icon: 'mdi-account-group', label: 'Персонажи', to: '/characters' },
   { icon: 'mdi-gamepad-variant', label: 'Игры', to: '/games' },
   { icon: 'mdi-account-multiple', label: 'Пользователи', to: '/users' },
-]
+];

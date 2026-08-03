@@ -1,48 +1,45 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { useSpaceStore } from '@/modules/Roleplay/Space/Store/spaces'
-import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable'
+import { computed, onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
+import { useSpaceStore } from '@/modules/Roleplay/Space/Store/spaces';
+import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 
-const router = useRouter()
-const store = useSpaceStore()
-const { signal } = useAbortable()
+const router = useRouter();
+const store = useSpaceStore();
+const { signal } = useAbortable();
 
-const name = ref('')
-const description = ref('')
-const inheritFrom = ref<number | null>(null)
-const saving = ref(false)
+const name = ref('');
+const description = ref('');
+const inheritFrom = ref<number | null>(null);
+const saving = ref(false);
 
-const spaceOptions = computed(() =>
-  store.spaces
-    .filter(s => s.active)
-    .map(s => ({ title: s.name, value: s.id }))
-)
+const spaceOptions = computed(() => store.spaces.filter((s) => s.active).map((s) => ({ title: s.name, value: s.id })));
 
-const inheritedSpace = computed(() =>
-  store.spaces.find(s => s.id === inheritFrom.value)
-)
+const inheritedSpace = computed(() => store.spaces.find((s) => s.id === inheritFrom.value));
 
 onMounted(() => {
   if (store.spaces.length === 0) {
-    store.fetchSpaces(signal.value)
+    store.fetchSpaces(signal.value);
   }
-})
+});
 
 async function save() {
-  if (!name.value.trim()) return
-  saving.value = true
+  if (!name.value.trim()) return;
+  saving.value = true;
   try {
-    const space = await store.createSpace({
-      name: name.value,
-      description: description.value,
-      inheritFrom: inheritFrom.value,
-    }, signal.value)
-    router.push(`/space/${space.code}`)
+    const space = await store.createSpace(
+      {
+        name: name.value,
+        description: description.value,
+        inheritFrom: inheritFrom.value,
+      },
+      signal.value,
+    );
+    router.push(`/space/${space.code}`);
   } catch (e) {
-    console.error('create space failed', e)
+    console.error('create space failed', e);
   } finally {
-    saving.value = false
+    saving.value = false;
   }
 }
 </script>
@@ -53,18 +50,9 @@ async function save() {
 
     <v-card>
       <v-card-text>
-        <v-text-field
-          v-model="name"
-          label="Название"
-          :rules="[v => !!v || 'Обязательное поле']"
-        />
+        <v-text-field v-model="name" label="Название" :rules="[(v) => !!v || 'Обязательное поле']" />
 
-        <v-textarea
-          v-model="description"
-          label="Описание"
-          rows="3"
-          class="mt-4"
-        />
+        <v-textarea v-model="description" label="Описание" rows="3" class="mt-4" />
 
         <v-divider class="my-6" />
 
@@ -86,9 +74,7 @@ async function save() {
             <div class="text-body-2">
               Правил: <strong>{{ inheritedSpace?.rulesCount ?? 0 }}</strong>
             </div>
-            <div class="text-caption text-medium-emphasis mt-2">
-              После создания пространство станет независимым.
-            </div>
+            <div class="text-caption text-medium-emphasis mt-2">После создания пространство станет независимым.</div>
           </v-card-text>
         </v-card>
       </v-card-text>

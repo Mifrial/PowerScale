@@ -1,4 +1,4 @@
-import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic'
+import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
 
 const mechanics: Mechanic[] = [
   {
@@ -12,7 +12,8 @@ const mechanics: Mechanic[] = [
     id: 2,
     code: 'advantage_disadvantage',
     name: 'Помехи и преимущества',
-    description: 'Преимущество добавляет кубик и убирает худший результат. Помеха добавляет кубик и убирает лучший результат.',
+    description:
+      'Преимущество добавляет кубик и убирает худший результат. Помеха добавляет кубик и убирает лучший результат.',
     version: '2.1.0',
   },
   {
@@ -22,11 +23,12 @@ const mechanics: Mechanic[] = [
     description: 'Атака, наносящая два удара подряд с модификатором.',
     version: '4.1.5',
   },
-]
+];
 
-const delay = (ms = 300) => new Promise(r => setTimeout(r, ms))
+const delay = (ms = 300) => new Promise((r) => setTimeout(r, ms));
 
 export async function fetchMechanics(_signal?: AbortSignal): Promise<Mechanic[]> {
-  await delay()
-  return mechanics.map(m => ({ ...m }))
+  await delay();
+
+  return mechanics.map((m) => ({ ...m }));
 }

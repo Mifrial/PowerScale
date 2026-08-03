@@ -1,6 +1,6 @@
-import type { Component } from 'vue'
+import type { Component } from 'vue';
 
 export interface ProfileSection {
-  id: string
-  component: Component
+  id: string;
+  component: Component;
 }

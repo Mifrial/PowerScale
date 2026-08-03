@@ -1,92 +1,99 @@
 <script setup lang="ts">
-import { computed, ref, watch, onMounted } from 'vue'
-import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision'
-import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule'
-import type { RaceSpec } from '@/modules/Roleplay/Rule/Dto/Race/RaceSpec'
-import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec'
-import type { RaceCharacteristic } from '@/modules/Roleplay/Rule/Dto/Race/RaceCharacteristic'
-import type { RaceAbilityRef } from '@/modules/Roleplay/Rule/Dto/Race/RaceAbilityRef'
-import type { InheritedAbilityRef } from '@/modules/Roleplay/Rule/Dto/Race/InheritedAbilityRef'
-import { raceSpecService } from '@/modules/Roleplay/Rule/Service/Spec/RaceSpecService'
-import { ruleReferenceService } from '@/modules/Roleplay/Rule/Service/RuleReferenceService'
-import RuleEditorBase from '@/modules/Roleplay/Rule/Component/Editors/RuleEditorBase.vue'
-import RaceCharacteristicsEditor from '@/modules/Roleplay/Rule/Component/Editors/RaceCharacteristicsEditor.vue'
-import RaceAbilitiesEditor from '@/modules/Roleplay/Rule/Component/Editors/RaceAbilitiesEditor.vue'
-import InheritancePreview from '@/modules/Roleplay/Rule/Component/Editors/InheritancePreview.vue'
-import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue'
+import { computed, ref, watch, onMounted } from 'vue';
+import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import type { RaceSpec } from '@/modules/Roleplay/Rule/Dto/Race/RaceSpec';
+import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec';
+import type { RaceCharacteristic } from '@/modules/Roleplay/Rule/Dto/Race/RaceCharacteristic';
+import type { RaceAbilityRef } from '@/modules/Roleplay/Rule/Dto/Race/RaceAbilityRef';
+import type { InheritedAbilityRef } from '@/modules/Roleplay/Rule/Dto/Race/InheritedAbilityRef';
+import { raceSpecService } from '@/modules/Roleplay/Rule/Service/Spec/RaceSpecService';
+import { ruleReferenceService } from '@/modules/Roleplay/Rule/Service/RuleReferenceService';
+import RuleEditorBase from '@/modules/Roleplay/Rule/Component/Editors/RuleEditorBase.vue';
+import RaceCharacteristicsEditor from '@/modules/Roleplay/Rule/Component/Editors/RaceCharacteristicsEditor.vue';
+import RaceAbilitiesEditor from '@/modules/Roleplay/Rule/Component/Editors/RaceAbilitiesEditor.vue';
+import InheritancePreview from '@/modules/Roleplay/Rule/Component/Editors/InheritancePreview.vue';
+import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
 
 const props = defineProps<{
-  name: string
-  code: string
-  codeDisabled?: boolean
-  description: string
-  mechanicId: number | null
-  keywordIds: number[]
-  spec: RuleSpec | null
-  mechanicOptions: { title: string; value: number }[]
-  keywordOptions: { title: string; value: number }[]
-  spaceId: number
-  ruleId?: string
-}>()
+  name: string;
+  code: string;
+  codeDisabled?: boolean;
+  description: string;
+  mechanicId: number | null;
+  keywordIds: number[];
+  spec: RuleSpec | null;
+  mechanicOptions: { title: string; value: number }[];
+  keywordOptions: { title: string; value: number }[];
+  spaceId: number;
+  ruleId?: string;
+}>();
 
 const emit = defineEmits<{
-  'update:name': [value: string]
-  'update:code': [value: string]
-  'update:description': [value: string]
-  'update:mechanicId': [value: number | null]
-  'update:keywordIds': [value: number[]]
-  'update:spec': [value: RaceSpec]
-}>()
+  'update:name': [value: string];
+  'update:code': [value: string];
+  'update:description': [value: string];
+  'update:mechanicId': [value: number | null];
+  'update:keywordIds': [value: number[]];
+  'update:spec': [value: RaceSpec];
+}>();
 
-const revisionStore = useSpaceRevisionStore()
+const revisionStore = useSpaceRevisionStore();
 
-const expandedPanels = ref<string[]>(['general', 'race', 'characteristics', 'abilities', 'preview'])
-const innerSpec = ref<RaceSpec>(raceSpecService.createEmptyRace())
+const expandedPanels = ref<string[]>(['general', 'race', 'characteristics', 'abilities', 'preview']);
+const innerSpec = ref<RaceSpec>(raceSpecService.createEmptyRace());
 
-const spaceRules = computed(() => revisionStore.effectiveRules)
+const spaceRules = computed(() => revisionStore.effectiveRules);
 
-const speciesOptions = computed(() => ruleReferenceService.speciesOptions(spaceRules.value, props.ruleId))
-const characteristicOptions = computed(() => ruleReferenceService.characteristicOptions(spaceRules.value, props.spaceId))
-const abilityOptions = computed(() => ruleReferenceService.abilityOptions(spaceRules.value))
-const abilityNameMap = computed(() => ruleReferenceService.abilityNameMap(spaceRules.value))
+const speciesOptions = computed(() => ruleReferenceService.speciesOptions(spaceRules.value, props.ruleId));
+const characteristicOptions = computed(() =>
+  ruleReferenceService.characteristicOptions(spaceRules.value, props.spaceId),
+);
+const abilityOptions = computed(() => ruleReferenceService.abilityOptions(spaceRules.value));
+const abilityNameMap = computed(() => ruleReferenceService.abilityNameMap(spaceRules.value));
 
 const characteristics = computed<RaceCharacteristic[]>({
   get: () => innerSpec.value.characteristics,
   set: (value) => {
-    innerSpec.value = { ...innerSpec.value, characteristics: value }
+    innerSpec.value = { ...innerSpec.value, characteristics: value };
   },
-})
+});
 
 const abilities = computed<RaceAbilityRef[]>({
   get: () => innerSpec.value.abilities,
   set: (value) => {
-    innerSpec.value = { ...innerSpec.value, abilities: value }
+    innerSpec.value = { ...innerSpec.value, abilities: value };
   },
-})
+});
 
 const inheritedAbilities = computed<InheritedAbilityRef[]>(() => {
-  const byCode = new Map<string, Rule>()
-  for (const r of spaceRules.value) byCode.set(r.code, r)
-  return raceSpecService.collectInheritedAbilities(innerSpec.value.parent_race_code, byCode)
-})
+  const byCode = new Map<string, Rule>();
+  for (const r of spaceRules.value) byCode.set(r.code, r);
 
-const specToEmit = computed<RaceSpec>(() => structuredClone(innerSpec.value))
+  return raceSpecService.collectInheritedAbilities(innerSpec.value.parent_race_code, byCode);
+});
 
-watch(specToEmit, (value) => {
-  emit('update:spec', value)
-}, { deep: true })
+const specToEmit = computed<RaceSpec>(() => structuredClone(innerSpec.value));
+
+watch(
+  specToEmit,
+  (value) => {
+    emit('update:spec', value);
+  },
+  { deep: true },
+);
 
 onMounted(() => {
   if (props.spec) {
-    const loaded = structuredClone(props.spec as RaceSpec)
+    const loaded = structuredClone(props.spec as RaceSpec);
     innerSpec.value = {
       parent_race_code: loaded.parent_race_code ?? null,
       cost_os: loaded.cost_os ?? 0,
       characteristics: loaded.characteristics ?? [],
       abilities: loaded.abilities ?? [],
-    }
+    };
   }
-})
+});
 </script>
 
 <template>
@@ -140,8 +147,7 @@ onMounted(() => {
             hide-details
           />
           <div class="text-body-2 text-medium-emphasis mt-2">
-            Раса тратит ОС из бюджета игры. Стоимость — это цена расы; отрицательная стоимость
-            даёт ОС.
+            Раса тратит ОС из бюджета игры. Стоимость — это цена расы; отрицательная стоимость даёт ОС.
           </div>
         </v-expansion-panel-text>
       </v-expansion-panel>
@@ -149,30 +155,21 @@ onMounted(() => {
       <v-expansion-panel value="characteristics">
         <v-expansion-panel-title>Характеристики</v-expansion-panel-title>
         <v-expansion-panel-text>
-          <RaceCharacteristicsEditor
-            v-model="characteristics"
-            :characteristics="characteristicOptions"
-          />
+          <RaceCharacteristicsEditor v-model="characteristics" :characteristics="characteristicOptions" />
         </v-expansion-panel-text>
       </v-expansion-panel>
 
       <v-expansion-panel value="abilities">
         <v-expansion-panel-title>Способности</v-expansion-panel-title>
         <v-expansion-panel-text>
-          <RaceAbilitiesEditor
-            v-model="abilities"
-            :abilities="abilityOptions"
-          />
+          <RaceAbilitiesEditor v-model="abilities" :abilities="abilityOptions" />
         </v-expansion-panel-text>
       </v-expansion-panel>
 
       <v-expansion-panel value="preview">
         <v-expansion-panel-title>Превью наследования</v-expansion-panel-title>
         <v-expansion-panel-text>
-          <InheritancePreview
-            :refs="inheritedAbilities"
-            :ability-name-map="abilityNameMap"
-          />
+          <InheritancePreview :refs="inheritedAbilities" :ability-name-map="abilityNameMap" />
         </v-expansion-panel-text>
       </v-expansion-panel>
     </v-expansion-panels>

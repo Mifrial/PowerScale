@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useNotificationStore } from '@/modules/Messages/Notifications/Store/notifications'
-import AppBreadcrumbs from '@/shell/AppBreadcrumbs.vue'
+import { computed } from 'vue';
+import { useNotificationStore } from '@/modules/Messages/Notifications/Store/notifications';
+import AppBreadcrumbs from '@/shell/AppBreadcrumbs.vue';
 
-defineEmits<{ 'toggle-sidebar': []; 'toggle-notifications': [] }>()
+defineEmits<{ 'toggle-sidebar': []; 'toggle-notifications': [] }>();
 
-const notificationStore = useNotificationStore()
+const notificationStore = useNotificationStore();
 
-const unreadCount = computed(() => notificationStore.unreadCount)
+const unreadCount = computed(() => notificationStore.unreadCount);
 </script>
 
 <template>

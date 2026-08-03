@@ -1,25 +1,25 @@
-import type { RouteLocationNormalizedLoaded } from 'vue-router'
-import 'vue-router'
+import type { RouteLocationNormalizedLoaded } from 'vue-router';
+import 'vue-router';
 
 declare module 'vue-router' {
   interface RouteMeta {
-    title?: string
-    layout?: string
-    crumb?: BreadcrumbResolver
+    title?: string;
+    layout?: string;
+    crumb?: BreadcrumbResolver;
     /** Страница доступна гостю (обходит все requires*). Игроки/админы проходят без ограничений. */
-    guestAllowed?: boolean
+    guestAllowed?: boolean;
     /** Достаточно хотя бы одного ключа (OR). Мержится с родительским meta. */
-    requiresAny?: string[]
+    requiresAny?: string[];
     /** Нужны все ключи (AND). Мержится с родительским meta. */
-    requiresAll?: string[]
+    requiresAll?: string[];
     /** Страница раздела «Администрирование»: доступ через реестр админ-секций (isAdmin). */
-    admin?: boolean
+    admin?: boolean;
   }
 }
 
 export interface BreadcrumbItem {
-  title: string
-  to?: string
+  title: string;
+  to?: string;
 }
 
-export type BreadcrumbResolver = (to: RouteLocationNormalizedLoaded) => BreadcrumbItem[]
+export type BreadcrumbResolver = (to: RouteLocationNormalizedLoaded) => BreadcrumbItem[];

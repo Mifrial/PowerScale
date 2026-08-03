@@ -1,21 +1,26 @@
 <script setup lang="ts">
-import type { Notification } from '@/modules/Messages/Notifications/Dto/Notification'
-import { DateTime } from '@/modules/Core/Engine/Value/DateTime'
+import type { Notification } from '@/modules/Messages/Notifications/Dto/Notification';
+import { DateTime } from '@/modules/Core/Engine/Value/DateTime';
 
 defineProps<{
-  notification: Notification
-  iconSize?: number | string
-  actionSize?: string
-}>()
+  notification: Notification;
+  iconSize?: number | string;
+  actionSize?: string;
+}>();
 
 defineEmits<{
-  action: [payload: { id: number; key: string }]
-}>()
+  action: [payload: { id: number; key: string }];
+}>();
 </script>
 
 <template>
   <div class="notification-item" :class="{ unread: !notification.read }">
-    <v-icon :icon="notification.icon" :size="iconSize" class="notification-icon" :color="notification.read ? 'grey' : 'primary'" />
+    <v-icon
+      :icon="notification.icon"
+      :size="iconSize"
+      class="notification-icon"
+      :color="notification.read ? 'grey' : 'primary'"
+    />
     <div class="notification-body">
       <div class="d-flex align-center justify-space-between">
         <span class="notification-title">{{ notification.title }}</span>
@@ -91,7 +96,9 @@ defineEmits<{
 
 .action-btn.v-btn--variant-text {
   border: thin solid currentColor;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
 }
 .action-btn.v-btn--variant-text:hover {
   background: rgb(var(--v-theme-primaryLight));

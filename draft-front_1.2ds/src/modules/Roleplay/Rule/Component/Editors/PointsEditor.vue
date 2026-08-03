@@ -1,24 +1,24 @@
 <script setup lang="ts">
-import RuleEditorBase from '@/modules/Roleplay/Rule/Component/Editors/RuleEditorBase.vue'
+import RuleEditorBase from '@/modules/Roleplay/Rule/Component/Editors/RuleEditorBase.vue';
 
 defineProps<{
-  name: string
-  code: string
-  codeDisabled?: boolean
-  description: string
-  mechanicId: number | null
-  keywordIds: number[]
-  mechanicOptions: { title: string; value: number }[]
-  keywordOptions: { title: string; value: number }[]
-}>()
+  name: string;
+  code: string;
+  codeDisabled?: boolean;
+  description: string;
+  mechanicId: number | null;
+  keywordIds: number[];
+  mechanicOptions: { title: string; value: number }[];
+  keywordOptions: { title: string; value: number }[];
+}>();
 
 const emit = defineEmits<{
-  'update:name': [value: string]
-  'update:code': [value: string]
-  'update:description': [value: string]
-  'update:mechanicId': [value: number | null]
-  'update:keywordIds': [value: number[]]
-}>()
+  'update:name': [value: string];
+  'update:code': [value: string];
+  'update:description': [value: string];
+  'update:mechanicId': [value: number | null];
+  'update:keywordIds': [value: number[]];
+}>();
 </script>
 
 <template>
@@ -42,9 +42,9 @@ const emit = defineEmits<{
         <v-card-title>Очки</v-card-title>
         <v-card-text>
           <div class="text-body-2 text-medium-emphasis">
-            Очки (ОС/ОЛ/ОР) — валюта создания персонажа, привязанная к этапу. Код — системное имя
-            (например <code>os</code>, <code>ol</code>, <code>or</code>): способности ссылаются на него
-            в своих зонах. Базовые значения очков не хранятся — бюджеты задаются игрой.
+            Очки (ОС/ОЛ/ОР) — валюта создания персонажа, привязанная к этапу. Код — системное имя (например
+            <code>os</code>, <code>ol</code>, <code>or</code>): способности ссылаются на него в своих зонах. Базовые
+            значения очков не хранятся — бюджеты задаются игрой.
           </div>
         </v-card-text>
       </v-card>

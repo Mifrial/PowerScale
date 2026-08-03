@@ -1,5 +1,5 @@
-import type { INotificationTemplateApi } from '@/modules/Messages/Notifications/Interface/INotificationTemplateApi'
-import * as mock from '@/modules/Messages/Notifications/Mock/mockTemplates'
+import type { INotificationTemplateApi } from '@/modules/Messages/Notifications/Interface/INotificationTemplateApi';
+import * as mock from '@/modules/Messages/Notifications/Mock/mockTemplates';
 
 export const mockTemplateApi: INotificationTemplateApi = {
   getTemplates: mock.fetchTemplates,
@@ -7,4 +7,4 @@ export const mockTemplateApi: INotificationTemplateApi = {
   createTemplate: mock.createTemplate,
   updateTemplate: mock.updateTemplate,
   deactivateTemplate: mock.deactivateTemplate,
-}
+};

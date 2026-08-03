@@ -1,27 +1,30 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed } from 'vue';
 
-const props = withDefaults(defineProps<{
-  modelValue: string
-  label?: string
-  rules?: ((v: string) => string | true)[]
-  errorMessages?: string[]
-}>(), {
-  label: 'Пароль',
-  rules: () => [],
-  errorMessages: () => [],
-})
+const props = withDefaults(
+  defineProps<{
+    modelValue: string;
+    label?: string;
+    rules?: ((v: string) => string | true)[];
+    errorMessages?: string[];
+  }>(),
+  {
+    label: 'Пароль',
+    rules: () => [],
+    errorMessages: () => [],
+  },
+);
 
 const emit = defineEmits<{
-  'update:modelValue': [value: string]
-}>()
+  'update:modelValue': [value: string];
+}>();
 
-const showPassword = ref(false)
+const showPassword = ref(false);
 
 const internalValue = computed({
   get: () => props.modelValue,
   set: (val: string) => emit('update:modelValue', val),
-})
+});
 </script>
 
 <template>

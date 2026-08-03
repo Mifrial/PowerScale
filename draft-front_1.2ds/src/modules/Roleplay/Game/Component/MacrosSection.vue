@@ -1,35 +1,35 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import type { UserMacro } from '@/modules/Roleplay/Game/Dto/UserMacro'
-import { useMacrosStore } from '@/modules/Roleplay/Game/Store/macros'
-import { rollService } from '@/modules/Roleplay/Game/Service/RollService'
-import MacroForm from '@/modules/Roleplay/Game/Component/Macros/MacroForm.vue'
+import { ref, computed, onMounted } from 'vue';
+import type { UserMacro } from '@/modules/Roleplay/Game/Dto/UserMacro';
+import { useMacrosStore } from '@/modules/Roleplay/Game/Store/macros';
+import { rollService } from '@/modules/Roleplay/Game/Service/RollService';
+import MacroForm from '@/modules/Roleplay/Game/Component/Macros/MacroForm.vue';
 
-const store = useMacrosStore()
+const store = useMacrosStore();
 
-const macros = computed(() => store.macros)
-const formOpen = ref(false)
-const editingMacro = ref<UserMacro | null>(null)
+const macros = computed(() => store.macros);
+const formOpen = ref(false);
+const editingMacro = ref<UserMacro | null>(null);
 
 function openCreate() {
-  editingMacro.value = null
-  formOpen.value = true
+  editingMacro.value = null;
+  formOpen.value = true;
 }
 
 function startEdit(m: UserMacro) {
-  editingMacro.value = m
-  formOpen.value = true
+  editingMacro.value = m;
+  formOpen.value = true;
 }
 
 function closeForm() {
-  formOpen.value = false
+  formOpen.value = false;
 }
 
 async function remove(m: UserMacro) {
-  await store.removeMacro(m.id)
+  await store.removeMacro(m.id);
 }
 
-onMounted(() => store.fetchMacros())
+onMounted(() => store.fetchMacros());
 </script>
 
 <template>

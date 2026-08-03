@@ -1,17 +1,18 @@
 <script setup lang="ts">
-import { ref, onErrorCaptured } from 'vue'
+import { ref, onErrorCaptured } from 'vue';
 
-const error = ref<Error | null>(null)
+const error = ref<Error | null>(null);
 
 onErrorCaptured((err: Error) => {
-  error.value = err
-  console.error('Component error:', err)
-  return false
-})
+  error.value = err;
+  console.error('Component error:', err);
+
+  return false;
+});
 
 function reset() {
-  error.value = null
-  window.location.reload()
+  error.value = null;
+  window.location.reload();
 }
 </script>
 

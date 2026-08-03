@@ -1,57 +1,58 @@
 <script setup lang="ts">
-import { useVModelSync } from '@/modules/Core/UI/Composables/useVModelSync'
-import type { ProcessStep } from '@/modules/Roleplay/Rule/Dto/Ability/ProcessStep'
-import type { ProcessSpec } from '@/modules/Roleplay/Rule/Dto/Ability/ProcessSpec'
-import type { ResourceRef } from '@/modules/Roleplay/Rule/Dto/Ability/ResourceRef'
-import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumber'
-import { processSpecService } from '@/modules/Roleplay/Rule/Service/Spec/ProcessSpecService'
-import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue'
-import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue'
+import { useVModelSync } from '@/modules/Core/UI/Composables/useVModelSync';
+import type { ProcessStep } from '@/modules/Roleplay/Rule/Dto/Ability/ProcessStep';
+import type { ProcessSpec } from '@/modules/Roleplay/Rule/Dto/Ability/ProcessSpec';
+import type { ResourceRef } from '@/modules/Roleplay/Rule/Dto/Ability/ResourceRef';
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumber';
+import { processSpecService } from '@/modules/Roleplay/Rule/Service/Spec/ProcessSpecService';
+import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue';
+import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
 
 const props = defineProps<{
-  step: ProcessStep
-  stepIndex: number
-  resources: ResourceRef[]
-}>()
+  step: ProcessStep;
+  stepIndex: number;
+  resources: ResourceRef[];
+}>();
 
 const emit = defineEmits<{
-  'update:step': [value: ProcessStep]
-}>()
+  'update:step': [value: ProcessStep];
+}>();
 
 const { inner } = useVModelSync<ProcessStep>({
   modelValue: () => props.step,
   onCommit: (value) => emit('update:step', value),
   clone: true,
-})
+});
 
 function stepSpec(step: ProcessStep): ProcessSpec {
-  return { steps: [step], start_step_code: undefined, transition: { mode: 'free' }, failure: null }
+  return { steps: [step], start_step_code: undefined, transition: { mode: 'free' }, failure: null };
 }
 
 function patchStep(key: string, value: unknown) {
-  inner.value = processSpecService.patchStep(stepSpec(inner.value), 0, key, value).steps[0]
+  inner.value = processSpecService.patchStep(stepSpec(inner.value), 0, key, value).steps[0];
 }
 
 function addStepCost() {
-  inner.value = processSpecService.addStepCost(stepSpec(inner.value), 0).steps[0]
+  inner.value = processSpecService.addStepCost(stepSpec(inner.value), 0).steps[0];
 }
 
 function patchStepCost(costIndex: number, key: string, value: unknown) {
-  inner.value = processSpecService.patchStepCost(stepSpec(inner.value), 0, costIndex, key, value).steps[0]
+  inner.value = processSpecService.patchStepCost(stepSpec(inner.value), 0, costIndex, key, value).steps[0];
 }
 
 function removeStepCost(costIndex: number) {
-  inner.value = processSpecService.removeStepCost(stepSpec(inner.value), 0, costIndex).steps[0]
+  inner.value = processSpecService.removeStepCost(stepSpec(inner.value), 0, costIndex).steps[0];
 }
 
 function isDimensionalCost(costIndex: number): boolean {
-  const cost = inner.value.costs[costIndex]
-  if (!cost) return false
-  return processSpecService.isDimensionalCost(cost, props.resources)
+  const cost = inner.value.costs[costIndex];
+  if (!cost) return false;
+
+  return processSpecService.isDimensionalCost(cost, props.resources);
 }
 
 function isMandatoryCost(costIndex: number): boolean {
-  return processSpecService.isMandatoryCost(inner.value.costs, costIndex)
+  return processSpecService.isMandatoryCost(inner.value.costs, costIndex);
 }
 </script>
 
@@ -84,11 +85,7 @@ function isMandatoryCost(costIndex: number): boolean {
       class="mb-2"
     />
     <div class="text-subtitle-2 mb-1">Ресурсы (стоимость шага)</div>
-    <div
-      v-for="(cost, costIndex) in inner.costs"
-      :key="`cost-${costIndex}`"
-      class="d-flex gap-2 mb-1"
-    >
+    <div v-for="(cost, costIndex) in inner.costs" :key="`cost-${costIndex}`" class="d-flex gap-2 mb-1">
       <v-autocomplete
         :model-value="cost.resource_code"
         @update:model-value="(v) => patchStepCost(costIndex, 'resource_code', v)"
@@ -107,7 +104,7 @@ function isMandatoryCost(costIndex: number): boolean {
         :model-value="(cost.amount as DimensionalNumberValue | undefined) ?? { base: 0, size: 0 }"
         @update:model-value="(v) => patchStepCost(costIndex, 'amount', v)"
         label="Стоимость"
-        style="flex: 1 1 auto;"
+        style="flex: 1 1 auto"
       />
       <ClampedNumberField
         v-else
@@ -117,7 +114,7 @@ function isMandatoryCost(costIndex: number): boolean {
         :min="1"
         density="compact"
         hide-details
-        style="min-width: 110px;"
+        style="min-width: 110px"
       />
       <v-btn
         icon
@@ -130,12 +127,7 @@ function isMandatoryCost(costIndex: number): boolean {
         <v-icon>mdi-delete</v-icon>
       </v-btn>
     </div>
-    <v-btn
-      variant="text"
-      color="primary"
-      size="small"
-      @click="addStepCost"
-    >
+    <v-btn variant="text" color="primary" size="small" @click="addStepCost">
       <v-icon start>mdi-plus</v-icon>
       Добавить ресурс
     </v-btn>

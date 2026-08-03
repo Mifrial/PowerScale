@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import SlidePanel from '@/modules/Core/UI/Component/SlidePanel.vue'
-import Messenger from '@/modules/Messages/Chat/Component/Messenger.vue'
-import MessengerTabs from '@/modules/Messages/Chat/Component/MessengerTabs.vue'
+import SlidePanel from '@/modules/Core/UI/Component/SlidePanel.vue';
+import ChatMessenger from '@/modules/Messages/Chat/Component/ChatMessenger.vue';
+import MessengerTabs from '@/modules/Messages/Chat/Component/MessengerTabs.vue';
 
-const open = defineModel<boolean>({ default: false })
+const open = defineModel<boolean>({ default: false });
 </script>
 
 <template>
@@ -11,8 +11,8 @@ const open = defineModel<boolean>({ default: false })
     <template #header>
       <MessengerTabs />
     </template>
-    <Messenger>
+    <ChatMessenger>
       <template #tabs><!-- tabs rendered in header --></template>
-    </Messenger>
+    </ChatMessenger>
   </SlidePanel>
 </template>

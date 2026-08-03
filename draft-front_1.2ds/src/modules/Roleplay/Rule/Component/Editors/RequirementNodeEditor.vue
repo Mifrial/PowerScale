@@ -1,74 +1,82 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue'
-import type { Requirement } from '@/modules/Roleplay/Rule/Dto/Ability/Requirement'
-import type { CharacteristicRef } from '@/modules/Roleplay/Rule/Dto/Ability/CharacteristicRef'
-import type { ResourceRef } from '@/modules/Roleplay/Rule/Dto/Ability/ResourceRef'
-import type { AbilityRef } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityRef'
-import type { KeywordRef } from '@/modules/Roleplay/Rule/Dto/Ability/KeywordRef'
-import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumber'
-import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue'
-import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue'
-import { abilitySpecService } from '@/modules/Roleplay/Rule/Service/Spec/AbilitySpecService'
-import { useVModelSync } from '@/modules/Core/UI/Composables/useVModelSync'
-import { REQUIREMENT_TYPES } from '@/modules/Roleplay/Rule/Constant/Ability/REQUIREMENT_TYPES'
+import { computed, watch } from 'vue';
+import type { Requirement } from '@/modules/Roleplay/Rule/Dto/Ability/Requirement';
+import type { CharacteristicRef } from '@/modules/Roleplay/Rule/Dto/Ability/CharacteristicRef';
+import type { ResourceRef } from '@/modules/Roleplay/Rule/Dto/Ability/ResourceRef';
+import type { AbilityRef } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityRef';
+import type { KeywordRef } from '@/modules/Roleplay/Rule/Dto/Ability/KeywordRef';
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumber';
+import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue';
+import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
+import { abilitySpecService } from '@/modules/Roleplay/Rule/Service/Spec/AbilitySpecService';
+import { useVModelSync } from '@/modules/Core/UI/Composables/useVModelSync';
+import { REQUIREMENT_TYPES } from '@/modules/Roleplay/Rule/Constant/Ability/REQUIREMENT_TYPES';
 
 const props = defineProps<{
-  modelValue: Requirement
-  characteristics: CharacteristicRef[]
-  resources: ResourceRef[]
-  abilities: AbilityRef[]
-  keywords: KeywordRef[]
-  abilityKeywords: KeywordRef[]
-  removable?: boolean
-}>()
+  modelValue: Requirement;
+  characteristics: CharacteristicRef[];
+  resources: ResourceRef[];
+  abilities: AbilityRef[];
+  keywords: KeywordRef[];
+  abilityKeywords: KeywordRef[];
+  removable?: boolean;
+}>();
 
 const emit = defineEmits<{
-  'update:modelValue': [value: Requirement]
-  'remove': []
-}>()
+  'update:modelValue': [value: Requirement];
+  remove: [];
+}>();
 
 const { inner } = useVModelSync<Requirement>({
   modelValue: () => props.modelValue,
   onCommit: (value) => emit('update:modelValue', value),
   clone: true,
-})
+});
 
 const selectedResourceIsDimensional = computed(() => {
-  const v = inner.value
-  if (v.type !== 'resource_limit') return false
-  return props.resources.find(r => r.code === v.resource_code)?.isDimensional ?? false
-})
+  const v = inner.value;
+  if (v.type !== 'resource_limit') return false;
 
-watch(() => props.resources, (resources) => {
-  const v = inner.value
-  if (v.type !== 'resource_limit' || !v.resource_code) return
-  const res = resources.find(r => r.code === v.resource_code)
-  const min = v.min
-  if (res?.isDimensional && typeof min === 'number') {
-    inner.value = { ...v, min: { base: min, size: 0 } } as Requirement
-  } else if (!res?.isDimensional && min && typeof min === 'object' && !Array.isArray(min)) {
-    inner.value = { ...v, min: min.base } as Requirement
-  }
-}, { deep: true })
+  return props.resources.find((r) => r.code === v.resource_code)?.isDimensional ?? false;
+});
+
+watch(
+  () => props.resources,
+  (resources) => {
+    const v = inner.value;
+    if (v.type !== 'resource_limit' || !v.resource_code) return;
+    const res = resources.find((r) => r.code === v.resource_code);
+    const min = v.min;
+    if (res?.isDimensional && typeof min === 'number') {
+      inner.value = { ...v, min: { base: min, size: 0 } } as Requirement;
+    } else if (!res?.isDimensional && min && typeof min === 'object' && !Array.isArray(min)) {
+      inner.value = { ...v, min: min.base } as Requirement;
+    }
+  },
+  { deep: true },
+);
 
 function updateType(type: string) {
-  inner.value = abilitySpecService.createEmptyRequirement(type as Requirement['type'])
+  inner.value = abilitySpecService.createEmptyRequirement(type as Requirement['type']);
 }
 
 function patch(key: string, value: unknown) {
-  inner.value = { ...inner.value, [key]: value } as Requirement
+  inner.value = { ...inner.value, [key]: value } as Requirement;
 }
 
 function addChild() {
   if (inner.value.type === 'and' || inner.value.type === 'or') {
-    inner.value = { ...inner.value, children: [...inner.value.children, abilitySpecService.createEmptyRequirement('has_keyword')] }
+    inner.value = {
+      ...inner.value,
+      children: [...inner.value.children, abilitySpecService.createEmptyRequirement('has_keyword')],
+    };
   }
 }
 
 function removeChild(index: number) {
   if (inner.value.type === 'and' || inner.value.type === 'or') {
-    const children = inner.value.children.filter((_, i) => i !== index)
-    inner.value = { ...inner.value, children }
+    const children = inner.value.children.filter((_, i) => i !== index);
+    inner.value = { ...inner.value, children };
   }
 }
 </script>
@@ -85,14 +93,10 @@ function removeChild(index: number) {
         label="Условие"
         density="compact"
         hide-details
-        style="min-width: 200px;"
+        style="min-width: 200px"
       >
         <template #item="{ props: itemProps, item }">
-          <v-list-item
-            v-bind="itemProps"
-            :title="item.raw.label"
-            :subtitle="item.raw.description"
-          />
+          <v-list-item v-bind="itemProps" :title="item.raw.label" :subtitle="item.raw.description" />
         </template>
       </v-select>
 
@@ -116,7 +120,7 @@ function removeChild(index: number) {
           :min="1"
           density="compact"
           hide-details
-          style="min-width: 90px;"
+          style="min-width: 90px"
         />
       </template>
 
@@ -140,7 +144,7 @@ function removeChild(index: number) {
           :min="1"
           density="compact"
           hide-details
-          style="min-width: 90px;"
+          style="min-width: 90px"
         />
       </template>
 
@@ -177,7 +181,7 @@ function removeChild(index: number) {
           @update:model-value="(v) => patch('min', v)"
           label="Мин. значение"
           mode="characteristic"
-          style="flex: 1 1 auto;"
+          style="flex: 1 1 auto"
         />
       </template>
 
@@ -199,7 +203,7 @@ function removeChild(index: number) {
           :model-value="(inner.min as DimensionalNumberValue | undefined) ?? { base: 0, size: 0 }"
           @update:model-value="(v) => patch('min', v)"
           label="Лимит (мин)"
-          style="flex: 1 1 auto;"
+          style="flex: 1 1 auto"
         />
         <ClampedNumberField
           v-else
@@ -209,29 +213,17 @@ function removeChild(index: number) {
           :min="0"
           density="compact"
           hide-details
-          style="min-width: 110px;"
+          style="min-width: 110px"
         />
       </template>
 
-      <v-btn
-        v-if="removable"
-        icon
-        size="x-small"
-        color="error"
-        variant="text"
-        class="mt-1"
-        @click="emit('remove')"
-      >
+      <v-btn v-if="removable" icon size="x-small" color="error" variant="text" class="mt-1" @click="emit('remove')">
         <v-icon>mdi-delete</v-icon>
       </v-btn>
     </div>
 
     <div v-if="inner.type === 'and' || inner.type === 'or'" class="ml-6 mt-2">
-      <div
-        v-for="(child, index) in inner.children"
-        :key="index"
-        class="mb-1"
-      >
+      <div v-for="(child, index) in inner.children" :key="index" class="mb-1">
         <RequirementNodeEditor
           v-model="inner.children[index]"
           :characteristics="characteristics"
@@ -243,12 +235,7 @@ function removeChild(index: number) {
           @remove="removeChild(index)"
         />
       </div>
-      <v-btn
-        variant="text"
-        color="primary"
-        size="small"
-        @click="addChild"
-      >
+      <v-btn variant="text" color="primary" size="small" @click="addChild">
         <v-icon start>mdi-plus</v-icon>
         Добавить условие
       </v-btn>

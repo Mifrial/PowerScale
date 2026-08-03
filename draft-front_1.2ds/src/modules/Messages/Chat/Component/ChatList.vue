@@ -1,54 +1,58 @@
 <script setup lang="ts">
-import type { Chat } from '@/modules/Messages/Chat/Dto/Chat'
-import type { User } from '@/modules/Core/User/Dto/User'
-import { useAuthStore } from '@/modules/Core/Auth/Store/auth'
-import { useChatUsers } from '@/modules/Messages/Chat/Composables/useChatUsers'
-import { DateTime } from '@/modules/Core/Engine/Value/DateTime'
-import { avatarColors } from '@/modules/Messages/Chat/Constant/avatarColors'
+import type { Chat } from '@/modules/Messages/Chat/Dto/Chat';
+import type { User } from '@/modules/Core/User/Dto/User';
+import { useAuthStore } from '@/modules/Core/Auth/Store/auth';
+import { useChatUsers } from '@/modules/Messages/Chat/Composables/useChatUsers';
+import { DateTime } from '@/modules/Core/Engine/Value/DateTime';
+import { avatarColors } from '@/modules/Messages/Chat/Constant/avatarColors';
 
 defineProps<{
-  chats: Chat[]
-  activeChatId: number | null
-}>()
+  chats: Chat[];
+  activeChatId: number | null;
+}>();
 
 const emit = defineEmits<{
-  'select-chat': [id: number]
-  'open-profile': [userId: number]
-}>()
+  'select-chat': [id: number];
+  'open-profile': [userId: number];
+}>();
 
-const auth = useAuthStore()
-const chatUsers = useChatUsers()
+const auth = useAuthStore();
+const chatUsers = useChatUsers();
 
 function chatAvatarColor(userId: number): string {
-  return avatarColors[userId % avatarColors.length]
+  return avatarColors[userId % avatarColors.length];
 }
 
 function groupColor(chat: Chat): string {
-  return avatarColors[chat.id % avatarColors.length]
+  return avatarColors[chat.id % avatarColors.length];
 }
 
 function groupInitials(chat: Chat): string {
-  const words = chat.name.replace(/^Обсуждение:\s*/i, '').split(/\s+/)
-  if (words.length === 1) return words[0][0]?.toUpperCase() || '?'
-  return (words[0][0] + words[1][0]).toUpperCase()
+  const words = chat.name.replace(/^Обсуждение:\s*/i, '').split(/\s+/);
+  if (words.length === 1) return words[0][0]?.toUpperCase() || '?';
+
+  return (words[0][0] + words[1][0]).toUpperCase();
 }
 
 function otherMember(chat: Chat): User | undefined {
-  const other = chat.members?.find(m => m.userId !== auth.userId)
-  if (!other) return
-  return chatUsers.getUser(other.userId)
+  const other = chat.members?.find((m) => m.userId !== auth.userId);
+  if (!other) return;
+
+  return chatUsers.getUser(other.userId);
 }
 
 function chatName(chat: Chat): string {
   if (chat.type === 'private') {
-    const other = otherMember(chat)
-    return other ? chatUsers.displayName(other) : chat.name
+    const other = otherMember(chat);
+
+    return other ? chatUsers.displayName(other) : chat.name;
   }
-  return chat.name
+
+  return chat.name;
 }
 
 function openProfile(userId: number) {
-  emit('open-profile', userId)
+  emit('open-profile', userId);
 }
 </script>
 
@@ -67,7 +71,7 @@ function openProfile(userId: number) {
             v-if="otherMember(c)"
             :color="chatAvatarColor(otherMember(c)!.id)"
             size="36"
-            style="cursor: pointer;"
+            style="cursor: pointer"
             @click.stop="openProfile(otherMember(c)!.id)"
           >
             <span class="text-body-2 font-weight-medium text-white">{{ chatUsers.initials(otherMember(c)!) }}</span>
@@ -88,9 +92,7 @@ function openProfile(userId: number) {
       </div>
       <v-badge v-if="c.unreadCount" inline :content="c.unreadCount" color="error" size="x-small" class="ml-1" />
     </div>
-    <div v-if="!chats.length" class="pa-3 text-center text-medium-emphasis text-caption">
-      Нет чатов
-    </div>
+    <div v-if="!chats.length" class="pa-3 text-center text-medium-emphasis text-caption">Нет чатов</div>
   </div>
 </template>
 

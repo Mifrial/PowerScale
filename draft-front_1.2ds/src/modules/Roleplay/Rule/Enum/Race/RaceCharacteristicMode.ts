@@ -1,1 +1,1 @@
-export type RaceCharacteristicMode = 'fixed' | 'purchased'
+export type RaceCharacteristicMode = 'fixed' | 'purchased';

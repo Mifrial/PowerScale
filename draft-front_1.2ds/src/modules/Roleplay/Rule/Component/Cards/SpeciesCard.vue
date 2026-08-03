@@ -1,28 +1,30 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule'
-import type { SpeciesSpec } from '@/modules/Roleplay/Rule/Dto/Race/SpeciesSpec'
+import { computed } from 'vue';
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import type { SpeciesSpec } from '@/modules/Roleplay/Rule/Dto/Race/SpeciesSpec';
 
 const props = defineProps<{
-  rule: Rule
-  rules: Rule[]
-}>()
+  rule: Rule;
+  rules: Rule[];
+}>();
 
-const spec = computed<SpeciesSpec | null>(() => (props.rule.spec as SpeciesSpec) ?? null)
+const spec = computed<SpeciesSpec | null>(() => (props.rule.spec as SpeciesSpec) ?? null);
 
 const rulesByCode = computed(() => {
-  const map = new Map<string, Rule>()
-  for (const r of props.rules) map.set(r.code, r)
-  return map
-})
+  const map = new Map<string, Rule>();
+  for (const r of props.rules) map.set(r.code, r);
+
+  return map;
+});
 
 const parentRule = computed(() => {
-  const code = spec.value?.parent_race_code
-  return code ? rulesByCode.value.get(code) ?? null : null
-})
+  const code = spec.value?.parent_race_code;
+
+  return code ? (rulesByCode.value.get(code) ?? null) : null;
+});
 
 function abilityName(code: string): string {
-  return rulesByCode.value.get(code)?.name ?? code
+  return rulesByCode.value.get(code)?.name ?? code;
 }
 </script>
 
@@ -48,9 +50,7 @@ function abilityName(code: string): string {
           class="mr-2 mb-2"
         >
           {{ abilityName(ref.ability_code) }}
-          <v-chip v-if="!ref.automatic" size="x-small" variant="text" label>
-            доступная
-          </v-chip>
+          <v-chip v-if="!ref.automatic" size="x-small" variant="text" label> доступная </v-chip>
         </v-chip>
       </v-card-text>
     </v-card>

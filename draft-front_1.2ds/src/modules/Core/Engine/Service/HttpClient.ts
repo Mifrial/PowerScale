@@ -1,19 +1,19 @@
-import type { HttpClientConfig } from '@/modules/Core/Engine/Dto/HttpClientConfig'
-import type { HttpResponse } from '@/modules/Core/Engine/Dto/HttpResponse'
+import type { HttpClientConfig } from '@/modules/Core/Engine/Dto/HttpClientConfig';
+import type { HttpResponse } from '@/modules/Core/Engine/Dto/HttpResponse';
 
 export class HttpClient {
   constructor(private readonly config: HttpClientConfig) {}
 
   getBaseUrl(): string {
-    return this.config.baseUrl
+    return this.config.baseUrl;
   }
 
   async post<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<HttpResponse<T>> {
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
 
-    const csrfToken = this.config.getCsrfToken?.()
+    const csrfToken = this.config.getCsrfToken?.();
     if (csrfToken) {
-      headers['X-CSRF-Token'] = csrfToken
+      headers['X-CSRF-Token'] = csrfToken;
     }
 
     const res = await fetch(`${this.config.baseUrl}${path}`, {
@@ -22,18 +22,21 @@ export class HttpClient {
       headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
       signal,
-    })
+    });
 
     if (res.status === 401) {
-      const onUnauthorized = this.config.onUnauthorized ?? (() => {
-        if (!window.location.pathname.startsWith('/login')) {
-          window.location.href = '/login'
-        }
-      })
-      onUnauthorized()
+      const onUnauthorized =
+        this.config.onUnauthorized ??
+        (() => {
+          if (!window.location.pathname.startsWith('/login')) {
+            window.location.href = '/login';
+          }
+        });
+      onUnauthorized();
     }
 
-    const data = await res.json() as T
-    return { ok: res.ok, status: res.status, data }
+    const data = (await res.json()) as T;
+
+    return { ok: res.ok, status: res.status, data };
   }
 }

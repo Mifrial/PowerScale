@@ -1,132 +1,147 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import type { ColumnDefinition } from '@/modules/Core/UI/Dto/ColumnDefinition'
-import type { Row } from '@/modules/Core/UI/Dto/Row'
-import type { Sort } from '@/modules/Core/UI/Dto/Sort'
-import type { Pagination } from '@/modules/Core/UI/Dto/Pagination'
-import { loadGridSettings, saveGridSettings, buildDisplayColumns } from '@/modules/Core/UI/Component/Grid/gridSettings'
-import type { ColumnSetting } from '@/modules/Core/UI/Component/Grid/gridSettings'
-import FieldPickerDialog from '@/modules/Core/UI/Component/FieldPickerDialog.vue'
-import type { PickerItem } from '@/modules/Core/UI/Dto/PickerItem'
-import GridHeader from '@/modules/Core/UI/Component/Grid/header/GridHeader.vue'
-import GridRow from '@/modules/Core/UI/Component/Grid/GridRow.vue'
-import GridFooter from '@/modules/Core/UI/Component/Grid/GridFooter.vue'
-import ScrollEars from '@/modules/Core/UI/Component/Grid/ScrollEars.vue'
-import { useColumnResize } from '@/modules/Core/UI/Composables/useColumnResize'
-import { useColumnDrag } from '@/modules/Core/UI/Composables/useColumnDrag'
+import { computed, ref, watch } from 'vue';
+import type { ColumnDefinition } from '@/modules/Core/UI/Dto/ColumnDefinition';
+import type { Row } from '@/modules/Core/UI/Dto/Row';
+import type { Sort } from '@/modules/Core/UI/Dto/Sort';
+import type { Pagination } from '@/modules/Core/UI/Dto/Pagination';
+import { loadGridSettings, saveGridSettings, buildDisplayColumns } from '@/modules/Core/UI/Component/Grid/gridSettings';
+import type { ColumnSetting } from '@/modules/Core/UI/Component/Grid/gridSettings';
+import FieldPickerDialog from '@/modules/Core/UI/Component/FieldPickerDialog.vue';
+import type { PickerItem } from '@/modules/Core/UI/Dto/PickerItem';
+import GridHeader from '@/modules/Core/UI/Component/Grid/header/GridHeader.vue';
+import GridRow from '@/modules/Core/UI/Component/Grid/GridRow.vue';
+import GridFooter from '@/modules/Core/UI/Component/Grid/GridFooter.vue';
+import ScrollEars from '@/modules/Core/UI/Component/Grid/ScrollEars.vue';
+import { useColumnResize } from '@/modules/Core/UI/Composables/useColumnResize';
+import { useColumnDrag } from '@/modules/Core/UI/Composables/useColumnDrag';
 
 const props = defineProps<{
-  columns: ColumnDefinition[]
-  rows: Row[]
-  pagination?: Pagination | null
-  total?: number
-  sort?: Sort | null
-  loading?: boolean
-  gridId?: string
-}>()
+  columns: ColumnDefinition[];
+  rows: Row[];
+  pagination?: Pagination | null;
+  total?: number;
+  sort?: Sort | null;
+  loading?: boolean;
+  gridId?: string;
+}>();
 
 const emit = defineEmits<{
-  'update:sort': [sort: Sort | null]
-  'update:pagination': [pagination: Pagination]
-  'row-action': [payload: { action: string; row: Row }]
-}>()
+  'update:sort': [sort: Sort | null];
+  'update:pagination': [pagination: Pagination];
+  'row-action': [payload: { action: string; row: Row }];
+}>();
 
-const settingsOpen = ref(false)
-const savedSettings = ref(loadGridSettings(props.gridId ?? ''))
-const columnWidths = ref<Record<string, number>>(savedSettings.value?.widths ?? {})
+const settingsOpen = ref(false);
+const savedSettings = ref(loadGridSettings(props.gridId ?? ''));
+const columnWidths = ref<Record<string, number>>(savedSettings.value?.widths ?? {});
 
-watch(() => props.gridId, (id) => {
-  savedSettings.value = loadGridSettings(id ?? '')
-  columnWidths.value = savedSettings.value?.widths ?? {}
-})
+watch(
+  () => props.gridId,
+  (id) => {
+    savedSettings.value = loadGridSettings(id ?? '');
+    columnWidths.value = savedSettings.value?.widths ?? {};
+  },
+);
 
-const displayColumns = computed(() =>
-  buildDisplayColumns(props.columns, savedSettings.value),
-)
+const displayColumns = computed(() => buildDisplayColumns(props.columns, savedSettings.value));
 
-const totalItems = computed(() => props.total ?? props.rows.length)
+const totalItems = computed(() => props.total ?? props.rows.length);
 
 const pickerItems = computed((): PickerItem[] => {
-  const savedMap = new Map((savedSettings.value?.columns ?? []).map(s => [s.key, s.visible]))
-  return props.columns.map(c => ({
+  const savedMap = new Map((savedSettings.value?.columns ?? []).map((s) => [s.key, s.visible]));
+
+  return props.columns.map((c) => ({
     key: c.key,
     label: c.label,
-    visible: savedMap.has(c.key) ? savedMap.get(c.key)! : true,
-  }))
-})
+    visible: savedMap.get(c.key) ?? true,
+  }));
+});
 
 const tableHeaders = computed(() =>
-  displayColumns.value.map(c => ({
+  displayColumns.value.map((c) => ({
     title: c.label,
     key: c.key,
     sortable: c.sortable !== false,
     width: c.width,
   })),
-)
+);
 
 function saveWidths() {
-  if (!props.gridId) return
-  const settings = savedSettings.value ?? { columns: [] }
-  const updated = { ...settings, widths: { ...columnWidths.value } }
-  saveGridSettings(props.gridId, updated)
-  savedSettings.value = updated
+  if (!props.gridId) return;
+  const settings = savedSettings.value ?? { columns: [] };
+  const updated = { ...settings, widths: { ...columnWidths.value } };
+  saveGridSettings(props.gridId, updated);
+  savedSettings.value = updated;
 }
 
-const { resizingKey, resizePerformed, start: onResizeStart } = useColumnResize({
+const {
+  resizingKey,
+  resizePerformed,
+  start: onResizeStart,
+} = useColumnResize({
   columnWidths,
   saveWidths,
-})
+});
 
 function saveOrder(keys: string[]) {
-  if (!props.gridId) return
-  const cols = props.columns.map(c => {
-    const saved = savedSettings.value?.columns.find(s => s.key === c.key)
-    return { key: c.key, visible: saved?.visible ?? true }
-  })
-  const orderMap = new Map(keys.map((k, i) => [k, i]))
-  cols.sort((a, b) => (orderMap.get(a.key) ?? 999) - (orderMap.get(b.key) ?? 999))
-  const settings = { columns: cols, widths: { ...columnWidths.value } }
-  saveGridSettings(props.gridId, settings)
-  savedSettings.value = settings
+  if (!props.gridId) return;
+  const cols = props.columns.map((c) => {
+    const saved = savedSettings.value?.columns.find((s) => s.key === c.key);
+
+    return { key: c.key, visible: saved?.visible ?? true };
+  });
+  const orderMap = new Map(keys.map((k, i) => [k, i]));
+  cols.sort((a, b) => (orderMap.get(a.key) ?? 999) - (orderMap.get(b.key) ?? 999));
+  const settings = { columns: cols, widths: { ...columnWidths.value } };
+  saveGridSettings(props.gridId, settings);
+  savedSettings.value = settings;
 }
 
-const { dragKey, dropTarget, start: onDragStart, enter: onDragEnter, drop: onDrop, end: onDragEnd } = useColumnDrag({
+const {
+  dragKey,
+  dropTarget,
+  start: onDragStart,
+  enter: onDragEnter,
+  drop: onDrop,
+  end: onDragEnd,
+} = useColumnDrag({
   displayColumns,
   saveOrder,
-})
+});
 
 function onColumnSort(key: string) {
   if (resizePerformed.value) {
-    resizePerformed.value = false
-    return
+    resizePerformed.value = false;
+
+    return;
   }
-  const s = props.sort
+  const s = props.sort;
   if (s?.key === key) {
     if (s.order === 'asc') {
-      emit('update:sort', { key, order: 'desc' })
+      emit('update:sort', { key, order: 'desc' });
     } else {
-      emit('update:sort', null)
+      emit('update:sort', null);
     }
   } else {
-    emit('update:sort', { key, order: 'asc' })
+    emit('update:sort', { key, order: 'asc' });
   }
-  emit('update:pagination', { page: 1, perPage: props.pagination?.perPage ?? 10 })
+  emit('update:pagination', { page: 1, perPage: props.pagination?.perPage ?? 10 });
 }
 
 function onSettingsApply(items: PickerItem[]) {
-  if (!props.gridId) return
-  const columns: ColumnSetting[] = items.map(i => ({ key: i.key, visible: i.visible }))
-  const settings = { columns, widths: { ...columnWidths.value } }
-  saveGridSettings(props.gridId, settings)
-  savedSettings.value = settings
+  if (!props.gridId) return;
+  const columns: ColumnSetting[] = items.map((i) => ({ key: i.key, visible: i.visible }));
+  const settings = { columns, widths: { ...columnWidths.value } };
+  saveGridSettings(props.gridId, settings);
+  savedSettings.value = settings;
 }
 
 function onPaginationChange(pagination: Pagination) {
-  emit('update:pagination', pagination)
+  emit('update:pagination', pagination);
 }
 
 function onRowAction(payload: { action: string; row: Row }) {
-  emit('row-action', payload)
+  emit('row-action', payload);
 }
 </script>
 
@@ -163,12 +178,7 @@ function onRowAction(payload: { action: string; row: Row }) {
         </template>
 
         <template #item="{ item }">
-          <GridRow
-            :grid-id="gridId"
-            :columns="displayColumns"
-            :item="item"
-            @row-action="onRowAction"
-          />
+          <GridRow :grid-id="gridId" :columns="displayColumns" :item="item" @row-action="onRowAction" />
         </template>
 
         <template #bottom>

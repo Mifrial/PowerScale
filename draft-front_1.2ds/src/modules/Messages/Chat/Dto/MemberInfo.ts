@@ -1,5 +1,5 @@
 export interface MemberInfo {
-  userId: number
-  status: string
-  joinedAt: string
+  userId: number;
+  status: string;
+  joinedAt: string;
 }

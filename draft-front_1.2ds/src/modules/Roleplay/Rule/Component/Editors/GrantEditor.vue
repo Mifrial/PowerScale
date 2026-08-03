@@ -1,64 +1,69 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue'
-import FormulaInput from '@/modules/Roleplay/Rule/Component/FormulaInput.vue'
-import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue'
-import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue'
-import { abilitySpecService } from '@/modules/Roleplay/Rule/Service/Spec/AbilitySpecService'
-import { useVModelSync } from '@/modules/Core/UI/Composables/useVModelSync'
-import { GRANT_TYPES } from '@/modules/Roleplay/Rule/Constant/Ability/GRANT_TYPES'
-import type { Grant } from '@/modules/Roleplay/Rule/Dto/Ability/Grant'
-import type { CharacteristicRef } from '@/modules/Roleplay/Rule/Dto/Ability/CharacteristicRef'
-import type { ResourceRef } from '@/modules/Roleplay/Rule/Dto/Ability/ResourceRef'
-import type { AbilityRef } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityRef'
-import type { KeywordRef } from '@/modules/Roleplay/Rule/Dto/Ability/KeywordRef'
-import type { SourceRef } from '@/modules/Roleplay/Rule/Dto/Ability/SourceRef'
-import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumber'
+import { computed, watch } from 'vue';
+import FormulaInput from '@/modules/Roleplay/Rule/Component/FormulaInput.vue';
+import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue';
+import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
+import { abilitySpecService } from '@/modules/Roleplay/Rule/Service/Spec/AbilitySpecService';
+import { useVModelSync } from '@/modules/Core/UI/Composables/useVModelSync';
+import { GRANT_TYPES } from '@/modules/Roleplay/Rule/Constant/Ability/GRANT_TYPES';
+import type { Grant } from '@/modules/Roleplay/Rule/Dto/Ability/Grant';
+import type { CharacteristicRef } from '@/modules/Roleplay/Rule/Dto/Ability/CharacteristicRef';
+import type { ResourceRef } from '@/modules/Roleplay/Rule/Dto/Ability/ResourceRef';
+import type { AbilityRef } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityRef';
+import type { KeywordRef } from '@/modules/Roleplay/Rule/Dto/Ability/KeywordRef';
+import type { SourceRef } from '@/modules/Roleplay/Rule/Dto/Ability/SourceRef';
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumber';
 
 const props = defineProps<{
-  modelValue: Grant
-  characteristics: CharacteristicRef[]
-  resources: ResourceRef[]
-  abilities: AbilityRef[]
-  keywords: KeywordRef[]
-  items: { code: string; name: string }[]
-  sources: SourceRef[]
-}>()
+  modelValue: Grant;
+  characteristics: CharacteristicRef[];
+  resources: ResourceRef[];
+  abilities: AbilityRef[];
+  keywords: KeywordRef[];
+  items: { code: string; name: string }[];
+  sources: SourceRef[];
+}>();
 
 const emit = defineEmits<{
-  'update:modelValue': [value: Grant]
-  'remove': []
-}>()
+  'update:modelValue': [value: Grant];
+  remove: [];
+}>();
 
 const { inner } = useVModelSync<Grant>({
   modelValue: () => props.modelValue,
   onCommit: (value) => emit('update:modelValue', value),
   clone: true,
-})
+});
 
 const selectedResourceIsDimensional = computed(() => {
-  const v = inner.value
-  if (v.type !== 'resource') return false
-  return props.resources.find(r => r.code === v.resource_code)?.isDimensional ?? false
-})
+  const v = inner.value;
+  if (v.type !== 'resource') return false;
 
-watch(() => props.resources, (resources) => {
-  const v = inner.value
-  if (v.type !== 'resource' || !v.resource_code) return
-  const res = resources.find(r => r.code === v.resource_code)
-  const limit = v.limit
-  if (res?.isDimensional && typeof limit === 'number') {
-    inner.value = { ...v, limit: { base: limit, size: 0 } } as Grant
-  } else if (!res?.isDimensional && limit && typeof limit === 'object' && !Array.isArray(limit)) {
-    inner.value = { ...v, limit: limit.base } as Grant
-  }
-}, { deep: true })
+  return props.resources.find((r) => r.code === v.resource_code)?.isDimensional ?? false;
+});
+
+watch(
+  () => props.resources,
+  (resources) => {
+    const v = inner.value;
+    if (v.type !== 'resource' || !v.resource_code) return;
+    const res = resources.find((r) => r.code === v.resource_code);
+    const limit = v.limit;
+    if (res?.isDimensional && typeof limit === 'number') {
+      inner.value = { ...v, limit: { base: limit, size: 0 } } as Grant;
+    } else if (!res?.isDimensional && limit && typeof limit === 'object' && !Array.isArray(limit)) {
+      inner.value = { ...v, limit: limit.base } as Grant;
+    }
+  },
+  { deep: true },
+);
 
 function updateType(type: string) {
-  inner.value = abilitySpecService.createEmptyGrant(type as Grant['type'], props.sources[0]?.code ?? '')
+  inner.value = abilitySpecService.createEmptyGrant(type as Grant['type'], props.sources[0]?.code ?? '');
 }
 
 function patch(key: string, value: unknown) {
-  inner.value = { ...inner.value, [key]: value } as Grant
+  inner.value = { ...inner.value, [key]: value } as Grant;
 }
 </script>
 
@@ -74,15 +79,9 @@ function patch(key: string, value: unknown) {
         label="Дар"
         density="compact"
         hide-details
-        style="flex: 1 1 auto;"
+        style="flex: 1 1 auto"
       />
-      <v-btn
-        icon
-        size="small"
-        color="error"
-        variant="text"
-        @click="emit('remove')"
-      >
+      <v-btn icon size="small" color="error" variant="text" @click="emit('remove')">
         <v-icon>mdi-delete</v-icon>
       </v-btn>
     </div>

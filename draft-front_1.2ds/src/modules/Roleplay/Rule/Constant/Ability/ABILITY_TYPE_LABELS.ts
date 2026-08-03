@@ -1,4 +1,4 @@
-import type { AbilityType } from '@/modules/Roleplay/Rule/Enum/Ability/AbilityType'
+import type { AbilityType } from '@/modules/Roleplay/Rule/Enum/Ability/AbilityType';
 
 export const ABILITY_TYPE_LABELS: Record<AbilityType, string> = {
   trait: 'Черта',
@@ -7,4 +7,4 @@ export const ABILITY_TYPE_LABELS: Record<AbilityType, string> = {
   action: 'Действие',
   process: 'Процесс',
   spell: 'Заклинание',
-}
+};

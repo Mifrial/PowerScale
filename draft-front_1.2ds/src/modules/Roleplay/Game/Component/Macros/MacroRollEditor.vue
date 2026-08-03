@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import type { RollForm } from '@/modules/Roleplay/Game/Dto/RollForm'
-import { rollService } from '@/modules/Roleplay/Game/Service/RollService'
+import { computed } from 'vue';
+import type { RollForm } from '@/modules/Roleplay/Game/Dto/RollForm';
+import { rollService } from '@/modules/Roleplay/Game/Service/RollService';
 import {
   ROLL_ADV_MAX,
   ROLL_DICE_COUNT_MAX,
@@ -11,13 +11,13 @@ import {
   ROLL_DIE_SIZE_MAX,
   ROLL_EFFICIENCY_MAX,
   ROLL_EFFICIENCY_MIN,
-} from '@/modules/Roleplay/Game/Constant/rollLimits'
+} from '@/modules/Roleplay/Game/Constant/rollLimits';
 
-defineProps<{ index: number }>()
-const roll = defineModel<RollForm>({ required: true })
-const emit = defineEmits<{ remove: [] }>()
+defineProps<{ index: number }>();
+const roll = defineModel<RollForm>({ required: true });
+const emit = defineEmits<{ remove: [] }>();
 
-const previewText = computed(() => rollService.formatRollFormText(roll.value))
+const previewText = computed(() => rollService.formatRollFormText(roll.value));
 </script>
 
 <template>

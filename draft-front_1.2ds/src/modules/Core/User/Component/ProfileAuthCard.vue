@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import type { User } from '@/modules/Core/User/Dto/User'
+import type { User } from '@/modules/Core/User/Dto/User';
 
 const props = defineProps<{
-  user: User
-  editing: boolean
-}>()
+  user: User;
+  editing: boolean;
+}>();
 
-const formEmail = defineModel<string>('formEmail', { required: true })
+const formEmail = defineModel<string>('formEmail', { required: true });
 </script>
 
 <template>

@@ -1,28 +1,28 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { storeToRefs } from 'pinia'
-import { useSpaceStore } from '@/modules/Roleplay/Space/Store/spaces'
-import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable'
-import FilterBar from '@/modules/Core/UI/Component/FilterBar.vue'
-import { filterFields } from '@/modules/Roleplay/Space/Constant/spacesGridManifest'
-import type { FilterValue } from '@/modules/Core/UI/Dto/FilterValue'
-import { extractFilterValue, extractStringFilter } from '@/modules/Core/UI/Utils/filterExtract'
+import { onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
+import { storeToRefs } from 'pinia';
+import { useSpaceStore } from '@/modules/Roleplay/Space/Store/spaces';
+import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
+import FilterBar from '@/modules/Core/UI/Component/FilterBar.vue';
+import { filterFields } from '@/modules/Roleplay/Space/Constant/spacesGridManifest';
+import type { FilterValue } from '@/modules/Core/UI/Dto/FilterValue';
+import { extractFilterValue, extractStringFilter } from '@/modules/Core/UI/Utils/filterExtract';
 
-const router = useRouter()
-const store = useSpaceStore()
-const { filteredSpaces, loading } = storeToRefs(store)
-const { signal } = useAbortable()
+const router = useRouter();
+const store = useSpaceStore();
+const { filteredSpaces, loading } = storeToRefs(store);
+const { signal } = useAbortable();
 
-const appliedFilters = ref<Record<string, FilterValue>>({})
+const appliedFilters = ref<Record<string, FilterValue>>({});
 
-onMounted(() => store.fetchSpaces(signal.value))
+onMounted(() => store.fetchSpaces(signal.value));
 
 function onFilterChange(filters: Record<string, FilterValue>) {
-  appliedFilters.value = filters
-  store.quickFilter = extractFilterValue(filters.q)
-  store.filterName = extractStringFilter(filters.name)
-  store.filterActive = extractFilterValue(filters.active)
+  appliedFilters.value = filters;
+  store.quickFilter = extractFilterValue(filters.q);
+  store.filterName = extractStringFilter(filters.name);
+  store.filterActive = extractFilterValue(filters.active);
 }
 </script>
 
@@ -31,9 +31,7 @@ function onFilterChange(filters: Record<string, FilterValue>) {
     <div class="d-flex align-center mb-4">
       <h1 class="text-h5">Пространства</h1>
       <v-spacer />
-      <v-btn color="primary" prepend-icon="mdi-plus" @click="router.push('/spaces/new')">
-        Создать
-      </v-btn>
+      <v-btn color="primary" prepend-icon="mdi-plus" @click="router.push('/spaces/new')"> Создать </v-btn>
     </div>
 
     <FilterBar
@@ -49,18 +47,11 @@ function onFilterChange(filters: Record<string, FilterValue>) {
           <v-card-title class="d-flex align-center space-card-title">
             <span class="space-card-name">{{ space.name }}</span>
             <v-spacer />
-            <v-chip
-              :color="space.active ? 'success' : 'grey'"
-              variant="tonal"
-              size="x-small"
-              class="space-card-chip"
-            >
+            <v-chip :color="space.active ? 'success' : 'grey'" variant="tonal" size="x-small" class="space-card-chip">
               {{ space.active ? 'Активен' : 'Неактивен' }}
             </v-chip>
           </v-card-title>
-          <v-card-subtitle>
-            Версия {{ space.revision }}
-          </v-card-subtitle>
+          <v-card-subtitle> Версия {{ space.revision }} </v-card-subtitle>
           <v-card-text>
             <div class="text-body-2">{{ space.description }}</div>
           </v-card-text>
@@ -77,7 +68,9 @@ function onFilterChange(filters: Record<string, FilterValue>) {
 <style scoped>
 .space-card {
   height: 100%;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
   cursor: pointer;
 }
 .space-card:hover {

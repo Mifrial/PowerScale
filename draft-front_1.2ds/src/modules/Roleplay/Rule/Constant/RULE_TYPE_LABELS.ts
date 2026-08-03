@@ -8,4 +8,4 @@ export const RULE_TYPE_LABELS: Record<string, string> = {
   ability: 'Способность',
   item: 'Предмет',
   damage_type: 'Тип урона',
-}
+};

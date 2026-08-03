@@ -1,17 +1,17 @@
 <script setup lang="ts">
-import Messenger from '@/modules/Messages/Chat/Component/Messenger.vue'
-import MessengerTabs from '@/modules/Messages/Chat/Component/MessengerTabs.vue'
+import ChatMessenger from '@/modules/Messages/Chat/Component/ChatMessenger.vue';
+import MessengerTabs from '@/modules/Messages/Chat/Component/MessengerTabs.vue';
 </script>
 
 <template>
   <div class="messenger-page">
-    <Messenger>
+    <ChatMessenger>
       <template #tabs>
         <div class="messenger-header">
           <MessengerTabs />
         </div>
       </template>
-    </Messenger>
+    </ChatMessenger>
   </div>
 </template>
 

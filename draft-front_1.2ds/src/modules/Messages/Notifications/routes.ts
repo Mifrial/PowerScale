@@ -1,4 +1,4 @@
-import type { RouteRecordRaw } from 'vue-router'
+import type { RouteRecordRaw } from 'vue-router';
 
 export const routes: RouteRecordRaw[] = [
   {
@@ -7,12 +7,15 @@ export const routes: RouteRecordRaw[] = [
     component: () => import('@/modules/Messages/Notifications/Page/NotificationsPage.vue'),
     meta: { title: 'Уведомления' },
   },
-]
+];
 
 export const adminChildren: RouteRecordRaw[] = [
   {
     path: 'notification-templates',
-    meta: { crumb: () => [{ title: 'Шаблоны уведомлений', to: '/admin/notification-templates' }], requiresAny: ['notification_template.view'] },
+    meta: {
+      crumb: () => [{ title: 'Шаблоны уведомлений', to: '/admin/notification-templates' }],
+      requiresAny: ['notification_template.view'],
+    },
     children: [
       {
         path: '',
@@ -23,14 +26,22 @@ export const adminChildren: RouteRecordRaw[] = [
         path: 'new',
         name: 'TemplateNew',
         component: () => import('@/modules/Messages/Notifications/Page/TemplateEditPage.vue'),
-        meta: { title: 'Создание шаблона', crumb: () => [{ title: 'Создание шаблона' }], requiresAny: ['notification_template.create'] },
+        meta: {
+          title: 'Создание шаблона',
+          crumb: () => [{ title: 'Создание шаблона' }],
+          requiresAny: ['notification_template.create'],
+        },
       },
       {
         path: ':id/edit',
         name: 'TemplateEdit',
         component: () => import('@/modules/Messages/Notifications/Page/TemplateEditPage.vue'),
-        meta: { title: 'Редактирование шаблона', crumb: () => [{ title: 'Редактирование шаблона' }], requiresAny: ['notification_template.edit'] },
+        meta: {
+          title: 'Редактирование шаблона',
+          crumb: () => [{ title: 'Редактирование шаблона' }],
+          requiresAny: ['notification_template.edit'],
+        },
       },
     ],
   },
-]
+];

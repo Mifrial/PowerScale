@@ -1,5 +1,5 @@
-import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule'
-import type { RuleFormState } from '@/modules/Roleplay/Rule/Dto/RuleFormState'
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import type { RuleFormState } from '@/modules/Roleplay/Rule/Dto/RuleFormState';
 
 export function ruleToForm(rule: Rule): RuleFormState {
   return {
@@ -11,5 +11,5 @@ export function ruleToForm(rule: Rule): RuleFormState {
     mechanicId: rule.mechanicId ?? null,
     keywordIds: rule.keywordIds ?? [],
     spec: rule.spec ?? null,
-  }
+  };
 }

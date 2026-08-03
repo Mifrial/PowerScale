@@ -9,9 +9,7 @@
             <v-icon class="mr-2">mdi-account-group</v-icon>
             Группы пользователей
           </v-card-title>
-          <v-card-text>
-            Управление группами и правами доступа
-          </v-card-text>
+          <v-card-text> Управление группами и правами доступа </v-card-text>
           <v-card-actions>
             <v-spacer />
             <v-btn variant="text" color="primary">Перейти</v-btn>
@@ -25,9 +23,7 @@
             <v-icon class="mr-2">mdi-tag-multiple</v-icon>
             Признаки
           </v-card-title>
-          <v-card-text>
-            Справочник тегов для правил
-          </v-card-text>
+          <v-card-text> Справочник тегов для правил </v-card-text>
           <v-card-actions>
             <v-spacer />
             <v-btn variant="text" color="primary">Перейти</v-btn>
@@ -41,9 +37,7 @@
             <v-icon class="mr-2">mdi-bell-cog</v-icon>
             Шаблоны уведомлений
           </v-card-title>
-          <v-card-text>
-            Настройка шаблонов уведомлений
-          </v-card-text>
+          <v-card-text> Настройка шаблонов уведомлений </v-card-text>
           <v-card-actions>
             <v-spacer />
             <v-btn variant="text" color="primary">Перейти</v-btn>
@@ -57,7 +51,9 @@
 <style scoped>
 .admin-card {
   height: 100%;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
 }
 .admin-card:hover {
   transform: translateY(-2px);

@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumber'
+import { computed } from 'vue';
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumber';
 
 const props = defineProps<{
-  value: DimensionalNumberValue
-}>()
+  value: DimensionalNumberValue;
+}>();
 
 const displaySize = computed(() => {
-  return Math.abs(props.value.size)
-})
+  return Math.abs(props.value.size);
+});
 </script>
 
 <template>
@@ -26,7 +26,8 @@ const displaySize = computed(() => {
   font-family: monospace;
   font-weight: 500;
 }
-.base, .size {
+.base,
+.size {
   min-width: 1ch;
   text-align: center;
 }

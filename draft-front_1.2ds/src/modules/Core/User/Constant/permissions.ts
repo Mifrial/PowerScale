@@ -1,4 +1,4 @@
-import type { PermissionCategory, AdminSection } from '@/modules/Core/User/Interface/IPermissionRegistry'
+import type { PermissionCategory, AdminSection } from '@/modules/Core/User/Interface/IPermissionRegistry';
 
 export const USER_PERMISSION_CATEGORY: PermissionCategory = {
   key: 'user',
@@ -10,7 +10,7 @@ export const USER_PERMISSION_CATEGORY: PermissionCategory = {
     { key: 'edit', label: 'Редактирование' },
     { key: 'deactivate', label: 'Деактивация' },
   ],
-}
+};
 
 export const USER_GROUP_PERMISSION_CATEGORY: PermissionCategory = {
   key: 'user_group',
@@ -21,7 +21,7 @@ export const USER_GROUP_PERMISSION_CATEGORY: PermissionCategory = {
     { key: 'edit', label: 'Редактирование' },
     { key: 'deactivate', label: 'Деактивация' },
   ],
-}
+};
 
 export const GROUPS_ADMIN_SECTION: AdminSection = {
   id: 'groups',
@@ -29,4 +29,4 @@ export const GROUPS_ADMIN_SECTION: AdminSection = {
   to: '/admin/groups',
   icon: 'mdi-account-group',
   permission: 'user_group.view',
-}
+};

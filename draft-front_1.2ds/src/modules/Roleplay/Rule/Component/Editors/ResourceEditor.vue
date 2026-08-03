@@ -1,65 +1,73 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
-import RuleEditorBase from '@/modules/Roleplay/Rule/Component/Editors/RuleEditorBase.vue'
-import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue'
-import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumber'
-import { resourceSpecService } from '@/modules/Roleplay/Rule/Service/Spec/ResourceSpecService'
-import type { ResourceSpec } from '@/modules/Roleplay/Rule/Dto/ResourceSpec'
-import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec'
+import { ref, computed, watch, onMounted } from 'vue';
+import RuleEditorBase from '@/modules/Roleplay/Rule/Component/Editors/RuleEditorBase.vue';
+import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue';
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumber';
+import { resourceSpecService } from '@/modules/Roleplay/Rule/Service/Spec/ResourceSpecService';
+import type { ResourceSpec } from '@/modules/Roleplay/Rule/Dto/ResourceSpec';
+import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec';
 
 const props = defineProps<{
-  name: string
-  code: string
-  codeDisabled?: boolean
-  description: string
-  mechanicId: number | null
-  keywordIds: number[]
-  spec: RuleSpec | null
-  mechanicOptions: { title: string; value: number }[]
-  keywordOptions: { title: string; value: number }[]
-}>()
+  name: string;
+  code: string;
+  codeDisabled?: boolean;
+  description: string;
+  mechanicId: number | null;
+  keywordIds: number[];
+  spec: RuleSpec | null;
+  mechanicOptions: { title: string; value: number }[];
+  keywordOptions: { title: string; value: number }[];
+}>();
 
 const emit = defineEmits<{
-  'update:name': [value: string]
-  'update:code': [value: string]
-  'update:description': [value: string]
-  'update:mechanicId': [value: number | null]
-  'update:keywordIds': [value: number[]]
-  'update:spec': [value: ResourceSpec]
-}>()
+  'update:name': [value: string];
+  'update:code': [value: string];
+  'update:description': [value: string];
+  'update:mechanicId': [value: number | null];
+  'update:keywordIds': [value: number[]];
+  'update:spec': [value: ResourceSpec];
+}>();
 
-const expandedPanels = ref<string[]>(['general', 'resource'])
+const expandedPanels = ref<string[]>(['general', 'resource']);
 
-const innerSpec = ref<ResourceSpec>(resourceSpecService.createEmpty())
+const innerSpec = ref<ResourceSpec>(resourceSpecService.createEmpty());
 
 const dimensionalInitialValue = computed<DimensionalNumberValue | null>({
   get: () => {
-    const v = innerSpec.value.initial_value
-    return v && typeof v === 'object' ? v : null
+    const v = innerSpec.value.initial_value;
+
+    return v && typeof v === 'object' ? v : null;
   },
-  set: (val) => { innerSpec.value.initial_value = val },
-})
+  set: (val) => {
+    innerSpec.value.initial_value = val;
+  },
+});
 
 const specToEmit = computed<ResourceSpec>(() => {
   const result: ResourceSpec = {
     is_dimensional: innerSpec.value.is_dimensional,
     initial_value: innerSpec.value.initial_value,
-  }
-  return result
-})
+  };
 
-watch(specToEmit, (value) => {
-  emit('update:spec', value)
-}, { deep: true })
+  return result;
+});
+
+watch(
+  specToEmit,
+  (value) => {
+    emit('update:spec', value);
+  },
+  { deep: true },
+);
 
 onMounted(() => {
   if (props.spec) {
     innerSpec.value = {
       is_dimensional: (props.spec as ResourceSpec).is_dimensional ?? true,
       initial_value: (props.spec as ResourceSpec).initial_value ?? null,
-    }
+    };
   }
-})
+});
 </script>
 
 <template>
@@ -91,17 +99,9 @@ onMounted(() => {
       <v-expansion-panel value="resource">
         <v-expansion-panel-title>Ресурс</v-expansion-panel-title>
         <v-expansion-panel-text>
-          <v-switch
-            v-model="innerSpec.is_dimensional"
-            label="Размерный ресурс"
-            color="primary"
-            hide-details
-          />
+          <v-switch v-model="innerSpec.is_dimensional" label="Размерный ресурс" color="primary" hide-details />
           <div v-if="innerSpec.is_dimensional" class="mt-2">
-            <DimensionalNumberInput
-              v-model="dimensionalInitialValue"
-              label="Начальное значение"
-            />
+            <DimensionalNumberInput v-model="dimensionalInitialValue" label="Начальное значение" />
           </div>
           <v-text-field
             v-else

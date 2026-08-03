@@ -1,1 +1,1 @@
-export type ChatVisibility = 'public' | 'members' | 'invite'
+export type ChatVisibility = 'public' | 'members' | 'invite';

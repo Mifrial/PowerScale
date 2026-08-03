@@ -1,16 +1,16 @@
 <script setup lang="ts">
-import type { Notification } from '@/modules/Messages/Notifications/Dto/Notification'
-import NotificationItem from '@/modules/Messages/Notifications/Component/NotificationItem.vue'
+import type { Notification } from '@/modules/Messages/Notifications/Dto/Notification';
+import NotificationItem from '@/modules/Messages/Notifications/Component/NotificationItem.vue';
 
 defineProps<{
-  items: Notification[]
-  iconSize?: number | string
-  actionSize?: string
-}>()
+  items: Notification[];
+  iconSize?: number | string;
+  actionSize?: string;
+}>();
 
 defineEmits<{
-  action: [payload: { id: number; key: string }]
-}>()
+  action: [payload: { id: number; key: string }];
+}>();
 </script>
 
 <template>

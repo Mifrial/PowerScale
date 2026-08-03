@@ -1,16 +1,16 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec'
-import type { ChatToolbarContext } from '@/modules/Messages/Chat/Interface/IChatToolbarExtension'
-import DiceRollForm from '@/modules/Roleplay/Game/Component/DiceRollForm.vue'
+import { ref } from 'vue';
+import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec';
+import type { ChatToolbarContext } from '@/modules/Messages/Chat/Interface/IChatToolbarExtension';
+import DiceRollForm from '@/modules/Roleplay/Game/Component/DiceRollForm.vue';
 
-const props = defineProps<ChatToolbarContext>()
+const props = defineProps<ChatToolbarContext>();
 
-const showForm = ref(false)
+const showForm = ref(false);
 
 function add(spec: DiceRollSpec) {
-  props.addRoll(spec)
-  showForm.value = false
+  props.addRoll(spec);
+  showForm.value = false;
 }
 </script>
 

@@ -1,22 +1,26 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useScrollEars } from '@/modules/Core/UI/Composables/useScrollEars'
-import type { ColumnDefinition } from '@/modules/Core/UI/Dto/ColumnDefinition'
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { useScrollEars } from '@/modules/Core/UI/Composables/useScrollEars';
+import type { ColumnDefinition } from '@/modules/Core/UI/Dto/ColumnDefinition';
 
 const props = defineProps<{
-  columns: ColumnDefinition[]
-}>()
+  columns: ColumnDefinition[];
+}>();
 
-const scrollContainer = ref<HTMLElement | null>(null)
-const { earsLeft, earsRight, updateEars, scroll, initEars, cleanup } = useScrollEars({ scrollContainer })
+const scrollContainer = ref<HTMLElement | null>(null);
+const { earsLeft, earsRight, updateEars, scroll, initEars, cleanup } = useScrollEars({ scrollContainer });
 
-watch(() => props.columns, () => nextTick(initEars), { immediate: true })
+watch(
+  () => props.columns,
+  () => nextTick(initEars),
+  { immediate: true },
+);
 
 onMounted(() => {
-  setTimeout(initEars, 500)
-})
+  setTimeout(initEars, 500);
+});
 
-onBeforeUnmount(cleanup)
+onBeforeUnmount(cleanup);
 </script>
 
 <template>
@@ -51,7 +55,9 @@ onBeforeUnmount(cleanup)
   cursor: pointer;
   z-index: 2;
   padding: 0;
-  transition: background 0.15s, opacity 0.15s;
+  transition:
+    background 0.15s,
+    opacity 0.15s;
   color: rgb(var(--v-theme-primary));
   font-size: 14px;
   user-select: none;

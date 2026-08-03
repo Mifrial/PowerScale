@@ -1,9 +1,12 @@
-import type { NotificationTemplate } from '@/modules/Messages/Notifications/Dto/NotificationTemplate'
-import type { CreateTemplateData, UpdateTemplateData } from '@/modules/Messages/Notifications/Interface/INotificationTemplateApi'
+import type { NotificationTemplate } from '@/modules/Messages/Notifications/Dto/NotificationTemplate';
+import type {
+  CreateTemplateData,
+  UpdateTemplateData,
+} from '@/modules/Messages/Notifications/Interface/INotificationTemplateApi';
 
-const delay = (ms = 300) => new Promise(r => setTimeout(r, ms))
+const delay = (ms = 300) => new Promise((r) => setTimeout(r, ms));
 
-let nextId = 4
+let nextId = 4;
 
 const templates: NotificationTemplate[] = [
   {
@@ -22,9 +25,7 @@ const templates: NotificationTemplate[] = [
     key: 'character_moderation',
     titleTemplate: 'Персонаж "{{character_name}}" на модерации',
     bodyTemplate: '<p>Игрок {{player_name}} отправил персонажа на модерацию.</p>',
-    buttonsJson: [
-      { label: 'Проверить', actionType: 'url', action: '/games/{{game_id}}/moderate', payload: {} },
-    ],
+    buttonsJson: [{ label: 'Проверить', actionType: 'url', action: '/games/{{game_id}}/moderate', payload: {} }],
     active: true,
   },
   {
@@ -35,22 +36,24 @@ const templates: NotificationTemplate[] = [
     buttonsJson: [],
     active: true,
   },
-]
+];
 
 export async function fetchTemplates(_signal?: AbortSignal): Promise<NotificationTemplate[]> {
-  await delay()
-  return templates.map(t => ({ ...t }))
+  await delay();
+
+  return templates.map((t) => ({ ...t }));
 }
 
 export async function fetchTemplate(id: number, _signal?: AbortSignal): Promise<NotificationTemplate> {
-  await delay()
-  const t = templates.find(t => t.id === id)
-  if (!t) throw new Error(`Template ${id} not found`)
-  return { ...t }
+  await delay();
+  const t = templates.find((t) => t.id === id);
+  if (!t) throw new Error(`Template ${id} not found`);
+
+  return { ...t };
 }
 
 export async function createTemplate(data: CreateTemplateData, _signal?: AbortSignal): Promise<NotificationTemplate> {
-  await delay()
+  await delay();
   const template: NotificationTemplate = {
     id: nextId++,
     key: data.key,
@@ -58,24 +61,30 @@ export async function createTemplate(data: CreateTemplateData, _signal?: AbortSi
     bodyTemplate: data.bodyTemplate,
     buttonsJson: data.buttonsJson,
     active: true,
-  }
-  templates.push(template)
-  return { ...template }
+  };
+  templates.push(template);
+
+  return { ...template };
 }
 
-export async function updateTemplate(id: number, data: UpdateTemplateData, _signal?: AbortSignal): Promise<NotificationTemplate> {
-  await delay()
-  const t = templates.find(t => t.id === id)
-  if (!t) throw new Error(`Template ${id} not found`)
-  if (data.key !== undefined) t.key = data.key
-  if (data.titleTemplate !== undefined) t.titleTemplate = data.titleTemplate
-  if (data.bodyTemplate !== undefined) t.bodyTemplate = data.bodyTemplate
-  if (data.buttonsJson !== undefined) t.buttonsJson = data.buttonsJson
-  return { ...t }
+export async function updateTemplate(
+  id: number,
+  data: UpdateTemplateData,
+  _signal?: AbortSignal,
+): Promise<NotificationTemplate> {
+  await delay();
+  const t = templates.find((t) => t.id === id);
+  if (!t) throw new Error(`Template ${id} not found`);
+  if (data.key !== undefined) t.key = data.key;
+  if (data.titleTemplate !== undefined) t.titleTemplate = data.titleTemplate;
+  if (data.bodyTemplate !== undefined) t.bodyTemplate = data.bodyTemplate;
+  if (data.buttonsJson !== undefined) t.buttonsJson = data.buttonsJson;
+
+  return { ...t };
 }
 
 export async function deactivateTemplate(id: number, _signal?: AbortSignal): Promise<void> {
-  await delay()
-  const t = templates.find(t => t.id === id)
-  if (t) t.active = false
+  await delay();
+  const t = templates.find((t) => t.id === id);
+  if (t) t.active = false;
 }

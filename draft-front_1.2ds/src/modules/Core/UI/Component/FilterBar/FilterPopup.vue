@@ -1,31 +1,31 @@
 <script setup lang="ts">
-import type { Component } from 'vue'
-import type { FilterField } from '@/modules/Core/UI/Dto/FilterField'
-import type { FilterValue } from '@/modules/Core/UI/Dto/FilterValue'
-import { getFilterHandler } from '@/modules/Core/UI/Component/FilterBar/registry'
-import FieldPickerDialog from '@/modules/Core/UI/Component/FieldPickerDialog.vue'
-import type { PickerItem } from '@/modules/Core/UI/Dto/PickerItem'
+import type { Component } from 'vue';
+import type { FilterField } from '@/modules/Core/UI/Dto/FilterField';
+import type { FilterValue } from '@/modules/Core/UI/Dto/FilterValue';
+import { getFilterHandler } from '@/modules/Core/UI/Component/FilterBar/registry';
+import FieldPickerDialog from '@/modules/Core/UI/Component/FieldPickerDialog.vue';
+import type { PickerItem } from '@/modules/Core/UI/Dto/PickerItem';
 
 defineProps<{
-  fields: FilterField[]
-  editBuffer: Record<string, FilterValue | null | undefined>
-  enabled: Record<string, boolean>
-  settingsKey?: string
-  pickerItems: PickerItem[]
-  settingsOpen: boolean
-}>()
+  fields: FilterField[];
+  editBuffer: Record<string, FilterValue | null | undefined>;
+  enabled: Record<string, boolean>;
+  settingsKey?: string;
+  pickerItems: PickerItem[];
+  settingsOpen: boolean;
+}>();
 
 defineEmits<{
-  'update:settings-open': [v: boolean]
-  'update:value': [key: string, value: FilterValue | null | undefined]
-  'update:enabled': [key: string, value: boolean]
-  apply: []
-  'reset-all': []
-  'settings-apply': [items: PickerItem[]]
-}>()
+  'update:settings-open': [v: boolean];
+  'update:value': [key: string, value: FilterValue | null | undefined];
+  'update:enabled': [key: string, value: boolean];
+  apply: [];
+  'reset-all': [];
+  'settings-apply': [items: PickerItem[]];
+}>();
 
 function handlerComponent(type: string): Component | undefined {
-  return getFilterHandler(type)?.component
+  return getFilterHandler(type)?.component;
 }
 </script>
 

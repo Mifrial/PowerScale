@@ -1,6 +1,6 @@
-import type { RouteLocationNormalizedLoaded, RouteRecordRaw } from 'vue-router'
-import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision'
-import { useRuleStore } from '@/modules/Roleplay/Rule/Store/rules'
+import type { RouteLocationNormalizedLoaded, RouteRecordRaw } from 'vue-router';
+import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
+import { useRuleStore } from '@/modules/Roleplay/Rule/Store/rules';
 
 export const ruleCtxChildren: RouteRecordRaw[] = [
   {
@@ -26,23 +26,26 @@ export const ruleCtxChildren: RouteRecordRaw[] = [
       },
     ],
   },
-]
+];
 
 function ruleName(to: RouteLocationNormalizedLoaded): string {
-  const ruleId = String(to.params.ruleId)
-  const revision = useSpaceRevisionStore()
-  return revision.effectiveRules.find(r => r.id === ruleId)?.name ?? useRuleStore().currentRule?.name ?? ''
+  const ruleId = String(to.params.ruleId);
+  const revision = useSpaceRevisionStore();
+
+  return revision.effectiveRules.find((r) => r.id === ruleId)?.name ?? useRuleStore().currentRule?.name ?? '';
 }
 
 function ruleDetailCrumb(to: RouteLocationNormalizedLoaded) {
-  return [{
-    title: ruleName(to) || 'Правило',
-    to: `/space/${to.params.code}/${to.params.ctx}/rules/${to.params.ruleId}`,
-  }]
+  return [
+    {
+      title: ruleName(to) || 'Правило',
+      to: `/space/${to.params.code}/${to.params.ctx}/rules/${to.params.ruleId}`,
+    },
+  ];
 }
 
 function ruleEditCrumb() {
-  return [{ title: 'Редактирование' }]
+  return [{ title: 'Редактирование' }];
 }
 
 export const adminChildren: RouteRecordRaw[] = [
@@ -65,8 +68,12 @@ export const adminChildren: RouteRecordRaw[] = [
         path: ':id/edit',
         name: 'KeywordEdit',
         component: () => import('@/modules/Roleplay/Rule/Page/KeywordEditPage.vue'),
-        meta: { title: 'Редактирование тега', crumb: () => [{ title: 'Редактирование тега' }], requiresAny: ['keyword.edit'] },
+        meta: {
+          title: 'Редактирование тега',
+          crumb: () => [{ title: 'Редактирование тега' }],
+          requiresAny: ['keyword.edit'],
+        },
       },
     ],
   },
-]
+];

@@ -1,4 +1,4 @@
-import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumber'
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumber';
 
 export type Requirement =
   | { type: 'has_ability'; ability_code: string; min_level?: number }
@@ -7,4 +7,4 @@ export type Requirement =
   | { type: 'characteristic_value'; characteristic_code: string; min: DimensionalNumberValue }
   | { type: 'resource_limit'; resource_code: string; min?: DimensionalNumberValue | number }
   | { type: 'and'; children: Requirement[] }
-  | { type: 'or'; children: Requirement[] }
+  | { type: 'or'; children: Requirement[] };

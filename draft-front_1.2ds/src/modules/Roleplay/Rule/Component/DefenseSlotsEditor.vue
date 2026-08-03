@@ -1,37 +1,37 @@
 <script setup lang="ts">
-import { useVModelSync } from '@/modules/Core/UI/Composables/useVModelSync'
+import { useVModelSync } from '@/modules/Core/UI/Composables/useVModelSync';
 
 interface DefenseSlot {
-  defense: number
-  durability: number
-  source_code: string | null
+  defense: number;
+  durability: number;
+  source_code: string | null;
 }
 
 const props = defineProps<{
-  modelValue: DefenseSlot[]
-  sources: { code: string; name: string }[]
-}>()
+  modelValue: DefenseSlot[];
+  sources: { code: string; name: string }[];
+}>();
 
 const emit = defineEmits<{
-  'update:modelValue': [value: DefenseSlot[]]
-}>()
+  'update:modelValue': [value: DefenseSlot[]];
+}>();
 
 const { inner: localSlots } = useVModelSync<DefenseSlot[]>({
   modelValue: () => props.modelValue,
   onCommit: (value) => emit('update:modelValue', value),
   clone: false,
-})
+});
 
 function addSlot() {
   localSlots.value.push({
     defense: 0,
     durability: 0,
-    source_code: null
-  })
+    source_code: null,
+  });
 }
 
 function removeSlot(index: number) {
-  localSlots.value.splice(index, 1)
+  localSlots.value.splice(index, 1);
 }
 </script>
 
@@ -51,20 +51,10 @@ function removeSlot(index: number) {
         <tbody>
           <tr v-for="(slot, index) in localSlots" :key="index">
             <td>
-              <v-text-field
-                v-model.number="slot.defense"
-                type="number"
-                density="compact"
-                hide-details
-              />
+              <v-text-field v-model.number="slot.defense" type="number" density="compact" hide-details />
             </td>
             <td>
-              <v-text-field
-                v-model.number="slot.durability"
-                type="number"
-                density="compact"
-                hide-details
-              />
+              <v-text-field v-model.number="slot.durability" type="number" density="compact" hide-details />
             </td>
             <td>
               <v-autocomplete
@@ -78,24 +68,14 @@ function removeSlot(index: number) {
               />
             </td>
             <td>
-              <v-btn
-                icon
-                size="small"
-                color="error"
-                @click="removeSlot(index)"
-              >
+              <v-btn icon size="small" color="error" @click="removeSlot(index)">
                 <v-icon>mdi-delete</v-icon>
               </v-btn>
             </td>
           </tr>
         </tbody>
       </v-table>
-      <v-btn
-        variant="text"
-        color="primary"
-        @click="addSlot"
-        class="mt-2"
-      >
+      <v-btn variant="text" color="primary" @click="addSlot" class="mt-2">
         <v-icon start>mdi-plus</v-icon>
         Добавить слот
       </v-btn>

@@ -1,62 +1,63 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
-import { useAuthStore } from '@/modules/Core/Auth/Store/auth'
-import { passwordValidatorService } from '@/modules/Core/Auth/Service/PasswordValidatorService'
-import PasswordField from '@/modules/Core/UI/Component/Input/PasswordField.vue'
+import { ref, computed, onMounted } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
+import { useAuthStore } from '@/modules/Core/Auth/Store/auth';
+import { passwordValidatorService } from '@/modules/Core/Auth/Service/PasswordValidatorService';
+import PasswordField from '@/modules/Core/UI/Component/Input/PasswordField.vue';
 
-const router = useRouter()
-const route = useRoute()
-const auth = useAuthStore()
+const router = useRouter();
+const route = useRoute();
+const auth = useAuthStore();
 
 interface FormRef {
-  validate: () => Promise<{ valid: boolean }>
-  reset: () => void
-  resetValidation: () => void
+  validate: () => Promise<{ valid: boolean }>;
+  reset: () => void;
+  resetValidation: () => void;
 }
 
-const formRef = ref<FormRef | null>(null)
-const login = ref('')
-const resetToken = ref('')
-const newPassword = ref('')
-const confirmPassword = ref('')
-const loading = ref(false)
-const message = ref('')
-const messageType = ref<'success' | 'error'>('success')
+const formRef = ref<FormRef | null>(null);
+const login = ref('');
+const resetToken = ref('');
+const newPassword = ref('');
+const confirmPassword = ref('');
+const loading = ref(false);
+const message = ref('');
+const messageType = ref<'success' | 'error'>('success');
 
-const routeLogin = computed(() => (route.query.login as string) || '')
-const routeToken = computed(() => (route.query.token as string) || '')
+const routeLogin = computed(() => (route.query.login as string) || '');
+const routeToken = computed(() => (route.query.token as string) || '');
 
 onMounted(() => {
-  auth.fetchPasswordPolicy()
-})
+  auth.fetchPasswordPolicy();
+});
 
 const passwordRules = computed(() => [
   (v: string) => {
-    const errors = passwordValidatorService.validate(v, auth.passwordPolicy)
-    return errors.length === 0 ? true : errors[0]
+    const errors = passwordValidatorService.validate(v, auth.passwordPolicy);
+
+    return errors.length === 0 ? true : errors[0];
   },
-])
+]);
 
 async function handleReset() {
-  const { valid } = await formRef.value?.validate() ?? { valid: false }
-  if (!valid) return
-  loading.value = true
-  message.value = ''
+  const { valid } = (await formRef.value?.validate()) ?? { valid: false };
+  if (!valid) return;
+  loading.value = true;
+  message.value = '';
   try {
-    const loginVal = routeLogin.value || login.value
-    const tokenVal = routeToken.value || resetToken.value
-    const ok = await auth.resetPassword(loginVal, tokenVal, newPassword.value)
+    const loginVal = routeLogin.value || login.value;
+    const tokenVal = routeToken.value || resetToken.value;
+    const ok = await auth.resetPassword(loginVal, tokenVal, newPassword.value);
     if (ok) {
-      messageType.value = 'success'
-      message.value = 'Пароль успешно изменён'
-      setTimeout(() => router.push('/login'), 1500)
+      messageType.value = 'success';
+      message.value = 'Пароль успешно изменён';
+      setTimeout(() => router.push('/login'), 1500);
     }
   } catch (e: unknown) {
-    messageType.value = 'error'
-    message.value = e instanceof Error ? e.message : 'Ошибка при сбросе пароля'
+    messageType.value = 'error';
+    message.value = e instanceof Error ? e.message : 'Ошибка при сбросе пароля';
   } finally {
-    loading.value = false
+    loading.value = false;
   }
 }
 </script>
@@ -76,13 +77,7 @@ async function handleReset() {
 
             <v-card-text class="pa-0">
               <v-form ref="formRef" @submit.prevent="handleReset">
-                <v-alert
-                  v-if="message"
-                  :type="messageType"
-                  variant="tonal"
-                  density="compact"
-                  class="mb-3 mt-2"
-                >
+                <v-alert v-if="message" :type="messageType" variant="tonal" density="compact" class="mb-3 mt-2">
                   {{ message }}
                 </v-alert>
 
@@ -91,7 +86,7 @@ async function handleReset() {
                   v-model="login"
                   label="Логин"
                   prepend-inner-icon="mdi-account-outline"
-                  :rules="[v => !!v || 'Введите логин']"
+                  :rules="[(v) => !!v || 'Введите логин']"
                   class="mb-3"
                 />
 
@@ -100,7 +95,7 @@ async function handleReset() {
                   v-model="resetToken"
                   label="Код сброса"
                   prepend-inner-icon="mdi-key-variant"
-                  :rules="[v => !!v || 'Введите код сброса']"
+                  :rules="[(v) => !!v || 'Введите код сброса']"
                   class="mb-3"
                 />
 
@@ -115,26 +110,17 @@ async function handleReset() {
                 <PasswordField
                   v-model="confirmPassword"
                   label="Подтверждение пароля *"
-                  :rules="[...passwordRules, v => v === newPassword || 'Пароли не совпадают']"
+                  :rules="[...passwordRules, (v) => v === newPassword || 'Пароли не совпадают']"
                   autocomplete="new-password"
                   class="mb-3"
                 />
 
-                <v-btn
-                  type="submit"
-                  color="primary"
-                  size="large"
-                  block
-                  :loading="loading"
-                  class="mb-3"
-                >
+                <v-btn type="submit" color="primary" size="large" block :loading="loading" class="mb-3">
                   Сохранить новый пароль
                 </v-btn>
 
                 <div class="text-center text-body-2">
-                  <router-link to="/login" class="text-primary text-decoration-none">
-                    Вернуться ко входу
-                  </router-link>
+                  <router-link to="/login" class="text-primary text-decoration-none"> Вернуться ко входу </router-link>
                 </div>
               </v-form>
             </v-card-text>

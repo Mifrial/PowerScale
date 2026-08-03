@@ -1,16 +1,14 @@
-import type { RouteLocationNormalized, RouteLocationRaw } from 'vue-router'
-import type { User } from '@/modules/Core/User/Dto/User'
-import { accessService, isAdmin } from '@/modules/Core/User/init'
+import type { RouteLocationNormalized, RouteLocationRaw } from 'vue-router';
+import type { User } from '@/modules/Core/User/Dto/User';
+import { accessService, isAdmin } from '@/modules/Core/User/init';
 
 export interface RouteAccessContext {
-  isAuthenticated: boolean
-  isGuest: boolean
-  user: User | null
+  isAuthenticated: boolean;
+  isGuest: boolean;
+  user: User | null;
 }
 
-export type RouteAccessDecision =
-  | { allow: true }
-  | { allow: false; redirect: RouteLocationRaw }
+export type RouteAccessDecision = { allow: true } | { allow: false; redirect: RouteLocationRaw };
 
 /**
  * Чистая функция решения «пустить / куда редиректить» — без работы с роутером,
@@ -28,37 +26,36 @@ export type RouteAccessDecision =
  */
 export function evaluateRouteAccess(to: RouteLocationNormalized, ctx: RouteAccessContext): RouteAccessDecision {
   if (to.meta.layout === 'auth') {
-    if (ctx.isAuthenticated && !ctx.isGuest) return { allow: false, redirect: { name: 'Home' } }
-    return { allow: true }
+    if (ctx.isAuthenticated && !ctx.isGuest) return { allow: false, redirect: { name: 'Home' } };
+
+    return { allow: true };
   }
 
-  if (!ctx.isAuthenticated) return { allow: false, redirect: { name: 'Login' } }
+  if (!ctx.isAuthenticated) return { allow: false, redirect: { name: 'Login' } };
 
   if (ctx.isGuest) {
-    return to.meta.guestAllowed
-      ? { allow: true }
-      : { allow: false, redirect: { name: 'NotFound' } }
+    return to.meta.guestAllowed ? { allow: true } : { allow: false, redirect: { name: 'NotFound' } };
   }
 
   // Раздел «Администрирование»: доступ через реестр админ-секций (isAdmin).
   if (to.meta.admin && !isAdmin(ctx.user)) {
-    return { allow: false, redirect: { name: 'NotFound' } }
+    return { allow: false, redirect: { name: 'NotFound' } };
   }
 
   // «Свой vs чужой» (ТР §4): владелец всегда может смотреть/редактировать свой профиль.
   if (ctx.user && (to.name === 'UserProfile' || to.name === 'UserEdit')) {
-    if (String(to.params.id) === String(ctx.user.id)) return { allow: true }
+    if (String(to.params.id) === String(ctx.user.id)) return { allow: true };
   }
 
-  const requiresAll = to.meta.requiresAll
+  const requiresAll = to.meta.requiresAll;
   if (requiresAll?.length && !accessService.hasAllPermissions(ctx.user, requiresAll)) {
-    return { allow: false, redirect: { name: 'NotFound' } }
+    return { allow: false, redirect: { name: 'NotFound' } };
   }
 
-  const requiresAny = to.meta.requiresAny
+  const requiresAny = to.meta.requiresAny;
   if (requiresAny?.length && !accessService.hasAnyPermission(ctx.user, requiresAny)) {
-    return { allow: false, redirect: { name: 'NotFound' } }
+    return { allow: false, redirect: { name: 'NotFound' } };
   }
 
-  return { allow: true }
+  return { allow: true };
 }

@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule'
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
 defineProps<{
-  rule: Rule
-}>()
+  rule: Rule;
+}>();
 </script>
 
 <template>

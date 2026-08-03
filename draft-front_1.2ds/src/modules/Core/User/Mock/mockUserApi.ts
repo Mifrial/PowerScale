@@ -1,5 +1,5 @@
-import type { IUserApi } from '@/modules/Core/User/Interface/IUserApi'
-import * as mock from '@/modules/Core/User/Mock/mockUsers'
+import type { IUserApi } from '@/modules/Core/User/Interface/IUserApi';
+import * as mock from '@/modules/Core/User/Mock/mockUsers';
 
 export const mockUserApi: IUserApi = {
   getUsers: mock.mockGetUsers,
@@ -8,4 +8,4 @@ export const mockUserApi: IUserApi = {
   createUser: mock.mockCreateUser,
   updateUser: mock.mockUpdateUser,
   deactivateUser: mock.mockDeactivateUser,
-}
+};

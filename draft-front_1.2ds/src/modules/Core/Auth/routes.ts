@@ -1,4 +1,4 @@
-import type { RouteRecordRaw } from 'vue-router'
+import type { RouteRecordRaw } from 'vue-router';
 
 export const standaloneRoutes: RouteRecordRaw[] = [
   {
@@ -25,4 +25,4 @@ export const standaloneRoutes: RouteRecordRaw[] = [
     component: () => import('@/modules/Core/Auth/Page/ResetPasswordPage.vue'),
     meta: { layout: 'auth', title: 'Сброс пароля' },
   },
-]
+];

@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import type { InheritedAbilityRef } from '@/modules/Roleplay/Rule/Dto/Race/InheritedAbilityRef'
+import type { InheritedAbilityRef } from '@/modules/Roleplay/Rule/Dto/Race/InheritedAbilityRef';
 
 const props = defineProps<{
-  refs: InheritedAbilityRef[]
-  abilityNameMap: Map<string, string>
-}>()
+  refs: InheritedAbilityRef[];
+  abilityNameMap: Map<string, string>;
+}>();
 
 function abilityName(code: string): string {
-  return props.abilityNameMap.get(code) ?? code
+  return props.abilityNameMap.get(code) ?? code;
 }
 </script>
 
@@ -19,12 +19,7 @@ function abilityName(code: string): string {
     <div v-if="refs.length === 0" class="text-body-2 text-medium-emphasis">
       Родитель не выбран или у предков нет способностей.
     </div>
-    <v-chip
-      v-for="(item, index) in refs"
-      :key="index"
-      size="small"
-      class="mr-2 mb-2"
-    >
+    <v-chip v-for="(item, index) in refs" :key="index" size="small" class="mr-2 mb-2">
       {{ abilityName(item.ability_code) }} · от «{{ item.fromName }}»
     </v-chip>
   </div>

@@ -1,148 +1,140 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import type { Formula } from '@/modules/Roleplay/Rule/Dto/Ability/Formula'
-export type { Formula }
+import { computed } from 'vue';
+import type { Formula } from '@/modules/Roleplay/Rule/Dto/Ability/Formula';
+export type { Formula };
 
 const props = defineProps<{
-  modelValue: Formula | null
-  characteristics: { code: string; name: string }[]
-  abilities?: { code: string; name: string }[]
-  modes?: Formula['type'][]
-}>()
+  modelValue: Formula | null;
+  characteristics: { code: string; name: string }[];
+  abilities?: { code: string; name: string }[];
+  modes?: Formula['type'][];
+}>();
 
 const emit = defineEmits<{
-  'update:modelValue': [value: Formula | null]
-}>()
+  'update:modelValue': [value: Formula | null];
+}>();
 
 const currentType = computed<Formula['type']>(() => {
-  const t = props.modelValue?.type ?? 'fixed'
-  if (!props.modes?.length || props.modes.includes(t)) return t
-  return 'fixed'
-})
+  const t = props.modelValue?.type ?? 'fixed';
+  if (!props.modes?.length || props.modes.includes(t)) return t;
 
-const fixedModel = computed(() =>
-  props.modelValue?.type === 'fixed' ? props.modelValue : null
-)
+  return 'fixed';
+});
 
-const characteristicModel = computed(() =>
-  props.modelValue?.type === 'characteristic' ? props.modelValue : null
-)
+const fixedModel = computed(() => (props.modelValue?.type === 'fixed' ? props.modelValue : null));
 
-const abilityLevelModel = computed(() =>
-  props.modelValue?.type === 'ability_level' ? props.modelValue : null
-)
+const characteristicModel = computed(() => (props.modelValue?.type === 'characteristic' ? props.modelValue : null));
 
-const dimensionalModel = computed(() =>
-  props.modelValue?.type === 'dimensional' ? props.modelValue : null
-)
+const abilityLevelModel = computed(() => (props.modelValue?.type === 'ability_level' ? props.modelValue : null));
+
+const dimensionalModel = computed(() => (props.modelValue?.type === 'dimensional' ? props.modelValue : null));
 
 const formulaTypes = computed(() => {
   const all = [
     { label: 'Число', value: 'fixed' },
     { label: 'От характеристики', value: 'characteristic' },
-    ...(props.abilities?.length
-      ? [{ label: 'Уровень способности', value: 'ability_level' }]
-      : []),
+    ...(props.abilities?.length ? [{ label: 'Уровень способности', value: 'ability_level' }] : []),
     { label: 'Размерное число', value: 'dimensional' },
-  ]
-  const modes = props.modes ?? []
-  if (!modes.length) return all
-  return all.filter(t => modes.includes(t.value as Formula['type']))
-})
+  ];
+  const modes = props.modes ?? [];
+  if (!modes.length) return all;
+
+  return all.filter((t) => modes.includes(t.value as Formula['type']));
+});
 
 function updateType(type: string) {
   if (type === 'fixed') {
-    emit('update:modelValue', { type: 'fixed', value: 0 })
+    emit('update:modelValue', { type: 'fixed', value: 0 });
   } else if (type === 'characteristic') {
-    emit('update:modelValue', { type: 'characteristic', characteristic_code: '', modifier: 0 })
+    emit('update:modelValue', { type: 'characteristic', characteristic_code: '', modifier: 0 });
   } else if (type === 'ability_level') {
-    emit('update:modelValue', { type: 'ability_level', ability_code: '', multiplier: 1, offset: 0 })
+    emit('update:modelValue', { type: 'ability_level', ability_code: '', multiplier: 1, offset: 0 });
   } else {
-    emit('update:modelValue', { type: 'dimensional', base: 3, size: 0 })
+    emit('update:modelValue', { type: 'dimensional', base: 3, size: 0 });
   }
 }
 
 function updateValue(val: string) {
-  emit('update:modelValue', { type: 'fixed', value: Number(val) || 0 })
+  emit('update:modelValue', { type: 'fixed', value: Number(val) || 0 });
 }
 
 function updateCharacteristicCode(characteristic_code: string | null) {
-  const current = props.modelValue
+  const current = props.modelValue;
   if (current?.type === 'characteristic') {
     emit('update:modelValue', {
       type: 'characteristic',
       characteristic_code: characteristic_code ?? '',
-      modifier: current.modifier
-    })
+      modifier: current.modifier,
+    });
   }
 }
 
 function updateModifier(val: string) {
-  const current = props.modelValue
+  const current = props.modelValue;
   if (current?.type === 'characteristic') {
     emit('update:modelValue', {
       type: 'characteristic',
       characteristic_code: current.characteristic_code,
-      modifier: Number(val) || 0
-    })
+      modifier: Number(val) || 0,
+    });
   }
 }
 
 function updateAbilityCode(ability_code: string | null) {
-  const current = props.modelValue
+  const current = props.modelValue;
   if (current?.type === 'ability_level') {
     emit('update:modelValue', {
       type: 'ability_level',
       ability_code: ability_code ?? '',
       multiplier: current.multiplier,
-      offset: current.offset
-    })
+      offset: current.offset,
+    });
   }
 }
 
 function updateAbilityMultiplier(val: string) {
-  const current = props.modelValue
+  const current = props.modelValue;
   if (current?.type === 'ability_level') {
     emit('update:modelValue', {
       type: 'ability_level',
       ability_code: current.ability_code,
       multiplier: Number(val) || 1,
-      offset: current.offset
-    })
+      offset: current.offset,
+    });
   }
 }
 
 function updateAbilityOffset(val: string) {
-  const current = props.modelValue
+  const current = props.modelValue;
   if (current?.type === 'ability_level') {
     emit('update:modelValue', {
       type: 'ability_level',
       ability_code: current.ability_code,
       multiplier: current.multiplier,
-      offset: Number(val) || 0
-    })
+      offset: Number(val) || 0,
+    });
   }
 }
 
 function updateDimensionalBase(val: string) {
-  const current = props.modelValue
+  const current = props.modelValue;
   if (current?.type === 'dimensional') {
     emit('update:modelValue', {
       type: 'dimensional',
       base: Number(val) || 3,
-      size: current.size
-    })
+      size: current.size,
+    });
   }
 }
 
 function updateDimensionalSize(val: string) {
-  const current = props.modelValue
+  const current = props.modelValue;
   if (current?.type === 'dimensional') {
     emit('update:modelValue', {
       type: 'dimensional',
       base: current.base,
-      size: Number(val) || 0
-    })
+      size: Number(val) || 0,
+    });
   }
 }
 </script>
@@ -158,7 +150,7 @@ function updateDimensionalSize(val: string) {
       label="Тип"
       density="compact"
       hide-details
-      style="min-width: 110px;"
+      style="min-width: 110px"
     />
 
     <v-text-field
@@ -169,7 +161,7 @@ function updateDimensionalSize(val: string) {
       type="number"
       density="compact"
       hide-details
-      style="flex: 1 1 auto;"
+      style="flex: 1 1 auto"
     />
 
     <template v-if="currentType === 'characteristic'">
@@ -182,7 +174,7 @@ function updateDimensionalSize(val: string) {
         label="Характеристика"
         density="compact"
         hide-details
-        style="flex: 1 1 auto;"
+        style="flex: 1 1 auto"
       />
       <v-text-field
         :model-value="characteristicModel?.modifier ?? 0"
@@ -191,7 +183,7 @@ function updateDimensionalSize(val: string) {
         type="number"
         density="compact"
         hide-details
-        style="max-width: 80px;"
+        style="max-width: 80px"
       />
     </template>
 
@@ -205,7 +197,7 @@ function updateDimensionalSize(val: string) {
         label="Способность"
         density="compact"
         hide-details
-        style="flex: 1 1 auto;"
+        style="flex: 1 1 auto"
       />
       <v-text-field
         :model-value="abilityLevelModel?.multiplier ?? 1"
@@ -214,7 +206,7 @@ function updateDimensionalSize(val: string) {
         type="number"
         density="compact"
         hide-details
-        style="max-width: 80px;"
+        style="max-width: 80px"
       />
       <v-text-field
         :model-value="abilityLevelModel?.offset ?? 0"
@@ -223,7 +215,7 @@ function updateDimensionalSize(val: string) {
         type="number"
         density="compact"
         hide-details
-        style="max-width: 80px;"
+        style="max-width: 80px"
       />
     </template>
 
@@ -235,7 +227,7 @@ function updateDimensionalSize(val: string) {
         type="number"
         density="compact"
         hide-details
-        style="flex: 1 1 auto;"
+        style="flex: 1 1 auto"
       />
       <v-text-field
         :model-value="dimensionalModel?.size ?? 0"
@@ -244,7 +236,7 @@ function updateDimensionalSize(val: string) {
         type="number"
         density="compact"
         hide-details
-        style="flex: 1 1 auto;"
+        style="flex: 1 1 auto"
       />
     </template>
   </div>

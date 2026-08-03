@@ -1,116 +1,118 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
-import { useRoute } from 'vue-router'
-import { useUserStore } from '@/modules/Core/User/Store/users'
-import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable'
-import type { User } from '@/modules/Core/User/Dto/User'
-import { accessService } from '@/modules/Core/User/Service/AccessService'
-import { getProfileSections } from '@/modules/Core/User/init'
-import ProfileInfoCard from '@/modules/Core/User/Component/ProfileInfoCard.vue'
-import ProfileAuthCard from '@/modules/Core/User/Component/ProfileAuthCard.vue'
-import ProfileGroupsCard from '@/modules/Core/User/Component/ProfileGroupsCard.vue'
-import DeactivateUserDialog from '@/modules/Core/User/Component/DeactivateUserDialog.vue'
-import { initials as userInitials, displayName as userDisplayName } from '@/modules/Core/User/Utils/profile'
+import { ref, onMounted, computed } from 'vue';
+import { useRoute } from 'vue-router';
+import { useUserStore } from '@/modules/Core/User/Store/users';
+import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
+import type { User } from '@/modules/Core/User/Dto/User';
+import { accessService } from '@/modules/Core/User/Service/AccessService';
+import { getProfileSections } from '@/modules/Core/User/init';
+import ProfileInfoCard from '@/modules/Core/User/Component/ProfileInfoCard.vue';
+import ProfileAuthCard from '@/modules/Core/User/Component/ProfileAuthCard.vue';
+import ProfileGroupsCard from '@/modules/Core/User/Component/ProfileGroupsCard.vue';
+import DeactivateUserDialog from '@/modules/Core/User/Component/DeactivateUserDialog.vue';
+import { initials as userInitials, displayName as userDisplayName } from '@/modules/Core/User/Utils/profile';
 
-const profileSections = getProfileSections()
+const profileSections = getProfileSections();
 
-const route = useRoute()
-const store = useUserStore()
-const { signal } = useAbortable()
+const route = useRoute();
+const store = useUserStore();
+const { signal } = useAbortable();
 
-const user = ref<User | null>(null)
-const loading = ref(true)
-const error = ref<string | null>(null)
-const confirmDeactivate = ref(false)
-const deactivating = ref(false)
-const editing = ref(false)
-const saving = ref(false)
-const snackbar = ref({ show: false, text: '', color: '' })
-const editForm = ref({ name: '', surname: '', nickname: '', email: '' })
+const user = ref<User | null>(null);
+const loading = ref(true);
+const error = ref<string | null>(null);
+const confirmDeactivate = ref(false);
+const deactivating = ref(false);
+const editing = ref(false);
+const saving = ref(false);
+const snackbar = ref({ show: false, text: '', color: '' });
+const editForm = ref({ name: '', surname: '', nickname: '', email: '' });
 
 const initials = computed(() => {
-  if (!user.value) return '??'
-  return userInitials(user.value.name, user.value.surname)
-})
+  if (!user.value) return '??';
+
+  return userInitials(user.value.name, user.value.surname);
+});
 
 const displayName = computed(() => {
-  if (!user.value) return ''
-  return userDisplayName(user.value.name, user.value.surname, user.value.login)
-})
+  if (!user.value) return '';
 
-const isOwnProfile = computed(() => store.currentUser?.id === user.value?.id)
-const canEdit = computed(() => isOwnProfile.value || accessService.hasAnyPermission(store.currentUser, ['user.edit']))
-const canDeactivate = computed(() => accessService.hasAnyPermission(store.currentUser, ['user.deactivate']))
+  return userDisplayName(user.value.name, user.value.surname, user.value.login);
+});
+
+const isOwnProfile = computed(() => store.currentUser?.id === user.value?.id);
+const canEdit = computed(() => isOwnProfile.value || accessService.hasAnyPermission(store.currentUser, ['user.edit']));
+const canDeactivate = computed(() => accessService.hasAnyPermission(store.currentUser, ['user.deactivate']));
 
 function startEdit() {
-  if (!user.value) return
+  if (!user.value) return;
   editForm.value = {
     name: user.value.name,
     surname: user.value.surname ?? '',
     nickname: user.value.nickname ?? '',
     email: user.value.email,
-  }
-  editing.value = true
+  };
+  editing.value = true;
 }
 
 function cancelEdit() {
-  editing.value = false
+  editing.value = false;
 }
 
 async function save() {
-  if (!user.value) return
-  saving.value = true
+  if (!user.value) return;
+  saving.value = true;
   try {
-    const data: Record<string, unknown> = {}
+    const data: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(editForm.value)) {
-      data[k] = v || null
+      data[k] = v || null;
     }
-    await store.updateUser(user.value.id, data)
-    Object.assign(user.value, data)
-    editing.value = false
-    snackbar.value = { show: true, text: 'Профиль обновлён', color: 'success' }
+    await store.updateUser(user.value.id, data);
+    Object.assign(user.value, data);
+    editing.value = false;
+    snackbar.value = { show: true, text: 'Профиль обновлён', color: 'success' };
   } catch {
-    snackbar.value = { show: true, text: 'Ошибка сохранения', color: 'error' }
+    snackbar.value = { show: true, text: 'Ошибка сохранения', color: 'error' };
   } finally {
-    saving.value = false
+    saving.value = false;
   }
 }
 
 async function handleDeactivate(reason?: string, until?: string) {
-  deactivating.value = true
+  deactivating.value = true;
   try {
-    await store.deactivateUser(Number(route.params.id), reason, until)
+    await store.deactivateUser(Number(route.params.id), reason, until);
     if (user.value) {
-      user.value.active = false
-      user.value.deactivate_reason = reason
-      user.value.deactivated_until = until
+      user.value.active = false;
+      user.value.deactivate_reason = reason;
+      user.value.deactivated_until = until;
     }
-    const parts = ['Пользователь отключён']
-    if (reason) parts.push(`: ${reason}`)
-    if (until) parts.push(` до ${until}`)
-    snackbar.value = { show: true, text: parts.join(''), color: 'success' }
+    const parts = ['Пользователь отключён'];
+    if (reason) parts.push(`: ${reason}`);
+    if (until) parts.push(` до ${until}`);
+    snackbar.value = { show: true, text: parts.join(''), color: 'success' };
   } catch {
-    snackbar.value = { show: true, text: 'Ошибка', color: 'error' }
+    snackbar.value = { show: true, text: 'Ошибка', color: 'error' };
   } finally {
-    deactivating.value = false
-    confirmDeactivate.value = false
+    deactivating.value = false;
+    confirmDeactivate.value = false;
   }
 }
 
 async function loadUser() {
-  loading.value = true
-  error.value = null
+  loading.value = true;
+  error.value = null;
   try {
-    user.value = await store.getUser(Number(route.params.id), signal.value)
+    user.value = await store.getUser(Number(route.params.id), signal.value);
   } catch (e) {
-    if (e instanceof DOMException && e.name === 'AbortError') return
-    error.value = e instanceof Error ? e.message : 'Ошибка загрузки пользователя'
+    if (e instanceof DOMException && e.name === 'AbortError') return;
+    error.value = e instanceof Error ? e.message : 'Ошибка загрузки пользователя';
   } finally {
-    loading.value = false
+    loading.value = false;
   }
 }
 
-onMounted(loadUser)
+onMounted(loadUser);
 </script>
 
 <template>
@@ -119,7 +121,9 @@ onMounted(loadUser)
       <v-btn icon variant="text" @click="$router.back()"><v-icon>mdi-arrow-left</v-icon></v-btn>
       <h1 class="text-h4 font-weight-bold">{{ displayName }}</h1>
       <v-spacer />
-      <v-btn v-if="user.active && canDeactivate" variant="tonal" color="error" @click="confirmDeactivate = true">Отключить</v-btn>
+      <v-btn v-if="user.active && canDeactivate" variant="tonal" color="error" @click="confirmDeactivate = true"
+        >Отключить</v-btn
+      >
     </div>
 
     <div class="d-flex ga-6">
@@ -146,24 +150,14 @@ onMounted(loadUser)
             @save="save"
             @cancel="cancelEdit"
           />
-          <ProfileAuthCard
-            :user="user"
-            :editing="editing"
-            v-model:form-email="editForm.email"
-            class="profile-card"
-          />
+          <ProfileAuthCard :user="user" :editing="editing" v-model:form-email="editForm.email" class="profile-card" />
           <ProfileGroupsCard :user="user" class="profile-card profile-card--full" />
         </div>
       </div>
     </div>
 
     <div v-if="isOwnProfile" class="mt-4">
-      <component
-        v-for="section in profileSections"
-        :key="section.id"
-        :is="section.component"
-        class="mt-4"
-      />
+      <component v-for="section in profileSections" :key="section.id" :is="section.component" class="mt-4" />
     </div>
 
     <DeactivateUserDialog

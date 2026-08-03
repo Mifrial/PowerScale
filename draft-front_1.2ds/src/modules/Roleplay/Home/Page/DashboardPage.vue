@@ -1,16 +1,16 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
-import { useAuthStore } from '@/modules/Core/Auth/Store/auth'
-import { useUserStore } from '@/modules/Core/User/Store/users'
-import { useNotificationStore } from '@/modules/Messages/Notifications/Store/notifications'
-import NotificationList from '@/modules/Messages/Notifications/Component/NotificationList.vue'
-import FlatTextBtn from '@/modules/Core/UI/Component/FlatTextBtn.vue'
+import { computed, onMounted } from 'vue';
+import { useAuthStore } from '@/modules/Core/Auth/Store/auth';
+import { useUserStore } from '@/modules/Core/User/Store/users';
+import { useNotificationStore } from '@/modules/Messages/Notifications/Store/notifications';
+import NotificationList from '@/modules/Messages/Notifications/Component/NotificationList.vue';
+import FlatTextBtn from '@/modules/Core/UI/Component/FlatTextBtn.vue';
 
-const auth = useAuthStore()
-const userStore = useUserStore()
-const notification = useNotificationStore()
+const auth = useAuthStore();
+const userStore = useUserStore();
+const notification = useNotificationStore();
 
-const dashboardItems = computed(() => notification.items.slice(0, 4))
+const dashboardItems = computed(() => notification.items.slice(0, 4));
 
 const characterCard = {
   icon: 'mdi-account-group',
@@ -18,7 +18,7 @@ const characterCard = {
   description: 'Просмотр и управление персонажами',
   to: '/characters',
   count: 2,
-}
+};
 
 const gameCard = {
   icon: 'mdi-gamepad-variant',
@@ -26,42 +26,33 @@ const gameCard = {
   description: 'Список игр и сессий',
   to: '/games',
   count: 1,
-}
+};
 
 onMounted(() => {
-  notification.fetchData()
-})
+  notification.fetchData();
+});
 </script>
 
 <template>
   <div>
-    <h1 class="text-h4 font-weight-bold mb-2">
-      Добро пожаловать{{ auth.isGuest ? '' : `, ${userStore.username}` }}
-    </h1>
+    <h1 class="text-h4 font-weight-bold mb-2">Добро пожаловать{{ auth.isGuest ? '' : `, ${userStore.username}` }}</h1>
     <p class="text-body-1 text-medium-emphasis mb-6">
-      {{ auth.isGuest ? 'Вы вошли как гость. Часть функций недоступна.' : 'PowerScale — система управления RPG-персонажами и правилами' }}
+      {{
+        auth.isGuest
+          ? 'Вы вошли как гость. Часть функций недоступна.'
+          : 'PowerScale — система управления RPG-персонажами и правилами'
+      }}
     </p>
 
     <v-row>
       <v-col cols="12" sm="6">
-        <v-card
-          :to="characterCard.to"
-          elevation="2"
-          class="pa-4 d-flex flex-column dashboard-card"
-          height="100%"
-          hover
-        >
+        <v-card :to="characterCard.to" elevation="2" class="pa-4 d-flex flex-column dashboard-card" height="100%" hover>
           <div class="d-flex align-center mb-2">
             <v-icon :icon="characterCard.icon" size="36" color="primary" class="mr-3" />
             <v-card-title class="pa-0 text-body-1 font-weight-medium flex-grow-1">
               {{ characterCard.label }}
             </v-card-title>
-            <v-chip
-              v-if="characterCard.count"
-              color="error"
-              size="small"
-              variant="flat"
-            >
+            <v-chip v-if="characterCard.count" color="error" size="small" variant="flat">
               {{ characterCard.count }}
             </v-chip>
           </div>
@@ -72,24 +63,13 @@ onMounted(() => {
       </v-col>
 
       <v-col cols="12" sm="6">
-        <v-card
-          :to="gameCard.to"
-          elevation="2"
-          class="pa-4 d-flex flex-column dashboard-card"
-          height="100%"
-          hover
-        >
+        <v-card :to="gameCard.to" elevation="2" class="pa-4 d-flex flex-column dashboard-card" height="100%" hover>
           <div class="d-flex align-center mb-2">
             <v-icon :icon="gameCard.icon" size="36" color="primary" class="mr-3" />
             <v-card-title class="pa-0 text-body-1 font-weight-medium flex-grow-1">
               {{ gameCard.label }}
             </v-card-title>
-            <v-chip
-              v-if="gameCard.count"
-              color="error"
-              size="small"
-              variant="flat"
-            >
+            <v-chip v-if="gameCard.count" color="error" size="small" variant="flat">
               {{ gameCard.count }}
             </v-chip>
           </div>
@@ -106,21 +86,12 @@ onMounted(() => {
         Последние уведомления
       </v-card-title>
 
-      <NotificationList
-        :items="dashboardItems"
-        icon-size="20"
-        action-size="x-small"
-        @action="notification.markAsRead"
-      >
-        <template #empty>
-          Нет новых уведомлений
-        </template>
+      <NotificationList :items="dashboardItems" icon-size="20" action-size="x-small" @action="notification.markAsRead">
+        <template #empty> Нет новых уведомлений </template>
       </NotificationList>
 
       <div class="text-center dashboard-footer mx-n4">
-        <FlatTextBtn color="primary" block rounded="0" :to="{ name: 'Notifications' }">
-          Все уведомления →
-        </FlatTextBtn>
+        <FlatTextBtn color="primary" block rounded="0" :to="{ name: 'Notifications' }"> Все уведомления → </FlatTextBtn>
       </div>
     </v-card>
   </div>
@@ -134,6 +105,4 @@ onMounted(() => {
 .dashboard-card:hover {
   background-color: rgb(var(--v-theme-primaryLight));
 }
-
-
 </style>

@@ -1,30 +1,31 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import type { Pagination } from '@/modules/Core/UI/Dto/Pagination'
-import { perPageOptions } from '@/modules/Core/UI/Constant/perPageOptions'
+import { computed } from 'vue';
+import type { Pagination } from '@/modules/Core/UI/Dto/Pagination';
+import { perPageOptions } from '@/modules/Core/UI/Constant/perPageOptions';
 
 const props = defineProps<{
-  pagination: Pagination | null
-  totalItems: number
-}>()
+  pagination: Pagination | null;
+  totalItems: number;
+}>();
 
 const emit = defineEmits<{
-  'update:pagination': [pagination: Pagination]
-}>()
+  'update:pagination': [pagination: Pagination];
+}>();
 
 const totalPages = computed(() => {
-  if (!props.pagination?.perPage) return 1
-  return Math.max(1, Math.ceil(props.totalItems / props.pagination.perPage))
-})
+  if (!props.pagination?.perPage) return 1;
+
+  return Math.max(1, Math.ceil(props.totalItems / props.pagination.perPage));
+});
 
 function onPageChange(v: number) {
   if (props.pagination) {
-    emit('update:pagination', { ...props.pagination, page: v })
+    emit('update:pagination', { ...props.pagination, page: v });
   }
 }
 
 function onPerPageChange(v: number) {
-  emit('update:pagination', { page: 1, perPage: v })
+  emit('update:pagination', { page: 1, perPage: v });
 }
 </script>
 

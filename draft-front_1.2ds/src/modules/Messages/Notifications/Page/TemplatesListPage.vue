@@ -1,36 +1,43 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { useTemplateStore } from '@/modules/Messages/Notifications/Store/templates'
-import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable'
-import { useGridPage } from '@/modules/Core/UI/Composables/useGridPage'
-import FilterBar from '@/modules/Core/UI/Component/FilterBar.vue'
-import SmartGrid from '@/modules/Core/UI/Component/Grid/SmartGrid.vue'
-import { columns, filterFields } from '@/modules/Messages/Notifications/Constant/templatesGridManifest'
-import type { Row } from '@/modules/Core/UI/Dto/Row'
-import type { FilterValue } from '@/modules/Core/UI/Dto/FilterValue'
-import { extractFilterValue } from '@/modules/Core/UI/Utils/filterExtract'
+import { onMounted } from 'vue';
+import { useRouter } from 'vue-router';
+import { useTemplateStore } from '@/modules/Messages/Notifications/Store/templates';
+import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
+import { useGridPage } from '@/modules/Core/UI/Composables/useGridPage';
+import FilterBar from '@/modules/Core/UI/Component/FilterBar.vue';
+import SmartGrid from '@/modules/Core/UI/Component/Grid/SmartGrid.vue';
+import { columns, filterFields } from '@/modules/Messages/Notifications/Constant/templatesGridManifest';
+import type { Row } from '@/modules/Core/UI/Dto/Row';
+import type { FilterValue } from '@/modules/Core/UI/Dto/FilterValue';
+import { extractFilterValue } from '@/modules/Core/UI/Utils/filterExtract';
 
-const router = useRouter()
-const store = useTemplateStore()
-const { signal } = useAbortable()
+const router = useRouter();
+const store = useTemplateStore();
+const { signal } = useAbortable();
 
-const { sort, pagination, appliedFilters, pageRows, onSortChange, onPaginationChange, onFilterChange: gridFilterChange } =
-  useGridPage(() => store.filteredTemplates)
+const {
+  sort,
+  pagination,
+  appliedFilters,
+  pageRows,
+  onSortChange,
+  onPaginationChange,
+  onFilterChange: gridFilterChange,
+} = useGridPage(() => store.filteredTemplates);
 
-onMounted(() => store.fetchTemplates(signal.value))
+onMounted(() => store.fetchTemplates(signal.value));
 
 function onFilterChange(filters: Record<string, FilterValue>) {
-  gridFilterChange(filters)
-  store.filterKey = extractFilterValue(filters.key)
-  store.filterActive = filters.active !== undefined ? String(filters.active) : ''
+  gridFilterChange(filters);
+  store.filterKey = extractFilterValue(filters.key);
+  store.filterActive = filters.active !== undefined ? String(filters.active) : '';
 }
 
 function onRowAction(payload: { action: string; row: Row }) {
   if ('id' in payload.row) {
-    const id = payload.row.id
+    const id = payload.row.id;
     if (payload.action === 'view-profile') {
-      router.push(`/admin/notification-templates/${id}/edit`)
+      router.push(`/admin/notification-templates/${id}/edit`);
     }
   }
 }

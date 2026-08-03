@@ -1,21 +1,21 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec'
-import { getCommandHandlers, getToolbarExtensions } from '@/modules/Messages/Chat/init'
+import { ref, computed } from 'vue';
+import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec';
+import { getCommandHandlers, getToolbarExtensions } from '@/modules/Messages/Chat/init';
 
 const props = defineProps<{
-  sending: boolean
-  disabled?: boolean
-}>()
+  sending: boolean;
+  disabled?: boolean;
+}>();
 
 const emit = defineEmits<{
-  send: [text: string, rolls: DiceRollSpec[]]
-}>()
+  send: [text: string, rolls: DiceRollSpec[]];
+}>();
 
-const messageText = ref('')
-const pendingRolls = ref<DiceRollSpec[]>([])
+const messageText = ref('');
+const pendingRolls = ref<DiceRollSpec[]>([]);
 
-const toolbarExtensions = getToolbarExtensions()
+const toolbarExtensions = getToolbarExtensions();
 
 const toolbarContext = computed(() => ({
   pendingRolls: pendingRolls.value,
@@ -23,42 +23,44 @@ const toolbarContext = computed(() => ({
   removeRoll,
   send: (text: string, rolls: DiceRollSpec[]) => emit('send', text, rolls),
   disabled: props.disabled ?? false,
-}))
+}));
 
-const canSend = computed(() => messageText.value.trim().length > 0 || pendingRolls.value.length > 0)
+const canSend = computed(() => messageText.value.trim().length > 0 || pendingRolls.value.length > 0);
 
 function addRoll(spec: DiceRollSpec) {
-  pendingRolls.value.push(spec)
+  pendingRolls.value.push(spec);
 }
 
 function removeRoll(index: number) {
-  pendingRolls.value.splice(index, 1)
+  pendingRolls.value.splice(index, 1);
 }
 
 function rollSummary(r: DiceRollSpec): string {
-  const adv = r.adv ? (r.adv > 0 ? ` +${r.adv}` : ` ${r.adv}`) : ''
-  const label = r.label ? ` (${r.label})` : ''
-  return `${r.diceCount}к${r.dieFaces}${adv}${label}`
+  const adv = r.adv ? (r.adv > 0 ? ` +${r.adv}` : ` ${r.adv}`) : '';
+  const label = r.label ? ` (${r.label})` : '';
+
+  return `${r.diceCount}к${r.dieFaces}${adv}${label}`;
 }
 
 function handleSend() {
-  if (!canSend.value) return
-  const text = messageText.value.trim()
-  let rolls = pendingRolls.value
+  if (!canSend.value) return;
+  const text = messageText.value.trim();
+  let rolls = pendingRolls.value;
   if (text.startsWith('/')) {
     for (const handler of getCommandHandlers()) {
-      const parsed = handler.parse(text)
+      const parsed = handler.parse(text);
       if (parsed) {
-        messageText.value = ''
-        pendingRolls.value = []
-        emit('send', parsed.content, parsed.rolls)
-        return
+        messageText.value = '';
+        pendingRolls.value = [];
+        emit('send', parsed.content, parsed.rolls);
+
+        return;
       }
     }
   }
-  emit('send', text, rolls)
-  messageText.value = ''
-  pendingRolls.value = []
+  emit('send', text, rolls);
+  messageText.value = '';
+  pendingRolls.value = [];
 }
 </script>
 

@@ -1,73 +1,80 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { useKeywordStore } from '@/modules/Roleplay/Rule/Store/keywords'
-import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable'
-import { useUserStore } from '@/modules/Core/User/Store/users'
-import { accessService } from '@/modules/Core/User/init'
+import { computed, onMounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { useKeywordStore } from '@/modules/Roleplay/Rule/Store/keywords';
+import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
+import { useUserStore } from '@/modules/Core/User/Store/users';
+import { accessService } from '@/modules/Core/User/init';
 
-const route = useRoute()
-const router = useRouter()
-const store = useKeywordStore()
-const userStore = useUserStore()
-const { signal } = useAbortable()
+const route = useRoute();
+const router = useRouter();
+const store = useKeywordStore();
+const userStore = useUserStore();
+const { signal } = useAbortable();
 
-const isEdit = computed(() => !!route.params.id)
-const tagId = computed(() => Number(route.params.id))
+const isEdit = computed(() => !!route.params.id);
+const tagId = computed(() => Number(route.params.id));
 
-const code = ref('')
-const name = ref('')
-const description = ref('')
-const active = ref(true)
-const saving = ref(false)
-const showDeleteDialog = ref(false)
-const deleting = ref(false)
+const code = ref('');
+const name = ref('');
+const description = ref('');
+const active = ref(true);
+const saving = ref(false);
+const showDeleteDialog = ref(false);
+const deleting = ref(false);
 
-const canDelete = computed(() => accessService.hasAnyPermission(userStore.currentUser, ['keyword.delete']))
+const canDelete = computed(() => accessService.hasAnyPermission(userStore.currentUser, ['keyword.delete']));
 
 onMounted(async () => {
   if (isEdit.value) {
-    const keyword = await store.fetchTag(tagId.value, signal.value)
-    code.value = keyword.code
-    name.value = keyword.name
-    description.value = keyword.description ?? ''
-    active.value = keyword.active
+    const keyword = await store.fetchTag(tagId.value, signal.value);
+    code.value = keyword.code;
+    name.value = keyword.name;
+    description.value = keyword.description ?? '';
+    active.value = keyword.active;
   }
-})
+});
 
 async function save() {
-  if (!code.value.trim() || !name.value.trim()) return
-  saving.value = true
+  if (!code.value.trim() || !name.value.trim()) return;
+  saving.value = true;
   try {
     if (isEdit.value) {
-      await store.updateTag(tagId.value, {
-        name: name.value,
-        description: description.value || undefined,
-      }, signal.value)
+      await store.updateTag(
+        tagId.value,
+        {
+          name: name.value,
+          description: description.value || undefined,
+        },
+        signal.value,
+      );
     } else {
-      await store.createTag({
-        code: code.value,
-        name: name.value,
-        description: description.value || undefined,
-      }, signal.value)
+      await store.createTag(
+        {
+          code: code.value,
+          name: name.value,
+          description: description.value || undefined,
+        },
+        signal.value,
+      );
     }
-    router.push('/admin/keywords')
+    router.push('/admin/keywords');
   } catch (e) {
-    console.error('save keyword failed', e)
+    console.error('save keyword failed', e);
   } finally {
-    saving.value = false
+    saving.value = false;
   }
 }
 
 async function handleDelete() {
-  deleting.value = true
+  deleting.value = true;
   try {
-    await store.deactivateTag(tagId.value, signal.value)
-    router.push('/admin/keywords')
+    await store.deactivateTag(tagId.value, signal.value);
+    router.push('/admin/keywords');
   } catch (e) {
-    console.error('delete keyword failed', e)
+    console.error('delete keyword failed', e);
   } finally {
-    deleting.value = false
+    deleting.value = false;
   }
 }
 </script>
@@ -81,25 +88,18 @@ async function handleDelete() {
         <v-text-field
           v-model="code"
           label="Код (code)"
-          :rules="[v => !!v || 'Обязательное поле', v => /^[a-z0-9_]+$/.test(v) || 'Только латиница, цифры и подчёркивание']"
+          :rules="[
+            (v) => !!v || 'Обязательное поле',
+            (v) => /^[a-z0-9_]+$/.test(v) || 'Только латиница, цифры и подчёркивание',
+          ]"
           :disabled="isEdit"
           hint="Уникальный идентификатор, например: melee, magic, stealth"
           persistent-hint
         />
 
-        <v-text-field
-          v-model="name"
-          label="Название"
-          :rules="[v => !!v || 'Обязательное поле']"
-          class="mt-4"
-        />
+        <v-text-field v-model="name" label="Название" :rules="[(v) => !!v || 'Обязательное поле']" class="mt-4" />
 
-        <v-textarea
-          v-model="description"
-          label="Описание"
-          rows="3"
-          class="mt-4"
-        />
+        <v-textarea v-model="description" label="Описание" rows="3" class="mt-4" />
       </v-card-text>
 
       <v-card-actions>

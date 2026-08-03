@@ -1,4 +1,4 @@
-import type { PermissionCategory } from '@/modules/Core/User/Interface/IPermissionRegistry'
+import type { PermissionCategory } from '@/modules/Core/User/Interface/IPermissionRegistry';
 
 export const GAME_PERMISSION_CATEGORY: PermissionCategory = {
   key: 'game',
@@ -8,4 +8,4 @@ export const GAME_PERMISSION_CATEGORY: PermissionCategory = {
     { key: 'view_all', label: 'Просмотр всех' },
     { key: 'edit_all', label: 'Редактирование всех' },
   ],
-}
+};

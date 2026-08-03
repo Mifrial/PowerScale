@@ -1,52 +1,63 @@
 <script setup lang="ts">
-import { ref, computed, watch, toRef } from 'vue'
-import type { FilterField } from '@/modules/Core/UI/Dto/FilterField'
-import type { FilterValue } from '@/modules/Core/UI/Dto/FilterValue'
-import FilterPopup from '@/modules/Core/UI/Component/FilterBar/FilterPopup.vue'
-import FilterChips from '@/modules/Core/UI/Component/FilterBar/FilterChips.vue'
-import { useFilterBuffer } from '@/modules/Core/UI/Composables/useFilterBuffer'
-import { loadFilterSettings, saveFilterSettings, buildVisibleFields, type FilterFieldSetting } from '@/modules/Core/UI/Component/FilterBar/filterSettings'
-import type { PickerItem } from '@/modules/Core/UI/Dto/PickerItem'
+import { ref, computed, watch, toRef } from 'vue';
+import type { FilterField } from '@/modules/Core/UI/Dto/FilterField';
+import type { FilterValue } from '@/modules/Core/UI/Dto/FilterValue';
+import FilterPopup from '@/modules/Core/UI/Component/FilterBar/FilterPopup.vue';
+import FilterChips from '@/modules/Core/UI/Component/FilterBar/FilterChips.vue';
+import { useFilterBuffer } from '@/modules/Core/UI/Composables/useFilterBuffer';
+import {
+  loadFilterSettings,
+  saveFilterSettings,
+  buildVisibleFields,
+  type FilterFieldSetting,
+} from '@/modules/Core/UI/Component/FilterBar/filterSettings';
+import type { PickerItem } from '@/modules/Core/UI/Dto/PickerItem';
 
 const props = defineProps<{
-  fields: FilterField[]
-  modelValue: Record<string, FilterValue>
-  placeholder?: string
-  settingsKey?: string
-}>()
+  fields: FilterField[];
+  modelValue: Record<string, FilterValue>;
+  placeholder?: string;
+  settingsKey?: string;
+}>();
 
 const emit = defineEmits<{
-  'update:modelValue': [value: Record<string, FilterValue>]
-}>()
+  'update:modelValue': [value: Record<string, FilterValue>];
+}>();
 
-const barRef = ref<HTMLDivElement>()
-const menuOpen = ref(false)
-const inputRef = ref<HTMLInputElement>()
-const settingsOpen = ref(false)
+const barRef = ref<HTMLDivElement>();
+const menuOpen = ref(false);
+const inputRef = ref<HTMLInputElement>();
+const settingsOpen = ref(false);
 
-const savedSettings = ref(loadFilterSettings(props.settingsKey ?? ''))
-const savedFieldSettings = ref<FilterFieldSetting[]>([])
+const savedSettings = ref(loadFilterSettings(props.settingsKey ?? ''));
+const savedFieldSettings = ref<FilterFieldSetting[]>([]);
 
-watch(() => props.settingsKey, (key) => {
-  savedSettings.value = loadFilterSettings(key ?? '')
-})
+watch(
+  () => props.settingsKey,
+  (key) => {
+    savedSettings.value = loadFilterSettings(key ?? '');
+  },
+);
 
-watch(savedSettings, (s) => {
-  savedFieldSettings.value = s?.fields ?? []
-}, { immediate: true })
+watch(
+  savedSettings,
+  (s) => {
+    savedFieldSettings.value = s?.fields ?? [];
+  },
+  { immediate: true },
+);
 
-const visibleFields = computed(() =>
-  buildVisibleFields(props.fields, savedSettings.value),
-)
+const visibleFields = computed(() => buildVisibleFields(props.fields, savedSettings.value));
 
 const pickerItems = computed((): PickerItem[] => {
-  const savedMap = new Map(savedFieldSettings.value.map(s => [s.key, s.visible]))
-  return props.fields.map(f => ({
+  const savedMap = new Map(savedFieldSettings.value.map((s) => [s.key, s.visible]));
+
+  return props.fields.map((f) => ({
     key: f.key,
     label: f.label,
-    visible: savedMap.has(f.key) ? savedMap.get(f.key)! : true,
-  }))
-})
+    visible: savedMap.get(f.key) ?? true,
+  }));
+});
 
 const {
   searchText,
@@ -64,15 +75,15 @@ const {
   modelValue: toRef(props, 'modelValue'),
   menuOpen,
   onCommit: (value) => emit('update:modelValue', value),
-})
+});
 
 function onSettingsApply(items: PickerItem[]) {
-  const settings: FilterFieldSetting[] = items.map(i => ({ key: i.key, visible: i.visible }))
-  savedFieldSettings.value = settings
-  const key = props.settingsKey
+  const settings: FilterFieldSetting[] = items.map((i) => ({ key: i.key, visible: i.visible }));
+  savedFieldSettings.value = settings;
+  const key = props.settingsKey;
   if (key) {
-    saveFilterSettings(key, { fields: settings })
-    savedSettings.value = loadFilterSettings(key)
+    saveFilterSettings(key, { fields: settings });
+    savedSettings.value = loadFilterSettings(key);
   }
 }
 </script>
@@ -84,15 +95,12 @@ function onSettingsApply(items: PickerItem[]) {
     :class="{ 'filter-bar--open': menuOpen }"
     @click="menuOpen = !menuOpen"
   >
-    <FilterChips
-      :chips="activeChips"
-      @remove="removeChip"
-    />
+    <FilterChips :chips="activeChips" @remove="removeChip" />
 
     <input
       ref="inputRef"
       v-model="searchText"
-      :placeholder="activeChips.length ? '' : (placeholder || 'Фильтр + поиск')"
+      :placeholder="activeChips.length ? '' : placeholder || 'Фильтр + поиск'"
       class="filter-bar__input"
       @click.stop
       @focus="menuOpen = true"

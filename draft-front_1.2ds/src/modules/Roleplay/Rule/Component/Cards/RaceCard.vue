@@ -1,59 +1,63 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule'
-import type { RaceSpec } from '@/modules/Roleplay/Rule/Dto/Race/RaceSpec'
-import type { RacePurchaseLevel } from '@/modules/Roleplay/Rule/Dto/Race/RacePurchaseLevel'
-import type { InheritedAbilityRef } from '@/modules/Roleplay/Rule/Dto/Race/InheritedAbilityRef'
-import { raceSpecService } from '@/modules/Roleplay/Rule/Service/Spec/RaceSpecService'
+import { computed } from 'vue';
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import type { RaceSpec } from '@/modules/Roleplay/Rule/Dto/Race/RaceSpec';
+import type { RacePurchaseLevel } from '@/modules/Roleplay/Rule/Dto/Race/RacePurchaseLevel';
+import type { InheritedAbilityRef } from '@/modules/Roleplay/Rule/Dto/Race/InheritedAbilityRef';
+import { raceSpecService } from '@/modules/Roleplay/Rule/Service/Spec/RaceSpecService';
 
 const props = defineProps<{
-  rule: Rule
-  rules: Rule[]
-}>()
+  rule: Rule;
+  rules: Rule[];
+}>();
 
-const spec = computed<RaceSpec | null>(() => (props.rule.spec as RaceSpec) ?? null)
+const spec = computed<RaceSpec | null>(() => (props.rule.spec as RaceSpec) ?? null);
 
 const rulesByCode = computed(() => {
-  const map = new Map<string, Rule>()
-  for (const r of props.rules) map.set(r.code, r)
-  return map
-})
+  const map = new Map<string, Rule>();
+  for (const r of props.rules) map.set(r.code, r);
+
+  return map;
+});
 
 const parentRule = computed(() => {
-  const code = spec.value?.parent_race_code
-  return code ? rulesByCode.value.get(code) ?? null : null
-})
+  const code = spec.value?.parent_race_code;
+
+  return code ? (rulesByCode.value.get(code) ?? null) : null;
+});
 
 const inheritedAbilities = computed<InheritedAbilityRef[]>(() => {
-  const s = spec.value
-  if (!s?.parent_race_code) return []
-  return raceSpecService.collectInheritedAbilities(s.parent_race_code, rulesByCode.value)
-})
+  const s = spec.value;
+  if (!s?.parent_race_code) return [];
+
+  return raceSpecService.collectInheritedAbilities(s.parent_race_code, rulesByCode.value);
+});
 
 const costLabel = computed(() => {
-  const cost = spec.value?.cost_os
-  if (cost == null) return '—'
-  if (cost < 0) return `${Math.abs(cost)} ОС (даёт)`
-  return `${cost} ОС`
-})
+  const cost = spec.value?.cost_os;
+  if (cost == null) return '—';
+  if (cost < 0) return `${Math.abs(cost)} ОС (даёт)`;
+
+  return `${cost} ОС`;
+});
 
 function characteristicName(code: string): string {
-  return rulesByCode.value.get(code)?.name ?? code
+  return rulesByCode.value.get(code)?.name ?? code;
 }
 
 function abilityName(code: string): string {
-  return rulesByCode.value.get(code)?.name ?? code
+  return rulesByCode.value.get(code)?.name ?? code;
 }
 
 function formatDimensional(v: { base: number; size: number }): string {
-  return `${v.base}${v.size ? `×${v.size}` : ''}`
+  return `${v.base}${v.size ? `×${v.size}` : ''}`;
 }
 
 function purchaseLabel(purchase: RacePurchaseLevel[]): string {
   return [...purchase]
     .sort((a, b) => a.cost - b.cost)
-    .map(l => `за ${l.cost} ОС → ${formatDimensional(l.value)}`)
-    .join(' · ')
+    .map((l) => `за ${l.cost} ОС → ${formatDimensional(l.value)}`)
+    .join(' · ');
 }
 </script>
 
@@ -79,9 +83,11 @@ function purchaseLabel(purchase: RacePurchaseLevel[]): string {
       <v-card-text>
         <div class="text-subtitle-2 mb-1">Характеристики</div>
         <div v-for="c in spec.characteristics" :key="c.characteristic_code" class="text-body-2">
-          <strong>{{ characteristicName(c.characteristic_code) }}</strong>:
+          <strong>{{ characteristicName(c.characteristic_code) }}</strong
+          >:
           <template v-if="c.mode === 'purchased'">
-            минимум {{ formatDimensional(c.base) }}<template v-if="c.purchase?.length"> · {{ purchaseLabel(c.purchase) }}</template>
+            минимум {{ formatDimensional(c.base)
+            }}<template v-if="c.purchase?.length"> · {{ purchaseLabel(c.purchase) }}</template>
           </template>
           <template v-else>
             {{ formatDimensional(c.base) }}
@@ -102,9 +108,7 @@ function purchaseLabel(purchase: RacePurchaseLevel[]): string {
           class="mr-2 mb-2"
         >
           {{ abilityName(ref.ability_code) }}
-          <v-chip v-if="!ref.automatic" size="x-small" variant="text" label>
-            доступная
-          </v-chip>
+          <v-chip v-if="!ref.automatic" size="x-small" variant="text" label> доступная </v-chip>
         </v-chip>
       </v-card-text>
     </v-card>
@@ -112,13 +116,7 @@ function purchaseLabel(purchase: RacePurchaseLevel[]): string {
     <v-card v-if="inheritedAbilities.length" variant="tonal" class="mb-3">
       <v-card-text>
         <div class="text-subtitle-2 mb-1">Наследуемые способности (от предков)</div>
-        <v-chip
-          v-for="(ref, index) in inheritedAbilities"
-          :key="index"
-          size="small"
-          variant="tonal"
-          class="mr-2 mb-2"
-        >
+        <v-chip v-for="(ref, index) in inheritedAbilities" :key="index" size="small" variant="tonal" class="mr-2 mb-2">
           {{ abilityName(ref.ability_code) }} · от «{{ ref.fromName }}»
         </v-chip>
       </v-card-text>

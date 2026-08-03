@@ -1,27 +1,27 @@
 <script setup lang="ts">
 defineProps<{
-  startStepCode: string | undefined
-  failure: string | null
-  stepRefs: { name: string; code: string }[]
-}>()
+  startStepCode: string | undefined;
+  failure: string | null;
+  stepRefs: { name: string; code: string }[];
+}>();
 
 const emit = defineEmits<{
-  'update:startStepCode': [value: string | undefined]
-  'update:failure': [value: string | null]
-}>()
+  'update:startStepCode': [value: string | undefined];
+  'update:failure': [value: string | null];
+}>();
 
 const failureOptions = [
   { label: 'Нет', value: null },
   { label: 'Начать заново с первого шага', value: 'restart_from_first' },
   { label: 'Завершить действие', value: 'end_action' },
-]
+];
 
 function updateStartStepCode(value: string | undefined) {
-  emit('update:startStepCode', value)
+  emit('update:startStepCode', value);
 }
 
 function updateFailure(value: string | null) {
-  emit('update:failure', value)
+  emit('update:failure', value);
 }
 </script>
 
@@ -39,7 +39,7 @@ function updateFailure(value: string | null) {
         density="compact"
         hide-details
         clearable
-        style="min-width: 220px;"
+        style="min-width: 220px"
       />
       <v-select
         :model-value="failure ?? null"
@@ -51,7 +51,7 @@ function updateFailure(value: string | null) {
         density="compact"
         hide-details
         clearable
-        style="min-width: 280px;"
+        style="min-width: 280px"
       />
     </div>
   </div>

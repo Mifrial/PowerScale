@@ -1,24 +1,18 @@
 <script setup lang="ts">
-import type { ActiveChip } from '@/modules/Core/UI/Component/FilterBar/filterValues'
+import type { ActiveChip } from '@/modules/Core/UI/Component/FilterBar/filterValues';
 
 defineProps<{
-  chips: ActiveChip[]
-}>()
+  chips: ActiveChip[];
+}>();
 
 defineEmits<{
-  remove: [key: string]
-}>()
+  remove: [key: string];
+}>();
 </script>
 
 <template>
   <div class="filter-bar__chips d-flex ga-1 flex-wrap">
-    <v-chip
-      v-for="chip in chips"
-      :key="chip.key"
-      size="x-small"
-      closable
-      @click:close.stop="$emit('remove', chip.key)"
-    >
+    <v-chip v-for="chip in chips" :key="chip.key" size="x-small" closable @click:close.stop="$emit('remove', chip.key)">
       {{ chip.label }}
     </v-chip>
   </div>

@@ -1,7 +1,7 @@
-import type { FieldDefinition } from '@/modules/Core/UI/Dto/FieldDefinition'
+import type { FieldDefinition } from '@/modules/Core/UI/Dto/FieldDefinition';
 
 export interface ColumnDefinition extends FieldDefinition {
-  sortable?: boolean
-  editable?: boolean
-  width?: string | number
+  sortable?: boolean;
+  editable?: boolean;
+  width?: string | number;
 }

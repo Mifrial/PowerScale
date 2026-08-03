@@ -1,22 +1,22 @@
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
-import type { User } from '@/modules/Core/User/Dto/User'
-import type { CreateUserData, UpdateUserData } from '@/modules/Core/User/Interface/IUserApi'
+import { ref, reactive } from 'vue';
+import type { User } from '@/modules/Core/User/Dto/User';
+import type { CreateUserData, UpdateUserData } from '@/modules/Core/User/Interface/IUserApi';
 
 const props = defineProps<{
-  mode: 'create' | 'edit'
-  user?: User
-  saving?: boolean
-}>()
+  mode: 'create' | 'edit';
+  user?: User;
+  saving?: boolean;
+}>();
 
 const emit = defineEmits<{
-  submit: [data: CreateUserData | UpdateUserData]
-  cancel: []
-}>()
+  submit: [data: CreateUserData | UpdateUserData];
+  cancel: [];
+}>();
 
-import type { VForm } from 'vuetify/components'
+import type { VForm } from 'vuetify/components';
 
-const formRef = ref<VForm | null>(null)
+const formRef = ref<VForm | null>(null);
 
 const form = reactive({
   name: props.user?.name ?? '',
@@ -27,22 +27,38 @@ const form = reactive({
   password: '',
   groups: props.user?.groups ?? [],
   active: props.user?.active ?? true,
-})
+});
 
 function required(v: unknown): string | boolean {
-  if (!v || (typeof v === 'string' && !v.trim())) return 'Обязательное поле'
-  return true
+  if (!v || (typeof v === 'string' && !v.trim())) return 'Обязательное поле';
+
+  return true;
 }
 
 async function handleSubmit() {
-  const valid = await formRef.value?.validate()
-  if (!valid?.valid) return
-  const clean = (val: string) => val || undefined
+  const valid = await formRef.value?.validate();
+  if (!valid?.valid) return;
+  const clean = (val: string) => val || undefined;
   if (props.mode === 'create') {
-    emit('submit', { name: form.name, surname: clean(form.surname), nickname: clean(form.nickname), login: form.login, email: form.email, password: form.password, groups: form.groups })
+    emit('submit', {
+      name: form.name,
+      surname: clean(form.surname),
+      nickname: clean(form.nickname),
+      login: form.login,
+      email: form.email,
+      password: form.password,
+      groups: form.groups,
+    });
   } else {
-    const data: UpdateUserData = { name: form.name, surname: clean(form.surname), nickname: clean(form.nickname), email: form.email, groups: form.groups, active: form.active }
-    emit('submit', data)
+    const data: UpdateUserData = {
+      name: form.name,
+      surname: clean(form.surname),
+      nickname: clean(form.nickname),
+      email: form.email,
+      groups: form.groups,
+      active: form.active,
+    };
+    emit('submit', data);
   }
 }
 </script>

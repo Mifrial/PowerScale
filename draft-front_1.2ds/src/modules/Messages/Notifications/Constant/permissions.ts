@@ -1,4 +1,4 @@
-import type { PermissionCategory, AdminSection } from '@/modules/Core/User/Interface/IPermissionRegistry'
+import type { PermissionCategory, AdminSection } from '@/modules/Core/User/Interface/IPermissionRegistry';
 
 export const NOTIFICATION_TEMPLATE_PERMISSION_CATEGORY: PermissionCategory = {
   key: 'notification_template',
@@ -9,7 +9,7 @@ export const NOTIFICATION_TEMPLATE_PERMISSION_CATEGORY: PermissionCategory = {
     { key: 'edit', label: 'Редактирование' },
     { key: 'delete', label: 'Удаление' },
   ],
-}
+};
 
 export const TEMPLATES_ADMIN_SECTION: AdminSection = {
   id: 'templates',
@@ -17,4 +17,4 @@ export const TEMPLATES_ADMIN_SECTION: AdminSection = {
   to: '/admin/notification-templates',
   icon: 'mdi-bell-cog',
   permission: 'notification_template.view',
-}
+};

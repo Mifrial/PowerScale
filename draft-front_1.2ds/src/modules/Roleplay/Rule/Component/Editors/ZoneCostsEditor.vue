@@ -1,77 +1,79 @@
 <script setup lang="ts">
-import type { ZoneId } from '@/modules/Roleplay/Rule/Dto/Ability/ZoneId'
-import type { AbilityCost } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityCost'
-import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue'
-import { useVModelSync } from '@/modules/Core/UI/Composables/useVModelSync'
+import type { ZoneId } from '@/modules/Roleplay/Rule/Dto/Ability/ZoneId';
+import type { AbilityCost } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityCost';
+import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
+import { useVModelSync } from '@/modules/Core/UI/Composables/useVModelSync';
 
 const props = defineProps<{
-  modelValue: Partial<Record<ZoneId, AbilityCost>>
-  zoneOptions: { label: string; value: string }[]
-  disabled?: boolean
-}>()
+  modelValue: Partial<Record<ZoneId, AbilityCost>>;
+  zoneOptions: { label: string; value: string }[];
+  disabled?: boolean;
+}>();
 
 const emit = defineEmits<{
-  'update:modelValue': [value: Partial<Record<ZoneId, AbilityCost>>]
-}>()
+  'update:modelValue': [value: Partial<Record<ZoneId, AbilityCost>>];
+}>();
 
 const { inner } = useVModelSync<Partial<Record<ZoneId, AbilityCost>>>({
   modelValue: () => props.modelValue,
   onCommit: (value) => emit('update:modelValue', value),
   clone: false,
-})
+});
 
 function hasZone(zone: ZoneId): boolean {
-  return !!inner.value[zone]
+  return !!inner.value[zone];
 }
 
 function zoneCost(zone: ZoneId): AbilityCost {
-  return inner.value[zone] ?? { kind: 'array', levels_cost: [0] }
+  return inner.value[zone] ?? { kind: 'array', levels_cost: [0] };
 }
 
 function progressionZone(zone: ZoneId) {
-  const cost = inner.value[zone]
-  return cost && cost.kind === 'progression' ? cost : null
+  const cost = inner.value[zone];
+
+  return cost && cost.kind === 'progression' ? cost : null;
 }
 
 function toggleZone(zone: ZoneId, checked: boolean) {
-  const zones = { ...inner.value }
+  const zones = { ...inner.value };
   if (checked) {
-    zones[zone] = { kind: 'array', levels_cost: [0] }
+    zones[zone] = { kind: 'array', levels_cost: [0] };
   } else {
-    delete zones[zone]
+    delete zones[zone];
   }
-  inner.value = zones
+  inner.value = zones;
 }
 
 function patchZone(zone: ZoneId, key: string, value: unknown) {
-  const current = inner.value[zone]
-  if (!current) return
-  inner.value = { ...inner.value, [zone]: { ...current, [key]: value } as AbilityCost }
+  const current = inner.value[zone];
+  if (!current) return;
+  inner.value = { ...inner.value, [zone]: { ...current, [key]: value } as AbilityCost };
 }
 
 function arrayCosts(zone: ZoneId): number[] {
-  const cost = inner.value[zone]
-  return cost && cost.kind === 'array' ? cost.levels_cost : []
+  const cost = inner.value[zone];
+
+  return cost && cost.kind === 'array' ? cost.levels_cost : [];
 }
 
 function updateArrayCost(zone: ZoneId, index: number, value: number) {
-  const cost = inner.value[zone]
-  if (!cost || cost.kind !== 'array') return
-  const levels_cost = [...cost.levels_cost]
-  levels_cost[index] = Number(value) || 0
-  inner.value = { ...inner.value, [zone]: { kind: 'array', levels_cost } }
+  const cost = inner.value[zone];
+  if (!cost || cost.kind !== 'array') return;
+  const levels_cost = [...cost.levels_cost];
+  levels_cost[index] = Number(value) || 0;
+  inner.value = { ...inner.value, [zone]: { kind: 'array', levels_cost } };
 }
 
 function addArrayCost(zone: ZoneId) {
-  const cost = inner.value[zone]
-  if (!cost || cost.kind !== 'array') return
-  inner.value = { ...inner.value, [zone]: { kind: 'array', levels_cost: [...cost.levels_cost, 0] } }
+  const cost = inner.value[zone];
+  if (!cost || cost.kind !== 'array') return;
+  inner.value = { ...inner.value, [zone]: { kind: 'array', levels_cost: [...cost.levels_cost, 0] } };
 }
 
 function removeArrayCost(zone: ZoneId) {
-  const cost = inner.value[zone]
-  if (!cost || cost.kind !== 'array' || cost.levels_cost.length <= 1) return
-  inner.value = { ...inner.value, [zone]: { kind: 'array', levels_cost: cost.levels_cost.slice(0, -1) } }
+  const cost = inner.value[zone];
+  if (!cost || cost.kind !== 'array' || cost.levels_cost.length <= 1) return;
+  inner.value = { ...inner.value, [zone]: { kind: 'array', levels_cost: cost.levels_cost.slice(0, -1) } };
 }
 </script>
 
@@ -89,11 +91,7 @@ function removeArrayCost(zone: ZoneId) {
       />
     </div>
 
-    <div
-      v-for="zone in zoneOptions"
-      :key="`zone-editor-${zone.value}`"
-      class="mt-3"
-    >
+    <div v-for="zone in zoneOptions" :key="`zone-editor-${zone.value}`" class="mt-3">
       <template v-if="hasZone(zone.value)">
         <div class="text-subtitle-2 mb-1">{{ zone.label }}</div>
         <v-radio-group
@@ -121,7 +119,7 @@ function removeArrayCost(zone: ZoneId) {
               :label="`Ур. ${levelIndex + 1}`"
               density="compact"
               hide-details
-              style="min-width: 90px;"
+              style="min-width: 90px"
             />
             <v-btn icon size="small" variant="text" @click="addArrayCost(zone.value)">
               <v-icon>mdi-plus</v-icon>
@@ -141,7 +139,7 @@ function removeArrayCost(zone: ZoneId) {
               :min="1"
               density="compact"
               hide-details
-              style="min-width: 140px;"
+              style="min-width: 140px"
             />
             <ClampedNumberField
               :model-value="progressionZone(zone.value)?.base_cost ?? 0"
@@ -149,7 +147,7 @@ function removeArrayCost(zone: ZoneId) {
               label="Базовая стоимость"
               density="compact"
               hide-details
-              style="min-width: 140px;"
+              style="min-width: 140px"
             />
             <ClampedNumberField
               :model-value="progressionZone(zone.value)?.step ?? 0"
@@ -157,7 +155,7 @@ function removeArrayCost(zone: ZoneId) {
               label="Шаг за уровень"
               density="compact"
               hide-details
-              style="min-width: 140px;"
+              style="min-width: 140px"
             />
           </div>
         </template>

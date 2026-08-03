@@ -1,48 +1,49 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import type { FilterField } from '@/modules/Core/UI/Dto/FilterField'
-import type { FilterValue, StringFilterValue } from '@/modules/Core/UI/Dto/FilterValue'
-import { FILTER_STRING_MODE_OPTIONS } from '@/modules/Core/UI/Constant/filterModeOptions'
+import { computed } from 'vue';
+import type { FilterField } from '@/modules/Core/UI/Dto/FilterField';
+import type { FilterValue, StringFilterValue } from '@/modules/Core/UI/Dto/FilterValue';
+import { FILTER_STRING_MODE_OPTIONS } from '@/modules/Core/UI/Constant/filterModeOptions';
 
 const props = defineProps<{
-  field: FilterField
-  modelValue?: FilterValue
-}>()
+  field: FilterField;
+  modelValue?: FilterValue;
+}>();
 
 const emit = defineEmits<{
-  'update:modelValue': [value: StringFilterValue | undefined]
-}>()
+  'update:modelValue': [value: StringFilterValue | undefined];
+}>();
 
 function parse(v: FilterValue | undefined): StringFilterValue {
   if (v && typeof v === 'object' && (v.mode === 'equals' || v.mode === 'contains')) {
-    return { mode: v.mode, value: typeof v.value === 'string' ? v.value : '' }
+    return { mode: v.mode, value: typeof v.value === 'string' ? v.value : '' };
   }
   if (typeof v === 'string') {
-    return { mode: 'contains', value: v }
+    return { mode: 'contains', value: v };
   }
-  return { mode: 'contains', value: '' }
+
+  return { mode: 'contains', value: '' };
 }
 
-const parsed = computed(() => parse(props.modelValue))
-const mode = computed(() => parsed.value.mode)
-const value = computed(() => parsed.value.value)
+const parsed = computed(() => parse(props.modelValue));
+const mode = computed(() => parsed.value.mode);
+const value = computed(() => parsed.value.value);
 
-const modeOptions = FILTER_STRING_MODE_OPTIONS
+const modeOptions = FILTER_STRING_MODE_OPTIONS;
 
 function onModeChange(m: string) {
-  const mode = m === 'contains' ? 'contains' : 'equals'
-  emitValue(mode, value.value)
+  const mode = m === 'contains' ? 'contains' : 'equals';
+  emitValue(mode, value.value);
 }
 
 function onValueChange(v: string | null) {
-  emitValue(mode.value, v ?? '')
+  emitValue(mode.value, v ?? '');
 }
 
 function emitValue(mode: 'equals' | 'contains', val: string) {
   if (!val) {
-    emit('update:modelValue', undefined)
+    emit('update:modelValue', undefined);
   } else {
-    emit('update:modelValue', { mode, value: val })
+    emit('update:modelValue', { mode, value: val });
   }
 }
 </script>

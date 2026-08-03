@@ -1,5 +1,5 @@
-import type { RouteRecordRaw } from 'vue-router'
-import { useGroupStore } from '@/modules/Core/User/Store/groups'
+import type { RouteRecordRaw } from 'vue-router';
+import { useGroupStore } from '@/modules/Core/User/Store/groups';
 
 export const routes: RouteRecordRaw[] = [
   {
@@ -15,7 +15,11 @@ export const routes: RouteRecordRaw[] = [
         path: 'new',
         name: 'UserNew',
         component: () => import('@/modules/Core/User/Page/UserEditPage.vue'),
-        meta: { title: 'Новый пользователь', crumb: () => [{ title: 'Новый пользователь' }], requiresAny: ['user.create'] },
+        meta: {
+          title: 'Новый пользователь',
+          crumb: () => [{ title: 'Новый пользователь' }],
+          requiresAny: ['user.create'],
+        },
       },
       {
         path: ':id',
@@ -31,7 +35,7 @@ export const routes: RouteRecordRaw[] = [
       },
     ],
   },
-]
+];
 
 export const adminChildren: RouteRecordRaw[] = [
   {
@@ -53,7 +57,11 @@ export const adminChildren: RouteRecordRaw[] = [
         path: 'new',
         name: 'GroupNew',
         component: () => import('@/modules/Core/User/Page/GroupEditPage.vue'),
-        meta: { title: 'Создание группы', crumb: () => [{ title: 'Создание группы' }], requiresAny: ['user_group.create'] },
+        meta: {
+          title: 'Создание группы',
+          crumb: () => [{ title: 'Создание группы' }],
+          requiresAny: ['user_group.create'],
+        },
       },
       {
         path: ':id',
@@ -71,12 +79,13 @@ export const adminChildren: RouteRecordRaw[] = [
         meta: {
           title: 'Редактирование группы',
           crumb: () => {
-            const name = useGroupStore().currentGroup?.name
-            return [{ title: name ? `Редактирование: ${name}` : 'Редактирование группы' }]
+            const name = useGroupStore().currentGroup?.name;
+
+            return [{ title: name ? `Редактирование: ${name}` : 'Редактирование группы' }];
           },
           requiresAny: ['user_group.edit'],
         },
       },
     ],
   },
-]
+];

@@ -253,6 +253,13 @@ src/
 - `Core/UI`: `useGridPage` → `Core/UI/Composables/` (устранена зависимость Engine→UI); `useFilterBuffer` → `Core/UI/Composables/`.
 - `readonly`-члены классов: инжектированные зависимости (15 файлов, фикс по Sonar) + `ServiceLocator.services`/`CsrfApi.cookieName`.
 
+**Волна тулинга (2026-08-03, ESLint + Prettier):**
+- devDeps: `prettier`, `eslint` 10, `typescript-eslint` 8, `eslint-plugin-vue` 10, `eslint-config-prettier`, `vue-eslint-parser`. Конфиги: `.prettierrc.json` (2 пробела, semi, singleQuote, trailingComma all, printWidth 120), `eslint.config.js` (flat). Скрипты: `format`/`format:check`/`lint`/`lint:check`.
+- ESLint-правила (механический гарант frontend-rules.md): `no-explicit-any`, `consistent-type-imports`, `prefer-readonly` (typed-linting для `src/**/*.ts`), `no-unused-vars` (`_`-префикс игнорируется), `no-non-null-assertion`, `ban-ts-comment`, `array-type`, `eqeqeq` (`null: 'ignore'`), `padding-line-between-statements` (пустая строка перед return), `no-debugger`, `no-console` (warn, allow error/warn), `vue/block-order` (бывш. `component-tags-order`), `vue/require-explicit-emits`, `vue/multi-word-component-names`. `no-undef` off (стандарт TS); в тестах ослаблены `no-explicit-any`/`no-non-null-assertion`.
+- Зачистка кода по линту: 15 `!`-assertions, мёртвые импорты, пустые catch (why-комментарии), дубликат `spec` в ItemEditor (ref → `draft`), пустые интерфейсы → type-алиасы, `Shell`→`AppShell`, `Messenger`→`ChatMessenger`.
+- Изменения правил: frontend-rules.md §3 — «механика закреплена линтером»; §6 — верификация включает `lint`/`format:check`.
+- Открытия: `vue/component-tags-order` → `vue/block-order` (v10); `no-unnecessary-type-assertion` сломал сборку автофиксом (снял необходимые `as HTMLElement`) → правило исключено, код на generic `querySelector<HTMLElement>`.
+
 **Архитектурные решения:**
 - DI: `serviceLocator` (генерализованный set/get/reset, `Core/Engine/Service/ServiceLocator.ts`)
 - Per-модуль `init.ts`: `registerXApi(impl)` + `getXApi(): IXApi`

@@ -1,40 +1,42 @@
 <script setup lang="ts">
-import type { ColumnDefinition } from '@/modules/Core/UI/Dto/ColumnDefinition'
-import type { Sort } from '@/modules/Core/UI/Dto/Sort'
-import type { ColumnDropTarget } from '@/modules/Core/UI/Composables/useColumnDrag'
+import type { ColumnDefinition } from '@/modules/Core/UI/Dto/ColumnDefinition';
+import type { Sort } from '@/modules/Core/UI/Dto/Sort';
+import type { ColumnDropTarget } from '@/modules/Core/UI/Composables/useColumnDrag';
 
 const props = defineProps<{
-  gridId?: string
-  columns: ColumnDefinition[]
-  sort?: Sort | null
-  widths: Record<string, number>
-  dragKey: string | null
-  dropTarget: ColumnDropTarget | null
-  resizingKey: string | null
-}>()
+  gridId?: string;
+  columns: ColumnDefinition[];
+  sort?: Sort | null;
+  widths: Record<string, number>;
+  dragKey: string | null;
+  dropTarget: ColumnDropTarget | null;
+  resizingKey: string | null;
+}>();
 
 const emit = defineEmits<{
-  settings: []
-  sort: [key: string]
-  'resize-start': [key: string, e: MouseEvent]
-  'drag-start': [key: string, e: DragEvent]
-  'drag-enter': [key: string, e: DragEvent]
-  drop: [key: string, e: DragEvent]
-  'drag-end': []
-}>()
+  settings: [];
+  sort: [key: string];
+  'resize-start': [key: string, e: MouseEvent];
+  'drag-start': [key: string, e: DragEvent];
+  'drag-enter': [key: string, e: DragEvent];
+  drop: [key: string, e: DragEvent];
+  'drag-end': [];
+}>();
 
 function colWidthStyle(key: string): Record<string, string> {
-  const w = props.widths[key]
-  return w ? { minWidth: `${w}px`, maxWidth: `${w}px` } : {}
+  const w = props.widths[key];
+
+  return w ? { minWidth: `${w}px`, maxWidth: `${w}px` } : {};
 }
 
 function isColumnSorted(key: string) {
-  return props.sort?.key === key
+  return props.sort?.key === key;
 }
 
 function iconForSort(key: string) {
-  if (props.sort?.key !== key) return ''
-  return props.sort.order === 'asc' ? 'mdi-sort-ascending' : 'mdi-sort-descending'
+  if (props.sort?.key !== key) return '';
+
+  return props.sort.order === 'asc' ? 'mdi-sort-ascending' : 'mdi-sort-descending';
 }
 </script>
 
@@ -63,7 +65,7 @@ function iconForSort(key: string) {
       @drop.prevent="emit('drop', col.key, $event)"
       @dragend="emit('drag-end')"
     >
-      <div class="d-inline-flex align-center ga-1" style="overflow:hidden">
+      <div class="d-inline-flex align-center ga-1" style="overflow: hidden">
         <span class="smart-header-label">{{ col.label }}</span>
         <v-icon v-if="isColumnSorted(col.key)" size="x-small">
           {{ iconForSort(col.key) }}

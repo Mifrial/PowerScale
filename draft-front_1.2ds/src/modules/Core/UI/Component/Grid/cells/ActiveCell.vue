@@ -1,16 +1,17 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed } from 'vue';
 
 const props = defineProps<{
-  value: unknown
-  column?: unknown
-}>()
+  value: unknown;
+  column?: unknown;
+}>();
 
 const isActive = computed(() => {
-  if (typeof props.value === 'boolean') return props.value
-  if (typeof props.value === 'string') return props.value === 'true'
-  return Boolean(props.value)
-})
+  if (typeof props.value === 'boolean') return props.value;
+  if (typeof props.value === 'string') return props.value === 'true';
+
+  return Boolean(props.value);
+});
 </script>
 
 <template>

@@ -1,16 +1,16 @@
-import type { ItemSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpec'
-import type { ItemSpecDraft } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpecDraft'
-import type { WeaponBlock } from '@/modules/Roleplay/Rule/Dto/Item/WeaponBlock'
-import type { ArmorBlock } from '@/modules/Roleplay/Rule/Dto/Item/ArmorBlock'
-import type { ShieldBlock } from '@/modules/Roleplay/Rule/Dto/Item/ShieldBlock'
-import type { WeaponProfile } from '@/modules/Roleplay/Rule/Dto/Item/WeaponProfile'
-import { ITEM_SUBTYPE_FIELDS } from '@/modules/Roleplay/Rule/Constant/Item/ITEM_SUBTYPE_FIELDS'
-import { ITEM_BLOCK_FIELDS } from '@/modules/Roleplay/Rule/Constant/Item/ITEM_BLOCK_FIELDS'
+import type { ItemSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpec';
+import type { ItemSpecDraft } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpecDraft';
+import type { WeaponBlock } from '@/modules/Roleplay/Rule/Dto/Item/WeaponBlock';
+import type { ArmorBlock } from '@/modules/Roleplay/Rule/Dto/Item/ArmorBlock';
+import type { ShieldBlock } from '@/modules/Roleplay/Rule/Dto/Item/ShieldBlock';
+import type { WeaponProfile } from '@/modules/Roleplay/Rule/Dto/Item/WeaponProfile';
+import { ITEM_SUBTYPE_FIELDS } from '@/modules/Roleplay/Rule/Constant/Item/ITEM_SUBTYPE_FIELDS';
+import { ITEM_BLOCK_FIELDS } from '@/modules/Roleplay/Rule/Constant/Item/ITEM_BLOCK_FIELDS';
 
 export class ItemSpecService {
   constructor(
-    private subtypeFields: Record<string, (keyof ItemSpecDraft)[]>,
-    private blockFields: (keyof ItemSpecDraft)[],
+    private readonly subtypeFields: Record<string, (keyof ItemSpecDraft)[]>,
+    private readonly blockFields: (keyof ItemSpecDraft)[],
   ) {}
 
   ensureWeapon(spec: ItemSpecDraft): WeaponBlock {
@@ -19,9 +19,10 @@ export class ItemSpecService {
         min_strength: { base: 3, size: 0 },
         block_profile: null,
         weapon_profiles: [],
-      }
+      };
     }
-    return spec.weapon
+
+    return spec.weapon;
   }
 
   ensureArmor(spec: ItemSpecDraft): ArmorBlock {
@@ -30,9 +31,10 @@ export class ItemSpecService {
         defense_slots: [],
         resistance_slots: [],
         characteristic_limits: [],
-      }
+      };
     }
-    return spec.armor
+
+    return spec.armor;
   }
 
   ensureShield(spec: ItemSpecDraft): ShieldBlock {
@@ -44,9 +46,10 @@ export class ItemSpecService {
           defense: 0,
           resistances: [],
         },
-      }
+      };
     }
-    return spec.shield
+
+    return spec.shield;
   }
 
   addWeaponProfile(weapon: WeaponBlock, strengthCode: string): void {
@@ -54,18 +57,21 @@ export class ItemSpecService {
       type: 'strike',
       distance: { type: 'fixed', value: 0 },
       range: null,
-      damage: { formula: { type: 'characteristic', characteristic_code: strengthCode, modifier: 0 }, damage_type_code: null },
+      damage: {
+        formula: { type: 'characteristic', characteristic_code: strengthCode, modifier: 0 },
+        damage_type_code: null,
+      },
       penetration: { type: 'characteristic', characteristic_code: strengthCode, modifier: 0 },
       accuracy: { base: 3, size: 0 },
-    })
+    });
   }
 
   updateProfileType(weapon: WeaponBlock, index: number, type: WeaponProfile['type']): void {
-    weapon.weapon_profiles[index].type = type
+    weapon.weapon_profiles[index].type = type;
   }
 
   removeWeaponProfile(weapon: WeaponBlock, index: number): void {
-    weapon.weapon_profiles.splice(index, 1)
+    weapon.weapon_profiles.splice(index, 1);
   }
 
   /**
@@ -74,20 +80,21 @@ export class ItemSpecService {
    * редактора НЕ чистятся, но в сохранённый результат мусор не попадает.
    */
   prune(spec: ItemSpecDraft, subtypes: string[]): ItemSpec {
-    const active = new Set<keyof ItemSpecDraft>()
+    const active = new Set<keyof ItemSpecDraft>();
     for (const subtype of subtypes) {
       for (const field of this.subtypeFields[subtype] ?? []) {
-        active.add(field)
+        active.add(field);
       }
     }
-    const out: ItemSpecDraft = { ...spec }
+    const out: ItemSpecDraft = { ...spec };
     for (const field of this.blockFields) {
       if (!active.has(field)) {
-        delete out[field]
+        delete out[field];
       }
     }
-    return out as ItemSpec
+
+    return out;
   }
 }
 
-export const itemSpecService = new ItemSpecService(ITEM_SUBTYPE_FIELDS, ITEM_BLOCK_FIELDS)
+export const itemSpecService = new ItemSpecService(ITEM_SUBTYPE_FIELDS, ITEM_BLOCK_FIELDS);

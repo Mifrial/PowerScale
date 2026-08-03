@@ -1,5 +1,5 @@
-import type { IChatApi } from '@/modules/Messages/Chat/Interface/IChatApi'
-import * as mock from '@/modules/Messages/Chat/Mock/mockChat'
+import type { IChatApi } from '@/modules/Messages/Chat/Interface/IChatApi';
+import * as mock from '@/modules/Messages/Chat/Mock/mockChat';
 
 export const mockChatApi: IChatApi = {
   getChats: mock.mockGetChats,
@@ -8,4 +8,4 @@ export const mockChatApi: IChatApi = {
   sendMessage: mock.mockSendMessage,
   markChatRead: mock.mockMarkChatRead,
   sync: mock.mockSync,
-}
+};

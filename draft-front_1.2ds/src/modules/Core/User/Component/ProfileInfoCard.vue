@@ -1,22 +1,22 @@
 <script setup lang="ts">
-import type { User } from '@/modules/Core/User/Dto/User'
+import type { User } from '@/modules/Core/User/Dto/User';
 
 const props = defineProps<{
-  user: User
-  canEdit: boolean
-  editing: boolean
-  saving: boolean
-}>()
+  user: User;
+  canEdit: boolean;
+  editing: boolean;
+  saving: boolean;
+}>();
 
-const formName = defineModel<string>('formName', { required: true })
-const formSurname = defineModel<string>('formSurname', { required: true })
-const formNickname = defineModel<string>('formNickname', { required: true })
+const formName = defineModel<string>('formName', { required: true });
+const formSurname = defineModel<string>('formSurname', { required: true });
+const formNickname = defineModel<string>('formNickname', { required: true });
 
 const emit = defineEmits<{
-  start: []
-  save: []
-  cancel: []
-}>()
+  start: [];
+  save: [];
+  cancel: [];
+}>();
 </script>
 
 <template>

@@ -1,4 +1,4 @@
-import type { Grant } from '@/modules/Roleplay/Rule/Dto/Ability/Grant'
+import type { Grant } from '@/modules/Roleplay/Rule/Dto/Ability/Grant';
 
 export const GRANT_TYPES: { label: string; value: Grant['type'] }[] = [
   { label: 'Даёт характеристику', value: 'characteristic' },
@@ -8,4 +8,4 @@ export const GRANT_TYPES: { label: string; value: Grant['type'] }[] = [
   { label: 'Даёт способность', value: 'ability' },
   { label: 'Признак', value: 'keyword' },
   { label: 'Даёт предмет', value: 'item' },
-]
+];

@@ -1,107 +1,112 @@
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
-import type { SpellSpec } from '@/modules/Roleplay/Rule/Dto/Ability/SpellSpec'
-import type { SpellDuration } from '@/modules/Roleplay/Rule/Dto/Ability/SpellDuration'
-import type { SpellComponent } from '@/modules/Roleplay/Rule/Dto/Ability/SpellComponent'
-import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue'
-import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue'
-import { abilitySpecService } from '@/modules/Roleplay/Rule/Service/Spec/AbilitySpecService'
+import { ref, watch, onMounted } from 'vue';
+import type { SpellSpec } from '@/modules/Roleplay/Rule/Dto/Ability/SpellSpec';
+import type { SpellDuration } from '@/modules/Roleplay/Rule/Dto/Ability/SpellDuration';
+import type { SpellComponent } from '@/modules/Roleplay/Rule/Dto/Ability/SpellComponent';
+import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue';
+import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
+import { abilitySpecService } from '@/modules/Roleplay/Rule/Service/Spec/AbilitySpecService';
 
 const props = defineProps<{
-  modelValue: SpellSpec | null
-  items: { code: string; name: string }[]
-}>()
+  modelValue: SpellSpec | null;
+  items: { code: string; name: string }[];
+}>();
 
 const emit = defineEmits<{
-  'update:modelValue': [value: SpellSpec]
-}>()
+  'update:modelValue': [value: SpellSpec];
+}>();
 
-const inner = ref<SpellSpec>(defaultSpec())
+const inner = ref<SpellSpec>(defaultSpec());
 
 function defaultSpec(): SpellSpec {
   return {
     difficulty: { base: 3, size: 0 },
     duration: { type: 'instant' },
     components: [],
-  }
+  };
 }
 
 function patch(key: string, value: unknown) {
-  inner.value = { ...inner.value, [key]: value }
+  inner.value = { ...inner.value, [key]: value };
 }
 
 function updateDurationType(type: string) {
-  inner.value = { ...inner.value, duration: abilitySpecService.createEmptySpellDuration(type as SpellDuration['type']) }
+  inner.value = {
+    ...inner.value,
+    duration: abilitySpecService.createEmptySpellDuration(type as SpellDuration['type']),
+  };
 }
 
 function patchDuration(key: string, value: unknown) {
-  const d = inner.value.duration
-  if (d.type === 'instant') return
-  inner.value = { ...inner.value, duration: { ...d, [key]: value } }
+  const d = inner.value.duration;
+  if (d.type === 'instant') return;
+  inner.value = { ...inner.value, duration: { ...d, [key]: value } };
 }
 
 function toggleDurationLimit(checked: boolean) {
-  const d = inner.value.duration
-  if (d.type === 'instant') return
-  const limit = checked
-    ? { value: 1, unit: 'turn' as const }
-    : undefined
-  inner.value = { ...inner.value, duration: { ...d, limit } }
+  const d = inner.value.duration;
+  if (d.type === 'instant') return;
+  const limit = checked ? { value: 1, unit: 'turn' as const } : undefined;
+  inner.value = { ...inner.value, duration: { ...d, limit } };
 }
 
 function patchDurationLimit(key: string, value: unknown) {
-  const d = inner.value.duration
-  if (d.type === 'instant' || !d.limit) return
-  inner.value = { ...inner.value, duration: { ...d, limit: { ...d.limit, [key]: value } } }
+  const d = inner.value.duration;
+  if (d.type === 'instant' || !d.limit) return;
+  inner.value = { ...inner.value, duration: { ...d, limit: { ...d.limit, [key]: value } } };
 }
 
 function updateComponentType(index: number, type: string) {
   const components = inner.value.components.map((c, i) =>
     i === index ? abilitySpecService.createEmptySpellComponent(type as SpellComponent['type']) : c,
-  )
-  inner.value = { ...inner.value, components }
+  );
+  inner.value = { ...inner.value, components };
 }
 
 function patchComponent(index: number, key: string, value: unknown) {
-  const components = inner.value.components.map((c, i) => (i === index ? { ...c, [key]: value } : c))
-  inner.value = { ...inner.value, components }
+  const components = inner.value.components.map((c, i) => (i === index ? { ...c, [key]: value } : c));
+  inner.value = { ...inner.value, components };
 }
 
 function materialItemCode(component: SpellComponent): string | null {
-  return component.type === 'material' ? component.item_code ?? null : null
+  return component.type === 'material' ? (component.item_code ?? null) : null;
 }
 
 function materialDescription(component: SpellComponent): string {
-  return component.type === 'material' ? component.description ?? '' : ''
+  return component.type === 'material' ? (component.description ?? '') : '';
 }
 
 function addComponent() {
   inner.value = {
     ...inner.value,
     components: [...inner.value.components, abilitySpecService.createEmptySpellComponent('verbal')],
-  }
+  };
 }
 
 function removeComponent(index: number) {
-  inner.value = { ...inner.value, components: inner.value.components.filter((_, i) => i !== index) }
+  inner.value = { ...inner.value, components: inner.value.components.filter((_, i) => i !== index) };
 }
 
-watch(inner, (value) => {
-  emit('update:modelValue', structuredClone(value))
-}, { deep: true })
+watch(
+  inner,
+  (value) => {
+    emit('update:modelValue', structuredClone(value));
+  },
+  { deep: true },
+);
 
 onMounted(() => {
   if (props.modelValue) {
-    inner.value = normalize(structuredClone(props.modelValue))
+    inner.value = normalize(structuredClone(props.modelValue));
   }
-})
+});
 
 function normalize(raw: SpellSpec): SpellSpec {
   return {
     difficulty: raw.difficulty ?? { base: 3, size: 0 },
     duration: raw.duration ?? { type: 'instant' },
     components: raw.components ?? [],
-  }
+  };
 }
 </script>
 
@@ -136,16 +141,20 @@ function normalize(raw: SpellSpec): SpellSpec {
             :model-value="inner.duration.difficulty ?? null"
             @update:model-value="patchDuration('difficulty', $event)"
             label="Сложность обновления/поддержания"
-            style="min-width: 220px;"
+            style="min-width: 220px"
           />
           <ClampedNumberField
-            :model-value="typeof inner.duration.action_cost === 'number' ? inner.duration.action_cost : (inner.duration.action_cost?.base ?? 0)"
+            :model-value="
+              typeof inner.duration.action_cost === 'number'
+                ? inner.duration.action_cost
+                : (inner.duration.action_cost?.base ?? 0)
+            "
             @update:model-value="patchDuration('action_cost', $event)"
             label="ОД на обновление/поддержание"
             :min="0"
             density="compact"
             hide-details
-            style="min-width: 160px;"
+            style="min-width: 160px"
           />
         </div>
         <div class="mt-2">
@@ -158,13 +167,17 @@ function normalize(raw: SpellSpec): SpellSpec {
           />
           <div v-if="inner.duration.limit" class="d-flex gap-2 flex-wrap mt-1">
             <ClampedNumberField
-              :model-value="typeof inner.duration.limit.value === 'number' ? inner.duration.limit.value : (inner.duration.limit.value?.base ?? 0)"
+              :model-value="
+                typeof inner.duration.limit.value === 'number'
+                  ? inner.duration.limit.value
+                  : (inner.duration.limit.value?.base ?? 0)
+              "
               @update:model-value="patchDurationLimit('value', $event)"
               label="Значение"
               :min="1"
               density="compact"
               hide-details
-              style="min-width: 120px;"
+              style="min-width: 120px"
             />
             <v-select
               :model-value="inner.duration.limit.unit"
@@ -179,7 +192,7 @@ function normalize(raw: SpellSpec): SpellSpec {
               label="Единица"
               density="compact"
               hide-details
-              style="min-width: 160px;"
+              style="min-width: 160px"
             />
           </div>
         </div>
@@ -188,11 +201,7 @@ function normalize(raw: SpellSpec): SpellSpec {
 
     <div class="mt-3">
       <div class="text-subtitle-2 mb-1">Компоненты</div>
-      <div
-        v-for="(component, index) in inner.components"
-        :key="`comp-${index}`"
-        class="pa-1 mb-2 rounded bg-accent"
-      >
+      <div v-for="(component, index) in inner.components" :key="`comp-${index}`" class="pa-1 mb-2 rounded bg-accent">
         <div class="bg-surface rounded pa-2">
           <div class="d-flex align-center mb-1">
             <v-select
@@ -210,14 +219,7 @@ function normalize(raw: SpellSpec): SpellSpec {
               hide-details
               class="flex-grow-1"
             />
-            <v-btn
-              icon
-              size="x-small"
-              color="error"
-              variant="text"
-              class="ml-2"
-              @click="removeComponent(index)"
-            >
+            <v-btn icon size="x-small" color="error" variant="text" class="ml-2" @click="removeComponent(index)">
               <v-icon>mdi-delete</v-icon>
             </v-btn>
           </div>
@@ -255,12 +257,7 @@ function normalize(raw: SpellSpec): SpellSpec {
           </template>
         </div>
       </div>
-      <v-btn
-        variant="text"
-        color="primary"
-        size="small"
-        @click="addComponent"
-      >
+      <v-btn variant="text" color="primary" size="small" @click="addComponent">
         <v-icon start>mdi-plus</v-icon>
         Добавить компонент
       </v-btn>

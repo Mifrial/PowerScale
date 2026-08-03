@@ -1,12 +1,12 @@
-import type { ICSRFApi } from '@/modules/Core/Engine/Interface/ICSRFApi'
+import type { ICSRFApi } from '@/modules/Core/Engine/Interface/ICSRFApi';
 
-let token = ''
+let token = '';
 
 export const mockCsrfApi: ICSRFApi = {
   async initToken() {
-    token = crypto.randomUUID()
+    token = crypto.randomUUID();
   },
   getToken() {
-    return token
+    return token;
   },
-}
+};

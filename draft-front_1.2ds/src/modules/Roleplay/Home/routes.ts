@@ -1,4 +1,4 @@
-import type { RouteRecordRaw } from 'vue-router'
+import type { RouteRecordRaw } from 'vue-router';
 
 export const routes: RouteRecordRaw[] = [
   {
@@ -7,4 +7,4 @@ export const routes: RouteRecordRaw[] = [
     component: () => import('@/modules/Roleplay/Home/Page/DashboardPage.vue'),
     meta: { title: 'Главная', guestAllowed: true },
   },
-]
+];

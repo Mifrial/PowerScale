@@ -1,1 +1,1 @@
-export const SLIDER_LIMIT = 8
+export const SLIDER_LIMIT = 8;

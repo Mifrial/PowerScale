@@ -1,106 +1,112 @@
 <script setup lang="ts">
-import { ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
-import { computed } from 'vue'
-import { useChatStore } from '@/modules/Messages/Chat/Store/chat'
-import { useAuthStore } from '@/modules/Core/Auth/Store/auth'
-import { useChatUsers } from '@/modules/Messages/Chat/Composables/useChatUsers'
-import { usePermissions } from '@/modules/Messages/Chat/Composables/usePermissions'
-import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec'
-import { DateTime } from '@/modules/Core/Engine/Value/DateTime'
-import { getContentRenderer } from '@/modules/Messages/Chat/init'
-import ChatList from '@/modules/Messages/Chat/Component/ChatList.vue'
-import ChatInput from '@/modules/Messages/Chat/Component/ChatInput.vue'
-import UserProfileSlider from '@/modules/Messages/Chat/Component/UserProfileSlider.vue'
+import { ref, watch, nextTick, onMounted, onUnmounted } from 'vue';
+import { computed } from 'vue';
+import { useChatStore } from '@/modules/Messages/Chat/Store/chat';
+import { useAuthStore } from '@/modules/Core/Auth/Store/auth';
+import { useChatUsers } from '@/modules/Messages/Chat/Composables/useChatUsers';
+import { usePermissions } from '@/modules/Messages/Chat/Composables/usePermissions';
+import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec';
+import { DateTime } from '@/modules/Core/Engine/Value/DateTime';
+import { getContentRenderer } from '@/modules/Messages/Chat/init';
+import ChatList from '@/modules/Messages/Chat/Component/ChatList.vue';
+import ChatInput from '@/modules/Messages/Chat/Component/ChatInput.vue';
+import UserProfileSlider from '@/modules/Messages/Chat/Component/UserProfileSlider.vue';
 
-const store = useChatStore()
-const auth = useAuthStore()
-const permissions = usePermissions()
-const chatUsers = useChatUsers()
+const store = useChatStore();
+const auth = useAuthStore();
+const permissions = usePermissions();
+const chatUsers = useChatUsers();
 
-const rollRenderer = getContentRenderer('roll')
+const rollRenderer = getContentRenderer('roll');
 
-const canWrite = computed(() => permissions.canInChat(store.activeChat, 'chat.write'))
+const canWrite = computed(() => permissions.canInChat(store.activeChat, 'chat.write'));
 
-const messagesRef = ref<HTMLElement | null>(null)
-const userSliderOpen = ref(false)
-const userSliderUserId = ref<number | null>(null)
+const messagesRef = ref<HTMLElement | null>(null);
+const userSliderOpen = ref(false);
+const userSliderUserId = ref<number | null>(null);
 
 function openUserProfile(userId: number) {
-  userSliderUserId.value = userId
-  userSliderOpen.value = true
+  userSliderUserId.value = userId;
+  userSliderOpen.value = true;
 }
 
 function getUser(userId: number) {
-  return chatUsers.getUser(userId)
+  return chatUsers.getUser(userId);
 }
 
-let scrollPending = false
+let scrollPending = false;
 
 function onMessagesScroll() {
-  if (!messagesRef.value || scrollPending) return
-  scrollPending = true
+  if (!messagesRef.value || scrollPending) return;
+  scrollPending = true;
   requestAnimationFrame(() => {
-    scrollPending = false
-    const el = messagesRef.value
-    if (!el) return
-    store.setAutoScroll(el.scrollTop + el.clientHeight >= el.scrollHeight - 40)
+    scrollPending = false;
+    const el = messagesRef.value;
+    if (!el) return;
+    store.setAutoScroll(el.scrollTop + el.clientHeight >= el.scrollHeight - 40);
 
     if (el.scrollTop <= 80 && store.hasMoreOlder && !store.loadingOlder) {
-      const prevHeight = el.scrollHeight
+      const prevHeight = el.scrollHeight;
       store.loadOlderMessages().then(() => {
         nextTick(() => {
           if (messagesRef.value) {
-            messagesRef.value.scrollTop = messagesRef.value.scrollHeight - prevHeight
+            messagesRef.value.scrollTop = messagesRef.value.scrollHeight - prevHeight;
           }
-        })
-      })
+        });
+      });
     }
-  })
+  });
 }
 
 async function handleSend(text: string, rolls: DiceRollSpec[]) {
-  await store.sendMessage(text, rolls)
-  await nextTick()
+  await store.sendMessage(text, rolls);
+  await nextTick();
   if (messagesRef.value) {
-    messagesRef.value.scrollTop = messagesRef.value.scrollHeight
+    messagesRef.value.scrollTop = messagesRef.value.scrollHeight;
   }
 }
 
-watch(() => store.allMessages.length, async () => {
-  if (!messagesRef.value) return
-  await nextTick()
-  if (store.autoScroll) {
-    messagesRef.value.scrollTop = messagesRef.value.scrollHeight
-  }
-})
-
-watch(() => store.activeChatId, async (chatId) => {
-  store.setAutoScroll(true)
-  if (chatId != null) {
-    const chat = store.chats.find(c => c.id === chatId)
-    const memberIds = chat?.members?.map(m => m.userId) || []
-    if (memberIds.length) {
-      await chatUsers.ensureUsers(memberIds)
+watch(
+  () => store.allMessages.length,
+  async () => {
+    if (!messagesRef.value) return;
+    await nextTick();
+    if (store.autoScroll) {
+      messagesRef.value.scrollTop = messagesRef.value.scrollHeight;
     }
-  }
-})
+  },
+);
+
+watch(
+  () => store.activeChatId,
+  async (chatId) => {
+    store.setAutoScroll(true);
+    if (chatId != null) {
+      const chat = store.chats.find((c) => c.id === chatId);
+      const memberIds = chat?.members?.map((m) => m.userId) || [];
+      if (memberIds.length) {
+        await chatUsers.ensureUsers(memberIds);
+      }
+    }
+  },
+);
 
 onMounted(async () => {
   if (store.chats.length === 0) {
-    await store.fetchChats()
+    await store.fetchChats();
   }
-  store.startSync()
+  store.startSync();
   // preload all users for member resolution
-  const allMemberIds = new Set(store.chats.flatMap(c => c.members?.map(m => m.userId) || []))
+  const allMemberIds = new Set(store.chats.flatMap((c) => c.members?.map((m) => m.userId) || []));
   if (allMemberIds.size) {
-    await chatUsers.ensureUsers([...allMemberIds])
+    await chatUsers.ensureUsers([...allMemberIds]);
   }
-})
+});
 
 onUnmounted(() => {
-  store.activeChatId = null
-  store.stopSync()
-})
+  store.activeChatId = null;
+  store.stopSync();
+});
 </script>
 
 <template>
@@ -125,7 +131,10 @@ onUnmounted(() => {
             <div v-if="store.loadingOlder" class="d-flex justify-center pa-3">
               <v-progress-circular indeterminate width="2" size="20" color="primary" />
             </div>
-            <div v-if="!store.hasMoreOlder && store.allMessages.length > 0" class="text-center text-caption text-medium-emphasis pa-2">
+            <div
+              v-if="!store.hasMoreOlder && store.allMessages.length > 0"
+              class="text-center text-caption text-medium-emphasis pa-2"
+            >
               Начало переписки
             </div>
             <template v-for="msg in store.renderedMessages" :key="msg.id">
@@ -141,16 +150,19 @@ onUnmounted(() => {
                     :color="msg.userId === auth.userId ? 'primary' : 'secondary'"
                     size="28"
                     class="chat-msg-avatar"
-                    style="cursor: pointer;"
+                    style="cursor: pointer"
                     @click="openUserProfile(msg.userId)"
                   >
-                    <span class="text-caption font-weight-medium text-white">{{ chatUsers.initials(getUser(msg.userId)) }}</span>
+                    <span class="text-caption font-weight-medium text-white">{{
+                      chatUsers.initials(getUser(msg.userId))
+                    }}</span>
                   </v-avatar>
                   <span
                     class="font-weight-medium text-caption chat-msg-author"
-                    style="cursor: pointer;"
+                    style="cursor: pointer"
                     @click="openUserProfile(msg.userId)"
-                  >{{ chatUsers.displayName(getUser(msg.userId)) || msg.username }}</span>
+                    >{{ chatUsers.displayName(getUser(msg.userId)) || msg.username }}</span
+                  >
                   <span class="text-caption text-disabled">{{ DateTime.formatTime(msg.createdAt) }}</span>
                 </div>
                 <div v-if="msg.content" class="chat-msg-text">{{ msg.content }}</div>
@@ -162,7 +174,10 @@ onUnmounted(() => {
           </div>
 
           <ChatInput :sending="store.sending" :disabled="!canWrite" @send="handleSend" />
-          <div v-if="!canWrite && store.activeChat?.visibility === 'public'" class="text-caption text-medium-emphasis text-center pa-1 border-t">
+          <div
+            v-if="!canWrite && store.activeChat?.visibility === 'public'"
+            class="text-caption text-medium-emphasis text-center pa-1 border-t"
+          >
             Чат доступен только для чтения
           </div>
         </template>

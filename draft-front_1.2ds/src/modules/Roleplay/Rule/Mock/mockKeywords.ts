@@ -1,9 +1,9 @@
-import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword'
-import type { CreateKeywordData, UpdateKeywordData } from '@/modules/Roleplay/Rule/Interface/IKeywordApi'
+import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
+import type { CreateKeywordData, UpdateKeywordData } from '@/modules/Roleplay/Rule/Interface/IKeywordApi';
 
-const delay = (ms = 300) => new Promise(r => setTimeout(r, ms))
+const delay = (ms = 300) => new Promise((r) => setTimeout(r, ms));
 
-let nextId = 11
+let nextId = 11;
 
 const keywords: Keyword[] = [
   { id: 1, code: 'melee', name: 'Ближний бой', description: 'Оружие и навыки ближнего боя', active: true },
@@ -22,46 +22,50 @@ const keywords: Keyword[] = [
   { id: 14, code: 'action', name: 'Действие', description: 'Тип способности: действие (требует ОД)', active: true },
   { id: 15, code: 'process', name: 'Процесс', description: 'Тип способности: процесс (шаги)', active: true },
   { id: 16, code: 'spell', name: 'Заклинание', description: 'Тип способности: заклинание', active: true },
-]
+];
 
 export async function fetchTags(_signal?: AbortSignal): Promise<Keyword[]> {
-  await delay()
-  return keywords.map(t => ({ ...t }))
+  await delay();
+
+  return keywords.map((t) => ({ ...t }));
 }
 
 export async function fetchTag(id: number, _signal?: AbortSignal): Promise<Keyword> {
-  await delay()
-  const t = keywords.find(t => t.id === id)
-  if (!t) throw new Error(`Keyword ${id} not found`)
-  return { ...t }
+  await delay();
+  const t = keywords.find((t) => t.id === id);
+  if (!t) throw new Error(`Keyword ${id} not found`);
+
+  return { ...t };
 }
 
 export async function createTag(data: CreateKeywordData, _signal?: AbortSignal): Promise<Keyword> {
-  await delay()
+  await delay();
   const keyword: Keyword = {
     id: nextId++,
     code: data.code,
     name: data.name,
     description: data.description,
     active: true,
-  }
-  keywords.push(keyword)
-  return { ...keyword }
+  };
+  keywords.push(keyword);
+
+  return { ...keyword };
 }
 
 export async function updateTag(id: number, data: UpdateKeywordData, _signal?: AbortSignal): Promise<Keyword> {
-  await delay()
-  const t = keywords.find(t => t.id === id)
-  if (!t) throw new Error(`Keyword ${id} not found`)
-  if (data.code !== undefined) t.code = data.code
-  if (data.name !== undefined) t.name = data.name
-  if (data.description !== undefined) t.description = data.description
-  if (data.active !== undefined) t.active = data.active
-  return { ...t }
+  await delay();
+  const t = keywords.find((t) => t.id === id);
+  if (!t) throw new Error(`Keyword ${id} not found`);
+  if (data.code !== undefined) t.code = data.code;
+  if (data.name !== undefined) t.name = data.name;
+  if (data.description !== undefined) t.description = data.description;
+  if (data.active !== undefined) t.active = data.active;
+
+  return { ...t };
 }
 
 export async function deactivateTag(id: number, _signal?: AbortSignal): Promise<void> {
-  await delay()
-  const t = keywords.find(t => t.id === id)
-  if (t) t.active = false
+  await delay();
+  const t = keywords.find((t) => t.id === id);
+  if (t) t.active = false;
 }

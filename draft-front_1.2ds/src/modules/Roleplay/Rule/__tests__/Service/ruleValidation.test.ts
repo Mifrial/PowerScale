@@ -1,9 +1,9 @@
-import { describe, it, expect } from 'vitest'
-import { ruleValidationService } from '@/modules/Roleplay/Rule/Service/RuleValidationService'
-import { abilitySpecService } from '@/modules/Roleplay/Rule/Service/Spec/AbilitySpecService'
-import { itemSpecService } from '@/modules/Roleplay/Rule/Service/Spec/ItemSpecService'
-import { raceSpecService } from '@/modules/Roleplay/Rule/Service/Spec/RaceSpecService'
-import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule'
+import { describe, it, expect } from 'vitest';
+import { ruleValidationService } from '@/modules/Roleplay/Rule/Service/RuleValidationService';
+import { abilitySpecService } from '@/modules/Roleplay/Rule/Service/Spec/AbilitySpecService';
+import { itemSpecService } from '@/modules/Roleplay/Rule/Service/Spec/ItemSpecService';
+import { raceSpecService } from '@/modules/Roleplay/Rule/Service/Spec/RaceSpecService';
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
 const baseRule = (id: string, code: string, type: Rule['type'], spec?: any): Rule => ({
   id,
@@ -14,7 +14,7 @@ const baseRule = (id: string, code: string, type: Rule['type'], spec?: any): Rul
   spaceId: 1,
   spec,
   createdAt: '2026-01-01T00:00:00Z',
-})
+});
 
 describe('validateRuleReferences', () => {
   it('passes for a fully consistent pool', () => {
@@ -27,15 +27,18 @@ describe('validateRuleReferences', () => {
         weapon: {
           weapon_profiles: [
             {
-              damage: { formula: { type: 'characteristic', characteristic_code: 'strength', modifier: 0 }, damage_type_code: 'slashing' },
+              damage: {
+                formula: { type: 'characteristic', characteristic_code: 'strength', modifier: 0 },
+                damage_type_code: 'slashing',
+              },
               penetration: { type: 'characteristic', characteristic_code: 'strength', modifier: 0 },
             },
           ],
         },
       }),
-    ]
-    expect(ruleValidationService.validateRuleReferences(rules, [])).toEqual([])
-  })
+    ];
+    expect(ruleValidationService.validateRuleReferences(rules, [])).toEqual([]);
+  });
 
   it('reports missing characteristic code in item formula', () => {
     const rules: Rule[] = [
@@ -44,17 +47,20 @@ describe('validateRuleReferences', () => {
         weapon: {
           weapon_profiles: [
             {
-              damage: { formula: { type: 'characteristic', characteristic_code: 'strength', modifier: 0 }, damage_type_code: 'slashing' },
+              damage: {
+                formula: { type: 'characteristic', characteristic_code: 'strength', modifier: 0 },
+                damage_type_code: 'slashing',
+              },
               penetration: { type: 'fixed', value: 1 },
             },
           ],
         },
       }),
-    ]
-    const errors = ruleValidationService.validateRuleReferences(rules, [])
-    expect(errors).toHaveLength(1)
-    expect(errors[0]).toMatchObject({ ruleCode: 'sword', refCode: 'strength', expectedType: 'characteristic' })
-  })
+    ];
+    const errors = ruleValidationService.validateRuleReferences(rules, []);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatchObject({ ruleCode: 'sword', refCode: 'strength', expectedType: 'characteristic' });
+  });
 
   it('reports type mismatch when item references a characteristic as damage_type', () => {
     const rules: Rule[] = [
@@ -69,11 +75,11 @@ describe('validateRuleReferences', () => {
           ],
         },
       }),
-    ]
-    const errors = ruleValidationService.validateRuleReferences(rules, [])
-    expect(errors).toHaveLength(1)
-    expect(errors[0]).toMatchObject({ refCode: 'strength', expectedType: 'damage_type' })
-  })
+    ];
+    const errors = ruleValidationService.validateRuleReferences(rules, []);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatchObject({ refCode: 'strength', expectedType: 'damage_type' });
+  });
 
   it('validates ability references: requirements, grants, action costs', () => {
     const rules: Rule[] = [
@@ -81,16 +87,28 @@ describe('validateRuleReferences', () => {
       baseRule('ap', 'action-points', 'resource', { is_dimensional: true, initial_value: 3 }),
       baseRule('s', 'strength', 'characteristic'),
       baseRule('ds', 'double-strike', 'ability', {
-        requirements: [{ level: 1, requirements: [{ type: 'has_ability', ability_code: 'melee-fighting', min_level: 1 }] }],
+        requirements: [
+          { level: 1, requirements: [{ type: 'has_ability', ability_code: 'melee-fighting', min_level: 1 }] },
+        ],
         grants: [
-          { level: 1, grants: [{ type: 'characteristic_modify', characteristic_code: 'strength', amount: { type: 'fixed', value: 1 }, permanent: true }] },
+          {
+            level: 1,
+            grants: [
+              {
+                type: 'characteristic_modify',
+                characteristic_code: 'strength',
+                amount: { type: 'fixed', value: 1 },
+                permanent: true,
+              },
+            ],
+          },
         ],
         action_costs: [{ resource_code: 'action-points', amount: 1 }],
         parent_ability_code: null,
       }),
-    ]
-    expect(ruleValidationService.validateRuleReferences(rules, [])).toEqual([])
-  })
+    ];
+    expect(ruleValidationService.validateRuleReferences(rules, [])).toEqual([]);
+  });
 
   it('reports missing resource in ability action cost', () => {
     const rules: Rule[] = [
@@ -100,11 +118,11 @@ describe('validateRuleReferences', () => {
         action_costs: [{ resource_code: 'action-points', amount: 1 }],
         parent_ability_code: null,
       }),
-    ]
-    const errors = ruleValidationService.validateRuleReferences(rules, [])
-    expect(errors).toHaveLength(1)
-    expect(errors[0]).toMatchObject({ refCode: 'action-points', expectedType: 'resource' })
-  })
+    ];
+    const errors = ruleValidationService.validateRuleReferences(rules, []);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatchObject({ refCode: 'action-points', expectedType: 'resource' });
+  });
 
   it('checks ability_level formula inside a level grant', () => {
     const rules: Rule[] = [
@@ -116,31 +134,37 @@ describe('validateRuleReferences', () => {
           {
             level: 1,
             grants: [
-              { type: 'characteristic_modify', characteristic_code: 'strength', amount: { type: 'ability_level', ability_code: 'melee-fighting', multiplier: 1, offset: 0 } },
+              {
+                type: 'characteristic_modify',
+                characteristic_code: 'strength',
+                amount: { type: 'ability_level', ability_code: 'melee-fighting', multiplier: 1, offset: 0 },
+              },
             ],
           },
         ],
         action_costs: [],
         parent_ability_code: null,
       }),
-    ]
-    expect(ruleValidationService.validateRuleReferences(rules, [])).toEqual([])
-  })
+    ];
+    expect(ruleValidationService.validateRuleReferences(rules, [])).toEqual([]);
+  });
 
   it('validates keyword references against provided keywords', () => {
     const rules: Rule[] = [
       baseRule('a', 'melee-fighting', 'ability', {
-        requirements: [{ level: 1, requirements: [{ type: 'has_ability_keyword', keyword_code: 'combat', min_count: 1 }] }],
+        requirements: [
+          { level: 1, requirements: [{ type: 'has_ability_keyword', keyword_code: 'combat', min_count: 1 }] },
+        ],
         grants: [],
         action_costs: [],
         parent_ability_code: null,
       }),
-    ]
-    expect(ruleValidationService.validateRuleReferences(rules, [{ code: 'combat', name: 'Боевое' }])).toEqual([])
-    const errors = ruleValidationService.validateRuleReferences(rules, [])
-    expect(errors).toHaveLength(1)
-    expect(errors[0]).toMatchObject({ refCode: 'combat', expectedType: 'keyword' })
-  })
+    ];
+    expect(ruleValidationService.validateRuleReferences(rules, [{ code: 'combat', name: 'Боевое' }])).toEqual([]);
+    const errors = ruleValidationService.validateRuleReferences(rules, []);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatchObject({ refCode: 'combat', expectedType: 'keyword' });
+  });
 
   it('validates level-based requirements references', () => {
     const rules: Rule[] = [
@@ -156,8 +180,8 @@ describe('validateRuleReferences', () => {
         action_costs: [],
         parent_ability_code: null,
       }),
-    ]
-    expect(ruleValidationService.validateRuleReferences(rules, [])).toEqual([])
+    ];
+    expect(ruleValidationService.validateRuleReferences(rules, [])).toEqual([]);
 
     const bad = [
       baseRule('mf', 'melee-fighting', 'ability', {
@@ -171,28 +195,28 @@ describe('validateRuleReferences', () => {
         action_costs: [],
         parent_ability_code: null,
       }),
-    ]
-    const errors = ruleValidationService.validateRuleReferences(bad, [])
-    expect(errors).toHaveLength(1)
-    expect(errors[0]).toMatchObject({ refCode: 'missing-resource', expectedType: 'resource' })
-  })
+    ];
+    const errors = ruleValidationService.validateRuleReferences(bad, []);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatchObject({ refCode: 'missing-resource', expectedType: 'resource' });
+  });
 
   it('validates characteristic formula string references', () => {
     const rules: Rule[] = [
       baseRule('m', 'memory', 'characteristic'),
       baseRule('r', 'reasoning', 'characteristic'),
       baseRule('i', 'intellect', 'characteristic', { formula: 'min(memory, reasoning)' }),
-    ]
-    expect(ruleValidationService.validateRuleReferences(rules, [])).toEqual([])
+    ];
+    expect(ruleValidationService.validateRuleReferences(rules, [])).toEqual([]);
 
     const bad = [
       baseRule('m', 'memory', 'characteristic'),
       baseRule('i', 'intellect', 'characteristic', { formula: 'min(memory, dexterity)' }),
-    ]
-    const errors = ruleValidationService.validateRuleReferences(bad, [])
-    expect(errors).toHaveLength(1)
-    expect(errors[0]).toMatchObject({ refCode: 'dexterity', expectedType: 'characteristic' })
-  })
+    ];
+    const errors = ruleValidationService.validateRuleReferences(bad, []);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatchObject({ refCode: 'dexterity', expectedType: 'characteristic' });
+  });
 
   it('validates race references: parent species, characteristics, abilities', () => {
     const rules: Rule[] = [
@@ -205,9 +229,9 @@ describe('validateRuleReferences', () => {
         characteristics: [{ characteristic_code: 'strength', mode: 'fixed', base: { base: 3, size: 0 } }],
         abilities: [{ ability_code: 'keen-hearing', automatic: true }],
       }),
-    ]
-    expect(ruleValidationService.validateRuleReferences(rules, [])).toEqual([])
-  })
+    ];
+    expect(ruleValidationService.validateRuleReferences(rules, [])).toEqual([]);
+  });
 
   it('reports race parent referencing a race instead of a species', () => {
     const rules: Rule[] = [
@@ -218,11 +242,11 @@ describe('validateRuleReferences', () => {
         characteristics: [],
         abilities: [],
       }),
-    ]
-    const errors = ruleValidationService.validateRuleReferences(rules, [])
-    expect(errors).toHaveLength(1)
-    expect(errors[0]).toMatchObject({ refCode: 'human', expectedType: 'species' })
-  })
+    ];
+    const errors = ruleValidationService.validateRuleReferences(rules, []);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatchObject({ refCode: 'human', expectedType: 'species' });
+  });
 
   it('reports missing characteristic in race characteristics', () => {
     const rules: Rule[] = [
@@ -232,11 +256,11 @@ describe('validateRuleReferences', () => {
         characteristics: [{ characteristic_code: 'missing-stat', mode: 'fixed', base: { base: 3, size: 0 } }],
         abilities: [],
       }),
-    ]
-    const errors = ruleValidationService.validateRuleReferences(rules, [])
-    expect(errors).toHaveLength(1)
-    expect(errors[0]).toMatchObject({ refCode: 'missing-stat', expectedType: 'characteristic' })
-  })
+    ];
+    const errors = ruleValidationService.validateRuleReferences(rules, []);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatchObject({ refCode: 'missing-stat', expectedType: 'characteristic' });
+  });
 
   it('validates species references: parent species and abilities', () => {
     const rules: Rule[] = [
@@ -246,55 +270,61 @@ describe('validateRuleReferences', () => {
         parent_race_code: 'elves',
         abilities: [{ ability_code: 'keen-hearing', automatic: true }],
       }),
-    ]
-    expect(ruleValidationService.validateRuleReferences(rules, [])).toEqual([])
-  })
+    ];
+    expect(ruleValidationService.validateRuleReferences(rules, [])).toEqual([]);
+  });
 
   it('validates ability zone keys reference point rules', () => {
     const rules: Rule[] = [
       baseRule('p', 'os', 'points'),
       baseRule('a', 'keen-hearing', 'ability', {
         zones: { os: { kind: 'automatic' } },
-        requirements: [], grants: [], action_costs: [], parent_ability_code: null,
+        requirements: [],
+        grants: [],
+        action_costs: [],
+        parent_ability_code: null,
       }),
-    ]
-    expect(ruleValidationService.validateRuleReferences(rules, [])).toEqual([])
-  })
+    ];
+    expect(ruleValidationService.validateRuleReferences(rules, [])).toEqual([]);
+  });
 
   it('reports a missing point rule for a zone key', () => {
     const rules: Rule[] = [
       baseRule('a', 'keen-hearing', 'ability', {
         zones: { missing: { kind: 'automatic' } },
-        requirements: [], grants: [], action_costs: [], parent_ability_code: null,
+        requirements: [],
+        grants: [],
+        action_costs: [],
+        parent_ability_code: null,
       }),
-    ]
-    const errors = ruleValidationService.validateRuleReferences(rules, [])
-    expect(errors).toHaveLength(1)
-    expect(errors[0]).toMatchObject({ refCode: 'missing', expectedType: 'points' })
-  })
-})
+    ];
+    const errors = ruleValidationService.validateRuleReferences(rules, []);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatchObject({ refCode: 'missing', expectedType: 'points' });
+  });
+});
 
 describe('resolveAbilityTypeFromTags', () => {
   it('maps keyword combinations to ability types by precedence', () => {
-    expect(abilitySpecService.resolveTypeFromKeywords(['trait'])).toBe('trait')
-    expect(abilitySpecService.resolveTypeFromKeywords(['feature'])).toBe('feature')
-    expect(abilitySpecService.resolveTypeFromKeywords(['skill'])).toBe('skill')
-    expect(abilitySpecService.resolveTypeFromKeywords(['skill', 'action'])).toBe('action')
-    expect(abilitySpecService.resolveTypeFromKeywords(['skill', 'action', 'process'])).toBe('process')
-    expect(abilitySpecService.resolveTypeFromKeywords(['skill', 'magic', 'action', 'spell'])).toBe('spell')
-  })
+    expect(abilitySpecService.resolveTypeFromKeywords(['trait'])).toBe('trait');
+    expect(abilitySpecService.resolveTypeFromKeywords(['feature'])).toBe('feature');
+    expect(abilitySpecService.resolveTypeFromKeywords(['skill'])).toBe('skill');
+    expect(abilitySpecService.resolveTypeFromKeywords(['skill', 'action'])).toBe('action');
+    expect(abilitySpecService.resolveTypeFromKeywords(['skill', 'action', 'process'])).toBe('process');
+    expect(abilitySpecService.resolveTypeFromKeywords(['skill', 'magic', 'action', 'spell'])).toBe('spell');
+  });
 
   it('prefers most specific type when multiple distinctive keywords present', () => {
-    expect(abilitySpecService.resolveTypeFromKeywords(['action', 'spell'])).toBe('spell')
-    expect(abilitySpecService.resolveTypeFromKeywords(['process', 'action'])).toBe('process')
-    expect(abilitySpecService.resolveTypeFromKeywords(['action', 'trait'])).toBe('action')
-  })
+    expect(abilitySpecService.resolveTypeFromKeywords(['action', 'spell'])).toBe('spell');
+    expect(abilitySpecService.resolveTypeFromKeywords(['process', 'action'])).toBe('process');
+    expect(abilitySpecService.resolveTypeFromKeywords(['action', 'trait'])).toBe('action');
+  });
 
   it('returns null for unrelated keywords or empty set', () => {
-    expect(abilitySpecService.resolveTypeFromKeywords([])).toBeNull()
-    expect(abilitySpecService.resolveTypeFromKeywords(['combat', 'utility'])).toBeNull()
-  })
-})
+    expect(abilitySpecService.resolveTypeFromKeywords([])).toBeNull();
+    expect(abilitySpecService.resolveTypeFromKeywords(['combat', 'utility'])).toBeNull();
+  });
+});
 
 describe('validateAbilityStructure', () => {
   const keywords = [
@@ -302,7 +332,7 @@ describe('validateAbilityStructure', () => {
     { id: 2, code: 'action', name: 'Действие' },
     { id: 3, code: 'process', name: 'Процесс' },
     { id: 4, code: 'spell', name: 'Заклинание' },
-  ]
+  ];
 
   it('requires an action point cost for action type', () => {
     const rules: Rule[] = [
@@ -313,12 +343,12 @@ describe('validateAbilityStructure', () => {
         requirements: [],
         parent_ability_code: null,
       }),
-    ]
-    const errors = ruleValidationService.validateAbilityStructure(rules, keywords)
-    expect(errors).toHaveLength(1)
-    expect(errors[0]).toMatchObject({ ruleCode: 'strike' })
-    expect(errors[0].message).toContain('1 ОД')
-  })
+    ];
+    const errors = ruleValidationService.validateAbilityStructure(rules, keywords);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatchObject({ ruleCode: 'strike' });
+    expect(errors[0].message).toContain('1 ОД');
+  });
 
   it('passes action type with an action point cost', () => {
     const rules: Rule[] = [
@@ -329,9 +359,9 @@ describe('validateAbilityStructure', () => {
         requirements: [],
         parent_ability_code: null,
       }),
-    ]
-    expect(ruleValidationService.validateAbilityStructure(rules, keywords)).toEqual([])
-  })
+    ];
+    expect(ruleValidationService.validateAbilityStructure(rules, keywords)).toEqual([]);
+  });
 
   it('requires at least two steps for a process', () => {
     const rules: Rule[] = [
@@ -343,10 +373,10 @@ describe('validateAbilityStructure', () => {
         requirements: [],
         parent_ability_code: null,
       }),
-    ]
-    const errors = ruleValidationService.validateAbilityStructure(rules, keywords)
-    expect(errors.some(e => e.message.includes('минимум 2 шага'))).toBe(true)
-  })
+    ];
+    const errors = ruleValidationService.validateAbilityStructure(rules, keywords);
+    expect(errors.some((e) => e.message.includes('минимум 2 шага'))).toBe(true);
+  });
 
   it('validates process steps have action point cost and existing start step', () => {
     const rules: Rule[] = [
@@ -365,11 +395,11 @@ describe('validateAbilityStructure', () => {
         requirements: [],
         parent_ability_code: null,
       }),
-    ]
-    const errors = ruleValidationService.validateAbilityStructure(rules, keywords)
-    expect(errors.some(e => e.message.includes('«missing» не существует'))).toBe(true)
-    expect(errors.some(e => e.message.includes('1 ОД'))).toBe(false)
-  })
+    ];
+    const errors = ruleValidationService.validateAbilityStructure(rules, keywords);
+    expect(errors.some((e) => e.message.includes('«missing» не существует'))).toBe(true);
+    expect(errors.some((e) => e.message.includes('1 ОД'))).toBe(false);
+  });
 
   it('flags a process step without an action point cost', () => {
     const rules: Rule[] = [
@@ -387,10 +417,10 @@ describe('validateAbilityStructure', () => {
         requirements: [],
         parent_ability_code: null,
       }),
-    ]
-    const errors = ruleValidationService.validateAbilityStructure(rules, keywords)
-    expect(errors.some(e => e.message.includes('требует минимум 1 ОД'))).toBe(true)
-  })
+    ];
+    const errors = ruleValidationService.validateAbilityStructure(rules, keywords);
+    expect(errors.some((e) => e.message.includes('требует минимум 1 ОД'))).toBe(true);
+  });
 
   it('validates custom transition edges reference existing steps', () => {
     const rules: Rule[] = [
@@ -408,10 +438,10 @@ describe('validateAbilityStructure', () => {
         requirements: [],
         parent_ability_code: null,
       }),
-    ]
-    const errors = ruleValidationService.validateAbilityStructure(rules, keywords)
-    expect(errors.some(e => e.message.includes('шаг «sprint» не существует'))).toBe(true)
-  })
+    ];
+    const errors = ruleValidationService.validateAbilityStructure(rules, keywords);
+    expect(errors.some((e) => e.message.includes('шаг «sprint» не существует'))).toBe(true);
+  });
 
   it('requires difficulty and validates material item for a spell', () => {
     const rules: Rule[] = [
@@ -430,26 +460,29 @@ describe('validateAbilityStructure', () => {
         requirements: [],
         parent_ability_code: null,
       }),
-    ]
-    const errors = ruleValidationService.validateAbilityStructure(rules, keywords)
-    expect(errors.some(e => e.message.includes('сложность сотворения'))).toBe(true)
-    expect(errors.some(e => e.message.includes('отсутствующий предмет «missing-item»'))).toBe(true)
-    expect(errors.some(e => e.message.includes('отсутствующий предмет «ash»'))).toBe(false)
-  })
+    ];
+    const errors = ruleValidationService.validateAbilityStructure(rules, keywords);
+    expect(errors.some((e) => e.message.includes('сложность сотворения'))).toBe(true);
+    expect(errors.some((e) => e.message.includes('отсутствующий предмет «missing-item»'))).toBe(true);
+    expect(errors.some((e) => e.message.includes('отсутствующий предмет «ash»'))).toBe(false);
+  });
 
   it('derives type from keywords when spec.type is absent', () => {
     const rules: Rule[] = [
-      { ...baseRule('a', 'strike', 'ability', {
-        action_costs: [],
-        grants: [],
-        requirements: [],
-        parent_ability_code: null,
-      }), keywordIds: [1, 2] },
-    ]
-    const errors = ruleValidationService.validateAbilityStructure(rules, keywords)
-    expect(errors.some(e => e.message.includes('1 ОД'))).toBe(true)
-  })
-})
+      {
+        ...baseRule('a', 'strike', 'ability', {
+          action_costs: [],
+          grants: [],
+          requirements: [],
+          parent_ability_code: null,
+        }),
+        keywordIds: [1, 2],
+      },
+    ];
+    const errors = ruleValidationService.validateAbilityStructure(rules, keywords);
+    expect(errors.some((e) => e.message.includes('1 ОД'))).toBe(true);
+  });
+});
 
 describe('pruneAbilitySpecForType', () => {
   const draft = {
@@ -461,48 +494,48 @@ describe('pruneAbilitySpecForType', () => {
     process: { steps: [], transition: { mode: 'chain' as const, max_shift: 1 } },
     spell: { difficulty: { base: 3, size: 0 }, duration: { type: 'instant' as const }, components: [] },
     parent_ability_code: null,
-  }
+  };
 
   it('keeps action_costs only for action', () => {
-    const out = abilitySpecService.prune({ ...draft }, 'action') as any
-    expect(out.type).toBe('action')
-    expect(out.action_costs).toHaveLength(1)
-    expect(out.process).toBeUndefined()
-    expect(out.spell).toBeUndefined()
-  })
+    const out = abilitySpecService.prune({ ...draft }, 'action') as any;
+    expect(out.type).toBe('action');
+    expect(out.action_costs).toHaveLength(1);
+    expect(out.process).toBeUndefined();
+    expect(out.spell).toBeUndefined();
+  });
 
   it('keeps process only for process and clears action_costs', () => {
-    const out = abilitySpecService.prune({ ...draft }, 'process') as any
-    expect(out.type).toBe('process')
-    expect(out.process).toBeDefined()
-    expect(out.action_costs).toBeUndefined()
-    expect(out.spell).toBeUndefined()
-  })
+    const out = abilitySpecService.prune({ ...draft }, 'process') as any;
+    expect(out.type).toBe('process');
+    expect(out.process).toBeDefined();
+    expect(out.action_costs).toBeUndefined();
+    expect(out.spell).toBeUndefined();
+  });
 
   it('keeps spell and action_costs for spell', () => {
-    const out = abilitySpecService.prune({ ...draft }, 'spell') as any
-    expect(out.type).toBe('spell')
-    expect(out.spell).toBeDefined()
-    expect(out.action_costs).toHaveLength(1)
-    expect(out.process).toBeUndefined()
-  })
+    const out = abilitySpecService.prune({ ...draft }, 'spell') as any;
+    expect(out.type).toBe('spell');
+    expect(out.spell).toBeDefined();
+    expect(out.action_costs).toHaveLength(1);
+    expect(out.process).toBeUndefined();
+  });
 
   it('drops all type-specific fields for skill', () => {
-    const out = abilitySpecService.prune({ ...draft }, 'skill') as any
-    expect(out.type).toBe('skill')
-    expect(out.action_costs).toBeUndefined()
-    expect(out.process).toBeUndefined()
-    expect(out.spell).toBeUndefined()
-  })
+    const out = abilitySpecService.prune({ ...draft }, 'skill') as any;
+    expect(out.type).toBe('skill');
+    expect(out.action_costs).toBeUndefined();
+    expect(out.process).toBeUndefined();
+    expect(out.spell).toBeUndefined();
+  });
 
   it('keeps shared fields (zones, requirements, grants) always', () => {
-    const out = abilitySpecService.prune({ ...draft }, 'skill') as any
-    expect(out.zones).toEqual({})
-    expect(out.requirements).toHaveLength(1)
-    expect(out.grants).toEqual([])
-    expect(out.parent_ability_code).toBeNull()
-  })
-})
+    const out = abilitySpecService.prune({ ...draft }, 'skill') as any;
+    expect(out.zones).toEqual({});
+    expect(out.requirements).toHaveLength(1);
+    expect(out.grants).toEqual([]);
+    expect(out.parent_ability_code).toBeNull();
+  });
+});
 
 describe('pruneItemSpecBySubtypes', () => {
   const draft = {
@@ -514,24 +547,24 @@ describe('pruneItemSpecBySubtypes', () => {
     weapon: { min_strength: null, block_profile: null, weapon_profiles: [] },
     armor: { defense_slots: [], resistance_slots: [], characteristic_limits: [] },
     shield: { min_strength: null, block: { efficiency: { base: 1, size: 0 }, defense: 1, resistances: [] } },
-  }
+  };
 
   it('keeps only blocks of active subtypes', () => {
-    const out = itemSpecService.prune({ ...draft }, ['weapon', 'shield']) as any
-    expect(out.weapon).toBeDefined()
-    expect(out.shield).toBeDefined()
-    expect(out.armor).toBeUndefined()
-  })
+    const out = itemSpecService.prune({ ...draft }, ['weapon', 'shield']) as any;
+    expect(out.weapon).toBeDefined();
+    expect(out.shield).toBeDefined();
+    expect(out.armor).toBeUndefined();
+  });
 
   it('keeps shared fields always', () => {
-    const out = itemSpecService.prune({ ...draft }, []) as any
-    expect(out.category).toBe('equipment')
-    expect(out.cost_gm).toBe(100)
-    expect(out.weapon).toBeUndefined()
-    expect(out.armor).toBeUndefined()
-    expect(out.shield).toBeUndefined()
-  })
-})
+    const out = itemSpecService.prune({ ...draft }, []) as any;
+    expect(out.category).toBe('equipment');
+    expect(out.cost_gm).toBe(100);
+    expect(out.weapon).toBeUndefined();
+    expect(out.armor).toBeUndefined();
+    expect(out.shield).toBeUndefined();
+  });
+});
 
 describe('validateRaceStructure', () => {
   it('passes for a well-formed race', () => {
@@ -553,9 +586,9 @@ describe('validateRaceStructure', () => {
         ],
         abilities: [{ ability_code: 'keen-hearing', automatic: true }],
       }),
-    ]
-    expect(ruleValidationService.validateRaceStructure(rules)).toEqual([])
-  })
+    ];
+    expect(ruleValidationService.validateRaceStructure(rules)).toEqual([]);
+  });
 
   it('flags non-integer cost_os', () => {
     const rules: Rule[] = [
@@ -565,10 +598,10 @@ describe('validateRaceStructure', () => {
         characteristics: [],
         abilities: [],
       }),
-    ]
-    const errors = ruleValidationService.validateRaceStructure(rules)
-    expect(errors.some(e => e.message.includes('cost_os'))).toBe(true)
-  })
+    ];
+    const errors = ruleValidationService.validateRaceStructure(rules);
+    expect(errors.some((e) => e.message.includes('cost_os'))).toBe(true);
+  });
 
   it('flags duplicate characteristic codes', () => {
     const rules: Rule[] = [
@@ -581,10 +614,10 @@ describe('validateRaceStructure', () => {
         ],
         abilities: [],
       }),
-    ]
-    const errors = ruleValidationService.validateRaceStructure(rules)
-    expect(errors.some(e => e.message.includes('«dexterity» указана несколько раз'))).toBe(true)
-  })
+    ];
+    const errors = ruleValidationService.validateRaceStructure(rules);
+    expect(errors.some((e) => e.message.includes('«dexterity» указана несколько раз'))).toBe(true);
+  });
 
   it('flags empty characteristic code', () => {
     const rules: Rule[] = [
@@ -594,10 +627,10 @@ describe('validateRaceStructure', () => {
         characteristics: [{ characteristic_code: '', mode: 'fixed', base: { base: 3, size: 0 } }],
         abilities: [],
       }),
-    ]
-    const errors = ruleValidationService.validateRaceStructure(rules)
-    expect(errors.some(e => e.message.includes('не указан код'))).toBe(true)
-  })
+    ];
+    const errors = ruleValidationService.validateRaceStructure(rules);
+    expect(errors.some((e) => e.message.includes('не указан код'))).toBe(true);
+  });
 
   it('flags purchase level with cost < 1 and duplicate costs', () => {
     const rules: Rule[] = [
@@ -618,11 +651,11 @@ describe('validateRaceStructure', () => {
         ],
         abilities: [],
       }),
-    ]
-    const errors = ruleValidationService.validateRaceStructure(rules)
-    expect(errors.some(e => e.message.includes('стоимость должна быть ≥ 1'))).toBe(true)
-    expect(errors.some(e => e.message.includes('стоимость 2 указана несколько раз'))).toBe(true)
-  })
+    ];
+    const errors = ruleValidationService.validateRaceStructure(rules);
+    expect(errors.some((e) => e.message.includes('стоимость должна быть ≥ 1'))).toBe(true);
+    expect(errors.some((e) => e.message.includes('стоимость 2 указана несколько раз'))).toBe(true);
+  });
 
   it('flags duplicate ability codes', () => {
     const rules: Rule[] = [
@@ -635,19 +668,22 @@ describe('validateRaceStructure', () => {
           { ability_code: 'keen-hearing', automatic: false },
         ],
       }),
-    ]
-    const errors = ruleValidationService.validateRaceStructure(rules)
-    expect(errors.some(e => e.message.includes('«keen-hearing» указана несколько раз'))).toBe(true)
-  })
-})
+    ];
+    const errors = ruleValidationService.validateRaceStructure(rules);
+    expect(errors.some((e) => e.message.includes('«keen-hearing» указана несколько раз'))).toBe(true);
+  });
+});
 
 describe('validateSpeciesStructure', () => {
   it('passes for a well-formed species', () => {
     const rules: Rule[] = [
-      baseRule('sp', 'elves', 'species', { parent_race_code: null, abilities: [{ ability_code: 'keen-hearing', automatic: true }] }),
-    ]
-    expect(ruleValidationService.validateSpeciesStructure(rules)).toEqual([])
-  })
+      baseRule('sp', 'elves', 'species', {
+        parent_race_code: null,
+        abilities: [{ ability_code: 'keen-hearing', automatic: true }],
+      }),
+    ];
+    expect(ruleValidationService.validateSpeciesStructure(rules)).toEqual([]);
+  });
 
   it('flags duplicate ability codes', () => {
     const rules: Rule[] = [
@@ -658,10 +694,10 @@ describe('validateSpeciesStructure', () => {
           { ability_code: 'keen-hearing', automatic: false },
         ],
       }),
-    ]
-    const errors = ruleValidationService.validateSpeciesStructure(rules)
-    expect(errors.some(e => e.message.includes('«keen-hearing» указана несколько раз'))).toBe(true)
-  })
+    ];
+    const errors = ruleValidationService.validateSpeciesStructure(rules);
+    expect(errors.some((e) => e.message.includes('«keen-hearing» указана несколько раз'))).toBe(true);
+  });
 
   it('flags empty ability code', () => {
     const rules: Rule[] = [
@@ -669,11 +705,11 @@ describe('validateSpeciesStructure', () => {
         parent_race_code: null,
         abilities: [{ ability_code: '', automatic: false }],
       }),
-    ]
-    const errors = ruleValidationService.validateSpeciesStructure(rules)
-    expect(errors.some(e => e.message.includes('не указан код'))).toBe(true)
-  })
-})
+    ];
+    const errors = ruleValidationService.validateSpeciesStructure(rules);
+    expect(errors.some((e) => e.message.includes('не указан код'))).toBe(true);
+  });
+});
 
 describe('findSpeciesCycle', () => {
   it('returns null for an acyclic chain', () => {
@@ -681,67 +717,73 @@ describe('findSpeciesCycle', () => {
       baseRule('sp1', 'a', 'species', { parent_race_code: null, abilities: [] }),
       baseRule('sp2', 'b', 'species', { parent_race_code: 'a', abilities: [] }),
       baseRule('sp3', 'c', 'species', { parent_race_code: 'b', abilities: [] }),
-    ]
-    expect(ruleValidationService.findSpeciesCycle(rules)).toBeNull()
-  })
+    ];
+    expect(ruleValidationService.findSpeciesCycle(rules)).toBeNull();
+  });
 
   it('detects a two-node cycle', () => {
     const rules: Rule[] = [
       baseRule('sp1', 'a', 'species', { parent_race_code: 'b', abilities: [] }),
       baseRule('sp2', 'b', 'species', { parent_race_code: 'a', abilities: [] }),
-    ]
-    expect(ruleValidationService.findSpeciesCycle(rules)).toContain('a')
-    expect(ruleValidationService.findSpeciesCycle(rules)).toContain('b')
-  })
+    ];
+    expect(ruleValidationService.findSpeciesCycle(rules)).toContain('a');
+    expect(ruleValidationService.findSpeciesCycle(rules)).toContain('b');
+  });
 
   it('detects a longer cycle', () => {
     const rules: Rule[] = [
       baseRule('sp1', 'a', 'species', { parent_race_code: 'c', abilities: [] }),
       baseRule('sp2', 'b', 'species', { parent_race_code: 'a', abilities: [] }),
       baseRule('sp3', 'c', 'species', { parent_race_code: 'b', abilities: [] }),
-    ]
-    expect(ruleValidationService.findSpeciesCycle(rules)).toBeTruthy()
-  })
+    ];
+    expect(ruleValidationService.findSpeciesCycle(rules)).toBeTruthy();
+  });
 
   it('ignores races in the chain', () => {
     const rules: Rule[] = [
       baseRule('sp1', 'a', 'species', { parent_race_code: null, abilities: [] }),
       baseRule('sp2', 'b', 'species', { parent_race_code: 'a', abilities: [] }),
       baseRule('r', 'elf', 'race', { parent_race_code: 'b', cost_os: 8, characteristics: [], abilities: [] }),
-    ]
-    expect(ruleValidationService.findSpeciesCycle(rules)).toBeNull()
-  })
-})
+    ];
+    expect(ruleValidationService.findSpeciesCycle(rules)).toBeNull();
+  });
+});
 
 describe('collectInheritedAbilities', () => {
   it('collects abilities from the whole ancestor chain', () => {
     const rules: Rule[] = [
-      baseRule('sp1', 'elves', 'species', { parent_race_code: null, abilities: [{ ability_code: 'keen-hearing', automatic: true }] }),
-      baseRule('sp2', 'wood-elves', 'species', { parent_race_code: 'elves', abilities: [{ ability_code: 'night-vision', automatic: false }] }),
+      baseRule('sp1', 'elves', 'species', {
+        parent_race_code: null,
+        abilities: [{ ability_code: 'keen-hearing', automatic: true }],
+      }),
+      baseRule('sp2', 'wood-elves', 'species', {
+        parent_race_code: 'elves',
+        abilities: [{ ability_code: 'night-vision', automatic: false }],
+      }),
       baseRule('r', 'elf', 'race', { parent_race_code: 'wood-elves', cost_os: 8, characteristics: [], abilities: [] }),
-    ]
-    const byCode = new Map(rules.map(r => [r.code, r]))
-    const inherited = raceSpecService.collectInheritedAbilities('wood-elves', byCode)
-    expect(inherited).toHaveLength(2)
-    expect(inherited[0]).toMatchObject({ ability_code: 'night-vision', fromName: 'wood-elves' })
-    expect(inherited[1]).toMatchObject({ ability_code: 'keen-hearing', fromName: 'elves' })
-  })
+    ];
+    const byCode = new Map(rules.map((r) => [r.code, r]));
+    const inherited = raceSpecService.collectInheritedAbilities('wood-elves', byCode);
+    expect(inherited).toHaveLength(2);
+    expect(inherited[0]).toMatchObject({ ability_code: 'night-vision', fromName: 'wood-elves' });
+    expect(inherited[1]).toMatchObject({ ability_code: 'keen-hearing', fromName: 'elves' });
+  });
 
   it('returns empty when no parent is set', () => {
     const rules: Rule[] = [
       baseRule('r', 'human', 'race', { parent_race_code: null, cost_os: 0, characteristics: [], abilities: [] }),
-    ]
-    const byCode = new Map(rules.map(r => [r.code, r]))
-    expect(raceSpecService.collectInheritedAbilities(null, byCode)).toEqual([])
-  })
+    ];
+    const byCode = new Map(rules.map((r) => [r.code, r]));
+    expect(raceSpecService.collectInheritedAbilities(null, byCode)).toEqual([]);
+  });
 
   it('stops at a cycle instead of looping forever', () => {
     const rules: Rule[] = [
       baseRule('sp1', 'a', 'species', { parent_race_code: 'b', abilities: [{ ability_code: 'x', automatic: true }] }),
       baseRule('sp2', 'b', 'species', { parent_race_code: 'a', abilities: [] }),
-    ]
-    const byCode = new Map(rules.map(r => [r.code, r]))
-    const inherited = raceSpecService.collectInheritedAbilities('a', byCode)
-    expect(inherited.length).toBeLessThanOrEqual(1)
-  })
-})
+    ];
+    const byCode = new Map(rules.map((r) => [r.code, r]));
+    const inherited = raceSpecService.collectInheritedAbilities('a', byCode);
+    expect(inherited.length).toBeLessThanOrEqual(1);
+  });
+});

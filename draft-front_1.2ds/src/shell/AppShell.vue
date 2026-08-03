@@ -1,29 +1,29 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
-import { useChatStore } from '@/modules/Messages/Chat/Store/chat'
-import { useNotificationStore } from '@/modules/Messages/Notifications/Store/notifications'
-import TopBar from '@/shell/TopBar.vue'
-import SideBar from '@/shell/SideBar.vue'
-import ChatBar from '@/modules/Messages/Chat/Component/ChatBar.vue'
-import NotificationSlider from '@/modules/Messages/Notifications/Component/NotificationSlider.vue'
-import ChatSlider from '@/modules/Messages/Chat/Component/ChatSlider.vue'
+import { ref, computed, onMounted } from 'vue';
+import { useRoute } from 'vue-router';
+import { useChatStore } from '@/modules/Messages/Chat/Store/chat';
+import { useNotificationStore } from '@/modules/Messages/Notifications/Store/notifications';
+import TopBar from '@/shell/TopBar.vue';
+import SideBar from '@/shell/SideBar.vue';
+import ChatBar from '@/modules/Messages/Chat/Component/ChatBar.vue';
+import NotificationSlider from '@/modules/Messages/Notifications/Component/NotificationSlider.vue';
+import ChatSlider from '@/modules/Messages/Chat/Component/ChatSlider.vue';
 
-const route = useRoute()
-const chatStore = useChatStore()
-const notificationStore = useNotificationStore()
-const isMessenger = computed(() => route.path === '/messenger')
+const route = useRoute();
+const chatStore = useChatStore();
+const notificationStore = useNotificationStore();
+const isMessenger = computed(() => route.path === '/messenger');
 
-const sidebarCollapsed = ref(false)
-const notificationOpen = ref(false)
-const chatOpen = ref(false)
+const sidebarCollapsed = ref(false);
+const notificationOpen = ref(false);
+const chatOpen = ref(false);
 
 onMounted(async () => {
   if (chatStore.chats.length === 0) {
-    await chatStore.fetchChats()
+    await chatStore.fetchChats();
   }
-  notificationStore.fetchData()
-})
+  notificationStore.fetchData();
+});
 </script>
 
 <template>

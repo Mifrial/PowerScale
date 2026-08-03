@@ -1,10 +1,10 @@
-import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule'
-import type { CreateRuleData } from '@/modules/Roleplay/Rule/Dto/CreateRuleData'
-import type { UpdateRuleData } from '@/modules/Roleplay/Rule/Dto/UpdateRuleData'
-import type { RuleVersion } from '@/modules/Roleplay/Rule/Dto/RuleVersion'
-import { slugify } from '@/modules/Roleplay/Rule/Utils/Text/slugify'
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import type { CreateRuleData } from '@/modules/Roleplay/Rule/Dto/CreateRuleData';
+import type { UpdateRuleData } from '@/modules/Roleplay/Rule/Dto/UpdateRuleData';
+import type { RuleVersion } from '@/modules/Roleplay/Rule/Dto/RuleVersion';
+import { slugify } from '@/modules/Roleplay/Rule/Utils/Text/slugify';
 
-let nextVersionId = 10
+let nextVersionId = 10;
 
 const rules: Rule[] = [
   {
@@ -23,7 +23,8 @@ const rules: Rule[] = [
     code: 'advantages',
     type: 'simple',
     name: 'Помехи и преимущества',
-    description: 'Преимущество добавляет кубик и убирает худший результат. Помеха добавляет кубик и убирает лучший результат.',
+    description:
+      'Преимущество добавляет кубик и убирает худший результат. Помеха добавляет кубик и убирает лучший результат.',
     spaceId: 1,
     keywordIds: [1, 3],
     mechanicId: 2,
@@ -99,7 +100,9 @@ const rules: Rule[] = [
     spec: {
       type: 'action',
       zones: { or: { kind: 'array', levels_cost: [2, 3, 4] } },
-      requirements: [{ level: 1, requirements: [{ type: 'has_ability', ability_code: 'melee-fighting', min_level: 1 }] }],
+      requirements: [
+        { level: 1, requirements: [{ type: 'has_ability', ability_code: 'melee-fighting', min_level: 1 }] },
+      ],
       grants: [],
       action_costs: [{ resource_code: 'action-points', amount: 1 }],
       parent_ability_code: null,
@@ -312,7 +315,12 @@ const rules: Rule[] = [
           level: 1,
           grants: [
             { type: 'keyword', keyword_code: 'combat', remove: false },
-            { type: 'characteristic_modify', characteristic_code: 'strength', amount: { type: 'ability_level', ability_code: 'melee-fighting', multiplier: 1, offset: 0 }, source_code: 'training' },
+            {
+              type: 'characteristic_modify',
+              characteristic_code: 'strength',
+              amount: { type: 'ability_level', ability_code: 'melee-fighting', multiplier: 1, offset: 0 },
+              source_code: 'training',
+            },
           ],
         },
       ],
@@ -484,7 +492,10 @@ const rules: Rule[] = [
             type: 'shoot',
             distance: { type: 'fixed', value: 20 },
             range: { type: 'fixed', value: 60 },
-            damage: { formula: { type: 'characteristic', characteristic_code: 'dexterity', modifier: 0 }, damage_type_code: 'piercing' },
+            damage: {
+              formula: { type: 'characteristic', characteristic_code: 'dexterity', modifier: 0 },
+              damage_type_code: 'piercing',
+            },
             penetration: { type: 'fixed', value: 1 },
             accuracy: { base: 3, size: 0 },
           },
@@ -516,9 +527,7 @@ const rules: Rule[] = [
           { damage_type_code: 'slashing', value: 2, durability: 3, source_code: 'armor' },
           { damage_type_code: 'piercing', value: 1, durability: 2, source_code: 'armor' },
         ],
-        characteristic_limits: [
-          { characteristic_code: 'strength', limit: { type: 'fixed', value: 5 } },
-        ],
+        characteristic_limits: [{ characteristic_code: 'strength', limit: { type: 'fixed', value: 5 } }],
       },
     },
     keywordIds: [5],
@@ -542,9 +551,24 @@ const rules: Rule[] = [
         transition: { mode: 'chain', max_shift: 1, direction: 'both' },
         failure: null,
         steps: [
-          { code: 'walk', name: 'Ходьба', description: 'Спокойное перемещение. Повторим.', costs: [{ resource_code: 'action-points', amount: 1 }] },
-          { code: 'run', name: 'Бег', description: 'Быстрое перемещение. Можно перейти на Ходьбу или Спринт.', costs: [{ resource_code: 'action-points', amount: 1 }] },
-          { code: 'sprint', name: 'Спринт', description: 'Максимальная скорость. Повторим.', costs: [{ resource_code: 'action-points', amount: 1 }] },
+          {
+            code: 'walk',
+            name: 'Ходьба',
+            description: 'Спокойное перемещение. Повторим.',
+            costs: [{ resource_code: 'action-points', amount: 1 }],
+          },
+          {
+            code: 'run',
+            name: 'Бег',
+            description: 'Быстрое перемещение. Можно перейти на Ходьбу или Спринт.',
+            costs: [{ resource_code: 'action-points', amount: 1 }],
+          },
+          {
+            code: 'sprint',
+            name: 'Спринт',
+            description: 'Максимальная скорость. Повторим.',
+            costs: [{ resource_code: 'action-points', amount: 1 }],
+          },
         ],
       },
       parent_ability_code: null,
@@ -635,13 +659,13 @@ const rules: Rule[] = [
     mechanicId: null,
     createdAt: '2026-01-30T10:00:00Z',
   },
-]
+];
 
 /**
  * Единый каталог правил (единственный источник для пространств и ревизий).
  * Создание/обновление/удаление мутируют этот же массив — ревизии видят изменения.
  */
-export const ruleCatalog: Rule[] = rules
+export const ruleCatalog: Rule[] = rules;
 
 const ruleVersions: RuleVersion[] = rules.map((r, idx) => ({
   id: idx + 1,
@@ -656,29 +680,32 @@ const ruleVersions: RuleVersion[] = rules.map((r, idx) => ({
   keywordIds: r.keywordIds,
   mechanicId: r.mechanicId,
   createdAt: r.createdAt,
-}))
+}));
 
-const delay = (ms = 300) => new Promise(r => setTimeout(r, ms))
+const delay = (ms = 300) => new Promise((r) => setTimeout(r, ms));
 
-export async function fetchRules(spaceId: number, _signal?: AbortSignal): Promise<Rule[]> {
-  await delay()
-  return rules.filter(r => true).map(r => ({ ...r }))
+export async function fetchRules(_spaceId: number, _signal?: AbortSignal): Promise<Rule[]> {
+  await delay();
+
+  return rules.map((r) => ({ ...r }));
 }
 
 export async function fetchRule(ruleId: string, _signal?: AbortSignal): Promise<Rule> {
-  await delay()
-  const rule = rules.find(r => r.id === ruleId)
-  if (!rule) throw new Error(`Rule ${ruleId} not found`)
-  return { ...rule }
+  await delay();
+  const rule = rules.find((r) => r.id === ruleId);
+  if (!rule) throw new Error(`Rule ${ruleId} not found`);
+
+  return { ...rule };
 }
 
 export async function fetchRuleVersions(ruleId: string, _signal?: AbortSignal): Promise<RuleVersion[]> {
-  await delay()
-  return ruleVersions.filter(v => v.ruleId === ruleId).map(v => ({ ...v }))
+  await delay();
+
+  return ruleVersions.filter((v) => v.ruleId === ruleId).map((v) => ({ ...v }));
 }
 
 export async function createRule(spaceId: number, data: CreateRuleData, _signal?: AbortSignal): Promise<Rule> {
-  await delay()
+  await delay();
   const rule: Rule = {
     id: `rule-${rules.length + 1}`,
     code: data.code ?? slugify(data.name),
@@ -690,9 +717,9 @@ export async function createRule(spaceId: number, data: CreateRuleData, _signal?
     keywordIds: data.keywordIds,
     mechanicId: data.mechanicId,
     createdAt: new Date().toISOString(),
-  }
-  rules.push(rule)
-  
+  };
+  rules.push(rule);
+
   ruleVersions.push({
     id: nextVersionId++,
     ruleId: rule.id,
@@ -706,25 +733,26 @@ export async function createRule(spaceId: number, data: CreateRuleData, _signal?
     keywordIds: rule.keywordIds,
     mechanicId: rule.mechanicId,
     createdAt: rule.createdAt,
-  })
-  
-  return { ...rule }
+  });
+
+  return { ...rule };
 }
 
 export async function updateRule(ruleId: string, data: UpdateRuleData, _signal?: AbortSignal): Promise<Rule> {
-  await delay()
-  const rule = rules.find(r => r.id === ruleId)
-  if (!rule) throw new Error(`Rule ${ruleId} not found`)
-  if (data.name !== undefined) rule.name = data.name
-  if (data.description !== undefined) rule.description = data.description
-  if (data.spec !== undefined) rule.spec = data.spec
-  if (data.keywordIds !== undefined) rule.keywordIds = data.keywordIds
-  if (data.mechanicId !== undefined) rule.mechanicId = data.mechanicId
-  return { ...rule }
+  await delay();
+  const rule = rules.find((r) => r.id === ruleId);
+  if (!rule) throw new Error(`Rule ${ruleId} not found`);
+  if (data.name !== undefined) rule.name = data.name;
+  if (data.description !== undefined) rule.description = data.description;
+  if (data.spec !== undefined) rule.spec = data.spec;
+  if (data.keywordIds !== undefined) rule.keywordIds = data.keywordIds;
+  if (data.mechanicId !== undefined) rule.mechanicId = data.mechanicId;
+
+  return { ...rule };
 }
 
 export async function deleteRule(ruleId: string, _signal?: AbortSignal): Promise<void> {
-  await delay()
-  const idx = rules.findIndex(r => r.id === ruleId)
-  if (idx !== -1) rules.splice(idx, 1)
+  await delay();
+  const idx = rules.findIndex((r) => r.id === ruleId);
+  if (idx !== -1) rules.splice(idx, 1);
 }

@@ -1,19 +1,21 @@
-import type { RouteLocationNormalizedLoaded, RouteRecordRaw } from 'vue-router'
-import { useSpaceStore } from '@/modules/Roleplay/Space/Store/spaces'
+import type { RouteLocationNormalizedLoaded, RouteRecordRaw } from 'vue-router';
+import { useSpaceStore } from '@/modules/Roleplay/Space/Store/spaces';
 
 function spaceRoot() {
-  return [{ title: 'Пространства', to: '/spaces' }]
+  return [{ title: 'Пространства', to: '/spaces' }];
 }
 
 function spaceName(to: RouteLocationNormalizedLoaded): string {
-  const store = useSpaceStore()
-  return store.currentSpace?.name || String(to.params.code)
+  const store = useSpaceStore();
+
+  return store.currentSpace?.name || String(to.params.code);
 }
 
 function ctxCrumb(to: RouteLocationNormalizedLoaded) {
-  const ctx = String(to.params.ctx)
-  const title = ctx === 'draft' ? 'Черновик' : `v${ctx}`
-  return [{ title, to: `/space/${to.params.code}/${ctx}` }]
+  const ctx = String(to.params.ctx);
+  const title = ctx === 'draft' ? 'Черновик' : `v${ctx}`;
+
+  return [{ title, to: `/space/${to.params.code}/${ctx}` }];
 }
 
 export function createSpaceRoutes(ruleCtxChildren: RouteRecordRaw[]): RouteRecordRaw[] {
@@ -46,7 +48,7 @@ export function createSpaceRoutes(ruleCtxChildren: RouteRecordRaw[]): RouteRecor
         {
           path: ':code',
           meta: {
-            crumb: to => [{ title: spaceName(to), to: `/space/${to.params.code}` }],
+            crumb: (to) => [{ title: spaceName(to), to: `/space/${to.params.code}` }],
           },
           children: [
             {
@@ -79,5 +81,5 @@ export function createSpaceRoutes(ruleCtxChildren: RouteRecordRaw[]): RouteRecor
         },
       ],
     },
-  ]
+  ];
 }
