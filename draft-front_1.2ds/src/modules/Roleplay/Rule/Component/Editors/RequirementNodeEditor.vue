@@ -1,10 +1,85 @@
+<script setup lang="ts">
+import { computed, watch } from 'vue'
+import type { Requirement } from '@/modules/Roleplay/Rule/Dto/Ability/Requirement'
+import type { CharacteristicRef } from '@/modules/Roleplay/Rule/Dto/Ability/CharacteristicRef'
+import type { ResourceRef } from '@/modules/Roleplay/Rule/Dto/Ability/ResourceRef'
+import type { AbilityRef } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityRef'
+import type { KeywordRef } from '@/modules/Roleplay/Rule/Dto/Ability/KeywordRef'
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumber'
+import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue'
+import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue'
+import { abilitySpecService } from '@/modules/Roleplay/Rule/Service/Spec/AbilitySpecService'
+import { useVModelSync } from '@/modules/Core/UI/Composables/useVModelSync'
+import { REQUIREMENT_TYPES } from '@/modules/Roleplay/Rule/Constant/Ability/REQUIREMENT_TYPES'
+
+const props = defineProps<{
+  modelValue: Requirement
+  characteristics: CharacteristicRef[]
+  resources: ResourceRef[]
+  abilities: AbilityRef[]
+  keywords: KeywordRef[]
+  abilityKeywords: KeywordRef[]
+  removable?: boolean
+}>()
+
+const emit = defineEmits<{
+  'update:modelValue': [value: Requirement]
+  'remove': []
+}>()
+
+const { inner } = useVModelSync<Requirement>({
+  modelValue: () => props.modelValue,
+  onCommit: (value) => emit('update:modelValue', value),
+  clone: true,
+})
+
+const selectedResourceIsDimensional = computed(() => {
+  const v = inner.value
+  if (v.type !== 'resource_limit') return false
+  return props.resources.find(r => r.code === v.resource_code)?.isDimensional ?? false
+})
+
+watch(() => props.resources, (resources) => {
+  const v = inner.value
+  if (v.type !== 'resource_limit' || !v.resource_code) return
+  const res = resources.find(r => r.code === v.resource_code)
+  const min = v.min
+  if (res?.isDimensional && typeof min === 'number') {
+    inner.value = { ...v, min: { base: min, size: 0 } } as Requirement
+  } else if (!res?.isDimensional && min && typeof min === 'object' && !Array.isArray(min)) {
+    inner.value = { ...v, min: min.base } as Requirement
+  }
+}, { deep: true })
+
+function updateType(type: string) {
+  inner.value = abilitySpecService.createEmptyRequirement(type as Requirement['type'])
+}
+
+function patch(key: string, value: unknown) {
+  inner.value = { ...inner.value, [key]: value } as Requirement
+}
+
+function addChild() {
+  if (inner.value.type === 'and' || inner.value.type === 'or') {
+    inner.value = { ...inner.value, children: [...inner.value.children, abilitySpecService.createEmptyRequirement('has_keyword')] }
+  }
+}
+
+function removeChild(index: number) {
+  if (inner.value.type === 'and' || inner.value.type === 'or') {
+    const children = inner.value.children.filter((_, i) => i !== index)
+    inner.value = { ...inner.value, children }
+  }
+}
+</script>
+
 <template>
   <div class="requirement-node">
     <div class="d-flex gap-2 align-start">
       <v-select
         :model-value="inner.type"
         @update:model-value="updateType"
-        :items="requirementTypes"
+        :items="REQUIREMENT_TYPES"
         item-title="label"
         item-value="value"
         label="Условие"
@@ -180,112 +255,6 @@
     </div>
   </div>
 </template>
-
-<script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import type { Requirement } from '@/modules/Roleplay/Rule/Dto/Ability/Requirement'
-import type { CharacteristicRef } from '@/modules/Roleplay/Rule/Dto/Ability/CharacteristicRef'
-import type { ResourceRef } from '@/modules/Roleplay/Rule/Dto/Ability/ResourceRef'
-import type { AbilityRef } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityRef'
-import type { KeywordRef } from '@/modules/Roleplay/Rule/Dto/Ability/KeywordRef'
-import type { DimensionalNumberValue } from '@/modules/Core/Engine/Value/DimensionalNumber'
-import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue'
-import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue'
-
-const props = defineProps<{
-  modelValue: Requirement
-  characteristics: CharacteristicRef[]
-  resources: ResourceRef[]
-  abilities: AbilityRef[]
-  keywords: KeywordRef[]
-  abilityKeywords: KeywordRef[]
-  removable?: boolean
-}>()
-
-const emit = defineEmits<{
-  'update:modelValue': [value: Requirement]
-  'remove': []
-}>()
-
-const inner = ref<Requirement>(structuredClone(props.modelValue))
-
-const requirementTypes = [
-  { label: 'Есть способность', value: 'has_ability', description: 'Персонаж владеет способностью (не ниже уровня)' },
-  { label: 'N способностей с тегом', value: 'has_ability_keyword', description: 'Количество способностей с указанным тегом' },
-  { label: 'Есть признак', value: 'has_keyword', description: 'У персонажа есть признак (просто есть/нет)' },
-  { label: 'Характеристика >= min', value: 'characteristic_value', description: 'Значение характеристики не ниже указанного' },
-  { label: 'Ресурс / лимит', value: 'resource_limit', description: 'Ресурс есть или его лимит не ниже указанного' },
-  { label: 'И', value: 'and', description: 'Все условия внутри должны выполниться' },
-  { label: 'ИЛИ', value: 'or', description: 'Хотя бы одно условие внутри должно выполниться' },
-]
-
-const selectedResourceIsDimensional = computed(() => {
-  const v = inner.value
-  if (v.type !== 'resource_limit') return false
-  return props.resources.find(r => r.code === v.resource_code)?.isDimensional ?? false
-})
-
-watch(() => props.resources, (resources) => {
-  const v = inner.value
-  if (v.type !== 'resource_limit' || !v.resource_code) return
-  const res = resources.find(r => r.code === v.resource_code)
-  const min = v.min
-  if (res?.isDimensional && typeof min === 'number') {
-    inner.value = { ...v, min: { base: min, size: 0 } } as Requirement
-  } else if (!res?.isDimensional && min && typeof min === 'object' && !Array.isArray(min)) {
-    inner.value = { ...v, min: min.base } as Requirement
-  }
-}, { deep: true })
-
-function updateType(type: string) {
-  if (type === 'has_ability') {
-    inner.value = { type: 'has_ability', ability_code: '' }
-  } else if (type === 'has_ability_keyword') {
-    inner.value = { type: 'has_ability_keyword', keyword_code: '', min_count: 1 }
-  } else if (type === 'has_keyword') {
-    inner.value = { type: 'has_keyword', keyword_code: '' }
-  } else if (type === 'characteristic_value') {
-    inner.value = { type: 'characteristic_value', characteristic_code: '', min: { base: 3, size: 0 } }
-  } else if (type === 'resource_limit') {
-    inner.value = { type: 'resource_limit', resource_code: '' }
-  } else if (type === 'and') {
-    inner.value = { type: 'and', children: [defaultLeaf()] }
-  } else {
-    inner.value = { type: 'or', children: [defaultLeaf()] }
-  }
-}
-
-function defaultLeaf(): Requirement {
-  return { type: 'has_keyword', keyword_code: '' }
-}
-
-function patch(key: string, value: unknown) {
-  inner.value = { ...inner.value, [key]: value } as Requirement
-}
-
-function addChild() {
-  if (inner.value.type === 'and' || inner.value.type === 'or') {
-    inner.value = { ...inner.value, children: [...inner.value.children, defaultLeaf()] }
-  }
-}
-
-function removeChild(index: number) {
-  if (inner.value.type === 'and' || inner.value.type === 'or') {
-    const children = inner.value.children.filter((_, i) => i !== index)
-    inner.value = { ...inner.value, children }
-  }
-}
-
-watch(inner, (value) => {
-  emit('update:modelValue', structuredClone(value))
-}, { deep: true })
-
-watch(() => props.modelValue, (value) => {
-  if (JSON.stringify(value) !== JSON.stringify(inner.value)) {
-    inner.value = structuredClone(value)
-  }
-}, { deep: true })
-</script>
 
 <style scoped>
 .gap-2 {

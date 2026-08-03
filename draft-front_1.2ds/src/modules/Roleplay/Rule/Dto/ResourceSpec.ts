@@ -1,4 +1,4 @@
-import type { DimensionalNumberValue } from '@/modules/Core/Engine/Value/DimensionalNumber'
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumber'
 
 /** Ресурс (type='resource') — определение ресурса персонажа. */
 export interface ResourceSpec {

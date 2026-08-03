@@ -1,3 +1,25 @@
+<script setup lang="ts">
+defineProps<{
+  name: string
+  code: string
+  description: string
+  mechanicId: number | null
+  keywordIds: number[]
+  mechanicOptions: { title: string; value: number }[]
+  keywordOptions: { title: string; value: number }[]
+  /** Код неизменяем после создания — поле блокируется при редактировании. */
+  codeDisabled?: boolean
+}>()
+
+const emit = defineEmits<{
+  'update:name': [value: string]
+  'update:code': [value: string]
+  'update:description': [value: string]
+  'update:mechanicId': [value: number | null]
+  'update:keywordIds': [value: number[]]
+}>()
+</script>
+
 <template>
   <div>
     <v-text-field
@@ -49,25 +71,3 @@
     />
   </div>
 </template>
-
-<script setup lang="ts">
-defineProps<{
-  name: string
-  code: string
-  description: string
-  mechanicId: number | null
-  keywordIds: number[]
-  mechanicOptions: { title: string; value: number }[]
-  keywordOptions: { title: string; value: number }[]
-  /** Код неизменяем после создания — поле блокируется при редактировании. */
-  codeDisabled?: boolean
-}>()
-
-const emit = defineEmits<{
-  'update:name': [value: string]
-  'update:code': [value: string]
-  'update:description': [value: string]
-  'update:mechanicId': [value: number | null]
-  'update:keywordIds': [value: number[]]
-}>()
-</script>

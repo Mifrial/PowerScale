@@ -1,3 +1,17 @@
+<script setup lang="ts">
+import type { FilterField } from '@/modules/Core/UI/Dto/FilterField'
+import type { FilterOptionValue } from '@/modules/Core/UI/Dto/FilterValue'
+
+defineProps<{
+  field: FilterField
+  modelValue?: FilterOptionValue | null
+}>()
+
+defineEmits<{
+  'update:modelValue': [value: FilterOptionValue | null | undefined]
+}>()
+</script>
+
 <template>
   <v-select
     :model-value="modelValue"
@@ -14,17 +28,3 @@
     @update:model-value="$emit('update:modelValue', $event)"
   />
 </template>
-
-<script setup lang="ts">
-import type { FilterField } from '@/modules/Core/UI/Dto/FilterField'
-import type { FilterOptionValue } from '@/modules/Core/UI/Dto/FilterValue'
-
-defineProps<{
-  field: FilterField
-  modelValue?: FilterOptionValue | null
-}>()
-
-defineEmits<{
-  'update:modelValue': [value: FilterOptionValue | null | undefined]
-}>()
-</script>

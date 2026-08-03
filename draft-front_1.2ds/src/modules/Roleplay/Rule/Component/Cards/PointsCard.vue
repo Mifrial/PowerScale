@@ -1,3 +1,11 @@
+<script setup lang="ts">
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule'
+
+defineProps<{
+  rule: Rule
+}>()
+</script>
+
 <template>
   <v-card v-if="rule.code" variant="tonal" class="mb-4">
     <v-card-text>
@@ -10,11 +18,3 @@
     </v-card-text>
   </v-card>
 </template>
-
-<script setup lang="ts">
-import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule'
-
-defineProps<{
-  rule: Rule
-}>()
-</script>

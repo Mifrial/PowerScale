@@ -1,10 +1,10 @@
-import { registerFilterHandler } from './registry'
-import StringFilter from './handlers/StringFilter.vue'
-import BooleanFilter from './handlers/BooleanFilter.vue'
-import SelectFilter from './handlers/SelectFilter.vue'
-import DateTimeFilter from './handlers/DateTimeFilter.vue'
-import NumberFilter from './handlers/NumberFilter.vue'
-import ActiveFilter from './handlers/ActiveFilter.vue'
+import { registerFilterHandler } from '@/modules/Core/UI/Component/FilterBar/registry'
+import StringFilter from '@/modules/Core/UI/Component/FilterBar/handlers/StringFilter.vue'
+import BooleanFilter from '@/modules/Core/UI/Component/FilterBar/handlers/BooleanFilter.vue'
+import SelectFilter from '@/modules/Core/UI/Component/FilterBar/handlers/SelectFilter.vue'
+import DateTimeFilter from '@/modules/Core/UI/Component/FilterBar/handlers/DateTimeFilter.vue'
+import NumberFilter from '@/modules/Core/UI/Component/FilterBar/handlers/NumberFilter.vue'
+import ActiveFilter from '@/modules/Core/UI/Component/FilterBar/handlers/ActiveFilter.vue'
 
 export function initBaseFilterHandlers() {
   registerFilterHandler('string', { component: StringFilter })

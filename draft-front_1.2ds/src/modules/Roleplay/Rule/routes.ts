@@ -1,12 +1,12 @@
 import type { RouteLocationNormalizedLoaded, RouteRecordRaw } from 'vue-router'
 import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision'
-import { useRuleStore } from './Store/rules'
+import { useRuleStore } from '@/modules/Roleplay/Rule/Store/rules'
 
 export const ruleCtxChildren: RouteRecordRaw[] = [
   {
     path: 'rules/new',
     name: 'RuleNew',
-    component: () => import('./Page/RuleEditPage.vue'),
+    component: () => import('@/modules/Roleplay/Rule/Page/RuleEditPage.vue'),
     meta: { title: 'Создание правила', crumb: () => [{ title: 'Создание правила' }] },
   },
   {
@@ -16,12 +16,12 @@ export const ruleCtxChildren: RouteRecordRaw[] = [
       {
         path: '',
         name: 'RuleDetail',
-        component: () => import('./Page/RuleDetailPage.vue'),
+        component: () => import('@/modules/Roleplay/Rule/Page/RuleDetailPage.vue'),
       },
       {
         path: 'edit',
         name: 'RuleEdit',
-        component: () => import('./Page/RuleEditPage.vue'),
+        component: () => import('@/modules/Roleplay/Rule/Page/RuleEditPage.vue'),
         meta: { title: 'Редактирование правила', crumb: ruleEditCrumb },
       },
     ],
@@ -53,18 +53,18 @@ export const adminChildren: RouteRecordRaw[] = [
       {
         path: '',
         name: 'Keywords',
-        component: () => import('./Page/KeywordsListPage.vue'),
+        component: () => import('@/modules/Roleplay/Rule/Page/KeywordsListPage.vue'),
       },
       {
         path: 'new',
         name: 'KeywordNew',
-        component: () => import('./Page/KeywordEditPage.vue'),
+        component: () => import('@/modules/Roleplay/Rule/Page/KeywordEditPage.vue'),
         meta: { title: 'Создание тега', crumb: () => [{ title: 'Создание тега' }], requiresAny: ['keyword.create'] },
       },
       {
         path: ':id/edit',
         name: 'KeywordEdit',
-        component: () => import('./Page/KeywordEditPage.vue'),
+        component: () => import('@/modules/Roleplay/Rule/Page/KeywordEditPage.vue'),
         meta: { title: 'Редактирование тега', crumb: () => [{ title: 'Редактирование тега' }], requiresAny: ['keyword.edit'] },
       },
     ],

@@ -51,9 +51,9 @@ describe('ServiceLocator', () => {
   })
 
   it('set + get roundtrip', () => {
-    const obj = { foo: 1 }
-    serviceLocator.set('test', obj)
-    expect(serviceLocator.get<typeof obj>('test')).toBe(obj)
+    const value = { foo: 1 }
+    serviceLocator.set('test', value)
+    expect(serviceLocator.get<typeof value>('test')).toBe(value)
   })
 
   it('reset clears all', () => {
@@ -71,10 +71,9 @@ describe('ServiceLocator', () => {
   })
 
   it('generic typing works', () => {
-    interface Foo { bar: string }
-    const impl: Foo = { bar: 'hello' }
-    serviceLocator.set<Foo>('foo', impl)
-    const got = serviceLocator.get<Foo>('foo')
+    const impl = { bar: 'hello' }
+    serviceLocator.set('foo', impl)
+    const got = serviceLocator.get<typeof impl>('foo')
     expect(got.bar).toBe('hello')
   })
 })

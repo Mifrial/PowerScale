@@ -1,3 +1,14 @@
+<script setup lang="ts">
+defineProps<{
+  items: { key: string; label: string }[]
+  modelValue: string
+}>()
+
+const emit = defineEmits<{
+  'update:modelValue': [value: string]
+}>()
+</script>
+
 <template>
   <div class="d-flex ga-1">
     <v-btn
@@ -13,14 +24,3 @@
     </v-btn>
   </div>
 </template>
-
-<script setup lang="ts">
-defineProps<{
-  items: { key: string; label: string }[]
-  modelValue: string
-}>()
-
-const emit = defineEmits<{
-  'update:modelValue': [value: string]
-}>()
-</script>

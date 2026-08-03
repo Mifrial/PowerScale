@@ -1,3 +1,38 @@
+<script setup lang="ts">
+import { ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/modules/Core/Auth/Store/auth'
+import type { FormRef } from '@/modules/Core/Auth/Dto/LoginForm'
+import PasswordField from '@/modules/Core/UI/Component/Input/PasswordField.vue'
+import bgUrl from '@/assets/img/login_background.jpg'
+
+const router = useRouter()
+const auth = useAuthStore()
+
+const formRef = ref<FormRef | null>(null)
+const email = ref('')
+const password = ref('')
+const remember = ref(true)
+
+const canLogin = computed(() => email.value.length >= 3 && password.value.length > 0)
+
+async function handleLogin() {
+  const { valid } = await formRef.value?.validate() ?? { valid: false }
+  if (!valid) return
+  const ok = await auth.login(email.value, password.value)
+  if (ok) {
+    router.push('/')
+  }
+}
+
+async function handleGuestLogin() {
+  const ok = await auth.guestLogin()
+  if (ok) {
+    router.push('/')
+  }
+}
+</script>
+
 <template>
   <div class="auth-page bg-background" :style="{ backgroundImage: `url(${bgUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }">
     <v-container class="fill-height" fluid>
@@ -102,46 +137,6 @@
     </v-container>
   </div>
 </template>
-
-<script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
-import { useAuthStore } from '@/modules/Core/Auth/Store/auth'
-import PasswordField from '@/modules/Core/UI/Component/Input/PasswordField.vue'
-import bgUrl from '@/assets/img/login_background.jpg'
-
-const router = useRouter()
-const auth = useAuthStore()
-
-interface FormRef {
-  validate: () => Promise<{ valid: boolean }>
-  reset: () => void
-  resetValidation: () => void
-}
-
-const formRef = ref<FormRef | null>(null)
-const email = ref('')
-const password = ref('')
-const remember = ref(true)
-
-const canLogin = computed(() => email.value.length >= 3 && password.value.length > 0)
-
-async function handleLogin() {
-  const { valid } = await formRef.value?.validate() ?? { valid: false }
-  if (!valid) return
-  const ok = await auth.login(email.value, password.value)
-  if (ok) {
-    router.push('/')
-  }
-}
-
-async function handleGuestLogin() {
-  const ok = await auth.guestLogin()
-  if (ok) {
-    router.push('/')
-  }
-}
-</script>
 
 <style scoped>
 .auth-page {

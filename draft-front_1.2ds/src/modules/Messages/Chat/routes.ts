@@ -4,7 +4,7 @@ export const routes: RouteRecordRaw[] = [
   {
     path: 'messenger',
     name: 'Messenger',
-    component: () => import('./Page/MessengerPage.vue'),
+    component: () => import('@/modules/Messages/Chat/Page/MessengerPage.vue'),
     meta: { title: 'Мессенджер', guestAllowed: true },
   },
 ]

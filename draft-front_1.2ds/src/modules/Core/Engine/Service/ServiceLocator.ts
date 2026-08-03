@@ -1,20 +1,20 @@
 class ServiceLocator {
-  private map = new Map<string, unknown>()
+  private readonly services = new Map<string, unknown>()
 
-  set<T>(key: string, value: T): void {
-    this.map.set(key, value)
+  set<T>(serviceCode: string, service: T): void {
+    this.services.set(serviceCode, service)
   }
 
-  get<T>(key: string): T {
-    const v = this.map.get(key)
-    if (!v) {
-      throw new Error(`Service "${key}" not registered`)
+  get<T>(serviceCode: string): T {
+    const service = this.services.get(serviceCode)
+    if (!service) {
+      throw new Error(`Service "${serviceCode}" not registered`)
     }
-    return v as T
+    return service as T
   }
 
   reset(): void {
-    this.map.clear()
+    this.services.clear()
   }
 }
 

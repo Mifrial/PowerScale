@@ -1,47 +1,3 @@
-<template>
-  <div class="chat-input-area border-t">
-    <template v-for="ext in toolbarExtensions" :key="ext.id">
-      <component :is="ext.component" v-bind="toolbarContext" />
-    </template>
-
-    <div v-if="!disabled && pendingRolls.length" class="roll-bar">
-      <div v-for="(r, ri) in pendingRolls" :key="ri" class="roll-chip">
-        <v-icon icon="mdi-dice-d6" size="14" />
-        {{ r.diceCount }}к{{ r.dieFaces }}{{ r.adv ? (r.adv > 0 ? ` +${r.adv}` : ` ${r.adv}`) : '' }}{{ r.label ? ` (${r.label})` : '' }}
-        <v-icon icon="mdi-close" size="14" class="ml-1 roll-chip-remove" @click="removeRoll(ri)" />
-      </div>
-    </div>
-
-    <div class="chat-input-wrapper">
-      <v-textarea
-        v-model="messageText"
-        placeholder="Напишите сообщение..."
-        hide-details
-        auto-grow
-        rows="3"
-        max-rows="6"
-        variant="outlined"
-        class="chat-input"
-        :disabled="disabled"
-        @keydown.enter.exact.prevent="handleSend"
-      />
-      <div v-if="!disabled" class="chat-input-actions">
-        <v-btn
-          icon
-          variant="tonal"
-          size="x-small"
-          :loading="sending"
-          :disabled="!canSend"
-          aria-label="Отправить"
-          @click="handleSend"
-        >
-          <v-icon>mdi-send</v-icon>
-        </v-btn>
-      </div>
-    </div>
-  </div>
-</template>
-
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec'
@@ -79,6 +35,12 @@ function removeRoll(index: number) {
   pendingRolls.value.splice(index, 1)
 }
 
+function rollSummary(r: DiceRollSpec): string {
+  const adv = r.adv ? (r.adv > 0 ? ` +${r.adv}` : ` ${r.adv}`) : ''
+  const label = r.label ? ` (${r.label})` : ''
+  return `${r.diceCount}к${r.dieFaces}${adv}${label}`
+}
+
 function handleSend() {
   if (!canSend.value) return
   const text = messageText.value.trim()
@@ -99,6 +61,50 @@ function handleSend() {
   pendingRolls.value = []
 }
 </script>
+
+<template>
+  <div class="chat-input-area border-t">
+    <template v-for="ext in toolbarExtensions" :key="ext.id">
+      <component :is="ext.component" v-bind="toolbarContext" />
+    </template>
+
+    <div v-if="!disabled && pendingRolls.length" class="roll-bar">
+      <div v-for="(r, ri) in pendingRolls" :key="ri" class="roll-chip">
+        <v-icon icon="mdi-dice-d6" size="14" />
+        {{ rollSummary(r) }}
+        <v-icon icon="mdi-close" size="14" class="ml-1 roll-chip-remove" @click="removeRoll(ri)" />
+      </div>
+    </div>
+
+    <div class="chat-input-wrapper">
+      <v-textarea
+        v-model="messageText"
+        placeholder="Напишите сообщение..."
+        hide-details
+        auto-grow
+        rows="3"
+        max-rows="6"
+        variant="outlined"
+        class="chat-input"
+        :disabled="disabled"
+        @keydown.enter.exact.prevent="handleSend"
+      />
+      <div v-if="!disabled" class="chat-input-actions">
+        <v-btn
+          icon
+          variant="tonal"
+          size="x-small"
+          :loading="sending"
+          :disabled="!canSend"
+          aria-label="Отправить"
+          @click="handleSend"
+        >
+          <v-icon>mdi-send</v-icon>
+        </v-btn>
+      </div>
+    </div>
+  </div>
+</template>
 
 <style scoped>
 .chat-input-area {

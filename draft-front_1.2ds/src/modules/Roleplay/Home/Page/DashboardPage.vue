@@ -1,3 +1,38 @@
+<script setup lang="ts">
+import { computed, onMounted } from 'vue'
+import { useAuthStore } from '@/modules/Core/Auth/Store/auth'
+import { useUserStore } from '@/modules/Core/User/Store/users'
+import { useNotificationStore } from '@/modules/Messages/Notifications/Store/notifications'
+import NotificationList from '@/modules/Messages/Notifications/Component/NotificationList.vue'
+import FlatTextBtn from '@/modules/Core/UI/Component/FlatTextBtn.vue'
+
+const auth = useAuthStore()
+const userStore = useUserStore()
+const notification = useNotificationStore()
+
+const dashboardItems = computed(() => notification.items.slice(0, 4))
+
+const characterCard = {
+  icon: 'mdi-account-group',
+  label: 'Персонажи',
+  description: 'Просмотр и управление персонажами',
+  to: '/characters',
+  count: 2,
+}
+
+const gameCard = {
+  icon: 'mdi-gamepad-variant',
+  label: 'Игры',
+  description: 'Список игр и сессий',
+  to: '/games',
+  count: 1,
+}
+
+onMounted(() => {
+  notification.fetchData()
+})
+</script>
+
 <template>
   <div>
     <h1 class="text-h4 font-weight-bold mb-2">
@@ -90,41 +125,6 @@
     </v-card>
   </div>
 </template>
-
-<script setup lang="ts">
-import { computed, onMounted } from 'vue'
-import { useAuthStore } from '@/modules/Core/Auth/Store/auth'
-import { useUserStore } from '@/modules/Core/User/Store/users'
-import { useNotificationStore } from '@/modules/Messages/Notifications/Store/notifications'
-import NotificationList from '@/modules/Messages/Notifications/Component/NotificationList.vue'
-import FlatTextBtn from '@/modules/Core/UI/Component/FlatTextBtn.vue'
-
-const auth = useAuthStore()
-const userStore = useUserStore()
-const notification = useNotificationStore()
-
-const dashboardItems = computed(() => notification.items.slice(0, 4))
-
-const characterCard = {
-  icon: 'mdi-account-group',
-  label: 'Персонажи',
-  description: 'Просмотр и управление персонажами',
-  to: '/characters',
-  count: 2,
-}
-
-const gameCard = {
-  icon: 'mdi-gamepad-variant',
-  label: 'Игры',
-  description: 'Список игр и сессий',
-  to: '/games',
-  count: 1,
-}
-
-onMounted(() => {
-  notification.fetchData()
-})
-</script>
 
 <style scoped>
 .dashboard-footer {

@@ -1,182 +1,14 @@
-<template>
-  <v-container v-if="space">
-    <div class="d-flex align-center mb-4">
-      <h1 class="text-h5">{{ space.name }}</h1>
-      <v-spacer />
-      <v-btn variant="text" prepend-icon="mdi-cog" @click="router.push(`/space/${space.code}/settings`)">
-        Настройки
-      </v-btn>
-    </div>
-
-    <v-card-subtitle class="mb-4">{{ space.description }}</v-card-subtitle>
-
-    <!-- Контекст просмотра -->
-    <div class="d-flex align-center mb-4 gap-2">
-      <v-select
-        v-model="selectedRevision"
-        :items="revisionsList"
-        item-title="label"
-        item-value="value"
-        label="Версия"
-        density="compact"
-        hide-details
-        style="max-width: 220px;"
-      />
-
-      <v-chip
-        v-if="draftStore.hasDraft(space.id)"
-        color="primary"
-        variant="tonal"
-        size="small"
-      >
-        Есть черновик
-      </v-chip>
-
-      <v-spacer />
-
-      <template v-if="draftStore.hasDraft(space.id) && isDraftContext">
-        <v-btn
-          variant="tonal"
-          color="success"
-          size="small"
-          prepend-icon="mdi-source-branch"
-          @click="openPublishDialog"
-        >
-          Опубликовать
-        </v-btn>
-      </template>
-    </div>
-
-    <div class="d-flex align-center mb-4">
-      <div class="text-h6">Правила ({{ filteredRules.length }})</div>
-      <v-spacer />
-      <v-btn
-        color="primary"
-        prepend-icon="mdi-plus"
-        @click="router.push(`/space/${space.code}/draft/rules/new`)"
-      >
-        Создать правило
-      </v-btn>
-    </div>
-
-    <v-tabs v-model="activeTab" class="mb-4">
-      <v-tab value="all">Все</v-tab>
-      <v-tab value="simple">Простые</v-tab>
-      <v-tab value="race">Расы</v-tab>
-      <v-tab value="species">Виды</v-tab>
-      <v-tab value="characteristic">Характеристики</v-tab>
-      <v-tab value="resource">Ресурсы</v-tab>
-      <v-tab value="points">Очки</v-tab>
-      <v-tab value="ability">Способности</v-tab>
-      <v-tab value="item">Предметы</v-tab>
-      <v-tab value="damage_type">Типы урона</v-tab>
-    </v-tabs>
-
-    <v-text-field
-      v-model="searchQuery"
-      label="Поиск"
-      prepend-inner-icon="mdi-magnify"
-      clearable
-      class="mb-4"
-    />
-
-    <v-list v-if="filteredRules.length > 0">
-      <v-list-item
-        v-for="rule in filteredRules"
-        :key="rule.id"
-        :to="ruleLink(rule.id)"
-      >
-        <v-list-item-title>
-          {{ rule.name }}
-          <v-chip
-            v-if="isRuleInDraft(rule.id)"
-            size="x-small"
-            color="warning"
-            variant="tonal"
-            class="ml-2"
-          >
-            Изменено
-          </v-chip>
-        </v-list-item-title>
-        <v-list-item-subtitle>{{ rule.description }}</v-list-item-subtitle>
-        <template #append>
-          <div class="d-flex align-center gap-2">
-            <v-chip size="x-small" variant="tonal">
-              {{ RULE_TYPE_LABELS[rule.type] }}
-            </v-chip>
-            <v-btn
-              v-if="isDraftContext && isRuleInDraft(rule.id)"
-              icon
-              size="x-small"
-              color="error"
-              variant="text"
-              @click.prevent="showDiscardRuleDialog(rule)"
-            >
-              <v-icon size="small">mdi-undo</v-icon>
-            </v-btn>
-          </div>
-        </template>
-      </v-list-item>
-    </v-list>
-
-    <div v-else class="text-body-2 text-medium-emphasis text-center pa-8">
-      Правила не найдены
-    </div>
-
-    <!-- Publish dialog -->
-    <PublishDialog
-      v-model="showPublishDialog"
-      :space="space"
-      @published="onPublished"
-      @error="(m) => snackbar = { show: true, text: m, color: 'error' }"
-    />
-
-    <!-- Discard rule dialog -->
-    <v-dialog v-model="showDiscardDialog" max-width="500">
-      <v-card>
-        <v-card-title>Откатить изменения</v-card-title>
-        <v-card-text>
-          <div class="text-body-2 mb-4">
-            Вы уверены, что хотите откатить изменения в правиле "{{ ruleToDiscard?.name }}"?
-          </div>
-          <div class="text-body-2 text-medium-emphasis">
-            Правило вернётся к состоянию из последней опубликованной версии.
-          </div>
-        </v-card-text>
-        <v-card-actions>
-          <v-btn variant="text" @click="showDiscardDialog = false">Отмена</v-btn>
-          <v-btn color="error" variant="tonal" @click="discardRule">
-            Откатить
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-
-    <v-snackbar v-model="snackbar.show" :color="snackbar.color" timeout="3000">
-      {{ snackbar.text }}
-    </v-snackbar>
-  </v-container>
-  <div v-else-if="loading" class="d-flex justify-center pa-8">
-    <v-progress-circular indeterminate width="2" size="28" color="primary" />
-  </div>
-  <div v-else-if="error" class="text-center pa-8">
-    <v-icon icon="mdi-alert-circle" size="64" color="error" class="mb-4" />
-    <p class="text-body-1 mb-4">{{ error }}</p>
-    <v-btn color="primary" @click="retry">Попробовать снова</v-btn>
-  </div>
-</template>
-
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useSpaceStore } from '../Store/spaces'
-import { useSpaceRevisionStore } from '../Store/spaceRevision'
+import { useSpaceStore } from '@/modules/Roleplay/Space/Store/spaces'
+import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision'
 import { useDraftRuleStore } from '@/modules/Roleplay/Rule/Store/draftRules'
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable'
 import { RULE_TYPE_LABELS } from '@/modules/Roleplay/Rule/Constant/RULE_TYPE_LABELS'
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule'
 import type { Space } from '@/modules/Roleplay/Space/Dto/Space'
-import PublishDialog from '../Component/PublishDialog.vue'
+import PublishDialog from '@/modules/Roleplay/Space/Component/PublishDialog.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -349,6 +181,174 @@ function discardRule() {
   }
 }
 </script>
+
+<template>
+  <v-container v-if="space">
+    <div class="d-flex align-center mb-4">
+      <h1 class="text-h5">{{ space.name }}</h1>
+      <v-spacer />
+      <v-btn variant="text" prepend-icon="mdi-cog" @click="router.push(`/space/${space.code}/settings`)">
+        Настройки
+      </v-btn>
+    </div>
+
+    <v-card-subtitle class="mb-4">{{ space.description }}</v-card-subtitle>
+
+    <!-- Контекст просмотра -->
+    <div class="d-flex align-center mb-4 gap-2">
+      <v-select
+        v-model="selectedRevision"
+        :items="revisionsList"
+        item-title="label"
+        item-value="value"
+        label="Версия"
+        density="compact"
+        hide-details
+        style="max-width: 220px;"
+      />
+
+      <v-chip
+        v-if="draftStore.hasDraft(space.id)"
+        color="primary"
+        variant="tonal"
+        size="small"
+      >
+        Есть черновик
+      </v-chip>
+
+      <v-spacer />
+
+      <template v-if="draftStore.hasDraft(space.id) && isDraftContext">
+        <v-btn
+          variant="tonal"
+          color="success"
+          size="small"
+          prepend-icon="mdi-source-branch"
+          @click="openPublishDialog"
+        >
+          Опубликовать
+        </v-btn>
+      </template>
+    </div>
+
+    <div class="d-flex align-center mb-4">
+      <div class="text-h6">Правила ({{ filteredRules.length }})</div>
+      <v-spacer />
+      <v-btn
+        color="primary"
+        prepend-icon="mdi-plus"
+        @click="router.push(`/space/${space.code}/draft/rules/new`)"
+      >
+        Создать правило
+      </v-btn>
+    </div>
+
+    <v-tabs v-model="activeTab" class="mb-4">
+      <v-tab value="all">Все</v-tab>
+      <v-tab value="simple">Простые</v-tab>
+      <v-tab value="race">Расы</v-tab>
+      <v-tab value="species">Виды</v-tab>
+      <v-tab value="characteristic">Характеристики</v-tab>
+      <v-tab value="resource">Ресурсы</v-tab>
+      <v-tab value="points">Очки</v-tab>
+      <v-tab value="ability">Способности</v-tab>
+      <v-tab value="item">Предметы</v-tab>
+      <v-tab value="damage_type">Типы урона</v-tab>
+    </v-tabs>
+
+    <v-text-field
+      v-model="searchQuery"
+      label="Поиск"
+      prepend-inner-icon="mdi-magnify"
+      clearable
+      class="mb-4"
+    />
+
+    <v-list v-if="filteredRules.length > 0">
+      <v-list-item
+        v-for="rule in filteredRules"
+        :key="rule.id"
+        :to="ruleLink(rule.id)"
+      >
+        <v-list-item-title>
+          {{ rule.name }}
+          <v-chip
+            v-if="isRuleInDraft(rule.id)"
+            size="x-small"
+            color="warning"
+            variant="tonal"
+            class="ml-2"
+          >
+            Изменено
+          </v-chip>
+        </v-list-item-title>
+        <v-list-item-subtitle>{{ rule.description }}</v-list-item-subtitle>
+        <template #append>
+          <div class="d-flex align-center gap-2">
+            <v-chip size="x-small" variant="tonal">
+              {{ RULE_TYPE_LABELS[rule.type] }}
+            </v-chip>
+            <v-btn
+              v-if="isDraftContext && isRuleInDraft(rule.id)"
+              icon
+              size="x-small"
+              color="error"
+              variant="text"
+              @click.prevent="showDiscardRuleDialog(rule)"
+            >
+              <v-icon size="small">mdi-undo</v-icon>
+            </v-btn>
+          </div>
+        </template>
+      </v-list-item>
+    </v-list>
+
+    <div v-else class="text-body-2 text-medium-emphasis text-center pa-8">
+      Правила не найдены
+    </div>
+
+    <!-- Publish dialog -->
+    <PublishDialog
+      v-model="showPublishDialog"
+      :space="space"
+      @published="onPublished"
+      @error="(m) => snackbar = { show: true, text: m, color: 'error' }"
+    />
+
+    <!-- Discard rule dialog -->
+    <v-dialog v-model="showDiscardDialog" max-width="500">
+      <v-card>
+        <v-card-title>Откатить изменения</v-card-title>
+        <v-card-text>
+          <div class="text-body-2 mb-4">
+            Вы уверены, что хотите откатить изменения в правиле "{{ ruleToDiscard?.name }}"?
+          </div>
+          <div class="text-body-2 text-medium-emphasis">
+            Правило вернётся к состоянию из последней опубликованной версии.
+          </div>
+        </v-card-text>
+        <v-card-actions>
+          <v-btn variant="text" @click="showDiscardDialog = false">Отмена</v-btn>
+          <v-btn color="error" variant="tonal" @click="discardRule">
+            Откатить
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <v-snackbar v-model="snackbar.show" :color="snackbar.color" timeout="3000">
+      {{ snackbar.text }}
+    </v-snackbar>
+  </v-container>
+  <div v-else-if="loading" class="d-flex justify-center pa-8">
+    <v-progress-circular indeterminate width="2" size="28" color="primary" />
+  </div>
+  <div v-else-if="error" class="text-center pa-8">
+    <v-icon icon="mdi-alert-circle" size="64" color="error" class="mb-4" />
+    <p class="text-body-1 mb-4">{{ error }}</p>
+    <v-btn color="primary" @click="retry">Попробовать снова</v-btn>
+  </div>
+</template>
 
 <style scoped>
 .gap-2 {

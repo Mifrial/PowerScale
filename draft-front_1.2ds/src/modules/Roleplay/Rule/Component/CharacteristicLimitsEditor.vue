@@ -1,3 +1,41 @@
+<script setup lang="ts">
+import FormulaInput from '@/modules/Roleplay/Rule/Component/FormulaInput.vue'
+import { useVModelSync } from '@/modules/Core/UI/Composables/useVModelSync'
+import type { Formula } from '@/modules/Roleplay/Rule/Dto/Ability/Formula'
+
+interface CharacteristicLimit {
+  characteristic_code: string
+  limit: Formula
+}
+
+const props = defineProps<{
+  modelValue: CharacteristicLimit[]
+  characteristics: { code: string; name: string }[]
+  defaultCharacteristicCode?: string
+}>()
+
+const emit = defineEmits<{
+  'update:modelValue': [value: CharacteristicLimit[]]
+}>()
+
+const { inner: localLimits } = useVModelSync<CharacteristicLimit[]>({
+  modelValue: () => props.modelValue,
+  onCommit: (value) => emit('update:modelValue', value),
+  clone: false,
+})
+
+function addLimit() {
+  localLimits.value.push({
+    characteristic_code: props.defaultCharacteristicCode ?? '',
+    limit: { type: 'characteristic', characteristic_code: props.defaultCharacteristicCode ?? '', modifier: 0 }
+  })
+}
+
+function removeLimit(index: number) {
+  localLimits.value.splice(index, 1)
+}
+</script>
+
 <template>
   <v-card variant="outlined" class="pa-3">
     <v-card-title class="text-subtitle-2">Ограничения характеристик</v-card-title>
@@ -40,50 +78,6 @@
     </v-btn>
   </v-card>
 </template>
-
-<script setup lang="ts">
-import { ref, watch } from 'vue'
-import FormulaInput from './FormulaInput.vue'
-import type { Formula } from '@/modules/Roleplay/Rule/Dto/Ability/Formula'
-
-interface CharacteristicLimit {
-  characteristic_code: string
-  limit: Formula
-}
-
-const props = defineProps<{
-  modelValue: CharacteristicLimit[]
-  characteristics: { code: string; name: string }[]
-  defaultCharacteristicCode?: string
-}>()
-
-const emit = defineEmits<{
-  'update:modelValue': [value: CharacteristicLimit[]]
-}>()
-
-const localLimits = ref<CharacteristicLimit[]>([...props.modelValue])
-
-function addLimit() {
-  localLimits.value.push({
-    characteristic_code: props.defaultCharacteristicCode ?? '',
-    limit: { type: 'characteristic', characteristic_code: props.defaultCharacteristicCode ?? '', modifier: 0 }
-  })
-}
-
-function removeLimit(index: number) {
-  localLimits.value.splice(index, 1)
-}
-
-watch(localLimits, (v) => {
-  emit('update:modelValue', [...v])
-}, { deep: true })
-
-watch(() => props.modelValue, (v) => {
-  if (JSON.stringify(v) !== JSON.stringify(localLimits.value)) {
-    localLimits.value = [...v]
-  }
-}, { deep: true })
-</script>
 
 <style scoped>
 .gap-2 {

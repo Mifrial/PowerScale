@@ -1,4 +1,4 @@
-import type { AbilityType } from '../../Enum/Ability/AbilityType'
+import type { AbilityType } from '@/modules/Roleplay/Rule/Enum/Ability/AbilityType'
 
 export const ABILITY_TYPE_KEYWORDS: Record<AbilityType, string[]> = {
   trait: ['trait'],

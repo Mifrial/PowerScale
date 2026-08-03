@@ -4,7 +4,7 @@ import type { SpaceUpdateData } from '@/modules/Roleplay/Space/Dto/SpaceUpdateDa
 import type { SpaceRevisionMeta } from '@/modules/Roleplay/Space/Dto/SpaceRevisionMeta'
 import type { SpaceRevision } from '@/modules/Roleplay/Space/Dto/SpaceRevision'
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule'
-import type { RuleSpec } from '@/modules/Roleplay/Rule/Enum/RuleSpec'
+import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec'
 import { ruleCatalog } from '@/modules/Roleplay/Rule/Mock/mockRules'
 import { slugify } from '@/modules/Roleplay/Rule/Utils/Text/slugify'
 

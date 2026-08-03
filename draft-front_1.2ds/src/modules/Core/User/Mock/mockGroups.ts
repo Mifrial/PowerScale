@@ -1,6 +1,6 @@
-import type { Group } from '../Dto/Group'
-import type { CreateGroupData, UpdateGroupData } from '../Interface/IGroupApi'
-import { GROUP_PERMISSIONS, groupPermissions } from './groupPermissions'
+import type { Group } from '@/modules/Core/User/Dto/Group'
+import type { CreateGroupData, UpdateGroupData } from '@/modules/Core/User/Interface/IGroupApi'
+import { GROUP_PERMISSIONS, groupPermissions } from '@/modules/Core/User/Mock/groupPermissions'
 
 const delay = (ms = 300) => new Promise(r => setTimeout(r, ms))
 

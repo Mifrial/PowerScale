@@ -1,7 +1,7 @@
-import type { ZoneId } from './ZoneId'
-import type { AbilityCost } from './AbilityCost'
-import type { Requirement } from './Requirement'
-import type { Grant } from './Grant'
+import type { ZoneId } from '@/modules/Roleplay/Rule/Dto/Ability/ZoneId'
+import type { AbilityCost } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityCost'
+import type { Requirement } from '@/modules/Roleplay/Rule/Dto/Ability/Requirement'
+import type { Grant } from '@/modules/Roleplay/Rule/Dto/Ability/Grant'
 
 /** Общие поля способности (не типоспецифичные). */
 export interface AbilitySpecBase {

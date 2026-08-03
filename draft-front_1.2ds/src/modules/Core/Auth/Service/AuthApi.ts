@@ -1,10 +1,10 @@
-import type { IAuthApi } from '../Interface/IAuthApi'
+import type { IAuthApi } from '@/modules/Core/Auth/Interface/IAuthApi'
 import type { Engine } from '@/modules/Core/Engine/Service/Engine'
 import type { User } from '@/modules/Core/User/Dto/User'
 import type { PasswordPolicy } from '@/modules/Core/Auth/Dto/PasswordPolicy'
 
 export class AuthApi implements IAuthApi {
-  constructor(private engine: Engine) {}
+  constructor(private readonly engine: Engine) {}
 
   async login(loginOrEmail: string, password: string) {
     const res = await this.engine.runAction<{ user: User }>('auth.login', { loginOrEmail, password })

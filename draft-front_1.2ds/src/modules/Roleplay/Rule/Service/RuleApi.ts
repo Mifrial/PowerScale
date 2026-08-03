@@ -1,13 +1,13 @@
 import type { Engine } from '@/modules/Core/Engine/Service/Engine'
-import type { IRuleApi } from '../Interface/IRuleApi'
-import type { Rule } from '../Dto/Rule'
-import type { CreateRuleData } from '../Dto/CreateRuleData'
-import type { UpdateRuleData } from '../Dto/UpdateRuleData'
-import type { RuleVersion } from '../Dto/RuleVersion'
-import type { Mechanic } from '../Dto/Mechanic'
+import type { IRuleApi } from '@/modules/Roleplay/Rule/Interface/IRuleApi'
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule'
+import type { CreateRuleData } from '@/modules/Roleplay/Rule/Dto/CreateRuleData'
+import type { UpdateRuleData } from '@/modules/Roleplay/Rule/Dto/UpdateRuleData'
+import type { RuleVersion } from '@/modules/Roleplay/Rule/Dto/RuleVersion'
+import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic'
 
 export class RuleApi implements IRuleApi {
-  constructor(private engine: Engine) {}
+  constructor(private readonly engine: Engine) {}
 
   async getRules(spaceId: number, signal?: AbortSignal): Promise<Rule[]> {
     const res = await this.engine.runAction<Rule[]>('rule.getList', { spaceId }, signal)

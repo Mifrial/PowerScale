@@ -1,3 +1,44 @@
+<script setup lang="ts">
+import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue'
+import { useVModelSync } from '@/modules/Core/UI/Composables/useVModelSync'
+
+interface ResistanceSlot {
+  damage_type_code: string | null
+  value: number
+  durability: number
+  source_code: string | null
+}
+
+const props = defineProps<{
+  modelValue: ResistanceSlot[]
+  damageTypes: { code: string; name: string }[]
+  sources: { code: string; name: string }[]
+}>()
+
+const emit = defineEmits<{
+  'update:modelValue': [value: ResistanceSlot[]]
+}>()
+
+const { inner: localSlots } = useVModelSync<ResistanceSlot[]>({
+  modelValue: () => props.modelValue,
+  onCommit: (value) => emit('update:modelValue', value),
+  clone: false,
+})
+
+function addSlot() {
+  localSlots.value.push({
+    damage_type_code: null,
+    value: 1,
+    durability: 1,
+    source_code: null
+  })
+}
+
+function removeSlot(index: number) {
+  localSlots.value.splice(index, 1)
+}
+</script>
+
 <template>
   <div>
     <v-card variant="outlined" class="pa-3">
@@ -77,50 +118,3 @@
     </v-card>
   </div>
 </template>
-
-<script setup lang="ts">
-import { ref, watch } from 'vue'
-import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue'
-
-interface ResistanceSlot {
-  damage_type_code: string | null
-  value: number
-  durability: number
-  source_code: string | null
-}
-
-const props = defineProps<{
-  modelValue: ResistanceSlot[]
-  damageTypes: { code: string; name: string }[]
-  sources: { code: string; name: string }[]
-}>()
-
-const emit = defineEmits<{
-  'update:modelValue': [value: ResistanceSlot[]]
-}>()
-
-const localSlots = ref<ResistanceSlot[]>([...props.modelValue])
-
-function addSlot() {
-  localSlots.value.push({
-    damage_type_code: null,
-    value: 1,
-    durability: 1,
-    source_code: null
-  })
-}
-
-function removeSlot(index: number) {
-  localSlots.value.splice(index, 1)
-}
-
-watch(localSlots, (value) => {
-  emit('update:modelValue', [...value])
-}, { deep: true })
-
-watch(() => props.modelValue, (value) => {
-  if (JSON.stringify(value) !== JSON.stringify(localSlots.value)) {
-    localSlots.value = [...value]
-  }
-}, { deep: true })
-</script>

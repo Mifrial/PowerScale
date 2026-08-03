@@ -1,3 +1,66 @@
+<script setup lang="ts">
+import { ref, computed, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { useAuthStore } from '@/modules/Core/Auth/Store/auth'
+import { passwordValidatorService } from '@/modules/Core/Auth/Service/PasswordValidatorService'
+import PasswordField from '@/modules/Core/UI/Component/Input/PasswordField.vue'
+
+const router = useRouter()
+const route = useRoute()
+const auth = useAuthStore()
+
+interface FormRef {
+  validate: () => Promise<{ valid: boolean }>
+  reset: () => void
+  resetValidation: () => void
+}
+
+const formRef = ref<FormRef | null>(null)
+const login = ref('')
+const resetToken = ref('')
+const newPassword = ref('')
+const confirmPassword = ref('')
+const loading = ref(false)
+const message = ref('')
+const messageType = ref<'success' | 'error'>('success')
+
+const routeLogin = computed(() => (route.query.login as string) || '')
+const routeToken = computed(() => (route.query.token as string) || '')
+
+onMounted(() => {
+  auth.fetchPasswordPolicy()
+})
+
+const passwordRules = computed(() => [
+  (v: string) => {
+    const errors = passwordValidatorService.validate(v, auth.passwordPolicy)
+    return errors.length === 0 ? true : errors[0]
+  },
+])
+
+async function handleReset() {
+  const { valid } = await formRef.value?.validate() ?? { valid: false }
+  if (!valid) return
+  loading.value = true
+  message.value = ''
+  try {
+    const loginVal = routeLogin.value || login.value
+    const tokenVal = routeToken.value || resetToken.value
+    const ok = await auth.resetPassword(loginVal, tokenVal, newPassword.value)
+    if (ok) {
+      messageType.value = 'success'
+      message.value = 'Пароль успешно изменён'
+      setTimeout(() => router.push('/login'), 1500)
+    }
+  } catch (e: unknown) {
+    messageType.value = 'error'
+    message.value = e instanceof Error ? e.message : 'Ошибка при сбросе пароля'
+  } finally {
+    loading.value = false
+  }
+}
+</script>
+
 <template>
   <div class="auth-page bg-background">
     <v-container class="fill-height" fluid>
@@ -81,69 +144,6 @@
     </v-container>
   </div>
 </template>
-
-<script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
-import { useAuthStore } from '@/modules/Core/Auth/Store/auth'
-import { passwordValidatorService } from '@/modules/Core/Auth/Service/PasswordValidatorService'
-import PasswordField from '@/modules/Core/UI/Component/Input/PasswordField.vue'
-
-const router = useRouter()
-const route = useRoute()
-const auth = useAuthStore()
-
-interface FormRef {
-  validate: () => Promise<{ valid: boolean }>
-  reset: () => void
-  resetValidation: () => void
-}
-
-const formRef = ref<FormRef | null>(null)
-const login = ref('')
-const resetToken = ref('')
-const newPassword = ref('')
-const confirmPassword = ref('')
-const loading = ref(false)
-const message = ref('')
-const messageType = ref<'success' | 'error'>('success')
-
-const routeLogin = computed(() => (route.query.login as string) || '')
-const routeToken = computed(() => (route.query.token as string) || '')
-
-onMounted(() => {
-  auth.fetchPasswordPolicy()
-})
-
-const passwordRules = computed(() => [
-  (v: string) => {
-    const errors = passwordValidatorService.validate(v, auth.passwordPolicy)
-    return errors.length === 0 ? true : errors[0]
-  },
-])
-
-async function handleReset() {
-  const { valid } = await formRef.value?.validate() ?? { valid: false }
-  if (!valid) return
-  loading.value = true
-  message.value = ''
-  try {
-    const loginVal = routeLogin.value || login.value
-    const tokenVal = routeToken.value || resetToken.value
-    const ok = await auth.resetPassword(loginVal, tokenVal, newPassword.value)
-    if (ok) {
-      messageType.value = 'success'
-      message.value = 'Пароль успешно изменён'
-      setTimeout(() => router.push('/login'), 1500)
-    }
-  } catch (e: unknown) {
-    messageType.value = 'error'
-    message.value = e instanceof Error ? e.message : 'Ошибка при сбросе пароля'
-  } finally {
-    loading.value = false
-  }
-}
-</script>
 
 <style scoped>
 .auth-page {

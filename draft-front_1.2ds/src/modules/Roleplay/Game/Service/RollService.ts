@@ -1,5 +1,17 @@
 import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec'
 import type { DiceRollResult } from '@/modules/Roleplay/Game/Dto/DiceRollResult'
+import type { MacroRollSpec } from '@/modules/Roleplay/Game/Dto/MacroRollSpec'
+import type { RollForm } from '@/modules/Roleplay/Game/Dto/RollForm'
+import {
+  ROLL_ADV_MAX,
+  ROLL_DICE_COUNT_MAX,
+  ROLL_DICE_COUNT_MIN,
+  ROLL_DIE_FACES_MAX,
+  ROLL_DIE_FACES_MIN,
+  ROLL_DIE_SIZE_MAX,
+  ROLL_EFFICIENCY_MAX,
+  ROLL_EFFICIENCY_MIN,
+} from '@/modules/Roleplay/Game/Constant/rollLimits'
 
 export interface ParsedRollCommand {
   content: string
@@ -14,11 +26,6 @@ export interface ParsedRollFormula {
 export type DiceRng = () => number
 
 export class RollService {
-  private static readonly MAX_DICE_COUNT = 30
-  private static readonly MAX_ADV = 10
-  private static readonly MAX_EFFICIENCY = 20
-  private static readonly MAX_DIE_FACES = 100
-  private static readonly MAX_DIE_SIZE = 10
   private static readonly SUPERSCRIPTS: Record<number, string> = { 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹', 10: '¹⁰' }
 
   formatRollSize(size: number): string {
@@ -28,13 +35,46 @@ export class RollService {
     return arrow + (mag >= 2 ? (RollService.SUPERSCRIPTS[mag] ?? String(mag)) : '')
   }
 
+  validateRollSpec(roll: RollForm): boolean {
+    const diceCount = Number(roll.diceCount)
+    const dieFaces = Number(roll.dieFaces)
+    const efficiency = Number(roll.efficiency)
+    const adv = Number(roll.adv)
+    const dieSize = Number(roll.dieSize)
+    if (!Number.isInteger(diceCount) || diceCount < ROLL_DICE_COUNT_MIN || diceCount > ROLL_DICE_COUNT_MAX) return false
+    if (!Number.isInteger(dieFaces) || dieFaces < ROLL_DIE_FACES_MIN || dieFaces > ROLL_DIE_FACES_MAX) return false
+    if (!Number.isInteger(efficiency) || efficiency < ROLL_EFFICIENCY_MIN || efficiency > ROLL_EFFICIENCY_MAX) return false
+    if (!Number.isInteger(adv) || Math.abs(adv) > ROLL_ADV_MAX) return false
+    if (!Number.isInteger(dieSize) || Math.abs(dieSize) > ROLL_DIE_SIZE_MAX) return false
+    return true
+  }
+
+  formatRollSpecText(spec: MacroRollSpec): string {
+    const adv = spec.adv || 0
+    const advPart = adv ? (adv > 0 ? ` +${adv}` : ` ${adv}`) : ''
+    const size = this.formatRollSize(spec.dieSize || 0)
+    const label = spec.rollLabel?.trim()
+    return `${spec.rollFormula}${advPart}${size ? ` ${size}` : ''} · сл:${spec.efficiency}${label ? ` (${label})` : ''}${spec.variableAdvantages ? ' · преим. ?' : ''}`
+  }
+
+  formatRollFormText(form: RollForm): string {
+    return this.formatRollSpecText({
+      rollFormula: `${form.diceCount}d${form.dieFaces}`,
+      efficiency: Number(form.efficiency),
+      adv: Number(form.adv),
+      dieSize: Number(form.dieSize),
+      rollLabel: form.rollLabel,
+      variableAdvantages: form.variableAdvantages,
+    })
+  }
+
   parseRollFormula(formula: string): ParsedRollFormula | null {
     const match = /^\s*(\d{1,2})\s*[dDкК]\s*(\d{1,3})\s*$/.exec(formula)
     if (!match) return null
     const diceCount = Number(match[1])
     const dieFaces = Number(match[2])
-    if (diceCount < 1 || diceCount > RollService.MAX_DICE_COUNT) return null
-    if (dieFaces < 2 || dieFaces > RollService.MAX_DIE_FACES) return null
+    if (diceCount < ROLL_DICE_COUNT_MIN || diceCount > ROLL_DICE_COUNT_MAX) return null
+    if (dieFaces < ROLL_DIE_FACES_MIN || dieFaces > ROLL_DIE_FACES_MAX) return null
     return { diceCount, dieFaces }
   }
 
@@ -59,15 +99,15 @@ export class RollService {
     for (const part of parts) {
       if (/^e:\d+$/i.test(part)) {
         const value = Number(part.slice(2))
-        efficiency = value > 0 && value <= RollService.MAX_EFFICIENCY ? value : efficiency
+        efficiency = value >= ROLL_EFFICIENCY_MIN && value <= ROLL_EFFICIENCY_MAX ? value : efficiency
       } else if (/^(?:adv|prem):[-+]?\d+$/i.test(part)) {
         const value = Number(part.split(':')[1])
-        adv = Math.max(-RollService.MAX_ADV, Math.min(RollService.MAX_ADV, value))
+        adv = Math.max(-ROLL_ADV_MAX, Math.min(ROLL_ADV_MAX, value))
       } else if (/^(?:dis|pom):[-+]?\d+$/i.test(part)) {
         const value = Number(part.split(':')[1])
-        adv = Math.max(-RollService.MAX_ADV, Math.min(RollService.MAX_ADV, -value))
+        adv = Math.max(-ROLL_ADV_MAX, Math.min(ROLL_ADV_MAX, -value))
       } else if (/^(?:size|razm|dim):[-+]?\d+$/i.test(part)) {
-        dieSize = Math.max(-RollService.MAX_DIE_SIZE, Math.min(RollService.MAX_DIE_SIZE, Number(part.split(':')[1])))
+        dieSize = Math.max(-ROLL_DIE_SIZE_MAX, Math.min(ROLL_DIE_SIZE_MAX, Number(part.split(':')[1])))
       } else if (/^label:/i.test(part)) {
         labelParts.push(part.slice(6))
       } else {

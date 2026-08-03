@@ -1,44 +1,3 @@
-<template>
-  <div v-if="!disabled && macros.length" class="macro-bar">
-    <v-icon icon="mdi-script-text" size="14" class="macro-bar-icon" />
-    <div
-      v-for="m in macros"
-      :key="m.id"
-      class="macro-chip"
-      :title="macroChipTitle(m)"
-      @click="sendMacro(m)"
-    >
-      {{ m.name }}
-    </div>
-
-    <v-dialog v-model="advDialog" max-width="360">
-      <v-card>
-        <v-card-title>Преимущества</v-card-title>
-        <v-card-subtitle v-if="pendingMacro" class="text-body-2">
-          {{ pendingMacro.name }} · {{ pendingFlaggedCount }} броск{{ pendingFlaggedCount === 1 ? 'а' : 'ов' }}
-        </v-card-subtitle>
-        <v-card-text>
-          <v-text-field
-            v-model.number="advInput"
-            label="Число преимуществ"
-            type="number"
-            min="-10"
-            max="10"
-            variant="outlined"
-            hide-details
-          />
-          <div class="text-caption mt-1">отрицательное значение = помеха</div>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="advDialog = false">Отмена</v-btn>
-          <v-btn color="primary" @click="confirmAdv">Отправить</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-  </div>
-</template>
-
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec'
@@ -111,6 +70,47 @@ function confirmAdv() {
   pendingMacro.value = null
 }
 </script>
+
+<template>
+  <div v-if="!disabled && macros.length" class="macro-bar">
+    <v-icon icon="mdi-script-text" size="14" class="macro-bar-icon" />
+    <div
+      v-for="m in macros"
+      :key="m.id"
+      class="macro-chip"
+      :title="macroChipTitle(m)"
+      @click="sendMacro(m)"
+    >
+      {{ m.name }}
+    </div>
+
+    <v-dialog v-model="advDialog" max-width="360">
+      <v-card>
+        <v-card-title>Преимущества</v-card-title>
+        <v-card-subtitle v-if="pendingMacro" class="text-body-2">
+          {{ pendingMacro.name }} · {{ pendingFlaggedCount }} броск{{ pendingFlaggedCount === 1 ? 'а' : 'ов' }}
+        </v-card-subtitle>
+        <v-card-text>
+          <v-text-field
+            v-model.number="advInput"
+            label="Число преимуществ"
+            type="number"
+            min="-10"
+            max="10"
+            variant="outlined"
+            hide-details
+          />
+          <div class="text-caption mt-1">отрицательное значение = помеха</div>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="advDialog = false">Отмена</v-btn>
+          <v-btn color="primary" @click="confirmAdv">Отправить</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+  </div>
+</template>
 
 <style scoped>
 .macro-bar {

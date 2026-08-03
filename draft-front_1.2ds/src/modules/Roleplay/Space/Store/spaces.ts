@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 import type { Space } from '@/modules/Roleplay/Space/Dto/Space'
 import type { SpaceCreateData } from '@/modules/Roleplay/Space/Dto/SpaceCreateData'
 import type { SpaceUpdateData } from '@/modules/Roleplay/Space/Dto/SpaceUpdateData'
-import { getSpaceApi } from '../init'
+import { getSpaceApi } from '@/modules/Roleplay/Space/init'
 
 export const useSpaceStore = defineStore('spaces', () => {
   const spaces = ref<Space[]>([])

@@ -1,3 +1,49 @@
+<script setup lang="ts">
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/modules/Core/Auth/Store/auth'
+
+const router = useRouter()
+const auth = useAuthStore()
+
+interface FormRef {
+  validate: () => Promise<{ valid: boolean }>
+  reset: () => void
+  resetValidation: () => void
+}
+
+const formRef = ref<FormRef | null>(null)
+const loginOrEmail = ref('')
+const loading = ref(false)
+const message = ref('')
+const messageType = ref<'success' | 'error'>('success')
+
+async function handleReset() {
+  const { valid } = await formRef.value?.validate() ?? { valid: false }
+  if (!valid) return
+  loading.value = true
+  message.value = ''
+  try {
+    const user = await auth.findUser(loginOrEmail.value)
+    if (!user) {
+      messageType.value = 'error'
+      message.value = 'Аккаунт с таким логином или email не найден'
+    } else if (!user.email) {
+      messageType.value = 'error'
+      message.value = 'Для этого аккаунта не указан email, обратитесь к администратору'
+    } else {
+      messageType.value = 'success'
+      message.value = `Инструкция по сбросу пароля отправлена на ${user.email}`
+      setTimeout(() => {
+        router.push({ name: 'ResetPassword', query: { login: user.login } })
+      }, 1500)
+    }
+  } finally {
+    loading.value = false
+  }
+}
+</script>
+
 <template>
   <div class="auth-page bg-background">
     <v-container class="fill-height" fluid>
@@ -55,52 +101,6 @@
     </v-container>
   </div>
 </template>
-
-<script setup lang="ts">
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { useAuthStore } from '@/modules/Core/Auth/Store/auth'
-
-const router = useRouter()
-const auth = useAuthStore()
-
-interface FormRef {
-  validate: () => Promise<{ valid: boolean }>
-  reset: () => void
-  resetValidation: () => void
-}
-
-const formRef = ref<FormRef | null>(null)
-const loginOrEmail = ref('')
-const loading = ref(false)
-const message = ref('')
-const messageType = ref<'success' | 'error'>('success')
-
-async function handleReset() {
-  const { valid } = await formRef.value?.validate() ?? { valid: false }
-  if (!valid) return
-  loading.value = true
-  message.value = ''
-  try {
-    const user = await auth.findUser(loginOrEmail.value)
-    if (!user) {
-      messageType.value = 'error'
-      message.value = 'Аккаунт с таким логином или email не найден'
-    } else if (!user.email) {
-      messageType.value = 'error'
-      message.value = 'Для этого аккаунта не указан email, обратитесь к администратору'
-    } else {
-      messageType.value = 'success'
-      message.value = `Инструкция по сбросу пароля отправлена на ${user.email}`
-      setTimeout(() => {
-        router.push({ name: 'ResetPassword', query: { login: user.login } })
-      }, 1500)
-    }
-  } finally {
-    loading.value = false
-  }
-}
-</script>
 
 <style scoped>
 .auth-page {

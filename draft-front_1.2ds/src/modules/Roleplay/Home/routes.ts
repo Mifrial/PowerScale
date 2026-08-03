@@ -4,7 +4,7 @@ export const routes: RouteRecordRaw[] = [
   {
     path: '',
     name: 'Home',
-    component: () => import('./Page/DashboardPage.vue'),
+    component: () => import('@/modules/Roleplay/Home/Page/DashboardPage.vue'),
     meta: { title: 'Главная', guestAllowed: true },
   },
 ]

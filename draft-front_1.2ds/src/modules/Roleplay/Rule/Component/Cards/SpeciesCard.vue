@@ -1,3 +1,31 @@
+<script setup lang="ts">
+import { computed } from 'vue'
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule'
+import type { SpeciesSpec } from '@/modules/Roleplay/Rule/Dto/Race/SpeciesSpec'
+
+const props = defineProps<{
+  rule: Rule
+  rules: Rule[]
+}>()
+
+const spec = computed<SpeciesSpec | null>(() => (props.rule.spec as SpeciesSpec) ?? null)
+
+const rulesByCode = computed(() => {
+  const map = new Map<string, Rule>()
+  for (const r of props.rules) map.set(r.code, r)
+  return map
+})
+
+const parentRule = computed(() => {
+  const code = spec.value?.parent_race_code
+  return code ? rulesByCode.value.get(code) ?? null : null
+})
+
+function abilityName(code: string): string {
+  return rulesByCode.value.get(code)?.name ?? code
+}
+</script>
+
 <template>
   <div v-if="spec">
     <v-card v-if="parentRule" variant="tonal" class="mb-3">
@@ -28,31 +56,3 @@
     </v-card>
   </div>
 </template>
-
-<script setup lang="ts">
-import { computed } from 'vue'
-import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule'
-import type { SpeciesSpec } from '@/modules/Roleplay/Rule/Dto/Race/SpeciesSpec'
-
-const props = defineProps<{
-  rule: Rule
-  rules: Rule[]
-}>()
-
-const spec = computed<SpeciesSpec | null>(() => (props.rule.spec as SpeciesSpec) ?? null)
-
-const rulesByCode = computed(() => {
-  const map = new Map<string, Rule>()
-  for (const r of props.rules) map.set(r.code, r)
-  return map
-})
-
-const parentRule = computed(() => {
-  const code = spec.value?.parent_race_code
-  return code ? rulesByCode.value.get(code) ?? null : null
-})
-
-function abilityName(code: string): string {
-  return rulesByCode.value.get(code)?.name ?? code
-}
-</script>

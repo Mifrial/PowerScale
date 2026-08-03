@@ -1,4 +1,4 @@
-import type { DimensionalNumberValue } from '@/modules/Core/Engine/Value/DimensionalNumber'
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumber'
 
 export type Requirement =
   | { type: 'has_ability'; ability_code: string; min_level?: number }

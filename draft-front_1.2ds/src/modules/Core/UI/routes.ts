@@ -4,7 +4,7 @@ export const routes: RouteRecordRaw[] = [
   {
     path: '/404',
     name: 'NotFound',
-    component: () => import('./Page/NotFoundPage.vue'),
+    component: () => import('@/modules/Core/UI/Page/NotFoundPage.vue'),
     meta: { title: 'Страница не найдена', guestAllowed: true },
   },
   {

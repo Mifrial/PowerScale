@@ -1,16 +1,3 @@
-<template>
-  <v-number-input
-    :model-value="modelValue"
-    :min="min"
-    :max="max"
-    v-bind="inputAttrs"
-    :class="outerClass"
-    :style="rootStyle"
-    @update:model-value="onInput"
-    @keydown="onKeydown"
-  />
-</template>
-
 <script setup lang="ts">
 import { computed, useAttrs } from 'vue'
 
@@ -73,3 +60,16 @@ function onKeydown(e: KeyboardEvent) {
   }
 }
 </script>
+
+<template>
+  <v-number-input
+    :model-value="modelValue"
+    :min="min"
+    :max="max"
+    v-bind="inputAttrs"
+    :class="outerClass"
+    :style="rootStyle"
+    @update:model-value="onInput"
+    @keydown="onKeydown"
+  />
+</template>

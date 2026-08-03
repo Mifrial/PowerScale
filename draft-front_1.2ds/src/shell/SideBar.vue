@@ -1,3 +1,36 @@
+<script setup lang="ts">
+import { ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/modules/Core/Auth/Store/auth'
+import { useUserStore } from '@/modules/Core/User/Store/users'
+import { isAdmin as checkIsAdmin, getAdminSections } from '@/modules/Core/User/init'
+import { navItems } from '@/shell/navItems'
+
+const props = defineProps<{ collapsed: boolean }>()
+const emit = defineEmits<{ 'update:collapsed': [value: boolean] }>()
+
+const router = useRouter()
+const auth = useAuthStore()
+const userStore = useUserStore()
+
+const isCollapsed = computed(() => props.collapsed)
+const showLogoutDialog = ref(false)
+const adminOpen = ref(false)
+
+function expand() {
+  emit('update:collapsed', false)
+}
+
+const isAdmin = computed(() => checkIsAdmin(userStore.currentUser))
+
+function confirmLogout() {
+  showLogoutDialog.value = false
+  auth.logout()
+}
+
+const adminItems = getAdminSections().map(s => ({ icon: s.icon, label: s.title, to: s.to }))
+</script>
+
 <template>
   <v-navigation-drawer
     :rail="isCollapsed"
@@ -98,45 +131,3 @@
     </v-dialog>
   </v-navigation-drawer>
 </template>
-
-<script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
-import { useAuthStore } from '@/modules/Core/Auth/Store/auth'
-import { useUserStore } from '@/modules/Core/User/Store/users'
-import { isAdmin as checkIsAdmin, getAdminSections } from '@/modules/Core/User/init'
-
-const props = defineProps<{ collapsed: boolean }>()
-const emit = defineEmits<{ 'update:collapsed': [value: boolean] }>()
-
-const router = useRouter()
-const auth = useAuthStore()
-const userStore = useUserStore()
-
-const isCollapsed = computed(() => props.collapsed)
-const showLogoutDialog = ref(false)
-const adminOpen = ref(false)
-
-function expand() {
-  emit('update:collapsed', false)
-}
-
-const isAdmin = computed(() => checkIsAdmin(userStore.currentUser))
-
-function confirmLogout() {
-  showLogoutDialog.value = false
-  auth.logout()
-}
-
-const navItems = [
-  { icon: 'mdi-home', label: 'Главная', to: '/', exact: true },
-  { icon: 'mdi-message-text', label: 'Мессенджер', to: '/messenger' },
-  { icon: 'mdi-bell-ring', label: 'Уведомления', to: '/notifications' },
-  { icon: 'mdi-cube-outline', label: 'Пространства', to: '/spaces' },
-  { icon: 'mdi-account-group', label: 'Персонажи', to: '/characters' },
-  { icon: 'mdi-gamepad-variant', label: 'Игры', to: '/games' },
-  { icon: 'mdi-account-multiple', label: 'Пользователи', to: '/users' },
-]
-
-const adminItems = getAdminSections().map(s => ({ icon: s.icon, label: s.title, to: s.to }))
-</script>

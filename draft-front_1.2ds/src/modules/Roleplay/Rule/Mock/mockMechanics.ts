@@ -1,4 +1,4 @@
-import type { Mechanic } from '../Dto/Mechanic'
+import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic'
 
 const mechanics: Mechanic[] = [
   {

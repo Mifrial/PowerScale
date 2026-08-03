@@ -1,6 +1,6 @@
-import type { DimensionalNumberValue } from '@/modules/Core/Engine/Value/DimensionalNumber'
-import type { BlockProfile } from './BlockProfile'
-import type { WeaponProfile } from './WeaponProfile'
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumber'
+import type { BlockProfile } from '@/modules/Roleplay/Rule/Dto/Item/BlockProfile'
+import type { WeaponProfile } from '@/modules/Roleplay/Rule/Dto/Item/WeaponProfile'
 
 export interface WeaponBlock {
   min_strength: DimensionalNumberValue | null

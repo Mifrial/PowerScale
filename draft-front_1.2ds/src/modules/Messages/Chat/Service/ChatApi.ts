@@ -1,4 +1,4 @@
-import type { IChatApi } from '../Interface/IChatApi'
+import type { IChatApi } from '@/modules/Messages/Chat/Interface/IChatApi'
 import type { Engine } from '@/modules/Core/Engine/Service/Engine'
 import type { Chat } from '@/modules/Messages/Chat/Dto/Chat'
 import type { ChatMessage } from '@/modules/Messages/Chat/Dto/ChatMessage'
@@ -6,7 +6,7 @@ import type { SyncResponse } from '@/modules/Messages/Chat/Dto/SyncResponse'
 import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec'
 
 export class ChatApi implements IChatApi {
-  constructor(private engine: Engine) {}
+  constructor(private readonly engine: Engine) {}
 
   async getChats(): Promise<Chat[]> {
     const res = await this.engine.runAction<Chat[]>('chat.getChats')

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { DimensionalNumber, type DimensionalNumberBaseRange } from '@/modules/Core/Engine/Value/DimensionalNumber'
+import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber'
+import type { DimensionalNumberBaseRange } from '@/modules/Core/Engine/Dto/DimensionalNumber'
 
 const RANGE: DimensionalNumberBaseRange = { min: 3, max: 5 }
 

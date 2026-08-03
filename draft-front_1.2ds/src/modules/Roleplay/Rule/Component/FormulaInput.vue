@@ -1,106 +1,3 @@
-<template>
-  <div class="d-flex ga-1 align-start">
-    <v-select
-      :model-value="currentType"
-      @update:model-value="updateType"
-      :items="formulaTypes"
-      item-title="label"
-      item-value="value"
-      label="Тип"
-      density="compact"
-      hide-details
-      style="min-width: 110px;"
-    />
-
-    <v-text-field
-      v-if="currentType === 'fixed'"
-      :model-value="fixedModel?.value ?? 0"
-      @update:model-value="updateValue"
-      label="Значение"
-      type="number"
-      density="compact"
-      hide-details
-      style="flex: 1 1 auto;"
-    />
-
-    <template v-if="currentType === 'characteristic'">
-      <v-autocomplete
-        :model-value="characteristicModel?.characteristic_code"
-        @update:model-value="updateCharacteristicCode"
-        :items="characteristics"
-        item-title="name"
-        item-value="code"
-        label="Характеристика"
-        density="compact"
-        hide-details
-        style="flex: 1 1 auto;"
-      />
-      <v-text-field
-        :model-value="characteristicModel?.modifier ?? 0"
-        @update:model-value="updateModifier"
-        label="Модификатор"
-        type="number"
-        density="compact"
-        hide-details
-        style="max-width: 80px;"
-      />
-    </template>
-
-    <template v-if="currentType === 'ability_level'">
-      <v-autocomplete
-        :model-value="abilityLevelModel?.ability_code"
-        @update:model-value="updateAbilityCode"
-        :items="abilities"
-        item-title="name"
-        item-value="code"
-        label="Способность"
-        density="compact"
-        hide-details
-        style="flex: 1 1 auto;"
-      />
-      <v-text-field
-        :model-value="abilityLevelModel?.multiplier ?? 1"
-        @update:model-value="updateAbilityMultiplier"
-        label="Множитель"
-        type="number"
-        density="compact"
-        hide-details
-        style="max-width: 80px;"
-      />
-      <v-text-field
-        :model-value="abilityLevelModel?.offset ?? 0"
-        @update:model-value="updateAbilityOffset"
-        label="Сдвиг"
-        type="number"
-        density="compact"
-        hide-details
-        style="max-width: 80px;"
-      />
-    </template>
-
-    <template v-if="currentType === 'dimensional'">
-      <v-text-field
-        :model-value="dimensionalModel?.base ?? 3"
-        @update:model-value="updateDimensionalBase"
-        label="База"
-        type="number"
-        density="compact"
-        hide-details
-        style="flex: 1 1 auto;"
-      />
-      <v-text-field
-        :model-value="dimensionalModel?.size ?? 0"
-        @update:model-value="updateDimensionalSize"
-        label="Размер"
-        type="number"
-        density="compact"
-        hide-details
-        style="flex: 1 1 auto;"
-      />
-    </template>
-  </div>
-</template>
-
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { Formula } from '@/modules/Roleplay/Rule/Dto/Ability/Formula'
@@ -249,6 +146,109 @@ function updateDimensionalSize(val: string) {
   }
 }
 </script>
+
+<template>
+  <div class="d-flex ga-1 align-start">
+    <v-select
+      :model-value="currentType"
+      @update:model-value="updateType"
+      :items="formulaTypes"
+      item-title="label"
+      item-value="value"
+      label="Тип"
+      density="compact"
+      hide-details
+      style="min-width: 110px;"
+    />
+
+    <v-text-field
+      v-if="currentType === 'fixed'"
+      :model-value="fixedModel?.value ?? 0"
+      @update:model-value="updateValue"
+      label="Значение"
+      type="number"
+      density="compact"
+      hide-details
+      style="flex: 1 1 auto;"
+    />
+
+    <template v-if="currentType === 'characteristic'">
+      <v-autocomplete
+        :model-value="characteristicModel?.characteristic_code"
+        @update:model-value="updateCharacteristicCode"
+        :items="characteristics"
+        item-title="name"
+        item-value="code"
+        label="Характеристика"
+        density="compact"
+        hide-details
+        style="flex: 1 1 auto;"
+      />
+      <v-text-field
+        :model-value="characteristicModel?.modifier ?? 0"
+        @update:model-value="updateModifier"
+        label="Модификатор"
+        type="number"
+        density="compact"
+        hide-details
+        style="max-width: 80px;"
+      />
+    </template>
+
+    <template v-if="currentType === 'ability_level'">
+      <v-autocomplete
+        :model-value="abilityLevelModel?.ability_code"
+        @update:model-value="updateAbilityCode"
+        :items="abilities"
+        item-title="name"
+        item-value="code"
+        label="Способность"
+        density="compact"
+        hide-details
+        style="flex: 1 1 auto;"
+      />
+      <v-text-field
+        :model-value="abilityLevelModel?.multiplier ?? 1"
+        @update:model-value="updateAbilityMultiplier"
+        label="Множитель"
+        type="number"
+        density="compact"
+        hide-details
+        style="max-width: 80px;"
+      />
+      <v-text-field
+        :model-value="abilityLevelModel?.offset ?? 0"
+        @update:model-value="updateAbilityOffset"
+        label="Сдвиг"
+        type="number"
+        density="compact"
+        hide-details
+        style="max-width: 80px;"
+      />
+    </template>
+
+    <template v-if="currentType === 'dimensional'">
+      <v-text-field
+        :model-value="dimensionalModel?.base ?? 3"
+        @update:model-value="updateDimensionalBase"
+        label="База"
+        type="number"
+        density="compact"
+        hide-details
+        style="flex: 1 1 auto;"
+      />
+      <v-text-field
+        :model-value="dimensionalModel?.size ?? 0"
+        @update:model-value="updateDimensionalSize"
+        label="Размер"
+        type="number"
+        density="compact"
+        hide-details
+        style="flex: 1 1 auto;"
+      />
+    </template>
+  </div>
+</template>
 
 <style scoped>
 .gap-1 {

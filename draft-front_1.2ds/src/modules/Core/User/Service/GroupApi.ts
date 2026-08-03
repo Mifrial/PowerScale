@@ -1,9 +1,9 @@
 import type { Engine } from '@/modules/Core/Engine/Service/Engine'
-import type { IGroupApi, CreateGroupData, UpdateGroupData } from '../Interface/IGroupApi'
-import type { Group } from '../Dto/Group'
+import type { IGroupApi, CreateGroupData, UpdateGroupData } from '@/modules/Core/User/Interface/IGroupApi'
+import type { Group } from '@/modules/Core/User/Dto/Group'
 
 export class GroupApi implements IGroupApi {
-  constructor(private engine: Engine) {}
+  constructor(private readonly engine: Engine) {}
 
   async getGroups(signal?: AbortSignal): Promise<Group[]> {
     const res = await this.engine.runAction<Group[]>('userGroup.getList', undefined, signal)

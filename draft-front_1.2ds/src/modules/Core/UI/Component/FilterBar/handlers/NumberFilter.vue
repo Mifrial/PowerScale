@@ -1,71 +1,9 @@
-<template>
-  <div class="flex-grow-1">
-    <template v-if="mode === 'interval'">
-      <div class="d-flex ga-2 align-center">
-        <v-select
-          v-model="mode"
-          :items="modeOptions"
-          variant="outlined"
-          density="compact"
-          hide-details
-          class="nf-mode"
-        />
-        <ClampedNumberField
-          :model-value="fromValue"
-          :min="min"
-          :max="max"
-          control-variant="stacked"
-          density="compact"
-          hide-details
-          variant="outlined"
-          class="flex-grow-1"
-          style="min-width:0"
-          @update:model-value="onFromChange"
-        />
-        <span class="text-medium-emphasis flex-shrink-0">—</span>
-        <ClampedNumberField
-          :model-value="toValue"
-          :min="min"
-          :max="max"
-          control-variant="stacked"
-          density="compact"
-          hide-details
-          variant="outlined"
-          class="flex-grow-1"
-          style="min-width:0"
-          @update:model-value="onToChange"
-        />
-      </div>
-    </template>
-    <div v-else class="d-flex align-center ga-2">
-      <v-select
-        v-model="mode"
-        :items="modeOptions"
-        variant="outlined"
-        density="compact"
-        hide-details
-        class="nf-mode"
-      />
-      <ClampedNumberField
-        :model-value="innerValue"
-        :min="min"
-        :max="max"
-        control-variant="stacked"
-        density="compact"
-        hide-details
-        variant="outlined"
-        class="flex-grow-1"
-        @update:model-value="onInnerChange"
-      />
-    </div>
-  </div>
-</template>
-
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import type { FilterField } from '@/modules/Core/UI/Dto/FilterField'
 import type { FilterValue, NumberFilterValue } from '@/modules/Core/UI/Dto/FilterValue'
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue'
+import { FILTER_RANGE_MODE_OPTIONS } from '@/modules/Core/UI/Constant/filterModeOptions'
 
 const props = defineProps<{
   field: FilterField
@@ -84,12 +22,7 @@ const toValue = ref<number>(0)
 const min = computed(() => props.field.meta?.min ?? 0)
 const max = computed(() => props.field.meta?.max ?? 999999)
 
-const modeOptions = [
-  { title: 'Равно', value: 'equals' },
-  { title: 'От', value: 'from' },
-  { title: 'До', value: 'to' },
-  { title: 'Интервал', value: 'interval' },
-]
+const modeOptions = FILTER_RANGE_MODE_OPTIONS
 
 const innerValue = computed(() => {
   if (mode.value === 'equals') return singleValue.value
@@ -153,6 +86,69 @@ watch(() => props.modelValue, (v) => {
   parse(v)
 }, { immediate: true })
 </script>
+
+<template>
+  <div class="flex-grow-1">
+    <template v-if="mode === 'interval'">
+      <div class="d-flex ga-2 align-center">
+        <v-select
+          v-model="mode"
+          :items="modeOptions"
+          variant="outlined"
+          density="compact"
+          hide-details
+          class="nf-mode"
+        />
+        <ClampedNumberField
+          :model-value="fromValue"
+          :min="min"
+          :max="max"
+          control-variant="stacked"
+          density="compact"
+          hide-details
+          variant="outlined"
+          class="flex-grow-1"
+          style="min-width:0"
+          @update:model-value="onFromChange"
+        />
+        <span class="text-medium-emphasis flex-shrink-0">—</span>
+        <ClampedNumberField
+          :model-value="toValue"
+          :min="min"
+          :max="max"
+          control-variant="stacked"
+          density="compact"
+          hide-details
+          variant="outlined"
+          class="flex-grow-1"
+          style="min-width:0"
+          @update:model-value="onToChange"
+        />
+      </div>
+    </template>
+    <div v-else class="d-flex align-center ga-2">
+      <v-select
+        v-model="mode"
+        :items="modeOptions"
+        variant="outlined"
+        density="compact"
+        hide-details
+        class="nf-mode"
+      />
+      <ClampedNumberField
+        :model-value="innerValue"
+        :min="min"
+        :max="max"
+        control-variant="stacked"
+        density="compact"
+        hide-details
+        variant="outlined"
+        class="flex-grow-1"
+        @update:model-value="onInnerChange"
+      />
+    </div>
+  </div>
+</template>
 
 <style scoped>
 .nf-mode {

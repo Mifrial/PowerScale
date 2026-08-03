@@ -1,9 +1,9 @@
 import type { Engine } from '@/modules/Core/Engine/Service/Engine'
-import type { IKeywordApi, CreateKeywordData, UpdateKeywordData } from '../Interface/IKeywordApi'
-import type { Keyword } from '../Dto/Keyword'
+import type { IKeywordApi, CreateKeywordData, UpdateKeywordData } from '@/modules/Roleplay/Rule/Interface/IKeywordApi'
+import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword'
 
 export class KeywordApi implements IKeywordApi {
-  constructor(private engine: Engine) {}
+  constructor(private readonly engine: Engine) {}
 
   async getTags(signal?: AbortSignal): Promise<Keyword[]> {
     const res = await this.engine.runAction<Keyword[]>('keyword.getList', undefined, signal)

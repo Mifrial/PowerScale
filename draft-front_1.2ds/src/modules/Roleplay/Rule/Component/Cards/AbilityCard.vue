@@ -1,111 +1,3 @@
-<template>
-  <div v-if="spec">
-    <div v-if="type" class="mb-2">
-      <v-chip color="primary" variant="tonal" size="small">{{ ABILITY_TYPE_LABELS[type] }}</v-chip>
-    </div>
-
-    <v-card v-if="type === 'action' || type === 'spell'" variant="tonal" class="mb-3">
-      <v-card-text>
-        <div class="text-subtitle-2 mb-1">Действие</div>
-        <div v-for="(cost, index) in spec.action_costs" :key="index" class="d-flex align-center ga-2">
-          <span>{{ cost.label ?? resourceName(cost.resource_code) }}:</span>
-          <strong>{{ formatAmount(cost.amount) }}</strong>
-        </div>
-        <div v-if="!spec.action_costs?.length" class="text-medium-emphasis">
-          Без стоимости
-        </div>
-      </v-card-text>
-    </v-card>
-
-    <v-card v-if="type === 'process' && spec.process" variant="tonal" class="mb-3">
-      <v-card-text>
-        <div class="text-subtitle-2 mb-1">Процесс</div>
-        <div v-if="spec.process.start_step_code" class="text-body-2 mb-1">
-          Начало: <strong>{{ stepName(spec.process.start_step_code) }}</strong>
-        </div>
-        <div class="text-body-2 mb-2">{{ transitionSummary }}</div>
-        <v-list density="compact">
-          <v-list-item
-            v-for="(step, index) in spec.process.steps"
-            :key="step.code"
-            :title="`${index + 1}. ${step.name}`"
-          >
-            <template #subtitle>
-              <div>{{ step.description }}</div>
-              <div v-if="step.costs?.length">
-                {{ step.costs.map(c => `${resourceName(c.resource_code)}: ${formatAmount(c.amount)}`).join(', ') }}
-              </div>
-            </template>
-          </v-list-item>
-        </v-list>
-        <div v-if="spec.process.failure" class="text-body-2 text-medium-emphasis mt-1">
-          {{ failureLabel }}
-        </div>
-      </v-card-text>
-    </v-card>
-
-    <v-card v-if="type === 'spell' && spec.spell" variant="tonal" class="mb-3">
-      <v-card-text>
-        <div class="text-subtitle-2 mb-1">Заклинание</div>
-        <div class="d-flex align-center ga-2 mb-1">
-          <span>Сложность сотворения:</span>
-          <strong>{{ formatDimensional(spec.spell.difficulty) }}</strong>
-        </div>
-        <div class="mb-1">Продолжительность: {{ durationLabel }}</div>
-        <div v-if="spec.spell.components?.length" class="d-flex flex-wrap ga-2">
-          <v-chip
-            v-for="(comp, index) in spec.spell.components"
-            :key="index"
-            size="small"
-            variant="outlined"
-          >
-            {{ componentLabel(comp) }}
-          </v-chip>
-        </div>
-      </v-card-text>
-    </v-card>
-
-    <v-card v-if="Object.keys(spec.zones ?? {}).length" variant="tonal" class="mb-3">
-      <v-card-text>
-        <div class="text-subtitle-2 mb-1">Цена</div>
-        <div v-for="(cost, zone) in spec.zones" :key="zone" class="text-body-2">
-          <strong>{{ zoneLabel(zone) }}</strong>: {{ zoneCostLabel(cost) }}
-        </div>
-      </v-card-text>
-    </v-card>
-
-    <v-card v-if="spec.requirements?.length" variant="tonal" class="mb-3">
-      <v-card-text>
-        <div class="text-subtitle-2 mb-1">Требования</div>
-        <div v-for="entry in sortedRequirements" :key="`r-${entry.level}`" class="text-body-2">
-          {{ entry.level === 1 ? 'Получение' : `Уровень ${entry.level}` }}:
-          {{ requirementsSummary(entry.requirements) }}
-        </div>
-      </v-card-text>
-    </v-card>
-
-    <v-card v-if="hasGrants" variant="tonal" class="mb-3">
-      <v-card-text>
-        <div class="text-subtitle-2 mb-1">Дары</div>
-        <div v-for="entry in sortedGrants" :key="`l-${entry.level}`" class="text-body-2">
-          {{ entry.level === 1 ? 'Получение' : `Уровень ${entry.level}` }}:
-          <span v-for="(grant, index) in entry.grants" :key="index">
-            {{ grantLabel(grant) }}<template v-if="grant.permanent === false"> (только уровень)</template>{{ index < entry.grants.length - 1 ? '; ' : '' }}
-          </span>
-        </div>
-      </v-card-text>
-    </v-card>
-
-    <v-card v-if="spec.parent_ability_code" variant="tonal" class="mb-3">
-      <v-card-text>
-        <div class="text-body-2">
-          Улучшение: <strong>{{ abilityName(spec.parent_ability_code) }}</strong>
-        </div>
-      </v-card-text>
-    </v-card>
-  </div>
-</template>
-
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule'
@@ -292,3 +184,111 @@ function grantLabel(grant: Grant): string {
   }
 }
 </script>
+
+<template>
+  <div v-if="spec">
+    <div v-if="type" class="mb-2">
+      <v-chip color="primary" variant="tonal" size="small">{{ ABILITY_TYPE_LABELS[type] }}</v-chip>
+    </div>
+
+    <v-card v-if="type === 'action' || type === 'spell'" variant="tonal" class="mb-3">
+      <v-card-text>
+        <div class="text-subtitle-2 mb-1">Действие</div>
+        <div v-for="(cost, index) in spec.action_costs" :key="index" class="d-flex align-center ga-2">
+          <span>{{ cost.label ?? resourceName(cost.resource_code) }}:</span>
+          <strong>{{ formatAmount(cost.amount) }}</strong>
+        </div>
+        <div v-if="!spec.action_costs?.length" class="text-medium-emphasis">
+          Без стоимости
+        </div>
+      </v-card-text>
+    </v-card>
+
+    <v-card v-if="type === 'process' && spec.process" variant="tonal" class="mb-3">
+      <v-card-text>
+        <div class="text-subtitle-2 mb-1">Процесс</div>
+        <div v-if="spec.process.start_step_code" class="text-body-2 mb-1">
+          Начало: <strong>{{ stepName(spec.process.start_step_code) }}</strong>
+        </div>
+        <div class="text-body-2 mb-2">{{ transitionSummary }}</div>
+        <v-list density="compact">
+          <v-list-item
+            v-for="(step, index) in spec.process.steps"
+            :key="step.code"
+            :title="`${index + 1}. ${step.name}`"
+          >
+            <template #subtitle>
+              <div>{{ step.description }}</div>
+              <div v-if="step.costs?.length">
+                {{ step.costs.map(c => `${resourceName(c.resource_code)}: ${formatAmount(c.amount)}`).join(', ') }}
+              </div>
+            </template>
+          </v-list-item>
+        </v-list>
+        <div v-if="spec.process.failure" class="text-body-2 text-medium-emphasis mt-1">
+          {{ failureLabel }}
+        </div>
+      </v-card-text>
+    </v-card>
+
+    <v-card v-if="type === 'spell' && spec.spell" variant="tonal" class="mb-3">
+      <v-card-text>
+        <div class="text-subtitle-2 mb-1">Заклинание</div>
+        <div class="d-flex align-center ga-2 mb-1">
+          <span>Сложность сотворения:</span>
+          <strong>{{ formatDimensional(spec.spell.difficulty) }}</strong>
+        </div>
+        <div class="mb-1">Продолжительность: {{ durationLabel }}</div>
+        <div v-if="spec.spell.components?.length" class="d-flex flex-wrap ga-2">
+          <v-chip
+            v-for="(comp, index) in spec.spell.components"
+            :key="index"
+            size="small"
+            variant="outlined"
+          >
+            {{ componentLabel(comp) }}
+          </v-chip>
+        </div>
+      </v-card-text>
+    </v-card>
+
+    <v-card v-if="Object.keys(spec.zones ?? {}).length" variant="tonal" class="mb-3">
+      <v-card-text>
+        <div class="text-subtitle-2 mb-1">Цена</div>
+        <div v-for="(cost, zone) in spec.zones" :key="zone" class="text-body-2">
+          <strong>{{ zoneLabel(zone) }}</strong>: {{ zoneCostLabel(cost) }}
+        </div>
+      </v-card-text>
+    </v-card>
+
+    <v-card v-if="spec.requirements?.length" variant="tonal" class="mb-3">
+      <v-card-text>
+        <div class="text-subtitle-2 mb-1">Требования</div>
+        <div v-for="entry in sortedRequirements" :key="`r-${entry.level}`" class="text-body-2">
+          {{ entry.level === 1 ? 'Получение' : `Уровень ${entry.level}` }}:
+          {{ requirementsSummary(entry.requirements) }}
+        </div>
+      </v-card-text>
+    </v-card>
+
+    <v-card v-if="hasGrants" variant="tonal" class="mb-3">
+      <v-card-text>
+        <div class="text-subtitle-2 mb-1">Дары</div>
+        <div v-for="entry in sortedGrants" :key="`l-${entry.level}`" class="text-body-2">
+          {{ entry.level === 1 ? 'Получение' : `Уровень ${entry.level}` }}:
+          <span v-for="(grant, index) in entry.grants" :key="index">
+            {{ grantLabel(grant) }}<template v-if="grant.permanent === false"> (только уровень)</template>{{ index < entry.grants.length - 1 ? '; ' : '' }}
+          </span>
+        </div>
+      </v-card-text>
+    </v-card>
+
+    <v-card v-if="spec.parent_ability_code" variant="tonal" class="mb-3">
+      <v-card-text>
+        <div class="text-body-2">
+          Улучшение: <strong>{{ abilityName(spec.parent_ability_code) }}</strong>
+        </div>
+      </v-card-text>
+    </v-card>
+  </div>
+</template>

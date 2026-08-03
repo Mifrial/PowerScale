@@ -1,3 +1,31 @@
+<script setup lang="ts">
+import { onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { storeToRefs } from 'pinia'
+import { useSpaceStore } from '@/modules/Roleplay/Space/Store/spaces'
+import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable'
+import FilterBar from '@/modules/Core/UI/Component/FilterBar.vue'
+import { filterFields } from '@/modules/Roleplay/Space/Constant/spacesGridManifest'
+import type { FilterValue } from '@/modules/Core/UI/Dto/FilterValue'
+import { extractFilterValue, extractStringFilter } from '@/modules/Core/UI/Utils/filterExtract'
+
+const router = useRouter()
+const store = useSpaceStore()
+const { filteredSpaces, loading } = storeToRefs(store)
+const { signal } = useAbortable()
+
+const appliedFilters = ref<Record<string, FilterValue>>({})
+
+onMounted(() => store.fetchSpaces(signal.value))
+
+function onFilterChange(filters: Record<string, FilterValue>) {
+  appliedFilters.value = filters
+  store.quickFilter = extractFilterValue(filters.q)
+  store.filterName = extractStringFilter(filters.name)
+  store.filterActive = extractFilterValue(filters.active)
+}
+</script>
+
 <template>
   <v-container>
     <div class="d-flex align-center mb-4">
@@ -45,39 +73,6 @@
     </div>
   </v-container>
 </template>
-
-<script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { storeToRefs } from 'pinia'
-import { useSpaceStore } from '../Store/spaces'
-import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable'
-import FilterBar from '@/modules/Core/UI/Component/FilterBar.vue'
-import type { FilterField } from '@/modules/Core/UI/Dto/FilterField'
-import type { FilterValue } from '@/modules/Core/UI/Dto/FilterValue'
-import { extractFilterValue, extractStringFilter } from '@/modules/Core/UI/Utils/filterExtract'
-
-const router = useRouter()
-const store = useSpaceStore()
-const { filteredSpaces, loading } = storeToRefs(store)
-const { signal } = useAbortable()
-
-const appliedFilters = ref<Record<string, FilterValue>>({})
-
-onMounted(() => store.fetchSpaces(signal.value))
-
-const filterFields: FilterField[] = [
-  { key: 'name', label: 'Название', type: 'string' },
-  { key: 'active', label: 'Активность', type: 'active', options: [{ label: 'Активен', value: true }, { label: 'Неактивен', value: false }] },
-]
-
-function onFilterChange(filters: Record<string, FilterValue>) {
-  appliedFilters.value = filters
-  store.quickFilter = extractFilterValue(filters.q)
-  store.filterName = extractStringFilter(filters.name)
-  store.filterActive = extractFilterValue(filters.active)
-}
-</script>
 
 <style scoped>
 .space-card {

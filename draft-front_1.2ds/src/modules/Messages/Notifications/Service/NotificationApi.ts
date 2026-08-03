@@ -1,8 +1,8 @@
-import type { INotificationApi, NotificationFilters, NotificationPage } from '../Interface/INotificationApi'
+import type { INotificationApi, NotificationFilters, NotificationPage } from '@/modules/Messages/Notifications/Interface/INotificationApi'
 import type { Engine } from '@/modules/Core/Engine/Service/Engine'
 
 export class NotificationApi implements INotificationApi {
-  constructor(private engine: Engine) {}
+  constructor(private readonly engine: Engine) {}
 
   async fetchPage(filters: NotificationFilters): Promise<NotificationPage> {
     const res = await this.engine.runAction<NotificationPage>('notifications.fetchPage', filters)

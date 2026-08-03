@@ -1,82 +1,11 @@
-<template>
-  <RuleEditorBase
-    :name="name"
-    @update:name="(v) => emit('update:name', v)"
-    :code="code"
-    @update:code="(v) => emit('update:code', v)"
-    :code-disabled="codeDisabled"
-    :description="description"
-    @update:description="(v) => emit('update:description', v)"
-    :mechanic-id="mechanicId"
-    @update:mechanic-id="(v) => emit('update:mechanicId', v)"
-    :keyword-ids="keywordIds"
-    @update:keyword-ids="(v) => emit('update:keywordIds', v)"
-    :mechanic-options="mechanicOptions"
-    :keyword-options="keywordOptions"
-  >
-    <template #spec>
-      <v-card class="mt-4">
-        <v-card-title>Характеристика</v-card-title>
-        <v-card-text>
-          <div class="text-body-2 text-medium-emphasis mt-2">
-            Характеристика всегда размерная с диапазоном 3-5
-          </div>
-
-          <v-switch
-            v-model="hasFormula"
-            label="Производная характеристика"
-            color="primary"
-            hide-details
-            class="mt-2"
-          />
-          <div v-if="hasFormula" class="mt-2">
-            <v-select
-              v-model="formulaType"
-              :items="formulaTypeOptions"
-              item-title="label"
-              item-value="value"
-              label="Формула"
-              variant="outlined"
-              density="compact"
-            />
-            <div class="d-flex gap-2 mt-2">
-              <v-autocomplete
-                v-model="formulaChar1"
-                :items="availableCharacteristics"
-                item-title="name"
-                item-value="code"
-                label="Первая характеристика"
-                variant="outlined"
-                density="compact"
-                clearable
-                class="flex-grow-1"
-              />
-              <v-autocomplete
-                v-model="formulaChar2"
-                :items="availableCharacteristics"
-                item-title="name"
-                item-value="code"
-                label="Вторая характеристика"
-                variant="outlined"
-                density="compact"
-                clearable
-                class="flex-grow-1"
-              />
-            </div>
-          </div>
-        </v-card-text>
-      </v-card>
-    </template>
-  </RuleEditorBase>
-</template>
-
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision'
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule'
 import type { CharacteristicSpec } from '@/modules/Roleplay/Rule/Dto/CharacteristicSpec'
-import type { RuleSpec } from '@/modules/Roleplay/Rule/Enum/RuleSpec'
-import RuleEditorBase from './RuleEditorBase.vue'
+import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec'
+import RuleEditorBase from '@/modules/Roleplay/Rule/Component/Editors/RuleEditorBase.vue'
+import { CHARACTERISTIC_FORMULA_TYPES } from '@/modules/Roleplay/Rule/Constant/CHARACTERISTIC_FORMULA_TYPES'
 
 const props = defineProps<{
   name: string
@@ -108,11 +37,6 @@ const hasFormula = ref(false)
 const formulaType = ref<'min' | 'max'>('min')
 const formulaChar1 = ref<string | null>(null)
 const formulaChar2 = ref<string | null>(null)
-
-const formulaTypeOptions = [
-  { label: 'Меньшее из', value: 'min' },
-  { label: 'Большее из', value: 'max' }
-]
 
 const availableCharacteristics = computed(() => {
   return allRules.value.filter((rule: Rule) => 
@@ -157,6 +81,78 @@ const innerFormula = computed(() => {
   return null
 })
 </script>
+
+<template>
+  <RuleEditorBase
+    :name="name"
+    @update:name="(v) => emit('update:name', v)"
+    :code="code"
+    @update:code="(v) => emit('update:code', v)"
+    :code-disabled="codeDisabled"
+    :description="description"
+    @update:description="(v) => emit('update:description', v)"
+    :mechanic-id="mechanicId"
+    @update:mechanic-id="(v) => emit('update:mechanicId', v)"
+    :keyword-ids="keywordIds"
+    @update:keyword-ids="(v) => emit('update:keywordIds', v)"
+    :mechanic-options="mechanicOptions"
+    :keyword-options="keywordOptions"
+  >
+    <template #spec>
+      <v-card class="mt-4">
+        <v-card-title>Характеристика</v-card-title>
+        <v-card-text>
+          <div class="text-body-2 text-medium-emphasis mt-2">
+            Характеристика всегда размерная с диапазоном 3-5
+          </div>
+
+          <v-switch
+            v-model="hasFormula"
+            label="Производная характеристика"
+            color="primary"
+            hide-details
+            class="mt-2"
+          />
+          <div v-if="hasFormula" class="mt-2">
+            <v-select
+              v-model="formulaType"
+              :items="CHARACTERISTIC_FORMULA_TYPES"
+              item-title="label"
+              item-value="value"
+              label="Формула"
+              variant="outlined"
+              density="compact"
+            />
+            <div class="d-flex gap-2 mt-2">
+              <v-autocomplete
+                v-model="formulaChar1"
+                :items="availableCharacteristics"
+                item-title="name"
+                item-value="code"
+                label="Первая характеристика"
+                variant="outlined"
+                density="compact"
+                clearable
+                class="flex-grow-1"
+              />
+              <v-autocomplete
+                v-model="formulaChar2"
+                :items="availableCharacteristics"
+                item-title="name"
+                item-value="code"
+                label="Вторая характеристика"
+                variant="outlined"
+                density="compact"
+                clearable
+                class="flex-grow-1"
+              />
+            </div>
+          </div>
+        </v-card-text>
+      </v-card>
+    </template>
+  </RuleEditorBase>
+</template>
 
 <style scoped>
 .gap-2 {

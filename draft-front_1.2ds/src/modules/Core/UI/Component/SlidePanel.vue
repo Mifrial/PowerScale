@@ -1,30 +1,3 @@
-<template>
-  <Teleport to="body">
-    <Transition name="slide">
-      <div v-if="open" class="slide-wrapper" @keydown.esc="close">
-      <div class="slide-backdrop" :class="{ 'slide-backdrop--closable': closeOnBackdrop }" @click="closeOnBackdrop && close()" />
-      <div class="slide-panel" :style="{ width, maxWidth }">
-        <div class="slide-close-tab" aria-label="Закрыть" @click="close">
-          <v-icon>mdi-close</v-icon>
-        </div>
-
-        <div v-if="$slots.header" class="slide-header">
-          <slot name="header" />
-        </div>
-
-        <div class="slide-body" :class="{ 'slide-body--flex': bodyFlex }">
-          <slot />
-        </div>
-
-        <div v-if="$slots.footer" class="slide-footer">
-          <slot name="footer" />
-        </div>
-      </div>
-    </div>
-    </Transition>
-  </Teleport>
-</template>
-
 <script setup lang="ts">
 import { watch, onUnmounted } from 'vue'
 
@@ -69,6 +42,33 @@ onUnmounted(() => {
   window.removeEventListener('keydown', onKeydown)
 })
 </script>
+
+<template>
+  <Teleport to="body">
+    <Transition name="slide">
+      <div v-if="open" class="slide-wrapper" @keydown.esc="close">
+      <div class="slide-backdrop" :class="{ 'slide-backdrop--closable': closeOnBackdrop }" @click="closeOnBackdrop && close()" />
+      <div class="slide-panel" :style="{ width, maxWidth }">
+        <div class="slide-close-tab" aria-label="Закрыть" @click="close">
+          <v-icon>mdi-close</v-icon>
+        </div>
+
+        <div v-if="$slots.header" class="slide-header">
+          <slot name="header" />
+        </div>
+
+        <div class="slide-body" :class="{ 'slide-body--flex': bodyFlex }">
+          <slot />
+        </div>
+
+        <div v-if="$slots.footer" class="slide-footer">
+          <slot name="footer" />
+        </div>
+      </div>
+    </div>
+    </Transition>
+  </Teleport>
+</template>
 
 <style scoped>
 .slide-wrapper {

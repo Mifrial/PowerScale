@@ -1,3 +1,110 @@
+<script setup lang="ts">
+import { ref, watch, onMounted } from 'vue'
+import type { SpellSpec } from '@/modules/Roleplay/Rule/Dto/Ability/SpellSpec'
+import type { SpellDuration } from '@/modules/Roleplay/Rule/Dto/Ability/SpellDuration'
+import type { SpellComponent } from '@/modules/Roleplay/Rule/Dto/Ability/SpellComponent'
+import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue'
+import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue'
+import { abilitySpecService } from '@/modules/Roleplay/Rule/Service/Spec/AbilitySpecService'
+
+const props = defineProps<{
+  modelValue: SpellSpec | null
+  items: { code: string; name: string }[]
+}>()
+
+const emit = defineEmits<{
+  'update:modelValue': [value: SpellSpec]
+}>()
+
+const inner = ref<SpellSpec>(defaultSpec())
+
+function defaultSpec(): SpellSpec {
+  return {
+    difficulty: { base: 3, size: 0 },
+    duration: { type: 'instant' },
+    components: [],
+  }
+}
+
+function patch(key: string, value: unknown) {
+  inner.value = { ...inner.value, [key]: value }
+}
+
+function updateDurationType(type: string) {
+  inner.value = { ...inner.value, duration: abilitySpecService.createEmptySpellDuration(type as SpellDuration['type']) }
+}
+
+function patchDuration(key: string, value: unknown) {
+  const d = inner.value.duration
+  if (d.type === 'instant') return
+  inner.value = { ...inner.value, duration: { ...d, [key]: value } }
+}
+
+function toggleDurationLimit(checked: boolean) {
+  const d = inner.value.duration
+  if (d.type === 'instant') return
+  const limit = checked
+    ? { value: 1, unit: 'turn' as const }
+    : undefined
+  inner.value = { ...inner.value, duration: { ...d, limit } }
+}
+
+function patchDurationLimit(key: string, value: unknown) {
+  const d = inner.value.duration
+  if (d.type === 'instant' || !d.limit) return
+  inner.value = { ...inner.value, duration: { ...d, limit: { ...d.limit, [key]: value } } }
+}
+
+function updateComponentType(index: number, type: string) {
+  const components = inner.value.components.map((c, i) =>
+    i === index ? abilitySpecService.createEmptySpellComponent(type as SpellComponent['type']) : c,
+  )
+  inner.value = { ...inner.value, components }
+}
+
+function patchComponent(index: number, key: string, value: unknown) {
+  const components = inner.value.components.map((c, i) => (i === index ? { ...c, [key]: value } : c))
+  inner.value = { ...inner.value, components }
+}
+
+function materialItemCode(component: SpellComponent): string | null {
+  return component.type === 'material' ? component.item_code ?? null : null
+}
+
+function materialDescription(component: SpellComponent): string {
+  return component.type === 'material' ? component.description ?? '' : ''
+}
+
+function addComponent() {
+  inner.value = {
+    ...inner.value,
+    components: [...inner.value.components, abilitySpecService.createEmptySpellComponent('verbal')],
+  }
+}
+
+function removeComponent(index: number) {
+  inner.value = { ...inner.value, components: inner.value.components.filter((_, i) => i !== index) }
+}
+
+watch(inner, (value) => {
+  emit('update:modelValue', structuredClone(value))
+}, { deep: true })
+
+onMounted(() => {
+  if (props.modelValue) {
+    inner.value = normalize(structuredClone(props.modelValue))
+  }
+})
+
+function normalize(raw: SpellSpec): SpellSpec {
+  return {
+    difficulty: raw.difficulty ?? { base: 3, size: 0 },
+    duration: raw.duration ?? { type: 'instant' },
+    components: raw.components ?? [],
+  }
+}
+</script>
+
 <template>
   <div>
     <div class="text-body-2 text-medium-emphasis mb-2">
@@ -160,120 +267,6 @@
     </div>
   </div>
 </template>
-
-<script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
-import type { SpellSpec } from '@/modules/Roleplay/Rule/Dto/Ability/SpellSpec'
-import type { SpellDuration } from '@/modules/Roleplay/Rule/Dto/Ability/SpellDuration'
-import type { SpellComponent } from '@/modules/Roleplay/Rule/Dto/Ability/SpellComponent'
-import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue'
-import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue'
-
-const props = defineProps<{
-  modelValue: SpellSpec | null
-  items: { code: string; name: string }[]
-}>()
-
-const emit = defineEmits<{
-  'update:modelValue': [value: SpellSpec]
-}>()
-
-const inner = ref<SpellSpec>(defaultSpec())
-
-function defaultSpec(): SpellSpec {
-  return {
-    difficulty: { base: 3, size: 0 },
-    duration: { type: 'instant' },
-    components: [],
-  }
-}
-
-function patch(key: string, value: unknown) {
-  inner.value = { ...inner.value, [key]: value }
-}
-
-function updateDurationType(type: string) {
-  let duration: SpellDuration
-  if (type === 'instant') {
-    duration = { type: 'instant' }
-  } else {
-    duration = { type: type as 'refreshable' | 'sustained', difficulty: { base: 3, size: 0 }, action_cost: 0 }
-  }
-  inner.value = { ...inner.value, duration }
-}
-
-function patchDuration(key: string, value: unknown) {
-  const d = inner.value.duration
-  if (d.type === 'instant') return
-  inner.value = { ...inner.value, duration: { ...d, [key]: value } }
-}
-
-function toggleDurationLimit(checked: boolean) {
-  const d = inner.value.duration
-  if (d.type === 'instant') return
-  const limit = checked
-    ? { value: 1, unit: 'turn' as const }
-    : undefined
-  inner.value = { ...inner.value, duration: { ...d, limit } }
-}
-
-function patchDurationLimit(key: string, value: unknown) {
-  const d = inner.value.duration
-  if (d.type === 'instant' || !d.limit) return
-  inner.value = { ...inner.value, duration: { ...d, limit: { ...d.limit, [key]: value } } }
-}
-
-function updateComponentType(index: number, type: string) {
-  const components = inner.value.components.map((c, i) => {
-    if (i !== index) return c
-    if (type === 'material') return { type: 'material' as const, item_code: undefined, description: undefined }
-    return { type: type as 'verbal' | 'somatic', note: undefined }
-  })
-  inner.value = { ...inner.value, components }
-}
-
-function patchComponent(index: number, key: string, value: unknown) {
-  const components = inner.value.components.map((c, i) => (i === index ? { ...c, [key]: value } : c))
-  inner.value = { ...inner.value, components }
-}
-
-function materialItemCode(component: SpellComponent): string | null {
-  return component.type === 'material' ? component.item_code ?? null : null
-}
-
-function materialDescription(component: SpellComponent): string {
-  return component.type === 'material' ? component.description ?? '' : ''
-}
-
-function addComponent() {
-  inner.value = {
-    ...inner.value,
-    components: [...inner.value.components, { type: 'verbal', note: undefined }],
-  }
-}
-
-function removeComponent(index: number) {
-  inner.value = { ...inner.value, components: inner.value.components.filter((_, i) => i !== index) }
-}
-
-watch(inner, (value) => {
-  emit('update:modelValue', structuredClone(value))
-}, { deep: true })
-
-onMounted(() => {
-  if (props.modelValue) {
-    inner.value = normalize(structuredClone(props.modelValue))
-  }
-})
-
-function normalize(raw: SpellSpec): SpellSpec {
-  return {
-    difficulty: raw.difficulty ?? { base: 3, size: 0 },
-    duration: raw.duration ?? { type: 'instant' },
-    components: raw.components ?? [],
-  }
-}
-</script>
 
 <style scoped>
 .gap-2 {

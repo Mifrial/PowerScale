@@ -1,11 +1,10 @@
-import type { ICSRFApi } from '../Interface/ICSRFApi'
+import type { ICSRFApi } from '@/modules/Core/Engine/Interface/ICSRFApi'
 
 export class CsrfApi implements ICSRFApi {
-  private cookieName = 'csrf-token'
+  private readonly cookieName = 'csrf-token'
 
   async initToken(): Promise<void> {
-    // In real mode the backend sets csrf-token cookie on login.
-    // Nothing extra to fetch — just read the cookie when needed.
+    // В real-режиме бэк кладёт csrf-token в куки при логине — дополнительно ничего не запрашиваем.
   }
 
   getToken(): string | null {

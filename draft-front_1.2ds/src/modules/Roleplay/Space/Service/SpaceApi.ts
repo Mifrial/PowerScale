@@ -1,5 +1,5 @@
 import type { Engine } from '@/modules/Core/Engine/Service/Engine'
-import type { ISpaceApi } from '../Interface/ISpaceApi'
+import type { ISpaceApi } from '@/modules/Roleplay/Space/Interface/ISpaceApi'
 import type { Space } from '@/modules/Roleplay/Space/Dto/Space'
 import type { SpaceCreateData } from '@/modules/Roleplay/Space/Dto/SpaceCreateData'
 import type { SpaceUpdateData } from '@/modules/Roleplay/Space/Dto/SpaceUpdateData'
@@ -8,7 +8,7 @@ import type { SpaceRevision } from '@/modules/Roleplay/Space/Dto/SpaceRevision'
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule'
 
 export class SpaceApi implements ISpaceApi {
-  constructor(private engine: Engine) {}
+  constructor(private readonly engine: Engine) {}
 
   async getSpaces(signal?: AbortSignal): Promise<Space[]> {
     const res = await this.engine.runAction<Space[]>('space.getList', undefined, signal)

@@ -1,9 +1,9 @@
 import type { Engine } from '@/modules/Core/Engine/Service/Engine'
-import type { IUserApi, CreateUserData, UpdateUserData } from '../Interface/IUserApi'
-import type { User } from '../Dto/User'
+import type { IUserApi, CreateUserData, UpdateUserData } from '@/modules/Core/User/Interface/IUserApi'
+import type { User } from '@/modules/Core/User/Dto/User'
 
 export class UserApi implements IUserApi {
-  constructor(private engine: Engine) {}
+  constructor(private readonly engine: Engine) {}
 
   async getUsers(signal?: AbortSignal): Promise<User[]> {
     const res = await this.engine.runAction<User[]>('user.getList', undefined, signal)

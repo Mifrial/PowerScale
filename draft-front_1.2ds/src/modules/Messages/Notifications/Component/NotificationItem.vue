@@ -1,3 +1,18 @@
+<script setup lang="ts">
+import type { Notification } from '@/modules/Messages/Notifications/Dto/Notification'
+import { DateTime } from '@/modules/Core/Engine/Value/DateTime'
+
+defineProps<{
+  notification: Notification
+  iconSize?: number | string
+  actionSize?: string
+}>()
+
+defineEmits<{
+  action: [payload: { id: number; key: string }]
+}>()
+</script>
+
 <template>
   <div class="notification-item" :class="{ unread: !notification.read }">
     <v-icon :icon="notification.icon" :size="iconSize" class="notification-icon" :color="notification.read ? 'grey' : 'primary'" />
@@ -23,21 +38,6 @@
     </div>
   </div>
 </template>
-
-<script setup lang="ts">
-import type { Notification } from '@/modules/Messages/Notifications/Dto/Notification'
-import { DateTime } from '@/modules/Core/Engine/Value/DateTime'
-
-defineProps<{
-  notification: Notification
-  iconSize?: number | string
-  actionSize?: string
-}>()
-
-defineEmits<{
-  action: [payload: { id: number; key: string }]
-}>()
-</script>
 
 <style scoped>
 .notification-item {

@@ -1,3 +1,14 @@
+<script setup lang="ts">
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
+
+function goBack() {
+  if (window.history.length > 1) router.back()
+  else router.push({ name: 'Home' })
+}
+</script>
+
 <template>
   <div class="d-flex flex-column align-center justify-center text-center not-found">
     <v-icon icon="mdi-compass-off-outline" size="64" color="primary" class="mb-4" />
@@ -9,17 +20,6 @@
     </div>
   </div>
 </template>
-
-<script setup lang="ts">
-import { useRouter } from 'vue-router'
-
-const router = useRouter()
-
-function goBack() {
-  if (window.history.length > 1) router.back()
-  else router.push({ name: 'Home' })
-}
-</script>
 
 <style scoped>
 .not-found {

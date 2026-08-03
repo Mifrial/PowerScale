@@ -1,70 +1,3 @@
-<template>
-  <div class="flex-grow-1">
-  <v-dialog
-    v-model="menu"
-    max-width="360"
-  >
-    <template #activator="{ props }">
-      <v-text-field
-        v-bind="props"
-        :model-value="displayValue"
-        :label="field.label"
-        prepend-inner-icon="mdi-calendar-clock"
-        readonly
-        density="compact"
-        hide-details
-        variant="outlined"
-        clearable
-        class="flex-grow-1"
-        @click:clear="clear"
-      />
-    </template>
-
-    <v-card class="dt-card pa-0">
-      <v-card-text class="pa-2 d-flex flex-column ga-2">
-        <v-date-picker
-          :model-value="dateModel"
-          locale="ru"
-          hide-header
-          weeks-in-month="dynamic"
-          @update:model-value="onDateChange"
-        />
-        <div class="dt-time-row">
-          <ClampedNumberField
-            :model-value="hoursModel"
-            :min="0"
-            :max="23"
-            control-variant="stacked"
-            density="compact"
-            hide-details
-            variant="outlined"
-            class="dt-hh"
-            @update:model-value="onHoursChange"
-          />
-          <span class="dt-colon">:</span>
-          <ClampedNumberField
-            :model-value="minutesModel"
-            :min="0"
-            :max="59"
-            control-variant="stacked"
-            density="compact"
-            hide-details
-            variant="outlined"
-            class="dt-mm"
-            @update:model-value="onMinutesChange"
-          />
-        </div>
-      </v-card-text>
-      <v-divider />
-      <v-card-actions class="pa-2">
-        <v-spacer />
-        <v-btn variant="text" size="small" color="primary" @click="menu = false">Готово</v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
-  </div>
-</template>
-
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import type { FilterField } from '@/modules/Core/UI/Dto/FilterField'
@@ -140,6 +73,73 @@ const displayValue = computed(() => {
   }) + ` ${String(hoursModel.value).padStart(2, '0')}:${String(minutesModel.value).padStart(2, '0')}`
 })
 </script>
+
+<template>
+  <div class="flex-grow-1">
+  <v-dialog
+    v-model="menu"
+    max-width="360"
+  >
+    <template #activator="{ props }">
+      <v-text-field
+        v-bind="props"
+        :model-value="displayValue"
+        :label="field.label"
+        prepend-inner-icon="mdi-calendar-clock"
+        readonly
+        density="compact"
+        hide-details
+        variant="outlined"
+        clearable
+        class="flex-grow-1"
+        @click:clear="clear"
+      />
+    </template>
+
+    <v-card class="dt-card pa-0">
+      <v-card-text class="pa-2 d-flex flex-column ga-2">
+        <v-date-picker
+          :model-value="dateModel"
+          locale="ru"
+          hide-header
+          weeks-in-month="dynamic"
+          @update:model-value="onDateChange"
+        />
+        <div class="dt-time-row">
+          <ClampedNumberField
+            :model-value="hoursModel"
+            :min="0"
+            :max="23"
+            control-variant="stacked"
+            density="compact"
+            hide-details
+            variant="outlined"
+            class="dt-hh"
+            @update:model-value="onHoursChange"
+          />
+          <span class="dt-colon">:</span>
+          <ClampedNumberField
+            :model-value="minutesModel"
+            :min="0"
+            :max="59"
+            control-variant="stacked"
+            density="compact"
+            hide-details
+            variant="outlined"
+            class="dt-mm"
+            @update:model-value="onMinutesChange"
+          />
+        </div>
+      </v-card-text>
+      <v-divider />
+      <v-card-actions class="pa-2">
+        <v-spacer />
+        <v-btn variant="text" size="small" color="primary" @click="menu = false">Готово</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
+  </div>
+</template>
 
 <style scoped>
 .dt-card {

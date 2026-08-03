@@ -1,3 +1,26 @@
+<script setup lang="ts">
+import RuleEditorBase from '@/modules/Roleplay/Rule/Component/Editors/RuleEditorBase.vue'
+
+defineProps<{
+  name: string
+  code: string
+  codeDisabled?: boolean
+  description: string
+  mechanicId: number | null
+  keywordIds: number[]
+  mechanicOptions: { title: string; value: number }[]
+  keywordOptions: { title: string; value: number }[]
+}>()
+
+const emit = defineEmits<{
+  'update:name': [value: string]
+  'update:code': [value: string]
+  'update:description': [value: string]
+  'update:mechanicId': [value: number | null]
+  'update:keywordIds': [value: number[]]
+}>()
+</script>
+
 <template>
   <RuleEditorBase
     :name="name"
@@ -26,26 +49,3 @@
     </template>
   </RuleEditorBase>
 </template>
-
-<script setup lang="ts">
-import RuleEditorBase from './RuleEditorBase.vue'
-
-defineProps<{
-  name: string
-  code: string
-  codeDisabled?: boolean
-  description: string
-  mechanicId: number | null
-  keywordIds: number[]
-  mechanicOptions: { title: string; value: number }[]
-  keywordOptions: { title: string; value: number }[]
-}>()
-
-const emit = defineEmits<{
-  'update:name': [value: string]
-  'update:code': [value: string]
-  'update:description': [value: string]
-  'update:mechanicId': [value: number | null]
-  'update:keywordIds': [value: number[]]
-}>()
-</script>

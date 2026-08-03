@@ -1,3 +1,33 @@
+<script setup lang="ts">
+import { computed } from 'vue'
+import { useChatStore } from '@/modules/Messages/Chat/Store/chat'
+import type { ChatType } from '@/modules/Messages/Chat/Enum/ChatType'
+import { chatIcon, chatColor } from '@/modules/Messages/Chat/Constant/chatType'
+
+const emit = defineEmits<{
+  (e: 'open-chat', chatId: number): void
+}>()
+
+const store = useChatStore()
+
+const sortedChats = computed(() =>
+  [...store.chats]
+    .sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt))
+    .slice(0, 10),
+)
+
+function handleChatClick(id: number) {
+  store.openChat(id)
+  emit('open-chat', id)
+}
+
+function hasGameDiscussionAfter(chat: { id: number; type: ChatType }): boolean {
+  const idx = sortedChats.value.findIndex(c => c.id === chat.id)
+  const next = sortedChats.value[idx + 1]
+  return next?.type === 'game_discussion'
+}
+</script>
+
 <template>
   <v-navigation-drawer location="right" permanent width="56" class="chat-bar">
     <div class="d-flex flex-column align-center py-3 ga-3">
@@ -28,36 +58,6 @@
     </div>
   </v-navigation-drawer>
 </template>
-
-<script setup lang="ts">
-import { computed } from 'vue'
-import { useChatStore } from '@/modules/Messages/Chat/Store/chat'
-import type { ChatType } from '@/modules/Messages/Chat/Enum/ChatType'
-import { chatIcon, chatColor } from '@/modules/Messages/Chat/Config/chatType'
-
-const emit = defineEmits<{
-  (e: 'open-chat', chatId: number): void
-}>()
-
-const store = useChatStore()
-
-const sortedChats = computed(() =>
-  [...store.chats]
-    .sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt))
-    .slice(0, 10),
-)
-
-function handleChatClick(id: number) {
-  store.openChat(id)
-  emit('open-chat', id)
-}
-
-function hasGameDiscussionAfter(chat: { id: number; type: ChatType }): boolean {
-  const idx = sortedChats.value.findIndex(c => c.id === chat.id)
-  const next = sortedChats.value[idx + 1]
-  return next?.type === 'game_discussion'
-}
-</script>
 
 <style scoped>
 .chat-bar {

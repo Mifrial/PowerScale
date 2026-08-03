@@ -1,3 +1,46 @@
+<script setup lang="ts">
+import { ref, onMounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/modules/Core/Auth/Store/auth'
+import { passwordValidatorService } from '@/modules/Core/Auth/Service/PasswordValidatorService'
+import PasswordField from '@/modules/Core/UI/Component/Input/PasswordField.vue'
+
+const router = useRouter()
+const auth = useAuthStore()
+
+interface FormRef {
+  validate: () => Promise<{ valid: boolean }>
+  reset: () => void
+  resetValidation: () => void
+}
+
+const formRef = ref<FormRef | null>(null)
+const login = ref('')
+const email = ref('')
+const password = ref('')
+const confirm = ref('')
+
+onMounted(() => {
+  auth.fetchPasswordPolicy()
+})
+
+const passwordRules = computed(() => [
+  (v: string) => {
+    const errors = passwordValidatorService.validate(v, auth.passwordPolicy)
+    return errors.length === 0 ? true : errors[0]
+  },
+])
+
+async function handleRegister() {
+  const { valid } = await formRef.value?.validate() ?? { valid: false }
+  if (!valid) return
+  const ok = await auth.register(login.value, email.value, password.value)
+  if (ok) {
+    router.push('/')
+  }
+}
+</script>
+
 <template>
   <div class="auth-page bg-background">
     <v-container class="fill-height" fluid>
@@ -86,49 +129,6 @@
     </v-container>
   </div>
 </template>
-
-<script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
-import { useAuthStore } from '@/modules/Core/Auth/Store/auth'
-import { passwordValidatorService } from '@/modules/Core/Auth/Service/PasswordValidatorService'
-import PasswordField from '@/modules/Core/UI/Component/Input/PasswordField.vue'
-
-const router = useRouter()
-const auth = useAuthStore()
-
-interface FormRef {
-  validate: () => Promise<{ valid: boolean }>
-  reset: () => void
-  resetValidation: () => void
-}
-
-const formRef = ref<FormRef | null>(null)
-const login = ref('')
-const email = ref('')
-const password = ref('')
-const confirm = ref('')
-
-onMounted(() => {
-  auth.fetchPasswordPolicy()
-})
-
-const passwordRules = computed(() => [
-  (v: string) => {
-    const errors = passwordValidatorService.validate(v, auth.passwordPolicy)
-    return errors.length === 0 ? true : errors[0]
-  },
-])
-
-async function handleRegister() {
-  const { valid } = await formRef.value?.validate() ?? { valid: false }
-  if (!valid) return
-  const ok = await auth.register(login.value, email.value, password.value)
-  if (ok) {
-    router.push('/')
-  }
-}
-</script>
 
 <style scoped>
 .auth-page {

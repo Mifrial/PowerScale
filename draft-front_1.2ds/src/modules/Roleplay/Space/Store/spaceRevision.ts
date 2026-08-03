@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 import type { SpaceRevisionMeta } from '@/modules/Roleplay/Space/Dto/SpaceRevisionMeta'
 import type { SpaceRevision } from '@/modules/Roleplay/Space/Dto/SpaceRevision'
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule'
-import { getSpaceApi } from '../init'
+import { getSpaceApi } from '@/modules/Roleplay/Space/init'
 import { useDraftRuleStore } from '@/modules/Roleplay/Rule/Store/draftRules'
 
 export type RevisionKind = 'draft' | 'rev'

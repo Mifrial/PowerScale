@@ -1,0 +1,136 @@
+import { reactive, computed, watch, type Ref, type ComputedRef, type WritableComputedRef } from 'vue'
+import type { FilterField } from '@/modules/Core/UI/Dto/FilterField'
+import type { FilterValue } from '@/modules/Core/UI/Dto/FilterValue'
+import { debounce } from '@/modules/Core/UI/Utils/debounce'
+import { buildActiveChips, type ActiveChip, type MaybeFilterValue } from '@/modules/Core/UI/Component/FilterBar/filterValues'
+
+export interface FilterBuffer {
+  editBuffer: Record<string, MaybeFilterValue>
+  enabled: Record<string, boolean>
+  searchText: WritableComputedRef<string>
+  activeChips: ComputedRef<ActiveChip[]>
+  hasActiveFilters: ComputedRef<boolean>
+  onValueUpdate(key: string, value: MaybeFilterValue): void
+  setEnabled(key: string, value: boolean): void
+  removeChip(key: string): void
+  apply(): void
+  resetAll(): void
+}
+
+export function useFilterBuffer(options: {
+  fields: Ref<FilterField[]>
+  modelValue: Ref<Record<string, FilterValue>>
+  menuOpen: Ref<boolean>
+  onCommit: (value: Record<string, FilterValue>) => void
+}): FilterBuffer {
+  const { fields, modelValue, menuOpen, onCommit } = options
+
+  const internal = reactive<Record<string, MaybeFilterValue>>({})
+  const editBuffer = reactive<Record<string, MaybeFilterValue>>({})
+  const enabled = reactive<Record<string, boolean>>({})
+
+  watch(modelValue, (v) => {
+    for (const [k, val] of Object.entries(v)) {
+      internal[k] = val
+    }
+    for (const k of Object.keys(internal)) {
+      if (!(k in v)) delete internal[k]
+    }
+  }, { immediate: true })
+
+  function emitNow() {
+    const out: Record<string, FilterValue> = {}
+    for (const [k, v] of Object.entries(internal)) {
+      if (v !== undefined && v !== null && v !== '') {
+        out[k] = v
+      }
+    }
+    onCommit(out)
+  }
+
+  const debouncedEmit = debounce(emitNow, 200)
+
+  const searchText = computed<string>({
+    get: () => (typeof internal.q === 'string' ? internal.q : ''),
+    set: (v: string) => {
+      internal.q = v || undefined
+      debouncedEmit()
+      if (v && menuOpen.value) {
+        menuOpen.value = false
+      }
+    },
+  })
+
+  const activeChips = computed<ActiveChip[]>(() => buildActiveChips(fields.value, internal))
+
+  const hasActiveFilters = computed(() => activeChips.value.length > 0 || !!internal.q)
+
+  function onValueUpdate(key: string, value: MaybeFilterValue) {
+    editBuffer[key] = value
+    enabled[key] = true
+  }
+
+  function setEnabled(key: string, value: boolean) {
+    enabled[key] = value
+  }
+
+  function syncOnOpen() {
+    for (const f of fields.value) {
+      const val = internal[f.key]
+      editBuffer[f.key] = val ?? (f.type === 'select' ? null : '')
+      enabled[f.key] = val !== undefined && val !== null && val !== ''
+    }
+  }
+
+  watch(menuOpen, (open) => {
+    if (open) syncOnOpen()
+  })
+
+  function apply() {
+    for (const f of fields.value) {
+      if (f.type === 'boolean') {
+        if (editBuffer[f.key]) { internal[f.key] = true } else { delete internal[f.key] }
+      } else if (enabled[f.key]) {
+        const val = editBuffer[f.key]
+        if (val !== undefined && val !== null && val !== '') {
+          internal[f.key] = val
+        } else {
+          delete internal[f.key]
+        }
+      } else {
+        delete internal[f.key]
+      }
+    }
+    emitNow()
+    menuOpen.value = false
+  }
+
+  function resetAll() {
+    for (const f of fields.value) {
+      editBuffer[f.key] = ''
+      enabled[f.key] = false
+      delete internal[f.key]
+    }
+    internal.q = undefined
+    emitNow()
+    menuOpen.value = false
+  }
+
+  function removeChip(key: string) {
+    delete internal[key]
+    emitNow()
+  }
+
+  return {
+    editBuffer,
+    enabled,
+    searchText,
+    activeChips,
+    hasActiveFilters,
+    onValueUpdate,
+    setEnabled,
+    removeChip,
+    apply,
+    resetAll,
+  }
+}

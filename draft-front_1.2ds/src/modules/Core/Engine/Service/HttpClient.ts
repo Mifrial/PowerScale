@@ -1,17 +1,8 @@
-export interface HttpClientConfig {
-  baseUrl: string
-  onUnauthorized?: () => void
-  getCsrfToken?: () => string | null
-}
-
-interface HttpResponse<T> {
-  ok: boolean
-  status: number
-  data: T
-}
+import type { HttpClientConfig } from '@/modules/Core/Engine/Dto/HttpClientConfig'
+import type { HttpResponse } from '@/modules/Core/Engine/Dto/HttpResponse'
 
 export class HttpClient {
-  constructor(private config: HttpClientConfig) {}
+  constructor(private readonly config: HttpClientConfig) {}
 
   getBaseUrl(): string {
     return this.config.baseUrl

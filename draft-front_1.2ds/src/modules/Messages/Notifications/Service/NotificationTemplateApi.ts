@@ -1,9 +1,9 @@
 import type { Engine } from '@/modules/Core/Engine/Service/Engine'
-import type { INotificationTemplateApi, CreateTemplateData, UpdateTemplateData } from '../Interface/INotificationTemplateApi'
+import type { INotificationTemplateApi, CreateTemplateData, UpdateTemplateData } from '@/modules/Messages/Notifications/Interface/INotificationTemplateApi'
 import type { NotificationTemplate } from '@/modules/Messages/Notifications/Dto/NotificationTemplate'
 
 export class NotificationTemplateApi implements INotificationTemplateApi {
-  constructor(private engine: Engine) {}
+  constructor(private readonly engine: Engine) {}
 
   async getTemplates(signal?: AbortSignal): Promise<NotificationTemplate[]> {
     const res = await this.engine.runAction<NotificationTemplate[]>('notificationTemplate.getList', undefined, signal)

@@ -1,5 +1,5 @@
-import type { INotificationApi } from '../Interface/INotificationApi'
-import * as mock from './mockNotifications'
+import type { INotificationApi } from '@/modules/Messages/Notifications/Interface/INotificationApi'
+import * as mock from '@/modules/Messages/Notifications/Mock/mockNotifications'
 
 export const mockNotificationApi: INotificationApi = {
   fetchPage: mock.mockFetchNotificationsPage,

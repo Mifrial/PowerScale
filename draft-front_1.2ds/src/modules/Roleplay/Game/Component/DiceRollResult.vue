@@ -1,3 +1,12 @@
+<script setup lang="ts">
+import type { DiceRollResult } from '@/modules/Roleplay/Game/Dto/DiceRollResult'
+import { rollService } from '@/modules/Roleplay/Game/Service/RollService'
+
+const props = defineProps<{ roll: DiceRollResult; index: number }>()
+
+const sizeSuffix = rollService.formatRollSize(props.roll.spec.dieSize || 0)
+</script>
+
 <template>
   <div class="chat-roll">
     <div class="chat-roll-header">
@@ -34,15 +43,6 @@
     </div>
   </div>
 </template>
-
-<script setup lang="ts">
-import type { DiceRollResult } from '@/modules/Roleplay/Game/Dto/DiceRollResult'
-import { rollService } from '@/modules/Roleplay/Game/Service/RollService'
-
-const props = defineProps<{ roll: DiceRollResult; index: number }>()
-
-const sizeSuffix = rollService.formatRollSize(props.roll.spec.dieSize || 0)
-</script>
 
 <style scoped>
 .chat-roll {

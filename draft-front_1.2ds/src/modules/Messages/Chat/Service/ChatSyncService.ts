@@ -1,5 +1,5 @@
 import type { SyncResponse } from '@/modules/Messages/Chat/Dto/SyncResponse'
-import type { IChatApi } from '../Interface/IChatApi'
+import type { IChatApi } from '@/modules/Messages/Chat/Interface/IChatApi'
 
 export interface ChatSyncConfig {
   onSync: (data: SyncResponse) => void
@@ -19,7 +19,7 @@ export class ChatSyncService {
   private timer: ReturnType<typeof setInterval> | null = null
   private lastSync = ''
 
-  constructor(private config: ChatSyncConfig) {}
+  constructor(private readonly config: ChatSyncConfig) {}
 
   get lastSyncTimestamp(): string {
     return this.lastSync

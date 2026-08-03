@@ -1,8 +1,8 @@
-import type { ColumnDefinition } from './ColumnDefinition'
-import type { Row } from './Row'
-import type { Sort } from './Sort'
-import type { Pagination } from './Pagination'
-import type { FilterValue } from './FilterValue'
+import type { ColumnDefinition } from '@/modules/Core/UI/Dto/ColumnDefinition'
+import type { Row } from '@/modules/Core/UI/Dto/Row'
+import type { Sort } from '@/modules/Core/UI/Dto/Sort'
+import type { Pagination } from '@/modules/Core/UI/Dto/Pagination'
+import type { FilterValue } from '@/modules/Core/UI/Dto/FilterValue'
 
 export interface DataProvider {
   getColumns(): ColumnDefinition[]

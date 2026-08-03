@@ -1,55 +1,9 @@
-<template>
-  <div class="flex-grow-1">
-    <template v-if="mode === 'interval'">
-      <div class="d-flex ga-2">
-        <v-select
-          v-model="mode"
-          :items="modeOptions"
-          variant="outlined"
-          density="compact"
-          hide-details
-          class="dtf-mode"
-        />
-        <div class="flex-grow-1" style="min-width:0">
-          <DateTimeInput
-            :field="field"
-            :model-value="fromValue"
-            @update:model-value="onFromChange"
-          />
-        </div>
-        <div class="flex-grow-1" style="min-width:0">
-          <DateTimeInput
-            :field="field"
-            :model-value="toValue"
-            @update:model-value="onToChange"
-          />
-        </div>
-      </div>
-    </template>
-    <div v-else class="d-flex align-center ga-2">
-      <v-select
-        v-model="mode"
-        :items="modeOptions"
-        variant="outlined"
-        density="compact"
-        hide-details
-        class="dtf-mode"
-      />
-      <DateTimeInput
-        :field="field"
-        :model-value="innerValue"
-        class="flex-grow-1"
-        @update:model-value="onInnerChange"
-      />
-    </div>
-  </div>
-</template>
-
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import type { FilterField } from '@/modules/Core/UI/Dto/FilterField'
 import type { FilterValue, DateTimeFilterValue } from '@/modules/Core/UI/Dto/FilterValue'
 import DateTimeInput from '@/modules/Core/UI/Component/Input/DateTimeInput.vue'
+import { FILTER_RANGE_MODE_OPTIONS } from '@/modules/Core/UI/Constant/filterModeOptions'
 
 const props = defineProps<{
   field: FilterField
@@ -65,12 +19,7 @@ const singleValue = ref<string>()
 const fromValue = ref<string>()
 const toValue = ref<string>()
 
-const modeOptions = [
-  { title: 'Равно', value: 'equals' },
-  { title: 'От', value: 'from' },
-  { title: 'До', value: 'to' },
-  { title: 'Интервал', value: 'interval' },
-]
+const modeOptions = FILTER_RANGE_MODE_OPTIONS
 
 const innerValue = computed(() => {
   if (mode.value === 'equals') return singleValue.value
@@ -142,6 +91,53 @@ watch(() => props.modelValue, (v) => {
   parse(v)
 }, { immediate: true })
 </script>
+
+<template>
+  <div class="flex-grow-1">
+    <template v-if="mode === 'interval'">
+      <div class="d-flex ga-2">
+        <v-select
+          v-model="mode"
+          :items="modeOptions"
+          variant="outlined"
+          density="compact"
+          hide-details
+          class="dtf-mode"
+        />
+        <div class="flex-grow-1" style="min-width:0">
+          <DateTimeInput
+            :field="field"
+            :model-value="fromValue"
+            @update:model-value="onFromChange"
+          />
+        </div>
+        <div class="flex-grow-1" style="min-width:0">
+          <DateTimeInput
+            :field="field"
+            :model-value="toValue"
+            @update:model-value="onToChange"
+          />
+        </div>
+      </div>
+    </template>
+    <div v-else class="d-flex align-center ga-2">
+      <v-select
+        v-model="mode"
+        :items="modeOptions"
+        variant="outlined"
+        density="compact"
+        hide-details
+        class="dtf-mode"
+      />
+      <DateTimeInput
+        :field="field"
+        :model-value="innerValue"
+        class="flex-grow-1"
+        @update:model-value="onInnerChange"
+      />
+    </div>
+  </div>
+</template>
 
 <style scoped>
 .dtf-mode {

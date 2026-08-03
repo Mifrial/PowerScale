@@ -1,10 +1,3 @@
-<template>
-  <v-chip :color="isActive ? 'success' : 'grey'" variant="tonal" size="x-small">
-    <v-icon start size="x-small">{{ isActive ? 'mdi-check-circle' : 'mdi-cancel' }}</v-icon>
-    {{ isActive ? 'Активен' : 'Неактивен' }}
-  </v-chip>
-</template>
-
 <script setup lang="ts">
 import { computed } from 'vue'
 
@@ -19,3 +12,10 @@ const isActive = computed(() => {
   return Boolean(props.value)
 })
 </script>
+
+<template>
+  <v-chip :color="isActive ? 'success' : 'grey'" variant="tonal" size="x-small">
+    <v-icon start size="x-small">{{ isActive ? 'mdi-check-circle' : 'mdi-cancel' }}</v-icon>
+    {{ isActive ? 'Активен' : 'Неактивен' }}
+  </v-chip>
+</template>

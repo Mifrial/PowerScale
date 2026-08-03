@@ -1,18 +1,3 @@
-export interface PermissionAction {
-  key: string
-  label: string
-}
-
-export interface PermissionCategory {
-  key: string
-  label: string
-  actions: PermissionAction[]
-}
-
-export interface AdminSection {
-  id: string
-  title: string
-  to: string
-  icon: string
-  permission: string
-}
+export type { PermissionAction } from '@/modules/Core/User/Interface/PermissionAction'
+export type { PermissionCategory } from '@/modules/Core/User/Interface/PermissionCategory'
+export type { AdminSection } from '@/modules/Core/User/Interface/AdminSection'

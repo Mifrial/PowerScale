@@ -1,4 +1,4 @@
-import type { DimensionalNumberValue } from '@/modules/Core/Engine/Value/DimensionalNumber'
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumber'
 
 /** Общие поля предмета (не подтип-специфичные). */
 export interface ItemSpecBase {

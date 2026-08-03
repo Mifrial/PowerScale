@@ -1,4 +1,5 @@
 import type { ColumnDefinition } from '@/modules/Core/UI/Dto/ColumnDefinition'
+import { SMARTGRID_STORAGE_PREFIX } from '@/modules/Core/UI/Constant/uiStorage'
 
 export interface ColumnSetting {
   key: string
@@ -10,10 +11,8 @@ export interface GridSettings {
   widths?: Record<string, number>
 }
 
-const STORAGE_PREFIX = 'smartgrid_'
-
 function storageKey(gridId: string) {
-  return `${STORAGE_PREFIX}${gridId}`
+  return `${SMARTGRID_STORAGE_PREFIX}${gridId}`
 }
 
 export function loadGridSettings(gridId: string): GridSettings | null {

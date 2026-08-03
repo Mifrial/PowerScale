@@ -1,3 +1,67 @@
+<script setup lang="ts">
+import { ref, computed, watch, onMounted } from 'vue'
+import RuleEditorBase from '@/modules/Roleplay/Rule/Component/Editors/RuleEditorBase.vue'
+import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue'
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumber'
+import { resourceSpecService } from '@/modules/Roleplay/Rule/Service/Spec/ResourceSpecService'
+import type { ResourceSpec } from '@/modules/Roleplay/Rule/Dto/ResourceSpec'
+import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec'
+
+const props = defineProps<{
+  name: string
+  code: string
+  codeDisabled?: boolean
+  description: string
+  mechanicId: number | null
+  keywordIds: number[]
+  spec: RuleSpec | null
+  mechanicOptions: { title: string; value: number }[]
+  keywordOptions: { title: string; value: number }[]
+}>()
+
+const emit = defineEmits<{
+  'update:name': [value: string]
+  'update:code': [value: string]
+  'update:description': [value: string]
+  'update:mechanicId': [value: number | null]
+  'update:keywordIds': [value: number[]]
+  'update:spec': [value: ResourceSpec]
+}>()
+
+const expandedPanels = ref<string[]>(['general', 'resource'])
+
+const innerSpec = ref<ResourceSpec>(resourceSpecService.createEmpty())
+
+const dimensionalInitialValue = computed<DimensionalNumberValue | null>({
+  get: () => {
+    const v = innerSpec.value.initial_value
+    return v && typeof v === 'object' ? v : null
+  },
+  set: (val) => { innerSpec.value.initial_value = val },
+})
+
+const specToEmit = computed<ResourceSpec>(() => {
+  const result: ResourceSpec = {
+    is_dimensional: innerSpec.value.is_dimensional,
+    initial_value: innerSpec.value.initial_value,
+  }
+  return result
+})
+
+watch(specToEmit, (value) => {
+  emit('update:spec', value)
+}, { deep: true })
+
+onMounted(() => {
+  if (props.spec) {
+    innerSpec.value = {
+      is_dimensional: (props.spec as ResourceSpec).is_dimensional ?? true,
+      initial_value: (props.spec as ResourceSpec).initial_value ?? null,
+    }
+  }
+})
+</script>
+
 <template>
   <div>
     <v-expansion-panels v-model="expandedPanels" multiple>
@@ -55,67 +119,3 @@
     </v-expansion-panels>
   </div>
 </template>
-
-<script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
-import RuleEditorBase from './RuleEditorBase.vue'
-import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue'
-import type { DimensionalNumberValue } from '@/modules/Core/Engine/Value/DimensionalNumber'
-import { resourceSpecService } from '@/modules/Roleplay/Rule/Service/Spec/ResourceSpecService'
-import type { ResourceSpec } from '@/modules/Roleplay/Rule/Dto/ResourceSpec'
-import type { RuleSpec } from '@/modules/Roleplay/Rule/Enum/RuleSpec'
-
-const props = defineProps<{
-  name: string
-  code: string
-  codeDisabled?: boolean
-  description: string
-  mechanicId: number | null
-  keywordIds: number[]
-  spec: RuleSpec | null
-  mechanicOptions: { title: string; value: number }[]
-  keywordOptions: { title: string; value: number }[]
-}>()
-
-const emit = defineEmits<{
-  'update:name': [value: string]
-  'update:code': [value: string]
-  'update:description': [value: string]
-  'update:mechanicId': [value: number | null]
-  'update:keywordIds': [value: number[]]
-  'update:spec': [value: ResourceSpec]
-}>()
-
-const expandedPanels = ref<string[]>(['general', 'resource'])
-
-const innerSpec = ref<ResourceSpec>(resourceSpecService.createEmpty())
-
-const dimensionalInitialValue = computed<DimensionalNumberValue | null>({
-  get: () => {
-    const v = innerSpec.value.initial_value
-    return v && typeof v === 'object' ? v : null
-  },
-  set: (val) => { innerSpec.value.initial_value = val },
-})
-
-const specToEmit = computed<ResourceSpec>(() => {
-  const result: ResourceSpec = {
-    is_dimensional: innerSpec.value.is_dimensional,
-    initial_value: innerSpec.value.initial_value,
-  }
-  return result
-})
-
-watch(specToEmit, (value) => {
-  emit('update:spec', value)
-}, { deep: true })
-
-onMounted(() => {
-  if (props.spec) {
-    innerSpec.value = {
-      is_dimensional: (props.spec as ResourceSpec).is_dimensional ?? true,
-      initial_value: (props.spec as ResourceSpec).initial_value ?? null,
-    }
-  }
-})
-</script>

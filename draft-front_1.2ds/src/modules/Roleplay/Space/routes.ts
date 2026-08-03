@@ -1,5 +1,5 @@
 import type { RouteLocationNormalizedLoaded, RouteRecordRaw } from 'vue-router'
-import { useSpaceStore } from './Store/spaces'
+import { useSpaceStore } from '@/modules/Roleplay/Space/Store/spaces'
 
 function spaceRoot() {
   return [{ title: 'Пространства', to: '/spaces' }]
@@ -25,12 +25,12 @@ export function createSpaceRoutes(ruleCtxChildren: RouteRecordRaw[]): RouteRecor
         {
           path: '',
           name: 'Spaces',
-          component: () => import('./Page/SpacesPage.vue'),
+          component: () => import('@/modules/Roleplay/Space/Page/SpacesPage.vue'),
         },
         {
           path: 'new',
           name: 'SpaceNew',
-          component: () => import('./Page/SpaceNewPage.vue'),
+          component: () => import('@/modules/Roleplay/Space/Page/SpaceNewPage.vue'),
           meta: {
             title: 'Создание пространства',
             crumb: () => [{ title: 'Создание пространства' }],
@@ -52,7 +52,7 @@ export function createSpaceRoutes(ruleCtxChildren: RouteRecordRaw[]): RouteRecor
             {
               path: '',
               name: 'SpaceLanding',
-              component: () => import('./Page/SpaceDetailPage.vue'),
+              component: () => import('@/modules/Roleplay/Space/Page/SpaceDetailPage.vue'),
             },
             {
               path: ':ctx',
@@ -61,7 +61,7 @@ export function createSpaceRoutes(ruleCtxChildren: RouteRecordRaw[]): RouteRecor
                 {
                   path: '',
                   name: 'SpaceDetail',
-                  component: () => import('./Page/SpaceDetailPage.vue'),
+                  component: () => import('@/modules/Roleplay/Space/Page/SpaceDetailPage.vue'),
                 },
                 ...ruleCtxChildren,
               ],
@@ -69,7 +69,7 @@ export function createSpaceRoutes(ruleCtxChildren: RouteRecordRaw[]): RouteRecor
             {
               path: 'settings',
               name: 'SpaceSettings',
-              component: () => import('./Page/SpaceSettingsPage.vue'),
+              component: () => import('@/modules/Roleplay/Space/Page/SpaceSettingsPage.vue'),
               meta: {
                 title: 'Настройки пространства',
                 crumb: () => [{ title: 'Настройки' }],

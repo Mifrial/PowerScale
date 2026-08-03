@@ -1,8 +1,10 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import type { Ref } from 'vue'
 import type { User } from '@/modules/Core/User/Dto/User'
 import type { CreateUserData, UpdateUserData } from '@/modules/Core/User/Interface/IUserApi'
 import { getUserApi } from '@/modules/Core/User/init'
+import { initials, displayName } from '@/modules/Core/User/Utils/profile'
 
 export const useUserStore = defineStore('users', () => {
   const currentUser = ref<User | null>(null)
@@ -17,18 +19,12 @@ export const useUserStore = defineStore('users', () => {
   const filterActive = ref('')
   const filterLastLogin = ref('')
 
-  const username = computed(() => {
-    if (!currentUser.value) return ''
-    const parts = [currentUser.value.name, currentUser.value.surname].filter(Boolean)
-    return parts.join(' ') || currentUser.value.login
-  })
+  const username = computed(() => (currentUser.value ? displayName(currentUser.value.name, currentUser.value.surname, currentUser.value.login) : ''))
   const userLogin = computed(() => currentUser.value?.login || '')
   const avatarLetters = computed(() => {
     if (!currentUser.value) return '??'
     if (currentUser.value.id === 0) return '?'
-    const first = currentUser.value.name?.[0] || ''
-    const second = currentUser.value.surname?.[0] || ''
-    return (first + second).toUpperCase() || '?'
+    return initials(currentUser.value.name, currentUser.value.surname)
   })
 
   function setCurrent(user: User): void {
@@ -46,6 +42,27 @@ export const useUserStore = defineStore('users', () => {
     currentUser.value = null
   }
 
+  const stringFilterConfigs: { filter: Ref<{ mode: 'equals' | 'contains'; value: string } | null>; getValue: (u: User) => string }[] = [
+    { filter: filterName, getValue: (u) => u.name },
+    { filter: filterSurname, getValue: (u) => u.surname ?? '' },
+    { filter: filterNickname, getValue: (u) => u.nickname ?? '' },
+    { filter: filterLogin, getValue: (u) => u.login },
+    { filter: filterEmail, getValue: (u) => u.email },
+  ]
+
+  function applyStringFilter(
+    items: User[],
+    filter: { mode: 'equals' | 'contains'; value: string } | null,
+    getValue: (u: User) => string,
+  ): User[] {
+    if (!filter || !filter.value) return items
+    const q = filter.value.toLowerCase()
+    if (filter.mode === 'equals') {
+      return items.filter(u => getValue(u).toLowerCase() === q)
+    }
+    return items.filter(u => getValue(u).toLowerCase().includes(q))
+  }
+
   const filteredUsers = computed(() => {
     let result = users.value
     if (quickFilter.value) {
@@ -58,45 +75,8 @@ export const useUserStore = defineStore('users', () => {
         u.email.toLowerCase().includes(q)
       )
     }
-    if (filterName.value && filterName.value.value) {
-      const q = filterName.value.value.toLowerCase()
-      if (filterName.value.mode === 'equals') {
-        result = result.filter(u => u.name.toLowerCase() === q)
-      } else {
-        result = result.filter(u => u.name.toLowerCase().includes(q))
-      }
-    }
-    if (filterSurname.value && filterSurname.value.value) {
-      const q = filterSurname.value.value.toLowerCase()
-      if (filterSurname.value.mode === 'equals') {
-        result = result.filter(u => (u.surname ?? '').toLowerCase() === q)
-      } else {
-        result = result.filter(u => (u.surname ?? '').toLowerCase().includes(q))
-      }
-    }
-    if (filterNickname.value && filterNickname.value.value) {
-      const q = filterNickname.value.value.toLowerCase()
-      if (filterNickname.value.mode === 'equals') {
-        result = result.filter(u => (u.nickname ?? '').toLowerCase() === q)
-      } else {
-        result = result.filter(u => (u.nickname ?? '').toLowerCase().includes(q))
-      }
-    }
-    if (filterLogin.value && filterLogin.value.value) {
-      const q = filterLogin.value.value.toLowerCase()
-      if (filterLogin.value.mode === 'equals') {
-        result = result.filter(u => u.login.toLowerCase() === q)
-      } else {
-        result = result.filter(u => u.login.toLowerCase().includes(q))
-      }
-    }
-    if (filterEmail.value && filterEmail.value.value) {
-      const q = filterEmail.value.value.toLowerCase()
-      if (filterEmail.value.mode === 'equals') {
-        result = result.filter(u => u.email.toLowerCase() === q)
-      } else {
-        result = result.filter(u => u.email.toLowerCase().includes(q))
-      }
+    for (const config of stringFilterConfigs) {
+      result = applyStringFilter(result, config.filter.value, config.getValue)
     }
     if (filterActive.value === 'true') {
       result = result.filter(u => u.active)

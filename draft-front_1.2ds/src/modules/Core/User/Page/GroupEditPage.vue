@@ -1,34 +1,9 @@
-<template>
-  <v-container>
-    <h1 class="text-h5 mb-4">{{ isEdit ? 'Редактирование группы' : 'Создание группы' }}</h1>
-
-    <v-card>
-      <v-card-text>
-        <v-text-field
-          v-model="name"
-          label="Название группы"
-          :rules="[v => !!v || 'Обязательное поле']"
-        />
-
-        <div class="text-subtitle-1 mb-2">Права доступа</div>
-        <PermissionMatrix v-model="permissions" />
-      </v-card-text>
-
-      <v-card-actions>
-        <v-spacer />
-        <v-btn variant="text" @click="router.back()">Отмена</v-btn>
-        <v-btn color="primary" :loading="saving" @click="save">Сохранить</v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-container>
-</template>
-
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useGroupStore } from '../Store/groups'
+import { useGroupStore } from '@/modules/Core/User/Store/groups'
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable'
-import PermissionMatrix from '../Component/PermissionMatrix.vue'
+import PermissionMatrix from '@/modules/Core/User/Component/PermissionMatrix.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -67,3 +42,28 @@ async function save() {
   }
 }
 </script>
+
+<template>
+  <v-container>
+    <h1 class="text-h5 mb-4">{{ isEdit ? 'Редактирование группы' : 'Создание группы' }}</h1>
+
+    <v-card>
+      <v-card-text>
+        <v-text-field
+          v-model="name"
+          label="Название группы"
+          :rules="[v => !!v || 'Обязательное поле']"
+        />
+
+        <div class="text-subtitle-1 mb-2">Права доступа</div>
+        <PermissionMatrix v-model="permissions" />
+      </v-card-text>
+
+      <v-card-actions>
+        <v-spacer />
+        <v-btn variant="text" @click="router.back()">Отмена</v-btn>
+        <v-btn color="primary" :loading="saving" @click="save">Сохранить</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-container>
+</template>

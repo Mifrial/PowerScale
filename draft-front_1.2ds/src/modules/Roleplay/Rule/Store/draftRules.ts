@@ -1,17 +1,16 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { Rule } from '../Dto/Rule'
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule'
+import { DRAFT_RULES_STORAGE_KEY } from '@/modules/Roleplay/Rule/Constant/draftRulesConfig'
 
 interface DraftEntry {
   spaceId: number
   changedRules: Record<string, Rule>
 }
 
-const STORAGE_KEY = 'powerscale.drafts.v1'
-
 function loadDrafts(): DraftEntry[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(DRAFT_RULES_STORAGE_KEY)
     if (!raw) return []
     const parsed = JSON.parse(raw)
     if (!Array.isArray(parsed)) return []
@@ -26,10 +25,10 @@ function loadDrafts(): DraftEntry[] {
 function persistDrafts(drafts: DraftEntry[]): void {
   try {
     if (drafts.length === 0) {
-      localStorage.removeItem(STORAGE_KEY)
+      localStorage.removeItem(DRAFT_RULES_STORAGE_KEY)
       return
     }
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(drafts))
+    localStorage.setItem(DRAFT_RULES_STORAGE_KEY, JSON.stringify(drafts))
   } catch {
     // localStorage недоступен (квота/режим) — черновик остаётся in-memory
   }

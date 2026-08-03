@@ -1,3 +1,23 @@
+<script setup lang="ts">
+import { ref, watch, computed } from 'vue'
+import { useNotificationStore } from '@/modules/Messages/Notifications/Store/notifications'
+import SlidePanel from '@/modules/Core/UI/Component/SlidePanel.vue'
+import NotificationList from '@/modules/Messages/Notifications/Component/NotificationList.vue'
+import FlatTextBtn from '@/modules/Core/UI/Component/FlatTextBtn.vue'
+import { SLIDER_LIMIT } from '@/modules/Messages/Notifications/Constant/notificationSliderConfig'
+
+const open = defineModel<boolean>({ default: false })
+const store = useNotificationStore()
+
+const displayItems = computed(() => store.items.slice(0, SLIDER_LIMIT))
+
+watch(open, async (val) => {
+  if (val && !store.items.length) {
+    await store.fetchData()
+  }
+}, { immediate: true })
+</script>
+
 <template>
   <SlidePanel v-model="open">
     <template #header>
@@ -24,26 +44,6 @@
     </template>
   </SlidePanel>
 </template>
-
-<script setup lang="ts">
-import { ref, watch, computed } from 'vue'
-import { useNotificationStore } from '@/modules/Messages/Notifications/Store/notifications'
-import SlidePanel from '@/modules/Core/UI/Component/SlidePanel.vue'
-import NotificationList from '@/modules/Messages/Notifications/Component/NotificationList.vue'
-import FlatTextBtn from '@/modules/Core/UI/Component/FlatTextBtn.vue'
-
-const open = defineModel<boolean>({ default: false })
-const store = useNotificationStore()
-
-const SLIDER_LIMIT = 8
-const displayItems = computed(() => store.items.slice(0, SLIDER_LIMIT))
-
-watch(open, async (val) => {
-  if (val && !store.items.length) {
-    await store.fetchData()
-  }
-}, { immediate: true })
-</script>
 
 <style scoped>
 .notification-body {

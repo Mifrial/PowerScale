@@ -1,6 +1,6 @@
-import type { DimensionalNumberValue } from '@/modules/Core/Engine/Value/DimensionalNumber'
-import type { SpellDuration } from './SpellDuration'
-import type { SpellComponent } from './SpellComponent'
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumber'
+import type { SpellDuration } from '@/modules/Roleplay/Rule/Dto/Ability/SpellDuration'
+import type { SpellComponent } from '@/modules/Roleplay/Rule/Dto/Ability/SpellComponent'
 
 export interface SpellSpec {
   difficulty: DimensionalNumberValue

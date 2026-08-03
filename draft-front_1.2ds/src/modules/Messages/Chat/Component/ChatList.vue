@@ -1,3 +1,57 @@
+<script setup lang="ts">
+import type { Chat } from '@/modules/Messages/Chat/Dto/Chat'
+import type { User } from '@/modules/Core/User/Dto/User'
+import { useAuthStore } from '@/modules/Core/Auth/Store/auth'
+import { useChatUsers } from '@/modules/Messages/Chat/Composables/useChatUsers'
+import { DateTime } from '@/modules/Core/Engine/Value/DateTime'
+import { avatarColors } from '@/modules/Messages/Chat/Constant/avatarColors'
+
+defineProps<{
+  chats: Chat[]
+  activeChatId: number | null
+}>()
+
+const emit = defineEmits<{
+  'select-chat': [id: number]
+  'open-profile': [userId: number]
+}>()
+
+const auth = useAuthStore()
+const chatUsers = useChatUsers()
+
+function chatAvatarColor(userId: number): string {
+  return avatarColors[userId % avatarColors.length]
+}
+
+function groupColor(chat: Chat): string {
+  return avatarColors[chat.id % avatarColors.length]
+}
+
+function groupInitials(chat: Chat): string {
+  const words = chat.name.replace(/^Обсуждение:\s*/i, '').split(/\s+/)
+  if (words.length === 1) return words[0][0]?.toUpperCase() || '?'
+  return (words[0][0] + words[1][0]).toUpperCase()
+}
+
+function otherMember(chat: Chat): User | undefined {
+  const other = chat.members?.find(m => m.userId !== auth.userId)
+  if (!other) return
+  return chatUsers.getUser(other.userId)
+}
+
+function chatName(chat: Chat): string {
+  if (chat.type === 'private') {
+    const other = otherMember(chat)
+    return other ? chatUsers.displayName(other) : chat.name
+  }
+  return chat.name
+}
+
+function openProfile(userId: number) {
+  emit('open-profile', userId)
+}
+</script>
+
 <template>
   <div class="chat-list">
     <div
@@ -39,61 +93,6 @@
     </div>
   </div>
 </template>
-
-<script setup lang="ts">
-import type { Chat } from '@/modules/Messages/Chat/Dto/Chat'
-import type { User } from '@/modules/Core/User/Dto/User'
-import { useAuthStore } from '@/modules/Core/Auth/Store/auth'
-import { useChatUsers } from '@/modules/Messages/Chat/Composables/useChatUsers'
-import { DateTime } from '@/modules/Core/Engine/Value/DateTime'
-
-defineProps<{
-  chats: Chat[]
-  activeChatId: number | null
-}>()
-
-const emit = defineEmits<{
-  'select-chat': [id: number]
-  'open-profile': [userId: number]
-}>()
-
-const auth = useAuthStore()
-const chatUsers = useChatUsers()
-
-const avatarColors = ['primary', 'secondary', 'success', 'warning', 'info', 'error', 'accent', 'indigo', 'orange', 'teal']
-
-function chatAvatarColor(userId: number): string {
-  return avatarColors[userId % avatarColors.length]
-}
-
-function groupColor(chat: Chat): string {
-  return avatarColors[chat.id % avatarColors.length]
-}
-
-function groupInitials(chat: Chat): string {
-  const words = chat.name.replace(/^Обсуждение:\s*/i, '').split(/\s+/)
-  if (words.length === 1) return words[0][0]?.toUpperCase() || '?'
-  return (words[0][0] + words[1][0]).toUpperCase()
-}
-
-function otherMember(chat: Chat): User | undefined {
-  const other = chat.members?.find(m => m.userId !== auth.userId)
-  if (!other) return
-  return chatUsers.getUser(other.userId)
-}
-
-function chatName(chat: Chat): string {
-  if (chat.type === 'private') {
-    const other = otherMember(chat)
-    return other ? chatUsers.displayName(other) : chat.name
-  }
-  return chat.name
-}
-
-function openProfile(userId: number) {
-  emit('open-profile', userId)
-}
-</script>
 
 <style scoped>
 .chat-list {

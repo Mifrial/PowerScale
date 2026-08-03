@@ -1,3 +1,52 @@
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { useSpaceStore } from '@/modules/Roleplay/Space/Store/spaces'
+import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable'
+
+const router = useRouter()
+const store = useSpaceStore()
+const { signal } = useAbortable()
+
+const name = ref('')
+const description = ref('')
+const inheritFrom = ref<number | null>(null)
+const saving = ref(false)
+
+const spaceOptions = computed(() =>
+  store.spaces
+    .filter(s => s.active)
+    .map(s => ({ title: s.name, value: s.id }))
+)
+
+const inheritedSpace = computed(() =>
+  store.spaces.find(s => s.id === inheritFrom.value)
+)
+
+onMounted(() => {
+  if (store.spaces.length === 0) {
+    store.fetchSpaces(signal.value)
+  }
+})
+
+async function save() {
+  if (!name.value.trim()) return
+  saving.value = true
+  try {
+    const space = await store.createSpace({
+      name: name.value,
+      description: description.value,
+      inheritFrom: inheritFrom.value,
+    }, signal.value)
+    router.push(`/space/${space.code}`)
+  } catch (e) {
+    console.error('create space failed', e)
+  } finally {
+    saving.value = false
+  }
+}
+</script>
+
 <template>
   <v-container>
     <h1 class="text-h5 mb-4">Создание пространства</h1>
@@ -52,52 +101,3 @@
     </v-card>
   </v-container>
 </template>
-
-<script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { useSpaceStore } from '../Store/spaces'
-import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable'
-
-const router = useRouter()
-const store = useSpaceStore()
-const { signal } = useAbortable()
-
-const name = ref('')
-const description = ref('')
-const inheritFrom = ref<number | null>(null)
-const saving = ref(false)
-
-const spaceOptions = computed(() =>
-  store.spaces
-    .filter(s => s.active)
-    .map(s => ({ title: s.name, value: s.id }))
-)
-
-const inheritedSpace = computed(() =>
-  store.spaces.find(s => s.id === inheritFrom.value)
-)
-
-onMounted(() => {
-  if (store.spaces.length === 0) {
-    store.fetchSpaces(signal.value)
-  }
-})
-
-async function save() {
-  if (!name.value.trim()) return
-  saving.value = true
-  try {
-    const space = await store.createSpace({
-      name: name.value,
-      description: description.value,
-      inheritFrom: inheritFrom.value,
-    }, signal.value)
-    router.push(`/space/${space.code}`)
-  } catch (e) {
-    console.error('create space failed', e)
-  } finally {
-    saving.value = false
-  }
-}
-</script>

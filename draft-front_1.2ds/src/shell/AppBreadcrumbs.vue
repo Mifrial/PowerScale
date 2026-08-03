@@ -1,7 +1,3 @@
-<template>
-  <v-breadcrumbs :items="items" class="px-2 pt-0 pb-0" />
-</template>
-
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
@@ -28,3 +24,7 @@ const items = computed(() => {
   }))
 })
 </script>
+
+<template>
+  <v-breadcrumbs :items="items" class="px-2 pt-0 pb-0" />
+</template>

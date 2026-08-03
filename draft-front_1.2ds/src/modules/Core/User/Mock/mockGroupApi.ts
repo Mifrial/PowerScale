@@ -1,5 +1,5 @@
-import type { IGroupApi } from '../Interface/IGroupApi'
-import * as mock from './mockGroups'
+import type { IGroupApi } from '@/modules/Core/User/Interface/IGroupApi'
+import * as mock from '@/modules/Core/User/Mock/mockGroups'
 
 export const mockGroupApi: IGroupApi = {
   getGroups: mock.fetchGroups,

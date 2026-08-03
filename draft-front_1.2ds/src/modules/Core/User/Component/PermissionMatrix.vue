@@ -1,36 +1,3 @@
-<template>
-  <v-card variant="outlined">
-    <v-card-text class="pa-0">
-      <v-table density="compact">
-        <thead>
-          <tr>
-            <th class="text-left">Категория</th>
-            <th v-for="action in allActions" :key="action.key" class="text-center">
-              {{ action.label }}
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="category in categories" :key="category.key">
-            <td class="font-weight-medium">{{ category.label }}</td>
-            <td v-for="action in allActions" :key="action.key" class="text-center">
-              <v-checkbox
-                v-if="hasPermission(category, action.key)"
-                :model-value="isChecked(category, action.key)"
-                :disabled="disabled"
-                density="compact"
-                hide-details
-                class="d-flex justify-center"
-                @update:model-value="toggle(category, action.key, $event)"
-              />
-            </td>
-          </tr>
-        </tbody>
-      </v-table>
-    </v-card-text>
-  </v-card>
-</template>
-
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { PermissionCategory } from '@/modules/Core/User/Interface/IPermissionRegistry'
@@ -71,6 +38,39 @@ function toggle(category: PermissionCategory, action: string, value: boolean | n
   emit('update:modelValue', newPerms)
 }
 </script>
+
+<template>
+  <v-card variant="outlined">
+    <v-card-text class="pa-0">
+      <v-table density="compact">
+        <thead>
+          <tr>
+            <th class="text-left">Категория</th>
+            <th v-for="action in allActions" :key="action.key" class="text-center">
+              {{ action.label }}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="category in categories" :key="category.key">
+            <td class="font-weight-medium">{{ category.label }}</td>
+            <td v-for="action in allActions" :key="action.key" class="text-center">
+              <v-checkbox
+                v-if="hasPermission(category, action.key)"
+                :model-value="isChecked(category, action.key)"
+                :disabled="disabled"
+                density="compact"
+                hide-details
+                class="d-flex justify-center"
+                @update:model-value="toggle(category, action.key, $event)"
+              />
+            </td>
+          </tr>
+        </tbody>
+      </v-table>
+    </v-card-text>
+  </v-card>
+</template>
 
 <style scoped>
 .v-table {

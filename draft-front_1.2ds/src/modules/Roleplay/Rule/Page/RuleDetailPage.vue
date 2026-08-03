@@ -1,9 +1,112 @@
+<script setup lang="ts">
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useSpaceStore } from '@/modules/Roleplay/Space/Store/spaces'
+import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision'
+import { useRuleStore } from '@/modules/Roleplay/Rule/Store/rules'
+import { useKeywordStore } from '@/modules/Roleplay/Rule/Store/keywords'
+import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable'
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule'
+import type { RuleVersion } from '@/modules/Roleplay/Rule/Dto/RuleVersion'
+import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic'
+import { getRuleApi } from '@/modules/Roleplay/Rule/init'
+import { RULE_TYPE_LABELS } from '@/modules/Roleplay/Rule/Constant/RULE_TYPE_LABELS'
+import AbilityCard from '@/modules/Roleplay/Rule/Component/Cards/AbilityCard.vue'
+import RaceCard from '@/modules/Roleplay/Rule/Component/Cards/RaceCard.vue'
+import SpeciesCard from '@/modules/Roleplay/Rule/Component/Cards/SpeciesCard.vue'
+import PointsCard from '@/modules/Roleplay/Rule/Component/Cards/PointsCard.vue'
+
+const route = useRoute()
+const router = useRouter()
+const spaceStore = useSpaceStore()
+const revisionStore = useSpaceRevisionStore()
+const store = useRuleStore()
+const keywordStore = useKeywordStore()
+const { signal } = useAbortable()
+
+const code = computed(() => route.params.code as string)
+const ctx = computed(() => route.params.ctx as string)
+const ruleId = computed(() => route.params.ruleId as string)
+const isDraftContext = computed(() => ctx.value === 'draft')
+
+const rule = ref<Rule | null>(null)
+const ruleVersions = ref<RuleVersion[]>([])
+const mechanics = ref<Mechanic[]>([])
+const loaded = ref<string | null>(null)
+const loading = ref(true)
+const error = ref<string | null>(null)
+
+const mechanic = computed(() => {
+  if (!rule.value?.mechanicId) return null
+  return mechanics.value.find(m => m.id === rule.value?.mechanicId) ?? null
+})
+
+const ruleTags = computed(() => {
+  if (!rule.value?.keywordIds || rule.value.keywordIds.length === 0) return []
+  return keywordStore.keywords.filter(t => rule.value!.keywordIds!.includes(t.id))
+})
+
+const editLink = computed(() => `/space/${code.value}/${ctx.value}/rules/${ruleId.value}/edit`)
+
+async function resolveRoute(): Promise<void> {
+  const key = `${code.value}|${ctx.value}|${ruleId.value}`
+  if (loaded.value === key) return
+  loaded.value = key
+
+  loading.value = true
+  error.value = null
+  rule.value = null
+
+  try {
+    const space = await spaceStore.fetchSpaceByCode(code.value, signal.value)
+
+    if (isDraftContext.value) {
+      await revisionStore.syncFromContext(space.id, 'draft', space.revision, signal.value)
+    } else if (/^\d+$/.test(ctx.value)) {
+      await revisionStore.syncFromContext(space.id, 'rev', Number(ctx.value), signal.value)
+    } else {
+      router.replace(`/space/${code.value}`)
+      return
+    }
+
+    // Ищем правило в effectiveRules (уже смержено с черновиками в draft-контексте)
+    const found = revisionStore.effectiveRules.find(r => r.id === ruleId.value)
+
+    if (found) {
+      rule.value = found
+    } else {
+      // Fallback: загружаем напрямую из API
+      rule.value = await store.fetchRule(ruleId.value, signal.value)
+    }
+
+    await store.fetchRuleVersions(ruleId.value, signal.value)
+    ruleVersions.value = store.ruleVersions
+
+    await keywordStore.fetchTags(signal.value)
+    mechanics.value = await getRuleApi().getMechanics(signal.value)
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'AbortError') return
+    error.value = e instanceof Error ? e.message : 'Ошибка загрузки правила'
+  } finally {
+    loading.value = false
+  }
+}
+
+function retry() {
+  loaded.value = null
+  resolveRoute()
+}
+
+onMounted(resolveRoute)
+watch(() => [route.params.code, route.params.ctx, route.params.ruleId], resolveRoute)
+</script>
+
 <template>
   <v-container v-if="rule">
     <div class="d-flex align-center mb-4">
       <h1 class="text-h5">{{ rule.name }}</h1>
       <v-chip class="ml-3" variant="tonal" size="small">
-        {{ typeLabels[rule.type] }}
+        {{ RULE_TYPE_LABELS[rule.type] }}
       </v-chip>
       <v-chip
         v-if="isDraftContext"
@@ -112,117 +215,3 @@
     <v-btn color="primary" @click="retry">Попробовать снова</v-btn>
   </div>
 </template>
-
-<script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { useSpaceStore } from '@/modules/Roleplay/Space/Store/spaces'
-import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision'
-import { useRuleStore } from '../Store/rules'
-import { useKeywordStore } from '@/modules/Roleplay/Rule/Store/keywords'
-import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable'
-import type { Rule } from '../Dto/Rule'
-import type { RuleVersion } from '../Dto/RuleVersion'
-import type { Mechanic } from '../Dto/Mechanic'
-import { getRuleApi } from '../init'
-import AbilityCard from '../Component/Cards/AbilityCard.vue'
-import RaceCard from '../Component/Cards/RaceCard.vue'
-import SpeciesCard from '../Component/Cards/SpeciesCard.vue'
-import PointsCard from '../Component/Cards/PointsCard.vue'
-
-const route = useRoute()
-const router = useRouter()
-const spaceStore = useSpaceStore()
-const revisionStore = useSpaceRevisionStore()
-const store = useRuleStore()
-const keywordStore = useKeywordStore()
-const { signal } = useAbortable()
-
-const code = computed(() => route.params.code as string)
-const ctx = computed(() => route.params.ctx as string)
-const ruleId = computed(() => route.params.ruleId as string)
-const isDraftContext = computed(() => ctx.value === 'draft')
-
-const rule = ref<Rule | null>(null)
-const ruleVersions = ref<RuleVersion[]>([])
-const mechanics = ref<Mechanic[]>([])
-const loaded = ref<string | null>(null)
-const loading = ref(true)
-const error = ref<string | null>(null)
-
-const typeLabels: Record<string, string> = {
-  simple: 'Простое',
-  race: 'Раса',
-  species: 'Вид/Подвид',
-  characteristic: 'Характеристика',
-  resource: 'Ресурс',
-  points: 'Очки',
-  ability: 'Способность',
-  item: 'Предмет',
-  damage_type: 'Тип урона',
-}
-
-const mechanic = computed(() => {
-  if (!rule.value?.mechanicId) return null
-  return mechanics.value.find(m => m.id === rule.value?.mechanicId) ?? null
-})
-
-const ruleTags = computed(() => {
-  if (!rule.value?.keywordIds || rule.value.keywordIds.length === 0) return []
-  return keywordStore.keywords.filter(t => rule.value!.keywordIds!.includes(t.id))
-})
-
-const editLink = computed(() => `/space/${code.value}/${ctx.value}/rules/${ruleId.value}/edit`)
-
-async function resolveRoute(): Promise<void> {
-  const key = `${code.value}|${ctx.value}|${ruleId.value}`
-  if (loaded.value === key) return
-  loaded.value = key
-
-  loading.value = true
-  error.value = null
-  rule.value = null
-
-  try {
-    const space = await spaceStore.fetchSpaceByCode(code.value, signal.value)
-
-    if (isDraftContext.value) {
-      await revisionStore.syncFromContext(space.id, 'draft', space.revision, signal.value)
-    } else if (/^\d+$/.test(ctx.value)) {
-      await revisionStore.syncFromContext(space.id, 'rev', Number(ctx.value), signal.value)
-    } else {
-      router.replace(`/space/${code.value}`)
-      return
-    }
-
-    // Ищем правило в effectiveRules (уже смержено с черновиками в draft-контексте)
-    const found = revisionStore.effectiveRules.find(r => r.id === ruleId.value)
-
-    if (found) {
-      rule.value = found
-    } else {
-      // Fallback: загружаем напрямую из API
-      rule.value = await store.fetchRule(ruleId.value, signal.value)
-    }
-
-    await store.fetchRuleVersions(ruleId.value, signal.value)
-    ruleVersions.value = store.ruleVersions
-
-    await keywordStore.fetchTags(signal.value)
-    mechanics.value = await getRuleApi().getMechanics(signal.value)
-  } catch (e) {
-    if (e instanceof DOMException && e.name === 'AbortError') return
-    error.value = e instanceof Error ? e.message : 'Ошибка загрузки правила'
-  } finally {
-    loading.value = false
-  }
-}
-
-function retry() {
-  loaded.value = null
-  resolveRoute()
-}
-
-onMounted(resolveRoute)
-watch(() => [route.params.code, route.params.ctx, route.params.ruleId], resolveRoute)
-</script>

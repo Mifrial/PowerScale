@@ -1,3 +1,40 @@
+<script setup lang="ts">
+import { useVModelSync } from '@/modules/Core/UI/Composables/useVModelSync'
+
+interface DefenseSlot {
+  defense: number
+  durability: number
+  source_code: string | null
+}
+
+const props = defineProps<{
+  modelValue: DefenseSlot[]
+  sources: { code: string; name: string }[]
+}>()
+
+const emit = defineEmits<{
+  'update:modelValue': [value: DefenseSlot[]]
+}>()
+
+const { inner: localSlots } = useVModelSync<DefenseSlot[]>({
+  modelValue: () => props.modelValue,
+  onCommit: (value) => emit('update:modelValue', value),
+  clone: false,
+})
+
+function addSlot() {
+  localSlots.value.push({
+    defense: 0,
+    durability: 0,
+    source_code: null
+  })
+}
+
+function removeSlot(index: number) {
+  localSlots.value.splice(index, 1)
+}
+</script>
+
 <template>
   <div>
     <v-card variant="outlined" class="pa-3">
@@ -65,46 +102,3 @@
     </v-card>
   </div>
 </template>
-
-<script setup lang="ts">
-import { ref, watch } from 'vue'
-
-interface DefenseSlot {
-  defense: number
-  durability: number
-  source_code: string | null
-}
-
-const props = defineProps<{
-  modelValue: DefenseSlot[]
-  sources: { code: string; name: string }[]
-}>()
-
-const emit = defineEmits<{
-  'update:modelValue': [value: DefenseSlot[]]
-}>()
-
-const localSlots = ref<DefenseSlot[]>([...props.modelValue])
-
-function addSlot() {
-  localSlots.value.push({
-    defense: 0,
-    durability: 0,
-    source_code: null
-  })
-}
-
-function removeSlot(index: number) {
-  localSlots.value.splice(index, 1)
-}
-
-watch(localSlots, (value) => {
-  emit('update:modelValue', [...value])
-}, { deep: true })
-
-watch(() => props.modelValue, (value) => {
-  if (JSON.stringify(value) !== JSON.stringify(localSlots.value)) {
-    localSlots.value = [...value]
-  }
-}, { deep: true })
-</script>

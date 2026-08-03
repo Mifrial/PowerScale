@@ -1,5 +1,5 @@
-import type { Keyword } from '../Dto/Keyword'
-import type { CreateKeywordData, UpdateKeywordData } from '../Interface/IKeywordApi'
+import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword'
+import type { CreateKeywordData, UpdateKeywordData } from '@/modules/Roleplay/Rule/Interface/IKeywordApi'
 
 const delay = (ms = 300) => new Promise(r => setTimeout(r, ms))
 

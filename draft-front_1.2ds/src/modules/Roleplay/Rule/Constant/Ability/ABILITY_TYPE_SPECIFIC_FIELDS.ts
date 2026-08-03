@@ -1,5 +1,5 @@
-import type { AbilitySpecDraft } from '../../Dto/Ability/AbilitySpecDraft'
-import { ABILITY_SPEC_FIELDS } from './ABILITY_SPEC_FIELDS'
+import type { AbilitySpecDraft } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpecDraft'
+import { ABILITY_SPEC_FIELDS } from '@/modules/Roleplay/Rule/Constant/Ability/ABILITY_SPEC_FIELDS'
 
 /** Универсум типоспецифичных полей способности — производная от манифеста ABILITY_SPEC_FIELDS (union значений).
  * Используется фабрикой в prune: поле чистится, если не разрешено текущему типу. */

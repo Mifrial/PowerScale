@@ -1,13 +1,13 @@
-import { ref, computed, onBeforeUnmount } from 'vue'
+import { computed, onBeforeUnmount } from 'vue'
 
 export function useAbortable() {
-  const controller = ref(new AbortController())
-  
+  const controller = new AbortController()
+
   onBeforeUnmount(() => {
-    controller.value.abort()
+    controller.abort()
   })
-  
+
   return {
-    signal: computed(() => controller.value.signal)
+    signal: computed(() => controller.signal),
   }
 }

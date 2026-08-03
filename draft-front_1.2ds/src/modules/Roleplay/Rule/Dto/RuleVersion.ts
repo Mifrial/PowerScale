@@ -1,4 +1,4 @@
-import type { RuleSpec } from '@/modules/Roleplay/Rule/Enum/RuleSpec'
+import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec'
 
 export interface RuleVersion {
   id: number

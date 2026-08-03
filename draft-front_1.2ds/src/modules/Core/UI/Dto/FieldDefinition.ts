@@ -1,4 +1,4 @@
-import type { FieldMeta } from './FieldMeta'
+import type { FieldMeta } from '@/modules/Core/UI/Dto/FieldMeta'
 
 export interface FieldDefinition {
   key: string

@@ -1,3 +1,18 @@
+<script setup lang="ts">
+import type { Notification } from '@/modules/Messages/Notifications/Dto/Notification'
+import NotificationItem from '@/modules/Messages/Notifications/Component/NotificationItem.vue'
+
+defineProps<{
+  items: Notification[]
+  iconSize?: number | string
+  actionSize?: string
+}>()
+
+defineEmits<{
+  action: [payload: { id: number; key: string }]
+}>()
+</script>
+
 <template>
   <div v-if="items.length" class="notification-list">
     <NotificationItem
@@ -13,21 +28,6 @@
     <slot name="empty" />
   </div>
 </template>
-
-<script setup lang="ts">
-import type { Notification } from '@/modules/Messages/Notifications/Dto/Notification'
-import NotificationItem from './NotificationItem.vue'
-
-defineProps<{
-  items: Notification[]
-  iconSize?: number | string
-  actionSize?: string
-}>()
-
-defineEmits<{
-  action: [payload: { id: number; key: string }]
-}>()
-</script>
 
 <style scoped>
 .notification-list {

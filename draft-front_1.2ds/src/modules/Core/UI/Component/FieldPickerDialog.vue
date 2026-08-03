@@ -1,3 +1,37 @@
+<script setup lang="ts">
+import { ref } from 'vue'
+import type { PickerItem } from '@/modules/Core/UI/Dto/PickerItem'
+
+export type { PickerItem }
+
+const props = defineProps<{
+  modelValue: boolean
+  title: string
+  description?: string
+  items: PickerItem[]
+}>()
+
+const emit = defineEmits<{
+  'update:modelValue': [v: boolean]
+  apply: [items: PickerItem[]]
+}>()
+
+const localItems = ref<PickerItem[]>(props.items.map(i => ({ ...i })))
+
+function toggleVisible(i: number) {
+  localItems.value[i].visible = !localItems.value[i].visible
+}
+
+function onCancel() {
+  emit('update:modelValue', false)
+}
+
+function onApply() {
+  emit('apply', localItems.value.map(i => ({ key: i.key, label: i.label, visible: i.visible })))
+  emit('update:modelValue', false)
+}
+</script>
+
 <template>
   <v-dialog
     :model-value="modelValue"
@@ -44,43 +78,6 @@
     </v-card>
   </v-dialog>
 </template>
-
-<script setup lang="ts">
-import { ref } from 'vue'
-
-export interface PickerItem {
-  key: string
-  label: string
-  visible: boolean
-}
-
-const props = defineProps<{
-  modelValue: boolean
-  title: string
-  description?: string
-  items: PickerItem[]
-}>()
-
-const emit = defineEmits<{
-  'update:modelValue': [v: boolean]
-  apply: [items: PickerItem[]]
-}>()
-
-const localItems = ref<PickerItem[]>(props.items.map(i => ({ ...i })))
-
-function toggleVisible(i: number) {
-  localItems.value[i].visible = !localItems.value[i].visible
-}
-
-function onCancel() {
-  emit('update:modelValue', false)
-}
-
-function onApply() {
-  emit('apply', localItems.value.map(i => ({ key: i.key, label: i.label, visible: i.visible })))
-  emit('update:modelValue', false)
-}
-</script>
 
 <style scoped>
 .picker-list {

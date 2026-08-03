@@ -1,3 +1,80 @@
+<script setup lang="ts">
+import type { ZoneId } from '@/modules/Roleplay/Rule/Dto/Ability/ZoneId'
+import type { AbilityCost } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityCost'
+import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue'
+import { useVModelSync } from '@/modules/Core/UI/Composables/useVModelSync'
+
+const props = defineProps<{
+  modelValue: Partial<Record<ZoneId, AbilityCost>>
+  zoneOptions: { label: string; value: string }[]
+  disabled?: boolean
+}>()
+
+const emit = defineEmits<{
+  'update:modelValue': [value: Partial<Record<ZoneId, AbilityCost>>]
+}>()
+
+const { inner } = useVModelSync<Partial<Record<ZoneId, AbilityCost>>>({
+  modelValue: () => props.modelValue,
+  onCommit: (value) => emit('update:modelValue', value),
+  clone: false,
+})
+
+function hasZone(zone: ZoneId): boolean {
+  return !!inner.value[zone]
+}
+
+function zoneCost(zone: ZoneId): AbilityCost {
+  return inner.value[zone] ?? { kind: 'array', levels_cost: [0] }
+}
+
+function progressionZone(zone: ZoneId) {
+  const cost = inner.value[zone]
+  return cost && cost.kind === 'progression' ? cost : null
+}
+
+function toggleZone(zone: ZoneId, checked: boolean) {
+  const zones = { ...inner.value }
+  if (checked) {
+    zones[zone] = { kind: 'array', levels_cost: [0] }
+  } else {
+    delete zones[zone]
+  }
+  inner.value = zones
+}
+
+function patchZone(zone: ZoneId, key: string, value: unknown) {
+  const current = inner.value[zone]
+  if (!current) return
+  inner.value = { ...inner.value, [zone]: { ...current, [key]: value } as AbilityCost }
+}
+
+function arrayCosts(zone: ZoneId): number[] {
+  const cost = inner.value[zone]
+  return cost && cost.kind === 'array' ? cost.levels_cost : []
+}
+
+function updateArrayCost(zone: ZoneId, index: number, value: number) {
+  const cost = inner.value[zone]
+  if (!cost || cost.kind !== 'array') return
+  const levels_cost = [...cost.levels_cost]
+  levels_cost[index] = Number(value) || 0
+  inner.value = { ...inner.value, [zone]: { kind: 'array', levels_cost } }
+}
+
+function addArrayCost(zone: ZoneId) {
+  const cost = inner.value[zone]
+  if (!cost || cost.kind !== 'array') return
+  inner.value = { ...inner.value, [zone]: { kind: 'array', levels_cost: [...cost.levels_cost, 0] } }
+}
+
+function removeArrayCost(zone: ZoneId) {
+  const cost = inner.value[zone]
+  if (!cost || cost.kind !== 'array' || cost.levels_cost.length <= 1) return
+  inner.value = { ...inner.value, [zone]: { kind: 'array', levels_cost: cost.levels_cost.slice(0, -1) } }
+}
+</script>
+
 <template>
   <div>
     <div class="d-flex flex-wrap ga-4">
@@ -94,89 +171,3 @@
     </div>
   </div>
 </template>
-
-<script setup lang="ts">
-import { ref, watch } from 'vue'
-import type { ZoneId } from '@/modules/Roleplay/Rule/Dto/Ability/ZoneId'
-import type { AbilityCost } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityCost'
-import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue'
-
-const props = defineProps<{
-  modelValue: Partial<Record<ZoneId, AbilityCost>>
-  zoneOptions: { label: string; value: string }[]
-  disabled?: boolean
-}>()
-
-const emit = defineEmits<{
-  'update:modelValue': [value: Partial<Record<ZoneId, AbilityCost>>]
-}>()
-
-const inner = ref<Partial<Record<ZoneId, AbilityCost>>>({ ...props.modelValue })
-
-watch(() => props.modelValue, (v) => {
-  inner.value = { ...v }
-}, { deep: true })
-
-function commit() {
-  emit('update:modelValue', { ...inner.value })
-}
-
-function hasZone(zone: ZoneId): boolean {
-  return !!inner.value[zone]
-}
-
-function zoneCost(zone: ZoneId): AbilityCost {
-  return inner.value[zone] ?? { kind: 'array', levels_cost: [0] }
-}
-
-function progressionZone(zone: ZoneId) {
-  const cost = inner.value[zone]
-  return cost && cost.kind === 'progression' ? cost : null
-}
-
-function toggleZone(zone: ZoneId, checked: boolean) {
-  const zones = { ...inner.value }
-  if (checked) {
-    zones[zone] = { kind: 'array', levels_cost: [0] }
-  } else {
-    delete zones[zone]
-  }
-  inner.value = zones
-  commit()
-}
-
-function patchZone(zone: ZoneId, key: string, value: unknown) {
-  const current = inner.value[zone]
-  if (!current) return
-  inner.value = { ...inner.value, [zone]: { ...current, [key]: value } as AbilityCost }
-  commit()
-}
-
-function arrayCosts(zone: ZoneId): number[] {
-  const cost = inner.value[zone]
-  return cost && cost.kind === 'array' ? cost.levels_cost : []
-}
-
-function updateArrayCost(zone: ZoneId, index: number, value: number) {
-  const cost = inner.value[zone]
-  if (!cost || cost.kind !== 'array') return
-  const levels_cost = [...cost.levels_cost]
-  levels_cost[index] = Number(value) || 0
-  inner.value = { ...inner.value, [zone]: { kind: 'array', levels_cost } }
-  commit()
-}
-
-function addArrayCost(zone: ZoneId) {
-  const cost = inner.value[zone]
-  if (!cost || cost.kind !== 'array') return
-  inner.value = { ...inner.value, [zone]: { kind: 'array', levels_cost: [...cost.levels_cost, 0] } }
-  commit()
-}
-
-function removeArrayCost(zone: ZoneId) {
-  const cost = inner.value[zone]
-  if (!cost || cost.kind !== 'array' || cost.levels_cost.length <= 1) return
-  inner.value = { ...inner.value, [zone]: { kind: 'array', levels_cost: cost.levels_cost.slice(0, -1) } }
-  commit()
-}
-</script>

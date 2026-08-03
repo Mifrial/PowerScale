@@ -1,79 +1,3 @@
-<template>
-  <v-dialog v-model="open" max-width="640">
-    <v-card>
-      <v-card-title>Публикация черновика</v-card-title>
-      <v-card-text>
-        <div class="text-body-2 mb-4">
-          Будут опубликованы {{ publishAdded.length + publishChanged.length }} правил
-          поверх версии {{ space?.revision }}.
-        </div>
-
-        <div v-if="publishChanged.length > 0" class="mb-3">
-          <div class="text-subtitle-2 font-weight-medium mb-1">
-            Изменённые ({{ publishChanged.length }})
-          </div>
-          <div
-            v-for="rule in publishChanged"
-            :key="rule.id"
-            class="d-flex align-center pa-2 mb-1 bg-surface-variant rounded"
-          >
-            <span class="text-body-2">{{ rule.name }}</span>
-            <v-chip size="x-small" class="ml-2" variant="tonal">{{ RULE_TYPE_LABELS[rule.type] }}</v-chip>
-          </div>
-        </div>
-
-        <div v-if="publishAdded.length > 0" class="mb-3">
-          <div class="text-subtitle-2 font-weight-medium mb-1">
-            Новые ({{ publishAdded.length }})
-          </div>
-          <div
-            v-for="rule in publishAdded"
-            :key="rule.id"
-            class="d-flex align-center pa-2 mb-1 bg-surface-variant rounded"
-          >
-            <span class="text-body-2">{{ rule.name }}</span>
-            <v-chip size="x-small" class="ml-2" variant="tonal">{{ RULE_TYPE_LABELS[rule.type] }}</v-chip>
-          </div>
-        </div>
-
-        <div v-if="hasPublishProblems">
-          <div class="text-subtitle-2 font-weight-medium text-error mb-1">
-            Проблемные ({{ publishProblems.length + publishSpaceErrors.length }})
-          </div>
-          <div class="text-body-2 text-error mb-2">
-            В черновике есть правила с ошибками. Исправьте их перед публикацией.
-          </div>
-          <div
-            v-for="entry in publishProblems"
-            :key="entry.ruleCode"
-            class="pa-2 mb-1 bg-error-lighten-5 rounded"
-          >
-            <div class="text-body-2 font-weight-medium">{{ entry.ruleName }}</div>
-            <div v-for="(msg, i) in entry.messages" :key="i" class="text-body-2 text-error pa-1">
-              {{ msg }}
-            </div>
-          </div>
-          <div v-for="(msg, i) in publishSpaceErrors" :key="'s' + i" class="text-body-2 text-error pa-1">
-            {{ msg }}
-          </div>
-        </div>
-      </v-card-text>
-      <v-card-actions>
-        <v-btn variant="text" @click="open = false">Отмена</v-btn>
-        <v-btn
-          color="primary"
-          variant="tonal"
-          :loading="publishing"
-          :disabled="hasPublishProblems"
-          @click="publishDraft"
-        >
-          Подтвердить публикацию
-        </v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
-</template>
-
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import type { Space } from '@/modules/Roleplay/Space/Dto/Space'
@@ -164,3 +88,79 @@ async function publishDraft() {
   }
 }
 </script>
+
+<template>
+  <v-dialog v-model="open" max-width="640">
+    <v-card>
+      <v-card-title>Публикация черновика</v-card-title>
+      <v-card-text>
+        <div class="text-body-2 mb-4">
+          Будут опубликованы {{ publishAdded.length + publishChanged.length }} правил
+          поверх версии {{ space?.revision }}.
+        </div>
+
+        <div v-if="publishChanged.length > 0" class="mb-3">
+          <div class="text-subtitle-2 font-weight-medium mb-1">
+            Изменённые ({{ publishChanged.length }})
+          </div>
+          <div
+            v-for="rule in publishChanged"
+            :key="rule.id"
+            class="d-flex align-center pa-2 mb-1 bg-surface-variant rounded"
+          >
+            <span class="text-body-2">{{ rule.name }}</span>
+            <v-chip size="x-small" class="ml-2" variant="tonal">{{ RULE_TYPE_LABELS[rule.type] }}</v-chip>
+          </div>
+        </div>
+
+        <div v-if="publishAdded.length > 0" class="mb-3">
+          <div class="text-subtitle-2 font-weight-medium mb-1">
+            Новые ({{ publishAdded.length }})
+          </div>
+          <div
+            v-for="rule in publishAdded"
+            :key="rule.id"
+            class="d-flex align-center pa-2 mb-1 bg-surface-variant rounded"
+          >
+            <span class="text-body-2">{{ rule.name }}</span>
+            <v-chip size="x-small" class="ml-2" variant="tonal">{{ RULE_TYPE_LABELS[rule.type] }}</v-chip>
+          </div>
+        </div>
+
+        <div v-if="hasPublishProblems">
+          <div class="text-subtitle-2 font-weight-medium text-error mb-1">
+            Проблемные ({{ publishProblems.length + publishSpaceErrors.length }})
+          </div>
+          <div class="text-body-2 text-error mb-2">
+            В черновике есть правила с ошибками. Исправьте их перед публикацией.
+          </div>
+          <div
+            v-for="entry in publishProblems"
+            :key="entry.ruleCode"
+            class="pa-2 mb-1 bg-error-lighten-5 rounded"
+          >
+            <div class="text-body-2 font-weight-medium">{{ entry.ruleName }}</div>
+            <div v-for="(msg, i) in entry.messages" :key="i" class="text-body-2 text-error pa-1">
+              {{ msg }}
+            </div>
+          </div>
+          <div v-for="(msg, i) in publishSpaceErrors" :key="'s' + i" class="text-body-2 text-error pa-1">
+            {{ msg }}
+          </div>
+        </div>
+      </v-card-text>
+      <v-card-actions>
+        <v-btn variant="text" @click="open = false">Отмена</v-btn>
+        <v-btn
+          color="primary"
+          variant="tonal"
+          :loading="publishing"
+          :disabled="hasPublishProblems"
+          @click="publishDraft"
+        >
+          Подтвердить публикацию
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
+</template>

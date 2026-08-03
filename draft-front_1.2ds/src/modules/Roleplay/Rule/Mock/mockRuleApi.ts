@@ -1,6 +1,6 @@
-import type { IRuleApi } from '../Interface/IRuleApi'
-import * as mock from './mockRules'
-import { fetchMechanics } from './mockMechanics'
+import type { IRuleApi } from '@/modules/Roleplay/Rule/Interface/IRuleApi'
+import * as mock from '@/modules/Roleplay/Rule/Mock/mockRules'
+import { fetchMechanics } from '@/modules/Roleplay/Rule/Mock/mockMechanics'
 
 export const mockRuleApi: IRuleApi = {
   getRules: mock.fetchRules,

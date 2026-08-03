@@ -1,5 +1,5 @@
 import type { RuleType } from '@/modules/Roleplay/Rule/Enum/RuleType'
-import type { RuleSpec } from '@/modules/Roleplay/Rule/Enum/RuleSpec'
+import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec'
 
 export interface CreateRuleData {
   /** Опционально: если пусто — генерируется slug-ом из названия. Далее не изменяется. */

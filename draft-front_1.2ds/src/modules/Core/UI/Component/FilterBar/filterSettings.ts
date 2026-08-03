@@ -1,4 +1,5 @@
 import type { FilterField } from '@/modules/Core/UI/Dto/FilterField'
+import { FILTERBAR_STORAGE_PREFIX } from '@/modules/Core/UI/Constant/uiStorage'
 
 export interface FilterFieldSetting {
   key: string
@@ -9,10 +10,8 @@ export interface FilterSettings {
   fields: FilterFieldSetting[]
 }
 
-const STORAGE_PREFIX = 'filterbar_'
-
 function storageKey(settingsKey: string) {
-  return `${STORAGE_PREFIX}${settingsKey}`
+  return `${FILTERBAR_STORAGE_PREFIX}${settingsKey}`
 }
 
 export function loadFilterSettings(settingsKey: string): FilterSettings | null {

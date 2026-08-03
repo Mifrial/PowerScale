@@ -1,3 +1,15 @@
+<script setup lang="ts">
+import { computed } from 'vue'
+import { useNotificationStore } from '@/modules/Messages/Notifications/Store/notifications'
+import AppBreadcrumbs from '@/shell/AppBreadcrumbs.vue'
+
+defineEmits<{ 'toggle-sidebar': []; 'toggle-notifications': [] }>()
+
+const notificationStore = useNotificationStore()
+
+const unreadCount = computed(() => notificationStore.unreadCount)
+</script>
+
 <template>
   <v-app-bar flat class="border-b">
     <v-app-bar-nav-icon @click="$emit('toggle-sidebar')" />
@@ -13,15 +25,3 @@
     </v-btn>
   </v-app-bar>
 </template>
-
-<script setup lang="ts">
-import { computed } from 'vue'
-import { useNotificationStore } from '@/modules/Messages/Notifications/Store/notifications'
-import AppBreadcrumbs from './AppBreadcrumbs.vue'
-
-defineEmits<{ 'toggle-sidebar': []; 'toggle-notifications': [] }>()
-
-const notificationStore = useNotificationStore()
-
-const unreadCount = computed(() => notificationStore.unreadCount)
-</script>

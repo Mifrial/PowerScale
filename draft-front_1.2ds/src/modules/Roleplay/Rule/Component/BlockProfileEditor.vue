@@ -1,41 +1,8 @@
-<template>
-  <div>
-    <div v-if="showToggle" class="d-flex align-center gap-2 mt-2 mb-2">
-      <label class="text-body-2 font-weight-medium" style="min-width: 120px;">Профиль блокирования</label>
-      <v-switch
-        v-model="active"
-        hide-details
-      />
-    </div>
-
-    <template v-if="active">
-      <div class="d-flex gap-2 mb-2">
-        <DimensionalNumberInput
-          v-model="localProfile.efficiency"
-          label="Эффективность"
-        />
-        <v-text-field
-          v-model.number="localProfile.defense"
-          label="Защита"
-          type="number"
-          density="compact"
-          style="max-width: 100px;"
-        />
-      </div>
-      <ResistanceSlotsEditor
-        v-model="localProfile.resistances"
-        :damage-types="damageTypes"
-        :sources="sources"
-      />
-    </template>
-  </div>
-</template>
-
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
-import type { DimensionalNumberValue } from '@/modules/Core/Engine/Value/DimensionalNumber'
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumber'
 import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue'
-import ResistanceSlotsEditor from './ResistanceSlotsEditor.vue'
+import ResistanceSlotsEditor from '@/modules/Roleplay/Rule/Component/ResistanceSlotsEditor.vue'
 
 interface ResistanceSlot {
   damage_type_code: string | null
@@ -93,6 +60,39 @@ watch(localProfile, (v) => {
   }
 }, { deep: true })
 </script>
+
+<template>
+  <div>
+    <div v-if="showToggle" class="d-flex align-center gap-2 mt-2 mb-2">
+      <label class="text-body-2 font-weight-medium" style="min-width: 120px;">Профиль блокирования</label>
+      <v-switch
+        v-model="active"
+        hide-details
+      />
+    </div>
+
+    <template v-if="active">
+      <div class="d-flex gap-2 mb-2">
+        <DimensionalNumberInput
+          v-model="localProfile.efficiency"
+          label="Эффективность"
+        />
+        <v-text-field
+          v-model.number="localProfile.defense"
+          label="Защита"
+          type="number"
+          density="compact"
+          style="max-width: 100px;"
+        />
+      </div>
+      <ResistanceSlotsEditor
+        v-model="localProfile.resistances"
+        :damage-types="damageTypes"
+        :sources="sources"
+      />
+    </template>
+  </div>
+</template>
 
 <style scoped>
 .gap-2 {

@@ -113,9 +113,9 @@ src/
   modules/
     Core/
       Engine/
-        init.ts                 — публичная точка модуля (HttpClient, Engine, ActionResponse, serviceLocator, register/getCsrfApi)
+        init.ts                 — публичная точка модуля (HttpClient, Engine, ActionResponse, register/getCsrfApi)
         Service/
-          ServiceLocator.ts     — DI-контейнер (set/get/reset) → export serviceLocator
+          ServiceLocator.ts     — DI-контейнер (set/get/reset, ключи — serviceCode) → export serviceLocator
           HttpClient.ts         — fetch-клиент, интерцепторы (401, CSRF)
           CsrfApi.ts            — чтение csrf-token из document.cookie
           Engine.ts             — runAction-клиент (fetch + CSRF + baseUrl)
@@ -123,29 +123,32 @@ src/
           ICSRFApi.ts           — getToken(), initToken()
         Dto/
           ActionResponse.ts     — DTO ответа runAction
+          DimensionalNumber.ts  — plain-типы DimensionalNumberValue/DimensionalNumberBaseRange
+          HttpClientConfig.ts   — конфиг HttpClient
+          HttpResponse.ts       — HTTP-конверт ответа HttpClient
         Mock/
           mockCsrf.ts           — генерация UUID в памяти
         Value/
           DateTime.ts
-          DimensionalNumber.ts  — value-класс (plain-тип DimensionalNumberValue)
+          DimensionalNumber.ts  — value-класс (plain-тип DimensionalNumberValue — в Dto/)
         Composables/
           useAbortable.ts       — AbortController composable
-          useGridPage.ts        — сортировка/пагинация/фильтры для Grid
       Auth/
         Interface/ IAuthApi.ts
-        Dto/ PasswordPolicy.ts
+        Dto/ PasswordPolicy.ts, LoginForm.ts (FormRef)
         Service/ AuthApi.ts, PasswordValidatorService.ts
         Constant/ passwordPolicy.ts — DEFAULT_PASSWORD_POLICY
         Mock/ mockAuth.ts, mockAuthApi.ts
         Store/ auth.ts
         init.ts                 — registerAuthApi() / getAuthApi()
       User/
-        Interface/ IUserApi.ts, IGroupApi.ts
-        Dto/ User.ts, Group.ts, ProfileSection.ts
+        Interface/ IUserApi.ts, IGroupApi.ts; PermissionAction.ts, PermissionCategory.ts, AdminSection.ts (ранее в IPermissionRegistry.ts — баррель-ре-экспорт)
+        Dto/ User.ts, Group.ts, ProfileSection.ts, GroupMember.ts
         Service/ UserApi.ts, GroupApi.ts, AccessService.ts (hasAny/hasAll, super-admin bypass)
-        Constant/ permissions.ts — категории прав Core/User (user, user_group) + админ-секция groups
-        Interface/ IPermissionRegistry.ts — типы PermissionCategory/AdminSection
-        Mock/ mockUserApi.ts, mockUsers.ts, mockGroupApi.ts, mockGroups.ts, groupPermissions.ts
+        Constant/ permissions.ts, usersGridManifest.ts, groupsGridManifest.ts — категории прав Core/User (user, user_group) + админ-секция groups
+        Mock/ mockUserApi.ts, mockUsers.ts, mockGroupApi.ts, mockGroups.ts, groupPermissions.ts, mockGroupMembers.ts
+        Utils/ profile.ts — initials()/displayName()
+        Component/ UserForm.vue, PermissionMatrix.vue, ProfileInfoCard.vue, ProfileAuthCard.vue, ProfileGroupsCard.vue, DeactivateUserDialog.vue
         Store/ users.ts, groups.ts
         init.ts                 — registerUserApi()/getUserApi(); registerProfileSection(); реестр прав:
                                   registerPermissionCategory()/getPermissionCategories()/getPermissionKeys(),
@@ -153,9 +156,18 @@ src/
                                   resetPermissionRegistries(); registerUserModule()
       UI/
         Component/
-          Grid/                 — SmartGrid (рендеры, редакторы)
-          FilterBar/            — фильтры
-          Input/                — PasswordField.vue, DimensionalNumber.vue, DimensionalNumberInput.vue
+          Grid/                 — SmartGrid (композиция) + Grid/header/GridHeader, GridRow, GridFooter, ScrollEars; cells/registry, gridSettings
+          FilterBar/            — FilterBar (композиция) + FilterPopup, FilterChips; handlers/registry, filterSettings, filterValues
+          Input/                — PasswordField.vue, DimensionalNumber.vue, DimensionalNumberInput.vue, ClampedNumberField.vue
+        Composables/
+          useVModelSync.ts      — v-model sync-паттерн (inner + deep-watch + commit), 12 редакторов
+          useColumnResize.ts, useColumnDrag.ts, useScrollEars.ts — интеракции Grid
+          useGridPage.ts        — сортировка/пагинация/фильтры для Grid-страниц (кросс-модульный)
+          useFilterBuffer.ts    — буфер фильтров FilterBar (редактирование/apply/reset)
+        Constant/
+          perPageOptions.ts, filterModeOptions.ts, uiStorage.ts
+        Dto/
+          ColumnDefinition.ts, FieldDefinition.ts, FieldMeta.ts, ..., PickerItem.ts
         Utils/
           debounce.ts           — UI-утилита
     Messages/
@@ -163,6 +175,7 @@ src/
         Interface/ IChatApi.ts, ICommandHandler.ts, IContentRenderer.ts, IChatToolbarExtension.ts
         Dto/ Chat.ts, ChatMessage.ts, SyncResponse.ts, MemberInfo.ts
         Enum/ ChatType.ts, ChatVisibility.ts
+        Constant/ chatType.ts (CHAT_CONFIG), avatarColors.ts, chatTabs.ts, chatStoreConfig.ts
         Service/ ChatApi.ts, ChatSyncService.ts (SSE/polling)
         Mock/ mockChatApi.ts, mockChat.ts
         Store/ chat.ts
@@ -178,22 +191,25 @@ src/
     Roleplay/
       Rule/
         Interface/ IRuleApi.ts
-        Dto/ Rule.ts, RuleVersion.ts, Mechanic.ts, ResourceSpec.ts, CreateRuleData.ts, UpdateRuleData.ts, Ability/, Item/, Race/
-        Enum/ RuleType.ts, Ability/AbilityType.ts, Race/RaceCharacteristicMode.ts
-        Service/ RuleApi.ts, RuleValidationService.ts, RuleDiffService.ts, Spec/
-        Constant/ Ability/, Item/
+        Dto/ Rule.ts, RuleVersion.ts, RuleSpec.ts, Mechanic.ts, ResourceSpec.ts, CreateRuleData.ts, UpdateRuleData.ts, RuleFormState.ts, Ability/, Item/, Race/
+        Enum/ RuleType.ts, Ability/AbilityType.ts, Race/RaceCharacteristicMode.ts  (только string-literal union; юнионы-контракты — в Dto/)
+        Service/ RuleApi.ts, RuleValidationService.ts, RuleDiffService.ts, RuleReferenceService.ts, RuleDraftService.ts, Spec/ (Ability, Item, Race, Resource, Process)
+        Constant/ RULE_TYPES.ts, RULE_TYPE_LABELS.ts, PROCESS_TRANSITION_MODES.ts, CHARACTERISTIC_FORMULA_TYPES.ts, keywordsGridManifest.ts, Ability/ (ABILITY_*_FIELDS, GRANT_TYPES, REQUIREMENT_TYPES, ...), Item/ (ITEM_SUBTYPES, ITEM_CATEGORIES, WEAPON_PROFILE_TYPES, ...)
         Mock/ mockRuleApi.ts, mockRules.ts, mockMechanics.ts
-        Component/ — редакторы (Ability, Item, Race, Spell, ...), карточки, FormulaInput
+        Component/ — редакторы (Ability, Item, Race, Spell, ...), карточки, FormulaInput; дочерние секции редакторов рядом (Editors/Item/, RaceCharacteristicsEditor, RaceAbilitiesEditor, InheritancePreview, ProcessStepEditor, ProcessTransitionEditor, ProcessStartFailureEditor, RuleConflictDialog)
+        Utils/ Rule/formMapper.ts, Text/slugify.ts
         Store/ rules.ts, draftRules.ts
         init.ts, routes.ts
         Dto/ Source-правила (тип rule 'source'): источники модификаторов — часть правил, не справочник
       Game/
         Interface/ IMacroApi.ts
         Dto/ DiceRollSpec.ts, DiceRollResult.ts, UserMacro.ts, MacroRollSpec.ts
-        Service/ RollService.ts (парсер /roll + разрешение бросков, синглтон rollService), MacroApi.ts
+        Service/ RollService.ts (парсер /roll + разрешение бросков + validateRollSpec/formatRollSpecText, синглтон rollService), MacroApi.ts
+        Constant/ rollLimits.ts
         Mock/ mockMacroApi.ts, mockMacros.ts
         Store/ macros.ts
-        Component/ DiceRollForm.vue, DiceRollResult.vue, RollFormExtension.vue, MacroBarExtension.vue, MacrosSection.vue
+        Component/ DiceRollForm.vue, DiceRollResult.vue, RollFormExtension.vue, MacroBarExtension.vue, MacrosSection.vue (композиция) + Macros/MacroForm.vue, Macros/MacroRollEditor.vue
+        Dto/ RollForm.ts
         Page/ GamesPage.vue
         init.ts                 — registerMacroApi()/getMacroApi(); registerGameModule() (права + плагины Chat + секция профиля)
         routes.ts
@@ -222,6 +238,20 @@ src/
 ```
 
 **Конвенция страниц:** страницы живут в `modules/<Module>/Page/*.vue`; корневой layout — `shell/`, роутер — `router/index.ts`.
+
+**Волна 2 фронта (2026-08-03, приведение к frontend-rules.md):**
+- Механика: все импорты в `src/` через `@/` (относительные пути запрещены); порядок тегов SFC строго `<script setup lang="ts">` → `<template>` → `<style scoped>`.
+- Типизация подтверждена: `Enum/` — только string-literal union; дискриминированные юнионы с payload (Requirement, Grant, Formula, ProcessTransition, SpellComponent, AbilitySpec) — в `Dto/`. `RuleSpec` (юнион) перенесён `Enum/` → `Dto/RuleSpec.ts`; `AbilitySpec` переведён на `AbilityType`.
+- Декомпозиция 8 больших `.vue`: SmartGrid, FilterBar, RaceEditor, ProcessEditor, ItemEditor, RuleEditPage, MacrosSection, UserProfilePage → дочерние компоненты + composables (см. структуру выше). Мутации спека вынесены из редакторов.
+- Спеки/доменная логика: `RaceSpecService`/`ItemSpecService`/`AbilitySpecService` расширены апдейтерами и фабриками дефолтов (Grant/Requirement/SpellComponent/SpellDuration); созданы `ProcessSpecService`, `RuleReferenceService` (общие ссылочные lookup'ы редакторов), `RuleDraftService`, `Utils/Rule/formMapper.ts`.
+- Дедуп: `typeLabels` (RuleDetailPage) → `Constant/RULE_TYPE_LABELS`; `modeOptions` (Number/DateTime/StringFilter) → `Core/UI/Constant/filterModeOptions`; v-model-sync паттерн → `Core/UI/Composables/useVModelSync` (12 редакторов); `initials`/`displayName` → `Core/User/Utils/profile`; `filteredUsers` (users.ts) генерализован; константы конфигурации → `Constant/` модулей.
+- Мелочи: `PickerItem` → `Core/UI/Dto`; `FormRef` → `Auth/Dto/LoginForm`; `mockGroupMembers` → `Core/User/Mock`; `Chat/Config/` → `Constant/`; нативные элементы → Vuetify (DiceRollForm, MessengerTabs); `rollSummary` в ChatInput; `IPermissionRegistry` → по одному типу на файл.
+
+**Волна 3 фронта (2026-08-03, детальная вычитка Core/Engine + уточнение правил):**
+- Правила `frontend-rules.md` §2/§3: (1) типы — только в `Dto/`/`Interface/`/`Enum/`, один на файл; в файлах кода именованных типов нет, тривиальная одноразовая форма — inline; (2) `Enum/`/`Dto/` разделение сохранено (граница: плоский string-literal union vs структуры/юнионы с payload); (3) композаблы — только корневая `Composables/` модуля (в `Component/` нет); (4) общий UI — в `Core/UI`, `Core/Engine` не импортирует `Core/UI` (UI → Engine); (5) именование по доменному смыслу/терминологии бэка, generic-имена запрещены при доменном; (6) комментарии «только почему»; (7) поля-члены классов, не переприсваиваемые после инициализации, — `private readonly`.
+- `Core/Engine`: типы `DimensionalNumberValue`/`DimensionalNumberBaseRange` → `Dto/DimensionalNumber.ts`; `HttpClientConfig` → `Dto/HttpClientConfig.ts`; `HttpResponse` → `Dto/HttpResponse.ts`; `init.ts` — ре-экспорты из `Dto/`, удалён мёртвый ре-экспорт `serviceLocator`; `Engine.runAction` — `encodeURIComponent`; `ServiceLocator` — имена `serviceCode`/`service`/`services`; `useAbortable` — без лишнего `ref`; `DateTime` — приватный хелпер относительного формата; тест → `__tests__/Service/serviceLocator.test.ts`.
+- `Core/UI`: `useGridPage` → `Core/UI/Composables/` (устранена зависимость Engine→UI); `useFilterBuffer` → `Core/UI/Composables/`.
+- `readonly`-члены классов: инжектированные зависимости (15 файлов, фикс по Sonar) + `ServiceLocator.services`/`CsrfApi.cookieName`.
 
 **Архитектурные решения:**
 - DI: `serviceLocator` (генерализованный set/get/reset, `Core/Engine/Service/ServiceLocator.ts`)

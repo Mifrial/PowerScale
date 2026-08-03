@@ -1,8 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { Group } from '../Dto/Group'
-import type { CreateGroupData, UpdateGroupData } from '../Interface/IGroupApi'
-import { getGroupApi } from '../init'
+import type { Group } from '@/modules/Core/User/Dto/Group'
+import type { CreateGroupData, UpdateGroupData } from '@/modules/Core/User/Interface/IGroupApi'
+import { getGroupApi } from '@/modules/Core/User/init'
 
 export const useGroupStore = defineStore('groups', () => {
   const groups = ref<Group[]>([])

@@ -1,10 +1,74 @@
+<script setup lang="ts">
+import { computed, watch } from 'vue'
+import FormulaInput from '@/modules/Roleplay/Rule/Component/FormulaInput.vue'
+import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue'
+import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue'
+import { abilitySpecService } from '@/modules/Roleplay/Rule/Service/Spec/AbilitySpecService'
+import { useVModelSync } from '@/modules/Core/UI/Composables/useVModelSync'
+import { GRANT_TYPES } from '@/modules/Roleplay/Rule/Constant/Ability/GRANT_TYPES'
+import type { Grant } from '@/modules/Roleplay/Rule/Dto/Ability/Grant'
+import type { CharacteristicRef } from '@/modules/Roleplay/Rule/Dto/Ability/CharacteristicRef'
+import type { ResourceRef } from '@/modules/Roleplay/Rule/Dto/Ability/ResourceRef'
+import type { AbilityRef } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityRef'
+import type { KeywordRef } from '@/modules/Roleplay/Rule/Dto/Ability/KeywordRef'
+import type { SourceRef } from '@/modules/Roleplay/Rule/Dto/Ability/SourceRef'
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumber'
+
+const props = defineProps<{
+  modelValue: Grant
+  characteristics: CharacteristicRef[]
+  resources: ResourceRef[]
+  abilities: AbilityRef[]
+  keywords: KeywordRef[]
+  items: { code: string; name: string }[]
+  sources: SourceRef[]
+}>()
+
+const emit = defineEmits<{
+  'update:modelValue': [value: Grant]
+  'remove': []
+}>()
+
+const { inner } = useVModelSync<Grant>({
+  modelValue: () => props.modelValue,
+  onCommit: (value) => emit('update:modelValue', value),
+  clone: true,
+})
+
+const selectedResourceIsDimensional = computed(() => {
+  const v = inner.value
+  if (v.type !== 'resource') return false
+  return props.resources.find(r => r.code === v.resource_code)?.isDimensional ?? false
+})
+
+watch(() => props.resources, (resources) => {
+  const v = inner.value
+  if (v.type !== 'resource' || !v.resource_code) return
+  const res = resources.find(r => r.code === v.resource_code)
+  const limit = v.limit
+  if (res?.isDimensional && typeof limit === 'number') {
+    inner.value = { ...v, limit: { base: limit, size: 0 } } as Grant
+  } else if (!res?.isDimensional && limit && typeof limit === 'object' && !Array.isArray(limit)) {
+    inner.value = { ...v, limit: limit.base } as Grant
+  }
+}, { deep: true })
+
+function updateType(type: string) {
+  inner.value = abilitySpecService.createEmptyGrant(type as Grant['type'], props.sources[0]?.code ?? '')
+}
+
+function patch(key: string, value: unknown) {
+  inner.value = { ...inner.value, [key]: value } as Grant
+}
+</script>
+
 <template>
   <v-card variant="outlined" class="pa-2">
     <div class="d-flex gap-2 align-center mb-1">
       <v-select
         :model-value="inner.type"
         @update:model-value="updateType"
-        :items="grantTypes"
+        :items="GRANT_TYPES"
         item-title="label"
         item-value="value"
         label="Дар"
@@ -200,97 +264,6 @@
     </div>
   </v-card>
 </template>
-
-<script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import FormulaInput from '../FormulaInput.vue'
-import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue'
-import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue'
-import type { Grant } from '@/modules/Roleplay/Rule/Dto/Ability/Grant'
-import type { CharacteristicRef } from '@/modules/Roleplay/Rule/Dto/Ability/CharacteristicRef'
-import type { ResourceRef } from '@/modules/Roleplay/Rule/Dto/Ability/ResourceRef'
-import type { AbilityRef } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityRef'
-import type { KeywordRef } from '@/modules/Roleplay/Rule/Dto/Ability/KeywordRef'
-import type { SourceRef } from '@/modules/Roleplay/Rule/Dto/Ability/SourceRef'
-import type { DimensionalNumberValue } from '@/modules/Core/Engine/Value/DimensionalNumber'
-
-const props = defineProps<{
-  modelValue: Grant
-  characteristics: CharacteristicRef[]
-  resources: ResourceRef[]
-  abilities: AbilityRef[]
-  keywords: KeywordRef[]
-  items: { code: string; name: string }[]
-  sources: SourceRef[]
-}>()
-
-const emit = defineEmits<{
-  'update:modelValue': [value: Grant]
-  'remove': []
-}>()
-
-const inner = ref<Grant>(structuredClone(props.modelValue))
-
-const grantTypes = [
-  { label: 'Даёт характеристику', value: 'characteristic' },
-  { label: 'Модификатор характеристики', value: 'characteristic_modify' },
-  { label: 'Даёт ресурс', value: 'resource' },
-  { label: 'Меняет лимит ресурса', value: 'resource_limit_change' },
-  { label: 'Даёт способность', value: 'ability' },
-  { label: 'Признак', value: 'keyword' },
-  { label: 'Даёт предмет', value: 'item' },
-]
-
-const selectedResourceIsDimensional = computed(() => {
-  const v = inner.value
-  if (v.type !== 'resource') return false
-  return props.resources.find(r => r.code === v.resource_code)?.isDimensional ?? false
-})
-
-watch(() => props.resources, (resources) => {
-  const v = inner.value
-  if (v.type !== 'resource' || !v.resource_code) return
-  const res = resources.find(r => r.code === v.resource_code)
-  const limit = v.limit
-  if (res?.isDimensional && typeof limit === 'number') {
-    inner.value = { ...v, limit: { base: limit, size: 0 } } as Grant
-  } else if (!res?.isDimensional && limit && typeof limit === 'object' && !Array.isArray(limit)) {
-    inner.value = { ...v, limit: limit.base } as Grant
-  }
-}, { deep: true })
-
-function updateType(type: string) {
-  if (type === 'characteristic') {
-    inner.value = { type: 'characteristic', characteristic_code: '', value: { base: 3, size: 0 } }
-  } else if (type === 'characteristic_modify') {
-    inner.value = { type: 'characteristic_modify', characteristic_code: '', amount: { type: 'fixed', value: 1 }, source_code: props.sources[0]?.code ?? '' }
-  } else if (type === 'resource') {
-    inner.value = { type: 'resource', resource_code: '', limit: 0 }
-  } else if (type === 'resource_limit_change') {
-    inner.value = { type: 'resource_limit_change', resource_code: '', amount: { type: 'fixed', value: 1 }, source_code: props.sources[0]?.code ?? '' }
-  } else if (type === 'ability') {
-    inner.value = { type: 'ability', ability_code: '' }
-  } else if (type === 'keyword') {
-    inner.value = { type: 'keyword', keyword_code: '', remove: false }
-  } else {
-    inner.value = { type: 'item', item_code: '' }
-  }
-}
-
-function patch(key: string, value: unknown) {
-  inner.value = { ...inner.value, [key]: value } as Grant
-}
-
-watch(inner, (value) => {
-  emit('update:modelValue', structuredClone(value))
-}, { deep: true })
-
-watch(() => props.modelValue, (value) => {
-  if (JSON.stringify(value) !== JSON.stringify(inner.value)) {
-    inner.value = structuredClone(value)
-  }
-}, { deep: true })
-</script>
 
 <style scoped>
 .gap-2 {

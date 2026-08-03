@@ -1,8 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { NotificationTemplate } from '@/modules/Messages/Notifications/Dto/NotificationTemplate'
-import type { CreateTemplateData, UpdateTemplateData } from '../Interface/INotificationTemplateApi'
-import { getTemplateApi } from '../init'
+import type { CreateTemplateData, UpdateTemplateData } from '@/modules/Messages/Notifications/Interface/INotificationTemplateApi'
+import { getTemplateApi } from '@/modules/Messages/Notifications/init'
 
 export const useTemplateStore = defineStore('templates', () => {
   const templates = ref<NotificationTemplate[]>([])

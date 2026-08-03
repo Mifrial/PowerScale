@@ -1,3 +1,27 @@
+<script setup lang="ts">
+import { ref, watch, onMounted } from 'vue'
+import { useNotificationStore } from '@/modules/Messages/Notifications/Store/notifications'
+import { debounce } from '@/modules/Core/UI/Utils/debounce'
+import ChipFilter from '@/modules/Core/UI/Component/ChipFilter.vue'
+import NotificationList from '@/modules/Messages/Notifications/Component/NotificationList.vue'
+import { filters } from '@/modules/Messages/Notifications/Constant/notificationsFilters'
+
+const store = useNotificationStore()
+const localSearch = ref(store.searchQuery)
+
+const debouncedUpdateSearch = debounce((value: string) => {
+  store.searchQuery = value
+}, 300)
+
+watch(localSearch, (value) => {
+  debouncedUpdateSearch(value ?? '')
+})
+
+onMounted(() => {
+  store.fetchData()
+})
+</script>
+
 <template>
   <div>
     <v-text-field
@@ -47,35 +71,6 @@
     </div>
   </div>
 </template>
-
-<script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
-import { useNotificationStore } from '@/modules/Messages/Notifications/Store/notifications'
-import { debounce } from '@/modules/Core/UI/Utils/debounce'
-import ChipFilter from '@/modules/Core/UI/Component/ChipFilter.vue'
-import NotificationList from '@/modules/Messages/Notifications/Component/NotificationList.vue'
-
-const store = useNotificationStore()
-const localSearch = ref(store.searchQuery)
-
-const debouncedUpdateSearch = debounce((value: string) => {
-  store.searchQuery = value
-}, 300)
-
-watch(localSearch, (value) => {
-  debouncedUpdateSearch(value ?? '')
-})
-
-const filters = [
-  { key: 'all' as const, label: 'Все' },
-  { key: 'unread' as const, label: 'Не просмотренные' },
-  { key: 'action' as const, label: 'Ожидают действия' },
-]
-
-onMounted(() => {
-  store.fetchData()
-})
-</script>
 
 <style scoped>
 .search-field :deep(.v-field__outline) {

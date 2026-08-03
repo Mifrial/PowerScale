@@ -4,7 +4,7 @@ export const routes: RouteRecordRaw[] = [
   {
     path: 'games',
     name: 'Games',
-    component: () => import('./Page/GamesPage.vue'),
+    component: () => import('@/modules/Roleplay/Game/Page/GamesPage.vue'),
     meta: { title: 'Игры', guestAllowed: true },
   },
 ]

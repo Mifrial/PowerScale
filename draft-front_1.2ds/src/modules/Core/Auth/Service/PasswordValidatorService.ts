@@ -2,7 +2,7 @@ import type { PasswordPolicy } from '@/modules/Core/Auth/Dto/PasswordPolicy'
 import { DEFAULT_PASSWORD_POLICY } from '@/modules/Core/Auth/Constant/passwordPolicy'
 
 export class PasswordValidatorService {
-  constructor(private defaultPolicy: PasswordPolicy = DEFAULT_PASSWORD_POLICY) {}
+  constructor(private readonly defaultPolicy: PasswordPolicy = DEFAULT_PASSWORD_POLICY) {}
 
   validate(password: string, policy: PasswordPolicy = this.defaultPolicy): string[] {
     const errors: string[] = []

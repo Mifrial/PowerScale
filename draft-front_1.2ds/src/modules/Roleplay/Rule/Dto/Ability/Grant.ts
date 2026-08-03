@@ -1,5 +1,5 @@
-import type { DimensionalNumberValue } from '@/modules/Core/Engine/Value/DimensionalNumber'
-import type { Formula } from './Formula'
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumber'
+import type { Formula } from '@/modules/Roleplay/Rule/Dto/Ability/Formula'
 
 export type Grant =
   | { type: 'characteristic'; characteristic_code: string; value: DimensionalNumberValue; permanent?: boolean }

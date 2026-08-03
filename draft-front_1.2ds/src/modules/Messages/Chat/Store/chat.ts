@@ -4,13 +4,12 @@ import type { Chat } from '@/modules/Messages/Chat/Dto/Chat'
 import type { ChatMessage } from '@/modules/Messages/Chat/Dto/ChatMessage'
 import type { SyncResponse } from '@/modules/Messages/Chat/Dto/SyncResponse'
 import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec'
-import { chatIcon, chatColor } from '@/modules/Messages/Chat/Config/chatType'
+import { chatIcon, chatColor } from '@/modules/Messages/Chat/Constant/chatType'
 import { getChatApi } from '@/modules/Messages/Chat/init'
 import { ChatSyncService } from '@/modules/Messages/Chat/Service/ChatSyncService'
 import { usePermissions } from '@/modules/Messages/Chat/Composables/usePermissions'
-
-const PAGE_SIZE = 20
-const MAX_STORED = 100
+import { PAGE_SIZE, MAX_STORED } from '@/modules/Messages/Chat/Constant/chatStoreConfig'
+import { tabs } from '@/modules/Messages/Chat/Constant/chatTabs'
 
 interface ChatState {
   messages: ChatMessage[]
@@ -38,13 +37,6 @@ export const useChatStore = defineStore('chat', () => {
   const sending = ref(false)
 
   const selectedTab = ref<string>('personal')
-
-  const tabs = [
-    { key: 'personal', label: 'Сообщения', icon: 'mdi-account' },
-    { key: 'game', label: 'Игровые', icon: 'mdi-dice-d6' },
-    { key: 'game_discussion', label: 'Обсуждения игр', icon: 'mdi-forum' },
-    { key: 'character_discussion', label: 'Обсуждения персонажей', icon: 'mdi-account-details' },
-  ]
 
   const sortedChats = computed(() =>
     [...chats.value].sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt)),

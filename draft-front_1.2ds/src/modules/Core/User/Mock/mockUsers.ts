@@ -1,4 +1,4 @@
-import type { User } from '../Dto/User'
+import type { User } from '@/modules/Core/User/Dto/User'
 
 const delay = (ms = 150, signal?: AbortSignal) => new Promise<void>((resolve, reject) => {
   const timer = setTimeout(() => {

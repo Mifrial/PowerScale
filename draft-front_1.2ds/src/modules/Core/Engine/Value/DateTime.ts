@@ -7,8 +7,8 @@ export class DateTime {
 
   formatRelative(): string {
     const diff = Date.now() - this.date.getTime()
-    if (diff < 60000) return 'только что'
-    if (diff < 3600000) return `${Math.floor(diff / 60000)} мин`
+    const early = this.relativeHours(diff)
+    if (early !== null) return early
     if (diff < 86400000) return `${Math.floor(diff / 3600000)} ч`
     if (diff < 172800000) return 'вчера'
     return `${Math.floor(diff / 86400000)} д`
@@ -16,11 +16,17 @@ export class DateTime {
 
   formatTime(): string {
     const diff = Date.now() - this.date.getTime()
+    const early = this.relativeHours(diff)
+    if (early !== null) return early
+    const hours = this.date.getHours().toString().padStart(2, '0')
+    const minutes = this.date.getMinutes().toString().padStart(2, '0')
+    return `${hours}:${minutes}`
+  }
+
+  private relativeHours(diff: number): string | null {
     if (diff < 60000) return 'только что'
     if (diff < 3600000) return `${Math.floor(diff / 60000)} мин`
-    const h = this.date.getHours().toString().padStart(2, '0')
-    const m = this.date.getMinutes().toString().padStart(2, '0')
-    return `${h}:${m}`
+    return null
   }
 
   static formatRelative(iso: string): string {

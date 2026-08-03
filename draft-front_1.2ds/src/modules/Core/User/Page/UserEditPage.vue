@@ -1,28 +1,3 @@
-<template>
-  <div>
-    <div class="d-flex align-center mb-4 ga-3">
-      <v-btn icon variant="text" @click="$router.back()"><v-icon>mdi-arrow-left</v-icon></v-btn>
-      <h1 class="text-h4 font-weight-bold">{{ isNew ? 'Новый пользователь' : 'Редактирование' }}</h1>
-    </div>
-
-    <v-card variant="outlined" max-width="480">
-      <v-card-text>
-        <UserForm
-          :mode="isNew ? 'create' : 'edit'"
-          :user="user ?? undefined"
-          :saving="saving"
-          @submit="handleSubmit"
-          @cancel="$router.back()"
-        />
-      </v-card-text>
-    </v-card>
-
-    <v-snackbar v-model="snackbar.show" :color="snackbar.color" timeout="3000">
-      {{ snackbar.text }}
-    </v-snackbar>
-  </div>
-</template>
-
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -66,3 +41,28 @@ onMounted(async () => {
   }
 })
 </script>
+
+<template>
+  <div>
+    <div class="d-flex align-center mb-4 ga-3">
+      <v-btn icon variant="text" @click="$router.back()"><v-icon>mdi-arrow-left</v-icon></v-btn>
+      <h1 class="text-h4 font-weight-bold">{{ isNew ? 'Новый пользователь' : 'Редактирование' }}</h1>
+    </div>
+
+    <v-card variant="outlined" max-width="480">
+      <v-card-text>
+        <UserForm
+          :mode="isNew ? 'create' : 'edit'"
+          :user="user ?? undefined"
+          :saving="saving"
+          @submit="handleSubmit"
+          @cancel="$router.back()"
+        />
+      </v-card-text>
+    </v-card>
+
+    <v-snackbar v-model="snackbar.show" :color="snackbar.color" timeout="3000">
+      {{ snackbar.text }}
+    </v-snackbar>
+  </div>
+</template>

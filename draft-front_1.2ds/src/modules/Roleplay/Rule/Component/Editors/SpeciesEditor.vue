@@ -1,3 +1,92 @@
+<script setup lang="ts">
+import { computed, ref, watch, onMounted } from 'vue'
+import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision'
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule'
+import type { SpeciesSpec } from '@/modules/Roleplay/Rule/Dto/Race/SpeciesSpec'
+import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec'
+import { raceSpecService } from '@/modules/Roleplay/Rule/Service/Spec/RaceSpecService'
+import RuleEditorBase from '@/modules/Roleplay/Rule/Component/Editors/RuleEditorBase.vue'
+
+const props = defineProps<{
+  name: string
+  code: string
+  codeDisabled?: boolean
+  description: string
+  mechanicId: number | null
+  keywordIds: number[]
+  spec: RuleSpec | null
+  mechanicOptions: { title: string; value: number }[]
+  keywordOptions: { title: string; value: number }[]
+  spaceId: number
+  ruleId?: string
+}>()
+
+const emit = defineEmits<{
+  'update:name': [value: string]
+  'update:code': [value: string]
+  'update:description': [value: string]
+  'update:mechanicId': [value: number | null]
+  'update:keywordIds': [value: number[]]
+  'update:spec': [value: SpeciesSpec]
+}>()
+
+const revisionStore = useSpaceRevisionStore()
+
+const expandedPanels = ref<string[]>(['general', 'parent', 'abilities'])
+const innerSpec = ref<SpeciesSpec>(raceSpecService.createEmptySpecies())
+
+const spaceRules = computed(() => revisionStore.effectiveRules)
+
+const speciesOptions = computed(() =>
+  spaceRules.value
+    .filter((r: Rule) => r.type === 'species' && r.id !== props.ruleId)
+    .map(r => ({ code: r.code, name: r.name }))
+)
+
+const abilityOptions = computed(() =>
+  spaceRules.value
+    .filter((r: Rule) => r.type === 'ability')
+    .map(r => ({ code: r.code, name: r.name }))
+)
+
+function updateAbility(index: number, key: 'ability_code' | 'automatic', value: string | boolean) {
+  const abilities = innerSpec.value.abilities.map((a, i) =>
+    i === index ? { ...a, [key]: value } : a
+  )
+  innerSpec.value = { ...innerSpec.value, abilities }
+}
+
+function removeAbility(index: number) {
+  innerSpec.value = {
+    ...innerSpec.value,
+    abilities: innerSpec.value.abilities.filter((_, i) => i !== index),
+  }
+}
+
+function addAbility() {
+  innerSpec.value = {
+    ...innerSpec.value,
+    abilities: [...innerSpec.value.abilities, { ability_code: '', automatic: false }],
+  }
+}
+
+const specToEmit = computed<SpeciesSpec>(() => structuredClone(innerSpec.value))
+
+watch(specToEmit, (value) => {
+  emit('update:spec', value)
+}, { deep: true })
+
+onMounted(() => {
+  if (props.spec) {
+    const loaded = structuredClone(props.spec as SpeciesSpec)
+    innerSpec.value = {
+      parent_race_code: loaded.parent_race_code ?? null,
+      abilities: loaded.abilities ?? [],
+    }
+  }
+})
+</script>
+
 <template>
   <div>
     <v-expansion-panels v-model="expandedPanels" multiple>
@@ -96,95 +185,6 @@
     </v-expansion-panels>
   </div>
 </template>
-
-<script setup lang="ts">
-import { computed, ref, watch, onMounted } from 'vue'
-import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision'
-import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule'
-import type { SpeciesSpec } from '@/modules/Roleplay/Rule/Dto/Race/SpeciesSpec'
-import type { RuleSpec } from '@/modules/Roleplay/Rule/Enum/RuleSpec'
-import { raceSpecService } from '@/modules/Roleplay/Rule/Service/Spec/RaceSpecService'
-import RuleEditorBase from './RuleEditorBase.vue'
-
-const props = defineProps<{
-  name: string
-  code: string
-  codeDisabled?: boolean
-  description: string
-  mechanicId: number | null
-  keywordIds: number[]
-  spec: RuleSpec | null
-  mechanicOptions: { title: string; value: number }[]
-  keywordOptions: { title: string; value: number }[]
-  spaceId: number
-  ruleId?: string
-}>()
-
-const emit = defineEmits<{
-  'update:name': [value: string]
-  'update:code': [value: string]
-  'update:description': [value: string]
-  'update:mechanicId': [value: number | null]
-  'update:keywordIds': [value: number[]]
-  'update:spec': [value: SpeciesSpec]
-}>()
-
-const revisionStore = useSpaceRevisionStore()
-
-const expandedPanels = ref<string[]>(['general', 'parent', 'abilities'])
-const innerSpec = ref<SpeciesSpec>(raceSpecService.createEmptySpecies())
-
-const spaceRules = computed(() => revisionStore.effectiveRules)
-
-const speciesOptions = computed(() =>
-  spaceRules.value
-    .filter((r: Rule) => r.type === 'species' && r.id !== props.ruleId)
-    .map(r => ({ code: r.code, name: r.name }))
-)
-
-const abilityOptions = computed(() =>
-  spaceRules.value
-    .filter((r: Rule) => r.type === 'ability')
-    .map(r => ({ code: r.code, name: r.name }))
-)
-
-function updateAbility(index: number, key: 'ability_code' | 'automatic', value: string | boolean) {
-  const abilities = innerSpec.value.abilities.map((a, i) =>
-    i === index ? { ...a, [key]: value } : a
-  )
-  innerSpec.value = { ...innerSpec.value, abilities }
-}
-
-function removeAbility(index: number) {
-  innerSpec.value = {
-    ...innerSpec.value,
-    abilities: innerSpec.value.abilities.filter((_, i) => i !== index),
-  }
-}
-
-function addAbility() {
-  innerSpec.value = {
-    ...innerSpec.value,
-    abilities: [...innerSpec.value.abilities, { ability_code: '', automatic: false }],
-  }
-}
-
-const specToEmit = computed<SpeciesSpec>(() => structuredClone(innerSpec.value))
-
-watch(specToEmit, (value) => {
-  emit('update:spec', value)
-}, { deep: true })
-
-onMounted(() => {
-  if (props.spec) {
-    const loaded = structuredClone(props.spec as SpeciesSpec)
-    innerSpec.value = {
-      parent_race_code: loaded.parent_race_code ?? null,
-      abilities: loaded.abilities ?? [],
-    }
-  }
-})
-</script>
 
 <style scoped>
 .gap-2 {

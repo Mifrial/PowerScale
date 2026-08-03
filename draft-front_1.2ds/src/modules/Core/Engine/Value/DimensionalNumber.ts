@@ -1,12 +1,4 @@
-export interface DimensionalNumberValue {
-  base: number
-  size: number
-}
-
-export interface DimensionalNumberBaseRange {
-  min: number
-  max: number
-}
+import type { DimensionalNumberValue, DimensionalNumberBaseRange } from '@/modules/Core/Engine/Dto/DimensionalNumber'
 
 export class DimensionalNumber {
   readonly value: DimensionalNumberValue
@@ -27,8 +19,7 @@ export class DimensionalNumber {
     if (!range) {
       return new DimensionalNumber({ base: this.value.base + delta, size: this.value.size })
     }
-    // Каждые (max − min + 1) пунктов базы = один размер:
-    // дельта раскладывается на «переходы между размерами» и остаток в базу.
+    // Перенос между размерами: шаг базы = (max − min + 1) пунктов = один размер.
     const step = range.max - range.min + 1
     const sizeDelta = Math.floor(delta / step)
     const baseDelta = delta - sizeDelta * step

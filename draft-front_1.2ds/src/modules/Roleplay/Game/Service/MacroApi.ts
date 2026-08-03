@@ -3,7 +3,7 @@ import type { IMacroApi, CreateMacroData, UpdateMacroData } from '@/modules/Role
 import type { UserMacro } from '@/modules/Roleplay/Game/Dto/UserMacro'
 
 export class MacroApi implements IMacroApi {
-  constructor(private engine: Engine) {}
+  constructor(private readonly engine: Engine) {}
 
   async getMyMacros(signal?: AbortSignal): Promise<UserMacro[]> {
     const res = await this.engine.runAction<UserMacro[]>('user.macro.getList', undefined, signal)

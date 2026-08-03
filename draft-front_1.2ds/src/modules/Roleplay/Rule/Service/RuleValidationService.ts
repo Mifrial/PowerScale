@@ -39,7 +39,7 @@ interface RefExpectation {
 }
 
 export class RuleValidationService {
-  constructor(private abilitySpec: AbilitySpecService) {}
+  constructor(private readonly abilitySpec: AbilitySpecService) {}
 
   expectedTypeLabel(type: ReferenceTargetType): string {
     const labels: Record<ReferenceTargetType, string> = {

@@ -1,3 +1,67 @@
+<script setup lang="ts">
+import type { ActionCost } from '@/modules/Roleplay/Rule/Dto/Ability/ActionCost'
+import type { ResourceRef } from '@/modules/Roleplay/Rule/Dto/Ability/ResourceRef'
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumber'
+import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue'
+import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue'
+import { useVModelSync } from '@/modules/Core/UI/Composables/useVModelSync'
+
+const props = defineProps<{
+  modelValue: ActionCost[]
+  resources: ResourceRef[]
+  isSpell: boolean
+  disabled?: boolean
+}>()
+
+const emit = defineEmits<{
+  'update:modelValue': [value: ActionCost[]]
+}>()
+
+const { inner } = useVModelSync<ActionCost[]>({
+  modelValue: () => props.modelValue,
+  onCommit: (value) => emit('update:modelValue', value),
+  clone: true,
+})
+
+function actionResourceIsDimensional(resource_code: string): boolean {
+  return props.resources.find(r => r.code === resource_code)?.isDimensional ?? false
+}
+
+function updateActionCost(index: number, key: 'resource_code' | 'amount', value: unknown) {
+  let cost = { ...inner.value[index], [key]: value } as ActionCost
+  if (key === 'resource_code') {
+    const code = value as string
+    const isDim = actionResourceIsDimensional(code)
+    if (isDim && typeof cost.amount === 'number') {
+      cost = { ...cost, amount: { base: cost.amount, size: 0 } }
+    } else if (!isDim && cost.amount && typeof cost.amount === 'object' && !Array.isArray(cost.amount)) {
+      cost = { ...cost, amount: cost.amount.base }
+    }
+    if (value === 'action-points' && props.isSpell) {
+      cost = { ...cost, label: 'Сотворение' }
+    }
+  }
+  inner.value = inner.value.map((c, i) => (i === index ? cost : c))
+}
+
+function removeActionCost(index: number) {
+  if (isMandatoryActionPointCost(index)) return
+  inner.value = inner.value.filter((_, i) => i !== index)
+}
+
+function addActionCost() {
+  inner.value = [
+    ...inner.value,
+    { resource_code: '', amount: 0, label: props.isSpell ? 'Сотворение' : undefined },
+  ]
+}
+
+function isMandatoryActionPointCost(index: number): boolean {
+  const odIndex = inner.value.findIndex(c => c.resource_code === 'action-points')
+  return odIndex === index
+}
+</script>
+
 <template>
   <div>
     <div class="text-body-2 text-medium-emphasis mb-2">
@@ -60,74 +124,3 @@
     </v-btn>
   </div>
 </template>
-
-<script setup lang="ts">
-import { ref, watch } from 'vue'
-import type { ActionCost } from '@/modules/Roleplay/Rule/Dto/Ability/ActionCost'
-import type { ResourceRef } from '@/modules/Roleplay/Rule/Dto/Ability/ResourceRef'
-import type { DimensionalNumberValue } from '@/modules/Core/Engine/Value/DimensionalNumber'
-import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue'
-import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue'
-
-const props = defineProps<{
-  modelValue: ActionCost[]
-  resources: ResourceRef[]
-  isSpell: boolean
-  disabled?: boolean
-}>()
-
-const emit = defineEmits<{
-  'update:modelValue': [value: ActionCost[]]
-}>()
-
-const inner = ref<ActionCost[]>(structuredClone(props.modelValue))
-
-watch(() => props.modelValue, (v) => {
-  inner.value = structuredClone(v)
-}, { deep: true })
-
-function commit() {
-  emit('update:modelValue', structuredClone(inner.value))
-}
-
-function actionResourceIsDimensional(resource_code: string): boolean {
-  return props.resources.find(r => r.code === resource_code)?.isDimensional ?? false
-}
-
-function updateActionCost(index: number, key: 'resource_code' | 'amount', value: unknown) {
-  let cost = { ...inner.value[index], [key]: value } as ActionCost
-  if (key === 'resource_code') {
-    const code = value as string
-    const isDim = actionResourceIsDimensional(code)
-    if (isDim && typeof cost.amount === 'number') {
-      cost = { ...cost, amount: { base: cost.amount, size: 0 } }
-    } else if (!isDim && cost.amount && typeof cost.amount === 'object' && !Array.isArray(cost.amount)) {
-      cost = { ...cost, amount: cost.amount.base }
-    }
-    if (value === 'action-points' && props.isSpell) {
-      cost = { ...cost, label: 'Сотворение' }
-    }
-  }
-  inner.value = inner.value.map((c, i) => (i === index ? cost : c))
-  commit()
-}
-
-function removeActionCost(index: number) {
-  if (isMandatoryActionPointCost(index)) return
-  inner.value = inner.value.filter((_, i) => i !== index)
-  commit()
-}
-
-function addActionCost() {
-  inner.value = [
-    ...inner.value,
-    { resource_code: '', amount: 0, label: props.isSpell ? 'Сотворение' : undefined },
-  ]
-  commit()
-}
-
-function isMandatoryActionPointCost(index: number): boolean {
-  const odIndex = inner.value.findIndex(c => c.resource_code === 'action-points')
-  return odIndex === index
-}
-</script>

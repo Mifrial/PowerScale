@@ -1,3 +1,62 @@
+<script setup lang="ts">
+import { computed } from 'vue'
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule'
+import type { RaceSpec } from '@/modules/Roleplay/Rule/Dto/Race/RaceSpec'
+import type { RacePurchaseLevel } from '@/modules/Roleplay/Rule/Dto/Race/RacePurchaseLevel'
+import type { InheritedAbilityRef } from '@/modules/Roleplay/Rule/Dto/Race/InheritedAbilityRef'
+import { raceSpecService } from '@/modules/Roleplay/Rule/Service/Spec/RaceSpecService'
+
+const props = defineProps<{
+  rule: Rule
+  rules: Rule[]
+}>()
+
+const spec = computed<RaceSpec | null>(() => (props.rule.spec as RaceSpec) ?? null)
+
+const rulesByCode = computed(() => {
+  const map = new Map<string, Rule>()
+  for (const r of props.rules) map.set(r.code, r)
+  return map
+})
+
+const parentRule = computed(() => {
+  const code = spec.value?.parent_race_code
+  return code ? rulesByCode.value.get(code) ?? null : null
+})
+
+const inheritedAbilities = computed<InheritedAbilityRef[]>(() => {
+  const s = spec.value
+  if (!s?.parent_race_code) return []
+  return raceSpecService.collectInheritedAbilities(s.parent_race_code, rulesByCode.value)
+})
+
+const costLabel = computed(() => {
+  const cost = spec.value?.cost_os
+  if (cost == null) return '—'
+  if (cost < 0) return `${Math.abs(cost)} ОС (даёт)`
+  return `${cost} ОС`
+})
+
+function characteristicName(code: string): string {
+  return rulesByCode.value.get(code)?.name ?? code
+}
+
+function abilityName(code: string): string {
+  return rulesByCode.value.get(code)?.name ?? code
+}
+
+function formatDimensional(v: { base: number; size: number }): string {
+  return `${v.base}${v.size ? `×${v.size}` : ''}`
+}
+
+function purchaseLabel(purchase: RacePurchaseLevel[]): string {
+  return [...purchase]
+    .sort((a, b) => a.cost - b.cost)
+    .map(l => `за ${l.cost} ОС → ${formatDimensional(l.value)}`)
+    .join(' · ')
+}
+</script>
+
 <template>
   <div v-if="spec">
     <v-card v-if="spec.cost_os != null" variant="tonal" class="mb-3">
@@ -66,62 +125,3 @@
     </v-card>
   </div>
 </template>
-
-<script setup lang="ts">
-import { computed } from 'vue'
-import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule'
-import type { RaceSpec } from '@/modules/Roleplay/Rule/Dto/Race/RaceSpec'
-import type { RacePurchaseLevel } from '@/modules/Roleplay/Rule/Dto/Race/RacePurchaseLevel'
-import type { InheritedAbilityRef } from '@/modules/Roleplay/Rule/Dto/Race/InheritedAbilityRef'
-import { raceSpecService } from '@/modules/Roleplay/Rule/Service/Spec/RaceSpecService'
-
-const props = defineProps<{
-  rule: Rule
-  rules: Rule[]
-}>()
-
-const spec = computed<RaceSpec | null>(() => (props.rule.spec as RaceSpec) ?? null)
-
-const rulesByCode = computed(() => {
-  const map = new Map<string, Rule>()
-  for (const r of props.rules) map.set(r.code, r)
-  return map
-})
-
-const parentRule = computed(() => {
-  const code = spec.value?.parent_race_code
-  return code ? rulesByCode.value.get(code) ?? null : null
-})
-
-const inheritedAbilities = computed<InheritedAbilityRef[]>(() => {
-  const s = spec.value
-  if (!s?.parent_race_code) return []
-  return raceSpecService.collectInheritedAbilities(s.parent_race_code, rulesByCode.value)
-})
-
-const costLabel = computed(() => {
-  const cost = spec.value?.cost_os
-  if (cost == null) return '—'
-  if (cost < 0) return `${Math.abs(cost)} ОС (даёт)`
-  return `${cost} ОС`
-})
-
-function characteristicName(code: string): string {
-  return rulesByCode.value.get(code)?.name ?? code
-}
-
-function abilityName(code: string): string {
-  return rulesByCode.value.get(code)?.name ?? code
-}
-
-function formatDimensional(v: { base: number; size: number }): string {
-  return `${v.base}${v.size ? `×${v.size}` : ''}`
-}
-
-function purchaseLabel(purchase: RacePurchaseLevel[]): string {
-  return [...purchase]
-    .sort((a, b) => a.cost - b.cost)
-    .map(l => `за ${l.cost} ОС → ${formatDimensional(l.value)}`)
-    .join(' · ')
-}
-</script>

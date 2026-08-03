@@ -1,3 +1,67 @@
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useSpaceStore } from '@/modules/Roleplay/Space/Store/spaces'
+import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable'
+import { useUserStore } from '@/modules/Core/User/Store/users'
+import { accessService } from '@/modules/Core/User/init'
+import type { Space } from '@/modules/Roleplay/Space/Dto/Space'
+
+const route = useRoute()
+const router = useRouter()
+const store = useSpaceStore()
+const userStore = useUserStore()
+const { signal } = useAbortable()
+
+const space = ref<Space | null>(null)
+const name = ref('')
+const description = ref('')
+const saving = ref(false)
+const showDeactivateDialog = ref(false)
+const deactivating = ref(false)
+
+const canDeactivate = computed(() => accessService.hasAnyPermission(userStore.currentUser, ['space.edit_all']))
+
+onMounted(async () => {
+  const code = route.params.code as string
+  await store.fetchSpaceByCode(code, signal.value)
+  space.value = store.currentSpace
+  if (space.value) {
+    name.value = space.value.name
+    description.value = space.value.description
+  }
+})
+
+async function save() {
+  if (!name.value.trim() || !space.value) return
+  saving.value = true
+  try {
+    await store.updateSpace(space.value.id, {
+      name: name.value,
+      description: description.value,
+    }, signal.value)
+    router.push(`/space/${space.value.code}`)
+  } catch (e) {
+    console.error('update space failed', e)
+  } finally {
+    saving.value = false
+  }
+}
+
+async function deactivate() {
+  if (!space.value) return
+  deactivating.value = true
+  try {
+    await store.deactivateSpace(space.value.id, signal.value)
+    router.push('/spaces')
+  } catch (e) {
+    console.error('deactivate space failed', e)
+  } finally {
+    deactivating.value = false
+  }
+}
+</script>
+
 <template>
   <v-container v-if="space">
     <h1 class="text-h5 mb-4">Настройки: {{ space.name }}</h1>
@@ -77,67 +141,3 @@
     </v-dialog>
   </v-container>
 </template>
-
-<script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { useSpaceStore } from '../Store/spaces'
-import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable'
-import { useUserStore } from '@/modules/Core/User/Store/users'
-import { accessService } from '@/modules/Core/User/init'
-import type { Space } from '@/modules/Roleplay/Space/Dto/Space'
-
-const route = useRoute()
-const router = useRouter()
-const store = useSpaceStore()
-const userStore = useUserStore()
-const { signal } = useAbortable()
-
-const space = ref<Space | null>(null)
-const name = ref('')
-const description = ref('')
-const saving = ref(false)
-const showDeactivateDialog = ref(false)
-const deactivating = ref(false)
-
-const canDeactivate = computed(() => accessService.hasAnyPermission(userStore.currentUser, ['space.edit_all']))
-
-onMounted(async () => {
-  const code = route.params.code as string
-  await store.fetchSpaceByCode(code, signal.value)
-  space.value = store.currentSpace
-  if (space.value) {
-    name.value = space.value.name
-    description.value = space.value.description
-  }
-})
-
-async function save() {
-  if (!name.value.trim() || !space.value) return
-  saving.value = true
-  try {
-    await store.updateSpace(space.value.id, {
-      name: name.value,
-      description: description.value,
-    }, signal.value)
-    router.push(`/space/${space.value.code}`)
-  } catch (e) {
-    console.error('update space failed', e)
-  } finally {
-    saving.value = false
-  }
-}
-
-async function deactivate() {
-  if (!space.value) return
-  deactivating.value = true
-  try {
-    await store.deactivateSpace(space.value.id, signal.value)
-    router.push('/spaces')
-  } catch (e) {
-    console.error('deactivate space failed', e)
-  } finally {
-    deactivating.value = false
-  }
-}
-</script>

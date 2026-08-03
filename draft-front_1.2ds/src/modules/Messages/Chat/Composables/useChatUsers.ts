@@ -1,5 +1,6 @@
 import { computed } from 'vue'
 import { useUserStore } from '@/modules/Core/User/Store/users'
+import { initials as userInitials, displayName as userDisplayName } from '@/modules/Core/User/Utils/profile'
 import type { User } from '@/modules/Core/User/Dto/User'
 
 export function useChatUsers() {
@@ -32,15 +33,12 @@ export function useChatUsers() {
 
   function initials(u: User | undefined): string {
     if (!u) return '?'
-    const first = u.name?.[0] || ''
-    const second = u.surname?.[0] || ''
-    return (first + second).toUpperCase() || '?'
+    return userInitials(u.name, u.surname)
   }
 
   function displayName(u: User | undefined): string {
     if (!u) return ''
-    const parts = [u.name, u.surname].filter(Boolean)
-    return parts.join(' ') || u.login
+    return userDisplayName(u.name, u.surname, u.login)
   }
 
   return { userMap, getUser, ensureUsers, initials, displayName }

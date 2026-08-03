@@ -1,10 +1,10 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { Rule } from '../Dto/Rule'
-import type { CreateRuleData } from '../Dto/CreateRuleData'
-import type { UpdateRuleData } from '../Dto/UpdateRuleData'
-import type { RuleVersion } from '../Dto/RuleVersion'
-import { getRuleApi } from '../init'
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule'
+import type { CreateRuleData } from '@/modules/Roleplay/Rule/Dto/CreateRuleData'
+import type { UpdateRuleData } from '@/modules/Roleplay/Rule/Dto/UpdateRuleData'
+import type { RuleVersion } from '@/modules/Roleplay/Rule/Dto/RuleVersion'
+import { getRuleApi } from '@/modules/Roleplay/Rule/init'
 
 export const useRuleStore = defineStore('rules', () => {
   const currentRule = ref<Rule | null>(null)

@@ -2,8 +2,8 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/modules/Core/Auth/Store/auth'
 import { useUserStore } from '@/modules/Core/User/Store/users'
 import { standaloneRoutes } from '@/modules/Core/Auth/routes'
-import { moduleChildren } from './moduleRoutes'
-import { evaluateRouteAccess } from './access'
+import { moduleChildren } from '@/router/moduleRoutes'
+import { evaluateRouteAccess } from '@/router/access'
 
 const router = createRouter({
   history: createWebHistory(),
