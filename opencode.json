@@ -14,6 +14,9 @@
     "memory": {
       "type": "local",
       "command": ["npx", "-y", "@modelcontextprotocol/server-memory"],
+      "environment": {
+        "MEMORY_FILE_PATH": ".opencode/memory.jsonl"
+      },
       "enabled": true
     }
   }

@@ -37,10 +37,19 @@
 ```ts
 interface ResourceSpec {
   is_dimensional: boolean
-  initial_value: DimensionalNumber | number | null
+  /** Авто-добавление ресурса персонажу (сейчас — только ОД). Рендерится всегда, даже при лимите 0. */
+  auto_add?: boolean
+  /** Базовый лимит ресурса: стартовое значение + условия его изменения (для auto_add). */
+  limit: {
+    base: DimensionalNumber | number          // число — безразмерный ресурс, размерное — размерный
+    adjustments: { value: Formula; source_code: string }[]  // вычисляемое значение + источник (тип source)
+  }
 }
 ```
 
+- `initial_value` удалён (2026-08-13): у не-авто ресурсов `limit.base` переносит его значение, `adjustments` пустые.
+- **Условия изменения лимита** — связки {Формула, Источник} (источник — правило типа `source`, обязателен). Значения складываются/вычитаются напрямую, без размерных переходов (в отличие от модификаторов характеристик). У ОД три условия: размер Ловкости, размер Восприятия, разница Сила−Вес.
+- Новые виды `Formula`: `characteristic_size { characteristic_code }` (размер характеристики, простое число) и `characteristic_size_gap { characteristic_code_from, characteristic_code_to }` (число полных размеров, на которое from выше to: `trunc(modifyDiffTo/3)`).
 - Подтип `resource` из `CharacteristicEditor` **удаляется** (характеристика остаётся только
   характеристикой). Редактор ресурса — отдельный `ResourceEditor`.
 - Правило хранит только *определение* ресурса. Текущее/максимум — зона Character (движок).
