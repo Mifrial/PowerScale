@@ -3,7 +3,7 @@ import { computed, watch } from 'vue';
 import FormulaInput from '@/modules/Roleplay/Rule/Component/FormulaInput.vue';
 import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue';
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
-import { abilitySpecService } from '@/modules/Roleplay/Rule/Service/Spec/AbilitySpecService';
+import { abilitySpecService } from '@/modules/Roleplay/Rule/Service/Instance/abilitySpecService';
 import { useVModelSync } from '@/modules/Core/UI/Composables/useVModelSync';
 import { GRANT_TYPES } from '@/modules/Roleplay/Rule/Constant/Ability/GRANT_TYPES';
 import type { Grant } from '@/modules/Roleplay/Rule/Dto/Ability/Grant';
@@ -12,7 +12,7 @@ import type { ResourceRef } from '@/modules/Roleplay/Rule/Dto/Ability/ResourceRe
 import type { AbilityRef } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityRef';
 import type { KeywordRef } from '@/modules/Roleplay/Rule/Dto/Ability/KeywordRef';
 import type { SourceRef } from '@/modules/Roleplay/Rule/Dto/Ability/SourceRef';
-import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumber';
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 
 const props = defineProps<{
   modelValue: Grant;
@@ -42,21 +42,9 @@ const selectedResourceIsDimensional = computed(() => {
   return props.resources.find((r) => r.code === v.resource_code)?.isDimensional ?? false;
 });
 
-watch(
-  () => props.resources,
-  (resources) => {
-    const v = inner.value;
-    if (v.type !== 'resource' || !v.resource_code) return;
-    const res = resources.find((r) => r.code === v.resource_code);
-    const limit = v.limit;
-    if (res?.isDimensional && typeof limit === 'number') {
-      inner.value = { ...v, limit: { base: limit, size: 0 } } as Grant;
-    } else if (!res?.isDimensional && limit && typeof limit === 'object' && !Array.isArray(limit)) {
-      inner.value = { ...v, limit: limit.base } as Grant;
-    }
-  },
-  { deep: true },
-);
+watch(selectedResourceIsDimensional, () => {
+  inner.value = abilitySpecService.normalizeGrantLimit(inner.value, props.resources);
+});
 
 function updateType(type: string) {
   inner.value = abilitySpecService.createEmptyGrant(type as Grant['type'], props.sources[0]?.code ?? '');
@@ -116,7 +104,8 @@ function patch(key: string, value: unknown) {
           :model-value="inner.value"
           @update:model-value="(v) => patch('value', v)"
           label="Значение"
-          mode="characteristic"
+          :min="3"
+          :max="5"
         />
       </template>
 
@@ -258,6 +247,37 @@ function patch(key: string, value: unknown) {
           density="compact"
           hide-details
           clearable
+        />
+      </template>
+
+      <template v-else-if="inner.type === 'money'">
+        <ClampedNumberField
+          :model-value="inner.fixed"
+          :min="0"
+          @update:model-value="patch('fixed', $event)"
+          label="Сумма (гз)"
+          density="compact"
+          hide-details
+        />
+        <ClampedNumberField
+          :model-value="inner.percent"
+          :min="0"
+          @update:model-value="patch('percent', $event)"
+          label="Процент от лимита денег"
+          suffix="%"
+          density="compact"
+          hide-details
+        />
+        <v-select
+          :model-value="inner.apply"
+          @update:model-value="patch('apply', $event)"
+          :items="[
+            { title: 'Большее из суммы и процента', value: 'max' },
+            { title: 'Меньшее из суммы и процента', value: 'min' },
+          ]"
+          label="Сочетание"
+          density="compact"
+          hide-details
         />
       </template>
     </div>

@@ -1,13 +1,17 @@
 <script setup lang="ts">
 import type { RaceAbilityRef } from '@/modules/Roleplay/Rule/Dto/Race/RaceAbilityRef';
 import type { AbilityRef } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityRef';
+import type { AbilityParameter } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityParameter';
 import type { RaceSpec } from '@/modules/Roleplay/Rule/Dto/Race/RaceSpec';
-import { raceSpecService } from '@/modules/Roleplay/Rule/Service/Spec/RaceSpecService';
+import { raceSpecService } from '@/modules/Roleplay/Rule/Service/Instance/raceSpecService';
 import { useVModelSync } from '@/modules/Core/UI/Composables/useVModelSync';
+import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
 
 const props = defineProps<{
   modelValue: RaceAbilityRef[];
   abilities: AbilityRef[];
+  /** Параметры «X» способностей (code → параметры), для задания потолка у расы. */
+  abilityParameters: Map<string, AbilityParameter[]>;
 }>();
 
 const emit = defineEmits<{
@@ -32,38 +36,70 @@ function patchAbility(index: number, key: 'ability_code' | 'automatic', value: s
   inner.value = raceSpecService.patchAbility(specWith(inner.value), index, key, value).abilities;
 }
 
+function patchParameter(index: number, code: string, value: number | null) {
+  const resolved = value === null || value <= 0 ? null : { base: value, size: 0 };
+  inner.value = raceSpecService.patchAbilityParameter(specWith(inner.value), index, code, resolved).abilities;
+}
+
 function removeAbility(index: number) {
   inner.value = raceSpecService.removeAbility(specWith(inner.value), index).abilities;
+}
+
+function parametersOf(ref: RaceAbilityRef): AbilityParameter[] {
+  return props.abilityParameters.get(ref.ability_code) ?? [];
+}
+
+function capBase(ref: RaceAbilityRef, code: string): number | null {
+  const value = ref.parameters?.[code];
+
+  return value ? value.base : null;
 }
 </script>
 
 <template>
   <div>
     <div class="text-body-2 text-medium-emphasis mb-2">
-      Свои способности расы. Способности предков-видов наследуются автоматически (см. «Превью наследования»).
+      Свои способности расы. Способности предков-видов наследуются автоматически (см. «Превью наследования»). Потолок
+      «X»: у доступной способности — максимум значения у расы, у бесплатной — значение, с которым даётся.
     </div>
-    <div v-for="(ref, index) in inner" :key="index" class="d-flex ga-2 align-center mb-1">
-      <v-autocomplete
-        :model-value="ref.ability_code"
-        @update:model-value="(v) => patchAbility(index, 'ability_code', v)"
-        :items="abilities"
-        item-title="name"
-        item-value="code"
-        label="Способность"
-        density="compact"
-        hide-details
-        class="flex-grow-1"
-      />
-      <v-switch
-        :model-value="ref.automatic"
-        @update:model-value="(v) => patchAbility(index, 'automatic', !!v)"
-        label="Бесплатная"
-        density="compact"
-        hide-details
-      />
-      <v-btn icon size="small" color="error" variant="text" @click="removeAbility(index)">
-        <v-icon>mdi-delete</v-icon>
-      </v-btn>
+    <div v-for="(ref, index) in inner" :key="index" class="race-ability-block mb-1">
+      <div class="d-flex ga-2 align-center">
+        <v-autocomplete
+          :model-value="ref.ability_code"
+          @update:model-value="(v) => patchAbility(index, 'ability_code', v)"
+          :items="abilities"
+          item-title="name"
+          item-value="code"
+          label="Способность"
+          density="compact"
+          hide-details
+          class="flex-grow-1"
+        />
+        <v-switch
+          :model-value="ref.automatic"
+          @update:model-value="(v) => patchAbility(index, 'automatic', !!v)"
+          label="Бесплатная"
+          density="compact"
+          hide-details
+        />
+        <v-btn icon size="small" color="error" variant="text" @click="removeAbility(index)">
+          <v-icon>mdi-delete</v-icon>
+        </v-btn>
+      </div>
+      <div v-if="parametersOf(ref).length" class="d-flex ga-2 align-center mt-1 pl-2">
+        <ClampedNumberField
+          v-for="parameter in parametersOf(ref)"
+          :key="parameter.code"
+          :model-value="capBase(ref, parameter.code) ?? 0"
+          @update:model-value="(v) => patchParameter(index, parameter.code, v)"
+          :label="`Потолок ${parameter.label}`"
+          :min="0"
+          density="compact"
+          hide-details
+          style="min-width: 170px"
+        />
+        <span class="text-caption text-medium-emphasis">0 = без потолка</span>
+      </div>
     </div>
     <v-btn variant="text" color="primary" size="small" @click="addAbility">
       <v-icon start>mdi-plus</v-icon>
@@ -71,3 +107,11 @@ function removeAbility(index: number) {
     </v-btn>
   </div>
 </template>
+
+<style scoped>
+.race-ability-block {
+  padding: 4px;
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-radius: 6px;
+}
+</style>

@@ -1,12 +1,8 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
+import type { DraftEntry } from '@/modules/Roleplay/Rule/Dto/DraftEntry';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { DRAFT_RULES_STORAGE_KEY } from '@/modules/Roleplay/Rule/Constant/draftRulesConfig';
-
-interface DraftEntry {
-  spaceId: number;
-  changedRules: Record<string, Rule>;
-}
 
 function loadDrafts(): DraftEntry[] {
   try {

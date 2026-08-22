@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { rollService } from '@/modules/Roleplay/Game/Service/RollService';
+import { rollService } from '@/modules/Roleplay/Game/Service/Instance/rollService';
+import { ROLL_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ATTACHMENT_TYPE';
+import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec';
+
+function rollOf(res: ReturnType<typeof rollService.parseRollCommand>): DiceRollSpec | undefined {
+  return res?.attachments.find((a) => a.type === ROLL_ATTACHMENT_TYPE)?.payload as DiceRollSpec | undefined;
+}
 
 describe('parseRollFormula', () => {
   it('разбирает латинскую формулу', () => {
@@ -36,38 +42,38 @@ describe('parseRollCommand', () => {
   it('разбирает минимальную команду', () => {
     const res = rollService.parseRollCommand('/roll 3d6');
     expect(res?.content).toBe('/roll 3d6');
-    expect(res?.rolls).toEqual([{ diceCount: 3, dieFaces: 6, efficiency: 3, adv: 0, dieSize: 0, label: undefined }]);
+    expect(rollOf(res)).toEqual({ diceCount: 3, dieFaces: 6, efficiency: 3, adv: 0, dieSize: 0, label: undefined });
   });
 
   it('учитывает эффективность и метку', () => {
     const res = rollService.parseRollCommand('/roll 3d6 e:2 Проверка на силу');
-    expect(res?.rolls[0].efficiency).toBe(2);
-    expect(res?.rolls[0].label).toBe('Проверка на силу');
+    expect(rollOf(res)?.efficiency).toBe(2);
+    expect(rollOf(res)?.label).toBe('Проверка на силу');
   });
 
   it('превращает dis в отрицательный adv', () => {
-    expect(rollService.parseRollCommand('/roll 3d6 dis:2')?.rolls[0].adv).toBe(-2);
-    expect(rollService.parseRollCommand('/roll 3d6 pom:1')?.rolls[0].adv).toBe(-1);
+    expect(rollOf(rollService.parseRollCommand('/roll 3d6 dis:2'))?.adv).toBe(-2);
+    expect(rollOf(rollService.parseRollCommand('/roll 3d6 pom:1'))?.adv).toBe(-1);
   });
 
   it('разбирает adv и префикс prem', () => {
-    expect(rollService.parseRollCommand('/roll 3d6 adv:1')?.rolls[0].adv).toBe(1);
-    expect(rollService.parseRollCommand('/roll 3d6 prem:2')?.rolls[0].adv).toBe(2);
+    expect(rollOf(rollService.parseRollCommand('/roll 3d6 adv:1'))?.adv).toBe(1);
+    expect(rollOf(rollService.parseRollCommand('/roll 3d6 prem:2'))?.adv).toBe(2);
   });
 
   it('ограничивает adv максимумом', () => {
-    expect(rollService.parseRollCommand('/roll 3d6 adv:99')?.rolls[0].adv).toBe(10);
-    expect(rollService.parseRollCommand('/roll 3d6 dis:99')?.rolls[0].adv).toBe(-10);
+    expect(rollOf(rollService.parseRollCommand('/roll 3d6 adv:99'))?.adv).toBe(10);
+    expect(rollOf(rollService.parseRollCommand('/roll 3d6 dis:99'))?.adv).toBe(-10);
   });
 
   it('отбрасывает невалидную эффективность в пользу дефолта', () => {
-    expect(rollService.parseRollCommand('/roll 3d6 e:0')?.rolls[0].efficiency).toBe(3);
-    expect(rollService.parseRollCommand('/roll 3d6 e:21')?.rolls[0].efficiency).toBe(3);
+    expect(rollOf(rollService.parseRollCommand('/roll 3d6 e:0'))?.efficiency).toBe(3);
+    expect(rollOf(rollService.parseRollCommand('/roll 3d6 e:21'))?.efficiency).toBe(3);
   });
 
   it('разбирает размерность', () => {
-    expect(rollService.parseRollCommand('/roll 3d6 size:2')?.rolls[0].dieSize).toBe(2);
-    expect(rollService.parseRollCommand('/roll 3d6 dim:-1')?.rolls[0].dieSize).toBe(-1);
+    expect(rollOf(rollService.parseRollCommand('/roll 3d6 size:2'))?.dieSize).toBe(2);
+    expect(rollOf(rollService.parseRollCommand('/roll 3d6 dim:-1'))?.dieSize).toBe(-1);
   });
 });
 

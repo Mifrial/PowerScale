@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumber';
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 
 const props = defineProps<{
   value: DimensionalNumberValue;

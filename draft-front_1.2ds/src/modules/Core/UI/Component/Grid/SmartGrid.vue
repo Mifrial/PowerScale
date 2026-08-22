@@ -1,34 +1,37 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import type { ColumnDefinition } from '@/modules/Core/UI/Dto/ColumnDefinition';
-import type { Row } from '@/modules/Core/UI/Dto/Row';
-import type { Sort } from '@/modules/Core/UI/Dto/Sort';
-import type { Pagination } from '@/modules/Core/UI/Dto/Pagination';
-import { loadGridSettings, saveGridSettings, buildDisplayColumns } from '@/modules/Core/UI/Component/Grid/gridSettings';
-import type { ColumnSetting } from '@/modules/Core/UI/Component/Grid/gridSettings';
+import type { ColumnDefinition } from '@/modules/Core/UI/Dto/Grid/ColumnDefinition';
+import type { Sort } from '@/modules/Core/UI/Dto/Grid/Sort';
+import type { Pagination } from '@/modules/Core/UI/Dto/Grid/Pagination';
+import type { RowMenuAction } from '@/modules/Core/UI/Dto/Grid/RowMenuAction';
+import { loadGridSettings } from '@/modules/Core/UI/Utils/gridSettings/loadGridSettings';
+import { saveGridSettings } from '@/modules/Core/UI/Utils/gridSettings/saveGridSettings';
+import { buildDisplayColumns } from '@/modules/Core/UI/Utils/gridSettings/buildDisplayColumns';
+import type { ColumnSetting } from '@/modules/Core/UI/Dto/Grid/ColumnSetting';
 import FieldPickerDialog from '@/modules/Core/UI/Component/FieldPickerDialog.vue';
-import type { PickerItem } from '@/modules/Core/UI/Dto/PickerItem';
+import type { PickerItem } from '@/modules/Core/UI/Dto/Field/PickerItem';
 import GridHeader from '@/modules/Core/UI/Component/Grid/header/GridHeader.vue';
 import GridRow from '@/modules/Core/UI/Component/Grid/GridRow.vue';
 import GridFooter from '@/modules/Core/UI/Component/Grid/GridFooter.vue';
-import ScrollEars from '@/modules/Core/UI/Component/Grid/ScrollEars.vue';
+import ScrollEars from '@/modules/Core/UI/Component/ScrollEars.vue';
 import { useColumnResize } from '@/modules/Core/UI/Composables/useColumnResize';
 import { useColumnDrag } from '@/modules/Core/UI/Composables/useColumnDrag';
 
 const props = defineProps<{
   columns: ColumnDefinition[];
-  rows: Row[];
+  rows: Record<string, unknown>[];
   pagination?: Pagination | null;
   total?: number;
   sort?: Sort | null;
   loading?: boolean;
   gridId?: string;
+  rowMenu?: RowMenuAction[];
 }>();
 
 const emit = defineEmits<{
   'update:sort': [sort: Sort | null];
   'update:pagination': [pagination: Pagination];
-  'row-action': [payload: { action: string; row: Row }];
+  'row-action': [payload: { action: string; row: Record<string, unknown> }];
 }>();
 
 const settingsOpen = ref(false);
@@ -140,14 +143,19 @@ function onPaginationChange(pagination: Pagination) {
   emit('update:pagination', pagination);
 }
 
-function onRowAction(payload: { action: string; row: Row }) {
+function onRowAction(payload: { action: string; row: Record<string, unknown> }) {
   emit('row-action', payload);
 }
 </script>
 
 <template>
   <div v-bind="$attrs">
-    <ScrollEars :columns="displayColumns">
+    <ScrollEars
+      :refresh="displayColumns"
+      scroll-selector=".v-table__wrapper"
+      top-selector="thead"
+      bottom-selector=".smart-grid-footer"
+    >
       <v-data-table
         :headers="tableHeaders"
         :items="rows"
@@ -178,7 +186,13 @@ function onRowAction(payload: { action: string; row: Row }) {
         </template>
 
         <template #item="{ item }">
-          <GridRow :grid-id="gridId" :columns="displayColumns" :item="item" @row-action="onRowAction" />
+          <GridRow
+            :grid-id="gridId"
+            :columns="displayColumns"
+            :item="item"
+            :row-menu="rowMenu"
+            @row-action="onRowAction"
+          />
         </template>
 
         <template #bottom>

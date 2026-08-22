@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { accessService } from '@/modules/Core/User/Service/AccessService';
+import { accessService } from '@/modules/Core/User/init';
 import type { User } from '@/modules/Core/User/Dto/User';
 
 const user = (permissions: string[] | undefined, superAdmin = false): User => ({

@@ -7,6 +7,13 @@
   --v-shadow-md-opacity: 0.15;
 }
 
+/* Firefox: цвет скроллбара. */
+@supports (-moz-appearance: none) {
+  :root {
+    scrollbar-color: rgb(var(--v-theme-scrollbar)) transparent;
+  }
+}
+
 .v-btn--variant-outlined:hover {
   background-color: rgb(var(--v-theme-primaryLight));
 }
@@ -25,7 +32,7 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgb(var(--v-theme-primaryLight));
+  background: rgb(var(--v-theme-scrollbar));
   border: 3px solid transparent;
   background-clip: content-box;
   border-radius: 6px;

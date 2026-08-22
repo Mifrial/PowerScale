@@ -1,0 +1,16 @@
+import type { CharacterPoisonValue } from '@/modules/Roleplay/Character/Dto/CharacterPoisonValue';
+
+/**
+ * Состояние на персонаже — ссылка на правило + значение. Один и тот же stateRuleId
+ * может встречаться несколько раз (повторы); как они объединяются — решает
+ * StateSpec.aggregation правила.
+ */
+export interface CharacterStateValue {
+  stateRuleId: string;
+  /** flag: не заполняется; number: целое значение. */
+  value?: number;
+  /** Только для value_type 'dimensional'. */
+  dimensionalValue?: { base: number; size: number };
+  /** Только для состояния «Отравление»: применённый яд. */
+  poison?: CharacterPoisonValue;
+}

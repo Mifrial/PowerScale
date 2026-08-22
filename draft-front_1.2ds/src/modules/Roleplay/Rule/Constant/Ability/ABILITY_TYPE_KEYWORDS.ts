@@ -7,4 +7,5 @@ export const ABILITY_TYPE_KEYWORDS: Record<AbilityType, string[]> = {
   action: ['skill', 'action'],
   process: ['skill', 'action', 'process'],
   spell: ['skill', 'magic', 'action', 'spell'],
+  group: ['group'],
 };

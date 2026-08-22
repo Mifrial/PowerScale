@@ -1,11 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { useSpaceStore } from '@/modules/Roleplay/Space/Store/spaces';
-import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
 import { useRuleStore } from '@/modules/Roleplay/Rule/Store/rules';
 import { useKeywordStore } from '@/modules/Roleplay/Rule/Store/keywords';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
+import { useSpaceContext } from '@/modules/Roleplay/Space/init';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { RuleVersion } from '@/modules/Roleplay/Rule/Dto/RuleVersion';
 import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
@@ -15,13 +14,15 @@ import AbilityCard from '@/modules/Roleplay/Rule/Component/Cards/AbilityCard.vue
 import RaceCard from '@/modules/Roleplay/Rule/Component/Cards/RaceCard.vue';
 import SpeciesCard from '@/modules/Roleplay/Rule/Component/Cards/SpeciesCard.vue';
 import PointsCard from '@/modules/Roleplay/Rule/Component/Cards/PointsCard.vue';
+import StateCard from '@/modules/Roleplay/Rule/Component/Cards/StateCard.vue';
+import PoisonCard from '@/modules/Roleplay/Rule/Component/Cards/PoisonCard.vue';
+import ModifierCard from '@/modules/Roleplay/Rule/Component/Cards/ModifierCard.vue';
 
 const route = useRoute();
 const router = useRouter();
-const spaceStore = useSpaceStore();
-const revisionStore = useSpaceRevisionStore();
 const store = useRuleStore();
 const keywordStore = useKeywordStore();
+const spaceContext = useSpaceContext();
 const { signal } = useAbortable();
 
 const code = computed(() => route.params.code as string);
@@ -61,23 +62,12 @@ async function resolveRoute(): Promise<void> {
   rule.value = null;
 
   try {
-    const space = await spaceStore.fetchSpaceByCode(code.value, signal.value);
-
-    if (isDraftContext.value) {
-      await revisionStore.syncFromContext(space.id, 'draft', space.revision, signal.value);
-    } else if (/^\d+$/.test(ctx.value)) {
-      await revisionStore.syncFromContext(space.id, 'rev', Number(ctx.value), signal.value);
-    } else {
-      router.replace(`/space/${code.value}`);
-
-      return;
-    }
-
     // Ищем правило в effectiveRules (уже смержено с черновиками в draft-контексте)
-    const found = revisionStore.effectiveRules.find((r) => r.id === ruleId.value);
+    const found = spaceContext.value.effectiveRules.find((r) => r.id === ruleId.value);
 
     if (found) {
       rule.value = found;
+      store.setCurrentRule(found);
     } else {
       // Fallback: загружаем напрямую из API
       rule.value = await store.fetchRule(ruleId.value, signal.value);
@@ -120,22 +110,33 @@ watch(() => [route.params.code, route.params.ctx, route.params.ruleId], resolveR
 
     <v-card class="mb-4">
       <v-card-title>Описание</v-card-title>
-      <v-card-text>{{ rule.description }}</v-card-text>
+      <v-card-text class="rule-detail__description">{{ rule.description }}</v-card-text>
     </v-card>
 
     <AbilityCard
       v-if="rule.type === 'ability'"
       :rule="rule"
-      :rules="revisionStore.effectiveRules"
+      :rules="spaceContext.effectiveRules"
       :keywords="keywordStore.keywords"
       class="mb-4"
     />
 
-    <RaceCard v-if="rule.type === 'race'" :rule="rule" :rules="revisionStore.effectiveRules" class="mb-4" />
+    <RaceCard v-if="rule.type === 'race'" :rule="rule" :rules="spaceContext.effectiveRules" class="mb-4" />
 
-    <SpeciesCard v-if="rule.type === 'species'" :rule="rule" :rules="revisionStore.effectiveRules" class="mb-4" />
+    <SpeciesCard v-if="rule.type === 'species'" :rule="rule" :rules="spaceContext.effectiveRules" class="mb-4" />
 
     <PointsCard v-if="rule.type === 'points'" :rule="rule" class="mb-4" />
+
+    <StateCard v-if="rule.type === 'state'" :rule="rule" :rules="spaceContext.effectiveRules" class="mb-4" />
+    <PoisonCard v-if="rule.type === 'poison'" :rule="rule" :rules="spaceContext.effectiveRules" class="mb-4" />
+
+    <ModifierCard
+      v-if="rule.type === 'item_modifier'"
+      :rule="rule"
+      :keywords="keywordStore.keywords"
+      :rules="spaceContext.effectiveRules"
+      class="mb-4"
+    />
 
     <v-card v-if="mechanic" class="mb-4">
       <v-card-title>Механика</v-card-title>
@@ -183,3 +184,10 @@ watch(() => [route.params.code, route.params.ctx, route.params.ruleId], resolveR
     <v-btn color="primary" @click="retry">Попробовать снова</v-btn>
   </div>
 </template>
+
+<style scoped>
+/* Переносы строк внутри описания правила (текст моков содержит \n). */
+.rule-detail__description {
+  white-space: pre-line;
+}
+</style>

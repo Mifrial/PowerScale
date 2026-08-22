@@ -2,6 +2,7 @@ import type { ProcessSpec } from '@/modules/Roleplay/Rule/Dto/Ability/ProcessSpe
 import type { ProcessTransition } from '@/modules/Roleplay/Rule/Dto/Ability/ProcessTransition';
 import type { ActionCost } from '@/modules/Roleplay/Rule/Dto/Ability/ActionCost';
 import type { ResourceRef } from '@/modules/Roleplay/Rule/Dto/Ability/ResourceRef';
+import { ACTION_POINTS_RESOURCE_CODE } from '@/modules/Roleplay/Rule/Constant/Ability/ACTION_POINTS_RESOURCE_CODE';
 
 export class ProcessSpecService {
   createEmpty(): ProcessSpec {
@@ -31,7 +32,7 @@ export class ProcessSpecService {
           code: `step-${spec.steps.length + 1}`,
           name: '',
           description: '',
-          costs: [{ resource_code: 'action-points', amount: 1 }],
+          costs: [{ resource_code: ACTION_POINTS_RESOURCE_CODE, amount: 1 }],
         },
       ],
     };
@@ -49,7 +50,7 @@ export class ProcessSpecService {
 
   addStepCost(spec: ProcessSpec, stepIndex: number): ProcessSpec {
     const steps = spec.steps.map((s, i) =>
-      i === stepIndex ? { ...s, costs: [...s.costs, { resource_code: 'action-points', amount: 1 }] } : s,
+      i === stepIndex ? { ...s, costs: [...s.costs, { resource_code: ACTION_POINTS_RESOURCE_CODE, amount: 1 }] } : s,
     );
 
     return { ...spec, steps };
@@ -132,10 +133,8 @@ export class ProcessSpecService {
   }
 
   isMandatoryCost(costs: ActionCost[], costIndex: number): boolean {
-    const odIndex = costs.findIndex((c) => c.resource_code === 'action-points');
+    const odIndex = costs.findIndex((c) => c.resource_code === ACTION_POINTS_RESOURCE_CODE);
 
     return odIndex === costIndex;
   }
 }
-
-export const processSpecService = new ProcessSpecService();

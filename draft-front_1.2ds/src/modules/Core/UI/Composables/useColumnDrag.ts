@@ -1,25 +1,9 @@
 import { ref } from 'vue';
-import type { ComputedRef, Ref } from 'vue';
-import type { ColumnDefinition } from '@/modules/Core/UI/Dto/ColumnDefinition';
+import type { ColumnDropTarget } from '@/modules/Core/UI/Interface/Grid/ColumnDropTarget';
+import type { ColumnDragApi } from '@/modules/Core/UI/Interface/Grid/ColumnDragApi';
+import type { ColumnDragScope } from '@/modules/Core/UI/Interface/Grid/ColumnDragScope';
 
-export interface ColumnDropTarget {
-  key: string;
-  side: 'before' | 'after';
-}
-
-export interface ColumnDragApi {
-  dragKey: Ref<string | null>;
-  dropTarget: Ref<ColumnDropTarget | null>;
-  start: (key: string, e: DragEvent) => void;
-  enter: (key: string, e: DragEvent) => void;
-  drop: (key: string, e: DragEvent) => void;
-  end: () => void;
-}
-
-export function useColumnDrag(options: {
-  displayColumns: ComputedRef<ColumnDefinition[]>;
-  saveOrder: (keys: string[]) => void;
-}): ColumnDragApi {
+export function useColumnDrag(options: ColumnDragScope): ColumnDragApi {
   const dragKey = ref<string | null>(null);
   const dropTarget = ref<ColumnDropTarget | null>(null);
 

@@ -1,6 +1,7 @@
 import { computed } from 'vue';
 import { useUserStore } from '@/modules/Core/User/Store/users';
-import { initials as userInitials, displayName as userDisplayName } from '@/modules/Core/User/Utils/profile';
+import { initials as userInitials } from '@/modules/Core/User/Utils/initials';
+import { displayName as userDisplayName } from '@/modules/Core/User/Utils/displayName';
 import type { User } from '@/modules/Core/User/Dto/User';
 
 export function useChatUsers() {
@@ -20,17 +21,7 @@ export function useChatUsers() {
   }
 
   async function ensureUsers(ids: number[]): Promise<void> {
-    const missing = ids.filter((id) => !userMap.value.has(id));
-    if (!missing.length) return;
-    if (!userStore.users.length) {
-      await userStore.fetchUsers();
-
-      return;
-    }
-    const fetched = await userStore.getUsersByIds(missing);
-    for (const u of fetched) {
-      userStore.users.push(u);
-    }
+    await userStore.ensureUsers(ids);
   }
 
   function initials(u: User | undefined): string {

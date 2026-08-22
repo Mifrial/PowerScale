@@ -1,15 +1,12 @@
 import type { Component } from 'vue';
-import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec';
-
-export interface ChatToolbarContext {
-  pendingRolls: DiceRollSpec[];
-  addRoll(spec: DiceRollSpec): void;
-  removeRoll(index: number): void;
-  send(text: string, rolls: DiceRollSpec[]): void;
-  disabled: boolean;
-}
 
 export interface IChatToolbarExtension {
   id: string;
   component: Component;
+  /**
+   * Куда рендерить расширение: 'bar' — над полем ввода (панель, напр. макросы),
+   * 'actions' — в колонку действий справа внизу (рядом с «Вставить ссылку»/отправить).
+   * По умолчанию 'bar'.
+   */
+  placement?: 'bar' | 'actions';
 }

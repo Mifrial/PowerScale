@@ -1,10 +1,13 @@
 <script setup lang="ts">
+import { computed } from 'vue';
+import type { ChatAttachment } from '@/modules/Messages/Chat/Dto/ChatAttachment';
 import type { DiceRollResult } from '@/modules/Roleplay/Game/Dto/DiceRollResult';
-import { rollService } from '@/modules/Roleplay/Game/Service/RollService';
+import { rollService } from '@/modules/Roleplay/Game/Service/Instance/rollService';
 
-const props = defineProps<{ roll: DiceRollResult; index: number }>();
+const props = defineProps<{ attachment: ChatAttachment<DiceRollResult>; index: number }>();
 
-const sizeSuffix = rollService.formatRollSize(props.roll.spec.dieSize || 0);
+const roll = computed(() => props.attachment.payload);
+const sizeSuffix = computed(() => rollService.formatRollSize(roll.value.spec.dieSize || 0));
 </script>
 
 <template>
@@ -39,6 +42,11 @@ const sizeSuffix = rollService.formatRollSize(props.roll.spec.dieSize || 0);
         >убрано {{ roll.droppedRolls.length }} лучш{{ roll.droppedRolls.length === 1 ? 'ий' : 'их' }}</template
       >
     </div>
+    <div v-if="roll.appliedMechanics?.length" class="chat-roll-mechanics">
+      <v-chip v-for="name in roll.appliedMechanics" :key="name" size="x-small" variant="outlined" density="compact">
+        {{ name }}
+      </v-chip>
+    </div>
     <div class="chat-roll-total">
       Итого: <strong>{{ roll.totalSuccesses > 0 ? '+' : '' }}{{ roll.totalSuccesses }}{{ sizeSuffix }}</strong> успехов
     </div>
@@ -52,6 +60,7 @@ const sizeSuffix = rollService.formatRollSize(props.roll.spec.dieSize || 0);
   border-radius: 8px;
   padding: 8px 12px;
   margin-top: 6px;
+  margin-right: 5px;
   display: inline-block;
   text-align: left;
   max-width: 100%;
@@ -105,6 +114,13 @@ const sizeSuffix = rollService.formatRollSize(props.roll.spec.dieSize || 0);
   font-size: 11px;
   color: rgba(var(--v-theme-on-surface), var(--v-text-disabled-opacity));
   margin-top: -2px;
+}
+
+.chat-roll-mechanics {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 4px;
 }
 
 .chat-roll-total {

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue';
-import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumber';
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import FormulaInput from '@/modules/Roleplay/Rule/Component/FormulaInput.vue';
 import type { Formula } from '@/modules/Roleplay/Rule/Dto/Ability/Formula';
 

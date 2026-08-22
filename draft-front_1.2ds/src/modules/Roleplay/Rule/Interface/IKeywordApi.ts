@@ -1,17 +1,6 @@
 import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
-
-export interface CreateKeywordData {
-  code: string;
-  name: string;
-  description?: string;
-}
-
-export interface UpdateKeywordData {
-  code?: string;
-  name?: string;
-  description?: string;
-  active?: boolean;
-}
+import type { CreateKeywordData } from '@/modules/Roleplay/Rule/Dto/CreateKeywordData';
+import type { UpdateKeywordData } from '@/modules/Roleplay/Rule/Dto/UpdateKeywordData';
 
 export interface IKeywordApi {
   getTags(signal?: AbortSignal): Promise<Keyword[]>;

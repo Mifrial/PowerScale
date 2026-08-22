@@ -1,43 +1,24 @@
 import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import { ref } from 'vue';
 import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
-import type { CreateKeywordData, UpdateKeywordData } from '@/modules/Roleplay/Rule/Interface/IKeywordApi';
+import type { CreateKeywordData } from '@/modules/Roleplay/Rule/Dto/CreateKeywordData';
+import type { UpdateKeywordData } from '@/modules/Roleplay/Rule/Dto/UpdateKeywordData';
 import { getKeywordApi } from '@/modules/Roleplay/Rule/init';
 
 export const useKeywordStore = defineStore('keywords', () => {
   const keywords = ref<Keyword[]>([]);
   const currentTag = ref<Keyword | null>(null);
   const loading = ref(false);
-  const filterName = ref('');
-  const filterActive = ref('');
-
-  const filteredTags = computed(() => {
-    let result = keywords.value;
-    if (filterName.value) {
-      const q = filterName.value.toLowerCase();
-      result = result.filter(
-        (t) =>
-          t.name.toLowerCase().includes(q) ||
-          t.code.toLowerCase().includes(q) ||
-          (t.description ?? '').toLowerCase().includes(q),
-      );
-    }
-    if (filterActive.value === 'true') {
-      result = result.filter((t) => t.active);
-    } else if (filterActive.value === 'false') {
-      result = result.filter((t) => !t.active);
-    }
-
-    return result;
-  });
+  const error = ref<string | null>(null);
 
   async function fetchTags(signal?: AbortSignal) {
     loading.value = true;
+    error.value = null;
     try {
       keywords.value = await getKeywordApi().getTags(signal);
     } catch (e) {
       if (e instanceof DOMException && e.name === 'AbortError') return;
-      console.error('fetchTags failed', e);
+      error.value = 'Не удалось загрузить признаки';
     } finally {
       loading.value = false;
     }
@@ -81,9 +62,7 @@ export const useKeywordStore = defineStore('keywords', () => {
     keywords,
     currentTag,
     loading,
-    filterName,
-    filterActive,
-    filteredTags,
+    error,
     fetchTags,
     fetchTag,
     createTag,

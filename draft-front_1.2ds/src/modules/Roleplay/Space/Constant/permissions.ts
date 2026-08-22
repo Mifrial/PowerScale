@@ -1,4 +1,4 @@
-import type { PermissionCategory } from '@/modules/Core/User/Interface/IPermissionRegistry';
+import type { PermissionCategory } from '@/modules/Core/User/Interface/PermissionCategory';
 
 export const SPACE_PERMISSION_CATEGORY: PermissionCategory = {
   key: 'space',

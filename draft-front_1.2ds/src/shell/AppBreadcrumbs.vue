@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useRoute } from 'vue-router';
-import type { BreadcrumbItem } from '@/router/meta';
+import type { BreadcrumbItem } from '@/router/BreadcrumbItem';
 
 const route = useRoute();
 

@@ -3,13 +3,10 @@ import type { AbilitySpecDraft } from '@/modules/Roleplay/Rule/Dto/Ability/Abili
 import type { AbilityType } from '@/modules/Roleplay/Rule/Enum/Ability/AbilityType';
 import type { Requirement } from '@/modules/Roleplay/Rule/Dto/Ability/Requirement';
 import type { Grant } from '@/modules/Roleplay/Rule/Dto/Ability/Grant';
-import type { SpellComponent } from '@/modules/Roleplay/Rule/Dto/Ability/SpellComponent';
+import type { ActionComponent } from '@/modules/Roleplay/Rule/Dto/Ability/ActionComponent';
 import type { SpellDuration } from '@/modules/Roleplay/Rule/Dto/Ability/SpellDuration';
-import { ABILITY_SPEC_FIELDS } from '@/modules/Roleplay/Rule/Constant/Ability/ABILITY_SPEC_FIELDS';
-import { ABILITY_TYPE_PRECEDENCE } from '@/modules/Roleplay/Rule/Constant/Ability/ABILITY_TYPE_PRECEDENCE';
-import { ABILITY_TYPE_DISTINCTIVE_KEYWORD } from '@/modules/Roleplay/Rule/Constant/Ability/ABILITY_TYPE_DISTINCTIVE_KEYWORD';
-import { ABILITY_TYPE_SPECIFIC_FIELDS } from '@/modules/Roleplay/Rule/Constant/Ability/ABILITY_TYPE_SPECIFIC_FIELDS';
-import { ABILITY_TYPE_KEYWORDS } from '@/modules/Roleplay/Rule/Constant/Ability/ABILITY_TYPE_KEYWORDS';
+import type { ResourceRef } from '@/modules/Roleplay/Rule/Dto/Ability/ResourceRef';
+import { ACTION_POINTS_RESOURCE_CODE } from '@/modules/Roleplay/Rule/Constant/Ability/ACTION_POINTS_RESOURCE_CODE';
 
 export class AbilitySpecService {
   constructor(
@@ -122,16 +119,20 @@ export class AbilitySpecService {
     return { ...spec, grants: [...spec.grants, { level: 1, grants: [] }] };
   }
 
-  ensureActionCost(spec: AbilitySpecDraft, isSpell: boolean): AbilitySpecDraft {
-    const hasOd = spec.action_costs.some((c) => c.resource_code === 'action-points');
+  ensureActionPointCost(spec: AbilitySpecDraft, isSpell: boolean): AbilitySpecDraft {
+    const hasOd = spec.action_components.some(
+      (c): c is Extract<ActionComponent, { type: 'resource' }> =>
+        c.type === 'resource' && c.resource_code === ACTION_POINTS_RESOURCE_CODE,
+    );
     if (hasOd) return spec;
 
     return {
       ...spec,
-      action_costs: [
-        ...spec.action_costs,
+      action_components: [
+        ...spec.action_components,
         {
-          resource_code: 'action-points',
+          type: 'resource',
+          resource_code: ACTION_POINTS_RESOURCE_CODE,
           amount: 1,
           label: isSpell ? 'Сотворение' : undefined,
         },
@@ -154,10 +155,31 @@ export class AbilitySpecService {
     return result;
   }
 
+  /** Признак «часть группы»: добавляет его при заданном group_code, снимает при null/пустом. */
+  syncGroupPartTag(
+    groupCode: string | null | undefined,
+    keywordIds: number[],
+    keywords: { id: number; code: string }[],
+  ): number[] {
+    const part = keywords.find((t) => t.code === 'group-part');
+    if (!part) return keywordIds;
+    const result = keywordIds.filter((id) => id !== part.id);
+    if (groupCode) result.push(part.id);
+
+    return result;
+  }
+
   createEmptyGrant(type: Grant['type'], defaultSourceCode = ''): Grant {
     switch (type) {
       case 'characteristic':
         return { type: 'characteristic', characteristic_code: '', value: { base: 3, size: 0 } };
+      case 'characteristic_parameter':
+        return {
+          type: 'characteristic_parameter',
+          characteristic_code: '',
+          parameter_code: 'x',
+          per_unit: 1,
+        };
       case 'characteristic_modify':
         return {
           type: 'characteristic_modify',
@@ -180,7 +202,39 @@ export class AbilitySpecService {
         return { type: 'keyword', keyword_code: '', remove: false };
       case 'item':
         return { type: 'item', item_code: '' };
+      case 'resistance':
+        return {
+          type: 'resistance',
+          damage_type_code: '',
+          value: { base: 1, size: 0 },
+          source_code: defaultSourceCode,
+        };
+      case 'sense_modify':
+        return {
+          type: 'sense_modify',
+          sense_code: '',
+          amount: { type: 'fixed', value: 1 },
+          source_code: defaultSourceCode,
+        };
+      case 'money':
+        return { type: 'money', fixed: 50, percent: 50, apply: 'max' };
     }
+  }
+
+  /** Приводит лимит гранта ресурса к форме, соответствующей размерности ресурса. */
+  normalizeGrantLimit(grant: Grant, resources: ResourceRef[]): Grant {
+    if (grant.type !== 'resource' || !grant.resource_code) return grant;
+
+    const res = resources.find((r) => r.code === grant.resource_code);
+    const limit = grant.limit;
+    if (res?.isDimensional && typeof limit === 'number') {
+      return { ...grant, limit: { base: limit, size: 0 } };
+    }
+    if (!res?.isDimensional && limit && typeof limit === 'object' && !Array.isArray(limit)) {
+      return { ...grant, limit: limit.base };
+    }
+
+    return grant;
   }
 
   createEmptyRequirement(type: Requirement['type']): Requirement {
@@ -191,6 +245,8 @@ export class AbilitySpecService {
         return { type: 'has_ability_keyword', keyword_code: '', min_count: 1 };
       case 'has_keyword':
         return { type: 'has_keyword', keyword_code: '' };
+      case 'min_weapon_mastery':
+        return { type: 'min_weapon_mastery', keyword_code: '', min_level: 1 };
       case 'characteristic_value':
         return {
           type: 'characteristic_value',
@@ -206,12 +262,40 @@ export class AbilitySpecService {
     }
   }
 
-  createEmptySpellComponent(type: SpellComponent['type']): SpellComponent {
+  createEmptyActionComponent(type: ActionComponent['type']): ActionComponent {
     if (type === 'material') {
-      return { type: 'material', item_code: undefined, description: undefined };
+      return {
+        type: 'material',
+        mode: 'consume',
+        item_code: undefined,
+        keyword_codes: undefined,
+        description: undefined,
+      };
+    }
+    if (type === 'resource') {
+      return { type: 'resource', resource_code: '', amount: 0, label: undefined };
     }
 
     return { type, note: undefined };
+  }
+
+  addActionComponent(components: ActionComponent[], type: ActionComponent['type']): ActionComponent[] {
+    return [...components, this.createEmptyActionComponent(type)];
+  }
+
+  updateActionComponent(components: ActionComponent[], index: number, component: ActionComponent): ActionComponent[] {
+    return components.map((c, i) => (i === index ? component : c));
+  }
+
+  patchActionComponent(components: ActionComponent[], index: number, key: string, value: unknown): ActionComponent[] {
+    return components.map((c, i) => (i === index ? ({ ...c, [key]: value } as ActionComponent) : c));
+  }
+
+  removeActionComponent(components: ActionComponent[], index: number): ActionComponent[] {
+    const target = components[index];
+    if (target?.type === 'resource' && target.resource_code === ACTION_POINTS_RESOURCE_CODE) return components;
+
+    return components.filter((_, i) => i !== index);
   }
 
   createEmptySpellDuration(type: SpellDuration['type']): SpellDuration {
@@ -220,11 +304,3 @@ export class AbilitySpecService {
     return { type, difficulty: { base: 3, size: 0 }, action_cost: 0 };
   }
 }
-
-export const abilitySpecService = new AbilitySpecService(
-  ABILITY_SPEC_FIELDS,
-  ABILITY_TYPE_PRECEDENCE,
-  ABILITY_TYPE_DISTINCTIVE_KEYWORD,
-  ABILITY_TYPE_SPECIFIC_FIELDS,
-  ABILITY_TYPE_KEYWORDS,
-);

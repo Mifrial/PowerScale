@@ -3,7 +3,6 @@ import { onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useGroupStore } from '@/modules/Core/User/Store/groups';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
-import { mockGroupMembers } from '@/modules/Core/User/Mock/mockGroupMembers';
 import PermissionMatrix from '@/modules/Core/User/Component/PermissionMatrix.vue';
 
 const route = useRoute();
@@ -17,6 +16,7 @@ const showDeactivateDialog = ref(false);
 onMounted(async () => {
   const id = Number(route.params.id);
   await store.fetchGroup(id, signal.value);
+  await store.fetchGroupMembers(id, signal.value);
   group.value = store.currentGroup;
 });
 
@@ -53,8 +53,8 @@ async function deactivate() {
     <v-card class="mb-4">
       <v-card-title>Участники ({{ group.memberCount }})</v-card-title>
       <v-card-text>
-        <v-list v-if="mockGroupMembers.length > 0">
-          <v-list-item v-for="member in mockGroupMembers" :key="member.id" :to="`/users/${member.id}`">
+        <v-list v-if="store.groupMembers.length > 0">
+          <v-list-item v-for="member in store.groupMembers" :key="member.id" :to="`/users/${member.id}`">
             <template #prepend>
               <v-avatar color="primary" size="36">
                 <span class="text-body-2">{{ member.initials }}</span>

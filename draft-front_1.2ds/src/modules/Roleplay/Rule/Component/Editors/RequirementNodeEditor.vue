@@ -5,10 +5,10 @@ import type { CharacteristicRef } from '@/modules/Roleplay/Rule/Dto/Ability/Char
 import type { ResourceRef } from '@/modules/Roleplay/Rule/Dto/Ability/ResourceRef';
 import type { AbilityRef } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityRef';
 import type { KeywordRef } from '@/modules/Roleplay/Rule/Dto/Ability/KeywordRef';
-import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumber';
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue';
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
-import { abilitySpecService } from '@/modules/Roleplay/Rule/Service/Spec/AbilitySpecService';
+import { abilitySpecService } from '@/modules/Roleplay/Rule/Service/Instance/abilitySpecService';
 import { useVModelSync } from '@/modules/Core/UI/Composables/useVModelSync';
 import { REQUIREMENT_TYPES } from '@/modules/Roleplay/Rule/Constant/Ability/REQUIREMENT_TYPES';
 
@@ -180,7 +180,8 @@ function removeChild(index: number) {
           :model-value="inner.min"
           @update:model-value="(v) => patch('min', v)"
           label="Мин. значение"
-          mode="characteristic"
+          :min="3"
+          :max="5"
           style="flex: 1 1 auto"
         />
       </template>

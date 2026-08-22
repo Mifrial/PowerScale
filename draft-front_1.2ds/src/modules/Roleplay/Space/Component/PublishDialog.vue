@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import type { Space } from '@/modules/Roleplay/Space/Dto/Space';
-import type { ProblemEntry } from '@/modules/Roleplay/Rule/init';
-import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
 import { useDraftRuleStore } from '@/modules/Roleplay/Rule/Store/draftRules';
 import { useKeywordStore } from '@/modules/Roleplay/Rule/Store/keywords';
-import { ruleValidationService, ruleDiffService } from '@/modules/Roleplay/Rule/init';
-import { RULE_TYPE_LABELS } from '@/modules/Roleplay/Rule/Constant/RULE_TYPE_LABELS';
+import { RULE_TYPE_LABELS } from '@/modules/Roleplay/Rule/init';
+import { publishService } from '@/modules/Roleplay/Space/Service/Instance/publishService';
+import type { PublishSummary } from '@/modules/Roleplay/Space/Dto/PublishSummary';
 
 const props = defineProps<{
   modelValue: boolean;
@@ -30,10 +29,12 @@ const open = computed({
 });
 
 const publishing = ref(false);
-const publishAdded = ref<Rule[]>([]);
-const publishChanged = ref<Rule[]>([]);
-const publishProblems = ref<ProblemEntry[]>([]);
-const publishSpaceErrors = ref<string[]>([]);
+const summary = ref<PublishSummary | null>(null);
+
+const publishAdded = computed(() => summary.value?.added ?? []);
+const publishChanged = computed(() => summary.value?.changed ?? []);
+const publishProblems = computed(() => summary.value?.problems ?? []);
+const publishSpaceErrors = computed(() => summary.value?.spaceErrors ?? []);
 
 const hasPublishProblems = computed(() => publishProblems.value.length > 0 || publishSpaceErrors.value.length > 0);
 
@@ -47,39 +48,12 @@ watch(
 function prepare() {
   const space = props.space;
   if (!space) return;
-  const published = revisionStore.activeRevision?.rules ?? [];
-  const draftRules = draftStore.getDraftRules(space.id);
-  const diff = ruleDiffService.classifyDraftDiff(published, draftRules);
-  publishAdded.value = diff.added;
-  publishChanged.value = diff.changed;
-
-  const effective = revisionStore.effectiveRules;
-  const keywords = keywordStore.keywords;
-  const items = [
-    ...ruleValidationService
-      .validateRuleReferences(
-        effective,
-        keywords.map((t) => ({ code: t.code, name: t.name })),
-      )
-      .map((e) => ({
-        ruleCode: e.ruleCode,
-        ruleName: e.ruleName,
-        message: ruleValidationService.formatReferenceError(e),
-      })),
-    ...ruleValidationService
-      .validateAbilityStructure(effective, keywords)
-      .map((e) => ({ ruleCode: e.ruleCode, ruleName: e.ruleName, message: e.message })),
-    ...ruleValidationService
-      .validateRaceStructure(effective)
-      .map((e) => ({ ruleCode: e.ruleCode, ruleName: e.ruleName, message: e.message })),
-    ...ruleValidationService
-      .validateSpeciesStructure(effective)
-      .map((e) => ({ ruleCode: e.ruleCode, ruleName: e.ruleName, message: e.message })),
-  ];
-  publishProblems.value = ruleDiffService.groupProblems(items);
-
-  const cycle = ruleValidationService.findSpeciesCycle(effective);
-  publishSpaceErrors.value = cycle ? [ruleValidationService.formatSpeciesCycle(cycle)] : [];
+  summary.value = publishService.prepare(
+    revisionStore.activeRevision?.rules ?? [],
+    draftStore.getDraftRules(space.id),
+    revisionStore.effectiveRules,
+    keywordStore.keywords,
+  );
 }
 
 async function publishDraft() {

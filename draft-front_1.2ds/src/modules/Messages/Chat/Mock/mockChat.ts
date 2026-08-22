@@ -1,184 +1,220 @@
 import type { Chat } from '@/modules/Messages/Chat/Dto/Chat';
 import type { ChatMessage } from '@/modules/Messages/Chat/Dto/ChatMessage';
 import type { MemberInfo } from '@/modules/Messages/Chat/Dto/MemberInfo';
+import type { ChatAttachment } from '@/modules/Messages/Chat/Dto/ChatAttachment';
+import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
+import type { ChatMessageVisibility } from '@/modules/Messages/Chat/Dto/ChatMessageVisibility';
 import type { DiceRollResult } from '@/modules/Roleplay/Game/Dto/DiceRollResult';
-import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec';
 import type { SyncResponse } from '@/modules/Messages/Chat/Dto/SyncResponse';
 import { users as realUsers } from '@/modules/Core/User/Mock/mockUsers';
-import { rollService } from '@/modules/Roleplay/Game/Service/RollService';
+import { getCurrentUserId } from '@/modules/Core/Auth/Mock/mockAuth';
+import { getAttachmentProcessor, getChatTypes } from '@/modules/Messages/Chat/init';
+import { isMessageVisible } from '@/modules/Messages/Chat/Utils/chatVisibility';
+import { messagePreview } from '@/modules/Messages/Chat/Utils/messagePreview';
+import { ROLL_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ATTACHMENT_TYPE';
 
 const delay = (ms = 100) => new Promise((r) => setTimeout(r, ms));
-let msgIdSeq = 50;
+// id для сообщений, создаваемых в рантайме (send/sync): не пересекаются с рукописными (< 1000).
+let msgIdSeq = 1000;
+
+// Sentinel «текущий пользователь» в фикстурах: не привязан к конкретному id.
+// В рантайме резолвится в фактически авторизованного пользователя.
+const SELF = -1;
+
+function resolveSelfMembers(members: MemberInfo[]): MemberInfo[] {
+  const selfId = getCurrentUserId();
+  const others = members.filter((m) => m.userId !== SELF);
+  if (others.some((m) => m.userId === selfId)) return others;
+  const selfSeat = members.find((m) => m.userId === SELF);
+  if (selfSeat) return [...others, { ...selfSeat, userId: selfId }];
+
+  return others;
+}
 
 function userName(u: { name: string; surname?: string }): string {
   return [u.name, u.surname].filter(Boolean).join(' ');
 }
 
-function member(userId: number, status: string): MemberInfo {
-  return { userId, status, joinedAt: '2026-06-01T00:00:00' };
+function member(userId: number, status: string, role?: string): MemberInfo {
+  return { userId, status, joinedAt: '2026-06-01T00:00:00', ...(role ? { role } : {}) };
 }
 
-const mockChats: Chat[] = [
+function msg(
+  id: number,
+  chatId: number,
+  userId: number,
+  content: string,
+  attachments: ChatAttachment[],
+  createdAt: string,
+  speaker?: ChatSpeaker,
+): ChatMessage {
+  const resolvedId = userId === SELF ? getCurrentUserId() : userId;
+  const u = realUsers.find((x) => x.id === resolvedId);
+
+  return {
+    id,
+    chatId,
+    userId: resolvedId,
+    username: u ? userName(u) : 'Неизвестно',
+    content,
+    attachments,
+    createdAt,
+    updatedAt: createdAt,
+    ...(speaker ? { speaker } : {}),
+  };
+}
+
+function rollAttachment(result: DiceRollResult): ChatAttachment {
+  return { type: ROLL_ATTACHMENT_TYPE, payload: result };
+}
+
+function rollMsg(
+  id: number,
+  chatId: number,
+  userId: number,
+  label: string,
+  diceCount: number,
+  dieFaces: number,
+  rolls: number[],
+  successes: number[],
+  createdAt: string,
+  speaker?: ChatSpeaker,
+): ChatMessage {
+  return msg(
+    id,
+    chatId,
+    userId,
+    '',
+    [
+      rollAttachment({
+        spec: { diceCount, dieSize: 1, dieFaces, efficiency: 0, adv: 0, label },
+        rolls,
+        successes,
+        adjustedRolls: rolls,
+        droppedRolls: [],
+        totalSuccesses: successes.reduce((a, b) => a + b, 0),
+      }),
+    ],
+    createdAt,
+    speaker,
+  );
+}
+
+// Мета чата без производных полей (lastMessage/lastMessageAt/unreadCount вычисляются из сообщений).
+// Единственный источник истины для сообщений — rawMessages; рукописных дубликатов превью нет.
+const chatMetas: Omit<Chat, 'lastMessage' | 'lastMessageAt' | 'unreadCount'>[] = [
   {
     id: 1,
     type: 'game',
     name: 'Подземелье дракона',
-    unreadCount: 3,
-    lastReadMessageId: 2,
-    lastMessage: 'Кидай инициативу',
-    lastMessageAt: '2026-07-27T14:15:00',
-    members: [member(1, 'gm'), member(3, 'member'), member(4, 'member'), member(5, 'member')],
+    lastReadMessageId: 184,
+    members: [member(SELF, 'gm'), member(3, 'member'), member(4, 'member'), member(5, 'member'), member(6, 'member')],
   },
   {
     id: 6,
     type: 'group',
     name: 'Ведущие PowerScale',
-    unreadCount: 2,
     lastReadMessageId: null,
-    lastMessage: 'Обновление правил в пятницу',
-    lastMessageAt: '2026-07-27T13:00:00',
-    members: [member(1, 'admin'), member(3, 'member'), member(5, 'member'), member(7, 'member')],
+    members: [member(SELF, 'admin'), member(3, 'member'), member(5, 'member'), member(7, 'member')],
   },
   {
     id: 4,
     type: 'private',
     name: 'Анна Смирнова',
-    unreadCount: 0,
     lastReadMessageId: 32,
-    lastMessage: 'Готовь персонажа',
-    lastMessageAt: '2026-07-27T11:00:00',
-    members: [member(1, 'member'), member(3, 'member')],
+    members: [member(SELF, 'member'), member(3, 'member')],
   },
   {
     id: 2,
     type: 'game',
     name: 'Школа волшебства',
-    unreadCount: 1,
     lastReadMessageId: 10,
-    lastMessage: 'Я применяю заклинание',
-    lastMessageAt: '2026-07-27T10:00:00',
-    members: [member(1, 'gm'), member(4, 'member'), member(6, 'member')],
+    members: [member(SELF, 'gm'), member(4, 'member'), member(6, 'member')],
   },
   {
     id: 5,
     type: 'private',
     name: 'Пётр Козлов',
-    unreadCount: 0,
     lastReadMessageId: 40,
-    lastMessage: 'Принято',
-    lastMessageAt: '2026-07-26T18:00:00',
-    members: [member(1, 'member'), member(4, 'member')],
+    members: [member(SELF, 'member'), member(4, 'member')],
   },
   {
     id: 3,
     type: 'game_discussion',
     name: 'Обсуждение: Подземелье дракона',
-    unreadCount: 0,
     lastReadMessageId: 22,
-    lastMessage: 'Может перенесём сессию?',
-    lastMessageAt: '2026-07-26T14:00:00',
-    members: [member(1, 'member'), member(3, 'member'), member(4, 'member'), member(5, 'member')],
+    members: [member(SELF, 'member'), member(3, 'member'), member(4, 'member'), member(5, 'member')],
   },
   {
     id: 7,
     type: 'character_discussion',
-    name: 'Обсуждение: Мэллорн',
-    unreadCount: 1,
+    name: 'Торвин Стальной Кулак',
     lastReadMessageId: 60,
-    lastMessage: 'Проверил, надо исправить навыки',
-    lastMessageAt: '2026-07-25T14:00:00',
-    members: [member(1, 'member'), member(3, 'member')],
+    members: [member(SELF, 'member', 'owner'), member(3, 'member', 'member')],
   },
   {
     id: 8,
     type: 'game',
     name: 'Тайны забытого храма',
-    unreadCount: 5,
     lastReadMessageId: null,
-    lastMessage: 'Я открываю дверь',
-    lastMessageAt: '2026-07-27T12:30:00',
     members: [member(3, 'gm'), member(4, 'member'), member(5, 'member'), member(6, 'member')],
   },
   {
     id: 9,
     type: 'private',
     name: 'Дмитрий Волков',
-    unreadCount: 0,
-    lastReadMessageId: null,
-    lastMessage: 'Спасибо за игру',
-    lastMessageAt: '2026-07-26T22:00:00',
-    members: [member(1, 'member'), member(6, 'member')],
+    lastReadMessageId: 73,
+    members: [member(SELF, 'member'), member(6, 'member')],
   },
   {
     id: 10,
     type: 'group',
     name: 'Мастера подземелий',
-    unreadCount: 1,
-    lastReadMessageId: null,
-    lastMessage: 'Новый модуль вышел',
-    lastMessageAt: '2026-07-27T09:00:00',
-    members: [member(1, 'member'), member(3, 'member'), member(4, 'member'), member(5, 'member')],
+    lastReadMessageId: 211,
+    members: [member(SELF, 'member'), member(3, 'member'), member(4, 'member'), member(5, 'member')],
   },
   {
     id: 11,
     type: 'game',
     name: 'Кровавая луна',
-    unreadCount: 0,
-    lastReadMessageId: null,
-    lastMessage: 'Срабатывает ловушка',
-    lastMessageAt: '2026-07-25T20:00:00',
-    members: [member(1, 'gm'), member(5, 'member'), member(6, 'member')],
+    lastReadMessageId: 221,
+    members: [member(SELF, 'gm'), member(5, 'member'), member(6, 'member')],
   },
   {
     id: 12,
     type: 'game_discussion',
     name: 'Обсуждение: Школа волшебства',
-    unreadCount: 2,
-    lastReadMessageId: null,
-    lastMessage: 'Давайте упростим механику зелий',
-    lastMessageAt: '2026-07-27T08:00:00',
-    members: [member(1, 'member'), member(4, 'member'), member(6, 'member')],
+    lastReadMessageId: 231,
+    members: [member(SELF, 'member'), member(4, 'member'), member(6, 'member')],
   },
   {
     id: 13,
     type: 'private',
     name: 'Елена Морозова',
-    unreadCount: 0,
-    lastReadMessageId: null,
-    lastMessage: 'Договорились',
-    lastMessageAt: '2026-07-25T16:00:00',
-    members: [member(1, 'member'), member(5, 'member')],
+    lastReadMessageId: 240,
+    members: [member(SELF, 'member'), member(5, 'member')],
   },
   {
     id: 14,
     type: 'character_discussion',
-    name: 'Обсуждение: Гимли',
-    unreadCount: 0,
-    lastReadMessageId: null,
-    lastMessage: 'Добавил боевые навыки',
-    lastMessageAt: '2026-07-24T19:00:00',
-    members: [member(1, 'member'), member(4, 'member')],
+    name: 'Элиандра Тенелист',
+    lastReadMessageId: 250,
+    members: [member(SELF, 'member', 'owner'), member(4, 'member', 'member')],
   },
   {
     id: 15,
     type: 'game',
     name: 'Ледяная бездна',
-    unreadCount: 1,
-    lastReadMessageId: null,
-    lastMessage: 'Ваша очередь ходить',
-    lastMessageAt: '2026-07-26T16:00:00',
+    lastReadMessageId: 261,
     members: [member(3, 'gm'), member(4, 'member'), member(5, 'member'), member(6, 'member')],
   },
   {
     id: 16,
     type: 'group',
     name: 'Ролевое сообщество',
-    unreadCount: 7,
     lastReadMessageId: null,
-    lastMessage: 'Собираемся в субботу в 15:00',
-    lastMessageAt: '2026-07-27T12:00:00',
     members: [
-      member(1, 'admin'),
+      member(SELF, 'admin'),
       member(3, 'member'),
       member(4, 'member'),
       member(5, 'member'),
@@ -191,72 +227,51 @@ const mockChats: Chat[] = [
     id: 17,
     type: 'game',
     name: 'Пираты карибского моря',
-    unreadCount: 0,
-    lastReadMessageId: null,
-    lastMessage: 'Поднимаем якорь!',
-    lastMessageAt: '2026-07-23T14:00:00',
-    members: [member(1, 'gm'), member(4, 'member'), member(6, 'member')],
+    lastReadMessageId: 281,
+    members: [member(SELF, 'gm'), member(4, 'member'), member(6, 'member')],
   },
   {
     id: 18,
     type: 'private',
     name: 'Мария Соколова',
-    unreadCount: 3,
-    lastReadMessageId: null,
-    lastMessage: 'Когда следующий выезд?',
-    lastMessageAt: '2026-07-27T07:00:00',
-    members: [member(1, 'member'), member(9, 'member')],
+    lastReadMessageId: 290,
+    members: [member(SELF, 'member'), member(9, 'member')],
   },
   {
     id: 19,
     type: 'game_discussion',
     name: 'Обсуждение: Кровавая луна',
-    unreadCount: 0,
-    lastReadMessageId: null,
-    lastMessage: 'Баланс босса норм',
-    lastMessageAt: '2026-07-24T12:00:00',
-    members: [member(1, 'member'), member(5, 'member'), member(6, 'member')],
+    lastReadMessageId: 300,
+    members: [member(SELF, 'member'), member(5, 'member'), member(6, 'member')],
   },
   {
     id: 20,
     type: 'character_discussion',
-    name: 'Обсуждение: Леголас',
-    unreadCount: 1,
-    lastReadMessageId: null,
-    lastMessage: 'Стрелок из лука готов',
-    lastMessageAt: '2026-07-26T20:00:00',
-    members: [member(1, 'member'), member(4, 'member'), member(6, 'member')],
+    name: 'Гаррик из Тени',
+    lastReadMessageId: 310,
+    members: [member(SELF, 'member'), member(4, 'member'), member(6, 'member')],
   },
   {
     id: 21,
     type: 'game',
     name: 'Врата Балдура',
-    unreadCount: 0,
-    lastReadMessageId: null,
-    lastMessage: 'Входим в город',
-    lastMessageAt: '2026-07-22T18:00:00',
-    members: [member(1, 'gm'), member(4, 'member'), member(6, 'member')],
+    lastReadMessageId: 320,
+    members: [member(SELF, 'gm'), member(4, 'member'), member(6, 'member')],
   },
   {
     id: 22,
     type: 'private',
     name: 'Ольга Новикова',
-    unreadCount: 0,
-    lastReadMessageId: null,
-    lastMessage: 'Ок',
-    lastMessageAt: '2026-07-22T10:00:00',
-    members: [member(1, 'member'), member(7, 'member')],
+    lastReadMessageId: 330,
+    members: [member(SELF, 'member'), member(7, 'member')],
   },
   {
     id: 23,
     type: 'group',
     name: 'D&D Almanac',
-    unreadCount: 4,
-    lastReadMessageId: null,
-    lastMessage: 'Новый бестиарий загружен',
-    lastMessageAt: '2026-07-26T15:00:00',
+    lastReadMessageId: 340,
     members: [
-      member(1, 'member'),
+      member(SELF, 'member'),
       member(3, 'member'),
       member(4, 'member'),
       member(5, 'member'),
@@ -268,33 +283,24 @@ const mockChats: Chat[] = [
     id: 24,
     type: 'game',
     name: 'Страна чудес',
-    unreadCount: 2,
-    lastReadMessageId: null,
-    lastMessage: 'Белый кролик убегает',
-    lastMessageAt: '2026-07-26T12:00:00',
-    members: [member(1, 'gm'), member(3, 'member'), member(4, 'member'), member(5, 'member')],
+    lastReadMessageId: 350,
+    members: [member(SELF, 'gm'), member(3, 'member'), member(4, 'member'), member(5, 'member')],
   },
   {
     id: 25,
     type: 'game_discussion',
     name: 'Обсуждение: Ледяная бездна',
-    unreadCount: 0,
-    lastReadMessageId: null,
-    lastMessage: 'Финал через две сессии',
-    lastMessageAt: '2026-07-24T20:00:00',
+    lastReadMessageId: 360,
     members: [member(3, 'member'), member(4, 'member'), member(5, 'member'), member(6, 'member')],
   },
   {
     id: 26,
     type: 'group',
     name: 'Общий чат',
-    unreadCount: 1,
-    lastReadMessageId: null,
-    lastMessage: 'Добро пожаловать в PowerScale!',
-    lastMessageAt: '2026-07-29T00:00:00',
+    lastReadMessageId: 373,
     visibility: 'public',
     members: [
-      member(1, 'admin'),
+      member(SELF, 'admin'),
       member(2, 'admin'),
       member(3, 'member'),
       member(4, 'member'),
@@ -307,194 +313,827 @@ const mockChats: Chat[] = [
   },
 ];
 
-// map synthetic userId to real mockUser id
-const userIdMap: Record<number, number> = { 1: 1, 2: 3, 3: 4, 4: 6, 5: 5 };
-
-function mapUser(syntheticId: number) {
-  const uid = userIdMap[syntheticId] || 1;
-  const u = realUsers.find((x) => x.id === uid);
-
-  return { userId: uid, username: u ? userName(u) : 'Неизвестно' };
+// Групповые чаты: роль участника = статус (admin/member) — для видимости сообщений (forRole).
+for (const meta of chatMetas) {
+  if (meta.type !== 'group') continue;
+  for (const chatMember of meta.members) {
+    if (chatMember.role === undefined && (chatMember.status === 'admin' || chatMember.status === 'member')) {
+      chatMember.role = chatMember.status;
+    }
+  }
 }
 
-function msg(
-  id: number,
-  chatId: number,
-  syntheticUserId: number,
-  content: string,
-  rolls: DiceRollResult[],
-  createdAt: string,
-): ChatMessage {
-  const { userId, username } = mapUser(syntheticUserId);
+// «Общий чат» — демо прокрутки: 200 сообщений-заглушек до свежих сообщений с чипами (ids 370+).
+function generalChatHistory(): ChatMessage[] {
+  const memberIds = [2, 3, 4, 5, 6, 7, 8, 10];
+  const contentPool = [
+    'Привет всем!',
+    'Как прошла вчерашняя сессия?',
+    'Отличный вопрос, сейчас уточню',
+    'Кто готовит следующую встречу?',
+    'Я за, давайте в субботу',
+    'Обновил правила, посмотрите',
+    'Отличная работа, коллеги',
+    'Не забывайте про дедлайн',
+    'Подскажите, где лежит бестиарий?',
+    'Уже добавил, проверьте',
+    'Спасибо за фидбек',
+    'Договорились, встретимся в 15:00',
+    'Есть вопрос по механике боя',
+    'Сейчас распишу подробнее',
+    'Отличная идея, поддерживаю',
+    'Кто-нибудь видел новый модуль?',
+    'Да, уже тестирую',
+    'Записал в план',
+    'Проверьте раздел «Способности»',
+    'Всё работает, спасибо',
+  ];
+  const start = Date.parse('2026-07-01T00:00:00');
+  const stepMs = 15 * 60 * 1000;
 
-  return { id, chatId, userId, username, content, rolls, createdAt, updatedAt: createdAt };
+  return Array.from({ length: 200 }, (_, i) => {
+    const createdAt = new Date(start + i * stepMs).toISOString();
+
+    return msg(170 + i, 26, memberIds[i % memberIds.length], contentPool[i % contentPool.length], [], createdAt);
+  });
 }
 
 const rawMessages: Record<number, ChatMessage[]> = {
-  1: [
-    msg(1, 1, 2, 'Все готовы к сессии?', [], '2026-07-27T14:00:00'),
-    msg(2, 1, 1, 'Да, персонаж готов', [], '2026-07-27T14:02:00'),
-    msg(
-      3,
-      1,
-      3,
-      '',
-      [
-        {
-          spec: { diceCount: 5, dieSize: 1, dieFaces: 6, efficiency: 3, adv: 0, label: 'Поиск ловушек' },
-          rolls: [1, 3, 5, 6, 2],
-          successes: [2, 1, 0, -1, 1],
-          adjustedRolls: [1, 3, 5, 6, 2],
-          droppedRolls: [],
-          totalSuccesses: 3,
-        },
-      ],
-      '2026-07-27T14:05:00',
-    ),
-    msg(4, 1, 2, 'Входите в пещеру. Кидайте инициативу', [], '2026-07-27T14:10:00'),
-    msg(
-      5,
-      1,
-      1,
-      '',
-      [
-        {
-          spec: { diceCount: 4, dieSize: 1, dieFaces: 6, efficiency: 2, adv: 0, label: 'Инициатива' },
-          rolls: [2, 4, 1, 5],
-          successes: [1, 0, 2, -1],
-          adjustedRolls: [2, 4, 1, 5],
-          droppedRolls: [],
-          totalSuccesses: 2,
-        },
-      ],
-      '2026-07-27T14:11:00',
-    ),
-  ],
+  1: (() => {
+    // Реальные пользователи (mockUsers): S — текущий, A — Анна, B — Пётр, C — Дмитрий, D — Елена.
+    const S = SELF;
+    const A = 3;
+    const B = 4;
+    const C = 6;
+    const D = 5;
+    const r = (
+      id: number,
+      uid: number,
+      content: string,
+      atts: ChatAttachment[],
+      date: string,
+      speaker?: ChatSpeaker,
+    ): ChatMessage => msg(id, 1, uid, content, atts, date, speaker);
+    const roll = (
+      id: number,
+      uid: number,
+      label: string,
+      diceCount: number,
+      dieFaces: number,
+      rolls: number[],
+      successes: number[],
+      date: string,
+      speaker?: ChatSpeaker,
+    ): ChatMessage => rollMsg(id, 1, uid, label, diceCount, dieFaces, rolls, successes, date, speaker);
+
+    return [
+      r(1, A, 'Привет всем! Завтра начинаем второй тир подземелья. Все готовы?', [], '2026-07-20T10:00:00'),
+      r(2, B, 'Готов, персонаж на 5-м уровне', [], '2026-07-20T10:02:00', {
+        kind: 'character',
+        characterId: 4,
+        characterName: 'Элиандра Тенелист',
+      }),
+      r(3, D, 'Я тоже готова, обновила лист', [], '2026-07-20T10:05:00', {
+        kind: 'character',
+        characterId: 5,
+        characterName: 'Сильвия Лунный Клинок',
+      }),
+      r(
+        4,
+        S,
+        'Отлично. Напомню — вы стояли перед входом в крепость Башмакова. Дварфийский инженер ждал вас у ворот',
+        [],
+        '2026-07-20T10:10:00',
+        { kind: 'gm' },
+      ),
+      r(5, C, 'Да, мы договорились взять его с собой как проводника', [], '2026-07-20T10:12:00'),
+      r(6, A, 'Кстати, я купил новую броню в городе — цепную рубашку', [], '2026-07-20T10:15:00'),
+      r(7, B, 'Хороший выбор, мне она тоже нравится', [], '2026-07-20T10:17:00'),
+      r(
+        8,
+        S,
+        'Итак, начинаем. Вы входите в крепость. Внутри — тёмный коридор, освещённый факелами. Слышите эхо шагов',
+        [],
+        '2026-07-22T14:00:00',
+        { kind: 'gm' },
+      ),
+      r(9, D, 'Проверяю ловушки. Кидай Perception?', [], '2026-07-22T14:01:00', {
+        kind: 'character',
+        characterId: 5,
+        characterName: 'Сильвия Лунный Клинок',
+      }),
+      roll(10, D, 'Perception', 3, 6, [4, 2, 5], [1, 0, 2], '2026-07-22T14:02:00'),
+      r(
+        11,
+        S,
+        'Три успеха. Ты замечаешь тонкую нить поперёк коридора на высоте колена. Ловушка-самострел',
+        [],
+        '2026-07-22T14:03:00',
+        { kind: 'gm' },
+      ),
+      r(12, C, 'Обхожу стороной. Подсказываю остальным', [], '2026-07-22T14:04:00', {
+        kind: 'character',
+        characterId: 6,
+        characterName: 'Гаррик из Тени',
+      }),
+      r(13, B, 'А я попробую обезвредить', [], '2026-07-22T14:05:00'),
+      roll(14, B, 'Thievery', 4, 6, [3, 1, 6, 4], [0, -1, 2, 1], '2026-07-22T14:06:00'),
+      r(
+        15,
+        S,
+        'Два успеха — ловушка обезврежена. Вы находите в стене нишу с маленьким мешочком — 50 золотых',
+        [],
+        '2026-07-22T14:07:00',
+      ),
+      r(16, A, 'Беру мешочек. Делим потом', [], '2026-07-22T14:08:00'),
+      r(17, D, 'Идём дальше. Коридор поворачивает налево', [], '2026-07-22T14:09:00'),
+      r(18, S, 'Впереди — деревянная дверь. За ней шуршание. Готовьтесь', [], '2026-07-22T14:10:00'),
+      r(19, C, 'Достаю клинок', [], '2026-07-22T14:11:00'),
+      r(20, B, 'Я прикрываю сзади', [], '2026-07-22T14:12:00'),
+      r(21, S, 'Вы входите. Три гигантских паука свисают с потолка. Кидайте инициативу!', [], '2026-07-22T14:13:00', {
+        kind: 'gm',
+      }),
+      roll(22, A, 'Initiative', 4, 6, [2, 5, 3, 1], [0, 2, 1, -1], '2026-07-22T14:14:00', {
+        kind: 'character',
+        characterId: 3,
+        characterName: 'Торвин Стальной Кулак',
+      }),
+      roll(23, B, 'Initiative', 3, 6, [6, 4, 2], [2, 1, 0], '2026-07-22T14:14:00'),
+      roll(24, C, 'Initiative', 5, 6, [1, 3, 6, 2, 4], [-1, 0, 2, 0, 1], '2026-07-22T14:14:00'),
+      roll(25, D, 'Initiative', 3, 6, [4, 5, 3], [1, 2, 1], '2026-07-22T14:14:00'),
+      r(26, S, 'Порядок ходов: Паук 1, Елена, Дмитрий, Паук 2, Пётр, Паук 3, Иван', [], '2026-07-22T14:15:00'),
+      r(27, S, 'Паук 1 атакует Елену. Бросок: 14. Попадает?', [], '2026-07-22T14:16:00'),
+      r(28, D, 'Мой AC 15. Не попадает!', [], '2026-07-22T14:17:00'),
+      r(29, D, 'Мой ход. Атакую первого паука клинком', [], '2026-07-22T14:18:00'),
+      roll(30, D, 'Melee Attack', 3, 6, [5, 3, 6], [2, 0, 2], '2026-07-22T14:19:00'),
+      r(31, S, 'Четыре успеха! Урон?', [], '2026-07-22T14:20:00'),
+      r(32, D, 'Бросаю 2d6 на урон', [], '2026-07-22T14:21:00'),
+      roll(33, D, 'Damage', 2, 6, [4, 5], [0, 0], '2026-07-22T14:21:00'),
+      r(34, S, '9 урона. Паук хрипит, но жив. Дмитрий, твой ход', [], '2026-07-22T14:22:00'),
+      r(35, C, 'Использую «Огненный снаряд». 2д10 огненного урона', [], '2026-07-22T14:23:00'),
+      roll(36, C, 'Fire Bolt', 2, 10, [7, 3], [0, 0], '2026-07-22T14:24:00'),
+      r(37, S, '10 огня. Первый паук сгорает!', [], '2026-07-22T14:25:00'),
+      r(38, C, 'Отлично!', [], '2026-07-22T14:25:00'),
+      r(39, S, 'Паук 2 атакует Дмитрия. Бросок: 17', [], '2026-07-22T14:26:00'),
+      r(40, C, 'Попадает. Получаю укус — 7 колющего урона', [], '2026-07-22T14:27:00'),
+      r(41, S, 'Пётр, твой ход', [], '2026-07-22T14:28:00'),
+      r(42, B, 'Выстрели из лука во второго паука', [], '2026-07-22T14:29:00'),
+      roll(43, B, 'Ranged Attack', 4, 6, [3, 5, 2, 6], [0, 2, 0, 2], '2026-07-22T14:30:00'),
+      r(44, S, 'Четыре успеха. Урон?', [], '2026-07-22T14:31:00'),
+      roll(45, B, 'Damage', 2, 6, [3, 1], [0, 0], '2026-07-22T14:31:00'),
+      r(46, S, '4 урона. Паук падает на пол, но ползёт к вам', [], '2026-07-22T14:32:00'),
+      r(47, S, 'Паук 3 атакует Пётра. Бросок: 19', [], '2026-07-22T14:33:00'),
+      r(48, B, 'Ой. Попадает. 9 урона', [], '2026-07-22T14:34:00'),
+      r(49, A, 'Мой ход. Атакую третьего паука молотом', [], '2026-07-22T14:35:00'),
+      roll(50, A, 'Melee Attack', 5, 6, [2, 6, 4, 1, 5], [0, 2, 1, -1, 2], '2026-07-22T14:36:00'),
+      r(51, S, 'Четыре успеха! Сокрушительный удар', [], '2026-07-22T14:37:00'),
+      roll(52, A, 'Damage', 3, 6, [5, 3, 4], [0, 0, 0], '2026-07-22T14:38:00'),
+      r(53, S, '12 урона. Третий паук мёртв. Бой окончен!', [], '2026-07-22T14:39:00'),
+      r(54, A, 'Фух. Неплохо для начала', [], '2026-07-22T14:40:00'),
+      r(55, D, 'Дмитрий, ты в порядке? Тебя укусили', [], '2026-07-22T14:41:00'),
+      r(56, C, 'Да, просто царапина. Использую исцеление', [], '2026-07-22T14:42:00'),
+      roll(57, C, 'Healing', 3, 6, [4, 2, 5], [0, 0, 0], '2026-07-22T14:43:00'),
+      r(58, S, 'Восстанавливаешь 11 хитов', [], '2026-07-22T14:44:00'),
+      r(
+        59,
+        B,
+        'В комнате с пауками находим паутину с остатками добычи — ещё 30 золотых и серебряный кулон',
+        [],
+        '2026-07-22T14:45:00',
+      ),
+      r(60, A, 'Кулон магический? Проверяю', [], '2026-07-22T14:46:00'),
+      roll(61, A, 'Arcana', 3, 6, [1, 4, 3], [-1, 1, 0], '2026-07-22T14:47:00'),
+      r(62, S, 'Один успех. Кулон слабо мерцает, но определить свойства сложно', [], '2026-07-22T14:48:00'),
+      r(63, D, 'Беру кулон. Потом изучим', [], '2026-07-22T14:49:00'),
+      r(
+        64,
+        S,
+        'За следующей дверью — большой зал с колоннами. В центре — каменный саркофаг',
+        [],
+        '2026-07-23T14:00:00',
+      ),
+      r(65, B, 'Осторожно. Саркофаги — это всегда плохо', [], '2026-07-23T14:01:00'),
+      r(66, C, 'Проверяю стены на наличие ловушек', [], '2026-07-23T14:02:00'),
+      roll(67, C, 'Investigation', 4, 6, [2, 5, 3, 6], [0, 2, 1, 2], '2026-07-23T14:03:00'),
+      r(68, S, 'Пять успехов! Ты замечаешь тайный рычаг за одной из колонн', [], '2026-07-23T14:04:00'),
+      r(69, D, 'Не трогай! А вдруг там засада', [], '2026-07-23T14:05:00'),
+      r(70, A, 'Давай я подойду ближе. Проверю саркофаг', [], '2026-07-23T14:06:00'),
+      r(
+        71,
+        S,
+        'Вы подходите к саркофагу. Крышка слегка сдвинута. Изнутри доносится слабое голубоватое свечение',
+        [],
+        '2026-07-23T14:07:00',
+      ),
+      r(72, B, 'Может, не стоит открывать?', [], '2026-07-23T14:08:00'),
+      r(73, C, 'Нам нужно то, что внутри. Каменный ключ, помните?', [], '2026-07-23T14:09:00'),
+      r(74, A, 'Правильно. Открываю крышку', [], '2026-07-23T14:10:00'),
+      r(
+        75,
+        S,
+        'Крышка сдвигается с грохотом. Внутри — скелет в ржавых доспехах. В руке — каменный ключ, окружённый магическим ауром',
+        [],
+        '2026-07-23T14:11:00',
+      ),
+      r(76, D, 'Беру ключ. Аура не затихает', [], '2026-07-23T14:12:00'),
+      r(77, S, 'Внезапно скелет начинает двигаться! Нежить! Кидайте инициативу!', [], '2026-07-23T14:13:00'),
+      roll(78, A, 'Initiative', 4, 6, [3, 1, 5, 2], [1, -1, 2, 0], '2026-07-23T14:14:00'),
+      roll(79, B, 'Initiative', 3, 6, [2, 6, 4], [0, 2, 1], '2026-07-23T14:14:00'),
+      roll(80, C, 'Initiative', 5, 6, [4, 1, 3, 6, 2], [1, -1, 0, 2, 0], '2026-07-23T14:14:00'),
+      roll(81, D, 'Initiative', 3, 6, [5, 3, 1], [2, 1, -1], '2026-07-23T14:14:00'),
+      r(82, S, 'Порядок: Дмитрий, Скелет, Пётр, Иван, Елена', [], '2026-07-23T14:15:00'),
+      r(83, C, 'Вызываю огненный щит и атакую скелета', [], '2026-07-23T14:16:00'),
+      roll(84, C, 'Melee Attack', 4, 6, [6, 2, 5, 3], [2, 0, 2, 0], '2026-07-23T14:17:00'),
+      r(85, S, 'Четыре успеха. Огненный щит горит ярко', [], '2026-07-23T14:18:00'),
+      roll(86, C, 'Damage', 3, 6, [4, 2, 5], [0, 0, 0], '2026-07-23T14:19:00'),
+      r(87, S, '11 урона. Скелет пошатывается, но стоит', [], '2026-07-23T14:20:00'),
+      r(88, S, 'Скелет атакует Дмитрия мечом. Бросок: 16', [], '2026-07-23T14:21:00'),
+      r(89, C, 'Попадает. 8 рубящего урона', [], '2026-07-23T14:22:00'),
+      r(90, B, 'Стреляю из лука', [], '2026-07-23T14:23:00'),
+      roll(91, B, 'Ranged Attack', 4, 6, [3, 5, 1, 4], [0, 2, -1, 1], '2026-07-23T14:24:00'),
+      r(92, S, 'Два успеха. Урон?', [], '2026-07-23T14:25:00'),
+      roll(93, B, 'Damage', 2, 6, [6, 2], [0, 0], '2026-07-23T14:25:00'),
+      r(94, S, '8 урона. Скелет рушится на части!', [], '2026-07-23T14:26:00'),
+      r(95, A, 'Бой окончен. Ключ наш. Теперь нужно найти дверь, которую он открывает', [], '2026-07-23T14:27:00'),
+      r(96, D, 'Рычаг за колонной! Может, он и есть дверь?', [], '2026-07-23T14:28:00'),
+      r(
+        97,
+        S,
+        'Елена активирует рычаг. Стена за саркофагом медленно отодвигается, открывая проход вниз',
+        [],
+        '2026-07-23T14:29:00',
+      ),
+      r(98, B, 'Лестница вниз. Там пахнет сыростью и чем-то ещё...', [], '2026-07-23T14:30:00'),
+      r(99, A, 'Идём. Осторожно', [], '2026-07-23T14:31:00'),
+      r(
+        100,
+        S,
+        'Вы спускаетесь. Внизу — подземное озеро. На противоположном берегу виднеется свет факелов и силуэты людей',
+        [],
+        '2026-07-25T14:00:00',
+      ),
+      r(101, C, 'Это лагерь бандитов? Или что-то другое?', [], '2026-07-25T14:01:00'),
+      r(102, D, 'Присмотрюсь. Сколько их?', [], '2026-07-25T14:02:00'),
+      roll(103, D, 'Perception', 3, 6, [5, 2, 4], [2, 0, 1], '2026-07-25T14:03:00'),
+      r(
+        104,
+        S,
+        'Три успеха. Ты видишь четырёх гоблинов и одного человека в мантии. Человек что-то говорит гоблинам',
+        [],
+        '2026-07-25T14:04:00',
+      ),
+      r(105, B, 'Гоблины и маг? Это плохо', [], '2026-07-25T14:05:00'),
+      r(106, A, 'Может, попробуем договориться?', [], '2026-07-25T14:06:00'),
+      r(107, C, 'С гоблинами? Ты серьёзно?', [], '2026-07-25T14:07:00'),
+      r(108, S, 'Маг замечает вас. Поднимает руу. «Стойте. Кто вы и зачем сюда пришли?»', [], '2026-07-25T14:08:00'),
+      r(109, A, 'Мы ищем артефакт Башмакова. Ты кто?', [], '2026-07-25T14:09:00'),
+      r(110, S, '«Я — Ксарек. Страж этих земель. Артефакт опасен. Вы не можете его взять»', [], '2026-07-25T14:10:00'),
+      r(111, D, 'Проверяю, говорит ли он правду', [], '2026-07-25T14:11:00'),
+      roll(112, D, 'Insight', 3, 6, [2, 6, 4], [0, 2, 1], '2026-07-25T14:12:00'),
+      r(113, S, 'Три успеха. Он не лжёт, но что-то скрывает', [], '2026-07-25T14:13:00'),
+      r(114, B, 'Что ты скрываешь, Ксарек?', [], '2026-07-25T14:14:00'),
+      r(
+        115,
+        S,
+        '«...Артефакт охраняется. Там страж, которого вы не сможете одолеть. Я предупредил»',
+        [],
+        '2026-07-25T14:15:00',
+      ),
+      r(116, A, 'Мы справимся. Пропусти нас', [], '2026-07-25T14:16:00'),
+      r(117, S, 'Ксарек качает головой. «Как знаете. Но предупредил же»', [], '2026-07-25T14:17:00'),
+      r(118, C, 'Гоблины уходят. Проход открыт', [], '2026-07-25T14:18:00'),
+      r(119, S, 'Вы переходите озеро по мостку. За ним — массивная дверь с рунами', [], '2026-07-25T14:19:00'),
+      r(120, D, 'Каменный ключ подходит к замочной скважине', [], '2026-07-25T14:20:00'),
+      r(
+        121,
+        S,
+        'Дверь открывается. Внутри — тронный зал. На троне — скелет в короне. В его руках — светящийся артефакт',
+        [],
+        '2026-07-25T14:21:00',
+      ),
+      r(122, A, 'Это Башмаков? Невероятно', [], '2026-07-25T14:22:00'),
+      r(123, B, 'Он мёртв? Или... нежить?', [], '2026-07-25T14:23:00'),
+      r(
+        124,
+        S,
+        'Скелет поднимает голову. Глаза вспыхивают красным светом. «Кто... потревожил... мой покой...?»',
+        [],
+        '2026-07-25T14:24:00',
+      ),
+      r(125, C, 'Босс! Готовьтесь!', [], '2026-07-25T14:25:00'),
+      r(
+        126,
+        S,
+        'Башмаков встаёт с трона. В его руках — артефакт, который он использует как посох. Начинается бой!',
+        [],
+        '2026-07-25T14:26:00',
+      ),
+      r(127, S, 'Кидайте инициативу!', [], '2026-07-25T14:26:00'),
+      roll(128, A, 'Initiative', 4, 6, [3, 5, 2, 1], [1, 2, 0, -1], '2026-07-25T14:27:00'),
+      roll(129, B, 'Initiative', 3, 6, [4, 6, 2], [1, 2, 0], '2026-07-25T14:27:00'),
+      roll(130, C, 'Initiative', 5, 6, [1, 3, 5, 2, 6], [-1, 0, 2, 0, 2], '2026-07-25T14:27:00'),
+      roll(131, D, 'Initiative', 3, 6, [6, 4, 1], [2, 1, -1], '2026-07-25T14:27:00'),
+      r(132, S, 'Порядок: Дмитрий, Башмаков, Пётр, Иван, Елена', [], '2026-07-25T14:28:00'),
+      r(133, C, 'Атакую Башмакова огненным щитом!', [], '2026-07-25T14:29:00'),
+      roll(134, C, 'Melee Attack', 4, 6, [5, 2, 6, 3], [2, 0, 2, 0], '2026-07-25T14:30:00'),
+      r(135, S, 'Четыре успеха! Урон?', [], '2026-07-25T14:31:00'),
+      roll(136, C, 'Damage', 3, 6, [4, 5, 2], [0, 0, 0], '2026-07-25T14:32:00'),
+      r(137, S, '11 урона. Башмаков пошатывается, но его кости магически восстанавливаются', [], '2026-07-25T14:33:00'),
+      r(138, S, 'Башмаков атакует Дмитрия посохом. Бросок: 22', [], '2026-07-25T14:34:00'),
+      r(139, C, 'Критическое попадание!', [], '2026-07-25T14:35:00'),
+      r(
+        140,
+        S,
+        '18 некротического урона. Дмитрий, ты чувствуешь как холод проникает в твоё тело',
+        [],
+        '2026-07-25T14:36:00',
+      ),
+      r(141, C, 'Тяжело... Но я держусь', [], '2026-07-25T14:37:00'),
+      r(142, B, 'Стреляю в Башмакова', [], '2026-07-25T14:38:00'),
+      roll(143, B, 'Ranged Attack', 4, 6, [6, 3, 5, 1], [2, 0, 2, -1], '2026-07-25T14:39:00'),
+      r(144, S, 'Три успеха. Урон?', [], '2026-07-25T14:40:00'),
+      roll(145, B, 'Damage', 2, 6, [5, 3], [0, 0], '2026-07-25T14:41:00'),
+      r(146, S, '8 урона. Стрела застревает в рёбрах Башмакова', [], '2026-07-25T14:42:00'),
+      r(147, A, 'Атакую молотом!', [], '2026-07-25T14:43:00'),
+      roll(148, A, 'Melee Attack', 5, 6, [4, 2, 6, 3, 5], [1, 0, 2, 0, 2], '2026-07-25T14:44:00'),
+      r(149, S, 'Пять успехов! Мощный удар!', [], '2026-07-25T14:45:00'),
+      roll(150, A, 'Damage', 3, 6, [6, 4, 5], [0, 0, 0], '2026-07-25T14:46:00'),
+      r(151, S, '15 урона. Башмаков падает на колени!', [], '2026-07-25T14:47:00'),
+      r(152, D, 'Завершаю. Атакую клинком', [], '2026-07-25T14:48:00'),
+      roll(153, D, 'Melee Attack', 3, 6, [5, 3, 6], [2, 0, 2], '2026-07-25T14:49:00'),
+      r(154, S, 'Четыре успеха. Финальный удар!', [], '2026-07-25T14:50:00'),
+      roll(155, D, 'Damage', 2, 6, [4, 5], [0, 0], '2026-07-25T14:51:00'),
+      r(
+        156,
+        S,
+        '9 урона. Башмаков рассыпается в прах. Артефакт падает на пол, его свечение гаснет',
+        [],
+        '2026-07-25T14:52:00',
+      ),
+      r(157, A, 'Мы сделали это!', [], '2026-07-25T14:53:00'),
+      r(158, B, 'Беру артефакт. Он холодный на ощупь', [], '2026-07-25T14:54:00'),
+      r(159, C, 'Отличная сессия, ребята! До следующей недели', [], '2026-07-25T14:55:00'),
+      r(160, D, 'Спасибо за игру! Было здорово', [], '2026-07-25T14:56:00'),
+      r(161, S, 'Награда: 500 опыта каждому, 200 золотых, и артефакт «Око Башмакова»', [], '2026-07-25T14:57:00'),
+      r(162, A, 'Жду следующей сессии!', [], '2026-07-25T14:58:00'),
+      r(163, B, 'Кстати, а что делает этот артефакт?', [], '2026-07-26T10:00:00'),
+      r(
+        164,
+        S,
+        'Око Башмакова — артефакт редкости Rare. Позволяет один раз в день использовать «Зрение истинного Sight» на 10 минут',
+        [],
+        '2026-07-26T10:05:00',
+      ),
+      r(165, D, 'Ого. Пригодится', [], '2026-07-26T10:07:00'),
+      r(166, C, 'А кто будет нести артефакт?', [], '2026-07-26T10:10:00'),
+      r(167, A, 'Давайте Дмитрию. Он же маг', [], '2026-07-26T10:12:00'),
+      r(168, D, 'Согласен. Буду хранить', [], '2026-07-26T10:15:00'),
+      r(
+        169,
+        S,
+        'На следующей неделе — подготовка к третьему тиру. Новые локации, более сильные противники',
+        [],
+        '2026-07-26T10:20:00',
+      ),
+      r(170, B, 'У меня вопрос по правилам — как работает «Зрение истинного Sight»?', [], '2026-07-26T10:25:00'),
+      r(
+        171,
+        S,
+        'Позволяет видеть невидимых существ, истинную форму иллюзий и магические ловушки',
+        [],
+        '2026-07-26T10:30:00',
+      ),
+      r(172, C, 'Очень полезно для подземелий', [], '2026-07-26T10:32:00'),
+      r(
+        173,
+        A,
+        'Кто-нибудь хочет купить что-то перед следующей сессией? У меня 350 золотых',
+        [],
+        '2026-07-27T10:00:00',
+      ),
+      r(174, D, 'Мне нужна новая мантия. Старая порвалась в бою с Башмаковым', [], '2026-07-27T10:05:00'),
+      r(175, B, 'Я хочу купить стрелы. Потратил много', [], '2026-07-27T10:08:00'),
+      r(176, S, 'В магазине есть всё. Цены по списку в книге правил', [], '2026-07-27T10:10:00'),
+      r(
+        177,
+        C,
+        'Кстати, я нашёл интересный домик на окраине города. Может, возьмём его как базу?',
+        [],
+        '2026-07-27T10:15:00',
+      ),
+      r(178, A, 'Отличная идея! Сколько стоит?', [], '2026-07-27T10:17:00'),
+      r(179, C, '500 золотых. Но там есть подвал и чердак', [], '2026-07-27T10:20:00'),
+      r(180, D, 'Давайте скинемся. По 125 каждому', [], '2026-07-27T10:22:00'),
+      r(181, A, 'Я за!', [], '2026-07-27T10:23:00'),
+      r(182, B, 'Тоже за', [], '2026-07-27T10:24:00'),
+      r(183, S, 'Дом куплен! Теперь у-party есть база', [], '2026-07-27T10:30:00'),
+      r(184, D, 'Отлично! На следующей неделе исследуем подвал', [], '2026-07-27T10:35:00'),
+      r(185, B, 'И чердак. Там может быть что-то интересное', [], '2026-07-27T10:37:00'),
+      r(186, A, 'Договорились. До субботы!', [], '2026-07-27T10:40:00'),
+      r(187, C, 'До субботы! Хорошей недели всем', [], '2026-07-27T10:42:00'),
+    ];
+  })(),
   2: [
-    msg(10, 2, 4, 'Начинаем урок зельеварения', [], '2026-07-26T10:00:00'),
-    msg(11, 2, 1, 'Я добавляю лунный камень в котёл', [], '2026-07-26T10:05:00'),
+    msg(10, 2, 6, 'Начинаем урок зельеварения', [], '2026-07-26T10:00:00'),
+    msg(11, 2, SELF, 'Я добавляю лунный камень в котёл', [], '2026-07-26T10:05:00'),
   ],
   3: [
-    msg(20, 3, 2, 'Кому удобно играть в субботу?', [], '2026-07-25T18:00:00'),
-    msg(21, 3, 1, 'Мне норм', [], '2026-07-25T18:30:00'),
-    msg(22, 3, 3, 'Может перенесём сессию?', [], '2026-07-26T09:00:00'),
+    msg(20, 3, 3, 'Кому удобно играть в субботу?', [], '2026-07-25T18:00:00'),
+    msg(21, 3, SELF, 'Мне норм', [], '2026-07-25T18:30:00'),
+    msg(22, 3, 4, 'Может перенесём сессию?', [], '2026-07-26T09:00:00'),
   ],
   4: [
-    msg(30, 4, 2, 'Привет! Будешь в новой кампании?', [], '2026-07-24T15:00:00'),
-    msg(31, 4, 1, 'Да, интересно', [], '2026-07-24T15:10:00'),
-    msg(32, 4, 2, 'Готовь персонажа к пятнице', [], '2026-07-25T10:00:00'),
+    msg(30, 4, 3, 'Привет! Будешь в новой кампании?', [], '2026-07-24T15:00:00'),
+    msg(31, 4, SELF, 'Да, интересно', [], '2026-07-24T15:10:00'),
+    msg(32, 4, 3, 'Готовь персонажа к пятнице', [], '2026-07-25T10:00:00'),
   ],
-  5: [msg(40, 5, 3, 'Я принял приглашение', [], '2026-07-23T12:00:00')],
+  5: [msg(40, 5, 4, 'Я принял приглашение', [], '2026-07-23T12:00:00')],
   6: [
-    msg(50, 6, 4, 'Коллеги, обновление правил в пятницу', [], '2026-07-26T11:00:00'),
+    msg(50, 6, 3, 'Коллеги, обновление правил в пятницу', [], '2026-07-26T11:00:00'),
     msg(51, 6, 5, 'Нужно протестировать новые механики', [], '2026-07-26T11:30:00'),
   ],
   7: [
-    msg(60, 7, 2, 'Проверила персонажа Мэллорн', [], '2026-07-25T14:00:00'),
-    msg(61, 7, 2, 'Проверил, надо исправить навыки', [], '2026-07-25T14:05:00'),
+    msg(60, 7, 3, 'Проверила персонажа Торвина', [], '2026-07-25T14:00:00'),
+    msg(61, 7, 3, 'Проверил, надо исправить навыки', [], '2026-07-25T14:05:00'),
+  ],
+  8: [
+    msg(200, 8, 3, 'Добро пожаловать! Начинаем исследование храма', [], '2026-07-26T09:00:00'),
+    msg(201, 8, 4, 'Я готов, осматриваю вход', [], '2026-07-26T09:05:00'),
+    msg(202, 8, 5, 'Проверяю стены на ловушки', [], '2026-07-26T09:10:00'),
+    msg(203, 8, 6, 'Слышу шум за дверью', [], '2026-07-26T09:15:00'),
+    msg(204, 8, 3, 'Вы открываете дверь и находите запечатанный сундук', [], '2026-07-26T09:20:00'),
+  ],
+  9: [
+    {
+      id: 70,
+      chatId: 9,
+      userId: 2,
+      username: 'Администратор',
+      content: 'Привет, Дмитрий! Как персонаж?',
+      attachments: [],
+      createdAt: '2026-07-26T18:00:00',
+      updatedAt: '2026-07-26T18:00:00',
+    },
+    {
+      id: 71,
+      chatId: 9,
+      userId: 6,
+      username: 'Дмитрий Волков',
+      content: 'Отлично, добавил новые навыки',
+      attachments: [],
+      createdAt: '2026-07-26T18:05:00',
+      updatedAt: '2026-07-26T18:05:00',
+    },
+    {
+      id: 72,
+      chatId: 9,
+      userId: 2,
+      username: 'Администратор',
+      content: 'Супер! На следующей сессии попробуем',
+      attachments: [],
+      createdAt: '2026-07-26T18:10:00',
+      updatedAt: '2026-07-26T18:10:00',
+    },
+    {
+      id: 73,
+      chatId: 9,
+      userId: 6,
+      username: 'Дмитрий Волков',
+      content: 'Спасибо за игру',
+      attachments: [],
+      createdAt: '2026-07-26T22:00:00',
+      updatedAt: '2026-07-26T22:00:00',
+    },
+  ],
+  10: [
+    msg(210, 10, 3, 'Новый модуль вышел, коллеги', [], '2026-07-27T09:00:00'),
+    msg(211, 10, SELF, 'Отличная новость! Проверим на выходных', [], '2026-07-27T09:10:00'),
+    msg(212, 10, 4, 'Уже посмотрел, механика [[rule:strength]] изменилась', [], '2026-07-27T09:20:00'),
+  ],
+  11: [
+    msg(220, 11, SELF, 'Срабатывает ловушка! Все кидают спасбросок', [], '2026-07-25T20:00:00'),
+    msg(221, 11, 5, 'Успех, уворачиваюсь от шипов', [], '2026-07-25T20:05:00'),
+  ],
+  12: [
+    msg(230, 12, SELF, 'Давайте упростим механику зелий', [], '2026-07-27T08:00:00'),
+    msg(231, 12, 4, 'Согласен, сейчас слишком много ингредиентов', [], '2026-07-27T08:10:00'),
+    msg(232, 12, 6, 'Предлагаю сократить список до трёх', [], '2026-07-27T08:20:00'),
+    msg(233, 12, SELF, 'Хороший вариант, соберу правки', [], '2026-07-27T08:30:00'),
+  ],
+  13: [msg(240, 13, 5, 'Договорились, встретимся в четверг', [], '2026-07-25T16:00:00')],
+  14: [msg(250, 14, 4, 'Добавил боевые навыки персонажу', [], '2026-07-24T19:00:00')],
+  15: [
+    msg(260, 15, 3, 'Ваша очередь ходить, группа стоит у ледяной стены', [], '2026-07-26T16:00:00'),
+    msg(261, 15, 5, 'Иду вперёд и проверяю лёд', [], '2026-07-26T16:10:00'),
+    msg(262, 15, 3, 'Лёд трещит! Бросайте акробатику', [], '2026-07-26T16:20:00'),
+  ],
+  16: [
+    msg(270, 16, 3, 'Всем привет! Собираемся в субботу в 15:00', [], '2026-07-27T11:00:00'),
+    msg(271, 16, 7, 'Приду, жду всех', [], '2026-07-27T11:10:00'),
+    msg(272, 16, 4, 'Я тоже буду', [], '2026-07-27T11:15:00'),
+    msg(273, 16, 10, 'Отлично, захвачу карты', [], '2026-07-27T11:20:00'),
+    msg(274, 16, 5, 'Могу принести закуски', [], '2026-07-27T11:25:00'),
+    msg(275, 16, 6, 'А я наберу напитки', [], '2026-07-27T11:30:00'),
+    msg(276, 16, SELF, 'Записал всех! До встречи в субботу', [], '2026-07-27T12:00:00'),
+  ],
+  17: [
+    msg(280, 17, SELF, 'Поднимаем якорь! Курс на тропический остров', [], '2026-07-23T14:00:00'),
+    msg(281, 17, 4, 'Есть! Осматриваю горизонт', [], '2026-07-23T14:10:00'),
+  ],
+  18: [
+    msg(290, 18, 9, 'Когда следующий выезд?', [], '2026-07-27T07:00:00'),
+    msg(291, 18, SELF, 'Предлагаю следующую субботу', [], '2026-07-27T07:10:00'),
+    msg(292, 18, 9, 'Хорошо, я свободна', [], '2026-07-27T07:15:00'),
+    msg(293, 18, SELF, 'Отлично, договорились', [], '2026-07-27T07:20:00'),
+  ],
+  19: [msg(300, 19, 5, 'Баланс босса норм, можно не менять', [], '2026-07-24T12:00:00')],
+  20: [
+    msg(310, 20, 4, 'Стрелок из лука готов', [], '2026-07-26T20:00:00'),
+    msg(311, 20, SELF, 'Проверил, навыки в порядке', [], '2026-07-26T20:10:00'),
+  ],
+  21: [msg(320, 21, SELF, 'Входим в город. Первым делом — таверна', [], '2026-07-22T18:00:00')],
+  22: [msg(330, 22, 7, 'Ок, встретимся завтра', [], '2026-07-22T10:00:00')],
+  23: [
+    msg(340, 23, 3, 'Новый бестиарий загружен', [], '2026-07-26T15:00:00'),
+    msg(341, 23, 7, 'Отлично, посмотрю вечером', [], '2026-07-26T15:10:00'),
+    msg(342, 23, 4, 'Добавьте драконов во втором томе', [], '2026-07-26T15:20:00'),
+    msg(343, 23, 6, 'Поддерживаю, пригодится', [], '2026-07-26T15:30:00'),
+    msg(344, 23, SELF, 'Принято, включу в следующий выпуск', [], '2026-07-26T15:40:00'),
+  ],
+  24: [
+    msg(350, 24, SELF, 'Белый кролик убегает в нору', [], '2026-07-26T12:00:00'),
+    msg(351, 24, 4, 'Бегу за ним!', [], '2026-07-26T12:05:00'),
+    msg(352, 24, 5, 'Жду на поляне, там развилка', [], '2026-07-26T12:10:00'),
+  ],
+  25: [msg(360, 25, 4, 'Финал через две сессии', [], '2026-07-24T20:00:00')],
+  26: [
+    ...generalChatHistory(),
+    msg(370, 26, SELF, 'Добро пожаловать в PowerScale! Здесь новости проекта', [], '2026-07-29T00:00:00'),
+    msg(
+      371,
+      26,
+      3,
+      'Привет! Правило [[rule:double-strike]] уже в каталоге, смотрите в обсуждениях',
+      [],
+      '2026-07-29T00:05:00',
+    ),
+    msg(372, 26, 7, 'Согласна, [[user:anna_s]] здорово его расписала на сессии', [], '2026-07-29T00:10:00'),
+    msg(
+      373,
+      26,
+      SELF,
+      'Напоминаю: [[user:admin]] просил проверить [[rule:rule-6-and-1]] перед релизом',
+      [],
+      '2026-07-29T00:15:00',
+    ),
+    msg(374, 26, 5, 'Готово, проверила! Всё сходится', [], '2026-07-29T00:20:00'),
   ],
 };
+
+function unreadCountOf(lastReadMessageId: number | null, messages: ChatMessage[]): number {
+  if (lastReadMessageId == null) return messages.length;
+
+  return messages.filter((m) => m.id > lastReadMessageId).length;
+}
+
+function lastMessageOf(messages: ChatMessage[]): ChatMessage | undefined {
+  return messages.length ? messages[messages.length - 1] : undefined;
+}
+
+/**
+ * Сообщения, видимые текущему зрителю (скрытие — на уровне моков, единственный гейт):
+ * роли типа чата из реестра, роль зрителя из участников; отправитель и chat.see_all видят всё.
+ */
+function visibleMessagesFor(meta: Pick<Chat, 'type' | 'members'>, messages: ChatMessage[]): ChatMessage[] {
+  const viewerId = getCurrentUserId();
+  const roles = getChatTypes().find((chatType) => chatType.type === meta.type)?.roles ?? [];
+  const members = resolveSelfMembers(meta.members);
+
+  return messages.filter((message) => isMessageVisible(message, { members }, viewerId, roles));
+}
+
+function deriveChat(meta: Omit<Chat, 'lastMessage' | 'lastMessageAt' | 'unreadCount'>, messages: ChatMessage[]): Chat {
+  const members = resolveSelfMembers(meta.members);
+  const visible = visibleMessagesFor(meta, messages);
+  const last = lastMessageOf(visible);
+
+  if (!last) {
+    return { ...meta, members, lastMessage: undefined, lastMessageAt: '2026-01-01T00:00:00', unreadCount: 0 };
+  }
+
+  return {
+    ...meta,
+    members,
+    lastMessage: messagePreview(last.content, last.attachments),
+    lastMessageAt: last.createdAt,
+    unreadCount: unreadCountOf(meta.lastReadMessageId, visible),
+  };
+}
 
 export async function mockGetChats(): Promise<Chat[]> {
   await delay();
 
-  return [...mockChats];
+  return chatMetas.map((meta) => deriveChat(meta, rawMessages[meta.id] ?? []));
 }
 
-const SYNTHETIC_COUNT = 200;
+let nextChatId = Math.max(0, ...chatMetas.map((meta) => meta.id)) + 1;
 
-function ensureSyntheticMessages(chatId: number): ChatMessage[] {
-  const existing = rawMessages[chatId];
-  if (existing && existing.length >= SYNTHETIC_COUNT) return existing;
-  const base = existing || [];
-  const needed = SYNTHETIC_COUNT - base.length;
-  if (needed <= 0) return base;
-  const contentPool = [
-    'Проверим этот момент по правилам?',
-    'Нужно пересчитать бонусы',
-    'Я за, давайте так и оставим',
-    'А если попробовать другой подход?',
-    'По лору это не совсем так',
-    'Хороший ход, я записал',
-    'Кидай на проверку',
-    'У меня всё готово, можно начинать',
-    'Подождите минуту, сверюсь с бестиарием',
-    'Отлично, продолжаем',
-    'Есть идея, как это обыграть',
-    'Я обновил лист персонажа',
-    'Коллеги, у кого есть вопросы?',
-    'Не забудьте отметить расход ресурсов',
-    'Шикарный бросок!',
-  ];
-  const chatMembers = mockChats.find((c) => c.id === chatId)?.members || [];
-  const memberIds = chatMembers.length ? chatMembers.map((m) => m.userId) : [1];
-  const baseTime = new Date('2026-06-01T10:00:00').getTime();
-  for (let i = 0; i < needed; i++) {
-    msgIdSeq++;
-    const idx = base.length + i;
-    const time = new Date(baseTime + idx * 60000).toISOString();
-    const uid = memberIds[idx % memberIds.length];
-    const u = realUsers.find((x) => x.id === uid);
-    base.push({
-      id: msgIdSeq,
-      chatId,
-      userId: uid,
-      username: u ? userName(u) : 'Неизвестно',
-      content: contentPool[idx % contentPool.length],
-      rolls: [],
-      createdAt: time,
-      updatedAt: time,
-    });
-  }
-  rawMessages[chatId] = base;
+/**
+ * Создаёт чат обсуждения персонажа (type 'character_discussion'): владелец — участник.
+ * Вызывается при создании персонажа (mockCharacters.createCharacter); id ложится в
+ * character.discussionChatId, вкладка «Обсуждение» читает/пишет его как обычный чат.
+ * Владелец несёт роль 'owner' (chat.see_all — видит всё в своём обсуждении).
+ */
+export function mockCreateCharacterDiscussion(name: string): number {
+  const id = nextChatId++;
+  chatMetas.push({
+    id,
+    type: 'character_discussion',
+    name,
+    lastReadMessageId: null,
+    members: [member(SELF, 'member', 'owner')],
+  });
 
-  return base;
+  return id;
+}
+
+/**
+ * Создаёт чат обсуждения игры (type 'game_discussion'): владелец — участник.
+ * Вызывается при создании игры (mockGames.createGame); id ложится в
+ * game.discussionChatId, вкладка «Обсуждение» читает/пишет его как обычный чат.
+ */
+export function mockCreateGameDiscussion(name: string): number {
+  const id = nextChatId++;
+  chatMetas.push({
+    id,
+    type: 'game_discussion',
+    name: `Обсуждение: ${name}`,
+    lastReadMessageId: null,
+    members: [member(SELF, 'member')],
+  });
+
+  return id;
+}
+
+/**
+ * Синк ролей участников чата (игровой чат: Game пишет роли из членов игры).
+ * Chat роли не интерпретирует — это данные; оценка видимости — Utils/chatVisibility.
+ */
+export function mockSetChatMembers(chatId: number, members: { userId: number; role: string }[]): void {
+  const meta = chatMetas.find((c) => c.id === chatId);
+  if (!meta) return;
+  meta.members = members.map((entry) => ({
+    userId: entry.userId,
+    status: 'member',
+    role: entry.role,
+    joinedAt: '2026-06-01T00:00:00',
+  }));
+}
+
+/**
+ * Создаёт игровой чат (type 'game', ТР §8 «Чат игры»): ведущий — участник.
+ * Вызывается при создании игры (mockGames.createGame); id ложится в
+ * game.gameChatId, вкладка «Чат игры» читает/пишет его как обычный чат.
+ * Роли участников синкаются Game через mockSetChatMembers.
+ */
+export function mockCreateGameChat(name: string): number {
+  const id = nextChatId++;
+  chatMetas.push({
+    id,
+    type: 'game',
+    name,
+    lastReadMessageId: null,
+    members: [member(SELF, 'gm')],
+  });
+
+  return id;
 }
 
 export async function mockGetMessages(chatId: number, limit = 20, offset = 0): Promise<ChatMessage[]> {
   await delay();
-  const all = ensureSyntheticMessages(chatId);
+  const meta = chatMetas.find((candidate) => candidate.id === chatId);
+  const all = meta ? visibleMessagesFor(meta, rawMessages[chatId] || []) : rawMessages[chatId] || [];
   const start = Math.max(0, all.length - offset - limit);
   const end = all.length - offset;
 
   return all.slice(start, end);
 }
 
-export async function mockGetTotalMessageCount(chatId: number): Promise<number> {
-  await delay(50);
+export async function mockGetMessagesBefore(chatId: number, beforeId: number, limit = 20): Promise<ChatMessage[]> {
+  await delay();
+  const meta = chatMetas.find((candidate) => candidate.id === chatId);
+  const all = meta ? visibleMessagesFor(meta, rawMessages[chatId] || []) : rawMessages[chatId] || [];
+  const idx = all.findIndex((m) => m.id === beforeId);
+  const start = idx === -1 ? all.length : idx;
+  const end = Math.max(0, start - limit);
+  const slice = all.slice(end, start);
 
-  return ensureSyntheticMessages(chatId).length;
+  return slice.sort((a, b) => a.id - b.id);
 }
 
-export async function mockSendMessage(chatId: number, content: string, rolls: DiceRollSpec[]): Promise<ChatMessage> {
+export async function mockGetTotalMessageCount(chatId: number): Promise<number> {
+  await delay(50);
+  const meta = chatMetas.find((candidate) => candidate.id === chatId);
+  const all = meta ? visibleMessagesFor(meta, rawMessages[chatId] || []) : rawMessages[chatId] || [];
+
+  return all.length;
+}
+
+export async function mockSendMessage(
+  chatId: number,
+  content: string,
+  attachments: ChatAttachment[],
+  speaker?: ChatSpeaker,
+  visibility?: ChatMessageVisibility,
+): Promise<ChatMessage> {
   await delay(200);
   msgIdSeq++;
-  const computedRolls: DiceRollResult[] = rolls.map((spec) => rollService.computeRollResult(spec));
+  const processed: ChatAttachment[] = [];
+  for (const att of attachments) {
+    const processor = getAttachmentProcessor(att.type);
+    const payload = processor ? await processor.process(att.payload) : att.payload;
+    processed.push({ type: att.type, payload });
+  }
   const now = new Date().toISOString();
-  const me = realUsers.find((x) => x.id === 1);
-  const msg: ChatMessage = {
+  const selfId = getCurrentUserId();
+  const me = realUsers.find((x) => x.id === selfId);
+  const created: ChatMessage = {
     id: msgIdSeq,
     chatId,
-    userId: 1,
+    userId: selfId,
     username: me ? userName(me) : 'Я',
     content,
-    rolls: computedRolls,
+    attachments: processed,
     createdAt: now,
     updatedAt: now,
+    ...(speaker ? { speaker } : {}),
+    ...(visibility ? { visibility } : {}),
   };
   if (!rawMessages[chatId]) rawMessages[chatId] = [];
-  rawMessages[chatId].push(msg);
+  rawMessages[chatId].push(created);
 
-  return msg;
+  // Авто-вступление: написавший в чат персонажа становится его участником.
+  // Меняем meta (чатMetas), чтобы участие сохранилось после повторного fetchChats.
+  const meta = chatMetas.find((c) => c.id === chatId);
+  if (meta && !meta.members.some((m) => m.userId === SELF || m.userId === selfId)) {
+    meta.members.push(member(selfId, 'member'));
+  }
+
+  return created;
+}
+
+/**
+ * Изменение видимости уже отправленного сообщения (только отправитель; undefined — всем).
+ * Скрытие на моке подстроится при чтении: у зрителей без доступа сообщение перестанет отдаваться.
+ */
+export async function mockUpdateMessageVisibility(
+  chatId: number,
+  messageId: number,
+  visibility?: ChatMessageVisibility,
+): Promise<ChatMessage> {
+  await delay(150);
+  const all = rawMessages[chatId] || [];
+  const idx = all.findIndex((message) => message.id === messageId);
+  if (idx === -1) throw new Error('Сообщение не найдено');
+  const updated: ChatMessage = { ...all[idx], updatedAt: new Date().toISOString() };
+  if (visibility === undefined) delete updated.visibility;
+  else updated.visibility = visibility;
+  all[idx] = updated;
+
+  return { ...updated };
+}
+
+export async function mockSendSystemMessage(
+  chatId: number,
+  content: string,
+  kind: ChatMessage['kind'] = 'default',
+): Promise<ChatMessage> {
+  await delay(150);
+  msgIdSeq++;
+  const now = new Date().toISOString();
+  const created: ChatMessage = {
+    id: msgIdSeq,
+    chatId,
+    userId: getCurrentUserId(),
+    username: 'Система',
+    content,
+    attachments: [],
+    createdAt: now,
+    updatedAt: now,
+    kind,
+  };
+  if (!rawMessages[chatId]) rawMessages[chatId] = [];
+  rawMessages[chatId].push(created);
+
+  return created;
 }
 
 export async function mockMarkChatRead(chatId: number): Promise<void> {
   await delay(50);
-  const chat = mockChats.find((c) => c.id === chatId);
-  if (chat) {
-    chat.unreadCount = 0;
-    const msgs = ensureSyntheticMessages(chatId);
-    chat.lastReadMessageId = msgs.length ? msgs[msgs.length - 1].id : null;
+  const meta = chatMetas.find((c) => c.id === chatId);
+  if (meta) {
+    const msgs = rawMessages[chatId] || [];
+    meta.lastReadMessageId = msgs.length ? msgs[msgs.length - 1].id : null;
   }
 }
 
@@ -510,13 +1149,13 @@ export async function mockSync(_since: string): Promise<SyncResponse> {
   const messages: Record<number, ChatMessage[]> = {};
 
   if (syncCallCount % 4 === 0) {
-    const targetChat = mockChats[Math.floor(Math.random() * mockChats.length)];
-    if (!rawMessages[targetChat.id]) rawMessages[targetChat.id] = [];
+    const targetMeta = chatMetas[Math.floor(Math.random() * chatMetas.length)];
+    if (!rawMessages[targetMeta.id]) rawMessages[targetMeta.id] = [];
 
     msgIdSeq++;
-    const members = targetChat.members || [];
+    const members = resolveSelfMembers(targetMeta.members);
     const randomMember = members[Math.floor(Math.random() * members.length)];
-    const uid = randomMember ? randomMember.userId : 1;
+    const uid = randomMember ? randomMember.userId : getCurrentUserId();
     const u = realUsers.find((x) => x.id === uid);
     const contentPool = [
       'Я согласен!',
@@ -528,66 +1167,57 @@ export async function mockSync(_since: string): Promise<SyncResponse> {
       'Кинул кости, смотри результат',
       'Подготовьтесь к следующей сцене',
     ];
-    const msg: ChatMessage = {
+    const created: ChatMessage = {
       id: msgIdSeq,
-      chatId: targetChat.id,
+      chatId: targetMeta.id,
       userId: uid,
       username: u ? userName(u) : 'Неизвестно',
       content: contentPool[Math.floor(Math.random() * contentPool.length)],
-      rolls: [],
+      attachments: [],
       createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
     };
-    rawMessages[targetChat.id].push(msg);
-    messages[targetChat.id] = [msg];
-
-    targetChat.lastMessage = msg.content;
-    targetChat.lastMessageAt = msg.createdAt;
-    targetChat.unreadCount = (targetChat.unreadCount || 0) + 1;
-    updates.push({ ...targetChat });
+    rawMessages[targetMeta.id].push(created);
+    messages[targetMeta.id] = [created];
+    updates.push(deriveChat(targetMeta, rawMessages[targetMeta.id]));
   }
 
-  if (syncCallCount % 7 === 0 && mockChats.length < 30) {
+  if (syncCallCount % 7 === 0 && chatMetas.length < 30) {
     const available = realUsers.filter(
       (u) =>
-        u.id !== 1 &&
+        u.id !== getCurrentUserId() &&
         u.id !== 0 &&
-        !mockChats.some((c) => c.type === 'private' && c.members.some((m) => m.userId === u.id)),
+        !chatMetas.some((c) => c.type === 'private' && c.members.some((m) => m.userId === u.id)),
     );
-    if (!available.length) {
-      /* no new private chats possible */
+    const otherUser = available.length ? available[Math.floor(Math.random() * available.length)] : undefined;
+    if (otherUser) {
+      msgIdSeq++;
+      const newId = msgIdSeq + 1000;
+      const nowISO = now.toISOString();
+      const meta: Omit<Chat, 'lastMessage' | 'lastMessageAt' | 'unreadCount'> = {
+        id: newId,
+        type: 'private',
+        name: userName(otherUser),
+        lastReadMessageId: null,
+        members: [member(getCurrentUserId(), 'member'), member(otherUser.id, 'member')],
+      };
+      chatMetas.push(meta);
+
+      msgIdSeq++;
+      rawMessages[newId] = [
+        {
+          id: msgIdSeq,
+          chatId: newId,
+          userId: otherUser.id,
+          username: userName(otherUser),
+          content: 'Привет! Давно не виделись',
+          attachments: [],
+          createdAt: nowISO,
+          updatedAt: nowISO,
+        },
+      ];
+      newChats.push(deriveChat(meta, rawMessages[newId]));
     }
-
-    msgIdSeq++;
-    const newId = msgIdSeq + 1000;
-    const nowISO = now.toISOString();
-    const otherUser = available[Math.floor(Math.random() * available.length)];
-    const chat: Chat = {
-      id: newId,
-      type: 'private',
-      name: userName(otherUser),
-      unreadCount: 1,
-      lastReadMessageId: null,
-      lastMessage: 'Привет! Давно не виделись',
-      lastMessageAt: nowISO,
-      members: [member(1, 'member'), member(otherUser.id, 'member')],
-    };
-    mockChats.push(chat);
-    newChats.push({ ...chat });
-
-    msgIdSeq++;
-    rawMessages[newId] = [
-      {
-        id: msgIdSeq,
-        chatId: newId,
-        userId: otherUser.id,
-        username: userName(otherUser),
-        content: 'Привет! Давно не виделись',
-        rolls: [],
-        createdAt: nowISO,
-        updatedAt: nowISO,
-      },
-    ];
   }
 
   return { now: now.toISOString(), chats: updates, newChats, messages };

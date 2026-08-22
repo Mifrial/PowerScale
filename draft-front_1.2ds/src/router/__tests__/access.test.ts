@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import type { RouteLocationNormalized } from 'vue-router';
-import { evaluateRouteAccess, type RouteAccessContext } from '@/router/access';
+import { evaluateRouteAccess } from '@/router/access';
+import type { RouteAccessContext } from '@/router/RouteAccessContext';
 import type { User } from '@/modules/Core/User/Dto/User';
 import { resetPermissionRegistries, registerAdminSection } from '@/modules/Core/User/init';
 

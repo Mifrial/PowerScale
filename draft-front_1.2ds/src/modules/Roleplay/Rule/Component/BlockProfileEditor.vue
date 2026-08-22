@@ -1,21 +1,9 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumber';
 import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue';
 import ResistanceSlotsEditor from '@/modules/Roleplay/Rule/Component/ResistanceSlotsEditor.vue';
 
-interface ResistanceSlot {
-  damage_type_code: string | null;
-  value: number;
-  durability: number;
-  source_code: string | null;
-}
-
-interface BlockProfile {
-  efficiency: DimensionalNumberValue;
-  defense: number;
-  resistances: ResistanceSlot[];
-}
+import type { BlockProfile } from '@/modules/Roleplay/Rule/Dto/Item/BlockProfile';
 
 const props = defineProps<{
   modelValue: BlockProfile | null;
@@ -32,7 +20,7 @@ const active = ref(!!props.modelValue);
 
 const defaultProfile = (): BlockProfile => ({
   efficiency: { base: 3, size: 0 },
-  defense: 0,
+  defense: { base: 0, size: 0 },
   resistances: [],
 });
 
@@ -78,13 +66,7 @@ watch(
     <template v-if="active">
       <div class="d-flex gap-2 mb-2">
         <DimensionalNumberInput v-model="localProfile.efficiency" label="Эффективность" />
-        <v-text-field
-          v-model.number="localProfile.defense"
-          label="Защита"
-          type="number"
-          density="compact"
-          style="max-width: 100px"
-        />
+        <DimensionalNumberInput v-model="localProfile.defense" label="Защита" />
       </div>
       <ResistanceSlotsEditor v-model="localProfile.resistances" :damage-types="damageTypes" :sources="sources" />
     </template>

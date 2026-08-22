@@ -10,4 +10,12 @@ export const RULE_TYPES: { title: string; value: RuleType }[] = [
   { title: 'Способность', value: 'ability' },
   { title: 'Предмет', value: 'item' },
   { title: 'Тип урона', value: 'damage_type' },
+  { title: 'Состояние', value: 'state' },
+  { title: 'Яд', value: 'poison' },
+  { title: 'Чувство', value: 'sense' },
+  { title: 'Возраст', value: 'age' },
+  { title: 'Язык', value: 'language' },
+  { title: 'Семья оружия', value: 'weapon_family' },
+  { title: 'Модификатор предмета', value: 'item_modifier' },
+  { title: 'Тип модификатора предмета', value: 'item_modifier_type' },
 ];

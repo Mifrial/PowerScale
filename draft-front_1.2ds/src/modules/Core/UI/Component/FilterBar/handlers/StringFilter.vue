@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import type { FilterField } from '@/modules/Core/UI/Dto/FilterField';
-import type { FilterValue, StringFilterValue } from '@/modules/Core/UI/Dto/FilterValue';
-import { FILTER_STRING_MODE_OPTIONS } from '@/modules/Core/UI/Constant/filterModeOptions';
+import type { FilterField } from '@/modules/Core/UI/Dto/Filter/Field';
+import type { FilterValue } from '@/modules/Core/UI/Dto/Filter/Values/FilterValue';
+import type { StringFilterValue } from '@/modules/Core/UI/Dto/Filter/Values/StringFilterValue';
+import { FILTER_STRING_MODE_OPTIONS } from '@/modules/Core/UI/Constant/Filter/Modes/stringOptions';
 
 const props = defineProps<{
   field: FilterField;

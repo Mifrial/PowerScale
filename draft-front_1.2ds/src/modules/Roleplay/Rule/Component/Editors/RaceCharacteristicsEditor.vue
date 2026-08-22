@@ -2,8 +2,8 @@
 import type { RaceCharacteristic } from '@/modules/Roleplay/Rule/Dto/Race/RaceCharacteristic';
 import type { CharacteristicRef } from '@/modules/Roleplay/Rule/Dto/Ability/CharacteristicRef';
 import type { RaceSpec } from '@/modules/Roleplay/Rule/Dto/Race/RaceSpec';
-import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumber';
-import { raceSpecService } from '@/modules/Roleplay/Rule/Service/Spec/RaceSpecService';
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
+import { raceSpecService } from '@/modules/Roleplay/Rule/Service/Instance/raceSpecService';
 import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue';
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
 import { useVModelSync } from '@/modules/Core/UI/Composables/useVModelSync';
@@ -107,7 +107,8 @@ function removePurchaseLevel(index: number, levelIndex: number) {
             :model-value="c.base"
             @update:model-value="(v) => patchCharacteristicBase(index, v)"
             label="Значение"
-            mode="characteristic"
+            :min="3"
+            :max="5"
           />
         </div>
 
@@ -116,7 +117,8 @@ function removePurchaseLevel(index: number, levelIndex: number) {
             :model-value="c.base"
             @update:model-value="(v) => patchCharacteristicBase(index, v)"
             label="Минимум (за 0 ОС)"
-            mode="characteristic"
+            :min="3"
+            :max="5"
           />
           <div class="text-subtitle-2 mt-2 mb-1">Закупка</div>
           <div v-for="(level, levelIndex) in c.purchase ?? []" :key="levelIndex" class="d-flex ga-2 align-center mb-1">
@@ -133,6 +135,8 @@ function removePurchaseLevel(index: number, levelIndex: number) {
               :model-value="level.value"
               @update:model-value="(v) => patchPurchaseLevel(index, levelIndex, 'value', v)"
               label="Значение"
+              :min="3"
+              :max="5"
             />
             <v-btn icon size="small" color="error" variant="text" @click="removePurchaseLevel(index, levelIndex)">
               <v-icon>mdi-delete</v-icon>

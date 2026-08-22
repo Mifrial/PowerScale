@@ -1,21 +1,6 @@
 import type { User } from '@/modules/Core/User/Dto/User';
-
-export interface CreateUserData {
-  name: string;
-  login: string;
-  email: string;
-  password: string;
-  groups: string[];
-}
-
-export interface UpdateUserData {
-  name?: string;
-  surname?: string;
-  nickname?: string;
-  email?: string;
-  groups?: string[];
-  active?: boolean;
-}
+import type { CreateUserData } from '@/modules/Core/User/Dto/CreateUserData';
+import type { UpdateUserData } from '@/modules/Core/User/Dto/UpdateUserData';
 
 export interface IUserApi {
   getUsers(signal?: AbortSignal): Promise<User[]>;

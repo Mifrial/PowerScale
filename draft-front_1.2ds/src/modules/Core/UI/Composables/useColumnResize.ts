@@ -1,16 +1,8 @@
 import { onBeforeUnmount, ref } from 'vue';
-import type { Ref } from 'vue';
+import type { ColumnResizeApi } from '@/modules/Core/UI/Interface/Grid/ColumnResizeApi';
+import type { ColumnResizeScope } from '@/modules/Core/UI/Interface/Grid/ColumnResizeScope';
 
-export interface ColumnResizeApi {
-  resizingKey: Ref<string | null>;
-  resizePerformed: Ref<boolean>;
-  start: (key: string, e: MouseEvent) => void;
-}
-
-export function useColumnResize(options: {
-  columnWidths: Ref<Record<string, number>>;
-  saveWidths: () => void;
-}): ColumnResizeApi {
+export function useColumnResize(options: ColumnResizeScope): ColumnResizeApi {
   const resizingKey = ref<string | null>(null);
   const resizePerformed = ref(false);
   const startX = ref(0);

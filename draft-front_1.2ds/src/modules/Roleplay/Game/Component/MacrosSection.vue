@@ -2,7 +2,7 @@
 import { ref, computed, onMounted } from 'vue';
 import type { UserMacro } from '@/modules/Roleplay/Game/Dto/UserMacro';
 import { useMacrosStore } from '@/modules/Roleplay/Game/Store/macros';
-import { rollService } from '@/modules/Roleplay/Game/Service/RollService';
+import { rollService } from '@/modules/Roleplay/Game/Service/Instance/rollService';
 import MacroForm from '@/modules/Roleplay/Game/Component/Macros/MacroForm.vue';
 
 const store = useMacrosStore();

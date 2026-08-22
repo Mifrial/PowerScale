@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
-import type { FilterField } from '@/modules/Core/UI/Dto/FilterField';
+import type { FilterField } from '@/modules/Core/UI/Dto/Filter/Field';
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
 
 const props = defineProps<{

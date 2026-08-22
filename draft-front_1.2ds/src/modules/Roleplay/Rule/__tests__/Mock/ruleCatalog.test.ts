@@ -25,8 +25,12 @@ describe('ruleCatalog', () => {
       'points',
       'ability',
       'item',
+      'item_modifier',
+      'item_modifier_type',
       'damage_type',
       'source',
+      'state',
+      'poison',
     ]) {
       expect(types.has(t as never)).toBe(true);
     }

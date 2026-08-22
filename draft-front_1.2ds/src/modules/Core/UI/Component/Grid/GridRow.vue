@@ -1,37 +1,42 @@
 <script setup lang="ts">
-import { getRenderer } from '@/modules/Core/UI/Component/Grid/cells/registry';
+import { fieldTypeRegistry } from '@/modules/Core/UI/Service/Instance/fieldTypeRegistry';
 import StringCell from '@/modules/Core/UI/Component/Grid/cells/StringCell.vue';
-import type { ColumnDefinition } from '@/modules/Core/UI/Dto/ColumnDefinition';
-import type { Row } from '@/modules/Core/UI/Dto/Row';
+import type { ColumnDefinition } from '@/modules/Core/UI/Dto/Grid/ColumnDefinition';
+import type { RowMenuAction } from '@/modules/Core/UI/Dto/Grid/RowMenuAction';
 
 defineProps<{
   gridId?: string;
   columns: ColumnDefinition[];
-  item: Row;
+  item: Record<string, unknown>;
+  rowMenu?: RowMenuAction[];
 }>();
 
 const emit = defineEmits<{
-  'row-action': [payload: { action: string; row: Row }];
+  'row-action': [payload: { action: string; row: Record<string, unknown> }];
 }>();
 
 function cellComponent(type: string) {
-  return getRenderer(type) ?? StringCell;
+  return fieldTypeRegistry.get(type)?.cell ?? StringCell;
 }
 </script>
 
 <template>
   <tr>
-    <td v-if="gridId" class="smart-cell--settings">
+    <td v-if="rowMenu?.length" class="smart-cell--settings">
       <v-menu location="bottom start" offset="4">
         <template #activator="{ props: menuProps }">
           <v-icon v-bind="menuProps" size="small" class="smart-burger-icon">mdi-dots-vertical</v-icon>
         </template>
         <v-list density="compact" nav>
-          <v-list-item @click="emit('row-action', { action: 'view-profile', row: item })">
+          <v-list-item
+            v-for="menu in rowMenu"
+            :key="menu.action"
+            @click="emit('row-action', { action: menu.action, row: item })"
+          >
             <template #prepend>
-              <v-icon size="small">mdi-account-outline</v-icon>
+              <v-icon size="small">{{ menu.icon }}</v-icon>
             </template>
-            <v-list-item-title>Посмотреть профиль</v-list-item-title>
+            <v-list-item-title>{{ menu.label }}</v-list-item-title>
           </v-list-item>
         </v-list>
       </v-menu>
@@ -40,7 +45,7 @@ function cellComponent(type: string) {
       <span
         v-if="col.meta?.clickable"
         class="smart-cell--clickable"
-        @click="emit('row-action', { action: 'view-profile', row: item })"
+        @click="emit('row-action', { action: 'open', row: item })"
       >
         <component :is="cellComponent(col.type)" :value="item[col.key]" :column="col" />
       </span>

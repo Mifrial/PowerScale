@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRouter } from 'vue-router';
 import { useSpaceStore } from '@/modules/Roleplay/Space/Store/spaces';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { useUserStore } from '@/modules/Core/User/Store/users';
 import { accessService } from '@/modules/Core/User/init';
 import type { Space } from '@/modules/Roleplay/Space/Dto/Space';
 
-const route = useRoute();
 const router = useRouter();
 const store = useSpaceStore();
 const userStore = useUserStore();
@@ -19,12 +18,12 @@ const description = ref('');
 const saving = ref(false);
 const showDeactivateDialog = ref(false);
 const deactivating = ref(false);
+const actionError = ref<string | null>(null);
 
 const canDeactivate = computed(() => accessService.hasAnyPermission(userStore.currentUser, ['space.edit_all']));
 
-onMounted(async () => {
-  const code = route.params.code as string;
-  await store.fetchSpaceByCode(code, signal.value);
+onMounted(() => {
+  // Пространство уже загружено layout-ом SpaceContextLayout на уровне :code
   space.value = store.currentSpace;
   if (space.value) {
     name.value = space.value.name;
@@ -35,6 +34,7 @@ onMounted(async () => {
 async function save() {
   if (!name.value.trim() || !space.value) return;
   saving.value = true;
+  actionError.value = null;
   try {
     await store.updateSpace(
       space.value.id,
@@ -46,7 +46,8 @@ async function save() {
     );
     router.push(`/space/${space.value.code}`);
   } catch (e) {
-    console.error('update space failed', e);
+    if (e instanceof DOMException && e.name === 'AbortError') return;
+    actionError.value = 'Не удалось сохранить настройки';
   } finally {
     saving.value = false;
   }
@@ -55,11 +56,13 @@ async function save() {
 async function deactivate() {
   if (!space.value) return;
   deactivating.value = true;
+  actionError.value = null;
   try {
     await store.deactivateSpace(space.value.id, signal.value);
     router.push('/spaces');
   } catch (e) {
-    console.error('deactivate space failed', e);
+    if (e instanceof DOMException && e.name === 'AbortError') return;
+    actionError.value = 'Не удалось деактивировать пространство';
   } finally {
     deactivating.value = false;
   }
@@ -69,6 +72,10 @@ async function deactivate() {
 <template>
   <v-container v-if="space">
     <h1 class="text-h5 mb-4">Настройки: {{ space.name }}</h1>
+
+    <v-alert v-if="actionError" type="error" class="mb-4" closable @click:close="actionError = null">
+      {{ actionError }}
+    </v-alert>
 
     <v-card class="mb-4">
       <v-card-title>Основные настройки</v-card-title>

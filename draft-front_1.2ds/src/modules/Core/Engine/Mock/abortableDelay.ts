@@ -1,0 +1,20 @@
+export function abortableDelay(ms = 150, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      if (signal?.aborted) {
+        reject(new DOMException('Aborted', 'AbortError'));
+      } else {
+        resolve();
+      }
+    }, ms);
+
+    signal?.addEventListener(
+      'abort',
+      () => {
+        clearTimeout(timer);
+        reject(new DOMException('Aborted', 'AbortError'));
+      },
+      { once: true },
+    );
+  });
+}

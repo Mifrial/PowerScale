@@ -1,8 +1,6 @@
 import type { NotificationTemplate } from '@/modules/Messages/Notifications/Dto/NotificationTemplate';
-import type {
-  CreateTemplateData,
-  UpdateTemplateData,
-} from '@/modules/Messages/Notifications/Interface/INotificationTemplateApi';
+import type { CreateTemplateData } from '@/modules/Messages/Notifications/Dto/CreateTemplateData';
+import type { UpdateTemplateData } from '@/modules/Messages/Notifications/Dto/UpdateTemplateData';
 
 const delay = (ms = 300) => new Promise((r) => setTimeout(r, ms));
 

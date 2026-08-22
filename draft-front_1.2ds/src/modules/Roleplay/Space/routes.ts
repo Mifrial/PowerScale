@@ -47,6 +47,7 @@ export function createSpaceRoutes(ruleCtxChildren: RouteRecordRaw[]): RouteRecor
       children: [
         {
           path: ':code',
+          component: () => import('@/modules/Roleplay/Space/Component/SpaceContextLayout.vue'),
           meta: {
             crumb: (to) => [{ title: spaceName(to), to: `/space/${to.params.code}` }],
           },
@@ -54,7 +55,7 @@ export function createSpaceRoutes(ruleCtxChildren: RouteRecordRaw[]): RouteRecor
             {
               path: '',
               name: 'SpaceLanding',
-              component: () => import('@/modules/Roleplay/Space/Page/SpaceDetailPage.vue'),
+              component: () => import('@/modules/Roleplay/Space/Page/SpaceLandingPage.vue'),
             },
             {
               path: ':ctx',

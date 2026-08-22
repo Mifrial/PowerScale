@@ -12,6 +12,7 @@ const name = ref('');
 const description = ref('');
 const inheritFrom = ref<number | null>(null);
 const saving = ref(false);
+const saveError = ref<string | null>(null);
 
 const spaceOptions = computed(() => store.spaces.filter((s) => s.active).map((s) => ({ title: s.name, value: s.id })));
 
@@ -26,6 +27,7 @@ onMounted(() => {
 async function save() {
   if (!name.value.trim()) return;
   saving.value = true;
+  saveError.value = null;
   try {
     const space = await store.createSpace(
       {
@@ -37,7 +39,8 @@ async function save() {
     );
     router.push(`/space/${space.code}`);
   } catch (e) {
-    console.error('create space failed', e);
+    if (e instanceof DOMException && e.name === 'AbortError') return;
+    saveError.value = 'Не удалось создать пространство';
   } finally {
     saving.value = false;
   }
@@ -47,6 +50,10 @@ async function save() {
 <template>
   <v-container>
     <h1 class="text-h5 mb-4">Создание пространства</h1>
+
+    <v-alert v-if="saveError" type="error" class="mb-4" closable @click:close="saveError = null">
+      {{ saveError }}
+    </v-alert>
 
     <v-card>
       <v-card-text>

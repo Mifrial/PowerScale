@@ -7,4 +7,6 @@ export interface DiceRollResult {
   adjustedRolls: number[];
   droppedRolls: number[];
   totalSuccesses: number;
+  /** Имена механик, реально повлиявших на бросок (напр. «Правило 6 и 1») — для чипов. */
+  appliedMechanics?: string[];
 }

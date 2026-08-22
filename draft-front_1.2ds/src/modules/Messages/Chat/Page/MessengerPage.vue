@@ -31,7 +31,7 @@ import MessengerTabs from '@/modules/Messages/Chat/Component/MessengerTabs.vue';
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 20px;
+  padding: 4px;
   border-bottom: 1px solid rgba(var(--v-theme-divider), var(--v-border-opacity));
 }
 </style>

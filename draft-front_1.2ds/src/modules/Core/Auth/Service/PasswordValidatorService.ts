@@ -1,5 +1,5 @@
 import type { PasswordPolicy } from '@/modules/Core/Auth/Dto/PasswordPolicy';
-import { DEFAULT_PASSWORD_POLICY } from '@/modules/Core/Auth/Constant/passwordPolicy';
+import { DEFAULT_PASSWORD_POLICY } from '@/modules/Core/Auth/Constant/defaultPasswordPolicy';
 
 export class PasswordValidatorService {
   constructor(private readonly defaultPolicy: PasswordPolicy = DEFAULT_PASSWORD_POLICY) {}
@@ -25,5 +25,3 @@ export class PasswordValidatorService {
     return errors;
   }
 }
-
-export const passwordValidatorService = new PasswordValidatorService();

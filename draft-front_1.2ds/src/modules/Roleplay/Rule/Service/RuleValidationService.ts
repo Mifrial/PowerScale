@@ -1,62 +1,34 @@
-import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import type { RuleType } from '@/modules/Roleplay/Rule/Enum/RuleType';
-import type { AbilityType } from '@/modules/Roleplay/Rule/Enum/Ability/AbilityType';
+import { ACTION_POINTS_RESOURCE_CODE } from '@/modules/Roleplay/Rule/Constant/Ability/ACTION_POINTS_RESOURCE_CODE';
+import { RULE_TYPE_LABELS } from '@/modules/Roleplay/Rule/Constant/RULE_TYPE_LABELS';
 import type { AbilitySpecService } from '@/modules/Roleplay/Rule/Service/Spec/AbilitySpecService';
-import { abilitySpecService } from '@/modules/Roleplay/Rule/Service/Spec/AbilitySpecService';
 import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpec';
+import type { AbilityType } from '@/modules/Roleplay/Rule/Enum/Ability/AbilityType';
+import type { ActionComponent } from '@/modules/Roleplay/Rule/Dto/Ability/ActionComponent';
 import type { Formula } from '@/modules/Roleplay/Rule/Dto/Ability/Formula';
 import type { Requirement } from '@/modules/Roleplay/Rule/Dto/Ability/Requirement';
 import type { Grant } from '@/modules/Roleplay/Rule/Dto/Ability/Grant';
 import type { ItemSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpec';
+import type { ItemModifierSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierSpec';
 import type { RaceSpec } from '@/modules/Roleplay/Rule/Dto/Race/RaceSpec';
 import type { SpeciesSpec } from '@/modules/Roleplay/Rule/Dto/Race/SpeciesSpec';
 import type { CharacteristicSpec } from '@/modules/Roleplay/Rule/Dto/CharacteristicSpec';
-
-export type ReferenceTargetType = RuleType | 'keyword';
-
-export interface ReferenceError {
-  ruleName: string;
-  ruleCode: string;
-  refCode: string;
-  expectedType: ReferenceTargetType;
-}
-
-export interface AbilityStructureError {
-  ruleName: string;
-  ruleCode: string;
-  message: string;
-}
-
-export interface RaceStructureError {
-  ruleName: string;
-  ruleCode: string;
-  message: string;
-}
-
-interface RefExpectation {
-  code: string;
-  type: ReferenceTargetType;
-}
+import type { ResourceSpec } from '@/modules/Roleplay/Rule/Dto/ResourceSpec';
+import type { StateSpec } from '@/modules/Roleplay/Rule/Dto/State/StateSpec';
+import type { PoisonSpec } from '@/modules/Roleplay/Rule/Dto/Poison/PoisonSpec';
+import type { ReferenceTargetType } from '@/modules/Roleplay/Rule/Dto/ReferenceTargetType';
+import type { ReferenceError } from '@/modules/Roleplay/Rule/Dto/ReferenceError';
+import type { AbilityStructureError } from '@/modules/Roleplay/Rule/Dto/AbilityStructureError';
+import type { RaceStructureError } from '@/modules/Roleplay/Rule/Dto/RaceStructureError';
+import type { RefExpectation } from '@/modules/Roleplay/Rule/Dto/RefExpectation';
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
 export class RuleValidationService {
   constructor(private readonly abilitySpec: AbilitySpecService) {}
 
   expectedTypeLabel(type: ReferenceTargetType): string {
-    const labels: Record<ReferenceTargetType, string> = {
-      simple: 'простое правило',
-      race: 'раса',
-      species: 'вид/подвид',
-      characteristic: 'характеристика',
-      resource: 'ресурс',
-      points: 'очки',
-      ability: 'способность',
-      item: 'предмет',
-      damage_type: 'тип урона',
-      source: 'источник',
-      keyword: 'признак',
-    };
+    if (type === 'keyword') return 'Признак';
 
-    return labels[type];
+    return RULE_TYPE_LABELS[type];
   }
 
   /**
@@ -102,6 +74,25 @@ export class RuleValidationService {
   }
 
   /**
+   * Проверяет формат кода правила: латиница, `-`, `_`, цифры 0-9 (ТР §3 — глобальный
+   * семантический ключ; кириллица и пробелы недопустимы).
+   */
+  validateRuleCodeFormat(rules: Rule[]): { ruleCode: string; ruleName: string; message: string }[] {
+    const errors: { ruleCode: string; ruleName: string; message: string }[] = [];
+    for (const rule of rules) {
+      if (!/^[a-z0-9_-]+$/.test(rule.code)) {
+        errors.push({
+          ruleCode: rule.code,
+          ruleName: rule.name,
+          message: 'код должен состоять из латиницы, цифр 0-9, символов «-» и «_»',
+        });
+      }
+    }
+
+    return errors;
+  }
+
+  /**
    * Структурная валидация способностей по типу: обязательная ОД-стоимость,
    * шаги/переходы процесса, сложность и компоненты заклинания.
    */
@@ -110,7 +101,6 @@ export class RuleValidationService {
     keywords: { id: number; code: string; name: string }[],
   ): AbilityStructureError[] {
     const errors: AbilityStructureError[] = [];
-    const keywordCodes = new Set(keywords.map((t) => t.code));
 
     for (const rule of rules) {
       if (rule.type !== 'ability') continue;
@@ -119,8 +109,13 @@ export class RuleValidationService {
       const type = this.abilityTypeFromRule(rule, keywords);
       if (!type) continue;
 
+      const components = 'action_components' in spec ? spec.action_components : [];
+
       if (type === 'action' || type === 'spell') {
-        if (!hasActionPointCost('action_costs' in spec ? spec.action_costs : [])) {
+        const costs = components.filter(
+          (c): c is Extract<ActionComponent, { type: 'resource' }> => c.type === 'resource',
+        );
+        if (!this.hasActionPointCost(costs)) {
           errors.push({
             ruleName: rule.name,
             ruleCode: rule.code,
@@ -140,7 +135,7 @@ export class RuleValidationService {
         }
         const stepCodes = new Set(steps.filter((s) => s.code).map((s) => s.code));
         for (const step of steps) {
-          if (!hasActionPointCost(step.costs ?? [])) {
+          if (!this.hasActionPointCost(step.costs ?? [])) {
             errors.push({
               ruleName: rule.name,
               ruleCode: rule.code,
@@ -186,17 +181,81 @@ export class RuleValidationService {
             message: 'заклинание требует сложность сотворения',
           });
         }
-        for (const component of spell?.components ?? []) {
-          if (component.type === 'material' && component.item_code && !keywordCodes.has(component.item_code)) {
-            const exists = rules.some((r) => r.code === component.item_code && r.type === 'item');
-            if (!exists) {
-              errors.push({
-                ruleName: rule.name,
-                ruleCode: rule.code,
-                message: `материальный компонент ссылается на отсутствующий предмет «${component.item_code}»`,
-              });
-            }
+      }
+
+      for (const component of components) {
+        if (component.type !== 'material') continue;
+        const hasItem = !!component.item_code;
+        const hasTags = !!component.keyword_codes?.length;
+        if (hasItem === hasTags) {
+          errors.push({
+            ruleName: rule.name,
+            ruleCode: rule.code,
+            message: 'материальный компонент должен указывать предмет или набор тегов',
+          });
+        }
+        if (hasItem && component.item_code) {
+          const exists = rules.some((r) => r.code === component.item_code && r.type === 'item');
+          if (!exists) {
+            errors.push({
+              ruleName: rule.name,
+              ruleCode: rule.code,
+              message: `материальный компонент ссылается на отсутствующий предмет «${component.item_code}»`,
+            });
           }
+        }
+      }
+    }
+
+    return errors;
+  }
+
+  /** Структурная валидация модификатора предмета: цена и применимость консистентны. */
+  validateItemModifierStructure(rules: Rule[]): { ruleCode: string; ruleName: string; message: string }[] {
+    const errors: { ruleCode: string; ruleName: string; message: string }[] = [];
+
+    for (const rule of rules) {
+      if (rule.type !== 'item_modifier') continue;
+      const spec = rule.spec as ItemModifierSpec | undefined;
+      if (!spec) continue;
+
+      if (!spec.type_code?.trim()) {
+        errors.push({
+          ruleCode: rule.code,
+          ruleName: rule.name,
+          message: 'модификатор должен ссылаться на тип (type_code)',
+        });
+      }
+
+      const price = spec.price;
+      const hasPrice =
+        (price?.factor ?? null) !== null ||
+        (price?.add_gm ?? null) !== null ||
+        (price?.add_gm_per_100g ?? null) !== null ||
+        (price?.min_final_gm ?? null) !== null;
+      const hasEffect = (spec.effects ?? []).some((effect) => effect.text.trim().length > 0);
+      if (!hasPrice && !hasEffect) {
+        errors.push({
+          ruleCode: rule.code,
+          ruleName: rule.name,
+          message: 'модификатор должен задавать влияние на цену или хотя бы один эффект',
+        });
+      }
+
+      const applies = spec.applies;
+      if (!applies) continue;
+      const sets =
+        (applies.keyword_all ?? []).length + (applies.keyword_any ?? []).length + (applies.keyword_none ?? []).length;
+      if (sets === 0) continue;
+
+      const noneSet = new Set(applies.keyword_none ?? []);
+      for (const code of applies.keyword_all ?? []) {
+        if (noneSet.has(code)) {
+          errors.push({
+            ruleCode: rule.code,
+            ruleName: rule.name,
+            message: `признак «${code}» одновременно в требуемых и запрещённых`,
+          });
         }
       }
     }
@@ -222,7 +281,7 @@ export class RuleValidationService {
       }
 
       const characteristics = spec.characteristics ?? [];
-      for (const code of duplicateCodes(characteristics.map((c) => c.characteristic_code))) {
+      for (const code of this.duplicateCodes(characteristics.map((c) => c.characteristic_code))) {
         errors.push({
           ruleName: rule.name,
           ruleCode: rule.code,
@@ -249,7 +308,7 @@ export class RuleValidationService {
               });
             }
           }
-          for (const cost of duplicateCodes(costs.map(String))) {
+          for (const cost of this.duplicateCodes(costs.map(String))) {
             errors.push({
               ruleName: rule.name,
               ruleCode: rule.code,
@@ -257,10 +316,26 @@ export class RuleValidationService {
             });
           }
         }
+        if (this.outOfCharacteristicBaseRange(c.base.base)) {
+          errors.push({
+            ruleName: rule.name,
+            ruleCode: rule.code,
+            message: `характеристика «${label}»: база вне диапазона (3–5)`,
+          });
+        }
+        for (const level of c.purchase ?? []) {
+          if (this.outOfCharacteristicBaseRange(level.value.base)) {
+            errors.push({
+              ruleName: rule.name,
+              ruleCode: rule.code,
+              message: `уровень закупки «${label}»: база значения вне диапазона (3–5)`,
+            });
+          }
+        }
       }
 
       const abilities = spec.abilities ?? [];
-      for (const code of duplicateCodes(abilities.map((a) => a.ability_code))) {
+      for (const code of this.duplicateAbilityCodes(abilities)) {
         errors.push({
           ruleName: rule.name,
           ruleCode: rule.code,
@@ -291,7 +366,7 @@ export class RuleValidationService {
       if (!spec) continue;
 
       const abilities = spec.abilities ?? [];
-      for (const code of duplicateCodes(abilities.map((a) => a.ability_code))) {
+      for (const code of this.duplicateAbilityCodes(abilities)) {
         errors.push({
           ruleName: rule.name,
           ruleCode: rule.code,
@@ -418,8 +493,30 @@ export class RuleValidationService {
         break;
       }
 
+      case 'item_modifier': {
+        const modifier = spec as ItemModifierSpec;
+        if (modifier.type_code) {
+          collect({ code: modifier.type_code, type: 'item_modifier_type' });
+        }
+        for (const code of modifier.applies?.keyword_all ?? []) {
+          collect({ code, type: 'keyword' });
+        }
+        for (const code of modifier.applies?.keyword_any ?? []) {
+          collect({ code, type: 'keyword' });
+        }
+        for (const code of modifier.applies?.keyword_none ?? []) {
+          collect({ code, type: 'keyword' });
+        }
+        break;
+      }
+
       case 'ability': {
         const ability = spec as AbilitySpec;
+        // Группа (type 'group') — контейнер: только ссылка на лимит, без зон/требований/даров.
+        if (ability.type === 'group') break;
+        if (ability.group_code) {
+          collect({ code: ability.group_code, type: 'ability' });
+        }
         if (ability.parent_ability_code) {
           collect({ code: ability.parent_ability_code, type: 'ability' });
         }
@@ -436,10 +533,18 @@ export class RuleValidationService {
             this.walkGrant(grant, collect);
           }
         }
-        if ('action_costs' in ability) {
-          for (const cost of ability.action_costs) {
-            if (cost.resource_code) {
-              collect({ code: cost.resource_code, type: 'resource' });
+        if ('action_components' in ability) {
+          for (const component of ability.action_components) {
+            if (component.type === 'resource' && component.resource_code) {
+              collect({ code: component.resource_code, type: 'resource' });
+            }
+            if (component.type === 'material') {
+              if (component.item_code) {
+                collect({ code: component.item_code, type: 'item' });
+              }
+              for (const tag of component.keyword_codes ?? []) {
+                collect({ code: tag, type: 'keyword' });
+              }
             }
           }
         }
@@ -449,13 +554,6 @@ export class RuleValidationService {
               if (cost.resource_code) {
                 collect({ code: cost.resource_code, type: 'resource' });
               }
-            }
-          }
-        }
-        if ('spell' in ability) {
-          for (const component of ability.spell?.components ?? []) {
-            if (component.type === 'material' && component.item_code) {
-              collect({ code: component.item_code, type: 'item' });
             }
           }
         }
@@ -471,6 +569,9 @@ export class RuleValidationService {
             if (ref === 'min' || ref === 'max') continue;
             collect({ code: ref, type: 'characteristic' });
           }
+        }
+        if (charSpec.base_from?.characteristic_code) {
+          collect({ code: charSpec.base_from.characteristic_code, type: 'characteristic' });
         }
         break;
       }
@@ -506,6 +607,45 @@ export class RuleValidationService {
         break;
       }
 
+      case 'state': {
+        const state = spec as StateSpec;
+        for (const effect of state.effects ?? []) {
+          if (effect.type === 'characteristic_modify' && effect.characteristic_code) {
+            collect({ code: effect.characteristic_code, type: 'characteristic' });
+          }
+          if (effect.type === 'damage_over_time') {
+            const decay = effect.decay;
+            if (decay && (decay.kind === 'characteristic' || decay.kind === 'check') && decay.characteristic_code) {
+              collect({ code: decay.characteristic_code, type: 'characteristic' });
+            }
+          }
+        }
+        break;
+      }
+
+      case 'poison': {
+        const poison = spec as PoisonSpec;
+        if (poison.damage_type_code) {
+          collect({ code: poison.damage_type_code, type: 'damage_type' });
+        }
+        const decay = poison.default_decay;
+        if (decay && (decay.kind === 'characteristic' || decay.kind === 'check') && decay.characteristic_code) {
+          collect({ code: decay.characteristic_code, type: 'characteristic' });
+        }
+        break;
+      }
+
+      case 'resource': {
+        const resource = spec as ResourceSpec;
+        for (const adjustment of resource.limit?.adjustments ?? []) {
+          this.walkFormula(adjustment.value, 'resource', collect);
+          if (adjustment.source_code) {
+            collect({ code: adjustment.source_code, type: 'source' });
+          }
+        }
+        break;
+      }
+
       default:
         break;
     }
@@ -519,6 +659,13 @@ export class RuleValidationService {
     if (!node || typeof node !== 'object') return;
     if (node.type === 'characteristic' && node.characteristic_code) {
       collect({ code: node.characteristic_code, type: 'characteristic' });
+    }
+    if (node.type === 'characteristic_size' && node.characteristic_code) {
+      collect({ code: node.characteristic_code, type: 'characteristic' });
+    }
+    if (node.type === 'characteristic_size_gap') {
+      if (node.characteristic_code_from) collect({ code: node.characteristic_code_from, type: 'characteristic' });
+      if (node.characteristic_code_to) collect({ code: node.characteristic_code_to, type: 'characteristic' });
     }
     if (node.type === 'ability_level' && node.ability_code) {
       collect({ code: node.ability_code, type: 'ability' });
@@ -582,34 +729,76 @@ export class RuleValidationService {
     if (grant.type === 'item' && grant.item_code) {
       collect({ code: grant.item_code, type: 'item' });
     }
-  }
-}
-
-function amountValue(amount: unknown): number | null {
-  if (typeof amount === 'number') return amount;
-  if (amount && typeof amount === 'object' && 'base' in amount) {
-    const a = amount;
-
-    return typeof a.base === 'number' ? a.base : null;
-  }
-
-  return null;
-}
-
-function hasActionPointCost(costs: { resource_code: string; amount: unknown }[]): boolean {
-  return costs.some((c) => c.resource_code === 'action-points' && (amountValue(c.amount) ?? 0) >= 1);
-}
-
-function duplicateCodes(codes: (string | null | undefined)[]): string[] {
-  const seen = new Set<string>();
-  const dups = new Set<string>();
-  for (const c of codes) {
-    if (!c) continue;
-    if (seen.has(c)) dups.add(c);
-    seen.add(c);
+    if (grant.type === 'resistance' && grant.damage_type_code) {
+      collect({ code: grant.damage_type_code, type: 'damage_type' });
+      if (grant.source_code) {
+        collect({ code: grant.source_code, type: 'source' });
+      }
+    }
+    if (grant.type === 'sense_modify' && grant.sense_code) {
+      collect({ code: grant.sense_code, type: 'sense' });
+      this.walkFormula(grant.amount, 'sense', collect);
+      if (grant.source_code) {
+        collect({ code: grant.source_code, type: 'source' });
+      }
+    }
   }
 
-  return Array.from(dups);
-}
+  private amountValue(amount: unknown): number | null {
+    if (typeof amount === 'number') return amount;
+    if (amount && typeof amount === 'object' && 'base' in amount) {
+      const a = amount;
 
-export const ruleValidationService = new RuleValidationService(abilitySpecService);
+      return typeof a.base === 'number' ? a.base : null;
+    }
+
+    return null;
+  }
+
+  private hasActionPointCost(costs: { resource_code: string; amount: unknown }[]): boolean {
+    return costs.some((c) => c.resource_code === ACTION_POINTS_RESOURCE_CODE && (this.amountValue(c.amount) ?? 0) >= 1);
+  }
+
+  private duplicateCodes(codes: (string | null | undefined)[]): string[] {
+    const seen = new Set<string>();
+    const dups = new Set<string>();
+    for (const c of codes) {
+      if (!c) continue;
+      if (seen.has(c)) dups.add(c);
+      seen.add(c);
+    }
+
+    return Array.from(dups);
+  }
+
+  /**
+   * Дубли кодов способностей расы/вида, игнорируя валидный паттерн «бесплатно + доступна
+   * покупка»: две записи одного ability_code, различающиеся по automatic (одна true, одна false).
+   * Настоящий дубль (одна и та же семантика) остаётся ошибкой.
+   */
+  private duplicateAbilityCodes(abilities: { ability_code?: string | null; automatic?: boolean }[]): string[] {
+    const byCode = new Map<string, boolean[]>();
+    for (const a of abilities) {
+      if (!a.ability_code) continue;
+      const list = byCode.get(a.ability_code) ?? [];
+      list.push(a.automatic === true);
+      byCode.set(a.ability_code, list);
+    }
+
+    const dups: string[] = [];
+    for (const [code, flags] of byCode) {
+      if (flags.length < 2) continue;
+      const hasAuto = flags.some((f) => f);
+      const hasManual = flags.some((f) => !f);
+      // Валидный паттерн «бесплатно + дозакупка»: одна automatic, другая нет.
+      if (hasAuto && hasManual && flags.length === 2) continue;
+      dups.push(code);
+    }
+
+    return dups;
+  }
+
+  private outOfCharacteristicBaseRange(base: number): boolean {
+    return !Number.isInteger(base) || base < 3 || base > 5;
+  }
+}

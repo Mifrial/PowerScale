@@ -140,8 +140,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 20px;
-  border-bottom: 1px solid rgba(var(--v-theme-divider), var(--v-border-opacity));
+  border-bottom: 1px solid rgba(var(--v-theme-divider), 1);
 }
 
 .slide-body {

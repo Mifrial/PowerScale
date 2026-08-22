@@ -3,9 +3,9 @@ import { ref, computed } from 'vue';
 import type { UserMacro } from '@/modules/Roleplay/Game/Dto/UserMacro';
 import type { MacroRollSpec } from '@/modules/Roleplay/Game/Dto/MacroRollSpec';
 import type { RollForm } from '@/modules/Roleplay/Game/Dto/RollForm';
-import type { CreateMacroData } from '@/modules/Roleplay/Game/Interface/IMacroApi';
+import type { CreateMacroData } from '@/modules/Roleplay/Game/Dto/CreateMacroData';
 import { useMacrosStore } from '@/modules/Roleplay/Game/Store/macros';
-import { rollService } from '@/modules/Roleplay/Game/Service/RollService';
+import { rollService } from '@/modules/Roleplay/Game/Service/Instance/rollService';
 import MacroRollEditor from '@/modules/Roleplay/Game/Component/Macros/MacroRollEditor.vue';
 
 const props = defineProps<{ macro: UserMacro | null }>();

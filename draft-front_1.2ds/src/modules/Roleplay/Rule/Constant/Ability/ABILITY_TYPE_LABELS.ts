@@ -7,4 +7,5 @@ export const ABILITY_TYPE_LABELS: Record<AbilityType, string> = {
   action: 'Действие',
   process: 'Процесс',
   spell: 'Заклинание',
+  group: 'Группа',
 };

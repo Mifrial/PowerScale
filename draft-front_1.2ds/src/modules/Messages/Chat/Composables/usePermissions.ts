@@ -3,8 +3,7 @@ import { useAuthStore } from '@/modules/Core/Auth/Store/auth';
 import { useUserStore } from '@/modules/Core/User/Store/users';
 import { isAdmin } from '@/modules/Core/User/init';
 import type { Chat } from '@/modules/Messages/Chat/Dto/Chat';
-
-export type ChatPermission = 'chat.read' | 'chat.write' | 'chat.kick' | 'chat.manage';
+import type { ChatPermission } from '@/modules/Messages/Chat/Enum/ChatPermission';
 
 export function usePermissions() {
   const auth = useAuthStore();

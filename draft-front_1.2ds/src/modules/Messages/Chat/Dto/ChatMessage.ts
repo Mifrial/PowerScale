@@ -1,4 +1,6 @@
-import type { DiceRollResult } from '@/modules/Roleplay/Game/Dto/DiceRollResult';
+import type { ChatAttachment } from '@/modules/Messages/Chat/Dto/ChatAttachment';
+import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
+import type { ChatMessageVisibility } from '@/modules/Messages/Chat/Dto/ChatMessageVisibility';
 
 export interface ChatMessage {
   id: number;
@@ -6,7 +8,13 @@ export interface ChatMessage {
   userId: number;
   username: string;
   content: string;
-  rolls: DiceRollResult[];
+  attachments: ChatAttachment[];
   createdAt: string;
   updatedAt: string;
+  /** «От лица кого» (игровой чат): персонаж/НПС/ведущий. Отсутствует в обычных чатах. */
+  speaker?: ChatSpeaker;
+  /** Системное уведомление (рендерится разделителем, не карточкой). `default` — напр. «Ходит Имя»; `highlighted` — акцентное (цветом primary). */
+  kind?: 'default' | 'highlighted';
+  /** Видимость сообщения (роли/пользователи); оценка — Utils/chatVisibility. */
+  visibility?: ChatMessageVisibility;
 }

@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
-import type { FilterField } from '@/modules/Core/UI/Dto/FilterField';
-import type { FilterValue, NumberFilterValue } from '@/modules/Core/UI/Dto/FilterValue';
+import type { FilterField } from '@/modules/Core/UI/Dto/Filter/Field';
+import type { FilterValue } from '@/modules/Core/UI/Dto/Filter/Values/FilterValue';
+import type { NumberFilterValue } from '@/modules/Core/UI/Dto/Filter/Values/NumberFilterValue';
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
-import { FILTER_RANGE_MODE_OPTIONS } from '@/modules/Core/UI/Constant/filterModeOptions';
+import { FILTER_RANGE_MODE_OPTIONS } from '@/modules/Core/UI/Constant/Filter/Modes/rangeOptions';
 
 const props = defineProps<{
   field: FilterField;

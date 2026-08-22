@@ -1,19 +1,21 @@
 <script setup lang="ts">
 import { computed, ref, watch, onMounted } from 'vue';
-import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { RaceSpec } from '@/modules/Roleplay/Rule/Dto/Race/RaceSpec';
 import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec';
 import type { RaceCharacteristic } from '@/modules/Roleplay/Rule/Dto/Race/RaceCharacteristic';
 import type { RaceAbilityRef } from '@/modules/Roleplay/Rule/Dto/Race/RaceAbilityRef';
 import type { InheritedAbilityRef } from '@/modules/Roleplay/Rule/Dto/Race/InheritedAbilityRef';
-import { raceSpecService } from '@/modules/Roleplay/Rule/Service/Spec/RaceSpecService';
-import { ruleReferenceService } from '@/modules/Roleplay/Rule/Service/RuleReferenceService';
+import type { AbilityParameter } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityParameter';
+import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpec';
+import { raceSpecService } from '@/modules/Roleplay/Rule/Service/Instance/raceSpecService';
+import { ruleReferenceService } from '@/modules/Roleplay/Rule/Service/Instance/ruleReferenceService';
 import RuleEditorBase from '@/modules/Roleplay/Rule/Component/Editors/RuleEditorBase.vue';
 import RaceCharacteristicsEditor from '@/modules/Roleplay/Rule/Component/Editors/RaceCharacteristicsEditor.vue';
 import RaceAbilitiesEditor from '@/modules/Roleplay/Rule/Component/Editors/RaceAbilitiesEditor.vue';
 import InheritancePreview from '@/modules/Roleplay/Rule/Component/Editors/InheritancePreview.vue';
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
+import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
 
 const props = defineProps<{
   name: string;
@@ -27,6 +29,7 @@ const props = defineProps<{
   keywordOptions: { title: string; value: number }[];
   spaceId: number;
   ruleId?: string;
+  rules: Rule[];
 }>();
 
 const emit = defineEmits<{
@@ -38,12 +41,10 @@ const emit = defineEmits<{
   'update:spec': [value: RaceSpec];
 }>();
 
-const revisionStore = useSpaceRevisionStore();
-
 const expandedPanels = ref<string[]>(['general', 'race', 'characteristics', 'abilities', 'preview']);
 const innerSpec = ref<RaceSpec>(raceSpecService.createEmptyRace());
 
-const spaceRules = computed(() => revisionStore.effectiveRules);
+const spaceRules = computed(() => props.rules);
 
 const speciesOptions = computed(() => ruleReferenceService.speciesOptions(spaceRules.value, props.ruleId));
 const characteristicOptions = computed(() =>
@@ -51,6 +52,19 @@ const characteristicOptions = computed(() =>
 );
 const abilityOptions = computed(() => ruleReferenceService.abilityOptions(spaceRules.value));
 const abilityNameMap = computed(() => ruleReferenceService.abilityNameMap(spaceRules.value));
+
+/** Параметры «X» способностей (code → параметры), для задания потолка у расы. */
+const abilityParameters = computed<Map<string, AbilityParameter[]>>(() => {
+  const map = new Map<string, AbilityParameter[]>();
+  for (const rule of spaceRules.value) {
+    if (rule.type !== 'ability') continue;
+    const spec = rule.spec as AbilitySpec | undefined;
+    if (!spec || spec.type === 'group') continue;
+    if (spec.parameters?.length) map.set(rule.code, spec.parameters);
+  }
+
+  return map;
+});
 
 const characteristics = computed<RaceCharacteristic[]>({
   get: () => innerSpec.value.characteristics,
@@ -73,7 +87,7 @@ const inheritedAbilities = computed<InheritedAbilityRef[]>(() => {
   return raceSpecService.collectInheritedAbilities(innerSpec.value.parent_race_code, byCode);
 });
 
-const specToEmit = computed<RaceSpec>(() => structuredClone(innerSpec.value));
+const specToEmit = computed<RaceSpec>(() => cloneData(innerSpec.value));
 
 watch(
   specToEmit,
@@ -85,7 +99,7 @@ watch(
 
 onMounted(() => {
   if (props.spec) {
-    const loaded = structuredClone(props.spec as RaceSpec);
+    const loaded = cloneData(props.spec as RaceSpec);
     innerSpec.value = {
       parent_race_code: loaded.parent_race_code ?? null,
       cost_os: loaded.cost_os ?? 0,
@@ -162,7 +176,11 @@ onMounted(() => {
       <v-expansion-panel value="abilities">
         <v-expansion-panel-title>Способности</v-expansion-panel-title>
         <v-expansion-panel-text>
-          <RaceAbilitiesEditor v-model="abilities" :abilities="abilityOptions" />
+          <RaceAbilitiesEditor
+            v-model="abilities"
+            :abilities="abilityOptions"
+            :ability-parameters="abilityParameters"
+          />
         </v-expansion-panel-text>
       </v-expansion-panel>
 

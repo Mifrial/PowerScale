@@ -1,8 +1,6 @@
-import type {
-  INotificationApi,
-  NotificationFilters,
-  NotificationPage,
-} from '@/modules/Messages/Notifications/Interface/INotificationApi';
+import type { INotificationApi } from '@/modules/Messages/Notifications/Interface/INotificationApi';
+import type { NotificationFilters } from '@/modules/Messages/Notifications/Dto/NotificationFilters';
+import type { NotificationPage } from '@/modules/Messages/Notifications/Dto/NotificationPage';
 import type { Engine } from '@/modules/Core/Engine/Service/Engine';
 
 export class NotificationApi implements INotificationApi {

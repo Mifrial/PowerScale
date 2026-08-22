@@ -11,12 +11,14 @@ const unreadCount = computed(() => notificationStore.unreadCount);
 </script>
 
 <template>
-  <v-app-bar flat class="border-b">
+  <v-app-bar flat height="50" class="border-b">
     <v-app-bar-nav-icon @click="$emit('toggle-sidebar')" />
 
     <AppBreadcrumbs />
 
     <v-spacer />
+
+    <div id="editor-actions" class="d-flex align-center ga-2 mr-2"></div>
 
     <v-btn icon variant="text" aria-label="Уведомления" @click="$emit('toggle-notifications')">
       <v-badge :model-value="unreadCount > 0" :content="unreadCount" color="error" size="small">

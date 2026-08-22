@@ -1,23 +1,22 @@
 <script setup lang="ts">
 import { ref, computed, watch, toRef } from 'vue';
-import type { FilterField } from '@/modules/Core/UI/Dto/FilterField';
-import type { FilterValue } from '@/modules/Core/UI/Dto/FilterValue';
+import type { FilterField } from '@/modules/Core/UI/Dto/Filter/Field';
+import type { FilterValue } from '@/modules/Core/UI/Dto/Filter/Values/FilterValue';
 import FilterPopup from '@/modules/Core/UI/Component/FilterBar/FilterPopup.vue';
 import FilterChips from '@/modules/Core/UI/Component/FilterBar/FilterChips.vue';
 import { useFilterBuffer } from '@/modules/Core/UI/Composables/useFilterBuffer';
-import {
-  loadFilterSettings,
-  saveFilterSettings,
-  buildVisibleFields,
-  type FilterFieldSetting,
-} from '@/modules/Core/UI/Component/FilterBar/filterSettings';
-import type { PickerItem } from '@/modules/Core/UI/Dto/PickerItem';
+import { loadFilterSettings } from '@/modules/Core/UI/Utils/filterSettings/loadFilterSettings';
+import { saveFilterSettings } from '@/modules/Core/UI/Utils/filterSettings/saveFilterSettings';
+import { buildVisibleFields } from '@/modules/Core/UI/Utils/filterSettings/buildVisibleFields';
+import type { FilterFieldSetting } from '@/modules/Core/UI/Dto/Filter/FilterFieldSetting';
+import type { PickerItem } from '@/modules/Core/UI/Dto/Field/PickerItem';
 
 const props = defineProps<{
   fields: FilterField[];
   modelValue: Record<string, FilterValue>;
   placeholder?: string;
   settingsKey?: string;
+  menuWidth?: string | number;
 }>();
 
 const emit = defineEmits<{
@@ -26,7 +25,6 @@ const emit = defineEmits<{
 
 const barRef = ref<HTMLDivElement>();
 const menuOpen = ref(false);
-const inputRef = ref<HTMLInputElement>();
 const settingsOpen = ref(false);
 
 const savedSettings = ref(loadFilterSettings(props.settingsKey ?? ''));
@@ -98,7 +96,6 @@ function onSettingsApply(items: PickerItem[]) {
     <FilterChips :chips="activeChips" @remove="removeChip" />
 
     <input
-      ref="inputRef"
       v-model="searchText"
       :placeholder="activeChips.length ? '' : placeholder || 'Фильтр + поиск'"
       class="filter-bar__input"
@@ -121,7 +118,8 @@ function onSettingsApply(items: PickerItem[]) {
       :close-on-content-click="false"
       :open-on-click="false"
       location="bottom start"
-      max-width="420"
+      :width="menuWidth"
+      :max-width="menuWidth || 420"
     >
       <FilterPopup
         :fields="visibleFields"

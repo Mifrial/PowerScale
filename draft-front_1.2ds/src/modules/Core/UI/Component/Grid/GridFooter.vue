@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import type { Pagination } from '@/modules/Core/UI/Dto/Pagination';
-import { perPageOptions } from '@/modules/Core/UI/Constant/perPageOptions';
+import type { Pagination } from '@/modules/Core/UI/Dto/Grid/Pagination';
+import { perPageOptions } from '@/modules/Core/UI/Constant/Grid/perPageOptions';
 
 const props = defineProps<{
   pagination: Pagination | null;

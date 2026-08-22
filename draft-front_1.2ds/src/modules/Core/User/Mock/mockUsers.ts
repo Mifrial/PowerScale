@@ -1,24 +1,5 @@
 import type { User } from '@/modules/Core/User/Dto/User';
-
-const delay = (ms = 150, signal?: AbortSignal) =>
-  new Promise<void>((resolve, reject) => {
-    const timer = setTimeout(() => {
-      if (signal?.aborted) {
-        reject(new DOMException('Aborted', 'AbortError'));
-      } else {
-        resolve();
-      }
-    }, ms);
-
-    signal?.addEventListener(
-      'abort',
-      () => {
-        clearTimeout(timer);
-        reject(new DOMException('Aborted', 'AbortError'));
-      },
-      { once: true },
-    );
-  });
+import { abortableDelay } from '@/modules/Core/Engine/Mock/abortableDelay';
 
 let nextId = 100;
 
@@ -140,13 +121,13 @@ export const users: User[] = [
 ];
 
 export async function mockGetUsers(signal?: AbortSignal): Promise<User[]> {
-  await delay(150, signal);
+  await abortableDelay(150, signal);
 
   return [...users.map((u) => ({ ...u }))];
 }
 
 export async function mockGetUser(id: number, signal?: AbortSignal): Promise<User> {
-  await delay(150, signal);
+  await abortableDelay(150, signal);
   const u = users.find((x) => x.id === id);
   if (!u) throw new Error('User not found');
 
@@ -154,7 +135,7 @@ export async function mockGetUser(id: number, signal?: AbortSignal): Promise<Use
 }
 
 export async function mockGetUsersByIds(ids: number[], signal?: AbortSignal): Promise<User[]> {
-  await delay(150, signal);
+  await abortableDelay(150, signal);
   const idSet = new Set(ids);
 
   return users.filter((u) => idSet.has(u.id)).map((u) => ({ ...u }));
@@ -164,7 +145,7 @@ export async function mockCreateUser(
   data: { name: string; login: string; email: string; password: string; groups: string[] },
   signal?: AbortSignal,
 ): Promise<User> {
-  await delay(150, signal);
+  await abortableDelay(150, signal);
   const id = nextId++;
   const user: User = {
     id,
@@ -178,7 +159,7 @@ export async function mockCreateUser(
 }
 
 export async function mockUpdateUser(id: number, data: Record<string, unknown>, signal?: AbortSignal): Promise<User> {
-  await delay(150, signal);
+  await abortableDelay(150, signal);
   const u = users.find((x) => x.id === id);
   if (!u) throw new Error('User not found');
   Object.assign(u, data);
@@ -192,7 +173,7 @@ export async function mockDeactivateUser(
   deactivatedUntil?: string,
   signal?: AbortSignal,
 ): Promise<void> {
-  await delay(150, signal);
+  await abortableDelay(150, signal);
   const u = users.find((x) => x.id === id);
   if (!u) throw new Error('User not found');
   u.active = false;

@@ -1,5 +1,4 @@
 import type { RouteLocationNormalizedLoaded, RouteRecordRaw } from 'vue-router';
-import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
 import { useRuleStore } from '@/modules/Roleplay/Rule/Store/rules';
 
 export const ruleCtxChildren: RouteRecordRaw[] = [
@@ -28,17 +27,16 @@ export const ruleCtxChildren: RouteRecordRaw[] = [
   },
 ];
 
-function ruleName(to: RouteLocationNormalizedLoaded): string {
-  const ruleId = String(to.params.ruleId);
-  const revision = useSpaceRevisionStore();
-
-  return revision.effectiveRules.find((r) => r.id === ruleId)?.name ?? useRuleStore().currentRule?.name ?? '';
+function ruleName(): string {
+  // Имя правила берём из собственного Rule-стора (текущее открытое правило),
+  // чтобы не тянуть ревизионный контекст Space в метаданные роутов.
+  return useRuleStore().currentRule?.name ?? '';
 }
 
 function ruleDetailCrumb(to: RouteLocationNormalizedLoaded) {
   return [
     {
-      title: ruleName(to) || 'Правило',
+      title: ruleName() || 'Правило',
       to: `/space/${to.params.code}/${to.params.ctx}/rules/${to.params.ruleId}`,
     },
   ];

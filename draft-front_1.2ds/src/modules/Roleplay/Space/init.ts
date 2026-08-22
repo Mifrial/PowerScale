@@ -11,6 +11,10 @@ export function getSpaceApi(): ISpaceApi {
   return serviceLocator.get('Roleplay.Space.Service.SpaceApi');
 }
 
+export { spaceContextKey } from '@/modules/Roleplay/Space/Constant/spaceContextKey';
+export { useSpaceContext } from '@/modules/Roleplay/Space/Composables/useSpaceContext';
+export type { ISpaceContext } from '@/modules/Roleplay/Space/Interface/ISpaceContext';
+
 export function registerSpaceModule(): void {
   registerPermissionCategory(SPACE_PERMISSION_CATEGORY);
 }

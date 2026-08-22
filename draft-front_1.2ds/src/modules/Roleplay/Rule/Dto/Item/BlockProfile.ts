@@ -1,8 +1,8 @@
-import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumber';
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { ResistanceSlot } from '@/modules/Roleplay/Rule/Dto/Item/ResistanceSlot';
 
 export interface BlockProfile {
   efficiency: DimensionalNumberValue;
-  defense: number;
+  defense: DimensionalNumberValue;
   resistances: ResistanceSlot[];
 }

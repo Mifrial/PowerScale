@@ -1,41 +1,24 @@
 import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import { ref } from 'vue';
 import type { NotificationTemplate } from '@/modules/Messages/Notifications/Dto/NotificationTemplate';
-import type {
-  CreateTemplateData,
-  UpdateTemplateData,
-} from '@/modules/Messages/Notifications/Interface/INotificationTemplateApi';
+import type { CreateTemplateData } from '@/modules/Messages/Notifications/Dto/CreateTemplateData';
+import type { UpdateTemplateData } from '@/modules/Messages/Notifications/Dto/UpdateTemplateData';
 import { getTemplateApi } from '@/modules/Messages/Notifications/init';
 
 export const useTemplateStore = defineStore('templates', () => {
   const templates = ref<NotificationTemplate[]>([]);
   const currentTemplate = ref<NotificationTemplate | null>(null);
   const loading = ref(false);
-  const filterKey = ref('');
-  const filterActive = ref('');
-
-  const filteredTemplates = computed(() => {
-    let result = templates.value;
-    if (filterKey.value) {
-      const q = filterKey.value.toLowerCase();
-      result = result.filter((t) => t.key.toLowerCase().includes(q) || t.titleTemplate.toLowerCase().includes(q));
-    }
-    if (filterActive.value === 'true') {
-      result = result.filter((t) => t.active);
-    } else if (filterActive.value === 'false') {
-      result = result.filter((t) => !t.active);
-    }
-
-    return result;
-  });
+  const error = ref<string | null>(null);
 
   async function fetchTemplates(signal?: AbortSignal) {
     loading.value = true;
+    error.value = null;
     try {
       templates.value = await getTemplateApi().getTemplates(signal);
     } catch (e) {
       if (e instanceof DOMException && e.name === 'AbortError') return;
-      console.error('fetchTemplates failed', e);
+      error.value = 'Не удалось загрузить шаблоны';
     } finally {
       loading.value = false;
     }
@@ -83,9 +66,7 @@ export const useTemplateStore = defineStore('templates', () => {
     templates,
     currentTemplate,
     loading,
-    filterKey,
-    filterActive,
-    filteredTemplates,
+    error,
     fetchTemplates,
     fetchTemplate,
     createTemplate,

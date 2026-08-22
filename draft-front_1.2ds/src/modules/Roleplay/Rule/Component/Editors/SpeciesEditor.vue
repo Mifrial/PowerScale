@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed, ref, watch, onMounted } from 'vue';
-import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { SpeciesSpec } from '@/modules/Roleplay/Rule/Dto/Race/SpeciesSpec';
 import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec';
-import { raceSpecService } from '@/modules/Roleplay/Rule/Service/Spec/RaceSpecService';
+import { raceSpecService } from '@/modules/Roleplay/Rule/Service/Instance/raceSpecService';
 import RuleEditorBase from '@/modules/Roleplay/Rule/Component/Editors/RuleEditorBase.vue';
+import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
 
 const props = defineProps<{
   name: string;
@@ -19,6 +19,7 @@ const props = defineProps<{
   keywordOptions: { title: string; value: number }[];
   spaceId: number;
   ruleId?: string;
+  rules: Rule[];
 }>();
 
 const emit = defineEmits<{
@@ -30,12 +31,10 @@ const emit = defineEmits<{
   'update:spec': [value: SpeciesSpec];
 }>();
 
-const revisionStore = useSpaceRevisionStore();
-
 const expandedPanels = ref<string[]>(['general', 'parent', 'abilities']);
 const innerSpec = ref<SpeciesSpec>(raceSpecService.createEmptySpecies());
 
-const spaceRules = computed(() => revisionStore.effectiveRules);
+const spaceRules = computed(() => props.rules);
 
 const speciesOptions = computed(() =>
   spaceRules.value
@@ -66,7 +65,7 @@ function addAbility() {
   };
 }
 
-const specToEmit = computed<SpeciesSpec>(() => structuredClone(innerSpec.value));
+const specToEmit = computed<SpeciesSpec>(() => cloneData(innerSpec.value));
 
 watch(
   specToEmit,
@@ -78,7 +77,7 @@ watch(
 
 onMounted(() => {
   if (props.spec) {
-    const loaded = structuredClone(props.spec as SpeciesSpec);
+    const loaded = cloneData(props.spec as SpeciesSpec);
     innerSpec.value = {
       parent_race_code: loaded.parent_race_code ?? null,
       abilities: loaded.abilities ?? [],

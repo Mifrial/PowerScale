@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, reactive } from 'vue';
 import type { User } from '@/modules/Core/User/Dto/User';
-import type { CreateUserData, UpdateUserData } from '@/modules/Core/User/Interface/IUserApi';
+import type { CreateUserData } from '@/modules/Core/User/Dto/CreateUserData';
+import type { UpdateUserData } from '@/modules/Core/User/Dto/UpdateUserData';
 
 const props = defineProps<{
   mode: 'create' | 'edit';

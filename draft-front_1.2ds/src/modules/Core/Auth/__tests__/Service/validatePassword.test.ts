@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { passwordValidatorService } from '@/modules/Core/Auth/Service/PasswordValidatorService';
+import { passwordValidatorService } from '@/modules/Core/Auth/init';
 import type { PasswordPolicy } from '@/modules/Core/Auth/Dto/PasswordPolicy';
 
 const policy: PasswordPolicy = {

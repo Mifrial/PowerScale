@@ -1,15 +1,7 @@
 import { ref, watch, toValue } from 'vue';
-import type { MaybeRefOrGetter, Ref } from 'vue';
-
-export interface UseVModelSyncOptions<T> {
-  modelValue: MaybeRefOrGetter<T>;
-  onCommit: (value: T) => void;
-  clone?: boolean;
-}
-
-function deepClone<T>(value: T): T {
-  return structuredClone(value);
-}
+import type { Ref } from 'vue';
+import type { UseVModelSyncOptions } from '@/modules/Core/UI/Dto/VModelSyncOptions';
+import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
 
 function shallowClone<T>(value: T): T {
   if (Array.isArray(value)) return [...value] as unknown as T;
@@ -19,7 +11,7 @@ function shallowClone<T>(value: T): T {
 }
 
 export function useVModelSync<T>(options: UseVModelSyncOptions<T>): { inner: Ref<T>; set: (value: T) => void } {
-  const cloneValue = options.clone === false ? shallowClone : deepClone;
+  const cloneValue = options.clone === false ? shallowClone : cloneData;
   const inner = ref<T>(cloneValue(toValue(options.modelValue))) as Ref<T>;
 
   watch(

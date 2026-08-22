@@ -8,4 +8,12 @@ export type RuleType =
   | 'ability'
   | 'item'
   | 'damage_type'
-  | 'source';
+  | 'source'
+  | 'state'
+  | 'poison'
+  | 'sense'
+  | 'age'
+  | 'language'
+  | 'weapon_family'
+  | 'item_modifier'
+  | 'item_modifier_type';

@@ -1,11 +1,7 @@
 <script setup lang="ts">
+import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue';
 import { useVModelSync } from '@/modules/Core/UI/Composables/useVModelSync';
-
-interface DefenseSlot {
-  defense: number;
-  durability: number;
-  source_code: string | null;
-}
+import type { DefenseSlot } from '@/modules/Roleplay/Rule/Dto/Item/DefenseSlot';
 
 const props = defineProps<{
   modelValue: DefenseSlot[];
@@ -24,7 +20,7 @@ const { inner: localSlots } = useVModelSync<DefenseSlot[]>({
 
 function addSlot() {
   localSlots.value.push({
-    defense: 0,
+    defense: { base: 0, size: 0 },
     durability: 0,
     source_code: null,
   });
@@ -51,7 +47,7 @@ function removeSlot(index: number) {
         <tbody>
           <tr v-for="(slot, index) in localSlots" :key="index">
             <td>
-              <v-text-field v-model.number="slot.defense" type="number" density="compact" hide-details />
+              <DimensionalNumberInput v-model="slot.defense" label="Защита" />
             </td>
             <td>
               <v-text-field v-model.number="slot.durability" type="number" density="compact" hide-details />

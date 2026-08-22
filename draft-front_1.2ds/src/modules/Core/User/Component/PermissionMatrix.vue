@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import type { PermissionCategory } from '@/modules/Core/User/Interface/IPermissionRegistry';
+import type { PermissionCategory } from '@/modules/Core/User/Interface/PermissionCategory';
 import { getPermissionCategories } from '@/modules/Core/User/init';
 
 const props = defineProps<{

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import type { ColumnDefinition } from '@/modules/Core/UI/Dto/ColumnDefinition';
+import type { ColumnDefinition } from '@/modules/Core/UI/Dto/Grid/ColumnDefinition';
 
 const props = defineProps<{
   value: unknown;

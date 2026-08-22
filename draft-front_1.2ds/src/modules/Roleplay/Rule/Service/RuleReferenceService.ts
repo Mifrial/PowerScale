@@ -5,11 +5,7 @@ import type { CharacteristicRef } from '@/modules/Roleplay/Rule/Dto/Ability/Char
 import type { ResourceRef } from '@/modules/Roleplay/Rule/Dto/Ability/ResourceRef';
 import type { AbilityRef } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityRef';
 import type { SourceRef } from '@/modules/Roleplay/Rule/Dto/Ability/SourceRef';
-
-export interface NamedOption {
-  code: string;
-  name: string;
-}
+import type { NamedOption } from '@/modules/Roleplay/Rule/Dto/NamedOption';
 
 export class RuleReferenceService {
   speciesOptions(rules: Rule[], excludeRuleId?: string): NamedOption[] {
@@ -37,12 +33,35 @@ export class RuleReferenceService {
       }));
   }
 
+  damageTypeOptions(rules: Rule[]): NamedOption[] {
+    return rules.filter((r) => r.type === 'damage_type').map((r) => ({ code: r.code, name: r.name }));
+  }
+
   abilityOptions(rules: Rule[]): AbilityRef[] {
-    return rules.filter((r) => r.type === 'ability').map((r) => ({ code: r.code, name: r.name }));
+    return rules
+      .filter((r) => r.type === 'ability' && !this.isGroupRule(r))
+      .map((r) => ({ code: r.code, name: r.name }));
+  }
+
+  /** Группирующие правила (type 'group') — контейнеры, на которые ссылаются участники. */
+  groupOptions(rules: Rule[]): NamedOption[] {
+    return rules
+      .filter((r) => r.type === 'ability' && this.isGroupRule(r))
+      .map((r) => ({ code: r.code, name: r.name }));
+  }
+
+  private isGroupRule(rule: Rule): boolean {
+    const spec = rule.spec as { type?: string } | undefined;
+
+    return spec?.type === 'group';
   }
 
   sourceOptions(rules: Rule[]): SourceRef[] {
     return rules.filter((r) => r.type === 'source').map((r) => ({ code: r.code, name: r.name }));
+  }
+
+  itemOptions(rules: Rule[]): NamedOption[] {
+    return rules.filter((r) => r.type === 'item').map((r) => ({ code: r.code, name: r.name }));
   }
 
   zoneOptions(rules: Rule[]): { label: string; value: string }[] {
@@ -58,5 +77,3 @@ export class RuleReferenceService {
     return map;
   }
 }
-
-export const ruleReferenceService = new RuleReferenceService();

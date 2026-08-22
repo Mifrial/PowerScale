@@ -3,7 +3,7 @@ import { computed } from 'vue';
 import type { ProcessTransition } from '@/modules/Roleplay/Rule/Dto/Ability/ProcessTransition';
 import type { ProcessSpec } from '@/modules/Roleplay/Rule/Dto/Ability/ProcessSpec';
 import { PROCESS_TRANSITION_MODES } from '@/modules/Roleplay/Rule/Constant/PROCESS_TRANSITION_MODES';
-import { processSpecService } from '@/modules/Roleplay/Rule/Service/Spec/ProcessSpecService';
+import { processSpecService } from '@/modules/Roleplay/Rule/Service/Instance/processSpecService';
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
 import { useVModelSync } from '@/modules/Core/UI/Composables/useVModelSync';
 

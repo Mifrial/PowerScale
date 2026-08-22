@@ -1,5 +1,5 @@
-import type { RouteLocationNormalizedLoaded } from 'vue-router';
 import 'vue-router';
+import type { BreadcrumbResolver } from '@/router/BreadcrumbResolver';
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -17,9 +17,4 @@ declare module 'vue-router' {
   }
 }
 
-export interface BreadcrumbItem {
-  title: string;
-  to?: string;
-}
-
-export type BreadcrumbResolver = (to: RouteLocationNormalizedLoaded) => BreadcrumbItem[];
+export {};

@@ -6,7 +6,8 @@ export const ABILITY_SPEC_FIELDS: Record<AbilityType, readonly (keyof AbilitySpe
   trait: [],
   feature: [],
   skill: [],
-  action: ['action_costs'],
+  action: ['action_components'],
   process: ['process'],
-  spell: ['action_costs', 'spell'],
+  spell: ['action_components', 'spell'],
+  group: [],
 };

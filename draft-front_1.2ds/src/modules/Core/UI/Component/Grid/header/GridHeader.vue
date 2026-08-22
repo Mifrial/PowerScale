@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { ColumnDefinition } from '@/modules/Core/UI/Dto/ColumnDefinition';
-import type { Sort } from '@/modules/Core/UI/Dto/Sort';
-import type { ColumnDropTarget } from '@/modules/Core/UI/Composables/useColumnDrag';
+import type { ColumnDefinition } from '@/modules/Core/UI/Dto/Grid/ColumnDefinition';
+import type { Sort } from '@/modules/Core/UI/Dto/Grid/Sort';
+import type { ColumnDropTarget } from '@/modules/Core/UI/Interface/Grid/ColumnDropTarget';
 
 const props = defineProps<{
   gridId?: string;

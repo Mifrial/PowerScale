@@ -13,6 +13,67 @@ let nextId = 3;
 // Единый источник правил пространств — каталог из Rule-модуля (ID и code согласованы).
 const revisionRulePool: Rule[] = ruleCatalog;
 
+// Правила, «закоммиченные» через публикацию черновика (добавленные/изменённые поверх каталога).
+// Настоящий бэк хранит версии правил и собирает ревизию как «все не удалённые правила с revision ≤
+// выбранной»; здесь overlay поверх каталога даёт тот же эффект без мутации глобального каталога.
+const committedRules: Rule[] = [];
+
+// Уникальный rule-id поверх каталога + закоммиченных правил (id «rule-N» по числовому суффиксу).
+let nextCommittedId = Math.max(
+  0,
+  ...[...revisionRulePool, ...committedRules].map((r) => {
+    const m = r.id.match(/^rule-(\d+)$/);
+
+    return m ? Number(m[1]) : 0;
+  }),
+);
+function nextRuleId(): string {
+  return `rule-${++nextCommittedId}`;
+}
+
+// Правила, «выведенные из обращения» в старших ревизиях — для демо миграции персонажей:
+// способность «Ночное зрение» (night-vision) есть до ревизии 7 включительно, на ревизии ≥ 8 удалена.
+const RETIRED_RULES_BY_MIN_REVISION: { code: string; minRevision: number }[] = [
+  { code: 'night-vision', minRevision: 8 },
+];
+
+function isAlwaysIncluded(rule: Rule): boolean {
+  // Ресурсы, способности, очки, предметы, модификаторы предметов, расы и виды попадают в срез всегда: на них
+  // ссылаются персонажи (предметы/расы) и другие правила (requirements, action_components,
+  // grants, зоны способностей), поэтому их отсутствие ломает «в наличии». Источники (source)
+  // тоже всегда: слоты защит/сопротивлений ссылаются на них кодом, и карточка персонажа
+  // выводит имя источника. Срез по count применяется к остальным (simple/characteristic/damage_type).
+  return (
+    rule.type === 'characteristic' ||
+    rule.type === 'resource' ||
+    rule.type === 'ability' ||
+    rule.type === 'points' ||
+    rule.type === 'item' ||
+    rule.type === 'item_modifier' ||
+    rule.type === 'item_modifier_type' ||
+    rule.type === 'race' ||
+    rule.type === 'species' ||
+    rule.type === 'source' ||
+    rule.type === 'state' ||
+    rule.type === 'poison' ||
+    rule.type === 'age' ||
+    // Правило «Бросок» (дефолты бросков чата) присутствует в любой ревизии игры.
+    rule.mechanic_payload?.type === 'roll'
+  );
+}
+
+function alwaysIncludedCount(): number {
+  return revisionRulePool.filter(isAlwaysIncluded).length;
+}
+
+function slicedRuleCount(revision: number): number {
+  return Math.min(revisionRulePool.length - alwaysIncludedCount(), 5 + Math.floor(revision * 0.5));
+}
+
+function generatedRuleCount(revision: number): number {
+  return alwaysIncludedCount() + slicedRuleCount(revision);
+}
+
 const spaces: Space[] = [
   {
     id: 1,
@@ -22,7 +83,7 @@ const spaces: Space[] = [
     revision: 5,
     active: true,
     createdAt: '2026-01-15T10:00:00Z',
-    rulesCount: 42,
+    rulesCount: generatedRuleCount(5),
   },
   {
     id: 2,
@@ -32,7 +93,7 @@ const spaces: Space[] = [
     revision: 12,
     active: true,
     createdAt: '2026-02-01T09:00:00Z',
-    rulesCount: 38,
+    rulesCount: generatedRuleCount(12),
   },
 ];
 
@@ -87,9 +148,11 @@ export async function createSpace(data: SpaceCreateData, _signal?: AbortSignal):
   spaces.push(space);
 
   if (inheritedRules) {
-    revisionCache.set(`${space.id}:0`, {
+    revisionRulesCache.set(`${space.id}:0`, {
       revision: 0,
       publishedAt: new Date().toISOString(),
+      spaceCode: space.code,
+      spaceName: space.name,
       rules: inheritedRules.map((r) => ({ ...r, spaceId: space.id })),
     });
   }
@@ -137,9 +200,13 @@ function collectReferencedCodes(spec: RuleSpec | undefined): string[] {
   return Array.from(refs);
 }
 
-function generateRevisionRules(spaceId: number, revision: number): Rule[] {
-  const count = Math.min(revisionRulePool.length, 5 + Math.floor(revision * 0.5));
+// Экспортируется для теста согласованности ссылок мок-персонажей с составом ревизии.
+export function generateRevisionRules(spaceId: number, revision: number): Rule[] {
+  // Overlay закоммиченных правил поверх каталога: изменённые переопределяют по code,
+  // добавленные появляются. Эмулирует ревизию «все не удалённые правила ≤ выбранной».
   const poolByCode = new Map(revisionRulePool.map((r) => [r.code, r]));
+  for (const rule of committedRules) poolByCode.set(rule.code, rule);
+  const pool = Array.from(poolByCode.values());
 
   const included = new Map<string, Rule>();
   const addRule = (rule: Rule) => {
@@ -152,17 +219,18 @@ function generateRevisionRules(spaceId: number, revision: number): Rule[] {
   };
 
   // Ресурсы, способности и очки попадают в срез всегда — на них ссылаются
-  // из других правил (requirements, action_costs, grants, зоны способностей),
+  // из других правил (requirements, action_components, grants, зоны способностей),
   // поэтому их отсутствие ломает «в наличии». Срез по count применяется к остальным.
-  const alwaysIncluded = revisionRulePool.filter(
-    (r) => r.type === 'resource' || r.type === 'ability' || r.type === 'points',
-  );
-  const sliced = revisionRulePool
-    .filter((r) => r.type !== 'resource' && r.type !== 'ability' && r.type !== 'points')
-    .slice(0, count);
+  const alwaysIncluded = pool.filter(isAlwaysIncluded);
+  const sliced = pool.filter((r) => !isAlwaysIncluded(r)).slice(0, slicedRuleCount(revision));
 
   for (const rule of alwaysIncluded) addRule(rule);
   for (const rule of sliced) addRule(rule);
+
+  // Вывод правил из обращения в старших ревизиях (демо миграции персонажей).
+  for (const retired of RETIRED_RULES_BY_MIN_REVISION) {
+    if (revision >= retired.minRevision) included.delete(retired.code);
+  }
 
   return Array.from(included.values()).map((r) => ({
     ...r,
@@ -171,11 +239,11 @@ function generateRevisionRules(spaceId: number, revision: number): Rule[] {
   }));
 }
 
-const revisionsCache = new Map<string, SpaceRevisionMeta[]>();
+const revisionMetaCache = new Map<string, SpaceRevisionMeta[]>();
 
 function buildRevisionsMeta(space: Space): SpaceRevisionMeta[] {
   const key = `meta:${space.id}`;
-  const cached = revisionsCache.get(key);
+  const cached = revisionMetaCache.get(key);
   if (cached) return cached;
 
   const items: SpaceRevisionMeta[] = [];
@@ -183,11 +251,11 @@ function buildRevisionsMeta(space: Space): SpaceRevisionMeta[] {
     items.push({
       revision: r,
       publishedAt: new Date(2026, 0, 10 + r * 5).toISOString(),
-      ruleCount: 5 + Math.floor(r * 0.5),
-      changedCount: Math.floor(Math.random() * 3) + 1,
+      ruleCount: generatedRuleCount(r),
+      changedCount: 1 + (r % 3),
     });
   }
-  revisionsCache.set(key, items);
+  revisionMetaCache.set(key, items);
 
   return items;
 }
@@ -200,7 +268,7 @@ export async function fetchRevisions(spaceId: number, _signal?: AbortSignal): Pr
   return buildRevisionsMeta(space);
 }
 
-const revisionCache = new Map<string, SpaceRevision<Rule>>();
+const revisionRulesCache = new Map<string, SpaceRevision<Rule>>();
 
 export async function fetchRevision(
   spaceId: number,
@@ -209,7 +277,7 @@ export async function fetchRevision(
 ): Promise<SpaceRevision<Rule>> {
   await delay(300);
   const key = `${spaceId}:${revision}`;
-  const cached = revisionCache.get(key);
+  const cached = revisionRulesCache.get(key);
   if (cached) return cached;
 
   const space = spaces.find((s) => s.id === spaceId);
@@ -219,9 +287,11 @@ export async function fetchRevision(
   const result: SpaceRevision<Rule> = {
     revision,
     publishedAt: new Date(2026, 0, 10 + revision * 5).toISOString(),
+    spaceCode: space.code,
+    spaceName: space.name,
     rules: generateRevisionRules(spaceId, revision),
   };
-  revisionCache.set(key, result);
+  revisionRulesCache.set(key, result);
 
   return result;
 }
@@ -231,21 +301,35 @@ export async function commitDraft(spaceId: number, rules: Rule[], _signal?: Abor
   const space = spaces.find((s) => s.id === spaceId);
   if (!space) throw new Error(`Space ${spaceId} not found`);
 
+  const now = new Date().toISOString();
+  const poolByCode = new Map([...revisionRulePool, ...committedRules].map((r) => [r.code, r]));
+
+  // Вносим черновик в overlay: новые правила (code не встречается в пуле) получают стабильный
+  // rule-id, изменённые сохраняют id существующего правила. Эмуляция бэка: версия правила
+  // пишется в пространство, ревизия собирается из актуального набора.
+  committedRules.length = 0;
+  for (const draftRule of rules) {
+    const existing = poolByCode.get(draftRule.code);
+    const id = existing ? existing.id : nextRuleId();
+    committedRules.push({ ...draftRule, id, updatedAt: now });
+  }
+
   space.revision++;
   const revision = space.revision;
-  const now = new Date().toISOString();
 
   const result: SpaceRevision<Rule> = {
     revision,
     publishedAt: now,
-    rules: rules.map((r) => ({ ...r, updatedAt: now })),
+    spaceCode: space.code,
+    spaceName: space.name,
+    rules: generateRevisionRules(spaceId, revision),
   };
 
   const key = `${spaceId}:${revision}`;
-  revisionCache.set(key, result);
+  revisionRulesCache.set(key, result);
 
   const metaKey = `meta:${spaceId}`;
-  revisionsCache.delete(metaKey);
+  revisionMetaCache.delete(metaKey);
 
   return result;
 }

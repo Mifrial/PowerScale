@@ -6,8 +6,10 @@ import type { Grant } from '@/modules/Roleplay/Rule/Dto/Ability/Grant';
 import type { Requirement } from '@/modules/Roleplay/Rule/Dto/Ability/Requirement';
 import type { Formula } from '@/modules/Roleplay/Rule/Dto/Ability/Formula';
 import type { AbilityType } from '@/modules/Roleplay/Rule/Enum/Ability/AbilityType';
+import type { ActionComponent } from '@/modules/Roleplay/Rule/Dto/Ability/ActionComponent';
 import { ABILITY_TYPE_LABELS } from '@/modules/Roleplay/Rule/Constant/Ability/ABILITY_TYPE_LABELS';
-import { abilitySpecService } from '@/modules/Roleplay/Rule/Service/Spec/AbilitySpecService';
+import { abilitySpecService } from '@/modules/Roleplay/Rule/Service/Instance/abilitySpecService';
+import { resourceShortName } from '@/modules/Roleplay/Rule/Utils/resourceShortName';
 
 const props = defineProps<{
   rule: Rule;
@@ -29,6 +31,23 @@ const type = computed<AbilityType | null>(() => {
 
   return abilitySpecService.resolveTypeFromKeywords(ruleTagCodes.value);
 });
+
+const groupInfo = computed(() => {
+  const s = spec.value;
+  if (s?.type !== 'group') return null;
+
+  return {
+    selectLimit: s.selectLimit ?? -1,
+    members: props.rules.filter(
+      (r) =>
+        r.type === 'ability' && (r.spec as { group_code?: string | null } | undefined)?.group_code === props.rule.code,
+    ),
+  };
+});
+
+const actionComponents = computed(() => spec.value?.action_components ?? []);
+const resourceComponents = computed(() => actionComponents.value.filter((c) => c.type === 'resource'));
+const nonResourceComponents = computed(() => actionComponents.value.filter((c) => c.type !== 'resource'));
 
 const sortedRequirements = computed(() => [...(spec.value?.requirements ?? [])].sort((a, b) => a.level - b.level));
 
@@ -89,11 +108,27 @@ function limitUnitLabel(unit: string): string {
   return { turn: 'ход', minute: 'мин', hour: 'час' }[unit] ?? unit;
 }
 
-function componentLabel(comp: { type: string; note?: string; item_code?: string; description?: string }): string {
+function componentLabel(comp: ActionComponent): string {
+  if (comp.type === 'resource') {
+    const short = resourceShortName(comp.resource_code);
+
+    return short
+      ? `${formatAmount(comp.amount)} ${short}`
+      : `${comp.label ?? resourceName(comp.resource_code)}: ${formatAmount(comp.amount)}`;
+  }
   if (comp.type === 'verbal') return comp.note ? `Вербальный (${comp.note})` : 'Вербальный';
   if (comp.type === 'somatic') return comp.note ? `Соматический (${comp.note})` : 'Соматический';
-  if (comp.item_code)
-    return `Материальный: ${props.rules.find((r) => r.code === comp.item_code)?.name ?? comp.item_code}`;
+  const mode = comp.mode === 'consume' ? 'израсходовать' : 'использовать';
+  if (comp.item_code) {
+    const name = props.rules.find((r) => r.code === comp.item_code)?.name ?? comp.item_code;
+
+    return `Материальный: ${mode} ${name}`;
+  }
+  if (comp.keyword_codes?.length) {
+    const tags = comp.keyword_codes.map((code) => props.keywords.find((t) => t.code === code)?.name ?? code).join(', ');
+
+    return `Материальный: ${mode} предмет с тегами ${tags}`;
+  }
 
   return comp.description ? `Материальный: ${comp.description}` : 'Материальный';
 }
@@ -134,9 +169,18 @@ const hasGrants = computed(() => {
 });
 
 function zoneCostLabel(cost: unknown): string {
-  const c = cost as { kind: string; levels_cost?: number[]; max_level?: number; base_cost?: number; step?: number };
+  const c = cost as {
+    kind: string;
+    levels_cost?: number[];
+    max_level?: number;
+    base_cost?: number;
+    step?: number;
+    parameter_code?: string;
+    per_unit?: number;
+  };
   if (c.kind === 'array') return `массив: ${(c.levels_cost ?? []).join(', ')}`;
   if (c.kind === 'progression') return `прогрессия: ${c.base_cost} + (ур−1)×${c.step}, макс. ${c.max_level}`;
+  if (c.kind === 'parameter') return `параметр «${c.parameter_code ?? 'x'}» × ${c.per_unit ?? 1}`;
 
   return 'авто-получение';
 }
@@ -181,6 +225,8 @@ function grantLabel(grant: Grant): string {
   switch (grant.type) {
     case 'characteristic':
       return `Даёт характеристику «${grant.characteristic_code}» (${formatDimensional(grant.value)})`;
+    case 'characteristic_parameter':
+      return `Даёт характеристику «${grant.characteristic_code}» = параметр ${grant.parameter_code} × ${grant.per_unit}`;
     case 'characteristic_modify':
       return `Модификатор «${grant.characteristic_code}»: +${formulaLabel(grant.amount)}`;
     case 'resource':
@@ -193,6 +239,8 @@ function grantLabel(grant: Grant): string {
       return grant.remove ? `Убирает признак «${grant.keyword_code}»` : `Добавляет признак «${grant.keyword_code}»`;
     case 'item':
       return `Даёт предмет «${grant.item_code}»`;
+    case 'money':
+      return `Стартовый капитал: ${grant.fixed} гз или ${grant.percent}% от лимита (${grant.apply === 'max' ? 'большее' : 'меньшее'})`;
     default:
       return '';
   }
@@ -205,14 +253,37 @@ function grantLabel(grant: Grant): string {
       <v-chip color="primary" variant="tonal" size="small">{{ ABILITY_TYPE_LABELS[type] }}</v-chip>
     </div>
 
+    <v-card v-if="groupInfo" variant="tonal" class="mb-3">
+      <v-card-text>
+        <div class="text-body-2">
+          Выбрать:
+          <strong>{{
+            groupInfo.selectLimit === -1 ? 'без лимита' : groupInfo.selectLimit === 1 ? 'одну' : groupInfo.selectLimit
+          }}</strong>
+          из {{ groupInfo.members.length }}
+        </div>
+        <div v-if="groupInfo.members.length" class="text-body-2 text-medium-emphasis mt-1">
+          Участники: {{ groupInfo.members.map((m) => m.name).join(', ') }}
+        </div>
+      </v-card-text>
+    </v-card>
+
     <v-card v-if="type === 'action' || type === 'spell'" variant="tonal" class="mb-3">
       <v-card-text>
         <div class="text-subtitle-2 mb-1">Действие</div>
-        <div v-for="(cost, index) in spec.action_costs" :key="index" class="d-flex align-center ga-2">
-          <span>{{ cost.label ?? resourceName(cost.resource_code) }}:</span>
-          <strong>{{ formatAmount(cost.amount) }}</strong>
+        <div v-for="(comp, index) in resourceComponents" :key="index" class="d-flex align-center ga-2">
+          <span>{{ comp.label ?? resourceName(comp.resource_code) }}:</span>
+          <strong>{{ formatAmount(comp.amount) }}</strong>
         </div>
-        <div v-if="!spec.action_costs?.length" class="text-medium-emphasis">Без стоимости</div>
+        <div v-if="!resourceComponents.length" class="text-medium-emphasis">Без стоимости</div>
+        <div v-if="nonResourceComponents.length && type !== 'spell'" class="mt-2">
+          <div class="text-body-2 text-medium-emphasis mb-1">Компоненты</div>
+          <div class="d-flex flex-wrap ga-2">
+            <v-chip v-for="(comp, index) in nonResourceComponents" :key="index" size="small" variant="outlined">
+              {{ componentLabel(comp) }}
+            </v-chip>
+          </div>
+        </div>
       </v-card-text>
     </v-card>
 
@@ -230,9 +301,17 @@ function grantLabel(grant: Grant): string {
             :title="`${index + 1}. ${step.name}`"
           >
             <template #subtitle>
-              <div>{{ step.description }}</div>
-              <div v-if="step.costs?.length">
-                {{ step.costs.map((c) => `${resourceName(c.resource_code)}: ${formatAmount(c.amount)}`).join(', ') }}
+              <div class="ability-card__step-desc">{{ step.description }}</div>
+              <div v-if="step.costs?.length" class="ability-card__step-cost">
+                {{
+                  step.costs
+                    .map((c) =>
+                      resourceShortName(c.resource_code)
+                        ? `${formatAmount(c.amount)} ${resourceShortName(c.resource_code)}`
+                        : `${resourceName(c.resource_code)}: ${formatAmount(c.amount)}`,
+                    )
+                    .join(', ')
+                }}
               </div>
             </template>
           </v-list-item>
@@ -251,8 +330,8 @@ function grantLabel(grant: Grant): string {
           <strong>{{ formatDimensional(spec.spell.difficulty) }}</strong>
         </div>
         <div class="mb-1">Продолжительность: {{ durationLabel }}</div>
-        <div v-if="spec.spell.components?.length" class="d-flex flex-wrap ga-2">
-          <v-chip v-for="(comp, index) in spec.spell.components" :key="index" size="small" variant="outlined">
+        <div v-if="nonResourceComponents.length" class="d-flex flex-wrap ga-2">
+          <v-chip v-for="(comp, index) in nonResourceComponents" :key="index" size="small" variant="outlined">
             {{ componentLabel(comp) }}
           </v-chip>
         </div>
@@ -301,3 +380,11 @@ function grantLabel(grant: Grant): string {
     </v-card>
   </div>
 </template>
+
+<style scoped>
+/* Переносы строк внутри описаний шага процесса. */
+.ability-card__step-desc,
+.ability-card__step-cost {
+  white-space: pre-line;
+}
+</style>

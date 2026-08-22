@@ -6,37 +6,26 @@ import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { useGridPage } from '@/modules/Core/UI/Composables/useGridPage';
 import FilterBar from '@/modules/Core/UI/Component/FilterBar.vue';
 import SmartGrid from '@/modules/Core/UI/Component/Grid/SmartGrid.vue';
-import { columns, filterFields } from '@/modules/Core/User/Constant/groupsGridManifest';
-import type { Row } from '@/modules/Core/UI/Dto/Row';
-import type { FilterValue } from '@/modules/Core/UI/Dto/FilterValue';
-import { extractFilterValue } from '@/modules/Core/UI/Utils/filterExtract';
+import { columns } from '@/modules/Core/User/Constant/Grid/groups/columns';
+import { filterFields } from '@/modules/Core/User/Constant/Grid/groups/filterFields';
 
 const router = useRouter();
 const store = useGroupStore();
 const { signal } = useAbortable();
 
-const {
-  sort,
-  pagination,
-  appliedFilters,
-  pageRows,
-  onSortChange,
-  onPaginationChange,
-  onFilterChange: gridFilterChange,
-} = useGridPage(() => store.filteredGroups);
+const { sort, pagination, appliedFilters, pageRows, total, onSortChange, onPaginationChange, onFilterChange } =
+  useGridPage({
+    getItems: () => store.groups,
+    fields: filterFields,
+    columns,
+  });
 
 onMounted(() => store.fetchGroups(signal.value));
 
-function onFilterChange(filters: Record<string, FilterValue>) {
-  gridFilterChange(filters);
-  store.filterName = extractFilterValue(filters.name);
-  store.filterActive = filters.active !== undefined ? String(filters.active) : '';
-}
-
-function onRowAction(payload: { action: string; row: Row }) {
+function onRowAction(payload: { action: string; row: Record<string, unknown> }) {
   if ('id' in payload.row) {
     const id = payload.row.id;
-    if (payload.action === 'view-profile') {
+    if (payload.action === 'open' || payload.action === 'view-profile') {
       router.push(`/admin/groups/${id}`);
     }
   }
@@ -64,9 +53,10 @@ function onRowAction(payload: { action: string; row: Row }) {
       :columns="columns"
       :rows="pageRows"
       :pagination="pagination"
-      :total="store.filteredGroups.length"
+      :total="total"
       :sort="sort"
       :loading="store.loading"
+      :row-menu="[{ action: 'view-profile', label: 'Посмотреть профиль', icon: 'mdi-account-outline' }]"
       @update:sort="onSortChange"
       @update:pagination="onPaginationChange"
       @row-action="onRowAction"

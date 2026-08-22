@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { ruleDiffService } from '@/modules/Roleplay/Rule/Service/RuleDiffService';
+import { ruleDiffService } from '@/modules/Roleplay/Rule/Service/Instance/ruleDiffService';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec';
 
 function rule(id: string, name: string, overrides: Partial<Rule> = {}): Rule {
   return {
@@ -13,6 +14,10 @@ function rule(id: string, name: string, overrides: Partial<Rule> = {}): Rule {
     createdAt: '2026-01-01T00:00:00Z',
     ...overrides,
   };
+}
+
+function spec(value: Record<string, unknown>): RuleSpec {
+  return value as unknown as RuleSpec;
 }
 
 describe('classifyDraftDiff', () => {
@@ -37,6 +42,49 @@ describe('classifyDraftDiff', () => {
     const draft = [rule('r1', 'Одно', { updatedAt: '2026-02-01T00:00:00Z' })];
     const diff = ruleDiffService.classifyDraftDiff(published, draft);
     expect(diff.changed).toEqual([]);
+  });
+
+  it('порядок ключей в spec (и во вложенных объектах) не даёт ложного changed', () => {
+    const published = [
+      rule('r1', 'Одно', { spec: spec({ type: 'ability', requirements: [], zones: { melee: { base: 1, size: 0 } } }) }),
+    ];
+    const draft = [
+      rule('r1', 'Одно', { spec: spec({ zones: { melee: { size: 0, base: 1 } }, requirements: [], type: 'ability' }) }),
+    ];
+    const diff = ruleDiffService.classifyDraftDiff(published, draft);
+    expect(diff.changed).toEqual([]);
+  });
+
+  it('изменение содержимого spec при том же порядке ключей помечается как changed', () => {
+    const published = [rule('r1', 'Одно', { spec: spec({ type: 'ability', requirements: [] }) })];
+    const draft = [
+      rule('r1', 'Одно', {
+        spec: spec({ type: 'ability', requirements: [{ type: 'has_keyword', keyword_code: 'a' }] }),
+      }),
+    ];
+    const diff = ruleDiffService.classifyDraftDiff(published, draft);
+    expect(diff.changed.map((r) => r.id)).toEqual(['r1']);
+  });
+
+  it('изменение порядка элементов массива в spec помечается как changed', () => {
+    const reorder = spec({
+      type: 'ability',
+      requirements: [
+        { type: 'has_keyword', keyword_code: 'x' },
+        { type: 'has_keyword', keyword_code: 'y' },
+      ],
+    });
+    const reorderSwapped = spec({
+      type: 'ability',
+      requirements: [
+        { type: 'has_keyword', keyword_code: 'y' },
+        { type: 'has_keyword', keyword_code: 'x' },
+      ],
+    });
+    const published = [rule('r1', 'Одно', { spec: reorder })];
+    const draft = [rule('r1', 'Одно', { spec: reorderSwapped })];
+    const diff = ruleDiffService.classifyDraftDiff(published, draft);
+    expect(diff.changed.map((r) => r.id)).toEqual(['r1']);
   });
 
   it('пустой черновик', () => {

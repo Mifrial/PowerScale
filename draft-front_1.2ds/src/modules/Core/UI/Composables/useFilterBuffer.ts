@@ -1,32 +1,15 @@
-import { reactive, computed, watch, type Ref, type ComputedRef, type WritableComputedRef } from 'vue';
-import type { FilterField } from '@/modules/Core/UI/Dto/FilterField';
-import type { FilterValue } from '@/modules/Core/UI/Dto/FilterValue';
+import { reactive, computed, watch } from 'vue';
+import type { FilterValue } from '@/modules/Core/UI/Dto/Filter/Values/FilterValue';
+import type { MaybeFilterValue } from '@/modules/Core/UI/Dto/Filter/MaybeFilterValue';
+import type { ActiveChip } from '@/modules/Core/UI/Dto/Filter/ActiveChip';
+import type { FilterBuffer } from '@/modules/Core/UI/Interface/Filter/FilterBuffer';
+import type { FilterBufferOptions } from '@/modules/Core/UI/Interface/Filter/FilterBufferOptions';
 import { debounce } from '@/modules/Core/UI/Utils/debounce';
-import {
-  buildActiveChips,
-  type ActiveChip,
-  type MaybeFilterValue,
-} from '@/modules/Core/UI/Component/FilterBar/filterValues';
+import { FilterChipService } from '@/modules/Core/UI/Service/Filter/FilterChipService';
 
-export interface FilterBuffer {
-  editBuffer: Record<string, MaybeFilterValue>;
-  enabled: Record<string, boolean>;
-  searchText: WritableComputedRef<string>;
-  activeChips: ComputedRef<ActiveChip[]>;
-  hasActiveFilters: ComputedRef<boolean>;
-  onValueUpdate(key: string, value: MaybeFilterValue): void;
-  setEnabled(key: string, value: boolean): void;
-  removeChip(key: string): void;
-  apply(): void;
-  resetAll(): void;
-}
+const filterChipService = new FilterChipService();
 
-export function useFilterBuffer(options: {
-  fields: Ref<FilterField[]>;
-  modelValue: Ref<Record<string, FilterValue>>;
-  menuOpen: Ref<boolean>;
-  onCommit: (value: Record<string, FilterValue>) => void;
-}): FilterBuffer {
+export function useFilterBuffer(options: FilterBufferOptions): FilterBuffer {
   const { fields, modelValue, menuOpen, onCommit } = options;
 
   const internal = reactive<Record<string, MaybeFilterValue>>({});
@@ -69,7 +52,7 @@ export function useFilterBuffer(options: {
     },
   });
 
-  const activeChips = computed<ActiveChip[]>(() => buildActiveChips(fields.value, internal));
+  const activeChips = computed<ActiveChip[]>(() => filterChipService.buildChips(fields.value, internal));
 
   const hasActiveFilters = computed(() => activeChips.value.length > 0 || !!internal.q);
 

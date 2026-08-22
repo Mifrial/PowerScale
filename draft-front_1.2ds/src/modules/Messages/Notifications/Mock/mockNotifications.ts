@@ -1,11 +1,7 @@
 import type { Notification } from '@/modules/Messages/Notifications/Dto/Notification';
 import type { NotificationAction } from '@/modules/Messages/Notifications/Dto/NotificationAction';
-import type {
-  NotificationFilters,
-  NotificationPage,
-} from '@/modules/Messages/Notifications/Interface/INotificationApi';
-
-export type { Notification, NotificationAction };
+import type { NotificationFilters } from '@/modules/Messages/Notifications/Dto/NotificationFilters';
+import type { NotificationPage } from '@/modules/Messages/Notifications/Dto/NotificationPage';
 
 const delay = (ms = 150) => new Promise((r) => setTimeout(r, ms));
 
@@ -30,7 +26,7 @@ const mockNotifications: Notification[] = [
     'mdi-gamepad-variant',
     [
       { label: 'Принять', key: 'accept', color: 'primary' },
-      { label: 'Отклонить', key: 'decline', color: 'outlined' },
+      { label: 'Отклонить', key: 'decline', color: 'primary' },
     ],
   ),
   createNotification(
@@ -94,7 +90,7 @@ const mockNotifications: Notification[] = [
     'mdi-rocket-launch',
     [
       { label: 'Принять', key: 'accept', color: 'primary' },
-      { label: 'Отклонить', key: 'decline', color: 'outlined' },
+      { label: 'Отклонить', key: 'decline', color: 'primary' },
     ],
   ),
   createNotification(
@@ -146,7 +142,7 @@ const mockNotifications: Notification[] = [
     ago(4 * 86400000),
     'mdi-archive',
     [
-      { label: 'Отложить', key: 'postpone', color: 'outlined' },
+      { label: 'Отложить', key: 'postpone', color: 'primary' },
       { label: 'Архивировать', key: 'archive', color: 'primary' },
     ],
   ),

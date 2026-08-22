@@ -2,28 +2,18 @@ import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec';
 import type { DiceRollResult } from '@/modules/Roleplay/Game/Dto/DiceRollResult';
 import type { MacroRollSpec } from '@/modules/Roleplay/Game/Dto/MacroRollSpec';
 import type { RollForm } from '@/modules/Roleplay/Game/Dto/RollForm';
-import {
-  ROLL_ADV_MAX,
-  ROLL_DICE_COUNT_MAX,
-  ROLL_DICE_COUNT_MIN,
-  ROLL_DIE_FACES_MAX,
-  ROLL_DIE_FACES_MIN,
-  ROLL_DIE_SIZE_MAX,
-  ROLL_EFFICIENCY_MAX,
-  ROLL_EFFICIENCY_MIN,
-} from '@/modules/Roleplay/Game/Constant/rollLimits';
-
-export interface ParsedRollCommand {
-  content: string;
-  rolls: DiceRollSpec[];
-}
-
-export interface ParsedRollFormula {
-  diceCount: number;
-  dieFaces: number;
-}
-
-export type DiceRng = () => number;
+import type { ParsedCommand } from '@/modules/Messages/Chat/Dto/ParsedCommand';
+import type { ParsedRollFormula } from '@/modules/Roleplay/Game/Dto/ParsedRollFormula';
+import type { DiceRng } from '@/modules/Roleplay/Game/Dto/DiceRng';
+import { ROLL_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ATTACHMENT_TYPE';
+import { ROLL_ADV_MAX } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ADV_MAX';
+import { ROLL_DICE_COUNT_MAX } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_DICE_COUNT_MAX';
+import { ROLL_DICE_COUNT_MIN } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_DICE_COUNT_MIN';
+import { ROLL_DIE_FACES_MAX } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_DIE_FACES_MAX';
+import { ROLL_DIE_FACES_MIN } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_DIE_FACES_MIN';
+import { ROLL_DIE_SIZE_MAX } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_DIE_SIZE_MAX';
+import { ROLL_EFFICIENCY_MAX } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_EFFICIENCY_MAX';
+import { ROLL_EFFICIENCY_MIN } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_EFFICIENCY_MIN';
 
 export class RollService {
   private static readonly SUPERSCRIPTS: Record<number, string> = {
@@ -94,7 +84,7 @@ export class RollService {
     return { diceCount, dieFaces };
   }
 
-  parseRollCommand(text: string): ParsedRollCommand | null {
+  parseRollCommand(text: string): ParsedCommand | null {
     const trimmed = text.trim();
     const headMatch = /^\/(?:roll|бросок)\b(.*)$/is.exec(trimmed);
     if (!headMatch) return null;
@@ -131,20 +121,29 @@ export class RollService {
       }
     }
 
-    const rolls: DiceRollSpec[] = [
-      {
-        diceCount: formula.diceCount,
-        dieFaces: formula.dieFaces,
-        efficiency,
-        adv,
-        dieSize,
-        label: labelParts.join(' ').trim() || undefined,
-      },
-    ];
-
-    return { content: trimmed, rolls };
+    return {
+      content: trimmed,
+      attachments: [
+        {
+          type: ROLL_ATTACHMENT_TYPE,
+          payload: {
+            diceCount: formula.diceCount,
+            dieFaces: formula.dieFaces,
+            efficiency,
+            adv,
+            dieSize,
+            label: labelParts.join(' ').trim() || undefined,
+          },
+        },
+      ],
+    };
   }
 
+  /**
+   * Результат броска базовым движком (без механик ревизии — фолбэк для мессенджера/макросов):
+   * преимущества (лишние кубы + выбросить худшие/лучшие), «6 и 1» и базовый подсчёт.
+   * В игровом чате/инициативе бросок идёт через RollEngine (механики ревизии).
+   */
   computeRollResult(spec: DiceRollSpec, rng: DiceRng = Math.random): DiceRollResult {
     const diceCount = Math.max(1, spec.diceCount);
     const faces = Math.max(2, spec.dieFaces);
@@ -175,5 +174,3 @@ export class RollService {
     return { spec, rolls, successes, adjustedRolls: adjusted, droppedRolls, totalSuccesses };
   }
 }
-
-export const rollService = new RollService();

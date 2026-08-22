@@ -2,19 +2,14 @@
 import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/modules/Core/Auth/Store/auth';
-import { passwordValidatorService } from '@/modules/Core/Auth/Service/PasswordValidatorService';
+import { passwordValidatorService } from '@/modules/Core/Auth/init';
+import type { VForm } from 'vuetify/components';
 import PasswordField from '@/modules/Core/UI/Component/Input/PasswordField.vue';
 
 const router = useRouter();
 const auth = useAuthStore();
 
-interface FormRef {
-  validate: () => Promise<{ valid: boolean }>;
-  reset: () => void;
-  resetValidation: () => void;
-}
-
-const formRef = ref<FormRef | null>(null);
+const formRef = ref<VForm | null>(null);
 const login = ref('');
 const email = ref('');
 const password = ref('');

@@ -4,13 +4,15 @@ import { useRoute } from 'vue-router';
 import { useUserStore } from '@/modules/Core/User/Store/users';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import type { User } from '@/modules/Core/User/Dto/User';
-import { accessService } from '@/modules/Core/User/Service/AccessService';
+import type { UpdateUserData } from '@/modules/Core/User/Dto/UpdateUserData';
+import { accessService } from '@/modules/Core/User/init';
 import { getProfileSections } from '@/modules/Core/User/init';
 import ProfileInfoCard from '@/modules/Core/User/Component/ProfileInfoCard.vue';
 import ProfileAuthCard from '@/modules/Core/User/Component/ProfileAuthCard.vue';
 import ProfileGroupsCard from '@/modules/Core/User/Component/ProfileGroupsCard.vue';
 import DeactivateUserDialog from '@/modules/Core/User/Component/DeactivateUserDialog.vue';
-import { initials as userInitials, displayName as userDisplayName } from '@/modules/Core/User/Utils/profile';
+import { initials as userInitials } from '@/modules/Core/User/Utils/initials';
+import { displayName as userDisplayName } from '@/modules/Core/User/Utils/displayName';
 
 const profileSections = getProfileSections();
 
@@ -63,12 +65,13 @@ async function save() {
   if (!user.value) return;
   saving.value = true;
   try {
-    const data: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(editForm.value)) {
-      data[k] = v || null;
-    }
-    await store.updateUser(user.value.id, data);
-    Object.assign(user.value, data);
+    const data: UpdateUserData = {
+      name: editForm.value.name,
+      surname: editForm.value.surname || undefined,
+      nickname: editForm.value.nickname || undefined,
+      email: editForm.value.email,
+    };
+    user.value = await store.updateUser(user.value.id, data);
     editing.value = false;
     snackbar.value = { show: true, text: 'Профиль обновлён', color: 'success' };
   } catch {
@@ -116,69 +119,71 @@ onMounted(loadUser);
 </script>
 
 <template>
-  <div v-if="user">
-    <div class="d-flex align-center mb-6 ga-3">
-      <v-btn icon variant="text" @click="$router.back()"><v-icon>mdi-arrow-left</v-icon></v-btn>
-      <h1 class="text-h4 font-weight-bold">{{ displayName }}</h1>
-      <v-spacer />
-      <v-btn v-if="user.active && canDeactivate" variant="tonal" color="error" @click="confirmDeactivate = true"
-        >Отключить</v-btn
-      >
-    </div>
-
-    <div class="d-flex ga-6">
-      <div class="profile-side text-center">
-        <v-avatar color="primary" size="120" class="mb-2">
-          <span class="text-h3 font-weight-medium text-white">{{ initials }}</span>
-        </v-avatar>
-        <div class="text-h6 font-weight-medium text-center">{{ displayName }}</div>
-        <div class="text-caption text-medium-emphasis text-center">@{{ user.login }}</div>
+  <v-container fluid>
+    <div v-if="user">
+      <div class="d-flex align-center mb-6 ga-3">
+        <v-btn icon variant="text" @click="$router.back()"><v-icon>mdi-arrow-left</v-icon></v-btn>
+        <h1 class="text-h4 font-weight-bold">{{ displayName }}</h1>
+        <v-spacer />
+        <v-btn v-if="user.active && canDeactivate" variant="tonal" color="error" @click="confirmDeactivate = true"
+          >Отключить</v-btn
+        >
       </div>
 
-      <div class="profile-main">
-        <div class="profile-cards-grid">
-          <ProfileInfoCard
-            :user="user"
-            :can-edit="canEdit"
-            :editing="editing"
-            :saving="saving"
-            v-model:form-name="editForm.name"
-            v-model:form-surname="editForm.surname"
-            v-model:form-nickname="editForm.nickname"
-            class="profile-card"
-            @start="startEdit"
-            @save="save"
-            @cancel="cancelEdit"
-          />
-          <ProfileAuthCard :user="user" :editing="editing" v-model:form-email="editForm.email" class="profile-card" />
-          <ProfileGroupsCard :user="user" class="profile-card profile-card--full" />
+      <div class="d-flex ga-6">
+        <div class="profile-side text-center">
+          <v-avatar color="primary" size="120" class="mb-2">
+            <span class="text-h3 font-weight-medium text-white">{{ initials }}</span>
+          </v-avatar>
+          <div class="text-h6 font-weight-medium text-center">{{ displayName }}</div>
+          <div class="text-caption text-medium-emphasis text-center">@{{ user.login }}</div>
+        </div>
+
+        <div class="profile-main">
+          <div class="profile-cards-grid">
+            <ProfileInfoCard
+              :user="user"
+              :can-edit="canEdit"
+              :editing="editing"
+              :saving="saving"
+              v-model:form-name="editForm.name"
+              v-model:form-surname="editForm.surname"
+              v-model:form-nickname="editForm.nickname"
+              class="profile-card"
+              @start="startEdit"
+              @save="save"
+              @cancel="cancelEdit"
+            />
+            <ProfileAuthCard :user="user" :editing="editing" v-model:form-email="editForm.email" class="profile-card" />
+            <ProfileGroupsCard :user="user" class="profile-card profile-card--full" />
+          </div>
         </div>
       </div>
+
+      <div v-if="isOwnProfile" class="mt-4">
+        <component v-for="section in profileSections" :key="section.id" :is="section.component" class="mt-4" />
+      </div>
+
+      <DeactivateUserDialog
+        v-model:open="confirmDeactivate"
+        :user="user"
+        :loading="deactivating"
+        @confirm="handleDeactivate"
+      />
+
+      <v-snackbar v-model="snackbar.show" :color="snackbar.color" timeout="3000">
+        {{ snackbar.text }}
+      </v-snackbar>
     </div>
-
-    <div v-if="isOwnProfile" class="mt-4">
-      <component v-for="section in profileSections" :key="section.id" :is="section.component" class="mt-4" />
+    <div v-else-if="loading" class="d-flex justify-center pa-8">
+      <v-progress-circular indeterminate width="2" size="28" color="primary" />
     </div>
-
-    <DeactivateUserDialog
-      v-model:open="confirmDeactivate"
-      :user="user"
-      :loading="deactivating"
-      @confirm="handleDeactivate"
-    />
-
-    <v-snackbar v-model="snackbar.show" :color="snackbar.color" timeout="3000">
-      {{ snackbar.text }}
-    </v-snackbar>
-  </div>
-  <div v-else-if="loading" class="d-flex justify-center pa-8">
-    <v-progress-circular indeterminate width="2" size="28" color="primary" />
-  </div>
-  <div v-else-if="error" class="text-center pa-8">
-    <v-icon icon="mdi-alert-circle" size="64" color="error" class="mb-4" />
-    <p class="text-body-1 mb-4">{{ error }}</p>
-    <v-btn color="primary" @click="loadUser">Попробовать снова</v-btn>
-  </div>
+    <div v-else-if="error" class="text-center pa-8">
+      <v-icon icon="mdi-alert-circle" size="64" color="error" class="mb-4" />
+      <p class="text-body-1 mb-4">{{ error }}</p>
+      <v-btn color="primary" @click="loadUser">Попробовать снова</v-btn>
+    </div>
+  </v-container>
 </template>
 
 <style scoped>

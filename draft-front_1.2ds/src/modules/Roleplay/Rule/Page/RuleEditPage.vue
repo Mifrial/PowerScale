@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { useSpaceStore } from '@/modules/Roleplay/Space/Store/spaces';
-import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
 import { useRuleStore } from '@/modules/Roleplay/Rule/Store/rules';
 import { useDraftRuleStore } from '@/modules/Roleplay/Rule/Store/draftRules';
 import { useKeywordStore } from '@/modules/Roleplay/Rule/Store/keywords';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
+import { useSpaceContext } from '@/modules/Roleplay/Space/init';
 import SimpleRuleEditor from '@/modules/Roleplay/Rule/Component/Editors/SimpleRuleEditor.vue';
 import CharacteristicEditor from '@/modules/Roleplay/Rule/Component/Editors/CharacteristicEditor.vue';
 import ResourceEditor from '@/modules/Roleplay/Rule/Component/Editors/ResourceEditor.vue';
@@ -16,10 +15,15 @@ import RaceEditor from '@/modules/Roleplay/Rule/Component/Editors/RaceEditor.vue
 import SpeciesEditor from '@/modules/Roleplay/Rule/Component/Editors/SpeciesEditor.vue';
 import PointsEditor from '@/modules/Roleplay/Rule/Component/Editors/PointsEditor.vue';
 import DamageTypeEditor from '@/modules/Roleplay/Rule/Component/Editors/DamageTypeEditor.vue';
+import StateEditor from '@/modules/Roleplay/Rule/Component/Editors/StateEditor.vue';
+import PoisonEditor from '@/modules/Roleplay/Rule/Component/Editors/PoisonEditor.vue';
+import WeaponFamilyEditor from '@/modules/Roleplay/Rule/Component/Editors/Item/WeaponFamilyEditor.vue';
+import ItemModifierEditor from '@/modules/Roleplay/Rule/Component/Editors/ItemModifierEditor.vue';
+import ItemModifierTypeEditor from '@/modules/Roleplay/Rule/Component/Editors/ItemModifierTypeEditor.vue';
 import RuleConflictDialog from '@/modules/Roleplay/Rule/Component/RuleConflictDialog.vue';
 import { RULE_TYPES } from '@/modules/Roleplay/Rule/Constant/RULE_TYPES';
-import { ruleDraftService } from '@/modules/Roleplay/Rule/Service/RuleDraftService';
-import { ruleToForm } from '@/modules/Roleplay/Rule/Utils/Rule/formMapper';
+import { ruleDraftService } from '@/modules/Roleplay/Rule/Service/Instance/ruleDraftService';
+import { ruleToForm } from '@/modules/Roleplay/Rule/Utils/Rule/ruleToForm';
 import type { RuleType } from '@/modules/Roleplay/Rule/Enum/RuleType';
 import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec';
 import type { RuleFormState } from '@/modules/Roleplay/Rule/Dto/RuleFormState';
@@ -27,21 +31,20 @@ import { getRuleApi } from '@/modules/Roleplay/Rule/init';
 
 const route = useRoute();
 const router = useRouter();
-const spaceStore = useSpaceStore();
 const store = useRuleStore();
-const revisionStore = useSpaceRevisionStore();
 const draftStore = useDraftRuleStore();
 const keywordStore = useKeywordStore();
+const spaceContext = useSpaceContext();
 const { signal } = useAbortable();
 
 const code = computed(() => route.params.code as string);
 const ctx = computed(() => route.params.ctx as string);
 const ruleId = computed(() => route.params.ruleId as string);
+const routeKey = computed(() => `${code.value}|${ctx.value}|${ruleId.value}`);
 const isEdit = computed(() => !!ruleId.value && ruleId.value !== 'new');
-const isDraftContext = computed(() => ctx.value === 'draft');
 const isRevisionContext = computed(() => !!ctx.value && ctx.value !== 'draft');
 
-const spaceId = ref(0);
+const spaceId = computed(() => spaceContext.value.spaceId ?? 0);
 const type = ref<RuleType>('simple');
 const name = ref('');
 const ruleCode = ref('');
@@ -54,6 +57,7 @@ const spec = ref<RuleSpec | null>(null);
 const saving = ref(false);
 const loading = ref(true);
 const error = ref<string | null>(null);
+const saveError = ref<string | null>(null);
 
 const showConflictDialog = ref(false);
 const conflictRuleName = ref('');
@@ -62,6 +66,19 @@ const baseLoaded = ref<string | null>(null);
 
 const mechanicOptions = ref<{ title: string; value: number }[]>([]);
 const keywordOptions = computed(() => keywordStore.keywords.map((t) => ({ title: t.name, value: t.id })));
+const keywordCodeById = computed(() => new Map(keywordStore.keywords.map((k) => [k.id, k.code])));
+const modifierTypeOptions = computed(() =>
+  spaceContext.value.effectiveRules
+    .filter((rule) => rule.type === 'item_modifier_type')
+    .map((rule) => ({ title: rule.name, value: rule.code })),
+);
+
+/** Безопасное извлечение costs из spec для редактора семей оружия. */
+const weaponFamilySpec = computed(() => {
+  const s = spec.value;
+
+  return s && 'costs' in s ? s.costs : [2, 4, 6];
+});
 
 function applyForm(form: RuleFormState) {
   type.value = form.type;
@@ -88,21 +105,8 @@ async function resolveRoute(): Promise<void> {
 
     await keywordStore.fetchTags(signal.value);
 
-    const space = await spaceStore.fetchSpaceByCode(code.value, signal.value);
-    spaceId.value = space.id;
-
-    if (isDraftContext.value) {
-      await revisionStore.syncFromContext(space.id, 'draft', space.revision, signal.value);
-    } else if (isRevisionContext.value && /^\d+$/.test(ctx.value)) {
-      await revisionStore.syncFromContext(space.id, 'rev', Number(ctx.value), signal.value);
-    } else {
-      router.replace(`/space/${code.value}`);
-
-      return;
-    }
-
     if (isEdit.value) {
-      const found = revisionStore.effectiveRules.find((r) => r.id === ruleId.value);
+      const found = spaceContext.value.effectiveRules.find((r) => r.id === ruleId.value);
       if (found) {
         applyForm(ruleToForm(found));
       } else {
@@ -115,6 +119,13 @@ async function resolveRoute(): Promise<void> {
         conflictRuleId.value = ruleId.value;
         showConflictDialog.value = true;
       }
+    } else {
+      // Новое правило: предзаполняем из query (например «Оформить как правило» из записей
+      // кастомных правил персонажа передаёт name/description/type).
+      const q = route.query;
+      if (typeof q.name === 'string') name.value = q.name;
+      if (typeof q.description === 'string') description.value = q.description;
+      if (typeof q.type === 'string' && isRuleType(q.type)) type.value = q.type;
     }
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') return;
@@ -141,6 +152,11 @@ function confirmConflict() {
   conflictRuleId.value = '';
 }
 
+/** Является ли строка допустимым типом правила (для предзаполнения формы из query). */
+function isRuleType(value: string): value is RuleType {
+  return RULE_TYPES.some((option) => option.value === value);
+}
+
 function cancelConflict() {
   showConflictDialog.value = false;
   conflictRuleName.value = '';
@@ -154,6 +170,7 @@ watch(() => [route.params.code, route.params.ctx, route.params.ruleId], resolveR
 async function save() {
   if (!name.value.trim()) return;
   saving.value = true;
+  saveError.value = null;
   try {
     const rule = ruleDraftService.createDraft({
       isEdit: isEdit.value,
@@ -170,8 +187,8 @@ async function save() {
     });
     draftStore.saveRule(spaceId.value, rule);
     router.push(`/space/${code.value}/draft/rules/${rule.id}`);
-  } catch (e) {
-    console.error('save rule failed', e);
+  } catch {
+    saveError.value = 'Не удалось сохранить черновик';
   } finally {
     saving.value = false;
   }
@@ -189,6 +206,10 @@ async function save() {
       </v-chip>
     </div>
 
+    <v-alert v-if="!loading && !error && saveError" type="error" class="mb-4" closable @click:close="saveError = null">
+      {{ saveError }}
+    </v-alert>
+
     <v-card v-if="!loading && !error">
       <v-card-text>
         <v-select
@@ -201,6 +222,7 @@ async function save() {
 
         <SimpleRuleEditor
           v-if="type === 'simple'"
+          :key="routeKey"
           v-model:name="name"
           v-model:code="ruleCode"
           :code-disabled="isEdit"
@@ -214,6 +236,7 @@ async function save() {
 
         <CharacteristicEditor
           v-else-if="type === 'characteristic'"
+          :key="routeKey"
           v-model:name="name"
           v-model:code="ruleCode"
           :code-disabled="isEdit"
@@ -224,10 +247,12 @@ async function save() {
           :mechanic-options="mechanicOptions"
           :keyword-options="keywordOptions"
           :space-id="spaceId"
+          :rules="spaceContext.effectiveRules"
         />
 
         <ResourceEditor
           v-else-if="type === 'resource'"
+          :key="routeKey"
           v-model:name="name"
           v-model:code="ruleCode"
           :code-disabled="isEdit"
@@ -237,10 +262,12 @@ async function save() {
           v-model:spec="spec"
           :mechanic-options="mechanicOptions"
           :keyword-options="keywordOptions"
+          :rules="spaceContext.effectiveRules"
         />
 
         <AbilityEditor
           v-else-if="type === 'ability'"
+          :key="routeKey"
           v-model:name="name"
           v-model:code="ruleCode"
           :code-disabled="isEdit"
@@ -251,10 +278,12 @@ async function save() {
           :mechanic-options="mechanicOptions"
           :keyword-options="keywordOptions"
           :space-id="spaceId"
+          :rules="spaceContext.effectiveRules"
         />
 
         <ItemEditor
           v-else-if="type === 'item'"
+          :key="routeKey"
           v-model:name="name"
           v-model:code="ruleCode"
           :code-disabled="isEdit"
@@ -265,10 +294,12 @@ async function save() {
           :mechanic-options="mechanicOptions"
           :keyword-options="keywordOptions"
           :space-id="spaceId"
+          :rules="spaceContext.effectiveRules"
         />
 
         <RaceEditor
           v-else-if="type === 'race'"
+          :key="routeKey"
           v-model:name="name"
           v-model:code="ruleCode"
           :code-disabled="isEdit"
@@ -280,10 +311,12 @@ async function save() {
           :keyword-options="keywordOptions"
           :space-id="spaceId"
           :rule-id="ruleId"
+          :rules="spaceContext.effectiveRules"
         />
 
         <SpeciesEditor
           v-else-if="type === 'species'"
+          :key="routeKey"
           v-model:name="name"
           v-model:code="ruleCode"
           :code-disabled="isEdit"
@@ -295,10 +328,12 @@ async function save() {
           :keyword-options="keywordOptions"
           :space-id="spaceId"
           :rule-id="ruleId"
+          :rules="spaceContext.effectiveRules"
         />
 
         <PointsEditor
           v-else-if="type === 'points'"
+          :key="routeKey"
           v-model:name="name"
           v-model:code="ruleCode"
           :code-disabled="isEdit"
@@ -311,12 +346,90 @@ async function save() {
 
         <DamageTypeEditor
           v-else-if="type === 'damage_type'"
+          :key="routeKey"
           v-model:name="name"
           v-model:code="ruleCode"
           :code-disabled="isEdit"
           v-model:description="description"
           v-model:mechanicId="mechanicId"
           v-model:keywordIds="keywordIds"
+          :mechanic-options="mechanicOptions"
+          :keyword-options="keywordOptions"
+        />
+
+        <StateEditor
+          v-else-if="type === 'state'"
+          :key="routeKey"
+          v-model:name="name"
+          v-model:code="ruleCode"
+          :code-disabled="isEdit"
+          v-model:description="description"
+          v-model:mechanicId="mechanicId"
+          v-model:keywordIds="keywordIds"
+          v-model:spec="spec"
+          :mechanic-options="mechanicOptions"
+          :keyword-options="keywordOptions"
+          :space-id="spaceId"
+          :rules="spaceContext.effectiveRules"
+        />
+
+        <PoisonEditor
+          v-else-if="type === 'poison'"
+          :key="routeKey"
+          v-model:name="name"
+          v-model:code="ruleCode"
+          :code-disabled="isEdit"
+          v-model:description="description"
+          v-model:mechanicId="mechanicId"
+          v-model:keywordIds="keywordIds"
+          v-model:spec="spec"
+          :mechanic-options="mechanicOptions"
+          :keyword-options="keywordOptions"
+          :space-id="spaceId"
+          :rules="spaceContext.effectiveRules"
+        />
+
+        <WeaponFamilyEditor
+          v-else-if="type === 'weapon_family'"
+          :key="routeKey"
+          v-model:name="name"
+          v-model:code="ruleCode"
+          :code-disabled="isEdit"
+          v-model:description="description"
+          v-model:mechanicId="mechanicId"
+          v-model:keywordIds="keywordIds"
+          :spec="{ costs: weaponFamilySpec }"
+          @update:spec="(s) => (spec = s)"
+          :mechanic-options="mechanicOptions"
+          :keyword-options="keywordOptions"
+        />
+
+        <ItemModifierEditor
+          v-else-if="type === 'item_modifier'"
+          :key="routeKey"
+          v-model:name="name"
+          v-model:code="ruleCode"
+          :code-disabled="isEdit"
+          v-model:description="description"
+          v-model:mechanicId="mechanicId"
+          v-model:keywordIds="keywordIds"
+          v-model:spec="spec"
+          :mechanic-options="mechanicOptions"
+          :keyword-options="keywordOptions"
+          :keyword-code-by-id="keywordCodeById"
+          :type-options="modifierTypeOptions"
+        />
+
+        <ItemModifierTypeEditor
+          v-else-if="type === 'item_modifier_type'"
+          :key="routeKey"
+          v-model:name="name"
+          v-model:code="ruleCode"
+          :code-disabled="isEdit"
+          v-model:description="description"
+          v-model:mechanicId="mechanicId"
+          v-model:keywordIds="keywordIds"
+          v-model:spec="spec"
           :mechanic-options="mechanicOptions"
           :keyword-options="keywordOptions"
         />

@@ -2,21 +2,31 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { getAuthApi } from '@/modules/Core/Auth/init';
 import { useUserStore } from '@/modules/Core/User/Store/users';
+import type { Session } from '@/modules/Core/Auth/Dto/Session';
 import type { PasswordPolicy } from '@/modules/Core/Auth/Dto/PasswordPolicy';
+import { DEFAULT_PASSWORD_POLICY } from '@/modules/Core/Auth/Constant/defaultPasswordPolicy';
 
 export const useAuthStore = defineStore('auth', () => {
-  const userId = ref<number | null>(null);
+  const session = ref<Session>({ kind: 'anon' });
   const loading = ref(false);
   const error = ref<string | null>(null);
-  const passwordPolicy = ref<PasswordPolicy>({
-    minLength: 4,
-    requireMixedCase: false,
-    requireDigit: false,
-    requireSpecialChar: false,
-  });
+  const passwordPolicy = ref<PasswordPolicy>({ ...DEFAULT_PASSWORD_POLICY });
 
-  const isAuthenticated = computed(() => userId.value !== null);
-  const isGuest = computed(() => userId.value === 0);
+  const userId = computed(() => (session.value.kind === 'user' ? session.value.userId : null));
+  const isAuthenticated = computed(() => session.value.kind !== 'anon');
+  const isGuest = computed(() => session.value.kind === 'guest');
+
+  function setUserSession(userIdValue: number): void {
+    session.value = { kind: 'user', userId: userIdValue };
+  }
+
+  function setGuestSession(): void {
+    session.value = { kind: 'guest' };
+  }
+
+  function setAnonSession(): void {
+    session.value = { kind: 'anon' };
+  }
 
   async function fetchPasswordPolicy(): Promise<PasswordPolicy> {
     try {
@@ -34,7 +44,7 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null;
     try {
       const user = await getAuthApi().login(emailOrLogin, password);
-      userId.value = user.id;
+      setUserSession(user.id);
       useUserStore().setCurrent(user);
 
       return true;
@@ -52,7 +62,7 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null;
     try {
       const user = await getAuthApi().register(loginVal, email, password);
-      userId.value = user.id;
+      setUserSession(user.id);
       useUserStore().setCurrent(user);
 
       return true;
@@ -69,7 +79,7 @@ export const useAuthStore = defineStore('auth', () => {
     loading.value = true;
     error.value = null;
     try {
-      userId.value = 0;
+      setGuestSession();
       useUserStore().setGuest();
 
       return true;
@@ -90,23 +100,23 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       await getAuthApi().logout();
     } finally {
-      userId.value = null;
+      setAnonSession();
       useUserStore().clearCurrent();
     }
   }
 
   async function checkAuth(): Promise<boolean> {
-    if (userId.value !== null) return true;
+    if (session.value.kind !== 'anon') return true;
     try {
       const user = await getAuthApi().getCurrentUser();
       if (user) {
-        userId.value = user.id;
+        setUserSession(user.id);
         useUserStore().setCurrent(user);
 
         return true;
       }
     } catch {
-      userId.value = null;
+      setAnonSession();
     }
 
     return false;

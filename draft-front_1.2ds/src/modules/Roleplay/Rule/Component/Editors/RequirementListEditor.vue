@@ -6,6 +6,7 @@ import type { ResourceRef } from '@/modules/Roleplay/Rule/Dto/Ability/ResourceRe
 import type { AbilityRef } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityRef';
 import type { KeywordRef } from '@/modules/Roleplay/Rule/Dto/Ability/KeywordRef';
 import RequirementNodeEditor from '@/modules/Roleplay/Rule/Component/Editors/RequirementNodeEditor.vue';
+import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
 
 const props = defineProps<{
   modelValue: Requirement[];
@@ -20,31 +21,31 @@ const emit = defineEmits<{
   'update:modelValue': [value: Requirement[]];
 }>();
 
-const list = ref<Requirement[]>(structuredClone(props.modelValue));
+const list = ref<Requirement[]>(cloneData(props.modelValue));
 
 function updateItem(index: number, value: Requirement) {
   const next = list.value.map((r, i) => (i === index ? value : r));
   list.value = next;
-  emit('update:modelValue', structuredClone(next));
+  emit('update:modelValue', cloneData(next));
 }
 
 function removeItem(index: number) {
   const next = list.value.filter((_, i) => i !== index);
   list.value = next;
-  emit('update:modelValue', structuredClone(next));
+  emit('update:modelValue', cloneData(next));
 }
 
 function addItem() {
   const next = [...list.value, { type: 'has_keyword', keyword_code: '' } as Requirement];
   list.value = next;
-  emit('update:modelValue', structuredClone(next));
+  emit('update:modelValue', cloneData(next));
 }
 
 watch(
   () => props.modelValue,
   (value) => {
     if (JSON.stringify(value) !== JSON.stringify(list.value)) {
-      list.value = structuredClone(value);
+      list.value = cloneData(value);
     }
   },
   { deep: true },

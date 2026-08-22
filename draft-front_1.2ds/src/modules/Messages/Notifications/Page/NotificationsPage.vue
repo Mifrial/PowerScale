@@ -23,7 +23,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div>
+  <v-container fluid>
     <v-text-field
       v-model="localSearch"
       prepend-inner-icon="mdi-magnify"
@@ -44,7 +44,18 @@ onMounted(() => {
       </v-btn>
     </div>
 
-    <NotificationList :items="store.items" icon-size="24" action-size="small" @action="store.markAsRead">
+    <v-alert v-if="store.error" type="error" class="mb-4">
+      {{ store.error }}
+      <template #append>
+        <v-btn size="small" variant="tonal" @click="store.fetchData()">Повторить</v-btn>
+      </template>
+    </v-alert>
+
+    <v-alert v-if="store.actionError" type="error" class="mb-4" closable @click:close="store.actionError = ''">
+      {{ store.actionError }}
+    </v-alert>
+
+    <NotificationList :items="store.items" icon-size="24" action-size="small" @action="(p) => store.markAsRead(p.id)">
       <template #empty>
         {{ store.filter === 'unread' ? 'Нет непрочитанных уведомлений' : 'Нет уведомлений' }}
       </template>
@@ -53,7 +64,7 @@ onMounted(() => {
     <div v-if="store.totalPages > 1" class="d-flex justify-center mt-6">
       <v-pagination v-model="store.page" :length="store.totalPages" :total-visible="7" color="primary" />
     </div>
-  </div>
+  </v-container>
 </template>
 
 <style scoped>

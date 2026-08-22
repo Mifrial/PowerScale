@@ -32,7 +32,7 @@ defineEmits<{
           v-for="act in notification.actions"
           :key="act.key"
           variant="text"
-          :color="act.color === 'error' ? 'error' : 'primary'"
+          :color="act.color"
           :size="actionSize"
           class="action-btn"
           @click="$emit('action', { id: notification.id, key: act.key })"

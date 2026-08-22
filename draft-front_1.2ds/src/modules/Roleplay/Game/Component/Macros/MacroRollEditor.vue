@@ -1,17 +1,15 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { RollForm } from '@/modules/Roleplay/Game/Dto/RollForm';
-import { rollService } from '@/modules/Roleplay/Game/Service/RollService';
-import {
-  ROLL_ADV_MAX,
-  ROLL_DICE_COUNT_MAX,
-  ROLL_DICE_COUNT_MIN,
-  ROLL_DIE_FACES_MAX,
-  ROLL_DIE_FACES_MIN,
-  ROLL_DIE_SIZE_MAX,
-  ROLL_EFFICIENCY_MAX,
-  ROLL_EFFICIENCY_MIN,
-} from '@/modules/Roleplay/Game/Constant/rollLimits';
+import { rollService } from '@/modules/Roleplay/Game/Service/Instance/rollService';
+import { ROLL_ADV_MAX } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ADV_MAX';
+import { ROLL_DICE_COUNT_MAX } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_DICE_COUNT_MAX';
+import { ROLL_DICE_COUNT_MIN } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_DICE_COUNT_MIN';
+import { ROLL_DIE_FACES_MAX } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_DIE_FACES_MAX';
+import { ROLL_DIE_FACES_MIN } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_DIE_FACES_MIN';
+import { ROLL_DIE_SIZE_MAX } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_DIE_SIZE_MAX';
+import { ROLL_EFFICIENCY_MAX } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_EFFICIENCY_MAX';
+import { ROLL_EFFICIENCY_MIN } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_EFFICIENCY_MIN';
 
 defineProps<{ index: number }>();
 const roll = defineModel<RollForm>({ required: true });

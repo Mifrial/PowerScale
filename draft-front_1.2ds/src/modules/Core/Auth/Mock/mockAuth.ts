@@ -1,22 +1,10 @@
+import type { User } from '@/modules/Core/User/Dto/User';
 import type { PasswordPolicy } from '@/modules/Core/Auth/Dto/PasswordPolicy';
-import { resolvePermissions } from '@/modules/Core/User/Mock/groupPermissions';
+import { resolvePermissions } from '@/modules/Core/User/Mock/resolvePermissions';
+import { DEFAULT_PASSWORD_POLICY } from '@/modules/Core/Auth/Constant/defaultPasswordPolicy';
+import { abortableDelay } from '@/modules/Core/Engine/Mock/abortableDelay';
 
-interface MockUser {
-  id: number;
-  name: string;
-  surname?: string;
-  nickname?: string;
-  login: string;
-  email: string;
-  password: string;
-  groups: string[];
-  registered: string;
-  active: boolean;
-  lastLogin?: string;
-  super_admin?: boolean;
-}
-
-const delay = (ms = 200) => new Promise((r) => setTimeout(r, ms));
+type MockUser = Omit<User, 'permissions'> & { password: string };
 
 // Осознанное разделение: mockAuth содержит только тестовые учётные данные для авторизации.
 // Полные данные пользователей хранятся в Core/User/Mock/mockUsers.ts.
@@ -98,17 +86,30 @@ function writeStoredUserId(id: number | null): void {
 
 let loggedInUserId: number | null = readStoredUserId();
 
-export function getPasswordPolicy(): PasswordPolicy {
-  return { minLength: 4, requireMixedCase: false, requireDigit: false, requireSpecialChar: false };
+// Текущий аутентифицированный пользователь. Fixtures чатов используют sentinel «я» (SELF = -1),
+// который в рантайме заменяется на реального пользователя. По умолчанию — Иван Петров (id 1),
+// если сессия не создана (тесты без mockLogin).
+export function getCurrentUserId(): number {
+  return loggedInUserId ?? 1;
+}
+
+/** Краткая сводка текущего пользователя для моков (синхронно): id + отображаемое имя. */
+export function getCurrentUserSummary(): { id: number; name: string } {
+  const id = loggedInUserId ?? 1;
+  const user = mockUsers.find((u) => u.id === id);
+
+  return { id, name: user ? [user.name, user.surname].filter(Boolean).join(' ') || user.login : 'Иван Петров' };
 }
 
 export async function mockGetPasswordPolicy(): Promise<PasswordPolicy> {
-  return getPasswordPolicy();
+  await abortableDelay(200);
+
+  return { ...DEFAULT_PASSWORD_POLICY };
 }
 
-export async function mockLogin(email: string, password: string): Promise<SafeUser> {
-  await delay();
-  const user = mockUsers.find((u) => (u.email === email || u.login === email) && u.password === password);
+export async function mockLogin(loginOrEmail: string, password: string): Promise<SafeUser> {
+  await abortableDelay(200);
+  const user = mockUsers.find((u) => (u.email === loginOrEmail || u.login === loginOrEmail) && u.password === password);
   if (!user) throw new Error('Неверный логин или пароль');
   loggedInUserId = user.id;
   writeStoredUserId(user.id);
@@ -117,7 +118,7 @@ export async function mockLogin(email: string, password: string): Promise<SafeUs
 }
 
 export async function mockRegister(login: string, email: string, password: string): Promise<SafeUser> {
-  await delay();
+  await abortableDelay(200);
   if (mockUsers.find((u) => u.login === login)) throw new Error('Логин уже занят');
   if (email && mockUsers.find((u) => u.email === email)) throw new Error('Email уже используется');
   const newUser: MockUser = {
@@ -138,7 +139,7 @@ export async function mockRegister(login: string, email: string, password: strin
 }
 
 export async function mockFindUser(loginOrEmail: string): Promise<SafeUser | null> {
-  await delay();
+  await abortableDelay(200);
   const user = mockUsers.find((u) => u.login === loginOrEmail || u.email === loginOrEmail);
   if (!user) return null;
 
@@ -146,7 +147,7 @@ export async function mockFindUser(loginOrEmail: string): Promise<SafeUser | nul
 }
 
 export async function mockResetPassword(login: string, _token: string, _newPassword: string): Promise<boolean> {
-  await delay();
+  await abortableDelay(200);
   const user = mockUsers.find((u) => u.login === login);
   if (!user) throw new Error('Пользователь не найден');
 
@@ -154,27 +155,16 @@ export async function mockResetPassword(login: string, _token: string, _newPassw
 }
 
 export async function mockLogout(): Promise<void> {
-  await delay();
+  await abortableDelay(200);
   loggedInUserId = null;
   writeStoredUserId(null);
 }
 
 export async function mockGetCurrentUser(): Promise<SafeUser | null> {
-  await delay();
+  await abortableDelay(200);
   if (loggedInUserId === null) return null;
   const user = mockUsers.find((u) => u.id === loggedInUserId);
   if (!user) return null;
 
   return toSafeUser(user);
-}
-
-export function getInitials(name: string): string {
-  if (!name) return '??';
-
-  return name
-    .split(' ')
-    .map((w) => w[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
 }

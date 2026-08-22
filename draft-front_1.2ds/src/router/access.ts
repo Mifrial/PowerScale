@@ -1,14 +1,7 @@
-import type { RouteLocationNormalized, RouteLocationRaw } from 'vue-router';
-import type { User } from '@/modules/Core/User/Dto/User';
+import type { RouteLocationNormalized } from 'vue-router';
 import { accessService, isAdmin } from '@/modules/Core/User/init';
-
-export interface RouteAccessContext {
-  isAuthenticated: boolean;
-  isGuest: boolean;
-  user: User | null;
-}
-
-export type RouteAccessDecision = { allow: true } | { allow: false; redirect: RouteLocationRaw };
+import type { RouteAccessContext } from '@/router/RouteAccessContext';
+import type { RouteAccessDecision } from '@/router/RouteAccessDecision';
 
 /**
  * Чистая функция решения «пустить / куда редиректить» — без работы с роутером,

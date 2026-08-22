@@ -1,13 +1,8 @@
 <script setup lang="ts">
+import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue';
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
 import { useVModelSync } from '@/modules/Core/UI/Composables/useVModelSync';
-
-interface ResistanceSlot {
-  damage_type_code: string | null;
-  value: number;
-  durability: number;
-  source_code: string | null;
-}
+import type { ResistanceSlot } from '@/modules/Roleplay/Rule/Dto/Item/ResistanceSlot';
 
 const props = defineProps<{
   modelValue: ResistanceSlot[];
@@ -28,7 +23,7 @@ const { inner: localSlots } = useVModelSync<ResistanceSlot[]>({
 function addSlot() {
   localSlots.value.push({
     damage_type_code: null,
-    value: 1,
+    value: { base: 1, size: 0 },
     durability: 1,
     source_code: null,
   });
@@ -67,7 +62,7 @@ function removeSlot(index: number) {
               />
             </td>
             <td>
-              <ClampedNumberField v-model="slot.value" :min="1" density="compact" hide-details />
+              <DimensionalNumberInput v-model="slot.value" label="Значение" />
             </td>
             <td>
               <ClampedNumberField v-model="slot.durability" :min="1" density="compact" hide-details />

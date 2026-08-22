@@ -4,9 +4,8 @@ export class ResourceSpecService {
   createEmpty(): ResourceSpec {
     return {
       is_dimensional: true,
-      initial_value: null,
+      auto_add: false,
+      limit: { base: { base: 3, size: 0 }, adjustments: [] },
     };
   }
 }
-
-export const resourceSpecService = new ResourceSpecService();

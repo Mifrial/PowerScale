@@ -1,4 +1,4 @@
-import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumber';
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { RaceCharacteristicMode } from '@/modules/Roleplay/Rule/Enum/Race/RaceCharacteristicMode';
 import type { RacePurchaseLevel } from '@/modules/Roleplay/Rule/Dto/Race/RacePurchaseLevel';
 

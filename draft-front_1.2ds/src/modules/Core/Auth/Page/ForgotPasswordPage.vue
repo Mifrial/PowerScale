@@ -2,17 +2,12 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/modules/Core/Auth/Store/auth';
+import type { VForm } from 'vuetify/components';
 
 const router = useRouter();
 const auth = useAuthStore();
 
-interface FormRef {
-  validate: () => Promise<{ valid: boolean }>;
-  reset: () => void;
-  resetValidation: () => void;
-}
-
-const formRef = ref<FormRef | null>(null);
+const formRef = ref<VForm | null>(null);
 const loginOrEmail = ref('');
 const loading = ref(false);
 const message = ref('');

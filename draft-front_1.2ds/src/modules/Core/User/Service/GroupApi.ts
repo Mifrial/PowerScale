@@ -1,6 +1,9 @@
 import type { Engine } from '@/modules/Core/Engine/Service/Engine';
-import type { IGroupApi, CreateGroupData, UpdateGroupData } from '@/modules/Core/User/Interface/IGroupApi';
+import type { IGroupApi } from '@/modules/Core/User/Interface/IGroupApi';
+import type { CreateGroupData } from '@/modules/Core/User/Dto/CreateGroupData';
+import type { UpdateGroupData } from '@/modules/Core/User/Dto/UpdateGroupData';
 import type { Group } from '@/modules/Core/User/Dto/Group';
+import type { GroupMember } from '@/modules/Core/User/Dto/GroupMember';
 
 export class GroupApi implements IGroupApi {
   constructor(private readonly engine: Engine) {}
@@ -16,6 +19,12 @@ export class GroupApi implements IGroupApi {
     if (!res.data) throw new Error('Group not found');
 
     return res.data;
+  }
+
+  async getGroupMembers(groupId: number, signal?: AbortSignal): Promise<GroupMember[]> {
+    const res = await this.engine.runAction<GroupMember[]>('userGroup.getMembers', { groupId }, signal);
+
+    return res.data ?? [];
   }
 
   async createGroup(data: CreateGroupData, signal?: AbortSignal): Promise<Group> {

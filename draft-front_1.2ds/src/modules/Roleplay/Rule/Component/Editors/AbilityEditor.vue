@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, ref, watch, onMounted } from 'vue';
-import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
 import { useKeywordStore } from '@/modules/Roleplay/Rule/Store/keywords';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpec';
@@ -11,22 +10,23 @@ import type { Requirement } from '@/modules/Roleplay/Rule/Dto/Ability/Requiremen
 import type { Grant } from '@/modules/Roleplay/Rule/Dto/Ability/Grant';
 import type { CharacteristicRef } from '@/modules/Roleplay/Rule/Dto/Ability/CharacteristicRef';
 import type { ResourceRef } from '@/modules/Roleplay/Rule/Dto/Ability/ResourceRef';
-import type { CharacteristicSpec } from '@/modules/Roleplay/Rule/Dto/CharacteristicSpec';
-import type { ResourceSpec } from '@/modules/Roleplay/Rule/Dto/ResourceSpec';
 import type { AbilityRef } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityRef';
 import type { KeywordRef } from '@/modules/Roleplay/Rule/Dto/Ability/KeywordRef';
 import type { SourceRef } from '@/modules/Roleplay/Rule/Dto/Ability/SourceRef';
 import { ABILITY_TYPE_LABELS } from '@/modules/Roleplay/Rule/Constant/Ability/ABILITY_TYPE_LABELS';
 import { ABILITY_SPEC_FIELDS } from '@/modules/Roleplay/Rule/Constant/Ability/ABILITY_SPEC_FIELDS';
-import { abilitySpecService } from '@/modules/Roleplay/Rule/Service/Spec/AbilitySpecService';
+import { ACTION_POINTS_RESOURCE_CODE } from '@/modules/Roleplay/Rule/Constant/Ability/ACTION_POINTS_RESOURCE_CODE';
+import { abilitySpecService } from '@/modules/Roleplay/Rule/Service/Instance/abilitySpecService';
+import { ruleReferenceService } from '@/modules/Roleplay/Rule/Service/Instance/ruleReferenceService';
 import RuleEditorBase from '@/modules/Roleplay/Rule/Component/Editors/RuleEditorBase.vue';
 import RequirementListEditor from '@/modules/Roleplay/Rule/Component/Editors/RequirementListEditor.vue';
 import GrantEditor from '@/modules/Roleplay/Rule/Component/Editors/GrantEditor.vue';
 import ProcessEditor from '@/modules/Roleplay/Rule/Component/Editors/ProcessEditor.vue';
 import SpellEditor from '@/modules/Roleplay/Rule/Component/Editors/SpellEditor.vue';
 import ZoneCostsEditor from '@/modules/Roleplay/Rule/Component/Editors/ZoneCostsEditor.vue';
-import ActionCostsEditor from '@/modules/Roleplay/Rule/Component/Editors/ActionCostsEditor.vue';
+import ActionComponentsEditor from '@/modules/Roleplay/Rule/Component/Editors/ActionComponentsEditor.vue';
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
+import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
 
 const props = defineProps<{
   name: string;
@@ -39,6 +39,7 @@ const props = defineProps<{
   mechanicOptions: { title: string; value: number }[];
   keywordOptions: { title: string; value: number }[];
   spaceId: number;
+  rules: Rule[];
 }>();
 
 const emit = defineEmits<{
@@ -50,10 +51,9 @@ const emit = defineEmits<{
   'update:spec': [value: AbilitySpec];
 }>();
 
-const revisionStore = useSpaceRevisionStore();
 const keywordStore = useKeywordStore();
 
-const expandedPanels = ref<string[]>(['general', 'zones', 'requirements', 'grants', 'action', 'upgrade']);
+const expandedPanels = ref<string[]>(['general', 'zones', 'requirements', 'grants', 'action_components', 'upgrade']);
 
 const typeOptions = Object.entries(ABILITY_TYPE_LABELS).map(([value, label]) => ({
   label,
@@ -69,8 +69,10 @@ const currentType = computed<AbilityType | null>(() => {
   return abilitySpecService.resolveTypeFromKeywords(codes);
 });
 
+const isGroup = computed(() => currentType.value === 'group');
+
 const currentFields = computed(() => (currentType.value ? ABILITY_SPEC_FIELDS[currentType.value] : []));
-const showAction = computed(() => currentFields.value.includes('action_costs'));
+const showActionComponents = computed(() => currentFields.value.includes('action_components'));
 const isProcess = computed(() => currentFields.value.includes('process'));
 const isSpell = computed(() => currentFields.value.includes('spell'));
 
@@ -83,56 +85,29 @@ const innerSpec = ref<AbilitySpecDraft>({
   zones: {},
   requirements: [],
   grants: [],
-  action_costs: [],
+  action_components: [],
   parent_ability_code: null,
 });
 
-const spaceRules = computed(() => revisionStore.effectiveRules);
-
 const characteristics = computed<CharacteristicRef[]>(() =>
-  spaceRules.value
-    .filter(
-      (rule: Rule) =>
-        rule.type === 'characteristic' &&
-        rule.spaceId === props.spaceId &&
-        !(rule.spec as CharacteristicSpec | undefined)?.formula,
-    )
-    .map((rule) => ({ code: rule.code, name: rule.name })),
+  ruleReferenceService.characteristicOptions(props.rules, props.spaceId),
 );
 
-const resources = computed<ResourceRef[]>(() =>
-  spaceRules.value
-    .filter((rule: Rule) => rule.type === 'resource')
-    .map((rule) => ({
-      code: rule.code,
-      name: rule.name,
-      isDimensional: !!(rule.spec as ResourceSpec | undefined)?.is_dimensional,
-    })),
-);
+const resources = computed<ResourceRef[]>(() => ruleReferenceService.resourceOptions(props.rules));
 
-const abilities = computed<AbilityRef[]>(() =>
-  spaceRules.value
-    .filter((rule: Rule) => rule.type === 'ability')
-    .map((rule) => ({ code: rule.code, name: rule.name })),
-);
+const abilities = computed<AbilityRef[]>(() => ruleReferenceService.abilityOptions(props.rules));
 
-const items = computed(() =>
-  spaceRules.value.filter((rule: Rule) => rule.type === 'item').map((rule) => ({ code: rule.code, name: rule.name })),
-);
+const groups = computed(() => ruleReferenceService.groupOptions(props.rules));
+
+const items = computed(() => ruleReferenceService.itemOptions(props.rules));
 
 const keywords = computed<KeywordRef[]>(() => keywordStore.keywords.map((t) => ({ code: t.code, name: t.name })));
 
 const abilityKeywords = computed<KeywordRef[]>(() => keywords.value);
 
-const sources = computed<SourceRef[]>(() =>
-  spaceRules.value.filter((rule: Rule) => rule.type === 'source').map((rule) => ({ code: rule.code, name: rule.name })),
-);
+const sources = computed<SourceRef[]>(() => ruleReferenceService.sourceOptions(props.rules));
 
-const zoneOptions = computed<{ label: string; value: string }[]>(() =>
-  spaceRules.value
-    .filter((rule: Rule) => rule.type === 'points')
-    .map((rule) => ({ label: rule.name, value: rule.code })),
-);
+const zoneOptions = computed<{ label: string; value: string }[]>(() => ruleReferenceService.zoneOptions(props.rules));
 
 function updateReqLevel(levelIndex: number, value: number) {
   innerSpec.value = abilitySpecService.updateReqLevel(innerSpec.value, levelIndex, value);
@@ -185,21 +160,28 @@ function setType(value: string | null) {
     emit('update:keywordIds', abilitySpecService.syncTypeTags(type, props.keywordIds, keywordStore.keywords));
   }
   if (type === 'spell' || type === 'action') {
-    innerSpec.value = abilitySpecService.ensureActionCost(innerSpec.value, isSpell.value);
+    innerSpec.value = abilitySpecService.ensureActionPointCost(innerSpec.value, isSpell.value);
   }
+}
+
+/** Смена группы у участника: кладёт group_code и синхронизирует признак «часть группы». */
+function updateGroupCode(value: string | null) {
+  innerSpec.value = { ...innerSpec.value, group_code: value ?? null };
+  emit('update:keywordIds', abilitySpecService.syncGroupPartTag(value, props.keywordIds, keywordStore.keywords));
 }
 
 const specToEmit = computed<AbilitySpec | AbilitySpecDraft>(() => {
   const type = currentType.value;
-  if (!type) return innerSpec.value;
+  const plain = cloneData(innerSpec.value);
+  if (!type) return plain;
 
-  return abilitySpecService.prune(innerSpec.value, type);
+  return abilitySpecService.prune(plain, type);
 });
 
 watch(
   specToEmit,
   (value) => {
-    emit('update:spec', structuredClone(value) as AbilitySpec);
+    emit('update:spec', cloneData(value) as AbilitySpec);
   },
   { deep: true },
 );
@@ -209,25 +191,30 @@ onMounted(async () => {
     await keywordStore.fetchTags();
   }
   if (props.spec) {
-    const loaded = structuredClone(props.spec as AbilitySpecDraft);
+    const loaded = cloneData(props.spec as AbilitySpecDraft);
     innerSpec.value = {
       type: loaded.type,
       zones: loaded.zones ?? {},
       requirements: loaded.requirements ?? [],
       grants: loaded.grants ?? [],
-      action_costs: loaded.action_costs ?? [],
+      action_components: loaded.action_components ?? [],
       process: loaded.process,
       spell: loaded.spell,
       parent_ability_code: loaded.parent_ability_code ?? null,
+      group_code: loaded.group_code ?? null,
+      selectLimit: loaded.selectLimit ?? 1,
     };
     if ((innerSpec.value.type === 'spell' || innerSpec.value.type === 'action') && !hasActionPointCost()) {
-      innerSpec.value = abilitySpecService.ensureActionCost(innerSpec.value, isSpell.value);
+      innerSpec.value = abilitySpecService.ensureActionPointCost(innerSpec.value, isSpell.value);
     }
   }
 });
 
 function hasActionPointCost(): boolean {
-  return innerSpec.value.action_costs.some((c) => c.resource_code === 'action-points');
+  return innerSpec.value.action_components.some(
+    (c): c is Extract<AbilitySpecDraft['action_components'][number], { type: 'resource' }> =>
+      c.type === 'resource' && c.resource_code === ACTION_POINTS_RESOURCE_CODE,
+  );
 }
 </script>
 
@@ -272,7 +259,45 @@ function hasActionPointCost(): boolean {
         </v-expansion-panel-text>
       </v-expansion-panel>
 
-      <v-expansion-panel value="zones">
+      <v-expansion-panel v-if="isGroup" value="grouping">
+        <v-expansion-panel-title>Группировка</v-expansion-panel-title>
+        <v-expansion-panel-text>
+          <ClampedNumberField
+            :model-value="innerSpec.selectLimit ?? 1"
+            @update:model-value="(v) => patchSpec('selectLimit', v)"
+            label="Сколько способностей можно выбрать"
+            :min="1"
+            density="compact"
+            hide-details
+          />
+          <div class="text-body-2 text-medium-emphasis mt-2">
+            Группа — контейнер: участники ссылаются на неё через group_code и несут признак «часть группы».
+          </div>
+        </v-expansion-panel-text>
+      </v-expansion-panel>
+
+      <v-expansion-panel v-if="currentType && !isGroup" value="group">
+        <v-expansion-panel-title>Группа</v-expansion-panel-title>
+        <v-expansion-panel-text>
+          <v-autocomplete
+            :model-value="innerSpec.group_code ?? null"
+            @update:model-value="updateGroupCode($event ?? null)"
+            :items="groups"
+            item-title="name"
+            item-value="code"
+            label="Группа"
+            density="compact"
+            hide-details
+            clearable
+          />
+          <div class="text-body-2 text-medium-emphasis mt-2">
+            Способность отображается внутри группы и подчиняется её лимиту выбора. Признак «часть группы» проставляется
+            автоматически.
+          </div>
+        </v-expansion-panel-text>
+      </v-expansion-panel>
+
+      <v-expansion-panel v-if="!isGroup" value="zones">
         <v-expansion-panel-title>Зоны и стоимость</v-expansion-panel-title>
         <v-expansion-panel-text>
           <div class="text-body-2 text-medium-emphasis mb-2">
@@ -287,7 +312,7 @@ function hasActionPointCost(): boolean {
         </v-expansion-panel-text>
       </v-expansion-panel>
 
-      <v-expansion-panel value="requirements">
+      <v-expansion-panel v-if="!isGroup" value="requirements">
         <v-expansion-panel-title>Требования</v-expansion-panel-title>
         <v-expansion-panel-text>
           <div class="text-body-2 text-medium-emphasis mb-2">
@@ -336,7 +361,7 @@ function hasActionPointCost(): boolean {
         </v-expansion-panel-text>
       </v-expansion-panel>
 
-      <v-expansion-panel value="grants">
+      <v-expansion-panel v-if="!isGroup" value="grants">
         <v-expansion-panel-title>Дары</v-expansion-panel-title>
         <v-expansion-panel-text>
           <div class="text-body-2 text-medium-emphasis mb-2">
@@ -394,13 +419,15 @@ function hasActionPointCost(): boolean {
         </v-expansion-panel-text>
       </v-expansion-panel>
 
-      <v-expansion-panel v-if="showAction" value="action">
-        <v-expansion-panel-title>Действие</v-expansion-panel-title>
+      <v-expansion-panel v-if="showActionComponents" value="action_components">
+        <v-expansion-panel-title>Компоненты действия</v-expansion-panel-title>
         <v-expansion-panel-text>
-          <ActionCostsEditor
-            :model-value="innerSpec.action_costs"
-            @update:model-value="(v) => patchSpec('action_costs', v)"
+          <ActionComponentsEditor
+            :model-value="innerSpec.action_components"
+            @update:model-value="(v) => patchSpec('action_components', v)"
             :resources="resources"
+            :items="items"
+            :keywords="keywords"
             :is-spell="isSpell"
           />
         </v-expansion-panel-text>
@@ -420,15 +447,11 @@ function hasActionPointCost(): boolean {
       <v-expansion-panel v-if="isSpell" value="spell">
         <v-expansion-panel-title>Заклинание</v-expansion-panel-title>
         <v-expansion-panel-text>
-          <SpellEditor
-            :model-value="innerSpec.spell ?? null"
-            @update:model-value="(v) => patchSpec('spell', v)"
-            :items="items"
-          />
+          <SpellEditor :model-value="innerSpec.spell ?? null" @update:model-value="(v) => patchSpec('spell', v)" />
         </v-expansion-panel-text>
       </v-expansion-panel>
 
-      <v-expansion-panel value="upgrade">
+      <v-expansion-panel v-if="!isGroup" value="upgrade">
         <v-expansion-panel-title>Улучшение</v-expansion-panel-title>
         <v-expansion-panel-text>
           <v-autocomplete

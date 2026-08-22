@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ActiveChip } from '@/modules/Core/UI/Component/FilterBar/filterValues';
+import type { ActiveChip } from '@/modules/Core/UI/Dto/Filter/ActiveChip';
 
 defineProps<{
   chips: ActiveChip[];

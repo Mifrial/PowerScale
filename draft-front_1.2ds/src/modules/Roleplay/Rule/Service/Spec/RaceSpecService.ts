@@ -4,7 +4,7 @@ import type { InheritedAbilityRef } from '@/modules/Roleplay/Rule/Dto/Race/Inher
 import type { RaceCharacteristic } from '@/modules/Roleplay/Rule/Dto/Race/RaceCharacteristic';
 import type { RacePurchaseLevel } from '@/modules/Roleplay/Rule/Dto/Race/RacePurchaseLevel';
 import type { RaceCharacteristicMode } from '@/modules/Roleplay/Rule/Enum/Race/RaceCharacteristicMode';
-import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumber';
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
 export class RaceSpecService {
@@ -125,6 +125,22 @@ export class RaceSpecService {
     return { ...spec, abilities };
   }
 
+  /** Устанавливает/снимает потолок параметра «X» у способности расы. */
+  patchAbilityParameter(spec: RaceSpec, index: number, code: string, value: DimensionalNumberValue | null): RaceSpec {
+    const abilities = spec.abilities.map((a, i) => {
+      if (i !== index) return a;
+      if (value === null) {
+        const { [code]: _dropped, ...rest } = a.parameters ?? {};
+
+        return { ...a, parameters: Object.keys(rest).length ? rest : undefined };
+      }
+
+      return { ...a, parameters: { ...a.parameters, [code]: value } };
+    });
+
+    return { ...spec, abilities };
+  }
+
   removeAbility(spec: RaceSpec, index: number): RaceSpec {
     return {
       ...spec,
@@ -156,5 +172,3 @@ export class RaceSpecService {
     return [...own, ...this.collectInheritedAbilities(parent, rulesByCode, seen)];
   }
 }
-
-export const raceSpecService = new RaceSpecService();

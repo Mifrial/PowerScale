@@ -1,5 +1,6 @@
 import type { UserMacro } from '@/modules/Roleplay/Game/Dto/UserMacro';
-import type { CreateMacroData, UpdateMacroData } from '@/modules/Roleplay/Game/Interface/IMacroApi';
+import type { CreateMacroData } from '@/modules/Roleplay/Game/Dto/CreateMacroData';
+import type { UpdateMacroData } from '@/modules/Roleplay/Game/Dto/UpdateMacroData';
 import { mockGetCurrentUser } from '@/modules/Core/Auth/Mock/mockAuth';
 
 const delay = (ms = 50, signal?: AbortSignal) =>

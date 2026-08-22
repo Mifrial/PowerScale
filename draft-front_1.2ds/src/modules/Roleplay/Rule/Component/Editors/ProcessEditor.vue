@@ -4,10 +4,11 @@ import type { ProcessSpec } from '@/modules/Roleplay/Rule/Dto/Ability/ProcessSpe
 import type { ProcessStep } from '@/modules/Roleplay/Rule/Dto/Ability/ProcessStep';
 import type { ProcessTransition } from '@/modules/Roleplay/Rule/Dto/Ability/ProcessTransition';
 import type { ResourceRef } from '@/modules/Roleplay/Rule/Dto/Ability/ResourceRef';
-import { processSpecService } from '@/modules/Roleplay/Rule/Service/Spec/ProcessSpecService';
+import { processSpecService } from '@/modules/Roleplay/Rule/Service/Instance/processSpecService';
 import ProcessStepEditor from '@/modules/Roleplay/Rule/Component/Editors/ProcessStepEditor.vue';
 import ProcessTransitionEditor from '@/modules/Roleplay/Rule/Component/Editors/ProcessTransitionEditor.vue';
 import ProcessStartFailureEditor from '@/modules/Roleplay/Rule/Component/Editors/ProcessStartFailureEditor.vue';
+import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
 
 const props = defineProps<{
   modelValue: ProcessSpec | null;
@@ -55,14 +56,14 @@ function updateFailure(value: string | null) {
 watch(
   inner,
   (value) => {
-    emit('update:modelValue', structuredClone(value));
+    emit('update:modelValue', cloneData(value));
   },
   { deep: true },
 );
 
 onMounted(() => {
   if (props.modelValue) {
-    inner.value = processSpecService.normalize(structuredClone(props.modelValue));
+    inner.value = processSpecService.normalize(cloneData(props.modelValue));
   }
 });
 </script>

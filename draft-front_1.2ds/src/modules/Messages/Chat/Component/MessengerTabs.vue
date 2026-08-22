@@ -1,7 +1,10 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import { useChatStore } from '@/modules/Messages/Chat/Store/chat';
 
 const store = useChatStore();
+
+const unreadByKey = computed(() => Object.fromEntries(store.tabs.map((tab) => [tab.key, store.tabUnread(tab.key)])));
 </script>
 
 <template>
@@ -11,9 +14,9 @@ const store = useChatStore();
         <v-icon :icon="tab.icon" size="16" class="mr-1" />
         {{ tab.label }}
         <v-badge
-          v-if="store.tabUnread(tab.key)"
+          v-if="unreadByKey[tab.key]"
           inline
-          :content="store.tabUnread(tab.key)"
+          :content="unreadByKey[tab.key]"
           color="error"
           size="x-small"
           class="ml-1"
@@ -25,6 +28,8 @@ const store = useChatStore();
 
 <style scoped>
 .chat-tabs-scroll {
+  display: flex;
+  justify-content: center;
   width: 100%;
   overflow: hidden;
   white-space: nowrap;

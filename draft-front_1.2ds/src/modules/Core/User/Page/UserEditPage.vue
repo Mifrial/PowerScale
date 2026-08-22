@@ -3,7 +3,8 @@ import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useUserStore } from '@/modules/Core/User/Store/users';
 import type { User } from '@/modules/Core/User/Dto/User';
-import type { CreateUserData, UpdateUserData } from '@/modules/Core/User/Interface/IUserApi';
+import type { CreateUserData } from '@/modules/Core/User/Dto/CreateUserData';
+import type { UpdateUserData } from '@/modules/Core/User/Dto/UpdateUserData';
 import UserForm from '@/modules/Core/User/Component/UserForm.vue';
 
 const route = useRoute();
@@ -43,7 +44,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div>
+  <v-container fluid>
     <div class="d-flex align-center mb-4 ga-3">
       <v-btn icon variant="text" @click="$router.back()"><v-icon>mdi-arrow-left</v-icon></v-btn>
       <h1 class="text-h4 font-weight-bold">{{ isNew ? 'Новый пользователь' : 'Редактирование' }}</h1>
@@ -64,5 +65,5 @@ onMounted(async () => {
     <v-snackbar v-model="snackbar.show" :color="snackbar.color" timeout="3000">
       {{ snackbar.text }}
     </v-snackbar>
-  </div>
+  </v-container>
 </template>

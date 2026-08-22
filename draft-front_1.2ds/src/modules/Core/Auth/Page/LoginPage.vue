@@ -2,24 +2,24 @@
 import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/modules/Core/Auth/Store/auth';
-import type { FormRef } from '@/modules/Core/Auth/Dto/LoginForm';
+import type { VForm } from 'vuetify/components';
 import PasswordField from '@/modules/Core/UI/Component/Input/PasswordField.vue';
 import bgUrl from '@/assets/img/login_background.jpg';
 
 const router = useRouter();
 const auth = useAuthStore();
 
-const formRef = ref<FormRef | null>(null);
-const email = ref('');
+const formRef = ref<VForm | null>(null);
+const loginOrEmail = ref('');
 const password = ref('');
 const remember = ref(true);
 
-const canLogin = computed(() => email.value.length >= 3 && password.value.length > 0);
+const canLogin = computed(() => loginOrEmail.value.length >= 3 && password.value.length > 0);
 
 async function handleLogin() {
   const { valid } = (await formRef.value?.validate()) ?? { valid: false };
   if (!valid) return;
-  const ok = await auth.login(email.value, password.value);
+  const ok = await auth.login(loginOrEmail.value, password.value);
   if (ok) {
     router.push('/');
   }
@@ -65,7 +65,7 @@ async function handleGuestLogin() {
                 </v-alert>
 
                 <v-text-field
-                  v-model="email"
+                  v-model="loginOrEmail"
                   label="Логин или email"
                   prepend-inner-icon="mdi-account-outline"
                   :rules="[(v) => !!v || 'Введите логин или email', (v) => v.length >= 3 || 'Минимум 3 символа']"

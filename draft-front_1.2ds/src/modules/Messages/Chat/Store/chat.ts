@@ -3,18 +3,23 @@ import { ref, reactive, computed } from 'vue';
 import type { Chat } from '@/modules/Messages/Chat/Dto/Chat';
 import type { ChatMessage } from '@/modules/Messages/Chat/Dto/ChatMessage';
 import type { SyncResponse } from '@/modules/Messages/Chat/Dto/SyncResponse';
-import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec';
-import { chatIcon, chatColor } from '@/modules/Messages/Chat/Constant/chatType';
-import { getChatApi } from '@/modules/Messages/Chat/init';
+import type { ChatAttachment } from '@/modules/Messages/Chat/Dto/ChatAttachment';
+import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
+import type { ChatMessageVisibility } from '@/modules/Messages/Chat/Dto/ChatMessageVisibility';
+import { getChatApi, getChatTabs } from '@/modules/Messages/Chat/init';
+import { useAuthStore } from '@/modules/Core/Auth/Store/auth';
 import { ChatSyncService } from '@/modules/Messages/Chat/Service/ChatSyncService';
-import { usePermissions } from '@/modules/Messages/Chat/Composables/usePermissions';
-import { PAGE_SIZE, MAX_STORED } from '@/modules/Messages/Chat/Constant/chatStoreConfig';
-import { tabs } from '@/modules/Messages/Chat/Constant/chatTabs';
+import { PAGE_SIZE } from '@/modules/Messages/Chat/Constant/Chat/PAGE_SIZE';
+import { MAX_STORED } from '@/modules/Messages/Chat/Constant/Chat/MAX_STORED';
+import { messagePreview } from '@/modules/Messages/Chat/Utils/messagePreview';
+import type { IChatTab } from '@/modules/Messages/Chat/Interface/IChatTab';
 
 interface ChatState {
   messages: ChatMessage[];
+  loadedCount: number;
   hasMore: boolean;
   total: number;
+  initialized: boolean;
   loading: boolean;
   loadingOlder: boolean;
 }
@@ -22,36 +27,69 @@ interface ChatState {
 function createChatState(): ChatState {
   return reactive({
     messages: [],
+    loadedCount: 0,
     hasMore: true,
     total: 0,
+    initialized: false,
     loading: false,
     loadingOlder: false,
   });
 }
 
+function mergeMessages(target: ChatMessage[], incoming: ChatMessage[]): ChatMessage[] {
+  const byId = new Map<number, ChatMessage>();
+  for (const m of target) byId.set(m.id, m);
+  for (const m of incoming) byId.set(m.id, m);
+
+  return [...byId.values()].sort((a, b) => {
+    const d = a.createdAt.localeCompare(b.createdAt);
+
+    return d !== 0 ? d : a.id - b.id;
+  });
+}
+
 export const useChatStore = defineStore('chat', () => {
+  const auth = useAuthStore();
   const chats = ref<Chat[]>([]);
   const chatStates = ref<Map<number, ChatState>>(new Map());
   const activeChatId = ref<number | null>(null);
   const loadingChats = ref(false);
   const sending = ref(false);
+  const chatsError = ref('');
+  const chatError = ref('');
+  const actionError = ref('');
 
   const selectedTab = ref<string>('personal');
 
   const sortedChats = computed(() => [...chats.value].sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt)));
 
-  const currentTabChats = computed(() => {
-    if (selectedTab.value === 'personal') {
-      return sortedChats.value.filter((c) => c.type === 'private' || c.type === 'group');
-    }
+  const tabs = computed<IChatTab[]>(() => getChatTabs());
 
-    return sortedChats.value.filter((c) => c.type === selectedTab.value);
+  function tabTypes(key: string): string[] {
+    return tabs.value.find((t) => t.key === key)?.types ?? [];
+  }
+
+  const currentTabChats = computed(() => {
+    const types = tabTypes(selectedTab.value);
+
+    return sortedChats.value.filter((c) => {
+      if (!types.includes(c.type)) return false;
+      // Вкладка «Обсуждения персонажей» показывает только те чаты персонажей,
+      // в которых текущий пользователь участвует (стал участником, написав сообщение).
+      if (c.type === 'character_discussion') {
+        const userId = auth.userId;
+
+        return userId !== null && (c.members?.some((m) => m.userId === userId) ?? false);
+      }
+
+      return true;
+    });
   });
 
   function tabUnread(key: string): number {
-    return chats.value
-      .filter((c) => (key === 'personal' ? c.type === 'private' || c.type === 'group' : c.type === key))
-      .reduce((sum, c) => sum + c.unreadCount, 0);
+    const types = tabTypes(key);
+
+    return chats.value.filter((c) => types.includes(c.type)).reduce((sum, c) => sum + c.unreadCount, 0);
   }
 
   const activeChat = computed(() => chats.value.find((c) => c.id === activeChatId.value) ?? null);
@@ -67,7 +105,6 @@ export const useChatStore = defineStore('chat', () => {
   const hasMoreOlder = computed(() => activeState.value?.hasMore ?? false);
   const loadingMessages = computed(() => activeState.value?.loading ?? false);
   const loadingOlder = computed(() => activeState.value?.loadingOlder ?? false);
-  const renderedMessages = computed(() => allMessages.value);
 
   const firstUnreadMessageId = computed<number | null>(() => {
     const state = activeState.value;
@@ -82,24 +119,26 @@ export const useChatStore = defineStore('chat', () => {
 
   async function fetchChats() {
     loadingChats.value = true;
+    chatsError.value = '';
     try {
       const all = await getChatApi().getChats();
-      const ability = usePermissions();
-      chats.value = ability.isGuest.value ? all.filter((c) => c.type !== 'private') : all;
+      chats.value = auth.isGuest ? all.filter((c) => c.type !== 'private') : all;
+    } catch (e) {
+      chatsError.value = e instanceof Error ? e.message : 'Не удалось загрузить чаты';
     } finally {
       loadingChats.value = false;
     }
   }
 
-  async function openChat(chatId: number) {
-    if (activeChatId.value === chatId) return;
-    activeChatId.value = chatId;
-
+  async function loadChat(chatId: number) {
     let state = chatStates.value.get(chatId);
-    if (state) return;
+    if (state?.initialized) return;
 
-    state = createChatState();
-    chatStates.value.set(chatId, state);
+    if (!state) {
+      state = createChatState();
+      chatStates.value.set(chatId, state);
+    }
+    chatError.value = '';
     state.loading = true;
 
     try {
@@ -107,47 +146,103 @@ export const useChatStore = defineStore('chat', () => {
         getChatApi().getTotalMessageCount(chatId),
         getChatApi().getMessages(chatId, PAGE_SIZE, 0),
       ]);
-      state.messages = msgs;
+      state.messages = mergeMessages(state.messages, msgs);
+      state.loadedCount = Math.max(state.loadedCount, msgs.length);
       state.total = total;
-      state.hasMore = msgs.length < total;
-      await getChatApi().markChatRead(chatId);
+      state.hasMore = state.loadedCount < total;
+      state.initialized = true;
+      markRead(chatId);
       const idx = chats.value.findIndex((c) => c.id === chatId);
       if (idx !== -1) {
         chats.value[idx] = {
           ...chats.value[idx],
           unreadCount: 0,
-          lastReadMessageId: msgs.length ? msgs[msgs.length - 1].id : null,
+          lastReadMessageId: state.messages.length ? state.messages[state.messages.length - 1].id : null,
         };
       }
+    } catch (e) {
+      chatError.value = e instanceof Error ? e.message : 'Не удалось открыть чат';
     } finally {
       state.loading = false;
+    }
+  }
+
+  async function openChat(chatId: number) {
+    if (activeChatId.value === chatId) return;
+    activeChatId.value = chatId;
+
+    await loadChat(chatId);
+  }
+
+  function chatStateOf(chatId: number): ChatState | null {
+    return chatStates.value.get(chatId) ?? null;
+  }
+
+  function messagesOf(chatId: number): ChatMessage[] {
+    return chatStateOf(chatId)?.messages ?? [];
+  }
+
+  function firstUnreadOf(chatId: number): number | null {
+    const state = chatStateOf(chatId);
+    const chat = chats.value.find((c) => c.id === chatId);
+    if (!state || state.messages.length === 0) return null;
+    if (chat == null || chat.lastReadMessageId == null) return state.messages[0].id;
+    const lastReadMessageId = chat.lastReadMessageId;
+    const first = state.messages.find((m) => m.id > lastReadMessageId);
+
+    return first ? first.id : null;
+  }
+
+  function hasMoreOlderOf(chatId: number): boolean {
+    return chatStateOf(chatId)?.hasMore ?? false;
+  }
+
+  function loadingOlderOf(chatId: number): boolean {
+    return chatStateOf(chatId)?.loadingOlder ?? false;
+  }
+
+  async function loadOlder(chatId: number) {
+    const state = chatStates.value.get(chatId);
+    if (!state || !state.hasMore || state.loadingOlder) return;
+
+    const oldestId = state.messages.length ? state.messages[0].id : null;
+    if (oldestId === null) {
+      state.hasMore = false;
+
+      return;
+    }
+
+    state.loadingOlder = true;
+    try {
+      const older = await getChatApi().getMessagesBefore(chatId, oldestId, PAGE_SIZE);
+      const before = state.messages.length;
+      state.messages = mergeMessages(state.messages, older);
+      const added = state.messages.length - before;
+      state.loadedCount = state.messages.length;
+      // Курсор-терминатор: если страница не принесла новых уникальных id — истории больше нет.
+      state.hasMore = added > 0 && older.length >= PAGE_SIZE;
+    } finally {
+      state.loadingOlder = false;
     }
   }
 
   async function loadOlderMessages() {
     const chatId = activeChatId.value;
     if (!chatId) return;
-    const state = chatStates.value.get(chatId);
-    if (!state || !state.hasMore || state.loadingOlder) return;
 
-    state.loadingOlder = true;
-    try {
-      const older = await getChatApi().getMessages(chatId, PAGE_SIZE, state.messages.length);
-      if (older.length === 0) {
-        state.hasMore = false;
-
-        return;
-      }
-      state.messages = [...older, ...state.messages].slice(-MAX_STORED);
-      state.hasMore = older.length >= PAGE_SIZE;
-    } finally {
-      state.loadingOlder = false;
-    }
+    await loadOlder(chatId);
   }
 
-  async function sendMessage(content: string, rolls: DiceRollSpec[]) {
-    const chatId = activeChatId.value;
-    if (!chatId) return;
+  async function sendMessage(
+    content: string,
+    attachments: ChatAttachment[],
+    targetChatId?: number,
+    speaker?: ChatSpeaker,
+    visibility?: ChatMessageVisibility,
+  ): Promise<boolean> {
+    // Встроенное обсуждение шлёт в свой чат явно (targetChatId), не трогая глобальный активный.
+    const chatId = targetChatId ?? activeChatId.value;
+    if (!chatId) return false;
 
     let state = chatStates.value.get(chatId);
     if (!state) {
@@ -156,25 +251,102 @@ export const useChatStore = defineStore('chat', () => {
     }
 
     sending.value = true;
+    actionError.value = '';
     try {
-      const msg = await getChatApi().sendMessage(chatId, content, rolls);
+      const msg = await getChatApi().sendMessage(chatId, content, attachments, speaker, visibility);
       state.messages.push(msg);
       state.total++;
+      state.initialized = true;
       const chat = chats.value.find((c) => c.id === chatId);
       if (chat) {
-        chat.lastMessage = content || (rolls.length ? `${rolls[0].label || 'Бросок'}` : '');
+        // Авто-вступление: написавший в чат персонажа становится его участником
+        // (закрепляет чат во вкладке «Обсуждения персонажей»).
+        if (auth.userId !== null && !(chat.members?.some((m) => m.userId === auth.userId) ?? false)) {
+          chat.members = [
+            ...(chat.members ?? []),
+            { userId: auth.userId, status: 'member', role: 'member', joinedAt: new Date().toISOString() },
+          ];
+        }
+        chat.lastMessage = messagePreview(content, attachments);
         chat.lastMessageAt = msg.createdAt;
         chat.unreadCount = 0;
         chat.lastReadMessageId = msg.id;
       }
-      getChatApi().markChatRead(chatId);
+      markRead(chatId);
+
+      return true;
+    } catch (e) {
+      actionError.value = e instanceof Error ? e.message : 'Не удалось отправить сообщение';
+
+      return false;
     } finally {
       sending.value = false;
     }
   }
 
+  // Смена видимости уже отправленного сообщения (только отправитель): мок обновляет
+  // видимость, локально обновляем сообщение (отправителю своё всегда видно — рефетч не нужен).
+  async function updateMessageVisibility(
+    chatId: number,
+    messageId: number,
+    visibility?: ChatMessageVisibility,
+  ): Promise<boolean> {
+    try {
+      const updated = await getChatApi().updateMessageVisibility(chatId, messageId, visibility);
+      const state = chatStates.value.get(chatId);
+      if (state) {
+        const idx = state.messages.findIndex((message) => message.id === messageId);
+        if (idx !== -1) state.messages[idx] = updated;
+      }
+
+      return true;
+    } catch (e) {
+      actionError.value = e instanceof Error ? e.message : 'Не удалось изменить видимость сообщения';
+
+      return false;
+    }
+  }
+
+  // Системное уведомление (напр. «Ходит Имя» из шкалы инициативы): создаётся автоматически,
+  // рендерится разделителем; `kind` — «default»/«highlighted» (акцентное, цветом primary).
+  // Обновляет локальное состояние как обычное сообщение.
+  async function postSystemMessage(
+    content: string,
+    targetChatId: number,
+    kind: ChatMessage['kind'] = 'default',
+  ): Promise<boolean> {
+    let state = chatStates.value.get(targetChatId);
+    if (!state) {
+      state = createChatState();
+      chatStates.value.set(targetChatId, state);
+    }
+
+    try {
+      const msg = await getChatApi().sendSystemMessage(targetChatId, content, kind);
+      state.messages.push(msg);
+      state.total++;
+      state.initialized = true;
+      const chat = chats.value.find((c) => c.id === targetChatId);
+      if (chat) {
+        chat.lastMessage = content;
+        chat.lastMessageAt = msg.createdAt;
+        chat.unreadCount = 0;
+        chat.lastReadMessageId = msg.id;
+      }
+      markRead(targetChatId);
+
+      return true;
+    } catch (e) {
+      actionError.value = e instanceof Error ? e.message : 'Не удалось отправить системное сообщение';
+
+      return false;
+    }
+  }
+
   const autoScroll = ref(true);
   const lastSyncTimestamp = ref('');
+  // Инстанс создаётся здесь, а не в Service/Instance (правило 27): он store-bound
+  // (onSync замыкается на state стора) и per-instance, а не app-синглтон.
   let syncService: ChatSyncService | null = null;
   let syncRefCount = 0;
 
@@ -192,8 +364,7 @@ export const useChatStore = defineStore('chat', () => {
     }
     for (const nc of data.newChats) {
       if (chats.value.find((c) => c.id === nc.id)) continue;
-      const ability = usePermissions();
-      if (ability.isGuest.value && nc.type === 'private') continue;
+      if (auth.isGuest && nc.type === 'private') continue;
       chats.value.push(nc);
     }
     for (const [chatIdStr, msgs] of Object.entries(data.messages)) {
@@ -203,20 +374,31 @@ export const useChatStore = defineStore('chat', () => {
         state = createChatState();
         chatStates.value.set(cid, state);
       }
-      for (const m of msgs) {
-        if (!state.messages.find((ex) => ex.id === m.id)) {
-          state.messages.push(m);
-        }
+      state.messages = mergeMessages(state.messages, msgs);
+      if (cid === activeChatId.value) {
+        state.loadedCount = state.messages.length;
+      }
+      if (cid !== activeChatId.value) {
+        state.messages = state.messages.slice(-MAX_STORED);
       }
       if (cid === activeChatId.value && autoScroll.value && msgs.length > 0) {
         const chat = chats.value.find((c) => c.id === cid);
         if (chat && chat.unreadCount > 0) {
           chat.unreadCount = 0;
           chat.lastReadMessageId = msgs.reduce((m, x) => Math.max(m, x.id), chat.lastReadMessageId ?? 0);
-          getChatApi().markChatRead(cid);
+          markRead(cid);
         }
       }
     }
+  }
+
+  function markRead(chatId: number) {
+    // Read-маркировку повторит следующий sync; не блокируем открытие чата и не роняем unhandled rejection.
+    void getChatApi()
+      .markChatRead(chatId)
+      .catch(() => {
+        /* намеренно тихо: см. комментарий выше */
+      });
   }
 
   function startSync() {
@@ -240,8 +422,8 @@ export const useChatStore = defineStore('chat', () => {
 
   return {
     chats,
+    chatStates,
     allMessages,
-    renderedMessages,
     firstUnreadMessageId,
     activeChatId,
     activeChat,
@@ -250,10 +432,21 @@ export const useChatStore = defineStore('chat', () => {
     loadingOlder,
     sending,
     hasMoreOlder,
+    chatsError,
+    chatError,
+    actionError,
     fetchChats,
     openChat,
+    loadChat,
     loadOlderMessages,
+    loadOlder,
+    messagesOf,
+    firstUnreadOf,
+    hasMoreOlderOf,
+    loadingOlderOf,
     sendMessage,
+    updateMessageVisibility,
+    postSystemMessage,
     startSync,
     stopSync,
     autoScroll,
@@ -265,7 +458,5 @@ export const useChatStore = defineStore('chat', () => {
     sortedChats,
     currentTabChats,
     tabUnread,
-    chatIcon,
-    chatColor,
   };
 });

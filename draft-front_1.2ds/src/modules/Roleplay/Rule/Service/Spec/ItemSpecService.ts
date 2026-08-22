@@ -4,8 +4,6 @@ import type { WeaponBlock } from '@/modules/Roleplay/Rule/Dto/Item/WeaponBlock';
 import type { ArmorBlock } from '@/modules/Roleplay/Rule/Dto/Item/ArmorBlock';
 import type { ShieldBlock } from '@/modules/Roleplay/Rule/Dto/Item/ShieldBlock';
 import type { WeaponProfile } from '@/modules/Roleplay/Rule/Dto/Item/WeaponProfile';
-import { ITEM_SUBTYPE_FIELDS } from '@/modules/Roleplay/Rule/Constant/Item/ITEM_SUBTYPE_FIELDS';
-import { ITEM_BLOCK_FIELDS } from '@/modules/Roleplay/Rule/Constant/Item/ITEM_BLOCK_FIELDS';
 
 export class ItemSpecService {
   constructor(
@@ -43,7 +41,7 @@ export class ItemSpecService {
         min_strength: { base: 3, size: 0 },
         block: {
           efficiency: { base: 3, size: 0 },
-          defense: 0,
+          defense: { base: 0, size: 0 },
           resistances: [],
         },
       };
@@ -96,5 +94,3 @@ export class ItemSpecService {
     return out;
   }
 }
-
-export const itemSpecService = new ItemSpecService(ITEM_SUBTYPE_FIELDS, ITEM_BLOCK_FIELDS);

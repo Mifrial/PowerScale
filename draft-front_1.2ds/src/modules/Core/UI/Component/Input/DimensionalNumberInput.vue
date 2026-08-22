@@ -1,17 +1,21 @@
 <script setup lang="ts">
 import DimensionalNumber from '@/modules/Core/UI/Component/Input/DimensionalNumber.vue';
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
-import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumber';
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
+
+const DEFAULT_VALUE: DimensionalNumberValue = { base: 3, size: 0 };
 
 const props = withDefaults(
   defineProps<{
     modelValue: DimensionalNumberValue | null;
     label?: string;
-    mode?: 'characteristic' | 'default';
+    min?: number;
+    max?: number;
   }>(),
   {
     label: undefined,
-    mode: 'default',
+    min: 0,
+    max: undefined,
   },
 );
 
@@ -20,7 +24,7 @@ const emit = defineEmits<{
 }>();
 
 function updateBase(val: number) {
-  const current = props.modelValue ?? { base: 3, size: 0 };
+  const current = props.modelValue ?? DEFAULT_VALUE;
   emit('update:modelValue', {
     base: val,
     size: current.size,
@@ -28,7 +32,7 @@ function updateBase(val: number) {
 }
 
 function updateSize(val: number) {
-  const current = props.modelValue ?? { base: 3, size: 0 };
+  const current = props.modelValue ?? DEFAULT_VALUE;
   emit('update:modelValue', {
     base: current.base,
     size: val,
@@ -61,8 +65,8 @@ function updateSize(val: number) {
         :model-value="modelValue?.base ?? 3"
         @update:model-value="updateBase"
         label="База"
-        :min="mode === 'characteristic' ? 3 : 0"
-        :max="mode === 'characteristic' ? 5 : undefined"
+        :min="min"
+        :max="max"
         density="compact"
         hide-details
         style="flex: 1 1 auto"

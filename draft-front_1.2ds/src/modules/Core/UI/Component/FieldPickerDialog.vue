@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import type { PickerItem } from '@/modules/Core/UI/Dto/PickerItem';
-
-export type { PickerItem };
+import type { PickerItem } from '@/modules/Core/UI/Dto/Field/PickerItem';
 
 const props = defineProps<{
   modelValue: boolean;

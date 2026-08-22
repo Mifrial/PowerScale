@@ -1,0 +1,9 @@
+/**
+ * Код правила «Бросок» в ревизии (ТР §8 «Чат игры»): дефолтные параметры броска игры.
+ * Нейтральные значения броска — точки, где дефолты правила «Бросок» имеют силу:
+ * пользователь не менял параметр, значит ревизия игры задаёт его.
+ */
+export const ROLL_RULE_CODE = 'roll';
+export const ROLL_DEFAULT_EFFICIENCY = 3;
+export const ROLL_DEFAULT_ADV = 0;
+export const ROLL_DEFAULT_DIE_SIZE = 0;

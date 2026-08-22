@@ -1,15 +1,12 @@
 <script setup lang="ts">
-import { watch, computed } from 'vue';
+import { watch } from 'vue';
 import { useNotificationStore } from '@/modules/Messages/Notifications/Store/notifications';
 import SlidePanel from '@/modules/Core/UI/Component/SlidePanel.vue';
 import NotificationList from '@/modules/Messages/Notifications/Component/NotificationList.vue';
 import FlatTextBtn from '@/modules/Core/UI/Component/FlatTextBtn.vue';
-import { SLIDER_LIMIT } from '@/modules/Messages/Notifications/Constant/notificationSliderConfig';
 
 const open = defineModel<boolean>({ default: false });
 const store = useNotificationStore();
-
-const displayItems = computed(() => store.items.slice(0, SLIDER_LIMIT));
 
 watch(
   open,
@@ -29,7 +26,22 @@ watch(
     </template>
 
     <div class="notification-body">
-      <NotificationList :items="displayItems" icon-size="22" action-size="x-small" @action="store.markAsRead">
+      <v-alert
+        v-if="store.actionError"
+        type="error"
+        density="compact"
+        class="mb-2"
+        closable
+        @click:close="store.actionError = ''"
+      >
+        {{ store.actionError }}
+      </v-alert>
+      <NotificationList
+        :items="store.items"
+        icon-size="22"
+        action-size="x-small"
+        @action="(p) => store.markAsRead(p.id)"
+      >
         <template #empty> Нет уведомлений </template>
       </NotificationList>
     </div>

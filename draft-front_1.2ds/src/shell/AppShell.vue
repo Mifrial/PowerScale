@@ -1,4 +1,6 @@
 <script setup lang="ts">
+// Shell — composition root приложения: собирает app-level UI из компонентов модулей
+// напрямую (по аналогии с main.ts, регистрирующим модули). Исключение из правила 28.
 import { ref, computed, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { useChatStore } from '@/modules/Messages/Chat/Store/chat';
@@ -38,12 +40,8 @@ onMounted(async () => {
     <ChatSlider v-model="chatOpen" />
 
     <v-main :class="{ 'messenger-main': isMessenger }">
-      <template v-if="isMessenger">
-        <router-view />
-      </template>
-      <v-container v-else fluid class="pa-6">
-        <router-view />
-      </v-container>
+      <!-- Гаттер страницы — на самих страницах (свой v-container), чтобы не было контейнера в контейнере -->
+      <router-view />
     </v-main>
   </div>
 </template>

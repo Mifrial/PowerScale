@@ -6,40 +6,26 @@ import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { useGridPage } from '@/modules/Core/UI/Composables/useGridPage';
 import FilterBar from '@/modules/Core/UI/Component/FilterBar.vue';
 import SmartGrid from '@/modules/Core/UI/Component/Grid/SmartGrid.vue';
-import { columns, filterFields } from '@/modules/Messages/Notifications/Constant/templatesGridManifest';
-import type { Row } from '@/modules/Core/UI/Dto/Row';
-import type { FilterValue } from '@/modules/Core/UI/Dto/FilterValue';
-import { extractFilterValue } from '@/modules/Core/UI/Utils/filterExtract';
+import { columns } from '@/modules/Messages/Notifications/Constant/Grid/templates/columns';
+import { filterFields } from '@/modules/Messages/Notifications/Constant/Grid/templates/filterFields';
 
 const router = useRouter();
 const store = useTemplateStore();
 const { signal } = useAbortable();
 
-const {
-  sort,
-  pagination,
-  appliedFilters,
-  pageRows,
-  onSortChange,
-  onPaginationChange,
-  onFilterChange: gridFilterChange,
-} = useGridPage(() => store.filteredTemplates);
+const { sort, pagination, appliedFilters, pageRows, total, onSortChange, onPaginationChange, onFilterChange } =
+  useGridPage({
+    getItems: () => store.templates,
+    fields: filterFields,
+    columns,
+  });
 
 onMounted(() => store.fetchTemplates(signal.value));
 
-function onFilterChange(filters: Record<string, FilterValue>) {
-  gridFilterChange(filters);
-  store.filterKey = extractFilterValue(filters.key);
-  store.filterActive = filters.active !== undefined ? String(filters.active) : '';
-}
-
-function onRowAction(payload: { action: string; row: Row }) {
-  if ('id' in payload.row) {
-    const id = payload.row.id;
-    if (payload.action === 'view-profile') {
-      router.push(`/admin/notification-templates/${id}/edit`);
-    }
-  }
+function onRowAction(payload: { action: string; row: Record<string, unknown> }) {
+  if (payload.action !== 'open' && payload.action !== 'edit') return;
+  if (!('id' in payload.row)) return;
+  router.push(`/admin/notification-templates/${payload.row.id}/edit`);
 }
 </script>
 
@@ -60,15 +46,23 @@ function onRowAction(payload: { action: string; row: Row }) {
       @update:model-value="onFilterChange"
     />
 
+    <v-alert v-if="store.error" type="error" class="mt-4">
+      {{ store.error }}
+      <template #append>
+        <v-btn size="small" variant="tonal" @click="store.fetchTemplates(signal)">Повторить</v-btn>
+      </template>
+    </v-alert>
+
     <SmartGrid
       class="mt-4"
       grid-id="templates-list"
       :columns="columns"
       :rows="pageRows"
       :pagination="pagination"
-      :total="store.filteredTemplates.length"
+      :total="total"
       :sort="sort"
       :loading="store.loading"
+      :row-menu="[{ action: 'edit', label: 'Редактировать', icon: 'mdi-pencil' }]"
       @update:sort="onSortChange"
       @update:pagination="onPaginationChange"
       @row-action="onRowAction"

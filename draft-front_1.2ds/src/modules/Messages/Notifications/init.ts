@@ -2,10 +2,8 @@ import { serviceLocator } from '@/modules/Core/Engine/Service/ServiceLocator';
 import type { INotificationApi } from '@/modules/Messages/Notifications/Interface/INotificationApi';
 import type { INotificationTemplateApi } from '@/modules/Messages/Notifications/Interface/INotificationTemplateApi';
 import { registerPermissionCategory, registerAdminSection } from '@/modules/Core/User/init';
-import {
-  NOTIFICATION_TEMPLATE_PERMISSION_CATEGORY,
-  TEMPLATES_ADMIN_SECTION,
-} from '@/modules/Messages/Notifications/Constant/permissions';
+import { NOTIFICATION_TEMPLATE_PERMISSION_CATEGORY } from '@/modules/Messages/Notifications/Constant/Permission/NOTIFICATION_TEMPLATE_PERMISSION_CATEGORY';
+import { TEMPLATES_ADMIN_SECTION } from '@/modules/Messages/Notifications/Constant/Permission/TEMPLATES_ADMIN_SECTION';
 
 export function registerNotificationApi(api: INotificationApi): void {
   serviceLocator.set('Messages.Notifications.Service.NotificationApi', api);

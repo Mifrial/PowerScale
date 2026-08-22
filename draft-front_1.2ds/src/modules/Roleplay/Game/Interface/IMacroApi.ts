@@ -1,17 +1,6 @@
 import type { UserMacro } from '@/modules/Roleplay/Game/Dto/UserMacro';
-import type { MacroRollSpec } from '@/modules/Roleplay/Game/Dto/MacroRollSpec';
-
-export interface CreateMacroData {
-  name: string;
-  textTemplate: string;
-  rolls: MacroRollSpec[];
-}
-
-export interface UpdateMacroData {
-  name?: string;
-  textTemplate?: string;
-  rolls?: MacroRollSpec[];
-}
+import type { CreateMacroData } from '@/modules/Roleplay/Game/Dto/CreateMacroData';
+import type { UpdateMacroData } from '@/modules/Roleplay/Game/Dto/UpdateMacroData';
 
 export interface IMacroApi {
   getMyMacros(signal?: AbortSignal): Promise<UserMacro[]>;

@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import type { TemplateForm } from '@/modules/Messages/Notifications/Dto/TemplateForm';
 import { useTemplateStore } from '@/modules/Messages/Notifications/Store/templates';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { useUserStore } from '@/modules/Core/User/Store/users';
 import { accessService } from '@/modules/Core/User/init';
-import type { NotificationButton } from '@/modules/Messages/Notifications/Dto/NotificationButton';
-import { actionTypes } from '@/modules/Messages/Notifications/Constant/templateActionTypes';
+import { templateSpecService } from '@/modules/Messages/Notifications/Service/Instance/templateSpecService';
+import TemplateButtonsEditor from '@/modules/Messages/Notifications/Component/TemplateButtonsEditor.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -17,61 +18,44 @@ const { signal } = useAbortable();
 const isEdit = computed(() => !!route.params.id);
 const templateId = computed(() => Number(route.params.id));
 
-const key = ref('');
-const titleTemplate = ref('');
-const bodyTemplate = ref('');
-const buttons = ref<NotificationButton[]>([]);
-const active = ref(true);
+const form = reactive<TemplateForm>(templateSpecService.createEmpty());
+const formRef = ref<{ validate: () => Promise<{ valid: boolean }> }>();
 const saving = ref(false);
-const showDeleteDialog = ref(false);
 const deleting = ref(false);
+const showDeleteDialog = ref(false);
+const errorMessage = ref('');
 
 const canDelete = computed(() =>
   accessService.hasAnyPermission(userStore.currentUser, ['notification_template.delete']),
 );
 
 onMounted(async () => {
-  if (isEdit.value) {
+  if (!isEdit.value) return;
+  try {
     const template = await store.fetchTemplate(templateId.value, signal.value);
-    key.value = template.key;
-    titleTemplate.value = template.titleTemplate;
-    bodyTemplate.value = template.bodyTemplate;
-    buttons.value = template.buttonsJson ? [...template.buttonsJson] : [];
-    active.value = template.active;
+    templateSpecService.fill(form, template);
+  } catch (e) {
+    if (!isAbortError(e)) errorMessage.value = 'Не удалось загрузить шаблон';
   }
 });
 
-function addButton() {
-  buttons.value.push({
-    label: '',
-    actionType: 'event',
-    action: '',
-    payload: {},
-  });
-}
-
-function removeButton(idx: number) {
-  buttons.value.splice(idx, 1);
+function isAbortError(e: unknown): boolean {
+  return e instanceof DOMException && e.name === 'AbortError';
 }
 
 async function save() {
-  if (!key.value.trim() || !titleTemplate.value.trim() || !bodyTemplate.value.trim()) return;
+  if (formRef.value && !(await formRef.value.validate()).valid) return;
   saving.value = true;
+  errorMessage.value = '';
   try {
-    const data = {
-      key: key.value,
-      titleTemplate: titleTemplate.value,
-      bodyTemplate: bodyTemplate.value,
-      buttonsJson: buttons.value.length > 0 ? buttons.value : undefined,
-    };
     if (isEdit.value) {
-      await store.updateTemplate(templateId.value, data, signal.value);
+      await store.updateTemplate(templateId.value, templateSpecService.buildUpdatePayload(form), signal.value);
     } else {
-      await store.createTemplate(data, signal.value);
+      await store.createTemplate(templateSpecService.buildCreatePayload(form), signal.value);
     }
     router.push('/admin/notification-templates');
   } catch (e) {
-    console.error('save template failed', e);
+    if (!isAbortError(e)) errorMessage.value = 'Не удалось сохранить шаблон';
   } finally {
     saving.value = false;
   }
@@ -79,11 +63,12 @@ async function save() {
 
 async function handleDelete() {
   deleting.value = true;
+  errorMessage.value = '';
   try {
     await store.deactivateTemplate(templateId.value, signal.value);
     router.push('/admin/notification-templates');
   } catch (e) {
-    console.error('delete template failed', e);
+    if (!isAbortError(e)) errorMessage.value = 'Не удалось удалить шаблон';
   } finally {
     deleting.value = false;
   }
@@ -94,75 +79,53 @@ async function handleDelete() {
   <v-container>
     <h1 class="text-h5 mb-4">{{ isEdit ? 'Редактирование шаблона' : 'Создание шаблона' }}</h1>
 
+    <v-alert v-if="errorMessage" type="error" class="mb-4" closable @click:close="errorMessage = ''">
+      {{ errorMessage }}
+    </v-alert>
+
     <v-card>
       <v-card-text>
-        <v-text-field
-          v-model="key"
-          label="Ключ шаблона"
-          :rules="[
-            (v) => !!v || 'Обязательное поле',
-            (v) => /^[a-z0-9_]+$/.test(v) || 'Только латиница, цифры и подчёркивание',
-          ]"
-          :disabled="isEdit"
-          hint="Уникальный идентификатор, например: game_invite, character_moderation"
-          persistent-hint
-        />
+        <v-form ref="formRef">
+          <v-text-field
+            v-model="form.key"
+            label="Ключ шаблона"
+            :rules="[
+              (v) => !!v || 'Обязательное поле',
+              (v) => !v || /^[a-z0-9_]+$/.test(v) || 'Только латиница, цифры и подчёркивание',
+            ]"
+            :disabled="isEdit"
+            hint="Уникальный идентификатор, например: game_invite, character_moderation"
+            persistent-hint
+          />
 
-        <v-text-field
-          v-model="titleTemplate"
-          label="Шаблон заголовка"
-          :rules="[(v) => !!v || 'Обязательное поле']"
-          class="mt-4"
-          hint="Поддерживает плейсхолдеры: {{game_name}}, {{character_name}}"
-          persistent-hint
-        />
+          <v-text-field
+            v-model="form.titleTemplate"
+            label="Шаблон заголовка"
+            :rules="[(v) => !!v || 'Обязательное поле']"
+            class="mt-4"
+            hint="Поддерживает плейсхолдеры: {{game_name}}, {{character_name}}"
+            persistent-hint
+          />
 
-        <v-textarea
-          v-model="bodyTemplate"
-          label="Шаблон содержимого (HTML)"
-          :rules="[(v) => !!v || 'Обязательное поле']"
-          rows="5"
-          class="mt-4"
-          hint="Поддерживает HTML и плейсхолдеры"
-          persistent-hint
-        />
+          <v-textarea
+            v-model="form.bodyTemplate"
+            label="Шаблон содержимого (HTML)"
+            :rules="[(v) => !!v || 'Обязательное поле']"
+            rows="5"
+            class="mt-4"
+            hint="Поддерживает HTML и плейсхолдеры"
+            persistent-hint
+          />
+        </v-form>
 
         <v-divider class="my-6" />
 
-        <div class="d-flex align-center mb-3">
-          <h3 class="text-h6">Кнопки действий</h3>
-          <v-spacer />
-          <v-btn size="small" prepend-icon="mdi-plus" @click="addButton">Добавить кнопку</v-btn>
-        </div>
-
-        <v-card v-for="(btn, idx) in buttons" :key="idx" variant="outlined" class="mb-3">
-          <v-card-text>
-            <v-row>
-              <v-col cols="12" md="4">
-                <v-text-field v-model="btn.label" label="Текст кнопки" density="compact" />
-              </v-col>
-              <v-col cols="12" md="4">
-                <v-select v-model="btn.actionType" :items="actionTypes" label="Тип действия" density="compact" />
-              </v-col>
-              <v-col cols="12" md="4">
-                <v-text-field v-model="btn.action" label="Действие / URL" density="compact" />
-              </v-col>
-            </v-row>
-          </v-card-text>
-          <v-card-actions>
-            <v-spacer />
-            <v-btn size="small" color="error" variant="text" @click="removeButton(idx)">Удалить</v-btn>
-          </v-card-actions>
-        </v-card>
-
-        <div v-if="buttons.length === 0" class="text-body-2 text-medium-emphasis text-center py-4">
-          Нет кнопок действий
-        </div>
+        <TemplateButtonsEditor v-model:buttons="form.buttons" />
       </v-card-text>
 
       <v-card-actions>
         <v-btn
-          v-if="isEdit && canDelete && active"
+          v-if="isEdit && canDelete && form.active"
           variant="text"
           color="error"
           prepend-icon="mdi-trash-can-outline"
@@ -180,7 +143,7 @@ async function handleDelete() {
       <v-card>
         <v-card-title>Удалить шаблон?</v-card-title>
         <v-card-text>
-          Шаблон «{{ key }}» будет деактивирован (soft-delete): скроется из списка активных, старые уведомления
+          Шаблон «{{ form.key }}» будет деактивирован (soft-delete): скроется из списка активных, старые уведомления
           сохранятся.
         </v-card-text>
         <v-card-actions>

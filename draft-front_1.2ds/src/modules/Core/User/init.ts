@@ -2,16 +2,15 @@ import { serviceLocator } from '@/modules/Core/Engine/Service/ServiceLocator';
 import type { IUserApi } from '@/modules/Core/User/Interface/IUserApi';
 import type { IGroupApi } from '@/modules/Core/User/Interface/IGroupApi';
 import type { ProfileSection } from '@/modules/Core/User/Dto/ProfileSection';
-import type { PermissionCategory, AdminSection } from '@/modules/Core/User/Interface/IPermissionRegistry';
-import { accessService } from '@/modules/Core/User/Service/AccessService';
+import type { PermissionCategory } from '@/modules/Core/User/Interface/PermissionCategory';
+import type { AdminSection } from '@/modules/Core/User/Interface/AdminSection';
+import { accessService } from '@/modules/Core/User/Service/Instance/accessService';
 import type { User } from '@/modules/Core/User/Dto/User';
-import {
-  USER_PERMISSION_CATEGORY,
-  USER_GROUP_PERMISSION_CATEGORY,
-  GROUPS_ADMIN_SECTION,
-} from '@/modules/Core/User/Constant/permissions';
+import { USER_PERMISSION_CATEGORY } from '@/modules/Core/User/Constant/Permission/USER_PERMISSION_CATEGORY';
+import { USER_GROUP_PERMISSION_CATEGORY } from '@/modules/Core/User/Constant/Permission/USER_GROUP_PERMISSION_CATEGORY';
+import { GROUPS_ADMIN_SECTION } from '@/modules/Core/User/Constant/Permission/GROUPS_ADMIN_SECTION';
 
-export { accessService } from '@/modules/Core/User/Service/AccessService';
+export { accessService } from '@/modules/Core/User/Service/Instance/accessService';
 
 export function registerUserApi(api: IUserApi): void {
   serviceLocator.set('Core.User.Service.UserApi', api);

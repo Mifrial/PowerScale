@@ -1,9 +1,4 @@
-export interface NavItem {
-  icon: string;
-  label: string;
-  to: string;
-  exact?: boolean;
-}
+import type { NavItem } from '@/shell/Dto/NavItem';
 
 export const navItems: NavItem[] = [
   { icon: 'mdi-home', label: 'Главная', to: '/', exact: true },

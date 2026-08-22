@@ -1,5 +1,6 @@
 import type { RuleType } from '@/modules/Roleplay/Rule/Enum/RuleType';
 import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec';
+import type { MechanicPayload } from '@/modules/Roleplay/Rule/Dto/MechanicPayload';
 
 export interface Rule {
   id: string;
@@ -12,6 +13,8 @@ export interface Rule {
   spec?: RuleSpec;
   keywordIds?: number[];
   mechanicId?: number | null;
+  /** Контекст инстанции механики (см. MechanicPayload); есть только при mechanicId. */
+  mechanic_payload?: MechanicPayload | null;
   createdAt: string;
   updatedAt?: string;
 }

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
-import type { DimensionalNumberBaseRange } from '@/modules/Core/Engine/Dto/DimensionalNumber';
+import type { DimensionalNumberBaseRange } from '@/modules/Core/Engine/Dto/DimensionalNumberBaseRange';
 
 const RANGE: DimensionalNumberBaseRange = { min: 3, max: 5 };
 
@@ -67,6 +67,42 @@ describe('DimensionalNumber.subtract', () => {
   });
 });
 
+describe('DimensionalNumber.equalsStrict', () => {
+  it('равенство по base и size', () => {
+    expect(dn(4, 0).equalsStrict(dn(4, 0))).toBe(true);
+    expect(dn(4, 0).equalsStrict(dn(4, 1))).toBe(false);
+    expect(dn(4, 0).equalsStrict(dn(2, 1))).toBe(false);
+  });
+});
+
+describe('DimensionalNumber.equals (нестрогое, по значению)', () => {
+  it('{4|0} == {2|1} (выравнивание по меньшему размеру)', () => {
+    expect(dn(4, 0).equals(dn(2, 1))).toBe(true);
+    expect(dn(2, 1).equals(dn(4, 0))).toBe(true);
+  });
+  it('{3|0} != {5|-1} (3 vs 2.5)', () => {
+    expect(dn(3, 0).equals(dn(5, -1))).toBe(false);
+  });
+  it('{3|0} != {2|0}', () => {
+    expect(dn(3, 0).equals(dn(2, 0))).toBe(false);
+  });
+});
+
+describe('DimensionalNumber.compare', () => {
+  it('{3|0} < {2|1} (3 < 4)', () => {
+    expect(dn(3, 0).compare(dn(2, 1))).toBe(-1);
+  });
+  it('{5|-1} > {2|0} (2.5 > 2)', () => {
+    expect(dn(5, -1).compare(dn(2, 0))).toBe(1);
+  });
+  it('{4|0} == {2|1} → 0', () => {
+    expect(dn(4, 0).compare(dn(2, 1))).toBe(0);
+  });
+  it('симметричность', () => {
+    expect(dn(2, 1).compare(dn(3, 0))).toBe(1);
+  });
+});
+
 describe('DimensionalNumber.toString', () => {
   it('формат отображения', () => {
     expect(dn(3, 0).toString()).toBe('3');
@@ -74,6 +110,21 @@ describe('DimensionalNumber.toString', () => {
     expect(dn(3, -1).toString()).toBe('3↓');
     expect(dn(3, 2).toString()).toBe('3↑²');
     expect(dn(3, -2).toString()).toBe('3↓²');
+  });
+});
+
+describe('DimensionalNumber.parse', () => {
+  it('разбирает строковое представление (формат toString)', () => {
+    expect(DimensionalNumber.parse('3')).toEqual({ base: 3, size: 0 });
+    expect(DimensionalNumber.parse('3↑')).toEqual({ base: 3, size: 1 });
+    expect(DimensionalNumber.parse('3↓')).toEqual({ base: 3, size: -1 });
+    expect(DimensionalNumber.parse('4↑²')).toEqual({ base: 4, size: 2 });
+    expect(DimensionalNumber.parse('5↓²')).toEqual({ base: 5, size: -2 });
+  });
+
+  it('некорректная строка → {0, 0}', () => {
+    expect(DimensionalNumber.parse('')).toEqual({ base: 0, size: 0 });
+    expect(DimensionalNumber.parse('abc')).toEqual({ base: 0, size: 0 });
   });
 });
 

@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import { ref } from 'vue';
 import type { Space } from '@/modules/Roleplay/Space/Dto/Space';
 import type { SpaceCreateData } from '@/modules/Roleplay/Space/Dto/SpaceCreateData';
 import type { SpaceUpdateData } from '@/modules/Roleplay/Space/Dto/SpaceUpdateData';
@@ -9,40 +9,16 @@ export const useSpaceStore = defineStore('spaces', () => {
   const spaces = ref<Space[]>([]);
   const currentSpace = ref<Space | null>(null);
   const loading = ref(false);
-  const quickFilter = ref('');
-  const filterName = ref<{ mode: 'equals' | 'contains'; value: string } | null>(null);
-  const filterActive = ref('');
-
-  const filteredSpaces = computed(() => {
-    let result = spaces.value;
-    if (quickFilter.value) {
-      const q = quickFilter.value.toLowerCase();
-      result = result.filter((s) => s.name.toLowerCase().includes(q) || s.description.toLowerCase().includes(q));
-    }
-    if (filterName.value && filterName.value.value) {
-      const q = filterName.value.value.toLowerCase();
-      if (filterName.value.mode === 'equals') {
-        result = result.filter((s) => s.name.toLowerCase() === q);
-      } else {
-        result = result.filter((s) => s.name.toLowerCase().includes(q));
-      }
-    }
-    if (filterActive.value === 'true') {
-      result = result.filter((s) => s.active);
-    } else if (filterActive.value === 'false') {
-      result = result.filter((s) => !s.active);
-    }
-
-    return result;
-  });
+  const error = ref<string | null>(null);
 
   async function fetchSpaces(signal?: AbortSignal) {
     loading.value = true;
+    error.value = null;
     try {
       spaces.value = await getSpaceApi().getSpaces(signal);
     } catch (e) {
       if (e instanceof DOMException && e.name === 'AbortError') return;
-      console.error('fetchSpaces failed', e);
+      error.value = 'Не удалось загрузить пространства';
     } finally {
       loading.value = false;
     }
@@ -93,10 +69,7 @@ export const useSpaceStore = defineStore('spaces', () => {
     spaces,
     currentSpace,
     loading,
-    quickFilter,
-    filterName,
-    filterActive,
-    filteredSpaces,
+    error,
     fetchSpaces,
     fetchSpace,
     fetchSpaceByCode,

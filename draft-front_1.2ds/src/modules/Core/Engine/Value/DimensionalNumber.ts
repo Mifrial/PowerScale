@@ -1,4 +1,5 @@
-import type { DimensionalNumberValue, DimensionalNumberBaseRange } from '@/modules/Core/Engine/Dto/DimensionalNumber';
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
+import type { DimensionalNumberBaseRange } from '@/modules/Core/Engine/Dto/DimensionalNumberBaseRange';
 
 export class DimensionalNumber {
   readonly value: DimensionalNumberValue;
@@ -52,6 +53,29 @@ export class DimensionalNumber {
     return new DimensionalNumber({ base: a - b, size });
   }
 
+  equalsStrict(other: DimensionalNumber): boolean {
+    return this.value.base === other.value.base && this.value.size === other.value.size;
+  }
+
+  equals(other: DimensionalNumber): boolean {
+    const size = Math.min(this.value.size, other.value.size);
+    const a = this.value.base * Math.pow(2, this.value.size - size);
+    const b = other.value.base * Math.pow(2, other.value.size - size);
+
+    return a === b;
+  }
+
+  compare(other: DimensionalNumber): number {
+    const size = Math.min(this.value.size, other.value.size);
+    const a = this.value.base * Math.pow(2, this.value.size - size);
+    const b = other.value.base * Math.pow(2, other.value.size - size);
+
+    if (a < b) return -1;
+    if (a > b) return 1;
+
+    return 0;
+  }
+
   toString(): string {
     if (this.value.size === 0) return String(this.value.base);
     const arrow = this.value.size > 0 ? '↑' : '↓';
@@ -60,13 +84,45 @@ export class DimensionalNumber {
 
     return `${this.value.base}${arrow}${sup}`;
   }
+
+  /**
+   * Разобрать строковое представление размерного числа (формат {@link toString}),
+   * напр. '3', '4↓', '5↑', '3↓2'. Используется для ключей табличных цен параметров
+   * («Магия Х»: '3↓' → {3,-1}).
+   */
+  static parse(text: string): DimensionalNumberValue {
+    const normalized = text.trim();
+    const match = /^(-?\d+)(↓|↑)?(.*)$/.exec(normalized);
+    if (!match) return { base: 0, size: 0 };
+
+    const base = Number(match[1]);
+    if (!match[2]) return { base, size: 0 };
+    const direction = match[2] === '↑' ? 1 : -1;
+    const sup = match[3];
+    const size = sup.length ? direction * fromSuperscript(sup) : direction;
+
+    return { base, size };
+  }
 }
 
+const superscriptDigits = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+
 function toSuperscript(n: number): string {
-  const digits = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+  const digits = superscriptDigits;
 
   return String(n)
     .split('')
     .map((d) => digits[Number(d)] ?? d)
     .join('');
+}
+
+function fromSuperscript(text: string): number {
+  let value = 0;
+  for (const char of text) {
+    const digit = superscriptDigits.indexOf(char);
+    if (digit < 0) return value;
+    value = value * 10 + digit;
+  }
+
+  return value;
 }

@@ -17,7 +17,6 @@ const characterCard = {
   label: 'Персонажи',
   description: 'Просмотр и управление персонажами',
   to: '/characters',
-  count: 2,
 };
 
 const gameCard = {
@@ -25,7 +24,6 @@ const gameCard = {
   label: 'Игры',
   description: 'Список игр и сессий',
   to: '/games',
-  count: 1,
 };
 
 onMounted(() => {
@@ -34,7 +32,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div>
+  <v-container fluid>
     <h1 class="text-h4 font-weight-bold mb-2">Добро пожаловать{{ auth.isGuest ? '' : `, ${userStore.username}` }}</h1>
     <p class="text-body-1 text-medium-emphasis mb-6">
       {{
@@ -52,9 +50,6 @@ onMounted(() => {
             <v-card-title class="pa-0 text-body-1 font-weight-medium flex-grow-1">
               {{ characterCard.label }}
             </v-card-title>
-            <v-chip v-if="characterCard.count" color="error" size="small" variant="flat">
-              {{ characterCard.count }}
-            </v-chip>
           </div>
           <v-card-text class="pa-0 text-caption text-medium-emphasis">
             {{ characterCard.description }}
@@ -69,9 +64,6 @@ onMounted(() => {
             <v-card-title class="pa-0 text-body-1 font-weight-medium flex-grow-1">
               {{ gameCard.label }}
             </v-card-title>
-            <v-chip v-if="gameCard.count" color="error" size="small" variant="flat">
-              {{ gameCard.count }}
-            </v-chip>
           </div>
           <v-card-text class="pa-0 text-caption text-medium-emphasis">
             {{ gameCard.description }}
@@ -86,7 +78,12 @@ onMounted(() => {
         Последние уведомления
       </v-card-title>
 
-      <NotificationList :items="dashboardItems" icon-size="20" action-size="x-small" @action="notification.markAsRead">
+      <NotificationList
+        :items="dashboardItems"
+        icon-size="20"
+        action-size="x-small"
+        @action="(p) => notification.markAsRead(p.id)"
+      >
         <template #empty> Нет новых уведомлений </template>
       </NotificationList>
 
@@ -94,7 +91,7 @@ onMounted(() => {
         <FlatTextBtn color="primary" block rounded="0" :to="{ name: 'Notifications' }"> Все уведомления → </FlatTextBtn>
       </div>
     </v-card>
-  </div>
+  </v-container>
 </template>
 
 <style scoped>

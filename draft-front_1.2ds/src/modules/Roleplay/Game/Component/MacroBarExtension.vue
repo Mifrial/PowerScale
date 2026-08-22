@@ -2,9 +2,12 @@
 import { ref, computed, onMounted } from 'vue';
 import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec';
 import type { UserMacro } from '@/modules/Roleplay/Game/Dto/UserMacro';
-import type { ChatToolbarContext } from '@/modules/Messages/Chat/Interface/IChatToolbarExtension';
+import type { ChatAttachment } from '@/modules/Messages/Chat/Dto/ChatAttachment';
+import type { ChatToolbarContext } from '@/modules/Messages/Chat/Dto/ChatToolbarContext';
 import { useMacrosStore } from '@/modules/Roleplay/Game/Store/macros';
-import { rollService } from '@/modules/Roleplay/Game/Service/RollService';
+import { rollService } from '@/modules/Roleplay/Game/Service/Instance/rollService';
+import { ROLL_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ATTACHMENT_TYPE';
+import { ROLL_ADV_MAX } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ADV_MAX';
 
 const props = defineProps<ChatToolbarContext>();
 
@@ -22,12 +25,7 @@ onMounted(() => {
 function macroChipTitle(m: UserMacro): string {
   const parts: string[] = [];
   if (m.textTemplate) parts.push(m.textTemplate);
-  for (const r of m.rolls) {
-    const adv = r.adv || 0;
-    const advPart = adv ? (adv > 0 ? ` +${adv}` : ` ${adv}`) : '';
-    const size = r.dieSize ? (r.dieSize > 0 ? ' ↑' : ' ↓') : '';
-    parts.push(`${r.rollFormula}${advPart}${size} · сл:${r.efficiency}${r.variableAdvantages ? ' · преим. ?' : ''}`);
-  }
+  for (const r of m.rolls) parts.push(rollService.formatRollSpecText(r));
 
   return parts.join(' | ');
 }
@@ -47,6 +45,10 @@ function buildRollSpec(r: UserMacro['rolls'][number], adv: number): DiceRollSpec
 
 const pendingFlaggedCount = computed(() => pendingMacro.value?.rolls.filter((r) => r.variableAdvantages).length ?? 0);
 
+function toAttachments(rolls: DiceRollSpec[]): ChatAttachment[] {
+  return rolls.map((spec) => ({ type: ROLL_ATTACHMENT_TYPE, payload: spec }));
+}
+
 function sendMacro(m: UserMacro) {
   if (!m.rolls.length) {
     props.send(m.textTemplate ?? '', []);
@@ -61,18 +63,17 @@ function sendMacro(m: UserMacro) {
 
     return;
   }
-  props.send(
-    m.textTemplate ?? '',
-    m.rolls.map((r) => buildRollSpec(r, r.adv ?? 0)),
-  );
+  props.send(m.textTemplate ?? '', toAttachments(m.rolls.map((r) => buildRollSpec(r, r.adv ?? 0))));
 }
 
 function confirmAdv() {
   const m = pendingMacro.value;
   if (!m) return;
-  const adv = Number.isFinite(advInput.value) ? Math.max(-10, Math.min(10, Math.round(advInput.value))) : 0;
+  const adv = Number.isFinite(advInput.value)
+    ? Math.max(-ROLL_ADV_MAX, Math.min(ROLL_ADV_MAX, Math.round(advInput.value)))
+    : 0;
   const rolls = m.rolls.map((r) => buildRollSpec(r, r.variableAdvantages ? adv : (r.adv ?? 0)));
-  props.send(m.textTemplate ?? '', rolls);
+  props.send(m.textTemplate ?? '', toAttachments(rolls));
   advDialog.value = false;
   pendingMacro.value = null;
 }
@@ -96,8 +97,8 @@ function confirmAdv() {
             v-model.number="advInput"
             label="Число преимуществ"
             type="number"
-            min="-10"
-            max="10"
+            :min="-ROLL_ADV_MAX"
+            :max="ROLL_ADV_MAX"
             variant="outlined"
             hide-details
           />

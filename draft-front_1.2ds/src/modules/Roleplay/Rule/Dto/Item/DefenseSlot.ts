@@ -1,5 +1,7 @@
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
+
 export interface DefenseSlot {
-  defense: number;
+  defense: DimensionalNumberValue;
   durability: number;
   source_code: string | null;
 }

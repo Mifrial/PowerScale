@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
-import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec';
 import type { ItemSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpec';
@@ -13,8 +12,9 @@ import ItemEquipmentEditor from '@/modules/Roleplay/Rule/Component/Editors/Item/
 import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue';
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
 import { ITEM_CATEGORIES } from '@/modules/Roleplay/Rule/Constant/Item/ITEM_CATEGORIES';
-import { itemSpecService } from '@/modules/Roleplay/Rule/Service/Spec/ItemSpecService';
-import { ruleReferenceService } from '@/modules/Roleplay/Rule/Service/RuleReferenceService';
+import { itemSpecService } from '@/modules/Roleplay/Rule/Service/Instance/itemSpecService';
+import { ruleReferenceService } from '@/modules/Roleplay/Rule/Service/Instance/ruleReferenceService';
+import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
 
 const props = defineProps<{
   name: string;
@@ -27,6 +27,7 @@ const props = defineProps<{
   mechanicOptions: { title: string; value: number }[];
   keywordOptions: { title: string; value: number }[];
   spaceId: number;
+  rules: Rule[];
 }>();
 
 const emit = defineEmits<{
@@ -37,8 +38,6 @@ const emit = defineEmits<{
   'update:keywordIds': [value: number[]];
   'update:spec': [value: ItemSpec];
 }>();
-
-const revisionStore = useSpaceRevisionStore();
 
 const draft = ref<ItemSpecDraft>({
   category: 'other',
@@ -51,7 +50,7 @@ const draft = ref<ItemSpecDraft>({
 const subtypes = ref<string[]>([]);
 const expandedPanels = ref<string[]>(['general', 'item']);
 
-const spaceRules = computed(() => revisionStore.effectiveRules);
+const spaceRules = computed(() => props.rules);
 
 const simpleRules = computed(() => {
   return spaceRules.value
@@ -110,7 +109,7 @@ const specToEmit = computed<ItemSpec>(() => itemSpecService.prune(draft.value, s
 watch(
   specToEmit,
   (value) => {
-    emit('update:spec', structuredClone(value));
+    emit('update:spec', cloneData(value));
   },
   { deep: true },
 );
@@ -130,7 +129,7 @@ function updateShield(value: ShieldBlock) {
 onMounted(() => {
   if (props.spec) {
     const loaded = props.spec as ItemSpecDraft;
-    draft.value = structuredClone(loaded);
+    draft.value = cloneData(loaded);
 
     if (loaded.weapon) {
       subtypes.value.push('weapon');

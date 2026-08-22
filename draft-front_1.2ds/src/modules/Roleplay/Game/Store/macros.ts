@@ -1,22 +1,21 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import type { UserMacro } from '@/modules/Roleplay/Game/Dto/UserMacro';
-import type { CreateMacroData, UpdateMacroData } from '@/modules/Roleplay/Game/Interface/IMacroApi';
+import type { CreateMacroData } from '@/modules/Roleplay/Game/Dto/CreateMacroData';
+import type { UpdateMacroData } from '@/modules/Roleplay/Game/Dto/UpdateMacroData';
 import { getMacroApi } from '@/modules/Roleplay/Game/init';
 
 export const useMacrosStore = defineStore('macros', () => {
   const macros = ref<UserMacro[]>([]);
-  const loading = ref(false);
+  const error = ref<string | null>(null);
 
   async function fetchMacros(signal?: AbortSignal) {
-    loading.value = true;
+    error.value = null;
     try {
       macros.value = await getMacroApi().getMyMacros(signal);
     } catch (e) {
       if (e instanceof DOMException && e.name === 'AbortError') return;
-      console.error('fetchMacros failed', e);
-    } finally {
-      loading.value = false;
+      error.value = 'Не удалось загрузить макросы';
     }
   }
 
@@ -40,5 +39,5 @@ export const useMacrosStore = defineStore('macros', () => {
     macros.value = macros.value.filter((m) => m.id !== id);
   }
 
-  return { macros, loading, fetchMacros, createMacro, updateMacro, removeMacro };
+  return { macros, error, fetchMacros, createMacro, updateMacro, removeMacro };
 });

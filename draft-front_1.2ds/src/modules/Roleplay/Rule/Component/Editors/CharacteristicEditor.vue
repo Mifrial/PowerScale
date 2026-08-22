@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
-import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { CharacteristicSpec } from '@/modules/Roleplay/Rule/Dto/CharacteristicSpec';
 import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec';
@@ -18,6 +17,7 @@ const props = defineProps<{
   mechanicOptions: { title: string; value: number }[];
   keywordOptions: { title: string; value: number }[];
   spaceId: number;
+  rules: Rule[];
 }>();
 
 const emit = defineEmits<{
@@ -29,14 +29,15 @@ const emit = defineEmits<{
   'update:spec': [value: CharacteristicSpec | null];
 }>();
 
-const revisionStore = useSpaceRevisionStore();
-
-const allRules = computed(() => revisionStore.effectiveRules);
+const allRules = computed(() => props.rules);
 
 const hasFormula = ref(false);
 const formulaType = ref<'min' | 'max'>('min');
 const formulaChar1 = ref<string | null>(null);
 const formulaChar2 = ref<string | null>(null);
+const automatic = ref(false);
+/** Value-форма automatic (нестандартная база, напр. {3|-1}); пусто — база по умолчанию 3 средних. */
+const automaticValue = ref<{ value: { base: number; size: number } } | undefined>(undefined);
 
 const availableCharacteristics = computed(() => {
   return allRules.value.filter(
@@ -48,19 +49,23 @@ const availableCharacteristics = computed(() => {
 });
 
 const updateFormula = () => {
-  if (hasFormula.value && formulaChar1.value && formulaChar2.value) {
-    const func = formulaType.value === 'min' ? 'min' : 'max';
-    emit('update:spec', { type: 'characteristic', formula: `${func}(${formulaChar1.value}, ${formulaChar2.value})` });
-  } else {
-    emit('update:spec', { type: 'characteristic', formula: null });
-  }
+  const spec: CharacteristicSpec = {
+    type: 'characteristic',
+    formula: hasFormula.value ? innerFormula.value : null,
+    automatic: automatic.value ? (automaticValue.value ?? true) : undefined,
+  };
+  emit('update:spec', spec);
 };
 
-watch([hasFormula, formulaType, formulaChar1, formulaChar2], updateFormula);
+watch([hasFormula, formulaType, formulaChar1, formulaChar2, automatic], updateFormula);
 
 onMounted(() => {
   if (props.spec) {
-    const formula = (props.spec as CharacteristicSpec | null)?.formula || null;
+    const characteristicSpec = props.spec as CharacteristicSpec | null;
+    const formula = characteristicSpec?.formula || null;
+    const rawAutomatic = characteristicSpec?.automatic;
+    automatic.value = Boolean(rawAutomatic);
+    if (typeof rawAutomatic === 'object') automaticValue.value = rawAutomatic;
     if (formula) {
       hasFormula.value = true;
       const match = formula.match(/(min|max)\(([^,]+),\s*([^)]+)\)/);
@@ -71,7 +76,11 @@ onMounted(() => {
       }
     }
   }
-  emit('update:spec', { type: 'characteristic', formula: hasFormula.value ? innerFormula.value : null });
+  emit('update:spec', {
+    type: 'characteristic',
+    formula: hasFormula.value ? innerFormula.value : null,
+    automatic: automatic.value ? (automaticValue.value ?? true) : undefined,
+  });
 });
 
 const innerFormula = computed(() => {
@@ -108,6 +117,13 @@ const innerFormula = computed(() => {
           <div class="text-body-2 text-medium-emphasis mt-2">Характеристика всегда размерная с диапазоном 3-5</div>
 
           <v-switch v-model="hasFormula" label="Производная характеристика" color="primary" hide-details class="mt-2" />
+          <v-switch
+            v-model="automatic"
+            label="Автоматическое получение (база 3 средних, если раса не задала иное)"
+            color="primary"
+            hide-details
+            class="mt-2"
+          />
           <div v-if="hasFormula" class="mt-2">
             <v-select
               v-model="formulaType"

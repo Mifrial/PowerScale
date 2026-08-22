@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { FilterField } from '@/modules/Core/UI/Dto/FilterField';
+import type { FilterField } from '@/modules/Core/UI/Dto/Filter/Field';
 
 defineProps<{
   field: FilterField;

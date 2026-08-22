@@ -1,5 +1,7 @@
 import type { Engine } from '@/modules/Core/Engine/Service/Engine';
-import type { IMacroApi, CreateMacroData, UpdateMacroData } from '@/modules/Roleplay/Game/Interface/IMacroApi';
+import type { IMacroApi } from '@/modules/Roleplay/Game/Interface/IMacroApi';
+import type { CreateMacroData } from '@/modules/Roleplay/Game/Dto/CreateMacroData';
+import type { UpdateMacroData } from '@/modules/Roleplay/Game/Dto/UpdateMacroData';
 import type { UserMacro } from '@/modules/Roleplay/Game/Dto/UserMacro';
 
 export class MacroApi implements IMacroApi {

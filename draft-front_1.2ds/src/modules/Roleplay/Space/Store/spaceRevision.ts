@@ -2,22 +2,15 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import type { SpaceRevisionMeta } from '@/modules/Roleplay/Space/Dto/SpaceRevisionMeta';
 import type { SpaceRevision } from '@/modules/Roleplay/Space/Dto/SpaceRevision';
+import type { RevisionKind } from '@/modules/Roleplay/Space/Enum/RevisionKind';
+import type { RevisionContext } from '@/modules/Roleplay/Space/Dto/RevisionContext';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { getSpaceApi } from '@/modules/Roleplay/Space/init';
 import { useDraftRuleStore } from '@/modules/Roleplay/Rule/Store/draftRules';
 
-export type RevisionKind = 'draft' | 'rev';
-
-export interface RevisionContext {
-  spaceId: number | null;
-  revision: number | null;
-  kind: RevisionKind;
-}
-
 export const useSpaceRevisionStore = defineStore('spaceRevision', () => {
   const revisionsMeta = ref<Map<number, SpaceRevisionMeta[]>>(new Map());
   const cachedRevisions = ref<Map<string, SpaceRevision<Rule>>>(new Map());
-  const loading = ref(false);
 
   const activeContext = ref<RevisionContext>({ spaceId: null, revision: null, kind: 'rev' });
 
@@ -63,15 +56,10 @@ export const useSpaceRevisionStore = defineStore('spaceRevision', () => {
     const cached = cachedRevisions.value.get(key);
     if (cached) return cached;
 
-    loading.value = true;
-    try {
-      const rev = await getSpaceApi().getRevision(spaceId, revision, signal);
-      cachedRevisions.value.set(key, rev);
+    const rev = await getSpaceApi().getRevision(spaceId, revision, signal);
+    cachedRevisions.value.set(key, rev);
 
-      return rev;
-    } finally {
-      loading.value = false;
-    }
+    return rev;
   }
 
   async function resolveLatestRevision(spaceId: number, signal?: AbortSignal): Promise<number> {
@@ -103,16 +91,11 @@ export const useSpaceRevisionStore = defineStore('spaceRevision', () => {
     activeContext.value = { spaceId: null, revision: null, kind: 'rev' };
   }
 
-  function invalidateCache(spaceId: number, revision: number) {
-    cachedRevisions.value.delete(cacheKey(spaceId, revision));
-    revisionsMeta.value.delete(spaceId);
-  }
-
   async function commitDraft(spaceId: number, rules: Rule[], signal?: AbortSignal): Promise<SpaceRevision<Rule>> {
     const result = await getSpaceApi().commitDraft(spaceId, rules, signal);
     cachedRevisions.value.set(cacheKey(spaceId, result.revision), result);
-    revisionsMeta.value.delete(spaceId);
     activeContext.value = { spaceId, revision: result.revision, kind: 'rev' };
+    await fetchRevisionsMeta(spaceId, signal);
 
     return result;
   }
@@ -120,7 +103,6 @@ export const useSpaceRevisionStore = defineStore('spaceRevision', () => {
   return {
     revisionsMeta,
     cachedRevisions,
-    loading,
     activeContext,
     activeRevision,
     effectiveRules,
@@ -129,7 +111,6 @@ export const useSpaceRevisionStore = defineStore('spaceRevision', () => {
     resolveLatestRevision,
     syncFromContext,
     clearContext,
-    invalidateCache,
     commitDraft,
   };
 });

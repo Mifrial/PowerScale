@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import type { Component } from 'vue';
-import type { FilterField } from '@/modules/Core/UI/Dto/FilterField';
-import type { FilterValue } from '@/modules/Core/UI/Dto/FilterValue';
-import { getFilterHandler } from '@/modules/Core/UI/Component/FilterBar/registry';
+import type { FilterField } from '@/modules/Core/UI/Dto/Filter/Field';
+import type { FilterValue } from '@/modules/Core/UI/Dto/Filter/Values/FilterValue';
+import { fieldTypeRegistry } from '@/modules/Core/UI/Service/Instance/fieldTypeRegistry';
 import FieldPickerDialog from '@/modules/Core/UI/Component/FieldPickerDialog.vue';
-import type { PickerItem } from '@/modules/Core/UI/Dto/PickerItem';
+import type { PickerItem } from '@/modules/Core/UI/Dto/Field/PickerItem';
 
 defineProps<{
   fields: FilterField[];
@@ -25,7 +25,7 @@ defineEmits<{
 }>();
 
 function handlerComponent(type: string): Component | undefined {
-  return getFilterHandler(type)?.component;
+  return fieldTypeRegistry.get(type)?.filterWidget;
 }
 </script>
 

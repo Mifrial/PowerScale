@@ -4,6 +4,7 @@ import type { ArmorBlock } from '@/modules/Roleplay/Rule/Dto/Item/ArmorBlock';
 import DefenseSlotsEditor from '@/modules/Roleplay/Rule/Component/DefenseSlotsEditor.vue';
 import ResistanceSlotsEditor from '@/modules/Roleplay/Rule/Component/ResistanceSlotsEditor.vue';
 import CharacteristicLimitsEditor from '@/modules/Roleplay/Rule/Component/CharacteristicLimitsEditor.vue';
+import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
 
 const props = defineProps<{
   armor: ArmorBlock;
@@ -17,13 +18,13 @@ const emit = defineEmits<{
   'update:armor': [value: ArmorBlock];
 }>();
 
-const inner = ref<ArmorBlock>(structuredClone(props.armor));
+const inner = ref<ArmorBlock>(cloneData(props.armor));
 
 watch(
   () => props.armor,
   (value) => {
     if (JSON.stringify(value) !== JSON.stringify(inner.value)) {
-      inner.value = structuredClone(value);
+      inner.value = cloneData(value);
     }
   },
   { deep: true },
@@ -32,7 +33,7 @@ watch(
 watch(
   inner,
   (value) => {
-    emit('update:armor', structuredClone(value));
+    emit('update:armor', cloneData(value));
   },
   { deep: true },
 );

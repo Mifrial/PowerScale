@@ -23,5 +23,3 @@ export class AccessService {
     return keys.every((k) => perms.includes(k));
   }
 }
-
-export const accessService = new AccessService();

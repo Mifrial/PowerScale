@@ -1,5 +1,7 @@
 import type { Engine } from '@/modules/Core/Engine/Service/Engine';
-import type { IUserApi, CreateUserData, UpdateUserData } from '@/modules/Core/User/Interface/IUserApi';
+import type { IUserApi } from '@/modules/Core/User/Interface/IUserApi';
+import type { CreateUserData } from '@/modules/Core/User/Dto/CreateUserData';
+import type { UpdateUserData } from '@/modules/Core/User/Dto/UpdateUserData';
 import type { User } from '@/modules/Core/User/Dto/User';
 
 export class UserApi implements IUserApi {

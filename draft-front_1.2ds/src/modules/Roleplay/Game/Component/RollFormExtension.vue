@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec';
-import type { ChatToolbarContext } from '@/modules/Messages/Chat/Interface/IChatToolbarExtension';
+import type { ChatToolbarContext } from '@/modules/Messages/Chat/Dto/ChatToolbarContext';
+import { ROLL_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ATTACHMENT_TYPE';
 import DiceRollForm from '@/modules/Roleplay/Game/Component/DiceRollForm.vue';
 
 const props = defineProps<ChatToolbarContext>();
@@ -9,27 +10,22 @@ const props = defineProps<ChatToolbarContext>();
 const showForm = ref(false);
 
 function add(spec: DiceRollSpec) {
-  props.addRoll(spec);
+  props.addAttachment({ type: ROLL_ATTACHMENT_TYPE, payload: spec });
   showForm.value = false;
 }
 </script>
 
 <template>
-  <div class="roll-form-extension">
-    <div class="roll-form-toggle">
-      <v-btn icon variant="tonal" size="x-small" :disabled="disabled" @click="showForm = !showForm">
-        <v-icon size="16">mdi-dice-d6-outline</v-icon>
+  <v-menu v-model="showForm" :close-on-content-click="false" location="top end">
+    <template #activator="{ props: menuProps }">
+      <v-btn v-bind="menuProps" icon variant="text" size="x-small" :disabled="disabled" aria-label="Бросок кубиков">
+        <v-icon>mdi-dice-d6-outline</v-icon>
       </v-btn>
-    </div>
-    <DiceRollForm v-model="showForm" @add="add" />
-  </div>
+    </template>
+    <v-card min-width="460" max-width="540" elevation="8" border>
+      <v-card-text class="pa-2">
+        <DiceRollForm v-model="showForm" @add="add" />
+      </v-card-text>
+    </v-card>
+  </v-menu>
 </template>
-
-<style scoped>
-.roll-form-extension {
-  padding: 4px 0;
-}
-.roll-form-toggle {
-  display: inline-flex;
-}
-</style>

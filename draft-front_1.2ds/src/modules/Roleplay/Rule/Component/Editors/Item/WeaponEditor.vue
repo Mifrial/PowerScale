@@ -5,7 +5,8 @@ import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/Dimensiona
 import BlockProfileEditor from '@/modules/Roleplay/Rule/Component/BlockProfileEditor.vue';
 import WeaponProfileEditor from '@/modules/Roleplay/Rule/Component/WeaponProfileEditor.vue';
 import { WEAPON_PROFILE_TYPES } from '@/modules/Roleplay/Rule/Constant/Item/WEAPON_PROFILE_TYPES';
-import { itemSpecService } from '@/modules/Roleplay/Rule/Service/Spec/ItemSpecService';
+import { itemSpecService } from '@/modules/Roleplay/Rule/Service/Instance/itemSpecService';
+import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
 
 const props = defineProps<{
   weapon: WeaponBlock;
@@ -19,14 +20,14 @@ const emit = defineEmits<{
   'update:weapon': [value: WeaponBlock];
 }>();
 
-const inner = ref<WeaponBlock>(structuredClone(props.weapon));
+const inner = ref<WeaponBlock>(cloneData(props.weapon));
 const expandedProfiles = ref<number[]>([]);
 
 watch(
   () => props.weapon,
   (value) => {
     if (JSON.stringify(value) !== JSON.stringify(inner.value)) {
-      inner.value = structuredClone(value);
+      inner.value = cloneData(value);
     }
   },
   { deep: true },
@@ -35,7 +36,7 @@ watch(
 watch(
   inner,
   (value) => {
-    emit('update:weapon', structuredClone(value));
+    emit('update:weapon', cloneData(value));
   },
   { deep: true },
 );
@@ -57,7 +58,7 @@ function removeProfile(index: number) {
 
 <template>
   <div>
-    <DimensionalNumberInput v-model="inner.min_strength" label="Минимальная сила" mode="characteristic" />
+    <DimensionalNumberInput v-model="inner.min_strength" label="Минимальная сила" :min="3" :max="5" />
 
     <BlockProfileEditor v-model="inner.block_profile" :damage-types="damageTypes" :sources="sources" />
 

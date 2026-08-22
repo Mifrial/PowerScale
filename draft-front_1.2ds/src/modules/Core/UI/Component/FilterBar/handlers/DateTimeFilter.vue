@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
-import type { FilterField } from '@/modules/Core/UI/Dto/FilterField';
-import type { FilterValue, DateTimeFilterValue } from '@/modules/Core/UI/Dto/FilterValue';
+import type { FilterField } from '@/modules/Core/UI/Dto/Filter/Field';
+import type { FilterValue } from '@/modules/Core/UI/Dto/Filter/Values/FilterValue';
+import type { DateTimeFilterValue } from '@/modules/Core/UI/Dto/Filter/Values/DateTimeFilterValue';
 import DateTimeInput from '@/modules/Core/UI/Component/Input/DateTimeInput.vue';
-import { FILTER_RANGE_MODE_OPTIONS } from '@/modules/Core/UI/Constant/filterModeOptions';
+import { FILTER_RANGE_MODE_OPTIONS } from '@/modules/Core/UI/Constant/Filter/Modes/rangeOptions';
 
 const props = defineProps<{
   field: FilterField;

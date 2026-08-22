@@ -1,9 +1,7 @@
 import type { Engine } from '@/modules/Core/Engine/Service/Engine';
-import type {
-  INotificationTemplateApi,
-  CreateTemplateData,
-  UpdateTemplateData,
-} from '@/modules/Messages/Notifications/Interface/INotificationTemplateApi';
+import type { INotificationTemplateApi } from '@/modules/Messages/Notifications/Interface/INotificationTemplateApi';
+import type { CreateTemplateData } from '@/modules/Messages/Notifications/Dto/CreateTemplateData';
+import type { UpdateTemplateData } from '@/modules/Messages/Notifications/Dto/UpdateTemplateData';
 import type { NotificationTemplate } from '@/modules/Messages/Notifications/Dto/NotificationTemplate';
 
 export class NotificationTemplateApi implements INotificationTemplateApi {

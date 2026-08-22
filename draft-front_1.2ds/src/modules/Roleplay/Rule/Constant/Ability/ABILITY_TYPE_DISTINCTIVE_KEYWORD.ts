@@ -8,4 +8,5 @@ export const ABILITY_TYPE_DISTINCTIVE_KEYWORD: Record<AbilityType, string> = {
   action: 'action',
   process: 'process',
   spell: 'spell',
+  group: 'group',
 };

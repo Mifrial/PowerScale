@@ -1,27 +1,8 @@
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-
-/** Классификация правил черновика относительно последней опубликованной ревизии. */
-export interface PublishDiff {
-  /** Новые: есть в черновике, нет в published. */
-  added: Rule[];
-  /** Изменённые: есть в published и контент отличается. */
-  changed: Rule[];
-}
-
-export interface ProblemEntry {
-  ruleCode: string;
-  ruleName: string;
-  messages: string[];
-}
+import type { PublishDiff } from '@/modules/Roleplay/Rule/Dto/PublishDiff';
+import type { ProblemEntry } from '@/modules/Roleplay/Rule/Dto/ProblemEntry';
 
 export class RuleDiffService {
-  /** Содержимое правила без служебных временных полей (created/updatedAt). */
-  private static ruleContent(rule: Rule): string {
-    const { id, code, type, name, description, spec, keywordIds, mechanicId } = rule;
-
-    return JSON.stringify({ id, code, type, name, description, spec, keywordIds, mechanicId });
-  }
-
   classifyDraftDiff(published: Rule[], draft: Rule[]): PublishDiff {
     const publishedById = new Map(published.map((r) => [r.id, r]));
     const added: Rule[] = [];
@@ -30,12 +11,62 @@ export class RuleDiffService {
       const pub = publishedById.get(d.id);
       if (!pub) {
         added.push(d);
-      } else if (RuleDiffService.ruleContent(d) !== RuleDiffService.ruleContent(pub)) {
+      } else if (!RuleDiffService.sameContent(d, pub)) {
         changed.push(d);
       }
     }
 
     return { added, changed };
+  }
+
+  /** Каноническое сравнение содержимого правила без служебных временных полей (created/updatedAt). */
+  private static sameContent(a: Rule, b: Rule): boolean {
+    const aContent = {
+      id: a.id,
+      code: a.code,
+      type: a.type,
+      name: a.name,
+      description: a.description,
+      spec: a.spec,
+      keywordIds: a.keywordIds,
+      mechanicId: a.mechanicId,
+    };
+    const bContent = {
+      id: b.id,
+      code: b.code,
+      type: b.type,
+      name: b.name,
+      description: b.description,
+      spec: b.spec,
+      keywordIds: b.keywordIds,
+      mechanicId: b.mechanicId,
+    };
+
+    return RuleDiffService.deepEqual(aContent, bContent);
+  }
+
+  private static deepEqual(a: unknown, b: unknown): boolean {
+    if (a === b) return true;
+    if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false;
+    if (Array.isArray(a) !== Array.isArray(b)) return false;
+    if (Array.isArray(a)) {
+      const aa = a as unknown[];
+      const bb = b as unknown[];
+      if (aa.length !== bb.length) return false;
+
+      return aa.every((v, i) => RuleDiffService.deepEqual(v, bb[i]));
+    }
+
+    const aEntries = Object.entries(a as Record<string, unknown>).filter(([, v]) => v !== undefined);
+    const bEntries = Object.entries(b as Record<string, unknown>).filter(([, v]) => v !== undefined);
+    if (aEntries.length !== bEntries.length) return false;
+
+    for (const [key, value] of aEntries) {
+      const bValue = (b as Record<string, unknown>)[key];
+      if (bValue === undefined || !RuleDiffService.deepEqual(value, bValue)) return false;
+    }
+
+    return true;
   }
 
   /** Группирует ошибки валидации по правилу (ruleCode). */
@@ -55,5 +86,3 @@ export class RuleDiffService {
     return [...byCode.values()];
   }
 }
-
-export const ruleDiffService = new RuleDiffService();

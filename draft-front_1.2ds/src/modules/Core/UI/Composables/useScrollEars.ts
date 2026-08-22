@@ -1,23 +1,14 @@
 import { ref } from 'vue';
-import type { Ref } from 'vue';
+import type { ScrollEarsApi } from '@/modules/Core/UI/Interface/Grid/ScrollEarsApi';
+import type { ScrollEarsScope } from '@/modules/Core/UI/Interface/Grid/ScrollEarsScope';
 
-export interface ScrollEarsApi {
-  tableScrollEl: Ref<HTMLElement | null>;
-  earsLeft: Ref<boolean>;
-  earsRight: Ref<boolean>;
-  updateEars: () => void;
-  scroll: (dir: -1 | 1) => void;
-  initEars: () => void;
-  cleanup: () => void;
-}
-
-export function useScrollEars(scope: { scrollContainer: Ref<HTMLElement | null> }): ScrollEarsApi {
-  const tableScrollEl = ref<HTMLElement | null>(null);
+export function useScrollEars(scope: ScrollEarsScope): ScrollEarsApi {
+  const scrollEl = ref<HTMLElement | null>(null);
   const earsLeft = ref(false);
   const earsRight = ref(false);
 
   function updateEars() {
-    const el = tableScrollEl.value;
+    const el = scrollEl.value;
     if (!el) {
       earsLeft.value = false;
       earsRight.value = false;
@@ -29,28 +20,39 @@ export function useScrollEars(scope: { scrollContainer: Ref<HTMLElement | null> 
   }
 
   function scroll(dir: -1 | 1) {
-    const el = tableScrollEl.value;
+    const el = scrollEl.value;
     if (!el) return;
     el.scrollBy({ left: dir * 300, behavior: 'smooth' });
   }
 
   function initEars() {
     const container = scope.scrollContainer.value;
-    if (!container) return;
-    const el = container.querySelector<HTMLElement>('.v-table__wrapper');
-    if (!el || el === tableScrollEl.value) return;
-    if (tableScrollEl.value) {
-      tableScrollEl.value.removeEventListener('scroll', updateEars);
+    if (!container) {
+      updateEars();
+
+      return;
     }
-    tableScrollEl.value = el;
-    el.addEventListener('scroll', updateEars);
+
+    const target = scope.scrollSelector ? container.querySelector<HTMLElement>(scope.scrollSelector) : container;
+    if (!target) {
+      updateEars();
+
+      return;
+    }
+    if (target !== scrollEl.value) {
+      if (scrollEl.value) {
+        scrollEl.value.removeEventListener('scroll', updateEars);
+      }
+      scrollEl.value = target;
+      target.addEventListener('scroll', updateEars);
+    }
 
     const wrapper = container.closest<HTMLElement>('.smart-ears-wrapper');
     if (wrapper) {
-      const headerEl = container.querySelector<HTMLElement>('thead');
-      const footerEl = container.querySelector<HTMLElement>('.smart-grid-footer');
-      const top = headerEl?.offsetHeight ?? 44;
-      const bottom = footerEl?.offsetHeight ?? 0;
+      const topEl = scope.topSelector ? container.querySelector<HTMLElement>(scope.topSelector) : null;
+      const bottomEl = scope.bottomSelector ? container.querySelector<HTMLElement>(scope.bottomSelector) : null;
+      const top = topEl?.offsetHeight ?? 44;
+      const bottom = bottomEl?.offsetHeight ?? 0;
       wrapper.style.setProperty('--ear-top', `${top + 2}px`);
       wrapper.style.setProperty('--ear-bottom', `${bottom + 2}px`);
     }
@@ -59,10 +61,10 @@ export function useScrollEars(scope: { scrollContainer: Ref<HTMLElement | null> 
   }
 
   function cleanup() {
-    if (tableScrollEl.value) {
-      tableScrollEl.value.removeEventListener('scroll', updateEars);
+    if (scrollEl.value) {
+      scrollEl.value.removeEventListener('scroll', updateEars);
     }
   }
 
-  return { tableScrollEl, earsLeft, earsRight, updateEars, scroll, initEars, cleanup };
+  return { scrollEl, earsLeft, earsRight, updateEars, scroll, initEars, cleanup };
 }

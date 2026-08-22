@@ -6,41 +6,26 @@ import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { useGridPage } from '@/modules/Core/UI/Composables/useGridPage';
 import FilterBar from '@/modules/Core/UI/Component/FilterBar.vue';
 import SmartGrid from '@/modules/Core/UI/Component/Grid/SmartGrid.vue';
-import { columns, filterFields } from '@/modules/Core/User/Constant/usersGridManifest';
-import type { Row } from '@/modules/Core/UI/Dto/Row';
-import type { FilterValue } from '@/modules/Core/UI/Dto/FilterValue';
-import { extractFilterValue, extractStringFilter } from '@/modules/Core/UI/Utils/filterExtract';
+import { columns } from '@/modules/Core/User/Constant/Grid/users/columns';
+import { filterFields } from '@/modules/Core/User/Constant/Grid/users/filterFields';
 
 const router = useRouter();
 const store = useUserStore();
 const { signal } = useAbortable();
 
-const {
-  sort,
-  pagination,
-  appliedFilters,
-  pageRows,
-  onSortChange,
-  onPaginationChange,
-  onFilterChange: gridFilterChange,
-} = useGridPage(() => store.filteredUsers);
+const { sort, pagination, appliedFilters, pageRows, total, onSortChange, onPaginationChange, onFilterChange } =
+  useGridPage({
+    getItems: () => store.users,
+    fields: filterFields,
+    columns,
+    searchFields: ['name', 'surname', 'nickname', 'login', 'email'],
+  });
 
 onMounted(() => store.fetchUsers(signal.value));
 
-function onFilterChange(filters: Record<string, FilterValue>) {
-  gridFilterChange(filters);
-  store.quickFilter = extractFilterValue(filters.q);
-  store.filterName = extractStringFilter(filters.name);
-  store.filterSurname = extractStringFilter(filters.surname);
-  store.filterNickname = extractStringFilter(filters.nickname);
-  store.filterLogin = extractStringFilter(filters.login);
-  store.filterEmail = extractStringFilter(filters.email);
-  store.filterActive = extractFilterValue(filters.active);
-  store.filterLastLogin = extractFilterValue(filters.lastLogin);
-}
-
-function onRowAction(payload: { action: string; row: Row }) {
-  if (payload.action === 'view-profile' && 'id' in payload.row) {
+function onRowAction(payload: { action: string; row: Record<string, unknown> }) {
+  const isOpen = payload.action === 'open' || payload.action === 'view-profile';
+  if (isOpen && 'id' in payload.row) {
     router.push(`/users/${payload.row.id}`);
   }
 }
@@ -63,9 +48,10 @@ function onRowAction(payload: { action: string; row: Row }) {
       :columns="columns"
       :rows="pageRows"
       :pagination="pagination"
-      :total="store.filteredUsers.length"
+      :total="total"
       :sort="sort"
       :loading="store.loading"
+      :row-menu="[{ action: 'view-profile', label: 'Посмотреть профиль', icon: 'mdi-account-outline' }]"
       @update:sort="onSortChange"
       @update:pagination="onPaginationChange"
       @row-action="onRowAction"

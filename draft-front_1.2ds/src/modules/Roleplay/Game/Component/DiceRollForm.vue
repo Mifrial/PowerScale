@@ -2,6 +2,14 @@
 import { ref, computed } from 'vue';
 import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec';
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
+import { ROLL_DICE_COUNT_MAX } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_DICE_COUNT_MAX';
+import { ROLL_DICE_COUNT_MIN } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_DICE_COUNT_MIN';
+import { ROLL_DIE_FACES_MAX } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_DIE_FACES_MAX';
+import { ROLL_DIE_FACES_MIN } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_DIE_FACES_MIN';
+import { ROLL_DIE_SIZE_MAX } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_DIE_SIZE_MAX';
+import { ROLL_EFFICIENCY_MAX } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_EFFICIENCY_MAX';
+import { ROLL_EFFICIENCY_MIN } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_EFFICIENCY_MIN';
+import { ROLL_ADV_MAX } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ADV_MAX';
 
 defineProps<{ modelValue: boolean }>();
 const emit = defineEmits<{
@@ -63,8 +71,8 @@ function close() {
       <div class="roll-inline">
         <ClampedNumberField
           v-model="diceCount"
-          :min="1"
-          :max="30"
+          :min="ROLL_DICE_COUNT_MIN"
+          :max="ROLL_DICE_COUNT_MAX"
           density="compact"
           hide-details
           class="roll-inline-num"
@@ -72,8 +80,8 @@ function close() {
         <span>d</span>
         <ClampedNumberField
           v-model="dieFaces"
-          :min="2"
-          :max="100"
+          :min="ROLL_DIE_FACES_MIN"
+          :max="ROLL_DIE_FACES_MAX"
           density="compact"
           hide-details
           class="roll-inline-num"
@@ -81,14 +89,21 @@ function close() {
         <span> при </span>
         <ClampedNumberField
           v-model="efficiency"
-          :min="1"
-          :max="6"
+          :min="ROLL_EFFICIENCY_MIN"
+          :max="ROLL_EFFICIENCY_MAX"
           density="compact"
           hide-details
           class="roll-inline-num"
         />
         <span> эффективности с </span>
-        <ClampedNumberField v-model="adv" :min="-10" :max="10" density="compact" hide-details class="roll-inline-num" />
+        <ClampedNumberField
+          v-model="adv"
+          :min="-ROLL_ADV_MAX"
+          :max="ROLL_ADV_MAX"
+          density="compact"
+          hide-details
+          class="roll-inline-num"
+        />
         <span> преимуществами</span>
         <div class="ml-2 d-flex ga-1">
           <v-btn icon variant="text" size="x-small" :disabled="!valid" @click="add">
@@ -103,8 +118,8 @@ function close() {
         <span class="text-caption">Размерность</span>
         <ClampedNumberField
           v-model="dieSize"
-          :min="0"
-          :max="10"
+          :min="-ROLL_DIE_SIZE_MAX"
+          :max="ROLL_DIE_SIZE_MAX"
           density="compact"
           hide-details
           class="roll-inline-num"

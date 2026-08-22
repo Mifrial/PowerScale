@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec';
-import { rollService, type DiceRng } from '@/modules/Roleplay/Game/Service/RollService';
+import { rollService } from '@/modules/Roleplay/Game/Service/Instance/rollService';
+import type { DiceRng } from '@/modules/Roleplay/Game/Dto/DiceRng';
 
 function spec(partial: Partial<DiceRollSpec>): DiceRollSpec {
   return { diceCount: 4, dieFaces: 6, efficiency: 3, adv: 0, dieSize: 0, ...partial };

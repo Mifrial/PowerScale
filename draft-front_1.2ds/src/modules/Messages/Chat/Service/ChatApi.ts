@@ -3,7 +3,9 @@ import type { Engine } from '@/modules/Core/Engine/Service/Engine';
 import type { Chat } from '@/modules/Messages/Chat/Dto/Chat';
 import type { ChatMessage } from '@/modules/Messages/Chat/Dto/ChatMessage';
 import type { SyncResponse } from '@/modules/Messages/Chat/Dto/SyncResponse';
-import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec';
+import type { ChatAttachment } from '@/modules/Messages/Chat/Dto/ChatAttachment';
+import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
+import type { ChatMessageVisibility } from '@/modules/Messages/Chat/Dto/ChatMessageVisibility';
 
 export class ChatApi implements IChatApi {
   constructor(private readonly engine: Engine) {}
@@ -22,6 +24,13 @@ export class ChatApi implements IChatApi {
     return res.data;
   }
 
+  async getMessagesBefore(chatId: number, beforeId: number, limit: number): Promise<ChatMessage[]> {
+    const res = await this.engine.runAction<ChatMessage[]>('chat.getMessages', { chatId, beforeId, limit });
+    if (!res.success || !res.data) throw new Error(res.error?.message ?? 'Failed to load messages');
+
+    return res.data;
+  }
+
   async getTotalMessageCount(chatId: number): Promise<number> {
     const res = await this.engine.runAction<number>('chat.getTotalMessageCount', { chatId });
     if (!res.success || res.data === null) throw new Error(res.error?.message ?? 'Failed to get message count');
@@ -29,9 +38,43 @@ export class ChatApi implements IChatApi {
     return res.data;
   }
 
-  async sendMessage(chatId: number, content: string, rolls: DiceRollSpec[]): Promise<ChatMessage> {
-    const res = await this.engine.runAction<ChatMessage>('chat.sendMessage', { chatId, content, rolls });
+  async sendMessage(
+    chatId: number,
+    content: string,
+    attachments: ChatAttachment[],
+    speaker?: ChatSpeaker,
+    visibility?: ChatMessageVisibility,
+  ): Promise<ChatMessage> {
+    const res = await this.engine.runAction<ChatMessage>('chat.sendMessage', {
+      chatId,
+      content,
+      attachments,
+      speaker,
+      visibility,
+    });
     if (!res.success || !res.data) throw new Error(res.error?.message ?? 'Failed to send message');
+
+    return res.data;
+  }
+
+  async updateMessageVisibility(
+    chatId: number,
+    messageId: number,
+    visibility?: ChatMessageVisibility,
+  ): Promise<ChatMessage> {
+    const res = await this.engine.runAction<ChatMessage>('chat.updateMessageVisibility', {
+      chatId,
+      messageId,
+      visibility,
+    });
+    if (!res.success || !res.data) throw new Error(res.error?.message ?? 'Failed to update message visibility');
+
+    return res.data;
+  }
+
+  async sendSystemMessage(chatId: number, content: string, kind?: ChatMessage['kind']): Promise<ChatMessage> {
+    const res = await this.engine.runAction<ChatMessage>('chat.sendSystemMessage', { chatId, content, kind });
+    if (!res.success || !res.data) throw new Error(res.error?.message ?? 'Failed to send system message');
 
     return res.data;
   }

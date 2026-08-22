@@ -4,6 +4,7 @@ import * as mock from '@/modules/Core/User/Mock/mockGroups';
 export const mockGroupApi: IGroupApi = {
   getGroups: mock.fetchGroups,
   getGroup: mock.fetchGroup,
+  getGroupMembers: mock.getGroupMembers,
   createGroup: mock.createGroup,
   updateGroup: mock.updateGroup,
   deactivateGroup: mock.deactivateGroup,

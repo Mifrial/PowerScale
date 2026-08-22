@@ -6,37 +6,26 @@ import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { useGridPage } from '@/modules/Core/UI/Composables/useGridPage';
 import FilterBar from '@/modules/Core/UI/Component/FilterBar.vue';
 import SmartGrid from '@/modules/Core/UI/Component/Grid/SmartGrid.vue';
-import { columns, filterFields } from '@/modules/Roleplay/Rule/Constant/keywordsGridManifest';
-import type { Row } from '@/modules/Core/UI/Dto/Row';
-import type { FilterValue } from '@/modules/Core/UI/Dto/FilterValue';
-import { extractFilterValue } from '@/modules/Core/UI/Utils/filterExtract';
+import { columns } from '@/modules/Roleplay/Rule/Constant/Grid/keywords/columns';
+import { filterFields } from '@/modules/Roleplay/Rule/Constant/Grid/keywords/filterFields';
 
 const router = useRouter();
 const store = useKeywordStore();
 const { signal } = useAbortable();
 
-const {
-  sort,
-  pagination,
-  appliedFilters,
-  pageRows,
-  onSortChange,
-  onPaginationChange,
-  onFilterChange: gridFilterChange,
-} = useGridPage(() => store.filteredTags);
+const { sort, pagination, appliedFilters, pageRows, total, onSortChange, onPaginationChange, onFilterChange } =
+  useGridPage({
+    getItems: () => store.keywords,
+    fields: filterFields,
+    columns,
+  });
 
 onMounted(() => store.fetchTags(signal.value));
 
-function onFilterChange(filters: Record<string, FilterValue>) {
-  gridFilterChange(filters);
-  store.filterName = extractFilterValue(filters.name);
-  store.filterActive = filters.active !== undefined ? String(filters.active) : '';
-}
-
-function onRowAction(payload: { action: string; row: Row }) {
+function onRowAction(payload: { action: string; row: Record<string, unknown> }) {
   if ('id' in payload.row) {
     const id = payload.row.id;
-    if (payload.action === 'view-profile') {
+    if (payload.action === 'open' || payload.action === 'view-profile') {
       router.push(`/admin/keywords/${id}/edit`);
     }
   }
@@ -58,15 +47,23 @@ function onRowAction(payload: { action: string; row: Row }) {
       @update:model-value="onFilterChange"
     />
 
+    <v-alert v-if="store.error" type="error" class="mt-4">
+      {{ store.error }}
+      <template #append>
+        <v-btn size="small" variant="tonal" @click="store.fetchTags(signal)">Повторить</v-btn>
+      </template>
+    </v-alert>
+
     <SmartGrid
       class="mt-4"
       grid-id="keywords-list"
       :columns="columns"
       :rows="pageRows"
       :pagination="pagination"
-      :total="store.filteredTags.length"
+      :total="total"
       :sort="sort"
       :loading="store.loading"
+      :row-menu="[{ action: 'view-profile', label: 'Посмотреть профиль', icon: 'mdi-account-outline' }]"
       @update:sort="onSortChange"
       @update:pagination="onPaginationChange"
       @row-action="onRowAction"

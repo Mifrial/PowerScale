@@ -3,8 +3,10 @@ import { computed } from 'vue';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { RaceSpec } from '@/modules/Roleplay/Rule/Dto/Race/RaceSpec';
 import type { RacePurchaseLevel } from '@/modules/Roleplay/Rule/Dto/Race/RacePurchaseLevel';
+import type { RaceAbilityRef } from '@/modules/Roleplay/Rule/Dto/Race/RaceAbilityRef';
 import type { InheritedAbilityRef } from '@/modules/Roleplay/Rule/Dto/Race/InheritedAbilityRef';
-import { raceSpecService } from '@/modules/Roleplay/Rule/Service/Spec/RaceSpecService';
+import { raceSpecService } from '@/modules/Roleplay/Rule/Service/Instance/raceSpecService';
+import { parameterLimitName } from '@/modules/Roleplay/Rule/Utils/parameterLimitName';
 
 const props = defineProps<{
   rule: Rule;
@@ -47,6 +49,10 @@ function characteristicName(code: string): string {
 
 function abilityName(code: string): string {
   return rulesByCode.value.get(code)?.name ?? code;
+}
+
+function refLabel(code: string, parameters?: RaceAbilityRef['parameters']): string {
+  return parameterLimitName(abilityName(code), parameters);
 }
 
 function formatDimensional(v: { base: number; size: number }): string {
@@ -107,7 +113,7 @@ function purchaseLabel(purchase: RacePurchaseLevel[]): string {
           variant="tonal"
           class="mr-2 mb-2"
         >
-          {{ abilityName(ref.ability_code) }}
+          {{ refLabel(ref.ability_code, ref.parameters) }}
           <v-chip v-if="!ref.automatic" size="x-small" variant="text" label> доступная </v-chip>
         </v-chip>
       </v-card-text>
@@ -117,7 +123,7 @@ function purchaseLabel(purchase: RacePurchaseLevel[]): string {
       <v-card-text>
         <div class="text-subtitle-2 mb-1">Наследуемые способности (от предков)</div>
         <v-chip v-for="(ref, index) in inheritedAbilities" :key="index" size="small" variant="tonal" class="mr-2 mb-2">
-          {{ abilityName(ref.ability_code) }} · от «{{ ref.fromName }}»
+          {{ refLabel(ref.ability_code, ref.parameters) }} · от «{{ ref.fromName }}»
         </v-chip>
       </v-card-text>
     </v-card>

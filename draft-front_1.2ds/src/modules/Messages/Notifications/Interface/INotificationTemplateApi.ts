@@ -1,18 +1,6 @@
 import type { NotificationTemplate } from '@/modules/Messages/Notifications/Dto/NotificationTemplate';
-
-export interface CreateTemplateData {
-  key: string;
-  titleTemplate: string;
-  bodyTemplate: string;
-  buttonsJson?: NotificationTemplate['buttonsJson'];
-}
-
-export interface UpdateTemplateData {
-  key?: string;
-  titleTemplate?: string;
-  bodyTemplate?: string;
-  buttonsJson?: NotificationTemplate['buttonsJson'];
-}
+import type { CreateTemplateData } from '@/modules/Messages/Notifications/Dto/CreateTemplateData';
+import type { UpdateTemplateData } from '@/modules/Messages/Notifications/Dto/UpdateTemplateData';
 
 export interface INotificationTemplateApi {
   getTemplates(signal?: AbortSignal): Promise<NotificationTemplate[]>;

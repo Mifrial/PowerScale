@@ -3,8 +3,8 @@ import { useVModelSync } from '@/modules/Core/UI/Composables/useVModelSync';
 import type { ProcessStep } from '@/modules/Roleplay/Rule/Dto/Ability/ProcessStep';
 import type { ProcessSpec } from '@/modules/Roleplay/Rule/Dto/Ability/ProcessSpec';
 import type { ResourceRef } from '@/modules/Roleplay/Rule/Dto/Ability/ResourceRef';
-import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumber';
-import { processSpecService } from '@/modules/Roleplay/Rule/Service/Spec/ProcessSpecService';
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
+import { processSpecService } from '@/modules/Roleplay/Rule/Service/Instance/processSpecService';
 import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue';
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
 

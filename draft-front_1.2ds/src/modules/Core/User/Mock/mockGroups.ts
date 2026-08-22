@@ -1,8 +1,11 @@
 import type { Group } from '@/modules/Core/User/Dto/Group';
-import type { CreateGroupData, UpdateGroupData } from '@/modules/Core/User/Interface/IGroupApi';
-import { GROUP_PERMISSIONS, groupPermissions } from '@/modules/Core/User/Mock/groupPermissions';
-
-const delay = (ms = 300) => new Promise((r) => setTimeout(r, ms));
+import type { GroupMember } from '@/modules/Core/User/Dto/GroupMember';
+import type { CreateGroupData } from '@/modules/Core/User/Dto/CreateGroupData';
+import type { UpdateGroupData } from '@/modules/Core/User/Dto/UpdateGroupData';
+import { GROUP_PERMISSIONS } from '@/modules/Core/User/Mock/GROUP_PERMISSIONS';
+import { groupPermissions } from '@/modules/Core/User/Mock/groupPermissions';
+import { abortableDelay } from '@/modules/Core/Engine/Mock/abortableDelay';
+import { mockGroupMembers } from '@/modules/Core/User/Mock/mockGroupMembers';
 
 let nextId = 4;
 
@@ -38,22 +41,28 @@ function resolveGroupPermissions(g: Group): string[] {
   return g.name === 'Администраторы' ? groupPermissions(g.name) : [...g.permissions];
 }
 
-export async function fetchGroups(_signal?: AbortSignal): Promise<Group[]> {
-  await delay();
+export async function fetchGroups(signal?: AbortSignal): Promise<Group[]> {
+  await abortableDelay(300, signal);
 
   return groups.map((g) => ({ ...g, permissions: resolveGroupPermissions(g) }));
 }
 
-export async function fetchGroup(id: number, _signal?: AbortSignal): Promise<Group> {
-  await delay();
+export async function fetchGroup(id: number, signal?: AbortSignal): Promise<Group> {
+  await abortableDelay(300, signal);
   const g = groups.find((g) => g.id === id);
   if (!g) throw new Error(`Group ${id} not found`);
 
   return { ...g, permissions: resolveGroupPermissions(g) };
 }
 
-export async function createGroup(data: CreateGroupData, _signal?: AbortSignal): Promise<Group> {
-  await delay();
+export async function getGroupMembers(_groupId: number, signal?: AbortSignal): Promise<GroupMember[]> {
+  await abortableDelay(300, signal);
+
+  return mockGroupMembers.map((m) => ({ ...m }));
+}
+
+export async function createGroup(data: CreateGroupData, signal?: AbortSignal): Promise<Group> {
+  await abortableDelay(300, signal);
   const group: Group = {
     id: nextId++,
     name: data.name,
@@ -67,8 +76,8 @@ export async function createGroup(data: CreateGroupData, _signal?: AbortSignal):
   return { ...group };
 }
 
-export async function updateGroup(id: number, data: UpdateGroupData, _signal?: AbortSignal): Promise<Group> {
-  await delay();
+export async function updateGroup(id: number, data: UpdateGroupData, signal?: AbortSignal): Promise<Group> {
+  await abortableDelay(300, signal);
   const g = groups.find((g) => g.id === id);
   if (!g) throw new Error(`Group ${id} not found`);
   if (data.name !== undefined) g.name = data.name;
@@ -78,8 +87,8 @@ export async function updateGroup(id: number, data: UpdateGroupData, _signal?: A
   return { ...g, permissions: resolveGroupPermissions(g) };
 }
 
-export async function deactivateGroup(id: number, _signal?: AbortSignal): Promise<void> {
-  await delay();
+export async function deactivateGroup(id: number, signal?: AbortSignal): Promise<void> {
+  await abortableDelay(300, signal);
   const g = groups.find((g) => g.id === id);
   if (g) g.active = false;
 }

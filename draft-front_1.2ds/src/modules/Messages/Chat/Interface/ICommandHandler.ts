@@ -1,9 +1,4 @@
-import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec';
-
-export interface ParsedCommand {
-  content: string;
-  rolls: DiceRollSpec[];
-}
+import type { ParsedCommand } from '@/modules/Messages/Chat/Dto/ParsedCommand';
 
 export interface ICommandHandler {
   command: string;

@@ -1,23 +1,16 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import type { Ref } from 'vue';
 import type { User } from '@/modules/Core/User/Dto/User';
-import type { CreateUserData, UpdateUserData } from '@/modules/Core/User/Interface/IUserApi';
+import type { CreateUserData } from '@/modules/Core/User/Dto/CreateUserData';
+import type { UpdateUserData } from '@/modules/Core/User/Dto/UpdateUserData';
 import { getUserApi } from '@/modules/Core/User/init';
-import { initials, displayName } from '@/modules/Core/User/Utils/profile';
+import { initials } from '@/modules/Core/User/Utils/initials';
+import { displayName } from '@/modules/Core/User/Utils/displayName';
 
 export const useUserStore = defineStore('users', () => {
   const currentUser = ref<User | null>(null);
   const users = ref<User[]>([]);
   const loading = ref(false);
-  const quickFilter = ref('');
-  const filterName = ref<{ mode: 'equals' | 'contains'; value: string } | null>(null);
-  const filterSurname = ref<{ mode: 'equals' | 'contains'; value: string } | null>(null);
-  const filterNickname = ref<{ mode: 'equals' | 'contains'; value: string } | null>(null);
-  const filterLogin = ref<{ mode: 'equals' | 'contains'; value: string } | null>(null);
-  const filterEmail = ref<{ mode: 'equals' | 'contains'; value: string } | null>(null);
-  const filterActive = ref('');
-  const filterLastLogin = ref('');
 
   const username = computed(() =>
     currentUser.value ? displayName(currentUser.value.name, currentUser.value.surname, currentUser.value.login) : '',
@@ -51,60 +44,6 @@ export const useUserStore = defineStore('users', () => {
     currentUser.value = null;
   }
 
-  const stringFilterConfigs: {
-    filter: Ref<{ mode: 'equals' | 'contains'; value: string } | null>;
-    getValue: (u: User) => string;
-  }[] = [
-    { filter: filterName, getValue: (u) => u.name },
-    { filter: filterSurname, getValue: (u) => u.surname ?? '' },
-    { filter: filterNickname, getValue: (u) => u.nickname ?? '' },
-    { filter: filterLogin, getValue: (u) => u.login },
-    { filter: filterEmail, getValue: (u) => u.email },
-  ];
-
-  function applyStringFilter(
-    items: User[],
-    filter: { mode: 'equals' | 'contains'; value: string } | null,
-    getValue: (u: User) => string,
-  ): User[] {
-    if (!filter || !filter.value) return items;
-    const q = filter.value.toLowerCase();
-    if (filter.mode === 'equals') {
-      return items.filter((u) => getValue(u).toLowerCase() === q);
-    }
-
-    return items.filter((u) => getValue(u).toLowerCase().includes(q));
-  }
-
-  const filteredUsers = computed(() => {
-    let result = users.value;
-    if (quickFilter.value) {
-      const q = quickFilter.value.toLowerCase();
-      result = result.filter(
-        (u) =>
-          u.name.toLowerCase().includes(q) ||
-          (u.surname ?? '').toLowerCase().includes(q) ||
-          (u.nickname ?? '').toLowerCase().includes(q) ||
-          u.login.toLowerCase().includes(q) ||
-          u.email.toLowerCase().includes(q),
-      );
-    }
-    for (const config of stringFilterConfigs) {
-      result = applyStringFilter(result, config.filter.value, config.getValue);
-    }
-    if (filterActive.value === 'true') {
-      result = result.filter((u) => u.active);
-    } else if (filterActive.value === 'false') {
-      result = result.filter((u) => !u.active);
-    }
-    if (filterLastLogin.value) {
-      const q = filterLastLogin.value.toLowerCase();
-      result = result.filter((u) => (u.lastLogin ?? '').toLowerCase().includes(q));
-    }
-
-    return result;
-  });
-
   async function fetchUsers(signal?: AbortSignal) {
     loading.value = true;
     try {
@@ -123,6 +62,24 @@ export const useUserStore = defineStore('users', () => {
 
   async function getUsersByIds(ids: number[], signal?: AbortSignal): Promise<User[]> {
     return getUserApi().getUsersByIds(ids, signal);
+  }
+
+  async function ensureUsers(ids: number[]): Promise<void> {
+    const missing = ids.filter((id) => !users.value.some((u) => u.id === id));
+    if (!missing.length) return;
+    if (!users.value.length) {
+      await fetchUsers();
+
+      return;
+    }
+    try {
+      const fetched = await getUsersByIds(missing);
+      for (const u of fetched) {
+        if (!users.value.some((x) => x.id === u.id)) users.value.push(u);
+      }
+    } catch {
+      // Best-effort прогрев каталога: профили догрузятся при следующем обращении (плейсхолдер аватара/имени).
+    }
   }
 
   async function createUser(data: CreateUserData, signal?: AbortSignal): Promise<User> {
@@ -159,24 +116,16 @@ export const useUserStore = defineStore('users', () => {
     currentUser,
     users,
     loading,
-    quickFilter,
-    filterName,
-    filterSurname,
-    filterNickname,
-    filterLogin,
-    filterEmail,
-    filterActive,
-    filterLastLogin,
     username,
     userLogin,
     avatarLetters,
-    filteredUsers,
     setCurrent,
     setGuest,
     clearCurrent,
     fetchUsers,
     getUser,
     getUsersByIds,
+    ensureUsers,
     createUser,
     updateUser,
     deactivateUser,

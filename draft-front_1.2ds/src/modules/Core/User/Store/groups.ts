@@ -1,30 +1,16 @@
 import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import { ref } from 'vue';
 import type { Group } from '@/modules/Core/User/Dto/Group';
-import type { CreateGroupData, UpdateGroupData } from '@/modules/Core/User/Interface/IGroupApi';
+import type { GroupMember } from '@/modules/Core/User/Dto/GroupMember';
+import type { CreateGroupData } from '@/modules/Core/User/Dto/CreateGroupData';
+import type { UpdateGroupData } from '@/modules/Core/User/Dto/UpdateGroupData';
 import { getGroupApi } from '@/modules/Core/User/init';
 
 export const useGroupStore = defineStore('groups', () => {
   const groups = ref<Group[]>([]);
   const currentGroup = ref<Group | null>(null);
+  const groupMembers = ref<GroupMember[]>([]);
   const loading = ref(false);
-  const filterName = ref('');
-  const filterActive = ref('');
-
-  const filteredGroups = computed(() => {
-    let result = groups.value;
-    if (filterName.value) {
-      const q = filterName.value.toLowerCase();
-      result = result.filter((g) => g.name.toLowerCase().includes(q));
-    }
-    if (filterActive.value === 'true') {
-      result = result.filter((g) => g.active);
-    } else if (filterActive.value === 'false') {
-      result = result.filter((g) => !g.active);
-    }
-
-    return result;
-  });
 
   async function fetchGroups(signal?: AbortSignal) {
     loading.value = true;
@@ -43,6 +29,13 @@ export const useGroupStore = defineStore('groups', () => {
     currentGroup.value = group;
 
     return group;
+  }
+
+  async function fetchGroupMembers(groupId: number, signal?: AbortSignal): Promise<GroupMember[]> {
+    const members = await getGroupApi().getGroupMembers(groupId, signal);
+    groupMembers.value = members;
+
+    return members;
   }
 
   async function createGroup(data: CreateGroupData, signal?: AbortSignal): Promise<Group> {
@@ -70,17 +63,17 @@ export const useGroupStore = defineStore('groups', () => {
 
   function clearCurrent() {
     currentGroup.value = null;
+    groupMembers.value = [];
   }
 
   return {
     groups,
     currentGroup,
+    groupMembers,
     loading,
-    filterName,
-    filterActive,
-    filteredGroups,
     fetchGroups,
     fetchGroup,
+    fetchGroupMembers,
     createGroup,
     updateGroup,
     deactivateGroup,
