@@ -19,4 +19,5 @@ export const RULE_TYPE_LABELS: Record<RuleType, string> = {
   weapon_family: 'Семья оружия',
   item_modifier: 'Модификатор предмета',
   item_modifier_type: 'Тип модификатора предмета',
+  check: 'Проверка',
 };

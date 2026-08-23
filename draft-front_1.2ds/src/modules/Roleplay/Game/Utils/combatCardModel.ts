@@ -94,14 +94,13 @@ export function combatCardModel(
       ? (npcs.find((npc) => npc.id === id)?.version ?? null)
       : (overlay?.sheet ?? memberships.find((membership) => membership.characterId === id)?.activeVersion ?? null);
   const hasChanges = overlay !== null && overlay.updatedAt !== '' && baseVersion !== null;
+  // Ресурсы/состояния оверлея мержатся и поверх sheet: иначе клик-атака не видна после правки экипировки.
   const effectiveVersion =
     baseVersion === null
       ? null
-      : overlay?.sheet
-        ? overlay.sheet
-        : hasChanges
-          ? mergeCombatOverlay(baseVersion, overlay)
-          : baseVersion;
+      : hasChanges && overlay
+        ? mergeCombatOverlay(overlay.sheet ?? baseVersion, overlay)
+        : baseVersion;
 
   return {
     kind,

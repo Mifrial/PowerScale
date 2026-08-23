@@ -21,6 +21,16 @@ export type MechanicPayload =
       type: 'roll_score_adjust';
       /** Дельты успехов по значению кубика (механики, влияющие на подсчёт броска). */
       data: RollScoreAdjustPayload;
+    }
+  | {
+      type: 'injury_efficiency';
+      /** Сдвиг порога сброса граней проверки на увечье (рубящий: −1). */
+      delta: number;
+    }
+  | {
+      type: 'exhaustion_wound';
+      /** Множитель силы раны от истощения (1 колющий, 2 рубящий). */
+      multiplier: number;
     };
 
 /**

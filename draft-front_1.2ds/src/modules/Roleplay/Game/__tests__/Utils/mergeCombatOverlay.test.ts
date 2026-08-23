@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
-import { mergeCombatOverlay } from '@/modules/Roleplay/Game/Utils/mergeCombatOverlay';
+import {
+  mergeCombatOverlay,
+  preferNewerCombatOverlays,
+  replaceCombatOverlay,
+} from '@/modules/Roleplay/Game/Utils/mergeCombatOverlay';
 import { versions } from '@/modules/Roleplay/Character/Mock/mockCharacters';
 
 const version = versions[1];
@@ -62,5 +66,25 @@ describe('mergeCombatOverlay: применение оверлея на верс�
     const merged = mergeCombatOverlay(version, overlay);
     expect(merged.resources).toEqual(version.resources);
     expect(merged.states).toEqual([{ stateRuleId: 'rule-63', value: 5 }]);
+  });
+});
+
+describe('preferNewerCombatOverlays / replaceCombatOverlay', () => {
+  it('не откатывает локальный оверлей пустым ответом сервера', () => {
+    const local = makeOverlay();
+    local.updatedAt = '2026-08-23T12:00:01';
+    const stale = makeOverlay();
+    stale.updatedAt = '';
+    stale.resources = [];
+    expect(preferNewerCombatOverlays([local], [stale])[0]?.resources).toEqual(local.resources);
+  });
+
+  it('replaceCombatOverlay отдаёт новый массив с подменённым снимком', () => {
+    const previous = makeOverlay();
+    const next = makeOverlay();
+    next.resources = [{ ruleId: 'rule-18', current: { base: 2, size: 0 } }];
+    const list = replaceCombatOverlay([previous], next);
+    expect(list).not.toBe([previous]);
+    expect(list[0]?.resources[0]?.current.base).toBe(2);
   });
 });

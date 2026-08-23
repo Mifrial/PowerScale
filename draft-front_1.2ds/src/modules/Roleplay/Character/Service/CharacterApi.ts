@@ -87,4 +87,11 @@ export class CharacterApi implements ICharacterApi {
 
     return res.data;
   }
+
+  async updateOwnerNotes(id: number, notes: string, signal?: AbortSignal): Promise<CharacterDetail> {
+    const res = await this.engine.runAction<CharacterDetail>('character.updateOwnerNotes', { id, notes }, signal);
+    if (!res.data) throw new Error('Character notes update failed');
+
+    return res.data;
+  }
 }

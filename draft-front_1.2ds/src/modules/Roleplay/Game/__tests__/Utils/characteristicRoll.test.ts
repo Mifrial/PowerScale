@@ -15,7 +15,7 @@ const RULES: Rule[] = [
     mechanicId: 5,
     mechanic_payload: {
       type: 'roll',
-      data: { diceCount: 3, dieFaces: 6, efficiency: 3, adv: 0, sub_mechanics: ['six_one_rule'] },
+      data: { diceCount: 3, dieFaces: 6, efficiency: 3, adv: 0, sub_mechanics: ['advantage_disadvantage'] },
     },
     createdAt: '2026-01-15T10:00:00Z',
   },
@@ -43,6 +43,37 @@ const RULES: Rule[] = [
     mechanic_payload: null,
     createdAt: '2026-01-15T10:00:00Z',
   },
+  {
+    id: 'rule-check-simple',
+    code: 'check-simple',
+    type: 'check',
+    name: 'Простая проверка',
+    description: '',
+    spaceId: 1,
+    spec: {
+      type: 'check',
+      difficulty_input: { kind: 'ask' },
+      allowed_modes: 'both',
+      attached_rule_codes: ['rule-6-and-1', 'advantages'],
+    },
+    createdAt: '2026-08-22T12:00:00Z',
+  },
+  {
+    id: 'rule-check-strength',
+    code: 'check-strength',
+    type: 'check',
+    name: 'Проверка на Силу',
+    description: '',
+    spaceId: 1,
+    spec: {
+      type: 'check',
+      parent_check_code: 'check-simple',
+      characteristic_code: 'strength',
+      difficulty_input: { kind: 'ask' },
+      allowed_modes: 'both',
+    },
+    createdAt: '2026-08-22T12:00:00Z',
+  },
 ];
 
 const MECHANICS: Mechanic[] = [
@@ -65,9 +96,12 @@ describe('characteristicRollSpec', () => {
     const spec = characteristicRollSpec({ name: 'Сила', value: { base: 4, size: 0 } }, RULES);
     expect(spec.dieFaces).toBe(6);
     expect(spec.efficiency).toBe(3);
-    expect(spec.adv).toBe(0);
+    expect(spec.advantages).toEqual([]);
     expect(spec.dieSize).toBe(0);
     expect(spec.label).toBe('Сила');
+    expect(
+      characteristicRollSpec({ name: 'Сила', value: { base: 4, size: 0 }, actorKey: 'npc:2' }, RULES).actorKey,
+    ).toBe('npc:2');
 
     const fallback = characteristicRollSpec({ name: 'Сила', value: { base: 4, size: 0 } }, []);
     expect(fallback.dieFaces).toBe(6);
@@ -96,9 +130,17 @@ describe('rollCharacteristic', () => {
   });
 
   it('с механиками ревизии — через RollEngine (применяет «Правило 6 и 1»)', () => {
-    const result = rollCharacteristic({ name: 'Сила', value: { base: 1, size: 0 } }, RULES, MECHANICS, fixedRng(0.0));
+    const result = rollCharacteristic(
+      { name: 'Сила', value: { base: 1, size: 0 }, characteristicCode: 'strength' },
+      RULES,
+      MECHANICS,
+      fixedRng(0.0),
+    );
     expect(result.rolls).toEqual([1]);
     expect(result.successes).toEqual([2]);
     expect(result.appliedMechanics).toEqual(['Правило 6 и 1']);
+    expect(result.check?.check_code).toBe('check-strength');
+    expect(result.check?.difficulty).toEqual({ base: 0, size: 0 });
+    expect(result.check?.passed).toBe(true);
   });
 });

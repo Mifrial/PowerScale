@@ -6,6 +6,7 @@ import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/Dimension
 import { gameCharacterMemberships } from '@/modules/Roleplay/Game/Mock/mockGameMemberships';
 import { gameNpcs } from '@/modules/Roleplay/Game/Mock/mockGameNpcs';
 import { resourceLimitBase, statesEqual } from '@/modules/Roleplay/Game/Utils/combatEffectiveState';
+import { mergeCombatOverlay } from '@/modules/Roleplay/Game/Utils/mergeCombatOverlay';
 
 const delay = (ms = 100) => new Promise((r) => setTimeout(r, ms));
 
@@ -65,6 +66,20 @@ function npcOf(gameId: number, entityKey: CombatEntityKey) {
   if (!entityKey.startsWith('npc:')) return null;
 
   return gameNpcs.find((npc) => npc.id === Number(entityKey.slice(4)) && npc.gameId === gameId) ?? null;
+}
+
+/** После мутации npc.version — оверлей с updatedAt, чтобы карточка боя получила новый объект версии. */
+function overlayFromNpcVersion(
+  gameId: number,
+  entityKey: CombatEntityKey,
+  version: CharacterVersion,
+): GameCombatOverlay {
+  const overlay = ensureOverlay(gameId, entityKey, version);
+  overlay.resources = version.resources.map((item) => ({ ruleId: item.ruleId, current: { ...item.current } }));
+  overlay.states = version.states.map((state) => ({ ...state }));
+  overlay.updatedAt = new Date().toISOString();
+
+  return snapshot(overlay);
 }
 
 function snapshot(overlay: GameCombatOverlay): GameCombatOverlay {
@@ -175,7 +190,7 @@ export async function setCombatResource(
     );
     npc.updatedAt = new Date().toISOString();
 
-    return emptyOverlay(gameId, entityKey);
+    return overlayFromNpcVersion(gameId, entityKey, npc.version);
   }
 
   const overlay = ensureOverlay(gameId, entityKey, version);
@@ -205,7 +220,7 @@ export async function addCombatState(
     npc.version.states = [...npc.version.states, { ...state }];
     npc.updatedAt = new Date().toISOString();
 
-    return emptyOverlay(gameId, entityKey);
+    return overlayFromNpcVersion(gameId, entityKey, npc.version);
   }
 
   const overlay = ensureOverlay(gameId, entityKey, version);
@@ -235,7 +250,7 @@ export async function setCombatStateValue(
     npc.version.states[index] = value === undefined ? { ...state, value: undefined } : { ...state, value };
     npc.updatedAt = new Date().toISOString();
 
-    return emptyOverlay(gameId, entityKey);
+    return overlayFromNpcVersion(gameId, entityKey, npc.version);
   }
 
   const overlay = ensureOverlay(gameId, entityKey, version);
@@ -265,12 +280,49 @@ export async function removeCombatState(
     npc.version.states = npc.version.states.filter((_, i) => i !== index);
     npc.updatedAt = new Date().toISOString();
 
-    return emptyOverlay(gameId, entityKey);
+    return overlayFromNpcVersion(gameId, entityKey, npc.version);
   }
 
   const overlay = ensureOverlay(gameId, entityKey, version);
   if (!overlay.states[index]) throw new Error('Состояние не найдено');
   overlay.states = overlay.states.filter((_, i) => i !== index);
+  overlay.updatedAt = new Date().toISOString();
+
+  return snapshot(overlay);
+}
+
+/** Экипировка предмета в бою: персонаж — в оверлей (sheet), НПС — сразу в версию. */
+export async function setCombatItemEquipped(
+  gameId: number,
+  entityKey: CombatEntityKey,
+  itemId: number,
+  equipped: boolean,
+  _signal?: AbortSignal,
+): Promise<GameCombatOverlay> {
+  await delay(150);
+  const version = entityVersion(gameId, entityKey);
+  if (!version) throw new Error('Лист участника не заполнен');
+  if (!version.inventory.some((item) => item.id === itemId)) throw new Error('Предмет не найден');
+
+  const npc = npcOf(gameId, entityKey);
+  if (npc) {
+    if (!npc.version) throw new Error('Лист НПС не заполнен');
+    npc.version.inventory = npc.version.inventory.map((item) => (item.id === itemId ? { ...item, equipped } : item));
+    npc.updatedAt = new Date().toISOString();
+
+    return overlayFromNpcVersion(gameId, entityKey, npc.version);
+  }
+
+  const overlay = ensureOverlay(gameId, entityKey, version);
+  const base = overlay.sheet
+    ? overlay.sheet
+    : overlay.updatedAt !== ''
+      ? mergeCombatOverlay(version, overlay)
+      : version;
+  overlay.sheet = {
+    ...(JSON.parse(JSON.stringify(base)) as CharacterVersion),
+    inventory: base.inventory.map((item) => (item.id === itemId ? { ...item, equipped } : item)),
+  };
   overlay.updatedAt = new Date().toISOString();
 
   return snapshot(overlay);

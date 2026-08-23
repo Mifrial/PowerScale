@@ -18,8 +18,9 @@ function modifier(
   applies: ItemModifierApplies,
   priceSpec: ItemModifierPrice,
   effects: ItemModifierEffect[],
+  extra: Partial<ItemModifierSpec> = {},
 ): Rule {
-  const spec: ItemModifierSpec = { type_code: typeCode, applies, price: priceSpec, effects };
+  const spec: ItemModifierSpec = { type_code: typeCode, applies, price: priceSpec, effects, ...extra };
 
   return {
     id: `rule-${800 + index}`,
@@ -84,20 +85,29 @@ export const mockModsImport: Rule[] = [
     [
       {
         text: 'Все проверки на попадание этим оружием имеют помеху от инструмента, а его прочность уменьшена на размер. Изначальная цена такого оружия, если он не обладает другими модификаторами, или если она имеет лишь модификатор, уменьшающий размер, считается равной нулю.',
-        ops: [{ type: 'durability', add_size: -1 }],
+        ops: [
+          { type: 'durability', add_size: -1 },
+          { type: 'advantage', delta: -1, source_code: 'tool' },
+        ],
       },
     ],
   ),
   modifier(1, 'poorly-made', 'Плохо сделан', 'craft-quality', weaponApplies(), price({ factor: 0.5 }), [
     {
       text: 'Все проверки на попадание этим оружием имеют помеху от инструмента, а его прочность уменьшена на размер.',
-      ops: [{ type: 'durability', add_size: -1 }],
+      ops: [
+        { type: 'durability', add_size: -1 },
+        { type: 'advantage', delta: -1, source_code: 'tool' },
+      ],
     },
   ]),
   modifier(2, 'sturdily-made', 'Крепко сделан', 'craft-quality', weaponApplies(), price({ factor: 1.2 }), [
     {
       text: 'Все проверки на попадание этим оружием имеют помеху от инструмента, но его прочность увеличена на размер.',
-      ops: [{ type: 'durability', add_size: 1 }],
+      ops: [
+        { type: 'durability', add_size: 1 },
+        { type: 'advantage', delta: -1, source_code: 'tool' },
+      ],
     },
   ]),
   modifier(
@@ -110,6 +120,7 @@ export const mockModsImport: Rule[] = [
     [
       {
         text: 'Все проверки на попадание этим оружием имеют преимущество от инструмента, если ваш уровень владения им минимум Владение(2) или выше.',
+        ops: [{ type: 'advantage', delta: 1, source_code: 'tool' }],
       },
     ],
   ),
@@ -132,7 +143,10 @@ export const mockModsImport: Rule[] = [
     [
       {
         text: 'Все проверки на попадание этим оружием имеют преимущество от инструмента, если ваш уровень владения им минимум Владение(2) или выше. Прочность оружия увеличена на размер.',
-        ops: [{ type: 'durability', add_size: 1 }],
+        ops: [
+          { type: 'durability', add_size: 1 },
+          { type: 'advantage', delta: 1, source_code: 'tool' },
+        ],
       },
     ],
   ),
@@ -419,6 +433,8 @@ export const mockModsImport: Rule[] = [
         { type: 'durability', add_size: -1 },
         { type: 'block', add_size: -1 },
         { type: 'defense', add_size: -1 },
+        { type: 'magic_conductor', value: 10 },
+        { type: 'keyword', add: ['magic-conductor'] },
       ],
     },
   ]),
@@ -430,6 +446,8 @@ export const mockModsImport: Rule[] = [
         { type: 'min_strength', delta: 1 },
         { type: 'durability', add_size: 1 },
         { type: 'action_strength', field: 'damage', delta: 1, profiles: ['strike'] },
+        { type: 'min_action_cost', min: 2 },
+        { type: 'keyword', add: ['metal'] },
       ],
     },
   ]),
@@ -442,12 +460,15 @@ export const mockModsImport: Rule[] = [
         { type: 'durability', add_size: 1 },
         { type: 'action_strength', field: 'damage', delta: 1, profiles: ['strike'] },
         { type: 'resistance', damage_type_code: 'magic-damage', mode: 'max', value: 4 },
+        { type: 'min_action_cost', min: 2 },
+        { type: 'keyword', add: ['metal', 'silver'] },
       ],
     },
   ]),
   modifier(24, 'closed-helm', 'С закрытым шлемом', 'kit', armorApplies(), price({ add_gm: 10000 }), [
     {
       text: 'Доспех лишается свойства «Открытое лицо», но получает свойство «Ограниченная видимость»: «Проверки на Внимательность получают две помехи. Вы не можете видеть позади от вас.»',
+      ops: [{ type: 'keyword', add: ['limited-visibility'], remove: ['open-face'] }],
     },
   ]),
   modifier(25, 'breastplate-only', 'Только нагрудник', 'kit', armorApplies(), price({ factor: 1 / 3 }), [
@@ -458,6 +479,7 @@ export const mockModsImport: Rule[] = [
         { type: 'armor_reliability', set: 1 },
         { type: 'max_agility', add_size: 1 },
         { type: 'strength_penalty', set: 0 },
+        { type: 'keyword', remove: ['requires-proficiency'] },
       ],
     },
   ]),
@@ -538,5 +560,6 @@ export const mockModsImport: Rule[] = [
         ],
       },
     ],
+    { price_scale: { type_code: 'craft-quality', factor: 2, increasing_only: true } },
   ),
 ];

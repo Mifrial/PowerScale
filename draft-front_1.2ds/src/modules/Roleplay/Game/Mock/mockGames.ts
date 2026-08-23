@@ -260,6 +260,22 @@ for (const detail of gameDetails) {
 
 let nextGameId = Math.max(0, ...gameDetails.map((d) => d.game.id)) + 1;
 
+/** Личные заметки зрителя: ключ gameId:userId. Не хранятся на GameDetail в gameDetails. */
+const personalNotesByKey: Record<string, string> = {
+  '1:1': 'Спросить Анну про руины на севере.',
+};
+
+function personalNotesKey(gameId: number, userId: number): string {
+  return `${gameId}:${userId}`;
+}
+
+function toViewerGameDetail(detail: GameDetail): GameDetail {
+  const copy = JSON.parse(JSON.stringify(detail)) as GameDetail;
+  copy.personalNotes = personalNotesByKey[personalNotesKey(copy.game.id, getCurrentUserId())] ?? null;
+
+  return copy;
+}
+
 /** Список игр — как бэк: только видимые текущему пользователю (статус/видимость/участие). */
 export async function fetchGames(_signal?: AbortSignal): Promise<Game[]> {
   await delay(150);
@@ -284,7 +300,7 @@ export async function fetchGame(id: number, _signal?: AbortSignal): Promise<Game
   // JSON round-trip как у настоящего API: mock хранит только plain-данные. Без копии UI
   // (reactive-объекты из Pinia, например permissions в members) попадали бы в gameDetails,
   // и structuredClone в Store/games.fetchGame падал бы («[object Array] could not be cloned»).
-  return JSON.parse(JSON.stringify(detail)) as GameDetail;
+  return toViewerGameDetail(detail);
 }
 
 export async function createGame(data: CreateGameData, _signal?: AbortSignal): Promise<GameDetail> {
@@ -319,7 +335,7 @@ export async function createGame(data: CreateGameData, _signal?: AbortSignal): P
   gameDetails.push(detail);
   syncGameChatRoles(detail);
 
-  return detail;
+  return toViewerGameDetail(detail);
 }
 
 export async function updateGame(id: number, data: CreateGameData, _signal?: AbortSignal): Promise<GameDetail> {
@@ -352,7 +368,29 @@ export async function updateGame(id: number, data: CreateGameData, _signal?: Abo
   };
   gameDetails[idx] = updated;
 
-  return updated;
+  return toViewerGameDetail(updated);
+}
+
+export async function updatePersonalNotes(gameId: number, notes: string, _signal?: AbortSignal): Promise<GameDetail> {
+  await delay(150);
+  const detail = gameDetails.find((entry) => entry.game.id === gameId);
+  if (!detail) throw new Error('Игра не найдена');
+  const user = currentUser();
+  if (
+    !canViewGame(
+      user,
+      detail.game,
+      detail.members.map((member) => member.userId),
+    )
+  ) {
+    throw new Error('Forbidden');
+  }
+  const key = personalNotesKey(gameId, getCurrentUserId());
+  const trimmed = notes.trim();
+  if (trimmed) personalNotesByKey[key] = trimmed;
+  else delete personalNotesByKey[key];
+
+  return toViewerGameDetail(detail);
 }
 
 /** Обновление участника: роль + индивидуальные per-game права (ТР §3 `game_member_permissions`). */

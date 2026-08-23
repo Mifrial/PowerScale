@@ -85,6 +85,7 @@ describe('CharacterEditorService с каталогом правил (интег�
       'reasoning',
       'strength',
       'weight',
+      'willpower',
     ]);
     expect(model.characteristics.find((c) => c.code === 'endurance')?.base).toEqual({ base: 5, size: 0 });
     expect(model.characteristics.find((c) => c.code === 'strength')?.base).toEqual({ base: 3, size: 0 });
@@ -850,7 +851,7 @@ describe('CharacterEditorService с каталогом правил (интег�
     const rule = ruleCatalog.find((r) => r.code === 'arilet');
     const model = service.build(makeBuild({ raceRuleId: rule?.id ?? '' }), ruleCatalog, config, keywords);
 
-    for (const code of ['attention', 'reaction', 'memory', 'reasoning', 'communication']) {
+    for (const code of ['attention', 'reaction', 'memory', 'reasoning', 'communication', 'willpower']) {
       expect(model.characteristics.find((c) => c.code === code)?.base).toEqual({ base: 3, size: 0 });
     }
     // «Мастерство боя» — автополучение со своей базой 3 маленьких ({3|-1}).

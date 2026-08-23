@@ -13,16 +13,18 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import OverviewTab from '@/modules/Roleplay/Character/Component/Detail/OverviewTab.vue';
 import DescriptionTab from '@/modules/Roleplay/Character/Component/Detail/DescriptionTab.vue';
 import AbilityTab from '@/modules/Roleplay/Character/Component/Detail/AbilityTab.vue';
-import InventoryTab from '@/modules/Roleplay/Character/Component/Detail/InventoryTab.vue';
+import InventoryTab from '@/modules/Roleplay/Character/Component/Editor/InventoryTab.vue';
 import DiscussionTab from '@/modules/Roleplay/Character/Component/Detail/DiscussionTab.vue';
 import RuleSlider from '@/modules/Roleplay/Rule/Component/RuleSlider.vue';
 import { useRuleDetailSlider } from '@/modules/Roleplay/Character/Composables/useRuleDetailSlider';
-import { getCharacterCardExtensions } from '@/modules/Roleplay/Character/init';
+import { useCharacterCardDraft } from '@/modules/Roleplay/Character/Composables/useCharacterCardDraft';
+import { getCharacterApi, getCharacterCardExtensions } from '@/modules/Roleplay/Character/init';
 import { visibleSheetSections } from '@/modules/Roleplay/Character/Utils/sheetAccess';
 import { SHEET_VISIBLE_SECTIONS } from '@/modules/Roleplay/Character/Constant/Sheet/SHEET_SECTIONS';
 import type { SheetAccessContext } from '@/modules/Roleplay/Character/Interface/SheetAccessContext';
 import SheetCard from '@/modules/Roleplay/Character/Component/SheetCard.vue';
 import UniqueRulesTab from '@/modules/Roleplay/Character/Component/Detail/UniqueRulesTab.vue';
+import OwnerNotesDialog from '@/modules/Roleplay/Character/Component/OwnerNotesDialog.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -63,6 +65,41 @@ const canEdit = computed(() => {
 
   return canEditCharacter(userStore.currentUser, current.character);
 });
+
+const {
+  draftKey: sheetDraftKey,
+  draft: sheetDraft,
+  build: sheetBuild,
+  model: sheetModel,
+  displayVersion,
+  validationIssues,
+  saving: sheetSaving,
+  saveError: sheetSaveError,
+  keywords: sheetKeywords,
+  ensureDraft,
+  save: saveSheet,
+} = useCharacterCardDraft(detail, rules, canEdit, signal);
+
+const notesOpen = ref(false);
+const notesSaving = ref(false);
+const notesError = ref<string | null>(null);
+
+async function saveOwnerNotes(text: string): Promise<void> {
+  const current = detail.value;
+  if (!current) return;
+  notesSaving.value = true;
+  notesError.value = null;
+  try {
+    const updated = await getCharacterApi().updateOwnerNotes(current.character.id, text, signal.value);
+    store.applyDetail(updated);
+    notesOpen.value = false;
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'AbortError') return;
+    notesError.value = 'Не удалось сохранить заметки';
+  } finally {
+    notesSaving.value = false;
+  }
+}
 
 // Секции листа, видимые текущему зрителю (standalone-контекст): владелец/ведущие — всё,
 // иначе — по зонам. Полный доступ → обычные вкладки; частичный → ограниченный вид.
@@ -174,6 +211,48 @@ watch(detail, (value) => {
     </div>
 
     <template v-else-if="canView && detail">
+      <Teleport to="#editor-actions">
+        <v-btn
+          v-if="canEdit"
+          variant="tonal"
+          size="small"
+          prepend-icon="mdi-note-text-outline"
+          @click="notesOpen = true"
+        >
+          Заметки
+        </v-btn>
+        <v-btn
+          v-if="canEdit && sheetDraft?.dirty"
+          color="primary"
+          size="small"
+          prepend-icon="mdi-check"
+          :loading="sheetSaving"
+          :disabled="sheetSaving"
+          @click="saveSheet()"
+        >
+          Сохранить
+        </v-btn>
+        <v-btn
+          v-if="canEdit"
+          variant="tonal"
+          color="primary"
+          size="small"
+          prepend-icon="mdi-pencil"
+          :to="`/characters/${detail.character.id}/edit`"
+        >
+          Редактировать
+        </v-btn>
+        <v-btn
+          v-if="canEdit"
+          variant="tonal"
+          size="small"
+          prepend-icon="mdi-transfer"
+          :to="`/characters/${detail.character.id}/migrate`"
+        >
+          Перевести
+        </v-btn>
+      </Teleport>
+
       <div class="d-flex align-center mb-4">
         <div class="d-flex flex-column ga-1">
           <div class="d-flex align-center ga-2">
@@ -202,28 +281,23 @@ watch(detail, (value) => {
             </v-chip>
           </div>
         </div>
-        <v-spacer />
-        <v-btn
-          v-if="canEdit"
-          variant="tonal"
-          color="primary"
-          prepend-icon="mdi-pencil"
-          class="mr-2"
-          :to="`/characters/${detail.character.id}/edit`"
-        >
-          Редактировать
-        </v-btn>
-        <v-btn
-          v-if="canEdit"
-          variant="tonal"
-          prepend-icon="mdi-transfer"
-          class="mr-2"
-          :to="`/characters/${detail.character.id}/migrate`"
-        >
-          Перевести
-        </v-btn>
-        <v-btn variant="text" prepend-icon="mdi-arrow-left" @click="router.push('/characters')"> К списку </v-btn>
       </div>
+
+      <v-alert v-if="sheetSaveError" type="error" variant="tonal" density="compact" class="mb-4">{{
+        sheetSaveError
+      }}</v-alert>
+      <v-alert
+        v-if="sheetDraft?.dirty && validationIssues.length > 0 && !sheetSaveError"
+        type="warning"
+        variant="tonal"
+        density="compact"
+        class="mb-4"
+      >
+        <div class="font-weight-medium">Нельзя сохранить, пока не устранены проблемы:</div>
+        <ul class="mb-0 mt-1 ps-4">
+          <li v-for="issue in validationIssues" :key="issue">{{ issue }}</li>
+        </ul>
+      </v-alert>
 
       <!-- Расширения карточки (например «Видимость листа» от модуля Game) -->
       <div v-for="extension in cardExtensions" :key="extension.id" class="mb-4">
@@ -243,25 +317,39 @@ watch(detail, (value) => {
         <v-window v-model="activeTab">
           <v-window-item value="overview">
             <OverviewTab
-              :version="detail.version"
+              :version="displayVersion ?? detail.version"
               :rules="rules"
               :rules-loading="rulesLoading"
               :rules-error="rulesError"
             />
           </v-window-item>
           <v-window-item value="description">
-            <DescriptionTab :version="detail.version" />
+            <DescriptionTab :version="displayVersion ?? detail.version" />
           </v-window-item>
           <v-window-item value="abilities">
             <AbilityTab
-              :version="detail.version"
+              :version="displayVersion ?? detail.version"
               :rules="rules"
               :rules-loading="rulesLoading"
               :character-id="detail.character.id"
             />
           </v-window-item>
           <v-window-item value="inventory">
-            <InventoryTab :version="detail.version" :rules="rules" :rules-loading="rulesLoading" />
+            <InventoryTab
+              v-if="sheetBuild && sheetModel"
+              variant="sheet"
+              :build="sheetBuild"
+              :model="sheetModel"
+              :draft-key="sheetDraftKey"
+              :rules="rules"
+              :keywords="sheetKeywords"
+              :can-edit="canEdit"
+              :ensure-draft="ensureDraft"
+            />
+            <div v-else-if="rulesLoading" class="d-flex justify-center pa-8">
+              <v-progress-circular indeterminate width="2" size="28" color="primary" />
+            </div>
+            <div v-else class="text-medium-emphasis pa-4">{{ rulesError || 'Инвентарь недоступен' }}</div>
           </v-window-item>
           <v-window-item value="unique-rules">
             <UniqueRulesTab
@@ -299,6 +387,14 @@ watch(detail, (value) => {
       </v-card>
     </template>
   </v-container>
+
+  <OwnerNotesDialog
+    v-model="notesOpen"
+    :text="detail?.ownerNotes"
+    :saving="notesSaving"
+    :error="notesError"
+    @save="saveOwnerNotes"
+  />
 
   <RuleSlider
     v-model:open="ruleSlider.state.open"

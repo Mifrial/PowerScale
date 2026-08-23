@@ -25,6 +25,7 @@ import type { CreateChronicleEntryData } from '@/modules/Roleplay/Game/Dto/Creat
 import type { UpdateChronicleEntryData } from '@/modules/Roleplay/Game/Dto/UpdateChronicleEntryData';
 import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
+import type { CheckOffer, CheckOfferProposal, CreateCheckOfferData } from '@/modules/Roleplay/Game/Dto/CheckOffer';
 import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/CharacterStateValue';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { ConflictChoices } from '@/modules/Roleplay/Game/Utils/reconcileVersion';
@@ -128,6 +129,13 @@ export interface IGameApi {
     index: number,
     signal?: AbortSignal,
   ): Promise<GameCombatOverlay>;
+  setCombatItemEquipped(
+    gameId: number,
+    entityKey: CombatEntityKey,
+    itemId: number,
+    equipped: boolean,
+    signal?: AbortSignal,
+  ): Promise<GameCombatOverlay>;
   submitCombatChanges(gameId: number, signal?: AbortSignal): Promise<void>;
   getQuickRolls(gameId: number, signal?: AbortSignal): Promise<Record<CombatEntityKey, string[]>>;
   addQuickRoll(gameId: number, entityKey: CombatEntityKey, ruleId: string, signal?: AbortSignal): Promise<string[]>;
@@ -137,4 +145,22 @@ export interface IGameApi {
   createChronicleEntry(gameId: number, data: CreateChronicleEntryData, signal?: AbortSignal): Promise<ChronicleEntry>;
   updateChronicleEntry(entryId: number, data: UpdateChronicleEntryData, signal?: AbortSignal): Promise<ChronicleEntry>;
   deleteChronicleEntry(entryId: number, signal?: AbortSignal): Promise<void>;
+  updatePersonalNotes(gameId: number, notes: string, signal?: AbortSignal): Promise<GameDetail>;
+  createCheckOffer(gameId: number, data: CreateCheckOfferData, signal?: AbortSignal): Promise<CheckOffer>;
+  reviseCheckOffer(
+    offerId: number,
+    actorKey: CombatEntityKey,
+    proposal: CheckOfferProposal,
+    signal?: AbortSignal,
+  ): Promise<CheckOffer>;
+  acceptCheckOffer(
+    offerId: number,
+    actorKey: CombatEntityKey,
+    proposal?: CheckOfferProposal,
+    signal?: AbortSignal,
+  ): Promise<CheckOffer>;
+  cancelCheckOffer(offerId: number, actorKey: CombatEntityKey, signal?: AbortSignal): Promise<CheckOffer>;
+  getPendingCheckOffers(gameId: number, entityKey: CombatEntityKey, signal?: AbortSignal): Promise<CheckOffer[]>;
+  getCheckOffersForEntity(gameId: number, entityKey: CombatEntityKey, signal?: AbortSignal): Promise<CheckOffer[]>;
+  getCheckOffersForGame(gameId: number, signal?: AbortSignal): Promise<CheckOffer[]>;
 }

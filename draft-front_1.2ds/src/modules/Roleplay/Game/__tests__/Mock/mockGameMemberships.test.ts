@@ -118,19 +118,29 @@ describe('mockGameMemberships: создание персонажа «через 
 });
 
 describe('mockGameMemberships: подача и модерация', () => {
-  it('подача готового персонажа создаёт pending-членство с версией', async () => {
+  it('подача готового персонажа другой ревизии сразу отклоняется', async () => {
     const membership = await submitCharacter(1, 1);
-    expect(membership.membershipStatus).toBe('pending');
-    expect(membership.activeVersion).toBeNull();
-    expect(membership.pendingVersion).not.toBeNull();
+    expect(membership.membershipStatus).toBe('rejected');
+    expect(membership.pendingVersion).toBeNull();
   });
 
-  it('подача черновика запрещена', async () => {
-    await expect(submitCharacter(1, 2)).rejects.toThrow('готового');
+  it('подача черновика запрещена', () => {
+    return expect(submitCharacter(1, 2)).rejects.toThrow('готового');
   });
 
-  it('повторная подача того же персонажа запрещена', async () => {
-    await expect(submitCharacter(1, 3)).rejects.toThrow('уже связан');
+  it('повторная подача approved запрещена', async () => {
+    await expect(submitCharacter(2, 1)).rejects.toThrow('уже связан');
+  });
+
+  it('approve чужой ревизии запрещён', async () => {
+    await expect(moderateCharacter(1, 3, 'approve')).rejects.toThrow('Ревизия персонажа не совпадает');
+  });
+
+  it('отклонённого можно подать снова, если ревизия совпадает', async () => {
+    versions[3] = { ...versions[3], rulesRevision: 12 };
+    const again = await submitCharacter(1, 3);
+    expect(again.membershipStatus).toBe('pending');
+    expect(again.pendingVersion?.rulesRevision).toBe(12);
   });
 
   it('подача деактивированного персонажа запрещена', async () => {
@@ -194,12 +204,12 @@ describe('mockGameMemberships: миграция персонажа в игре',
     const migrated: CreateCharacterData['version'] = {
       ...versions[1],
       name: 'Торвин (новая ревизия)',
-      rulesRevision: 7,
+      rulesRevision: 5,
     };
     const updated = await submitCharacterMigration(2, 1, migrated);
     expect(updated.membershipStatus).toBe('pending');
     expect(updated.pendingVersion?.name).toBe('Торвин (новая ревизия)');
-    expect(updated.pendingVersion?.rulesRevision).toBe(7);
+    expect(updated.pendingVersion?.rulesRevision).toBe(5);
     // Approved-версия заморожена и не меняется до approve.
     expect(updated.activeVersion?.rulesRevision).toBe(5);
   });

@@ -14,4 +14,9 @@ export interface GameDetail {
   discussionChatId: number | null;
   /** Игровой чат (type 'game', ТР §8 «Чат игры») — живая игровая сессия. */
   gameChatId: number | null;
+  /**
+   * Личные заметки текущего зрителя по этой игре (не общие, не заметки владельца игры).
+   * Другие участники и ведущий чужой текст не получают.
+   */
+  personalNotes?: string | null;
 }

@@ -1,3 +1,5 @@
+import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
+
 /**
  * Контекст броска, видимый механикам (draft): хендлеры событий ролла (`ROLL_EVENTS`)
  * мутируют его. Поля зеркалят результат RollEngine; «базовый подсчёт» (≤ сложность → 1)
@@ -8,8 +10,8 @@ export interface RollMechanicContext {
   diceCount: number;
   dieFaces: number;
   efficiency: number;
-  /** Преимущества (>0) / помехи (<0); 0 — пул не меняется. */
-  adv: number;
+  /** Помехи/преимущества по источнику; нетто — агрегация макс+/мин−. */
+  advantages: AdvantageModifier[];
   /** Число кубов для броска: `roll.pool` добавляет лишние (Помехи/Преимущества). */
   poolSize: number;
   /** Значения всех брошенных кубов (до отбрасывания худших/лучших). */

@@ -61,6 +61,23 @@ describe('characterDraft store', () => {
     expect(store.draftOf('character:1')?.build.name).toBe('Второй');
   });
 
+  it('patchBuild инвентаря помечает черновик грязным (экип с карточки)', () => {
+    const store = useCharacterDraftStore();
+    const withItem = makeBuild();
+    withItem.inventory = [{ id: 1, ruleId: 'rule-404', quantity: 1, equipped: false }];
+    store.initDraft('character:1', withItem, config, {
+      inventory: [{ id: 1, ruleId: 'rule-404', quantity: 1, equipped: false }],
+      money: 0,
+    });
+    expect(store.draftOf('character:1')?.dirty).toBe(false);
+
+    store.patchBuild('character:1', {
+      inventory: [{ id: 1, ruleId: 'rule-404', quantity: 1, equipped: true }],
+    });
+    expect(store.draftOf('character:1')?.dirty).toBe(true);
+    expect(store.draftOf('character:1')?.build.inventory[0]?.equipped).toBe(true);
+  });
+
   it('markSaved снимает грязный флаг', () => {
     const store = useCharacterDraftStore();
     store.initDraft('character:1', makeBuild(), config);

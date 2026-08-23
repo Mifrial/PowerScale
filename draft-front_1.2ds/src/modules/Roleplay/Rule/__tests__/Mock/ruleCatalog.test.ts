@@ -31,6 +31,7 @@ describe('ruleCatalog', () => {
       'source',
       'state',
       'poison',
+      'check',
     ]) {
       expect(types.has(t as never)).toBe(true);
     }
@@ -43,5 +44,12 @@ describe('ruleCatalog', () => {
 
     const fireBolt = ruleCatalog.find((r) => r.code === 'fire-bolt');
     expect((fireBolt?.spec as { type?: string } | undefined)?.type).toBe('spell');
+  });
+
+  it('содержит дерево проверок', () => {
+    expect(ruleCatalog.some((r) => r.code === 'check-simple' && r.type === 'check')).toBe(true);
+    expect(ruleCatalog.some((r) => r.code === 'check-injury' && r.type === 'check')).toBe(true);
+    expect(ruleCatalog.some((r) => r.code === 'strike-procedure' && r.mechanicId === 7)).toBe(true);
+    expect(ruleCatalog.some((r) => r.code === 'deception' && r.type === 'check')).toBe(true);
   });
 });

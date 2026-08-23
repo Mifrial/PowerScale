@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, onUnmounted, ref, watch } from 'vue';
 import { useUserStore } from '@/modules/Core/User/Store/users';
 import { useGameStore } from '@/modules/Roleplay/Game/Store/games';
 import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
@@ -21,7 +21,13 @@ import ChatThread from '@/modules/Messages/Chat/Component/ChatThread.vue';
 import InitiativeTrack from '@/modules/Roleplay/Game/Component/InitiativeTrack.vue';
 import CombatQuickRolls from '@/modules/Roleplay/Game/Component/CombatQuickRolls.vue';
 import CombatCardPanel from '@/modules/Roleplay/Game/Component/Detail/CombatCardPanel.vue';
+import CheckLaunchDialog from '@/modules/Roleplay/Game/Component/CheckLaunchDialog.vue';
+import HitLaunchDialog from '@/modules/Roleplay/Game/Component/HitLaunchDialog.vue';
+import InjuryLaunchDialog from '@/modules/Roleplay/Game/Component/InjuryLaunchDialog.vue';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
+import type { CheckOffer } from '@/modules/Roleplay/Game/Dto/CheckOffer';
+import type { AttackOverview } from '@/modules/Roleplay/Character/Dto/Overview/AttackOverview';
+import { CHECK_HIT_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
 
 const props = defineProps<{
   /** Активна ли вкладка: чат монтируется только при открытии (D7 — освобождает глобальный чат при уходе). */
@@ -77,7 +83,42 @@ const rulesContext = computed(() =>
   ),
 );
 
-const tokenSources = computed<ITokenSource[]>(() => rulesContext.value.tokenSources);
+const tokenSources = computed<ITokenSource[]>(() => [
+  ...rulesContext.value.tokenSources,
+  {
+    type: 'character',
+    label: 'Персонаж',
+    icon: 'mdi-account',
+    search: async (query) => {
+      const q = query.toLowerCase();
+
+      return memberships.value
+        .filter((membership) => membership.membershipStatus === 'approved')
+        .filter((membership) => !q || membership.characterName.toLowerCase().includes(q))
+        .map((membership) => ({
+          value: `${membership.characterId},${membership.characterName}`,
+          label: membership.characterName,
+        }));
+    },
+  },
+  {
+    type: 'npc',
+    label: 'НПС',
+    icon: 'mdi-account-cowboy-hat',
+    search: async (query) => {
+      const q = query.toLowerCase();
+
+      return npcs.value
+        .filter((npc) => npc.status === 'active')
+        .filter((npc) => !q || npc.name.toLowerCase().includes(q))
+        .map((npc) => ({ value: `${npc.id},${npc.name}`, label: npc.name }));
+    },
+  },
+]);
+
+const chatInlineContext = computed(() => ({
+  openEntity: (key: string) => onOpenCard(key),
+}));
 
 const processAttachments = (attachments: ChatAttachment[]): ChatAttachment[] =>
   rulesContext.value.processAttachments(attachments);
@@ -222,6 +263,155 @@ async function toggleQuickRoll(entityKey: string, ruleId: string): Promise<void>
 }
 
 watch(speakerOptions, () => applySpeakerKey());
+
+const checkOpen = ref(false);
+const hitOpen = ref(false);
+const injuryOpen = ref(false);
+const resumeOffer = ref<CheckOffer | null>(null);
+const hitResumeOffer = ref<CheckOffer | null>(null);
+const hitAttackerKey = ref<CombatEntityKey | null>(null);
+const hitAttack = ref<AttackOverview | null>(null);
+const pendingOffers = ref<CheckOffer[]>([]);
+const dismissedOfferIds = ref<Set<number>>(new Set());
+const handshakeHint = ref<string | null>(null);
+let pendingPoll: ReturnType<typeof setInterval> | null = null;
+
+const speakerEntityKey = computed<CombatEntityKey | null>(() => {
+  const key = activeSpeakerKey.value;
+  if (key === null || key === 'gm') return null;
+
+  return key as CombatEntityKey;
+});
+
+function isActionableOffer(offer: CheckOffer, key: CombatEntityKey | null, asGm: boolean): boolean {
+  if (dismissedOfferIds.value.has(offer.id) || offer.status !== 'pending') return false;
+  if (asGm) return true;
+  if (key === null) return false;
+
+  return (
+    (offer.waitingOn === 'opponent' && offer.opponent === key) ||
+    (offer.waitingOn === 'initiator' && offer.initiator === key)
+  );
+}
+
+async function refreshPendingOffers(): Promise<void> {
+  const key = speakerEntityKey.value;
+  const asGm = props.canEdit;
+  if (!props.active || (key === null && !asGm)) {
+    pendingOffers.value = [];
+
+    return;
+  }
+  try {
+    pendingOffers.value = asGm
+      ? await getGameApi().getCheckOffersForGame(gameId.value)
+      : await getGameApi().getCheckOffersForEntity(gameId.value, key as CombatEntityKey);
+  } catch {
+    pendingOffers.value = [];
+  }
+  const actionable = pendingOffers.value.filter((offer) => isActionableOffer(offer, key, asGm));
+  const first =
+    actionable.find((offer) => offer.checkCode === CHECK_HIT_CODE && offer.waitingOn === 'opponent') ?? actionable[0];
+  if (!checkOpen.value && !hitOpen.value && first) {
+    if (first.checkCode === CHECK_HIT_CODE) {
+      hitResumeOffer.value = first;
+      hitAttackerKey.value = first.initiator;
+      hitAttack.value = null;
+      hitOpen.value = true;
+    } else {
+      resumeOffer.value = first;
+      checkOpen.value = true;
+    }
+  }
+}
+
+function openCheckLaunch(): void {
+  const key = speakerEntityKey.value;
+  const asGm = props.canEdit;
+  const hit = pendingOffers.value.find(
+    (offer) => offer.checkCode === CHECK_HIT_CODE && isActionableOffer(offer, key, asGm),
+  );
+  if (hit) {
+    dismissedOfferIds.value = new Set([...dismissedOfferIds.value].filter((id) => id !== hit.id));
+    hitResumeOffer.value = hit;
+    hitAttackerKey.value = hit.initiator;
+    hitAttack.value = null;
+    hitOpen.value = true;
+
+    return;
+  }
+  resumeOffer.value =
+    pendingOffers.value.find(
+      (offer) =>
+        offer.checkCode !== CHECK_HIT_CODE &&
+        key !== null &&
+        ((offer.waitingOn === 'opponent' && offer.opponent === key) ||
+          (offer.waitingOn === 'initiator' && offer.initiator === key)),
+    ) ?? null;
+  checkOpen.value = true;
+}
+
+function onCheckClosed(open: boolean): void {
+  if (open) return;
+  if (resumeOffer.value) dismissedOfferIds.value = new Set([...dismissedOfferIds.value, resumeOffer.value.id]);
+  resumeOffer.value = null;
+  checkOpen.value = false;
+  void refreshPendingOffers();
+}
+
+function onHitClosed(open: boolean): void {
+  if (open) return;
+  const current = hitResumeOffer.value;
+  const key = speakerEntityKey.value;
+  const waitingKey =
+    current && current.status === 'pending'
+      ? current.waitingOn === 'opponent'
+        ? current.opponent
+        : current.initiator
+      : null;
+  if (current && (props.canEdit || (key !== null && key === waitingKey))) {
+    dismissedOfferIds.value = new Set([...dismissedOfferIds.value, current.id]);
+  }
+  hitResumeOffer.value = null;
+  hitAttack.value = null;
+  hitAttackerKey.value = null;
+  hitOpen.value = false;
+  void refreshPendingOffers();
+}
+
+function onHitOffered(): void {
+  handshakeHint.value =
+    'Оферта у защитника. Ведущий отвечает в следующем окне; игрок — от лица цели (или кнопка «Проверка»).';
+}
+
+function onLaunchHit(payload: { attackerKey: CombatEntityKey; attack: AttackOverview }): void {
+  hitResumeOffer.value = null;
+  hitAttackerKey.value = payload.attackerKey;
+  hitAttack.value = payload.attack;
+  hitOpen.value = true;
+}
+
+function onLaunchInjury(): void {
+  injuryOpen.value = true;
+}
+
+watch(
+  () => [props.active, activeSpeakerKey.value, gameId.value] as const,
+  ([active]) => {
+    if (pendingPoll) {
+      clearInterval(pendingPoll);
+      pendingPoll = null;
+    }
+    if (!active) return;
+    void refreshPendingOffers();
+    pendingPoll = setInterval(() => void refreshPendingOffers(), 2000);
+  },
+  { immediate: true },
+);
+
+onUnmounted(() => {
+  if (pendingPoll) clearInterval(pendingPoll);
+});
 </script>
 
 <template>
@@ -248,11 +438,32 @@ watch(speakerOptions, () => applySpeakerKey());
     >
       Остановить сессию
     </v-btn>
+    <v-badge
+      v-if="chatId !== null"
+      :content="pendingOffers.length || undefined"
+      :model-value="pendingOffers.length > 0"
+      color="info"
+    >
+      <v-btn variant="tonal" size="small" prepend-icon="mdi-shield-check-outline" @click="openCheckLaunch">
+        Проверка
+      </v-btn>
+    </v-badge>
   </Teleport>
 
   <div class="game-chat-tab">
     <v-alert v-if="statusError" type="error" variant="tonal" density="compact" class="mb-3">{{ statusError }}</v-alert>
     <v-alert v-if="loadError" type="error" variant="tonal" density="compact" class="mb-3">{{ loadError }}</v-alert>
+    <v-alert
+      v-if="handshakeHint"
+      type="info"
+      variant="tonal"
+      density="compact"
+      class="mb-3"
+      closable
+      @click:close="handshakeHint = null"
+    >
+      {{ handshakeHint }}
+    </v-alert>
 
     <div class="game-chat-body">
       <div class="game-chat-sidebar">
@@ -282,6 +493,7 @@ watch(speakerOptions, () => applySpeakerKey());
           :mechanics="mechanics"
           :quick-rolls="quickRolls"
           :active-entity-key="activeSpeakerKey"
+          :overlay-revision="overlayRevision"
           class="game-chat-sidebar__quickrolls"
           @toggle-quick-roll="toggleQuickRoll"
         />
@@ -297,6 +509,7 @@ watch(speakerOptions, () => applySpeakerKey());
         :space-id="rulesContext.spaceId"
         :rules-revision="rulesContext.rulesRevision"
         :token-sources="tokenSources"
+        :inline-context="chatInlineContext"
         :process-attachments="processAttachments"
         empty-label="Чат игры доступен в мессенджере"
         class="game-chat-thread"
@@ -319,9 +532,62 @@ watch(speakerOptions, () => applySpeakerKey());
       :can-edit="canEdit"
       :current-user-id="userStore.currentUser?.id ?? null"
       :quick-rolls="quickRolls"
+      :space-id="detail.game.spaceId"
+      :rules-revision="detail.game.rulesRevision"
+      :overlay-revision="overlayRevision"
       @update:open="onCloseCard"
       @toggle-quick-roll="toggleQuickRoll"
       @overlay-changed="onOverlayChanged"
+      @launch-hit="onLaunchHit"
+      @launch-injury="onLaunchInjury"
+    />
+
+    <CheckLaunchDialog
+      :open="checkOpen"
+      :game-id="gameId"
+      :space-id="detail.game.spaceId"
+      :chat-id="chatId"
+      :characters="memberships"
+      :npcs="npcs"
+      :rules="revisionRules"
+      :mechanics="mechanics"
+      :can-edit="canEdit"
+      :current-user-id="userStore.currentUser?.id ?? null"
+      :active-speaker-key="activeSpeakerKey"
+      :resume-offer="resumeOffer"
+      @update:open="onCheckClosed"
+      @settled="refreshPendingOffers"
+    />
+
+    <HitLaunchDialog
+      :open="hitOpen"
+      :game-id="gameId"
+      :chat-id="chatId"
+      :characters="memberships"
+      :npcs="npcs"
+      :rules="revisionRules"
+      :mechanics="mechanics"
+      :can-edit="canEdit"
+      :current-user-id="userStore.currentUser?.id ?? null"
+      :active-speaker-key="activeSpeakerKey"
+      :attacker-key="hitAttackerKey"
+      :attack="hitAttack"
+      :resume-offer="hitResumeOffer"
+      @update:open="onHitClosed"
+      @settled="refreshPendingOffers"
+      @offered="onHitOffered"
+      @overlay-changed="onOverlayChanged"
+    />
+    <InjuryLaunchDialog
+      :open="injuryOpen"
+      :game-id="gameId"
+      :chat-id="chatId"
+      :characters="memberships"
+      :npcs="npcs"
+      :rules="revisionRules"
+      :mechanics="mechanics"
+      :target-key="cardKey"
+      @update:open="injuryOpen = $event"
     />
   </div>
 </template>

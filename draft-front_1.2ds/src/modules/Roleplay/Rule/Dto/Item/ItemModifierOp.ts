@@ -15,4 +15,8 @@ export type ItemModifierOp =
       profiles?: ('strike' | 'throw' | 'shoot')[];
       damage_type_codes?: string[];
     }
-  | { type: 'resistance'; damage_type_code: string; mode: 'add' | 'add_size' | 'max'; value: number };
+  | { type: 'resistance'; damage_type_code: string; mode: 'add' | 'add_size' | 'max'; value: number }
+  | { type: 'keyword'; add?: string[]; remove?: string[] }
+  | { type: 'min_action_cost'; min: number }
+  | { type: 'magic_conductor'; value: number }
+  | { type: 'advantage'; delta: number; source_code: string };

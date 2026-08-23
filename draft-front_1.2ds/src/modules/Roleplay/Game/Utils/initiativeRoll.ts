@@ -1,15 +1,22 @@
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
+import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { DiceRng } from '@/modules/Roleplay/Game/Dto/DiceRng';
 import type { DiceRollResult } from '@/modules/Roleplay/Game/Dto/DiceRollResult';
 import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec';
 import type { GameInitiativeParticipant } from '@/modules/Roleplay/Game/Dto/GameInitiative';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
-import { CharacteristicNumber } from '@/modules/Roleplay/Rule/Value/CharacteristicNumber';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
+import { CharacteristicNumber } from '@/modules/Roleplay/Rule/Value/CharacteristicNumber';
 import { rollService } from '@/modules/Roleplay/Game/Service/Instance/rollService';
 import { rollEngine } from '@/modules/Roleplay/Game/Service/Roll/Instance/rollEngine';
 import { ROLL_RULE_CODE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_RULE_CODE';
+import { advantageEntries } from '@/modules/Roleplay/Rule/Utils/aggregateSourceDeltas';
+import { CHECK_INITIATIVE_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
+import {
+  resolveCheckAttachedRuleCodes,
+  resolveCheckCodeForCharacteristic,
+} from '@/modules/Roleplay/Rule/Utils/checkResolution';
 
 /** Способ определения инициативы участника в окне проверки. */
 export type InitiativeRollMethod = 'characteristic' | 'free' | 'fixed';
@@ -37,6 +44,8 @@ export interface InitiativeRollEntry {
   method: InitiativeRollMethod;
   /** characteristic: движковое значение характеристики (до модификатора). */
   characteristicValue?: DimensionalNumberValue;
+  /** characteristic: код выбранной характеристики → проверка `check-{code}` для механик броска. */
+  characteristicCode?: string;
   /** characteristic: системный модификатор (CharacteristicNumber.modifyWith). */
   modifier?: number;
   /** characteristic/free: преимущества (>0) / помехи (<0). */
@@ -52,25 +61,34 @@ export interface InitiativeRollEntry {
 
 export interface InitiativeRollResult {
   participant: GameInitiativeParticipant;
-  /** Значение для сортировки: totalSuccesses броска или фикс. значение. */
-  value: number;
+  /** Размерный итог броска (успехи + dieSize) или фикс. {n|0}. Порядок — dimensional compare. */
+  value: DimensionalNumberValue;
   result: DiceRollResult | null;
 }
 
+function actorKeyOf(participant: GameInitiativeParticipant): CombatEntityKey | undefined {
+  if (participant.entityId == null) return undefined;
+
+  return participant.kind === 'npc' ? `npc:${participant.entityId}` : `character:${participant.entityId}`;
+}
+
 function characteristicSpec(entry: InitiativeRollEntry): DiceRollSpec {
-  // Модификатор — системный: меняет размерность характеристики, пул = toNumber() результата.
-  const value = CharacteristicNumber.from(entry.characteristicValue ?? { base: 0, size: 0 }).modifyWith(
-    entry.modifier ?? 0,
-  );
-  const pool = Math.max(1, new DimensionalNumber(value.value).toNumber());
+  if (!entry.characteristicValue) {
+    throw new Error(`Нет значения характеристики для ${entry.participant.name}`);
+  }
+  const value = CharacteristicNumber.from(entry.characteristicValue).modifyWith(entry.modifier ?? 0).value;
+  const pool = Math.max(1, value.base);
 
   return {
     diceCount: pool,
     dieFaces: entry.dieFaces,
     efficiency: entry.efficiency,
-    adv: entry.adv ?? 0,
-    dieSize: 0,
+    advantages: advantageEntries(entry.adv ?? 0),
+    dieSize: value.size,
+    poolSize: value.size,
+    efficiencySize: 0,
     label: entry.participant.name,
+    actorKey: actorKeyOf(entry.participant),
   };
 }
 
@@ -82,16 +100,19 @@ function entrySpec(entry: InitiativeRollEntry): DiceRollSpec {
     diceCount: entry.freeDiceCount,
     dieFaces: entry.dieFaces,
     efficiency: entry.efficiency,
-    adv: entry.adv ?? 0,
+    advantages: advantageEntries(entry.adv ?? 0),
     dieSize: 0,
+    poolSize: 0,
+    efficiencySize: 0,
     label: entry.participant.name,
+    actorKey: actorKeyOf(entry.participant),
   };
 }
 
 /**
  * Проверка на инициативу каждого участника; результат нужен только для порядка (не хранится).
- * С механиками ревизии (правила + механики) бросок идёт через RollEngine — инициатива
- * подчиняется тем же правилам подсчёта, что и обычные броски (6-и-1 и пр.).
+ * Запуск — check-initiative. Механики броска — с проверки выбранной характеристики
+ * (дефолт восприятие); свободный бросок — с check-initiative.
  */
 export function rollInitiative(
   entries: InitiativeRollEntry[],
@@ -103,14 +124,23 @@ export function rollInitiative(
 
   return entries.map((entry) => {
     if (entry.method === 'fixed') {
-      return { participant: entry.participant, value: entry.fixedValue ?? 0, result: null };
+      return { participant: entry.participant, value: { base: entry.fixedValue ?? 0, size: 0 }, result: null };
     }
     const spec = entrySpec(entry);
+    const checkCode =
+      entry.method === 'characteristic'
+        ? resolveCheckCodeForCharacteristic(entry.characteristicCode, rules)
+        : CHECK_INITIATIVE_CODE;
+    const attachedRuleCodes = resolveCheckAttachedRuleCodes(checkCode, rules);
     const result = withMechanics
-      ? rollEngine.roll(spec, rng, rules, mechanics)
+      ? rollEngine.roll(spec, rng, rules, mechanics, attachedRuleCodes, [])
       : rollService.computeRollResult(spec, rng);
 
-    return { participant: entry.participant, value: result.totalSuccesses, result };
+    return {
+      participant: entry.participant,
+      value: { base: result.totalSuccesses, size: result.spec.dieSize || 0 },
+      result,
+    };
   });
 }
 
@@ -124,19 +154,26 @@ function shuffle<T>(arr: T[], rng: DiceRng): void {
 }
 
 /**
- * Порядок хода: по убыванию значения, при равных значениях — случайный порядок,
+ * Порядок хода: по убыванию размерного итога (3↓ < 2), при равенстве — случайный порядок,
  * замораживается (сохраняется как порядок шкалы).
  */
 export function orderInitiative(
   results: InitiativeRollResult[],
   rng: DiceRng = Math.random,
 ): GameInitiativeParticipant[] {
-  const sorted = [...results].sort((a, b) => b.value - a.value);
+  const sorted = [...results].sort((left, right) =>
+    new DimensionalNumber(right.value).compare(new DimensionalNumber(left.value)),
+  );
   const ordered: InitiativeRollResult[] = [];
   let index = 0;
   while (index < sorted.length) {
     let end = index;
-    while (end + 1 < sorted.length && sorted[end + 1].value === sorted[index].value) end++;
+    while (
+      end + 1 < sorted.length &&
+      new DimensionalNumber(sorted[end + 1].value).equals(new DimensionalNumber(sorted[index].value))
+    ) {
+      end++;
+    }
     const group = sorted.slice(index, end + 1);
     if (group.length > 1) shuffle(group, rng);
     ordered.push(...group);

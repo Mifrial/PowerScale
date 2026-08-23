@@ -11,4 +11,8 @@ export const ITEM_MODIFIER_OP_TYPE_OPTIONS: { title: string; value: ItemModifier
   { title: 'Штраф к силе', value: 'strength_penalty' },
   { title: 'Сила удара', value: 'action_strength' },
   { title: 'Сопротивление', value: 'resistance' },
+  { title: 'Признак', value: 'keyword' },
+  { title: 'Мин. ОД', value: 'min_action_cost' },
+  { title: 'Проводник магии', value: 'magic_conductor' },
+  { title: 'Помеха/преимущество', value: 'advantage' },
 ];

@@ -9,9 +9,10 @@ import { ROLL_EVENTS } from '@/modules/Roleplay/Rule/init';
 import {
   ROLL_RULE_CODE,
   ROLL_DEFAULT_EFFICIENCY,
-  ROLL_DEFAULT_ADV,
   ROLL_DEFAULT_DIE_SIZE,
 } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_RULE_CODE';
+import { ADVANTAGE_SOURCE_ROLL } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
+import { advantageEntries } from '@/modules/Roleplay/Rule/Utils/aggregateSourceDeltas';
 
 /**
  * Поток броска как события механик (ТР §8 «Броски»): pool → бросок → drop → базовый
@@ -36,8 +37,8 @@ export class RollEngine {
         spec.efficiency === ROLL_DEFAULT_EFFICIENCY && data.efficiency !== undefined
           ? data.efficiency
           : spec.efficiency,
-      adv: spec.adv === ROLL_DEFAULT_ADV && data.adv !== undefined ? data.adv : spec.adv,
       dieSize: spec.dieSize === ROLL_DEFAULT_DIE_SIZE && data.dieSize !== undefined ? data.dieSize : spec.dieSize,
+      advantages: spec.advantages.length > 0 ? spec.advantages : advantageEntries(data.adv ?? 0, ADVANTAGE_SOURCE_ROLL),
     };
   }
 
@@ -47,13 +48,14 @@ export class RollEngine {
     rules: Rule[],
     mechanics: Mechanic[],
     activeRuleCodes: string[] = [],
+    subMechanicCodes?: string[],
   ): DiceRollResult {
     const resolvedSpec = this.resolveDefaults(rules, spec);
     const context: RollMechanicContext = {
       diceCount: resolvedSpec.diceCount,
       dieFaces: resolvedSpec.dieFaces,
       efficiency: resolvedSpec.efficiency,
-      adv: resolvedSpec.adv || 0,
+      advantages: resolvedSpec.advantages,
       poolSize: resolvedSpec.diceCount,
       rolls: [],
       adjustedRolls: [],
@@ -63,11 +65,15 @@ export class RollEngine {
       applied: [],
     };
 
-    // «Всегда в силе» механики броска объявляет правило «Бросок» (sub_mechanics): 6-и-1,
-    // преимущества; остальные механики (навыки: Критический удар) — пер-ролл активные.
+    // «Всегда в силе» у голого броска — sub_mechanics правила «Бросок» (помехи/преимущества).
+    // Проверка передаёт коды привязанных правил в extraRuleCodes и пустой includeCodes.
     const rollRule = rules.find((candidate) => candidate.code === ROLL_RULE_CODE);
     const includeCodes =
-      rollRule?.mechanic_payload?.type === 'roll' ? rollRule.mechanic_payload.data.sub_mechanics : undefined;
+      subMechanicCodes !== undefined
+        ? subMechanicCodes
+        : rollRule?.mechanic_payload?.type === 'roll'
+          ? rollRule.mechanic_payload.data.sub_mechanics
+          : undefined;
     const active = this.engine.resolveActive(rules, mechanics, {
       includeCodes,
       extraRuleCodes: activeRuleCodes,

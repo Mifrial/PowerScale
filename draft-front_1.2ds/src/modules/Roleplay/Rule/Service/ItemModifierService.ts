@@ -1,6 +1,12 @@
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
+import { aggregateSourceDeltas } from '@/modules/Roleplay/Rule/Utils/aggregateSourceDeltas';
+import {
+  ITEM_MODIFIER_CRAFT_KEYWORD_FACTOR,
+  ITEM_MODIFIER_CRAFT_QUALITY_TYPE,
+  ITEM_MODIFIER_IMPROVISED_CODE,
+} from '@/modules/Roleplay/Rule/Constant/Item/ITEM_MODIFIER_CRAFT_QUALITY';
 import { ITEM_MODIFIER_PRICE_KEYWORD_PRIORITY } from '@/modules/Roleplay/Rule/Constant/Item/ITEM_MODIFIER_PRICE_KEYWORD_PRIORITY';
 import type { Formula } from '@/modules/Roleplay/Rule/Dto/Ability/Formula';
 import type { ItemModifierApplies } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierSpec';
@@ -130,13 +136,45 @@ export class ItemModifierService {
     return cost;
   }
 
+  /**
+   * Признаки предмета после keyword-ops всего стека (сначала add, потом remove).
+   * Нужны для применимости набора (оковка даёт metal → серебро).
+   */
+  effectiveKeywordCodes(itemKeywordCodes: readonly string[], modifiers: readonly Rule[]): string[] {
+    const keywords = new Set(itemKeywordCodes);
+    for (const rule of modifiers) {
+      if (rule.type !== 'item_modifier') continue;
+      const modifier = rule.spec as ItemModifierSpec | undefined;
+      for (const effect of modifier?.effects ?? []) {
+        for (const op of effect.ops ?? []) {
+          if (op.type !== 'keyword') continue;
+          for (const code of op.add ?? []) keywords.add(code);
+        }
+      }
+    }
+    for (const rule of modifiers) {
+      if (rule.type !== 'item_modifier') continue;
+      const modifier = rule.spec as ItemModifierSpec | undefined;
+      for (const effect of modifier?.effects ?? []) {
+        for (const op of effect.ops ?? []) {
+          if (op.type !== 'keyword') continue;
+          for (const code of op.remove ?? []) keywords.delete(code);
+        }
+      }
+    }
+
+    return [...keywords];
+  }
+
   applyStack(
     baseSpec: ItemSpec,
     modifiers: readonly Rule[],
     itemKeywordCodes: readonly string[],
-  ): { spec: ItemSpec; cost: number } {
+  ): { spec: ItemSpec; cost: number; keywordCodes: string[] } {
     const spec = cloneData(baseSpec);
+    const keywords = new Set(itemKeywordCodes);
     let cost = spec.cost_gm ?? 0;
+    const zeroImprovised = this.isImprovisedZeroPrice(modifiers);
     for (const rule of modifiers) {
       if (rule.type !== 'item_modifier') continue;
       const modifier = rule.spec as ItemModifierSpec | undefined;
@@ -144,13 +182,16 @@ export class ItemModifierService {
       for (const effect of modifier.effects ?? []) {
         if (!this.effectMatches(effect, spec)) continue;
         for (const op of effect.ops ?? []) {
-          this.applyOp(spec, op, this.scopeOf(effect.label), rule);
+          this.applyOp(spec, op, this.scopeOf(effect.label), rule, keywords);
         }
       }
-      cost = this.computePrice(cost, modifier.price, itemKeywordCodes, spec.weight);
+      if (zeroImprovised) continue;
+      cost = this.computeScaledPrice(cost, modifier, itemKeywordCodes, spec.weight, modifiers);
     }
+    if (zeroImprovised) cost = 0;
+    if (spec.advantages?.length) spec.advantages = aggregateSourceDeltas(spec.advantages);
 
-    return { spec, cost };
+    return { spec, cost, keywordCodes: this.effectiveKeywordCodes(itemKeywordCodes, modifiers) };
   }
 
   private effectMatches(effect: ItemModifierEffect, spec: ItemSpec): boolean {
@@ -174,7 +215,13 @@ export class ItemModifierService {
     return 'all';
   }
 
-  private applyOp(spec: ItemSpec, op: ItemModifierOp, scope: ItemModifierApplyScope, rule: Rule): void {
+  private applyOp(
+    spec: ItemSpec,
+    op: ItemModifierOp,
+    scope: ItemModifierApplyScope,
+    rule: Rule,
+    keywords: Set<string>,
+  ): void {
     switch (op.type) {
       case 'weight':
         this.applyWeight(spec, op);
@@ -214,6 +261,28 @@ export class ItemModifierService {
         return;
       case 'resistance':
         this.applyResistance(spec, op, scope);
+
+        return;
+      case 'keyword':
+        for (const code of op.add ?? []) keywords.add(code);
+        for (const code of op.remove ?? []) keywords.delete(code);
+
+        return;
+      case 'min_action_cost':
+        if (this.includesWeapon(scope) && spec.weapon) {
+          spec.weapon.min_action_cost = Math.max(spec.weapon.min_action_cost ?? 0, op.min);
+        }
+
+        return;
+      case 'magic_conductor':
+        spec.magic_conductor = Math.max(spec.magic_conductor ?? 0, op.value);
+
+        return;
+      case 'advantage':
+        spec.advantages = [
+          ...(spec.advantages ?? []),
+          { source_code: op.source_code, source_label: rule.name, delta: op.delta },
+        ];
 
         return;
     }
@@ -430,6 +499,80 @@ export class ItemModifierService {
 
   private includesArmor(scope: ItemModifierApplyScope): boolean {
     return scope === 'all' || scope === 'armor';
+  }
+
+  private computeScaledPrice(
+    baseCostGm: number,
+    modifier: ItemModifierSpec,
+    itemKeywordCodes: readonly string[],
+    weight: DimensionalNumberValue | null | undefined,
+    stack: readonly Rule[],
+  ): number {
+    const next = this.computePrice(baseCostGm, modifier.price, itemKeywordCodes, weight);
+    const delta = next - baseCostGm;
+    const scale = this.priceScaleFor(modifier, delta, itemKeywordCodes, stack);
+    if (scale === 1) return next;
+
+    return baseCostGm + Math.round(delta * scale);
+  }
+
+  private priceScaleFor(
+    modifier: ItemModifierSpec,
+    delta: number,
+    itemKeywordCodes: readonly string[],
+    stack: readonly Rule[],
+  ): number {
+    let scale = 1;
+    if (modifier.type_code === ITEM_MODIFIER_CRAFT_QUALITY_TYPE) {
+      const codes = new Set(itemKeywordCodes);
+      if (codes.has('very-hard-to-craft')) scale *= ITEM_MODIFIER_CRAFT_KEYWORD_FACTOR['very-hard-to-craft'];
+      else if (codes.has('hard-to-craft')) scale *= ITEM_MODIFIER_CRAFT_KEYWORD_FACTOR['hard-to-craft'];
+      else if (codes.has('easy-to-craft')) scale *= ITEM_MODIFIER_CRAFT_KEYWORD_FACTOR['easy-to-craft'];
+    }
+    for (const rule of stack) {
+      if (rule.type !== 'item_modifier') continue;
+      const spec = rule.spec as ItemModifierSpec | undefined;
+      const extra = spec?.price_scale;
+      if (!extra || extra.type_code !== modifier.type_code) continue;
+      if (extra.increasing_only && delta <= 0) continue;
+      scale *= extra.factor;
+    }
+
+    return scale;
+  }
+
+  /** Импровизированное одно (или только с модами, уменьшающими размер) — цена 0. */
+  private isImprovisedZeroPrice(modifiers: readonly Rule[]): boolean {
+    const itemModifiers = modifiers.filter((rule) => rule.type === 'item_modifier');
+    if (!itemModifiers.some((rule) => rule.code === ITEM_MODIFIER_IMPROVISED_CODE)) return false;
+
+    return itemModifiers.every(
+      (rule) => rule.code === ITEM_MODIFIER_IMPROVISED_CODE || this.isSizeReducingModifier(rule),
+    );
+  }
+
+  private isSizeReducingModifier(rule: Rule): boolean {
+    const spec = rule.spec as ItemModifierSpec | undefined;
+    if (!spec) return false;
+    const price = spec.price;
+    if ((price?.factor ?? 1) !== 1) return false;
+    if ((price?.add_gm ?? 0) !== 0) return false;
+    if ((price?.add_gm_per_100g ?? 0) !== 0) return false;
+    if (price?.min_final_gm != null) return false;
+    const ops = (spec.effects ?? []).flatMap((effect) => effect.ops ?? []);
+    if (ops.length === 0) return false;
+
+    return ops.every((op) => {
+      if (op.type !== 'durability' && op.type !== 'block' && op.type !== 'defense' && op.type !== 'max_agility') {
+        return false;
+      }
+      if (op.add_size === undefined || op.add_size >= 0) return false;
+      if ('delta' in op && op.delta !== undefined) return false;
+      if ('factor' in op && op.factor !== undefined) return false;
+      if ('add' in op && op.add !== undefined) return false;
+
+      return true;
+    });
   }
 
   private resolvePrice(price: ItemModifierPrice | undefined, itemKeywordCodes: readonly string[]): ItemModifierPrice {

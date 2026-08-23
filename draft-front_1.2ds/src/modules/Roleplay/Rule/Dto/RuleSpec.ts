@@ -12,8 +12,10 @@ import type { LanguageSpec } from '@/modules/Roleplay/Rule/Dto/LanguageSpec';
 import type { WeaponFamilySpec } from '@/modules/Roleplay/Rule/Dto/Item/WeaponFamilySpec';
 import type { ItemModifierSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierSpec';
 import type { ItemModifierTypeSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierTypeSpec';
+import type { CheckSpec } from '@/modules/Roleplay/Rule/Dto/Check/CheckSpec';
+import type { DamageTypeSpec } from '@/modules/Roleplay/Rule/Dto/Damage/DamageTypeSpec';
 
-/** Перечисление спеков правила по типам. simple/points/damage_type/source спеки не несут (spec отсутствует). */
+/** Перечисление спеков правила по типам. simple/points/source спеки не несут (spec отсутствует). */
 export type RuleSpec =
   | AbilitySpec
   | ItemSpec
@@ -28,4 +30,6 @@ export type RuleSpec =
   | LanguageSpec
   | WeaponFamilySpec
   | ItemModifierSpec
-  | ItemModifierTypeSpec;
+  | ItemModifierTypeSpec
+  | CheckSpec
+  | DamageTypeSpec;

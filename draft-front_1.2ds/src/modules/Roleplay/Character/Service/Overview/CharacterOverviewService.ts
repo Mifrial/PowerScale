@@ -35,6 +35,7 @@ import { FormulaEvaluationService } from '@/modules/Roleplay/Character/Service/F
 import { CHARACTERISTIC_BASE_RANGE } from '@/modules/Roleplay/Character/Constant/CHARACTERISTIC_BASE_RANGE';
 import { moneyBreakdownLabel } from '@/modules/Roleplay/Character/Utils/moneyBreakdown';
 import { CharacterReferenceService } from '@/modules/Roleplay/Character/Service/CharacterReferenceService';
+import { evaluateDerivedValue } from '@/modules/Roleplay/Rule/Utils/derivedCharacteristic';
 import type { ItemLabels } from '@/modules/Roleplay/Character/Constant/ITEM_LABELS';
 import { ITEM_LABELS } from '@/modules/Roleplay/Character/Constant/ITEM_LABELS';
 import { WEAPON_PROFILE_LABELS } from '@/modules/Roleplay/Character/Constant/WEAPON_PROFILE_LABELS';
@@ -67,7 +68,7 @@ export class CharacterOverviewService {
     const reference = new CharacterReferenceService(rules, version.spaceCode, version.rulesRevision);
     const abilityLevels = new Map(version.abilities.map((ability) => [ability.ruleId, ability.level]));
     const coreList = version.characteristics.map((value) =>
-      this.buildCharacteristicCore(value, reference, abilityLevels),
+      this.buildCharacteristicCore(value, reference, abilityLevels, version),
     );
     // Контекст формул (атаки/бой) — по ИТОГОВЫМ значениям характеристик (база + модификаторы):
     // «Сила 5 с тренировкой» в формулах урона — 5, а не голая база.
@@ -77,6 +78,7 @@ export class CharacterOverviewService {
       const rule = reference.ruleById(overview.ruleId);
       if (rule) byCode.set(rule.code, overview);
     }
+    this.recomputeDerivedValues(coreList, byCode);
     const allCharacteristics = coreList.map((overview) => {
       if (overview.derived === null) return overview;
 
@@ -126,17 +128,21 @@ export class CharacterOverviewService {
     value: CharacteristicValue,
     reference: CharacterReferenceService,
     abilityLevels: Map<string, number>,
+    version: CharacterVersion,
   ): CharacteristicOverview {
     const resolved = reference.resolve(value.ruleId);
     const spec = this.characteristicSpecOf(resolved.rule);
     const formula = spec?.formula ?? null;
-    const modifiers = value.modifiers.map((modifier) => this.buildModifier(modifier, reference, abilityLevels));
+    const modifiers = value.modifiers
+      .filter((modifier) => this.limitModifierIsLive(modifier, version))
+      .map((modifier) => this.buildModifier(modifier, reference, abilityLevels));
     const permanent = this.aggregateModifiers(modifiers.filter((modifier) => modifier.scope === null));
     const delta = permanent.reduce((sum, modifier) => sum + modifier.delta, 0);
-    const computedValue: DimensionalNumberValue = new DimensionalNumber(value.base).modify(
+    const uncapped: DimensionalNumberValue = new DimensionalNumber(value.base).modify(
       delta,
       CHARACTERISTIC_BASE_RANGE,
     ).value;
+    const computedValue = this.applyCharacteristicLimits(uncapped, permanent);
 
     return {
       ruleId: value.ruleId,
@@ -155,6 +161,44 @@ export class CharacterOverviewService {
       conditionalModifiers: modifiers.filter((modifier) => modifier.scope !== null),
       derived: formula === null ? null : { formula, label: null, bases: [] },
     };
+  }
+
+  /** Потолок экипировки не в delta: значение — min(база+моды, самый жёсткий limit). */
+  private applyCharacteristicLimits(
+    value: DimensionalNumberValue,
+    modifiers: OverviewModifier[],
+  ): DimensionalNumberValue {
+    let current = value;
+    for (const modifier of modifiers) {
+      if (modifier.limit == null) continue;
+      if (new DimensionalNumber(current).compare(new DimensionalNumber(modifier.limit)) > 0) {
+        current = modifier.limit;
+      }
+    }
+
+    return current;
+  }
+
+  /** Потолок с предмета, который уже снят, не показываем и не применяем. */
+  private limitModifierIsLive(modifier: CharacteristicModifier, version: CharacterVersion): boolean {
+    if (modifier.limit == null) return true;
+    if (modifier.sourceRuleId == null) return true;
+
+    return version.inventory.some((item) => item.equipped && item.ruleId === modifier.sourceRuleId);
+  }
+
+  /** Производные — min/max живых баз (после потолков), не снимок в версии. */
+  private recomputeDerivedValues(
+    coreList: CharacteristicOverview[],
+    byCode: Map<string, CharacteristicOverview>,
+  ): void {
+    for (const overview of coreList) {
+      if (overview.derived === null) continue;
+      const next = evaluateDerivedValue(overview.derived.formula, (code) => byCode.get(code)?.value);
+      if (next === null) continue;
+      overview.value = next;
+      overview.valueLabel = new DimensionalNumber(next).toString();
+    }
   }
 
   private groupOf(spec: CharacteristicSpec | null): CharacteristicGroup {
@@ -777,6 +821,7 @@ export class CharacterOverviewService {
             sourceLabel: this.sourceLabelOf(slot.source_code, reference),
             damageTypeLabel: null,
             damageTypeDative: null,
+            damageTypeCode: null,
           });
         }
         for (const slot of spec.armor.resistance_slots) {
@@ -792,6 +837,7 @@ export class CharacterOverviewService {
             damageTypeLabel: damageType?.name ?? null,
             damageTypeDative:
               slot.damage_type_code === null ? null : (DAMAGE_TYPE_FORMS[slot.damage_type_code]?.dative ?? null),
+            damageTypeCode: slot.damage_type_code,
           });
         }
         const overview: DefenseArmorOverview = {
@@ -812,6 +858,7 @@ export class CharacterOverviewService {
           href: reference.href(item.ruleId),
           defense: new DimensionalNumber(spec.shield.block.defense).toString(),
           efficiency: new DimensionalNumber(spec.shield.block.efficiency).toString(),
+          efficiencyValue: spec.shield.block.efficiency,
         };
       }
     }
@@ -912,11 +959,11 @@ export class CharacterOverviewService {
   ): AttackOverview {
     const distance = this.formula.evaluate(profile.distance, context);
     const range = profile.range === null ? null : this.formula.evaluate(profile.range, context);
-    const accuracy = this.formula.evaluateDimensionalValue(profile.accuracy);
-    const damage = new DimensionalNumber(this.formula.evaluateDimensional(profile.damage.formula, context)).toString();
-    const penetration = new DimensionalNumber(
-      this.formula.evaluateDimensional(profile.penetration, context),
-    ).toString();
+    const accuracy = profile.accuracy;
+    const damageValue = this.formula.evaluateDimensional(profile.damage.formula, context);
+    const damage = new DimensionalNumber(damageValue).toString();
+    const penetrationValue = this.formula.evaluateDimensional(profile.penetration, context);
+    const penetration = new DimensionalNumber(penetrationValue).toString();
     const forms = profile.damage.damage_type_code === null ? null : DAMAGE_TYPE_FORMS[profile.damage.damage_type_code];
 
     return {
@@ -926,12 +973,16 @@ export class CharacterOverviewService {
       profileType: profile.type,
       profileTypeLabel: WEAPON_PROFILE_LABELS[profile.type],
       distanceLabel: range === null ? String(distance) : `${distance}/${range}`,
-      accuracyLabel: `${accuracy} точность`,
+      accuracyLabel: `${new DimensionalNumber(accuracy).toString()} точность`,
+      accuracy,
       damageLabel: forms === null ? damage : `${damage} ${forms.genitive}`,
       penetrationLabel: `${penetration} пробития`,
       damageFormula: formulaLabel(profile.damage.formula, (code) => reference.ruleByCode(code)?.name ?? null, true),
       penetrationFormula: formulaLabel(profile.penetration, (code) => reference.ruleByCode(code)?.name ?? null, true),
       isResolved: true,
+      damageTypeCode: profile.damage.damage_type_code,
+      damage: damageValue,
+      penetration: penetrationValue,
     };
   }
   private effectiveSpecOf(item: InventoryItem, reference: CharacterReferenceService): ItemSpec | null {

@@ -1,6 +1,25 @@
 <script setup lang="ts">
 import { watch, onUnmounted } from 'vue';
 
+/** Счётчик вложенных панелей: закрытый слайдер не должен снимать overflow у открытого родителя. */
+let overflowLocks = 0;
+
+function lockOverflow(): void {
+  if (overflowLocks === 0) {
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+  }
+  overflowLocks += 1;
+}
+
+function unlockOverflow(): void {
+  overflowLocks = Math.max(0, overflowLocks - 1);
+  if (overflowLocks === 0) {
+    document.documentElement.style.overflow = '';
+    document.body.style.overflow = '';
+  }
+}
+
 withDefaults(
   defineProps<{
     width?: string;
@@ -16,6 +35,7 @@ withDefaults(
 );
 
 const open = defineModel<boolean>({ default: false });
+let holdsOverflowLock = false;
 
 function close() {
   open.value = false;
@@ -27,31 +47,37 @@ function onKeydown(e: KeyboardEvent) {
   }
 }
 
+function acquireLock(): void {
+  if (holdsOverflowLock) return;
+  lockOverflow();
+  window.addEventListener('keydown', onKeydown);
+  holdsOverflowLock = true;
+}
+
+function releaseLock(): void {
+  if (!holdsOverflowLock) return;
+  unlockOverflow();
+  window.removeEventListener('keydown', onKeydown);
+  holdsOverflowLock = false;
+}
+
 watch(
   open,
   (val) => {
-    if (val) {
-      document.documentElement.style.overflow = 'hidden';
-      document.body.style.overflow = 'hidden';
-      window.addEventListener('keydown', onKeydown);
-    } else {
-      document.documentElement.style.overflow = '';
-      document.body.style.overflow = '';
-      window.removeEventListener('keydown', onKeydown);
-    }
+    if (val) acquireLock();
+    else releaseLock();
   },
   { immediate: true },
 );
 
 onUnmounted(() => {
-  document.documentElement.style.overflow = '';
-  document.body.style.overflow = '';
-  window.removeEventListener('keydown', onKeydown);
+  releaseLock();
 });
 </script>
 
 <template>
-  <Teleport to="body">
+  <!-- Внутри .v-application: иначе оверлеи Vuetify (v-menu) снаружи VApp ломают patch. -->
+  <Teleport to=".v-application">
     <Transition name="slide">
       <div v-if="open" class="slide-wrapper" @keydown.esc="close">
         <div

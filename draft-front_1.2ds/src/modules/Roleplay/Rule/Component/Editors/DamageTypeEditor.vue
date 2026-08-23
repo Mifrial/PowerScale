@@ -1,15 +1,23 @@
 <script setup lang="ts">
+import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec';
+import type { DamageTypeSpec } from '@/modules/Roleplay/Rule/Dto/Damage/DamageTypeSpec';
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import RuleEditorBase from '@/modules/Roleplay/Rule/Component/Editors/RuleEditorBase.vue';
+import { isDamageTypeAttachableRule } from '@/modules/Roleplay/Rule/Utils/damageTypeSpec';
+import { computed, ref, watch } from 'vue';
+import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
 
-defineProps<{
+const props = defineProps<{
   name: string;
   code: string;
   codeDisabled?: boolean;
   description: string;
   mechanicId: number | null;
   keywordIds: number[];
+  spec: RuleSpec | null;
   mechanicOptions: { title: string; value: number }[];
   keywordOptions: { title: string; value: number }[];
+  rules: Rule[];
 }>();
 
 const emit = defineEmits<{
@@ -18,7 +26,36 @@ const emit = defineEmits<{
   'update:description': [value: string];
   'update:mechanicId': [value: number | null];
   'update:keywordIds': [value: number[]];
+  'update:spec': [value: DamageTypeSpec];
 }>();
+
+function emptySpec(): DamageTypeSpec {
+  return { type: 'damage_type', forms: { genitive: '', dative: '' }, attached_rule_codes: [], defense_ignored: false };
+}
+
+function fromSpec(value: RuleSpec | null): DamageTypeSpec {
+  if (value && typeof value === 'object' && 'type' in value && value.type === 'damage_type') {
+    return cloneData(value);
+  }
+
+  return emptySpec();
+}
+
+const draft = ref<DamageTypeSpec>(fromSpec(props.spec));
+
+watch(
+  () => props.spec,
+  (value) => {
+    draft.value = fromSpec(value);
+  },
+);
+
+const specToEmit = computed<DamageTypeSpec>(() => cloneData(draft.value));
+watch(specToEmit, (value) => emit('update:spec', value), { deep: true });
+
+const attachableOptions = computed(() =>
+  props.rules.filter(isDamageTypeAttachableRule).map((rule) => ({ title: rule.name, value: rule.code })),
+);
 </script>
 
 <template>
@@ -38,14 +75,42 @@ const emit = defineEmits<{
     :keyword-options="keywordOptions"
   >
     <template #spec>
-      <v-card class="mt-4">
-        <v-card-title>Тип урона</v-card-title>
-        <v-card-text>
-          <div class="text-body-2 text-medium-emphasis">
-            Тип урона используется для определения типа урона в профилях оружия и типа сопротивления в броне и щитах.
-          </div>
-        </v-card-text>
-      </v-card>
+      <v-text-field
+        v-model="draft.forms.genitive"
+        label="Родительный (урона)"
+        hint="«5 рубящего урона»"
+        persistent-hint
+        hide-details="auto"
+        class="mb-3"
+      />
+      <v-text-field
+        v-model="draft.forms.dative"
+        label="Дательный (сопротивлению)"
+        hint="«сопротивления рубящему урону»"
+        persistent-hint
+        hide-details="auto"
+        class="mb-3"
+      />
+      <v-checkbox
+        v-model="draft.defense_ignored"
+        label="Защита не помогает"
+        hint="Линии защиты не добавляются к сопротивлению этому типу урона."
+        persistent-hint
+        hide-details="auto"
+        class="mb-3"
+      />
+      <v-select
+        v-model="draft.attached_rule_codes"
+        :items="attachableOptions"
+        label="Механики типа урона"
+        hint="Карточки с механикой: хуки на увечье, применение урона, оплату РУ."
+        persistent-hint
+        multiple
+        chips
+        closable-chips
+        hide-details="auto"
+        class="mb-3"
+      />
     </template>
   </RuleEditorBase>
 </template>

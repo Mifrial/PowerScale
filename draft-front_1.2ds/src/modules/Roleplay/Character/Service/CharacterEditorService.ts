@@ -57,6 +57,7 @@ import { itemModifierService } from '@/modules/Roleplay/Rule/Service/Instance/it
 import type { InventoryItem } from '@/modules/Roleplay/Character/Dto/InventoryItem';
 import { DOMAIN_REF_RULE_TYPES } from '@/modules/Roleplay/Rule/Constant/Ability/DOMAIN_REF_RULE_TYPES';
 import { DOMAIN_STATIC_OPTIONS } from '@/modules/Roleplay/Rule/Constant/Ability/DOMAIN_STATIC_OPTIONS';
+import { communicationCheckOptions, isCommunicationCheckDomain } from '@/modules/Roleplay/Rule/Utils/checkResolution';
 import { weaponFamilyLadder, weaponProficiencyLevels } from '@/modules/Roleplay/Character/Utils/weaponProficiency';
 import type { MechanicState } from '@/modules/Roleplay/Rule/Dto/MechanicState';
 import type { CharacterMechanicContext } from '@/modules/Roleplay/Rule/Dto/CharacterMechanicContext';
@@ -1771,6 +1772,10 @@ export class CharacterEditorService {
   private domainOptionsOf(rules: Rule[], domainRef: string | null): { code: string; name: string }[] {
     if (!domainRef) return [];
     const staticOptions = DOMAIN_STATIC_OPTIONS[domainRef];
+    if (isCommunicationCheckDomain(domainRef)) {
+      const fromChecks = communicationCheckOptions(rules);
+      if (fromChecks.length > 0) return fromChecks;
+    }
     if (staticOptions) return staticOptions;
     const types = DOMAIN_REF_RULE_TYPES[domainRef];
     if (!types) return [];

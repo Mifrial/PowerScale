@@ -201,8 +201,8 @@ async function roll(): Promise<void> {
     return;
   }
   for (const entry of entries.value) {
-    if (entry.method === 'characteristic' && !entry.characteristicsReady) {
-      error.value = `Загружаем характеристики для ${entry.participant.name}, повторите`;
+    if (entry.method === 'characteristic' && !entry.characteristicValues.get(entry.characteristicCode)) {
+      error.value = `Нет значения «${entry.characteristicCode}» у ${entry.participant.name}`;
       rolling.value = false;
 
       return;
@@ -227,6 +227,7 @@ async function roll(): Promise<void> {
     const rollEntries = entries.value.map((entry) => ({
       participant: entry.participant,
       method: entry.method,
+      characteristicCode: entry.method === 'characteristic' ? entry.characteristicCode : undefined,
       characteristicValue:
         entry.method === 'characteristic' ? entry.characteristicValues.get(entry.characteristicCode)?.value : undefined,
       modifier: entry.method === 'characteristic' ? entry.modifier : undefined,

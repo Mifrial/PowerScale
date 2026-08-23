@@ -9,6 +9,9 @@ import type { Requirement } from '@/modules/Roleplay/Rule/Dto/Ability/Requiremen
 import type { Grant } from '@/modules/Roleplay/Rule/Dto/Ability/Grant';
 import type { ItemSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpec';
 import type { ItemModifierSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierSpec';
+import type { CheckSpec } from '@/modules/Roleplay/Rule/Dto/Check/CheckSpec';
+import { asCheckSpec } from '@/modules/Roleplay/Rule/Utils/checkResolution';
+import { asDamageTypeSpec } from '@/modules/Roleplay/Rule/Utils/damageTypeSpec';
 import type { RaceSpec } from '@/modules/Roleplay/Rule/Dto/Race/RaceSpec';
 import type { SpeciesSpec } from '@/modules/Roleplay/Rule/Dto/Race/SpeciesSpec';
 import type { CharacteristicSpec } from '@/modules/Roleplay/Rule/Dto/CharacteristicSpec';
@@ -203,6 +206,109 @@ export class RuleValidationService {
               message: `материальный компонент ссылается на отсутствующий предмет «${component.item_code}»`,
             });
           }
+        }
+      }
+    }
+
+    return errors;
+  }
+
+  /** Цикл наследования и обязательные поля проверки. */
+  validateCheckStructure(rules: Rule[]): { ruleCode: string; ruleName: string; message: string }[] {
+    const errors: { ruleCode: string; ruleName: string; message: string }[] = [];
+    const byCode = new Map(rules.filter((rule) => rule.type === 'check').map((rule) => [rule.code, rule]));
+
+    for (const rule of rules) {
+      if (rule.type !== 'check') continue;
+      const spec = asCheckSpec(rule);
+      if (!spec) {
+        errors.push({
+          ruleCode: rule.code,
+          ruleName: rule.name,
+          message: 'проверка должна содержать спеку type check',
+        });
+        continue;
+      }
+      if (spec.difficulty_input.kind === 'from_state' && !spec.difficulty_input.state_code?.trim()) {
+        errors.push({
+          ruleCode: rule.code,
+          ruleName: rule.name,
+          message: 'сложность из состояния требует state_code',
+        });
+      }
+      if (spec.attached_rule_codes) {
+        const byAnyCode = new Map(rules.map((entry) => [entry.code, entry]));
+        for (const code of spec.attached_rule_codes) {
+          const attached = byAnyCode.get(code);
+          if (!attached) {
+            errors.push({
+              ruleCode: rule.code,
+              ruleName: rule.name,
+              message: `правило броска «${code}» не найдено`,
+            });
+            continue;
+          }
+          if (attached.type === 'check' || attached.mechanicId == null) {
+            errors.push({
+              ruleCode: rule.code,
+              ruleName: rule.name,
+              message: `«${code}» нельзя повесить на бросок проверки`,
+            });
+          }
+        }
+      }
+      const seen = new Set<string>([rule.code]);
+      let parentCode = spec.parent_check_code ?? '';
+      while (parentCode) {
+        if (seen.has(parentCode)) {
+          errors.push({
+            ruleCode: rule.code,
+            ruleName: rule.name,
+            message: 'цикл в наследовании проверки',
+          });
+          break;
+        }
+        seen.add(parentCode);
+        const parent = byCode.get(parentCode);
+        parentCode = asCheckSpec(parent)?.parent_check_code ?? '';
+      }
+    }
+
+    return errors;
+  }
+
+  /** Карточки на типе урона существуют и несут механику. */
+  validateDamageTypeStructure(rules: Rule[]): { ruleCode: string; ruleName: string; message: string }[] {
+    const errors: { ruleCode: string; ruleName: string; message: string }[] = [];
+    const byCode = new Map(rules.map((rule) => [rule.code, rule]));
+
+    for (const rule of rules) {
+      if (rule.type !== 'damage_type') continue;
+      const spec = asDamageTypeSpec(rule);
+      if (!spec) {
+        errors.push({
+          ruleCode: rule.code,
+          ruleName: rule.name,
+          message: 'тип урона должен содержать спеку type damage_type',
+        });
+        continue;
+      }
+      for (const code of spec.attached_rule_codes) {
+        const attached = byCode.get(code);
+        if (!attached) {
+          errors.push({
+            ruleCode: rule.code,
+            ruleName: rule.name,
+            message: `хук «${code}» не найден`,
+          });
+          continue;
+        }
+        if (attached.type === 'damage_type' || attached.type === 'check' || attached.mechanicId == null) {
+          errors.push({
+            ruleCode: rule.code,
+            ruleName: rule.name,
+            message: `«${code}» нельзя повесить на тип урона`,
+          });
         }
       }
     }
@@ -507,6 +613,14 @@ export class RuleValidationService {
         for (const code of modifier.applies?.keyword_none ?? []) {
           collect({ code, type: 'keyword' });
         }
+        for (const effect of modifier.effects ?? []) {
+          for (const op of effect.ops ?? []) {
+            if (op.type !== 'keyword') continue;
+            for (const code of [...(op.add ?? []), ...(op.remove ?? [])]) {
+              collect({ code, type: 'keyword' });
+            }
+          }
+        }
         break;
       }
 
@@ -642,6 +756,20 @@ export class RuleValidationService {
           if (adjustment.source_code) {
             collect({ code: adjustment.source_code, type: 'source' });
           }
+        }
+        break;
+      }
+
+      case 'check': {
+        const check = spec as CheckSpec;
+        if (check.parent_check_code) {
+          collect({ code: check.parent_check_code, type: 'check' });
+        }
+        if (check.characteristic_code) {
+          collect({ code: check.characteristic_code, type: 'characteristic' });
+        }
+        if (check.difficulty_input.kind === 'from_state' && check.difficulty_input.state_code) {
+          collect({ code: check.difficulty_input.state_code, type: 'state' });
         }
         break;
       }

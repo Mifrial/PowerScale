@@ -171,9 +171,10 @@ describe('ItemModifierService', () => {
       expect(fixed.every((row) => row.deltas.length === 0)).toBe(true);
     });
 
-    it('плохо сделан: прочность на размер вниз', () => {
+    it('плохо сделан: прочность на размер вниз и помеха от инструмента', () => {
       const { spec } = service.applyStack(specOf(dagger), [poorly], ['weapon']);
       expect(spec.weapon?.durability).toEqual({ base: 5, size: 0 });
+      expect(spec.advantages).toEqual([{ source_code: 'tool', source_label: 'Плохо сделан', delta: -1 }]);
     });
 
     it('посеребрение: сопротивление магии до 1', () => {
@@ -201,6 +202,51 @@ describe('ItemModifierService', () => {
       const proxied = reactive(specOf(dagger));
       expect(() => service.applyStack(proxied, [weighted], ['weapon'])).not.toThrow();
       expect(proxied.weight).toEqual(specOf(dagger).weight);
+    });
+
+    it('импровизированное одно — цена 0; с другими модами — /4 каталога', () => {
+      const staff = mockItemImport.find((rule) => rule.code === 'boevoy-posokh')!;
+      const improvised = mockModsImport.find((rule) => rule.code === 'improvised')!;
+      const { cost: alone } = service.applyStack(specOf(staff), [improvised], ['weapon', 'improvable']);
+      expect(alone).toBe(0);
+      const { cost: mixed } = service.applyStack(specOf(staff), [improvised, weighted], ['weapon', 'improvable']);
+      expect(mixed).toBe(75);
+    });
+
+    it('трудное / простое / очень трудное множит цену качества изделия', () => {
+      const tekko = mockItemImport.find((rule) => rule.code === 'tekko-kagi')!;
+      const whip = mockItemImport.find((rule) => rule.code === 'knut')!;
+      const flamberge = mockItemImport.find((rule) => rule.code === 'flamberg')!;
+      const excellent = mockModsImport.find((rule) => rule.code === 'excellently-made')!;
+      const { cost: hard } = service.applyStack(specOf(tekko), [excellent], ['weapon', 'hard-to-craft']);
+      expect(hard).toBe(10000);
+      const { cost: easy } = service.applyStack(specOf(whip), [poorly], ['weapon', 'easy-to-craft']);
+      expect(easy).toBe(75);
+      const { cost: very } = service.applyStack(specOf(flamberge), [excellent], ['weapon', 'very-hard-to-craft']);
+      expect(very).toBe(90000);
+    });
+
+    it('оковка: металл, минимум 2 ОД; шлем снимает открытое лицо', () => {
+      const staff = mockItemImport.find((rule) => rule.code === 'boevoy-posokh')!;
+      const ferrule = mockModsImport.find((rule) => rule.code === 'steel-ferrule')!;
+      const helm = mockModsImport.find((rule) => rule.code === 'closed-helm')!;
+      const { spec, keywordCodes } = service.applyStack(specOf(staff), [ferrule], ['weapon', 'staff']);
+      expect(spec.weapon?.min_action_cost).toBe(2);
+      expect(keywordCodes).toEqual(expect.arrayContaining(['weapon', 'staff', 'metal']));
+      const { keywordCodes: afterHelm } = service.applyStack(specOf(plate), [helm], ['armor-item', 'open-face']);
+      expect(afterHelm).toContain('limited-visibility');
+      expect(afterHelm).not.toContain('open-face');
+    });
+
+    it('золото — проводник магии 10; носорог удваивает удорожание качества', () => {
+      const gold = mockModsImport.find((rule) => rule.code === 'gold')!;
+      const rhino = mockModsImport.find((rule) => rule.code === 'stonehide-rhino-leather')!;
+      const good = mockModsImport.find((rule) => rule.code === 'good-quality')!;
+      const leather = mockItemImport.find((rule) => rule.code === 'kozhanyy-dospekh')!;
+      const { spec } = service.applyStack(specOf(dagger), [gold], ['weapon', 'metal']);
+      expect(spec.magic_conductor).toBe(10);
+      const { cost } = service.applyStack(specOf(leather), [good, rhino], ['armor-item', 'leather']);
+      expect(cost).toBe(34000);
     });
   });
 });

@@ -628,11 +628,14 @@ export class CharacterBuildService {
     const rule = rules.find((entry) => entry.id === ruleId);
     if (!rule) return false;
     const codes = this.itemKeywordCodes(rule, keywords);
-    for (const id of modifierRuleIds) {
-      const modifier = rules.find((entry) => entry.id === id);
-      if (modifier?.type !== 'item_modifier') return false;
+    const modifiers = modifierRuleIds
+      .map((id) => rules.find((entry) => entry.id === id))
+      .filter((entry): entry is Rule => entry !== undefined);
+    const effective = itemModifierService.effectiveKeywordCodes(codes, modifiers);
+    for (const modifier of modifiers) {
+      if (modifier.type !== 'item_modifier') return false;
       const spec = modifier.spec as ItemModifierSpec | undefined;
-      if (!itemModifierService.isApplicable(spec?.applies, codes)) return false;
+      if (!itemModifierService.isApplicable(spec?.applies, effective)) return false;
     }
 
     return true;

@@ -27,6 +27,7 @@ import type { CreateChronicleEntryData } from '@/modules/Roleplay/Game/Dto/Creat
 import type { UpdateChronicleEntryData } from '@/modules/Roleplay/Game/Dto/UpdateChronicleEntryData';
 import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
+import type { CheckOffer, CheckOfferProposal, CreateCheckOfferData } from '@/modules/Roleplay/Game/Dto/CheckOffer';
 import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/CharacterStateValue';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { ConflictChoices } from '@/modules/Roleplay/Game/Utils/reconcileVersion';
@@ -416,6 +417,23 @@ export class GameApi implements IGameApi {
     return res.data;
   }
 
+  async setCombatItemEquipped(
+    gameId: number,
+    entityKey: CombatEntityKey,
+    itemId: number,
+    equipped: boolean,
+    signal?: AbortSignal,
+  ): Promise<GameCombatOverlay> {
+    const res = await this.engine.runAction<GameCombatOverlay>(
+      'game.setCombatItemEquipped',
+      { gameId, entityKey, itemId, equipped },
+      signal,
+    );
+    if (!res.data) throw new Error('Set combat item equipped failed');
+
+    return res.data;
+  }
+
   async submitCombatChanges(gameId: number, signal?: AbortSignal): Promise<void> {
     await this.engine.runAction<void>('game.submitCombatChanges', { gameId }, signal);
   }
@@ -491,5 +509,84 @@ export class GameApi implements IGameApi {
 
   async deleteChronicleEntry(entryId: number, signal?: AbortSignal): Promise<void> {
     await this.engine.runAction<void>('game.deleteChronicleEntry', { entryId }, signal);
+  }
+
+  async updatePersonalNotes(gameId: number, notes: string, signal?: AbortSignal): Promise<GameDetail> {
+    const res = await this.engine.runAction<GameDetail>('game.updatePersonalNotes', { gameId, notes }, signal);
+    if (!res.data) throw new Error('Game notes update failed');
+
+    return res.data;
+  }
+
+  async createCheckOffer(gameId: number, data: CreateCheckOfferData, signal?: AbortSignal): Promise<CheckOffer> {
+    const res = await this.engine.runAction<CheckOffer>('game.createCheckOffer', { gameId, ...data }, signal);
+    if (!res.data) throw new Error('Create check offer failed');
+
+    return res.data;
+  }
+
+  async reviseCheckOffer(
+    offerId: number,
+    actorKey: CombatEntityKey,
+    proposal: CheckOfferProposal,
+    signal?: AbortSignal,
+  ): Promise<CheckOffer> {
+    const res = await this.engine.runAction<CheckOffer>(
+      'game.reviseCheckOffer',
+      { offerId, actorKey, proposal },
+      signal,
+    );
+    if (!res.data) throw new Error('Revise check offer failed');
+
+    return res.data;
+  }
+
+  async acceptCheckOffer(
+    offerId: number,
+    actorKey: CombatEntityKey,
+    proposal?: CheckOfferProposal,
+    signal?: AbortSignal,
+  ): Promise<CheckOffer> {
+    const res = await this.engine.runAction<CheckOffer>(
+      'game.acceptCheckOffer',
+      { offerId, actorKey, proposal },
+      signal,
+    );
+    if (!res.data) throw new Error('Accept check offer failed');
+
+    return res.data;
+  }
+
+  async cancelCheckOffer(offerId: number, actorKey: CombatEntityKey, signal?: AbortSignal): Promise<CheckOffer> {
+    const res = await this.engine.runAction<CheckOffer>('game.cancelCheckOffer', { offerId, actorKey }, signal);
+    if (!res.data) throw new Error('Cancel check offer failed');
+
+    return res.data;
+  }
+
+  async getPendingCheckOffers(gameId: number, entityKey: CombatEntityKey, signal?: AbortSignal): Promise<CheckOffer[]> {
+    const res = await this.engine.runAction<CheckOffer[]>('game.getPendingCheckOffers', { gameId, entityKey }, signal);
+
+    return res.data ?? [];
+  }
+
+  async getCheckOffersForEntity(
+    gameId: number,
+    entityKey: CombatEntityKey,
+    signal?: AbortSignal,
+  ): Promise<CheckOffer[]> {
+    const res = await this.engine.runAction<CheckOffer[]>(
+      'game.getCheckOffersForEntity',
+      { gameId, entityKey },
+      signal,
+    );
+
+    return res.data ?? [];
+  }
+
+  async getCheckOffersForGame(gameId: number, signal?: AbortSignal): Promise<CheckOffer[]> {
+    const res = await this.engine.runAction<CheckOffer[]>('game.getCheckOffersForGame', { gameId }, signal);
+
+    return res.data ?? [];
   }
 }

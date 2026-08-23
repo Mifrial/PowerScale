@@ -48,6 +48,16 @@ export class PublishService {
         ruleName: e.ruleName,
         message: e.message,
       })),
+      ...this.ruleValidation.validateCheckStructure(effective).map((e) => ({
+        ruleCode: e.ruleCode,
+        ruleName: e.ruleName,
+        message: e.message,
+      })),
+      ...this.ruleValidation.validateDamageTypeStructure(effective).map((e) => ({
+        ruleCode: e.ruleCode,
+        ruleName: e.ruleName,
+        message: e.message,
+      })),
     ];
 
     const cycle = this.ruleValidation.findSpeciesCycle(effective);

@@ -25,7 +25,7 @@ function lineKey(line: DefenseLineOverview, index: number): string {
       <RuleLink :rule-id="item.itemRuleId" class="text-body-2 font-weight-medium armor-tile__name">
         {{ item.itemName }}
       </RuleLink>
-      <v-menu location="bottom end">
+      <v-menu attach location="bottom end" :z-index="2200">
         <template #activator="{ props: menuProps }">
           <v-btn
             v-bind="menuProps"

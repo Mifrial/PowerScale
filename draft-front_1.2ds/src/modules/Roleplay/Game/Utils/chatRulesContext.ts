@@ -5,13 +5,13 @@ import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec';
 import { getTokenSources } from '@/modules/Messages/Chat/init';
-import { rollEngine } from '@/modules/Roleplay/Game/Service/Roll/Instance/rollEngine';
 import { ROLL_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ATTACHMENT_TYPE';
+import { rollSimpleCheckZero } from '@/modules/Roleplay/Game/Utils/simpleCheckRoll';
 
 /**
  * Готовый контекст правил чата по ревизии: имена для inline-чипов [[rule:...]], источники
  * «Вставить ссылку» (правило из ревизии + глобальные прочие) и обработка вложений (броски
- * через RollEngine — механики ревизии). Общий для игрового чата, обсуждений и мессенджера.
+ * через RollEngine как простая проверка vs {0|0}). Общий для игрового чата, обсуждений и мессенджера.
  */
 export function buildChatRulesContext(
   rules: Rule[],
@@ -45,7 +45,7 @@ export function buildChatRulesContext(
     return attachments.map((attachment) => {
       if (attachment.type !== ROLL_ATTACHMENT_TYPE) return attachment;
       if ('rolls' in (attachment.payload as object)) return attachment;
-      const payload = rollEngine.roll(attachment.payload as DiceRollSpec, Math.random, rules, mechanics);
+      const payload = rollSimpleCheckZero(attachment.payload as DiceRollSpec, Math.random, rules, mechanics);
 
       return { ...attachment, payload };
     });

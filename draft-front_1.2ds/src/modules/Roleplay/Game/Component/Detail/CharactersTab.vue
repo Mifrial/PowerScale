@@ -84,13 +84,31 @@ const migrationTarget = ref<GameCharacterMembership | null>(null);
  * И миграция ещё не подана (pendingVersion уже на ревизии игры — тогда это на модерации у ГМ).
  */
 function needsMigration(membership: GameCharacterMembership): boolean {
-  if (membership.activeVersion === null) return false;
-  if (membership.activeVersion.rulesRevision === props.gameRulesRevision) return false;
+  const current =
+    membership.latestVersion?.rulesRevision ??
+    membership.activeVersion?.rulesRevision ??
+    membership.pendingVersion?.rulesRevision;
+  if (current === undefined) return false;
+  if (current === props.gameRulesRevision) return false;
   if (membership.pendingVersion !== null && membership.pendingVersion.rulesRevision === props.gameRulesRevision) {
     return false;
   }
 
   return true;
+}
+
+function canOwnerAct(membership: GameCharacterMembership): boolean {
+  return currentUser.value?.id === membership.characterOwnerId;
+}
+
+async function resubmit(membership: GameCharacterMembership): Promise<void> {
+  error.value = null;
+  try {
+    await getGameApi().submitCharacterToGame(props.gameId, membership.characterId);
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'Не удалось подать персонажа снова';
+  }
+  await load();
 }
 
 function openMigration(membership: GameCharacterMembership): void {
@@ -371,7 +389,7 @@ watch(
               Требует перехода
             </v-chip>
             <v-btn
-              v-if="needsMigration(membership) && currentUser?.id === membership.characterOwnerId"
+              v-if="needsMigration(membership) && canOwnerAct(membership)"
               size="x-small"
               variant="tonal"
               color="warning"
@@ -379,6 +397,18 @@ watch(
               @click.stop="openMigration(membership)"
             >
               Перевести
+            </v-btn>
+            <v-btn
+              v-if="
+                membership.membershipStatus === 'rejected' && !needsMigration(membership) && canOwnerAct(membership)
+              "
+              size="x-small"
+              variant="tonal"
+              color="primary"
+              class="flex-shrink-0"
+              @click.stop="resubmit(membership)"
+            >
+              Подать снова
             </v-btn>
             <v-btn
               v-if="canManage"
@@ -485,6 +515,16 @@ watch(
             :to="`/characters/${cardTarget.characterId}/edit?gameId=${gameId}`"
           >
             Редактировать в игре
+          </v-btn>
+          <v-btn
+            v-else-if="currentUser?.id === cardTarget.characterOwnerId"
+            variant="tonal"
+            color="primary"
+            size="small"
+            prepend-icon="mdi-account-edit"
+            :to="`/characters/${cardTarget.characterId}/edit`"
+          >
+            Редактировать
           </v-btn>
           <v-btn
             v-if="currentUser?.id === cardTarget.characterOwnerId"

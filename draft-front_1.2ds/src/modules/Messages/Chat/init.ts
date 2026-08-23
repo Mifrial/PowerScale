@@ -33,7 +33,7 @@ export function getChatApi(): IChatApi {
 }
 
 const commandHandlers: ICommandHandler[] = [];
-const contentRenderers = new Map<string, Component>();
+const contentRenderers = new Map<string, IRenderer>();
 const toolbarExtensions: IChatToolbarExtension[] = [];
 const attachmentProcessors = new Map<string, IAttachmentProcessor>();
 const inlineRenderers = new Map<string, IRenderer>();
@@ -90,10 +90,14 @@ export function getCommandHandlers(): ICommandHandler[] {
 }
 
 export function registerContentRenderer(renderer: IRenderer): void {
-  contentRenderers.set(renderer.type, renderer.component);
+  contentRenderers.set(renderer.type, renderer);
 }
 
 export function getContentRenderer(type: string): Component | undefined {
+  return contentRenderers.get(type)?.component;
+}
+
+export function getContentRendererEntry(type: string): IRenderer | undefined {
   return contentRenderers.get(type);
 }
 

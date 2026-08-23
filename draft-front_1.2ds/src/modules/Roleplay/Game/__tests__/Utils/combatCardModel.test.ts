@@ -165,6 +165,26 @@ describe('combatCardModel: версия + оверлей', () => {
     expect(model.version).toBeNull();
     expect(model.effectiveVersion).toBeNull();
   });
+
+  it('ресурсы оверлея видны поверх overlay.sheet (списание ОД после правки экипировки)', () => {
+    const sheet = JSON.parse(JSON.stringify(versions[1])) as typeof versions[1];
+    sheet.resources = sheet.resources.map((resource) =>
+      resource.ruleId === 'rule-18' ? { ...resource, current: { base: 3, size: 0 } } : resource,
+    );
+    const model = combatCardModel('character:1', memberships, npcs, true, 1, {
+      gameId: 2,
+      entityKey: 'character:1',
+      kind: 'character',
+      sheet,
+      resources: [{ ruleId: 'rule-18', current: { base: 1, size: 0 } }],
+      states: sheet.states,
+      updatedAt: '2026-08-23T12:00:00',
+    });
+    expect(model.effectiveVersion?.resources.find((resource) => resource.ruleId === 'rule-18')?.current).toEqual({
+      base: 1,
+      size: 0,
+    });
+  });
 });
 
 describe('resolveQuickRollRecords (CD-8)', () => {

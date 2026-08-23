@@ -22,15 +22,27 @@ import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { ItemSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpec';
 import type { ItemModifierSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierSpec';
+import type { InventoryItem } from '@/modules/Roleplay/Character/Dto/InventoryItem';
 import { itemModifierService } from '@/modules/Roleplay/Rule/Service/Instance/itemModifierService';
 
-const props = defineProps<{
-  build: CharacterBuild;
-  model: CharacterEditorModel;
-  draftKey: string | null;
-  rules: Rule[];
-  keywords: Keyword[];
-}>();
+const props = withDefaults(
+  defineProps<{
+    build: CharacterBuild;
+    model: CharacterEditorModel;
+    draftKey: string | null;
+    rules: Rule[];
+    keywords: Keyword[];
+    /** editor — каталог + закупка; sheet — только экземпляры, экип. */
+    variant?: 'editor' | 'sheet';
+    canEdit?: boolean;
+    /** Copy-on-write черновика перед первой мутацией на карточке. */
+    ensureDraft?: () => void;
+    /** Боевая карточка: экип через оверлей, без черновика редактора. */
+    onToggleEquipped?: (itemId: number) => void;
+    listHeight?: string;
+  }>(),
+  { variant: 'editor', canEdit: true, listHeight: 'calc(100vh - 300px)' },
+);
 
 const draftStore = useCharacterDraftStore();
 
@@ -106,6 +118,57 @@ const catalog = computed<(InventoryCatalogItem & Record<string, unknown>)[]>(() 
     })),
 );
 
+function itemViewFromRule(rule: Rule, spec: ItemSpec | undefined, cost: number): InventoryCatalogItem {
+  return {
+    ruleId: rule.id,
+    name: rule.name,
+    description: rule.description,
+    cost,
+    section: sectionOf(rule),
+    subtitle: categoryLabelOf(spec),
+    type: typeOf(rule, spec),
+    spec,
+    featureKeywords: featureKeywordsOf(rule),
+    keywordIds: rule.keywordIds ?? [],
+  };
+}
+
+function itemViewFromOwned(owned: InventoryItem): InventoryCatalogItem | null {
+  if (owned.ruleId) {
+    const rule = props.rules.find((entry) => entry.id === owned.ruleId);
+    if (!rule) return null;
+    const spec = rule.spec as ItemSpec | undefined;
+
+    return itemViewFromRule(rule, spec, spec?.cost_gm ?? 0);
+  }
+
+  return {
+    ruleId: '',
+    name: owned.name ?? 'Предмет мастера',
+    description: owned.description ?? '',
+    cost: 0,
+    section: null,
+    subtitle: ITEM_LABELS.category.other,
+    type: 'other',
+    spec: undefined,
+    featureKeywords: [],
+    keywordIds: [],
+  };
+}
+
+type SheetListItem = InventoryCatalogItem & { inventoryId: number; instanceEquipped: boolean };
+
+const ownedList = computed<SheetListItem[]>(() => {
+  const rows: SheetListItem[] = [];
+  for (const owned of props.build.inventory) {
+    const item = itemViewFromOwned(owned);
+    if (!item) continue;
+    rows.push({ ...item, inventoryId: owned.id, instanceEquipped: owned.equipped });
+  }
+
+  return rows;
+});
+
 /** Значения характеристик по коду — для оценки профилей оружия в строках. */
 const characteristicValues = computed(() => {
   const map = new Map<string, DimensionalNumberValue>();
@@ -127,7 +190,7 @@ const catalogFilterFields = computed<FilterField[]>(() => [
 ]);
 
 const { appliedFilters, filteredRows, onFilterChange } = useFilteredRows({
-  getItems: () => catalog.value,
+  getItems: () => (props.variant === 'sheet' ? ownedList.value : catalog.value),
   fields: catalogFilterFields.value,
   searchFields: ['name'],
 });
@@ -228,10 +291,13 @@ const equippedByRuleId = computed(() => {
   return map;
 });
 
-function passesFilters(item: InventoryCatalogItem): boolean {
+function passesFilters(item: InventoryCatalogItem, instanceEquipped?: boolean): boolean {
   if (categoryFilter.value !== 'all' && item.type !== categoryFilter.value) return false;
-  if (acquiredOnly.value && (ownedByRuleId.value.get(item.ruleId) ?? 0) <= 0) return false;
-  if (equippedOnly.value && !equippedByRuleId.value.has(item.ruleId)) return false;
+  if (props.variant !== 'sheet' && acquiredOnly.value && (ownedByRuleId.value.get(item.ruleId) ?? 0) <= 0) return false;
+  if (equippedOnly.value) {
+    if (props.variant === 'sheet') return instanceEquipped === true;
+    if (!equippedByRuleId.value.has(item.ruleId)) return false;
+  }
 
   return true;
 }
@@ -242,6 +308,22 @@ type InventoryListRow = InventoryCatalogItem & {
 };
 
 const catalogRows = computed<InventoryListRow[]>(() => {
+  if (props.variant === 'sheet') {
+    const rows: InventoryListRow[] = [];
+    for (const item of filteredRows.value as SheetListItem[]) {
+      if (!passesFilters(item, item.instanceEquipped)) continue;
+      rows.push({ ...item, rowKind: 'owned', inventoryId: item.inventoryId });
+    }
+
+    return rows.sort((a, b) => {
+      const section = (a.section ?? '').localeCompare(b.section ?? '');
+      if (section !== 0) return section;
+      if (a.ruleId !== b.ruleId) return a.name.localeCompare(b.name);
+
+      return (a.inventoryId ?? 0) - (b.inventoryId ?? 0);
+    });
+  }
+
   const rows: InventoryListRow[] = [];
   for (const item of filteredRows.value.filter((entry) => passesFilters(entry))) {
     if (!equippedOnly.value) {
@@ -269,7 +351,7 @@ const resetKey = computed(() =>
   JSON.stringify([appliedFilters.value, categoryFilter.value, acquiredOnly.value, equippedOnly.value]),
 );
 
-const catalogHeight = 'calc(100vh - 300px)';
+const catalogHeight = computed(() => props.listHeight);
 
 const moneyExceeded = computed(() => props.model.budgets.money.exceeded);
 
@@ -303,12 +385,18 @@ function setOpen(rowKey: string, open: boolean): void {
  * устаревшим build и перезаписывали результат предыдущего клика.
  */
 function currentBuild(): CharacterBuild {
+  props.ensureDraft?.();
+
   return draftStore.draftOf(props.draftKey)?.build ?? props.build;
+}
+
+function mutateBuild(patch: Partial<CharacterBuild>): void {
+  draftStore.patchBuild(props.draftKey, patch);
 }
 
 function buy(ruleId: string): void {
   const next = characterBuildService.buyItem(currentBuild(), ruleId, 1, props.rules, props.keywords);
-  draftStore.patchBuild(props.draftKey, { inventory: next.inventory, money: next.money });
+  mutateBuild({ inventory: next.inventory, money: next.money });
 }
 
 function cancel(ruleId: string, quantity: number): void {
@@ -320,7 +408,7 @@ function cancel(ruleId: string, quantity: number): void {
     props.rules,
     props.keywords,
   );
-  draftStore.patchBuild(props.draftKey, { inventory: next.inventory, money: next.money });
+  mutateBuild({ inventory: next.inventory, money: next.money });
 }
 
 function cancelInstance(itemId: number): void {
@@ -331,12 +419,17 @@ function cancelInstance(itemId: number): void {
     props.rules,
     props.keywords,
   );
-  draftStore.patchBuild(props.draftKey, { inventory: next.inventory, money: next.money });
+  mutateBuild({ inventory: next.inventory, money: next.money });
 }
 
 function toggleEquipped(itemId: number): void {
+  if (props.onToggleEquipped) {
+    props.onToggleEquipped(itemId);
+
+    return;
+  }
   const next = characterBuildService.toggleItemEquipped(currentBuild(), itemId);
-  draftStore.patchBuild(props.draftKey, { inventory: next.inventory });
+  mutateBuild({ inventory: next.inventory });
 }
 
 function applyOwnedModifiers(itemId: number, modifierRuleIds: string[]): void {
@@ -347,7 +440,7 @@ function applyOwnedModifiers(itemId: number, modifierRuleIds: string[]): void {
     props.rules,
     props.keywords,
   );
-  draftStore.patchBuild(props.draftKey, { inventory: next.inventory, money: next.money });
+  mutateBuild({ inventory: next.inventory, money: next.money });
 }
 
 function itemKey(item: InventoryListRow): string {
@@ -368,18 +461,18 @@ function train(mastery: ItemMasteryView, level: number): void {
     level,
     props.rules,
   );
-  draftStore.patchBuild(props.draftKey, { abilities: next.abilities });
+  mutateBuild({ abilities: next.abilities });
 }
 
 /** Покупка/снятие оружейного навыка из слайдера (зона ОР, как на вкладке «Развитие»). */
 function setSkillLevel(ruleId: string, level: number): void {
   const next = characterBuildService.setAbilityLevel(currentBuild(), ruleId, level, props.rules, { zone: 'or' });
-  draftStore.patchBuild(props.draftKey, { abilities: next.abilities });
+  mutateBuild({ abilities: next.abilities });
 }
 
 function resetInventory(): void {
   const next = characterBuildService.resetInventory(currentBuild(), baseline.value);
-  draftStore.patchBuild(props.draftKey, { inventory: next.inventory, money: next.money });
+  mutateBuild({ inventory: next.inventory, money: next.money });
 }
 
 function openWeaponSkills(familyCode: string, keywordCode: string | null): void {
@@ -433,7 +526,7 @@ watch(showWeaponSkills, (val) => {
 <template>
   <div>
     <v-alert
-      v-if="moneyExceeded"
+      v-if="variant === 'editor' && moneyExceeded"
       type="error"
       variant="tonal"
       density="compact"
@@ -447,7 +540,7 @@ watch(showWeaponSkills, (val) => {
       :fields="catalogFilterFields"
       :model-value="appliedFilters"
       placeholder="Фильтр по предметам"
-      settings-key="character-editor-inventory"
+      :settings-key="variant === 'sheet' ? 'character-sheet-inventory' : 'character-editor-inventory'"
       class="mb-2"
       @update:model-value="onFilterChange"
     />
@@ -462,6 +555,7 @@ watch(showWeaponSkills, (val) => {
       </v-tabs>
       <div class="flex-grow-1" />
       <v-chip
+        v-if="variant === 'editor'"
         size="small"
         variant="tonal"
         :color="acquiredOnly ? 'primary' : undefined"
@@ -478,7 +572,7 @@ watch(showWeaponSkills, (val) => {
         Экипировано
       </v-chip>
       <v-btn
-        v-if="inventoryChanged"
+        v-if="variant === 'editor' && inventoryChanged"
         size="small"
         variant="tonal"
         color="warning"
@@ -495,7 +589,7 @@ watch(showWeaponSkills, (val) => {
       :get-item-key="itemKey"
       :reset-key="resetKey"
       :height="catalogHeight"
-      empty-text="Предметы не найдены."
+      :empty-text="variant === 'sheet' ? 'Инвентарь пуст' : 'Предметы не найдены.'"
     >
       <template #default="{ item }">
         <InventoryItemRow
@@ -516,7 +610,11 @@ watch(showWeaponSkills, (val) => {
           :modifiers="item.rowKind === 'owned' ? modifiersOf(item) : []"
           :selected-modifier-rule-ids="ownedOf(item)?.modifierRuleIds ?? []"
           :display-cost="costOf(item, ownedOf(item)?.modifierRuleIds ?? [])"
+          :keyword-codes="itemKeywordCodes(item.keywordIds)"
           :mode="item.rowKind"
+          :show-purchase="variant === 'editor'"
+          :allow-equip="variant === 'editor' || canEdit"
+          :allow-ability-edit="variant === 'editor'"
           @update:open="(open) => setOpen(itemKey(item), open)"
           @buy="buy"
           @cancel="cancel"
@@ -533,6 +631,7 @@ watch(showWeaponSkills, (val) => {
       v-model="modifierPickerOpen"
       :modifiers="modifierPickerModifiers"
       :selected-rule-ids="modifierPickerSelected"
+      :item-keyword-codes="modifierPickerCatalogItem ? itemKeywordCodes(modifierPickerCatalogItem.keywordIds) : []"
       :rules="rules"
       @apply="applyModifierPicker"
     />

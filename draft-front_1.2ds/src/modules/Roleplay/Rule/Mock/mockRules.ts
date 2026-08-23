@@ -9,6 +9,26 @@ import { mockDevelopmentImport } from '@/modules/Roleplay/Rule/Mock/mockDevelopm
 import { mockItemImport } from '@/modules/Roleplay/Rule/Mock/mockItemImport';
 import { mockModsImport } from '@/modules/Roleplay/Rule/Mock/mockModsImport';
 import { mockModifierTypes } from '@/modules/Roleplay/Rule/Mock/mockModifierTypes';
+import { mockChecks } from '@/modules/Roleplay/Rule/Mock/mockChecks';
+import { mockDamageTypeHooks } from '@/modules/Roleplay/Rule/Mock/mockDamageTypeHooks';
+import { DAMAGE_TYPE_FORMS } from '@/modules/Roleplay/Character/Constant/DAMAGE_TYPE_FORMS';
+import type { DamageTypeSpec } from '@/modules/Roleplay/Rule/Dto/Damage/DamageTypeSpec';
+import {
+  DT_BLUNT_KO_CODE,
+  DT_CUTTING_AS_WOUNDS_CODE,
+  DT_EXHAUSTION_TO_STUN_CODE,
+  DT_EXHAUSTION_TO_WOUND_CODE,
+  DT_EXHAUSTION_TO_WOUND_X2_CODE,
+  DT_INJURY_EFFICIENCY_CODE,
+  DT_INJURY_EXTRA_DICE_SR_CODE,
+  DT_PAY_SR_VS_RELIABILITY_CODE,
+} from '@/modules/Roleplay/Rule/Constant/Damage/DAMAGE_TYPE_HOOKS';
+
+function damageTypeSpec(code: string, attached: string[] = []): DamageTypeSpec {
+  const forms = DAMAGE_TYPE_FORMS[code] ?? { genitive: '', dative: '' };
+
+  return { type: 'damage_type', forms, attached_rule_codes: attached };
+}
 
 let nextVersionId = 10;
 
@@ -70,6 +90,82 @@ const rules: Rule[] = [
     createdAt: '2026-08-10T10:00:00Z',
   },
   {
+    id: 'rule-900',
+    code: 'simple-melee-attack',
+    type: 'ability',
+    name: 'Простая атака (ближний бой)',
+    description: 'Базовая атака ближнего боя. Есть у каждого персонажа автоматически.',
+    spaceId: 1,
+    spec: {
+      type: 'action',
+      zones: { os: { kind: 'automatic' } },
+      requirements: [],
+      grants: [],
+      action_components: [{ type: 'resource', resource_code: 'action-points', amount: 3, label: 'Действие' }],
+      parent_ability_code: null,
+    },
+    keywordIds: [14, 71, 1, 20],
+    mechanicId: null,
+    createdAt: '2026-08-23T10:00:00Z',
+  },
+  {
+    id: 'rule-901',
+    code: 'simple-ranged-attack',
+    type: 'ability',
+    name: 'Простая атака (дальний бой)',
+    description: 'Базовая атака дальнего боя. Есть у каждого персонажа автоматически.',
+    spaceId: 1,
+    spec: {
+      type: 'action',
+      zones: { os: { kind: 'automatic' } },
+      requirements: [],
+      grants: [],
+      action_components: [{ type: 'resource', resource_code: 'action-points', amount: 3, label: 'Действие' }],
+      parent_ability_code: null,
+    },
+    keywordIds: [14, 71, 2, 20],
+    mechanicId: null,
+    createdAt: '2026-08-23T10:00:00Z',
+  },
+  {
+    id: 'rule-902',
+    code: 'dodge',
+    type: 'ability',
+    name: 'Уклонение',
+    description: 'Реакция: уклониться от удара.',
+    spaceId: 1,
+    spec: {
+      type: 'action',
+      zones: { os: { kind: 'automatic' } },
+      requirements: [],
+      grants: [],
+      action_components: [{ type: 'resource', resource_code: 'action-points', amount: 1, label: 'Реакция' }],
+      parent_ability_code: null,
+    },
+    keywordIds: [14, 53, 20],
+    mechanicId: null,
+    createdAt: '2026-08-23T10:00:00Z',
+  },
+  {
+    id: 'rule-903',
+    code: 'block',
+    type: 'ability',
+    name: 'Блок',
+    description: 'Реакция: блокировать удар.',
+    spaceId: 1,
+    spec: {
+      type: 'action',
+      zones: { os: { kind: 'automatic' } },
+      requirements: [],
+      grants: [],
+      action_components: [{ type: 'resource', resource_code: 'action-points', amount: 2, label: 'Реакция' }],
+      parent_ability_code: null,
+    },
+    keywordIds: [14, 53, 20],
+    mechanicId: null,
+    createdAt: '2026-08-23T10:00:00Z',
+  },
+  {
     id: 'rule-1',
     code: 'rule-6-and-1',
     type: 'simple',
@@ -86,7 +182,7 @@ const rules: Rule[] = [
     type: 'simple',
     name: 'Бросок',
     description:
-      'Базовые параметры броска кубиков в игре: дефолтные кубы, сложность и преимущества заполняются из этого правила ревизии (ТР §8 «Чат игры»).',
+      'Базовые параметры броска кубиков: дефолтные кубы, грани, эффективность. Скоринг «6 и 1» — у простой проверки, не здесь.',
     spaceId: 1,
     keywordIds: [],
     mechanicId: 5,
@@ -97,10 +193,23 @@ const rules: Rule[] = [
         dieFaces: 6,
         efficiency: 3,
         adv: 0,
-        sub_mechanics: ['six_one_rule', 'advantage_disadvantage'],
+        sub_mechanics: ['advantage_disadvantage'],
       },
     },
     createdAt: '2026-01-15T10:00:00Z',
+  },
+  {
+    id: 'rule-strike-procedure',
+    code: 'strike-procedure',
+    type: 'simple',
+    name: 'Удар',
+    description:
+      'Процедура ближнего удара. Срез ревизии указывает mechanic strike@version; игры на разных ревизиях резолвят разные хендлеры.',
+    spaceId: 1,
+    keywordIds: [],
+    mechanicId: 7,
+    mechanic_payload: null,
+    createdAt: '2026-08-22T21:00:00Z',
   },
   {
     id: 'rule-2',
@@ -247,8 +356,14 @@ const rules: Rule[] = [
     code: 'slashing',
     type: 'damage_type',
     name: 'Рубящий',
-    description: 'Рубящие повреждения (топоры, мечи).',
+    description:
+      'Эффективность проверки на увечье −1. Истощение → раны силой [истощение × 2]. Можно оплатить X РУ против надёжности.',
     spaceId: 1,
+    spec: damageTypeSpec('slashing', [
+      DT_INJURY_EFFICIENCY_CODE,
+      DT_EXHAUSTION_TO_WOUND_X2_CODE,
+      DT_PAY_SR_VS_RELIABILITY_CODE,
+    ]),
     keywordIds: [],
     mechanicId: null,
     createdAt: '2026-01-21T10:00:00Z',
@@ -258,8 +373,14 @@ const rules: Rule[] = [
     code: 'piercing',
     type: 'damage_type',
     name: 'Колющий',
-    description: 'Колющие повреждения (копья, стрелы).',
+    description:
+      'На проверке увечья ещё [РУ / 2] кубов. Истощение → раны силой [истощение]. Можно оплатить X РУ против надёжности.',
     spaceId: 1,
+    spec: damageTypeSpec('piercing', [
+      DT_INJURY_EXTRA_DICE_SR_CODE,
+      DT_EXHAUSTION_TO_WOUND_CODE,
+      DT_PAY_SR_VS_RELIABILITY_CODE,
+    ]),
     keywordIds: [],
     mechanicId: null,
     createdAt: '2026-01-22T10:00:00Z',
@@ -269,8 +390,10 @@ const rules: Rule[] = [
     code: 'blunt',
     type: 'damage_type',
     name: 'Дробящий',
-    description: 'Дробящие повреждения (булавы, молоты).',
+    description:
+      'Истощение → оглушение силой [истощение]. При РУ ≥ 6 или дробящих повреждениях ≥ Стойкости — потеря сознания.',
     spaceId: 1,
+    spec: damageTypeSpec('blunt', [DT_EXHAUSTION_TO_STUN_CODE, DT_BLUNT_KO_CODE]),
     keywordIds: [],
     mechanicId: null,
     createdAt: '2026-01-23T10:00:00Z',
@@ -280,8 +403,9 @@ const rules: Rule[] = [
     code: 'cutting',
     type: 'damage_type',
     name: 'Режущий',
-    description: 'Режущие повреждения (кинжалы, серпы).',
+    description: 'Не HP: размер урона привести к размеру цели → рана этой силы. Можно оплатить X РУ против надёжности.',
     spaceId: 1,
+    spec: damageTypeSpec('cutting', [DT_CUTTING_AS_WOUNDS_CODE, DT_PAY_SR_VS_RELIABILITY_CODE]),
     keywordIds: [],
     mechanicId: null,
     createdAt: '2026-01-24T10:00:00Z',
@@ -293,6 +417,7 @@ const rules: Rule[] = [
     name: 'Огонь',
     description: 'Повреждения огнём и высокой температурой.',
     spaceId: 1,
+    spec: damageTypeSpec('fire'),
     keywordIds: [],
     mechanicId: null,
     createdAt: '2026-01-25T10:00:00Z',
@@ -304,6 +429,7 @@ const rules: Rule[] = [
     name: 'Электричество',
     description: 'Повреждения электричеством.',
     spaceId: 1,
+    spec: damageTypeSpec('electricity'),
     keywordIds: [],
     mechanicId: null,
     createdAt: '2026-01-26T10:00:00Z',
@@ -315,6 +441,7 @@ const rules: Rule[] = [
     name: 'Свет',
     description: 'Повреждения светом и божественной энергией.',
     spaceId: 1,
+    spec: damageTypeSpec('light'),
     keywordIds: [],
     mechanicId: null,
     createdAt: '2026-01-27T10:00:00Z',
@@ -326,6 +453,7 @@ const rules: Rule[] = [
     name: 'Яд 1 типа',
     description: 'Яд первого типа — базовый отравляющий урон.',
     spaceId: 1,
+    spec: damageTypeSpec('poison-1'),
     keywordIds: [],
     mechanicId: null,
     createdAt: '2026-08-06T10:00:00Z',
@@ -337,6 +465,7 @@ const rules: Rule[] = [
     name: 'Яд 2 типа',
     description: 'Яд второго типа — более стойкий отравляющий урон.',
     spaceId: 1,
+    spec: damageTypeSpec('poison-2'),
     keywordIds: [],
     mechanicId: null,
     createdAt: '2026-08-06T10:00:00Z',
@@ -348,6 +477,7 @@ const rules: Rule[] = [
     name: 'Яд 3 типа',
     description: 'Яд третьего типа — тяжёлое отравление.',
     spaceId: 1,
+    spec: damageTypeSpec('poison-3'),
     keywordIds: [],
     mechanicId: null,
     createdAt: '2026-08-06T10:00:00Z',
@@ -359,6 +489,7 @@ const rules: Rule[] = [
     name: 'Яд духовный 1 типа',
     description: 'Духовный яд первого типа — поражает не тело, а душу.',
     spaceId: 1,
+    spec: damageTypeSpec('spirit-1'),
     keywordIds: [],
     mechanicId: null,
     createdAt: '2026-08-06T10:00:00Z',
@@ -779,7 +910,7 @@ const rules: Rule[] = [
     name: 'Сила воли',
     description: 'Стойкость духа перед страхом и соблазном.',
     spaceId: 1,
-    spec: { type: 'characteristic', group: 'important' },
+    spec: { type: 'characteristic', group: 'important', automatic: true },
     keywordIds: [4],
     mechanicId: null,
     createdAt: '2026-01-17T10:00:00Z',
@@ -1251,7 +1382,7 @@ const rules: Rule[] = [
     spaceId: 1,
     spec: {
       type: 'characteristic',
-      group: 'primary',
+      group: 'important',
       automatic: true,
       base_from: { characteristic_code: 'strength', source_codes: ['innate'] },
     },
@@ -1298,7 +1429,14 @@ const rules: Rule[] = [
  * Единый каталог правил (единственный источник для пространств и ревизий).
  * Создание/обновление/удаление мутируют этот же массив — ревизии видят изменения.
  */
-export const ruleCatalog: Rule[] = [...rules, ...mockItemImport, ...mockModifierTypes, ...mockModsImport];
+export const ruleCatalog: Rule[] = [
+  ...rules,
+  ...mockItemImport,
+  ...mockModifierTypes,
+  ...mockModsImport,
+  ...mockChecks,
+  ...mockDamageTypeHooks,
+];
 
 const ruleVersions: RuleVersion[] = rules.map((r, idx) => ({
   id: idx + 1,

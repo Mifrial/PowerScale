@@ -20,6 +20,7 @@ import {
   getStoredCombatOverlay,
 } from '@/modules/Roleplay/Game/Mock/mockGameCombatOverlays';
 import { reconcileVersion } from '@/modules/Roleplay/Game/Utils/reconcileVersion';
+import { membershipMatchesGameRevision } from '@/modules/Roleplay/Game/Utils/membershipRevision';
 import { SHEET_VISIBILITY_DEFAULT } from '@/modules/Roleplay/Character/Constant/Sheet/SHEET_VISIBILITY_PRESETS';
 
 const delay = (ms = 100) => new Promise((r) => setTimeout(r, ms));
@@ -44,7 +45,7 @@ type StoredMembership = Omit<GameCharacterMembership, 'visibility' | 'overlay'>;
 // gameId — из mockGames. Снимки — ссылки на версии mockCharacters (не копии; не мутируем).
 // Модель версий (Баг 1, 2026-08-20): latest = versions[id] (источник истины), active — замороженный
 // снимок (меняется только модерацией), pending — производная snapshot(latest + оверлей).
-// Гаррик (game 1) — пример модерации после правки карточки: latest несёт правки, active заморожен.
+// Гаррик (game 1, v6 vs игра v12) — отклонён: чужую ревизию нельзя одобрить.
 export const gameCharacterMemberships: StoredMembership[] = [
   {
     gameId: 1,
@@ -54,17 +55,10 @@ export const gameCharacterMemberships: StoredMembership[] = [
     characterOwnerName: 'Администратор',
     characterStatus: 'ready',
     role: 'player',
-    membershipStatus: 'pending',
+    membershipStatus: 'rejected',
     activeVersion: snapshotVersion(versions[3]),
     latestVersion: versions[3],
-    pendingVersion: {
-      ...versions[3],
-      money: 220,
-      abilities: versions[3].abilities.map((ability) =>
-        ability.ruleId === 'rule-21' ? { ...ability, level: 3 } : ability,
-      ),
-      states: [...versions[3].states, { stateRuleId: 'rule-56', value: 1 }],
-    },
+    pendingVersion: null,
     osBonus: 0,
     orBonus: 0,
     olBonus: 0,
@@ -125,8 +119,41 @@ function withVisibility(membership: StoredMembership): GameCharacterMembership {
   };
 }
 
+function gameRulesRevision(gameId: number): number | null {
+  return gameDetails.find((detail) => detail.game.id === gameId)?.game.rulesRevision ?? null;
+}
+
+function autoRejectWrongRevision(membership: StoredMembership): boolean {
+  const gameRevision = gameRulesRevision(membership.gameId);
+  if (gameRevision === null) return false;
+  if (membership.membershipStatus === 'left') return false;
+  const submitted = membership.pendingVersion ?? membership.latestVersion;
+  if (!submitted || submitted.rulesRevision === gameRevision) return false;
+  membership.pendingVersion = null;
+  membership.membershipStatus = 'rejected';
+  membership.updatedAt = new Date().toISOString();
+
+  return true;
+}
+
+function queuePending(membership: StoredMembership, pending: CharacterVersion): void {
+  membership.pendingVersion = snapshotVersion(pending);
+  membership.updatedAt = new Date().toISOString();
+  const gameRevision = gameRulesRevision(membership.gameId);
+  if (gameRevision !== null && pending.rulesRevision !== gameRevision) {
+    membership.pendingVersion = null;
+    membership.membershipStatus = 'rejected';
+
+    return;
+  }
+  membership.membershipStatus = 'pending';
+}
+
 export async function fetchGameCharacters(gameId: number, _signal?: AbortSignal): Promise<GameCharacterMembership[]> {
   await delay(150);
+  for (const membership of gameCharacterMemberships) {
+    if (membership.gameId === gameId) autoRejectWrongRevision(membership);
+  }
 
   return gameCharacterMemberships.filter((membership) => membership.gameId === gameId).map(withVisibility);
 }
@@ -142,8 +169,14 @@ export async function submitCharacter(
   if (!character) throw new Error('Персонаж не найден');
   if (character.status !== 'ready') throw new Error('В игру можно подать только готового персонажа');
   if (!character.active) throw new Error('Персонаж деактивирован');
-  if (gameCharacterMemberships.some((m) => m.gameId === gameId && m.characterId === characterId)) {
-    throw new Error('Персонаж уже связан с этой игрой');
+  const existing = gameCharacterMemberships.find((m) => m.gameId === gameId && m.characterId === characterId);
+  if (existing) {
+    if (existing.membershipStatus !== 'rejected') throw new Error('Персонаж уже связан с этой игрой');
+    existing.latestVersion = versions[characterId] ?? null;
+    if (!existing.latestVersion) throw new Error('Нет версии персонажа');
+    queuePending(existing, existing.latestVersion);
+
+    return withVisibility(existing);
   }
   const membership: StoredMembership = {
     gameId,
@@ -162,6 +195,7 @@ export async function submitCharacter(
     olBonus: 0,
     updatedAt: new Date().toISOString(),
   };
+  if (membership.pendingVersion) queuePending(membership, membership.pendingVersion);
   gameCharacterMemberships.push(membership);
 
   return withVisibility(membership);
@@ -215,9 +249,7 @@ export function syncCharacterVersionToMemberships(characterId: number): void {
     if (membership.membershipStatus === 'left' || !latest) continue;
     if (membership.activeVersion && versionsEqual(membership.activeVersion, latest)) continue;
     const overlay = getStoredCombatOverlay(membership.gameId, combatKey('character', characterId));
-    membership.pendingVersion = snapshotVersion(reconcileVersion(membership.activeVersion, latest, overlay));
-    membership.membershipStatus = 'pending';
-    membership.updatedAt = new Date().toISOString();
+    queuePending(membership, reconcileVersion(membership.activeVersion, latest, overlay));
   }
 }
 
@@ -244,6 +276,14 @@ export async function moderateCharacter(
   }
   if (action === 'approve') {
     const latest = versions[characterId] ?? membership.activeVersion;
+    if (
+      !membershipMatchesGameRevision(
+        { pendingVersion: membership.pendingVersion, latestVersion: latest, activeVersion: membership.activeVersion },
+        gameRulesRevision(gameId) ?? -1,
+      )
+    ) {
+      throw new Error('Ревизия персонажа не совпадает с ревизией игры');
+    }
     if (latest) {
       const final = reconcileVersion(membership.activeVersion, latest, overlay, choices);
       versions[characterId] = final;

@@ -17,6 +17,8 @@ import PointsCard from '@/modules/Roleplay/Rule/Component/Cards/PointsCard.vue';
 import StateCard from '@/modules/Roleplay/Rule/Component/Cards/StateCard.vue';
 import PoisonCard from '@/modules/Roleplay/Rule/Component/Cards/PoisonCard.vue';
 import ModifierCard from '@/modules/Roleplay/Rule/Component/Cards/ModifierCard.vue';
+import CheckCard from '@/modules/Roleplay/Rule/Component/Cards/CheckCard.vue';
+import DamageTypeCard from '@/modules/Roleplay/Rule/Component/Cards/DamageTypeCard.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -137,6 +139,9 @@ watch(() => [route.params.code, route.params.ctx, route.params.ruleId], resolveR
       :rules="spaceContext.effectiveRules"
       class="mb-4"
     />
+
+    <CheckCard v-if="rule.type === 'check'" :rule="rule" :rules="spaceContext.effectiveRules" class="mb-4" />
+    <DamageTypeCard v-if="rule.type === 'damage_type'" :rule="rule" :rules="spaceContext.effectiveRules" class="mb-4" />
 
     <v-card v-if="mechanic" class="mb-4">
       <v-card-title>Механика</v-card-title>

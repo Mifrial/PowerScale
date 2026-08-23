@@ -1,3 +1,5 @@
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
+
 export interface DefenseLineOverview {
   kind: 'defense' | 'resistance';
   value: number;
@@ -11,6 +13,8 @@ export interface DefenseLineOverview {
   damageTypeLabel: string | null;
   /** Дательный падеж типа урона для надписи сопротивления (напр. «рубящему урону»). */
   damageTypeDative: string | null;
+  /** Код типа урона линии сопротивления; у защиты — null. */
+  damageTypeCode: string | null;
 }
 
 export interface DefenseArmorOverview {
@@ -28,6 +32,7 @@ export interface DefenseShieldOverview {
   href: string;
   defense: string;
   efficiency: string;
+  efficiencyValue: DimensionalNumberValue;
 }
 
 /**

@@ -8,6 +8,7 @@ import * as mockLoot from '@/modules/Roleplay/Game/Mock/mockGameLoot';
 import * as mockInitiative from '@/modules/Roleplay/Game/Mock/mockGameInitiative';
 import * as mockCombatOverlays from '@/modules/Roleplay/Game/Mock/mockGameCombatOverlays';
 import * as mockQuickRolls from '@/modules/Roleplay/Game/Mock/mockGameQuickRolls';
+import * as mockCheckOffers from '@/modules/Roleplay/Game/Mock/mockCheckOffers';
 import * as mockChronicle from '@/modules/Roleplay/Game/Mock/mockGameChronicle';
 
 export const mockGameApi: IGameApi = {
@@ -52,6 +53,7 @@ export const mockGameApi: IGameApi = {
   addCombatState: mockCombatOverlays.addCombatState,
   setCombatStateValue: mockCombatOverlays.setCombatStateValue,
   removeCombatState: mockCombatOverlays.removeCombatState,
+  setCombatItemEquipped: mockCombatOverlays.setCombatItemEquipped,
   submitCombatChanges: mockMemberships.submitCombatChanges,
   getQuickRolls: mockQuickRolls.fetchQuickRolls,
   addQuickRoll: mockQuickRolls.addQuickRoll,
@@ -61,4 +63,12 @@ export const mockGameApi: IGameApi = {
   createChronicleEntry: mockChronicle.createChronicleEntry,
   updateChronicleEntry: mockChronicle.updateChronicleEntry,
   deleteChronicleEntry: mockChronicle.deleteChronicleEntry,
+  updatePersonalNotes: mock.updatePersonalNotes,
+  createCheckOffer: mockCheckOffers.createCheckOffer,
+  reviseCheckOffer: mockCheckOffers.reviseCheckOffer,
+  acceptCheckOffer: mockCheckOffers.acceptCheckOffer,
+  cancelCheckOffer: mockCheckOffers.cancelCheckOffer,
+  getPendingCheckOffers: mockCheckOffers.getPendingCheckOffers,
+  getCheckOffersForEntity: mockCheckOffers.getCheckOffersForEntity,
+  getCheckOffersForGame: mockCheckOffers.getCheckOffersForGame,
 };

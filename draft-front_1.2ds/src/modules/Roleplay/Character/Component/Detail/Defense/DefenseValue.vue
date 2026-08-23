@@ -18,7 +18,7 @@ function tierLabel(tier: DefenseTierOverview): string {
 </script>
 
 <template>
-  <v-menu v-if="tiers.length" location="bottom">
+  <v-menu v-if="tiers.length" attach location="bottom" :z-index="2200">
     <template #activator="{ props: menuProps }">
       <v-btn v-bind="menuProps" variant="text" size="small" class="text-success font-weight-bold pa-0">
         <template v-if="selectedTier">{{ tierLabel(selectedTier) }}</template>

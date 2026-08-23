@@ -74,15 +74,15 @@ describe('mockCharacterUpdate: роутер версий (модель Баг 1)
   });
 
   it('без gameId (standalone-карточка) пишет в latest с автоподачей', async () => {
-    // Гаррик (игра 1 — не играется): правка карточки → latest + pending на модерацию.
+    // Гаррик (игра 1, ревизия 6 vs 12): правка latest не ставит на модерацию — автоотклон.
     const before = versions[3].money;
     const detail = await updateCharacter(3, { version: { ...versions[3], money: before + 50 }, status: 'ready' });
 
     expect(detail.version.money).toBe(before + 50);
     const chars = await fetchGameCharacters(1);
     const membership = chars.find((m) => m.characterId === 3)!;
-    expect(membership.membershipStatus).toBe('pending');
-    expect(membership.pendingVersion?.money).toBe(before + 50);
+    expect(membership.membershipStatus).toBe('rejected');
+    expect(membership.pendingVersion).toBeNull();
     expect(membership.activeVersion?.money).toBe(before); // approved заморожен
   });
 
@@ -113,7 +113,7 @@ describe('mockCharacterUpdate: роутер версий (модель Баг 1)
     expect(detail2.version.customRules?.[0]?.name).toBe('Лаваш');
     const chars = await fetchGameCharacters(1);
     const garrick = chars.find((m) => m.characterId === 3)!;
-    expect(garrick.membershipStatus).toBe('pending');
+    expect(garrick.membershipStatus).toBe('rejected');
   });
 
   it('updateCustomRule во время сессии правит запись в оверлее (latest не тронут)', async () => {
@@ -160,6 +160,6 @@ describe('mockCharacterUpdate: утилиты', () => {
     const detail = await fetchCharacter(3);
     expect(detail.version.money).toBe(before + 10);
     const chars = await fetchGameCharacters(1);
-    expect(chars.find((m) => m.characterId === 3)?.membershipStatus).toBe('pending');
+    expect(chars.find((m) => m.characterId === 3)?.membershipStatus).toBe('rejected');
   });
 });

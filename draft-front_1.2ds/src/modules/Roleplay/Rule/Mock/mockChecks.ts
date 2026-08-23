@@ -1,0 +1,170 @@
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import type { CheckSpec } from '@/modules/Roleplay/Rule/Dto/Check/CheckSpec';
+import {
+  CHECK_SIMPLE_CODE,
+  CHECK_HIT_CODE,
+  CHECK_EXHAUSTION_CODE,
+  CHECK_INITIATIVE_CODE,
+  CHECK_INJURY_CODE,
+  CHECK_COMMUNICATION_CODE,
+  CHECK_SIMPLE_ATTACHED_RULE_CODES,
+  CHECK_INJURY_ATTACHED_RULE_CODES,
+} from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
+
+function checkRule(id: string, code: string, name: string, description: string, spec: CheckSpec): Rule {
+  return {
+    id,
+    code,
+    type: 'check',
+    name,
+    description,
+    spaceId: 1,
+    spec,
+    keywordIds: [],
+    mechanicId: null,
+    createdAt: '2026-08-22T12:00:00Z',
+  };
+}
+
+const askBoth: Pick<CheckSpec, 'difficulty_input' | 'allowed_modes'> = {
+  difficulty_input: { kind: 'ask' },
+  allowed_modes: 'both',
+};
+
+function characteristicCheck(idSuffix: number, characteristicCode: string, name: string): Rule {
+  return checkRule(
+    `rule-check-${idSuffix}`,
+    `check-${characteristicCode}`,
+    `Проверка на ${name}`,
+    `Проверка на ${name}.`,
+    {
+      type: 'check',
+      parent_check_code: CHECK_SIMPLE_CODE,
+      characteristic_code: characteristicCode,
+      ...askBoth,
+    },
+  );
+}
+
+/**
+ * Каталог проверок (type check). Коды листьев общения совпадают со словарём communication-check.
+ */
+export const mockChecks: Rule[] = [
+  checkRule(
+    'rule-check-1',
+    CHECK_SIMPLE_CODE,
+    'Простая проверка',
+    'Корень обычных проверок. Правила броска (6 и 1, преимущества) наследуются потомкам.',
+    {
+      type: 'check',
+      ...askBoth,
+      attached_rule_codes: CHECK_SIMPLE_ATTACHED_RULE_CODES,
+    },
+  ),
+  checkRule(
+    'rule-check-2',
+    CHECK_INJURY_CODE,
+    'Проверка на увечье',
+    'Отдельный корень: без правила 6 и 1. Таблица увечий — позже.',
+    {
+      type: 'check',
+      difficulty_input: { kind: 'ask' },
+      allowed_modes: 'solo',
+      attached_rule_codes: CHECK_INJURY_ATTACHED_RULE_CODES,
+    },
+  ),
+  checkRule(
+    'rule-check-3',
+    CHECK_HIT_CODE,
+    'Проверка на попадание',
+    'Обычно совместная. Эффективность атакующего — точность оружия. Процедура удара — карточка strike-procedure в ревизии.',
+    {
+      type: 'check',
+      parent_check_code: CHECK_SIMPLE_CODE,
+      ...askBoth,
+    },
+  ),
+  checkRule(
+    'rule-check-4',
+    CHECK_EXHAUSTION_CODE,
+    'Проверка на истощение',
+    'Сила воли против Истощения. Пул — характеристика, сложность — значение состояния.',
+    {
+      type: 'check',
+      parent_check_code: CHECK_SIMPLE_CODE,
+      characteristic_code: 'willpower',
+      difficulty_input: { kind: 'from_state', state_code: 'exhaustion' },
+      allowed_modes: 'solo',
+    },
+  ),
+  checkRule(
+    'rule-check-5',
+    CHECK_INITIATIVE_CODE,
+    'Проверка на инициативу',
+    'Совместная. Характеристику называет мастер.',
+    {
+      type: 'check',
+      parent_check_code: CHECK_SIMPLE_CODE,
+      characteristic_code: 'perception',
+      allow_characteristic_override: true,
+      difficulty_input: { kind: 'none' },
+      allowed_modes: 'joint',
+    },
+  ),
+  checkRule(
+    'rule-check-6',
+    CHECK_COMMUNICATION_CODE,
+    'Проверка на общение',
+    'Пул по умолчанию — Красноречие; на запуске можно подменить характеристику.',
+    {
+      type: 'check',
+      parent_check_code: CHECK_SIMPLE_CODE,
+      characteristic_code: 'communication',
+      allow_characteristic_override: true,
+      ...askBoth,
+    },
+  ),
+  checkRule('rule-check-7', 'intimidation', 'Запугивание', 'Проверка на общение: запугивание.', {
+    type: 'check',
+    parent_check_code: CHECK_COMMUNICATION_CODE,
+    ...askBoth,
+  }),
+  checkRule('rule-check-8', 'persuasion', 'Убеждение', 'Проверка на общение: убеждение.', {
+    type: 'check',
+    parent_check_code: CHECK_COMMUNICATION_CODE,
+    ...askBoth,
+  }),
+  checkRule('rule-check-9', 'deception', 'Обман', 'Проверка на общение: обман.', {
+    type: 'check',
+    parent_check_code: CHECK_COMMUNICATION_CODE,
+    ...askBoth,
+  }),
+  checkRule('rule-check-10', 'seduction', 'Обольщение', 'Проверка на общение: обольщение.', {
+    type: 'check',
+    parent_check_code: CHECK_COMMUNICATION_CODE,
+    ...askBoth,
+  }),
+  checkRule('rule-check-11', 'trade', 'Торговля', 'Проверка на общение: торговля.', {
+    type: 'check',
+    parent_check_code: CHECK_COMMUNICATION_CODE,
+    ...askBoth,
+  }),
+  characteristicCheck(20, 'strength', 'Силу'),
+  characteristicCheck(21, 'dexterity', 'Ловкость'),
+  characteristicCheck(22, 'memory', 'Память'),
+  characteristicCheck(23, 'reasoning', 'Мышление'),
+  characteristicCheck(24, 'intellect', 'Интеллект'),
+  characteristicCheck(25, 'endurance', 'Стойкость'),
+  characteristicCheck(26, 'attention', 'Внимательность'),
+  characteristicCheck(27, 'reaction', 'Реакция'),
+  characteristicCheck(28, 'perception', 'Восприятие'),
+  characteristicCheck(29, 'magic', 'Магию'),
+  characteristicCheck(30, 'willpower', 'Силу воли'),
+  characteristicCheck(31, 'melee-combat', 'Мастерство ближнего боя'),
+  characteristicCheck(32, 'ranged-combat', 'Мастерство дальнего боя'),
+  characteristicCheck(33, 'qi-control', 'Контроль Ци'),
+  characteristicCheck(34, 'medicine', 'Медицину'),
+  characteristicCheck(35, 'fine-motor', 'Мелкую моторику'),
+  characteristicCheck(36, 'music', 'Музицирование'),
+  characteristicCheck(37, 'weight', 'Вес'),
+];

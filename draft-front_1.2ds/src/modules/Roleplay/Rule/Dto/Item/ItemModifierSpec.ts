@@ -59,4 +59,9 @@ export interface ItemModifierSpec {
   applies: ItemModifierApplies;
   price: ItemModifierPrice;
   effects: ItemModifierEffect[];
+  /**
+   * Множитель цены других модификаторов (весь стек, не только «после»).
+   * `increasing_only` — только если шаг увеличивает стоимость.
+   */
+  price_scale?: { type_code: string; factor: number; increasing_only?: boolean } | null;
 }

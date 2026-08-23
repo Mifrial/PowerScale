@@ -9,7 +9,7 @@ import type { SheetVisibility } from '@/modules/Roleplay/Character/Dto/SheetVisi
 import type { AddCustomRuleData } from '@/modules/Roleplay/Character/Dto/AddCustomRuleData';
 import type { UpdateCustomRuleData } from '@/modules/Roleplay/Character/Dto/UpdateCustomRuleData';
 import { ruleCatalog } from '@/modules/Roleplay/Rule/Mock/mockRules';
-import { getCurrentUserSummary } from '@/modules/Core/Auth/Mock/mockAuth';
+import { getCurrentUserId, getCurrentUserSummary } from '@/modules/Core/Auth/Mock/mockAuth';
 import { mockCreateCharacterDiscussion } from '@/modules/Messages/Chat/Mock/mockChat';
 import { SHEET_VISIBILITY_DEFAULT } from '@/modules/Roleplay/Character/Constant/Sheet/SHEET_VISIBILITY_PRESETS';
 import { fetchRevision, fetchSpace, fetchSpaceByCode } from '@/modules/Roleplay/Space/Mock/mockSpaces';
@@ -422,6 +422,27 @@ const details: Record<number, CharacterDetail> = Object.fromEntries(
 
 const delay = (ms = 300) => new Promise((r) => setTimeout(r, ms));
 
+/** Личные заметки владельца — не в CharacterVersion и не в details (ГМ не должен их увидеть в листе). */
+const ownerNotesByCharacterId: Record<number, string> = {
+  1: 'Не забыть про долг кузнецу.',
+};
+
+function toViewerDetail(id: number): CharacterDetail {
+  const detail = details[id];
+  if (!detail) throw new Error(`Character ${id} not found`);
+  const result: CharacterDetail = {
+    character: { ...detail.character },
+    version: detail.version,
+    discussionChatId: detail.discussionChatId,
+    previousVersion: previousVersions[id] ?? null,
+  };
+  if (getCurrentUserId() === detail.character.ownerId) {
+    result.ownerNotes = ownerNotesByCharacterId[id] ?? null;
+  }
+
+  return result;
+}
+
 export async function fetchCharacters(_signal?: AbortSignal): Promise<Character[]> {
   await delay();
 
@@ -430,15 +451,20 @@ export async function fetchCharacters(_signal?: AbortSignal): Promise<Character[
 
 export async function fetchCharacter(id: number, _signal?: AbortSignal): Promise<CharacterDetail> {
   await delay();
-  const detail = details[id];
-  if (!detail) throw new Error(`Character ${id} not found`);
 
-  return {
-    character: { ...detail.character },
-    version: detail.version,
-    discussionChatId: detail.discussionChatId,
-    previousVersion: previousVersions[id] ?? null,
-  };
+  return toViewerDetail(id);
+}
+
+export async function updateOwnerNotes(id: number, notes: string, _signal?: AbortSignal): Promise<CharacterDetail> {
+  await delay();
+  const character = characters.find((entry) => entry.id === id);
+  if (!character) throw new Error(`Character ${id} not found`);
+  if (getCurrentUserId() !== character.ownerId) throw new Error('Forbidden');
+  const trimmed = notes.trim();
+  if (trimmed) ownerNotesByCharacterId[id] = trimmed;
+  else delete ownerNotesByCharacterId[id];
+
+  return toViewerDetail(id);
 }
 
 let nextId = 6;
@@ -495,7 +521,7 @@ export async function createCharacter(data: CreateCharacterData, _signal?: Abort
   const detail: CharacterDetail = { character, version: data.version, discussionChatId, previousVersion: null };
   details[id] = detail;
 
-  return { character: { ...character }, version: data.version, discussionChatId, previousVersion: null };
+  return toViewerDetail(id);
 }
 
 export async function updateCharacter(
@@ -524,12 +550,7 @@ export async function updateCharacter(
     previousVersion: previousVersions[id] ?? null,
   };
 
-  return {
-    character: { ...character },
-    version: data.version,
-    discussionChatId: details[id].discussionChatId,
-    previousVersion: previousVersions[id] ?? null,
-  };
+  return toViewerDetail(id);
 }
 
 /** Миграция на новую ревизию правил (расчёт, НЕ применяет): ремап по code, пересчёт, классификация. */
@@ -595,12 +616,7 @@ export async function applyMigration(
     previousVersion: oldVersion,
   };
 
-  return {
-    character: { ...character },
-    version,
-    discussionChatId: details[characterId].discussionChatId,
-    previousVersion: oldVersion,
-  };
+  return toViewerDetail(characterId);
 }
 
 /**
@@ -721,12 +737,7 @@ export async function addCustomRule(
   const character = characters.find((entry) => entry.id === id);
   if (!character) throw new Error(`Character ${id} not found`);
 
-  return {
-    character: { ...character },
-    version: versions[id],
-    discussionChatId: details[id]?.discussionChatId ?? null,
-    previousVersion: previousVersions[id] ?? null,
-  };
+  return toViewerDetail(id);
 }
 
 /** Правка/замена записи кастомного правила («Заменить на правило» → deprecated + replacedWithRuleId). */
@@ -745,10 +756,5 @@ export async function updateCustomRule(
   const character = characters.find((entry) => entry.id === id);
   if (!character) throw new Error(`Character ${id} not found`);
 
-  return {
-    character: { ...character },
-    version: versions[id],
-    discussionChatId: details[id]?.discussionChatId ?? null,
-    previousVersion: previousVersions[id] ?? null,
-  };
+  return toViewerDetail(id);
 }

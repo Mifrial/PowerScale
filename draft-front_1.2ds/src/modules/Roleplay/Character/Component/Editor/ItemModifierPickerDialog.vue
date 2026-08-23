@@ -2,11 +2,13 @@
 import { computed, ref, watch } from 'vue';
 import type { InventoryModifierOption } from '@/modules/Roleplay/Character/Dto/Editor/InventoryModifierOption';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import type { ItemModifierSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierSpec';
 import { itemModifierService } from '@/modules/Roleplay/Rule/Service/Instance/itemModifierService';
 
 const props = defineProps<{
   modifiers: InventoryModifierOption[];
   selectedRuleIds: readonly string[];
+  itemKeywordCodes: readonly string[];
   rules: Rule[];
 }>();
 
@@ -22,10 +24,28 @@ watch(open, (value) => {
   if (value) draft.value = [...props.selectedRuleIds];
 });
 
+function modifierRule(ruleId: string): Rule | undefined {
+  return props.rules.find((rule) => rule.id === ruleId);
+}
+
+const visibleModifiers = computed(() => {
+  const selected = draft.value.map((id) => modifierRule(id)).filter((rule): rule is Rule => rule !== undefined);
+
+  return props.modifiers.filter((option) => {
+    if (draft.value.includes(option.ruleId)) return true;
+    const candidate = modifierRule(option.ruleId);
+    if (!candidate) return false;
+    const spec = candidate.spec as ItemModifierSpec | undefined;
+    const codes = itemModifierService.effectiveKeywordCodes(props.itemKeywordCodes, [...selected, candidate]);
+
+    return itemModifierService.isApplicable(spec?.applies, codes);
+  });
+});
+
 const groups = computed(() => {
   const titles: string[] = [];
   const byTitle = new Map<string, InventoryModifierOption[]>();
-  for (const modifier of props.modifiers) {
+  for (const modifier of visibleModifiers.value) {
     const title = modifier.category || 'Прочее';
     if (!byTitle.has(title)) {
       titles.push(title);

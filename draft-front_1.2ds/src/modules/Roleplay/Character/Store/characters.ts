@@ -47,6 +47,10 @@ export const useCharacterStore = defineStore('characters', () => {
     currentCharacter.value = null;
   }
 
+  function applyDetail(detail: CharacterDetail) {
+    currentCharacter.value = detail;
+  }
+
   return {
     characters,
     currentCharacter,
@@ -57,5 +61,6 @@ export const useCharacterStore = defineStore('characters', () => {
     fetchCharacters,
     fetchCharacter,
     clearCurrent,
+    applyDetail,
   };
 });

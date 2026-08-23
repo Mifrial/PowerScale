@@ -23,6 +23,7 @@ import type { GameJoinRequest } from '@/modules/Roleplay/Game/Dto/GameJoinReques
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
 import type { ChatRulesContext } from '@/modules/Messages/Chat/Dto/ChatRulesContext';
+import OwnerNotesDialog from '@/modules/Roleplay/Character/Component/OwnerNotesDialog.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -72,6 +73,26 @@ const memberIds = computed(() => detail.value?.members.map((member) => member.us
 const joinRequests = ref<GameJoinRequest[]>([]);
 const requesting = ref(false);
 const joinError = ref<string | null>(null);
+const notesOpen = ref(false);
+const notesSaving = ref(false);
+const notesError = ref<string | null>(null);
+
+async function savePersonalNotes(text: string): Promise<void> {
+  const current = detail.value;
+  if (!current) return;
+  notesSaving.value = true;
+  notesError.value = null;
+  try {
+    const updated = await getGameApi().updatePersonalNotes(current.game.id, text, signal.value);
+    store.applyGameUpdate(updated);
+    notesOpen.value = false;
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'AbortError') return;
+    notesError.value = 'Не удалось сохранить заметки';
+  } finally {
+    notesSaving.value = false;
+  }
+}
 
 const myJoinRequest = computed(() => {
   const user = userStore.currentUser;
@@ -251,6 +272,9 @@ watch(detail, (value) => {
 
     <template v-else-if="canView && detail">
       <Teleport to="#editor-actions">
+        <v-btn variant="tonal" size="small" prepend-icon="mdi-note-text-outline" @click="notesOpen = true">
+          Заметки
+        </v-btn>
         <v-btn
           v-if="canRequestJoin"
           variant="tonal"
@@ -383,6 +407,14 @@ watch(detail, (value) => {
       </v-window>
     </template>
   </v-container>
+
+  <OwnerNotesDialog
+    v-model="notesOpen"
+    :text="detail?.personalNotes"
+    :saving="notesSaving"
+    :error="notesError"
+    @save="savePersonalNotes"
+  />
 
   <UserProfileSlider v-model:open="ownerSliderOpen" :user-id="ownerSliderUserId" />
 </template>

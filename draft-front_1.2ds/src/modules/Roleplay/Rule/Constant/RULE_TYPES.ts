@@ -18,4 +18,5 @@ export const RULE_TYPES: { title: string; value: RuleType }[] = [
   { title: 'Семья оружия', value: 'weapon_family' },
   { title: 'Модификатор предмета', value: 'item_modifier' },
   { title: 'Тип модификатора предмета', value: 'item_modifier_type' },
+  { title: 'Проверка', value: 'check' },
 ];

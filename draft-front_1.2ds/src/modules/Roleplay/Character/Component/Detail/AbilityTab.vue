@@ -4,7 +4,10 @@ import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/Characte
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { AbilityType } from '@/modules/Roleplay/Rule/Enum/Ability/AbilityType';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
+import type { FilterField } from '@/modules/Core/UI/Dto/Filter/Field';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
+import { useFilteredRows } from '@/modules/Core/UI/Composables/useFilteredRows';
+import FilterBar from '@/modules/Core/UI/Component/FilterBar.vue';
 import { characterOverviewService } from '@/modules/Roleplay/Character/Service/Instance/characterOverviewService';
 import { useAbilityFavoritesStore } from '@/modules/Roleplay/Character/Store/abilityFavorites';
 import { useRuleDetailSlider } from '@/modules/Roleplay/Character/Composables/useRuleDetailSlider';
@@ -18,6 +21,7 @@ const props = defineProps<{
   rules: Rule[];
   rulesLoading: boolean;
   characterId: number;
+  showFavorites?: boolean;
 }>();
 
 // Табы быстрого фильтра по типу способности (тегу): по запросу — Навык/Черта/Заклинание.
@@ -27,24 +31,32 @@ const favoritesStore = useAbilityFavoritesStore();
 const keywordStore = useKeywordStore();
 const { openRule } = useRuleDetailSlider();
 
-const searchQuery = ref('');
 const activeTab = ref<'all' | 'favorites' | AbilityType>('all');
 
 const abilities = computed(() => characterOverviewService.build(props.version, props.rules).abilities);
 
-// Быстрый фильтр табами (Все / Избранное / типы) + поиск по имени/описанию — как в списке правил пространства.
+const abilityFilterFields: FilterField[] = [
+  { key: 'name', label: 'Название', type: 'string' },
+  {
+    key: 'type',
+    label: 'Тип',
+    type: 'select',
+    options: Object.entries(ABILITY_TYPE_LABELS).map(([value, label]) => ({ label, value })),
+  },
+];
+
+const { appliedFilters, filteredRows, onFilterChange } = useFilteredRows({
+  getItems: () => abilities.value as unknown as Record<string, unknown>[],
+  fields: abilityFilterFields,
+  searchFields: ['name', 'description'],
+});
+
 const filteredAbilities = computed(() => {
-  let result = abilities.value;
+  let result = filteredRows.value as unknown as AbilityOverview[];
   if (activeTab.value === 'favorites') {
     result = result.filter((ability) => favoritesStore.isFavorite(props.characterId, ability.ruleId));
   } else if (activeTab.value !== 'all') {
     result = result.filter((ability) => ability.type === activeTab.value);
-  }
-  const query = searchQuery.value?.toLowerCase();
-  if (query) {
-    result = result.filter(
-      (ability) => ability.name.toLowerCase().includes(query) || ability.description.toLowerCase().includes(query),
-    );
   }
 
   return result;
@@ -85,14 +97,23 @@ onMounted(() => {
 </script>
 
 <template>
-  <v-card>
-    <v-text-field v-model="searchQuery" label="Поиск" prepend-inner-icon="mdi-magnify" clearable class="mb-4 px-4" />
+  <div class="ability-tab">
+    <FilterBar
+      :fields="abilityFilterFields"
+      :model-value="appliedFilters"
+      placeholder="Фильтр по способностям"
+      settings-key="character-sheet-abilities"
+      class="mb-2"
+      @update:model-value="onFilterChange"
+    />
 
-    <v-tabs v-model="activeTab" class="mb-4 px-4">
-      <v-tab value="all">Все</v-tab>
-      <v-tab value="favorites">Избранное</v-tab>
-      <v-tab v-for="type in QUICK_TYPE_TABS" :key="type" :value="type">{{ ABILITY_TYPE_LABELS[type] }}</v-tab>
-    </v-tabs>
+    <div class="d-flex align-center ga-2 mb-3 flex-wrap">
+      <v-tabs v-model="activeTab" density="compact" class="ability-tab__types">
+        <v-tab value="all">Все</v-tab>
+        <v-tab v-if="showFavorites !== false" value="favorites">Избранное</v-tab>
+        <v-tab v-for="type in QUICK_TYPE_TABS" :key="type" :value="type">{{ ABILITY_TYPE_LABELS[type] }}</v-tab>
+      </v-tabs>
+    </div>
 
     <div v-if="rulesLoading && rules.length === 0" class="pa-4 text-medium-emphasis">Загружаем правила…</div>
     <v-expansion-panels v-else-if="filteredAbilities.length" multiple variant="accordion" class="ability-panels">
@@ -127,6 +148,7 @@ onMounted(() => {
               <v-icon icon="mdi-open-in-new" />
             </v-btn>
             <v-btn
+              v-if="showFavorites !== false"
               icon
               size="small"
               variant="text"
@@ -154,21 +176,22 @@ onMounted(() => {
         </v-expansion-panel-text>
       </v-expansion-panel>
     </v-expansion-panels>
-    <v-card-text v-else class="text-medium-emphasis">
+    <div v-else class="text-medium-emphasis pa-4">
       {{ abilities.length === 0 ? 'У персонажа нет способностей' : 'Способности не найдены' }}
-    </v-card-text>
-  </v-card>
+    </div>
+  </div>
 </template>
 
 <style scoped>
-/* Компактные шапки панелей: меньше дефолтной высоты (48px) и вертикальных отступов. */
+.ability-tab__types {
+  max-width: 100%;
+  overflow-x: auto;
+}
 .ability-panels :deep(.v-expansion-panel-title) {
   min-height: 36px;
   padding-top: 2px;
   padding-bottom: 2px;
 }
-
-/* Переносы строк внутри описания способности. */
 .ability-tab__desc {
   white-space: pre-line;
 }

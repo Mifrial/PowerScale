@@ -16,4 +16,5 @@ export type RuleType =
   | 'language'
   | 'weapon_family'
   | 'item_modifier'
-  | 'item_modifier_type';
+  | 'item_modifier_type'
+  | 'check';

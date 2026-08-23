@@ -53,8 +53,16 @@ const props = defineProps<{
   modifiers: InventoryModifierOption[];
   selectedModifierRuleIds: string[];
   displayCost: number;
+  /** Коды признаков предмета (для applyStack: цена качества, keyword-ops). */
+  keywordCodes: string[];
   /** shop — каталог; owned — экземпляр снаряжения. */
   mode: InventoryRowMode;
+  /** Кнопки покупки/отмены. На карточке персонажа — выкл. */
+  showPurchase?: boolean;
+  /** Кнопка «Экип.» (владелец на карточке / редактор). */
+  allowEquip?: boolean;
+  /** Прокачка владения и выбор модов. На карточке в этом заходе — выкл. */
+  allowAbilityEdit?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -79,14 +87,19 @@ const effectiveSpec = computed<ItemSpec | undefined>(() => {
     .map((id) => props.rules.find((rule) => rule.id === id))
     .filter((rule): rule is Rule => rule !== undefined);
 
-  return itemModifierService.applyStack(spec, modifiers, []).spec;
+  return itemModifierService.applyStack(spec, modifiers, props.keywordCodes).spec;
 });
 
 const { openRule } = useRuleDetailSlider();
 
-const canEquip = computed(() => Boolean(props.item.spec?.weapon || props.item.spec?.armor || props.item.spec?.shield));
+const showPurchase = computed(() => props.showPurchase !== false);
+const allowEquip = computed(() => props.allowEquip !== false);
+const allowAbilityEdit = computed(() => props.allowAbilityEdit !== false);
+const canEquip = computed(
+  () => allowEquip.value && Boolean(props.item.spec?.weapon || props.item.spec?.armor || props.item.spec?.shield),
+);
 
-const canCancel = computed(() => props.ownedQty > props.baselineQty);
+const canCancel = computed(() => showPurchase.value && props.ownedQty > props.baselineQty);
 
 /** Параметры оружия/щита/доспеха (вес, мин. сила, прочность, блок, защита…) — над профилями. */
 const params = computed(() => itemParamsView(effectiveSpec.value, props.characteristicValues, props.rules));
@@ -164,6 +177,7 @@ const open = computed({
     <template #title>
       <div class="d-flex align-center ga-2 w-100">
         <LightButton
+          v-if="item.ruleId"
           class="item-row__slider-btn"
           title="Открыть правило"
           aria-label="Открыть правило"
@@ -184,6 +198,7 @@ const open = computed({
         <LightChip variant="outlined">{{ displayCost }} гм</LightChip>
         <div class="d-flex align-center ga-1">
           <LightButton
+            v-if="showPurchase"
             :disabled="!canCancel"
             title="Отменить покупку"
             aria-label="Отменить покупку"
@@ -191,8 +206,13 @@ const open = computed({
           >
             <i class="mdi mdi-minus" aria-hidden="true" />
           </LightButton>
-          <span v-if="mode === 'shop'" class="text-caption text-medium-emphasis">{{ ownedQty }}</span>
-          <LightButton v-if="mode === 'shop'" title="Купить" aria-label="Купить" @click.stop="emit('buy', item.ruleId)">
+          <span v-if="showPurchase && mode === 'shop'" class="text-caption text-medium-emphasis">{{ ownedQty }}</span>
+          <LightButton
+            v-if="showPurchase && mode === 'shop'"
+            title="Купить"
+            aria-label="Купить"
+            @click.stop="emit('buy', item.ruleId)"
+          >
             <i class="mdi mdi-plus" aria-hidden="true" />
           </LightButton>
           <LightButton
@@ -282,7 +302,7 @@ const open = computed({
       </div>
       <div v-if="mastery" class="item-row__mastery d-flex align-center ga-2 flex-wrap">
         <span class="mastery-label">Владение оружием — {{ mastery.familyName }}:</span>
-        <div class="d-flex align-center ga-1 flex-wrap">
+        <div v-if="allowAbilityEdit" class="d-flex align-center ga-1 flex-wrap">
           <LightButton
             v-for="(cost, index) in mastery.ladder"
             :key="index"
@@ -291,10 +311,10 @@ const open = computed({
           >
             {{ cost }} ОР
           </LightButton>
-          <span class="text-caption text-medium-emphasis">уровень {{ mastery.level }} из {{ mastery.maxLevel }}</span>
         </div>
+        <span class="text-caption text-medium-emphasis">уровень {{ mastery.level }} из {{ mastery.maxLevel }}</span>
         <LightButton
-          v-if="weaponKeywordCode"
+          v-if="allowAbilityEdit && weaponKeywordCode"
           class="item-row__skills"
           @click.stop="emit('open-skills', mastery.familyCode, weaponKeywordCode)"
         >
@@ -315,7 +335,7 @@ const open = computed({
           <LightChip v-for="modifier in selectedEffects" :key="modifier.ruleId" variant="outlined">
             {{ modifier.name }}
           </LightChip>
-          <LightButton class="item-row__mods-btn" @click.stop="emit('open-modifiers')">
+          <LightButton v-if="allowAbilityEdit" class="item-row__mods-btn" @click.stop="emit('open-modifiers')">
             {{ selectedEffects.length > 0 ? 'Изменить' : 'Выбрать' }}
           </LightButton>
         </div>

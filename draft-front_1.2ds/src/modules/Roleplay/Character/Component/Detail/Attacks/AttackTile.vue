@@ -3,15 +3,26 @@ import { ref } from 'vue';
 import type { AttackOverview } from '@/modules/Roleplay/Character/Dto/Overview/AttackOverview';
 import RuleLink from '@/modules/Roleplay/Character/Component/Detail/RuleLink.vue';
 
-defineProps<{
+const props = defineProps<{
   attack: AttackOverview;
+  /** combat: клик запускает попадание; иначе — меню деталей. */
+  variant?: 'sheet' | 'combat';
+}>();
+
+const emit = defineEmits<{
+  launch: [attack: AttackOverview];
 }>();
 
 const open = ref(false);
+
+function onActivate(): void {
+  if (props.variant === 'combat') emit('launch', props.attack);
+  else open.value = true;
+}
 </script>
 
 <template>
-  <v-menu v-model="open" location="bottom">
+  <v-menu v-if="variant !== 'combat'" v-model="open" location="bottom">
     <template #activator="{ props: menuProps }">
       <v-sheet v-bind="menuProps" class="pa-2 rounded border cursor-pointer">
         <div class="d-flex align-center justify-space-between ga-2">
@@ -56,4 +67,18 @@ const open = ref(false);
       </v-card-text>
     </v-card>
   </v-menu>
+  <v-sheet v-else class="pa-2 rounded border cursor-pointer" @click="onActivate">
+    <div class="d-flex align-center justify-space-between ga-2">
+      <span class="text-body-2 font-weight-medium text-truncate">{{ attack.itemName }}</span>
+      <span class="text-body-2 text-no-wrap">{{ attack.accuracyLabel }}</span>
+    </div>
+    <div class="d-flex align-center justify-space-between ga-2">
+      <span class="text-body-2 text-medium-emphasis text-truncate">{{ attack.profileTypeLabel }}</span>
+      <span class="text-body-2 text-no-wrap">{{ attack.damageLabel }}</span>
+    </div>
+    <div class="d-flex align-center justify-space-between ga-2">
+      <span class="text-body-2 text-medium-emphasis text-truncate">Дистанция {{ attack.distanceLabel }}</span>
+      <span class="text-body-2 text-no-wrap">{{ attack.penetrationLabel }}</span>
+    </div>
+  </v-sheet>
 </template>

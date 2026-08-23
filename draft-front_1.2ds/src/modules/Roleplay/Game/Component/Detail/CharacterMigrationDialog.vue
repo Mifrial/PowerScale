@@ -70,6 +70,7 @@ function resolve(ruleId: string): string {
  * с ТЕКУЩИМ черновиком (реактивно на правки); в фазе отчёта — статичный результат миграции.
  */
 const compareResult = computed<MigrationResult | null>(() => {
+  if (!editorCompareOpen.value) return result.value;
   if (phase.value === 'editor') {
     const original = originalVersion.value;
     const draft = draftKey.value ? draftStore.draftOf(draftKey.value) : undefined;
@@ -90,17 +91,18 @@ const compareResult = computed<MigrationResult | null>(() => {
 
 async function run(): Promise<void> {
   const membership = props.membership;
-  if (!membership?.activeVersion) return;
+  const source = membership?.latestVersion ?? membership?.activeVersion ?? membership?.pendingVersion;
+  if (!membership || !source) return;
   loading.value = true;
   error.value = null;
   try {
     const character = await getCharacterApi().getCharacter(membership.characterId);
     const oldRevision = await spaceRevisionStore.fetchRevision(
       character.character.spaceId,
-      membership.activeVersion.rulesRevision,
+      source.rulesRevision,
       signal.value,
     );
-    originalVersion.value = membership.activeVersion;
+    originalVersion.value = source;
     oldRules.value = oldRevision.rules;
     const newRevision = await spaceRevisionStore.fetchRevision(
       props.gameSpaceId,
@@ -110,7 +112,7 @@ async function run(): Promise<void> {
     names.value = Object.fromEntries(newRevision.rules.map((rule) => [rule.id, rule.name]));
     targetRules.value = newRevision.rules;
     result.value = characterMigrationService.migrate({
-      version: membership.activeVersion,
+      version: source,
       oldRules: oldRevision.rules,
       oldSpaceId: character.character.spaceId,
       newRules: newRevision.rules,

@@ -1,0 +1,255 @@
+import { describe, expect, it } from 'vitest';
+import type { DiceRng } from '@/modules/Roleplay/Game/Dto/DiceRng';
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
+import type { CharacterOverview } from '@/modules/Roleplay/Character/Dto/Overview/CharacterOverview';
+import { listBlockProfiles, rollMeleeHit, weaponMasteryForAttack } from '@/modules/Roleplay/Game/Utils/hitRoll';
+import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
+import { resolveStrikeProcedure } from '@/modules/Roleplay/Game/Utils/resolveStrikeProcedure';
+import { strikeProcedureRegistry } from '@/modules/Roleplay/Game/Service/Strike/Instance/strikeProcedureRegistry';
+import { strikeV1 } from '@/modules/Roleplay/Game/Service/Strike/strikeV1';
+import { STRIKE_PROCEDURE_RULE_CODE } from '@/modules/Roleplay/Rule/Constant/Combat/STRIKE_PROCEDURE';
+
+function rngFromDice(values: number[], faces = 6): DiceRng {
+  let i = 0;
+
+  return () => (values[i++] - 1) / faces;
+}
+
+const checkSimple: Rule = {
+  id: 'rule-check-simple',
+  code: 'check-simple',
+  type: 'check',
+  name: 'Простая проверка',
+  description: '',
+  spaceId: 1,
+  spec: {
+    type: 'check',
+    difficulty_input: { kind: 'ask' },
+    allowed_modes: 'both',
+    attached_rule_codes: [],
+  },
+  keywordIds: [],
+  mechanicId: null,
+  createdAt: '2026-01-01T00:00:00Z',
+};
+
+const checkHit: Rule = {
+  ...checkSimple,
+  id: 'rule-check-hit',
+  code: 'check-hit',
+  name: 'Попадание',
+  spec: {
+    type: 'check',
+    parent_check_code: 'check-simple',
+    difficulty_input: { kind: 'ask' },
+    allowed_modes: 'both',
+  },
+};
+
+const strikeRule = (mechanicId: number): Rule => ({
+  id: 'rule-strike-procedure',
+  code: STRIKE_PROCEDURE_RULE_CODE,
+  type: 'simple',
+  name: 'Удар',
+  description: '',
+  spaceId: 1,
+  keywordIds: [],
+  mechanicId,
+  createdAt: '2026-01-01T00:00:00Z',
+});
+
+const mechanics: Mechanic[] = [
+  { id: 7, code: 'strike', name: 'Удар', description: '', version: '1.0.0' },
+  { id: 8, code: 'strike', name: 'Удар', description: '', version: '2.0.0' },
+];
+
+describe('resolveStrikeProcedure', () => {
+  it('без карточки — v1', () => {
+    expect(resolveStrikeProcedure([], [])).toEqual(strikeV1);
+  });
+
+  it('срез ревизии выбирает хендлер по mechanic version', () => {
+    strikeProcedureRegistry.register({
+      code: 'strike',
+      version: '2.0.0',
+      ignoreDefense: { base: 0, size: 0 },
+      dodgeEfficiency: { base: 5, size: 0 },
+      minBlockEfficiency: { base: 4, size: -1 },
+    });
+    const resolved = resolveStrikeProcedure([strikeRule(8)], mechanics);
+    expect(resolved.version).toBe('2.0.0');
+    expect(resolved.ignoreDefense).toEqual({ base: 0, size: 0 });
+    expect(resolveStrikeProcedure([strikeRule(7)], mechanics).version).toBe('1.0.0');
+  });
+});
+
+describe('rollMeleeHit', () => {
+  const attack = { itemName: 'Меч', profileType: 'strike' as const, accuracy: { base: 3, size: 0 } };
+  const overview = {
+    combat: {
+      melee: {
+        stat: { name: 'Общее', value: { base: 3, size: -1 } },
+        weapons: [{ name: 'Меч', shortName: 'Меч', value: { base: 4, size: -1 } }],
+      },
+      ranged: null,
+    },
+    defense: { shield: null },
+  } as unknown as CharacterOverview;
+
+  it('игнор: атака vs 0↓, защитник не бросает', () => {
+    const rolled = rollMeleeHit(
+      {
+        attackerLabel: 'А',
+        defenderLabel: 'Б',
+        attack,
+        attackerOverview: overview,
+        defenderOverview: overview,
+        reaction: 'ignore',
+      },
+      rngFromDice([2, 4, 1, 3]),
+      [checkSimple, checkHit],
+      [],
+    );
+    expect(rolled.defender).toBeNull();
+    expect(rolled.attacker.check?.difficulty).toEqual({ base: 0, size: -1 });
+    expect(rolled.attacker.spec.efficiency).toBe(3);
+    expect(rolled.attacker.spec.diceCount).toBe(4);
+    expect(rolled.attacker.spec.dieSize).toBe(-1);
+  });
+
+  it('уклон: размерная эффективность {4|-1}, размер на успехи', () => {
+    const rolled = rollMeleeHit(
+      {
+        attackerLabel: 'А',
+        defenderLabel: 'Б',
+        attackerKey: 'character:3',
+        defenderKey: 'character:1',
+        attack,
+        attackerOverview: overview,
+        defenderOverview: overview,
+        reaction: 'dodge',
+        defenseEfficiency: { base: 4, size: -1 },
+      },
+      rngFromDice([2, 3, 4, 1, 2, 3, 4, 1]),
+      [checkSimple, checkHit],
+      [],
+    );
+    expect(rolled.defender).not.toBeNull();
+    expect(rolled.defender?.spec.efficiency).toBe(4);
+    expect(rolled.defender?.spec.dieSize).toBe(-2);
+    expect(rolled.defender?.spec.poolSize).toBe(-1);
+    expect(rolled.defender?.spec.efficiencySize).toBe(-1);
+    expect(rolled.attacker.spec.actorKey).toBe('character:3');
+    expect(rolled.defender?.spec.actorKey).toBe('character:1');
+  });
+
+  it('уклон: лучшее оружие ББ и помеха Ловкость/Восприятие', () => {
+    const defender = {
+      characteristics: [
+        { ruleId: 'rule-7', value: { base: 4, size: -2 } },
+        { ruleId: 'rule-perception', value: { base: 4, size: -1 } },
+      ],
+      combat: {
+        melee: {
+          stat: { name: 'Общее', value: { base: 4, size: -1 } },
+          weapons: [{ name: 'Боевая коса', shortName: 'Коса', value: { base: 4, size: 0 } }],
+        },
+        ranged: null,
+      },
+    } as unknown as CharacterOverview;
+    const statRules: Rule[] = [
+      { ...checkSimple, id: 'rule-7', code: 'dexterity', type: 'characteristic', name: 'Ловкость' },
+      { ...checkSimple, id: 'rule-perception', code: 'perception', type: 'characteristic', name: 'Восприятие' },
+    ];
+    const rolled = rollMeleeHit(
+      {
+        attackerLabel: 'А',
+        defenderLabel: 'Б',
+        attack: { itemName: 'Кинжал', profileType: 'strike', accuracy: { base: 3, size: 0 } },
+        attackerOverview: overview,
+        defenderOverview: defender,
+        reaction: 'dodge',
+        defenseEfficiency: { base: 4, size: -1 },
+      },
+      rngFromDice([2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1]),
+      [checkSimple, checkHit, ...statRules],
+      [],
+    );
+    expect(rolled.defender?.spec.diceCount).toBe(5);
+    expect(rolled.defender?.spec.dieSize).toBe(-2);
+    expect(rolled.defender?.spec.poolSize).toBe(-1);
+    expect(rolled.defender?.spec.efficiencySize).toBe(-1);
+    expect(rolled.defender?.spec.advantages).toEqual([]);
+    expect(rolled.defender?.spec.masteryAdjustments).toEqual([
+      { source_code: 'state', source_label: 'Ловкость/Восприятие', delta: -2 },
+    ]);
+  });
+
+  it('throw не запускается', () => {
+    expect(() =>
+      rollMeleeHit(
+        {
+          attackerLabel: 'А',
+          defenderLabel: 'Б',
+          attack: { ...attack, profileType: 'throw' },
+          attackerOverview: overview,
+          defenderOverview: overview,
+          reaction: 'ignore',
+        },
+        rngFromDice([1]),
+        [checkHit],
+        [],
+      ),
+    ).toThrow(/только удар/);
+  });
+});
+
+describe('listBlockProfiles', () => {
+  it('берёт equipped щит', () => {
+    const version = {
+      inventory: [{ id: 1, ruleId: 'shield-1', quantity: 1, equipped: true }],
+    } as unknown as CharacterVersion;
+    const rules: Rule[] = [
+      {
+        id: 'shield-1',
+        code: 'buckler',
+        type: 'item',
+        name: 'Баклер',
+        description: '',
+        spaceId: 1,
+        spec: {
+          category: 'equipment',
+          cost_gm: 1,
+          weight: { base: 1, size: 0 },
+          special_rule_codes: [],
+          shield: {
+            min_strength: null,
+            block: { efficiency: { base: 5, size: 0 }, defense: { base: 6, size: 0 }, resistances: [] },
+          },
+        },
+        keywordIds: [],
+        mechanicId: null,
+        createdAt: '2026-01-01T00:00:00Z',
+      },
+    ];
+    expect(listBlockProfiles(version, rules)).toEqual([
+      { itemRuleId: 'shield-1', itemName: 'Баклер', efficiency: { base: 5, size: 0 } },
+    ]);
+  });
+});
+
+describe('weaponMasteryForAttack', () => {
+  it('берёт тайл оружия по имени', () => {
+    const overview = {
+      combat: {
+        melee: {
+          stat: { name: 'Общее', value: { base: 3, size: -1 } },
+          weapons: [{ name: 'Меч', shortName: 'Меч', value: { base: 5, size: 0 } }],
+        },
+        ranged: null,
+      },
+    } as unknown as CharacterOverview;
+    expect(weaponMasteryForAttack(overview, { itemName: 'Меч', profileType: 'strike' })).toEqual({ base: 5, size: 0 });
+  });
+});

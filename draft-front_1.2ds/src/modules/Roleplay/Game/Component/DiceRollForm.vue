@@ -10,6 +10,7 @@ import { ROLL_DIE_SIZE_MAX } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_DI
 import { ROLL_EFFICIENCY_MAX } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_EFFICIENCY_MAX';
 import { ROLL_EFFICIENCY_MIN } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_EFFICIENCY_MIN';
 import { ROLL_ADV_MAX } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ADV_MAX';
+import { advantageEntries } from '@/modules/Roleplay/Rule/Utils/aggregateSourceDeltas';
 
 defineProps<{ modelValue: boolean }>();
 const emit = defineEmits<{
@@ -38,7 +39,7 @@ function add() {
     dieSize: dieSize.value,
     dieFaces: dieFaces.value,
     efficiency: efficiency.value,
-    adv: adv.value,
+    advantages: advantageEntries(adv.value),
     label: label.value || undefined,
   });
   reset();

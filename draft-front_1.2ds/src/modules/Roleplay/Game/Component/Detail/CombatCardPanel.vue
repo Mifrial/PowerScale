@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import SlidePanel from '@/modules/Core/UI/Component/SlidePanel.vue';
 import { useChatStore } from '@/modules/Messages/Chat/Store/chat';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
@@ -17,6 +17,19 @@ import {
 import { weaponProficiencyLevels } from '@/modules/Roleplay/Character/Utils/weaponProficiency';
 import CombatCardCharacteristicTile from '@/modules/Roleplay/Game/Component/Detail/CombatCardCharacteristicTile.vue';
 import CombatResourceTile from '@/modules/Roleplay/Game/Component/Detail/CombatResourceTile.vue';
+import AbilityTab from '@/modules/Roleplay/Character/Component/Detail/AbilityTab.vue';
+import InventoryTab from '@/modules/Roleplay/Character/Component/Editor/InventoryTab.vue';
+import AttackTile from '@/modules/Roleplay/Character/Component/Detail/Attacks/AttackTile.vue';
+import DefenseValue from '@/modules/Roleplay/Character/Component/Detail/Defense/DefenseValue.vue';
+import ArmorTile from '@/modules/Roleplay/Character/Component/Detail/Defense/ArmorTile.vue';
+import RuleLink from '@/modules/Roleplay/Character/Component/Detail/RuleLink.vue';
+import RuleSlider from '@/modules/Roleplay/Rule/Component/RuleSlider.vue';
+import { useRuleDetailSlider } from '@/modules/Roleplay/Character/Composables/useRuleDetailSlider';
+import { characterBuildService } from '@/modules/Roleplay/Character/Service/Instance/characterBuildService';
+import { characterEditorService } from '@/modules/Roleplay/Character/Service/Instance/characterEditorService';
+import { useKeywordStore } from '@/modules/Roleplay/Rule/Store/keywords';
+import type { CharacterCreationConfig } from '@/modules/Roleplay/Character/Dto/Editor/CharacterCreationConfig';
+import type { InventoryItemOverview } from '@/modules/Roleplay/Character/Dto/Overview/InventoryItemOverview';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
@@ -24,11 +37,13 @@ import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOv
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
 import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
+import type { AttackOverview } from '@/modules/Roleplay/Character/Dto/Overview/AttackOverview';
 import type { CharacteristicOverview } from '@/modules/Roleplay/Character/Dto/Overview/CharacteristicOverview';
 import type { ResourceOverview } from '@/modules/Roleplay/Character/Dto/Overview/ResourceOverview';
 import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/CharacterStateValue';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
+import { preferNewerCombatOverlays, replaceCombatOverlay } from '@/modules/Roleplay/Game/Utils/mergeCombatOverlay';
 
 const props = defineProps<{
   /** Слайд-овер открыт (v-model). */
@@ -46,6 +61,10 @@ const props = defineProps<{
   currentUserId: number | null;
   /** Макросы быстрых бросков per entityKey (CD-8) — для звёздочки на тайлах. */
   quickRolls: Record<string, string[]>;
+  spaceId: number;
+  rulesRevision: number;
+  /** Счётчик боевых мутаций снаружи (удар, истощение) — перечитать оверлеи. */
+  overlayRevision?: number;
 }>();
 
 const emit = defineEmits<{
@@ -54,6 +73,8 @@ const emit = defineEmits<{
   'toggle-quick-roll': [entityKey: string, ruleId: string];
   /** Оверлей боевых изменений мутировал (ресурс/состояние) — для обновления соседних блоков (школа инициативы). */
   'overlay-changed': [];
+  'launch-hit': [payload: { attackerKey: CombatEntityKey; attack: AttackOverview }];
+  'launch-injury': [];
 }>();
 
 const chatStore = useChatStore();
@@ -70,8 +91,18 @@ watch(isOpen, (value) => {
 });
 
 const overlays = ref<GameCombatOverlay[]>([]);
+/** Счётчик, чтобы overview пересобрался даже если версия листа та же ссылка (мутация НПС). */
+const viewEpoch = ref(0);
 const error = ref<string | null>(null);
 const pickerOpen = ref(false);
+const cardTab = ref('overview');
+const collapsed = ref<string[]>([]);
+const ruleSlider = useRuleDetailSlider();
+const keywordStore = useKeywordStore();
+
+onMounted(() => {
+  if (keywordStore.keywords.length === 0) void keywordStore.fetchTags();
+});
 
 const overlay = computed(() => {
   if (props.entityKey === null) return null;
@@ -94,9 +125,51 @@ const model = computed(() => {
 
 const effectiveVersion = computed(() => model.value?.effectiveVersion ?? null);
 
-const overview = computed(() =>
-  effectiveVersion.value ? characterOverviewService.build(effectiveVersion.value, props.rules) : null,
+const sheetConfig = computed<CharacterCreationConfig>(() => {
+  const version = effectiveVersion.value;
+  if (!version) return { osTotal: null, orTotal: null, moneyBudget: null };
+
+  return {
+    osTotal: version.budgets?.osTotal ?? null,
+    orTotal: version.points.orTotal ?? null,
+    moneyBudget: version.budgets?.moneyBudget ?? null,
+  };
+});
+
+const sheetBuild = computed(() =>
+  effectiveVersion.value ? characterBuildService.fromVersion(effectiveVersion.value, props.spaceId, props.rules) : null,
 );
+
+const sheetModel = computed(() => {
+  if (!sheetBuild.value || props.rules.length === 0) return null;
+
+  return characterEditorService.build(
+    sheetBuild.value,
+    props.rules,
+    sheetConfig.value,
+    keywordStore.keywords,
+    props.mechanics,
+  );
+});
+
+const overview = computed(() => {
+  viewEpoch.value;
+  const version = effectiveVersion.value;
+  if (!version) return null;
+  const live = sheetModel.value;
+  const patched = live
+    ? {
+        ...version,
+        characteristics: live.characteristics.map((characteristic) => ({
+          ruleId: characteristic.ruleId,
+          base: characteristic.base,
+          modifiers: characteristic.modifiers,
+        })),
+      }
+    : version;
+
+  return characterOverviewService.build(patched, props.rules);
+});
 
 const stateRows = computed(() =>
   effectiveVersion.value ? combatStateRows(effectiveVersion.value.states, props.rules) : [],
@@ -110,6 +183,27 @@ const proficiencyLevels = computed(() =>
 
 const senses = computed(() => effectiveVersion.value?.senses ?? []);
 
+const primarySimple = computed(
+  () => overview.value?.characteristics.filter((item) => item.group === 'primary' && !item.derived) ?? [],
+);
+const primaryDerived = computed(
+  () => overview.value?.characteristics.filter((item) => item.group === 'primary' && item.derived) ?? [],
+);
+const importantCharacteristics = computed(
+  () => overview.value?.characteristics.filter((item) => item.group === 'important') ?? [],
+);
+const secondaryCharacteristics = computed(
+  () => overview.value?.characteristics.filter((item) => item.group === 'secondary') ?? [],
+);
+
+function isSectionOpen(key: string): boolean {
+  return !collapsed.value.includes(key);
+}
+
+function toggleSection(key: string): void {
+  collapsed.value = isSectionOpen(key) ? [...collapsed.value, key] : collapsed.value.filter((item) => item !== key);
+}
+
 const speaker = computed<ChatSpeaker>(() => {
   const current = model.value;
   if (!current) return { kind: 'gm' };
@@ -119,24 +213,37 @@ const speaker = computed<ChatSpeaker>(() => {
     : { kind: 'npc', npcId: current.entityId, npcName: current.name };
 });
 
+let overlaysLoadId = 0;
+
 async function loadOverlays(): Promise<void> {
   if (!props.open || props.entityKey === null) return;
+  const loadId = ++overlaysLoadId;
   error.value = null;
   try {
-    overlays.value = await getGameApi().getCombatOverlays(props.gameId);
+    const next = await getGameApi().getCombatOverlays(props.gameId);
+    if (loadId !== overlaysLoadId) return;
+    overlays.value = preferNewerCombatOverlays(overlays.value, next);
+    viewEpoch.value += 1;
   } catch (e) {
+    if (loadId !== overlaysLoadId) return;
     error.value = e instanceof Error ? e.message : 'Не удалось загрузить данные боя';
   }
 }
 
 watch(
-  () => [props.open, props.entityKey],
+  () => [props.open, props.entityKey, props.overlayRevision] as const,
   () => void loadOverlays(),
   { immediate: true },
 );
 
+function launchHit(attack: AttackOverview): void {
+  if (!props.entityKey) return;
+  emit('launch-hit', { attackerKey: props.entityKey, attack });
+}
+
 function applyOverlay(result: GameCombatOverlay): void {
-  overlays.value = overlays.value.map((item) => (item.entityKey === result.entityKey ? result : item));
+  overlays.value = replaceCombatOverlay(overlays.value, result);
+  viewEpoch.value += 1;
   emit('overlay-changed');
 }
 
@@ -149,7 +256,18 @@ async function roll(characteristic: CharacteristicOverview, name?: string): Prom
   if (props.chatId === null) return;
   error.value = null;
   try {
-    const result = rollCharacteristic({ name: rollName, value: characteristic.value }, props.rules, props.mechanics);
+    const rule = props.rules.find((candidate) => candidate.id === characteristic.ruleId);
+    const result = rollCharacteristic(
+      {
+        name: rollName,
+        value: characteristic.value,
+        ruleId: characteristic.ruleId,
+        characteristicCode: rule?.type === 'characteristic' ? rule.code : null,
+        actorKey: props.entityKey ?? undefined,
+      },
+      props.rules,
+      props.mechanics,
+    );
     await chatStore.sendMessage(
       rollName,
       [{ type: ROLL_ATTACHMENT_TYPE, payload: result }],
@@ -261,20 +379,48 @@ function kindIcon(): string {
   return model.value?.kind === 'npc' ? 'mdi-robot-outline' : 'mdi-account';
 }
 
-function onClose(): void {
-  emit('update:open', false);
+async function toggleEquipped(item: InventoryItemOverview): Promise<void> {
+  if (!model.value || !model.value.canEdit) return;
+  error.value = null;
+  try {
+    const result = await getGameApi().setCombatItemEquipped(
+      props.gameId,
+      model.value.entityKey,
+      item.id,
+      !item.equipped,
+    );
+    applyOverlay(result);
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'Не удалось изменить экипировку';
+  }
+}
+
+function onSheetToggleEquipped(itemId: number): void {
+  const item = overview.value?.inventory.find((entry) => entry.id === itemId);
+  if (item) void toggleEquipped(item);
 }
 </script>
 
 <template>
-  <SlidePanel v-model="isOpen" width="420px">
+  <SlidePanel v-model="isOpen" width="680px">
     <template #header>
-      <div class="d-flex align-center ga-2 w-100 min-width-0">
+      <div class="combat-card-header">
         <v-icon :icon="kindIcon()" size="18" color="primary" class="flex-shrink-0" />
-        <span class="text-subtitle-1 font-weight-medium text-truncate">{{ model?.name ?? 'Карточка' }}</span>
+        <span class="combat-card-header__name text-subtitle-2 font-weight-medium text-truncate">
+          {{ model?.name ?? 'Карточка' }}
+        </span>
         <v-chip v-if="model && !model.canEdit" size="x-small" variant="tonal" class="flex-shrink-0">просмотр</v-chip>
-        <v-spacer />
-        <v-btn icon="mdi-close" size="small" variant="text" @click="onClose" />
+        <v-tabs
+          v-if="model && effectiveVersion !== null"
+          v-model="cardTab"
+          density="compact"
+          color="primary"
+          class="combat-card-header__tabs"
+        >
+          <v-tab value="overview">Обзор</v-tab>
+          <v-tab value="abilities">Способности</v-tab>
+          <v-tab value="inventory">Инвентарь</v-tab>
+        </v-tabs>
       </div>
     </template>
 
@@ -285,297 +431,386 @@ function onClose(): void {
     </div>
 
     <template v-if="model && effectiveVersion !== null">
-      <div class="combat-card-panel__body">
-        <!-- Характеристики: тайл — попап (модификаторы/производные/чувства), кубик — бросок -->
-        <section class="combat-card-section">
-          <div class="combat-card-section__title">Характеристики</div>
-          <template
-            v-for="group in [
-              { key: 'primary', label: 'Основные' },
-              { key: 'important', label: 'Важные' },
-              { key: 'secondary', label: 'Вторичные' },
-            ]"
-            :key="group.key"
-          >
-            <template v-if="(overview?.characteristics ?? []).some((c) => c.group === group.key)">
-              <div class="combat-card-section__subtitle">{{ group.label }}</div>
-              <div class="combat-card-characteristics">
-                <CombatCardCharacteristicTile
-                  v-for="characteristic in overview?.characteristics.filter((c) => c.group === group.key)"
-                  :key="characteristic.ruleId"
-                  :characteristic="characteristic"
-                  :rules="rules"
-                  :senses="senses"
-                  :proficiency-levels="proficiencyLevels"
-                  :rollable="chatId !== null"
-                  :starred="isStarred(characteristic.ruleId)"
-                  :star-enabled="model.canEdit"
-                  @roll="onTileRoll"
-                  @star-toggle="onStarToggle"
-                />
+      <v-window v-model="cardTab">
+        <v-window-item value="overview">
+          <div class="combat-card-panel__body">
+            <section class="combat-card-section">
+              <button type="button" class="combat-card-section__title" @click="toggleSection('characteristics')">
+                <v-icon size="18">{{
+                  isSectionOpen('characteristics') ? 'mdi-chevron-down' : 'mdi-chevron-right'
+                }}</v-icon>
+                Характеристики
+              </button>
+              <div v-show="isSectionOpen('characteristics')">
+                <template v-if="primarySimple.length || primaryDerived.length">
+                  <div class="combat-card-section__subtitle">Основные</div>
+                  <div v-if="primarySimple.length" class="combat-card-characteristics">
+                    <CombatCardCharacteristicTile
+                      v-for="characteristic in primarySimple"
+                      :key="characteristic.ruleId"
+                      :characteristic="characteristic"
+                      :rules="rules"
+                      :senses="senses"
+                      :proficiency-levels="proficiencyLevels"
+                      :rollable="chatId !== null"
+                      :starred="isStarred(characteristic.ruleId)"
+                      :star-enabled="model.canEdit"
+                      @roll="onTileRoll"
+                      @star-toggle="onStarToggle"
+                    />
+                  </div>
+                  <div v-if="primaryDerived.length" class="combat-card-characteristics mt-1">
+                    <CombatCardCharacteristicTile
+                      v-for="characteristic in primaryDerived"
+                      :key="characteristic.ruleId"
+                      :characteristic="characteristic"
+                      :rules="rules"
+                      :senses="senses"
+                      :proficiency-levels="proficiencyLevels"
+                      :rollable="chatId !== null"
+                      :starred="isStarred(characteristic.ruleId)"
+                      :star-enabled="model.canEdit"
+                      @roll="onTileRoll"
+                      @star-toggle="onStarToggle"
+                    />
+                  </div>
+                </template>
+                <template v-if="importantCharacteristics.length">
+                  <div class="combat-card-section__subtitle">Важные</div>
+                  <div class="combat-card-characteristics">
+                    <CombatCardCharacteristicTile
+                      v-for="characteristic in importantCharacteristics"
+                      :key="characteristic.ruleId"
+                      :characteristic="characteristic"
+                      :rules="rules"
+                      :senses="senses"
+                      :proficiency-levels="proficiencyLevels"
+                      :rollable="chatId !== null"
+                      :starred="isStarred(characteristic.ruleId)"
+                      :star-enabled="model.canEdit"
+                      @roll="onTileRoll"
+                      @star-toggle="onStarToggle"
+                    />
+                  </div>
+                </template>
+                <template v-if="secondaryCharacteristics.length">
+                  <div class="combat-card-section__subtitle">Вторичные</div>
+                  <div class="combat-card-characteristics">
+                    <CombatCardCharacteristicTile
+                      v-for="characteristic in secondaryCharacteristics"
+                      :key="characteristic.ruleId"
+                      :characteristic="characteristic"
+                      :rules="rules"
+                      :senses="senses"
+                      :proficiency-levels="proficiencyLevels"
+                      :rollable="chatId !== null"
+                      :starred="isStarred(characteristic.ruleId)"
+                      :star-enabled="model.canEdit"
+                      @roll="onTileRoll"
+                      @star-toggle="onStarToggle"
+                    />
+                  </div>
+                </template>
               </div>
-            </template>
-          </template>
-        </section>
+            </section>
 
-        <!-- Бой: статы и оружия — тайлы как обычные характеристики -->
-        <section v-if="overview?.combat" class="combat-card-section">
-          <div class="combat-card-section__title">Бой</div>
-          <template
-            v-for="(section, sectionKey) in { melee: overview.combat.melee, ranged: overview.combat.ranged }"
-            :key="sectionKey"
-          >
-            <template v-if="section">
-              <div class="combat-card-section__subtitle">
-                {{ sectionKey === 'melee' ? 'Ближний бой' : 'Дальний бой' }}
+            <!-- Бой: статы и оружия — тайлы как обычные характеристики -->
+            <section v-if="overview?.combat" class="combat-card-section">
+              <button type="button" class="combat-card-section__title" @click="toggleSection('combat')">
+                <v-icon size="18">{{ isSectionOpen('combat') ? 'mdi-chevron-down' : 'mdi-chevron-right' }}</v-icon>
+                Бой
+              </button>
+              <div v-show="isSectionOpen('combat')">
+                <template
+                  v-for="(section, sectionKey) in { melee: overview.combat.melee, ranged: overview.combat.ranged }"
+                  :key="sectionKey"
+                >
+                  <template v-if="section">
+                    <div class="combat-card-section__subtitle">
+                      {{ sectionKey === 'melee' ? 'Ближний бой' : 'Дальний бой' }}
+                    </div>
+                    <div class="combat-card-characteristics">
+                      <CombatCardCharacteristicTile
+                        :characteristic="section.stat"
+                        :rules="rules"
+                        :senses="senses"
+                        :proficiency-levels="proficiencyLevels"
+                        :rollable="chatId !== null"
+                        :roll-name="sectionKey === 'melee' ? 'Ближний бой' : 'Дальний бой'"
+                        :starred="isStarred(section.stat.ruleId)"
+                        :star-enabled="model.canEdit"
+                        @roll="onTileRoll"
+                        @star-toggle="onStarToggle"
+                      />
+                      <CombatCardCharacteristicTile
+                        v-for="weapon in section.weapons"
+                        :key="weapon.ruleId"
+                        :characteristic="weapon"
+                        :rules="rules"
+                        :senses="senses"
+                        :proficiency-levels="proficiencyLevels"
+                        :rollable="chatId !== null"
+                        :starred="isStarred(weapon.ruleId)"
+                        :star-enabled="model.canEdit"
+                        @roll="onTileRoll"
+                        @star-toggle="onStarToggle"
+                      />
+                    </div>
+                  </template>
+                </template>
               </div>
-              <div class="combat-card-characteristics">
-                <CombatCardCharacteristicTile
-                  :characteristic="section.stat"
-                  :rules="rules"
-                  :senses="senses"
-                  :proficiency-levels="proficiencyLevels"
-                  :rollable="chatId !== null"
-                  :roll-name="sectionKey === 'melee' ? 'Ближний бой' : 'Дальний бой'"
-                  :starred="isStarred(section.stat.ruleId)"
-                  :star-enabled="model.canEdit"
-                  @roll="onTileRoll"
-                  @star-toggle="onStarToggle"
-                />
-                <CombatCardCharacteristicTile
-                  v-for="weapon in section.weapons"
-                  :key="weapon.ruleId"
-                  :characteristic="weapon"
-                  :rules="rules"
-                  :senses="senses"
-                  :proficiency-levels="proficiencyLevels"
-                  :rollable="chatId !== null"
-                  :starred="isStarred(weapon.ruleId)"
-                  :star-enabled="model.canEdit"
-                  @roll="onTileRoll"
-                  @star-toggle="onStarToggle"
-                />
-              </div>
-            </template>
-          </template>
-        </section>
+            </section>
 
-        <!-- Ресурсы: тайлы как характеристики (CD-9) -->
-        <section class="combat-card-section">
-          <div class="combat-card-section__title">Ресурсы</div>
-          <div v-if="(overview?.resources ?? []).length === 0" class="text-medium-emphasis text-body-2">
-            Ресурсов нет
+            <!-- Ресурсы: тайлы как характеристики (CD-9) -->
+            <section class="combat-card-section">
+              <button type="button" class="combat-card-section__title" @click="toggleSection('resources')">
+                <v-icon size="18">{{ isSectionOpen('resources') ? 'mdi-chevron-down' : 'mdi-chevron-right' }}</v-icon>
+                Ресурсы
+              </button>
+              <div v-show="isSectionOpen('resources')">
+                <div v-if="(overview?.resources ?? []).length === 0" class="text-medium-emphasis text-body-2">
+                  Ресурсов нет
+                </div>
+                <div v-else class="combat-card-characteristics">
+                  <CombatResourceTile
+                    v-for="resource in overview?.resources ?? []"
+                    :key="resource.ruleId"
+                    :resource="resource"
+                    :rules="rules"
+                    :can-edit="model.canEdit"
+                    @change="changeResource"
+                  />
+                </div>
+              </div>
+            </section>
+
+            <!-- Состояния: типовые контролы + пикер из ревизии -->
+            <section class="combat-card-section">
+              <button type="button" class="combat-card-section__title" @click="toggleSection('states')">
+                <v-icon size="18">{{ isSectionOpen('states') ? 'mdi-chevron-down' : 'mdi-chevron-right' }}</v-icon>
+                Состояния
+              </button>
+              <div v-show="isSectionOpen('states')">
+                <div v-if="stateRows.length === 0" class="text-medium-emphasis text-body-2">Состояний нет</div>
+
+                <div v-for="row in stateRows" :key="row.ruleId" class="combat-card-state">
+                  <div class="combat-card-row">
+                    <span class="combat-card-row__label text-truncate d-flex align-center ga-1">
+                      <v-icon v-if="row.iconCode" :icon="row.iconCode" size="small" />
+                      {{ row.name }}
+                    </span>
+                    <span class="combat-card-row__value">{{ row.summary ?? 'Есть' }}</span>
+                    <template v-if="model.canEdit">
+                      <!-- number/sum: степпер по сумме -->
+                      <template
+                        v-if="row.valueType === 'number' && row.aggregation === 'sum' && row.indices.length > 0"
+                      >
+                        <v-btn
+                          icon="mdi-minus"
+                          size="x-small"
+                          variant="text"
+                          class="flex-shrink-0"
+                          :disabled="rowTotal(row) <= 0"
+                          @click="setStateValue(row.indices[0], Math.max(0, rowTotal(row) - 1))"
+                        />
+                        <v-btn
+                          icon="mdi-plus"
+                          size="x-small"
+                          variant="text"
+                          class="flex-shrink-0"
+                          @click="setStateValue(row.indices[0], rowTotal(row) + 1)"
+                        />
+                      </template>
+                      <!-- flag: тумблер наличия -->
+                      <template v-else-if="row.valueType === 'flag' && !row.poison">
+                        <v-btn
+                          v-if="row.indices.length === 0"
+                          icon="mdi-plus"
+                          size="x-small"
+                          variant="text"
+                          class="flex-shrink-0"
+                          @click="
+                            addState({
+                              ruleId: row.ruleId,
+                              code: row.code,
+                              name: row.name,
+                              iconCode: row.iconCode,
+                              valueType: row.valueType,
+                              aggregation: row.aggregation,
+                            })
+                          "
+                        />
+                        <v-btn
+                          v-else
+                          icon="mdi-minus"
+                          size="x-small"
+                          variant="text"
+                          class="flex-shrink-0"
+                          @click="removeRowStates(row)"
+                        />
+                      </template>
+                      <!-- всё остальное (independent/poison/…) — «Убрать» -->
+                      <template v-else>
+                        <v-btn
+                          v-if="row.indices.length > 0"
+                          icon="mdi-minus"
+                          size="x-small"
+                          variant="text"
+                          class="flex-shrink-0"
+                          @click="removeRowStates(row)"
+                        />
+                      </template>
+                    </template>
+                  </div>
+
+                  <!-- independent/dimensional: записи по отдельности (рана/увечье) -->
+                  <template v-if="model.canEdit && row.valueType === 'number' && row.aggregation === 'independent'">
+                    <div class="combat-card-state__entries">
+                      <div v-for="index in row.indices" :key="index" class="combat-card-state__entry">
+                        <v-chip size="x-small" variant="tonal">{{ stateEntryLabel(row, index) }}</v-chip>
+                        <v-btn icon="mdi-minus" size="x-small" variant="text" @click="removeState(index)" />
+                      </div>
+                      <v-btn
+                        icon="mdi-plus"
+                        size="x-small"
+                        variant="tonal"
+                        color="primary"
+                        :title="`Добавить «${row.name}»`"
+                        @click="
+                          addState({
+                            ruleId: row.ruleId,
+                            code: row.code,
+                            name: row.name,
+                            iconCode: row.iconCode,
+                            valueType: row.valueType,
+                            aggregation: row.aggregation,
+                          })
+                        "
+                      />
+                    </div>
+                  </template>
+                </div>
+
+                <div v-if="model.canEdit && stateOptions.length > 0" class="mt-2 d-flex flex-wrap ga-2">
+                  <v-menu v-model="pickerOpen" :close-on-content-click="false" attach :z-index="2200">
+                    <template #activator="{ props: menuProps }">
+                      <v-btn size="small" variant="tonal" color="primary" prepend-icon="mdi-plus" v-bind="menuProps">
+                        Добавить состояние
+                      </v-btn>
+                    </template>
+                    <v-card min-width="240" max-width="300" elevation="8" border>
+                      <v-card-text class="pa-2">
+                        <v-list dense max-height="240">
+                          <v-list-item
+                            v-for="option in stateOptions"
+                            :key="option.ruleId"
+                            density="compact"
+                            :prepend-icon="option.iconCode ?? 'mdi-star-outline'"
+                            :title="option.name"
+                            @click="addState(option)"
+                          />
+                        </v-list>
+                      </v-card-text>
+                    </v-card>
+                  </v-menu>
+                  <v-btn size="small" variant="tonal" prepend-icon="mdi-bone" @click="emit('launch-injury')">
+                    Увечье
+                  </v-btn>
+                </div>
+              </div>
+            </section>
+
+            <section v-if="overview?.defense" class="combat-card-section">
+              <div class="combat-card-section__heading">
+                <button type="button" class="combat-card-section__title" @click="toggleSection('defense')">
+                  <v-icon size="18">{{ isSectionOpen('defense') ? 'mdi-chevron-down' : 'mdi-chevron-right' }}</v-icon>
+                  Защита
+                </button>
+                <span class="flex-shrink-0" @click.stop>
+                  <DefenseValue v-if="overview.defense.constantDefense > 0" :tiers="overview.defense.tiers" />
+                </span>
+              </div>
+              <div v-show="isSectionOpen('defense')" class="combat-card-pair">
+                <ArmorTile v-for="armor in overview.defense.armor" :key="armor.itemRuleId" :item="armor" />
+                <v-sheet v-if="overview.defense.shield" class="pa-2 rounded border">
+                  <div class="d-flex align-center ga-2">
+                    <v-icon icon="mdi-shield-outline" color="primary" />
+                    <RuleLink :rule-id="overview.defense.shield.itemRuleId" class="text-body-2 font-weight-medium">
+                      {{ overview.defense.shield.itemName }} — блокирование
+                    </RuleLink>
+                  </div>
+                  <div class="text-body-2 text-medium-emphasis">
+                    Защита {{ overview.defense.shield.defense }} · эффективность
+                    {{ overview.defense.shield.efficiency }}
+                  </div>
+                </v-sheet>
+                <div
+                  v-if="overview.defense.armor.length === 0 && !overview.defense.shield"
+                  class="text-medium-emphasis text-body-2"
+                >
+                  Экипированной защиты нет
+                </div>
+              </div>
+            </section>
+
+            <section v-if="(overview?.attacks ?? []).length > 0" class="combat-card-section">
+              <button type="button" class="combat-card-section__title" @click="toggleSection('attacks')">
+                <v-icon size="18">{{ isSectionOpen('attacks') ? 'mdi-chevron-down' : 'mdi-chevron-right' }}</v-icon>
+                Атаки
+              </button>
+              <div v-show="isSectionOpen('attacks')" class="combat-card-pair">
+                <AttackTile
+                  v-for="attack in overview?.attacks ?? []"
+                  :key="`${attack.itemRuleId}_${attack.profileType}`"
+                  variant="combat"
+                  :attack="attack"
+                  @launch="launchHit"
+                />
+              </div>
+            </section>
           </div>
-          <div v-else class="combat-card-characteristics">
-            <CombatResourceTile
-              v-for="resource in overview?.resources ?? []"
-              :key="resource.ruleId"
-              :resource="resource"
+        </v-window-item>
+
+        <v-window-item value="abilities">
+          <div class="combat-card-panel__tab pa-2">
+            <AbilityTab
+              v-if="effectiveVersion"
+              :version="effectiveVersion"
               :rules="rules"
-              :can-edit="model.canEdit"
-              @change="changeResource"
+              :rules-loading="false"
+              :character-id="model.entityId"
+              :show-favorites="model.kind === 'character'"
             />
           </div>
-        </section>
+        </v-window-item>
 
-        <!-- Состояния: типовые контролы + пикер из ревизии -->
-        <section class="combat-card-section">
-          <div class="combat-card-section__title">Состояния</div>
-          <div v-if="stateRows.length === 0" class="text-medium-emphasis text-body-2">Состояний нет</div>
-
-          <div v-for="row in stateRows" :key="row.ruleId" class="combat-card-state">
-            <div class="combat-card-row">
-              <span class="combat-card-row__label text-truncate d-flex align-center ga-1">
-                <v-icon v-if="row.iconCode" :icon="row.iconCode" size="small" />
-                {{ row.name }}
-              </span>
-              <span class="combat-card-row__value">{{ row.summary ?? 'Есть' }}</span>
-              <template v-if="model.canEdit">
-                <!-- number/sum: степпер по сумме -->
-                <template v-if="row.valueType === 'number' && row.aggregation === 'sum' && row.indices.length > 0">
-                  <v-btn
-                    icon="mdi-minus"
-                    size="x-small"
-                    variant="text"
-                    class="flex-shrink-0"
-                    :disabled="rowTotal(row) <= 0"
-                    @click="setStateValue(row.indices[0], Math.max(0, rowTotal(row) - 1))"
-                  />
-                  <v-btn
-                    icon="mdi-plus"
-                    size="x-small"
-                    variant="text"
-                    class="flex-shrink-0"
-                    @click="setStateValue(row.indices[0], rowTotal(row) + 1)"
-                  />
-                </template>
-                <!-- flag: тумблер наличия -->
-                <template v-else-if="row.valueType === 'flag' && !row.poison">
-                  <v-btn
-                    v-if="row.indices.length === 0"
-                    icon="mdi-plus"
-                    size="x-small"
-                    variant="text"
-                    class="flex-shrink-0"
-                    @click="
-                      addState({
-                        ruleId: row.ruleId,
-                        code: row.code,
-                        name: row.name,
-                        iconCode: row.iconCode,
-                        valueType: row.valueType,
-                        aggregation: row.aggregation,
-                      })
-                    "
-                  />
-                  <v-btn
-                    v-else
-                    icon="mdi-minus"
-                    size="x-small"
-                    variant="text"
-                    class="flex-shrink-0"
-                    @click="removeRowStates(row)"
-                  />
-                </template>
-                <!-- всё остальное (independent/poison/…) — «Убрать» -->
-                <template v-else>
-                  <v-btn
-                    v-if="row.indices.length > 0"
-                    icon="mdi-minus"
-                    size="x-small"
-                    variant="text"
-                    class="flex-shrink-0"
-                    @click="removeRowStates(row)"
-                  />
-                </template>
-              </template>
-            </div>
-
-            <!-- independent/dimensional: записи по отдельности (рана/увечье) -->
-            <template v-if="model.canEdit && row.valueType === 'number' && row.aggregation === 'independent'">
-              <div class="combat-card-state__entries">
-                <div v-for="index in row.indices" :key="index" class="combat-card-state__entry">
-                  <v-chip size="x-small" variant="tonal">{{ stateEntryLabel(row, index) }}</v-chip>
-                  <v-btn icon="mdi-minus" size="x-small" variant="text" @click="removeState(index)" />
-                </div>
-                <v-btn
-                  icon="mdi-plus"
-                  size="x-small"
-                  variant="tonal"
-                  color="primary"
-                  :title="`Добавить «${row.name}»`"
-                  @click="
-                    addState({
-                      ruleId: row.ruleId,
-                      code: row.code,
-                      name: row.name,
-                      iconCode: row.iconCode,
-                      valueType: row.valueType,
-                      aggregation: row.aggregation,
-                    })
-                  "
-                />
-              </div>
-            </template>
+        <v-window-item value="inventory">
+          <div class="combat-card-panel__tab pa-2">
+            <InventoryTab
+              v-if="sheetBuild && sheetModel"
+              variant="sheet"
+              :build="sheetBuild"
+              :model="sheetModel"
+              :draft-key="null"
+              :rules="rules"
+              :keywords="keywordStore.keywords"
+              :can-edit="model.canEdit"
+              :on-toggle-equipped="onSheetToggleEquipped"
+              list-height="calc(100vh - 160px)"
+            />
+            <div v-else class="text-medium-emphasis text-body-2 pa-4">Инвентарь недоступен</div>
           </div>
-
-          <div v-if="model.canEdit && stateOptions.length > 0" class="mt-2">
-            <v-menu v-model="pickerOpen" :close-on-content-click="false" attach :z-index="2200">
-              <template #activator="{ props: menuProps }">
-                <v-btn size="small" variant="tonal" color="primary" prepend-icon="mdi-plus" v-bind="menuProps">
-                  Добавить состояние
-                </v-btn>
-              </template>
-              <v-card min-width="240" max-width="300" elevation="8" border>
-                <v-card-text class="pa-2">
-                  <v-list dense max-height="240">
-                    <v-list-item
-                      v-for="option in stateOptions"
-                      :key="option.ruleId"
-                      density="compact"
-                      :prepend-icon="option.iconCode ?? 'mdi-star-outline'"
-                      :title="option.name"
-                      @click="addState(option)"
-                    />
-                  </v-list>
-                </v-card-text>
-              </v-card>
-            </v-menu>
-          </div>
-        </section>
-
-        <!-- Защита и атаки (read) -->
-        <section v-if="overview?.defense" class="combat-card-section">
-          <div class="combat-card-section__title">Защита</div>
-          <div v-for="armor in overview.defense.armor" :key="armor.itemRuleId" class="combat-card-row">
-            <span class="combat-card-row__label text-truncate">{{ armor.itemName }}</span>
-            <span class="combat-card-row__value">
-              {{
-                armor.lines
-                  .map((line) => `${line.kind === 'defense' ? 'Защита' : 'Сопротивление'} ${line.valueLabel}`)
-                  .join(' · ')
-              }}
-            </span>
-          </div>
-          <div v-if="overview.defense.shield" class="combat-card-row">
-            <span class="combat-card-row__label text-truncate"
-              >{{ overview.defense.shield.itemName }} — блокирование</span
-            >
-            <span class="combat-card-row__value">
-              Защита {{ overview.defense.shield.defense }} · эффективность {{ overview.defense.shield.efficiency }}
-            </span>
-          </div>
-          <div
-            v-if="overview.defense.armor.length === 0 && !overview.defense.shield"
-            class="text-medium-emphasis text-body-2"
-          >
-            Экипированной защиты нет
-          </div>
-        </section>
-
-        <section v-if="(overview?.attacks ?? []).length > 0" class="combat-card-section">
-          <div class="combat-card-section__title">Атаки</div>
-          <div
-            v-for="attack in overview?.attacks ?? []"
-            :key="`${attack.itemRuleId}_${attack.profileType}`"
-            class="combat-card-row"
-          >
-            <span class="combat-card-row__label text-truncate"
-              >{{ attack.itemName }} — {{ attack.profileTypeLabel }}</span
-            >
-            <span class="combat-card-row__value">{{ attack.damageLabel }}</span>
-          </div>
-        </section>
-
-        <!-- Способности (read) -->
-        <section v-if="(overview?.abilities ?? []).length > 0" class="combat-card-section">
-          <div class="combat-card-section__title">Способности</div>
-          <div v-for="ability in overview?.abilities ?? []" :key="ability.ruleId" class="combat-card-row">
-            <span class="combat-card-row__label text-truncate">{{ ability.name }}</span>
-            <span class="combat-card-row__value">ур. {{ ability.level }}</span>
-          </div>
-        </section>
-
-        <!-- Разное (read) -->
-        <section v-if="(overview?.misc ?? []).length > 0" class="combat-card-section">
-          <div class="combat-card-section__title">Разное</div>
-          <div v-for="item in overview?.misc ?? []" :key="item.code" class="combat-card-row">
-            <span class="combat-card-row__label text-truncate">{{ item.label }}</span>
-            <span class="combat-card-row__value">{{ item.valueLabel }}</span>
-          </div>
-        </section>
-
-        <!-- Инвентарь (read) -->
-        <section v-if="(overview?.inventory ?? []).length > 0" class="combat-card-section">
-          <div class="combat-card-section__title">Инвентарь</div>
-          <div v-for="item in overview?.inventory ?? []" :key="item.id" class="combat-card-row">
-            <span class="combat-card-row__label text-truncate">{{ item.name }}</span>
-            <span class="combat-card-row__value">{{ item.quantity }} шт.</span>
-          </div>
-        </section>
-      </div>
+        </v-window-item>
+      </v-window>
     </template>
   </SlidePanel>
+
+  <RuleSlider
+    v-model:open="ruleSlider.state.open"
+    :rule-id="ruleSlider.state.ruleId"
+    :space-id="spaceId"
+    :rules-revision="rulesRevision"
+  />
 </template>
 
 <style scoped>
@@ -593,12 +828,54 @@ function onClose(): void {
   flex-direction: column;
   gap: 4px;
 }
+.combat-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  padding: 4px 8px 0 12px;
+}
+.combat-card-header__name {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.combat-card-header__tabs {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+.combat-card-header__tabs :deep(.v-tab) {
+  min-width: auto;
+  padding: 0 10px;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+.combat-card-section__heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
 .combat-card-section__title {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
   font-size: 13px;
   font-weight: 600;
   color: rgb(var(--v-theme-primary));
   text-transform: uppercase;
   letter-spacing: 0.02em;
+  text-align: left;
+}
+.combat-card-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
 }
 .combat-card-section__subtitle {
   font-size: 12px;
@@ -622,7 +899,7 @@ function onClose(): void {
 }
 .combat-card-characteristics {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px 8px;
 }
 .combat-card-state__entries {

@@ -1082,3 +1082,60 @@ describe('validateRuleCodeFormat', () => {
     expect(errors.map((e) => e.ruleCode)).toEqual(['лаваш', 'double strike', 'kristall-4↑']);
   });
 });
+
+describe('validateCheckStructure', () => {
+  it('ломается на цикле parent_check_code', () => {
+    const rules: Rule[] = [
+      baseRule('a', 'check-a', 'check', {
+        type: 'check',
+        parent_check_code: 'check-b',
+        difficulty_input: { kind: 'ask' },
+        allowed_modes: 'both',
+      }),
+      baseRule('b', 'check-b', 'check', {
+        type: 'check',
+        parent_check_code: 'check-a',
+        difficulty_input: { kind: 'ask' },
+        allowed_modes: 'both',
+      }),
+    ];
+    const errors = ruleValidationService.validateCheckStructure(rules);
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors.some((error) => error.message.includes('цикл'))).toBe(true);
+  });
+
+  it('ломается на неизвестном правиле броска', () => {
+    const rules: Rule[] = [
+      baseRule('p', 'check-simple', 'check', {
+        type: 'check',
+        difficulty_input: { kind: 'ask' },
+        allowed_modes: 'both',
+        attached_rule_codes: ['no-such-rule'],
+      }),
+    ];
+    const errors = ruleValidationService.validateCheckStructure(rules);
+    expect(errors.some((error) => error.message.includes('не найдено'))).toBe(true);
+  });
+});
+
+describe('validateRuleReferences check', () => {
+  it('резолвит parent, характеристику и состояние', () => {
+    const rules: Rule[] = [
+      baseRule('c', 'willpower', 'characteristic'),
+      baseRule('s', 'exhaustion', 'state', { value_type: 'dimensional', aggregation: 'max' }),
+      baseRule('p', 'check-simple', 'check', {
+        type: 'check',
+        difficulty_input: { kind: 'ask' },
+        allowed_modes: 'both',
+      }),
+      baseRule('x', 'check-exhaustion', 'check', {
+        type: 'check',
+        parent_check_code: 'check-simple',
+        characteristic_code: 'willpower',
+        difficulty_input: { kind: 'from_state', state_code: 'exhaustion' },
+        allowed_modes: 'solo',
+      }),
+    ];
+    expect(ruleValidationService.validateRuleReferences(rules, [])).toEqual([]);
+  });
+});

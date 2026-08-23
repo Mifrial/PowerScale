@@ -22,4 +22,5 @@ export const mockCharacterApi: ICharacterApi = {
 
     return detail;
   },
+  updateOwnerNotes: mock.updateOwnerNotes,
 };

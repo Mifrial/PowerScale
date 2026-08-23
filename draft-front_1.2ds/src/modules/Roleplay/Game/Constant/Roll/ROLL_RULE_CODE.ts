@@ -5,5 +5,4 @@
  */
 export const ROLL_RULE_CODE = 'roll';
 export const ROLL_DEFAULT_EFFICIENCY = 3;
-export const ROLL_DEFAULT_ADV = 0;
 export const ROLL_DEFAULT_DIE_SIZE = 0;

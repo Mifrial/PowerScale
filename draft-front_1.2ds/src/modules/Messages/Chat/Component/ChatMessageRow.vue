@@ -4,7 +4,7 @@ import type { ChatMessage } from '@/modules/Messages/Chat/Dto/ChatMessage';
 import type { User } from '@/modules/Core/User/Dto/User';
 import type { ChatMessageVisibility } from '@/modules/Messages/Chat/Dto/ChatMessageVisibility';
 import { DateTime } from '@/modules/Core/Engine/Value/DateTime';
-import { getContentRenderer, getInlineRenderer } from '@/modules/Messages/Chat/init';
+import { getContentRenderer, getContentRendererEntry, getInlineRenderer } from '@/modules/Messages/Chat/init';
 import { inlineContentService } from '@/modules/Messages/Chat/Service/Instance/inlineContentService';
 import { initials } from '@/modules/Core/User/Utils/initials';
 import { displayName } from '@/modules/Core/User/Utils/displayName';
@@ -34,7 +34,17 @@ const inlineRenderers = computed(() =>
   segments.value.map((seg) => (seg.kind === 'text' ? null : getInlineRenderer(seg.type))),
 );
 
-const attachmentRenderers = computed(() => props.msg.attachments.map((att) => getContentRenderer(att.type)));
+const metaAttachments = computed(() =>
+  props.msg.attachments
+    .map((attachment, index) => ({ attachment, index, renderer: getContentRendererEntry(attachment.type) }))
+    .filter((item) => item.renderer?.layout === 'meta'),
+);
+
+const blockAttachments = computed(() =>
+  props.msg.attachments
+    .map((attachment, index) => ({ attachment, index, renderer: getContentRenderer(attachment.type) }))
+    .filter((item) => getContentRendererEntry(item.attachment.type)?.layout !== 'meta'),
+);
 
 const speaker = computed(() => props.msg.speaker ?? null);
 
@@ -56,6 +66,21 @@ const authorInitials = computed(() => {
 
   return props.user ? initials(props.user.name, props.user.surname) : '';
 });
+
+function onAuthorClick(): void {
+  const openEntity = props.rendererContext?.openEntity;
+  if (typeof openEntity === 'function' && speaker.value?.kind === 'character') {
+    openEntity(`character:${speaker.value.characterId}`);
+
+    return;
+  }
+  if (typeof openEntity === 'function' && speaker.value?.kind === 'npc') {
+    openEntity(`npc:${speaker.value.npcId}`);
+
+    return;
+  }
+  emit('open-profile', props.msg.userId);
+}
 </script>
 
 <template>
@@ -81,12 +106,9 @@ const authorInitials = computed(() => {
       >
         <span class="text-caption font-weight-medium text-white">{{ authorInitials }}</span>
       </v-avatar>
-      <span
-        class="font-weight-medium text-caption chat-msg-author"
-        style="cursor: pointer"
-        @click="emit('open-profile', props.msg.userId)"
-        >{{ authorName }}</span
-      >
+      <span class="font-weight-medium text-caption chat-msg-author" style="cursor: pointer" @click="onAuthorClick">{{
+        authorName
+      }}</span>
       <v-chip v-if="speaker?.kind === 'gm'" size="x-small" color="primary" variant="tonal" class="chat-msg-role">
         Ведущий
       </v-chip>
@@ -100,6 +122,14 @@ const authorInitials = computed(() => {
         :user-options="visibilityOptions ?? []"
         @update:model-value="(visibility) => emit('update-visibility', props.msg.id, visibility)"
       />
+      <template v-for="item in metaAttachments" :key="`meta-${item.index}`">
+        <component
+          :is="item.renderer?.component"
+          :attachment="item.attachment"
+          :index="item.index"
+          :context="props.rendererContext"
+        />
+      </template>
       <span class="text-caption text-disabled">{{ DateTime.formatTime(props.msg.createdAt) }}</span>
     </div>
     <div v-if="props.msg.content" class="chat-msg-text">
@@ -113,9 +143,15 @@ const authorInitials = computed(() => {
         />
       </template>
     </div>
-    <div v-if="props.msg.attachments.length" class="chat-attachments">
-      <template v-for="(att, ai) in props.msg.attachments" :key="ai">
-        <component v-if="attachmentRenderers[ai]" :is="attachmentRenderers[ai]" :attachment="att" :index="ai" />
+    <div v-if="blockAttachments.length" class="chat-attachments">
+      <template v-for="item in blockAttachments" :key="item.index">
+        <component
+          v-if="item.renderer"
+          :is="item.renderer"
+          :attachment="item.attachment"
+          :index="item.index"
+          :context="props.rendererContext"
+        />
       </template>
     </div>
   </div>

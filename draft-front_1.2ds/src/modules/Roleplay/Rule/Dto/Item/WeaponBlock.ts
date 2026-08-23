@@ -8,4 +8,6 @@ export interface WeaponBlock {
   weapon_profiles: WeaponProfile[];
   /** Прочность оружия (размерное число; «5↑»→{5|1}, «Огромная(+2)»→{5|2}). */
   durability?: DimensionalNumberValue;
+  /** Минимум ОД на удар этим оружием (оковка посоха — 2). */
+  min_action_cost?: number | null;
 }

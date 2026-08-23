@@ -112,3 +112,57 @@ describe('CharacterOverviewService: формулы атак', () => {
     expect(overview.attacks[0].damageLabel).toBe('4 рубящего урона');
   });
 });
+
+describe('CharacterOverviewService: потолки экипировки', () => {
+  const limitRules: Rule[] = [
+    base('rule-attention', 'attention', 'characteristic', 'Внимательность', {
+      type: 'characteristic',
+      group: 'primary',
+    }),
+    base('rule-reaction', 'reaction', 'characteristic', 'Реакция', { type: 'characteristic', group: 'primary' }),
+    base('rule-perception', 'perception', 'characteristic', 'Восприятие', {
+      type: 'characteristic',
+      formula: 'min(attention, reaction)',
+      group: 'primary',
+    }),
+    base('rule-shield', 'klassicheskiy-shchit', 'item', 'Классический щит'),
+  ];
+
+  it('limit {3|-1} пишется как 3↓, а не 3; снятие щита убирает потолок и пересчитывает производную', () => {
+    const version = versionWith({
+      characteristics: [
+        { ruleId: 'rule-attention', base: dim(3), modifiers: [] },
+        {
+          ruleId: 'rule-reaction',
+          base: dim(3),
+          modifiers: [
+            {
+              sourceRuleId: 'rule-shield',
+              sourceLabel: null,
+              delta: 0,
+              target: 'reaction',
+              scope: null,
+              limit: dim(3, -1),
+              limitFormula: 'Сила − 3',
+            },
+          ],
+        },
+        { ruleId: 'rule-perception', base: dim(3, -1), modifiers: [] },
+      ],
+      inventory: [{ id: 1, ruleId: 'rule-shield', quantity: 1, equipped: true }],
+    });
+    const equipped = service.build(version, limitRules);
+    expect(equipped.characteristics.find((item) => item.ruleId === 'rule-reaction')?.valueLabel).toBe('3↓');
+    expect(equipped.characteristics.find((item) => item.ruleId === 'rule-perception')?.valueLabel).toBe('3↓');
+
+    const unequipped = service.build(
+      { ...version, inventory: [{ id: 1, ruleId: 'rule-shield', quantity: 1, equipped: false }] },
+      limitRules,
+    );
+    expect(unequipped.characteristics.find((item) => item.ruleId === 'rule-reaction')?.valueLabel).toBe('3');
+    expect(unequipped.characteristics.find((item) => item.ruleId === 'rule-perception')?.valueLabel).toBe('3');
+    expect(
+      unequipped.characteristics.find((item) => item.ruleId === 'rule-reaction')?.modifiers.some((item) => item.limit),
+    ).toBe(false);
+  });
+});

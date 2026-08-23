@@ -5,6 +5,7 @@ import { useKeywordStore } from '@/modules/Roleplay/Rule/Store/keywords';
 import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { characterEditorService } from '@/modules/Roleplay/Character/Service/Instance/characterEditorService';
+import { characterSheetValidationIssues } from '@/modules/Roleplay/Character/Utils/characterSheetValidation';
 import { clampAgeYears } from '@/modules/Roleplay/Character/Utils/clampAgeYears';
 import { getRuleApi } from '@/modules/Roleplay/Rule/init';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
@@ -73,49 +74,10 @@ const model = computed(() => {
 
 const saveReady = computed(() => validationIssues.value.length === 0);
 
-/** Проблемы, блокирующие «Сохранить» (ТР §7.6 «Готов»): имя, раса, превышение лимитов, требования. */
-const validationIssues = computed<string[]>(() => {
-  if (!draft.value || !model.value) return ['Черновик не загружен'];
-  const issues: string[] = [];
-  if (!draft.value.build.name.trim()) issues.push('Не задано имя');
-  if (props.requireRace && draft.value.build.raceRuleId === null) issues.push('Не выбрана раса');
-  const { os, ol, or, money } = model.value.budgets;
-  if (os.exceeded) issues.push('Превышен лимит ОС');
-  if (ol.exceeded) issues.push('Превышен лимит ОЛ');
-  if (or.exceeded) issues.push('Превышен лимит ОР');
-  if (money.exceeded) issues.push('Превышен бюджет денег');
-  for (const unmet of unmetRequirements.value) {
-    issues.push(`Не выполнены требования «${unmet.name}»: ${unmet.reason ?? 'условия не соблюдены'}`);
-  }
-
-  return issues;
-});
-
-/**
- * Взятые способности с невыполненными требованиями уровней 1..N. Автоматические (даны расой),
- * дарованные особенностями (gifted) и производные (derived) не проверяются — их уровень
- * гарантирован источником.
- */
-const unmetRequirements = computed<{ name: string; reason: string | null }[]>(() => {
-  if (!model.value) return [];
-  const result: { name: string; reason: string | null }[] = [];
-  for (const ability of model.value.abilities) {
-    if (ability.automatic || ability.gifted || ability.derived) continue;
-    if (ability.multiple) {
-      for (const instance of ability.instances) {
-        if (instance.level <= 0) continue;
-        const failed = instance.levels.slice(0, instance.level).find((entry) => !entry.met);
-        if (failed) result.push({ name: `${ability.name} (${instance.domain})`, reason: failed.reason });
-      }
-      continue;
-    }
-    if (ability.level <= 0) continue;
-    const failed = ability.levels.slice(0, ability.level).find((entry) => !entry.met);
-    if (failed) result.push({ name: ability.name, reason: failed.reason });
-  }
-
-  return result;
-});
+/** Проблемы, блокирующие «Сохранить» (ТР §7.6 «Готов»). */
+const validationIssues = computed(() =>
+  characterSheetValidationIssues(draft.value?.build, model.value, props.requireRace),
+);
 
 // Возраст авто-меняется только если не подходит: если ageYears не попадает ни в одну ступень
 // шкалы (например, сменилась раса/правила), он зажимается к минимальной границе первой ступени.
@@ -148,14 +110,20 @@ async function loadRules(spaceId: number, revision: number, abortSignal: AbortSi
 }
 
 watch(
-  () => draft.value?.build,
-  (build) => {
-    if (!build) {
+  () => {
+    const build = draft.value?.build;
+    if (!build) return null;
+
+    return `${build.spaceId}:${build.rulesRevision}`;
+  },
+  (key) => {
+    if (!key || !draft.value) {
       rules.value = [];
       rulesError.value = null;
 
       return;
     }
+    const build = draft.value.build;
     void loadRules(build.spaceId, build.rulesRevision, signal.value);
   },
   { immediate: true },
@@ -209,7 +177,10 @@ function clearMessage(): void {
   saveMessage.value = null;
 }
 
+const actionsReady = ref(false);
+
 onMounted(() => {
+  actionsReady.value = true;
   if (keywordStore.keywords.length === 0) void keywordStore.fetchTags();
   if (mechanics.value.length === 0) {
     void getRuleApi()
@@ -236,7 +207,7 @@ onMounted(() => {
     />
 
     <div class="editor-content">
-      <Teleport :to="props.actionsTarget">
+      <Teleport v-if="actionsReady" :to="props.actionsTarget">
         <div class="d-flex align-center ga-2">
           <v-btn variant="outlined" prepend-icon="mdi-content-save" :disabled="!draft.dirty" @click="saveDraft">
             Черновик
@@ -253,7 +224,7 @@ onMounted(() => {
       </v-alert>
 
       <v-alert
-        v-if="!saveError && validationIssues.length > 0"
+        v-if="model && !saveError && validationIssues.length > 0"
         type="warning"
         variant="tonal"
         density="compact"
@@ -271,91 +242,61 @@ onMounted(() => {
       <div v-else-if="rulesError" class="muted-text pa-4">{{ rulesError }}</div>
 
       <template v-else-if="model">
-        <v-window v-model="activeTab">
-          <v-window-item value="race">
-            <KeepAlive>
-              <RaceTab
-                v-if="activeTab === 'race'"
-                :build="draft.build"
-                :rules="rules"
-                :model="model"
-                :draft-key="draftKey"
-                :keywords="keywordStore.keywords"
-                :config="config"
-              />
-            </KeepAlive>
-          </v-window-item>
-          <v-window-item value="characteristics">
-            <KeepAlive>
-              <CharacteristicsTab
-                v-if="activeTab === 'characteristics'"
-                :build="draft.build"
-                :rules="rules"
-                :model="model"
-                :keywords="keywordStore.keywords"
-                :draft-key="draftKey"
-              />
-            </KeepAlive>
-          </v-window-item>
-          <v-window-item value="base">
-            <KeepAlive>
-              <BaseTab
-                v-if="activeTab === 'base'"
-                :build="draft.build"
-                :model="model"
-                :draft-key="draftKey"
-                :keywords="keywordStore.keywords"
-                :rules="rules"
-              />
-            </KeepAlive>
-          </v-window-item>
-          <v-window-item value="personality">
-            <KeepAlive>
-              <PersonalityTab
-                v-if="activeTab === 'personality'"
-                :build="draft.build"
-                :model="model"
-                :draft-key="draftKey"
-                :keywords="keywordStore.keywords"
-                :rules="rules"
-              />
-            </KeepAlive>
-          </v-window-item>
-          <v-window-item value="development">
-            <KeepAlive>
-              <DevelopmentTab
-                v-if="activeTab === 'development'"
-                :build="draft.build"
-                :model="model"
-                :draft-key="draftKey"
-                :keywords="keywordStore.keywords"
-                :rules="rules"
-              />
-            </KeepAlive>
-          </v-window-item>
-          <v-window-item value="inventory">
-            <KeepAlive>
-              <InventoryTab
-                v-if="activeTab === 'inventory'"
-                :build="draft.build"
-                :model="model"
-                :draft-key="draftKey"
-                :keywords="keywordStore.keywords"
-                :rules="rules"
-              />
-            </KeepAlive>
-          </v-window-item>
-          <v-window-item value="description">
-            <KeepAlive>
-              <EditorDescriptionTab
-                v-if="activeTab === 'description'"
-                :build="draft.build"
-                :draft-key="draftKey"
-                :model="model"
-              />
-            </KeepAlive>
-          </v-window-item>
-        </v-window>
+        <RaceTab
+          v-if="activeTab === 'race'"
+          :build="draft.build"
+          :rules="rules"
+          :model="model"
+          :draft-key="draftKey"
+          :keywords="keywordStore.keywords"
+          :config="config"
+        />
+        <CharacteristicsTab
+          v-else-if="activeTab === 'characteristics'"
+          :build="draft.build"
+          :rules="rules"
+          :model="model"
+          :keywords="keywordStore.keywords"
+          :draft-key="draftKey"
+        />
+        <BaseTab
+          v-else-if="activeTab === 'base'"
+          :build="draft.build"
+          :model="model"
+          :draft-key="draftKey"
+          :keywords="keywordStore.keywords"
+          :rules="rules"
+        />
+        <PersonalityTab
+          v-else-if="activeTab === 'personality'"
+          :build="draft.build"
+          :model="model"
+          :draft-key="draftKey"
+          :keywords="keywordStore.keywords"
+          :rules="rules"
+        />
+        <DevelopmentTab
+          v-else-if="activeTab === 'development'"
+          :build="draft.build"
+          :model="model"
+          :draft-key="draftKey"
+          :keywords="keywordStore.keywords"
+          :rules="rules"
+        />
+        <InventoryTab
+          v-else-if="activeTab === 'inventory'"
+          :build="draft.build"
+          :model="model"
+          :draft-key="draftKey"
+          :keywords="keywordStore.keywords"
+          :rules="rules"
+        />
+        <EditorDescriptionTab
+          v-else-if="activeTab === 'description'"
+          :build="draft.build"
+          :draft-key="draftKey"
+          :model="model"
+        />
       </template>
 
       <EditorAbilitySlider :rules="rules" :keywords="keywordStore.keywords" />

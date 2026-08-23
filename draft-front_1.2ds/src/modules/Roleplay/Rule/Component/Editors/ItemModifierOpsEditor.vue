@@ -33,6 +33,14 @@ function emptyOp(type: ItemModifierOp['type'] = 'weight'): ItemModifierOp {
       return { type: 'max_agility' };
     case 'strength_penalty':
       return { type: 'strength_penalty' };
+    case 'keyword':
+      return { type: 'keyword', add: [], remove: [] };
+    case 'min_action_cost':
+      return { type, min: 2 };
+    case 'magic_conductor':
+      return { type, value: 1 };
+    case 'advantage':
+      return { type, delta: -1, source_code: 'tool' };
   }
 }
 
@@ -54,6 +62,13 @@ function changeType(index: number, type: ItemModifierOp['type']): void {
 
 function patch(index: number, partial: Record<string, unknown>): void {
   setOps(props.modelValue.map((op, i) => (i === index ? { ...op, ...partial } : op)));
+}
+
+function splitCodes(value: string): string[] {
+  return value
+    .split(',')
+    .map((code) => code.trim())
+    .filter((code) => code.length > 0);
 }
 </script>
 
@@ -212,6 +227,64 @@ function patch(index: number, partial: Record<string, unknown>): void {
           hide-details
           style="flex: 1 1 100px"
           @update:model-value="(v: number) => patch(index, { value: v })"
+        />
+      </template>
+      <template v-else-if="op.type === 'keyword'">
+        <v-text-field
+          :model-value="(op.add ?? []).join(', ')"
+          label="Добавить (коды)"
+          density="compact"
+          hide-details
+          style="flex: 1 1 160px"
+          @update:model-value="(v: string) => patch(index, { add: splitCodes(v) })"
+        />
+        <v-text-field
+          :model-value="(op.remove ?? []).join(', ')"
+          label="Снять (коды)"
+          density="compact"
+          hide-details
+          style="flex: 1 1 160px"
+          @update:model-value="(v: string) => patch(index, { remove: splitCodes(v) })"
+        />
+      </template>
+      <template v-else-if="op.type === 'min_action_cost'">
+        <ClampedNumberField
+          :model-value="op.min"
+          label="Мин. ОД"
+          :min="1"
+          density="compact"
+          hide-details
+          style="flex: 1 1 100px"
+          @update:model-value="(v: number) => patch(index, { min: v })"
+        />
+      </template>
+      <template v-else-if="op.type === 'magic_conductor'">
+        <ClampedNumberField
+          :model-value="op.value"
+          label="Величина"
+          :min="0"
+          density="compact"
+          hide-details
+          style="flex: 1 1 100px"
+          @update:model-value="(v: number) => patch(index, { value: v })"
+        />
+      </template>
+      <template v-else-if="op.type === 'advantage'">
+        <ClampedNumberField
+          :model-value="op.delta"
+          label="Дельта"
+          density="compact"
+          hide-details
+          style="flex: 1 1 100px"
+          @update:model-value="(v: number) => patch(index, { delta: v })"
+        />
+        <v-text-field
+          :model-value="op.source_code"
+          label="Источник"
+          density="compact"
+          hide-details
+          style="flex: 1 1 140px"
+          @update:model-value="(v: string) => patch(index, { source_code: v })"
         />
       </template>
       <v-btn icon size="small" color="error" variant="text" @click="removeOp(index)">

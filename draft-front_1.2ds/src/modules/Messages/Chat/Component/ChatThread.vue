@@ -30,6 +30,8 @@ const props = withDefaults(
     speakerAction?: { icon: string; title: string; disabled?: boolean; onClick: () => void } | null;
     /** Имена правил ревизии по коду (для чипов [[rule:...]]) — opaque, хосту Chat безразличен домен. */
     ruleNames?: Record<string, string>;
+    /** Доп. поля для inline-чипов (открыть карточку персонажа/НПС в игре). */
+    inlineContext?: Record<string, unknown>;
     /** Ревизия контекста: слайдер правила резолвит из её среза, а не каталога (Слой 1, §7.20). */
     spaceId?: number | null;
     rulesRevision?: number | null;
@@ -63,6 +65,7 @@ const rendererContext = computed<Record<string, unknown>>(() => ({
   ruleNames: props.ruleNames ?? {},
   spaceId: props.spaceId ?? null,
   rulesRevision: props.rulesRevision ?? null,
+  ...(props.inlineContext ?? {}),
 }));
 
 let attachToken = 0;

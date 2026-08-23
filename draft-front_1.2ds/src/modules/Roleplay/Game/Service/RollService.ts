@@ -5,8 +5,11 @@ import type { RollForm } from '@/modules/Roleplay/Game/Dto/RollForm';
 import type { ParsedCommand } from '@/modules/Messages/Chat/Dto/ParsedCommand';
 import type { ParsedRollFormula } from '@/modules/Roleplay/Game/Dto/ParsedRollFormula';
 import type { DiceRng } from '@/modules/Roleplay/Game/Dto/DiceRng';
+import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import { ROLL_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ATTACHMENT_TYPE';
+import { resolveAppliedMechanicNames } from '@/modules/Roleplay/Game/Utils/appliedRollMechanics';
 import { ROLL_ADV_MAX } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ADV_MAX';
+import { advantageEntries, netSourceDelta } from '@/modules/Roleplay/Rule/Utils/aggregateSourceDeltas';
 import { ROLL_DICE_COUNT_MAX } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_DICE_COUNT_MAX';
 import { ROLL_DICE_COUNT_MIN } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_DICE_COUNT_MIN';
 import { ROLL_DIE_FACES_MAX } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_DIE_FACES_MAX';
@@ -34,6 +37,17 @@ export class RollService {
     const mag = Math.abs(size);
 
     return arrow + (mag >= 2 ? (RollService.SUPERSCRIPTS[mag] ?? String(mag)) : '');
+  }
+
+  /** Пул как 4к6 / 5↓к6 — размер мастерства на кубах, не смешанный с эффективностью. */
+  formatPoolNotation(spec: Pick<DiceRollSpec, 'diceCount' | 'dieFaces' | 'dieSize' | 'poolSize'>): string {
+    const size = spec.poolSize ?? 0;
+
+    return `${spec.diceCount}${this.formatRollSize(size)}к${spec.dieFaces}`;
+  }
+
+  formatEfficiencyLabel(spec: Pick<DiceRollSpec, 'efficiency' | 'efficiencySize'>): string {
+    return new DimensionalNumber({ base: spec.efficiency, size: spec.efficiencySize ?? 0 }).toString();
   }
 
   validateRollSpec(roll: RollForm): boolean {
@@ -130,7 +144,7 @@ export class RollService {
             diceCount: formula.diceCount,
             dieFaces: formula.dieFaces,
             efficiency,
-            adv,
+            advantages: advantageEntries(adv),
             dieSize,
             label: labelParts.join(' ').trim() || undefined,
           },
@@ -147,7 +161,7 @@ export class RollService {
   computeRollResult(spec: DiceRollSpec, rng: DiceRng = Math.random): DiceRollResult {
     const diceCount = Math.max(1, spec.diceCount);
     const faces = Math.max(2, spec.dieFaces);
-    const adv = spec.adv || 0;
+    const adv = netSourceDelta(spec.advantages);
     const rollDie = () => Math.floor(rng() * faces) + 1;
 
     const rolls = Array.from({ length: diceCount }, rollDie);
@@ -170,7 +184,21 @@ export class RollService {
       return -1;
     });
     const totalSuccesses: number = successes.reduce<number>((sum, s) => sum + s, 0);
+    const appliedMechanics = resolveAppliedMechanicNames({
+      spec,
+      adjustedRolls: adjusted,
+      successes,
+      droppedRolls,
+    });
 
-    return { spec, rolls, successes, adjustedRolls: adjusted, droppedRolls, totalSuccesses };
+    return {
+      spec,
+      rolls,
+      successes,
+      adjustedRolls: adjusted,
+      droppedRolls,
+      totalSuccesses,
+      appliedMechanics: appliedMechanics.length > 0 ? appliedMechanics : undefined,
+    };
   }
 }

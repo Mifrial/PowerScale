@@ -9,6 +9,7 @@ import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec';
 import type { DiceRng } from '@/modules/Roleplay/Game/Dto/DiceRng';
 import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import { advantageEntries, netSourceDelta } from '@/modules/Roleplay/Rule/Utils/aggregateSourceDeltas';
 
 const MECHANICS: Mechanic[] = [
   { id: 1, code: 'six_one_rule', name: 'Правило 6 и 1', description: '', version: '4.5.0' },
@@ -48,8 +49,17 @@ function rollRule(
 
 const ROLL_SUB_MECHANICS = ['six_one_rule', 'advantage_disadvantage'];
 
-function spec(partial: Partial<DiceRollSpec>): DiceRollSpec {
-  return { diceCount: 4, dieFaces: 6, efficiency: 3, adv: 0, dieSize: 0, ...partial };
+function spec(partial: Partial<DiceRollSpec> & { adv?: number } = {}): DiceRollSpec {
+  const { adv, advantages, ...rest } = partial;
+
+  return {
+    diceCount: 4,
+    dieFaces: 6,
+    efficiency: 3,
+    dieSize: 0,
+    ...rest,
+    advantages: advantages ?? advantageEntries(adv ?? 0),
+  };
 }
 
 function rngFromDice(values: number[], faces = 6): DiceRng {
@@ -113,6 +123,20 @@ describe('RollEngine: механики ревизии', () => {
     const result = createEngine().roll(spec({ diceCount: 1, adv: 0 }), rngFromDice([3]), rules, MECHANICS);
     expect(result.appliedMechanics).toBeUndefined();
   });
+
+  it('subMechanicCodes подменяет набор «всегда в силе» (проверка без 6 и 1)', () => {
+    const withSix = createEngine().roll(spec({ diceCount: 1 }), rngFromDice([6]), rules, MECHANICS);
+    expect(withSix.successes).toEqual([-1]);
+    const without = createEngine().roll(
+      spec({ diceCount: 1 }),
+      rngFromDice([6]),
+      rules,
+      MECHANICS,
+      [],
+      ['advantage_disadvantage'],
+    );
+    expect(without.successes).toEqual([0]);
+  });
 });
 
 describe('RollEngine: пер-ролл механики (Критический удар)', () => {
@@ -154,7 +178,7 @@ describe('RollEngine: дефолты из правила «Бросок»', () =
       MECHANICS,
     );
     expect(result.spec.efficiency).toBe(2);
-    expect(result.spec.adv).toBe(1);
+    expect(netSourceDelta(result.spec.advantages)).toBe(1);
     expect(result.spec.dieSize).toBe(3);
     expect(result.spec.diceCount).toBe(4);
     expect(result.spec.dieFaces).toBe(8);
@@ -168,6 +192,28 @@ describe('RollEngine: дефолты из правила «Бросок»', () =
       MECHANICS,
     );
     expect(result.spec.efficiency).toBe(5);
-    expect(result.spec.adv).toBe(-2);
+    expect(netSourceDelta(result.spec.advantages)).toBe(-2);
+  });
+
+  it('помехи/преимущества разных источников суммируются, одного — max+/min−', () => {
+    const rules = [
+      rollRule({ sub_mechanics: ['advantage_disadvantage'] }),
+      rule({ id: 'rule-2', code: 'advantages', mechanicId: 2 }),
+    ];
+    const stacked = createEngine().roll(
+      spec({
+        diceCount: 2,
+        advantages: [
+          { source_code: 'tool', source_label: null, delta: -1 },
+          { source_code: 'tool', source_label: null, delta: -2 },
+          { source_code: 'manual', source_label: null, delta: 1 },
+        ],
+      }),
+      rngFromDice([1, 2, 6, 3]),
+      rules,
+      MECHANICS,
+    );
+    expect(stacked.rolls).toHaveLength(3);
+    expect(stacked.droppedRolls).toHaveLength(1);
   });
 });

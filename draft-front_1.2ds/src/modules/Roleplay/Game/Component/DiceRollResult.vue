@@ -1,25 +1,177 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { ChatAttachment } from '@/modules/Messages/Chat/Dto/ChatAttachment';
+import type { InlineSegment } from '@/modules/Messages/Chat/Dto/InlineSegment';
+import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import type { DiceRollResult } from '@/modules/Roleplay/Game/Dto/DiceRollResult';
 import { rollService } from '@/modules/Roleplay/Game/Service/Instance/rollService';
+import { netSourceDelta } from '@/modules/Roleplay/Rule/Utils/aggregateSourceDeltas';
+import { resolveAppliedMechanicNames } from '@/modules/Roleplay/Game/Utils/appliedRollMechanics';
+import { parseCombatEntityKey } from '@/modules/Roleplay/Game/Utils/combatCardModel';
+import GameEntityChip from '@/modules/Roleplay/Game/Component/Chat/GameEntityChip.vue';
 
-const props = defineProps<{ attachment: ChatAttachment<DiceRollResult>; index: number }>();
+const props = defineProps<{
+  attachment: ChatAttachment<DiceRollResult>;
+  index: number;
+  context?: { openEntity?: (key: string) => void };
+}>();
 
 const roll = computed(() => props.attachment.payload);
 const sizeSuffix = computed(() => rollService.formatRollSize(roll.value.spec.dieSize || 0));
+const netAdv = computed(() => netSourceDelta(roll.value.spec.advantages));
+const check = computed(() => roll.value.check);
+const title = computed(() => roll.value.spec.label || (check.value ? 'Простая проверка' : `Бросок ${props.index + 1}`));
+const actorSegment = computed((): Extract<InlineSegment, { kind: 'token' }> | null => {
+  const key = roll.value.spec.actorKey;
+  if (!key) return null;
+  const parsed = parseCombatEntityKey(key);
+
+  return { kind: 'token', type: parsed.kind, params: [String(parsed.id), title.value] };
+});
+const ratingClass = computed(() => {
+  if (!check.value) return roll.value.totalSuccesses >= 0 ? 'text-success' : 'text-error';
+
+  return check.value.passed ? 'text-success' : 'text-error';
+});
+const ratingText = computed(() => {
+  if (roll.value.injury) {
+    const injury = roll.value.injury;
+    if (injury.strength <= 0) return 'увечья нет';
+
+    return `Увечье: ${injury.strength}`;
+  }
+  if (check.value) return `${check.value.rating} РУ`;
+  const total = roll.value.totalSuccesses;
+
+  return `${total > 0 ? '+' : ''}${total}${sizeSuffix.value}`;
+});
+const difficultyLabel = computed(() => (check.value ? new DimensionalNumber(check.value.difficulty).toString() : null));
+const advantageLines = computed(() =>
+  roll.value.spec.advantages
+    .filter((entry) => entry.delta !== 0)
+    .map((entry) => ({
+      label: entry.source_label || entry.source_code || 'без источника',
+      delta: entry.delta,
+    })),
+);
+const masteryLines = computed(() =>
+  (roll.value.spec.masteryAdjustments ?? [])
+    .filter((entry) => entry.delta !== 0)
+    .map((entry) => ({
+      label: entry.source_label || entry.source_code || 'без источника',
+      delta: entry.delta,
+    })),
+);
+const droppedNote = computed(() => {
+  const n = roll.value.droppedRolls.length;
+  if (!n) return null;
+  const adj = n === 1 ? 'ий' : 'их';
+  if (netAdv.value > 0) return `убрано ${n} худш${adj}`;
+  if (netAdv.value < 0) return `убрано ${n} лучш${adj}`;
+
+  return `убрано ${n}`;
+});
+const keptFaces = computed(() =>
+  roll.value.adjustedRolls.map((face, i) => ({ face, success: roll.value.successes[i] ?? 0 })),
+);
+const appliedMechanicNames = computed(() => resolveAppliedMechanicNames(roll.value));
+
+function signed(n: number): string {
+  return n > 0 ? `+${n}` : String(n);
+}
 </script>
 
 <template>
   <div class="chat-roll">
     <div class="chat-roll-header">
-      <v-icon icon="mdi-dice-d6" size="16" class="mr-1" />
-      {{ roll.spec.label || `Бросок ${index + 1}` }}
-      <span class="ml-2 font-weight-medium">{{ roll.spec.diceCount }}к{{ roll.spec.dieFaces }}</span>
-      <span v-if="roll.spec.efficiency" class="ml-1">сл:{{ roll.spec.efficiency }}</span>
-      <span v-if="roll.spec.adv" class="ml-1" :class="roll.spec.adv > 0 ? 'text-success' : 'text-error'"
-        >{{ roll.spec.adv > 0 ? '+' : '' }}{{ roll.spec.adv }}</span
-      >
+      <v-icon icon="mdi-dice-d6" size="16" class="chat-roll-dice" />
+      <v-menu location="bottom start" :close-on-content-click="false">
+        <template #activator="{ props: menuProps }">
+          <v-btn
+            v-bind="menuProps"
+            class="chat-roll-info"
+            icon="mdi-information-outline"
+            size="x-small"
+            variant="text"
+            density="compact"
+            aria-label="Подробности броска"
+            @click.stop
+          />
+        </template>
+        <v-card class="rounded border chat-roll-popup" elevation="3">
+          <v-card-title class="text-body-2 py-3">
+            <GameEntityChip v-if="actorSegment" :segment="actorSegment" :context="props.context" />
+            <template v-else>{{ title }}</template>
+          </v-card-title>
+          <v-card-text class="pt-0 text-body-2">
+            <div class="chat-roll-row">
+              <span class="text-medium-emphasis">Пул</span>
+              <span class="font-weight-medium">{{ rollService.formatPoolNotation(roll.spec) }}</span>
+            </div>
+            <div class="chat-roll-row">
+              <span class="text-medium-emphasis">Эффективность</span>
+              <span class="font-weight-medium">{{ rollService.formatEfficiencyLabel(roll.spec) }}</span>
+            </div>
+            <div v-if="check" class="chat-roll-row">
+              <span class="text-medium-emphasis">Проверка</span>
+              <span class="font-weight-medium">{{ check.check_code }}</span>
+            </div>
+            <div v-if="difficultyLabel != null" class="chat-roll-row">
+              <span class="text-medium-emphasis">Сложность</span>
+              <span class="font-weight-medium">{{ difficultyLabel }}</span>
+            </div>
+            <div v-if="check" class="chat-roll-row">
+              <span class="text-medium-emphasis">Исход</span>
+              <span class="font-weight-medium" :class="ratingClass">
+                {{ check.passed ? 'успех' : 'провал' }} · {{ check.rating }} РУ
+              </span>
+            </div>
+            <div class="chat-roll-row">
+              <span class="text-medium-emphasis">Успехи</span>
+              <span class="font-weight-medium">{{ signed(roll.totalSuccesses) }}{{ sizeSuffix }}</span>
+            </div>
+            <div v-if="masteryLines.length" class="mt-2">
+              <div class="text-medium-emphasis mb-1">К мастерству</div>
+              <div v-for="(line, i) in masteryLines" :key="`m-${line.label}-${i}`" class="chat-roll-row">
+                <span>{{ line.label }}</span>
+                <span :class="line.delta > 0 ? 'text-success' : 'text-error'">{{ signed(line.delta) }}</span>
+              </div>
+            </div>
+            <div v-if="advantageLines.length" class="mt-2">
+              <div class="text-medium-emphasis mb-1">Преимущества / помехи</div>
+              <div v-for="(line, i) in advantageLines" :key="`${line.label}-${i}`" class="chat-roll-row">
+                <span>{{ line.label }}</span>
+                <span :class="line.delta > 0 ? 'text-success' : 'text-error'">{{ signed(line.delta) }}</span>
+              </div>
+              <div class="chat-roll-row">
+                <span class="text-medium-emphasis">Итого к пулу</span>
+                <span
+                  class="font-weight-medium"
+                  :class="netAdv > 0 ? 'text-success' : netAdv < 0 ? 'text-error' : ''"
+                  >{{ signed(netAdv) }}</span
+                >
+              </div>
+            </div>
+            <div v-if="appliedMechanicNames.length" class="mt-2">
+              <div class="text-medium-emphasis mb-1">Применённые правила</div>
+              <div v-for="name in appliedMechanicNames" :key="name">{{ name }}</div>
+            </div>
+            <div class="mt-2">
+              <div class="text-medium-emphasis mb-1">Кубы</div>
+              <div class="chat-roll-faces">
+                <span v-for="(die, i) in keptFaces" :key="i"> {{ die.face }} → {{ signed(die.success) }}</span>
+              </div>
+              <div v-if="droppedNote" class="mt-1">{{ droppedNote }}: {{ roll.droppedRolls.join(', ') }}</div>
+            </div>
+          </v-card-text>
+        </v-card>
+      </v-menu>
+      <span class="chat-roll-title">
+        <GameEntityChip v-if="actorSegment" :segment="actorSegment" :context="props.context" />
+        <template v-else>{{ title }}</template>
+      </span>
+      <span class="chat-roll-sep">·</span>
+      <span class="font-weight-medium" :class="ratingClass">{{ ratingText }}</span>
     </div>
     <div class="chat-roll-detail">
       <span v-for="(s, si) in roll.successes" :key="si" class="roll-die" :class="{ good: s > 0, bad: s < 0 }">
@@ -29,26 +181,10 @@ const sizeSuffix = computed(() => rollService.formatRollSize(roll.value.spec.die
         v-for="(d, di) in roll.droppedRolls"
         :key="`drop-${di}`"
         class="roll-die roll-die-dropped"
-        :title="roll.spec.adv > 0 ? 'убрано как худшее' : 'убрано как лучшее'"
+        :title="droppedNote ?? undefined"
       >
         {{ d }}
       </span>
-    </div>
-    <div v-if="roll.droppedRolls.length" class="chat-roll-note">
-      <template v-if="roll.spec.adv > 0"
-        >убрано {{ roll.droppedRolls.length }} худш{{ roll.droppedRolls.length === 1 ? 'ий' : 'их' }}</template
-      >
-      <template v-else
-        >убрано {{ roll.droppedRolls.length }} лучш{{ roll.droppedRolls.length === 1 ? 'ий' : 'их' }}</template
-      >
-    </div>
-    <div v-if="roll.appliedMechanics?.length" class="chat-roll-mechanics">
-      <v-chip v-for="name in roll.appliedMechanics" :key="name" size="x-small" variant="outlined" density="compact">
-        {{ name }}
-      </v-chip>
-    </div>
-    <div class="chat-roll-total">
-      Итого: <strong>{{ roll.totalSuccesses > 0 ? '+' : '' }}{{ roll.totalSuccesses }}{{ sizeSuffix }}</strong> успехов
     </div>
   </div>
 </template>
@@ -67,17 +203,57 @@ const sizeSuffix = computed(() => rollService.formatRollSize(roll.value.spec.die
 }
 
 .chat-roll-header {
-  font-size: 12px;
+  font-size: 13px;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 2px;
+  line-height: 1.3;
+}
+
+.chat-roll-dice {
+  flex-shrink: 0;
+}
+
+.chat-roll-info {
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  margin-inline: -2px;
+}
+
+.chat-roll-title {
+  font-weight: 500;
+}
+
+.chat-roll-sep {
+  margin: 0 2px;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+}
+
+.chat-roll-popup {
+  min-width: 260px;
+  max-width: 360px;
+}
+
+.chat-roll-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 2px 0;
+}
+
+.chat-roll-faces {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
 }
 
 .chat-roll-detail {
   display: flex;
   gap: 4px;
-  margin: 6px 0;
+  margin-top: 6px;
   flex-wrap: wrap;
 }
 
@@ -105,26 +281,9 @@ const sizeSuffix = computed(() => rollService.formatRollSize(roll.value.spec.die
 }
 
 .roll-die-dropped {
-  opacity: 0.45;
-  text-decoration: line-through;
-  border-style: dashed;
-}
-
-.chat-roll-note {
-  font-size: 11px;
-  color: rgba(var(--v-theme-on-surface), var(--v-text-disabled-opacity));
-  margin-top: -2px;
-}
-
-.chat-roll-mechanics {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-  margin-top: 4px;
-}
-
-.chat-roll-total {
-  font-size: 12px;
-  margin-top: 2px;
+  opacity: 0.4;
+  background: transparent;
+  border-color: transparent;
+  font-weight: 500;
 }
 </style>

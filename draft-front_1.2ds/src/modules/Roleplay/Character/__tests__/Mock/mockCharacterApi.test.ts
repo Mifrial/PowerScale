@@ -8,6 +8,7 @@ import {
   fetchCharacter,
   addCustomRule,
   updateCustomRule,
+  updateOwnerNotes,
 } from '@/modules/Roleplay/Character/Mock/mockCharacters';
 import { mockLogin, mockLogout } from '@/modules/Core/Auth/Mock/mockAuth';
 import { mockGetChats } from '@/modules/Messages/Chat/Mock/mockChat';
@@ -288,5 +289,28 @@ describe('mockCharacterApi: custom rules («Уникальные правила�
     expect(item).toBeDefined();
     expect(item?.quantity).toBe(1);
     expect(item?.equipped).toBe(false);
+  });
+});
+
+describe('mockCharacterApi: owner notes', () => {
+  it('владелец читает и пишет заметки вне версии листа', async () => {
+    const created = await createCharacter(freshCreateData());
+    expect(created.ownerNotes).toBeNull();
+    expect(created.version).not.toHaveProperty('ownerNotes');
+
+    const saved = await updateOwnerNotes(created.character.id, '  секрет  ');
+    expect(saved.ownerNotes).toBe('секрет');
+    expect((await fetchCharacter(created.character.id)).ownerNotes).toBe('секрет');
+  });
+
+  it('чужой пользователь не получает и не пишет заметки', async () => {
+    await updateOwnerNotes(1, 'только Иван');
+    await mockLogin('admin', 'test');
+    const asAdmin = await fetchCharacter(1);
+    expect(asAdmin.character.ownerId).not.toBe(2);
+    expect(asAdmin.ownerNotes).toBeUndefined();
+    await expect(updateOwnerNotes(1, 'взлом')).rejects.toThrow('Forbidden');
+    await mockLogout();
+    expect((await fetchCharacter(1)).ownerNotes).toBe('только Иван');
   });
 });

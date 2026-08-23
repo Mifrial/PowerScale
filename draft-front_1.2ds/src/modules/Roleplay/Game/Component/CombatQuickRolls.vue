@@ -37,6 +37,8 @@ const props = defineProps<{
   quickRolls: Record<string, string[]>;
   /** Активный источник речи чата (entityKey или 'gm'); без сущности блок пуст. */
   activeEntityKey: string | null;
+  /** Мутации оверлея (экип в карточке) — перечитать лист, иначе звёздочка оружия не резолвится. */
+  overlayRevision?: number;
 }>();
 
 const emit = defineEmits<{
@@ -68,6 +70,11 @@ watch(
   () => props.gameId,
   () => void loadOverlays(),
   { immediate: true },
+);
+
+watch(
+  () => props.overlayRevision,
+  () => void loadOverlays(),
 );
 
 const selectedOverlay = computed(() => overlays.value.find((item) => item.entityKey === selectedKey.value) ?? null);
@@ -110,7 +117,16 @@ async function rollRecord(record: QuickRollRecord): Promise<void> {
   if (props.chatId === null) return;
   error.value = null;
   try {
-    const result = rollCharacteristic({ name: record.name, value: record.value }, props.rules, props.mechanics);
+    const result = rollCharacteristic(
+      {
+        name: record.name,
+        value: record.value,
+        ruleId: record.ruleId,
+        actorKey: selectedKey.value ?? undefined,
+      },
+      props.rules,
+      props.mechanics,
+    );
     await chatStore.sendMessage(
       record.name,
       [{ type: ROLL_ATTACHMENT_TYPE, payload: result }],

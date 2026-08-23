@@ -20,6 +20,7 @@ import PoisonEditor from '@/modules/Roleplay/Rule/Component/Editors/PoisonEditor
 import WeaponFamilyEditor from '@/modules/Roleplay/Rule/Component/Editors/Item/WeaponFamilyEditor.vue';
 import ItemModifierEditor from '@/modules/Roleplay/Rule/Component/Editors/ItemModifierEditor.vue';
 import ItemModifierTypeEditor from '@/modules/Roleplay/Rule/Component/Editors/ItemModifierTypeEditor.vue';
+import CheckEditor from '@/modules/Roleplay/Rule/Component/Editors/CheckEditor.vue';
 import RuleConflictDialog from '@/modules/Roleplay/Rule/Component/RuleConflictDialog.vue';
 import { RULE_TYPES } from '@/modules/Roleplay/Rule/Constant/RULE_TYPES';
 import { ruleDraftService } from '@/modules/Roleplay/Rule/Service/Instance/ruleDraftService';
@@ -353,8 +354,10 @@ async function save() {
           v-model:description="description"
           v-model:mechanicId="mechanicId"
           v-model:keywordIds="keywordIds"
+          v-model:spec="spec"
           :mechanic-options="mechanicOptions"
           :keyword-options="keywordOptions"
+          :rules="spaceContext.effectiveRules"
         />
 
         <StateEditor
@@ -432,6 +435,21 @@ async function save() {
           v-model:spec="spec"
           :mechanic-options="mechanicOptions"
           :keyword-options="keywordOptions"
+        />
+
+        <CheckEditor
+          v-else-if="type === 'check'"
+          :key="routeKey"
+          v-model:name="name"
+          v-model:code="ruleCode"
+          :code-disabled="isEdit"
+          v-model:description="description"
+          v-model:mechanicId="mechanicId"
+          v-model:keywordIds="keywordIds"
+          v-model:spec="spec"
+          :mechanic-options="mechanicOptions"
+          :keyword-options="keywordOptions"
+          :rules="spaceContext.effectiveRules"
         />
 
         <div v-else class="text-body-2 text-medium-emphasis text-center pa-8">

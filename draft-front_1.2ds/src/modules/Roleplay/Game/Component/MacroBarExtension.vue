@@ -8,6 +8,7 @@ import { useMacrosStore } from '@/modules/Roleplay/Game/Store/macros';
 import { rollService } from '@/modules/Roleplay/Game/Service/Instance/rollService';
 import { ROLL_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ATTACHMENT_TYPE';
 import { ROLL_ADV_MAX } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ADV_MAX';
+import { advantageEntries } from '@/modules/Roleplay/Rule/Utils/aggregateSourceDeltas';
 
 const props = defineProps<ChatToolbarContext>();
 
@@ -38,7 +39,7 @@ function buildRollSpec(r: UserMacro['rolls'][number], adv: number): DiceRollSpec
     dieFaces: formula?.dieFaces ?? 6,
     dieSize: r.dieSize ?? 0,
     efficiency: r.efficiency,
-    adv,
+    advantages: advantageEntries(adv),
     label: r.rollLabel?.trim() || undefined,
   };
 }

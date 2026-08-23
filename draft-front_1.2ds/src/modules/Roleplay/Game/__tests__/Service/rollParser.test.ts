@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { rollService } from '@/modules/Roleplay/Game/Service/Instance/rollService';
 import { ROLL_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ATTACHMENT_TYPE';
 import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec';
+import { netSourceDelta } from '@/modules/Roleplay/Rule/Utils/aggregateSourceDeltas';
 
 function rollOf(res: ReturnType<typeof rollService.parseRollCommand>): DiceRollSpec | undefined {
   return res?.attachments.find((a) => a.type === ROLL_ATTACHMENT_TYPE)?.payload as DiceRollSpec | undefined;
@@ -42,7 +43,14 @@ describe('parseRollCommand', () => {
   it('разбирает минимальную команду', () => {
     const res = rollService.parseRollCommand('/roll 3d6');
     expect(res?.content).toBe('/roll 3d6');
-    expect(rollOf(res)).toEqual({ diceCount: 3, dieFaces: 6, efficiency: 3, adv: 0, dieSize: 0, label: undefined });
+    expect(rollOf(res)).toEqual({
+      diceCount: 3,
+      dieFaces: 6,
+      efficiency: 3,
+      advantages: [],
+      dieSize: 0,
+      label: undefined,
+    });
   });
 
   it('учитывает эффективность и метку', () => {
@@ -52,18 +60,18 @@ describe('parseRollCommand', () => {
   });
 
   it('превращает dis в отрицательный adv', () => {
-    expect(rollOf(rollService.parseRollCommand('/roll 3d6 dis:2'))?.adv).toBe(-2);
-    expect(rollOf(rollService.parseRollCommand('/roll 3d6 pom:1'))?.adv).toBe(-1);
+    expect(netSourceDelta(rollOf(rollService.parseRollCommand('/roll 3d6 dis:2'))?.advantages ?? [])).toBe(-2);
+    expect(netSourceDelta(rollOf(rollService.parseRollCommand('/roll 3d6 pom:1'))?.advantages ?? [])).toBe(-1);
   });
 
   it('разбирает adv и префикс prem', () => {
-    expect(rollOf(rollService.parseRollCommand('/roll 3d6 adv:1'))?.adv).toBe(1);
-    expect(rollOf(rollService.parseRollCommand('/roll 3d6 prem:2'))?.adv).toBe(2);
+    expect(netSourceDelta(rollOf(rollService.parseRollCommand('/roll 3d6 adv:1'))?.advantages ?? [])).toBe(1);
+    expect(netSourceDelta(rollOf(rollService.parseRollCommand('/roll 3d6 prem:2'))?.advantages ?? [])).toBe(2);
   });
 
   it('ограничивает adv максимумом', () => {
-    expect(rollOf(rollService.parseRollCommand('/roll 3d6 adv:99'))?.adv).toBe(10);
-    expect(rollOf(rollService.parseRollCommand('/roll 3d6 dis:99'))?.adv).toBe(-10);
+    expect(netSourceDelta(rollOf(rollService.parseRollCommand('/roll 3d6 adv:99'))?.advantages ?? [])).toBe(10);
+    expect(netSourceDelta(rollOf(rollService.parseRollCommand('/roll 3d6 dis:99'))?.advantages ?? [])).toBe(-10);
   });
 
   it('отбрасывает невалидную эффективность в пользу дефолта', () => {
@@ -74,6 +82,15 @@ describe('parseRollCommand', () => {
   it('разбирает размерность', () => {
     expect(rollOf(rollService.parseRollCommand('/roll 3d6 size:2'))?.dieSize).toBe(2);
     expect(rollOf(rollService.parseRollCommand('/roll 3d6 dim:-1'))?.dieSize).toBe(-1);
+  });
+});
+
+describe('formatPoolNotation / formatEfficiencyLabel', () => {
+  it('пул несёт размер мастерства, эффективность — свой размер', () => {
+    expect(rollService.formatPoolNotation({ diceCount: 4, dieFaces: 6, dieSize: -1, poolSize: 0 })).toBe('4к6');
+    expect(rollService.formatEfficiencyLabel({ efficiency: 4, efficiencySize: -1 })).toBe('4↓');
+    expect(rollService.formatPoolNotation({ diceCount: 5, dieFaces: 6, dieSize: -1, poolSize: -1 })).toBe('5↓к6');
+    expect(rollService.formatEfficiencyLabel({ efficiency: 5, efficiencySize: 0 })).toBe('5');
   });
 });
 

@@ -87,7 +87,7 @@ function rollMsg(
     '',
     [
       rollAttachment({
-        spec: { diceCount, dieSize: 1, dieFaces, efficiency: 0, adv: 0, label },
+        spec: { diceCount, dieSize: 1, dieFaces, efficiency: 0, advantages: [], label },
         rolls,
         successes,
         adjustedRolls: rolls,

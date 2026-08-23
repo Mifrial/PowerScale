@@ -15,7 +15,7 @@ function label(): string {
 </script>
 
 <template>
-  <v-menu v-model="open" location="bottom">
+  <v-menu v-model="open" attach location="bottom" :z-index="2200">
     <template #activator="{ props: menuProps }">
       <v-sheet v-bind="menuProps" class="pa-2 rounded border cursor-pointer" style="min-height: 32px">
         <div class="d-flex align-center justify-space-between ga-2">

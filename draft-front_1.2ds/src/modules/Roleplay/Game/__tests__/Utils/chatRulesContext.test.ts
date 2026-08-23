@@ -14,7 +14,7 @@ const RULES: Rule[] = [
     spaceId: 1,
     keywordIds: [],
     mechanicId: 5,
-    mechanic_payload: { type: 'roll', data: { sub_mechanics: ['six_one_rule', 'advantage_disadvantage'] } },
+    mechanic_payload: { type: 'roll', data: { sub_mechanics: ['advantage_disadvantage'] } },
     createdAt: '2026-01-15T10:00:00Z',
   },
   {
@@ -30,16 +30,19 @@ const RULES: Rule[] = [
     createdAt: '2026-01-15T10:00:00Z',
   },
   {
-    id: 'rule-strength',
-    code: 'strength',
-    type: 'characteristic',
-    name: 'Сила',
+    id: 'rule-check-simple',
+    code: 'check-simple',
+    type: 'check',
+    name: 'Простая проверка',
     description: '',
     spaceId: 1,
-    keywordIds: [],
-    mechanicId: null,
-    mechanic_payload: null,
-    createdAt: '2026-01-15T10:00:00Z',
+    spec: {
+      type: 'check',
+      difficulty_input: { kind: 'ask' },
+      allowed_modes: 'both',
+      attached_rule_codes: ['rule-6-and-1', 'advantages'],
+    },
+    createdAt: '2026-08-22T12:00:00Z',
   },
 ];
 
@@ -51,23 +54,30 @@ describe('buildChatRulesContext', () => {
   it('строит имена правил и источник «Вставить ссылку» из ревизии', async () => {
     const context = buildChatRulesContext(RULES, MECHANICS);
     expect(context.ruleNames.roll).toBe('Бросок');
-    expect(context.ruleNames.strength).toBe('Сила');
+    expect(context.ruleNames.strength).toBeUndefined();
+    expect(context.ruleNames['check-simple']).toBe('Простая проверка');
 
     const ruleSource = context.tokenSources.find((source) => source.type === 'rule');
     expect(ruleSource).toBeDefined();
-    const results = ruleSource ? await ruleSource.search('сил') : [];
-    expect(results.map((option) => option.label)).toEqual(['Сила']);
+    const results = ruleSource ? await ruleSource.search('прост') : [];
+    expect(results.map((option) => option.label)).toEqual(['Простая проверка']);
   });
 
   it('processAttachments считает бросок механиками ревизии и пропускает готовые результаты', () => {
     const context = buildChatRulesContext(RULES, MECHANICS);
 
     const processed = context.processAttachments([
-      { type: ROLL_ATTACHMENT_TYPE, payload: { diceCount: 2, dieFaces: 6, efficiency: 3, adv: 0, dieSize: 0 } },
+      { type: ROLL_ATTACHMENT_TYPE, payload: { diceCount: 2, dieFaces: 6, efficiency: 3, advantages: [], dieSize: 0 } },
     ]);
-    const result = processed[0].payload as { rolls: number[]; totalSuccesses: number };
+    const result = processed[0].payload as {
+      rolls: number[];
+      totalSuccesses: number;
+      check?: { check_code: string; rating: number; passed: boolean };
+    };
     expect(result.rolls).toHaveLength(2);
     expect(typeof result.totalSuccesses).toBe('number');
+    expect(result.check?.check_code).toBe('check-simple');
+    expect(result.check?.passed).toBe(result.totalSuccesses >= 0);
 
     const passthrough = context.processAttachments([{ type: ROLL_ATTACHMENT_TYPE, payload: result }]);
     expect(passthrough[0].payload).toBe(result);

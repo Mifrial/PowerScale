@@ -120,6 +120,7 @@ function onSettingsApply(items: PickerItem[]) {
       location="bottom start"
       :width="menuWidth"
       :max-width="menuWidth || 420"
+      :z-index="2400"
     >
       <FilterPopup
         :fields="visibleFields"

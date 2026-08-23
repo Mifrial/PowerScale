@@ -8,6 +8,7 @@ import { GAME_MEMBERSHIP_STATUS_COLOR } from '@/modules/Roleplay/Game/Constant/G
 import { CHARACTER_STATUS_OPTIONS } from '@/modules/Roleplay/Character/Constant/CHARACTER_STATUS_OPTIONS';
 import { CHARACTER_STATUS_COLOR } from '@/modules/Roleplay/Character/Constant/CHARACTER_STATUS_COLOR';
 import { membershipDiff } from '@/modules/Roleplay/Game/Utils/membershipDiff';
+import { membershipMatchesGameRevision } from '@/modules/Roleplay/Game/Utils/membershipRevision';
 import {
   versionConflicts,
   type ConflictChoices,
@@ -147,6 +148,10 @@ function characterStatusColor(status: CharacterStatus): string {
   return CHARACTER_STATUS_COLOR[status];
 }
 
+function canApprove(membership: GameCharacterMembership): boolean {
+  return props.rulesRevision !== null && membershipMatchesGameRevision(membership, props.rulesRevision);
+}
+
 function openSlider(membership: GameCharacterMembership): void {
   sliderTarget.value = membership;
   sliderOpen.value = true;
@@ -237,8 +242,19 @@ watch(
           <v-icon icon="mdi-chevron-right" size="20" class="text-medium-emphasis" />
         </div>
 
+        <v-alert v-if="!canApprove(membership)" type="warning" variant="tonal" density="compact" class="mb-3">
+          Ревизия персонажа не совпадает с ревизией игры — принять нельзя. Переведите лист или отклоните.
+        </v-alert>
         <div class="d-flex justify-end ga-2 mt-3">
-          <v-btn color="success" variant="tonal" size="small" @click="moderate(membership, 'approve')"> Принять </v-btn>
+          <v-btn
+            color="success"
+            variant="tonal"
+            size="small"
+            :disabled="!canApprove(membership)"
+            @click="moderate(membership, 'approve')"
+          >
+            Принять
+          </v-btn>
           <v-btn color="error" variant="tonal" size="small" @click="moderate(membership, 'reject')"> Отклонить </v-btn>
         </div>
       </v-card-text>

@@ -138,6 +138,14 @@ describe('mockItemImport (S16, заход «Инвентарь»)', () => {
     expect(pata!.description).not.toContain('клинок, пата');
   });
 
+  it('доспехи несут открытое лицо; латы — требует владения', () => {
+    const leather = mockItemImport.find((rule) => rule.code === 'kozhanyy-dospekh');
+    const plate = mockItemImport.find((rule) => rule.code === 'latnyy-dospekh');
+    expect(leather?.keywordIds).toContain(kwId('open-face'));
+    expect(plate?.keywordIds).toContain(kwId('open-face'));
+    expect(plate?.keywordIds).toContain(kwId('requires-proficiency'));
+  });
+
   it('все keywordIds предметов существуют в словаре признаков', () => {
     const ids = new Set(mockKeywords.map((k) => k.id));
     for (const rule of mockItemImport) {

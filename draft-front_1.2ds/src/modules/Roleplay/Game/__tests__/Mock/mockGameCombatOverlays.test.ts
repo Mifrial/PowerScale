@@ -5,6 +5,7 @@ import {
   addCombatState,
   setCombatStateValue,
   removeCombatState,
+  setCombatItemEquipped,
   combatKey,
   combatOverlayHasChanges,
   getStoredCombatOverlay,
@@ -118,17 +119,20 @@ describe('mockGameCombatOverlays: состояния', () => {
   });
 });
 
-describe('mockGameCombatOverlays: НПС (правки сразу в версию)', () => {
-  it('setCombatResource для НПС пишет в npc.version и возвращает пустой оверлей', async () => {
+describe('mockGameCombatOverlays: НПС (версия + оверлей для UI карточки)', () => {
+  it('setCombatResource для НПС пишет в npc.version и возвращает оверлей с ресурсом', async () => {
     const npc = gameNpcs.find((n) => n.id === 5)!;
     npc.version = JSON.parse(JSON.stringify(versions[1])) as (typeof versions)[1];
     const before = npc.version.resources.find((r) => r.ruleId === 'rule-18')!.current;
 
     const overlay = await setCombatResource(2, combatKey('npc', 5), 'rule-18', { base: 1, size: 0 });
-    expect(overlay.updatedAt).toBe('');
+    expect(overlay.updatedAt).not.toBe('');
     const after = npc.version.resources.find((r) => r.ruleId === 'rule-18')!;
     expect(after.current).toEqual({ base: 1, size: before.size });
-    expect(overlay.resources).toEqual([]);
+    expect(overlay.resources.find((item) => item.ruleId === 'rule-18')?.current).toEqual({
+      base: 1,
+      size: before.size,
+    });
   });
 
   it('addCombatState для НПС пишет в npc.version.states', async () => {
@@ -137,5 +141,29 @@ describe('mockGameCombatOverlays: НПС (правки сразу в верси�
     await addCombatState(2, combatKey('npc', 5), { stateRuleId: 'rule-63', value: 1 });
     expect(npc.version!.states.length).toBe(before + 1);
     expect(npc.version!.states.at(-1)).toEqual({ stateRuleId: 'rule-63', value: 1 });
+  });
+});
+
+describe('mockGameCombatOverlays: экипировка', () => {
+  it('setCombatItemEquipped для персонажа пишет inventory в overlay.sheet', async () => {
+    const version = versionOf()!;
+    const item = version.inventory[0];
+    expect(item.equipped).toBe(true);
+
+    const overlay = await setCombatItemEquipped(2, charKey, item.id, false);
+    expect(overlay.sheet?.inventory.find((entry) => entry.id === item.id)?.equipped).toBe(false);
+    expect(combatOverlayHasChanges(version, overlay)).toBe(true);
+    expect(version.inventory.find((entry) => entry.id === item.id)?.equipped).toBe(true);
+  });
+
+  it('setCombatItemEquipped для НПС пишет сразу в npc.version', async () => {
+    const npc = gameNpcs.find((n) => n.id === 5)!;
+    npc.version = JSON.parse(JSON.stringify(versions[1])) as (typeof versions)[1];
+    const item = npc.version.inventory[0];
+    expect(item.equipped).toBe(true);
+
+    const overlay = await setCombatItemEquipped(2, combatKey('npc', 5), item.id, false);
+    expect(overlay.updatedAt).not.toBe('');
+    expect(npc.version.inventory.find((entry) => entry.id === item.id)?.equipped).toBe(false);
   });
 });
