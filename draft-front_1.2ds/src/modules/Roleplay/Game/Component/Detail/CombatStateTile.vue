@@ -1,8 +1,14 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
+import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue';
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
+import type { CharacterPoisonValue } from '@/modules/Roleplay/Character/Dto/CharacterPoisonValue';
+import type { StatePeriodicity } from '@/modules/Roleplay/Rule/Dto/State/Periodicity';
+import type { StateDecay } from '@/modules/Roleplay/Rule/Dto/State/StateDecay';
 
 export type CombatStateDetailRow = { label: string; value: string };
+export type CombatStateEditKind = 'none' | 'numeric' | 'dimensional' | 'poison';
 
 const props = withDefaults(
   defineProps<{
@@ -12,30 +18,54 @@ const props = withDefaults(
     valueLabel: string;
     details?: CombatStateDetailRow[];
     canEdit?: boolean;
-    numeric?: boolean;
+    editKind?: CombatStateEditKind;
     current?: number;
     minValue?: number;
+    dimensionalValue?: DimensionalNumberValue | null;
+    poison?: CharacterPoisonValue | null;
+    poisonItems?: { title: string; value: string }[];
+    damageTypeItems?: { title: string; value: string }[];
+    poisonTemplate?: (poisonRuleId: string | null) => CharacterPoisonValue;
   }>(),
   {
     iconCode: null,
     details: () => [],
     canEdit: false,
-    numeric: true,
+    editKind: 'none',
     current: 0,
     minValue: 0,
+    dimensionalValue: null,
+    poison: null,
+    poisonItems: () => [],
+    damageTypeItems: () => [],
   },
 );
 
 const emit = defineEmits<{
   apply: [next: number];
+  applyDimensional: [next: DimensionalNumberValue];
+  applyPoison: [next: CharacterPoisonValue];
   remove: [];
 }>();
 
 const menuOpen = ref(false);
 const draft = ref(0);
+const draftDim = ref<DimensionalNumberValue>({ base: 1, size: 0 });
+const draftPoisonRuleId = ref('');
+const draftDamageType = ref('');
+const draftStrength = ref<DimensionalNumberValue>({ base: 1, size: 0 });
+const draftPeriodicity = ref<StatePeriodicity | undefined>();
+const draftDecay = ref<StateDecay | undefined>();
 
 watch(menuOpen, (open) => {
-  if (open) draft.value = Math.max(props.minValue, props.current);
+  if (!open) return;
+  draft.value = Math.max(props.minValue, props.current);
+  draftDim.value = { ...(props.dimensionalValue ?? { base: 1, size: 0 }) };
+  draftPoisonRuleId.value = props.poison?.poisonRuleId ?? '';
+  draftDamageType.value = props.poison?.damage_type_code ?? '';
+  draftStrength.value = { ...(props.poison?.strength ?? { base: 1, size: 0 }) };
+  draftPeriodicity.value = props.poison?.periodicity;
+  draftDecay.value = props.poison?.decay;
 });
 
 function submitNumeric(): void {
@@ -46,6 +76,33 @@ function submitNumeric(): void {
   }
   emit('apply', draft.value);
   menuOpen.value = false;
+}
+
+function submitDimensional(): void {
+  emit('applyDimensional', { ...draftDim.value });
+  menuOpen.value = false;
+}
+
+function submitPoison(): void {
+  emit('applyPoison', {
+    poisonRuleId: draftPoisonRuleId.value || null,
+    damage_type_code: draftDamageType.value || undefined,
+    strength: { ...draftStrength.value },
+    periodicity: draftPeriodicity.value,
+    decay: draftDecay.value,
+  });
+  menuOpen.value = false;
+}
+
+function onPoisonRuleChange(next: unknown): void {
+  const id = typeof next === 'string' ? next : '';
+  draftPoisonRuleId.value = id;
+  const templated = props.poisonTemplate?.(id || null);
+  if (!templated) return;
+  draftDamageType.value = templated.damage_type_code ?? '';
+  draftStrength.value = { ...(templated.strength ?? { base: 1, size: 0 }) };
+  draftPeriodicity.value = templated.periodicity;
+  draftDecay.value = templated.decay;
 }
 
 function submitRemove(): void {
@@ -66,10 +123,12 @@ function submitRemove(): void {
     <v-card class="rounded border" elevation="8" style="width: max-content; min-width: 280px; max-width: 420px">
       <v-card-title class="text-body-1">{{ name }}</v-card-title>
       <v-card-text class="pt-0">
-        <div class="d-flex align-center justify-space-between py-1 text-body-2">
-          <span class="text-medium-emphasis">Сила</span>
-          <span class="font-weight-medium">{{ valueLabel }}</span>
-        </div>
+        <template v-if="!(canEdit && (editKind === 'dimensional' || editKind === 'poison'))">
+          <div class="d-flex align-center justify-space-between py-1 text-body-2">
+            <span class="text-medium-emphasis">Сила</span>
+            <span class="font-weight-medium">{{ valueLabel }}</span>
+          </div>
+        </template>
         <div
           v-for="row in details"
           :key="row.label"
@@ -78,7 +137,7 @@ function submitRemove(): void {
           <span class="text-medium-emphasis">{{ row.label }}</span>
           <span class="font-weight-medium">{{ row.value }}</span>
         </div>
-        <template v-if="canEdit && numeric">
+        <template v-if="canEdit && editKind === 'numeric'">
           <ClampedNumberField
             v-model="draft"
             class="mt-3"
@@ -90,6 +149,37 @@ function submitRemove(): void {
           <v-btn class="mt-3" color="primary" variant="tonal" size="small" block @click="submitNumeric">
             Изменить
           </v-btn>
+        </template>
+        <template v-else-if="canEdit && editKind === 'dimensional'">
+          <DimensionalNumberInput v-model="draftDim" class="mt-3" label="Сила" />
+          <v-btn class="mt-3" color="primary" variant="tonal" size="small" block @click="submitDimensional">
+            Изменить
+          </v-btn>
+          <v-btn class="mt-2" color="error" variant="tonal" size="small" block @click="submitRemove">Убрать</v-btn>
+        </template>
+        <template v-else-if="canEdit && editKind === 'poison'">
+          <v-select
+            :model-value="draftPoisonRuleId"
+            class="mt-3"
+            :items="poisonItems"
+            label="Яд"
+            density="compact"
+            hide-details
+            @update:model-value="onPoisonRuleChange"
+          />
+          <v-select
+            v-model="draftDamageType"
+            class="mt-3"
+            :items="damageTypeItems"
+            label="Тип урона"
+            density="compact"
+            hide-details
+          />
+          <DimensionalNumberInput v-model="draftStrength" class="mt-3" label="Сила" />
+          <v-btn class="mt-3" color="primary" variant="tonal" size="small" block @click="submitPoison">
+            Изменить
+          </v-btn>
+          <v-btn class="mt-2" color="error" variant="tonal" size="small" block @click="submitRemove">Убрать</v-btn>
         </template>
         <v-btn v-else-if="canEdit" class="mt-3" color="error" variant="tonal" size="small" block @click="submitRemove">
           Убрать

@@ -8,7 +8,11 @@ import { applyBloodLossTick } from '@/modules/Roleplay/Game/Utils/applyBloodLoss
 import { overlayStateTotal } from '@/modules/Roleplay/Game/Utils/applyInjuryCheck';
 import { reservedExhaustion } from '@/modules/Roleplay/Game/Utils/bloodLossMath';
 import { enduranceOf } from '@/modules/Roleplay/Game/Utils/applyAttackDamage';
-import { BLOOD_LOSS_STATE_CODE, EXHAUSTION_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
+import {
+  BLOOD_LOSS_STATE_CODE,
+  EXHAUSTION_STATE_CODE,
+  POISONING_STATE_CODE,
+} from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 import { characterOverviewService } from '@/modules/Roleplay/Character/Service/Instance/characterOverviewService';
 import { ROLL_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ATTACHMENT_TYPE';
@@ -18,15 +22,23 @@ import {
   combatStateRows,
   defaultStateEntry,
   maimTotalDurationLabel,
+  poisonName,
+  poisonRuleOptions,
+  poisonValueFromRule,
+  resolvedPoisonValue,
+  resolvedPoisonStrength,
   statePickerOptions,
   type CombatStateOption,
   type CombatStateRow,
 } from '@/modules/Roleplay/Game/Utils/combatCardModel';
+import type { CharacterPoisonValue } from '@/modules/Roleplay/Character/Dto/CharacterPoisonValue';
 import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/CharacterStateValue';
 import { weaponProficiencyLevels } from '@/modules/Roleplay/Character/Utils/weaponProficiency';
 import CombatCardCharacteristicTile from '@/modules/Roleplay/Game/Component/Detail/CombatCardCharacteristicTile.vue';
 import CombatResourceTile from '@/modules/Roleplay/Game/Component/Detail/CombatResourceTile.vue';
-import CombatStateTile from '@/modules/Roleplay/Game/Component/Detail/CombatStateTile.vue';
+import CombatStateTile, {
+  type CombatStateEditKind,
+} from '@/modules/Roleplay/Game/Component/Detail/CombatStateTile.vue';
 import AbilityTab from '@/modules/Roleplay/Character/Component/Detail/AbilityTab.vue';
 import InventoryTab from '@/modules/Roleplay/Character/Component/Editor/InventoryTab.vue';
 import AttackTile from '@/modules/Roleplay/Character/Component/Detail/Attacks/AttackTile.vue';
@@ -52,7 +64,9 @@ import type { CharacteristicOverview } from '@/modules/Roleplay/Character/Dto/Ov
 import type { ResourceOverview } from '@/modules/Roleplay/Character/Dto/Overview/ResourceOverview';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
+import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue';
 import { preferNewerCombatOverlays, replaceCombatOverlay } from '@/modules/Roleplay/Game/Utils/mergeCombatOverlay';
+import { ruleReferenceService } from '@/modules/Roleplay/Rule/Service/Instance/ruleReferenceService';
 
 const props = defineProps<{
   /** Слайд-овер открыт (v-model). */
@@ -104,6 +118,11 @@ const overlays = ref<GameCombatOverlay[]>([]);
 const viewEpoch = ref(0);
 const error = ref<string | null>(null);
 const pickerOpen = ref(false);
+const poisonAddOpen = ref(false);
+const poisonDraft = ref<CharacterPoisonValue | null>(null);
+const poisonDraftRuleId = ref('');
+const poisonDraftType = ref('');
+const poisonDraftStrength = ref<DimensionalNumberValue>({ base: 1, size: 0 });
 const cardTab = ref('overview');
 const collapsed = ref<string[]>([]);
 const ruleSlider = useRuleDetailSlider();
@@ -192,12 +211,14 @@ type CombatStateTileModel = {
   iconCode: string | null;
   leftLabel: string;
   valueLabel: string;
-  numeric: boolean;
+  editKind: CombatStateEditKind;
   current: number;
   minValue: number;
   details: CombatStateDetailRow[];
   index: number;
   code: string;
+  dimensionalValue: DimensionalNumberValue | null;
+  poison: CharacterPoisonValue | null;
 };
 
 function stateTileDetails(state: CharacterStateValue, row: CombatStateRow): CombatStateDetailRow[] {
@@ -219,7 +240,7 @@ function stateTileDetails(state: CharacterStateValue, row: CombatStateRow): Comb
     }
     rows.push({ label: 'Обезображивающее', value: state.maim.disfiguring ? 'да' : 'нет' });
     rows.push({ label: 'Смертельное', value: state.maim.lethal ? 'да' : 'нет' });
-  } else if (row.summary) {
+  } else if (row.code !== POISONING_STATE_CODE && row.valueType !== 'dimensional' && row.summary) {
     rows.push({ label: 'Сводка', value: row.summary });
   }
 
@@ -228,11 +249,24 @@ function stateTileDetails(state: CharacterStateValue, row: CombatStateRow): Comb
 
 function stateTileValue(state: CharacterStateValue | undefined, row: CombatStateRow): string {
   if (!state) return row.valueType === 'flag' ? '•' : '0';
+  if (row.code === POISONING_STATE_CODE) {
+    const strength = resolvedPoisonStrength(state, props.rules);
+
+    return strength ? new DimensionalNumber(strength).toString() : '—';
+  }
   if (row.valueType === 'number') return String(state.value ?? 0);
   if (state.dimensionalValue) return new DimensionalNumber(state.dimensionalValue).toString();
   if (row.valueType === 'flag') return '•';
 
   return stateValue(state) || '•';
+}
+
+function tileEditKind(row: CombatStateRow): CombatStateEditKind {
+  if (row.code === POISONING_STATE_CODE) return 'poison';
+  if (row.valueType === 'dimensional') return 'dimensional';
+  if (row.valueType === 'number') return 'numeric';
+
+  return 'none';
 }
 
 const stateTiles = computed((): CombatStateTileModel[] => {
@@ -244,25 +278,38 @@ const stateTiles = computed((): CombatStateTileModel[] => {
     for (const index of row.indices) {
       const state = states[index];
       const timeLabel = state ? maimTotalDurationLabel(state) : '';
+      const isPoison = row.code === POISONING_STATE_CODE;
+      const name = isPoison && state ? poisonName(state, props.rules) : row.name;
       const current = row.valueType === 'number' ? (state?.value ?? 0) : 0;
       tiles.push({
         key: `${row.ruleId}-${index}`,
-        name: row.name,
+        name,
         iconCode: row.iconCode,
-        leftLabel: timeLabel ? `${row.name} ${timeLabel}` : row.name,
+        leftLabel: timeLabel ? `${name} ${timeLabel}` : name,
         valueLabel: stateTileValue(state, row),
-        numeric: row.valueType === 'number',
+        editKind: tileEditKind(row),
         current,
         minValue: row.code === EXHAUSTION_STATE_CODE ? reserved : 0,
         details: state ? stateTileDetails(state, row) : [],
         index,
         code: row.code,
+        dimensionalValue: state?.dimensionalValue ?? null,
+        poison: isPoison && state ? resolvedPoisonValue(state, props.rules) : null,
       });
     }
   }
 
   return tiles;
 });
+
+const poisonSelectItems = computed(() => [
+  { title: 'Свой яд', value: '' },
+  ...poisonRuleOptions(props.rules).map((item) => ({ title: item.name, value: item.ruleId })),
+]);
+
+const damageTypeSelectItems = computed(() =>
+  ruleReferenceService.damageTypeOptions(props.rules).map((item) => ({ title: item.name, value: item.code })),
+);
 
 const stateOptions = computed(() => statePickerOptions(props.rules));
 
@@ -399,11 +446,54 @@ async function changeResource(resource: ResourceOverview, delta: number): Promis
 
 async function addState(option: CombatStateOption): Promise<void> {
   if (!model.value) return;
+  if (option.code === POISONING_STATE_CODE) {
+    pickerOpen.value = false;
+    const first = poisonRuleOptions(props.rules)[0];
+    fillPoisonDraft(poisonValueFromRule(props.rules, first?.ruleId ?? null));
+    poisonAddOpen.value = true;
+
+    return;
+  }
   error.value = null;
   pickerOpen.value = false;
   try {
-    const state: CharacterStateValue = { stateRuleId: option.ruleId, ...defaultStateEntry(option) };
+    const state: CharacterStateValue = { stateRuleId: option.ruleId, ...defaultStateEntry(option, props.rules) };
     const result = await getGameApi().addCombatState(props.gameId, model.value.entityKey, state);
+    applyOverlay(result);
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'Не удалось добавить состояние';
+  }
+}
+
+function fillPoisonDraft(value: CharacterPoisonValue): void {
+  poisonDraft.value = value;
+  poisonDraftRuleId.value = value.poisonRuleId ?? '';
+  poisonDraftType.value = value.damage_type_code ?? '';
+  poisonDraftStrength.value = { ...(value.strength ?? { base: 1, size: 0 }) };
+}
+
+function onPoisonAddRuleChange(next: unknown): void {
+  fillPoisonDraft(poisonValueFromRule(props.rules, typeof next === 'string' && next ? next : null));
+}
+
+async function confirmPoisonAdd(): Promise<void> {
+  if (!model.value) return;
+  const option = stateOptions.value.find((item) => item.code === POISONING_STATE_CODE);
+  if (!option) return;
+  error.value = null;
+  poisonAddOpen.value = false;
+  try {
+    const poison: CharacterPoisonValue = {
+      poisonRuleId: poisonDraftRuleId.value || null,
+      damage_type_code: poisonDraftType.value || undefined,
+      strength: { ...poisonDraftStrength.value },
+      periodicity: poisonDraft.value?.periodicity,
+      decay: poisonDraft.value?.decay,
+    };
+    const result = await getGameApi().addCombatState(props.gameId, model.value.entityKey, {
+      stateRuleId: option.ruleId,
+      poison,
+    });
     applyOverlay(result);
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Не удалось добавить состояние';
@@ -517,6 +607,36 @@ async function applyStateTile(tile: CombatStateTileModel, next: number): Promise
   if (tile.code === EXHAUSTION_STATE_CODE) {
     await afterStateSideEffects(tile.code, 0, value > current ? 'increase' : 'decrease');
   }
+}
+
+async function replaceStateAt(index: number, state: CharacterStateValue): Promise<void> {
+  if (!model.value) return;
+  error.value = null;
+  try {
+    const result = await getGameApi().replaceCombatState(props.gameId, model.value.entityKey, index, state);
+    applyOverlay(result);
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'Не удалось изменить состояние';
+  }
+}
+
+async function applyDimensionalTile(tile: CombatStateTileModel, next: DimensionalNumberValue): Promise<void> {
+  const version = effectiveVersion.value;
+  const prev = version?.states[tile.index];
+  if (!prev) return;
+  if (new DimensionalNumber(next).toNumber() <= 0) {
+    await removeState(tile.index);
+
+    return;
+  }
+  await replaceStateAt(tile.index, { ...prev, dimensionalValue: next });
+}
+
+async function applyPoisonTile(tile: CombatStateTileModel, next: CharacterPoisonValue): Promise<void> {
+  const version = effectiveVersion.value;
+  const prev = version?.states[tile.index];
+  if (!prev) return;
+  await replaceStateAt(tile.index, { ...prev, poison: next });
 }
 
 async function removeStateTile(tile: CombatStateTileModel): Promise<void> {
@@ -750,10 +870,17 @@ function onSheetToggleEquipped(itemId: number): void {
                     :value-label="tile.valueLabel"
                     :details="tile.details"
                     :can-edit="model.canEdit"
-                    :numeric="tile.numeric"
+                    :edit-kind="tile.editKind"
                     :current="tile.current"
                     :min-value="tile.minValue"
+                    :dimensional-value="tile.dimensionalValue"
+                    :poison="tile.poison"
+                    :poison-items="poisonSelectItems"
+                    :damage-type-items="damageTypeSelectItems"
+                    :poison-template="(id) => poisonValueFromRule(rules, id)"
                     @apply="(next) => applyStateTile(tile, next)"
+                    @apply-dimensional="(next) => applyDimensionalTile(tile, next)"
+                    @apply-poison="(next) => applyPoisonTile(tile, next)"
                     @remove="removeStateTile(tile)"
                   />
                 </div>
@@ -871,6 +998,36 @@ function onSheetToggleEquipped(itemId: number): void {
       </v-window>
     </template>
   </SlidePanel>
+
+  <v-dialog v-model="poisonAddOpen" max-width="420">
+    <v-card>
+      <v-card-title class="text-body-1">Отравление</v-card-title>
+      <v-card-text>
+        <v-select
+          :model-value="poisonDraftRuleId"
+          :items="poisonSelectItems"
+          label="Яд"
+          density="compact"
+          hide-details
+          @update:model-value="onPoisonAddRuleChange"
+        />
+        <v-select
+          v-model="poisonDraftType"
+          class="mt-3"
+          :items="damageTypeSelectItems"
+          label="Тип урона"
+          density="compact"
+          hide-details
+        />
+        <DimensionalNumberInput v-model="poisonDraftStrength" class="mt-3" label="Сила" />
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer />
+        <v-btn variant="text" @click="poisonAddOpen = false">Отмена</v-btn>
+        <v-btn color="primary" variant="tonal" @click="confirmPoisonAdd">Добавить</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 
   <RuleSlider
     v-model:open="ruleSlider.state.open"

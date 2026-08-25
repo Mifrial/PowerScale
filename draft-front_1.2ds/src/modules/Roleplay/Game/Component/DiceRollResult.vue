@@ -10,6 +10,7 @@ import { netSourceDelta } from '@/modules/Roleplay/Rule/Utils/aggregateSourceDel
 import { resolveAppliedMechanicNames } from '@/modules/Roleplay/Game/Utils/appliedRollMechanics';
 import { parseCombatEntityKey } from '@/modules/Roleplay/Game/Utils/combatCardModel';
 import { injuryDifficultyDetailRows } from '@/modules/Roleplay/Game/Utils/injuryCheckMessage';
+import { rangedHitDifficultyDetailRows } from '@/modules/Roleplay/Game/Utils/rangedHitDifficultyRows';
 import GameEntityChip from '@/modules/Roleplay/Game/Component/Chat/GameEntityChip.vue';
 
 const props = defineProps<{
@@ -92,6 +93,9 @@ const appliedMechanicNames = computed(() => resolveAppliedMechanicNames(roll.val
 const injuryDifficultyRows = computed(() =>
   roll.value.injury?.breakdown ? injuryDifficultyDetailRows(roll.value.injury.breakdown) : [],
 );
+const rangedHitDifficultyRows = computed(() =>
+  roll.value.check?.ranged_hit ? rangedHitDifficultyDetailRows(roll.value.check.ranged_hit) : [],
+);
 
 function signed(n: number): string {
   return n > 0 ? `+${n}` : String(n);
@@ -144,6 +148,12 @@ function dieFaceClass(success: number): string {
               <span class="text-medium-emphasis">Сложность</span>
               <span class="font-weight-medium">{{ difficultyLabel }}</span>
             </div>
+            <template v-if="rangedHitDifficultyRows.length">
+              <div v-for="row in rangedHitDifficultyRows" :key="row.label" class="chat-roll-row">
+                <span class="text-medium-emphasis">{{ row.label }}</span>
+                <span class="font-weight-medium">{{ row.value }}</span>
+              </div>
+            </template>
             <template v-if="injuryDifficultyRows.length">
               <div v-for="row in injuryDifficultyRows" :key="row.label" class="chat-roll-row">
                 <span class="text-medium-emphasis">{{ row.label }}</span>

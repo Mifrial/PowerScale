@@ -230,6 +230,36 @@ export async function addCombatState(
   return snapshot(overlay);
 }
 
+/** Полная замена записи состояния (счётчик DOT, сила яда). Персонажи — в оверлей; НПС — сразу в версию. */
+export async function replaceCombatState(
+  gameId: number,
+  entityKey: CombatEntityKey,
+  index: number,
+  state: CharacterStateValue,
+  _signal?: AbortSignal,
+): Promise<GameCombatOverlay> {
+  await delay(150);
+  const version = entityVersion(gameId, entityKey);
+  if (!version) throw new Error('Лист участника не заполнен');
+
+  const npc = npcOf(gameId, entityKey);
+  if (npc) {
+    if (!npc.version) throw new Error('Лист НПС не заполнен');
+    if (!npc.version.states[index]) throw new Error('Состояние не найдено');
+    npc.version.states[index] = { ...state };
+    npc.updatedAt = new Date().toISOString();
+
+    return overlayFromNpcVersion(gameId, entityKey, npc.version);
+  }
+
+  const overlay = ensureOverlay(gameId, entityKey, version);
+  if (!overlay.states[index]) throw new Error('Состояние не найдено');
+  overlay.states[index] = { ...state };
+  overlay.updatedAt = new Date().toISOString();
+
+  return snapshot(overlay);
+}
+
 /** Изменение значения состояния (по индексу в списке боя). Персонажи — в оверлей; НПС — сразу в версию. */
 export async function setCombatStateValue(
   gameId: number,

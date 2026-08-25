@@ -4,7 +4,7 @@ import {
   HIT_PROCEDURE_VERSION_1,
 } from '@/modules/Roleplay/Rule/Constant/Combat/HIT_PROCEDURE';
 
-/** Бросок 1.0.0: игнор vs 1↓ (укрытие 0). */
+/** Бросок 1.0.0: база игнора 1↓ (укрытие 0, результат защиты 0). */
 export const throwV1: StrikeProcedure = {
   code: THROW_PROCEDURE_MECHANIC_CODE,
   version: HIT_PROCEDURE_VERSION_1,

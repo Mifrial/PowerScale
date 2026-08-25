@@ -487,12 +487,44 @@ describe('combatStatePicker', () => {
     expect(
       defaultStateEntry({
         ruleId: 'r',
-        code: 'weakness',
-        name: 'Слабость',
+        code: 'poisoning',
+        name: 'Отравление',
         iconCode: null,
         valueType: 'flag',
-        aggregation: 'max',
+        aggregation: 'independent',
       }),
-    ).toEqual({});
+    ).toEqual({ poison: { poisonRuleId: null, strength: { base: 1, size: 0 } } });
+    expect(
+      defaultStateEntry(
+        {
+          ruleId: 'r',
+          code: 'poisoning',
+          name: 'Отравление',
+          iconCode: null,
+          valueType: 'flag',
+          aggregation: 'independent',
+        },
+        [
+          {
+            id: 'rule-scorpion',
+            code: 'poison-scorpion',
+            type: 'poison',
+            name: 'Яд скорпиона',
+            description: '',
+            spaceId: 1,
+            spec: {
+              damage_type_code: 'poison-1',
+              default_strength: { base: 3, size: 1 },
+              default_periodicity: { kind: 'literal', value: 2, step: 'turn' },
+            },
+            keywordIds: [],
+            mechanicId: null,
+            createdAt: '2026-01-01T00:00:00Z',
+          },
+        ],
+      ),
+    ).toMatchObject({
+      poison: { poisonRuleId: 'rule-scorpion', damage_type_code: 'poison-1', strength: { base: 3, size: 1 } },
+    });
   });
 });

@@ -19,6 +19,7 @@ import { resolveInjuryProcedure } from '@/modules/Roleplay/Game/Utils/resolveInj
 import { mergeCombatOverlay } from '@/modules/Roleplay/Game/Utils/mergeCombatOverlay';
 import { formatBloodLossTickMessage } from '@/modules/Roleplay/Game/Utils/bloodLossMessage';
 import { setNumericState } from '@/modules/Roleplay/Game/Utils/combatStateWrite';
+import { applyEndOfTurnDots } from '@/modules/Roleplay/Game/Utils/applyEndOfTurnDots';
 import {
   applyBloodLossGain,
   bloodLossInjuryDifficulty,
@@ -150,6 +151,9 @@ export async function applyBloodLossTick(args: ApplyBloodLossArgs): Promise<Game
 
 export async function applyTurnWoundBleed(args: Omit<ApplyBloodLossArgs, 'delta'>): Promise<GameCombatOverlay | null> {
   const delta = overlayStateTotal(args.version, args.rules, WOUND_STATE_CODE);
+  const blood = await applyBloodLossTick({ ...args, delta });
+  const version = blood ? mergeCombatOverlay(args.version, blood) : args.version;
+  const dots = await applyEndOfTurnDots({ ...args, version });
 
-  return applyBloodLossTick({ ...args, delta });
+  return dots ?? blood;
 }

@@ -30,6 +30,7 @@ export interface CheckOfferProposal {
     actionName?: string;
     actionOd?: number;
     distanceIpari?: number | null;
+    cover?: number;
     reach?: number;
     falloff?: DimensionalNumberValue;
     flank?: boolean;

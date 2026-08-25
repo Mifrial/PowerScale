@@ -28,6 +28,7 @@ import { combatCardModel, combatEntityName } from '@/modules/Roleplay/Game/Utils
 import { replaceCombatOverlay } from '@/modules/Roleplay/Game/Utils/mergeCombatOverlay';
 import { listBlockProfiles, rollHit, type HitCheckRoll } from '@/modules/Roleplay/Game/Utils/hitRoll';
 import { resolveHitProcedure } from '@/modules/Roleplay/Game/Utils/resolveStrikeProcedure';
+import { DEFAULT_FALLOFF, rangedHitDifficulty } from '@/modules/Roleplay/Character/Utils/weaponAttackRange';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import { resolveDamageTypeHooks } from '@/modules/Roleplay/Game/Utils/resolveDamageTypeHooks';
 import {
@@ -101,10 +102,12 @@ const defenseEfficiency = ref<DimensionalNumberValue>({ base: 4, size: -1 });
 const blockItemRuleId = ref<string | null>(null);
 const selectedActionRuleId = ref<string | null>(null);
 const distanceIpari = ref(1);
+const cover = ref(0);
 const flank = ref(false);
 const turn = ref(false);
 const agreedInitiatorAdv = ref(0);
 const agreedOpponentAdv = ref(0);
+const agreedCover = ref(0);
 const busy = ref(false);
 const error = ref<string | null>(null);
 
@@ -220,6 +223,14 @@ const isRanged = computed(
   () => currentAttack.value?.profileType === 'throw' || currentAttack.value?.profileType === 'shoot',
 );
 
+const canEditCover = computed(() => isCompose.value || myTurn.value);
+
+const ignoreDifficultyPreview = computed(() => {
+  if (!isRanged.value) return procedure.value.ignoreDefense;
+
+  return rangedHitDifficulty(cover.value, 0, distanceIpari.value, currentAttack.value?.falloff ?? DEFAULT_FALLOFF);
+});
+
 const resolvedAttack = computed(() => {
   const attack = currentAttack.value;
   if (!attack || !isRanged.value) return attack;
@@ -266,8 +277,10 @@ const attackSelectItems = computed(() =>
 
 const advantageDirty = computed(() => {
   if (!offer.value) return false;
+  if (attackerAdv.value !== agreedInitiatorAdv.value || defenderAdv.value !== agreedOpponentAdv.value) return true;
+  if (isRanged.value && cover.value !== agreedCover.value) return true;
 
-  return attackerAdv.value !== agreedInitiatorAdv.value || defenderAdv.value !== agreedOpponentAdv.value;
+  return false;
 });
 
 const dodgeAction = computed(() => reactionAction(props.rules, 'dodge'));
@@ -350,9 +363,11 @@ async function hydrate(): Promise<void> {
     defenderAdv.value = props.resumeOffer.proposal.opponentAdv;
     agreedInitiatorAdv.value = props.resumeOffer.proposal.initiatorAdv;
     agreedOpponentAdv.value = props.resumeOffer.proposal.opponentAdv;
+    agreedCover.value = Math.max(0, hit?.cover ?? 0);
     blockItemRuleId.value = hit?.blockItemRuleId ?? null;
     selectedActionRuleId.value = hit?.actionRuleId ?? selectedActionRuleId.value;
     distanceIpari.value = hit?.distanceIpari ?? props.attack?.minDistance ?? 1;
+    cover.value = Math.max(0, hit?.cover ?? 0);
     flank.value = hit?.flank ?? false;
     turn.value = hit?.turn ?? false;
     if (hit?.defenseEfficiency) {
@@ -370,8 +385,10 @@ async function hydrate(): Promise<void> {
   defenderAdv.value = 0;
   agreedInitiatorAdv.value = 0;
   agreedOpponentAdv.value = 0;
+  agreedCover.value = 0;
   blockItemRuleId.value = null;
   distanceIpari.value = Math.max(1, props.attack?.minDistance ?? 1);
+  cover.value = 0;
   flank.value = false;
   turn.value = false;
   defenseEfficiency.value = { ...procedure.value.dodgeEfficiency };
@@ -406,6 +423,7 @@ function hitProposal(attack: AttackOverview, nextReaction: HitDefenseReaction | 
     actionName: selectedAction.value?.name,
     actionOd: selectedAction.value?.odCost,
     distanceIpari: isRanged.value ? distanceIpari.value : null,
+    cover: isRanged.value ? Math.max(0, cover.value) : undefined,
     reach: preview.reach,
     falloff: preview.falloff,
     flank: flank.value,
@@ -493,6 +511,7 @@ async function acceptAndRoll(): Promise<void> {
         accepted.proposal.opponentAdv +
         checkAdvantageFromStates(versionOf(accepted.opponent), props.rules, { kind: 'hit' }),
       distanceIpari: hit.distanceIpari,
+      cover: hit.cover,
       flank: hit.flank,
       turn: hit.turn,
     },
@@ -819,6 +838,18 @@ const canSubmit = computed(() => {
             class="flex-grow-1"
             :disabled="!isCompose"
           />
+          <ClampedNumberField
+            v-if="isRanged"
+            v-model="cover"
+            label="Укрытие"
+            :min="0"
+            :max="20"
+            density="compact"
+            hide-details
+            min-width="110px"
+            class="flex-grow-1"
+            :disabled="!canEditCover"
+          />
           <v-checkbox
             v-model="flank"
             label="Фланг"
@@ -830,7 +861,7 @@ const canSubmit = computed(() => {
         </div>
         <div class="text-caption text-medium-emphasis">
           {{ procedure.code }}@{{ procedure.version }} · игнор
-          {{ new DimensionalNumber(procedure.ignoreDefense).toString() }}
+          {{ new DimensionalNumber(ignoreDifficultyPreview).toString() }}
         </div>
         <v-select
           v-model="opponentKey"

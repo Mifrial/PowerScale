@@ -24,6 +24,49 @@ export function difficultySizeFromRange(distanceIpari: number, falloff: Dimensio
   return extra;
 }
 
+export interface RangedHitDifficultyParts {
+  cover: number;
+  checkResult: number;
+  floorResult: number;
+  rangeSize: number;
+  distanceIpari: number;
+  difficulty: DimensionalNumberValue;
+}
+
+/**
+ * Сложность попадания ДБ: [max(1, результат проверки) + укрытие]↓ + полосы дальнобойности.
+ * Игнор: checkResult = 0. Уклон и блок: checkResult = число успехов своей проверки.
+ */
+export function rangedHitDifficultyParts(
+  cover: number,
+  checkResult: number,
+  distanceIpari: number,
+  falloff: DimensionalNumberValue,
+): RangedHitDifficultyParts {
+  const coverSafe = Math.max(0, Math.floor(cover));
+  const resultSafe = Math.max(0, Math.floor(checkResult));
+  const floorResult = Math.max(1, resultSafe);
+  const rangeSize = difficultySizeFromRange(distanceIpari, falloff);
+
+  return {
+    cover: coverSafe,
+    checkResult: resultSafe,
+    floorResult,
+    rangeSize,
+    distanceIpari,
+    difficulty: { base: floorResult + coverSafe, size: -1 + rangeSize },
+  };
+}
+
+export function rangedHitDifficulty(
+  cover: number,
+  checkResult: number,
+  distanceIpari: number,
+  falloff: DimensionalNumberValue,
+): DimensionalNumberValue {
+  return rangedHitDifficultyParts(cover, checkResult, distanceIpari, falloff).difficulty;
+}
+
 /** Полные шаги дальнобойности сверх reach: каждый −1 размер силы действия. */
 export function actionStrengthSizePenalty(
   distanceIpari: number,

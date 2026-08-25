@@ -13,6 +13,8 @@ import { CHECK_HIT_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_COD
 import { namedCheckSpec, rollJointCheck, rollNamedCheck } from '@/modules/Roleplay/Game/Utils/checkRoll';
 import { resolveHitProcedure } from '@/modules/Roleplay/Game/Utils/resolveStrikeProcedure';
 import { rollPoolDefaults } from '@/modules/Roleplay/Game/Utils/initiativeRoll';
+import { rollEngine } from '@/modules/Roleplay/Game/Service/Roll/Instance/rollEngine';
+import { resolveCheckAttachedRuleCodes } from '@/modules/Roleplay/Rule/Utils/checkResolution';
 import { itemModifierService } from '@/modules/Roleplay/Rule/Service/Instance/itemModifierService';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { HitDefenseReaction } from '@/modules/Roleplay/Game/Dto/CheckOffer';
@@ -27,7 +29,8 @@ import {
   strikeCharacteristicMods,
   STRIKE_STAT_LABEL,
 } from '@/modules/Roleplay/Game/Utils/strikeCharacteristicMods';
-import { DEFAULT_FALLOFF, difficultySizeFromRange } from '@/modules/Roleplay/Character/Utils/weaponAttackRange';
+import { DEFAULT_FALLOFF, rangedHitDifficultyParts } from '@/modules/Roleplay/Character/Utils/weaponAttackRange';
+import { withRangedHitBreakdown } from '@/modules/Roleplay/Game/Utils/rangedHitDifficultyRows';
 
 export type { HitDefenseReaction };
 
@@ -53,6 +56,7 @@ export interface HitRollInput {
   attackerAdv?: number;
   defenderAdv?: number;
   distanceIpari?: number | null;
+  cover?: number;
   flank?: boolean;
   turn?: boolean;
 }
@@ -133,8 +137,9 @@ export function listBlockProfiles(
 }
 
 /**
- * Попадание ББ 1v1. Identity `check-hit`. Игнор — соло vs РУ защиты процедуры (0↓).
- * Уклон/блок — joint (успехи защиты = сложность атаки).
+ * Попадание 1v1. Identity `check-hit`.
+ * ББ: игнор соло vs РУ процедуры; уклон/блок — joint (успехи защиты = сложность).
+ * ДБ: атака соло vs [max(1, результат защиты)+укрытие]↓ + полосы; игнор — результат 0.
  */
 export interface HitCheckRoll {
   attacker: DiceRollResult;
@@ -165,12 +170,24 @@ export function rollHit(input: HitRollInput, rng: DiceRng, rules: Rule[], mechan
     input.attackerKey,
     strikeMasteryAdjustments(attackMods.masteryDelta),
   );
-  const ignoreDefense = ranged
-    ? rangedIgnoreDefense(procedure.ignoreDefense, input.distanceIpari ?? 0, input.attack.falloff ?? DEFAULT_FALLOFF)
-    : procedure.ignoreDefense;
+  const distance = input.distanceIpari ?? 0;
+  const falloff = input.attack.falloff ?? DEFAULT_FALLOFF;
+  const cover = input.cover ?? 0;
   if (input.reaction === 'ignore') {
+    if (!ranged) {
+      return {
+        attacker: rollNamedCheck(attackSpec, CHECK_HIT_CODE, procedure.ignoreDefense, rng, rules, mechanics),
+        defender: null,
+      };
+    }
+    const parts = rangedHitDifficultyParts(cover, 0, distance, falloff);
+
     return {
-      attacker: rollNamedCheck(attackSpec, CHECK_HIT_CODE, ignoreDefense, rng, rules, mechanics),
+      attacker: withRangedHitBreakdown(
+        rollNamedCheck(attackSpec, CHECK_HIT_CODE, parts.difficulty, rng, rules, mechanics),
+        parts,
+        'ignore',
+      ),
       defender: null,
     };
   }
@@ -195,6 +212,20 @@ export function rollHit(input: HitRollInput, rng: DiceRng, rules: Rule[], mechan
     input.defenderKey,
     strikeMasteryAdjustments(defenseMods.masteryDelta),
   );
+  if (ranged) {
+    const attached = resolveCheckAttachedRuleCodes(CHECK_HIT_CODE, rules);
+    const defenderRolled = rollEngine.roll(defenseSpec, rng, rules, mechanics, attached, []);
+    const parts = rangedHitDifficultyParts(cover, Math.max(0, defenderRolled.totalSuccesses), distance, falloff);
+
+    return {
+      attacker: withRangedHitBreakdown(
+        rollNamedCheck(attackSpec, CHECK_HIT_CODE, parts.difficulty, rng, rules, mechanics),
+        parts,
+        input.reaction,
+      ),
+      defender: defenderRolled,
+    };
+  }
   const joint = rollJointCheck(attackSpec, defenseSpec, CHECK_HIT_CODE, rng, rules, mechanics);
 
   return { attacker: joint.left, defender: joint.right };
@@ -203,14 +234,6 @@ export function rollHit(input: HitRollInput, rng: DiceRng, rules: Rule[], mechan
 /** Совместимость со старыми тестами. */
 export function rollMeleeHit(input: HitRollInput, rng: DiceRng, rules: Rule[], mechanics: Mechanic[]): HitCheckRoll {
   return rollHit(input, rng, rules, mechanics);
-}
-
-function rangedIgnoreDefense(
-  base: DimensionalNumberValue,
-  distanceIpari: number,
-  falloff: DimensionalNumberValue,
-): DimensionalNumberValue {
-  return { base: base.base, size: base.size + difficultySizeFromRange(distanceIpari, falloff) };
 }
 
 export function hitHasDefenseRoll(reaction: HitDefenseReaction): boolean {

@@ -75,6 +75,34 @@ describe('applyAttackDamage', () => {
     expect(result.exhaustion).toBe(3);
   });
 
+  it('тик DOT: SR 1, сопротивление режет урон в ноль', () => {
+    const result = applyAttackDamage({
+      weaponDamage: { base: 3, size: 0 },
+      sr: 1,
+      damageTypeCode: 'fire',
+      defense: {
+        armor: [
+          {
+            itemRuleId: 'a',
+            itemName: 'Плащ',
+            href: '',
+            lines: [
+              line({ kind: 'resistance', value: 10, durability: 5, damageTypeCode: 'fire', sourceCode: 'armor' }),
+            ],
+            tiers: [],
+          },
+        ],
+        constantDefense: 0,
+        tiers: [],
+        shield: null,
+      },
+      endurance: 3,
+      hooks: [],
+    });
+    expect(result.hpDamage).toBe(0);
+    expect(result.exhaustion).toBe(0);
+  });
+
   it('РУ атаки игнорирует слои с надёжностью ≤ РУ, РУ не тратятся', () => {
     const lines = [
       line({ kind: 'resistance', value: 5, durability: 2, sourceCode: 'armor', damageTypeCode: 'piercing' }),

@@ -116,6 +116,13 @@ export interface IGameApi {
     state: CharacterStateValue,
     signal?: AbortSignal,
   ): Promise<GameCombatOverlay>;
+  replaceCombatState(
+    gameId: number,
+    entityKey: CombatEntityKey,
+    index: number,
+    state: CharacterStateValue,
+    signal?: AbortSignal,
+  ): Promise<GameCombatOverlay>;
   setCombatStateValue(
     gameId: number,
     entityKey: CombatEntityKey,

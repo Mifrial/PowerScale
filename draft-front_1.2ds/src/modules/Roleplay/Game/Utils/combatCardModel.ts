@@ -3,9 +3,12 @@ import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
+import type { CharacterPoisonValue } from '@/modules/Roleplay/Character/Dto/CharacterPoisonValue';
 import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/CharacterStateValue';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import type { PoisonSpec } from '@/modules/Roleplay/Rule/Dto/Poison/PoisonSpec';
 import type { StateAggregation, StateSpec, StateValueType } from '@/modules/Roleplay/Rule/Dto/State/StateSpec';
+import { POISONING_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
 import type { CharacterOverview } from '@/modules/Roleplay/Character/Dto/Overview/CharacterOverview';
 import type { CombatMasterySection } from '@/modules/Roleplay/Character/Dto/Overview/CombatMasterySection';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
@@ -118,7 +121,7 @@ export function combatCardModel(
   };
 }
 
-function poisonName(state: CharacterStateValue, rules: Rule[]): string {
+export function poisonName(state: CharacterStateValue, rules: Rule[]): string {
   const poisonRuleId = state.poison?.poisonRuleId;
   const rule = poisonRuleId ? rules.find((candidate) => candidate.id === poisonRuleId) : null;
 
@@ -329,8 +332,52 @@ export function resolveQuickRollRecords(ruleIds: string[], records: QuickRollRec
   return ruleIds.map((ruleId) => byId.get(ruleId)).filter((record): record is QuickRollRecord => record !== undefined);
 }
 
+export function poisonRuleOptions(rules: Rule[]): { ruleId: string; name: string }[] {
+  return rules.filter((rule) => rule.type === 'poison').map((rule) => ({ ruleId: rule.id, name: rule.name }));
+}
+
+export function poisonValueFromRule(rules: Rule[], poisonRuleId: string | null): CharacterPoisonValue {
+  const rule = poisonRuleId ? rules.find((item) => item.id === poisonRuleId && item.type === 'poison') : undefined;
+  if (!rule) {
+    return { poisonRuleId: null, strength: { base: 1, size: 0 } };
+  }
+  const spec = rule.spec as PoisonSpec | undefined;
+
+  return {
+    poisonRuleId: rule.id,
+    damage_type_code: spec?.damage_type_code,
+    strength: spec?.default_strength ?? { base: 1, size: 0 },
+    periodicity: spec?.default_periodicity,
+    decay: spec?.default_decay,
+  };
+}
+
+export function resolvedPoisonValue(state: CharacterStateValue, rules: Rule[]): CharacterPoisonValue {
+  const fromRule = poisonValueFromRule(rules, state.poison?.poisonRuleId ?? null);
+
+  return {
+    poisonRuleId: state.poison?.poisonRuleId ?? fromRule.poisonRuleId,
+    damage_type_code: state.poison?.damage_type_code ?? fromRule.damage_type_code,
+    strength: state.poison?.strength ?? fromRule.strength,
+    periodicity: state.poison?.periodicity ?? fromRule.periodicity,
+    decay: state.poison?.decay ?? fromRule.decay,
+  };
+}
+
+export function resolvedPoisonStrength(state: CharacterStateValue, rules: Rule[]): DimensionalNumberValue | null {
+  return resolvedPoisonValue(state, rules).strength ?? null;
+}
+
 /** Значение по умолчанию для нового состояния из пикера (number → 1, dimensional → 1с0). */
-export function defaultStateEntry(option: CombatStateOption): Omit<CharacterStateValue, 'stateRuleId'> {
+export function defaultStateEntry(
+  option: CombatStateOption,
+  rules: Rule[] = [],
+): Omit<CharacterStateValue, 'stateRuleId'> {
+  if (option.code === POISONING_STATE_CODE) {
+    const first = poisonRuleOptions(rules)[0];
+
+    return { poison: poisonValueFromRule(rules, first?.ruleId ?? null) };
+  }
   if (option.valueType === 'number') return { value: 1 };
   if (option.valueType === 'dimensional') return { dimensionalValue: { base: 1, size: 0 } };
 

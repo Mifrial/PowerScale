@@ -21,13 +21,13 @@ const ruleCatalogStore = useRuleCatalogStore();
 
 const code = computed(() => props.segment.params[0] ?? '');
 
-// Имя из ревизии игры (переданной контекстом), иначе — из глобального каталога.
 const ruleName = computed(() => props.context?.ruleNames?.[code.value] ?? null);
 const rule = computed(() => {
   if (props.context?.ruleNames) return ruleName.value ? { id: code.value, name: ruleName.value } : null;
 
   return ruleCatalogStore.findRule(code.value) ?? null;
 });
+const displayName = computed(() => props.segment.params[1]?.trim() || rule.value?.name || null);
 
 watch(
   code,
@@ -55,7 +55,7 @@ watch(
 <template>
   <span v-if="rule" class="chat-rule-chip" @click="sliderOpen = true">
     <v-icon size="x-small" class="mr-1">mdi-book-open-variant</v-icon>
-    <span class="chat-rule-chip__name">{{ rule.name }}</span>
+    <span class="chat-rule-chip__name">{{ displayName }}</span>
   </span>
   <span v-else-if="loaded" class="chat-rule-chip chat-rule-chip--hidden">
     <v-icon size="x-small" class="mr-1">mdi-book-lock</v-icon>

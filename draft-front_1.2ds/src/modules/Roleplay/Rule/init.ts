@@ -49,6 +49,8 @@ export function registerRuleModule(): void {
     type: 'rule',
     component: defineAsyncComponent(() => import('@/modules/Roleplay/Rule/Component/RuleChip.vue')),
     describe: (segment) => {
+      const override = segment.params[1]?.trim();
+      if (override) return override;
       const code = segment.params[0] ?? '';
       const rule = useRuleCatalogStore().findRule(code);
 

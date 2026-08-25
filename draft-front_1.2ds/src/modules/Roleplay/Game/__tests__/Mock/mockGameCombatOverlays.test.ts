@@ -3,6 +3,7 @@ import {
   fetchCombatOverlays,
   setCombatResource,
   addCombatState,
+  replaceCombatState,
   setCombatStateValue,
   removeCombatState,
   setCombatItemEquipped,
@@ -102,6 +103,12 @@ describe('mockGameCombatOverlays: состояния', () => {
     await setCombatStateValue(2, charKey, 0, 7);
     const overlay = getStoredCombatOverlay(2, charKey)!;
     expect(overlay.states[0].value).toBe(7);
+  });
+
+  it('replaceCombatState меняет запись целиком', async () => {
+    await replaceCombatState(2, charKey, 0, { stateRuleId: 'rule-56', value: 4, dotTurnsLeft: 2 });
+    const overlay = getStoredCombatOverlay(2, charKey)!;
+    expect(overlay.states[0]).toMatchObject({ value: 4, dotTurnsLeft: 2 });
   });
 
   it('removeCombatState удаляет состояние по индексу', async () => {

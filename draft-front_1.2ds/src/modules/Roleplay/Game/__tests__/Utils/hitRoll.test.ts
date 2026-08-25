@@ -234,6 +234,143 @@ describe('rollMeleeHit', () => {
     expect(rolled.attacker.check?.difficulty).toEqual({ base: 1, size: 0 });
   });
 
+  it('ДБ: cover 0 игнор vs 1↓; cover 2 vs 3↓', () => {
+    const throwAttack = {
+      itemName: 'Кинжал',
+      profileType: 'throw' as const,
+      accuracy: { base: 3, size: 0 },
+      reach: 2,
+      falloff: { base: 5, size: 0 },
+    };
+    const rangedOverview = {
+      combat: {
+        melee: { stat: { name: 'Общее', value: { base: 3, size: -1 } }, weapons: [] },
+        ranged: {
+          stat: { name: 'Общее', value: { base: 3, size: -1 } },
+          weapons: [{ name: 'Кинжал', shortName: 'Кинжал', value: { base: 3, size: -1 } }],
+        },
+      },
+    } as unknown as CharacterOverview;
+    const none = rollMeleeHit(
+      {
+        attackerLabel: 'А',
+        defenderLabel: 'Б',
+        attack: throwAttack,
+        attackerOverview: rangedOverview,
+        defenderOverview: rangedOverview,
+        reaction: 'ignore',
+        distanceIpari: 1,
+        cover: 0,
+      },
+      rngFromDice([2, 4, 1]),
+      [checkSimple, checkHit],
+      [],
+    );
+    expect(none.attacker.check?.difficulty).toEqual({ base: 1, size: -1 });
+    expect(none.attacker.check?.ranged_hit).toEqual({
+      cover: 0,
+      defense_result: 0,
+      reaction: 'ignore',
+      range_size: 0,
+      distance_ipari: 1,
+    });
+    const covered = rollMeleeHit(
+      {
+        attackerLabel: 'А',
+        defenderLabel: 'Б',
+        attack: throwAttack,
+        attackerOverview: rangedOverview,
+        defenderOverview: rangedOverview,
+        reaction: 'ignore',
+        distanceIpari: 1,
+        cover: 2,
+      },
+      rngFromDice([2, 4, 1]),
+      [checkSimple, checkHit],
+      [],
+    );
+    expect(covered.attacker.check?.difficulty).toEqual({ base: 3, size: -1 });
+    expect(covered.attacker.check?.ranged_hit?.cover).toBe(2);
+  });
+
+  it('ДБ уклон и блок: успехи в формулу, не joint', () => {
+    const throwAttack = {
+      itemName: 'Кинжал',
+      profileType: 'throw' as const,
+      accuracy: { base: 3, size: 0 },
+      reach: 2,
+      falloff: { base: 5, size: 0 },
+    };
+    const rangedOverview = {
+      combat: {
+        melee: { stat: { name: 'Общее', value: { base: 3, size: -1 } }, weapons: [] },
+        ranged: {
+          stat: { name: 'Общее', value: { base: 3, size: -1 } },
+          weapons: [{ name: 'Кинжал', shortName: 'Кинжал', value: { base: 3, size: -1 } }],
+        },
+      },
+    } as unknown as CharacterOverview;
+    const zeroDodge = rollMeleeHit(
+      {
+        attackerLabel: 'А',
+        defenderLabel: 'Б',
+        attack: throwAttack,
+        attackerOverview: rangedOverview,
+        defenderOverview: rangedOverview,
+        reaction: 'dodge',
+        defenseEfficiency: { base: 4, size: -1 },
+        distanceIpari: 1,
+        cover: 2,
+      },
+      rngFromDice([5, 5, 5, 2, 2, 2]),
+      [checkSimple, checkHit],
+      [],
+    );
+    expect(zeroDodge.defender?.totalSuccesses).toBe(0);
+    expect(zeroDodge.attacker.check?.difficulty).toEqual({ base: 3, size: -1 });
+    const twoDodge = rollMeleeHit(
+      {
+        attackerLabel: 'А',
+        defenderLabel: 'Б',
+        attack: throwAttack,
+        attackerOverview: rangedOverview,
+        defenderOverview: rangedOverview,
+        reaction: 'dodge',
+        defenseEfficiency: { base: 4, size: -1 },
+        distanceIpari: 1,
+        cover: 2,
+      },
+      rngFromDice([1, 1, 6, 2, 2, 2]),
+      [checkSimple, checkHit],
+      [],
+    );
+    expect(twoDodge.defender?.totalSuccesses).toBe(2);
+    expect(twoDodge.attacker.check?.difficulty).toEqual({ base: 4, size: -1 });
+    expect(twoDodge.attacker.check?.ranged_hit).toMatchObject({
+      cover: 2,
+      defense_result: 2,
+      reaction: 'dodge',
+    });
+    const block = rollMeleeHit(
+      {
+        attackerLabel: 'А',
+        defenderLabel: 'Б',
+        attack: throwAttack,
+        attackerOverview: rangedOverview,
+        defenderOverview: rangedOverview,
+        reaction: 'block',
+        defenseEfficiency: { base: 4, size: -1 },
+        distanceIpari: 1,
+        cover: 2,
+      },
+      rngFromDice([1, 1, 6, 2, 2, 2]),
+      [checkSimple, checkHit],
+      [],
+    );
+    expect(block.defender?.totalSuccesses).toBe(2);
+    expect(block.attacker.check?.difficulty).toEqual({ base: 4, size: -1 });
+  });
+
   it('фланг: 2 помехи защитнику; поворот снимает', () => {
     const withFlank = rollMeleeHit(
       {

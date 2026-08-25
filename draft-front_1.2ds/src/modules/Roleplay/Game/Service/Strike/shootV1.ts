@@ -4,7 +4,7 @@ import {
   HIT_PROCEDURE_VERSION_1,
 } from '@/modules/Roleplay/Rule/Constant/Combat/HIT_PROCEDURE';
 
-/** Выстрел 1.0.0: игнор vs 1↓ (укрытие 0). */
+/** Выстрел 1.0.0: база игнора 1↓ (укрытие 0, результат защиты 0). */
 export const shootV1: StrikeProcedure = {
   code: SHOOT_PROCEDURE_MECHANIC_CODE,
   version: HIT_PROCEDURE_VERSION_1,

@@ -384,6 +384,23 @@ export class GameApi implements IGameApi {
     return res.data;
   }
 
+  async replaceCombatState(
+    gameId: number,
+    entityKey: CombatEntityKey,
+    index: number,
+    state: CharacterStateValue,
+    signal?: AbortSignal,
+  ): Promise<GameCombatOverlay> {
+    const res = await this.engine.runAction<GameCombatOverlay>(
+      'game.replaceCombatState',
+      { gameId, entityKey, index, state },
+      signal,
+    );
+    if (!res.data) throw new Error('Replace combat state failed');
+
+    return res.data;
+  }
+
   async setCombatStateValue(
     gameId: number,
     entityKey: CombatEntityKey,

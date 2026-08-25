@@ -125,6 +125,7 @@ interface CharacterStateValue {
   value?: number
   dimensionalValue?: { base: number; size: number }
   poison?: CharacterPoisonValue           // заполняется для состояния «Отравление»
+  dotTurnsLeft?: number                   // ходов до тика DOT
 }
 
 interface CharacterPoisonValue {
@@ -148,9 +149,10 @@ interface CharacterPoisonValue {
 ```ts
 interface CharacterStateValue {
   stateRuleId: string
-  value?: number                              // number: целое значение; flag не заполняется
-  dimensionalValue?: { base: number; size: number }   // dimensional
-  poison?: CharacterPoisonValue               // см. §2а — блок отравления
+  value?: number
+  dimensionalValue?: { base: number; size: number }
+  poison?: CharacterPoisonValue
+  dotTurnsLeft?: number            // ходов до тика DOT (step turn); нет — взять период
 }
 ```
 
@@ -162,8 +164,7 @@ interface CharacterStateValue {
 - Эффекты `characteristic_modify`: вливаются в модификаторы характеристики
   (источник = правило состояния); вычисленное значение характеристики — через
   `DimensionalNumber.modify(delta, range)`.
-- Эффекты `damage_over_time`: профиль на карточке; тик ран в конце хода пишет в кровопотерю
-  (не leftover). Лимит ОД в бою: эффективные характеристики → формулы `buildResources` →
+- Эффекты `damage_over_time`: профиль на карточке. **Тик в конце своего хода** («Передать ход»), после крови из ран: горение и каждое отравление независимо. Только `periodicity.step = 'turn'`. Счётчик `dotTurnsLeft` (нет поля — как `period`; period 1 тикает в этот конец хода). Урон через `applyAttackDamage` с РУ 1 vs сопротивление типа; горение — тип `fire`, сила = `dimensionalValue`, без затухания. Яд — сила/период/затухание/тип с блока или шаблона; затухание v1: `fixed` (минус к базе силы) и `dimensional`; сила ≤ 0 снимает запись. Чат тика: `[[персонаж]] получает N урона от [[rule:тип,родительный]], что наносит ему M истощение` + [i] (сила, сопротивление, повреждения, истощение). На боевой карточке у горения задаётся размерная сила; у отравления — правило-яд, тип урона и сила (пустой флаг больше не вешается). `characteristic`/`check` и шаги минута/час — позже. С удара горение/яд **не** навешиваем; горение от урона огнём — при детализации правил (ТР §15 п.12). Лимит ОД в бою: эффективные характеристики → формулы `buildResources` →
   Σ `resource_limit_modify` → `resource_limit_set` → floor 0 → кламп current.
 - Помехи: Σ `check_advantage`. Без scope — все проверки; иначе только `includes_hit` и характеристики из `characteristic_codes` плюс их производные (`formula` min/max). Увечье: попадание + Сила + Ловкость, не Воля и не увечье.
 

@@ -8,6 +8,8 @@ export const WEAKNESS_STATE_CODE = 'weakness';
 export const DISABLED_STATE_CODE = 'disabled';
 export const UNCONSCIOUS_STATE_CODE = 'unconscious';
 export const BLOOD_LOSS_STATE_CODE = 'blood-loss';
+export const BURNING_STATE_CODE = 'burning';
+export const POISONING_STATE_CODE = 'poisoning';
 
 /** Группа «Упадок сил»: одновременно не больше одного исхода. */
 export const DECLINE_STATE_CODES = [WEAKNESS_STATE_CODE, DISABLED_STATE_CODE, UNCONSCIOUS_STATE_CODE] as const;

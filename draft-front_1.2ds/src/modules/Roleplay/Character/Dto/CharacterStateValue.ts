@@ -13,6 +13,8 @@ export interface CharacterStateValue {
   dimensionalValue?: { base: number; size: number };
   /** Только для состояния «Отравление»: применённый яд. */
   poison?: CharacterPoisonValue;
+  /** Ходов до следующего тика DOT (`step: turn`). Нет — взять период (period 1 тикает в этот конец хода). */
+  dotTurnsLeft?: number;
   /** Только для состояния «Увечье»: срок и флаги этой записи (не суммируется с другими). */
   maim?: {
     permanent: boolean;
