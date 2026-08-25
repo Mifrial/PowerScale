@@ -53,6 +53,7 @@ import {
 } from '@/modules/Roleplay/Rule/Utils/derivedCharacteristic';
 import { mechanicEngine } from '@/modules/Roleplay/Rule/init';
 import { PURCHASE_SURCHARGE_EVENT } from '@/modules/Roleplay/Rule/Service/Mechanic/Handlers/PurchaseSurchargeHandler';
+import { applyRacialInnateGear } from '@/modules/Roleplay/Character/Utils/racialInnateGear';
 import { itemModifierService } from '@/modules/Roleplay/Rule/Service/Instance/itemModifierService';
 import type { InventoryItem } from '@/modules/Roleplay/Character/Dto/InventoryItem';
 import { DOMAIN_REF_RULE_TYPES } from '@/modules/Roleplay/Rule/Constant/Ability/DOMAIN_REF_RULE_TYPES';
@@ -108,37 +109,38 @@ export class CharacterEditorService {
     keywords: Keyword[] = [],
     mechanics: Mechanic[] = [],
   ): CharacterVersion {
+    const synced = applyRacialInnateGear(build, rules);
     const reference = new CharacterReferenceService(rules, build.spaceCode, build.rulesRevision);
-    const race = this.buildRace(build, reference);
-    const senses = this.buildSenses(build, reference);
-    const characteristics = this.buildCharacteristics(build, reference, senses, keywords);
-    const resources = this.buildResources(build, reference, characteristics, keywords);
-    const budgets = this.buildBudgets(build, config, race, reference, keywords, mechanics);
+    const race = this.buildRace(synced, reference);
+    const senses = this.buildSenses(synced, reference);
+    const characteristics = this.buildCharacteristics(synced, reference, senses, keywords);
+    const resources = this.buildResources(synced, reference, characteristics, keywords);
+    const budgets = this.buildBudgets(synced, config, race, reference, keywords, mechanics);
 
     return {
-      name: build.name,
-      shortDescription: build.shortDescription,
-      fullDescription: build.fullDescription,
-      spaceCode: build.spaceCode,
-      rulesRevision: build.rulesRevision,
-      raceRuleId: build.raceRuleId,
+      name: synced.name,
+      shortDescription: synced.shortDescription,
+      fullDescription: synced.fullDescription,
+      spaceCode: synced.spaceCode,
+      rulesRevision: synced.rulesRevision,
+      raceRuleId: synced.raceRuleId,
       characteristics: characteristics.map((value) => ({
         ruleId: value.ruleId,
         base: value.base,
         modifiers: value.modifiers,
       })),
       resources,
-      abilities: build.abilities,
+      abilities: synced.abilities,
       points: {
         osSpent: budgets.os.spent,
         olSpent: budgets.ol.spent,
-        olTotal: budgets.ol.total ?? build.olTotal,
+        olTotal: budgets.ol.total ?? synced.olTotal,
         orSpent: budgets.or.spent,
         orTotal: config.orTotal,
       },
-      money: build.money,
-      ageYears: build.ageYears,
-      inventory: build.inventory,
+      money: synced.money,
+      ageYears: synced.ageYears,
+      inventory: synced.inventory,
       states: build.states,
       senses: senses.map((value) => ({
         ruleId: value.ruleId,
@@ -596,27 +598,18 @@ export class CharacterEditorService {
     // дарованного навыка списывается только разница сверх подаренного уровня.
     const giftedLevels = this.giftedAbilityLevels(build, reference);
     for (const ability of build.abilities) {
-      // Записи-дары (gifted) не списывают бюджет — их уровень вычисляется из гранта (D100).
-      if (ability.gifted) continue;
       const rule = reference.ruleById(ability.ruleId);
       const spec = rule?.type === 'ability' ? (rule.spec as AbilitySpec | undefined) : undefined;
       if (!spec || !rule) continue;
       if (spec.type === 'group') continue;
-      // D111: способность списывает только зону покупки (характеристики дают ОС).
-      // У способностей с одной покупаемой зоной она определяется автоматически;
-      // у мультизонных (os+or) зона фиксируется в записи при покупке.
       const zoneCode = ability.zone ?? this.purchasableZoneOf(spec);
       if (!zoneCode) continue;
-      // «Владение оружием» (domain_ref weapon-family): стоимость уровней — лестница выбранной
-      // семьи (правило weapon_family), а не заглушка зоны способности.
       const cost = this.weaponFamilyCostOf(rule, ability, reference) ?? spec.zones[zoneCode];
       if (!cost) continue;
       const resolveParameter = (code: string) =>
         this.parameterCostValue(build, rule, spec, code, parameterAutoValues, raceFixedBases);
       const total = this.totalCostAtLevel(cost, ability.level, resolveParameter);
-      const giftedLevel = spec.multiple === true ? 0 : (giftedLevels.get(rule.code) ?? 0);
-      // Списывается только стоимость сверх подаренного уровня D100: полностью дарованный
-      // навык (level ≤ giftedLevel) — 0; апгрейд — разница cost(level) − cost(giftedLevel).
+      const giftedLevel = ability.gifted ? 1 : spec.multiple === true ? 0 : (giftedLevels.get(rule.code) ?? 0);
       let paid = total;
       if (giftedLevel > 0) {
         paid = ability.level > giftedLevel ? total - this.totalCostAtLevel(cost, giftedLevel, resolveParameter) : 0;

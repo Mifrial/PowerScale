@@ -150,7 +150,7 @@ type Grant =
   | { type: 'resource_limit_change'; resource_code: string; amount: Formula; source_code: string; permanent?: boolean }  // меняет лимит ресурса на amount (источник обязателен)
   | { type: 'ability'; ability_code: string; permanent?: boolean }                                                     // даёт другую способность
   | { type: 'tag'; tag_code: string; remove?: boolean; permanent?: boolean }                                           // добавить/убрать признак
-  | { type: 'item'; item_code: string; permanent?: boolean }                                                           // даёт предмет/врождённое
+  | { type: 'item'; item_code: string; quantity?: number; permanent?: boolean }                                        // даёт предмет/врождённое; quantity — экземпляры (конечности)
 ```
 
 - `characteristic` (дать) vs `characteristic_modify` (изменить) — разные дары.

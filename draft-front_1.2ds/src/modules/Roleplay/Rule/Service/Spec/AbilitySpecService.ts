@@ -201,7 +201,7 @@ export class AbilitySpecService {
       case 'keyword':
         return { type: 'keyword', keyword_code: '', remove: false };
       case 'item':
-        return { type: 'item', item_code: '' };
+        return { type: 'item', item_code: '', quantity: 1 };
       case 'resistance':
         return {
           type: 'resistance',

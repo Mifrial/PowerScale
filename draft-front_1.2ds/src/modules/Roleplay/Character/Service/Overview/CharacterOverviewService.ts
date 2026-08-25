@@ -47,6 +47,7 @@ import { WEAPON_PROFILE_LABELS } from '@/modules/Roleplay/Character/Constant/WEA
 import { DAMAGE_TYPE_FORMS } from '@/modules/Roleplay/Character/Constant/DAMAGE_TYPE_FORMS';
 import { formulaLabel } from '@/modules/Roleplay/Character/Utils/formulaLabel';
 import { itemModifierService } from '@/modules/Roleplay/Rule/Service/Instance/itemModifierService';
+import { applyRacialInnateGear } from '@/modules/Roleplay/Character/Utils/racialInnateGear';
 import type { InventoryItem } from '@/modules/Roleplay/Character/Dto/InventoryItem';
 import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/CharacterStateValue';
 import type { CharacterPoisonValue } from '@/modules/Roleplay/Character/Dto/CharacterPoisonValue';
@@ -70,10 +71,11 @@ export class CharacterOverviewService {
   ) {}
 
   build(version: CharacterVersion, rules: Rule[]): CharacterOverview {
-    const reference = new CharacterReferenceService(rules, version.spaceCode, version.rulesRevision);
-    const abilityLevels = new Map(version.abilities.map((ability) => [ability.ruleId, ability.level]));
-    const coreList = version.characteristics.map((value) =>
-      this.buildCharacteristicCore(value, reference, abilityLevels, version),
+    const synced = applyRacialInnateGear(version, rules);
+    const reference = new CharacterReferenceService(rules, synced.spaceCode, synced.rulesRevision);
+    const abilityLevels = new Map(synced.abilities.map((ability) => [ability.ruleId, ability.level]));
+    const coreList = synced.characteristics.map((value) =>
+      this.buildCharacteristicCore(value, reference, abilityLevels, synced),
     );
     // Контекст формул (атаки/бой) — по ИТОГОВЫМ значениям характеристик (база + модификаторы):
     // «Сила 5 с тренировкой» в формулах урона — 5, а не голая база.
@@ -102,22 +104,22 @@ export class CharacterOverviewService {
         delta: overview.delta + amount,
       };
     });
-    const contextAfterStates = this.buildFormulaContext(withStates, version, reference);
+    const contextAfterStates = this.buildFormulaContext(withStates, synced, reference);
 
-    const resources = this.buildResources(version, reference, rules, withStates);
-    const abilities = this.buildAbilities(version, reference);
-    const inventory = this.buildInventory(version, reference);
+    const resources = this.buildResources(synced, reference, rules, withStates);
+    const abilities = this.buildAbilities(synced, reference);
+    const inventory = this.buildInventory(synced, reference);
 
     return {
       characteristics: withStates.filter((overview) => overview.group !== 'combat' && overview.group !== 'base'),
-      combat: this.buildCombat(version, withStates, reference),
+      combat: this.buildCombat(synced, withStates, reference),
       resources,
       abilities,
-      misc: this.buildMisc(version),
+      misc: this.buildMisc(synced),
       inventory,
-      defense: this.buildDefense(version, reference),
-      attacks: this.buildAttacks(version, reference, contextAfterStates),
-      states: this.buildStates(version, reference),
+      defense: this.buildDefense(synced, reference),
+      attacks: this.buildAttacks(synced, reference, contextAfterStates),
+      states: this.buildStates(synced, reference),
     };
   }
 

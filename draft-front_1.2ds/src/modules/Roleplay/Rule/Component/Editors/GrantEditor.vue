@@ -248,6 +248,14 @@ function patch(key: string, value: unknown) {
           hide-details
           clearable
         />
+        <ClampedNumberField
+          :model-value="inner.quantity ?? 1"
+          :min="1"
+          @update:model-value="patch('quantity', $event)"
+          label="Количество"
+          density="compact"
+          hide-details
+        />
       </template>
 
       <template v-else-if="inner.type === 'money'">

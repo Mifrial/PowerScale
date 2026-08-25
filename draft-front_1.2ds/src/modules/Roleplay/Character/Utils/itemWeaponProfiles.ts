@@ -117,7 +117,9 @@ export function itemParamsView(
   const resolveName = (code: string): string | null => rules.find((rule) => rule.code === code)?.name ?? null;
 
   const weightLabel =
-    spec.weight === null || spec.weight === undefined ? null : `${new DimensionalNumber(spec.weight).toString()} кг`;
+    spec.innate || spec.weight === null || spec.weight === undefined
+      ? null
+      : `${new DimensionalNumber(spec.weight).toString()} кг`;
   const minStrength = weapon?.min_strength ?? shield?.min_strength ?? null;
   const minStrengthLabel =
     minStrength === null || minStrength === undefined ? null : new DimensionalNumber(minStrength).toString();

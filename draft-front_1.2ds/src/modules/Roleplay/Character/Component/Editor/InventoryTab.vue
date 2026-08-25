@@ -428,7 +428,7 @@ function toggleEquipped(itemId: number): void {
 
     return;
   }
-  const next = characterBuildService.toggleItemEquipped(currentBuild(), itemId);
+  const next = characterBuildService.toggleItemEquipped(currentBuild(), itemId, props.rules);
   mutateBuild({ inventory: next.inventory });
 }
 
@@ -471,8 +471,8 @@ function setSkillLevel(ruleId: string, level: number): void {
 }
 
 function resetInventory(): void {
-  const next = characterBuildService.resetInventory(currentBuild(), baseline.value);
-  mutateBuild({ inventory: next.inventory, money: next.money });
+  const next = characterBuildService.resetInventory(currentBuild(), baseline.value, props.rules);
+  mutateBuild({ inventory: next.inventory, money: next.money, abilities: next.abilities });
 }
 
 function openWeaponSkills(familyCode: string, keywordCode: string | null): void {

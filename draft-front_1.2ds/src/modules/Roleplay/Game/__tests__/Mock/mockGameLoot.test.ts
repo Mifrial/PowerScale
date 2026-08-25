@@ -244,10 +244,10 @@ describe('mockGameLoot: раздача', () => {
   });
 
   it('раздача НПС лениво инициализирует полный лист (Н1 → Н2)', async () => {
-    const npc = gameNpcs.find((n) => n.id === 2);
+    const npc = gameNpcs.find((n) => n.id === 4);
     expect(npc?.version).toBeNull();
     const id = await availableMoney(50);
-    await distributeLoot(id, { distribution: [{ type: 'npc', npcId: 2, amount: 25 }] });
+    await distributeLoot(id, { distribution: [{ type: 'npc', npcId: 4, amount: 25 }] });
     expect(npc?.version).not.toBeNull();
     expect(npc?.version?.money).toBe(25);
     expect(npc?.version?.spaceCode).toBe(gameDetails.find((d) => d.game.id === 1)?.game.spaceCode);

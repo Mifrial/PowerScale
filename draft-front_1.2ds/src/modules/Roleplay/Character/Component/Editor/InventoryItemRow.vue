@@ -92,11 +92,14 @@ const effectiveSpec = computed<ItemSpec | undefined>(() => {
 
 const { openRule } = useRuleDetailSlider();
 
-const showPurchase = computed(() => props.showPurchase !== false);
+const showPurchase = computed(() => props.showPurchase !== false && !props.item.spec?.innate);
 const allowEquip = computed(() => props.allowEquip !== false);
 const allowAbilityEdit = computed(() => props.allowAbilityEdit !== false);
 const canEquip = computed(
-  () => allowEquip.value && Boolean(props.item.spec?.weapon || props.item.spec?.armor || props.item.spec?.shield),
+  () =>
+    allowEquip.value &&
+    !props.item.spec?.innate &&
+    Boolean(props.item.spec?.weapon || props.item.spec?.armor || props.item.spec?.shield),
 );
 
 const canCancel = computed(() => showPurchase.value && props.ownedQty > props.baselineQty);
@@ -188,6 +191,7 @@ const open = computed({
         <span class="font-weight-medium text-truncate">{{ item.name }}</span>
         <LightChip>{{ item.subtitle }}</LightChip>
         <LightChip v-if="item.section" variant="outlined">{{ item.section }}</LightChip>
+        <LightChip v-if="item.spec?.innate" color="secondary">врождённое</LightChip>
         <LightChip v-if="equipped && mode === 'owned'" color="primary">экипировано</LightChip>
 
         <div class="item-row__spacer" />
@@ -195,7 +199,7 @@ const open = computed({
         <LightChip v-for="name in selectedEffects.map((modifier) => modifier.name)" :key="name" variant="outlined">
           {{ name }}
         </LightChip>
-        <LightChip variant="outlined">{{ displayCost }} гм</LightChip>
+        <LightChip v-if="!item.spec?.innate" variant="outlined">{{ displayCost }} гм</LightChip>
         <div class="d-flex align-center ga-1">
           <LightButton
             v-if="showPurchase"

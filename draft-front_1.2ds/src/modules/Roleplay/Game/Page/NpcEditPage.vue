@@ -9,12 +9,15 @@ import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { characterBuildService } from '@/modules/Roleplay/Character/Service/Instance/characterBuildService';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 import { canEditGame } from '@/modules/Roleplay/Game/Utils/access';
+import { needsNpcMigration } from '@/modules/Roleplay/Game/Utils/npcRevision';
 import { CharacterSheetEditor } from '@/modules/Roleplay/Character/init';
+import NpcMigrationDialog from '@/modules/Roleplay/Game/Component/Detail/NpcMigrationDialog.vue';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { CharacterBuild } from '@/modules/Roleplay/Character/Dto/Editor/CharacterBuild';
 import type { CharacterCreationConfig } from '@/modules/Roleplay/Character/Dto/Editor/CharacterCreationConfig';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import type { GameDetail } from '@/modules/Roleplay/Game/Dto/GameDetail';
 
 const route = useRoute();
 const router = useRouter();
@@ -26,6 +29,8 @@ const { signal } = useAbortable();
 
 const loading = ref(false);
 const npcRef = ref<GameNpc | null>(null);
+const gameDetailRef = ref<GameDetail | null>(null);
+const migrationOpen = ref(false);
 
 const gameId = computed(() => {
   const raw = route.params.id;
@@ -42,6 +47,14 @@ const npcId = computed(() => {
 });
 
 const draftKey = computed<string | null>(() => (Number.isFinite(npcId.value) ? `npc:${npcId.value}` : null));
+
+const stale = computed(() => {
+  const npc = npcRef.value;
+  const game = gameDetailRef.value?.game;
+  if (!npc || !game) return false;
+
+  return needsNpcMigration(npc, { rulesRevision: game.rulesRevision, spaceCode: game.spaceCode });
+});
 
 async function loadRules(spaceId: number, revision: number): Promise<Rule[]> {
   const revisionResult = await spaceRevisionStore.fetchRevision(spaceId, revision, signal.value);
@@ -75,6 +88,22 @@ function emptyBuild(
   };
 }
 
+async function initDraft(found: GameNpc, gameDetail: GameDetail): Promise<void> {
+  if (!draftKey.value) return;
+  const rules = await loadRules(gameDetail.game.spaceId, gameDetail.game.rulesRevision);
+  const config: CharacterCreationConfig = { osTotal: null, orTotal: null, moneyBudget: null };
+  const build = found.version
+    ? characterBuildService.fromVersion(found.version, gameDetail.game.spaceId, rules)
+    : emptyBuild(
+        found,
+        gameDetail.game.id,
+        gameDetail.game.spaceId,
+        gameDetail.game.spaceCode,
+        gameDetail.game.rulesRevision,
+      );
+  draftStore.initDraft(draftKey.value, build, config);
+}
+
 async function load(): Promise<void> {
   const gid = gameId.value;
   const nid = npcId.value;
@@ -99,16 +128,33 @@ async function load(): Promise<void> {
     return;
   }
   npcRef.value = found;
+  gameDetailRef.value = gameDetail;
 
-  if (!draftStore.hasDraft(draftKey.value)) {
-    const rules = await loadRules(gameDetail.game.spaceId, gameDetail.game.rulesRevision);
-    const config: CharacterCreationConfig = { osTotal: null, orTotal: null, moneyBudget: null };
-    const build = found.version
-      ? characterBuildService.fromVersion(found.version, gameDetail.game.spaceId, rules)
-      : emptyBuild(found, gid, gameDetail.game.spaceId, gameDetail.game.spaceCode, gameDetail.game.rulesRevision);
-    draftStore.initDraft(draftKey.value, build, config);
+  if (
+    needsNpcMigration(found, { rulesRevision: gameDetail.game.rulesRevision, spaceCode: gameDetail.game.spaceCode })
+  ) {
+    if (draftKey.value) draftStore.discard(draftKey.value);
+  } else if (!draftStore.hasDraft(draftKey.value)) {
+    await initDraft(found, gameDetail);
   }
   loading.value = false;
+}
+
+async function onMigrated(): Promise<void> {
+  const gid = gameId.value;
+  const nid = npcId.value;
+  const gameDetail = gameDetailRef.value;
+  if (!Number.isFinite(gid) || !Number.isFinite(nid) || !gameDetail || !draftKey.value) return;
+  const npcs = await getGameApi().getNpcs(gid);
+  const found = npcs.find((npc) => npc.id === nid);
+  if (!found) return;
+  draftStore.discard(draftKey.value);
+  if (
+    !needsNpcMigration(found, { rulesRevision: gameDetail.game.rulesRevision, spaceCode: gameDetail.game.spaceCode })
+  ) {
+    await initDraft(found, gameDetail);
+  }
+  npcRef.value = found;
 }
 
 /** Сохранение листа НПС: version + согласованные top-level имя/описания; теги/видимость сохраняются. */
@@ -140,6 +186,27 @@ onMounted(load);
       <v-progress-circular indeterminate width="2" size="28" color="primary" />
     </div>
 
+    <div v-else-if="stale" class="pa-6 d-flex flex-column ga-3" style="max-width: 560px">
+      <v-alert type="warning" variant="tonal">
+        Лист НПС на другой ревизии правил. Сначала переведите его на ревизию игры — иначе правки запекут сломанный
+        remap.
+      </v-alert>
+      <div class="d-flex ga-2">
+        <v-btn color="warning" variant="tonal" @click="migrationOpen = true">Перевести</v-btn>
+        <v-btn variant="text" @click="router.push(`/games/${gameId}`)">К игре</v-btn>
+      </div>
+    </div>
+
     <CharacterSheetEditor v-else-if="draftKey" :draft-key="draftKey" :require-race="false" @save="handleSave" />
+
+    <NpcMigrationDialog
+      v-if="gameDetailRef"
+      v-model:open="migrationOpen"
+      :game-space-id="gameDetailRef.game.spaceId"
+      :game-space-code="gameDetailRef.game.spaceCode"
+      :game-rules-revision="gameDetailRef.game.rulesRevision"
+      :npc="npcRef"
+      @applied="onMigrated"
+    />
   </v-container>
 </template>

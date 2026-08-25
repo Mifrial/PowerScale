@@ -22,7 +22,7 @@ export type Grant =
   | { type: 'resource_limit_change'; resource_code: string; amount: Formula; source_code: string; permanent?: boolean }
   | { type: 'ability'; ability_code: string; level?: number; permanent?: boolean }
   | { type: 'keyword'; keyword_code: string; remove?: boolean; permanent?: boolean }
-  | { type: 'item'; item_code: string; permanent?: boolean }
+  | { type: 'item'; item_code: string; quantity?: number; permanent?: boolean }
   | {
       type: 'resistance';
       damage_type_code: string;

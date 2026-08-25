@@ -14,6 +14,7 @@ import type { AbilityCost } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityCos
 import { characterEditorService } from '@/modules/Roleplay/Character/Service/Instance/characterEditorService';
 import { itemModifierService } from '@/modules/Roleplay/Rule/Service/Instance/itemModifierService';
 import { weaponFamilyLadder } from '@/modules/Roleplay/Character/Utils/weaponProficiency';
+import { applyRacialInnateGear } from '@/modules/Roleplay/Character/Utils/racialInnateGear';
 
 /**
  * Иммутабельные переходы выборов редактора (CharacterBuild). Компоненты не мутируют build
@@ -223,7 +224,19 @@ export class CharacterBuildService {
     level: number,
     rules: Rule[],
   ): CharacterBuild {
-    if (level <= 0) return this.removeAbilityInstance(build, masteryRuleId, familyName, rules);
+    if (level <= 0) {
+      const existing = build.abilities.find(
+        (ability) =>
+          ability.ruleId === masteryRuleId && (ability.domain === familyName || ability.domainCode === familyCode),
+      );
+      if (existing?.gifted) {
+        return this.setAbilityInstanceLevel(build, masteryRuleId, existing.domain ?? familyName, 1, rules, {
+          zone: 'or',
+        });
+      }
+
+      return this.removeAbilityInstance(build, masteryRuleId, familyName, rules);
+    }
     const withInstance = this.addAbilityInstance(build, masteryRuleId, familyName, rules, {
       zone: 'or',
       domainCode: familyCode,
@@ -585,7 +598,13 @@ export class CharacterBuildService {
   }
 
   /** Тумблер экипировки предмета (R3): без жёстких слотов. */
-  toggleItemEquipped(build: CharacterBuild, itemId: number): CharacterBuild {
+  toggleItemEquipped(build: CharacterBuild, itemId: number, rules: Rule[] = []): CharacterBuild {
+    const target = build.inventory.find((item) => item.id === itemId);
+    if (target?.ruleId) {
+      const rule = rules.find((entry) => entry.id === target.ruleId);
+      const spec = rule?.type === 'item' ? (rule.spec as ItemSpec | undefined) : undefined;
+      if (spec?.innate) return build;
+    }
     const inventory = build.inventory.map((item) =>
       item.id === itemId ? { ...item, equipped: !item.equipped } : item,
     );
@@ -594,10 +613,17 @@ export class CharacterBuildService {
   }
 
   /** Сброс инвентаря к базовой линии (R2): копия снапшота, деньги восстанавливаются. */
-  resetInventory(build: CharacterBuild, baseline: InventoryBaseline | null | undefined): CharacterBuild {
+  resetInventory(
+    build: CharacterBuild,
+    baseline: InventoryBaseline | null | undefined,
+    rules: Rule[] = [],
+  ): CharacterBuild {
     if (!baseline) return build;
 
-    return { ...build, inventory: baseline.inventory.map((item) => ({ ...item })), money: baseline.money };
+    return this.applyInnateGear(
+      { ...build, inventory: baseline.inventory.map((item) => ({ ...item })), money: baseline.money },
+      rules,
+    );
   }
 
   /** Цена предмета в гм с учётом модификаторов; null для не-предметов, innate и без cost_gm (R5). */
@@ -706,7 +732,7 @@ export class CharacterBuildService {
       return true;
     };
 
-    return { ...withNewRace, abilities: build.abilities.filter(compatible) };
+    return this.applyInnateGear({ ...withNewRace, abilities: build.abilities.filter(compatible) }, rules);
   }
 
   /**
@@ -714,23 +740,26 @@ export class CharacterBuildService {
    * по совпадению базы с лестницей расы; несовпавшая база откатывается к минимуму (прототип).
    */
   fromVersion(version: CharacterVersion, spaceId: number, rules: Rule[]): CharacterBuild {
-    return {
-      name: version.name,
-      shortDescription: version.shortDescription,
-      fullDescription: version.fullDescription,
-      spaceId,
-      spaceCode: version.spaceCode,
-      rulesRevision: version.rulesRevision,
-      raceRuleId: version.raceRuleId,
-      characteristicPurchases: this.purchasesFromVersion(version, rules),
-      abilities: version.abilities.map((ability) => ({ ...ability })),
-      resources: version.resources,
-      inventory: version.inventory.map((item) => ({ ...item })),
-      states: version.states,
-      money: version.money,
-      ageYears: version.ageYears ?? null,
-      olTotal: version.points.olTotal,
-    };
+    return this.applyInnateGear(
+      {
+        name: version.name,
+        shortDescription: version.shortDescription,
+        fullDescription: version.fullDescription,
+        spaceId,
+        spaceCode: version.spaceCode,
+        rulesRevision: version.rulesRevision,
+        raceRuleId: version.raceRuleId,
+        characteristicPurchases: this.purchasesFromVersion(version, rules),
+        abilities: version.abilities.map((ability) => ({ ...ability })),
+        resources: version.resources,
+        inventory: version.inventory.map((item) => ({ ...item })),
+        states: version.states,
+        money: version.money,
+        ageYears: version.ageYears ?? null,
+        olTotal: version.points.olTotal,
+      },
+      rules,
+    );
   }
 
   private purchasesFromVersion(version: CharacterVersion, rules: Rule[]): CharacteristicPurchase[] {
@@ -816,5 +845,11 @@ export class CharacterBuildService {
     if (takenInGroup >= selectLimit) return previous;
 
     return abilities;
+  }
+
+  private applyInnateGear(build: CharacterBuild, rules: Rule[]): CharacterBuild {
+    const next = applyRacialInnateGear(build, rules);
+
+    return { ...build, inventory: next.inventory, abilities: next.abilities };
   }
 }

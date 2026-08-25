@@ -34,9 +34,12 @@ describe('mockItemImport (S16, заход «Инвентарь»)', () => {
       expect(rule.description.length).toBeGreaterThan(0);
     }
     // Кристаллы импортированы без цены (таблица прайса не разобрана); всё снаряжение/зелья — с ценой.
-    const priced = items.filter(
-      (rule) => itemSpec(rule).weapon || itemSpec(rule).armor || itemSpec(rule).shield || itemSpec(rule).group_code,
-    );
+    const priced = items.filter((rule) => {
+      const spec = itemSpec(rule);
+      if (spec.innate) return false;
+
+      return spec.weapon || spec.armor || spec.shield || spec.group_code;
+    });
     for (const rule of priced) {
       expect(typeof itemSpec(rule).cost_gm).toBe('number');
     }
@@ -144,6 +147,21 @@ describe('mockItemImport (S16, заход «Инвентарь»)', () => {
     expect(leather?.keywordIds).toContain(kwId('open-face'));
     expect(plate?.keywordIds).toContain(kwId('open-face'));
     expect(plate?.keywordIds).toContain(kwId('requires-proficiency'));
+  });
+
+  it('естественное оружие: innate без цены, раздел «Естественное», семьи владения', () => {
+    const ruka = mockItemImport.find((rule) => rule.code === 'ruka');
+    const noga = mockItemImport.find((rule) => rule.code === 'noga');
+    const famNoga = mockItemImport.find((rule) => rule.code === 'fam-noga');
+    expect(itemSpec(ruka!).innate).toBe(true);
+    expect(itemSpec(noga!).innate).toBe(true);
+    expect(itemSpec(ruka!).cost_gm).toBeNull();
+    expect(itemSpec(noga!).cost_gm).toBeNull();
+    expect(ruka!.keywordIds).toContain(kwId('item-section-natural'));
+    expect(noga!.keywordIds).toContain(kwId('item-section-natural'));
+    expect(itemSpec(ruka!).proficiency_family_code).toBe('fam-kogti-ruki');
+    expect(itemSpec(noga!).proficiency_family_code).toBe('fam-noga');
+    expect(famNoga?.type).toBe('weapon_family');
   });
 
   it('все keywordIds предметов существуют в словаре признаков', () => {

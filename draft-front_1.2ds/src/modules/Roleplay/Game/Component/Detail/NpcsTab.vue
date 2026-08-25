@@ -10,6 +10,8 @@ import type { GameMember } from '@/modules/Roleplay/Game/Dto/GameMember';
 import type { User } from '@/modules/Core/User/Dto/User';
 import NpcCard, { type NpcCardData } from '@/modules/Roleplay/Game/Component/Detail/NpcCard.vue';
 import SheetVisibilityDialog from '@/modules/Roleplay/Game/Component/Detail/SheetVisibilityDialog.vue';
+import NpcMigrationDialog from '@/modules/Roleplay/Game/Component/Detail/NpcMigrationDialog.vue';
+import { needsNpcMigration } from '@/modules/Roleplay/Game/Utils/npcRevision';
 
 const props = defineProps<{
   /** Активна ли вкладка: перезагрузка при активации (v-window не размонтирует вкладки). */
@@ -19,6 +21,7 @@ const props = defineProps<{
   isMember: boolean;
   members: GameMember[];
   spaceId: number | null;
+  spaceCode: string | null;
   rulesRevision: number | null;
 }>();
 
@@ -42,6 +45,9 @@ const selectedNpc = ref<GameNpc | null>(null);
 
 const visibilityOpen = ref(false);
 const visibilityTarget = ref<GameNpc | null>(null);
+
+const migrationOpen = ref(false);
+const migrationTarget = ref<GameNpc | null>(null);
 
 const currentUser = computed<User | null>(() => userStore.currentUser);
 
@@ -87,6 +93,20 @@ const filteredMyProposals = computed(() => {
     (npc) => npc.name.toLowerCase().includes(q) || npc.tags.some((tag) => tag.toLowerCase().includes(q)),
   );
 });
+
+function npcNeedsMigration(npc: GameNpc): boolean {
+  return needsNpcMigration(npc, { rulesRevision: props.rulesRevision, spaceCode: props.spaceCode });
+}
+
+function openMigration(npc: GameNpc): void {
+  migrationTarget.value = npc;
+  cardOpen.value = false;
+  migrationOpen.value = true;
+}
+
+function onCardMigrate(): void {
+  if (selectedNpc.value) openMigration(selectedNpc.value);
+}
 
 function briefVisibility(): SheetVisibility {
   return [{ audience: 'all', sections: ['shortDescription'] }];
@@ -302,6 +322,25 @@ watch(
               </v-avatar>
               <span class="text-body-2">{{ npc.name }}</span>
               <v-chip
+                v-if="canManage && npcNeedsMigration(npc)"
+                color="warning"
+                variant="tonal"
+                size="x-small"
+                class="flex-shrink-0"
+              >
+                Требует перехода
+              </v-chip>
+              <v-btn
+                v-if="canManage && npcNeedsMigration(npc)"
+                size="x-small"
+                variant="tonal"
+                color="warning"
+                class="flex-shrink-0"
+                @click.stop="openMigration(npc)"
+              >
+                Перевести
+              </v-btn>
+              <v-chip
                 v-if="canManage && !isVisibleToAll(npc)"
                 :color="npc.visibility.length === 0 ? 'grey' : 'info'"
                 variant="tonal"
@@ -376,8 +415,20 @@ watch(
     :members="members"
     :space-id="spaceId"
     :rules-revision="rulesRevision"
+    :needs-migration="npcNeedsMigration(selectedNpc)"
     @save="handleSave"
     @delete="handleDelete"
+    @migrate="onCardMigrate"
+  />
+
+  <NpcMigrationDialog
+    v-if="spaceId !== null && spaceCode !== null && rulesRevision !== null"
+    v-model:open="migrationOpen"
+    :game-space-id="spaceId"
+    :game-space-code="spaceCode"
+    :game-rules-revision="rulesRevision"
+    :npc="migrationTarget"
+    @applied="load"
   />
 
   <SheetVisibilityDialog

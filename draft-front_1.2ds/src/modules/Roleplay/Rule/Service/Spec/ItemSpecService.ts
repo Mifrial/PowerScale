@@ -56,10 +56,20 @@ export class ItemSpecService {
       distance: { type: 'fixed', value: 0 },
       range: null,
       damage: {
-        formula: { type: 'characteristic', characteristic_code: strengthCode, modifier: 0 },
+        formula: {
+          type: 'actionCharacteristic',
+          action: 'strike',
+          characteristic: strengthCode,
+          modifier: [{ delta: 0, source_code: null, source_label: null }],
+        },
         damage_type_code: null,
       },
-      penetration: { type: 'characteristic', characteristic_code: strengthCode, modifier: 0 },
+      penetration: {
+        type: 'actionCharacteristic',
+        action: 'strike',
+        characteristic: strengthCode,
+        modifier: [{ delta: 0, source_code: null, source_label: null }],
+      },
       accuracy: { base: 3, size: 0 },
     });
   }
@@ -89,6 +99,10 @@ export class ItemSpecService {
       if (!active.has(field)) {
         delete out[field];
       }
+    }
+    if (out.innate) {
+      out.cost_gm = null;
+      out.weight = null;
     }
 
     return out;

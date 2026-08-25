@@ -108,6 +108,7 @@ const speciesRule = (
   parent: string | null,
   keywordIds: number[],
   ageYears?: { age: string; ageStart: number; ageEnd: number }[],
+  abilities: RaceAbilityRef[] = [],
 ): Rule => ({
   id: `rule-${nextId++}`,
   code,
@@ -117,7 +118,7 @@ const speciesRule = (
   spaceId: 1,
   spec: {
     parent_race_code: parent,
-    abilities: [],
+    abilities,
     ...(ageYears ? { age_years: ageYears } : {}),
   },
   keywordIds,
@@ -321,6 +322,7 @@ export const mockRaceImport: Rule[] = [
       { age: 'Зрелый', ageStart: 70, ageEnd: 90 },
       { age: 'Пожилой', ageStart: 90, ageEnd: 120 },
     ],
+    [{ ability_code: 'humanoid-body', automatic: true }],
   ),
   raceRule(
     'turim',
@@ -355,6 +357,7 @@ export const mockRaceImport: Rule[] = [
       { age: 'Зрелый', ageStart: 30, ageEnd: 40 },
       { age: 'Пожилой', ageStart: 40, ageEnd: 50 },
     ],
+    [{ ability_code: 'humanoid-body', automatic: true }],
   ),
   raceRule(
     'orgul',

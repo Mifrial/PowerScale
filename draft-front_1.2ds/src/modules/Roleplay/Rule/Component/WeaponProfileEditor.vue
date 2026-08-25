@@ -37,6 +37,8 @@ function isDefaultDistance(f: Formula): boolean {
   if (f.type === 'fixed' && f.value === 0) return true;
   if (f.type === 'characteristic' && (!f.characteristic_code || f.characteristic_code === '') && f.modifier === 0)
     return true;
+  if (f.type === 'actionCharacteristic' && !f.characteristic && f.modifier.every((entry) => entry.delta === 0))
+    return true;
 
   return false;
 }
@@ -64,7 +66,12 @@ watch(
       }
     } else if (newType === 'throw') {
       if (isDefaultDistance(profile.distance)) {
-        profile.distance = { type: 'characteristic', characteristic_code: strengthCode.value, modifier: 0 };
+        profile.distance = {
+          type: 'actionCharacteristic',
+          action: 'throw',
+          characteristic: strengthCode.value,
+          modifier: [{ delta: 0, source_code: null, source_label: null }],
+        };
       }
       if (!profile.range || isDefaultDistance(profile.range)) {
         profile.range = { type: 'fixed', value: 2 };
@@ -75,6 +82,12 @@ watch(
       }
       profile.range = null;
     }
+    const withAction = (formula: Formula): Formula =>
+      formula.type === 'actionCharacteristic' && formula.action !== newType ? { ...formula, action: newType } : formula;
+    profile.distance = withAction(profile.distance);
+    if (profile.range) profile.range = withAction(profile.range);
+    profile.damage.formula = withAction(profile.damage.formula);
+    profile.penetration = withAction(profile.penetration);
   },
 );
 
@@ -91,19 +104,34 @@ watch(
   <div>
     <div class="mb-2">
       <label class="text-caption text-medium-emphasis">Дистанция</label>
-      <FormulaInput v-model="localProfile.distance" :characteristics="characteristics" />
+      <FormulaInput
+        v-model="localProfile.distance"
+        :characteristics="characteristics"
+        :modes="['fixed', 'actionCharacteristic', 'dimensional']"
+        :action="localProfile.type"
+      />
     </div>
 
     <div v-if="localProfile.type === 'throw' || localProfile.type === 'shoot'" class="mb-2">
       <label class="text-caption text-medium-emphasis">Дальнобойность</label>
-      <FormulaInput v-model="localProfile.range" :characteristics="characteristics" />
+      <FormulaInput
+        v-model="localProfile.range"
+        :characteristics="characteristics"
+        :modes="['fixed', 'actionCharacteristic', 'dimensional']"
+        :action="localProfile.type"
+      />
     </div>
 
     <v-card class="mt-2 pa-3" variant="outlined">
       <v-card-title class="text-subtitle-2">Урон</v-card-title>
       <div class="d-flex gap-2">
         <div style="flex: 1 1 auto">
-          <FormulaInput v-model="localProfile.damage.formula" :characteristics="characteristics" />
+          <FormulaInput
+            v-model="localProfile.damage.formula"
+            :characteristics="characteristics"
+            :modes="['fixed', 'actionCharacteristic', 'dimensional']"
+            :action="localProfile.type"
+          />
         </div>
         <v-autocomplete
           v-model="localProfile.damage.damage_type_code"
@@ -121,7 +149,12 @@ watch(
 
     <v-card class="mt-2 pa-3" variant="outlined">
       <v-card-title class="text-subtitle-2">Пробитие</v-card-title>
-      <FormulaInput v-model="localProfile.penetration" :characteristics="characteristics" />
+      <FormulaInput
+        v-model="localProfile.penetration"
+        :characteristics="characteristics"
+        :modes="['fixed', 'actionCharacteristic', 'dimensional']"
+        :action="localProfile.type"
+      />
     </v-card>
 
     <DimensionalNumberInput v-model="localProfile.accuracy" label="Точность" class="mt-2" />

@@ -237,8 +237,11 @@ function grantLabel(grant: Grant): string {
       return `Даёт способность «${abilityName(grant.ability_code)}»`;
     case 'keyword':
       return grant.remove ? `Убирает признак «${grant.keyword_code}»` : `Добавляет признак «${grant.keyword_code}»`;
-    case 'item':
-      return `Даёт предмет «${grant.item_code}»`;
+    case 'item': {
+      const quantity = grant.quantity ?? 1;
+
+      return quantity > 1 ? `Даёт предмет «${grant.item_code}» ×${quantity}` : `Даёт предмет «${grant.item_code}»`;
+    }
     case 'money':
       return `Стартовый капитал: ${grant.fixed} гз или ${grant.percent}% от лимита (${grant.apply === 'max' ? 'большее' : 'меньшее'})`;
     default:

@@ -89,8 +89,8 @@ export function useCharacterCardDraft(
     const fromRules = rules.value;
     const nextBuild = characterBuildService.fromVersion(version, current.character.spaceId, fromRules);
     const baseline = {
-      inventory: version.inventory.map((item) => ({ ...item })),
-      money: version.money,
+      inventory: nextBuild.inventory.map((item) => ({ ...item })),
+      money: nextBuild.money,
     };
     draftStore.initDraft(
       key,

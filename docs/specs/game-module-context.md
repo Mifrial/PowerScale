@@ -460,6 +460,16 @@
 
 Файлы: Character — `Dto/CustomRuleEntry`, `Dto/AddCustomRuleData`, `Dto/UpdateCustomRuleData`, `CharacterVersion`(+`customRules`), `ICharacterApi`/`CharacterApi`/`mockCharacterApi`/`mockCharacters` (+add/updateCustomRule, `persistVersion`), `Component/Detail/UniqueRulesTab.vue`, `CharacterDetailPage` (вкладка); Game — `CharactersTab` (кнопки «Выдать»/«Уникальные правила», диалоги); Rule — `RuleEditPage` (предзаполнение из query). Тесты: `mockCharacterApi.test.ts` (add/update/replace round-trip, дефолты, ошибки).
 
+## 7.22. Версионность НПС (2026-08-25)
+
+> **Реализовано.** ТР §15 п.22: при смене ревизии/пространства игры лист НПС (`npc.version`) переводится тем же движком, что персонажи. Ведущий применяет результат сразу в `npc.version` (`updateNpc`) — без pending и вкладки модерации. Пустой лист (`version === null`) не переводят.
+
+| №    | Решение                                                                                                                                                                                                                                                                                                                                                                                                 | Дата       |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| D111 | **Устарел, если** `version !== null` и (`rulesRevision` или `spaceCode` не совпадают с игрой). Хелпер `Utils/npcRevision.needsNpcMigration`. UI: чип «Требует перехода» + «Перевести» во вкладке НПС и на карточке (ГМ). `NpcMigrationDialog` — `CharacterMigrationService.migrate` (лимиты null), отчёт/конфликт-редактор (`requireRace: false`), apply = `updateNpc`. Пустой visual diff — «Применить». `NpcEditPage` не собирает черновик на новых правилах, пока лист устарел. Фикстура: Капитан Ворон, игра 1, лист v6 + `night-vision`. | 2026-08-25 |
+
+Файлы: `Utils/npcRevision.ts`, `Component/Detail/NpcMigrationDialog.vue`, `NpcsTab`/`NpcCard`/`NpcEditPage`/`GameDetailPage` (`spaceCode`), фикстура `mockGameNpcs`. Тесты: `npcRevision.test.ts`, `mockGameNpcs.test.ts` (Ворон → updateNpc на ревизию игры).
+
 ## 8. Файлы захода (план)
 
 Новые:

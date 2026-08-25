@@ -195,7 +195,7 @@ onMounted(() => {
             Естественные предметы (врождённое оружие/броня) скрывают вес и стоимость.
           </div>
 
-          <div class="d-flex gap-2 mb-2">
+          <div v-if="!draft.innate" class="d-flex gap-2 mb-2">
             <ClampedNumberField
               :model-value="draft.cost_gm ?? 0"
               @update:model-value="(v: number) => (draft.cost_gm = v)"

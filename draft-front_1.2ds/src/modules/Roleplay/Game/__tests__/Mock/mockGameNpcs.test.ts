@@ -10,6 +10,8 @@ import {
 } from '@/modules/Roleplay/Game/Mock/mockGameNpcs';
 import { gameDetails } from '@/modules/Roleplay/Game/Mock/mockGames';
 import { users as realUsers } from '@/modules/Core/User/Mock/mockUsers';
+import { fetchRevision, fetchSpaceByCode } from '@/modules/Roleplay/Space/Mock/mockSpaces';
+import { characterMigrationService } from '@/modules/Roleplay/Character/Service/Instance/characterMigrationService';
 import type { CreateNpcData } from '@/modules/Roleplay/Game/Dto/CreateNpcData';
 
 const gameIds = new Set(gameDetails.map((detail) => detail.game.id));
@@ -112,6 +114,49 @@ describe('mockGameNpcs: создание, предложение, модерац
     });
     expect(updated.version).toEqual(version);
     expect(updated.name).toBe('Трактирщик Бородач');
+  });
+
+  it('фикстура Ворона (игра 1) на ревизии 6 — перевод пишет лист на ревизию игры', async () => {
+    const npc = (await fetchNpcs(1)).find((entry) => entry.id === 2);
+    expect(npc?.version?.rulesRevision).toBe(6);
+    expect(npc?.version?.abilities.some((ability) => ability.ruleId === 'rule-26')).toBe(true);
+    const game = gameDetails.find((detail) => detail.game.id === 1)!.game;
+    const oldSpace = await fetchSpaceByCode(npc!.version!.spaceCode);
+    const oldRevision = await fetchRevision(oldSpace.id, npc!.version!.rulesRevision);
+    const newRevision = await fetchRevision(game.spaceId, game.rulesRevision);
+    const snapshot = structuredClone(npc!.version);
+    try {
+      const migrated = characterMigrationService.migrate({
+        version: npc!.version!,
+        oldRules: oldRevision.rules,
+        oldSpaceId: oldSpace.id,
+        newRules: newRevision.rules,
+        newSpaceId: game.spaceId,
+        newSpaceCode: game.spaceCode,
+        newRevision: game.rulesRevision,
+        effectiveLimits: { osTotal: null, orTotal: null, moneyBudget: null },
+      });
+      expect(migrated.version.rulesRevision).toBe(game.rulesRevision);
+      expect(migrated.version.abilities.some((ability) => ability.ruleId === 'rule-26')).toBe(false);
+      const updated = await updateNpc(2, {
+        name: migrated.version.name,
+        shortDescription: migrated.version.shortDescription,
+        fullDescription: migrated.version.fullDescription,
+        tags: npc!.tags,
+        visibility: npc!.visibility,
+        version: migrated.version,
+      });
+      expect(updated.version?.rulesRevision).toBe(game.rulesRevision);
+    } finally {
+      await updateNpc(2, {
+        name: npc!.name,
+        shortDescription: npc!.shortDescription,
+        fullDescription: npc!.fullDescription,
+        tags: npc!.tags,
+        visibility: npc!.visibility,
+        version: snapshot,
+      });
+    }
   });
 
   it('approve предложения делает НПС активным', async () => {

@@ -104,8 +104,8 @@ async function load(): Promise<void> {
     const rules = await loadRules(detail.character.spaceId, baseVersion.rulesRevision);
     const build = characterBuildService.fromVersion(baseVersion, detail.character.spaceId, rules);
     const baseline = {
-      inventory: baseVersion.inventory.map((item) => ({ ...item })),
-      money: baseVersion.money,
+      inventory: build.inventory.map((item) => ({ ...item })),
+      money: build.money,
     };
     draftStore.initDraft(
       draftKey.value,

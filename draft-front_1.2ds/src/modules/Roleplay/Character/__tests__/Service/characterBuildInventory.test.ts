@@ -192,6 +192,15 @@ describe('CharacterBuildService · инвентарь', () => {
       expect(next.inventory[1]?.equipped).toBe(true);
       expect(next.money).toBe(100);
     });
+
+    it('no-op для innate предмета', () => {
+      const current = {
+        ...build(100),
+        inventory: [{ id: 1, ruleId: innate.id, quantity: 2, equipped: true, modifierRuleIds: [] }],
+      };
+
+      expect(service.toggleItemEquipped(current, 1, rules)).toBe(current);
+    });
   });
 
   describe('resetInventory (R2)', () => {
@@ -205,7 +214,7 @@ describe('CharacterBuildService · инвентарь', () => {
       };
       const baseline = baselineOf([{ id: 1, ruleId: dagger.id, quantity: 1, equipped: true }], 100);
 
-      const next = service.resetInventory(current, baseline);
+      const next = service.resetInventory(current, baseline, rules);
 
       expect(next.money).toBe(100);
       expect(next.inventory).toEqual([{ id: 1, ruleId: dagger.id, quantity: 1, equipped: true }]);

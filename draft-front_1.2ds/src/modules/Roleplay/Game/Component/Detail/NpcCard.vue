@@ -27,6 +27,7 @@ const props = defineProps<{
   members: GameMember[];
   spaceId: number | null;
   rulesRevision: number | null;
+  needsMigration?: boolean;
 }>();
 
 const open = defineModel<boolean>('open', { default: false });
@@ -34,6 +35,7 @@ const open = defineModel<boolean>('open', { default: false });
 const emit = defineEmits<{
   save: [npcId: number, data: NpcCardData];
   delete: [npcId: number];
+  migrate: [];
 }>();
 
 const visibilityOpen = ref(false);
@@ -101,6 +103,9 @@ function confirmDeleteNpc(): void {
         <v-chip v-if="npc.status === 'proposed'" color="warning" variant="tonal" size="x-small" class="ml-2">
           Предложен: {{ npc.proposedBy?.userName }}
         </v-chip>
+        <v-chip v-if="isGm && needsMigration" color="warning" variant="tonal" size="x-small" class="ml-2">
+          Требует перехода
+        </v-chip>
         <v-spacer />
         <v-btn icon variant="text" size="small" @click="open = false"><v-icon>mdi-close</v-icon></v-btn>
       </v-card-title>
@@ -121,6 +126,9 @@ function confirmDeleteNpc(): void {
           />
           <v-alert v-if="npc.version === null" type="info" variant="tonal" density="compact" class="mt-2">
             Полный лист персонажа появится при редактировании как персонажа (следующий шаг).
+          </v-alert>
+          <v-alert v-else-if="needsMigration" type="warning" variant="tonal" density="compact" class="mt-2">
+            Лист на другой ревизии правил — сначала переведите, затем можно править.
           </v-alert>
         </template>
 
@@ -150,7 +158,9 @@ function confirmDeleteNpc(): void {
         <template v-if="isGm">
           <v-btn color="primary" @click="save">Сохранить</v-btn>
           <v-btn variant="tonal" @click="visibilityOpen = true">Видимость</v-btn>
+          <v-btn v-if="needsMigration" color="warning" variant="tonal" @click="emit('migrate')">Перевести</v-btn>
           <v-btn
+            v-else
             variant="tonal"
             prepend-icon="mdi-book-open-page-variant-outline"
             @click="router.push(`/games/${npc.gameId}/npcs/${npc.id}/edit`)"

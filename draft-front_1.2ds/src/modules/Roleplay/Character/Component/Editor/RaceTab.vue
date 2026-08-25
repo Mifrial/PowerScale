@@ -259,6 +259,7 @@ function applyRace(ruleId: string): void {
     raceRuleId: next.raceRuleId,
     abilities: next.abilities,
     characteristicPurchases: next.characteristicPurchases,
+    inventory: next.inventory,
   });
 }
 </script>

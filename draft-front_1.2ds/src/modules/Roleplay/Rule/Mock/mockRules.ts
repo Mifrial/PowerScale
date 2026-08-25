@@ -335,7 +335,7 @@ const rules: Rule[] = [
     spaceId: 1,
     spec: {
       parent_race_code: null,
-      abilities: [],
+      abilities: [{ ability_code: 'humanoid-body', automatic: true }],
       age_years: [
         { age: 'Младенец', ageStart: 0, ageEnd: 3 },
         { age: 'Малыш', ageStart: 3, ageEnd: 6 },
@@ -669,7 +669,10 @@ const rules: Rule[] = [
     spaceId: 1,
     spec: {
       parent_race_code: null,
-      abilities: [{ ability_code: 'keen-hearing', automatic: true }],
+      abilities: [
+        { ability_code: 'keen-hearing', automatic: true },
+        { ability_code: 'humanoid-body', automatic: true },
+      ],
       age_years: [
         { age: 'Младенец', ageStart: 0, ageEnd: 4 },
         { age: 'Малыш', ageStart: 4, ageEnd: 7 },
@@ -1450,6 +1453,32 @@ const rules: Rule[] = [
     keywordIds: [],
     mechanicId: null,
     createdAt: '2026-08-13T10:00:00Z',
+  },
+  {
+    id: 'rule-608',
+    code: 'humanoid-body',
+    type: 'ability',
+    name: 'Гуманоидное тело',
+    description: 'Врождённые руки и ноги как естественное оружие. Первый уровень владения ими даётся бесплатно.',
+    spaceId: 1,
+    spec: {
+      type: 'trait',
+      zones: { os: { kind: 'array', levels_cost: [0] } },
+      requirements: [],
+      grants: [
+        {
+          level: 1,
+          grants: [
+            { type: 'item', item_code: 'ruka', quantity: 2 },
+            { type: 'item', item_code: 'noga', quantity: 2 },
+          ],
+        },
+      ],
+      parent_ability_code: null,
+    },
+    keywordIds: [31, 44, 11],
+    mechanicId: null,
+    createdAt: '2026-08-25T10:00:00Z',
   },
 ];
 

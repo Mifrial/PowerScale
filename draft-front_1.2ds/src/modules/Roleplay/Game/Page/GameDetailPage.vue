@@ -360,6 +360,7 @@ watch(detail, (value) => {
             :is-member="canSubmitCharacter"
             :members="detail.members"
             :space-id="detail.game.spaceId"
+            :space-code="detail.game.spaceCode"
             :rules-revision="detail.game.rulesRevision"
           />
         </v-window-item>
