@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import {
+  defenseOdCost,
   listAttackActions,
   reactionOdCost,
   SIMPLE_MELEE_ATTACK_CODE,
@@ -55,5 +56,7 @@ describe('combatActions', () => {
     expect(reactionOdCost('ignore', rules)).toBe(0);
     expect(reactionOdCost('dodge', rules)).toBe(1);
     expect(reactionOdCost('block', rules)).toBe(2);
+    expect(defenseOdCost('dodge', true, rules)).toBe(2);
+    expect(defenseOdCost('ignore', true, rules)).toBe(0);
   });
 });

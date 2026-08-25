@@ -3,6 +3,7 @@ import { FormulaEvaluationService } from '@/modules/Roleplay/Character/Service/F
 import { DAMAGE_TYPE_FORMS } from '@/modules/Roleplay/Character/Constant/DAMAGE_TYPE_FORMS';
 import { WEAPON_PROFILE_LABELS } from '@/modules/Roleplay/Character/Constant/WEAPON_PROFILE_LABELS';
 import { formulaLabel } from '@/modules/Roleplay/Character/Utils/formulaLabel';
+import { profileFormulaContext } from '@/modules/Roleplay/Character/Utils/weaponAttackRange';
 import type { FormulaContext } from '@/modules/Roleplay/Character/Dto/FormulaContext';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { ItemSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpec';
@@ -195,15 +196,7 @@ export function weaponProfileViews(
   const profiles = attackProfilesOf(spec);
 
   return profiles.map((profile) => {
-    const profileContext: FormulaContext = {
-      ...context,
-      actionCharacteristicValue: (action, characteristic) => {
-        const base = profile.action_characteristics?.find((entry) => entry.characteristic === characteristic)?.value;
-        if (base === undefined) return undefined;
-
-        return formula.evaluateDimensional(base, context);
-      },
-    };
+    const profileContext: FormulaContext = profileFormulaContext(profile, context, formula);
 
     const damage = new DimensionalNumber(
       formula.evaluateDimensional(profile.damage.formula, profileContext),

@@ -26,8 +26,8 @@ import { CHECK_HIT_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_COD
 import { CHARACTERISTIC_BASE_RANGE } from '@/modules/Roleplay/Character/Constant/CHARACTERISTIC_BASE_RANGE';
 import { combatCardModel, combatEntityName } from '@/modules/Roleplay/Game/Utils/combatCardModel';
 import { replaceCombatOverlay } from '@/modules/Roleplay/Game/Utils/mergeCombatOverlay';
-import { listBlockProfiles, rollMeleeHit, type HitCheckRoll } from '@/modules/Roleplay/Game/Utils/hitRoll';
-import { resolveStrikeProcedure } from '@/modules/Roleplay/Game/Utils/resolveStrikeProcedure';
+import { listBlockProfiles, rollHit, type HitCheckRoll } from '@/modules/Roleplay/Game/Utils/hitRoll';
+import { resolveHitProcedure } from '@/modules/Roleplay/Game/Utils/resolveStrikeProcedure';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import { resolveDamageTypeHooks } from '@/modules/Roleplay/Game/Utils/resolveDamageTypeHooks';
 import {
@@ -49,7 +49,8 @@ import {
   attackActionById,
   listAttackActions,
   reactionAction,
-  reactionOdCost,
+  defenseOdCost,
+  turnAction,
 } from '@/modules/Roleplay/Game/Utils/combatActions';
 import { ATTACK_CALC_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Attack/ATTACK_CALC_ATTACHMENT_TYPE';
 import { asDamageTypeSpec } from '@/modules/Roleplay/Rule/Utils/damageTypeSpec';
@@ -99,12 +100,17 @@ const defenderAdv = ref(0);
 const defenseEfficiency = ref<DimensionalNumberValue>({ base: 4, size: -1 });
 const blockItemRuleId = ref<string | null>(null);
 const selectedActionRuleId = ref<string | null>(null);
+const distanceIpari = ref(1);
+const flank = ref(false);
+const turn = ref(false);
 const agreedInitiatorAdv = ref(0);
 const agreedOpponentAdv = ref(0);
 const busy = ref(false);
 const error = ref<string | null>(null);
 
-const procedure = computed(() => resolveStrikeProcedure(props.rules, props.mechanics));
+const procedure = computed(() =>
+  resolveHitProcedure(currentAttack.value?.profileType ?? 'strike', props.rules, props.mechanics),
+);
 
 const resolvedAttackerKey = computed(() => offer.value?.initiator ?? props.attackerKey);
 
@@ -192,6 +198,9 @@ function attackFromOffer(current: CheckOffer): AttackOverview | null {
     profileType: hit.profileType,
     profileTypeLabel: hit.profileType,
     distanceLabel: '',
+    minDistance: props.attack?.minDistance ?? 0,
+    reach: hit.reach ?? props.attack?.reach ?? 0,
+    falloff: hit.falloff ?? props.attack?.falloff ?? { base: 5, size: 0 },
     accuracyLabel: '',
     accuracy: hit.accuracy,
     damageLabel: '',
@@ -207,7 +216,26 @@ function attackFromOffer(current: CheckOffer): AttackOverview | null {
 
 const currentAttack = computed(() => (offer.value ? attackFromOffer(offer.value) : props.attack));
 
-const strikeOnly = computed(() => currentAttack.value?.profileType === 'strike');
+const isRanged = computed(
+  () => currentAttack.value?.profileType === 'throw' || currentAttack.value?.profileType === 'shoot',
+);
+
+const resolvedAttack = computed(() => {
+  const attack = currentAttack.value;
+  if (!attack || !isRanged.value) return attack;
+  const version = versionOf(resolvedAttackerKey.value);
+  if (!version) return attack;
+
+  return (
+    characterOverviewService.attackAtDistance(
+      version,
+      props.rules,
+      attack.itemRuleId,
+      attack.profileType,
+      distanceIpari.value,
+    ) ?? attack
+  );
+});
 
 const attackOptions = computed(() =>
   listAttackActions(props.rules, overviewOf(resolvedAttackerKey.value), currentAttack.value?.profileType ?? 'strike'),
@@ -242,11 +270,20 @@ const advantageDirty = computed(() => {
   return attackerAdv.value !== agreedInitiatorAdv.value || defenderAdv.value !== agreedOpponentAdv.value;
 });
 
-const dodgeAffordable = computed(() => (dodgeAction.value?.odCost ?? 1) <= defenderAp.value);
-const blockAffordable = computed(() => (blockAction.value?.odCost ?? 2) <= defenderAp.value);
-
 const dodgeAction = computed(() => reactionAction(props.rules, 'dodge'));
 const blockAction = computed(() => reactionAction(props.rules, 'block'));
+const turnAbility = computed(() => turnAction(props.rules));
+
+const dodgeAffordable = computed(() => {
+  const extra = flank.value && turn.value ? turnAbility.value.odCost : 0;
+
+  return (dodgeAction.value?.odCost ?? 1) + extra <= defenderAp.value;
+});
+const blockAffordable = computed(() => {
+  const extra = flank.value && turn.value ? turnAbility.value.odCost : 0;
+
+  return (blockAction.value?.odCost ?? 2) + extra <= defenderAp.value;
+});
 
 watch(attackOptions, (options) => {
   if (selectedActionRuleId.value && options.some((item) => item.ruleId === selectedActionRuleId.value)) return;
@@ -256,7 +293,9 @@ watch(attackOptions, (options) => {
     options.find((item) => item.code === preferredCode)?.ruleId ?? options[0]?.ruleId ?? null;
 });
 
-const blockProfiles = computed(() => listBlockProfiles(versionOf(opponentKey.value), props.rules));
+const blockProfiles = computed(() =>
+  listBlockProfiles(versionOf(opponentKey.value), props.rules, { shieldsOnly: isRanged.value }),
+);
 
 const canBlock = computed(() => blockProfiles.value.length > 0);
 
@@ -313,6 +352,9 @@ async function hydrate(): Promise<void> {
     agreedOpponentAdv.value = props.resumeOffer.proposal.opponentAdv;
     blockItemRuleId.value = hit?.blockItemRuleId ?? null;
     selectedActionRuleId.value = hit?.actionRuleId ?? selectedActionRuleId.value;
+    distanceIpari.value = hit?.distanceIpari ?? props.attack?.minDistance ?? 1;
+    flank.value = hit?.flank ?? false;
+    turn.value = hit?.turn ?? false;
     if (hit?.defenseEfficiency) {
       defenseEfficiency.value = { ...hit.defenseEfficiency };
     } else {
@@ -329,6 +371,9 @@ async function hydrate(): Promise<void> {
   agreedInitiatorAdv.value = 0;
   agreedOpponentAdv.value = 0;
   blockItemRuleId.value = null;
+  distanceIpari.value = Math.max(1, props.attack?.minDistance ?? 1);
+  flank.value = false;
+  turn.value = false;
   defenseEfficiency.value = { ...procedure.value.dodgeEfficiency };
 }
 
@@ -344,28 +389,36 @@ function close(): void {
 }
 
 function hitProposal(attack: AttackOverview, nextReaction: HitDefenseReaction | null): CheckOfferProposal['hit'] {
+  const preview = resolvedAttack.value ?? attack;
+
   return {
-    itemRuleId: attack.itemRuleId,
-    itemName: attack.itemName,
-    profileType: attack.profileType,
-    accuracy: attack.accuracy,
+    itemRuleId: preview.itemRuleId,
+    itemName: preview.itemName,
+    profileType: preview.profileType,
+    accuracy: preview.accuracy,
     reaction: nextReaction,
     defenseEfficiency: nextReaction === 'ignore' || nextReaction === null ? null : defenseEfficiency.value,
     blockItemRuleId: nextReaction === 'block' ? blockItemRuleId.value : null,
-    damageTypeCode: attack.damageTypeCode,
-    damage: attack.damage,
-    penetration: attack.penetration,
+    damageTypeCode: preview.damageTypeCode,
+    damage: preview.damage,
+    penetration: preview.penetration,
     actionRuleId: selectedAction.value?.ruleId ?? null,
     actionName: selectedAction.value?.name,
     actionOd: selectedAction.value?.odCost,
+    distanceIpari: isRanged.value ? distanceIpari.value : null,
+    reach: preview.reach,
+    falloff: preview.falloff,
+    flank: flank.value,
+    turn: nextReaction === 'ignore' || nextReaction === null ? false : turn.value && flank.value,
   };
 }
 
 async function sendOffer(): Promise<void> {
-  const attack = currentAttack.value;
+  const attack = resolvedAttack.value;
   const initiator = resolvedAttackerKey.value;
   if (!attack || !initiator || !opponentKey.value) throw new Error('Выберите цель');
   if (!selectedAction.value) throw new Error('Выберите действие атаки');
+  if (isRanged.value && !(distanceIpari.value > 0)) throw new Error('Укажите дистанцию в ипари');
   const attackerApCost = selectedAction.value.odCost || DEFAULT_ATTACK_AP;
   if (attackerApCost > remainingAp(initiator)) throw new Error('Недостаточно ОД для атаки');
   await getGameApi().createCheckOffer(props.gameId, {
@@ -384,11 +437,12 @@ async function sendOffer(): Promise<void> {
 
 function defenderProposal(): CheckOfferProposal {
   const current = offer.value;
-  const attack = currentAttack.value;
+  const attack = resolvedAttack.value;
   if (!current || !attack) throw new Error('Нет оферты');
   if (!reaction.value) throw new Error('Выберите игнор, уклон или блок');
   if (reaction.value === 'block' && !blockItemRuleId.value) throw new Error('Выберите профиль блока');
-  const reactionCost = reactionOdCost(reaction.value, props.rules);
+  const turned = Boolean(flank.value && turn.value && reaction.value !== 'ignore');
+  const reactionCost = defenseOdCost(reaction.value, turned, props.rules);
   if (reactionCost > remainingAp(current.opponent)) throw new Error('Недостаточно ОД для реакции');
 
   return {
@@ -408,20 +462,26 @@ async function revise(): Promise<void> {
 
 async function acceptAndRoll(): Promise<void> {
   const current = offer.value;
-  const attack = currentAttack.value;
+  const attack = resolvedAttack.value;
   const actor = current ? actingEntity(current) : null;
   if (!current || !attack || !actor) throw new Error('Нет оферты');
   const proposal = defenderProposal();
   const accepted = await getGameApi().acceptCheckOffer(current.id, actor, proposal);
   const hit = accepted.proposal.hit;
   if (!hit?.reaction) throw new Error('Защитник ещё не выбрал реакцию');
-  const rolled = rollMeleeHit(
+  const rolled = rollHit(
     {
       attackerLabel: nameOf(accepted.initiator),
       defenderLabel: nameOf(accepted.opponent),
       attackerKey: accepted.initiator,
       defenderKey: accepted.opponent,
-      attack: { itemName: hit.itemName, profileType: hit.profileType, accuracy: hit.accuracy },
+      attack: {
+        itemName: hit.itemName,
+        profileType: hit.profileType,
+        accuracy: hit.accuracy,
+        reach: hit.reach ?? attack.reach,
+        falloff: hit.falloff ?? attack.falloff,
+      },
       attackerOverview: overviewOf(accepted.initiator),
       defenderOverview: overviewOf(accepted.opponent),
       reaction: hit.reaction,
@@ -432,6 +492,9 @@ async function acceptAndRoll(): Promise<void> {
       defenderAdv:
         accepted.proposal.opponentAdv +
         checkAdvantageFromStates(versionOf(accepted.opponent), props.rules, { kind: 'hit' }),
+      distanceIpari: hit.distanceIpari,
+      flank: hit.flank,
+      turn: hit.turn,
     },
     Math.random,
     props.rules,
@@ -486,7 +549,7 @@ async function applyClickAttack(
     : undefined;
   const defenseIgnored = asDamageTypeSpec(typeRule)?.defense_ignored === true;
   const result = applyAttackDamage({
-    weaponDamage: attack.damage,
+    weaponDamage: hit.damage ?? attack.damage,
     sr: Math.max(0, sr),
     damageTypeCode: attack.damageTypeCode,
     defense: defenderOverview?.defense ?? null,
@@ -502,7 +565,7 @@ async function applyClickAttack(
       odCost: hit.actionOd ?? DEFAULT_ATTACK_AP,
     };
   const attackerAp = action.odCost || DEFAULT_ATTACK_AP;
-  const defenderAp = reactionOdCost(hit.reaction, props.rules);
+  const defenderAp = defenseOdCost(hit.reaction, Boolean(hit.turn && hit.flank), props.rules);
   const spentAttack = await spendAp(accepted.initiator, attackerAp);
   const spentDefense = await spendAp(accepted.opponent, defenderAp);
   await applyCombatState(accepted.opponent, EXHAUSTION_STATE_CODE, result.exhaustion);
@@ -534,6 +597,9 @@ async function applyClickAttack(
           weaponRuleId: hit.itemRuleId,
           weaponName: hit.itemName,
           damageTypeCode: attack.damageTypeCode,
+          profileType: hit.profileType,
+          flank: Boolean(hit.flank),
+          turn: Boolean(hit.turn && hit.flank && hit.reaction !== 'ignore'),
           reaction: hit.reaction ?? 'ignore',
           reactionAction: reactionAction(props.rules, hit.reaction),
           reactionAp: spentDefense,
@@ -564,7 +630,7 @@ async function applyClickAttack(
           {
             type: ATTACK_CALC_ATTACHMENT_TYPE,
             payload: buildAttackCalcPayload({
-              weaponDamage: attack.damage,
+              weaponDamage: hit.damage ?? attack.damage,
               damageTypeCode: attack.damageTypeCode,
               rules: props.rules,
               sr: Math.max(0, sr),
@@ -694,8 +760,9 @@ const primaryLabel = computed(() => {
 });
 
 const canSubmit = computed(() => {
-  if (!strikeOnly.value) return false;
   if (isCompose.value) {
+    if (isRanged.value && !(distanceIpari.value > 0)) return false;
+
     return (
       opponentKey.value !== null && selectedAction.value !== null && selectedAction.value.odCost <= attackerAp.value
     );
@@ -715,14 +782,15 @@ const canSubmit = computed(() => {
 </script>
 
 <template>
-  <v-dialog :model-value="open" max-width="520" @update:model-value="emit('update:open', $event)">
-    <v-card>
-      <v-card-title class="text-subtitle-1">Атака</v-card-title>
-      <v-card-text>
-        <div v-if="currentAttack" class="text-body-2 mb-3">
-          {{ nameOf(resolvedAttackerKey) }} · {{ currentAttack.itemName }} ({{ currentAttack.profileTypeLabel }}) ·
+  <v-dialog :model-value="open" max-width="480" scrollable @update:model-value="emit('update:open', $event)">
+    <v-card class="hit-dialog">
+      <v-card-title class="text-subtitle-1 py-2 px-4">Атака</v-card-title>
+      <v-card-text class="hit-dialog-body px-4 py-2">
+        <div v-if="resolvedAttack" class="text-body-2">
+          {{ nameOf(resolvedAttackerKey) }} · {{ resolvedAttack.itemName }} ({{ resolvedAttack.profileTypeLabel }}) ·
           точность
-          {{ new DimensionalNumber(currentAttack.accuracy).toString() }}
+          {{ new DimensionalNumber(resolvedAttack.accuracy).toString() }}
+          <template v-if="isRanged"> · урон {{ new DimensionalNumber(resolvedAttack.damage).toString() }} </template>
         </div>
         <v-select
           v-if="isCompose"
@@ -734,16 +802,34 @@ const canSubmit = computed(() => {
           variant="outlined"
           hide-details
           label="Действие атаки"
-          class="mb-3"
         />
-        <div v-if="!isCompose" class="text-body-2 mb-3">
+        <div v-else class="text-body-2">
           {{ selectedAction?.name ?? 'Действие атаки' }} · {{ selectedAction?.odCost ?? DEFAULT_ATTACK_AP }} ОД
         </div>
-        <v-alert v-if="!strikeOnly" type="info" variant="tonal" density="compact" class="mb-3">
-          Выстрел и бросок в этом заходе не запускаются.
-        </v-alert>
-        <div class="text-caption text-medium-emphasis mb-2">
-          Процедура {{ procedure.code }}@{{ procedure.version }} · игнор
+        <div class="d-flex align-center ga-2 flex-wrap">
+          <ClampedNumberField
+            v-if="isRanged"
+            v-model="distanceIpari"
+            label="Дистанция, ипари"
+            :min="1"
+            :max="400"
+            density="compact"
+            hide-details
+            min-width="140px"
+            class="flex-grow-1"
+            :disabled="!isCompose"
+          />
+          <v-checkbox
+            v-model="flank"
+            label="Фланг"
+            density="compact"
+            hide-details
+            class="hit-check flex-grow-0"
+            :disabled="!isCompose"
+          />
+        </div>
+        <div class="text-caption text-medium-emphasis">
+          {{ procedure.code }}@{{ procedure.version }} · игнор
           {{ new DimensionalNumber(procedure.ignoreDefense).toString() }}
         </div>
         <v-select
@@ -755,7 +841,6 @@ const canSubmit = computed(() => {
           variant="outlined"
           hide-details
           label="Цель"
-          class="mb-3"
           :disabled="!isCompose"
         />
         <ClampedNumberField
@@ -764,30 +849,53 @@ const canSubmit = computed(() => {
           label="Преим. атака"
           :min="-ROLL_ADV_MAX"
           :max="ROLL_ADV_MAX"
-          class="mb-3"
+          density="compact"
+          hide-details
         />
-        <template v-if="offer && myTurn">
-          <div class="d-flex ga-2 mb-3">
-            <ClampedNumberField v-model="attackerAdv" label="Преим. атака" :min="-ROLL_ADV_MAX" :max="ROLL_ADV_MAX" />
-            <ClampedNumberField v-model="defenderAdv" label="Преим. защита" :min="-ROLL_ADV_MAX" :max="ROLL_ADV_MAX" />
-          </div>
-        </template>
+        <div v-if="offer && myTurn" class="d-flex ga-2">
+          <ClampedNumberField
+            v-model="attackerAdv"
+            label="Преим. атака"
+            :min="-ROLL_ADV_MAX"
+            :max="ROLL_ADV_MAX"
+            density="compact"
+            hide-details
+          />
+          <ClampedNumberField
+            v-model="defenderAdv"
+            label="Преим. защита"
+            :min="-ROLL_ADV_MAX"
+            :max="ROLL_ADV_MAX"
+            density="compact"
+            hide-details
+          />
+        </div>
         <template v-if="isDefenderStep">
-          <div class="text-caption text-medium-emphasis mb-1">Реакция защиты</div>
+          <div class="text-caption text-medium-emphasis">Реакция защиты</div>
           <v-btn-toggle
             v-model="reaction"
             density="compact"
             color="primary"
             variant="outlined"
             divided
-            class="hit-reaction-toggle mb-3"
+            class="hit-reaction-toggle"
           >
-            <v-btn value="ignore">Игнор</v-btn>
-            <v-btn value="dodge" :disabled="!dodgeAffordable">Уклон · {{ dodgeAction?.odCost ?? 1 }} ОД</v-btn>
-            <v-btn value="block" :disabled="!canBlock || !blockAffordable">
+            <v-btn value="ignore" size="small">Игнор</v-btn>
+            <v-btn value="dodge" size="small" :disabled="!dodgeAffordable">
+              Уклон · {{ dodgeAction?.odCost ?? 1 }} ОД
+            </v-btn>
+            <v-btn value="block" size="small" :disabled="!canBlock || !blockAffordable">
               Блок · {{ blockAction?.odCost ?? 2 }} ОД
             </v-btn>
           </v-btn-toggle>
+          <v-checkbox
+            v-if="flank && reaction !== 'ignore'"
+            v-model="turn"
+            :label="`Поворот · ${turnAbility.odCost} ОД`"
+            density="compact"
+            hide-details
+            class="hit-check"
+          />
           <v-select
             v-if="reaction === 'block'"
             v-model="blockItemRuleId"
@@ -798,27 +906,25 @@ const canSubmit = computed(() => {
             variant="outlined"
             hide-details
             label="Профиль блока"
-            class="mb-3"
           />
           <DimensionalNumberInput
             v-if="reaction === 'dodge' || reaction === 'block'"
             v-model="defenseEfficiency"
-            class="mb-3"
             label="Эффективность защиты"
             :min="CHARACTERISTIC_BASE_RANGE.min"
             :max="CHARACTERISTIC_BASE_RANGE.max"
           />
         </template>
-        <v-alert v-if="isWaiting" type="info" variant="tonal" density="compact" class="mb-2">
+        <v-alert v-if="isWaiting" type="info" variant="tonal" density="compact" class="mb-0">
           Ждём {{ offer?.waitingOn === 'opponent' ? 'защитника' : 'атакующего' }}.
         </v-alert>
-        <v-alert v-if="error" type="error" variant="tonal" density="compact">{{ error }}</v-alert>
+        <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mb-0">{{ error }}</v-alert>
       </v-card-text>
-      <v-card-actions>
+      <v-card-actions class="py-2 px-4">
         <v-spacer />
-        <v-btn variant="text" :disabled="busy" @click="close">Закрыть</v-btn>
-        <v-btn v-if="offer && myTurn" variant="text" :disabled="busy" @click="submitRevise">Вернуть</v-btn>
-        <v-btn color="primary" :loading="busy" :disabled="!canSubmit" @click="submit">
+        <v-btn variant="text" size="small" :disabled="busy" @click="close">Закрыть</v-btn>
+        <v-btn v-if="offer && myTurn" variant="text" size="small" :disabled="busy" @click="submitRevise">Вернуть</v-btn>
+        <v-btn color="primary" size="small" :loading="busy" :disabled="!canSubmit" @click="submit">
           {{ primaryLabel }}
         </v-btn>
       </v-card-actions>
@@ -827,13 +933,30 @@ const canSubmit = computed(() => {
 </template>
 
 <style scoped>
+.hit-dialog {
+  max-height: min(90vh, 720px);
+}
+.hit-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: min(70vh, 560px);
+}
+.hit-check {
+  margin: 0;
+  flex: 0 0 auto;
+}
+.hit-check :deep(.v-selection-control) {
+  min-height: 32px;
+}
 .hit-reaction-toggle {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 .hit-reaction-toggle :deep(.v-btn) {
   border-inline-width: 1px !important;
   border-radius: 4px !important;
+  height: 32px !important;
 }
 </style>

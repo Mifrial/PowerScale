@@ -110,6 +110,20 @@ const mechanics: Mechanic[] = [
     description: 'Процедура проверки на увечье. Алгоритм в клиенте: injury@version из среза ревизии.',
     version: '1.0.0',
   },
+  {
+    id: 16,
+    code: 'throw',
+    name: 'Бросок',
+    description: 'Процедура броска. Алгоритм в клиенте: throw@version из среза ревизии.',
+    version: '1.0.0',
+  },
+  {
+    id: 17,
+    code: 'shoot',
+    name: 'Выстрел',
+    description: 'Процедура выстрела. Алгоритм в клиенте: shoot@version из среза ревизии.',
+    version: '1.0.0',
+  },
 ];
 
 const delay = (ms = 300) => new Promise((r) => setTimeout(r, ms));

@@ -11,21 +11,27 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { ItemSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpec';
 import { CHECK_HIT_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
 import { namedCheckSpec, rollJointCheck, rollNamedCheck } from '@/modules/Roleplay/Game/Utils/checkRoll';
-import { resolveStrikeProcedure } from '@/modules/Roleplay/Game/Utils/resolveStrikeProcedure';
+import { resolveHitProcedure } from '@/modules/Roleplay/Game/Utils/resolveStrikeProcedure';
 import { rollPoolDefaults } from '@/modules/Roleplay/Game/Utils/initiativeRoll';
 import { itemModifierService } from '@/modules/Roleplay/Rule/Service/Instance/itemModifierService';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { HitDefenseReaction } from '@/modules/Roleplay/Game/Dto/CheckOffer';
 import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
-import { ADVANTAGE_SOURCE_STATE } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
+import {
+  ADVANTAGE_SOURCE_CIRCUMSTANCES,
+  ADVANTAGE_SOURCE_STATE,
+} from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
 import {
   applyStrikeMastery,
-  bestMeleeMastery,
+  bestCombatMastery,
   strikeCharacteristicMods,
   STRIKE_STAT_LABEL,
 } from '@/modules/Roleplay/Game/Utils/strikeCharacteristicMods';
+import { DEFAULT_FALLOFF, difficultySizeFromRange } from '@/modules/Roleplay/Character/Utils/weaponAttackRange';
 
 export type { HitDefenseReaction };
+
+export const FLANK_DEFENSE_LABEL = 'Фланговая атака';
 
 export interface HitBlockProfile {
   itemRuleId: string;
@@ -38,7 +44,7 @@ export interface HitRollInput {
   defenderLabel: string;
   attackerKey?: CombatEntityKey;
   defenderKey?: CombatEntityKey;
-  attack: Pick<AttackOverview, 'itemName' | 'profileType' | 'accuracy'>;
+  attack: Pick<AttackOverview, 'itemName' | 'profileType' | 'accuracy' | 'reach' | 'falloff'>;
   attackerOverview: CharacterOverview | null;
   defenderOverview: CharacterOverview | null;
   reaction: HitDefenseReaction;
@@ -46,6 +52,9 @@ export interface HitRollInput {
   defenseEfficiency?: DimensionalNumberValue | null;
   attackerAdv?: number;
   defenderAdv?: number;
+  distanceIpari?: number | null;
+  flank?: boolean;
+  turn?: boolean;
 }
 
 const FALLBACK_MASTERY: DimensionalNumberValue = { base: 3, size: -1 };
@@ -97,7 +106,11 @@ export function poolSpec(
   };
 }
 
-export function listBlockProfiles(version: CharacterVersion | null, rules: Rule[]): HitBlockProfile[] {
+export function listBlockProfiles(
+  version: CharacterVersion | null,
+  rules: Rule[],
+  options: { shieldsOnly?: boolean } = {},
+): HitBlockProfile[] {
   if (!version) return [];
   const profiles: HitBlockProfile[] = [];
   for (const item of version.inventory) {
@@ -109,7 +122,9 @@ export function listBlockProfiles(version: CharacterVersion | null, rules: Rule[
       .map((id) => rules.find((entry) => entry.id === id))
       .filter((entry): entry is Rule => entry != null);
     const stacked = itemModifierService.applyStack(spec, modifiers, []).spec;
-    const block = stacked.shield?.block ?? stacked.weapon?.block_profile;
+    const block = options.shieldsOnly
+      ? stacked.shield?.block
+      : (stacked.shield?.block ?? stacked.weapon?.block_profile);
     if (!block) continue;
     profiles.push({ itemRuleId: item.ruleId, itemName: rule.name, efficiency: block.efficiency });
   }
@@ -132,11 +147,9 @@ function strikeMasteryAdjustments(delta: number): AdvantageModifier[] {
   return [{ source_code: ADVANTAGE_SOURCE_STATE, source_label: STRIKE_STAT_LABEL, delta }];
 }
 
-export function rollMeleeHit(input: HitRollInput, rng: DiceRng, rules: Rule[], mechanics: Mechanic[]): HitCheckRoll {
-  if (input.attack.profileType !== 'strike') {
-    throw new Error('В этом заходе запускается только удар (ближний профиль)');
-  }
-  const procedure = resolveStrikeProcedure(rules, mechanics);
+export function rollHit(input: HitRollInput, rng: DiceRng, rules: Rule[], mechanics: Mechanic[]): HitCheckRoll {
+  const ranged = input.attack.profileType === 'throw' || input.attack.profileType === 'shoot';
+  const procedure = resolveHitProcedure(input.attack.profileType, rules, mechanics);
   const attackMods = strikeCharacteristicMods(input.attackerOverview, rules);
   const attackMastery = applyStrikeMastery(
     weaponMasteryForAttack(input.attackerOverview, input.attack),
@@ -152,29 +165,52 @@ export function rollMeleeHit(input: HitRollInput, rng: DiceRng, rules: Rule[], m
     input.attackerKey,
     strikeMasteryAdjustments(attackMods.masteryDelta),
   );
+  const ignoreDefense = ranged
+    ? rangedIgnoreDefense(procedure.ignoreDefense, input.distanceIpari ?? 0, input.attack.falloff ?? DEFAULT_FALLOFF)
+    : procedure.ignoreDefense;
   if (input.reaction === 'ignore') {
     return {
-      attacker: rollNamedCheck(attackSpec, CHECK_HIT_CODE, procedure.ignoreDefense, rng, rules, mechanics),
+      attacker: rollNamedCheck(attackSpec, CHECK_HIT_CODE, ignoreDefense, rng, rules, mechanics),
       defender: null,
     };
   }
   const defenseMods = strikeCharacteristicMods(input.defenderOverview, rules);
-  const defenseMastery = applyStrikeMastery(bestMeleeMastery(input.defenderOverview), defenseMods.masteryDelta);
+  const defenseMastery = applyStrikeMastery(
+    bestCombatMastery(input.defenderOverview, ranged),
+    defenseMods.masteryDelta,
+  );
   const chosen = input.defenseEfficiency ?? procedure.dodgeEfficiency;
   const efficiency = input.reaction === 'block' ? maxDimensional(chosen, procedure.minBlockEfficiency) : chosen;
+  const flankAdv =
+    input.flank && !input.turn
+      ? [{ source_code: ADVANTAGE_SOURCE_CIRCUMSTANCES, source_label: FLANK_DEFENSE_LABEL, delta: -2 }]
+      : [];
   const defenseSpec = poolSpec(
     input.defenderLabel,
     defenseMastery,
     efficiency,
     input.defenderAdv ?? 0,
     rules,
-    defenseMods.advantages,
+    [...defenseMods.advantages, ...flankAdv],
     input.defenderKey,
     strikeMasteryAdjustments(defenseMods.masteryDelta),
   );
   const joint = rollJointCheck(attackSpec, defenseSpec, CHECK_HIT_CODE, rng, rules, mechanics);
 
   return { attacker: joint.left, defender: joint.right };
+}
+
+/** Совместимость со старыми тестами. */
+export function rollMeleeHit(input: HitRollInput, rng: DiceRng, rules: Rule[], mechanics: Mechanic[]): HitCheckRoll {
+  return rollHit(input, rng, rules, mechanics);
+}
+
+function rangedIgnoreDefense(
+  base: DimensionalNumberValue,
+  distanceIpari: number,
+  falloff: DimensionalNumberValue,
+): DimensionalNumberValue {
+  return { base: base.base, size: base.size + difficultySizeFromRange(distanceIpari, falloff) };
 }
 
 export function hitHasDefenseRoll(reaction: HitDefenseReaction): boolean {

@@ -10,6 +10,7 @@ export const SIMPLE_MELEE_ATTACK_CODE = 'simple-melee-attack';
 export const SIMPLE_RANGED_ATTACK_CODE = 'simple-ranged-attack';
 export const DODGE_CODE = 'dodge';
 export const BLOCK_CODE = 'block';
+export const TURN_CODE = 'turn';
 
 const KW_MELEE = 1;
 const KW_RANGED = 2;
@@ -116,4 +117,23 @@ export function reactionOdCost(reaction: HitDefenseReaction | null, rules: Rule[
   if (!reaction || reaction === 'ignore') return 0;
 
   return reactionAction(rules, reaction)?.odCost ?? 0;
+}
+
+export function turnAction(rules: Rule[]): CombatActionOption {
+  const rule = rules.find((entry) => entry.code === TURN_CODE && entry.type === 'ability');
+  if (!rule) {
+    return { ruleId: '', code: TURN_CODE, name: 'Поворот', odCost: 1 };
+  }
+  const spec = asActionAbilitySpec(rule);
+
+  return {
+    ruleId: rule.id,
+    code: rule.code,
+    name: rule.name,
+    odCost: actionOdCost(spec?.action_components) || 1,
+  };
+}
+
+export function defenseOdCost(reaction: HitDefenseReaction | null, turned: boolean, rules: Rule[]): number {
+  return reactionOdCost(reaction, rules) + (turned && reaction !== 'ignore' && reaction ? turnAction(rules).odCost : 0);
 }

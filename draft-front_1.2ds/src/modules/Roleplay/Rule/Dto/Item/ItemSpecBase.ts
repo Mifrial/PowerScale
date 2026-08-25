@@ -1,5 +1,6 @@
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
+import type { ItemCheckAdvantage } from '@/modules/Roleplay/Rule/Dto/Item/ItemCheckAdvantage';
 
 /** Общие поля предмета (не подтип-специфичные). */
 export interface ItemSpecBase {
@@ -16,4 +17,6 @@ export interface ItemSpecBase {
   magic_conductor?: number | null;
   /** Помехи/преимущества предмета (от инструмента и т.п.) — вклады по источнику. */
   advantages?: AdvantageModifier[];
+  /** Помехи на проверки характеристик (шлем → внимательность); источник — сам предмет. */
+  check_advantages?: ItemCheckAdvantage[];
 }

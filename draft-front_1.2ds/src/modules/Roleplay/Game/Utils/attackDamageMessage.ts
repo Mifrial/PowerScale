@@ -55,6 +55,9 @@ export function formatStrikeNarrativeMessage(input: {
   weaponRuleId: string;
   weaponName: string;
   damageTypeCode?: string | null;
+  profileType?: 'strike' | 'throw' | 'shoot';
+  flank?: boolean;
+  turn?: boolean;
   reaction: HitDefenseReaction;
   reactionAction: CombatActionOption | null;
   reactionAp: number;
@@ -65,13 +68,16 @@ export function formatStrikeNarrativeMessage(input: {
   const weapon = ruleTokenById(input.weaponRuleId, input.weaponName, input.rules);
   const typeRule = input.damageTypeCode ? input.rules.find((rule) => rule.code === input.damageTypeCode) : undefined;
   const typeBit = typeRule ? typeRule.name.toLowerCase() : 'безымянный';
-  const strike = `${attacker} наносит ${typeBit} удар оружием ${weapon} по ${defender}.`;
+  const kind = input.profileType === 'throw' ? 'бросок' : input.profileType === 'shoot' ? 'выстрел' : 'удар';
+  const flankBit = input.flank ? 'с фланга ' : '';
+  const strike = `${attacker} наносит ${flankBit}${typeBit} ${kind} оружием ${weapon} по ${defender}.`;
   if (input.reaction === 'ignore' || !input.reactionAction) {
     return `${strike} Тот не реагирует.`;
   }
   const reaction = ruleTokenByCode(input.reactionAction.code, input.reactionAction.name, input.rules);
+  const turnBit = input.turn ? ' с Поворотом' : '';
 
-  return `${strike} Тот пытается совершить ${reaction} за ${input.reactionAp}ОД!`;
+  return `${strike} Тот пытается совершить ${reaction}${turnBit} за ${input.reactionAp}ОД!`;
 }
 
 export function formatAttackResultMessage(input: {

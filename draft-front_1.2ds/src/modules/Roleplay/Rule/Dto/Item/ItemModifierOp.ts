@@ -19,4 +19,5 @@ export type ItemModifierOp =
   | { type: 'keyword'; add?: string[]; remove?: string[] }
   | { type: 'min_action_cost'; min: number }
   | { type: 'magic_conductor'; value: number }
-  | { type: 'advantage'; delta: number; source_code: string };
+  | { type: 'advantage'; delta: number; source_code: string }
+  | { type: 'check_advantage'; delta: number; characteristic_codes: string[]; includes_hit?: boolean };

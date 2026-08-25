@@ -59,14 +59,29 @@ describe('mockItemImport (S16, заход «Инвентарь»)', () => {
     }
   });
 
-  it('доспехи имеют слоты защиты (в т.ч. поддоспешник), артефакты — group_code', () => {
+  it('доспехи имеют слоты защиты, артефакты — group_code', () => {
     const armor = mockItemImport.filter((rule) => itemSpec(rule).armor);
     expect(armor.length).toBe(5);
-    // Поддоспешник — слот того же доспеха (source armor) с высокой надёжностью 8 (труднее игнорировать).
-    const underarmor = armor.some((rule) =>
-      itemSpec(rule).armor!.defense_slots.some((slot) => slot.source_code === 'armor' && slot.durability === 8),
-    );
-    expect(underarmor).toBe(true);
+    const slotsOf = (code: string) =>
+      itemSpec(mockItemImport.find((rule) => rule.code === code)!).armor!.defense_slots.map((slot) => ({
+        defense: slot.defense.base,
+        durability: slot.durability,
+        source: slot.source_code,
+      }));
+    expect(slotsOf('kozhanyy-dospekh')).toEqual([{ defense: 3, durability: 6, source: 'armor' }]);
+    expect(slotsOf('steganyy-dospekh')).toEqual([{ defense: 3, durability: 6, source: 'armor' }]);
+    expect(slotsOf('kolchuzhnyy-dospekh')).toEqual([
+      { defense: 6, durability: 3, source: 'armor' },
+      { defense: 3, durability: 6, source: 'armor' },
+    ]);
+    expect(slotsOf('cheshuychatyy-dospekh')).toEqual([
+      { defense: 9, durability: 3, source: 'armor' },
+      { defense: 3, durability: 6, source: 'armor' },
+    ]);
+    expect(slotsOf('latnyy-dospekh')).toEqual([
+      { defense: 12, durability: 3, source: 'armor' },
+      { defense: 3, durability: 6, source: 'armor' },
+    ]);
 
     const artifacts = mockItemImport.filter((rule) => itemSpec(rule).group_code);
     expect(artifacts.length).toBeGreaterThanOrEqual(12);
@@ -141,12 +156,16 @@ describe('mockItemImport (S16, заход «Инвентарь»)', () => {
     expect(pata!.description).not.toContain('клинок, пата');
   });
 
-  it('доспехи несут открытое лицо; латы — требует владения', () => {
+  it('доспехи без открытого лица; латы — требует владения', () => {
     const leather = mockItemImport.find((rule) => rule.code === 'kozhanyy-dospekh');
     const plate = mockItemImport.find((rule) => rule.code === 'latnyy-dospekh');
-    expect(leather?.keywordIds).toContain(kwId('open-face'));
-    expect(plate?.keywordIds).toContain(kwId('open-face'));
+    expect(leather?.keywordIds).not.toContain(kwId('open-face'));
+    expect(plate?.keywordIds).not.toContain(kwId('open-face'));
     expect(plate?.keywordIds).toContain(kwId('requires-proficiency'));
+    for (const rule of mockItemImport.filter((entry) => itemSpec(entry).armor)) {
+      expect(rule.keywordIds).not.toContain(kwId('open-face'));
+      expect(rule.description).not.toContain('Открытое лицо');
+    }
   });
 
   it('естественное оружие: innate без цены, раздел «Естественное», семьи владения', () => {

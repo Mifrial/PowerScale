@@ -50,6 +50,10 @@ describe('ruleCatalog', () => {
     expect(ruleCatalog.some((r) => r.code === 'check-simple' && r.type === 'check')).toBe(true);
     expect(ruleCatalog.some((r) => r.code === 'check-injury' && r.type === 'check')).toBe(true);
     expect(ruleCatalog.some((r) => r.code === 'strike-procedure' && r.mechanicId === 7)).toBe(true);
+    expect(ruleCatalog.some((r) => r.code === 'throw-procedure' && r.mechanicId === 16)).toBe(true);
+    expect(ruleCatalog.some((r) => r.code === 'shoot-procedure' && r.mechanicId === 17)).toBe(true);
+    expect(ruleCatalog.some((r) => r.code === 'flanking-attack' && r.type === 'simple')).toBe(true);
+    expect(ruleCatalog.some((r) => r.code === 'turn' && r.type === 'ability')).toBe(true);
     expect(ruleCatalog.some((r) => r.code === 'deception' && r.type === 'check')).toBe(true);
   });
 });

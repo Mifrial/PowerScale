@@ -29,6 +29,11 @@ export interface CheckOfferProposal {
     actionRuleId?: string | null;
     actionName?: string;
     actionOd?: number;
+    distanceIpari?: number | null;
+    reach?: number;
+    falloff?: DimensionalNumberValue;
+    flank?: boolean;
+    turn?: boolean;
   } | null;
 }
 

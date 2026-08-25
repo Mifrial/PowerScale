@@ -26,7 +26,11 @@ export function characteristicSizeByCode(
 
 /** Лучшее мастерство ББ среди тайлов экипированного оружия, иначе общее. */
 export function bestMeleeMastery(overview: CharacterOverview | null): DimensionalNumberValue {
-  const section = overview?.combat?.melee;
+  return bestCombatMastery(overview, false);
+}
+
+export function bestCombatMastery(overview: CharacterOverview | null, ranged: boolean): DimensionalNumberValue {
+  const section = ranged ? overview?.combat?.ranged : overview?.combat?.melee;
   if (!section) return FALLBACK_MASTERY;
   let best = section.stat.value;
   for (const weapon of section.weapons) {

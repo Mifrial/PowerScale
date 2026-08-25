@@ -467,8 +467,11 @@ export const mockModsImport: Rule[] = [
   ]),
   modifier(24, 'closed-helm', 'С закрытым шлемом', 'kit', armorApplies(), price({ add_gm: 10000 }), [
     {
-      text: 'Доспех лишается свойства «Открытое лицо», но получает свойство «Ограниченная видимость»: «Проверки на Внимательность получают две помехи. Вы не можете видеть позади от вас.»',
-      ops: [{ type: 'keyword', add: ['limited-visibility'], remove: ['open-face'] }],
+      text: 'Надёжность всех защит доспеха +1. 1 помеха для проверок на внимательность от предмета.',
+      ops: [
+        { type: 'armor_reliability', add: 1 },
+        { type: 'check_advantage', delta: -1, characteristic_codes: ['attention'] },
+      ],
     },
   ]),
   modifier(25, 'breastplate-only', 'Только нагрудник', 'kit', armorApplies(), price({ factor: 1 / 3 }), [

@@ -128,8 +128,8 @@ describe('itemParamsView (параметры предмета)', () => {
     expect(params?.maxAgilityLabel).toBe('4↓²');
     expect(params?.strengthPenaltyLabel).toBe('-2');
     expect(params?.defenseLines).toEqual([
-      { defense: '12', sourceLabel: 'доспеха', durability: 4 },
-      { defense: '5', sourceLabel: 'доспеха', durability: 8 },
+      { defense: '12', sourceLabel: 'доспеха', durability: 3 },
+      { defense: '3', sourceLabel: 'доспеха', durability: 6 },
     ]);
     expect(params?.minStrengthLabel).toBeNull();
     expect(params?.blockDefenseLabel).toBeNull();

@@ -4,7 +4,7 @@ import type { UpdateKeywordData } from '@/modules/Roleplay/Rule/Dto/UpdateKeywor
 
 const delay = (ms = 300) => new Promise((r) => setTimeout(r, ms));
 
-let nextId = 222;
+let nextId = 223;
 
 export const keywords: Keyword[] = [
   { id: 1, code: 'melee', name: 'Ближний бой', description: 'Оружие и навыки ближнего боя', active: true },
@@ -577,6 +577,13 @@ export const keywords: Keyword[] = [
     code: 'item-section-natural',
     name: 'Естественное',
     description: 'Раздел каталога: врождённое оружие тела',
+    active: true,
+  },
+  {
+    id: 222,
+    code: 'movement',
+    name: 'Движение',
+    description: 'Признак действия: перемещение или поворот',
     active: true,
   },
 ];

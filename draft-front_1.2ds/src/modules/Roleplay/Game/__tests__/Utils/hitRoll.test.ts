@@ -85,7 +85,13 @@ describe('resolveStrikeProcedure', () => {
 });
 
 describe('rollMeleeHit', () => {
-  const attack = { itemName: 'Меч', profileType: 'strike' as const, accuracy: { base: 3, size: 0 } };
+  const attack = {
+    itemName: 'Меч',
+    profileType: 'strike' as const,
+    accuracy: { base: 3, size: 0 },
+    reach: 0,
+    falloff: { base: 5, size: 0 },
+  };
   const overview = {
     combat: {
       melee: {
@@ -166,7 +172,13 @@ describe('rollMeleeHit', () => {
       {
         attackerLabel: 'А',
         defenderLabel: 'Б',
-        attack: { itemName: 'Кинжал', profileType: 'strike', accuracy: { base: 3, size: 0 } },
+        attack: {
+          itemName: 'Кинжал',
+          profileType: 'strike',
+          accuracy: { base: 3, size: 0 },
+          reach: 0,
+          falloff: { base: 5, size: 0 },
+        },
         attackerOverview: overview,
         defenderOverview: defender,
         reaction: 'dodge',
@@ -186,22 +198,78 @@ describe('rollMeleeHit', () => {
     ]);
   });
 
-  it('throw не запускается', () => {
-    expect(() =>
-      rollMeleeHit(
-        {
-          attackerLabel: 'А',
-          defenderLabel: 'Б',
-          attack: { ...attack, profileType: 'throw' },
-          attackerOverview: overview,
-          defenderOverview: overview,
-          reaction: 'ignore',
+  it('throw: игнор vs 1↓, полоса дальнобойности поднимает размер', () => {
+    const rolled = rollMeleeHit(
+      {
+        attackerLabel: 'А',
+        defenderLabel: 'Б',
+        attack: {
+          itemName: 'Кинжал',
+          profileType: 'throw',
+          accuracy: { base: 3, size: 0 },
+          reach: 2,
+          falloff: { base: 2, size: 0 },
         },
-        rngFromDice([1]),
-        [checkHit],
-        [],
-      ),
-    ).toThrow(/только удар/);
+        attackerOverview: {
+          combat: {
+            melee: {
+              stat: { name: 'Общее', value: { base: 3, size: -1 } },
+              weapons: [],
+            },
+            ranged: {
+              stat: { name: 'Общее', value: { base: 3, size: -1 } },
+              weapons: [{ name: 'Кинжал', shortName: 'Кинжал', value: { base: 3, size: -1 } }],
+            },
+          },
+        } as unknown as CharacterOverview,
+        defenderOverview: overview,
+        reaction: 'ignore',
+        distanceIpari: 3,
+      },
+      rngFromDice([2, 4, 1]),
+      [checkSimple, checkHit],
+      [],
+    );
+    expect(rolled.defender).toBeNull();
+    expect(rolled.attacker.check?.difficulty).toEqual({ base: 1, size: 0 });
+  });
+
+  it('фланг: 2 помехи защитнику; поворот снимает', () => {
+    const withFlank = rollMeleeHit(
+      {
+        attackerLabel: 'А',
+        defenderLabel: 'Б',
+        attack,
+        attackerOverview: overview,
+        defenderOverview: overview,
+        reaction: 'dodge',
+        defenseEfficiency: { base: 4, size: -1 },
+        flank: true,
+      },
+      rngFromDice([2, 3, 4, 1, 2, 3, 4, 1]),
+      [checkSimple, checkHit],
+      [],
+    );
+    expect(withFlank.defender?.spec.advantages).toEqual(
+      expect.arrayContaining([{ source_code: 'circumstances', source_label: 'Фланговая атака', delta: -2 }]),
+    );
+    const turned = rollMeleeHit(
+      {
+        attackerLabel: 'А',
+        defenderLabel: 'Б',
+        attack,
+        attackerOverview: overview,
+        defenderOverview: overview,
+        reaction: 'dodge',
+        defenseEfficiency: { base: 4, size: -1 },
+        flank: true,
+        turn: true,
+      },
+      rngFromDice([2, 3, 4, 1, 2, 3, 4, 1]),
+      [checkSimple, checkHit],
+      [],
+    );
+    expect(turned.defender?.spec.advantages).toEqual([]);
   });
 });
 
@@ -236,6 +304,39 @@ describe('listBlockProfiles', () => {
     expect(listBlockProfiles(version, rules)).toEqual([
       { itemRuleId: 'shield-1', itemName: 'Баклер', efficiency: { base: 5, size: 0 } },
     ]);
+  });
+
+  it('shieldsOnly не берёт block_profile оружия', () => {
+    const version = {
+      inventory: [{ id: 1, ruleId: 'sword-1', quantity: 1, equipped: true }],
+    } as unknown as CharacterVersion;
+    const rules: Rule[] = [
+      {
+        id: 'sword-1',
+        code: 'sword',
+        type: 'item',
+        name: 'Меч',
+        description: '',
+        spaceId: 1,
+        spec: {
+          category: 'equipment',
+          cost_gm: 1,
+          weight: { base: 1, size: 0 },
+          special_rule_codes: [],
+          weapon: {
+            min_strength: null,
+            durability: { base: 1, size: 0 },
+            block_profile: { efficiency: { base: 4, size: -1 }, defense: { base: 4, size: 0 }, resistances: [] },
+            weapon_profiles: [],
+          },
+        },
+        keywordIds: [],
+        mechanicId: null,
+        createdAt: '2026-01-01T00:00:00Z',
+      },
+    ];
+    expect(listBlockProfiles(version, rules).length).toBe(1);
+    expect(listBlockProfiles(version, rules, { shieldsOnly: true })).toEqual([]);
   });
 });
 

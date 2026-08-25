@@ -1907,7 +1907,7 @@ export const mockItemImport: Rule[] = [
     code: 'kozhanyy-dospekh',
     type: 'item',
     name: 'Кожаный доспех',
-    description: 'Открытое лицо: при 8РУ атаки и больше этот доспех игнорируется при ударе.',
+    description: 'Лёгкий кожаный доспех.',
     spaceId: 1,
     spec: {
       category: 'equipment',
@@ -1915,13 +1915,13 @@ export const mockItemImport: Rule[] = [
       weight: { base: 4.0, size: 0 },
       special_rule_codes: [],
       armor: {
-        defense_slots: [{ defense: { base: 3, size: 0 }, durability: 10, source_code: 'armor' }],
+        defense_slots: [{ defense: { base: 3, size: 0 }, durability: 6, source_code: 'armor' }],
         resistance_slots: [],
         max_agility: { base: 3, size: 1 },
         characteristic_limits: [],
       },
     },
-    keywordIds: [79, 86, 100, 160, 216],
+    keywordIds: [79, 86, 100, 160],
     mechanicId: null,
     createdAt: '2026-08-11T10:00:00Z',
   },
@@ -1930,7 +1930,7 @@ export const mockItemImport: Rule[] = [
     code: 'steganyy-dospekh',
     type: 'item',
     name: 'Стёганый доспех',
-    description: 'Открытое лицо: при 8РУ атаки и больше этот доспех игнорируется при ударе.',
+    description: 'Лёгкий стёганый доспех.',
     spaceId: 1,
     spec: {
       category: 'equipment',
@@ -1944,7 +1944,7 @@ export const mockItemImport: Rule[] = [
         characteristic_limits: [],
       },
     },
-    keywordIds: [79, 86, 156, 160, 216],
+    keywordIds: [79, 86, 156, 160],
     mechanicId: null,
     createdAt: '2026-08-11T10:00:00Z',
   },
@@ -1954,7 +1954,7 @@ export const mockItemImport: Rule[] = [
     type: 'item',
     name: 'Кольчужный доспех',
     description:
-      'Открытое лицо: при 8РУ атаки и больше этот доспех игнорируется при ударе. / Шумное: одетый в кольчугу получает 2 помехи для проверок на скрытность.Жёсткость: +1 урона ногам и рукам от материала.',
+      'Шумное: одетый в кольчугу получает 2 помехи для проверок на скрытность. Жёсткость: +1 урона ногам и рукам от материала.',
     spaceId: 1,
     spec: {
       category: 'equipment',
@@ -1964,7 +1964,7 @@ export const mockItemImport: Rule[] = [
       armor: {
         defense_slots: [
           { defense: { base: 6, size: 0 }, durability: 3, source_code: 'armor' },
-          { defense: { base: 3, size: 0 }, durability: 8, source_code: 'armor' },
+          { defense: { base: 3, size: 0 }, durability: 6, source_code: 'armor' },
         ],
         resistance_slots: [],
         max_agility: { base: 5, size: -1 },
@@ -1972,7 +1972,7 @@ export const mockItemImport: Rule[] = [
         characteristic_limits: [],
       },
     },
-    keywordIds: [79, 86, 157, 161, 216],
+    keywordIds: [79, 86, 157, 161],
     mechanicId: null,
     createdAt: '2026-08-11T10:00:00Z',
   },
@@ -1982,7 +1982,7 @@ export const mockItemImport: Rule[] = [
     type: 'item',
     name: 'Чешуйчатый доспех',
     description:
-      'Открытое лицо: при 8РУ атаки и больше этот доспех игнорируется при ударе. / Шумное: одетый в этот доспех получает 2 помехи для проверок на скрытность.Жёсткость: +1 урона ногам и рукам от материала.',
+      'Шумное: одетый в этот доспех получает 2 помехи для проверок на скрытность. Жёсткость: +1 урона ногам и рукам от материала.',
     spaceId: 1,
     spec: {
       category: 'equipment',
@@ -1992,7 +1992,7 @@ export const mockItemImport: Rule[] = [
       armor: {
         defense_slots: [
           { defense: { base: 9, size: 0 }, durability: 3, source_code: 'armor' },
-          { defense: { base: 3, size: 0 }, durability: 8, source_code: 'armor' },
+          { defense: { base: 3, size: 0 }, durability: 6, source_code: 'armor' },
         ],
         resistance_slots: [],
         max_agility: { base: 3, size: -1 },
@@ -2000,7 +2000,7 @@ export const mockItemImport: Rule[] = [
         characteristic_limits: [],
       },
     },
-    keywordIds: [79, 86, 158, 161, 216],
+    keywordIds: [79, 86, 158, 161],
     mechanicId: null,
     createdAt: '2026-08-11T10:00:00Z',
   },
@@ -2010,7 +2010,7 @@ export const mockItemImport: Rule[] = [
     type: 'item',
     name: 'Латный доспех',
     description:
-      'Открытое лицо: при 8РУ атаки и больше этот доспех игнорируется при ударе. / Шумное: одетый в этот доспех получает 2 помехи для проверок на скрытность. / Требует владения: требует навыка владения, иначе уменьшает проворство ещё на один размер.Жёсткость: +1 урона ногам и рукам от материала.',
+      'Шумное: одетый в этот доспех получает 2 помехи для проверок на скрытность. / Требует владения: требует навыка владения, иначе уменьшает проворство ещё на один размер. Жёсткость: +1 урона ногам и рукам от материала.',
     spaceId: 1,
     spec: {
       category: 'equipment',
@@ -2019,8 +2019,8 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
       armor: {
         defense_slots: [
-          { defense: { base: 12, size: 0 }, durability: 4, source_code: 'armor' },
-          { defense: { base: 5, size: 0 }, durability: 8, source_code: 'armor' },
+          { defense: { base: 12, size: 0 }, durability: 3, source_code: 'armor' },
+          { defense: { base: 3, size: 0 }, durability: 6, source_code: 'armor' },
         ],
         resistance_slots: [],
         max_agility: { base: 4, size: -2 },
@@ -2028,7 +2028,7 @@ export const mockItemImport: Rule[] = [
         characteristic_limits: [],
       },
     },
-    keywordIds: [79, 86, 159, 162, 216, 218],
+    keywordIds: [79, 86, 159, 162, 218],
     mechanicId: null,
     createdAt: '2026-08-11T10:00:00Z',
   },

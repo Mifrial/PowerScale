@@ -226,16 +226,17 @@ describe('ItemModifierService', () => {
       expect(very).toBe(90000);
     });
 
-    it('оковка: металл, минимум 2 ОД; шлем снимает открытое лицо', () => {
+    it('оковка: металл, минимум 2 ОД; шлем +1 надёжности и помеха на внимательность', () => {
       const staff = mockItemImport.find((rule) => rule.code === 'boevoy-posokh')!;
       const ferrule = mockModsImport.find((rule) => rule.code === 'steel-ferrule')!;
       const helm = mockModsImport.find((rule) => rule.code === 'closed-helm')!;
       const { spec, keywordCodes } = service.applyStack(specOf(staff), [ferrule], ['weapon', 'staff']);
       expect(spec.weapon?.min_action_cost).toBe(2);
       expect(keywordCodes).toEqual(expect.arrayContaining(['weapon', 'staff', 'metal']));
-      const { keywordCodes: afterHelm } = service.applyStack(specOf(plate), [helm], ['armor-item', 'open-face']);
-      expect(afterHelm).toContain('limited-visibility');
-      expect(afterHelm).not.toContain('open-face');
+      const { spec: helmed, keywordCodes: afterHelm } = service.applyStack(specOf(plate), [helm], ['armor-item']);
+      expect(afterHelm).not.toContain('limited-visibility');
+      expect(helmed.armor?.defense_slots.map((slot) => slot.durability)).toEqual([4, 7]);
+      expect(helmed.check_advantages).toEqual([{ delta: -1, characteristic_codes: ['attention'] }]);
     });
 
     it('золото — проводник магии 10; носорог удваивает удорожание качества', () => {

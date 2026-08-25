@@ -17,6 +17,7 @@ import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import { namedCheckSpec, rollJointCheck, rollNamedCheck } from '@/modules/Roleplay/Game/Utils/checkRoll';
 import { checkAdvantageFromStates } from '@/modules/Roleplay/Character/Utils/stateRuntimeEffects';
+import { checkAdvantageModifiersFromItems } from '@/modules/Roleplay/Character/Utils/itemCheckAdvantages';
 import { SIMPLE_CHECK_ZERO_DIFFICULTY } from '@/modules/Roleplay/Game/Utils/simpleCheckRoll';
 import { initiativeCharacteristics } from '@/modules/Roleplay/Game/Utils/initiativeCharacteristic';
 import type { InitiativeCharacteristicView } from '@/modules/Roleplay/Game/Utils/initiativeCharacteristic';
@@ -350,7 +351,9 @@ function poolSpec(
   free: { diceCount: number; dieSize: number; efficiency: number },
 ): ReturnType<typeof namedCheckSpec> {
   const query = code ? ({ kind: 'characteristic', code } as const) : undefined;
-  const totalAdv = adv + checkAdvantageFromStates(modelOf(key)?.effectiveVersion, props.rules, query);
+  const version = modelOf(key)?.effectiveVersion;
+  const totalAdv = adv + checkAdvantageFromStates(version, props.rules, query);
+  const itemAdv = checkAdvantageModifiersFromItems(version, props.rules, query);
   if (useFree || !code || !map.has(code)) {
     const defaults = rollPoolDefaults(props.rules);
 
@@ -358,7 +361,7 @@ function poolSpec(
       diceCount: Math.max(ROLL_DICE_COUNT_MIN, free.diceCount),
       dieFaces: defaults.dieFaces,
       efficiency: free.efficiency,
-      advantages: advantageEntries(totalAdv),
+      advantages: [...advantageEntries(totalAdv), ...itemAdv],
       dieSize: free.dieSize,
       poolSize: free.dieSize,
       efficiencySize: 0,
@@ -368,8 +371,9 @@ function poolSpec(
   }
   const view = map.get(code);
   if (!view) throw new Error(`Нет характеристики для ${nameOf(key)}`);
+  const spec = namedCheckSpec(`${nameOf(key)}: ${view.name}`, view.value, totalAdv, props.rules, key ?? undefined);
 
-  return namedCheckSpec(`${nameOf(key)}: ${view.name}`, view.value, totalAdv, props.rules, key ?? undefined);
+  return { ...spec, advantages: [...spec.advantages, ...itemAdv] };
 }
 
 function soloDifficulty(): DimensionalNumberValue {

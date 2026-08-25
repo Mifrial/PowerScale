@@ -15,4 +15,5 @@ export const ITEM_MODIFIER_OP_TYPE_OPTIONS: { title: string; value: ItemModifier
   { title: 'Мин. ОД', value: 'min_action_cost' },
   { title: 'Проводник магии', value: 'magic_conductor' },
   { title: 'Помеха/преимущество', value: 'advantage' },
+  { title: 'Помеха на проверку', value: 'check_advantage' },
 ];

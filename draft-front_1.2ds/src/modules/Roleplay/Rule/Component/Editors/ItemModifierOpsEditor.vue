@@ -41,6 +41,8 @@ function emptyOp(type: ItemModifierOp['type'] = 'weight'): ItemModifierOp {
       return { type, value: 1 };
     case 'advantage':
       return { type, delta: -1, source_code: 'tool' };
+    case 'check_advantage':
+      return { type, delta: -1, characteristic_codes: ['attention'] };
   }
 }
 
@@ -285,6 +287,24 @@ function splitCodes(value: string): string[] {
           hide-details
           style="flex: 1 1 140px"
           @update:model-value="(v: string) => patch(index, { source_code: v })"
+        />
+      </template>
+      <template v-else-if="op.type === 'check_advantage'">
+        <ClampedNumberField
+          :model-value="op.delta"
+          label="Дельта"
+          density="compact"
+          hide-details
+          style="flex: 1 1 100px"
+          @update:model-value="(v: number) => patch(index, { delta: v })"
+        />
+        <v-text-field
+          :model-value="op.characteristic_codes.join(', ')"
+          label="Характеристики"
+          density="compact"
+          hide-details
+          style="flex: 1 1 160px"
+          @update:model-value="(v: string) => patch(index, { characteristic_codes: splitCodes(v) })"
         />
       </template>
       <v-btn icon size="small" color="error" variant="text" @click="removeOp(index)">

@@ -314,6 +314,60 @@ describe('applyAttackDamage', () => {
       }),
     ).toContain('наносит рубящий удар оружием [[rule:scythe]]');
     expect(
+      formatStrikeNarrativeMessage({
+        attackerKey: 'character:1',
+        attackerName: 'Гарик',
+        defenderKey: 'npc:2',
+        defenderName: 'Бородач',
+        weaponRuleId: 'item-dagger',
+        weaponName: 'Кинжал',
+        damageTypeCode: 'piercing',
+        profileType: 'throw',
+        flank: true,
+        turn: true,
+        reaction: 'dodge',
+        reactionAction: { ruleId: 'rule-902', code: 'dodge', name: 'Уклонение', odCost: 1 },
+        reactionAp: 2,
+        rules: [
+          {
+            id: 'item-dagger',
+            code: 'dagger',
+            type: 'item',
+            name: 'Кинжал',
+            description: '',
+            spaceId: 1,
+            keywordIds: [],
+            mechanicId: null,
+            createdAt: '2026-01-01T00:00:00Z',
+          },
+          {
+            id: 'dt-p',
+            code: 'piercing',
+            type: 'damage_type',
+            name: 'Колющий',
+            description: '',
+            spaceId: 1,
+            keywordIds: [],
+            mechanicId: null,
+            createdAt: '2026-01-01T00:00:00Z',
+          },
+          {
+            id: 'rule-902',
+            code: 'dodge',
+            type: 'ability',
+            name: 'Уклонение',
+            description: '',
+            spaceId: 1,
+            keywordIds: [],
+            mechanicId: null,
+            createdAt: '2026-01-01T00:00:00Z',
+          },
+        ],
+      }),
+    ).toBe(
+      '[[character:1,Гарик]] наносит с фланга колющий бросок оружием [[rule:dagger]] по [[npc:2,Бородач]]. Тот пытается совершить [[rule:dodge]] с Поворотом за 2ОД!',
+    );
+    expect(
       formatAttackResultMessage({
         attackerKey: 'character:1',
         attackerName: 'Гарик',

@@ -61,7 +61,10 @@ function isAlwaysIncluded(rule: Rule): boolean {
     rule.type === 'damage_type' ||
     // Правило «Бросок» (дефолты бросков чата) присутствует в любой ревизии игры.
     rule.mechanic_payload?.type === 'roll' ||
-    rule.code === 'strike-procedure'
+    rule.code === 'strike-procedure' ||
+    rule.code === 'throw-procedure' ||
+    rule.code === 'shoot-procedure' ||
+    rule.code === 'flanking-attack'
   );
 }
 

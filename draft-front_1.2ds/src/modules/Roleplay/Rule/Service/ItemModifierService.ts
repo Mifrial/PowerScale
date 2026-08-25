@@ -285,6 +285,17 @@ export class ItemModifierService {
         ];
 
         return;
+      case 'check_advantage':
+        spec.check_advantages = [
+          ...(spec.check_advantages ?? []),
+          {
+            delta: op.delta,
+            characteristic_codes: [...op.characteristic_codes],
+            includes_hit: op.includes_hit,
+          },
+        ];
+
+        return;
     }
   }
 

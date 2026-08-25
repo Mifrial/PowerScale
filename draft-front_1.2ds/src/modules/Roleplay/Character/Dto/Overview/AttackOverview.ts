@@ -7,6 +7,12 @@ export interface AttackOverview {
   profileType: 'strike' | 'throw' | 'shoot';
   profileTypeLabel: string;
   distanceLabel: string;
+  /** Верх профиля (range, иначе distance), в ипари. */
+  reach: number;
+  /** Нижняя граница дистанции профиля, в ипари. */
+  minDistance: number;
+  /** Дальнобойность (шаг полос и силы действия). */
+  falloff: DimensionalNumberValue;
   accuracyLabel: string;
   /** Сырая точность профиля (efficiency атакующего). */
   accuracy: DimensionalNumberValue;

@@ -48,6 +48,11 @@ import { DAMAGE_TYPE_FORMS } from '@/modules/Roleplay/Character/Constant/DAMAGE_
 import { formulaLabel } from '@/modules/Roleplay/Character/Utils/formulaLabel';
 import { itemModifierService } from '@/modules/Roleplay/Rule/Service/Instance/itemModifierService';
 import { applyRacialInnateGear } from '@/modules/Roleplay/Character/Utils/racialInnateGear';
+import {
+  actionStrengthSizePenalty,
+  DEFAULT_FALLOFF,
+  profileFormulaContext,
+} from '@/modules/Roleplay/Character/Utils/weaponAttackRange';
 import type { InventoryItem } from '@/modules/Roleplay/Character/Dto/InventoryItem';
 import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/CharacterStateValue';
 import type { CharacterPoisonValue } from '@/modules/Roleplay/Character/Dto/CharacterPoisonValue';
@@ -71,14 +76,56 @@ export class CharacterOverviewService {
   ) {}
 
   build(version: CharacterVersion, rules: Rule[]): CharacterOverview {
+    const { synced, reference, withStates, context } = this.prepared(version, rules);
+    const resources = this.buildResources(synced, reference, rules, withStates);
+    const abilities = this.buildAbilities(synced, reference);
+    const inventory = this.buildInventory(synced, reference);
+
+    return {
+      characteristics: withStates.filter((overview) => overview.group !== 'combat' && overview.group !== 'base'),
+      combat: this.buildCombat(synced, withStates, reference),
+      resources,
+      abilities,
+      misc: this.buildMisc(synced),
+      inventory,
+      defense: this.buildDefense(synced, reference),
+      attacks: this.buildAttacks(synced, reference, context),
+      states: this.buildStates(synced, reference),
+    };
+  }
+
+  /** Урон/пробитие профиля с силой действия, урезанной за дистанцию. */
+  attackAtDistance(
+    version: CharacterVersion,
+    rules: Rule[],
+    itemRuleId: string,
+    profileType: 'strike' | 'throw' | 'shoot',
+    distanceIpari: number,
+  ): AttackOverview | null {
+    const { synced, reference, context } = this.prepared(version, rules);
+
+    return (
+      this.buildAttacks(synced, reference, context, { itemRuleId, profileType, distanceIpari }).find(
+        (item) => item.itemRuleId === itemRuleId && item.profileType === profileType,
+      ) ?? null
+    );
+  }
+
+  private prepared(
+    version: CharacterVersion,
+    rules: Rule[],
+  ): {
+    synced: CharacterVersion;
+    reference: CharacterReferenceService;
+    withStates: CharacteristicOverview[];
+    context: FormulaContext;
+  } {
     const synced = applyRacialInnateGear(version, rules);
     const reference = new CharacterReferenceService(rules, synced.spaceCode, synced.rulesRevision);
     const abilityLevels = new Map(synced.abilities.map((ability) => [ability.ruleId, ability.level]));
     const coreList = synced.characteristics.map((value) =>
       this.buildCharacteristicCore(value, reference, abilityLevels, synced),
     );
-    // Контекст формул (атаки/бой) — по ИТОГОВЫМ значениям характеристик (база + модификаторы):
-    // «Сила 5 с тренировкой» в формулах урона — 5, а не голая база.
     const byCode = new Map<string, CharacteristicOverview>();
     for (const overview of coreList) {
       const rule = reference.ruleById(overview.ruleId);
@@ -104,23 +151,8 @@ export class CharacterOverviewService {
         delta: overview.delta + amount,
       };
     });
-    const contextAfterStates = this.buildFormulaContext(withStates, synced, reference);
 
-    const resources = this.buildResources(synced, reference, rules, withStates);
-    const abilities = this.buildAbilities(synced, reference);
-    const inventory = this.buildInventory(synced, reference);
-
-    return {
-      characteristics: withStates.filter((overview) => overview.group !== 'combat' && overview.group !== 'base'),
-      combat: this.buildCombat(synced, withStates, reference),
-      resources,
-      abilities,
-      misc: this.buildMisc(synced),
-      inventory,
-      defense: this.buildDefense(synced, reference),
-      attacks: this.buildAttacks(synced, reference, contextAfterStates),
-      states: this.buildStates(synced, reference),
-    };
+    return { synced, reference, withStates, context: this.buildFormulaContext(withStates, synced, reference) };
   }
 
   private buildFormulaContext(
@@ -964,6 +996,11 @@ export class CharacterOverviewService {
     version: CharacterVersion,
     reference: CharacterReferenceService,
     context: FormulaContext,
+    atDistance?: {
+      itemRuleId: string;
+      profileType: 'strike' | 'throw' | 'shoot';
+      distanceIpari: number;
+    },
   ): AttackOverview[] {
     const attacks: AttackOverview[] = [];
 
@@ -974,7 +1011,13 @@ export class CharacterOverviewService {
       if (!spec?.weapon) continue;
 
       for (const profile of spec.weapon.weapon_profiles) {
-        attacks.push(this.buildAttack(item.ruleId, rule?.name ?? item.ruleId, profile, reference, context));
+        const distanceIpari =
+          atDistance && atDistance.itemRuleId === item.ruleId && atDistance.profileType === profile.type
+            ? atDistance.distanceIpari
+            : null;
+        attacks.push(
+          this.buildAttack(item.ruleId, rule?.name ?? item.ruleId, profile, reference, context, distanceIpari),
+        );
       }
     }
 
@@ -987,13 +1030,20 @@ export class CharacterOverviewService {
     profile: WeaponProfile,
     reference: CharacterReferenceService,
     context: FormulaContext,
+    distanceIpari: number | null = null,
   ): AttackOverview {
-    const distance = this.formula.evaluate(profile.distance, context);
-    const range = profile.range === null ? null : this.formula.evaluate(profile.range, context);
+    const zeroCtx = profileFormulaContext(profile, context, this.formula);
+    const minDistance = this.formula.evaluate(profile.distance, zeroCtx);
+    const range = profile.range === null ? null : this.formula.evaluate(profile.range, zeroCtx);
+    const reach = range ?? minDistance;
+    const falloff = profile.falloff ?? DEFAULT_FALLOFF;
+    const ranged = profile.type === 'throw' || profile.type === 'shoot';
+    const penalty = ranged && distanceIpari != null ? actionStrengthSizePenalty(distanceIpari, reach, falloff) : 0;
+    const evalCtx = penalty ? profileFormulaContext(profile, context, this.formula, penalty) : zeroCtx;
     const accuracy = profile.accuracy;
-    const damageValue = this.formula.evaluateDimensional(profile.damage.formula, context);
+    const damageValue = this.formula.evaluateDimensional(profile.damage.formula, evalCtx);
     const damage = new DimensionalNumber(damageValue).toString();
-    const penetrationValue = this.formula.evaluateDimensional(profile.penetration, context);
+    const penetrationValue = this.formula.evaluateDimensional(profile.penetration, evalCtx);
     const penetration = new DimensionalNumber(penetrationValue).toString();
     const forms = profile.damage.damage_type_code === null ? null : DAMAGE_TYPE_FORMS[profile.damage.damage_type_code];
 
@@ -1003,7 +1053,10 @@ export class CharacterOverviewService {
       itemHref: reference.href(itemRuleId),
       profileType: profile.type,
       profileTypeLabel: WEAPON_PROFILE_LABELS[profile.type],
-      distanceLabel: range === null ? String(distance) : `${distance}/${range}`,
+      distanceLabel: range === null ? String(minDistance) : `${minDistance}/${range}`,
+      minDistance,
+      reach,
+      falloff,
       accuracyLabel: `${new DimensionalNumber(accuracy).toString()} точность`,
       accuracy,
       damageLabel: forms === null ? damage : `${damage} ${forms.genitive}`,

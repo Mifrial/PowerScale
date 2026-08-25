@@ -99,6 +99,9 @@ describe('CharacterOverviewService: формулы атак', () => {
     expect(overview.attacks[0].damageLabel).toBe('4 рубящего урона');
     expect(overview.attacks[0].damageFormula).toBe('Сила − 1 (для strike)');
     expect(overview.attacks[0].penetrationLabel).toBe('5↓ пробития');
+    expect(overview.attacks[0].reach).toBe(1);
+    expect(overview.attacks[0].minDistance).toBe(1);
+    expect(overview.attacks[0].falloff).toEqual({ base: 5, size: 0 });
   });
 
   it('без модификаторов база равна итогу (регрессия: не падает)', () => {
