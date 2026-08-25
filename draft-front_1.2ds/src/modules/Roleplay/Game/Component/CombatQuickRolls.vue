@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { useChatStore } from '@/modules/Messages/Chat/Store/chat';
+import { sendCombatChat } from '@/modules/Roleplay/Game/Utils/combatChatSend';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 import { characterOverviewService } from '@/modules/Roleplay/Character/Service/Instance/characterOverviewService';
 import { ROLL_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ATTACHMENT_TYPE';
@@ -45,7 +45,7 @@ const emit = defineEmits<{
   'toggle-quick-roll': [entityKey: string, ruleId: string];
 }>();
 
-const chatStore = useChatStore();
+const sendChat = sendCombatChat(props.gameId);
 
 const overlays = ref<GameCombatOverlay[]>([]);
 const error = ref<string | null>(null);
@@ -127,12 +127,7 @@ async function rollRecord(record: QuickRollRecord): Promise<void> {
       props.rules,
       props.mechanics,
     );
-    await chatStore.sendMessage(
-      record.name,
-      [{ type: ROLL_ATTACHMENT_TYPE, payload: result }],
-      props.chatId,
-      speaker.value,
-    );
+    await sendChat(record.name, [{ type: ROLL_ATTACHMENT_TYPE, payload: result }], props.chatId, speaker.value);
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Не удалось отправить бросок';
   }

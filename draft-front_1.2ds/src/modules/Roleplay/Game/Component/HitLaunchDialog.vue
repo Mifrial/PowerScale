@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { useChatStore } from '@/modules/Messages/Chat/Store/chat';
+import { useCombatChatThread } from '@/modules/Roleplay/Game/Composables/useCombatChatThread';
+import { sendCombatChat } from '@/modules/Roleplay/Game/Utils/combatChatSend';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 import { characterOverviewService } from '@/modules/Roleplay/Character/Service/Instance/characterOverviewService';
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
@@ -87,7 +88,8 @@ const emit = defineEmits<{
   'overlay-changed': [];
 }>();
 
-const chatStore = useChatStore();
+const combatThread = useCombatChatThread(props.gameId);
+const sendChat = sendCombatChat(props.gameId);
 const overlays = ref<GameCombatOverlay[]>([]);
 const offer = ref<CheckOffer | null>(null);
 const opponentKey = ref<CombatEntityKey | null>(null);
@@ -508,129 +510,132 @@ async function applyClickAttack(
   await applyCombatState(accepted.opponent, STUNNED_STATE_CODE, result.stun ?? 0);
   emit('overlay-changed');
   const speaker = speakerFor(accepted.initiator);
-  if (props.chatId !== null) {
-    await chatStore.sendMessage(
-      formatAttackActionMessage({
-        attackerKey: accepted.initiator,
-        attackerName: nameOf(accepted.initiator),
-        action,
-        attackerAp: spentAttack,
-        rules: props.rules,
-      }),
-      [],
-      props.chatId,
-      speaker,
-    );
-    await chatStore.sendMessage(
-      formatStrikeNarrativeMessage({
-        attackerKey: accepted.initiator,
-        attackerName: nameOf(accepted.initiator),
-        defenderKey: accepted.opponent,
-        defenderName: nameOf(accepted.opponent),
-        weaponRuleId: hit.itemRuleId,
-        weaponName: hit.itemName,
-        damageTypeCode: attack.damageTypeCode,
-        reaction: hit.reaction ?? 'ignore',
-        reactionAction: reactionAction(props.rules, hit.reaction),
-        reactionAp: spentDefense,
-        rules: props.rules,
-      }),
-      [],
-      props.chatId,
-      speaker,
-    );
-    const payloads = rolled.defender ? [rolled.attacker, rolled.defender] : [rolled.attacker];
-    await chatStore.sendMessage(
-      '',
-      payloads.map((payload) => ({ type: ROLL_ATTACHMENT_TYPE, payload })),
-      props.chatId,
-      speaker,
-    );
-    await chatStore.sendMessage(
-      formatAttackResultMessage({
-        attackerKey: accepted.initiator,
-        attackerName: nameOf(accepted.initiator),
-        defenderKey: accepted.opponent,
-        defenderName: nameOf(accepted.opponent),
-        remainingSr: result.remainingSr,
-        exhaustion: result.exhaustion,
-        wound: (result.wound ?? 0) + (result.cuttingWound ?? 0),
-      }),
-      [
-        {
-          type: ATTACK_CALC_ATTACHMENT_TYPE,
-          payload: buildAttackCalcPayload({
-            weaponDamage: attack.damage,
-            damageTypeCode: attack.damageTypeCode,
-            rules: props.rules,
-            sr: Math.max(0, sr),
-            result,
-            defenseIgnored,
-          }),
-        },
-      ],
-      props.chatId,
-      speaker,
-    );
-  }
-  if (result.exhaustion > 0) {
-    const afterHit = versionOf(accepted.opponent);
-    if (afterHit) {
-      const exhaustion = await applyExhaustionCheck({
-        version: afterHit,
-        rules: props.rules,
-        mechanics: props.mechanics,
-        gameId: props.gameId,
-        targetKey: accepted.opponent,
-        targetName: nameOf(accepted.opponent),
-        chatId: props.chatId,
-        speaker: speakerFor(accepted.opponent),
-        change: 'increase',
-        sendMessage: (content, attachments, chatId, speaker) =>
-          chatStore.sendMessage(content, attachments, chatId, speaker),
-      });
-      if (exhaustion.overlay) {
-        overlays.value = replaceCombatOverlay(overlays.value, exhaustion.overlay);
-        emit('overlay-changed');
+  if (props.chatId !== null) combatThread.beginAttack();
+  try {
+    if (props.chatId !== null) {
+      await sendChat(
+        formatAttackActionMessage({
+          attackerKey: accepted.initiator,
+          attackerName: nameOf(accepted.initiator),
+          action,
+          attackerAp: spentAttack,
+          rules: props.rules,
+        }),
+        [],
+        props.chatId,
+        speaker,
+      );
+      await sendChat(
+        formatStrikeNarrativeMessage({
+          attackerKey: accepted.initiator,
+          attackerName: nameOf(accepted.initiator),
+          defenderKey: accepted.opponent,
+          defenderName: nameOf(accepted.opponent),
+          weaponRuleId: hit.itemRuleId,
+          weaponName: hit.itemName,
+          damageTypeCode: attack.damageTypeCode,
+          reaction: hit.reaction ?? 'ignore',
+          reactionAction: reactionAction(props.rules, hit.reaction),
+          reactionAp: spentDefense,
+          rules: props.rules,
+        }),
+        [],
+        props.chatId,
+        speaker,
+      );
+      const payloads = rolled.defender ? [rolled.attacker, rolled.defender] : [rolled.attacker];
+      await sendChat(
+        '',
+        payloads.map((payload) => ({ type: ROLL_ATTACHMENT_TYPE, payload })),
+        props.chatId,
+        speaker,
+      );
+      await sendChat(
+        formatAttackResultMessage({
+          attackerKey: accepted.initiator,
+          attackerName: nameOf(accepted.initiator),
+          defenderKey: accepted.opponent,
+          defenderName: nameOf(accepted.opponent),
+          remainingSr: result.remainingSr,
+          exhaustion: result.exhaustion,
+          wound: (result.wound ?? 0) + (result.cuttingWound ?? 0),
+        }),
+        [
+          {
+            type: ATTACK_CALC_ATTACHMENT_TYPE,
+            payload: buildAttackCalcPayload({
+              weaponDamage: attack.damage,
+              damageTypeCode: attack.damageTypeCode,
+              rules: props.rules,
+              sr: Math.max(0, sr),
+              result,
+              defenseIgnored,
+            }),
+          },
+        ],
+        props.chatId,
+        speaker,
+      );
+    }
+    if (result.exhaustion > 0) {
+      const afterHit = versionOf(accepted.opponent);
+      if (afterHit) {
+        const exhaustion = await applyExhaustionCheck({
+          version: afterHit,
+          rules: props.rules,
+          mechanics: props.mechanics,
+          gameId: props.gameId,
+          targetKey: accepted.opponent,
+          targetName: nameOf(accepted.opponent),
+          chatId: props.chatId,
+          speaker: speakerFor(accepted.opponent),
+          change: 'increase',
+          sendMessage: (content, attachments, chatId, speaker) => sendChat(content, attachments, chatId, speaker),
+        });
+        if (exhaustion.overlay) {
+          overlays.value = replaceCombatOverlay(overlays.value, exhaustion.overlay);
+          emit('overlay-changed');
+        }
       }
     }
-  }
-  if (
-    !shouldLaunchInjuryFromAttack({
-      hpDamage: result.hpDamage,
-      cuttingWound: result.cuttingWound,
-      woundFromHit: result.wound,
-    })
-  ) {
-    return;
-  }
-  const defenderVersion = versionOf(accepted.opponent);
-  const applied = await applyInjuryCheck({
-    input: injuryInputFromAttack({
-      hpDamage: result.hpDamage,
-      cuttingWound: result.cuttingWound,
-      woundFromHit: result.wound,
-      overlayExhaustion: overlayStateTotal(defenderVersion, props.rules, EXHAUSTION_STATE_CODE),
-      endurance: defenderOverview ? enduranceOf(defenderOverview, props.rules) : 1,
-      remainingSr: result.remainingSr,
-      damageTypeCode: attack.damageTypeCode,
-      actorKey: accepted.opponent,
-    }),
-    rules: props.rules,
-    mechanics: props.mechanics,
-    gameId: props.gameId,
-    targetKey: accepted.opponent,
-    targetName: nameOf(accepted.opponent),
-    chatId: props.chatId,
-    speaker: speakerFor(accepted.opponent),
-    skipIfNoRoll: true,
-    targetVersion: defenderVersion ?? undefined,
-    sendMessage: (content, attachments, chatId, speaker) =>
-      chatStore.sendMessage(content, attachments, chatId, speaker),
-  });
-  if (applied.overlay) {
-    overlays.value = replaceCombatOverlay(overlays.value, applied.overlay);
-    emit('overlay-changed');
+    if (
+      !shouldLaunchInjuryFromAttack({
+        hpDamage: result.hpDamage,
+        cuttingWound: result.cuttingWound,
+        woundFromHit: result.wound,
+      })
+    ) {
+      return;
+    }
+    const defenderVersion = versionOf(accepted.opponent);
+    const applied = await applyInjuryCheck({
+      input: injuryInputFromAttack({
+        hpDamage: result.hpDamage,
+        cuttingWound: result.cuttingWound,
+        woundFromHit: result.wound,
+        overlayExhaustion: overlayStateTotal(defenderVersion, props.rules, EXHAUSTION_STATE_CODE),
+        endurance: defenderOverview ? enduranceOf(defenderOverview, props.rules) : 1,
+        remainingSr: result.remainingSr,
+        damageTypeCode: attack.damageTypeCode,
+        actorKey: accepted.opponent,
+      }),
+      rules: props.rules,
+      mechanics: props.mechanics,
+      gameId: props.gameId,
+      targetKey: accepted.opponent,
+      targetName: nameOf(accepted.opponent),
+      chatId: props.chatId,
+      speaker: speakerFor(accepted.opponent),
+      skipIfNoRoll: true,
+      targetVersion: defenderVersion ?? undefined,
+      sendMessage: (content, attachments, chatId, speaker) => sendChat(content, attachments, chatId, speaker),
+    });
+    if (applied.overlay) {
+      overlays.value = replaceCombatOverlay(overlays.value, applied.overlay);
+      emit('overlay-changed');
+    }
+  } finally {
+    if (props.chatId !== null) combatThread.endAttack();
   }
 }
 

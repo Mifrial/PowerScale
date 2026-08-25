@@ -23,8 +23,11 @@ import { ACTION_POINTS_CODE } from '@/modules/Roleplay/Game/Utils/applyAttackDam
 import { applyTurnWoundBleed } from '@/modules/Roleplay/Game/Utils/applyBloodLoss';
 import { effectiveCharacteristicValues } from '@/modules/Roleplay/Character/Utils/stateRuntimeEffects';
 import { replaceCombatOverlay } from '@/modules/Roleplay/Game/Utils/mergeCombatOverlay';
+import { useCombatChatThread } from '@/modules/Roleplay/Game/Composables/useCombatChatThread';
+import { sendCombatChat } from '@/modules/Roleplay/Game/Utils/combatChatSend';
+import type { ChatThreadRef } from '@/modules/Messages/Chat/Dto/ChatThreadRef';
 
-type SystemNotification = { content: string; kind: ChatMessage['kind'] };
+type SystemNotification = { content: string; kind: ChatMessage['kind']; thread?: ChatThreadRef };
 
 /**
  * Шкала инициативы (ТР §8 «Чат игры»). Жизненный цикл: «Инициатива» (окно проверки, ГМ) →
@@ -63,6 +66,8 @@ const emit = defineEmits<{
 
 const userStore = useUserStore();
 const chatStore = useChatStore();
+const combatThread = useCombatChatThread(props.gameId);
+const sendChat = sendCombatChat(props.gameId);
 
 const initiative = ref<GameInitiative | null>(null);
 const loading = ref(false);
@@ -117,6 +122,11 @@ async function load(): Promise<void> {
   error.value = null;
   try {
     initiative.value = await getGameApi().getInitiative(props.gameId);
+    if (initiative.value?.active && props.chatId != null) {
+      combatThread.recoverFromMessages(chatStore.messagesOf(props.chatId));
+    } else if (initiative.value && !initiative.value.active) {
+      combatThread.clearLive();
+    }
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Не удалось загрузить шкалу инициативы';
   } finally {
@@ -261,7 +271,7 @@ function saveAndNotify(next: GameInitiative, notifications: SystemNotification[]
   void save(next).then(() => {
     if (props.chatId !== null) {
       for (const notification of notifications) {
-        void chatStore.postSystemMessage(notification.content, props.chatId, notification.kind);
+        void chatStore.postSystemMessage(notification.content, props.chatId, notification.kind, notification.thread);
       }
     }
   });
@@ -286,8 +296,7 @@ async function bleedCurrentTurn(entityKey: string): Promise<void> {
     targetName: model.name,
     chatId: props.chatId,
     speaker: { kind: 'gm' },
-    sendMessage: (content, attachments, chatId, speaker) =>
-      chatStore.sendMessage(content, attachments, chatId, speaker),
+    sendMessage: (content, attachments, chatId, speaker) => sendChat(content, attachments, chatId, speaker),
   });
   if (next) {
     overlays.value = replaceCombatOverlay(overlays.value, next);
@@ -310,22 +319,29 @@ async function nextTurn(): Promise<void> {
   let nextRound = data.round;
   if (currentIndex === data.participants.length - 1) {
     nextRound = data.round + 1;
-    notifications.push({ content: `Новый раунд: ${nextRound}`, kind: 'highlighted' });
+    const round = combatThread.beginRound();
+    notifications.push({ content: `Новый раунд: ${nextRound}`, kind: 'highlighted', thread: round });
   }
-  if (nextParticipant) notifications.push({ content: `Ходит ${nextParticipant.name}`, kind: 'default' });
+  if (nextParticipant) {
+    const turn = combatThread.beginTurn();
+    notifications.push({ content: `Ходит ${nextParticipant.name}`, kind: 'default', thread: turn });
+  }
   saveAndNotify({ ...data, activeIndex: nextIndex, round: nextRound }, notifications);
 }
 
 function endScale(): void {
   const data = initiative.value;
   if (!data) return;
+  combatThread.clearLive();
   void save({ ...data, active: false });
 }
 
 function continueScale(): void {
   const data = initiative.value;
   if (!data) return;
-  void save({ ...data, active: true });
+  void save({ ...data, active: true }).then(() => {
+    if (props.chatId != null) combatThread.recoverFromMessages(chatStore.messagesOf(props.chatId));
+  });
 }
 
 function addToBattle(id: string): void {
@@ -350,6 +366,15 @@ watch(
     void loadOverlays();
   },
   { immediate: true },
+);
+
+watch(
+  () => (props.chatId != null ? chatStore.messagesOf(props.chatId).length : 0),
+  () => {
+    if (initiative.value?.active && props.chatId != null) {
+      combatThread.recoverFromMessages(chatStore.messagesOf(props.chatId));
+    }
+  },
 );
 
 // Правки в боевой карточке (оверлей мутировал) → перечитать оверлеи, чтобы Истощение было актуальным.

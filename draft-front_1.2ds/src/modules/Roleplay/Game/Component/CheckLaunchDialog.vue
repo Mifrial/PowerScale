@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { useChatStore } from '@/modules/Messages/Chat/Store/chat';
+import { sendCombatChat } from '@/modules/Roleplay/Game/Utils/combatChatSend';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
@@ -55,7 +55,7 @@ const emit = defineEmits<{
   settled: [];
 }>();
 
-const chatStore = useChatStore();
+const sendChat = sendCombatChat(props.gameId);
 
 const overlays = ref<GameCombatOverlay[]>([]);
 const checkCode = ref('');
@@ -402,7 +402,7 @@ function speakerFor(key: CombatEntityKey | null): ChatSpeaker {
 
 async function postRolls(text: string, payloads: unknown[]): Promise<void> {
   if (props.chatId === null) return;
-  await chatStore.sendMessage(
+  await sendChat(
     text,
     payloads.map((payload) => ({ type: ROLL_ATTACHMENT_TYPE, payload })),
     props.chatId,

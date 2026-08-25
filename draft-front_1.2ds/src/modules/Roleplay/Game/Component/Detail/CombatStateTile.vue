@@ -91,15 +91,7 @@ function submitRemove(): void {
             Изменить
           </v-btn>
         </template>
-        <v-btn
-          v-else-if="canEdit"
-          class="mt-3"
-          color="error"
-          variant="tonal"
-          size="small"
-          block
-          @click="submitRemove"
-        >
+        <v-btn v-else-if="canEdit" class="mt-3" color="error" variant="tonal" size="small" block @click="submitRemove">
           Убрать
         </v-btn>
       </v-card-text>

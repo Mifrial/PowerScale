@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { useChatStore } from '@/modules/Messages/Chat/Store/chat';
+import { useCombatChatThread } from '@/modules/Roleplay/Game/Composables/useCombatChatThread';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 import { rollInitiative, orderInitiative, rollPoolDefaults } from '@/modules/Roleplay/Game/Utils/initiativeRoll';
 import type { InitiativeRollMethod } from '@/modules/Roleplay/Game/Utils/initiativeRoll';
@@ -45,6 +46,7 @@ const emit = defineEmits<{
 }>();
 
 const chatStore = useChatStore();
+const combatThread = useCombatChatThread(props.gameId);
 
 const DEFAULT_CHARACTERISTIC_CODE = 'perception';
 
@@ -109,9 +111,16 @@ watch(
   },
 );
 
+/** По умолчанию — все approved-персонажи; НПС добавляют вручную. */
+function defaultSelectedIds(): string[] {
+  return candidates.value
+    .filter((candidate) => candidate.participant.kind === 'character')
+    .map((candidate) => candidate.participant.id);
+}
+
 function reset(): void {
   entries.value = [];
-  selectedIds.value = [];
+  selectedIds.value = defaultSelectedIds();
   rolling.value = false;
   error.value = null;
 }
@@ -250,6 +259,8 @@ async function roll(): Promise<void> {
     });
 
     if (props.chatId !== null) {
+      const round = combatThread.beginRound();
+      await chatStore.postSystemMessage(`Новый раунд: 1`, props.chatId, 'highlighted', round);
       const rolled = results.filter((result) => result.result !== null);
       if (rolled.length > 0) {
         await chatStore.sendMessage(
@@ -257,10 +268,15 @@ async function roll(): Promise<void> {
           rolled.map((result) => ({ type: ROLL_ATTACHMENT_TYPE, payload: result.result })),
           props.chatId,
           { kind: 'gm' },
+          undefined,
+          round,
         );
       }
       const first = ordered[0];
-      if (first) await chatStore.postSystemMessage(`Ходит ${first.name}`, props.chatId);
+      if (first) {
+        const turn = combatThread.beginTurn();
+        await chatStore.postSystemMessage(`Ходит ${first.name}`, props.chatId, 'default', turn);
+      }
     }
 
     emit('saved');

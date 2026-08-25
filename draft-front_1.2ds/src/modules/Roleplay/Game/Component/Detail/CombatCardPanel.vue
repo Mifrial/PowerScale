@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import SlidePanel from '@/modules/Core/UI/Component/SlidePanel.vue';
-import { useChatStore } from '@/modules/Messages/Chat/Store/chat';
+import { sendCombatChat } from '@/modules/Roleplay/Game/Utils/combatChatSend';
 import type { ChatAttachment } from '@/modules/Messages/Chat/Dto/ChatAttachment';
 import { applyExhaustionCheck } from '@/modules/Roleplay/Game/Utils/applyExhaustionCheck';
 import { applyBloodLossTick } from '@/modules/Roleplay/Game/Utils/applyBloodLoss';
@@ -86,7 +86,7 @@ const emit = defineEmits<{
   'launch-injury': [];
 }>();
 
-const chatStore = useChatStore();
+const sendChat = sendCombatChat(props.gameId);
 
 const isOpen = ref(props.open);
 watch(
@@ -238,9 +238,7 @@ function stateTileValue(state: CharacterStateValue | undefined, row: CombatState
 const stateTiles = computed((): CombatStateTileModel[] => {
   const states = effectiveVersion.value?.states ?? [];
   const version = effectiveVersion.value;
-  const reserved = version
-    ? reservedExhaustion(overlayStateTotal(version, props.rules, BLOOD_LOSS_STATE_CODE))
-    : 0;
+  const reserved = version ? reservedExhaustion(overlayStateTotal(version, props.rules, BLOOD_LOSS_STATE_CODE)) : 0;
   const tiles: CombatStateTileModel[] = [];
   for (const row of stateRows.value) {
     for (const index of row.indices) {
@@ -359,12 +357,7 @@ async function roll(characteristic: CharacteristicOverview, name?: string): Prom
       props.rules,
       props.mechanics,
     );
-    await chatStore.sendMessage(
-      rollName,
-      [{ type: ROLL_ATTACHMENT_TYPE, payload: result }],
-      props.chatId,
-      speaker.value,
-    );
+    await sendChat(rollName, [{ type: ROLL_ATTACHMENT_TYPE, payload: result }], props.chatId, speaker.value);
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Не удалось отправить бросок';
   }
@@ -464,7 +457,7 @@ async function afterStateSideEffects(
   const card = model.value;
   if (!version || !card) return;
   const send = (content: string, attachments: ChatAttachment[], chatId: number, speaker: ChatSpeaker) =>
-    chatStore.sendMessage(content, attachments, chatId, speaker);
+    sendChat(content, attachments, chatId, speaker);
   if (code === BLOOD_LOSS_STATE_CODE && bloodDelta > 0) {
     const overlay = await applyBloodLossTick({
       version,

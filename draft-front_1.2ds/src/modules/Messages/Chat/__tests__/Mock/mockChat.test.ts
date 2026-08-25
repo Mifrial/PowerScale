@@ -85,6 +85,19 @@ describe('mock chat fixtures (single source of truth)', () => {
     expect(withSpeaker.some((m) => m.speaker?.kind === 'gm')).toBe(true);
   });
 
+  it('sendSystemMessage stores thread and it round-trips', async () => {
+    const chatId = 1;
+    const thread = { id: 'r1', kind: 'round' };
+    const created = await mockSendSystemMessage(chatId, 'Новый раунд: 1', 'highlighted', thread);
+
+    expect(created.thread).toEqual(thread);
+    expect(created.kind).toBe('highlighted');
+
+    const total = await mockGetTotalMessageCount(chatId);
+    const all = await mockGetMessages(chatId, total, 0);
+    expect(all.find((m) => m.id === created.id)?.thread).toEqual(thread);
+  });
+
   it('sendMessage stores speaker and it round-trips through getMessages', async () => {
     const chatId = 1;
     const speaker: ChatSpeaker = { kind: 'character', characterId: 42, characterName: 'Тестовик' };
@@ -95,6 +108,18 @@ describe('mock chat fixtures (single source of truth)', () => {
     const total = await mockGetTotalMessageCount(chatId);
     const all = await mockGetMessages(chatId, total, 0);
     expect(all.find((m) => m.id === created.id)?.speaker).toEqual(speaker);
+  });
+
+  it('sendMessage stores thread and it round-trips', async () => {
+    const chatId = 1;
+    const thread = { id: 't1', parentId: 'r1', kind: 'turn' };
+    const created = await mockSendMessage(chatId, 'Реплика в ходе', [], undefined, undefined, thread);
+
+    expect(created.thread).toEqual(thread);
+
+    const total = await mockGetTotalMessageCount(chatId);
+    const all = await mockGetMessages(chatId, total, 0);
+    expect(all.find((m) => m.id === created.id)?.thread).toEqual(thread);
   });
 
   it('sendSystemMessage creates a kind=default message that round-trips', async () => {

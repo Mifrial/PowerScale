@@ -6,6 +6,7 @@ import type { SyncResponse } from '@/modules/Messages/Chat/Dto/SyncResponse';
 import type { ChatAttachment } from '@/modules/Messages/Chat/Dto/ChatAttachment';
 import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
 import type { ChatMessageVisibility } from '@/modules/Messages/Chat/Dto/ChatMessageVisibility';
+import type { ChatThreadRef } from '@/modules/Messages/Chat/Dto/ChatThreadRef';
 
 export class ChatApi implements IChatApi {
   constructor(private readonly engine: Engine) {}
@@ -44,6 +45,7 @@ export class ChatApi implements IChatApi {
     attachments: ChatAttachment[],
     speaker?: ChatSpeaker,
     visibility?: ChatMessageVisibility,
+    thread?: ChatThreadRef,
   ): Promise<ChatMessage> {
     const res = await this.engine.runAction<ChatMessage>('chat.sendMessage', {
       chatId,
@@ -51,6 +53,7 @@ export class ChatApi implements IChatApi {
       attachments,
       speaker,
       visibility,
+      thread,
     });
     if (!res.success || !res.data) throw new Error(res.error?.message ?? 'Failed to send message');
 
@@ -72,8 +75,18 @@ export class ChatApi implements IChatApi {
     return res.data;
   }
 
-  async sendSystemMessage(chatId: number, content: string, kind?: ChatMessage['kind']): Promise<ChatMessage> {
-    const res = await this.engine.runAction<ChatMessage>('chat.sendSystemMessage', { chatId, content, kind });
+  async sendSystemMessage(
+    chatId: number,
+    content: string,
+    kind?: ChatMessage['kind'],
+    thread?: ChatThreadRef,
+  ): Promise<ChatMessage> {
+    const res = await this.engine.runAction<ChatMessage>('chat.sendSystemMessage', {
+      chatId,
+      content,
+      kind,
+      thread,
+    });
     if (!res.success || !res.data) throw new Error(res.error?.message ?? 'Failed to send system message');
 
     return res.data;

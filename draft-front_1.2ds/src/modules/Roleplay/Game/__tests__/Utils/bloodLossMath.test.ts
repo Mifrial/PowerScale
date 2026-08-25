@@ -4,7 +4,10 @@ import {
   bloodLossInjuryDifficulty,
   reservedExhaustion,
 } from '@/modules/Roleplay/Game/Utils/bloodLossMath';
-import { declineOutcomeFromRating, shouldSkipExhaustionCheck } from '@/modules/Roleplay/Game/Utils/exhaustionCheckMessage';
+import {
+  declineOutcomeFromRating,
+  shouldSkipExhaustionCheck,
+} from '@/modules/Roleplay/Game/Utils/exhaustionCheckMessage';
 import { formatBloodLossTickMessage } from '@/modules/Roleplay/Game/Utils/bloodLossMessage';
 import { characteristicDependsOn } from '@/modules/Roleplay/Character/Utils/stateRuntimeEffects';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';

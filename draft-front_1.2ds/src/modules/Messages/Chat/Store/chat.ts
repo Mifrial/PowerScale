@@ -6,6 +6,7 @@ import type { SyncResponse } from '@/modules/Messages/Chat/Dto/SyncResponse';
 import type { ChatAttachment } from '@/modules/Messages/Chat/Dto/ChatAttachment';
 import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
 import type { ChatMessageVisibility } from '@/modules/Messages/Chat/Dto/ChatMessageVisibility';
+import type { ChatThreadRef } from '@/modules/Messages/Chat/Dto/ChatThreadRef';
 import { getChatApi, getChatTabs } from '@/modules/Messages/Chat/init';
 import { useAuthStore } from '@/modules/Core/Auth/Store/auth';
 import { ChatSyncService } from '@/modules/Messages/Chat/Service/ChatSyncService';
@@ -239,6 +240,7 @@ export const useChatStore = defineStore('chat', () => {
     targetChatId?: number,
     speaker?: ChatSpeaker,
     visibility?: ChatMessageVisibility,
+    thread?: ChatThreadRef,
   ): Promise<boolean> {
     // Встроенное обсуждение шлёт в свой чат явно (targetChatId), не трогая глобальный активный.
     const chatId = targetChatId ?? activeChatId.value;
@@ -253,7 +255,7 @@ export const useChatStore = defineStore('chat', () => {
     sending.value = true;
     actionError.value = '';
     try {
-      const msg = await getChatApi().sendMessage(chatId, content, attachments, speaker, visibility);
+      const msg = await getChatApi().sendMessage(chatId, content, attachments, speaker, visibility, thread);
       state.messages.push(msg);
       state.total++;
       state.initialized = true;
@@ -314,6 +316,7 @@ export const useChatStore = defineStore('chat', () => {
     content: string,
     targetChatId: number,
     kind: ChatMessage['kind'] = 'default',
+    thread?: ChatThreadRef,
   ): Promise<boolean> {
     let state = chatStates.value.get(targetChatId);
     if (!state) {
@@ -322,7 +325,7 @@ export const useChatStore = defineStore('chat', () => {
     }
 
     try {
-      const msg = await getChatApi().sendSystemMessage(targetChatId, content, kind);
+      const msg = await getChatApi().sendSystemMessage(targetChatId, content, kind, thread);
       state.messages.push(msg);
       state.total++;
       state.initialized = true;

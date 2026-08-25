@@ -1,6 +1,5 @@
 import { ref, computed } from 'vue';
 import { useVirtualizer } from '@tanstack/vue-virtual';
-import type { ChatMessage } from '@/modules/Messages/Chat/Dto/ChatMessage';
 
 const MIN_ITEM_SIZE = 48;
 const OVERSCAN = 8;
@@ -9,7 +8,8 @@ const END_THRESHOLD = 40;
 
 export function useChatVirtualScroll(opts: {
   getScrollElement: () => HTMLElement | null;
-  getMessages: () => ChatMessage[];
+  getCount: () => number;
+  getItemKey: (index: number) => string | number;
   onReachTop: () => Promise<void>;
   hasMoreOlder: () => boolean;
   loadingOlder: () => boolean;
@@ -19,9 +19,9 @@ export function useChatVirtualScroll(opts: {
   const virtualizer = useVirtualizer(
     computed(() => ({
       getScrollElement: () => scrollElement.value,
-      count: opts.getMessages().length,
+      count: opts.getCount(),
       estimateSize: () => MIN_ITEM_SIZE,
-      getItemKey: (index: number) => opts.getMessages()[index]?.id ?? index,
+      getItemKey: (index: number) => opts.getItemKey(index),
       overscan: OVERSCAN,
     })),
   );

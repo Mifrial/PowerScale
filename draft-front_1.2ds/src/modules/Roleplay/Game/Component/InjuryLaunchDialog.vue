@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { useChatStore } from '@/modules/Messages/Chat/Store/chat';
+import { sendCombatChat } from '@/modules/Roleplay/Game/Utils/combatChatSend';
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
 import { ROLL_ADV_MAX } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ADV_MAX';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
@@ -30,7 +30,7 @@ const emit = defineEmits<{
   'overlay-changed': [];
 }>();
 
-const chatStore = useChatStore();
+const sendChat = sendCombatChat(props.gameId);
 const difficulty = ref(1);
 const attackSr = ref(0);
 const adv = ref(0);
@@ -98,8 +98,7 @@ async function submit(): Promise<void> {
       targetName: combatEntityName(props.targetKey, props.characters, props.npcs),
       chatId: props.chatId,
       speaker: speakerFor(props.targetKey),
-      sendMessage: (content, attachments, chatId, speaker) =>
-        chatStore.sendMessage(content, attachments, chatId, speaker),
+      sendMessage: (content, attachments, chatId, speaker) => sendChat(content, attachments, chatId, speaker),
     });
     if (applied.overlay) emit('overlay-changed');
     emit('update:open', false);

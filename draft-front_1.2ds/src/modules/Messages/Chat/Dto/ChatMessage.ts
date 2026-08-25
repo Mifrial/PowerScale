@@ -1,6 +1,7 @@
 import type { ChatAttachment } from '@/modules/Messages/Chat/Dto/ChatAttachment';
 import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
 import type { ChatMessageVisibility } from '@/modules/Messages/Chat/Dto/ChatMessageVisibility';
+import type { ChatThreadRef } from '@/modules/Messages/Chat/Dto/ChatThreadRef';
 
 export interface ChatMessage {
   id: number;
@@ -17,4 +18,6 @@ export interface ChatMessage {
   kind?: 'default' | 'highlighted';
   /** Видимость сообщения (роли/пользователи); оценка — Utils/chatVisibility. */
   visibility?: ChatMessageVisibility;
+  /** Непрозрачная группа свёртки (раунд/ход/атака и т.п.). Хост Chat kind не интерпретирует. */
+  thread?: ChatThreadRef;
 }

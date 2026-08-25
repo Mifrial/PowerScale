@@ -4,6 +4,7 @@ import type { MemberInfo } from '@/modules/Messages/Chat/Dto/MemberInfo';
 import type { ChatAttachment } from '@/modules/Messages/Chat/Dto/ChatAttachment';
 import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
 import type { ChatMessageVisibility } from '@/modules/Messages/Chat/Dto/ChatMessageVisibility';
+import type { ChatThreadRef } from '@/modules/Messages/Chat/Dto/ChatThreadRef';
 import type { DiceRollResult } from '@/modules/Roleplay/Game/Dto/DiceRollResult';
 import type { SyncResponse } from '@/modules/Messages/Chat/Dto/SyncResponse';
 import { users as realUsers } from '@/modules/Core/User/Mock/mockUsers';
@@ -1045,6 +1046,7 @@ export async function mockSendMessage(
   attachments: ChatAttachment[],
   speaker?: ChatSpeaker,
   visibility?: ChatMessageVisibility,
+  thread?: ChatThreadRef,
 ): Promise<ChatMessage> {
   await delay(200);
   msgIdSeq++;
@@ -1068,6 +1070,7 @@ export async function mockSendMessage(
     updatedAt: now,
     ...(speaker ? { speaker } : {}),
     ...(visibility ? { visibility } : {}),
+    ...(thread ? { thread } : {}),
   };
   if (!rawMessages[chatId]) rawMessages[chatId] = [];
   rawMessages[chatId].push(created);
@@ -1107,6 +1110,7 @@ export async function mockSendSystemMessage(
   chatId: number,
   content: string,
   kind: ChatMessage['kind'] = 'default',
+  thread?: ChatThreadRef,
 ): Promise<ChatMessage> {
   await delay(150);
   msgIdSeq++;
@@ -1121,6 +1125,7 @@ export async function mockSendSystemMessage(
     createdAt: now,
     updatedAt: now,
     kind,
+    ...(thread ? { thread } : {}),
   };
   if (!rawMessages[chatId]) rawMessages[chatId] = [];
   rawMessages[chatId].push(created);

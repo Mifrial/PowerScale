@@ -8,6 +8,9 @@ import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
 import type { ChatSpeakerOption } from '@/modules/Messages/Chat/Dto/ChatSpeakerOption';
 import type { ITokenSource } from '@/modules/Messages/Chat/Interface/ITokenSource';
 import type { ChatMessageVisibility } from '@/modules/Messages/Chat/Dto/ChatMessageVisibility';
+import type { ChatThreadRef } from '@/modules/Messages/Chat/Dto/ChatThreadRef';
+import type { ChatFoldChild } from '@/modules/Messages/Chat/Dto/ChatFold';
+import type { ChatMessage } from '@/modules/Messages/Chat/Dto/ChatMessage';
 import { useChatVisibilityOptions } from '@/modules/Messages/Chat/Composables/useChatVisibilityOptions';
 import ChatMessageList from '@/modules/Messages/Chat/Component/ChatMessageList.vue';
 import ChatInput from '@/modules/Messages/Chat/Component/ChatInput.vue';
@@ -39,6 +42,10 @@ const props = withDefaults(
     tokenSources?: ITokenSource[];
     /** Трансформация вложений перед отправкой (дефолты броска из ревизии игры). */
     processAttachments?: (attachments: ChatAttachment[]) => ChatAttachment[];
+    /** Штамп свёртки на исходящие сообщения (игровой чат — текущий ход). */
+    messageThread?: ChatThreadRef | null;
+    buildFolds?: (messages: ChatMessage[]) => ChatFoldChild[];
+    liveFoldIds?: string[];
   }>(),
   {
     emptyLabel: 'Чат доступен в мессенджере',
@@ -116,7 +123,7 @@ async function handleSend(
 ): Promise<boolean> {
   if (props.chatId === null) return false;
 
-  return store.sendMessage(text, attachments, props.chatId, speaker, visibility);
+  return store.sendMessage(text, attachments, props.chatId, speaker, visibility, props.messageThread ?? undefined);
 }
 
 function retryAttach(): void {
@@ -146,7 +153,12 @@ function retryAttach(): void {
   </div>
 
   <v-card v-else class="chat-thread" border>
-    <ChatMessageList :chat-id="chatId" :renderer-context="rendererContext" />
+    <ChatMessageList
+      :chat-id="chatId"
+      :renderer-context="rendererContext"
+      :build-folds="buildFolds"
+      :live-fold-ids="liveFoldIds"
+    />
     <ChatInput
       :sending="store.sending"
       :disabled="!canWrite"

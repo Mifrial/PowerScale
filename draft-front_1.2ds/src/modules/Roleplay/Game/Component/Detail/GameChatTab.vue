@@ -29,6 +29,8 @@ import { combatCardCanEdit } from '@/modules/Roleplay/Game/Utils/combatCardModel
 import type { CheckOffer } from '@/modules/Roleplay/Game/Dto/CheckOffer';
 import type { AttackOverview } from '@/modules/Roleplay/Character/Dto/Overview/AttackOverview';
 import { CHECK_HIT_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
+import { useCombatChatThread } from '@/modules/Roleplay/Game/Composables/useCombatChatThread';
+import { buildCombatChatFolds } from '@/modules/Roleplay/Game/Utils/combatChatFold';
 
 const props = defineProps<{
   /** Активна ли вкладка: чат монтируется только при открытии (D7 — освобождает глобальный чат при уходе). */
@@ -43,6 +45,9 @@ const spaceRevisionStore = useSpaceRevisionStore();
 
 const chatId = computed(() => props.detail.gameChatId);
 const gameId = computed(() => props.detail.game.id);
+const combatThread = useCombatChatThread(gameId.value);
+const messageThread = computed(() => combatThread.stamp());
+const liveFoldIds = combatThread.liveIds;
 
 // Кнопки статуса — в глобальный топбар (#editor-actions), видны только на этой вкладке.
 const statusUpdating = ref(false);
@@ -519,6 +524,9 @@ onUnmounted(() => {
         :token-sources="tokenSources"
         :inline-context="chatInlineContext"
         :process-attachments="processAttachments"
+        :message-thread="messageThread"
+        :build-folds="buildCombatChatFolds"
+        :live-fold-ids="liveFoldIds"
         empty-label="Чат игры доступен в мессенджере"
         class="game-chat-thread"
         @update:active-speaker-key="onSpeakerKeyChange"
