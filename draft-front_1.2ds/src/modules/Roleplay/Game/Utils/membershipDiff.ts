@@ -6,6 +6,7 @@ import type { CharacterAbility } from '@/modules/Roleplay/Character/Dto/Characte
 import type { InventoryItem } from '@/modules/Roleplay/Character/Dto/InventoryItem';
 import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/CharacterStateValue';
 import type { CharacterSenseValue } from '@/modules/Roleplay/Character/Dto/CharacterSenseValue';
+import type { CustomRuleEntry } from '@/modules/Roleplay/Character/Dto/CustomRuleEntry';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import { CharacteristicNumber } from '@/modules/Roleplay/Rule/Value/CharacteristicNumber';
@@ -38,7 +39,8 @@ export interface ResourceDiffDetail {
   bonuses: { name: string; delta: number }[];
 }
 
-export type DiffSectionKey = 'characteristics' | 'resources' | 'abilities' | 'inventory' | 'states' | 'senses';
+export type DiffSectionKey =
+  'characteristics' | 'resources' | 'abilities' | 'inventory' | 'states' | 'senses' | 'customRules';
 
 /** Секция списка листа: по-элементные изменения (не по количеству). */
 export interface DiffSection {
@@ -212,6 +214,22 @@ function senseRender(sense: CharacterSenseValue): string {
   return String(sense.value);
 }
 
+function customRuleKey(entry: CustomRuleEntry): string {
+  return String(entry.id);
+}
+
+function customRuleLabel(entry: CustomRuleEntry): string {
+  return entry.name;
+}
+
+function customRuleRender(entry: CustomRuleEntry): string {
+  const status = entry.status === 'deprecated' ? 'устарело' : 'активно';
+  const text = entry.description?.trim() ? entry.description : status;
+  if (entry.description?.trim()) return `${status} · ${text}`;
+
+  return status;
+}
+
 /** По-элементный diff двух списков листа по ключу (added/removed/changed), стабильная сортировка по label. */
 function diffList<T>(
   active: T[],
@@ -350,10 +368,26 @@ export function membershipDiff(
       label: 'Чувства',
       changes: diffList(active?.senses ?? [], pending?.senses ?? [], (item) => item.ruleId, senseLabel, senseRender),
     },
+    {
+      key: 'customRules',
+      label: 'Уникальные правила',
+      changes: diffList(
+        active?.customRules ?? [],
+        pending?.customRules ?? [],
+        customRuleKey,
+        customRuleLabel,
+        customRuleRender,
+      ),
+    },
   ];
 
   return {
     scalars: scalarChanges(active, pending),
     sections: sections.filter((section) => section.changes.length > 0),
   };
+}
+
+/** Нет видимых изменений листа (ревизия/spaceCode в diff не входят). Первая подача — не пустая. */
+export function isEmptyMembershipDiff(diff: MembershipDiff): boolean {
+  return diff.scalars.length === 0 && diff.sections.length === 0;
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { membershipDiff } from '@/modules/Roleplay/Game/Utils/membershipDiff';
+import { isEmptyMembershipDiff, membershipDiff } from '@/modules/Roleplay/Game/Utils/membershipDiff';
 import type { CharacteristicDiffDetail, ResourceDiffDetail } from '@/modules/Roleplay/Game/Utils/membershipDiff';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { CharacteristicValue } from '@/modules/Roleplay/Character/Dto/CharacteristicValue';
@@ -195,11 +195,38 @@ describe('membershipDiff: секции списков', () => {
     expect(sectionChanges(diff, 'senses')[0]).toMatchObject({ kind: 'changed', before: '2', after: '3' });
   });
 
+  it('уникальное правило попадает в diff', () => {
+    const pending = makeVersion({
+      customRules: [{ id: 1, kind: 'item', name: 'Лаваш', description: 'Большой', status: 'active' }],
+    });
+    const diff = membershipDiff(makeVersion(), pending);
+    expect(isEmptyMembershipDiff(diff)).toBe(false);
+    expect(sectionChanges(diff, 'customRules')[0]).toMatchObject({ label: 'Лаваш', kind: 'added' });
+  });
+
   it('изменения в секции отсортированы по label', () => {
     const active = makeVersion({ abilities: [ability('rule-b', 1)] });
     const pending = makeVersion({ abilities: [ability('rule-b', 1), ability('rule-a', 1), ability('rule-c', 1)] });
     const labels = sectionChanges(membershipDiff(active, pending), 'abilities').map((change) => change.label);
     expect(labels).toEqual(['rule-a', 'rule-c']);
+  });
+});
+
+describe('isEmptyMembershipDiff', () => {
+  it('равные версии — пустой diff', () => {
+    expect(isEmptyMembershipDiff(membershipDiff(makeVersion(), makeVersion()))).toBe(true);
+  });
+
+  it('только смена ревизии — пустой (ревизия не в diff)', () => {
+    expect(isEmptyMembershipDiff(membershipDiff(makeVersion(), makeVersion({ rulesRevision: 12 })))).toBe(true);
+  });
+
+  it('смена имени — не пустой', () => {
+    expect(isEmptyMembershipDiff(membershipDiff(makeVersion(), makeVersion({ name: 'Другой' })))).toBe(false);
+  });
+
+  it('первая подача — не пустая', () => {
+    expect(isEmptyMembershipDiff(membershipDiff(null, makeVersion()))).toBe(false);
   });
 });
 

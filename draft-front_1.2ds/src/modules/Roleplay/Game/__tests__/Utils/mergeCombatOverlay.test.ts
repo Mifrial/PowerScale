@@ -67,6 +67,21 @@ describe('mergeCombatOverlay: применение оверлея на верс�
     expect(merged.resources).toEqual(version.resources);
     expect(merged.states).toEqual([{ stateRuleId: 'rule-63', value: 5 }]);
   });
+
+  it('клампит current листа к лимиту даже без переопределения оверлея', () => {
+    const over = {
+      ...version,
+      resources: version.resources.map((resource) =>
+        resource.ruleId === 'rule-18' ? { ...resource, current: { base: 99, size: 0 } } : resource,
+      ),
+    };
+    const overlay = makeOverlay();
+    overlay.resources = [];
+    expect(mergeCombatOverlay(over, overlay).resources.find((r) => r.ruleId === 'rule-18')?.current).toEqual({
+      base: 4,
+      size: 0,
+    });
+  });
 });
 
 describe('preferNewerCombatOverlays / replaceCombatOverlay', () => {

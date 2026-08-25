@@ -460,7 +460,7 @@ export class CharacterEditorService {
    * Ресурсы персонажа. Авто-добавляемые (ResourceSpec.auto_add, сейчас — ОД): лимит = limit.base
    * + сумма adjustments (формулы по характеристикам) + дары resource_limit_change; каждый вклад —
    * бонус/штраф с источником (попап ресурса). current — из сохранённого build.resources
-   * (фолбэк — полный лимит). Не-авто ресурсы из build сохраняются как есть.
+   * (фолбэк — полный лимит), кламп к [0, лимит]. Не-авто ресурсы из build — то же клампирование.
    */
   private buildResources(
     build: CharacterBuild,
@@ -508,19 +508,28 @@ export class CharacterEditorService {
       const limit = { base: Math.max(0, base.base + delta), size: base.size };
       result.push({
         ruleId: rule.id,
-        current: stored?.current ?? limit,
+        current: this.clampCurrentToLimit(stored?.current ?? limit, limit),
         base,
         bonuses,
       });
     }
 
-    // Не-авто ресурсы (или авто, не покрытые ревизией): сохраняем как есть.
+    // Не-авто ресурсы (или авто, не покрытые ревизией): current клампится к лимиту листа.
     for (const resource of build.resources) {
       if (result.some((entry) => entry.ruleId === resource.ruleId)) continue;
-      result.push(resource);
+      const limitBase = Math.max(0, resource.base.base + resource.bonuses.reduce((sum, bonus) => sum + bonus.delta, 0));
+      result.push({
+        ...resource,
+        current: this.clampCurrentToLimit(resource.current, { base: limitBase, size: resource.base.size }),
+      });
     }
 
     return result;
+  }
+
+  /** current не выше лимита и не ниже 0 (лимит мог упасть после правки характеристик/состояний). */
+  private clampCurrentToLimit(current: DimensionalNumberValue, limit: DimensionalNumberValue): DimensionalNumberValue {
+    return { base: Math.max(0, Math.min(limit.base, current.base)), size: current.size };
   }
 
   private applyRaceCharacteristics(

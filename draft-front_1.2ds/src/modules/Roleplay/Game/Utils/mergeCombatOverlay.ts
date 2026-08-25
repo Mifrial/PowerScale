@@ -11,8 +11,10 @@ import { resourceLimitBase } from '@/modules/Roleplay/Game/Utils/combatEffective
 export function mergeCombatOverlay(version: CharacterVersion, overlay: GameCombatOverlay): CharacterVersion {
   const resources = version.resources.map((resource) => {
     const override = overlay.resources.find((item) => item.ruleId === resource.ruleId);
-    if (!override) return resource;
-    const clamped = Math.max(0, Math.min(resourceLimitBase(resource), override.current.base));
+    const limit = Math.max(0, resourceLimitBase(resource));
+    const sourceBase = override?.current.base ?? resource.current.base;
+    const clamped = Math.max(0, Math.min(limit, sourceBase));
+    if (!override && clamped === resource.current.base) return resource;
 
     return { ...resource, current: { base: clamped, size: resource.current.size } };
   });

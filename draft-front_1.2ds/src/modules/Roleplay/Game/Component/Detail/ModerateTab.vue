@@ -126,10 +126,10 @@ async function moderate(membership: GameCharacterMembership, action: GameModerat
       action,
       conflictChoices.value[membership.characterId] ?? {},
     );
+    await load();
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Не удалось применить решение';
   }
-  await load();
 }
 
 function membershipStatusLabel(status: GameMembershipStatus): string {

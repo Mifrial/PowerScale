@@ -94,7 +94,7 @@ function confirmDeleteNpc(): void {
 </script>
 
 <template>
-  <v-dialog v-model="open" max-width="560">
+  <v-dialog v-model="open" max-width="720">
     <v-card>
       <v-card-title class="d-flex align-center">
         <span class="text-h6">{{ npc.name }}</span>
@@ -107,9 +107,9 @@ function confirmDeleteNpc(): void {
       <v-card-text>
         <!-- Ведущий: редактирование полей + видимость -->
         <template v-if="isGm">
-          <v-text-field v-model="name" label="Имя" />
-          <v-text-field v-model="shortDescription" label="Краткое описание" />
-          <v-textarea v-model="fullDescription" label="Полное описание" rows="2" />
+          <v-text-field v-model="name" label="Имя" hide-details="auto" class="mb-3" />
+          <v-text-field v-model="shortDescription" label="Краткое описание" hide-details="auto" class="mb-3" />
+          <v-textarea v-model="fullDescription" label="Полное описание" rows="2" hide-details="auto" class="mb-3" />
           <v-combobox
             v-model="tags"
             label="Теги"
@@ -146,7 +146,7 @@ function confirmDeleteNpc(): void {
           </div>
         </template>
       </v-card-text>
-      <v-card-actions>
+      <v-card-actions class="d-flex flex-wrap ga-2 pa-4">
         <template v-if="isGm">
           <v-btn color="primary" @click="save">Сохранить</v-btn>
           <v-btn variant="tonal" @click="visibilityOpen = true">Видимость</v-btn>

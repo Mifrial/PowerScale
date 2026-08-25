@@ -20,6 +20,7 @@ import {
   getStoredCombatOverlay,
 } from '@/modules/Roleplay/Game/Mock/mockGameCombatOverlays';
 import { reconcileVersion } from '@/modules/Roleplay/Game/Utils/reconcileVersion';
+import { isEmptyMembershipDiff, membershipDiff } from '@/modules/Roleplay/Game/Utils/membershipDiff';
 import { membershipMatchesGameRevision } from '@/modules/Roleplay/Game/Utils/membershipRevision';
 import { SHEET_VISIBILITY_DEFAULT } from '@/modules/Roleplay/Character/Constant/Sheet/SHEET_VISIBILITY_PRESETS';
 
@@ -136,8 +137,25 @@ function autoRejectWrongRevision(membership: StoredMembership): boolean {
   return true;
 }
 
+function applyApprove(membership: StoredMembership, pending: CharacterVersion): void {
+  const entityKey = combatKey('character', membership.characterId);
+  const overlay = getStoredCombatOverlay(membership.gameId, entityKey);
+  const final = reconcileVersion(membership.activeVersion, pending, overlay);
+  versions[membership.characterId] = final;
+  syncCharacterVersion(membership.characterId);
+  membership.activeVersion = snapshotVersion(final);
+  membership.latestVersion = versions[membership.characterId];
+  clearCombatOverlay(membership.gameId, entityKey);
+  membership.pendingVersion = null;
+  membership.membershipStatus = 'approved';
+  const character = characters.find((entry) => entry.id === membership.characterId);
+  if (character) {
+    character.gameId = membership.gameId;
+    character.gameName = gameNameOf(membership.gameId);
+  }
+}
+
 function queuePending(membership: StoredMembership, pending: CharacterVersion): void {
-  membership.pendingVersion = snapshotVersion(pending);
   membership.updatedAt = new Date().toISOString();
   const gameRevision = gameRulesRevision(membership.gameId);
   if (gameRevision !== null && pending.rulesRevision !== gameRevision) {
@@ -146,6 +164,12 @@ function queuePending(membership: StoredMembership, pending: CharacterVersion): 
 
     return;
   }
+  if (membership.activeVersion && isEmptyMembershipDiff(membershipDiff(membership.activeVersion, pending))) {
+    applyApprove(membership, pending);
+
+    return;
+  }
+  membership.pendingVersion = snapshotVersion(pending);
   membership.membershipStatus = 'pending';
 }
 
@@ -254,10 +278,11 @@ export function syncCharacterVersionToMemberships(characterId: number): void {
 }
 
 /**
- * Модерация (D117, модель версий — Баг 1). approve → версия = reconcile(active, latest, оверлей)
+ * Модерация (D117, модель версий — Баг 1). approve → версия = reconcile(active, pending/latest, оверлей)
  * с учётом выборов ведущего при конфликтах; становится latest (versions[id]) и активной (заморожена).
- * reject → сброс оверлея и pending, latest не трогается. При активной сессии с изменениями оверлея
- * модерация заблокирована (изменения сессии уходят на модерацию только при её остановке).
+ * reject → сброс pending, latest не трогается. Guard «сессия активна» — только если ещё нет queued
+ * pending: живой оверлей уйдёт на модерацию при остановке. Уже поданную заявку можно принять/отклонить
+ * во время сессии; живой оверлей при этом не мержится и не очищается.
  */
 export async function moderateCharacter(
   gameId: number,
@@ -271,27 +296,37 @@ export async function moderateCharacter(
   if (!membership) throw new Error('Членство не найдено');
   const entityKey = combatKey('character', characterId);
   const overlay = getStoredCombatOverlay(gameId, entityKey);
-  if (isSessionActive(gameId) && combatOverlayHasChanges(membership.activeVersion, overlay)) {
+  const liveOverlay = isSessionActive(gameId) && combatOverlayHasChanges(membership.activeVersion, overlay);
+  if (liveOverlay && membership.membershipStatus !== 'pending') {
     throw new Error('Сессия активна: изменения персонажа уйдут на модерацию после остановки сессии');
   }
   if (action === 'approve') {
-    const latest = versions[characterId] ?? membership.activeVersion;
+    const source = membership.pendingVersion ?? versions[characterId] ?? membership.activeVersion;
     if (
       !membershipMatchesGameRevision(
-        { pendingVersion: membership.pendingVersion, latestVersion: latest, activeVersion: membership.activeVersion },
+        { pendingVersion: membership.pendingVersion, latestVersion: source, activeVersion: membership.activeVersion },
         gameRulesRevision(gameId) ?? -1,
       )
     ) {
       throw new Error('Ревизия персонажа не совпадает с ревизией игры');
     }
-    if (latest) {
-      const final = reconcileVersion(membership.activeVersion, latest, overlay, choices);
-      versions[characterId] = final;
-      syncCharacterVersion(characterId);
-      membership.activeVersion = snapshotVersion(final);
-      membership.latestVersion = versions[characterId];
+    if (source) {
+      if (liveOverlay) {
+        versions[characterId] = snapshotVersion(source);
+        syncCharacterVersion(characterId);
+        membership.activeVersion = snapshotVersion(source);
+        membership.latestVersion = versions[characterId];
+      } else {
+        const final = reconcileVersion(membership.activeVersion, source, overlay, choices);
+        versions[characterId] = final;
+        syncCharacterVersion(characterId);
+        membership.activeVersion = snapshotVersion(final);
+        membership.latestVersion = versions[characterId];
+        clearCombatOverlay(gameId, entityKey);
+      }
+    } else {
+      clearCombatOverlay(gameId, entityKey);
     }
-    clearCombatOverlay(gameId, entityKey);
     membership.pendingVersion = null;
     membership.membershipStatus = 'approved';
     const character = characters.find((c) => c.id === characterId);
@@ -300,7 +335,7 @@ export async function moderateCharacter(
       character.gameName = gameNameOf(gameId);
     }
   } else {
-    clearCombatOverlay(gameId, entityKey);
+    if (!liveOverlay) clearCombatOverlay(gameId, entityKey);
     membership.pendingVersion = null;
     membership.membershipStatus = 'rejected';
   }
@@ -326,9 +361,7 @@ export async function submitCombatChanges(gameId: number, _signal?: AbortSignal)
     const overlay = getStoredCombatOverlay(gameId, combatKey('character', membership.characterId));
     if (!combatOverlayHasChanges(membership.activeVersion, overlay)) continue;
     const latest = versions[membership.characterId] ?? membership.activeVersion;
-    membership.pendingVersion = snapshotVersion(reconcileVersion(membership.activeVersion, latest, overlay));
-    if (membership.membershipStatus === 'approved') membership.membershipStatus = 'pending';
-    membership.updatedAt = new Date().toISOString();
+    queuePending(membership, reconcileVersion(membership.activeVersion, latest, overlay));
   }
 }
 

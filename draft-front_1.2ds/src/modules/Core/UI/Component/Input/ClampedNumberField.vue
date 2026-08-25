@@ -9,9 +9,12 @@ const props = withDefaults(
     min?: number;
     max?: number;
     minWidth?: string | number;
+    /** Пустое поле → null наверх (лимит не задан), а не min/0. */
+    nullable?: boolean;
   }>(),
   {
     minWidth: '100px',
+    nullable: false,
   },
 );
 
@@ -31,8 +34,11 @@ const inputAttrs = computed(() => {
 const rootStyle = computed(() => [{ minWidth: props.minWidth }, outerStyle.value]);
 
 function clamp(v: unknown): number {
+  if (v === null || v === undefined || v === '') {
+    return (props.nullable ? null : (props.min ?? 0)) as number;
+  }
   const n = Number(v);
-  if (!Number.isFinite(n)) return props.min ?? n;
+  if (!Number.isFinite(n)) return (props.nullable ? null : (props.min ?? 0)) as number;
   if (props.min !== undefined && n < props.min) return props.min;
   if (props.max !== undefined && n > props.max) return props.max;
 
@@ -44,21 +50,23 @@ function onInput(v: unknown) {
 }
 
 function onKeydown(e: KeyboardEvent) {
+  const current = props.modelValue ?? 0;
   if (e.key === 'ArrowUp') {
-    emit('update:modelValue', clamp(props.modelValue + 1));
+    emit('update:modelValue', clamp(current + 1));
     e.preventDefault();
 
     return;
   }
   if (e.key === 'ArrowDown') {
-    emit('update:modelValue', clamp(props.modelValue - 1));
+    emit('update:modelValue', clamp(current - 1));
     e.preventDefault();
 
     return;
   }
   if (e.key.length === 1 && e.key >= '0' && e.key <= '9') {
     e.preventDefault();
-    const next = parseInt(String(props.modelValue) + e.key);
+    const prefix = props.modelValue == null ? '' : String(props.modelValue);
+    const next = parseInt(prefix + e.key, 10);
     const clamped = props.max !== undefined && next > props.max ? props.max : next;
     emit('update:modelValue', clamped);
   }

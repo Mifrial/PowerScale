@@ -312,6 +312,22 @@ function isActionableOffer(offer: CheckOffer, key: CombatEntityKey | null, asGm:
   return isWaitingOnSpeaker(offer, key, asGm);
 }
 
+function isWaitingOnYou(offer: CheckOffer, key: CombatEntityKey | null): boolean {
+  if (offer.status !== 'pending' || key === null) return false;
+
+  return (
+    (offer.waitingOn === 'opponent' && offer.opponent === key) ||
+    (offer.waitingOn === 'initiator' && offer.initiator === key)
+  );
+}
+
+const actionableOfferCount = computed(
+  () =>
+    pendingOffers.value.filter(
+      (offer) => isWaitingOnYou(offer, speakerEntityKey.value) && !dismissedOfferIds.value.has(offer.id),
+    ).length,
+);
+
 function pendingToResume(): CheckOffer | undefined {
   const key = speakerEntityKey.value;
   const asGm = props.canEdit;
@@ -465,7 +481,7 @@ onUnmounted(() => {
     <v-btn-group v-if="chatId !== null" class="check-split" variant="tonal" divided rounded="lg">
       <v-btn size="small" prepend-icon="mdi-shield-check-outline" @click="openCheckLaunch">
         Проверка
-        <span v-if="pendingOffers.length > 0" class="check-split__count">{{ pendingOffers.length }}</span>
+        <span v-if="actionableOfferCount > 0" class="check-split__count">{{ actionableOfferCount }}</span>
       </v-btn>
       <v-btn size="small" class="check-split__plus" aria-label="Новая проверка" @click="openNewCheck">
         <v-icon size="18">mdi-plus</v-icon>

@@ -15,6 +15,7 @@ import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/Characte
 import type { MigrationResult } from '@/modules/Roleplay/Character/Service/CharacterMigrationService';
 import type { CharacterCreationConfig } from '@/modules/Roleplay/Character/Dto/Editor/CharacterCreationConfig';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import { isEmptyMembershipDiff, membershipDiff } from '@/modules/Roleplay/Game/Utils/membershipDiff';
 
 const props = defineProps<{
   gameId: number;
@@ -60,6 +61,14 @@ const effectiveLimits = computed<CharacterCreationConfig>(() => ({
 const draftKey = computed(() =>
   props.membership ? `character:${props.membership.characterId}:migrate:game:${props.gameId}` : null,
 );
+
+const sheetUnchanged = computed(() => {
+  const active = props.membership?.activeVersion;
+  const pending = result.value?.version;
+  if (!active || !pending) return false;
+
+  return isEmptyMembershipDiff(membershipDiff(active, pending));
+});
 
 function resolve(ruleId: string): string {
   return names.value[ruleId] ?? ruleId;
@@ -196,7 +205,11 @@ watch(open, (value) => {
 
       <template v-if="result && phase === 'report'">
         <p class="text-body-2 text-medium-emphasis">
-          Персонаж переводится на ревизию игры. Результат уйдёт на модерацию ведущему.
+          {{
+            sheetUnchanged
+              ? 'Изменений листа нет — перевод применится сразу.'
+              : 'Персонаж переводится на ревизию игры. Результат уйдёт на модерацию ведущему.'
+          }}
         </p>
         <MigrationReport :result="result" :resolve="resolve" />
       </template>
@@ -221,7 +234,9 @@ watch(open, (value) => {
           </v-btn>
         </template>
         <template v-else>
-          <v-btn color="primary" variant="tonal" :loading="submitting" @click="submit"> Отправить на модерацию </v-btn>
+          <v-btn color="primary" variant="tonal" :loading="submitting" @click="submit">
+            {{ sheetUnchanged ? 'Применить' : 'Отправить на модерацию' }}
+          </v-btn>
         </template>
       </div>
       <div

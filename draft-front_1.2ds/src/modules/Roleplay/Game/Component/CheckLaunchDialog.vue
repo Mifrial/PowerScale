@@ -793,7 +793,14 @@ const statusHint = computed(() => {
         <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mt-3">{{ error }}</v-alert>
       </v-card-text>
       <v-card-actions>
-        <v-btn v-if="offer" variant="text" color="error" :loading="busy" @click="submitCancel">Игнорировать</v-btn>
+        <v-btn
+          v-if="launchKind === 'pairwise' && offer"
+          variant="text"
+          color="error"
+          :loading="busy"
+          @click="submitCancel"
+          >Игнорировать</v-btn
+        >
         <v-spacer />
         <v-btn v-if="myTurn" variant="tonal" :loading="busy" :disabled="formLocked" @click="submitRevise">
           Вернуть правку

@@ -222,6 +222,14 @@ describe('Авто-ресурс ОД (buildResources)', () => {
     expect(od?.base).toEqual({ base: 5, size: 0 });
   });
 
+  it('сохранённый current выше лимита клампится к лимиту', () => {
+    const build = makeBuild({
+      resources: [{ ruleId: 'r-ap', current: dim(9), base: dim(5), bonuses: [] }],
+    });
+    const version = service.toVersion(build, rules, config);
+    expect(odOf(version)?.current).toEqual({ base: 5, size: 0 });
+  });
+
   it('resource_limit требование на ОД проходит (лимит из авто-ресурса)', () => {
     const model = service.build(makeBuild(), rules, config);
     const costly = model.abilities.find((ability) => ability.code === 'costly');
@@ -235,6 +243,17 @@ describe('Авто-ресурс ОД (buildResources)', () => {
     const concentration = version.resources.find((resource) => resource.ruleId === 'r-concentration');
 
     expect(concentration).toEqual({ ruleId: 'r-concentration', current: dim(2), base: dim(3), bonuses: [] });
+  });
+
+  it('не-авто ресурс: current выше лимита клампится', () => {
+    const build = makeBuild({
+      resources: [{ ruleId: 'r-concentration', current: dim(9), base: dim(3), bonuses: [] }],
+    });
+    const version = service.toVersion(build, rules, config);
+    const concentration = version.resources.find((resource) => resource.ruleId === 'r-concentration');
+
+    expect(concentration?.current).toEqual(dim(3));
+    expect(concentration?.base).toEqual(dim(3));
   });
 });
 

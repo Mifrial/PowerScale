@@ -54,7 +54,7 @@ const FIELDS: FieldDescriptor[] = [
   { key: 'inventory', label: 'Инвентарь', diffKey: 'inventory' },
   { key: 'states', label: 'Состояния', diffKey: 'states' },
   { key: 'senses', label: 'Чувства', diffKey: 'senses' },
-  { key: 'customRules', label: 'Уникальные правила' },
+  { key: 'customRules', label: 'Уникальные правила', diffKey: 'customRules' },
   { key: 'budgets', label: 'Лимиты создания' },
 ];
 

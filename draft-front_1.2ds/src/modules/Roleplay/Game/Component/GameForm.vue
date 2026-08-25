@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue';
 import { useSpaceStore } from '@/modules/Roleplay/Space/Store/spaces';
 import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
+import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
 import { GAME_STATUS_OPTIONS } from '@/modules/Roleplay/Game/Constant/GameStatus/GAME_STATUS_OPTIONS';
 import { GAME_VISIBILITY_OPTIONS } from '@/modules/Roleplay/Game/Constant/GameVisibility/GAME_VISIBILITY_OPTIONS';
 import { GAME_JOIN_POLICY_OPTIONS } from '@/modules/Roleplay/Game/Constant/GameJoinPolicy/GAME_JOIN_POLICY_OPTIONS';
@@ -44,10 +45,10 @@ const revision = ref<number | null>(null);
 const status = ref<GameStatus>('draft');
 const visibility = ref<GameVisibility>('all');
 const joinPolicy = ref<GameJoinPolicy>('anyone');
-const osPointsLimit = ref('');
-const olPointsLimit = ref('');
-const orPointsLimit = ref('');
-const moneyLimit = ref('');
+const osPointsLimit = ref<number | null>(null);
+const olPointsLimit = ref<number | null>(null);
+const orPointsLimit = ref<number | null>(null);
+const moneyLimit = ref<number | null>(null);
 const tags = ref<string[]>([]);
 const forbiddenTags = ref<string[]>([]);
 const revisions = ref<number[]>([]);
@@ -61,17 +62,20 @@ const canSubmit = computed(
   () => name.value.trim().length > 0 && selectedSpace.value !== null && revision.value !== null,
 );
 
-function limitToText(value: number | null): string {
-  return value === null ? '' : String(value);
-}
-
-// Пустое поле лимита = NULL = лимит не задан (ТР §8); невалидный ввод трактуется так же.
-function parseLimit(text: string): number | null {
-  const value = text.trim();
-  if (value === '') return null;
-  const num = Number(value);
-
-  return Number.isFinite(num) ? num : null;
+/** Список ревизий, затем выбор: preferred если есть в списке, иначе последняя. */
+async function loadRevisions(spaceId: number, preferred: number | null): Promise<void> {
+  try {
+    const meta = await spaceRevisionStore.fetchRevisionsMeta(spaceId, signal.value);
+    revisions.value = meta.map((entry) => entry.revision).sort((a, b) => b - a);
+  } catch {
+    const space = spaces.value.find((entry) => entry.id === spaceId);
+    revisions.value = space ? [space.revision] : [];
+  }
+  if (preferred != null && revisions.value.includes(preferred)) {
+    revision.value = preferred;
+  } else {
+    revision.value = revisions.value[0] ?? null;
+  }
 }
 
 async function onSpaceSelect(): Promise<void> {
@@ -82,13 +86,15 @@ async function onSpaceSelect(): Promise<void> {
 
     return;
   }
-  revision.value = space.revision;
-  try {
-    const meta = await spaceRevisionStore.fetchRevisionsMeta(space.id, signal.value);
-    revisions.value = meta.map((entry) => entry.revision).sort((a, b) => b - a);
-  } catch {
-    revisions.value = [space.revision];
-  }
+  await loadRevisions(space.id, null);
+}
+
+function setLimit(field: 'os' | 'ol' | 'or' | 'money', value: number): void {
+  const next = value as number | null;
+  if (field === 'os') osPointsLimit.value = next;
+  else if (field === 'ol') olPointsLimit.value = next;
+  else if (field === 'or') orPointsLimit.value = next;
+  else moneyLimit.value = next;
 }
 
 function submit(): void {
@@ -104,34 +110,35 @@ function submit(): void {
     status: status.value,
     visibility: visibility.value,
     joinPolicy: joinPolicy.value,
-    osPointsLimit: parseLimit(osPointsLimit.value),
-    olPointsLimit: parseLimit(olPointsLimit.value),
-    orPointsLimit: parseLimit(orPointsLimit.value),
-    moneyLimit: parseLimit(moneyLimit.value),
+    osPointsLimit: osPointsLimit.value,
+    olPointsLimit: olPointsLimit.value,
+    orPointsLimit: orPointsLimit.value,
+    moneyLimit: moneyLimit.value,
     tags: tags.value,
     forbiddenTags: forbiddenTags.value,
   });
 }
 
-onMounted(() => {
-  void spaceStore.fetchSpaces();
+onMounted(async () => {
+  await spaceStore.fetchSpaces();
   const initial = props.initial;
   if (!initial) return;
   name.value = initial.name;
   shortDescription.value = initial.shortDescription ?? '';
   description.value = initial.description ?? '';
   selectedSpaceId.value = initial.spaceId;
-  revision.value = initial.rulesRevision;
   status.value = initial.status;
   visibility.value = initial.visibility;
   joinPolicy.value = initial.joinPolicy;
-  osPointsLimit.value = limitToText(initial.osPointsLimit);
-  olPointsLimit.value = limitToText(initial.olPointsLimit);
-  orPointsLimit.value = limitToText(initial.orPointsLimit);
-  moneyLimit.value = limitToText(initial.moneyLimit);
+  osPointsLimit.value = initial.osPointsLimit;
+  olPointsLimit.value = initial.olPointsLimit;
+  orPointsLimit.value = initial.orPointsLimit;
+  moneyLimit.value = initial.moneyLimit;
   tags.value = [...initial.tags];
   forbiddenTags.value = [...initial.forbiddenTags];
-  void onSpaceSelect();
+  if (initial.spaceId != null) {
+    await loadRevisions(initial.spaceId, initial.rulesRevision);
+  }
 });
 </script>
 
@@ -142,9 +149,14 @@ onMounted(() => {
         {{ submitError }}
       </v-alert>
 
-      <v-text-field v-model="name" label="Название" />
-      <v-text-field v-model="shortDescription" label="Краткое описание (для карточки в списке)" />
-      <v-textarea v-model="description" label="Полное описание" rows="3" />
+      <v-text-field v-model="name" label="Название" hide-details="auto" class="mb-3" />
+      <v-text-field
+        v-model="shortDescription"
+        label="Краткое описание (для карточки в списке)"
+        hide-details="auto"
+        class="mb-3"
+      />
+      <v-textarea v-model="description" label="Полное описание" rows="3" hide-details="auto" class="mb-3" />
 
       <v-divider class="my-4" />
 
@@ -157,9 +169,11 @@ onMounted(() => {
         :disabled="spaceReadonly"
         hint="Правила и лимиты берутся из выбранного пространства"
         persistent-hint
+        class="mb-3"
         @update:model-value="onSpaceSelect"
       />
-      <v-autocomplete
+      <v-select
+        :key="selectedSpaceId ?? 'none'"
         v-model="revision"
         label="Ревизия правил"
         :items="revisionItems"
@@ -168,18 +182,29 @@ onMounted(() => {
         :disabled="spaceReadonly"
         hint="При смене ревизии/пространства персонажи игры потребуют перевода на новую версию правил"
         persistent-hint
+        class="mb-3"
       />
 
       <v-divider class="my-4" />
 
       <div class="text-subtitle-2 mb-2">Статус и доступ</div>
-      <v-select v-model="status" label="Статус" :items="GAME_STATUS_OPTIONS" item-title="label" item-value="value" />
+      <v-select
+        v-model="status"
+        label="Статус"
+        :items="GAME_STATUS_OPTIONS"
+        item-title="label"
+        item-value="value"
+        hide-details="auto"
+        class="mb-3"
+      />
       <v-select
         v-model="visibility"
         label="Видимость"
         :items="GAME_VISIBILITY_OPTIONS"
         item-title="label"
         item-value="value"
+        hide-details="auto"
+        class="mb-3"
       />
       <v-select
         v-model="joinPolicy"
@@ -187,19 +212,53 @@ onMounted(() => {
         :items="GAME_JOIN_POLICY_OPTIONS"
         item-title="label"
         item-value="value"
+        hide-details="auto"
+        class="mb-3"
       />
 
       <v-divider class="my-4" />
 
       <div class="text-subtitle-2 mb-2">Лимиты создания персонажей</div>
       <div class="text-caption text-medium-emphasis mb-3">Пустое поле — лимит не задан.</div>
-      <div class="d-flex ga-4">
-        <v-text-field v-model="osPointsLimit" label="ОС" type="number" class="flex-grow-1" />
-        <v-text-field v-model="olPointsLimit" label="ОЛ" type="number" class="flex-grow-1" />
+      <div class="d-flex ga-4 mb-3">
+        <ClampedNumberField
+          :model-value="osPointsLimit as number"
+          label="ОС"
+          :min="0"
+          nullable
+          hide-details="auto"
+          class="flex-grow-1"
+          @update:model-value="setLimit('os', $event)"
+        />
+        <ClampedNumberField
+          :model-value="olPointsLimit as number"
+          label="ОЛ"
+          :min="0"
+          nullable
+          hide-details="auto"
+          class="flex-grow-1"
+          @update:model-value="setLimit('ol', $event)"
+        />
       </div>
-      <div class="d-flex ga-4">
-        <v-text-field v-model="orPointsLimit" label="ОР" type="number" class="flex-grow-1" />
-        <v-text-field v-model="moneyLimit" label="Деньги (гм)" type="number" class="flex-grow-1" />
+      <div class="d-flex ga-4 mb-3">
+        <ClampedNumberField
+          :model-value="orPointsLimit as number"
+          label="ОР"
+          :min="0"
+          nullable
+          hide-details="auto"
+          class="flex-grow-1"
+          @update:model-value="setLimit('or', $event)"
+        />
+        <ClampedNumberField
+          :model-value="moneyLimit as number"
+          label="Деньги (гм)"
+          :min="0"
+          nullable
+          hide-details="auto"
+          class="flex-grow-1"
+          @update:model-value="setLimit('money', $event)"
+        />
       </div>
 
       <v-divider class="my-4" />

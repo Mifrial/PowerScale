@@ -9,12 +9,17 @@ import {
   updateCharacterGrants,
   submitCharacterMigration,
   submitCombatChanges,
+  syncCharacterVersionToMemberships,
 } from '@/modules/Roleplay/Game/Mock/mockGameMemberships';
 import { gameDetails, updateGame } from '@/modules/Roleplay/Game/Mock/mockGames';
 import { characters, versions, fetchCharacter } from '@/modules/Roleplay/Character/Mock/mockCharacters';
 import { addCustomRule } from '@/modules/Roleplay/Character/Mock/mockCharacterUpdate';
 import { fetchRevision } from '@/modules/Roleplay/Space/Mock/mockSpaces';
-import { setCombatResource, combatKey } from '@/modules/Roleplay/Game/Mock/mockGameCombatOverlays';
+import {
+  setCombatResource,
+  combatKey,
+  getStoredCombatOverlay,
+} from '@/modules/Roleplay/Game/Mock/mockGameCombatOverlays';
 import { toCreateGameData } from '@/modules/Roleplay/Game/Utils/toCreateGameData';
 import type { CreateCharacterData } from '@/modules/Roleplay/Character/Dto/Editor/CreateCharacterData';
 
@@ -139,8 +144,9 @@ describe('mockGameMemberships: подача и модерация', () => {
   it('отклонённого можно подать снова, если ревизия совпадает', async () => {
     versions[3] = { ...versions[3], rulesRevision: 12 };
     const again = await submitCharacter(1, 3);
-    expect(again.membershipStatus).toBe('pending');
-    expect(again.pendingVersion?.rulesRevision).toBe(12);
+    expect(again.membershipStatus).toBe('approved');
+    expect(again.pendingVersion).toBeNull();
+    expect(again.activeVersion?.rulesRevision).toBe(12);
   });
 
   it('подача деактивированного персонажа запрещена', async () => {
@@ -212,6 +218,20 @@ describe('mockGameMemberships: миграция персонажа в игре',
     expect(updated.pendingVersion?.rulesRevision).toBe(5);
     // Approved-версия заморожена и не меняется до approve.
     expect(updated.activeVersion?.rulesRevision).toBe(5);
+  });
+
+  it('пустой diff миграции принимается сразу', async () => {
+    const chars = await fetchGameCharacters(2);
+    const torvin = chars.find((membership) => membership.characterId === 1);
+    if (torvin?.membershipStatus === 'pending') await moderateCharacter(2, 1, 'approve');
+    const active = (await fetchGameCharacters(2)).find((membership) => membership.characterId === 1)?.activeVersion;
+    expect(active).toBeDefined();
+    if (!active) return;
+    const migrated = { ...active, budgets: { osTotal: 1, moneyBudget: 0 } };
+    const updated = await submitCharacterMigration(2, 1, migrated);
+    expect(updated.membershipStatus).toBe('approved');
+    expect(updated.pendingVersion).toBeNull();
+    expect(updated.activeVersion?.budgets).toEqual({ osTotal: 1, moneyBudget: 0 });
   });
 });
 
@@ -300,6 +320,29 @@ describe('mockGameMemberships: остановка сессии (модель в�
     expect(approved.membershipStatus).toBe('approved');
     expect(approved.pendingVersion).toBeNull();
     expect(approved.activeVersion?.resources.find((r) => r.ruleId === 'rule-18')?.current).toEqual({
+      base: 1,
+      size: 0,
+    });
+  });
+
+  it('queued pending можно одобрить во время новой сессии; живой оверлей не сбрасывается', async () => {
+    const detail = gameDetails.find((d) => d.game.id === 2)!;
+    const charKey = combatKey('character', 1);
+    detail.game.status = 'in_process';
+    const current = (await fetchGameCharacters(2)).find((m) => m.characterId === 1)!;
+    if (current.membershipStatus === 'pending') await moderateCharacter(2, 1, 'approve');
+
+    versions[1] = { ...versions[1], money: 4242 };
+    syncCharacterVersionToMemberships(1);
+    expect((await fetchGameCharacters(2)).find((m) => m.characterId === 1)?.membershipStatus).toBe('pending');
+
+    detail.game.status = 'playing';
+    await setCombatResource(2, charKey, 'rule-18', { base: 1, size: 0 });
+
+    const approved = await moderateCharacter(2, 1, 'approve');
+    expect(approved.membershipStatus).toBe('approved');
+    expect(approved.activeVersion?.money).toBe(4242);
+    expect(getStoredCombatOverlay(2, charKey)?.resources.find((r) => r.ruleId === 'rule-18')?.current).toEqual({
       base: 1,
       size: 0,
     });
