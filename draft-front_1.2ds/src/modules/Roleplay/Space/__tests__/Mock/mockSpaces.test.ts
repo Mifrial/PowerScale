@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { fetchRevision, commitDraft } from '@/modules/Roleplay/Space/Mock/mockSpaces';
+import { fetchRevision, commitDraft, generateRevisionRules } from '@/modules/Roleplay/Space/Mock/mockSpaces';
+import { DT_PAY_SR_VS_RELIABILITY_CODE } from '@/modules/Roleplay/Rule/Constant/Damage/DAMAGE_TYPE_HOOKS';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
 describe('mockSpaces: публикация черновика собирает ревизию из каталога', () => {
@@ -59,5 +60,11 @@ describe('mockSpaces: публикация черновика собирает �
     expect(secondLavash?.id).toBe(firstId);
     expect(secondLavash?.name).toBe('Лаваш 2 (обновлён)');
     expect(secondLavash?.description).toBe('новое описание');
+  });
+
+  it('срез ревизии держит типы урона и хук РУ vs надёжность', () => {
+    const codes = new Set(generateRevisionRules(2, 12).map((rule) => rule.code));
+    expect(codes.has('piercing')).toBe(true);
+    expect(codes.has(DT_PAY_SR_VS_RELIABILITY_CODE)).toBe(true);
   });
 });

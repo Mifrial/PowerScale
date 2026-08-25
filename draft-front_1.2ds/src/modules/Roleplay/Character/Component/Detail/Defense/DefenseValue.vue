@@ -29,8 +29,7 @@ function tierLabel(tier: DefenseTierOverview): string {
     <v-card class="rounded border" elevation="3" style="min-width: 300px; max-width: 400px">
       <v-card-text class="pt-3">
         <div class="text-caption text-medium-emphasis mb-2">
-          Надёжность — сколько «РУ Атаки» враг должен вложить, чтобы игнорировать слой защиты: слой с надёжностью N
-          игнорируется за N «РУ Атаки». Защита пересчитывается по уцелевшим слоям.
+          Надёжность N: слой игнорируется, если РУ атаки ≥ N. Защита считается по уцелевшим слоям.
         </div>
         <v-list density="compact">
           <v-list-item

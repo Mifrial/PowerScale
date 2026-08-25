@@ -101,4 +101,16 @@ describe('mockCheckOffers: handshake pairwise', () => {
     expect(cancelled.status).toBe('cancelled');
     expect(await getCheckOffersForEntity(7, opponent)).toHaveLength(0);
   });
+
+  it('cancel оппонентом тоже снимает оферту (игнор совместной проверки)', async () => {
+    const created = await createCheckOffer(7, {
+      checkCode: 'check-strength',
+      initiator,
+      opponent,
+      proposal,
+    });
+    const cancelled = await cancelCheckOffer(created.id, opponent);
+    expect(cancelled.status).toBe('cancelled');
+    expect(await getCheckOffersForEntity(7, initiator)).toHaveLength(0);
+  });
 });

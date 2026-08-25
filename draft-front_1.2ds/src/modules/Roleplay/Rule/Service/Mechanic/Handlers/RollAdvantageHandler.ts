@@ -3,6 +3,7 @@ import type { MechanicHandler } from '@/modules/Roleplay/Rule/Service/Mechanic/M
 import type { MechanicPayload } from '@/modules/Roleplay/Rule/Dto/MechanicPayload';
 import type { RollMechanicContext } from '@/modules/Roleplay/Rule/Dto/RollMechanicContext';
 import { netSourceDelta } from '@/modules/Roleplay/Rule/Utils/aggregateSourceDeltas';
+import { applyAdvantageDrop } from '@/modules/Roleplay/Rule/Utils/applyAdvantageDrop';
 
 /**
  * Помехи и преимущества: до броска добавляет |net| кубов в пул, после броска убирает
@@ -24,10 +25,9 @@ export const rollAdvantageHandler: MechanicHandler<RollMechanicContext> = {
       return;
     }
     if (input.event !== ROLL_EVENTS.drop) return;
-    const sorted = [...context.rolls].sort((a, b) => (adv > 0 ? b - a : a - b));
-    const droppedCount = Math.min(count, sorted.length);
-    context.droppedRolls = sorted.slice(0, droppedCount);
-    context.adjustedRolls = sorted.slice(droppedCount);
+    const dropped = applyAdvantageDrop(context.rolls, adv);
+    context.droppedRolls = dropped.dropped;
+    context.adjustedRolls = dropped.kept;
     context.applied.push('advantage_disadvantage');
   },
 };

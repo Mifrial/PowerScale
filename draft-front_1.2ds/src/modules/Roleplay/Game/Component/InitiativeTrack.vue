@@ -12,7 +12,17 @@ import InitiativeDialog from '@/modules/Roleplay/Game/Component/InitiativeDialog
 import type { ChatMessage } from '@/modules/Messages/Chat/Dto/ChatMessage';
 import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
-import { combatCardModel, combatExhaustion } from '@/modules/Roleplay/Game/Utils/combatCardModel';
+import {
+  combatCardModel,
+  combatCardCanEdit,
+  combatExhaustion,
+  combatMaim,
+  combatActionPoints,
+} from '@/modules/Roleplay/Game/Utils/combatCardModel';
+import { ACTION_POINTS_CODE } from '@/modules/Roleplay/Game/Utils/applyAttackDamage';
+import { applyTurnWoundBleed } from '@/modules/Roleplay/Game/Utils/applyBloodLoss';
+import { effectiveCharacteristicValues } from '@/modules/Roleplay/Character/Utils/stateRuntimeEffects';
+import { replaceCombatOverlay } from '@/modules/Roleplay/Game/Utils/mergeCombatOverlay';
 
 type SystemNotification = { content: string; kind: ChatMessage['kind'] };
 
@@ -40,12 +50,15 @@ const props = defineProps<{
   mechanics: Mechanic[];
   /** Счётчик мутаций боевых оверлеев: при изменении — перечитать оверлеи (Истощение). */
   overlayRevision: number;
+  /** Начать сессию, если ещё не playing (бросок инициативы = старт сцены). */
+  ensurePlaying?: () => Promise<void>;
 }>();
 
 const emit = defineEmits<{
   turn: [participantId: string | null];
   /** Открыть боевую карточку участника (entityKey: `character:{id}` | `npc:{id}`). */
   'open-card': [entityKey: string];
+  'overlay-changed': [];
 }>();
 
 const userStore = useUserStore();
@@ -142,6 +155,96 @@ const exhaustionByEntity = computed<Map<string, number>>(() => {
   return map;
 });
 
+const maimByEntity = computed<Map<string, number>>(() => {
+  const map = new Map<string, number>();
+  for (const participant of initiative.value?.participants ?? []) {
+    if (participant.entityId === null) continue;
+    const overlay = overlays.value.find((item) => item.entityKey === participant.id) ?? null;
+    const model = combatCardModel(
+      participant.id as CombatEntityKey,
+      props.characters,
+      props.npcs,
+      false,
+      null,
+      overlay,
+    );
+    if (!model.effectiveVersion) continue;
+    const value = combatMaim(model.effectiveVersion.states, props.rules);
+    if (value !== null) map.set(participant.id, value);
+  }
+
+  return map;
+});
+
+const actionPointsByEntity = computed<Map<string, number>>(() => {
+  const map = new Map<string, number>();
+  for (const participant of initiative.value?.participants ?? []) {
+    if (participant.entityId === null) continue;
+    const overlay = overlays.value.find((item) => item.entityKey === participant.id) ?? null;
+    const model = combatCardModel(
+      participant.id as CombatEntityKey,
+      props.characters,
+      props.npcs,
+      false,
+      null,
+      overlay,
+    );
+    if (!model.effectiveVersion) continue;
+    const ap = combatActionPoints(model.effectiveVersion, props.rules);
+    if (ap) map.set(participant.id, ap.current);
+  }
+
+  return map;
+});
+
+function canInspect(participant: { id: string }): boolean {
+  return combatCardCanEdit(
+    participant.id as CombatEntityKey,
+    props.canEdit,
+    currentUser.value?.id ?? null,
+    props.characters,
+  );
+}
+
+async function refillActionPoints(entityKey: CombatEntityKey): Promise<void> {
+  const overlay = overlays.value.find((item) => item.entityKey === entityKey) ?? null;
+  const model = combatCardModel(entityKey, props.characters, props.npcs, true, null, overlay);
+  const version = model.effectiveVersion;
+  if (!version) return;
+  const ap = combatActionPoints(version, props.rules);
+  if (!ap) return;
+  const resource = version.resources.find((item) => {
+    const rule = props.rules.find((candidate) => candidate.id === item.ruleId);
+
+    return rule?.code === ACTION_POINTS_CODE;
+  });
+  if (!resource) return;
+  await getGameApi().setCombatResource(props.gameId, entityKey, resource.ruleId, {
+    base: ap.max,
+    size: resource.current.size,
+  });
+}
+
+async function refillParticipants(keys: string[]): Promise<void> {
+  await loadOverlays();
+  for (const key of keys) {
+    try {
+      await refillActionPoints(key as CombatEntityKey);
+    } catch {
+      // Нет ОД на листе — шкалу не блокируем.
+    }
+  }
+  await loadOverlays();
+  emit('overlay-changed');
+}
+
+async function onInitiativeSaved(): Promise<void> {
+  await load();
+  if (props.ensurePlaying) await props.ensurePlaying();
+  const keys = initiative.value?.participants.map((participant) => participant.id) ?? [];
+  await refillParticipants(keys);
+}
+
 async function save(next: GameInitiative): Promise<void> {
   saving.value = true;
   error.value = null;
@@ -167,10 +270,40 @@ function saveAndNotify(next: GameInitiative, notifications: SystemNotification[]
 /** Передать ход следующему участнику (цикл по порядку шкалы) + уведомление в чат.
  *  При переходе от последнего участника к первому — новый раунд: номер инкрементится,
  *  постится акцентное уведомление «Новый раунд: N» (kind: highlighted), затем «Ходит Имя». */
-function nextTurn(): void {
+async function bleedCurrentTurn(entityKey: string): Promise<void> {
+  const overlay = overlays.value.find((item) => item.entityKey === entityKey) ?? null;
+  const model = combatCardModel(entityKey as CombatEntityKey, props.characters, props.npcs, true, null, overlay);
+  const version = model.effectiveVersion;
+  if (!version) return;
+  const endurance = effectiveCharacteristicValues(version, props.rules).get('endurance')?.base ?? 1;
+  const next = await applyTurnWoundBleed({
+    version,
+    endurance,
+    rules: props.rules,
+    mechanics: props.mechanics,
+    gameId: props.gameId,
+    targetKey: entityKey as CombatEntityKey,
+    targetName: model.name,
+    chatId: props.chatId,
+    speaker: { kind: 'gm' },
+    sendMessage: (content, attachments, chatId, speaker) =>
+      chatStore.sendMessage(content, attachments, chatId, speaker),
+  });
+  if (next) {
+    overlays.value = replaceCombatOverlay(overlays.value, next);
+    emit('overlay-changed');
+  }
+}
+
+async function nextTurn(): Promise<void> {
   const data = initiative.value;
   if (!data || data.participants.length === 0) return;
   const currentIndex = data.activeIndex ?? 0;
+  const currentParticipant = data.participants[currentIndex];
+  if (currentParticipant) {
+    await bleedCurrentTurn(currentParticipant.id);
+    await refillParticipants([currentParticipant.id]);
+  }
   const nextIndex = (currentIndex + 1) % data.participants.length;
   const nextParticipant = data.participants[nextIndex];
   const notifications: SystemNotification[] = [];
@@ -207,7 +340,7 @@ function addToBattle(id: string): void {
       ...data.participants,
       { id: option.id, name: option.name, kind: option.kind, entityId: option.entityId },
     ],
-  });
+  }).then(() => refillParticipants([option.id]));
 }
 
 watch(
@@ -274,18 +407,37 @@ function kindIcon(kind: 'character' | 'npc'): string {
             <div
               v-for="(participant, index) in initiative.participants"
               :key="participant.id"
-              class="initiative-track__row initiative-track__row--clickable"
-              :class="{ 'initiative-track__row--active': initiative.activeIndex === index }"
-              @click="emit('open-card', participant.id)"
+              class="initiative-track__row"
+              :class="{
+                'initiative-track__row--active': initiative.activeIndex === index,
+                'initiative-track__row--clickable': canInspect(participant),
+              }"
+              @click="canInspect(participant) && emit('open-card', participant.id)"
             >
               <v-icon :size="16" class="initiative-track__row-icon">{{ kindIcon(participant.kind) }}</v-icon>
               <span class="initiative-track__row-name">{{ participant.name }}</span>
-              <span
-                v-if="exhaustionByEntity.has(participant.id)"
-                class="initiative-track__exhaustion"
-                :title="`Истощение: ${exhaustionByEntity.get(participant.id)}`"
-              >
-                {{ exhaustionByEntity.get(participant.id) }}
+              <span v-if="canInspect(participant)" class="initiative-track__metrics">
+                <span
+                  v-if="actionPointsByEntity.has(participant.id)"
+                  class="initiative-track__ap"
+                  :title="`ОД: ${actionPointsByEntity.get(participant.id)}`"
+                >
+                  {{ actionPointsByEntity.get(participant.id) }} ОД
+                </span>
+                <span
+                  v-if="exhaustionByEntity.has(participant.id)"
+                  class="initiative-track__exhaustion"
+                  :title="`Истощение: ${exhaustionByEntity.get(participant.id)}`"
+                >
+                  {{ exhaustionByEntity.get(participant.id) }}
+                </span>
+                <span
+                  v-if="maimByEntity.has(participant.id)"
+                  class="initiative-track__maim"
+                  :title="`Увечья: ${maimByEntity.get(participant.id)}`"
+                >
+                  {{ maimByEntity.get(participant.id) }}
+                </span>
               </span>
             </div>
           </div>
@@ -371,7 +523,7 @@ function kindIcon(kind: 'character' | 'npc'): string {
     :rules="rules"
     :mechanics="mechanics"
     :chat-id="chatId"
-    @saved="load"
+    @saved="onInitiativeSaved"
   />
 </template>
 
@@ -435,17 +587,45 @@ function kindIcon(kind: 'character' | 'npc'): string {
   flex-shrink: 0;
 }
 .initiative-track__row-name {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.initiative-track__exhaustion {
+.initiative-track__metrics {
   margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.initiative-track__ap {
+  color: rgb(var(--v-theme-info));
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.initiative-track__exhaustion {
   min-width: 18px;
   height: 18px;
   border-radius: 50%;
   border: 1px solid rgb(var(--v-theme-warning));
   color: rgb(var(--v-theme-warning));
+  font-size: 11px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  flex-shrink: 0;
+}
+.initiative-track__maim {
+  min-width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid rgb(var(--v-theme-error));
+  color: rgb(var(--v-theme-error));
   font-size: 11px;
   font-weight: 600;
   display: inline-flex;

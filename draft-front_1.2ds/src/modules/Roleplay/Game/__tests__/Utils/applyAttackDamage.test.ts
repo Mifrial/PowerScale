@@ -51,7 +51,6 @@ describe('applyAttackDamage', () => {
     const result = applyAttackDamage({
       weaponDamage: { base: 4, size: 0 },
       sr: 3,
-      payX: 0,
       damageTypeCode: 'blunt',
       defense: {
         armor: [
@@ -76,17 +75,16 @@ describe('applyAttackDamage', () => {
     expect(result.exhaustion).toBe(3);
   });
 
-  it('оплата X игнорирует слои с надёжностью ≤ X', () => {
+  it('РУ атаки игнорирует слои с надёжностью ≤ РУ, РУ не тратятся', () => {
     const lines = [
       line({ kind: 'resistance', value: 5, durability: 2, sourceCode: 'armor', damageTypeCode: 'piercing' }),
       line({ kind: 'resistance', value: 1, durability: 3, sourceCode: 'mail', damageTypeCode: 'piercing' }),
     ];
     expect(stackedResistance(lines, 'piercing', 0)).toBe(6);
-    expect(stackedResistance(lines, 'piercing', 2)).toBe(1);
+    expect(stackedResistance(lines, 'piercing', 4)).toBe(0);
     const result = applyAttackDamage({
       weaponDamage: { base: 4, size: 0 },
       sr: 4,
-      payX: 2,
       damageTypeCode: 'piercing',
       defense: {
         armor: [{ itemRuleId: 'a', itemName: 'A', href: '', lines, tiers: [] }],
@@ -97,16 +95,66 @@ describe('applyAttackDamage', () => {
       endurance: 5,
       hooks: [hook(DAMAGE_TYPE_HOOK_MECHANIC_PAY_SR, 'attack')],
     });
-    expect(result.remainingSr).toBe(2);
-    expect(result.resistance).toBe(1);
-    expect(result.hpDamage).toBe(6);
+    expect(result.remainingSr).toBe(4);
+    expect(result.resistance).toBe(0);
+    expect(result.hpDamage).toBe(16);
+    expect(result.layers).toEqual([
+      expect.objectContaining({ ignored: true, reason: 'sr', value: 5, durability: 2 }),
+      expect.objectContaining({ ignored: true, reason: 'sr', value: 1, durability: 3 }),
+    ]);
+  });
+
+  it('защита надёжности 6 игнорируется при 8 РУ колющего', () => {
+    const lines = [line({ kind: 'defense', value: 3, durability: 6, sourceCode: 'armor' })];
+    const result = applyAttackDamage({
+      weaponDamage: { base: 1, size: 0 },
+      sr: 8,
+      damageTypeCode: 'piercing',
+      defense: {
+        armor: [{ itemRuleId: 'quilted', itemName: 'Стёганый доспех', href: '', lines, tiers: [] }],
+        constantDefense: 3,
+        tiers: [],
+        shield: null,
+      },
+      endurance: 4,
+      hooks: [hook(DAMAGE_TYPE_HOOK_MECHANIC_PAY_SR, 'attack')],
+    });
+    expect(result.resistance).toBe(0);
+    expect(result.hpDamage).toBe(8);
+    expect(result.layers[0]).toMatchObject({
+      itemName: 'Стёганый доспех',
+      kind: 'defense',
+      value: 3,
+      durability: 6,
+      ignored: true,
+      reason: 'sr',
+    });
+  });
+
+  it('без хука атаки слои по РУ не режутся', () => {
+    const lines = [line({ kind: 'resistance', value: 5, durability: 2, sourceCode: 'armor', damageTypeCode: 'blunt' })];
+    const result = applyAttackDamage({
+      weaponDamage: { base: 6, size: 0 },
+      sr: 4,
+      damageTypeCode: 'blunt',
+      defense: {
+        armor: [{ itemRuleId: 'a', itemName: 'A', href: '', lines, tiers: [] }],
+        constantDefense: 0,
+        tiers: [],
+        shield: null,
+      },
+      endurance: 5,
+      hooks: [],
+    });
+    expect(result.remainingSr).toBe(4);
+    expect(result.resistance).toBe(5);
+    expect(result.hpDamage).toBe(4);
   });
 
   it('режущий пишет рану, не HP; дробящий KO при РУ≥6', () => {
     const cutting = applyAttackDamage({
       weaponDamage: { base: 3, size: 0 },
       sr: 2,
-      payX: 0,
       damageTypeCode: 'cutting',
       defense: null,
       endurance: 4,
@@ -118,7 +166,6 @@ describe('applyAttackDamage', () => {
     const blunt = applyAttackDamage({
       weaponDamage: { base: 2, size: 0 },
       sr: 6,
-      payX: 0,
       damageTypeCode: 'blunt',
       defense: null,
       endurance: 10,
@@ -135,7 +182,6 @@ describe('applyAttackDamage', () => {
     const result = applyAttackDamage({
       weaponDamage: { base: 6, size: 0 },
       sr: 1,
-      payX: 0,
       damageTypeCode: 'slashing',
       defense: null,
       endurance: 3,
@@ -167,7 +213,6 @@ describe('applyAttackDamage', () => {
     const withDefense = applyAttackDamage({
       weaponDamage: { base: 6, size: 0 },
       sr: 1,
-      payX: 0,
       damageTypeCode: 'blunt',
       defense: {
         armor: [{ itemRuleId: 'a', itemName: 'A', href: '', lines, tiers: [] }],
@@ -182,7 +227,6 @@ describe('applyAttackDamage', () => {
     const ignored = applyAttackDamage({
       weaponDamage: { base: 6, size: 0 },
       sr: 1,
-      payX: 0,
       damageTypeCode: 'blunt',
       defense: {
         armor: [{ itemRuleId: 'a', itemName: 'A', href: '', lines, tiers: [] }],
@@ -279,7 +323,18 @@ describe('applyAttackDamage', () => {
         exhaustion: 4,
       }),
     ).toContain('попадает по [[npc:2,Бородач]] с 2 РУ и наносит 4 истощения');
-    expect(formatAttackSrLabel(8, 2)).toBe('6(8 - 2 за игнорирование Надёжность 2-)');
+    expect(
+      formatAttackResultMessage({
+        attackerKey: 'character:1',
+        attackerName: 'Гарик',
+        defenderKey: 'npc:2',
+        defenderName: 'Бородач',
+        remainingSr: 2,
+        exhaustion: 2,
+        wound: 4,
+      }),
+    ).toContain('попадает по [[npc:2,Бородач]] с 2 РУ и наносит 2 истощения и 4 рану');
+    expect(formatAttackSrLabel(8)).toBe('8');
     const calc = buildAttackCalcPayload({
       weaponDamage: { base: 4, size: 1 },
       damageTypeCode: 'blunt',
@@ -296,7 +351,6 @@ describe('applyAttackDamage', () => {
           createdAt: '2026-01-01T00:00:00Z',
         },
       ],
-      payX: 0,
       sr: 4,
       defenseIgnored: false,
       result: {
@@ -309,6 +363,7 @@ describe('applyAttackDamage', () => {
         wound: null,
         knockout: false,
         cuttingWound: null,
+        layers: [],
       },
     });
     expect(calc.damage).toEqual({ base: 4, size: 1 });

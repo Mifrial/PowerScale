@@ -1,4 +1,5 @@
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
+import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { DiceRng } from '@/modules/Roleplay/Game/Dto/DiceRng';
 import type { DiceRollResult } from '@/modules/Roleplay/Game/Dto/DiceRollResult';
@@ -6,13 +7,15 @@ import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec';
 import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { resolveCheckAttachedRuleCodes } from '@/modules/Roleplay/Rule/Utils/checkResolution';
-import { checkSuccessRating } from '@/modules/Roleplay/Rule/Utils/checkSuccessRating';
+import { CHECK_HIT_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
+import { checkSuccessRating, HIT_MIN_SUCCESS_SIZE } from '@/modules/Roleplay/Rule/Utils/checkSuccessRating';
 import { advantageEntries } from '@/modules/Roleplay/Rule/Utils/aggregateSourceDeltas';
 import { rollEngine } from '@/modules/Roleplay/Game/Service/Roll/Instance/rollEngine';
 import { rollPoolDefaults } from '@/modules/Roleplay/Game/Utils/initiativeRoll';
 
 export function successesOf(result: DiceRollResult): DimensionalNumberValue {
-  return { base: result.totalSuccesses, size: result.spec.dieSize || 0 };
+  return DimensionalNumber.from({ base: result.totalSuccesses, size: result.spec.dieSize || 0 }).foldNegativeBase()
+    .value;
 }
 
 /** Пул именованной проверки: база характеристики, преимущества вручную. */
@@ -44,7 +47,9 @@ export function withCheckOutcome(
   checkCode: string,
   difficulty: DimensionalNumberValue,
 ): DiceRollResult {
-  const outcome = checkSuccessRating(successesOf(result), difficulty);
+  const outcome = checkSuccessRating(successesOf(result), difficulty, {
+    minSize: checkCode === CHECK_HIT_CODE ? HIT_MIN_SUCCESS_SIZE : undefined,
+  });
 
   return {
     ...result,

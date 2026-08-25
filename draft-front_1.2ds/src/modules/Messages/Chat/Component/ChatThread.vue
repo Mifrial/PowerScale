@@ -176,6 +176,8 @@ function retryAttach(): void {
 .chat-thread {
   display: flex;
   flex-direction: column;
+  width: 100%;
+  min-width: 0;
   height: calc(100vh - var(--v-layout-top) - 160px);
   min-height: 360px;
   overflow: hidden;

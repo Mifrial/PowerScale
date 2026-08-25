@@ -13,6 +13,6 @@ export interface DiceRollResult {
   appliedMechanics?: string[];
   /** Слой проверки (чат: простая vs {0|0}). Нет — только бросок. */
   check?: DiceRollCheckOutcome;
-  /** Скоринг проверки на увечье (не РУ). */
+  /** Исход проверки на увечье (сила = −РУ при провале). */
   injury?: InjuryOutcome;
 }

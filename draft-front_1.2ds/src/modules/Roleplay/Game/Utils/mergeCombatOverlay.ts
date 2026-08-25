@@ -47,10 +47,7 @@ export function preferNewerCombatOverlays(
 }
 
 /** Заменить оверлей участника новым снимком (новый массив — чтобы Vue пересчитал карточку). */
-export function replaceCombatOverlay(
-  current: GameCombatOverlay[],
-  next: GameCombatOverlay,
-): GameCombatOverlay[] {
+export function replaceCombatOverlay(current: GameCombatOverlay[], next: GameCombatOverlay): GameCombatOverlay[] {
   const index = current.findIndex((item) => item.entityKey === next.entityKey);
   if (index < 0) return [...current, next];
 

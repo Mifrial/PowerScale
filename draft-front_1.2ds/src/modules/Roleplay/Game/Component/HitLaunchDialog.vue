@@ -20,6 +20,7 @@ import type { CharacterOverview } from '@/modules/Roleplay/Character/Dto/Overvie
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/CharacterStateValue';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
+import type { StateSpec } from '@/modules/Roleplay/Rule/Dto/State/StateSpec';
 import { CHECK_HIT_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
 import { CHARACTERISTIC_BASE_RANGE } from '@/modules/Roleplay/Character/Constant/CHARACTERISTIC_BASE_RANGE';
 import { combatCardModel, combatEntityName } from '@/modules/Roleplay/Game/Utils/combatCardModel';
@@ -33,7 +34,6 @@ import {
   applyAttackDamage,
   actionPointsResource,
   enduranceOf,
-  hasPaySrHook,
   spendActionPoints,
 } from '@/modules/Roleplay/Game/Utils/applyAttackDamage';
 import {
@@ -52,6 +52,17 @@ import {
 } from '@/modules/Roleplay/Game/Utils/combatActions';
 import { ATTACK_CALC_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Attack/ATTACK_CALC_ATTACHMENT_TYPE';
 import { asDamageTypeSpec } from '@/modules/Roleplay/Rule/Utils/damageTypeSpec';
+import {
+  applyInjuryCheck,
+  injuryInputFromAttack,
+  overlayStateTotal,
+  shouldLaunchInjuryFromAttack,
+  EXHAUSTION_STATE_CODE,
+  STUNNED_STATE_CODE,
+  WOUND_STATE_CODE,
+} from '@/modules/Roleplay/Game/Utils/applyInjuryCheck';
+import { applyExhaustionCheck } from '@/modules/Roleplay/Game/Utils/applyExhaustionCheck';
+import { checkAdvantageFromStates } from '@/modules/Roleplay/Character/Utils/stateRuntimeEffects';
 
 const props = defineProps<{
   open: boolean;
@@ -85,7 +96,6 @@ const attackerAdv = ref(0);
 const defenderAdv = ref(0);
 const defenseEfficiency = ref<DimensionalNumberValue>({ base: 4, size: -1 });
 const blockItemRuleId = ref<string | null>(null);
-const payX = ref(0);
 const selectedActionRuleId = ref<string | null>(null);
 const agreedInitiatorAdv = ref(0);
 const agreedOpponentAdv = ref(0);
@@ -197,11 +207,6 @@ const currentAttack = computed(() => (offer.value ? attackFromOffer(offer.value)
 
 const strikeOnly = computed(() => currentAttack.value?.profileType === 'strike');
 
-const damageHooks = computed(() =>
-  resolveDamageTypeHooks(currentAttack.value?.damageTypeCode, props.rules, props.mechanics),
-);
-const showPayX = computed(() => hasPaySrHook(damageHooks.value));
-
 const attackOptions = computed(() =>
   listAttackActions(props.rules, overviewOf(resolvedAttackerKey.value), currentAttack.value?.profileType ?? 'strike'),
 );
@@ -305,7 +310,6 @@ async function hydrate(): Promise<void> {
     agreedInitiatorAdv.value = props.resumeOffer.proposal.initiatorAdv;
     agreedOpponentAdv.value = props.resumeOffer.proposal.opponentAdv;
     blockItemRuleId.value = hit?.blockItemRuleId ?? null;
-    payX.value = hit?.payX ?? 0;
     selectedActionRuleId.value = hit?.actionRuleId ?? selectedActionRuleId.value;
     if (hit?.defenseEfficiency) {
       defenseEfficiency.value = { ...hit.defenseEfficiency };
@@ -323,7 +327,6 @@ async function hydrate(): Promise<void> {
   agreedInitiatorAdv.value = 0;
   agreedOpponentAdv.value = 0;
   blockItemRuleId.value = null;
-  payX.value = 0;
   defenseEfficiency.value = { ...procedure.value.dodgeEfficiency };
 }
 
@@ -347,7 +350,6 @@ function hitProposal(attack: AttackOverview, nextReaction: HitDefenseReaction | 
     reaction: nextReaction,
     defenseEfficiency: nextReaction === 'ignore' || nextReaction === null ? null : defenseEfficiency.value,
     blockItemRuleId: nextReaction === 'block' ? blockItemRuleId.value : null,
-    payX: payX.value,
     damageTypeCode: attack.damageTypeCode,
     damage: attack.damage,
     penetration: attack.penetration,
@@ -422,8 +424,12 @@ async function acceptAndRoll(): Promise<void> {
       defenderOverview: overviewOf(accepted.opponent),
       reaction: hit.reaction,
       defenseEfficiency: hit.defenseEfficiency,
-      attackerAdv: accepted.proposal.initiatorAdv,
-      defenderAdv: accepted.proposal.opponentAdv,
+      attackerAdv:
+        accepted.proposal.initiatorAdv +
+        checkAdvantageFromStates(versionOf(accepted.initiator), props.rules, { kind: 'hit' }),
+      defenderAdv:
+        accepted.proposal.opponentAdv +
+        checkAdvantageFromStates(versionOf(accepted.opponent), props.rules, { kind: 'hit' }),
     },
     Math.random,
     props.rules,
@@ -447,14 +453,15 @@ async function spendAp(key: CombatEntityKey, cost: number): Promise<number> {
   return spent;
 }
 
-async function applyExhaustion(key: CombatEntityKey, amount: number): Promise<void> {
+async function applyCombatState(key: CombatEntityKey, code: string, amount: number): Promise<void> {
   if (amount <= 0) return;
-  const rule = props.rules.find((item) => item.code === 'exhaustion' && item.type === 'state');
+  const rule = props.rules.find((item) => item.code === code && item.type === 'state');
   if (!rule) return;
+  const independent = (rule.spec as StateSpec | undefined)?.aggregation === 'independent';
   const states = versionOf(key)?.states ?? [];
   const index = states.findIndex((state) => state.stateRuleId === rule.id);
   const overlay =
-    index >= 0
+    !independent && index >= 0
       ? await getGameApi().setCombatStateValue(props.gameId, key, index, (states[index]?.value ?? 0) + amount)
       : await getGameApi().addCombatState(props.gameId, key, {
           stateRuleId: rule.id,
@@ -479,7 +486,6 @@ async function applyClickAttack(
   const result = applyAttackDamage({
     weaponDamage: attack.damage,
     sr: Math.max(0, sr),
-    payX: hit.payX ?? payX.value,
     damageTypeCode: attack.damageTypeCode,
     defense: defenderOverview?.defense ?? null,
     endurance: defenderOverview ? enduranceOf(defenderOverview, props.rules) : 1,
@@ -497,73 +503,135 @@ async function applyClickAttack(
   const defenderAp = reactionOdCost(hit.reaction, props.rules);
   const spentAttack = await spendAp(accepted.initiator, attackerAp);
   const spentDefense = await spendAp(accepted.opponent, defenderAp);
-  await applyExhaustion(accepted.opponent, result.exhaustion);
+  await applyCombatState(accepted.opponent, EXHAUSTION_STATE_CODE, result.exhaustion);
+  await applyCombatState(accepted.opponent, WOUND_STATE_CODE, (result.wound ?? 0) + (result.cuttingWound ?? 0));
+  await applyCombatState(accepted.opponent, STUNNED_STATE_CODE, result.stun ?? 0);
   emit('overlay-changed');
-  if (props.chatId === null) return;
   const speaker = speakerFor(accepted.initiator);
-  await chatStore.sendMessage(
-    formatAttackActionMessage({
-      attackerKey: accepted.initiator,
-      attackerName: nameOf(accepted.initiator),
-      action,
-      attackerAp: spentAttack,
-      rules: props.rules,
-    }),
-    [],
-    props.chatId,
-    speaker,
-  );
-  await chatStore.sendMessage(
-    formatStrikeNarrativeMessage({
-      attackerKey: accepted.initiator,
-      attackerName: nameOf(accepted.initiator),
-      defenderKey: accepted.opponent,
-      defenderName: nameOf(accepted.opponent),
-      weaponRuleId: hit.itemRuleId,
-      weaponName: hit.itemName,
-      damageTypeCode: attack.damageTypeCode,
-      reaction: hit.reaction ?? 'ignore',
-      reactionAction: reactionAction(props.rules, hit.reaction),
-      reactionAp: spentDefense,
-      rules: props.rules,
-    }),
-    [],
-    props.chatId,
-    speaker,
-  );
-  const payloads = rolled.defender ? [rolled.attacker, rolled.defender] : [rolled.attacker];
-  await chatStore.sendMessage(
-    '',
-    payloads.map((payload) => ({ type: ROLL_ATTACHMENT_TYPE, payload })),
-    props.chatId,
-    speaker,
-  );
-  await chatStore.sendMessage(
-    formatAttackResultMessage({
-      attackerKey: accepted.initiator,
-      attackerName: nameOf(accepted.initiator),
-      defenderKey: accepted.opponent,
-      defenderName: nameOf(accepted.opponent),
+  if (props.chatId !== null) {
+    await chatStore.sendMessage(
+      formatAttackActionMessage({
+        attackerKey: accepted.initiator,
+        attackerName: nameOf(accepted.initiator),
+        action,
+        attackerAp: spentAttack,
+        rules: props.rules,
+      }),
+      [],
+      props.chatId,
+      speaker,
+    );
+    await chatStore.sendMessage(
+      formatStrikeNarrativeMessage({
+        attackerKey: accepted.initiator,
+        attackerName: nameOf(accepted.initiator),
+        defenderKey: accepted.opponent,
+        defenderName: nameOf(accepted.opponent),
+        weaponRuleId: hit.itemRuleId,
+        weaponName: hit.itemName,
+        damageTypeCode: attack.damageTypeCode,
+        reaction: hit.reaction ?? 'ignore',
+        reactionAction: reactionAction(props.rules, hit.reaction),
+        reactionAp: spentDefense,
+        rules: props.rules,
+      }),
+      [],
+      props.chatId,
+      speaker,
+    );
+    const payloads = rolled.defender ? [rolled.attacker, rolled.defender] : [rolled.attacker];
+    await chatStore.sendMessage(
+      '',
+      payloads.map((payload) => ({ type: ROLL_ATTACHMENT_TYPE, payload })),
+      props.chatId,
+      speaker,
+    );
+    await chatStore.sendMessage(
+      formatAttackResultMessage({
+        attackerKey: accepted.initiator,
+        attackerName: nameOf(accepted.initiator),
+        defenderKey: accepted.opponent,
+        defenderName: nameOf(accepted.opponent),
+        remainingSr: result.remainingSr,
+        exhaustion: result.exhaustion,
+        wound: (result.wound ?? 0) + (result.cuttingWound ?? 0),
+      }),
+      [
+        {
+          type: ATTACK_CALC_ATTACHMENT_TYPE,
+          payload: buildAttackCalcPayload({
+            weaponDamage: attack.damage,
+            damageTypeCode: attack.damageTypeCode,
+            rules: props.rules,
+            sr: Math.max(0, sr),
+            result,
+            defenseIgnored,
+          }),
+        },
+      ],
+      props.chatId,
+      speaker,
+    );
+  }
+  if (result.exhaustion > 0) {
+    const afterHit = versionOf(accepted.opponent);
+    if (afterHit) {
+      const exhaustion = await applyExhaustionCheck({
+        version: afterHit,
+        rules: props.rules,
+        mechanics: props.mechanics,
+        gameId: props.gameId,
+        targetKey: accepted.opponent,
+        targetName: nameOf(accepted.opponent),
+        chatId: props.chatId,
+        speaker: speakerFor(accepted.opponent),
+        change: 'increase',
+        sendMessage: (content, attachments, chatId, speaker) =>
+          chatStore.sendMessage(content, attachments, chatId, speaker),
+      });
+      if (exhaustion.overlay) {
+        overlays.value = replaceCombatOverlay(overlays.value, exhaustion.overlay);
+        emit('overlay-changed');
+      }
+    }
+  }
+  if (
+    !shouldLaunchInjuryFromAttack({
+      hpDamage: result.hpDamage,
+      cuttingWound: result.cuttingWound,
+      woundFromHit: result.wound,
+    })
+  ) {
+    return;
+  }
+  const defenderVersion = versionOf(accepted.opponent);
+  const applied = await applyInjuryCheck({
+    input: injuryInputFromAttack({
+      hpDamage: result.hpDamage,
+      cuttingWound: result.cuttingWound,
+      woundFromHit: result.wound,
+      overlayExhaustion: overlayStateTotal(defenderVersion, props.rules, EXHAUSTION_STATE_CODE),
+      endurance: defenderOverview ? enduranceOf(defenderOverview, props.rules) : 1,
       remainingSr: result.remainingSr,
-      exhaustion: result.exhaustion,
+      damageTypeCode: attack.damageTypeCode,
+      actorKey: accepted.opponent,
     }),
-    [
-      {
-        type: ATTACK_CALC_ATTACHMENT_TYPE,
-        payload: buildAttackCalcPayload({
-          weaponDamage: attack.damage,
-          damageTypeCode: attack.damageTypeCode,
-          rules: props.rules,
-          payX: hit.payX ?? payX.value,
-          sr: Math.max(0, sr),
-          result,
-          defenseIgnored,
-        }),
-      },
-    ],
-    props.chatId,
-    speaker,
-  );
+    rules: props.rules,
+    mechanics: props.mechanics,
+    gameId: props.gameId,
+    targetKey: accepted.opponent,
+    targetName: nameOf(accepted.opponent),
+    chatId: props.chatId,
+    speaker: speakerFor(accepted.opponent),
+    skipIfNoRoll: true,
+    targetVersion: defenderVersion ?? undefined,
+    sendMessage: (content, attachments, chatId, speaker) =>
+      chatStore.sendMessage(content, attachments, chatId, speaker),
+  });
+  if (applied.overlay) {
+    overlays.value = replaceCombatOverlay(overlays.value, applied.overlay);
+    emit('overlay-changed');
+  }
 }
 
 async function submit(): Promise<void> {
@@ -624,9 +692,7 @@ const canSubmit = computed(() => {
   if (!strikeOnly.value) return false;
   if (isCompose.value) {
     return (
-      opponentKey.value !== null &&
-      selectedAction.value !== null &&
-      selectedAction.value.odCost <= attackerAp.value
+      opponentKey.value !== null && selectedAction.value !== null && selectedAction.value.odCost <= attackerAp.value
     );
   }
   if (!myTurn.value) return false;
@@ -668,15 +734,6 @@ const canSubmit = computed(() => {
         <div v-if="!isCompose" class="text-body-2 mb-3">
           {{ selectedAction?.name ?? 'Действие атаки' }} · {{ selectedAction?.odCost ?? DEFAULT_ATTACK_AP }} ОД
         </div>
-        <ClampedNumberField
-          v-if="showPayX"
-          v-model="payX"
-          label="Оплатить X РУ (надёжность)"
-          :min="0"
-          :max="20"
-          class="mb-3"
-          :disabled="!isCompose && !isDefenderStep"
-        />
         <v-alert v-if="!strikeOnly" type="info" variant="tonal" density="compact" class="mb-3">
           Выстрел и бросок в этом заходе не запускаются.
         </v-alert>
@@ -696,10 +753,6 @@ const canSubmit = computed(() => {
           class="mb-3"
           :disabled="!isCompose"
         />
-        <v-alert v-if="isCompose" type="info" variant="tonal" density="compact" class="mb-3">
-          Игнор, уклон и блок выбирает защитник. После «На одобрение» окно закроется; ведущий сразу получит шаг защиты,
-          игроку-защитнику нужно говорить от лица цели.
-        </v-alert>
         <ClampedNumberField
           v-if="isCompose"
           v-model="attackerAdv"

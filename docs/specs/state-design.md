@@ -24,8 +24,9 @@
   «уменьшение Силы на размер» = `Сила.modify(-3)` (шаг `max−min+1 = 3` пункта базы = 1 размер,
   автоперенос через `CHARACTERISTIC_BASE_RANGE`). Никакого отдельного `size_delta`.
 - Урон со временем — только профиль в спеке; тиканье по ходам — боевой поток, отложено.
-- Триггеры при нарастании (Истощение → проверка Воли → шанс Слабость/Обессилен/Потеря
-  сознания) **не моделируются** — поведение в описании правила.
+- Триггеры (Истощение → проверка Воли → группа Упадок сил) — боевой поток: `applyExhaustionCheck`.
+  Рост в бессознательности проверку не вызывает; снижение — вызывает.
+- Конец хода: сумма ран (`independent`) → прирост кровопотери; leftover/HP не трогает.
 
 ## 2. Схема StateSpec (тип `state`) — 06.08.2026, модель value
 
@@ -34,7 +35,7 @@
 > и ссылки «из поля экземпляра» удалены.
 >
 > **Яды вынесены в отдельный тип правила `poison` (см. §2а).** Яд = шаблон отравления (правило),
-> а на персонаже отравление — это запись состояния «Отправление» (rule `poisoning`, flag/
+> а на персонаже отравление — это запись состояния «Отравление» (rule `poisoning`, flag/
 > independent) с блоком `poison`, несущим фактические параметры (Сила/Периодичность/Затухание).
 > Так предмет/способность и GM могут навесить произвольные значения, а правило-яд даёт имя,
 > иконку и тип урона.
@@ -71,6 +72,9 @@ type StateEffect =
       periodicity?: StatePeriodicity
       decay?: StateDecay
     }
+  | { type: 'resource_limit_modify'; resource_code: string; amount: number; per_unit?: boolean }
+  | { type: 'resource_limit_set'; resource_code: string; value: number }
+  | { type: 'check_advantage'; amount: number; per_unit?: boolean; includes_hit?: boolean; characteristic_codes?: string[] }
 
 // Периодичность: собственный период (значение + шаг). Ссылок на поля экземпляра нет.
 type PeriodStep = 'turn' | 'minute' | 'hour' | 'day' | 'month' | 'year'
@@ -120,7 +124,7 @@ interface CharacterStateValue {
   stateRuleId: string
   value?: number
   dimensionalValue?: { base: number; size: number }
-  poison?: CharacterPoisonValue           // заполняется для состояния «Отправление»
+  poison?: CharacterPoisonValue           // заполняется для состояния «Отравление»
 }
 
 interface CharacterPoisonValue {
@@ -134,7 +138,7 @@ interface CharacterPoisonValue {
 
 Отображение:
 - имя/иконка строки — из правила-яда, если `poisonRuleId` задан; иначе имя из правила состояния
-  («Отправление»).
+  («Отравление»).
 - `valueLabel` = Сила (размерное число), `dotLabel` = «Урон: 3↑ яда 1 типа, каждые 2 хода,
   затухание 1».
 - каждое навешенное отравление — своя строка (id `poisoning#poison-N`), независимо от других.
@@ -158,17 +162,22 @@ interface CharacterStateValue {
 - Эффекты `characteristic_modify`: вливаются в модификаторы характеристики
   (источник = правило состояния); вычисленное значение характеристики — через
   `DimensionalNumber.modify(delta, range)`.
-- Эффекты `damage_over_time`: показываются профилем на карточке состояния и в Обзоре,
-  не применяются (тиканье — боевой поток).
+- Эффекты `damage_over_time`: профиль на карточке; тик ран в конце хода пишет в кровопотерю
+  (не leftover). Лимит ОД в бою: эффективные характеристики → формулы `buildResources` →
+  Σ `resource_limit_modify` → `resource_limit_set` → floor 0 → кламп current.
+- Помехи: Σ `check_advantage`. Без scope — все проверки; иначе только `includes_hit` и характеристики из `characteristic_codes` плюс их производные (`formula` min/max). Увечье: попадание + Сила + Ловкость, не Воля и не увечье.
 
 ## 4. Маппинг типовых состояний
 
 | Правило | value_type | aggregation | effects | icon |
 |---|---|---|---|---|
-| Истощение | number | sum | — (поведение в описании) | `mdi-weather-sunny` |
-| Слабость | flag | max | modify strength −3 | `mdi-hand-back-left-outline` |
-| Обессилен | flag | max | modify strength −6 | `mdi-emoticon-sick-outline` |
-| Потеря сознания | flag | max | — | `mdi-head-sync-outline` |
+| Истощение | number | sum | авто Воля; рост в бессознательности — без проверки | `mdi-weather-sunny` |
+| Слабость | flag | max | −1 к лимиту ОД (`resource_limit_modify`) | `mdi-hand-back-left-outline` |
+| Обессилен | flag | max | −3 к Силе, Восприятию, Интеллекту | `mdi-emoticon-sick-outline` |
+| Потеря сознания | flag | max | лимит ОД = 0 (`resource_limit_set`) | `mdi-head-sync-outline` |
+| Рана | number | independent | конец хода: сумма → +кровопотеря | `mdi-knife` |
+| Увечье | number | independent | −сила к лимиту ОД; помехи на попадание, Силу, Ловкость и производные | `mdi-bone` |
+| Кровопотеря | number | sum | резерв ⌊n/10⌋; прирост резерва +к истощению; при ≥4 увечье DC 2^(r−4) | `mdi-water` |
 | Горение | dimensional | sum | DOT health из `value` | `mdi-fire` |
 | Оглушение | number | sum | modify intellect −3 и perception −3, `per_unit` | `mdi-star-four-points-outline` |
 
@@ -214,7 +223,7 @@ interface CharacterStateValue {
 
 ## 6. Открытые мелочи
 
-- **Увечья (maim)** — нет в списке автора: по умолчанию убрать из моков; при желании — flag-состояние
-  без эффектов.
-- **Взаимоисключение Слабость/Обессилен** — пока модификаторы просто суммируются
-  (adjudication на ГМ), механизм конфликтов состояний не вводим.
+- **Упадок сил** — одновременно один исход: перед проверкой Воли снимаются слабость /
+  обессилен / потеря сознания, затем ставится флаг по РУ (−1 / −2 / −3+).
+- **Кровопотеря ≥ 4 резерва** — одно увечье по шкале крови, не формула leftover; иначе
+  обычное автоувечье, если прирост истощения его бы вызвал. Не оба.

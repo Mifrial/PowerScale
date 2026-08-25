@@ -8,6 +8,24 @@ export interface InjuryHealRoll {
   total: number;
 }
 
+export type InjuryDifficultySource = 'manual' | 'leftover' | 'wound' | 'exhaustion';
+
+/** Из чего сложилась сложность проверки на увечье. */
+export interface InjuryDifficultyBreakdown {
+  leftoverDamage: number;
+  endurance: number;
+  fromDamage: number;
+  woundStrength: number;
+  woundDivisor: number;
+  fromWound: number;
+  exhaustion: number;
+  exhaustionOffset: number;
+  fromExhaustion: number;
+  extraDifficulty: number;
+  source: InjuryDifficultySource;
+  total: number;
+}
+
 export interface InjuryOutcome {
   strength: number;
   permanent: boolean;
@@ -15,4 +33,9 @@ export interface InjuryOutcome {
   lethal: boolean;
   disfiguring: boolean;
   heal?: InjuryHealRoll;
+  /** Сложность проверки (после хуков типа). */
+  difficulty?: number;
+  /** РУ: успехи − сложность, без свёртки отрицательной базы. */
+  rating?: number;
+  breakdown?: InjuryDifficultyBreakdown;
 }

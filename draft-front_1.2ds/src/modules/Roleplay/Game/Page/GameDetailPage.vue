@@ -259,7 +259,7 @@ watch(detail, (value) => {
 </script>
 
 <template>
-  <v-container>
+  <v-container :fluid="activeTab === 'game-chat'">
     <div v-if="detailError" class="text-center pa-8">
       <v-icon icon="mdi-alert-circle" size="64" color="error" class="mb-4" />
       <p class="text-body-1 mb-4">{{ detailError }}</p>
@@ -420,6 +420,14 @@ watch(detail, (value) => {
 </template>
 
 <style scoped>
+.v-window {
+  min-width: 0;
+}
+:deep(.v-window-item) {
+  width: 100%;
+  min-width: 0;
+}
+
 /* Лёгкий бордер вокруг всех блоков карточки игры (описание, правила, теги, прочее, участники и т.д.) */
 :deep(.v-card) {
   border: 1px solid rgba(var(--v-theme-on-surface), 0.12);

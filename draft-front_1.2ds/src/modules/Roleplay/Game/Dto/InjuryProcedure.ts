@@ -1,11 +1,11 @@
-/** Константы скоринга увечья одной версии (алгоритм в хендлере). */
+/** Константы проверки на увечье одной версии (алгоритм в хендлере). */
 export interface InjuryProcedure {
   code: string;
   version: string;
-  explodeFace: number;
-  /** Грани строго ниже порога убираются после взрыва (3 = убрать 1 и 2). */
-  dropBelow: number;
-  woundDiceDivisor: number;
+  /** Всегда 4к6; Стойкость уже в формуле сложности. */
+  poolDice: number;
+  woundDivisor: number;
+  /** С этого значения истощение даёт сложность exhaustion − offset. */
   exhaustionCheckMin: number;
-  exhaustionDiceOffset: number;
+  exhaustionDifficultyOffset: number;
 }

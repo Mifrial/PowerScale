@@ -39,3 +39,35 @@ export function dotEffectLabel(
 
   return parts.join(', ');
 }
+
+export function stateEffectLabel(effect: StateEffect, nameByCode: (code: string) => string): string {
+  if (effect.type === 'characteristic_modify') {
+    const amount = `${effect.amount >= 0 ? '+' : ''}${effect.amount}`;
+    const per = effect.per_unit ? ' за каждую единицу состояния' : '';
+
+    return `Модификатор: ${nameByCode(effect.characteristic_code)} ${amount}${per}`;
+  }
+  if (effect.type === 'resource_limit_modify') {
+    const amount = `${effect.amount >= 0 ? '+' : ''}${effect.amount}`;
+    const per = effect.per_unit ? ' за единицу' : '';
+
+    return `Лимит ресурса ${nameByCode(effect.resource_code)} ${amount}${per}`;
+  }
+  if (effect.type === 'resource_limit_set') {
+    return `Лимит ресурса ${nameByCode(effect.resource_code)} = ${effect.value}`;
+  }
+  if (effect.type === 'check_advantage') {
+    const amount = `${effect.amount >= 0 ? '+' : ''}${effect.amount}`;
+    const per = effect.per_unit ? ' за единицу' : '';
+    const scoped = Boolean(effect.includes_hit) || (effect.characteristic_codes?.length ?? 0) > 0;
+    if (!scoped) return `Помехи/преимущества на все проверки ${amount}${per}`;
+    const parts: string[] = [];
+    if (effect.includes_hit) parts.push('попадание');
+    for (const code of effect.characteristic_codes ?? []) parts.push(nameByCode(code));
+    if (effect.characteristic_codes?.length) parts.push('производные');
+
+    return `Помехи/преимущества на ${parts.join(', ')} ${amount}${per}`;
+  }
+
+  return dotEffectLabel(effect, nameByCode);
+}

@@ -10,6 +10,10 @@ import type { CharacterOverview } from '@/modules/Roleplay/Character/Dto/Overvie
 import type { CombatMasterySection } from '@/modules/Roleplay/Character/Dto/Overview/CombatMasterySection';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import { mergeCombatOverlay } from '@/modules/Roleplay/Game/Utils/mergeCombatOverlay';
+import { resourceLimitBase } from '@/modules/Roleplay/Game/Utils/combatEffectiveState';
+import { ACTION_POINTS_CODE } from '@/modules/Roleplay/Game/Utils/applyAttackDamage';
+import { effectiveCharacteristicValues } from '@/modules/Roleplay/Character/Utils/stateRuntimeEffects';
+import { liveActionPointsLimit } from '@/modules/Roleplay/Character/Utils/liveActionPointsLimit';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 
 export type CombatEntityKind = 'character' | 'npc';
@@ -121,10 +125,49 @@ function poisonName(state: CharacterStateValue, rules: Rule[]): string {
   return rule?.name ?? 'Отравление';
 }
 
+function maimUnitShort(unit: NonNullable<CharacterStateValue['maim']>['healUnit']): string {
+  if (unit === 'days') return 'дн.';
+  if (unit === 'decades') return 'дек.';
+  if (unit === 'months') return 'мес.';
+
+  return 'лет';
+}
+
+/**
+ * Полный срок увечья на тайле: интервал −1 × сила (или «пост.»).
+ * Пустая строка, если срока нет.
+ */
+export function maimTotalDurationLabel(state: CharacterStateValue): string {
+  const maim = state.maim;
+  if (!maim) return '';
+  if (maim.permanent) return 'пост.';
+  if (maim.healTotal == null || !maim.healUnit) return '';
+  const total = maim.healTotal * Math.max(0, state.value ?? 0);
+
+  return `${total} ${maimUnitShort(maim.healUnit)}`;
+}
+
+/** Подпись одной записи увечья на карточке (сила + срок + флаги). */
+export function maimStateLabel(state: CharacterStateValue): string {
+  const strength = String(state.value ?? 0);
+  const maim = state.maim;
+  if (!maim) return strength;
+  const bits = [strength];
+  if (maim.permanent) bits.push('пост.');
+  else if (maim.healTotal != null && maim.healUnit) bits.push(`${maim.healTotal} ${maimUnitShort(maim.healUnit)}`);
+  if (maim.disfiguring) bits.push('обезобр.');
+  if (maim.lethal) bits.push('смерт.');
+
+  return bits.join(' · ');
+}
+
 function stateSummary(entries: CharacterStateValue[], spec: StateSpec | null, rules: Rule[]): string | null {
   if (spec === null) return null;
   if (entries.some((entry) => entry.poison)) {
     return entries.map((entry) => poisonName(entry, rules)).join(', ');
+  }
+  if (entries.some((entry) => entry.maim)) {
+    return entries.map((entry) => maimStateLabel(entry)).join('; ');
   }
   if (spec.value_type === 'number') {
     const values = entries.map((entry) => entry.value ?? 0);
@@ -183,6 +226,33 @@ export function combatExhaustion(states: CharacterStateValue[], rules: Rule[]): 
   const total = entries.reduce((sum, entry) => sum + (entry.value ?? 0), 0);
 
   return total > 0 ? total : null;
+}
+
+/**
+ * Суммарная сила увечий участника. Правило ищется по коду 'maim'; суммируются все записи.
+ * Показывается только при итоге > 0.
+ */
+export function combatMaim(states: CharacterStateValue[], rules: Rule[]): number | null {
+  const rule = rules.find((candidate) => candidate.code === 'maim' && candidate.type === 'state');
+  if (!rule) return null;
+  const entries = states.filter((state) => state.stateRuleId === rule.id);
+  if (entries.length === 0) return null;
+  const total = entries.reduce((sum, entry) => sum + (entry.value ?? 0), 0);
+
+  return total > 0 ? total : null;
+}
+
+/** Текущие ОД и лимит (базовые пункты). Нет ресурса action-points — null. */
+export function combatActionPoints(version: CharacterVersion, rules: Rule[]): { current: number; max: number } | null {
+  const rule = rules.find((candidate) => candidate.code === ACTION_POINTS_CODE && candidate.type === 'resource');
+  if (!rule) return null;
+  const resource = version.resources.find((item) => item.ruleId === rule.id);
+  if (!resource) return null;
+
+  const live = liveActionPointsLimit(version, rules, effectiveCharacteristicValues(version, rules));
+  const max = live ?? Math.max(0, resourceLimitBase(resource));
+
+  return { current: Math.min(resource.current.base, max), max };
 }
 
 /** Вариант «Добавить состояние»: все state-правила ревизии. */

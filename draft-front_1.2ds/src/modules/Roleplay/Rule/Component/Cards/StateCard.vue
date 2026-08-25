@@ -2,8 +2,7 @@
 import { computed } from 'vue';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { StateSpec } from '@/modules/Roleplay/Rule/Dto/State/StateSpec';
-import type { StateEffect } from '@/modules/Roleplay/Rule/Dto/State/StateEffect';
-import { dotEffectLabel } from '@/modules/Roleplay/Rule/Utils/State/formatStateEffects';
+import { stateEffectLabel } from '@/modules/Roleplay/Rule/Utils/State/formatStateEffects';
 
 const props = defineProps<{
   rule: Rule;
@@ -34,10 +33,6 @@ const aggregationLabels: Record<StateSpec['aggregation'], string> = {
 function nameByCode(code: string): string {
   return rulesByCode.value.get(code)?.name ?? code;
 }
-
-function isDotEffect(effect: StateEffect): effect is Extract<StateEffect, { type: 'damage_over_time' }> {
-  return effect.type === 'damage_over_time';
-}
 </script>
 
 <template>
@@ -65,8 +60,8 @@ function isDotEffect(effect: StateEffect): effect is Extract<StateEffect, { type
             }}{{ effect.amount }}
             <span v-if="effect.per_unit"> за каждую единицу состояния</span>
           </template>
-          <template v-else-if="isDotEffect(effect)">
-            {{ dotEffectLabel(effect, nameByCode) }}
+          <template v-else>
+            {{ stateEffectLabel(effect, nameByCode) }}
           </template>
         </div>
       </v-card-text>

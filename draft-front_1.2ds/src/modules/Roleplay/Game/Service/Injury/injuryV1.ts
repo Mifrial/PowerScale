@@ -7,9 +7,8 @@ import {
 export const injuryV1: InjuryProcedure = {
   code: INJURY_PROCEDURE_MECHANIC_CODE,
   version: INJURY_PROCEDURE_VERSION_1,
-  explodeFace: 6,
-  dropBelow: 3,
-  woundDiceDivisor: 2,
-  exhaustionCheckMin: 6,
-  exhaustionDiceOffset: 5,
+  poolDice: 4,
+  woundDivisor: 2,
+  exhaustionCheckMin: 7,
+  exhaustionDifficultyOffset: 6,
 };

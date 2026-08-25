@@ -37,6 +37,37 @@ export class DimensionalNumber {
     return new DimensionalNumber({ base, size });
   }
 
+  /**
+   * Сменить размер без дробей: вниз — база ×2 за шаг, вверх — floor(база / 2).
+   * {4|-2} → size -1 = {2|-1}; {3|-2} → {1|-1}.
+   */
+  withSize(targetSize: number): DimensionalNumber {
+    const delta = targetSize - this.value.size;
+    if (delta === 0) return this;
+    if (delta < 0) {
+      return new DimensionalNumber({ base: this.value.base * 2 ** -delta, size: targetSize });
+    }
+
+    return new DimensionalNumber({ base: Math.floor(this.value.base / 2 ** delta), size: targetSize });
+  }
+
+  /**
+   * Отрицательная база: −x успехов размера n = 0 успехов размера n−x.
+   * {−2|0} → {0|-2}.
+   */
+  foldNegativeBase(): DimensionalNumber {
+    if (this.value.base >= 0) return this;
+
+    return new DimensionalNumber({ base: 0, size: this.value.size + this.value.base });
+  }
+
+  /** Поднять размер, если он меньше минимума (попадания: не мельче −1). */
+  clampMinSize(minSize: number): DimensionalNumber {
+    if (this.value.size >= minSize) return this;
+
+    return this.withSize(minSize);
+  }
+
   add(other: DimensionalNumber): DimensionalNumber {
     const size = Math.min(this.value.size, other.value.size);
     const a = this.value.base * Math.pow(2, this.value.size - size);

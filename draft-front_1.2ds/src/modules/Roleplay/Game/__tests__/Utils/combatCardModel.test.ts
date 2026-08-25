@@ -3,10 +3,13 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
 import {
+  combatActionPoints,
   combatCardCanEdit,
   combatCardModel,
   combatEntityName,
   combatExhaustion,
+  combatMaim,
+  maimTotalDurationLabel,
   combatStateRows,
   defaultStateEntry,
   parseCombatEntityKey,
@@ -130,6 +133,13 @@ describe('combatCardModel: права (CD-6)', () => {
   });
 });
 
+describe('combatActionPoints', () => {
+  it('читает текущие ОД и лимит с ресурса action-points', () => {
+    const rules = [{ id: 'rule-18', code: 'action-points', type: 'resource' }] as Rule[];
+    expect(combatActionPoints(versions[1], rules)).toEqual({ current: 4, max: 4 });
+  });
+});
+
 describe('combatCardModel: версия + оверлей', () => {
   it('собирает effectiveVersion = версия + оверлей (при изменениях)', () => {
     const model = combatCardModel('character:1', memberships, npcs, true, 1, {
@@ -167,7 +177,7 @@ describe('combatCardModel: версия + оверлей', () => {
   });
 
   it('ресурсы оверлея видны поверх overlay.sheet (списание ОД после правки экипировки)', () => {
-    const sheet = JSON.parse(JSON.stringify(versions[1])) as typeof versions[1];
+    const sheet = JSON.parse(JSON.stringify(versions[1])) as (typeof versions)[1];
     sheet.resources = sheet.resources.map((resource) =>
       resource.ruleId === 'rule-18' ? { ...resource, current: { base: 3, size: 0 } } : resource,
     );
@@ -400,6 +410,53 @@ describe('combatExhaustion', () => {
   });
 });
 
+describe('combatMaim', () => {
+  const maimRules = [...STATE_RULES, stateRule('rule-606', 'maim', 'Увечье', 'number', 'independent')];
+
+  it('суммирует силу всех записей увечья', () => {
+    expect(
+      combatMaim(
+        [
+          { stateRuleId: 'rule-606', value: 2 },
+          { stateRuleId: 'rule-606', value: 1 },
+          { stateRuleId: 'rule-56', value: 4 },
+        ],
+        maimRules,
+      ),
+    ).toBe(3);
+  });
+
+  it('null при отсутствии правила увечья в ревизии', () => {
+    expect(combatMaim([{ stateRuleId: 'rule-606', value: 2 }], STATE_RULES)).toBeNull();
+  });
+
+  it('null при отсутствии записей или нулевом итоге', () => {
+    expect(combatMaim([{ stateRuleId: 'rule-56', value: 4 }], maimRules)).toBeNull();
+    expect(combatMaim([{ stateRuleId: 'rule-606', value: 0 }], maimRules)).toBeNull();
+  });
+});
+
+describe('maimTotalDurationLabel', () => {
+  it('полный срок = интервал −1 × сила', () => {
+    expect(
+      maimTotalDurationLabel({
+        stateRuleId: 'rule-606',
+        value: 2,
+        maim: { permanent: false, healTotal: 4, healUnit: 'days' },
+      }),
+    ).toBe('8 дн.');
+  });
+
+  it('постоянное — пост.', () => {
+    expect(
+      maimTotalDurationLabel({
+        stateRuleId: 'rule-606',
+        value: 3,
+        maim: { permanent: true },
+      }),
+    ).toBe('пост.');
+  });
+});
 describe('combatStatePicker', () => {
   it('statePickerOptions — все state-правила ревизии', () => {
     const options = statePickerOptions(STATE_RULES);

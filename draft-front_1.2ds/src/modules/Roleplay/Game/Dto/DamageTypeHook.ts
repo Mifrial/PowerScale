@@ -5,9 +5,9 @@ export interface DamageTypeHook {
   mechanicCode: string;
   version: string;
   phase: DamageTypeHookPhase;
-  /** Колющий: доп. кубы = floor(РУ / divisor). */
+  /** Колющий: доп. сложность = floor(РУ / divisor). */
   extraDiceFromSrDivisor?: number;
-  /** Рубящий: сдвиг порога сброса граней (обычно −1). */
+  /** Рубящий: дельта эффективности < 0 → помеха на проверку увечья. */
   efficiencyDelta?: number;
   /** Истощение → рана: множитель силы. */
   woundMultiplier?: number;

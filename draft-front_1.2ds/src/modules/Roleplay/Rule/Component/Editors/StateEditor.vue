@@ -42,6 +42,9 @@ const innerSpec = ref<StateSpec>(stateSpecService.createEmpty());
 const characteristicOptions = computed(() =>
   ruleReferenceService.characteristicOptions(props.rules, props.spaceId).map((c) => ({ title: c.name, value: c.code })),
 );
+const resourceOptions = computed(() =>
+  ruleReferenceService.resourceOptions(props.rules).map((r) => ({ title: r.name, value: r.code })),
+);
 const valueTypeOptions: { title: string; value: StateValueType }[] = [
   { title: 'Флаг (есть/нет)', value: 'flag' },
   { title: 'Целое число', value: 'number' },
@@ -96,6 +99,21 @@ function addDotEffect(): void {
   });
 }
 
+function addLimitModifyEffect(): void {
+  innerSpec.value.effects = innerSpec.value.effects ?? [];
+  innerSpec.value.effects.push({ type: 'resource_limit_modify', resource_code: '', amount: 0 });
+}
+
+function addLimitSetEffect(): void {
+  innerSpec.value.effects = innerSpec.value.effects ?? [];
+  innerSpec.value.effects.push({ type: 'resource_limit_set', resource_code: '', value: 0 });
+}
+
+function addCheckAdvantageEffect(): void {
+  innerSpec.value.effects = innerSpec.value.effects ?? [];
+  innerSpec.value.effects.push({ type: 'check_advantage', amount: -1 });
+}
+
 function removeEffect(index: number): void {
   innerSpec.value.effects?.splice(index, 1);
 }
@@ -110,6 +128,27 @@ function isModifyEffect(effect: StateEffect): effect is Extract<StateEffect, { t
 
 function isDotEffect(effect: StateEffect): effect is Extract<StateEffect, { type: 'damage_over_time' }> {
   return effect.type === 'damage_over_time';
+}
+
+function isLimitModifyEffect(effect: StateEffect): effect is Extract<StateEffect, { type: 'resource_limit_modify' }> {
+  return effect.type === 'resource_limit_modify';
+}
+
+function isLimitSetEffect(effect: StateEffect): effect is Extract<StateEffect, { type: 'resource_limit_set' }> {
+  return effect.type === 'resource_limit_set';
+}
+
+function isCheckAdvantageEffect(effect: StateEffect): effect is Extract<StateEffect, { type: 'check_advantage' }> {
+  return effect.type === 'check_advantage';
+}
+
+function effectTitle(effect: StateEffect): string {
+  if (effect.type === 'characteristic_modify') return 'Модификатор характеристики';
+  if (effect.type === 'resource_limit_modify') return 'Модификатор лимита ресурса';
+  if (effect.type === 'resource_limit_set') return 'Зафиксировать лимит ресурса';
+  if (effect.type === 'check_advantage') return 'Помехи / преимущества на проверки';
+
+  return 'Урон со временем';
 }
 </script>
 
@@ -172,17 +211,20 @@ function isDotEffect(effect: StateEffect): effect is Extract<StateEffect, { type
 
           <div class="d-flex align-center justify-space-between mt-3 mb-1">
             <div class="text-body-2 font-weight-medium">Эффекты</div>
-            <div class="d-flex ga-2">
+            <div class="d-flex ga-2 flex-wrap">
               <v-btn size="small" variant="text" prepend-icon="mdi-plus" @click="addEffect">Модификатор</v-btn>
               <v-btn size="small" variant="text" prepend-icon="mdi-fire" @click="addDotEffect">Урон со временем</v-btn>
+              <v-btn size="small" variant="text" prepend-icon="mdi-gauge" @click="addLimitModifyEffect">Лимит ±</v-btn>
+              <v-btn size="small" variant="text" prepend-icon="mdi-lock" @click="addLimitSetEffect">Лимит =</v-btn>
+              <v-btn size="small" variant="text" prepend-icon="mdi-dice-d6" @click="addCheckAdvantageEffect">
+                Помехи
+              </v-btn>
             </div>
           </div>
 
           <v-sheet v-for="(effect, index) in innerSpec.effects" :key="index" class="pa-2 rounded border mb-2">
             <div class="d-flex align-center justify-space-between mb-1">
-              <div class="text-body-2 font-weight-medium">
-                {{ effect.type === 'characteristic_modify' ? 'Модификатор характеристики' : 'Урон со временем' }}
-              </div>
+              <div class="text-body-2 font-weight-medium">{{ effectTitle(effect) }}</div>
               <v-btn icon="mdi-delete-outline" size="x-small" variant="text" @click="removeEffect(index)" />
             </div>
 
@@ -255,6 +297,94 @@ function isDotEffect(effect: StateEffect): effect is Extract<StateEffect, { type
                   />
                 </v-col>
               </v-row>
+            </template>
+
+            <template v-else-if="isLimitModifyEffect(effect)">
+              <v-row dense>
+                <v-col cols="6">
+                  <v-select
+                    v-model="effect.resource_code"
+                    :items="resourceOptions"
+                    label="Ресурс"
+                    density="compact"
+                    hide-details
+                  />
+                </v-col>
+                <v-col cols="3">
+                  <v-text-field
+                    v-model.number="effect.amount"
+                    label="Значение"
+                    type="number"
+                    density="compact"
+                    hide-details
+                  />
+                </v-col>
+                <v-col cols="3" class="d-flex align-center">
+                  <v-switch v-model="effect.per_unit" label="за ед." density="compact" hide-details />
+                </v-col>
+              </v-row>
+            </template>
+
+            <template v-else-if="isLimitSetEffect(effect)">
+              <v-row dense>
+                <v-col cols="6">
+                  <v-select
+                    v-model="effect.resource_code"
+                    :items="resourceOptions"
+                    label="Ресурс"
+                    density="compact"
+                    hide-details
+                  />
+                </v-col>
+                <v-col cols="3">
+                  <v-text-field
+                    v-model.number="effect.value"
+                    label="Лимит"
+                    type="number"
+                    density="compact"
+                    hide-details
+                  />
+                </v-col>
+              </v-row>
+            </template>
+
+            <template v-else-if="isCheckAdvantageEffect(effect)">
+              <v-row dense>
+                <v-col cols="4">
+                  <v-text-field
+                    v-model.number="effect.amount"
+                    label="Дельта"
+                    type="number"
+                    density="compact"
+                    hide-details
+                  />
+                </v-col>
+                <v-col cols="4" class="d-flex align-center">
+                  <v-switch v-model="effect.per_unit" label="за ед." density="compact" hide-details />
+                </v-col>
+                <v-col cols="4" class="d-flex align-center">
+                  <v-checkbox v-model="effect.includes_hit" label="попадание" density="compact" hide-details />
+                </v-col>
+              </v-row>
+              <v-row dense class="mt-2">
+                <v-col cols="12">
+                  <v-select
+                    :model-value="effect.characteristic_codes ?? []"
+                    :items="characteristicOptions"
+                    label="Характеристики"
+                    multiple
+                    chips
+                    closable-chips
+                    density="compact"
+                    hide-details
+                    @update:model-value="(v) => (effect.characteristic_codes = v)"
+                  />
+                </v-col>
+              </v-row>
+              <div class="text-caption text-medium-emphasis mt-1">
+                Пустой список и без «попадание» — все проверки. Иначе только попадание и выбранные характеристики
+                (включая производные min/max).
+              </div>
             </template>
           </v-sheet>
         </v-expansion-panel-text>

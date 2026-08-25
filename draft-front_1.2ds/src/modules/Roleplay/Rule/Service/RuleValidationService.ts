@@ -727,6 +727,17 @@ export class RuleValidationService {
           if (effect.type === 'characteristic_modify' && effect.characteristic_code) {
             collect({ code: effect.characteristic_code, type: 'characteristic' });
           }
+          if (
+            (effect.type === 'resource_limit_modify' || effect.type === 'resource_limit_set') &&
+            effect.resource_code
+          ) {
+            collect({ code: effect.resource_code, type: 'resource' });
+          }
+          if (effect.type === 'check_advantage') {
+            for (const code of effect.characteristic_codes ?? []) {
+              collect({ code, type: 'characteristic' });
+            }
+          }
           if (effect.type === 'damage_over_time') {
             const decay = effect.decay;
             if (decay && (decay.kind === 'characteristic' || decay.kind === 'check') && decay.characteristic_code) {

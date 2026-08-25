@@ -42,7 +42,7 @@ function isAlwaysIncluded(rule: Rule): boolean {
   // ссылаются персонажи (предметы/расы) и другие правила (requirements, action_components,
   // grants, зоны способностей), поэтому их отсутствие ломает «в наличии». Источники (source)
   // тоже всегда: слоты защит/сопротивлений ссылаются на них кодом, и карточка персонажа
-  // выводит имя источника. Срез по count применяется к остальным (simple/characteristic/damage_type).
+  // выводит имя источника. Срез по count применяется к остальным (simple и прочие).
   return (
     rule.type === 'characteristic' ||
     rule.type === 'resource' ||
@@ -58,6 +58,7 @@ function isAlwaysIncluded(rule: Rule): boolean {
     rule.type === 'poison' ||
     rule.type === 'age' ||
     rule.type === 'check' ||
+    rule.type === 'damage_type' ||
     // Правило «Бросок» (дефолты бросков чата) присутствует в любой ревизии игры.
     rule.mechanic_payload?.type === 'roll' ||
     rule.code === 'strike-procedure'
@@ -192,6 +193,10 @@ function collectReferencedCodes(spec: RuleSpec | undefined): string[] {
     for (const [key, value] of Object.entries(node)) {
       if (typeof value === 'string' && /_code$/.test(key)) {
         refs.add(value);
+      } else if (Array.isArray(value) && /_codes$/.test(key)) {
+        for (const item of value) {
+          if (typeof item === 'string') refs.add(item);
+        }
       } else if (typeof value === 'object') {
         walk(value);
       }

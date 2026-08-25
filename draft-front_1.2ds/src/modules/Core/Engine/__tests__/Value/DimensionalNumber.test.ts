@@ -113,6 +113,30 @@ describe('DimensionalNumber.toString', () => {
   });
 });
 
+describe('DimensionalNumber.withSize', () => {
+  it('вниз по размеру умножает базу на 2', () => {
+    expect(dn(5, 0).withSize(-1).value).toEqual({ base: 10, size: -1 });
+  });
+  it('вверх по размеру делит базу на 2 с округлением вниз', () => {
+    expect(dn(4, -2).withSize(-1).value).toEqual({ base: 2, size: -1 });
+    expect(dn(3, -2).withSize(-1).value).toEqual({ base: 1, size: -1 });
+  });
+  it('{0|-n} при подъёме размера остаётся нулём', () => {
+    expect(dn(0, -5).withSize(-1).value).toEqual({ base: 0, size: -1 });
+  });
+});
+
+describe('DimensionalNumber.foldNegativeBase', () => {
+  it('−x успехов размера n → 0 успехов размера n−x', () => {
+    expect(dn(-2, 0).foldNegativeBase().value).toEqual({ base: 0, size: -2 });
+    expect(dn(-3, 1).foldNegativeBase().value).toEqual({ base: 0, size: -2 });
+  });
+  it('неотрицательную базу не трогает', () => {
+    expect(dn(0, -1).foldNegativeBase().value).toEqual({ base: 0, size: -1 });
+    expect(dn(4, 0).foldNegativeBase().value).toEqual({ base: 4, size: 0 });
+  });
+});
+
 describe('DimensionalNumber.parse', () => {
   it('разбирает строковое представление (формат toString)', () => {
     expect(DimensionalNumber.parse('3')).toEqual({ base: 3, size: 0 });

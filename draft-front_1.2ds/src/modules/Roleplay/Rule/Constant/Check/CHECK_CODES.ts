@@ -10,8 +10,8 @@ export const CHECK_COMMUNICATION_CODE = 'check-communication';
 /** Правила простой проверки (коды карточек, не механик); наследуются потомкам. */
 export const CHECK_SIMPLE_ATTACHED_RULE_CODES = ['rule-6-and-1', 'advantages'];
 
-/** Проверка на увечье: помехи/преимущества, без 6 и 1. */
-export const CHECK_INJURY_ATTACHED_RULE_CODES = ['advantages'];
+/** Проверка на увечье: те же правила броска, что у простой (6 и 1, преимущества). */
+export const CHECK_INJURY_ATTACHED_RULE_CODES = [...CHECK_SIMPLE_ATTACHED_RULE_CODES];
 
 /** domain_ref навыка «Манера общения» — дети CHECK_COMMUNICATION_CODE. */
 export const COMMUNICATION_CHECK_DOMAIN_REF = 'communication-check';

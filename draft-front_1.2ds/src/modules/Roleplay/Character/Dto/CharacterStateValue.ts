@@ -13,4 +13,12 @@ export interface CharacterStateValue {
   dimensionalValue?: { base: number; size: number };
   /** Только для состояния «Отравление»: применённый яд. */
   poison?: CharacterPoisonValue;
+  /** Только для состояния «Увечье»: срок и флаги этой записи (не суммируется с другими). */
+  maim?: {
+    permanent: boolean;
+    healTotal?: number;
+    healUnit?: 'days' | 'decades' | 'months' | 'years';
+    lethal?: boolean;
+    disfiguring?: boolean;
+  };
 }

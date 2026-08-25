@@ -30,10 +30,8 @@ export function formatDamageBrace(damage: DimensionalNumberValue): string {
   return `{${damage.base}|${damage.size}}`;
 }
 
-export function formatAttackSrLabel(sr: number, payX: number): string {
-  if (payX <= 0) return String(sr);
-
-  return `${Math.max(0, sr - payX)}(${sr} - ${payX} за игнорирование Надёжность ${payX}-)`;
+export function formatAttackSrLabel(sr: number): string {
+  return String(sr);
 }
 
 export function formatAttackActionMessage(input: {
@@ -83,21 +81,24 @@ export function formatAttackResultMessage(input: {
   defenderName: string;
   remainingSr: number;
   exhaustion: number;
+  wound?: number;
 }): string {
   const attacker = entityToken(input.attackerKey, input.attackerName);
   const defender = entityToken(input.defenderKey, input.defenderName);
   if (input.remainingSr <= 0) {
     return `${attacker} промахивается по ${defender}!`;
   }
+  const bits = [`${input.exhaustion} истощения`];
+  const wound = Math.max(0, input.wound ?? 0);
+  if (wound > 0) bits.push(`${wound} рану`);
 
-  return `${attacker} попадает по ${defender} с ${input.remainingSr} РУ и наносит ${input.exhaustion} истощения!`;
+  return `${attacker} попадает по ${defender} с ${input.remainingSr} РУ и наносит ${bits.join(' и ')}!`;
 }
 
 export function buildAttackCalcPayload(input: {
   weaponDamage: DimensionalNumberValue;
   damageTypeCode?: string | null;
   rules: Rule[];
-  payX: number;
   sr: number;
   result: ApplyAttackDamageResult;
   defenseIgnored: boolean;
@@ -111,11 +112,12 @@ export function buildAttackCalcPayload(input: {
     damageTypeName: typeName,
     resistance: input.result.resistance,
     defenseIgnored: input.defenseIgnored,
-    attackSrLabel: formatAttackSrLabel(input.sr, input.payX),
+    attackSrLabel: formatAttackSrLabel(input.sr),
     stun: input.result.stun,
     wound: input.result.wound,
     knockout: input.result.knockout,
     cuttingWound: input.result.cuttingWound,
+    layers: input.result.layers,
   };
 }
 

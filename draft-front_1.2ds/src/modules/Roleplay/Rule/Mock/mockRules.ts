@@ -357,7 +357,7 @@ const rules: Rule[] = [
     type: 'damage_type',
     name: 'Рубящий',
     description:
-      'Эффективность проверки на увечье −1. Истощение → раны силой [истощение × 2]. Можно оплатить X РУ против надёжности.',
+      'Проверка на увечье с помехой. Истощение → раны силой [истощение × 2]. РУ атаки игнорируют надёжность ≤ РУ.',
     spaceId: 1,
     spec: damageTypeSpec('slashing', [
       DT_INJURY_EFFICIENCY_CODE,
@@ -374,7 +374,7 @@ const rules: Rule[] = [
     type: 'damage_type',
     name: 'Колющий',
     description:
-      'На проверке увечья ещё [РУ / 2] кубов. Истощение → раны силой [истощение]. Можно оплатить X РУ против надёжности.',
+      'На проверке увечья +⌊РУ / 2⌋ к сложности. Истощение → раны силой [истощение]. РУ атаки игнорируют надёжность ≤ РУ.',
     spaceId: 1,
     spec: damageTypeSpec('piercing', [
       DT_INJURY_EXTRA_DICE_SR_CODE,
@@ -403,7 +403,7 @@ const rules: Rule[] = [
     code: 'cutting',
     type: 'damage_type',
     name: 'Режущий',
-    description: 'Не HP: размер урона привести к размеру цели → рана этой силы. Можно оплатить X РУ против надёжности.',
+    description: 'Не HP: размер урона привести к размеру цели → рана этой силы. РУ атаки игнорируют надёжность ≤ РУ.',
     spaceId: 1,
     spec: damageTypeSpec('cutting', [DT_CUTTING_AS_WOUNDS_CODE, DT_PAY_SR_VS_RELIABILITY_CODE]),
     keywordIds: [],
@@ -1143,7 +1143,7 @@ const rules: Rule[] = [
     type: 'state',
     name: 'Истощение',
     description:
-      'Накопленная усталость. При нарастании провоцирует проверку Силы воли с шансом словить Слабость, Обессилен или Потерю сознания (механика проверки — на усмотрение ГМ, в описании).',
+      'Накопленная усталость. При изменении — проверка Воли против текущего значения (провал −1 Слабость, −2 Обессилен, −3 и хуже Потеря сознания). Рост в бессознательности проверку не вызывает; снижение — вызывает, чтобы можно было очнуться.',
     spaceId: 1,
     spec: {
       icon_code: 'mdi-weather-sunny',
@@ -1160,13 +1160,13 @@ const rules: Rule[] = [
     code: 'weakness',
     type: 'state',
     name: 'Слабость',
-    description: 'Персонаж ослаблен: Сила уменьшена на размер.',
+    description: 'Персонаж ослаблен: −1 к лимиту ОД. Один из исходов группы «Упадок сил» (проверка Воли на истощение).',
     spaceId: 1,
     spec: {
       icon_code: 'mdi-hand-back-left-outline',
       value_type: 'flag',
       aggregation: 'max',
-      effects: [{ type: 'characteristic_modify', characteristic_code: 'strength', amount: -3, per_unit: false }],
+      effects: [{ type: 'resource_limit_modify', resource_code: 'action-points', amount: -1 }],
     },
     keywordIds: [],
     mechanicId: null,
@@ -1177,13 +1177,17 @@ const rules: Rule[] = [
     code: 'disabled',
     type: 'state',
     name: 'Обессилен',
-    description: 'Персонаж обессилен: Сила уменьшена на два размера.',
+    description: 'Обессилен: −3 (один размер) к Силе, Восприятию и Интеллекту. Один исход группы «Упадок сил».',
     spaceId: 1,
     spec: {
       icon_code: 'mdi-emoticon-sick-outline',
       value_type: 'flag',
       aggregation: 'max',
-      effects: [{ type: 'characteristic_modify', characteristic_code: 'strength', amount: -6, per_unit: false }],
+      effects: [
+        { type: 'characteristic_modify', characteristic_code: 'strength', amount: -3 },
+        { type: 'characteristic_modify', characteristic_code: 'perception', amount: -3 },
+        { type: 'characteristic_modify', characteristic_code: 'intellect', amount: -3 },
+      ],
     },
     keywordIds: [],
     mechanicId: null,
@@ -1194,13 +1198,13 @@ const rules: Rule[] = [
     code: 'unconscious',
     type: 'state',
     name: 'Потеря сознания',
-    description: 'Персонаж без сознания: не действует до прихода в чувство.',
+    description: 'Без сознания: лимит ОД = 0, действовать нельзя. Один исход группы «Упадок сил».',
     spaceId: 1,
     spec: {
       icon_code: 'mdi-head-sync-outline',
       value_type: 'flag',
       aggregation: 'max',
-      effects: [],
+      effects: [{ type: 'resource_limit_set', resource_code: 'action-points', value: 0 }],
     },
     keywordIds: [],
     mechanicId: null,
@@ -1212,7 +1216,7 @@ const rules: Rule[] = [
     type: 'state',
     name: 'Рана',
     description:
-      'Повреждение с кровотечением. Ран может быть несколько; у каждой — число повреждений кровотечением (значение записи).',
+      'Повреждение с кровотечением. В конце хода сумма ран добавляется к Кровопотере (не в leftover / HP). Ран может быть несколько.',
     spaceId: 1,
     spec: {
       icon_code: 'mdi-knife',
@@ -1236,20 +1240,44 @@ const rules: Rule[] = [
     type: 'state',
     name: 'Увечье',
     description:
-      'Повреждение конечности или органа. Несколько увечий складываются; каждая единица состояния уменьшает Проворство и Восприятие на размер.',
+      'Повреждение конечности или органа. Каждая запись: −сила к лимиту ОД; столько же помех на попадание и проверки Силы, Ловкости и их производных (записи складываются).',
     spaceId: 1,
     spec: {
       icon_code: 'mdi-bone',
       value_type: 'number',
-      aggregation: 'sum',
+      aggregation: 'independent',
       effects: [
-        { type: 'characteristic_modify', characteristic_code: 'agility', amount: -3, per_unit: true },
-        { type: 'characteristic_modify', characteristic_code: 'perception', amount: -3, per_unit: true },
+        { type: 'resource_limit_modify', resource_code: 'action-points', amount: -1, per_unit: true },
+        {
+          type: 'check_advantage',
+          amount: -1,
+          per_unit: true,
+          includes_hit: true,
+          characteristic_codes: ['strength', 'dexterity'],
+        },
       ],
     },
     keywordIds: [],
     mechanicId: null,
     createdAt: '2026-08-06T10:00:00Z',
+  },
+  {
+    id: 'rule-607',
+    code: 'blood-loss',
+    type: 'state',
+    name: 'Кровопотеря',
+    description:
+      'Накопленная кровь. Резерв истощения = ⌊значение/10⌋; прирост резерва добавляет столько единиц истощения (минимум = резерв). При резерве ≥ 4 — одно увечье сложности 2^(резерв−4).',
+    spaceId: 1,
+    spec: {
+      icon_code: 'mdi-water',
+      value_type: 'number',
+      aggregation: 'sum',
+      effects: [],
+    },
+    keywordIds: [],
+    mechanicId: null,
+    createdAt: '2026-08-24T10:00:00Z',
   },
   {
     id: 'rule-61',
@@ -1336,7 +1364,7 @@ const rules: Rule[] = [
     id: 'rule-65',
     code: 'poisoning',
     type: 'state',
-    name: 'Отправление',
+    name: 'Отравление',
     description:
       'Состояние отравления. Ссылается на конкретное правило-яд (type=poison) через блок poison записи; параметры (Сила/Периодичность/Затухание) мастер может задать на ходу.',
     spaceId: 1,

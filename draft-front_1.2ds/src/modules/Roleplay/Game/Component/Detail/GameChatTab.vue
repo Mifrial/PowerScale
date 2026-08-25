@@ -25,6 +25,7 @@ import CheckLaunchDialog from '@/modules/Roleplay/Game/Component/CheckLaunchDial
 import HitLaunchDialog from '@/modules/Roleplay/Game/Component/HitLaunchDialog.vue';
 import InjuryLaunchDialog from '@/modules/Roleplay/Game/Component/InjuryLaunchDialog.vue';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
+import { combatCardCanEdit } from '@/modules/Roleplay/Game/Utils/combatCardModel';
 import type { CheckOffer } from '@/modules/Roleplay/Game/Dto/CheckOffer';
 import type { AttackOverview } from '@/modules/Roleplay/Character/Dto/Overview/AttackOverview';
 import { CHECK_HIT_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
@@ -53,6 +54,11 @@ const showStopSession = computed(() => props.canEdit && canStopSession(props.det
 // «Начать сессию» → playing, «Остановить сессию» → in_process (межсессионный период). Сессия не
 // трогает терминальный статус игры (completed ставится отдельно — селектором в форме игры).
 // При остановке сессии боевые изменения (оверлей) персонажей собираются в pendingVersion на модерацию (CD-2).
+async function ensurePlaying(): Promise<void> {
+  if (!canStartGame(props.detail.game.status)) return;
+  await changeStatus('playing');
+}
+
 async function changeStatus(target: GameStatus): Promise<void> {
   statusUpdating.value = true;
   statusError.value = null;
@@ -231,7 +237,9 @@ function onOverlayChanged(): void {
 }
 
 function onOpenCard(entityKey: string): void {
-  cardKey.value = entityKey as CombatEntityKey;
+  const key = entityKey as CombatEntityKey;
+  if (!combatCardCanEdit(key, props.canEdit, userStore.currentUser?.id ?? null, memberships.value)) return;
+  cardKey.value = key;
   cardOpen.value = true;
 }
 
@@ -273,7 +281,6 @@ const hitAttackerKey = ref<CombatEntityKey | null>(null);
 const hitAttack = ref<AttackOverview | null>(null);
 const pendingOffers = ref<CheckOffer[]>([]);
 const dismissedOfferIds = ref<Set<number>>(new Set());
-const handshakeHint = ref<string | null>(null);
 let pendingPoll: ReturnType<typeof setInterval> | null = null;
 
 const speakerEntityKey = computed<CombatEntityKey | null>(() => {
@@ -283,8 +290,8 @@ const speakerEntityKey = computed<CombatEntityKey | null>(() => {
   return key as CombatEntityKey;
 });
 
-function isActionableOffer(offer: CheckOffer, key: CombatEntityKey | null, asGm: boolean): boolean {
-  if (dismissedOfferIds.value.has(offer.id) || offer.status !== 'pending') return false;
+function isWaitingOnSpeaker(offer: CheckOffer, key: CombatEntityKey | null, asGm: boolean): boolean {
+  if (offer.status !== 'pending') return false;
   if (asGm) return true;
   if (key === null) return false;
 
@@ -292,6 +299,20 @@ function isActionableOffer(offer: CheckOffer, key: CombatEntityKey | null, asGm:
     (offer.waitingOn === 'opponent' && offer.opponent === key) ||
     (offer.waitingOn === 'initiator' && offer.initiator === key)
   );
+}
+
+function isActionableOffer(offer: CheckOffer, key: CombatEntityKey | null, asGm: boolean): boolean {
+  if (dismissedOfferIds.value.has(offer.id)) return false;
+
+  return isWaitingOnSpeaker(offer, key, asGm);
+}
+
+function pendingToResume(): CheckOffer | undefined {
+  const key = speakerEntityKey.value;
+  const asGm = props.canEdit;
+  const mine = pendingOffers.value.filter((offer) => isWaitingOnSpeaker(offer, key, asGm));
+
+  return mine.find((offer) => offer.checkCode === CHECK_HIT_CODE) ?? mine[0];
 }
 
 async function refreshPendingOffers(): Promise<void> {
@@ -325,29 +346,32 @@ async function refreshPendingOffers(): Promise<void> {
   }
 }
 
-function openCheckLaunch(): void {
-  const key = speakerEntityKey.value;
-  const asGm = props.canEdit;
-  const hit = pendingOffers.value.find(
-    (offer) => offer.checkCode === CHECK_HIT_CODE && isActionableOffer(offer, key, asGm),
-  );
-  if (hit) {
-    dismissedOfferIds.value = new Set([...dismissedOfferIds.value].filter((id) => id !== hit.id));
-    hitResumeOffer.value = hit;
-    hitAttackerKey.value = hit.initiator;
+function reopenOffer(offer: CheckOffer): void {
+  dismissedOfferIds.value = new Set([...dismissedOfferIds.value].filter((id) => id !== offer.id));
+  if (offer.checkCode === CHECK_HIT_CODE) {
+    hitResumeOffer.value = offer;
+    hitAttackerKey.value = offer.initiator;
     hitAttack.value = null;
     hitOpen.value = true;
 
     return;
   }
-  resumeOffer.value =
-    pendingOffers.value.find(
-      (offer) =>
-        offer.checkCode !== CHECK_HIT_CODE &&
-        key !== null &&
-        ((offer.waitingOn === 'opponent' && offer.opponent === key) ||
-          (offer.waitingOn === 'initiator' && offer.initiator === key)),
-    ) ?? null;
+  resumeOffer.value = offer;
+  checkOpen.value = true;
+}
+
+function openCheckLaunch(): void {
+  const existing = pendingToResume();
+  if (existing) {
+    reopenOffer(existing);
+
+    return;
+  }
+  openNewCheck();
+}
+
+function openNewCheck(): void {
+  resumeOffer.value = null;
   checkOpen.value = true;
 }
 
@@ -377,11 +401,6 @@ function onHitClosed(open: boolean): void {
   hitAttackerKey.value = null;
   hitOpen.value = false;
   void refreshPendingOffers();
-}
-
-function onHitOffered(): void {
-  handshakeHint.value =
-    'Оферта у защитника. Ведущий отвечает в следующем окне; игрок — от лица цели (или кнопка «Проверка»).';
 }
 
 function onLaunchHit(payload: { attackerKey: CombatEntityKey; attack: AttackOverview }): void {
@@ -438,33 +457,20 @@ onUnmounted(() => {
     >
       Остановить сессию
     </v-btn>
-    <v-badge
-      v-if="chatId !== null"
-      :content="pendingOffers.length || undefined"
-      :model-value="pendingOffers.length > 0"
-      color="info"
-    >
-      <v-btn variant="tonal" size="small" prepend-icon="mdi-shield-check-outline" @click="openCheckLaunch">
+    <v-btn-group v-if="chatId !== null" class="check-split" variant="tonal" divided rounded="lg">
+      <v-btn size="small" prepend-icon="mdi-shield-check-outline" @click="openCheckLaunch">
         Проверка
+        <span v-if="pendingOffers.length > 0" class="check-split__count">{{ pendingOffers.length }}</span>
       </v-btn>
-    </v-badge>
+      <v-btn size="small" class="check-split__plus" aria-label="Новая проверка" @click="openNewCheck">
+        <v-icon size="18">mdi-plus</v-icon>
+      </v-btn>
+    </v-btn-group>
   </Teleport>
 
   <div class="game-chat-tab">
     <v-alert v-if="statusError" type="error" variant="tonal" density="compact" class="mb-3">{{ statusError }}</v-alert>
     <v-alert v-if="loadError" type="error" variant="tonal" density="compact" class="mb-3">{{ loadError }}</v-alert>
-    <v-alert
-      v-if="handshakeHint"
-      type="info"
-      variant="tonal"
-      density="compact"
-      class="mb-3"
-      closable
-      @click:close="handshakeHint = null"
-    >
-      {{ handshakeHint }}
-    </v-alert>
-
     <div class="game-chat-body">
       <div class="game-chat-sidebar">
         <InitiativeTrack
@@ -477,9 +483,11 @@ onUnmounted(() => {
           :rules="revisionRules"
           :mechanics="mechanics"
           :overlay-revision="overlayRevision"
+          :ensure-playing="ensurePlaying"
           class="game-chat-sidebar__initiative"
           @turn="onTurn"
           @open-card="onOpenCard"
+          @overlay-changed="onOverlayChanged"
         />
 
         <CombatQuickRolls
@@ -575,7 +583,6 @@ onUnmounted(() => {
       :resume-offer="hitResumeOffer"
       @update:open="onHitClosed"
       @settled="refreshPendingOffers"
-      @offered="onHitOffered"
       @overlay-changed="onOverlayChanged"
     />
     <InjuryLaunchDialog
@@ -588,25 +595,42 @@ onUnmounted(() => {
       :mechanics="mechanics"
       :target-key="cardKey"
       @update:open="injuryOpen = $event"
+      @overlay-changed="onOverlayChanged"
     />
   </div>
 </template>
 
 <style scoped>
+.game-chat-tab {
+  width: 100%;
+  min-width: 0;
+}
 .game-chat-body {
   display: flex;
   align-items: stretch;
   gap: 12px;
+  width: 100%;
+  min-width: 0;
 }
 .game-chat-sidebar {
-  width: 210px;
-  flex-shrink: 0;
+  flex: 21 1 0;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 12px;
   /* Высота всегда ровно как у блока чата (тот же calc, что у ChatThread). */
   height: calc(100vh - var(--v-layout-top) - 70px);
   min-height: 360px;
+}
+.game-chat-thread {
+  flex: 79 1 0;
+  min-width: 0;
+  height: calc(100vh - var(--v-layout-top) - 70px);
+}
+.game-chat-thread :deep(.chat-thread) {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
 }
 .game-chat-sidebar__initiative {
   flex: 1 1 55%;
@@ -616,12 +640,49 @@ onUnmounted(() => {
   flex: 1 1;
   min-height: 0;
 }
-.game-chat-thread {
-  flex: 1;
-  min-width: 0;
-  height: calc(100vh - var(--v-layout-top) - 70px);
-}
 .game-chat-empty {
+  flex: 79 1 0;
+  min-width: 0;
   border: 1px dashed rgba(var(--v-theme-divider), var(--v-border-opacity));
+}
+</style>
+
+<style>
+/* Teleport в #editor-actions: scoped-стили на группу не доезжают. */
+.check-split.v-btn-group {
+  --v-btn-height: 28px;
+  height: var(--v-btn-height);
+  overflow: hidden;
+  gap: 0 !important;
+  align-self: center;
+}
+.check-split.v-btn-group .v-btn {
+  border-radius: 0 !important;
+  height: var(--v-btn-height) !important;
+  min-width: 0;
+}
+.check-split.v-btn-group .v-btn:first-child {
+  border-top-left-radius: 8px !important;
+  border-bottom-left-radius: 8px !important;
+}
+.check-split.v-btn-group .v-btn:last-child {
+  border-top-right-radius: 8px !important;
+  border-bottom-right-radius: 8px !important;
+}
+.check-split__plus {
+  padding-inline: 4px !important;
+}
+.check-split .check-split__count {
+  display: inline-flex;
+  min-width: 18px;
+  height: 18px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: rgb(var(--v-theme-info));
+  color: rgb(var(--v-theme-on-info));
+  font-size: 11px;
+  font-weight: 600;
+  align-items: center;
+  justify-content: center;
 }
 </style>

@@ -64,7 +64,7 @@ const catalog: Rule[] = [
     type: 'check',
     difficulty_input: { kind: 'ask' },
     allowed_modes: 'solo',
-    attached_rule_codes: ['advantages'],
+    attached_rule_codes: ['rule-6-and-1', 'advantages'],
   }),
 ];
 
@@ -88,9 +88,9 @@ describe('checkResolution', () => {
     expect(resolveCheckCharacteristicCode('deception', catalog, 'willpower')).toBe('willpower');
   });
 
-  it('правила броска: обман наследует простую проверку; увечье — свой набор без 6 и 1', () => {
+  it('правила броска: обман наследует простую проверку; увечье — тот же набор, что у простой', () => {
     expect(resolveCheckAttachedRuleCodes('deception', catalog)).toEqual(['rule-6-and-1', 'advantages']);
-    expect(resolveCheckAttachedRuleCodes(CHECK_INJURY_CODE, catalog)).toEqual(['advantages']);
+    expect(resolveCheckAttachedRuleCodes(CHECK_INJURY_CODE, catalog)).toEqual(['rule-6-and-1', 'advantages']);
     expect(resolveCheckAttachedRuleCodes(CHECK_SIMPLE_CODE, catalog)).toEqual(['rule-6-and-1', 'advantages']);
   });
 

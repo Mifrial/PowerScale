@@ -1,19 +1,29 @@
 import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
 import type { DiceRng } from '@/modules/Roleplay/Game/Dto/DiceRng';
 import type { DiceRollResult } from '@/modules/Roleplay/Game/Dto/DiceRollResult';
-import type { InjuryHealRoll, InjuryHealUnit, InjuryOutcome } from '@/modules/Roleplay/Game/Dto/InjuryOutcome';
+import type {
+  InjuryDifficultyBreakdown,
+  InjuryHealRoll,
+  InjuryHealUnit,
+  InjuryOutcome,
+} from '@/modules/Roleplay/Game/Dto/InjuryOutcome';
 import type { InjuryProcedure } from '@/modules/Roleplay/Game/Dto/InjuryProcedure';
 import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { CHECK_INJURY_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
 import { ADVANTAGE_SOURCE_MANUAL } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
-import { netSourceDelta } from '@/modules/Roleplay/Rule/Utils/aggregateSourceDeltas';
+import { resolveCheckAttachedRuleCodes } from '@/modules/Roleplay/Rule/Utils/checkResolution';
 import { injuryHooksOf, resolveDamageTypeHooks } from '@/modules/Roleplay/Game/Utils/resolveDamageTypeHooks';
 import { resolveInjuryProcedure } from '@/modules/Roleplay/Game/Utils/resolveInjuryProcedure';
+import { rollEngine } from '@/modules/Roleplay/Game/Service/Roll/Instance/rollEngine';
+import { rollPoolDefaults } from '@/modules/Roleplay/Game/Utils/initiativeRoll';
 
 export interface InjuryRollInput {
-  damage: number;
+  /** Повреждения = урон − сопротивление (не сырой урон оружия). */
+  leftoverDamage: number;
   woundStrength: number;
+  /** Ручной запуск: сложность вместо автоформулы. */
+  difficulty?: number;
   endurance: number;
   exhaustion: number;
   attackSr: number;
@@ -23,56 +33,84 @@ export interface InjuryRollInput {
   label?: string;
 }
 
-export function injuryPoolSize(
-  input: Pick<InjuryRollInput, 'damage' | 'woundStrength' | 'endurance' | 'exhaustion' | 'attackSr'>,
+export function injuryDifficultyBreakdown(
+  input: Pick<
+    InjuryRollInput,
+    'leftoverDamage' | 'woundStrength' | 'endurance' | 'exhaustion' | 'attackSr' | 'difficulty'
+  >,
   procedure: InjuryProcedure,
-  extraDice: number,
-): number {
+  extraDifficulty: number,
+): InjuryDifficultyBreakdown {
+  const extra = Math.max(0, extraDifficulty);
   const endurance = Math.max(1, Math.floor(input.endurance));
-  const fromDamage = Math.floor(Math.max(0, input.damage) / endurance);
-  const fromWound = Math.floor(Math.max(0, input.woundStrength) / procedure.woundDiceDivisor);
-  const fromExhaustion =
-    input.exhaustion >= procedure.exhaustionCheckMin
-      ? Math.max(0, input.exhaustion - procedure.exhaustionDiceOffset)
-      : 0;
+  const woundDivisor = procedure.woundDivisor > 0 ? procedure.woundDivisor : 2;
+  const exhaustionMin = procedure.exhaustionCheckMin > 0 ? procedure.exhaustionCheckMin : 7;
+  const exhaustionOffset =
+    typeof procedure.exhaustionDifficultyOffset === 'number' && procedure.exhaustionDifficultyOffset >= 0
+      ? procedure.exhaustionDifficultyOffset
+      : 6;
+  const leftoverDamage = Math.max(0, input.leftoverDamage);
+  const woundStrength = Math.max(0, input.woundStrength);
+  const exhaustion = Math.max(0, input.exhaustion);
+  if (input.difficulty !== undefined) {
+    return {
+      leftoverDamage,
+      endurance,
+      fromDamage: 0,
+      woundStrength,
+      woundDivisor,
+      fromWound: 0,
+      exhaustion,
+      exhaustionOffset,
+      fromExhaustion: 0,
+      extraDifficulty: extra,
+      source: 'manual',
+      total: Math.max(0, Math.floor(input.difficulty) + extra),
+    };
+  }
+  const fromDamage = Math.floor(leftoverDamage / endurance);
+  const fromWound = Math.floor(woundStrength / woundDivisor);
+  const fromExhaustion = exhaustion >= exhaustionMin ? Math.max(0, exhaustion - exhaustionOffset) : 0;
+  let source: InjuryDifficultyBreakdown['source'] = 'leftover';
+  let best = fromDamage;
+  if (fromWound > best) {
+    best = fromWound;
+    source = 'wound';
+  }
+  if (fromExhaustion > best) {
+    best = fromExhaustion;
+    source = 'exhaustion';
+  }
 
-  return Math.max(0, Math.max(fromDamage, fromWound, fromExhaustion) + extraDice);
+  return {
+    leftoverDamage,
+    endurance,
+    fromDamage,
+    woundStrength,
+    woundDivisor,
+    fromWound,
+    exhaustion,
+    exhaustionOffset,
+    fromExhaustion,
+    extraDifficulty: extra,
+    source,
+    total: Math.max(0, best + extra),
+  };
+}
+
+export function injuryDifficulty(
+  input: Pick<
+    InjuryRollInput,
+    'leftoverDamage' | 'woundStrength' | 'endurance' | 'exhaustion' | 'attackSr' | 'difficulty'
+  >,
+  procedure: InjuryProcedure,
+  extraDifficulty: number,
+): number {
+  return injuryDifficultyBreakdown(input, procedure, extraDifficulty).total;
 }
 
 function rollDie(rng: DiceRng, faces: number): number {
   return Math.floor(rng() * faces) + 1;
-}
-
-function explode(faces: number[], explodeFace: number, rng: DiceRng): number[] {
-  const result = [...faces];
-  let pending = faces.filter((face) => face === explodeFace).length;
-  while (pending > 0) {
-    let nextSixes = 0;
-    for (let i = 0; i < pending; i += 1) {
-      const rolled = rollDie(rng, 6);
-      result.push(rolled);
-      if (rolled === explodeFace) nextSixes += 1;
-    }
-    pending = nextSixes;
-  }
-
-  return result;
-}
-
-function applyAdvantages(rolls: number[], net: number): { kept: number[]; dropped: number[] } {
-  const extra = Math.abs(net);
-  if (extra === 0) return { kept: [...rolls], dropped: [] };
-  const sorted = [...rolls];
-  if (net > 0) sorted.sort((a, b) => a - b);
-  else sorted.sort((a, b) => b - a);
-  const dropped = sorted.slice(0, extra);
-  const kept = [...rolls];
-  for (const face of dropped) {
-    const index = kept.indexOf(face);
-    if (index >= 0) kept.splice(index, 1);
-  }
-
-  return { kept, dropped };
 }
 
 function healSpec(strength: number): { diceCount: number; dieFaces: number; unit: InjuryHealUnit } {
@@ -85,45 +123,95 @@ function healSpec(strength: number): { diceCount: number; dieFaces: number; unit
   return { diceCount: 1, dieFaces: 6, unit: 'years' };
 }
 
-function classify(faces: number[]): Omit<InjuryOutcome, 'heal'> {
-  const strength = faces.length;
+function flagsOf(faces: number[]): Pick<InjuryOutcome, 'permanent' | 'lethal' | 'disfiguring'> {
   const fours = faces.filter((face) => face === 4).length;
   const fives = faces.filter((face) => face === 5).length;
   const sixes = faces.filter((face) => face === 6).length;
 
   return {
-    strength,
-    permanent: fives >= 2,
-    temporary: strength > 0 && fives < 2,
     lethal: sixes >= 3,
-    disfiguring: fours === 1,
+    permanent: sixes >= 2 && fives >= 1,
+    disfiguring: sixes >= 2 && fours >= 1,
+  };
+}
+
+function extraDifficultyFromHooks(hooks: ReturnType<typeof injuryHooksOf>, attackSr: number): number {
+  let extra = 0;
+  for (const hook of hooks) {
+    if (hook.extraDiceFromSrDivisor) {
+      extra += Math.floor(Math.max(0, attackSr) / hook.extraDiceFromSrDivisor);
+    }
+  }
+
+  return extra;
+}
+
+function slashingHindrance(hooks: ReturnType<typeof injuryHooksOf>): AdvantageModifier[] {
+  const delta = hooks.reduce((sum, hook) => sum + (hook.efficiencyDelta ?? 0), 0);
+  if (delta >= 0) return [];
+
+  return [{ source_code: 'damage-type-injury', source_label: 'тип урона', delta }];
+}
+
+function emptyInjury(difficulty: number, rating: number, breakdown?: InjuryDifficultyBreakdown): InjuryOutcome {
+  return {
+    strength: 0,
+    permanent: false,
+    temporary: false,
+    lethal: false,
+    disfiguring: false,
+    difficulty,
+    rating,
+    breakdown,
   };
 }
 
 export function rollInjury(input: InjuryRollInput, rng: DiceRng, rules: Rule[], mechanics: Mechanic[]): DiceRollResult {
   const procedure = resolveInjuryProcedure(rules, mechanics);
   const hooks = injuryHooksOf(resolveDamageTypeHooks(input.damageTypeCode, rules, mechanics));
-  let extraDice = 0;
-  let efficiencyDelta = 0;
-  for (const hook of hooks) {
-    if (hook.extraDiceFromSrDivisor) {
-      extraDice += Math.floor(Math.max(0, input.attackSr) / hook.extraDiceFromSrDivisor);
-    }
-    efficiencyDelta += hook.efficiencyDelta ?? 0;
+  const extraDifficulty = extraDifficultyFromHooks(hooks, input.attackSr);
+  const breakdown = injuryDifficultyBreakdown(input, procedure, extraDifficulty);
+  const difficulty = breakdown.total;
+  const advantages = [...(input.advantages ?? []), ...slashingHindrance(hooks)];
+  const defaults = rollPoolDefaults(rules);
+  const label = input.label ?? 'Проверка на увечье';
+  const specBase = {
+    diceCount: procedure.poolDice,
+    dieSize: 0,
+    dieFaces: defaults.dieFaces,
+    efficiency: defaults.efficiency,
+    advantages,
+    label,
+    actorKey: input.actorKey,
+  };
+
+  if (difficulty <= 0) {
+    return {
+      spec: specBase,
+      rolls: [],
+      successes: [],
+      adjustedRolls: [],
+      droppedRolls: [],
+      totalSuccesses: 0,
+      check: {
+        check_code: CHECK_INJURY_CODE,
+        difficulty: { base: 0, size: 0 },
+        passed: true,
+        rating: 0,
+      },
+      injury: emptyInjury(0, 0, breakdown),
+    };
   }
-  const advantages = input.advantages ?? [];
-  const net = netSourceDelta(advantages);
-  const pool = injuryPoolSize(input, procedure, extraDice);
-  const initial = Array.from({ length: pool + Math.abs(net) }, () => rollDie(rng, 6));
-  const afterAdv = applyAdvantages(initial, net);
-  const exploded = explode(afterAdv.kept, procedure.explodeFace, rng);
-  const dropBelow = procedure.dropBelow + efficiencyDelta;
-  const remaining = exploded.filter((face) => face >= dropBelow);
-  const droppedLow = exploded.filter((face) => face < dropBelow);
-  const outcome = classify(remaining);
+
+  const attached = resolveCheckAttachedRuleCodes(CHECK_INJURY_CODE, rules);
+  const rolled = rollEngine.roll(specBase, rng, rules, mechanics, attached, []);
+  const rating = rolled.totalSuccesses - difficulty;
+  const passed = rating >= 0;
+  const strength = passed ? 0 : -rating;
+  const flags = passed ? { permanent: false, lethal: false, disfiguring: false } : flagsOf(rolled.adjustedRolls);
   let heal: InjuryHealRoll | undefined;
-  if (outcome.temporary && outcome.strength > 0) {
-    const spec = healSpec(outcome.strength);
+  if (!flags.permanent && strength > 0) {
+    const spec = healSpec(strength);
     const rolls = Array.from({ length: spec.diceCount }, () => rollDie(rng, spec.dieFaces));
     heal = {
       diceCount: spec.diceCount,
@@ -133,29 +221,25 @@ export function rollInjury(input: InjuryRollInput, rng: DiceRng, rules: Rule[], 
       total: rolls.reduce((sum, value) => sum + value, 0),
     };
   }
-  const injury: InjuryOutcome = { ...outcome, heal };
+  const injury: InjuryOutcome = {
+    strength,
+    permanent: flags.permanent,
+    temporary: strength > 0 && !flags.permanent,
+    lethal: flags.lethal,
+    disfiguring: flags.disfiguring,
+    heal,
+    difficulty,
+    rating,
+    breakdown,
+  };
 
   return {
-    spec: {
-      diceCount: pool + Math.abs(net),
-      dieSize: 0,
-      dieFaces: 6,
-      efficiency: dropBelow,
-      advantages,
-      label: input.label ?? 'Проверка на увечье',
-      actorKey: input.actorKey,
-    },
-    rolls: exploded,
-    successes: remaining.map(() => 1),
-    adjustedRolls: remaining,
-    droppedRolls: [...afterAdv.dropped, ...droppedLow],
-    totalSuccesses: injury.strength,
-    appliedMechanics: hooks.map((hook) => hook.mechanicCode),
+    ...rolled,
     check: {
       check_code: CHECK_INJURY_CODE,
-      difficulty: { base: 0, size: 0 },
-      passed: injury.strength > 0,
-      rating: injury.strength,
+      difficulty: { base: difficulty, size: 0 },
+      passed,
+      rating,
     },
     injury,
   };

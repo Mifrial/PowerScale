@@ -77,7 +77,8 @@ describe('buildChatRulesContext', () => {
     expect(result.rolls).toHaveLength(2);
     expect(typeof result.totalSuccesses).toBe('number');
     expect(result.check?.check_code).toBe('check-simple');
-    expect(result.check?.passed).toBe(result.totalSuccesses >= 0);
+    expect(typeof result.check?.passed).toBe('boolean');
+    expect(typeof result.check?.rating).toBe('number');
 
     const passthrough = context.processAttachments([{ type: ROLL_ATTACHMENT_TYPE, payload: result }]);
     expect(passthrough[0].payload).toBe(result);

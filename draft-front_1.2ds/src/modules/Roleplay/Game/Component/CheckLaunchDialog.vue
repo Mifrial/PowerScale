@@ -16,6 +16,7 @@ import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
 import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import { namedCheckSpec, rollJointCheck, rollNamedCheck } from '@/modules/Roleplay/Game/Utils/checkRoll';
+import { checkAdvantageFromStates } from '@/modules/Roleplay/Character/Utils/stateRuntimeEffects';
 import { SIMPLE_CHECK_ZERO_DIFFICULTY } from '@/modules/Roleplay/Game/Utils/simpleCheckRoll';
 import { initiativeCharacteristics } from '@/modules/Roleplay/Game/Utils/initiativeCharacteristic';
 import type { InitiativeCharacteristicView } from '@/modules/Roleplay/Game/Utils/initiativeCharacteristic';
@@ -348,6 +349,8 @@ function poolSpec(
   useFree: boolean,
   free: { diceCount: number; dieSize: number; efficiency: number },
 ): ReturnType<typeof namedCheckSpec> {
+  const query = code ? ({ kind: 'characteristic', code } as const) : undefined;
+  const totalAdv = adv + checkAdvantageFromStates(modelOf(key)?.effectiveVersion, props.rules, query);
   if (useFree || !code || !map.has(code)) {
     const defaults = rollPoolDefaults(props.rules);
 
@@ -355,7 +358,7 @@ function poolSpec(
       diceCount: Math.max(ROLL_DICE_COUNT_MIN, free.diceCount),
       dieFaces: defaults.dieFaces,
       efficiency: free.efficiency,
-      advantages: advantageEntries(adv),
+      advantages: advantageEntries(totalAdv),
       dieSize: free.dieSize,
       poolSize: free.dieSize,
       efficiencySize: 0,
@@ -366,7 +369,7 @@ function poolSpec(
   const view = map.get(code);
   if (!view) throw new Error(`Нет характеристики для ${nameOf(key)}`);
 
-  return namedCheckSpec(`${nameOf(key)}: ${view.name}`, view.value, adv, props.rules, key ?? undefined);
+  return namedCheckSpec(`${nameOf(key)}: ${view.name}`, view.value, totalAdv, props.rules, key ?? undefined);
 }
 
 function soloDifficulty(): DimensionalNumberValue {
@@ -536,7 +539,7 @@ async function submitCancel(): Promise<void> {
     emit('settled');
     close();
   } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Не удалось отменить';
+    error.value = e instanceof Error ? e.message : 'Не удалось игнорировать проверку';
   } finally {
     busy.value = false;
   }
@@ -790,7 +793,7 @@ const statusHint = computed(() => {
         <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mt-3">{{ error }}</v-alert>
       </v-card-text>
       <v-card-actions>
-        <v-btn v-if="offer" variant="text" color="error" :loading="busy" @click="submitCancel">Отменить</v-btn>
+        <v-btn v-if="offer" variant="text" color="error" :loading="busy" @click="submitCancel">Игнорировать</v-btn>
         <v-spacer />
         <v-btn v-if="myTurn" variant="tonal" :loading="busy" :disabled="formLocked" @click="submitRevise">
           Вернуть правку

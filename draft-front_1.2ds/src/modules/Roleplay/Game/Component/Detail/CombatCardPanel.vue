@@ -2,6 +2,13 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import SlidePanel from '@/modules/Core/UI/Component/SlidePanel.vue';
 import { useChatStore } from '@/modules/Messages/Chat/Store/chat';
+import type { ChatAttachment } from '@/modules/Messages/Chat/Dto/ChatAttachment';
+import { applyExhaustionCheck } from '@/modules/Roleplay/Game/Utils/applyExhaustionCheck';
+import { applyBloodLossTick } from '@/modules/Roleplay/Game/Utils/applyBloodLoss';
+import { overlayStateTotal } from '@/modules/Roleplay/Game/Utils/applyInjuryCheck';
+import { reservedExhaustion } from '@/modules/Roleplay/Game/Utils/bloodLossMath';
+import { enduranceOf } from '@/modules/Roleplay/Game/Utils/applyAttackDamage';
+import { BLOOD_LOSS_STATE_CODE, EXHAUSTION_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 import { characterOverviewService } from '@/modules/Roleplay/Character/Service/Instance/characterOverviewService';
 import { ROLL_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ATTACHMENT_TYPE';
@@ -10,13 +17,16 @@ import {
   combatCardModel,
   combatStateRows,
   defaultStateEntry,
+  maimTotalDurationLabel,
   statePickerOptions,
   type CombatStateOption,
   type CombatStateRow,
 } from '@/modules/Roleplay/Game/Utils/combatCardModel';
+import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/CharacterStateValue';
 import { weaponProficiencyLevels } from '@/modules/Roleplay/Character/Utils/weaponProficiency';
 import CombatCardCharacteristicTile from '@/modules/Roleplay/Game/Component/Detail/CombatCardCharacteristicTile.vue';
 import CombatResourceTile from '@/modules/Roleplay/Game/Component/Detail/CombatResourceTile.vue';
+import CombatStateTile from '@/modules/Roleplay/Game/Component/Detail/CombatStateTile.vue';
 import AbilityTab from '@/modules/Roleplay/Character/Component/Detail/AbilityTab.vue';
 import InventoryTab from '@/modules/Roleplay/Character/Component/Editor/InventoryTab.vue';
 import AttackTile from '@/modules/Roleplay/Character/Component/Detail/Attacks/AttackTile.vue';
@@ -40,7 +50,6 @@ import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
 import type { AttackOverview } from '@/modules/Roleplay/Character/Dto/Overview/AttackOverview';
 import type { CharacteristicOverview } from '@/modules/Roleplay/Character/Dto/Overview/CharacteristicOverview';
 import type { ResourceOverview } from '@/modules/Roleplay/Character/Dto/Overview/ResourceOverview';
-import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/CharacterStateValue';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import { preferNewerCombatOverlays, replaceCombatOverlay } from '@/modules/Roleplay/Game/Utils/mergeCombatOverlay';
@@ -153,7 +162,7 @@ const sheetModel = computed(() => {
 });
 
 const overview = computed(() => {
-  viewEpoch.value;
+  void viewEpoch.value;
   const version = effectiveVersion.value;
   if (!version) return null;
   const live = sheetModel.value;
@@ -174,6 +183,88 @@ const overview = computed(() => {
 const stateRows = computed(() =>
   effectiveVersion.value ? combatStateRows(effectiveVersion.value.states, props.rules) : [],
 );
+
+type CombatStateDetailRow = { label: string; value: string };
+
+type CombatStateTileModel = {
+  key: string;
+  name: string;
+  iconCode: string | null;
+  leftLabel: string;
+  valueLabel: string;
+  numeric: boolean;
+  current: number;
+  minValue: number;
+  details: CombatStateDetailRow[];
+  index: number;
+  code: string;
+};
+
+function stateTileDetails(state: CharacterStateValue, row: CombatStateRow): CombatStateDetailRow[] {
+  const rows: CombatStateDetailRow[] = [];
+  if (state.maim) {
+    rows.push({ label: 'Срок', value: state.maim.permanent ? 'постоянное' : 'временное' });
+    if (!state.maim.permanent && state.maim.healTotal != null && state.maim.healUnit) {
+      const unit =
+        state.maim.healUnit === 'days'
+          ? 'дн.'
+          : state.maim.healUnit === 'months'
+            ? 'мес.'
+            : state.maim.healUnit === 'years'
+              ? 'лет'
+              : 'дек.';
+      rows.push({ label: '−1 силы за', value: `${state.maim.healTotal} ${unit}` });
+      const total = state.maim.healTotal * Math.max(0, state.value ?? 0);
+      rows.push({ label: 'Полностью пройдёт за', value: `${total} ${unit}` });
+    }
+    rows.push({ label: 'Обезображивающее', value: state.maim.disfiguring ? 'да' : 'нет' });
+    rows.push({ label: 'Смертельное', value: state.maim.lethal ? 'да' : 'нет' });
+  } else if (row.summary) {
+    rows.push({ label: 'Сводка', value: row.summary });
+  }
+
+  return rows;
+}
+
+function stateTileValue(state: CharacterStateValue | undefined, row: CombatStateRow): string {
+  if (!state) return row.valueType === 'flag' ? '•' : '0';
+  if (row.valueType === 'number') return String(state.value ?? 0);
+  if (state.dimensionalValue) return new DimensionalNumber(state.dimensionalValue).toString();
+  if (row.valueType === 'flag') return '•';
+
+  return stateValue(state) || '•';
+}
+
+const stateTiles = computed((): CombatStateTileModel[] => {
+  const states = effectiveVersion.value?.states ?? [];
+  const version = effectiveVersion.value;
+  const reserved = version
+    ? reservedExhaustion(overlayStateTotal(version, props.rules, BLOOD_LOSS_STATE_CODE))
+    : 0;
+  const tiles: CombatStateTileModel[] = [];
+  for (const row of stateRows.value) {
+    for (const index of row.indices) {
+      const state = states[index];
+      const timeLabel = state ? maimTotalDurationLabel(state) : '';
+      const current = row.valueType === 'number' ? (state?.value ?? 0) : 0;
+      tiles.push({
+        key: `${row.ruleId}-${index}`,
+        name: row.name,
+        iconCode: row.iconCode,
+        leftLabel: timeLabel ? `${row.name} ${timeLabel}` : row.name,
+        valueLabel: stateTileValue(state, row),
+        numeric: row.valueType === 'number',
+        current,
+        minValue: row.code === EXHAUSTION_STATE_CODE ? reserved : 0,
+        details: state ? stateTileDetails(state, row) : [],
+        index,
+        code: row.code,
+      });
+    }
+  }
+
+  return tiles;
+});
 
 const stateOptions = computed(() => statePickerOptions(props.rules));
 
@@ -348,13 +439,6 @@ async function removeState(index: number): Promise<void> {
   }
 }
 
-async function removeRowStates(row: CombatStateRow): Promise<void> {
-  // Удаляем с конца, чтобы индексы не съехали.
-  for (const index of [...row.indices].reverse()) {
-    await removeState(index);
-  }
-}
-
 function stateValue(state: CharacterStateValue): string {
   if (state.value !== undefined) return String(state.value);
   if (state.dimensionalValue) return new DimensionalNumber(state.dimensionalValue).toString();
@@ -362,17 +446,88 @@ function stateValue(state: CharacterStateValue): string {
   return '';
 }
 
-function stateEntryLabel(row: CombatStateRow, index: number): string {
-  const state = effectiveVersion.value?.states[index];
-  if (!state) return '';
+function cardSpeaker(): ChatSpeaker {
+  const card = model.value;
+  if (!card) return { kind: 'gm' };
 
-  return stateValue(state);
+  return card.kind === 'npc'
+    ? { kind: 'npc', npcId: card.entityId, npcName: card.name }
+    : { kind: 'character', characterId: card.entityId, characterName: card.name };
 }
 
-function rowTotal(row: CombatStateRow): number {
-  const states = effectiveVersion.value?.states ?? [];
+async function afterStateSideEffects(
+  code: string,
+  bloodDelta: number,
+  exhaustionChange: 'increase' | 'decrease' = 'increase',
+): Promise<void> {
+  const version = effectiveVersion.value;
+  const card = model.value;
+  if (!version || !card) return;
+  const send = (content: string, attachments: ChatAttachment[], chatId: number, speaker: ChatSpeaker) =>
+    chatStore.sendMessage(content, attachments, chatId, speaker);
+  if (code === BLOOD_LOSS_STATE_CODE && bloodDelta > 0) {
+    const overlay = await applyBloodLossTick({
+      version,
+      delta: bloodDelta,
+      endurance: overview.value ? enduranceOf(overview.value, props.rules) : 1,
+      rules: props.rules,
+      mechanics: props.mechanics,
+      gameId: props.gameId,
+      targetKey: card.entityKey,
+      targetName: card.name,
+      chatId: props.chatId,
+      speaker: cardSpeaker(),
+      sendMessage: send,
+    });
+    if (overlay) applyOverlay(overlay);
 
-  return row.indices.reduce((acc, index) => acc + (states[index]?.value ?? 0), 0);
+    return;
+  }
+  if (code === EXHAUSTION_STATE_CODE) {
+    const exhaustion = await applyExhaustionCheck({
+      version,
+      rules: props.rules,
+      mechanics: props.mechanics,
+      gameId: props.gameId,
+      targetKey: card.entityKey,
+      targetName: card.name,
+      chatId: props.chatId,
+      speaker: cardSpeaker(),
+      change: exhaustionChange,
+      sendMessage: send,
+    });
+    if (exhaustion.overlay) applyOverlay(exhaustion.overlay);
+  }
+}
+
+async function applyStateTile(tile: CombatStateTileModel, next: number): Promise<void> {
+  const version = effectiveVersion.value;
+  const current = version?.states[tile.index]?.value ?? 0;
+  let value = Math.max(0, Math.floor(next));
+  if (tile.code === EXHAUSTION_STATE_CODE && version) {
+    const reserved = reservedExhaustion(overlayStateTotal(version, props.rules, BLOOD_LOSS_STATE_CODE));
+    value = Math.max(value, reserved);
+  }
+  if (value === current) return;
+  if (tile.code === BLOOD_LOSS_STATE_CODE && value > current) {
+    await afterStateSideEffects(tile.code, value - current);
+
+    return;
+  }
+  if (value <= 0) {
+    await removeState(tile.index);
+    if (tile.code === EXHAUSTION_STATE_CODE) await afterStateSideEffects(tile.code, 0, 'decrease');
+
+    return;
+  }
+  await setStateValue(tile.index, value);
+  if (tile.code === EXHAUSTION_STATE_CODE) {
+    await afterStateSideEffects(tile.code, 0, value > current ? 'increase' : 'decrease');
+  }
+}
+
+async function removeStateTile(tile: CombatStateTileModel): Promise<void> {
+  await removeState(tile.index);
 }
 
 function kindIcon(): string {
@@ -591,104 +746,23 @@ function onSheetToggleEquipped(itemId: number): void {
                 Состояния
               </button>
               <div v-show="isSectionOpen('states')">
-                <div v-if="stateRows.length === 0" class="text-medium-emphasis text-body-2">Состояний нет</div>
-
-                <div v-for="row in stateRows" :key="row.ruleId" class="combat-card-state">
-                  <div class="combat-card-row">
-                    <span class="combat-card-row__label text-truncate d-flex align-center ga-1">
-                      <v-icon v-if="row.iconCode" :icon="row.iconCode" size="small" />
-                      {{ row.name }}
-                    </span>
-                    <span class="combat-card-row__value">{{ row.summary ?? 'Есть' }}</span>
-                    <template v-if="model.canEdit">
-                      <!-- number/sum: степпер по сумме -->
-                      <template
-                        v-if="row.valueType === 'number' && row.aggregation === 'sum' && row.indices.length > 0"
-                      >
-                        <v-btn
-                          icon="mdi-minus"
-                          size="x-small"
-                          variant="text"
-                          class="flex-shrink-0"
-                          :disabled="rowTotal(row) <= 0"
-                          @click="setStateValue(row.indices[0], Math.max(0, rowTotal(row) - 1))"
-                        />
-                        <v-btn
-                          icon="mdi-plus"
-                          size="x-small"
-                          variant="text"
-                          class="flex-shrink-0"
-                          @click="setStateValue(row.indices[0], rowTotal(row) + 1)"
-                        />
-                      </template>
-                      <!-- flag: тумблер наличия -->
-                      <template v-else-if="row.valueType === 'flag' && !row.poison">
-                        <v-btn
-                          v-if="row.indices.length === 0"
-                          icon="mdi-plus"
-                          size="x-small"
-                          variant="text"
-                          class="flex-shrink-0"
-                          @click="
-                            addState({
-                              ruleId: row.ruleId,
-                              code: row.code,
-                              name: row.name,
-                              iconCode: row.iconCode,
-                              valueType: row.valueType,
-                              aggregation: row.aggregation,
-                            })
-                          "
-                        />
-                        <v-btn
-                          v-else
-                          icon="mdi-minus"
-                          size="x-small"
-                          variant="text"
-                          class="flex-shrink-0"
-                          @click="removeRowStates(row)"
-                        />
-                      </template>
-                      <!-- всё остальное (independent/poison/…) — «Убрать» -->
-                      <template v-else>
-                        <v-btn
-                          v-if="row.indices.length > 0"
-                          icon="mdi-minus"
-                          size="x-small"
-                          variant="text"
-                          class="flex-shrink-0"
-                          @click="removeRowStates(row)"
-                        />
-                      </template>
-                    </template>
-                  </div>
-
-                  <!-- independent/dimensional: записи по отдельности (рана/увечье) -->
-                  <template v-if="model.canEdit && row.valueType === 'number' && row.aggregation === 'independent'">
-                    <div class="combat-card-state__entries">
-                      <div v-for="index in row.indices" :key="index" class="combat-card-state__entry">
-                        <v-chip size="x-small" variant="tonal">{{ stateEntryLabel(row, index) }}</v-chip>
-                        <v-btn icon="mdi-minus" size="x-small" variant="text" @click="removeState(index)" />
-                      </div>
-                      <v-btn
-                        icon="mdi-plus"
-                        size="x-small"
-                        variant="tonal"
-                        color="primary"
-                        :title="`Добавить «${row.name}»`"
-                        @click="
-                          addState({
-                            ruleId: row.ruleId,
-                            code: row.code,
-                            name: row.name,
-                            iconCode: row.iconCode,
-                            valueType: row.valueType,
-                            aggregation: row.aggregation,
-                          })
-                        "
-                      />
-                    </div>
-                  </template>
+                <div v-if="stateTiles.length === 0" class="text-medium-emphasis text-body-2">Состояний нет</div>
+                <div v-else class="combat-card-states">
+                  <CombatStateTile
+                    v-for="tile in stateTiles"
+                    :key="tile.key"
+                    :name="tile.name"
+                    :icon-code="tile.iconCode"
+                    :left-label="tile.leftLabel"
+                    :value-label="tile.valueLabel"
+                    :details="tile.details"
+                    :can-edit="model.canEdit"
+                    :numeric="tile.numeric"
+                    :current="tile.current"
+                    :min-value="tile.minValue"
+                    @apply="(next) => applyStateTile(tile, next)"
+                    @remove="removeStateTile(tile)"
+                  />
                 </div>
 
                 <div v-if="model.canEdit && stateOptions.length > 0" class="mt-2 d-flex flex-wrap ga-2">
@@ -900,6 +974,11 @@ function onSheetToggleEquipped(itemId: number): void {
 .combat-card-characteristics {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px 8px;
+}
+.combat-card-states {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px 8px;
 }
 .combat-card-state__entries {

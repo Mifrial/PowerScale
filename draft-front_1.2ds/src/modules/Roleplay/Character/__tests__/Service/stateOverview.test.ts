@@ -140,7 +140,7 @@ describe('CharacterOverviewService: состояния и агрегация п�
 
   it('отравление: каждая запись poison-блока — отдельная строка, имя/параметры из правила-яда', () => {
     const rules: Rule[] = [
-      stateRule('rule-poisoning', 'poisoning', 'Отправление', {
+      stateRule('rule-poisoning', 'poisoning', 'Отравление', {
         value_type: 'flag',
         aggregation: 'independent',
       }),
@@ -168,9 +168,9 @@ describe('CharacterOverviewService: состояния и агрегация п�
     expect(states[1].dotLabel).toContain('затухание 2');
   });
 
-  it('отравление без правила-яда: имя из состояния «Отправление», параметры из записи', () => {
+  it('отравление без правила-яда: имя из состояния «Отравление», параметры из записи', () => {
     const rules: Rule[] = [
-      stateRule('rule-poisoning', 'poisoning', 'Отправление', {
+      stateRule('rule-poisoning', 'poisoning', 'Отравление', {
         value_type: 'flag',
         aggregation: 'independent',
       }),
@@ -190,7 +190,7 @@ describe('CharacterOverviewService: состояния и агрегация п�
     ]);
 
     expect(states).toHaveLength(1);
-    expect(states[0]).toMatchObject({ name: 'Отправление', valueLabel: '7', ruleId: 'rule-poisoning' });
+    expect(states[0]).toMatchObject({ name: 'Отравление', valueLabel: '7', ruleId: 'rule-poisoning' });
     expect(states[0].dotLabel).toContain('яд 2 типа');
     expect(states[0].dotLabel).toContain('каждый ход');
   });

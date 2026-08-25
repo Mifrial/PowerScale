@@ -23,8 +23,6 @@ export interface CheckOfferProposal {
     reaction: HitDefenseReaction | null;
     defenseEfficiency?: DimensionalNumberValue | null;
     blockItemRuleId?: string | null;
-    /** Оплата X РУ против надёжности (фаза attack). */
-    payX?: number;
     damageTypeCode?: string | null;
     damage?: DimensionalNumberValue;
     penetration?: DimensionalNumberValue;

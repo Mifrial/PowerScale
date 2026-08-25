@@ -2,12 +2,14 @@
 import { computed } from 'vue';
 import type { ChatAttachment } from '@/modules/Messages/Chat/Dto/ChatAttachment';
 import type { InlineSegment } from '@/modules/Messages/Chat/Dto/InlineSegment';
-import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import type { DiceRollResult } from '@/modules/Roleplay/Game/Dto/DiceRollResult';
 import { rollService } from '@/modules/Roleplay/Game/Service/Instance/rollService';
+import { CHECK_HIT_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
+import { formatPreparedMagnitude, HIT_MIN_SUCCESS_SIZE } from '@/modules/Roleplay/Rule/Utils/checkSuccessRating';
 import { netSourceDelta } from '@/modules/Roleplay/Rule/Utils/aggregateSourceDeltas';
 import { resolveAppliedMechanicNames } from '@/modules/Roleplay/Game/Utils/appliedRollMechanics';
 import { parseCombatEntityKey } from '@/modules/Roleplay/Game/Utils/combatCardModel';
+import { injuryDifficultyDetailRows } from '@/modules/Roleplay/Game/Utils/injuryCheckMessage';
 import GameEntityChip from '@/modules/Roleplay/Game/Component/Chat/GameEntityChip.vue';
 
 const props = defineProps<{
@@ -20,6 +22,16 @@ const roll = computed(() => props.attachment.payload);
 const sizeSuffix = computed(() => rollService.formatRollSize(roll.value.spec.dieSize || 0));
 const netAdv = computed(() => netSourceDelta(roll.value.spec.advantages));
 const check = computed(() => roll.value.check);
+const checkMinSize = computed(() => (check.value?.check_code === CHECK_HIT_CODE ? HIT_MIN_SUCCESS_SIZE : undefined));
+const successesLabel = computed(() =>
+  formatPreparedMagnitude(
+    { base: roll.value.totalSuccesses, size: roll.value.spec.dieSize || 0 },
+    { minSize: checkMinSize.value, signed: true, foldNegative: !roll.value.injury },
+  ),
+);
+const difficultyLabel = computed(() =>
+  check.value ? formatPreparedMagnitude(check.value.difficulty, { minSize: checkMinSize.value }) : null,
+);
 const title = computed(() => roll.value.spec.label || (check.value ? 'Простая проверка' : `Бросок ${props.index + 1}`));
 const actorSegment = computed((): Extract<InlineSegment, { kind: 'token' }> | null => {
   const key = roll.value.spec.actorKey;
@@ -29,6 +41,9 @@ const actorSegment = computed((): Extract<InlineSegment, { kind: 'token' }> | nu
   return { kind: 'token', type: parsed.kind, params: [String(parsed.id), title.value] };
 });
 const ratingClass = computed(() => {
+  if (roll.value.injury) {
+    return roll.value.injury.strength > 0 ? 'text-error' : 'text-medium-emphasis';
+  }
   if (!check.value) return roll.value.totalSuccesses >= 0 ? 'text-success' : 'text-error';
 
   return check.value.passed ? 'text-success' : 'text-error';
@@ -45,7 +60,6 @@ const ratingText = computed(() => {
 
   return `${total > 0 ? '+' : ''}${total}${sizeSuffix.value}`;
 });
-const difficultyLabel = computed(() => (check.value ? new DimensionalNumber(check.value.difficulty).toString() : null));
 const advantageLines = computed(() =>
   roll.value.spec.advantages
     .filter((entry) => entry.delta !== 0)
@@ -75,9 +89,19 @@ const keptFaces = computed(() =>
   roll.value.adjustedRolls.map((face, i) => ({ face, success: roll.value.successes[i] ?? 0 })),
 );
 const appliedMechanicNames = computed(() => resolveAppliedMechanicNames(roll.value));
+const injuryDifficultyRows = computed(() =>
+  roll.value.injury?.breakdown ? injuryDifficultyDetailRows(roll.value.injury.breakdown) : [],
+);
 
 function signed(n: number): string {
   return n > 0 ? `+${n}` : String(n);
+}
+
+function dieFaceClass(success: number): string {
+  if (success > 0) return 'good';
+  if (success < 0) return 'bad';
+
+  return '';
 }
 </script>
 
@@ -120,6 +144,12 @@ function signed(n: number): string {
               <span class="text-medium-emphasis">Сложность</span>
               <span class="font-weight-medium">{{ difficultyLabel }}</span>
             </div>
+            <template v-if="injuryDifficultyRows.length">
+              <div v-for="row in injuryDifficultyRows" :key="row.label" class="chat-roll-row">
+                <span class="text-medium-emphasis">{{ row.label }}</span>
+                <span class="font-weight-medium">{{ row.value }}</span>
+              </div>
+            </template>
             <div v-if="check" class="chat-roll-row">
               <span class="text-medium-emphasis">Исход</span>
               <span class="font-weight-medium" :class="ratingClass">
@@ -128,7 +158,7 @@ function signed(n: number): string {
             </div>
             <div class="chat-roll-row">
               <span class="text-medium-emphasis">Успехи</span>
-              <span class="font-weight-medium">{{ signed(roll.totalSuccesses) }}{{ sizeSuffix }}</span>
+              <span class="font-weight-medium">{{ successesLabel }}</span>
             </div>
             <div v-if="masteryLines.length" class="mt-2">
               <div class="text-medium-emphasis mb-1">К мастерству</div>
@@ -174,7 +204,7 @@ function signed(n: number): string {
       <span class="font-weight-medium" :class="ratingClass">{{ ratingText }}</span>
     </div>
     <div class="chat-roll-detail">
-      <span v-for="(s, si) in roll.successes" :key="si" class="roll-die" :class="{ good: s > 0, bad: s < 0 }">
+      <span v-for="(s, si) in roll.successes" :key="si" class="roll-die" :class="dieFaceClass(s)">
         {{ roll.adjustedRolls[si] }}
       </span>
       <span

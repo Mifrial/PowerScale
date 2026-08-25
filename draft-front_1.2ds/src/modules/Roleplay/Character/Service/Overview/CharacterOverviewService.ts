@@ -38,6 +38,11 @@ import { CharacterReferenceService } from '@/modules/Roleplay/Character/Service/
 import { evaluateDerivedValue } from '@/modules/Roleplay/Rule/Utils/derivedCharacteristic';
 import type { ItemLabels } from '@/modules/Roleplay/Character/Constant/ITEM_LABELS';
 import { ITEM_LABELS } from '@/modules/Roleplay/Character/Constant/ITEM_LABELS';
+import { accumulateStateEffects } from '@/modules/Roleplay/Character/Utils/stateRuntimeEffects';
+import {
+  liveActionPointsLimit,
+  ACTION_POINTS_RESOURCE_CODE,
+} from '@/modules/Roleplay/Character/Utils/liveActionPointsLimit';
 import { WEAPON_PROFILE_LABELS } from '@/modules/Roleplay/Character/Constant/WEAPON_PROFILE_LABELS';
 import { DAMAGE_TYPE_FORMS } from '@/modules/Roleplay/Character/Constant/DAMAGE_TYPE_FORMS';
 import { formulaLabel } from '@/modules/Roleplay/Character/Utils/formulaLabel';
@@ -72,7 +77,6 @@ export class CharacterOverviewService {
     );
     // Контекст формул (атаки/бой) — по ИТОГОВЫМ значениям характеристик (база + модификаторы):
     // «Сила 5 с тренировкой» в формулах урона — 5, а не голая база.
-    const context = this.buildFormulaContext(coreList, version, reference);
     const byCode = new Map<string, CharacteristicOverview>();
     for (const overview of coreList) {
       const rule = reference.ruleById(overview.ruleId);
@@ -84,22 +88,35 @@ export class CharacterOverviewService {
 
       return { ...overview, derived: this.buildDerived(overview.derived.formula, byCode) };
     });
+    const stateEffects = accumulateStateEffects(version.states, rules);
+    const withStates = allCharacteristics.map((overview) => {
+      const rule = reference.ruleById(overview.ruleId);
+      const amount = rule ? (stateEffects.characteristicDeltas.get(rule.code) ?? 0) : 0;
+      if (!amount) return overview;
+      const value = new DimensionalNumber(overview.value).modify(amount, CHARACTERISTIC_BASE_RANGE).value;
 
-    const resources = this.buildResources(version, reference);
+      return {
+        ...overview,
+        value,
+        valueLabel: new DimensionalNumber(value).toString(),
+        delta: overview.delta + amount,
+      };
+    });
+    const contextAfterStates = this.buildFormulaContext(withStates, version, reference);
+
+    const resources = this.buildResources(version, reference, rules, withStates);
     const abilities = this.buildAbilities(version, reference);
     const inventory = this.buildInventory(version, reference);
 
     return {
-      characteristics: allCharacteristics.filter(
-        (overview) => overview.group !== 'combat' && overview.group !== 'base',
-      ),
-      combat: this.buildCombat(version, allCharacteristics, reference),
+      characteristics: withStates.filter((overview) => overview.group !== 'combat' && overview.group !== 'base'),
+      combat: this.buildCombat(version, withStates, reference),
       resources,
       abilities,
       misc: this.buildMisc(version),
       inventory,
       defense: this.buildDefense(version, reference),
-      attacks: this.buildAttacks(version, reference, context),
+      attacks: this.buildAttacks(version, reference, contextAfterStates),
       states: this.buildStates(version, reference),
     };
   }
@@ -418,12 +435,26 @@ export class CharacterOverviewService {
     };
   }
 
-  private buildResources(version: CharacterVersion, reference: CharacterReferenceService): ResourceOverview[] {
+  private buildResources(
+    version: CharacterVersion,
+    reference: CharacterReferenceService,
+    rules: Rule[],
+    characteristics: CharacteristicOverview[],
+  ): ResourceOverview[] {
     const resources: ResourceOverview[] = [];
 
     for (const resource of version.resources) {
-      const max = this.resourceMax(resource);
       const rule = reference.ruleById(resource.ruleId);
+      let max = this.resourceMax(resource);
+      if (rule?.code === ACTION_POINTS_RESOURCE_CODE) {
+        const values = new Map<string, DimensionalNumberValue>();
+        for (const characteristic of characteristics) {
+          const characteristicRule = reference.ruleById(characteristic.ruleId);
+          if (characteristicRule) values.set(characteristicRule.code, characteristic.value);
+        }
+        const live = liveActionPointsLimit(version, rules, values);
+        if (live !== null) max = { base: live, size: resource.base.size };
+      }
       const autoAdd = rule?.type === 'resource' && (rule.spec as ResourceSpec | undefined)?.auto_add === true;
       // Лимит 0: авто-ресурс (ОД) рендерится всегда (персонаж не может действовать, но ресурс есть);
       // не-авто ресурс с лимитом 0 — у персонажа отсутствует (D38), не показываем.
@@ -876,11 +907,9 @@ export class CharacterOverviewService {
   }
 
   /**
-   * Ступени защиты по надёжности. Надёжность слоя = сколько «РУ Атаки» враг должен потратить,
-   * чтобы безопасно его игнорировать: слой уцелевает, пока враг не вложил в него надёжность.
-   * Ступень threshold — защита, остающуюся до вложения threshold РУ (игнорируются слои с
-   * надёжностью < threshold). Внутри одной ступени — как constantDefense: по источникам берётся
-   * максимум, источники суммируются. Ступени отсортированы по возрастанию threshold.
+   * Ступени защиты по надёжности. Слой с надёжностью N игнорируется, если РУ атаки ≥ N.
+   * Ступень threshold — защита слоёв с надёжностью ≥ threshold. Внутри ступени — как
+   * constantDefense: по источникам максимум, источники суммируются. Ступени по возрастанию threshold.
    */
   private defenseTiersOf(armor: DefenseArmorOverview[]): DefenseTierOverview[] {
     const thresholds = new Set<number>();

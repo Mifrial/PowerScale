@@ -29,6 +29,7 @@ import { GAME_CHAT_TYPES } from '@/modules/Roleplay/Game/Constant/Chat/GAME_CHAT
 import { GAME_CHAT_TABS } from '@/modules/Roleplay/Game/Constant/Chat/GAME_CHAT_TABS';
 import { ROLL_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ATTACHMENT_TYPE';
 import { ATTACK_CALC_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Attack/ATTACK_CALC_ATTACHMENT_TYPE';
+import { INJURY_DETAILS_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Injury/INJURY_DETAILS_ATTACHMENT_TYPE';
 import { registerGameSheetRoles } from '@/modules/Roleplay/Game/Sheet/gameSheetRoles';
 import { registerCharacterCardExtension } from '@/modules/Roleplay/Character/init';
 
@@ -37,6 +38,9 @@ import { registerCharacterCardExtension } from '@/modules/Roleplay/Character/ini
 const DiceRollResult = defineAsyncComponent(() => import('@/modules/Roleplay/Game/Component/DiceRollResult.vue'));
 const AttackCalcAttachment = defineAsyncComponent(
   () => import('@/modules/Roleplay/Game/Component/AttackCalcAttachment.vue'),
+);
+const InjuryDetailsAttachment = defineAsyncComponent(
+  () => import('@/modules/Roleplay/Game/Component/InjuryDetailsAttachment.vue'),
 );
 const RollFormExtension = defineAsyncComponent(() => import('@/modules/Roleplay/Game/Component/RollFormExtension.vue'));
 const MacroBarExtension = defineAsyncComponent(() => import('@/modules/Roleplay/Game/Component/MacroBarExtension.vue'));
@@ -76,6 +80,11 @@ export function registerGameModule(): void {
   registerContentRenderer({
     type: ATTACK_CALC_ATTACHMENT_TYPE,
     component: AttackCalcAttachment,
+    layout: 'meta',
+  });
+  registerContentRenderer({
+    type: INJURY_DETAILS_ATTACHMENT_TYPE,
+    component: InjuryDetailsAttachment,
     layout: 'meta',
   });
   const GameEntityChip = defineAsyncComponent(
