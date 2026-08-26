@@ -3,7 +3,7 @@ import type { PublishDiff } from '@/modules/Roleplay/Rule/Dto/PublishDiff';
 import type { ProblemEntry } from '@/modules/Roleplay/Rule/Dto/ProblemEntry';
 
 export class RuleDiffService {
-  classifyDraftDiff(published: Rule[], draft: Rule[]): PublishDiff {
+  classifyDraftDiff(published: Rule[], draft: Rule[], removedCodes: readonly string[] = []): PublishDiff {
     const publishedById = new Map(published.map((r) => [r.id, r]));
     const added: Rule[] = [];
     const changed: Rule[] = [];
@@ -11,38 +11,43 @@ export class RuleDiffService {
       const pub = publishedById.get(d.id);
       if (!pub) {
         added.push(d);
-      } else if (!RuleDiffService.sameContent(d, pub)) {
+      } else if (!this.samePayload(d, pub)) {
         changed.push(d);
       }
     }
+    const removedSet = new Set(removedCodes);
+    const removed = published.filter((rule) => removedSet.has(rule.code));
 
-    return { added, changed };
+    return { added, changed, removed };
   }
 
-  /** Каноническое сравнение содержимого правила без служебных временных полей (created/updatedAt). */
-  private static sameContent(a: Rule, b: Rule): boolean {
-    const aContent = {
-      id: a.id,
-      code: a.code,
-      type: a.type,
-      name: a.name,
-      description: a.description,
-      spec: a.spec,
-      keywordIds: a.keywordIds,
-      mechanicId: a.mechanicId,
-    };
-    const bContent = {
-      id: b.id,
-      code: b.code,
-      type: b.type,
-      name: b.name,
-      description: b.description,
-      spec: b.spec,
-      keywordIds: b.keywordIds,
-      mechanicId: b.mechanicId,
-    };
-
-    return RuleDiffService.deepEqual(aContent, bContent);
+  /**
+   * Содержимое правила без локальных ключей: id/spaceId и даты меняются при импорте,
+   * иначе равные спеки всегда казались бы правкой.
+   */
+  samePayload(a: Rule, b: Rule): boolean {
+    return RuleDiffService.deepEqual(
+      {
+        code: a.code,
+        type: a.type,
+        name: a.name,
+        description: a.description,
+        spec: a.spec,
+        keywordIds: a.keywordIds,
+        mechanicId: a.mechanicId,
+        mechanic_payload: a.mechanic_payload,
+      },
+      {
+        code: b.code,
+        type: b.type,
+        name: b.name,
+        description: b.description,
+        spec: b.spec,
+        keywordIds: b.keywordIds,
+        mechanicId: b.mechanicId,
+        mechanic_payload: b.mechanic_payload,
+      },
+    );
   }
 
   private static deepEqual(a: unknown, b: unknown): boolean {

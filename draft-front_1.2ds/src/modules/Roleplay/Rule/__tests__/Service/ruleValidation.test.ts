@@ -1139,3 +1139,21 @@ describe('validateRuleReferences check', () => {
     expect(ruleValidationService.validateRuleReferences(rules, [])).toEqual([]);
   });
 });
+
+describe('validateDamageTypeStructure', () => {
+  it('требует спеку type damage_type', () => {
+    const errors = ruleValidationService.validateDamageTypeStructure([baseRule('dt', 'cold', 'damage_type')]);
+    expect(errors[0]?.message).toContain('type damage_type');
+  });
+
+  it('требует родительный и дательный', () => {
+    const errors = ruleValidationService.validateDamageTypeStructure([
+      baseRule('dt', 'cold', 'damage_type', {
+        type: 'damage_type',
+        forms: { genitive: '  ', dative: '' },
+        attached_rule_codes: [],
+      }),
+    ]);
+    expect(errors[0]?.message).toContain('родительный и дательный');
+  });
+});

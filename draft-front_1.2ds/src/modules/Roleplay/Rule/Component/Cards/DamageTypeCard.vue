@@ -19,13 +19,18 @@ const attached = computed(() => {
 </script>
 
 <template>
-  <v-card v-if="spec" variant="tonal" class="mb-4">
+  <v-alert v-if="!spec" type="warning" variant="tonal" class="mb-4">
+    У типа урона нет спеки: в редакторе нужно заполнить родительный и дательный.
+  </v-alert>
+  <v-card v-else variant="tonal" class="mb-4">
     <v-card-text>
       <div class="text-body-2">
         Системное имя: <strong>{{ rule.code }}</strong>
       </div>
       <div v-if="spec.forms.genitive" class="text-body-2 mt-1">Родительный: {{ spec.forms.genitive }}</div>
+      <div v-else class="text-body-2 mt-1 text-error">Родительный не заполнен</div>
       <div v-if="spec.forms.dative" class="text-body-2 mt-1">Дательный: {{ spec.forms.dative }}</div>
+      <div v-else class="text-body-2 mt-1 text-error">Дательный не заполнен</div>
       <div v-if="spec.defense_ignored" class="text-body-2 mt-1">Защита не помогает</div>
       <div v-if="attached.length" class="text-body-2 mt-1">
         Механики:

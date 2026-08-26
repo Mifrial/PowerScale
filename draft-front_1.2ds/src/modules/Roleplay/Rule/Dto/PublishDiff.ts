@@ -6,4 +6,6 @@ export interface PublishDiff {
   added: Rule[];
   /** Изменённые: есть в published и контент отличается. */
   changed: Rule[];
+  /** Удаляемые: маркер-версия active=false в новой ревизии. */
+  removed: Rule[];
 }

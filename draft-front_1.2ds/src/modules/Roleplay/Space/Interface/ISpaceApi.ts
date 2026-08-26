@@ -15,5 +15,10 @@ export interface ISpaceApi {
 
   getRevisions(spaceId: number, signal?: AbortSignal): Promise<SpaceRevisionMeta[]>;
   getRevision(spaceId: number, revision: number, signal?: AbortSignal): Promise<SpaceRevision<Rule>>;
-  commitDraft(spaceId: number, rules: Rule[], signal?: AbortSignal): Promise<SpaceRevision<Rule>>;
+  commitDraft(
+    spaceId: number,
+    rules: Rule[],
+    signal?: AbortSignal,
+    removedCodes?: string[],
+  ): Promise<SpaceRevision<Rule>>;
 }

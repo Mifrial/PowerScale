@@ -24,6 +24,7 @@ import CheckEditor from '@/modules/Roleplay/Rule/Component/Editors/CheckEditor.v
 import RuleConflictDialog from '@/modules/Roleplay/Rule/Component/RuleConflictDialog.vue';
 import { RULE_TYPES } from '@/modules/Roleplay/Rule/Constant/RULE_TYPES';
 import { ruleDraftService } from '@/modules/Roleplay/Rule/Service/Instance/ruleDraftService';
+import { ruleValidationService } from '@/modules/Roleplay/Rule/Service/Instance/ruleValidationService';
 import { ruleToForm } from '@/modules/Roleplay/Rule/Utils/Rule/ruleToForm';
 import type { RuleType } from '@/modules/Roleplay/Rule/Enum/RuleType';
 import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec';
@@ -59,6 +60,7 @@ const saving = ref(false);
 const loading = ref(true);
 const error = ref<string | null>(null);
 const saveError = ref<string | null>(null);
+const formRef = ref<{ validate: () => Promise<{ valid: boolean }> } | null>(null);
 const storageToast = ref(false);
 
 const showConflictDialog = ref(false);
@@ -177,6 +179,8 @@ watch(() => [route.params.code, route.params.ctx, route.params.ruleId], resolveR
 
 async function save() {
   if (!name.value.trim()) return;
+  const formCheck = await formRef.value?.validate();
+  if (formCheck && !formCheck.valid) return;
   saving.value = true;
   saveError.value = null;
   try {
@@ -193,6 +197,17 @@ async function save() {
       keywordIds: keywordIds.value,
       mechanicId: mechanicId.value,
     });
+    if (type.value === 'damage_type') {
+      const rest = ruleHost.value.effectiveRules.filter((entry) => entry.code !== rule.code);
+      const problems = ruleValidationService
+        .validateDamageTypeStructure([...rest, rule])
+        .filter((problem) => problem.ruleCode === rule.code);
+      if (problems[0]) {
+        saveError.value = problems[0].message;
+
+        return;
+      }
+    }
     draftStore.saveRule(spaceId.value, rule);
     router.push(`/space/${code.value}/draft/rules/${rule.id}`);
   } catch {
@@ -219,256 +234,258 @@ async function save() {
     </v-alert>
 
     <v-card v-if="!loading && !error">
-      <v-card-text>
-        <v-select
-          v-if="!isEdit"
-          v-model="type"
-          :items="RULE_TYPES"
-          label="Тип правила"
-          :rules="[(v) => !!v || 'Обязательное поле']"
-        />
+      <v-form ref="formRef" @submit.prevent="save">
+        <v-card-text>
+          <v-select
+            v-if="!isEdit"
+            v-model="type"
+            :items="RULE_TYPES"
+            label="Тип правила"
+            :rules="[(v) => !!v || 'Обязательное поле']"
+          />
 
-        <SimpleRuleEditor
-          v-if="type === 'simple'"
-          :key="routeKey"
-          v-model:name="name"
-          v-model:code="ruleCode"
-          :code-disabled="isEdit"
-          v-model:description="description"
-          v-model:mechanicId="mechanicId"
-          v-model:keywordIds="keywordIds"
-          :mechanic-options="mechanicOptions"
-          :keyword-options="keywordOptions"
-          class="mt-4"
-        />
+          <SimpleRuleEditor
+            v-if="type === 'simple'"
+            :key="routeKey"
+            v-model:name="name"
+            v-model:code="ruleCode"
+            :code-disabled="isEdit"
+            v-model:description="description"
+            v-model:mechanicId="mechanicId"
+            v-model:keywordIds="keywordIds"
+            :mechanic-options="mechanicOptions"
+            :keyword-options="keywordOptions"
+            class="mt-4"
+          />
 
-        <CharacteristicEditor
-          v-else-if="type === 'characteristic'"
-          :key="routeKey"
-          v-model:name="name"
-          v-model:code="ruleCode"
-          :code-disabled="isEdit"
-          v-model:description="description"
-          v-model:mechanicId="mechanicId"
-          v-model:keywordIds="keywordIds"
-          v-model:spec="spec"
-          :mechanic-options="mechanicOptions"
-          :keyword-options="keywordOptions"
-          :space-id="spaceId"
-          :rules="ruleHost.effectiveRules"
-        />
+          <CharacteristicEditor
+            v-else-if="type === 'characteristic'"
+            :key="routeKey"
+            v-model:name="name"
+            v-model:code="ruleCode"
+            :code-disabled="isEdit"
+            v-model:description="description"
+            v-model:mechanicId="mechanicId"
+            v-model:keywordIds="keywordIds"
+            v-model:spec="spec"
+            :mechanic-options="mechanicOptions"
+            :keyword-options="keywordOptions"
+            :space-id="spaceId"
+            :rules="ruleHost.effectiveRules"
+          />
 
-        <ResourceEditor
-          v-else-if="type === 'resource'"
-          :key="routeKey"
-          v-model:name="name"
-          v-model:code="ruleCode"
-          :code-disabled="isEdit"
-          v-model:description="description"
-          v-model:mechanicId="mechanicId"
-          v-model:keywordIds="keywordIds"
-          v-model:spec="spec"
-          :mechanic-options="mechanicOptions"
-          :keyword-options="keywordOptions"
-          :rules="ruleHost.effectiveRules"
-        />
+          <ResourceEditor
+            v-else-if="type === 'resource'"
+            :key="routeKey"
+            v-model:name="name"
+            v-model:code="ruleCode"
+            :code-disabled="isEdit"
+            v-model:description="description"
+            v-model:mechanicId="mechanicId"
+            v-model:keywordIds="keywordIds"
+            v-model:spec="spec"
+            :mechanic-options="mechanicOptions"
+            :keyword-options="keywordOptions"
+            :rules="ruleHost.effectiveRules"
+          />
 
-        <AbilityEditor
-          v-else-if="type === 'ability'"
-          :key="routeKey"
-          v-model:name="name"
-          v-model:code="ruleCode"
-          :code-disabled="isEdit"
-          v-model:description="description"
-          v-model:mechanicId="mechanicId"
-          v-model:keywordIds="keywordIds"
-          v-model:spec="spec"
-          :mechanic-options="mechanicOptions"
-          :keyword-options="keywordOptions"
-          :space-id="spaceId"
-          :rules="ruleHost.effectiveRules"
-        />
+          <AbilityEditor
+            v-else-if="type === 'ability'"
+            :key="routeKey"
+            v-model:name="name"
+            v-model:code="ruleCode"
+            :code-disabled="isEdit"
+            v-model:description="description"
+            v-model:mechanicId="mechanicId"
+            v-model:keywordIds="keywordIds"
+            v-model:spec="spec"
+            :mechanic-options="mechanicOptions"
+            :keyword-options="keywordOptions"
+            :space-id="spaceId"
+            :rules="ruleHost.effectiveRules"
+          />
 
-        <ItemEditor
-          v-else-if="type === 'item'"
-          :key="routeKey"
-          v-model:name="name"
-          v-model:code="ruleCode"
-          :code-disabled="isEdit"
-          v-model:description="description"
-          v-model:mechanicId="mechanicId"
-          v-model:keywordIds="keywordIds"
-          v-model:spec="spec"
-          :mechanic-options="mechanicOptions"
-          :keyword-options="keywordOptions"
-          :space-id="spaceId"
-          :rules="ruleHost.effectiveRules"
-        />
+          <ItemEditor
+            v-else-if="type === 'item'"
+            :key="routeKey"
+            v-model:name="name"
+            v-model:code="ruleCode"
+            :code-disabled="isEdit"
+            v-model:description="description"
+            v-model:mechanicId="mechanicId"
+            v-model:keywordIds="keywordIds"
+            v-model:spec="spec"
+            :mechanic-options="mechanicOptions"
+            :keyword-options="keywordOptions"
+            :space-id="spaceId"
+            :rules="ruleHost.effectiveRules"
+          />
 
-        <RaceEditor
-          v-else-if="type === 'race'"
-          :key="routeKey"
-          v-model:name="name"
-          v-model:code="ruleCode"
-          :code-disabled="isEdit"
-          v-model:description="description"
-          v-model:mechanicId="mechanicId"
-          v-model:keywordIds="keywordIds"
-          v-model:spec="spec"
-          :mechanic-options="mechanicOptions"
-          :keyword-options="keywordOptions"
-          :space-id="spaceId"
-          :rule-id="ruleId"
-          :rules="ruleHost.effectiveRules"
-        />
+          <RaceEditor
+            v-else-if="type === 'race'"
+            :key="routeKey"
+            v-model:name="name"
+            v-model:code="ruleCode"
+            :code-disabled="isEdit"
+            v-model:description="description"
+            v-model:mechanicId="mechanicId"
+            v-model:keywordIds="keywordIds"
+            v-model:spec="spec"
+            :mechanic-options="mechanicOptions"
+            :keyword-options="keywordOptions"
+            :space-id="spaceId"
+            :rule-id="ruleId"
+            :rules="ruleHost.effectiveRules"
+          />
 
-        <SpeciesEditor
-          v-else-if="type === 'species'"
-          :key="routeKey"
-          v-model:name="name"
-          v-model:code="ruleCode"
-          :code-disabled="isEdit"
-          v-model:description="description"
-          v-model:mechanicId="mechanicId"
-          v-model:keywordIds="keywordIds"
-          v-model:spec="spec"
-          :mechanic-options="mechanicOptions"
-          :keyword-options="keywordOptions"
-          :space-id="spaceId"
-          :rule-id="ruleId"
-          :rules="ruleHost.effectiveRules"
-        />
+          <SpeciesEditor
+            v-else-if="type === 'species'"
+            :key="routeKey"
+            v-model:name="name"
+            v-model:code="ruleCode"
+            :code-disabled="isEdit"
+            v-model:description="description"
+            v-model:mechanicId="mechanicId"
+            v-model:keywordIds="keywordIds"
+            v-model:spec="spec"
+            :mechanic-options="mechanicOptions"
+            :keyword-options="keywordOptions"
+            :space-id="spaceId"
+            :rule-id="ruleId"
+            :rules="ruleHost.effectiveRules"
+          />
 
-        <PointsEditor
-          v-else-if="type === 'points'"
-          :key="routeKey"
-          v-model:name="name"
-          v-model:code="ruleCode"
-          :code-disabled="isEdit"
-          v-model:description="description"
-          v-model:mechanicId="mechanicId"
-          v-model:keywordIds="keywordIds"
-          :mechanic-options="mechanicOptions"
-          :keyword-options="keywordOptions"
-        />
+          <PointsEditor
+            v-else-if="type === 'points'"
+            :key="routeKey"
+            v-model:name="name"
+            v-model:code="ruleCode"
+            :code-disabled="isEdit"
+            v-model:description="description"
+            v-model:mechanicId="mechanicId"
+            v-model:keywordIds="keywordIds"
+            :mechanic-options="mechanicOptions"
+            :keyword-options="keywordOptions"
+          />
 
-        <DamageTypeEditor
-          v-else-if="type === 'damage_type'"
-          :key="routeKey"
-          v-model:name="name"
-          v-model:code="ruleCode"
-          :code-disabled="isEdit"
-          v-model:description="description"
-          v-model:mechanicId="mechanicId"
-          v-model:keywordIds="keywordIds"
-          v-model:spec="spec"
-          :mechanic-options="mechanicOptions"
-          :keyword-options="keywordOptions"
-          :rules="ruleHost.effectiveRules"
-        />
+          <DamageTypeEditor
+            v-else-if="type === 'damage_type'"
+            :key="routeKey"
+            v-model:name="name"
+            v-model:code="ruleCode"
+            :code-disabled="isEdit"
+            v-model:description="description"
+            v-model:mechanicId="mechanicId"
+            v-model:keywordIds="keywordIds"
+            v-model:spec="spec"
+            :mechanic-options="mechanicOptions"
+            :keyword-options="keywordOptions"
+            :rules="ruleHost.effectiveRules"
+          />
 
-        <StateEditor
-          v-else-if="type === 'state'"
-          :key="routeKey"
-          v-model:name="name"
-          v-model:code="ruleCode"
-          :code-disabled="isEdit"
-          v-model:description="description"
-          v-model:mechanicId="mechanicId"
-          v-model:keywordIds="keywordIds"
-          v-model:spec="spec"
-          :mechanic-options="mechanicOptions"
-          :keyword-options="keywordOptions"
-          :space-id="spaceId"
-          :rules="ruleHost.effectiveRules"
-        />
+          <StateEditor
+            v-else-if="type === 'state'"
+            :key="routeKey"
+            v-model:name="name"
+            v-model:code="ruleCode"
+            :code-disabled="isEdit"
+            v-model:description="description"
+            v-model:mechanicId="mechanicId"
+            v-model:keywordIds="keywordIds"
+            v-model:spec="spec"
+            :mechanic-options="mechanicOptions"
+            :keyword-options="keywordOptions"
+            :space-id="spaceId"
+            :rules="ruleHost.effectiveRules"
+          />
 
-        <PoisonEditor
-          v-else-if="type === 'poison'"
-          :key="routeKey"
-          v-model:name="name"
-          v-model:code="ruleCode"
-          :code-disabled="isEdit"
-          v-model:description="description"
-          v-model:mechanicId="mechanicId"
-          v-model:keywordIds="keywordIds"
-          v-model:spec="spec"
-          :mechanic-options="mechanicOptions"
-          :keyword-options="keywordOptions"
-          :space-id="spaceId"
-          :rules="ruleHost.effectiveRules"
-        />
+          <PoisonEditor
+            v-else-if="type === 'poison'"
+            :key="routeKey"
+            v-model:name="name"
+            v-model:code="ruleCode"
+            :code-disabled="isEdit"
+            v-model:description="description"
+            v-model:mechanicId="mechanicId"
+            v-model:keywordIds="keywordIds"
+            v-model:spec="spec"
+            :mechanic-options="mechanicOptions"
+            :keyword-options="keywordOptions"
+            :space-id="spaceId"
+            :rules="ruleHost.effectiveRules"
+          />
 
-        <WeaponFamilyEditor
-          v-else-if="type === 'weapon_family'"
-          :key="routeKey"
-          v-model:name="name"
-          v-model:code="ruleCode"
-          :code-disabled="isEdit"
-          v-model:description="description"
-          v-model:mechanicId="mechanicId"
-          v-model:keywordIds="keywordIds"
-          :spec="{ costs: weaponFamilySpec }"
-          @update:spec="(s) => (spec = s)"
-          :mechanic-options="mechanicOptions"
-          :keyword-options="keywordOptions"
-        />
+          <WeaponFamilyEditor
+            v-else-if="type === 'weapon_family'"
+            :key="routeKey"
+            v-model:name="name"
+            v-model:code="ruleCode"
+            :code-disabled="isEdit"
+            v-model:description="description"
+            v-model:mechanicId="mechanicId"
+            v-model:keywordIds="keywordIds"
+            :spec="{ costs: weaponFamilySpec }"
+            @update:spec="(s) => (spec = s)"
+            :mechanic-options="mechanicOptions"
+            :keyword-options="keywordOptions"
+          />
 
-        <ItemModifierEditor
-          v-else-if="type === 'item_modifier'"
-          :key="routeKey"
-          v-model:name="name"
-          v-model:code="ruleCode"
-          :code-disabled="isEdit"
-          v-model:description="description"
-          v-model:mechanicId="mechanicId"
-          v-model:keywordIds="keywordIds"
-          v-model:spec="spec"
-          :mechanic-options="mechanicOptions"
-          :keyword-options="keywordOptions"
-          :keyword-code-by-id="keywordCodeById"
-          :type-options="modifierTypeOptions"
-        />
+          <ItemModifierEditor
+            v-else-if="type === 'item_modifier'"
+            :key="routeKey"
+            v-model:name="name"
+            v-model:code="ruleCode"
+            :code-disabled="isEdit"
+            v-model:description="description"
+            v-model:mechanicId="mechanicId"
+            v-model:keywordIds="keywordIds"
+            v-model:spec="spec"
+            :mechanic-options="mechanicOptions"
+            :keyword-options="keywordOptions"
+            :keyword-code-by-id="keywordCodeById"
+            :type-options="modifierTypeOptions"
+          />
 
-        <ItemModifierTypeEditor
-          v-else-if="type === 'item_modifier_type'"
-          :key="routeKey"
-          v-model:name="name"
-          v-model:code="ruleCode"
-          :code-disabled="isEdit"
-          v-model:description="description"
-          v-model:mechanicId="mechanicId"
-          v-model:keywordIds="keywordIds"
-          v-model:spec="spec"
-          :mechanic-options="mechanicOptions"
-          :keyword-options="keywordOptions"
-        />
+          <ItemModifierTypeEditor
+            v-else-if="type === 'item_modifier_type'"
+            :key="routeKey"
+            v-model:name="name"
+            v-model:code="ruleCode"
+            :code-disabled="isEdit"
+            v-model:description="description"
+            v-model:mechanicId="mechanicId"
+            v-model:keywordIds="keywordIds"
+            v-model:spec="spec"
+            :mechanic-options="mechanicOptions"
+            :keyword-options="keywordOptions"
+          />
 
-        <CheckEditor
-          v-else-if="type === 'check'"
-          :key="routeKey"
-          v-model:name="name"
-          v-model:code="ruleCode"
-          :code-disabled="isEdit"
-          v-model:description="description"
-          v-model:mechanicId="mechanicId"
-          v-model:keywordIds="keywordIds"
-          v-model:spec="spec"
-          :mechanic-options="mechanicOptions"
-          :keyword-options="keywordOptions"
-          :rules="ruleHost.effectiveRules"
-        />
+          <CheckEditor
+            v-else-if="type === 'check'"
+            :key="routeKey"
+            v-model:name="name"
+            v-model:code="ruleCode"
+            :code-disabled="isEdit"
+            v-model:description="description"
+            v-model:mechanicId="mechanicId"
+            v-model:keywordIds="keywordIds"
+            v-model:spec="spec"
+            :mechanic-options="mechanicOptions"
+            :keyword-options="keywordOptions"
+            :rules="ruleHost.effectiveRules"
+          />
 
-        <div v-else class="text-body-2 text-medium-emphasis text-center pa-8">
-          Редактор для типа "{{ type }}" будет реализован позже
-        </div>
-      </v-card-text>
+          <div v-else class="text-body-2 text-medium-emphasis text-center pa-8">
+            Редактор для типа "{{ type }}" будет реализован позже
+          </div>
+        </v-card-text>
 
-      <v-card-actions>
-        <v-spacer />
-        <v-btn variant="text" @click="router.back()">Отмена</v-btn>
-        <v-btn color="primary" :loading="saving" @click="save">Сохранить</v-btn>
-      </v-card-actions>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="router.back()">Отмена</v-btn>
+          <v-btn color="primary" type="submit" :loading="saving">Сохранить</v-btn>
+        </v-card-actions>
+      </v-form>
     </v-card>
 
     <div v-else-if="loading" class="d-flex justify-center pa-8">

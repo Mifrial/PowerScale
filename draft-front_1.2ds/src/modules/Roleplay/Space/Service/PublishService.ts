@@ -9,8 +9,14 @@ export class PublishService {
     private readonly ruleDiff: typeof ruleDiffService,
   ) {}
 
-  prepare(published: Rule[], draftRules: Rule[], effective: Rule[], keywords: Keyword[]): PublishSummary {
-    const diff = this.ruleDiff.classifyDraftDiff(published, draftRules);
+  prepare(
+    published: Rule[],
+    draftRules: Rule[],
+    effective: Rule[],
+    keywords: Keyword[],
+    removedCodes: readonly string[] = [],
+  ): PublishSummary {
+    const diff = this.ruleDiff.classifyDraftDiff(published, draftRules, removedCodes);
 
     const items = [
       ...this.ruleValidation
@@ -65,6 +71,7 @@ export class PublishService {
     return {
       added: diff.added,
       changed: diff.changed,
+      removed: diff.removed,
       problems: this.ruleDiff.groupProblems(items),
       spaceErrors: cycle ? [this.ruleValidation.formatSpeciesCycle(cycle)] : [],
     };

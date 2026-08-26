@@ -108,6 +108,10 @@ describe('mockRuleImport (S2)', () => {
 
     const magicDamage = byCode.get('magic-damage');
     expect(magicDamage?.type).toBe('damage_type');
+    expect(magicDamage?.spec).toMatchObject({
+      type: 'damage_type',
+      forms: { genitive: 'магического урона', dative: 'магическому урону' },
+    });
   });
 
   it('Врождённые характеристики (S8): табличная цена по X и грант модификатора', () => {

@@ -29,29 +29,10 @@ const emit = defineEmits<{
   'update:spec': [value: DamageTypeSpec];
 }>();
 
-function emptySpec(): DamageTypeSpec {
-  return { type: 'damage_type', forms: { genitive: '', dative: '' }, attached_rule_codes: [], defense_ignored: false };
-}
-
-function fromSpec(value: RuleSpec | null): DamageTypeSpec {
-  if (value && typeof value === 'object' && 'type' in value && value.type === 'damage_type') {
-    return cloneData(value);
-  }
-
-  return emptySpec();
-}
-
-const draft = ref<DamageTypeSpec>(fromSpec(props.spec));
-
-watch(
-  () => props.spec,
-  (value) => {
-    draft.value = fromSpec(value);
-  },
-);
+const draft = ref<DamageTypeSpec>(cloneData(damageTypeSpecService.fromRuleSpec(props.spec, props.code)));
 
 const specToEmit = computed<DamageTypeSpec>(() => cloneData(draft.value));
-watch(specToEmit, (value) => emit('update:spec', value), { deep: true });
+watch(specToEmit, (value) => emit('update:spec', value), { deep: true, immediate: true });
 
 const attachableOptions = computed(() =>
   props.rules
@@ -77,19 +58,22 @@ const attachableOptions = computed(() =>
     :keyword-options="keywordOptions"
   >
     <template #spec>
+      <div class="text-subtitle-2 mb-2">Склонения в тексте правил</div>
       <v-text-field
         v-model="draft.forms.genitive"
-        label="Родительный (урона)"
-        hint="«5 рубящего урона»"
+        label="Родительный (сколько урона)"
+        hint="«5 рубящего урона», «3 огня»"
         persistent-hint
+        :rules="[(v) => !!v?.trim() || 'Обязательное поле']"
         hide-details="auto"
         class="mb-3"
       />
       <v-text-field
         v-model="draft.forms.dative"
-        label="Дательный (сопротивлению)"
-        hint="«сопротивления рубящему урону»"
+        label="Дательный (сопротивление чему)"
+        hint="«сопротивления рубящему урону», «огню»"
         persistent-hint
+        :rules="[(v) => !!v?.trim() || 'Обязательное поле']"
         hide-details="auto"
         class="mb-3"
       />

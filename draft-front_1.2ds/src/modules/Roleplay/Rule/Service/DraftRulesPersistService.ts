@@ -60,7 +60,18 @@ export class DraftRulesPersistService {
       changedRules[ruleId] = rule;
     }
 
-    return { spaceId: row.spaceId, changedRules };
+    const removedCodes = this.parseRemovedCodes(row.removedCodes);
+    if (removedCodes === null) return null;
+
+    return { spaceId: row.spaceId, changedRules, removedCodes };
+  }
+
+  private parseRemovedCodes(value: unknown): string[] | null {
+    if (value === undefined) return [];
+    if (!Array.isArray(value)) return null;
+    if (!value.every((item) => typeof item === 'string')) return null;
+
+    return value;
   }
 
   private isRule(value: unknown): value is Rule {

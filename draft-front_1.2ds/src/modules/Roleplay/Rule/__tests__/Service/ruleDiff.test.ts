@@ -29,6 +29,12 @@ describe('classifyDraftDiff', () => {
     expect(diff.added.map((r) => r.id)).toEqual(['r3']);
   });
 
+  it('samePayload считает равными правила с разными id и spaceId', () => {
+    const left = rule('r1', 'Одно', { id: 'a', spaceId: 1 });
+    const right = rule('r1', 'Одно', { id: 'b', spaceId: 2 });
+    expect(ruleDiffService.samePayload(left, right)).toBe(true);
+  });
+
   it('правило в draft без изменений против published не попадает в блоки', () => {
     const published = [rule('r1', 'Одно')];
     const draft = [rule('r1', 'Одно')];

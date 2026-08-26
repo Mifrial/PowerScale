@@ -7,7 +7,11 @@ import { useDraftRuleStore } from '@/modules/Roleplay/Rule/Store/draftRules';
 import { useSpaceContext } from '@/modules/Roleplay/Space/Composables/useSpaceContext';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import PublishDialog from '@/modules/Roleplay/Space/Component/PublishDialog.vue';
+import RevisionImportDialog from '@/modules/Roleplay/Space/Component/RevisionImportDialog.vue';
 import RuleListPanel from '@/modules/Roleplay/Space/Component/RuleListPanel.vue';
+import { downloadJson } from '@/modules/Core/UI/Utils/downloadJson';
+import { revisionFileService } from '@/modules/Roleplay/Space/Service/Instance/revisionFileService';
+import type { RevisionFile } from '@/modules/Roleplay/Space/Dto/RevisionFile';
 
 const route = useRoute();
 const router = useRouter();
@@ -18,6 +22,7 @@ const context = useSpaceContext();
 
 const space = computed(() => context.value.space);
 const showPublishDialog = ref(false);
+const showImportDialog = ref(false);
 const showDiscardDialog = ref(false);
 const ruleToDiscard = ref<Rule | null>(null);
 const snackbar = ref({ show: false, text: '', color: '' });
@@ -72,6 +77,39 @@ const selectedRevision = computed<number | null>({
     router.push(`/space/${space.value.code}/${v === -1 ? 'draft' : v}`);
   },
 });
+
+function exportRevision(): void {
+  const revision = revisionStore.activeRevision;
+  if (!revision || isDraftContext.value) return;
+  downloadJson(`${revision.spaceCode}-v${revision.revision}.json`, revisionFileService.serialize(revision));
+}
+
+function onImportConfirm(payload: { file: RevisionFile; intoCurrent: boolean; removeMissing: boolean }): void {
+  if (!payload.intoCurrent) {
+    spaceStore.pendingImportedRules = payload.file.revision.rules;
+    router.push('/spaces/new');
+
+    return;
+  }
+  const spaceId = space.value?.id;
+  if (!spaceId) return;
+  const published = revisionStore.activeRevision?.rules ?? [];
+  const diff = revisionFileService.diffAgainstPublished(payload.file.revision.rules, published, spaceId, {
+    removeMissing: payload.removeMissing,
+    existingRemovedCodes: draftStore.getRemovedCodes(spaceId),
+  });
+  if (revisionFileService.isEmptyDiff(diff)) {
+    snackbar.value = { show: true, text: revisionFileService.formatImportSummary(diff), color: 'info' };
+
+    return;
+  }
+  for (const rule of [...diff.changed, ...diff.added]) {
+    draftStore.saveRule(spaceId, rule);
+  }
+  draftStore.setRemovedCodes(spaceId, diff.removedCodes);
+  snackbar.value = { show: true, text: revisionFileService.formatImportSummary(diff), color: 'success' };
+  router.push(`/space/${space.value?.code}/draft`);
+}
 
 function openPublishDialog() {
   showPublishDialog.value = true;
@@ -131,6 +169,11 @@ function discardRule() {
 
       <v-spacer />
 
+      <v-btn v-if="!isDraftContext" variant="tonal" size="small" prepend-icon="mdi-download" @click="exportRevision">
+        Экспорт
+      </v-btn>
+      <v-btn variant="tonal" size="small" prepend-icon="mdi-upload" @click="showImportDialog = true"> Импорт </v-btn>
+
       <template v-if="draftStore.hasDraft(space.id) && isDraftContext">
         <v-btn variant="tonal" color="success" size="small" prepend-icon="mdi-source-branch" @click="openPublishDialog">
           Опубликовать
@@ -154,6 +197,8 @@ function discardRule() {
       @published="onPublished"
       @error="(m) => (snackbar = { show: true, text: m, color: 'error' })"
     />
+
+    <RevisionImportDialog v-model="showImportDialog" :allow-current="true" @confirm="onImportConfirm" />
 
     <!-- Discard rule dialog -->
     <v-dialog v-model="showDiscardDialog" max-width="500">

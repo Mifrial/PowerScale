@@ -24,15 +24,16 @@ export const useDraftRuleStore = defineStore('draftRules', () => {
   function hasDraft(spaceId: number): boolean {
     const entry = drafts.value.find((d) => d.spaceId === spaceId);
 
-    return !!entry && Object.keys(entry.changedRules).length > 0;
+    return !!entry && (Object.keys(entry.changedRules).length > 0 || (entry.removedCodes?.length ?? 0) > 0);
   }
 
   function ensureDraft(spaceId: number): DraftEntry {
     let entry = drafts.value.find((d) => d.spaceId === spaceId);
     if (!entry) {
-      entry = { spaceId, changedRules: {} };
+      entry = { spaceId, changedRules: {}, removedCodes: [] };
       drafts.value.push(entry);
     }
+    if (!entry.removedCodes) entry.removedCodes = [];
 
     return entry;
   }
@@ -40,6 +41,7 @@ export const useDraftRuleStore = defineStore('draftRules', () => {
   function saveRule(spaceId: number, rule: Rule): void {
     const entry = ensureDraft(spaceId);
     entry.changedRules = { ...entry.changedRules, [rule.id]: rule };
+    entry.removedCodes = entry.removedCodes.filter((code) => code !== rule.code);
     persistDrafts();
   }
 
@@ -62,9 +64,28 @@ export const useDraftRuleStore = defineStore('draftRules', () => {
     const entry = ensureDraft(spaceId);
     const existed = rule.id in entry.changedRules;
     entry.changedRules = { ...entry.changedRules, [rule.id]: rule };
+    entry.removedCodes = entry.removedCodes.filter((code) => code !== rule.code);
     persistDrafts();
 
     return existed;
+  }
+
+  function getRemovedCodes(spaceId: number): string[] {
+    return drafts.value.find((d) => d.spaceId === spaceId)?.removedCodes ?? [];
+  }
+
+  function setRemovedCodes(spaceId: number, codes: string[]): void {
+    const entry = ensureDraft(spaceId);
+    const unique = [...new Set(codes)];
+    entry.removedCodes = unique;
+    const drop = new Set(unique);
+    entry.changedRules = Object.fromEntries(
+      Object.entries(entry.changedRules).filter(([, rule]) => !drop.has(rule.code)),
+    );
+    persistDrafts();
+    if (Object.keys(entry.changedRules).length === 0 && entry.removedCodes.length === 0) {
+      discardDraft(spaceId);
+    }
   }
 
   function discardDraft(spaceId: number): void {
@@ -88,6 +109,8 @@ export const useDraftRuleStore = defineStore('draftRules', () => {
     removeRule,
     getDraftRules,
     addToDraft,
+    getRemovedCodes,
+    setRemovedCodes,
     discardDraft,
     clearAll,
   };

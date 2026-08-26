@@ -37,6 +37,8 @@ const RETIRED_RULES_BY_MIN_REVISION: { code: string; minRevision: number }[] = [
   { code: 'night-vision', minRevision: 8 },
 ];
 
+const retiredMarkers: { code: string; minRevision: number }[] = [...RETIRED_RULES_BY_MIN_REVISION];
+
 function isAlwaysIncluded(rule: Rule): boolean {
   // Ресурсы, способности, очки, предметы, модификаторы предметов, расы и виды попадают в срез всегда: на них
   // ссылаются персонажи (предметы/расы) и другие правила (requirements, action_components,
@@ -238,7 +240,7 @@ export function generateRevisionRules(spaceId: number, revision: number): Rule[]
   for (const rule of sliced) addRule(rule);
 
   // Вывод правил из обращения в старших ревизиях (демо миграции персонажей).
-  for (const retired of RETIRED_RULES_BY_MIN_REVISION) {
+  for (const retired of retiredMarkers) {
     if (revision >= retired.minRevision) included.delete(retired.code);
   }
 
@@ -293,6 +295,17 @@ export async function fetchRevision(
   const space = spaces.find((s) => s.id === spaceId);
   if (!space) throw new Error(`Space ${spaceId} not found`);
   if (revision > space.revision) throw new Error(`Revision ${revision} not found for space ${spaceId}`);
+  if (space.revision === 0) {
+    const empty: SpaceRevision<Rule> = {
+      revision: 0,
+      publishedAt: space.createdAt,
+      spaceCode: space.code,
+      spaceName: space.name,
+      rules: [],
+    };
+
+    return empty;
+  }
 
   const result: SpaceRevision<Rule> = {
     revision,
@@ -306,7 +319,12 @@ export async function fetchRevision(
   return result;
 }
 
-export async function commitDraft(spaceId: number, rules: Rule[], _signal?: AbortSignal): Promise<SpaceRevision<Rule>> {
+export async function commitDraft(
+  spaceId: number,
+  rules: Rule[],
+  _signal?: AbortSignal,
+  removedCodes: string[] = [],
+): Promise<SpaceRevision<Rule>> {
   await delay(500);
   const space = spaces.find((s) => s.id === spaceId);
   if (!space) throw new Error(`Space ${spaceId} not found`);
@@ -318,21 +336,32 @@ export async function commitDraft(spaceId: number, rules: Rule[], _signal?: Abor
   // rule-id, изменённые сохраняют id существующего правила. Эмуляция бэка: версия правила
   // пишется в пространство, ревизия собирается из актуального набора.
   committedRules.length = 0;
+  const removed = new Set(removedCodes);
   for (const draftRule of rules) {
+    if (removed.has(draftRule.code)) continue;
     const existing = poolByCode.get(draftRule.code);
     const id = existing ? existing.id : nextRuleId();
     committedRules.push({ ...draftRule, id, updatedAt: now });
   }
 
+  const hadPublishedSnapshot = space.revision >= 1 || revisionRulesCache.has(`${spaceId}:0`);
   space.revision++;
   const revision = space.revision;
+  for (const code of removedCodes) {
+    retiredMarkers.push({ code, minRevision: revision });
+  }
+
+  const snapshotRules = hadPublishedSnapshot
+    ? generateRevisionRules(spaceId, revision)
+    : committedRules.map((rule) => ({ ...rule, spaceId }));
+  if (!hadPublishedSnapshot) space.rulesCount = snapshotRules.length;
 
   const result: SpaceRevision<Rule> = {
     revision,
     publishedAt: now,
     spaceCode: space.code,
     spaceName: space.name,
-    rules: generateRevisionRules(spaceId, revision),
+    rules: snapshotRules,
   };
 
   const key = `${spaceId}:${revision}`;

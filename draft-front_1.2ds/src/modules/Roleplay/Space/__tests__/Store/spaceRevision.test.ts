@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { setActivePinia, createPinia } from 'pinia';
-import { registerSpaceApi } from '@/modules/Roleplay/Space/init';
+import { registerSpaceApi, getSpaceApi } from '@/modules/Roleplay/Space/init';
 import { serviceLocator } from '@/modules/Core/Engine/Service/ServiceLocator';
 import { mockSpaceApi } from '@/modules/Roleplay/Space/Mock/mockSpaceApi';
 import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
@@ -50,6 +50,18 @@ describe('effectiveRules', () => {
     expect(merged.find((r) => r.id === base.id)?.name).toBe('Изменённое');
     expect(merged[merged.length - 1].id).toBe('draft-new');
     expect(merged.length).toBe(published.length + 1);
+  });
+
+  it('в draft скрывает правила из removedCodes', async () => {
+    const store = useSpaceRevisionStore();
+    const draftStore = useDraftRuleStore();
+    const rev = await store.fetchRevision(1, 5);
+    const gone = rev.rules[0];
+    draftStore.setRemovedCodes(1, [gone.code]);
+    store.activeContext = { spaceId: 1, revision: 5, kind: 'draft' };
+
+    expect(store.effectiveRules.some((rule) => rule.code === gone.code)).toBe(false);
+    expect(store.effectiveRules.length).toBe(rev.rules.length - 1);
   });
 
   it('без черновиков effectiveRules возвращает published', async () => {
@@ -113,5 +125,25 @@ describe('commitDraft', () => {
     const meta = store.revisionsMeta.get(1) ?? [];
     expect(meta.length).toBeGreaterThan(0);
     expect(meta[meta.length - 1].revision).toBe(6);
+  });
+});
+
+describe('unpublished space', () => {
+  it('effectiveRules в draft — только правила черновика', async () => {
+    const space = await getSpaceApi().createSpace({ name: 'Из файла', description: '' });
+    const store = useSpaceRevisionStore();
+    const draftStore = useDraftRuleStore();
+    draftStore.saveRule(space.id, {
+      id: 'imported-from-file',
+      code: 'from-file',
+      type: 'simple',
+      name: 'Из файла',
+      description: '',
+      spaceId: space.id,
+      createdAt: '2026-01-01T00:00:00Z',
+    });
+    await store.syncFromContext(space.id, 'draft', 0);
+
+    expect(store.effectiveRules.map((rule) => rule.code)).toEqual(['from-file']);
   });
 });

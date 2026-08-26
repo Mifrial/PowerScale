@@ -61,8 +61,17 @@ export class SpaceApi implements ISpaceApi {
     return res.data;
   }
 
-  async commitDraft(spaceId: number, rules: Rule[], signal?: AbortSignal): Promise<SpaceRevision<Rule>> {
-    const res = await this.engine.runAction<SpaceRevision<Rule>>('space.commitDraft', { spaceId, rules }, signal);
+  async commitDraft(
+    spaceId: number,
+    rules: Rule[],
+    signal?: AbortSignal,
+    removedCodes?: string[],
+  ): Promise<SpaceRevision<Rule>> {
+    const res = await this.engine.runAction<SpaceRevision<Rule>>(
+      'space.commitDraft',
+      { spaceId, rules, removedCodes },
+      signal,
+    );
     if (!res.data) throw new Error('Failed to commit draft');
 
     return res.data;

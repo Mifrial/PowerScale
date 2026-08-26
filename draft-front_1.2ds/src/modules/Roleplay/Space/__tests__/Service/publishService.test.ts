@@ -65,6 +65,29 @@ describe('PublishService.prepare', () => {
     expect(summary.spaceErrors).toEqual([]);
   });
 
+  it('ссылки на признаки требуют загруженный справочник keywords', () => {
+    const effective = [
+      rule('quality', 'Качество', { type: 'item_modifier_type', spec: { exclusive: false } }),
+      rule('improv', 'Импровизированное', {
+        type: 'item_modifier',
+        spec: {
+          type_code: 'quality',
+          applies: { keyword_all: ['weapon'], keyword_any: [], keyword_none: [] },
+          price: { factor: null, add_gm: null, add_gm_per_100g: null, min_final_gm: null },
+          effects: [{ text: 'экипировать как оружие' }],
+        },
+      }),
+    ];
+
+    const missing = publishService.prepare([], effective, effective, []);
+    expect(missing.problems.some((entry) => entry.messages.some((message) => message.includes('weapon')))).toBe(true);
+
+    const ok = publishService.prepare([], effective, effective, [
+      { id: 1, code: 'weapon', name: 'Оружие', description: '', active: true },
+    ]);
+    expect(ok.problems).toEqual([]);
+  });
+
   it('обнаруживает цикл в цепочке видов в spaceErrors', () => {
     const effective = [
       rule('s1', 'Вид A', { type: 'species', spec: { parent_race_code: 's2', abilities: [] } }),

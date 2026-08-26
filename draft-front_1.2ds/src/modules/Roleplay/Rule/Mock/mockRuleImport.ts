@@ -4,6 +4,7 @@ import type { AbilitySpecBase } from '@/modules/Roleplay/Rule/Dto/Ability/Abilit
 import type { Requirement } from '@/modules/Roleplay/Rule/Dto/Ability/Requirement';
 import type { Grant } from '@/modules/Roleplay/Rule/Dto/Ability/Grant';
 import type { AbilityParameter } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityParameter';
+import { damageTypeSpecService } from '@/modules/Roleplay/Rule/Service/Instance/damageTypeSpecService';
 
 /**
  * Импорт черт из docs/rule/AI.html (раздел «Создание основы», S2).
@@ -442,6 +443,7 @@ const importedRules: Rule[] = [
     name: 'Магия',
     description: 'Урон магией и волшебством.',
     spaceId: 1,
+    spec: damageTypeSpecService.createEmpty('magic-damage'),
     keywordIds: [],
     mechanicId: null,
     mechanic_payload: null,
@@ -456,6 +458,7 @@ const importedRules: Rule[] = [
     name: 'Холод',
     description: 'Урон холодом и низкой температурой.',
     spaceId: 1,
+    spec: damageTypeSpecService.createEmpty('cold'),
     keywordIds: [],
     mechanicId: null,
     mechanic_payload: null,

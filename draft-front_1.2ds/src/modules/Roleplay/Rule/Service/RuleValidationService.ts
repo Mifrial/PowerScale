@@ -293,6 +293,13 @@ export class RuleValidationService {
         });
         continue;
       }
+      if (!spec.forms.genitive.trim() || !spec.forms.dative.trim()) {
+        errors.push({
+          ruleCode: rule.code,
+          ruleName: rule.name,
+          message: 'у типа урона должны быть заполнены родительный и дательный',
+        });
+      }
       for (const code of spec.attached_rule_codes) {
         const attached = byCode.get(code);
         if (!attached) {

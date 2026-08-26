@@ -30,10 +30,11 @@ export const useSpaceRevisionStore = defineStore('spaceRevision', () => {
 
     const draftStore = useDraftRuleStore();
     const draftRules = draftStore.getDraftRules(ctx.spaceId);
-    if (draftRules.length === 0) return published;
+    const removedCodes = new Set(draftStore.getRemovedCodes(ctx.spaceId));
+    if (draftRules.length === 0 && removedCodes.size === 0) return published;
 
     const draftMap = new Map(draftRules.map((r) => [r.id, r]));
-    const merged = published.map((r) => draftMap.get(r.id) ?? r);
+    const merged = published.filter((r) => !removedCodes.has(r.code)).map((r) => draftMap.get(r.id) ?? r);
     const newRules = draftRules.filter((r) => !published.some((p) => p.id === r.id));
 
     return [...merged, ...newRules];
@@ -91,8 +92,13 @@ export const useSpaceRevisionStore = defineStore('spaceRevision', () => {
     activeContext.value = { spaceId: null, revision: null, kind: 'rev' };
   }
 
-  async function commitDraft(spaceId: number, rules: Rule[], signal?: AbortSignal): Promise<SpaceRevision<Rule>> {
-    const result = await getSpaceApi().commitDraft(spaceId, rules, signal);
+  async function commitDraft(
+    spaceId: number,
+    rules: Rule[],
+    signal?: AbortSignal,
+    removedCodes?: string[],
+  ): Promise<SpaceRevision<Rule>> {
+    const result = await getSpaceApi().commitDraft(spaceId, rules, signal, removedCodes);
     cachedRevisions.value.set(cacheKey(spaceId, result.revision), result);
     activeContext.value = { spaceId, revision: result.revision, kind: 'rev' };
     await fetchRevisionsMeta(spaceId, signal);

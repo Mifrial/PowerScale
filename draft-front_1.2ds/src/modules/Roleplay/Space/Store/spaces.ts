@@ -3,11 +3,13 @@ import { ref } from 'vue';
 import type { Space } from '@/modules/Roleplay/Space/Dto/Space';
 import type { SpaceCreateData } from '@/modules/Roleplay/Space/Dto/SpaceCreateData';
 import type { SpaceUpdateData } from '@/modules/Roleplay/Space/Dto/SpaceUpdateData';
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { getSpaceApi } from '@/modules/Roleplay/Space/init';
 
 export const useSpaceStore = defineStore('spaces', () => {
   const spaces = ref<Space[]>([]);
   const currentSpace = ref<Space | null>(null);
+  const pendingImportedRules = ref<Rule[] | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
 
@@ -68,6 +70,7 @@ export const useSpaceStore = defineStore('spaces', () => {
   return {
     spaces,
     currentSpace,
+    pendingImportedRules,
     loading,
     error,
     fetchSpaces,

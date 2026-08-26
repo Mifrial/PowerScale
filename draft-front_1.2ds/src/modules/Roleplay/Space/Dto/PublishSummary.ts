@@ -5,6 +5,7 @@ import type { ProblemEntry } from '@/modules/Roleplay/Rule/Dto/ProblemEntry';
 export interface PublishSummary {
   added: Rule[];
   changed: Rule[];
+  removed: Rule[];
   problems: ProblemEntry[];
   spaceErrors: string[];
 }

@@ -1,9 +1,29 @@
 import type { DamageTypeSpec } from '@/modules/Roleplay/Rule/Dto/Damage/DamageTypeSpec';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec';
 import { DAMAGE_TYPE_FORMS } from '@/modules/Roleplay/Rule/Constant/DAMAGE_TYPE_FORMS';
 import type { DamageTypeForms } from '@/modules/Roleplay/Rule/Dto/DamageTypeForms';
 
 export class DamageTypeSpecService {
+  createEmpty(code = '', attached: string[] = []): DamageTypeSpec {
+    const forms = DAMAGE_TYPE_FORMS[code] ?? { genitive: '', dative: '' };
+
+    return {
+      type: 'damage_type',
+      forms: { genitive: forms.genitive, dative: forms.dative },
+      attached_rule_codes: [...attached],
+      defense_ignored: false,
+    };
+  }
+
+  fromRuleSpec(spec: RuleSpec | null | undefined, code: string): DamageTypeSpec {
+    if (spec && typeof spec === 'object' && 'type' in spec && spec.type === 'damage_type') {
+      return spec;
+    }
+
+    return this.createEmpty(code);
+  }
+
   asDamageTypeSpec(rule: Rule | undefined): DamageTypeSpec | null {
     if (!rule || rule.type !== 'damage_type') return null;
     const spec = rule.spec;

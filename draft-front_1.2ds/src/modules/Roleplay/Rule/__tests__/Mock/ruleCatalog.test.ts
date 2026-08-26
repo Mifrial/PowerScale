@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { ruleCatalog } from '@/modules/Roleplay/Rule/Mock/mockRules';
+import { damageTypeSpecService } from '@/modules/Roleplay/Rule/Service/Instance/damageTypeSpecService';
 
 describe('ruleCatalog', () => {
   it('id уникальны (глобальная идентичность правила)', () => {
@@ -44,6 +45,17 @@ describe('ruleCatalog', () => {
 
     const fireBolt = ruleCatalog.find((r) => r.code === 'fire-bolt');
     expect((fireBolt?.spec as { type?: string } | undefined)?.type).toBe('spell');
+  });
+
+  it('у каждого типа урона есть спека со склонениями', () => {
+    const types = ruleCatalog.filter((rule) => rule.type === 'damage_type');
+    expect(types.length).toBeGreaterThan(0);
+    for (const rule of types) {
+      const spec = damageTypeSpecService.asDamageTypeSpec(rule);
+      expect(spec).not.toBeNull();
+      expect(spec?.forms.genitive.trim()).toBeTruthy();
+      expect(spec?.forms.dative.trim()).toBeTruthy();
+    }
   });
 
   it('содержит дерево проверок', () => {

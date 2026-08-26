@@ -39,6 +39,17 @@ describe('draftRules store persistence', () => {
     expect(fresh.hasDraft(1)).toBe(true);
   });
 
+  it('removedCodes делает hasDraft истинным и переживает persist', () => {
+    const store = useDraftRuleStore();
+    store.setRemovedCodes(1, ['gone']);
+    expect(store.hasDraft(1)).toBe(true);
+    expect(store.getRemovedCodes(1)).toEqual(['gone']);
+
+    setActivePinia(createPinia());
+    const fresh = useDraftRuleStore();
+    expect(fresh.getRemovedCodes(1)).toEqual(['gone']);
+  });
+
   it('discardDraft удаляет ключ из localStorage', () => {
     const store = useDraftRuleStore();
     store.saveRule(1, makeRule('r1'));
