@@ -3,6 +3,8 @@ import { computed } from 'vue';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
 import type { ItemModifierSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierSpec';
+import type { ItemModifierOp } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierOp';
+import { ruleViewLabelService } from '@/modules/Roleplay/Rule/Service/Instance/ruleViewLabelService';
 
 const props = defineProps<{
   rule: Rule;
@@ -20,9 +22,18 @@ function names(codes: string[]): string {
   return codes.map((code) => keywordNameByCode.value.get(code) ?? code).join(', ');
 }
 
-function opsLabel(ops: { type: string }[]): string {
-  return ops.map((op) => op.type).join(', ');
+function opsLabel(ops: ItemModifierOp[]): string {
+  return ops.map((op) => ruleViewLabelService.modifierOp(op, props.rules ?? [], props.keywords)).join('; ');
 }
+
+const priceScaleLabel = computed(() => {
+  const scale = spec.value?.price_scale;
+  if (!scale) return null;
+  const typeName = (props.rules ?? []).find((rule) => rule.code === scale.type_code)?.name ?? scale.type_code;
+  const only = scale.increasing_only ? ', только при росте цены' : '';
+
+  return `×${scale.factor} к цене «${typeName}»${only}`;
+});
 
 const appliesLines = computed<string[]>(() => {
   const applies = spec.value?.applies;
@@ -68,6 +79,7 @@ const hasEffects = computed(() => (spec.value?.effects ?? []).some((effect) => e
       <div v-if="typeLabel" class="text-body-2 mb-2"><strong>Тип:</strong> {{ typeLabel }}</div>
 
       <div v-if="priceLabel" class="text-body-2 mb-2"><strong>Влияние на цену:</strong> {{ priceLabel }}</div>
+      <div v-if="priceScaleLabel" class="text-body-2 mb-2"><strong>Множитель цены:</strong> {{ priceScaleLabel }}</div>
 
       <div v-if="appliesLines.length" class="text-body-2 mb-2">
         <strong>Применимо:</strong>

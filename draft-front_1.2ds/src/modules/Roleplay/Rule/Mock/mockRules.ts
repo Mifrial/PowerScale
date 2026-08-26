@@ -1579,7 +1579,7 @@ export async function fetchRules(_spaceId: number, _signal?: AbortSignal): Promi
 
 export async function fetchRule(ruleId: string, _signal?: AbortSignal): Promise<Rule> {
   await delay();
-  const rule = rules.find((r) => r.id === ruleId);
+  const rule = ruleCatalog.find((entry) => entry.id === ruleId || entry.code === ruleId);
   if (!rule) throw new Error(`Rule ${ruleId} not found`);
 
   return { ...rule };

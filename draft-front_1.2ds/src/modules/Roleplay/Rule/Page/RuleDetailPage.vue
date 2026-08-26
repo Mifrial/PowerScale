@@ -10,15 +10,7 @@ import type { RuleVersion } from '@/modules/Roleplay/Rule/Dto/RuleVersion';
 import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
 import { getRuleApi } from '@/modules/Roleplay/Rule/init';
 import { RULE_TYPE_LABELS } from '@/modules/Roleplay/Rule/Constant/RULE_TYPE_LABELS';
-import AbilityCard from '@/modules/Roleplay/Rule/Component/Cards/AbilityCard.vue';
-import RaceCard from '@/modules/Roleplay/Rule/Component/Cards/RaceCard.vue';
-import SpeciesCard from '@/modules/Roleplay/Rule/Component/Cards/SpeciesCard.vue';
-import PointsCard from '@/modules/Roleplay/Rule/Component/Cards/PointsCard.vue';
-import StateCard from '@/modules/Roleplay/Rule/Component/Cards/StateCard.vue';
-import PoisonCard from '@/modules/Roleplay/Rule/Component/Cards/PoisonCard.vue';
-import ModifierCard from '@/modules/Roleplay/Rule/Component/Cards/ModifierCard.vue';
-import CheckCard from '@/modules/Roleplay/Rule/Component/Cards/CheckCard.vue';
-import DamageTypeCard from '@/modules/Roleplay/Rule/Component/Cards/DamageTypeCard.vue';
+import RuleSpecView from '@/modules/Roleplay/Rule/Component/RuleSpecView.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -115,33 +107,7 @@ watch(() => [route.params.code, route.params.ctx, route.params.ruleId], resolveR
       <v-card-text class="rule-detail__description">{{ rule.description }}</v-card-text>
     </v-card>
 
-    <AbilityCard
-      v-if="rule.type === 'ability'"
-      :rule="rule"
-      :rules="ruleHost.effectiveRules"
-      :keywords="keywordStore.keywords"
-      class="mb-4"
-    />
-
-    <RaceCard v-if="rule.type === 'race'" :rule="rule" :rules="ruleHost.effectiveRules" class="mb-4" />
-
-    <SpeciesCard v-if="rule.type === 'species'" :rule="rule" :rules="ruleHost.effectiveRules" class="mb-4" />
-
-    <PointsCard v-if="rule.type === 'points'" :rule="rule" class="mb-4" />
-
-    <StateCard v-if="rule.type === 'state'" :rule="rule" :rules="ruleHost.effectiveRules" class="mb-4" />
-    <PoisonCard v-if="rule.type === 'poison'" :rule="rule" :rules="ruleHost.effectiveRules" class="mb-4" />
-
-    <ModifierCard
-      v-if="rule.type === 'item_modifier'"
-      :rule="rule"
-      :keywords="keywordStore.keywords"
-      :rules="ruleHost.effectiveRules"
-      class="mb-4"
-    />
-
-    <CheckCard v-if="rule.type === 'check'" :rule="rule" :rules="ruleHost.effectiveRules" class="mb-4" />
-    <DamageTypeCard v-if="rule.type === 'damage_type'" :rule="rule" :rules="ruleHost.effectiveRules" class="mb-4" />
+    <RuleSpecView :rule="rule" :rules="ruleHost.effectiveRules" :keywords="keywordStore.keywords" class="mb-4" />
 
     <v-card v-if="mechanic" class="mb-4">
       <v-card-title>Механика</v-card-title>

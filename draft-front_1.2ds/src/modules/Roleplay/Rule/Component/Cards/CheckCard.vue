@@ -69,6 +69,9 @@ function modesLabel(): string {
       <div v-if="versusLabel" class="text-body-2 mt-1">{{ versusLabel }}</div>
       <div class="text-body-2 mt-1">Сложность: {{ difficultyLabel() }}</div>
       <div class="text-body-2 mt-1">Режимы: {{ modesLabel() }}</div>
+      <div v-if="spec.default_efficiency != null" class="text-body-2 mt-1">
+        Эффективность по умолчанию: <strong>{{ spec.default_efficiency }}</strong>
+      </div>
       <div v-if="attachedRules.length" class="text-body-2 mt-1">
         Правила броска:
         <strong>{{ attachedRules.map((item) => item.name).join(', ') }}</strong>

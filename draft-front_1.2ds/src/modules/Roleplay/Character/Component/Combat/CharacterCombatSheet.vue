@@ -130,6 +130,8 @@ function onToggleEquipped(itemId: number): void {
     :rule-id="ruleSlider.state.ruleId"
     :space-id="spaceId"
     :rules-revision="rulesRevision"
+    :rules="rules"
+    :keywords="keywords"
   />
 </template>
 

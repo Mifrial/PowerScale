@@ -96,3 +96,38 @@ describe('resolveRuleFromRevision', () => {
     expect(resolved).toBeNull();
   });
 });
+
+describe('resolveRevisionSlice', () => {
+  it('отдаёт найденное правило вместе со срезом ревизии', async () => {
+    const slice = await ruleRevisionResolverService.resolveRevisionSlice({
+      spaceId: 1,
+      rulesRevision: 5,
+      ruleId: 'movement',
+    });
+
+    expect(slice.rule?.code).toBe('movement');
+    expect(slice.rules.length).toBeGreaterThan(1);
+    expect(slice.rules.some((entry) => entry.code === 'movement')).toBe(true);
+  });
+
+  it('чип чата передаёт code — находит в срезе актуальных правил', async () => {
+    const slice = await ruleRevisionResolverService.resolveRevisionSlice({
+      spaceId: 2,
+      rulesRevision: 12,
+      ruleId: 'magic-resistance',
+    });
+
+    expect(slice.rule?.code).toBe('magic-resistance');
+    expect(slice.rule?.name).toContain('Сопротивление магии');
+  });
+
+  it('без ревизии резолвит каталог по code, а не только по id', async () => {
+    const slice = await ruleRevisionResolverService.resolveRevisionSlice({
+      spaceId: null,
+      rulesRevision: null,
+      ruleId: 'magic-resistance',
+    });
+
+    expect(slice.rule?.code).toBe('magic-resistance');
+  });
+});

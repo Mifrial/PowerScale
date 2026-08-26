@@ -1,6 +1,7 @@
 import type { IRevisionRulesFetcher } from '@/modules/Roleplay/Rule/Interface/IRevisionRulesFetcher';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { RuleRevisionQuery } from '@/modules/Roleplay/Rule/Dto/RuleRevisionQuery';
+import type { RevisionRuleSlice } from '@/modules/Roleplay/Rule/Dto/RevisionRuleSlice';
 
 export class RuleRevisionResolverService {
   constructor(
@@ -20,8 +21,14 @@ export class RuleRevisionResolverService {
    * (изъято из ревизии) — тогда фолбэк на каталог по id.
    */
   async resolveRuleFromRevision(query: RuleRevisionQuery, signal?: AbortSignal): Promise<Rule | null> {
+    const slice = await this.resolveRevisionSlice(query, signal);
+
+    return slice.rule;
+  }
+
+  async resolveRevisionSlice(query: RuleRevisionQuery, signal?: AbortSignal): Promise<RevisionRuleSlice> {
     const { spaceId, rulesRevision, ruleId } = query;
-    if (ruleId == null) return null;
+    if (ruleId == null) return { rule: null, rules: [] };
 
     if (spaceId != null && rulesRevision != null) {
       const fetcher = this.getFetcher();
@@ -29,13 +36,30 @@ export class RuleRevisionResolverService {
         try {
           const rules = await fetcher.fetchRules(spaceId, rulesRevision, signal);
           const found = this.findRuleInRevision(rules, ruleId);
-          if (found) return found;
+          if (found) return { rule: found, rules };
+
+          const fallback = await this.tryCatalogRule(ruleId, signal);
+
+          return { rule: fallback, rules };
         } catch (error) {
           if (error instanceof DOMException && error.name === 'AbortError') throw error;
         }
       }
     }
 
-    return this.fetchCatalogRule(ruleId, signal);
+    const rule = await this.tryCatalogRule(ruleId, signal);
+
+    return { rule, rules: rule ? [rule] : [] };
+  }
+
+  /** Чип чата передаёт code, каталог — id; getRule кидает, если ключ не тот. */
+  private async tryCatalogRule(ruleId: string, signal?: AbortSignal): Promise<Rule | null> {
+    try {
+      return await this.fetchCatalogRule(ruleId, signal);
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') throw error;
+
+      return null;
+    }
   }
 }

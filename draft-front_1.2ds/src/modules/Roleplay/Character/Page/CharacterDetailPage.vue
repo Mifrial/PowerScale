@@ -409,5 +409,7 @@ watch(detail, (value) => {
     :rule-id="ruleSlider.state.ruleId"
     :space-id="detail?.character.spaceId ?? null"
     :rules-revision="detail?.version.rulesRevision ?? null"
+    :rules="rules"
+    :keywords="sheetKeywords"
   />
 </template>

@@ -4,17 +4,18 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { AbilitySpecDraft } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpecDraft';
 import type { Grant } from '@/modules/Roleplay/Rule/Dto/Ability/Grant';
 import type { Requirement } from '@/modules/Roleplay/Rule/Dto/Ability/Requirement';
-import type { Formula } from '@/modules/Roleplay/Rule/Dto/Ability/Formula';
+import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
 import type { AbilityType } from '@/modules/Roleplay/Rule/Enum/Ability/AbilityType';
 import type { ActionComponent } from '@/modules/Roleplay/Rule/Dto/Ability/ActionComponent';
 import { ABILITY_TYPE_LABELS } from '@/modules/Roleplay/Rule/Constant/Ability/ABILITY_TYPE_LABELS';
 import { abilitySpecService } from '@/modules/Roleplay/Rule/Service/Instance/abilitySpecService';
+import { ruleViewLabelService } from '@/modules/Roleplay/Rule/Service/Instance/ruleViewLabelService';
 import { resourceShortName } from '@/modules/Roleplay/Rule/Utils/resourceShortName';
 
 const props = defineProps<{
   rule: Rule;
   rules: Rule[];
-  keywords: { id: number; code: string; name: string }[];
+  keywords: Keyword[];
 }>();
 
 const spec = computed<AbilitySpecDraft | null>(() => (props.rule.spec as AbilitySpecDraft) ?? null);
@@ -79,17 +80,7 @@ function abilityName(code: string): string {
 }
 
 function formatAmount(amount: unknown): string {
-  if (typeof amount === 'number') return String(amount);
-  const a = amount as { base?: number; size?: number };
-  if (a && typeof a.base === 'number' && typeof a.size === 'number') {
-    return `${a.base}${a.size ? `×${a.size}` : ''}`;
-  }
-
-  return String(amount ?? '');
-}
-
-function formatDimensional(v: { base: number; size: number }): string {
-  return `${v.base}${v.size ? `×${v.size}` : ''}`;
+  return ruleViewLabelService.amount(amount, props.rules);
 }
 
 const durationLabel = computed(() => {
@@ -97,7 +88,7 @@ const durationLabel = computed(() => {
   if (!d) return '—';
   if (d.type === 'instant') return 'Мгновенное';
   const parts = [d.type === 'refreshable' ? 'Обновляемое' : 'Поддерживаемое'];
-  if (d.difficulty) parts.push(`сложность ${formatDimensional(d.difficulty)}`);
+  if (d.difficulty) parts.push(`сложность ${ruleViewLabelService.dimensional(d.difficulty)}`);
   if (d.action_cost !== undefined) parts.push(`${formatAmount(d.action_cost)} ОД`);
   if (d.limit) parts.push(`предел ${formatAmount(d.limit.value)} ${limitUnitLabel(d.limit.unit)}`);
 
@@ -194,11 +185,11 @@ function reqText(req: Requirement): string {
     case 'has_ability':
       return `${abilityName(req.ability_code)}${req.min_level ? ` ≥${req.min_level}` : ''}`;
     case 'has_ability_keyword':
-      return `${req.min_count} способность(ей) с признаком «${req.keyword_code}»`;
+      return `${req.min_count} способность(ей) с признаком «${ruleViewLabelService.keywordName(props.keywords, req.keyword_code)}»`;
     case 'has_keyword':
-      return `признак «${req.keyword_code}»`;
+      return `признак «${ruleViewLabelService.keywordName(props.keywords, req.keyword_code)}»`;
     case 'characteristic_value':
-      return `${req.characteristic_code} ≥ ${formatDimensional(req.min)}`;
+      return `${ruleViewLabelService.ruleName(props.rules, req.characteristic_code)} ≥ ${ruleViewLabelService.dimensional(req.min)}`;
     case 'resource_limit':
       return `ресурс «${resourceName(req.resource_code)}»${req.min ? ` ≥ ${formatAmount(req.min)}` : ''}`;
     case 'and':
@@ -210,43 +201,8 @@ function reqText(req: Requirement): string {
   }
 }
 
-function formulaLabel(f: Formula): string {
-  if (f.type === 'fixed') return String(f.value);
-  if (f.type === 'characteristic')
-    return `${f.characteristic_code}${f.modifier ? ` ${f.modifier > 0 ? '+' : ''}${f.modifier}` : ''}`;
-  if (f.type === 'ability_level')
-    return `ур. ${abilityName(f.ability_code)}${f.multiplier && f.multiplier !== 1 ? `×${f.multiplier}` : ''}`;
-  if (f.type === 'dimensional') return formatDimensional(f);
-
-  return '';
-}
-
 function grantLabel(grant: Grant): string {
-  switch (grant.type) {
-    case 'characteristic':
-      return `Даёт характеристику «${grant.characteristic_code}» (${formatDimensional(grant.value)})`;
-    case 'characteristic_parameter':
-      return `Даёт характеристику «${grant.characteristic_code}» = параметр ${grant.parameter_code} × ${grant.per_unit}`;
-    case 'characteristic_modify':
-      return `Модификатор «${grant.characteristic_code}»: +${formulaLabel(grant.amount)}`;
-    case 'resource':
-      return `Даёт ресурс «${resourceName(grant.resource_code)}» (лимит ${formatAmount(grant.limit)})`;
-    case 'resource_limit_change':
-      return `Меняет лимит ресурса «${resourceName(grant.resource_code)}» на ${formulaLabel(grant.amount)}`;
-    case 'ability':
-      return `Даёт способность «${abilityName(grant.ability_code)}»`;
-    case 'keyword':
-      return grant.remove ? `Убирает признак «${grant.keyword_code}»` : `Добавляет признак «${grant.keyword_code}»`;
-    case 'item': {
-      const quantity = grant.quantity ?? 1;
-
-      return quantity > 1 ? `Даёт предмет «${grant.item_code}» ×${quantity}` : `Даёт предмет «${grant.item_code}»`;
-    }
-    case 'money':
-      return `Стартовый капитал: ${grant.fixed} гз или ${grant.percent}% от лимита (${grant.apply === 'max' ? 'большее' : 'меньшее'})`;
-    default:
-      return '';
-  }
+  return ruleViewLabelService.grant(grant, props.rules, props.keywords);
 }
 </script>
 
@@ -330,7 +286,7 @@ function grantLabel(grant: Grant): string {
         <div class="text-subtitle-2 mb-1">Заклинание</div>
         <div class="d-flex align-center ga-2 mb-1">
           <span>Сложность сотворения:</span>
-          <strong>{{ formatDimensional(spec.spell.difficulty) }}</strong>
+          <strong>{{ ruleViewLabelService.dimensional(spec.spell.difficulty) }}</strong>
         </div>
         <div class="mb-1">Продолжительность: {{ durationLabel }}</div>
         <div v-if="nonResourceComponents.length" class="d-flex flex-wrap ga-2">

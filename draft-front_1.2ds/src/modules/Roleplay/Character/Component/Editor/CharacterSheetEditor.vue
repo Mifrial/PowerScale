@@ -19,7 +19,8 @@ import PersonalityTab from '@/modules/Roleplay/Character/Component/Editor/Person
 import DevelopmentTab from '@/modules/Roleplay/Character/Component/Editor/DevelopmentTab.vue';
 import EditorDescriptionTab from '@/modules/Roleplay/Character/Component/Editor/EditorDescriptionTab.vue';
 import InventoryTab from '@/modules/Roleplay/Character/Component/Editor/InventoryTab.vue';
-import EditorAbilitySlider from '@/modules/Roleplay/Character/Component/Editor/EditorAbilitySlider.vue';
+import RuleSlider from '@/modules/Roleplay/Rule/Component/RuleSlider.vue';
+import { useRuleDetailSlider } from '@/modules/Roleplay/Character/Composables/useRuleDetailSlider';
 
 /**
  * Редактор листа персонажа/НПС (переиспользуемый, ТР §7): владеет черновиком (по `draftKey`
@@ -58,6 +59,7 @@ const saving = ref(false);
 const storageToast = ref(false);
 
 const draft = computed(() => draftStore.draftOf(props.draftKey));
+const ruleSlider = useRuleDetailSlider();
 
 const config = computed(() => draft.value?.config ?? { osTotal: null, orTotal: null, moneyBudget: null });
 
@@ -304,7 +306,14 @@ onMounted(() => {
         />
       </template>
 
-      <EditorAbilitySlider :rules="rules" :keywords="keywordStore.keywords" />
+      <RuleSlider
+        v-model:open="ruleSlider.state.open"
+        :rule-id="ruleSlider.state.ruleId"
+        :space-id="draft.build.spaceId"
+        :rules-revision="draft.build.rulesRevision"
+        :rules="rules"
+        :keywords="keywordStore.keywords"
+      />
     </div>
   </template>
   <v-snackbar v-model="storageToast" color="error" timeout="4000">
