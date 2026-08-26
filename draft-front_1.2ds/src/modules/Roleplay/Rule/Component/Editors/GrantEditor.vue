@@ -22,6 +22,8 @@ const props = defineProps<{
   keywords: KeywordRef[];
   items: { code: string; name: string }[];
   sources: SourceRef[];
+  damageTypes: { code: string; name: string }[];
+  senses: { code: string; name: string }[];
 }>();
 
 const emit = defineEmits<{
@@ -106,6 +108,35 @@ function patch(key: string, value: unknown) {
           label="Значение"
           :min="3"
           :max="5"
+        />
+      </template>
+
+      <template v-else-if="inner.type === 'characteristic_parameter'">
+        <v-autocomplete
+          :model-value="inner.characteristic_code"
+          @update:model-value="patch('characteristic_code', $event)"
+          :items="characteristics"
+          item-title="name"
+          item-value="code"
+          label="Характеристика"
+          density="compact"
+          hide-details
+          clearable
+        />
+        <v-text-field
+          :model-value="inner.parameter_code"
+          @update:model-value="patch('parameter_code', $event)"
+          label="Код параметра"
+          density="compact"
+          hide-details
+        />
+        <ClampedNumberField
+          :model-value="inner.per_unit"
+          @update:model-value="patch('per_unit', $event)"
+          label="На единицу параметра"
+          :min="0"
+          density="compact"
+          hide-details
         />
       </template>
 
@@ -255,6 +286,70 @@ function patch(key: string, value: unknown) {
           label="Количество"
           density="compact"
           hide-details
+        />
+      </template>
+
+      <template v-else-if="inner.type === 'resistance'">
+        <v-autocomplete
+          :model-value="inner.damage_type_code"
+          @update:model-value="patch('damage_type_code', $event)"
+          :items="damageTypes"
+          item-title="name"
+          item-value="code"
+          label="Тип урона"
+          density="compact"
+          hide-details
+          clearable
+        />
+        <DimensionalNumberInput
+          :model-value="
+            inner.value && typeof inner.value === 'object' && 'base' in inner.value ? inner.value : { base: 1, size: 0 }
+          "
+          @update:model-value="(v) => patch('value', v)"
+          label="Сопротивление"
+        />
+        <v-select
+          :model-value="inner.source_code || null"
+          @update:model-value="patch('source_code', $event)"
+          :items="sources"
+          item-title="name"
+          item-value="code"
+          label="Источник"
+          density="compact"
+          hide-details
+          clearable
+        />
+      </template>
+
+      <template v-else-if="inner.type === 'sense_modify'">
+        <v-autocomplete
+          :model-value="inner.sense_code"
+          @update:model-value="patch('sense_code', $event)"
+          :items="senses"
+          item-title="name"
+          item-value="code"
+          label="Чувство"
+          density="compact"
+          hide-details
+          clearable
+        />
+        <FormulaInput
+          :model-value="inner.amount"
+          @update:model-value="patch('amount', $event)"
+          :characteristics="characteristics"
+          :abilities="abilities"
+          :modes="['fixed', 'ability_level']"
+        />
+        <v-select
+          :model-value="inner.source_code || null"
+          @update:model-value="patch('source_code', $event)"
+          :items="sources"
+          item-title="name"
+          item-value="code"
+          label="Источник"
+          density="compact"
+          hide-details
+          clearable
         />
       </template>
 

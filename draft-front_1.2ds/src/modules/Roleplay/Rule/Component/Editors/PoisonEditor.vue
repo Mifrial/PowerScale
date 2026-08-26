@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch, onMounted } from 'vue';
+import { computed, ref, watch } from 'vue';
 import RuleEditorBase from '@/modules/Roleplay/Rule/Component/Editors/RuleEditorBase.vue';
 import PeriodicityEditor from '@/modules/Roleplay/Rule/Component/Editors/State/PeriodicityEditor.vue';
 import DecayEditor from '@/modules/Roleplay/Rule/Component/Editors/State/DecayEditor.vue';
@@ -36,7 +36,20 @@ const emit = defineEmits<{
 
 const expandedPanels = ref<string[]>(['general', 'poison']);
 
-const innerSpec = ref<PoisonSpec>(poisonSpecService.createEmpty());
+function poisonFromSpec(value: RuleSpec | null): PoisonSpec {
+  if (!value) return poisonSpecService.createEmpty();
+  const existing = value as PoisonSpec;
+
+  return {
+    icon_code: existing.icon_code ?? null,
+    damage_type_code: existing.damage_type_code ?? '',
+    default_strength: existing.default_strength,
+    default_periodicity: existing.default_periodicity,
+    default_decay: existing.default_decay,
+  };
+}
+
+const innerSpec = ref<PoisonSpec>(poisonFromSpec(props.spec));
 
 const damageTypeOptions = computed(() =>
   ruleReferenceService.damageTypeOptions(props.rules).map((c) => ({ title: c.name, value: c.code })),
@@ -53,20 +66,7 @@ const specToEmit = computed<PoisonSpec>(() => ({
   default_decay: innerSpec.value.default_decay,
 }));
 
-watch(specToEmit, (value) => emit('update:spec', value), { deep: true });
-
-onMounted(() => {
-  if (props.spec) {
-    const existing = props.spec as PoisonSpec;
-    innerSpec.value = {
-      icon_code: existing.icon_code ?? null,
-      damage_type_code: existing.damage_type_code ?? '',
-      default_strength: existing.default_strength,
-      default_periodicity: existing.default_periodicity,
-      default_decay: existing.default_decay,
-    };
-  }
-});
+watch(specToEmit, (value) => emit('update:spec', value), { deep: true, immediate: true });
 
 function setStrength(value: DimensionalNumberValue | null): void {
   innerSpec.value.default_strength = value ?? undefined;
@@ -116,8 +116,9 @@ function setStrength(value: DimensionalNumberValue | null): void {
                 v-model="innerSpec.damage_type_code"
                 :items="damageTypeOptions"
                 label="Тип урона яда"
+                :rules="[(v) => !!v || 'Обязательное поле']"
                 density="compact"
-                hide-details
+                hide-details="auto"
               />
             </v-col>
           </v-row>

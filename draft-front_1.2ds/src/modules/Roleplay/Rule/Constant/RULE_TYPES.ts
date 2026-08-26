@@ -2,6 +2,7 @@ import type { RuleType } from '@/modules/Roleplay/Rule/Enum/RuleType';
 
 export const RULE_TYPES: { title: string; value: RuleType }[] = [
   { title: 'Простое правило', value: 'simple' },
+  { title: 'Источник', value: 'source' },
   { title: 'Раса', value: 'race' },
   { title: 'Вид/Подвид', value: 'species' },
   { title: 'Характеристика', value: 'characteristic' },

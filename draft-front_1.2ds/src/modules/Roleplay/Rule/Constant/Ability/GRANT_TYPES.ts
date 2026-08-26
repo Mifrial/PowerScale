@@ -10,5 +10,6 @@ export const GRANT_TYPES: { label: string; value: Grant['type'] }[] = [
   { label: 'Признак', value: 'keyword' },
   { label: 'Даёт предмет', value: 'item' },
   { label: 'Сопротивление урону', value: 'resistance' },
+  { label: 'Модификатор чувства', value: 'sense_modify' },
   { label: 'Стартовый капитал (деньги)', value: 'money' },
 ];

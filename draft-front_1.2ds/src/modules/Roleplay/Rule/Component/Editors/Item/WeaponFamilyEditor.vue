@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 import type { WeaponFamilySpec } from '@/modules/Roleplay/Rule/Dto/Item/WeaponFamilySpec';
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
 import RuleEditorBase from '@/modules/Roleplay/Rule/Component/Editors/RuleEditorBase.vue';
@@ -29,6 +29,14 @@ const emit = defineEmits<{
 const DEFAULT_COSTS = [2, 4, 6];
 
 const levels = ref<number[]>(props.spec.costs.length > 0 ? props.spec.costs.slice() : [...DEFAULT_COSTS]);
+
+watch(
+  levels,
+  (value) => {
+    emit('update:spec', { costs: value.slice() });
+  },
+  { deep: true, immediate: true },
+);
 
 /** Добавить уровень в лестницу стоимостей. */
 function addLevel() {

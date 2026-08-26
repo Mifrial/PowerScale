@@ -53,7 +53,7 @@ watch(
 
 const specToEmit = computed<ItemModifierSpec>(() => cloneData(draft.value));
 
-watch(specToEmit, (value) => emit('update:spec', value), { deep: true });
+watch(specToEmit, (value) => emit('update:spec', value), { deep: true, immediate: true });
 
 /** Селект-опции признаков (id → код → вариант). */
 const codeOptions = computed(() =>
@@ -109,6 +109,7 @@ function updateEffectOps(index: number, ops: ItemModifierOp[]): void {
         item-title="title"
         item-value="value"
         label="Тип модификатора"
+        :rules="[(v) => !!v || 'Обязательное поле']"
         hint="Категория (качество изделия, вес, материал…). Exclusive задаётся на типе."
         density="compact"
         class="mt-2 mb-4"

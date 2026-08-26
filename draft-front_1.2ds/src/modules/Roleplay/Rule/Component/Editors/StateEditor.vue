@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch, onMounted } from 'vue';
+import { computed, ref, watch } from 'vue';
 import RuleEditorBase from '@/modules/Roleplay/Rule/Component/Editors/RuleEditorBase.vue';
 import PeriodicityEditor from '@/modules/Roleplay/Rule/Component/Editors/State/PeriodicityEditor.vue';
 import DecayEditor from '@/modules/Roleplay/Rule/Component/Editors/State/DecayEditor.vue';
@@ -37,7 +37,19 @@ const emit = defineEmits<{
 
 const expandedPanels = ref<string[]>(['general', 'state']);
 
-const innerSpec = ref<StateSpec>(stateSpecService.createEmpty());
+function stateFromSpec(value: RuleSpec | null): StateSpec {
+  if (!value) return stateSpecService.createEmpty();
+  const existing = value as StateSpec;
+
+  return {
+    value_type: existing.value_type ?? 'flag',
+    aggregation: existing.aggregation ?? 'sum',
+    icon_code: existing.icon_code ?? null,
+    effects: existing.effects ?? [],
+  };
+}
+
+const innerSpec = ref<StateSpec>(stateFromSpec(props.spec));
 
 const characteristicOptions = computed(() =>
   ruleReferenceService.characteristicOptions(props.rules, props.spaceId).map((c) => ({ title: c.name, value: c.code })),
@@ -67,19 +79,7 @@ const specToEmit = computed<StateSpec>(() => ({
   effects: innerSpec.value.effects ?? [],
 }));
 
-watch(specToEmit, (value) => emit('update:spec', value), { deep: true });
-
-onMounted(() => {
-  if (props.spec) {
-    const existing = props.spec as StateSpec;
-    innerSpec.value = {
-      value_type: existing.value_type ?? 'flag',
-      aggregation: existing.aggregation ?? 'sum',
-      icon_code: existing.icon_code ?? null,
-      effects: existing.effects ?? [],
-    };
-  }
-});
+watch(specToEmit, (value) => emit('update:spec', value), { deep: true, immediate: true });
 
 function addEffect(): void {
   innerSpec.value.effects = innerSpec.value.effects ?? [];

@@ -60,6 +60,10 @@ export class RuleReferenceService {
     return rules.filter((r) => r.type === 'source').map((r) => ({ code: r.code, name: r.name }));
   }
 
+  senseOptions(rules: Rule[]): NamedOption[] {
+    return rules.filter((r) => r.type === 'sense').map((r) => ({ code: r.code, name: r.name }));
+  }
+
   itemOptions(rules: Rule[]): NamedOption[] {
     return rules.filter((r) => r.type === 'item').map((r) => ({ code: r.code, name: r.name }));
   }

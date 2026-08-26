@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch } from 'vue';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec';
 import type { ItemSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpec';
@@ -39,15 +39,28 @@ const emit = defineEmits<{
   'update:spec': [value: ItemSpec];
 }>();
 
-const draft = ref<ItemSpecDraft>({
-  category: 'other',
-  cost_gm: null,
-  weight: { base: 1, size: -1 },
-  special_rule_codes: [],
-  innate: false,
-});
+function itemDraftFromSpec(value: RuleSpec | null): ItemSpecDraft {
+  if (value) return cloneData(value as ItemSpecDraft);
 
-const subtypes = ref<string[]>([]);
+  return {
+    category: 'other',
+    cost_gm: null,
+    weight: { base: 1, size: -1 },
+    special_rule_codes: [],
+    innate: false,
+  };
+}
+
+const draft = ref<ItemSpecDraft>(itemDraftFromSpec(props.spec));
+const subtypes = ref<string[]>(
+  props.spec
+    ? [
+        ...((props.spec as ItemSpecDraft).weapon ? ['weapon'] : []),
+        ...((props.spec as ItemSpecDraft).armor ? ['armor'] : []),
+        ...((props.spec as ItemSpecDraft).shield ? ['shield'] : []),
+      ]
+    : [],
+);
 const expandedPanels = ref<string[]>(['general', 'item']);
 
 const spaceRules = computed(() => props.rules);
@@ -111,7 +124,7 @@ watch(
   (value) => {
     emit('update:spec', cloneData(value));
   },
-  { deep: true },
+  { deep: true, immediate: true },
 );
 
 function updateWeapon(value: WeaponBlock) {
@@ -125,23 +138,6 @@ function updateArmor(value: ArmorBlock) {
 function updateShield(value: ShieldBlock) {
   draft.value.shield = value;
 }
-
-onMounted(() => {
-  if (props.spec) {
-    const loaded = props.spec as ItemSpecDraft;
-    draft.value = cloneData(loaded);
-
-    if (loaded.weapon) {
-      subtypes.value.push('weapon');
-    }
-    if (loaded.armor) {
-      subtypes.value.push('armor');
-    }
-    if (loaded.shield) {
-      subtypes.value.push('shield');
-    }
-  }
-});
 </script>
 
 <template>

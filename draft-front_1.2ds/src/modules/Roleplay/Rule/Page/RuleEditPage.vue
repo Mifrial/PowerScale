@@ -21,6 +21,8 @@ import WeaponFamilyEditor from '@/modules/Roleplay/Rule/Component/Editors/Item/W
 import ItemModifierEditor from '@/modules/Roleplay/Rule/Component/Editors/ItemModifierEditor.vue';
 import ItemModifierTypeEditor from '@/modules/Roleplay/Rule/Component/Editors/ItemModifierTypeEditor.vue';
 import CheckEditor from '@/modules/Roleplay/Rule/Component/Editors/CheckEditor.vue';
+import MarkerRuleEditor from '@/modules/Roleplay/Rule/Component/Editors/MarkerRuleEditor.vue';
+import AgeEditor from '@/modules/Roleplay/Rule/Component/Editors/AgeEditor.vue';
 import RuleConflictDialog from '@/modules/Roleplay/Rule/Component/RuleConflictDialog.vue';
 import { RULE_TYPES } from '@/modules/Roleplay/Rule/Constant/RULE_TYPES';
 import { ruleDraftService } from '@/modules/Roleplay/Rule/Service/Instance/ruleDraftService';
@@ -197,16 +199,15 @@ async function save() {
       keywordIds: keywordIds.value,
       mechanicId: mechanicId.value,
     });
-    if (type.value === 'damage_type') {
-      const rest = ruleHost.value.effectiveRules.filter((entry) => entry.code !== rule.code);
-      const problems = ruleValidationService
-        .validateDamageTypeStructure([...rest, rule])
-        .filter((problem) => problem.ruleCode === rule.code);
-      if (problems[0]) {
-        saveError.value = problems[0].message;
+    const rest = ruleHost.value.effectiveRules.filter((entry) => entry.code !== rule.code);
+    const blocking = ruleValidationService.blockingMessagesForRule(
+      ruleValidationService.validateCatalog([...rest, rule], keywordStore.keywords),
+      rule.code,
+    );
+    if (blocking[0]) {
+      saveError.value = blocking[0];
 
-        return;
-      }
+      return;
     }
     draftStore.saveRule(spaceId.value, rule);
     router.push(`/space/${code.value}/draft/rules/${rule.id}`);
@@ -245,7 +246,7 @@ async function save() {
           />
 
           <SimpleRuleEditor
-            v-if="type === 'simple'"
+            v-if="type === 'simple' || type === 'source'"
             :key="routeKey"
             v-model:name="name"
             v-model:code="ruleCode"
@@ -472,6 +473,37 @@ async function save() {
             v-model:spec="spec"
             :mechanic-options="mechanicOptions"
             :keyword-options="keywordOptions"
+            :rules="ruleHost.effectiveRules"
+          />
+
+          <MarkerRuleEditor
+            v-else-if="type === 'sense' || type === 'language'"
+            :key="routeKey"
+            v-model:name="name"
+            v-model:code="ruleCode"
+            :code-disabled="isEdit"
+            v-model:description="description"
+            v-model:mechanicId="mechanicId"
+            v-model:keywordIds="keywordIds"
+            v-model:spec="spec"
+            :spec-type="type"
+            :mechanic-options="mechanicOptions"
+            :keyword-options="keywordOptions"
+          />
+
+          <AgeEditor
+            v-else-if="type === 'age'"
+            :key="routeKey"
+            v-model:name="name"
+            v-model:code="ruleCode"
+            :code-disabled="isEdit"
+            v-model:description="description"
+            v-model:mechanicId="mechanicId"
+            v-model:keywordIds="keywordIds"
+            v-model:spec="spec"
+            :mechanic-options="mechanicOptions"
+            :keyword-options="keywordOptions"
+            :space-id="spaceId"
             :rules="ruleHost.effectiveRules"
           />
 

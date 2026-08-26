@@ -17,63 +17,14 @@ export class PublishService {
     removedCodes: readonly string[] = [],
   ): PublishSummary {
     const diff = this.ruleDiff.classifyDraftDiff(published, draftRules, removedCodes);
-
-    const items = [
-      ...this.ruleValidation
-        .validateRuleReferences(
-          effective,
-          keywords.map((t) => ({ code: t.code, name: t.name })),
-        )
-        .map((e) => ({
-          ruleCode: e.ruleCode,
-          ruleName: e.ruleName,
-          message: this.ruleValidation.formatReferenceError(e),
-        })),
-      ...this.ruleValidation.validateRuleCodeFormat(effective).map((e) => ({
-        ruleCode: e.ruleCode,
-        ruleName: e.ruleName,
-        message: e.message,
-      })),
-      ...this.ruleValidation.validateAbilityStructure(effective, keywords).map((e) => ({
-        ruleCode: e.ruleCode,
-        ruleName: e.ruleName,
-        message: e.message,
-      })),
-      ...this.ruleValidation.validateRaceStructure(effective).map((e) => ({
-        ruleCode: e.ruleCode,
-        ruleName: e.ruleName,
-        message: e.message,
-      })),
-      ...this.ruleValidation.validateSpeciesStructure(effective).map((e) => ({
-        ruleCode: e.ruleCode,
-        ruleName: e.ruleName,
-        message: e.message,
-      })),
-      ...this.ruleValidation.validateItemModifierStructure(effective).map((e) => ({
-        ruleCode: e.ruleCode,
-        ruleName: e.ruleName,
-        message: e.message,
-      })),
-      ...this.ruleValidation.validateCheckStructure(effective).map((e) => ({
-        ruleCode: e.ruleCode,
-        ruleName: e.ruleName,
-        message: e.message,
-      })),
-      ...this.ruleValidation.validateDamageTypeStructure(effective).map((e) => ({
-        ruleCode: e.ruleCode,
-        ruleName: e.ruleName,
-        message: e.message,
-      })),
-    ];
-
-    const cycle = this.ruleValidation.findSpeciesCycle(effective);
+    const catalog = this.ruleValidation.validateCatalog(effective, keywords);
 
     return {
       added: diff.added,
       changed: diff.changed,
       removed: diff.removed,
-      problems: this.ruleDiff.groupProblems(items),
-      spaceErrors: cycle ? [this.ruleValidation.formatSpeciesCycle(cycle)] : [],
+      problems: this.ruleDiff.groupProblems(catalog.items),
+      spaceErrors: catalog.spaceErrors,
     };
   }
 }

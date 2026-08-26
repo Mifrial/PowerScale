@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch, onMounted } from 'vue';
+import { computed, ref, watch } from 'vue';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { RaceSpec } from '@/modules/Roleplay/Rule/Dto/Race/RaceSpec';
 import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec';
@@ -42,7 +42,20 @@ const emit = defineEmits<{
 }>();
 
 const expandedPanels = ref<string[]>(['general', 'race', 'characteristics', 'abilities', 'preview']);
-const innerSpec = ref<RaceSpec>(raceSpecService.createEmptyRace());
+
+function raceFromSpec(value: RuleSpec | null): RaceSpec {
+  if (!value) return raceSpecService.createEmptyRace();
+  const loaded = cloneData(value as RaceSpec);
+
+  return {
+    parent_race_code: loaded.parent_race_code ?? null,
+    cost_os: loaded.cost_os ?? 0,
+    characteristics: loaded.characteristics ?? [],
+    abilities: loaded.abilities ?? [],
+  };
+}
+
+const innerSpec = ref<RaceSpec>(raceFromSpec(props.spec));
 
 const spaceRules = computed(() => props.rules);
 
@@ -94,20 +107,8 @@ watch(
   (value) => {
     emit('update:spec', value);
   },
-  { deep: true },
+  { deep: true, immediate: true },
 );
-
-onMounted(() => {
-  if (props.spec) {
-    const loaded = cloneData(props.spec as RaceSpec);
-    innerSpec.value = {
-      parent_race_code: loaded.parent_race_code ?? null,
-      cost_os: loaded.cost_os ?? 0,
-      characteristics: loaded.characteristics ?? [],
-      abilities: loaded.abilities ?? [],
-    };
-  }
-});
 </script>
 
 <template>

@@ -18,6 +18,9 @@ import type { CharacteristicSpec } from '@/modules/Roleplay/Rule/Dto/Characteris
 import type { ResourceSpec } from '@/modules/Roleplay/Rule/Dto/ResourceSpec';
 import type { StateSpec } from '@/modules/Roleplay/Rule/Dto/State/StateSpec';
 import type { PoisonSpec } from '@/modules/Roleplay/Rule/Dto/Poison/PoisonSpec';
+import type { AgeSpec } from '@/modules/Roleplay/Rule/Dto/Age/AgeSpec';
+import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
+import type { CatalogValidationResult } from '@/modules/Roleplay/Rule/Dto/CatalogValidationResult';
 import type { ReferenceTargetType } from '@/modules/Roleplay/Rule/Dto/ReferenceTargetType';
 import type { ReferenceError } from '@/modules/Roleplay/Rule/Dto/ReferenceError';
 import type { AbilityStructureError } from '@/modules/Roleplay/Rule/Dto/AbilityStructureError';
@@ -32,6 +35,43 @@ export class RuleValidationService {
     if (type === 'keyword') return 'Признак';
 
     return RULE_TYPE_LABELS[type];
+  }
+
+  /**
+   * Тот же набор проверок, что публикация: ссылки, код, структура спек, цикл видов.
+   */
+  validateCatalog(effective: Rule[], keywords: Keyword[]): CatalogValidationResult {
+    const items = [
+      ...this.validateRuleReferences(
+        effective,
+        keywords.map((keyword) => ({ code: keyword.code, name: keyword.name })),
+      ).map((error) => ({
+        ruleCode: error.ruleCode,
+        ruleName: error.ruleName,
+        message: this.formatReferenceError(error),
+      })),
+      ...this.validateRuleCodeFormat(effective),
+      ...this.validateAbilityStructure(effective, keywords),
+      ...this.validateRaceStructure(effective),
+      ...this.validateSpeciesStructure(effective),
+      ...this.validateItemModifierStructure(effective),
+      ...this.validateCheckStructure(effective),
+      ...this.validateDamageTypeStructure(effective),
+      ...this.validateAgeStructure(effective),
+    ];
+    const cycle = this.findSpeciesCycle(effective);
+
+    return {
+      items,
+      spaceErrors: cycle ? [this.formatSpeciesCycle(cycle)] : [],
+    };
+  }
+
+  blockingMessagesForRule(result: CatalogValidationResult, ruleCode: string): string[] {
+    return [
+      ...result.items.filter((item) => item.ruleCode === ruleCode).map((item) => item.message),
+      ...result.spaceErrors,
+    ];
   }
 
   /**
@@ -108,9 +148,23 @@ export class RuleValidationService {
     for (const rule of rules) {
       if (rule.type !== 'ability') continue;
       const spec = rule.spec as AbilitySpec | undefined;
-      if (!spec) continue;
+      if (!spec) {
+        errors.push({
+          ruleName: rule.name,
+          ruleCode: rule.code,
+          message: 'способность должна содержать спеку',
+        });
+        continue;
+      }
       const type = this.abilityTypeFromRule(rule, keywords);
-      if (!type) continue;
+      if (!type) {
+        errors.push({
+          ruleName: rule.name,
+          ruleCode: rule.code,
+          message: 'у способности должен быть выбран тип',
+        });
+        continue;
+      }
 
       const components = 'action_components' in spec ? spec.action_components : [];
 
@@ -316,6 +370,63 @@ export class RuleValidationService {
             ruleName: rule.name,
             message: `«${code}» нельзя повесить на тип урона`,
           });
+        }
+      }
+    }
+
+    return errors;
+  }
+
+  validateAgeStructure(rules: Rule[]): { ruleCode: string; ruleName: string; message: string }[] {
+    const errors: { ruleCode: string; ruleName: string; message: string }[] = [];
+
+    for (const rule of rules) {
+      if (rule.type !== 'age') continue;
+      const spec = rule.spec as AgeSpec | undefined;
+      if (!spec || spec.type !== 'age') {
+        errors.push({
+          ruleCode: rule.code,
+          ruleName: rule.name,
+          message: 'возраст должен содержать спеку type age',
+        });
+        continue;
+      }
+      const ages = spec.ages ?? [];
+      if (ages.length < 1) {
+        errors.push({
+          ruleCode: rule.code,
+          ruleName: rule.name,
+          message: 'возраст должен содержать хотя бы одну ступень',
+        });
+        continue;
+      }
+      const names = new Set<string>();
+      for (const stage of ages) {
+        const name = stage.name?.trim() ?? '';
+        if (!name) {
+          errors.push({
+            ruleCode: rule.code,
+            ruleName: rule.name,
+            message: 'у возрастной ступени должно быть имя',
+          });
+          continue;
+        }
+        if (names.has(name)) {
+          errors.push({
+            ruleCode: rule.code,
+            ruleName: rule.name,
+            message: `ступень «${name}» указана несколько раз`,
+          });
+        }
+        names.add(name);
+        for (const effect of stage.effects ?? []) {
+          if (!effect.characteristic_code) {
+            errors.push({
+              ruleCode: rule.code,
+              ruleName: rule.name,
+              message: `ступень «${name}»: у эффекта не указана характеристика`,
+            });
+          }
         }
       }
     }
@@ -788,6 +899,18 @@ export class RuleValidationService {
         }
         if (check.difficulty_input.kind === 'from_state' && check.difficulty_input.state_code) {
           collect({ code: check.difficulty_input.state_code, type: 'state' });
+        }
+        break;
+      }
+
+      case 'age': {
+        const age = spec as AgeSpec;
+        for (const stage of age.ages ?? []) {
+          for (const effect of stage.effects ?? []) {
+            if (effect.characteristic_code) {
+              collect({ code: effect.characteristic_code, type: 'characteristic' });
+            }
+          }
         }
         break;
       }

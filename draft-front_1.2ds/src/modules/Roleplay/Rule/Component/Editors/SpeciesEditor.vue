@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { computed, ref, watch, onMounted } from 'vue';
+import { computed, ref, watch } from 'vue';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { SpeciesSpec } from '@/modules/Roleplay/Rule/Dto/Race/SpeciesSpec';
 import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec';
+import type { AgeRange } from '@/modules/Roleplay/Rule/Dto/Race/AgeRange';
 import { raceSpecService } from '@/modules/Roleplay/Rule/Service/Instance/raceSpecService';
 import RuleEditorBase from '@/modules/Roleplay/Rule/Component/Editors/RuleEditorBase.vue';
+import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
 import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
 
 const props = defineProps<{
@@ -31,8 +33,20 @@ const emit = defineEmits<{
   'update:spec': [value: SpeciesSpec];
 }>();
 
-const expandedPanels = ref<string[]>(['general', 'parent', 'abilities']);
-const innerSpec = ref<SpeciesSpec>(raceSpecService.createEmptySpecies());
+const expandedPanels = ref<string[]>(['general', 'parent', 'abilities', 'ageYears']);
+
+function speciesFromSpec(value: RuleSpec | null): SpeciesSpec {
+  if (!value) return raceSpecService.createEmptySpecies();
+  const loaded = cloneData(value as SpeciesSpec);
+
+  return {
+    parent_race_code: loaded.parent_race_code ?? null,
+    abilities: loaded.abilities ?? [],
+    age_years: loaded.age_years ? cloneData(loaded.age_years) : undefined,
+  };
+}
+
+const innerSpec = ref<SpeciesSpec>(speciesFromSpec(props.spec));
 
 const spaceRules = computed(() => props.rules);
 
@@ -72,18 +86,28 @@ watch(
   (value) => {
     emit('update:spec', value);
   },
-  { deep: true },
+  { deep: true, immediate: true },
 );
 
-onMounted(() => {
-  if (props.spec) {
-    const loaded = cloneData(props.spec as SpeciesSpec);
-    innerSpec.value = {
-      parent_race_code: loaded.parent_race_code ?? null,
-      abilities: loaded.abilities ?? [],
-    };
-  }
-});
+function addAgeYear(): void {
+  innerSpec.value = {
+    ...innerSpec.value,
+    age_years: [...(innerSpec.value.age_years ?? []), { age: '', ageStart: 0, ageEnd: 0 }],
+  };
+}
+
+function patchAgeYear(index: number, patch: Partial<AgeRange>): void {
+  const ageYears = [...(innerSpec.value.age_years ?? [])];
+  ageYears[index] = { ...ageYears[index], ...patch };
+  innerSpec.value = { ...innerSpec.value, age_years: ageYears };
+}
+
+function removeAgeYear(index: number): void {
+  innerSpec.value = {
+    ...innerSpec.value,
+    age_years: (innerSpec.value.age_years ?? []).filter((_, i) => i !== index),
+  };
+}
 </script>
 
 <template>
@@ -163,6 +187,50 @@ onMounted(() => {
           <v-btn variant="text" color="primary" size="small" @click="addAbility">
             <v-icon start>mdi-plus</v-icon>
             Добавить способность
+          </v-btn>
+        </v-expansion-panel-text>
+      </v-expansion-panel>
+
+      <v-expansion-panel value="ageYears">
+        <v-expansion-panel-title>Таблица лет</v-expansion-panel-title>
+        <v-expansion-panel-text>
+          <div class="text-body-2 text-medium-emphasis mb-2">
+            Полуинтервал [начало, конец): имя ступени из правила «Возраст». Наследуется расами цепочки.
+          </div>
+          <div v-for="(range, index) in innerSpec.age_years ?? []" :key="index" class="d-flex ga-2 align-center mb-1">
+            <v-text-field
+              :model-value="range.age"
+              @update:model-value="(v) => patchAgeYear(index, { age: v ?? '' })"
+              label="Ступень"
+              density="compact"
+              hide-details
+              class="flex-grow-1"
+            />
+            <ClampedNumberField
+              :model-value="range.ageStart"
+              @update:model-value="(v: number) => patchAgeYear(index, { ageStart: v })"
+              label="С"
+              :min="0"
+              density="compact"
+              hide-details
+              style="max-width: 100px"
+            />
+            <ClampedNumberField
+              :model-value="range.ageEnd"
+              @update:model-value="(v: number) => patchAgeYear(index, { ageEnd: v })"
+              label="До"
+              :min="0"
+              density="compact"
+              hide-details
+              style="max-width: 100px"
+            />
+            <v-btn icon size="small" color="error" variant="text" @click="removeAgeYear(index)">
+              <v-icon>mdi-delete</v-icon>
+            </v-btn>
+          </div>
+          <v-btn variant="text" color="primary" size="small" @click="addAgeYear">
+            <v-icon start>mdi-plus</v-icon>
+            Добавить диапазон
           </v-btn>
         </v-expansion-panel-text>
       </v-expansion-panel>

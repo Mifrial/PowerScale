@@ -61,7 +61,7 @@ watch(
 );
 
 const specToEmit = computed<CheckSpec>(() => cloneData(draft.value));
-watch(specToEmit, (value) => emit('update:spec', value), { deep: true });
+watch(specToEmit, (value) => emit('update:spec', value), { deep: true, immediate: true });
 
 const parentOptions = computed(() =>
   props.rules

@@ -60,6 +60,36 @@ const typeOptions = Object.entries(ABILITY_TYPE_LABELS).map(([value, label]) => 
   value: value as AbilityType,
 }));
 
+function emptyAbilityDraft(): AbilitySpecDraft {
+  return {
+    zones: {},
+    requirements: [],
+    grants: [],
+    action_components: [],
+    parent_ability_code: null,
+  };
+}
+
+function abilityDraftFromSpec(value: RuleSpec | null): AbilitySpecDraft {
+  if (!value || typeof value !== 'object') return emptyAbilityDraft();
+  const loaded = cloneData(value as AbilitySpecDraft);
+
+  return {
+    type: loaded.type,
+    zones: loaded.zones ?? {},
+    requirements: loaded.requirements ?? [],
+    grants: loaded.grants ?? [],
+    action_components: loaded.action_components ?? [],
+    process: loaded.process,
+    spell: loaded.spell,
+    parent_ability_code: loaded.parent_ability_code ?? null,
+    group_code: loaded.group_code ?? null,
+    selectLimit: loaded.selectLimit ?? 1,
+  };
+}
+
+const innerSpec = ref<AbilitySpecDraft>(abilityDraftFromSpec(props.spec));
+
 const currentType = computed<AbilityType | null>(() => {
   if (innerSpec.value.type) return innerSpec.value.type;
   const codes = props.keywordIds
@@ -81,14 +111,6 @@ const typeModel = computed<AbilityType | null>({
   set: (v) => setType(v),
 });
 
-const innerSpec = ref<AbilitySpecDraft>({
-  zones: {},
-  requirements: [],
-  grants: [],
-  action_components: [],
-  parent_ability_code: null,
-});
-
 const characteristics = computed<CharacteristicRef[]>(() =>
   ruleReferenceService.characteristicOptions(props.rules, props.spaceId),
 );
@@ -106,6 +128,10 @@ const keywords = computed<KeywordRef[]>(() => keywordStore.keywords.map((t) => (
 const abilityKeywords = computed<KeywordRef[]>(() => keywords.value);
 
 const sources = computed<SourceRef[]>(() => ruleReferenceService.sourceOptions(props.rules));
+
+const damageTypes = computed(() => ruleReferenceService.damageTypeOptions(props.rules));
+
+const senses = computed(() => ruleReferenceService.senseOptions(props.rules));
 
 const zoneOptions = computed<{ label: string; value: string }[]>(() => ruleReferenceService.zoneOptions(props.rules));
 
@@ -178,35 +204,14 @@ const specToEmit = computed<AbilitySpec | AbilitySpecDraft>(() => {
   return abilitySpecService.prune(plain, type);
 });
 
-watch(
-  specToEmit,
-  (value) => {
-    emit('update:spec', cloneData(value) as AbilitySpec);
-  },
-  { deep: true },
-);
+watch(specToEmit, (value) => emit('update:spec', cloneData(value) as AbilitySpec), { deep: true, immediate: true });
 
 onMounted(async () => {
   if (keywordStore.keywords.length === 0) {
     await keywordStore.fetchTags();
   }
-  if (props.spec) {
-    const loaded = cloneData(props.spec as AbilitySpecDraft);
-    innerSpec.value = {
-      type: loaded.type,
-      zones: loaded.zones ?? {},
-      requirements: loaded.requirements ?? [],
-      grants: loaded.grants ?? [],
-      action_components: loaded.action_components ?? [],
-      process: loaded.process,
-      spell: loaded.spell,
-      parent_ability_code: loaded.parent_ability_code ?? null,
-      group_code: loaded.group_code ?? null,
-      selectLimit: loaded.selectLimit ?? 1,
-    };
-    if ((innerSpec.value.type === 'spell' || innerSpec.value.type === 'action') && !hasActionPointCost()) {
-      innerSpec.value = abilitySpecService.ensureActionPointCost(innerSpec.value, isSpell.value);
-    }
+  if ((innerSpec.value.type === 'spell' || innerSpec.value.type === 'action') && !hasActionPointCost()) {
+    innerSpec.value = abilitySpecService.ensureActionPointCost(innerSpec.value, isSpell.value);
   }
 });
 
@@ -235,9 +240,9 @@ function hasActionPointCost(): boolean {
             item-title="label"
             item-value="value"
             label="Тип способности"
+            :rules="[(v) => !!v || 'Обязательное поле']"
             density="compact"
-            hide-details
-            clearable
+            hide-details="auto"
             class="mb-2"
           />
           <div class="text-body-2 text-medium-emphasis mb-2">
@@ -406,6 +411,8 @@ function hasActionPointCost(): boolean {
                   :keywords="keywords"
                   :items="items"
                   :sources="sources"
+                  :damage-types="damageTypes"
+                  :senses="senses"
                   @update:model-value="(v) => updateGrant(levelIndex, grantIndex, v)"
                   @remove="removeGrant(levelIndex, grantIndex)"
                 />

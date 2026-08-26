@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch } from 'vue';
 import RuleEditorBase from '@/modules/Roleplay/Rule/Component/Editors/RuleEditorBase.vue';
 import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
@@ -34,7 +34,24 @@ const emit = defineEmits<{
 
 const expandedPanels = ref<string[]>(['general', 'resource']);
 
-const innerSpec = ref<ResourceSpec>(resourceSpecService.createEmpty());
+function resourceFromSpec(value: RuleSpec | null): ResourceSpec {
+  if (!value) return resourceSpecService.createEmpty();
+  const spec = value as ResourceSpec;
+  const legacy = spec as ResourceSpec & { initial_value?: DimensionalNumberValue | number | null };
+  const base: DimensionalNumberValue | number | undefined =
+    spec.limit?.base ?? (legacy.initial_value as DimensionalNumberValue | number | null | undefined) ?? undefined;
+
+  return {
+    is_dimensional: spec.is_dimensional ?? true,
+    auto_add: spec.auto_add ?? false,
+    limit: {
+      base: base ?? (spec.is_dimensional ? { base: 3, size: 0 } : 0),
+      adjustments: spec.limit?.adjustments ?? [],
+    },
+  };
+}
+
+const innerSpec = ref<ResourceSpec>(resourceFromSpec(props.spec));
 
 const characteristics = computed(() =>
   (props.rules ?? [])
@@ -78,26 +95,8 @@ watch(
   (value) => {
     emit('update:spec', value);
   },
-  { deep: true },
+  { deep: true, immediate: true },
 );
-
-onMounted(() => {
-  if (props.spec) {
-    const spec = props.spec as ResourceSpec;
-    const legacy = spec as ResourceSpec & { initial_value?: DimensionalNumberValue | number | null };
-    // Мягкая миграция старых спеков (initial_value → limit.base).
-    const base: DimensionalNumberValue | number | undefined =
-      spec.limit?.base ?? (legacy.initial_value as DimensionalNumberValue | number | null | undefined) ?? undefined;
-    innerSpec.value = {
-      is_dimensional: spec.is_dimensional ?? true,
-      auto_add: spec.auto_add ?? false,
-      limit: {
-        base: base ?? (spec.is_dimensional ? { base: 3, size: 0 } : 0),
-        adjustments: spec.limit?.adjustments ?? [],
-      },
-    };
-  }
-});
 
 function addAdjustment(): void {
   if (!innerSpec.value.limit) return;

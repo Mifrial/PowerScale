@@ -1157,3 +1157,43 @@ describe('validateDamageTypeStructure', () => {
     expect(errors[0]?.message).toContain('родительный и дательный');
   });
 });
+
+describe('validateCatalog', () => {
+  it('собирает проблему ссылки и не блокирует чужое правило', () => {
+    const effective: Rule[] = [
+      baseRule('ok', 'ok', 'simple'),
+      baseRule('i', 'sword', 'item', {
+        special_rule_codes: ['missing-simple'],
+      }),
+    ];
+    const result = ruleValidationService.validateCatalog(effective, []);
+    expect(result.items.some((item) => item.ruleCode === 'sword' && item.message.includes('missing-simple'))).toBe(
+      true,
+    );
+    expect(ruleValidationService.blockingMessagesForRule(result, 'ok')).toEqual([]);
+    expect(ruleValidationService.blockingMessagesForRule(result, 'sword')[0]).toContain('missing-simple');
+  });
+
+  it('требует спеку и тип у способности', () => {
+    const noSpec = ruleValidationService.validateAbilityStructure([baseRule('a', 'skill', 'ability')], []);
+    expect(noSpec[0]?.message).toContain('спеку');
+    const noType = ruleValidationService.validateAbilityStructure(
+      [baseRule('a', 'skill', 'ability', { zones: {}, grants: [], requirements: [] })],
+      [],
+    );
+    expect(noType[0]?.message).toContain('тип');
+  });
+});
+
+describe('validateAgeStructure', () => {
+  it('требует ступени с именами', () => {
+    const empty = ruleValidationService.validateAgeStructure([
+      baseRule('age', 'age', 'age', { type: 'age', ages: [] }),
+    ]);
+    expect(empty[0]?.message).toContain('хотя бы одну ступень');
+    const unnamed = ruleValidationService.validateAgeStructure([
+      baseRule('age', 'age', 'age', { type: 'age', ages: [{ name: '  ', ol: 0, featureLimit: 0, effects: [] }] }),
+    ]);
+    expect(unnamed[0]?.message).toContain('имя');
+  });
+});
