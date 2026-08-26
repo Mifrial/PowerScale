@@ -660,10 +660,12 @@ onUnmounted(() => {
   min-height: 360px;
 }
 .game-chat-thread {
+  --chat-thread-chrome: 70px;
   flex: 79 1 0;
   min-width: 0;
   height: calc(100vh - var(--v-layout-top) - 70px);
 }
+.game-chat-thread :deep(.chat-thread-root),
 .game-chat-thread :deep(.chat-thread) {
   width: 100%;
   min-width: 0;

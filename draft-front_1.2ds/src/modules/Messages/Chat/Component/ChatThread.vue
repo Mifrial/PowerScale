@@ -122,67 +122,80 @@ function retryAttach(): void {
 </script>
 
 <template>
-  <v-card v-if="chatId === null" class="chat-thread-empty">
-    <v-card-text class="text-medium-emphasis text-center pa-8">{{ emptyLabel }}</v-card-text>
-  </v-card>
+  <!-- Один корень: async-обёртка из Chat init иначе глотает class/height (фрагмент). -->
+  <div class="chat-thread-root">
+    <v-card v-if="chatId === null" class="chat-thread-empty">
+      <v-card-text class="text-medium-emphasis text-center pa-8">{{ emptyLabel }}</v-card-text>
+    </v-card>
 
-  <v-card v-else-if="store.chatsError" class="chat-thread-empty">
-    <v-card-text class="text-center pa-8">
-      <div class="text-error text-body-2 mb-4">{{ store.chatsError }}</div>
-      <v-btn variant="tonal" color="primary" size="small" @click="store.fetchChats()"> Попробовать снова </v-btn>
-    </v-card-text>
-  </v-card>
+    <v-card v-else-if="store.chatsError" class="chat-thread-empty">
+      <v-card-text class="text-center pa-8">
+        <div class="text-error text-body-2 mb-4">{{ store.chatsError }}</div>
+        <v-btn variant="tonal" color="primary" size="small" @click="store.fetchChats()"> Попробовать снова </v-btn>
+      </v-card-text>
+    </v-card>
 
-  <div v-else-if="loading" class="d-flex justify-center pa-8">
-    <v-progress-circular indeterminate width="2" size="28" color="primary" />
-  </div>
-
-  <div v-else-if="store.chatError" class="chat-thread-error">
-    <div class="text-error text-body-2 mb-2">{{ store.chatError }}</div>
-    <v-btn variant="tonal" color="primary" size="small" @click="retryAttach"> Попробовать снова </v-btn>
-  </div>
-
-  <v-card v-else class="chat-thread" border>
-    <ChatMessageList
-      :chat-id="chatId"
-      :renderer-context="rendererContext"
-      :open-entity="openEntity"
-      :build-folds="buildFolds"
-      :live-fold-ids="liveFoldIds"
-    />
-    <ChatInput
-      :sending="store.sending"
-      :disabled="!canWrite"
-      :action-error="store.actionError"
-      :speakers="speakers"
-      :default-speaker="defaultSpeaker"
-      :active-speaker-key="activeSpeakerKey"
-      :speaker-action="speakerAction"
-      :token-sources="tokenSources"
-      :process-attachments="processAttachments"
-      :allow-visibility="allowVisibility"
-      :visibility-role-options="roleOptions"
-      :visibility-options="userOptions"
-      :send="handleSend"
-      @update:active-speaker-key="emit('update:active-speaker-key', $event)"
-    />
-    <div
-      v-if="!canWrite && chat?.visibility === 'public'"
-      class="text-caption text-medium-emphasis text-center pa-1 border-t"
-    >
-      Чат доступен только для чтения
+    <div v-else-if="loading" class="d-flex justify-center pa-8">
+      <v-progress-circular indeterminate width="2" size="28" color="primary" />
     </div>
-  </v-card>
+
+    <div v-else-if="store.chatError" class="chat-thread-error">
+      <div class="text-error text-body-2 mb-2">{{ store.chatError }}</div>
+      <v-btn variant="tonal" color="primary" size="small" @click="retryAttach"> Попробовать снова </v-btn>
+    </div>
+
+    <v-card v-else class="chat-thread" border>
+      <ChatMessageList
+        :chat-id="chatId"
+        :renderer-context="rendererContext"
+        :open-entity="openEntity"
+        :build-folds="buildFolds"
+        :live-fold-ids="liveFoldIds"
+      />
+      <ChatInput
+        :sending="store.sending"
+        :disabled="!canWrite"
+        :action-error="store.actionError"
+        :speakers="speakers"
+        :default-speaker="defaultSpeaker"
+        :active-speaker-key="activeSpeakerKey"
+        :speaker-action="speakerAction"
+        :token-sources="tokenSources"
+        :process-attachments="processAttachments"
+        :allow-visibility="allowVisibility"
+        :visibility-role-options="roleOptions"
+        :visibility-options="userOptions"
+        :send="handleSend"
+        @update:active-speaker-key="emit('update:active-speaker-key', $event)"
+      />
+      <div
+        v-if="!canWrite && chat?.visibility === 'public'"
+        class="text-caption text-medium-emphasis text-center pa-1 border-t"
+      >
+        Чат доступен только для чтения
+      </div>
+    </v-card>
+  </div>
 </template>
 
 <style scoped>
-.chat-thread {
+.chat-thread-root {
   display: flex;
   flex-direction: column;
   width: 100%;
   min-width: 0;
-  height: calc(100vh - var(--v-layout-top) - 160px);
+  height: calc(100vh - var(--v-layout-top) - var(--chat-thread-chrome, 160px));
   min-height: 360px;
+  overflow: hidden;
+}
+.chat-thread {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
   overflow: hidden;
 }
 .chat-thread-empty {
