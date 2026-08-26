@@ -5,7 +5,16 @@ import vuetify, { transformAssetUrls } from 'vite-plugin-vuetify';
 import { VueMcp } from 'vite-plugin-vue-mcp';
 import { resolve } from 'path';
 
+/** GitHub Pages отдаёт проект с /<repo>/; локальный dev остаётся на корне. */
+function publicBase(): string {
+  const raw = process.env.VITE_BASE ?? '/';
+  if (raw === '') return '/';
+
+  return raw.endsWith('/') ? raw : `${raw}/`;
+}
+
 export default defineConfig({
+  base: publicBase(),
   plugins: [vue({ template: { transformAssetUrls } }), vuetify({ autoImport: true }), VueMcp()],
   server: { port: 3000 },
   resolve: {
