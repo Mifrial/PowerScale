@@ -9,7 +9,7 @@ import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec';
 import type { DiceRng } from '@/modules/Roleplay/Game/Dto/DiceRng';
 import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import { advantageEntries, netSourceDelta } from '@/modules/Roleplay/Rule/Utils/aggregateSourceDeltas';
+import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/Service/Instance/aggregateSourceDeltasService';
 
 const MECHANICS: Mechanic[] = [
   { id: 1, code: 'six_one_rule', name: 'Правило 6 и 1', description: '', version: '4.5.0' },
@@ -58,7 +58,7 @@ function spec(partial: Partial<DiceRollSpec> & { adv?: number } = {}): DiceRollS
     efficiency: 3,
     dieSize: 0,
     ...rest,
-    advantages: advantages ?? advantageEntries(adv ?? 0),
+    advantages: advantages ?? aggregateSourceDeltasService.advantageEntries(adv ?? 0),
   };
 }
 
@@ -178,7 +178,7 @@ describe('RollEngine: дефолты из правила «Бросок»', () =
       MECHANICS,
     );
     expect(result.spec.efficiency).toBe(2);
-    expect(netSourceDelta(result.spec.advantages)).toBe(1);
+    expect(aggregateSourceDeltasService.netSourceDelta(result.spec.advantages)).toBe(1);
     expect(result.spec.dieSize).toBe(3);
     expect(result.spec.diceCount).toBe(4);
     expect(result.spec.dieFaces).toBe(8);
@@ -192,7 +192,7 @@ describe('RollEngine: дефолты из правила «Бросок»', () =
       MECHANICS,
     );
     expect(result.spec.efficiency).toBe(5);
-    expect(netSourceDelta(result.spec.advantages)).toBe(-2);
+    expect(aggregateSourceDeltasService.netSourceDelta(result.spec.advantages)).toBe(-2);
   });
 
   it('помехи/преимущества разных источников суммируются, одного — max+/min−', () => {

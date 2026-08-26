@@ -20,6 +20,7 @@ import {
   combatKey,
 } from '@/modules/Roleplay/Game/Mock/mockGameCombatOverlays';
 import { gameDetails } from '@/modules/Roleplay/Game/Mock/mockGames';
+import '@/modules/Roleplay/Game/Mock/mockCharacterSessionOverlay';
 
 // Снимки фикстур: тесты мутируют синглтоны-моки — beforeEach возвращает их в исходное состояние.
 const initialVersion1 = JSON.parse(JSON.stringify(versions[1])) as CharacterVersion;

@@ -1,3 +1,6 @@
+import type { RollMechanicPayload } from '@/modules/Roleplay/Rule/Dto/RollMechanicPayload';
+import type { RollScoreAdjustPayload } from '@/modules/Roleplay/Rule/Dto/RollScoreAdjustPayload';
+
 /**
  * Контекст инстанции механики на правиле (rule.mechanic_payload).
  * Разные хендлеры несут свой payload; дискриминатор — поле type.
@@ -32,27 +35,3 @@ export type MechanicPayload =
       /** Множитель силы раны от истощения (1 колющий, 2 рубящий). */
       multiplier: number;
     };
-
-/**
- * Дефолты броска (структурные, без зависимости Rule → Game): заполняются из правила
- * «Бросок» ревизии, если поле броска не задано пользователем. Поля опциональны —
- * механику «Бросок» в полном виде реализует отдельный заход (Вариант Б).
- */
-export interface RollMechanicPayload {
-  diceCount?: number;
-  dieFaces?: number;
-  efficiency?: number;
-  adv?: number;
-  dieSize?: number;
-  /** Коды механик, которые механика броска применяет всегда (если их правила есть в ревизии). */
-  sub_mechanics?: string[];
-}
-
-/**
- * Дельты успехов механики «подсчёта броска»: «1» начисляет `oneDelta` доп. успехов,
- * грань куба списывает `faceDelta`. По умолчанию +1 / −1 (как правило «6 и 1»).
- */
-export interface RollScoreAdjustPayload {
-  oneDelta?: number;
-  faceDelta?: number;
-}

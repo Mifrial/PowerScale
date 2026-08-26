@@ -1,6 +1,5 @@
-export type CheckAllowedModes = 'solo' | 'joint' | 'both';
-
-export type CheckDifficultyInput = { kind: 'ask' } | { kind: 'from_state'; state_code: string } | { kind: 'none' };
+import type { CheckAllowedModes } from '@/modules/Roleplay/Rule/Enum/CheckAllowedModes';
+import type { CheckDifficultyInput } from '@/modules/Roleplay/Rule/Dto/Check/CheckDifficultyInput';
 
 /**
  * Спека правила type='check'. Наследование parent_check_code — механики броска и матчинг грантов.

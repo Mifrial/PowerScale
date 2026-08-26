@@ -49,10 +49,11 @@ describe('draftRules store persistence', () => {
     expect(fresh.hasDraft(1)).toBe(false);
   });
 
-  it('невалидный JSON в хранилище не ломает стор', () => {
+  it('невалидный JSON в хранилище не ломает стор и помечает discarded', () => {
     localStorage.setItem('powerscale.drafts.v1', '{not json');
     const store = useDraftRuleStore();
     expect(store.hasDraft(1)).toBe(false);
+    expect(store.storageDiscarded).toBe(true);
   });
 
   it('неподходящая структура игнорируется', () => {

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import { asCheckSpec } from '@/modules/Roleplay/Rule/Utils/checkResolution';
-import { checkVersusLabel } from '@/modules/Roleplay/Rule/Utils/checkLaunch';
+import { checkResolutionService } from '@/modules/Roleplay/Rule/Service/Instance/checkResolutionService';
+import { checkLaunchService } from '@/modules/Roleplay/Rule/Service/Instance/checkLaunchService';
 import { computed } from 'vue';
 
 const props = defineProps<{
@@ -9,7 +9,7 @@ const props = defineProps<{
   rules: Rule[];
 }>();
 
-const spec = computed(() => asCheckSpec(props.rule));
+const spec = computed(() => checkResolutionService.asCheckSpec(props.rule));
 const parent = computed(() => {
   const code = spec.value?.parent_check_code;
   if (!code) return undefined;
@@ -31,7 +31,7 @@ const attachedRules = computed(() => {
     .filter((rule): rule is Rule => rule !== undefined);
 });
 
-const versusLabel = computed(() => checkVersusLabel(props.rule, props.rules));
+const versusLabel = computed(() => checkLaunchService.checkVersusLabel(props.rule, props.rules));
 
 function difficultyLabel(): string {
   const current = spec.value;

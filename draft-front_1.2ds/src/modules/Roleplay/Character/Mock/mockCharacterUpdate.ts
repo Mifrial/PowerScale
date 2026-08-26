@@ -3,6 +3,8 @@ import type { UpdateCharacterData } from '@/modules/Roleplay/Character/Dto/Edito
 import type { AddCustomRuleData } from '@/modules/Roleplay/Character/Dto/AddCustomRuleData';
 import type { UpdateCustomRuleData } from '@/modules/Roleplay/Character/Dto/UpdateCustomRuleData';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
+import type { CharacterSessionTarget } from '@/modules/Roleplay/Character/Dto/CharacterSessionTarget';
+import { getCharacterSessionOverlay } from '@/modules/Roleplay/Character/init';
 import {
   versions,
   fetchCharacter,
@@ -13,49 +15,23 @@ import {
   appendCustomRule,
   updateCustomRuleInVersion,
 } from '@/modules/Roleplay/Character/Mock/mockCharacters';
-import {
-  gameCharacterMemberships,
-  syncCharacterVersionToMemberships,
-  isSessionActive,
-} from '@/modules/Roleplay/Game/Mock/mockGameMemberships';
-import {
-  combatKey,
-  writeOverlaySheet,
-  getStoredCombatOverlay,
-} from '@/modules/Roleplay/Game/Mock/mockGameCombatOverlays';
 
 /**
  * Одиночный роутер обновлений персонажа (модель версий — Баг 1, 2026-08-20): один
  * `updateCharacter` сам решает, куда писать. Изменения во время активной сессии
  * (approved + игра playing) — в сессионный оверлей; все остальные — в latest (`versions[id]`)
- * с автоподачей на модерацию. Избегает круговых импортов: роутер импортируют mockCharacterApi
- * и mockGameLoot, а mockCharacters остаётся «чистым» хранилищем версий.
+ * с автоподачей на модерацию. Сессионный слой регистрирует Game mock.
  */
 
-interface SessionTarget {
-  gameId: number;
-  characterId: number;
-  activeVersion: CharacterVersion | null;
-}
-
 /** Членство-цель активной сессии: approved + игра playing (по явному gameId или «текущей сессии»). */
-export function sessionTarget(characterId: number, gameId?: number): SessionTarget | null {
-  const candidates = gameCharacterMemberships.filter(
-    (membership) => membership.characterId === characterId && membership.membershipStatus === 'approved',
-  );
-  const target =
-    gameId !== undefined
-      ? (candidates.find((membership) => membership.gameId === gameId) ?? null)
-      : (candidates.find((membership) => isSessionActive(membership.gameId)) ?? null);
-  if (!target || !isSessionActive(target.gameId)) return null;
-
-  return { gameId: target.gameId, characterId: target.characterId, activeVersion: target.activeVersion };
+export function sessionTarget(characterId: number, gameId?: number): CharacterSessionTarget | null {
+  return getCharacterSessionOverlay()?.sessionTarget(characterId, gameId) ?? null;
 }
 
 /** После изменения latest: перепривязка кэша листа + автоподача членств. */
 export function applyVersionChange(characterId: number): void {
   syncCharacterVersion(characterId);
-  syncCharacterVersionToMemberships(characterId);
+  getCharacterSessionOverlay()?.syncLatestToMemberships(characterId);
 }
 
 /**
@@ -69,8 +45,9 @@ export async function updateCharacter(
   _signal?: AbortSignal,
 ): Promise<CharacterDetail> {
   const target = sessionTarget(id, data.gameId);
-  if (target) {
-    await writeOverlaySheet(target.gameId, combatKey('character', id), data.version);
+  const overlay = getCharacterSessionOverlay();
+  if (target && overlay) {
+    await overlay.writeSheet(target.gameId, target.characterId, data.version);
 
     return fetchCharacter(id);
   }
@@ -91,9 +68,10 @@ export async function addCustomRule(
   _signal?: AbortSignal,
 ): Promise<CharacterDetail> {
   const target = sessionTarget(id);
-  if (target) {
+  const overlay = getCharacterSessionOverlay();
+  if (target && overlay) {
     const version = await overlaySheetBase(target, id);
-    await writeOverlaySheet(target.gameId, combatKey('character', id), appendCustomRule(version, data));
+    await overlay.writeSheet(target.gameId, target.characterId, appendCustomRule(version, data));
 
     return fetchCharacter(id);
   }
@@ -115,11 +93,12 @@ export async function updateCustomRule(
   _signal?: AbortSignal,
 ): Promise<CharacterDetail> {
   const target = sessionTarget(id);
-  if (target) {
+  const overlay = getCharacterSessionOverlay();
+  if (target && overlay) {
     const version = await overlaySheetBase(target, id);
-    await writeOverlaySheet(
+    await overlay.writeSheet(
       target.gameId,
-      combatKey('character', id),
+      target.characterId,
       await updateCustomRuleInVersion(version, entryId, data),
     );
 
@@ -133,9 +112,9 @@ export async function updateCustomRule(
 }
 
 /** База оверлейного листа для правок: существующий sheet или копия активной версии. */
-export async function overlaySheetBase(target: SessionTarget, characterId: number): Promise<CharacterVersion> {
-  const stored = getStoredCombatOverlay(target.gameId, combatKey('character', characterId));
-  if (stored?.sheet) return stored.sheet;
+export async function overlaySheetBase(target: CharacterSessionTarget, characterId: number): Promise<CharacterVersion> {
+  const stored = getCharacterSessionOverlay()?.readSheet(target.gameId, characterId);
+  if (stored) return stored;
   const active = target.activeVersion ?? versions[characterId];
   if (!active) throw new Error(`Character ${characterId} not found`);
 

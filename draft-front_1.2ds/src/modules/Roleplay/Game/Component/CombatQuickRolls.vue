@@ -1,16 +1,15 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { sendCombatChat } from '@/modules/Roleplay/Game/Utils/combatChatSend';
+import { combatChatSendService } from '@/modules/Roleplay/Game/Service/Instance/combatChatSendService';
+
 import { getGameApi } from '@/modules/Roleplay/Game/init';
-import { characterOverviewService } from '@/modules/Roleplay/Character/Service/Instance/characterOverviewService';
+import { characterOverviewService } from '@/modules/Roleplay/Character/init';
 import { ROLL_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ATTACHMENT_TYPE';
-import { rollCharacteristic } from '@/modules/Roleplay/Game/Utils/characteristicRoll';
-import {
-  combatCardModel,
-  quickRollRecords,
-  resolveQuickRollRecords,
-  type QuickRollRecord,
-} from '@/modules/Roleplay/Game/Utils/combatCardModel';
+import { characteristicRollService } from '@/modules/Roleplay/Game/Service/Instance/characteristicRollService';
+
+import type { QuickRollRecord } from '@/modules/Roleplay/Game/Dto/QuickRollRecord';
+import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
+
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
@@ -45,7 +44,7 @@ const emit = defineEmits<{
   'toggle-quick-roll': [entityKey: string, ruleId: string];
 }>();
 
-const sendChat = sendCombatChat(props.gameId);
+const sendChat = combatChatSendService.sendCombatChat(props.gameId);
 
 const overlays = ref<GameCombatOverlay[]>([]);
 const error = ref<string | null>(null);
@@ -82,7 +81,7 @@ const selectedOverlay = computed(() => overlays.value.find((item) => item.entity
 const model = computed(() =>
   selectedKey.value === null
     ? null
-    : combatCardModel(
+    : combatCardModelService.combatCardModel(
         selectedKey.value,
         props.memberships,
         props.npcs,
@@ -101,7 +100,10 @@ const overview = computed(() =>
 const records = computed<QuickRollRecord[]>(() => {
   if (selectedKey.value === null || !overview.value) return [];
 
-  return resolveQuickRollRecords(props.quickRolls[selectedKey.value] ?? [], quickRollRecords(overview.value));
+  return combatCardModelService.resolveQuickRollRecords(
+    props.quickRolls[selectedKey.value] ?? [],
+    combatCardModelService.quickRollRecords(overview.value),
+  );
 });
 
 const speaker = computed<ChatSpeaker>(() => {
@@ -117,7 +119,7 @@ async function rollRecord(record: QuickRollRecord): Promise<void> {
   if (props.chatId === null) return;
   error.value = null;
   try {
-    const result = rollCharacteristic(
+    const result = characteristicRollService.rollCharacteristic(
       {
         name: record.name,
         value: record.value,

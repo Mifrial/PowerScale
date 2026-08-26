@@ -6,8 +6,9 @@ import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOv
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { StateSpec } from '@/modules/Roleplay/Rule/Dto/State/StateSpec';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
-import { combatActionPoints } from '@/modules/Roleplay/Game/Utils/combatCardModel';
-import { ACTION_POINTS_CODE } from '@/modules/Roleplay/Game/Utils/applyAttackDamage';
+import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
+
+import { ACTION_POINTS_CODE } from '@/modules/Roleplay/Game/Constant/Combat/ACTION_POINTS_CODE';
 
 export function stateRuleOf(rules: Rule[], code: string): Rule | undefined {
   return rules.find((rule) => rule.code === code && rule.type === 'state');
@@ -90,7 +91,7 @@ export async function clampCombatActionPoints(
   version: CharacterVersion,
   rules: Rule[],
 ): Promise<GameCombatOverlay | null> {
-  const ap = combatActionPoints(version, rules);
+  const ap = combatCardModelService.combatActionPoints(version, rules);
   if (!ap) return null;
   const rule = rules.find((item) => item.code === ACTION_POINTS_CODE && item.type === 'resource');
   if (!rule) return null;

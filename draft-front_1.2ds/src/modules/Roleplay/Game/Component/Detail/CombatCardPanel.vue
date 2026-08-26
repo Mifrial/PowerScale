@@ -1,54 +1,45 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import SlidePanel from '@/modules/Core/UI/Component/SlidePanel.vue';
-import { sendCombatChat } from '@/modules/Roleplay/Game/Utils/combatChatSend';
+import { combatChatSendService } from '@/modules/Roleplay/Game/Service/Instance/combatChatSendService';
+
 import type { ChatAttachment } from '@/modules/Messages/Chat/Dto/ChatAttachment';
-import { applyExhaustionCheck } from '@/modules/Roleplay/Game/Utils/applyExhaustionCheck';
-import { applyBloodLossTick } from '@/modules/Roleplay/Game/Utils/applyBloodLoss';
-import { overlayStateTotal } from '@/modules/Roleplay/Game/Utils/applyInjuryCheck';
+import { exhaustionCheckService } from '@/modules/Roleplay/Game/Service/Instance/exhaustionCheckService';
+
+import { bloodLossService } from '@/modules/Roleplay/Game/Service/Instance/bloodLossService';
+
+import { injuryCheckService } from '@/modules/Roleplay/Game/Service/Instance/injuryCheckService';
+
 import { reservedExhaustion } from '@/modules/Roleplay/Game/Utils/bloodLossMath';
-import { enduranceOf } from '@/modules/Roleplay/Game/Utils/applyAttackDamage';
+import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
+
 import {
   BLOOD_LOSS_STATE_CODE,
   EXHAUSTION_STATE_CODE,
   POISONING_STATE_CODE,
 } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
-import { characterOverviewService } from '@/modules/Roleplay/Character/Service/Instance/characterOverviewService';
-import { ROLL_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ATTACHMENT_TYPE';
-import { rollCharacteristic } from '@/modules/Roleplay/Game/Utils/characteristicRoll';
 import {
-  combatCardModel,
-  combatStateRows,
-  defaultStateEntry,
-  maimTotalDurationLabel,
-  poisonName,
-  poisonRuleOptions,
-  poisonValueFromRule,
-  resolvedPoisonValue,
-  resolvedPoisonStrength,
-  statePickerOptions,
-  type CombatStateOption,
-  type CombatStateRow,
-} from '@/modules/Roleplay/Game/Utils/combatCardModel';
+  characterOverviewService,
+  weaponProficiencyService,
+  characterBuildService,
+  characterEditorService,
+  CharacterCombatSheet,
+} from '@/modules/Roleplay/Character/init';
+import { ROLL_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ATTACHMENT_TYPE';
+import { characteristicRollService } from '@/modules/Roleplay/Game/Service/Instance/characteristicRollService';
+
+import type { CombatStateOption } from '@/modules/Roleplay/Game/Dto/CombatStateOption';
+import type { CombatStateRow } from '@/modules/Roleplay/Game/Dto/CombatStateRow';
+import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
+
 import type { CharacterPoisonValue } from '@/modules/Roleplay/Character/Dto/CharacterPoisonValue';
 import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/CharacterStateValue';
-import { weaponProficiencyLevels } from '@/modules/Roleplay/Character/Utils/weaponProficiency';
 import CombatCardCharacteristicTile from '@/modules/Roleplay/Game/Component/Detail/CombatCardCharacteristicTile.vue';
 import CombatResourceTile from '@/modules/Roleplay/Game/Component/Detail/CombatResourceTile.vue';
-import CombatStateTile, {
-  type CombatStateEditKind,
-} from '@/modules/Roleplay/Game/Component/Detail/CombatStateTile.vue';
-import AbilityTab from '@/modules/Roleplay/Character/Component/Detail/AbilityTab.vue';
-import InventoryTab from '@/modules/Roleplay/Character/Component/Editor/InventoryTab.vue';
-import AttackTile from '@/modules/Roleplay/Character/Component/Detail/Attacks/AttackTile.vue';
-import DefenseValue from '@/modules/Roleplay/Character/Component/Detail/Defense/DefenseValue.vue';
-import ArmorTile from '@/modules/Roleplay/Character/Component/Detail/Defense/ArmorTile.vue';
-import RuleLink from '@/modules/Roleplay/Character/Component/Detail/RuleLink.vue';
-import RuleSlider from '@/modules/Roleplay/Rule/Component/RuleSlider.vue';
-import { useRuleDetailSlider } from '@/modules/Roleplay/Character/Composables/useRuleDetailSlider';
-import { characterBuildService } from '@/modules/Roleplay/Character/Service/Instance/characterBuildService';
-import { characterEditorService } from '@/modules/Roleplay/Character/Service/Instance/characterEditorService';
+import CombatStateTile from '@/modules/Roleplay/Game/Component/Detail/CombatStateTile.vue';
+import type { CombatStateDetailRow } from '@/modules/Roleplay/Game/Dto/CombatStateDetailRow';
+import type { CombatStateEditKind } from '@/modules/Roleplay/Game/Enum/CombatStateEditKind';
 import { useKeywordStore } from '@/modules/Roleplay/Rule/Store/keywords';
 import type { CharacterCreationConfig } from '@/modules/Roleplay/Character/Dto/Editor/CharacterCreationConfig';
 import type { InventoryItemOverview } from '@/modules/Roleplay/Character/Dto/Overview/InventoryItemOverview';
@@ -65,7 +56,8 @@ import type { ResourceOverview } from '@/modules/Roleplay/Character/Dto/Overview
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue';
-import { preferNewerCombatOverlays, replaceCombatOverlay } from '@/modules/Roleplay/Game/Utils/mergeCombatOverlay';
+import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
+
 import { ruleReferenceService } from '@/modules/Roleplay/Rule/Service/Instance/ruleReferenceService';
 
 const props = defineProps<{
@@ -100,7 +92,7 @@ const emit = defineEmits<{
   'launch-injury': [];
 }>();
 
-const sendChat = sendCombatChat(props.gameId);
+const sendChat = combatChatSendService.sendCombatChat(props.gameId);
 
 const isOpen = ref(props.open);
 watch(
@@ -125,7 +117,6 @@ const poisonDraftType = ref('');
 const poisonDraftStrength = ref<DimensionalNumberValue>({ base: 1, size: 0 });
 const cardTab = ref('overview');
 const collapsed = ref<string[]>([]);
-const ruleSlider = useRuleDetailSlider();
 const keywordStore = useKeywordStore();
 
 onMounted(() => {
@@ -141,7 +132,7 @@ const overlay = computed(() => {
 const model = computed(() => {
   if (props.entityKey === null) return null;
 
-  return combatCardModel(
+  return combatCardModelService.combatCardModel(
     props.entityKey,
     props.memberships,
     props.npcs,
@@ -200,10 +191,8 @@ const overview = computed(() => {
 });
 
 const stateRows = computed(() =>
-  effectiveVersion.value ? combatStateRows(effectiveVersion.value.states, props.rules) : [],
+  effectiveVersion.value ? combatCardModelService.combatStateRows(effectiveVersion.value.states, props.rules) : [],
 );
-
-type CombatStateDetailRow = { label: string; value: string };
 
 type CombatStateTileModel = {
   key: string;
@@ -250,7 +239,7 @@ function stateTileDetails(state: CharacterStateValue, row: CombatStateRow): Comb
 function stateTileValue(state: CharacterStateValue | undefined, row: CombatStateRow): string {
   if (!state) return row.valueType === 'flag' ? '•' : '0';
   if (row.code === POISONING_STATE_CODE) {
-    const strength = resolvedPoisonStrength(state, props.rules);
+    const strength = combatCardModelService.resolvedPoisonStrength(state, props.rules);
 
     return strength ? new DimensionalNumber(strength).toString() : '—';
   }
@@ -272,14 +261,16 @@ function tileEditKind(row: CombatStateRow): CombatStateEditKind {
 const stateTiles = computed((): CombatStateTileModel[] => {
   const states = effectiveVersion.value?.states ?? [];
   const version = effectiveVersion.value;
-  const reserved = version ? reservedExhaustion(overlayStateTotal(version, props.rules, BLOOD_LOSS_STATE_CODE)) : 0;
+  const reserved = version
+    ? reservedExhaustion(injuryCheckService.overlayStateTotal(version, props.rules, BLOOD_LOSS_STATE_CODE))
+    : 0;
   const tiles: CombatStateTileModel[] = [];
   for (const row of stateRows.value) {
     for (const index of row.indices) {
       const state = states[index];
-      const timeLabel = state ? maimTotalDurationLabel(state) : '';
+      const timeLabel = state ? combatCardModelService.maimTotalDurationLabel(state) : '';
       const isPoison = row.code === POISONING_STATE_CODE;
-      const name = isPoison && state ? poisonName(state, props.rules) : row.name;
+      const name = isPoison && state ? combatCardModelService.poisonName(state, props.rules) : row.name;
       const current = row.valueType === 'number' ? (state?.value ?? 0) : 0;
       tiles.push({
         key: `${row.ruleId}-${index}`,
@@ -294,7 +285,7 @@ const stateTiles = computed((): CombatStateTileModel[] => {
         index,
         code: row.code,
         dimensionalValue: state?.dimensionalValue ?? null,
-        poison: isPoison && state ? resolvedPoisonValue(state, props.rules) : null,
+        poison: isPoison && state ? combatCardModelService.resolvedPoisonValue(state, props.rules) : null,
       });
     }
   }
@@ -304,17 +295,19 @@ const stateTiles = computed((): CombatStateTileModel[] => {
 
 const poisonSelectItems = computed(() => [
   { title: 'Свой яд', value: '' },
-  ...poisonRuleOptions(props.rules).map((item) => ({ title: item.name, value: item.ruleId })),
+  ...combatCardModelService.poisonRuleOptions(props.rules).map((item) => ({ title: item.name, value: item.ruleId })),
 ]);
 
 const damageTypeSelectItems = computed(() =>
   ruleReferenceService.damageTypeOptions(props.rules).map((item) => ({ title: item.name, value: item.code })),
 );
 
-const stateOptions = computed(() => statePickerOptions(props.rules));
+const stateOptions = computed(() => combatCardModelService.statePickerOptions(props.rules));
 
 const proficiencyLevels = computed(() =>
-  effectiveVersion.value ? weaponProficiencyLevels(effectiveVersion.value.abilities, props.rules) : new Map(),
+  effectiveVersion.value
+    ? weaponProficiencyService.weaponProficiencyLevels(effectiveVersion.value.abilities, props.rules)
+    : new Map(),
 );
 
 const senses = computed(() => effectiveVersion.value?.senses ?? []);
@@ -358,7 +351,7 @@ async function loadOverlays(): Promise<void> {
   try {
     const next = await getGameApi().getCombatOverlays(props.gameId);
     if (loadId !== overlaysLoadId) return;
-    overlays.value = preferNewerCombatOverlays(overlays.value, next);
+    overlays.value = combatOverlayService.preferNewerCombatOverlays(overlays.value, next);
     viewEpoch.value += 1;
   } catch (e) {
     if (loadId !== overlaysLoadId) return;
@@ -378,7 +371,7 @@ function launchHit(attack: AttackOverview): void {
 }
 
 function applyOverlay(result: GameCombatOverlay): void {
-  overlays.value = replaceCombatOverlay(overlays.value, result);
+  overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, result);
   viewEpoch.value += 1;
   emit('overlay-changed');
 }
@@ -393,7 +386,7 @@ async function roll(characteristic: CharacteristicOverview, name?: string): Prom
   error.value = null;
   try {
     const rule = props.rules.find((candidate) => candidate.id === characteristic.ruleId);
-    const result = rollCharacteristic(
+    const result = characteristicRollService.rollCharacteristic(
       {
         name: rollName,
         value: characteristic.value,
@@ -448,8 +441,8 @@ async function addState(option: CombatStateOption): Promise<void> {
   if (!model.value) return;
   if (option.code === POISONING_STATE_CODE) {
     pickerOpen.value = false;
-    const first = poisonRuleOptions(props.rules)[0];
-    fillPoisonDraft(poisonValueFromRule(props.rules, first?.ruleId ?? null));
+    const first = combatCardModelService.poisonRuleOptions(props.rules)[0];
+    fillPoisonDraft(combatCardModelService.poisonValueFromRule(props.rules, first?.ruleId ?? null));
     poisonAddOpen.value = true;
 
     return;
@@ -457,7 +450,10 @@ async function addState(option: CombatStateOption): Promise<void> {
   error.value = null;
   pickerOpen.value = false;
   try {
-    const state: CharacterStateValue = { stateRuleId: option.ruleId, ...defaultStateEntry(option, props.rules) };
+    const state: CharacterStateValue = {
+      stateRuleId: option.ruleId,
+      ...combatCardModelService.defaultStateEntry(option, props.rules),
+    };
     const result = await getGameApi().addCombatState(props.gameId, model.value.entityKey, state);
     applyOverlay(result);
   } catch (e) {
@@ -473,7 +469,9 @@ function fillPoisonDraft(value: CharacterPoisonValue): void {
 }
 
 function onPoisonAddRuleChange(next: unknown): void {
-  fillPoisonDraft(poisonValueFromRule(props.rules, typeof next === 'string' && next ? next : null));
+  fillPoisonDraft(
+    combatCardModelService.poisonValueFromRule(props.rules, typeof next === 'string' && next ? next : null),
+  );
 }
 
 async function confirmPoisonAdd(): Promise<void> {
@@ -549,10 +547,10 @@ async function afterStateSideEffects(
   const send = (content: string, attachments: ChatAttachment[], chatId: number, speaker: ChatSpeaker) =>
     sendChat(content, attachments, chatId, speaker);
   if (code === BLOOD_LOSS_STATE_CODE && bloodDelta > 0) {
-    const overlay = await applyBloodLossTick({
+    const overlay = await bloodLossService.applyBloodLossTick({
       version,
       delta: bloodDelta,
-      endurance: overview.value ? enduranceOf(overview.value, props.rules) : 1,
+      endurance: overview.value ? attackDamageService.enduranceOf(overview.value, props.rules) : 1,
       rules: props.rules,
       mechanics: props.mechanics,
       gameId: props.gameId,
@@ -567,7 +565,7 @@ async function afterStateSideEffects(
     return;
   }
   if (code === EXHAUSTION_STATE_CODE) {
-    const exhaustion = await applyExhaustionCheck({
+    const exhaustion = await exhaustionCheckService.applyExhaustionCheck({
       version,
       rules: props.rules,
       mechanics: props.mechanics,
@@ -588,7 +586,9 @@ async function applyStateTile(tile: CombatStateTileModel, next: number): Promise
   const current = version?.states[tile.index]?.value ?? 0;
   let value = Math.max(0, Math.floor(next));
   if (tile.code === EXHAUSTION_STATE_CODE && version) {
-    const reserved = reservedExhaustion(overlayStateTotal(version, props.rules, BLOOD_LOSS_STATE_CODE));
+    const reserved = reservedExhaustion(
+      injuryCheckService.overlayStateTotal(version, props.rules, BLOOD_LOSS_STATE_CODE),
+    );
     value = Math.max(value, reserved);
   }
   if (value === current) return;
@@ -877,7 +877,7 @@ function onSheetToggleEquipped(itemId: number): void {
                     :poison="tile.poison"
                     :poison-items="poisonSelectItems"
                     :damage-type-items="damageTypeSelectItems"
-                    :poison-template="(id) => poisonValueFromRule(rules, id)"
+                    :poison-template="(id) => combatCardModelService.poisonValueFromRule(rules, id)"
                     @apply="(next) => applyStateTile(tile, next)"
                     @apply-dimensional="(next) => applyDimensionalTile(tile, next)"
                     @apply-poison="(next) => applyPoisonTile(tile, next)"
@@ -914,85 +914,69 @@ function onSheetToggleEquipped(itemId: number): void {
               </div>
             </section>
 
-            <section v-if="overview?.defense" class="combat-card-section">
-              <div class="combat-card-section__heading">
-                <button type="button" class="combat-card-section__title" @click="toggleSection('defense')">
-                  <v-icon size="18">{{ isSectionOpen('defense') ? 'mdi-chevron-down' : 'mdi-chevron-right' }}</v-icon>
-                  Защита
-                </button>
-                <span class="flex-shrink-0" @click.stop>
-                  <DefenseValue v-if="overview.defense.constantDefense > 0" :tiers="overview.defense.tiers" />
-                </span>
-              </div>
-              <div v-show="isSectionOpen('defense')" class="combat-card-pair">
-                <ArmorTile v-for="armor in overview.defense.armor" :key="armor.itemRuleId" :item="armor" />
-                <v-sheet v-if="overview.defense.shield" class="pa-2 rounded border">
-                  <div class="d-flex align-center ga-2">
-                    <v-icon icon="mdi-shield-outline" color="primary" />
-                    <RuleLink :rule-id="overview.defense.shield.itemRuleId" class="text-body-2 font-weight-medium">
-                      {{ overview.defense.shield.itemName }} — блокирование
-                    </RuleLink>
-                  </div>
-                  <div class="text-body-2 text-medium-emphasis">
-                    Защита {{ overview.defense.shield.defense }} · эффективность
-                    {{ overview.defense.shield.efficiency }}
-                  </div>
-                </v-sheet>
-                <div
-                  v-if="overview.defense.armor.length === 0 && !overview.defense.shield"
-                  class="text-medium-emphasis text-body-2"
-                >
-                  Экипированной защиты нет
-                </div>
-              </div>
-            </section>
-
-            <section v-if="(overview?.attacks ?? []).length > 0" class="combat-card-section">
-              <button type="button" class="combat-card-section__title" @click="toggleSection('attacks')">
-                <v-icon size="18">{{ isSectionOpen('attacks') ? 'mdi-chevron-down' : 'mdi-chevron-right' }}</v-icon>
-                Атаки
-              </button>
-              <div v-show="isSectionOpen('attacks')" class="combat-card-pair">
-                <AttackTile
-                  v-for="attack in overview?.attacks ?? []"
-                  :key="`${attack.itemRuleId}_${attack.profileType}`"
-                  variant="combat"
-                  :attack="attack"
-                  @launch="launchHit"
-                />
-              </div>
-            </section>
+            <CharacterCombatSheet
+              v-if="model && overview"
+              pane="overview"
+              :overview="overview"
+              :version="effectiveVersion"
+              :build="sheetBuild"
+              :model="sheetModel"
+              :rules="rules"
+              :keywords="keywordStore.keywords"
+              :can-edit="model.canEdit"
+              :character-id="model.entityId"
+              :show-favorites="model.kind === 'character'"
+              :space-id="spaceId"
+              :rules-revision="rulesRevision"
+              :defense-open="isSectionOpen('defense')"
+              :attacks-open="isSectionOpen('attacks')"
+              show-slider
+              @toggle-defense="toggleSection('defense')"
+              @toggle-attacks="toggleSection('attacks')"
+              @launch="launchHit"
+              @toggle-equipped="onSheetToggleEquipped"
+            />
           </div>
         </v-window-item>
 
         <v-window-item value="abilities">
           <div class="combat-card-panel__tab pa-2">
-            <AbilityTab
-              v-if="effectiveVersion"
+            <CharacterCombatSheet
+              v-if="model"
+              pane="abilities"
+              :overview="overview"
               :version="effectiveVersion"
+              :build="sheetBuild"
+              :model="sheetModel"
               :rules="rules"
-              :rules-loading="false"
+              :keywords="keywordStore.keywords"
+              :can-edit="model.canEdit"
               :character-id="model.entityId"
               :show-favorites="model.kind === 'character'"
+              :space-id="spaceId"
+              :rules-revision="rulesRevision"
             />
           </div>
         </v-window-item>
 
         <v-window-item value="inventory">
           <div class="combat-card-panel__tab pa-2">
-            <InventoryTab
-              v-if="sheetBuild && sheetModel"
-              variant="sheet"
+            <CharacterCombatSheet
+              v-if="model"
+              pane="inventory"
+              :overview="overview"
+              :version="effectiveVersion"
               :build="sheetBuild"
               :model="sheetModel"
-              :draft-key="null"
               :rules="rules"
               :keywords="keywordStore.keywords"
               :can-edit="model.canEdit"
-              :on-toggle-equipped="onSheetToggleEquipped"
-              list-height="calc(100vh - 160px)"
+              :character-id="model.entityId"
+              :show-favorites="model.kind === 'character'"
+              :space-id="spaceId"
+              :rules-revision="rulesRevision"
+              @toggle-equipped="onSheetToggleEquipped"
             />
-            <div v-else class="text-medium-emphasis text-body-2 pa-4">Инвентарь недоступен</div>
           </div>
         </v-window-item>
       </v-window>
@@ -1028,13 +1012,6 @@ function onSheetToggleEquipped(itemId: number): void {
       </v-card-actions>
     </v-card>
   </v-dialog>
-
-  <RuleSlider
-    v-model:open="ruleSlider.state.open"
-    :rule-id="ruleSlider.state.ruleId"
-    :space-id="spaceId"
-    :rules-revision="rulesRevision"
-  />
 </template>
 
 <style scoped>

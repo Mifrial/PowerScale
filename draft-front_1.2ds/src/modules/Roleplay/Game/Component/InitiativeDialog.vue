@@ -46,7 +46,7 @@ const emit = defineEmits<{
 }>();
 
 const chatStore = useChatStore();
-const combatThread = useCombatChatThread(props.gameId);
+const combatThread = useCombatChatThread(() => props.gameId);
 
 const DEFAULT_CHARACTERISTIC_CODE = 'perception';
 

@@ -17,4 +17,8 @@ export interface Game {
   rulesRevision: number;
   memberCount: number;
   tags: string[];
+  /** Игровой чат (type `game`); null — ещё не создан. На списке, чтобы резолв чипов не ходил в деталки. */
+  gameChatId: number | null;
+  /** Чат обсуждения игры (type `game_discussion`); null — ещё не создан. */
+  discussionChatId: number | null;
 }

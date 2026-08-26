@@ -5,7 +5,7 @@ import { useRuleStore } from '@/modules/Roleplay/Rule/Store/rules';
 import { useDraftRuleStore } from '@/modules/Roleplay/Rule/Store/draftRules';
 import { useKeywordStore } from '@/modules/Roleplay/Rule/Store/keywords';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
-import { useSpaceContext } from '@/modules/Roleplay/Space/init';
+import { useRuleHostContext } from '@/modules/Roleplay/Rule/init';
 import SimpleRuleEditor from '@/modules/Roleplay/Rule/Component/Editors/SimpleRuleEditor.vue';
 import CharacteristicEditor from '@/modules/Roleplay/Rule/Component/Editors/CharacteristicEditor.vue';
 import ResourceEditor from '@/modules/Roleplay/Rule/Component/Editors/ResourceEditor.vue';
@@ -35,7 +35,7 @@ const router = useRouter();
 const store = useRuleStore();
 const draftStore = useDraftRuleStore();
 const keywordStore = useKeywordStore();
-const spaceContext = useSpaceContext();
+const ruleHost = useRuleHostContext();
 const { signal } = useAbortable();
 
 const code = computed(() => route.params.code as string);
@@ -45,7 +45,7 @@ const routeKey = computed(() => `${code.value}|${ctx.value}|${ruleId.value}`);
 const isEdit = computed(() => !!ruleId.value && ruleId.value !== 'new');
 const isRevisionContext = computed(() => !!ctx.value && ctx.value !== 'draft');
 
-const spaceId = computed(() => spaceContext.value.spaceId ?? 0);
+const spaceId = computed(() => ruleHost.value.spaceId ?? 0);
 const type = ref<RuleType>('simple');
 const name = ref('');
 const ruleCode = ref('');
@@ -59,6 +59,7 @@ const saving = ref(false);
 const loading = ref(true);
 const error = ref<string | null>(null);
 const saveError = ref<string | null>(null);
+const storageToast = ref(false);
 
 const showConflictDialog = ref(false);
 const conflictRuleName = ref('');
@@ -69,7 +70,7 @@ const mechanicOptions = ref<{ title: string; value: number }[]>([]);
 const keywordOptions = computed(() => keywordStore.keywords.map((t) => ({ title: t.name, value: t.id })));
 const keywordCodeById = computed(() => new Map(keywordStore.keywords.map((k) => [k.id, k.code])));
 const modifierTypeOptions = computed(() =>
-  spaceContext.value.effectiveRules
+  ruleHost.value.effectiveRules
     .filter((rule) => rule.type === 'item_modifier_type')
     .map((rule) => ({ title: rule.name, value: rule.code })),
 );
@@ -107,7 +108,7 @@ async function resolveRoute(): Promise<void> {
     await keywordStore.fetchTags(signal.value);
 
     if (isEdit.value) {
-      const found = spaceContext.value.effectiveRules.find((r) => r.id === ruleId.value);
+      const found = ruleHost.value.effectiveRules.find((r) => r.id === ruleId.value);
       if (found) {
         applyForm(ruleToForm(found));
       } else {
@@ -165,7 +166,13 @@ function cancelConflict() {
   router.back();
 }
 
-onMounted(resolveRoute);
+onMounted(() => {
+  if (draftStore.storageDiscarded) {
+    storageToast.value = true;
+    draftStore.acknowledgeStorageDiscarded();
+  }
+  void resolveRoute();
+});
 watch(() => [route.params.code, route.params.ctx, route.params.ruleId], resolveRoute);
 
 async function save() {
@@ -248,7 +255,7 @@ async function save() {
           :mechanic-options="mechanicOptions"
           :keyword-options="keywordOptions"
           :space-id="spaceId"
-          :rules="spaceContext.effectiveRules"
+          :rules="ruleHost.effectiveRules"
         />
 
         <ResourceEditor
@@ -263,7 +270,7 @@ async function save() {
           v-model:spec="spec"
           :mechanic-options="mechanicOptions"
           :keyword-options="keywordOptions"
-          :rules="spaceContext.effectiveRules"
+          :rules="ruleHost.effectiveRules"
         />
 
         <AbilityEditor
@@ -279,7 +286,7 @@ async function save() {
           :mechanic-options="mechanicOptions"
           :keyword-options="keywordOptions"
           :space-id="spaceId"
-          :rules="spaceContext.effectiveRules"
+          :rules="ruleHost.effectiveRules"
         />
 
         <ItemEditor
@@ -295,7 +302,7 @@ async function save() {
           :mechanic-options="mechanicOptions"
           :keyword-options="keywordOptions"
           :space-id="spaceId"
-          :rules="spaceContext.effectiveRules"
+          :rules="ruleHost.effectiveRules"
         />
 
         <RaceEditor
@@ -312,7 +319,7 @@ async function save() {
           :keyword-options="keywordOptions"
           :space-id="spaceId"
           :rule-id="ruleId"
-          :rules="spaceContext.effectiveRules"
+          :rules="ruleHost.effectiveRules"
         />
 
         <SpeciesEditor
@@ -329,7 +336,7 @@ async function save() {
           :keyword-options="keywordOptions"
           :space-id="spaceId"
           :rule-id="ruleId"
-          :rules="spaceContext.effectiveRules"
+          :rules="ruleHost.effectiveRules"
         />
 
         <PointsEditor
@@ -357,7 +364,7 @@ async function save() {
           v-model:spec="spec"
           :mechanic-options="mechanicOptions"
           :keyword-options="keywordOptions"
-          :rules="spaceContext.effectiveRules"
+          :rules="ruleHost.effectiveRules"
         />
 
         <StateEditor
@@ -373,7 +380,7 @@ async function save() {
           :mechanic-options="mechanicOptions"
           :keyword-options="keywordOptions"
           :space-id="spaceId"
-          :rules="spaceContext.effectiveRules"
+          :rules="ruleHost.effectiveRules"
         />
 
         <PoisonEditor
@@ -389,7 +396,7 @@ async function save() {
           :mechanic-options="mechanicOptions"
           :keyword-options="keywordOptions"
           :space-id="spaceId"
-          :rules="spaceContext.effectiveRules"
+          :rules="ruleHost.effectiveRules"
         />
 
         <WeaponFamilyEditor
@@ -449,7 +456,7 @@ async function save() {
           v-model:spec="spec"
           :mechanic-options="mechanicOptions"
           :keyword-options="keywordOptions"
-          :rules="spaceContext.effectiveRules"
+          :rules="ruleHost.effectiveRules"
         />
 
         <div v-else class="text-body-2 text-medium-emphasis text-center pa-8">
@@ -480,5 +487,8 @@ async function save() {
       @confirm="confirmConflict"
       @cancel="cancelConflict"
     />
+    <v-snackbar v-model="storageToast" color="error" timeout="4000">
+      Черновик правил в браузере повреждён и сброшен
+    </v-snackbar>
   </v-container>
 </template>

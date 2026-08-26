@@ -5,8 +5,8 @@ import type { CharacteristicOverview } from '@/modules/Roleplay/Character/Dto/Ov
 import type { OverviewModifier } from '@/modules/Roleplay/Character/Dto/Overview/OverviewModifier';
 import type { CharacterSenseValue } from '@/modules/Roleplay/Character/Dto/CharacterSenseValue';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import { weaponMasteryEntries } from '@/modules/Roleplay/Character/Utils/weaponProficiency';
-import RuleLink from '@/modules/Roleplay/Character/Component/Detail/RuleLink.vue';
+import { weaponProficiencyService } from '@/modules/Roleplay/Character/init';
+import { RuleLink } from '@/modules/Roleplay/Character/init';
 
 const props = withDefaults(
   defineProps<{
@@ -46,7 +46,12 @@ const showsSenses = computed(() => {
 const weaponMastery = computed(() => {
   if (code.value !== 'melee-combat' && code.value !== 'ranged-combat') return [];
 
-  return weaponMasteryEntries(code.value, { value: props.characteristic.value }, props.proficiencyLevels, props.rules);
+  return weaponProficiencyService.weaponMasteryEntries(
+    code.value,
+    { value: props.characteristic.value },
+    props.proficiencyLevels,
+    props.rules,
+  );
 });
 
 const senses = computed(() =>

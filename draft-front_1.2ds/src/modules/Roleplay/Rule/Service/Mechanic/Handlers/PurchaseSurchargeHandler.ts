@@ -1,4 +1,4 @@
-import type { MechanicHandler } from '@/modules/Roleplay/Rule/Service/Mechanic/MechanicHandler';
+import type { MechanicHandler } from '@/modules/Roleplay/Rule/Interface/MechanicHandler';
 import type { MechanicPayload } from '@/modules/Roleplay/Rule/Dto/MechanicPayload';
 import type { CharacterMechanicContext } from '@/modules/Roleplay/Rule/Dto/CharacterMechanicContext';
 

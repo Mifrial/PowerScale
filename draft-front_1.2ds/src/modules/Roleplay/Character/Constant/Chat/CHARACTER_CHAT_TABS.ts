@@ -7,5 +7,6 @@ export const CHARACTER_CHAT_TABS: IChatTab[] = [
     icon: 'mdi-account-details',
     types: ['character_discussion'],
     sortOrder: 3,
+    onlyIfMember: true,
   },
 ];

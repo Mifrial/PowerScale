@@ -5,7 +5,7 @@ import type { DiceRng } from '@/modules/Roleplay/Game/Dto/DiceRng';
 import type { GameInitiativeParticipant } from '@/modules/Roleplay/Game/Dto/GameInitiative';
 import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import { netSourceDelta } from '@/modules/Roleplay/Rule/Utils/aggregateSourceDeltas';
+import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/Service/Instance/aggregateSourceDeltasService';
 
 function participant(id: string, name: string): GameInitiativeParticipant {
   return { id, name, kind: id.startsWith('npc') ? 'npc' : 'character', entityId: null };
@@ -65,7 +65,7 @@ describe('rollInitiative', () => {
     const [rolled] = rollInitiative([entry], rngFromDice([2, 4, 1, 6]));
 
     expect(rolled.result?.spec.diceCount).toBe(3);
-    expect(netSourceDelta(rolled.result?.spec.advantages ?? [])).toBe(1);
+    expect(aggregateSourceDeltasService.netSourceDelta(rolled.result?.spec.advantages ?? [])).toBe(1);
     expect(rolled.result?.droppedRolls).toEqual([6]);
     expect(rolled.value).toEqual({ base: 3, size: 0 });
   });

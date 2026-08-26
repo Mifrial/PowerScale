@@ -13,6 +13,7 @@ import {
 } from '@/modules/Roleplay/Game/Mock/mockGameMemberships';
 import { sessionTarget, overlaySheetBase } from '@/modules/Roleplay/Character/Mock/mockCharacterUpdate';
 import { combatKey, writeOverlaySheet } from '@/modules/Roleplay/Game/Mock/mockGameCombatOverlays';
+import '@/modules/Roleplay/Game/Mock/mockCharacterSessionOverlay';
 
 const delay = (ms = 100) => new Promise((r) => setTimeout(r, ms));
 

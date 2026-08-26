@@ -5,7 +5,8 @@ import { useGameStore } from '@/modules/Roleplay/Game/Store/games';
 import { useUserStore } from '@/modules/Core/User/Store/users';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
-import { canEditGame } from '@/modules/Roleplay/Game/Utils/access';
+import { gameAccessService } from '@/modules/Roleplay/Game/Service/Instance/gameAccessService';
+
 import { toCreateGameData } from '@/modules/Roleplay/Game/Utils/toCreateGameData';
 import type { CreateGameData } from '@/modules/Roleplay/Game/Dto/CreateGameData';
 import GameForm from '@/modules/Roleplay/Game/Component/GameForm.vue';
@@ -47,7 +48,7 @@ async function load(): Promise<void> {
   }
   store.clearCurrent();
   const loaded = await store.fetchGame(id, signal.value);
-  if (loaded && !canEditGame(userStore.currentUser, loaded)) {
+  if (loaded && !gameAccessService.canEditGame(userStore.currentUser, loaded)) {
     router.replace({ name: 'NotFound' });
   }
 }

@@ -58,6 +58,18 @@ describe('mockGames: согласованность фикстур', () => {
     }
   });
 
+  it('карточка списка несёт chat id без деталки', async () => {
+    const list = await fetchGames();
+    const forgotten = list.find((game) => game.id === 1);
+    const detail = gameDetails.find((entry) => entry.game.id === 1);
+    expect(forgotten?.gameChatId).toBe(detail?.gameChatId);
+    expect(forgotten?.discussionChatId).toBe(detail?.discussionChatId);
+    expect(forgotten?.gameChatId).not.toBeNull();
+    expect(forgotten?.discussionChatId).not.toBeNull();
+    expect(detail?.game.gameChatId).toBe(detail?.gameChatId);
+    expect(detail?.game.discussionChatId).toBe(detail?.discussionChatId);
+  });
+
   it('memberCount карточки совпадает со списком участников', () => {
     for (const detail of gameDetails) {
       expect(detail.game.memberCount).toBe(detail.members.length);
@@ -115,11 +127,13 @@ describe('mockGames: обсуждение и редактирование', () =
   it('createGame создаёт обсуждение игры', async () => {
     const created = await createGame(makeData('Создание с обсуждением'));
     expect(created.discussionChatId).not.toBeNull();
+    expect(created.game.discussionChatId).toBe(created.discussionChatId);
   });
 
   it('createGame создаёт игровой чат игры', async () => {
     const created = await createGame(makeData('Создание с игровым чатом'));
     expect(created.gameChatId).not.toBeNull();
+    expect(created.game.gameChatId).toBe(created.gameChatId);
   });
 
   it('updateGame меняет настройки (round-trip)', async () => {

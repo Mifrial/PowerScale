@@ -13,6 +13,7 @@ export function useChatVirtualScroll(opts: {
   onReachTop: () => Promise<void>;
   hasMoreOlder: () => boolean;
   loadingOlder: () => boolean;
+  olderError?: () => boolean;
 }) {
   const scrollElement = ref<HTMLElement | null>(null);
 
@@ -56,7 +57,13 @@ export function useChatVirtualScroll(opts: {
     if (!el) return;
     updatePinned();
 
-    if (el.scrollTop <= TOP_THRESHOLD && opts.hasMoreOlder() && !opts.loadingOlder() && !reachTopPending) {
+    if (
+      el.scrollTop <= TOP_THRESHOLD &&
+      opts.hasMoreOlder() &&
+      !opts.loadingOlder() &&
+      !opts.olderError?.() &&
+      !reachTopPending
+    ) {
       reachTopPending = true;
       loadOlderWithCompensation().finally(() => {
         reachTopPending = false;
@@ -73,7 +80,7 @@ export function useChatVirtualScroll(opts: {
   }
 
   function measureElement(node: unknown) {
-    virtualizer.value.measureElement(node as HTMLElement | null);
+    virtualizer.value.measureElement(node instanceof HTMLElement ? node : null);
   }
 
   return {

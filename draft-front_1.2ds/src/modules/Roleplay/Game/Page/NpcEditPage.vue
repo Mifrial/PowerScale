@@ -6,9 +6,10 @@ import { useUserStore } from '@/modules/Core/User/Store/users';
 import { useCharacterDraftStore } from '@/modules/Roleplay/Character/Store/characterDraft';
 import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
-import { characterBuildService } from '@/modules/Roleplay/Character/Service/Instance/characterBuildService';
+import { characterBuildService } from '@/modules/Roleplay/Character/init';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
-import { canEditGame } from '@/modules/Roleplay/Game/Utils/access';
+import { gameAccessService } from '@/modules/Roleplay/Game/Service/Instance/gameAccessService';
+
 import { needsNpcMigration } from '@/modules/Roleplay/Game/Utils/npcRevision';
 import { CharacterSheetEditor } from '@/modules/Roleplay/Character/init';
 import NpcMigrationDialog from '@/modules/Roleplay/Game/Component/Detail/NpcMigrationDialog.vue';
@@ -115,7 +116,7 @@ async function load(): Promise<void> {
   loading.value = true;
   gameStore.clearCurrent();
   const gameDetail = await gameStore.fetchGame(gid, signal.value);
-  if (!gameDetail || !canEditGame(userStore.currentUser, gameDetail)) {
+  if (!gameDetail || !gameAccessService.canEditGame(userStore.currentUser, gameDetail)) {
     router.replace({ name: 'NotFound' });
 
     return;

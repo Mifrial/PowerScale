@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { sendCombatChat } from '@/modules/Roleplay/Game/Utils/combatChatSend';
+import { combatChatSendService } from '@/modules/Roleplay/Game/Service/Instance/combatChatSendService';
+
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
 import { ROLL_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ATTACHMENT_TYPE';
 import { ROLL_ADV_MAX } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ADV_MAX';
-import type { CheckOffer, CheckOfferProposal } from '@/modules/Roleplay/Game/Dto/CheckOffer';
+import type { CheckOffer } from '@/modules/Roleplay/Game/Dto/CheckOffer';
+import type { CheckOfferProposal } from '@/modules/Roleplay/Game/Dto/CheckOfferProposal';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
@@ -15,17 +17,21 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
 import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
-import { namedCheckSpec, rollJointCheck, rollNamedCheck } from '@/modules/Roleplay/Game/Utils/checkRoll';
-import { checkAdvantageFromStates } from '@/modules/Roleplay/Character/Utils/stateRuntimeEffects';
-import { checkAdvantageModifiersFromItems } from '@/modules/Roleplay/Character/Utils/itemCheckAdvantages';
-import { SIMPLE_CHECK_ZERO_DIFFICULTY } from '@/modules/Roleplay/Game/Utils/simpleCheckRoll';
+import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec';
+import { checkRollService } from '@/modules/Roleplay/Game/Service/Instance/checkRollService';
+
+import { stateRuntimeEffectsService } from '@/modules/Roleplay/Character/init';
+import { itemCheckAdvantagesService } from '@/modules/Roleplay/Character/init';
+import { SIMPLE_CHECK_ZERO_DIFFICULTY } from '@/modules/Roleplay/Game/Constant/Check/SIMPLE_CHECK_ZERO_DIFFICULTY';
+
 import { initiativeCharacteristics } from '@/modules/Roleplay/Game/Utils/initiativeCharacteristic';
 import type { InitiativeCharacteristicView } from '@/modules/Roleplay/Game/Utils/initiativeCharacteristic';
-import { combatCardModel, combatEntityName, combatExhaustion } from '@/modules/Roleplay/Game/Utils/combatCardModel';
-import { asCheckSpec, resolveCheckCharacteristicCode } from '@/modules/Roleplay/Rule/Utils/checkResolution';
-import { checkAllowsPairwise, checkAllowsSolo, launchableChecks } from '@/modules/Roleplay/Rule/Utils/checkLaunch';
+import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
+
+import { checkResolutionService } from '@/modules/Roleplay/Rule/Service/Instance/checkResolutionService';
+import { checkLaunchService } from '@/modules/Roleplay/Rule/Service/Instance/checkLaunchService';
 import { CHECK_SIMPLE_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
-import { advantageEntries } from '@/modules/Roleplay/Rule/Utils/aggregateSourceDeltas';
+import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/Service/Instance/aggregateSourceDeltasService';
 import { rollPoolDefaults } from '@/modules/Roleplay/Game/Utils/initiativeRoll';
 import { ROLL_DICE_COUNT_MAX } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_DICE_COUNT_MAX';
 import { ROLL_DICE_COUNT_MIN } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_DICE_COUNT_MIN';
@@ -56,7 +62,7 @@ const emit = defineEmits<{
   settled: [];
 }>();
 
-const sendChat = sendCombatChat(props.gameId);
+const sendChat = combatChatSendService.sendCombatChat(props.gameId);
 
 const overlays = ref<GameCombatOverlay[]>([]);
 const checkCode = ref('');
@@ -84,13 +90,15 @@ const opponentChars = ref<Map<string, InitiativeCharacteristicView>>(new Map());
 const busy = ref(false);
 const error = ref<string | null>(null);
 
-const checks = computed(() => launchableChecks(props.rules));
+const checks = computed(() => checkLaunchService.launchableChecks(props.rules));
 const checkItems = computed(() => checks.value.map((rule) => ({ value: rule.code, title: rule.name })));
 const selectedCheck = computed(() => checks.value.find((rule) => rule.code === checkCode.value) ?? null);
-const selectedSpec = computed(() => asCheckSpec(selectedCheck.value ?? undefined));
+const selectedSpec = computed(() => checkResolutionService.asCheckSpec(selectedCheck.value ?? undefined));
 
-const canSolo = computed(() => (selectedCheck.value ? checkAllowsSolo(selectedCheck.value) : false));
-const canPair = computed(() => (selectedCheck.value ? checkAllowsPairwise(selectedCheck.value) : false));
+const canSolo = computed(() => (selectedCheck.value ? checkLaunchService.checkAllowsSolo(selectedCheck.value) : false));
+const canPair = computed(() =>
+  selectedCheck.value ? checkLaunchService.checkAllowsPairwise(selectedCheck.value) : false,
+);
 const overrideAllowed = computed(() => {
   if (!selectedSpec.value?.characteristic_code) return true;
 
@@ -156,13 +164,20 @@ function overlayOf(key: CombatEntityKey | null): GameCombatOverlay | null {
 function modelOf(key: CombatEntityKey | null) {
   if (!key) return null;
 
-  return combatCardModel(key, props.characters, props.npcs, props.canEdit, props.currentUserId, overlayOf(key));
+  return combatCardModelService.combatCardModel(
+    key,
+    props.characters,
+    props.npcs,
+    props.canEdit,
+    props.currentUserId,
+    overlayOf(key),
+  );
 }
 
 function nameOf(key: CombatEntityKey | null): string {
   if (!key) return '';
 
-  return combatEntityName(key, props.characters, props.npcs);
+  return combatCardModelService.combatEntityName(key, props.characters, props.npcs);
 }
 
 function charItems(map: Map<string, InitiativeCharacteristicView>) {
@@ -171,7 +186,7 @@ function charItems(map: Map<string, InitiativeCharacteristicView>) {
     name: view.name,
     valueLabel: new DimensionalNumber(view.value).toString(),
   }));
-  const resolved = resolveCheckCharacteristicCode(checkCode.value, props.rules);
+  const resolved = checkResolutionService.resolveCheckCharacteristicCode(checkCode.value, props.rules);
   if (resolved && !map.has(resolved)) {
     const rule = props.rules.find((candidate) => candidate.code === resolved);
     items.unshift({
@@ -202,7 +217,7 @@ async function loadChars(key: CombatEntityKey | null, target: typeof initiatorCh
 }
 
 function defaultCharacteristic(map: Map<string, InitiativeCharacteristicView>): string | null {
-  const resolved = resolveCheckCharacteristicCode(checkCode.value, props.rules);
+  const resolved = checkResolutionService.resolveCheckCharacteristicCode(checkCode.value, props.rules);
   if (resolved) return resolved;
   const first = map.keys().next().value;
 
@@ -349,11 +364,11 @@ function poolSpec(
   map: Map<string, InitiativeCharacteristicView>,
   useFree: boolean,
   free: { diceCount: number; dieSize: number; efficiency: number },
-): ReturnType<typeof namedCheckSpec> {
+): DiceRollSpec {
   const query = code ? ({ kind: 'characteristic', code } as const) : undefined;
   const version = modelOf(key)?.effectiveVersion;
-  const totalAdv = adv + checkAdvantageFromStates(version, props.rules, query);
-  const itemAdv = checkAdvantageModifiersFromItems(version, props.rules, query);
+  const totalAdv = adv + stateRuntimeEffectsService.checkAdvantageFromStates(version, props.rules, query);
+  const itemAdv = itemCheckAdvantagesService.checkAdvantageModifiersFromItems(version, props.rules, query);
   if (useFree || !code || !map.has(code)) {
     const defaults = rollPoolDefaults(props.rules);
 
@@ -361,7 +376,7 @@ function poolSpec(
       diceCount: Math.max(ROLL_DICE_COUNT_MIN, free.diceCount),
       dieFaces: defaults.dieFaces,
       efficiency: free.efficiency,
-      advantages: [...advantageEntries(totalAdv), ...itemAdv],
+      advantages: [...aggregateSourceDeltasService.advantageEntries(totalAdv), ...itemAdv],
       dieSize: free.dieSize,
       poolSize: free.dieSize,
       efficiencySize: 0,
@@ -371,7 +386,13 @@ function poolSpec(
   }
   const view = map.get(code);
   if (!view) throw new Error(`Нет характеристики для ${nameOf(key)}`);
-  const spec = namedCheckSpec(`${nameOf(key)}: ${view.name}`, view.value, totalAdv, props.rules, key ?? undefined);
+  const spec = checkRollService.namedCheckSpec(
+    `${nameOf(key)}: ${view.name}`,
+    view.value,
+    totalAdv,
+    props.rules,
+    key ?? undefined,
+  );
 
   return { ...spec, advantages: [...spec.advantages, ...itemAdv] };
 }
@@ -380,7 +401,7 @@ function soloDifficulty(): DimensionalNumberValue {
   const input = selectedSpec.value?.difficulty_input;
   if (input?.kind === 'from_state') {
     const states = modelOf(initiatorKey.value)?.effectiveVersion?.states ?? [];
-    const value = combatExhaustion(states, props.rules);
+    const value = combatCardModelService.combatExhaustion(states, props.rules);
 
     return { base: value ?? 0, size: 0 };
   }
@@ -432,7 +453,14 @@ async function runSolo(): Promise<void> {
       efficiency: initiatorFreeEfficiency.value,
     },
   );
-  const result = rollNamedCheck(spec, checkCode.value, soloDifficulty(), Math.random, props.rules, props.mechanics);
+  const result = checkRollService.rollNamedCheck(
+    spec,
+    checkCode.value,
+    soloDifficulty(),
+    Math.random,
+    props.rules,
+    props.mechanics,
+  );
   await postRolls(selectedCheck.value?.name ?? 'Проверка', [result]);
 }
 
@@ -481,7 +509,14 @@ async function accept(): Promise<void> {
       efficiency: opponentFreeEfficiency.value,
     },
   );
-  const rolled = rollJointCheck(left, right, accepted.checkCode, Math.random, props.rules, props.mechanics);
+  const rolled = checkRollService.rollJointCheck(
+    left,
+    right,
+    accepted.checkCode,
+    Math.random,
+    props.rules,
+    props.mechanics,
+  );
   await postRolls(selectedCheck.value?.name ?? 'Проверка', [rolled.left, rolled.right]);
   offer.value = accepted;
 }

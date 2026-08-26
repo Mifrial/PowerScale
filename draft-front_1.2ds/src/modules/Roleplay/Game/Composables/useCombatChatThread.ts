@@ -1,4 +1,4 @@
-import { computed, reactive } from 'vue';
+import { computed, reactive, toValue, type MaybeRefOrGetter } from 'vue';
 import type { ChatMessage } from '@/modules/Messages/Chat/Dto/ChatMessage';
 import type { ChatThreadRef } from '@/modules/Messages/Chat/Dto/ChatThreadRef';
 import {
@@ -37,66 +37,77 @@ function newId(): string {
   return crypto.randomUUID();
 }
 
-export function useCombatChatThread(gameId: number) {
-  const state = stateOf(gameId);
+/** `gameId` — число, computed или getter: штампы читаются по текущему id, не по снимку setup. */
+export function useCombatChatThread(gameId: MaybeRefOrGetter<number>) {
+  const currentId = computed(() => toValue(gameId));
+
+  function state(): CombatChatThreadState {
+    return stateOf(currentId.value);
+  }
 
   function beginRound(): ChatThreadRef {
-    if (state.roundId) state.previousRoundId = state.roundId;
-    if (state.turnId) state.previousTurnId = state.turnId;
-    state.roundId = newId();
-    state.turnId = null;
-    state.attackId = null;
+    const current = state();
+    if (current.roundId) current.previousRoundId = current.roundId;
+    if (current.turnId) current.previousTurnId = current.turnId;
+    current.roundId = newId();
+    current.turnId = null;
+    current.attackId = null;
 
-    return { id: state.roundId, kind: COMBAT_CHAT_ROUND };
+    return { id: current.roundId, kind: COMBAT_CHAT_ROUND };
   }
 
   function beginTurn(): ChatThreadRef {
-    if (!state.roundId) beginRound();
-    if (state.turnId) state.previousTurnId = state.turnId;
-    state.turnId = newId();
-    state.attackId = null;
+    const current = state();
+    if (!current.roundId) beginRound();
+    if (current.turnId) current.previousTurnId = current.turnId;
+    current.turnId = newId();
+    current.attackId = null;
 
-    return { id: state.turnId, parentId: state.roundId ?? undefined, kind: COMBAT_CHAT_TURN };
+    return { id: current.turnId, parentId: current.roundId ?? undefined, kind: COMBAT_CHAT_TURN };
   }
 
   function beginAttack(): ChatThreadRef {
-    state.attackId = newId();
+    const current = state();
+    current.attackId = newId();
 
     return {
-      id: state.attackId,
-      parentId: state.turnId ?? state.roundId ?? undefined,
+      id: current.attackId,
+      parentId: current.turnId ?? current.roundId ?? undefined,
       kind: COMBAT_CHAT_ATTACK,
     };
   }
 
   function endAttack(): void {
-    state.attackId = null;
+    state().attackId = null;
   }
 
   function clearLive(): void {
-    state.roundId = null;
-    state.previousRoundId = null;
-    state.turnId = null;
-    state.previousTurnId = null;
-    state.attackId = null;
+    const current = state();
+    current.roundId = null;
+    current.previousRoundId = null;
+    current.turnId = null;
+    current.previousTurnId = null;
+    current.attackId = null;
   }
 
   function stamp(): ChatThreadRef | undefined {
-    if (state.attackId) {
-      return { id: state.attackId, parentId: state.turnId ?? undefined, kind: COMBAT_CHAT_ATTACK };
+    const current = state();
+    if (current.attackId) {
+      return { id: current.attackId, parentId: current.turnId ?? undefined, kind: COMBAT_CHAT_ATTACK };
     }
-    if (state.turnId) {
-      return { id: state.turnId, parentId: state.roundId ?? undefined, kind: COMBAT_CHAT_TURN };
+    if (current.turnId) {
+      return { id: current.turnId, parentId: current.roundId ?? undefined, kind: COMBAT_CHAT_TURN };
     }
-    if (state.roundId) {
-      return { id: state.roundId, kind: COMBAT_CHAT_ROUND };
+    if (current.roundId) {
+      return { id: current.roundId, kind: COMBAT_CHAT_ROUND };
     }
 
     return undefined;
   }
 
   function recoverFromMessages(messages: ChatMessage[]): void {
-    if (state.roundId || state.turnId) return;
+    const current = state();
+    if (current.roundId || current.turnId) return;
     const turns: string[] = [];
     const rounds: string[] = [];
     const turnParent = new Map<string, string>();
@@ -109,18 +120,20 @@ export function useCombatChatThread(gameId: number) {
       }
       if (thread.kind === COMBAT_CHAT_ROUND && !rounds.includes(thread.id)) rounds.push(thread.id);
     }
-    state.turnId = turns[0] ?? null;
-    state.previousTurnId = turns[1] ?? null;
-    state.roundId = rounds[0] ?? (turns[0] ? (turnParent.get(turns[0]) ?? null) : null);
+    current.turnId = turns[0] ?? null;
+    current.previousTurnId = turns[1] ?? null;
+    current.roundId = rounds[0] ?? (turns[0] ? (turnParent.get(turns[0]) ?? null) : null);
     const previousRound = rounds[1] ?? (turns[1] ? turnParent.get(turns[1]) : undefined);
-    state.previousRoundId = previousRound && previousRound !== state.roundId ? previousRound : null;
+    current.previousRoundId = previousRound && previousRound !== current.roundId ? previousRound : null;
   }
 
-  const liveIds = computed(() =>
-    [state.previousRoundId, state.roundId, state.previousTurnId, state.turnId, state.attackId].filter(
+  const liveIds = computed(() => {
+    const current = state();
+
+    return [current.previousRoundId, current.roundId, current.previousTurnId, current.turnId, current.attackId].filter(
       (id): id is string => id != null,
-    ),
-  );
+    );
+  });
 
   return {
     beginRound,

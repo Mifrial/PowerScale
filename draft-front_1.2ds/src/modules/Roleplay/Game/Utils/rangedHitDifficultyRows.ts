@@ -1,7 +1,7 @@
 import type { RangedHitDifficultyBreakdown } from '@/modules/Roleplay/Game/Dto/DiceRollCheckOutcome';
-import type { HitDefenseReaction } from '@/modules/Roleplay/Game/Dto/CheckOffer';
+import type { HitDefenseReaction } from '@/modules/Roleplay/Game/Enum/HitDefenseReaction';
 import type { DiceRollResult } from '@/modules/Roleplay/Game/Dto/DiceRollResult';
-import type { RangedHitDifficultyParts } from '@/modules/Roleplay/Character/Utils/weaponAttackRange';
+import type { RangedHitDifficultyParts } from '@/modules/Roleplay/Character/Dto/RangedHitDifficultyParts';
 
 function reactionLabel(reaction: HitDefenseReaction): string {
   if (reaction === 'dodge') return 'уклон';

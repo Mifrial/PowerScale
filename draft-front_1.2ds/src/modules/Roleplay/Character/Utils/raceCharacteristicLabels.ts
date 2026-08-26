@@ -3,11 +3,8 @@ import type { RaceCharacteristic } from '@/modules/Roleplay/Rule/Dto/Race/RaceCh
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
-import {
-  evaluateDerivedValue,
-  parseDerivedFormula,
-  type ParsedDerivedFormula,
-} from '@/modules/Roleplay/Rule/Utils/derivedCharacteristic';
+import { derivedCharacteristicService } from '@/modules/Roleplay/Rule/Service/Instance/derivedCharacteristicService';
+import type { ParsedDerivedFormula } from '@/modules/Roleplay/Rule/Dto/ParsedDerivedFormula';
 
 export interface RaceCharacteristicLabel {
   name: string;
@@ -38,7 +35,7 @@ export function buildRaceCharacteristicLabels(spec: RaceSpec, rules: Rule[]): Ra
     if (rule.type !== 'characteristic') continue;
     const formula = (rule.spec as { formula?: string | null } | undefined)?.formula;
     if (!formula) continue;
-    const parsed = parseDerivedFormula(formula);
+    const parsed = derivedCharacteristicService.parseDerivedFormula(formula);
     if (parsed) derivedFormulas.set(rule.code, parsed);
   }
 
@@ -51,7 +48,7 @@ export function buildRaceCharacteristicLabels(spec: RaceSpec, rules: Rule[]): Ra
   const derivedMinOf = (code: string): DimensionalNumberValue | null => {
     for (const [, parsed] of derivedFormulas) {
       if (!parsed.codes.includes(code)) continue;
-      const value = evaluateDerivedValue(parsed, valueOf);
+      const value = derivedCharacteristicService.evaluateDerivedValue(parsed, valueOf);
       if (value !== null) return value;
     }
 
@@ -83,7 +80,7 @@ export function buildRaceCharacteristicLabels(spec: RaceSpec, rules: Rule[]): Ra
 
   // Производные: единое значение из баз (у них нет своего значения).
   for (const [code, parsed] of derivedFormulas) {
-    const value = evaluateDerivedValue(parsed, valueOf);
+    const value = derivedCharacteristicService.evaluateDerivedValue(parsed, valueOf);
     if (value === null) continue;
     labels.push({ name: nameOf(code), label: new DimensionalNumber(value).toString() });
   }

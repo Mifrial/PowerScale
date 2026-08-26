@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue';
 import { useUserStore } from '@/modules/Core/User/Store/users';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
-import { canSeeSheet } from '@/modules/Roleplay/Character/Utils/sheetAccess';
+import { sheetAccessService } from '@/modules/Roleplay/Character/init';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
 import type { SheetVisibility } from '@/modules/Roleplay/Character/Dto/SheetVisibility';
 import type { SheetAccessContext } from '@/modules/Roleplay/Character/Interface/SheetAccessContext';
@@ -64,7 +64,7 @@ const visibleNpcs = computed(() => {
   const user = currentUser.value;
   if (!user) return [];
 
-  return activeNpcs.value.filter((npc) => canSeeSheet(user, npc.visibility, ctxFor(user, npc)));
+  return activeNpcs.value.filter((npc) => sheetAccessService.canSeeSheet(user, npc.visibility, ctxFor(user, npc)));
 });
 
 const myProposals = computed(() => {

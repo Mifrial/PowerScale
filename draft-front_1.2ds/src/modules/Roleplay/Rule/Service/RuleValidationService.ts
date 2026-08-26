@@ -10,8 +10,8 @@ import type { Grant } from '@/modules/Roleplay/Rule/Dto/Ability/Grant';
 import type { ItemSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpec';
 import type { ItemModifierSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierSpec';
 import type { CheckSpec } from '@/modules/Roleplay/Rule/Dto/Check/CheckSpec';
-import { asCheckSpec } from '@/modules/Roleplay/Rule/Utils/checkResolution';
-import { asDamageTypeSpec } from '@/modules/Roleplay/Rule/Utils/damageTypeSpec';
+import { checkResolutionService } from '@/modules/Roleplay/Rule/Service/Instance/checkResolutionService';
+import { damageTypeSpecService } from '@/modules/Roleplay/Rule/Service/Instance/damageTypeSpecService';
 import type { RaceSpec } from '@/modules/Roleplay/Rule/Dto/Race/RaceSpec';
 import type { SpeciesSpec } from '@/modules/Roleplay/Rule/Dto/Race/SpeciesSpec';
 import type { CharacteristicSpec } from '@/modules/Roleplay/Rule/Dto/CharacteristicSpec';
@@ -220,7 +220,7 @@ export class RuleValidationService {
 
     for (const rule of rules) {
       if (rule.type !== 'check') continue;
-      const spec = asCheckSpec(rule);
+      const spec = checkResolutionService.asCheckSpec(rule);
       if (!spec) {
         errors.push({
           ruleCode: rule.code,
@@ -270,7 +270,7 @@ export class RuleValidationService {
         }
         seen.add(parentCode);
         const parent = byCode.get(parentCode);
-        parentCode = asCheckSpec(parent)?.parent_check_code ?? '';
+        parentCode = checkResolutionService.asCheckSpec(parent)?.parent_check_code ?? '';
       }
     }
 
@@ -284,7 +284,7 @@ export class RuleValidationService {
 
     for (const rule of rules) {
       if (rule.type !== 'damage_type') continue;
-      const spec = asDamageTypeSpec(rule);
+      const spec = damageTypeSpecService.asDamageTypeSpec(rule);
       if (!spec) {
         errors.push({
           ruleCode: rule.code,

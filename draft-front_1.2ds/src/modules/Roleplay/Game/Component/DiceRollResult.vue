@@ -5,10 +5,12 @@ import type { InlineSegment } from '@/modules/Messages/Chat/Dto/InlineSegment';
 import type { DiceRollResult } from '@/modules/Roleplay/Game/Dto/DiceRollResult';
 import { rollService } from '@/modules/Roleplay/Game/Service/Instance/rollService';
 import { CHECK_HIT_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
-import { formatPreparedMagnitude, HIT_MIN_SUCCESS_SIZE } from '@/modules/Roleplay/Rule/Utils/checkSuccessRating';
-import { netSourceDelta } from '@/modules/Roleplay/Rule/Utils/aggregateSourceDeltas';
+import { checkSuccessRatingService } from '@/modules/Roleplay/Rule/Service/Instance/checkSuccessRatingService';
+import { HIT_MIN_SUCCESS_SIZE } from '@/modules/Roleplay/Rule/Constant/Check/HIT_MIN_SUCCESS_SIZE';
+import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/Service/Instance/aggregateSourceDeltasService';
 import { resolveAppliedMechanicNames } from '@/modules/Roleplay/Game/Utils/appliedRollMechanics';
-import { parseCombatEntityKey } from '@/modules/Roleplay/Game/Utils/combatCardModel';
+import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
+
 import { injuryDifficultyDetailRows } from '@/modules/Roleplay/Game/Utils/injuryCheckMessage';
 import { rangedHitDifficultyDetailRows } from '@/modules/Roleplay/Game/Utils/rangedHitDifficultyRows';
 import GameEntityChip from '@/modules/Roleplay/Game/Component/Chat/GameEntityChip.vue';
@@ -21,23 +23,25 @@ const props = defineProps<{
 
 const roll = computed(() => props.attachment.payload);
 const sizeSuffix = computed(() => rollService.formatRollSize(roll.value.spec.dieSize || 0));
-const netAdv = computed(() => netSourceDelta(roll.value.spec.advantages));
+const netAdv = computed(() => aggregateSourceDeltasService.netSourceDelta(roll.value.spec.advantages));
 const check = computed(() => roll.value.check);
 const checkMinSize = computed(() => (check.value?.check_code === CHECK_HIT_CODE ? HIT_MIN_SUCCESS_SIZE : undefined));
 const successesLabel = computed(() =>
-  formatPreparedMagnitude(
+  checkSuccessRatingService.formatPreparedMagnitude(
     { base: roll.value.totalSuccesses, size: roll.value.spec.dieSize || 0 },
     { minSize: checkMinSize.value, signed: true, foldNegative: !roll.value.injury },
   ),
 );
 const difficultyLabel = computed(() =>
-  check.value ? formatPreparedMagnitude(check.value.difficulty, { minSize: checkMinSize.value }) : null,
+  check.value
+    ? checkSuccessRatingService.formatPreparedMagnitude(check.value.difficulty, { minSize: checkMinSize.value })
+    : null,
 );
 const title = computed(() => roll.value.spec.label || (check.value ? 'Простая проверка' : `Бросок ${props.index + 1}`));
 const actorSegment = computed((): Extract<InlineSegment, { kind: 'token' }> | null => {
   const key = roll.value.spec.actorKey;
   if (!key) return null;
-  const parsed = parseCombatEntityKey(key);
+  const parsed = combatCardModelService.parseCombatEntityKey(key);
 
   return { kind: 'token', type: parsed.kind, params: [String(parsed.id), title.value] };
 });

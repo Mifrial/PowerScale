@@ -12,7 +12,7 @@ import {
   ROLL_DEFAULT_DIE_SIZE,
 } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_RULE_CODE';
 import { ADVANTAGE_SOURCE_ROLL } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
-import { advantageEntries } from '@/modules/Roleplay/Rule/Utils/aggregateSourceDeltas';
+import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/Service/Instance/aggregateSourceDeltasService';
 
 /**
  * Поток броска как события механик (ТР §8 «Броски»): pool → бросок → drop → базовый
@@ -38,7 +38,10 @@ export class RollEngine {
           ? data.efficiency
           : spec.efficiency,
       dieSize: spec.dieSize === ROLL_DEFAULT_DIE_SIZE && data.dieSize !== undefined ? data.dieSize : spec.dieSize,
-      advantages: spec.advantages.length > 0 ? spec.advantages : advantageEntries(data.adv ?? 0, ADVANTAGE_SOURCE_ROLL),
+      advantages:
+        spec.advantages.length > 0
+          ? spec.advantages
+          : aggregateSourceDeltasService.advantageEntries(data.adv ?? 0, ADVANTAGE_SOURCE_ROLL),
     };
   }
 

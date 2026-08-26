@@ -1,7 +1,7 @@
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
-import { aggregateSourceDeltas } from '@/modules/Roleplay/Rule/Utils/aggregateSourceDeltas';
+import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/Service/Instance/aggregateSourceDeltasService';
 import {
   ITEM_MODIFIER_CRAFT_KEYWORD_FACTOR,
   ITEM_MODIFIER_CRAFT_QUALITY_TYPE,
@@ -9,9 +9,9 @@ import {
 } from '@/modules/Roleplay/Rule/Constant/Item/ITEM_MODIFIER_CRAFT_QUALITY';
 import { ITEM_MODIFIER_PRICE_KEYWORD_PRIORITY } from '@/modules/Roleplay/Rule/Constant/Item/ITEM_MODIFIER_PRICE_KEYWORD_PRIORITY';
 import type { Formula } from '@/modules/Roleplay/Rule/Dto/Ability/Formula';
-import type { ItemModifierApplies } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierSpec';
-import type { ItemModifierEffect } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierSpec';
-import type { ItemModifierPrice } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierSpec';
+import type { ItemModifierApplies } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierApplies';
+import type { ItemModifierEffect } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierEffect';
+import type { ItemModifierPrice } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierPrice';
 import type { ItemModifierSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierSpec';
 import type { ItemModifierOp } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierOp';
 import type { ItemModifierTypeSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierTypeSpec';
@@ -189,7 +189,7 @@ export class ItemModifierService {
       cost = this.computeScaledPrice(cost, modifier, itemKeywordCodes, spec.weight, modifiers);
     }
     if (zeroImprovised) cost = 0;
-    if (spec.advantages?.length) spec.advantages = aggregateSourceDeltas(spec.advantages);
+    if (spec.advantages?.length) spec.advantages = aggregateSourceDeltasService.aggregateSourceDeltas(spec.advantages);
 
     return { spec, cost, keywordCodes: this.effectiveKeywordCodes(itemKeywordCodes, modifiers) };
   }

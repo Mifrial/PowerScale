@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ResourceOverview } from '@/modules/Roleplay/Character/Dto/Overview/ResourceOverview';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import RuleLink from '@/modules/Roleplay/Character/Component/Detail/RuleLink.vue';
+import { RuleLink } from '@/modules/Roleplay/Character/init';
 
 defineProps<{
   resource: ResourceOverview;

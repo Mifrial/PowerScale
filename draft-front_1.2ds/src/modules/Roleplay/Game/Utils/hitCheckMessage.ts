@@ -1,5 +1,5 @@
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
-import type { HitDefenseReaction } from '@/modules/Roleplay/Game/Dto/CheckOffer';
+import type { HitDefenseReaction } from '@/modules/Roleplay/Game/Enum/HitDefenseReaction';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
 function entityToken(key: CombatEntityKey, name: string): string {

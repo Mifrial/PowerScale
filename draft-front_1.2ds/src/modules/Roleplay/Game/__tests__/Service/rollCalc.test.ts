@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec';
 import { rollService } from '@/modules/Roleplay/Game/Service/Instance/rollService';
 import type { DiceRng } from '@/modules/Roleplay/Game/Dto/DiceRng';
-import { advantageEntries } from '@/modules/Roleplay/Rule/Utils/aggregateSourceDeltas';
+import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/Service/Instance/aggregateSourceDeltasService';
 
 function spec(partial: Partial<DiceRollSpec> & { adv?: number } = {}): DiceRollSpec {
   const { adv, advantages, ...rest } = partial;
@@ -13,7 +13,7 @@ function spec(partial: Partial<DiceRollSpec> & { adv?: number } = {}): DiceRollS
     efficiency: 3,
     dieSize: 0,
     ...rest,
-    advantages: advantages ?? advantageEntries(adv ?? 0),
+    advantages: advantages ?? aggregateSourceDeltasService.advantageEntries(adv ?? 0),
   };
 }
 

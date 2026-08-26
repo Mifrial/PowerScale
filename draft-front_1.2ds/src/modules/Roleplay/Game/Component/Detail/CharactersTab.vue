@@ -8,7 +8,7 @@ import { GAME_MEMBERSHIP_STATUS_LABEL } from '@/modules/Roleplay/Game/Constant/G
 import { GAME_MEMBERSHIP_STATUS_COLOR } from '@/modules/Roleplay/Game/Constant/GameMembershipStatus/GAME_MEMBERSHIP_STATUS';
 import { CHARACTER_STATUS_OPTIONS } from '@/modules/Roleplay/Character/Constant/CHARACTER_STATUS_OPTIONS';
 import { CHARACTER_STATUS_COLOR } from '@/modules/Roleplay/Character/Constant/CHARACTER_STATUS_COLOR';
-import { canSeeSheet, visibleSheetSections } from '@/modules/Roleplay/Character/Utils/sheetAccess';
+import { sheetAccessService } from '@/modules/Roleplay/Character/init';
 import type { SheetVisibility } from '@/modules/Roleplay/Character/Dto/SheetVisibility';
 import type { SheetAccessContext } from '@/modules/Roleplay/Character/Interface/SheetAccessContext';
 import type { User } from '@/modules/Core/User/Dto/User';
@@ -20,9 +20,9 @@ import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/Characte
 import type { GameMember } from '@/modules/Roleplay/Game/Dto/GameMember';
 import SheetVisibilityDialog from '@/modules/Roleplay/Game/Component/Detail/SheetVisibilityDialog.vue';
 import CharacterMigrationDialog from '@/modules/Roleplay/Game/Component/Detail/CharacterMigrationDialog.vue';
-import SheetCard from '@/modules/Roleplay/Character/Component/SheetCard.vue';
-import UniqueRulesTab from '@/modules/Roleplay/Character/Component/Detail/UniqueRulesTab.vue';
-import { mergeCombatOverlay } from '@/modules/Roleplay/Game/Utils/mergeCombatOverlay';
+import { SheetCard } from '@/modules/Roleplay/Character/init';
+import { UniqueRulesTab } from '@/modules/Roleplay/Character/init';
+import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
 
 const props = defineProps<{
   /** Активна ли вкладка: перезагрузка при активации (v-window не размонтирует вкладки). */
@@ -132,7 +132,7 @@ const visibleMemberships = computed(() => {
 
   return memberships.value.filter((membership) => {
     const isOwner = membership.characterOwnerId === user.id;
-    if (!canSeeSheet(user, membership.visibility, ctxFor(user, membership))) return false;
+    if (!sheetAccessService.canSeeSheet(user, membership.visibility, ctxFor(user, membership))) return false;
 
     return membership.membershipStatus === 'approved' || isOwner;
   });
@@ -152,7 +152,7 @@ const cardVisibleSections = computed(() => {
   const user = currentUser.value;
   if (!target || !user) return [];
 
-  return visibleSheetSections(user, target.visibility, ctxFor(user, target));
+  return sheetAccessService.visibleSheetSections(user, target.visibility, ctxFor(user, target));
 });
 
 // Эффективная версия листа в игре: полный лист оверлея (in-game редактор) или approved + боевые правки.
@@ -163,7 +163,7 @@ const cardVersion = computed<CharacterVersion | null>(() => {
   if (!overlay || overlay.updatedAt === '') return target.activeVersion;
   if (overlay.sheet) return overlay.sheet;
 
-  return mergeCombatOverlay(target.activeVersion, overlay);
+  return combatOverlayService.mergeCombatOverlay(target.activeVersion, overlay);
 });
 
 async function load(): Promise<void> {

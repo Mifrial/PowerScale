@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { rollService } from '@/modules/Roleplay/Game/Service/Instance/rollService';
 import { ROLL_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ATTACHMENT_TYPE';
 import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec';
-import { netSourceDelta } from '@/modules/Roleplay/Rule/Utils/aggregateSourceDeltas';
+import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/Service/Instance/aggregateSourceDeltasService';
 
 function rollOf(res: ReturnType<typeof rollService.parseRollCommand>): DiceRollSpec | undefined {
   return res?.attachments.find((a) => a.type === ROLL_ATTACHMENT_TYPE)?.payload as DiceRollSpec | undefined;
@@ -60,18 +60,42 @@ describe('parseRollCommand', () => {
   });
 
   it('превращает dis в отрицательный adv', () => {
-    expect(netSourceDelta(rollOf(rollService.parseRollCommand('/roll 3d6 dis:2'))?.advantages ?? [])).toBe(-2);
-    expect(netSourceDelta(rollOf(rollService.parseRollCommand('/roll 3d6 pom:1'))?.advantages ?? [])).toBe(-1);
+    expect(
+      aggregateSourceDeltasService.netSourceDelta(
+        rollOf(rollService.parseRollCommand('/roll 3d6 dis:2'))?.advantages ?? [],
+      ),
+    ).toBe(-2);
+    expect(
+      aggregateSourceDeltasService.netSourceDelta(
+        rollOf(rollService.parseRollCommand('/roll 3d6 pom:1'))?.advantages ?? [],
+      ),
+    ).toBe(-1);
   });
 
   it('разбирает adv и префикс prem', () => {
-    expect(netSourceDelta(rollOf(rollService.parseRollCommand('/roll 3d6 adv:1'))?.advantages ?? [])).toBe(1);
-    expect(netSourceDelta(rollOf(rollService.parseRollCommand('/roll 3d6 prem:2'))?.advantages ?? [])).toBe(2);
+    expect(
+      aggregateSourceDeltasService.netSourceDelta(
+        rollOf(rollService.parseRollCommand('/roll 3d6 adv:1'))?.advantages ?? [],
+      ),
+    ).toBe(1);
+    expect(
+      aggregateSourceDeltasService.netSourceDelta(
+        rollOf(rollService.parseRollCommand('/roll 3d6 prem:2'))?.advantages ?? [],
+      ),
+    ).toBe(2);
   });
 
   it('ограничивает adv максимумом', () => {
-    expect(netSourceDelta(rollOf(rollService.parseRollCommand('/roll 3d6 adv:99'))?.advantages ?? [])).toBe(10);
-    expect(netSourceDelta(rollOf(rollService.parseRollCommand('/roll 3d6 dis:99'))?.advantages ?? [])).toBe(-10);
+    expect(
+      aggregateSourceDeltasService.netSourceDelta(
+        rollOf(rollService.parseRollCommand('/roll 3d6 adv:99'))?.advantages ?? [],
+      ),
+    ).toBe(10);
+    expect(
+      aggregateSourceDeltasService.netSourceDelta(
+        rollOf(rollService.parseRollCommand('/roll 3d6 dis:99'))?.advantages ?? [],
+      ),
+    ).toBe(-10);
   });
 
   it('отбрасывает невалидную эффективность в пользу дефолта', () => {

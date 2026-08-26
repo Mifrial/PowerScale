@@ -1,11 +1,12 @@
 import type { ChatAttachment } from '@/modules/Messages/Chat/Dto/ChatAttachment';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { DotTickCalcPayload } from '@/modules/Roleplay/Game/Dto/DotTickCalcPayload';
-import type { ApplyAttackDamageResult } from '@/modules/Roleplay/Game/Utils/applyAttackDamage';
+import type { ApplyAttackDamageResult } from '@/modules/Roleplay/Game/Dto/ApplyAttackDamageResult';
+
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import { DOT_TICK_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Dot/DOT_TICK_ATTACHMENT_TYPE';
-import { damageTypeForms } from '@/modules/Roleplay/Rule/Utils/damageTypeSpec';
+import { damageTypeSpecService } from '@/modules/Roleplay/Rule/Service/Instance/damageTypeSpecService';
 
 function entityToken(key: CombatEntityKey, name: string): string {
   if (key.startsWith('npc:')) return `[[npc:${key.slice(4)},${name}]]`;
@@ -25,7 +26,7 @@ function countWord(n: number, one: string, few: string, many: string): string {
 
 function typeChip(code: string, rules: Rule[]): string {
   const rule = rules.find((item) => item.code === code && item.type === 'damage_type');
-  const genitive = damageTypeForms(code, rules)?.genitive ?? rule?.name.toLowerCase() ?? code;
+  const genitive = damageTypeSpecService.damageTypeForms(code, rules)?.genitive ?? rule?.name.toLowerCase() ?? code;
   if (!rule) return genitive;
 
   return `[[rule:${rule.code},${genitive}]]`;

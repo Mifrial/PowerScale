@@ -5,7 +5,7 @@ import { useKeywordStore } from '@/modules/Roleplay/Rule/Store/keywords';
 import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { characterEditorService } from '@/modules/Roleplay/Character/Service/Instance/characterEditorService';
-import { characterSheetValidationIssues } from '@/modules/Roleplay/Character/Utils/characterSheetValidation';
+import { characterSheetValidationService } from '@/modules/Roleplay/Character/Service/Instance/characterSheetValidationService';
 import { clampAgeYears } from '@/modules/Roleplay/Character/Utils/clampAgeYears';
 import { getRuleApi } from '@/modules/Roleplay/Rule/init';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
@@ -55,6 +55,7 @@ const rulesError = ref<string | null>(null);
 const saveError = ref<string | null>(null);
 const saveMessage = ref<string | null>(null);
 const saving = ref(false);
+const storageToast = ref(false);
 
 const draft = computed(() => draftStore.draftOf(props.draftKey));
 
@@ -76,7 +77,7 @@ const saveReady = computed(() => validationIssues.value.length === 0);
 
 /** Проблемы, блокирующие «Сохранить» (ТР §7.6 «Готов»). */
 const validationIssues = computed(() =>
-  characterSheetValidationIssues(draft.value?.build, model.value, props.requireRace),
+  characterSheetValidationService.characterSheetValidationIssues(draft.value?.build, model.value, props.requireRace),
 );
 
 // Возраст авто-меняется только если не подходит: если ageYears не попадает ни в одну ступень
@@ -181,6 +182,10 @@ const actionsReady = ref(false);
 
 onMounted(() => {
   actionsReady.value = true;
+  if (draftStore.storageDiscarded) {
+    storageToast.value = true;
+    draftStore.acknowledgeStorageDiscarded();
+  }
   if (keywordStore.keywords.length === 0) void keywordStore.fetchTags();
   if (mechanics.value.length === 0) {
     void getRuleApi()
@@ -302,6 +307,9 @@ onMounted(() => {
       <EditorAbilitySlider :rules="rules" :keywords="keywordStore.keywords" />
     </div>
   </template>
+  <v-snackbar v-model="storageToast" color="error" timeout="4000">
+    Черновик листа в браузере повреждён и сброшен
+  </v-snackbar>
 </template>
 
 <style scoped>

@@ -11,7 +11,7 @@ import { mockModsImport } from '@/modules/Roleplay/Rule/Mock/mockModsImport';
 import { mockModifierTypes } from '@/modules/Roleplay/Rule/Mock/mockModifierTypes';
 import { mockChecks } from '@/modules/Roleplay/Rule/Mock/mockChecks';
 import { mockDamageTypeHooks } from '@/modules/Roleplay/Rule/Mock/mockDamageTypeHooks';
-import { DAMAGE_TYPE_FORMS } from '@/modules/Roleplay/Character/Constant/DAMAGE_TYPE_FORMS';
+import { DAMAGE_TYPE_FORMS } from '@/modules/Roleplay/Rule/Constant/DAMAGE_TYPE_FORMS';
 import type { DamageTypeSpec } from '@/modules/Roleplay/Rule/Dto/Damage/DamageTypeSpec';
 import {
   DT_BLUNT_KO_CODE,

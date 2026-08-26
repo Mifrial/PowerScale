@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useRuleStore } from '@/modules/Roleplay/Rule/Store/rules';
 import { useKeywordStore } from '@/modules/Roleplay/Rule/Store/keywords';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
-import { useSpaceContext } from '@/modules/Roleplay/Space/init';
+import { useRuleHostContext } from '@/modules/Roleplay/Rule/init';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { RuleVersion } from '@/modules/Roleplay/Rule/Dto/RuleVersion';
 import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
@@ -24,7 +24,7 @@ const route = useRoute();
 const router = useRouter();
 const store = useRuleStore();
 const keywordStore = useKeywordStore();
-const spaceContext = useSpaceContext();
+const ruleHost = useRuleHostContext();
 const { signal } = useAbortable();
 
 const code = computed(() => route.params.code as string);
@@ -65,7 +65,7 @@ async function resolveRoute(): Promise<void> {
 
   try {
     // Ищем правило в effectiveRules (уже смержено с черновиками в draft-контексте)
-    const found = spaceContext.value.effectiveRules.find((r) => r.id === ruleId.value);
+    const found = ruleHost.value.effectiveRules.find((r) => r.id === ruleId.value);
 
     if (found) {
       rule.value = found;
@@ -118,30 +118,30 @@ watch(() => [route.params.code, route.params.ctx, route.params.ruleId], resolveR
     <AbilityCard
       v-if="rule.type === 'ability'"
       :rule="rule"
-      :rules="spaceContext.effectiveRules"
+      :rules="ruleHost.effectiveRules"
       :keywords="keywordStore.keywords"
       class="mb-4"
     />
 
-    <RaceCard v-if="rule.type === 'race'" :rule="rule" :rules="spaceContext.effectiveRules" class="mb-4" />
+    <RaceCard v-if="rule.type === 'race'" :rule="rule" :rules="ruleHost.effectiveRules" class="mb-4" />
 
-    <SpeciesCard v-if="rule.type === 'species'" :rule="rule" :rules="spaceContext.effectiveRules" class="mb-4" />
+    <SpeciesCard v-if="rule.type === 'species'" :rule="rule" :rules="ruleHost.effectiveRules" class="mb-4" />
 
     <PointsCard v-if="rule.type === 'points'" :rule="rule" class="mb-4" />
 
-    <StateCard v-if="rule.type === 'state'" :rule="rule" :rules="spaceContext.effectiveRules" class="mb-4" />
-    <PoisonCard v-if="rule.type === 'poison'" :rule="rule" :rules="spaceContext.effectiveRules" class="mb-4" />
+    <StateCard v-if="rule.type === 'state'" :rule="rule" :rules="ruleHost.effectiveRules" class="mb-4" />
+    <PoisonCard v-if="rule.type === 'poison'" :rule="rule" :rules="ruleHost.effectiveRules" class="mb-4" />
 
     <ModifierCard
       v-if="rule.type === 'item_modifier'"
       :rule="rule"
       :keywords="keywordStore.keywords"
-      :rules="spaceContext.effectiveRules"
+      :rules="ruleHost.effectiveRules"
       class="mb-4"
     />
 
-    <CheckCard v-if="rule.type === 'check'" :rule="rule" :rules="spaceContext.effectiveRules" class="mb-4" />
-    <DamageTypeCard v-if="rule.type === 'damage_type'" :rule="rule" :rules="spaceContext.effectiveRules" class="mb-4" />
+    <CheckCard v-if="rule.type === 'check'" :rule="rule" :rules="ruleHost.effectiveRules" class="mb-4" />
+    <DamageTypeCard v-if="rule.type === 'damage_type'" :rule="rule" :rules="ruleHost.effectiveRules" class="mb-4" />
 
     <v-card v-if="mechanic" class="mb-4">
       <v-card-title>Механика</v-card-title>

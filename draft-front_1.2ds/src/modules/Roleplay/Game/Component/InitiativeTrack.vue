@@ -12,19 +12,18 @@ import InitiativeDialog from '@/modules/Roleplay/Game/Component/InitiativeDialog
 import type { ChatMessage } from '@/modules/Messages/Chat/Dto/ChatMessage';
 import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
-import {
-  combatCardModel,
-  combatCardCanEdit,
-  combatExhaustion,
-  combatMaim,
-  combatActionPoints,
-} from '@/modules/Roleplay/Game/Utils/combatCardModel';
-import { ACTION_POINTS_CODE } from '@/modules/Roleplay/Game/Utils/applyAttackDamage';
-import { applyTurnWoundBleed } from '@/modules/Roleplay/Game/Utils/applyBloodLoss';
-import { effectiveCharacteristicValues } from '@/modules/Roleplay/Character/Utils/stateRuntimeEffects';
-import { replaceCombatOverlay } from '@/modules/Roleplay/Game/Utils/mergeCombatOverlay';
+import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
+
+import { ACTION_POINTS_CODE } from '@/modules/Roleplay/Game/Constant/Combat/ACTION_POINTS_CODE';
+
+import { bloodLossService } from '@/modules/Roleplay/Game/Service/Instance/bloodLossService';
+
+import { stateRuntimeEffectsService } from '@/modules/Roleplay/Character/init';
+import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
+
 import { useCombatChatThread } from '@/modules/Roleplay/Game/Composables/useCombatChatThread';
-import { sendCombatChat } from '@/modules/Roleplay/Game/Utils/combatChatSend';
+import { combatChatSendService } from '@/modules/Roleplay/Game/Service/Instance/combatChatSendService';
+
 import type { ChatThreadRef } from '@/modules/Messages/Chat/Dto/ChatThreadRef';
 
 type SystemNotification = { content: string; kind: ChatMessage['kind']; thread?: ChatThreadRef };
@@ -66,8 +65,8 @@ const emit = defineEmits<{
 
 const userStore = useUserStore();
 const chatStore = useChatStore();
-const combatThread = useCombatChatThread(props.gameId);
-const sendChat = sendCombatChat(props.gameId);
+const combatThread = useCombatChatThread(() => props.gameId);
+const sendChat = combatChatSendService.sendCombatChat(props.gameId);
 
 const initiative = ref<GameInitiative | null>(null);
 const loading = ref(false);
@@ -149,7 +148,7 @@ const exhaustionByEntity = computed<Map<string, number>>(() => {
   for (const participant of initiative.value?.participants ?? []) {
     if (participant.entityId === null) continue;
     const overlay = overlays.value.find((item) => item.entityKey === participant.id) ?? null;
-    const model = combatCardModel(
+    const model = combatCardModelService.combatCardModel(
       participant.id as CombatEntityKey,
       props.characters,
       props.npcs,
@@ -158,7 +157,7 @@ const exhaustionByEntity = computed<Map<string, number>>(() => {
       overlay,
     );
     if (!model.effectiveVersion) continue;
-    const value = combatExhaustion(model.effectiveVersion.states, props.rules);
+    const value = combatCardModelService.combatExhaustion(model.effectiveVersion.states, props.rules);
     if (value !== null) map.set(participant.id, value);
   }
 
@@ -170,7 +169,7 @@ const maimByEntity = computed<Map<string, number>>(() => {
   for (const participant of initiative.value?.participants ?? []) {
     if (participant.entityId === null) continue;
     const overlay = overlays.value.find((item) => item.entityKey === participant.id) ?? null;
-    const model = combatCardModel(
+    const model = combatCardModelService.combatCardModel(
       participant.id as CombatEntityKey,
       props.characters,
       props.npcs,
@@ -179,7 +178,7 @@ const maimByEntity = computed<Map<string, number>>(() => {
       overlay,
     );
     if (!model.effectiveVersion) continue;
-    const value = combatMaim(model.effectiveVersion.states, props.rules);
+    const value = combatCardModelService.combatMaim(model.effectiveVersion.states, props.rules);
     if (value !== null) map.set(participant.id, value);
   }
 
@@ -191,7 +190,7 @@ const actionPointsByEntity = computed<Map<string, number>>(() => {
   for (const participant of initiative.value?.participants ?? []) {
     if (participant.entityId === null) continue;
     const overlay = overlays.value.find((item) => item.entityKey === participant.id) ?? null;
-    const model = combatCardModel(
+    const model = combatCardModelService.combatCardModel(
       participant.id as CombatEntityKey,
       props.characters,
       props.npcs,
@@ -200,7 +199,7 @@ const actionPointsByEntity = computed<Map<string, number>>(() => {
       overlay,
     );
     if (!model.effectiveVersion) continue;
-    const ap = combatActionPoints(model.effectiveVersion, props.rules);
+    const ap = combatCardModelService.combatActionPoints(model.effectiveVersion, props.rules);
     if (ap) map.set(participant.id, ap.current);
   }
 
@@ -208,7 +207,7 @@ const actionPointsByEntity = computed<Map<string, number>>(() => {
 });
 
 function canInspect(participant: { id: string }): boolean {
-  return combatCardCanEdit(
+  return combatCardModelService.combatCardCanEdit(
     participant.id as CombatEntityKey,
     props.canEdit,
     currentUser.value?.id ?? null,
@@ -218,10 +217,10 @@ function canInspect(participant: { id: string }): boolean {
 
 async function refillActionPoints(entityKey: CombatEntityKey): Promise<void> {
   const overlay = overlays.value.find((item) => item.entityKey === entityKey) ?? null;
-  const model = combatCardModel(entityKey, props.characters, props.npcs, true, null, overlay);
+  const model = combatCardModelService.combatCardModel(entityKey, props.characters, props.npcs, true, null, overlay);
   const version = model.effectiveVersion;
   if (!version) return;
-  const ap = combatActionPoints(version, props.rules);
+  const ap = combatCardModelService.combatActionPoints(version, props.rules);
   if (!ap) return;
   const resource = version.resources.find((item) => {
     const rule = props.rules.find((candidate) => candidate.id === item.ruleId);
@@ -282,11 +281,19 @@ function saveAndNotify(next: GameInitiative, notifications: SystemNotification[]
  *  постится акцентное уведомление «Новый раунд: N» (kind: highlighted), затем «Ходит Имя». */
 async function bleedCurrentTurn(entityKey: string): Promise<void> {
   const overlay = overlays.value.find((item) => item.entityKey === entityKey) ?? null;
-  const model = combatCardModel(entityKey as CombatEntityKey, props.characters, props.npcs, true, null, overlay);
+  const model = combatCardModelService.combatCardModel(
+    entityKey as CombatEntityKey,
+    props.characters,
+    props.npcs,
+    true,
+    null,
+    overlay,
+  );
   const version = model.effectiveVersion;
   if (!version) return;
-  const endurance = effectiveCharacteristicValues(version, props.rules).get('endurance')?.base ?? 1;
-  const next = await applyTurnWoundBleed({
+  const endurance =
+    stateRuntimeEffectsService.effectiveCharacteristicValues(version, props.rules).get('endurance')?.base ?? 1;
+  const next = await bloodLossService.applyTurnWoundBleed({
     version,
     endurance,
     rules: props.rules,
@@ -299,7 +306,7 @@ async function bleedCurrentTurn(entityKey: string): Promise<void> {
     sendMessage: (content, attachments, chatId, speaker) => sendChat(content, attachments, chatId, speaker),
   });
   if (next) {
-    overlays.value = replaceCombatOverlay(overlays.value, next);
+    overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, next);
     emit('overlay-changed');
   }
 }

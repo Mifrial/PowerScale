@@ -1,5 +1,5 @@
 import type { SheetVisibility } from '@/modules/Roleplay/Character/Dto/SheetVisibility';
-import type { SheetAudience } from '@/modules/Roleplay/Character/Dto/SheetVisibility';
+import type { SheetAudience } from '@/modules/Roleplay/Character/Dto/SheetAudience';
 import { SHEET_VISIBLE_SECTIONS } from '@/modules/Roleplay/Character/Constant/Sheet/SHEET_SECTIONS';
 
 /** Дефолтная видимость листа при подаче в игру — «Полностью» (участники видят все секции). */

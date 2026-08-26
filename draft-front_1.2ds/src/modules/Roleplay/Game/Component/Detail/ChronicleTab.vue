@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue';
 import { useUserStore } from '@/modules/Core/User/Store/users';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
-import { visibleSheetSections } from '@/modules/Roleplay/Character/Utils/sheetAccess';
+import { sheetAccessService } from '@/modules/Roleplay/Character/init';
 import { gameTimeLabel } from '@/modules/Roleplay/Game/Utils/gameTime';
 import { CHRONICLE_EPOCH_LABEL } from '@/modules/Roleplay/Game/Constant/Chronicle/CHRONICLE_EPOCH_LABEL';
 import type { Chronicle } from '@/modules/Roleplay/Game/Dto/Chronicle';
@@ -17,7 +17,7 @@ import type { User } from '@/modules/Core/User/Dto/User';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import ChronicleEntryDialog from '@/modules/Roleplay/Game/Component/Detail/ChronicleEntryDialog.vue';
 import ChronicleEntryContent from '@/modules/Roleplay/Game/Component/Detail/ChronicleEntryContent.vue';
-import SheetCard from '@/modules/Roleplay/Character/Component/SheetCard.vue';
+import { SheetCard } from '@/modules/Roleplay/Character/init';
 
 const props = defineProps<{
   /** Активна ли вкладка: перезагрузка при активации (v-window не размонтирует вкладки). */
@@ -112,7 +112,11 @@ const refCard = computed<{
     return {
       name: membership.characterName,
       version: membership.activeVersion,
-      visibleSections: visibleSheetSections(user, membership.visibility, characterCtx(user, membership)),
+      visibleSections: sheetAccessService.visibleSheetSections(
+        user,
+        membership.visibility,
+        characterCtx(user, membership),
+      ),
       shortDescription: null,
       fullDescription: null,
     };
@@ -123,7 +127,7 @@ const refCard = computed<{
   return {
     name: npc.name,
     version: npc.version,
-    visibleSections: visibleSheetSections(user, npc.visibility, npcCtx(user, npc)),
+    visibleSections: sheetAccessService.visibleSheetSections(user, npc.visibility, npcCtx(user, npc)),
     shortDescription: npc.shortDescription,
     fullDescription: npc.fullDescription,
   };

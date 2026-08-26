@@ -1,7 +1,7 @@
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { CharacterBuild } from '@/modules/Roleplay/Character/Dto/Editor/CharacterBuild';
-import type { InventoryBaseline } from '@/modules/Roleplay/Character/Dto/Editor/CharacterDraftEntry';
+import type { InventoryBaseline } from '@/modules/Roleplay/Character/Dto/Editor/InventoryBaseline';
 import type { CharacterCreationConfig } from '@/modules/Roleplay/Character/Dto/Editor/CharacterCreationConfig';
 import type { CharacteristicPurchase } from '@/modules/Roleplay/Character/Dto/Editor/CharacteristicPurchase';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
@@ -13,8 +13,8 @@ import type { RaceSpec } from '@/modules/Roleplay/Rule/Dto/Race/RaceSpec';
 import type { AbilityCost } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityCost';
 import { characterEditorService } from '@/modules/Roleplay/Character/Service/Instance/characterEditorService';
 import { itemModifierService } from '@/modules/Roleplay/Rule/Service/Instance/itemModifierService';
-import { weaponFamilyLadder } from '@/modules/Roleplay/Character/Utils/weaponProficiency';
-import { applyRacialInnateGear } from '@/modules/Roleplay/Character/Utils/racialInnateGear';
+import { weaponProficiencyService } from '@/modules/Roleplay/Character/Service/Instance/weaponProficiencyService';
+import { racialInnateGearService } from '@/modules/Roleplay/Character/Service/Instance/racialInnateGearService';
 
 /**
  * Иммутабельные переходы выборов редактора (CharacterBuild). Компоненты не мутируют build
@@ -379,7 +379,7 @@ export class CharacterBuildService {
         : undefined;
     // «Владение оружием»: максимум экземпляра = длина лестницы выбранной семьи.
     if (spec?.domain_ref === 'weapon-family') {
-      return weaponFamilyLadder(rules, domain)?.length ?? 1;
+      return weaponProficiencyService.weaponFamilyLadder(rules, domain)?.length ?? 1;
     }
     let max = 1;
     for (const cost of Object.values(spec?.zones ?? {})) {
@@ -848,7 +848,7 @@ export class CharacterBuildService {
   }
 
   private applyInnateGear(build: CharacterBuild, rules: Rule[]): CharacterBuild {
-    const next = applyRacialInnateGear(build, rules);
+    const next = racialInnateGearService.applyRacialInnateGear(build, rules);
 
     return { ...build, inventory: next.inventory, abilities: next.abilities };
   }

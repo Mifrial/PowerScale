@@ -6,6 +6,8 @@ import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevis
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { spaceContextKey } from '@/modules/Roleplay/Space/Constant/spaceContextKey';
 import type { ISpaceContext } from '@/modules/Roleplay/Space/Interface/ISpaceContext';
+import { ruleHostContextKey } from '@/modules/Roleplay/Rule/init';
+import type { IRuleHostContext } from '@/modules/Roleplay/Rule/Interface/IRuleHostContext';
 
 const route = useRoute();
 const router = useRouter();
@@ -88,6 +90,12 @@ const context = computed<ISpaceContext>(() => ({
 }));
 
 provide(spaceContextKey, context);
+
+const ruleHost = computed<IRuleHostContext>(() => ({
+  spaceId: spaceStore.currentSpace?.id ?? null,
+  effectiveRules: revisionStore.effectiveRules,
+}));
+provide(ruleHostContextKey, ruleHost);
 </script>
 
 <template>

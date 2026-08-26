@@ -4,12 +4,11 @@ import { computed } from 'vue';
 import { useChatStore } from '@/modules/Messages/Chat/Store/chat';
 import { useChatUsers } from '@/modules/Messages/Chat/Composables/useChatUsers';
 import { usePermissions } from '@/modules/Messages/Chat/Composables/usePermissions';
-import { resolveChatRules } from '@/modules/Messages/Chat/init';
 import { useChatVisibilityOptions } from '@/modules/Messages/Chat/Composables/useChatVisibilityOptions';
+import { useChatRulesResolution } from '@/modules/Messages/Chat/Composables/useChatRulesResolution';
 import type { ChatAttachment } from '@/modules/Messages/Chat/Dto/ChatAttachment';
 import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
 import type { ChatMessageVisibility } from '@/modules/Messages/Chat/Dto/ChatMessageVisibility';
-import type { ChatRulesContext } from '@/modules/Messages/Chat/Dto/ChatRulesContext';
 import ChatList from '@/modules/Messages/Chat/Component/ChatList.vue';
 import ChatMessageList from '@/modules/Messages/Chat/Component/ChatMessageList.vue';
 import ChatInput from '@/modules/Messages/Chat/Component/ChatInput.vue';
@@ -18,10 +17,14 @@ import UserProfileSlider from '@/modules/Core/User/Component/UserProfileSlider.v
 const store = useChatStore();
 const permissions = usePermissions();
 const chatUsers = useChatUsers();
-
-// Контекст правил активного чата (чипы/ссылки/броски): резолвится провайдерами доменов
-// (игра/персонаж — их ревизия, обычные чаты — «актуальные правила»). Host-агностично.
-const rulesContext = ref<ChatRulesContext | null>(null);
+const {
+  inlineContext,
+  error: rulesError,
+  tokenSources: ruleTokenSources,
+  processAttachments: ruleProcessAttachments,
+  resolveFor: resolveChatRulesContext,
+  retry: retryRules,
+} = useChatRulesResolution();
 
 const canWrite = computed(() => permissions.canInChat(store.activeChat, 'chat.write'));
 
@@ -59,15 +62,12 @@ watch(
       if (memberIds.length) {
         await chatUsers.ensureUsers(memberIds);
       }
-      try {
-        rulesContext.value = chat ? await resolveChatRules(chat.type, chat.id) : null;
-      } catch {
-        rulesContext.value = null;
-      }
+      await resolveChatRulesContext(chat?.type, chatId);
     } else {
-      rulesContext.value = null;
+      await resolveChatRulesContext(undefined, null);
     }
   },
+  { immediate: true },
 );
 
 onMounted(async () => {
@@ -115,26 +115,20 @@ onUnmounted(() => {
             <div class="text-error text-body-2 mb-2">{{ store.chatError }}</div>
             <v-btn variant="tonal" color="primary" size="small" @click="retryOpenChat"> Попробовать снова </v-btn>
           </div>
-          <ChatMessageList
-            v-else
-            :renderer-context="
-              rulesContext
-                ? {
-                    ruleNames: rulesContext.ruleNames,
-                    spaceId: rulesContext.spaceId,
-                    rulesRevision: rulesContext.rulesRevision,
-                  }
-                : undefined
-            "
-            @open-profile="openUserProfile"
-          />
+          <template v-else>
+            <div v-if="rulesError" class="chat-error pa-4">
+              <div class="text-error text-body-2 mb-2">{{ rulesError }}</div>
+              <v-btn variant="tonal" color="primary" size="small" @click="retryRules"> Попробовать снова </v-btn>
+            </div>
+            <ChatMessageList :renderer-context="inlineContext ?? undefined" @open-profile="openUserProfile" />
+          </template>
 
           <ChatInput
             :sending="store.sending"
             :disabled="!canWrite"
             :action-error="store.actionError"
-            :token-sources="rulesContext?.tokenSources"
-            :process-attachments="rulesContext?.processAttachments"
+            :token-sources="ruleTokenSources"
+            :process-attachments="ruleProcessAttachments"
             :allow-visibility="allowVisibility"
             :visibility-role-options="roleOptions"
             :visibility-options="userOptions"

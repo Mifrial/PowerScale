@@ -1,8 +1,9 @@
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { AttackCalcPayload } from '@/modules/Roleplay/Game/Dto/AttackCalcPayload';
-import type { HitDefenseReaction } from '@/modules/Roleplay/Game/Dto/CheckOffer';
-import type { ApplyAttackDamageResult } from '@/modules/Roleplay/Game/Utils/applyAttackDamage';
+import type { HitDefenseReaction } from '@/modules/Roleplay/Game/Enum/HitDefenseReaction';
+import type { ApplyAttackDamageResult } from '@/modules/Roleplay/Game/Dto/ApplyAttackDamageResult';
+
 import type { CombatActionOption } from '@/modules/Roleplay/Game/Utils/combatActions';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 

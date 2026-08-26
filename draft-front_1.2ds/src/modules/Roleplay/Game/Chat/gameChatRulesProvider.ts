@@ -1,11 +1,9 @@
 import { getRuleApi } from '@/modules/Roleplay/Rule/init';
 import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
 import type { IChatRulesProvider } from '@/modules/Messages/Chat/Interface/IChatRulesProvider';
-import type { GameDetail } from '@/modules/Roleplay/Game/Dto/GameDetail';
+import type { Game } from '@/modules/Roleplay/Game/Dto/Game';
 import type { IGameApi } from '@/modules/Roleplay/Game/Interface/IGameApi';
-
-// Кэш обратного маппинга чат → игра (карточка списка не несёт chatId; скан с кэшем на сессию).
-const gameByChatCache = new Map<number, GameDetail | null>();
+import { gameChatRulesContextService } from '@/modules/Roleplay/Game/Service/Instance/gameChatRulesContextService';
 
 async function gameApi(): Promise<IGameApi> {
   // Динамический импорт: провайдер регистрируется в Game/init — статический импорт
@@ -15,41 +13,30 @@ async function gameApi(): Promise<IGameApi> {
   return getGameApi();
 }
 
-async function findGameByChat(chatId: number): Promise<GameDetail | null> {
-  if (gameByChatCache.has(chatId)) return gameByChatCache.get(chatId) ?? null;
+async function findGameByChat(chatId: number): Promise<Game | null> {
   const api = await gameApi();
   const games = await api.getGames();
-  for (const game of games) {
-    const detail = await api.getGame(game.id);
-    if (detail.gameChatId === chatId || detail.discussionChatId === chatId) {
-      gameByChatCache.set(chatId, detail);
 
-      return detail;
-    }
-  }
-  gameByChatCache.set(chatId, null);
-
-  return null;
+  return games.find((game) => game.gameChatId === chatId || game.discussionChatId === chatId) ?? null;
 }
 
 /**
- * Правила чата игры/обсуждения игры: ревизия игры, к которой относится чат (обратный
- * маппинг по gameChatId/discussionChatId). Нужно, чтобы ссылки [[rule:...]] и броски
- * в мессенджере резолвились из правильной ревизии, а не «актуальных правил».
+ * Правила чата игры/обсуждения: ревизия с карточки списка (spaceId + rulesRevision).
+ * Чипы [[rule:...]] и броски в мессенджере резолвятся из ревизии игры, не «актуальных правил».
  */
 export const gameChatRulesProvider: IChatRulesProvider = {
   types: ['game', 'game_discussion'],
   resolve: async (_type, chatId) => {
     const game = await findGameByChat(chatId);
     if (!game) return null;
-    const revision = await useSpaceRevisionStore().fetchRevision(game.game.spaceId, game.game.rulesRevision);
+    const revision = await useSpaceRevisionStore().fetchRevision(game.spaceId, game.rulesRevision);
     const mechanics = await getRuleApi().getMechanics();
 
-    return {
-      rules: revision.rules,
+    return gameChatRulesContextService.buildChatRulesContext(
+      revision.rules,
       mechanics,
-      spaceId: game.game.spaceId,
-      rulesRevision: game.game.rulesRevision,
-    };
+      game.spaceId,
+      game.rulesRevision,
+    );
   },
 };

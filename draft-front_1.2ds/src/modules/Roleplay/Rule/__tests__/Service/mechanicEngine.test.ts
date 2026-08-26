@@ -5,7 +5,7 @@ import {
   purchaseSurchargeHandler,
   PURCHASE_SURCHARGE_EVENT,
 } from '@/modules/Roleplay/Rule/Service/Mechanic/Handlers/PurchaseSurchargeHandler';
-import type { MechanicHandler } from '@/modules/Roleplay/Rule/Service/Mechanic/MechanicHandler';
+import type { MechanicHandler } from '@/modules/Roleplay/Rule/Interface/MechanicHandler';
 import type { CharacterMechanicContext } from '@/modules/Roleplay/Rule/Dto/CharacterMechanicContext';
 import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';

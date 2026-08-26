@@ -11,16 +11,19 @@ import type { IChatType } from '@/modules/Messages/Chat/Interface/IChatType';
 import type { IChatTab } from '@/modules/Messages/Chat/Interface/IChatTab';
 import type { IChatRulesProvider } from '@/modules/Messages/Chat/Interface/IChatRulesProvider';
 import type { ChatRulesContext } from '@/modules/Messages/Chat/Dto/ChatRulesContext';
-import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
 import { BASE_CHAT_TYPES } from '@/modules/Messages/Chat/Constant/Chat/BASE_CHAT_TYPES';
 import { BASE_CHAT_TABS } from '@/modules/Messages/Chat/Constant/Chat/BASE_CHAT_TABS';
 import { useUserStore } from '@/modules/Core/User/Store/users';
+import { getUserApi } from '@/modules/Core/User/init';
 import { displayName } from '@/modules/Core/User/Utils/displayName';
 
 // Реэкспорт синтаксиса инлайн-токенов `[[type:param]]`: синтаксис един на все модули
 // (персонажи/НПС в летописи используют те же токены, что чат).
 export { INLINE_CONTENT_TOKEN_RE } from '@/modules/Messages/Chat/Constant/Chat/INLINE_CONTENT_TOKEN_RE';
+export { chatInlineRendererContext } from '@/modules/Messages/Chat/Utils/chatInlineRendererContext';
+export type { ChatInlineRendererContext } from '@/modules/Messages/Chat/Dto/ChatInlineRendererContext';
+export { chatVisibilityService } from '@/modules/Messages/Chat/Service/Instance/chatVisibilityService';
+export { chatFoldService } from '@/modules/Messages/Chat/Service/Instance/chatFoldService';
 
 const userChip = () => import('@/modules/Messages/Chat/Component/ChatUserChip.vue');
 
@@ -61,18 +64,19 @@ registerTokenSource({
   icon: 'mdi-account',
   search: async (query) => {
     const userStore = useUserStore();
-    if (!userStore.users.length) {
-      await userStore.fetchUsers();
+    let catalog = userStore.users;
+    if (!catalog.length) {
+      catalog = await getUserApi().getUsers();
     }
     const q = query.toLowerCase();
     const matched = q
-      ? userStore.users.filter(
+      ? catalog.filter(
           (u) =>
             u.login.toLowerCase().includes(q) ||
             (u.name ?? '').toLowerCase().includes(q) ||
             (u.nickname ?? '').toLowerCase().includes(q),
         )
-      : userStore.users.slice(0, 10);
+      : catalog.slice(0, 10);
 
     return matched.map((u) => ({
       value: u.login,
@@ -141,51 +145,15 @@ export function getChatRulesProviders(): IChatRulesProvider[] {
   return chatRulesProviders;
 }
 
-// Сборщик «контекста правил» (чипы/ссылки/броски) из правил и механик. Регистрирует Game
-// (RollEngine); дефолт — прежнее поведение без контекста (глобальные источники, без бросков).
-type ChatRulesContextBuilder = (
-  rules: Rule[],
-  mechanics: Mechanic[],
-  spaceId?: number | null,
-  rulesRevision?: number | null,
-) => ChatRulesContext;
-
-function defaultChatRulesContextBuilder(
-  _rules: Rule[],
-  _mechanics: Mechanic[],
-  _spaceId?: number | null,
-  _rulesRevision?: number | null,
-): ChatRulesContext {
-  return { ruleNames: {}, tokenSources: getTokenSources(), processAttachments: (attachments) => attachments };
-}
-
-let chatRulesContextBuilder: ChatRulesContextBuilder = defaultChatRulesContextBuilder;
-
-export function registerChatRulesContextBuilder(builder: ChatRulesContextBuilder): void {
-  chatRulesContextBuilder = builder;
-}
-
-/** Контекст правил из правил и механик ревизии (чипы/ссылки/броски чата). */
-export function getChatRulesContext(
-  rules: Rule[],
-  mechanics: Mechanic[],
-  spaceId?: number | null,
-  rulesRevision?: number | null,
-): ChatRulesContext {
-  return chatRulesContextBuilder(rules, mechanics, spaceId, rulesRevision);
-}
-
-/** Контекст правил чата по типу и id: провайдер (домен) → правила+механики → контекст. */
+/** Контекст правил чата по типу и id: доменный провайдер отдаёт opaque ChatRulesContext. */
 export async function resolveChatRules(type: string, chatId: number): Promise<ChatRulesContext | null> {
   const providers = getChatRulesProviders();
   const provider =
     providers.find((candidate) => candidate.types.includes(type)) ??
     providers.find((candidate) => candidate.types.length === 0);
   if (!provider) return null;
-  const resolved = await provider.resolve(type, chatId);
-  if (!resolved) return null;
 
-  return getChatRulesContext(resolved.rules, resolved.mechanics, resolved.spaceId, resolved.rulesRevision);
+  return provider.resolve(type, chatId);
 }
 
 export function registerChatType(chatType: IChatType): void {
@@ -219,3 +187,6 @@ export function getChatIcon(type: string): string {
 export function getChatColor(type: string): string {
   return getChatTypes().find((t) => t.type === type)?.color ?? 'grey';
 }
+
+// Встраиваемая лента по chatId (обсуждение персонажа/игры). Async — init не тянет .vue в node-тестах.
+export const ChatThread = defineAsyncComponent(() => import('@/modules/Messages/Chat/Component/ChatThread.vue'));

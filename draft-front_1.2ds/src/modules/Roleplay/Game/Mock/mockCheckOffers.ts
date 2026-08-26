@@ -1,4 +1,6 @@
-import type { CheckOffer, CheckOfferProposal, CreateCheckOfferData } from '@/modules/Roleplay/Game/Dto/CheckOffer';
+import type { CheckOffer } from '@/modules/Roleplay/Game/Dto/CheckOffer';
+import type { CheckOfferProposal } from '@/modules/Roleplay/Game/Dto/CheckOfferProposal';
+import type { CreateCheckOfferData } from '@/modules/Roleplay/Game/Dto/CreateCheckOfferData';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 
 const delay = (ms = 80) => new Promise((r) => setTimeout(r, ms));

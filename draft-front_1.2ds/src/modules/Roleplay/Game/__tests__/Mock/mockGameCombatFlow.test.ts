@@ -12,7 +12,7 @@ import {
 } from '@/modules/Roleplay/Game/Mock/mockGameCombatOverlays';
 import { versions, fetchCharacter } from '@/modules/Roleplay/Character/Mock/mockCharacters';
 import { gameDetails } from '@/modules/Roleplay/Game/Mock/mockGames';
-import { mergeCombatOverlay } from '@/modules/Roleplay/Game/Utils/mergeCombatOverlay';
+import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
 
 const charKey = combatKey('character', 1);
 
@@ -45,7 +45,7 @@ describe('mockGameMemberships: поток боевых изменений (CD-2,
     let membership = chars.find((m) => m.characterId === 1)!;
     expect(membership.membershipStatus).toBe('approved');
     expect(membership.pendingVersion).toBeNull();
-    const effective = mergeCombatOverlay(membership.activeVersion!, membership.overlay!);
+    const effective = combatOverlayService.mergeCombatOverlay(membership.activeVersion!, membership.overlay!);
     expect(effective.resources.find((r) => r.ruleId === 'rule-18')?.current).toEqual({ base: 1, size: 0 });
     expect(effective.states).toContainEqual({ stateRuleId: 'rule-63', value: 5 });
     // Standalone-правка денег не проникает в игру до одобрения (approved заморожен).

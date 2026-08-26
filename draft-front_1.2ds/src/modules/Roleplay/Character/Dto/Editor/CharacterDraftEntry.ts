@@ -1,12 +1,6 @@
 import type { CharacterBuild } from '@/modules/Roleplay/Character/Dto/Editor/CharacterBuild';
 import type { CharacterCreationConfig } from '@/modules/Roleplay/Character/Dto/Editor/CharacterCreationConfig';
-import type { InventoryItem } from '@/modules/Roleplay/Character/Dto/InventoryItem';
-
-/** Базовая линия «Инвентаря» (R2): снапшот на момент входа на шаг. */
-export interface InventoryBaseline {
-  inventory: InventoryItem[];
-  money: number;
-}
+import type { InventoryBaseline } from '@/modules/Roleplay/Character/Dto/Editor/InventoryBaseline';
 
 /**
  * Единый черновик редактора листа (ТР §7): один на персонажа/НПС.

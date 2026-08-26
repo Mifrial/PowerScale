@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue';
 import SlidePanel from '@/modules/Core/UI/Component/SlidePanel.vue';
 import EditorAbilityNode from '@/modules/Roleplay/Character/Component/Editor/DevelopmentAbilityNode.vue';
-import { weaponProficiencyLevels } from '@/modules/Roleplay/Character/Utils/weaponProficiency';
+import { weaponProficiencyService } from '@/modules/Roleplay/Character/Service/Instance/weaponProficiencyService';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { EditorAbility } from '@/modules/Roleplay/Character/Dto/Editor/EditorAbility';
 import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
@@ -29,7 +29,7 @@ const open = defineModel<boolean>('open', { default: false });
 const familyProficiency = computed(() => {
   if (!props.familyCode) return 0;
 
-  return weaponProficiencyLevels(props.abilities, props.rules).get(props.familyCode) ?? 0;
+  return weaponProficiencyService.weaponProficiencyLevels(props.abilities, props.rules).get(props.familyCode) ?? 0;
 });
 
 /** Фильтровать оружейные навыки по keyword_code и группировать по min_level. */

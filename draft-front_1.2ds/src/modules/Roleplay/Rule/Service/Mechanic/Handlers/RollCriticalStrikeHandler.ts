@@ -1,5 +1,5 @@
 import { ROLL_EVENTS } from '@/modules/Roleplay/Rule/Constant/Mechanic/ROLL_EVENTS';
-import type { MechanicHandler } from '@/modules/Roleplay/Rule/Service/Mechanic/MechanicHandler';
+import type { MechanicHandler } from '@/modules/Roleplay/Rule/Interface/MechanicHandler';
 import type { MechanicPayload } from '@/modules/Roleplay/Rule/Dto/MechanicPayload';
 import type { RollMechanicContext } from '@/modules/Roleplay/Rule/Dto/RollMechanicContext';
 import { applyRollScoreAdjust } from '@/modules/Roleplay/Rule/Service/Mechanic/Handlers/rollScoreAdjust';

@@ -9,8 +9,9 @@ import type { ChatSpeakerOption } from '@/modules/Messages/Chat/Dto/ChatSpeakerO
 import type { ITokenSource } from '@/modules/Messages/Chat/Interface/ITokenSource';
 import type { ChatMessageVisibility } from '@/modules/Messages/Chat/Dto/ChatMessageVisibility';
 import type { ChatThreadRef } from '@/modules/Messages/Chat/Dto/ChatThreadRef';
-import type { ChatFoldChild } from '@/modules/Messages/Chat/Dto/ChatFold';
+import type { ChatFoldChild } from '@/modules/Messages/Chat/Dto/ChatFoldChild';
 import type { ChatMessage } from '@/modules/Messages/Chat/Dto/ChatMessage';
+import type { ChatInlineRendererContext } from '@/modules/Messages/Chat/Dto/ChatInlineRendererContext';
 import { useChatVisibilityOptions } from '@/modules/Messages/Chat/Composables/useChatVisibilityOptions';
 import ChatMessageList from '@/modules/Messages/Chat/Component/ChatMessageList.vue';
 import ChatInput from '@/modules/Messages/Chat/Component/ChatInput.vue';
@@ -31,13 +32,10 @@ const props = withDefaults(
     activeSpeakerKey?: string | null;
     /** Действие вместо иконки у селектора «от лица кого» (игровой чат — открыть карточку). */
     speakerAction?: { icon: string; title: string; disabled?: boolean; onClick: () => void } | null;
-    /** Имена правил ревизии по коду (для чипов [[rule:...]]) — opaque, хосту Chat безразличен домен. */
-    ruleNames?: Record<string, string>;
-    /** Доп. поля для inline-чипов (открыть карточку персонажа/НПС в игре). */
-    inlineContext?: Record<string, unknown>;
-    /** Ревизия контекста: слайдер правила резолвит из её среза, а не каталога (Слой 1, §7.20). */
-    spaceId?: number | null;
-    rulesRevision?: number | null;
+    /** Data-срез для inline-рендереров (подписи токенов и ключи среза). */
+    rendererContext?: ChatInlineRendererContext | null;
+    /** Клик по сущности в ленте (персонаж/НПС) — колбэк донора, не в data-срезе. */
+    openEntity?: (ref: string) => void;
     /** Источники токенов «Вставить ссылку» (игровой чат резолвит правила из ревизии). Пусто — глобальные. */
     tokenSources?: ITokenSource[];
     /** Трансформация вложений перед отправкой (дефолты броска из ревизии игры). */
@@ -66,14 +64,6 @@ const loading = ref(false);
 
 // Опции видимости сообщений выводятся из данных чата (роли типа + участники).
 const { allowVisibility, roleOptions, userOptions } = useChatVisibilityOptions(chat);
-
-// Непрозрачный контекст для inline-рендереров (чип правила резолвит имя из ревизии игры).
-const rendererContext = computed<Record<string, unknown>>(() => ({
-  ruleNames: props.ruleNames ?? {},
-  spaceId: props.spaceId ?? null,
-  rulesRevision: props.rulesRevision ?? null,
-  ...(props.inlineContext ?? {}),
-}));
 
 let attachToken = 0;
 
@@ -156,6 +146,7 @@ function retryAttach(): void {
     <ChatMessageList
       :chat-id="chatId"
       :renderer-context="rendererContext"
+      :open-entity="openEntity"
       :build-folds="buildFolds"
       :live-fold-ids="liveFoldIds"
     />

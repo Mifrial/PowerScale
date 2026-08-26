@@ -1,8 +1,8 @@
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import { characterBuildService } from '@/modules/Roleplay/Character/Service/Instance/characterBuildService';
-import { characterEditorService } from '@/modules/Roleplay/Character/Service/Instance/characterEditorService';
+import { characterBuildService } from '@/modules/Roleplay/Character/init';
+import { characterEditorService } from '@/modules/Roleplay/Character/init';
 import { useKeywordStore } from '@/modules/Roleplay/Rule/Store/keywords';
 
 /** Движковое значение характеристики (для пула проверки инициативы). */

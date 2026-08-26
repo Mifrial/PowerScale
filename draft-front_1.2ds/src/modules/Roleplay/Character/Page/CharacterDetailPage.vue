@@ -5,7 +5,7 @@ import { useCharacterStore } from '@/modules/Roleplay/Character/Store/characters
 import { useUserStore } from '@/modules/Core/User/Store/users';
 import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
-import { canViewCharacter, canEditCharacter } from '@/modules/Roleplay/Character/Utils/access';
+import { characterAccessService } from '@/modules/Roleplay/Character/Service/Instance/characterAccessService';
 import { CHARACTER_STATUS_OPTIONS } from '@/modules/Roleplay/Character/Constant/CHARACTER_STATUS_OPTIONS';
 import { CHARACTER_STATUS_COLOR } from '@/modules/Roleplay/Character/Constant/CHARACTER_STATUS_COLOR';
 import type { CharacterStatus } from '@/modules/Roleplay/Character/Enum/CharacterStatus';
@@ -19,7 +19,7 @@ import RuleSlider from '@/modules/Roleplay/Rule/Component/RuleSlider.vue';
 import { useRuleDetailSlider } from '@/modules/Roleplay/Character/Composables/useRuleDetailSlider';
 import { useCharacterCardDraft } from '@/modules/Roleplay/Character/Composables/useCharacterCardDraft';
 import { getCharacterApi, getCharacterCardExtensions } from '@/modules/Roleplay/Character/init';
-import { visibleSheetSections } from '@/modules/Roleplay/Character/Utils/sheetAccess';
+import { sheetAccessService } from '@/modules/Roleplay/Character/Service/Instance/sheetAccessService';
 import { SHEET_VISIBLE_SECTIONS } from '@/modules/Roleplay/Character/Constant/Sheet/SHEET_SECTIONS';
 import type { SheetAccessContext } from '@/modules/Roleplay/Character/Interface/SheetAccessContext';
 import SheetCard from '@/modules/Roleplay/Character/Component/SheetCard.vue';
@@ -56,14 +56,14 @@ const canView = computed(() => {
   const current = detail.value;
   if (!current) return false;
 
-  return canViewCharacter(userStore.currentUser, current.character);
+  return characterAccessService.canViewCharacter(userStore.currentUser, current.character);
 });
 
 const canEdit = computed(() => {
   const current = detail.value;
   if (!current) return false;
 
-  return canEditCharacter(userStore.currentUser, current.character);
+  return characterAccessService.canEditCharacter(userStore.currentUser, current.character);
 });
 
 const {
@@ -75,9 +75,11 @@ const {
   validationIssues,
   saving: sheetSaving,
   saveError: sheetSaveError,
+  catalogError: sheetCatalogError,
   keywords: sheetKeywords,
   ensureDraft,
   save: saveSheet,
+  retryCatalog: retrySheetCatalog,
 } = useCharacterCardDraft(detail, rules, canEdit, signal);
 
 const notesOpen = ref(false);
@@ -115,7 +117,7 @@ const visibleSections = computed(() => {
     gameId: null,
   };
 
-  return visibleSheetSections(user, current.character.visibility, ctx);
+  return sheetAccessService.visibleSheetSections(user, current.character.visibility, ctx);
 });
 
 const hasFullView = computed(() => visibleSections.value.length === SHEET_VISIBLE_SECTIONS.length);
@@ -156,7 +158,7 @@ async function load(): Promise<void> {
   }
   store.clearCurrent();
   const loaded = await store.fetchCharacter(id, signal.value);
-  if (loaded && !canViewCharacter(userStore.currentUser, loaded.character)) {
+  if (loaded && !characterAccessService.canViewCharacter(userStore.currentUser, loaded.character)) {
     router.replace({ name: 'NotFound' });
   }
 }
@@ -227,7 +229,7 @@ watch(detail, (value) => {
           size="small"
           prepend-icon="mdi-check"
           :loading="sheetSaving"
-          :disabled="sheetSaving"
+          :disabled="sheetSaving || Boolean(sheetCatalogError)"
           @click="saveSheet()"
         >
           Сохранить
@@ -283,6 +285,12 @@ watch(detail, (value) => {
         </div>
       </div>
 
+      <v-alert v-if="sheetCatalogError" type="error" variant="tonal" density="compact" class="mb-4">
+        {{ sheetCatalogError }}
+        <template #append>
+          <v-btn size="small" variant="tonal" @click="retrySheetCatalog">Попробовать снова</v-btn>
+        </template>
+      </v-alert>
       <v-alert v-if="sheetSaveError" type="error" variant="tonal" density="compact" class="mb-4">{{
         sheetSaveError
       }}</v-alert>

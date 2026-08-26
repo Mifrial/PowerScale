@@ -6,9 +6,8 @@ import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/Dimension
 import type { CharacterPoisonValue } from '@/modules/Roleplay/Character/Dto/CharacterPoisonValue';
 import type { StatePeriodicity } from '@/modules/Roleplay/Rule/Dto/State/Periodicity';
 import type { StateDecay } from '@/modules/Roleplay/Rule/Dto/State/StateDecay';
-
-export type CombatStateDetailRow = { label: string; value: string };
-export type CombatStateEditKind = 'none' | 'numeric' | 'dimensional' | 'poison';
+import type { CombatStateDetailRow } from '@/modules/Roleplay/Game/Dto/CombatStateDetailRow';
+import type { CombatStateEditKind } from '@/modules/Roleplay/Game/Enum/CombatStateEditKind';
 
 const props = withDefaults(
   defineProps<{

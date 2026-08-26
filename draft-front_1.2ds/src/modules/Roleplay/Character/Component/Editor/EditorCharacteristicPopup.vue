@@ -5,8 +5,8 @@ import type { CharacteristicModifier } from '@/modules/Roleplay/Character/Dto/Ch
 import type { CharacterSenseValue } from '@/modules/Roleplay/Character/Dto/CharacterSenseValue';
 import type { EditorCharacteristic } from '@/modules/Roleplay/Character/Dto/Editor/EditorCharacteristic';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import type { EditorStatView } from '@/modules/Roleplay/Character/Utils/editorStatViews';
-import { weaponMasteryEntries } from '@/modules/Roleplay/Character/Utils/weaponProficiency';
+import type { EditorStatView } from '@/modules/Roleplay/Character/Dto/Editor/EditorStatView';
+import { weaponProficiencyService } from '@/modules/Roleplay/Character/Service/Instance/weaponProficiencyService';
 import RuleLink from '@/modules/Roleplay/Character/Component/Detail/RuleLink.vue';
 
 const props = defineProps<{
@@ -32,7 +32,12 @@ const weaponMastery = computed(() => {
   if (code !== 'melee-combat' && code !== 'ranged-combat') return [];
   if (!props.proficiencyLevels) return [];
 
-  return weaponMasteryEntries(code, props.stat.characteristic, props.proficiencyLevels, props.rules);
+  return weaponProficiencyService.weaponMasteryEntries(
+    code,
+    props.stat.characteristic,
+    props.proficiencyLevels,
+    props.rules,
+  );
 });
 
 const senses = computed(() =>

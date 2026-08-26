@@ -9,7 +9,7 @@ import {
   resetCheckOffers,
   reviseCheckOffer,
 } from '@/modules/Roleplay/Game/Mock/mockCheckOffers';
-import type { CheckOfferProposal } from '@/modules/Roleplay/Game/Dto/CheckOffer';
+import type { CheckOfferProposal } from '@/modules/Roleplay/Game/Dto/CheckOfferProposal';
 
 const initiator = 'character:1' as const;
 const opponent = 'character:2' as const;

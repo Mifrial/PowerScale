@@ -2,7 +2,7 @@ import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/Characte
 import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
 import type { MembershipDiff, DiffSectionKey } from '@/modules/Roleplay/Game/Utils/membershipDiff';
 import { membershipDiff } from '@/modules/Roleplay/Game/Utils/membershipDiff';
-import { mergeCombatOverlay } from '@/modules/Roleplay/Game/Utils/mergeCombatOverlay';
+import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
 
 /**
  * Three-way reconcile версий персонажа (модель версий — Баг 1, 2026-08-20).
@@ -75,7 +75,7 @@ export function effectiveOverlayVersion(
   const base = overlay.sheet ?? active;
   if (!base) return null;
 
-  return mergeCombatOverlay(base, overlay);
+  return combatOverlayService.mergeCombatOverlay(base, overlay);
 }
 
 /**

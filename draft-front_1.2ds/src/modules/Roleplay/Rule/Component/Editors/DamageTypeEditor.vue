@@ -3,7 +3,7 @@ import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec';
 import type { DamageTypeSpec } from '@/modules/Roleplay/Rule/Dto/Damage/DamageTypeSpec';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import RuleEditorBase from '@/modules/Roleplay/Rule/Component/Editors/RuleEditorBase.vue';
-import { isDamageTypeAttachableRule } from '@/modules/Roleplay/Rule/Utils/damageTypeSpec';
+import { damageTypeSpecService } from '@/modules/Roleplay/Rule/Service/Instance/damageTypeSpecService';
 import { computed, ref, watch } from 'vue';
 import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
 
@@ -54,7 +54,9 @@ const specToEmit = computed<DamageTypeSpec>(() => cloneData(draft.value));
 watch(specToEmit, (value) => emit('update:spec', value), { deep: true });
 
 const attachableOptions = computed(() =>
-  props.rules.filter(isDamageTypeAttachableRule).map((rule) => ({ title: rule.name, value: rule.code })),
+  props.rules
+    .filter((rule) => damageTypeSpecService.isDamageTypeAttachableRule(rule))
+    .map((rule) => ({ title: rule.name, value: rule.code })),
 );
 </script>
 

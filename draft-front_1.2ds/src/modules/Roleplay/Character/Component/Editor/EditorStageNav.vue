@@ -4,11 +4,11 @@ import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber
 import type { CharacterBuild } from '@/modules/Roleplay/Character/Dto/Editor/CharacterBuild';
 import type { CharacterEditorModel } from '@/modules/Roleplay/Character/Dto/Editor/CharacterEditorModel';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import { buildEditorStatViews, buildAllEditorStatViews } from '@/modules/Roleplay/Character/Utils/editorStatViews';
+import { editorStatViewsService } from '@/modules/Roleplay/Character/Service/Instance/editorStatViewsService';
 import { moneyBreakdownLabel } from '@/modules/Roleplay/Character/Utils/moneyBreakdown';
 import EditorCharacteristicPopup from '@/modules/Roleplay/Character/Component/Editor/EditorCharacteristicPopup.vue';
 import EditorAllCharacteristicsPopup from '@/modules/Roleplay/Character/Component/Editor/EditorAllCharacteristicsPopup.vue';
-import { weaponProficiencyLevels } from '@/modules/Roleplay/Character/Utils/weaponProficiency';
+import { weaponProficiencyService } from '@/modules/Roleplay/Character/Service/Instance/weaponProficiencyService';
 
 const props = defineProps<{
   model: CharacterEditorModel | null;
@@ -88,11 +88,17 @@ const stages = computed(() => {
   return list.filter((stage) => stage.key !== 'personality' || hasAgeRule);
 });
 
-const stats = computed(() => buildEditorStatViews(props.model?.characteristics ?? [], props.rules));
-const allStats = computed(() => buildAllEditorStatViews(props.model?.characteristics ?? [], props.rules));
+const stats = computed(() =>
+  editorStatViewsService.buildEditorStatViews(props.model?.characteristics ?? [], props.rules),
+);
+const allStats = computed(() =>
+  editorStatViewsService.buildAllEditorStatViews(props.model?.characteristics ?? [], props.rules),
+);
 
 /** Уровни «Владения оружием» по семьям (для попапа мастерства оружий). */
-const proficiencyLevels = computed(() => weaponProficiencyLevels(props.build.abilities, props.rules));
+const proficiencyLevels = computed(() =>
+  weaponProficiencyService.weaponProficiencyLevels(props.build.abilities, props.rules),
+);
 
 function go(key: string): void {
   emit('update:activeTab', key);

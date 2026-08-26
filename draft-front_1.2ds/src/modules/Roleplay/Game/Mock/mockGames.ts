@@ -16,7 +16,7 @@ import {
   mockCreateGameChat,
   mockSetChatMembers,
 } from '@/modules/Messages/Chat/Mock/mockChat';
-import { canViewGame } from '@/modules/Roleplay/Game/Utils/access';
+import { gameAccessService } from '@/modules/Roleplay/Game/Service/Instance/gameAccessService';
 
 const delay = (ms = 100) => new Promise((r) => setTimeout(r, ms));
 
@@ -75,6 +75,8 @@ function seedToDetail(seed: GameSeed): GameDetail {
     rulesRevision: seed.rulesRevision,
     memberCount: seed.members.length,
     tags: seed.tags,
+    gameChatId: null,
+    discussionChatId: null,
   };
 
   return {
@@ -221,18 +223,23 @@ const seeds: GameSeed[] = [
 
 export const gameDetails: GameDetail[] = seeds.map(seedToDetail);
 
-// Обсуждение игры — чат game_discussion: где есть совпадающий по имени в mockChat — переиспользуем,
-// иначе создаём (владелец игры — участник). Заполняется до использования (nextChatId в mockChat растёт).
-const existingDiscussionChatId: Record<number, number> = { 2: 12, 3: 3 };
-for (const detail of gameDetails) {
-  detail.discussionChatId = existingDiscussionChatId[detail.game.id] ?? mockCreateGameDiscussion(detail.game.name);
+function assignChatIds(detail: GameDetail, discussionChatId: number | null, gameChatId: number | null): void {
+  detail.discussionChatId = discussionChatId;
+  detail.gameChatId = gameChatId;
+  detail.game.discussionChatId = discussionChatId;
+  detail.game.gameChatId = gameChatId;
 }
 
-// Игровой чат — чат game: переиспользуем совпадающие по имени game-чаты mockChat
-// (Подземелье дракона 1, Школа волшебства 2), остальным создаём через mockCreateGameChat.
+// Обсуждение и игровой чат: совпадающие по имени в mockChat переиспользуем, иначе создаём.
+// Заполняется до использования (nextChatId в mockChat растёт). Дубль на карточке списка и деталке.
+const existingDiscussionChatId: Record<number, number> = { 2: 12, 3: 3 };
 const existingGameChatId: Record<number, number> = { 2: 2, 3: 1 };
 for (const detail of gameDetails) {
-  detail.gameChatId = existingGameChatId[detail.game.id] ?? mockCreateGameChat(detail.game.name);
+  assignChatIds(
+    detail,
+    existingDiscussionChatId[detail.game.id] ?? mockCreateGameDiscussion(detail.game.name),
+    existingGameChatId[detail.game.id] ?? mockCreateGameChat(detail.game.name),
+  );
 }
 
 /** Роль игрового чата из роли участника игры: владелец/ведущий → 'gm', игрок → 'player'. */
@@ -283,7 +290,7 @@ export async function fetchGames(_signal?: AbortSignal): Promise<Game[]> {
 
   return gameDetails
     .filter((detail) =>
-      canViewGame(
+      gameAccessService.canViewGame(
         user,
         detail.game,
         detail.members.map((m) => m.userId),
@@ -321,6 +328,8 @@ export async function createGame(data: CreateGameData, _signal?: AbortSignal): P
       rulesRevision: data.rulesRevision,
       memberCount: 1,
       tags: data.tags,
+      gameChatId: null,
+      discussionChatId: null,
     },
     description: data.description,
     osPointsLimit: data.osPointsLimit,
@@ -329,9 +338,10 @@ export async function createGame(data: CreateGameData, _signal?: AbortSignal): P
     moneyLimit: data.moneyLimit,
     forbiddenTags: data.forbiddenTags,
     members: [member(ownerId, 'owner')],
-    discussionChatId: mockCreateGameDiscussion(data.name),
-    gameChatId: mockCreateGameChat(data.name),
+    discussionChatId: null,
+    gameChatId: null,
   };
+  assignChatIds(detail, mockCreateGameDiscussion(data.name), mockCreateGameChat(data.name));
   gameDetails.push(detail);
   syncGameChatRoles(detail);
 
@@ -377,7 +387,7 @@ export async function updatePersonalNotes(gameId: number, notes: string, _signal
   if (!detail) throw new Error('Игра не найдена');
   const user = currentUser();
   if (
-    !canViewGame(
+    !gameAccessService.canViewGame(
       user,
       detail.game,
       detail.members.map((member) => member.userId),

@@ -2,39 +2,20 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import type { DraftEntry } from '@/modules/Roleplay/Rule/Dto/DraftEntry';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import { DRAFT_RULES_STORAGE_KEY } from '@/modules/Roleplay/Rule/Constant/draftRulesConfig';
-
-function loadDrafts(): DraftEntry[] {
-  try {
-    const raw = localStorage.getItem(DRAFT_RULES_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-
-    return parsed.filter(
-      (d): d is DraftEntry =>
-        typeof d === 'object' && d !== null && typeof d.spaceId === 'number' && typeof d.changedRules === 'object',
-    );
-  } catch {
-    return [];
-  }
-}
-
-function persistDrafts(drafts: DraftEntry[]): void {
-  try {
-    if (drafts.length === 0) {
-      localStorage.removeItem(DRAFT_RULES_STORAGE_KEY);
-
-      return;
-    }
-    localStorage.setItem(DRAFT_RULES_STORAGE_KEY, JSON.stringify(drafts));
-  } catch {
-    // localStorage недоступен (квота/режим) — черновик остаётся in-memory
-  }
-}
+import { draftRulesPersistService } from '@/modules/Roleplay/Rule/Service/Instance/draftRulesPersistService';
 
 export const useDraftRuleStore = defineStore('draftRules', () => {
-  const drafts = ref<DraftEntry[]>(loadDrafts());
+  const loaded = draftRulesPersistService.read();
+  const storageDiscarded = ref(loaded.discarded);
+  const drafts = ref<DraftEntry[]>(loaded.entries);
+
+  function persistDrafts(): void {
+    draftRulesPersistService.write(drafts.value);
+  }
+
+  function acknowledgeStorageDiscarded(): void {
+    storageDiscarded.value = false;
+  }
 
   const activeDraft = computed(() => (spaceId: number): DraftEntry | undefined => {
     return drafts.value.find((d) => d.spaceId === spaceId);
@@ -59,7 +40,7 @@ export const useDraftRuleStore = defineStore('draftRules', () => {
   function saveRule(spaceId: number, rule: Rule): void {
     const entry = ensureDraft(spaceId);
     entry.changedRules = { ...entry.changedRules, [rule.id]: rule };
-    persistDrafts(drafts.value);
+    persistDrafts();
   }
 
   function removeRule(spaceId: number, ruleId: string): void {
@@ -67,7 +48,7 @@ export const useDraftRuleStore = defineStore('draftRules', () => {
     if (entry) {
       const { [ruleId]: _, ...rest } = entry.changedRules;
       entry.changedRules = rest;
-      persistDrafts(drafts.value);
+      persistDrafts();
     }
   }
 
@@ -81,7 +62,7 @@ export const useDraftRuleStore = defineStore('draftRules', () => {
     const entry = ensureDraft(spaceId);
     const existed = rule.id in entry.changedRules;
     entry.changedRules = { ...entry.changedRules, [rule.id]: rule };
-    persistDrafts(drafts.value);
+    persistDrafts();
 
     return existed;
   }
@@ -89,16 +70,18 @@ export const useDraftRuleStore = defineStore('draftRules', () => {
   function discardDraft(spaceId: number): void {
     const idx = drafts.value.findIndex((d) => d.spaceId === spaceId);
     if (idx !== -1) drafts.value.splice(idx, 1);
-    persistDrafts(drafts.value);
+    persistDrafts();
   }
 
   function clearAll(): void {
     drafts.value = [];
-    persistDrafts(drafts.value);
+    persistDrafts();
   }
 
   return {
     drafts,
+    storageDiscarded,
+    acknowledgeStorageDiscarded,
     activeDraft,
     hasDraft,
     saveRule,

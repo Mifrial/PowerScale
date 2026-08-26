@@ -1,11 +1,8 @@
-import { getRuleApi } from '@/modules/Roleplay/Rule/init';
 import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
 import type { IChatRulesProvider } from '@/modules/Messages/Chat/Interface/IChatRulesProvider';
-import type { CharacterDetail } from '@/modules/Roleplay/Character/Dto/CharacterDetail';
+import type { Character } from '@/modules/Roleplay/Character/Dto/Character';
 import type { ICharacterApi } from '@/modules/Roleplay/Character/Interface/ICharacterApi';
-
-// Кэш обратного маппинга чат → персонаж (карточка списка не несёт discussionChatId).
-const characterByChatCache = new Map<number, CharacterDetail | null>();
+import { characterChatRulesContextService } from '@/modules/Roleplay/Character/Service/Instance/characterChatRulesContextService';
 
 async function characterApi(): Promise<ICharacterApi> {
   // Динамический импорт: провайдер регистрируется в Character/init — статический импорт
@@ -15,43 +12,24 @@ async function characterApi(): Promise<ICharacterApi> {
   return getCharacterApi();
 }
 
-async function findCharacterByChat(chatId: number): Promise<CharacterDetail | null> {
-  if (characterByChatCache.has(chatId)) return characterByChatCache.get(chatId) ?? null;
+async function findCharacterByChat(chatId: number): Promise<Character | null> {
   const api = await characterApi();
   const characters = await api.getCharacters();
-  for (const character of characters) {
-    const detail = await api.getCharacter(character.id);
-    if (detail.discussionChatId === chatId) {
-      characterByChatCache.set(chatId, detail);
 
-      return detail;
-    }
-  }
-  characterByChatCache.set(chatId, null);
-
-  return null;
+  return characters.find((character) => character.discussionChatId === chatId) ?? null;
 }
 
 /**
- * Правила обсуждения персонажа: ревизия персонажа (обратный маппинг по discussionChatId).
- * Нужно, чтобы ссылки [[rule:...]] и броски в мессенджере резолвились из ревизии персонажа.
+ * Правила обсуждения персонажа: ревизия с карточки списка (spaceId + rulesRevision).
+ * Чипы [[rule:...]] в мессенджере резолвятся из ревизии персонажа; броски — зона Game.
  */
 export const characterChatRulesProvider: IChatRulesProvider = {
   types: ['character_discussion'],
   resolve: async (_type, chatId) => {
     const character = await findCharacterByChat(chatId);
     if (!character) return null;
-    const revision = await useSpaceRevisionStore().fetchRevision(
-      character.character.spaceId,
-      character.version.rulesRevision,
-    );
-    const mechanics = await getRuleApi().getMechanics();
+    const revision = await useSpaceRevisionStore().fetchRevision(character.spaceId, character.rulesRevision);
 
-    return {
-      rules: revision.rules,
-      mechanics,
-      spaceId: character.character.spaceId,
-      rulesRevision: character.version.rulesRevision,
-    };
+    return characterChatRulesContextService.build(revision.rules, character.spaceId, character.rulesRevision);
   },
 };

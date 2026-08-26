@@ -1,14 +1,17 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { useCombatChatThread } from '@/modules/Roleplay/Game/Composables/useCombatChatThread';
-import { sendCombatChat } from '@/modules/Roleplay/Game/Utils/combatChatSend';
+import { combatChatSendService } from '@/modules/Roleplay/Game/Service/Instance/combatChatSendService';
+
 import { getGameApi } from '@/modules/Roleplay/Game/init';
-import { characterOverviewService } from '@/modules/Roleplay/Character/Service/Instance/characterOverviewService';
+import { characterOverviewService } from '@/modules/Roleplay/Character/init';
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
 import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue';
 import { ROLL_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ATTACHMENT_TYPE';
 import { ROLL_ADV_MAX } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ADV_MAX';
-import type { CheckOffer, CheckOfferProposal, HitDefenseReaction } from '@/modules/Roleplay/Game/Dto/CheckOffer';
+import type { CheckOffer } from '@/modules/Roleplay/Game/Dto/CheckOffer';
+import type { CheckOfferProposal } from '@/modules/Roleplay/Game/Dto/CheckOfferProposal';
+import type { HitDefenseReaction } from '@/modules/Roleplay/Game/Enum/HitDefenseReaction';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
@@ -23,21 +26,28 @@ import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/Chara
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { StateSpec } from '@/modules/Roleplay/Rule/Dto/State/StateSpec';
 import { CHECK_HIT_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
-import { CHARACTERISTIC_BASE_RANGE } from '@/modules/Roleplay/Character/Constant/CHARACTERISTIC_BASE_RANGE';
-import { combatCardModel, combatEntityName } from '@/modules/Roleplay/Game/Utils/combatCardModel';
-import { replaceCombatOverlay } from '@/modules/Roleplay/Game/Utils/mergeCombatOverlay';
-import { listBlockProfiles, rollHit, type HitCheckRoll } from '@/modules/Roleplay/Game/Utils/hitRoll';
-import { resolveHitProcedure } from '@/modules/Roleplay/Game/Utils/resolveStrikeProcedure';
-import { DEFAULT_FALLOFF, rangedHitDifficulty } from '@/modules/Roleplay/Character/Utils/weaponAttackRange';
-import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
-import { resolveDamageTypeHooks } from '@/modules/Roleplay/Game/Utils/resolveDamageTypeHooks';
 import {
-  DEFAULT_ATTACK_AP,
-  applyAttackDamage,
-  actionPointsResource,
-  enduranceOf,
-  spendActionPoints,
-} from '@/modules/Roleplay/Game/Utils/applyAttackDamage';
+  EXHAUSTION_STATE_CODE,
+  STUNNED_STATE_CODE,
+  WOUND_STATE_CODE,
+} from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
+import { CHARACTERISTIC_BASE_RANGE } from '@/modules/Roleplay/Character/Constant/CHARACTERISTIC_BASE_RANGE';
+import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
+
+import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
+
+import type { HitCheckRoll } from '@/modules/Roleplay/Game/Dto/HitCheckRoll';
+import { hitRollService } from '@/modules/Roleplay/Game/Service/Instance/hitRollService';
+
+import { resolveHitProcedure } from '@/modules/Roleplay/Game/Utils/resolveStrikeProcedure';
+import { DEFAULT_FALLOFF } from '@/modules/Roleplay/Character/init';
+import { weaponAttackRangeService } from '@/modules/Roleplay/Character/init';
+import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
+import { damageTypeHooksService } from '@/modules/Roleplay/Game/Service/Instance/damageTypeHooksService';
+
+import { DEFAULT_ATTACK_AP } from '@/modules/Roleplay/Game/Constant/Combat/DEFAULT_ATTACK_AP';
+import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
+
 import {
   buildAttackCalcPayload,
   formatAttackActionMessage,
@@ -54,18 +64,12 @@ import {
   turnAction,
 } from '@/modules/Roleplay/Game/Utils/combatActions';
 import { ATTACK_CALC_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Attack/ATTACK_CALC_ATTACHMENT_TYPE';
-import { asDamageTypeSpec } from '@/modules/Roleplay/Rule/Utils/damageTypeSpec';
-import {
-  applyInjuryCheck,
-  injuryInputFromAttack,
-  overlayStateTotal,
-  shouldLaunchInjuryFromAttack,
-  EXHAUSTION_STATE_CODE,
-  STUNNED_STATE_CODE,
-  WOUND_STATE_CODE,
-} from '@/modules/Roleplay/Game/Utils/applyInjuryCheck';
-import { applyExhaustionCheck } from '@/modules/Roleplay/Game/Utils/applyExhaustionCheck';
-import { checkAdvantageFromStates } from '@/modules/Roleplay/Character/Utils/stateRuntimeEffects';
+import { damageTypeSpecService } from '@/modules/Roleplay/Rule/Service/Instance/damageTypeSpecService';
+import { injuryCheckService } from '@/modules/Roleplay/Game/Service/Instance/injuryCheckService';
+
+import { exhaustionCheckService } from '@/modules/Roleplay/Game/Service/Instance/exhaustionCheckService';
+
+import { stateRuntimeEffectsService } from '@/modules/Roleplay/Character/init';
 
 const props = defineProps<{
   open: boolean;
@@ -90,8 +94,8 @@ const emit = defineEmits<{
   'overlay-changed': [];
 }>();
 
-const combatThread = useCombatChatThread(props.gameId);
-const sendChat = sendCombatChat(props.gameId);
+const combatThread = useCombatChatThread(() => props.gameId);
+const sendChat = combatChatSendService.sendCombatChat(props.gameId);
 const overlays = ref<GameCombatOverlay[]>([]);
 const offer = ref<CheckOffer | null>(null);
 const opponentKey = ref<CombatEntityKey | null>(null);
@@ -172,15 +176,21 @@ const isWaiting = computed(() => offer.value !== null && offer.value.status === 
 function nameOf(key: CombatEntityKey | null): string {
   if (!key) return '';
 
-  return combatEntityName(key, props.characters, props.npcs);
+  return combatCardModelService.combatEntityName(key, props.characters, props.npcs);
 }
 
 function versionOf(key: CombatEntityKey | null): CharacterVersion | null {
   if (!key) return null;
   const overlay = overlays.value.find((item) => item.entityKey === key) ?? null;
 
-  return combatCardModel(key, props.characters, props.npcs, props.canEdit, props.currentUserId, overlay)
-    .effectiveVersion;
+  return combatCardModelService.combatCardModel(
+    key,
+    props.characters,
+    props.npcs,
+    props.canEdit,
+    props.currentUserId,
+    overlay,
+  ).effectiveVersion;
 }
 
 function overviewOf(key: CombatEntityKey | null): CharacterOverview | null {
@@ -228,7 +238,12 @@ const canEditCover = computed(() => isCompose.value || myTurn.value);
 const ignoreDifficultyPreview = computed(() => {
   if (!isRanged.value) return procedure.value.ignoreDefense;
 
-  return rangedHitDifficulty(cover.value, 0, distanceIpari.value, currentAttack.value?.falloff ?? DEFAULT_FALLOFF);
+  return weaponAttackRangeService.rangedHitDifficulty(
+    cover.value,
+    0,
+    distanceIpari.value,
+    currentAttack.value?.falloff ?? DEFAULT_FALLOFF,
+  );
 });
 
 const resolvedAttack = computed(() => {
@@ -259,7 +274,7 @@ const selectedAction = computed(
 function remainingAp(key: CombatEntityKey | null): number {
   const overview = overviewOf(key);
   if (!overview) return 0;
-  const resource = actionPointsResource(overview, props.rules);
+  const resource = attackDamageService.actionPointsResource(overview, props.rules);
 
   return resource ? Math.max(0, resource.current.base) : 0;
 }
@@ -307,7 +322,7 @@ watch(attackOptions, (options) => {
 });
 
 const blockProfiles = computed(() =>
-  listBlockProfiles(versionOf(opponentKey.value), props.rules, { shieldsOnly: isRanged.value }),
+  hitRollService.listBlockProfiles(versionOf(opponentKey.value), props.rules, { shieldsOnly: isRanged.value }),
 );
 
 const canBlock = computed(() => blockProfiles.value.length > 0);
@@ -487,7 +502,7 @@ async function acceptAndRoll(): Promise<void> {
   const accepted = await getGameApi().acceptCheckOffer(current.id, actor, proposal);
   const hit = accepted.proposal.hit;
   if (!hit?.reaction) throw new Error('Защитник ещё не выбрал реакцию');
-  const rolled = rollHit(
+  const rolled = hitRollService.rollHit(
     {
       attackerLabel: nameOf(accepted.initiator),
       defenderLabel: nameOf(accepted.opponent),
@@ -506,10 +521,12 @@ async function acceptAndRoll(): Promise<void> {
       defenseEfficiency: hit.defenseEfficiency,
       attackerAdv:
         accepted.proposal.initiatorAdv +
-        checkAdvantageFromStates(versionOf(accepted.initiator), props.rules, { kind: 'hit' }),
+        stateRuntimeEffectsService.checkAdvantageFromStates(versionOf(accepted.initiator), props.rules, {
+          kind: 'hit',
+        }),
       defenderAdv:
         accepted.proposal.opponentAdv +
-        checkAdvantageFromStates(versionOf(accepted.opponent), props.rules, { kind: 'hit' }),
+        stateRuntimeEffectsService.checkAdvantageFromStates(versionOf(accepted.opponent), props.rules, { kind: 'hit' }),
       distanceIpari: hit.distanceIpari,
       cover: hit.cover,
       flank: hit.flank,
@@ -527,12 +544,12 @@ async function spendAp(key: CombatEntityKey, cost: number): Promise<number> {
   if (cost <= 0) return 0;
   const overview = overviewOf(key);
   if (!overview) return 0;
-  const resource = actionPointsResource(overview, props.rules);
+  const resource = attackDamageService.actionPointsResource(overview, props.rules);
   if (!resource) return 0;
   const spent = Math.min(cost, Math.max(0, resource.current.base));
-  const next = spendActionPoints(resource.current, spent);
+  const next = attackDamageService.spendActionPoints(resource.current, spent);
   const overlay = await getGameApi().setCombatResource(props.gameId, key, resource.ruleId, next);
-  overlays.value = replaceCombatOverlay(overlays.value, overlay);
+  overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, overlay);
 
   return spent;
 }
@@ -551,7 +568,7 @@ async function applyCombatState(key: CombatEntityKey, code: string, amount: numb
           stateRuleId: rule.id,
           value: amount,
         } as CharacterStateValue);
-  overlays.value = replaceCombatOverlay(overlays.value, overlay);
+  overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, overlay);
 }
 
 async function applyClickAttack(
@@ -561,18 +578,18 @@ async function applyClickAttack(
   attack: AttackOverview,
   rolled: HitCheckRoll,
 ): Promise<void> {
-  const hooks = resolveDamageTypeHooks(attack.damageTypeCode, props.rules, props.mechanics);
+  const hooks = damageTypeHooksService.resolveDamageTypeHooks(attack.damageTypeCode, props.rules, props.mechanics);
   const defenderOverview = overviewOf(accepted.opponent);
   const typeRule = attack.damageTypeCode
     ? props.rules.find((rule) => rule.code === attack.damageTypeCode && rule.type === 'damage_type')
     : undefined;
-  const defenseIgnored = asDamageTypeSpec(typeRule)?.defense_ignored === true;
-  const result = applyAttackDamage({
+  const defenseIgnored = damageTypeSpecService.asDamageTypeSpec(typeRule)?.defense_ignored === true;
+  const result = attackDamageService.applyAttackDamage({
     weaponDamage: hit.damage ?? attack.damage,
     sr: Math.max(0, sr),
     damageTypeCode: attack.damageTypeCode,
     defense: defenderOverview?.defense ?? null,
-    endurance: defenderOverview ? enduranceOf(defenderOverview, props.rules) : 1,
+    endurance: defenderOverview ? attackDamageService.enduranceOf(defenderOverview, props.rules) : 1,
     hooks,
     defenseIgnored,
   });
@@ -665,7 +682,7 @@ async function applyClickAttack(
     if (result.exhaustion > 0) {
       const afterHit = versionOf(accepted.opponent);
       if (afterHit) {
-        const exhaustion = await applyExhaustionCheck({
+        const exhaustion = await exhaustionCheckService.applyExhaustionCheck({
           version: afterHit,
           rules: props.rules,
           mechanics: props.mechanics,
@@ -678,13 +695,13 @@ async function applyClickAttack(
           sendMessage: (content, attachments, chatId, speaker) => sendChat(content, attachments, chatId, speaker),
         });
         if (exhaustion.overlay) {
-          overlays.value = replaceCombatOverlay(overlays.value, exhaustion.overlay);
+          overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, exhaustion.overlay);
           emit('overlay-changed');
         }
       }
     }
     if (
-      !shouldLaunchInjuryFromAttack({
+      !injuryCheckService.shouldLaunchInjuryFromAttack({
         hpDamage: result.hpDamage,
         cuttingWound: result.cuttingWound,
         woundFromHit: result.wound,
@@ -693,13 +710,13 @@ async function applyClickAttack(
       return;
     }
     const defenderVersion = versionOf(accepted.opponent);
-    const applied = await applyInjuryCheck({
-      input: injuryInputFromAttack({
+    const applied = await injuryCheckService.applyInjuryCheck({
+      input: injuryCheckService.injuryInputFromAttack({
         hpDamage: result.hpDamage,
         cuttingWound: result.cuttingWound,
         woundFromHit: result.wound,
-        overlayExhaustion: overlayStateTotal(defenderVersion, props.rules, EXHAUSTION_STATE_CODE),
-        endurance: defenderOverview ? enduranceOf(defenderOverview, props.rules) : 1,
+        overlayExhaustion: injuryCheckService.overlayStateTotal(defenderVersion, props.rules, EXHAUSTION_STATE_CODE),
+        endurance: defenderOverview ? attackDamageService.enduranceOf(defenderOverview, props.rules) : 1,
         remainingSr: result.remainingSr,
         damageTypeCode: attack.damageTypeCode,
         actorKey: accepted.opponent,
@@ -716,7 +733,7 @@ async function applyClickAttack(
       sendMessage: (content, attachments, chatId, speaker) => sendChat(content, attachments, chatId, speaker),
     });
     if (applied.overlay) {
-      overlays.value = replaceCombatOverlay(overlays.value, applied.overlay);
+      overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, applied.overlay);
       emit('overlay-changed');
     }
   } finally {

@@ -4,11 +4,11 @@ import ExpandableItem from '@/modules/Core/UI/Component/ExpandableItem.vue';
 import LightChip from '@/modules/Core/UI/Component/light/LightChip.vue';
 import LightButton from '@/modules/Core/UI/Component/light/LightButton.vue';
 import { useRuleDetailSlider } from '@/modules/Roleplay/Character/Composables/useRuleDetailSlider';
-import { itemParamsView, weaponProfileViews } from '@/modules/Roleplay/Character/Utils/itemWeaponProfiles';
-import { itemMasteryView } from '@/modules/Roleplay/Character/Utils/itemMastery';
+import { itemWeaponProfilesService } from '@/modules/Roleplay/Character/Service/Instance/itemWeaponProfilesService';
+import { itemMasteryService } from '@/modules/Roleplay/Character/Service/Instance/itemMasteryService';
 import { splitParagraphs } from '@/modules/Core/UI/Utils/textParagraphs';
-import type { WeaponProfileView } from '@/modules/Roleplay/Character/Utils/itemWeaponProfiles';
-import type { ItemMasteryView } from '@/modules/Roleplay/Character/Utils/itemMastery';
+import type { WeaponProfileView } from '@/modules/Roleplay/Character/Dto/WeaponProfileView';
+import type { ItemMasteryView } from '@/modules/Roleplay/Character/Dto/ItemMasteryView';
 import type { InventoryModifierOption } from '@/modules/Roleplay/Character/Dto/Editor/InventoryModifierOption';
 import type { CharacterAbility } from '@/modules/Roleplay/Character/Dto/CharacterAbility';
 import type { FormulaContext } from '@/modules/Roleplay/Character/Dto/FormulaContext';
@@ -16,22 +16,8 @@ import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/Dimension
 import type { ItemSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpec';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { itemModifierService } from '@/modules/Roleplay/Rule/Service/Instance/itemModifierService';
-
-export type InventoryItemType = 'weapon' | 'shield' | 'armor' | 'potion' | 'other';
-
-export type InventoryRowMode = 'shop' | 'owned';
-export type InventoryCatalogItem = {
-  ruleId: string;
-  name: string;
-  description: string;
-  cost: number;
-  section: string | null;
-  subtitle: string;
-  type: InventoryItemType;
-  spec: ItemSpec | undefined;
-  featureKeywords: { id: number; name: string }[];
-  keywordIds: number[];
-};
+import type { InventoryCatalogItem } from '@/modules/Roleplay/Character/Dto/Editor/InventoryCatalogItem';
+import type { InventoryRowMode } from '@/modules/Roleplay/Character/Enum/InventoryRowMode';
 
 const props = defineProps<{
   item: InventoryCatalogItem;
@@ -105,7 +91,9 @@ const canEquip = computed(
 const canCancel = computed(() => showPurchase.value && props.ownedQty > props.baselineQty);
 
 /** Параметры оружия/щита/доспеха (вес, мин. сила, прочность, блок, защита…) — над профилями. */
-const params = computed(() => itemParamsView(effectiveSpec.value, props.characteristicValues, props.rules));
+const params = computed(() =>
+  itemWeaponProfilesService.itemParamsView(effectiveSpec.value, props.characteristicValues, props.rules),
+);
 
 /** Имя правила по коду — для человекочитаемых формул профилей. */
 function resolveRuleName(code: string): string | null {
@@ -123,11 +111,13 @@ const profileContext = computed<FormulaContext>(() => ({
 
 /** Профили атак оружия (значения от текущих характеристик); считаются лениво — только у видимых строк. */
 const profiles = computed<WeaponProfileView[]>(() =>
-  weaponProfileViews(effectiveSpec.value, profileContext.value, resolveRuleName),
+  itemWeaponProfilesService.weaponProfileViews(effectiveSpec.value, profileContext.value, resolveRuleName),
 );
 
 /** Блок «Владение оружием» (семья + лестница + уровень); null — у предмета нет семьи. */
-const mastery = computed<ItemMasteryView | null>(() => itemMasteryView(props.item.spec, props.abilities, props.rules));
+const mastery = computed<ItemMasteryView | null>(() =>
+  itemMasteryService.itemMasteryView(props.item.spec, props.abilities, props.rules),
+);
 
 /** Извлечь ключевое слово оружия из тэгов предмета. */
 const weaponKeywordCode = computed<string | null>(() => {

@@ -14,6 +14,7 @@ import {
 import { gameDetails, updateGame } from '@/modules/Roleplay/Game/Mock/mockGames';
 import { characters, versions, fetchCharacter } from '@/modules/Roleplay/Character/Mock/mockCharacters';
 import { addCustomRule } from '@/modules/Roleplay/Character/Mock/mockCharacterUpdate';
+import '@/modules/Roleplay/Game/Mock/mockCharacterSessionOverlay';
 import { fetchRevision } from '@/modules/Roleplay/Space/Mock/mockSpaces';
 import {
   setCombatResource,

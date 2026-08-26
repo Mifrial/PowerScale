@@ -1,4 +1,4 @@
-import type { MechanicHandler } from '@/modules/Roleplay/Rule/Service/Mechanic/MechanicHandler';
+import type { MechanicHandler } from '@/modules/Roleplay/Rule/Interface/MechanicHandler';
 
 /**
  * Реестр хендлеров механик: code@version → хендлер. Версия-aware: правило ссылается

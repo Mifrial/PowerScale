@@ -5,14 +5,12 @@ import type { ChatAttachment } from '@/modules/Messages/Chat/Dto/ChatAttachment'
 import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
 import type { ChatMessageVisibility } from '@/modules/Messages/Chat/Dto/ChatMessageVisibility';
 import type { ChatThreadRef } from '@/modules/Messages/Chat/Dto/ChatThreadRef';
-import type { DiceRollResult } from '@/modules/Roleplay/Game/Dto/DiceRollResult';
 import type { SyncResponse } from '@/modules/Messages/Chat/Dto/SyncResponse';
 import { users as realUsers } from '@/modules/Core/User/Mock/mockUsers';
 import { getCurrentUserId } from '@/modules/Core/Auth/Mock/mockAuth';
 import { getAttachmentProcessor, getChatTypes } from '@/modules/Messages/Chat/init';
-import { isMessageVisible } from '@/modules/Messages/Chat/Utils/chatVisibility';
+import { chatVisibilityService } from '@/modules/Messages/Chat/Service/Instance/chatVisibilityService';
 import { messagePreview } from '@/modules/Messages/Chat/Utils/messagePreview';
-import { ROLL_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ATTACHMENT_TYPE';
 
 const delay = (ms = 100) => new Promise((r) => setTimeout(r, ms));
 // id для сообщений, создаваемых в рантайме (send/sync): не пересекаются с рукописными (< 1000).
@@ -65,8 +63,8 @@ function msg(
   };
 }
 
-function rollAttachment(result: DiceRollResult): ChatAttachment {
-  return { type: ROLL_ATTACHMENT_TYPE, payload: result };
+function rollAttachment(payload: unknown): ChatAttachment {
+  return { type: 'roll', payload };
 }
 
 function rollMsg(
@@ -910,7 +908,7 @@ function visibleMessagesFor(meta: Pick<Chat, 'type' | 'members'>, messages: Chat
   const roles = getChatTypes().find((chatType) => chatType.type === meta.type)?.roles ?? [];
   const members = resolveSelfMembers(meta.members);
 
-  return messages.filter((message) => isMessageVisible(message, { members }, viewerId, roles));
+  return messages.filter((message) => chatVisibilityService.isMessageVisible(message, { members }, viewerId, roles));
 }
 
 function deriveChat(meta: Omit<Chat, 'lastMessage' | 'lastMessageAt' | 'unreadCount'>, messages: ChatMessage[]): Chat {

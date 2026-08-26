@@ -1,4 +1,4 @@
-import { computed } from 'vue';
+import { computed, watch } from 'vue';
 import type { ComputedRef } from 'vue';
 import { getChatTypes } from '@/modules/Messages/Chat/init';
 import { useChatUsers } from '@/modules/Messages/Chat/Composables/useChatUsers';
@@ -22,9 +22,17 @@ export function useChatVisibilityOptions(chat: ComputedRef<Pick<Chat, 'type' | '
     (chatType.value?.roles ?? []).map((role) => ({ code: role.code, label: role.label })),
   );
 
+  watch(
+    () => chat.value?.members.map((member) => member.userId).join(',') ?? '',
+    () => {
+      const members = chat.value?.members ?? [];
+      if (members.length) void chatUsers.ensureUsers(members.map((member) => member.userId));
+    },
+    { immediate: true },
+  );
+
   const userOptions = computed(() => {
     const members = chat.value?.members ?? [];
-    if (members.length) void chatUsers.ensureUsers(members.map((member) => member.userId));
 
     return members.map((member) => ({
       userId: member.userId,

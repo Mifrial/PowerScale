@@ -3,7 +3,7 @@ import { computed, ref, watch } from 'vue';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import SlidePanel from '@/modules/Core/UI/Component/SlidePanel.vue';
 import { RULE_TYPE_LABELS } from '@/modules/Roleplay/Rule/Constant/RULE_TYPE_LABELS';
-import { resolveRuleFromRevision } from '@/modules/Roleplay/Rule/Utils/ruleRevisionResolver';
+import { ruleRevisionResolverService } from '@/modules/Roleplay/Rule/Service/Instance/ruleRevisionResolverService';
 
 const props = defineProps<{
   ruleId: string | null;
@@ -31,7 +31,7 @@ async function loadRule(id: string | null) {
   error.value = null;
   ruleData.value = null;
   try {
-    ruleData.value = await resolveRuleFromRevision({
+    ruleData.value = await ruleRevisionResolverService.resolveRuleFromRevision({
       spaceId: props.spaceId ?? null,
       rulesRevision: props.rulesRevision ?? null,
       ruleId: id,

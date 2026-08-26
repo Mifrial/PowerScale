@@ -3,9 +3,11 @@ import { computed } from 'vue';
 import type { ChatMessage } from '@/modules/Messages/Chat/Dto/ChatMessage';
 import type { User } from '@/modules/Core/User/Dto/User';
 import type { ChatMessageVisibility } from '@/modules/Messages/Chat/Dto/ChatMessageVisibility';
+import type { ChatInlineRendererContext } from '@/modules/Messages/Chat/Dto/ChatInlineRendererContext';
 import { DateTime } from '@/modules/Core/Engine/Value/DateTime';
 import { getContentRenderer, getContentRendererEntry, getInlineRenderer } from '@/modules/Messages/Chat/init';
 import { inlineContentService } from '@/modules/Messages/Chat/Service/Instance/inlineContentService';
+import { hostInlineRendererContext } from '@/modules/Messages/Chat/Utils/hostInlineRendererContext';
 import { initials } from '@/modules/Core/User/Utils/initials';
 import { displayName } from '@/modules/Core/User/Utils/displayName';
 import ChatVisibilityMenu from '@/modules/Messages/Chat/Component/ChatVisibilityMenu.vue';
@@ -19,14 +21,17 @@ const props = defineProps<{
   canChangeVisibility?: boolean;
   visibilityRoleOptions?: { code: string; label: string }[];
   visibilityOptions?: { userId: number; name: string }[];
-  /** Непрозрачный контекст для inline-рендереров (напр. имена правил ревизии игры). */
-  rendererContext?: Record<string, unknown>;
+  /** Data-срез для inline-рендереров. */
+  rendererContext?: ChatInlineRendererContext | null;
+  openEntity?: (ref: string) => void;
 }>();
 
 const emit = defineEmits<{
   'open-profile': [userId: number];
   'update-visibility': [messageId: number, visibility?: ChatMessageVisibility];
 }>();
+
+const pluginContext = computed(() => hostInlineRendererContext(props.rendererContext, props.openEntity));
 
 const segments = computed(() => inlineContentService.parse(props.msg.content));
 
@@ -68,14 +73,13 @@ const authorInitials = computed(() => {
 });
 
 function onAuthorClick(): void {
-  const openEntity = props.rendererContext?.openEntity;
-  if (typeof openEntity === 'function' && speaker.value?.kind === 'character') {
-    openEntity(`character:${speaker.value.characterId}`);
+  if (props.openEntity && speaker.value?.kind === 'character') {
+    props.openEntity(`character:${speaker.value.characterId}`);
 
     return;
   }
-  if (typeof openEntity === 'function' && speaker.value?.kind === 'npc') {
-    openEntity(`npc:${speaker.value.npcId}`);
+  if (props.openEntity && speaker.value?.kind === 'npc') {
+    props.openEntity(`npc:${speaker.value.npcId}`);
 
     return;
   }
@@ -127,7 +131,7 @@ function onAuthorClick(): void {
           :is="item.renderer?.component"
           :attachment="item.attachment"
           :index="item.index"
-          :context="props.rendererContext"
+          :context="pluginContext"
         />
       </template>
       <span class="text-caption text-disabled">{{ DateTime.formatTime(props.msg.createdAt) }}</span>
@@ -139,8 +143,9 @@ function onAuthorClick(): void {
           v-else-if="inlineRenderers[si]"
           :is="inlineRenderers[si]?.component"
           :segment="seg"
-          :context="props.rendererContext"
+          :context="pluginContext"
         />
+        <template v-else-if="seg.kind === 'token'">{{ `[[${seg.type}:${seg.params.join(':')}]]` }}</template>
       </template>
     </div>
     <div v-if="blockAttachments.length" class="chat-attachments">
@@ -150,7 +155,7 @@ function onAuthorClick(): void {
           :is="item.renderer"
           :attachment="item.attachment"
           :index="item.index"
-          :context="props.rendererContext"
+          :context="pluginContext"
         />
       </template>
     </div>

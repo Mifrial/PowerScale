@@ -2,16 +2,14 @@
 import { computed, ref, watch } from 'vue';
 import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
-import { getRuleApi } from '@/modules/Roleplay/Rule/init';
-import { getChatRulesContext } from '@/modules/Messages/Chat/init';
+import { characterChatRulesContextService } from '@/modules/Roleplay/Character/Service/Instance/characterChatRulesContextService';
 import type { ChatRulesContext } from '@/modules/Messages/Chat/Dto/ChatRulesContext';
+import { ChatThread, chatInlineRendererContext } from '@/modules/Messages/Chat/init';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
-import ChatThread from '@/modules/Messages/Chat/Component/ChatThread.vue';
 
 const props = defineProps<{
   discussionChatId: number | null;
-  /** Ревизия персонажа — правила и механики для чипов/ссылок/бросков обсуждения. */
+  /** Ревизия персонажа — правила для чипов/ссылок обсуждения. */
   spaceId: number;
   rulesRevision: number;
 }>();
@@ -19,40 +17,52 @@ const props = defineProps<{
 const spaceRevisionStore = useSpaceRevisionStore();
 const { signal } = useAbortable();
 const rules = ref<Rule[]>([]);
-const mechanics = ref<Mechanic[]>([]);
+const rulesLoading = ref(false);
+const rulesError = ref<string | null>(null);
 
-// Сборку контекста (включая броски через RollEngine) отдаёт Game через реестр Chat —
-// Character не зависит от Game (направление зависимостей).
 const context = computed<ChatRulesContext>(() =>
-  getChatRulesContext(rules.value, mechanics.value, props.spaceId, props.rulesRevision),
+  characterChatRulesContextService.build(rules.value, props.spaceId, props.rulesRevision),
 );
 
-async function load(): Promise<void> {
+const inlineContext = computed(() => chatInlineRendererContext(context.value));
+
+async function loadRules(): Promise<void> {
+  rulesLoading.value = true;
+  rulesError.value = null;
   try {
     const revision = await spaceRevisionStore.fetchRevision(props.spaceId, props.rulesRevision, signal.value);
     rules.value = revision.rules;
-    mechanics.value = await getRuleApi().getMechanics(signal.value);
-  } catch {
+  } catch (caught) {
+    if (caught instanceof DOMException && caught.name === 'AbortError') return;
     rules.value = [];
-    mechanics.value = [];
+    rulesError.value = 'Не удалось загрузить правила ревизии';
+  } finally {
+    rulesLoading.value = false;
   }
 }
 
 watch(
   () => [props.spaceId, props.rulesRevision] as const,
-  () => void load(),
+  () => void loadRules(),
   { immediate: true },
 );
 </script>
 
 <template>
-  <ChatThread
-    :chat-id="discussionChatId"
-    :rule-names="context.ruleNames"
-    :space-id="context.spaceId"
-    :rules-revision="context.rulesRevision"
-    :token-sources="context.tokenSources"
-    :process-attachments="context.processAttachments"
-    empty-label="Обсуждение доступно в мессенджере"
-  />
+  <div>
+    <div v-if="rulesLoading" class="d-flex justify-center pa-2">
+      <v-progress-circular indeterminate width="2" size="24" color="primary" />
+    </div>
+    <div v-else-if="rulesError" class="pa-4">
+      <div class="text-error text-body-2 mb-2">{{ rulesError }}</div>
+      <v-btn variant="tonal" color="primary" size="small" @click="loadRules">Попробовать снова</v-btn>
+    </div>
+    <ChatThread
+      :chat-id="discussionChatId"
+      :renderer-context="inlineContext"
+      :token-sources="context.tokenSources"
+      :process-attachments="context.processAttachments"
+      empty-label="Обсуждение доступно в мессенджере"
+    />
+  </div>
 </template>

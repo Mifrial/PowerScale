@@ -9,7 +9,7 @@ import {
   shouldSkipExhaustionCheck,
 } from '@/modules/Roleplay/Game/Utils/exhaustionCheckMessage';
 import { formatBloodLossTickMessage } from '@/modules/Roleplay/Game/Utils/bloodLossMessage';
-import { characteristicDependsOn } from '@/modules/Roleplay/Character/Utils/stateRuntimeEffects';
+import { stateRuntimeEffectsService } from '@/modules/Roleplay/Character/init';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
 describe('bloodLossMath', () => {
@@ -99,8 +99,8 @@ describe('characteristicDependsOn', () => {
         createdAt: '',
       },
     ];
-    expect(characteristicDependsOn('might', 'strength', derived)).toBe(true);
-    expect(characteristicDependsOn('might', 'willpower', derived)).toBe(false);
+    expect(stateRuntimeEffectsService.characteristicDependsOn('might', 'strength', derived)).toBe(true);
+    expect(stateRuntimeEffectsService.characteristicDependsOn('might', 'willpower', derived)).toBe(false);
   });
 });
 

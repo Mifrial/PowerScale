@@ -3,7 +3,7 @@ import { computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { useCharacterStore } from '@/modules/Roleplay/Character/Store/characters';
-import { canViewCharacter } from '@/modules/Roleplay/Character/Utils/access';
+import { characterAccessService } from '@/modules/Roleplay/Character/Service/Instance/characterAccessService';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { useUserStore } from '@/modules/Core/User/Store/users';
 import { accessService } from '@/modules/Core/User/init';
@@ -25,7 +25,7 @@ const canCreate = computed(() => accessService.hasAnyPermission(userStore.curren
 
 // «Полностью невидим»: персонажи, к которым у текущего пользователя нет доступа по зонам, не в списке.
 const visibleCharacters = computed(() =>
-  store.characters.filter((character) => canViewCharacter(userStore.currentUser, character)),
+  store.characters.filter((character) => characterAccessService.canViewCharacter(userStore.currentUser, character)),
 );
 
 const rows = computed(() =>

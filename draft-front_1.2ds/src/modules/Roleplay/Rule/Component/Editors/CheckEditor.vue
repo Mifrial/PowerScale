@@ -3,8 +3,8 @@ import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec';
 import type { CheckSpec } from '@/modules/Roleplay/Rule/Dto/Check/CheckSpec';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import RuleEditorBase from '@/modules/Roleplay/Rule/Component/Editors/RuleEditorBase.vue';
-import { isCheckAttachableRule } from '@/modules/Roleplay/Rule/Utils/checkResolution';
-import { checkVersusLabel } from '@/modules/Roleplay/Rule/Utils/checkLaunch';
+import { checkResolutionService } from '@/modules/Roleplay/Rule/Service/Instance/checkResolutionService';
+import { checkLaunchService } from '@/modules/Roleplay/Rule/Service/Instance/checkLaunchService';
 import { computed, ref, watch } from 'vue';
 import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
 
@@ -78,7 +78,9 @@ const stateOptions = computed(() =>
 );
 
 const attachableRuleOptions = computed(() =>
-  props.rules.filter(isCheckAttachableRule).map((rule) => ({ title: rule.name, value: rule.code })),
+  props.rules
+    .filter((rule) => checkResolutionService.isCheckAttachableRule(rule))
+    .map((rule) => ({ title: rule.name, value: rule.code })),
 );
 
 const overrideAttachedRules = computed({
@@ -111,7 +113,7 @@ const stateCode = computed({
 });
 
 const versusPreview = computed(() =>
-  checkVersusLabel(
+  checkLaunchService.checkVersusLabel(
     {
       id: props.code,
       code: props.code,

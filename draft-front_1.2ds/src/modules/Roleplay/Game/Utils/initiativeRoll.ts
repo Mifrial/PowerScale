@@ -11,12 +11,9 @@ import { CharacteristicNumber } from '@/modules/Roleplay/Rule/Value/Characterist
 import { rollService } from '@/modules/Roleplay/Game/Service/Instance/rollService';
 import { rollEngine } from '@/modules/Roleplay/Game/Service/Roll/Instance/rollEngine';
 import { ROLL_RULE_CODE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_RULE_CODE';
-import { advantageEntries } from '@/modules/Roleplay/Rule/Utils/aggregateSourceDeltas';
+import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/Service/Instance/aggregateSourceDeltasService';
 import { CHECK_INITIATIVE_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
-import {
-  resolveCheckAttachedRuleCodes,
-  resolveCheckCodeForCharacteristic,
-} from '@/modules/Roleplay/Rule/Utils/checkResolution';
+import { checkResolutionService } from '@/modules/Roleplay/Rule/Service/Instance/checkResolutionService';
 
 /** Способ определения инициативы участника в окне проверки. */
 export type InitiativeRollMethod = 'characteristic' | 'free' | 'fixed';
@@ -83,7 +80,7 @@ function characteristicSpec(entry: InitiativeRollEntry): DiceRollSpec {
     diceCount: pool,
     dieFaces: entry.dieFaces,
     efficiency: entry.efficiency,
-    advantages: advantageEntries(entry.adv ?? 0),
+    advantages: aggregateSourceDeltasService.advantageEntries(entry.adv ?? 0),
     dieSize: value.size,
     poolSize: value.size,
     efficiencySize: 0,
@@ -100,7 +97,7 @@ function entrySpec(entry: InitiativeRollEntry): DiceRollSpec {
     diceCount: entry.freeDiceCount,
     dieFaces: entry.dieFaces,
     efficiency: entry.efficiency,
-    advantages: advantageEntries(entry.adv ?? 0),
+    advantages: aggregateSourceDeltasService.advantageEntries(entry.adv ?? 0),
     dieSize: 0,
     poolSize: 0,
     efficiencySize: 0,
@@ -129,9 +126,9 @@ export function rollInitiative(
     const spec = entrySpec(entry);
     const checkCode =
       entry.method === 'characteristic'
-        ? resolveCheckCodeForCharacteristic(entry.characteristicCode, rules)
+        ? checkResolutionService.resolveCheckCodeForCharacteristic(entry.characteristicCode, rules)
         : CHECK_INITIATIVE_CODE;
-    const attachedRuleCodes = resolveCheckAttachedRuleCodes(checkCode, rules);
+    const attachedRuleCodes = checkResolutionService.resolveCheckAttachedRuleCodes(checkCode, rules);
     const result = withMechanics
       ? rollEngine.roll(spec, rng, rules, mechanics, attachedRuleCodes, [])
       : rollService.computeRollResult(spec, rng);

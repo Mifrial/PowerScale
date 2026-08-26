@@ -9,7 +9,7 @@ import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber
 import { ROLL_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ATTACHMENT_TYPE';
 import { resolveAppliedMechanicNames } from '@/modules/Roleplay/Game/Utils/appliedRollMechanics';
 import { ROLL_ADV_MAX } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ADV_MAX';
-import { advantageEntries, netSourceDelta } from '@/modules/Roleplay/Rule/Utils/aggregateSourceDeltas';
+import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/Service/Instance/aggregateSourceDeltasService';
 import { ROLL_DICE_COUNT_MAX } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_DICE_COUNT_MAX';
 import { ROLL_DICE_COUNT_MIN } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_DICE_COUNT_MIN';
 import { ROLL_DIE_FACES_MAX } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_DIE_FACES_MAX';
@@ -144,7 +144,7 @@ export class RollService {
             diceCount: formula.diceCount,
             dieFaces: formula.dieFaces,
             efficiency,
-            advantages: advantageEntries(adv),
+            advantages: aggregateSourceDeltasService.advantageEntries(adv),
             dieSize,
             label: labelParts.join(' ').trim() || undefined,
           },
@@ -161,7 +161,7 @@ export class RollService {
   computeRollResult(spec: DiceRollSpec, rng: DiceRng = Math.random): DiceRollResult {
     const diceCount = Math.max(1, spec.diceCount);
     const faces = Math.max(2, spec.dieFaces);
-    const adv = netSourceDelta(spec.advantages);
+    const adv = aggregateSourceDeltasService.netSourceDelta(spec.advantages);
     const rollDie = () => Math.floor(rng() * faces) + 1;
 
     const rolls = Array.from({ length: diceCount }, rollDie);
@@ -200,5 +200,9 @@ export class RollService {
       totalSuccesses,
       appliedMechanics: appliedMechanics.length > 0 ? appliedMechanics : undefined,
     };
+  }
+
+  isDiceRollResult(payload: DiceRollSpec | DiceRollResult): payload is DiceRollResult {
+    return 'rolls' in payload;
   }
 }

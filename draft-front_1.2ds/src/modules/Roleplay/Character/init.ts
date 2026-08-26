@@ -3,6 +3,8 @@ import { defineAsyncComponent } from 'vue';
 import type { ICharacterApi } from '@/modules/Roleplay/Character/Interface/ICharacterApi';
 import type { SheetRole } from '@/modules/Roleplay/Character/Interface/SheetRole';
 import type { CharacterCardExtension } from '@/modules/Roleplay/Character/Interface/CharacterCardExtension';
+import type { IInGameSheetSource } from '@/modules/Roleplay/Character/Interface/IInGameSheetSource';
+import type { ICharacterSessionOverlay } from '@/modules/Roleplay/Character/Interface/ICharacterSessionOverlay';
 import { registerPermissionCategory } from '@/modules/Core/User/init';
 import { registerChatTypes, registerChatTabs, registerChatRulesProvider } from '@/modules/Messages/Chat/init';
 import { CHARACTER_PERMISSION_CATEGORY } from '@/modules/Roleplay/Character/Constant/permissions';
@@ -27,8 +29,30 @@ export const CharacterSheetEditor = defineAsyncComponent(
   () => import('@/modules/Roleplay/Character/Component/Editor/CharacterSheetEditor.vue'),
 );
 
+export const SheetCard = defineAsyncComponent(() => import('@/modules/Roleplay/Character/Component/SheetCard.vue'));
+
+export const CharacterCombatSheet = defineAsyncComponent(
+  () => import('@/modules/Roleplay/Character/Component/Combat/CharacterCombatSheet.vue'),
+);
+
+export const RuleLink = defineAsyncComponent(
+  () => import('@/modules/Roleplay/Character/Component/Detail/RuleLink.vue'),
+);
+
+export const UniqueRulesTab = defineAsyncComponent(
+  () => import('@/modules/Roleplay/Character/Component/Detail/UniqueRulesTab.vue'),
+);
+
+export const OwnerNotesDialog = defineAsyncComponent(
+  () => import('@/modules/Roleplay/Character/Component/OwnerNotesDialog.vue'),
+);
+
+export const MigrationReport = defineAsyncComponent(
+  () => import('@/modules/Roleplay/Character/Component/MigrationReport.vue'),
+);
+
 // Инъекция ролей видимости листа: сторонние модули (например Game) регистрируют
-// generic-роли; Character не знает их семантики (см. Utils/sheetAccess).
+// generic-роли; Character не знает их семантики (см. SheetAccessService).
 const sheetRoles: SheetRole[] = [];
 
 export function registerSheetRole(role: SheetRole): void {
@@ -59,6 +83,26 @@ export function getCharacterCardExtensions(): CharacterCardExtension[] {
   return characterCardExtensions;
 }
 
+let inGameSheetSource: IInGameSheetSource | null = null;
+
+export function registerInGameSheetSource(source: IInGameSheetSource): void {
+  inGameSheetSource = source;
+}
+
+export function getInGameSheetSource(): IInGameSheetSource | null {
+  return inGameSheetSource;
+}
+
+let characterSessionOverlay: ICharacterSessionOverlay | null = null;
+
+export function registerCharacterSessionOverlay(overlay: ICharacterSessionOverlay): void {
+  characterSessionOverlay = overlay;
+}
+
+export function getCharacterSessionOverlay(): ICharacterSessionOverlay | null {
+  return characterSessionOverlay;
+}
+
 export function registerCharacterModule(): void {
   registerPermissionCategory(CHARACTER_PERMISSION_CATEGORY);
   registerChatTypes(CHARACTER_CHAT_TYPES);
@@ -66,3 +110,20 @@ export function registerCharacterModule(): void {
   // Правила обсуждения персонажа: ревизия персонажа (чипы/ссылки/броски в мессенджере).
   registerChatRulesProvider(characterChatRulesProvider);
 }
+
+export { characterAccessService } from '@/modules/Roleplay/Character/Service/Instance/characterAccessService';
+export { sheetAccessService } from '@/modules/Roleplay/Character/Service/Instance/sheetAccessService';
+export { characterSheetValidationService } from '@/modules/Roleplay/Character/Service/Instance/characterSheetValidationService';
+export { stateRuntimeEffectsService } from '@/modules/Roleplay/Character/Service/Instance/stateRuntimeEffectsService';
+export { itemCheckAdvantagesService } from '@/modules/Roleplay/Character/Service/Instance/itemCheckAdvantagesService';
+export { liveActionPointsLimitService } from '@/modules/Roleplay/Character/Service/Instance/liveActionPointsLimitService';
+export { racialInnateGearService } from '@/modules/Roleplay/Character/Service/Instance/racialInnateGearService';
+export { weaponProficiencyService } from '@/modules/Roleplay/Character/Service/Instance/weaponProficiencyService';
+export { editorStatViewsService } from '@/modules/Roleplay/Character/Service/Instance/editorStatViewsService';
+export { itemWeaponProfilesService } from '@/modules/Roleplay/Character/Service/Instance/itemWeaponProfilesService';
+export { itemMasteryService } from '@/modules/Roleplay/Character/Service/Instance/itemMasteryService';
+export { weaponAttackRangeService } from '@/modules/Roleplay/Character/Service/Instance/weaponAttackRangeService';
+export { characterChatRulesContextService } from '@/modules/Roleplay/Character/Service/Instance/characterChatRulesContextService';
+export { characterOverviewService } from '@/modules/Roleplay/Character/Service/Instance/characterOverviewService';
+export { characterMigrationService } from '@/modules/Roleplay/Character/Service/Instance/characterMigrationService';
+export { DEFAULT_FALLOFF } from '@/modules/Roleplay/Character/Constant/Weapon/DEFAULT_FALLOFF';

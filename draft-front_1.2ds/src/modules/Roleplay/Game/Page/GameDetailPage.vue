@@ -4,11 +4,13 @@ import { useRoute, useRouter } from 'vue-router';
 import { useGameStore } from '@/modules/Roleplay/Game/Store/games';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 import { getRuleApi } from '@/modules/Roleplay/Rule/init';
-import { buildChatRulesContext } from '@/modules/Roleplay/Game/Utils/chatRulesContext';
+import { gameChatRulesContextService } from '@/modules/Roleplay/Game/Service/Instance/gameChatRulesContextService';
+
 import { useUserStore } from '@/modules/Core/User/Store/users';
 import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
-import { canViewGame, canEditGame, canModerateGame, canAddGameMember } from '@/modules/Roleplay/Game/Utils/access';
+import { gameAccessService } from '@/modules/Roleplay/Game/Service/Instance/gameAccessService';
+
 import OverviewTab from '@/modules/Roleplay/Game/Component/Detail/OverviewTab.vue';
 import MembersTab from '@/modules/Roleplay/Game/Component/Detail/MembersTab.vue';
 import CharactersTab from '@/modules/Roleplay/Game/Component/Detail/CharactersTab.vue';
@@ -17,13 +19,13 @@ import NpcsTab from '@/modules/Roleplay/Game/Component/Detail/NpcsTab.vue';
 import LootTab from '@/modules/Roleplay/Game/Component/Detail/LootTab.vue';
 import ChronicleTab from '@/modules/Roleplay/Game/Component/Detail/ChronicleTab.vue';
 import GameChatTab from '@/modules/Roleplay/Game/Component/Detail/GameChatTab.vue';
-import ChatThread from '@/modules/Messages/Chat/Component/ChatThread.vue';
-import UserProfileSlider from '@/modules/Core/User/Component/UserProfileSlider.vue';
+import { ChatThread, chatInlineRendererContext } from '@/modules/Messages/Chat/init';
+import type { ChatRulesContext } from '@/modules/Messages/Chat/Dto/ChatRulesContext';
 import type { GameJoinRequest } from '@/modules/Roleplay/Game/Dto/GameJoinRequest';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
-import type { ChatRulesContext } from '@/modules/Messages/Chat/Dto/ChatRulesContext';
-import OwnerNotesDialog from '@/modules/Roleplay/Character/Component/OwnerNotesDialog.vue';
+import UserProfileSlider from '@/modules/Core/User/Component/UserProfileSlider.vue';
+import { OwnerNotesDialog } from '@/modules/Roleplay/Character/init';
 
 const route = useRoute();
 const router = useRouter();
@@ -51,14 +53,18 @@ const spaceName = ref<string | null>(null);
 // Контекст правил обсуждения игры (ревизия игры): чипы, «Вставить ссылку», броски.
 const discussionRules = ref<Rule[]>([]);
 const discussionMechanics = ref<Mechanic[]>([]);
+const discussionError = ref<string | null>(null);
+const discussionLoading = ref(false);
 const discussionContext = computed<ChatRulesContext>(() =>
-  buildChatRulesContext(
+  gameChatRulesContextService.buildChatRulesContext(
     discussionRules.value,
     discussionMechanics.value,
     detail.value?.game.spaceId,
     detail.value?.game.rulesRevision,
   ),
 );
+
+const discussionInline = computed(() => chatInlineRendererContext(discussionContext.value));
 
 const gameId = computed(() => {
   const raw = route.params.id;
@@ -128,14 +134,14 @@ const canView = computed(() => {
   const current = detail.value;
   if (!current) return false;
 
-  return canViewGame(userStore.currentUser, current.game, memberIds.value);
+  return gameAccessService.canViewGame(userStore.currentUser, current.game, memberIds.value);
 });
 
 const canManageMembers = computed(() => {
   const current = detail.value;
   if (!current) return false;
 
-  return canEditGame(userStore.currentUser, current);
+  return gameAccessService.canEditGame(userStore.currentUser, current);
 });
 
 const canEdit = computed(() => canManageMembers.value);
@@ -144,7 +150,7 @@ const canModerate = computed(() => {
   const current = detail.value;
   if (!current) return false;
 
-  return canModerateGame(userStore.currentUser, current);
+  return gameAccessService.canModerateGame(userStore.currentUser, current);
 });
 
 // Прямое добавление участника — только владелец игры / глобальный админ (ведущие — по приглашению).
@@ -152,7 +158,7 @@ const canAddMembers = computed(() => {
   const current = detail.value;
   if (!current) return false;
 
-  return canAddGameMember(userStore.currentUser, current);
+  return gameAccessService.canAddGameMember(userStore.currentUser, current);
 });
 
 // Участник игры (для подачи персонажа): владелец/ведущий/игрок.
@@ -176,7 +182,7 @@ async function load(): Promise<void> {
   const loaded = await store.fetchGame(id, signal.value);
   if (
     loaded &&
-    !canViewGame(
+    !gameAccessService.canViewGame(
       userStore.currentUser,
       loaded.game,
       loaded.members.map((member) => member.userId),
@@ -228,6 +234,8 @@ function retry(): void {
 async function loadDiscussionContext(): Promise<void> {
   const current = detail.value;
   if (!current) return;
+  discussionLoading.value = true;
+  discussionError.value = null;
   try {
     const revision = await spaceRevisionStore.fetchRevision(
       current.game.spaceId,
@@ -236,9 +244,13 @@ async function loadDiscussionContext(): Promise<void> {
     );
     discussionRules.value = revision.rules;
     discussionMechanics.value = await getRuleApi().getMechanics(signal.value);
-  } catch {
+  } catch (caught) {
+    if (caught instanceof DOMException && caught.name === 'AbortError') return;
     discussionRules.value = [];
     discussionMechanics.value = [];
+    discussionError.value = 'Не удалось загрузить правила обсуждения';
+  } finally {
+    discussionLoading.value = false;
   }
 }
 
@@ -394,16 +406,24 @@ watch(detail, (value) => {
         </v-window-item>
         <v-window-item value="discussion">
           <!-- Чат живёт в глобальном чат-сторе; монтируем вкладку только при открытии, чтобы освобождать чат при уходе (D7) -->
-          <ChatThread
-            v-if="activeTab === 'discussion'"
-            :chat-id="detail.discussionChatId"
-            :rule-names="discussionContext.ruleNames"
-            :space-id="discussionContext.spaceId"
-            :rules-revision="discussionContext.rulesRevision"
-            :token-sources="discussionContext.tokenSources"
-            :process-attachments="discussionContext.processAttachments"
-            empty-label="Обсуждение доступно в мессенджере"
-          />
+          <div v-if="activeTab === 'discussion'">
+            <div v-if="discussionLoading" class="d-flex justify-center pa-2">
+              <v-progress-circular indeterminate width="2" size="24" color="primary" />
+            </div>
+            <div v-else-if="discussionError" class="pa-4">
+              <div class="text-error text-body-2 mb-2">{{ discussionError }}</div>
+              <v-btn variant="tonal" color="primary" size="small" @click="loadDiscussionContext">
+                Попробовать снова
+              </v-btn>
+            </div>
+            <ChatThread
+              :chat-id="detail.discussionChatId"
+              :renderer-context="discussionInline"
+              :token-sources="discussionContext.tokenSources"
+              :process-attachments="discussionContext.processAttachments"
+              empty-label="Обсуждение доступно в мессенджере"
+            />
+          </div>
         </v-window-item>
       </v-window>
     </template>

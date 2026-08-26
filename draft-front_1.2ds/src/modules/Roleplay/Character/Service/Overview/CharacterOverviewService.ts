@@ -35,24 +35,19 @@ import { FormulaEvaluationService } from '@/modules/Roleplay/Character/Service/F
 import { CHARACTERISTIC_BASE_RANGE } from '@/modules/Roleplay/Character/Constant/CHARACTERISTIC_BASE_RANGE';
 import { moneyBreakdownLabel } from '@/modules/Roleplay/Character/Utils/moneyBreakdown';
 import { CharacterReferenceService } from '@/modules/Roleplay/Character/Service/CharacterReferenceService';
-import { evaluateDerivedValue } from '@/modules/Roleplay/Rule/Utils/derivedCharacteristic';
+import { derivedCharacteristicService } from '@/modules/Roleplay/Rule/Service/Instance/derivedCharacteristicService';
 import type { ItemLabels } from '@/modules/Roleplay/Character/Constant/ITEM_LABELS';
 import { ITEM_LABELS } from '@/modules/Roleplay/Character/Constant/ITEM_LABELS';
-import { accumulateStateEffects } from '@/modules/Roleplay/Character/Utils/stateRuntimeEffects';
-import {
-  liveActionPointsLimit,
-  ACTION_POINTS_RESOURCE_CODE,
-} from '@/modules/Roleplay/Character/Utils/liveActionPointsLimit';
+import { ACTION_POINTS_RESOURCE_CODE } from '@/modules/Roleplay/Rule/Constant/Ability/ACTION_POINTS_RESOURCE_CODE';
+import { stateRuntimeEffectsService } from '@/modules/Roleplay/Character/Service/Instance/stateRuntimeEffectsService';
+import { liveActionPointsLimitService } from '@/modules/Roleplay/Character/Service/Instance/liveActionPointsLimitService';
+import { racialInnateGearService } from '@/modules/Roleplay/Character/Service/Instance/racialInnateGearService';
+import { weaponAttackRangeService } from '@/modules/Roleplay/Character/Service/Instance/weaponAttackRangeService';
+import { DEFAULT_FALLOFF } from '@/modules/Roleplay/Character/Constant/Weapon/DEFAULT_FALLOFF';
 import { WEAPON_PROFILE_LABELS } from '@/modules/Roleplay/Character/Constant/WEAPON_PROFILE_LABELS';
-import { DAMAGE_TYPE_FORMS } from '@/modules/Roleplay/Character/Constant/DAMAGE_TYPE_FORMS';
+import { DAMAGE_TYPE_FORMS } from '@/modules/Roleplay/Rule/Constant/DAMAGE_TYPE_FORMS';
 import { formulaLabel } from '@/modules/Roleplay/Character/Utils/formulaLabel';
 import { itemModifierService } from '@/modules/Roleplay/Rule/Service/Instance/itemModifierService';
-import { applyRacialInnateGear } from '@/modules/Roleplay/Character/Utils/racialInnateGear';
-import {
-  actionStrengthSizePenalty,
-  DEFAULT_FALLOFF,
-  profileFormulaContext,
-} from '@/modules/Roleplay/Character/Utils/weaponAttackRange';
 import type { InventoryItem } from '@/modules/Roleplay/Character/Dto/InventoryItem';
 import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/CharacterStateValue';
 import type { CharacterPoisonValue } from '@/modules/Roleplay/Character/Dto/CharacterPoisonValue';
@@ -63,7 +58,7 @@ import type { StatePeriodicity } from '@/modules/Roleplay/Rule/Dto/State/Periodi
 import type { StateDecay } from '@/modules/Roleplay/Rule/Dto/State/StateDecay';
 import type { PoisonSpec } from '@/modules/Roleplay/Rule/Dto/Poison/PoisonSpec';
 import type { ResolvedReference } from '@/modules/Roleplay/Character/Dto/Overview/ResolvedReference';
-import { dotEffectLabel, periodicityLabel, decayLabel } from '@/modules/Roleplay/Rule/Utils/State/formatStateEffects';
+import { formatStateEffectsService } from '@/modules/Roleplay/Rule/Service/Instance/formatStateEffectsService';
 
 /**
  * Собирает display-модель вкладки «Обзор» из версии персонажа (ссылки + вычисленное)
@@ -120,7 +115,7 @@ export class CharacterOverviewService {
     withStates: CharacteristicOverview[];
     context: FormulaContext;
   } {
-    const synced = applyRacialInnateGear(version, rules);
+    const synced = racialInnateGearService.applyRacialInnateGear(version, rules);
     const reference = new CharacterReferenceService(rules, synced.spaceCode, synced.rulesRevision);
     const abilityLevels = new Map(synced.abilities.map((ability) => [ability.ruleId, ability.level]));
     const coreList = synced.characteristics.map((value) =>
@@ -137,7 +132,7 @@ export class CharacterOverviewService {
 
       return { ...overview, derived: this.buildDerived(overview.derived.formula, byCode) };
     });
-    const stateEffects = accumulateStateEffects(version.states, rules);
+    const stateEffects = stateRuntimeEffectsService.accumulateStateEffects(version.states, rules);
     const withStates = allCharacteristics.map((overview) => {
       const rule = reference.ruleById(overview.ruleId);
       const amount = rule ? (stateEffects.characteristicDeltas.get(rule.code) ?? 0) : 0;
@@ -245,7 +240,10 @@ export class CharacterOverviewService {
   ): void {
     for (const overview of coreList) {
       if (overview.derived === null) continue;
-      const next = evaluateDerivedValue(overview.derived.formula, (code) => byCode.get(code)?.value);
+      const next = derivedCharacteristicService.evaluateDerivedValue(
+        overview.derived.formula,
+        (code) => byCode.get(code)?.value,
+      );
       if (next === null) continue;
       overview.value = next;
       overview.valueLabel = new DimensionalNumber(next).toString();
@@ -486,7 +484,7 @@ export class CharacterOverviewService {
           const characteristicRule = reference.ruleById(characteristic.ruleId);
           if (characteristicRule) values.set(characteristicRule.code, characteristic.value);
         }
-        const live = liveActionPointsLimit(version, rules, values);
+        const live = liveActionPointsLimitService.liveActionPointsLimit(version, rules, values);
         if (live !== null) max = { base: live, size: resource.base.size };
       }
       const autoAdd = rule?.type === 'resource' && (rule.spec as ResourceSpec | undefined)?.auto_add === true;
@@ -816,8 +814,11 @@ export class CharacterOverviewService {
 
     const damageTypeLabel = reference.ruleByCode(damageTypeCode)?.name ?? damageTypeCode;
     const parts = [`Урон: ${new DimensionalNumber(strength).toString()} ${damageTypeLabel.toLowerCase()}`];
-    parts.push(periodicityLabel(periodicity));
-    if (decay) parts.push(`затухание ${decayLabel(decay, (code) => reference.ruleByCode(code)?.name ?? code)}`);
+    parts.push(formatStateEffectsService.periodicityLabel(periodicity));
+    if (decay)
+      parts.push(
+        `затухание ${formatStateEffectsService.decayLabel(decay, (code) => reference.ruleByCode(code)?.name ?? code)}`,
+      );
 
     return parts.join(', ');
   }
@@ -861,7 +862,7 @@ export class CharacterOverviewService {
     );
     if (!dot) return null;
 
-    return dotEffectLabel(dot, (code) => reference.ruleByCode(code)?.name ?? code);
+    return formatStateEffectsService.dotEffectLabel(dot, (code) => reference.ruleByCode(code)?.name ?? code);
   }
 
   private buildDefense(version: CharacterVersion, reference: CharacterReferenceService): DefenseOverview | null {
@@ -1032,14 +1033,19 @@ export class CharacterOverviewService {
     context: FormulaContext,
     distanceIpari: number | null = null,
   ): AttackOverview {
-    const zeroCtx = profileFormulaContext(profile, context, this.formula);
+    const zeroCtx = weaponAttackRangeService.profileFormulaContext(profile, context, this.formula);
     const minDistance = this.formula.evaluate(profile.distance, zeroCtx);
     const range = profile.range === null ? null : this.formula.evaluate(profile.range, zeroCtx);
     const reach = range ?? minDistance;
     const falloff = profile.falloff ?? DEFAULT_FALLOFF;
     const ranged = profile.type === 'throw' || profile.type === 'shoot';
-    const penalty = ranged && distanceIpari != null ? actionStrengthSizePenalty(distanceIpari, reach, falloff) : 0;
-    const evalCtx = penalty ? profileFormulaContext(profile, context, this.formula, penalty) : zeroCtx;
+    const penalty =
+      ranged && distanceIpari != null
+        ? weaponAttackRangeService.actionStrengthSizePenalty(distanceIpari, reach, falloff)
+        : 0;
+    const evalCtx = penalty
+      ? weaponAttackRangeService.profileFormulaContext(profile, context, this.formula, penalty)
+      : zeroCtx;
     const accuracy = profile.accuracy;
     const damageValue = this.formula.evaluateDimensional(profile.damage.formula, evalCtx);
     const damage = new DimensionalNumber(damageValue).toString();

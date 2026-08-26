@@ -1,5 +1,5 @@
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
-import type { HitDefenseReaction } from '@/modules/Roleplay/Game/Dto/CheckOffer';
+import type { HitDefenseReaction } from '@/modules/Roleplay/Game/Enum/HitDefenseReaction';
 
 /** Слагаемые сложности попадания ДБ для [i] броска. */
 export interface RangedHitDifficultyBreakdown {

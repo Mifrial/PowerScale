@@ -46,20 +46,17 @@ import { CharacteristicNumber } from '@/modules/Roleplay/Rule/Value/Characterist
 import { CharacterReferenceService } from '@/modules/Roleplay/Character/Service/CharacterReferenceService';
 import { FormulaEvaluationService } from '@/modules/Roleplay/Character/Service/FormulaEvaluationService';
 import { RequirementEvaluator } from '@/modules/Roleplay/Character/Service/RequirementEvaluator';
-import {
-  evaluateDerivedValue,
-  parseDerivedFormula,
-  type ParsedDerivedFormula,
-} from '@/modules/Roleplay/Rule/Utils/derivedCharacteristic';
+import { derivedCharacteristicService } from '@/modules/Roleplay/Rule/Service/Instance/derivedCharacteristicService';
+import type { ParsedDerivedFormula } from '@/modules/Roleplay/Rule/Dto/ParsedDerivedFormula';
 import { mechanicEngine } from '@/modules/Roleplay/Rule/init';
 import { PURCHASE_SURCHARGE_EVENT } from '@/modules/Roleplay/Rule/Service/Mechanic/Handlers/PurchaseSurchargeHandler';
-import { applyRacialInnateGear } from '@/modules/Roleplay/Character/Utils/racialInnateGear';
+import { racialInnateGearService } from '@/modules/Roleplay/Character/Service/Instance/racialInnateGearService';
 import { itemModifierService } from '@/modules/Roleplay/Rule/Service/Instance/itemModifierService';
 import type { InventoryItem } from '@/modules/Roleplay/Character/Dto/InventoryItem';
 import { DOMAIN_REF_RULE_TYPES } from '@/modules/Roleplay/Rule/Constant/Ability/DOMAIN_REF_RULE_TYPES';
 import { DOMAIN_STATIC_OPTIONS } from '@/modules/Roleplay/Rule/Constant/Ability/DOMAIN_STATIC_OPTIONS';
-import { communicationCheckOptions, isCommunicationCheckDomain } from '@/modules/Roleplay/Rule/Utils/checkResolution';
-import { weaponFamilyLadder, weaponProficiencyLevels } from '@/modules/Roleplay/Character/Utils/weaponProficiency';
+import { checkResolutionService } from '@/modules/Roleplay/Rule/Service/Instance/checkResolutionService';
+import { weaponProficiencyService } from '@/modules/Roleplay/Character/Service/Instance/weaponProficiencyService';
 import type { MechanicState } from '@/modules/Roleplay/Rule/Dto/MechanicState';
 import type { CharacterMechanicContext } from '@/modules/Roleplay/Rule/Dto/CharacterMechanicContext';
 
@@ -109,7 +106,7 @@ export class CharacterEditorService {
     keywords: Keyword[] = [],
     mechanics: Mechanic[] = [],
   ): CharacterVersion {
-    const synced = applyRacialInnateGear(build, rules);
+    const synced = racialInnateGearService.applyRacialInnateGear(build, rules);
     const reference = new CharacterReferenceService(rules, build.spaceCode, build.rulesRevision);
     const race = this.buildRace(synced, reference);
     const senses = this.buildSenses(synced, reference);
@@ -173,7 +170,7 @@ export class CharacterEditorService {
       if (rule.type !== 'characteristic') continue;
       const formula = (rule.spec as { formula?: string | null } | undefined)?.formula;
       if (!formula) continue;
-      const parsed = parseDerivedFormula(formula);
+      const parsed = derivedCharacteristicService.parseDerivedFormula(formula);
       if (parsed) derivedFormulas.set(rule.code, parsed);
     }
 
@@ -408,7 +405,7 @@ export class CharacterEditorService {
     // 5) Производные: значение = min/max финальных значений баз; своего значения/модификаторов нет.
     const values = new Map(result.map((characteristic) => [characteristic.code, characteristic.value]));
     for (const [code, parsed] of derivedFormulas) {
-      const value = evaluateDerivedValue(parsed, (baseCode) => values.get(baseCode));
+      const value = derivedCharacteristicService.evaluateDerivedValue(parsed, (baseCode) => values.get(baseCode));
       if (value === null) continue;
       result.push({
         ruleId: ruleIds.get(code) ?? this.ruleIdOfCode(reference, code),
@@ -1252,7 +1249,7 @@ export class CharacterEditorService {
     }
 
     // Уровни владения оружием по семьям: из «Владение оружием» (domain_ref 'weapon-family').
-    const proficiencyLevels = weaponProficiencyLevels(build.abilities, reference.rules());
+    const proficiencyLevels = weaponProficiencyService.weaponProficiencyLevels(build.abilities, reference.rules());
     // Тэги → семейства оружия с этим тэгом: вычисляются из предметов (proficiency_family_code + keywordIds).
     const familyTags = this.weaponFamilyTagsOf(reference, keywords);
 
@@ -1761,7 +1758,7 @@ export class CharacterEditorService {
     const spec = rule.spec as AbilitySpec | undefined;
     if (!spec || spec.type === 'group') return null;
     if (spec.domain_ref !== 'weapon-family') return null;
-    const ladder = weaponFamilyLadder(reference.rules(), ability.domainCode ?? ability.domain);
+    const ladder = weaponProficiencyService.weaponFamilyLadder(reference.rules(), ability.domainCode ?? ability.domain);
     if (!ladder) return null;
 
     return { kind: 'array', levels_cost: ladder };
@@ -1774,8 +1771,8 @@ export class CharacterEditorService {
   private domainOptionsOf(rules: Rule[], domainRef: string | null): { code: string; name: string }[] {
     if (!domainRef) return [];
     const staticOptions = DOMAIN_STATIC_OPTIONS[domainRef];
-    if (isCommunicationCheckDomain(domainRef)) {
-      const fromChecks = communicationCheckOptions(rules);
+    if (checkResolutionService.isCommunicationCheckDomain(domainRef)) {
+      const fromChecks = checkResolutionService.communicationCheckOptions(rules);
       if (fromChecks.length > 0) return fromChecks;
     }
     if (staticOptions) return staticOptions;
@@ -2011,5 +2008,28 @@ export class CharacterEditorService {
     }
 
     return result;
+  }
+
+  spentInZone(ability: EditorAbility, zoneCode = 'os'): number {
+    const zone = ability.zones.find((entry) => entry.zoneCode === zoneCode) ?? null;
+    if (!zone) return 0;
+
+    if (ability.multiple) {
+      return ability.instances.reduce(
+        (sum, instance) =>
+          sum + zone.levelCosts.slice(0, instance.level).reduce((instanceSum, cost) => instanceSum + cost, 0),
+        0,
+      );
+    }
+
+    return zone.levelCosts.slice(ability.giftedLevel, ability.level).reduce((sum, cost) => sum + cost, 0);
+  }
+
+  costKind(ability: EditorAbility, zoneCode = 'os'): EditorAbilityZone['kind'] | null {
+    return ability.zones.find((entry) => entry.zoneCode === zoneCode)?.kind ?? null;
+  }
+
+  spentInGroup(group: EditorAbilityGroup, zoneCode = 'os'): number {
+    return group.members.reduce((sum, member) => sum + this.spentInZone(member, zoneCode), 0);
   }
 }

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { CharacterBuild } from '@/modules/Roleplay/Character/Dto/Editor/CharacterBuild';
-import type { InventoryBaseline } from '@/modules/Roleplay/Character/Dto/Editor/CharacterDraftEntry';
+import type { InventoryBaseline } from '@/modules/Roleplay/Character/Dto/Editor/InventoryBaseline';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { ItemSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpec';
 import { CharacterBuildService } from '@/modules/Roleplay/Character/Service/CharacterBuildService';

@@ -25,7 +25,9 @@ import type { CreateChronicleEntryData } from '@/modules/Roleplay/Game/Dto/Creat
 import type { UpdateChronicleEntryData } from '@/modules/Roleplay/Game/Dto/UpdateChronicleEntryData';
 import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
-import type { CheckOffer, CheckOfferProposal, CreateCheckOfferData } from '@/modules/Roleplay/Game/Dto/CheckOffer';
+import type { CheckOffer } from '@/modules/Roleplay/Game/Dto/CheckOffer';
+import type { CheckOfferProposal } from '@/modules/Roleplay/Game/Dto/CheckOfferProposal';
+import type { CreateCheckOfferData } from '@/modules/Roleplay/Game/Dto/CreateCheckOfferData';
 import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/CharacterStateValue';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { ConflictChoices } from '@/modules/Roleplay/Game/Utils/reconcileVersion';

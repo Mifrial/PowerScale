@@ -1,20 +1,14 @@
 import type { ITokenSource } from '@/modules/Messages/Chat/Interface/ITokenSource';
 import type { ChatAttachment } from '@/modules/Messages/Chat/Dto/ChatAttachment';
+import type { ChatInlineRendererContext } from '@/modules/Messages/Chat/Dto/ChatInlineRendererContext';
 
 /**
- * Готовый «контекст правил» чата: чипы `[[rule:...]]`, источники «Вставить ссылку» и
- * обработка вложений (броски через механики ревизии чата). Собирает донор (Game/Character)
- * по ревизии, к которой относится чат; для хоста — непрозрачный (только свои типы),
- * передаётся в ChatThread/ChatInput как есть.
+ * Пакет донора хосту чата: data-срез для чипов плюс колбэки ввода (пикер токенов, вложения).
+ * В reactive state кладётся только `ChatInlineRendererContext`; функции — проп/замыкание.
  */
-export interface ChatRulesContext {
-  /** Имена правил по коду (для inline-чипов и RuleChip). */
-  ruleNames: Record<string, string>;
-  /** Источники токенов «Вставить ссылку»: правило из ревизии чата + глобальные прочие. */
+export interface ChatRulesContext extends ChatInlineRendererContext {
+  /** Источники «Вставить ссылку»: токены среза чата + глобальные прочие. */
   tokenSources: ITokenSource[];
-  /** Преобразование вложений перед отправкой (броски через RollEngine). */
+  /** Преобразование вложений перед отправкой (донор, напр. броски). */
   processAttachments: (attachments: ChatAttachment[]) => ChatAttachment[];
-  /** Ревизия, из которой построен контекст (для резолва правила в RuleSlider). */
-  spaceId?: number | null;
-  rulesRevision?: number | null;
 }

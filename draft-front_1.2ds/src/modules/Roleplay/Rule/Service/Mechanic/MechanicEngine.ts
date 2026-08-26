@@ -1,22 +1,8 @@
 import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
-import type { MechanicPayload } from '@/modules/Roleplay/Rule/Dto/MechanicPayload';
+import type { ResolveActiveOptions } from '@/modules/Roleplay/Rule/Dto/ResolveActiveOptions';
+import type { ResolvedMechanic } from '@/modules/Roleplay/Rule/Dto/ResolvedMechanic';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import type { MechanicHandler } from '@/modules/Roleplay/Rule/Service/Mechanic/MechanicHandler';
 import type { MechanicHandlerRegistry } from '@/modules/Roleplay/Rule/Service/Mechanic/MechanicHandlerRegistry';
-
-/** Механика активного правила, разрешённая до хендлера: code@version + payload. */
-export interface ResolvedMechanic {
-  handler: MechanicHandler;
-  payload: MechanicPayload | null;
-}
-
-/** Опции набора активных механик. */
-export interface ResolveActiveOptions {
-  /** Коды механик «всегда в силе» (срез ревизии фильтруется по ним; undefined — все). */
-  includeCodes?: string[];
-  /** Коды правил пер-ролл активации (добавляются независимо от includeCodes). */
-  extraRuleCodes?: string[];
-}
 
 /**
  * Событийный движок механик (обобщение прежнего диспетчера): `resolveActive` собирает

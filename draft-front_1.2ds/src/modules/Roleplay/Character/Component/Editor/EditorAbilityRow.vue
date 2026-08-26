@@ -15,6 +15,7 @@ import type { EditorAbilityInstance } from '@/modules/Roleplay/Character/Dto/Edi
 import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
 import type { ProcessStep } from '@/modules/Roleplay/Rule/Dto/Ability/ProcessStep';
 import { useRuleDetailSlider } from '@/modules/Roleplay/Character/Composables/useRuleDetailSlider';
+import { characterEditorService } from '@/modules/Roleplay/Character/Service/Instance/characterEditorService';
 
 const props = defineProps<{
   ability: EditorAbility;
@@ -61,23 +62,11 @@ function zoneLabelOf(): string {
 }
 
 function spentOf(ability: EditorAbility): number {
-  const zone = zoneOf(ability);
-  if (!zone) return 0;
-
-  if (ability.multiple) {
-    return ability.instances.reduce(
-      (sum, instance) =>
-        sum + zone.levelCosts.slice(0, instance.level).reduce((instanceSum, cost) => instanceSum + cost, 0),
-      0,
-    );
-  }
-
-  // Уровни дара (D100) бесплатны: оплачиваются только уровни сверх giftedLevel.
-  return zone.levelCosts.slice(ability.giftedLevel, ability.level).reduce((sum, cost) => sum + cost, 0);
+  return characterEditorService.spentInZone(ability, props.zoneCode ?? 'os');
 }
 
 function costKind(ability: EditorAbility): EditorAbilityZone['kind'] | null {
-  return zoneOf(ability)?.kind ?? null;
+  return characterEditorService.costKind(ability, props.zoneCode ?? 'os');
 }
 
 function maxLevel(ability: EditorAbility): number {

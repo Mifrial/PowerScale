@@ -11,7 +11,7 @@ import {
 import { gameDetails } from '@/modules/Roleplay/Game/Mock/mockGames';
 import { users as realUsers } from '@/modules/Core/User/Mock/mockUsers';
 import { fetchRevision, fetchSpaceByCode } from '@/modules/Roleplay/Space/Mock/mockSpaces';
-import { characterMigrationService } from '@/modules/Roleplay/Character/Service/Instance/characterMigrationService';
+import { characterMigrationService } from '@/modules/Roleplay/Character/init';
 import type { CreateNpcData } from '@/modules/Roleplay/Game/Dto/CreateNpcData';
 
 const gameIds = new Set(gameDetails.map((detail) => detail.game.id));

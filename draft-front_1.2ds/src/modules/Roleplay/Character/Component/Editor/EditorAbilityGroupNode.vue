@@ -6,6 +6,7 @@ import type { EditorAbility } from '@/modules/Roleplay/Character/Dto/Editor/Edit
 import type { EditorAbilityGroup } from '@/modules/Roleplay/Character/Dto/Editor/EditorAbilityGroup';
 import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import { characterEditorService } from '@/modules/Roleplay/Character/Service/Instance/characterEditorService';
 
 const props = defineProps<{
   group: EditorAbilityGroup;
@@ -49,21 +50,13 @@ function chosenMembers(group: EditorAbilityGroup): EditorAbility[] {
   return group.members.filter((member) => member.level > 0 || member.automatic);
 }
 
-// Стоимость члена группы: сумма цен уровней зоны до текущего уровня.
-function spentOf(ability: EditorAbility): number {
-  const zone = ability.zones.find((zone) => zone.zoneCode === (props.zoneCode ?? 'os')) ?? null;
-  if (!zone) return 0;
-
-  return zone.levelCosts.slice(0, ability.level).reduce((sum, cost) => sum + cost, 0);
+/** Сколько зоны суммарно потрачено на группу. */
+function spentIn(group: EditorAbilityGroup): number {
+  return characterEditorService.spentInGroup(group, props.zoneCode ?? 'os');
 }
 
 function zoneLabelOf(): string {
   return props.zoneLabel ?? 'ОС';
-}
-
-/** Сколько зоны суммарно потрачено на группу. */
-function spentIn(group: EditorAbilityGroup): number {
-  return group.members.reduce((sum, member) => sum + spentOf(member), 0);
 }
 </script>
 

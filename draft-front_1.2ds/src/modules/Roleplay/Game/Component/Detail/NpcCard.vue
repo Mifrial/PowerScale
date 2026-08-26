@@ -6,9 +6,9 @@ import type { SheetVisibility } from '@/modules/Roleplay/Character/Dto/SheetVisi
 import type { GameMember } from '@/modules/Roleplay/Game/Dto/GameMember';
 import type { User } from '@/modules/Core/User/Dto/User';
 import type { SheetAccessContext } from '@/modules/Roleplay/Character/Interface/SheetAccessContext';
-import { visibleSheetSections } from '@/modules/Roleplay/Character/Utils/sheetAccess';
+import { sheetAccessService } from '@/modules/Roleplay/Character/init';
 import SheetVisibilityDialog from '@/modules/Roleplay/Game/Component/Detail/SheetVisibilityDialog.vue';
-import SheetCard from '@/modules/Roleplay/Character/Component/SheetCard.vue';
+import { SheetCard } from '@/modules/Roleplay/Character/init';
 
 const router = useRouter();
 
@@ -68,7 +68,7 @@ const ctx = computed<SheetAccessContext | null>(() => {
 const visibleSections = computed(() => {
   if (!ctx.value) return [];
 
-  return visibleSheetSections(props.user, props.npc.visibility, ctx.value);
+  return sheetAccessService.visibleSheetSections(props.user, props.npc.visibility, ctx.value);
 });
 
 function saveData(visibility: SheetVisibility = props.npc.visibility): NpcCardData {

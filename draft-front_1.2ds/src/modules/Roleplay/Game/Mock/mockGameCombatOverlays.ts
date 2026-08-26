@@ -6,7 +6,7 @@ import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/Dimension
 import { gameCharacterMemberships } from '@/modules/Roleplay/Game/Mock/mockGameMemberships';
 import { gameNpcs } from '@/modules/Roleplay/Game/Mock/mockGameNpcs';
 import { resourceLimitBase, statesEqual } from '@/modules/Roleplay/Game/Utils/combatEffectiveState';
-import { mergeCombatOverlay } from '@/modules/Roleplay/Game/Utils/mergeCombatOverlay';
+import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
 
 const delay = (ms = 100) => new Promise((r) => setTimeout(r, ms));
 
@@ -347,7 +347,7 @@ export async function setCombatItemEquipped(
   const base = overlay.sheet
     ? overlay.sheet
     : overlay.updatedAt !== ''
-      ? mergeCombatOverlay(version, overlay)
+      ? combatOverlayService.mergeCombatOverlay(version, overlay)
       : version;
   overlay.sheet = {
     ...(JSON.parse(JSON.stringify(base)) as CharacterVersion),

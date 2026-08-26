@@ -5,14 +5,13 @@ import { characterBuildService } from '@/modules/Roleplay/Character/Service/Inst
 import { useFilteredRows } from '@/modules/Core/UI/Composables/useFilteredRows';
 import FilterBar from '@/modules/Core/UI/Component/FilterBar.vue';
 import VirtualList from '@/modules/Core/UI/Component/VirtualList.vue';
-import InventoryItemRow, {
-  type InventoryCatalogItem,
-  type InventoryItemType,
-} from '@/modules/Roleplay/Character/Component/Editor/InventoryItemRow.vue';
+import type { InventoryCatalogItem } from '@/modules/Roleplay/Character/Dto/Editor/InventoryCatalogItem';
+import type { InventoryItemType } from '@/modules/Roleplay/Character/Enum/InventoryItemType';
+import InventoryItemRow from '@/modules/Roleplay/Character/Component/Editor/InventoryItemRow.vue';
 import ItemModifierPickerDialog from '@/modules/Roleplay/Character/Component/Editor/ItemModifierPickerDialog.vue';
 import WeaponSkillsSlider from '@/modules/Roleplay/Character/Component/Editor/WeaponSkillsSlider.vue';
 import { ITEM_LABELS } from '@/modules/Roleplay/Character/Constant/ITEM_LABELS';
-import type { ItemMasteryView } from '@/modules/Roleplay/Character/Utils/itemMastery';
+import type { ItemMasteryView } from '@/modules/Roleplay/Character/Dto/ItemMasteryView';
 import type { InventoryModifierOption } from '@/modules/Roleplay/Character/Dto/Editor/InventoryModifierOption';
 import type { CharacterBuild } from '@/modules/Roleplay/Character/Dto/Editor/CharacterBuild';
 import type { CharacterEditorModel } from '@/modules/Roleplay/Character/Dto/Editor/CharacterEditorModel';

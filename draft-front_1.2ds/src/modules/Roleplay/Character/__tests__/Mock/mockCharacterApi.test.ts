@@ -42,6 +42,11 @@ function freshCreateData(): CreateCharacterData {
 }
 
 describe('mockCharacterApi: create/update', () => {
+  it('карточка списка несёт discussionChatId без деталки', async () => {
+    const list = await fetchCharacters();
+    expect(list.find((c) => c.id === 1)?.discussionChatId).toBe(7);
+    expect(list.find((c) => c.id === 4)?.discussionChatId).toBeNull();
+  });
   it('createCharacter добавляет персонажа, чат обсуждения и возвращает деталку', async () => {
     const detail = await createCharacter(createData);
 
@@ -61,6 +66,8 @@ describe('mockCharacterApi: create/update', () => {
 
     const list = await fetchCharacters();
     expect(list.some((c) => c.id === detail.character.id)).toBe(true);
+    expect(list.find((c) => c.id === detail.character.id)?.discussionChatId).toBe(detail.discussionChatId);
+    expect(detail.character.discussionChatId).toBe(detail.discussionChatId);
   });
 
   it('createCharacter со status ready сохраняет «Готов» (редактор вне игры)', async () => {

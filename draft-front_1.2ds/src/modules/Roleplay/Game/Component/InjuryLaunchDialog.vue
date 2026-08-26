@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { sendCombatChat } from '@/modules/Roleplay/Game/Utils/combatChatSend';
+import { combatChatSendService } from '@/modules/Roleplay/Game/Service/Instance/combatChatSendService';
+
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
 import { ROLL_ADV_MAX } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ADV_MAX';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
@@ -9,10 +10,13 @@ import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
 import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
-import { combatEntityName } from '@/modules/Roleplay/Game/Utils/combatCardModel';
-import { manualInjuryAdvantages } from '@/modules/Roleplay/Game/Utils/injuryRoll';
-import { applyInjuryCheck } from '@/modules/Roleplay/Game/Utils/applyInjuryCheck';
-import { injuryHooksOf, resolveDamageTypeHooks } from '@/modules/Roleplay/Game/Utils/resolveDamageTypeHooks';
+import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
+
+import { injuryRollService } from '@/modules/Roleplay/Game/Service/Instance/injuryRollService';
+
+import { injuryCheckService } from '@/modules/Roleplay/Game/Service/Instance/injuryCheckService';
+
+import { damageTypeHooksService } from '@/modules/Roleplay/Game/Service/Instance/damageTypeHooksService';
 
 const props = defineProps<{
   open: boolean;
@@ -30,7 +34,7 @@ const emit = defineEmits<{
   'overlay-changed': [];
 }>();
 
-const sendChat = sendCombatChat(props.gameId);
+const sendChat = combatChatSendService.sendCombatChat(props.gameId);
 const difficulty = ref(1);
 const attackSr = ref(0);
 const adv = ref(0);
@@ -43,9 +47,9 @@ const damageTypeOptions = computed(() =>
 );
 
 const typeAddsSrDice = computed(() =>
-  injuryHooksOf(resolveDamageTypeHooks(damageTypeCode.value, props.rules, props.mechanics)).some(
-    (hook) => hook.extraDiceFromSrDivisor,
-  ),
+  damageTypeHooksService
+    .injuryHooksOf(damageTypeHooksService.resolveDamageTypeHooks(damageTypeCode.value, props.rules, props.mechanics))
+    .some((hook) => hook.extraDiceFromSrDivisor),
 );
 
 watch(
@@ -79,7 +83,7 @@ async function submit(): Promise<void> {
   busy.value = true;
   error.value = null;
   try {
-    const applied = await applyInjuryCheck({
+    const applied = await injuryCheckService.applyInjuryCheck({
       input: {
         leftoverDamage: 0,
         woundStrength: 0,
@@ -88,14 +92,14 @@ async function submit(): Promise<void> {
         exhaustion: 0,
         attackSr: attackSr.value,
         damageTypeCode: damageTypeCode.value,
-        advantages: manualInjuryAdvantages(adv.value),
+        advantages: injuryRollService.manualInjuryAdvantages(adv.value),
         actorKey: props.targetKey,
       },
       rules: props.rules,
       mechanics: props.mechanics,
       gameId: props.gameId,
       targetKey: props.targetKey,
-      targetName: combatEntityName(props.targetKey, props.characters, props.npcs),
+      targetName: combatCardModelService.combatEntityName(props.targetKey, props.characters, props.npcs),
       chatId: props.chatId,
       speaker: speakerFor(props.targetKey),
       sendMessage: (content, attachments, chatId, speaker) => sendChat(content, attachments, chatId, speaker),
@@ -116,7 +120,8 @@ async function submit(): Promise<void> {
       <v-card-title>Проверка на увечье</v-card-title>
       <v-card-text>
         <div class="text-body-2 mb-3">
-          Цель: <strong>{{ targetKey ? combatEntityName(targetKey, characters, npcs) : '—' }}</strong>
+          Цель:
+          <strong>{{ targetKey ? combatCardModelService.combatEntityName(targetKey, characters, npcs) : '—' }}</strong>
         </div>
         <div class="d-flex ga-3 mb-3">
           <ClampedNumberField v-model="difficulty" label="Сложность" :min="0" :max="40" class="flex-grow-1" />

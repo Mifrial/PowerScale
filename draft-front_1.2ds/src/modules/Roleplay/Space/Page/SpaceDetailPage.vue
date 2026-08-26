@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useSpaceStore } from '@/modules/Roleplay/Space/Store/spaces';
 import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
@@ -21,6 +21,17 @@ const showPublishDialog = ref(false);
 const showDiscardDialog = ref(false);
 const ruleToDiscard = ref<Rule | null>(null);
 const snackbar = ref({ show: false, text: '', color: '' });
+
+onMounted(() => {
+  if (draftStore.storageDiscarded) {
+    snackbar.value = {
+      show: true,
+      text: 'Черновик правил в браузере повреждён и сброшен',
+      color: 'error',
+    };
+    draftStore.acknowledgeStorageDiscarded();
+  }
+});
 
 const ctx = computed(() => route.params.ctx as string | undefined);
 const isDraftContext = computed(() => ctx.value === 'draft');

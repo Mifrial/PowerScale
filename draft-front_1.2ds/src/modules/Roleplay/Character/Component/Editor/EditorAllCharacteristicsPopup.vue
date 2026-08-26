@@ -5,7 +5,7 @@ import type { CharacterSenseValue } from '@/modules/Roleplay/Character/Dto/Chara
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { CharacteristicSpec } from '@/modules/Roleplay/Rule/Dto/CharacteristicSpec';
 import type { CharacteristicGroup } from '@/modules/Roleplay/Rule/Enum/CharacteristicGroup';
-import type { EditorStatView } from '@/modules/Roleplay/Character/Utils/editorStatViews';
+import type { EditorStatView } from '@/modules/Roleplay/Character/Dto/Editor/EditorStatView';
 import EditorCharacteristicPopup from '@/modules/Roleplay/Character/Component/Editor/EditorCharacteristicPopup.vue';
 
 const props = defineProps<{

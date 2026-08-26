@@ -1,7 +1,6 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { setActivePinia, createPinia } from 'pinia';
-import { registerChatApi } from '@/modules/Messages/Chat/init';
-import { registerChatTabs } from '@/modules/Messages/Chat/init';
+import { registerChatApi, registerChatTabs } from '@/modules/Messages/Chat/init';
 import { registerAuthApi } from '@/modules/Core/Auth/init';
 import { serviceLocator } from '@/modules/Core/Engine/Service/ServiceLocator';
 import { mockAuthApi } from '@/modules/Core/Auth/Mock/mockAuthApi';
@@ -9,7 +8,6 @@ import { mockChatApi } from '@/modules/Messages/Chat/Mock/mockChatApi';
 import { mockLogin, mockLogout } from '@/modules/Core/Auth/Mock/mockAuth';
 import { useChatStore } from '@/modules/Messages/Chat/Store/chat';
 import { useAuthStore } from '@/modules/Core/Auth/Store/auth';
-import { CHARACTER_CHAT_TABS } from '@/modules/Roleplay/Character/Constant/Chat/CHARACTER_CHAT_TABS';
 import type { IChatApi } from '@/modules/Messages/Chat/Interface/IChatApi';
 import type { Chat } from '@/modules/Messages/Chat/Dto/Chat';
 import type { ChatMessage } from '@/modules/Messages/Chat/Dto/ChatMessage';
@@ -19,7 +17,16 @@ beforeEach(() => {
   serviceLocator.reset();
   registerChatApi(mockChatApi);
   registerAuthApi(mockAuthApi);
-  registerChatTabs(CHARACTER_CHAT_TABS);
+  registerChatTabs([
+    {
+      key: 'character_discussion',
+      label: 'Обсуждения персонажей',
+      icon: 'mdi-account-details',
+      types: ['character_discussion'],
+      sortOrder: 3,
+      onlyIfMember: true,
+    },
+  ]);
 });
 
 describe('chat store', () => {
@@ -653,6 +660,49 @@ describe('chat store', () => {
       expect(store.hasMoreOlder).toBe(false);
       expect(store.allMessages.map((m) => m.content)).toEqual(['A', 'B']);
     });
+
+    it('ошибка догрузки — olderError, лента на месте, retry повторяет запрос', async () => {
+      const getMessagesBefore = vi
+        .fn()
+        .mockRejectedValueOnce(new Error('сеть'))
+        .mockResolvedValueOnce([makeMsg(1, 1, 'A'), makeMsg(2, 1, 'B')]);
+      const fakeApi: IChatApi = {
+        getChats: async () => [chat(1)],
+        getMessages: async () => [makeMsg(3, 1, 'C')],
+        getMessagesBefore,
+        getTotalMessageCount: async () => 4,
+        sendMessage: async () => makeMsg(99, 1, 'sent'),
+        updateMessageVisibility: async (chatId, messageId) => makeMsg(messageId, chatId, 'updated'),
+        sendSystemMessage: async () => ({
+          id: 998,
+          chatId: 1,
+          userId: 2,
+          username: 'Система',
+          content: 'Ходит X',
+          attachments: [],
+          createdAt: '',
+          updatedAt: '',
+          kind: 'default',
+        }),
+        markChatRead: async () => {},
+        sync: async () => ({ now: '', chats: [], newChats: [], messages: {} }),
+      };
+      registerChatApi(fakeApi);
+
+      const store = useChatStore();
+      await store.fetchChats();
+      await store.openChat(1);
+
+      await store.loadOlderMessages();
+      expect(store.olderError).toBe('сеть');
+      expect(store.chatError).toBe('');
+      expect(store.allMessages.map((m) => m.content)).toEqual(['C']);
+      expect(store.hasMoreOlder).toBe(true);
+
+      await store.loadOlderMessages();
+      expect(store.olderError).toBe('');
+      expect(store.allMessages.map((m) => m.content)).toEqual(['A', 'B', 'C']);
+    });
   });
 
   describe('private chat peer under a non-placeholder user', () => {
@@ -698,7 +748,7 @@ describe('chat store', () => {
     });
   });
 
-  describe('character_discussion participation', () => {
+  describe('onlyIfMember tab', () => {
     function charChat(id: number, name: string, memberIds: number[]): Chat {
       return {
         id,
@@ -766,6 +816,33 @@ describe('chat store', () => {
         await store.fetchChats();
 
         expect(store.currentTabChats.map((c) => c.name)).toEqual(['Торвин', 'Гаррик']);
+      } finally {
+        await mockLogout();
+      }
+    });
+
+    it('без onlyIfMember вкладка показывает все чаты типа', async () => {
+      await mockLogin('admin', 'test');
+      await useAuthStore().checkAuth();
+      try {
+        registerChatTabs([
+          {
+            key: 'all_discussions',
+            label: 'Все обсуждения',
+            icon: 'mdi-forum',
+            types: ['character_discussion'],
+            sortOrder: 4,
+          },
+        ]);
+        registerChatApi(
+          chatApi([charChat(1, 'Торвин', [2, 3]), charChat(2, 'Элиандра', [4]), charChat(3, 'Гаррик', [2])]),
+        );
+
+        const store = useChatStore();
+        store.selectedTab = 'all_discussions';
+        await store.fetchChats();
+
+        expect(store.currentTabChats.map((c) => c.name)).toEqual(['Торвин', 'Элиандра', 'Гаррик']);
       } finally {
         await mockLogout();
       }

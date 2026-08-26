@@ -1,20 +1,26 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import type { ChatFoldTone, ChatFoldVariant } from '@/modules/Messages/Chat/Dto/ChatFold';
+import type { ChatFoldTone } from '@/modules/Messages/Chat/Enum/ChatFoldTone';
+import type { ChatFoldVariant } from '@/modules/Messages/Chat/Enum/ChatFoldVariant';
+import type { ChatInlineRendererContext } from '@/modules/Messages/Chat/Dto/ChatInlineRendererContext';
 import { getInlineRenderer } from '@/modules/Messages/Chat/init';
 import { inlineContentService } from '@/modules/Messages/Chat/Service/Instance/inlineContentService';
+import { hostInlineRendererContext } from '@/modules/Messages/Chat/Utils/hostInlineRendererContext';
 
 const props = defineProps<{
   summary: string;
   expanded: boolean;
   tone?: ChatFoldTone;
   variant?: ChatFoldVariant;
-  rendererContext?: Record<string, unknown>;
+  rendererContext?: ChatInlineRendererContext | null;
+  openEntity?: (ref: string) => void;
 }>();
 
 const emit = defineEmits<{
   toggle: [];
 }>();
+
+const pluginContext = computed(() => hostInlineRendererContext(props.rendererContext, props.openEntity));
 
 const segments = computed(() => inlineContentService.parse(props.summary));
 const inlineRenderers = computed(() =>
@@ -55,7 +61,7 @@ function onKeydown(event: KeyboardEvent): void {
           v-else-if="inlineRenderers[si]"
           :is="inlineRenderers[si]?.component"
           :segment="seg"
-          :context="props.rendererContext"
+          :context="pluginContext"
         />
       </template>
     </span>

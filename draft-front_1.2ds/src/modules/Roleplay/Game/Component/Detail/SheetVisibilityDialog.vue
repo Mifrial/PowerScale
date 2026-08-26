@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-import type { SheetVisibility, SheetVisibilityRule } from '@/modules/Roleplay/Character/Dto/SheetVisibility';
-import type { SheetAudience } from '@/modules/Roleplay/Character/Dto/SheetVisibility';
+import type { SheetVisibility } from '@/modules/Roleplay/Character/Dto/SheetVisibility';
+import type { SheetVisibilityRule } from '@/modules/Roleplay/Character/Dto/SheetVisibilityRule';
+import type { SheetAudience } from '@/modules/Roleplay/Character/Dto/SheetAudience';
 import type { GameMember } from '@/modules/Roleplay/Game/Dto/GameMember';
 import type { SheetSection } from '@/modules/Roleplay/Character/Enum/SheetSection';
 import {

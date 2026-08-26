@@ -220,6 +220,10 @@ function hasActionPointCost(): boolean {
 
 <template>
   <div>
+    <v-alert v-if="keywordStore.error" type="error" variant="tonal" density="compact" class="mb-2">
+      {{ keywordStore.error }}
+      <v-btn class="ml-2" size="small" variant="tonal" @click="keywordStore.fetchTags()">Повторить</v-btn>
+    </v-alert>
     <v-expansion-panels v-model="expandedPanels" multiple>
       <v-expansion-panel value="general">
         <v-expansion-panel-title>Общее</v-expansion-panel-title>

@@ -8,7 +8,7 @@ import { characterEditorService } from '@/modules/Roleplay/Character/Service/Ins
 import { useCharacterDraftStore } from '@/modules/Roleplay/Character/Store/characterDraft';
 import { useCharacterStore } from '@/modules/Roleplay/Character/Store/characters';
 import { getCharacterApi } from '@/modules/Roleplay/Character/init';
-import { characterSheetValidationIssues } from '@/modules/Roleplay/Character/Utils/characterSheetValidation';
+import { characterSheetValidationService } from '@/modules/Roleplay/Character/Service/Instance/characterSheetValidationService';
 import { getRuleApi } from '@/modules/Roleplay/Rule/init';
 import { useKeywordStore } from '@/modules/Roleplay/Rule/Store/keywords';
 
@@ -28,6 +28,7 @@ export function useCharacterCardDraft(
   const mechanics = ref<Mechanic[]>([]);
   const saving = ref(false);
   const saveError = ref<string | null>(null);
+  const catalogError = ref<string | null>(null);
 
   const draftKey = computed(() => {
     const id = detail.value?.character.id;
@@ -78,7 +79,9 @@ export function useCharacterCardDraft(
     );
   });
 
-  const validationIssues = computed(() => characterSheetValidationIssues(draft.value?.build, model.value, true));
+  const validationIssues = computed(() =>
+    characterSheetValidationService.characterSheetValidationIssues(draft.value?.build, model.value, true),
+  );
 
   function ensureDraft(): void {
     if (!canEdit.value) return;
@@ -110,7 +113,12 @@ export function useCharacterCardDraft(
     const entry = draftStore.draftOf(key);
     if (!current || key === null || !entry || !model.value || saving.value) return;
     saveError.value = null;
-    const issues = characterSheetValidationIssues(entry.build, model.value, true);
+    if (catalogError.value) {
+      saveError.value = catalogError.value;
+
+      return;
+    }
+    const issues = characterSheetValidationService.characterSheetValidationIssues(entry.build, model.value, true);
     if (issues.length > 0) {
       saveError.value = `Нельзя сохранить: ${issues.join('; ')}`;
 
@@ -139,16 +147,31 @@ export function useCharacterCardDraft(
     }
   }
 
+  async function loadCatalog(): Promise<void> {
+    catalogError.value = null;
+    try {
+      const pending: Promise<void>[] = [];
+      if (keywordStore.keywords.length === 0 || keywordStore.error) {
+        pending.push(keywordStore.fetchTags(signal.value));
+      }
+      pending.push(
+        getRuleApi()
+          .getMechanics(signal.value)
+          .then((list) => {
+            mechanics.value = list;
+          }),
+      );
+      await Promise.all(pending);
+      if (keywordStore.error) catalogError.value = keywordStore.error;
+    } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') return;
+      mechanics.value = [];
+      catalogError.value = e instanceof Error ? e.message : 'Не удалось загрузить справочники редактора';
+    }
+  }
+
   onMounted(() => {
-    if (keywordStore.keywords.length === 0) void keywordStore.fetchTags();
-    void getRuleApi()
-      .getMechanics(signal.value)
-      .then((list) => {
-        mechanics.value = list;
-      })
-      .catch(() => {
-        mechanics.value = [];
-      });
+    void loadCatalog();
   });
 
   return {
@@ -160,8 +183,10 @@ export function useCharacterCardDraft(
     validationIssues,
     saving,
     saveError,
+    catalogError,
     keywords: computed(() => keywordStore.keywords),
     ensureDraft,
     save,
+    retryCatalog: loadCatalog,
   };
 }

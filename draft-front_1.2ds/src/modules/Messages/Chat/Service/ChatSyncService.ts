@@ -30,14 +30,28 @@ export class ChatSyncService {
     }
   }
 
+  private applyFrame(payload: unknown): void {
+    if (!ChatSyncService.isSyncResponse(payload)) return;
+    this.lastSync = payload.now;
+    this.config.onSync(payload);
+  }
+
+  private static isSyncResponse(value: unknown): value is SyncResponse {
+    if (typeof value !== 'object' || value === null) return false;
+    const row = value as Record<string, unknown>;
+    if (typeof row.now !== 'string' || !Array.isArray(row.chats) || !Array.isArray(row.newChats)) return false;
+    if (typeof row.messages !== 'object' || row.messages === null || Array.isArray(row.messages)) return false;
+
+    return Object.values(row.messages).every((entry) => Array.isArray(entry));
+  }
+
   private startPolling(): void {
     const sync = async () => {
       const syncApi = this.config.getSyncApi;
       if (!syncApi) return;
       try {
         const res = await syncApi().sync(this.lastSync);
-        this.lastSync = res.now;
-        this.config.onSync(res);
+        this.applyFrame(res);
       } catch {
         // Фоновая синхронизация: ошибки пропускаем, следующий тик повторит запрос.
       }
@@ -48,15 +62,20 @@ export class ChatSyncService {
 
   private startSSE(): void {
     const url = `${this.config.baseUrl ?? ''}/api/chat/sync?since=${encodeURIComponent(this.lastSync)}`;
-    this.source = new EventSource(url, { withCredentials: true });
-    this.source.addEventListener('sync', (e: MessageEvent) => {
+    const source = new EventSource(url, { withCredentials: true });
+    this.source = source;
+    source.addEventListener('sync', (e: MessageEvent) => {
       try {
-        const data = JSON.parse(e.data) as SyncResponse;
-        this.lastSync = data.now;
-        this.config.onSync(data);
+        this.applyFrame(JSON.parse(e.data));
       } catch {
         // Событие-мусор с сервера не должно ронять синхронизацию.
       }
     });
+    source.onerror = () => {
+      if (this.source !== source) return;
+      source.close();
+      this.source = null;
+      this.startSSE();
+    };
   }
 }

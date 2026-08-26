@@ -1,44 +1,11 @@
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 import type { CharacterDraftEntry } from '@/modules/Roleplay/Character/Dto/Editor/CharacterDraftEntry';
-import type { InventoryBaseline } from '@/modules/Roleplay/Character/Dto/Editor/CharacterDraftEntry';
+import type { InventoryBaseline } from '@/modules/Roleplay/Character/Dto/Editor/InventoryBaseline';
 import type { CharacterBuild } from '@/modules/Roleplay/Character/Dto/Editor/CharacterBuild';
 import type { CharacterCreationConfig } from '@/modules/Roleplay/Character/Dto/Editor/CharacterCreationConfig';
 import type { InventoryItem } from '@/modules/Roleplay/Character/Dto/InventoryItem';
-import { CHARACTER_DRAFT_STORAGE_KEY } from '@/modules/Roleplay/Character/Constant/characterDraftConfig';
-
-function loadDrafts(): CharacterDraftEntry[] {
-  try {
-    const raw = localStorage.getItem(CHARACTER_DRAFT_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-
-    return parsed.filter(
-      (entry): entry is CharacterDraftEntry =>
-        typeof entry === 'object' &&
-        entry !== null &&
-        (entry.draftKey === null || typeof entry.draftKey === 'string') &&
-        typeof entry.build === 'object' &&
-        typeof entry.config === 'object',
-    );
-  } catch {
-    return [];
-  }
-}
-
-function persistDrafts(drafts: CharacterDraftEntry[]): void {
-  try {
-    if (drafts.length === 0) {
-      localStorage.removeItem(CHARACTER_DRAFT_STORAGE_KEY);
-
-      return;
-    }
-    localStorage.setItem(CHARACTER_DRAFT_STORAGE_KEY, JSON.stringify(drafts));
-  } catch {
-    // localStorage недоступен (квота/режим) — черновик остаётся in-memory
-  }
-}
+import { characterDraftPersistService } from '@/modules/Roleplay/Character/Service/Instance/characterDraftPersistService';
 
 /**
  * Единый черновик редактора листа (ТР §7 «Сохранение»): один черновик на персонажа/НПС,
@@ -46,7 +13,17 @@ function persistDrafts(drafts: CharacterDraftEntry[]): void {
  * null — новый). Для редактирования черновик инициализируется копией оригинала (copy-on-write).
  */
 export const useCharacterDraftStore = defineStore('characterDraft', () => {
-  const drafts = ref<CharacterDraftEntry[]>(loadDrafts());
+  const loaded = characterDraftPersistService.read();
+  const storageDiscarded = ref(loaded.discarded);
+  const drafts = ref<CharacterDraftEntry[]>(loaded.entries);
+
+  function persistDrafts(): void {
+    characterDraftPersistService.write(drafts.value);
+  }
+
+  function acknowledgeStorageDiscarded(): void {
+    storageDiscarded.value = false;
+  }
 
   function draftOf(draftKey: string | null): CharacterDraftEntry | undefined {
     return drafts.value.find((entry) => entry.draftKey === draftKey);
@@ -72,7 +49,7 @@ export const useCharacterDraftStore = defineStore('characterDraft', () => {
     };
     if (index === -1) drafts.value.push(entry);
     else drafts.value[index] = entry;
-    persistDrafts(drafts.value);
+    persistDrafts();
   }
 
   /** Иммутабельно обновляет build (глубокие массивы заменяются целиком вызывающим). */
@@ -82,7 +59,7 @@ export const useCharacterDraftStore = defineStore('characterDraft', () => {
     entry.build = { ...entry.build, ...patch };
     entry.dirty = true;
     entry.updatedAt = new Date().toISOString();
-    persistDrafts(drafts.value);
+    persistDrafts();
   }
 
   function patchConfig(draftKey: string | null, patch: Partial<CharacterCreationConfig>): void {
@@ -91,7 +68,7 @@ export const useCharacterDraftStore = defineStore('characterDraft', () => {
     entry.config = { ...entry.config, ...patch };
     entry.dirty = true;
     entry.updatedAt = new Date().toISOString();
-    persistDrafts(drafts.value);
+    persistDrafts();
   }
 
   function patchInventoryBaseline(draftKey: string | null, inventoryBaseline: InventoryBaseline): void {
@@ -99,7 +76,7 @@ export const useCharacterDraftStore = defineStore('characterDraft', () => {
     if (!entry) return;
     entry.inventoryBaseline = inventoryBaseline;
     entry.updatedAt = new Date().toISOString();
-    persistDrafts(drafts.value);
+    persistDrafts();
   }
 
   /**
@@ -122,7 +99,7 @@ export const useCharacterDraftStore = defineStore('characterDraft', () => {
     }
     entry.inventoryBaseline = baseline;
     entry.updatedAt = new Date().toISOString();
-    persistDrafts(drafts.value);
+    persistDrafts();
   }
 
   /** После сохранения на бэк черновик больше не «грязный». */
@@ -130,23 +107,25 @@ export const useCharacterDraftStore = defineStore('characterDraft', () => {
     const entry = drafts.value.find((e) => e.draftKey === draftKey);
     if (entry) {
       entry.dirty = false;
-      persistDrafts(drafts.value);
+      persistDrafts();
     }
   }
 
   function discard(draftKey: string | null): void {
     const index = drafts.value.findIndex((entry) => entry.draftKey === draftKey);
     if (index !== -1) drafts.value.splice(index, 1);
-    persistDrafts(drafts.value);
+    persistDrafts();
   }
 
   function clearAll(): void {
     drafts.value = [];
-    persistDrafts(drafts.value);
+    persistDrafts();
   }
 
   return {
     drafts,
+    storageDiscarded,
+    acknowledgeStorageDiscarded,
     draftOf,
     hasDraft,
     initDraft,

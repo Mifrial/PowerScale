@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { PoisonSpec } from '@/modules/Roleplay/Rule/Dto/Poison/PoisonSpec';
-import { periodicityLabel, decayLabel } from '@/modules/Roleplay/Rule/Utils/State/formatStateEffects';
+import { formatStateEffectsService } from '@/modules/Roleplay/Rule/Service/Instance/formatStateEffectsService';
 import DimensionalNumber from '@/modules/Core/UI/Component/Input/DimensionalNumber.vue';
 
 const props = defineProps<{
@@ -46,10 +46,10 @@ function nameByCode(code: string): string {
           <span v-else class="text-body-2">—</span>
         </div>
         <div class="text-body-2 mt-1">
-          Периодичность: <strong>{{ periodicityLabel(spec.default_periodicity) }}</strong>
+          Периодичность: <strong>{{ formatStateEffectsService.periodicityLabel(spec.default_periodicity) }}</strong>
         </div>
         <div v-if="spec.default_decay" class="text-body-2 mt-1">
-          Затухание: <strong>{{ decayLabel(spec.default_decay, nameByCode) }}</strong>
+          Затухание: <strong>{{ formatStateEffectsService.decayLabel(spec.default_decay, nameByCode) }}</strong>
         </div>
       </v-card-text>
     </v-card>

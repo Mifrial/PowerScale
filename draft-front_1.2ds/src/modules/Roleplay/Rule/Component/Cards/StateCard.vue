@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { StateSpec } from '@/modules/Roleplay/Rule/Dto/State/StateSpec';
-import { stateEffectLabel } from '@/modules/Roleplay/Rule/Utils/State/formatStateEffects';
+import { formatStateEffectsService } from '@/modules/Roleplay/Rule/Service/Instance/formatStateEffectsService';
 
 const props = defineProps<{
   rule: Rule;
@@ -61,7 +61,7 @@ function nameByCode(code: string): string {
             <span v-if="effect.per_unit"> за каждую единицу состояния</span>
           </template>
           <template v-else>
-            {{ stateEffectLabel(effect, nameByCode) }}
+            {{ formatStateEffectsService.stateEffectLabel(effect, nameByCode) }}
           </template>
         </div>
       </v-card-text>

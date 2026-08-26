@@ -49,6 +49,7 @@ export const characters: Character[] = [
     shortDescription: 'Кузнец-ветеран, помнит падение старого цитадели.',
     visibility: defaultVisibility(),
     currentPoints: { os: 30, ol: 0, or: 12 },
+    discussionChatId: 7,
   },
   {
     id: 2,
@@ -67,6 +68,7 @@ export const characters: Character[] = [
     shortDescription: 'Следопыт в изгнании, охотится на лесных призраков.',
     visibility: defaultVisibility(),
     currentPoints: { os: 25, ol: 3, or: 5 },
+    discussionChatId: 14,
   },
   {
     id: 3,
@@ -86,6 +88,7 @@ export const characters: Character[] = [
     // Демо: в игре игроки видят только имя и краткое описание.
     visibility: [{ audience: 'all', sections: ['shortDescription'] }],
     currentPoints: { os: 20, ol: 0, or: 18 },
+    discussionChatId: 20,
   },
   {
     id: 4,
@@ -104,6 +107,7 @@ export const characters: Character[] = [
     shortDescription: 'Бывший наёмник, лишённый глаза за предательство.',
     visibility: defaultVisibility(),
     currentPoints: { os: 30, ol: 0, or: 7 },
+    discussionChatId: null,
   },
   {
     id: 5,
@@ -122,6 +126,7 @@ export const characters: Character[] = [
     shortDescription: 'Посланница торговой гильдии, отвечает за границы.',
     visibility: defaultVisibility(),
     currentPoints: { os: 27, ol: 2, or: 10 },
+    discussionChatId: null,
   },
 ];
 
@@ -395,16 +400,6 @@ export const versions: Record<number, CharacterVersion> = {
   },
 };
 
-// Существующие character_discussion-чаты из mockChat (id 7, 14, 20) привязаны как обсуждения
-// персонажей; остальные персонажи без привязки чата — null.
-const discussionChatIds: Record<number, number | null> = {
-  1: 7,
-  2: 14,
-  3: 20,
-  4: null,
-  5: null,
-};
-
 // Предыдущая версия до последней миграции правил (для сравнения «до/после» на карточке).
 const previousVersions: Record<number, CharacterVersion | null> = {};
 
@@ -414,7 +409,7 @@ const details: Record<number, CharacterDetail> = Object.fromEntries(
     {
       character: { ...character },
       version: versions[character.id],
-      discussionChatId: discussionChatIds[character.id],
+      discussionChatId: character.discussionChatId,
       previousVersion: previousVersions[character.id] ?? null,
     },
   ]),
@@ -433,7 +428,7 @@ function toViewerDetail(id: number): CharacterDetail {
   const result: CharacterDetail = {
     character: { ...detail.character },
     version: detail.version,
-    discussionChatId: detail.discussionChatId,
+    discussionChatId: detail.character.discussionChatId,
     previousVersion: previousVersions[id] ?? null,
   };
   if (getCurrentUserId() === detail.character.ownerId) {
@@ -506,6 +501,7 @@ function summaryOf(id: number, version: CharacterVersion, spaceId: number, statu
     shortDescription: version.shortDescription,
     visibility: defaultVisibility(),
     currentPoints: pointsOf(version),
+    discussionChatId: null,
   };
 }
 
@@ -518,6 +514,7 @@ export async function createCharacter(data: CreateCharacterData, _signal?: Abort
   versions[id] = data.version;
   // Новому персонажу сразу создаём чат обсуждения (владелец — участник).
   const discussionChatId = mockCreateCharacterDiscussion(data.version.name);
+  character.discussionChatId = discussionChatId;
   const detail: CharacterDetail = { character, version: data.version, discussionChatId, previousVersion: null };
   details[id] = detail;
 
@@ -546,7 +543,7 @@ export async function updateCharacter(
   details[id] = {
     character: { ...character },
     version: data.version,
-    discussionChatId: details[id]?.discussionChatId ?? null,
+    discussionChatId: character.discussionChatId,
     previousVersion: previousVersions[id] ?? null,
   };
 
@@ -612,7 +609,7 @@ export async function applyMigration(
   details[characterId] = {
     character: { ...character },
     version,
-    discussionChatId: details[characterId]?.discussionChatId ?? null,
+    discussionChatId: character.discussionChatId,
     previousVersion: oldVersion,
   };
 

@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { Formula } from '@/modules/Roleplay/Rule/Dto/Ability/Formula';
-import { formulaTypeItems } from '@/modules/Roleplay/Rule/Constant/Ability/FORMULA_TYPE_LABELS';
-export type { Formula };
+import { formulaTypeItemsService } from '@/modules/Roleplay/Rule/Service/Instance/formulaTypeItemsService';
 
 const props = withDefaults(
   defineProps<{
@@ -41,7 +40,7 @@ const actionCharacteristicDelta = computed(() =>
 );
 
 const formulaTypes = computed(() =>
-  formulaTypeItems(props.modelValue?.type, props.modes, Boolean(props.abilities?.length)),
+  formulaTypeItemsService.formulaTypeItems(props.modelValue?.type, props.modes, Boolean(props.abilities?.length)),
 );
 
 function emptyActionCharacteristic(): Formula {

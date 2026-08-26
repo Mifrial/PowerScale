@@ -136,7 +136,10 @@ function insertToken(option: ITokenOption) {
           :label="`Поиск: ${activeSource.label}`"
           @update:model-value="runSearch"
         />
-        <div v-if="pickerError" class="text-caption text-error pa-2 text-center">{{ pickerError }}</div>
+        <div v-if="pickerError" class="text-caption text-error pa-2 text-center">
+          <div class="mb-2">{{ pickerError }}</div>
+          <v-btn variant="tonal" color="primary" size="small" @click="runSearch"> Попробовать снова </v-btn>
+        </div>
         <v-list v-else-if="!pickerLoading && pickerResults.length" dense class="mt-1" max-height="240">
           <v-list-item
             v-for="opt in pickerResults"

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import { asDamageTypeSpec } from '@/modules/Roleplay/Rule/Utils/damageTypeSpec';
+import { damageTypeSpecService } from '@/modules/Roleplay/Rule/Service/Instance/damageTypeSpecService';
 import { computed } from 'vue';
 
 const props = defineProps<{
@@ -8,7 +8,7 @@ const props = defineProps<{
   rules: Rule[];
 }>();
 
-const spec = computed(() => asDamageTypeSpec(props.rule));
+const spec = computed(() => damageTypeSpecService.asDamageTypeSpec(props.rule));
 const attached = computed(() => {
   const codes = spec.value?.attached_rule_codes ?? [];
 

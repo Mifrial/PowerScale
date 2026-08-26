@@ -7,9 +7,9 @@ import { useUserStore } from '@/modules/Core/User/Store/users';
 import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { characterBuildService } from '@/modules/Roleplay/Character/Service/Instance/characterBuildService';
-import { getCharacterApi } from '@/modules/Roleplay/Character/init';
-import { getGameApi } from '@/modules/Roleplay/Game/init';
-import { canViewCharacter } from '@/modules/Roleplay/Character/Utils/access';
+import { getCharacterApi, getInGameSheetSource } from '@/modules/Roleplay/Character/init';
+import { characterAccessService } from '@/modules/Roleplay/Character/Service/Instance/characterAccessService';
+import { missingInGameSheetMessage } from '@/modules/Roleplay/Character/Utils/missingInGameSheetMessage';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { CreateCharacterData } from '@/modules/Roleplay/Character/Dto/Editor/CreateCharacterData';
@@ -52,7 +52,7 @@ const draftKey = computed<string | null>(() => {
 });
 
 const loading = ref(false);
-const saveError = ref<string | null>(null);
+const loadError = ref<string | null>(null);
 
 const draft = computed(() => draftStore.draftOf(draftKey.value));
 
@@ -64,68 +64,68 @@ async function loadRules(spaceId: number, revision: number): Promise<Rule[]> {
 
 async function load(): Promise<void> {
   loading.value = true;
-  saveError.value = null;
+  loadError.value = null;
 
-  if (isNew.value) {
-    loading.value = false;
+  try {
+    if (isNew.value) return;
 
-    return;
-  }
+    const id = characterId.value;
+    if (id === null) {
+      router.replace({ name: 'NotFound' });
 
-  const id = characterId.value;
-  if (id === null) {
-    router.replace({ name: 'NotFound' });
-
-    return;
-  }
-  characterStore.clearCurrent();
-  const detail = await characterStore.fetchCharacter(id, signal.value);
-  if (!detail || !canViewCharacter(userStore.currentUser, detail.character)) {
-    router.replace({ name: 'NotFound' });
-
-    return;
-  }
-
-  if (!draftStore.hasDraft(draftKey.value)) {
-    // База черновика: in-game редактор стартует с эффективной версии игры (approved + оверлей),
-    // standalone — с latest.
-    let baseVersion = detail.version;
-    if (gameId.value !== null) {
-      try {
-        const memberships = await getGameApi().getGameCharacters(gameId.value, signal.value);
-        const membership = memberships.find((m) => m.characterId === id);
-        if (membership) {
-          baseVersion = membership.overlay?.sheet ?? membership.activeVersion ?? detail.version;
-        }
-      } catch {
-        // игра недоступна — остаёмся на latest
-      }
+      return;
     }
-    const rules = await loadRules(detail.character.spaceId, baseVersion.rulesRevision);
-    const build = characterBuildService.fromVersion(baseVersion, detail.character.spaceId, rules);
-    const baseline = {
-      inventory: build.inventory.map((item) => ({ ...item })),
-      money: build.money,
-    };
-    draftStore.initDraft(
-      draftKey.value,
-      build,
-      {
-        osTotal: baseVersion.budgets?.osTotal ?? null,
-        orTotal: baseVersion.points.orTotal ?? null,
-        moneyBudget: baseVersion.budgets?.moneyBudget ?? null,
-      },
-      baseline,
-    );
+    characterStore.clearCurrent();
+    const detail = await characterStore.fetchCharacter(id, signal.value);
+    if (!detail || !characterAccessService.canViewCharacter(userStore.currentUser, detail.character)) {
+      router.replace({ name: 'NotFound' });
+
+      return;
+    }
+
+    if (!draftStore.hasDraft(draftKey.value)) {
+      // База черновика: in-game — эффективная версия игры; standalone — latest.
+      let baseVersion = detail.version;
+      if (gameId.value !== null) {
+        const source = getInGameSheetSource();
+        const sheet = source ? await source.getEffectiveSheet(gameId.value, id, signal.value) : null;
+        const sheetError = missingInGameSheetMessage(source, sheet);
+        if (sheetError || !sheet) {
+          loadError.value = sheetError ?? 'Не удалось загрузить версию листа в этой игре';
+
+          return;
+        }
+        baseVersion = sheet;
+      }
+      const rules = await loadRules(detail.character.spaceId, baseVersion.rulesRevision);
+      const build = characterBuildService.fromVersion(baseVersion, detail.character.spaceId, rules);
+      const baseline = {
+        inventory: build.inventory.map((item) => ({ ...item })),
+        money: build.money,
+      };
+      draftStore.initDraft(
+        draftKey.value,
+        build,
+        {
+          osTotal: baseVersion.budgets?.osTotal ?? null,
+          orTotal: baseVersion.points.orTotal ?? null,
+          moneyBudget: baseVersion.budgets?.moneyBudget ?? null,
+        },
+        baseline,
+      );
+    }
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'AbortError') return;
+    loadError.value = e instanceof Error ? e.message : 'Не удалось загрузить редактор';
+  } finally {
+    loading.value = false;
   }
-  loading.value = false;
 }
 
 /** Сохранение через character API (лист персонажа); ошибка пробрасывается в редактор. */
 async function handleSave(version: CharacterVersion): Promise<void> {
   const current = draft.value;
   if (!current) return;
-  saveError.value = null;
   try {
     if (isNew.value) {
       const data: CreateCharacterData = {
@@ -154,13 +154,19 @@ async function handleSave(version: CharacterVersion): Promise<void> {
   }
 }
 
-watch(() => [route.name, route.params.id], load, { immediate: true });
+watch(() => [route.name, route.params.id, gameId.value], load, { immediate: true });
 </script>
 
 <template>
   <v-container fluid class="pa-0">
     <div v-if="loading" class="d-flex justify-center pa-8">
       <v-progress-circular indeterminate width="2" size="28" color="primary" />
+    </div>
+
+    <div v-else-if="loadError" class="text-center pa-8">
+      <v-icon icon="mdi-alert-circle" size="64" color="error" class="mb-4" />
+      <p class="text-body-1 mb-4">{{ loadError }}</p>
+      <v-btn color="primary" @click="load">Попробовать снова</v-btn>
     </div>
 
     <div v-else-if="isNew && draft === undefined">

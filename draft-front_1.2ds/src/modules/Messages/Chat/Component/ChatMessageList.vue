@@ -7,8 +7,10 @@ import { useChatVisibilityOptions } from '@/modules/Messages/Chat/Composables/us
 import { useAuthStore } from '@/modules/Core/Auth/Store/auth';
 import type { ChatMessage } from '@/modules/Messages/Chat/Dto/ChatMessage';
 import type { ChatMessageVisibility } from '@/modules/Messages/Chat/Dto/ChatMessageVisibility';
-import type { ChatFoldChild, ChatVisibleRow } from '@/modules/Messages/Chat/Dto/ChatFold';
-import { flattenChatFolds } from '@/modules/Messages/Chat/Utils/flattenChatFolds';
+import type { ChatFoldChild } from '@/modules/Messages/Chat/Dto/ChatFoldChild';
+import type { ChatVisibleRow } from '@/modules/Messages/Chat/Dto/ChatVisibleRow';
+import type { ChatInlineRendererContext } from '@/modules/Messages/Chat/Dto/ChatInlineRendererContext';
+import { chatFoldService } from '@/modules/Messages/Chat/Service/Instance/chatFoldService';
 import ChatMessageRow from '@/modules/Messages/Chat/Component/ChatMessageRow.vue';
 import ChatFoldChrome from '@/modules/Messages/Chat/Component/ChatFoldChrome.vue';
 import ChatFoldPanel from '@/modules/Messages/Chat/Component/ChatFoldPanel.vue';
@@ -16,8 +18,9 @@ import ChatFoldPanel from '@/modules/Messages/Chat/Component/ChatFoldPanel.vue';
 const props = defineProps<{
   // Явный чат для встроенного обсуждения; не задан — читаем глобальный активный чат.
   chatId?: number | null;
-  /** Непрозрачный контекст для inline-рендереров (напр. имена правил ревизии игры). */
-  rendererContext?: Record<string, unknown>;
+  /** Data-срез для inline-рендереров. */
+  rendererContext?: ChatInlineRendererContext | null;
+  openEntity?: (ref: string) => void;
   /** Дерево свёрток; без него лента плоская. */
   buildFolds?: (messages: ChatMessage[]) => ChatFoldChild[];
   /** Id групп, раскрытых по умолчанию (живой раунд/ход/атака). */
@@ -58,6 +61,14 @@ const hasMore = computed(() =>
 const loadingOlder = computed(() =>
   resolvedChatId.value != null ? store.loadingOlderOf(resolvedChatId.value) : store.loadingOlder,
 );
+const olderError = computed(() =>
+  resolvedChatId.value != null ? store.olderErrorOf(resolvedChatId.value) : store.olderError,
+);
+
+function retryLoadOlder(): void {
+  if (resolvedChatId.value != null) void store.loadOlder(resolvedChatId.value);
+  else void store.loadOlderMessages();
+}
 
 const userOverride = ref<Record<string, boolean>>({});
 
@@ -82,7 +93,7 @@ const rows = computed<ChatVisibleRow[]>(() => {
     }));
   }
 
-  return flattenChatFolds(props.buildFolds(messages.value), isExpanded, unread);
+  return chatFoldService.flattenChatFolds(props.buildFolds(messages.value), isExpanded, unread);
 });
 
 const virtual = useChatVirtualScroll({
@@ -92,6 +103,7 @@ const virtual = useChatVirtualScroll({
   onReachTop: () => (resolvedChatId.value != null ? store.loadOlder(resolvedChatId.value) : store.loadOlderMessages()),
   hasMoreOlder: () => hasMore.value,
   loadingOlder: () => loadingOlder.value,
+  olderError: () => Boolean(olderError.value),
 });
 
 function getUser(userId: number) {
@@ -160,7 +172,11 @@ watch(
 
 <template>
   <div class="chat-messages" :ref="virtual.registerElement" @scroll="virtual.onScroll">
-    <div v-if="loadingOlder" class="d-flex justify-center pa-3">
+    <div v-if="olderError" class="chat-error pa-4">
+      <div class="text-error text-body-2 mb-2">{{ olderError }}</div>
+      <v-btn variant="tonal" color="primary" size="small" @click="retryLoadOlder"> Попробовать снова </v-btn>
+    </div>
+    <div v-else-if="loadingOlder" class="d-flex justify-center pa-3">
       <v-progress-circular indeterminate width="2" size="20" color="primary" />
     </div>
     <div v-if="!hasMore && messages.length > 0" class="text-center text-caption text-medium-emphasis pa-2">
@@ -189,6 +205,7 @@ watch(
             :tone="chromeOf(vItem.index)!.tone"
             :variant="chromeOf(vItem.index)!.variant"
             :renderer-context="props.rendererContext"
+            :open-entity="props.openEntity"
             @toggle="toggleFold(chromeOf(vItem.index)!.foldId)"
           />
           <ChatFoldPanel
@@ -196,6 +213,7 @@ watch(
             :summary="panelOf(vItem.index)!.summary"
             :expanded="panelOf(vItem.index)!.expanded"
             :renderer-context="props.rendererContext"
+            :open-entity="props.openEntity"
             @toggle="toggleFold(panelOf(vItem.index)!.foldId)"
           >
             <template v-for="message in panelOf(vItem.index)!.messages" :key="message.id">
@@ -212,6 +230,7 @@ watch(
                 :visibility-role-options="roleOptions"
                 :visibility-options="userOptions"
                 :renderer-context="props.rendererContext"
+                :open-entity="props.openEntity"
                 @open-profile="emit('open-profile', $event)"
                 @update-visibility="onUpdateVisibility"
               />
@@ -226,6 +245,7 @@ watch(
             :visibility-role-options="roleOptions"
             :visibility-options="userOptions"
             :renderer-context="props.rendererContext"
+            :open-entity="props.openEntity"
             @open-profile="emit('open-profile', $event)"
             @update-visibility="onUpdateVisibility"
           />
@@ -270,5 +290,9 @@ watch(
 }
 .chat-unread-divider :deep(.v-divider) {
   flex: 1;
+}
+
+.chat-error {
+  flex-shrink: 0;
 }
 </style>

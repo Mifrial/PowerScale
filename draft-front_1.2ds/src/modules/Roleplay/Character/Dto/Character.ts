@@ -20,4 +20,6 @@ export interface Character {
   currentPoints: CharacterPoints;
   /** Зоны видимости листа (общая для везде; дефолт — полный лист). */
   visibility: SheetVisibility;
+  /** Чат обсуждения листа; null — ещё не создан. На списке, чтобы резолв чипов не ходил в деталки. */
+  discussionChatId: number | null;
 }

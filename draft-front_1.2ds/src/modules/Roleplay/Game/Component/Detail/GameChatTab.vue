@@ -5,8 +5,10 @@ import { useGameStore } from '@/modules/Roleplay/Game/Store/games';
 import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 import { getRuleApi } from '@/modules/Roleplay/Rule/init';
-import { buildChatRulesContext } from '@/modules/Roleplay/Game/Utils/chatRulesContext';
-import { canStartGame, canStopSession } from '@/modules/Roleplay/Game/Utils/gameStatusTransitions';
+import { gameChatRulesContextService } from '@/modules/Roleplay/Game/Service/Instance/gameChatRulesContextService';
+
+import { gameStatusTransitionsService } from '@/modules/Roleplay/Game/Service/Instance/gameStatusTransitionsService';
+
 import { toCreateGameData } from '@/modules/Roleplay/Game/Utils/toCreateGameData';
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
@@ -17,7 +19,7 @@ import type { ITokenSource } from '@/modules/Messages/Chat/Interface/ITokenSourc
 import type { ChatAttachment } from '@/modules/Messages/Chat/Dto/ChatAttachment';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
-import ChatThread from '@/modules/Messages/Chat/Component/ChatThread.vue';
+import { ChatThread, chatInlineRendererContext } from '@/modules/Messages/Chat/init';
 import InitiativeTrack from '@/modules/Roleplay/Game/Component/InitiativeTrack.vue';
 import CombatQuickRolls from '@/modules/Roleplay/Game/Component/CombatQuickRolls.vue';
 import CombatCardPanel from '@/modules/Roleplay/Game/Component/Detail/CombatCardPanel.vue';
@@ -25,12 +27,15 @@ import CheckLaunchDialog from '@/modules/Roleplay/Game/Component/CheckLaunchDial
 import HitLaunchDialog from '@/modules/Roleplay/Game/Component/HitLaunchDialog.vue';
 import InjuryLaunchDialog from '@/modules/Roleplay/Game/Component/InjuryLaunchDialog.vue';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
-import { combatCardCanEdit } from '@/modules/Roleplay/Game/Utils/combatCardModel';
+import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
+
 import type { CheckOffer } from '@/modules/Roleplay/Game/Dto/CheckOffer';
 import type { AttackOverview } from '@/modules/Roleplay/Character/Dto/Overview/AttackOverview';
 import { CHECK_HIT_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
 import { useCombatChatThread } from '@/modules/Roleplay/Game/Composables/useCombatChatThread';
-import { buildCombatChatFolds } from '@/modules/Roleplay/Game/Utils/combatChatFold';
+import { combatChatFoldService } from '@/modules/Roleplay/Game/Service/Instance/combatChatFoldService';
+import type { ChatMessage } from '@/modules/Messages/Chat/Dto/ChatMessage';
+import type { ChatFoldChild } from '@/modules/Messages/Chat/Dto/ChatFoldChild';
 
 const props = defineProps<{
   /** Активна ли вкладка: чат монтируется только при открытии (D7 — освобождает глобальный чат при уходе). */
@@ -45,22 +50,30 @@ const spaceRevisionStore = useSpaceRevisionStore();
 
 const chatId = computed(() => props.detail.gameChatId);
 const gameId = computed(() => props.detail.game.id);
-const combatThread = useCombatChatThread(gameId.value);
+const combatThread = useCombatChatThread(gameId);
 const messageThread = computed(() => combatThread.stamp());
 const liveFoldIds = combatThread.liveIds;
+
+function buildCombatChatFolds(messages: ChatMessage[]): ChatFoldChild[] {
+  return combatChatFoldService.buildCombatChatFolds(messages);
+}
 
 // Кнопки статуса — в глобальный топбар (#editor-actions), видны только на этой вкладке.
 const statusUpdating = ref(false);
 const statusError = ref<string | null>(null);
 
-const showStartGame = computed(() => props.canEdit && canStartGame(props.detail.game.status));
-const showStopSession = computed(() => props.canEdit && canStopSession(props.detail.game.status));
+const showStartGame = computed(
+  () => props.canEdit && gameStatusTransitionsService.canStartGame(props.detail.game.status),
+);
+const showStopSession = computed(
+  () => props.canEdit && gameStatusTransitionsService.canStopSession(props.detail.game.status),
+);
 
 // «Начать сессию» → playing, «Остановить сессию» → in_process (межсессионный период). Сессия не
 // трогает терминальный статус игры (completed ставится отдельно — селектором в форме игры).
 // При остановке сессии боевые изменения (оверлей) персонажей собираются в pendingVersion на модерацию (CD-2).
 async function ensurePlaying(): Promise<void> {
-  if (!canStartGame(props.detail.game.status)) return;
+  if (!gameStatusTransitionsService.canStartGame(props.detail.game.status)) return;
   await changeStatus('playing');
 }
 
@@ -86,7 +99,7 @@ const revisionRules = ref<Rule[]>([]);
 const mechanics = ref<Mechanic[]>([]);
 
 const rulesContext = computed(() =>
-  buildChatRulesContext(
+  gameChatRulesContextService.buildChatRulesContext(
     revisionRules.value,
     mechanics.value,
     props.detail?.game.spaceId,
@@ -127,9 +140,7 @@ const tokenSources = computed<ITokenSource[]>(() => [
   },
 ]);
 
-const chatInlineContext = computed(() => ({
-  openEntity: (key: string) => onOpenCard(key),
-}));
+const rendererContext = computed(() => chatInlineRendererContext(rulesContext.value));
 
 const processAttachments = (attachments: ChatAttachment[]): ChatAttachment[] =>
   rulesContext.value.processAttachments(attachments);
@@ -189,12 +200,8 @@ async function load(): Promise<void> {
 // Правила ревизии игры: чипы и источники «Вставить ссылку» резолвятся из неё (D72).
 async function loadRevision(): Promise<void> {
   const detail = props.detail;
-  try {
-    const revision = await spaceRevisionStore.fetchRevision(detail.game.spaceId, detail.game.rulesRevision);
-    revisionRules.value = revision.rules;
-  } catch {
-    revisionRules.value = [];
-  }
+  const revision = await spaceRevisionStore.fetchRevision(detail.game.spaceId, detail.game.rulesRevision);
+  revisionRules.value = revision.rules;
 }
 
 watch(
@@ -243,7 +250,10 @@ function onOverlayChanged(): void {
 
 function onOpenCard(entityKey: string): void {
   const key = entityKey as CombatEntityKey;
-  if (!combatCardCanEdit(key, props.canEdit, userStore.currentUser?.id ?? null, memberships.value)) return;
+  if (
+    !combatCardModelService.combatCardCanEdit(key, props.canEdit, userStore.currentUser?.id ?? null, memberships.value)
+  )
+    return;
   cardKey.value = key;
   cardOpen.value = true;
 }
@@ -491,7 +501,12 @@ onUnmounted(() => {
 
   <div class="game-chat-tab">
     <v-alert v-if="statusError" type="error" variant="tonal" density="compact" class="mb-3">{{ statusError }}</v-alert>
-    <v-alert v-if="loadError" type="error" variant="tonal" density="compact" class="mb-3">{{ loadError }}</v-alert>
+    <v-alert v-if="loadError" type="error" variant="tonal" density="compact" class="mb-3">
+      <div class="d-flex align-center ga-2">
+        <span>{{ loadError }}</span>
+        <v-btn variant="tonal" color="primary" size="small" @click="load">Попробовать снова</v-btn>
+      </div>
+    </v-alert>
     <div class="game-chat-body">
       <div class="game-chat-sidebar">
         <InitiativeTrack
@@ -534,11 +549,9 @@ onUnmounted(() => {
         :speakers="speakerOptions"
         :active-speaker-key="activeSpeakerKey"
         :speaker-action="speakerAction"
-        :rule-names="rulesContext.ruleNames"
-        :space-id="rulesContext.spaceId"
-        :rules-revision="rulesContext.rulesRevision"
+        :renderer-context="rendererContext"
+        :open-entity="onOpenCard"
         :token-sources="tokenSources"
-        :inline-context="chatInlineContext"
         :process-attachments="processAttachments"
         :message-thread="messageThread"
         :build-folds="buildCombatChatFolds"

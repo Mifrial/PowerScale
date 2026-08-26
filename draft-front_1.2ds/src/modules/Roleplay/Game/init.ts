@@ -5,8 +5,9 @@ import type { IGameApi } from '@/modules/Roleplay/Game/Interface/IGameApi';
 import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec';
 import type { DiceRollResult } from '@/modules/Roleplay/Game/Dto/DiceRollResult';
 import { rollService } from '@/modules/Roleplay/Game/Service/Instance/rollService';
-import { withSimpleCheckZero } from '@/modules/Roleplay/Game/Utils/simpleCheckRoll';
-import { netSourceDelta } from '@/modules/Roleplay/Rule/Utils/aggregateSourceDeltas';
+import { simpleCheckRollService } from '@/modules/Roleplay/Game/Service/Instance/simpleCheckRollService';
+
+import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/Service/Instance/aggregateSourceDeltasService';
 
 export { rollEngine } from '@/modules/Roleplay/Game/Service/Roll/Instance/rollEngine';
 import {
@@ -16,13 +17,11 @@ import {
   registerAttachmentProcessor,
   registerChatTypes,
   registerChatTabs,
-  registerChatRulesContextBuilder,
   registerChatRulesProvider,
   registerInlineRenderer,
 } from '@/modules/Messages/Chat/init';
 import { registerProfileSection, registerPermissionCategory } from '@/modules/Core/User/init';
 import { GAME_PERMISSION_CATEGORY } from '@/modules/Roleplay/Game/Constant/permissions';
-import { buildChatRulesContext } from '@/modules/Roleplay/Game/Utils/chatRulesContext';
 import { gameChatRulesProvider } from '@/modules/Roleplay/Game/Chat/gameChatRulesProvider';
 import { actualRulesChatRulesProvider } from '@/modules/Roleplay/Game/Chat/actualRulesChatRulesProvider';
 import { GAME_CHAT_TYPES } from '@/modules/Roleplay/Game/Constant/Chat/GAME_CHAT_TYPES';
@@ -32,7 +31,8 @@ import { ATTACK_CALC_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/At
 import { INJURY_DETAILS_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Injury/INJURY_DETAILS_ATTACHMENT_TYPE';
 import { DOT_TICK_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Dot/DOT_TICK_ATTACHMENT_TYPE';
 import { registerGameSheetRoles } from '@/modules/Roleplay/Game/Sheet/gameSheetRoles';
-import { registerCharacterCardExtension } from '@/modules/Roleplay/Character/init';
+import { inGameSheetSource } from '@/modules/Roleplay/Game/Sheet/inGameSheetSource';
+import { registerCharacterCardExtension, registerInGameSheetSource } from '@/modules/Roleplay/Character/init';
 
 // Компоненты регистрируются асинхронно (defineAsyncComponent): init.ts не тянет .vue/CSS
 // при импорте в node-тестах (routes → store → init) и код-сплитится по месту использования.
@@ -67,8 +67,7 @@ export function getGameApi(): IGameApi {
 export function registerGameModule(): void {
   registerPermissionCategory(GAME_PERMISSION_CATEGORY);
   registerGameSheetRoles();
-  // Контекст правил чатов (чипы/ссылки/броски): сборщик RollEngine + провайдеры ревизий.
-  registerChatRulesContextBuilder(buildChatRulesContext);
+  registerInGameSheetSource(inGameSheetSource);
   registerChatRulesProvider(gameChatRulesProvider);
   registerChatRulesProvider(actualRulesChatRulesProvider);
   registerCharacterCardExtension({
@@ -113,13 +112,13 @@ export function registerGameModule(): void {
   registerAttachmentProcessor<DiceRollSpec | DiceRollResult>({
     type: ROLL_ATTACHMENT_TYPE,
     process: (payload: DiceRollSpec | DiceRollResult): Promise<DiceRollResult> => {
-      if ('rolls' in payload) return Promise.resolve(payload as DiceRollResult);
+      if (rollService.isDiceRollResult(payload)) return Promise.resolve(payload);
 
-      return Promise.resolve(withSimpleCheckZero(rollService.computeRollResult(payload as DiceRollSpec)));
+      return Promise.resolve(simpleCheckRollService.withSimpleCheckZero(rollService.computeRollResult(payload)));
     },
     describe: (payload: DiceRollSpec | DiceRollResult) => {
-      if ('rolls' in payload) return 'Бросок';
-      const net = netSourceDelta(payload.advantages);
+      if (rollService.isDiceRollResult(payload)) return 'Бросок';
+      const net = aggregateSourceDeltasService.netSourceDelta(payload.advantages);
       const adv = net ? (net > 0 ? ` +${net}` : ` ${net}`) : '';
       const label = payload.label ? ` (${payload.label})` : '';
 
@@ -130,3 +129,29 @@ export function registerGameModule(): void {
   registerToolbarExtension({ id: 'macro-bar', component: MacroBarExtension });
   registerProfileSection({ id: 'macros', component: MacrosSection });
 }
+
+export { gameAccessService } from '@/modules/Roleplay/Game/Service/Instance/gameAccessService';
+export { gameStatusTransitionsService } from '@/modules/Roleplay/Game/Service/Instance/gameStatusTransitionsService';
+export { hitRollService } from '@/modules/Roleplay/Game/Service/Instance/hitRollService';
+export { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
+export { endOfTurnDotsService } from '@/modules/Roleplay/Game/Service/Instance/endOfTurnDotsService';
+export { injuryCheckService } from '@/modules/Roleplay/Game/Service/Instance/injuryCheckService';
+export { exhaustionCheckService } from '@/modules/Roleplay/Game/Service/Instance/exhaustionCheckService';
+export { bloodLossService } from '@/modules/Roleplay/Game/Service/Instance/bloodLossService';
+export { dotTickMathService } from '@/modules/Roleplay/Game/Service/Instance/dotTickMathService';
+export { checkRollService } from '@/modules/Roleplay/Game/Service/Instance/checkRollService';
+export { characteristicRollService } from '@/modules/Roleplay/Game/Service/Instance/characteristicRollService';
+export { injuryRollService } from '@/modules/Roleplay/Game/Service/Instance/injuryRollService';
+export { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
+export { combatChatFoldService } from '@/modules/Roleplay/Game/Service/Instance/combatChatFoldService';
+export { combatChatSendService } from '@/modules/Roleplay/Game/Service/Instance/combatChatSendService';
+export { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
+export { damageTypeHooksService } from '@/modules/Roleplay/Game/Service/Instance/damageTypeHooksService';
+export { gameChatRulesContextService } from '@/modules/Roleplay/Game/Service/Instance/gameChatRulesContextService';
+export { rollService, simpleCheckRollService };
+export { ACTION_POINTS_CODE } from '@/modules/Roleplay/Game/Constant/Combat/ACTION_POINTS_CODE';
+export { DEFAULT_ATTACK_AP } from '@/modules/Roleplay/Game/Constant/Combat/DEFAULT_ATTACK_AP';
+export { FLANK_DEFENSE_LABEL } from '@/modules/Roleplay/Game/Constant/Combat/FLANK_DEFENSE_LABEL';
+export { SIMPLE_CHECK_ZERO_DIFFICULTY } from '@/modules/Roleplay/Game/Constant/Check/SIMPLE_CHECK_ZERO_DIFFICULTY';
+export { GAME_STARTABLE_STATUSES } from '@/modules/Roleplay/Game/Constant/Game/GAME_STARTABLE_STATUSES';
+export { GAME_STOPPABLE_STATUSES } from '@/modules/Roleplay/Game/Constant/Game/GAME_STOPPABLE_STATUSES';

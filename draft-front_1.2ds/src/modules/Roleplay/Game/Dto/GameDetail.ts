@@ -11,8 +11,9 @@ export interface GameDetail {
   moneyLimit: number | null;
   forbiddenTags: string[];
   members: GameMember[];
+  /** Дубль `game.discussionChatId` для вкладок карточки; источник истины — поле списка. */
   discussionChatId: number | null;
-  /** Игровой чат (type 'game', ТР §8 «Чат игры») — живая игровая сессия. */
+  /** Дубль `game.gameChatId` для вкладки «Чат игры»; источник истины — поле списка. */
   gameChatId: number | null;
   /**
    * Личные заметки текущего зрителя по этой игре (не общие, не заметки владельца игры).

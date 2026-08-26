@@ -14,16 +14,7 @@ import { PAGE_SIZE } from '@/modules/Messages/Chat/Constant/Chat/PAGE_SIZE';
 import { MAX_STORED } from '@/modules/Messages/Chat/Constant/Chat/MAX_STORED';
 import { messagePreview } from '@/modules/Messages/Chat/Utils/messagePreview';
 import type { IChatTab } from '@/modules/Messages/Chat/Interface/IChatTab';
-
-interface ChatState {
-  messages: ChatMessage[];
-  loadedCount: number;
-  hasMore: boolean;
-  total: number;
-  initialized: boolean;
-  loading: boolean;
-  loadingOlder: boolean;
-}
+import type { ChatState } from '@/modules/Messages/Chat/Dto/ChatState';
 
 function createChatState(): ChatState {
   return reactive({
@@ -34,6 +25,7 @@ function createChatState(): ChatState {
     initialized: false,
     loading: false,
     loadingOlder: false,
+    olderError: '',
   });
 }
 
@@ -66,31 +58,28 @@ export const useChatStore = defineStore('chat', () => {
 
   const tabs = computed<IChatTab[]>(() => getChatTabs());
 
-  function tabTypes(key: string): string[] {
-    return tabs.value.find((t) => t.key === key)?.types ?? [];
+  function tabOf(key: string): IChatTab | undefined {
+    return tabs.value.find((tab) => tab.key === key);
+  }
+
+  function isOnTab(chat: Chat, tab: IChatTab | undefined): boolean {
+    if (!tab?.types.includes(chat.type)) return false;
+    if (!tab.onlyIfMember) return true;
+    const userId = auth.userId;
+
+    return userId !== null && (chat.members?.some((member) => member.userId === userId) ?? false);
   }
 
   const currentTabChats = computed(() => {
-    const types = tabTypes(selectedTab.value);
+    const tab = tabOf(selectedTab.value);
 
-    return sortedChats.value.filter((c) => {
-      if (!types.includes(c.type)) return false;
-      // Вкладка «Обсуждения персонажей» показывает только те чаты персонажей,
-      // в которых текущий пользователь участвует (стал участником, написав сообщение).
-      if (c.type === 'character_discussion') {
-        const userId = auth.userId;
-
-        return userId !== null && (c.members?.some((m) => m.userId === userId) ?? false);
-      }
-
-      return true;
-    });
+    return sortedChats.value.filter((chat) => isOnTab(chat, tab));
   });
 
   function tabUnread(key: string): number {
-    const types = tabTypes(key);
+    const tab = tabOf(key);
 
-    return chats.value.filter((c) => types.includes(c.type)).reduce((sum, c) => sum + c.unreadCount, 0);
+    return chats.value.filter((chat) => isOnTab(chat, tab)).reduce((sum, chat) => sum + chat.unreadCount, 0);
   }
 
   const activeChat = computed(() => chats.value.find((c) => c.id === activeChatId.value) ?? null);
@@ -151,6 +140,7 @@ export const useChatStore = defineStore('chat', () => {
       state.loadedCount = Math.max(state.loadedCount, msgs.length);
       state.total = total;
       state.hasMore = state.loadedCount < total;
+      state.olderError = '';
       state.initialized = true;
       markRead(chatId);
       const idx = chats.value.findIndex((c) => c.id === chatId);
@@ -202,6 +192,12 @@ export const useChatStore = defineStore('chat', () => {
     return chatStateOf(chatId)?.loadingOlder ?? false;
   }
 
+  function olderErrorOf(chatId: number): string {
+    return chatStateOf(chatId)?.olderError ?? '';
+  }
+
+  const olderError = computed(() => activeState.value?.olderError ?? '');
+
   async function loadOlder(chatId: number) {
     const state = chatStates.value.get(chatId);
     if (!state || !state.hasMore || state.loadingOlder) return;
@@ -214,6 +210,7 @@ export const useChatStore = defineStore('chat', () => {
     }
 
     state.loadingOlder = true;
+    state.olderError = '';
     try {
       const older = await getChatApi().getMessagesBefore(chatId, oldestId, PAGE_SIZE);
       const before = state.messages.length;
@@ -222,6 +219,8 @@ export const useChatStore = defineStore('chat', () => {
       state.loadedCount = state.messages.length;
       // Курсор-терминатор: если страница не принесла новых уникальных id — истории больше нет.
       state.hasMore = added > 0 && older.length >= PAGE_SIZE;
+    } catch (caught) {
+      state.olderError = caught instanceof Error ? caught.message : 'Не удалось загрузить историю';
     } finally {
       state.loadingOlder = false;
     }
@@ -433,6 +432,7 @@ export const useChatStore = defineStore('chat', () => {
     loadingChats,
     loadingMessages,
     loadingOlder,
+    olderError,
     sending,
     hasMoreOlder,
     chatsError,
@@ -447,6 +447,7 @@ export const useChatStore = defineStore('chat', () => {
     firstUnreadOf,
     hasMoreOlderOf,
     loadingOlderOf,
+    olderErrorOf,
     sendMessage,
     updateMessageVisibility,
     postSystemMessage,

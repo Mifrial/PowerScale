@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { ref } from 'vue';
 import type { ChatMessage } from '@/modules/Messages/Chat/Dto/ChatMessage';
 import { COMBAT_CHAT_ROUND, COMBAT_CHAT_TURN } from '@/modules/Roleplay/Game/Constant/Combat/COMBAT_CHAT_FOLD_KINDS';
 import { useCombatChatThread } from '@/modules/Roleplay/Game/Composables/useCombatChatThread';
@@ -43,5 +44,23 @@ describe('useCombatChatThread', () => {
     thread.recoverFromMessages(messages);
     expect(thread.liveIds.value).toEqual(['r1', 'r2', 't1', 't2']);
     thread.clearLive();
+  });
+
+  it('смена gameId читает штампы другой игры', () => {
+    const first = useCombatChatThread(91004);
+    first.clearLive();
+    const roundA = first.beginRound();
+
+    const gameId = ref(91004);
+    const shared = useCombatChatThread(gameId);
+    expect(shared.stamp()?.id).toBe(roundA.id);
+
+    gameId.value = 91005;
+    const second = useCombatChatThread(91005);
+    second.clearLive();
+    const roundB = second.beginRound();
+    expect(shared.stamp()?.id).toBe(roundB.id);
+    first.clearLive();
+    second.clearLive();
   });
 });

@@ -10,6 +10,7 @@ import * as mockCombatOverlays from '@/modules/Roleplay/Game/Mock/mockGameCombat
 import * as mockQuickRolls from '@/modules/Roleplay/Game/Mock/mockGameQuickRolls';
 import * as mockCheckOffers from '@/modules/Roleplay/Game/Mock/mockCheckOffers';
 import * as mockChronicle from '@/modules/Roleplay/Game/Mock/mockGameChronicle';
+import '@/modules/Roleplay/Game/Mock/mockCharacterSessionOverlay';
 
 export const mockGameApi: IGameApi = {
   getGames: mock.fetchGames,
