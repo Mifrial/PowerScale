@@ -3758,7 +3758,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Быстрый удар',
     description:
-      'Совершите один удар с уменьшенной на 1 точностью. Если это действие заняло не больше 2ОД, то бонус к Мастерству боя цели удара от Ловкости будет снижен на 3, вплоть до 0.\nЕсли следующее действие - атака, то она будет стоить на 1ОД больше.',
+      'Совершите один удар с уменьшенной на 1 точностью. Если следующее действие - атака, то она будет стоить на 1ОД больше.',
     spaceId: 1,
     spec: {
       type: 'action',
@@ -3779,6 +3779,18 @@ const mockDevelopmentImportRaw: Rule[] = [
           label: 'Действие',
         },
       ],
+      action_effects: [
+        {
+          type: 'current_action_attack_accuracy',
+          delta: -1,
+          scope: { components: ['strike'], hit_count: 1 },
+        },
+        {
+          type: 'next_action_attack_cost',
+          resource_code: 'action-points',
+          delta: 1,
+        },
+      ],
     },
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,
@@ -3786,11 +3798,11 @@ const mockDevelopmentImportRaw: Rule[] = [
   },
   {
     id: 'rule-338',
-    code: 'perekhodnyy-udar',
+    code: 'stremitelnyy-udar',
     type: 'ability',
-    name: 'Переходный удар',
+    name: 'Стремительный удар',
     description:
-      'Совершите один удар с уменьшенной на 1 силой удара от обстоятельств .\nЕсли следующее действие - атака, то она будет стоить на 1ОД меньше.',
+      'Вы подготавливаетесь к совершению стремительного удара. Если ваше следующее действие — атака, на совершение которой вы тратите не более 2 ОД с учётом всех временных модификаторов, то у цели её первого удара модификатор к Мастерству боя от Ловкости уменьшится на 3 (вплоть до 0).',
     spaceId: 1,
     spec: {
       type: 'action',
@@ -3805,6 +3817,11 @@ const mockDevelopmentImportRaw: Rule[] = [
           level: 1,
           requirements: [
             {
+              type: 'characteristic_value',
+              characteristic_code: 'reaction',
+              min: { base: 3, size: 0 },
+            },
+            {
               type: 'has_ability',
               ability_code: 'bystryy-udar',
               min_level: 1,
@@ -3818,12 +3835,23 @@ const mockDevelopmentImportRaw: Rule[] = [
         {
           type: 'resource',
           resource_code: 'action-points',
-          amount: 3,
+          amount: 1,
           label: 'Действие',
         },
       ],
+      action_effects: [
+        {
+          type: 'next_action_attack_target_characteristic_modifier',
+          check_code: 'melee-combat',
+          characteristic_code: 'dexterity',
+          delta: -3,
+          min: 0,
+          max_total_action_cost: 2,
+          scope: { components: ['strike'], hit_count: 1 },
+        },
+      ],
     },
-    keywordIds: [13, 14, 64, 71],
+    keywordIds: [13, 14, 64, 226],
     mechanicId: null,
     createdAt: '2026-08-09T10:00:00Z',
   },

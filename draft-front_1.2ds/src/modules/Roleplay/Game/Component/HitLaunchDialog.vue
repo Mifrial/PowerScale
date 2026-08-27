@@ -16,6 +16,7 @@ import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKe
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
 import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
+import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
 import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
@@ -47,6 +48,7 @@ import { damageTypeHooksService } from '@/modules/Roleplay/Game/Service/Instance
 
 import { DEFAULT_ATTACK_AP } from '@/modules/Roleplay/Game/Constant/Combat/DEFAULT_ATTACK_AP';
 import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
+import { characteristicSizeByCode } from '@/modules/Roleplay/Game/Utils/strikeCharacteristicMods';
 
 import {
   buildAttackCalcPayload,
@@ -70,6 +72,7 @@ import { injuryCheckService } from '@/modules/Roleplay/Game/Service/Instance/inj
 import { exhaustionCheckService } from '@/modules/Roleplay/Game/Service/Instance/exhaustionCheckService';
 
 import { stateRuntimeEffectsService } from '@/modules/Roleplay/Character/init';
+import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/actionEffectService';
 
 const props = defineProps<{
   open: boolean;
@@ -97,6 +100,7 @@ const emit = defineEmits<{
 const combatThread = useCombatChatThread(() => props.gameId);
 const sendChat = combatChatSendService.sendCombatChat(props.gameId);
 const overlays = ref<GameCombatOverlay[]>([]);
+const pendingEffectsByEntity = ref<Record<CombatEntityKey, PendingActionEffect[]>>({});
 const offer = ref<CheckOffer | null>(null);
 const opponentKey = ref<CombatEntityKey | null>(null);
 const reaction = ref<HitDefenseReaction | null>(null);
@@ -270,6 +274,23 @@ const attackOptions = computed(() =>
 const selectedAction = computed(
   () => attackActionById(props.rules, selectedActionRuleId.value) ?? attackOptions.value[0] ?? null,
 );
+const isPreparationAction = computed(() => selectedAction.value?.isAttack === false);
+
+const attackerPendingEffects = computed(
+  () => (resolvedAttackerKey.value ? pendingEffectsByEntity.value[resolvedAttackerKey.value] : undefined) ?? [],
+);
+
+const resolvedSelectedAction = computed(() => {
+  const action = selectedAction.value;
+  if (!action) return null;
+  const resolution = actionEffectService.resolveForNextAction(attackerPendingEffects.value, {
+    isAttack: selectedAction.value?.isAttack ?? true,
+    component: currentAttack.value?.profileType ?? 'strike',
+    baseCost: action.odCost,
+  });
+
+  return { ...action, odCost: action.odCost + resolution.actionCostDelta };
+});
 
 function remainingAp(key: CombatEntityKey | null): number {
   const overview = overviewOf(key);
@@ -285,8 +306,14 @@ const defenderAp = computed(() => remainingAp(opponentKey.value));
 const attackSelectItems = computed(() =>
   attackOptions.value.map((option) => ({
     ...option,
-    title: `${option.name} · ${option.odCost} ОД`,
-    props: { disabled: option.odCost > attackerAp.value },
+    title: `${option.name} · ${
+      option.ruleId === resolvedSelectedAction.value?.ruleId ? resolvedSelectedAction.value.odCost : option.odCost
+    } ОД`,
+    props: {
+      disabled:
+        (option.ruleId === resolvedSelectedAction.value?.ruleId ? resolvedSelectedAction.value.odCost : option.odCost) >
+        attackerAp.value,
+    },
   })),
 );
 
@@ -366,9 +393,13 @@ watch(blockItemRuleId, (id) => {
 
 async function hydrate(): Promise<void> {
   error.value = null;
-  overlays.value = await getGameApi()
-    .getCombatOverlays(props.gameId)
-    .catch(() => []);
+  const api = getGameApi();
+  const [nextOverlays, nextPendingEffects] = await Promise.all([
+    api.getCombatOverlays(props.gameId).catch(() => []),
+    api.getPendingActionEffects(props.gameId).catch(() => ({})),
+  ]);
+  overlays.value = nextOverlays;
+  pendingEffectsByEntity.value = nextPendingEffects;
   if (props.resumeOffer) {
     offer.value = props.resumeOffer;
     opponentKey.value = props.resumeOffer.opponent;
@@ -434,9 +465,9 @@ function hitProposal(attack: AttackOverview, nextReaction: HitDefenseReaction | 
     damageTypeCode: preview.damageTypeCode,
     damage: preview.damage,
     penetration: preview.penetration,
-    actionRuleId: selectedAction.value?.ruleId ?? null,
-    actionName: selectedAction.value?.name,
-    actionOd: selectedAction.value?.odCost,
+    actionRuleId: resolvedSelectedAction.value?.ruleId ?? null,
+    actionName: resolvedSelectedAction.value?.name,
+    actionOd: resolvedSelectedAction.value?.odCost,
     distanceIpari: isRanged.value ? distanceIpari.value : null,
     cover: isRanged.value ? Math.max(0, cover.value) : undefined,
     reach: preview.reach,
@@ -452,7 +483,7 @@ async function sendOffer(): Promise<void> {
   if (!attack || !initiator || !opponentKey.value) throw new Error('Выберите цель');
   if (!selectedAction.value) throw new Error('Выберите действие атаки');
   if (isRanged.value && !(distanceIpari.value > 0)) throw new Error('Укажите дистанцию в ипари');
-  const attackerApCost = selectedAction.value.odCost || DEFAULT_ATTACK_AP;
+  const attackerApCost = resolvedSelectedAction.value?.odCost || DEFAULT_ATTACK_AP;
   if (attackerApCost > remainingAp(initiator)) throw new Error('Недостаточно ОД для атаки');
   await getGameApi().createCheckOffer(props.gameId, {
     checkCode: CHECK_HIT_CODE,
@@ -466,6 +497,41 @@ async function sendOffer(): Promise<void> {
       hit: hitProposal(attack, null),
     },
   });
+}
+
+async function performPreparation(): Promise<void> {
+  const initiator = resolvedAttackerKey.value;
+  const action = selectedAction.value;
+  if (!initiator || !action || action.isAttack) throw new Error('Выберите подготовительное действие');
+
+  const pendingResolution = actionEffectService.resolveForNextAction(attackerPendingEffects.value, {
+    isAttack: false,
+    component: 'strike',
+    baseCost: action.odCost,
+  });
+  const spent = await spendAp(initiator, action.odCost);
+  if (spent < action.odCost) throw new Error('Недостаточно ОД для действия');
+
+  const nextEffects = [
+    ...actionEffectService.consumeResource(pendingResolution.remainingEffects, 'action-points', action.odCost),
+    ...actionEffectService.effectsAfterAction(props.rules.find((rule) => rule.id === action.ruleId)),
+  ];
+  pendingEffectsByEntity.value = { ...pendingEffectsByEntity.value, [initiator]: nextEffects };
+  await getGameApi().setCombatActionEffects(props.gameId, initiator, nextEffects);
+  if (props.chatId !== null) {
+    await sendChat(
+      `${formatAttackActionMessage({
+        attackerKey: initiator,
+        attackerName: nameOf(initiator),
+        action,
+        attackerAp: spent,
+        rules: props.rules,
+      })}${action.effects?.length ? `\nЭффекты: ${action.effects.map((effect) => actionEffectService.describe(effect)).join('; ')}` : ''}`,
+      [],
+      props.chatId,
+      speakerFor(initiator),
+    );
+  }
 }
 
 function defenderProposal(): CheckOfferProposal {
@@ -502,6 +568,14 @@ async function acceptAndRoll(): Promise<void> {
   const accepted = await getGameApi().acceptCheckOffer(current.id, actor, proposal);
   const hit = accepted.proposal.hit;
   if (!hit?.reaction) throw new Error('Защитник ещё не выбрал реакцию');
+  const actionRule = props.rules.find((rule) => rule.id === hit.actionRuleId);
+  const rawAction = attackActionById(props.rules, hit.actionRuleId);
+  const pendingResolution = actionEffectService.resolveForNextAction(attackerPendingEffects.value, {
+    isAttack: true,
+    component: hit.profileType,
+    baseCost: rawAction?.odCost ?? hit.actionOd ?? DEFAULT_ATTACK_AP,
+    targetDexterityMastery: characteristicSizeByCode(overviewOf(accepted.opponent), props.rules, 'dexterity') ?? 0,
+  });
   const rolled = hitRollService.rollHit(
     {
       attackerLabel: nameOf(accepted.initiator),
@@ -523,10 +597,18 @@ async function acceptAndRoll(): Promise<void> {
         accepted.proposal.initiatorAdv +
         stateRuntimeEffectsService.checkAdvantageFromStates(versionOf(accepted.initiator), props.rules, {
           kind: 'hit',
-        }),
+        }) +
+        actionEffectService.checkAdvantageDelta(attackerPendingEffects.value, CHECK_HIT_CODE),
       defenderAdv:
         accepted.proposal.opponentAdv +
         stateRuntimeEffectsService.checkAdvantageFromStates(versionOf(accepted.opponent), props.rules, { kind: 'hit' }),
+      accuracyDelta: actionEffectService.currentAttackAccuracy(actionRule, hit.profileType),
+      defenderDexterityMasteryDelta: pendingResolution.targetDexterityMasteryDelta,
+      defenderMasteryAdjustments: pendingResolution.targetDexterityMasteryAdjustments.map((adjustment) => ({
+        source_code: 'action-effect',
+        source_label: props.rules.find((rule) => rule.id === adjustment.sourceRuleId)?.name ?? 'Временный эффект',
+        delta: adjustment.delta,
+      })),
       distanceIpari: hit.distanceIpari,
       cover: hit.cover,
       flank: hit.flank,
@@ -537,6 +619,16 @@ async function acceptAndRoll(): Promise<void> {
     props.mechanics,
   );
   await applyClickAttack(accepted, hit, rolled.attacker.check?.rating ?? 0, attack, rolled);
+  const nextEffects = [
+    ...actionEffectService.consumeResource(
+      pendingResolution.remainingEffects,
+      'action-points',
+      hit.actionOd ?? DEFAULT_ATTACK_AP,
+    ),
+    ...actionEffectService.effectsAfterAction(actionRule),
+  ];
+  pendingEffectsByEntity.value = { ...pendingEffectsByEntity.value, [accepted.initiator]: nextEffects };
+  await getGameApi().setCombatActionEffects(props.gameId, accepted.initiator, nextEffects);
   offer.value = accepted;
 }
 
@@ -593,7 +685,7 @@ async function applyClickAttack(
     hooks,
     defenseIgnored,
   });
-  const action = selectedAction.value ??
+  const action = resolvedSelectedAction.value ??
     attackActionById(props.rules, hit.actionRuleId) ?? {
       ruleId: hit.actionRuleId ?? '',
       code: '',
@@ -613,13 +705,13 @@ async function applyClickAttack(
   try {
     if (props.chatId !== null) {
       await sendChat(
-        formatAttackActionMessage({
+        `${formatAttackActionMessage({
           attackerKey: accepted.initiator,
           attackerName: nameOf(accepted.initiator),
           action,
           attackerAp: spentAttack,
           rules: props.rules,
-        }),
+        })}${action.effects?.length ? `\nЭффекты: ${action.effects.map((effect) => actionEffectService.describe(effect)).join('; ')}` : ''}`,
         [],
         props.chatId,
         speaker,
@@ -679,6 +771,7 @@ async function applyClickAttack(
         speaker,
       );
     }
+
     if (result.exhaustion > 0) {
       const afterHit = versionOf(accepted.opponent);
       if (afterHit) {
@@ -746,6 +839,13 @@ async function submit(): Promise<void> {
   error.value = null;
   try {
     if (!offer.value) {
+      if (isPreparationAction.value) {
+        await performPreparation();
+        emit('settled');
+        close();
+
+        return;
+      }
       await sendOffer();
       emit('offered');
       emit('settled');
@@ -797,10 +897,15 @@ const primaryLabel = computed(() => {
 
 const canSubmit = computed(() => {
   if (isCompose.value) {
+    if (isPreparationAction.value) {
+      return resolvedSelectedAction.value !== null && resolvedSelectedAction.value.odCost <= attackerAp.value;
+    }
     if (isRanged.value && !(distanceIpari.value > 0)) return false;
 
     return (
-      opponentKey.value !== null && selectedAction.value !== null && selectedAction.value.odCost <= attackerAp.value
+      opponentKey.value !== null &&
+      resolvedSelectedAction.value !== null &&
+      resolvedSelectedAction.value.odCost <= attackerAp.value
     );
   }
   if (!myTurn.value) return false;
@@ -844,7 +949,7 @@ const canSubmit = computed(() => {
         </div>
         <div class="d-flex align-center ga-2 flex-wrap">
           <ClampedNumberField
-            v-if="isRanged"
+            v-if="isRanged && !isPreparationAction"
             v-model="distanceIpari"
             label="Дистанция, ипари"
             :min="1"
@@ -856,7 +961,7 @@ const canSubmit = computed(() => {
             :disabled="!isCompose"
           />
           <ClampedNumberField
-            v-if="isRanged"
+            v-if="isRanged && !isPreparationAction"
             v-model="cover"
             label="Укрытие"
             :min="0"
@@ -868,6 +973,7 @@ const canSubmit = computed(() => {
             :disabled="!canEditCover"
           />
           <v-checkbox
+            v-if="!isPreparationAction"
             v-model="flank"
             label="Фланг"
             density="compact"
@@ -881,6 +987,7 @@ const canSubmit = computed(() => {
           {{ new DimensionalNumber(ignoreDifficultyPreview).toString() }}
         </div>
         <v-select
+          v-if="!isPreparationAction"
           v-model="opponentKey"
           :items="opponentOptions"
           item-title="title"
@@ -892,7 +999,7 @@ const canSubmit = computed(() => {
           :disabled="!isCompose"
         />
         <ClampedNumberField
-          v-if="isCompose"
+          v-if="isCompose && !isPreparationAction"
           v-model="attackerAdv"
           label="Преим. атака"
           :min="-ROLL_ADV_MAX"

@@ -1,5 +1,6 @@
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
+import { CharacteristicNumber } from '@/modules/Roleplay/Rule/Value/CharacteristicNumber';
 import type { AttackOverview } from '@/modules/Roleplay/Character/Dto/Overview/AttackOverview';
 import type { CharacterOverview } from '@/modules/Roleplay/Character/Dto/Overview/CharacterOverview';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
@@ -123,6 +124,10 @@ export class HitRollService {
     const ranged = input.attack.profileType === 'throw' || input.attack.profileType === 'shoot';
     const procedure = resolveHitProcedure(input.attack.profileType, rules, mechanics);
     const attackMods = strikeCharacteristicMods(input.attackerOverview, rules);
+    const attackAccuracy =
+      input.accuracyDelta === undefined
+        ? input.attack.accuracy
+        : CharacteristicNumber.from(input.attack.accuracy).modifyWith(input.accuracyDelta).value;
     const attackMastery = applyStrikeMastery(
       this.weaponMasteryForAttack(input.attackerOverview, input.attack),
       attackMods.masteryDelta,
@@ -130,7 +135,7 @@ export class HitRollService {
     const attackSpec = this.poolSpec(
       input.attackerLabel,
       attackMastery,
-      input.attack.accuracy,
+      attackAccuracy,
       input.attackerAdv ?? 0,
       rules,
       attackMods.advantages,
@@ -165,7 +170,10 @@ export class HitRollService {
         defender: null,
       };
     }
-    const defenseMods = strikeCharacteristicMods(input.defenderOverview, rules);
+    const baseDefenseMods = strikeCharacteristicMods(input.defenderOverview, rules);
+    const defenseMods = strikeCharacteristicMods(input.defenderOverview, rules, {
+      dexterityMasteryDelta: input.defenderDexterityMasteryDelta,
+    });
     const defenseMastery = applyStrikeMastery(
       bestCombatMastery(input.defenderOverview, ranged),
       defenseMods.masteryDelta,
@@ -184,7 +192,7 @@ export class HitRollService {
       rules,
       [...defenseMods.advantages, ...flankAdv],
       input.defenderKey,
-      this.strikeMasteryAdjustments(defenseMods.masteryDelta),
+      [...this.strikeMasteryAdjustments(baseDefenseMods.masteryDelta), ...(input.defenderMasteryAdjustments ?? [])],
     );
     if (ranged) {
       const attached = checkResolutionService.resolveCheckAttachedRuleCodes(CHECK_HIT_CODE, rules);

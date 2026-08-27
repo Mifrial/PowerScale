@@ -3,6 +3,7 @@ import type { AttackOverview } from '@/modules/Roleplay/Character/Dto/Overview/A
 import type { CharacterOverview } from '@/modules/Roleplay/Character/Dto/Overview/CharacterOverview';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { HitDefenseReaction } from '@/modules/Roleplay/Game/Enum/HitDefenseReaction';
+import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
 
 export interface HitRollInput {
   attackerLabel: string;
@@ -17,6 +18,12 @@ export interface HitRollInput {
   defenseEfficiency?: DimensionalNumberValue | null;
   attackerAdv?: number;
   defenderAdv?: number;
+  /** Временный штраф/бонус точности от текущего действия. */
+  accuracyDelta?: number;
+  /** Временный модификатор вклада Ловкости в мастерство цели. */
+  defenderDexterityMasteryDelta?: number;
+  /** Отдельные строки расшифровки временных модификаторов мастерства цели. */
+  defenderMasteryAdjustments?: AdvantageModifier[];
   distanceIpari?: number | null;
   cover?: number;
   flank?: boolean;

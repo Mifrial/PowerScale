@@ -7,7 +7,6 @@ import { ADVANTAGE_SOURCE_STATE } from '@/modules/Roleplay/Rule/Constant/ADVANTA
 import { CharacteristicNumber } from '@/modules/Roleplay/Rule/Value/CharacteristicNumber';
 
 const FALLBACK_MASTERY: DimensionalNumberValue = { base: 3, size: -1 };
-const STRIKE_STAT_CODES = ['dexterity', 'perception'] as const;
 export const STRIKE_STAT_LABEL = 'Ловкость/Восприятие';
 
 export function characteristicSizeByCode(
@@ -49,10 +48,15 @@ export function bestCombatMastery(overview: CharacterOverview | null, ranged: bo
 export function strikeCharacteristicMods(
   overview: CharacterOverview | null,
   rules: Rule[],
+  options: { dexterityMasteryDelta?: number } = {},
 ): { masteryDelta: number; advantages: AdvantageModifier[] } {
-  const sizes = STRIKE_STAT_CODES.map((code) => characteristicSizeByCode(overview, rules, code)).filter(
-    (size): size is number => size != null,
-  );
+  const dexteritySize = characteristicSizeByCode(overview, rules, 'dexterity');
+  const perceptionSize = characteristicSizeByCode(overview, rules, 'perception');
+  const adjustedDexteritySize =
+    dexteritySize !== null && dexteritySize > 0
+      ? Math.max(0, dexteritySize + (options.dexterityMasteryDelta ?? 0))
+      : dexteritySize;
+  const sizes = [adjustedDexteritySize, perceptionSize].filter((size): size is number => size != null);
   if (sizes.length === 0) return { masteryDelta: 0, advantages: [] };
   const lesser = Math.min(...sizes);
   const greater = Math.max(...sizes);

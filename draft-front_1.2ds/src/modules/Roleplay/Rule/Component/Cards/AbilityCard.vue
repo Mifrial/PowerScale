@@ -7,11 +7,13 @@ import type { Requirement } from '@/modules/Roleplay/Rule/Dto/Ability/Requiremen
 import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
 import type { AbilityType } from '@/modules/Roleplay/Rule/Enum/Ability/AbilityType';
 import type { ActionComponent } from '@/modules/Roleplay/Rule/Dto/Ability/ActionComponent';
+import type { ActionEffect } from '@/modules/Roleplay/Rule/Dto/Ability/ActionEffect';
 import { ABILITY_TYPE_LABELS } from '@/modules/Roleplay/Rule/Constant/Ability/ABILITY_TYPE_LABELS';
 import { abilitySpecService } from '@/modules/Roleplay/Rule/Service/Instance/abilitySpecService';
 import { abilitySectionService } from '@/modules/Roleplay/Rule/Service/Instance/abilitySectionService';
 import { ruleViewLabelService } from '@/modules/Roleplay/Rule/Service/Instance/ruleViewLabelService';
 import { resourceShortName } from '@/modules/Roleplay/Rule/Utils/resourceShortName';
+import { actionEffectLabelService } from '@/modules/Roleplay/Rule/Service/Instance/actionEffectLabelService';
 
 const props = defineProps<{
   rule: Rule;
@@ -50,6 +52,7 @@ const groupInfo = computed(() => {
 const actionComponents = computed(() => spec.value?.action_components ?? []);
 const resourceComponents = computed(() => actionComponents.value.filter((c) => c.type === 'resource'));
 const nonResourceComponents = computed(() => actionComponents.value.filter((c) => c.type !== 'resource'));
+const actionEffects = computed(() => spec.value?.action_effects ?? []);
 
 const sortedRequirements = computed(() => [...(spec.value?.requirements ?? [])].sort((a, b) => a.level - b.level));
 
@@ -123,6 +126,10 @@ function componentLabel(comp: ActionComponent): string {
   }
 
   return comp.description ? `Материальный: ${comp.description}` : 'Материальный';
+}
+
+function actionEffectLabel(effect: ActionEffect): string {
+  return actionEffectLabelService.describe(effect);
 }
 
 function stepName(code: string): string {
@@ -246,6 +253,15 @@ function grantLabel(grant: Grant): string {
               {{ componentLabel(comp) }}
             </v-chip>
           </div>
+        </div>
+      </v-card-text>
+    </v-card>
+
+    <v-card v-if="actionEffects.length" variant="tonal" class="mb-3">
+      <v-card-text>
+        <div class="text-subtitle-2 mb-1">Эффекты действия</div>
+        <div v-for="(effect, index) in actionEffects" :key="index" class="text-body-2">
+          {{ actionEffectLabel(effect) }}
         </div>
       </v-card-text>
     </v-card>

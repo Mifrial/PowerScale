@@ -167,6 +167,42 @@ export class RuleValidationService {
       }
 
       const components = 'action_components' in spec ? spec.action_components : [];
+      const actionEffects = 'action_effects' in spec ? (spec.action_effects ?? []) : [];
+      if (actionEffects.length > 0 && type !== 'action') {
+        errors.push({
+          ruleName: rule.name,
+          ruleCode: rule.code,
+          message: 'временные эффекты действия доступны только для способности типа «Действие»',
+        });
+      }
+      for (const effect of actionEffects) {
+        if ('scope' in effect) {
+          if (effect.scope.components.length === 0) {
+            errors.push({
+              ruleName: rule.name,
+              ruleCode: rule.code,
+              message: 'эффект действия должен указывать хотя бы один тип элемента атаки',
+            });
+          }
+          if (effect.scope.hit_count !== 'all' && effect.scope.hit_count < 1) {
+            errors.push({
+              ruleName: rule.name,
+              ruleCode: rule.code,
+              message: 'количество элементов атаки в эффекте должно быть положительным или «all»',
+            });
+          }
+        }
+        if (
+          effect.type === 'after_action_until_resource_spent_check_modifier' &&
+          (effect.amount <= 0 || effect.check_codes.length === 0)
+        ) {
+          errors.push({
+            ruleName: rule.name,
+            ruleCode: rule.code,
+            message: 'длительный эффект должен иметь положительный лимит траты и проверки',
+          });
+        }
+      }
 
       if (type === 'action' || type === 'spell') {
         const costs = components.filter(

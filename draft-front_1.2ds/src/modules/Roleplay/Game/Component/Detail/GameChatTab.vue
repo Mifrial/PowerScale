@@ -25,6 +25,7 @@ import CombatQuickRolls from '@/modules/Roleplay/Game/Component/CombatQuickRolls
 import CombatCardPanel from '@/modules/Roleplay/Game/Component/Detail/CombatCardPanel.vue';
 import CheckLaunchDialog from '@/modules/Roleplay/Game/Component/CheckLaunchDialog.vue';
 import HitLaunchDialog from '@/modules/Roleplay/Game/Component/HitLaunchDialog.vue';
+import ActionLaunchDialog from '@/modules/Roleplay/Game/Component/ActionLaunchDialog.vue';
 import InjuryLaunchDialog from '@/modules/Roleplay/Game/Component/InjuryLaunchDialog.vue';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
@@ -288,6 +289,7 @@ async function toggleQuickRoll(entityKey: string, ruleId: string): Promise<void>
 watch(speakerOptions, () => applySpeakerKey());
 
 const checkOpen = ref(false);
+const actionOpen = ref(false);
 const hitOpen = ref(false);
 const injuryOpen = ref(false);
 const resumeOffer = ref<CheckOffer | null>(null);
@@ -406,6 +408,14 @@ function openNewCheck(): void {
   checkOpen.value = true;
 }
 
+function openActionLaunch(): void {
+  actionOpen.value = true;
+}
+
+function onActionClosed(open: boolean): void {
+  actionOpen.value = open;
+}
+
 function onCheckClosed(open: boolean): void {
   if (open) return;
   if (resumeOffer.value) dismissedOfferIds.value = new Set([...dismissedOfferIds.value, resumeOffer.value.id]);
@@ -493,9 +503,23 @@ onUnmounted(() => {
         Проверка
         <span v-if="actionableOfferCount > 0" class="check-split__count">{{ actionableOfferCount }}</span>
       </v-btn>
-      <v-btn size="small" class="check-split__plus" aria-label="Новая проверка" @click="openNewCheck">
-        <v-icon size="18">mdi-plus</v-icon>
-      </v-btn>
+      <v-menu location="bottom end">
+        <template #activator="{ props: menuProps }">
+          <v-btn
+            v-bind="menuProps"
+            size="small"
+            class="check-split__plus"
+            aria-label="Другие броски"
+            title="Другие броски"
+          >
+            <v-icon size="18">mdi-chevron-down</v-icon>
+          </v-btn>
+        </template>
+        <v-list density="compact">
+          <v-list-item prepend-icon="mdi-plus" title="Новая проверка" @click="openNewCheck" />
+          <v-list-item prepend-icon="mdi-run-fast" title="Действие" @click="openActionLaunch" />
+        </v-list>
+      </v-menu>
     </v-btn-group>
   </Teleport>
 
@@ -602,6 +626,22 @@ onUnmounted(() => {
       :resume-offer="resumeOffer"
       @update:open="onCheckClosed"
       @settled="refreshPendingOffers"
+    />
+
+    <ActionLaunchDialog
+      :open="actionOpen"
+      :game-id="gameId"
+      :chat-id="chatId"
+      :characters="memberships"
+      :npcs="npcs"
+      :rules="revisionRules"
+      :mechanics="mechanics"
+      :can-edit="canEdit"
+      :current-user-id="userStore.currentUser?.id ?? null"
+      :active-speaker-key="activeSpeakerKey"
+      @update:open="onActionClosed"
+      @settled="onOverlayChanged"
+      @overlay-changed="onOverlayChanged"
     />
 
     <HitLaunchDialog

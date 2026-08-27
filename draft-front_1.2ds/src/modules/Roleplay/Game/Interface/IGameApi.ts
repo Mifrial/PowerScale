@@ -31,6 +31,7 @@ import type { CreateCheckOfferData } from '@/modules/Roleplay/Game/Dto/CreateChe
 import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/CharacterStateValue';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { ConflictChoices } from '@/modules/Roleplay/Game/Utils/reconcileVersion';
+import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
 
 export interface IGameApi {
   getGames(signal?: AbortSignal): Promise<Game[]>;
@@ -105,6 +106,16 @@ export interface IGameApi {
   getInitiative(gameId: number, signal?: AbortSignal): Promise<GameInitiative>;
   saveInitiative(gameId: number, data: GameInitiative, signal?: AbortSignal): Promise<GameInitiative>;
   getCombatOverlays(gameId: number, signal?: AbortSignal): Promise<GameCombatOverlay[]>;
+  getPendingActionEffects(
+    gameId: number,
+    signal?: AbortSignal,
+  ): Promise<Record<CombatEntityKey, PendingActionEffect[]>>;
+  setCombatActionEffects(
+    gameId: number,
+    entityKey: CombatEntityKey,
+    effects: PendingActionEffect[],
+    signal?: AbortSignal,
+  ): Promise<PendingActionEffect[]>;
   setCombatResource(
     gameId: number,
     entityKey: CombatEntityKey,

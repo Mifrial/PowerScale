@@ -1,0 +1,130 @@
+import { describe, expect, it } from 'vitest';
+import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
+import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/actionEffectService';
+
+const sourceRuleId = 'rule-fast-strike';
+
+describe('ActionEffectService', () => {
+  it('applies next-action cost and consumes the effect on an attack', () => {
+    const pending: PendingActionEffect[] = [
+      {
+        sourceRuleId,
+        effect: { type: 'next_action_attack_cost', resource_code: 'action-points', delta: 1 },
+      },
+    ];
+
+    expect(
+      actionEffectService.resolveForNextAction(pending, { isAttack: true, component: 'strike', baseCost: 2 }),
+    ).toMatchObject({ actionCostDelta: 1, remainingEffects: [] });
+  });
+
+  it('loses a next-action effect when the next action is not an attack', () => {
+    const pending: PendingActionEffect[] = [
+      {
+        sourceRuleId,
+        effect: {
+          type: 'next_action_attack_target_characteristic_modifier',
+          check_code: 'melee-combat',
+          characteristic_code: 'dexterity',
+          delta: -3,
+          min: 0,
+          max_total_action_cost: 2,
+          scope: { components: ['strike'], hit_count: 1 },
+        },
+      },
+    ];
+
+    expect(
+      actionEffectService.resolveForNextAction(pending, { isAttack: false, component: 'strike', baseCost: 1 })
+        .remainingEffects,
+    ).toEqual([]);
+  });
+
+  it('does not apply target modifier when final attack cost exceeds the limit', () => {
+    const pending: PendingActionEffect[] = [
+      {
+        sourceRuleId,
+        effect: {
+          type: 'next_action_attack_cost',
+          resource_code: 'action-points',
+          delta: 1,
+        },
+      },
+      {
+        sourceRuleId,
+        effect: {
+          type: 'next_action_attack_target_characteristic_modifier',
+          check_code: 'melee-combat',
+          characteristic_code: 'dexterity',
+          delta: -3,
+          min: 0,
+          max_total_action_cost: 2,
+          scope: { components: ['strike'], hit_count: 1 },
+        },
+      },
+    ];
+
+    expect(
+      actionEffectService.resolveForNextAction(pending, { isAttack: true, component: 'strike', baseCost: 2 })
+        .targetDexterityMasteryDelta,
+    ).toBe(0);
+  });
+
+  it('clamps target modifier and keeps the pending effect source', () => {
+    const result = actionEffectService.resolveForNextAction(
+      [
+        {
+          sourceRuleId: 'rule-swift-strike',
+          effect: {
+            type: 'next_action_attack_target_characteristic_modifier',
+            check_code: 'melee-combat',
+            characteristic_code: 'dexterity',
+            delta: -3,
+            min: 0,
+            max_total_action_cost: 2,
+            scope: { components: ['strike'], hit_count: 1 },
+          },
+        },
+      ],
+      { isAttack: true, component: 'strike', baseCost: 1, targetDexterityMastery: 1 },
+    );
+
+    expect(result.targetDexterityMasteryDelta).toBe(-1);
+    expect(result.targetDexterityMasteryAdjustments).toEqual([{ sourceRuleId: 'rule-swift-strike', delta: -1 }]);
+  });
+
+  it('describes target effects in player-facing language', () => {
+    expect(
+      actionEffectService.describe({
+        type: 'next_action_attack_target_characteristic_modifier',
+        check_code: 'melee-combat',
+        characteristic_code: 'dexterity',
+        delta: -3,
+        min: 0,
+        max_total_action_cost: 2,
+        scope: { components: ['strike'], hit_count: 1 },
+      }),
+    ).toBe(
+      '-3 к Ближнему бою от Ловкости(вплоть до 0 от Ловкости) у цели для первого удара следующей атаки, если итоговая стоимость атаки не более 2 ОД',
+    );
+  });
+
+  it('consumes a duration effect by spending its resource', () => {
+    const pending: PendingActionEffect[] = [
+      {
+        sourceRuleId,
+        effect: {
+          type: 'after_action_until_resource_spent_check_modifier',
+          resource_code: 'action-points',
+          amount: 2,
+          check_codes: ['hit'],
+          delta: -1,
+        },
+      },
+    ];
+
+    const remaining = actionEffectService.consumeResource(pending, 'action-points', 1);
+    expect(remaining[0]?.effect).toMatchObject({ amount: 1 });
+    expect(actionEffectService.consumeResource(remaining, 'action-points', 1)).toEqual([]);
+  });
+});

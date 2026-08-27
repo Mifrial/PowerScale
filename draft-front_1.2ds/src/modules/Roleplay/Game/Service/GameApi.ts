@@ -33,6 +33,7 @@ import type { CreateCheckOfferData } from '@/modules/Roleplay/Game/Dto/CreateChe
 import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/CharacterStateValue';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { ConflictChoices } from '@/modules/Roleplay/Game/Utils/reconcileVersion';
+import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
 
 export class GameApi implements IGameApi {
   constructor(private readonly engine: Engine) {}
@@ -351,6 +352,35 @@ export class GameApi implements IGameApi {
     const res = await this.engine.runAction<GameCombatOverlay[]>('game.getCombatOverlays', { gameId }, signal);
 
     return res.data ?? [];
+  }
+
+  async getPendingActionEffects(
+    gameId: number,
+    signal?: AbortSignal,
+  ): Promise<Record<CombatEntityKey, PendingActionEffect[]>> {
+    const res = await this.engine.runAction<Record<CombatEntityKey, PendingActionEffect[]>>(
+      'game.getPendingActionEffects',
+      { gameId },
+      signal,
+    );
+
+    return res.data ?? {};
+  }
+
+  async setCombatActionEffects(
+    gameId: number,
+    entityKey: CombatEntityKey,
+    effects: PendingActionEffect[],
+    signal?: AbortSignal,
+  ): Promise<PendingActionEffect[]> {
+    const res = await this.engine.runAction<PendingActionEffect[]>(
+      'game.setCombatActionEffects',
+      { gameId, entityKey, effects },
+      signal,
+    );
+    if (!res.data) throw new Error('Set combat action effects failed');
+
+    return res.data;
   }
 
   async setCombatResource(

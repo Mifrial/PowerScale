@@ -109,6 +109,35 @@ describe('mockDevelopmentImport (S14)', () => {
     expect(obezoruzhit?.keywordIds).toContain(54); // maneuver
   });
 
+  it('разделяет Быстрый и Стремительный удар и декларирует эффекты', () => {
+    const fast = abilitySpec('bystryy-udar');
+    const swift = abilitySpec('stremitelnyy-udar');
+
+    expect(fast?.action_effects).toEqual([
+      {
+        type: 'current_action_attack_accuracy',
+        delta: -1,
+        scope: { components: ['strike'], hit_count: 1 },
+      },
+      {
+        type: 'next_action_attack_cost',
+        resource_code: 'action-points',
+        delta: 1,
+      },
+    ]);
+    expect(swift?.action_effects?.[0]).toMatchObject({
+      type: 'next_action_attack_target_characteristic_modifier',
+      max_total_action_cost: 2,
+      delta: -3,
+      min: 0,
+    });
+    expect(swift?.requirements?.[0]?.requirements).toContainEqual({
+      type: 'has_ability',
+      ability_code: 'bystryy-udar',
+      min_level: 1,
+    });
+  });
+
   it('атакующие способности помечены признаком «Атака» (keyword 71), остальные — нет', () => {
     const attack = (code: string): boolean => (byCode.get(code)?.keywordIds ?? []).includes(71);
     // Атакующие карточки каталога (признак «атака» в выгрузке).
@@ -119,7 +148,7 @@ describe('mockDevelopmentImport (S14)', () => {
     expect(attack('otstuplenie')).toBe(false);
     // Счёт: 20 атакующих карточек (все — раздел ближнего боя). «Продолжение атаки» удалена из каталога.
     const withAttack = mockDevelopmentImport.filter((r) => (r.keywordIds ?? []).includes(71)).map((r) => r.code);
-    expect(withAttack).toHaveLength(20);
+    expect(withAttack).toHaveLength(19);
   });
 
   it('«Эффект», «Группа навыков», «Черта развития» не импортируются', () => {

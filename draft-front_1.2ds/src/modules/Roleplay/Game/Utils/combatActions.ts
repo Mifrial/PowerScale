@@ -7,6 +7,8 @@ import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpe
 import type { AbilitySpecBase } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpecBase';
 import type { ActionComponent } from '@/modules/Roleplay/Rule/Dto/Ability/ActionComponent';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import type { ActionEffect } from '@/modules/Roleplay/Rule/Dto/Ability/ActionEffect';
+import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/actionEffectService';
 
 export const SIMPLE_MELEE_ATTACK_CODE = 'simple-melee-attack';
 export const SIMPLE_RANGED_ATTACK_CODE = 'simple-ranged-attack';
@@ -23,6 +25,9 @@ export interface CombatActionOption {
   code: string;
   name: string;
   odCost: number;
+  effects?: ActionEffect[];
+  isAttack?: boolean;
+  isReaction?: boolean;
 }
 
 export function asActionAbilitySpec(rule: Rule): Extract<AbilitySpec, { type: 'action' }> | null {
@@ -61,7 +66,8 @@ export function listAttackActions(
   for (const rule of rules) {
     const spec = asActionAbilitySpec(rule);
     if (!spec) continue;
-    if (!hasKeyword(rule, KW_ATTACK)) continue;
+    const isAttack = hasKeyword(rule, KW_ATTACK);
+    if (!isAttack) continue;
     if (!isAutomaticAbility(spec) && !owned.has(rule.id)) continue;
     const melee = hasKeyword(rule, KW_MELEE);
     const ranged = hasKeyword(rule, KW_RANGED);
@@ -72,6 +78,8 @@ export function listAttackActions(
       code: rule.code,
       name: rule.name,
       odCost: actionOdCost(spec.action_components) || DEFAULT_ATTACK_AP,
+      effects: actionEffectService.effectsOf(rule),
+      isAttack: true,
     });
   }
 
@@ -90,6 +98,8 @@ export function attackActionById(rules: Rule[], ruleId: string | null | undefine
     code: rule.code,
     name: rule.name,
     odCost: actionOdCost(spec.action_components) || DEFAULT_ATTACK_AP,
+    effects: actionEffectService.effectsOf(rule),
+    isAttack: hasKeyword(rule, KW_ATTACK),
   };
 }
 
@@ -103,6 +113,8 @@ export function reactionAction(rules: Rule[], reaction: HitDefenseReaction | nul
       code,
       name: reaction === 'dodge' ? 'Уклонение' : 'Блок',
       odCost: reaction === 'dodge' ? 1 : 2,
+      effects: [],
+      isAttack: true,
     };
   }
   const spec = asActionAbilitySpec(rule);
@@ -112,6 +124,8 @@ export function reactionAction(rules: Rule[], reaction: HitDefenseReaction | nul
     code: rule.code,
     name: rule.name,
     odCost: actionOdCost(spec?.action_components) || (reaction === 'dodge' ? 1 : 2),
+    effects: [],
+    isAttack: true,
   };
 }
 
@@ -124,7 +138,7 @@ export function reactionOdCost(reaction: HitDefenseReaction | null, rules: Rule[
 export function turnAction(rules: Rule[]): CombatActionOption {
   const rule = rules.find((entry) => entry.code === TURN_CODE && entry.type === 'ability');
   if (!rule) {
-    return { ruleId: '', code: TURN_CODE, name: 'Поворот', odCost: 1 };
+    return { ruleId: '', code: TURN_CODE, name: 'Поворот', odCost: 1, effects: [], isAttack: true };
   }
   const spec = asActionAbilitySpec(rule);
 
@@ -133,6 +147,8 @@ export function turnAction(rules: Rule[]): CombatActionOption {
     code: rule.code,
     name: rule.name,
     odCost: actionOdCost(spec?.action_components) || 1,
+    effects: [],
+    isAttack: true,
   };
 }
 

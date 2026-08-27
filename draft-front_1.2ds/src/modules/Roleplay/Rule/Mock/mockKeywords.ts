@@ -4,7 +4,7 @@ import type { UpdateKeywordData } from '@/modules/Roleplay/Rule/Dto/UpdateKeywor
 
 const delay = (ms = 300) => new Promise((r) => setTimeout(r, ms));
 
-let nextId = 226;
+let nextId = 227;
 
 export const keywords: Keyword[] = [
   { id: 1, code: 'melee', name: 'Ближний бой', description: 'Оружие и навыки ближнего боя', active: true },
@@ -587,6 +587,7 @@ export const keywords: Keyword[] = [
   { id: 223, code: 'voice', name: 'Голос', description: 'Черта голоса', active: true },
   { id: 224, code: 'hearing', name: 'Слух', description: 'Черта слуха', active: true },
   { id: 225, code: 'vision', name: 'Зрение', description: 'Черта зрения', active: true },
+  { id: 226, code: 'preparation', name: 'Подготовка', description: 'Признак подготовительного действия', active: true },
 ];
 
 export async function fetchTags(_signal?: AbortSignal): Promise<Keyword[]> {
