@@ -10,7 +10,7 @@ import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/Service/In
 export class ItemCheckAdvantagesService {
   /** Помехи экипированных предметов на проверку: источник — предмет, не производные характеристик. */
   checkAdvantageModifiersFromItems(
-    version: CharacterVersion | null | undefined,
+    version: Pick<CharacterVersion, 'inventory'> | null | undefined,
     rules: Rule[],
     query?: CheckAdvantageQuery,
   ): AdvantageModifier[] {

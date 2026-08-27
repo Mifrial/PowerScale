@@ -16,6 +16,8 @@ export type Grant =
       characteristic_code: string;
       amount: Formula;
       source_code: string;
+      /** Ограничивает модификатор указанными кодами проверок вместо обычного значения характеристики. */
+      check_codes?: string[];
       permanent?: boolean;
     }
   | { type: 'resource'; resource_code: string; limit: DimensionalNumberValue | number; permanent?: boolean }

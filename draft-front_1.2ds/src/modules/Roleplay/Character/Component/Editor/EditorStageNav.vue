@@ -162,6 +162,7 @@ function go(key: string): void {
             :rules="rules"
             :senses="props.model?.senses ?? []"
             :resources="props.model?.resources ?? []"
+            :build="build"
             :proficiency-levels="proficiencyLevels"
           />
         </v-menu>

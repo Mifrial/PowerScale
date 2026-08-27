@@ -15,6 +15,7 @@ import { useKeywordStore } from '@/modules/Roleplay/Rule/Store/keywords';
 import { ABILITY_TYPE_LABELS } from '@/modules/Roleplay/Rule/init';
 import type { AbilityOverview } from '@/modules/Roleplay/Character/Dto/Overview/AbilityOverview';
 import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
+import DescriptionHtml from '@/modules/Core/UI/Component/DescriptionHtml.vue';
 
 const props = defineProps<{
   version: CharacterVersion;
@@ -162,7 +163,8 @@ onMounted(() => {
         </v-expansion-panel-title>
 
         <v-expansion-panel-text>
-          <div class="text-body-2 ability-tab__desc">{{ ability.description || '—' }}</div>
+          <DescriptionHtml v-if="ability.description" :html="ability.description" @open-rule="openRule" />
+          <div v-else class="text-body-2 ability-tab__desc">—</div>
           <v-divider class="my-3" />
           <div class="d-flex align-center ga-2 flex-wrap">
             <span class="text-caption text-medium-emphasis">Признаки:</span>

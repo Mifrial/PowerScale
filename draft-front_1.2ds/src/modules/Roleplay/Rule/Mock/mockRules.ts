@@ -742,6 +742,17 @@ const rules: Rule[] = importedRuleNameService.sanitizeCatalog([
     createdAt: '2026-01-30T10:00:00Z',
   },
   {
+    id: 'rule-40',
+    code: 'mastery',
+    type: 'source',
+    name: 'Мастерство',
+    description: 'Источник модификаторов от мастерства.',
+    spaceId: 1,
+    keywordIds: [],
+    mechanicId: null,
+    createdAt: '2026-01-30T10:00:00Z',
+  },
+  {
     id: 'rule-42',
     code: 'endurance',
     type: 'characteristic',

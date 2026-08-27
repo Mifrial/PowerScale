@@ -225,6 +225,19 @@ export class CharacterEditorService {
         delta,
       };
       const targets = derivedFormulas.get(grant.characteristic_code)?.codes ?? [grant.characteristic_code];
+      if (grant.check_codes?.length) {
+        for (const target of targets) {
+          const scopes = grant.check_codes
+            .map((checkCode) => reference.ruleByCode(checkCode)?.name ?? checkCode)
+            .join(', ');
+          const list = scoped.get(target);
+          const scopedEntry = { ...entry, scope: scopes };
+          if (list) list.push(scopedEntry);
+          else scoped.set(target, [scopedEntry]);
+        }
+
+        return;
+      }
       for (const target of targets) {
         const list = deltas.get(target);
         if (list) list.push(entry);
@@ -246,6 +259,19 @@ export class CharacterEditorService {
         delta,
       };
       const targets = derivedFormulas.get(grant.characteristic_code)?.codes ?? [grant.characteristic_code];
+      if (grant.check_codes?.length) {
+        for (const target of targets) {
+          const scopes = grant.check_codes
+            .map((checkCode) => reference.ruleByCode(checkCode)?.name ?? checkCode)
+            .join(', ');
+          const list = scoped.get(target);
+          const scopedEntry = { ...entry, scope: scopes };
+          if (list) list.push(scopedEntry);
+          else scoped.set(target, [scopedEntry]);
+        }
+
+        return;
+      }
       for (const target of targets) {
         const list = deltas.get(target);
         if (list) list.push(entry);

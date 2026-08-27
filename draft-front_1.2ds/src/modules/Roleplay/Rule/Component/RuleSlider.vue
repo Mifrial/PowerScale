@@ -7,6 +7,7 @@ import RuleSpecView from '@/modules/Roleplay/Rule/Component/RuleSpecView.vue';
 import { RULE_TYPE_LABELS } from '@/modules/Roleplay/Rule/Constant/RULE_TYPE_LABELS';
 import { ruleRevisionResolverService } from '@/modules/Roleplay/Rule/Service/Instance/ruleRevisionResolverService';
 import { useKeywordStore } from '@/modules/Roleplay/Rule/Store/keywords';
+import DescriptionHtml from '@/modules/Core/UI/Component/DescriptionHtml.vue';
 
 const props = defineProps<{
   ruleId: string | null;
@@ -24,6 +25,8 @@ const keywordStore = useKeywordStore();
 const ruleData = ref<Rule | null>(null);
 const sliceRules = ref<Rule[]>([]);
 const error = ref<string | null>(null);
+const nestedRuleId = ref<string | null>(null);
+const nestedOpen = ref(false);
 
 const typeLabel = computed(() =>
   ruleData.value ? (RULE_TYPE_LABELS[ruleData.value.type] ?? ruleData.value.type) : '',
@@ -68,6 +71,11 @@ async function loadRule() {
   }
 }
 
+function openInlineRule(ruleCode: string): void {
+  nestedRuleId.value = ruleCode;
+  nestedOpen.value = true;
+}
+
 watch(
   () => `${props.ruleId ?? ''}|${props.spaceId ?? ''}|${props.rulesRevision ?? ''}|${props.rules?.length ?? 0}`,
   loadRule,
@@ -96,7 +104,9 @@ watch(
       </div>
       <v-card variant="outlined" class="mb-4">
         <v-card-title class="text-body-2 font-weight-bold">Описание</v-card-title>
-        <v-card-text class="rule-slider__description">{{ ruleData.description }}</v-card-text>
+        <v-card-text class="rule-slider__description">
+          <DescriptionHtml :html="ruleData.description" @open-rule="openInlineRule" />
+        </v-card-text>
       </v-card>
       <RuleSpecView :rule="ruleData" :rules="sliceRules" :keywords="resolvedKeywords" />
     </div>
@@ -109,6 +119,7 @@ watch(
     <div v-else class="d-flex justify-center pa-8">
       <v-progress-circular indeterminate width="2" size="28" color="primary" />
     </div>
+    <RuleSlider v-model:open="nestedOpen" :rule-id="nestedRuleId" :rules="sliceRules" :keywords="resolvedKeywords" />
   </SlidePanel>
 </template>
 

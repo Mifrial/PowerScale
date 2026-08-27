@@ -8,6 +8,7 @@ export interface Rule {
   code: string;
   type: RuleType;
   name: string;
+  /** Безопасный HTML после санитизации; plain text поддерживается для обратной совместимости. */
   description: string;
   spaceId: number;
   spec?: RuleSpec;

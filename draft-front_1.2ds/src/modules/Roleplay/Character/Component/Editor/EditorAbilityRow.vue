@@ -14,8 +14,10 @@ import type { EditorAbilityZone } from '@/modules/Roleplay/Character/Dto/Editor/
 import type { EditorAbilityInstance } from '@/modules/Roleplay/Character/Dto/Editor/EditorAbilityInstance';
 import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
 import type { ProcessStep } from '@/modules/Roleplay/Rule/Dto/Ability/ProcessStep';
+import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpec';
 import { useRuleDetailSlider } from '@/modules/Roleplay/Character/Composables/useRuleDetailSlider';
 import { characterEditorService } from '@/modules/Roleplay/Character/Service/Instance/characterEditorService';
+import DescriptionHtml from '@/modules/Core/UI/Component/DescriptionHtml.vue';
 
 const props = defineProps<{
   ability: EditorAbility;
@@ -429,6 +431,32 @@ function displayName(ability: EditorAbility): string {
   return ability.name;
 }
 
+function actionOdCostLabel(ability: EditorAbility): string | null {
+  if (ability.type !== 'action') return null;
+
+  const spec = props.rules?.find((rule) => rule.id === ability.ruleId)?.spec as AbilitySpec | undefined;
+  if (spec?.type !== 'action') return null;
+
+  const costs = spec.action_components.filter(
+    (component): component is Extract<(typeof spec.action_components)[number], { type: 'resource' }> =>
+      component.type === 'resource' && component.resource_code === 'action-points',
+  );
+  if (costs.length === 0) return null;
+  if (costs.length === 1) {
+    const amount = costs[0].amount;
+
+    return `${typeof amount === 'number' ? amount : new DimensionalNumber(amount).toString()} ОД`;
+  }
+
+  let total = new DimensionalNumber({ base: 0, size: 0 });
+  for (const cost of costs) {
+    const amount = typeof cost.amount === 'number' ? { base: cost.amount, size: 0 } : cost.amount;
+    total = total.add(new DimensionalNumber(amount));
+  }
+
+  return `${total.toString()} ОД`;
+}
+
 /** Подпись параметра: «авто N · до M» для расовой автоматической, «X = N · до M» для покупной. */
 function paramLabel(ability: EditorAbility, param: EditorAbilityParameter): string {
   const value = paramValue(param);
@@ -463,6 +491,7 @@ function stepLabel(param: EditorAbilityParameter): string {
         </LightButton>
         <span class="font-weight-medium">{{ displayName(ability) }}</span>
         <LightChip v-if="typeLabel(ability)">{{ typeLabel(ability) }}</LightChip>
+        <LightChip v-if="actionOdCostLabel(ability)">{{ actionOdCostLabel(ability) }}</LightChip>
         <LightChip v-if="ability.racial" color="primary">расовая</LightChip>
         <LightChip v-if="ability.automatic" color="secondary">авто</LightChip>
         <LightChip v-if="ability.gifted" color="secondary">дар</LightChip>
@@ -548,7 +577,13 @@ function stepLabel(param: EditorAbilityParameter): string {
     </template>
 
     <div class="ability-row__body">
-      <p class="text-body-2 body-description">{{ ability.description || '—' }}</p>
+      <DescriptionHtml
+        v-if="ability.description"
+        :html="ability.description"
+        class="text-body-2 body-description"
+        @open-rule="openRule"
+      />
+      <p v-else class="text-body-2 body-description">—</p>
       <div v-if="ability.parameters.length > 1" class="d-flex flex-column ga-1 mb-2">
         <div v-for="param in ability.parameters" :key="param.code" class="d-flex align-center ga-1 flex-wrap">
           <span class="text-body-2">{{ paramLabel(ability, param) }}</span>

@@ -15,6 +15,7 @@ import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { RaceSpec } from '@/modules/Roleplay/Rule/Dto/Race/RaceSpec';
 import type { SpeciesSpec } from '@/modules/Roleplay/Rule/Dto/Race/SpeciesSpec';
+import DescriptionHtml from '@/modules/Core/UI/Component/DescriptionHtml.vue';
 
 const props = defineProps<{
   build: CharacterBuild;
@@ -322,7 +323,7 @@ function applyRace(ruleId: string): void {
             </v-btn>
           </div>
 
-          <p class="text-body-2 mb-3">{{ selectedRule.description }}</p>
+          <DescriptionHtml :html="selectedRule.description" class="text-body-2 mb-3" />
 
           <template v-if="selectedCharacteristics.length">
             <div class="text-caption muted-text mb-1">Характеристики</div>

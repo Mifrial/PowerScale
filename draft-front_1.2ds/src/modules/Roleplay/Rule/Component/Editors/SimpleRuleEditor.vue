@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import RuleDescriptionEditor from '@/modules/Roleplay/Rule/Component/Editors/RuleDescriptionEditor.vue';
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+
 defineProps<{
   name: string;
   code: string;
@@ -7,6 +10,7 @@ defineProps<{
   keywordIds: number[];
   mechanicOptions: { title: string; value: number }[];
   keywordOptions: { title: string; value: number }[];
+  rules?: Rule[];
   /** Код неизменяем после создания — поле блокируется при редактировании. */
   codeDisabled?: boolean;
 }>();
@@ -38,11 +42,9 @@ const emit = defineEmits<{
       @update:model-value="emit('update:code', $event)"
     />
 
-    <v-textarea
+    <RuleDescriptionEditor
       :model-value="description"
-      label="Описание"
-      rows="5"
-      class="mt-4"
+      :rules="rules ?? []"
       @update:model-value="emit('update:description', $event)"
     />
 

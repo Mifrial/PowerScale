@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import SimpleRuleEditor from '@/modules/Roleplay/Rule/Component/Editors/SimpleRuleEditor.vue';
 import { useVModelSync } from '@/modules/Core/UI/Composables/useVModelSync';
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
 const props = defineProps<{
   name: string;
@@ -10,6 +11,7 @@ const props = defineProps<{
   keywordIds: number[];
   mechanicOptions: { title: string; value: number }[];
   keywordOptions: { title: string; value: number }[];
+  rules?: Rule[];
   /** Код неизменяем после создания — поле блокируется при редактировании. */
   codeDisabled?: boolean;
 }>();
@@ -59,6 +61,7 @@ const { inner: localTagIds } = useVModelSync({
       v-model:keywordIds="localTagIds"
       :mechanic-options="mechanicOptions"
       :keyword-options="keywordOptions"
+      :rules="rules"
       :code-disabled="codeDisabled"
     />
     <slot name="spec" />

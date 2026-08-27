@@ -1659,8 +1659,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     code: 'fizicheskoe-razvitie',
     type: 'ability',
     name: 'Физическое развитие',
-    description:
-      'Навык позволяет развивать физическую форму, вплоть до +6 от тренировки к одной характеристике.',
+    description: 'Навык позволяет развивать физическую форму, вплоть до +6 от тренировки к одной характеристике.',
     spaceId: 1,
     spec: {
       type: 'trait',
@@ -1755,7 +1754,7 @@ const mockDevelopmentImportRaw: Rule[] = [
       zones: {
         or: {
           kind: 'array',
-          levels_cost: [3],
+          levels_cost: [4],
         },
       },
       requirements: [
@@ -1770,7 +1769,19 @@ const mockDevelopmentImportRaw: Rule[] = [
           ],
         },
       ],
-      grants: [],
+      grants: [
+        {
+          level: 1,
+          grants: [
+            {
+              type: 'resource_limit_change',
+              resource_code: 'action-points',
+              amount: { type: 'fixed', value: 1 },
+              source_code: 'training',
+            },
+          ],
+        },
+      ],
       parent_ability_code: null,
     },
     keywordIds: [11, 61],
@@ -1842,7 +1853,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     code: 'skrytnost',
     type: 'ability',
     name: 'Скрытность( х из 3)',
-    description: 'Вы получаете +[2 * х ] к проворству от мастерства для проверок на скрытность(проворство).',
+    description:
+      'Вы получаете +[2 * х] к проворству от мастерства для проверок на скрытность. Проверки на скрытность, как правило, проходят на основе характеристики Ловкость.',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -1855,7 +1867,44 @@ const mockDevelopmentImportRaw: Rule[] = [
         },
       },
       requirements: [],
-      grants: [],
+      grants: [
+        {
+          level: 1,
+          grants: [
+            {
+              type: 'characteristic_modify',
+              characteristic_code: 'dexterity',
+              amount: { type: 'fixed', value: 2 },
+              source_code: 'mastery',
+              check_codes: ['stealth'],
+            },
+          ],
+        },
+        {
+          level: 2,
+          grants: [
+            {
+              type: 'characteristic_modify',
+              characteristic_code: 'dexterity',
+              amount: { type: 'fixed', value: 2 },
+              source_code: 'mastery',
+              check_codes: ['stealth'],
+            },
+          ],
+        },
+        {
+          level: 3,
+          grants: [
+            {
+              type: 'characteristic_modify',
+              characteristic_code: 'dexterity',
+              amount: { type: 'fixed', value: 2 },
+              source_code: 'mastery',
+              check_codes: ['stealth'],
+            },
+          ],
+        },
+      ],
       parent_ability_code: null,
     },
     keywordIds: [13, 61],
@@ -1891,7 +1940,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Акробатика( х из 3)',
     description:
-      'Вы получаете + х к проворству от техники для проверок на Акробатику.\nПроверки на Акробатику могут основываться на Реакции, Силе и/или Ловкости. Если проверка основывается на нескольких характеристиках - то для проверки используется наименьшая.\nВ качестве примера вариант правил для прыжка от стены. Это проверка на Акробатику(сила) со сложностью 3 для первого прыжка. Для второго прыжка сложность уже будет 3 ↑ и стоить 2 энергии. Последующие прыжки будут иметь сложность 3 ↑↑ и стоить 2 ↑ энергии.',
+      '<p>Вы получаете + х к <a data-rule-code="dexterity">проворству</a> от <a data-rule-code="mastery">мастерства</a> для проверок на <a data-rule-code="acrobatics">Акробатику</a>.</p><p>Проверки на <a data-rule-code="acrobatics">Акробатику</a> могут основываться на <a data-rule-code="reaction">Реакции</a>, <a data-rule-code="strength">Силе</a> или <a data-rule-code="dexterity">Ловкости</a>. Если для проверки важны несколько характеристик - для проверки выбирается меньшая.</p><p><span class="description-example">Пример: Прыжок от стены. Это проверка на <a data-rule-code="acrobatics">Акробатику</a> по <a data-rule-code="strength">Силе</a> со сложностью 3 для первого прыжка. Для второго прыжка сложность возрастает до 3↑. Сложность последующих прыжков равна 3↑↑</span></p>',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -1902,7 +1951,20 @@ const mockDevelopmentImportRaw: Rule[] = [
         },
       },
       requirements: [],
-      grants: [],
+      grants: [
+        {
+          level: 1,
+          grants: [
+            {
+              type: 'characteristic_modify',
+              characteristic_code: 'dexterity',
+              amount: { type: 'ability_level', ability_code: 'akrobatika', multiplier: 1 },
+              source_code: 'mastery',
+              check_codes: ['acrobatics'],
+            },
+          ],
+        },
+      ],
       parent_ability_code: null,
     },
     keywordIds: [13, 61],

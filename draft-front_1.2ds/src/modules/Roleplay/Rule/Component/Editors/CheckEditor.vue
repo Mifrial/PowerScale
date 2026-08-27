@@ -73,6 +73,15 @@ const characteristicOptions = computed(() =>
   props.rules.filter((rule) => rule.type === 'characteristic').map((rule) => ({ title: rule.name, value: rule.code })),
 );
 
+const effectiveCharacteristicCode = computed({
+  get: () =>
+    draft.value.characteristic_code ??
+    checkResolutionService.resolveCheckCharacteristicCode(props.code, props.rules, null),
+  set: (code: string | null) => {
+    draft.value.characteristic_code = code;
+  },
+});
+
 const stateOptions = computed(() =>
   props.rules.filter((rule) => rule.type === 'state').map((rule) => ({ title: rule.name, value: rule.code })),
 );
@@ -144,6 +153,7 @@ const versusPreview = computed(() =>
     @update:keyword-ids="(v) => emit('update:keywordIds', v)"
     :mechanic-options="mechanicOptions"
     :keyword-options="keywordOptions"
+    :rules="rules"
   >
     <template #spec>
       <v-select
@@ -157,7 +167,7 @@ const versusPreview = computed(() =>
         class="mb-3"
       />
       <v-select
-        v-model="draft.characteristic_code"
+        v-model="effectiveCharacteristicCode"
         :items="characteristicOptions"
         label="Характеристика пула"
         hint="Кто бросает. Для истощения — Сила воли. Пусто — взять у предка."

@@ -392,9 +392,20 @@ function poolSpec(
   }
   const view = map.get(code);
   if (!view) throw new Error(`Нет характеристики для ${nameOf(key)}`);
+  const characteristicBonus = checkCode.value
+    ? abilityCheckAdvantagesService.checkCharacteristicModifiersFromAbilities(
+        modelOf(key)?.effectiveVersion,
+        props.rules,
+        checkCode.value,
+        code,
+      )
+    : [];
+  const characteristicValue = new DimensionalNumber(view.value).modify(
+    characteristicBonus.reduce((sum, modifier) => sum + modifier.delta, 0),
+  ).value;
   const spec = checkRollService.namedCheckSpec(
     `${nameOf(key)}: ${view.name}`,
-    view.value,
+    characteristicValue,
     adv,
     props.rules,
     key ?? undefined,

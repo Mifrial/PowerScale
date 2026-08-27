@@ -15,6 +15,7 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import EditorAbilityGroupNode from '@/modules/Roleplay/Character/Component/Editor/EditorAbilityGroupNode.vue';
 import EditorAbilityRow from '@/modules/Roleplay/Character/Component/Editor/EditorAbilityRow.vue';
 import LightChip from '@/modules/Core/UI/Component/light/LightChip.vue';
+import DescriptionHtml from '@/modules/Core/UI/Component/DescriptionHtml.vue';
 import type { EditorAbilityGroup } from '@/modules/Roleplay/Character/Dto/Editor/EditorAbilityGroup';
 
 type BaseFilter = 'all' | 'available' | 'unavailable' | 'racial' | 'public';
@@ -261,7 +262,7 @@ const surchargeByRuleId = computed<Map<string, number>>(() => {
     </div>
 
     <div v-if="surchargeRule" class="d-flex align-center ga-2 flex-wrap mb-2">
-      <span class="text-caption text-medium-emphasis">{{ surchargeRule.description }}</span>
+      <DescriptionHtml :html="surchargeRule.description" class="text-caption text-medium-emphasis" />
       <LightChip v-if="osSurcharge" color="warning">
         Доплата: {{ osSurcharge.total }} ОС за {{ osSurcharge.items.length }} черт
       </LightChip>

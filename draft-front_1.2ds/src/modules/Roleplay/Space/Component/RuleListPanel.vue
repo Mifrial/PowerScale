@@ -4,6 +4,7 @@ import { RULE_TYPE_LABELS } from '@/modules/Roleplay/Rule/init';
 import VirtualList from '@/modules/Core/UI/Component/VirtualList.vue';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { RuleType } from '@/modules/Roleplay/Rule/Enum/RuleType';
+import DescriptionHtml from '@/modules/Core/UI/Component/DescriptionHtml.vue';
 
 const props = withDefaults(
   defineProps<{
@@ -88,7 +89,9 @@ function ruleKey(rule: Rule): string {
               Изменено
             </v-chip>
           </v-list-item-title>
-          <v-list-item-subtitle>{{ item.description }}</v-list-item-subtitle>
+          <v-list-item-subtitle>
+            <DescriptionHtml :html="item.description" class="rule-list-panel__description" />
+          </v-list-item-subtitle>
           <template #append>
             <div class="d-flex align-center ga-2">
               <v-chip size="x-small" variant="tonal">
@@ -111,3 +114,11 @@ function ruleKey(rule: Rule): string {
     </VirtualList>
   </div>
 </template>
+
+<style scoped>
+.rule-list-panel__description {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+</style>

@@ -11,6 +11,8 @@ import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
 import { getRuleApi } from '@/modules/Roleplay/Rule/init';
 import { RULE_TYPE_LABELS } from '@/modules/Roleplay/Rule/Constant/RULE_TYPE_LABELS';
 import RuleSpecView from '@/modules/Roleplay/Rule/Component/RuleSpecView.vue';
+import DescriptionHtml from '@/modules/Core/UI/Component/DescriptionHtml.vue';
+import RuleSlider from '@/modules/Roleplay/Rule/Component/RuleSlider.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -30,6 +32,8 @@ const mechanics = ref<Mechanic[]>([]);
 const loaded = ref<string | null>(null);
 const loading = ref(true);
 const error = ref<string | null>(null);
+const inlineRuleId = ref<string | null>(null);
+const inlineRuleOpen = ref(false);
 
 const mechanic = computed(() => {
   if (!rule.value?.mechanicId) return null;
@@ -45,6 +49,11 @@ const ruleTags = computed(() => {
 });
 
 const editLink = computed(() => `/space/${code.value}/${ctx.value}/rules/${ruleId.value}/edit`);
+
+function openInlineRule(ruleCode: string): void {
+  inlineRuleId.value = ruleCode;
+  inlineRuleOpen.value = true;
+}
 
 async function resolveRoute(): Promise<void> {
   const key = `${code.value}|${ctx.value}|${ruleId.value}`;
@@ -104,10 +113,13 @@ watch(() => [route.params.code, route.params.ctx, route.params.ruleId], resolveR
 
     <v-card class="mb-4">
       <v-card-title>Описание</v-card-title>
-      <v-card-text class="rule-detail__description">{{ rule.description }}</v-card-text>
+      <v-card-text class="rule-detail__description">
+        <DescriptionHtml :html="rule.description" @open-rule="openInlineRule" />
+      </v-card-text>
     </v-card>
 
     <RuleSpecView :rule="rule" :rules="ruleHost.effectiveRules" :keywords="keywordStore.keywords" class="mb-4" />
+    <RuleSlider v-model:open="inlineRuleOpen" :rule-id="inlineRuleId" :rules="ruleHost.effectiveRules" />
 
     <v-card v-if="mechanic" class="mb-4">
       <v-card-title>Механика</v-card-title>

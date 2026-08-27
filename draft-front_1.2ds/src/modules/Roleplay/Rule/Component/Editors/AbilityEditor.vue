@@ -266,6 +266,7 @@ function hasActionPointCost(): boolean {
             @update:keyword-ids="(v) => emit('update:keywordIds', v)"
             :mechanic-options="mechanicOptions"
             :keyword-options="keywordOptions"
+            :rules="rules"
           >
             <template #spec></template>
           </RuleEditorBase>

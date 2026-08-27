@@ -1,0 +1,31 @@
+import type { Config } from 'dompurify';
+
+export const DESCRIPTION_HTML_CONFIG: Config = {
+  ALLOWED_TAGS: [
+    'a',
+    'aside',
+    'blockquote',
+    'br',
+    'caption',
+    'col',
+    'colgroup',
+    'em',
+    'h2',
+    'h3',
+    'li',
+    'ol',
+    'p',
+    'strong',
+    'span',
+    'table',
+    'tbody',
+    'td',
+    'tfoot',
+    'th',
+    'thead',
+    'tr',
+    'ul',
+  ],
+  ALLOWED_ATTR: ['class', 'colspan', 'data-rule-code', 'rowspan'],
+  ALLOW_DATA_ATTR: false,
+};

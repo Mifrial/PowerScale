@@ -6,6 +6,8 @@ export const CHECK_EXHAUSTION_CODE = 'check-exhaustion';
 export const CHECK_INITIATIVE_CODE = 'check-initiative';
 export const CHECK_INJURY_CODE = 'check-injury';
 export const CHECK_COMMUNICATION_CODE = 'check-communication';
+export const CHECK_STEALTH_CODE = 'stealth';
+export const CHECK_ACROBATICS_CODE = 'acrobatics';
 
 /** Правила простой проверки (коды карточек, не механик); наследуются потомкам. */
 export const CHECK_SIMPLE_ATTACHED_RULE_CODES = ['rule-6-and-1', 'advantages'];

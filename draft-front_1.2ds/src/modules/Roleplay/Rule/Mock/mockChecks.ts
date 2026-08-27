@@ -7,6 +7,8 @@ import {
   CHECK_INITIATIVE_CODE,
   CHECK_INJURY_CODE,
   CHECK_COMMUNICATION_CODE,
+  CHECK_STEALTH_CODE,
+  CHECK_ACROBATICS_CODE,
   CHECK_SIMPLE_ATTACHED_RULE_CODES,
   CHECK_INJURY_ATTACHED_RULE_CODES,
 } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
@@ -147,6 +149,19 @@ export const mockChecks: Rule[] = [
   checkRule('rule-check-11', 'trade', 'Торговля', 'Проверка на общение: торговля.', {
     type: 'check',
     parent_check_code: CHECK_COMMUNICATION_CODE,
+    ...askBoth,
+  }),
+  checkRule('rule-check-12', CHECK_STEALTH_CODE, 'Проверка на скрытность', 'Проверка на скрытность.', {
+    type: 'check',
+    parent_check_code: CHECK_SIMPLE_CODE,
+    characteristic_code: 'dexterity',
+    ...askBoth,
+  }),
+  checkRule('rule-check-13', CHECK_ACROBATICS_CODE, 'Проверка на Акробатику', 'Проверка на Акробатику.', {
+    type: 'check',
+    parent_check_code: CHECK_SIMPLE_CODE,
+    characteristic_code: 'dexterity',
+    allow_characteristic_override: true,
     ...askBoth,
   }),
   characteristicCheck(20, 'strength', 'Силу'),

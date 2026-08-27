@@ -47,6 +47,27 @@ describe('mockDevelopmentImport (S14)', () => {
     expect(acrobatics?.zones?.or).toEqual({ kind: 'array', levels_cost: [1, 1, 1, 2, 2, 3] });
   });
 
+  it('Акробатика связана с отдельной проверкой и даёт бонус по уровню', () => {
+    const acrobatics = byCode.get('akrobatika');
+    const acrobaticsCheck = byCode.get('acrobatics');
+    const grants = (acrobatics?.spec as AbilitySpecBase)?.grants ?? [];
+
+    expect(acrobaticsCheck?.type).toBe('check');
+    expect((acrobaticsCheck?.spec as { characteristic_code?: string }).characteristic_code).toBe('dexterity');
+    expect((acrobaticsCheck?.spec as { allow_characteristic_override?: boolean }).allow_characteristic_override).toBe(
+      true,
+    );
+    expect(grants).toHaveLength(1);
+    expect(grants.every((entry) => entry.grants[0]?.type === 'characteristic_modify')).toBe(true);
+    expect(
+      grants.every((entry) =>
+        entry.grants.every(
+          (grant) => grant.type === 'characteristic_modify' && grant.check_codes?.includes('acrobatics'),
+        ),
+      ),
+    ).toBe(true);
+  });
+
   it('агрегат «Развитие восприятия» и производный «Ближний бой»', () => {
     const aggregate = abilitySpec('razvitie-vospriyatiya');
     expect(aggregate?.aggregate).toEqual({

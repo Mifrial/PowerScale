@@ -7,6 +7,8 @@ import type { EditorAbilityGroup } from '@/modules/Roleplay/Character/Dto/Editor
 import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { characterEditorService } from '@/modules/Roleplay/Character/Service/Instance/characterEditorService';
+import DescriptionHtml from '@/modules/Core/UI/Component/DescriptionHtml.vue';
+import { useRuleDetailSlider } from '@/modules/Roleplay/Character/Composables/useRuleDetailSlider';
 
 const props = defineProps<{
   group: EditorAbilityGroup;
@@ -26,6 +28,8 @@ const props = defineProps<{
   /** Раскрытые панели группы и её участников (переживают ремаунты виртуализации). */
   openSet: Set<string>;
 }>();
+
+const { openRule } = useRuleDetailSlider();
 
 const emit = defineEmits<{
   'update:open': [ruleId: string, open: boolean];
@@ -81,7 +85,12 @@ function zoneLabelOf(): string {
     </template>
 
     <div class="ability-group__body">
-      <p v-if="group.description" class="text-body-2 group-description">{{ group.description }}</p>
+      <DescriptionHtml
+        v-if="group.description"
+        :html="group.description"
+        class="text-body-2 group-description"
+        @open-rule="openRule"
+      />
       <EditorAbilityRow
         v-for="member in members"
         :key="member.ruleId"
