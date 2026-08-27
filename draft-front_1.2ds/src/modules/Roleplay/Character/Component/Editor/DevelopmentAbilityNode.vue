@@ -18,6 +18,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:open': [ruleId: string, open: boolean];
   'set-level': [ruleId: string, level: number];
+  'set-parameter': [ruleId: string, code: string, value: number | { base: number; size: number }];
   'add-instance': [ruleId: string, domain: string, domainCode: string | null];
   'set-instance-level': [ruleId: string, domain: string, level: number];
   'set-instance-domain': [ruleId: string, oldDomain: string, newDomain: string, domainCode: string | null];
@@ -40,6 +41,7 @@ function childrenOf(ability: EditorAbility): EditorAbility[] {
       zone-label="ОР"
       :open="openSet.has(ability.ruleId)"
       @update:open="emit('update:open', ability.ruleId, $event)"
+      @set-parameter="(ruleId, code, value) => emit('set-parameter', ruleId, code, value)"
       @set-level="(ruleId, level) => emit('set-level', ruleId, level)"
       @add-instance="(ruleId, domain, code) => emit('add-instance', ruleId, domain, code)"
       @set-instance-level="(ruleId, domain, level) => emit('set-instance-level', ruleId, domain, level)"
@@ -60,6 +62,7 @@ function childrenOf(ability: EditorAbility): EditorAbility[] {
             :rules="rules"
             :open-set="openSet"
             @update:open="(ruleId, open) => emit('update:open', ruleId, open)"
+            @set-parameter="(ruleId, code, value) => emit('set-parameter', ruleId, code, value)"
             @set-level="(ruleId, level) => emit('set-level', ruleId, level)"
             @add-instance="(ruleId, domain, code) => emit('add-instance', ruleId, domain, code)"
             @set-instance-level="(ruleId, domain, level) => emit('set-instance-level', ruleId, domain, level)"

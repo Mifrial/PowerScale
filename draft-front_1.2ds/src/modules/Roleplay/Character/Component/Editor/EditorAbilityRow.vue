@@ -346,6 +346,22 @@ function stepPrice(param: EditorAbilityParameter, from: number, to: number): num
   return param.perUnit;
 }
 
+function stepDownCost(param: EditorAbilityParameter): number {
+  const index = param.steps.findIndex((step) => sameStep(step.value, param.value));
+  if (index <= 0) return 0;
+
+  return param.steps[index].cost - param.steps[index - 1].cost;
+}
+
+function stepUpCost(param: EditorAbilityParameter): number {
+  const index = param.steps.findIndex((step) => sameStep(step.value, param.value));
+  if (index >= 0 && param.steps[index + 1]) return param.steps[index + 1].cost - param.steps[index].cost;
+
+  const value = paramValue(param);
+
+  return stepPrice(param, value, value + 1);
+}
+
 function stepDownTitle(ability: EditorAbility, param: EditorAbilityParameter): string {
   const v = paramValue(param);
   if (param.steps.length) {
@@ -369,7 +385,7 @@ function stepUpTitle(ability: EditorAbility, param: EditorAbilityParameter): str
     if (!next) return '';
     const paid = next.cost - (param.steps[index]?.cost ?? 0);
 
-    return `Уровень X=${new DimensionalNumber(next.value).toString()}: ${paid} ОС`;
+    return `Уровень X=${new DimensionalNumber(next.value).toString()}: ${paid} ${zoneLabelOf()}`;
   }
   if (v > 0) {
     const paid = stepPrice(param, v, v + 1);
@@ -389,6 +405,11 @@ function stepUpTitle(ability: EditorAbility, param: EditorAbilityParameter): str
 
 function levelChipLabel(ability: EditorAbility): string {
   if (ability.multiple) return `${ability.instances.length} экземпляров`;
+  if (ability.parameters.length > 1) {
+    const used = ability.parameters.reduce((sum, param) => sum + paramValue(param), 0);
+
+    return `пул ${used} из ${maxLevel(ability)}`;
+  }
   const param = paramOf(ability);
   if (param) {
     if (param.steps.length) return `X = ${stepLabel(param)}`;
@@ -412,7 +433,7 @@ function displayName(ability: EditorAbility): string {
 function paramLabel(ability: EditorAbility, param: EditorAbilityParameter): string {
   const value = paramValue(param);
   const display = param.steps.length ? stepLabel(param) : String(value);
-  const base = value !== 0 ? `X = ${display}` : 'X = —';
+  const base = `${param.label}: +${display}`;
   const suffix = param.cappedByRace ? ` · до ${paramMax(param)}` : '';
   if (param.freeValue > 0) return `авто ${param.freeValue}${suffix}`;
 
@@ -458,7 +479,11 @@ function stepLabel(param: EditorAbilityParameter): string {
           +{{ props.surchargeAmount }} {{ zoneLabelOf() }}
         </LightChip>
         <div
-          v-if="!ability.derived && (costKind(ability) === 'parameter' || costKind(ability) === 'parameter_table')"
+          v-if="
+            !ability.derived &&
+            (costKind(ability) === 'parameter' || costKind(ability) === 'parameter_table') &&
+            ability.parameters.length <= 1
+          "
           class="d-flex align-center ga-1"
         >
           <template v-if="paramOf(ability)">
@@ -523,13 +548,35 @@ function stepLabel(param: EditorAbilityParameter): string {
     </template>
 
     <div class="ability-row__body">
+      <p class="text-body-2 body-description">{{ ability.description || '—' }}</p>
+      <div v-if="ability.parameters.length > 1" class="d-flex flex-column ga-1 mb-2">
+        <div v-for="param in ability.parameters" :key="param.code" class="d-flex align-center ga-1 flex-wrap">
+          <span class="text-body-2">{{ paramLabel(ability, param) }}</span>
+          <div class="d-flex align-center ga-1">
+            <LightButton
+              :disabled="!canStepDown(ability, param)"
+              :title="stepDownTitle(ability, param)"
+              @click.stop="stepDown(ability, param)"
+            >
+              − {{ stepDownCost(param) }} {{ zoneLabelOf() }}
+            </LightButton>
+            <LightButton
+              :disabled="!canStepUp(ability, param)"
+              :title="stepUpTitle(ability, param)"
+              @click.stop="stepUp(ability, param)"
+            >
+              + {{ stepUpCost(param) }} {{ zoneLabelOf() }}
+            </LightButton>
+          </div>
+          <span v-if="param.description" class="text-caption text-medium-emphasis">{{ param.description }}</span>
+        </div>
+      </div>
       <div
         v-if="!ability.multiple && ability.levels.some((level) => !level.met)"
         class="text-caption text-medium-emphasis mb-1"
       >
         Требования: {{ ability.levels.find((level) => !level.met)?.reason }}
       </div>
-      <p class="text-body-2 body-description">{{ ability.description || '—' }}</p>
       <div v-if="!ability.multiple && ability.domainRef && displayLevel(ability) > 0" class="ability-row__domain">
         <v-combobox
           :model-value="ability.domain ?? ''"

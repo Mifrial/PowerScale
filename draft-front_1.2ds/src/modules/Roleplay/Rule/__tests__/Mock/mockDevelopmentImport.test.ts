@@ -62,7 +62,7 @@ describe('mockDevelopmentImport (S14)', () => {
     const sdvoenny = abilitySpec('sdvoennyy-udar');
     expect(sdvoenny?.requirements?.[0]?.requirements).toContainEqual({
       type: 'has_ability',
-      ability_code: 'double-strike',
+      ability_code: 'blizhniy-boy',
       min_level: 1,
     });
     const neitralizaciya = abilitySpec('neytralizatsiya-pomekh');
@@ -204,5 +204,18 @@ describe('mockDevelopmentImport (S14)', () => {
       { characteristic_code?: string; amount?: { type?: string; ability_code?: string } } | undefined;
     expect(modify?.characteristic_code).toBe('perception');
     expect(modify?.amount).toMatchObject({ type: 'ability_level', ability_code: 'razvitie-vospriyatiya' });
+  });
+
+  it('«Физическое развитие» — один навык с пулом 9, без основ', () => {
+    expect(byCode.has('osnovy-fizicheskogo-razvitiya')).toBe(false);
+    const spec = abilitySpec('fizicheskoe-razvitie');
+    expect(spec?.zones?.or).toMatchObject({ kind: 'parameter_sum_tables', max_level: 9 });
+    expect(spec?.parameters?.map((parameter) => parameter.code)).toEqual(['strength', 'endurance', 'dexterity']);
+    const speed = abilitySpec('trenirovka-skorosti');
+    expect(speed?.requirements?.[0]?.requirements).toContainEqual({
+      type: 'has_ability',
+      ability_code: 'fizicheskoe-razvitie',
+      min_level: 1,
+    });
   });
 });

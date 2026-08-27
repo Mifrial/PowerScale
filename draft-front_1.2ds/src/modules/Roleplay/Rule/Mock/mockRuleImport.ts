@@ -5,11 +5,13 @@ import type { Requirement } from '@/modules/Roleplay/Rule/Dto/Ability/Requiremen
 import type { Grant } from '@/modules/Roleplay/Rule/Dto/Ability/Grant';
 import type { AbilityParameter } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityParameter';
 import { damageTypeSpecService } from '@/modules/Roleplay/Rule/Service/Instance/damageTypeSpecService';
+import { ATTRACTIVENESS_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
+import { CHECK_VOICE_MUSIC_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
 
 /**
  * Импорт черт из docs/rule/AI.html (раздел «Создание основы», S2).
  * Данные ложатся на модель S3: параметры (kind 'parameter'), resistance-грант,
- * группы (группирующие правила type 'group' + group_code у участников, признак «часть группы»),
+ * группы (группирующие правила type 'group' + group_code у участников, признак домена Внешность/Голос/Слух/Зрение),
  * признак «общая» (keyword common) + механика purchase_surcharge.
  * Отложено (вне этого набора): спеллы, черты монстра, Энергохранилище X, Однорукий, Зверолюди.
  */
@@ -19,7 +21,7 @@ const FEATURE_KEYWORD = 12; // feature
 const COMMON_KEYWORD = 20; // «Общая» — раздел «Общие черты», участвует в прогрессивной доплате
 const RACIAL_KEYWORD = 31; // «Расовая» — доступна только если предоставляет раса
 const GROUP_KEYWORD = 42; // «Группа» — тип группирующего правила
-const GROUP_PART_KEYWORD = 43; // «Часть группы» — способность входит в группу
+const APPEARANCE_KEYWORD = 43;
 const INNATE_KEYWORD = 44; // «Врождённая» — врождённая черта (от тела/вида)
 const CHARACTERISTIC_KEYWORD = 45; // «Характеристика» — черта характеристик (вкладка «Характеристики»)
 const MODIFIER_KEYWORD = 46; // «Модификатор» — даёт модификатор ±X к характеристике
@@ -30,6 +32,16 @@ const ATTENTIVENESS_KEYWORD = 49; // «Внимательность» — осо
 const WEALTH_KEYWORD = 50; // «Богатство» — особенность богатства (не в лимите числа особенностей)
 const MEMORY_KEYWORD = 51; // «Память» — особенность личности
 const INSIGHT_KEYWORD = 52; // «Проницательность» — особенность личности
+const VOICE_KEYWORD = 223;
+const HEARING_KEYWORD = 224;
+const VISION_KEYWORD = 225;
+
+const GROUP_DOMAIN_KEYWORD: Record<string, number> = {
+  appearance: APPEARANCE_KEYWORD,
+  voice: VOICE_KEYWORD,
+  hearing: HEARING_KEYWORD,
+  vision: VISION_KEYWORD,
+};
 
 const dim = (base: number, size = 0) => ({ base, size });
 
@@ -71,7 +83,7 @@ const traitRule = (
     typeKeyword,
     ...(common ? [COMMON_KEYWORD] : []),
     ...(racial ? [RACIAL_KEYWORD] : []),
-    ...(spec.group_code ? [GROUP_PART_KEYWORD] : []),
+    ...(spec.group_code && GROUP_DOMAIN_KEYWORD[spec.group_code] ? [GROUP_DOMAIN_KEYWORD[spec.group_code]] : []),
     ...(spec.keywordIds ?? []),
   ];
 
@@ -103,6 +115,13 @@ const groupRule = (code: string, name: string, description: string, selectLimit:
   mechanicId: null,
   mechanic_payload: null,
   createdAt: '2026-08-07T10:00:00Z',
+});
+
+const attractivenessModify = (value: number, source_code: string): Grant => ({
+  type: 'state_modify',
+  state_code: ATTRACTIVENESS_STATE_CODE,
+  amount: { type: 'fixed', value },
+  source_code,
 });
 
 const modify = (characteristic_code: string, value: number): Grant => ({
@@ -206,7 +225,13 @@ const personalityRule = (
     parent_ability_code: null,
     ...(options.group_code ? { group_code: options.group_code } : {}),
   },
-  keywordIds: [FEATURE_KEYWORD, ...(options.group_code ? [GROUP_PART_KEYWORD] : []), ...(options.keywordIds ?? [])],
+  keywordIds: [
+    FEATURE_KEYWORD,
+    ...(options.group_code && GROUP_DOMAIN_KEYWORD[options.group_code]
+      ? [GROUP_DOMAIN_KEYWORD[options.group_code]]
+      : []),
+    ...(options.keywordIds ?? []),
+  ],
   mechanicId: null,
   mechanic_payload: null,
   createdAt: '2026-08-09T10:00:00Z',
@@ -290,127 +315,155 @@ const importedRules: Rule[] = [
     true,
   ),
 
-  // --- Внешность (группа «1 из группы») → Общение ---
+  // --- Внешность (группа «1 из группы») → статус Привлекательность ---
   traitRule(
     'repulsive',
     'Омерзительная',
-    'Ваша внешность отталкивает.',
-    { type: 'trait', zones: osCost(-2), group_code: 'appearance', grants: [modify('communication', -3)] },
+    'Внешность отталкивает: −2 к Привлекательности от внешности. Пока статус ниже нуля — одна помеха от внешности на убеждение, обман и торговлю и столько помех на обольщение, каково значение статуса.',
+    {
+      type: 'trait',
+      zones: osCost(-2),
+      group_code: 'appearance',
+      grants: [attractivenessModify(-2, 'from-appearance')],
+    },
     true,
   ),
   traitRule(
     'ugly',
     'Уродливая',
-    'Ваша внешность неприятна.',
-    { type: 'trait', zones: osCost(-1), group_code: 'appearance', grants: [modify('communication', -2)] },
+    'Внешность неприятна: −1 к Привлекательности от внешности. Пока статус ниже нуля — одна помеха от внешности на убеждение, обман и торговлю и столько помех на обольщение, каково значение статуса.',
+    {
+      type: 'trait',
+      zones: osCost(-1),
+      group_code: 'appearance',
+      grants: [attractivenessModify(-1, 'from-appearance')],
+    },
     true,
   ),
   traitRule(
     'beautiful',
     'Красивая',
-    'Приятная внешность.',
-    { type: 'trait', zones: osCost(2), group_code: 'appearance', grants: [modify('communication', 1)] },
+    'Приятная внешность: +1 к Привлекательности от внешности. Пока статус выше нуля — одно преимущество от внешности на убеждение, обман и торговлю и столько преимуществ на обольщение, каково значение статуса.',
+    { type: 'trait', zones: osCost(2), group_code: 'appearance', grants: [attractivenessModify(1, 'from-appearance')] },
     true,
   ),
   traitRule(
     'gorgeous',
     'Восхитительная',
-    'Ваша внешность восхищает.',
-    { type: 'trait', zones: osCost(4), group_code: 'appearance', grants: [modify('communication', 2)] },
+    'Внешность восхищает: +2 к Привлекательности от внешности. Пока статус выше нуля — одно преимущество от внешности на убеждение, обман и торговлю и столько преимуществ на обольщение, каково значение статуса.',
+    { type: 'trait', zones: osCost(4), group_code: 'appearance', grants: [attractivenessModify(2, 'from-appearance')] },
     true,
   ),
 
   // --- Голос (группа «1 из группы») ---
-  traitRule('mute', 'Немой', 'Вы не можете говорить.', { type: 'trait', zones: osCost(-3), group_code: 'voice' }, true),
+  traitRule(
+    'mute',
+    'Немой',
+    'Вы не можете говорить: речь, пение и любые проверки, для которых нужен голос, недоступны.',
+    { type: 'trait', zones: osCost(-3), group_code: 'voice' },
+    true,
+  ),
   traitRule(
     'wondrous-voice',
     'Чудесный голос',
-    'Ваш голос чарует.',
-    { type: 'trait', zones: osCost(2), group_code: 'voice' },
+    'Голос чарует: +1 к Привлекательности от голоса и одно преимущество на проверки музицирования голосом.',
+    {
+      type: 'trait',
+      zones: osCost(2),
+      group_code: 'voice',
+      grants: [
+        attractivenessModify(1, 'from-voice'),
+        { type: 'check_advantage', amount: 1, check_codes: [CHECK_VOICE_MUSIC_CODE] },
+      ],
+    },
     true,
   ),
 
-  // --- Слух (группа «1 из группы») → Внимательность ---
-  traitRule('deaf', 'Глухота', 'Вы не слышите.', { type: 'trait', zones: osCost(-4), group_code: 'hearing' }, true),
+  // --- Слух (группа «1 из группы») → чувство ---
+  traitRule(
+    'deaf',
+    'Глухота',
+    'Вы не слышите: звуки для вас недоступны, проверки и действия, требующие слуха, невозможны.',
+    { type: 'trait', zones: osCost(-4), group_code: 'hearing' },
+    true,
+  ),
   traitRule(
     'terrible-hearing',
     'Ужасный слух',
-    'Вы почти не слышите.',
-    { type: 'trait', zones: osCost(-2), group_code: 'hearing', grants: [senseModify(SENSE_HEARING, -9)] },
+    'Слышите очень плохо: −6 к чувству Слух (вклад во Внимательность — по лучшему чувству).',
+    { type: 'trait', zones: osCost(-2), group_code: 'hearing', grants: [senseModify(SENSE_HEARING, -6)] },
     true,
   ),
   traitRule(
     'weak-hearing',
     'Слабый слух',
-    'Вы слышите хуже обычного.',
+    'Слышите хуже обычного: −3 к чувству Слух (вклад во Внимательность — по лучшему чувству).',
     { type: 'trait', zones: osCost(-1), group_code: 'hearing', grants: [senseModify(SENSE_HEARING, -3)] },
     true,
   ),
   traitRule(
     'sharp-hearing',
     'Острый слух',
-    'Вы слышите лучше обычного.',
-    { type: 'trait', zones: osCost(2), group_code: 'hearing', grants: [senseModify(SENSE_HEARING, 3)] },
+    'Слышите лучше обычного: +1 к чувству Слух (вклад во Внимательность — по лучшему чувству).',
+    { type: 'trait', zones: osCost(2), group_code: 'hearing', grants: [senseModify(SENSE_HEARING, 1)] },
+    true,
+  ),
+  traitRule(
+    'excellent-hearing',
+    'Отличный слух',
+    'Слышите отлично: +2 к чувству Слух (вклад во Внимательность — по лучшему чувству).',
+    { type: 'trait', zones: osCost(3), group_code: 'hearing', grants: [senseModify(SENSE_HEARING, 2)] },
     true,
   ),
   traitRule(
     'incredible-hearing',
     'Невероятный слух',
-    'Вы слышите почти всё.',
-    { type: 'trait', zones: osCost(4), group_code: 'hearing', grants: [senseModify(SENSE_HEARING, 6)] },
+    'Слышите почти всё: +3 к чувству Слух (вклад во Внимательность — по лучшему чувству).',
+    { type: 'trait', zones: osCost(4), group_code: 'hearing', grants: [senseModify(SENSE_HEARING, 3)] },
     true,
   ),
 
-  // --- Зрение (группа «1 из группы») → Внимательность ---
-  traitRule('blind', 'Слепота', 'Вы не видите.', { type: 'trait', zones: osCost(-4), group_code: 'vision' }, true),
+  // --- Зрение (группа «1 из группы») → чувство ---
+  traitRule(
+    'blind',
+    'Слепота',
+    'Вы не видите: зрение недоступно, проверки и действия, требующие зрения, невозможны.',
+    { type: 'trait', zones: osCost(-4), group_code: 'vision' },
+    true,
+  ),
   traitRule(
     'terrible-vision',
     'Ужасное зрение',
-    'Вы почти не видите.',
-    { type: 'trait', zones: osCost(-2), group_code: 'vision', grants: [senseModify(SENSE_VISION, -9)] },
+    'Видите очень плохо: −6 к чувству Зрение (вклад во Внимательность — по лучшему чувству).',
+    { type: 'trait', zones: osCost(-2), group_code: 'vision', grants: [senseModify(SENSE_VISION, -6)] },
     true,
   ),
   traitRule(
     'weak-vision',
     'Слабое зрение',
-    'Вы видите хуже обычного.',
+    'Видите хуже обычного: −3 к чувству Зрение (вклад во Внимательность — по лучшему чувству).',
     { type: 'trait', zones: osCost(-1), group_code: 'vision', grants: [senseModify(SENSE_VISION, -3)] },
     true,
   ),
   traitRule(
     'sharp-vision',
     'Острое зрение',
-    'Вы видите лучше обычного.',
-    { type: 'trait', zones: osCost(2), group_code: 'vision', grants: [senseModify(SENSE_VISION, 3)] },
+    'Видите лучше обычного: +1 к чувству Зрение (вклад во Внимательность — по лучшему чувству).',
+    { type: 'trait', zones: osCost(2), group_code: 'vision', grants: [senseModify(SENSE_VISION, 1)] },
+    true,
+  ),
+  traitRule(
+    'excellent-vision',
+    'Отличное зрение',
+    'Видите отлично: +2 к чувству Зрение (вклад во Внимательность — по лучшему чувству).',
+    { type: 'trait', zones: osCost(3), group_code: 'vision', grants: [senseModify(SENSE_VISION, 2)] },
     true,
   ),
   traitRule(
     'incredible-vision',
     'Невероятное зрение',
-    'Вы видите почти всё.',
-    { type: 'trait', zones: osCost(4), group_code: 'vision', grants: [senseModify(SENSE_VISION, 6)] },
-    true,
-  ),
-
-  // --- Умственные (группа «1 из группы») → Интеллект (база: память/мышление) ---
-  traitRule(
-    'feeble-minded',
-    'Слабоумный',
-    'Вам трудно думать.',
-    {
-      type: 'trait',
-      zones: osCost(-1),
-      group_code: 'mental',
-      requirements: [{ type: 'characteristic_value', characteristic_code: 'intellect', min: dim(3) }],
-      grants: [modify('intellect', -3)],
-    },
-    true,
-  ),
-  traitRule(
-    'gifted',
-    'Одарённый',
-    'Ваш ум остёр.',
-    { type: 'trait', zones: osCost(2), group_code: 'mental', grants: [modify('intellect', 1)] },
+    'Видите почти всё: +3 к чувству Зрение (вклад во Внимательность — по лучшему чувству).',
+    { type: 'trait', zones: osCost(4), group_code: 'vision', grants: [senseModify(SENSE_VISION, 3)] },
     true,
   ),
 
@@ -418,7 +471,7 @@ const importedRules: Rule[] = [
   traitRule(
     'intimidating',
     'Устрашающий вид',
-    'Один ваш вид пугает окружающих.',
+    'Ваш вид пугает окружающих. Можно взять только вместе с Омерзительной или Уродливой внешностью.',
     {
       type: 'feature',
       zones: osCost(1),
@@ -625,11 +678,50 @@ const importedRules: Rule[] = [
   },
 
   // --- Группирующие правила (type 'group'): контейнеры «1 из группы» ---
-  groupRule('appearance', 'Внешность', 'Выберите один вариант внешности.', 1),
-  groupRule('voice', 'Голос', 'Выберите один вариант голоса.', 1),
-  groupRule('hearing', 'Слух', 'Выберите один вариант слуха.', 1),
-  groupRule('vision', 'Зрение', 'Выберите один вариант зрения.', 1),
-  groupRule('mental', 'Умственные', 'Выберите один вариант умственных способностей.', 1),
+  groupRule(
+    'appearance',
+    'Внешность',
+    'Один вариант внешности. Черта задаёт вклад в статус Привлекательность от внешности (−2…+2).',
+    1,
+  ),
+  groupRule('voice', 'Голос', 'Один вариант голоса: немой либо чудесный голос (+1 к Привлекательности от голоса).', 1),
+  groupRule(
+    'hearing',
+    'Слух',
+    'Один вариант слуха: от глухоты до невероятного слуха, со своим модификатором чувства.',
+    1,
+  ),
+  groupRule(
+    'vision',
+    'Зрение',
+    'Один вариант зрения: от слепоты до невероятного зрения, со своим модификатором чувства.',
+    1,
+  ),
+
+  {
+    id: 'rule-610',
+    code: 'from-appearance',
+    type: 'source',
+    name: 'Внешность',
+    description: 'Источник модификатора Привлекательности от черты внешности.',
+    spaceId: 1,
+    keywordIds: [],
+    mechanicId: null,
+    mechanic_payload: null,
+    createdAt: '2026-08-27T10:00:00Z',
+  },
+  {
+    id: 'rule-611',
+    code: 'from-voice',
+    type: 'source',
+    name: 'Голос',
+    description: 'Источник модификатора Привлекательности от черты голоса.',
+    spaceId: 1,
+    keywordIds: [],
+    mechanicId: null,
+    mechanic_payload: null,
+    createdAt: '2026-08-27T10:00:00Z',
+  },
 
   // --- Источник модификаторов чувств «Совершенство» ---
   {

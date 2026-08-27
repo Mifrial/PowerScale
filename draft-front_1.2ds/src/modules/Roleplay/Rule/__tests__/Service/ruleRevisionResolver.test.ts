@@ -55,11 +55,11 @@ describe('resolveRuleFromRevision', () => {
     const resolved = await ruleRevisionResolverService.resolveRuleFromRevision({
       spaceId: 1,
       rulesRevision: 5,
-      ruleId: 'movement',
+      ruleId: 'dodge',
     });
 
     expect(resolved).not.toBeNull();
-    expect(resolved?.code).toBe('movement');
+    expect(resolved?.code).toBe('dodge');
     // Ревизия перезаписывает spaceId — это правило из среза, а не каталога.
     expect(resolved?.spaceId).toBe(1);
   });
@@ -80,10 +80,10 @@ describe('resolveRuleFromRevision', () => {
     const resolved = await ruleRevisionResolverService.resolveRuleFromRevision({
       spaceId: null,
       rulesRevision: null,
-      ruleId: 'rule-33',
+      ruleId: 'rule-6',
     });
 
-    expect(resolved?.code).toBe('movement');
+    expect(resolved?.code).toBe('human');
   });
 
   it('ruleId null → null без обращения к API', async () => {
@@ -102,12 +102,12 @@ describe('resolveRevisionSlice', () => {
     const slice = await ruleRevisionResolverService.resolveRevisionSlice({
       spaceId: 1,
       rulesRevision: 5,
-      ruleId: 'movement',
+      ruleId: 'dodge',
     });
 
-    expect(slice.rule?.code).toBe('movement');
+    expect(slice.rule?.code).toBe('dodge');
     expect(slice.rules.length).toBeGreaterThan(1);
-    expect(slice.rules.some((entry) => entry.code === 'movement')).toBe(true);
+    expect(slice.rules.some((entry) => entry.code === 'dodge')).toBe(true);
   });
 
   it('чип чата передаёт code — находит в срезе актуальных правил', async () => {

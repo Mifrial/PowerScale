@@ -11,10 +11,10 @@ describe('mockSpaces: мутации ревизий (демо миграции)'
     expect(nightVision12).toBeUndefined();
   });
 
-  it('ревизия игры (actual, 12) включает правила механик броска (Бросок, 6-и-1, преимущества, Критический удар)', async () => {
+  it('ревизия игры (actual, 12) включает правила механик броска (Бросок, 6-и-1, преимущества)', async () => {
     const rev12 = await fetchRevision(2, 12);
     const codes = new Set(rev12.rules.map((rule) => rule.code));
-    for (const code of ['roll', 'rule-6-and-1', 'advantages', 'critical-strike']) {
+    for (const code of ['roll', 'rule-6-and-1', 'advantages']) {
       expect(codes.has(code), `code ${code}`).toBe(true);
     }
   });

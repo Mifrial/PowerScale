@@ -54,6 +54,7 @@ export class RuleViewLabelService {
     }
     if (node.type === 'dimensional') return this.dimensional(node);
     if (node.type === 'parameter') return `${node.parameter_code} × ${node.per_unit}`;
+    if (node.type === 'parameter_floor_div') return `⌊${node.parameter_code} / ${node.divisor}⌋`;
     if (node.type === 'characteristic_size') return `размер «${this.ruleName(rules, node.characteristic_code)}»`;
     if (node.type === 'characteristic_size_gap') {
       return `разница размеров «${this.ruleName(rules, node.characteristic_code_from)}» − «${this.ruleName(rules, node.characteristic_code_to)}»`;
@@ -128,6 +129,10 @@ export class RuleViewLabelService {
         return `Сопротивление «${this.ruleName(rules, grant.damage_type_code)}»: ${this.amount(grant.value, rules)} (${this.ruleName(rules, grant.source_code)})`;
       case 'sense_modify':
         return `Чувство «${this.ruleName(rules, grant.sense_code)}»: ${this.formula(grant.amount, rules)} (${this.ruleName(rules, grant.source_code)})`;
+      case 'state_modify':
+        return `Состояние «${this.ruleName(rules, grant.state_code)}»: ${this.formula(grant.amount, rules)} (${this.ruleName(rules, grant.source_code)})`;
+      case 'check_advantage':
+        return `Преимущество на проверки (${grant.check_codes.join(', ') || '—'}): ${grant.amount >= 0 ? '+' : ''}${grant.amount}`;
       case 'money':
         return `Стартовый капитал: ${grant.fixed} гз или ${grant.percent}% от лимита (${grant.apply === 'max' ? 'большее' : 'меньшее'})`;
     }

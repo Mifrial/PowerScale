@@ -66,6 +66,17 @@ describe('FormulaEvaluationService', () => {
     expect(service.evaluate({ type: 'parameter', parameter_code: 'x', per_unit: 3 }, context)).toBe(3);
   });
 
+  it('parameter_floor_div — целая часть параметра / divisor', () => {
+    const withResolver: FormulaContext = {
+      ...context,
+      parameterValues: (code) => (code === 'strength' ? 5 : 0),
+    };
+    expect(
+      service.evaluate({ type: 'parameter_floor_div', parameter_code: 'strength', divisor: 2 }, withResolver),
+    ).toBe(2);
+    expect(service.evaluate({ type: 'parameter_floor_div', parameter_code: 'strength', divisor: 2 }, context)).toBe(0);
+  });
+
   it('characteristic_size возвращает размер характеристики (простое число)', () => {
     const sized: FormulaContext = {
       ...context,

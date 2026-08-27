@@ -26,7 +26,7 @@ describe('characterChatRulesProvider', () => {
     expect(context).not.toBeNull();
     expect(context?.spaceId).toBe(1);
     expect(context?.rulesRevision).toBe(5);
-    expect(context?.tokenLabels['movement']).toBeTruthy();
+    expect(context?.tokenLabels['dodge']).toBeTruthy();
   });
 
   it('неизвестный чат — null без деталок', async () => {

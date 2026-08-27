@@ -22,6 +22,7 @@ import { checkRollService } from '@/modules/Roleplay/Game/Service/Instance/check
 
 import { stateRuntimeEffectsService } from '@/modules/Roleplay/Character/init';
 import { itemCheckAdvantagesService } from '@/modules/Roleplay/Character/init';
+import { abilityCheckAdvantagesService } from '@/modules/Roleplay/Character/init';
 import { SIMPLE_CHECK_ZERO_DIFFICULTY } from '@/modules/Roleplay/Game/Constant/Check/SIMPLE_CHECK_ZERO_DIFFICULTY';
 
 import { initiativeCharacteristics } from '@/modules/Roleplay/Game/Utils/initiativeCharacteristic';
@@ -365,10 +366,15 @@ function poolSpec(
   useFree: boolean,
   free: { diceCount: number; dieSize: number; efficiency: number },
 ): DiceRollSpec {
-  const query = code ? ({ kind: 'characteristic', code } as const) : undefined;
+  const query = checkCode.value
+    ? ({ kind: 'check', code: checkCode.value } as const)
+    : code
+      ? ({ kind: 'characteristic', code } as const)
+      : undefined;
   const version = modelOf(key)?.effectiveVersion;
-  const totalAdv = adv + stateRuntimeEffectsService.checkAdvantageFromStates(version, props.rules, query);
+  const stateAdv = stateRuntimeEffectsService.checkAdvantageModifiers(version, props.rules, query);
   const itemAdv = itemCheckAdvantagesService.checkAdvantageModifiersFromItems(version, props.rules, query);
+  const abilityAdv = abilityCheckAdvantagesService.checkAdvantageModifiersFromAbilities(version, props.rules, query);
   if (useFree || !code || !map.has(code)) {
     const defaults = rollPoolDefaults(props.rules);
 
@@ -376,7 +382,7 @@ function poolSpec(
       diceCount: Math.max(ROLL_DICE_COUNT_MIN, free.diceCount),
       dieFaces: defaults.dieFaces,
       efficiency: free.efficiency,
-      advantages: [...aggregateSourceDeltasService.advantageEntries(totalAdv), ...itemAdv],
+      advantages: [...aggregateSourceDeltasService.advantageEntries(adv), ...stateAdv, ...itemAdv, ...abilityAdv],
       dieSize: free.dieSize,
       poolSize: free.dieSize,
       efficiencySize: 0,
@@ -389,12 +395,12 @@ function poolSpec(
   const spec = checkRollService.namedCheckSpec(
     `${nameOf(key)}: ${view.name}`,
     view.value,
-    totalAdv,
+    adv,
     props.rules,
     key ?? undefined,
   );
 
-  return { ...spec, advantages: [...spec.advantages, ...itemAdv] };
+  return { ...spec, advantages: [...spec.advantages, ...stateAdv, ...itemAdv, ...abilityAdv] };
 }
 
 function soloDifficulty(): DimensionalNumberValue {

@@ -156,13 +156,18 @@ describe('CharacterEditorService с каталогом правил (интег�
     expect(keen?.automatic).toBe(true);
   });
 
-  it('двойной удар (double-strike) требует melee-fighting: недоступен без него, доступен с ним', () => {
-    const without = service.build(makeBuild(), ruleCatalog, config);
-    const strike = without.abilities.find((a) => a.code === 'double-strike');
+  it('двойной удар требует «Навыки боя»: недоступен без опыта ближнего боя, доступен с ним', () => {
+    const without = service.build(makeBuild(), ruleCatalog, config, keywords);
+    const strike = without.abilities.find((a) => a.code === 'sdvoennyy-udar');
     expect(strike?.levels[0].met).toBe(false);
 
-    const withSkill = service.build(makeBuild({ abilities: [{ ruleId: 'rule-21', level: 1 }] }), ruleCatalog, config);
-    const strikeReady = withSkill.abilities.find((a) => a.code === 'double-strike');
+    const withSkill = service.build(
+      makeBuild({ abilities: [{ ruleId: 'rule-329', level: 1 }] }),
+      ruleCatalog,
+      config,
+      keywords,
+    );
+    const strikeReady = withSkill.abilities.find((a) => a.code === 'sdvoennyy-udar');
     expect(strikeReady?.levels[0].met).toBe(true);
   });
 
@@ -183,12 +188,10 @@ describe('CharacterEditorService с каталогом правил (интег�
   });
 
   it('видимость черт: общие видны всем, уникальные только от расы, старые скрыты', () => {
-    // Без расы: общие черты (beautiful — common) видны; уникальные (fast-footed — racial) скрыты;
-    // старые тестовые (double-strike) без common/racial скрыты.
+    // Без расы: общие черты (beautiful — common) видны; уникальные (fast-footed — racial) скрыты.
     const noRace = service.build(makeBuild(), ruleCatalog, config, keywords);
     expect(noRace.abilities.find((a) => a.code === 'beautiful')?.visible).toBe(true);
     expect(noRace.abilities.find((a) => a.code === 'fast-footed')?.visible).toBe(false);
-    expect(noRace.abilities.find((a) => a.code === 'double-strike')?.visible).toBe(false);
 
     // Ацелатль даёт Быстроногий расой — виден.
     const acelatlRule = ruleCatalog.find((r) => r.code === 'acelatl');
@@ -197,12 +200,12 @@ describe('CharacterEditorService с каталогом правил (интег�
 
     // Выбранная способность всегда видна (даже если скрыта в каталоге).
     const chosen = service.build(
-      makeBuild({ abilities: [{ ruleId: 'rule-4', level: 1 }] }),
+      makeBuild({ abilities: [{ ruleId: 'rule-329', level: 1 }] }),
       ruleCatalog,
       config,
       keywords,
     );
-    expect(chosen.abilities.find((a) => a.code === 'double-strike')?.visible).toBe(true);
+    expect(chosen.abilities.find((a) => a.code === 'borba')?.visible).toBe(true);
   });
 
   it('наследование способностей по дереву вид→подвид→раса (Арилет)', () => {
@@ -260,7 +263,7 @@ describe('CharacterEditorService с каталогом правил (интег�
     // Участники несут groupCode, group-правило не попало в способности.
     expect(model.abilities.find((a) => a.code === 'beautiful')?.groupCode).toBe('appearance');
     expect(model.abilities.find((a) => a.code === 'appearance')).toBeUndefined();
-    expect(model.abilities.find((a) => a.code === 'gifted')?.groupCode).toBe('mental');
+    expect(model.abilities.find((a) => a.code === 'gifted')).toBeUndefined();
     expect(model.abilities.some((a) => a.groupCode === null || a.groupCode === undefined)).toBe(true);
   });
 
@@ -310,7 +313,7 @@ describe('CharacterEditorService с каталогом правил (интег�
     expect(param?.cappedByRace).toBe(true);
   });
 
-  it('Невероятное зрение: чувство Зрение +6 → Внимательность {3|2} (размерный перенос, не 9)', () => {
+  it('Невероятное зрение: чувство Зрение +3 → Внимательность {3|1}', () => {
     const vision = ruleCatalog.find((r) => r.code === 'incredible-vision');
     const model = service.build(
       makeBuild({ raceRuleId: 'rule-126', abilities: [{ ruleId: vision?.id ?? '', level: 1 }] }),
@@ -321,17 +324,17 @@ describe('CharacterEditorService с каталогом правил (интег�
 
     const attention = model.characteristics.find((c) => c.code === 'attention');
     expect(attention?.base).toEqual({ base: 3, size: 0 });
-    expect(attention?.delta).toBe(6);
-    expect(attention?.value).toEqual({ base: 3, size: 2 });
-    expect(attention?.modifiers).toEqual([expect.objectContaining({ delta: 6, target: 'attention' })]);
+    expect(attention?.delta).toBe(3);
+    expect(attention?.value).toEqual({ base: 3, size: 1 });
+    expect(attention?.modifiers).toEqual([expect.objectContaining({ delta: 3, target: 'attention' })]);
 
     const visionSense = ruleCatalog.find((r) => r.code === 'sense-vision');
     const sense = model.senses.find((s) => s.ruleId === visionSense?.id);
-    expect(sense?.value).toBe(6);
-    expect(model.senses.find((s) => s.ruleId === sense?.ruleId)?.modifiers[0]).toMatchObject({ delta: 6 });
+    expect(sense?.value).toBe(3);
+    expect(model.senses.find((s) => s.ruleId === sense?.ruleId)?.modifiers[0]).toMatchObject({ delta: 3 });
   });
 
-  it('чувства: -9 слух + +6 зрение → Внимательность берёт максимум (+6)', () => {
+  it('чувства: -6 слух + +3 зрение → Внимательность берёт максимум (+3)', () => {
     const hearing = ruleCatalog.find((r) => r.code === 'terrible-hearing');
     const vision = ruleCatalog.find((r) => r.code === 'incredible-vision');
     const model = service.build(
@@ -348,11 +351,11 @@ describe('CharacterEditorService с каталогом правил (интег�
     );
 
     const attention = model.characteristics.find((c) => c.code === 'attention');
-    expect(attention?.delta).toBe(6);
-    expect(attention?.value).toEqual({ base: 3, size: 2 });
+    expect(attention?.delta).toBe(3);
+    expect(attention?.value).toEqual({ base: 3, size: 1 });
   });
 
-  it('чувства: -9 слух + нормальное зрение (не взято) → 0 к Внимательности', () => {
+  it('чувства: -6 слух + нормальное зрение (не взято) → 0 к Внимательности', () => {
     const hearing = ruleCatalog.find((r) => r.code === 'terrible-hearing');
     const model = service.build(
       makeBuild({ raceRuleId: 'rule-126', abilities: [{ ruleId: hearing?.id ?? '', level: 1 }] }),
@@ -383,11 +386,11 @@ describe('CharacterEditorService с каталогом правил (интег�
       keywords,
     );
 
-    // Оба модификатора слуха от источника «Совершенство» → действует только наибольший штраф (-9);
+    // Оба модификатора слуха от источника «Совершенство» → действует только наибольший штраф (−6);
     // зрение нормальное (0) → максимум среди чувств = 0, Внимательность не меняется.
     const hearingSense = ruleCatalog.find((r) => r.code === 'sense-hearing');
     const sense = model.senses.find((s) => s.ruleId === hearingSense?.id);
-    expect(sense?.value).toBe(-9);
+    expect(sense?.value).toBe(-6);
     const attention = model.characteristics.find((c) => c.code === 'attention');
     expect(attention?.delta).toBe(0);
   });
@@ -1453,5 +1456,23 @@ describe('«Владение оружием» — мастерство оруж�
     expect(model.budgets.osSurcharge).toBeUndefined();
     // X=1 каждой: табличная цена 2 ОС, без доплаты.
     expect(model.budgets.os.spent).toBe(6);
+  });
+
+  it('основные боевые действия — зона or, без common, раздел spec.section', () => {
+    const model = service.build(makeBuild(), ruleCatalog, config, keywords);
+    for (const code of ['dodge', 'block', 'simple-melee-attack', 'simple-ranged-attack', 'turn']) {
+      const ability = model.abilities.find((entry) => entry.code === code);
+      expect(
+        ability?.zones.map((zone) => zone.zoneCode),
+        code,
+      ).toEqual(['or']);
+      expect(ability?.automatic, code).toBe(true);
+      expect(ability?.visible, code).toBe(false);
+      const rule = ruleCatalog.find((entry) => entry.code === code);
+      expect((rule?.spec as { section?: string }).section).toBe('core-rules');
+      expect(rule?.keywordIds, code).not.toContain(20);
+    }
+    expect(ruleCatalog.some((rule) => rule.code === 'melee-fighting')).toBe(false);
+    expect(model.abilities.some((ability) => ability.code === 'melee-fighting')).toBe(false);
   });
 });

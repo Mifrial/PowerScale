@@ -855,6 +855,9 @@ export class RuleValidationService {
             for (const code of effect.characteristic_codes ?? []) {
               collect({ code, type: 'characteristic' });
             }
+            for (const code of effect.check_codes ?? []) {
+              collect({ code, type: 'check' });
+            }
           }
           if (effect.type === 'damage_over_time') {
             const decay = effect.decay;
@@ -1007,6 +1010,13 @@ export class RuleValidationService {
     if (grant.type === 'sense_modify' && grant.sense_code) {
       collect({ code: grant.sense_code, type: 'sense' });
       this.walkFormula(grant.amount, 'sense', collect);
+      if (grant.source_code) {
+        collect({ code: grant.source_code, type: 'source' });
+      }
+    }
+    if (grant.type === 'state_modify' && grant.state_code) {
+      collect({ code: grant.state_code, type: 'state' });
+      this.walkFormula(grant.amount, 'characteristic', collect);
       if (grant.source_code) {
         collect({ code: grant.source_code, type: 'source' });
       }

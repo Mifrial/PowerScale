@@ -10,6 +10,8 @@ export interface EditorParameterStep {
 export interface EditorAbilityParameter {
   code: string;
   label: string;
+  /** Подпись параметра из экземпляра правила. */
+  description?: string;
   /** Текущее значение (из выбора персонажа или расы/дефолта); 0 = не взята. */
   value: DimensionalNumberValue;
   min: DimensionalNumberValue;

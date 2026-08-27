@@ -59,13 +59,17 @@ export class FormatStateEffectsService {
     }
     if (effect.type === 'check_advantage') {
       const amount = `${effect.amount >= 0 ? '+' : ''}${effect.amount}`;
-      const per = effect.per_unit ? ' за единицу' : '';
-      const scoped = Boolean(effect.includes_hit) || (effect.characteristic_codes?.length ?? 0) > 0;
+      const per = effect.per_unit ? ' за единицу' : effect.scale === 'sign' ? ' по знаку' : '';
+      const scoped =
+        Boolean(effect.includes_hit) ||
+        (effect.characteristic_codes?.length ?? 0) > 0 ||
+        (effect.check_codes?.length ?? 0) > 0;
       if (!scoped) return `Помехи/преимущества на все проверки ${amount}${per}`;
       const parts: string[] = [];
       if (effect.includes_hit) parts.push('попадание');
       for (const code of effect.characteristic_codes ?? []) parts.push(nameByCode(code));
       if (effect.characteristic_codes?.length) parts.push('производные');
+      for (const code of effect.check_codes ?? []) parts.push(nameByCode(code));
 
       return `Помехи/преимущества на ${parts.join(', ')} ${amount}${per}`;
     }

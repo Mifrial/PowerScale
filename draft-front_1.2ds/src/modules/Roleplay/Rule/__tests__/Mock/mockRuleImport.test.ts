@@ -30,13 +30,13 @@ describe('mockRuleImport (S2)', () => {
       'weak-hearing',
       'sharp-hearing',
       'incredible-hearing',
+      'excellent-hearing',
       'blind',
       'terrible-vision',
       'weak-vision',
       'sharp-vision',
       'incredible-vision',
-      'feeble-minded',
-      'gifted',
+      'excellent-vision',
       'intimidating',
     ]) {
       expect(codes).toContain(code);
@@ -51,13 +51,15 @@ describe('mockRuleImport (S2)', () => {
     expect(unique?.keywordIds).not.toContain(20);
   });
 
-  it('группы: группирующее правило type group с selectLimit, участники несут group_code и признак «часть группы»', () => {
+  it('группы: контейнер type group, участники с group_code и признаком домена, без «части группы»', () => {
     for (const [code, members] of [
       ['appearance', ['repulsive', 'ugly', 'beautiful', 'gorgeous']],
       ['voice', ['mute', 'wondrous-voice']],
-      ['hearing', ['deaf', 'terrible-hearing', 'weak-hearing', 'sharp-hearing', 'incredible-hearing']],
-      ['vision', ['blind', 'terrible-vision', 'weak-vision', 'sharp-vision', 'incredible-vision']],
-      ['mental', ['feeble-minded', 'gifted']],
+      [
+        'hearing',
+        ['deaf', 'terrible-hearing', 'weak-hearing', 'sharp-hearing', 'excellent-hearing', 'incredible-hearing'],
+      ],
+      ['vision', ['blind', 'terrible-vision', 'weak-vision', 'sharp-vision', 'excellent-vision', 'incredible-vision']],
     ] as const) {
       const groupRule = byCode.get(code);
       expect(groupRule?.type).toBe('ability');
@@ -66,24 +68,31 @@ describe('mockRuleImport (S2)', () => {
 
       for (const member of members) {
         expect(abilitySpec(member)?.group_code).toBe(code);
-        expect(byCode.get(member)?.keywordIds).toContain(43);
+        expect(byCode.get(member)?.keywordIds).toContain(
+          { appearance: 43, voice: 223, hearing: 224, vision: 225 }[code],
+        );
+        expect(byCode.get(member)?.keywordIds).not.toContain(42);
       }
     }
+    expect(byCode.get('mental')).toBeUndefined();
+    expect(byCode.get('feeble-minded')).toBeUndefined();
+    expect(byCode.get('gifted')).toBeUndefined();
   });
 
-  it('Внешность модифицирует Общение, Слух/Зрение — чувство → Внимательность', () => {
+  it('Внешность копит Привлекательность, Слух/Зрение — чувство', () => {
     const appearance = abilitySpec('gorgeous')?.grants?.[0]?.grants as Grant[] | undefined;
     expect(appearance?.[0]).toMatchObject({
-      type: 'characteristic_modify',
-      characteristic_code: 'communication',
+      type: 'state_modify',
+      state_code: 'attractiveness',
       amount: { type: 'fixed', value: 2 },
+      source_code: 'from-appearance',
     });
 
     const hearing = abilitySpec('sharp-hearing')?.grants?.[0]?.grants as Grant[] | undefined;
     expect(hearing?.[0]).toMatchObject({
       type: 'sense_modify',
       sense_code: 'sense-hearing',
-      amount: { type: 'fixed', value: 3 },
+      amount: { type: 'fixed', value: 1 },
       source_code: 'perfection',
     });
 
@@ -191,20 +200,19 @@ describe('mockRuleImport (S2)', () => {
     ]);
   });
 
-  it('Слабоумный требует Интеллект ≥ 3 и даёт −3 к Интеллекту', () => {
-    const reqs = abilitySpec('feeble-minded')?.requirements?.[0]?.requirements;
-    expect(reqs?.[0]).toMatchObject({
-      type: 'characteristic_value',
-      characteristic_code: 'intellect',
-      min: { base: 3, size: 0 },
-    });
-
-    const grants = abilitySpec('feeble-minded')?.grants?.[0]?.grants as Grant[] | undefined;
-    expect(grants?.[0]).toMatchObject({
-      type: 'characteristic_modify',
-      characteristic_code: 'intellect',
-      amount: { type: 'fixed', value: -3 },
-    });
+  it('Чудесный голос: +1 Привлекательность и преимущество на музицирование голосом', () => {
+    const grants = abilitySpec('wondrous-voice')?.grants?.[0]?.grants as Grant[] | undefined;
+    expect(grants).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'state_modify',
+          state_code: 'attractiveness',
+          amount: { type: 'fixed', value: 1 },
+          source_code: 'from-voice',
+        }),
+        expect.objectContaining({ type: 'check_advantage', amount: 1, check_codes: ['voice-music'] }),
+      ]),
+    );
   });
 
   it('механика «Общие черты»: purchase_surcharge с filter keyword common', () => {

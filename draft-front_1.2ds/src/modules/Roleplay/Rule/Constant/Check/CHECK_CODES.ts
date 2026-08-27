@@ -15,3 +15,6 @@ export const CHECK_INJURY_ATTACHED_RULE_CODES = [...CHECK_SIMPLE_ATTACHED_RULE_C
 
 /** domain_ref навыка «Манера общения» — дети CHECK_COMMUNICATION_CODE. */
 export const COMMUNICATION_CHECK_DOMAIN_REF = 'communication-check';
+
+/** Проверка на музицирование голосом — правило проверки ещё не в каталоге. */
+export const CHECK_VOICE_MUSIC_CODE = 'voice-music';

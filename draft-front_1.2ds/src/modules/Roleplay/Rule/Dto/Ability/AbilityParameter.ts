@@ -10,6 +10,8 @@ export interface AbilityParameter {
   /** Ссылочный ключ, напр. 'x' — подстановка {x} в цене/дарах/описании. */
   code: string;
   label: string;
+  /** Подпись параметра в редакторе способности. */
+  description?: string;
   resolution: 'purchase' | 'activation';
   default: DimensionalNumberValue | number;
   /** Пределы опциональны. */

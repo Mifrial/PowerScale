@@ -7,6 +7,7 @@ import type { ActionComponent } from '@/modules/Roleplay/Rule/Dto/Ability/Action
 import type { SpellDuration } from '@/modules/Roleplay/Rule/Dto/Ability/SpellDuration';
 import type { ResourceRef } from '@/modules/Roleplay/Rule/Dto/Ability/ResourceRef';
 import { ACTION_POINTS_RESOURCE_CODE } from '@/modules/Roleplay/Rule/Constant/Ability/ACTION_POINTS_RESOURCE_CODE';
+import { GROUP_DOMAIN_KEYWORD_CODES } from '@/modules/Roleplay/Rule/Constant/Ability/GROUP_DOMAIN_KEYWORD_CODES';
 
 export class AbilitySpecService {
   constructor(
@@ -155,16 +156,19 @@ export class AbilitySpecService {
     return result;
   }
 
-  /** Признак «часть группы»: добавляет его при заданном group_code, снимает при null/пустом. */
+  /** Признак группы-домена (Внешность/Голос/Слух/Зрение): ставит keyword по group_code. */
   syncGroupPartTag(
     groupCode: string | null | undefined,
     keywordIds: number[],
     keywords: { id: number; code: string }[],
   ): number[] {
-    const part = keywords.find((t) => t.code === 'group-part');
-    if (!part) return keywordIds;
-    const result = keywordIds.filter((id) => id !== part.id);
-    if (groupCode) result.push(part.id);
+    const domainIds = keywords
+      .filter((keyword) => (GROUP_DOMAIN_KEYWORD_CODES as readonly string[]).includes(keyword.code))
+      .map((keyword) => keyword.id);
+    const result = keywordIds.filter((id) => !domainIds.includes(id));
+    if (!groupCode) return result;
+    const domain = keywords.find((keyword) => keyword.code === groupCode);
+    if (domain && !result.includes(domain.id)) result.push(domain.id);
 
     return result;
   }
@@ -216,6 +220,15 @@ export class AbilitySpecService {
           amount: { type: 'fixed', value: 1 },
           source_code: defaultSourceCode,
         };
+      case 'state_modify':
+        return {
+          type: 'state_modify',
+          state_code: '',
+          amount: { type: 'fixed', value: 1 },
+          source_code: defaultSourceCode,
+        };
+      case 'check_advantage':
+        return { type: 'check_advantage', amount: 1, check_codes: [] };
       case 'money':
         return { type: 'money', fixed: 50, percent: 50, apply: 'max' };
     }

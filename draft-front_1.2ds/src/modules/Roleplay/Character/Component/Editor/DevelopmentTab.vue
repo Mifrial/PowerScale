@@ -15,6 +15,9 @@ import type { FilterField } from '@/modules/Core/UI/Dto/Filter/Field';
 import type { CharacterBuild } from '@/modules/Roleplay/Character/Dto/Editor/CharacterBuild';
 import type { CharacterEditorModel } from '@/modules/Roleplay/Character/Dto/Editor/CharacterEditorModel';
 import type { EditorAbility } from '@/modules/Roleplay/Character/Dto/Editor/EditorAbility';
+import { ABILITY_SECTIONS } from '@/modules/Roleplay/Rule/Constant/Ability/ABILITY_SECTIONS';
+import { abilitySectionService } from '@/modules/Roleplay/Rule/Service/Instance/abilitySectionService';
+import type { AbilitySpecBase } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpecBase';
 import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
@@ -36,24 +39,23 @@ const acquiredOnly = ref(false);
 /** Раскрытые панели навыков (переживают ремаунты строк виртуализации). */
 const openSet = ref<Set<string>>(new Set());
 
-/** Раздел навыка по его признакам (section и method). */
-const SECTION_BY_CODE: Record<string, string> = {
-  'method-perception': 'Восприятие',
-  'method-intellect': 'Интеллект',
-  'method-communication': 'Общение',
-  'section-medicine': 'Медицина',
-  'section-willpower': 'Сила воли',
-  'section-body': 'Тело',
-  'section-general': 'Общие',
-  'section-social': 'Социальные',
-  'section-melee': 'Ближний бой',
-  'section-maneuvers': 'Манёвры',
-  'section-ranged': 'Дальний бой',
-  'weapon-skill': 'Навыки оружия',
-  'shield-skill': 'Навыки щитов',
-};
+const keywordCodeById = computed(() => new Map(props.keywords.map((keyword) => [keyword.id, keyword.code])));
 
-/** Код раздела для оружейных навыков на основе требований min_weapon_mastery. */
+const SECTIONS = ABILITY_SECTIONS.map((section) => section.code);
+
+function sectionOf(ability: EditorAbility): string | null {
+  const rule = props.rules.find((entry) => entry.id === ability.ruleId);
+  const fromSpec = abilitySectionService.fromSpec(rule?.spec as AbilitySpecBase | undefined);
+  if (fromSpec) return fromSpec;
+  const keywordCodes = ability.keywordIds
+    .map((keywordId) => keywordCodeById.value.get(keywordId))
+    .filter((code): code is string => Boolean(code));
+  const fromKeywords = abilitySectionService.fromKeywordCodes(keywordCodes);
+  if (fromKeywords) return fromKeywords;
+
+  return skillSectionByRequirements(ability.ruleId);
+}
+
 function skillSectionByRequirements(ruleId: string): 'weapon-skill' | 'shield-skill' | null {
   const rule = props.rules.find((r) => r.id === ruleId);
   if (!rule?.spec) return null;
@@ -75,20 +77,6 @@ function skillSectionByRequirements(ruleId: string): 'weapon-skill' | 'shield-sk
   }
 
   return null;
-}
-
-const keywordCodeById = computed(() => new Map(props.keywords.map((keyword) => [keyword.id, keyword.code])));
-
-const SECTIONS = [...new Set(Object.keys(SECTION_BY_CODE))];
-
-function sectionOf(ability: EditorAbility): string | null {
-  for (const keywordId of ability.keywordIds) {
-    const code = keywordCodeById.value.get(keywordId);
-    if (code && SECTION_BY_CODE[code]) return code;
-  }
-
-  // Если нет стандартного раздела — смотрим требования min_weapon_mastery.
-  return skillSectionByRequirements(ability.ruleId);
 }
 
 /** Покупаемые за ОР (зона `or`) + информационные (агрегаты/производные) каталога «Развития».
@@ -115,7 +103,7 @@ const abilityFilterFields: FilterField[] = [
     key: 'section',
     label: 'Раздел',
     type: 'select',
-    options: SECTIONS.map((code) => ({ label: SECTION_BY_CODE[code], value: code })),
+    options: SECTIONS.map((code) => ({ label: abilitySectionService.label(code), value: code })),
   },
 ];
 
@@ -248,6 +236,11 @@ function setLevel(ruleId: string, level: number): void {
   draftStore.patchBuild(props.draftKey, { abilities: next.abilities });
 }
 
+function setParameter(ruleId: string, code: string, value: number | { base: number; size: number }): void {
+  const next = characterBuildService.setAbilityParameter(props.build, ruleId, code, value, props.rules);
+  draftStore.patchBuild(props.draftKey, { abilities: next.abilities });
+}
+
 function addInstance(ruleId: string, domain: string, domainCode: string | null): void {
   const next = characterBuildService.addAbilityInstance(props.build, ruleId, domain, props.rules, {
     zone: 'or',
@@ -356,6 +349,7 @@ function setAbilityDomain(ruleId: string, domain: string, domainCode: string | n
         :rules="rules"
         :open-set="effectiveOpenSet"
         @update:open="setOpen"
+        @set-parameter="setParameter"
         @set-level="setLevel"
         @add-instance="addInstance"
         @set-instance-level="setInstanceLevel"

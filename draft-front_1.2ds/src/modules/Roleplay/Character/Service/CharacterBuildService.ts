@@ -11,6 +11,7 @@ import type { ItemSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpec';
 import type { ItemModifierSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierSpec';
 import type { RaceSpec } from '@/modules/Roleplay/Rule/Dto/Race/RaceSpec';
 import type { AbilityCost } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityCost';
+import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpec';
 import { characterEditorService } from '@/modules/Roleplay/Character/Service/Instance/characterEditorService';
 import { itemModifierService } from '@/modules/Roleplay/Rule/Service/Instance/itemModifierService';
 import { weaponProficiencyService } from '@/modules/Roleplay/Character/Service/Instance/weaponProficiencyService';
@@ -409,9 +410,8 @@ export class CharacterBuildService {
   }
 
   /**
-   * Устанавливает значение параметра «X» параметрической способности. X !== 0 — способность взята
-   * (уровень 1, стоимость по виду зоны), X === 0 — снята. X может быть отрицательным («Врождённая
-   * Сила −1»: модификатор −1). Кардинальность группы соблюдается.
+   * Устанавливает значение параметра покупки. X === 0 и остальные параметры тоже 0 — способность снята.
+   * Для parameter_sum_tables уровень = сумма параметров (потолок пула), иначе уровень 1.
    */
   setAbilityParameter(
     build: CharacterBuild,
@@ -421,14 +421,53 @@ export class CharacterBuildService {
     rules: Rule[],
   ): CharacterBuild {
     const others = build.abilities.filter((ability) => ability.ruleId !== ruleId);
+    const existing = build.abilities.find((ability) => ability.ruleId === ruleId);
+    const nextValue = typeof value === 'number' ? { base: value, size: 0 } : { ...value };
+    const parameters = {
+      ...existing?.parameters,
+      [code]: nextValue,
+    };
+
+    const rule = rules.find((entry) => entry.id === ruleId);
+    const spec = rule?.type === 'ability' ? (rule.spec as AbilitySpec | undefined) : undefined;
+    const zones = spec && spec.type !== 'group' ? spec.zones : undefined;
+    const purchaseCost = zones
+      ? (Object.values(zones).find((cost) => cost && cost.kind !== 'automatic') ?? undefined)
+      : undefined;
+
+    if (purchaseCost?.kind === 'parameter_sum_tables') {
+      const paramMax = (parameterCode: string): number => {
+        const parameter =
+          spec && spec.type !== 'group' ? spec.parameters?.find((entry) => entry.code === parameterCode) : undefined;
+        if (!parameter?.max) return 6;
+
+        return typeof parameter.max === 'number' ? parameter.max : parameter.max.base;
+      };
+      const numericOf = (parameterCode: string): number => {
+        const raw = parameters[parameterCode];
+        if (raw === undefined) return 0;
+
+        return typeof raw === 'number' ? raw : raw.base;
+      };
+      let nextNumeric = typeof value === 'number' ? value : value.base;
+      nextNumeric = Math.max(0, Math.min(paramMax(code), nextNumeric));
+      const othersSum = Object.keys(purchaseCost.tables)
+        .filter((parameterCode) => parameterCode !== code)
+        .reduce((sum, parameterCode) => sum + numericOf(parameterCode), 0);
+      nextNumeric = Math.min(nextNumeric, Math.max(0, purchaseCost.max_level - othersSum));
+      parameters[code] = { base: nextNumeric, size: 0 };
+
+      const level = Object.keys(purchaseCost.tables).reduce((sum, parameterCode) => sum + numericOf(parameterCode), 0);
+      if (level <= 0) return { ...build, abilities: others };
+
+      const abilities = [...others, { ruleId, level, parameters }];
+
+      return { ...build, abilities: this.applyGroupSelectLimit(abilities, ruleId, 1, rules, build.abilities) };
+    }
+
     const numeric = typeof value === 'number' ? value : value.base;
     if (numeric === 0) return { ...build, abilities: others };
 
-    const existing = build.abilities.find((ability) => ability.ruleId === ruleId);
-    const parameters = {
-      ...existing?.parameters,
-      [code]: typeof value === 'number' ? { base: value, size: 0 } : { ...value },
-    };
     const abilities = [...others, { ruleId, level: 1, parameters }];
 
     return { ...build, abilities: this.applyGroupSelectLimit(abilities, ruleId, 1, rules, build.abilities) };

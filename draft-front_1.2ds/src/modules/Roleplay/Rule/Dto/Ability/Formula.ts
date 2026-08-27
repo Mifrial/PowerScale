@@ -6,6 +6,10 @@ export type Formula =
   | { type: 'ability_level'; ability_code: string; multiplier?: number; offset?: number }
   | { type: 'dimensional'; base: number; size: number }
   | { type: 'parameter'; parameter_code: string; per_unit: number }
+  /**
+   * Целая часть параметра / divisor (напр. каждый 2-й пункт Силы тренировок → +1 Вес).
+   */
+  | { type: 'parameter_floor_div'; parameter_code: string; divisor: number }
   | {
       /**
        * Размер характеристики (простое число): {3|-1} → −1, {5|1} → 1. Используется в

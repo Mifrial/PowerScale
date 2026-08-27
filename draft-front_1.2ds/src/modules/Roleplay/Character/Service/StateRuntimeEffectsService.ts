@@ -8,7 +8,8 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { StateSpec } from '@/modules/Roleplay/Rule/Dto/State/StateSpec';
 import type { StateEffect } from '@/modules/Roleplay/Rule/Dto/State/StateEffect';
 import { CHARACTERISTIC_BASE_RANGE } from '@/modules/Roleplay/Character/Constant/CHARACTERISTIC_BASE_RANGE';
-import { ADVANTAGE_SOURCE_STATE } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
+import { ADVANTAGE_SOURCE_APPEARANCE, ADVANTAGE_SOURCE_STATE } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
+import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/Service/Instance/aggregateSourceDeltasService';
 import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
 import type { CharacteristicSpec } from '@/modules/Roleplay/Rule/Dto/CharacteristicSpec';
 import { derivedCharacteristicService } from '@/modules/Roleplay/Rule/Service/Instance/derivedCharacteristicService';
@@ -100,21 +101,7 @@ export class StateRuntimeEffectsService {
     rules: Rule[],
     query?: CheckAdvantageQuery,
   ): number {
-    if (!version) return 0;
-    let total = 0;
-    for (const state of version.states) {
-      const rule = this.ruleById(rules, state.stateRuleId);
-      const spec = this.specOf(rule);
-      if (!spec) continue;
-      const magnitude = this.stateMagnitude(state, spec);
-      for (const effect of spec.effects ?? []) {
-        if (effect.type !== 'check_advantage') continue;
-        if (!this.checkAdvantageMatchesQuery(effect, query, rules)) continue;
-        total += this.scaledAmount(effect, magnitude);
-      }
-    }
-
-    return total;
+    return this.checkAdvantageModifiers(version, rules, query).reduce((sum, entry) => sum + entry.delta, 0);
   }
 
   checkAdvantageModifiers(
@@ -122,10 +109,29 @@ export class StateRuntimeEffectsService {
     rules: Rule[],
     query?: CheckAdvantageQuery,
   ): AdvantageModifier[] {
-    const delta = this.checkAdvantageFromStates(version, rules, query);
-    if (!delta) return [];
+    if (!version) return [];
+    const entries: AdvantageModifier[] = [];
+    for (const [index, state] of version.states.entries()) {
+      const rule = this.ruleById(rules, state.stateRuleId);
+      const spec = this.specOf(rule);
+      if (!rule || !spec) continue;
+      const magnitude = this.stateMagnitude(state, spec);
+      for (const effect of spec.effects ?? []) {
+        if (effect.type !== 'check_advantage') continue;
+        if (!this.checkAdvantageMatchesQuery(effect, query, rules)) continue;
+        const delta = this.scaledAmount(effect, magnitude);
+        if (!delta) continue;
+        const sourceCode =
+          spec.aggregation === 'independent' ? `${rule.id}#${index}` : (effect.source_code ?? ADVANTAGE_SOURCE_STATE);
+        entries.push({
+          source_code: sourceCode,
+          source_label: sourceCode === ADVANTAGE_SOURCE_APPEARANCE ? 'внешность' : rule.name,
+          delta,
+        });
+      }
+    }
 
-    return [{ source_code: ADVANTAGE_SOURCE_STATE, source_label: 'состояния', delta }];
+    return aggregateSourceDeltasService.aggregateSourceDeltas(entries);
   }
 
   private characteristicSpecOf(rule: Rule | undefined): CharacteristicSpec | null {
@@ -136,7 +142,11 @@ export class StateRuntimeEffectsService {
   }
 
   private checkAdvantageIsUnscoped(effect: Extract<StateEffect, { type: 'check_advantage' }>): boolean {
-    return !effect.includes_hit && (effect.characteristic_codes?.length ?? 0) === 0;
+    return (
+      !effect.includes_hit &&
+      (effect.characteristic_codes?.length ?? 0) === 0 &&
+      (effect.check_codes?.length ?? 0) === 0
+    );
   }
 
   private checkAdvantageMatchesQuery(
@@ -147,6 +157,9 @@ export class StateRuntimeEffectsService {
     if (this.checkAdvantageIsUnscoped(effect)) return true;
     if (!query) return false;
     if (query.kind === 'hit') return Boolean(effect.includes_hit);
+    if (query.kind === 'check') {
+      return (effect.check_codes ?? []).includes(query.code);
+    }
 
     return (effect.characteristic_codes ?? []).some((root) => this.characteristicDependsOn(query.code, root, rules));
   }
@@ -161,10 +174,12 @@ export class StateRuntimeEffectsService {
     return rules.find((rule) => rule.id === id);
   }
 
-  private scaledAmount(effect: { amount: number; per_unit?: boolean }, magnitude: number): number {
+  private scaledAmount(effect: { amount: number; per_unit?: boolean; scale?: 'sign' }, magnitude: number): number {
     if (magnitude === 0) return 0;
+    if (effect.scale === 'sign') return Math.sign(magnitude) * effect.amount;
+    if (effect.per_unit) return effect.amount * magnitude;
 
-    return effect.per_unit ? effect.amount * magnitude : effect.amount;
+    return effect.amount;
   }
 
   private applyEffect(

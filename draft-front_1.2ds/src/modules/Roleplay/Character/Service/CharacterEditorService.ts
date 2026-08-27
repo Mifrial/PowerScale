@@ -31,6 +31,7 @@ import type { RaceSpec } from '@/modules/Roleplay/Rule/Dto/Race/RaceSpec';
 import type { CharacteristicSpec } from '@/modules/Roleplay/Rule/Dto/CharacteristicSpec';
 import type { RaceAbilityRef } from '@/modules/Roleplay/Rule/Dto/Race/RaceAbilityRef';
 import type { CharacterAbility } from '@/modules/Roleplay/Character/Dto/CharacterAbility';
+import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/CharacterStateValue';
 import type { CharacterSenseValue } from '@/modules/Roleplay/Character/Dto/CharacterSenseValue';
 import type { ResourceValue } from '@/modules/Roleplay/Character/Dto/ResourceValue';
 import type { ResourceLimitBonus } from '@/modules/Roleplay/Character/Dto/ResourceLimitBonus';
@@ -51,6 +52,11 @@ import type { ParsedDerivedFormula } from '@/modules/Roleplay/Rule/Dto/ParsedDer
 import { mechanicEngine } from '@/modules/Roleplay/Rule/init';
 import { PURCHASE_SURCHARGE_EVENT } from '@/modules/Roleplay/Rule/Service/Mechanic/Handlers/PurchaseSurchargeHandler';
 import { racialInnateGearService } from '@/modules/Roleplay/Character/Service/Instance/racialInnateGearService';
+import {
+  ATTRACTIVENESS_MAX,
+  ATTRACTIVENESS_MIN,
+  ATTRACTIVENESS_STATE_CODE,
+} from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
 import { itemModifierService } from '@/modules/Roleplay/Rule/Service/Instance/itemModifierService';
 import type { InventoryItem } from '@/modules/Roleplay/Character/Dto/InventoryItem';
 import { DOMAIN_REF_RULE_TYPES } from '@/modules/Roleplay/Rule/Constant/Ability/DOMAIN_REF_RULE_TYPES';
@@ -138,7 +144,7 @@ export class CharacterEditorService {
       money: synced.money,
       ageYears: synced.ageYears,
       inventory: synced.inventory,
-      states: build.states,
+      states: this.buildDerivedStates(synced, reference, keywords),
       senses: senses.map((value) => ({
         ruleId: value.ruleId,
         value: value.value,
@@ -459,7 +465,7 @@ export class CharacterEditorService {
    * Ресурсы персонажа. Авто-добавляемые (ResourceSpec.auto_add, сейчас — ОД): лимит = limit.base
    * + сумма adjustments (формулы по характеристикам) + дары resource_limit_change; каждый вклад —
    * бонус/штраф с источником (попап ресурса). current — из сохранённого build.resources
-   * (фолбэк — полный лимит), кламп к [0, лимит]. Не-авто ресурсы из build — то же клампирование.
+   * (фолбэк — полный лимит), кламп к [0, лимит]. Не-авто ресурсы строятся только из активных грантов.
    */
   private buildResources(
     build: CharacterBuild,
@@ -472,6 +478,28 @@ export class CharacterEditorService {
     const storedByRuleId = new Map(build.resources.map((resource) => [resource.ruleId, resource]));
 
     const result: ResourceValue[] = [];
+    const grantedResources = new Map<string, { base: DimensionalNumberValue; bonuses: ResourceLimitBonus[] }>();
+    this.forEachActiveGrant(build, reference, (grant) => {
+      if (grant.type === 'resource') {
+        const resourceRule = reference.ruleByCode(grant.resource_code);
+        if (!resourceRule || grantedResources.has(resourceRule.id)) return;
+        const base = typeof grant.limit === 'number' ? { base: grant.limit, size: 0 } : grant.limit;
+        grantedResources.set(resourceRule.id, { base, bonuses: [] });
+
+        return;
+      }
+
+      if (grant.type !== 'resource_limit_change') return;
+      const resourceRule = reference.ruleByCode(grant.resource_code);
+      const granted = resourceRule ? grantedResources.get(resourceRule.id) : undefined;
+      if (!granted) return;
+      granted.bonuses.push({
+        sourceRuleId: grant.source_code === null ? null : (reference.ruleByCode(grant.source_code)?.id ?? null),
+        sourceLabel: null,
+        delta: this.formula.evaluate(grant.amount, context),
+      });
+    });
+
     for (const rule of reference.rules()) {
       if (rule.type !== 'resource') continue;
       const spec = rule.spec as ResourceSpec | undefined;
@@ -513,13 +541,19 @@ export class CharacterEditorService {
       });
     }
 
-    // Не-авто ресурсы (или авто, не покрытые ревизией): current клампится к лимиту листа.
-    for (const resource of build.resources) {
-      if (result.some((entry) => entry.ruleId === resource.ruleId)) continue;
-      const limitBase = Math.max(0, resource.base.base + resource.bonuses.reduce((sum, bonus) => sum + bonus.delta, 0));
+    // Неавтоматический ресурс существует только пока его даёт активный грант.
+    for (const [ruleId, granted] of grantedResources) {
+      if (result.some((entry) => entry.ruleId === ruleId)) continue;
+      const stored = storedByRuleId.get(ruleId);
+      const limitBase = Math.max(0, granted.base.base + granted.bonuses.reduce((sum, bonus) => sum + bonus.delta, 0));
       result.push({
-        ...resource,
-        current: this.clampCurrentToLimit(resource.current, { base: limitBase, size: resource.base.size }),
+        ruleId,
+        current: this.clampCurrentToLimit(stored?.current ?? { base: limitBase, size: granted.base.size }, {
+          base: limitBase,
+          size: granted.base.size,
+        }),
+        base: granted.base,
+        bonuses: granted.bonuses,
       });
     }
 
@@ -1029,61 +1063,92 @@ export class CharacterEditorService {
     raceFixedBases: Map<string, DimensionalNumberValue> = new Map(),
   ): EditorAbilityParameter[] {
     if (spec.type === 'group') return [];
-    const osCost = spec.zones?.os;
-    if (!osCost || (osCost.kind !== 'parameter' && osCost.kind !== 'parameter_table')) return [];
-
-    const parameter = spec.parameters?.find((p) => p.code === osCost.parameter_code);
-    if (!parameter) return [];
-
-    const specMin = this.dimOf(parameter, 'min', 1);
-    const specMax = this.dimOf(parameter, 'max', parameter.default);
-    const cap = caps.get(rule.code)?.[parameter.code];
-    const autoValue = autoValues.get(rule.code)?.[parameter.code];
-    let min = specMin;
-    let max = cap !== undefined && this.dimLessThan(cap, specMax) ? cap : specMax;
-
-    // Бесплатная база характеристики дара (раса даёт фикс. значение, напр. «Магия 4↓» у Ахтара):
-    // ступени ниже неё недоступны, значение по умолчанию — эта база, стоимость инкрементальна.
-    const grantCode = this.parameterGrantCode(spec);
-    const raceFixed = grantCode === null ? null : (raceFixedBases.get(grantCode) ?? null);
-    let freeStepCost = 0;
-    if (raceFixed !== null) {
-      if (this.dimLessThan(min, raceFixed)) min = raceFixed;
-      if (osCost.kind === 'parameter_table')
-        freeStepCost = osCost.costs[new DimensionalNumber(raceFixed).toString()] ?? 0;
+    const zoneCode = this.purchasableZoneOf(spec);
+    const purchaseCost = zoneCode ? spec.zones[zoneCode] : undefined;
+    if (
+      !purchaseCost ||
+      (purchaseCost.kind !== 'parameter' &&
+        purchaseCost.kind !== 'parameter_table' &&
+        purchaseCost.kind !== 'parameter_sum_tables')
+    ) {
+      return [];
     }
 
-    // Связь с параметром другой способности (напр. «Врождённая Стойкость X» ↔ «Врождённая Сила X»):
-    // диапазон сжимается до |значение связанного ± max_delta|. Связанная способность не выбрана → 0.
-    if (parameter.linked) {
-      const other = chosenParameters.get(parameter.linked.ability_code)?.[parameter.linked.parameter_code] ?? 0;
-      max = this.dimMax(parameter, max, other + parameter.linked.max_delta);
-      min = this.dimMin(parameter, min, other - parameter.linked.max_delta);
+    const codes =
+      purchaseCost.kind === 'parameter_sum_tables'
+        ? (spec.parameters ?? [])
+            .filter((parameter) => parameter.resolution === 'purchase')
+            .map((parameter) => parameter.code)
+        : [purchaseCost.parameter_code];
+
+    const currentByCode = new Map<string, number>();
+    for (const code of codes) {
+      const raw = chosen?.parameters?.[code];
+      currentByCode.set(code, raw === undefined ? 0 : this.toNumber(raw));
     }
+    const poolUsed = [...currentByCode.values()].reduce((sum, value) => sum + value, 0);
 
-    let value: DimensionalNumberValue;
-    const chosenValue = chosen?.parameters?.[parameter.code];
-    if (chosenValue !== undefined) {
-      value = typeof chosenValue === 'number' ? { base: chosenValue, size: 0 } : chosenValue;
-    } else if (automatic) {
-      value = autoValue ?? cap ?? this.dimOf(parameter, 'default', 1);
-    } else if (raceFixed !== null) {
-      value = raceFixed;
-    } else {
-      value = { base: 0, size: 0 };
-    }
+    const result: EditorAbilityParameter[] = [];
+    for (const code of codes) {
+      const parameter = spec.parameters?.find((entry) => entry.code === code);
+      if (!parameter) continue;
 
-    const steps = osCost.kind === 'parameter_table' ? this.parameterSteps(osCost.costs, min, max) : [];
+      const specMin = this.dimOf(parameter, 'min', 1);
+      const specMax = this.dimOf(parameter, 'max', parameter.default);
+      const cap = caps.get(rule.code)?.[parameter.code];
+      const autoValue = autoValues.get(rule.code)?.[parameter.code];
+      let min = specMin;
+      let max = cap !== undefined && this.dimLessThan(cap, specMax) ? cap : specMax;
 
-    return [
-      {
+      const grantCode = this.parameterGrantCode(spec);
+      const raceFixed = grantCode === null ? null : (raceFixedBases.get(grantCode) ?? null);
+      let freeStepCost = 0;
+      const tableCosts =
+        purchaseCost.kind === 'parameter_table'
+          ? purchaseCost.costs
+          : purchaseCost.kind === 'parameter_sum_tables'
+            ? purchaseCost.tables[code]
+            : undefined;
+      if (raceFixed !== null) {
+        if (this.dimLessThan(min, raceFixed)) min = raceFixed;
+        if (tableCosts) freeStepCost = tableCosts[new DimensionalNumber(raceFixed).toString()] ?? 0;
+      }
+
+      if (parameter.linked) {
+        const other = chosenParameters.get(parameter.linked.ability_code)?.[parameter.linked.parameter_code] ?? 0;
+        max = this.dimMax(parameter, max, other + parameter.linked.max_delta);
+        min = this.dimMin(parameter, min, other - parameter.linked.max_delta);
+      }
+
+      if (purchaseCost.kind === 'parameter_sum_tables') {
+        const current = currentByCode.get(code) ?? 0;
+        const remaining = purchaseCost.max_level - (poolUsed - current);
+        max = this.dimMax(parameter, max, remaining);
+      }
+
+      let value: DimensionalNumberValue;
+      const chosenValue = chosen?.parameters?.[parameter.code];
+      if (chosenValue !== undefined) {
+        value = typeof chosenValue === 'number' ? { base: chosenValue, size: 0 } : chosenValue;
+      } else if (automatic) {
+        value = autoValue ?? cap ?? this.dimOf(parameter, 'default', 1);
+      } else if (raceFixed !== null) {
+        value = raceFixed;
+      } else {
+        value = { base: 0, size: 0 };
+      }
+
+      const steps = tableCosts ? this.parameterSteps(tableCosts, min, max) : [];
+
+      result.push({
         code: parameter.code,
         label: parameter.label,
+        description: parameter.description,
         value,
         min,
         max,
-        perUnit: osCost.kind === 'parameter' ? osCost.per_unit : 0,
-        costs: osCost.kind === 'parameter_table' ? osCost.costs : undefined,
+        perUnit: purchaseCost.kind === 'parameter' ? purchaseCost.per_unit : 0,
+        costs: tableCosts,
         steps,
         cappedByRace: cap !== undefined,
         freeValue:
@@ -1093,8 +1158,10 @@ export class CharacterEditorService {
               ? this.toNumber(autoValue ?? { base: 0, size: 0 })
               : 0,
         freeStepCost,
-      },
-    ];
+      });
+    }
+
+    return result;
   }
 
   /** Ступени табличной цены: значения (размерные) из ключей costs в возрастающем порядке, в пределах [min, max]. */
@@ -1430,6 +1497,23 @@ export class CharacterEditorService {
     return result;
   }
 
+  private buildDerivedStates(
+    build: CharacterBuild,
+    reference: CharacterReferenceService,
+    keywords: Keyword[],
+  ): CharacterStateValue[] {
+    const rule = reference.ruleByCode(ATTRACTIVENESS_STATE_CODE);
+    if (!rule || rule.type !== 'state') return build.states;
+    let total = 0;
+    this.forEachActiveGrant(build, reference, (grant) => {
+      if (grant.type !== 'state_modify' || grant.state_code !== ATTRACTIVENESS_STATE_CODE) return;
+      total += this.formula.evaluate(grant.amount, this.formulaContext(build, new Map(), reference, keywords));
+    });
+    const value = Math.min(ATTRACTIVENESS_MAX, Math.max(ATTRACTIVENESS_MIN, total));
+
+    return [...build.states.filter((state) => state.stateRuleId !== rule.id), { stateRuleId: rule.id, value }];
+  }
+
   /**
    * Обходит активные дары выбранных и автоматических расовых способностей. Дар уровня L:
    * permanent (по умолчанию) действует на всех уровнях >= L, non-permanent — строго на уровне L.
@@ -1524,10 +1608,20 @@ export class CharacterEditorService {
 
     if (grant.type === 'characteristic_modify') {
       const amount = grant.amount;
-      if (typeof amount !== 'object' || !('type' in amount) || amount.type !== 'parameter') return grant;
-      const x = this.parameterValueOf(spec, ability.parameters, amount.parameter_code);
+      if (typeof amount !== 'object' || !('type' in amount)) return grant;
+      if (amount.type === 'parameter') {
+        const x = this.parameterValueOf(spec, ability.parameters, amount.parameter_code);
 
-      return { ...grant, amount: { type: 'fixed', value: x * amount.per_unit } };
+        return { ...grant, amount: { type: 'fixed', value: x * amount.per_unit } };
+      }
+      if (amount.type === 'parameter_floor_div') {
+        const x = this.parameterValueOf(spec, ability.parameters, amount.parameter_code);
+        const divisor = amount.divisor === 0 ? 1 : amount.divisor;
+
+        return { ...grant, amount: { type: 'fixed', value: Math.floor(x / divisor) } };
+      }
+
+      return grant;
     }
 
     if (grant.type === 'characteristic_parameter') {
@@ -1690,6 +1784,8 @@ export class CharacterEditorService {
         return 1;
       case 'parameter_table':
         return 1;
+      case 'parameter_sum_tables':
+        return cost.max_level;
       case 'automatic':
         return 1;
     }
@@ -1716,6 +1812,15 @@ export class CharacterEditorService {
         const value = resolveParameter?.(cost.parameter_code) ?? 1;
 
         return [typeof value === 'number' ? value : (cost.costs[String(value)] ?? 0)];
+      }
+      case 'parameter_sum_tables': {
+        let sum = 0;
+        for (const [code, table] of Object.entries(cost.tables)) {
+          const value = resolveParameter?.(code) ?? 0;
+          sum += table[String(value)] ?? 0;
+        }
+
+        return [sum];
       }
       case 'automatic':
         return [0];

@@ -23,6 +23,7 @@ import {
   DT_INJURY_EXTRA_DICE_SR_CODE,
   DT_PAY_SR_VS_RELIABILITY_CODE,
 } from '@/modules/Roleplay/Rule/Constant/Damage/DAMAGE_TYPE_HOOKS';
+import { importedRuleNameService } from '@/modules/Roleplay/Rule/Service/Instance/importedRuleNameService';
 
 function damageTypeSpec(code: string, attached: string[] = []): DamageTypeSpec {
   const forms = DAMAGE_TYPE_FORMS[code] ?? { genitive: '', dative: '' };
@@ -32,7 +33,7 @@ function damageTypeSpec(code: string, attached: string[] = []): DamageTypeSpec {
 
 let nextVersionId = 10;
 
-const rules: Rule[] = [
+const rules: Rule[] = importedRuleNameService.sanitizeCatalog([
   ...mockRuleImport,
   ...mockRaceImport,
   ...mockDevelopmentImport,
@@ -98,13 +99,14 @@ const rules: Rule[] = [
     spaceId: 1,
     spec: {
       type: 'action',
-      zones: { os: { kind: 'automatic' } },
+      zones: { or: { kind: 'automatic' } },
       requirements: [],
       grants: [],
       action_components: [{ type: 'resource', resource_code: 'action-points', amount: 3, label: 'Действие' }],
       parent_ability_code: null,
+      section: 'core-rules',
     },
-    keywordIds: [14, 71, 1, 20],
+    keywordIds: [14, 71, 1],
     mechanicId: null,
     createdAt: '2026-08-23T10:00:00Z',
   },
@@ -117,13 +119,14 @@ const rules: Rule[] = [
     spaceId: 1,
     spec: {
       type: 'action',
-      zones: { os: { kind: 'automatic' } },
+      zones: { or: { kind: 'automatic' } },
       requirements: [],
       grants: [],
       action_components: [{ type: 'resource', resource_code: 'action-points', amount: 3, label: 'Действие' }],
       parent_ability_code: null,
+      section: 'core-rules',
     },
-    keywordIds: [14, 71, 2, 20],
+    keywordIds: [14, 71, 2],
     mechanicId: null,
     createdAt: '2026-08-23T10:00:00Z',
   },
@@ -136,13 +139,14 @@ const rules: Rule[] = [
     spaceId: 1,
     spec: {
       type: 'action',
-      zones: { os: { kind: 'automatic' } },
+      zones: { or: { kind: 'automatic' } },
       requirements: [],
       grants: [],
       action_components: [{ type: 'resource', resource_code: 'action-points', amount: 1, label: 'Реакция' }],
       parent_ability_code: null,
+      section: 'core-rules',
     },
-    keywordIds: [14, 53, 20],
+    keywordIds: [14, 53],
     mechanicId: null,
     createdAt: '2026-08-23T10:00:00Z',
   },
@@ -155,13 +159,14 @@ const rules: Rule[] = [
     spaceId: 1,
     spec: {
       type: 'action',
-      zones: { os: { kind: 'automatic' } },
+      zones: { or: { kind: 'automatic' } },
       requirements: [],
       grants: [],
       action_components: [{ type: 'resource', resource_code: 'action-points', amount: 2, label: 'Реакция' }],
       parent_ability_code: null,
+      section: 'core-rules',
     },
-    keywordIds: [14, 53, 20],
+    keywordIds: [14, 53],
     mechanicId: null,
     createdAt: '2026-08-23T10:00:00Z',
   },
@@ -175,11 +180,12 @@ const rules: Rule[] = [
     spaceId: 1,
     spec: {
       type: 'action',
-      zones: { os: { kind: 'automatic' } },
+      zones: { or: { kind: 'automatic' } },
       requirements: [],
       grants: [],
       action_components: [{ type: 'resource', resource_code: 'action-points', amount: 1, label: 'Реакция' }],
       parent_ability_code: null,
+      section: 'core-rules',
     },
     keywordIds: [14, 53, 222],
     mechanicId: null,
@@ -283,28 +289,6 @@ const rules: Rule[] = [
     createdAt: '2026-01-16T10:00:00Z',
   },
   {
-    id: 'rule-critical-strike',
-    code: 'critical-strike',
-    type: 'ability',
-    name: 'Критический удар',
-    description:
-      'Активируемый навык: при броске «1» начисляет дополнительный успех, грань списывает ещё один (поверх правила «6 и 1»).',
-    spaceId: 1,
-    spec: {
-      type: 'skill',
-      zones: {
-        os: { kind: 'array', levels_cost: [2, 4, 6] },
-      },
-      requirements: [],
-      grants: [],
-      parent_ability_code: null,
-    },
-    keywordIds: [5],
-    mechanicId: 6,
-    mechanic_payload: { type: 'roll_score_adjust', data: { oneDelta: 1, faceDelta: -1 } },
-    createdAt: '2026-01-15T10:00:00Z',
-  },
-  {
     id: 'rule-3',
     code: 'strength',
     type: 'characteristic',
@@ -363,27 +347,6 @@ const rules: Rule[] = [
     keywordIds: [4],
     mechanicId: null,
     createdAt: '2026-01-17T10:00:00Z',
-  },
-  {
-    id: 'rule-4',
-    code: 'double-strike',
-    type: 'ability',
-    name: 'Двойной удар',
-    description: 'Атака, наносящая два удара подряд.',
-    spaceId: 1,
-    spec: {
-      type: 'action',
-      zones: { or: { kind: 'array', levels_cost: [2, 3, 4] } },
-      requirements: [
-        { level: 1, requirements: [{ type: 'has_ability', ability_code: 'melee-fighting', min_level: 1 }] },
-      ],
-      grants: [],
-      action_components: [{ type: 'resource', resource_code: 'action-points', amount: 1 }],
-      parent_ability_code: null,
-    },
-    keywordIds: [5, 6, 13, 14],
-    mechanicId: 3,
-    createdAt: '2026-01-18T10:00:00Z',
   },
   {
     id: 'rule-6',
@@ -612,45 +575,6 @@ const rules: Rule[] = [
     createdAt: '2026-01-28T10:00:00Z',
   },
   {
-    id: 'rule-21',
-    code: 'melee-fighting',
-    type: 'ability',
-    name: 'Ближний бой',
-    description: 'Владение оружием ближнего боя.',
-    spaceId: 1,
-    spec: {
-      type: 'skill',
-      zones: {
-        os: { kind: 'array', levels_cost: [1, 2, 3] },
-        or: { kind: 'array', levels_cost: [2, 3, 4] },
-      },
-      requirements: [
-        {
-          level: 2,
-          requirements: [{ type: 'resource_limit', resource_code: 'action-points', min: 2 }],
-        },
-      ],
-      grants: [
-        {
-          level: 1,
-          grants: [
-            { type: 'keyword', keyword_code: 'combat', remove: false },
-            {
-              type: 'characteristic_modify',
-              characteristic_code: 'melee-combat',
-              amount: { type: 'ability_level', ability_code: 'melee-fighting', multiplier: 1, offset: 0 },
-              source_code: 'training',
-            },
-          ],
-        },
-      ],
-      parent_ability_code: null,
-    },
-    keywordIds: [5, 13],
-    mechanicId: null,
-    createdAt: '2026-01-28T10:00:00Z',
-  },
-  {
     id: 'rule-22',
     code: 'os',
     type: 'points',
@@ -761,82 +685,6 @@ const rules: Rule[] = [
     keywordIds: [17, 18, 19],
     mechanicId: null,
     createdAt: '2026-01-29T10:00:00Z',
-  },
-  {
-    id: 'rule-33',
-    code: 'movement',
-    type: 'ability',
-    name: 'Движение',
-    description: 'Процесс перемещения: Ходьба, Бег, Спринт. Каждый шаг стоит 1 ОД; переключение — на соседний шаг.',
-    spaceId: 1,
-    spec: {
-      type: 'process',
-      zones: { or: { kind: 'array', levels_cost: [1] } },
-      requirements: [],
-      grants: [],
-      process: {
-        start_step_code: 'walk',
-        transition: { mode: 'chain', max_shift: 1, direction: 'both' },
-        failure: null,
-        steps: [
-          {
-            code: 'walk',
-            name: 'Ходьба',
-            description: 'Спокойное перемещение. Повторим.',
-            costs: [{ resource_code: 'action-points', amount: 1 }],
-          },
-          {
-            code: 'run',
-            name: 'Бег',
-            description: 'Быстрое перемещение. Можно перейти на Ходьбу или Спринт.',
-            costs: [{ resource_code: 'action-points', amount: 1 }],
-          },
-          {
-            code: 'sprint',
-            name: 'Спринт',
-            description: 'Максимальная скорость. Повторим.',
-            costs: [{ resource_code: 'action-points', amount: 1 }],
-          },
-        ],
-      },
-      parent_ability_code: null,
-    },
-    keywordIds: [13, 14, 15],
-    mechanicId: null,
-    createdAt: '2026-01-30T10:00:00Z',
-  },
-  {
-    id: 'rule-34',
-    code: 'fire-bolt',
-    type: 'ability',
-    name: 'Огненная стрела',
-    description: 'Порождает сгусток пламени, бросаемый во врага.',
-    spaceId: 1,
-    spec: {
-      type: 'spell',
-      zones: { or: { kind: 'array', levels_cost: [3, 4, 5] } },
-      requirements: [{ level: 1, requirements: [{ type: 'has_keyword', keyword_code: 'magic' }] }],
-      grants: [],
-      action_components: [
-        { type: 'resource', resource_code: 'action-points', amount: 1, label: 'Сотворение' },
-        { type: 'verbal', note: 'крик' },
-        { type: 'somatic' },
-        {
-          type: 'material',
-          mode: 'consume',
-          keyword_codes: ['crafting'],
-          description: 'ремесленный материал (например, сера)',
-        },
-      ],
-      spell: {
-        difficulty: { base: 3, size: 0 },
-        duration: { type: 'instant' },
-      },
-      parent_ability_code: null,
-    },
-    keywordIds: [3, 13, 14, 16],
-    mechanicId: null,
-    createdAt: '2026-01-30T10:00:00Z',
   },
   {
     id: 'rule-35',
@@ -1049,132 +897,6 @@ const rules: Rule[] = [
     keywordIds: [4],
     mechanicId: null,
     createdAt: '2026-08-09T10:00:00Z',
-  },
-  {
-    id: 'rule-52',
-    code: 'sword-mastery',
-    type: 'ability',
-    name: 'Владение мечом',
-    description: 'Мастерство боя одноручным мечом.',
-    spaceId: 1,
-    spec: {
-      type: 'skill',
-      zones: { os: { kind: 'array', levels_cost: [1, 2, 3] } },
-      requirements: [],
-      grants: [
-        {
-          level: 1,
-          grants: [
-            {
-              type: 'characteristic_modify',
-              characteristic_code: 'melee-combat',
-              amount: { type: 'ability_level', ability_code: 'sword-mastery', multiplier: 1, offset: 0 },
-              source_code: 'training',
-            },
-          ],
-        },
-      ],
-      weapon_item_code: 'fekhtovalnyy-mech',
-      parent_ability_code: null,
-    },
-    keywordIds: [5, 13],
-    mechanicId: null,
-    createdAt: '2026-01-28T10:00:00Z',
-  },
-  {
-    id: 'rule-53',
-    code: 'dagger-mastery',
-    type: 'ability',
-    name: 'Владение кинжалом',
-    description: 'Мастерство боя кинжалом.',
-    spaceId: 1,
-    spec: {
-      type: 'skill',
-      zones: { os: { kind: 'array', levels_cost: [1, 2, 3] } },
-      requirements: [],
-      grants: [
-        {
-          level: 1,
-          grants: [
-            {
-              type: 'characteristic_modify',
-              characteristic_code: 'melee-combat',
-              amount: { type: 'ability_level', ability_code: 'dagger-mastery', multiplier: 1, offset: 0 },
-              source_code: 'training',
-            },
-          ],
-        },
-      ],
-      weapon_item_code: 'kinzhal',
-      parent_ability_code: null,
-    },
-    keywordIds: [5, 13],
-    mechanicId: null,
-    createdAt: '2026-01-28T10:00:00Z',
-  },
-  {
-    id: 'rule-70',
-    code: 'steady-hands',
-    type: 'ability',
-    name: 'Твёрдая рука',
-    description: 'Особенность: при работе с инструментами и оружием руки не дрожат даже после длительной работы.',
-    spaceId: 1,
-    spec: {
-      type: 'feature',
-      zones: { os: { kind: 'automatic' } },
-      requirements: [],
-      grants: [],
-      parent_ability_code: null,
-    },
-    keywordIds: [12],
-    mechanicId: null,
-    createdAt: '2026-01-28T10:00:00Z',
-  },
-  {
-    id: 'rule-71',
-    code: 'forest-whisper',
-    type: 'ability',
-    name: 'Шёпот леса',
-    description: 'Заклинание: ощутить присутствие и намерения существ в лесу вокруг.',
-    spaceId: 1,
-    spec: {
-      type: 'spell',
-      zones: { or: { kind: 'array', levels_cost: [2, 3, 4] } },
-      requirements: [],
-      grants: [],
-      action_components: [
-        { type: 'resource', resource_code: 'action-points', amount: 1, label: 'Сотворение' },
-        { type: 'verbal', note: 'шёпот' },
-        { type: 'somatic' },
-      ],
-      spell: {
-        difficulty: { base: 3, size: 0 },
-        duration: { type: 'instant' },
-      },
-      parent_ability_code: null,
-    },
-    keywordIds: [3, 8],
-    mechanicId: null,
-    createdAt: '2026-08-06T10:00:00Z',
-  },
-  {
-    id: 'rule-72',
-    code: 'step-up',
-    type: 'ability',
-    name: 'Математический шаг',
-    description:
-      'Проверочная способность с прогрессивной стоимостью: base_cost 1, шаг 1 → уровни 1–4 стоят 1, 2, 3, 4 ОС.',
-    spaceId: 1,
-    spec: {
-      type: 'skill',
-      zones: { os: { kind: 'progression', max_level: 4, base_cost: 1, step: 1 } },
-      requirements: [],
-      grants: [],
-      parent_ability_code: null,
-    },
-    keywordIds: [3],
-    mechanicId: null,
-    createdAt: '2026-08-07T10:00:00Z',
   },
   {
     id: 'rule-54',
@@ -1539,7 +1261,40 @@ const rules: Rule[] = [
     mechanicId: null,
     createdAt: '2026-08-25T10:00:00Z',
   },
-];
+  {
+    id: 'rule-609',
+    code: 'attractiveness',
+    type: 'state',
+    name: 'Привлекательность',
+    description:
+      'Не снимается. Если черт нет — считается 0 и ничего не делает. Выше нуля: одно преимущество от внешности на убеждение, обман и торговлю и столько преимуществ на обольщение, каково значение. Ниже нуля — те же проверки получают помехи вместо преимуществ. Диапазон −3…+3.',
+    spaceId: 1,
+    spec: {
+      icon_code: 'mdi-face-woman-shimmer',
+      value_type: 'number',
+      aggregation: 'sum',
+      effects: [
+        {
+          type: 'check_advantage',
+          amount: 1,
+          scale: 'sign',
+          check_codes: ['persuasion', 'deception', 'trade'],
+          source_code: 'appearance',
+        },
+        {
+          type: 'check_advantage',
+          amount: 1,
+          per_unit: true,
+          check_codes: ['seduction'],
+          source_code: 'appearance',
+        },
+      ],
+    },
+    keywordIds: [],
+    mechanicId: null,
+    createdAt: '2026-08-27T10:00:00Z',
+  },
+]);
 
 /**
  * Единый каталог правил (единственный источник для пространств и ревизий).

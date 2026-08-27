@@ -1,1 +1,2 @@
-export type CheckAdvantageQuery = { kind: 'hit' } | { kind: 'characteristic'; code: string };
+export type CheckAdvantageQuery =
+  { kind: 'hit' } | { kind: 'characteristic'; code: string } | { kind: 'check'; code: string };

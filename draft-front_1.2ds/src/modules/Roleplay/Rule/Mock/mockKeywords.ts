@@ -4,15 +4,13 @@ import type { UpdateKeywordData } from '@/modules/Roleplay/Rule/Dto/UpdateKeywor
 
 const delay = (ms = 300) => new Promise((r) => setTimeout(r, ms));
 
-let nextId = 223;
+let nextId = 226;
 
 export const keywords: Keyword[] = [
   { id: 1, code: 'melee', name: 'Ближний бой', description: 'Оружие и навыки ближнего боя', active: true },
   { id: 2, code: 'ranged', name: 'Дальний бой', description: 'Дистанционное оружие', active: true },
   { id: 3, code: 'magic', name: 'Волшебство', description: 'Магические способности и заклинания', active: true },
   { id: 4, code: 'stealth', name: 'Скрытность', description: 'Навыки скрытного передвижения', active: true },
-  { id: 5, code: 'crafting', name: 'Ремесло', description: 'Создание предметов', active: true },
-  { id: 6, code: 'diplomacy', name: 'Дипломатия', description: 'Переговоры и убеждение', active: false },
   { id: 7, code: 'combat', name: 'Боевое', description: 'Подтип боевых способностей', active: true },
   { id: 8, code: 'utility', name: 'Полезное', description: 'Подтип утилитарных способностей', active: true },
   { id: 9, code: 'passive', name: 'Пассивное', description: 'Подтип пассивных способностей', active: true },
@@ -67,7 +65,7 @@ export const keywords: Keyword[] = [
     description: 'Тип способности: группа (контейнер способностей с лимитом выбора)',
     active: true,
   },
-  { id: 43, code: 'group-part', name: 'Часть группы', description: 'Способность входит в группу', active: true },
+  { id: 43, code: 'appearance', name: 'Внешность', description: 'Черта внешности', active: true },
   { id: 44, code: 'innate', name: 'Врождённая', description: 'Врождённая черта (от тела/вида)', active: true },
   {
     id: 45,
@@ -586,6 +584,9 @@ export const keywords: Keyword[] = [
     description: 'Признак действия: перемещение или поворот',
     active: true,
   },
+  { id: 223, code: 'voice', name: 'Голос', description: 'Черта голоса', active: true },
+  { id: 224, code: 'hearing', name: 'Слух', description: 'Черта слуха', active: true },
+  { id: 225, code: 'vision', name: 'Зрение', description: 'Черта зрения', active: true },
 ];
 
 export async function fetchTags(_signal?: AbortSignal): Promise<Keyword[]> {

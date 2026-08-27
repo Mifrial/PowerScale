@@ -38,13 +38,12 @@ describe('ruleCatalog', () => {
     }
   });
 
-  it('способности с type process/spell содержат соответствующие спеки', () => {
-    const movement = ruleCatalog.find((r) => r.code === 'movement');
-    expect(movement?.type).toBe('ability');
-    expect((movement?.spec as { type?: string } | undefined)?.type).toBe('process');
-
-    const fireBolt = ruleCatalog.find((r) => r.code === 'fire-bolt');
-    expect((fireBolt?.spec as { type?: string } | undefined)?.type).toBe('spell');
+  it('способности с type process содержат спеку процесса', () => {
+    const process = ruleCatalog.find(
+      (r) => r.type === 'ability' && (r.spec as { type?: string } | undefined)?.type === 'process',
+    );
+    expect(process?.spec).toBeDefined();
+    expect((process?.spec as { process?: unknown }).process).toBeDefined();
   });
 
   it('у каждого типа урона есть спека со склонениями', () => {

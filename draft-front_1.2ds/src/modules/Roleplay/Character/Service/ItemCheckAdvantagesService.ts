@@ -43,6 +43,7 @@ export class ItemCheckAdvantagesService {
     if (unscoped) return true;
     if (!query) return false;
     if (query.kind === 'hit') return Boolean(effect.includes_hit);
+    if (query.kind === 'check') return false;
 
     return codes.includes(query.code);
   }

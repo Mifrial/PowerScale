@@ -36,6 +36,12 @@ export class FormulaEvaluationService {
 
         return { base: value * formula.per_unit, size: 0 };
       }
+      case 'parameter_floor_div': {
+        const value = context.parameterValues?.(formula.parameter_code) ?? 0;
+        const divisor = formula.divisor === 0 ? 1 : formula.divisor;
+
+        return { base: Math.floor(value / divisor), size: 0 };
+      }
       case 'actionCharacteristic': {
         const base = context.actionCharacteristicValue?.(formula.action, formula.characteristic) ??
           context.characteristicValues.get(formula.characteristic) ?? { base: 0, size: 0 };

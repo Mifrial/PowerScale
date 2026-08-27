@@ -24,6 +24,7 @@ const props = defineProps<{
   sources: SourceRef[];
   damageTypes: { code: string; name: string }[];
   senses: { code: string; name: string }[];
+  states: { code: string; name: string }[];
 }>();
 
 const emit = defineEmits<{
@@ -350,6 +351,62 @@ function patch(key: string, value: unknown) {
           density="compact"
           hide-details
           clearable
+        />
+      </template>
+
+      <template v-else-if="inner.type === 'state_modify'">
+        <v-autocomplete
+          :model-value="inner.state_code"
+          @update:model-value="patch('state_code', $event)"
+          :items="states"
+          item-title="name"
+          item-value="code"
+          label="Состояние"
+          density="compact"
+          hide-details
+          clearable
+        />
+        <FormulaInput
+          :model-value="inner.amount"
+          @update:model-value="patch('amount', $event)"
+          :characteristics="characteristics"
+          :abilities="abilities"
+        />
+        <v-select
+          :model-value="inner.source_code || null"
+          @update:model-value="patch('source_code', $event)"
+          :items="sources"
+          item-title="name"
+          item-value="code"
+          label="Источник"
+          density="compact"
+          hide-details
+          clearable
+        />
+      </template>
+
+      <template v-else-if="inner.type === 'check_advantage'">
+        <ClampedNumberField
+          :model-value="inner.amount"
+          @update:model-value="patch('amount', $event)"
+          label="Преимущества"
+          density="compact"
+          hide-details
+        />
+        <v-text-field
+          :model-value="inner.check_codes.join(', ')"
+          @update:model-value="
+            patch(
+              'check_codes',
+              String($event ?? '')
+                .split(',')
+                .map((code) => code.trim())
+                .filter(Boolean),
+            )
+          "
+          label="Коды проверок"
+          density="compact"
+          hide-details
         />
       </template>
 

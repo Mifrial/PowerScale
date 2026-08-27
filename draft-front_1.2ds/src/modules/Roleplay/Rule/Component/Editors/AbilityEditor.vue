@@ -15,6 +15,7 @@ import type { KeywordRef } from '@/modules/Roleplay/Rule/Dto/Ability/KeywordRef'
 import type { SourceRef } from '@/modules/Roleplay/Rule/Dto/Ability/SourceRef';
 import { ABILITY_TYPE_LABELS } from '@/modules/Roleplay/Rule/Constant/Ability/ABILITY_TYPE_LABELS';
 import { ABILITY_SPEC_FIELDS } from '@/modules/Roleplay/Rule/Constant/Ability/ABILITY_SPEC_FIELDS';
+import { ABILITY_SECTIONS } from '@/modules/Roleplay/Rule/Constant/Ability/ABILITY_SECTIONS';
 import { ACTION_POINTS_RESOURCE_CODE } from '@/modules/Roleplay/Rule/Constant/Ability/ACTION_POINTS_RESOURCE_CODE';
 import { abilitySpecService } from '@/modules/Roleplay/Rule/Service/Instance/abilitySpecService';
 import { ruleReferenceService } from '@/modules/Roleplay/Rule/Service/Instance/ruleReferenceService';
@@ -84,6 +85,7 @@ function abilityDraftFromSpec(value: RuleSpec | null): AbilitySpecDraft {
     spell: loaded.spell,
     parent_ability_code: loaded.parent_ability_code ?? null,
     group_code: loaded.group_code ?? null,
+    section: loaded.section ?? null,
     selectLimit: loaded.selectLimit ?? 1,
   };
 }
@@ -132,6 +134,8 @@ const sources = computed<SourceRef[]>(() => ruleReferenceService.sourceOptions(p
 const damageTypes = computed(() => ruleReferenceService.damageTypeOptions(props.rules));
 
 const senses = computed(() => ruleReferenceService.senseOptions(props.rules));
+
+const states = computed(() => ruleReferenceService.stateOptions(props.rules));
 
 const zoneOptions = computed<{ label: string; value: string }[]>(() => ruleReferenceService.zoneOptions(props.rules));
 
@@ -190,7 +194,7 @@ function setType(value: string | null) {
   }
 }
 
-/** Смена группы у участника: кладёт group_code и синхронизирует признак «часть группы». */
+/** Смена группы у участника: кладёт group_code и признак домена (Внешность/Голос/Слух/Зрение). */
 function updateGroupCode(value: string | null) {
   innerSpec.value = { ...innerSpec.value, group_code: value ?? null };
   emit('update:keywordIds', abilitySpecService.syncGroupPartTag(value, props.keywordIds, keywordStore.keywords));
@@ -288,6 +292,18 @@ function hasActionPointCost(): boolean {
       <v-expansion-panel v-if="currentType && !isGroup" value="group">
         <v-expansion-panel-title>Группа</v-expansion-panel-title>
         <v-expansion-panel-text>
+          <v-autocomplete
+            :model-value="innerSpec.section ?? null"
+            @update:model-value="(v) => patchSpec('section', v ?? null)"
+            :items="ABILITY_SECTIONS"
+            item-title="name"
+            item-value="code"
+            label="Раздел"
+            density="compact"
+            hide-details
+            clearable
+            class="mb-4"
+          />
           <v-autocomplete
             :model-value="innerSpec.group_code ?? null"
             @update:model-value="updateGroupCode($event ?? null)"
@@ -413,6 +429,7 @@ function hasActionPointCost(): boolean {
                   :sources="sources"
                   :damage-types="damageTypes"
                   :senses="senses"
+                  :states="states"
                   @update:model-value="(v) => updateGrant(levelIndex, grantIndex, v)"
                   @remove="removeGrant(levelIndex, grantIndex)"
                 />

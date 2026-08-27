@@ -237,23 +237,22 @@ describe('Авто-ресурс ОД (buildResources)', () => {
     expect(costly?.levels[0].met).toBe(true);
   });
 
-  it('не-авто ресурсы из build сохраняются как есть', () => {
+  it('устаревшие не-авто ресурсы без действующего гранта удаляются', () => {
     const build = makeBuild({ resources: [{ ruleId: 'r-concentration', current: dim(2), base: dim(3), bonuses: [] }] });
     const version = service.toVersion(build, rules, config);
     const concentration = version.resources.find((resource) => resource.ruleId === 'r-concentration');
 
-    expect(concentration).toEqual({ ruleId: 'r-concentration', current: dim(2), base: dim(3), bonuses: [] });
+    expect(concentration).toBeUndefined();
   });
 
-  it('не-авто ресурс: current выше лимита клампится', () => {
+  it('устаревший не-авто ресурс не возвращается даже при сохранённом current', () => {
     const build = makeBuild({
       resources: [{ ruleId: 'r-concentration', current: dim(9), base: dim(3), bonuses: [] }],
     });
     const version = service.toVersion(build, rules, config);
     const concentration = version.resources.find((resource) => resource.ruleId === 'r-concentration');
 
-    expect(concentration?.current).toEqual(dim(3));
-    expect(concentration?.base).toEqual(dim(3));
+    expect(concentration).toBeUndefined();
   });
 });
 

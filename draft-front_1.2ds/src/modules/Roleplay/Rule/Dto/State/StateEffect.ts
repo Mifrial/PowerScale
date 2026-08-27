@@ -42,11 +42,16 @@ export type StateEffect =
       /** Отрицательное — помехи. */
       amount: number;
       per_unit?: boolean;
+      /** ±amount по знаку значения состояния (0 при нуле). */
+      scale?: 'sign';
       /** Проверки на попадание. */
       includes_hit?: boolean;
       /**
        * Коды характеристик и их производных (`formula` min/max).
-       * Пусто и без `includes_hit` — все проверки.
+       * Пусто и без `includes_hit` / `check_codes` — все проверки.
        */
       characteristic_codes?: string[];
+      /** Коды правил проверки (убеждение, обольщение, …). */
+      check_codes?: string[];
+      source_code?: string;
     };

@@ -486,6 +486,14 @@ export class CharacterMigrationService {
       if (cost.kind === 'parameter_table') {
         return { zone: zoneCode, cost: cost.costs?.[String(parameters.get(cost.parameter_code) ?? 0)] ?? 0 };
       }
+      if (cost.kind === 'parameter_sum_tables') {
+        let sum = 0;
+        for (const [code, table] of Object.entries(cost.tables)) {
+          sum += table[String(parameters.get(code) ?? 0)] ?? 0;
+        }
+
+        return { zone: zoneCode, cost: sum };
+      }
       if (cost.kind === 'progression') {
         let total = 0;
         for (let i = 0; i < level; i++) total += cost.base_cost + cost.step * i;

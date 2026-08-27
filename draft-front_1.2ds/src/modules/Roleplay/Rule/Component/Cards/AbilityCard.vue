@@ -9,6 +9,7 @@ import type { AbilityType } from '@/modules/Roleplay/Rule/Enum/Ability/AbilityTy
 import type { ActionComponent } from '@/modules/Roleplay/Rule/Dto/Ability/ActionComponent';
 import { ABILITY_TYPE_LABELS } from '@/modules/Roleplay/Rule/Constant/Ability/ABILITY_TYPE_LABELS';
 import { abilitySpecService } from '@/modules/Roleplay/Rule/Service/Instance/abilitySpecService';
+import { abilitySectionService } from '@/modules/Roleplay/Rule/Service/Instance/abilitySectionService';
 import { ruleViewLabelService } from '@/modules/Roleplay/Rule/Service/Instance/ruleViewLabelService';
 import { resourceShortName } from '@/modules/Roleplay/Rule/Utils/resourceShortName';
 
@@ -172,6 +173,8 @@ function zoneCostLabel(cost: unknown): string {
   if (c.kind === 'array') return `массив: ${(c.levels_cost ?? []).join(', ')}`;
   if (c.kind === 'progression') return `прогрессия: ${c.base_cost} + (ур−1)×${c.step}, макс. ${c.max_level}`;
   if (c.kind === 'parameter') return `параметр «${c.parameter_code ?? 'x'}» × ${c.per_unit ?? 1}`;
+  if (c.kind === 'parameter_table') return `таблица «${c.parameter_code ?? 'x'}»`;
+  if (c.kind === 'parameter_sum_tables') return 'сумма таблиц параметров';
 
   return 'авто-получение';
 }
@@ -211,6 +214,7 @@ function grantLabel(grant: Grant): string {
     <div v-if="type" class="mb-2">
       <v-chip color="primary" variant="tonal" size="small">{{ ABILITY_TYPE_LABELS[type] }}</v-chip>
     </div>
+    <div v-if="spec.section" class="text-body-2 mb-2">Раздел: {{ abilitySectionService.label(spec.section) }}</div>
 
     <v-card v-if="groupInfo" variant="tonal" class="mb-3">
       <v-card-text>

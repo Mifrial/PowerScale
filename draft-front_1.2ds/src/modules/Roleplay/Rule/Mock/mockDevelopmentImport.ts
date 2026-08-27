@@ -1,4 +1,6 @@
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import { importedRuleNameService } from '@/modules/Roleplay/Rule/Service/Instance/importedRuleNameService';
+import { PHYSICAL_DEVELOPMENT_PARAM_COSTS } from '@/modules/Roleplay/Rule/Constant/Ability/PHYSICAL_DEVELOPMENT_PARAM_COSTS';
 import { mockWeaponSkillsImport } from './mockWeaponSkillsImport';
 
 /**
@@ -10,7 +12,7 @@ import { mockWeaponSkillsImport } from './mockWeaponSkillsImport';
  * Оружейные навыки из docs/rule/battle/weapon-skills.md — импортируются отдельно.
  */
 
-export const mockDevelopmentImport: Rule[] = [
+const mockDevelopmentImportRaw: Rule[] = [
   {
     id: 'rule-200',
     code: 'razvitie-vospriyatiya',
@@ -1653,58 +1655,88 @@ export const mockDevelopmentImport: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-260',
-    code: 'osnovy-fizicheskogo-razvitiya',
-    type: 'ability',
-    name: 'Основы физического развития( х из 3)',
-    description:
-      'Каждый уровень этой тренировки повышает или Силу или Ловкость или Стойкость и Выносливость на на 1. Вы можете выбирать каждый раз новую характеристику или ту же самую. Однако, если взять характеристику третий раз, то вы получите описанный ниже штраф от тренировки.\nСила: -1 к Ловкости; Ловкость: -1 к Силе; Стойкость: вы получаете только +1 к Стойкости для проверок на Выносливость.',
-    spaceId: 1,
-    spec: {
-      type: 'trait',
-      zones: {
-        or: {
-          kind: 'array',
-          levels_cost: [2, 2, 2],
-        },
-      },
-      requirements: [],
-      grants: [],
-      parent_ability_code: null,
-    },
-    keywordIds: [11, 61],
-    mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
-  },
-  {
     id: 'rule-261',
     code: 'fizicheskoe-razvitie',
     type: 'ability',
-    name: 'Физическое развитие( х из 3)',
+    name: 'Физическое развитие',
     description:
-      'Каждый уровень этой тренировки повышает или Силу или Ловкость или Стойкость на 1. Вы можете выбирать каждый раз новую характеристику или ту же самую. Однако, если взять характеристику третий раз, то вы получите описанный ниже штраф от тренировки.\nСила: -1 к Ловкости; Если уже получали штраф к Ловкости от тренировки, то ещё -1 к Стойкости.\nЛовкость: -1 к Силе; Если уже получали штраф к Силе от тренировки, то ещё -1 к Стойкости.\nСтойкость: вы получаете только +1 к Стойкости для проверок на Выносливость.',
+      'Навык позволяет развивать физическую форму, вплоть до +6 от тренировки к одной характеристике.',
     spaceId: 1,
     spec: {
       type: 'trait',
+      section: 'section-body',
       zones: {
         or: {
-          kind: 'array',
-          levels_cost: [3, 3, 3],
+          kind: 'parameter_sum_tables',
+          max_level: 9,
+          tables: {
+            strength: PHYSICAL_DEVELOPMENT_PARAM_COSTS,
+            endurance: PHYSICAL_DEVELOPMENT_PARAM_COSTS,
+            dexterity: PHYSICAL_DEVELOPMENT_PARAM_COSTS,
+          },
         },
       },
-      requirements: [
+      parameters: [
+        {
+          code: 'strength',
+          label: 'Сила',
+          description: 'от тренировки. Каждые 2 пункта дают +1 к Весу от тренировки.',
+          resolution: 'purchase',
+          default: { base: 0, size: 0 },
+          min: { base: 0, size: 0 },
+          max: { base: 6, size: 0 },
+        },
+        {
+          code: 'endurance',
+          label: 'Стойкость',
+          description: 'от тренировки.',
+          resolution: 'purchase',
+          default: { base: 0, size: 0 },
+          min: { base: 0, size: 0 },
+          max: { base: 6, size: 0 },
+        },
+        {
+          code: 'dexterity',
+          label: 'Ловкость',
+          description: 'от тренировки.',
+          resolution: 'purchase',
+          default: { base: 0, size: 0 },
+          min: { base: 0, size: 0 },
+          max: { base: 6, size: 0 },
+        },
+      ],
+      requirements: [],
+      grants: [
         {
           level: 1,
-          requirements: [
+          grants: [
             {
-              type: 'has_ability',
-              ability_code: 'osnovy-fizicheskogo-razvitiya',
-              min_level: 3,
+              type: 'characteristic_modify',
+              characteristic_code: 'strength',
+              amount: { type: 'parameter', parameter_code: 'strength', per_unit: 1 },
+              source_code: 'training',
+            },
+            {
+              type: 'characteristic_modify',
+              characteristic_code: 'endurance',
+              amount: { type: 'parameter', parameter_code: 'endurance', per_unit: 1 },
+              source_code: 'training',
+            },
+            {
+              type: 'characteristic_modify',
+              characteristic_code: 'dexterity',
+              amount: { type: 'parameter', parameter_code: 'dexterity', per_unit: 1 },
+              source_code: 'training',
+            },
+            {
+              type: 'characteristic_modify',
+              characteristic_code: 'weight',
+              amount: { type: 'parameter_floor_div', parameter_code: 'strength', divisor: 2 },
+              source_code: 'training',
             },
           ],
         },
       ],
-      grants: [],
       parent_ability_code: null,
     },
     keywordIds: [11, 61],
@@ -3987,7 +4019,7 @@ export const mockDevelopmentImport: Rule[] = [
           requirements: [
             {
               type: 'has_ability',
-              ability_code: 'double-strike',
+              ability_code: 'blizhniy-boy',
               min_level: 1,
             },
           ],
@@ -4053,7 +4085,7 @@ export const mockDevelopmentImport: Rule[] = [
           requirements: [
             {
               type: 'has_ability',
-              ability_code: 'double-strike',
+              ability_code: 'blizhniy-boy',
               min_level: 1,
             },
           ],
@@ -5581,3 +5613,5 @@ export const mockDevelopmentImport: Rule[] = [
   },
   ...mockWeaponSkillsImport,
 ];
+
+export const mockDevelopmentImport: Rule[] = importedRuleNameService.sanitizeCatalog(mockDevelopmentImportRaw);
