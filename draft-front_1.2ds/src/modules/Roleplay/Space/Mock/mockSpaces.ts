@@ -3,10 +3,12 @@ import type { SpaceCreateData } from '@/modules/Roleplay/Space/Dto/SpaceCreateDa
 import type { SpaceUpdateData } from '@/modules/Roleplay/Space/Dto/SpaceUpdateData';
 import type { SpaceRevisionMeta } from '@/modules/Roleplay/Space/Dto/SpaceRevisionMeta';
 import type { SpaceRevision } from '@/modules/Roleplay/Space/Dto/SpaceRevision';
+import { abilitySectionTreeService } from '@/modules/Roleplay/Space/Service/Instance/abilitySectionTreeService';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec';
 import { ruleCatalog } from '@/modules/Roleplay/Rule/Mock/mockRules';
 import { slugify } from '@/modules/Roleplay/Rule/Utils/Text/slugify';
+import { mockAbilitySectionTree } from '@/modules/Roleplay/Space/Mock/mockAbilitySectionTree';
 
 let nextId = 3;
 
@@ -302,6 +304,7 @@ export async function fetchRevision(
       spaceCode: space.code,
       spaceName: space.name,
       rules: [],
+      sections: abilitySectionTreeService.normalize(mockAbilitySectionTree),
     };
 
     return empty;
@@ -313,6 +316,7 @@ export async function fetchRevision(
     spaceCode: space.code,
     spaceName: space.name,
     rules: generateRevisionRules(spaceId, revision),
+    sections: abilitySectionTreeService.normalize(mockAbilitySectionTree),
   };
   revisionRulesCache.set(key, result);
 
@@ -328,6 +332,8 @@ export async function commitDraft(
   await delay(500);
   const space = spaces.find((s) => s.id === spaceId);
   if (!space) throw new Error(`Space ${spaceId} not found`);
+  const sectionErrors = abilitySectionTreeService.validateRuleSections(rules, mockAbilitySectionTree);
+  if (sectionErrors.length > 0) throw new Error(sectionErrors.join('; '));
 
   const now = new Date().toISOString();
   const poolByCode = new Map([...revisionRulePool, ...committedRules].map((r) => [r.code, r]));
@@ -362,6 +368,7 @@ export async function commitDraft(
     spaceCode: space.code,
     spaceName: space.name,
     rules: snapshotRules,
+    sections: abilitySectionTreeService.normalize(mockAbilitySectionTree),
   };
 
   const key = `${spaceId}:${revision}`;

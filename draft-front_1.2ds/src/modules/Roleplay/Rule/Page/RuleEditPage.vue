@@ -10,6 +10,7 @@ import SimpleRuleEditor from '@/modules/Roleplay/Rule/Component/Editors/SimpleRu
 import CharacteristicEditor from '@/modules/Roleplay/Rule/Component/Editors/CharacteristicEditor.vue';
 import ResourceEditor from '@/modules/Roleplay/Rule/Component/Editors/ResourceEditor.vue';
 import AbilityEditor from '@/modules/Roleplay/Rule/Component/Editors/AbilityEditor.vue';
+import CatalogPlacementEditor from '@/modules/Roleplay/Rule/Component/Editors/CatalogPlacementEditor.vue';
 import ItemEditor from '@/modules/Roleplay/Rule/Component/Editors/ItemEditor.vue';
 import RaceEditor from '@/modules/Roleplay/Rule/Component/Editors/RaceEditor.vue';
 import SpeciesEditor from '@/modules/Roleplay/Rule/Component/Editors/SpeciesEditor.vue';
@@ -58,6 +59,8 @@ const mechanicId = ref<number | null>(null);
 const keywordIds = ref<number[]>([]);
 
 const spec = ref<RuleSpec | null>(null);
+const catalogSection = ref<string | null>(null);
+const catalogSortOrder = ref(100);
 const saving = ref(false);
 const loading = ref(true);
 const error = ref<string | null>(null);
@@ -95,6 +98,8 @@ function applyForm(form: RuleFormState) {
   mechanicId.value = form.mechanicId;
   keywordIds.value = form.keywordIds;
   spec.value = form.spec;
+  catalogSection.value = form.catalogSection;
+  catalogSortOrder.value = form.catalogSortOrder;
 }
 
 async function resolveRoute(): Promise<void> {
@@ -132,6 +137,8 @@ async function resolveRoute(): Promise<void> {
       if (typeof q.name === 'string') name.value = q.name;
       if (typeof q.description === 'string') description.value = q.description;
       if (typeof q.type === 'string' && isRuleType(q.type)) type.value = q.type;
+      catalogSection.value = null;
+      catalogSortOrder.value = 100;
     }
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') return;
@@ -198,6 +205,8 @@ async function save() {
       spec: spec.value,
       keywordIds: keywordIds.value,
       mechanicId: mechanicId.value,
+      catalogSection: catalogSection.value,
+      catalogSortOrder: catalogSortOrder.value,
     });
     const rest = ruleHost.value.effectiveRules.filter((entry) => entry.code !== rule.code);
     const blocking = ruleValidationService.blockingMessagesForRule(
@@ -304,6 +313,11 @@ async function save() {
             :keyword-options="keywordOptions"
             :space-id="spaceId"
             :rules="ruleHost.effectiveRules"
+            :catalog-section="catalogSection"
+            :catalog-sort-order="catalogSortOrder"
+            :sections="ruleHost.sections ?? []"
+            @update:catalog-section="catalogSection = $event"
+            @update:catalog-sort-order="catalogSortOrder = $event"
           />
 
           <ItemEditor
@@ -510,6 +524,16 @@ async function save() {
           <div v-else class="text-body-2 text-medium-emphasis text-center pa-8">
             Редактор для типа "{{ type }}" будет реализован позже
           </div>
+
+          <v-expansion-panels v-if="type !== 'ability'" multiple>
+            <CatalogPlacementEditor
+              :catalog-section="catalogSection"
+              :catalog-sort-order="catalogSortOrder"
+              :sections="ruleHost.sections ?? []"
+              @update:catalog-section="catalogSection = $event"
+              @update:catalog-sort-order="catalogSortOrder = $event"
+            />
+          </v-expansion-panels>
         </v-card-text>
 
         <v-card-actions>

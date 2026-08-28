@@ -15,11 +15,11 @@ import type { FilterField } from '@/modules/Core/UI/Dto/Filter/Field';
 import type { CharacterBuild } from '@/modules/Roleplay/Character/Dto/Editor/CharacterBuild';
 import type { CharacterEditorModel } from '@/modules/Roleplay/Character/Dto/Editor/CharacterEditorModel';
 import type { EditorAbility } from '@/modules/Roleplay/Character/Dto/Editor/EditorAbility';
-import { ABILITY_SECTIONS } from '@/modules/Roleplay/Rule/Constant/Ability/ABILITY_SECTIONS';
-import { abilitySectionService } from '@/modules/Roleplay/Rule/Service/Instance/abilitySectionService';
-import type { AbilitySpecBase } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpecBase';
 import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import type { AbilitySection } from '@/modules/Roleplay/Space/Dto/AbilitySection';
+import type { RuleCatalogArea } from '@/modules/Roleplay/Space/Enum/RuleCatalogArea';
+import { abilitySectionTreeService } from '@/modules/Roleplay/Space/init';
 
 const props = defineProps<{
   build: CharacterBuild;
@@ -27,6 +27,7 @@ const props = defineProps<{
   draftKey: string | null;
   keywords: Keyword[];
   rules: Rule[];
+  sections: AbilitySection[];
 }>();
 
 const draftStore = useCharacterDraftStore();
@@ -39,44 +40,14 @@ const acquiredOnly = ref(false);
 /** Раскрытые панели навыков (переживают ремаунты строк виртуализации). */
 const openSet = ref<Set<string>>(new Set());
 
-const keywordCodeById = computed(() => new Map(props.keywords.map((keyword) => [keyword.id, keyword.code])));
-
-const SECTIONS = ABILITY_SECTIONS.map((section) => section.code);
+const developmentArea: RuleCatalogArea = 'development';
+const sectionTreeOptions = abilitySectionTreeService.flatten(
+  abilitySectionTreeService.subtreeForArea(developmentArea, props.sections),
+);
 
 function sectionOf(ability: EditorAbility): string | null {
   const rule = props.rules.find((entry) => entry.id === ability.ruleId);
-  const fromSpec = abilitySectionService.fromSpec(rule?.spec as AbilitySpecBase | undefined);
-  if (fromSpec) return fromSpec;
-  const keywordCodes = ability.keywordIds
-    .map((keywordId) => keywordCodeById.value.get(keywordId))
-    .filter((code): code is string => Boolean(code));
-  const fromKeywords = abilitySectionService.fromKeywordCodes(keywordCodes);
-  if (fromKeywords) return fromKeywords;
-
-  return skillSectionByRequirements(ability.ruleId);
-}
-
-function skillSectionByRequirements(ruleId: string): 'weapon-skill' | 'shield-skill' | null {
-  const rule = props.rules.find((r) => r.id === ruleId);
-  if (!rule?.spec) return null;
-  const spec = rule.spec as { requirements?: unknown[] };
-  const requirements = spec.requirements;
-  if (!Array.isArray(requirements)) return null;
-  for (const req of requirements) {
-    const inner = (req as { requirements?: unknown[] } | undefined)?.requirements;
-    if (!Array.isArray(inner)) continue;
-    for (const r of inner) {
-      const type = (r as { type?: string } | undefined)?.type;
-      if (type === 'min_weapon_mastery') {
-        const keywordCode = (r as { keyword_code?: string } | undefined)?.keyword_code ?? '';
-        if (keywordCode.includes('shield')) return 'shield-skill';
-
-        return 'weapon-skill';
-      }
-    }
-  }
-
-  return null;
+  return rule?.catalogSection ?? null;
 }
 
 /** Покупаемые за ОР (зона `or`) + информационные (агрегаты/производные) каталога «Развития».
@@ -102,8 +73,14 @@ const abilityFilterFields: FilterField[] = [
   {
     key: 'section',
     label: 'Раздел',
-    type: 'select',
-    options: SECTIONS.map((code) => ({ label: abilitySectionService.label(code), value: code })),
+    type: 'tree-select',
+    treeOptions: sectionTreeOptions.map((section) => ({
+      label: section.name,
+      value: section.code,
+      path: section.path,
+      depth: section.depth,
+      parentValue: section.parentCode,
+    })),
   },
 ];
 
@@ -134,6 +111,7 @@ const abilitiesByName = computed<(EditorAbility & { section: string | null })[]>
     result.push(row);
     let node = row.parentCode ? (byCode.get(row.parentCode) ?? null) : null;
     while (node) {
+      if (appliedFilters.value.section && sectionOf(node) !== row.section) break;
       if (seen.has(node.ruleId)) break;
       seen.add(node.ruleId);
       result.push(node);
@@ -154,7 +132,30 @@ function passesFilters(ability: EditorAbility): boolean {
   return true;
 }
 
-const allAbilities = computed(() => abilitiesByName.value.filter(passesFilters));
+const sectionOrderByCode = new Map(sectionTreeOptions.map((section, index) => [section.code, index]));
+
+function abilitySortOrder(ability: EditorAbility & { section: string | null }): number {
+  const rule = props.rules.find((entry) => entry.id === ability.ruleId);
+  const sortOrder =
+    typeof rule?.catalogSortOrder === 'number'
+      ? rule.catalogSortOrder
+      : Number.MAX_SAFE_INTEGER;
+
+  return sortOrder;
+}
+
+const allAbilities = computed(() =>
+  abilitiesByName.value
+    .filter(passesFilters)
+    .sort(
+      (left, right) =>
+        (sectionOrderByCode.get(left.section ?? '') ?? Number.MAX_SAFE_INTEGER) -
+          (sectionOrderByCode.get(right.section ?? '') ?? Number.MAX_SAFE_INTEGER) ||
+        abilitySortOrder(left) - abilitySortOrder(right) ||
+        left.name.localeCompare(right.name) ||
+        left.code.localeCompare(right.code),
+    ),
+);
 
 /** Дерево улучшений: «код способности → её улучшения» (рекурсивно для цепочек улучшений). */
 const childrenByCode = computed(() => {

@@ -1458,7 +1458,7 @@ describe('«Владение оружием» — мастерство оруж�
     expect(model.budgets.os.spent).toBe(6);
   });
 
-  it('основные боевые действия — зона or, без common, раздел spec.section', () => {
+  it('основные боевые действия — зона or и явная секция каталога', () => {
     const model = service.build(makeBuild(), ruleCatalog, config, keywords);
     for (const code of ['dodge', 'block', 'simple-melee-attack', 'simple-ranged-attack', 'turn']) {
       const ability = model.abilities.find((entry) => entry.code === code);
@@ -1469,7 +1469,11 @@ describe('«Владение оружием» — мастерство оруж�
       expect(ability?.automatic, code).toBe(true);
       expect(ability?.visible, code).toBe(false);
       const rule = ruleCatalog.find((entry) => entry.code === code);
-      expect((rule?.spec as { section?: string }).section).toBe('core-rules');
+      expect(rule?.catalogSection).toBe(
+        code === 'simple-melee-attack' || code === 'simple-ranged-attack'
+          ? 'scenes-combat-basic-attacks'
+          : 'scenes-combat-defense',
+      );
       expect(rule?.keywordIds, code).not.toContain(20);
     }
     expect(ruleCatalog.some((rule) => rule.code === 'melee-fighting')).toBe(false);

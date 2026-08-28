@@ -15,7 +15,6 @@ import type { KeywordRef } from '@/modules/Roleplay/Rule/Dto/Ability/KeywordRef'
 import type { SourceRef } from '@/modules/Roleplay/Rule/Dto/Ability/SourceRef';
 import { ABILITY_TYPE_LABELS } from '@/modules/Roleplay/Rule/Constant/Ability/ABILITY_TYPE_LABELS';
 import { ABILITY_SPEC_FIELDS } from '@/modules/Roleplay/Rule/Constant/Ability/ABILITY_SPEC_FIELDS';
-import { ABILITY_SECTIONS } from '@/modules/Roleplay/Rule/Constant/Ability/ABILITY_SECTIONS';
 import { ACTION_POINTS_RESOURCE_CODE } from '@/modules/Roleplay/Rule/Constant/Ability/ACTION_POINTS_RESOURCE_CODE';
 import { abilitySpecService } from '@/modules/Roleplay/Rule/Service/Instance/abilitySpecService';
 import { ruleReferenceService } from '@/modules/Roleplay/Rule/Service/Instance/ruleReferenceService';
@@ -27,6 +26,7 @@ import SpellEditor from '@/modules/Roleplay/Rule/Component/Editors/SpellEditor.v
 import ZoneCostsEditor from '@/modules/Roleplay/Rule/Component/Editors/ZoneCostsEditor.vue';
 import ActionComponentsEditor from '@/modules/Roleplay/Rule/Component/Editors/ActionComponentsEditor.vue';
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
+import CatalogPlacementEditor from '@/modules/Roleplay/Rule/Component/Editors/CatalogPlacementEditor.vue';
 import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
 
 const props = defineProps<{
@@ -41,6 +41,9 @@ const props = defineProps<{
   keywordOptions: { title: string; value: number }[];
   spaceId: number;
   rules: Rule[];
+  catalogSection: string | null;
+  catalogSortOrder: number;
+  sections: { code: string; name: string; parentCode: string | null; sortOrder: number }[];
 }>();
 
 const emit = defineEmits<{
@@ -50,6 +53,8 @@ const emit = defineEmits<{
   'update:mechanicId': [value: number | null];
   'update:keywordIds': [value: number[]];
   'update:spec': [value: AbilitySpec];
+  'update:catalogSection': [value: string | null];
+  'update:catalogSortOrder': [value: number];
 }>();
 
 const keywordStore = useKeywordStore();
@@ -85,7 +90,6 @@ function abilityDraftFromSpec(value: RuleSpec | null): AbilitySpecDraft {
     spell: loaded.spell,
     parent_ability_code: loaded.parent_ability_code ?? null,
     group_code: loaded.group_code ?? null,
-    section: loaded.section ?? null,
     selectLimit: loaded.selectLimit ?? 1,
   };
 }
@@ -107,7 +111,6 @@ const currentFields = computed(() => (currentType.value ? ABILITY_SPEC_FIELDS[cu
 const showActionComponents = computed(() => currentFields.value.includes('action_components'));
 const isProcess = computed(() => currentFields.value.includes('process'));
 const isSpell = computed(() => currentFields.value.includes('spell'));
-
 const typeModel = computed<AbilityType | null>({
   get: () => currentType.value,
   set: (v) => setType(v),
@@ -273,6 +276,14 @@ function hasActionPointCost(): boolean {
         </v-expansion-panel-text>
       </v-expansion-panel>
 
+      <CatalogPlacementEditor
+        :catalog-section="catalogSection"
+        :catalog-sort-order="catalogSortOrder"
+        :sections="sections"
+        @update:catalog-section="emit('update:catalogSection', $event)"
+        @update:catalog-sort-order="emit('update:catalogSortOrder', $event)"
+      />
+
       <v-expansion-panel v-if="isGroup" value="grouping">
         <v-expansion-panel-title>Группировка</v-expansion-panel-title>
         <v-expansion-panel-text>
@@ -293,18 +304,6 @@ function hasActionPointCost(): boolean {
       <v-expansion-panel v-if="currentType && !isGroup" value="group">
         <v-expansion-panel-title>Группа</v-expansion-panel-title>
         <v-expansion-panel-text>
-          <v-autocomplete
-            :model-value="innerSpec.section ?? null"
-            @update:model-value="(v) => patchSpec('section', v ?? null)"
-            :items="ABILITY_SECTIONS"
-            item-title="name"
-            item-value="code"
-            label="Раздел"
-            density="compact"
-            hide-details
-            clearable
-            class="mb-4"
-          />
           <v-autocomplete
             :model-value="innerSpec.group_code ?? null"
             @update:model-value="updateGroupCode($event ?? null)"
@@ -499,6 +498,7 @@ function hasActionPointCost(): boolean {
           </div>
         </v-expansion-panel-text>
       </v-expansion-panel>
+
     </v-expansion-panels>
   </div>
 </template>

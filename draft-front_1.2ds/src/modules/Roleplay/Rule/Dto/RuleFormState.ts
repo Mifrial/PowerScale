@@ -10,4 +10,6 @@ export interface RuleFormState {
   mechanicId: number | null;
   keywordIds: number[];
   spec: RuleSpec | null;
+  catalogSection: string | null;
+  catalogSortOrder: number;
 }

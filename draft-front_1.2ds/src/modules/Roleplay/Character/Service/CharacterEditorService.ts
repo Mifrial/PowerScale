@@ -970,7 +970,7 @@ export class CharacterEditorService {
       // (свой блок «Характеристики» — EditorInnateMatrix) или уже взятая; иначе скрыта.
       const hasCommon = (rule.keywordIds ?? []).some((id) => keywordCodes.get(id) === 'common');
       const characteristic = (rule.keywordIds ?? []).some((id) => keywordCodes.get(id) === 'characteristic');
-      const visible = hasCommon || racial || characteristic || instances.length > 0;
+      const visible = hasCommon || racial || characteristic || instances.length > 0 || zones.some((zone) => zone.zoneCode === 'or');
       // Получена даром-навыком особенности (D100): уровень из гранта, снять нельзя.
       const giftedLevel = giftedLevels.get(rule.code) ?? 0;
       const gifted = giftedLevel > 0;

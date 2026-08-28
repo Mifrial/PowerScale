@@ -24,6 +24,9 @@ import {
   DT_PAY_SR_VS_RELIABILITY_CODE,
 } from '@/modules/Roleplay/Rule/Constant/Damage/DAMAGE_TYPE_HOOKS';
 import { importedRuleNameService } from '@/modules/Roleplay/Rule/Service/Instance/importedRuleNameService';
+import { MockRuleCatalogMigrationService } from '@/modules/Roleplay/Rule/Mock/MockRuleCatalogMigrationService';
+import { keywords } from '@/modules/Roleplay/Rule/Mock/mockKeywords';
+import { mockCombatAbilitySectionByCode } from '@/modules/Roleplay/Rule/Mock/mockCombatAbilitySectionByCode';
 
 function damageTypeSpec(code: string, attached: string[] = []): DamageTypeSpec {
   const forms = DAMAGE_TYPE_FORMS[code] ?? { genitive: '', dative: '' };
@@ -33,7 +36,8 @@ function damageTypeSpec(code: string, attached: string[] = []): DamageTypeSpec {
 
 let nextVersionId = 10;
 
-const rules: Rule[] = importedRuleNameService.sanitizeCatalog([
+const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
+  importedRuleNameService.sanitizeCatalog([
   ...mockRuleImport,
   ...mockRaceImport,
   ...mockDevelopmentImport,
@@ -104,7 +108,6 @@ const rules: Rule[] = importedRuleNameService.sanitizeCatalog([
       grants: [],
       action_components: [{ type: 'resource', resource_code: 'action-points', amount: 3, label: 'Действие' }],
       parent_ability_code: null,
-      section: 'core-rules',
     },
     keywordIds: [14, 71, 1],
     mechanicId: null,
@@ -124,7 +127,6 @@ const rules: Rule[] = importedRuleNameService.sanitizeCatalog([
       grants: [],
       action_components: [{ type: 'resource', resource_code: 'action-points', amount: 3, label: 'Действие' }],
       parent_ability_code: null,
-      section: 'core-rules',
     },
     keywordIds: [14, 71, 2],
     mechanicId: null,
@@ -144,7 +146,6 @@ const rules: Rule[] = importedRuleNameService.sanitizeCatalog([
       grants: [],
       action_components: [{ type: 'resource', resource_code: 'action-points', amount: 1, label: 'Реакция' }],
       parent_ability_code: null,
-      section: 'core-rules',
     },
     keywordIds: [14, 53],
     mechanicId: null,
@@ -164,7 +165,6 @@ const rules: Rule[] = importedRuleNameService.sanitizeCatalog([
       grants: [],
       action_components: [{ type: 'resource', resource_code: 'action-points', amount: 2, label: 'Реакция' }],
       parent_ability_code: null,
-      section: 'core-rules',
     },
     keywordIds: [14, 53],
     mechanicId: null,
@@ -185,7 +185,6 @@ const rules: Rule[] = importedRuleNameService.sanitizeCatalog([
       grants: [],
       action_components: [{ type: 'resource', resource_code: 'action-points', amount: 1, label: 'Реакция' }],
       parent_ability_code: null,
-      section: 'core-rules',
     },
     keywordIds: [14, 53, 222],
     mechanicId: null,
@@ -1305,7 +1304,10 @@ const rules: Rule[] = importedRuleNameService.sanitizeCatalog([
     mechanicId: null,
     createdAt: '2026-08-27T10:00:00Z',
   },
-]);
+  ]),
+  new Map(keywords.map((keyword) => [keyword.id, keyword.code])),
+  mockCombatAbilitySectionByCode,
+);
 
 /**
  * Единый каталог правил (единственный источник для пространств и ревизий).

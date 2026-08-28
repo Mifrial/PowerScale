@@ -1663,7 +1663,6 @@ const mockDevelopmentImportRaw: Rule[] = [
     spaceId: 1,
     spec: {
       type: 'trait',
-      section: 'section-body',
       zones: {
         or: {
           kind: 'parameter_sum_tables',

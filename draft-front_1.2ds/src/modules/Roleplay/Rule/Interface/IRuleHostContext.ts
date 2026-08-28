@@ -4,4 +4,11 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 export interface IRuleHostContext {
   spaceId: number | null;
   effectiveRules: Rule[];
+  sections?: {
+    code: string;
+    name: string;
+    parentCode: string | null;
+    sortOrder: number;
+    catalogRootFor?: 'base' | 'race' | 'personality' | 'development' | 'inventory';
+  }[];
 }

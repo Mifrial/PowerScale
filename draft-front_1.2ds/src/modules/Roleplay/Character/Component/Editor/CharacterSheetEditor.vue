@@ -22,6 +22,8 @@ import InventoryTab from '@/modules/Roleplay/Character/Component/Editor/Inventor
 import RuleSlider from '@/modules/Roleplay/Rule/Component/RuleSlider.vue';
 import { useRuleDetailSlider } from '@/modules/Roleplay/Character/Composables/useRuleDetailSlider';
 import { characterVersionIntegrityService } from '@/modules/Roleplay/Character/init';
+import type { AbilitySection } from '@/modules/Roleplay/Space/Dto/AbilitySection';
+import { abilitySectionTreeService } from '@/modules/Roleplay/Space/init';
 
 /**
  * Редактор листа персонажа/НПС (переиспользуемый, ТР §7): владеет черновиком (по `draftKey`
@@ -52,6 +54,7 @@ const { signal } = useAbortable();
 
 const activeTab = ref('race');
 const rules = ref<Rule[]>([]);
+const sections = ref<AbilitySection[]>([]);
 const mechanics = ref<Mechanic[]>([]);
 const rulesLoading = ref(false);
 const rulesError = ref<string | null>(null);
@@ -137,9 +140,11 @@ async function loadRules(spaceId: number, revision: number, abortSignal: AbortSi
   try {
     const revisionResult = await spaceRevisionStore.fetchRevision(spaceId, revision, abortSignal);
     rules.value = revisionResult.rules;
+    sections.value = abilitySectionTreeService.normalize(revisionResult.sections);
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') return;
     rules.value = [];
+    sections.value = [];
     rulesError.value = 'Не удалось загрузить правила ревизии';
   } finally {
     rulesLoading.value = false;
@@ -346,6 +351,7 @@ onMounted(() => {
           :draft-key="draftKey"
           :keywords="keywordStore.keywords"
           :rules="rules"
+          :sections="sections"
         />
         <InventoryTab
           v-else-if="activeTab === 'inventory'"

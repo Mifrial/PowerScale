@@ -9,6 +9,8 @@ import StringFilter from '@/modules/Core/UI/Component/FilterBar/handlers/StringF
 import NumberFilter from '@/modules/Core/UI/Component/FilterBar/handlers/NumberFilter.vue';
 import BooleanFilter from '@/modules/Core/UI/Component/FilterBar/handlers/BooleanFilter.vue';
 import SelectFilter from '@/modules/Core/UI/Component/FilterBar/handlers/SelectFilter.vue';
+import TreeSelectFilter from '@/modules/Core/UI/Component/FilterBar/handlers/TreeSelectFilter.vue';
+import { TreeSelectFieldTypeInterpreter } from '@/modules/Core/UI/Service/Field/TreeSelectFieldTypeInterpreter';
 import DateTimeFilter from '@/modules/Core/UI/Component/FilterBar/handlers/DateTimeFilter.vue';
 
 export function initBaseFieldTypes(): void {
@@ -31,6 +33,11 @@ export function initBaseFieldTypes(): void {
     interpreter: baseFieldTypeInterpreter,
     cell: StringCell,
     filterWidget: SelectFilter,
+  });
+  fieldTypeRegistry.register('tree-select', {
+    interpreter: new TreeSelectFieldTypeInterpreter(),
+    cell: StringCell,
+    filterWidget: TreeSelectFilter,
   });
   fieldTypeRegistry.register('active', {
     interpreter: baseFieldTypeInterpreter,

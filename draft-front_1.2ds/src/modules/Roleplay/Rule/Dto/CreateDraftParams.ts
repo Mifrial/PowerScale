@@ -13,4 +13,6 @@ export interface CreateDraftParams {
   spec?: RuleSpec | null;
   keywordIds: number[];
   mechanicId?: number | null;
+  catalogSection?: string | null;
+  catalogSortOrder?: number;
 }

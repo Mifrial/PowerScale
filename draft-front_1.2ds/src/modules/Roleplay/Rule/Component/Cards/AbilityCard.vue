@@ -10,7 +10,6 @@ import type { ActionComponent } from '@/modules/Roleplay/Rule/Dto/Ability/Action
 import type { ActionEffect } from '@/modules/Roleplay/Rule/Dto/Ability/ActionEffect';
 import { ABILITY_TYPE_LABELS } from '@/modules/Roleplay/Rule/Constant/Ability/ABILITY_TYPE_LABELS';
 import { abilitySpecService } from '@/modules/Roleplay/Rule/Service/Instance/abilitySpecService';
-import { abilitySectionService } from '@/modules/Roleplay/Rule/Service/Instance/abilitySectionService';
 import { ruleViewLabelService } from '@/modules/Roleplay/Rule/Service/Instance/ruleViewLabelService';
 import { resourceShortName } from '@/modules/Roleplay/Rule/Utils/resourceShortName';
 import { actionEffectLabelService } from '@/modules/Roleplay/Rule/Service/Instance/actionEffectLabelService';
@@ -221,7 +220,9 @@ function grantLabel(grant: Grant): string {
     <div v-if="type" class="mb-2">
       <v-chip color="primary" variant="tonal" size="small">{{ ABILITY_TYPE_LABELS[type] }}</v-chip>
     </div>
-    <div v-if="spec.section" class="text-body-2 mb-2">Раздел: {{ abilitySectionService.label(spec.section) }}</div>
+    <div v-if="props.rule.catalogSection" class="text-body-2 mb-2">
+      Секция: {{ props.rule.catalogSection }}
+    </div>
 
     <v-card v-if="groupInfo" variant="tonal" class="mb-3">
       <v-card-text>

@@ -11,6 +11,10 @@ export interface Rule {
   /** Безопасный HTML после санитизации; plain text поддерживается для обратной совместимости. */
   description: string;
   spaceId: number;
+  /** Явная секция правила в каталоге текущей ревизии. */
+  catalogSection?: string | null;
+  /** Порядок правила внутри секции каталога. */
+  catalogSortOrder?: number;
   spec?: RuleSpec;
   keywordIds?: number[];
   mechanicId?: number | null;

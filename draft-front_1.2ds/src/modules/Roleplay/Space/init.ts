@@ -17,6 +17,7 @@ export { ACTUAL_RULES_SPACE_CODE } from '@/modules/Roleplay/Space/Constant/ACTUA
 export { spaceContextKey } from '@/modules/Roleplay/Space/Constant/spaceContextKey';
 export { useSpaceContext } from '@/modules/Roleplay/Space/Composables/useSpaceContext';
 export type { ISpaceContext } from '@/modules/Roleplay/Space/Interface/ISpaceContext';
+export { abilitySectionTreeService } from '@/modules/Roleplay/Space/Service/Instance/abilitySectionTreeService';
 
 export function registerSpaceModule(): void {
   registerPermissionCategory(SPACE_PERMISSION_CATEGORY);

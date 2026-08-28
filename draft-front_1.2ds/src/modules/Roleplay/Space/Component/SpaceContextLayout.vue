@@ -94,6 +94,7 @@ provide(spaceContextKey, context);
 const ruleHost = computed<IRuleHostContext>(() => ({
   spaceId: spaceStore.currentSpace?.id ?? null,
   effectiveRules: revisionStore.effectiveRules,
+  sections: revisionStore.activeRevision?.sections,
 }));
 provide(ruleHostContextKey, ruleHost);
 </script>

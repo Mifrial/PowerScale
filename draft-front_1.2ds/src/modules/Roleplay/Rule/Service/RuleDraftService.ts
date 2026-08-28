@@ -14,6 +14,8 @@ export class RuleDraftService {
       spec: params.spec ?? undefined,
       keywordIds: params.keywordIds,
       mechanicId: params.mechanicId,
+      catalogSection: params.catalogSection ?? null,
+      catalogSortOrder: params.catalogSortOrder ?? 100,
       createdAt: new Date().toISOString(),
     };
   }

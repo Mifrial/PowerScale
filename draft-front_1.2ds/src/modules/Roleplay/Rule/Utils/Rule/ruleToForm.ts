@@ -11,5 +11,7 @@ export function ruleToForm(rule: Rule): RuleFormState {
     mechanicId: rule.mechanicId ?? null,
     keywordIds: rule.keywordIds ?? [],
     spec: rule.spec ?? null,
+    catalogSection: rule.catalogSection ?? null,
+    catalogSortOrder: rule.catalogSortOrder ?? 100,
   };
 }
