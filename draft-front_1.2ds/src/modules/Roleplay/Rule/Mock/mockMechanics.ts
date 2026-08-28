@@ -124,6 +124,13 @@ const mechanics: Mechanic[] = [
     description: 'Процедура выстрела. Алгоритм в клиенте: shoot@version из среза ревизии.',
     version: '1.0.0',
   },
+  {
+    id: 18,
+    code: 'movement_state',
+    name: 'Состояние движения',
+    description: 'Обновляет текущую скорость участника по агрегированному результату действия.',
+    version: '1.0.0',
+  },
 ];
 
 const delay = (ms = 300) => new Promise((r) => setTimeout(r, ms));

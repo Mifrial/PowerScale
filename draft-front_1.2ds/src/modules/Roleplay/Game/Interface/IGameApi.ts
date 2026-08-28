@@ -33,6 +33,7 @@ import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/Dimension
 import type { ConflictChoices } from '@/modules/Roleplay/Game/Utils/reconcileVersion';
 import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
 import type { ProcessSession } from '@/modules/Roleplay/Game/Dto/ProcessSession';
+import type { CurrentSpeed } from '@/modules/Roleplay/Game/Dto/CurrentSpeed';
 
 export interface IGameApi {
   getGames(signal?: AbortSignal): Promise<Game[]>;
@@ -124,6 +125,13 @@ export interface IGameApi {
     session: ProcessSession | null,
     signal?: AbortSignal,
   ): Promise<ProcessSession | null>;
+  getCurrentSpeed(gameId: number, entityKey: CombatEntityKey, signal?: AbortSignal): Promise<CurrentSpeed>;
+  setCurrentSpeed(
+    gameId: number,
+    entityKey: CombatEntityKey,
+    currentSpeed: CurrentSpeed,
+    signal?: AbortSignal,
+  ): Promise<CurrentSpeed>;
   setCombatResource(
     gameId: number,
     entityKey: CombatEntityKey,

@@ -7,5 +7,11 @@ export type Requirement =
   | { type: 'min_weapon_mastery'; keyword_code: string; min_level: number }
   | { type: 'characteristic_value'; characteristic_code: string; min: DimensionalNumberValue }
   | { type: 'resource_limit'; resource_code: string; min?: DimensionalNumberValue | number }
+  | {
+      type: 'current_speed';
+      axis: 'horizontal' | 'vertical';
+      direction: 'front' | 'flank' | 'rear' | 'up' | 'down';
+      min_steps_per_action_point: number;
+    }
   | { type: 'and'; children: Requirement[] }
   | { type: 'or'; children: Requirement[] };

@@ -103,6 +103,14 @@ describe('DimensionalNumber.compare', () => {
   });
 });
 
+describe('DimensionalNumber.divideFloor', () => {
+  it('делит размерные значения без преобразования дистанции в number', () => {
+    expect(dn(1, -1).divideFloor(dn(1, 0))).toBe(0);
+    expect(dn(3, 0).divideFloor(dn(1, 0))).toBe(3);
+    expect(dn(1, -5).compare(dn(1, -6))).toBe(1);
+  });
+});
+
 describe('DimensionalNumber.toString', () => {
   it('формат отображения', () => {
     expect(dn(3, 0).toString()).toBe('3');

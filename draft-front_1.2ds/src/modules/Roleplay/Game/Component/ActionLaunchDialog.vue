@@ -9,9 +9,17 @@ import type { ProcessSession } from '@/modules/Roleplay/Game/Dto/ProcessSession'
 import type { AttackOverview } from '@/modules/Roleplay/Character/Dto/Overview/AttackOverview';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
+import type {
+  HorizontalMovementDirection,
+  VerticalMovementDirection,
+} from '@/modules/Roleplay/Rule/Dto/Ability/MovementOperation';
+import type { ActionOperationRequest } from '@/modules/Roleplay/Game/Dto/ActionOperationRequest';
+import type { CurrentSpeed } from '@/modules/Roleplay/Game/Dto/CurrentSpeed';
+import type { Requirement } from '@/modules/Roleplay/Rule/Dto/Ability/Requirement';
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { CombatActionOption } from '@/modules/Roleplay/Game/Utils/combatActions';
-import { getGameApi } from '@/modules/Roleplay/Game/init';
-import { characterOverviewService } from '@/modules/Roleplay/Character/init';
+import { actionOperationResolutionService, getGameApi } from '@/modules/Roleplay/Game/init';
+import { characterOverviewService, movementContextService } from '@/modules/Roleplay/Character/init';
 import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
 import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
 import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
@@ -29,6 +37,9 @@ import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
 import { combatChatSendService } from '@/modules/Roleplay/Game/Service/Instance/combatChatSendService';
 import { formatProcessEffect } from '@/modules/Roleplay/Game/Utils/processMessage';
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
+import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue';
+import { MOVEMENT_DIRECTION_LABELS } from '@/modules/Roleplay/Game/Constant/Movement/MOVEMENT_DIRECTION_LABELS';
+import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 
 const props = defineProps<{
   open: boolean;
@@ -60,6 +71,14 @@ const chosenActionOdCost = ref(0);
 const showReactions = ref(false);
 const busy = ref(false);
 const error = ref<string | null>(null);
+const selectedHorizontalDirection = ref<HorizontalMovementDirection | null>(null);
+const selectedVerticalDirection = ref<VerticalMovementDirection | null>(null);
+const horizontalDistance = ref<DimensionalNumberValue | null>(null);
+const verticalDistance = ref<DimensionalNumberValue | null>(null);
+const currentSpeed = ref<CurrentSpeed>({
+  horizontal: { stepsPerActionPoint: 0, direction: null },
+  vertical: { stepsPerActionPoint: 0, direction: null },
+});
 const sendChat = combatChatSendService.sendCombatChat(props.gameId);
 
 const actorKey = computed<CombatEntityKey | null>(() => {
@@ -85,6 +104,9 @@ const actorVersion = computed(() => {
 const actorOverview = computed(() =>
   actorVersion.value ? characterOverviewService.build(actorVersion.value, props.rules) : null,
 );
+const actorMovementStep = computed(() =>
+  movementContextService.resolveMovementStep(actorVersion.value ?? undefined, props.rules),
+);
 
 const actions = computed<CombatActionOption[]>(() => {
   const owned = new Set(actorOverview.value?.abilities.map((ability) => ability.ruleId) ?? []);
@@ -92,12 +114,13 @@ const actions = computed<CombatActionOption[]>(() => {
   return props.rules.flatMap((rule) => {
     const spec = asActionAbilitySpec(rule);
     const process = asProcessAbilitySpec(rule);
+    const requirements =
+      rule.spec && typeof rule.spec === 'object' && 'requirements' in rule.spec ? rule.spec.requirements : [];
     if (rule.keywordIds?.includes(71)) return [];
     if (!spec && !process) return [];
-    if (
-      !owned.has(rule.id) &&
-      (!spec || !Object.values(spec.zones ?? {}).some((zone) => zone?.kind === 'automatic'))
-    )
+    if (spec && !requirementsSatisfied(spec.requirements)) return [];
+    if (process && !requirementsSatisfied(requirements)) return [];
+    if (!owned.has(rule.id) && (!spec || !Object.values(spec.zones ?? {}).some((zone) => zone?.kind === 'automatic')))
       return [];
     const option: CombatActionOption = {
       ruleId: rule.id,
@@ -110,11 +133,32 @@ const actions = computed<CombatActionOption[]>(() => {
       isReaction: rule.keywordIds?.includes(53) ?? false,
       isProcess: process !== null,
       process: process ?? undefined,
+      operations: spec?.operations,
     };
 
     return [option];
   });
 });
+
+function requirementsSatisfied(entries: { level: number; requirements: Requirement[] }[]): boolean {
+  return entries.every((entry) =>
+    entry.requirements.every((requirement) => {
+      if (requirement.type === 'current_speed') {
+        const component = currentSpeed.value[requirement.axis];
+
+        return (
+          component.direction === requirement.direction &&
+          component.stepsPerActionPoint >= requirement.min_steps_per_action_point
+        );
+      }
+      if (requirement.type === 'and') return requirementsSatisfied([{ level: 1, requirements: requirement.children }]);
+      if (requirement.type === 'or')
+        return requirement.children.some((child) => requirementsSatisfied([{ level: 1, requirements: [child] }]));
+
+      return true;
+    }),
+  );
+}
 
 const visibleActions = computed(() => actions.value.filter((action) => action.isReaction === showReactions.value));
 const activeProcess = computed(() => (actorKey.value ? processSessionsByEntity.value[actorKey.value] : undefined));
@@ -177,6 +221,78 @@ const selectedProcessAttack = computed<AttackOverview | null>(
 const selectedProcessStep = computed(
   () => processSteps.value.find((step) => step.code === selectedProcessStepCode.value) ?? null,
 );
+const selectedMovementOperations = computed(() => {
+  const operations = selectedAction.value?.isProcess
+    ? selectedProcessStep.value?.operations
+    : selectedAction.value?.operations;
+
+  return operations?.filter((operation) => operation.type === 'movement') ?? [];
+});
+const isMovementProcess = computed(
+  () =>
+    selectedAction.value?.process?.steps.some((step) =>
+      step.operations?.some((operation) => operation.type === 'movement'),
+    ) ?? false,
+);
+const movementContext = computed(() => ({
+  currentMovementStep: actorMovementStep.value,
+  characteristicValues: new Map(
+    actorOverview.value?.characteristics.flatMap((characteristic) => {
+      const rule = props.rules.find((item) => item.id === characteristic.ruleId);
+
+      return rule ? [[rule.code, characteristic.value] as const] : [];
+    }),
+  ),
+}));
+const horizontalMovementBounds = computed(() => {
+  const operation = selectedMovementOperations.value[0];
+
+  return operation
+    ? actionOperationResolutionService.movementBounds(operation, 'horizontal', movementContext.value)
+    : null;
+});
+const verticalMovementBounds = computed(() => {
+  const operation = selectedMovementOperations.value[0];
+
+  return operation
+    ? actionOperationResolutionService.movementBounds(operation, 'vertical', movementContext.value)
+    : null;
+});
+const horizontalMovementMaxLabel = computed(() =>
+  horizontalMovementBounds.value ? new DimensionalNumber(horizontalMovementBounds.value.max).toString() : null,
+);
+const verticalMovementMaxLabel = computed(() =>
+  verticalMovementBounds.value ? new DimensionalNumber(verticalMovementBounds.value.max).toString() : null,
+);
+const movementInputError = computed(() => {
+  const checks = [
+    { value: horizontalDistance.value, bounds: horizontalMovementBounds.value, label: 'Горизонтальная' },
+    { value: verticalDistance.value, bounds: verticalMovementBounds.value, label: 'Вертикальная' },
+  ];
+  for (const check of checks) {
+    if (!check.value || !check.bounds) continue;
+    const comparison = new DimensionalNumber(check.value).compare(new DimensionalNumber(check.bounds.max));
+    if (comparison > 0) {
+      return `${check.label} дистанция больше максимальной (${new DimensionalNumber(check.bounds.max).toString()})`;
+    }
+  }
+
+  return null;
+});
+const horizontalDirectionOptions = computed(
+  () =>
+    selectedMovementOperations.value[0]?.allowedDirections.horizontal.map((value) => ({
+      value,
+      title: MOVEMENT_DIRECTION_LABELS[value],
+    })) ?? [],
+);
+const verticalDirectionOptions = computed(
+  () =>
+    selectedMovementOperations.value[0]?.allowedDirections.vertical.map((value) => ({
+      value,
+      title: MOVEMENT_DIRECTION_LABELS[value],
+    })) ?? [],
+);
 const processStepApCost = computed(() =>
   selectedProcessStep.value ? processSessionService.stepCost(selectedProcessStep.value, 'action-points') : 0,
 );
@@ -216,29 +332,103 @@ function speakerFor(key: CombatEntityKey): ChatSpeaker {
 async function hydrate(): Promise<void> {
   error.value = null;
   const api = getGameApi();
-  const [nextOverlays, nextPending] = await Promise.all([
+  const [nextOverlays, nextPending, nextSpeed] = await Promise.all([
     api.getCombatOverlays(props.gameId).catch(() => []),
     api.getPendingActionEffects(props.gameId).catch(() => ({})),
+    keyForHydrate(api),
   ]);
   processSessionsByEntity.value = await api.getProcessSessions(props.gameId).catch(() => ({}));
   overlays.value = nextOverlays;
   pendingEffectsByEntity.value = nextPending;
+  if (nextSpeed) currentSpeed.value = nextSpeed;
   selectedRuleId.value = selectableActions.value[0]?.ruleId ?? null;
   selectedProcessStepCode.value = null;
   selectedProcessAttackKey.value = null;
+}
+
+async function keyForHydrate(api: ReturnType<typeof getGameApi>): Promise<CurrentSpeed | null> {
+  const key = actorKey.value;
+
+  return key ? api.getCurrentSpeed(props.gameId, key).catch(() => null) : null;
+}
+
+function operationRequestsOf(): ActionOperationRequest[] {
+  if (!selectedMovementOperations.value.length) return [];
+  const request: NonNullable<ActionOperationRequest['movement']> = {};
+  if (selectedHorizontalDirection.value && horizontalDistance.value) {
+    request.horizontal = {
+      direction: selectedHorizontalDirection.value,
+      distance: horizontalDistance.value,
+    };
+  }
+  if (selectedVerticalDirection.value && verticalDistance.value) {
+    request.vertical = {
+      direction: selectedVerticalDirection.value,
+      distance: verticalDistance.value,
+    };
+  }
+
+  return [{ movement: request }];
 }
 
 async function submit(): Promise<void> {
   const key = actorKey.value;
   const action = selectedAction.value;
   if (!key || !action) throw new Error('Выберите действие');
+  const speaker = speakerFor(key);
+  const operationRequests = operationRequestsOf();
+  if (movementInputError.value) throw new Error(movementInputError.value);
   if (action.isProcess) {
     const stepCode = selectedProcessStepCode.value;
     const attack = selectedProcessAttack.value;
-    if (!action.process || !stepCode || !attack) throw new Error('Выберите шаг процесса и профиль атаки');
+    if (!action.process || !stepCode) throw new Error('Выберите шаг процесса');
     if (processStepApCost.value > actionPoints.value) throw new Error('Недостаточно ОД для шага процесса');
     const session =
       activeProcess.value ?? processSessionService.start(props.gameId, key, action.ruleId, action.process);
+    const step = action.process.steps.find((item) => item.code === stepCode);
+    if (!step) throw new Error('Шаг процесса не найден');
+    if (step.operations?.length || isMovementProcess.value) {
+      const version = versionOf(key);
+      if (!version) throw new Error('Лист участника не найден');
+      const resolution = await actionExecutionService.execute({
+        gameId: props.gameId,
+        entityKey: key,
+        version,
+        rule: processRule.value ?? actionRuleOf(action.ruleId),
+        action,
+        rules: props.rules,
+        mechanics: props.mechanics,
+        pendingEffects: pendingEffectsByEntity.value[key] ?? [],
+        actionPointCost: processStepApCost.value,
+        attackerName: speaker.kind === 'character' ? speaker.characterName : 'НПС',
+        chatId: props.chatId,
+        speaker,
+        sendChat,
+        operations: step.operations ?? [],
+        operationRequests,
+        currentMovementStep: actorMovementStep.value,
+      });
+      const resolvedSession = processSessionService.resolveStep(
+        session,
+        action.process,
+        stepCode,
+        resolution.resolution.status === 'completed',
+      );
+      const nextSession = resolvedSession
+        ? processSessionService.recordResolution(resolvedSession, resolution.resolution)
+        : null;
+      await getGameApi().setProcessSession(props.gameId, key, nextSession);
+      overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, resolution.overlay);
+      pendingEffectsByEntity.value = {
+        ...pendingEffectsByEntity.value,
+        [key]: resolution.effects,
+      };
+      currentSpeed.value = await getGameApi().getCurrentSpeed(props.gameId, key);
+      emit('overlay-changed');
+
+      return;
+    }
+    if (!attack) throw new Error('Выберите профиль атаки');
     emit('launch-process-step', { session, stepCode, attack });
     emit('update:open', false);
 
@@ -256,7 +446,11 @@ async function submit(): Promise<void> {
   if (processSession) {
     const processRule = props.rules.find((rule) => rule.id === processSession.processRuleId);
     const processSpec = processRule ? asProcessAbilitySpec(processRule) : null;
-    if (!processRule || !processSpec || !processSessionService.canInterruptNormally(processSpec, processSession.currentStepCode)) {
+    if (
+      !processRule ||
+      !processSpec ||
+      !processSessionService.canInterruptNormally(processSpec, processSession.currentStepCode)
+    ) {
       throw new Error('Текущий процесс нельзя прервать обычным способом');
     }
     await getGameApi().setProcessSession(props.gameId, key, null);
@@ -283,19 +477,34 @@ async function submit(): Promise<void> {
     pendingEffects,
     actionPointCost: actionOd,
     attackerName:
-      speakerFor(key).kind === 'character'
-        ? speakerFor(key).characterName
-        : speakerFor(key).kind === 'npc'
-          ? speakerFor(key).npcName
-          : 'Персонаж',
+      speaker.kind === 'character' ? speaker.characterName : speaker.kind === 'npc' ? speaker.npcName : 'Персонаж',
     chatId: props.chatId,
-    speaker: speakerFor(key),
+    speaker,
     sendChat,
+    operations: action.operations,
+    operationRequests,
+    currentMovementStep: actorMovementStep.value,
+    characteristicValues: new Map(
+      actorOverview.value?.characteristics.flatMap((characteristic) => {
+        const rule = props.rules.find((item) => item.id === characteristic.ruleId);
+
+        return rule ? [[rule.code, characteristic.value] as const] : [];
+      }),
+    ),
+    mechanics: props.mechanics,
   });
   overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, execution.overlay);
   const effects = execution.effects;
   pendingEffectsByEntity.value = { ...pendingEffectsByEntity.value, [key]: effects };
+  currentSpeed.value = await getGameApi().getCurrentSpeed(props.gameId, key);
   emit('overlay-changed');
+}
+
+function actionRuleOf(ruleId: string): Rule {
+  const rule = props.rules.find((entry) => entry.id === ruleId);
+  if (!rule) throw new Error('Правило действия не найдено в текущей ревизии');
+
+  return rule;
 }
 
 async function submitSafe(): Promise<void> {
@@ -367,6 +576,11 @@ watch(selectedAction, (action) => {
 
     return;
   }
+  const movement = action.operations?.find((operation) => operation.type === 'movement');
+  selectedHorizontalDirection.value = movement?.allowedDirections.horizontal[0] ?? null;
+  selectedVerticalDirection.value = movement?.allowedDirections.vertical[0] ?? null;
+  horizontalDistance.value = null;
+  verticalDistance.value = null;
   selectedProcessStepCode.value =
     processSteps.value[0]?.code ?? action.process.start_step_code ?? action.process.steps[0]?.code ?? null;
   const attack = processAttacks.value[0];
@@ -381,6 +595,17 @@ watch(
     if (!steps.some((step) => step.code === selectedProcessStepCode.value)) {
       selectedProcessStepCode.value = steps[0]?.code ?? null;
     }
+  },
+  { immediate: true },
+);
+watch(
+  [selectedMovementOperations, horizontalMovementBounds, verticalMovementBounds],
+  ([operations, horizontalBounds, verticalBounds]) => {
+    const operation = operations[0];
+    selectedHorizontalDirection.value = operation?.allowedDirections.horizontal[0] ?? null;
+    selectedVerticalDirection.value = operation?.allowedDirections.vertical[0] ?? null;
+    horizontalDistance.value = horizontalBounds?.max ?? null;
+    verticalDistance.value = verticalBounds?.max ?? null;
   },
   { immediate: true },
 );
@@ -420,7 +645,8 @@ watch(
           >, текущий шаг — {{ activeProcess.currentStepCode }}
           <v-btn
             v-if="
-              processRuleSpec && processSessionService.canInterruptNormally(processRuleSpec, activeProcess.currentStepCode)
+              processRuleSpec &&
+              processSessionService.canInterruptNormally(processRuleSpec, activeProcess.currentStepCode)
             "
             size="x-small"
             variant="text"
@@ -445,6 +671,48 @@ watch(
           :disabled="busy"
           @update:model-value="chosenActionOdCost = $event"
         />
+        <template v-if="selectedMovementOperations.length">
+          <v-select
+            v-if="horizontalDirectionOptions.length"
+            v-model="selectedHorizontalDirection"
+            :items="horizontalDirectionOptions"
+            item-title="title"
+            item-value="value"
+            label="Горизонтальное направление"
+            density="compact"
+            class="mb-2"
+          />
+          <DimensionalNumberInput
+            v-if="selectedHorizontalDirection"
+            v-model="horizontalDistance"
+            label="Горизонтальная дистанция"
+            density="compact"
+            class="mb-2"
+          />
+          <div v-if="horizontalMovementMaxLabel" class="text-caption text-medium-emphasis mb-2">
+            Максимум: {{ horizontalMovementMaxLabel }}
+          </div>
+          <v-select
+            v-if="verticalDirectionOptions.length"
+            v-model="selectedVerticalDirection"
+            :items="verticalDirectionOptions"
+            item-title="title"
+            item-value="value"
+            label="Вертикальное направление"
+            density="compact"
+            class="mb-2"
+          />
+          <DimensionalNumberInput
+            v-if="selectedVerticalDirection"
+            v-model="verticalDistance"
+            label="Вертикальная дистанция"
+            density="compact"
+            class="mb-2"
+          />
+          <div v-if="verticalMovementMaxLabel" class="text-caption text-medium-emphasis mb-2">
+            Максимум: {{ verticalMovementMaxLabel }}
+          </div>
+        </template>
         <template v-if="selectedAction?.isProcess">
           <v-autocomplete
             v-model="selectedProcessStepCode"
@@ -463,6 +731,7 @@ watch(
             </template>
           </v-autocomplete>
           <v-autocomplete
+            v-if="!isMovementProcess"
             v-model="selectedProcessAttackKey"
             :items="processAttacks"
             :item-title="(item) => `${item.itemName} · ${item.profileTypeLabel}`"
@@ -477,12 +746,20 @@ watch(
             {{ actionEffectService.describe(effect) }}
           </div>
         </div>
-        <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mt-3">{{ error }}</v-alert>
+        <v-alert v-if="movementInputError" type="error" variant="tonal" density="compact" class="mt-3">
+          {{ movementInputError }}
+        </v-alert>
+        <v-alert v-else-if="error" type="error" variant="tonal" density="compact" class="mt-3">{{ error }}</v-alert>
       </v-card-text>
       <v-card-actions>
         <v-spacer />
         <v-btn variant="text" :disabled="busy" @click="emit('update:open', false)">Отмена</v-btn>
-        <v-btn color="primary" :loading="busy" :disabled="!selectedAction || !actorKey" @click="submitSafe">
+        <v-btn
+          color="primary"
+          :loading="busy"
+          :disabled="!selectedAction || !actorKey || !!movementInputError"
+          @click="submitSafe"
+        >
           Выполнить
         </v-btn>
       </v-card-actions>

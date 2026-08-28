@@ -1,4 +1,5 @@
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
+import type { ActionResolution } from '@/modules/Roleplay/Game/Dto/ActionResolution';
 
 export interface ProcessSession {
   gameId: number;
@@ -9,4 +10,5 @@ export interface ProcessSession {
   status: 'active';
   startedAt: string;
   updatedAt: string;
+  lastResolution?: ActionResolution;
 }

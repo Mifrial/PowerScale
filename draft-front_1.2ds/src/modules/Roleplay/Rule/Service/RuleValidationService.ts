@@ -27,6 +27,8 @@ import type { AbilityStructureError } from '@/modules/Roleplay/Rule/Dto/AbilityS
 import type { RaceStructureError } from '@/modules/Roleplay/Rule/Dto/RaceStructureError';
 import type { RefExpectation } from '@/modules/Roleplay/Rule/Dto/RefExpectation';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import type { ActionOperation } from '@/modules/Roleplay/Rule/Dto/Ability/ActionOperation';
+import type { MovementDistanceExpression } from '@/modules/Roleplay/Rule/Dto/Ability/MovementDistanceExpression';
 
 export class RuleValidationService {
   constructor(private readonly abilitySpec: AbilitySpecService) {}
@@ -167,6 +169,8 @@ export class RuleValidationService {
       }
 
       const components = 'action_components' in spec ? spec.action_components : [];
+      const operations = 'operations' in spec ? (spec.operations ?? []) : [];
+      errors.push(...this.validateActionOperations(rule, operations));
       const actionEffects = 'action_effects' in spec ? (spec.action_effects ?? []) : [];
       if (actionEffects.length > 0 && type !== 'action') {
         errors.push({
@@ -228,6 +232,7 @@ export class RuleValidationService {
         }
         const stepCodes = new Set(steps.filter((s) => s.code).map((s) => s.code));
         for (const step of steps) {
+          errors.push(...this.validateActionOperations(rule, step.operations ?? []));
           if (!step.interruption) {
             errors.push({
               ruleName: rule.name,
@@ -838,6 +843,9 @@ export class RuleValidationService {
             }
           }
         }
+        for (const operation of 'operations' in ability ? (ability.operations ?? []) : []) {
+          this.collectOperationRefs(operation, collect);
+        }
         if ('process' in ability) {
           for (const step of ability.process?.steps ?? []) {
             for (const cost of step.costs ?? []) {
@@ -845,6 +853,7 @@ export class RuleValidationService {
                 collect({ code: cost.resource_code, type: 'resource' });
               }
             }
+            for (const operation of step.operations ?? []) this.collectOperationRefs(operation, collect);
           }
         }
         break;
@@ -1002,6 +1011,27 @@ export class RuleValidationService {
     }
   }
 
+  private collectOperationRefs(operation: ActionOperation, collect: (ref: RefExpectation) => void): void {
+    if (operation.type !== 'movement') return;
+
+    for (const constraint of [operation.distance.horizontal, operation.distance.vertical]) {
+      if (!constraint) continue;
+      this.walkMovementExpression(constraint.min, collect);
+      this.walkMovementExpression(constraint.max, collect);
+    }
+  }
+
+  private walkMovementExpression(expression: MovementDistanceExpression, collect: (ref: RefExpectation) => void): void {
+    if (expression.type === 'size_gap_times_step') {
+      collect({ code: expression.characteristic_code_from, type: 'characteristic' });
+      collect({ code: expression.characteristic_code_to, type: 'characteristic' });
+    }
+    if (expression.type === 'change_size') this.walkMovementExpression(expression.expression, collect);
+    if (expression.type === 'add') {
+      for (const child of expression.expressions) this.walkMovementExpression(child, collect);
+    }
+  }
+
   private walkRequirements(node: Requirement | undefined, collect: (ref: RefExpectation) => void): void {
     if (!node || typeof node !== 'object') return;
     if (node.type === 'and' || node.type === 'or') {
@@ -1138,5 +1168,66 @@ export class RuleValidationService {
 
   private outOfCharacteristicBaseRange(base: number): boolean {
     return !Number.isInteger(base) || base < 3 || base > 5;
+  }
+
+  private validateActionOperations(
+    rule: Rule,
+    operations: ActionOperation[],
+  ): { ruleCode: string; ruleName: string; message: string }[] {
+    const errors: { ruleCode: string; ruleName: string; message: string }[] = [];
+    for (const operation of operations) {
+      if (operation.type === 'movement') {
+        if (!operation.distance.horizontal && !operation.distance.vertical) {
+          errors.push({
+            ruleCode: rule.code,
+            ruleName: rule.name,
+            message: 'движение должно иметь компонентную дистанцию',
+          });
+        }
+        for (const direction of operation.allowedDirections.horizontal) {
+          if (!['front', 'flank', 'rear'].includes(direction)) {
+            errors.push({
+              ruleCode: rule.code,
+              ruleName: rule.name,
+              message: `недопустимое горизонтальное направление «${direction}»`,
+            });
+          }
+        }
+        for (const direction of operation.allowedDirections.vertical) {
+          if (!['up', 'down'].includes(direction)) {
+            errors.push({
+              ruleCode: rule.code,
+              ruleName: rule.name,
+              message: `недопустимое вертикальное направление «${direction}»`,
+            });
+          }
+        }
+        for (const constraint of [operation.distance.horizontal, operation.distance.vertical]) {
+          if (!constraint) continue;
+          if (this.compareExpressions(constraint.min, constraint.max) > 0) {
+            errors.push({
+              ruleCode: rule.code,
+              ruleName: rule.name,
+              message: 'минимум дистанции не может быть больше максимума',
+            });
+          }
+        }
+      }
+      if (operation.type === 'turn' && (!Number.isInteger(operation.maxDegrees) || operation.maxDegrees < 0)) {
+        errors.push({
+          ruleCode: rule.code,
+          ruleName: rule.name,
+          message: 'максимальный поворот должен быть неотрицательным целым числом',
+        });
+      }
+    }
+
+    return errors;
+  }
+
+  private compareExpressions(left: MovementDistanceExpression, right: MovementDistanceExpression): number {
+    if (left.type === 'steps' && right.type === 'steps') return left.count - right.count;
+
+    return 0;
   }
 }

@@ -90,6 +90,16 @@ export class RequirementEvaluator {
 
         return null;
       }
+      case 'current_speed': {
+        const component = snapshot.currentSpeed?.[requirement.axis];
+        const met =
+          component !== undefined &&
+          component.direction === requirement.direction &&
+          component.stepsPerActionPoint >= requirement.min_steps_per_action_point;
+        if (met) return null;
+
+        return `требуется скорость ${requirement.direction} не менее ${requirement.min_steps_per_action_point} шагов/ОД`;
+      }
       case 'and':
         return this.firstFailure(requirement.children, snapshot, domainContext);
       case 'or': {

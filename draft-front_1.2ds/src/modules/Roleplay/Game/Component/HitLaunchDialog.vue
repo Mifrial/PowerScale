@@ -749,6 +749,10 @@ async function spendAp(key: CombatEntityKey, cost: number): Promise<number> {
   const next = attackDamageService.spendActionPoints(resource.current, spent);
   const overlay = await getGameApi().setCombatResource(props.gameId, key, resource.ruleId, next);
   overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, overlay);
+  await getGameApi().setCurrentSpeed(props.gameId, key, {
+    horizontal: { stepsPerActionPoint: 0, direction: null },
+    vertical: { stepsPerActionPoint: 0, direction: null },
+  });
 
   return spent;
 }
@@ -805,18 +809,18 @@ async function applyClickAttack(
   const processStepName =
     processStep.value?.name ??
     (processSpec
-      ? processSpec.steps.find(
-          (step) => step.code === (processSpec.start_step_code ?? processSpec.steps[0]?.code),
-        )?.name
+      ? processSpec.steps.find((step) => step.code === (processSpec.start_step_code ?? processSpec.steps[0]?.code))
+          ?.name
       : null);
-  const actionForProcess = effectiveProcessContext.value || processSpec
-    ? {
-        ...action,
-        ruleId: processRule?.id ?? action.ruleId,
-        code: processRule?.code ?? action.code,
-        name: `${processRule?.name ?? 'Процесс'} · ${processStepName ?? ''}`,
-      }
-    : action;
+  const actionForProcess =
+    effectiveProcessContext.value || processSpec
+      ? {
+          ...action,
+          ruleId: processRule?.id ?? action.ruleId,
+          code: processRule?.code ?? action.code,
+          name: `${processRule?.name ?? 'Процесс'} · ${processStepName ?? ''}`,
+        }
+      : action;
   const attackerAp = resolvedAttackAction.value?.totalOdCost ?? (actionForProcess.odCost || DEFAULT_ATTACK_AP);
   const defenderAp = defenseOdCost(hit.reaction, Boolean(hit.turn && hit.flank), props.rules);
   const shouldSpendResources = options.spendResources !== false;

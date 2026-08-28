@@ -157,6 +157,8 @@ export { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/c
 export { damageTypeHooksService } from '@/modules/Roleplay/Game/Service/Instance/damageTypeHooksService';
 export { gameChatRulesContextService } from '@/modules/Roleplay/Game/Service/Instance/gameChatRulesContextService';
 export { rollService, simpleCheckRollService };
+export { movementStateService } from '@/modules/Roleplay/Game/Service/Instance/movementStateService';
+export { actionOperationResolutionService } from '@/modules/Roleplay/Game/Service/Instance/actionOperationResolutionService';
 export { ACTION_POINTS_CODE } from '@/modules/Roleplay/Game/Constant/Combat/ACTION_POINTS_CODE';
 export { DEFAULT_ATTACK_AP } from '@/modules/Roleplay/Game/Constant/Combat/DEFAULT_ATTACK_AP';
 export { FLANK_DEFENSE_LABEL } from '@/modules/Roleplay/Game/Constant/Combat/FLANK_DEFENSE_LABEL';

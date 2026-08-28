@@ -2,6 +2,7 @@ import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKe
 import type { ProcessSession } from '@/modules/Roleplay/Game/Dto/ProcessSession';
 import type { ProcessSpec } from '@/modules/Roleplay/Rule/Dto/Ability/ProcessSpec';
 import type { ProcessStep } from '@/modules/Roleplay/Rule/Dto/Ability/ProcessStep';
+import type { ActionResolution } from '@/modules/Roleplay/Game/Dto/ActionResolution';
 
 export class ProcessSessionService {
   start(gameId: number, entityKey: CombatEntityKey, processRuleId: string, spec: ProcessSpec): ProcessSession {
@@ -63,7 +64,10 @@ export class ProcessSessionService {
     return interruption?.mode === 'emergency' && Boolean(interruption.effects?.length);
   }
 
-  private interruptionFor(spec: ProcessSpec, currentStepCode: string): ProcessSpec['steps'][number]['interruption'] | null {
+  private interruptionFor(
+    spec: ProcessSpec,
+    currentStepCode: string,
+  ): ProcessSpec['steps'][number]['interruption'] | null {
     return spec.steps.find((step) => step.code === currentStepCode)?.interruption ?? null;
   }
 
@@ -71,6 +75,10 @@ export class ProcessSessionService {
     return step.costs
       .filter((cost) => cost.resource_code === resourceCode)
       .reduce((total, cost) => total + (typeof cost.amount === 'number' ? cost.amount : cost.amount.base), 0);
+  }
+
+  recordResolution(session: ProcessSession, resolution: ActionResolution): ProcessSession {
+    return { ...session, lastResolution: structuredClone(resolution), updatedAt: new Date().toISOString() };
   }
 
   resolveStep(
@@ -89,12 +97,22 @@ export class ProcessSessionService {
         const start = spec.start_step_code ?? spec.steps[0]?.code;
         if (!start) return null;
 
-        return { ...session, currentStepCode: start, currentStepStatus: 'completed', updatedAt: new Date().toISOString() };
+        return {
+          ...session,
+          currentStepCode: start,
+          currentStepStatus: 'completed',
+          updatedAt: new Date().toISOString(),
+        };
       }
 
       return null;
     }
 
-    return { ...session, currentStepCode: stepCode, currentStepStatus: 'completed', updatedAt: new Date().toISOString() };
+    return {
+      ...session,
+      currentStepCode: stepCode,
+      currentStepStatus: 'completed',
+      updatedAt: new Date().toISOString(),
+    };
   }
 }

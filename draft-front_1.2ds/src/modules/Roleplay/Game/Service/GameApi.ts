@@ -35,6 +35,7 @@ import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/Dimension
 import type { ConflictChoices } from '@/modules/Roleplay/Game/Utils/reconcileVersion';
 import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
 import type { ProcessSession } from '@/modules/Roleplay/Game/Dto/ProcessSession';
+import type { CurrentSpeed } from '@/modules/Roleplay/Game/Dto/CurrentSpeed';
 
 export class GameApi implements IGameApi {
   constructor(private readonly engine: Engine) {}
@@ -407,6 +408,33 @@ export class GameApi implements IGameApi {
     );
 
     return res.data ?? null;
+  }
+
+  async getCurrentSpeed(gameId: number, entityKey: CombatEntityKey, signal?: AbortSignal): Promise<CurrentSpeed> {
+    const res = await this.engine.runAction<CurrentSpeed>('game.getCurrentSpeed', { gameId, entityKey }, signal);
+
+    return (
+      res.data ?? {
+        horizontal: { stepsPerActionPoint: 0, direction: null },
+        vertical: { stepsPerActionPoint: 0, direction: null },
+      }
+    );
+  }
+
+  async setCurrentSpeed(
+    gameId: number,
+    entityKey: CombatEntityKey,
+    currentSpeed: CurrentSpeed,
+    signal?: AbortSignal,
+  ): Promise<CurrentSpeed> {
+    const res = await this.engine.runAction<CurrentSpeed>(
+      'game.setCurrentSpeed',
+      { gameId, entityKey, currentSpeed },
+      signal,
+    );
+    if (!res.data) throw new Error('Set current speed failed');
+
+    return res.data;
   }
 
   async setCombatResource(

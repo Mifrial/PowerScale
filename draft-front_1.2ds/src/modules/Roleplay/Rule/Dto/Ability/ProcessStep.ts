@@ -1,5 +1,6 @@
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { ActionEffect } from '@/modules/Roleplay/Rule/Dto/Ability/ActionEffect';
+import type { ActionOperation } from '@/modules/Roleplay/Rule/Dto/Ability/ActionOperation';
 
 export interface ProcessStep {
   code: string;
@@ -10,4 +11,5 @@ export interface ProcessStep {
     mode: 'normal' | 'emergency';
     effects?: ActionEffect[];
   };
+  operations?: ActionOperation[];
 }

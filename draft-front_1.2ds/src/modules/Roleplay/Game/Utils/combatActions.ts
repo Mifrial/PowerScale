@@ -9,6 +9,7 @@ import type { AbilitySpecBase } from '@/modules/Roleplay/Rule/Dto/Ability/Abilit
 import type { ActionComponent } from '@/modules/Roleplay/Rule/Dto/Ability/ActionComponent';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { ActionEffect } from '@/modules/Roleplay/Rule/Dto/Ability/ActionEffect';
+import type { ActionOperation } from '@/modules/Roleplay/Rule/Dto/Ability/ActionOperation';
 import type { ProcessSpec } from '@/modules/Roleplay/Rule/Dto/Ability/ProcessSpec';
 import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/actionEffectService';
 
@@ -30,6 +31,7 @@ export interface CombatActionOption {
   isReaction?: boolean;
   isProcess?: boolean;
   process?: ProcessSpec;
+  operations?: ActionOperation[];
 }
 
 export function asActionAbilitySpec(rule: Rule): Extract<AbilitySpec, { type: 'action' }> | null {
@@ -59,13 +61,15 @@ export function actionOdCost(components: ActionComponent[] | undefined): number 
 }
 
 export function actionUsesChosenCost(components: ActionComponent[] | undefined): boolean {
-  return components?.some(
-    (component) =>
-      component.type === 'resource' &&
-      typeof component.amount === 'object' &&
-      'type' in component.amount &&
-      component.amount.type === 'chosen',
-  ) ?? false;
+  return (
+    components?.some(
+      (component) =>
+        component.type === 'resource' &&
+        typeof component.amount === 'object' &&
+        'type' in component.amount &&
+        component.amount.type === 'chosen',
+    ) ?? false
+  );
 }
 
 export function isAutomaticAbility(spec: Pick<AbilitySpecBase, 'zones'>): boolean {
@@ -99,6 +103,7 @@ export function listAttackActions(
       name: rule.name,
       odCost: actionOdCost(spec.action_components) || DEFAULT_ATTACK_AP,
       effects: actionEffectService.effectsOf(rule),
+      operations: spec.operations,
       isAttack: true,
     });
   }
@@ -119,6 +124,7 @@ export function attackActionById(rules: Rule[], ruleId: string | null | undefine
     name: rule.name,
     odCost: actionOdCost(spec.action_components) || DEFAULT_ATTACK_AP,
     effects: actionEffectService.effectsOf(rule),
+    operations: spec.operations,
     isAttack: hasKeyword(rule, ATTACK_KEYWORD_IDS.attack),
   };
 }

@@ -59,6 +59,7 @@ interface TraitSpec {
   grants?: Grant[];
   parameters?: AbilityParameter[];
   keywordIds?: number[];
+  movement_step_size_delta?: number;
 }
 
 const traitRule = (
@@ -77,6 +78,7 @@ const traitRule = (
     parent_ability_code: null,
     ...(spec.group_code ? { group_code: spec.group_code } : {}),
     ...(spec.parameters ? { parameters: spec.parameters } : {}),
+    ...(spec.movement_step_size_delta !== undefined ? { movement_step_size_delta: spec.movement_step_size_delta } : {}),
   };
   const typeKeyword = spec.type === 'trait' ? TRAIT_KEYWORD : FEATURE_KEYWORD;
   const keywordIds = [
@@ -563,7 +565,7 @@ const importedRules: Rule[] = [
     'small-step',
     'Маленький шаг',
     'Ваш шаг компактен и устойчив.',
-    { type: 'trait', zones: osCost(1) },
+    { type: 'trait', zones: osCost(1), movement_step_size_delta: -1 },
     false,
     true,
   ),

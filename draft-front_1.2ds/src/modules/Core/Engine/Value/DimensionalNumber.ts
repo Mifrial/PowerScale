@@ -107,6 +107,16 @@ export class DimensionalNumber {
     return 0;
   }
 
+  divideFloor(divisor: DimensionalNumber): number {
+    if (divisor.value.base === 0) throw new Error('Деление на нулевое размерное значение');
+
+    const commonSize = Math.min(this.value.size, divisor.value.size);
+    const dividend = BigInt(this.value.base) * 2n ** BigInt(this.value.size - commonSize);
+    const divisorValue = BigInt(divisor.value.base) * 2n ** BigInt(divisor.value.size - commonSize);
+
+    return Number(dividend / divisorValue);
+  }
+
   toString(): string {
     if (this.value.size === 0) return String(this.value.base);
     const arrow = this.value.size > 0 ? '↑' : '↓';

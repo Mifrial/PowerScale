@@ -129,4 +129,5 @@ export { characterChatRulesContextService } from '@/modules/Roleplay/Character/S
 export { characterOverviewService } from '@/modules/Roleplay/Character/Service/Instance/characterOverviewService';
 export { characterMigrationService } from '@/modules/Roleplay/Character/Service/Instance/characterMigrationService';
 export { characterVersionIntegrityService } from '@/modules/Roleplay/Character/Service/Instance/characterVersionIntegrityService';
+export { movementContextService } from '@/modules/Roleplay/Character/Service/Instance/movementContextService';
 export { DEFAULT_FALLOFF } from '@/modules/Roleplay/Character/Constant/Weapon/DEFAULT_FALLOFF';

@@ -4,11 +4,12 @@ import type { ProcessSpec } from '@/modules/Roleplay/Rule/Dto/Ability/ProcessSpe
 import type { SpellSpec } from '@/modules/Roleplay/Rule/Dto/Ability/SpellSpec';
 import type { GroupSpec } from '@/modules/Roleplay/Rule/Dto/Ability/GroupSpec';
 import type { AbilityType } from '@/modules/Roleplay/Rule/Enum/Ability/AbilityType';
+import type { ActionOperation } from '@/modules/Roleplay/Rule/Dto/Ability/ActionOperation';
 
 /** Чистый слой — дискриминированный юнион, выдаётся на границе (эмит). */
 export type AbilitySpec =
   | GroupSpec
   | (AbilitySpecBase & { type: Exclude<AbilityType, 'action' | 'process' | 'spell' | 'group'> })
-  | (AbilitySpecBase & { type: 'action'; action_components: ActionComponent[] })
+  | (AbilitySpecBase & { type: 'action'; action_components: ActionComponent[]; operations?: ActionOperation[] })
   | (AbilitySpecBase & { type: 'process'; process: ProcessSpec })
   | (AbilitySpecBase & { type: 'spell'; action_components: ActionComponent[]; spell: SpellSpec });

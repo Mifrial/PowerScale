@@ -32,4 +32,8 @@ export interface CharacterSnapshot {
   characteristicNames?: Map<string, string>;
   /** Имена ресурсов по кодам. */
   resourceNames?: Map<string, string>;
+  currentSpeed?: {
+    horizontal: { stepsPerActionPoint: number; direction: string | null };
+    vertical: { stepsPerActionPoint: number; direction: string | null };
+  };
 }

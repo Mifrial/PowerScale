@@ -47,4 +47,6 @@ export interface AbilitySpecBase {
    * (напр. «Ближний бой»: опыт ближнего боя → уровень при 2/8/16).
    */
   derived_level?: { source_keyword: string; thresholds: number[] } | null;
+  /** Изменение размерности собственного шага, задаваемое врождённой/расовой способностью. */
+  movement_step_size_delta?: number;
 }
