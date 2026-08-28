@@ -13,6 +13,7 @@ interface CombatChatThreadState {
   turnId: string | null;
   previousTurnId: string | null;
   attackId: string | null;
+  lastAttackId: string | null;
 }
 
 const byGame = new Map<number, CombatChatThreadState>();
@@ -26,6 +27,7 @@ function stateOf(gameId: number): CombatChatThreadState {
       turnId: null,
       previousTurnId: null,
       attackId: null,
+      lastAttackId: null,
     });
     byGame.set(gameId, state);
   }
@@ -52,6 +54,7 @@ export function useCombatChatThread(gameId: MaybeRefOrGetter<number>) {
     current.roundId = newId();
     current.turnId = null;
     current.attackId = null;
+    current.lastAttackId = null;
 
     return { id: current.roundId, kind: COMBAT_CHAT_ROUND };
   }
@@ -62,6 +65,7 @@ export function useCombatChatThread(gameId: MaybeRefOrGetter<number>) {
     if (current.turnId) current.previousTurnId = current.turnId;
     current.turnId = newId();
     current.attackId = null;
+    current.lastAttackId = null;
 
     return { id: current.turnId, parentId: current.roundId ?? undefined, kind: COMBAT_CHAT_TURN };
   }
@@ -69,6 +73,7 @@ export function useCombatChatThread(gameId: MaybeRefOrGetter<number>) {
   function beginAttack(): ChatThreadRef {
     const current = state();
     current.attackId = newId();
+    current.lastAttackId = null;
 
     return {
       id: current.attackId,
@@ -78,7 +83,9 @@ export function useCombatChatThread(gameId: MaybeRefOrGetter<number>) {
   }
 
   function endAttack(): void {
-    state().attackId = null;
+    const current = state();
+    current.lastAttackId = current.attackId;
+    current.attackId = null;
   }
 
   function clearLive(): void {
@@ -88,6 +95,7 @@ export function useCombatChatThread(gameId: MaybeRefOrGetter<number>) {
     current.turnId = null;
     current.previousTurnId = null;
     current.attackId = null;
+    current.lastAttackId = null;
   }
 
   function stamp(): ChatThreadRef | undefined {
@@ -130,9 +138,14 @@ export function useCombatChatThread(gameId: MaybeRefOrGetter<number>) {
   const liveIds = computed(() => {
     const current = state();
 
-    return [current.previousRoundId, current.roundId, current.previousTurnId, current.turnId, current.attackId].filter(
-      (id): id is string => id != null,
-    );
+    return [
+      current.previousRoundId,
+      current.roundId,
+      current.previousTurnId,
+      current.turnId,
+      current.attackId,
+      current.lastAttackId,
+    ].filter((id): id is string => id != null);
   });
 
   return {

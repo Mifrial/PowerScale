@@ -32,6 +32,17 @@ describe('useCombatChatThread', () => {
     thread.clearLive();
   });
 
+  it('оставляет последний завершённый удар раскрытым', () => {
+    const thread = useCombatChatThread(91006);
+    thread.clearLive();
+    const attack = thread.beginAttack();
+    thread.endAttack();
+
+    expect(thread.liveIds.value).toContain(attack.id);
+    expect(thread.stamp()?.id).not.toBe(attack.id);
+    thread.clearLive();
+  });
+
   it('recoverFromMessages поднимает два последних хода и раунда', () => {
     const thread = useCombatChatThread(91003);
     thread.clearLive();

@@ -127,4 +127,5 @@ export { weaponAttackRangeService } from '@/modules/Roleplay/Character/Service/I
 export { characterChatRulesContextService } from '@/modules/Roleplay/Character/Service/Instance/characterChatRulesContextService';
 export { characterOverviewService } from '@/modules/Roleplay/Character/Service/Instance/characterOverviewService';
 export { characterMigrationService } from '@/modules/Roleplay/Character/Service/Instance/characterMigrationService';
+export { characterVersionIntegrityService } from '@/modules/Roleplay/Character/Service/Instance/characterVersionIntegrityService';
 export { DEFAULT_FALLOFF } from '@/modules/Roleplay/Character/Constant/Weapon/DEFAULT_FALLOFF';

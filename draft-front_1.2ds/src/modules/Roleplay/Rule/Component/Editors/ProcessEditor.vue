@@ -105,6 +105,24 @@ onMounted(() => {
     </div>
 
     <div class="mt-4">
+      <v-autocomplete
+        :model-value="inner.exit_step_codes ?? []"
+        :items="stepRefs"
+        item-title="name"
+        item-value="code"
+        label="Шаги, с которых можно прекратить процесс"
+        hint="Пусто — прекратить процесс можно с любого шага"
+        persistent-hint
+        multiple
+        chips
+        closable-chips
+        clearable
+        density="compact"
+        @update:model-value="(v) => (inner = processSpecService.patchSpec(inner, 'exit_step_codes', v))"
+      />
+    </div>
+
+    <div class="mt-4">
       <ProcessStartFailureEditor
         :start-step-code="inner.start_step_code"
         :failure="inner.failure ?? null"

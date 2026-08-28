@@ -176,7 +176,8 @@ function queuePending(membership: StoredMembership, pending: CharacterVersion): 
 export async function fetchGameCharacters(gameId: number, _signal?: AbortSignal): Promise<GameCharacterMembership[]> {
   await delay(150);
   for (const membership of gameCharacterMemberships) {
-    if (membership.gameId === gameId) autoRejectWrongRevision(membership);
+    if (membership.gameId !== gameId) continue;
+    if (autoRejectWrongRevision(membership)) continue;
   }
 
   return gameCharacterMemberships.filter((membership) => membership.gameId === gameId).map(withVisibility);

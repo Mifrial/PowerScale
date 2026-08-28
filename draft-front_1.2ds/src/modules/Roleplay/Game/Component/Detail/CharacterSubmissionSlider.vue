@@ -17,7 +17,11 @@ const diff = computed(() => {
   const membership = props.membership;
   if (!membership?.pendingVersion) return null;
 
-  return membershipDiff(membership.activeVersion, membership.pendingVersion);
+  return membershipDiff(
+    membership.activeVersion,
+    membership.pendingVersion,
+    (ruleId) => props.names[ruleId] ?? `Удалённое правило (id: ${ruleId})`,
+  );
 });
 </script>
 

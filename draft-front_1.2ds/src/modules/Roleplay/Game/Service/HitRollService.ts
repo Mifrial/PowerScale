@@ -36,6 +36,7 @@ import { withRangedHitBreakdown } from '@/modules/Roleplay/Game/Utils/rangedHitD
 
 import type { HitBlockProfile } from '@/modules/Roleplay/Game/Dto/HitBlockProfile';
 import type { HitRollInput } from '@/modules/Roleplay/Game/Dto/HitRollInput';
+import type { SimultaneousHitRoll } from '@/modules/Roleplay/Game/Dto/SimultaneousHitRoll';
 import type { HitCheckRoll } from '@/modules/Roleplay/Game/Dto/HitCheckRoll';
 import { FLANK_DEFENSE_LABEL } from '@/modules/Roleplay/Game/Constant/Combat/FLANK_DEFENSE_LABEL';
 export class HitRollService {
@@ -221,6 +222,22 @@ export class HitRollService {
   /** Совместимость со старыми тестами. */
   rollMeleeHit(input: HitRollInput, rng: DiceRng, rules: Rule[], mechanics: Mechanic[]): HitCheckRoll {
     return this.rollHit(input, rng, rules, mechanics);
+  }
+
+  rollSimultaneousHits(
+    inputs: HitRollInput[],
+    rng: DiceRng,
+    rules: Rule[],
+    mechanics: Mechanic[],
+  ): SimultaneousHitRoll {
+    if (inputs.length === 0) throw new Error('Одновременная атака должна содержать хотя бы один удар');
+    const first = this.rollHit(inputs[0], rng, rules, mechanics);
+    const attackers = [
+      first.attacker,
+      ...inputs.slice(1).map((input) => this.rollHit({ ...input, reaction: 'ignore' }, rng, rules, mechanics).attacker),
+    ];
+
+    return { attackers, defender: first.defender };
   }
 
   hitHasDefenseRoll(reaction: HitDefenseReaction): boolean {

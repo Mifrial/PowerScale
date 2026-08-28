@@ -5,6 +5,8 @@ export interface AttackOverview {
   itemName: string;
   itemHref: string;
   profileType: 'strike' | 'throw' | 'shoot';
+  /** Индекс профиля в описании оружия; нужен, когда у предмета несколько профилей одного типа. */
+  profileIndex?: number;
   profileTypeLabel: string;
   distanceLabel: string;
   /** Верх профиля (range, иначе distance), в ипари. */

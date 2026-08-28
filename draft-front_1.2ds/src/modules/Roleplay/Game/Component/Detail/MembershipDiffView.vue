@@ -26,7 +26,7 @@ const KIND_COLOR: Record<DiffChange['kind'], string> = {
 };
 
 function resolve(ruleId: string): string {
-  return props.names[ruleId] ?? ruleId;
+  return props.names[ruleId] ?? `Удалённое правило (id: ${ruleId})`;
 }
 
 /** Label строки: ruleId → имя; для multiple-навыков (ruleId|домен) — имя + домен. */

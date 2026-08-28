@@ -71,7 +71,7 @@ function setChoice(membership: GameCharacterMembership, field: string, choice: '
 }
 
 function resolve(ruleId: string): string {
-  return names.value.get(ruleId) ?? ruleId;
+  return names.value.get(ruleId) ?? `Удалённое правило (id: ${ruleId})`;
 }
 
 async function loadRules(): Promise<void> {

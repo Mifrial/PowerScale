@@ -154,6 +154,10 @@ async function handleSave(version: CharacterVersion): Promise<void> {
   }
 }
 
+async function handleIntegrityCancel(): Promise<void> {
+  await router.push(gameId.value !== null ? `/games/${gameId.value}` : `/characters/${characterId.value ?? ''}`);
+}
+
 watch(() => [route.name, route.params.id, gameId.value], load, { immediate: true });
 </script>
 
@@ -188,6 +192,12 @@ watch(() => [route.name, route.params.id, gameId.value], load, { immediate: true
       </v-card>
     </div>
 
-    <CharacterSheetEditor v-else :draft-key="draftKey" :require-race="true" @save="handleSave" />
+    <CharacterSheetEditor
+      v-else
+      :draft-key="draftKey"
+      :require-race="true"
+      @save="handleSave"
+      @cancel="handleIntegrityCancel"
+    />
   </v-container>
 </template>

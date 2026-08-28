@@ -21,6 +21,7 @@ import EditorDescriptionTab from '@/modules/Roleplay/Character/Component/Editor/
 import InventoryTab from '@/modules/Roleplay/Character/Component/Editor/InventoryTab.vue';
 import RuleSlider from '@/modules/Roleplay/Rule/Component/RuleSlider.vue';
 import { useRuleDetailSlider } from '@/modules/Roleplay/Character/Composables/useRuleDetailSlider';
+import { characterVersionIntegrityService } from '@/modules/Roleplay/Character/init';
 
 /**
  * Редактор листа персонажа/НПС (переиспользуемый, ТР §7): владеет черновиком (по `draftKey`
@@ -41,6 +42,7 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   save: [version: CharacterVersion];
+  cancel: [];
 }>();
 
 const draftStore = useCharacterDraftStore();
@@ -57,8 +59,15 @@ const saveError = ref<string | null>(null);
 const saveMessage = ref<string | null>(null);
 const saving = ref(false);
 const storageToast = ref(false);
+const integrityPromptOpen = ref(false);
+const integrityDismissed = ref(false);
 
 const draft = computed(() => draftStore.draftOf(props.draftKey));
+const unsupportedRuleIds = computed(() => {
+  if (!draft.value || rules.value.length === 0) return [];
+
+  return characterVersionIntegrityService.invalidBuildRuleIds(draft.value.build, rules.value);
+});
 const ruleSlider = useRuleDetailSlider();
 
 const config = computed(() => draft.value?.config ?? { osTotal: null, orTotal: null, moneyBudget: null });
@@ -96,6 +105,31 @@ watch(
   },
   { immediate: true },
 );
+
+watch(
+  unsupportedRuleIds,
+  (ruleIds) => {
+    if (ruleIds.length > 0 && !integrityDismissed.value) integrityPromptOpen.value = true;
+  },
+  { immediate: true },
+);
+
+function removeUnsupportedRules(): void {
+  const current = draft.value;
+  if (!current) return;
+  draftStore.patchBuild(
+    props.draftKey,
+    characterVersionIntegrityService.removeUnsupportedFromBuild(current.build, unsupportedRuleIds.value),
+  );
+  integrityDismissed.value = true;
+  integrityPromptOpen.value = false;
+}
+
+function exitWithoutSaving(): void {
+  draftStore.discard(props.draftKey);
+  integrityPromptOpen.value = false;
+  emit('cancel');
+}
 
 async function loadRules(spaceId: number, revision: number, abortSignal: AbortSignal): Promise<void> {
   rulesLoading.value = true;
@@ -204,6 +238,29 @@ onMounted(() => {
 
 <template>
   <template v-if="draft">
+    <v-dialog v-model="integrityPromptOpen" persistent max-width="520">
+      <v-card>
+        <v-card-title>Правила больше не поддерживаются</v-card-title>
+        <v-card-text>
+          <p class="mb-3">
+            В черновике есть ссылки на правила, которых нет в выбранной ревизии. Их нельзя сохранить в текущем виде:
+          </p>
+          <div class="d-flex flex-wrap ga-2">
+            <v-chip v-for="ruleId in unsupportedRuleIds" :key="ruleId" size="small" variant="tonal">
+              {{ ruleId }}
+            </v-chip>
+          </div>
+          <p class="text-caption text-medium-emphasis mt-3">
+            Удаление уберёт способности, ресурсы, предметы и другие ссылки на эти правила из черновика.
+          </p>
+        </v-card-text>
+        <v-card-actions>
+          <v-btn variant="text" @click="exitWithoutSaving">Выйти без сохранения</v-btn>
+          <v-spacer />
+          <v-btn color="warning" @click="removeUnsupportedRules">Удалить неподдерживаемые</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
     <EditorStageNav
       class="editor-nav-bleed"
       :model="model"

@@ -32,6 +32,7 @@ import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/Chara
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { ConflictChoices } from '@/modules/Roleplay/Game/Utils/reconcileVersion';
 import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
+import type { ProcessSession } from '@/modules/Roleplay/Game/Dto/ProcessSession';
 
 export interface IGameApi {
   getGames(signal?: AbortSignal): Promise<Game[]>;
@@ -116,6 +117,13 @@ export interface IGameApi {
     effects: PendingActionEffect[],
     signal?: AbortSignal,
   ): Promise<PendingActionEffect[]>;
+  getProcessSessions(gameId: number, signal?: AbortSignal): Promise<Record<CombatEntityKey, ProcessSession>>;
+  setProcessSession(
+    gameId: number,
+    entityKey: CombatEntityKey,
+    session: ProcessSession | null,
+    signal?: AbortSignal,
+  ): Promise<ProcessSession | null>;
   setCombatResource(
     gameId: number,
     entityKey: CombatEntityKey,

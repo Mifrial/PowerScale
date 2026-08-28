@@ -3861,7 +3861,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Серия ударов',
     description:
-      'По окончании процесса, пока вы не потратите 1ОД, вы будете иметь помеху для всех проверок на попадание от обстоятельств .',
+      'По окончании процесса, пока вы не потратите 1 ОД, вы будете иметь помеху для всех проверок на попадание от обстоятельств.',
     spaceId: 1,
     spec: {
       type: 'process',
@@ -3906,6 +3906,15 @@ const mockDevelopmentImportRaw: Rule[] = [
             description:
               'Вы получаете 1 внутреннее повреждение от перенапряжения. Размер повреждения равен размеру вашей силы. Ваши повреждения не сбрасываются, пока вы выполняете этот процесс. Совершите один удар. Если он промахнулся — процесс заканчивается.',
             costs: [{ resource_code: 'action-points', amount: 2 }],
+          },
+        ],
+        completion_effects: [
+          {
+            type: 'after_action_until_resource_spent_check_modifier',
+            resource_code: 'action-points',
+            amount: 1,
+            check_codes: ['hit'],
+            delta: -1,
           },
         ],
       },

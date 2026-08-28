@@ -14,6 +14,7 @@ import { mockCreateCharacterDiscussion } from '@/modules/Messages/Chat/Mock/mock
 import { SHEET_VISIBILITY_DEFAULT } from '@/modules/Roleplay/Character/Constant/Sheet/SHEET_VISIBILITY_PRESETS';
 import { fetchRevision, fetchSpace, fetchSpaceByCode } from '@/modules/Roleplay/Space/Mock/mockSpaces';
 import { characterMigrationService } from '@/modules/Roleplay/Character/Service/Instance/characterMigrationService';
+import { characterVersionIntegrityService } from '@/modules/Roleplay/Character/Service/Instance/characterVersionIntegrityService';
 import type { MigrationResult } from '@/modules/Roleplay/Character/Service/CharacterMigrationService';
 
 // База характеристики — размерное число: база (3–5) + размерность (для базовых 0).
@@ -83,7 +84,7 @@ export const characters: Character[] = [
     gameName: 'Забытые земли',
     spaceId: 2,
     spaceCode: 'actual',
-    rulesRevision: 12,
+    rulesRevision: 6,
     shortDescription: 'Ловкий карманник с сомнительной репутацией.',
     // Демо: в игре игроки видят только имя и краткое описание.
     visibility: [{ audience: 'all', sections: ['shortDescription'] }],
@@ -411,6 +412,15 @@ const details: Record<number, CharacterDetail> = Object.fromEntries(
 
 const delay = (ms = 300) => new Promise((r) => setTimeout(r, ms));
 
+async function assertVersionMatchesSpace(version: CharacterVersion, spaceId: number): Promise<void> {
+  const space = await fetchSpace(spaceId);
+  if (version.spaceCode !== space.code) {
+    throw new Error('Пространство версии персонажа не совпадает с пространством персонажа');
+  }
+  const revision = await fetchRevision(spaceId, version.rulesRevision);
+  characterVersionIntegrityService.assertValid(version, revision.rules);
+}
+
 /** Личные заметки владельца — не в CharacterVersion и не в details (ГМ не должен их увидеть в листе). */
 const ownerNotesByCharacterId: Record<number, string> = {
   1: 'Не забыть про долг кузнецу.',
@@ -501,6 +511,11 @@ function summaryOf(id: number, version: CharacterVersion, spaceId: number, statu
 
 export async function createCharacter(data: CreateCharacterData, _signal?: AbortSignal): Promise<CharacterDetail> {
   await delay();
+  const space = await fetchSpace(data.spaceId);
+  if (data.spaceCode !== space.code || data.rulesRevision !== data.version.rulesRevision) {
+    throw new Error('Метаданные персонажа не совпадают с версией правил');
+  }
+  await assertVersionMatchesSpace(data.version, data.spaceId);
   const id = nextId++;
   // Статус листа решает вызывающий контекст (редактор вне игры — 'ready'); мок дефолтит 'draft'.
   const character = summaryOf(id, data.version, data.spaceId, data.status ?? 'draft');
@@ -523,6 +538,7 @@ export async function updateCharacter(
   await delay();
   const character = characters.find((entry) => entry.id === id);
   if (!character) throw new Error(`Character ${id} not found`);
+  await assertVersionMatchesSpace(data.version, character.spaceId);
 
   character.name = data.version.name;
   character.raceId = raceIdOf(data.version.raceRuleId);
@@ -584,6 +600,8 @@ export async function applyMigration(
   await delay();
   const character = characters.find((entry) => entry.id === characterId);
   if (!character) throw new Error(`Character ${characterId} not found`);
+  const targetSpace = await fetchSpaceByCode(version.spaceCode);
+  await assertVersionMatchesSpace(version, targetSpace.id);
   const oldVersion = versions[characterId];
   previousVersions[characterId] = oldVersion;
   versions[characterId] = version;

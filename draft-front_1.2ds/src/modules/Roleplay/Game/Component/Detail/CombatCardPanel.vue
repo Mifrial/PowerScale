@@ -47,6 +47,7 @@ import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKe
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
 import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
+import type { ProcessSession } from '@/modules/Roleplay/Game/Dto/ProcessSession';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
 import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
@@ -80,6 +81,7 @@ const props = defineProps<{
   rulesRevision: number;
   /** Счётчик боевых мутаций снаружи (удар, истощение) — перечитать оверлеи. */
   overlayRevision?: number;
+  processSessions?: Record<CombatEntityKey, ProcessSession>;
 }>();
 
 const emit = defineEmits<{
@@ -118,6 +120,13 @@ const poisonDraftStrength = ref<DimensionalNumberValue>({ base: 1, size: 0 });
 const cardTab = ref('overview');
 const collapsed = ref<string[]>([]);
 const keywordStore = useKeywordStore();
+
+const activeProcess = computed(() =>
+  props.entityKey && props.processSessions ? (props.processSessions[props.entityKey] ?? null) : null,
+);
+const activeProcessRule = computed(() =>
+  activeProcess.value ? (props.rules.find((rule) => rule.id === activeProcess.value?.processRuleId) ?? null) : null,
+);
 
 onMounted(() => {
   if (keywordStore.keywords.length === 0) void keywordStore.fetchTags();
@@ -367,6 +376,7 @@ watch(
 
 function launchHit(attack: AttackOverview): void {
   if (!props.entityKey) return;
+  if (props.processSessions?.[props.entityKey]) return;
   emit('launch-hit', { attackerKey: props.entityKey, attack });
 }
 
@@ -702,6 +712,10 @@ function onSheetToggleEquipped(itemId: number): void {
       <v-window v-model="cardTab">
         <v-window-item value="overview">
           <div class="combat-card-panel__body">
+            <v-alert v-if="activeProcess" type="info" variant="tonal" density="compact" class="mb-3">
+              Активный процесс: {{ activeProcessRule?.name ?? activeProcess.processRuleId }} · шаг
+              {{ activeProcess.currentStepCode }}. Для продолжения используйте меню «Действие».
+            </v-alert>
             <section class="combat-card-section">
               <button type="button" class="combat-card-section__title" @click="toggleSection('characteristics')">
                 <v-icon size="18">{{

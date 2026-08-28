@@ -244,6 +244,15 @@ export class RuleValidationService {
             message: `начальный шаг «${startStep}» не существует`,
           });
         }
+        for (const exitStep of 'process' in spec ? (spec.process?.exit_step_codes ?? []) : []) {
+          if (!stepCodes.has(exitStep)) {
+            errors.push({
+              ruleName: rule.name,
+              ruleCode: rule.code,
+              message: `выход из процесса: шаг «${exitStep}» не существует`,
+            });
+          }
+        }
         const transition = 'process' in spec ? spec.process?.transition : undefined;
         if (transition?.mode === 'custom') {
           for (const edge of transition.edges ?? []) {

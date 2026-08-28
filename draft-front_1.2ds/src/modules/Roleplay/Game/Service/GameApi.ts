@@ -34,6 +34,7 @@ import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/Chara
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { ConflictChoices } from '@/modules/Roleplay/Game/Utils/reconcileVersion';
 import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
+import type { ProcessSession } from '@/modules/Roleplay/Game/Dto/ProcessSession';
 
 export class GameApi implements IGameApi {
   constructor(private readonly engine: Engine) {}
@@ -381,6 +382,31 @@ export class GameApi implements IGameApi {
     if (!res.data) throw new Error('Set combat action effects failed');
 
     return res.data;
+  }
+
+  async getProcessSessions(gameId: number, signal?: AbortSignal): Promise<Record<CombatEntityKey, ProcessSession>> {
+    const res = await this.engine.runAction<Record<CombatEntityKey, ProcessSession>>(
+      'game.getProcessSessions',
+      { gameId },
+      signal,
+    );
+
+    return res.data ?? {};
+  }
+
+  async setProcessSession(
+    gameId: number,
+    entityKey: CombatEntityKey,
+    session: ProcessSession | null,
+    signal?: AbortSignal,
+  ): Promise<ProcessSession | null> {
+    const res = await this.engine.runAction<ProcessSession | null>(
+      'game.setProcessSession',
+      { gameId, entityKey, session },
+      signal,
+    );
+
+    return res.data ?? null;
   }
 
   async setCombatResource(

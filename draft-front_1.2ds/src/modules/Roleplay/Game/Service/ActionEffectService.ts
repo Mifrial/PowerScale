@@ -36,6 +36,16 @@ export class ActionEffectService {
       .map((effect) => ({ sourceRuleId: rule?.id ?? '', effect }));
   }
 
+  effectsAfterProcess(rule: Rule | null | undefined): PendingActionEffect[] {
+    if (!rule || rule.type !== 'ability' || !rule.spec || !('type' in rule.spec) || rule.spec.type !== 'process')
+      return [];
+
+    return (rule.spec.process.completion_effects ?? []).map((effect) => ({
+      sourceRuleId: rule.id,
+      effect,
+    }));
+  }
+
   resolveForNextAction(
     pendingEffects: PendingActionEffect[],
     action: {
@@ -83,10 +93,7 @@ export class ActionEffectService {
         const appliedDelta =
           effect.min === undefined
             ? effect.delta
-            : Math.max(
-                effect.min - ((action.targetDexterityMastery ?? 0) + targetDexterityMasteryDelta),
-                effect.delta,
-              );
+            : Math.max(effect.min - ((action.targetDexterityMastery ?? 0) + targetDexterityMasteryDelta), effect.delta);
         targetDexterityMasteryDelta += appliedDelta;
         targetDexterityMasteryAdjustments.push({ sourceRuleId: pending.sourceRuleId, delta: appliedDelta });
       }

@@ -1,5 +1,6 @@
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { HitDefenseReaction } from '@/modules/Roleplay/Game/Enum/HitDefenseReaction';
+import type { AttackAction } from '@/modules/Roleplay/Game/Dto/AttackAction';
 
 export interface CheckOfferProposal {
   initiatorCharacteristic: string | null;
@@ -9,11 +10,14 @@ export interface CheckOfferProposal {
   /** Свободный пул, если нет листа / характеристика не выбрана. */
   initiatorFree?: { diceCount: number; dieSize: number; efficiency: number } | null;
   opponentFree?: { diceCount: number; dieSize: number; efficiency: number } | null;
+  /** Готовый план одновременной атаки; `hit` сохраняется для обратной совместимости. */
+  attackAction?: AttackAction | null;
   /** Попадание: профиль оружия; реакцию и эффективность защиты пишет защитник. */
   hit?: {
     itemRuleId: string;
     itemName: string;
     profileType: 'strike' | 'throw' | 'shoot';
+    profileIndex?: number;
     accuracy: DimensionalNumberValue;
     reaction: HitDefenseReaction | null;
     defenseEfficiency?: DimensionalNumberValue | null;

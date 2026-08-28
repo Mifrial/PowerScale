@@ -96,12 +96,16 @@ export class CharacterOverviewService {
     itemRuleId: string,
     profileType: 'strike' | 'throw' | 'shoot',
     distanceIpari: number,
+    profileIndex?: number,
   ): AttackOverview | null {
     const { synced, reference, context } = this.prepared(version, rules);
 
     return (
       this.buildAttacks(synced, reference, context, { itemRuleId, profileType, distanceIpari }).find(
-        (item) => item.itemRuleId === itemRuleId && item.profileType === profileType,
+        (item) =>
+          item.itemRuleId === itemRuleId &&
+          item.profileType === profileType &&
+          (profileIndex === undefined || item.profileIndex === profileIndex),
       ) ?? null
     );
   }
@@ -1001,6 +1005,7 @@ export class CharacterOverviewService {
       itemRuleId: string;
       profileType: 'strike' | 'throw' | 'shoot';
       distanceIpari: number;
+      profileIndex?: number;
     },
   ): AttackOverview[] {
     const attacks: AttackOverview[] = [];
@@ -1011,13 +1016,24 @@ export class CharacterOverviewService {
       const spec = this.effectiveSpecOf(item, reference);
       if (!spec?.weapon) continue;
 
-      for (const profile of spec.weapon.weapon_profiles) {
+      for (const [profileIndex, profile] of spec.weapon.weapon_profiles.entries()) {
         const distanceIpari =
-          atDistance && atDistance.itemRuleId === item.ruleId && atDistance.profileType === profile.type
+          atDistance &&
+          atDistance.itemRuleId === item.ruleId &&
+          atDistance.profileType === profile.type &&
+          (atDistance.profileIndex === undefined || atDistance.profileIndex === profileIndex)
             ? atDistance.distanceIpari
             : null;
         attacks.push(
-          this.buildAttack(item.ruleId, rule?.name ?? item.ruleId, profile, reference, context, distanceIpari),
+          this.buildAttack(
+            item.ruleId,
+            rule?.name ?? item.ruleId,
+            profile,
+            reference,
+            context,
+            distanceIpari,
+            profileIndex,
+          ),
         );
       }
     }
@@ -1032,6 +1048,7 @@ export class CharacterOverviewService {
     reference: CharacterReferenceService,
     context: FormulaContext,
     distanceIpari: number | null = null,
+    profileIndex?: number,
   ): AttackOverview {
     const zeroCtx = weaponAttackRangeService.profileFormulaContext(profile, context, this.formula);
     const minDistance = this.formula.evaluate(profile.distance, zeroCtx);
@@ -1058,6 +1075,7 @@ export class CharacterOverviewService {
       itemName,
       itemHref: reference.href(itemRuleId),
       profileType: profile.type,
+      profileIndex,
       profileTypeLabel: WEAPON_PROFILE_LABELS[profile.type],
       distanceLabel: range === null ? String(minDistance) : `${minDistance}/${range}`,
       minDistance,

@@ -2,12 +2,14 @@ import type { CharacterOverview } from '@/modules/Roleplay/Character/Dto/Overvie
 import type { HitDefenseReaction } from '@/modules/Roleplay/Game/Enum/HitDefenseReaction';
 import { ACTION_POINTS_CODE } from '@/modules/Roleplay/Game/Constant/Combat/ACTION_POINTS_CODE';
 import { DEFAULT_ATTACK_AP } from '@/modules/Roleplay/Game/Constant/Combat/DEFAULT_ATTACK_AP';
+import { ATTACK_KEYWORD_IDS } from '@/modules/Roleplay/Game/Constant/Combat/ATTACK_KEYWORD_IDS';
 
 import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpec';
 import type { AbilitySpecBase } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpecBase';
 import type { ActionComponent } from '@/modules/Roleplay/Rule/Dto/Ability/ActionComponent';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { ActionEffect } from '@/modules/Roleplay/Rule/Dto/Ability/ActionEffect';
+import type { ProcessSpec } from '@/modules/Roleplay/Rule/Dto/Ability/ProcessSpec';
 import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/actionEffectService';
 
 export const SIMPLE_MELEE_ATTACK_CODE = 'simple-melee-attack';
@@ -15,10 +17,6 @@ export const SIMPLE_RANGED_ATTACK_CODE = 'simple-ranged-attack';
 export const DODGE_CODE = 'dodge';
 export const BLOCK_CODE = 'block';
 export const TURN_CODE = 'turn';
-
-const KW_MELEE = 1;
-const KW_RANGED = 2;
-const KW_ATTACK = 71;
 
 export interface CombatActionOption {
   ruleId: string;
@@ -28,6 +26,8 @@ export interface CombatActionOption {
   effects?: ActionEffect[];
   isAttack?: boolean;
   isReaction?: boolean;
+  isProcess?: boolean;
+  process?: ProcessSpec;
 }
 
 export function asActionAbilitySpec(rule: Rule): Extract<AbilitySpec, { type: 'action' }> | null {
@@ -35,6 +35,13 @@ export function asActionAbilitySpec(rule: Rule): Extract<AbilitySpec, { type: 'a
   if (rule.spec.type !== 'action') return null;
 
   return rule.spec;
+}
+
+export function asProcessAbilitySpec(rule: Rule): Extract<AbilitySpec, { type: 'process' }>['process'] | null {
+  if (rule.type !== 'ability' || !rule.spec || typeof rule.spec !== 'object' || !('type' in rule.spec)) return null;
+  if (rule.spec.type !== 'process') return null;
+
+  return rule.spec.process;
 }
 
 export function actionOdCost(components: ActionComponent[] | undefined): number {
@@ -66,11 +73,11 @@ export function listAttackActions(
   for (const rule of rules) {
     const spec = asActionAbilitySpec(rule);
     if (!spec) continue;
-    const isAttack = hasKeyword(rule, KW_ATTACK);
+    const isAttack = hasKeyword(rule, ATTACK_KEYWORD_IDS.attack);
     if (!isAttack) continue;
     if (!isAutomaticAbility(spec) && !owned.has(rule.id)) continue;
-    const melee = hasKeyword(rule, KW_MELEE);
-    const ranged = hasKeyword(rule, KW_RANGED);
+    const melee = hasKeyword(rule, ATTACK_KEYWORD_IDS.melee);
+    const ranged = hasKeyword(rule, ATTACK_KEYWORD_IDS.ranged);
     if (profileType === 'strike' && ranged && !melee) continue;
     if ((profileType === 'throw' || profileType === 'shoot') && melee && !ranged) continue;
     options.push({
@@ -99,7 +106,7 @@ export function attackActionById(rules: Rule[], ruleId: string | null | undefine
     name: rule.name,
     odCost: actionOdCost(spec.action_components) || DEFAULT_ATTACK_AP,
     effects: actionEffectService.effectsOf(rule),
-    isAttack: hasKeyword(rule, KW_ATTACK),
+    isAttack: hasKeyword(rule, ATTACK_KEYWORD_IDS.attack),
   };
 }
 

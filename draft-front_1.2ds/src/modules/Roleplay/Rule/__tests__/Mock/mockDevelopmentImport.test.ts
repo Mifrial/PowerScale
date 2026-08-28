@@ -188,6 +188,23 @@ describe('mockDevelopmentImport (S14)', () => {
     }
   });
 
+  it('Серия ударов описана как процесс с входом, повтором и эффектом завершения', () => {
+    const rule = mockDevelopmentImport.find((item) => item.code === 'seriya-udarov');
+    const spec =
+      rule?.type === 'ability' && rule.spec && 'type' in rule.spec && rule.spec.type === 'process' ? rule.spec : null;
+
+    expect(spec).not.toBeNull();
+    if (!spec) return;
+
+    expect(spec.process.start_step_code).toBe('part-1');
+    expect(spec.process.transition).toMatchObject({ mode: 'chain', max_shift: 1, direction: 'both' });
+    expect(spec.process.failure).toBe('end_action');
+    expect(spec.process.steps.map((step) => step.code)).toEqual(['part-1', 'part-2']);
+    expect(spec.process.completion_effects).toMatchObject([
+      { type: 'after_action_until_resource_spent_check_modifier', amount: 1, delta: -1 },
+    ]);
+  });
+
   it('все способности каталога «Развития» находятся в зоне or', () => {
     for (const rule of mockDevelopmentImport) {
       const spec = rule.spec as AbilitySpecBase | undefined;

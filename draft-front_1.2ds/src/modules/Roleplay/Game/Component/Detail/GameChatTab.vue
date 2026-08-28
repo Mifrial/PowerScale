@@ -26,12 +26,16 @@ import CombatCardPanel from '@/modules/Roleplay/Game/Component/Detail/CombatCard
 import CheckLaunchDialog from '@/modules/Roleplay/Game/Component/CheckLaunchDialog.vue';
 import HitLaunchDialog from '@/modules/Roleplay/Game/Component/HitLaunchDialog.vue';
 import ActionLaunchDialog from '@/modules/Roleplay/Game/Component/ActionLaunchDialog.vue';
+import AttackLaunchDialog from '@/modules/Roleplay/Game/Component/AttackLaunchDialog.vue';
 import InjuryLaunchDialog from '@/modules/Roleplay/Game/Component/InjuryLaunchDialog.vue';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
 
 import type { CheckOffer } from '@/modules/Roleplay/Game/Dto/CheckOffer';
 import type { AttackOverview } from '@/modules/Roleplay/Character/Dto/Overview/AttackOverview';
+import type { ProcessActionContext } from '@/modules/Roleplay/Game/Dto/ProcessActionContext';
+import type { ProcessSession } from '@/modules/Roleplay/Game/Dto/ProcessSession';
+import type { AttackAction } from '@/modules/Roleplay/Game/Dto/AttackAction';
 import { CHECK_HIT_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
 import { useCombatChatThread } from '@/modules/Roleplay/Game/Composables/useCombatChatThread';
 import { combatChatFoldService } from '@/modules/Roleplay/Game/Service/Instance/combatChatFoldService';
@@ -189,6 +193,7 @@ async function load(): Promise<void> {
     memberships.value = await getGameApi().getGameCharacters(gameId.value);
     npcs.value = await getGameApi().getNpcs(gameId.value);
     quickRolls.value = await getGameApi().getQuickRolls(gameId.value);
+    await refreshProcessSessions();
     mechanics.value = await getRuleApi().getMechanics();
     await loadRevision();
   } catch (e) {
@@ -244,9 +249,17 @@ const cardKey = ref<CombatEntityKey | null>(null);
 // Ревизия оверлеев — счётчик мутаций боевых изменений: шкала инициативы перечитывает
 // оверлеи (Истощение) после правок в боевой карточке.
 const overlayRevision = ref(0);
+const processSessionsByEntity = ref<Record<CombatEntityKey, ProcessSession>>({});
 
 function onOverlayChanged(): void {
   overlayRevision.value += 1;
+  void refreshProcessSessions();
+}
+
+async function refreshProcessSessions(): Promise<void> {
+  processSessionsByEntity.value = await getGameApi()
+    .getProcessSessions(gameId.value)
+    .catch(() => ({}));
 }
 
 function onOpenCard(entityKey: string): void {
@@ -290,12 +303,15 @@ watch(speakerOptions, () => applySpeakerKey());
 
 const checkOpen = ref(false);
 const actionOpen = ref(false);
+const attackOpen = ref(false);
 const hitOpen = ref(false);
 const injuryOpen = ref(false);
 const resumeOffer = ref<CheckOffer | null>(null);
 const hitResumeOffer = ref<CheckOffer | null>(null);
 const hitAttackerKey = ref<CombatEntityKey | null>(null);
 const hitAttack = ref<AttackOverview | null>(null);
+const processActionContext = ref<ProcessActionContext | null>(null);
+const attackAction = ref<AttackAction | null>(null);
 const pendingOffers = ref<CheckOffer[]>([]);
 const dismissedOfferIds = ref<Set<number>>(new Set());
 let pendingPoll: ReturnType<typeof setInterval> | null = null;
@@ -439,6 +455,8 @@ function onHitClosed(open: boolean): void {
   }
   hitResumeOffer.value = null;
   hitAttack.value = null;
+  processActionContext.value = null;
+  attackAction.value = null;
   hitAttackerKey.value = null;
   hitOpen.value = false;
   void refreshPendingOffers();
@@ -448,6 +466,27 @@ function onLaunchHit(payload: { attackerKey: CombatEntityKey; attack: AttackOver
   hitResumeOffer.value = null;
   hitAttackerKey.value = payload.attackerKey;
   hitAttack.value = payload.attack;
+  hitOpen.value = true;
+}
+
+function onLaunchProcessStep(payload: ProcessActionContext & { attack: AttackOverview }): void {
+  hitResumeOffer.value = null;
+  hitAttackerKey.value = payload.session.entityKey;
+  hitAttack.value = payload.attack;
+  processActionContext.value = { session: payload.session, stepCode: payload.stepCode };
+  hitOpen.value = true;
+}
+
+function openAttackLaunch(): void {
+  attackOpen.value = true;
+}
+
+function onLaunchAttack(payload: AttackAction): void {
+  attackAction.value = payload;
+  hitAttackerKey.value = payload.initiator;
+  hitAttack.value = payload.strikes[0]?.profile ?? null;
+  processActionContext.value = payload.source.kind === 'process' ? payload.source.process : null;
+  hitResumeOffer.value = null;
   hitOpen.value = true;
 }
 
@@ -517,6 +556,7 @@ onUnmounted(() => {
         </template>
         <v-list density="compact">
           <v-list-item prepend-icon="mdi-plus" title="Новая проверка" @click="openNewCheck" />
+          <v-list-item prepend-icon="mdi-sword-cross" title="Атака" @click="openAttackLaunch" />
           <v-list-item prepend-icon="mdi-run-fast" title="Действие" @click="openActionLaunch" />
         </v-list>
       </v-menu>
@@ -604,6 +644,7 @@ onUnmounted(() => {
       :space-id="detail.game.spaceId"
       :rules-revision="detail.game.rulesRevision"
       :overlay-revision="overlayRevision"
+      :process-sessions="processSessionsByEntity"
       @update:open="onCloseCard"
       @toggle-quick-roll="toggleQuickRoll"
       @overlay-changed="onOverlayChanged"
@@ -639,9 +680,22 @@ onUnmounted(() => {
       :can-edit="canEdit"
       :current-user-id="userStore.currentUser?.id ?? null"
       :active-speaker-key="activeSpeakerKey"
+      @launch-process-step="onLaunchProcessStep"
       @update:open="onActionClosed"
       @settled="onOverlayChanged"
       @overlay-changed="onOverlayChanged"
+    />
+
+    <AttackLaunchDialog
+      :open="attackOpen"
+      :game-id="gameId"
+      :characters="memberships"
+      :npcs="npcs"
+      :rules="revisionRules"
+      :mechanics="mechanics"
+      :active-speaker-key="activeSpeakerKey"
+      @update:open="attackOpen = $event"
+      @launch-attack="onLaunchAttack"
     />
 
     <HitLaunchDialog
@@ -657,7 +711,9 @@ onUnmounted(() => {
       :active-speaker-key="activeSpeakerKey"
       :attacker-key="hitAttackerKey"
       :attack="hitAttack"
+      :attack-action="attackAction"
       :resume-offer="hitResumeOffer"
+      :process-context="processActionContext"
       @update:open="onHitClosed"
       @settled="refreshPendingOffers"
       @overlay-changed="onOverlayChanged"

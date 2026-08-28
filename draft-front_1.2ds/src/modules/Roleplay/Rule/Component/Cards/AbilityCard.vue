@@ -298,6 +298,12 @@ function grantLabel(grant: Grant): string {
         <div v-if="spec.process.failure" class="text-body-2 text-medium-emphasis mt-1">
           {{ failureLabel }}
         </div>
+        <div v-if="spec.process.completion_effects?.length" class="text-body-2 text-medium-emphasis mt-2">
+          После завершения:
+          <div v-for="(effect, index) in spec.process.completion_effects" :key="index">
+            {{ actionEffectLabel(effect) }}
+          </div>
+        </div>
       </v-card-text>
     </v-card>
 
