@@ -49,6 +49,7 @@ const ruleSlider = useRuleDetailSlider();
 function onToggleEquipped(itemId: number): void {
   emit('toggle-equipped', itemId);
 }
+
 </script>
 
 <template>
@@ -93,7 +94,7 @@ function onToggleEquipped(itemId: number): void {
     <div v-show="attacksOpen" class="combat-sheet-pair">
       <AttackTile
         v-for="attack in overview?.attacks ?? []"
-        :key="`${attack.itemRuleId}_${attack.profileType}`"
+        :key="`${attack.itemRuleId}_${attack.profileType}_${attack.profileIndex ?? 0}`"
         variant="combat"
         :attack="attack"
         @launch="emit('launch', $event)"

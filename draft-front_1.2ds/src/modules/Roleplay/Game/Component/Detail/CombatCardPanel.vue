@@ -677,6 +677,7 @@ function onSheetToggleEquipped(itemId: number): void {
   const item = overview.value?.inventory.find((entry) => entry.id === itemId);
   if (item) void toggleEquipped(item);
 }
+
 </script>
 
 <template>

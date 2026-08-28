@@ -15,7 +15,7 @@ import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
 import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
 import type { CombatActionOption } from '@/modules/Roleplay/Game/Utils/combatActions';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
-import { characterOverviewService } from '@/modules/Roleplay/Character/init';
+import { characterOverviewService, useAttackFavoritesStore } from '@/modules/Roleplay/Character/init';
 import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
 import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
 import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/actionEffectService';
@@ -53,6 +53,7 @@ const profileMenuSlot = ref<number | null>(null);
 const busy = ref(false);
 const error = ref<string | null>(null);
 const sendChat = combatChatSendService.sendCombatChat(props.gameId);
+const attackFavoritesStore = useAttackFavoritesStore();
 
 const actorKey = computed<CombatEntityKey | null>(() => {
   if (props.actorKey) return props.actorKey;
@@ -72,6 +73,22 @@ const actorVersion = computed(() => {
 const actorOverview = computed(() =>
   actorVersion.value ? characterOverviewService.build(actorVersion.value, props.rules) : null,
 );
+const favoriteAttack = computed(() => {
+  const key = actorKey.value;
+  const overview = actorOverview.value;
+  if (!key || !overview) return null;
+  const favorite = attackFavoritesStore.favoriteOf(key);
+  if (!favorite) return null;
+
+  return (
+    overview.attacks.find(
+      (attack) =>
+        attack.itemRuleId === favorite.itemRuleId &&
+        attack.profileType === favorite.profileType &&
+        (attack.profileIndex ?? 0) === favorite.profileIndex,
+    ) ?? null
+  );
+});
 const activeProcess = computed(() =>
   actorKey.value && processSessions.value[actorKey.value] ? processSessions.value[actorKey.value] : null,
 );
@@ -187,6 +204,13 @@ function selectProfile(slotIndex: number, profile: AttackOverview): void {
   const nextSlots = [...slots.value];
   nextSlots[slotIndex] = { ...nextSlots[slotIndex], profile };
   slots.value = nextSlots;
+  if (actorKey.value) {
+    attackFavoritesStore.setFavorite(actorKey.value, {
+      itemRuleId: profile.itemRuleId,
+      profileType: profile.profileType,
+      profileIndex: profile.profileIndex ?? 0,
+    });
+  }
   profileMenuSlot.value = null;
 }
 
@@ -308,7 +332,9 @@ watch(
 );
 watch(selectedSource, (source) => {
   processStepCode.value = source?.process?.start_step_code ?? source?.process?.steps[0]?.code ?? null;
-  slots.value = [{ profile: null, targetKey: targetOptions.value[0]?.value ?? null }];
+  const preferred = favoriteAttack.value;
+  const profile = attackActionSourceService.isProfileAvailable(preferred, compatibleProfiles.value) ? preferred : null;
+  slots.value = [{ profile, targetKey: targetOptions.value[0]?.value ?? null }];
 });
 watch(
   processSteps,
@@ -320,7 +346,10 @@ watch(
   { immediate: true },
 );
 watch(selectedProcessStep, () => {
-  slots.value = slots.value.map((slot) => ({ ...slot, profile: null }));
+  const preferred = favoriteAttack.value;
+  const profile = attackActionSourceService.isProfileAvailable(preferred, compatibleProfiles.value) ? preferred : null;
+
+  slots.value = slots.value.map((slot, index) => ({ ...slot, profile: index === 0 ? profile : null }));
 });
 </script>
 

@@ -64,4 +64,13 @@ describe('AttackActionSourceService', () => {
       ]),
     ).toHaveLength(3);
   });
+
+  it('checks favorite profile availability by full profile identity', () => {
+    const favorite = { ...profile('strike'), profileIndex: 1 };
+
+    expect(attackActionSourceService.isProfileAvailable(favorite, [{ ...profile('strike'), profileIndex: 0 }])).toBe(
+      false,
+    );
+    expect(attackActionSourceService.isProfileAvailable(favorite, [favorite])).toBe(true);
+  });
 });

@@ -4,10 +4,13 @@ import { combatChatSendService } from '@/modules/Roleplay/Game/Service/Instance/
 
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 import { characterOverviewService } from '@/modules/Roleplay/Character/init';
+import { useAttackFavoritesStore } from '@/modules/Roleplay/Character/init';
+import AttackTile from '@/modules/Roleplay/Character/Component/Detail/Attacks/AttackTile.vue';
 import { ROLL_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ATTACHMENT_TYPE';
 import { characteristicRollService } from '@/modules/Roleplay/Game/Service/Instance/characteristicRollService';
 
 import type { QuickRollRecord } from '@/modules/Roleplay/Game/Dto/QuickRollRecord';
+import type { AttackOverview } from '@/modules/Roleplay/Character/Dto/Overview/AttackOverview';
 import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
 
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
@@ -42,6 +45,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'toggle-quick-roll': [entityKey: string, ruleId: string];
+  'launch-hit': [payload: { attackerKey: CombatEntityKey; attack: AttackOverview }];
 }>();
 
 const sendChat = combatChatSendService.sendCombatChat(props.gameId);
@@ -105,6 +109,23 @@ const records = computed<QuickRollRecord[]>(() => {
     combatCardModelService.quickRollRecords(overview.value),
   );
 });
+const attackFavoritesStore = useAttackFavoritesStore();
+const favoriteAttack = computed(() => {
+  const entity = model.value;
+  const currentOverview = overview.value;
+  if (!entity || !currentOverview || !selectedKey.value) return null;
+  const favorite = attackFavoritesStore.favoriteOf(selectedKey.value);
+  if (!favorite) return null;
+
+  return (
+    currentOverview.attacks.find(
+      (attack) =>
+        attack.itemRuleId === favorite.itemRuleId &&
+        attack.profileType === favorite.profileType &&
+        (attack.profileIndex ?? 0) === favorite.profileIndex,
+    ) ?? null
+  );
+});
 
 const speaker = computed<ChatSpeaker>(() => {
   const current = model.value;
@@ -138,6 +159,11 @@ async function rollRecord(record: QuickRollRecord): Promise<void> {
 function removeRecord(ruleId: string): void {
   if (selectedKey.value === null) return;
   emit('toggle-quick-roll', selectedKey.value, ruleId);
+}
+
+function launchFavoriteAttack(): void {
+  if (!selectedKey.value || !favoriteAttack.value) return;
+  emit('launch-hit', { attackerKey: selectedKey.value, attack: favoriteAttack.value });
 }
 </script>
 
@@ -185,6 +211,13 @@ function removeRecord(ruleId: string): void {
                 </button>
               </div>
             </div>
+            <AttackTile
+              v-if="favoriteAttack"
+              variant="combat"
+              :attack="favoriteAttack"
+              class="mt-2"
+              @launch="launchFavoriteAttack"
+            />
           </template>
         </template>
       </template>

@@ -22,6 +22,7 @@ export function getCharacterApi(): ICharacterApi {
 
 export { characterEditorService } from '@/modules/Roleplay/Character/Service/Instance/characterEditorService';
 export { characterBuildService } from '@/modules/Roleplay/Character/Service/Instance/characterBuildService';
+export { useAttackFavoritesStore } from '@/modules/Roleplay/Character/Store/attackFavorites';
 
 // Публичный редактор листа (персонаж/НПС). Асинхронный — init.ts не тянет .vue/CSS
 // при импорте в node-тестах (routes → store → init) и код-сплитится по месту использования.

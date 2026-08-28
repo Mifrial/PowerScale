@@ -67,7 +67,7 @@ function onActivate(): void {
       </v-card-text>
     </v-card>
   </v-menu>
-  <v-sheet v-else class="pa-2 rounded border cursor-pointer" @click="onActivate">
+  <v-sheet v-else class="pa-2 rounded border cursor-pointer attack-tile" @click="onActivate">
     <div class="d-flex align-center justify-space-between ga-2">
       <span class="text-body-2 font-weight-medium text-truncate">{{ attack.itemName }}</span>
       <span class="text-body-2 text-no-wrap">{{ attack.accuracyLabel }}</span>
@@ -82,3 +82,4 @@ function onActivate(): void {
     </div>
   </v-sheet>
 </template>
+

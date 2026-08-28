@@ -44,6 +44,17 @@ export class AttackActionSourceService {
     );
   }
 
+  isProfileAvailable(profile: AttackOverview | null, availableProfiles: AttackOverview[]): boolean {
+    if (!profile) return false;
+
+    return availableProfiles.some(
+      (candidate) =>
+        candidate.itemRuleId === profile.itemRuleId &&
+        candidate.profileType === profile.profileType &&
+        (candidate.profileIndex ?? 0) === (profile.profileIndex ?? 0),
+    );
+  }
+
   private isAutomatic(zones: Record<string, unknown> | undefined): boolean {
     return Object.values(zones ?? {}).some(
       (zone) => typeof zone === 'object' && zone !== null && 'kind' in zone && zone.kind === 'automatic',

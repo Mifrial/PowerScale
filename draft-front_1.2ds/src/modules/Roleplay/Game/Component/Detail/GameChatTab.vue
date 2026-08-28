@@ -629,6 +629,7 @@ onUnmounted(() => {
           :overlay-revision="overlayRevision"
           class="game-chat-sidebar__quickrolls"
           @toggle-quick-roll="toggleQuickRoll"
+          @launch-hit="onLaunchHit"
         />
       </div>
 
