@@ -69,6 +69,15 @@ function isDimensional(component: ActionComponent): boolean {
   return props.resources.find((r) => r.code === component.resource_code)?.isDimensional ?? false;
 }
 
+function isChosenAmount(component: ActionComponent): boolean {
+  return (
+    component.type === 'resource' &&
+    typeof component.amount === 'object' &&
+    'type' in component.amount &&
+    component.amount.type === 'chosen'
+  );
+}
+
 function updateResource(index: number, key: 'resource_code' | 'amount', value: unknown) {
   let comp = { ...inner.value[index], [key]: value } as ActionComponent;
   if (key === 'resource_code' && comp.type === 'resource') {
@@ -76,7 +85,13 @@ function updateResource(index: number, key: 'resource_code' | 'amount', value: u
     const isDim = props.resources.find((r) => r.code === code)?.isDimensional ?? false;
     if (isDim && typeof comp.amount === 'number') {
       comp = { ...comp, amount: { base: comp.amount, size: 0 } };
-    } else if (!isDim && comp.amount && typeof comp.amount === 'object' && !Array.isArray(comp.amount)) {
+    } else if (
+      !isDim &&
+      comp.amount &&
+      typeof comp.amount === 'object' &&
+      !Array.isArray(comp.amount) &&
+      'base' in comp.amount
+    ) {
       comp = { ...comp, amount: comp.amount.base };
     }
     if (code === ACTION_POINTS_RESOURCE_CODE && props.isSpell) {
@@ -171,8 +186,17 @@ function patchMaterialTags(index: number, codes: string[]) {
               :disabled="isMandatory(index)"
               class="flex-grow-1"
             />
+            <v-text-field
+              v-if="isChosenAmount(component)"
+              model-value="Выбирается игроком"
+              label="Стоимость"
+              density="compact"
+              hide-details
+              disabled
+              style="min-width: 120px"
+            />
             <DimensionalNumberInput
-              v-if="isDimensional(component)"
+              v-else-if="isDimensional(component)"
               :model-value="(component.amount as DimensionalNumberValue | undefined) ?? { base: 0, size: 0 }"
               @update:model-value="(v) => updateResource(index, 'amount', v)"
               label="Стоимость"

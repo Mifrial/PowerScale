@@ -96,6 +96,9 @@ export function registerGameModule(): void {
   const GameEntityChip = defineAsyncComponent(
     () => import('@/modules/Roleplay/Game/Component/Chat/GameEntityChip.vue'),
   );
+  const ProcessContinueChip = defineAsyncComponent(
+    () => import('@/modules/Roleplay/Game/Component/Chat/ProcessContinueChip.vue'),
+  );
   registerInlineRenderer({
     type: 'character',
     component: GameEntityChip,
@@ -105,6 +108,11 @@ export function registerGameModule(): void {
     type: 'npc',
     component: GameEntityChip,
     describe: (segment) => segment.params.slice(1).join(',').trim() || segment.params[0] || null,
+  });
+  registerInlineRenderer({
+    type: 'process-continue',
+    component: ProcessContinueChip,
+    describe: () => 'продолжить атаку',
   });
   // Процессор идемпотентен: готовый результат (payload с rolls) проходит как есть — нужен для
   // сообщений с заранее посчитанными бросками (шкала инициативы «Проверка на инициативу»),

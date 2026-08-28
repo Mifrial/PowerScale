@@ -228,6 +228,19 @@ export class RuleValidationService {
         }
         const stepCodes = new Set(steps.filter((s) => s.code).map((s) => s.code));
         for (const step of steps) {
+          if (!step.interruption) {
+            errors.push({
+              ruleName: rule.name,
+              ruleCode: rule.code,
+              message: `шаг «${step.name || step.code}» должен иметь обычное или экстренное прерывание`,
+            });
+          } else if (step.interruption.mode === 'emergency' && !step.interruption.effects?.length) {
+            errors.push({
+              ruleName: rule.name,
+              ruleCode: rule.code,
+              message: `экстренное прерывание шага «${step.name || step.code}» требует эффект`,
+            });
+          }
           if (!this.hasActionPointCost(step.costs ?? [])) {
             errors.push({
               ruleName: rule.name,
@@ -1075,6 +1088,7 @@ export class RuleValidationService {
 
       return typeof a.base === 'number' ? a.base : null;
     }
+    if (amount && typeof amount === 'object' && 'type' in amount && amount.type === 'chosen') return 1;
 
     return null;
   }

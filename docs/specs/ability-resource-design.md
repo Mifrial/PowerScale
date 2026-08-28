@@ -252,6 +252,9 @@ function resolveAbilityTypeFromKeywords(keywords: string[]): AbilityType | null
 - Тип «Действие» (и производные process/spell) требует ОД-стоимость: **любое действие стоит
   минимум 1 ОД**. Валидация: у `action`/`spell` в `action_costs`, у `process` — у каждого шага
   есть запись с `resource_code === 'action-points'` и `amount >= 1`.
+- Для действий, где размер траты выбирает игрок, стоимость может быть
+  `{ type: 'chosen', max: 'available' }`. Исполнитель подставляет значение от 1 до
+  текущего остатка ресурса; код кнопки передачи хода использует тот же исполнитель.
 - Редактор при выборе action/process/spell авто-добавляет ОД-строку
   `{ resource_code: 'action-points', amount: 1 }` (у spell — с `label: 'Сотворение'`).
   Первая ОД-строка (в `action_costs` и в `costs` каждого шага процесса) **зафиксирована**:
@@ -271,6 +274,10 @@ interface ProcessStep {
   name: string
   description: string
   costs: { resource_code: string; amount: DimensionalNumber | number }[]  // обычно 1 ОД за шаг/повтор
+  interruption: {
+    mode: 'normal' | 'emergency'
+    effects?: ActionEffect[] // обязательный будущий эффект для emergency
+  }
 }
 
 type ProcessTransition =

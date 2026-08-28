@@ -52,6 +52,7 @@ import { damageTypeHooksService } from '@/modules/Roleplay/Game/Service/Instance
 import { DEFAULT_ATTACK_AP } from '@/modules/Roleplay/Game/Constant/Combat/DEFAULT_ATTACK_AP';
 import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
 import { characteristicSizeByCode } from '@/modules/Roleplay/Game/Utils/strikeCharacteristicMods';
+import { formatProcessEffect } from '@/modules/Roleplay/Game/Utils/processMessage';
 
 import {
   buildAttackCalcPayload,
@@ -413,6 +414,12 @@ function speakerFor(key: CombatEntityKey | null): ChatSpeaker {
   return { kind: 'character', characterId: id, characterName: membership?.characterName ?? 'Персонаж' };
 }
 
+function processContinueToken(key: CombatEntityKey): string {
+  const [entityType, entityId] = key.split(':');
+
+  return entityType && entityId ? `[[process-continue:continue,${entityType},${entityId}]]` : '';
+}
+
 function applyReactionDefaults(next: HitDefenseReaction | null): void {
   if (next === 'dodge') {
     defenseEfficiency.value = { ...procedure.value.dodgeEfficiency };
@@ -675,12 +682,16 @@ async function acceptAndRoll(): Promise<void> {
           effectiveProcessContext.value.session,
           processSpec.value,
           effectiveProcessContext.value.stepCode,
-          rolled.attacker.check?.passed === true,
+          simultaneous.attackers.every((attacker) => (attacker.check?.rating ?? 0) > 0),
         )
       : null;
   if (effectiveProcessContext.value) {
     await getGameApi().setProcessSession(props.gameId, accepted.initiator, nextProcessSession);
   }
+  const processRule = effectiveProcessContext.value
+    ? props.rules.find((rule) => rule.id === effectiveProcessContext.value?.session.processRuleId)
+    : null;
+  const processCompletionEffects = nextProcessSession ? [] : actionEffectService.effectsAfterProcess(processRule);
   await applyClickAttack(accepted, hit, rolled.attacker.check?.rating ?? 0, attack, rolled);
   for (const [index, strike] of attackStrikes.entries()) {
     if (index === 0) continue;
@@ -710,14 +721,21 @@ async function acceptAndRoll(): Promise<void> {
   const nextEffects = [
     ...actionEffectService.consumeResource(pendingResolution.remainingEffects, ACTION_POINTS_CODE, finalAttackCost),
     ...actionEffectService.effectsAfterAction(actionRule),
-    ...(effectiveProcessContext.value && !nextProcessSession
-      ? actionEffectService.effectsAfterProcess(
-          props.rules.find((rule) => rule.id === effectiveProcessContext.value?.session.processRuleId),
-        )
-      : []),
+    ...processCompletionEffects,
   ];
   pendingEffectsByEntity.value = { ...pendingEffectsByEntity.value, [accepted.initiator]: nextEffects };
   await getGameApi().setCombatActionEffects(props.gameId, accepted.initiator, nextEffects);
+  if (props.chatId !== null && effectiveProcessContext.value) {
+    const processName = processRule?.name ?? 'Процесс';
+    const effectText = processCompletionEffects.length
+      ? ` Эффект: ${processCompletionEffects.map((item) => formatProcessEffect(item.effect, props.rules)).join('; ')}.`
+      : '';
+    const processToken = processRule ? `[[rule:${processRule.code}]]` : processName;
+    const processMessage = nextProcessSession
+      ? `Процесс ${processToken} можно продолжить: ${processContinueToken(accepted.initiator)}.`
+      : `Процесс ${processToken} завершён.${effectText}`;
+    await sendChat(processMessage, [], props.chatId, speakerFor(accepted.initiator));
+  }
   offer.value = accepted;
 }
 
@@ -782,10 +800,21 @@ async function applyClickAttack(
       name: hit.actionName ?? 'Простая атака',
       odCost: hit.actionOd ?? DEFAULT_ATTACK_AP,
     };
-  const actionForProcess = effectiveProcessContext.value
+  const processRule = hit.actionRuleId ? props.rules.find((rule) => rule.id === hit.actionRuleId) : null;
+  const processSpec = processRule ? asProcessAbilitySpec(processRule) : null;
+  const processStepName =
+    processStep.value?.name ??
+    (processSpec
+      ? processSpec.steps.find(
+          (step) => step.code === (processSpec.start_step_code ?? processSpec.steps[0]?.code),
+        )?.name
+      : null);
+  const actionForProcess = effectiveProcessContext.value || processSpec
     ? {
         ...action,
-        name: `${props.rules.find((rule) => rule.id === effectiveProcessContext.value?.session.processRuleId)?.name ?? 'Процесс'} · ${processStep.value?.name ?? ''}`,
+        ruleId: processRule?.id ?? action.ruleId,
+        code: processRule?.code ?? action.code,
+        name: `${processRule?.name ?? 'Процесс'} · ${processStepName ?? ''}`,
       }
     : action;
   const attackerAp = resolvedAttackAction.value?.totalOdCost ?? (actionForProcess.odCost || DEFAULT_ATTACK_AP);

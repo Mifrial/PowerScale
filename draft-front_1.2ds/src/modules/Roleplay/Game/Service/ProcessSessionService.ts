@@ -16,6 +16,7 @@ export class ProcessSessionService {
       entityKey,
       processRuleId,
       currentStepCode: startStepCode,
+      currentStepStatus: 'pending',
       status: 'active',
       startedAt: now,
       updatedAt: now,
@@ -52,6 +53,20 @@ export class ProcessSessionService {
     return spec.exit_step_codes === undefined || spec.exit_step_codes.includes(currentStepCode);
   }
 
+  canInterruptNormally(spec: ProcessSpec, currentStepCode: string): boolean {
+    return this.interruptionFor(spec, currentStepCode)?.mode === 'normal';
+  }
+
+  canInterruptEmergency(spec: ProcessSpec, currentStepCode: string): boolean {
+    const interruption = this.interruptionFor(spec, currentStepCode);
+
+    return interruption?.mode === 'emergency' && Boolean(interruption.effects?.length);
+  }
+
+  private interruptionFor(spec: ProcessSpec, currentStepCode: string): ProcessSpec['steps'][number]['interruption'] | null {
+    return spec.steps.find((step) => step.code === currentStepCode)?.interruption ?? null;
+  }
+
   stepCost(step: ProcessStep, resourceCode: string): number {
     return step.costs
       .filter((cost) => cost.resource_code === resourceCode)
@@ -64,7 +79,9 @@ export class ProcessSessionService {
     stepCode: string,
     successful: boolean,
   ): ProcessSession | null {
-    if (!this.availableSteps(spec, session.currentStepCode).some((step) => step.code === stepCode)) {
+    const startStepCode = spec.start_step_code ?? spec.steps[0]?.code;
+    const isInitialStep = session.currentStepStatus === 'pending' && stepCode === startStepCode;
+    if (!isInitialStep && !this.availableSteps(spec, session.currentStepCode).some((step) => step.code === stepCode)) {
       throw new Error('Выбранный шаг недоступен из текущего шага');
     }
     if (!successful) {
@@ -72,12 +89,12 @@ export class ProcessSessionService {
         const start = spec.start_step_code ?? spec.steps[0]?.code;
         if (!start) return null;
 
-        return { ...session, currentStepCode: start, updatedAt: new Date().toISOString() };
+        return { ...session, currentStepCode: start, currentStepStatus: 'completed', updatedAt: new Date().toISOString() };
       }
 
       return null;
     }
 
-    return { ...session, currentStepCode: stepCode, updatedAt: new Date().toISOString() };
+    return { ...session, currentStepCode: stepCode, currentStepStatus: 'completed', updatedAt: new Date().toISOString() };
   }
 }

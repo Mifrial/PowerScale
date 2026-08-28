@@ -27,6 +27,16 @@ function ruleTokenByCode(code: string | null | undefined, fallbackName: string, 
   return rule ? `[[rule:${rule.code}]]` : fallbackName;
 }
 
+function actionToken(action: CombatActionOption, rules: Rule[]): string {
+  const rule = rules.find((entry) => entry.id === action.ruleId) ?? rules.find((entry) => entry.code === action.code);
+  if (!rule) return action.name;
+  if (rule.name === action.name) return `[[rule:${rule.code}]]`;
+
+  const customName = action.name.startsWith(`${rule.name} · `) ? action.name.slice(rule.name.length + 3) : action.name;
+
+  return `[[rule:${rule.code}]] · ${customName}`;
+}
+
 export function formatDamageBrace(damage: DimensionalNumberValue): string {
   return `{${damage.base}|${damage.size}}`;
 }
@@ -43,7 +53,7 @@ export function formatAttackActionMessage(input: {
   rules: Rule[];
 }): string {
   const attacker = entityToken(input.attackerKey, input.attackerName);
-  const action = ruleTokenByCode(input.action.code, input.action.name, input.rules);
+  const action = actionToken(input.action, input.rules);
 
   return `${attacker} совершает действие ${action} за ${input.attackerAp}ОД.`;
 }

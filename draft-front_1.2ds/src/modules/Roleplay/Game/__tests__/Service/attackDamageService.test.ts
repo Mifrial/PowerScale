@@ -289,6 +289,43 @@ describe('applyAttackDamage', () => {
       }),
     ).toContain('совершает действие [[rule:simple-melee-attack]] за 3ОД');
     expect(
+      formatAttackActionMessage({
+        attackerKey: 'character:1',
+        attackerName: 'Гарик',
+        action: {
+          ruleId: 'rule-process',
+          code: 'simple-melee-attack',
+          name: 'Серия ударов · Первая часть',
+          odCost: 3,
+        },
+        attackerAp: 3,
+        rules: [
+          {
+            id: 'rule-process',
+            code: 'seriya-udarov',
+            type: 'ability',
+            name: 'Серия ударов',
+            description: '',
+            spaceId: 1,
+            keywordIds: [],
+            mechanicId: null,
+            createdAt: '2026-01-01T00:00:00Z',
+          },
+          {
+            id: 'rule-900',
+            code: 'simple-melee-attack',
+            type: 'ability',
+            name: 'Простая атака (ближний бой)',
+            description: '',
+            spaceId: 1,
+            keywordIds: [],
+            mechanicId: null,
+            createdAt: '2026-01-01T00:00:00Z',
+          },
+        ],
+      }),
+    ).toContain('совершает действие [[rule:seriya-udarov]] · Первая часть за 3ОД');
+    expect(
       formatStrikeNarrativeMessage({
         attackerKey: 'character:1',
         attackerName: 'Гарик',

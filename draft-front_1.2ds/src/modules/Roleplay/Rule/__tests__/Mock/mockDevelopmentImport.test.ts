@@ -197,7 +197,13 @@ describe('mockDevelopmentImport (S14)', () => {
     if (!spec) return;
 
     expect(spec.process.start_step_code).toBe('part-1');
-    expect(spec.process.transition).toMatchObject({ mode: 'chain', max_shift: 1, direction: 'both' });
+    expect(spec.process.transition).toEqual({
+      mode: 'custom',
+      edges: [
+        { from: 'part-1', to: 'part-2' },
+        { from: 'part-2', to: 'part-2' },
+      ],
+    });
     expect(spec.process.failure).toBe('end_action');
     expect(spec.process.steps.map((step) => step.code)).toEqual(['part-1', 'part-2']);
     expect(spec.process.completion_effects).toMatchObject([

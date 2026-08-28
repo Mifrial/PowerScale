@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import {
   defenseOdCost,
+  actionOdCost,
+  actionUsesChosenCost,
   listAttackActions,
   reactionOdCost,
   SIMPLE_MELEE_ATTACK_CODE,
@@ -58,5 +60,14 @@ describe('combatActions', () => {
     expect(reactionOdCost('block', rules)).toBe(2);
     expect(defenseOdCost('dodge', true, rules)).toBe(2);
     expect(defenseOdCost('ignore', true, rules)).toBe(0);
+  });
+
+  it('распознаёт выбираемую стоимость действия', () => {
+    const components = [
+      { type: 'resource' as const, resource_code: 'action-points', amount: { type: 'chosen' as const, max: 'available' as const } },
+    ];
+
+    expect(actionUsesChosenCost(components)).toBe(true);
+    expect(actionOdCost(components)).toBe(0);
   });
 });

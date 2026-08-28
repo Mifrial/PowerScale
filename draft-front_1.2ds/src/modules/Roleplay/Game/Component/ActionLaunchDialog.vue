@@ -16,11 +16,19 @@ import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance
 import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
 import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
 import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/actionEffectService';
-import { actionOdCost, asActionAbilitySpec, asProcessAbilitySpec } from '@/modules/Roleplay/Game/Utils/combatActions';
+import { actionExecutionService } from '@/modules/Roleplay/Game/Service/Instance/actionExecutionService';
+import {
+  actionOdCost,
+  actionUsesChosenCost,
+  asActionAbilitySpec,
+  asProcessAbilitySpec,
+  WAIT_ACTION_CODE,
+} from '@/modules/Roleplay/Game/Utils/combatActions';
 import { processSessionService } from '@/modules/Roleplay/Game/Service/Instance/processSessionService';
-import { formatAttackActionMessage } from '@/modules/Roleplay/Game/Utils/attackDamageMessage';
 import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
 import { combatChatSendService } from '@/modules/Roleplay/Game/Service/Instance/combatChatSendService';
+import { formatProcessEffect } from '@/modules/Roleplay/Game/Utils/processMessage';
+import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
 
 const props = defineProps<{
   open: boolean;
@@ -48,6 +56,7 @@ const processSessionsByEntity = ref<Record<CombatEntityKey, ProcessSession>>({})
 const selectedRuleId = ref<string | null>(null);
 const selectedProcessStepCode = ref<string | null>(null);
 const selectedProcessAttackKey = ref<string | null>(null);
+const chosenActionOdCost = ref(0);
 const showReactions = ref(false);
 const busy = ref(false);
 const error = ref<string | null>(null);
@@ -85,13 +94,17 @@ const actions = computed<CombatActionOption[]>(() => {
     const process = asProcessAbilitySpec(rule);
     if (rule.keywordIds?.includes(71)) return [];
     if (!spec && !process) return [];
-    if (!owned.has(rule.id) && (!spec || !Object.values(spec.zones).some((zone) => zone?.kind === 'automatic')))
+    if (
+      !owned.has(rule.id) &&
+      (!spec || !Object.values(spec.zones ?? {}).some((zone) => zone?.kind === 'automatic'))
+    )
       return [];
     const option: CombatActionOption = {
       ruleId: rule.id,
       code: rule.code,
       name: rule.name,
       odCost: spec ? actionOdCost(spec.action_components) : 0,
+      isVariableCost: spec ? actionUsesChosenCost(spec.action_components) : false,
       effects: spec ? actionEffectService.effectsOf(rule) : [],
       isAttack: false,
       isReaction: rule.keywordIds?.includes(53) ?? false,
@@ -113,11 +126,15 @@ const selectableActions = computed(() => {
   if (!activeProcess.value) return visibleActions.value;
 
   return visibleActions.value.filter(
-    (action) => action.isProcess && action.ruleId === activeProcess.value?.processRuleId,
+    (action) =>
+      (action.isProcess && action.ruleId === activeProcess.value?.processRuleId) || action.code === WAIT_ACTION_CODE,
   );
 });
 const selectedAction = computed(
   () => selectableActions.value.find((action) => action.ruleId === selectedRuleId.value) ?? null,
+);
+const selectedActionOdCost = computed(() =>
+  selectedAction.value?.isVariableCost ? chosenActionOdCost.value : (selectedAction.value?.odCost ?? 0),
 );
 const processSteps = computed(() => {
   if (!selectedAction.value?.process) return [];
@@ -127,9 +144,16 @@ const processSteps = computed(() => {
       : (selectedAction.value.process.start_step_code ?? selectedAction.value.process.steps[0]?.code);
   if (!currentStep) return [];
 
-  return activeProcess.value
-    ? processSessionService.availableSteps(selectedAction.value.process, currentStep)
-    : selectedAction.value.process.steps.filter((step) => step.code === currentStep);
+  if (!activeProcess.value) return selectedAction.value.process.steps.filter((step) => step.code === currentStep);
+
+  const availableSteps = processSessionService.availableSteps(selectedAction.value.process, currentStep);
+  if (activeProcess.value.currentStepStatus !== 'pending') return availableSteps;
+
+  const currentStepItem = selectedAction.value.process.steps.find((step) => step.code === currentStep);
+
+  return currentStepItem && !availableSteps.some((step) => step.code === currentStepItem.code)
+    ? [currentStepItem, ...availableSteps]
+    : availableSteps;
 });
 const processAttacks = computed(() => {
   const action = selectedAction.value;
@@ -220,49 +244,58 @@ async function submit(): Promise<void> {
 
     return;
   }
-  if (action.odCost > actionPoints.value) throw new Error('Недостаточно ОД для действия');
+  const actionOd = selectedActionOdCost.value;
+  if (actionOd <= 0) throw new Error('Укажите количество ОД');
+  if (actionOd > actionPoints.value) throw new Error('Недостаточно ОД для действия');
   const version = versionOf(key);
   if (!version) throw new Error('Лист участника не найден');
-  const resource = attackDamageService.actionPointsResource(
-    characterOverviewService.build(version, props.rules),
-    props.rules,
-  );
-  if (!resource) throw new Error('ОД не найдено');
-
-  const pending = pendingEffectsByEntity.value[key] ?? [];
-  const resolved = actionEffectService.resolveForNextAction(pending, {
-    isAttack: false,
-    component: 'strike',
-    baseCost: action.odCost,
-  });
-  const spent = Math.min(action.odCost, resource.current.base);
-  const next = attackDamageService.spendActionPoints(resource.current, spent);
-  const overlay = await getGameApi().setCombatResource(props.gameId, key, resource.ruleId, next);
-  overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, overlay);
-  const effects = [
-    ...actionEffectService.consumeResource(resolved.remainingEffects, 'action-points', spent),
-    ...actionEffectService.effectsAfterAction(props.rules.find((rule) => rule.id === action.ruleId)),
-  ];
-  pendingEffectsByEntity.value = { ...pendingEffectsByEntity.value, [key]: effects };
-  await getGameApi().setCombatActionEffects(props.gameId, key, effects);
-  emit('overlay-changed');
-  if (props.chatId !== null) {
-    const speaker = speakerFor(key);
-    const attackerName =
-      speaker.kind === 'character' ? speaker.characterName : speaker.kind === 'npc' ? speaker.npcName : 'Персонаж';
-    await sendChat(
-      `${formatAttackActionMessage({
-        attackerKey: key,
-        attackerName,
-        action,
-        attackerAp: spent,
-        rules: props.rules,
-      })}${action.effects?.length ? `\nЭффекты: ${action.effects.map((effect) => actionEffectService.describe(effect)).join('; ')}` : ''}`,
-      [],
-      props.chatId,
-      speaker,
-    );
+  const actionRule = props.rules.find((rule) => rule.id === action.ruleId);
+  if (!actionRule) throw new Error('Правило действия не найдено в текущей ревизии');
+  let pendingEffects = pendingEffectsByEntity.value[key] ?? [];
+  const processSession = activeProcess.value;
+  if (processSession) {
+    const processRule = props.rules.find((rule) => rule.id === processSession.processRuleId);
+    const processSpec = processRule ? asProcessAbilitySpec(processRule) : null;
+    if (!processRule || !processSpec || !processSessionService.canInterruptNormally(processSpec, processSession.currentStepCode)) {
+      throw new Error('Текущий процесс нельзя прервать обычным способом');
+    }
+    await getGameApi().setProcessSession(props.gameId, key, null);
+    const completionEffects = actionEffectService.effectsAfterProcess(processRule);
+    pendingEffects = [...pendingEffects, ...completionEffects];
+    if (props.chatId !== null) {
+      const effectText = completionEffects.length
+        ? ` Эффект: ${completionEffects.map((item) => formatProcessEffect(item.effect, props.rules)).join('; ')}.`
+        : '';
+      await sendChat(`${processRule?.name ?? 'Процесс'} прерван.${effectText}`, [], props.chatId, speakerFor(key));
+    }
+    const nextSessions = { ...processSessionsByEntity.value };
+    delete nextSessions[key];
+    processSessionsByEntity.value = nextSessions;
   }
+
+  const execution = await actionExecutionService.execute({
+    gameId: props.gameId,
+    entityKey: key,
+    version,
+    rule: actionRule,
+    action,
+    rules: props.rules,
+    pendingEffects,
+    actionPointCost: actionOd,
+    attackerName:
+      speakerFor(key).kind === 'character'
+        ? speakerFor(key).characterName
+        : speakerFor(key).kind === 'npc'
+          ? speakerFor(key).npcName
+          : 'Персонаж',
+    chatId: props.chatId,
+    speaker: speakerFor(key),
+    sendChat,
+  });
+  overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, execution.overlay);
+  const effects = execution.effects;
+  pendingEffectsByEntity.value = { ...pendingEffectsByEntity.value, [key]: effects };
+  emit('overlay-changed');
 }
 
 async function submitSafe(): Promise<void> {
@@ -296,7 +329,10 @@ async function stopProcess(): Promise<void> {
     pendingEffectsByEntity.value = { ...pendingEffectsByEntity.value, [key]: nextEffects };
     await getGameApi().setCombatActionEffects(props.gameId, key, nextEffects);
     if (props.chatId !== null) {
-      await sendChat(`${rule.name}: процесс прекращён без траты ОД.`, [], props.chatId, speakerFor(key));
+      const effectText = completionEffects.length
+        ? ` Эффект: ${completionEffects.map((item) => formatProcessEffect(item.effect, props.rules)).join('; ')}.`
+        : '';
+      await sendChat(`${rule.name}: процесс прекращён без траты ОД.${effectText}`, [], props.chatId, speakerFor(key));
     }
     const nextSessions = { ...processSessionsByEntity.value };
     delete nextSessions[key];
@@ -324,6 +360,7 @@ watch(showReactions, () => {
 });
 
 watch(selectedAction, (action) => {
+  chosenActionOdCost.value = action?.isVariableCost ? actionPoints.value : 0;
   if (!action?.isProcess || !action.process) {
     selectedProcessStepCode.value = null;
     selectedProcessAttackKey.value = null;
@@ -335,6 +372,18 @@ watch(selectedAction, (action) => {
   const attack = processAttacks.value[0];
   selectedProcessAttackKey.value = attack ? `${attack.itemRuleId}:${attack.profileType}` : null;
 });
+watch(actionPoints, (points) => {
+  if (selectedAction.value?.isVariableCost && chosenActionOdCost.value === 0) chosenActionOdCost.value = points;
+});
+watch(
+  processSteps,
+  (steps) => {
+    if (!steps.some((step) => step.code === selectedProcessStepCode.value)) {
+      selectedProcessStepCode.value = steps[0]?.code ?? null;
+    }
+  },
+  { immediate: true },
+);
 </script>
 
 <template>
@@ -353,12 +402,16 @@ watch(selectedAction, (action) => {
           no-data-text="Действия не найдены"
           clearable
           :disabled="busy || !actorKey"
-          :item-props="(item) => ({ disabled: item.odCost > actionPoints })"
+          :item-props="(item) => ({ disabled: !item.isVariableCost && item.odCost > actionPoints })"
         >
           <template #item="{ props: itemProps, item }">
             <v-list-item
               v-bind="itemProps"
-              :title="item.raw.isProcess ? `${item.raw.name} · процесс` : `${item.raw.name} · ${item.raw.odCost} ОД`"
+              :title="
+                item.raw.isProcess
+                  ? `${item.raw.name} · процесс`
+                  : `${item.raw.name} · ${item.raw.isVariableCost ? 'выберите ОД' : `${item.raw.odCost} ОД`}`
+              "
             />
           </template>
         </v-autocomplete>
@@ -366,7 +419,9 @@ watch(selectedAction, (action) => {
           Активный процесс: <strong>{{ processRule?.name ?? activeProcess.processRuleId }}</strong
           >, текущий шаг — {{ activeProcess.currentStepCode }}
           <v-btn
-            v-if="processRuleSpec && processSessionService.canExit(processRuleSpec, activeProcess.currentStepCode)"
+            v-if="
+              processRuleSpec && processSessionService.canInterruptNormally(processRuleSpec, activeProcess.currentStepCode)
+            "
             size="x-small"
             variant="text"
             color="warning"
@@ -377,6 +432,19 @@ watch(selectedAction, (action) => {
             Прекратить
           </v-btn>
         </div>
+        <ClampedNumberField
+          v-if="selectedAction?.isVariableCost"
+          :model-value="chosenActionOdCost"
+          :min="1"
+          :max="actionPoints"
+          label="Количество ОД"
+          hint="Можно потратить любое доступное количество ОД"
+          persistent-hint
+          density="compact"
+          class="mb-2"
+          :disabled="busy"
+          @update:model-value="chosenActionOdCost = $event"
+        />
         <template v-if="selectedAction?.isProcess">
           <v-autocomplete
             v-model="selectedProcessStepCode"

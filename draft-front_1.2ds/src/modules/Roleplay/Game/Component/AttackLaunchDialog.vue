@@ -12,6 +12,7 @@ import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingAct
 import type { ProcessSession } from '@/modules/Roleplay/Game/Dto/ProcessSession';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
+import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
 import type { CombatActionOption } from '@/modules/Roleplay/Game/Utils/combatActions';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 import { characterOverviewService } from '@/modules/Roleplay/Character/init';
@@ -20,17 +21,22 @@ import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/at
 import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/actionEffectService';
 import { attackActionSourceService } from '@/modules/Roleplay/Game/Service/Instance/attackActionSourceService';
 import { processSessionService } from '@/modules/Roleplay/Game/Service/Instance/processSessionService';
+import { asProcessAbilitySpec } from '@/modules/Roleplay/Game/Utils/combatActions';
 import { ACTION_POINTS_CODE } from '@/modules/Roleplay/Game/Constant/Combat/ACTION_POINTS_CODE';
 import AttackProfileOption from '@/modules/Roleplay/Character/Component/Detail/Attacks/AttackProfileOption.vue';
+import { combatChatSendService } from '@/modules/Roleplay/Game/Service/Instance/combatChatSendService';
+import { formatProcessEffect } from '@/modules/Roleplay/Game/Utils/processMessage';
 
 const props = defineProps<{
   open: boolean;
   gameId: number;
+  chatId: number | null;
   characters: GameCharacterMembership[];
   npcs: GameNpc[];
   rules: Rule[];
   mechanics: Mechanic[];
   activeSpeakerKey: string | null;
+  actorKey?: CombatEntityKey | null;
 }>();
 
 const emit = defineEmits<{
@@ -46,8 +52,10 @@ const slots = ref<AttackActionSlotDraft[]>([{ profile: null, targetKey: null }])
 const profileMenuSlot = ref<number | null>(null);
 const busy = ref(false);
 const error = ref<string | null>(null);
+const sendChat = combatChatSendService.sendCombatChat(props.gameId);
 
 const actorKey = computed<CombatEntityKey | null>(() => {
+  if (props.actorKey) return props.actorKey;
   const key = props.activeSpeakerKey;
 
   return key && key !== 'gm' ? (key as CombatEntityKey) : null;
@@ -88,9 +96,16 @@ const processSteps = computed(() => {
       : (process.start_step_code ?? process.steps[0]?.code);
   if (!currentStepCode) return [];
 
-  return activeProcess.value
-    ? processSessionService.availableSteps(process, currentStepCode)
-    : process.steps.filter((step) => step.code === currentStepCode);
+  if (!activeProcess.value) return process.steps.filter((step) => step.code === currentStepCode);
+
+  const availableSteps = processSessionService.availableSteps(process, currentStepCode);
+  if (activeProcess.value.currentStepStatus !== 'pending') return availableSteps;
+
+  const currentStep = process.steps.find((step) => step.code === currentStepCode);
+
+  return currentStep && !availableSteps.some((step) => step.code === currentStep.code)
+    ? [currentStep, ...availableSteps]
+    : availableSteps;
 });
 const selectedProcessStep = computed(
   () => processSteps.value.find((step) => step.code === processStepCode.value) ?? null,
@@ -114,8 +129,12 @@ const targetOptions = computed(() => [
     .map((npc) => ({ value: `npc:${npc.id}` as CombatEntityKey, title: npc.name })),
 ]);
 const baseCost = computed(() => {
-  if (selectedSource.value?.isProcess && selectedProcessStep.value) {
-    return processSessionService.stepCost(selectedProcessStep.value, ACTION_POINTS_CODE);
+  if (selectedSource.value?.isProcess) {
+    const step =
+      selectedProcessStep.value ??
+      selectedSource.value.process?.steps.find((item) => item.code === processStepCode.value);
+
+    return step ? processSessionService.stepCost(step, ACTION_POINTS_CODE) : 0;
   }
 
   return selectedSource.value?.odCost ?? 0;
@@ -141,6 +160,19 @@ function sourceTitle(source: CombatActionOption): string {
   if (source.isProcess) return `${source.name} · процесс`;
 
   return `${source.name} · ${source.odCost} ОД`;
+}
+
+function speakerFor(key: CombatEntityKey): ChatSpeaker {
+  if (key.startsWith('npc:')) {
+    const id = Number(key.slice(4));
+    const npc = props.npcs.find((item) => item.id === id);
+
+    return { kind: 'npc', npcId: id, npcName: npc?.name ?? 'НПС' };
+  }
+  const id = Number(key.slice(10));
+  const character = props.characters.find((item) => item.characterId === id);
+
+  return { kind: 'character', characterId: id, characterName: character?.characterName ?? 'Персонаж' };
 }
 
 function profileLabel(profile: AttackOverview | null): string {
@@ -172,11 +204,60 @@ async function hydrate(): Promise<void> {
   slots.value = [{ profile: null, targetKey: targetOptions.value[0]?.value ?? null }];
 }
 
+async function stopProcess(): Promise<void> {
+  const key = actorKey.value;
+  const session = activeProcess.value;
+  if (!key || !session) return;
+  const processRule = props.rules.find((rule) => rule.id === session.processRuleId);
+  const processSpec = processRule ? asProcessAbilitySpec(processRule) : null;
+  if (
+    !processRule ||
+    !processSpec ||
+    !processSessionService.canInterruptNormally(processSpec, session.currentStepCode)
+  ) {
+    error.value = 'Текущий процесс нельзя прервать обычным способом';
+
+    return;
+  }
+
+  busy.value = true;
+  error.value = null;
+  try {
+    await getGameApi().setProcessSession(props.gameId, key, null);
+    const completionEffects = actionEffectService.effectsAfterProcess(processRule);
+    const currentEffects = pendingEffects.value[key] ?? [];
+    const nextEffects = [...currentEffects, ...completionEffects];
+    pendingEffects.value = { ...pendingEffects.value, [key]: nextEffects };
+    await getGameApi().setCombatActionEffects(props.gameId, key, nextEffects);
+    if (props.chatId !== null) {
+      const effectText = completionEffects.length
+        ? ` Эффект: ${completionEffects.map((item) => formatProcessEffect(item.effect, props.rules)).join('; ')}.`
+        : '';
+      await sendChat(`${processRule?.name ?? 'Процесс'} прекращён.${effectText}`, [], props.chatId, speakerFor(key));
+    }
+
+    const nextSessions = { ...processSessions.value };
+    delete nextSessions[key];
+    processSessions.value = nextSessions;
+    sourceRuleId.value = sources.value[0]?.ruleId ?? null;
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : 'Не удалось прекратить процесс';
+  } finally {
+    busy.value = false;
+  }
+}
+
 async function submit(): Promise<void> {
   const source = selectedSource.value;
   const initiator = actorKey.value;
   if (!source || !initiator) throw new Error('Выберите атакующего и атаку');
-  if (source.isProcess && (!selectedProcessStep.value || !source.process)) throw new Error('Выберите шаг процесса');
+  const selectedStepCode =
+    selectedProcessStep.value?.code ??
+    processStepCode.value ??
+    source.process?.start_step_code ??
+    source.process?.steps[0]?.code ??
+    null;
+  if (source.isProcess && (!selectedStepCode || !source.process)) throw new Error('Выберите шаг процесса');
   if (slots.value.some((slot) => !slot.profile || !slot.targetKey))
     throw new Error('Заполните профиль и цель каждого удара');
   if (slots.value.some((slot) => slot.targetKey !== slots.value[0]?.targetKey)) {
@@ -192,9 +273,10 @@ async function submit(): Promise<void> {
     (source.process ? processSessionService.start(props.gameId, initiator, source.ruleId, source.process) : null);
   if (source.isProcess && !processSession) throw new Error('Не удалось создать сессию процесса');
   const processSource =
-    source.isProcess && processSession && processStepCode.value
-      ? { kind: 'process' as const, process: { session: processSession, stepCode: processStepCode.value } }
+    source.isProcess && processSession && selectedStepCode
+      ? { kind: 'process' as const, process: { session: processSession, stepCode: selectedStepCode } }
       : null;
+  if (source.isProcess && !processSource) throw new Error('Не удалось определить шаг процесса');
 
   emit('launch-attack', {
     initiator,
@@ -228,6 +310,15 @@ watch(selectedSource, (source) => {
   processStepCode.value = source?.process?.start_step_code ?? source?.process?.steps[0]?.code ?? null;
   slots.value = [{ profile: null, targetKey: targetOptions.value[0]?.value ?? null }];
 });
+watch(
+  processSteps,
+  (steps) => {
+    if (!steps.some((step) => step.code === processStepCode.value)) {
+      processStepCode.value = steps[0]?.code ?? null;
+    }
+  },
+  { immediate: true },
+);
 watch(selectedProcessStep, () => {
   slots.value = slots.value.map((slot) => ({ ...slot, profile: null }));
 });
@@ -252,6 +343,17 @@ watch(selectedProcessStep, () => {
         </v-autocomplete>
         <div class="text-body-2 text-medium-emphasis mb-3">
           Итоговая стоимость атаки: <strong>{{ finalCost }} ОД</strong>
+          <v-btn
+            v-if="activeProcess"
+            size="x-small"
+            variant="text"
+            color="warning"
+            class="ml-1"
+            :disabled="busy"
+            @click="stopProcess"
+          >
+            Прекратить процесс
+          </v-btn>
         </div>
 
         <template v-if="selectedSource?.isProcess">

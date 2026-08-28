@@ -12,6 +12,9 @@ import InitiativeDialog from '@/modules/Roleplay/Game/Component/InitiativeDialog
 import type { ChatMessage } from '@/modules/Messages/Chat/Dto/ChatMessage';
 import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
+import type { ProcessSession } from '@/modules/Roleplay/Game/Dto/ProcessSession';
+import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
+import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
 import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
 
 import { ACTION_POINTS_CODE } from '@/modules/Roleplay/Game/Constant/Combat/ACTION_POINTS_CODE';
@@ -23,6 +26,11 @@ import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/c
 
 import { useCombatChatThread } from '@/modules/Roleplay/Game/Composables/useCombatChatThread';
 import { combatChatSendService } from '@/modules/Roleplay/Game/Service/Instance/combatChatSendService';
+import { actionExecutionService } from '@/modules/Roleplay/Game/Service/Instance/actionExecutionService';
+import { processSessionService } from '@/modules/Roleplay/Game/Service/Instance/processSessionService';
+import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/actionEffectService';
+import { asActionAbilitySpec, asProcessAbilitySpec, WAIT_ACTION_CODE } from '@/modules/Roleplay/Game/Utils/combatActions';
+import { formatProcessEffect } from '@/modules/Roleplay/Game/Utils/processMessage';
 
 import type { ChatThreadRef } from '@/modules/Messages/Chat/Dto/ChatThreadRef';
 
@@ -75,6 +83,11 @@ const error = ref<string | null>(null);
 
 const dialogOpen = ref(false);
 const addMenuOpen = ref(false);
+const waitDialogOpen = ref(false);
+const waitBusy = ref(false);
+const waitError = ref<string | null>(null);
+const processSessions = ref<Record<CombatEntityKey, ProcessSession>>({});
+const pendingEffectsByEntity = ref<Record<CombatEntityKey, PendingActionEffect[]>>({});
 
 // Оверлеи боевых изменений участников: для текущего Истощения (сумма состояния 'exhaustion').
 const overlays = ref<GameCombatOverlay[]>([]);
@@ -86,6 +99,31 @@ const activeParticipant = computed(() => {
   if (!data || data.activeIndex === null) return null;
 
   return data.participants[data.activeIndex] ?? null;
+});
+const activeParticipantKey = computed<CombatEntityKey | null>(() => {
+  const participant = activeParticipant.value;
+
+  return participant?.id ? (participant.id as CombatEntityKey) : null;
+});
+const activeActionPoints = computed(() =>
+  activeParticipantKey.value ? (actionPointsByEntity.value.get(activeParticipantKey.value) ?? 0) : 0,
+);
+const waitRule = computed(
+  () => props.rules.find((rule) => rule.code === WAIT_ACTION_CODE && rule.type === 'ability') ?? null,
+);
+const waitAction = computed(() => {
+  const rule = waitRule.value;
+  const spec = rule ? asActionAbilitySpec(rule) : null;
+
+  return rule && spec
+    ? {
+        ruleId: rule.id,
+        code: rule.code,
+        name: rule.name,
+        odCost: 0,
+        isVariableCost: true,
+      }
+    : null;
 });
 
 // «Передать ход»: ГМ или владелец персонажа, чей сейчас ход; НПС — только ГМ.
@@ -120,7 +158,14 @@ async function load(): Promise<void> {
   loading.value = true;
   error.value = null;
   try {
-    initiative.value = await getGameApi().getInitiative(props.gameId);
+    const [nextInitiative, nextProcesses, nextPendingEffects] = await Promise.all([
+      getGameApi().getInitiative(props.gameId),
+      getGameApi().getProcessSessions(props.gameId).catch(() => ({})),
+      getGameApi().getPendingActionEffects(props.gameId).catch(() => ({})),
+    ]);
+    initiative.value = nextInitiative;
+    processSessions.value = nextProcesses;
+    pendingEffectsByEntity.value = nextPendingEffects;
     if (initiative.value?.active && props.chatId != null) {
       combatThread.recoverFromMessages(chatStore.messagesOf(props.chatId));
     } else if (initiative.value && !initiative.value.active) {
@@ -274,6 +319,96 @@ function saveAndNotify(next: GameInitiative, notifications: SystemNotification[]
       }
     }
   });
+}
+
+function speakerFor(participant: NonNullable<typeof activeParticipant.value>): ChatSpeaker {
+  return participant.kind === 'npc'
+    ? { kind: 'npc', npcId: participant.entityId ?? 0, npcName: participant.name }
+    : { kind: 'character', characterId: participant.entityId ?? 0, characterName: participant.name };
+}
+
+function requestTurnPass(): void {
+  if (activeActionPoints.value <= 0) {
+    void nextTurn();
+
+    return;
+  }
+  waitError.value = null;
+  waitDialogOpen.value = true;
+}
+
+async function confirmWaitAndPass(): Promise<void> {
+  const participant = activeParticipant.value;
+  const key = activeParticipantKey.value;
+  const action = waitAction.value;
+  const rule = waitRule.value;
+  if (!participant || !key || !action || !rule) {
+    waitError.value = 'В текущей ревизии отсутствует правило «Ожидание»';
+
+    return;
+  }
+
+  waitBusy.value = true;
+  waitError.value = null;
+  try {
+    const processSession = processSessions.value[key];
+    const processRule = processSession
+      ? props.rules.find((rule) => rule.id === processSession.processRuleId)
+      : null;
+    const processSpec = processRule ? asProcessAbilitySpec(processRule) : null;
+    const processStep = processSession && processSpec
+      ? processSpec.steps.find((step) => step.code === processSession.currentStepCode)
+      : null;
+    if (processSession && (!processSpec || !processStep || !processSessionService.canInterruptNormally(processSpec, processSession.currentStepCode))) {
+      throw new Error('Текущий процесс нельзя прервать обычным способом');
+    }
+    const completionEffects = processRule ? actionEffectService.effectsAfterProcess(processRule) : [];
+    if (processSession) {
+      await getGameApi().setProcessSession(props.gameId, key, null);
+      pendingEffectsByEntity.value = {
+        ...pendingEffectsByEntity.value,
+        [key]: [...(pendingEffectsByEntity.value[key] ?? []), ...completionEffects],
+      };
+      if (props.chatId !== null) {
+        const effectText = completionEffects.length
+          ? ` Эффект: ${completionEffects.map((item) => formatProcessEffect(item.effect, props.rules)).join('; ')}.`
+          : '';
+        await sendChat(`${processRule?.name ?? 'Процесс'} прерван.${effectText}`, [], props.chatId, speakerFor(participant));
+      }
+    }
+    const model = combatCardModelService.combatCardModel(
+      key,
+      props.characters,
+      props.npcs,
+      true,
+      null,
+      overlays.value.find((item) => item.entityKey === key) ?? null,
+    );
+    if (!model.effectiveVersion) throw new Error('Лист участника не найден');
+    const execution = await actionExecutionService.execute({
+      gameId: props.gameId,
+      entityKey: key,
+      version: model.effectiveVersion,
+      rule,
+      action,
+      rules: props.rules,
+      pendingEffects: pendingEffectsByEntity.value[key] ?? [],
+      actionPointCost: activeActionPoints.value,
+      attackerName: participant.name,
+      chatId: props.chatId,
+      speaker: speakerFor(participant),
+      sendChat,
+    });
+    overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, execution.overlay);
+    pendingEffectsByEntity.value = { ...pendingEffectsByEntity.value, [key]: execution.effects };
+    waitDialogOpen.value = false;
+    emit('overlay-changed');
+    await nextTurn();
+  } catch (cause) {
+    waitError.value = cause instanceof Error ? cause.message : 'Не удалось выполнить ожидание';
+  } finally {
+    waitBusy.value = false;
+  }
 }
 
 /** Передать ход следующему участнику (цикл по порядку шкалы) + уведомление в чат.
@@ -482,7 +617,7 @@ function kindIcon(kind: 'character' | 'npc'): string {
               block
               prepend-icon="mdi-skip-next"
               :disabled="!canPass || saving || initiative.participants.length === 0"
-              @click="nextTurn"
+              @click="requestTurnPass"
             >
               Передать ход
             </v-btn>
@@ -557,6 +692,26 @@ function kindIcon(kind: 'character' | 'npc'): string {
     :chat-id="chatId"
     @saved="onInitiativeSaved"
   />
+
+  <v-dialog v-model="waitDialogOpen" max-width="460">
+    <v-card>
+      <v-card-title>Передать ход</v-card-title>
+      <v-card-text>
+        <p>Для передачи хода будет выполнено действие «Ожидание» за {{ activeActionPoints }} ОД.</p>
+        <p v-if="processSessions[activeParticipantKey ?? '']" class="text-warning mt-2">
+          Активный процесс будет прерван.
+        </p>
+        <v-alert v-if="waitError" type="error" variant="tonal" density="compact" class="mt-3">
+          {{ waitError }}
+        </v-alert>
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer />
+        <v-btn variant="text" :disabled="waitBusy" @click="waitDialogOpen = false">Отмена</v-btn>
+        <v-btn color="primary" :loading="waitBusy" @click="confirmWaitAndPass">Ожидание и передать ход</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>
 
 <style scoped>

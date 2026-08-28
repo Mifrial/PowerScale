@@ -84,6 +84,21 @@ function isMandatoryCost(costIndex: number): boolean {
       rows="1"
       class="mb-2"
     />
+    <v-select
+      :model-value="inner.interruption.mode"
+      :items="[
+        { title: 'Обычное прерывание', value: 'normal' },
+        { title: 'Экстренное прерывание', value: 'emergency' },
+      ]"
+      label="Прерывание шага"
+      density="compact"
+      hide-details
+      class="mb-2"
+      @update:model-value="(mode) => patchStep('interruption', { ...inner.interruption, mode })"
+    />
+    <div v-if="inner.interruption.mode === 'emergency'" class="text-caption text-warning mb-2">
+      Для экстренного прерывания необходимо добавить особый эффект шага.
+    </div>
     <div class="text-subtitle-2 mb-1">Ресурсы (стоимость шага)</div>
     <div v-for="(cost, costIndex) in inner.costs" :key="`cost-${costIndex}`" class="d-flex gap-2 mb-1">
       <v-autocomplete

@@ -522,8 +522,8 @@ describe('validateAbilityStructure', () => {
         action_components: [],
         process: {
           steps: [
-            { code: 'walk', name: 'Ходьба', description: '', costs: [{ resource_code: 'action-points', amount: 1 }] },
-            { code: 'run', name: 'Бег', description: '', costs: [{ resource_code: 'action-points', amount: 1 }] },
+            { code: 'walk', name: 'Ходьба', description: '', interruption: { mode: 'normal' }, costs: [{ resource_code: 'action-points', amount: 1 }] },
+            { code: 'run', name: 'Бег', description: '', interruption: { mode: 'normal' }, costs: [{ resource_code: 'action-points', amount: 1 }] },
           ],
           start_step_code: 'missing',
           transition: { mode: 'chain', max_shift: 1 },
@@ -545,8 +545,8 @@ describe('validateAbilityStructure', () => {
         action_components: [],
         process: {
           steps: [
-            { code: 'walk', name: 'Ходьба', description: '', costs: [] },
-            { code: 'run', name: 'Бег', description: '', costs: [{ resource_code: 'action-points', amount: 1 }] },
+            { code: 'walk', name: 'Ходьба', description: '', interruption: { mode: 'normal' }, costs: [] },
+            { code: 'run', name: 'Бег', description: '', interruption: { mode: 'normal' }, costs: [{ resource_code: 'action-points', amount: 1 }] },
           ],
           transition: { mode: 'chain', max_shift: 1 },
         },
@@ -566,8 +566,8 @@ describe('validateAbilityStructure', () => {
         action_components: [],
         process: {
           steps: [
-            { code: 'walk', name: 'Ходьба', description: '', costs: [{ resource_code: 'action-points', amount: 1 }] },
-            { code: 'run', name: 'Бег', description: '', costs: [{ resource_code: 'action-points', amount: 1 }] },
+            { code: 'walk', name: 'Ходьба', description: '', interruption: { mode: 'normal' }, costs: [{ resource_code: 'action-points', amount: 1 }] },
+            { code: 'run', name: 'Бег', description: '', interruption: { mode: 'normal' }, costs: [{ resource_code: 'action-points', amount: 1 }] },
           ],
           transition: { mode: 'custom', edges: [{ from: 'walk', to: 'sprint' }] },
         },

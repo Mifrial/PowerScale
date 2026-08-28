@@ -5,6 +5,7 @@ export interface ProcessSession {
   entityKey: CombatEntityKey;
   processRuleId: string;
   currentStepCode: string;
+  currentStepStatus: 'pending' | 'completed';
   status: 'active';
   startedAt: string;
   updatedAt: string;

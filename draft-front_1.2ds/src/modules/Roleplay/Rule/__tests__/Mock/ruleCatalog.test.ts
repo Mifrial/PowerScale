@@ -44,6 +44,9 @@ describe('ruleCatalog', () => {
     );
     expect(process?.spec).toBeDefined();
     expect((process?.spec as { process?: unknown }).process).toBeDefined();
+    const steps = ((process?.spec as { process?: { steps?: Array<{ interruption?: unknown }> } }).process?.steps ?? []);
+    expect(steps.length).toBeGreaterThan(0);
+    expect(steps.every((step) => step.interruption)).toBe(true);
   });
 
   it('у каждого типа урона есть спека со склонениями', () => {
@@ -66,5 +69,14 @@ describe('ruleCatalog', () => {
     expect(ruleCatalog.some((r) => r.code === 'flanking-attack' && r.type === 'simple')).toBe(true);
     expect(ruleCatalog.some((r) => r.code === 'turn' && r.type === 'ability')).toBe(true);
     expect(ruleCatalog.some((r) => r.code === 'deception' && r.type === 'check')).toBe(true);
+  });
+
+  it('содержит версионируемое действие ожидания с выбираемой стоимостью', () => {
+    const wait = ruleCatalog.find((rule) => rule.code === 'wait');
+    const component = (wait?.spec as { action_components?: Array<{ amount: unknown }> } | undefined)
+      ?.action_components?.[0];
+
+    expect(wait?.catalogSection).toBe('scenes-combat-other');
+    expect(component?.amount).toEqual({ type: 'chosen', max: 'available' });
   });
 });

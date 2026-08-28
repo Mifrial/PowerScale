@@ -20,7 +20,14 @@ export class ProcessSpecService {
       return { ...raw, transition: { ...transition, max_shift: 1, direction: transition.direction ?? 'both' } };
     }
 
-    return { ...raw, steps: raw.steps ?? [], failure: raw.failure ?? null };
+    return {
+      ...raw,
+      steps: (raw.steps ?? []).map((step) => ({
+        ...step,
+        interruption: step.interruption ?? { mode: 'normal' },
+      })),
+      failure: raw.failure ?? null,
+    };
   }
 
   addStep(spec: ProcessSpec): ProcessSpec {
@@ -32,6 +39,7 @@ export class ProcessSpecService {
           code: `step-${spec.steps.length + 1}`,
           name: '',
           description: '',
+          interruption: { mode: 'normal' },
           costs: [{ resource_code: ACTION_POINTS_RESOURCE_CODE, amount: 1 }],
         },
       ],

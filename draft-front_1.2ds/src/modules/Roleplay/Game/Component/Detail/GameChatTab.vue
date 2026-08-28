@@ -263,6 +263,22 @@ async function refreshProcessSessions(): Promise<void> {
 }
 
 function onOpenCard(entityKey: string): void {
+  if (entityKey.startsWith('process:continue:')) {
+    const processEntityKey = entityKey.slice('process:continue:'.length) as CombatEntityKey;
+    if (
+      !combatCardModelService.combatCardCanEdit(
+        processEntityKey,
+        props.canEdit,
+        userStore.currentUser?.id ?? null,
+        memberships.value,
+      )
+    )
+      return;
+    attackActorKey.value = processEntityKey;
+    attackOpen.value = true;
+
+    return;
+  }
   const key = entityKey as CombatEntityKey;
   if (
     !combatCardModelService.combatCardCanEdit(key, props.canEdit, userStore.currentUser?.id ?? null, memberships.value)
@@ -304,6 +320,7 @@ watch(speakerOptions, () => applySpeakerKey());
 const checkOpen = ref(false);
 const actionOpen = ref(false);
 const attackOpen = ref(false);
+const attackActorKey = ref<CombatEntityKey | null>(null);
 const hitOpen = ref(false);
 const injuryOpen = ref(false);
 const resumeOffer = ref<CheckOffer | null>(null);
@@ -464,6 +481,7 @@ function onHitClosed(open: boolean): void {
 
 function onLaunchHit(payload: { attackerKey: CombatEntityKey; attack: AttackOverview }): void {
   hitResumeOffer.value = null;
+  attackAction.value = null;
   hitAttackerKey.value = payload.attackerKey;
   hitAttack.value = payload.attack;
   hitOpen.value = true;
@@ -471,6 +489,7 @@ function onLaunchHit(payload: { attackerKey: CombatEntityKey; attack: AttackOver
 
 function onLaunchProcessStep(payload: ProcessActionContext & { attack: AttackOverview }): void {
   hitResumeOffer.value = null;
+  attackAction.value = null;
   hitAttackerKey.value = payload.session.entityKey;
   hitAttack.value = payload.attack;
   processActionContext.value = { session: payload.session, stepCode: payload.stepCode };
@@ -478,7 +497,13 @@ function onLaunchProcessStep(payload: ProcessActionContext & { attack: AttackOve
 }
 
 function openAttackLaunch(): void {
+  attackActorKey.value = null;
   attackOpen.value = true;
+}
+
+function onAttackClosed(open: boolean): void {
+  attackOpen.value = open;
+  if (!open) attackActorKey.value = null;
 }
 
 function onLaunchAttack(payload: AttackAction): void {
@@ -689,12 +714,14 @@ onUnmounted(() => {
     <AttackLaunchDialog
       :open="attackOpen"
       :game-id="gameId"
+      :chat-id="chatId"
       :characters="memberships"
       :npcs="npcs"
       :rules="revisionRules"
       :mechanics="mechanics"
       :active-speaker-key="activeSpeakerKey"
-      @update:open="attackOpen = $event"
+      :actor-key="attackActorKey"
+      @update:open="onAttackClosed"
       @launch-attack="onLaunchAttack"
     />
 

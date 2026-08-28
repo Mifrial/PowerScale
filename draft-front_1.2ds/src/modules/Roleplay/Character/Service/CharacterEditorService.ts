@@ -133,7 +133,7 @@ export class CharacterEditorService {
         modifiers: value.modifiers,
       })),
       resources,
-      abilities: synced.abilities,
+      abilities: this.withAutomaticAbilities(synced.abilities, rules),
       points: {
         osSpent: budgets.os.spent,
         olSpent: budgets.ol.spent,
@@ -152,6 +152,23 @@ export class CharacterEditorService {
       })),
       budgets: { osTotal: config.osTotal, moneyBudget: config.moneyBudget },
     };
+  }
+
+  private withAutomaticAbilities(abilities: CharacterVersion['abilities'], rules: Rule[]): CharacterVersion['abilities'] {
+    const result = [...abilities];
+    const existingRuleIds = new Set(result.map((ability) => ability.ruleId));
+
+    for (const rule of rules) {
+      if (rule.type !== 'ability' || existingRuleIds.has(rule.id)) continue;
+      const spec = rule.spec as AbilitySpec | undefined;
+      if (!spec || spec.type === 'group') continue;
+      const isAutomatic = Object.values(spec.zones ?? {}).find((cost) => cost?.kind === 'automatic') !== undefined;
+      if (!isAutomatic) continue;
+      result.push({ ruleId: rule.id, level: 1 });
+      existingRuleIds.add(rule.id);
+    }
+
+    return result;
   }
 
   private buildRace(build: CharacterBuild, reference: CharacterReferenceService): EditorRace {

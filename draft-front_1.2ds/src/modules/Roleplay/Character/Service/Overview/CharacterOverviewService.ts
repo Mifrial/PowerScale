@@ -536,7 +536,23 @@ export class CharacterOverviewService {
   }
 
   private buildAbilities(version: CharacterVersion, reference: CharacterReferenceService): AbilityOverview[] {
-    return version.abilities.map((ability) => {
+    const abilities = [...version.abilities];
+    const existingRuleIds = new Set(abilities.map((ability) => ability.ruleId));
+    for (const rule of reference.rules()) {
+      const spec = this.abilitySpecOf(rule);
+      if (
+        !spec ||
+        spec.type === 'group' ||
+        existingRuleIds.has(rule.id) ||
+        !Object.values(spec.zones ?? {}).some((cost) => cost?.kind === 'automatic')
+      ) {
+        continue;
+      }
+      abilities.push({ ruleId: rule.id, level: 1 });
+      existingRuleIds.add(rule.id);
+    }
+
+    return abilities.map((ability) => {
       const resolved = reference.resolve(ability.ruleId);
       const spec = this.abilitySpecOf(resolved.rule);
       const type = spec?.type ?? null;
@@ -579,10 +595,15 @@ export class CharacterOverviewService {
         component.type === 'resource' && component.resource_code === 'action-points',
     );
     if (actionPoints.length === 0) return null;
-    if (actionPoints.length === 1) return actionPoints[0].amount;
+    if (actionPoints.length === 1) {
+      const amount = actionPoints[0].amount;
+
+      return typeof amount === 'object' && 'type' in amount ? null : amount;
+    }
 
     let total = new DimensionalNumber({ base: 0, size: 0 });
     for (const component of actionPoints) {
+      if (typeof component.amount === 'object' && 'type' in component.amount) return null;
       const amount = typeof component.amount === 'number' ? { base: component.amount, size: 0 } : component.amount;
       total = total.add(new DimensionalNumber(amount));
     }

@@ -17,12 +17,14 @@ export const SIMPLE_RANGED_ATTACK_CODE = 'simple-ranged-attack';
 export const DODGE_CODE = 'dodge';
 export const BLOCK_CODE = 'block';
 export const TURN_CODE = 'turn';
+export const WAIT_ACTION_CODE = 'wait';
 
 export interface CombatActionOption {
   ruleId: string;
   code: string;
   name: string;
   odCost: number;
+  isVariableCost?: boolean;
   effects?: ActionEffect[];
   isAttack?: boolean;
   isReaction?: boolean;
@@ -49,10 +51,21 @@ export function actionOdCost(components: ActionComponent[] | undefined): number 
   let total = 0;
   for (const component of components) {
     if (component.type !== 'resource' || component.resource_code !== ACTION_POINTS_CODE) continue;
+    if (typeof component.amount === 'object' && 'type' in component.amount) continue;
     total += typeof component.amount === 'number' ? component.amount : component.amount.base;
   }
 
   return total;
+}
+
+export function actionUsesChosenCost(components: ActionComponent[] | undefined): boolean {
+  return components?.some(
+    (component) =>
+      component.type === 'resource' &&
+      typeof component.amount === 'object' &&
+      'type' in component.amount &&
+      component.amount.type === 'chosen',
+  ) ?? false;
 }
 
 export function isAutomaticAbility(spec: Pick<AbilitySpecBase, 'zones'>): boolean {

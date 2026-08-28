@@ -3860,7 +3860,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Серия ударов',
     description:
-      'По окончании процесса, пока вы не потратите 1 ОД, вы будете иметь помеху для всех проверок на попадание от обстоятельств.',
+      'Первый удар в процессе стоит 3 ОД, каждый следующий — 2 ОД. Процесс можно прервать в любой момент. Любой промах прерывает процесс. После окончания процесса вы получаете одну помеху от обстоятельств на любые проверки попадания, пока не потратите 1 ОД.',
     spaceId: 1,
     spec: {
       type: 'process',
@@ -3887,9 +3887,11 @@ const mockDevelopmentImportRaw: Rule[] = [
       process: {
         start_step_code: 'part-1',
         transition: {
-          mode: 'chain',
-          max_shift: 1,
-          direction: 'both',
+          mode: 'custom',
+          edges: [
+            { from: 'part-1', to: 'part-2' },
+            { from: 'part-2', to: 'part-2' },
+          ],
         },
         failure: 'end_action',
         steps: [
@@ -3897,13 +3899,15 @@ const mockDevelopmentImportRaw: Rule[] = [
             code: 'part-1',
             name: 'Первая часть',
             description: 'Совершите один удар. Промах заканчивает процесс.',
+            interruption: { mode: 'normal' },
             costs: [{ resource_code: 'action-points', amount: 3 }],
           },
           {
             code: 'part-2',
-            name: 'Часть',
+            name: 'Вторая часть',
             description:
-              'Вы получаете 1 внутреннее повреждение от перенапряжения. Размер повреждения равен размеру вашей силы. Ваши повреждения не сбрасываются, пока вы выполняете этот процесс. Совершите один удар. Если он промахнулся — процесс заканчивается.',
+              'Совершите один удар за 2 ОД. Если он промахнулся — процесс заканчивается.',
+            interruption: { mode: 'normal' },
             costs: [{ resource_code: 'action-points', amount: 2 }],
           },
         ],
@@ -3975,6 +3979,7 @@ const mockDevelopmentImportRaw: Rule[] = [
             name: 'Подготовительная часть',
             description:
               'Совершите удар с уменьшенной на размер силой и помехой на попадание от обстоятельств . Получите 1 Комбо до окончания процесса. В случае промаха процесс завершается.',
+            interruption: { mode: 'normal' },
             costs: [{ resource_code: 'action-points', amount: 2 }],
           },
           {
@@ -3982,6 +3987,7 @@ const mockDevelopmentImportRaw: Rule[] = [
             name: 'Часть окончания',
             description:
               'Эта часть может быть использована только если вы использовали своим предыдущим действием Подготовительную часть этого процесса. Совершите один удар с увеличенной на [Комбо] точностью от обстоятельств , вплоть до +3. После чего процесс оканчивается. Если вы попали этим ударом и ваше следующее действие - атака ближнего боя, она будет стоить на 1ОД меньше, вплоть до 2ОД.',
+            interruption: { mode: 'normal' },
             costs: [{ resource_code: 'action-points', amount: 2 }],
           },
         ],
@@ -4204,6 +4210,7 @@ const mockDevelopmentImportRaw: Rule[] = [
             code: 'part-1',
             name: 'Первая часть',
             description: 'Совершите один удар. Если он промахнулся - процесс заканчивается.',
+            interruption: { mode: 'normal' },
             costs: [{ resource_code: 'action-points', amount: 3 }],
           },
           {
@@ -4211,6 +4218,7 @@ const mockDevelopmentImportRaw: Rule[] = [
             name: 'Часть',
             description:
               'Совершите удар оружием с [Количество использований оружия в процессе] помех от обстоятельств . Т.е. если вы наносили удар правой рукой дважды - вы получите две помехи.',
+            interruption: { mode: 'normal' },
             costs: [{ resource_code: 'action-points', amount: 2 }],
           },
         ],
