@@ -20,6 +20,7 @@ import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance
 import { ACTION_POINTS_CODE } from '@/modules/Roleplay/Game/Constant/Combat/ACTION_POINTS_CODE';
 
 import { bloodLossService } from '@/modules/Roleplay/Game/Service/Instance/bloodLossService';
+import { ACCUMULATED_DAMAGE_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
 
 import { stateRuntimeEffectsService } from '@/modules/Roleplay/Character/init';
 import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
@@ -29,7 +30,11 @@ import { combatChatSendService } from '@/modules/Roleplay/Game/Service/Instance/
 import { actionExecutionService } from '@/modules/Roleplay/Game/Service/Instance/actionExecutionService';
 import { processSessionService } from '@/modules/Roleplay/Game/Service/Instance/processSessionService';
 import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/actionEffectService';
-import { asActionAbilitySpec, asProcessAbilitySpec, WAIT_ACTION_CODE } from '@/modules/Roleplay/Game/Utils/combatActions';
+import {
+  asActionAbilitySpec,
+  asProcessAbilitySpec,
+  WAIT_ACTION_CODE,
+} from '@/modules/Roleplay/Game/Utils/combatActions';
 import { formatProcessEffect } from '@/modules/Roleplay/Game/Utils/processMessage';
 
 import type { ChatThreadRef } from '@/modules/Messages/Chat/Dto/ChatThreadRef';
@@ -160,8 +165,12 @@ async function load(): Promise<void> {
   try {
     const [nextInitiative, nextProcesses, nextPendingEffects] = await Promise.all([
       getGameApi().getInitiative(props.gameId),
-      getGameApi().getProcessSessions(props.gameId).catch(() => ({})),
-      getGameApi().getPendingActionEffects(props.gameId).catch(() => ({})),
+      getGameApi()
+        .getProcessSessions(props.gameId)
+        .catch(() => ({})),
+      getGameApi()
+        .getPendingActionEffects(props.gameId)
+        .catch(() => ({})),
     ]);
     initiative.value = nextInitiative;
     processSessions.value = nextProcesses;
@@ -228,6 +237,12 @@ const maimByEntity = computed<Map<string, number>>(() => {
   }
 
   return map;
+});
+
+const hasActiveProcess = computed(() => {
+  const participantKey = activeParticipantKey.value;
+
+  return participantKey ? Boolean(processSessions.value[participantKey]) : false;
 });
 
 const actionPointsByEntity = computed<Map<string, number>>(() => {
@@ -352,14 +367,18 @@ async function confirmWaitAndPass(): Promise<void> {
   waitError.value = null;
   try {
     const processSession = processSessions.value[key];
-    const processRule = processSession
-      ? props.rules.find((rule) => rule.id === processSession.processRuleId)
-      : null;
+    const processRule = processSession ? props.rules.find((rule) => rule.id === processSession.processRuleId) : null;
     const processSpec = processRule ? asProcessAbilitySpec(processRule) : null;
-    const processStep = processSession && processSpec
-      ? processSpec.steps.find((step) => step.code === processSession.currentStepCode)
-      : null;
-    if (processSession && (!processSpec || !processStep || !processSessionService.canInterruptNormally(processSpec, processSession.currentStepCode))) {
+    const processStep =
+      processSession && processSpec
+        ? processSpec.steps.find((step) => step.code === processSession.currentStepCode)
+        : null;
+    if (
+      processSession &&
+      (!processSpec ||
+        !processStep ||
+        !processSessionService.canInterruptNormally(processSpec, processSession.currentStepCode))
+    ) {
       throw new Error('Текущий процесс нельзя прервать обычным способом');
     }
     const completionEffects = processRule ? actionEffectService.effectsAfterProcess(processRule) : [];
@@ -373,7 +392,12 @@ async function confirmWaitAndPass(): Promise<void> {
         const effectText = completionEffects.length
           ? ` Эффект: ${completionEffects.map((item) => formatProcessEffect(item.effect, props.rules)).join('; ')}.`
           : '';
-        await sendChat(`${processRule?.name ?? 'Процесс'} прерван.${effectText}`, [], props.chatId, speakerFor(participant));
+        await sendChat(
+          `${processRule?.name ?? 'Процесс'} прерван.${effectText}`,
+          [],
+          props.chatId,
+          speakerFor(participant),
+        );
       }
     }
     const model = combatCardModelService.combatCardModel(
@@ -453,6 +477,7 @@ async function nextTurn(): Promise<void> {
   const currentParticipant = data.participants[currentIndex];
   if (currentParticipant) {
     await bleedCurrentTurn(currentParticipant.id);
+    await clearAccumulatedDamage(currentParticipant.id);
     await refillParticipants([currentParticipant.id]);
   }
   const nextIndex = (currentIndex + 1) % data.participants.length;
@@ -469,6 +494,20 @@ async function nextTurn(): Promise<void> {
     notifications.push({ content: `Ходит ${nextParticipant.name}`, kind: 'default', thread: turn });
   }
   saveAndNotify({ ...data, activeIndex: nextIndex, round: nextRound }, notifications);
+}
+
+async function clearAccumulatedDamage(entityKey: string): Promise<void> {
+  const overlay = overlays.value.find((item) => item.entityKey === entityKey);
+  const index = overlay?.states.findIndex((state) => {
+    const rule = props.rules.find((candidate) => candidate.id === state.stateRuleId);
+
+    return rule?.type === 'state' && rule.code === ACCUMULATED_DAMAGE_STATE_CODE;
+  });
+  if (index == null || index < 0) return;
+
+  const next = await getGameApi().removeCombatState(props.gameId, entityKey as CombatEntityKey, index);
+  overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, next);
+  emit('overlay-changed');
 }
 
 function endScale(): void {
@@ -698,9 +737,7 @@ function kindIcon(kind: 'character' | 'npc'): string {
       <v-card-title>Передать ход</v-card-title>
       <v-card-text>
         <p>Для передачи хода будет выполнено действие «Ожидание» за {{ activeActionPoints }} ОД.</p>
-        <p v-if="processSessions[activeParticipantKey ?? '']" class="text-warning mt-2">
-          Активный процесс будет прерван.
-        </p>
+        <p v-if="hasActiveProcess" class="text-warning mt-2">Активный процесс будет прерван.</p>
         <v-alert v-if="waitError" type="error" variant="tonal" density="compact" class="mt-3">
           {{ waitError }}
         </v-alert>

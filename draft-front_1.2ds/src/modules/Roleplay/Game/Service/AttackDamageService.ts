@@ -1,6 +1,7 @@
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { CharacterOverview } from '@/modules/Roleplay/Character/Dto/Overview/CharacterOverview';
+import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/CharacterStateValue';
 import type { DefenseLineOverview, DefenseOverview } from '@/modules/Roleplay/Character/Dto/Overview/DefenseOverview';
 import type { ResourceOverview } from '@/modules/Roleplay/Character/Dto/Overview/ResourceOverview';
 import type { DamageTypeHook } from '@/modules/Roleplay/Game/Dto/DamageTypeHook';
@@ -15,6 +16,7 @@ import {
   DAMAGE_TYPE_HOOK_MECHANIC_PAY_SR,
 } from '@/modules/Roleplay/Rule/Constant/Damage/DAMAGE_TYPE_HOOKS';
 import { damageTypeHooksService } from '@/modules/Roleplay/Game/Service/Instance/damageTypeHooksService';
+import { ACCUMULATED_DAMAGE_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
 
 import type { ApplyAttackDamageInput } from '@/modules/Roleplay/Game/Dto/ApplyAttackDamageInput';
 import type { ApplyAttackDamageResult } from '@/modules/Roleplay/Game/Dto/ApplyAttackDamageResult';
@@ -41,14 +43,32 @@ export class AttackDamageService {
     return null;
   }
 
-  enduranceOf(overview: CharacterOverview, rules: Rule[]): number {
+  enduranceValueOf(overview: CharacterOverview, rules: Rule[]): DimensionalNumberValue {
     for (const characteristic of overview.characteristics) {
       if (rules.find((rule) => rule.id === characteristic.ruleId)?.code === 'endurance') {
-        return Math.max(1, characteristic.value.base);
+        return characteristic.value;
       }
     }
 
-    return 1;
+    return { base: 1, size: 0 };
+  }
+
+  enduranceOf(overview: CharacterOverview, rules: Rule[]): number {
+    return Math.max(1, new DimensionalNumber(this.enduranceValueOf(overview, rules)).toNumber());
+  }
+
+  accumulatedDamageOf(states: CharacterStateValue[], rules: Rule[]): DimensionalNumberValue {
+    const rule = rules.find(
+      (candidate) => candidate.code === ACCUMULATED_DAMAGE_STATE_CODE && candidate.type === 'state',
+    );
+    if (!rule) return { base: 0, size: 0 };
+
+    return states
+      .filter((state) => state.stateRuleId === rule.id)
+      .reduce(
+        (total, state) => total.add(new DimensionalNumber(state.dimensionalValue ?? { base: 0, size: 0 })),
+        new DimensionalNumber({ base: 0, size: 0 }),
+      ).value;
   }
 
   spendActionPoints(current: DimensionalNumberValue, cost: number): DimensionalNumberValue {
@@ -140,8 +160,18 @@ export class AttackDamageService {
     const apply = damageTypeHooksService.applyHooksOf(input.hooks);
     const cutting = apply.some((hook) => hook.mechanicCode === DAMAGE_TYPE_HOOK_MECHANIC_CUTTING_WOUNDS);
     const hpDamage = cutting ? 0 : raw;
-    const endurance = Math.max(1, Math.floor(input.endurance));
-    const exhaustion = Math.floor(hpDamage / endurance);
+    const enduranceValue =
+      typeof input.endurance === 'number'
+        ? { base: Math.max(1, Math.floor(input.endurance)), size: 0 }
+        : input.endurance;
+    const endurance = new DimensionalNumber(enduranceValue);
+    const damageValue = new DimensionalNumber({ base: hpDamage, size: 0 });
+    const accumulatedDamage = new DimensionalNumber(input.accumulatedDamage ?? { base: 0, size: 0 });
+    const totalDamage = accumulatedDamage.add(damageValue);
+    const previousExhaustion = accumulatedDamage.divideFloor(endurance);
+    const totalExhaustion = totalDamage.divideFloor(endurance);
+    const exhaustion = Math.max(0, totalExhaustion - previousExhaustion);
+    const remainingHpDamage = Math.max(0, totalDamage.subtract(endurance.multiply(totalExhaustion)).toNumber());
     let stun: number | null = null;
     let wound: number | null = null;
     for (const hook of apply) {
@@ -152,7 +182,7 @@ export class AttackDamageService {
     }
     const knockout =
       apply.some((hook) => hook.mechanicCode === DAMAGE_TYPE_HOOK_MECHANIC_BLUNT_KO) &&
-      (remainingSr >= 6 || hpDamage >= endurance);
+      (remainingSr >= 6 || hpDamage >= endurance.toNumber());
 
     return {
       remainingSr,
@@ -160,6 +190,7 @@ export class AttackDamageService {
       raw,
       hpDamage,
       exhaustion,
+      remainingHpDamage,
       stun,
       wound,
       knockout,

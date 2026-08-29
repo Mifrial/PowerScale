@@ -12,6 +12,16 @@ export type ActionEffect =
       scope: AttackScope;
     }
   | {
+      type: 'current_action_attack_characteristic_modifier';
+      delta: number;
+      scope: AttackScope;
+    }
+  | {
+      type: 'current_action_check_modifier';
+      check_codes: string[];
+      delta: number;
+    }
+  | {
       type: 'next_action_attack_cost';
       resource_code: string;
       delta: number;

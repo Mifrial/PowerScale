@@ -40,6 +40,7 @@ describe('formatDotTickMessage', () => {
         raw: 3,
         hpDamage: 3,
         exhaustion: 1,
+        remainingHpDamage: 0,
         stun: null,
         wound: null,
         knockout: false,

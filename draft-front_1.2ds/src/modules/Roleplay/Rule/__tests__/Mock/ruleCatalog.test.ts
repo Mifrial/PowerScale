@@ -44,7 +44,7 @@ describe('ruleCatalog', () => {
     );
     expect(process?.spec).toBeDefined();
     expect((process?.spec as { process?: unknown }).process).toBeDefined();
-    const steps = ((process?.spec as { process?: { steps?: Array<{ interruption?: unknown }> } }).process?.steps ?? []);
+    const steps = (process?.spec as { process?: { steps?: { interruption?: unknown }[] } }).process?.steps ?? [];
     expect(steps.length).toBeGreaterThan(0);
     expect(steps.every((step) => step.interruption)).toBe(true);
   });
@@ -73,8 +73,7 @@ describe('ruleCatalog', () => {
 
   it('содержит версионируемое действие ожидания с выбираемой стоимостью', () => {
     const wait = ruleCatalog.find((rule) => rule.code === 'wait');
-    const component = (wait?.spec as { action_components?: Array<{ amount: unknown }> } | undefined)
-      ?.action_components?.[0];
+    const component = (wait?.spec as { action_components?: { amount: unknown }[] } | undefined)?.action_components?.[0];
 
     expect(wait?.catalogSection).toBe('scenes-combat-other');
     expect(component?.amount).toEqual({ type: 'chosen', max: 'available' });

@@ -220,9 +220,7 @@ function grantLabel(grant: Grant): string {
     <div v-if="type" class="mb-2">
       <v-chip color="primary" variant="tonal" size="small">{{ ABILITY_TYPE_LABELS[type] }}</v-chip>
     </div>
-    <div v-if="props.rule.catalogSection" class="text-body-2 mb-2">
-      Секция: {{ props.rule.catalogSection }}
-    </div>
+    <div v-if="props.rule.catalogSection" class="text-body-2 mb-2">Секция: {{ props.rule.catalogSection }}</div>
 
     <v-card v-if="groupInfo" variant="tonal" class="mb-3">
       <v-card-text>

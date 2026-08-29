@@ -12,6 +12,9 @@ export interface AbilitySpecBase {
   grants: { level: number; grants: Grant[] }[];
   /** Временные эффекты действия, исполняемые боевым движком. */
   action_effects?: ActionEffect[];
+  /** Режим выбора целей для атакующего действия. */
+  attack_mode?: 'single' | 'wide';
+  max_targets?: number;
   parent_ability_code: string | null;
   /** Для способностей владения оружием — код предмета-оружия (напр. «sword»). */
   weapon_item_code?: string | null;

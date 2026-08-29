@@ -15,6 +15,7 @@ import type { EditorAbilityInstance } from '@/modules/Roleplay/Character/Dto/Edi
 import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
 import type { ProcessStep } from '@/modules/Roleplay/Rule/Dto/Ability/ProcessStep';
 import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpec';
+import type { ResourceSpec } from '@/modules/Roleplay/Rule/Dto/ResourceSpec';
 import { useRuleDetailSlider } from '@/modules/Roleplay/Character/Composables/useRuleDetailSlider';
 import { characterEditorService } from '@/modules/Roleplay/Character/Service/Instance/characterEditorService';
 import DescriptionHtml from '@/modules/Core/UI/Component/DescriptionHtml.vue';
@@ -442,15 +443,29 @@ function actionOdCostLabel(ability: EditorAbility): string | null {
       component.type === 'resource' && component.resource_code === 'action-points',
   );
   if (costs.length === 0) return null;
+  const resourceRule = props.rules?.find((rule) => rule.code === costs[0]?.resource_code && rule.type === 'resource');
+  const resourceSpec = resourceRule?.spec as ResourceSpec | undefined;
+  const isDimensional = resourceSpec?.is_dimensional ?? false;
+  const formatAmount = (amount: (typeof costs)[number]['amount']): string => {
+    if (typeof amount === 'number') return String(amount);
+    if ('type' in amount) return 'макс. доступное';
+    if (!isDimensional) return String(amount.base);
+
+    return new DimensionalNumber(amount).toString();
+  };
   if (costs.length === 1) {
     const amount = costs[0].amount;
 
-    return `${typeof amount === 'number' ? amount : new DimensionalNumber(amount).toString()} ОД`;
+    return `${formatAmount(amount)} ОД`;
   }
 
   let total = new DimensionalNumber({ base: 0, size: 0 });
   for (const cost of costs) {
-    const amount = typeof cost.amount === 'number' ? { base: cost.amount, size: 0 } : cost.amount;
+    if (typeof cost.amount === 'object' && 'type' in cost.amount) return 'макс. доступное ОД';
+    const amount =
+      typeof cost.amount === 'number' || !isDimensional
+        ? { base: typeof cost.amount === 'number' ? cost.amount : cost.amount.base, size: 0 }
+        : cost.amount;
     total = total.add(new DimensionalNumber(amount));
   }
 

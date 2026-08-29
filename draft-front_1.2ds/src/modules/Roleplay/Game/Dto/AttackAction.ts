@@ -6,6 +6,8 @@ export interface AttackAction {
   initiator: CombatEntityKey;
   source: { kind: 'action'; actionRuleId: string } | { kind: 'process'; process: ProcessActionContext };
   strikes: AttackActionStrike[];
+  /** Групповая атака по нескольким целям (например, Широкий удар). */
+  mode?: 'single' | 'wide';
   reactionMode: 'simultaneous';
   totalOdCost: number;
 }

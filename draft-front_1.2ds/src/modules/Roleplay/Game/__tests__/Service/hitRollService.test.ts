@@ -4,6 +4,7 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
 import type { CharacterOverview } from '@/modules/Roleplay/Character/Dto/Overview/CharacterOverview';
 import { hitRollService } from '@/modules/Roleplay/Game/Service/Instance/hitRollService';
+import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import { resolveStrikeProcedure } from '@/modules/Roleplay/Game/Utils/resolveStrikeProcedure';
@@ -408,6 +409,35 @@ describe('rollMeleeHit', () => {
       [],
     );
     expect(turned.defender?.spec.advantages).toEqual([]);
+  });
+
+  it('Wide: один бросок attacker и по одному defense на каждую из 3 целей', () => {
+    let rngCalls = 0;
+    const rng: DiceRng = () => {
+      rngCalls += 1;
+
+      return 0;
+    };
+    const inputs = [1, 2, 3].map((target) => ({
+      attackerLabel: 'А',
+      defenderLabel: `Б${target}`,
+      defenderKey: `character:${target}` as CombatEntityKey,
+      attack,
+      attackerOverview: overview,
+      defenderOverview: overview,
+      reaction: 'dodge' as const,
+      defenseEfficiency: { base: 4, size: -1 },
+    }));
+
+    const rolled = hitRollService.rollMeleeWideHit(inputs, rng, [checkSimple, checkHit], []);
+
+    expect(rolled.targetResults).toHaveLength(3);
+    expect(rolled.targetResults.every((target) => target.defender !== null)).toBe(true);
+    expect(rolled.attacker.rolls).toHaveLength(4);
+    expect(rngCalls).toBe(
+      rolled.attacker.rolls.length +
+        rolled.targetResults.reduce((calls, target) => calls + (target.defender?.rolls.length ?? 0), 0),
+    );
   });
 });
 

@@ -7,7 +7,8 @@ export interface ApplyAttackDamageInput {
   sr: number;
   damageTypeCode: string | null;
   defense: DefenseOverview | null;
-  endurance: number;
+  endurance: DimensionalNumberValue | number;
+  accumulatedDamage?: DimensionalNumberValue;
   hooks: DamageTypeHook[];
   /** Тип урона с галочкой «Защита не помогает» — линии defense не складываются в сопротивление. */
   defenseIgnored?: boolean;

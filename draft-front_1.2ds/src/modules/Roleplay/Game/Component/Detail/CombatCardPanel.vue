@@ -55,9 +55,11 @@ import type { AttackOverview } from '@/modules/Roleplay/Character/Dto/Overview/A
 import type { CharacteristicOverview } from '@/modules/Roleplay/Character/Dto/Overview/CharacteristicOverview';
 import type { ResourceOverview } from '@/modules/Roleplay/Character/Dto/Overview/ResourceOverview';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
+import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue';
 import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
+import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/actionEffectService';
 
 import { ruleReferenceService } from '@/modules/Roleplay/Rule/Service/Instance/ruleReferenceService';
 
@@ -108,6 +110,7 @@ watch(isOpen, (value) => {
 });
 
 const overlays = ref<GameCombatOverlay[]>([]);
+const pendingEffects = ref<PendingActionEffect[]>([]);
 /** Счётчик, чтобы overview пересобрался даже если версия листа та же ссылка (мутация НПС). */
 const viewEpoch = ref(0);
 const error = ref<string | null>(null);
@@ -126,6 +129,13 @@ const activeProcess = computed(() =>
 );
 const activeProcessRule = computed(() =>
   activeProcess.value ? (props.rules.find((rule) => rule.id === activeProcess.value?.processRuleId) ?? null) : null,
+);
+const activeEffectLabels = computed(() =>
+  pendingEffects.value.map((pending) => {
+    const source = props.rules.find((rule) => rule.id === pending.sourceRuleId)?.name ?? 'Временный эффект';
+
+    return `${source}: ${actionEffectService.describe(pending.effect)}`;
+  }),
 );
 
 onMounted(() => {
@@ -359,8 +369,10 @@ async function loadOverlays(): Promise<void> {
   error.value = null;
   try {
     const next = await getGameApi().getCombatOverlays(props.gameId);
+    const allPendingEffects = await getGameApi().getPendingActionEffects(props.gameId);
     if (loadId !== overlaysLoadId) return;
     overlays.value = combatOverlayService.preferNewerCombatOverlays(overlays.value, next);
+    pendingEffects.value = allPendingEffects[props.entityKey] ?? [];
     viewEpoch.value += 1;
   } catch (e) {
     if (loadId !== overlaysLoadId) return;
@@ -677,7 +689,6 @@ function onSheetToggleEquipped(itemId: number): void {
   const item = overview.value?.inventory.find((entry) => entry.id === itemId);
   if (item) void toggleEquipped(item);
 }
-
 </script>
 
 <template>
@@ -804,6 +815,10 @@ function onSheetToggleEquipped(itemId: number): void {
                 Бой
               </button>
               <div v-show="isSectionOpen('combat')">
+                <v-alert v-if="activeEffectLabels.length" type="info" variant="tonal" density="compact" class="mb-3">
+                  <div class="text-subtitle-2 mb-1">Активные эффекты</div>
+                  <div v-for="label in activeEffectLabels" :key="label">{{ label }}</div>
+                </v-alert>
                 <template
                   v-for="(section, sectionKey) in { melee: overview.combat.melee, ranged: overview.combat.ranged }"
                   :key="sectionKey"

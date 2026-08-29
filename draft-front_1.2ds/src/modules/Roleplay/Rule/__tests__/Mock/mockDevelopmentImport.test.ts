@@ -112,6 +112,8 @@ describe('mockDevelopmentImport (S14)', () => {
   it('разделяет Быстрый и Стремительный удар и декларирует эффекты', () => {
     const fast = abilitySpec('bystryy-udar');
     const swift = abilitySpec('stremitelnyy-udar');
+    const wide = abilitySpec('shirokiy-udar');
+    const sweeping = abilitySpec('razmashistyy-udar');
 
     expect(fast?.action_effects).toEqual([
       {
@@ -135,6 +137,36 @@ describe('mockDevelopmentImport (S14)', () => {
       type: 'has_ability',
       ability_code: 'bystryy-udar',
       min_level: 1,
+    });
+    expect(sweeping?.action_effects).toContainEqual({
+      type: 'current_action_attack_characteristic_modifier',
+      delta: 2,
+      scope: { components: ['strike'], hit_count: 1 },
+    });
+    expect(sweeping?.action_effects).toContainEqual({
+      type: 'current_action_check_modifier',
+      check_codes: ['check-hit'],
+      delta: -2,
+    });
+    expect(sweeping?.action_effects).toContainEqual({
+      type: 'after_action_until_resource_spent_check_modifier',
+      resource_code: 'action-points',
+      amount: 2,
+      check_codes: ['check-hit'],
+      delta: -2,
+    });
+    expect(wide?.attack_mode).toBe('wide');
+    expect(wide?.max_targets).toBe(3);
+    expect(sweeping?.attack_mode).toBeUndefined();
+    expect(wide?.requirements?.[0]?.requirements).toContainEqual({
+      type: 'and',
+      children: expect.arrayContaining([
+        {
+          type: 'has_ability',
+          ability_code: 'razmashistyy-udar',
+          min_level: 1,
+        },
+      ]),
     });
   });
 

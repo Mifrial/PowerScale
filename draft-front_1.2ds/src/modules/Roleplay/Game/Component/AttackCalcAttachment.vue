@@ -46,6 +46,10 @@ const damageLabel = computed(() => new DimensionalNumber(calc.value.damage).toSt
             {{ calc.resistance }}<template v-if="calc.defenseIgnored"> · защита не помогает</template>
           </span>
         </div>
+        <div class="d-flex align-center justify-space-between py-1 text-body-2">
+          <span class="text-medium-emphasis">Стойкость</span>
+          <span class="font-weight-medium">{{ new DimensionalNumber(calc.endurance).toString() }}</span>
+        </div>
         <div v-if="(calc.layers ?? []).length" class="pt-1">
           <div v-for="(layer, index) in calc.layers ?? []" :key="index" class="text-caption py-1">
             <span class="text-medium-emphasis">{{ layer.itemName }} · </span>
@@ -68,6 +72,14 @@ const damageLabel = computed(() => new DimensionalNumber(calc.value.damage).toSt
         <div v-if="calc.stun !== null" class="d-flex align-center justify-space-between py-1 text-body-2">
           <span class="text-medium-emphasis">Оглушение</span>
           <span class="font-weight-medium">сила {{ calc.stun }}</span>
+        </div>
+        <div class="d-flex align-center justify-space-between py-1 text-body-2">
+          <span class="text-medium-emphasis">Истощение</span>
+          <span class="font-weight-medium">{{ calc.exhaustion }}</span>
+        </div>
+        <div v-if="calc.remainingHpDamage > 0" class="d-flex align-center justify-space-between py-1 text-body-2">
+          <span class="text-medium-emphasis">Остаток повреждений</span>
+          <span class="font-weight-medium">{{ calc.remainingHpDamage }}</span>
         </div>
         <div v-if="calc.wound !== null" class="d-flex align-center justify-space-between py-1 text-body-2">
           <span class="text-medium-emphasis">Рана</span>

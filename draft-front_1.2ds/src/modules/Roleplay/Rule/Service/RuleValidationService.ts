@@ -174,6 +174,29 @@ export class RuleValidationService {
       const components = 'action_components' in spec ? spec.action_components : [];
       const operations = 'operations' in spec ? (spec.operations ?? []) : [];
       errors.push(...this.validateActionOperations(rule, operations));
+      const attackMode = 'attack_mode' in spec ? spec.attack_mode : undefined;
+      if (attackMode !== undefined && attackMode !== 'single' && attackMode !== 'wide') {
+        errors.push({
+          ruleName: rule.name,
+          ruleCode: rule.code,
+          message: 'режим атаки должен быть «single» или «wide»',
+        });
+      }
+      const maxTargets = 'max_targets' in spec ? spec.max_targets : undefined;
+      if (maxTargets !== undefined && (!Number.isInteger(maxTargets) || maxTargets < 1)) {
+        errors.push({
+          ruleName: rule.name,
+          ruleCode: rule.code,
+          message: 'максимальное количество целей должно быть положительным целым числом',
+        });
+      }
+      if (maxTargets !== undefined && attackMode !== 'wide') {
+        errors.push({
+          ruleName: rule.name,
+          ruleCode: rule.code,
+          message: 'максимальное количество целей можно указывать только для широкой атаки',
+        });
+      }
       const actionEffects = 'action_effects' in spec ? (spec.action_effects ?? []) : [];
       if (actionEffects.length > 0 && type !== 'action') {
         errors.push({
@@ -198,6 +221,16 @@ export class RuleValidationService {
               message: 'количество элементов атаки в эффекте должно быть положительным или «all»',
             });
           }
+        }
+        if (
+          effect.type === 'current_action_attack_characteristic_modifier' &&
+          (!Number.isFinite(effect.delta) || effect.delta === 0)
+        ) {
+          errors.push({
+            ruleName: rule.name,
+            ruleCode: rule.code,
+            message: 'модификатор силы действия должен иметь ненулевое числовое значение',
+          });
         }
         if (
           effect.type === 'after_action_until_resource_spent_check_modifier' &&

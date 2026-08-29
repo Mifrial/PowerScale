@@ -41,6 +41,19 @@ const poisoning: Rule = {
   createdAt: '2026-01-01T00:00:00Z',
 };
 
+const accumulatedDamage: Rule = {
+  id: 'rule-damage',
+  code: 'accumulated-damage',
+  type: 'state',
+  name: 'Повреждения',
+  description: '',
+  spaceId: 1,
+  spec: { value_type: 'dimensional', aggregation: 'sum', effects: [] },
+  keywordIds: [],
+  mechanicId: null,
+  createdAt: '2026-01-01T00:00:00Z',
+};
+
 const scorpion: Rule = {
   id: 'rule-scorpion',
   code: 'poison-scorpion',
@@ -99,6 +112,7 @@ describe('applyEndOfTurnDots', () => {
     const states: CharacterStateValue[] = [
       { stateRuleId: 'rule-burn', dimensionalValue: { base: 2, size: 0 } },
       { stateRuleId: 'rule-poisoning', poison: { poisonRuleId: 'rule-scorpion' } },
+      { stateRuleId: 'rule-damage', dimensionalValue: { base: 3, size: 0 } },
     ];
     const api = {
       replaceCombatState: async (_g: number, _k: string, index: number, state: CharacterStateValue) => {
@@ -127,7 +141,7 @@ describe('applyEndOfTurnDots', () => {
     await endOfTurnDotsService.applyEndOfTurnDots({
       version: versionOf(states),
       endurance: 99,
-      rules: [burning, poisoning, scorpion],
+      rules: [burning, poisoning, scorpion, accumulatedDamage],
       mechanics: [],
       gameId: 1,
       targetKey: 'character:1',
@@ -144,5 +158,6 @@ describe('applyEndOfTurnDots', () => {
     expect(states[1].dotTurnsLeft).toBe(1);
     expect(chat.some((line) => line.includes('получает'))).toBe(true);
     expect(chat.some((line) => line.includes('скорпиона'))).toBe(false);
+    expect(states[2]?.dimensionalValue).toEqual({ base: 5, size: 0 });
   });
 });

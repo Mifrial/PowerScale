@@ -10,6 +10,12 @@ import type { ActionOperation } from '@/modules/Roleplay/Rule/Dto/Ability/Action
 export type AbilitySpec =
   | GroupSpec
   | (AbilitySpecBase & { type: Exclude<AbilityType, 'action' | 'process' | 'spell' | 'group'> })
-  | (AbilitySpecBase & { type: 'action'; action_components: ActionComponent[]; operations?: ActionOperation[] })
+  | (AbilitySpecBase & {
+      type: 'action';
+      action_components: ActionComponent[];
+      operations?: ActionOperation[];
+      attack_mode?: 'single' | 'wide';
+      max_targets?: number;
+    })
   | (AbilitySpecBase & { type: 'process'; process: ProcessSpec })
   | (AbilitySpecBase & { type: 'spell'; action_components: ActionComponent[]; spell: SpellSpec });

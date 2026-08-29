@@ -82,4 +82,3 @@ function onActivate(): void {
     </div>
   </v-sheet>
 </template>
-

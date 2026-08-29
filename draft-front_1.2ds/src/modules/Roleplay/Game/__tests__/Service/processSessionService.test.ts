@@ -6,9 +6,27 @@ const movement: ProcessSpec = {
   start_step_code: 'walk',
   transition: { mode: 'chain', max_shift: 1, direction: 'both' },
   steps: [
-    { code: 'walk', name: 'Ходьба', description: '', interruption: { mode: 'normal' }, costs: [{ resource_code: 'action-points', amount: 1 }] },
-    { code: 'run', name: 'Бег', description: '', interruption: { mode: 'normal' }, costs: [{ resource_code: 'action-points', amount: 2 }] },
-    { code: 'sprint', name: 'Спринт', description: '', interruption: { mode: 'normal' }, costs: [{ resource_code: 'action-points', amount: 3 }] },
+    {
+      code: 'walk',
+      name: 'Ходьба',
+      description: '',
+      interruption: { mode: 'normal' },
+      costs: [{ resource_code: 'action-points', amount: 1 }],
+    },
+    {
+      code: 'run',
+      name: 'Бег',
+      description: '',
+      interruption: { mode: 'normal' },
+      costs: [{ resource_code: 'action-points', amount: 2 }],
+    },
+    {
+      code: 'sprint',
+      name: 'Спринт',
+      description: '',
+      interruption: { mode: 'normal' },
+      costs: [{ resource_code: 'action-points', amount: 3 }],
+    },
   ],
 };
 

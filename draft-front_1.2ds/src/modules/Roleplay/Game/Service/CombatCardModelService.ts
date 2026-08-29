@@ -8,7 +8,10 @@ import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/Chara
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { PoisonSpec } from '@/modules/Roleplay/Rule/Dto/Poison/PoisonSpec';
 import type { StateSpec } from '@/modules/Roleplay/Rule/Dto/State/StateSpec';
-import { POISONING_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
+import {
+  ACCUMULATED_DAMAGE_STATE_CODE,
+  POISONING_STATE_CODE,
+} from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
 import type { CharacterOverview } from '@/modules/Roleplay/Character/Dto/Overview/CharacterOverview';
 import type { CombatMasterySection } from '@/modules/Roleplay/Character/Dto/Overview/CombatMasterySection';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
@@ -137,6 +140,7 @@ export class CombatCardModelService {
 
   private stateSummary(entries: CharacterStateValue[], spec: StateSpec | null, rules: Rule[]): string | null {
     if (spec === null) return null;
+    const stateCode = rules.find((rule) => rule.id === entries[0]?.stateRuleId)?.code;
     if (entries.some((entry) => entry.poison)) {
       return entries.map((entry) => this.poisonName(entry, rules)).join(', ');
     }
@@ -150,6 +154,15 @@ export class CombatCardModelService {
       return values.join(', ');
     }
     if (spec.value_type === 'dimensional') {
+      if (spec.aggregation === 'sum' && stateCode === ACCUMULATED_DAMAGE_STATE_CODE) {
+        return entries
+          .reduce(
+            (total, entry) => total.add(new DimensionalNumber(entry.dimensionalValue ?? { base: 0, size: 0 })),
+            new DimensionalNumber({ base: 0, size: 0 }),
+          )
+          .toString();
+      }
+
       return entries
         .map((entry) => (entry.dimensionalValue ? new DimensionalNumber(entry.dimensionalValue).toString() : ''))
         .filter(Boolean)

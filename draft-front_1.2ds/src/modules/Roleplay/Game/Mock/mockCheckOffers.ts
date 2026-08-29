@@ -22,21 +22,48 @@ function requirePending(id: number): CheckOffer {
 
 function actorRole(offer: CheckOffer, actorKey: CombatEntityKey): 'initiator' | 'opponent' {
   if (actorKey === offer.initiator) return 'initiator';
-  if (actorKey === offer.opponent) return 'opponent';
+  if (actorKey === offer.opponent || offer.waitingOnTargets?.includes(actorKey)) return 'opponent';
   throw new Error('Вы не участник этой проверки');
+}
+
+function targetProposalsOf(offer: CheckOffer): NonNullable<CheckOfferProposal['targetProposals']> {
+  return offer.proposal.targetProposals ?? [];
+}
+
+function pendingTargetsOf(offer: CheckOffer): CombatEntityKey[] {
+  return targetProposalsOf(offer)
+    .filter((target) => target.hit.reaction === null)
+    .map((target) => target.targetKey);
 }
 
 export async function createCheckOffer(gameId: number, data: CreateCheckOfferData): Promise<CheckOffer> {
   await delay();
   if (data.initiator === data.opponent) throw new Error('Нужен другой участник');
+  const attackTargets = [...new Set(data.proposal.attackAction?.strikes.map((strike) => strike.targetKey) ?? [])];
+  const hit = data.proposal.hit;
+  const isWide = data.proposal.attackAction?.mode === 'wide';
+  if (isWide && (attackTargets.length === 0 || attackTargets.length > 3)) {
+    throw new Error('Широкий удар может иметь от одной до трёх целей');
+  }
+  if (isWide && attackTargets.length !== (data.proposal.attackAction?.strikes.length ?? 0)) {
+    throw new Error('Цели Широкого удара должны быть различными');
+  }
+  const targetProposals =
+    isWide && hit
+      ? attackTargets.map((targetKey) => ({
+          targetKey,
+          hit: { ...hit, reaction: null },
+        }))
+      : undefined;
   const offer: CheckOffer = {
     id: nextId++,
     gameId,
     checkCode: data.checkCode,
     initiator: data.initiator,
     opponent: data.opponent,
-    proposal: { ...data.proposal },
+    proposal: { ...data.proposal, targetProposals },
     waitingOn: 'opponent',
+    waitingOnTargets: targetProposals?.map((target) => target.targetKey),
     status: 'pending',
     updatedAt: new Date().toISOString(),
   };
@@ -53,9 +80,19 @@ export async function reviseCheckOffer(
   await delay();
   const offer = requirePending(offerId);
   const role = actorRole(offer, actorKey);
-  if (offer.waitingOn !== role) throw new Error('Сейчас ход другой стороны');
-  offer.proposal = { ...proposal };
-  offer.waitingOn = role === 'initiator' ? 'opponent' : 'initiator';
+  if (role === 'opponent' && offer.waitingOnTargets && !offer.waitingOnTargets.includes(actorKey))
+    throw new Error('Сейчас ход другой стороны');
+  if (role === 'initiator' && offer.waitingOn !== role) throw new Error('Сейчас ход другой стороны');
+  if (role === 'opponent' && offer.waitingOnTargets) {
+    const target = targetProposalsOf(offer).find((entry) => entry.targetKey === actorKey);
+    if (target && proposal.hit) target.hit = { ...target.hit, ...proposal.hit };
+    offer.proposal = { ...offer.proposal, ...proposal, targetProposals: targetProposalsOf(offer) };
+    offer.waitingOnTargets = pendingTargetsOf(offer);
+    offer.waitingOn = offer.waitingOnTargets.length > 0 ? 'opponent' : 'initiator';
+  } else {
+    offer.proposal = { ...proposal, targetProposals: offer.proposal.targetProposals };
+    offer.waitingOn = role === 'initiator' ? 'opponent' : 'initiator';
+  }
   offer.updatedAt = new Date().toISOString();
 
   return snapshot(offer);
@@ -69,8 +106,21 @@ export async function acceptCheckOffer(
   await delay();
   const offer = requirePending(offerId);
   const role = actorRole(offer, actorKey);
-  if (offer.waitingOn !== role) throw new Error('Сейчас ход другой стороны');
-  if (proposal) offer.proposal = { ...proposal };
+  if (role === 'opponent' && offer.waitingOnTargets && !offer.waitingOnTargets.includes(actorKey))
+    throw new Error('Сейчас ход другой стороны');
+  if (role === 'initiator' && offer.waitingOn !== role) throw new Error('Сейчас ход другой стороны');
+  if (proposal) {
+    if (role === 'opponent' && offer.waitingOnTargets) {
+      const target = targetProposalsOf(offer).find((entry) => entry.targetKey === actorKey);
+      if (target && proposal.hit) target.hit = { ...target.hit, ...proposal.hit };
+      offer.proposal = { ...offer.proposal, ...proposal, targetProposals: targetProposalsOf(offer) };
+      offer.waitingOnTargets = pendingTargetsOf(offer);
+      offer.waitingOn = offer.waitingOnTargets.length > 0 ? 'opponent' : 'initiator';
+    } else {
+      offer.proposal = { ...proposal, targetProposals: offer.proposal.targetProposals };
+    }
+  }
+  if (offer.waitingOnTargets?.length) return snapshot(offer);
   offer.status = 'accepted';
   offer.updatedAt = new Date().toISOString();
 
@@ -96,7 +146,8 @@ export async function getPendingCheckOffers(gameId: number, entityKey: CombatEnt
       (offer) =>
         offer.gameId === gameId &&
         offer.status === 'pending' &&
-        ((offer.waitingOn === 'opponent' && offer.opponent === entityKey) ||
+        ((offer.waitingOn === 'opponent' &&
+          (offer.opponent === entityKey || offer.waitingOnTargets?.includes(entityKey))) ||
           (offer.waitingOn === 'initiator' && offer.initiator === entityKey)),
     )
     .map(snapshot);
@@ -111,7 +162,10 @@ export async function getCheckOffersForEntity(gameId: number, entityKey: CombatE
       (offer) =>
         offer.gameId === gameId &&
         offer.status === 'pending' &&
-        (offer.initiator === entityKey || offer.opponent === entityKey),
+        (offer.initiator === entityKey ||
+          offer.opponent === entityKey ||
+          offer.waitingOnTargets?.includes(entityKey) ||
+          targetProposalsOf(offer).some((target) => target.targetKey === entityKey)),
     )
     .map(snapshot);
 }

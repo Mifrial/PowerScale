@@ -22,9 +22,29 @@ import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/c
 import { damageTypeHooksService } from '@/modules/Roleplay/Game/Service/Instance/damageTypeHooksService';
 
 import { damageTypeSpecService } from '@/modules/Roleplay/Rule/Service/Instance/damageTypeSpecService';
+import { ACCUMULATED_DAMAGE_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
 
 import type { ApplyEndOfTurnDotsArgs } from '@/modules/Roleplay/Game/Dto/ApplyEndOfTurnDotsArgs';
 export class EndOfTurnDotsService {
+  private async writeAccumulatedDamage(
+    args: ApplyEndOfTurnDotsArgs,
+    version: CharacterVersion,
+    amount: number,
+  ): Promise<GameCombatOverlay | null> {
+    const rule = args.rules.find((item) => item.code === ACCUMULATED_DAMAGE_STATE_CODE && item.type === 'state');
+    if (!rule) return null;
+    const index = version.states.findIndex((state) => state.stateRuleId === rule.id);
+    if (amount <= 0) {
+      return index >= 0 ? getGameApi().removeCombatState(args.gameId, args.targetKey, index) : null;
+    }
+
+    const state = { stateRuleId: rule.id, dimensionalValue: { base: amount, size: 0 } };
+
+    return index >= 0
+      ? getGameApi().replaceCombatState(args.gameId, args.targetKey, index, state)
+      : getGameApi().addCombatState(args.gameId, args.targetKey, state);
+  }
+
   private async addNumericState(
     args: ApplyEndOfTurnDotsArgs,
     version: CharacterVersion,
@@ -76,8 +96,9 @@ export class EndOfTurnDotsService {
         damageTypeCode: step.damageTypeCode,
         defense: overview.defense ?? null,
         endurance: overview.characteristics.length
-          ? attackDamageService.enduranceOf(overview, args.rules)
-          : Math.max(1, args.endurance),
+          ? attackDamageService.enduranceValueOf(overview, args.rules)
+          : { base: Math.max(1, args.endurance), size: 0 },
+        accumulatedDamage: attackDamageService.accumulatedDamageOf(version.states, args.rules),
         hooks,
         defenseIgnored: damageTypeSpecService.asDamageTypeSpec(typeRule)?.defense_ignored === true,
       });
@@ -105,6 +126,11 @@ export class EndOfTurnDotsService {
           args.speaker,
         );
         if (!sent) throw new Error('Не удалось отправить сообщение о тике');
+      }
+      const damageOverlay = await this.writeAccumulatedDamage(args, version, result.remainingHpDamage);
+      if (damageOverlay) {
+        overlay = damageOverlay;
+        version = combatOverlayService.mergeCombatOverlay(version, damageOverlay);
       }
       const exh = await this.addNumericState(args, version, EXHAUSTION_STATE_CODE, result.exhaustion);
       if (exh) {

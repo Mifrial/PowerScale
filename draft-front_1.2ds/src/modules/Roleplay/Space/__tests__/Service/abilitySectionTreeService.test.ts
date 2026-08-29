@@ -47,11 +47,7 @@ describe('AbilitySectionTreeService', () => {
         { code: 'b', name: 'B', parentCode: 'c', sortOrder: 2 },
         { code: 'c', name: 'C', parentCode: 'b', sortOrder: 3 },
       ]),
-    ).toEqual([
-      'Родительская секция не найдена: missing',
-      'Цикл в дереве секций: b',
-      'Цикл в дереве секций: c',
-    ]);
+    ).toEqual(['Родительская секция не найдена: missing', 'Цикл в дереве секций: b', 'Цикл в дереве секций: c']);
   });
 
   it('keeps legacy flat section lists as roots', () => {

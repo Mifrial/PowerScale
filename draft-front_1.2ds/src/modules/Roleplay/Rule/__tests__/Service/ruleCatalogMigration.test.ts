@@ -23,7 +23,12 @@ describe('RuleCatalogMigrationService', () => {
     const migrated = ruleCatalogMigrationService.migrateRules(
       [
         rule({ id: 'species-elves', code: 'elves', type: 'species', spec: { parent_race_code: null, abilities: [] } }),
-        rule({ id: 'race-wood', code: 'wood-elves', type: 'race', spec: { parent_race_code: 'elves', cost_os: 2, characteristics: [], abilities: [] } }),
+        rule({
+          id: 'race-wood',
+          code: 'wood-elves',
+          type: 'race',
+          spec: { parent_race_code: 'elves', cost_os: 2, characteristics: [], abilities: [] },
+        }),
       ],
       new Map(),
     );
@@ -33,10 +38,7 @@ describe('RuleCatalogMigrationService', () => {
 
   it('uses explicit sections for checks and consumable crystals', () => {
     const migrated = ruleCatalogMigrationService.migrateRules(
-      [
-        rule({ type: 'check', code: 'check-initiative' }),
-        rule({ type: 'item', keywordIds: [1, 2] }),
-      ],
+      [rule({ type: 'check', code: 'check-initiative' }), rule({ type: 'item', keywordIds: [1, 2] })],
       new Map([
         [1, 'artifact'],
         [2, 'item-section-crystal'],
@@ -60,7 +62,15 @@ describe('RuleCatalogMigrationService', () => {
         rule({
           code: 'kogti_tochnost_v_gibkosti',
           type: 'ability',
-          spec: { type: 'skill', requirements: [{ level: 1, requirements: [{ type: 'min_weapon_mastery' }] }] },
+          spec: {
+            type: 'skill',
+            zones: {},
+            requirements: [
+              { level: 1, requirements: [{ type: 'min_weapon_mastery', keyword_code: '', min_level: 1 }] },
+            ],
+            grants: [],
+            parent_ability_code: null,
+          },
         }),
       ],
       new Map([[9, 'medicine']]),
@@ -82,10 +92,7 @@ describe('RuleCatalogMigrationService', () => {
 
   it('puts combat mastery and weapon ownership into their dedicated section', () => {
     const migrated = ruleCatalogMigrationService.migrateRules(
-      [
-        rule({ code: 'blizhniy-boy', type: 'ability' }),
-        rule({ code: 'vladenie-oruzhiem', type: 'ability' }),
-      ],
+      [rule({ code: 'blizhniy-boy', type: 'ability' }), rule({ code: 'vladenie-oruzhiem', type: 'ability' })],
       new Map(),
       mockCombatAbilitySectionByCode,
     );

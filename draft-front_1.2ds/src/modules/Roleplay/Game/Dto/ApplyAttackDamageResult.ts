@@ -5,6 +5,7 @@ export interface ApplyAttackDamageResult {
   raw: number;
   hpDamage: number;
   exhaustion: number;
+  remainingHpDamage: number;
   stun: number | null;
   wound: number | null;
   knockout: boolean;

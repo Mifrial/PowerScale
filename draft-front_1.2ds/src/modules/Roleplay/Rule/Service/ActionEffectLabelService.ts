@@ -5,6 +5,19 @@ export class ActionEffectLabelService {
     if (effect.type === 'current_action_attack_accuracy') {
       return `${effect.delta > 0 ? '+' : ''}${effect.delta} к точности текущего удара`;
     }
+    if (effect.type === 'current_action_attack_characteristic_modifier') {
+      const hitCount =
+        effect.scope.hit_count === 'all'
+          ? 'всех ударов'
+          : effect.scope.hit_count === 1
+            ? 'удара'
+            : `первых ${effect.scope.hit_count} ударов`;
+
+      return `${effect.delta > 0 ? '+' : ''}${effect.delta} к силе текущего ${hitCount}`;
+    }
+    if (effect.type === 'current_action_check_modifier') {
+      return `${this.deltaLabel(effect.delta)} к текущим ${effect.check_codes.map((code) => this.checkLabel(code)).join(', ')}`;
+    }
     if (effect.type === 'next_action_attack_cost') {
       return `${effect.delta > 0 ? '+' : ''}${effect.delta} ОД к следующей атаке, если она будет следующим действием`;
     }
@@ -25,7 +38,19 @@ export class ActionEffectLabelService {
       return `${effect.delta > 0 ? '+' : ''}${effect.delta} к ${this.characteristicLabel(effect.check_code)} от ${characteristic}${floor} у цели для ${hitCount} следующей атаки${limit}`;
     }
 
-    return `${effect.delta > 0 ? '+' : ''}${effect.delta} к проверкам ${effect.check_codes.join(', ')} до траты ${effect.amount} ${effect.resource_code}`;
+    return `${this.deltaLabel(effect.delta)} к ${effect.check_codes.map((code) => this.checkLabel(code)).join(', ')} до траты ${effect.amount} ${this.resourceLabel(effect.resource_code)}`;
+  }
+
+  private deltaLabel(delta: number): string {
+    return delta < 0 ? `${Math.abs(delta)} помехи` : `${delta} преимущества`;
+  }
+
+  private checkLabel(code: string): string {
+    return { hit: 'проверкам на попадание', 'check-hit': 'проверкам на попадание' }[code] ?? `проверкам ${code}`;
+  }
+
+  private resourceLabel(code: string): string {
+    return { 'action-points': 'ОД' }[code] ?? code;
   }
 
   private characteristicLabel(code: string): string {

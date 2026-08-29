@@ -64,7 +64,11 @@ export class ActionExecutionService {
     if (!resource) throw new Error('ОД не найдено');
     if (input.actionPointCost <= 0) throw new Error('Укажите количество ОД');
     if (input.actionPointCost > resource.current.base) throw new Error('Недостаточно ОД для действия');
-    const movementStep = movementContextService.resolveMovementStep(input.version, input.rules, input.currentMovementStep);
+    const movementStep = movementContextService.resolveMovementStep(
+      input.version,
+      input.rules,
+      input.currentMovementStep,
+    );
     new ActionOperationResolutionService().resolve(input.operations ?? [], input.operationRequests ?? [], {
       currentMovementStep: movementStep,
       characteristicValues: input.characteristicValues ?? new Map(),

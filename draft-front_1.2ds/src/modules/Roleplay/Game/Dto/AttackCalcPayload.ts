@@ -16,9 +16,12 @@ export interface AttackCalcPayload {
   damage: DimensionalNumberValue;
   damageTypeName: string;
   resistance: number;
+  endurance: DimensionalNumberValue;
   defenseIgnored: boolean;
   attackSrLabel: string;
   stun: number | null;
+  exhaustion: number;
+  remainingHpDamage: number;
   wound: number | null;
   knockout: boolean;
   cuttingWound: number | null;

@@ -25,7 +25,7 @@ const profile = (profileType: AttackOverview['profileType']): AttackOverview => 
   penetration: { base: 0, size: 0 },
 });
 
-const rule = (keywordIds: number[]): Rule => ({
+const rule = (keywordIds: number[], attackMode?: 'single' | 'wide'): Rule => ({
   id: 'attack',
   code: 'attack',
   type: 'ability',
@@ -41,6 +41,8 @@ const rule = (keywordIds: number[]): Rule => ({
     grants: [],
     parent_ability_code: null,
     action_components: [],
+    attack_mode: attackMode,
+    max_targets: attackMode === 'wide' ? 3 : undefined,
   },
 });
 
@@ -72,5 +74,12 @@ describe('AttackActionSourceService', () => {
       false,
     );
     expect(attackActionSourceService.isProfileAvailable(favorite, [favorite])).toBe(true);
+  });
+
+  it('limits wide attacks to three distinct targets and single attacks to one', () => {
+    expect(attackActionSourceService.maxTargets(rule([64, 71], 'wide'))).toBe(3);
+    expect(attackActionSourceService.validateTargetCount(rule([64, 71], 'wide'), ['a', 'b', 'c'])).toBeNull();
+    expect(attackActionSourceService.validateTargetCount(rule([64, 71], 'wide'), ['a', 'b', 'c', 'd'])).toContain('3');
+    expect(attackActionSourceService.validateTargetCount(rule([64, 71]), ['a', 'a'])).toContain('1');
   });
 });

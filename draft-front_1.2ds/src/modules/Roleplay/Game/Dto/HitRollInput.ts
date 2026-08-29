@@ -18,6 +18,8 @@ export interface HitRollInput {
   defenseEfficiency?: DimensionalNumberValue | null;
   attackerAdv?: number;
   defenderAdv?: number;
+  attackerAdvantageModifiers?: AdvantageModifier[];
+  defenderAdvantageModifiers?: AdvantageModifier[];
   /** Временный штраф/бонус точности от текущего действия. */
   accuracyDelta?: number;
   /** Временный модификатор вклада Ловкости в мастерство цели. */

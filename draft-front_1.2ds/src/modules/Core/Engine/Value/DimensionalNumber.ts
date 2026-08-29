@@ -84,6 +84,10 @@ export class DimensionalNumber {
     return new DimensionalNumber({ base: a - b, size });
   }
 
+  multiply(multiplier: number): DimensionalNumber {
+    return new DimensionalNumber({ base: this.value.base * multiplier, size: this.value.size });
+  }
+
   equalsStrict(other: DimensionalNumber): boolean {
     return this.value.base === other.value.base && this.value.size === other.value.size;
   }

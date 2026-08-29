@@ -64,7 +64,11 @@ describe('combatActions', () => {
 
   it('распознаёт выбираемую стоимость действия', () => {
     const components = [
-      { type: 'resource' as const, resource_code: 'action-points', amount: { type: 'chosen' as const, max: 'available' as const } },
+      {
+        type: 'resource' as const,
+        resource_code: 'action-points',
+        amount: { type: 'chosen' as const, max: 'available' as const },
+      },
     ];
 
     expect(actionUsesChosenCost(components)).toBe(true);

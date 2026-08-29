@@ -3,6 +3,7 @@ export const MAIM_STATE_CODE = 'maim';
 
 export const WOUND_STATE_CODE = 'wound';
 export const EXHAUSTION_STATE_CODE = 'exhaustion';
+export const ACCUMULATED_DAMAGE_STATE_CODE = 'accumulated-damage';
 export const STUNNED_STATE_CODE = 'stunned';
 export const WEAKNESS_STATE_CODE = 'weakness';
 export const DISABLED_STATE_CODE = 'disabled';

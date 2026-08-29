@@ -1248,6 +1248,23 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-06T10:00:00Z',
     },
     {
+      id: 'rule-565',
+      code: 'accumulated-damage',
+      type: 'state',
+      name: 'Повреждения',
+      description: 'Накопленные за текущий ход повреждения. В конце хода состояние обнуляется.',
+      spaceId: 1,
+      spec: {
+        icon_code: 'mdi-heart-broken-outline',
+        value_type: 'dimensional',
+        aggregation: 'sum',
+        effects: [],
+      },
+      keywordIds: [],
+      mechanicId: null,
+      createdAt: '2026-08-29T10:00:00Z',
+    },
+    {
       id: 'rule-57',
       code: 'weakness',
       type: 'state',

@@ -101,6 +101,7 @@ const sources = computed(() => {
 const selectedSource = computed<CombatActionOption | null>(
   () => sources.value.find((source) => source.ruleId === sourceRuleId.value) ?? null,
 );
+const isWideAttack = computed(() => selectedSource.value?.attackMode === 'wide');
 const selectedSourceRule = computed(() =>
   selectedSource.value ? (props.rules.find((rule) => rule.id === selectedSource.value?.ruleId) ?? null) : null,
 );
@@ -202,8 +203,12 @@ function profileKey(profile: AttackOverview): string {
 
 function selectProfile(slotIndex: number, profile: AttackOverview): void {
   const nextSlots = [...slots.value];
-  nextSlots[slotIndex] = { ...nextSlots[slotIndex], profile };
-  slots.value = nextSlots;
+  if (isWideAttack.value) {
+    slots.value = nextSlots.map((slot) => ({ ...slot, profile }));
+  } else {
+    nextSlots[slotIndex] = { ...nextSlots[slotIndex], profile };
+    slots.value = nextSlots;
+  }
   if (actorKey.value) {
     attackFavoritesStore.setFavorite(actorKey.value, {
       itemRuleId: profile.itemRuleId,
@@ -212,6 +217,17 @@ function selectProfile(slotIndex: number, profile: AttackOverview): void {
     });
   }
   profileMenuSlot.value = null;
+}
+
+function addTarget(): void {
+  if (!isWideAttack.value || slots.value.length >= attackActionSourceService.maxTargets(selectedSourceRule.value))
+    return;
+  slots.value = [...slots.value, { profile: slots.value[0]?.profile ?? null, targetKey: null }];
+}
+
+function removeTarget(index: number): void {
+  if (!isWideAttack.value || index === 0) return;
+  slots.value = slots.value.filter((_, slotIndex) => slotIndex !== index);
 }
 
 async function hydrate(): Promise<void> {
@@ -284,8 +300,16 @@ async function submit(): Promise<void> {
   if (source.isProcess && (!selectedStepCode || !source.process)) throw new Error('Выберите шаг процесса');
   if (slots.value.some((slot) => !slot.profile || !slot.targetKey))
     throw new Error('Заполните профиль и цель каждого удара');
-  if (slots.value.some((slot) => slot.targetKey !== slots.value[0]?.targetKey)) {
+  const targetCountError = attackActionSourceService.validateTargetCount(
+    selectedSourceRule.value,
+    slots.value.flatMap((slot) => (slot.targetKey ? [slot.targetKey] : [])),
+  );
+  if (targetCountError) throw new Error(targetCountError);
+  if (!isWideAttack.value && slots.value.some((slot) => slot.targetKey !== slots.value[0]?.targetKey)) {
     throw new Error('Одновременные удары должны иметь одну общую цель');
+  }
+  if (isWideAttack.value && new Set(slots.value.map((slot) => slot.targetKey)).size !== slots.value.length) {
+    throw new Error('Цели Широкого удара должны быть различными');
   }
   const attackStrikes: AttackActionStrike[] = slots.value.flatMap((slot) =>
     slot.profile && slot.targetKey ? [{ profile: slot.profile, targetKey: slot.targetKey }] : [],
@@ -306,6 +330,7 @@ async function submit(): Promise<void> {
     initiator,
     source: processSource ?? { kind: 'action', actionRuleId: source.ruleId },
     strikes: attackStrikes,
+    mode: isWideAttack.value ? 'wide' : 'single',
     reactionMode: 'simultaneous',
     totalOdCost: finalCost.value,
   });
@@ -406,9 +431,20 @@ watch(selectedProcessStep, () => {
 
         <div v-for="(slot, index) in slots" :key="index" class="attack-slot mb-3">
           <div class="d-flex align-center ga-2 mb-1">
-            <span class="text-subtitle-2">Удар {{ index + 1 }}</span>
+            <span class="text-subtitle-2">{{ isWideAttack ? `Цель ${index + 1}` : `Удар ${index + 1}` }}</span>
+            <v-spacer />
+            <v-btn
+              v-if="isWideAttack && index > 0"
+              icon="mdi-close"
+              size="x-small"
+              variant="text"
+              :disabled="busy"
+              aria-label="Удалить цель"
+              @click="removeTarget(index)"
+            />
           </div>
           <v-menu
+            v-if="!isWideAttack || index === 0"
             :model-value="profileMenuSlot === index"
             :close-on-content-click="false"
             location="bottom"
@@ -438,15 +474,16 @@ watch(selectedProcessStep, () => {
                   v-for="profile in compatibleProfiles"
                   :key="profileKey(profile)"
                   :attack="profile"
-                  :selected="
-                    slot.profile ? profileKey(slot.profile) === profileKey(profile) : false
-                  "
+                  :selected="slot.profile ? profileKey(slot.profile) === profileKey(profile) : false"
                   @select="selectProfile(index, $event)"
                 />
                 <v-list-item v-if="compatibleProfiles.length === 0" title="Подходящих профилей нет" />
               </v-list>
             </v-card>
           </v-menu>
+          <div v-else-if="slot.profile" class="text-body-2 text-medium-emphasis mb-2">
+            Профиль: {{ slot.profile.itemName }} · {{ slot.profile.profileTypeLabel }}
+          </div>
           <v-autocomplete
             v-model="slot.targetKey"
             :items="targetOptions"
@@ -458,6 +495,16 @@ watch(selectedProcessStep, () => {
             :disabled="busy"
           />
         </div>
+        <v-btn
+          v-if="isWideAttack && slots.length < attackActionSourceService.maxTargets(selectedSourceRule)"
+          variant="outlined"
+          size="small"
+          class="mb-2"
+          :disabled="busy || !slots[0]?.profile"
+          @click="addTarget"
+        >
+          + Цель
+        </v-btn>
 
         <div v-if="selectedSource?.effects?.length" class="text-body-2 text-medium-emphasis mt-2">
           <div v-for="(effect, index) in selectedSource.effects" :key="index">

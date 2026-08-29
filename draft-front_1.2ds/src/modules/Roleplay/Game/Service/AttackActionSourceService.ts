@@ -27,6 +27,7 @@ export class AttackActionSourceService {
           isAttack: true,
           isProcess: processSpec !== null,
           process: processSpec ?? undefined,
+          attackMode: actionSpec?.attack_mode,
         },
       ];
     });
@@ -53,6 +54,19 @@ export class AttackActionSourceService {
         candidate.profileType === profile.profileType &&
         (candidate.profileIndex ?? 0) === (profile.profileIndex ?? 0),
     );
+  }
+
+  maxTargets(rule: Rule | null): number {
+    const actionSpec = rule ? asActionAbilitySpec(rule) : null;
+
+    return actionSpec?.attack_mode === 'wide' ? (actionSpec.max_targets ?? 1) : 1;
+  }
+
+  validateTargetCount(rule: Rule | null, targetKeys: string[]): string | null {
+    const maxTargets = this.maxTargets(rule);
+    if (targetKeys.length <= maxTargets) return null;
+
+    return `Атака может иметь не более ${maxTargets} целей`;
   }
 
   private isAutomatic(zones: Record<string, unknown> | undefined): boolean {

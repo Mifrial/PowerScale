@@ -3905,8 +3905,7 @@ const mockDevelopmentImportRaw: Rule[] = [
           {
             code: 'part-2',
             name: 'Вторая часть',
-            description:
-              'Совершите один удар за 2 ОД. Если он промахнулся — процесс заканчивается.',
+            description: 'Совершите один удар за 2 ОД. Если он промахнулся — процесс заканчивается.',
             interruption: { mode: 'normal' },
             costs: [{ resource_code: 'action-points', amount: 2 }],
           },
@@ -4255,6 +4254,25 @@ const mockDevelopmentImportRaw: Rule[] = [
           label: 'Действие',
         },
       ],
+      action_effects: [
+        {
+          type: 'current_action_attack_characteristic_modifier',
+          delta: 2,
+          scope: { components: ['strike'], hit_count: 1 },
+        },
+        {
+          type: 'current_action_check_modifier',
+          check_codes: ['check-hit'],
+          delta: -2,
+        },
+        {
+          type: 'after_action_until_resource_spent_check_modifier',
+          resource_code: 'action-points',
+          amount: 2,
+          check_codes: ['check-hit'],
+          delta: -2,
+        },
+      ],
     },
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,
@@ -4451,6 +4469,8 @@ const mockDevelopmentImportRaw: Rule[] = [
           label: 'Действие',
         },
       ],
+      attack_mode: 'wide',
+      max_targets: 3,
     },
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,

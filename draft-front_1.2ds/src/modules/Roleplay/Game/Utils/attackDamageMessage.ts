@@ -117,6 +117,7 @@ export function buildAttackCalcPayload(input: {
   damageTypeCode?: string | null;
   rules: Rule[];
   sr: number;
+  endurance: DimensionalNumberValue;
   result: ApplyAttackDamageResult;
   defenseIgnored: boolean;
 }): AttackCalcPayload {
@@ -128,9 +129,12 @@ export function buildAttackCalcPayload(input: {
     damage: input.weaponDamage,
     damageTypeName: typeName,
     resistance: input.result.resistance,
+    endurance: input.endurance,
     defenseIgnored: input.defenseIgnored,
     attackSrLabel: formatAttackSrLabel(input.sr),
     stun: input.result.stun,
+    exhaustion: input.result.exhaustion,
+    remainingHpDamage: input.result.remainingHpDamage,
     wound: input.result.wound,
     knockout: input.result.knockout,
     cuttingWound: input.result.cuttingWound,

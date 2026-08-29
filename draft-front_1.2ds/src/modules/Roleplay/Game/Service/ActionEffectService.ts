@@ -1,7 +1,12 @@
 import type { ActionEffect } from '@/modules/Roleplay/Rule/Dto/Ability/ActionEffect';
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
+import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
+import { CHARACTERISTIC_BASE_RANGE } from '@/modules/Roleplay/Character/Constant/CHARACTERISTIC_BASE_RANGE';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
+import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
 import { actionEffectLabelService } from '@/modules/Roleplay/Rule/Service/Instance/actionEffectLabelService';
+import { ADVANTAGE_SOURCE_CIRCUMSTANCES } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
 
 export class ActionEffectService {
   effectsOf(rule: Rule | null | undefined): ActionEffect[] {
@@ -23,6 +28,45 @@ export class ActionEffectService {
           this.scopeIncludesHit(effect.scope, 1),
       )
       .reduce((total, effect) => total + effect.delta, 0);
+  }
+
+  currentAttackActionCharacteristicModifier(
+    rule: Rule | null | undefined,
+    component: 'strike' | 'throw' | 'shoot',
+    hitNumber = 1,
+  ): number {
+    return this.effectsOf(rule)
+      .filter(
+        (effect): effect is Extract<ActionEffect, { type: 'current_action_attack_characteristic_modifier' }> =>
+          effect.type === 'current_action_attack_characteristic_modifier' &&
+          effect.scope.components.includes(component) &&
+          this.scopeIncludesHit(effect.scope, hitNumber),
+      )
+      .reduce((total, effect) => total + effect.delta, 0);
+  }
+
+  currentActionCheckModifier(rule: Rule | null | undefined, checkCode: string): number {
+    return this.effectsOf(rule)
+      .filter((effect) => effect.type === 'current_action_check_modifier' && effect.check_codes.includes(checkCode))
+      .reduce((total, effect) => total + effect.delta, 0);
+  }
+
+  currentActionCheckModifiers(rule: Rule | null | undefined, checkCode: string): AdvantageModifier[] {
+    const delta = this.currentActionCheckModifier(rule, checkCode);
+    if (!delta) return [];
+
+    return [{ source_code: ADVANTAGE_SOURCE_CIRCUMSTANCES, source_label: 'Обстоятельства', delta }];
+  }
+
+  applyCurrentAttackActionCharacteristicModifier(
+    rule: Rule | null | undefined,
+    component: 'strike' | 'throw' | 'shoot',
+    value: DimensionalNumberValue,
+    hitNumber = 1,
+  ): DimensionalNumberValue {
+    const delta = this.currentAttackActionCharacteristicModifier(rule, component, hitNumber);
+
+    return new DimensionalNumber(value).modify(delta, CHARACTERISTIC_BASE_RANGE).value;
   }
 
   effectsAfterAction(rule: Rule | null | undefined): PendingActionEffect[] {
@@ -119,6 +163,24 @@ export class ActionEffectService {
           pending.effect.check_codes.includes(checkCode),
       )
       .reduce((total, pending) => total + pending.effect.delta, 0);
+  }
+
+  checkAdvantageModifiers(pendingEffects: PendingActionEffect[], checkCode: string): AdvantageModifier[] {
+    return pendingEffects
+      .filter(
+        (
+          pending,
+        ): pending is PendingActionEffect & {
+          effect: Extract<ActionEffect, { type: 'after_action_until_resource_spent_check_modifier' }>;
+        } =>
+          pending.effect.type === 'after_action_until_resource_spent_check_modifier' &&
+          pending.effect.check_codes.includes(checkCode),
+      )
+      .map((pending) => ({
+        source_code: ADVANTAGE_SOURCE_CIRCUMSTANCES,
+        source_label: 'Обстоятельства',
+        delta: pending.effect.delta,
+      }));
   }
 
   consumeResource(pendingEffects: PendingActionEffect[], resourceCode: string, amount: number): PendingActionEffect[] {

@@ -49,7 +49,6 @@ const ruleSlider = useRuleDetailSlider();
 function onToggleEquipped(itemId: number): void {
   emit('toggle-equipped', itemId);
 }
-
 </script>
 
 <template>

@@ -64,11 +64,11 @@ const panelTitle = computed(() => {
         class="mb-4"
         @update:model-value="emit('update:catalogSortOrder', $event)"
       />
-        <TreeSelectFilter
-          :field="sectionField"
-          :model-value="catalogSection"
-          @update:model-value="(value) => emit('update:catalogSection', typeof value === 'string' ? value : null)"
-        />
+      <TreeSelectFilter
+        :field="sectionField"
+        :model-value="catalogSection"
+        @update:model-value="(value) => emit('update:catalogSection', typeof value === 'string' ? value : null)"
+      />
     </v-expansion-panel-text>
   </v-expansion-panel>
 </template>

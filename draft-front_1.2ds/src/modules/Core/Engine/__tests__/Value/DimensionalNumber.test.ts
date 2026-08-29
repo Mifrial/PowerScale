@@ -67,6 +67,12 @@ describe('DimensionalNumber.subtract', () => {
   });
 });
 
+describe('DimensionalNumber.multiply', () => {
+  it('умножает базу, сохраняя размер', () => {
+    expect(dn(4, 1).multiply(2).value).toEqual({ base: 8, size: 1 });
+  });
+});
+
 describe('DimensionalNumber.equalsStrict', () => {
   it('равенство по base и size', () => {
     expect(dn(4, 0).equalsStrict(dn(4, 0))).toBe(true);

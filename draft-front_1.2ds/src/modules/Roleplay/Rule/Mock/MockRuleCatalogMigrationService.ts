@@ -96,13 +96,13 @@ export class MockRuleCatalogMigrationService {
   }
 
   private isWeaponSkill(rule: Rule): boolean {
-    const spec = rule.spec as
-      | { requirements?: { requirements?: { type?: string }[] }[] }
-      | undefined;
+    const spec = rule.spec as { requirements?: { requirements?: { type?: string }[] }[] } | undefined;
 
-    return spec?.requirements?.some((level) =>
-      level.requirements?.some((requirement) => requirement.type === 'min_weapon_mastery'),
-    ) ?? false;
+    return (
+      spec?.requirements?.some((level) =>
+        level.requirements?.some((requirement) => requirement.type === 'min_weapon_mastery'),
+      ) ?? false
+    );
   }
 
   private simpleRuleSection(rule: Rule): string {
@@ -115,7 +115,9 @@ export class MockRuleCatalogMigrationService {
   }
 
   private keywordCodes(rule: Rule, keywordCodeById: ReadonlyMap<number, string>): Set<string> {
-    return new Set((rule.keywordIds ?? []).map((id) => keywordCodeById.get(id)).filter((code): code is string => !!code));
+    return new Set(
+      (rule.keywordIds ?? []).map((id) => keywordCodeById.get(id)).filter((code): code is string => !!code),
+    );
   }
 
   private specParentCode(rule: Rule): string | null {

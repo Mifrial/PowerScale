@@ -86,10 +86,14 @@ function synchronizeOpenedValues(): void {
 }
 
 function updateOpened(values: unknown[]): void {
-  const nextValues = [...new Set(values.filter(
-    (value): value is FilterOptionValue =>
-      typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean',
-  ))];
+  const nextValues = [
+    ...new Set(
+      values.filter(
+        (value): value is FilterOptionValue =>
+          typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean',
+      ),
+    ),
+  ];
   if (sameValues(openedValues.value, nextValues)) return;
   openedValues.value = nextValues;
 }

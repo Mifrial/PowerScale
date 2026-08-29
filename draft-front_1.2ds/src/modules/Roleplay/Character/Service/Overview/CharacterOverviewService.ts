@@ -97,11 +97,17 @@ export class CharacterOverviewService {
     profileType: 'strike' | 'throw' | 'shoot',
     distanceIpari: number,
     profileIndex?: number,
+    actionCharacteristicModifier = 0,
   ): AttackOverview | null {
     const { synced, reference, context } = this.prepared(version, rules);
 
     return (
-      this.buildAttacks(synced, reference, context, { itemRuleId, profileType, distanceIpari }).find(
+      this.buildAttacks(synced, reference, context, {
+        itemRuleId,
+        profileType,
+        distanceIpari,
+        actionCharacteristicModifier,
+      }).find(
         (item) =>
           item.itemRuleId === itemRuleId &&
           item.profileType === profileType &&
@@ -1027,6 +1033,7 @@ export class CharacterOverviewService {
       profileType: 'strike' | 'throw' | 'shoot';
       distanceIpari: number;
       profileIndex?: number;
+      actionCharacteristicModifier?: number;
     },
   ): AttackOverview[] {
     const attacks: AttackOverview[] = [];
@@ -1054,6 +1061,7 @@ export class CharacterOverviewService {
             context,
             distanceIpari,
             profileIndex,
+            atDistance?.actionCharacteristicModifier ?? 0,
           ),
         );
       }
@@ -1070,8 +1078,15 @@ export class CharacterOverviewService {
     context: FormulaContext,
     distanceIpari: number | null = null,
     profileIndex?: number,
+    actionCharacteristicModifier = 0,
   ): AttackOverview {
-    const zeroCtx = weaponAttackRangeService.profileFormulaContext(profile, context, this.formula);
+    const zeroCtx = weaponAttackRangeService.profileFormulaContext(
+      profile,
+      context,
+      this.formula,
+      0,
+      actionCharacteristicModifier,
+    );
     const minDistance = this.formula.evaluate(profile.distance, zeroCtx);
     const range = profile.range === null ? null : this.formula.evaluate(profile.range, zeroCtx);
     const reach = range ?? minDistance;
@@ -1082,7 +1097,13 @@ export class CharacterOverviewService {
         ? weaponAttackRangeService.actionStrengthSizePenalty(distanceIpari, reach, falloff)
         : 0;
     const evalCtx = penalty
-      ? weaponAttackRangeService.profileFormulaContext(profile, context, this.formula, penalty)
+      ? weaponAttackRangeService.profileFormulaContext(
+          profile,
+          context,
+          this.formula,
+          penalty,
+          actionCharacteristicModifier,
+        )
       : zeroCtx;
     const accuracy = profile.accuracy;
     const damageValue = this.formula.evaluateDimensional(profile.damage.formula, evalCtx);

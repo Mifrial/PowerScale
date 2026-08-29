@@ -61,10 +61,7 @@ export const useAttackFavoritesStore = defineStore('attackFavorites', () => {
     entityKey: string,
     profile: Pick<CharacterAttackFavorite, 'itemRuleId' | 'profileType' | 'profileIndex'>,
   ): void {
-    const next = [
-      ...entries.value.filter((entry) => entry.entityKey !== entityKey),
-      { entityKey, ...profile },
-    ];
+    const next = [...entries.value.filter((entry) => entry.entityKey !== entityKey), { entityKey, ...profile }];
     entries.value = next;
     persist(next);
   }

@@ -32,7 +32,23 @@ describe('MovementContextService', () => {
   });
 
   it('resolves a racial automatic small-step ability from the current rules', () => {
-    const version = { raceRuleId: 'race', abilities: [] } as CharacterVersion;
+    const version: CharacterVersion = {
+      name: 'Тест',
+      shortDescription: null,
+      fullDescription: null,
+      spaceCode: 'test',
+      rulesRevision: 1,
+      raceRuleId: 'race',
+      characteristics: [],
+      resources: [],
+      abilities: [],
+      points: { osSpent: 0, olSpent: 0, olTotal: 0, orSpent: 0, orTotal: null },
+      money: 0,
+      ageYears: null,
+      inventory: [],
+      states: [],
+      senses: [],
+    };
     const rules = [
       {
         id: 'race',

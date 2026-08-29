@@ -32,6 +32,7 @@ export interface CombatActionOption {
   isProcess?: boolean;
   process?: ProcessSpec;
   operations?: ActionOperation[];
+  attackMode?: 'single' | 'wide';
 }
 
 export function asActionAbilitySpec(rule: Rule): Extract<AbilitySpec, { type: 'action' }> | null {
@@ -104,6 +105,7 @@ export function listAttackActions(
       odCost: actionOdCost(spec.action_components) || DEFAULT_ATTACK_AP,
       effects: actionEffectService.effectsOf(rule),
       operations: spec.operations,
+      attackMode: spec.attack_mode,
       isAttack: true,
     });
   }
@@ -125,6 +127,7 @@ export function attackActionById(rules: Rule[], ruleId: string | null | undefine
     odCost: actionOdCost(spec.action_components) || DEFAULT_ATTACK_AP,
     effects: actionEffectService.effectsOf(rule),
     operations: spec.operations,
+    attackMode: spec.attack_mode,
     isAttack: hasKeyword(rule, ATTACK_KEYWORD_IDS.attack),
   };
 }

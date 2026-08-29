@@ -47,6 +47,7 @@ const sectionTreeOptions = abilitySectionTreeService.flatten(
 
 function sectionOf(ability: EditorAbility): string | null {
   const rule = props.rules.find((entry) => entry.id === ability.ruleId);
+
   return rule?.catalogSection ?? null;
 }
 
@@ -136,10 +137,7 @@ const sectionOrderByCode = new Map(sectionTreeOptions.map((section, index) => [s
 
 function abilitySortOrder(ability: EditorAbility & { section: string | null }): number {
   const rule = props.rules.find((entry) => entry.id === ability.ruleId);
-  const sortOrder =
-    typeof rule?.catalogSortOrder === 'number'
-      ? rule.catalogSortOrder
-      : Number.MAX_SAFE_INTEGER;
+  const sortOrder = typeof rule?.catalogSortOrder === 'number' ? rule.catalogSortOrder : Number.MAX_SAFE_INTEGER;
 
   return sortOrder;
 }

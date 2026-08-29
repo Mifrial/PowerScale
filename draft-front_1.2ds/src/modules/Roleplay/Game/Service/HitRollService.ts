@@ -38,6 +38,8 @@ import type { HitBlockProfile } from '@/modules/Roleplay/Game/Dto/HitBlockProfil
 import type { HitRollInput } from '@/modules/Roleplay/Game/Dto/HitRollInput';
 import type { SimultaneousHitRoll } from '@/modules/Roleplay/Game/Dto/SimultaneousHitRoll';
 import type { HitCheckRoll } from '@/modules/Roleplay/Game/Dto/HitCheckRoll';
+import type { WideHitRoll } from '@/modules/Roleplay/Game/Dto/WideHitRoll';
+import type { WideHitRollTargetResult } from '@/modules/Roleplay/Game/Dto/WideHitRollTargetResult';
 import { FLANK_DEFENSE_LABEL } from '@/modules/Roleplay/Game/Constant/Combat/FLANK_DEFENSE_LABEL';
 export class HitRollService {
   private static readonly FALLBACK_MASTERY: DimensionalNumberValue = { base: 3, size: -1 };
@@ -139,7 +141,7 @@ export class HitRollService {
       attackAccuracy,
       input.attackerAdv ?? 0,
       rules,
-      attackMods.advantages,
+      [...attackMods.advantages, ...(input.attackerAdvantageModifiers ?? [])],
       input.attackerKey,
       this.strikeMasteryAdjustments(attackMods.masteryDelta),
     );
@@ -191,7 +193,7 @@ export class HitRollService {
       efficiency,
       input.defenderAdv ?? 0,
       rules,
-      [...defenseMods.advantages, ...flankAdv],
+      [...defenseMods.advantages, ...flankAdv, ...(input.defenderAdvantageModifiers ?? [])],
       input.defenderKey,
       [...this.strikeMasteryAdjustments(baseDefenseMods.masteryDelta), ...(input.defenderMasteryAdjustments ?? [])],
     );
@@ -217,6 +219,72 @@ export class HitRollService {
     const joint = checkRollService.rollJointCheck(attackSpec, defenseSpec, CHECK_HIT_CODE, rng, rules, mechanics);
 
     return { attacker: joint.left, defender: joint.right };
+  }
+
+  rollWideHit(inputs: HitRollInput[], rng: DiceRng, rules: Rule[], mechanics: Mechanic[]): WideHitRoll {
+    if (inputs.length === 0) throw new Error('Wide-атака должна содержать хотя бы одну цель');
+    if (inputs.some((input) => !input.defenderKey)) throw new Error('Wide-атака требует идентификаторы всех целей');
+
+    const attacker = this.rollHit({ ...inputs[0], reaction: 'ignore' }, rng, rules, mechanics).attacker;
+    const targetResults = inputs.map((input): WideHitRollTargetResult => {
+      const defender = this.rollWideDefender(input, attacker, rng, rules, mechanics);
+      const difficulty = defender
+        ? checkRollService.successesOf(defender)
+        : resolveHitProcedure(input.attack.profileType, rules, mechanics).ignoreDefense;
+
+      return {
+        targetKey: input.defenderKey as CombatEntityKey,
+        attacker: checkRollService.withCheckOutcome(attacker, CHECK_HIT_CODE, difficulty),
+        defender,
+      };
+    });
+
+    return { attacker, targetResults };
+  }
+
+  rollMeleeWideHit(inputs: HitRollInput[], rng: DiceRng, rules: Rule[], mechanics: Mechanic[]): WideHitRoll {
+    return this.rollWideHit(inputs, rng, rules, mechanics);
+  }
+
+  private rollWideDefender(
+    input: HitRollInput,
+    attacker: HitCheckRoll['attacker'],
+    rng: DiceRng,
+    rules: Rule[],
+    mechanics: Mechanic[],
+  ): WideHitRollTargetResult['defender'] {
+    if (input.reaction === 'ignore') return null;
+
+    const procedure = resolveHitProcedure(input.attack.profileType, rules, mechanics);
+    const ranged = input.attack.profileType === 'throw' || input.attack.profileType === 'shoot';
+    const baseDefenseMods = strikeCharacteristicMods(input.defenderOverview, rules);
+    const defenseMods = strikeCharacteristicMods(input.defenderOverview, rules, {
+      dexterityMasteryDelta: input.defenderDexterityMasteryDelta,
+    });
+    const defenseMastery = applyStrikeMastery(
+      bestCombatMastery(input.defenderOverview, ranged),
+      defenseMods.masteryDelta,
+    );
+    const chosen = input.defenseEfficiency ?? procedure.dodgeEfficiency;
+    const efficiency = input.reaction === 'block' ? this.maxDimensional(chosen, procedure.minBlockEfficiency) : chosen;
+    const flankAdv =
+      input.flank && !input.turn
+        ? [{ source_code: ADVANTAGE_SOURCE_CIRCUMSTANCES, source_label: FLANK_DEFENSE_LABEL, delta: -2 }]
+        : [];
+    const defenseSpec = this.poolSpec(
+      input.defenderLabel,
+      defenseMastery,
+      efficiency,
+      input.defenderAdv ?? 0,
+      rules,
+      [...defenseMods.advantages, ...flankAdv, ...(input.defenderAdvantageModifiers ?? [])],
+      input.defenderKey,
+      [...this.strikeMasteryAdjustments(baseDefenseMods.masteryDelta), ...(input.defenderMasteryAdjustments ?? [])],
+    );
+    const attached = checkResolutionService.resolveCheckAttachedRuleCodes(CHECK_HIT_CODE, rules);
+    const defender = rollEngine.roll(defenseSpec, rng, rules, mechanics, attached, []);
+
+    return checkRollService.withCheckOutcome(defender, CHECK_HIT_CODE, checkRollService.successesOf(attacker));
   }
 
   /** Совместимость со старыми тестами. */

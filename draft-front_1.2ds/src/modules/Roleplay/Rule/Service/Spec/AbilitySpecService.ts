@@ -268,6 +268,13 @@ export class AbilitySpecService {
         };
       case 'resource_limit':
         return { type: 'resource_limit', resource_code: '' };
+      case 'current_speed':
+        return {
+          type: 'current_speed',
+          axis: 'horizontal',
+          direction: 'front',
+          min_steps_per_action_point: 1,
+        };
       case 'and':
         return { type: 'and', children: [this.createEmptyRequirement('has_keyword')] };
       case 'or':

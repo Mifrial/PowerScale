@@ -498,7 +498,6 @@ function hasActionPointCost(): boolean {
           </div>
         </v-expansion-panel-text>
       </v-expansion-panel>
-
     </v-expansion-panels>
   </div>
 </template>

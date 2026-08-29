@@ -113,4 +113,52 @@ describe('mockCheckOffers: handshake pairwise', () => {
     expect(cancelled.status).toBe('cancelled');
     expect(await getCheckOffersForEntity(7, initiator)).toHaveLength(0);
   });
+
+  it('групповая оферта ждёт независимые ответы всех целей', async () => {
+    const targetThree = 'character:3' as const;
+    const groupHit = {
+      itemRuleId: 'sword',
+      itemName: 'Меч',
+      profileType: 'strike' as const,
+      accuracy: { base: 4, size: 0 },
+      reaction: null,
+    };
+    const groupProposal = {
+      ...proposal,
+      attackAction: {
+        initiator,
+        source: { kind: 'action', actionRuleId: 'wide' },
+        mode: 'wide',
+        strikes: [
+          { targetKey: opponent, profile: {} },
+          { targetKey: 'character:3', profile: {} },
+        ],
+        reactionMode: 'simultaneous',
+        totalOdCost: 4,
+      },
+      hit: groupHit,
+    } as unknown as CheckOfferProposal;
+    const created = await createCheckOffer(7, {
+      checkCode: 'check-hit',
+      initiator,
+      opponent,
+      proposal: groupProposal,
+    });
+
+    expect(await getPendingCheckOffers(7, targetThree)).toHaveLength(1);
+    await reviseCheckOffer(created.id, targetThree, {
+      ...groupProposal,
+      hit: { ...groupHit, reaction: 'dodge' },
+    });
+    expect((await getCheckOffersForGame(7))[0]?.waitingOn).toBe('opponent');
+    const revised = await reviseCheckOffer(created.id, opponent, {
+      ...groupProposal,
+      hit: { ...groupHit, reaction: 'ignore' },
+    });
+
+    expect(revised.waitingOn).toBe('initiator');
+    expect(revised.waitingOnTargets).toEqual([]);
+    const accepted = await acceptCheckOffer(created.id, initiator);
+    expect(accepted.status).toBe('accepted');
+  });
 });

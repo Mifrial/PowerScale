@@ -72,6 +72,7 @@ export class WeaponAttackRangeService {
     context: FormulaContext,
     formula: FormulaEvaluationService,
     strengthSizePenalty = 0,
+    actionCharacteristicModifier = 0,
   ): FormulaContext {
     return {
       ...context,
@@ -83,9 +84,12 @@ export class WeaponAttackRangeService {
             : (context.actionCharacteristicValue?.(action, characteristic) ??
               context.characteristicValues.get(characteristic));
         if (!raw) return undefined;
-        if (!strengthSizePenalty) return raw;
+        const actionModified = actionCharacteristicModifier
+          ? new DimensionalNumber(raw).modify(actionCharacteristicModifier, CHARACTERISTIC_BASE_RANGE).value
+          : raw;
+        if (!strengthSizePenalty) return actionModified;
 
-        return CharacteristicNumber.from(raw).modifyWith(-SIZE_STEP * strengthSizePenalty).value;
+        return CharacteristicNumber.from(actionModified).modifyWith(-SIZE_STEP * strengthSizePenalty).value;
       },
     };
   }

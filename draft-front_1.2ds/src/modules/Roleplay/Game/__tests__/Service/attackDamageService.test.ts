@@ -71,6 +71,20 @@ describe('applyAttackDamage', () => {
     expect(result.exhaustion).toBe(3);
   });
 
+  it('считает истощение в размерных единицах и сохраняет остаток повреждений', () => {
+    const result = attackDamageService.applyAttackDamage({
+      weaponDamage: { base: 20, size: 0 },
+      sr: 1,
+      damageTypeCode: 'blunt',
+      defense: null,
+      endurance: { base: 4, size: 1 },
+      hooks: [],
+    });
+
+    expect(result.exhaustion).toBe(2);
+    expect(result.remainingHpDamage).toBe(4);
+  });
+
   it('тик DOT: SR 1, сопротивление режет урон в ноль', () => {
     const result = attackDamageService.applyAttackDamage({
       weaponDamage: { base: 3, size: 0 },
@@ -467,6 +481,7 @@ describe('applyAttackDamage', () => {
         },
       ],
       sr: 4,
+      endurance: { base: 4, size: 0 },
       defenseIgnored: false,
       result: {
         remainingSr: 4,
@@ -474,6 +489,7 @@ describe('applyAttackDamage', () => {
         raw: 16,
         hpDamage: 16,
         exhaustion: 4,
+        remainingHpDamage: 0,
         stun: 4,
         wound: null,
         knockout: false,

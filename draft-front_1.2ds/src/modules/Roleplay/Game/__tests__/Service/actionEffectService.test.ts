@@ -1,10 +1,46 @@
 import { describe, expect, it } from 'vitest';
 import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/actionEffectService';
 
 const sourceRuleId = 'rule-fast-strike';
 
 describe('ActionEffectService', () => {
+  it('resolves a dimensional current attack characteristic modifier by attack component and hit', () => {
+    const rule = {
+      id: 'rule-sweeping-strike',
+      code: 'razmashistyy-udar',
+      type: 'ability',
+      name: 'Размашистый удар',
+      description: '',
+      spaceId: 1,
+      keywordIds: [],
+      mechanicId: null,
+      createdAt: '2026-01-01T00:00:00Z',
+      spec: {
+        type: 'action',
+        zones: {},
+        requirements: [],
+        grants: [],
+        parent_ability_code: null,
+        action_components: [],
+        action_effects: [
+          {
+            type: 'current_action_attack_characteristic_modifier',
+            delta: 2,
+            scope: { components: ['strike'], hit_count: 1 },
+          },
+        ],
+      },
+    } as Rule;
+
+    expect(actionEffectService.currentAttackActionCharacteristicModifier(rule, 'strike')).toBe(2);
+    expect(actionEffectService.currentAttackActionCharacteristicModifier(rule, 'shoot')).toBe(0);
+    expect(
+      actionEffectService.applyCurrentAttackActionCharacteristicModifier(rule, 'strike', { base: 5, size: 0 }),
+    ).toEqual({ base: 4, size: 1 });
+  });
+
   it('applies next-action cost and consumes the effect on an attack', () => {
     const pending: PendingActionEffect[] = [
       {
@@ -109,6 +145,46 @@ describe('ActionEffectService', () => {
     );
   });
 
+  it('resolves current and pending hit disadvantages with the rule source', () => {
+    const rule = {
+      id: 'rule-sweeping-strike',
+      name: 'Размашистый удар',
+    } as Rule;
+    const pending: PendingActionEffect[] = [
+      {
+        sourceRuleId: rule.id,
+        effect: {
+          type: 'after_action_until_resource_spent_check_modifier',
+          resource_code: 'action-points',
+          amount: 2,
+          check_codes: ['check-hit'],
+          delta: -2,
+        },
+      },
+    ];
+
+    expect(
+      actionEffectService.currentActionCheckModifier(
+        {
+          ...rule,
+          spec: {
+            type: 'action',
+            zones: {},
+            requirements: [],
+            grants: [],
+            parent_ability_code: null,
+            action_components: [],
+            action_effects: [{ type: 'current_action_check_modifier', check_codes: ['check-hit'], delta: -2 }],
+          },
+        },
+        'check-hit',
+      ),
+    ).toBe(-2);
+    expect(actionEffectService.checkAdvantageModifiers(pending, 'check-hit')).toEqual([
+      { source_code: 'circumstances', source_label: 'Обстоятельства', delta: -2 },
+    ]);
+  });
+
   it('consumes a duration effect by spending its resource', () => {
     const pending: PendingActionEffect[] = [
       {
@@ -117,7 +193,7 @@ describe('ActionEffectService', () => {
           type: 'after_action_until_resource_spent_check_modifier',
           resource_code: 'action-points',
           amount: 2,
-          check_codes: ['hit'],
+          check_codes: ['check-hit'],
           delta: -1,
         },
       },
