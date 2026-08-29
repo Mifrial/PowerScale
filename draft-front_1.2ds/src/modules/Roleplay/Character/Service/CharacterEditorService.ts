@@ -40,6 +40,7 @@ import type { Age } from '@/modules/Roleplay/Rule/Dto/Age/Age';
 import type { AgeSpec } from '@/modules/Roleplay/Rule/Dto/Age/AgeSpec';
 import type { AgeRange } from '@/modules/Roleplay/Rule/Dto/Race/AgeRange';
 import type { ResourceSpec } from '@/modules/Roleplay/Rule/Dto/ResourceSpec';
+import type { SenseSpec } from '@/modules/Roleplay/Rule/Dto/SenseSpec';
 import { RaceSpecService } from '@/modules/Roleplay/Rule/Service/Spec/RaceSpecService';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import { formulaLabel } from '@/modules/Roleplay/Character/Utils/formulaLabel';
@@ -149,12 +150,17 @@ export class CharacterEditorService {
         ruleId: value.ruleId,
         value: value.value,
         modifiers: value.modifiers,
+        status: value.status,
+        radius: value.radius,
       })),
       budgets: { osTotal: config.osTotal, moneyBudget: config.moneyBudget },
     };
   }
 
-  private withAutomaticAbilities(abilities: CharacterVersion['abilities'], rules: Rule[]): CharacterVersion['abilities'] {
+  private withAutomaticAbilities(
+    abilities: CharacterVersion['abilities'],
+    rules: Rule[],
+  ): CharacterVersion['abilities'] {
     const result = [...abilities];
     const existingRuleIds = new Set(result.map((ability) => ability.ruleId));
 
@@ -499,8 +505,9 @@ export class CharacterEditorService {
     return [...byCode.entries()].map(([code, rule]) => {
       const modifiers = this.aggregateModifiers(code, deltas.get(code) ?? []);
       const value = modifiers.reduce((sum, modifier) => sum + modifier.delta, 0);
+      const spec = rule.spec as SenseSpec;
 
-      return { ruleId: rule.id, value, modifiers };
+      return { ruleId: rule.id, value, modifiers, status: spec.status, radius: spec.radius };
     });
   }
 
@@ -987,7 +994,7 @@ export class CharacterEditorService {
       // (свой блок «Характеристики» — EditorInnateMatrix) или уже взятая; иначе скрыта.
       const hasCommon = (rule.keywordIds ?? []).some((id) => keywordCodes.get(id) === 'common');
       const characteristic = (rule.keywordIds ?? []).some((id) => keywordCodes.get(id) === 'characteristic');
-      const visible = hasCommon || racial || characteristic || instances.length > 0 || zones.some((zone) => zone.zoneCode === 'or');
+      const visible = hasCommon || racial || characteristic || instances.length > 0;
       // Получена даром-навыком особенности (D100): уровень из гранта, снять нельзя.
       const giftedLevel = giftedLevels.get(rule.code) ?? 0;
       const gifted = giftedLevel > 0;

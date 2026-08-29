@@ -1,22 +1,39 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import type { CharacteristicOverview } from '@/modules/Roleplay/Character/Dto/Overview/CharacteristicOverview';
 import type { OverviewModifier } from '@/modules/Roleplay/Character/Dto/Overview/OverviewModifier';
+import type { CharacterSenseValue } from '@/modules/Roleplay/Character/Dto/CharacterSenseValue';
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import RuleLink from '@/modules/Roleplay/Character/Component/Detail/RuleLink.vue';
+import SensePopup from '@/modules/Roleplay/Character/Component/Detail/Characteristics/SensePopup.vue';
 
 const props = withDefaults(
   defineProps<{
     characteristic: CharacteristicOverview;
+    rules?: Rule[];
+    senses?: CharacterSenseValue[];
     // Встраиваемый режим для композитных блоков: без собственной рамки, только имя и значение.
     embedded?: boolean;
     // Подпись под именем внутри кликабельной области (напр. «Минимальная из →»).
     caption?: string | null;
   }>(),
-  { embedded: false, caption: null },
+  { rules: () => [], senses: () => [], embedded: false, caption: null },
 );
 
 const open = ref(false);
+const byId = computed(() => new Map(props.rules.map((rule) => [rule.id, rule])));
+const statusLabels: Record<CharacterSenseValue['status'], string> = {
+  precise: 'точное',
+  imprecise: 'неточное',
+  vague: 'смутное',
+  absent: 'отсутствует',
+};
+const showsSenses = computed(() => {
+  const characteristicCode = byId.value.get(props.characteristic.ruleId)?.code;
+
+  return characteristicCode === 'attention';
+});
 
 // Тайл показывает итоговое значение (размерное число). Состав (значение = база + модификаторы)
 // раскрывается по клику; условные модификаторы (scope) в значение не входят.
@@ -42,6 +59,10 @@ function showSubtitle(): boolean {
 
 function label(): string {
   return props.characteristic.shortName ?? props.characteristic.name;
+}
+
+function senseRule(sense: CharacterSenseValue): Rule | undefined {
+  return byId.value.get(sense.ruleId);
 }
 </script>
 
@@ -111,6 +132,29 @@ function label(): string {
         >
           Без модификаторов
         </div>
+
+        <template v-if="showsSenses">
+          <v-divider class="my-2" />
+          <div class="text-caption text-medium-emphasis mb-1">Чувства</div>
+          <v-menu
+            v-for="sense in senses"
+            :key="sense.ruleId"
+            location="right top"
+            open-on-hover
+            :close-on-content-click="false"
+          >
+            <template #activator="{ props: menuProps }">
+              <div v-bind="menuProps" class="d-flex align-center justify-space-between ga-3 py-1 text-body-2 base-row">
+                <span class="text-medium-emphasis">{{ senseRule(sense)?.name ?? sense.ruleId }}</span>
+                <span class="font-weight-medium">
+                  {{ signed(sense.value) }} / {{ statusLabels[sense.status] }} /
+                  {{ new DimensionalNumber(sense.radius).toString() }}
+                </span>
+              </div>
+            </template>
+            <SensePopup :sense="sense" :rule="senseRule(sense)" :rules="rules" />
+          </v-menu>
+        </template>
       </v-card-text>
     </v-card>
   </v-menu>

@@ -10,7 +10,8 @@ export class MockRuleCatalogMigrationService {
 
     return rules.map((rule, index) => ({
       ...rule,
-      catalogSection: this.sectionForRule(rule, speciesByCode, keywordCodeById, combatSectionByCode),
+      catalogSection:
+        rule.catalogSection ?? this.sectionForRule(rule, speciesByCode, keywordCodeById, combatSectionByCode),
       catalogSortOrder: rule.catalogSortOrder ?? (index + 1) * 100,
     }));
   }
@@ -78,6 +79,7 @@ export class MockRuleCatalogMigrationService {
     if (spec?.type === 'action') {
       if (keywords.has('attack')) return 'scenes-combat-basic-attacks';
       if (keywords.has('reaction')) return 'scenes-combat-defense';
+
       return 'scenes-other';
     }
     if (spec?.type === 'trait') return 'abilities-innate-common';

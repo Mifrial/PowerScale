@@ -47,7 +47,17 @@ const item = (id: number, ruleId: string, quantity = 1, equipped = false): Inven
 const state = (stateRuleId: string, value: number | undefined = undefined): CharacterStateValue =>
   value === undefined ? { stateRuleId } : { stateRuleId, value };
 
-const sense = (ruleId: string, value: number): CharacterSenseValue => ({ ruleId, value, modifiers: [] });
+const sense = (
+  ruleId: string,
+  value: number,
+  extra: Partial<Pick<CharacterSenseValue, 'status' | 'radius'>> = {},
+): CharacterSenseValue => ({
+  ruleId,
+  value,
+  modifiers: [],
+  status: extra.status ?? 'precise',
+  radius: extra.radius ?? { base: 30, size: 0 },
+});
 
 function makeVersion(overrides: Partial<CharacterVersion> = {}): CharacterVersion {
   return {
@@ -192,7 +202,25 @@ describe('membershipDiff: секции списков', () => {
     const pending = makeVersion({ states: [state('rule-bleed', 2)], senses: [sense('rule-vision', 3)] });
     const diff = membershipDiff(active, pending);
     expect(sectionChanges(diff, 'states')[0]).toMatchObject({ label: 'rule-bleed', kind: 'added', after: '2' });
-    expect(sectionChanges(diff, 'senses')[0]).toMatchObject({ kind: 'changed', before: '2', after: '3' });
+    expect(sectionChanges(diff, 'senses')[0]).toMatchObject({
+      kind: 'changed',
+      before: '2; precise; 30',
+      after: '3; precise; 30',
+    });
+  });
+
+  it('изменение статуса или дальности чувства попадает в diff', () => {
+    const active = makeVersion({ senses: [sense('rule-vision', 0)] });
+    const pending = makeVersion({
+      senses: [sense('rule-vision', 0, { status: 'vague', radius: { base: 15, size: 0 } })],
+    });
+    const diff = membershipDiff(active, pending);
+
+    expect(sectionChanges(diff, 'senses')[0]).toMatchObject({
+      kind: 'changed',
+      before: '0; precise; 30',
+      after: '0; vague; 15',
+    });
   });
 
   it('уникальное правило попадает в diff', () => {

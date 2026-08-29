@@ -8,6 +8,7 @@ import type { CharacterEditorModel } from '@/modules/Roleplay/Character/Dto/Edit
 import type { EditorAbility } from '@/modules/Roleplay/Character/Dto/Editor/EditorAbility';
 import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpec';
 import type { AbilityCost } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityCost';
+import type { SenseSpec } from '@/modules/Roleplay/Rule/Dto/SenseSpec';
 import { characterBuildService } from '@/modules/Roleplay/Character/Service/Instance/characterBuildService';
 import { characterEditorService } from '@/modules/Roleplay/Character/Service/Instance/characterEditorService';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
@@ -189,7 +190,14 @@ export class CharacterMigrationService {
     for (const sense of version.senses) {
       const newId = remap(sense.ruleId, false, oldNameOf(sense.ruleId));
       if (newId === null) continue;
-      senses.push({ ...sense, ruleId: newId });
+      const newRule = newRules.find((rule) => rule.id === newId);
+      const senseSpec = newRule?.type === 'sense' ? (newRule.spec as SenseSpec | undefined) : undefined;
+      senses.push({
+        ...sense,
+        ruleId: newId,
+        status: sense.status ?? senseSpec?.status ?? 'precise',
+        radius: sense.radius ?? senseSpec?.radius ?? { base: 0, size: 0 },
+      });
     }
 
     const migrated: CharacterVersion = {

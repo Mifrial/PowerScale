@@ -1197,3 +1197,21 @@ describe('validateAgeStructure', () => {
     expect(unnamed[0]?.message).toContain('имя');
   });
 });
+
+describe('validateSenseStructure', () => {
+  it('требует статус и точную неотрицательную дальность', () => {
+    const errors = ruleValidationService.validateSenseStructure([
+      baseRule('sense', 'vision', 'sense', { type: 'sense', status: 'precise', radius: { base: 30, size: 0 } }),
+      baseRule('missing', 'missing-sense', 'sense'),
+      baseRule('negative', 'negative-sense', 'sense', {
+        type: 'sense',
+        status: 'absent',
+        radius: { base: -1, size: 0 },
+      }),
+    ]);
+
+    expect(errors).toHaveLength(2);
+    expect(errors.some((error) => error.ruleCode === 'missing-sense')).toBe(true);
+    expect(errors.some((error) => error.ruleCode === 'negative-sense')).toBe(true);
+  });
+});

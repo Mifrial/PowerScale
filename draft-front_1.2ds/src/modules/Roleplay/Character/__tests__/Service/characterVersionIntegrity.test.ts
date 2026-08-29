@@ -19,7 +19,7 @@ const version: CharacterVersion = {
   ageYears: null,
   inventory: [{ id: 1, ruleId: 'item', quantity: 1, equipped: false, modifierRuleIds: ['modifier'] }],
   states: [{ stateRuleId: 'state', poison: { poisonRuleId: 'poison' } }],
-  senses: [{ ruleId: 'sense', value: 1, modifiers: [] }],
+  senses: [{ ruleId: 'sense', value: 1, modifiers: [], status: 'precise', radius: { base: 30, size: 0 } }],
 };
 
 describe('CharacterVersionIntegrityService', () => {

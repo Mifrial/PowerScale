@@ -51,18 +51,18 @@ function attackKey(attack: AttackOverview): string {
             <div class="text-subtitle-2 text-medium-emphasis mb-1">Основные</div>
             <v-row v-if="primarySimple.length" dense>
               <v-col v-for="characteristic in primarySimple" :key="characteristic.ruleId" cols="6" sm="4" md="3">
-                <CharacteristicTile :characteristic="characteristic" />
+                <CharacteristicTile :characteristic="characteristic" :rules="rules" :senses="version.senses" />
               </v-col>
             </v-row>
             <v-row v-if="primaryDerived.length" dense class="mt-2">
               <v-col v-for="characteristic in primaryDerived" :key="characteristic.ruleId" cols="12" md="6">
-                <DerivedCharacteristicTile :characteristic="characteristic" />
+                <DerivedCharacteristicTile :characteristic="characteristic" :rules="rules" :senses="version.senses" />
               </v-col>
             </v-row>
           </template>
 
           <div v-if="overview.combat" class="mt-3">
-            <CombatSection :combat="overview.combat" />
+            <CombatSection :combat="overview.combat" :rules="rules" :senses="version.senses" />
           </div>
 
           <template v-if="importantCharacteristics.length">
@@ -75,7 +75,7 @@ function attackKey(attack: AttackOverview): string {
                 sm="4"
                 md="3"
               >
-                <CharacteristicTile :characteristic="characteristic" />
+                <CharacteristicTile :characteristic="characteristic" :rules="rules" :senses="version.senses" />
               </v-col>
             </v-row>
           </template>
@@ -90,7 +90,7 @@ function attackKey(attack: AttackOverview): string {
                 sm="4"
                 md="3"
               >
-                <CharacteristicTile :characteristic="characteristic" />
+                <CharacteristicTile :characteristic="characteristic" :rules="rules" :senses="version.senses" />
               </v-col>
             </v-row>
           </template>

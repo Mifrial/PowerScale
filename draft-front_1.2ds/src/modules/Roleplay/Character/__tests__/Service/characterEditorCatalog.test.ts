@@ -331,6 +331,8 @@ describe('CharacterEditorService с каталогом правил (интег�
     const visionSense = ruleCatalog.find((r) => r.code === 'sense-vision');
     const sense = model.senses.find((s) => s.ruleId === visionSense?.id);
     expect(sense?.value).toBe(3);
+    expect(sense?.status).toBe('precise');
+    expect(sense?.radius).toEqual({ base: 30, size: 0 });
     expect(model.senses.find((s) => s.ruleId === sense?.ruleId)?.modifiers[0]).toMatchObject({ delta: 3 });
   });
 

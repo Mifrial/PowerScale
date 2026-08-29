@@ -27,7 +27,15 @@ const emit = defineEmits<{
   'update:spec': [value: SenseSpec | LanguageSpec];
 }>();
 
-const specToEmit = computed<SenseSpec | LanguageSpec>(() => ({ type: props.specType }));
+const specToEmit = computed<SenseSpec | LanguageSpec>(() => {
+  if (props.specType === 'sense') {
+    if (props.spec && 'type' in props.spec && props.spec.type === 'sense') return props.spec;
+
+    return { type: 'sense', status: 'precise', radius: { base: 30, size: 0 } };
+  }
+
+  return { type: 'language' };
+});
 watch(specToEmit, (value) => emit('update:spec', value), { immediate: true });
 </script>
 

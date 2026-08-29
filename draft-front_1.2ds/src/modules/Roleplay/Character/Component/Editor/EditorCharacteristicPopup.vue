@@ -8,6 +8,7 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { EditorStatView } from '@/modules/Roleplay/Character/Dto/Editor/EditorStatView';
 import { weaponProficiencyService } from '@/modules/Roleplay/Character/Service/Instance/weaponProficiencyService';
 import RuleLink from '@/modules/Roleplay/Character/Component/Detail/RuleLink.vue';
+import SensePopup from '@/modules/Roleplay/Character/Component/Detail/Characteristics/SensePopup.vue';
 
 const props = defineProps<{
   stat: EditorStatView;
@@ -21,9 +22,7 @@ const byId = computed(() => new Map(props.rules.map((rule) => [rule.id, rule])))
 
 /** Чувства относятся к Внимательности: показываем блок у неё самой или у её производных. */
 const showsSenses = computed(() => {
-  const codes = [props.stat.characteristic.code, ...props.stat.bases.map((base) => base.code)];
-
-  return codes.includes('attention');
+  return props.stat.characteristic.code === 'attention';
 });
 
 /** Мастерство оружий освоенных семей — только для статов мастерства (ближний/дальний бой). */
@@ -42,9 +41,12 @@ const weaponMastery = computed(() => {
 
 const senses = computed(() =>
   props.senses.map((sense) => ({
+    ...sense,
     ruleId: sense.ruleId,
     name: byId.value.get(sense.ruleId)?.name ?? sense.ruleId,
     value: sense.value,
+    status: sense.status,
+    radius: sense.radius,
   })),
 );
 
@@ -67,6 +69,17 @@ function signed(delta: number): string {
   if (delta > 0) return `+${delta}`;
 
   return String(delta);
+}
+
+function statusLabel(status: CharacterSenseValue['status']): string {
+  const labels: Record<CharacterSenseValue['status'], string> = {
+    precise: 'точное',
+    imprecise: 'неточное',
+    vague: 'смутное',
+    absent: 'отсутствует',
+  };
+
+  return labels[status];
 }
 
 /** View базовой характеристики (Внимательность/Реакция) для вложенного попапа. */
@@ -134,14 +147,23 @@ function baseStatView(base: EditorCharacteristic): EditorStatView {
       <template v-if="showsSenses">
         <v-divider class="my-2" />
         <div class="text-caption text-medium-emphasis mb-1">Чувства</div>
-        <div
+        <v-menu
           v-for="sense in senses"
           :key="sense.ruleId"
-          class="d-flex align-center justify-space-between ga-3 py-1 text-body-2"
+          location="right top"
+          open-on-hover
+          :close-on-content-click="false"
         >
-          <span class="text-medium-emphasis">{{ sense.name }}</span>
-          <span class="font-weight-medium">{{ signed(sense.value) }}</span>
-        </div>
+          <template #activator="{ props: menuProps }">
+            <div v-bind="menuProps" class="d-flex align-center justify-space-between ga-3 py-1 text-body-2 base-row">
+              <span class="text-medium-emphasis">{{ sense.name }}</span>
+              <span class="font-weight-medium">
+                {{ signed(sense.value) }} / {{ statusLabel(sense.status) }} / {{ label(sense.radius) }}
+              </span>
+            </div>
+          </template>
+          <SensePopup :sense="sense" :rule="byId.get(sense.ruleId)" :rules="rules" />
+        </v-menu>
       </template>
 
       <template v-if="weaponMastery.length">

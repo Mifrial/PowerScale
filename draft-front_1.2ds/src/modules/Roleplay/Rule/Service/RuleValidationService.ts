@@ -19,6 +19,8 @@ import type { ResourceSpec } from '@/modules/Roleplay/Rule/Dto/ResourceSpec';
 import type { StateSpec } from '@/modules/Roleplay/Rule/Dto/State/StateSpec';
 import type { PoisonSpec } from '@/modules/Roleplay/Rule/Dto/Poison/PoisonSpec';
 import type { AgeSpec } from '@/modules/Roleplay/Rule/Dto/Age/AgeSpec';
+import type { SenseSpec } from '@/modules/Roleplay/Rule/Dto/SenseSpec';
+import type { SenseStatus } from '@/modules/Roleplay/Rule/Enum/SenseStatus';
 import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
 import type { CatalogValidationResult } from '@/modules/Roleplay/Rule/Dto/CatalogValidationResult';
 import type { ReferenceTargetType } from '@/modules/Roleplay/Rule/Dto/ReferenceTargetType';
@@ -60,6 +62,7 @@ export class RuleValidationService {
       ...this.validateCheckStructure(effective),
       ...this.validateDamageTypeStructure(effective),
       ...this.validateAgeStructure(effective),
+      ...this.validateSenseStructure(effective),
     ];
     const cycle = this.findSpeciesCycle(effective);
 
@@ -491,6 +494,45 @@ export class RuleValidationService {
             });
           }
         }
+      }
+    }
+
+    return errors;
+  }
+
+  validateSenseStructure(rules: Rule[]): { ruleCode: string; ruleName: string; message: string }[] {
+    const errors: { ruleCode: string; ruleName: string; message: string }[] = [];
+    const statuses = new Set<SenseStatus>(['precise', 'imprecise', 'vague', 'absent']);
+
+    for (const rule of rules) {
+      if (rule.type !== 'sense') continue;
+      const spec = rule.spec as SenseSpec | undefined;
+      if (!spec || spec.type !== 'sense') {
+        errors.push({
+          ruleCode: rule.code,
+          ruleName: rule.name,
+          message: 'чувство должно содержать спеку type sense',
+        });
+        continue;
+      }
+      if (!statuses.has(spec.status)) {
+        errors.push({
+          ruleCode: rule.code,
+          ruleName: rule.name,
+          message: 'чувство должно содержать корректный статус',
+        });
+      }
+      if (
+        !spec.radius ||
+        !Number.isFinite(spec.radius.base) ||
+        !Number.isFinite(spec.radius.size) ||
+        spec.radius.base < 0
+      ) {
+        errors.push({
+          ruleCode: rule.code,
+          ruleName: rule.name,
+          message: 'чувство должно содержать неотрицательную размерную дальность',
+        });
       }
     }
 

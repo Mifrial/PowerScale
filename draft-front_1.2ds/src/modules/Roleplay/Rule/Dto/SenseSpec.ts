@@ -1,8 +1,12 @@
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
+import type { SenseStatus } from '@/modules/Roleplay/Rule/Enum/SenseStatus';
+
 /**
- * Спека чувства (type='sense'): правило-чувство (Зрение, Слух и т.п.). Значение чувства —
- * модификатор к Внимательности (число), агрегируется из грантов `sense_modify` по общему
- * правилу источников (макс+ / макс− у одного источника); Внимательность берёт максимум среди чувств.
+ * Спека чувства (type='sense'): базовое состояние чувства персонажа.
+ * Модификаторы добавляются через гранты `sense_modify` и хранятся в экземпляре персонажа.
  */
 export interface SenseSpec {
   type: 'sense';
+  status: SenseStatus;
+  radius: DimensionalNumberValue;
 }

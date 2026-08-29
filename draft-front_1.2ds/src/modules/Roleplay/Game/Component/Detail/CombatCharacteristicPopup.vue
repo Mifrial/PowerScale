@@ -5,7 +5,7 @@ import type { CharacteristicOverview } from '@/modules/Roleplay/Character/Dto/Ov
 import type { OverviewModifier } from '@/modules/Roleplay/Character/Dto/Overview/OverviewModifier';
 import type { CharacterSenseValue } from '@/modules/Roleplay/Character/Dto/CharacterSenseValue';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import { weaponProficiencyService } from '@/modules/Roleplay/Character/init';
+import { SensePopup, weaponProficiencyService } from '@/modules/Roleplay/Character/init';
 import { RuleLink } from '@/modules/Roleplay/Character/init';
 
 const props = withDefaults(
@@ -32,14 +32,7 @@ const code = computed(() => props.rules.find((rule) => rule.id === props.charact
 
 /** Чувства относятся к Внимательности: показываем блок у неё самой или у её производных. */
 const showsSenses = computed(() => {
-  const codes = [
-    code.value,
-    ...(props.characteristic.derived?.bases ?? []).map(
-      (base) => props.rules.find((rule) => rule.id === base.ruleId)?.code ?? '',
-    ),
-  ];
-
-  return codes.includes('attention');
+  return code.value === 'attention';
 });
 
 /** Мастерство оружий освоенных семей — только для статов мастерства (ближний/дальний бой). */
@@ -56,11 +49,18 @@ const weaponMastery = computed(() => {
 
 const senses = computed(() =>
   props.senses.map((sense) => ({
+    ...sense,
     ruleId: sense.ruleId,
     name: byId.value.get(sense.ruleId)?.name ?? sense.ruleId,
-    value: sense.value,
   })),
 );
+
+const statusLabels: Record<CharacterSenseValue['status'], string> = {
+  precise: 'точное',
+  imprecise: 'неточное',
+  vague: 'смутное',
+  absent: 'отсутствует',
+};
 
 function label(value: { base: number; size: number }): string {
   return new DimensionalNumber(value).toString();
@@ -176,14 +176,23 @@ function signed(delta: number): string {
       <template v-if="showsSenses">
         <v-divider class="my-2" />
         <div class="text-caption text-medium-emphasis mb-1">Чувства</div>
-        <div
+        <v-menu
           v-for="sense in senses"
           :key="sense.ruleId"
-          class="d-flex align-center justify-space-between ga-3 py-1 text-body-2"
+          location="right top"
+          open-on-hover
+          :close-on-content-click="false"
         >
-          <span class="text-medium-emphasis">{{ sense.name }}</span>
-          <span class="font-weight-medium">{{ signed(sense.value) }}</span>
-        </div>
+          <template #activator="{ props: menuProps }">
+            <div v-bind="menuProps" class="d-flex align-center justify-space-between ga-3 py-1 text-body-2 base-row">
+              <span class="text-medium-emphasis">{{ sense.name }}</span>
+              <span class="font-weight-medium">
+                {{ signed(sense.value) }} / {{ statusLabels[sense.status] }} / {{ label(sense.radius) }}
+              </span>
+            </div>
+          </template>
+          <SensePopup :sense="sense" :rule="byId.get(sense.ruleId)" :rules="rules" />
+        </v-menu>
       </template>
 
       <template v-if="weaponMastery.length">

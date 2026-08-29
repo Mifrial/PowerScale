@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
+import type { CharacterSenseValue } from '@/modules/Roleplay/Character/Dto/CharacterSenseValue';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { CharacterMigrationService } from '@/modules/Roleplay/Character/Service/CharacterMigrationService';
 import { characterEditorService } from '@/modules/Roleplay/Character/Service/Instance/characterEditorService';
@@ -58,10 +59,15 @@ function makeRules(): Rule[] {
       weight: null,
       special_rule_codes: [],
     }),
+    base('rule-sense', 'vision', 'sense', 'Зрение', {
+      type: 'sense',
+      status: 'precise',
+      radius: dim(30),
+    }),
   ];
 }
 
-function makeVersion(): CharacterVersion {
+function makeVersion(senses: CharacterVersion['senses'] = []): CharacterVersion {
   return {
     name: 'Тест',
     shortDescription: null,
@@ -80,7 +86,7 @@ function makeVersion(): CharacterVersion {
     ageYears: null,
     inventory: [{ id: 1, ruleId: 'rule-sword', quantity: 1, equipped: false }],
     states: [],
-    senses: [],
+    senses,
     budgets: { osTotal: 10, moneyBudget: 100 },
   };
 }
@@ -105,6 +111,16 @@ function migrate(version: CharacterVersion, oldRules: Rule[], newRules: Rule[]) 
 }
 
 describe('CharacterMigrationService', () => {
+  it('добавляет поля статуса и дальности старому экземпляру чувства', () => {
+    const legacySense = { ruleId: 'rule-sense', value: 0, modifiers: [] } as unknown as CharacterSenseValue;
+    const result = migrate(makeVersion([legacySense]), makeRules(), makeRules());
+
+    expect(result.version.senses[0]).toMatchObject({
+      status: 'precise',
+      radius: { base: 30, size: 0 },
+    });
+  });
+
   it('чистый ремап по code: id правила сменился, версия ссылается на новый id (kind ok)', () => {
     const oldRules = makeRules();
     const newRules = makeRules().map((rule) =>

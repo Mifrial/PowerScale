@@ -211,7 +211,7 @@ function senseLabel(sense: CharacterSenseValue): string {
 }
 
 function senseRender(sense: CharacterSenseValue): string {
-  return String(sense.value);
+  return `${sense.value}; ${sense.status}; ${DimensionalNumber.from(sense.radius).toString()}`;
 }
 
 function customRuleKey(entry: CustomRuleEntry): string {

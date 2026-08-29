@@ -40,6 +40,10 @@ export const RuleLink = defineAsyncComponent(
   () => import('@/modules/Roleplay/Character/Component/Detail/RuleLink.vue'),
 );
 
+export const SensePopup = defineAsyncComponent(
+  () => import('@/modules/Roleplay/Character/Component/Detail/Characteristics/SensePopup.vue'),
+);
+
 export const UniqueRulesTab = defineAsyncComponent(
   () => import('@/modules/Roleplay/Character/Component/Detail/UniqueRulesTab.vue'),
 );
