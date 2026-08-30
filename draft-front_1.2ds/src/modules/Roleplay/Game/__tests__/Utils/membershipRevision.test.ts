@@ -5,18 +5,15 @@ import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/Characte
 const version = (rulesRevision: number) => ({ rulesRevision }) as CharacterVersion;
 
 describe('membershipMatchesGameRevision', () => {
-  it('pending на ревизии игры — можно модерировать', () => {
-    expect(
-      membershipMatchesGameRevision(
-        { pendingVersion: version(12), latestVersion: version(6), activeVersion: version(6) },
-        12,
-      ),
-    ).toBe(true);
+  it('actual на ревизии игры — можно модерировать', () => {
+    expect(membershipMatchesGameRevision(version(12), 12)).toBe(true);
   });
 
   it('лист другой ревизии — нельзя', () => {
-    expect(
-      membershipMatchesGameRevision({ pendingVersion: null, latestVersion: version(6), activeVersion: version(6) }, 12),
-    ).toBe(false);
+    expect(membershipMatchesGameRevision(version(6), 12)).toBe(false);
+  });
+
+  it('нет actual — нельзя', () => {
+    expect(membershipMatchesGameRevision(null, 12)).toBe(false);
   });
 });

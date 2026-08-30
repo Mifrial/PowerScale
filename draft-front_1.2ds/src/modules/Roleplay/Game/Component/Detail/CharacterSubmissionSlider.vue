@@ -2,24 +2,26 @@
 import { computed } from 'vue';
 import { membershipDiff } from '@/modules/Roleplay/Game/Utils/membershipDiff';
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
+import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import MembershipDiffView from '@/modules/Roleplay/Game/Component/Detail/MembershipDiffView.vue';
 
 const props = defineProps<{
   membership: GameCharacterMembership | null;
+  actual: CharacterVersion | null;
   /** Имена правил (ruleId → name) из ревизии игры. */
   names: Record<string, string>;
 }>();
 
 const open = defineModel<boolean>('open', { default: false });
 
-/** Первая подача (нет activeVersion): весь лист как «добавленные» секции; иначе — дельта active → pending. */
+/** Первая подача (нет approved): весь лист как «добавленные» секции; иначе — дельта approved → actual. */
 const diff = computed(() => {
   const membership = props.membership;
-  if (!membership?.pendingVersion) return null;
+  if (!membership || !props.actual) return null;
 
   return membershipDiff(
-    membership.activeVersion,
-    membership.pendingVersion,
+    membership.approvedCharacterVersion,
+    props.actual,
     (ruleId) => props.names[ruleId] ?? `Удалённое правило (id: ${ruleId})`,
   );
 });
@@ -36,7 +38,7 @@ const diff = computed(() => {
           <span class="text-subtitle-1">{{ membership.characterName }}</span>
           <span class="text-caption text-medium-emphasis"
             >владелец: {{ membership.characterOwnerName }} ·
-            {{ membership.activeVersion ? 'изменения' : 'первая подача' }}</span
+            {{ membership.approvedCharacterVersion ? 'изменения' : 'первая подача' }}</span
           >
         </div>
         <v-spacer />

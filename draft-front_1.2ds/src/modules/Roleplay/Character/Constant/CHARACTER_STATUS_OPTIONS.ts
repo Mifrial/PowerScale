@@ -8,6 +8,4 @@ export interface CharacterStatusOption {
 export const CHARACTER_STATUS_OPTIONS: CharacterStatusOption[] = [
   { value: 'draft', label: 'Черновик' },
   { value: 'ready', label: 'Готов' },
-  { value: 'moderation', label: 'На модерации' },
-  { value: 'needs_fix', label: 'Требует исправления' },
 ];

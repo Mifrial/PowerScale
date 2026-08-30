@@ -136,7 +136,7 @@ const targetOptions = computed(() => [
   ...props.characters
     .filter(
       (membership) =>
-        membership.membershipStatus === 'approved' && `character:${membership.characterId}` !== actorKey.value,
+        membership.membershipStatus === 'active' && `character:${membership.characterId}` !== actorKey.value,
     )
     .map((membership) => ({
       value: `character:${membership.characterId}` as CombatEntityKey,

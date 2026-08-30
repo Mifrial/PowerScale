@@ -108,7 +108,7 @@ const overrideAllowed = computed(() => {
 
 const entityOptions = computed(() => {
   const characters = props.characters
-    .filter((membership) => membership.membershipStatus === 'approved')
+    .filter((membership) => membership.membershipStatus === 'active')
     .map((membership) => ({
       value: `character:${membership.characterId}` as CombatEntityKey,
       title: membership.characterName,

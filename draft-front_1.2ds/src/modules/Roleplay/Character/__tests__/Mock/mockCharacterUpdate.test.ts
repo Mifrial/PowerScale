@@ -22,7 +22,6 @@ import {
 import { gameDetails } from '@/modules/Roleplay/Game/Mock/mockGames';
 import '@/modules/Roleplay/Game/Mock/mockCharacterSessionOverlay';
 
-// Снимки фикстур: тесты мутируют синглтоны-моки — beforeEach возвращает их в исходное состояние.
 const initialVersion1 = JSON.parse(JSON.stringify(versions[1])) as CharacterVersion;
 const initialVersion3 = JSON.parse(JSON.stringify(versions[3])) as CharacterVersion;
 const initialTorvin = JSON.parse(
@@ -55,69 +54,62 @@ beforeEach(() => {
   syncCharacterVersion(3);
 });
 
-describe('mockCharacterUpdate: роутер версий (модель Баг 1)', () => {
-  it('с явным gameId активной сессии пишет в оверлей, latest не трогает', async () => {
-    // Торвин (игра 2 — играется) approved. updateCharacter с gameId=2 → оверлей.
+describe('mockCharacterUpdate: роутер версий (DEC-059)', () => {
+  it('с явным gameId активной сессии пишет в оверлей, actual не трогает', async () => {
     const before = versions[1].money;
     const version = { ...versions[1], money: before + 100 };
 
     const detail = await updateCharacter(1, { version, status: 'ready', gameId: 2 });
 
-    expect(detail.version.money).toBe(before); // карточка (latest) не изменилась
+    expect(detail.version.money).toBe(before);
     const stored = getStoredCombatOverlay(2, combatKey('character', 1));
     expect(stored?.sheet?.money).toBe(before + 100);
 
-    const chars = await fetchGameCharacters(2);
-    const membership = chars.find((m) => m.characterId === 1)!;
-    expect(membership.membershipStatus).toBe('approved');
-    expect(membership.pendingVersion).toBeNull();
+    const membership = (await fetchGameCharacters(2)).find((m) => m.characterId === 1)!;
+    expect(membership.membershipStatus).toBe('active');
     expect(membership.overlay?.sheet?.money).toBe(before + 100);
   });
 
-  it('без gameId (standalone-карточка) пишет в latest с автоподачей', async () => {
-    // Гаррик (игра 1, ревизия 6 vs 12): правка latest не ставит на модерацию — автоотклон.
+  it('без gameId во время сессии запрещает save actual', async () => {
+    await expect(
+      updateCharacter(1, { version: { ...versions[1], money: versions[1].money + 1 }, status: 'ready' }),
+    ).rejects.toThrow('сессии');
+  });
+
+  it('без gameId вне сессии пишет actual; approved заморожен', async () => {
     const before = versions[3].money;
     const detail = await updateCharacter(3, { version: { ...versions[3], money: before + 50 }, status: 'ready' });
 
     expect(detail.version.money).toBe(before + 50);
-    const chars = await fetchGameCharacters(1);
-    const membership = chars.find((m) => m.characterId === 3)!;
-    expect(membership.membershipStatus).toBe('rejected');
-    expect(membership.pendingVersion).toBeNull();
-    expect(membership.activeVersion?.money).toBe(before); // approved заморожен
+    const membership = (await fetchGameCharacters(1)).find((m) => m.characterId === 3)!;
+    expect(membership.membershipStatus).toBe('active');
+    expect(membership.reviewState).toBe('changes_pending');
+    expect(membership.approvedCharacterVersion?.money).toBe(before);
   });
 
-  it('gameId без approved-членства в активной сессии игнорируется (fallback в latest)', async () => {
-    const before = versions[1].money;
-    const detail = await updateCharacter(1, {
-      version: { ...versions[1], money: before + 1 },
-      status: 'ready',
-      gameId: 999,
-    });
-
-    expect(detail.version.money).toBe(before + 1);
-    // Оверлей не создан (нет активной сессии для gameId 999); fallback → автоподача Торвина в pending.
-    expect(getStoredCombatOverlay(999, combatKey('character', 1))).toBeNull();
-    const chars = await fetchGameCharacters(2);
-    expect(chars.find((m) => m.characterId === 1)?.membershipStatus).toBe('pending');
+  it('чужой gameId во время сессии не пишет actual', async () => {
+    await expect(
+      updateCharacter(1, {
+        version: { ...versions[1], money: versions[1].money + 1 },
+        status: 'ready',
+        gameId: 999,
+      }),
+    ).rejects.toThrow('сессии');
   });
 
-  it('addCustomRule во время сессии → оверлей; вне сессии → latest с автоподачей', async () => {
-    // Игра 2 играется: правило уходит в оверлей Торвина.
+  it('addCustomRule во время сессии → оверлей; вне сессии → actual', async () => {
     const detail = await addCustomRule(1, { kind: 'item', name: 'Амулет', description: '' });
     expect(detail.version.customRules?.[0]).toBeUndefined();
-    const stored = getStoredCombatOverlay(2, combatKey('character', 1));
-    expect(stored?.sheet?.customRules?.[0]?.name).toBe('Амулет');
+    expect(getStoredCombatOverlay(2, combatKey('character', 1))?.sheet?.customRules?.[0]?.name).toBe('Амулет');
 
-    // Игра 1 не играется: правило идёт в latest Гаррика + автоподача.
     const detail2 = await addCustomRule(3, { kind: 'item', name: 'Лаваш', description: '' });
     expect(detail2.version.customRules?.[0]?.name).toBe('Лаваш');
-    const chars = await fetchGameCharacters(1);
-    const garrick = chars.find((m) => m.characterId === 3)!;
-    expect(garrick.membershipStatus).toBe('rejected');
+    const garrick = (await fetchGameCharacters(1)).find((m) => m.characterId === 3)!;
+    expect(garrick.membershipStatus).toBe('active');
+    expect(garrick.reviewState).toBe('changes_pending');
   });
 
-  it('updateCustomRule во время сессии правит запись в оверлее (latest не тронут)', async () => {
+  it('updateCustomRule во время сессии правит запись в оверлее', async () => {
     await addCustomRule(1, { kind: 'item', name: 'Амулет', description: '' });
     const stored = getStoredCombatOverlay(2, combatKey('character', 1));
     const entryId = stored!.sheet!.customRules![0].id;
@@ -130,37 +122,33 @@ describe('mockCharacterUpdate: роутер версий (модель Баг 1)
   });
 });
 
-describe('mockCharacterUpdate: полный цикл in-game редактора → approve', () => {
-  it('правки из игры проходят через оверлей в approved после остановки сессии и approve', async () => {
+describe('mockCharacterUpdate: полный цикл in-game редактора → commit', () => {
+  it('правки из игры проходят через оверлей в actual после остановки сессии', async () => {
     const before = versions[1].money;
     await updateCharacter(1, { version: { ...versions[1], money: before + 100 }, status: 'ready', gameId: 2 });
     expect(versions[1].money).toBe(before);
 
-    // Остановка сессии → pending из оверлея; approve → latest + approved.
     const detail = gameDetails.find((d) => d.game.id === 2);
     if (detail) detail.game.status = 'in_process';
     await submitCombatChanges(2);
-    let chars = await fetchGameCharacters(2);
-    expect(chars.find((m) => m.characterId === 1)?.membershipStatus).toBe('pending');
+    expect(versions[1].money).toBe(before + 100);
 
     await moderateCharacter(2, 1, 'approve');
-    chars = await fetchGameCharacters(2);
-    const membership = chars.find((m) => m.characterId === 1)!;
-    expect(membership.membershipStatus).toBe('approved');
-    expect(membership.activeVersion?.money).toBe(before + 100);
+    const membership = (await fetchGameCharacters(2)).find((m) => m.characterId === 1)!;
+    expect(membership.approvedCharacterVersion?.money).toBe(before + 100);
     const sheet = await fetchCharacter(1);
     expect(sheet.version.money).toBe(before + 100);
   });
 });
 
 describe('mockCharacterUpdate: утилиты', () => {
-  it('applyVersionChange перепривязывает лист и автоподаёт членства', async () => {
+  it('applyVersionChange перепривязывает лист', async () => {
     const before = versions[3].money;
     versions[3].money = before + 10;
     applyVersionChange(3);
     const detail = await fetchCharacter(3);
     expect(detail.version.money).toBe(before + 10);
     const chars = await fetchGameCharacters(1);
-    expect(chars.find((m) => m.characterId === 3)?.membershipStatus).toBe('rejected');
+    expect(chars.find((m) => m.characterId === 3)?.reviewState).toBe('changes_pending');
   });
 });

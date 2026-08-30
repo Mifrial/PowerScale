@@ -27,6 +27,7 @@ export const mockGameApi: IGameApi = {
   createGameCharacter: mockMemberships.createGameCharacter,
   submitCharacterToGame: mockMemberships.submitCharacter,
   moderateCharacter: mockMemberships.moderateCharacter,
+  leaveGame: mockMemberships.leaveGame,
   updateMembershipVisibility: mockMemberships.updateMembershipVisibility,
   updateCharacterGrants: mockMemberships.updateCharacterGrants,
   submitCharacterMigration: mockMemberships.submitCharacterMigration,

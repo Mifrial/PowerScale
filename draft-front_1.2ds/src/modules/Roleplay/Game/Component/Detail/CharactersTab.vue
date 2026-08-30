@@ -14,6 +14,7 @@ import type { SheetAccessContext } from '@/modules/Roleplay/Character/Interface/
 import type { User } from '@/modules/Core/User/Dto/User';
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { GameMembershipStatus } from '@/modules/Roleplay/Game/Enum/GameMembershipStatus';
+import type { GameStatus } from '@/modules/Roleplay/Game/Enum/GameStatus';
 import type { CharacterStatus } from '@/modules/Roleplay/Character/Enum/CharacterStatus';
 import type { Character } from '@/modules/Roleplay/Character/Dto/Character';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
@@ -22,7 +23,7 @@ import SheetVisibilityDialog from '@/modules/Roleplay/Game/Component/Detail/Shee
 import CharacterMigrationDialog from '@/modules/Roleplay/Game/Component/Detail/CharacterMigrationDialog.vue';
 import { SheetCard } from '@/modules/Roleplay/Character/init';
 import { UniqueRulesTab } from '@/modules/Roleplay/Character/init';
-import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
+import { sessionCharacterService } from '@/modules/Roleplay/Game/Service/Instance/sessionCharacterService';
 
 const props = defineProps<{
   /** Активна ли вкладка: перезагрузка при активации (v-window не размонтирует вкладки). */
@@ -40,6 +41,7 @@ const props = defineProps<{
   members: GameMember[];
   spaceId: number | null;
   rulesRevision: number | null;
+  gameStatus: GameStatus;
 }>();
 
 const auth = useAuthStore();
@@ -48,6 +50,8 @@ const userStore = useUserStore();
 const currentUser = computed(() => userStore.currentUser);
 
 const memberships = ref<GameCharacterMembership[]>([]);
+const actualById = ref<Record<number, CharacterVersion>>({});
+const characterById = ref<Record<number, Character>>({});
 const loading = ref(false);
 const error = ref<string | null>(null);
 
@@ -80,35 +84,32 @@ const migrationOpen = ref(false);
 const migrationTarget = ref<GameCharacterMembership | null>(null);
 
 /**
- * Персонаж «требует перехода», если его активная ревизия отличается от ревизии игры
- * И миграция ещё не подана (pendingVersion уже на ревизии игры — тогда это на модерации у ГМ).
+ * Персонаж требует перехода, если actual на другой ревизии, чем игра.
  */
 function needsMigration(membership: GameCharacterMembership): boolean {
-  const current =
-    membership.latestVersion?.rulesRevision ??
-    membership.activeVersion?.rulesRevision ??
-    membership.pendingVersion?.rulesRevision;
-  if (current === undefined) return false;
-  if (current === props.gameRulesRevision) return false;
-  if (membership.pendingVersion !== null && membership.pendingVersion.rulesRevision === props.gameRulesRevision) {
-    return false;
-  }
+  const actual = actualById.value[membership.characterId];
+  if (!actual) return false;
+  if (membership.membershipStatus === 'left') return false;
 
-  return true;
+  return actual.rulesRevision !== props.gameRulesRevision;
 }
 
 function canOwnerAct(membership: GameCharacterMembership): boolean {
   return currentUser.value?.id === membership.characterOwnerId;
 }
 
-async function resubmit(membership: GameCharacterMembership): Promise<void> {
+async function leave(membership: GameCharacterMembership): Promise<void> {
   error.value = null;
   try {
-    await getGameApi().submitCharacterToGame(props.gameId, membership.characterId);
+    await getGameApi().leaveGame(props.gameId, membership.characterId);
   } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Не удалось подать персонажа снова';
+    error.value = e instanceof Error ? e.message : 'Не удалось покинуть игру';
   }
   await load();
+}
+
+function canLeave(membership: GameCharacterMembership): boolean {
+  return canOwnerAct(membership) && membership.membershipStatus !== 'left' && props.gameStatus !== 'playing';
 }
 
 function openMigration(membership: GameCharacterMembership): void {
@@ -134,7 +135,7 @@ const visibleMemberships = computed(() => {
     const isOwner = membership.characterOwnerId === user.id;
     if (!sheetAccessService.canSeeSheet(user, membership.visibility, ctxFor(user, membership))) return false;
 
-    return membership.membershipStatus === 'approved' || isOwner;
+    return membership.membershipStatus !== 'left' && (membership.membershipStatus === 'active' || isOwner);
   });
 });
 
@@ -158,12 +159,9 @@ const cardVisibleSections = computed(() => {
 // Эффективная версия листа в игре: полный лист оверлея (in-game редактор) или approved + боевые правки.
 const cardVersion = computed<CharacterVersion | null>(() => {
   const target = cardTarget.value;
-  if (!target?.activeVersion) return null;
-  const overlay = target.overlay;
-  if (!overlay || overlay.updatedAt === '') return target.activeVersion;
-  if (overlay.sheet) return overlay.sheet;
+  if (!target) return null;
 
-  return combatOverlayService.mergeCombatOverlay(target.activeVersion, overlay);
+  return sessionCharacterService.resolve(target.approvedCharacterVersion, target.overlay);
 });
 
 async function load(): Promise<void> {
@@ -171,6 +169,21 @@ async function load(): Promise<void> {
   error.value = null;
   try {
     memberships.value = await getGameApi().getGameCharacters(props.gameId);
+    const actuals: Record<number, CharacterVersion> = {};
+    const chars: Record<number, Character> = {};
+    await Promise.all(
+      memberships.value.map(async (membership) => {
+        try {
+          const detail = await getCharacterApi().getCharacter(membership.characterId);
+          actuals[membership.characterId] = detail.version;
+          chars[membership.characterId] = detail.character;
+        } catch {
+          // лист недоступен
+        }
+      }),
+    );
+    actualById.value = actuals;
+    characterById.value = chars;
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Не удалось загрузить персонажей игры';
   } finally {
@@ -373,8 +386,24 @@ watch(
             <span class="text-body-2">{{ membership.characterName }}</span>
             <span class="text-caption text-medium-emphasis">владелец: {{ membership.characterOwnerName }}</span>
             <v-spacer />
-            <v-chip :color="characterStatusColor(membership.characterStatus)" variant="tonal" size="x-small">
-              {{ characterStatusLabel(membership.characterStatus) }}
+            <v-chip
+              v-if="characterById[membership.characterId]"
+              :color="characterStatusColor(characterById[membership.characterId].status)"
+              variant="tonal"
+              size="x-small"
+            >
+              {{ characterStatusLabel(characterById[membership.characterId].status) }}
+            </v-chip>
+            <v-chip v-if="membership.reviewState === 'returned'" color="warning" variant="tonal" size="x-small">
+              На доработку
+            </v-chip>
+            <v-chip
+              v-else-if="membership.reviewState === 'changes_pending'"
+              color="info"
+              variant="tonal"
+              size="x-small"
+            >
+              Есть изменения
             </v-chip>
             <v-chip :color="membershipStatusColor(membership.membershipStatus)" variant="tonal" size="x-small">
               {{ membershipStatusLabel(membership.membershipStatus) }}
@@ -399,16 +428,14 @@ watch(
               Перевести
             </v-btn>
             <v-btn
-              v-if="
-                membership.membershipStatus === 'rejected' && !needsMigration(membership) && canOwnerAct(membership)
-              "
+              v-if="canLeave(membership)"
               size="x-small"
               variant="tonal"
-              color="primary"
+              color="error"
               class="flex-shrink-0"
-              @click.stop="resubmit(membership)"
+              @click.stop="leave(membership)"
             >
-              Подать снова
+              Покинуть
             </v-btn>
             <v-btn
               v-if="canManage"
@@ -421,7 +448,7 @@ watch(
               <v-icon>mdi-trophy-outline</v-icon>
             </v-btn>
             <v-btn
-              v-if="canManage && membership.membershipStatus === 'approved'"
+              v-if="canManage && membership.membershipStatus === 'active'"
               icon
               variant="text"
               size="x-small"
@@ -431,7 +458,7 @@ watch(
               <v-icon>mdi-file-document-plus-outline</v-icon>
             </v-btn>
             <v-btn
-              v-if="canManage && membership.membershipStatus === 'approved'"
+              v-if="canManage && membership.membershipStatus === 'active'"
               icon
               variant="text"
               size="x-small"
@@ -441,7 +468,7 @@ watch(
               <v-icon>mdi-notebook-outline</v-icon>
             </v-btn>
             <v-btn
-              v-if="membership.membershipStatus === 'approved' && canConfigureVisibility(membership)"
+              v-if="membership.membershipStatus === 'active' && canConfigureVisibility(membership)"
               icon
               variant="text"
               size="x-small"
@@ -507,7 +534,7 @@ watch(
         />
         <div class="text-center mt-3 d-flex justify-center ga-2">
           <v-btn
-            v-if="cardTarget?.membershipStatus === 'approved'"
+            v-if="cardTarget?.membershipStatus === 'active'"
             variant="tonal"
             color="primary"
             size="small"
@@ -624,8 +651,8 @@ watch(
       </v-card-title>
       <v-card-text>
         <UniqueRulesTab
-          v-if="uniqueRulesTarget.activeVersion"
-          :version="uniqueRulesTarget.activeVersion"
+          v-if="actualById[uniqueRulesTarget.characterId]"
+          :version="actualById[uniqueRulesTarget.characterId]"
           :character-id="uniqueRulesTarget.characterId"
           :can-manage="true"
           :space-id="spaceId ?? undefined"

@@ -222,7 +222,7 @@ describe('mockGameLoot: раздача', () => {
   it('во время активной сессии добыча пишется в оверлей (approved заморожен, latest чист)', async () => {
     // Торвин (игра 2 — играется) approved; членство несёт замороженную approved-версию.
     const membership = gameCharacterMemberships.find((m) => m.gameId === 2 && m.characterId === 1)!;
-    expect(membership.membershipStatus).toBe('approved');
+    expect(membership.membershipStatus).toBe('active');
     const beforeLatest = versions[1].money;
 
     const loot = await addLoot(2, moneyData(100));
@@ -232,7 +232,7 @@ describe('mockGameLoot: раздача', () => {
     // Latest не тронут, approved заморожен, деньги ушли в сессионный оверлей.
     expect(versions[1].money).toBe(beforeLatest);
     const stored = getStoredCombatOverlay(2, combatKey('character', 1));
-    expect(stored?.sheet?.money).toBe(membership.activeVersion!.money + 60);
+    expect(stored?.sheet?.money).toBe(membership.approvedCharacterVersion!.money + 60);
 
     // После остановки сессии и approve деньги переходят в latest/approved.
     const detail = gameDetails.find((d) => d.game.id === 2);

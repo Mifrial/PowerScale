@@ -16,6 +16,7 @@ import { fetchRevision, fetchSpace, fetchSpaceByCode } from '@/modules/Roleplay/
 import { characterMigrationService } from '@/modules/Roleplay/Character/Service/Instance/characterMigrationService';
 import { characterVersionIntegrityService } from '@/modules/Roleplay/Character/Service/Instance/characterVersionIntegrityService';
 import type { MigrationResult } from '@/modules/Roleplay/Character/Service/CharacterMigrationService';
+import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
 
 // База характеристики — размерное число: база (3–5) + размерность (для базовых 0).
 // Итог не хранится: считается в карточке как база + модификаторы.
@@ -94,7 +95,7 @@ export const characters: Character[] = [
   {
     id: 4,
     name: 'Морган Мёртвый Глаз',
-    status: 'needs_fix',
+    status: 'ready',
     active: true,
     ownerId: 3,
     ownerName: 'Пётр Козлов',
@@ -520,11 +521,12 @@ export async function createCharacter(data: CreateCharacterData, _signal?: Abort
   // Статус листа решает вызывающий контекст (редактор вне игры — 'ready'); мок дефолтит 'draft'.
   const character = summaryOf(id, data.version, data.spaceId, data.status ?? 'draft');
   characters.push(character);
-  versions[id] = data.version;
+  const version = cloneData(data.version);
+  versions[id] = version;
   // Новому персонажу сразу создаём чат обсуждения (владелец — участник).
   const discussionChatId = mockCreateCharacterDiscussion(data.version.name);
   character.discussionChatId = discussionChatId;
-  const detail: CharacterDetail = { character, version: data.version, discussionChatId, previousVersion: null };
+  const detail: CharacterDetail = { character, version, discussionChatId, previousVersion: null };
   details[id] = detail;
 
   return toViewerDetail(id);
@@ -549,10 +551,11 @@ export async function updateCharacter(
   character.rulesRevision = data.version.rulesRevision;
   // Статус листа обновляет вызывающий контекст; без переданного — сохраняем текущий.
   if (data.status !== undefined) character.status = data.status;
-  versions[id] = data.version;
+  const version = cloneData(data.version);
+  versions[id] = version;
   details[id] = {
     character: { ...character },
-    version: data.version,
+    version,
     discussionChatId: character.discussionChatId,
     previousVersion: previousVersions[id] ?? null,
   };
@@ -604,23 +607,24 @@ export async function applyMigration(
   await assertVersionMatchesSpace(version, targetSpace.id);
   const oldVersion = versions[characterId];
   previousVersions[characterId] = oldVersion;
-  versions[characterId] = version;
-  character.name = version.name;
-  character.raceId = raceIdOf(version.raceRuleId);
-  character.raceLabel = raceLabelOf(version.raceRuleId);
-  character.shortDescription = version.shortDescription;
-  character.currentPoints = pointsOf(version);
-  character.spaceCode = version.spaceCode;
-  character.rulesRevision = version.rulesRevision;
+  const next = cloneData(version);
+  versions[characterId] = next;
+  character.name = next.name;
+  character.raceId = raceIdOf(next.raceRuleId);
+  character.raceLabel = raceLabelOf(next.raceRuleId);
+  character.shortDescription = next.shortDescription;
+  character.currentPoints = pointsOf(next);
+  character.spaceCode = next.spaceCode;
+  character.rulesRevision = next.rulesRevision;
   try {
-    character.spaceId = (await fetchSpaceByCode(version.spaceCode)).id;
+    character.spaceId = (await fetchSpaceByCode(next.spaceCode)).id;
   } catch {
     // код пространства не найден — оставляем прежний spaceId
   }
   character.status = 'ready';
   details[characterId] = {
     character: { ...character },
-    version,
+    version: next,
     discussionChatId: character.discussionChatId,
     previousVersion: oldVersion,
   };

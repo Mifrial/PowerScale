@@ -33,7 +33,7 @@ function refName(ref: ChronicleRef): string {
 function resolvableRef(ref: ChronicleRef): boolean {
   if (ref.kind === 'character') {
     return props.memberships.some(
-      (membership) => membership.characterId === ref.id && membership.membershipStatus === 'approved',
+      (membership) => membership.characterId === ref.id && membership.membershipStatus === 'active',
     );
   }
 

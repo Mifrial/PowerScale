@@ -16,6 +16,7 @@ import type { CharacterOverview } from '@/modules/Roleplay/Character/Dto/Overvie
 import type { CombatMasterySection } from '@/modules/Roleplay/Character/Dto/Overview/CombatMasterySection';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
+import { sessionCharacterService } from '@/modules/Roleplay/Game/Service/Instance/sessionCharacterService';
 
 import { resourceLimitBase } from '@/modules/Roleplay/Game/Utils/combatEffectiveState';
 import { ACTION_POINTS_CODE } from '@/modules/Roleplay/Game/Constant/Combat/ACTION_POINTS_CODE';
@@ -55,7 +56,7 @@ export class CombatCardModelService {
     if (kind !== 'character' || currentUserId === null) return false;
     const membership = memberships.find((item) => item.characterId === id);
 
-    return membership?.characterOwnerId === currentUserId && membership.membershipStatus === 'approved';
+    return membership?.characterOwnerId === currentUserId && membership.membershipStatus === 'active';
   }
 
   combatCardModel(
@@ -67,20 +68,20 @@ export class CombatCardModelService {
     overlay: GameCombatOverlay | null,
   ): CombatCardModel {
     const { kind, id } = this.parseCombatEntityKey(key);
-    // Модель версий (Баг 1): в игре читается approved + оверлей. При наличии полного листа
-    // (overlay.sheet, in-game редактор) он и есть база; иначе — approved-версия.
+    const membership = kind === 'character' ? memberships.find((item) => item.characterId === id) : undefined;
     const baseVersion =
       kind === 'npc'
         ? (npcs.find((npc) => npc.id === id)?.version ?? null)
-        : (overlay?.sheet ?? memberships.find((membership) => membership.characterId === id)?.activeVersion ?? null);
+        : (membership?.approvedCharacterVersion ?? null);
     const hasChanges = overlay !== null && overlay.updatedAt !== '' && baseVersion !== null;
-    // Ресурсы/состояния оверлея мержатся и поверх sheet: иначе клик-атака не видна после правки экипировки.
     const effectiveVersion =
-      baseVersion === null
-        ? null
-        : hasChanges && overlay
-          ? combatOverlayService.mergeCombatOverlay(overlay.sheet ?? baseVersion, overlay)
-          : baseVersion;
+      kind === 'character'
+        ? sessionCharacterService.resolve(membership?.approvedCharacterVersion ?? null, overlay)
+        : baseVersion === null
+          ? null
+          : hasChanges && overlay
+            ? combatOverlayService.mergeCombatOverlay(overlay.sheet ?? baseVersion, overlay)
+            : baseVersion;
 
     return {
       kind,

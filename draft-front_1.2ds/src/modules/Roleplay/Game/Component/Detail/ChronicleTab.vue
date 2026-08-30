@@ -18,6 +18,7 @@ import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/Characte
 import ChronicleEntryDialog from '@/modules/Roleplay/Game/Component/Detail/ChronicleEntryDialog.vue';
 import ChronicleEntryContent from '@/modules/Roleplay/Game/Component/Detail/ChronicleEntryContent.vue';
 import { SheetCard } from '@/modules/Roleplay/Character/init';
+import { sessionCharacterService } from '@/modules/Roleplay/Game/Service/Instance/sessionCharacterService';
 
 const props = defineProps<{
   /** Активна ли вкладка: перезагрузка при активации (v-window не размонтирует вкладки). */
@@ -53,7 +54,7 @@ const confirmDeleteOpen = computed({
 
 // Источники ссылок: approved-персонажи игры и активные НПС (как в форме записи).
 const approvedCharacters = computed(() =>
-  memberships.value.filter((membership) => membership.membershipStatus === 'approved'),
+  memberships.value.filter((membership) => membership.membershipStatus === 'active'),
 );
 const activeNpcs = computed(() => npcs.value.filter((npc) => npc.status === 'active'));
 
@@ -105,13 +106,13 @@ const refCard = computed<{
   if (!ref || !user) return null;
   if (ref.kind === 'character') {
     const membership = memberships.value.find(
-      (candidate) => candidate.characterId === ref.id && candidate.membershipStatus === 'approved',
+      (candidate) => candidate.characterId === ref.id && candidate.membershipStatus === 'active',
     );
     if (!membership) return null;
 
     return {
       name: membership.characterName,
-      version: membership.activeVersion,
+      version: sessionCharacterService.resolve(membership.approvedCharacterVersion, membership.overlay),
       visibleSections: sheetAccessService.visibleSheetSections(
         user,
         membership.visibility,

@@ -17,6 +17,7 @@ import {
   mockSetChatMembers,
 } from '@/modules/Messages/Chat/Mock/mockChat';
 import { gameAccessService } from '@/modules/Roleplay/Game/Service/Instance/gameAccessService';
+import { endInitiative } from '@/modules/Roleplay/Game/Mock/mockGameInitiative';
 
 const delay = (ms = 100) => new Promise((r) => setTimeout(r, ms));
 
@@ -353,6 +354,7 @@ export async function updateGame(id: number, data: CreateGameData, _signal?: Abo
   const idx = gameDetails.findIndex((d) => d.game.id === id);
   if (idx === -1) throw new Error('Игра не найдена');
   const current = gameDetails[idx];
+  const leavingSession = current.game.status === 'playing' && data.status !== 'playing';
   const updated: GameDetail = {
     ...current,
     game: {
@@ -377,6 +379,7 @@ export async function updateGame(id: number, data: CreateGameData, _signal?: Abo
     members: JSON.parse(JSON.stringify(current.members)) as GameDetail['members'],
   };
   gameDetails[idx] = updated;
+  if (leavingSession) endInitiative(id);
 
   return toViewerGameDetail(updated);
 }

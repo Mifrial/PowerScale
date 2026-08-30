@@ -1,1 +1,1 @@
-export type CharacterStatus = 'draft' | 'ready' | 'moderation' | 'needs_fix';
+export type CharacterStatus = 'draft' | 'ready';

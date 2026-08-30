@@ -3,8 +3,7 @@ import type { CharacterStatus } from '@/modules/Roleplay/Character/Enum/Characte
 
 /**
  * Данные создания персонажа (свободное создание): привязка к ревизии + собранная версия.
- * `status` — статус ЛИСТА (валидность), решает вызывающий контекст (редактор вне игры — 'ready',
- * создание через игру — 'moderation' в членстве игры, не здесь). Модуль персонажа не знает об играх.
+ * `status` — статус ЛИСТА (draft|ready), решает вызывающий контекст. Модуль персонажа не знает об играх.
  */
 export interface CreateCharacterData {
   spaceId: number;

@@ -14,7 +14,7 @@ import {
 const overlay: ICharacterSessionOverlay = {
   sessionTarget(characterId, gameId) {
     const candidates = gameCharacterMemberships.filter(
-      (membership) => membership.characterId === characterId && membership.membershipStatus === 'approved',
+      (membership) => membership.characterId === characterId && membership.membershipStatus === 'active',
     );
     const target =
       gameId !== undefined
@@ -22,7 +22,11 @@ const overlay: ICharacterSessionOverlay = {
         : (candidates.find((membership) => isSessionActive(membership.gameId)) ?? null);
     if (!target || !isSessionActive(target.gameId)) return null;
 
-    return { gameId: target.gameId, characterId: target.characterId, activeVersion: target.activeVersion };
+    return {
+      gameId: target.gameId,
+      characterId: target.characterId,
+      approvedCharacterVersion: target.approvedCharacterVersion,
+    };
   },
   async writeSheet(gameId, characterId, version) {
     await writeOverlaySheet(gameId, combatKey('character', characterId), version);

@@ -141,7 +141,7 @@ const resolvedAttackerKey = computed(() => offer.value?.initiator ?? props.attac
 const entityOptions = computed(() => {
   const items: { value: CombatEntityKey; title: string }[] = [];
   for (const membership of props.characters) {
-    if (membership.membershipStatus !== 'approved') continue;
+    if (membership.membershipStatus !== 'active') continue;
     items.push({ value: `character:${membership.characterId}`, title: membership.characterName });
   }
   for (const npc of props.npcs) {

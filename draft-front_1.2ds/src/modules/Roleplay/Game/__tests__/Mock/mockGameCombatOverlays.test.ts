@@ -19,7 +19,7 @@ import { effectiveResources, effectiveStates } from '@/modules/Roleplay/Game/Uti
 const charKey = combatKey('character', 1);
 
 function versionOf() {
-  return gameCharacterMemberships.find((m) => m.gameId === 2 && m.characterId === 1)?.activeVersion ?? null;
+  return gameCharacterMemberships.find((m) => m.gameId === 2 && m.characterId === 1)?.approvedCharacterVersion ?? null;
 }
 
 describe('mockGameCombatOverlays: фикстуры и пустые записи', () => {
@@ -31,15 +31,17 @@ describe('mockGameCombatOverlays: фикстуры и пустые записи'
     expect(overlays.every((o) => o.updatedAt === '')).toBe(true);
   });
 
-  it('fetchCombatOverlays для игры без approved-персонажей возвращает только активных НПС', async () => {
+  it('fetchCombatOverlays для игры 1 включает active-персонажей и активных НПС', async () => {
     const overlays = await fetchCombatOverlays(1);
+    const characterKeys = overlays.filter((o) => o.kind === 'character').map((o) => o.entityKey);
     const npcKeys = overlays
       .filter((o) => o.kind === 'npc')
       .map((o) => o.entityKey)
       .sort();
     const activeNpcs = gameNpcs.filter((npc) => npc.gameId === 1 && npc.status === 'active');
 
-    expect(overlays.every((o) => o.kind === 'npc')).toBe(true);
+    expect(characterKeys).toContain(combatKey('character', 3));
+    expect(characterKeys).not.toContain(combatKey('character', 4));
     expect(npcKeys).toEqual(activeNpcs.map((npc) => combatKey('npc', npc.id)).sort());
   });
 

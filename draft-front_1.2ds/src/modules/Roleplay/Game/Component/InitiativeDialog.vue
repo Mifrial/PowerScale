@@ -21,6 +21,7 @@ import type { GameInitiativeParticipant } from '@/modules/Roleplay/Game/Dto/Game
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
+import { sessionCharacterService } from '@/modules/Roleplay/Game/Service/Instance/sessionCharacterService';
 
 /**
  * Окно проверки на инициативу (ТР §8 «Чат игры»): выбор участников (персонажи + НПС),
@@ -80,7 +81,7 @@ const poolDefaults = computed(() => rollPoolDefaults(props.rules));
 
 const candidates = computed<CandidateOption[]>(() => {
   const characters: CandidateOption[] = props.characters
-    .filter((membership) => membership.membershipStatus === 'approved')
+    .filter((membership) => membership.membershipStatus === 'active')
     .map((membership) => ({
       participant: {
         id: `character:${membership.characterId}`,
@@ -88,7 +89,7 @@ const candidates = computed<CandidateOption[]>(() => {
         kind: 'character',
         entityId: membership.characterId,
       },
-      version: membership.activeVersion,
+      version: sessionCharacterService.resolve(membership.approvedCharacterVersion, membership.overlay),
     }));
   const npcs: CandidateOption[] = props.npcs
     .filter((npc) => npc.status === 'active')

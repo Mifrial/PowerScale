@@ -25,6 +25,10 @@ function validate(data: GameInitiative): void {
   }
 }
 
+export function endInitiative(gameId: number): void {
+  initiatives.set(gameId, emptyInitiative(gameId));
+}
+
 export async function fetchInitiative(gameId: number, _signal?: AbortSignal): Promise<GameInitiative> {
   await delay(150);
   const existing = initiatives.get(gameId);

@@ -15,12 +15,13 @@ function membership(partial: Partial<GameCharacterMembership>): GameCharacterMem
     characterName: 'Торвин',
     characterOwnerId: 1,
     characterOwnerName: 'Иван',
-    characterStatus: 'ready',
     role: 'player',
-    membershipStatus: 'approved',
-    activeVersion: versions[1],
-    latestVersion: versions[1],
-    pendingVersion: null,
+    membershipStatus: 'active',
+    approvedCharacterVersion: versions[1],
+    reviewState: 'clean',
+    returnedAt: null,
+    returnReason: null,
+    returnMessageId: null,
     overlay: null,
     visibility: [],
     osBonus: 0,
@@ -38,8 +39,8 @@ const memberships: GameCharacterMembership[] = [
     characterId: 3,
     characterName: 'Гаррик',
     characterOwnerId: 2,
-    membershipStatus: 'pending',
-    activeVersion: versions[3],
+    membershipStatus: 'submitted',
+    approvedCharacterVersion: versions[3],
   }),
 ];
 
@@ -156,8 +157,10 @@ describe('combatCardModel: версия + оверлей', () => {
     expect(model.effectiveVersion?.states).toEqual(versions[1].states);
   });
 
-  it('без листа (activeVersion null) — effectiveVersion null', () => {
-    const noVersion = [membership({ gameId: 1, characterId: 4, characterName: 'Морган', activeVersion: null })];
+  it('без листа (approvedCharacterVersion null) — effectiveVersion null', () => {
+    const noVersion = [
+      membership({ gameId: 1, characterId: 4, characterName: 'Морган', approvedCharacterVersion: null }),
+    ];
     const model = combatCardModelService.combatCardModel('character:4', noVersion, npcs, true, 1, null);
     expect(model.version).toBeNull();
     expect(model.effectiveVersion).toBeNull();

@@ -44,12 +44,17 @@ export async function updateCharacter(
   data: UpdateCharacterData,
   _signal?: AbortSignal,
 ): Promise<CharacterDetail> {
-  const target = sessionTarget(id, data.gameId);
   const overlay = getCharacterSessionOverlay();
-  if (target && overlay) {
-    await overlay.writeSheet(target.gameId, target.characterId, data.version);
+  if (data.gameId !== undefined) {
+    const target = sessionTarget(id, data.gameId);
+    if (target && overlay) {
+      await overlay.writeSheet(target.gameId, target.characterId, data.version);
 
-    return fetchCharacter(id);
+      return fetchCharacter(id);
+    }
+  }
+  if (sessionTarget(id)) {
+    throw new Error('Нельзя менять лист во время сессии');
   }
 
   const detail = await mockUpdateCharacter(id, data);
@@ -115,8 +120,8 @@ export async function updateCustomRule(
 export async function overlaySheetBase(target: CharacterSessionTarget, characterId: number): Promise<CharacterVersion> {
   const stored = getCharacterSessionOverlay()?.readSheet(target.gameId, characterId);
   if (stored) return stored;
-  const active = target.activeVersion ?? versions[characterId];
-  if (!active) throw new Error(`Character ${characterId} not found`);
+  const approved = target.approvedCharacterVersion ?? versions[characterId];
+  if (!approved) throw new Error(`Character ${characterId} not found`);
 
-  return JSON.parse(JSON.stringify(active)) as CharacterVersion;
+  return JSON.parse(JSON.stringify(approved)) as CharacterVersion;
 }

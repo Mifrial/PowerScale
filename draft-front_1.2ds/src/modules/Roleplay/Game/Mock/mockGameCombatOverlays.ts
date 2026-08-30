@@ -7,6 +7,7 @@ import { gameCharacterMemberships } from '@/modules/Roleplay/Game/Mock/mockGameM
 import { gameNpcs } from '@/modules/Roleplay/Game/Mock/mockGameNpcs';
 import { resourceLimitBase, statesEqual } from '@/modules/Roleplay/Game/Utils/combatEffectiveState';
 import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
+import { sessionCharacterService } from '@/modules/Roleplay/Game/Service/Instance/sessionCharacterService';
 
 const delay = (ms = 100) => new Promise((r) => setTimeout(r, ms));
 
@@ -29,7 +30,7 @@ function entityVersion(gameId: number, entityKey: CombatEntityKey): CharacterVer
   // Эффективная база для оверлея: рабочая копия листа из редактора поверх активной версии.
   const stored = membership ? getStoredCombatOverlay(gameId, entityKey) : null;
 
-  return stored?.sheet ?? membership?.activeVersion ?? null;
+  return stored?.sheet ?? membership?.approvedCharacterVersion ?? null;
 }
 
 function emptyOverlay(gameId: number, entityKey: CombatEntityKey): GameCombatOverlay {
@@ -131,7 +132,14 @@ export async function writeOverlaySheet(
   const version = entityVersion(gameId, entityKey);
   if (!version) throw new Error('Лист участника не заполнен');
   const overlay = ensureOverlay(gameId, entityKey, version);
-  overlay.sheet = JSON.parse(JSON.stringify(sheet)) as CharacterVersion;
+  overlay.sheet = sessionCharacterService.stripIdentity(
+    JSON.parse(JSON.stringify(sheet)) as CharacterVersion,
+    entityKey.startsWith('character:')
+      ? (gameCharacterMemberships.find(
+          (membership) => membership.gameId === gameId && membership.characterId === Number(entityKey.slice(10)),
+        )?.approvedCharacterVersion ?? null)
+      : null,
+  );
   overlay.resources = [];
   overlay.states = sheet.states.map((state) => ({ ...state }));
   overlay.updatedAt = new Date().toISOString();
@@ -147,7 +155,7 @@ export async function fetchCombatOverlays(gameId: number, _signal?: AbortSignal)
   await delay(150);
   const keys: CombatEntityKey[] = [
     ...gameCharacterMemberships
-      .filter((membership) => membership.gameId === gameId && membership.membershipStatus === 'approved')
+      .filter((membership) => membership.gameId === gameId && membership.membershipStatus === 'active')
       .map((membership) => combatKey('character', membership.characterId)),
     ...gameNpcs
       .filter((npc) => npc.gameId === gameId && npc.status === 'active')

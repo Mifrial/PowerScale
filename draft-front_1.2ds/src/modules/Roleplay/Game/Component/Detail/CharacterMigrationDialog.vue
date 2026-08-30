@@ -63,11 +63,11 @@ const draftKey = computed(() =>
 );
 
 const sheetUnchanged = computed(() => {
-  const active = props.membership?.activeVersion;
+  const source = originalVersion.value;
   const pending = result.value?.version;
-  if (!active || !pending) return false;
+  if (!source || !pending) return false;
 
-  return isEmptyMembershipDiff(membershipDiff(active, pending));
+  return isEmptyMembershipDiff(membershipDiff(source, pending));
 });
 
 function resolve(ruleId: string): string {
@@ -100,12 +100,12 @@ const compareResult = computed<MigrationResult | null>(() => {
 
 async function run(): Promise<void> {
   const membership = props.membership;
-  const source = membership?.latestVersion ?? membership?.activeVersion ?? membership?.pendingVersion;
-  if (!membership || !source) return;
+  if (!membership) return;
   loading.value = true;
   error.value = null;
   try {
     const character = await getCharacterApi().getCharacter(membership.characterId);
+    const source = character.version;
     const oldRevision = await spaceRevisionStore.fetchRevision(
       character.character.spaceId,
       source.rulesRevision,

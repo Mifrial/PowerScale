@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { fetchInitiative, saveInitiative } from '@/modules/Roleplay/Game/Mock/mockGameInitiative';
+import { fetchInitiative, saveInitiative, endInitiative } from '@/modules/Roleplay/Game/Mock/mockGameInitiative';
 import type { GameInitiative } from '@/modules/Roleplay/Game/Dto/GameInitiative';
+import { gameDetails, updateGame } from '@/modules/Roleplay/Game/Mock/mockGames';
+import { toCreateGameData } from '@/modules/Roleplay/Game/Utils/toCreateGameData';
 
 function makeData(overrides: Partial<GameInitiative> = {}): GameInitiative {
   return {
@@ -84,5 +86,26 @@ describe('mockGameInitiative', () => {
 
   it('валидирует номер раунда < 1', async () => {
     await expect(saveInitiative(1, makeData({ round: 0 }))).rejects.toThrow('Номер раунда должен быть >= 1');
+  });
+
+  it('endInitiative сбрасывает шкалу в пустую неактивную', async () => {
+    await saveInitiative(1, makeData({ active: true }));
+    endInitiative(1);
+    const fetched = await fetchInitiative(1);
+    expect(fetched.active).toBe(false);
+    expect(fetched.participants).toEqual([]);
+    expect(fetched.activeIndex).toBeNull();
+  });
+
+  it('остановка сессии сбрасывает шкалу — продолжить нельзя', async () => {
+    const detail = gameDetails.find((entry) => entry.game.id === 2)!;
+    const previous = detail.game.status;
+    detail.game.status = 'playing';
+    await saveInitiative(2, makeData({ gameId: 2, active: false }));
+    await updateGame(2, { ...toCreateGameData(detail), status: 'in_process' });
+    const fetched = await fetchInitiative(2);
+    expect(fetched.active).toBe(false);
+    expect(fetched.participants).toEqual([]);
+    detail.game.status = previous;
   });
 });

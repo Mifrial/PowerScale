@@ -3,7 +3,7 @@ import { computed, ref, watch } from 'vue';
 import { useUserStore } from '@/modules/Core/User/Store/users';
 import { useChatStore } from '@/modules/Messages/Chat/Store/chat';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
-import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
+import type { GameStatus } from '@/modules/Roleplay/Game/Enum/GameStatus';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
 import type { GameInitiative } from '@/modules/Roleplay/Game/Dto/GameInitiative';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
@@ -43,7 +43,8 @@ type SystemNotification = { content: string; kind: ChatMessage['kind']; thread?:
 
 /**
  * Шкала инициативы (ТР §8 «Чат игры»). Жизненный цикл: «Инициатива» (окно проверки, ГМ) →
- * активная шкала (порядок + «Передать ход»/«Добавить»/«Закончить») → завершена («Продолжить»).
+ * активная шкала (порядок + «Передать ход»/«Добавить»/«Закончить») → завершена («Продолжить», только `playing`).
+ * Остановка сессии сбрасывает шкалу.
  * Порядок хода хранится как есть (результат броска не хранится); при передаче хода в чат
  * постится системное уведомление «Ходит Имя». Эмитит `turn` (id активного участника) —
  * для авто-переключения селектора «от лица кого» у владельца хода.
@@ -67,6 +68,7 @@ const props = defineProps<{
   overlayRevision: number;
   /** Начать сессию, если ещё не playing (бросок инициативы = старт сцены). */
   ensurePlaying?: () => Promise<void>;
+  gameStatus: GameStatus;
 }>();
 
 const emit = defineEmits<{
@@ -145,7 +147,7 @@ const canPass = computed(() => {
 const addOptions = computed(() => {
   const existing = new Set(initiative.value?.participants.map((participant) => participant.id) ?? []);
   const characters = props.characters
-    .filter((membership) => membership.membershipStatus === 'approved')
+    .filter((membership) => membership.membershipStatus === 'active')
     .map((membership) => ({
       id: `character:${membership.characterId}`,
       name: membership.characterName,
@@ -519,7 +521,7 @@ function endScale(): void {
 
 function continueScale(): void {
   const data = initiative.value;
-  if (!data) return;
+  if (!data || props.gameStatus !== 'playing') return;
   void save({ ...data, active: true }).then(() => {
     if (props.chatId != null) combatThread.recoverFromMessages(chatStore.messagesOf(props.chatId));
   });
@@ -562,6 +564,11 @@ watch(
 watch(
   () => props.overlayRevision,
   () => void loadOverlays(),
+);
+
+watch(
+  () => props.gameStatus,
+  () => void load(),
 );
 
 // Текущий ход: эмит для авто-переключения селектора «от лица кого» у владельца хода.
@@ -702,7 +709,7 @@ function kindIcon(kind: 'character' | 'npc'): string {
         <div v-else class="initiative-track__ended">
           <span class="text-caption text-medium-emphasis">Шкала завершена</span>
           <v-btn
-            v-if="canEdit"
+            v-if="canEdit && gameStatus === 'playing'"
             size="small"
             variant="tonal"
             color="primary"

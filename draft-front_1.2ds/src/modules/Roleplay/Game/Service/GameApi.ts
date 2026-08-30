@@ -8,6 +8,7 @@ import type { UpdateGameMemberData } from '@/modules/Roleplay/Game/Dto/UpdateGam
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { GameInvitation } from '@/modules/Roleplay/Game/Dto/GameInvitation';
 import type { GameModerationAction } from '@/modules/Roleplay/Game/Enum/GameModerationAction';
+import type { GameCharacterModerationAction } from '@/modules/Roleplay/Game/Enum/GameCharacterModerationAction';
 import type { GameMemberRole } from '@/modules/Roleplay/Game/Enum/GameMemberRole';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
 import type { CreateNpcData } from '@/modules/Roleplay/Game/Dto/CreateNpcData';
@@ -32,7 +33,6 @@ import type { CheckOfferProposal } from '@/modules/Roleplay/Game/Dto/CheckOfferP
 import type { CreateCheckOfferData } from '@/modules/Roleplay/Game/Dto/CreateCheckOfferData';
 import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/CharacterStateValue';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
-import type { ConflictChoices } from '@/modules/Roleplay/Game/Utils/reconcileVersion';
 import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
 import type { ProcessSession } from '@/modules/Roleplay/Game/Dto/ProcessSession';
 import type { CurrentSpeed } from '@/modules/Roleplay/Game/Dto/CurrentSpeed';
@@ -106,16 +106,22 @@ export class GameApi implements IGameApi {
   async moderateCharacter(
     gameId: number,
     characterId: number,
-    action: GameModerationAction,
-    choices?: ConflictChoices,
+    action: GameCharacterModerationAction,
     signal?: AbortSignal,
   ): Promise<GameCharacterMembership> {
     const res = await this.engine.runAction<GameCharacterMembership>(
       'game.moderateCharacter',
-      { gameId, characterId, action, choices },
+      { gameId, characterId, action },
       signal,
     );
     if (!res.data) throw new Error('Moderate character failed');
+
+    return res.data;
+  }
+
+  async leaveGame(gameId: number, characterId: number, signal?: AbortSignal): Promise<GameCharacterMembership> {
+    const res = await this.engine.runAction<GameCharacterMembership>('game.leaveGame', { gameId, characterId }, signal);
+    if (!res.data) throw new Error('Leave game failed');
 
     return res.data;
   }

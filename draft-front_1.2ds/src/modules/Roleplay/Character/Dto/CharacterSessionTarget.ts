@@ -3,5 +3,5 @@ import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/Characte
 export interface CharacterSessionTarget {
   gameId: number;
   characterId: number;
-  activeVersion: CharacterVersion | null;
+  approvedCharacterVersion: CharacterVersion | null;
 }

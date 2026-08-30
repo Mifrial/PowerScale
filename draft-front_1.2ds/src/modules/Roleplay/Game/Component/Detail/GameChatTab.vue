@@ -4,7 +4,9 @@ import { useUserStore } from '@/modules/Core/User/Store/users';
 import { useGameStore } from '@/modules/Roleplay/Game/Store/games';
 import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
+import { getCharacterApi } from '@/modules/Roleplay/Character/init';
 import { getRuleApi } from '@/modules/Roleplay/Rule/init';
+import { sessionCharacterService } from '@/modules/Roleplay/Game/Service/Instance/sessionCharacterService';
 import { gameChatRulesContextService } from '@/modules/Roleplay/Game/Service/Instance/gameChatRulesContextService';
 
 import { gameStatusTransitionsService } from '@/modules/Roleplay/Game/Service/Instance/gameStatusTransitionsService';
@@ -14,6 +16,7 @@ import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCh
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
 import type { GameStatus } from '@/modules/Roleplay/Game/Enum/GameStatus';
 import type { ChatSpeakerOption } from '@/modules/Messages/Chat/Dto/ChatSpeakerOption';
+import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { GameDetail } from '@/modules/Roleplay/Game/Dto/GameDetail';
 import type { ITokenSource } from '@/modules/Messages/Chat/Interface/ITokenSource';
 import type { ChatAttachment } from '@/modules/Messages/Chat/Dto/ChatAttachment';
@@ -76,7 +79,7 @@ const showStopSession = computed(
 
 // «Начать сессию» → playing, «Остановить сессию» → in_process (межсессионный период). Сессия не
 // трогает терминальный статус игры (completed ставится отдельно — селектором в форме игры).
-// При остановке сессии боевые изменения (оверлей) персонажей собираются в pendingVersion на модерацию (CD-2).
+// При остановке сессии overlay PC атомарно коммитится в actual (DEC-059).
 async function ensurePlaying(): Promise<void> {
   if (!gameStatusTransitionsService.canStartGame(props.detail.game.status)) return;
   await changeStatus('playing');
@@ -122,7 +125,7 @@ const tokenSources = computed<ITokenSource[]>(() => [
       const q = query.toLowerCase();
 
       return memberships.value
-        .filter((membership) => membership.membershipStatus === 'approved')
+        .filter((membership) => membership.membershipStatus === 'active')
         .filter((membership) => !q || membership.characterName.toLowerCase().includes(q))
         .map((membership) => ({
           value: `${membership.characterId},${membership.characterName}`,
@@ -151,9 +154,22 @@ const processAttachments = (attachments: ChatAttachment[]): ChatAttachment[] =>
   rulesContext.value.processAttachments(attachments);
 
 const memberships = ref<GameCharacterMembership[]>([]);
+const actualById = ref<Record<number, CharacterVersion>>({});
 const npcs = ref<GameNpc[]>([]);
 const loading = ref(false);
 const loadError = ref<string | null>(null);
+
+const eligibleMemberships = computed(() =>
+  memberships.value.filter((membership) =>
+    sessionCharacterService.isEligibleForSession({
+      membershipStatus: membership.membershipStatus,
+      approved: membership.approvedCharacterVersion,
+      actual: actualById.value[membership.characterId] ?? null,
+      gameRulesRevision: props.detail.game.rulesRevision,
+      needsFix: false,
+    }),
+  ),
+);
 
 // Макросы быстрых бросков per entityKey (CD-8): звёздочка в карточке и блок в сайдбаре.
 const quickRolls = ref<Record<string, string[]>>({});
@@ -164,7 +180,7 @@ const speakerOptions = computed<ChatSpeakerOption[]>(() => {
   const user = userStore.currentUser;
   if (!user) return [];
   const ownCharacters = memberships.value
-    .filter((membership) => membership.membershipStatus === 'approved' && membership.characterOwnerId === user.id)
+    .filter((membership) => membership.membershipStatus === 'active' && membership.characterOwnerId === user.id)
     .map<ChatSpeakerOption>((membership) => ({
       key: `character:${membership.characterId}`,
       label: membership.characterName,
@@ -191,6 +207,18 @@ async function load(): Promise<void> {
   loadError.value = null;
   try {
     memberships.value = await getGameApi().getGameCharacters(gameId.value);
+    const actuals: Record<number, CharacterVersion> = {};
+    await Promise.all(
+      memberships.value.map(async (membership) => {
+        try {
+          const detail = await getCharacterApi().getCharacter(membership.characterId);
+          actuals[membership.characterId] = detail.version;
+        } catch {
+          // лист недоступен
+        }
+      }),
+    );
+    actualById.value = actuals;
     npcs.value = await getGameApi().getNpcs(gameId.value);
     quickRolls.value = await getGameApi().getQuickRolls(gameId.value);
     await refreshProcessSessions();
@@ -603,12 +631,13 @@ onUnmounted(() => {
           :space-id="detail.game.spaceId"
           :chat-id="chatId"
           :can-edit="canEdit"
-          :characters="memberships"
+          :characters="eligibleMemberships"
           :npcs="npcs"
           :rules="revisionRules"
           :mechanics="mechanics"
           :overlay-revision="overlayRevision"
           :ensure-playing="ensurePlaying"
+          :game-status="detail.game.status"
           class="game-chat-sidebar__initiative"
           @turn="onTurn"
           @open-card="onOpenCard"
@@ -620,7 +649,7 @@ onUnmounted(() => {
           :chat-id="chatId"
           :can-edit="canEdit"
           :current-user-id="userStore.currentUser?.id ?? null"
-          :memberships="memberships"
+          :memberships="eligibleMemberships"
           :npcs="npcs"
           :rules="revisionRules"
           :mechanics="mechanics"
@@ -683,7 +712,7 @@ onUnmounted(() => {
       :game-id="gameId"
       :space-id="detail.game.spaceId"
       :chat-id="chatId"
-      :characters="memberships"
+      :characters="eligibleMemberships"
       :npcs="npcs"
       :rules="revisionRules"
       :mechanics="mechanics"
@@ -699,7 +728,7 @@ onUnmounted(() => {
       :open="actionOpen"
       :game-id="gameId"
       :chat-id="chatId"
-      :characters="memberships"
+      :characters="eligibleMemberships"
       :npcs="npcs"
       :rules="revisionRules"
       :mechanics="mechanics"
@@ -716,7 +745,7 @@ onUnmounted(() => {
       :open="attackOpen"
       :game-id="gameId"
       :chat-id="chatId"
-      :characters="memberships"
+      :characters="eligibleMemberships"
       :npcs="npcs"
       :rules="revisionRules"
       :mechanics="mechanics"
@@ -730,7 +759,7 @@ onUnmounted(() => {
       :open="hitOpen"
       :game-id="gameId"
       :chat-id="chatId"
-      :characters="memberships"
+      :characters="eligibleMemberships"
       :npcs="npcs"
       :rules="revisionRules"
       :mechanics="mechanics"
@@ -750,7 +779,7 @@ onUnmounted(() => {
       :open="injuryOpen"
       :game-id="gameId"
       :chat-id="chatId"
-      :characters="memberships"
+      :characters="eligibleMemberships"
       :npcs="npcs"
       :rules="revisionRules"
       :mechanics="mechanics"

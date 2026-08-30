@@ -6,8 +6,7 @@ export class CombatOverlayService {
   /**
    * Применяет поля оверлея боя на версию листа (CD-4): current ресурсов (кламп к лимиту актуальной
    * версии) и список состояний. Возвращает новую версию, исходную не мутирует. Используется при
-   * «Остановить сессию» (построение pendingVersion) и при approve (мерж на актуальную версию —
-   * standalone-правки остальных полей сохраняются).
+   * «Остановить сессию» (commit overlay в actual) и при чтении сессии (approved + overlay).
    */
   mergeCombatOverlay(version: CharacterVersion, overlay: GameCombatOverlay): CharacterVersion {
     const resources = version.resources.map((resource) => {
