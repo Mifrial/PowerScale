@@ -16,6 +16,7 @@ import type { MigrationResult } from '@/modules/Roleplay/Character/Service/Chara
 import type { CharacterCreationConfig } from '@/modules/Roleplay/Character/Dto/Editor/CharacterCreationConfig';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { isEmptyMembershipDiff, membershipDiff } from '@/modules/Roleplay/Game/Utils/membershipDiff';
+import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
 
 const props = defineProps<{
   gameId: number;
@@ -41,6 +42,7 @@ const loading = ref(false);
 const error = ref<string | null>(null);
 const submitting = ref(false);
 const result = ref<MigrationResult | null>(null);
+const expectedActualToken = ref<string | null>(null);
 const phase = ref<'report' | 'editor'>('report');
 const editorCompareOpen = ref(false);
 
@@ -106,6 +108,7 @@ async function run(): Promise<void> {
   try {
     const character = await getCharacterApi().getCharacter(membership.characterId);
     const source = character.version;
+    expectedActualToken.value = JSON.stringify(cloneData(source));
     const oldRevision = await spaceRevisionStore.fetchRevision(
       character.character.spaceId,
       source.rulesRevision,
@@ -146,7 +149,12 @@ function submit(): void {
   error.value = null;
   void (async () => {
     try {
-      await getGameApi().submitCharacterMigration(props.gameId, membership.characterId, migration.version);
+      await getGameApi().submitCharacterMigration(
+        props.gameId,
+        membership.characterId,
+        migration.version,
+        expectedActualToken.value ?? undefined,
+      );
       open.value = false;
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Не удалось отправить на модерацию';
@@ -167,9 +175,22 @@ function openEditor(): void {
 /** Сохранение из конфликт-редактора: исправленная версия уходит на модерацию. */
 async function handleEditorSave(version: CharacterVersion): Promise<void> {
   if (!props.membership) return;
-  await getGameApi().submitCharacterMigration(props.gameId, props.membership.characterId, version);
-  if (draftKey.value) draftStore.discard(draftKey.value);
-  open.value = false;
+  submitting.value = true;
+  error.value = null;
+  try {
+    await getGameApi().submitCharacterMigration(
+      props.gameId,
+      props.membership.characterId,
+      version,
+      expectedActualToken.value ?? undefined,
+    );
+    if (draftKey.value) draftStore.discard(draftKey.value);
+    open.value = false;
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'Не удалось отправить на модерацию';
+  } finally {
+    submitting.value = false;
+  }
 }
 
 watch(open, (value) => {

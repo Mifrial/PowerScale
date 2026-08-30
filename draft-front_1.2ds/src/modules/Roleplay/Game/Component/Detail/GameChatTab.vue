@@ -89,11 +89,11 @@ async function changeStatus(target: GameStatus): Promise<void> {
   statusUpdating.value = true;
   statusError.value = null;
   try {
-    const updated = await getGameApi().updateGame(gameId.value, { ...toCreateGameData(props.detail), status: target });
+    const updated =
+      target === 'in_process' || target === 'completed'
+        ? await getGameApi().stopGameSession(gameId.value, target)
+        : await getGameApi().updateGame(gameId.value, { ...toCreateGameData(props.detail), status: target });
     store.applyGameUpdate(updated);
-    if (target === 'in_process' || target === 'completed') {
-      await getGameApi().submitCombatChanges(gameId.value);
-    }
   } catch (e) {
     statusError.value = e instanceof Error ? e.message : 'Не удалось изменить статус';
   } finally {

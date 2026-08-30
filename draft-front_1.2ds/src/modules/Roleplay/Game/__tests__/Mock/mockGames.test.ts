@@ -145,6 +145,30 @@ describe('mockGames: обсуждение и редактирование', () =
     expect(fetched.game.name).toBe('После редактирования');
   });
 
+  it('updateGame не снимает playing', async () => {
+    const playing = gameDetails.find((detail) => detail.game.status === 'playing');
+    expect(playing).toBeDefined();
+    const data = {
+      name: playing!.game.name,
+      shortDescription: playing!.game.shortDescription,
+      description: playing!.description,
+      status: 'in_process' as const,
+      visibility: playing!.game.visibility,
+      joinPolicy: playing!.game.joinPolicy,
+      spaceId: playing!.game.spaceId,
+      spaceCode: playing!.game.spaceCode,
+      rulesRevision: playing!.game.rulesRevision,
+      osPointsLimit: playing!.osPointsLimit,
+      olPointsLimit: playing!.olPointsLimit,
+      orPointsLimit: playing!.orPointsLimit,
+      moneyLimit: playing!.moneyLimit,
+      tags: playing!.game.tags,
+      forbiddenTags: playing!.forbiddenTags,
+    };
+    await expect(updateGame(playing!.game.id, data)).rejects.toThrow('Сначала остановите сессию');
+    expect(playing!.game.status).toBe('playing');
+  });
+
   it('роли игрового чата синхронизированы с ролями участников игры (D103)', async () => {
     const detail = await createGame(makeData('Тест-роли-чата'));
     const ownerRole = (await mockGetChats())

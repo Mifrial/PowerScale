@@ -17,7 +17,7 @@ import {
   mockSetChatMembers,
 } from '@/modules/Messages/Chat/Mock/mockChat';
 import { gameAccessService } from '@/modules/Roleplay/Game/Service/Instance/gameAccessService';
-import { endInitiative } from '@/modules/Roleplay/Game/Mock/mockGameInitiative';
+import { endInitiative, snapshotInitiative, restoreInitiative } from '@/modules/Roleplay/Game/Mock/mockGameInitiative';
 
 const delay = (ms = 100) => new Promise((r) => setTimeout(r, ms));
 
@@ -354,7 +354,9 @@ export async function updateGame(id: number, data: CreateGameData, _signal?: Abo
   const idx = gameDetails.findIndex((d) => d.game.id === id);
   if (idx === -1) throw new Error('Игра не найдена');
   const current = gameDetails[idx];
-  const leavingSession = current.game.status === 'playing' && data.status !== 'playing';
+  if (current.game.status === 'playing' && data.status !== 'playing') {
+    throw new Error('Сначала остановите сессию');
+  }
   const updated: GameDetail = {
     ...current,
     game: {
@@ -379,9 +381,45 @@ export async function updateGame(id: number, data: CreateGameData, _signal?: Abo
     members: JSON.parse(JSON.stringify(current.members)) as GameDetail['members'],
   };
   gameDetails[idx] = updated;
-  if (leavingSession) endInitiative(id);
 
   return toViewerGameDetail(updated);
+}
+
+export async function stopGameSession(
+  id: number,
+  targetStatus: 'in_process' | 'completed',
+  _signal?: AbortSignal,
+): Promise<GameDetail> {
+  await delay(200);
+  const idx = gameDetails.findIndex((d) => d.game.id === id);
+  if (idx === -1) throw new Error('Игра не найдена');
+  if (targetStatus !== 'in_process' && targetStatus !== 'completed') {
+    throw new Error('Недопустимый статус остановки сессии');
+  }
+  const current = gameDetails[idx];
+  if (current.game.status !== 'playing') throw new Error('Сессия не активна');
+
+  const memberships = await import('@/modules/Roleplay/Game/Mock/mockGameMemberships');
+  const overlays = await import('@/modules/Roleplay/Game/Mock/mockGameCombatOverlays');
+  const actuals = memberships.snapshotSessionActuals(id);
+  const overlaySnapshot = overlays.snapshotCombatOverlayStore(id);
+  const initiativeSnapshot = snapshotInitiative(id);
+  const statusSnapshot = current.game.status;
+  try {
+    await memberships.commitSessionOverlays(id);
+    endInitiative(id);
+    current.game.status = targetStatus;
+    gameDetails[idx] = current;
+  } catch (error) {
+    memberships.restoreSessionActuals(actuals);
+    overlays.restoreCombatOverlayStore(id, overlaySnapshot);
+    restoreInitiative(id, initiativeSnapshot);
+    current.game.status = statusSnapshot;
+    gameDetails[idx] = current;
+    throw error;
+  }
+
+  return toViewerGameDetail(current);
 }
 
 export async function updatePersonalNotes(gameId: number, notes: string, _signal?: AbortSignal): Promise<GameDetail> {

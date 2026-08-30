@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { fetchInitiative, saveInitiative, endInitiative } from '@/modules/Roleplay/Game/Mock/mockGameInitiative';
 import type { GameInitiative } from '@/modules/Roleplay/Game/Dto/GameInitiative';
-import { gameDetails, updateGame } from '@/modules/Roleplay/Game/Mock/mockGames';
-import { toCreateGameData } from '@/modules/Roleplay/Game/Utils/toCreateGameData';
+import { gameDetails, stopGameSession } from '@/modules/Roleplay/Game/Mock/mockGames';
 
 function makeData(overrides: Partial<GameInitiative> = {}): GameInitiative {
   return {
@@ -102,7 +101,7 @@ describe('mockGameInitiative', () => {
     const previous = detail.game.status;
     detail.game.status = 'playing';
     await saveInitiative(2, makeData({ gameId: 2, active: false }));
-    await updateGame(2, { ...toCreateGameData(detail), status: 'in_process' });
+    await stopGameSession(2, 'in_process');
     const fetched = await fetchInitiative(2);
     expect(fetched.active).toBe(false);
     expect(fetched.participants).toEqual([]);

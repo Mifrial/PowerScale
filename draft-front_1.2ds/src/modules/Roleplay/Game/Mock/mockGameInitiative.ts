@@ -1,4 +1,5 @@
 import type { GameInitiative } from '@/modules/Roleplay/Game/Dto/GameInitiative';
+import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
 
 const delay = (ms = 100) => new Promise((r) => setTimeout(r, ms));
 
@@ -27,6 +28,16 @@ function validate(data: GameInitiative): void {
 
 export function endInitiative(gameId: number): void {
   initiatives.set(gameId, emptyInitiative(gameId));
+}
+
+export function snapshotInitiative(gameId: number): GameInitiative {
+  const existing = initiatives.get(gameId);
+
+  return existing ? cloneData(existing) : emptyInitiative(gameId);
+}
+
+export function restoreInitiative(gameId: number, snapshot: GameInitiative): void {
+  initiatives.set(gameId, cloneData(snapshot));
 }
 
 export async function fetchInitiative(gameId: number, _signal?: AbortSignal): Promise<GameInitiative> {

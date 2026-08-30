@@ -8,6 +8,7 @@ import { gameNpcs } from '@/modules/Roleplay/Game/Mock/mockGameNpcs';
 import { resourceLimitBase, statesEqual } from '@/modules/Roleplay/Game/Utils/combatEffectiveState';
 import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
 import { sessionCharacterService } from '@/modules/Roleplay/Game/Service/Instance/sessionCharacterService';
+import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
 
 const delay = (ms = 100) => new Promise((r) => setTimeout(r, ms));
 
@@ -105,6 +106,23 @@ export function combatOverlaySnapshot(overlay: GameCombatOverlay | null): GameCo
 /** Очистка оверлея (после approve/reject модерации). */
 export function clearCombatOverlay(gameId: number, entityKey: CombatEntityKey): void {
   overlays.get(gameId)?.delete(entityKey);
+}
+
+/** Снимок map оверлеев игры (включая NPC) для атомарного stop. */
+export function snapshotCombatOverlayStore(gameId: number): Record<CombatEntityKey, GameCombatOverlay> {
+  const store = overlays.get(gameId);
+  if (!store) return {};
+
+  return Object.fromEntries([...store.entries()].map(([key, overlay]) => [key, cloneData(overlay)]));
+}
+
+/** Полная замена map оверлеев игры. Пустой snapshot удаляет все ключи. */
+export function restoreCombatOverlayStore(gameId: number, snapshot: Record<CombatEntityKey, GameCombatOverlay>): void {
+  const next = new Map<CombatEntityKey, GameCombatOverlay>();
+  for (const [key, overlay] of Object.entries(snapshot)) {
+    next.set(key as CombatEntityKey, cloneData(overlay));
+  }
+  overlays.set(gameId, next);
 }
 
 /** Есть ли реальные изменения в оверлее (ресурсы, состояния или полная копия листа). */

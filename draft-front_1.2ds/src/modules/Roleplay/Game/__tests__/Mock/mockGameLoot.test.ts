@@ -10,12 +10,8 @@ import {
   deleteLoot,
 } from '@/modules/Roleplay/Game/Mock/mockGameLoot';
 import { gameNpcs } from '@/modules/Roleplay/Game/Mock/mockGameNpcs';
-import { gameDetails } from '@/modules/Roleplay/Game/Mock/mockGames';
-import {
-  gameCharacterMemberships,
-  moderateCharacter,
-  submitCombatChanges,
-} from '@/modules/Roleplay/Game/Mock/mockGameMemberships';
+import { gameDetails, stopGameSession } from '@/modules/Roleplay/Game/Mock/mockGames';
+import { gameCharacterMemberships, moderateCharacter } from '@/modules/Roleplay/Game/Mock/mockGameMemberships';
 import { getStoredCombatOverlay, combatKey } from '@/modules/Roleplay/Game/Mock/mockGameCombatOverlays';
 import { versions } from '@/modules/Roleplay/Character/Mock/mockCharacters';
 import type { CreateLootData } from '@/modules/Roleplay/Game/Dto/CreateLootData';
@@ -235,9 +231,7 @@ describe('mockGameLoot: раздача', () => {
     expect(stored?.sheet?.money).toBe(membership.approvedCharacterVersion!.money + 60);
 
     // После остановки сессии и approve деньги переходят в latest/approved.
-    const detail = gameDetails.find((d) => d.game.id === 2);
-    if (detail) detail.game.status = 'in_process';
-    await submitCombatChanges(2);
+    await stopGameSession(2, 'in_process');
     await moderateCharacter(2, 1, 'approve');
     expect(versions[1].money).toBe(beforeLatest + 60);
     expect(getStoredCombatOverlay(2, combatKey('character', 1))).toBeNull();

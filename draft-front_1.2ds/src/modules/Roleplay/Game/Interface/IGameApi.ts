@@ -40,6 +40,7 @@ export interface IGameApi {
   getGame(id: number, signal?: AbortSignal): Promise<GameDetail>;
   createGame(data: CreateGameData, signal?: AbortSignal): Promise<GameDetail>;
   updateGame(id: number, data: CreateGameData, signal?: AbortSignal): Promise<GameDetail>;
+  stopGameSession(gameId: number, targetStatus: 'in_process' | 'completed', signal?: AbortSignal): Promise<GameDetail>;
   getGameCharacters(gameId: number, signal?: AbortSignal): Promise<GameCharacterMembership[]>;
   createGameCharacter(
     gameId: number,
@@ -70,6 +71,7 @@ export interface IGameApi {
     gameId: number,
     characterId: number,
     version: CharacterVersion,
+    expectedActualToken?: string,
     signal?: AbortSignal,
   ): Promise<GameCharacterMembership>;
   getCharacterGameContexts(characterId: number, signal?: AbortSignal): Promise<CharacterGameContext[]>;
@@ -172,7 +174,6 @@ export interface IGameApi {
     equipped: boolean,
     signal?: AbortSignal,
   ): Promise<GameCombatOverlay>;
-  submitCombatChanges(gameId: number, signal?: AbortSignal): Promise<void>;
   getQuickRolls(gameId: number, signal?: AbortSignal): Promise<Record<CombatEntityKey, string[]>>;
   addQuickRoll(gameId: number, entityKey: CombatEntityKey, ruleId: string, signal?: AbortSignal): Promise<string[]>;
   removeQuickRoll(gameId: number, entityKey: CombatEntityKey, ruleId: string, signal?: AbortSignal): Promise<string[]>;

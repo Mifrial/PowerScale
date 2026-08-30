@@ -5,6 +5,7 @@ import { useChatStore } from '@/modules/Messages/Chat/Store/chat';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 import type { GameStatus } from '@/modules/Roleplay/Game/Enum/GameStatus';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
+import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { GameInitiative } from '@/modules/Roleplay/Game/Dto/GameInitiative';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';

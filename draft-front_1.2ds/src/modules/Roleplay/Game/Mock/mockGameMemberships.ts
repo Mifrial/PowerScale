@@ -24,7 +24,9 @@ import { sessionCharacterService } from '@/modules/Roleplay/Game/Service/Instanc
 import { gameMembershipReviewService } from '@/modules/Roleplay/Game/Service/Instance/gameMembershipReviewService';
 import { mockSendSystemMessage } from '@/modules/Messages/Chat/Mock/mockChat';
 import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
-import { endInitiative } from '@/modules/Roleplay/Game/Mock/mockGameInitiative';
+import { getCurrentUserId } from '@/modules/Core/Auth/Mock/mockAuth';
+import { fetchRevision } from '@/modules/Roleplay/Space/Mock/mockSpaces';
+import { characterVersionIntegrityService } from '@/modules/Roleplay/Character/Service/Instance/characterVersionIntegrityService';
 
 const delay = (ms = 100) => new Promise((r) => setTimeout(r, ms));
 
@@ -335,44 +337,62 @@ export async function leaveGame(
   return withVisibility(membership);
 }
 
-export async function submitCombatChanges(gameId: number, _signal?: AbortSignal): Promise<void> {
-  await delay(150);
-  if (isSessionActive(gameId)) return;
-  endInitiative(gameId);
+export function snapshotSessionActuals(gameId: number): Record<number, CharacterVersion | null> {
+  const snapshot: Record<number, CharacterVersion | null> = {};
+  for (const membership of gameCharacterMemberships) {
+    if (membership.gameId !== gameId || membership.membershipStatus !== 'active') continue;
+    const actual = actualOf(membership.characterId);
+    snapshot[membership.characterId] = actual ? cloneData(actual) : null;
+  }
+
+  return snapshot;
+}
+
+export function restoreSessionActuals(snapshot: Record<number, CharacterVersion | null>): void {
+  for (const [rawId, version] of Object.entries(snapshot)) {
+    const characterId = Number(rawId);
+    if (version === null) delete versions[characterId];
+    else versions[characterId] = cloneData(version);
+    if (versions[characterId]) syncCharacterVersion(characterId);
+  }
+}
+
+/** Коммит overlay active PC в actual. Не меняет статус игры и не трогает инициативу. */
+export async function commitSessionOverlays(gameId: number): Promise<void> {
+  const detail = gameDetails.find((entry) => entry.game.id === gameId);
+  if (!detail) throw new Error('Игра не найдена');
   const participants = gameCharacterMemberships.filter(
     (membership) => membership.gameId === gameId && membership.membershipStatus === 'active',
   );
   const tokens = participants.map((membership) => ({
     characterId: membership.characterId,
-    token: JSON.stringify(actualOf(membership.characterId)),
+    token: JSON.stringify(cloneData(actualOf(membership.characterId))),
   }));
-  const planned: { membership: StoredMembership; next: CharacterVersion }[] = [];
+  const planned: { membership: StoredMembership; next: CharacterVersion; entityKey: ReturnType<typeof combatKey> }[] =
+    [];
   for (const membership of participants) {
     const overlay = getStoredCombatOverlay(gameId, combatKey('character', membership.characterId));
-    if (!combatOverlayHasChanges(membership.approvedCharacterVersion, overlay)) continue;
+    if (!overlay || overlay.updatedAt === '') continue;
     const resolved = sessionCharacterService.resolve(membership.approvedCharacterVersion, overlay);
     if (resolved === null) throw new Error('Не удалось собрать лист после сессии');
-    planned.push({ membership, next: resolved });
+    planned.push({ membership, next: resolved, entityKey: combatKey('character', membership.characterId) });
+  }
+  if (planned.length > 0) {
+    const revision = await fetchRevision(detail.game.spaceId, detail.game.rulesRevision);
+    for (const { next } of planned) {
+      characterVersionIntegrityService.assertValid(next, revision.rules);
+    }
   }
   for (const { characterId, token } of tokens) {
-    if (JSON.stringify(actualOf(characterId)) !== token) {
+    if (JSON.stringify(cloneData(actualOf(characterId))) !== token) {
       throw new Error('Персонаж изменился, повторите завершение сессии');
     }
   }
-  try {
-    for (const { membership, next } of planned) {
-      versions[membership.characterId] = snapshotVersion(next);
-      syncCharacterVersion(membership.characterId);
-      clearCombatOverlay(gameId, combatKey('character', membership.characterId));
-      membership.updatedAt = new Date().toISOString();
-    }
-  } catch (error) {
-    for (const { characterId, token } of tokens) {
-      if (token === 'null') delete versions[characterId];
-      else versions[characterId] = JSON.parse(token) as CharacterVersion;
-      if (versions[characterId]) syncCharacterVersion(characterId);
-    }
-    throw error;
+  for (const { membership, next, entityKey } of planned) {
+    versions[membership.characterId] = snapshotVersion(next);
+    syncCharacterVersion(membership.characterId);
+    clearCombatOverlay(gameId, entityKey);
+    membership.updatedAt = new Date().toISOString();
   }
 }
 
@@ -413,12 +433,28 @@ export async function submitCharacterMigration(
   gameId: number,
   characterId: number,
   version: CharacterVersion,
+  expectedActualToken?: string,
   _signal?: AbortSignal,
 ): Promise<GameCharacterMembership> {
   await delay(200);
+  const detail = gameDetails.find((entry) => entry.game.id === gameId);
+  if (!detail) throw new Error('Игра не найдена');
   const membership = gameCharacterMemberships.find((m) => m.gameId === gameId && m.characterId === characterId);
   if (!membership) throw new Error('Членство не найдено');
+  if (membership.membershipStatus !== 'active') throw new Error('Миграция доступна только активному персонажу');
+  if (getCurrentUserId() !== membership.characterOwnerId) throw new Error('Миграцию может отправить только владелец');
   if (isSessionActive(gameId)) throw new Error('Нельзя менять лист во время сессии');
+  if (version.spaceCode !== detail.game.spaceCode || version.rulesRevision !== detail.game.rulesRevision) {
+    throw new Error('Ревизия персонажа не совпадает с ревизией игры');
+  }
+  const revision = await fetchRevision(detail.game.spaceId, detail.game.rulesRevision);
+  characterVersionIntegrityService.assertValid(version, revision.rules);
+  if (expectedActualToken !== undefined) {
+    const currentToken = JSON.stringify(cloneData(actualOf(characterId)));
+    if (currentToken !== expectedActualToken) {
+      throw new Error('Персонаж изменился, повторите миграцию');
+    }
+  }
   versions[characterId] = snapshotVersion(version);
   syncCharacterVersion(characterId);
   membership.updatedAt = new Date().toISOString();

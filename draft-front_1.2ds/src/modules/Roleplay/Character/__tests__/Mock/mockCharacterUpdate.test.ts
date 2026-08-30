@@ -12,14 +12,13 @@ import {
   gameCharacterMemberships,
   fetchGameCharacters,
   moderateCharacter,
-  submitCombatChanges,
 } from '@/modules/Roleplay/Game/Mock/mockGameMemberships';
 import {
   getStoredCombatOverlay,
   clearCombatOverlay,
   combatKey,
 } from '@/modules/Roleplay/Game/Mock/mockGameCombatOverlays';
-import { gameDetails } from '@/modules/Roleplay/Game/Mock/mockGames';
+import { gameDetails, stopGameSession } from '@/modules/Roleplay/Game/Mock/mockGames';
 import '@/modules/Roleplay/Game/Mock/mockCharacterSessionOverlay';
 
 const initialVersion1 = JSON.parse(JSON.stringify(versions[1])) as CharacterVersion;
@@ -128,9 +127,7 @@ describe('mockCharacterUpdate: полный цикл in-game редактора 
     await updateCharacter(1, { version: { ...versions[1], money: before + 100 }, status: 'ready', gameId: 2 });
     expect(versions[1].money).toBe(before);
 
-    const detail = gameDetails.find((d) => d.game.id === 2);
-    if (detail) detail.game.status = 'in_process';
-    await submitCombatChanges(2);
+    await stopGameSession(2, 'in_process');
     expect(versions[1].money).toBe(before + 100);
 
     await moderateCharacter(2, 1, 'approve');

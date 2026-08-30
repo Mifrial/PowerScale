@@ -133,6 +133,8 @@ action → validate permission, target, version and effect
 stop   → atomic resolve → validate → update actualCharacter → clear gameOverlay
 ```
 
+Остановка сессии — один action `stopSession` (`IGameApi.stopGameSession`); `updateGame` не снимает статус `playing`.
+
 Combat resources, states, ActionEffect, movement, initiative, checks, chronicle and loot остаются отдельными capability-контрактами. Ошибка или stale version не приводит к частичной мутации. Модерация запускается только после stop/session commit и использует diff `approvedCharacterVersion` ↔ `actualCharacter`; старые A/L/O/P и three-way reconcile в этот контракт не входят.
 
 ## Backlog и release blockers

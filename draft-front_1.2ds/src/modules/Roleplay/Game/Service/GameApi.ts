@@ -67,6 +67,17 @@ export class GameApi implements IGameApi {
     return res.data;
   }
 
+  async stopGameSession(
+    gameId: number,
+    targetStatus: 'in_process' | 'completed',
+    signal?: AbortSignal,
+  ): Promise<GameDetail> {
+    const res = await this.engine.runAction<GameDetail>('game.stopSession', { gameId, targetStatus }, signal);
+    if (!res.data) throw new Error('Game stop session failed');
+
+    return res.data;
+  }
+
   async getGameCharacters(gameId: number, signal?: AbortSignal): Promise<GameCharacterMembership[]> {
     const res = await this.engine.runAction<GameCharacterMembership[]>('game.getCharacters', { gameId }, signal);
 
@@ -162,11 +173,12 @@ export class GameApi implements IGameApi {
     gameId: number,
     characterId: number,
     version: CharacterVersion,
+    expectedActualToken?: string,
     signal?: AbortSignal,
   ): Promise<GameCharacterMembership> {
     const res = await this.engine.runAction<GameCharacterMembership>(
       'game.submitCharacterMigration',
-      { gameId, characterId, version },
+      { gameId, characterId, version, expectedActualToken },
       signal,
     );
     if (!res.data) throw new Error('Submit character migration failed');
@@ -541,10 +553,6 @@ export class GameApi implements IGameApi {
     if (!res.data) throw new Error('Set combat item equipped failed');
 
     return res.data;
-  }
-
-  async submitCombatChanges(gameId: number, signal?: AbortSignal): Promise<void> {
-    await this.engine.runAction<void>('game.submitCombatChanges', { gameId }, signal);
   }
 
   async getQuickRolls(gameId: number, signal?: AbortSignal): Promise<Record<CombatEntityKey, string[]>> {

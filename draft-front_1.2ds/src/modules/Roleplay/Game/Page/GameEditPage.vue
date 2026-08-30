@@ -57,7 +57,13 @@ async function handleSubmit(data: CreateGameData): Promise<void> {
   saving.value = true;
   saveError.value = null;
   try {
-    await getGameApi().updateGame(gameId.value, data);
+    const current = detail.value;
+    if (current?.game.status === 'playing' && data.status !== 'playing') {
+      const target = data.status === 'completed' ? 'completed' : 'in_process';
+      const stopped = await getGameApi().stopGameSession(gameId.value, target, signal.value);
+      store.applyGameUpdate(stopped);
+    }
+    await getGameApi().updateGame(gameId.value, data, signal.value);
     void router.push(`/games/${gameId.value}`);
   } catch (e) {
     saveError.value = e instanceof Error ? e.message : 'Не удалось сохранить игру';
