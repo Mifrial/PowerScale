@@ -112,6 +112,24 @@ describe('chat store', () => {
       expect(res.now).toBeTruthy();
       expect(typeof res.now).toBe('string');
     }
+    store.stopSync();
+  });
+
+  it('onStatus пишет syncHealth; retrySync без сервиса — no-op', async () => {
+    vi.useFakeTimers();
+    const store = useChatStore();
+    store.retrySync();
+    expect(store.syncHealth).toEqual({ status: 'ok', lastError: null });
+
+    const sync = vi.fn().mockRejectedValue(new Error('сеть'));
+    registerChatApi({ ...mockChatApi, sync });
+    store.startSync();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(store.syncHealth).toEqual({ status: 'retrying', lastError: 'сеть' });
+    expect(store.chatsError).toBe('');
+    store.stopSync();
+    expect(store.syncHealth).toEqual({ status: 'ok', lastError: null });
+    vi.useRealTimers();
   });
 
   describe('race condition (per-chat state)', () => {

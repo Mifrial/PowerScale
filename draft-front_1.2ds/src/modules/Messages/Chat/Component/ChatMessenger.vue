@@ -12,6 +12,7 @@ import type { ChatMessageVisibility } from '@/modules/Messages/Chat/Dto/ChatMess
 import ChatList from '@/modules/Messages/Chat/Component/ChatList.vue';
 import ChatMessageList from '@/modules/Messages/Chat/Component/ChatMessageList.vue';
 import ChatInput from '@/modules/Messages/Chat/Component/ChatInput.vue';
+import ChatSyncStatusBanner from '@/modules/Messages/Chat/Component/ChatSyncStatusBanner.vue';
 import UserProfileSlider from '@/modules/Core/User/Component/UserProfileSlider.vue';
 
 const store = useChatStore();
@@ -120,6 +121,7 @@ onUnmounted(() => {
               <div class="text-error text-body-2 mb-2">{{ rulesError }}</div>
               <v-btn variant="tonal" color="primary" size="small" @click="retryRules"> Попробовать снова </v-btn>
             </div>
+            <ChatSyncStatusBanner />
             <ChatMessageList :renderer-context="inlineContext ?? undefined" @open-profile="openUserProfile" />
           </template>
 

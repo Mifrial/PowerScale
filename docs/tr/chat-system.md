@@ -112,9 +112,7 @@ Payload содержит `now`, chat summaries, `newChats` и messages. `now` и
 
 ### Error/retry contract
 
-Текущее frontend-поведение `ChatSyncService`: polling выполняет немедленный запрос и затем повторяет его по интервалу; исключение polling сейчас пропускается, а следующий тик повторяет запрос. Это `CODE_GAP` относительно production-ready error state: ошибка не отображается пользователю, не передаётся через typed callback и не использует backoff.
-
-Целевой контракт: polling должен сохранять последний успешный cursor, переводить sync в наблюдаемое `error`/`retrying` состояние и повторять запрос с ограниченным backoff; SSE должен обрабатывать `onerror`, закрытие соединения и reconnect с последним cursor. Ни polling, ни SSE не считаются реализованными server-side transport без backend evidence.
+`ChatSyncService` публикует `ChatSyncHealth`: `status` — `ok` | `retrying`, плюс `lastError`. Статус `ok` только после успешного кадра (`SyncResponse`); cursor `lastSync` сдвигается только тогда. Ошибка канала (poll throw / SSE `onerror`) не двигает cursor, ставит `retrying` и ретраит, пока `connect` без `disconnect`. Backoff `1s → 2s → 4s …` с потолком `30s`; успешный кадр сбрасывает delay на `1s` и дальше poll идёт с интервалом `5s`. Ручной `retryNow` сбрасывает delay и бьёт сразу (во время in-flight poll — no-op). Мусорный SSE JSON cursor не двигает и канал в error не переводит. Mock остаётся polling; backend SSE не объявлен реализованным. UI-баннер при `retrying` над уже загруженной лентой; empty-state `chatsError`/`chatError` не подменяется.
 
 Visibility задаётся `all`, `forRole` или `forUsers`. GM/owner с `see_all` видят всё; остальные получают только доставленные им сообщения. Скрытые сообщения не участвуют в unread и preview. Отправитель видит своё и может менять visibility своего сообщения. Partial-text spoiler — отдельный backlog.
 

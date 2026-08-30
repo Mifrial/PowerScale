@@ -14,6 +14,7 @@ import { PAGE_SIZE } from '@/modules/Messages/Chat/Constant/Chat/PAGE_SIZE';
 import { MAX_STORED } from '@/modules/Messages/Chat/Constant/Chat/MAX_STORED';
 import { messagePreview } from '@/modules/Messages/Chat/Utils/messagePreview';
 import type { IChatTab } from '@/modules/Messages/Chat/Interface/IChatTab';
+import type { ChatSyncHealth } from '@/modules/Messages/Chat/Dto/ChatSyncHealth';
 import type { ChatState } from '@/modules/Messages/Chat/Dto/ChatState';
 
 function createChatState(): ChatState {
@@ -51,6 +52,7 @@ export const useChatStore = defineStore('chat', () => {
   const chatsError = ref('');
   const chatError = ref('');
   const actionError = ref('');
+  const syncHealth = ref<ChatSyncHealth>({ status: 'ok', lastError: null });
 
   const selectedTab = ref<string>('personal');
 
@@ -408,6 +410,9 @@ export const useChatStore = defineStore('chat', () => {
     if (syncService) return;
     syncService = new ChatSyncService({
       onSync: (data) => applySyncResponse(data),
+      onStatus: (health) => {
+        syncHealth.value = health;
+      },
       getSyncApi: () => getChatApi(),
     });
     syncService.connect(lastSyncTimestamp.value);
@@ -419,7 +424,12 @@ export const useChatStore = defineStore('chat', () => {
     if (syncService) {
       syncService.disconnect();
       syncService = null;
+      syncHealth.value = { status: 'ok', lastError: null };
     }
+  }
+
+  function retrySync(): void {
+    syncService?.retryNow();
   }
 
   return {
@@ -438,6 +448,7 @@ export const useChatStore = defineStore('chat', () => {
     chatsError,
     chatError,
     actionError,
+    syncHealth,
     fetchChats,
     openChat,
     loadChat,
@@ -453,6 +464,7 @@ export const useChatStore = defineStore('chat', () => {
     postSystemMessage,
     startSync,
     stopSync,
+    retrySync,
     autoScroll,
     setAutoScroll,
     lastSyncTimestamp,
