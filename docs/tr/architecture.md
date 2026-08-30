@@ -74,11 +74,13 @@ Core — фундамент. Прикладные модули зависят о
 - `Character` — зависит от Core, Rule, публичного Space и Chat;
 - `Game` — зависит от Core, Character, Rule, Chat и публичного Space.
 
-Межмодульный доступ идёт через `init.ts`, публичные DTO/интерфейсы, stores и plugin-регистраторы. Внутренние файлы прикладного модуля напрямую не импортируются.
+Межмодульный доступ во всём проекте идёт через `init.ts`, публичные DTO/интерфейсы, stores и plugin-регистраторы. Внутренние файлы чужого прикладного модуля напрямую не импортируются; это правило распространяется на существующие и будущие прикладные модули.
+
+Для доменных сервисов действует typed DI-контракт: публичный фасад модуля отдаёт capability-oriented API, а сервис-потребитель получает нужные порты через constructor DI. ServiceLocator и module-container используются для регистрации, выбора real/mock реализации и сборки приложения в composition root (`main.ts`/bootstrap) и публичных `init.ts`; locator/container не передаются внутрь доменной логики и не вызываются там напрямую. Внутри module `init.ts` допускается несколько узких фасадов, но не единый универсальный контейнер с произвольным доступом ко всем сервисам. Правило обязательно для всех прикладных модулей проекта.
 
 ## CODE_GAP: фактические импорты Game
 
-Текущее правило публичных границ нарушается в `Roleplay/Game`: Game напрямую импортирует внутренние реализации Rule (`Rule/Service/Instance/*`, `Rule/Service/Mechanic/*`, `Rule/Constant/*`, `Rule/Store/*`) и Character (`Character/Constant/*`). Это подтверждено текущим source evidence в `migration-claims.md`; код в этом документальном проходе не исправляется. До отдельного решения такие зависимости имеют disposition `CODE_GAP`/`BACKLOG`, а не `IMPLEMENTED`.
+Текущее правило публичных границ нарушается в `Roleplay/Game`: Game напрямую импортирует внутренние реализации Rule (`Rule/Service/Instance/*`, `Rule/Service/Mechanic/*`, `Rule/Constant/*`, `Rule/Store/*`) и Character (`Character/Constant/*`). Это подтверждено текущим source evidence в `migration-claims.md`; код в этом документальном проходе не исправляется. Такие зависимости должны быть переведены на typed public facades и constructor DI (`DEC-064`). До отдельной реализации они имеют disposition `CODE_GAP`/`BACKLOG`, а не `IMPLEMENTED`.
 
 ## Frontend-слои
 

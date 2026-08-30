@@ -8,7 +8,7 @@
 
 ## Перенесённые модели
 
-- `active_json / pending_json / draft_json` — старая модель membership; заменена A/L/O/P.
+- `active_json / pending_json / draft_json` — старая модель membership; после промежуточной модели A/L/O/P целевым контрактом заменена на `actualCharacter` + `approvedCharacterVersion` + `gameOverlay` (`DEC-059`).
 - `dice_result` и `send(text, rolls)` — старая модель Chat; заменена `ChatAttachment[]`.
 - `ResourceSpec.initial_value` — ранняя модель ресурса; заменена `auto_add` и `limit`.
 - `character_moderation` как отдельная старая схема модерации — не текущий контракт.

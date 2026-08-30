@@ -51,14 +51,14 @@
 Ключевые термины должны использоваться единообразно:
 
 - `revision` и `publishedAt`;
-- `activeVersion`, `latestVersion`, `pendingVersion`;
-- `overlay`;
+- `actualCharacter`, `approvedCharacterVersion`, `sessionCharacterVersion`;
+- `gameOverlay`;
 - `keyword`;
 - `contentStatus`;
 - `OPEN`, `REQUIREMENT`, `BACKEND`, `BACKLOG`, `DEFERRED`, `HISTORICAL`.
 
-`revision` — numeric publication number scoped by `spaceId`; `publishedAt` — immutable timestamp of that publication. `code` — semantic stable reference used between domain objects; database `id`/UUID — internal storage identifier. `pendingVersion` — derived moderation projection, while `overlay` — mutable session layer. `activeVersion` is approved immutable state; `latestVersion` is the newest global character version.
+`revision` — numeric publication number scoped by `spaceId`; `publishedAt` — immutable timestamp of that publication. `code` — semantic stable reference used between domain objects; database `id`/UUID — internal storage identifier. `sessionCharacterVersion` — derived from immutable `approvedCharacterVersion` and mutable `gameOverlay`; `actualCharacter` — the single current character state. Character history and A/L/O/P are not part of the target contract.
 
 `contentStatus` describes editorial readiness and must not be confused with `runtime-support`, which describes whether the engine can execute the content. `validation` is a structured result (`valid` plus `problems[]`), not a lifecycle status. `visibility` controls delivery/access and is independent from lifecycle.
 
-`draft` is reserved for local editor state or legacy storage labels. It is not the canonical in-game mutation layer. In-game mutations use `overlay`; `pendingVersion` is its derived projection with `latestVersion`; `activeVersion` is the approved immutable game snapshot.
+`draft` is reserved for local editor state or legacy storage labels. It is not the canonical in-game mutation layer. In-game mutations use `gameOverlay`; `sessionCharacterVersion` is its derived projection from `approvedCharacterVersion`; `actualCharacter` is the single current state outside the active session.

@@ -15,16 +15,16 @@
 ## CharacterBuild → GameMembership
 
 **Input:** validated character version and game context.  
-**Output:** membership with `activeVersion`, `latestVersion`, `pendingVersion` projection and optional `overlay`.  
+**Output:** membership with `characterId`, immutable `approvedCharacterVersion`, optional `gameOverlay` and review metadata.
 **Owner:** `character-system.md`.  
 **Visibility:** membership is filtered by game role and sheet audience before serialization.  
-**Version invariant:** `activeVersion` is immutable during a running session; approve/reject carries the expected projection token.  
+**Version invariant:** `approvedCharacterVersion` и `actualCharacter` immutable during a running session; session commit uses an optimistic guard, while moderation compares approved snapshot with actual state.
 **Error/concurrency:** version mismatch is a retriable conflict, not validation success.  
 **Backend boundary:** membership persistence and moderation authorization remain `OPEN`.
 
 ## GameMembership → GameOverlay → ChatAttachment
 
-**Input:** effective `activeVersion + overlay` combat state.  
+**Input:** effective `sessionCharacterVersion = resolve(approvedCharacterVersion, gameOverlay)` combat state.
 **Output:** generic Chat `Attachment` with domain type and opaque payload.  
 **Owner:** Game owns payload; Chat owns transport and render registries.  
 **Visibility:** Game filters payload visibility before handing it to Chat; rendering cannot widen access.  
@@ -45,12 +45,12 @@
 ## Economy → Overlay
 
 **Input:** `EconomyOperation` with actor, source, target, quantity, balance, idempotency key and expected versions.  
-**Output:** validated overlay mutation and operation result; journal entry is append-only evidence.  
+**Output:** validated overlay mutation (during session) or actual-state mutation (outside session) and operation result; journal entry is append-only evidence. Frontend Economy API is `NOT IMPLEMENTED`.
 **Owner:** `game-system.md` owns gameplay economy and overlay semantics.  
 **Visibility:** only authorized actor and visible source/target are eligible.  
 **Version invariant:** balance and overlay versions must match the expected versions atomically.  
 **Error/concurrency:** insufficient balance, duplicate idempotency key or stale version returns typed error without partial mutation.  
-**Backend boundary:** transaction, journal and idempotency persistence remain `OPEN`.
+**Backend boundary:** transaction, journal and idempotency persistence remain `OPEN`; existing frontend `distributeLoot` is a separate loot flow, not the complete `EconomyOperation` API.
 
 ## Permissions → Routes/Actions
 

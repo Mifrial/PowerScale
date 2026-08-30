@@ -47,7 +47,7 @@ DTO-слой также содержит связанные модели для:
 
 ### Ссылки
 
-Межправильные ссылки используют семантические коды: `characteristic_code` и аналогичные `*_code`. Числовые IDs — внутренние ключи хранения и не являются внешней семантикой.
+Межправильные ссылки используют семантические коды: `characteristicCode`/`characteristic_code` и аналогичные явно названные `*_code` поля (`ruleCode`, `raceRuleCode`, `sourceRuleCode`). Numeric `id` — только внутренний ключ хранения и не принимается на публичных DTO/API boundaries, включая fallback-резолвинг. Переименование существующих `ruleId`-полей и миграция consumers — `CODE_GAP / implementation OPEN`.
 
 ### Keywords
 

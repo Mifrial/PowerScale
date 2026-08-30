@@ -7,21 +7,31 @@
 ## Supersession и affected contracts
 
 - `DEC-019` — `HISTORICAL` для внешней стратегии ID; owner `decisions.md`; superseded by `DEC-058`, который оставляет numeric IDs каноническими и допускает thematic aliases.
-- `DEC-036` уточняет `DEC-001` и `DEC-016`: `pending` — projection, owner `character-system.md`.
-- `DEC-037` уточняет `DEC-001`: `activeVersion` — immutable snapshot, owner `character-system.md`.
+- `DEC-036` — `HISTORICAL/SUPERSEDED` решением `DEC-059`: `pending` больше не является целевым projection.
+- `DEC-037` — `HISTORICAL/SUPERSEDED` решением `DEC-059`: approved snapshot переименован и уточнён как `approvedCharacterVersion`.
 - `DEC-038` и `DEC-051` уточняют moderation concurrency, owner `character-system.md`.
 - `DEC-040` уточняет validation envelope, owner `rule-system.md`/`character-system.md`.
-- `DEC-052` уточняет projection token для `DEC-038`, owner `character-system.md`.
+- `DEC-052` — `HISTORICAL/SUPERSEDED` решением `DEC-059`: projection token A/L/O/P больше не является целевым контрактом.
+- `DEC-059` supersedes A/L/O/P в части Character/Game membership: канон — `actualCharacter` + `approvedCharacterVersion` + `gameOverlay`; owner `character-system.md`/`game-system.md`.
 
-Эти записи не отменяют исходные решения, а фиксируют связь уточнения и canonical owner.
+Эти записи фиксируют связь решения и canonical owner; явно помеченные `HISTORICAL/SUPERSEDED` решения заменены указанным новым решением.
 
 ## Архитектура, правила и пространство
 
-- `DEC-001` — membership персонажа в игре использует A/L/O/P.
+- `DEC-001` — `HISTORICAL/SUPERSEDED` решением `DEC-059`: membership ранее использовал A/L/O/P.
 - `DEC-002` — каноническая модель ресурса: `auto_add`, `limit.base`, `limit.adjustments`.
 - `DEC-003` — сообщения используют `ChatAttachment[]`.
 - `DEC-004` — `points` является отдельным типом правила.
 - `DEC-005` — ссылки на правила используют семантические `*_code`.
+- `DEC-060` — публичные поля ссылок на правила используют явные `*_code`-имена (`ruleCode`, `raceRuleCode`, `sourceRuleCode`); numeric `id` — только storage key.
+- `DEC-061` — loot имеет статусы `prepared | available | distributed`; интерес игрока хранится отдельно в `game_loot_interest`.
+- `DEC-062` — `keyword` — технический термин, в UI используется «признак»; переименование текстов — `CODE_GAP / implementation OPEN`.
+- `DEC-063` — Chat sync публикует `error`/`retrying`, сохраняет cursor и применяет backoff; реализация — `CODE_GAP / implementation OPEN`.
+- `DEC-064` — межмодульный доступ строится на typed capability-фасадах и constructor DI; ServiceLocator/container остаются на composition root и в публичных фасадах.
+- `DEC-065` — это DI и boundary-правило действует для всех прикладных модулей проекта; исключения — Core и plugin registration через public host API.
+- `DEC-066` — UI использует adapter boundaries, batch lookup и необязательный `AbortSignal` для отмены устаревших async-запросов.
+- `DEC-067` — в Game-ТР фиксируются только минимальные combat/session contract cards; старая A/L/O/P-модерация и three-way reconcile исключены.
+- `DEC-068` — `EconomyOperation` остаётся backend/domain requirement; frontend economy `NOT IMPLEMENTED`, а `distributeLoot` — отдельный loot flow.
 - `DEC-006` — scoped numeric `revision`, пара `(spaceId, revision)`, immutable `publishedAt`.
 - `DEC-007` — разделение state, poison, feelings и age.
 - `DEC-008` — lifecycle-статусы персонажа не заменяют validation.
@@ -44,19 +54,19 @@
 - `DEC-012` — wide attack `1 → N` реализована; `N → 1` остаётся backlog.
 - `DEC-013` — прямые импорты внутренних Game-файлов в Rule/Character исправляются архитектурным рефакторингом.
 - `DEC-014` — JSON-клонирование заменяется на `structuredClone`, где возможно.
-- `DEC-016` — игровые изменения идут в единый Game overlay.
+- `DEC-016` — игровые изменения идут в единый Game overlay; модель слоя уточнена решением `DEC-059`.
 - `DEC-024` — validation структурированная и вычисляемая, не lifecycle-статус.
 - `DEC-025` — инвентарь является обязательным игровым контуром.
 - `DEC-029` — `ActionEffect` является рабочим частичным каноном.
 - `DEC-030` — текущий канон проверок и боя включает реализованные сценарии, а не незавершённую матрицу.
-- `DEC-036` — pending является live projection.
-- `DEC-037` — active является независимым immutable snapshot.
-- `DEC-038` — изменения во время pending не блокируются; approve повторно проверяет проекцию.
+- `DEC-036` — `HISTORICAL/SUPERSEDED` решением `DEC-059`: pending projection заменена сравнением approved snapshot и actual character.
+- `DEC-037` — `HISTORICAL/SUPERSEDED` решением `DEC-059`: approved snapshot хранится в новой membership-модели.
+- `DEC-038` — `HISTORICAL/SUPERSEDED` решением `DEC-059`: moderation использует diff approved/actual и атомарный optimistic guard.
 - `DEC-040` — validation использует `valid` и структурированный `problems[]`.
 - `DEC-041` — экономика player во время игры идёт в overlay, NPC — в `npc.version`.
 - `DEC-043` — ActionEffect и проверки фиксируются как рабочая частичная реализация.
-- `DEC-051` — устаревший approve отклоняется конфликтом версии.
-- `DEC-052` — projection token составляется из версий источников.
+- `DEC-051` — `HISTORICAL/SUPERSEDED` решением `DEC-059`: optimistic guard применяется к approved/actual.
+- `DEC-052` — `HISTORICAL/SUPERSEDED` решением `DEC-059`: отдельный projection token A/L/O/P не является целевым контрактом.
 - `DEC-057` — деактивация пользователя выполняется диалогом внутри `UserProfilePage`; отдельного маршрута нет.
 
 ## Магия и контент

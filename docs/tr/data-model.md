@@ -335,11 +335,13 @@ game_loot_interest(
 )
 ```
 
-`games.status`, `visibility` и `join_policy` независимы. Invitation statuses: `sent`, `viewed`, `accepted`, `declined`; loot statuses: `prepared`, `available`, `acquired`, `distributed` в зависимости от frontend/mock-контракта. `game_personal_notes` принадлежат конкретной паре `(game_id, user_id)` и не являются общими заметками игры.
+`games.status`, `visibility` и `join_policy` независимы. Invitation statuses: `sent`, `viewed`, `accepted`, `declined`; loot statuses: `prepared`, `available`, `distributed`. Интерес игрока к loot хранится отдельно в `game_loot_interest`. `game_personal_notes` принадлежат конкретной паре `(game_id, user_id)` и не являются общими заметками игры.
 
 Внешняя модель правил игры — `spaceId + revision`; legacy `games.rules_version_at` сохраняется здесь как `REQUIREMENT/HISTORICAL`, пока backend-контракт не подтверждён.
 
 ### Characters и inventory
+
+Целевой backend-контракт хранит одно актуальное состояние персонажа (`actualCharacter`) и не создаёт историю CharacterVersion. `CharacterVersion` остаётся формой полного листа/snapshot в frontend и membership, но не означает таблицу исторических версий персонажа. Точная физическая схема хранения — `CODE_GAP / implementation OPEN`.
 
 ```sql
 characters(
@@ -348,7 +350,7 @@ characters(
   owner_id → users.id NOT NULL,
   space_id → spaces.id NOT NULL,
   rules_version_at TIMESTAMP NOT NULL,
-  status VARCHAR DEFAULT 'draft' NOT NULL,
+  status VARCHAR DEFAULT 'draft' NOT NULL, -- UI/legacy label; не moderation lifecycle
   state_json JSON NULL,
   heir_of → characters.id NULL,
   owner_notes TEXT NULL, -- личные заметки владельца; не входит в character_versions
@@ -357,7 +359,7 @@ characters(
 )
 INDEX (owner_id), (status)
 
-character_versions(
+character_versions( -- target: snapshot payload, не history персонажа
   id,
   character_id → characters.id NOT NULL,
   created_at TIMESTAMP NOT NULL,
@@ -384,7 +386,7 @@ character_inventory(
 INDEX (character_version_id)
 ```
 
-Старая `game_characters` JSON-модель, `character_moderation` и timestamp storage не являются текущей моделью membership; они сохранены в `history.md` и заменены решениями A/L/O/P.
+Старая `game_characters` JSON-модель, `character_moderation`, timestamp storage и A/L/O/P не являются текущей целевой моделью membership; они сохранены в `history.md`. Целевой membership хранит `characterId`, статус `submitted | active | left`, immutable `approvedCharacterVersion`, `gameOverlay` и review metadata; физическая backend-схема — `CODE_GAP / implementation OPEN`.
 
 ### Notifications, Chat и chronicle
 
@@ -487,17 +489,17 @@ INDEX (chronicle_id, sort_order)
 
 ## Current domain storage semantics
 
-Current frontend/domain state is represented by DTOs, overlays, projection tokens, typed operations and visibility rules in the canonical domain documents. These are current semantics, not a claim that the legacy SQL tables already exist.
+Current frontend/domain state is represented by DTOs, game overlays, typed operations and visibility rules in the canonical domain documents. These are current semantics, not a claim that the legacy SQL tables already exist.
 
 ### Mapping старой membership-схемы
 
 Legacy `game_characters.active_json`, `pending_json` и `draft_json` не являются текущим трёхслойным контрактом. Их disposition:
 
-- `active_json` → immutable `activeVersion` membership;
-- `pending_json` → derived `pendingVersion`/live projection;
-- `draft_json` → session `overlay`;
-- `latestVersion` хранится в глобальном Character-контуре и не заменяется старым JSON-полем;
-- approve/reject и optimistic version checks описаны в `character-system.md`, а backend persistence остаётся `OPEN`.
+- `active_json` → immutable `approvedCharacterVersion` membership snapshot;
+- `pending_json` → не отдельное хранимое состояние; moderation определяется diff approved snapshot и `actualCharacter`;
+- `draft_json` → browser draft или session `gameOverlay` в зависимости от контекста;
+- `latestVersion` не является частью целевой модели; актуальным состоянием является `actualCharacter`;
+- approve/reject, session commit и optimistic version checks описаны в `character-system.md`, а backend persistence остаётся `OPEN`.
 
 Legacy `character_moderation` как отдельная таблица также не является владельцем moderation state: moderation принадлежит membership Game и его version/concurrency contract.
 

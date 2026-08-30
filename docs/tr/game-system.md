@@ -12,9 +12,11 @@
 
 ## Membership, NPC и overlay
 
-Игровой персонаж использует A/L/O/P, описанную в [`character-system.md`](character-system.md). `activeVersion` — одобренный snapshot в игре, `overlay` — сессионные изменения.
+Игровой персонаж может состоять только в одной игре одновременно. Membership хранит ссылку на персонажа, `approvedCharacterVersion` как полную immutable-копию принятого actual character и `gameOverlay` как сессионные изменения. `sessionCharacterVersion` вычисляется как `resolve(approvedCharacterVersion, gameOverlay)`. Истории CharacterVersion нет.
 
 NPC имеют игровую версию и могут участвовать в игровых действиях. Полная модель хранения, истории и модерации NPC — `OPEN`; операции с NPC применяются сразу к `npc.version`, в отличие от player overlay.
+
+При смене `rulesRevision` игры все несовместимые player characters проходят migration. Миграцию выполняет владелец персонажа; после успешной миграции membership снова требует moderation. До migration и approve запуск следующей сессии такого персонажа запрещён. Игра целиком не блокируется: ограничение применяется только к несовместимым персонажам.
 
 Combat overlay является частью общего игрового состояния. `GameCombatOverlay.sheet` может содержать полный лист, поэтому combat fields не следует описывать как независимую persisted модель без отдельного решения.
 
@@ -81,9 +83,11 @@ Loot может требовать модерации согласно прав�
 
 Ведущий настраивает права и режимы магазина. Обычная разрешённая операция не требует ручного approve.
 
-Каждая операция записывается в immutable append-only `EconomyOperation`. Текущий Game overlay — authoritative state для gameplay. Состояние и журнал меняются атомарно в одной DB-транзакции.
+Каждая backend-операция записывается в immutable append-only `EconomyOperation`. Во время сессии player-мутация направляется в `gameOverlay` и становится частью `sessionCharacterVersion`; вне сессии после проверки меняется `actualCharacter`. Для NPC authoritative state — `npc.version`. Состояние и журнал меняются атомарно в одной DB-транзакции.
 
 Typed operation содержит игру, инициатора, источники, цели, предметы/деньги, `idempotencyKey` и ожидаемые версии. Backend проверяет права, баланс, количество, остаток и все версии; конфликт optimistic version check отклоняет операцию. Физические таблицы и endpoint — `OPEN`.
+
+Frontend Economy API/UI для buy, sell, transfer, discard и общего `EconomyOperation` пока `NOT IMPLEMENTED`. Существующий `distributeLoot` — отдельный frontend loot flow; его наличие не означает готовность полного экономического API.
 
 ## Contract cards
 
@@ -114,6 +118,22 @@ Movement is resolved through `ISpatialResolver` and typed horizontal/vertical di
 ### Loot and stores
 
 Loot changes state from prepared/available to distributed. An item has one recipient (`character`, `npc` or `nowhere`); money can be split by interested recipients with an explicit remainder. A normal permitted buy/sell/transfer does not require manual GM approval, but each mutation still checks permission, balance, quantity and optimistic version.
+
+### Public Game API and session contract
+
+`IGameApi` предоставляет публичные операции для контекста игры, membership, сессии, проверок, боя, loot и typed action/process flow. Точные TypeScript unions остаются в `Dto/` и `Interface/`; этот документ фиксирует только границы и инварианты.
+
+Во время сессии combat читает `sessionCharacterVersion = resolve(approvedCharacterVersion, gameOverlay)`. `GameCombatOverlay.sheet` может быть полной рабочей копией листа для редактора, но при записи применяется allowlist игровых полей: владелец, `characterId`, `spaceId`, `rulesRevision`, права и `visibility` неизменяемы.
+
+Session transitions:
+
+```text
+start  → resolve approvedCharacterVersion + gameOverlay
+action → validate permission, target, version and effect
+stop   → atomic resolve → validate → update actualCharacter → clear gameOverlay
+```
+
+Combat resources, states, ActionEffect, movement, initiative, checks, chronicle and loot остаются отдельными capability-контрактами. Ошибка или stale version не приводит к частичной мутации. Модерация запускается только после stop/session commit и использует diff `approvedCharacterVersion` ↔ `actualCharacter`; старые A/L/O/P и three-way reconcile в этот контракт не входят.
 
 ## Backlog и release blockers
 
@@ -147,7 +167,7 @@ NPC использует переиспользуемый `CharacterSheetEditor`
 
 ### Session, initiative и checks
 
-Game Chat — общий чат live-сессии. Автор сообщения выбирается из персонажей, NPC или ведущего. GM запускает/останавливает сессию; боевые изменения при остановке уходят в overlay moderation.
+Game Chat — общий чат live-сессии. Автор сообщения выбирается из персонажей, NPC или ведущего. GM запускает/останавливает сессию; боевые изменения при остановке коммитятся в actual character одной транзакцией и могут отправить membership на модерацию.
 
 Initiative использует тот же RollEngine и может быть характеристикой с дефолтом, свободным броском или фиксированным значением. Результат нужен для порядка и не хранится как отдельный листовой показатель. Шкала поддерживает передачу хода, добавление участника и сохранение/продолжение данных.
 
@@ -155,9 +175,11 @@ Check имеет solo и pairwise flow. В pairwise flow offer ждёт отве
 
 ### Game overlay и reconciliation
 
-Во время `playing` approved membership читает эффективный лист `active + overlay`. В overlay могут попадать боевые ресурсы, состояния и произвольные поля листа. `pending` строится как live projection `latest + overlay`.
+Во время `playing` approved membership читает эффективный лист `approvedCharacterVersion + gameOverlay`. Overlay может менять только игровые поля и не может менять владельца, `characterId`, `spaceId`, `rulesRevision`, права или `visibility`. Actual character и approved snapshot неизменяемы до завершения сессии.
 
-Approve применяет overlay к latest с учётом выбора ведущего в конфликтных полях, фиксирует active и очищает overlay/pending. Reject сбрасывает overlay/pending и сохраняет latest. При активной сессии модерация блокируется до остановки сессии.
+Session commit атомарно разрешает все overlays, валидирует результаты, обновляет actual characters, очищает overlays и отмечает изменённые memberships для модерации. Ошибка одного участника откатывает весь commit; optimistic guard отклоняет устаревшее состояние.
+
+Модерация требуется, если approved snapshot отсутствует или отличается от actual character. Return for rework сохраняет membership и отправляет сообщение в обсуждение. Reject удаляет только submitted-заявку; active-персонажа reject нельзя. Новая сессия блокируется при расхождении approved/actual или `needs_fix`.
 
 ### Loot
 
