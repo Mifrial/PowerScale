@@ -666,7 +666,7 @@ describe('validateAbilityStructure', () => {
       }),
     ];
     const structure = ruleValidationService.validateAbilityStructure(rules, keywords);
-    expect(structure.some((e) => e.message.includes('предмет или набор тегов'))).toBe(false);
+    expect(structure.some((e) => e.message.includes('предмет или набор признаков'))).toBe(false);
 
     const refErrors = ruleValidationService.validateRuleReferences(rules, keywords);
     expect(refErrors.some((e) => e.refCode === 'missing-tag' && e.expectedType === 'keyword')).toBe(true);
@@ -690,7 +690,7 @@ describe('validateAbilityStructure', () => {
       }),
     ];
     const errors = ruleValidationService.validateAbilityStructure(rules, keywords);
-    expect(errors.filter((e) => e.message.includes('предмет или набор тегов'))).toHaveLength(2);
+    expect(errors.filter((e) => e.message.includes('предмет или набор признаков'))).toHaveLength(2);
   });
 
   it('accepts both consume and use modes for a material component', () => {

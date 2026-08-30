@@ -60,15 +60,19 @@ export const adminChildren: RouteRecordRaw[] = [
         path: 'new',
         name: 'KeywordNew',
         component: () => import('@/modules/Roleplay/Rule/Page/KeywordEditPage.vue'),
-        meta: { title: 'Создание тега', crumb: () => [{ title: 'Создание тега' }], requiresAny: ['keyword.create'] },
+        meta: {
+          title: 'Создание признака',
+          crumb: () => [{ title: 'Создание признака' }],
+          requiresAny: ['keyword.create'],
+        },
       },
       {
         path: ':id/edit',
         name: 'KeywordEdit',
         component: () => import('@/modules/Roleplay/Rule/Page/KeywordEditPage.vue'),
         meta: {
-          title: 'Редактирование тега',
-          crumb: () => [{ title: 'Редактирование тега' }],
+          title: 'Редактирование признака',
+          crumb: () => [{ title: 'Редактирование признака' }],
           requiresAny: ['keyword.edit'],
         },
       },

@@ -15,7 +15,7 @@ export class KeywordApi implements IKeywordApi {
 
   async getTag(id: number, signal?: AbortSignal): Promise<Keyword> {
     const res = await this.engine.runAction<Keyword>('keyword.get', { id }, signal);
-    if (!res.data) throw new Error('Keyword not found');
+    if (!res.data) throw new Error('Признак не найден');
 
     return res.data;
   }

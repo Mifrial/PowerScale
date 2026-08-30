@@ -247,7 +247,7 @@ function patchMaterialTags(index: number, codes: string[]) {
               @update:model-value="(v) => switchMaterialTarget(index, v)"
               :items="[
                 { label: 'Предмет', value: 'item' },
-                { label: 'По тегам', value: 'tags' },
+                { label: 'По признакам', value: 'tags' },
               ]"
               item-title="label"
               item-value="value"
@@ -277,7 +277,7 @@ function patchMaterialTags(index: number, codes: string[]) {
             :items="keywords"
             item-title="name"
             item-value="code"
-            label="Теги предмета"
+            label="Признаки предмета"
             density="compact"
             hide-details
             multiple

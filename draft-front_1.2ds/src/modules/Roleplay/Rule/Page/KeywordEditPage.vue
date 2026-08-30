@@ -41,7 +41,7 @@ async function loadTag() {
     active.value = keyword.active;
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') return;
-    loadError.value = 'Не удалось загрузить тег';
+    loadError.value = 'Не удалось загрузить признак';
   } finally {
     loading.value = false;
   }
@@ -76,7 +76,7 @@ async function save() {
     router.push('/admin/keywords');
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') return;
-    saveError.value = 'Не удалось сохранить тег';
+    saveError.value = 'Не удалось сохранить признак';
   } finally {
     saving.value = false;
   }
@@ -90,7 +90,7 @@ async function handleDelete() {
     router.push('/admin/keywords');
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') return;
-    actionError.value = 'Не удалось удалить тег';
+    actionError.value = 'Не удалось удалить признак';
   } finally {
     deleting.value = false;
   }
@@ -100,7 +100,7 @@ async function handleDelete() {
 <template>
   <v-container>
     <div v-if="!loading && !loadError">
-      <h1 class="text-h5 mb-4">{{ isEdit ? 'Редактирование тега' : 'Создание тега' }}</h1>
+      <h1 class="text-h5 mb-4">{{ isEdit ? 'Редактирование признака' : 'Создание признака' }}</h1>
 
       <v-alert v-if="saveError" type="error" class="mb-4" closable @click:close="saveError = null">
         {{ saveError }}
@@ -147,9 +147,9 @@ async function handleDelete() {
 
       <v-dialog v-model="showDeleteDialog" max-width="400">
         <v-card>
-          <v-card-title>Удалить тег?</v-card-title>
+          <v-card-title>Удалить признак?</v-card-title>
           <v-card-text>
-            Тег «{{ name }}» будет деактивирован (soft-delete): скроется из выбора, старые связи сохранятся.
+            Признак «{{ name }}» будет деактивирован (soft-delete): скроется из выбора, старые связи сохранятся.
           </v-card-text>
           <v-card-actions>
             <v-spacer />

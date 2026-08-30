@@ -23,7 +23,7 @@
             <v-icon class="mr-2">mdi-tag-multiple</v-icon>
             Признаки
           </v-card-title>
-          <v-card-text> Справочник тегов для правил </v-card-text>
+          <v-card-text> Справочник признаков для правил </v-card-text>
           <v-card-actions>
             <v-spacer />
             <v-btn variant="text" color="primary">Перейти</v-btn>

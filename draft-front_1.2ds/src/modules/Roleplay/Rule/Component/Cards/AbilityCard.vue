@@ -121,7 +121,7 @@ function componentLabel(comp: ActionComponent): string {
   if (comp.keyword_codes?.length) {
     const tags = comp.keyword_codes.map((code) => props.keywords.find((t) => t.code === code)?.name ?? code).join(', ');
 
-    return `Материальный: ${mode} предмет с тегами ${tags}`;
+    return `Материальный: ${mode} предмет с признаками ${tags}`;
   }
 
   return comp.description ? `Материальный: ${comp.description}` : 'Материальный';

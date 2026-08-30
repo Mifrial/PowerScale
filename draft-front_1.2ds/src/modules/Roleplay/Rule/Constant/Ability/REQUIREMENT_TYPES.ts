@@ -3,9 +3,9 @@ import type { Requirement } from '@/modules/Roleplay/Rule/Dto/Ability/Requiremen
 export const REQUIREMENT_TYPES: { label: string; value: Requirement['type']; description: string }[] = [
   { label: 'Есть способность', value: 'has_ability', description: 'Персонаж владеет способностью (не ниже уровня)' },
   {
-    label: 'N способностей с тегом',
+    label: 'N способностей с признаком',
     value: 'has_ability_keyword',
-    description: 'Количество способностей с указанным тегом',
+    description: 'Количество способностей с указанным признаком',
   },
   { label: 'Есть признак', value: 'has_keyword', description: 'У персонажа есть признак (просто есть/нет)' },
   {

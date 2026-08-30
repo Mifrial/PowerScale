@@ -347,7 +347,7 @@ export class RuleValidationService {
           errors.push({
             ruleName: rule.name,
             ruleCode: rule.code,
-            message: 'материальный компонент должен указывать предмет или набор тегов',
+            message: 'материальный компонент должен указывать предмет или набор признаков',
           });
         }
         if (hasItem && component.item_code) {

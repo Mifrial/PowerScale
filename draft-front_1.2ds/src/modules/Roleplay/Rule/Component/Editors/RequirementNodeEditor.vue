@@ -131,7 +131,7 @@ function removeChild(index: number) {
           :items="abilityKeywords"
           item-title="name"
           item-value="code"
-          label="Тег способностей"
+          label="Признак способностей"
           density="compact"
           hide-details
           clearable

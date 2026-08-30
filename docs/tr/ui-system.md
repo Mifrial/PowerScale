@@ -72,7 +72,7 @@ Guest видит публичные games/spaces и публичные chats, н
 - filter bar: chips, text search, filter popup, apply/reset и chip-level removal;
 - длинные rows/grids/chats — virtualized;
 - editor stages — horizontal navigation with active stage, budget summary и characteristic chips;
-- expansion rows показывают summary, selected/open state, requirements, keywords и contextual edit action;
+- expansion rows показывают summary, selected/open state, requirements, keywords (в UI — «признаки») и contextual edit action;
 - content errors разделяются по page/section, operation exposes retry;
 - forms use AbortController for cancellable requests and debounce for search/high-frequency input.
 
