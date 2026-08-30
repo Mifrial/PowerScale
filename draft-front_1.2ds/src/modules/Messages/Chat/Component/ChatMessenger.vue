@@ -13,6 +13,7 @@ import ChatList from '@/modules/Messages/Chat/Component/ChatList.vue';
 import ChatMessageList from '@/modules/Messages/Chat/Component/ChatMessageList.vue';
 import ChatInput from '@/modules/Messages/Chat/Component/ChatInput.vue';
 import ChatSyncStatusBanner from '@/modules/Messages/Chat/Component/ChatSyncStatusBanner.vue';
+import ChatReadAckBanner from '@/modules/Messages/Chat/Component/ChatReadAckBanner.vue';
 import UserProfileSlider from '@/modules/Core/User/Component/UserProfileSlider.vue';
 
 const store = useChatStore();
@@ -122,6 +123,7 @@ onUnmounted(() => {
               <v-btn variant="tonal" color="primary" size="small" @click="retryRules"> Попробовать снова </v-btn>
             </div>
             <ChatSyncStatusBanner />
+            <ChatReadAckBanner :chat-id="store.activeChatId" />
             <ChatMessageList :renderer-context="inlineContext ?? undefined" @open-profile="openUserProfile" />
           </template>
 

@@ -42,7 +42,7 @@
 ## Раздельный readiness verdict
 
 - **Documentation-ready:** `YES` — canonical owners, registry, status matrix, evidence inventory и local links согласованы.
-- **Frontend-contract-ready:** `CONDITIONAL` — основные DTO/API и UI contracts описаны, но зафиксирован `CODE_GAP` прямых внутренних импортов Game и Chat polling silent-catch.
+- **Frontend-contract-ready:** `CONDITIONAL` — основные DTO/API и UI contracts описаны, но зафиксирован `CODE_GAP` прямых внутренних импортов Game (`DEC-064`). Chat polling silent-catch закрыт DEC-063 (2026-08-30); тихий `markChatRead` в сторе — отдельный пункт, не часть DEC-063.
 - **Backend-ready:** `NO` — schema, endpoints, persistence, transactions, idempotency, server-side authorization и SSE implementation остаются `OPEN`/`REQUIREMENT`.
 - **Release-ready:** `NO` — backend gaps, deferred magic/content и environment limitation `FETCH_ERROR` не позволяют объявить release readiness.
 

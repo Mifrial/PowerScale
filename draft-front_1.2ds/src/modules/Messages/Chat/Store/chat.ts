@@ -10,6 +10,7 @@ import type { ChatThreadRef } from '@/modules/Messages/Chat/Dto/ChatThreadRef';
 import { getChatApi, getChatTabs } from '@/modules/Messages/Chat/init';
 import { useAuthStore } from '@/modules/Core/Auth/Store/auth';
 import { ChatSyncService } from '@/modules/Messages/Chat/Service/ChatSyncService';
+import { ChatReadAckService } from '@/modules/Messages/Chat/Service/ChatReadAckService';
 import { PAGE_SIZE } from '@/modules/Messages/Chat/Constant/Chat/PAGE_SIZE';
 import { MAX_STORED } from '@/modules/Messages/Chat/Constant/Chat/MAX_STORED';
 import { messagePreview } from '@/modules/Messages/Chat/Utils/messagePreview';
@@ -28,6 +29,20 @@ function createChatState(): ChatState {
     loadingOlder: false,
     olderError: '',
   });
+}
+
+function mergeSyncedChat(local: Chat, incoming: Chat): Chat {
+  const localRead = local.lastReadMessageId ?? 0;
+  const incomingRead = incoming.lastReadMessageId ?? 0;
+  if (localRead >= incomingRead) {
+    return {
+      ...incoming,
+      lastReadMessageId: local.lastReadMessageId,
+      unreadCount: local.unreadCount,
+    };
+  }
+
+  return incoming;
 }
 
 function mergeMessages(target: ChatMessage[], incoming: ChatMessage[]): ChatMessage[] {
@@ -53,6 +68,7 @@ export const useChatStore = defineStore('chat', () => {
   const chatError = ref('');
   const actionError = ref('');
   const syncHealth = ref<ChatSyncHealth>({ status: 'ok', lastError: null });
+  const readAckHealth = reactive<Record<number, ChatSyncHealth>>({});
 
   const selectedTab = ref<string>('personal');
 
@@ -124,7 +140,11 @@ export const useChatStore = defineStore('chat', () => {
 
   async function loadChat(chatId: number) {
     let state = chatStates.value.get(chatId);
-    if (state?.initialized) return;
+    if (state?.initialized) {
+      markRead(chatId);
+
+      return;
+    }
 
     if (!state) {
       state = createChatState();
@@ -353,6 +373,12 @@ export const useChatStore = defineStore('chat', () => {
   // (onSync замыкается на state стора) и per-instance, а не app-синглтон.
   let syncService: ChatSyncService | null = null;
   let syncRefCount = 0;
+  const readAckService = new ChatReadAckService({
+    markChatRead: (chatId) => getChatApi().markChatRead(chatId),
+    onStatus: (chatId, health) => {
+      readAckHealth[chatId] = health;
+    },
+  });
 
   function setAutoScroll(val: boolean) {
     autoScroll.value = val;
@@ -363,7 +389,7 @@ export const useChatStore = defineStore('chat', () => {
     for (const updated of data.chats) {
       const idx = chats.value.findIndex((c) => c.id === updated.id);
       if (idx !== -1) {
-        chats.value[idx] = { ...chats.value[idx], ...updated };
+        chats.value[idx] = mergeSyncedChat(chats.value[idx], updated);
       }
     }
     for (const nc of data.newChats) {
@@ -387,7 +413,7 @@ export const useChatStore = defineStore('chat', () => {
       }
       if (cid === activeChatId.value && autoScroll.value && msgs.length > 0) {
         const chat = chats.value.find((c) => c.id === cid);
-        if (chat && chat.unreadCount > 0) {
+        if (chat) {
           chat.unreadCount = 0;
           chat.lastReadMessageId = msgs.reduce((m, x) => Math.max(m, x.id), chat.lastReadMessageId ?? 0);
           markRead(cid);
@@ -397,12 +423,7 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   function markRead(chatId: number) {
-    // Read-маркировку повторит следующий sync; не блокируем открытие чата и не роняем unhandled rejection.
-    void getChatApi()
-      .markChatRead(chatId)
-      .catch(() => {
-        /* намеренно тихо: см. комментарий выше */
-      });
+    readAckService.request(chatId);
   }
 
   function startSync() {
@@ -426,10 +447,18 @@ export const useChatStore = defineStore('chat', () => {
       syncService = null;
       syncHealth.value = { status: 'ok', lastError: null };
     }
+    readAckService.disconnect();
+    for (const key of Object.keys(readAckHealth)) {
+      delete readAckHealth[Number(key)];
+    }
   }
 
   function retrySync(): void {
     syncService?.retryNow();
+  }
+
+  function retryReadAck(chatId: number): void {
+    readAckService.retryNow(chatId);
   }
 
   return {
@@ -449,6 +478,7 @@ export const useChatStore = defineStore('chat', () => {
     chatError,
     actionError,
     syncHealth,
+    readAckHealth,
     fetchChats,
     openChat,
     loadChat,
@@ -465,6 +495,7 @@ export const useChatStore = defineStore('chat', () => {
     startSync,
     stopSync,
     retrySync,
+    retryReadAck,
     autoScroll,
     setAutoScroll,
     lastSyncTimestamp,

@@ -349,6 +349,90 @@ describe('chat store', () => {
       expect(store.activeChat!.lastReadMessageId).toBe(5);
       expect(store.firstUnreadMessageId).toBeNull();
     });
+
+    it('sync merge не поднимает unread при меньшем lastRead с сервера', async () => {
+      const fakeApi: IChatApi = {
+        getChats: async () => [chat(1, 0, 2)],
+        getMessages: async () => [makeMsg(1, 1, 'A'), makeMsg(2, 1, 'B'), makeMsg(3, 1, 'C'), makeMsg(4, 1, 'D')],
+        getMessagesBefore: async () => [],
+        getTotalMessageCount: async () => 4,
+        sendMessage: async () => makeMsg(99, 1, 'sent'),
+        updateMessageVisibility: async (chatId, messageId) => makeMsg(messageId, chatId, 'updated'),
+        sendSystemMessage: async () => makeMsg(998, 1, 'sys'),
+        markChatRead: async () => {},
+        sync: async () => ({ now: '', chats: [], newChats: [], messages: {} }),
+      };
+      registerChatApi(fakeApi);
+
+      const store = useChatStore();
+      await store.fetchChats();
+      await store.openChat(1);
+      expect(store.activeChat!.lastReadMessageId).toBe(4);
+
+      store.applySyncResponse({
+        now: '2026-01-01T00:00:00',
+        chats: [{ ...store.activeChat!, unreadCount: 9, lastReadMessageId: 2 }],
+        newChats: [],
+        messages: {},
+      });
+
+      expect(store.activeChat!.unreadCount).toBe(0);
+      expect(store.activeChat!.lastReadMessageId).toBe(4);
+    });
+
+    it('loadChat на initialized снова зовёт markChatRead', async () => {
+      const markChatRead = vi.fn().mockResolvedValue(undefined);
+      const fakeApi: IChatApi = {
+        getChats: async () => [chat(1, 0, 2)],
+        getMessages: async () => [makeMsg(1, 1, 'A'), makeMsg(2, 1, 'B')],
+        getMessagesBefore: async () => [],
+        getTotalMessageCount: async () => 2,
+        sendMessage: async () => makeMsg(99, 1, 'sent'),
+        updateMessageVisibility: async (chatId, messageId) => makeMsg(messageId, chatId, 'updated'),
+        sendSystemMessage: async () => makeMsg(998, 1, 'sys'),
+        markChatRead,
+        sync: async () => ({ now: '', chats: [], newChats: [], messages: {} }),
+      };
+      registerChatApi(fakeApi);
+
+      const store = useChatStore();
+      await store.fetchChats();
+      await store.openChat(1);
+      expect(markChatRead).toHaveBeenCalledTimes(1);
+      await store.loadChat(1);
+      expect(markChatRead).toHaveBeenCalledTimes(2);
+    });
+
+    it('reject markChatRead → retrying и повтор после backoff', async () => {
+      vi.useFakeTimers();
+      const markChatRead = vi.fn().mockRejectedValue(new Error('сеть'));
+      const fakeApi: IChatApi = {
+        getChats: async () => [chat(1, 0, 2)],
+        getMessages: async () => [makeMsg(1, 1, 'A')],
+        getMessagesBefore: async () => [],
+        getTotalMessageCount: async () => 1,
+        sendMessage: async () => makeMsg(99, 1, 'sent'),
+        updateMessageVisibility: async (chatId, messageId) => makeMsg(messageId, chatId, 'updated'),
+        sendSystemMessage: async () => makeMsg(998, 1, 'sys'),
+        markChatRead,
+        sync: async () => ({ now: '', chats: [], newChats: [], messages: {} }),
+      };
+      registerChatApi(fakeApi);
+
+      const store = useChatStore();
+      await store.fetchChats();
+      await store.openChat(1);
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(store.readAckHealth[1]).toEqual({ status: 'retrying', lastError: 'сеть' });
+      expect(markChatRead).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(markChatRead).toHaveBeenCalledTimes(2);
+      store.retryReadAck(1);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(markChatRead).toHaveBeenCalledTimes(3);
+      vi.useRealTimers();
+    });
   });
 
   describe('history loading and storage limits', () => {

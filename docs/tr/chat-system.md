@@ -114,6 +114,10 @@ Payload содержит `now`, chat summaries, `newChats` и messages. `now` и
 
 `ChatSyncService` публикует `ChatSyncHealth`: `status` — `ok` | `retrying`, плюс `lastError`. Статус `ok` только после успешного кадра (`SyncResponse`); cursor `lastSync` сдвигается только тогда. Ошибка канала (poll throw / SSE `onerror`) не двигает cursor, ставит `retrying` и ретраит, пока `connect` без `disconnect`. Backoff `1s → 2s → 4s …` с потолком `30s`; успешный кадр сбрасывает delay на `1s` и дальше poll идёт с интервалом `5s`. Ручной `retryNow` сбрасывает delay и бьёт сразу (во время in-flight poll — no-op). Мусорный SSE JSON cursor не двигает и канал в error не переводит. Mock остаётся polling; backend SSE не объявлен реализованным. UI-баннер при `retrying` над уже загруженной лентой; empty-state `chatsError`/`chatError` не подменяется.
 
+### Read ack (`markChatRead`)
+
+Отметка прочтения — best-effort ack, не часть DEC-063 и не блокирует `openChat`/`loadChat`. UI сразу ставит `unreadCount = 0` и локальный `lastReadMessageId` (без отката при фейле API). `ChatApi.markChatRead` бросает при `!success`. Повтор — отдельный `ChatReadAckService`: один in-flight на `chatId`, backoff `1s–30s`, ручной retry; ошибка канала sync не смешивается с ack. Sync merge не поднимает unread, если локальный `lastReadMessageId` не меньше серверного. Новые сообщения в открытом чате при включённом автоскролле снова бьют ack, даже если unread уже 0. Баннер ack — над лентой этого чата, не в ChatBar и не в `actionError`.
+
 Visibility задаётся `all`, `forRole` или `forUsers`. GM/owner с `see_all` видят всё; остальные получают только доставленные им сообщения. Скрытые сообщения не участвуют в unread и preview. Отправитель видит своё и может менять visibility своего сообщения. Partial-text spoiler — отдельный backlog.
 
 ## Visibility и модерация

@@ -16,6 +16,7 @@ import { useChatVisibilityOptions } from '@/modules/Messages/Chat/Composables/us
 import ChatMessageList from '@/modules/Messages/Chat/Component/ChatMessageList.vue';
 import ChatInput from '@/modules/Messages/Chat/Component/ChatInput.vue';
 import ChatSyncStatusBanner from '@/modules/Messages/Chat/Component/ChatSyncStatusBanner.vue';
+import ChatReadAckBanner from '@/modules/Messages/Chat/Component/ChatReadAckBanner.vue';
 
 /**
  * Встраиваемый чат по id (обсуждение персонажа/игры): читает/шлёт сообщения по своему chatId,
@@ -147,6 +148,7 @@ function retryAttach(): void {
 
     <v-card v-else class="chat-thread" border>
       <ChatSyncStatusBanner />
+      <ChatReadAckBanner :chat-id="chatId" />
       <ChatMessageList
         :chat-id="chatId"
         :renderer-context="rendererContext"

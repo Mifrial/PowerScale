@@ -93,7 +93,8 @@ export class ChatApi implements IChatApi {
   }
 
   async markChatRead(chatId: number): Promise<void> {
-    await this.engine.runAction('chat.markChatRead', { chatId });
+    const res = await this.engine.runAction('chat.markChatRead', { chatId });
+    if (!res.success) throw new Error(res.error?.message ?? 'Failed to mark chat read');
   }
 
   async sync(since: string): Promise<SyncResponse> {

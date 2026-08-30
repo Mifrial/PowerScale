@@ -26,7 +26,7 @@
 - `DEC-060` — публичные поля ссылок на правила используют явные `*_code`-имена (`ruleCode`, `raceRuleCode`, `sourceRuleCode`); numeric `id` — только storage key.
 - `DEC-061` — loot имеет статусы `prepared | available | distributed`; интерес игрока хранится отдельно в `game_loot_interest`.
 - `DEC-062` — `keyword` — технический термин; пользовательские UI-тексты используют «признак»/«Признаки», не «тег».
-- `DEC-063` — Chat sync публикует `ok`/`retrying`, сохраняет cursor при ошибке и ретраит с backoff 1s–30s плюс ручной «Повторить».
+- `DEC-063` — Chat sync публикует `ok`/`retrying`, сохраняет cursor при ошибке и ретраит с backoff 1s–30s плюс ручной «Повторить»; `markChatRead` в этот контракт не входит (ack прочтения — в chat-system).
 - `DEC-064` — межмодульный доступ строится на typed capability-фасадах и constructor DI; ServiceLocator/container остаются на composition root и в публичных фасадах.
 - `DEC-065` — это DI и boundary-правило действует для всех прикладных модулей проекта; исключения — Core и plugin registration через public host API.
 - `DEC-066` — UI использует adapter boundaries, batch lookup и необязательный `AbortSignal` для отмены устаревших async-запросов.
