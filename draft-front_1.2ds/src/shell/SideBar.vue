@@ -5,6 +5,7 @@ import { useAuthStore } from '@/modules/Core/Auth/Store/auth';
 import { useUserStore } from '@/modules/Core/User/Store/users';
 import { isAdmin as checkIsAdmin, getAdminSections } from '@/modules/Core/User/init';
 import { navItems } from '@/shell/navItems';
+import LogoutConfirmDialog from '@/modules/Core/Auth/Component/LogoutConfirmDialog.vue';
 
 const props = defineProps<{ collapsed: boolean }>();
 const emit = defineEmits<{ 'update:collapsed': [value: boolean] }>();
@@ -21,12 +22,16 @@ function expand() {
   emit('update:collapsed', false);
 }
 
-const isAdmin = computed(() => checkIsAdmin(userStore.currentUser));
-
-function confirmLogout() {
-  showLogoutDialog.value = false;
-  auth.logout();
+function openProfile(): void {
+  const userId = userStore.currentUser?.id;
+  if (userId) void router.push('/users/' + userId);
 }
+
+function openLogoutDialog(): void {
+  showLogoutDialog.value = true;
+}
+
+const isAdmin = computed(() => checkIsAdmin(userStore.currentUser));
 
 const adminItems = getAdminSections().map((s) => ({ icon: s.icon, label: s.title, to: s.to }));
 </script>
@@ -34,11 +39,7 @@ const adminItems = getAdminSections().map((s) => ({ icon: s.icon, label: s.title
 <template>
   <v-navigation-drawer :rail="isCollapsed" permanent @click="isCollapsed && expand()">
     <template #prepend>
-      <v-list-item
-        class="px-2 py-3"
-        :to="userStore.currentUser?.id ? '/users/' + userStore.currentUser.id : undefined"
-        :active="false"
-      >
+      <v-list-item class="px-2 py-3" :active="false" @click="openProfile">
         <template #prepend>
           <v-avatar color="primary" size="36">
             <span class="text-body-2 font-weight-medium text-white">{{ userStore.avatarLetters }}</span>
@@ -55,8 +56,9 @@ const adminItems = getAdminSections().map((s) => ({ icon: s.icon, label: s.title
             variant="text"
             size="x-small"
             color="on-surface"
+            type="button"
             aria-label="Выйти"
-            @click.stop="showLogoutDialog = true"
+            @click.stop="openLogoutDialog"
           >
             <v-icon size="18">mdi-logout</v-icon>
           </v-btn>
@@ -66,6 +68,7 @@ const adminItems = getAdminSections().map((s) => ({ icon: s.icon, label: s.title
             variant="text"
             size="x-small"
             color="primary"
+            type="button"
             aria-label="Войти"
             @click.stop="router.push('/login')"
           >
@@ -107,17 +110,6 @@ const adminItems = getAdminSections().map((s) => ({ icon: s.icon, label: s.title
         </v-list-group>
       </v-list>
     </template>
-
-    <v-dialog v-model="showLogoutDialog" max-width="360">
-      <v-card>
-        <v-card-title class="text-body-1 font-weight-medium">Выйти</v-card-title>
-        <v-card-text class="text-body-2">Вы уверены, что хотите выйти?</v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="showLogoutDialog = false">Отмена</v-btn>
-          <v-btn color="error" variant="tonal" @click="confirmLogout">Выйти</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
   </v-navigation-drawer>
+  <LogoutConfirmDialog v-model="showLogoutDialog" />
 </template>

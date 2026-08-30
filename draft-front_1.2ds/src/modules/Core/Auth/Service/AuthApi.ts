@@ -21,7 +21,8 @@ export class AuthApi implements IAuthApi {
   }
 
   async logout() {
-    await this.engine.runAction('auth.logout');
+    const res = await this.engine.runAction('auth.logout');
+    if (!res.success) throw new Error(res.error?.message ?? 'Logout failed');
   }
 
   async getCurrentUser() {

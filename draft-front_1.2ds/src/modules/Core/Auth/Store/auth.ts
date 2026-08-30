@@ -97,11 +97,17 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function logout(): Promise<void> {
+    loading.value = true;
+    error.value = null;
     try {
       await getAuthApi().logout();
-    } finally {
       setAnonSession();
       useUserStore().clearCurrent();
+    } catch (e: unknown) {
+      error.value = e instanceof Error ? e.message : String(e);
+      throw e;
+    } finally {
+      loading.value = false;
     }
   }
 

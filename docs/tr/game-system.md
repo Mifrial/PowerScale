@@ -151,7 +151,7 @@ Combat resources, states, ActionEffect, movement, initiative, checks, chronicle 
 
 Frontend-контур включает `/games`, `/games/new`, `/games/:id` и `/games/:id/edit`. В карточке игры используются вкладки Overview, Members, Characters, Moderation, NPC, Discussion и live Game Chat. Старые отдельные URL `/members`, `/characters`, `/moderate`, `/invitations`, `/loot` и `/chronicle` являются логическими разделами карточки; фактическая маршрутизация должна сверяться с `Game/routes.ts`.
 
-Создание игры выбирает пространство и ревизию, статус, visibility, join policy, лимиты ОС/ОЛ/ОР/денег и описания. Персонаж, созданный «через игру», получает правила и лимиты игры и создаёт membership со статусом pending.
+Создание игры выбирает пространство и ревизию, статус, visibility, join policy, лимиты ОС/ОЛ/ОР/денег и описания. Персонаж, созданный «через игру», получает правила и лимиты игры и создаёт membership со статусом `submitted`.
 
 Статусы игры:
 

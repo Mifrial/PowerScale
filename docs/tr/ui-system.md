@@ -60,7 +60,7 @@ Polling/mock-поведение и целевой SSE-контракт не см
 
 ## Route и UI acceptance catalog
 
-Auth routes: `/login`, `/register`, `/forgot-password`, `/reset-password`. Logout не является отдельной страницей или frontend route: authenticated action `auth.logout` должен запускаться через confirmation dialog; текущий dialog-flow неполон и является `CODE_GAP`. Core routes: `/users`, `/users/new`, `/users/:id`, `/users/:id/edit`, `/admin/groups` и `/admin/keywords` с permission guards из `auth-system.md`.
+Auth routes: `/login`, `/register`, `/forgot-password`, `/reset-password`. Logout не является отдельной страницей или frontend route: authenticated action `auth.logout` запускается через confirmation dialog; после успеха сессия сбрасывается и пользователь попадает на `/login`. Core routes: `/users`, `/users/new`, `/users/:id`, `/users/:id/edit`, `/admin/groups` и `/admin/keywords` с permission guards из `auth-system.md`.
 
 Space/Rule routes выбирают `space code` и revision context. Character routes описаны в `character-system.md`; Game routes и tabs — в `game-system.md`. Деактивация сущности выполняется action-dialog на странице сущности, а не отдельной страницей.
 
