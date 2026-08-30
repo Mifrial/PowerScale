@@ -38,6 +38,16 @@ Topbar содержит bell badge и открывает right-side slider. По
 
 Шаблон уведомления содержит `key`, `title_template`, `body_template`, `buttons_json` и `active`. Кнопка имеет `label`, `action_type` (`event | url | action`), `action` и opaque `payload`. Notification хранит `from_user_id`, `to_user_id`, `template_key`, `data_json`, `read`, `read_at` и `created_at`. Плейсхолдеры шаблона разрешаются из `data_json`; HTML body должен проходить sanitization.
 
+## Frontend adapter boundaries
+
+Domain/backend DTO не передаются в UI без адаптации. Notification adapter преобразует domain notification в компактную UI-модель `id`, `title`, `preview`, `createdAt`, `icon`, `read`, `actions[]`. Поля backend template (`template_key`, `data_json`, placeholders) не становятся универсальным UI-контрактом; `actions[].payload` остаётся opaque и обрабатывается конкретным action handler.
+
+Для отображения владельцев, авторов и участников по набору идентификаторов UI использует batch API `IUserApi.getUsersByIds(ids, signal?)`, а не последовательные `getUser()` в цикле. `signal` является необязательным `AbortSignal`: consumer может отменить устаревший или уже ненужный запрос при смене страницы, нового поиска или размонтировании компонента. Отмена не заменяет retry/error state.
+
+Chat является host-модулем сообщений и не импортирует прикладные Rule, Character или Game. Донор регистрируется через публичный Chat API. `ChatRulesContext` и `ChatInlineRendererContext` содержат только общие/opaque данные; Chat не знает DTO донора. Donor-owned callbacks (`processAttachments`, `tokenSources`) передаются через typed plugin contract.
+
+Visibility фильтруется до передачи данных в UI. Ошибка adapter/API публикуется через стандартное `error`/`retry` состояние; host-модуль не интерпретирует opaque action payload и не создаёт N+1 lookup.
+
 ## Статус real-time
 
 Polling/mock-поведение и целевой SSE-контракт не смешиваются. SSE, reconnect, retention, visibility filtering и authorization требуют отдельного backend-контракта и до его подтверждения имеют статус `OPEN`.
@@ -50,7 +60,7 @@ Polling/mock-поведение и целевой SSE-контракт не см
 
 ## Route и UI acceptance catalog
 
-Auth routes: `/login`, `/register`, `/forgot-password`, `/reset-password`, `/logout`. Core routes: `/users`, `/users/new`, `/users/:id`, `/users/:id/edit`, `/admin/groups` и `/admin/keywords` с permission guards из `auth-system.md`.
+Auth routes: `/login`, `/register`, `/forgot-password`, `/reset-password`. Logout не является отдельной страницей или frontend route: authenticated action `auth.logout` должен запускаться через confirmation dialog; текущий dialog-flow неполон и является `CODE_GAP`. Core routes: `/users`, `/users/new`, `/users/:id`, `/users/:id/edit`, `/admin/groups` и `/admin/keywords` с permission guards из `auth-system.md`.
 
 Space/Rule routes выбирают `space code` и revision context. Character routes описаны в `character-system.md`; Game routes и tabs — в `game-system.md`. Деактивация сущности выполняется action-dialog на странице сущности, а не отдельной страницей.
 

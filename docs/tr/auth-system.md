@@ -59,6 +59,8 @@ Core/Auth предоставляет маршруты:
 - `/forgot-password`;
 - `/reset-password`.
 
+Logout не является отдельной страницей или frontend route: это authenticated action `auth.logout`, который должен запускаться через confirmation dialog. Текущая реализация dialog-flow неполна и является `CODE_GAP`.
+
 Core/User предоставляет административные маршруты списка, создания, просмотра и редактирования users и groups. Точные guards и состав вложенных routes должны сверяться с `Core/User/routes.ts`; backend route contract — `OPEN`.
 
 Route access:
@@ -69,7 +71,7 @@ Route access:
 - `/users/:id/edit` — владелец или `user.edit`;
 - `/admin/groups` и descendants — соответствующий `user_group.*`;
 - `/admin/keywords` и descendants — соответствующий `keyword.*`;
-- `/logout` — authenticated user, POST action.
+- `auth.logout` — authenticated user, POST action из logout confirmation dialog.
 
 ## Поля пользователя
 
