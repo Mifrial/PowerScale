@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { useAuthStore } from '@/modules/Core/Auth/Store/auth';
+import { useCurrentUser } from '@/modules/Core/User/init';
 import { useGameStore } from '@/modules/Roleplay/Game/Store/games';
 import { getUserApi } from '@/modules/Core/User/init';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
@@ -17,7 +17,7 @@ const props = defineProps<{
   memberIds: number[];
 }>();
 
-const auth = useAuthStore();
+const { userId } = useCurrentUser();
 const store = useGameStore();
 
 const invitations = ref<GameInvitation[]>([]);
@@ -33,7 +33,7 @@ const sending = ref(false);
 const visibleInvitations = computed(() => {
   if (props.canManage) return invitations.value;
 
-  return invitations.value.filter((invitation) => invitation.inviteeId === auth.userId);
+  return invitations.value.filter((invitation) => invitation.inviteeId === userId.value);
 });
 
 async function load(): Promise<void> {
@@ -146,9 +146,7 @@ watch(
               {{ invitationStatusLabel(invitation.status) }}
             </v-chip>
             <template
-              v-if="
-                invitation.inviteeId === auth.userId && (invitation.status === 'sent' || invitation.status === 'viewed')
-              "
+              v-if="invitation.inviteeId === userId && (invitation.status === 'sent' || invitation.status === 'viewed')"
             >
               <v-btn size="x-small" color="success" variant="tonal" @click="respond(invitation, 'accept')"
                 >Принять</v-btn

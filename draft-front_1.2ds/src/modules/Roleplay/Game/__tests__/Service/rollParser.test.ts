@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { rollService } from '@/modules/Roleplay/Game/Service/Instance/rollService';
 import { ROLL_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ATTACHMENT_TYPE';
 import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec';
-import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/Service/Instance/aggregateSourceDeltasService';
+import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/init';
 
 function rollOf(res: ReturnType<typeof rollService.parseRollCommand>): DiceRollSpec | undefined {
   return res?.attachments.find((a) => a.type === ROLL_ATTACHMENT_TYPE)?.payload as DiceRollSpec | undefined;

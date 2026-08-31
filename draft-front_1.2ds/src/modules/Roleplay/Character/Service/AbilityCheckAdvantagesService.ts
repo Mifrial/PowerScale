@@ -4,9 +4,10 @@ import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageMod
 import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpec';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { Formula } from '@/modules/Roleplay/Rule/Dto/Ability/Formula';
-import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/Service/Instance/aggregateSourceDeltasService';
+import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/init';
 
 export class AbilityCheckAdvantagesService {
+  constructor(private readonly aggregate = aggregateSourceDeltasService) {}
   checkAdvantageModifiersFromAbilities(
     version: Pick<CharacterVersion, 'abilities'> | null | undefined,
     rules: Rule[],
@@ -36,7 +37,7 @@ export class AbilityCheckAdvantagesService {
       }
     }
 
-    return aggregateSourceDeltasService.aggregateSourceDeltas(entries);
+    return this.aggregate.aggregateSourceDeltas(entries);
   }
 
   checkCharacteristicModifiersFromAbilities(
@@ -75,7 +76,7 @@ export class AbilityCheckAdvantagesService {
       }
     }
 
-    return aggregateSourceDeltasService.aggregateSourceDeltas(entries);
+    return this.aggregate.aggregateSourceDeltas(entries);
   }
 
   private formulaValue(

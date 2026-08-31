@@ -1,5 +1,5 @@
 import type { IChatType } from '@/modules/Messages/Chat/Interface/IChatType';
-import { CHAT_PERMISSION_SEE_ALL } from '@/modules/Messages/Chat/Constant/Chat/CHAT_PERMISSION_SEE_ALL';
+import { CHAT_PERMISSION_SEE_ALL } from '@/modules/Messages/Chat/init';
 
 /** Роли игровых чатов (значения задаёт Game): 'gm' видит все сообщения (chat.see_all). */
 const GAME_CHAT_ROLES = [

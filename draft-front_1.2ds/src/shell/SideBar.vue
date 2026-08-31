@@ -2,8 +2,7 @@
 import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/modules/Core/Auth/Store/auth';
-import { useUserStore } from '@/modules/Core/User/Store/users';
-import { isAdmin as checkIsAdmin, getAdminSections } from '@/modules/Core/User/init';
+import { isAdmin as checkIsAdmin, getAdminSections, useCurrentUser } from '@/modules/Core/User/init';
 import { navItems } from '@/shell/navItems';
 import LogoutConfirmDialog from '@/modules/Core/Auth/Component/LogoutConfirmDialog.vue';
 
@@ -12,7 +11,7 @@ const emit = defineEmits<{ 'update:collapsed': [value: boolean] }>();
 
 const router = useRouter();
 const auth = useAuthStore();
-const userStore = useUserStore();
+const { currentUser, username, userLogin, avatarLetters } = useCurrentUser();
 
 const isCollapsed = computed(() => props.collapsed);
 const showLogoutDialog = ref(false);
@@ -23,7 +22,7 @@ function expand() {
 }
 
 function openProfile(): void {
-  const userId = userStore.currentUser?.id;
+  const userId = currentUser.value?.id;
   if (userId) void router.push('/users/' + userId);
 }
 
@@ -31,7 +30,7 @@ function openLogoutDialog(): void {
   showLogoutDialog.value = true;
 }
 
-const isAdmin = computed(() => checkIsAdmin(userStore.currentUser));
+const isAdmin = computed(() => checkIsAdmin(currentUser.value));
 
 const adminItems = getAdminSections().map((s) => ({ icon: s.icon, label: s.title, to: s.to }));
 </script>
@@ -42,13 +41,13 @@ const adminItems = getAdminSections().map((s) => ({ icon: s.icon, label: s.title
       <v-list-item class="px-2 py-3" :active="false" @click="openProfile">
         <template #prepend>
           <v-avatar color="primary" size="36">
-            <span class="text-body-2 font-weight-medium text-white">{{ userStore.avatarLetters }}</span>
+            <span class="text-body-2 font-weight-medium text-white">{{ avatarLetters }}</span>
           </v-avatar>
         </template>
         <v-list-item-title class="font-weight-medium text-body-2">
-          {{ userStore.username }}
+          {{ username }}
         </v-list-item-title>
-        <v-list-item-subtitle class="text-caption"> @{{ userStore.userLogin }} </v-list-item-subtitle>
+        <v-list-item-subtitle class="text-caption"> @{{ userLogin }} </v-list-item-subtitle>
         <template #append>
           <v-btn
             v-if="auth.isAuthenticated && !auth.isGuest"

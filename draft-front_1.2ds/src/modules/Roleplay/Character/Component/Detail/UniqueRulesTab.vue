@@ -1,8 +1,8 @@
 <script setup lang="ts">
+import { useSpaceRevision } from '@/modules/Roleplay/Space/init';
 import { computed, onMounted, ref } from 'vue';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { CustomRuleEntry } from '@/modules/Roleplay/Character/Dto/CustomRuleEntry';
-import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
 import { getCharacterApi } from '@/modules/Roleplay/Character/init';
 import { useRouter } from 'vue-router';
 
@@ -18,7 +18,7 @@ const props = defineProps<{
 const emit = defineEmits<{ updated: [] }>();
 
 const router = useRouter();
-const spaceRevisionStore = useSpaceRevisionStore();
+const spaceRevision = useSpaceRevision();
 
 const entries = computed<CustomRuleEntry[]>(() => props.version.customRules ?? []);
 const rules = ref<Record<string, { name: string }>>({});
@@ -36,7 +36,7 @@ const replaceNames = computed(() => new Map(Object.entries(rules.value).map(([id
 async function loadRules(): Promise<void> {
   if (!props.spaceId || !props.rulesRevision) return;
   try {
-    const revision = await spaceRevisionStore.fetchRevision(props.spaceId, props.rulesRevision);
+    const revision = await spaceRevision.fetchRevision(props.spaceId, props.rulesRevision);
     rules.value = Object.fromEntries(revision.rules.map((rule) => [rule.id, { name: rule.name }]));
   } catch {
     rules.value = {};

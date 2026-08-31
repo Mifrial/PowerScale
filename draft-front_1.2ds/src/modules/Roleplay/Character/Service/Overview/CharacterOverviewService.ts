@@ -35,19 +35,22 @@ import { FormulaEvaluationService } from '@/modules/Roleplay/Character/Service/F
 import { CHARACTERISTIC_BASE_RANGE } from '@/modules/Roleplay/Character/Constant/CHARACTERISTIC_BASE_RANGE';
 import { moneyBreakdownLabel } from '@/modules/Roleplay/Character/Utils/moneyBreakdown';
 import { CharacterReferenceService } from '@/modules/Roleplay/Character/Service/CharacterReferenceService';
-import { derivedCharacteristicService } from '@/modules/Roleplay/Rule/Service/Instance/derivedCharacteristicService';
+import {
+  derivedCharacteristicService,
+  ACTION_POINTS_RESOURCE_CODE,
+  DAMAGE_TYPE_FORMS,
+  itemModifierService,
+  formatStateEffectsService,
+} from '@/modules/Roleplay/Rule/init';
 import type { ItemLabels } from '@/modules/Roleplay/Character/Constant/ITEM_LABELS';
 import { ITEM_LABELS } from '@/modules/Roleplay/Character/Constant/ITEM_LABELS';
-import { ACTION_POINTS_RESOURCE_CODE } from '@/modules/Roleplay/Rule/Constant/Ability/ACTION_POINTS_RESOURCE_CODE';
 import { stateRuntimeEffectsService } from '@/modules/Roleplay/Character/Service/Instance/stateRuntimeEffectsService';
 import { liveActionPointsLimitService } from '@/modules/Roleplay/Character/Service/Instance/liveActionPointsLimitService';
 import { racialInnateGearService } from '@/modules/Roleplay/Character/Service/Instance/racialInnateGearService';
 import { weaponAttackRangeService } from '@/modules/Roleplay/Character/Service/Instance/weaponAttackRangeService';
 import { DEFAULT_FALLOFF } from '@/modules/Roleplay/Character/Constant/Weapon/DEFAULT_FALLOFF';
 import { WEAPON_PROFILE_LABELS } from '@/modules/Roleplay/Character/Constant/WEAPON_PROFILE_LABELS';
-import { DAMAGE_TYPE_FORMS } from '@/modules/Roleplay/Rule/Constant/DAMAGE_TYPE_FORMS';
 import { formulaLabel } from '@/modules/Roleplay/Character/Utils/formulaLabel';
-import { itemModifierService } from '@/modules/Roleplay/Rule/Service/Instance/itemModifierService';
 import type { InventoryItem } from '@/modules/Roleplay/Character/Dto/InventoryItem';
 import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/CharacterStateValue';
 import type { CharacterPoisonValue } from '@/modules/Roleplay/Character/Dto/CharacterPoisonValue';
@@ -58,7 +61,6 @@ import type { StatePeriodicity } from '@/modules/Roleplay/Rule/Dto/State/Periodi
 import type { StateDecay } from '@/modules/Roleplay/Rule/Dto/State/StateDecay';
 import type { PoisonSpec } from '@/modules/Roleplay/Rule/Dto/Poison/PoisonSpec';
 import type { ResolvedReference } from '@/modules/Roleplay/Character/Dto/Overview/ResolvedReference';
-import { formatStateEffectsService } from '@/modules/Roleplay/Rule/Service/Instance/formatStateEffectsService';
 
 /**
  * Собирает display-модель вкладки «Обзор» из версии персонажа (ссылки + вычисленное)
@@ -68,6 +70,13 @@ export class CharacterOverviewService {
   constructor(
     private readonly formula: FormulaEvaluationService = new FormulaEvaluationService(),
     private readonly itemLabels: ItemLabels = ITEM_LABELS,
+    private readonly derivedCharacteristics = derivedCharacteristicService,
+    private readonly itemModifiers = itemModifierService,
+    private readonly stateEffects = formatStateEffectsService,
+    private readonly runtimeEffects = stateRuntimeEffectsService,
+    private readonly liveActionPoints = liveActionPointsLimitService,
+    private readonly racialInnateGear = racialInnateGearService,
+    private readonly weaponAttackRange = weaponAttackRangeService,
   ) {}
 
   build(version: CharacterVersion, rules: Rule[]): CharacterOverview {
@@ -125,9 +134,9 @@ export class CharacterOverviewService {
     withStates: CharacteristicOverview[];
     context: FormulaContext;
   } {
-    const synced = racialInnateGearService.applyRacialInnateGear(version, rules);
+    const synced = this.racialInnateGear.applyRacialInnateGear(version, rules);
     const reference = new CharacterReferenceService(rules, synced.spaceCode, synced.rulesRevision);
-    const abilityLevels = new Map(synced.abilities.map((ability) => [ability.ruleId, ability.level]));
+    const abilityLevels = this.maxAbilityLevelsByRuleId(synced.abilities);
     const coreList = synced.characteristics.map((value) =>
       this.buildCharacteristicCore(value, reference, abilityLevels, synced),
     );
@@ -142,7 +151,7 @@ export class CharacterOverviewService {
 
       return { ...overview, derived: this.buildDerived(overview.derived.formula, byCode) };
     });
-    const stateEffects = stateRuntimeEffectsService.accumulateStateEffects(version.states, rules);
+    const stateEffects = this.runtimeEffects.accumulateStateEffects(version.states, rules);
     const withStates = allCharacteristics.map((overview) => {
       const rule = reference.ruleById(overview.ruleId);
       const amount = rule ? (stateEffects.characteristicDeltas.get(rule.code) ?? 0) : 0;
@@ -174,7 +183,9 @@ export class CharacterOverviewService {
     const abilityLevels = new Map<string, number>();
     for (const ability of version.abilities) {
       const rule = reference.ruleById(ability.ruleId);
-      if (rule) abilityLevels.set(rule.code, ability.level);
+      if (!rule) continue;
+      const current = abilityLevels.get(rule.code) ?? 0;
+      if (ability.level > current) abilityLevels.set(rule.code, ability.level);
     }
 
     return { characteristicValues, abilityLevels };
@@ -250,7 +261,7 @@ export class CharacterOverviewService {
   ): void {
     for (const overview of coreList) {
       if (overview.derived === null) continue;
-      const next = derivedCharacteristicService.evaluateDerivedValue(
+      const next = this.derivedCharacteristics.evaluateDerivedValue(
         overview.derived.formula,
         (code) => byCode.get(code)?.value,
       );
@@ -494,7 +505,7 @@ export class CharacterOverviewService {
           const characteristicRule = reference.ruleById(characteristic.ruleId);
           if (characteristicRule) values.set(characteristicRule.code, characteristic.value);
         }
-        const live = liveActionPointsLimitService.liveActionPointsLimit(version, rules, values);
+        const live = this.liveActionPoints.liveActionPointsLimit(version, rules, values);
         if (live !== null) max = { base: live, size: resource.base.size };
       }
       const autoAdd = rule?.type === 'resource' && (rule.spec as ResourceSpec | undefined)?.auto_add === true;
@@ -541,27 +552,39 @@ export class CharacterOverviewService {
     });
   }
 
+  private maxAbilityLevelsByRuleId(abilities: CharacterVersion['abilities']): Map<string, number> {
+    const levels = new Map<string, number>();
+    for (const ability of abilities) {
+      const current = levels.get(ability.ruleId) ?? 0;
+      if (ability.level > current) levels.set(ability.ruleId, ability.level);
+    }
+
+    return levels;
+  }
+
   private buildAbilities(version: CharacterVersion, reference: CharacterReferenceService): AbilityOverview[] {
-    const abilities = [...version.abilities];
-    const existingRuleIds = new Set(abilities.map((ability) => ability.ruleId));
+    const collapsed = this.collapseAbilityRows(version.abilities, reference);
+    const existingKeys = new Set(collapsed.map((ability) => this.abilityInstanceKey(ability, reference)));
     for (const rule of reference.rules()) {
       const spec = this.abilitySpecOf(rule);
       if (
         !spec ||
         spec.type === 'group' ||
-        existingRuleIds.has(rule.id) ||
+        spec.multiple === true ||
+        existingKeys.has(rule.id) ||
         !Object.values(spec.zones ?? {}).some((cost) => cost?.kind === 'automatic')
       ) {
         continue;
       }
-      abilities.push({ ruleId: rule.id, level: 1 });
-      existingRuleIds.add(rule.id);
+      collapsed.push({ ruleId: rule.id, level: 1 });
+      existingKeys.add(rule.id);
     }
 
-    return abilities.map((ability) => {
+    return collapsed.map((ability) => {
       const resolved = reference.resolve(ability.ruleId);
       const spec = this.abilitySpecOf(resolved.rule);
       const type = spec?.type ?? null;
+      const domainLabel = this.abilityDomainLabel(ability, reference);
 
       let actionOdCost: DimensionalNumberValue | number | null = null;
       let spellCastCost: DimensionalNumberValue | number | null = null;
@@ -578,7 +601,9 @@ export class CharacterOverviewService {
 
       return {
         ruleId: ability.ruleId,
+        instanceKey: this.abilityInstanceKey(ability, reference),
         name: resolved.name,
+        domainLabel,
         level: ability.level,
         hasParameters: ability.parameters !== undefined && Object.keys(ability.parameters).length > 0,
         type,
@@ -592,6 +617,43 @@ export class CharacterOverviewService {
         isResolved: resolved.isResolved,
       };
     });
+  }
+
+  /** Одна строка на способность; у multiple — на экземпляр домена. Уровень — максимум среди дублей. */
+  private collapseAbilityRows(
+    abilities: CharacterVersion['abilities'],
+    reference: CharacterReferenceService,
+  ): CharacterVersion['abilities'] {
+    const byKey = new Map<string, CharacterVersion['abilities'][number]>();
+    for (const ability of abilities) {
+      const key = this.abilityInstanceKey(ability, reference);
+      const current = byKey.get(key);
+      if (!current || ability.level > current.level) byKey.set(key, ability);
+    }
+
+    return [...byKey.values()];
+  }
+
+  private abilityInstanceKey(
+    ability: CharacterVersion['abilities'][number],
+    reference: CharacterReferenceService,
+  ): string {
+    const spec = this.abilitySpecOf(reference.ruleById(ability.ruleId));
+    if (spec && spec.type !== 'group' && spec.multiple === true) {
+      return `${ability.ruleId}:${ability.domainCode ?? ''}:${ability.domain ?? ''}`;
+    }
+
+    return ability.ruleId;
+  }
+
+  private abilityDomainLabel(
+    ability: CharacterVersion['abilities'][number],
+    reference: CharacterReferenceService,
+  ): string | null {
+    if (ability.domain) return ability.domain;
+    if (!ability.domainCode) return null;
+
+    return reference.ruleByCode(ability.domainCode)?.name ?? ability.domainCode;
   }
 
   /** Сумма стоимости в ОД по компонентам действия (resource_code action-points). */
@@ -845,10 +907,10 @@ export class CharacterOverviewService {
 
     const damageTypeLabel = reference.ruleByCode(damageTypeCode)?.name ?? damageTypeCode;
     const parts = [`Урон: ${new DimensionalNumber(strength).toString()} ${damageTypeLabel.toLowerCase()}`];
-    parts.push(formatStateEffectsService.periodicityLabel(periodicity));
+    parts.push(this.stateEffects.periodicityLabel(periodicity));
     if (decay)
       parts.push(
-        `затухание ${formatStateEffectsService.decayLabel(decay, (code) => reference.ruleByCode(code)?.name ?? code)}`,
+        `затухание ${this.stateEffects.decayLabel(decay, (code) => reference.ruleByCode(code)?.name ?? code)}`,
       );
 
     return parts.join(', ');
@@ -893,7 +955,7 @@ export class CharacterOverviewService {
     );
     if (!dot) return null;
 
-    return formatStateEffectsService.dotEffectLabel(dot, (code) => reference.ruleByCode(code)?.name ?? code);
+    return this.stateEffects.dotEffectLabel(dot, (code) => reference.ruleByCode(code)?.name ?? code);
   }
 
   private buildDefense(version: CharacterVersion, reference: CharacterReferenceService): DefenseOverview | null {
@@ -1080,7 +1142,7 @@ export class CharacterOverviewService {
     profileIndex?: number,
     actionCharacteristicModifier = 0,
   ): AttackOverview {
-    const zeroCtx = weaponAttackRangeService.profileFormulaContext(
+    const zeroCtx = this.weaponAttackRange.profileFormulaContext(
       profile,
       context,
       this.formula,
@@ -1094,10 +1156,10 @@ export class CharacterOverviewService {
     const ranged = profile.type === 'throw' || profile.type === 'shoot';
     const penalty =
       ranged && distanceIpari != null
-        ? weaponAttackRangeService.actionStrengthSizePenalty(distanceIpari, reach, falloff)
+        ? this.weaponAttackRange.actionStrengthSizePenalty(distanceIpari, reach, falloff)
         : 0;
     const evalCtx = penalty
-      ? weaponAttackRangeService.profileFormulaContext(
+      ? this.weaponAttackRange.profileFormulaContext(
           profile,
           context,
           this.formula,
@@ -1143,7 +1205,7 @@ export class CharacterOverviewService {
       .map((id) => reference.ruleById(id))
       .filter((rule): rule is Rule => rule !== null);
 
-    return itemModifierService.applyStack(spec, modifiers, []).spec;
+    return this.itemModifiers.applyStack(spec, modifiers, []).spec;
   }
 
   private itemSpecOf(rule: Rule | null): ItemSpec | null {

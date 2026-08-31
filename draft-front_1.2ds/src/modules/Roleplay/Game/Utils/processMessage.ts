@@ -1,6 +1,6 @@
 import type { ActionEffect } from '@/modules/Roleplay/Rule/Dto/Ability/ActionEffect';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import { actionEffectLabelService } from '@/modules/Roleplay/Rule/Service/Instance/actionEffectLabelService';
+import { actionEffectLabelService } from '@/modules/Roleplay/Rule/init';
 
 export function formatProcessEffect(effect: ActionEffect, rules: Rule[]): string {
   if (effect.type !== 'after_action_until_resource_spent_check_modifier') {

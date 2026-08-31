@@ -7,7 +7,7 @@ import {
   INJURY_PROCEDURE_MECHANIC_CODE,
   INJURY_PROCEDURE_RULE_CODE,
   INJURY_PROCEDURE_VERSION_1,
-} from '@/modules/Roleplay/Rule/Constant/Combat/INJURY_PROCEDURE';
+} from '@/modules/Roleplay/Rule/init';
 
 /** Карточка `injury-procedure` → mechanic code@version; иначе v1. */
 export function resolveInjuryProcedure(rules: Rule[], mechanics: Mechanic[]): InjuryProcedure {

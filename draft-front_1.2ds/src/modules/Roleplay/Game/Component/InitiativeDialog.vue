@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { useChatStore } from '@/modules/Messages/Chat/Store/chat';
+import { useChatChannel } from '@/modules/Messages/Chat/init';
 import { useCombatChatThread } from '@/modules/Roleplay/Game/Composables/useCombatChatThread';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 import { rollInitiative, orderInitiative, rollPoolDefaults } from '@/modules/Roleplay/Game/Utils/initiativeRoll';
@@ -46,7 +46,7 @@ const emit = defineEmits<{
   saved: [];
 }>();
 
-const chatStore = useChatStore();
+const chatStore = useChatChannel();
 const combatThread = useCombatChatThread(() => props.gameId);
 
 const DEFAULT_CHARACTERISTIC_CODE = 'perception';

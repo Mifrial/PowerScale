@@ -1,12 +1,13 @@
 <script setup lang="ts">
+import { useSpaceRevision } from '@/modules/Roleplay/Space/init';
 import { computed, ref, watch } from 'vue';
-import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { SHEET_SECTION_LABELS } from '@/modules/Roleplay/Character/Constant/Sheet/SHEET_SECTIONS';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { SheetSection } from '@/modules/Roleplay/Character/Enum/SheetSection';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import { characterOverviewService } from '@/modules/Roleplay/Character/Service/Instance/characterOverviewService';
 
 /**
  * Просмотр листа в контексте игры по видимым секциям (общий для персонажей-в-игре и НПС).
@@ -30,11 +31,17 @@ const props = withDefaults(
   },
 );
 
-const spaceRevisionStore = useSpaceRevisionStore();
+const spaceRevision = useSpaceRevision();
 const { signal } = useAbortable();
 const rules = ref<Rule[]>([]);
 
 const rulesById = computed(() => new Map(rules.value.map((rule) => [rule.id, rule])));
+
+const sheetAbilities = computed(() => {
+  if (!props.version) return [];
+
+  return characterOverviewService.build(props.version, rules.value).abilities;
+});
 
 function ruleName(ruleId: string | null): string | null {
   if (!ruleId) return null;
@@ -68,7 +75,7 @@ watch(
 
       return;
     }
-    void spaceRevisionStore
+    void spaceRevision
       .fetchRevision(spaceId, revision, signal.value)
       .then((revisionResult) => {
         rules.value = revisionResult.rules;
@@ -124,11 +131,14 @@ watch(
       </div>
     </div>
 
-    <div v-if="sectionVisible('abilities') && version?.abilities.length" class="sheet-block">
+    <div v-if="sectionVisible('abilities') && sheetAbilities.length" class="sheet-block">
       <div class="sheet-label">{{ SHEET_SECTION_LABELS.abilities }}</div>
       <div class="d-flex flex-column">
-        <div v-for="ability in version.abilities" :key="ability.ruleId" class="sheet-row">
-          <span class="text-body-2">{{ ruleName(ability.ruleId) }}</span>
+        <div v-for="ability in sheetAbilities" :key="ability.instanceKey" class="sheet-row">
+          <span class="text-body-2">
+            {{ ability.name }}
+            <template v-if="ability.domainLabel"> · {{ ability.domainLabel }}</template>
+          </span>
           <v-spacer />
           <span class="text-body-2">{{ ability.level > 0 ? `уровень ${ability.level}` : '' }}</span>
         </div>

@@ -2,8 +2,7 @@
 import { computed, ref, watch } from 'vue';
 import { useCharacterDraftStore } from '@/modules/Roleplay/Character/Store/characterDraft';
 import { characterBuildService } from '@/modules/Roleplay/Character/Service/Instance/characterBuildService';
-import { raceSpecService } from '@/modules/Roleplay/Rule/Service/Instance/raceSpecService';
-import { parameterLimitName } from '@/modules/Roleplay/Rule/Utils/parameterLimitName';
+import { raceSpecService, parameterLimitName } from '@/modules/Roleplay/Rule/init';
 import { buildRaceCharacteristicLabels } from '@/modules/Roleplay/Character/Utils/raceCharacteristicLabels';
 import { useFilteredRows } from '@/modules/Core/UI/Composables/useFilteredRows';
 import FilterBar from '@/modules/Core/UI/Component/FilterBar.vue';

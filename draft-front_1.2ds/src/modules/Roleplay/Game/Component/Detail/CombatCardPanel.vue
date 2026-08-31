@@ -13,11 +13,7 @@ import { injuryCheckService } from '@/modules/Roleplay/Game/Service/Instance/inj
 import { reservedExhaustion } from '@/modules/Roleplay/Game/Utils/bloodLossMath';
 import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
 
-import {
-  BLOOD_LOSS_STATE_CODE,
-  EXHAUSTION_STATE_CODE,
-  POISONING_STATE_CODE,
-} from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
+import { BLOOD_LOSS_STATE_CODE, EXHAUSTION_STATE_CODE, POISONING_STATE_CODE } from '@/modules/Roleplay/Rule/init';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 import {
   characterOverviewService,
@@ -40,7 +36,7 @@ import CombatResourceTile from '@/modules/Roleplay/Game/Component/Detail/CombatR
 import CombatStateTile from '@/modules/Roleplay/Game/Component/Detail/CombatStateTile.vue';
 import type { CombatStateDetailRow } from '@/modules/Roleplay/Game/Dto/CombatStateDetailRow';
 import type { CombatStateEditKind } from '@/modules/Roleplay/Game/Enum/CombatStateEditKind';
-import { useKeywordStore } from '@/modules/Roleplay/Rule/Store/keywords';
+import { useKeywords } from '@/modules/Roleplay/Rule/init';
 import type { CharacterCreationConfig } from '@/modules/Roleplay/Character/Dto/Editor/CharacterCreationConfig';
 import type { InventoryItemOverview } from '@/modules/Roleplay/Character/Dto/Overview/InventoryItemOverview';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
@@ -61,7 +57,7 @@ import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/Dimensiona
 import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
 import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/actionEffectService';
 
-import { ruleReferenceService } from '@/modules/Roleplay/Rule/Service/Instance/ruleReferenceService';
+import { ruleReferenceService } from '@/modules/Roleplay/Rule/init';
 
 const props = defineProps<{
   /** Слайд-овер открыт (v-model). */
@@ -122,7 +118,7 @@ const poisonDraftType = ref('');
 const poisonDraftStrength = ref<DimensionalNumberValue>({ base: 1, size: 0 });
 const cardTab = ref('overview');
 const collapsed = ref<string[]>([]);
-const keywordStore = useKeywordStore();
+const { keywords, fetchTags } = useKeywords();
 
 const activeProcess = computed(() =>
   props.entityKey && props.processSessions ? (props.processSessions[props.entityKey] ?? null) : null,
@@ -139,7 +135,7 @@ const activeEffectLabels = computed(() =>
 );
 
 onMounted(() => {
-  if (keywordStore.keywords.length === 0) void keywordStore.fetchTags();
+  if (keywords.value.length === 0) void fetchTags();
 });
 
 const overlay = computed(() => {
@@ -185,7 +181,7 @@ const sheetModel = computed(() => {
     sheetBuild.value,
     props.rules,
     sheetConfig.value,
-    keywordStore.keywords,
+    keywords.value,
     props.mechanics,
   );
 });
@@ -952,7 +948,7 @@ function onSheetToggleEquipped(itemId: number): void {
               :build="sheetBuild"
               :model="sheetModel"
               :rules="rules"
-              :keywords="keywordStore.keywords"
+              :keywords="keywords"
               :can-edit="model.canEdit"
               :character-id="model.entityId"
               :show-favorites="model.kind === 'character'"
@@ -979,7 +975,7 @@ function onSheetToggleEquipped(itemId: number): void {
               :build="sheetBuild"
               :model="sheetModel"
               :rules="rules"
-              :keywords="keywordStore.keywords"
+              :keywords="keywords"
               :can-edit="model.canEdit"
               :character-id="model.entityId"
               :show-favorites="model.kind === 'character'"
@@ -999,7 +995,7 @@ function onSheetToggleEquipped(itemId: number): void {
               :build="sheetBuild"
               :model="sheetModel"
               :rules="rules"
-              :keywords="keywordStore.keywords"
+              :keywords="keywords"
               :can-edit="model.canEdit"
               :character-id="model.entityId"
               :show-favorites="model.kind === 'character'"

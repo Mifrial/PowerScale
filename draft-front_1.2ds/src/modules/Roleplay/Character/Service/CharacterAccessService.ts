@@ -9,6 +9,7 @@ import { sheetAccessService } from '@/modules/Roleplay/Character/Service/Instanc
  * роль 'gm' — через инъекцию, number[] — выбранные). Нет доступа → персонаж невидим.
  */
 export class CharacterAccessService {
+  constructor(private readonly sheetAccess = sheetAccessService) {}
   canViewCharacter(user: User | null | undefined, character: Character): boolean {
     if (!user) return false;
     if (user.id === character.ownerId) return true;
@@ -19,7 +20,7 @@ export class CharacterAccessService {
       gameId: null,
     };
 
-    return sheetAccessService.canSeeSheet(user, character.visibility, ctx);
+    return this.sheetAccess.canSeeSheet(user, character.visibility, ctx);
   }
 
   /** Право редактирования: только владелец (ТР §7 — редактирование без чужого подтверждения вне игры). */

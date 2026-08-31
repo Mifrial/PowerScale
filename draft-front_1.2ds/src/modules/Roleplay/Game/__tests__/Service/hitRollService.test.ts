@@ -10,7 +10,7 @@ import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/Characte
 import { resolveStrikeProcedure } from '@/modules/Roleplay/Game/Utils/resolveStrikeProcedure';
 import { strikeProcedureRegistry } from '@/modules/Roleplay/Game/Service/Strike/Instance/strikeProcedureRegistry';
 import { strikeV1 } from '@/modules/Roleplay/Game/Service/Strike/strikeV1';
-import { STRIKE_PROCEDURE_RULE_CODE } from '@/modules/Roleplay/Rule/Constant/Combat/STRIKE_PROCEDURE';
+import { STRIKE_PROCEDURE_RULE_CODE } from '@/modules/Roleplay/Rule/init';
 
 function rngFromDice(values: number[], faces = 6): DiceRng {
   let i = 0;

@@ -1,0 +1,19 @@
+import { computed } from 'vue';
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import { useDraftRuleStore } from '@/modules/Roleplay/Rule/Store/draftRules';
+
+export function useRuleDrafts() {
+  const store = useDraftRuleStore();
+
+  return {
+    storageDiscarded: computed(() => store.storageDiscarded),
+    acknowledgeStorageDiscarded: () => store.acknowledgeStorageDiscarded(),
+    hasDraft: (spaceId: number) => store.hasDraft(spaceId),
+    saveRule: (spaceId: number, rule: Rule) => store.saveRule(spaceId, rule),
+    removeRule: (spaceId: number, ruleId: string) => store.removeRule(spaceId, ruleId),
+    getDraftRules: (spaceId: number) => store.getDraftRules(spaceId),
+    getRemovedCodes: (spaceId: number) => store.getRemovedCodes(spaceId),
+    setRemovedCodes: (spaceId: number, codes: string[]) => store.setRemovedCodes(spaceId, codes),
+    discardDraft: (spaceId: number) => store.discardDraft(spaceId),
+  };
+}

@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { getAuthApi } from '@/modules/Core/Auth/init';
-import { useUserStore } from '@/modules/Core/User/Store/users';
+import { currentUserSessionService } from '@/modules/Core/User/init';
 import type { Session } from '@/modules/Core/Auth/Dto/Session';
 import type { PasswordPolicy } from '@/modules/Core/Auth/Dto/PasswordPolicy';
 import { DEFAULT_PASSWORD_POLICY } from '@/modules/Core/Auth/Constant/defaultPasswordPolicy';
@@ -45,7 +45,7 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const user = await getAuthApi().login(emailOrLogin, password);
       setUserSession(user.id);
-      useUserStore().setCurrent(user);
+      currentUserSessionService.setCurrent(user);
 
       return true;
     } catch (e: unknown) {
@@ -63,7 +63,7 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const user = await getAuthApi().register(loginVal, email, password);
       setUserSession(user.id);
-      useUserStore().setCurrent(user);
+      currentUserSessionService.setCurrent(user);
 
       return true;
     } catch (e: unknown) {
@@ -80,7 +80,7 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null;
     try {
       setGuestSession();
-      useUserStore().setGuest();
+      currentUserSessionService.setGuest();
 
       return true;
     } finally {
@@ -102,7 +102,7 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       await getAuthApi().logout();
       setAnonSession();
-      useUserStore().clearCurrent();
+      currentUserSessionService.clearCurrent();
     } catch (e: unknown) {
       error.value = e instanceof Error ? e.message : String(e);
       throw e;
@@ -117,7 +117,7 @@ export const useAuthStore = defineStore('auth', () => {
       const user = await getAuthApi().getCurrentUser();
       if (user) {
         setUserSession(user.id);
-        useUserStore().setCurrent(user);
+        currentUserSessionService.setCurrent(user);
 
         return true;
       }

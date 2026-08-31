@@ -14,9 +14,9 @@ import {
   DAMAGE_TYPE_HOOK_MECHANIC_EXHAUSTION_STUN,
   DAMAGE_TYPE_HOOK_MECHANIC_EXHAUSTION_WOUND,
   DAMAGE_TYPE_HOOK_MECHANIC_PAY_SR,
-} from '@/modules/Roleplay/Rule/Constant/Damage/DAMAGE_TYPE_HOOKS';
+} from '@/modules/Roleplay/Rule/init';
 import { damageTypeHooksService } from '@/modules/Roleplay/Game/Service/Instance/damageTypeHooksService';
-import { ACCUMULATED_DAMAGE_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
+import { ACCUMULATED_DAMAGE_STATE_CODE } from '@/modules/Roleplay/Rule/init';
 
 import type { ApplyAttackDamageInput } from '@/modules/Roleplay/Game/Dto/ApplyAttackDamageInput';
 import type { ApplyAttackDamageResult } from '@/modules/Roleplay/Game/Dto/ApplyAttackDamageResult';

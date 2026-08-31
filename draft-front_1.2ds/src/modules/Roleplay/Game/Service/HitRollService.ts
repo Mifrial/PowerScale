@@ -1,6 +1,6 @@
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
-import { CharacteristicNumber } from '@/modules/Roleplay/Rule/Value/CharacteristicNumber';
+import { CharacteristicNumber } from '@/modules/Roleplay/Rule/init';
 import type { AttackOverview } from '@/modules/Roleplay/Character/Dto/Overview/AttackOverview';
 import type { CharacterOverview } from '@/modules/Roleplay/Character/Dto/Overview/CharacterOverview';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
@@ -9,21 +9,18 @@ import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec';
 import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { ItemSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpec';
-import { CHECK_HIT_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
+import { CHECK_HIT_CODE } from '@/modules/Roleplay/Rule/init';
 import { checkRollService } from '@/modules/Roleplay/Game/Service/Instance/checkRollService';
 
 import { resolveHitProcedure } from '@/modules/Roleplay/Game/Utils/resolveStrikeProcedure';
 import { rollPoolDefaults } from '@/modules/Roleplay/Game/Utils/initiativeRoll';
 import { rollEngine } from '@/modules/Roleplay/Game/Service/Roll/Instance/rollEngine';
-import { checkResolutionService } from '@/modules/Roleplay/Rule/Service/Instance/checkResolutionService';
-import { itemModifierService } from '@/modules/Roleplay/Rule/Service/Instance/itemModifierService';
+import { checkResolutionService } from '@/modules/Roleplay/Rule/init';
+import { itemModifierService } from '@/modules/Roleplay/Rule/init';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { HitDefenseReaction } from '@/modules/Roleplay/Game/Enum/HitDefenseReaction';
 import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
-import {
-  ADVANTAGE_SOURCE_CIRCUMSTANCES,
-  ADVANTAGE_SOURCE_STATE,
-} from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
+import { ADVANTAGE_SOURCE_CIRCUMSTANCES, ADVANTAGE_SOURCE_STATE } from '@/modules/Roleplay/Rule/init';
 import {
   applyStrikeMastery,
   bestCombatMastery,

@@ -8,10 +8,7 @@ import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/Chara
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { PoisonSpec } from '@/modules/Roleplay/Rule/Dto/Poison/PoisonSpec';
 import type { StateSpec } from '@/modules/Roleplay/Rule/Dto/State/StateSpec';
-import {
-  ACCUMULATED_DAMAGE_STATE_CODE,
-  POISONING_STATE_CODE,
-} from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
+import { ACCUMULATED_DAMAGE_STATE_CODE, POISONING_STATE_CODE } from '@/modules/Roleplay/Rule/init';
 import type { CharacterOverview } from '@/modules/Roleplay/Character/Dto/Overview/CharacterOverview';
 import type { CombatMasterySection } from '@/modules/Roleplay/Character/Dto/Overview/CombatMasterySection';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';

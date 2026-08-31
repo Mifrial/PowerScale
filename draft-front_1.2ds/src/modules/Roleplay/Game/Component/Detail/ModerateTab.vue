@@ -1,8 +1,8 @@
 <script setup lang="ts">
+import { useSpaceRevision } from '@/modules/Roleplay/Space/init';
 import { computed, ref, watch } from 'vue';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 import { getCharacterApi } from '@/modules/Roleplay/Character/init';
-import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { GAME_MEMBERSHIP_STATUS_LABEL } from '@/modules/Roleplay/Game/Constant/GameMembershipStatus/GAME_MEMBERSHIP_STATUS';
 import { GAME_MEMBERSHIP_STATUS_COLOR } from '@/modules/Roleplay/Game/Constant/GameMembershipStatus/GAME_MEMBERSHIP_STATUS';
@@ -24,7 +24,7 @@ const props = defineProps<{
   rulesRevision: number | null;
 }>();
 
-const spaceRevisionStore = useSpaceRevisionStore();
+const spaceRevision = useSpaceRevision();
 const { signal } = useAbortable();
 
 const allMemberships = ref<GameCharacterMembership[]>([]);
@@ -64,7 +64,7 @@ async function loadRules(): Promise<void> {
   const merged = new Map<string, string>();
   if (props.spaceId !== null && props.rulesRevision !== null) {
     try {
-      const revision = await spaceRevisionStore.fetchRevision(props.spaceId, props.rulesRevision, signal.value);
+      const revision = await spaceRevision.fetchRevision(props.spaceId, props.rulesRevision, signal.value);
       for (const rule of revision.rules) merged.set(rule.id, rule.name);
     } catch {
       // ревизия игры недоступна
@@ -74,7 +74,7 @@ async function loadRules(): Promise<void> {
     const approved = membership.approvedCharacterVersion;
     if (!approved || props.spaceId === null) continue;
     try {
-      const revision = await spaceRevisionStore.fetchRevision(props.spaceId, approved.rulesRevision, signal.value);
+      const revision = await spaceRevision.fetchRevision(props.spaceId, approved.rulesRevision, signal.value);
       for (const rule of revision.rules) {
         if (!merged.has(rule.id)) merged.set(rule.id, rule.name);
       }

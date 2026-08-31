@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useGameStore } from '@/modules/Roleplay/Game/Store/games';
-import { useUserStore } from '@/modules/Core/User/Store/users';
+import { useCurrentUser } from '@/modules/Core/User/init';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 import { gameAccessService } from '@/modules/Roleplay/Game/Service/Instance/gameAccessService';
@@ -14,7 +14,7 @@ import GameForm from '@/modules/Roleplay/Game/Component/GameForm.vue';
 const route = useRoute();
 const router = useRouter();
 const store = useGameStore();
-const userStore = useUserStore();
+const { currentUser } = useCurrentUser();
 const { signal } = useAbortable();
 
 const saving = ref(false);
@@ -48,7 +48,7 @@ async function load(): Promise<void> {
   }
   store.clearCurrent();
   const loaded = await store.fetchGame(id, signal.value);
-  if (loaded && !gameAccessService.canEditGame(userStore.currentUser, loaded)) {
+  if (loaded && !gameAccessService.canEditGame(currentUser.value, loaded)) {
     router.replace({ name: 'NotFound' });
   }
 }

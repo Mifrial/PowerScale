@@ -4,11 +4,16 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpec';
 import type { Formula } from '@/modules/Roleplay/Rule/Dto/Ability/Formula';
 import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
-import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/Service/Instance/aggregateSourceDeltasService';
+import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/init';
 import { abilityCheckAdvantagesService } from '@/modules/Roleplay/Character/Service/Instance/abilityCheckAdvantagesService';
 import { itemCheckAdvantagesService } from '@/modules/Roleplay/Character/Service/Instance/itemCheckAdvantagesService';
 
 export class EditorCheckBonusesService {
+  constructor(
+    private readonly aggregate = aggregateSourceDeltasService,
+    private readonly abilityChecks = abilityCheckAdvantagesService,
+    private readonly itemChecks = itemCheckAdvantagesService,
+  ) {}
   build(
     version: Pick<CharacterVersion, 'abilities' | 'inventory'> | null | undefined,
     rules: Rule[],
@@ -19,17 +24,17 @@ export class EditorCheckBonusesService {
       .filter((rule) => rule.type === 'check')
       .map((check) => {
         const modifiers = [
-          ...abilityCheckAdvantagesService.checkAdvantageModifiersFromAbilities(version, rules, {
+          ...this.abilityChecks.checkAdvantageModifiersFromAbilities(version, rules, {
             kind: 'check',
             code: check.code,
           }),
-          ...itemCheckAdvantagesService.checkAdvantageModifiersFromItems(version, rules, {
+          ...this.itemChecks.checkAdvantageModifiersFromItems(version, rules, {
             kind: 'check',
             code: check.code,
           }),
           ...this.characteristicModifiersFromAbilities(version, rules, check.code),
         ];
-        const aggregated = aggregateSourceDeltasService.aggregateSourceDeltas(modifiers).map((modifier) => ({
+        const aggregated = this.aggregate.aggregateSourceDeltas(modifiers).map((modifier) => ({
           sourceRuleId: modifier.source_code,
           sourceLabel: modifier.source_label,
           delta: modifier.delta,

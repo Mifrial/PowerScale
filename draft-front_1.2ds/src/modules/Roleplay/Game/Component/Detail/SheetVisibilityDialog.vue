@@ -5,14 +5,8 @@ import type { SheetVisibilityRule } from '@/modules/Roleplay/Character/Dto/Sheet
 import type { SheetAudience } from '@/modules/Roleplay/Character/Dto/SheetAudience';
 import type { GameMember } from '@/modules/Roleplay/Game/Dto/GameMember';
 import type { SheetSection } from '@/modules/Roleplay/Character/Enum/SheetSection';
-import {
-  SHEET_SECTION_LABELS,
-  SHEET_VISIBLE_SECTIONS,
-} from '@/modules/Roleplay/Character/Constant/Sheet/SHEET_SECTIONS';
-import {
-  SHEET_VISIBILITY_PRESETS,
-  matchSheetVisibilityPreset,
-} from '@/modules/Roleplay/Character/Constant/Sheet/SHEET_VISIBILITY_PRESETS';
+import { SHEET_SECTION_LABELS, SHEET_VISIBLE_SECTIONS } from '@/modules/Roleplay/Character/init';
+import { SHEET_VISIBILITY_PRESETS, matchSheetVisibilityPreset } from '@/modules/Roleplay/Character/init';
 
 const props = defineProps<{
   title: string;

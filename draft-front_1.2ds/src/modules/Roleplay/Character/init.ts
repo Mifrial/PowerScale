@@ -11,6 +11,7 @@ import { CHARACTER_PERMISSION_CATEGORY } from '@/modules/Roleplay/Character/Cons
 import { CHARACTER_CHAT_TYPES } from '@/modules/Roleplay/Character/Constant/Chat/CHARACTER_CHAT_TYPES';
 import { CHARACTER_CHAT_TABS } from '@/modules/Roleplay/Character/Constant/Chat/CHARACTER_CHAT_TABS';
 import { characterChatRulesProvider } from '@/modules/Roleplay/Character/Chat/characterChatRulesProvider';
+import { sheetRoleRegistry } from '@/modules/Roleplay/Character/Service/Instance/sheetRoleRegistry';
 
 export function registerCharacterApi(api: ICharacterApi): void {
   serviceLocator.set('Roleplay.Character.Service.CharacterApi', api);
@@ -22,7 +23,9 @@ export function getCharacterApi(): ICharacterApi {
 
 export { characterEditorService } from '@/modules/Roleplay/Character/Service/Instance/characterEditorService';
 export { characterBuildService } from '@/modules/Roleplay/Character/Service/Instance/characterBuildService';
-export { useAttackFavoritesStore } from '@/modules/Roleplay/Character/Store/attackFavorites';
+export { useAttackFavorites } from '@/modules/Roleplay/Character/Composables/useAttackFavorites';
+export { useCharacterDraft } from '@/modules/Roleplay/Character/Composables/useCharacterDraft';
+export { useCharacterCatalog } from '@/modules/Roleplay/Character/Composables/useCharacterCatalog';
 
 // Публичный редактор листа (персонаж/НПС). Асинхронный — init.ts не тянет .vue/CSS
 // при импорте в node-тестах (routes → store → init) и код-сплитится по месту использования.
@@ -44,6 +47,14 @@ export const SensePopup = defineAsyncComponent(
   () => import('@/modules/Roleplay/Character/Component/Detail/Characteristics/SensePopup.vue'),
 );
 
+export const AttackTile = defineAsyncComponent(
+  () => import('@/modules/Roleplay/Character/Component/Detail/Attacks/AttackTile.vue'),
+);
+
+export const AttackProfileOption = defineAsyncComponent(
+  () => import('@/modules/Roleplay/Character/Component/Detail/Attacks/AttackProfileOption.vue'),
+);
+
 export const UniqueRulesTab = defineAsyncComponent(
   () => import('@/modules/Roleplay/Character/Component/Detail/UniqueRulesTab.vue'),
 );
@@ -58,21 +69,17 @@ export const MigrationReport = defineAsyncComponent(
 
 // Инъекция ролей видимости листа: сторонние модули (например Game) регистрируют
 // generic-роли; Character не знает их семантики (см. SheetAccessService).
-const sheetRoles: SheetRole[] = [];
-
 export function registerSheetRole(role: SheetRole): void {
-  if (!sheetRoles.some((existing) => existing.name === role.name)) {
-    sheetRoles.push(role);
-  }
+  sheetRoleRegistry.register(role);
 }
 
 export function getSheetRoles(): SheetRole[] {
-  return sheetRoles;
+  return sheetRoleRegistry.list();
 }
 
 /** Сброс инжектированных ролей (тесты). */
 export function resetSheetRoles(): void {
-  sheetRoles.splice(0);
+  sheetRoleRegistry.reset();
 }
 
 // Расширения карточки персонажа: модули-доноры регистрируют UI-блоки.
@@ -135,3 +142,15 @@ export { characterMigrationService } from '@/modules/Roleplay/Character/Service/
 export { characterVersionIntegrityService } from '@/modules/Roleplay/Character/Service/Instance/characterVersionIntegrityService';
 export { movementContextService } from '@/modules/Roleplay/Character/Service/Instance/movementContextService';
 export { DEFAULT_FALLOFF } from '@/modules/Roleplay/Character/Constant/Weapon/DEFAULT_FALLOFF';
+export { CHARACTERISTIC_BASE_RANGE } from '@/modules/Roleplay/Character/Constant/CHARACTERISTIC_BASE_RANGE';
+export { CHARACTER_STATUS_OPTIONS } from '@/modules/Roleplay/Character/Constant/CHARACTER_STATUS_OPTIONS';
+export { CHARACTER_STATUS_COLOR } from '@/modules/Roleplay/Character/Constant/CHARACTER_STATUS_COLOR';
+export {
+  SHEET_SECTION_LABELS,
+  SHEET_VISIBLE_SECTIONS,
+} from '@/modules/Roleplay/Character/Constant/Sheet/SHEET_SECTIONS';
+export {
+  SHEET_VISIBILITY_DEFAULT,
+  SHEET_VISIBILITY_PRESETS,
+  matchSheetVisibilityPreset,
+} from '@/modules/Roleplay/Character/Constant/Sheet/SHEET_VISIBILITY_PRESETS';

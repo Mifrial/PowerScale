@@ -8,7 +8,7 @@ import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
 import type { ChatMessageVisibility } from '@/modules/Messages/Chat/Dto/ChatMessageVisibility';
 import type { ChatThreadRef } from '@/modules/Messages/Chat/Dto/ChatThreadRef';
 import { getChatApi, getChatTabs } from '@/modules/Messages/Chat/init';
-import { useAuthStore } from '@/modules/Core/Auth/Store/auth';
+import { useCurrentUser } from '@/modules/Core/User/init';
 import { ChatSyncService } from '@/modules/Messages/Chat/Service/ChatSyncService';
 import { ChatReadAckService } from '@/modules/Messages/Chat/Service/ChatReadAckService';
 import { PAGE_SIZE } from '@/modules/Messages/Chat/Constant/Chat/PAGE_SIZE';
@@ -58,7 +58,7 @@ function mergeMessages(target: ChatMessage[], incoming: ChatMessage[]): ChatMess
 }
 
 export const useChatStore = defineStore('chat', () => {
-  const auth = useAuthStore();
+  const { userId: currentUserId, isGuest } = useCurrentUser();
   const chats = ref<Chat[]>([]);
   const chatStates = ref<Map<number, ChatState>>(new Map());
   const activeChatId = ref<number | null>(null);
@@ -83,7 +83,7 @@ export const useChatStore = defineStore('chat', () => {
   function isOnTab(chat: Chat, tab: IChatTab | undefined): boolean {
     if (!tab?.types.includes(chat.type)) return false;
     if (!tab.onlyIfMember) return true;
-    const userId = auth.userId;
+    const userId = currentUserId.value;
 
     return userId !== null && (chat.members?.some((member) => member.userId === userId) ?? false);
   }
@@ -130,7 +130,7 @@ export const useChatStore = defineStore('chat', () => {
     chatsError.value = '';
     try {
       const all = await getChatApi().getChats();
-      chats.value = auth.isGuest ? all.filter((c) => c.type !== 'private') : all;
+      chats.value = isGuest.value ? all.filter((c) => c.type !== 'private') : all;
     } catch (e) {
       chatsError.value = e instanceof Error ? e.message : 'Не удалось загрузить чаты';
     } finally {
@@ -284,10 +284,10 @@ export const useChatStore = defineStore('chat', () => {
       if (chat) {
         // Авто-вступление: написавший в чат персонажа становится его участником
         // (закрепляет чат во вкладке «Обсуждения персонажей»).
-        if (auth.userId !== null && !(chat.members?.some((m) => m.userId === auth.userId) ?? false)) {
+        if (currentUserId.value !== null && !(chat.members?.some((m) => m.userId === currentUserId.value) ?? false)) {
           chat.members = [
             ...(chat.members ?? []),
-            { userId: auth.userId, status: 'member', role: 'member', joinedAt: new Date().toISOString() },
+            { userId: currentUserId.value, status: 'member', role: 'member', joinedAt: new Date().toISOString() },
           ];
         }
         chat.lastMessage = messagePreview(content, attachments);
@@ -394,7 +394,7 @@ export const useChatStore = defineStore('chat', () => {
     }
     for (const nc of data.newChats) {
       if (chats.value.find((c) => c.id === nc.id)) continue;
-      if (auth.isGuest && nc.type === 'private') continue;
+      if (isGuest.value && nc.type === 'private') continue;
       chats.value.push(nc);
     }
     for (const [chatIdStr, msgs] of Object.entries(data.messages)) {

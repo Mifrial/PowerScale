@@ -1,8 +1,8 @@
 <script setup lang="ts">
+import { useSpaceRevision } from '@/modules/Roleplay/Space/init';
 import { computed, ref, watch } from 'vue';
-import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
-import { useCharacterDraftStore } from '@/modules/Roleplay/Character/Store/characterDraft';
+import { useCharacterDraft } from '@/modules/Roleplay/Character/init';
 import { characterBuildService } from '@/modules/Roleplay/Character/init';
 import { characterMigrationService } from '@/modules/Roleplay/Character/init';
 import { getCharacterApi } from '@/modules/Roleplay/Character/init';
@@ -12,7 +12,7 @@ import { MigrationReport } from '@/modules/Roleplay/Character/init';
 import SlidePanel from '@/modules/Core/UI/Component/SlidePanel.vue';
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
-import type { MigrationResult } from '@/modules/Roleplay/Character/Service/CharacterMigrationService';
+import type { MigrationResult } from '@/modules/Roleplay/Character/Dto/MigrationResult';
 import type { CharacterCreationConfig } from '@/modules/Roleplay/Character/Dto/Editor/CharacterCreationConfig';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { isEmptyMembershipDiff, membershipDiff } from '@/modules/Roleplay/Game/Utils/membershipDiff';
@@ -34,8 +34,8 @@ const props = defineProps<{
 
 const open = defineModel<boolean>('open', { default: false });
 
-const spaceRevisionStore = useSpaceRevisionStore();
-const draftStore = useCharacterDraftStore();
+const spaceRevision = useSpaceRevision();
+const draftStore = useCharacterDraft();
 const { signal } = useAbortable();
 
 const loading = ref(false);
@@ -109,18 +109,14 @@ async function run(): Promise<void> {
     const character = await getCharacterApi().getCharacter(membership.characterId);
     const source = character.version;
     expectedActualToken.value = JSON.stringify(cloneData(source));
-    const oldRevision = await spaceRevisionStore.fetchRevision(
+    const oldRevision = await spaceRevision.fetchRevision(
       character.character.spaceId,
       source.rulesRevision,
       signal.value,
     );
     originalVersion.value = source;
     oldRules.value = oldRevision.rules;
-    const newRevision = await spaceRevisionStore.fetchRevision(
-      props.gameSpaceId,
-      props.gameRulesRevision,
-      signal.value,
-    );
+    const newRevision = await spaceRevision.fetchRevision(props.gameSpaceId, props.gameRulesRevision, signal.value);
     names.value = Object.fromEntries(newRevision.rules.map((rule) => [rule.id, rule.name]));
     targetRules.value = newRevision.rules;
     result.value = characterMigrationService.migrate({

@@ -1,8 +1,8 @@
 <script setup lang="ts">
+import { useSpaceRevision } from '@/modules/Roleplay/Space/init';
 import { computed, onUnmounted, ref, watch } from 'vue';
-import { useUserStore } from '@/modules/Core/User/Store/users';
+import { useCurrentUser } from '@/modules/Core/User/init';
 import { useGameStore } from '@/modules/Roleplay/Game/Store/games';
-import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 import { getCharacterApi } from '@/modules/Roleplay/Character/init';
 import { getRuleApi } from '@/modules/Roleplay/Rule/init';
@@ -39,7 +39,7 @@ import type { AttackOverview } from '@/modules/Roleplay/Character/Dto/Overview/A
 import type { ProcessActionContext } from '@/modules/Roleplay/Game/Dto/ProcessActionContext';
 import type { ProcessSession } from '@/modules/Roleplay/Game/Dto/ProcessSession';
 import type { AttackAction } from '@/modules/Roleplay/Game/Dto/AttackAction';
-import { CHECK_HIT_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
+import { CHECK_HIT_CODE } from '@/modules/Roleplay/Rule/init';
 import { useCombatChatThread } from '@/modules/Roleplay/Game/Composables/useCombatChatThread';
 import { combatChatFoldService } from '@/modules/Roleplay/Game/Service/Instance/combatChatFoldService';
 import type { ChatMessage } from '@/modules/Messages/Chat/Dto/ChatMessage';
@@ -52,9 +52,9 @@ const props = defineProps<{
   canEdit: boolean;
 }>();
 
-const userStore = useUserStore();
+const { currentUser } = useCurrentUser();
 const store = useGameStore();
-const spaceRevisionStore = useSpaceRevisionStore();
+const spaceRevision = useSpaceRevision();
 
 const chatId = computed(() => props.detail.gameChatId);
 const gameId = computed(() => props.detail.game.id);
@@ -177,7 +177,7 @@ const quickRolls = ref<Record<string, string[]>>({});
 // «От лица кого» писать: игрок — только свои approved-персонажи; ведущий — роль ведущего,
 // свои approved-персонажи и НПС игры (ТР §8 «Чат игры»).
 const speakerOptions = computed<ChatSpeakerOption[]>(() => {
-  const user = userStore.currentUser;
+  const user = currentUser.value;
   if (!user) return [];
   const ownCharacters = memberships.value
     .filter((membership) => membership.membershipStatus === 'active' && membership.characterOwnerId === user.id)
@@ -234,7 +234,7 @@ async function load(): Promise<void> {
 // Правила ревизии игры: чипы и источники «Вставить ссылку» резолвятся из неё (D72).
 async function loadRevision(): Promise<void> {
   const detail = props.detail;
-  const revision = await spaceRevisionStore.fetchRevision(detail.game.spaceId, detail.game.rulesRevision);
+  const revision = await spaceRevision.fetchRevision(detail.game.spaceId, detail.game.rulesRevision);
   revisionRules.value = revision.rules;
 }
 
@@ -297,7 +297,7 @@ function onOpenCard(entityKey: string): void {
       !combatCardModelService.combatCardCanEdit(
         processEntityKey,
         props.canEdit,
-        userStore.currentUser?.id ?? null,
+        currentUser.value?.id ?? null,
         memberships.value,
       )
     )
@@ -308,9 +308,7 @@ function onOpenCard(entityKey: string): void {
     return;
   }
   const key = entityKey as CombatEntityKey;
-  if (
-    !combatCardModelService.combatCardCanEdit(key, props.canEdit, userStore.currentUser?.id ?? null, memberships.value)
-  )
+  if (!combatCardModelService.combatCardCanEdit(key, props.canEdit, currentUser.value?.id ?? null, memberships.value))
     return;
   cardKey.value = key;
   cardOpen.value = true;
@@ -648,7 +646,7 @@ onUnmounted(() => {
           :game-id="gameId"
           :chat-id="chatId"
           :can-edit="canEdit"
-          :current-user-id="userStore.currentUser?.id ?? null"
+          :current-user-id="currentUser?.id ?? null"
           :memberships="eligibleMemberships"
           :npcs="npcs"
           :rules="revisionRules"
@@ -694,7 +692,7 @@ onUnmounted(() => {
       :rules="revisionRules"
       :mechanics="mechanics"
       :can-edit="canEdit"
-      :current-user-id="userStore.currentUser?.id ?? null"
+      :current-user-id="currentUser?.id ?? null"
       :quick-rolls="quickRolls"
       :space-id="detail.game.spaceId"
       :rules-revision="detail.game.rulesRevision"
@@ -717,7 +715,7 @@ onUnmounted(() => {
       :rules="revisionRules"
       :mechanics="mechanics"
       :can-edit="canEdit"
-      :current-user-id="userStore.currentUser?.id ?? null"
+      :current-user-id="currentUser?.id ?? null"
       :active-speaker-key="activeSpeakerKey"
       :resume-offer="resumeOffer"
       @update:open="onCheckClosed"
@@ -733,7 +731,7 @@ onUnmounted(() => {
       :rules="revisionRules"
       :mechanics="mechanics"
       :can-edit="canEdit"
-      :current-user-id="userStore.currentUser?.id ?? null"
+      :current-user-id="currentUser?.id ?? null"
       :active-speaker-key="activeSpeakerKey"
       @launch-process-step="onLaunchProcessStep"
       @update:open="onActionClosed"
@@ -764,7 +762,7 @@ onUnmounted(() => {
       :rules="revisionRules"
       :mechanics="mechanics"
       :can-edit="canEdit"
-      :current-user-id="userStore.currentUser?.id ?? null"
+      :current-user-id="currentUser?.id ?? null"
       :active-speaker-key="activeSpeakerKey"
       :attacker-key="hitAttackerKey"
       :attack="hitAttack"

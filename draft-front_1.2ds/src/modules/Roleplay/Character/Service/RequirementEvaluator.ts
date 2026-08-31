@@ -2,7 +2,7 @@ import type { CharacterSnapshot } from '@/modules/Roleplay/Character/Dto/Editor/
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { Requirement } from '@/modules/Roleplay/Rule/Dto/Ability/Requirement';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
-import { CharacteristicNumber } from '@/modules/Roleplay/Rule/Value/CharacteristicNumber';
+import { CharacteristicNumber } from '@/modules/Roleplay/Rule/init';
 
 /**
  * Оценивает требования способностей (Requirement) против снимка персонажа.

@@ -1,10 +1,9 @@
 <script setup lang="ts">
+import { useSpaceCatalog, useSpaceRevision } from '@/modules/Roleplay/Space/init';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useCharacterStore } from '@/modules/Roleplay/Character/Store/characters';
-import { useUserStore } from '@/modules/Core/User/Store/users';
-import { useSpaceStore } from '@/modules/Roleplay/Space/Store/spaces';
-import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
+import { useCurrentUser } from '@/modules/Core/User/init';
 import { useCharacterDraftStore } from '@/modules/Roleplay/Character/Store/characterDraft';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { characterBuildService } from '@/modules/Roleplay/Character/Service/Instance/characterBuildService';
@@ -13,16 +12,16 @@ import { getCharacterApi } from '@/modules/Roleplay/Character/init';
 import { CharacterSheetEditor } from '@/modules/Roleplay/Character/init';
 import MigrationReport from '@/modules/Roleplay/Character/Component/MigrationReport.vue';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
-import type { MigrationResult } from '@/modules/Roleplay/Character/Service/CharacterMigrationService';
+import type { MigrationResult } from '@/modules/Roleplay/Character/Dto/MigrationResult';
 import type { CharacterCreationConfig } from '@/modules/Roleplay/Character/Dto/Editor/CharacterCreationConfig';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
 const route = useRoute();
 const router = useRouter();
 const characterStore = useCharacterStore();
-const userStore = useUserStore();
-const spaceStore = useSpaceStore();
-const spaceRevisionStore = useSpaceRevisionStore();
+const { currentUser } = useCurrentUser();
+const spaceCatalog = useSpaceCatalog();
+const spaceRevision = useSpaceRevision();
 const draftStore = useCharacterDraftStore();
 const { signal } = useAbortable();
 
@@ -51,7 +50,7 @@ const characterId = computed(() => {
   return Number.isFinite(id) && id > 0 ? id : null;
 });
 
-const spaces = computed(() => spaceStore.spaces);
+const spaces = spaceCatalog.spaces;
 const currentVersion = computed<CharacterVersion | null>(() => characterStore.currentCharacter?.version ?? null);
 
 const canStart = computed(() => selectedSpaceId.value !== null && selectedRevision.value !== null);
@@ -114,7 +113,7 @@ async function load(): Promise<void> {
 
     return;
   }
-  if (detail.character.ownerId !== userStore.currentUser?.id) {
+  if (detail.character.ownerId !== currentUser.value?.id) {
     router.replace({ name: 'NotFound' });
 
     return;
@@ -122,7 +121,7 @@ async function load(): Promise<void> {
   originalVersion.value = detail.version;
   try {
     oldRules.value = (
-      await spaceRevisionStore.fetchRevision(detail.character.spaceId, detail.version.rulesRevision, signal.value)
+      await spaceRevision.fetchRevision(detail.character.spaceId, detail.version.rulesRevision, signal.value)
     ).rules;
   } catch {
     oldRules.value = [];
@@ -142,7 +141,7 @@ async function onSpaceSelect(spaceId: number | null, preferRevision?: number): P
   }
   selectedSpaceId.value = spaceId;
   try {
-    const meta = await spaceRevisionStore.fetchRevisionsMeta(spaceId, signal.value);
+    const meta = await spaceRevision.fetchRevisionsMeta(spaceId, signal.value);
     revisions.value = meta.map((entry) => entry.revision).sort((a, b) => b - a);
   } catch {
     const space = spaces.value.find((entry) => entry.id === spaceId);
@@ -207,7 +206,7 @@ watch(
   () => characterStore.currentCharacter,
   (detail) => {
     if (!detail) return;
-    void spaceRevisionStore
+    void spaceRevision
       .fetchRevision(detail.character.spaceId, selectedRevision.value ?? detail.version.rulesRevision, signal.value)
       .then((revision) => {
         targetRules.value = revision.rules;

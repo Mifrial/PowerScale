@@ -1,9 +1,9 @@
 <script setup lang="ts">
+import { useSpaceRevision } from '@/modules/Roleplay/Space/init';
 import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useCharacterStore } from '@/modules/Roleplay/Character/Store/characters';
-import { useUserStore } from '@/modules/Core/User/Store/users';
-import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
+import { useCurrentUser } from '@/modules/Core/User/init';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { characterAccessService } from '@/modules/Roleplay/Character/Service/Instance/characterAccessService';
 import { CHARACTER_STATUS_OPTIONS } from '@/modules/Roleplay/Character/Constant/CHARACTER_STATUS_OPTIONS';
@@ -15,7 +15,7 @@ import DescriptionTab from '@/modules/Roleplay/Character/Component/Detail/Descri
 import AbilityTab from '@/modules/Roleplay/Character/Component/Detail/AbilityTab.vue';
 import InventoryTab from '@/modules/Roleplay/Character/Component/Editor/InventoryTab.vue';
 import DiscussionTab from '@/modules/Roleplay/Character/Component/Detail/DiscussionTab.vue';
-import RuleSlider from '@/modules/Roleplay/Rule/Component/RuleSlider.vue';
+import { RuleSlider } from '@/modules/Roleplay/Rule/init';
 import { useRuleDetailSlider } from '@/modules/Roleplay/Character/Composables/useRuleDetailSlider';
 import { useCharacterCardDraft } from '@/modules/Roleplay/Character/Composables/useCharacterCardDraft';
 import { getCharacterApi, getCharacterCardExtensions } from '@/modules/Roleplay/Character/init';
@@ -29,8 +29,8 @@ import OwnerNotesDialog from '@/modules/Roleplay/Character/Component/OwnerNotesD
 const route = useRoute();
 const router = useRouter();
 const store = useCharacterStore();
-const userStore = useUserStore();
-const spaceRevisionStore = useSpaceRevisionStore();
+const { currentUser } = useCurrentUser();
+const spaceRevision = useSpaceRevision();
 const { signal } = useAbortable();
 const ruleSlider = useRuleDetailSlider();
 
@@ -56,14 +56,14 @@ const canView = computed(() => {
   const current = detail.value;
   if (!current) return false;
 
-  return characterAccessService.canViewCharacter(userStore.currentUser, current.character);
+  return characterAccessService.canViewCharacter(currentUser.value, current.character);
 });
 
 const canEdit = computed(() => {
   const current = detail.value;
   if (!current) return false;
 
-  return characterAccessService.canEditCharacter(userStore.currentUser, current.character);
+  return characterAccessService.canEditCharacter(currentUser.value, current.character);
 });
 
 const {
@@ -107,7 +107,7 @@ async function saveOwnerNotes(text: string): Promise<void> {
 // иначе — по зонам. Полный доступ → обычные вкладки; частичный → ограниченный вид.
 const visibleSections = computed(() => {
   const current = detail.value;
-  const user = userStore.currentUser;
+  const user = currentUser.value;
   if (!current || !user) return [];
 
   const ctx: SheetAccessContext = {
@@ -158,7 +158,7 @@ async function load(): Promise<void> {
   }
   store.clearCurrent();
   const loaded = await store.fetchCharacter(id, signal.value);
-  if (loaded && !characterAccessService.canViewCharacter(userStore.currentUser, loaded.character)) {
+  if (loaded && !characterAccessService.canViewCharacter(currentUser.value, loaded.character)) {
     router.replace({ name: 'NotFound' });
   }
 }
@@ -169,7 +169,7 @@ async function loadRules(spaceId: number, revision: number, abortSignal: AbortSi
   rulesLoading.value = true;
   rulesError.value = null;
   try {
-    const revisionResult = await spaceRevisionStore.fetchRevision(spaceId, revision, abortSignal);
+    const revisionResult = await spaceRevision.fetchRevision(spaceId, revision, abortSignal);
     rules.value = revisionResult.rules;
     spaceName.value = revisionResult.spaceName;
   } catch (e) {

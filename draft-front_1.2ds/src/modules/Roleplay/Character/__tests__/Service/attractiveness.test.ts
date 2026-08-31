@@ -5,7 +5,7 @@ import { abilityCheckAdvantagesService } from '@/modules/Roleplay/Character/Serv
 import type { CharacterBuild } from '@/modules/Roleplay/Character/Dto/Editor/CharacterBuild';
 import { ruleCatalog } from '@/modules/Roleplay/Rule/Mock/mockRules';
 import { keywords } from '@/modules/Roleplay/Rule/Mock/mockKeywords';
-import { ATTRACTIVENESS_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
+import { ATTRACTIVENESS_STATE_CODE } from '@/modules/Roleplay/Rule/init';
 
 const config = { osTotal: 20, orTotal: 10, moneyBudget: 100 };
 const service = new CharacterEditorService();

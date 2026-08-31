@@ -2,14 +2,14 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useSpaceStore } from '@/modules/Roleplay/Space/Store/spaces';
-import { useDraftRuleStore } from '@/modules/Roleplay/Rule/Store/draftRules';
+import { useRuleDrafts } from '@/modules/Roleplay/Rule/init';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { revisionFileService } from '@/modules/Roleplay/Space/Service/Instance/revisionFileService';
 
 const router = useRouter();
 const store = useSpaceStore();
-const draftStore = useDraftRuleStore();
+const drafts = useRuleDrafts();
 const { signal } = useAbortable();
 
 const name = ref('');
@@ -82,7 +82,7 @@ async function save() {
         existingRemovedCodes: [],
       });
       for (const rule of diff.added) {
-        draftStore.saveRule(space.id, rule);
+        drafts.saveRule(space.id, rule);
       }
       router.push(`/space/${space.code}/draft`);
 

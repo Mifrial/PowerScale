@@ -1,9 +1,6 @@
 import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
-import {
-  BLOOD_LOSS_STATE_CODE,
-  EXHAUSTION_STATE_CODE,
-  WOUND_STATE_CODE,
-} from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
+import { BLOOD_LOSS_STATE_CODE, EXHAUSTION_STATE_CODE, WOUND_STATE_CODE } from '@/modules/Roleplay/Rule/init';
+import type { IGameApi } from '@/modules/Roleplay/Game/Interface/IGameApi';
 import { injuryCheckService } from '@/modules/Roleplay/Game/Service/Instance/injuryCheckService';
 import { exhaustionCheckService } from '@/modules/Roleplay/Game/Service/Instance/exhaustionCheckService';
 
@@ -21,6 +18,8 @@ import { applyBloodLossGain, bloodLossInjuryDifficulty } from '@/modules/Rolepla
 import type { ApplyBloodLossArgs } from '@/modules/Roleplay/Game/Dto/ApplyBloodLossArgs';
 
 export class BloodLossService {
+  constructor(private readonly resolveGameApi: () => IGameApi) {}
+
   async applyBloodLossTick(args: ApplyBloodLossArgs): Promise<GameCombatOverlay | null> {
     if (args.delta <= 0) return null;
     let version = args.version;
@@ -28,6 +27,7 @@ export class BloodLossService {
     const oldExh = injuryCheckService.overlayStateTotal(version, args.rules, EXHAUSTION_STATE_CODE);
     const next = applyBloodLossGain(oldBlood, args.delta, oldExh);
     let overlay = await setNumericState(
+      this.resolveGameApi(),
       args.gameId,
       args.targetKey,
       version,
@@ -48,6 +48,7 @@ export class BloodLossService {
     if (next.exhaustion !== oldExh) {
       overlay =
         (await setNumericState(
+          this.resolveGameApi(),
           args.gameId,
           args.targetKey,
           version,

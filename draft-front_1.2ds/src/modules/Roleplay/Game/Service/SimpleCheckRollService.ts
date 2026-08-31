@@ -3,8 +3,8 @@ import type { DiceRollResult } from '@/modules/Roleplay/Game/Dto/DiceRollResult'
 import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec';
 import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import { CHECK_SIMPLE_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
-import { checkResolutionService } from '@/modules/Roleplay/Rule/Service/Instance/checkResolutionService';
+import { CHECK_SIMPLE_CODE } from '@/modules/Roleplay/Rule/init';
+import { checkResolutionService } from '@/modules/Roleplay/Rule/init';
 import { rollEngine } from '@/modules/Roleplay/Game/Service/Roll/Instance/rollEngine';
 import { checkRollService } from '@/modules/Roleplay/Game/Service/Instance/checkRollService';
 

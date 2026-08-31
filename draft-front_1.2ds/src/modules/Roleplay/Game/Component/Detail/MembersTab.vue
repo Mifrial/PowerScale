@@ -10,7 +10,7 @@ import type { GameDetail } from '@/modules/Roleplay/Game/Dto/GameDetail';
 import type { GameMember } from '@/modules/Roleplay/Game/Dto/GameMember';
 import type { GameMemberRole } from '@/modules/Roleplay/Game/Enum/GameMemberRole';
 import type { User } from '@/modules/Core/User/Dto/User';
-import UserProfileSlider from '@/modules/Core/User/Component/UserProfileSlider.vue';
+import { UserProfileSlider } from '@/modules/Core/User/init';
 import InvitationsPanel from '@/modules/Roleplay/Game/Component/Detail/InvitationsPanel.vue';
 import JoinRequestsPanel from '@/modules/Roleplay/Game/Component/Detail/JoinRequestsPanel.vue';
 

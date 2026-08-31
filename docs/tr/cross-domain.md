@@ -32,15 +32,15 @@
 **Error/concurrency:** conflicting overlay versions return `currentVersion` for a retriable read.  
 **Backend boundary:** delivery, persistence and SSE are backend `OPEN`; frontend mock/polling is not SSE implementation.
 
-## GameEvents → Notifications
+## События игры → уведомления
 
-**Input:** typed event fact with event key, recipient scope and object version.  
-**Output:** notification DTO resolved from a template, recipient, buttons and deduplication key.  
-**Owner:** Game event producers emit facts; `ui-system.md` owns notification presentation.  
-**Visibility:** recipient and object visibility are checked before generation and serialization.  
-**Version invariant:** duplicate `(recipient, event key, object version)` updates the existing notification.  
-**Error/concurrency:** producer failure must not create a partially presented notification; duplicate delivery is idempotent.  
-**Backend boundary:** event persistence, generation and deduplication remain backend `OPEN`.
+**Вход:** типизированный факт события, ключ, круг получателей, версия объекта.  
+**Выход:** DTO уведомления по шаблону: получатель, кнопки, ключ дедупликации.  
+**Владелец:** на фронте Character и Game вызывают публичный API `Messages/Notifications` (`init` / порт); Notifications не импортирует Roleplay. Отображение — [`ui-system.md`](ui-system.md). Генерация на сервере — `OPEN`. Отправка с фронта в текущем коде не сделана (долг кода).  
+**Видимость:** получатель и объект проверяются до генерации и сериализации.  
+**Версии:** повтор `(получатель, ключ события, версия объекта)` обновляет существующее уведомление.  
+**Ошибки:** сбой продюсера не оставляет частично показанное уведомление; доставка идемпотентна.  
+**Граница backend:** хранение событий, генерация и дедупликация — `OPEN`.
 
 ## Economy → Overlay
 

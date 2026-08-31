@@ -8,7 +8,7 @@ import { useMacrosStore } from '@/modules/Roleplay/Game/Store/macros';
 import { rollService } from '@/modules/Roleplay/Game/Service/Instance/rollService';
 import { ROLL_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ATTACHMENT_TYPE';
 import { ROLL_ADV_MAX } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ADV_MAX';
-import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/Service/Instance/aggregateSourceDeltasService';
+import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/init';
 
 const props = defineProps<ChatToolbarContext>();
 

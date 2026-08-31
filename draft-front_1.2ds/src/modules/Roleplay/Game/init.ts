@@ -7,7 +7,7 @@ import type { DiceRollResult } from '@/modules/Roleplay/Game/Dto/DiceRollResult'
 import { rollService } from '@/modules/Roleplay/Game/Service/Instance/rollService';
 import { simpleCheckRollService } from '@/modules/Roleplay/Game/Service/Instance/simpleCheckRollService';
 
-import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/Service/Instance/aggregateSourceDeltasService';
+import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/init';
 
 export { rollEngine } from '@/modules/Roleplay/Game/Service/Roll/Instance/rollEngine';
 import {

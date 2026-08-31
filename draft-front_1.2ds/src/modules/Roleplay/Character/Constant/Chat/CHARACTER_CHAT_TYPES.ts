@@ -1,5 +1,5 @@
 import type { IChatType } from '@/modules/Messages/Chat/Interface/IChatType';
-import { CHAT_PERMISSION_SEE_ALL } from '@/modules/Messages/Chat/Constant/Chat/CHAT_PERMISSION_SEE_ALL';
+import { CHAT_PERMISSION_SEE_ALL } from '@/modules/Messages/Chat/init';
 
 /** Роли обсуждения персонажа: владелец видит все сообщения (chat.see_all), участник — по видимости. */
 const CHARACTER_DISCUSSION_ROLES = [

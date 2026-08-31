@@ -8,7 +8,7 @@ import {
   DAMAGE_TYPE_HOOK_MECHANIC_INJURY_EXTRA_DICE,
   DAMAGE_TYPE_HOOK_MECHANIC_PAY_SR,
   DAMAGE_TYPE_HOOK_VERSION_1,
-} from '@/modules/Roleplay/Rule/Constant/Damage/DAMAGE_TYPE_HOOKS';
+} from '@/modules/Roleplay/Rule/init';
 
 export const damageTypeHookV1: DamageTypeHookHandler[] = [
   {

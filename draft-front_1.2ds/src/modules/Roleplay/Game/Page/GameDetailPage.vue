@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useSpaceRevision } from '@/modules/Roleplay/Space/init';
 import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useGameStore } from '@/modules/Roleplay/Game/Store/games';
@@ -6,8 +7,7 @@ import { getGameApi } from '@/modules/Roleplay/Game/init';
 import { getRuleApi } from '@/modules/Roleplay/Rule/init';
 import { gameChatRulesContextService } from '@/modules/Roleplay/Game/Service/Instance/gameChatRulesContextService';
 
-import { useUserStore } from '@/modules/Core/User/Store/users';
-import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
+import { useCurrentUser } from '@/modules/Core/User/init';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { gameAccessService } from '@/modules/Roleplay/Game/Service/Instance/gameAccessService';
 
@@ -24,14 +24,14 @@ import type { ChatRulesContext } from '@/modules/Messages/Chat/Dto/ChatRulesCont
 import type { GameJoinRequest } from '@/modules/Roleplay/Game/Dto/GameJoinRequest';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
-import UserProfileSlider from '@/modules/Core/User/Component/UserProfileSlider.vue';
+import { UserProfileSlider } from '@/modules/Core/User/init';
 import { OwnerNotesDialog } from '@/modules/Roleplay/Character/init';
 
 const route = useRoute();
 const router = useRouter();
 const store = useGameStore();
-const userStore = useUserStore();
-const spaceRevisionStore = useSpaceRevisionStore();
+const { currentUser } = useCurrentUser();
+const spaceRevision = useSpaceRevision();
 const { signal } = useAbortable();
 
 const activeTab = ref('overview');
@@ -101,7 +101,7 @@ async function savePersonalNotes(text: string): Promise<void> {
 }
 
 const myJoinRequest = computed(() => {
-  const user = userStore.currentUser;
+  const user = currentUser.value;
   if (!user) return null;
 
   return joinRequests.value.find((request) => request.userId === user.id) ?? null;
@@ -111,7 +111,7 @@ const myJoinRequest = computed(() => {
 const myPendingJoinRequest = computed(() => (myJoinRequest.value?.status === 'pending' ? myJoinRequest.value : null));
 
 const isMember = computed(() => {
-  const user = userStore.currentUser;
+  const user = currentUser.value;
   if (!user) return false;
   const current = detail.value;
   if (!current) return false;
@@ -122,7 +122,7 @@ const isMember = computed(() => {
 
 const canRequestJoin = computed(() => {
   const current = detail.value;
-  const user = userStore.currentUser;
+  const user = currentUser.value;
   if (!current || !user || isMember.value) return false;
   if (myPendingJoinRequest.value) return false;
   const policy = current.game.joinPolicy;
@@ -134,14 +134,14 @@ const canView = computed(() => {
   const current = detail.value;
   if (!current) return false;
 
-  return gameAccessService.canViewGame(userStore.currentUser, current.game, memberIds.value);
+  return gameAccessService.canViewGame(currentUser.value, current.game, memberIds.value);
 });
 
 const canManageMembers = computed(() => {
   const current = detail.value;
   if (!current) return false;
 
-  return gameAccessService.canEditGame(userStore.currentUser, current);
+  return gameAccessService.canEditGame(currentUser.value, current);
 });
 
 const canEdit = computed(() => canManageMembers.value);
@@ -150,7 +150,7 @@ const canModerate = computed(() => {
   const current = detail.value;
   if (!current) return false;
 
-  return gameAccessService.canModerateGame(userStore.currentUser, current);
+  return gameAccessService.canModerateGame(currentUser.value, current);
 });
 
 // Прямое добавление участника — только владелец игры / глобальный админ (ведущие — по приглашению).
@@ -158,12 +158,12 @@ const canAddMembers = computed(() => {
   const current = detail.value;
   if (!current) return false;
 
-  return gameAccessService.canAddGameMember(userStore.currentUser, current);
+  return gameAccessService.canAddGameMember(currentUser.value, current);
 });
 
 // Участник игры (для подачи персонажа): владелец/ведущий/игрок.
 const canSubmitCharacter = computed(() => {
-  const current = userStore.currentUser;
+  const current = currentUser.value;
   if (!current) return false;
 
   return memberIds.value.includes(current.id);
@@ -183,7 +183,7 @@ async function load(): Promise<void> {
   if (
     loaded &&
     !gameAccessService.canViewGame(
-      userStore.currentUser,
+      currentUser.value,
       loaded.game,
       loaded.members.map((member) => member.userId),
     )
@@ -218,7 +218,7 @@ async function requestJoin(): Promise<void> {
 // Имя пространства для ссылки «Правила» берём из загруженной ревизии (fetchRevision, кэш без syncFromContext).
 async function loadSpaceName(spaceId: number, revision: number, abortSignal: AbortSignal): Promise<void> {
   try {
-    const revisionResult = await spaceRevisionStore.fetchRevision(spaceId, revision, abortSignal);
+    const revisionResult = await spaceRevision.fetchRevision(spaceId, revision, abortSignal);
     spaceName.value = revisionResult.spaceName;
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') return;
@@ -237,11 +237,7 @@ async function loadDiscussionContext(): Promise<void> {
   discussionLoading.value = true;
   discussionError.value = null;
   try {
-    const revision = await spaceRevisionStore.fetchRevision(
-      current.game.spaceId,
-      current.game.rulesRevision,
-      signal.value,
-    );
+    const revision = await spaceRevision.fetchRevision(current.game.spaceId, current.game.rulesRevision, signal.value);
     discussionRules.value = revision.rules;
     discussionMechanics.value = await getRuleApi().getMechanics(signal.value);
   } catch (caught) {

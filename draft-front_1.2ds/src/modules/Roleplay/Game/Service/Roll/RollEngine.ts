@@ -4,15 +4,15 @@ import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec';
 import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { RollMechanicContext } from '@/modules/Roleplay/Rule/Dto/RollMechanicContext';
-import type { MechanicEngine } from '@/modules/Roleplay/Rule/Service/Mechanic/MechanicEngine';
+import type { MechanicEngine } from '@/modules/Roleplay/Rule/init';
 import { ROLL_EVENTS } from '@/modules/Roleplay/Rule/init';
 import {
   ROLL_RULE_CODE,
   ROLL_DEFAULT_EFFICIENCY,
   ROLL_DEFAULT_DIE_SIZE,
 } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_RULE_CODE';
-import { ADVANTAGE_SOURCE_ROLL } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
-import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/Service/Instance/aggregateSourceDeltasService';
+import { ADVANTAGE_SOURCE_ROLL } from '@/modules/Roleplay/Rule/init';
+import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/init';
 
 /**
  * Поток броска как события механик (ТР §8 «Броски»): pool → бросок → drop → базовый

@@ -4,10 +4,13 @@ import type { ItemCheckAdvantage } from '@/modules/Roleplay/Rule/Dto/Item/ItemCh
 import type { ItemSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpec';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { CheckAdvantageQuery } from '@/modules/Roleplay/Character/Dto/CheckAdvantageQuery';
-import { itemModifierService } from '@/modules/Roleplay/Rule/Service/Instance/itemModifierService';
-import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/Service/Instance/aggregateSourceDeltasService';
+import { itemModifierService, aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/init';
 
 export class ItemCheckAdvantagesService {
+  constructor(
+    private readonly itemModifiers = itemModifierService,
+    private readonly aggregate = aggregateSourceDeltasService,
+  ) {}
   /** Помехи экипированных предметов на проверку: источник — предмет, не производные характеристик. */
   checkAdvantageModifiersFromItems(
     version: Pick<CharacterVersion, 'inventory'> | null | undefined,
@@ -23,7 +26,7 @@ export class ItemCheckAdvantagesService {
       const modifiers = (item.modifierRuleIds ?? [])
         .map((id) => rules.find((entry) => entry.id === id))
         .filter((entry): entry is Rule => entry != null);
-      const spec = itemModifierService.applyStack(rule.spec as ItemSpec, modifiers, []).spec;
+      const spec = this.itemModifiers.applyStack(rule.spec as ItemSpec, modifiers, []).spec;
       for (const effect of spec.check_advantages ?? []) {
         if (effect.delta === 0 || !this.matchesQuery(effect, query)) continue;
         entries.push({
@@ -34,7 +37,7 @@ export class ItemCheckAdvantagesService {
       }
     }
 
-    return aggregateSourceDeltasService.aggregateSourceDeltas(entries);
+    return this.aggregate.aggregateSourceDeltas(entries);
   }
 
   private matchesQuery(effect: ItemCheckAdvantage, query: CheckAdvantageQuery | undefined): boolean {

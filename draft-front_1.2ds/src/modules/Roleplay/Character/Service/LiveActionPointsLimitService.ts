@@ -5,7 +5,7 @@ import type { FormulaContext } from '@/modules/Roleplay/Character/Dto/FormulaCon
 import { FormulaEvaluationService } from '@/modules/Roleplay/Character/Service/FormulaEvaluationService';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { ResourceSpec } from '@/modules/Roleplay/Rule/Dto/ResourceSpec';
-import { ACTION_POINTS_RESOURCE_CODE } from '@/modules/Roleplay/Rule/Constant/Ability/ACTION_POINTS_RESOURCE_CODE';
+import { ACTION_POINTS_RESOURCE_CODE } from '@/modules/Roleplay/Rule/init';
 import { stateRuntimeEffectsService } from '@/modules/Roleplay/Character/Service/Instance/stateRuntimeEffectsService';
 
 export class LiveActionPointsLimitService {

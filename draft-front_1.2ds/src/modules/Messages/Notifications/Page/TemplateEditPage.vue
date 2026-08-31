@@ -4,15 +4,14 @@ import { useRoute, useRouter } from 'vue-router';
 import type { TemplateForm } from '@/modules/Messages/Notifications/Dto/TemplateForm';
 import { useTemplateStore } from '@/modules/Messages/Notifications/Store/templates';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
-import { useUserStore } from '@/modules/Core/User/Store/users';
-import { accessService } from '@/modules/Core/User/init';
+import { accessService, useCurrentUser } from '@/modules/Core/User/init';
 import { templateSpecService } from '@/modules/Messages/Notifications/Service/Instance/templateSpecService';
 import TemplateButtonsEditor from '@/modules/Messages/Notifications/Component/TemplateButtonsEditor.vue';
 
 const route = useRoute();
 const router = useRouter();
 const store = useTemplateStore();
-const userStore = useUserStore();
+const { currentUser } = useCurrentUser();
 const { signal } = useAbortable();
 
 const isEdit = computed(() => !!route.params.id);
@@ -25,9 +24,7 @@ const deleting = ref(false);
 const showDeleteDialog = ref(false);
 const errorMessage = ref('');
 
-const canDelete = computed(() =>
-  accessService.hasAnyPermission(userStore.currentUser, ['notification_template.delete']),
-);
+const canDelete = computed(() => accessService.hasAnyPermission(currentUser.value, ['notification_template.delete']));
 
 onMounted(async () => {
   if (!isEdit.value) return;

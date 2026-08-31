@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
-import { useCharacterStore } from '@/modules/Roleplay/Character/Store/characters';
-import { useAuthStore } from '@/modules/Core/Auth/Store/auth';
+import { useCharacterCatalog } from '@/modules/Roleplay/Character/init';
+import { useCurrentUser } from '@/modules/Core/User/init';
 import { getCharacterApi } from '@/modules/Roleplay/Character/init';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 import type { CharacterGameContext } from '@/modules/Roleplay/Game/Dto/CharacterGameContext';
@@ -13,14 +13,14 @@ const props = defineProps<{
   characterId: number;
 }>();
 
-const characterStore = useCharacterStore();
-const auth = useAuthStore();
+const characterStore = useCharacterCatalog();
+const { userId } = useCurrentUser();
 
 const gameContexts = ref<CharacterGameContext[]>([]);
 const visibilityOpen = ref(false);
 const error = ref<string | null>(null);
 
-const isOwner = computed(() => characterStore.currentCharacter?.character.ownerId === auth.userId);
+const isOwner = computed(() => characterStore.currentCharacter?.character.ownerId === userId.value);
 
 // Члены всех игр персонажа — для аудитории «выбранные игроки» в диалоге видимости.
 const members = computed<GameMember[]>(() => {

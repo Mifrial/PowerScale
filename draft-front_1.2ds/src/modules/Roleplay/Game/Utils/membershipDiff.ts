@@ -9,7 +9,7 @@ import type { CharacterSenseValue } from '@/modules/Roleplay/Character/Dto/Chara
 import type { CustomRuleEntry } from '@/modules/Roleplay/Character/Dto/CustomRuleEntry';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
-import { CharacteristicNumber } from '@/modules/Roleplay/Rule/Value/CharacteristicNumber';
+import { CharacteristicNumber } from '@/modules/Roleplay/Rule/init';
 
 export type DiffKind = 'added' | 'removed' | 'changed';
 

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
-import { serviceLocator } from '@/modules/Core/Engine/Service/ServiceLocator';
+import { resetRegisteredApis } from '@/modules/Core/Engine/init';
 import { registerGameApi } from '@/modules/Roleplay/Game/init';
 import { registerSpaceApi } from '@/modules/Roleplay/Space/init';
 import { registerRuleApi } from '@/modules/Roleplay/Rule/init';
@@ -12,7 +12,7 @@ import type { IGameApi } from '@/modules/Roleplay/Game/Interface/IGameApi';
 
 beforeEach(() => {
   setActivePinia(createPinia());
-  serviceLocator.reset();
+  resetRegisteredApis();
 });
 
 describe('gameChatRulesProvider', () => {

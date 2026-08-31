@@ -2,10 +2,8 @@
 import { ref, computed, watch } from 'vue';
 import type { Space } from '@/modules/Roleplay/Space/Dto/Space';
 import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
-import { useDraftRuleStore } from '@/modules/Roleplay/Rule/Store/draftRules';
-import { useKeywordStore } from '@/modules/Roleplay/Rule/Store/keywords';
+import { RULE_TYPE_LABELS, useKeywords, useRuleDrafts } from '@/modules/Roleplay/Rule/init';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
-import { RULE_TYPE_LABELS } from '@/modules/Roleplay/Rule/init';
 import { publishService } from '@/modules/Roleplay/Space/Service/Instance/publishService';
 import type { PublishSummary } from '@/modules/Roleplay/Space/Dto/PublishSummary';
 
@@ -21,8 +19,8 @@ const emit = defineEmits<{
 }>();
 
 const revisionStore = useSpaceRevisionStore();
-const draftStore = useDraftRuleStore();
-const keywordStore = useKeywordStore();
+const drafts = useRuleDrafts();
+const { keywords, error: keywordsError, fetchTags } = useKeywords();
 const { signal } = useAbortable();
 
 const open = computed({
@@ -58,16 +56,16 @@ async function prepare() {
   preparing.value = true;
   summary.value = null;
   try {
-    if (keywordStore.keywords.length === 0) {
-      await keywordStore.fetchTags(signal.value);
+    if (keywords.value.length === 0) {
+      await fetchTags(signal.value);
     }
-    if (keywordStore.error) return;
+    if (keywordsError.value) return;
     summary.value = publishService.prepare(
       revisionStore.activeRevision?.rules ?? [],
-      draftStore.getDraftRules(space.id),
+      drafts.getDraftRules(space.id),
       revisionStore.effectiveRules,
-      keywordStore.keywords,
-      draftStore.getRemovedCodes(space.id),
+      keywords.value,
+      drafts.getRemovedCodes(space.id),
     );
   } finally {
     preparing.value = false;
@@ -79,9 +77,9 @@ async function publishDraft() {
   if (!space || hasPublishProblems.value) return;
   publishing.value = true;
   try {
-    const rules = draftStore.getDraftRules(space.id);
-    const result = await revisionStore.commitDraft(space.id, rules, undefined, draftStore.getRemovedCodes(space.id));
-    draftStore.discardDraft(space.id);
+    const rules = drafts.getDraftRules(space.id);
+    const result = await revisionStore.commitDraft(space.id, rules, undefined, drafts.getRemovedCodes(space.id));
+    drafts.discardDraft(space.id);
     emit('update:modelValue', false);
     emit('published', result.revision);
   } catch (e) {
@@ -101,8 +99,8 @@ async function publishDraft() {
         <div v-if="preparing" class="d-flex justify-center pa-6">
           <v-progress-circular indeterminate width="2" size="28" color="primary" />
         </div>
-        <v-alert v-else-if="keywordStore.error" type="error" class="mb-4">
-          {{ keywordStore.error }}
+        <v-alert v-else-if="keywordsError" type="error" class="mb-4">
+          {{ keywordsError }}
           <template #append>
             <v-btn size="small" variant="tonal" @click="prepare">Повторить</v-btn>
           </template>
@@ -173,7 +171,7 @@ async function publishDraft() {
           color="primary"
           variant="tonal"
           :loading="publishing"
-          :disabled="preparing || !!keywordStore.error || hasPublishProblems || publishCount === 0"
+          :disabled="preparing || !!keywordsError || hasPublishProblems || publishCount === 0"
           @click="publishDraft"
         >
           Подтвердить публикацию

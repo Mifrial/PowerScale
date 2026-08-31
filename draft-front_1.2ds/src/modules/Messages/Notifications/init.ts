@@ -1,4 +1,5 @@
 import { serviceLocator } from '@/modules/Core/Engine/Service/ServiceLocator';
+import { defineAsyncComponent } from 'vue';
 import type { INotificationApi } from '@/modules/Messages/Notifications/Interface/INotificationApi';
 import type { INotificationTemplateApi } from '@/modules/Messages/Notifications/Interface/INotificationTemplateApi';
 import { registerPermissionCategory, registerAdminSection } from '@/modules/Core/User/init';
@@ -25,3 +26,9 @@ export function registerNotificationModule(): void {
   registerPermissionCategory(NOTIFICATION_TEMPLATE_PERMISSION_CATEGORY);
   registerAdminSection(TEMPLATES_ADMIN_SECTION);
 }
+
+export { useNotificationInbox } from '@/modules/Messages/Notifications/Composables/useNotificationInbox';
+
+export const NotificationList = defineAsyncComponent(
+  () => import('@/modules/Messages/Notifications/Component/NotificationList.vue'),
+);

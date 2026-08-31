@@ -6,7 +6,7 @@ import type { GameTime } from '@/modules/Roleplay/Game/Dto/GameTime';
 import type { ChronicleEntry } from '@/modules/Roleplay/Game/Dto/ChronicleEntry';
 import type { CreateChronicleEntryData } from '@/modules/Roleplay/Game/Dto/CreateChronicleEntryData';
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
-import InlineTokenPicker from '@/modules/Messages/Chat/Component/InlineTokenPicker.vue';
+import { InlineTokenPicker } from '@/modules/Messages/Chat/init';
 
 const props = defineProps<{
   /** null — создание записи; иначе — правка. */

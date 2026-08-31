@@ -7,7 +7,7 @@ import { abilitySectionTreeService } from '@/modules/Roleplay/Space/Service/Inst
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec';
 import { ruleCatalog } from '@/modules/Roleplay/Rule/Mock/mockRules';
-import { slugify } from '@/modules/Roleplay/Rule/Utils/Text/slugify';
+import { slugify } from '@/modules/Roleplay/Rule/init';
 import { mockAbilitySectionTree } from '@/modules/Roleplay/Space/Mock/mockAbilitySectionTree';
 
 let nextId = 3;

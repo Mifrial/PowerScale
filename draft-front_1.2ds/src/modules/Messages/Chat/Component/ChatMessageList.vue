@@ -4,7 +4,7 @@ import { useChatStore } from '@/modules/Messages/Chat/Store/chat';
 import { useChatUsers } from '@/modules/Messages/Chat/Composables/useChatUsers';
 import { useChatVirtualScroll } from '@/modules/Messages/Chat/Composables/useChatVirtualScroll';
 import { useChatVisibilityOptions } from '@/modules/Messages/Chat/Composables/useChatVisibilityOptions';
-import { useAuthStore } from '@/modules/Core/Auth/Store/auth';
+import { useCurrentUser } from '@/modules/Core/User/init';
 import type { ChatMessage } from '@/modules/Messages/Chat/Dto/ChatMessage';
 import type { ChatMessageVisibility } from '@/modules/Messages/Chat/Dto/ChatMessageVisibility';
 import type { ChatFoldChild } from '@/modules/Messages/Chat/Dto/ChatFoldChild';
@@ -33,7 +33,7 @@ const emit = defineEmits<{
 
 const store = useChatStore();
 const chatUsers = useChatUsers();
-const auth = useAuthStore();
+const { userId } = useCurrentUser();
 
 const resolvedChatId = computed(() => props.chatId ?? store.activeChatId);
 
@@ -41,7 +41,7 @@ const chat = computed(() => store.chats.find((candidate) => candidate.id === res
 const { allowVisibility, roleOptions, userOptions } = useChatVisibilityOptions(chat);
 
 function canChangeVisibilityOf(message: ChatMessage): boolean {
-  return allowVisibility.value && auth.userId !== null && message.userId === auth.userId && message.kind == null;
+  return allowVisibility.value && userId.value !== null && message.userId === userId.value && message.kind == null;
 }
 
 async function onUpdateVisibility(messageId: number, visibility?: ChatMessageVisibility): Promise<void> {

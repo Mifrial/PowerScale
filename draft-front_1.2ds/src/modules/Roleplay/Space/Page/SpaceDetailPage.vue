@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useSpaceStore } from '@/modules/Roleplay/Space/Store/spaces';
 import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
-import { useDraftRuleStore } from '@/modules/Roleplay/Rule/Store/draftRules';
+import { useRuleDrafts } from '@/modules/Roleplay/Rule/init';
 import { useSpaceContext } from '@/modules/Roleplay/Space/Composables/useSpaceContext';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import PublishDialog from '@/modules/Roleplay/Space/Component/PublishDialog.vue';
@@ -17,7 +17,7 @@ const route = useRoute();
 const router = useRouter();
 const spaceStore = useSpaceStore();
 const revisionStore = useSpaceRevisionStore();
-const draftStore = useDraftRuleStore();
+const drafts = useRuleDrafts();
 const context = useSpaceContext();
 
 const space = computed(() => context.value.space);
@@ -28,20 +28,20 @@ const ruleToDiscard = ref<Rule | null>(null);
 const snackbar = ref({ show: false, text: '', color: '' });
 
 onMounted(() => {
-  if (draftStore.storageDiscarded) {
+  if (drafts.storageDiscarded.value) {
     snackbar.value = {
       show: true,
       text: 'Черновик правил в браузере повреждён и сброшен',
       color: 'error',
     };
-    draftStore.acknowledgeStorageDiscarded();
+    drafts.acknowledgeStorageDiscarded();
   }
 });
 
 const ctx = computed(() => route.params.ctx as string | undefined);
 const isDraftContext = computed(() => ctx.value === 'draft');
 
-const draftRuleIds = computed(() => new Set(draftStore.getDraftRules(space.value?.id ?? 0).map((r) => r.id)));
+const draftRuleIds = computed(() => new Set(drafts.getDraftRules(space.value?.id ?? 0).map((r) => r.id)));
 
 function formatPublished(iso: string): string {
   const d = new Date(iso);
@@ -57,7 +57,7 @@ const revisionsList = computed(() => {
     label: `v${m.revision}: ${formatPublished(m.publishedAt)}`,
     value: m.revision,
   }));
-  if (draftStore.hasDraft(space.value?.id ?? 0)) {
+  if (drafts.hasDraft(space.value?.id ?? 0)) {
     items.push({ label: 'Черновик', value: -1 });
   }
 
@@ -96,7 +96,7 @@ function onImportConfirm(payload: { file: RevisionFile; intoCurrent: boolean; re
   const published = revisionStore.activeRevision?.rules ?? [];
   const diff = revisionFileService.diffAgainstPublished(payload.file.revision.rules, published, spaceId, {
     removeMissing: payload.removeMissing,
-    existingRemovedCodes: draftStore.getRemovedCodes(spaceId),
+    existingRemovedCodes: drafts.getRemovedCodes(spaceId),
   });
   if (revisionFileService.isEmptyDiff(diff)) {
     snackbar.value = { show: true, text: revisionFileService.formatImportSummary(diff), color: 'info' };
@@ -104,9 +104,9 @@ function onImportConfirm(payload: { file: RevisionFile; intoCurrent: boolean; re
     return;
   }
   for (const rule of [...diff.changed, ...diff.added]) {
-    draftStore.saveRule(spaceId, rule);
+    drafts.saveRule(spaceId, rule);
   }
-  draftStore.setRemovedCodes(spaceId, diff.removedCodes);
+  drafts.setRemovedCodes(spaceId, diff.removedCodes);
   snackbar.value = { show: true, text: revisionFileService.formatImportSummary(diff), color: 'success' };
   router.push(`/space/${space.value?.code}/draft`);
 }
@@ -129,12 +129,12 @@ function showDiscardRuleDialog(rule: Rule) {
 
 function discardRule() {
   if (!space.value || !ruleToDiscard.value) return;
-  draftStore.removeRule(space.value.id, ruleToDiscard.value.id);
+  drafts.removeRule(space.value.id, ruleToDiscard.value.id);
   showDiscardDialog.value = false;
   ruleToDiscard.value = null;
 
   // Если черновиков больше нет, переходим на последнюю ревизию
-  if (!draftStore.hasDraft(space.value.id)) {
+  if (!drafts.hasDraft(space.value.id)) {
     router.replace(`/space/${space.value.code}/${space.value.revision}`);
   }
 }
@@ -165,7 +165,7 @@ function discardRule() {
         style="max-width: 220px"
       />
 
-      <v-chip v-if="draftStore.hasDraft(space.id)" color="primary" variant="tonal" size="small"> Есть черновик </v-chip>
+      <v-chip v-if="drafts.hasDraft(space.id)" color="primary" variant="tonal" size="small"> Есть черновик </v-chip>
 
       <v-spacer />
 
@@ -174,7 +174,7 @@ function discardRule() {
       </v-btn>
       <v-btn variant="tonal" size="small" prepend-icon="mdi-upload" @click="showImportDialog = true"> Импорт </v-btn>
 
-      <template v-if="draftStore.hasDraft(space.id) && isDraftContext">
+      <template v-if="drafts.hasDraft(space.id) && isDraftContext">
         <v-btn variant="tonal" color="success" size="small" prepend-icon="mdi-source-branch" @click="openPublishDialog">
           Опубликовать
         </v-btn>

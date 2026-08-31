@@ -2,19 +2,19 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { setActivePinia, createPinia } from 'pinia';
 import { registerChatApi, registerChatTabs } from '@/modules/Messages/Chat/init';
 import { registerAuthApi } from '@/modules/Core/Auth/init';
-import { serviceLocator } from '@/modules/Core/Engine/Service/ServiceLocator';
+import { resetRegisteredApis } from '@/modules/Core/Engine/init';
 import { mockAuthApi } from '@/modules/Core/Auth/Mock/mockAuthApi';
 import { mockChatApi } from '@/modules/Messages/Chat/Mock/mockChatApi';
 import { mockLogin, mockLogout } from '@/modules/Core/Auth/Mock/mockAuth';
 import { useChatStore } from '@/modules/Messages/Chat/Store/chat';
-import { useAuthStore } from '@/modules/Core/Auth/Store/auth';
+import { currentUserSessionService } from '@/modules/Core/User/init';
 import type { IChatApi } from '@/modules/Messages/Chat/Interface/IChatApi';
 import type { Chat } from '@/modules/Messages/Chat/Dto/Chat';
 import type { ChatMessage } from '@/modules/Messages/Chat/Dto/ChatMessage';
 
 beforeEach(() => {
   setActivePinia(createPinia());
-  serviceLocator.reset();
+  resetRegisteredApis();
   registerChatApi(mockChatApi);
   registerAuthApi(mockAuthApi);
   registerChatTabs([
@@ -809,7 +809,8 @@ describe('chat store', () => {
 
   describe('private chat peer under a non-placeholder user', () => {
     it('replaces the self placeholder member with the current user', async () => {
-      await mockLogin('admin', 'test');
+      const user = await mockLogin('admin', 'test');
+      currentUserSessionService.setCurrent(user);
       try {
         const store = useChatStore();
         await store.fetchChats();
@@ -824,12 +825,14 @@ describe('chat store', () => {
         const peer = anna!.members.find((m) => m.userId !== 2);
         expect(peer?.userId).toBe(3);
       } finally {
+        currentUserSessionService.clearCurrent();
         await mockLogout();
       }
     });
 
     it('message authors belong to the current user and real peers, not the placeholder', async () => {
-      await mockLogin('admin', 'test');
+      const user = await mockLogin('admin', 'test');
+      currentUserSessionService.setCurrent(user);
       try {
         const store = useChatStore();
         await store.fetchChats();
@@ -845,6 +848,7 @@ describe('chat store', () => {
         expect(authorIds.has(2)).toBe(true);
         expect(authorIds.has(6)).toBe(true);
       } finally {
+        currentUserSessionService.clearCurrent();
         await mockLogout();
       }
     });
@@ -906,8 +910,8 @@ describe('chat store', () => {
     }
 
     it('tab «Обсуждения персонажей» shows only chats where the user participates', async () => {
-      await mockLogin('admin', 'test');
-      await useAuthStore().checkAuth();
+      const user = await mockLogin('admin', 'test');
+      currentUserSessionService.setCurrent(user);
       try {
         registerChatApi(
           chatApi([charChat(1, 'Торвин', [2, 3]), charChat(2, 'Элиандра', [4]), charChat(3, 'Гаррик', [2])]),
@@ -919,13 +923,14 @@ describe('chat store', () => {
 
         expect(store.currentTabChats.map((c) => c.name)).toEqual(['Торвин', 'Гаррик']);
       } finally {
+        currentUserSessionService.clearCurrent();
         await mockLogout();
       }
     });
 
     it('без onlyIfMember вкладка показывает все чаты типа', async () => {
-      await mockLogin('admin', 'test');
-      await useAuthStore().checkAuth();
+      const user = await mockLogin('admin', 'test');
+      currentUserSessionService.setCurrent(user);
       try {
         registerChatTabs([
           {
@@ -946,13 +951,14 @@ describe('chat store', () => {
 
         expect(store.currentTabChats.map((c) => c.name)).toEqual(['Торвин', 'Элиандра', 'Гаррик']);
       } finally {
+        currentUserSessionService.clearCurrent();
         await mockLogout();
       }
     });
 
     it('sendMessage adds the current user as participant of the chat', async () => {
-      await mockLogin('admin', 'test');
-      await useAuthStore().checkAuth();
+      const user = await mockLogin('admin', 'test');
+      currentUserSessionService.setCurrent(user);
       try {
         registerChatApi(chatApi([charChat(1, 'Торвин', [3]), charChat(2, 'Элиандра', [4, 2])]));
 
@@ -966,6 +972,7 @@ describe('chat store', () => {
 
         expect(store.activeChat!.members.map((m) => m.userId)).toContain(2);
       } finally {
+        currentUserSessionService.clearCurrent();
         await mockLogout();
       }
     });

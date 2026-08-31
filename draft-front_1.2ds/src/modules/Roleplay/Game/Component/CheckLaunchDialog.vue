@@ -29,10 +29,10 @@ import { initiativeCharacteristics } from '@/modules/Roleplay/Game/Utils/initiat
 import type { InitiativeCharacteristicView } from '@/modules/Roleplay/Game/Utils/initiativeCharacteristic';
 import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
 
-import { checkResolutionService } from '@/modules/Roleplay/Rule/Service/Instance/checkResolutionService';
-import { checkLaunchService } from '@/modules/Roleplay/Rule/Service/Instance/checkLaunchService';
-import { CHECK_SIMPLE_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
-import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/Service/Instance/aggregateSourceDeltasService';
+import { checkResolutionService } from '@/modules/Roleplay/Rule/init';
+import { checkLaunchService } from '@/modules/Roleplay/Rule/init';
+import { CHECK_SIMPLE_CODE } from '@/modules/Roleplay/Rule/init';
+import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/init';
 import { rollPoolDefaults } from '@/modules/Roleplay/Game/Utils/initiativeRoll';
 import { ROLL_DICE_COUNT_MAX } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_DICE_COUNT_MAX';
 import { ROLL_DICE_COUNT_MIN } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_DICE_COUNT_MIN';

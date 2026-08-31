@@ -8,13 +8,16 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { StateSpec } from '@/modules/Roleplay/Rule/Dto/State/StateSpec';
 import type { StateEffect } from '@/modules/Roleplay/Rule/Dto/State/StateEffect';
 import { CHARACTERISTIC_BASE_RANGE } from '@/modules/Roleplay/Character/Constant/CHARACTERISTIC_BASE_RANGE';
-import { ADVANTAGE_SOURCE_APPEARANCE, ADVANTAGE_SOURCE_STATE } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
-import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/Service/Instance/aggregateSourceDeltasService';
+import { ADVANTAGE_SOURCE_APPEARANCE, ADVANTAGE_SOURCE_STATE } from '@/modules/Roleplay/Rule/init';
+import { aggregateSourceDeltasService, derivedCharacteristicService } from '@/modules/Roleplay/Rule/init';
 import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
 import type { CharacteristicSpec } from '@/modules/Roleplay/Rule/Dto/CharacteristicSpec';
-import { derivedCharacteristicService } from '@/modules/Roleplay/Rule/Service/Instance/derivedCharacteristicService';
 
 export class StateRuntimeEffectsService {
+  constructor(
+    private readonly aggregate = aggregateSourceDeltasService,
+    private readonly derivedCharacteristics = derivedCharacteristicService,
+  ) {}
   /** Характеристика — сама `root` или производная (formula min/max) от неё. */
   characteristicDependsOn(code: string, root: string, rules: Rule[], seen = new Set<string>()): boolean {
     if (code === root) return true;
@@ -23,7 +26,7 @@ export class StateRuntimeEffectsService {
     const spec = this.characteristicSpecOf(rules.find((item) => item.code === code && item.type === 'characteristic'));
     const formula = spec?.formula;
     if (!formula) return false;
-    const parsed = derivedCharacteristicService.parseDerivedFormula(formula);
+    const parsed = this.derivedCharacteristics.parseDerivedFormula(formula);
     if (!parsed) return false;
 
     return parsed.codes.some((item) => this.characteristicDependsOn(item, root, rules, seen));
@@ -131,7 +134,7 @@ export class StateRuntimeEffectsService {
       }
     }
 
-    return aggregateSourceDeltasService.aggregateSourceDeltas(entries);
+    return this.aggregate.aggregateSourceDeltas(entries);
   }
 
   private characteristicSpecOf(rule: Rule | undefined): CharacteristicSpec | null {

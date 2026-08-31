@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { serviceLocator } from '@/modules/Core/Engine/Service/ServiceLocator';
+import { resetRegisteredApis } from '@/modules/Core/Engine/init';
 import { registerChatRulesProvider } from '@/modules/Messages/Chat/init';
 import { useChatRulesResolution } from '@/modules/Messages/Chat/Composables/useChatRulesResolution';
 import type { ChatRulesContext } from '@/modules/Messages/Chat/Dto/ChatRulesContext';
@@ -14,7 +14,7 @@ const emptyContext = (overrides: Partial<ChatRulesContext> = {}): ChatRulesConte
 });
 
 beforeEach(() => {
-  serviceLocator.reset();
+  resetRegisteredApis();
 });
 
 describe('useChatRulesResolution', () => {

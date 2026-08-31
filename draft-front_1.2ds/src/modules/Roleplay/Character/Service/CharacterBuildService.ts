@@ -13,7 +13,7 @@ import type { RaceSpec } from '@/modules/Roleplay/Rule/Dto/Race/RaceSpec';
 import type { AbilityCost } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityCost';
 import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpec';
 import { characterEditorService } from '@/modules/Roleplay/Character/Service/Instance/characterEditorService';
-import { itemModifierService } from '@/modules/Roleplay/Rule/Service/Instance/itemModifierService';
+import { itemModifierService } from '@/modules/Roleplay/Rule/init';
 import { weaponProficiencyService } from '@/modules/Roleplay/Character/Service/Instance/weaponProficiencyService';
 import { racialInnateGearService } from '@/modules/Roleplay/Character/Service/Instance/racialInnateGearService';
 
@@ -22,7 +22,12 @@ import { racialInnateGearService } from '@/modules/Roleplay/Character/Service/In
  * напрямую — переходы трассируются и тестируются (frontend-rules: апдейтеры глубоких объектов).
  */
 export class CharacterBuildService {
-  constructor(private readonly editor = characterEditorService) {}
+  constructor(
+    private readonly editor = characterEditorService,
+    private readonly itemModifiers = itemModifierService,
+    private readonly weaponProficiency = weaponProficiencyService,
+    private readonly racialInnateGear = racialInnateGearService,
+  ) {}
 
   /**
    * Устанавливает уровень способности (0 — убрать). Для не-multiple способностей. Если способность
@@ -380,7 +385,7 @@ export class CharacterBuildService {
         : undefined;
     // «Владение оружием»: максимум экземпляра = длина лестницы выбранной семьи.
     if (spec?.domain_ref === 'weapon-family') {
-      return weaponProficiencyService.weaponFamilyLadder(rules, domain)?.length ?? 1;
+      return this.weaponProficiency.weaponFamilyLadder(rules, domain)?.length ?? 1;
     }
     let max = 1;
     for (const cost of Object.values(spec?.zones ?? {})) {
@@ -618,8 +623,7 @@ export class CharacterBuildService {
     const newMods = this.constrainExclusive(this.normalizedMods(modifierRuleIds), rules);
     const oldMods = this.normalizedMods(source.modifierRuleIds);
     if (
-      itemModifierService.identityKey(source.ruleId, oldMods) ===
-      itemModifierService.identityKey(source.ruleId, newMods)
+      this.itemModifiers.identityKey(source.ruleId, oldMods) === this.itemModifiers.identityKey(source.ruleId, newMods)
     ) {
       return build;
     }
@@ -681,7 +685,7 @@ export class CharacterBuildService {
       .map((id) => rules.find((entry) => entry.id === id))
       .filter((entry): entry is Rule => entry !== undefined);
 
-    return itemModifierService.applyStack(spec, modifiers, codes).cost;
+    return this.itemModifiers.applyStack(spec, modifiers, codes).cost;
   }
 
   private modifiersApplicable(
@@ -696,11 +700,11 @@ export class CharacterBuildService {
     const modifiers = modifierRuleIds
       .map((id) => rules.find((entry) => entry.id === id))
       .filter((entry): entry is Rule => entry !== undefined);
-    const effective = itemModifierService.effectiveKeywordCodes(codes, modifiers);
+    const effective = this.itemModifiers.effectiveKeywordCodes(codes, modifiers);
     for (const modifier of modifiers) {
       if (modifier.type !== 'item_modifier') return false;
       const spec = modifier.spec as ItemModifierSpec | undefined;
-      if (!itemModifierService.isApplicable(spec?.applies, effective)) return false;
+      if (!this.itemModifiers.isApplicable(spec?.applies, effective)) return false;
     }
 
     return true;
@@ -727,7 +731,7 @@ export class CharacterBuildService {
     let selected: string[] = [];
     for (const id of modifierRuleIds) {
       if (selected.includes(id)) continue;
-      selected = itemModifierService.toggleSelection(selected, id, rules);
+      selected = this.itemModifiers.toggleSelection(selected, id, rules);
     }
 
     return this.normalizedMods(selected);
@@ -887,7 +891,7 @@ export class CharacterBuildService {
   }
 
   private applyInnateGear(build: CharacterBuild, rules: Rule[]): CharacterBuild {
-    const next = racialInnateGearService.applyRacialInnateGear(build, rules);
+    const next = this.racialInnateGear.applyRacialInnateGear(build, rules);
 
     return { ...build, inventory: next.inventory, abilities: next.abilities };
   }

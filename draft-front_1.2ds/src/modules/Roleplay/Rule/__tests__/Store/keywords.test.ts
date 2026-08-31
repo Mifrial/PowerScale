@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { setActivePinia, createPinia } from 'pinia';
-import { serviceLocator } from '@/modules/Core/Engine/Service/ServiceLocator';
+import { resetRegisteredApis } from '@/modules/Core/Engine/init';
 import { registerKeywordApi } from '@/modules/Roleplay/Rule/init';
 import { mockKeywordApi } from '@/modules/Roleplay/Rule/Mock/mockKeywordApi';
 import { useKeywordStore } from '@/modules/Roleplay/Rule/Store/keywords';
@@ -8,7 +8,7 @@ import type { IKeywordApi } from '@/modules/Roleplay/Rule/Interface/IKeywordApi'
 
 beforeEach(() => {
   setActivePinia(createPinia());
-  serviceLocator.reset();
+  resetRegisteredApis();
 });
 
 function failingApi(getTags: () => Promise<never>): IKeywordApi {

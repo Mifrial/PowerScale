@@ -4,10 +4,10 @@ import type { ChatAttachment } from '@/modules/Messages/Chat/Dto/ChatAttachment'
 import type { InlineSegment } from '@/modules/Messages/Chat/Dto/InlineSegment';
 import type { DiceRollResult } from '@/modules/Roleplay/Game/Dto/DiceRollResult';
 import { rollService } from '@/modules/Roleplay/Game/Service/Instance/rollService';
-import { CHECK_HIT_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
-import { checkSuccessRatingService } from '@/modules/Roleplay/Rule/Service/Instance/checkSuccessRatingService';
-import { HIT_MIN_SUCCESS_SIZE } from '@/modules/Roleplay/Rule/Constant/Check/HIT_MIN_SUCCESS_SIZE';
-import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/Service/Instance/aggregateSourceDeltasService';
+import { CHECK_HIT_CODE } from '@/modules/Roleplay/Rule/init';
+import { checkSuccessRatingService } from '@/modules/Roleplay/Rule/init';
+import { HIT_MIN_SUCCESS_SIZE } from '@/modules/Roleplay/Rule/init';
+import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/init';
 import { resolveAppliedMechanicNames } from '@/modules/Roleplay/Game/Utils/appliedRollMechanics';
 import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
 

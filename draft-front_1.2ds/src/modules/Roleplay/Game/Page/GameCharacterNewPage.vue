@@ -2,8 +2,8 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useGameStore } from '@/modules/Roleplay/Game/Store/games';
-import { useUserStore } from '@/modules/Core/User/Store/users';
-import { useCharacterDraftStore } from '@/modules/Roleplay/Character/Store/characterDraft';
+import { useCurrentUser } from '@/modules/Core/User/init';
+import { useCharacterDraft } from '@/modules/Roleplay/Character/init';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 import { CharacterSheetEditor } from '@/modules/Roleplay/Character/init';
@@ -15,8 +15,8 @@ import type { CreateCharacterData } from '@/modules/Roleplay/Character/Dto/Edito
 const route = useRoute();
 const router = useRouter();
 const gameStore = useGameStore();
-const userStore = useUserStore();
-const draftStore = useCharacterDraftStore();
+const { currentUser } = useCurrentUser();
+const draftStore = useCharacterDraft();
 const { signal } = useAbortable();
 
 const loading = ref(false);
@@ -42,7 +42,7 @@ async function load(): Promise<void> {
   loading.value = true;
   gameStore.clearCurrent();
   const gameDetail = await gameStore.fetchGame(gid, signal.value);
-  const user = userStore.currentUser;
+  const user = currentUser.value;
   const isMember = gameDetail?.members.some((member) => member.userId === user?.id) ?? false;
   if (!gameDetail || !isMember) {
     router.replace({ name: 'NotFound' });

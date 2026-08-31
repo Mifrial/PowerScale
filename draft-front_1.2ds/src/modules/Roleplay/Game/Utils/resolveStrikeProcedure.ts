@@ -13,7 +13,7 @@ import {
   THROW_PROCEDURE_MECHANIC_CODE,
   THROW_PROCEDURE_RULE_CODE,
   HIT_PROCEDURE_VERSION_1,
-} from '@/modules/Roleplay/Rule/Constant/Combat/HIT_PROCEDURE';
+} from '@/modules/Roleplay/Rule/init';
 
 function resolveByCard(
   ruleCode: string,

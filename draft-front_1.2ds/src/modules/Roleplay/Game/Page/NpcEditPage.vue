@@ -1,10 +1,10 @@
 <script setup lang="ts">
+import { useSpaceRevision } from '@/modules/Roleplay/Space/init';
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useGameStore } from '@/modules/Roleplay/Game/Store/games';
-import { useUserStore } from '@/modules/Core/User/Store/users';
-import { useCharacterDraftStore } from '@/modules/Roleplay/Character/Store/characterDraft';
-import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
+import { useCurrentUser } from '@/modules/Core/User/init';
+import { useCharacterDraft } from '@/modules/Roleplay/Character/init';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { characterBuildService } from '@/modules/Roleplay/Character/init';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
@@ -23,9 +23,9 @@ import type { GameDetail } from '@/modules/Roleplay/Game/Dto/GameDetail';
 const route = useRoute();
 const router = useRouter();
 const gameStore = useGameStore();
-const userStore = useUserStore();
-const draftStore = useCharacterDraftStore();
-const spaceRevisionStore = useSpaceRevisionStore();
+const { currentUser } = useCurrentUser();
+const draftStore = useCharacterDraft();
+const spaceRevision = useSpaceRevision();
 const { signal } = useAbortable();
 
 const loading = ref(false);
@@ -58,7 +58,7 @@ const stale = computed(() => {
 });
 
 async function loadRules(spaceId: number, revision: number): Promise<Rule[]> {
-  const revisionResult = await spaceRevisionStore.fetchRevision(spaceId, revision, signal.value);
+  const revisionResult = await spaceRevision.fetchRevision(spaceId, revision, signal.value);
 
   return revisionResult.rules;
 }
@@ -116,7 +116,7 @@ async function load(): Promise<void> {
   loading.value = true;
   gameStore.clearCurrent();
   const gameDetail = await gameStore.fetchGame(gid, signal.value);
-  if (!gameDetail || !gameAccessService.canEditGame(userStore.currentUser, gameDetail)) {
+  if (!gameDetail || !gameAccessService.canEditGame(currentUser.value, gameDetail)) {
     router.replace({ name: 'NotFound' });
 
     return;

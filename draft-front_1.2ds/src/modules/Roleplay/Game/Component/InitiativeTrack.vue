@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { useUserStore } from '@/modules/Core/User/Store/users';
-import { useChatStore } from '@/modules/Messages/Chat/Store/chat';
+import { useCurrentUser } from '@/modules/Core/User/init';
+import { useChatChannel } from '@/modules/Messages/Chat/init';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 import type { GameStatus } from '@/modules/Roleplay/Game/Enum/GameStatus';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
@@ -21,7 +21,7 @@ import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance
 import { ACTION_POINTS_CODE } from '@/modules/Roleplay/Game/Constant/Combat/ACTION_POINTS_CODE';
 
 import { bloodLossService } from '@/modules/Roleplay/Game/Service/Instance/bloodLossService';
-import { ACCUMULATED_DAMAGE_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
+import { ACCUMULATED_DAMAGE_STATE_CODE } from '@/modules/Roleplay/Rule/init';
 
 import { stateRuntimeEffectsService } from '@/modules/Roleplay/Character/init';
 import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
@@ -79,8 +79,8 @@ const emit = defineEmits<{
   'overlay-changed': [];
 }>();
 
-const userStore = useUserStore();
-const chatStore = useChatStore();
+const { currentUser } = useCurrentUser();
+const chatStore = useChatChannel();
 const combatThread = useCombatChatThread(() => props.gameId);
 const sendChat = combatChatSendService.sendCombatChat(props.gameId);
 
@@ -99,8 +99,6 @@ const pendingEffectsByEntity = ref<Record<CombatEntityKey, PendingActionEffect[]
 
 // Оверлеи боевых изменений участников: для текущего Истощения (сумма состояния 'exhaustion').
 const overlays = ref<GameCombatOverlay[]>([]);
-
-const currentUser = computed(() => userStore.currentUser);
 
 const activeParticipant = computed(() => {
   const data = initiative.value;

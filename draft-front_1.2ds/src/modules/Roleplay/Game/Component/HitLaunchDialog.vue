@@ -30,14 +30,14 @@ import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/Chara
 import type { ISpatialResolver } from '@/modules/Roleplay/Game/Interface/ISpatialResolver';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { StateSpec } from '@/modules/Roleplay/Rule/Dto/State/StateSpec';
-import { CHECK_HIT_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
+import { CHECK_HIT_CODE } from '@/modules/Roleplay/Rule/init';
 import {
   ACCUMULATED_DAMAGE_STATE_CODE,
   EXHAUSTION_STATE_CODE,
   STUNNED_STATE_CODE,
   WOUND_STATE_CODE,
-} from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
-import { CHARACTERISTIC_BASE_RANGE } from '@/modules/Roleplay/Character/Constant/CHARACTERISTIC_BASE_RANGE';
+} from '@/modules/Roleplay/Rule/init';
+import { CHARACTERISTIC_BASE_RANGE } from '@/modules/Roleplay/Character/init';
 import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
 
 import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
@@ -71,15 +71,15 @@ import {
   turnAction,
 } from '@/modules/Roleplay/Game/Utils/combatActions';
 import { ATTACK_CALC_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Attack/ATTACK_CALC_ATTACHMENT_TYPE';
-import { damageTypeSpecService } from '@/modules/Roleplay/Rule/Service/Instance/damageTypeSpecService';
+import { damageTypeSpecService } from '@/modules/Roleplay/Rule/init';
 import { injuryCheckService } from '@/modules/Roleplay/Game/Service/Instance/injuryCheckService';
 
 import { exhaustionCheckService } from '@/modules/Roleplay/Game/Service/Instance/exhaustionCheckService';
 
 import { stateRuntimeEffectsService } from '@/modules/Roleplay/Character/init';
 import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/actionEffectService';
-import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/Service/Instance/aggregateSourceDeltasService';
-import { ADVANTAGE_SOURCE_MANUAL } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
+import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/init';
+import { ADVANTAGE_SOURCE_MANUAL } from '@/modules/Roleplay/Rule/init';
 import { processSessionService } from '@/modules/Roleplay/Game/Service/Instance/processSessionService';
 import { asProcessAbilitySpec } from '@/modules/Roleplay/Game/Utils/combatActions';
 import { ACTION_POINTS_CODE } from '@/modules/Roleplay/Game/Constant/Combat/ACTION_POINTS_CODE';

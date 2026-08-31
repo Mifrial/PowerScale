@@ -4,7 +4,7 @@ import { simpleCheckRollService } from '@/modules/Roleplay/Game/Service/Instance
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
 import type { DiceRollResult } from '@/modules/Roleplay/Game/Dto/DiceRollResult';
-import { CHECK_SIMPLE_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
+import { CHECK_SIMPLE_CODE } from '@/modules/Roleplay/Rule/init';
 
 const RULES: Rule[] = [
   {

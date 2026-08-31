@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { useAuthStore } from '@/modules/Core/Auth/Store/auth';
-import { useUserStore } from '@/modules/Core/User/Store/users';
+import { useCurrentUser } from '@/modules/Core/User/init';
 import { getCharacterApi } from '@/modules/Roleplay/Character/init';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 import { GAME_MEMBERSHIP_STATUS_LABEL } from '@/modules/Roleplay/Game/Constant/GameMembershipStatus/GAME_MEMBERSHIP_STATUS';
 import { GAME_MEMBERSHIP_STATUS_COLOR } from '@/modules/Roleplay/Game/Constant/GameMembershipStatus/GAME_MEMBERSHIP_STATUS';
-import { CHARACTER_STATUS_OPTIONS } from '@/modules/Roleplay/Character/Constant/CHARACTER_STATUS_OPTIONS';
-import { CHARACTER_STATUS_COLOR } from '@/modules/Roleplay/Character/Constant/CHARACTER_STATUS_COLOR';
+import { CHARACTER_STATUS_OPTIONS } from '@/modules/Roleplay/Character/init';
+import { CHARACTER_STATUS_COLOR } from '@/modules/Roleplay/Character/init';
 import { sheetAccessService } from '@/modules/Roleplay/Character/init';
 import type { SheetVisibility } from '@/modules/Roleplay/Character/Dto/SheetVisibility';
 import type { SheetAccessContext } from '@/modules/Roleplay/Character/Interface/SheetAccessContext';
@@ -44,10 +43,7 @@ const props = defineProps<{
   gameStatus: GameStatus;
 }>();
 
-const auth = useAuthStore();
-const userStore = useUserStore();
-
-const currentUser = computed(() => userStore.currentUser);
+const { currentUser, userId } = useCurrentUser();
 
 const memberships = ref<GameCharacterMembership[]>([]);
 const actualById = ref<Record<number, CharacterVersion>>({});
@@ -198,7 +194,7 @@ async function openSubmitDialog(): Promise<void> {
   const inGame = new Set(memberships.value.map((membership) => membership.characterId));
   candidateCharacters.value = all.filter(
     (character) =>
-      character.ownerId === auth.userId &&
+      character.ownerId === userId.value &&
       character.status === 'ready' &&
       character.active &&
       !inGame.has(character.id),

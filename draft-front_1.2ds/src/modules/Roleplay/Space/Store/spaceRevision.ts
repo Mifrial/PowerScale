@@ -6,9 +6,10 @@ import type { RevisionKind } from '@/modules/Roleplay/Space/Enum/RevisionKind';
 import type { RevisionContext } from '@/modules/Roleplay/Space/Dto/RevisionContext';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { getSpaceApi } from '@/modules/Roleplay/Space/init';
-import { useDraftRuleStore } from '@/modules/Roleplay/Rule/Store/draftRules';
+import { useRuleDrafts } from '@/modules/Roleplay/Rule/init';
 
 export const useSpaceRevisionStore = defineStore('spaceRevision', () => {
+  const drafts = useRuleDrafts();
   const revisionsMeta = ref<Map<number, SpaceRevisionMeta[]>>(new Map());
   const cachedRevisions = ref<Map<string, SpaceRevision<Rule>>>(new Map());
 
@@ -28,9 +29,8 @@ export const useSpaceRevisionStore = defineStore('spaceRevision', () => {
 
     if (ctx.kind === 'rev') return published;
 
-    const draftStore = useDraftRuleStore();
-    const draftRules = draftStore.getDraftRules(ctx.spaceId);
-    const removedCodes = new Set(draftStore.getRemovedCodes(ctx.spaceId));
+    const draftRules = drafts.getDraftRules(ctx.spaceId);
+    const removedCodes = new Set(drafts.getRemovedCodes(ctx.spaceId));
     if (draftRules.length === 0 && removedCodes.size === 0) return published;
 
     const draftMap = new Map(draftRules.map((r) => [r.id, r]));

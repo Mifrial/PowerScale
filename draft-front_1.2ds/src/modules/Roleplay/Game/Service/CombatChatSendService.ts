@@ -1,11 +1,11 @@
 import type { ChatAttachment } from '@/modules/Messages/Chat/Dto/ChatAttachment';
 import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
-import { useChatStore } from '@/modules/Messages/Chat/Store/chat';
+import { useChatChannel } from '@/modules/Messages/Chat/init';
 import { useCombatChatThread } from '@/modules/Roleplay/Game/Composables/useCombatChatThread';
 
 export class CombatChatSendService {
   sendCombatChat(gameId: number) {
-    const store = useChatStore();
+    const store = useChatChannel();
 
     return (
       content: string,

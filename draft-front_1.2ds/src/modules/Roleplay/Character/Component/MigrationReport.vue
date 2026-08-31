@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { MigrationResult } from '@/modules/Roleplay/Character/Service/CharacterMigrationService';
+import type { MigrationResult } from '@/modules/Roleplay/Character/Dto/MigrationResult';
 
 const props = defineProps<{
   result: MigrationResult;

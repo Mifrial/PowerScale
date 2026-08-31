@@ -6,7 +6,7 @@ import type { UpdateCharacterData } from '@/modules/Roleplay/Character/Dto/Edito
 import type { SheetVisibility } from '@/modules/Roleplay/Character/Dto/SheetVisibility';
 import type { AddCustomRuleData } from '@/modules/Roleplay/Character/Dto/AddCustomRuleData';
 import type { UpdateCustomRuleData } from '@/modules/Roleplay/Character/Dto/UpdateCustomRuleData';
-import type { MigrationResult } from '@/modules/Roleplay/Character/Service/CharacterMigrationService';
+import type { MigrationResult } from '@/modules/Roleplay/Character/Dto/MigrationResult';
 
 export interface ICharacterApi {
   getCharacters(signal?: AbortSignal): Promise<Character[]>;

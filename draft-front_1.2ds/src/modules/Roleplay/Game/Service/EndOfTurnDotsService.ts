@@ -2,11 +2,7 @@ import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/Characte
 import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
 import type { StateSpec } from '@/modules/Roleplay/Rule/Dto/State/StateSpec';
 import { characterOverviewService } from '@/modules/Roleplay/Character/init';
-import {
-  EXHAUSTION_STATE_CODE,
-  STUNNED_STATE_CODE,
-  WOUND_STATE_CODE,
-} from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
+import { EXHAUSTION_STATE_CODE, STUNNED_STATE_CODE, WOUND_STATE_CODE } from '@/modules/Roleplay/Rule/init';
 import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
 
 import { exhaustionCheckService } from '@/modules/Roleplay/Game/Service/Instance/exhaustionCheckService';
@@ -16,16 +12,18 @@ import { injuryCheckService } from '@/modules/Roleplay/Game/Service/Instance/inj
 import { dotTickMathService } from '@/modules/Roleplay/Game/Service/Instance/dotTickMathService';
 
 import { formatDotTickMessage, buildDotTickAttachment } from '@/modules/Roleplay/Game/Utils/dotTickMessage';
-import { getGameApi } from '@/modules/Roleplay/Game/init';
+import type { IGameApi } from '@/modules/Roleplay/Game/Interface/IGameApi';
 import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
 
 import { damageTypeHooksService } from '@/modules/Roleplay/Game/Service/Instance/damageTypeHooksService';
 
-import { damageTypeSpecService } from '@/modules/Roleplay/Rule/Service/Instance/damageTypeSpecService';
-import { ACCUMULATED_DAMAGE_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
+import { damageTypeSpecService } from '@/modules/Roleplay/Rule/init';
+import { ACCUMULATED_DAMAGE_STATE_CODE } from '@/modules/Roleplay/Rule/init';
 
 import type { ApplyEndOfTurnDotsArgs } from '@/modules/Roleplay/Game/Dto/ApplyEndOfTurnDotsArgs';
 export class EndOfTurnDotsService {
+  constructor(private readonly resolveGameApi: () => IGameApi) {}
+
   private async writeAccumulatedDamage(
     args: ApplyEndOfTurnDotsArgs,
     version: CharacterVersion,
@@ -35,14 +33,14 @@ export class EndOfTurnDotsService {
     if (!rule) return null;
     const index = version.states.findIndex((state) => state.stateRuleId === rule.id);
     if (amount <= 0) {
-      return index >= 0 ? getGameApi().removeCombatState(args.gameId, args.targetKey, index) : null;
+      return index >= 0 ? this.resolveGameApi().removeCombatState(args.gameId, args.targetKey, index) : null;
     }
 
     const state = { stateRuleId: rule.id, dimensionalValue: { base: amount, size: 0 } };
 
     return index >= 0
-      ? getGameApi().replaceCombatState(args.gameId, args.targetKey, index, state)
-      : getGameApi().addCombatState(args.gameId, args.targetKey, state);
+      ? this.resolveGameApi().replaceCombatState(args.gameId, args.targetKey, index, state)
+      : this.resolveGameApi().addCombatState(args.gameId, args.targetKey, state);
   }
 
   private async addNumericState(
@@ -57,7 +55,7 @@ export class EndOfTurnDotsService {
     const independent = (rule.spec as StateSpec | undefined)?.aggregation === 'independent';
     const index = version.states.findIndex((state) => state.stateRuleId === rule.id);
     if (!independent && index >= 0) {
-      return getGameApi().setCombatStateValue(
+      return this.resolveGameApi().setCombatStateValue(
         args.gameId,
         args.targetKey,
         index,
@@ -65,7 +63,7 @@ export class EndOfTurnDotsService {
       );
     }
 
-    return getGameApi().addCombatState(args.gameId, args.targetKey, { stateRuleId: rule.id, value: amount });
+    return this.resolveGameApi().addCombatState(args.gameId, args.targetKey, { stateRuleId: rule.id, value: amount });
   }
 
   async applyEndOfTurnDots(args: ApplyEndOfTurnDotsArgs): Promise<GameCombatOverlay | null> {
@@ -76,11 +74,11 @@ export class EndOfTurnDotsService {
       const step = advances[index];
       if (step.kind === 'skip') continue;
       if (step.kind === 'wait') {
-        overlay = await getGameApi().replaceCombatState(args.gameId, args.targetKey, index, step.next);
+        overlay = await this.resolveGameApi().replaceCombatState(args.gameId, args.targetKey, index, step.next);
       } else if (step.next) {
-        overlay = await getGameApi().replaceCombatState(args.gameId, args.targetKey, index, step.next);
+        overlay = await this.resolveGameApi().replaceCombatState(args.gameId, args.targetKey, index, step.next);
       } else {
-        overlay = await getGameApi().removeCombatState(args.gameId, args.targetKey, index);
+        overlay = await this.resolveGameApi().removeCombatState(args.gameId, args.targetKey, index);
       }
       if (overlay) version = combatOverlayService.mergeCombatOverlay(version, overlay);
     }

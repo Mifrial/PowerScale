@@ -5,7 +5,7 @@ import AttackTile from '@/modules/Roleplay/Character/Component/Detail/Attacks/At
 import DefenseValue from '@/modules/Roleplay/Character/Component/Detail/Defense/DefenseValue.vue';
 import ArmorTile from '@/modules/Roleplay/Character/Component/Detail/Defense/ArmorTile.vue';
 import RuleLink from '@/modules/Roleplay/Character/Component/Detail/RuleLink.vue';
-import RuleSlider from '@/modules/Roleplay/Rule/Component/RuleSlider.vue';
+import { RuleSlider } from '@/modules/Roleplay/Rule/init';
 import { useRuleDetailSlider } from '@/modules/Roleplay/Character/Composables/useRuleDetailSlider';
 import type { CharacterCombatSheetPane } from '@/modules/Roleplay/Character/Enum/CharacterCombatSheetPane';
 import type { CharacterOverview } from '@/modules/Roleplay/Character/Dto/Overview/CharacterOverview';

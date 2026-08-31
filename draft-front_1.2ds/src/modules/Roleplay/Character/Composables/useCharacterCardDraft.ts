@@ -9,8 +9,7 @@ import { useCharacterDraftStore } from '@/modules/Roleplay/Character/Store/chara
 import { useCharacterStore } from '@/modules/Roleplay/Character/Store/characters';
 import { getCharacterApi } from '@/modules/Roleplay/Character/init';
 import { characterSheetValidationService } from '@/modules/Roleplay/Character/Service/Instance/characterSheetValidationService';
-import { getRuleApi } from '@/modules/Roleplay/Rule/init';
-import { useKeywordStore } from '@/modules/Roleplay/Rule/Store/keywords';
+import { getRuleApi, useKeywords } from '@/modules/Roleplay/Rule/init';
 
 /**
  * Черновик и быстрое сохранение с карточки персонажа: экип (и дальше другие правки)
@@ -24,7 +23,7 @@ export function useCharacterCardDraft(
 ) {
   const draftStore = useCharacterDraftStore();
   const characterStore = useCharacterStore();
-  const keywordStore = useKeywordStore();
+  const { keywords, error: keywordsError, fetchTags } = useKeywords();
   const mechanics = ref<Mechanic[]>([]);
   const saving = ref(false);
   const saveError = ref<string | null>(null);
@@ -62,7 +61,7 @@ export function useCharacterCardDraft(
   const model = computed(() => {
     if (!build.value || rules.value.length === 0) return null;
 
-    return characterEditorService.build(build.value, rules.value, config.value, keywordStore.keywords, mechanics.value);
+    return characterEditorService.build(build.value, rules.value, config.value, keywords.value, mechanics.value);
   });
 
   const displayVersion = computed<CharacterVersion | null>(() => {
@@ -70,13 +69,7 @@ export function useCharacterCardDraft(
     if (!current) return null;
     if (!draft.value?.dirty || !build.value || rules.value.length === 0) return current.version;
 
-    return characterEditorService.toVersion(
-      build.value,
-      rules.value,
-      config.value,
-      keywordStore.keywords,
-      mechanics.value,
-    );
+    return characterEditorService.toVersion(build.value, rules.value, config.value, keywords.value, mechanics.value);
   });
 
   const validationIssues = computed(() =>
@@ -130,7 +123,7 @@ export function useCharacterCardDraft(
         entry.build,
         rules.value,
         entry.config,
-        keywordStore.keywords,
+        keywords.value,
         mechanics.value,
       );
       const updated = await getCharacterApi().updateCharacter(
@@ -151,8 +144,8 @@ export function useCharacterCardDraft(
     catalogError.value = null;
     try {
       const pending: Promise<void>[] = [];
-      if (keywordStore.keywords.length === 0 || keywordStore.error) {
-        pending.push(keywordStore.fetchTags(signal.value));
+      if (keywords.value.length === 0 || keywordsError.value) {
+        pending.push(fetchTags(signal.value));
       }
       pending.push(
         getRuleApi()
@@ -162,7 +155,7 @@ export function useCharacterCardDraft(
           }),
       );
       await Promise.all(pending);
-      if (keywordStore.error) catalogError.value = keywordStore.error;
+      if (keywordsError.value) catalogError.value = keywordsError.value;
     } catch (e) {
       if (e instanceof DOMException && e.name === 'AbortError') return;
       mechanics.value = [];
@@ -184,7 +177,7 @@ export function useCharacterCardDraft(
     saving,
     saveError,
     catalogError,
-    keywords: computed(() => keywordStore.keywords),
+    keywords,
     ensureDraft,
     save,
     retryCatalog: loadCatalog,

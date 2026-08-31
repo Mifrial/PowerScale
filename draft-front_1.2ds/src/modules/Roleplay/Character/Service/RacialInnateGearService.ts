@@ -7,11 +7,12 @@ import type { RaceSpec } from '@/modules/Roleplay/Rule/Dto/Race/RaceSpec';
 import type { SpeciesSpec } from '@/modules/Roleplay/Rule/Dto/Race/SpeciesSpec';
 import type { RaceAbilityRef } from '@/modules/Roleplay/Rule/Dto/Race/RaceAbilityRef';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import { raceSpecService } from '@/modules/Roleplay/Rule/Service/Instance/raceSpecService';
+import { raceSpecService } from '@/modules/Roleplay/Rule/init';
 
 const WEAPON_PROFICIENCY_CODE = 'vladenie-oruzhiem';
 
 export class RacialInnateGearService {
+  constructor(private readonly races = raceSpecService) {}
   /** Item grants from automatic racial abilities: later (race) overrides earlier (species). */
   racialItemGrants(raceRuleId: string | null, rules: Rule[]): Map<string, number> {
     const result = new Map<string, number>();
@@ -136,7 +137,7 @@ export class RacialInnateGearService {
     const spec = raceRule.spec as RaceSpec | SpeciesSpec | undefined;
     const parentCode = spec?.parent_race_code ?? null;
     const own = spec?.abilities ?? [];
-    const inherited = raceSpecService.collectInheritedAbilities(parentCode, byCode);
+    const inherited = this.races.collectInheritedAbilities(parentCode, byCode);
     // Дальний вид → ближний вид → раса: последний item_code побеждает.
     const ordered: RaceAbilityRef[] = [...inherited].reverse();
     ordered.push(...own);

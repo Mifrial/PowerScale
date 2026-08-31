@@ -9,7 +9,7 @@ import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber
 import { ROLL_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ATTACHMENT_TYPE';
 import { resolveAppliedMechanicNames } from '@/modules/Roleplay/Game/Utils/appliedRollMechanics';
 import { ROLL_ADV_MAX } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ADV_MAX';
-import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/Service/Instance/aggregateSourceDeltasService';
+import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/init';
 import { ROLL_DICE_COUNT_MAX } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_DICE_COUNT_MAX';
 import { ROLL_DICE_COUNT_MIN } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_DICE_COUNT_MIN';
 import { ROLL_DIE_FACES_MAX } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_DIE_FACES_MAX';

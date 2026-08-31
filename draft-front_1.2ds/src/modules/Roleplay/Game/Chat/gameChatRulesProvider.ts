@@ -1,9 +1,9 @@
 import { getRuleApi } from '@/modules/Roleplay/Rule/init';
-import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
 import type { IChatRulesProvider } from '@/modules/Messages/Chat/Interface/IChatRulesProvider';
 import type { Game } from '@/modules/Roleplay/Game/Dto/Game';
 import type { IGameApi } from '@/modules/Roleplay/Game/Interface/IGameApi';
 import { gameChatRulesContextService } from '@/modules/Roleplay/Game/Service/Instance/gameChatRulesContextService';
+import { useSpaceRevision } from '@/modules/Roleplay/Space/init';
 
 async function gameApi(): Promise<IGameApi> {
   // Динамический импорт: провайдер регистрируется в Game/init — статический импорт
@@ -29,7 +29,7 @@ export const gameChatRulesProvider: IChatRulesProvider = {
   resolve: async (_type, chatId) => {
     const game = await findGameByChat(chatId);
     if (!game) return null;
-    const revision = await useSpaceRevisionStore().fetchRevision(game.spaceId, game.rulesRevision);
+    const revision = await useSpaceRevision().fetchRevision(game.spaceId, game.rulesRevision);
     const mechanics = await getRuleApi().getMechanics();
 
     return gameChatRulesContextService.buildChatRulesContext(

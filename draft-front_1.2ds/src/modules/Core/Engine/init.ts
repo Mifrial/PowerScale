@@ -14,3 +14,7 @@ export function registerCsrfApi(api: ICSRFApi): void {
 export function getCsrfApi(): ICSRFApi {
   return serviceLocator.get('Core.Engine.Service.CsrfApi');
 }
+
+export function resetRegisteredApis(): void {
+  serviceLocator.reset();
+}

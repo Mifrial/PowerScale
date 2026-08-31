@@ -4,8 +4,7 @@ import { useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { useGameStore } from '@/modules/Roleplay/Game/Store/games';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
-import { useUserStore } from '@/modules/Core/User/Store/users';
-import { accessService } from '@/modules/Core/User/init';
+import { accessService, useCurrentUser } from '@/modules/Core/User/init';
 import { useFilteredRows } from '@/modules/Core/UI/Composables/useFilteredRows';
 import FilterBar from '@/modules/Core/UI/Component/FilterBar.vue';
 import { filterFields } from '@/modules/Roleplay/Game/Constant/gamesGridManifest';
@@ -17,11 +16,11 @@ import type { GameVisibility } from '@/modules/Roleplay/Game/Enum/GameVisibility
 
 const router = useRouter();
 const store = useGameStore();
-const userStore = useUserStore();
+const { currentUser } = useCurrentUser();
 const { loading } = storeToRefs(store);
 const { signal } = useAbortable();
 
-const canCreate = computed(() => accessService.hasAnyPermission(userStore.currentUser, ['game.create']));
+const canCreate = computed(() => accessService.hasAnyPermission(currentUser.value, ['game.create']));
 
 const { appliedFilters, filteredRows, onFilterChange } = useFilteredRows({
   getItems: () => store.games,

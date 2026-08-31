@@ -1,16 +1,16 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { setActivePinia, createPinia } from 'pinia';
 import { registerSpaceApi, getSpaceApi } from '@/modules/Roleplay/Space/init';
-import { serviceLocator } from '@/modules/Core/Engine/Service/ServiceLocator';
+import { resetRegisteredApis } from '@/modules/Core/Engine/init';
 import { mockSpaceApi } from '@/modules/Roleplay/Space/Mock/mockSpaceApi';
 import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
-import { useDraftRuleStore } from '@/modules/Roleplay/Rule/Store/draftRules';
+import { useRuleDrafts } from '@/modules/Roleplay/Rule/init';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
 beforeEach(() => {
   localStorage.clear();
   setActivePinia(createPinia());
-  serviceLocator.reset();
+  resetRegisteredApis();
   registerSpaceApi(mockSpaceApi);
 });
 
@@ -37,13 +37,13 @@ describe('effectiveRules', () => {
 
   it('в контексте draft применяет изменения по id и добавляет новые в конец', async () => {
     const store = useSpaceRevisionStore();
-    const draftStore = useDraftRuleStore();
+    const drafts = useRuleDrafts();
     const rev = await store.fetchRevision(1, 5);
     const published = rev.rules;
 
     const base = published[0];
-    draftStore.saveRule(1, { ...base, name: 'Изменённое' });
-    draftStore.saveRule(1, freshRule('draft-new'));
+    drafts.saveRule(1, { ...base, name: 'Изменённое' });
+    drafts.saveRule(1, freshRule('draft-new'));
     store.activeContext = { spaceId: 1, revision: 5, kind: 'draft' };
 
     const merged = store.effectiveRules;
@@ -54,10 +54,10 @@ describe('effectiveRules', () => {
 
   it('в draft скрывает правила из removedCodes', async () => {
     const store = useSpaceRevisionStore();
-    const draftStore = useDraftRuleStore();
+    const drafts = useRuleDrafts();
     const rev = await store.fetchRevision(1, 5);
     const gone = rev.rules[0];
-    draftStore.setRemovedCodes(1, [gone.code]);
+    drafts.setRemovedCodes(1, [gone.code]);
     store.activeContext = { spaceId: 1, revision: 5, kind: 'draft' };
 
     expect(store.effectiveRules.some((rule) => rule.code === gone.code)).toBe(false);
@@ -132,8 +132,8 @@ describe('unpublished space', () => {
   it('effectiveRules в draft — только правила черновика', async () => {
     const space = await getSpaceApi().createSpace({ name: 'Из файла', description: '' });
     const store = useSpaceRevisionStore();
-    const draftStore = useDraftRuleStore();
-    draftStore.saveRule(space.id, {
+    const drafts = useRuleDrafts();
+    drafts.saveRule(space.id, {
       id: 'imported-from-file',
       code: 'from-file',
       type: 'simple',

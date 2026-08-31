@@ -2,6 +2,7 @@ import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import pluginVue from 'eslint-plugin-vue';
 import eslintConfigPrettier from 'eslint-config-prettier';
+import noForeignModuleInternals from './eslint/no-foreign-module-internals.js';
 
 export default tseslint.config(
   {
@@ -20,6 +21,13 @@ export default tseslint.config(
     },
   },
   {
+    plugins: {
+      powerscale: {
+        rules: {
+          'no-foreign-module-internals': noForeignModuleInternals,
+        },
+      },
+    },
     rules: {
       eqeqeq: ['error', 'always', { null: 'ignore' }],
       'padding-line-between-statements': ['error', { blankLine: 'always', prev: '*', next: 'return' }],
@@ -39,6 +47,7 @@ export default tseslint.config(
       '@typescript-eslint/array-type': ['error', { default: 'array' }],
       'vue/block-order': ['error', { order: ['script', 'template', 'style'] }],
       'vue/require-explicit-emits': 'error',
+      'powerscale/no-foreign-module-internals': 'error',
     },
   },
   {

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
-import { serviceLocator } from '@/modules/Core/Engine/Service/ServiceLocator';
+import { resetRegisteredApis } from '@/modules/Core/Engine/init';
 import { registerSpaceApi, ACTUAL_RULES_SPACE_CODE } from '@/modules/Roleplay/Space/init';
 import { registerRuleApi } from '@/modules/Roleplay/Rule/init';
 import { mockSpaceApi } from '@/modules/Roleplay/Space/Mock/mockSpaceApi';
@@ -9,7 +9,7 @@ import { actualRulesChatRulesProvider } from '@/modules/Roleplay/Game/Chat/actua
 
 beforeEach(() => {
   setActivePinia(createPinia());
-  serviceLocator.reset();
+  resetRegisteredApis();
 });
 
 describe('actualRulesChatRulesProvider', () => {

@@ -1,20 +1,18 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { avatarColors } from '@/modules/Messages/Chat/Constant/avatarColors';
-import { useUserStore } from '@/modules/Core/User/Store/users';
-import { displayName } from '@/modules/Core/User/Utils/displayName';
+import { displayName, useUserCatalog, UserProfileSlider } from '@/modules/Core/User/init';
 import type { InlineSegment } from '@/modules/Messages/Chat/Dto/InlineSegment';
-import UserProfileSlider from '@/modules/Core/User/Component/UserProfileSlider.vue';
 
 const props = defineProps<{
   segment: Extract<InlineSegment, { kind: 'token' }>;
 }>();
 
-const userStore = useUserStore();
+const catalog = useUserCatalog();
 const sliderOpen = ref(false);
 
 const login = computed(() => props.segment.params[0] ?? '');
-const user = computed(() => userStore.users.find((u) => u.login === login.value));
+const user = computed(() => catalog.findByLogin(login.value));
 
 const label = computed(() =>
   user.value ? displayName(user.value.name, user.value.surname, user.value.login) : login.value,

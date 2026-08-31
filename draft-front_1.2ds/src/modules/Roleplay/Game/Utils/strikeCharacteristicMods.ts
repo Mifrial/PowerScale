@@ -3,8 +3,8 @@ import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber
 import type { CharacterOverview } from '@/modules/Roleplay/Character/Dto/Overview/CharacterOverview';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
-import { ADVANTAGE_SOURCE_STATE } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
-import { CharacteristicNumber } from '@/modules/Roleplay/Rule/Value/CharacteristicNumber';
+import { ADVANTAGE_SOURCE_STATE } from '@/modules/Roleplay/Rule/init';
+import { CharacteristicNumber } from '@/modules/Roleplay/Rule/init';
 
 const FALLBACK_MASTERY: DimensionalNumberValue = { base: 3, size: -1 };
 export const STRIKE_STAT_LABEL = 'Ловкость/Восприятие';

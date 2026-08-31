@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { useUserStore } from '@/modules/Core/User/Store/users';
+import { useCurrentUser } from '@/modules/Core/User/init';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 import { sheetAccessService } from '@/modules/Roleplay/Character/init';
 import { gameTimeLabel } from '@/modules/Roleplay/Game/Utils/gameTime';
@@ -29,7 +29,7 @@ const props = defineProps<{
   rulesRevision: number | null;
 }>();
 
-const userStore = useUserStore();
+const { currentUser } = useCurrentUser();
 
 const chronicle = ref<Chronicle | null>(null);
 const entries = ref<ChronicleEntry[]>([]);
@@ -42,8 +42,6 @@ const actionError = ref<string | null>(null);
 const formOpen = ref(false);
 const formInitial = ref<ChronicleEntry | null>(null);
 const confirmDeleteId = ref<number | null>(null);
-
-const currentUser = computed<User | null>(() => userStore.currentUser);
 
 const confirmDeleteOpen = computed({
   get: () => confirmDeleteId.value !== null,

@@ -16,6 +16,8 @@ export function getSpaceApi(): ISpaceApi {
 export { ACTUAL_RULES_SPACE_CODE } from '@/modules/Roleplay/Space/Constant/ACTUAL_RULES_SPACE_CODE';
 export { spaceContextKey } from '@/modules/Roleplay/Space/Constant/spaceContextKey';
 export { useSpaceContext } from '@/modules/Roleplay/Space/Composables/useSpaceContext';
+export { useSpaceCatalog } from '@/modules/Roleplay/Space/Composables/useSpaceCatalog';
+export { useSpaceRevision } from '@/modules/Roleplay/Space/Composables/useSpaceRevision';
 export type { ISpaceContext } from '@/modules/Roleplay/Space/Interface/ISpaceContext';
 export { abilitySectionTreeService } from '@/modules/Roleplay/Space/Service/Instance/abilitySectionTreeService';
 

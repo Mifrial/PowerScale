@@ -1,12 +1,12 @@
 import type { ActionEffect } from '@/modules/Roleplay/Rule/Dto/Ability/ActionEffect';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
-import { CHARACTERISTIC_BASE_RANGE } from '@/modules/Roleplay/Character/Constant/CHARACTERISTIC_BASE_RANGE';
+import { CHARACTERISTIC_BASE_RANGE } from '@/modules/Roleplay/Character/init';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
 import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
-import { actionEffectLabelService } from '@/modules/Roleplay/Rule/Service/Instance/actionEffectLabelService';
-import { ADVANTAGE_SOURCE_CIRCUMSTANCES } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
+import { actionEffectLabelService } from '@/modules/Roleplay/Rule/init';
+import { ADVANTAGE_SOURCE_CIRCUMSTANCES } from '@/modules/Roleplay/Rule/init';
 
 export class ActionEffectService {
   effectsOf(rule: Rule | null | undefined): ActionEffect[] {

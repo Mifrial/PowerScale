@@ -7,13 +7,13 @@ import type { GameInitiativeParticipant } from '@/modules/Roleplay/Game/Dto/Game
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
-import { CharacteristicNumber } from '@/modules/Roleplay/Rule/Value/CharacteristicNumber';
+import { CharacteristicNumber } from '@/modules/Roleplay/Rule/init';
 import { rollService } from '@/modules/Roleplay/Game/Service/Instance/rollService';
 import { rollEngine } from '@/modules/Roleplay/Game/Service/Roll/Instance/rollEngine';
 import { ROLL_RULE_CODE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_RULE_CODE';
-import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/Service/Instance/aggregateSourceDeltasService';
-import { CHECK_INITIATIVE_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
-import { checkResolutionService } from '@/modules/Roleplay/Rule/Service/Instance/checkResolutionService';
+import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/init';
+import { CHECK_INITIATIVE_CODE } from '@/modules/Roleplay/Rule/init';
+import { checkResolutionService } from '@/modules/Roleplay/Rule/init';
 
 /** Способ определения инициативы участника в окне проверки. */
 export type InitiativeRollMethod = 'characteristic' | 'free' | 'fixed';

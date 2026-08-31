@@ -7,12 +7,14 @@ import {
   REVISION_FILE_FORMAT,
   REVISION_FILE_FORMAT_VERSION,
 } from '@/modules/Roleplay/Space/Constant/REVISION_FILE_FORMAT';
-import type { RuleDiffService } from '@/modules/Roleplay/Rule/Service/RuleDiffService';
-import { RULE_TYPE_LABELS } from '@/modules/Roleplay/Rule/init';
+import type { ruleDiffService } from '@/modules/Roleplay/Rule/init';
 import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
 
 export class RevisionFileService {
-  constructor(private readonly ruleDiff: RuleDiffService) {}
+  constructor(
+    private readonly ruleDiff: typeof ruleDiffService,
+    private readonly typeLabels: Readonly<Record<string, string>>,
+  ) {}
 
   serialize(revision: SpaceRevision<Rule>): RevisionFile {
     return {
@@ -124,7 +126,7 @@ export class RevisionFileService {
     if (typeof value !== 'object' || value === null) throw new Error('Некорректное правило в файле');
     const row = value as Record<string, unknown>;
     if (typeof row.id !== 'string' || typeof row.code !== 'string') throw new Error('Некорректное правило в файле');
-    if (typeof row.type !== 'string' || !(row.type in RULE_TYPE_LABELS)) {
+    if (typeof row.type !== 'string' || !(row.type in this.typeLabels)) {
       throw new Error(`Неизвестный тип правила: ${String(row.type)}`);
     }
     if (typeof row.name !== 'string' || typeof row.description !== 'string') {

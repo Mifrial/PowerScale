@@ -6,7 +6,7 @@ import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingAct
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
-import { mechanicEngine } from '@/modules/Roleplay/Rule/Service/Instance/mechanicEngine';
+import { mechanicEngine } from '@/modules/Roleplay/Rule/init';
 import type { MovementStateMechanicContext } from '@/modules/Roleplay/Rule/Dto/MovementStateMechanicContext';
 import type { CurrentSpeed } from '@/modules/Roleplay/Game/Dto/CurrentSpeed';
 import type { CombatActionOption } from '@/modules/Roleplay/Game/Utils/combatActions';
@@ -16,15 +16,16 @@ import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/Dimension
 import type { ISpatialResolver } from '@/modules/Roleplay/Game/Interface/ISpatialResolver';
 import { ActionOperationResolutionService } from '@/modules/Roleplay/Game/Service/ActionOperationResolutionService';
 import { MovementStateService } from '@/modules/Roleplay/Game/Service/MovementStateService';
-import { characterOverviewService } from '@/modules/Roleplay/Character/Service/Instance/characterOverviewService';
-import { movementContextService } from '@/modules/Roleplay/Character/Service/Instance/movementContextService';
-import { getGameApi } from '@/modules/Roleplay/Game/init';
+import { characterOverviewService } from '@/modules/Roleplay/Character/init';
+import { movementContextService } from '@/modules/Roleplay/Character/init';
+import type { IGameApi } from '@/modules/Roleplay/Game/Interface/IGameApi';
 import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
 import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/actionEffectService';
 import { formatAttackActionMessage } from '@/modules/Roleplay/Game/Utils/attackDamageMessage';
 
 export class ActionExecutionService {
   constructor(
+    private readonly resolveGameApi: () => IGameApi,
     private readonly operationResolutionService = new ActionOperationResolutionService(),
     private readonly movementStateService = new MovementStateService(),
   ) {}
@@ -81,12 +82,17 @@ export class ActionExecutionService {
       baseCost: input.actionPointCost,
     });
     const nextResource = attackDamageService.spendActionPoints(resource.current, input.actionPointCost);
-    const overlay = await getGameApi().setCombatResource(input.gameId, input.entityKey, resource.ruleId, nextResource);
+    const overlay = await this.resolveGameApi().setCombatResource(
+      input.gameId,
+      input.entityKey,
+      resource.ruleId,
+      nextResource,
+    );
     const effects = [
       ...actionEffectService.consumeResource(resolved.remainingEffects, 'action-points', input.actionPointCost),
       ...actionEffectService.effectsAfterAction(input.rule),
     ];
-    await getGameApi().setCombatActionEffects(input.gameId, input.entityKey, effects);
+    await this.resolveGameApi().setCombatActionEffects(input.gameId, input.entityKey, effects);
     const operationResolutionService = input.spatialResolver
       ? new ActionOperationResolutionService(undefined, input.spatialResolver)
       : this.operationResolutionService;
@@ -113,7 +119,7 @@ export class ActionExecutionService {
       mechanicEngine.runEvent('action_resolved', mechanicContext, activeMechanics);
       nextSpeed = mechanicContext.currentSpeed as CurrentSpeed;
     }
-    await getGameApi().setCurrentSpeed(input.gameId, input.entityKey, nextSpeed);
+    await this.resolveGameApi().setCurrentSpeed(input.gameId, input.entityKey, nextSpeed);
     if (input.chatId !== null) {
       await input.sendChat(
         formatAttackActionMessage({

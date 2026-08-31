@@ -11,8 +11,7 @@ import FilterBar from '@/modules/Core/UI/Component/FilterBar.vue';
 import { characterOverviewService } from '@/modules/Roleplay/Character/Service/Instance/characterOverviewService';
 import { useAbilityFavoritesStore } from '@/modules/Roleplay/Character/Store/abilityFavorites';
 import { useRuleDetailSlider } from '@/modules/Roleplay/Character/Composables/useRuleDetailSlider';
-import { useKeywordStore } from '@/modules/Roleplay/Rule/Store/keywords';
-import { ABILITY_TYPE_LABELS } from '@/modules/Roleplay/Rule/init';
+import { ABILITY_TYPE_LABELS, useKeywords } from '@/modules/Roleplay/Rule/init';
 import type { AbilityOverview } from '@/modules/Roleplay/Character/Dto/Overview/AbilityOverview';
 import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
 import DescriptionHtml from '@/modules/Core/UI/Component/DescriptionHtml.vue';
@@ -29,7 +28,7 @@ const props = defineProps<{
 const QUICK_TYPE_TABS: AbilityType[] = ['skill', 'trait', 'spell'];
 
 const favoritesStore = useAbilityFavoritesStore();
-const keywordStore = useKeywordStore();
+const { keywords, fetchTags } = useKeywords();
 const { openRule } = useRuleDetailSlider();
 
 const activeTab = ref<'all' | 'favorites' | AbilityType>('all');
@@ -79,7 +78,7 @@ function costLabel(amount: DimensionalNumberValue | number | null): string | nul
 function keywordsOf(ability: AbilityOverview): Keyword[] {
   if (ability.keywordIds.length === 0) return [];
 
-  return keywordStore.keywords.filter((keyword) => ability.keywordIds.includes(keyword.id));
+  return keywords.value.filter((keyword) => ability.keywordIds.includes(keyword.id));
 }
 
 function isFavorite(ruleId: string): boolean {
@@ -91,8 +90,8 @@ function toggleFavorite(ruleId: string): void {
 }
 
 onMounted(() => {
-  if (keywordStore.keywords.length === 0) {
-    void keywordStore.fetchTags();
+  if (keywords.value.length === 0) {
+    void fetchTags();
   }
 });
 </script>
@@ -118,10 +117,13 @@ onMounted(() => {
 
     <div v-if="rulesLoading && rules.length === 0" class="pa-4 text-medium-emphasis">Загружаем правила…</div>
     <v-expansion-panels v-else-if="filteredAbilities.length" multiple variant="accordion" class="ability-panels">
-      <v-expansion-panel v-for="ability in filteredAbilities" :key="ability.ruleId">
+      <v-expansion-panel v-for="ability in filteredAbilities" :key="ability.instanceKey">
         <v-expansion-panel-title>
           <div class="d-flex align-center ga-2 w-100 pr-2">
             <span class="font-weight-medium">{{ ability.name }}</span>
+            <v-chip v-if="ability.domainLabel" size="x-small" variant="tonal">
+              {{ ability.domainLabel }}
+            </v-chip>
             <v-chip v-if="ability.level > 0 && !ability.hasParameters" size="x-small" variant="tonal" color="primary">
               {{ ability.level }} ур.
             </v-chip>

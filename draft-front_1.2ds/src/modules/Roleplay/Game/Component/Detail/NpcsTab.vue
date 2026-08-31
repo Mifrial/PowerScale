@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { useUserStore } from '@/modules/Core/User/Store/users';
+import { useCurrentUser } from '@/modules/Core/User/init';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 import { sheetAccessService } from '@/modules/Roleplay/Character/init';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
@@ -25,7 +25,7 @@ const props = defineProps<{
   rulesRevision: number | null;
 }>();
 
-const userStore = useUserStore();
+const { currentUser } = useCurrentUser();
 
 const npcs = ref<GameNpc[]>([]);
 const loading = ref(false);
@@ -48,8 +48,6 @@ const visibilityTarget = ref<GameNpc | null>(null);
 
 const migrationOpen = ref(false);
 const migrationTarget = ref<GameNpc | null>(null);
-
-const currentUser = computed<User | null>(() => userStore.currentUser);
 
 const activeNpcs = computed(() => npcs.value.filter((npc) => npc.status === 'active'));
 const proposedNpcs = computed(() => npcs.value.filter((npc) => npc.status === 'proposed'));

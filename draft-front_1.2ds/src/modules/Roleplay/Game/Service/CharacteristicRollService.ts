@@ -6,7 +6,7 @@ import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
 import { rollService } from '@/modules/Roleplay/Game/Service/Instance/rollService';
 import { rollEngine } from '@/modules/Roleplay/Game/Service/Roll/Instance/rollEngine';
 import { rollPoolDefaults } from '@/modules/Roleplay/Game/Utils/initiativeRoll';
-import { checkResolutionService } from '@/modules/Roleplay/Rule/Service/Instance/checkResolutionService';
+import { checkResolutionService } from '@/modules/Roleplay/Rule/init';
 import { checkRollService } from '@/modules/Roleplay/Game/Service/Instance/checkRollService';
 
 import { SIMPLE_CHECK_ZERO_DIFFICULTY } from '@/modules/Roleplay/Game/Constant/Check/SIMPLE_CHECK_ZERO_DIFFICULTY';

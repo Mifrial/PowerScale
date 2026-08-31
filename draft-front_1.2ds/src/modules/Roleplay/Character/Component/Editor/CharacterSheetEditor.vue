@@ -1,13 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { useCharacterDraftStore } from '@/modules/Roleplay/Character/Store/characterDraft';
-import { useKeywordStore } from '@/modules/Roleplay/Rule/Store/keywords';
-import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { characterEditorService } from '@/modules/Roleplay/Character/Service/Instance/characterEditorService';
 import { characterSheetValidationService } from '@/modules/Roleplay/Character/Service/Instance/characterSheetValidationService';
 import { clampAgeYears } from '@/modules/Roleplay/Character/Utils/clampAgeYears';
-import { getRuleApi } from '@/modules/Roleplay/Rule/init';
+import { getRuleApi, useKeywords } from '@/modules/Roleplay/Rule/init';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
@@ -19,11 +17,11 @@ import PersonalityTab from '@/modules/Roleplay/Character/Component/Editor/Person
 import DevelopmentTab from '@/modules/Roleplay/Character/Component/Editor/DevelopmentTab.vue';
 import EditorDescriptionTab from '@/modules/Roleplay/Character/Component/Editor/EditorDescriptionTab.vue';
 import InventoryTab from '@/modules/Roleplay/Character/Component/Editor/InventoryTab.vue';
-import RuleSlider from '@/modules/Roleplay/Rule/Component/RuleSlider.vue';
+import { RuleSlider } from '@/modules/Roleplay/Rule/init';
 import { useRuleDetailSlider } from '@/modules/Roleplay/Character/Composables/useRuleDetailSlider';
 import { characterVersionIntegrityService } from '@/modules/Roleplay/Character/init';
 import type { AbilitySection } from '@/modules/Roleplay/Space/Dto/AbilitySection';
-import { abilitySectionTreeService } from '@/modules/Roleplay/Space/init';
+import { abilitySectionTreeService, useSpaceRevision } from '@/modules/Roleplay/Space/init';
 
 /**
  * Редактор листа персонажа/НПС (переиспользуемый, ТР §7): владеет черновиком (по `draftKey`
@@ -48,8 +46,8 @@ const emit = defineEmits<{
 }>();
 
 const draftStore = useCharacterDraftStore();
-const keywordStore = useKeywordStore();
-const spaceRevisionStore = useSpaceRevisionStore();
+const { keywords, fetchTags } = useKeywords();
+const spaceRevision = useSpaceRevision();
 const { signal } = useAbortable();
 
 const activeTab = ref('race');
@@ -78,13 +76,7 @@ const config = computed(() => draft.value?.config ?? { osTotal: null, orTotal: n
 const model = computed(() => {
   if (!draft.value || rules.value.length === 0) return null;
 
-  return characterEditorService.build(
-    draft.value.build,
-    rules.value,
-    config.value,
-    keywordStore.keywords,
-    mechanics.value,
-  );
+  return characterEditorService.build(draft.value.build, rules.value, config.value, keywords.value, mechanics.value);
 });
 
 const saveReady = computed(() => validationIssues.value.length === 0);
@@ -138,7 +130,7 @@ async function loadRules(spaceId: number, revision: number, abortSignal: AbortSi
   rulesLoading.value = true;
   rulesError.value = null;
   try {
-    const revisionResult = await spaceRevisionStore.fetchRevision(spaceId, revision, abortSignal);
+    const revisionResult = await spaceRevision.fetchRevision(spaceId, revision, abortSignal);
     rules.value = revisionResult.rules;
     sections.value = abilitySectionTreeService.normalize(revisionResult.sections);
   } catch (e) {
@@ -200,7 +192,7 @@ async function finish(): Promise<void> {
       draft.value.build,
       rules.value,
       config.value,
-      keywordStore.keywords,
+      keywords.value,
       mechanics.value,
     );
     await emit('save', version);
@@ -227,7 +219,7 @@ onMounted(() => {
     storageToast.value = true;
     draftStore.acknowledgeStorageDiscarded();
   }
-  if (keywordStore.keywords.length === 0) void keywordStore.fetchTags();
+  if (keywords.value.length === 0) void fetchTags();
   if (mechanics.value.length === 0) {
     void getRuleApi()
       .getMechanics(signal.value)
@@ -317,7 +309,7 @@ onMounted(() => {
           :rules="rules"
           :model="model"
           :draft-key="draftKey"
-          :keywords="keywordStore.keywords"
+          :keywords="keywords"
           :config="config"
         />
         <CharacteristicsTab
@@ -325,7 +317,7 @@ onMounted(() => {
           :build="draft.build"
           :rules="rules"
           :model="model"
-          :keywords="keywordStore.keywords"
+          :keywords="keywords"
           :draft-key="draftKey"
         />
         <BaseTab
@@ -333,7 +325,7 @@ onMounted(() => {
           :build="draft.build"
           :model="model"
           :draft-key="draftKey"
-          :keywords="keywordStore.keywords"
+          :keywords="keywords"
           :rules="rules"
         />
         <PersonalityTab
@@ -341,7 +333,7 @@ onMounted(() => {
           :build="draft.build"
           :model="model"
           :draft-key="draftKey"
-          :keywords="keywordStore.keywords"
+          :keywords="keywords"
           :rules="rules"
         />
         <DevelopmentTab
@@ -349,7 +341,7 @@ onMounted(() => {
           :build="draft.build"
           :model="model"
           :draft-key="draftKey"
-          :keywords="keywordStore.keywords"
+          :keywords="keywords"
           :rules="rules"
           :sections="sections"
         />
@@ -358,7 +350,7 @@ onMounted(() => {
           :build="draft.build"
           :model="model"
           :draft-key="draftKey"
-          :keywords="keywordStore.keywords"
+          :keywords="keywords"
           :rules="rules"
         />
         <EditorDescriptionTab
@@ -375,7 +367,7 @@ onMounted(() => {
         :space-id="draft.build.spaceId"
         :rules-revision="draft.build.rulesRevision"
         :rules="rules"
-        :keywords="keywordStore.keywords"
+        :keywords="keywords"
       />
     </div>
   </template>

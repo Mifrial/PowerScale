@@ -13,9 +13,8 @@ import type { IChatRulesProvider } from '@/modules/Messages/Chat/Interface/IChat
 import type { ChatRulesContext } from '@/modules/Messages/Chat/Dto/ChatRulesContext';
 import { BASE_CHAT_TYPES } from '@/modules/Messages/Chat/Constant/Chat/BASE_CHAT_TYPES';
 import { BASE_CHAT_TABS } from '@/modules/Messages/Chat/Constant/Chat/BASE_CHAT_TABS';
-import { useUserStore } from '@/modules/Core/User/Store/users';
-import { getUserApi } from '@/modules/Core/User/init';
-import { displayName } from '@/modules/Core/User/Utils/displayName';
+import { displayName, getUserApi, useUserCatalog } from '@/modules/Core/User/init';
+import { chatInlineRendererRegistry } from '@/modules/Messages/Chat/Service/Instance/chatInlineRendererRegistry';
 
 // Реэкспорт синтаксиса инлайн-токенов `[[type:param]]`: синтаксис един на все модули
 // (персонажи/НПС в летописи используют те же токены, что чат).
@@ -24,6 +23,12 @@ export { chatInlineRendererContext } from '@/modules/Messages/Chat/Utils/chatInl
 export type { ChatInlineRendererContext } from '@/modules/Messages/Chat/Dto/ChatInlineRendererContext';
 export { chatVisibilityService } from '@/modules/Messages/Chat/Service/Instance/chatVisibilityService';
 export { chatFoldService } from '@/modules/Messages/Chat/Service/Instance/chatFoldService';
+export { useChatChannel } from '@/modules/Messages/Chat/Composables/useChatChannel';
+export { CHAT_PERMISSION_SEE_ALL } from '@/modules/Messages/Chat/Constant/Chat/CHAT_PERMISSION_SEE_ALL';
+
+export const InlineTokenPicker = defineAsyncComponent(
+  () => import('@/modules/Messages/Chat/Component/InlineTokenPicker.vue'),
+);
 
 const userChip = () => import('@/modules/Messages/Chat/Component/ChatUserChip.vue');
 
@@ -39,19 +44,18 @@ const commandHandlers: ICommandHandler[] = [];
 const contentRenderers = new Map<string, IRenderer>();
 const toolbarExtensions: IChatToolbarExtension[] = [];
 const attachmentProcessors = new Map<string, IAttachmentProcessor>();
-const inlineRenderers = new Map<string, IRenderer>();
 const tokenSources: ITokenSource[] = [];
 const chatRulesProviders: IChatRulesProvider[] = [];
 
 const chatTypes: IChatType[] = [...BASE_CHAT_TYPES];
 const chatTabs: IChatTab[] = [...BASE_CHAT_TABS];
 
-inlineRenderers.set('user', {
+chatInlineRendererRegistry.register({
   type: 'user',
   component: defineAsyncComponent(userChip),
   describe: (segment) => {
     const login = segment.params[0] ?? '';
-    const user = useUserStore().users.find((u) => u.login === login);
+    const user = useUserCatalog().findByLogin(login);
     if (!user) return login;
 
     return displayName(user.name, user.surname, user.login);
@@ -63,8 +67,8 @@ registerTokenSource({
   label: 'Пользователь',
   icon: 'mdi-account',
   search: async (query) => {
-    const userStore = useUserStore();
-    let catalog = userStore.users;
+    const catalogStore = useUserCatalog();
+    let catalog = catalogStore.users.value;
     if (!catalog.length) {
       catalog = await getUserApi().getUsers();
     }
@@ -122,11 +126,11 @@ export function getAttachmentProcessor(type: string): IAttachmentProcessor | und
 }
 
 export function registerInlineRenderer(renderer: IRenderer): void {
-  inlineRenderers.set(renderer.type, renderer);
+  chatInlineRendererRegistry.register(renderer);
 }
 
 export function getInlineRenderer(type: string): IRenderer | undefined {
-  return inlineRenderers.get(type);
+  return chatInlineRendererRegistry.get(type);
 }
 
 export function registerTokenSource(source: ITokenSource): void {

@@ -1,7 +1,6 @@
 <script setup lang="ts">
+import { useSpaceCatalog, useSpaceRevision } from '@/modules/Roleplay/Space/init';
 import { computed, onMounted, ref } from 'vue';
-import { useSpaceStore } from '@/modules/Roleplay/Space/Store/spaces';
-import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
 import { GAME_STATUS_OPTIONS } from '@/modules/Roleplay/Game/Constant/GameStatus/GAME_STATUS_OPTIONS';
@@ -33,8 +32,8 @@ const emit = defineEmits<{
   cancel: [];
 }>();
 
-const spaceStore = useSpaceStore();
-const spaceRevisionStore = useSpaceRevisionStore();
+const spaceCatalog = useSpaceCatalog();
+const spaceRevision = useSpaceRevision();
 const { signal } = useAbortable();
 
 const name = ref('');
@@ -53,7 +52,7 @@ const tags = ref<string[]>([]);
 const forbiddenTags = ref<string[]>([]);
 const revisions = ref<number[]>([]);
 
-const spaces = computed(() => spaceStore.spaces);
+const spaces = spaceCatalog.spaces;
 const selectedSpace = computed(() => spaces.value.find((space) => space.id === selectedSpaceId.value) ?? null);
 
 const revisionItems = computed(() => revisions.value.map((value) => ({ title: `Ревизия ${value}`, value })));
@@ -65,7 +64,7 @@ const canSubmit = computed(
 /** Список ревизий, затем выбор: preferred если есть в списке, иначе последняя. */
 async function loadRevisions(spaceId: number, preferred: number | null): Promise<void> {
   try {
-    const meta = await spaceRevisionStore.fetchRevisionsMeta(spaceId, signal.value);
+    const meta = await spaceRevision.fetchRevisionsMeta(spaceId, signal.value);
     revisions.value = meta.map((entry) => entry.revision).sort((a, b) => b - a);
   } catch {
     const space = spaces.value.find((entry) => entry.id === spaceId);
@@ -120,7 +119,7 @@ function submit(): void {
 }
 
 onMounted(async () => {
-  await spaceStore.fetchSpaces();
+  await spaceCatalog.fetchSpaces();
   const initial = props.initial;
   if (!initial) return;
   name.value = initial.name;

@@ -19,14 +19,14 @@ import {
   getStoredCombatOverlay,
 } from '@/modules/Roleplay/Game/Mock/mockGameCombatOverlays';
 import { membershipMatchesGameRevision } from '@/modules/Roleplay/Game/Utils/membershipRevision';
-import { SHEET_VISIBILITY_DEFAULT } from '@/modules/Roleplay/Character/Constant/Sheet/SHEET_VISIBILITY_PRESETS';
+import { SHEET_VISIBILITY_DEFAULT } from '@/modules/Roleplay/Character/init';
 import { sessionCharacterService } from '@/modules/Roleplay/Game/Service/Instance/sessionCharacterService';
 import { gameMembershipReviewService } from '@/modules/Roleplay/Game/Service/Instance/gameMembershipReviewService';
 import { mockSendSystemMessage } from '@/modules/Messages/Chat/Mock/mockChat';
 import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
 import { getCurrentUserId } from '@/modules/Core/Auth/Mock/mockAuth';
 import { fetchRevision } from '@/modules/Roleplay/Space/Mock/mockSpaces';
-import { characterVersionIntegrityService } from '@/modules/Roleplay/Character/Service/Instance/characterVersionIntegrityService';
+import { characterVersionIntegrityService } from '@/modules/Roleplay/Character/init';
 
 const delay = (ms = 100) => new Promise((r) => setTimeout(r, ms));
 

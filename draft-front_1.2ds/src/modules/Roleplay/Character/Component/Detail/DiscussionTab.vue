@@ -1,6 +1,6 @@
 <script setup lang="ts">
+import { useSpaceRevision } from '@/modules/Roleplay/Space/init';
 import { computed, ref, watch } from 'vue';
-import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { characterChatRulesContextService } from '@/modules/Roleplay/Character/Service/Instance/characterChatRulesContextService';
 import type { ChatRulesContext } from '@/modules/Messages/Chat/Dto/ChatRulesContext';
@@ -14,7 +14,7 @@ const props = defineProps<{
   rulesRevision: number;
 }>();
 
-const spaceRevisionStore = useSpaceRevisionStore();
+const spaceRevision = useSpaceRevision();
 const { signal } = useAbortable();
 const rules = ref<Rule[]>([]);
 const rulesLoading = ref(false);
@@ -30,7 +30,7 @@ async function loadRules(): Promise<void> {
   rulesLoading.value = true;
   rulesError.value = null;
   try {
-    const revision = await spaceRevisionStore.fetchRevision(props.spaceId, props.rulesRevision, signal.value);
+    const revision = await spaceRevision.fetchRevision(props.spaceId, props.rulesRevision, signal.value);
     rules.value = revision.rules;
   } catch (caught) {
     if (caught instanceof DOMException && caught.name === 'AbortError') return;

@@ -8,8 +8,7 @@ import { DateTime } from '@/modules/Core/Engine/Value/DateTime';
 import { getContentRenderer, getContentRendererEntry, getInlineRenderer } from '@/modules/Messages/Chat/init';
 import { inlineContentService } from '@/modules/Messages/Chat/Service/Instance/inlineContentService';
 import { hostInlineRendererContext } from '@/modules/Messages/Chat/Utils/hostInlineRendererContext';
-import { initials } from '@/modules/Core/User/Utils/initials';
-import { displayName } from '@/modules/Core/User/Utils/displayName';
+import { displayName, initials } from '@/modules/Core/User/init';
 import ChatVisibilityMenu from '@/modules/Messages/Chat/Component/ChatVisibilityMenu.vue';
 
 const props = defineProps<{

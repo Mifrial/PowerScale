@@ -9,7 +9,7 @@ import { injuryRollService } from '@/modules/Roleplay/Game/Service/Instance/inju
 
 import { resolveInjuryProcedure } from '@/modules/Roleplay/Game/Utils/resolveInjuryProcedure';
 import { formatInjuryOutcome, formatInjuryReceivedMessage } from '@/modules/Roleplay/Game/Utils/injuryCheckMessage';
-import { ruleValidationService } from '@/modules/Roleplay/Rule/Service/Instance/ruleValidationService';
+import { ruleValidationService } from '@/modules/Roleplay/Rule/init';
 
 function rngFromFaces(faces: number[]): DiceRng {
   let index = 0;

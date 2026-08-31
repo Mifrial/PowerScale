@@ -3,7 +3,7 @@ import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/Dimension
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { characterBuildService } from '@/modules/Roleplay/Character/init';
 import { characterEditorService } from '@/modules/Roleplay/Character/init';
-import { useKeywordStore } from '@/modules/Roleplay/Rule/Store/keywords';
+import { useKeywords } from '@/modules/Roleplay/Rule/init';
 
 /** Движковое значение характеристики (для пула проверки инициативы). */
 export interface InitiativeCharacteristicView {
@@ -28,16 +28,16 @@ export async function initiativeCharacteristics(
   const cached = cache.get(version);
   if (cached) return cached;
 
-  const keywordStore = useKeywordStore();
-  if (keywordStore.keywords.length === 0) {
-    await keywordStore.fetchTags();
+  const { keywords, fetchTags } = useKeywords();
+  if (keywords.value.length === 0) {
+    await fetchTags();
   }
   const build = characterBuildService.fromVersion(version, spaceId, rules);
   const model = characterEditorService.build(
     build,
     rules,
     { osTotal: null, orTotal: null, moneyBudget: null },
-    keywordStore.keywords,
+    keywords.value,
   );
 
   const map = new Map<string, InitiativeCharacteristicView>();

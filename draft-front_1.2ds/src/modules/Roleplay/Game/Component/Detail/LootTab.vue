@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import { useSpaceRevision } from '@/modules/Roleplay/Space/init';
 import { computed, ref, watch } from 'vue';
-import { useUserStore } from '@/modules/Core/User/Store/users';
-import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
+import { useCurrentUser } from '@/modules/Core/User/init';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 import { GAME_LOOT_STATUS_LABEL, GAME_LOOT_STATUS_COLOR } from '@/modules/Roleplay/Game/Constant/Loot/GAME_LOOT_STATUS';
@@ -11,7 +11,6 @@ import type { CreateLootData } from '@/modules/Roleplay/Game/Dto/CreateLootData'
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import type { User } from '@/modules/Core/User/Dto/User';
 import LootFormDialog from '@/modules/Roleplay/Game/Component/Detail/LootFormDialog.vue';
 import LootDistributeDialog from '@/modules/Roleplay/Game/Component/Detail/LootDistributeDialog.vue';
 
@@ -30,8 +29,8 @@ const props = defineProps<{
   rulesRevision: number | null;
 }>();
 
-const userStore = useUserStore();
-const spaceRevisionStore = useSpaceRevisionStore();
+const { currentUser } = useCurrentUser();
+const spaceRevision = useSpaceRevision();
 const { signal } = useAbortable();
 
 const loots = ref<GameLoot[]>([]);
@@ -60,8 +59,6 @@ const confirmDeleteOpen = computed({
     if (!value) confirmDeleteId.value = null;
   },
 });
-
-const currentUser = computed<User | null>(() => userStore.currentUser);
 
 const itemNameById = computed(
   () => new Map(rules.value.filter((rule) => rule.type === 'item').map((rule) => [rule.id, rule.name])),
@@ -139,7 +136,7 @@ async function loadRules(): Promise<void> {
     return;
   }
   try {
-    const revision = await spaceRevisionStore.fetchRevision(props.spaceId, props.rulesRevision, signal.value);
+    const revision = await spaceRevision.fetchRevision(props.spaceId, props.rulesRevision, signal.value);
     rules.value = revision.rules;
   } catch {
     rules.value = [];

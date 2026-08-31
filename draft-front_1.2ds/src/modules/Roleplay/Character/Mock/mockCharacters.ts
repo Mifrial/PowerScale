@@ -15,7 +15,7 @@ import { SHEET_VISIBILITY_DEFAULT } from '@/modules/Roleplay/Character/Constant/
 import { fetchRevision, fetchSpace, fetchSpaceByCode } from '@/modules/Roleplay/Space/Mock/mockSpaces';
 import { characterMigrationService } from '@/modules/Roleplay/Character/Service/Instance/characterMigrationService';
 import { characterVersionIntegrityService } from '@/modules/Roleplay/Character/Service/Instance/characterVersionIntegrityService';
-import type { MigrationResult } from '@/modules/Roleplay/Character/Service/CharacterMigrationService';
+import type { MigrationResult } from '@/modules/Roleplay/Character/Dto/MigrationResult';
 import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
 
 // База характеристики — размерное число: база (3–5) + размерность (для базовых 0).
@@ -287,7 +287,6 @@ export const versions: Record<number, CharacterVersion> = {
     ],
     abilities: [
       { ruleId: 'rule-329', level: 2 },
-      { ruleId: 'rule-329', level: 1 },
       { ruleId: 'rule-26', level: 1 },
     ],
     points: { osSpent: 20, olSpent: 0, olTotal: 7, orSpent: 0, orTotal: 18 },

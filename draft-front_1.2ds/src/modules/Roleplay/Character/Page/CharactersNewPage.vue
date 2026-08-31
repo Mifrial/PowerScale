@@ -1,8 +1,7 @@
 <script setup lang="ts">
+import { useSpaceCatalog, useSpaceRevision } from '@/modules/Roleplay/Space/init';
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { useSpaceStore } from '@/modules/Roleplay/Space/Store/spaces';
-import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
 import { useCharacterDraftStore } from '@/modules/Roleplay/Character/Store/characterDraft';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
@@ -10,8 +9,8 @@ import type { CharacterBuild } from '@/modules/Roleplay/Character/Dto/Editor/Cha
 import type { CharacterCreationConfig } from '@/modules/Roleplay/Character/Dto/Editor/CharacterCreationConfig';
 
 const router = useRouter();
-const spaceStore = useSpaceStore();
-const spaceRevisionStore = useSpaceRevisionStore();
+const spaceCatalog = useSpaceCatalog();
+const spaceRevision = useSpaceRevision();
 const draftStore = useCharacterDraftStore();
 const { signal } = useAbortable();
 
@@ -22,8 +21,8 @@ const orTotal = ref<number>(25);
 const moneyBudget = ref<number>(10000);
 const revisions = ref<number[]>([]);
 
-const spaces = computed(() => spaceStore.spaces);
-const spacesError = computed(() => spaceStore.error);
+const spaces = spaceCatalog.spaces;
+const spacesError = spaceCatalog.error;
 
 const selectedSpace = computed(() => spaces.value.find((space) => space.id === selectedSpaceId.value) ?? null);
 
@@ -41,7 +40,7 @@ async function onSpaceSelect(): Promise<void> {
   }
   revision.value = space.revision;
   try {
-    const meta = await spaceRevisionStore.fetchRevisionsMeta(space.id, signal.value);
+    const meta = await spaceRevision.fetchRevisionsMeta(space.id, signal.value);
     revisions.value = meta.map((entry) => entry.revision).sort((a, b) => b - a);
   } catch {
     revisions.value = [space.revision];
@@ -79,7 +78,7 @@ function start(): void {
 }
 
 onMounted(() => {
-  void spaceStore.fetchSpaces();
+  void spaceCatalog.fetchSpaces();
 });
 </script>
 

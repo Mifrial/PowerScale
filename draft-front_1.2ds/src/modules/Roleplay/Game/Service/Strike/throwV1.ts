@@ -1,8 +1,5 @@
 import type { StrikeProcedure } from '@/modules/Roleplay/Game/Dto/StrikeProcedure';
-import {
-  THROW_PROCEDURE_MECHANIC_CODE,
-  HIT_PROCEDURE_VERSION_1,
-} from '@/modules/Roleplay/Rule/Constant/Combat/HIT_PROCEDURE';
+import { THROW_PROCEDURE_MECHANIC_CODE, HIT_PROCEDURE_VERSION_1 } from '@/modules/Roleplay/Rule/init';
 
 /** Бросок 1.0.0: база игнора 1↓ (укрытие 0, результат защиты 0). */
 export const throwV1: StrikeProcedure = {

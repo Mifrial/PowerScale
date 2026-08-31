@@ -41,28 +41,28 @@ import type { AgeSpec } from '@/modules/Roleplay/Rule/Dto/Age/AgeSpec';
 import type { AgeRange } from '@/modules/Roleplay/Rule/Dto/Race/AgeRange';
 import type { ResourceSpec } from '@/modules/Roleplay/Rule/Dto/ResourceSpec';
 import type { SenseSpec } from '@/modules/Roleplay/Rule/Dto/SenseSpec';
-import { RaceSpecService } from '@/modules/Roleplay/Rule/Service/Spec/RaceSpecService';
-import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
-import { formulaLabel } from '@/modules/Roleplay/Character/Utils/formulaLabel';
-import { CharacteristicNumber } from '@/modules/Roleplay/Rule/Value/CharacteristicNumber';
-import { CharacterReferenceService } from '@/modules/Roleplay/Character/Service/CharacterReferenceService';
-import { FormulaEvaluationService } from '@/modules/Roleplay/Character/Service/FormulaEvaluationService';
-import { RequirementEvaluator } from '@/modules/Roleplay/Character/Service/RequirementEvaluator';
-import { derivedCharacteristicService } from '@/modules/Roleplay/Rule/Service/Instance/derivedCharacteristicService';
-import type { ParsedDerivedFormula } from '@/modules/Roleplay/Rule/Dto/ParsedDerivedFormula';
-import { mechanicEngine } from '@/modules/Roleplay/Rule/init';
-import { PURCHASE_SURCHARGE_EVENT } from '@/modules/Roleplay/Rule/Service/Mechanic/Handlers/PurchaseSurchargeHandler';
-import { racialInnateGearService } from '@/modules/Roleplay/Character/Service/Instance/racialInnateGearService';
 import {
+  mechanicEngine,
+  PURCHASE_SURCHARGE_EVENT,
   ATTRACTIVENESS_MAX,
   ATTRACTIVENESS_MIN,
   ATTRACTIVENESS_STATE_CODE,
-} from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
-import { itemModifierService } from '@/modules/Roleplay/Rule/Service/Instance/itemModifierService';
+  itemModifierService,
+  DOMAIN_REF_RULE_TYPES,
+  DOMAIN_STATIC_OPTIONS,
+  checkResolutionService,
+  derivedCharacteristicService,
+  RaceSpecService,
+  CharacteristicNumber,
+} from '@/modules/Roleplay/Rule/init';
+import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
+import { formulaLabel } from '@/modules/Roleplay/Character/Utils/formulaLabel';
+import { CharacterReferenceService } from '@/modules/Roleplay/Character/Service/CharacterReferenceService';
+import { FormulaEvaluationService } from '@/modules/Roleplay/Character/Service/FormulaEvaluationService';
+import { RequirementEvaluator } from '@/modules/Roleplay/Character/Service/RequirementEvaluator';
+import type { ParsedDerivedFormula } from '@/modules/Roleplay/Rule/Dto/ParsedDerivedFormula';
+import { racialInnateGearService } from '@/modules/Roleplay/Character/Service/Instance/racialInnateGearService';
 import type { InventoryItem } from '@/modules/Roleplay/Character/Dto/InventoryItem';
-import { DOMAIN_REF_RULE_TYPES } from '@/modules/Roleplay/Rule/Constant/Ability/DOMAIN_REF_RULE_TYPES';
-import { DOMAIN_STATIC_OPTIONS } from '@/modules/Roleplay/Rule/Constant/Ability/DOMAIN_STATIC_OPTIONS';
-import { checkResolutionService } from '@/modules/Roleplay/Rule/Service/Instance/checkResolutionService';
 import { weaponProficiencyService } from '@/modules/Roleplay/Character/Service/Instance/weaponProficiencyService';
 import type { MechanicState } from '@/modules/Roleplay/Rule/Dto/MechanicState';
 import type { CharacterMechanicContext } from '@/modules/Roleplay/Rule/Dto/CharacterMechanicContext';
@@ -76,6 +76,12 @@ export class CharacterEditorService {
   constructor(
     private readonly formula: FormulaEvaluationService = new FormulaEvaluationService(),
     private readonly raceSpecService = new RaceSpecService(),
+    private readonly racialInnateGear = racialInnateGearService,
+    private readonly derivedCharacteristics = derivedCharacteristicService,
+    private readonly mechanics = mechanicEngine,
+    private readonly itemModifiers = itemModifierService,
+    private readonly checkResolution = checkResolutionService,
+    private readonly weaponProficiency = weaponProficiencyService,
   ) {}
 
   build(
@@ -113,7 +119,7 @@ export class CharacterEditorService {
     keywords: Keyword[] = [],
     mechanics: Mechanic[] = [],
   ): CharacterVersion {
-    const synced = racialInnateGearService.applyRacialInnateGear(build, rules);
+    const synced = this.racialInnateGear.applyRacialInnateGear(build, rules);
     const reference = new CharacterReferenceService(rules, build.spaceCode, build.rulesRevision);
     const race = this.buildRace(synced, reference);
     const senses = this.buildSenses(synced, reference);
@@ -199,7 +205,7 @@ export class CharacterEditorService {
       if (rule.type !== 'characteristic') continue;
       const formula = (rule.spec as { formula?: string | null } | undefined)?.formula;
       if (!formula) continue;
-      const parsed = derivedCharacteristicService.parseDerivedFormula(formula);
+      const parsed = this.derivedCharacteristics.parseDerivedFormula(formula);
       if (parsed) derivedFormulas.set(rule.code, parsed);
     }
 
@@ -460,7 +466,7 @@ export class CharacterEditorService {
     // 5) Производные: значение = min/max финальных значений баз; своего значения/модификаторов нет.
     const values = new Map(result.map((characteristic) => [characteristic.code, characteristic.value]));
     for (const [code, parsed] of derivedFormulas) {
-      const value = derivedCharacteristicService.evaluateDerivedValue(parsed, (baseCode) => values.get(baseCode));
+      const value = this.derivedCharacteristics.evaluateDerivedValue(parsed, (baseCode) => values.get(baseCode));
       if (value === null) continue;
       result.push({
         ruleId: ruleIds.get(code) ?? this.ruleIdOfCode(reference, code),
@@ -707,10 +713,10 @@ export class CharacterEditorService {
       osSurchargeTotal: 0,
       surchargeItems: [],
     };
-    mechanicEngine.runEvent(
+    this.mechanics.runEvent(
       PURCHASE_SURCHARGE_EVENT,
       mechanicContext,
-      mechanicEngine.resolveActive(this.rulesOf(reference), mechanics),
+      this.mechanics.resolveActive(this.rulesOf(reference), mechanics),
     );
     const mechanicDelta = mechanicContext.osSurchargeTotal;
     const surchargeItems = mechanicContext.surchargeItems.map((item) => ({ ...item }));
@@ -1366,7 +1372,7 @@ export class CharacterEditorService {
     }
 
     // Уровни владения оружием по семьям: из «Владение оружием» (domain_ref 'weapon-family').
-    const proficiencyLevels = weaponProficiencyService.weaponProficiencyLevels(build.abilities, reference.rules());
+    const proficiencyLevels = this.weaponProficiency.weaponProficiencyLevels(build.abilities, reference.rules());
     // Тэги → семейства оружия с этим тэгом: вычисляются из предметов (proficiency_family_code + keywordIds).
     const familyTags = this.weaponFamilyTagsOf(reference, keywords);
 
@@ -1789,7 +1795,7 @@ export class CharacterEditorService {
       .map((id) => reference.ruleById(id))
       .filter((entry): entry is Rule => entry !== null);
 
-    return itemModifierService.applyStack(spec, modifiers, codes).spec;
+    return this.itemModifiers.applyStack(spec, modifiers, codes).spec;
   }
 
   private formulaContext(
@@ -1913,7 +1919,7 @@ export class CharacterEditorService {
     const spec = rule.spec as AbilitySpec | undefined;
     if (!spec || spec.type === 'group') return null;
     if (spec.domain_ref !== 'weapon-family') return null;
-    const ladder = weaponProficiencyService.weaponFamilyLadder(reference.rules(), ability.domainCode ?? ability.domain);
+    const ladder = this.weaponProficiency.weaponFamilyLadder(reference.rules(), ability.domainCode ?? ability.domain);
     if (!ladder) return null;
 
     return { kind: 'array', levels_cost: ladder };
@@ -1926,8 +1932,8 @@ export class CharacterEditorService {
   private domainOptionsOf(rules: Rule[], domainRef: string | null): { code: string; name: string }[] {
     if (!domainRef) return [];
     const staticOptions = DOMAIN_STATIC_OPTIONS[domainRef];
-    if (checkResolutionService.isCommunicationCheckDomain(domainRef)) {
-      const fromChecks = checkResolutionService.communicationCheckOptions(rules);
+    if (this.checkResolution.isCommunicationCheckDomain(domainRef)) {
+      const fromChecks = this.checkResolution.communicationCheckOptions(rules);
       if (fromChecks.length > 0) return fromChecks;
     }
     if (staticOptions) return staticOptions;

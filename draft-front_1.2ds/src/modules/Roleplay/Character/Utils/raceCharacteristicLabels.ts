@@ -3,7 +3,7 @@ import type { RaceCharacteristic } from '@/modules/Roleplay/Rule/Dto/Race/RaceCh
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
-import { derivedCharacteristicService } from '@/modules/Roleplay/Rule/Service/Instance/derivedCharacteristicService';
+import { derivedCharacteristicService } from '@/modules/Roleplay/Rule/init';
 import type { ParsedDerivedFormula } from '@/modules/Roleplay/Rule/Dto/ParsedDerivedFormula';
 
 export interface RaceCharacteristicLabel {

@@ -5,7 +5,7 @@ import type { DiceRng } from '@/modules/Roleplay/Game/Dto/DiceRng';
 import type { GameInitiativeParticipant } from '@/modules/Roleplay/Game/Dto/GameInitiative';
 import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/Service/Instance/aggregateSourceDeltasService';
+import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/init';
 
 function participant(id: string, name: string): GameInitiativeParticipant {
   return { id, name, kind: id.startsWith('npc') ? 'npc' : 'character', entityId: null };

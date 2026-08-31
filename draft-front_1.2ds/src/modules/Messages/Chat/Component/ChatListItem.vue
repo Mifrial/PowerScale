@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import type { Chat } from '@/modules/Messages/Chat/Dto/Chat';
 import type { User } from '@/modules/Core/User/Dto/User';
-import { useAuthStore } from '@/modules/Core/Auth/Store/auth';
+import { useCurrentUser } from '@/modules/Core/User/init';
 import { useChatUsers } from '@/modules/Messages/Chat/Composables/useChatUsers';
 import { DateTime } from '@/modules/Core/Engine/Value/DateTime';
 import { avatarColors } from '@/modules/Messages/Chat/Constant/avatarColors';
@@ -18,11 +18,11 @@ const emit = defineEmits<{
   'open-profile': [userId: number];
 }>();
 
-const auth = useAuthStore();
+const { userId } = useCurrentUser();
 const chatUsers = useChatUsers();
 
 const otherMember = computed<User | undefined>(() => {
-  const other = props.chat.members?.find((m) => m.userId !== auth.userId);
+  const other = props.chat.members?.find((m) => m.userId !== userId.value);
   if (!other) return undefined;
 
   return chatUsers.getUser(other.userId);

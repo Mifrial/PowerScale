@@ -4,8 +4,6 @@ import type { SheetSection } from '@/modules/Roleplay/Character/Enum/SheetSectio
 import type { SheetAudience } from '@/modules/Roleplay/Character/Dto/SheetAudience';
 import type { SheetAccessContext } from '@/modules/Roleplay/Character/Interface/SheetAccessContext';
 import type { SheetRole } from '@/modules/Roleplay/Character/Interface/SheetRole';
-import { getSheetRoles } from '@/modules/Roleplay/Character/init';
-import { accessService } from '@/modules/Core/User/init';
 import { SHEET_VISIBLE_SECTIONS } from '@/modules/Roleplay/Character/Constant/Sheet/SHEET_SECTIONS';
 
 /**
@@ -15,6 +13,11 @@ import { SHEET_VISIBLE_SECTIONS } from '@/modules/Roleplay/Character/Constant/Sh
  * В игровом контексте 'all' = участники; на standalone — `character.view`.
  */
 export class SheetAccessService {
+  constructor(
+    private readonly getRoles: () => SheetRole[],
+    private readonly hasCharacterView: (user: User) => boolean,
+  ) {}
+
   canSeeSheet(user: User | null | undefined, visibility: SheetVisibility, ctx: SheetAccessContext): boolean {
     if (!user) return false;
     if (user.super_admin || (ctx.ownerId !== null && user.id === ctx.ownerId)) return true;
@@ -47,13 +50,13 @@ export class SheetAccessService {
   }
 
   private resolvedRoles(ctx: SheetAccessContext): SheetRole[] {
-    return getSheetRoles().filter((role) => role.resolve(ctx));
+    return this.getRoles().filter((role) => role.resolve(ctx));
   }
 
   private audienceMatches(user: User, audience: SheetAudience, ctx: SheetAccessContext, roles: SheetRole[]): boolean {
     if (audience === 'all') {
       // В игре 'all' = участники (зритель уже прошёл доступ к игре); на standalone — character.view.
-      return ctx.gameId !== null || accessService.hasAnyPermission(user, ['character.view']);
+      return ctx.gameId !== null || this.hasCharacterView(user);
     }
     if (audience === 'gm') return roles.some((role) => role.name === 'gm');
 

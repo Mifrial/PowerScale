@@ -27,8 +27,8 @@
 - `DEC-061` — loot имеет статусы `prepared | available | distributed`; интерес игрока хранится отдельно в `game_loot_interest`.
 - `DEC-062` — `keyword` — технический термин; пользовательские UI-тексты используют «признак»/«Признаки», не «тег».
 - `DEC-063` — Chat sync публикует `ok`/`retrying`, сохраняет cursor при ошибке и ретраит с backoff 1s–30s плюс ручной «Повторить»; `markChatRead` в этот контракт не входит (ack прочтения — в chat-system).
-- `DEC-064` — межмодульный доступ строится на typed capability-фасадах и constructor DI; ServiceLocator/container остаются на composition root и в публичных фасадах.
-- `DEC-065` — это DI и boundary-правило действует для всех прикладных модулей проекта; исключения — Core и plugin registration через public host API.
+- `DEC-064` — чужой модуль видит только `init`, Dto, Interface, Enum; чужие Store/Service/Component/Constant/Utils нельзя; Pinia не в локаторе; `useXxxStore` из `init` не реэкспортировать; локатор только в корне сборки и в `init.ts`; доменные `Service/` получают порты в конструктор.
+- `DEC-065` — `DEC-064` для всех прикладных модулей, включая Auth и User; исключения — Core/Engine, Core/UI и регистрация плагина через публичный API хоста. Таблица рёбер — [`architecture.md`](architecture.md).
 - `DEC-066` — UI использует adapter boundaries, batch lookup и необязательный `AbortSignal` для отмены устаревших async-запросов.
 - `DEC-067` — в Game-ТР фиксируются только минимальные combat/session contract cards; старая A/L/O/P-модерация и three-way reconcile исключены.
 - `DEC-068` — `EconomyOperation` остаётся backend/domain requirement; frontend economy `NOT IMPLEMENTED`, а `distributeLoot` — отдельный loot flow.

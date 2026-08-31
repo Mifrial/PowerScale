@@ -15,7 +15,7 @@ import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
 import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
 import type { CombatActionOption } from '@/modules/Roleplay/Game/Utils/combatActions';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
-import { characterOverviewService, useAttackFavoritesStore } from '@/modules/Roleplay/Character/init';
+import { characterOverviewService, useAttackFavorites } from '@/modules/Roleplay/Character/init';
 import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
 import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
 import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/actionEffectService';
@@ -23,7 +23,7 @@ import { attackActionSourceService } from '@/modules/Roleplay/Game/Service/Insta
 import { processSessionService } from '@/modules/Roleplay/Game/Service/Instance/processSessionService';
 import { asProcessAbilitySpec } from '@/modules/Roleplay/Game/Utils/combatActions';
 import { ACTION_POINTS_CODE } from '@/modules/Roleplay/Game/Constant/Combat/ACTION_POINTS_CODE';
-import AttackProfileOption from '@/modules/Roleplay/Character/Component/Detail/Attacks/AttackProfileOption.vue';
+import { AttackProfileOption } from '@/modules/Roleplay/Character/init';
 import { combatChatSendService } from '@/modules/Roleplay/Game/Service/Instance/combatChatSendService';
 import { formatProcessEffect } from '@/modules/Roleplay/Game/Utils/processMessage';
 
@@ -53,7 +53,7 @@ const profileMenuSlot = ref<number | null>(null);
 const busy = ref(false);
 const error = ref<string | null>(null);
 const sendChat = combatChatSendService.sendCombatChat(props.gameId);
-const attackFavoritesStore = useAttackFavoritesStore();
+const attackFavorites = useAttackFavorites();
 
 const actorKey = computed<CombatEntityKey | null>(() => {
   if (props.actorKey) return props.actorKey;
@@ -77,7 +77,7 @@ const favoriteAttack = computed(() => {
   const key = actorKey.value;
   const overview = actorOverview.value;
   if (!key || !overview) return null;
-  const favorite = attackFavoritesStore.favoriteOf(key);
+  const favorite = attackFavorites.favoriteOf(key);
   if (!favorite) return null;
 
   return (
@@ -210,7 +210,7 @@ function selectProfile(slotIndex: number, profile: AttackOverview): void {
     slots.value = nextSlots;
   }
   if (actorKey.value) {
-    attackFavoritesStore.setFavorite(actorKey.value, {
+    attackFavorites.setFavorite(actorKey.value, {
       itemRuleId: profile.itemRuleId,
       profileType: profile.profileType,
       profileIndex: profile.profileIndex ?? 0,

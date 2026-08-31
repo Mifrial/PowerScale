@@ -12,6 +12,7 @@ import type { SenseSpec } from '@/modules/Roleplay/Rule/Dto/SenseSpec';
 import { characterBuildService } from '@/modules/Roleplay/Character/Service/Instance/characterBuildService';
 import { characterEditorService } from '@/modules/Roleplay/Character/Service/Instance/characterEditorService';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
+import type { MigrationResult } from '@/modules/Roleplay/Character/Dto/MigrationResult';
 
 export type MigrationProblemKind =
   'removedRule' | 'raceRemoved' | 'raceBroken' | 'lostCharacteristic' | 'unmetRequirement' | 'budgetOverrun';
@@ -46,19 +47,6 @@ export interface MigrationAbilityChange {
 }
 
 export type MigrationKind = 'ok' | 'resolved' | 'conflicts';
-
-/** Результат миграции персонажа на новую ревизию правил. */
-export interface MigrationResult {
-  kind: MigrationKind;
-  /** Мигрированная версия: ремап по code, сброшены удалённые элементы и невалидные способности. */
-  version: CharacterVersion;
-  problems: MigrationProblem[];
-  diffs: MigrationDiffItem[];
-  /** Изменения способностей (сброшены/пересчитаны/добавлены) с затратами. */
-  abilities: MigrationAbilityChange[];
-  /** Сколько предметов превращено в кастомные «предметы мастера». */
-  convertedItems: number;
-}
 
 export interface MigrationInput {
   version: CharacterVersion;

@@ -6,11 +6,11 @@ import type { DiceRollResult } from '@/modules/Roleplay/Game/Dto/DiceRollResult'
 import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec';
 import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import { checkResolutionService } from '@/modules/Roleplay/Rule/Service/Instance/checkResolutionService';
-import { CHECK_HIT_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
-import { checkSuccessRatingService } from '@/modules/Roleplay/Rule/Service/Instance/checkSuccessRatingService';
-import { HIT_MIN_SUCCESS_SIZE } from '@/modules/Roleplay/Rule/Constant/Check/HIT_MIN_SUCCESS_SIZE';
-import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/Service/Instance/aggregateSourceDeltasService';
+import { checkResolutionService } from '@/modules/Roleplay/Rule/init';
+import { CHECK_HIT_CODE } from '@/modules/Roleplay/Rule/init';
+import { checkSuccessRatingService } from '@/modules/Roleplay/Rule/init';
+import { HIT_MIN_SUCCESS_SIZE } from '@/modules/Roleplay/Rule/init';
+import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/init';
 import { rollEngine } from '@/modules/Roleplay/Game/Service/Roll/Instance/rollEngine';
 import { rollPoolDefaults } from '@/modules/Roleplay/Game/Utils/initiativeRoll';
 

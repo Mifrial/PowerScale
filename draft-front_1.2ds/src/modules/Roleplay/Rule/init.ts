@@ -3,6 +3,7 @@ import { defineAsyncComponent } from 'vue';
 import type { IRuleApi } from '@/modules/Roleplay/Rule/Interface/IRuleApi';
 import type { IKeywordApi } from '@/modules/Roleplay/Rule/Interface/IKeywordApi';
 import type { IRevisionRulesFetcher } from '@/modules/Roleplay/Rule/Interface/IRevisionRulesFetcher';
+import { revisionRulesFetcherRegistry } from '@/modules/Roleplay/Rule/Service/Instance/revisionRulesFetcherRegistry';
 import { registerPermissionCategory, registerAdminSection } from '@/modules/Core/User/init';
 import { registerInlineRenderer, registerTokenSource } from '@/modules/Messages/Chat/init';
 import { RULE_PERMISSION_CATEGORY } from '@/modules/Roleplay/Rule/Constant/Permission/RULE_PERMISSION_CATEGORY';
@@ -27,11 +28,35 @@ export { formatStateEffectsService } from '@/modules/Roleplay/Rule/Service/Insta
 export { raceSpecService } from '@/modules/Roleplay/Rule/Service/Instance/raceSpecService';
 export { RaceSpecService } from '@/modules/Roleplay/Rule/Service/Spec/RaceSpecService';
 export { ruleReferenceService } from '@/modules/Roleplay/Rule/Service/Instance/ruleReferenceService';
+export { actionEffectLabelService } from '@/modules/Roleplay/Rule/Service/Instance/actionEffectLabelService';
+export { movementDistanceExpressionService } from '@/modules/Roleplay/Rule/Service/Instance/movementDistanceExpressionService';
+export { MechanicEngine } from '@/modules/Roleplay/Rule/Service/Mechanic/MechanicEngine';
+export { MechanicHandlerRegistry } from '@/modules/Roleplay/Rule/Service/Mechanic/MechanicHandlerRegistry';
+export { rollAdvantageHandler } from '@/modules/Roleplay/Rule/Service/Mechanic/Handlers/RollAdvantageHandler';
+export { rollSixOneHandler } from '@/modules/Roleplay/Rule/Service/Mechanic/Handlers/RollSixOneHandler';
+export { rollCriticalStrikeHandler } from '@/modules/Roleplay/Rule/Service/Mechanic/Handlers/RollCriticalStrikeHandler';
+export { CharacteristicNumber, CHARACTERISTIC_BASE_RANGE } from '@/modules/Roleplay/Rule/Value/CharacteristicNumber';
+export { parameterLimitName } from '@/modules/Roleplay/Rule/Utils/parameterLimitName';
+export { resourceShortName } from '@/modules/Roleplay/Rule/Utils/resourceShortName';
+export { slugify } from '@/modules/Roleplay/Rule/Utils/Text/slugify';
+export * from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
+export * from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
+export { HIT_MIN_SUCCESS_SIZE } from '@/modules/Roleplay/Rule/Constant/Check/HIT_MIN_SUCCESS_SIZE';
+export * from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
+export * from '@/modules/Roleplay/Rule/Constant/Damage/DAMAGE_TYPE_HOOKS';
+export * from '@/modules/Roleplay/Rule/Constant/Combat/HIT_PROCEDURE';
+export * from '@/modules/Roleplay/Rule/Constant/Combat/INJURY_PROCEDURE';
 export { PURCHASE_SURCHARGE_EVENT } from '@/modules/Roleplay/Rule/Service/Mechanic/Handlers/PurchaseSurchargeHandler';
 export { ABILITY_TYPE_LABELS } from '@/modules/Roleplay/Rule/Constant/Ability/ABILITY_TYPE_LABELS';
 export type { ProblemEntry } from '@/modules/Roleplay/Rule/Dto/ProblemEntry';
 export { ruleHostContextKey } from '@/modules/Roleplay/Rule/Constant/ruleHostContextKey';
 export { useRuleHostContext } from '@/modules/Roleplay/Rule/Composables/useRuleHostContext';
+export { useKeywords } from '@/modules/Roleplay/Rule/Composables/useKeywords';
+export { useRuleDrafts } from '@/modules/Roleplay/Rule/Composables/useRuleDrafts';
+export { DOMAIN_REF_RULE_TYPES } from '@/modules/Roleplay/Rule/Constant/Ability/DOMAIN_REF_RULE_TYPES';
+export { DOMAIN_STATIC_OPTIONS } from '@/modules/Roleplay/Rule/Constant/Ability/DOMAIN_STATIC_OPTIONS';
+export { ACTION_POINTS_RESOURCE_CODE } from '@/modules/Roleplay/Rule/Constant/Ability/ACTION_POINTS_RESOURCE_CODE';
+export { DAMAGE_TYPE_FORMS } from '@/modules/Roleplay/Rule/Constant/DAMAGE_TYPE_FORMS';
 export type { IRuleHostContext } from '@/modules/Roleplay/Rule/Interface/IRuleHostContext';
 export type { IRevisionRulesFetcher } from '@/modules/Roleplay/Rule/Interface/IRevisionRulesFetcher';
 
@@ -39,6 +64,8 @@ export type { IRevisionRulesFetcher } from '@/modules/Roleplay/Rule/Interface/IR
 export const AbilityCard = defineAsyncComponent(
   () => import('@/modules/Roleplay/Rule/Component/Cards/AbilityCard.vue'),
 );
+
+export const RuleSlider = defineAsyncComponent(() => import('@/modules/Roleplay/Rule/Component/RuleSlider.vue'));
 
 export function registerRuleApi(api: IRuleApi): void {
   serviceLocator.set('Roleplay.Rule.Service.RuleApi', api);
@@ -56,14 +83,12 @@ export function getKeywordApi(): IKeywordApi {
   return serviceLocator.get('Roleplay.Rule.Keyword.Service.KeywordApi');
 }
 
-let revisionRulesFetcher: IRevisionRulesFetcher | null = null;
-
 export function registerRevisionRulesFetcher(fetcher: IRevisionRulesFetcher): void {
-  revisionRulesFetcher = fetcher;
+  revisionRulesFetcherRegistry.register(fetcher);
 }
 
 export function getRevisionRulesFetcher(): IRevisionRulesFetcher | null {
-  return revisionRulesFetcher;
+  return revisionRulesFetcherRegistry.get();
 }
 
 export function registerRuleModule(): void {

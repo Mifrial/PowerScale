@@ -1,14 +1,14 @@
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import { CHECK_EXHAUSTION_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
+import { CHECK_EXHAUSTION_CODE } from '@/modules/Roleplay/Rule/init';
 import {
   DECLINE_STATE_CODES,
   DISABLED_STATE_CODE,
   UNCONSCIOUS_STATE_CODE,
   WEAKNESS_STATE_CODE,
   EXHAUSTION_STATE_CODE,
-} from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
+} from '@/modules/Roleplay/Rule/init';
 import { ROLL_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ATTACHMENT_TYPE';
 import { checkRollService } from '@/modules/Roleplay/Game/Service/Instance/checkRollService';
 
@@ -16,6 +16,7 @@ import { injuryCheckService } from '@/modules/Roleplay/Game/Service/Instance/inj
 
 import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
 
+import type { IGameApi } from '@/modules/Roleplay/Game/Interface/IGameApi';
 import { stateRuntimeEffectsService } from '@/modules/Roleplay/Character/init';
 import {
   addFlagState,
@@ -31,6 +32,8 @@ import {
 import type { ApplyExhaustionCheckArgs } from '@/modules/Roleplay/Game/Dto/ApplyExhaustionCheckArgs';
 import type { ApplyExhaustionCheckResult } from '@/modules/Roleplay/Game/Dto/ApplyExhaustionCheckResult';
 export class ExhaustionCheckService {
+  constructor(private readonly resolveGameApi: () => IGameApi) {}
+
   private willpowerOf(version: CharacterVersion, rules: Rule[]): DimensionalNumberValue {
     return (
       stateRuntimeEffectsService.effectiveCharacteristicValues(version, rules).get('willpower') ?? { base: 1, size: 0 }
@@ -49,7 +52,14 @@ export class ExhaustionCheckService {
       return { roll: null, overlay: null, outcome: 'unconscious', skipped: true };
     }
     let version = args.version;
-    let overlay = await removeStatesByCodes(args.gameId, args.targetKey, version, args.rules, DECLINE_STATE_CODES);
+    let overlay = await removeStatesByCodes(
+      this.resolveGameApi(),
+      args.gameId,
+      args.targetKey,
+      version,
+      args.rules,
+      DECLINE_STATE_CODES,
+    );
     if (overlay) version = combatOverlayService.mergeCombatOverlay(version, overlay);
 
     const exhaustion = injuryCheckService.overlayStateTotal(version, args.rules, EXHAUSTION_STATE_CODE);
@@ -80,10 +90,16 @@ export class ExhaustionCheckService {
             ? UNCONSCIOUS_STATE_CODE
             : null;
     if (code) {
-      overlay = (await addFlagState(args.gameId, args.targetKey, args.rules, code)) ?? overlay;
+      overlay = (await addFlagState(this.resolveGameApi(), args.gameId, args.targetKey, args.rules, code)) ?? overlay;
       if (overlay) version = combatOverlayService.mergeCombatOverlay(version, overlay);
     }
-    const clamped = await clampCombatActionPoints(args.gameId, args.targetKey, version, args.rules);
+    const clamped = await clampCombatActionPoints(
+      this.resolveGameApi(),
+      args.gameId,
+      args.targetKey,
+      version,
+      args.rules,
+    );
     if (clamped) overlay = clamped;
     if (args.chatId !== null) {
       const sentRoll = await args.sendMessage(

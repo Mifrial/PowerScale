@@ -1,10 +1,10 @@
 <script setup lang="ts">
+import { useSpaceRevision } from '@/modules/Roleplay/Space/init';
 import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useCharacterDraftStore } from '@/modules/Roleplay/Character/Store/characterDraft';
 import { useCharacterStore } from '@/modules/Roleplay/Character/Store/characters';
-import { useUserStore } from '@/modules/Core/User/Store/users';
-import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
+import { useCurrentUser } from '@/modules/Core/User/init';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { characterBuildService } from '@/modules/Roleplay/Character/Service/Instance/characterBuildService';
 import { getCharacterApi, getInGameSheetSource } from '@/modules/Roleplay/Character/init';
@@ -20,8 +20,8 @@ const route = useRoute();
 const router = useRouter();
 const draftStore = useCharacterDraftStore();
 const characterStore = useCharacterStore();
-const userStore = useUserStore();
-const spaceRevisionStore = useSpaceRevisionStore();
+const { currentUser } = useCurrentUser();
+const spaceRevision = useSpaceRevision();
 const { signal } = useAbortable();
 
 const isNew = computed(() => route.name === 'CharacterNewEditor');
@@ -57,7 +57,7 @@ const loadError = ref<string | null>(null);
 const draft = computed(() => draftStore.draftOf(draftKey.value));
 
 async function loadRules(spaceId: number, revision: number): Promise<Rule[]> {
-  const revisionResult = await spaceRevisionStore.fetchRevision(spaceId, revision, signal.value);
+  const revisionResult = await spaceRevision.fetchRevision(spaceId, revision, signal.value);
 
   return revisionResult.rules;
 }
@@ -77,7 +77,7 @@ async function load(): Promise<void> {
     }
     characterStore.clearCurrent();
     const detail = await characterStore.fetchCharacter(id, signal.value);
-    if (!detail || !characterAccessService.canViewCharacter(userStore.currentUser, detail.character)) {
+    if (!detail || !characterAccessService.canViewCharacter(currentUser.value, detail.character)) {
       router.replace({ name: 'NotFound' });
 
       return;

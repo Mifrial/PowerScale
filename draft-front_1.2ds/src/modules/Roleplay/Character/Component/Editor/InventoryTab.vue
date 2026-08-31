@@ -22,7 +22,7 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { ItemSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpec';
 import type { ItemModifierSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierSpec';
 import type { InventoryItem } from '@/modules/Roleplay/Character/Dto/InventoryItem';
-import { itemModifierService } from '@/modules/Roleplay/Rule/Service/Instance/itemModifierService';
+import { itemModifierService } from '@/modules/Roleplay/Rule/init';
 
 const props = withDefaults(
   defineProps<{

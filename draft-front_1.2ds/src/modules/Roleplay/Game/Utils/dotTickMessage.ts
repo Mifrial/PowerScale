@@ -6,7 +6,7 @@ import type { ApplyAttackDamageResult } from '@/modules/Roleplay/Game/Dto/ApplyA
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import { DOT_TICK_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Dot/DOT_TICK_ATTACHMENT_TYPE';
-import { damageTypeSpecService } from '@/modules/Roleplay/Rule/Service/Instance/damageTypeSpecService';
+import { damageTypeSpecService } from '@/modules/Roleplay/Rule/init';
 
 function entityToken(key: CombatEntityKey, name: string): string {
   if (key.startsWith('npc:')) return `[[npc:${key.slice(4)},${name}]]`;

@@ -1,15 +1,14 @@
 import { computed } from 'vue';
-import { useUserStore } from '@/modules/Core/User/Store/users';
-import { initials as userInitials } from '@/modules/Core/User/Utils/initials';
-import { displayName as userDisplayName } from '@/modules/Core/User/Utils/displayName';
+import { useUserCatalog } from '@/modules/Core/User/init';
+import { initials as userInitials, displayName as userDisplayName } from '@/modules/Core/User/init';
 import type { User } from '@/modules/Core/User/Dto/User';
 
 export function useChatUsers() {
-  const userStore = useUserStore();
+  const catalog = useUserCatalog();
 
   const userMap = computed<Map<number, User>>(() => {
     const map = new Map<number, User>();
-    for (const u of userStore.users) {
+    for (const u of catalog.users.value) {
       map.set(u.id, u);
     }
 
@@ -21,7 +20,7 @@ export function useChatUsers() {
   }
 
   async function ensureUsers(ids: number[]): Promise<void> {
-    await userStore.ensureUsers(ids);
+    await catalog.ensureUsers(ids);
   }
 
   function initials(u: User | undefined): string {

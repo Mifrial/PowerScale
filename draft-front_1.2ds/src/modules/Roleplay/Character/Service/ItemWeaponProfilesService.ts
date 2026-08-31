@@ -1,6 +1,6 @@
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import { FormulaEvaluationService } from '@/modules/Roleplay/Character/Service/FormulaEvaluationService';
-import { DAMAGE_TYPE_FORMS } from '@/modules/Roleplay/Rule/Constant/DAMAGE_TYPE_FORMS';
+import { DAMAGE_TYPE_FORMS } from '@/modules/Roleplay/Rule/init';
 import { WEAPON_PROFILE_LABELS } from '@/modules/Roleplay/Character/Constant/WEAPON_PROFILE_LABELS';
 import { formulaLabel } from '@/modules/Roleplay/Character/Utils/formulaLabel';
 import { weaponAttackRangeService } from '@/modules/Roleplay/Character/Service/Instance/weaponAttackRangeService';

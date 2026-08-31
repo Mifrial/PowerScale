@@ -8,7 +8,7 @@ import {
 } from '@/modules/Roleplay/Game/Constant/Combat/COMBAT_CHAT_FOLD_KINDS';
 import { combatChatFoldService } from '@/modules/Roleplay/Game/Service/Instance/combatChatFoldService';
 
-import { chatFoldService } from '@/modules/Messages/Chat/Service/Instance/chatFoldService';
+import { chatFoldService } from '@/modules/Messages/Chat/init';
 
 function msg(id: number, content: string, extra: Partial<ChatMessage> = {}): ChatMessage {
   return {

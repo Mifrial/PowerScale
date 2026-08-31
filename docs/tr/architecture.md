@@ -11,105 +11,128 @@
 3. решения из [`decisions.md`](decisions.md);
 4. исторический ТР и спеки.
 
-`OPEN` означает неподтверждённый backend-контракт. `DEFERRED` означает сознательно отложенное решение. Этот документ не является планом реализации.
+`OPEN` — неподтверждённый серверный контракт. `DEFERRED` — сознательно отложенное решение. Этот документ не план реализации.
 
-## Backend foundation contract
+## Контракт фундамента сервера
 
-Backend modules are two-level `Namespace/ModuleName`. `ModuleManager` exposes `includeModule(group, module)` and `requireModule(...)`; only `Core/*` is loaded eagerly, while other modules are lazy. `module.config.php` declares `services`, `routes` and `events`.
+Модули сервера двухуровневые: `Namespace/ModuleName`. `ModuleManager` даёт `includeModule(group, module)` и `requireModule(...)`; сразу грузится только `Core/*`, остальные — лениво. `module.config.php` объявляет `services`, `routes` и `events`.
 
-`ServiceLocator` is the primary DI container. Backend services use stable dot-notation codes such as `Core.User.Service.User`, aliases by `::class` are allowed for IDE compatibility, and factories receive the parameter `$serviceLocator`. Frontend uses the generic `set/get/reset` locator exported from `Core/Engine`, while each module exposes `registerXApi(impl)` and `getXApi(): IXApi`.
+Основной контейнер внедрения — `ServiceLocator`. Сервисы сервера имеют стабильные коды через точку, например `Core.User.Service.User`; алиасы по `::class` допустимы для IDE; фабрики получают `$serviceLocator`. На фронте — общий локатор `set`/`get`/`reset` из `Core/Engine`; каждый модуль отдаёт `registerXApi(impl)` и `getXApi(): IXApi`.
 
-The request pipeline is:
+Конвейер запроса:
 
 ```text
-Request → authentication → CSRF → action routing → controller → ActionResponse
+запрос → аутентификация → CSRF → маршрутизация action → контроллер → ActionResponse
 ```
 
-`main.ts` registers mock or real APIs and initializes the CSRF API. `HttpClient` obtains the CSRF token through a callback and sends it on state-changing requests. `runAction` encodes the action name and returns a typed response/error envelope.
+`main.ts` регистрирует mock или боевые API и инициализирует CSRF. `HttpClient` берёт CSRF-токен через callback и шлёт его на запросы, меняющие состояние. `runAction` кодирует имя действия и возвращает типизированный конверт ответа или ошибки.
 
-## SmartTable contract
+## Контракт SmartTable
 
-SmartTable is the only backend data-access abstraction. `BaseField` defines name, label, required, multiple and default; `ReferenceField` describes foreign references; `SmartTableDefinition.getMap()` returns the table field map. Module hydrators register under `smarttable_fields`.
+SmartTable — единственная серверная абстракция доступа к данным. `BaseField` задаёт имя, подпись, required, multiple и default; `ReferenceField` — внешние ссылки; `SmartTableDefinition.getMap()` возвращает карту полей. Гидраторы модулей регистрируются как `smarttable_fields`.
 
-Repositories obtain a table through `Core.SmartTable.Service.open(tableName)`. The service supports `open/create`, CRUD (`add`, `update`, `delete`, `getList` with filter/sort/pagination/select), local `transaction()` and global `beginTransaction/commit/rollback`. `MigrationService` diffs definitions and generates migrations; `SmartTableMigration` provides `up/down`.
+Репозиторий открывает таблицу через `Core.SmartTable.Service.open(tableName)`. Сервис: `open`/`create`, CRUD (`add`, `update`, `delete`, `getList` с фильтром, сортировкой, пагинацией, select), локальная `transaction()` и глобальные `beginTransaction`/`commit`/`rollback`. `MigrationService` сравнивает определения и генерирует миграции; `SmartTableMigration` даёт `up`/`down`.
 
-Backend logging is primarily database-backed through the log SmartTable; file fallback is limited to startup or database unavailability. Exact production backend implementation remains `OPEN`.
+Журнал сервера в основном в SmartTable логов; запись в файл — запасной путь на старте или если база недоступна. Точная боевая реализация сервера — `OPEN`.
 
-## Backend extras (REQUIREMENT, implementation OPEN)
+## Дополнения сервера (требование, реализация OPEN)
 
-Legacy §2/волна 1 описывает дополнительные backend-контракты, которых нет в текущем frontend evidence. Они сохранены как backend `REQUIREMENT`, не как frontend или backend `IMPLEMENTED`:
+Наследие §2 / волна 1 описывает серверные контракты, которых нет в текущем фронтовом evidence. Они сохранены как серверное требование, не как реализованное на фронте или на сервере:
 
 - EventManager: `fire`/`on`/`off`, синхронные слушатели, очередь для асинхронных;
 - иерархия ошибок поверх ActionResponse;
 - SmartTable QueryBuilder (`query()` для сложных случаев);
-- тегированный кэш `getList` (TTL, tags).
+- тегированный кэш `getList` (TTL, теги).
 
-Код frontend их не реализует. Drop vs keep — только явным решением; silent drop запрещён.
+Код фронта их не реализует. Оставить или выкинуть — только явным решением; молча выкидывать нельзя.
 
 ## Границы модулей
 
-Frontend построен как Shell и прикладные модули:
+Frontend построен как оболочка (shell) и прикладные модули:
 
 ```text
 Core
 ├── Engine
-└── UI
+├── UI
+├── Auth
+└── User
 Messages
 ├── Chat
 └── Notifications
 Roleplay
+├── Home
 ├── Rule
 ├── Space
 ├── Character
 └── Game
 ```
 
-Core — фундамент. Прикладные модули зависят от Core. `Core/Engine` не зависит от `Core/UI`.
+### Поверхность
 
-Текущие публичные границы:
+Чужой модуль может импортировать только `init.ts` (фасады `get*` / `register*` и узкий композабл-фасад) и типы из `Dto/` / `Interface/` / `Enum/`.
 
-- `Rule` — каталог правил; не импортирует `Space`;
-- `Space` — владеет контекстом пространства и ревизией, зависит от публичного API `Rule`;
-- `Chat` — самостоятельный host сообщений, не импортирует Roleplay;
-- `Character` — зависит от Core, Rule, публичного Space и Chat;
-- `Game` — зависит от Core, Character, Rule, Chat и публичного Space.
+Чужой модуль не импортирует: `Service/`, `Component/`, `Constant/`, `Store/`, `Page/`, `Composables/`, `Utils/`. Из `init` нельзя реэкспортировать `useXxxStore()`.
 
-Межмодульный доступ во всём проекте идёт через `init.ts`, публичные DTO/интерфейсы, stores и plugin-регистраторы. Внутренние файлы чужого прикладного модуля напрямую не импортируются; это правило распространяется на существующие и будущие прикладные модули.
+Исключения: `Core/Engine` и `Core/UI` открыты целиком; Engine не импортирует UI. Auth и User — как прикладные модули. Между модулями можно импортировать только mock-фикстуры. `src/shell/`, `src/router/`, `main.ts` — корень сборки; прикладные модули не импортируют shell.
 
-Для доменных сервисов действует typed DI-контракт: публичный фасад модуля отдаёт capability-oriented API, а сервис-потребитель получает нужные порты через constructor DI. ServiceLocator и module-container используются для регистрации, выбора real/mock реализации и сборки приложения в composition root (`main.ts`/bootstrap) и публичных `init.ts`; locator/container не передаются внутрь доменной логики и не вызываются там напрямую. Внутри module `init.ts` допускается несколько узких фасадов, но не единый универсальный контейнер с произвольным доступом ко всем сервисам. Правило обязательно для всех прикладных модулей проекта.
+Типы не сваливать в баррель `init`. Файлов `index.ts` с реэкспортом всего модуля нет.
 
-## CODE_GAP: фактические импорты Game
+Pinia только внутри своего модуля, не в ServiceLocator. В конструктор сервиса передаётся порт; стор читает адаптер того же модуля. Страницы и свой стор модуля могут вызывать `getXxxApi()` из публичного `init` разрешённого ребра. Классы в `Service/` не обращаются к локатору и не вызывают `getXxxApi` (`DEC-064`, `DEC-065`). Регистрация `register*` в `init` остаётся. Внедрение через конструктор не требуется у Engine и UI. Home не имеет доменных классов в `Service/` — constructor DI там не применяется.
 
-Текущее правило публичных границ нарушается в `Roleplay/Game`: Game напрямую импортирует внутренние реализации Rule (`Rule/Service/Instance/*`, `Rule/Service/Mechanic/*`, `Rule/Constant/*`, `Rule/Store/*`) и Character (`Character/Constant/*`). Это подтверждено текущим source evidence в `migration-claims.md`; код в этом документальном проходе не исправляется. Такие зависимости должны быть переведены на typed public facades и constructor DI (`DEC-064`). До отдельной реализации они имеют disposition `CODE_GAP`/`BACKLOG`, а не `IMPLEMENTED`.
+Auth зависит от User: после входа и выхода Auth вызывает фасад User. User не импортирует Auth. Выход из сессии — в shell. «Кто я» в прикладных модулях — текущий пользователь из User.
 
-## Frontend-слои
+Хост плагинов (Chat, реестры User) не импортирует доноров; донор вызывает `register*` хоста.
 
-- `.vue` отвечает за UI и состояние отображения;
-- доменная логика находится в `Service/`/`Value/`;
+### Разрешённые рёбра
+
+«Публично» = `init` / `Dto` / `Interface` / `Enum`, не `Store` и не `Component`.
+
+- Engine — никого вне себя
+- UI → Engine
+- Auth → Engine, UI, User (публично)
+- User → Engine, UI (не Auth; хост плагинов прав, профиля и админки)
+- Chat → Engine, UI, User (публично). Не Roleplay, не Notifications, не Auth
+- Notifications → Engine, UI, User (публично). Не Chat, не Roleplay, не Auth
+- Home → Engine, UI, User, Notifications (публично). Не Auth
+- Rule → Engine, UI, User (плагин), Chat (плагин). Не Space/Character/Game. Не Notifications. `spaceId` и ревизия — проп, роут или ключ inject; Space только `provide`
+- Space → Engine, UI, User, Rule (публично). Не Character/Game. Не Notifications
+- Character → Engine, UI, User, Rule, Space, Chat (плагин), Notifications (публично, отправка). Не Game
+- Game → Engine, UI, User, Rule, Space, Character, Chat (плагин), Notifications (публично, отправка)
+
+### Долг кода (CODE_GAP, не реализация)
+
+Это нарушение канона в текущем дереве, не норма.
+
+Поверхность модулей и locator закрыты этапами 6b–8. Линтер `powerscale/no-foreign-module-internals` держит чужие внутренности. Текущего долга по этому канону нет.
+
+## Слои фронтенда
+
+- `.vue` — UI и состояние отображения;
+- доменная логика — в `Service/` и `Value/`;
 - транспортные API регистрируются через ServiceLocator;
-- stores хранят состояние, но не заменяют доменные сервисы;
-- DTO и string-literal enum находятся в типовых слоях;
-- Chat, профиль и подобные host-модули принимают opaque plugin-контракты и не импортируют доноров.
+- сторы хранят состояние и не заменяют доменные сервисы;
+- DTO и string-literal enum — в типовых слоях;
+- хосты вроде Chat и профиля принимают непрозрачные контракты плагинов и не импортируют доноров.
 
-Сервисы и моки должны иметь единый контракт. Глубокое клонирование выполняется через `structuredClone`, если среда это позволяет.
+Сервисы и моки — один контракт. Глубокое клонирование — `structuredClone`, если среда это позволяет.
 
-## Frontend module anatomy
+## Анатомия модуля фронтенда
 
-Each module keeps `Interface/` for service contracts, `Dto/` for data and discriminated unions, `Enum/` for flat string-literal unions, `Service/` for domain classes, `Constant/` for registries, `Component/` for Vue components, `Mock/`, `Utils/`, `Store/`, `Page/` and `__tests__/`. The module root contains only public `init.ts` and `routes.ts`.
+В каждом модуле: `Interface/` — контракты сервисов; `Dto/` — данные и дискриминированные объединения; `Enum/` — плоские string-literal union; `Service/` — доменные классы; `Constant/` — справочники; `Component/` — Vue; `Mock/`, `Utils/`, `Store/`, `Page/`, `__tests__/`. В корне модуля из файлов — только публичные `init.ts` и `routes.ts`.
 
-`Core/Engine` owns `HttpClient`, `CsrfApi`, `Engine`, `ActionResponse`, `useAbortable` and dimensional values. `Core/UI` owns SmartGrid, FilterBar and shared composables. `Core/User` owns profile, groups, permissions and admin registries. `Messages/Chat` owns generic chat/plugin infrastructure; Roleplay modules register domain plugins through public APIs.
+`Core/Engine` владеет `HttpClient`, `CsrfApi`, `Engine`, `ActionResponse`, `useAbortable` и размерными значениями. `Core/UI` — SmartGrid, FilterBar и общие композаблы. `Core/User` — профиль, группы, права и реестры админки. `Messages/Chat` — общая инфраструктура чата и плагинов; модули Roleplay регистрируют доменные плагины через публичные API.
 
-All source imports use the `@/` alias. Composables live in the module-root `Composables/`; shared UI belongs to `Core/UI`; `Core/Engine` must not import `Core/UI`. Components do not contain domain calculations. SFC block order is `script setup` → `template` → `style scoped`.
+Импорты исходников — только через алиас `@/`. Композаблы — в корневой `Composables/` модуля; общий UI — в `Core/UI`; `Core/Engine` не импортирует `Core/UI`. В компонентах нет доменных расчётов. Порядок блоков SFC: `script setup` → `template` → `style scoped`.
 
-## Backend
+## Сервер
 
-Границы backend разделяются так:
+Границы сервера такие:
 
-- **Frontend-confirmed:** формы DTO, интерфейсы API, mock adapters и request/error envelope, реально присутствующие в текущем frontend.
-- **Backend requirement:** доменные инварианты, которым должны соответствовать серверные операции: авторизация, visibility filtering, optimistic versions, transactions, idempotency и journal.
-- **Backend implementation `OPEN`:** физическая схема, endpoints, repositories, persistence, transaction implementation, SSE authorization/reconnect/retention и production logging.
+- **Подтверждено фронтом:** формы DTO, интерфейсы API, mock-адаптеры и конверт запроса/ошибки, которые есть в текущем фронте.
+- **Требование к серверу:** доменные инварианты серверных операций: авторизация, фильтрация видимости, оптимистичные версии, транзакции, идемпотентность, журнал.
+- **Реализация сервера `OPEN`:** физическая схема, endpoints, репозитории, хранение, транзакции, авторизация/reconnect/retention SSE и боевое логирование.
 
-Наличие frontend DTO/API не доказывает backend implementation. В частности, физическая схема таблиц экономических операций и точные endpoint остаются задачей backend-проектирования; доменные инварианты зафиксированы в [`game-system.md`](game-system.md).
+Наличие DTO и API на фронте не доказывает реализацию на сервере. Физическая схема таблиц экономических операций и точные endpoint — задача проектирования сервера; доменные инварианты — в [`game-system.md`](game-system.md).
 
 ## Связанные документы
 

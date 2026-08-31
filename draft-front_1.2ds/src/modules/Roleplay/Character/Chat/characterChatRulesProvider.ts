@@ -1,8 +1,8 @@
-import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
 import type { IChatRulesProvider } from '@/modules/Messages/Chat/Interface/IChatRulesProvider';
 import type { Character } from '@/modules/Roleplay/Character/Dto/Character';
 import type { ICharacterApi } from '@/modules/Roleplay/Character/Interface/ICharacterApi';
 import { characterChatRulesContextService } from '@/modules/Roleplay/Character/Service/Instance/characterChatRulesContextService';
+import { useSpaceRevision } from '@/modules/Roleplay/Space/init';
 
 async function characterApi(): Promise<ICharacterApi> {
   // Динамический импорт: провайдер регистрируется в Character/init — статический импорт
@@ -28,7 +28,7 @@ export const characterChatRulesProvider: IChatRulesProvider = {
   resolve: async (_type, chatId) => {
     const character = await findCharacterByChat(chatId);
     if (!character) return null;
-    const revision = await useSpaceRevisionStore().fetchRevision(character.spaceId, character.rulesRevision);
+    const revision = await useSpaceRevision().fetchRevision(character.spaceId, character.rulesRevision);
 
     return characterChatRulesContextService.build(revision.rules, character.spaceId, character.rulesRevision);
   },

@@ -3,13 +3,12 @@ import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useKeywordStore } from '@/modules/Roleplay/Rule/Store/keywords';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
-import { useUserStore } from '@/modules/Core/User/Store/users';
-import { accessService } from '@/modules/Core/User/init';
+import { accessService, useCurrentUser } from '@/modules/Core/User/init';
 
 const route = useRoute();
 const router = useRouter();
 const store = useKeywordStore();
-const userStore = useUserStore();
+const { currentUser } = useCurrentUser();
 const { signal } = useAbortable();
 
 const isEdit = computed(() => !!route.params.id);
@@ -27,7 +26,7 @@ const deleting = ref(false);
 const saveError = ref<string | null>(null);
 const actionError = ref<string | null>(null);
 
-const canDelete = computed(() => accessService.hasAnyPermission(userStore.currentUser, ['keyword.delete']));
+const canDelete = computed(() => accessService.hasAnyPermission(currentUser.value, ['keyword.delete']));
 
 async function loadTag() {
   if (!isEdit.value) return;

@@ -6,7 +6,7 @@ import type { PoisonSpec } from '@/modules/Roleplay/Rule/Dto/Poison/PoisonSpec';
 import type { StateSpec } from '@/modules/Roleplay/Rule/Dto/State/StateSpec';
 import type { StateDecay } from '@/modules/Roleplay/Rule/Dto/State/StateDecay';
 import type { StatePeriodicity } from '@/modules/Roleplay/Rule/Dto/State/Periodicity';
-import { BURNING_STATE_CODE, POISONING_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
+import { BURNING_STATE_CODE, POISONING_STATE_CODE } from '@/modules/Roleplay/Rule/init';
 
 import type { DotAdvance } from '@/modules/Roleplay/Game/Dto/DotAdvance';
 export class DotTickMathService {

@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from '@/modules/Core/Auth/Store/auth';
-import { useUserStore } from '@/modules/Core/User/Store/users';
+import { useCurrentUser } from '@/modules/Core/User/init';
 import { standaloneRoutes } from '@/modules/Core/Auth/routes';
 import { moduleChildren } from '@/router/moduleRoutes';
 import { evaluateRouteAccess } from '@/router/access';
@@ -22,7 +22,7 @@ let authChecked = false;
 
 router.beforeEach(async (to, _from, next) => {
   const auth = useAuthStore();
-  const userStore = useUserStore();
+  const { currentUser } = useCurrentUser();
 
   if (!authChecked) {
     authChecked = await auth.checkAuth();
@@ -31,7 +31,7 @@ router.beforeEach(async (to, _from, next) => {
   const decision = evaluateRouteAccess(to, {
     isAuthenticated: auth.isAuthenticated,
     isGuest: auth.isGuest,
-    user: userStore.currentUser,
+    user: currentUser.value,
   });
 
   if (decision.allow) next();

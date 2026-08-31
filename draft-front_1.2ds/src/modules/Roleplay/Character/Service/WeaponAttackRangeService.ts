@@ -5,7 +5,7 @@ import type { FormulaEvaluationService } from '@/modules/Roleplay/Character/Serv
 import { CHARACTERISTIC_BASE_RANGE } from '@/modules/Roleplay/Character/Constant/CHARACTERISTIC_BASE_RANGE';
 import { DEFAULT_FALLOFF } from '@/modules/Roleplay/Character/Constant/Weapon/DEFAULT_FALLOFF';
 import type { WeaponProfile } from '@/modules/Roleplay/Rule/Dto/Item/WeaponProfile';
-import { CharacteristicNumber } from '@/modules/Roleplay/Rule/Value/CharacteristicNumber';
+import { CharacteristicNumber } from '@/modules/Roleplay/Rule/init';
 import type { RangedHitDifficultyParts } from '@/modules/Roleplay/Character/Dto/RangedHitDifficultyParts';
 
 const SIZE_STEP = CHARACTERISTIC_BASE_RANGE.max - CHARACTERISTIC_BASE_RANGE.min + 1;

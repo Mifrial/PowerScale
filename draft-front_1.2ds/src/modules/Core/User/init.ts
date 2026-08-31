@@ -1,4 +1,5 @@
 import { serviceLocator } from '@/modules/Core/Engine/Service/ServiceLocator';
+import { defineAsyncComponent } from 'vue';
 import type { IUserApi } from '@/modules/Core/User/Interface/IUserApi';
 import type { IGroupApi } from '@/modules/Core/User/Interface/IGroupApi';
 import type { ProfileSection } from '@/modules/Core/User/Dto/ProfileSection';
@@ -11,6 +12,15 @@ import { USER_GROUP_PERMISSION_CATEGORY } from '@/modules/Core/User/Constant/Per
 import { GROUPS_ADMIN_SECTION } from '@/modules/Core/User/Constant/Permission/GROUPS_ADMIN_SECTION';
 
 export { accessService } from '@/modules/Core/User/Service/Instance/accessService';
+export { currentUserSessionService } from '@/modules/Core/User/Service/Instance/currentUserSessionService';
+export { useCurrentUser } from '@/modules/Core/User/Composables/useCurrentUser';
+export { useUserCatalog } from '@/modules/Core/User/Composables/useUserCatalog';
+export { displayName } from '@/modules/Core/User/Utils/displayName';
+export { initials } from '@/modules/Core/User/Utils/initials';
+
+export const UserProfileSlider = defineAsyncComponent(
+  () => import('@/modules/Core/User/Component/UserProfileSlider.vue'),
+);
 
 export function registerUserApi(api: IUserApi): void {
   serviceLocator.set('Core.User.Service.UserApi', api);

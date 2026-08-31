@@ -4,7 +4,7 @@
 
 ## Граница модуля
 
-Chat — самостоятельный host сообщений. Он не импортирует Roleplay и не знает внутренние DTO Rule, Character или Game.
+Chat — самостоятельный хост сообщений. Он не импортирует Roleplay и не знает внутренние DTO Rule, Character или Game. Публичный User (`init` / Dto) допустим; таблица рёбер — [`architecture.md`](architecture.md).
 
 Прикладные модули подключаются через plugin-регистрацию в публичном `init.ts`; композиция выполняется в `main.ts`. Host объявляет generic opaque-контракт и не импортирует компоненты доноров. Rule, Character и Game могут регистрировать свои вкладки/команды/inline-renderers.
 

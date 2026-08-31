@@ -11,9 +11,9 @@ import type { InjuryProcedure } from '@/modules/Roleplay/Game/Dto/InjuryProcedur
 import type { DamageTypeHook } from '@/modules/Roleplay/Game/Dto/DamageTypeHook';
 import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import { CHECK_INJURY_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
-import { ADVANTAGE_SOURCE_MANUAL } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
-import { checkResolutionService } from '@/modules/Roleplay/Rule/Service/Instance/checkResolutionService';
+import { CHECK_INJURY_CODE } from '@/modules/Roleplay/Rule/init';
+import { ADVANTAGE_SOURCE_MANUAL } from '@/modules/Roleplay/Rule/init';
+import { checkResolutionService } from '@/modules/Roleplay/Rule/init';
 import { damageTypeHooksService } from '@/modules/Roleplay/Game/Service/Instance/damageTypeHooksService';
 
 import { resolveInjuryProcedure } from '@/modules/Roleplay/Game/Utils/resolveInjuryProcedure';

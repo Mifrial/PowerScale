@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { setActivePinia, createPinia } from 'pinia';
-import { serviceLocator } from '@/modules/Core/Engine/Service/ServiceLocator';
+import { resetRegisteredApis } from '@/modules/Core/Engine/init';
 import { registerRuleApi, registerRevisionRulesFetcher } from '@/modules/Roleplay/Rule/init';
 import { mockSpaceApi } from '@/modules/Roleplay/Space/Mock/mockSpaceApi';
 import { mockRuleApi } from '@/modules/Roleplay/Rule/Mock/mockRuleApi';
@@ -9,7 +9,7 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
 beforeEach(() => {
   setActivePinia(createPinia());
-  serviceLocator.reset();
+  resetRegisteredApis();
   registerRuleApi(mockRuleApi);
   registerRevisionRulesFetcher({
     fetchRules: async (spaceId, revision, signal) => {

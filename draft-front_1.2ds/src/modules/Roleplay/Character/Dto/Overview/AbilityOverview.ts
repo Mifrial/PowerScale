@@ -3,7 +3,11 @@ import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/Dimension
 
 export interface AbilityOverview {
   ruleId: string;
+  /** Уникальный ключ строки: правило + экземпляр домена (множественный навык). */
+  instanceKey: string;
   name: string;
+  /** Подпись экземпляра (семья оружия, язык); null у одиночной способности. */
+  domainLabel: string | null;
   level: number;
   /** Параметрическая способность (напр. «Врождённая Сила X»): уровень — заглушка, величину несёт параметр. */
   hasParameters: boolean;

@@ -5,8 +5,8 @@ import type { InjuryRollInput } from '@/modules/Roleplay/Game/Dto/InjuryRollInpu
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { INJURY_DETAILS_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Injury/INJURY_DETAILS_ATTACHMENT_TYPE';
 import { ROLL_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ATTACHMENT_TYPE';
-import { MAIM_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
-import { getGameApi } from '@/modules/Roleplay/Game/init';
+import { MAIM_STATE_CODE } from '@/modules/Roleplay/Rule/init';
+import type { IGameApi } from '@/modules/Roleplay/Game/Interface/IGameApi';
 import { formatInjuryReceivedMessage } from '@/modules/Roleplay/Game/Utils/injuryCheckMessage';
 import { injuryRollService } from '@/modules/Roleplay/Game/Service/Instance/injuryRollService';
 import { stateRuntimeEffectsService } from '@/modules/Roleplay/Character/init';
@@ -15,6 +15,8 @@ import type { InjuryInputFromAttack } from '@/modules/Roleplay/Game/Dto/InjuryIn
 import type { ApplyInjuryCheckArgs } from '@/modules/Roleplay/Game/Dto/ApplyInjuryCheckArgs';
 import type { ApplyInjuryCheckResult } from '@/modules/Roleplay/Game/Dto/ApplyInjuryCheckResult';
 export class InjuryCheckService {
+  constructor(private readonly resolveGameApi: () => IGameApi) {}
+
   overlayStateTotal(version: CharacterVersion | null | undefined, rules: Rule[], code: string): number {
     const rule = rules.find((item) => item.code === code && item.type === 'state');
     if (!rule || !version) return 0;
@@ -59,7 +61,7 @@ export class InjuryCheckService {
     if (injury.strength > 0) {
       const maimRule = args.rules.find((rule) => rule.code === MAIM_STATE_CODE && rule.type === 'state');
       if (maimRule) {
-        overlay = await getGameApi().addCombatState(args.gameId, args.targetKey, {
+        overlay = await this.resolveGameApi().addCombatState(args.gameId, args.targetKey, {
           stateRuleId: maimRule.id,
           value: injury.strength,
           maim: {

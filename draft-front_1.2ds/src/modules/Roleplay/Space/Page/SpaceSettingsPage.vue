@@ -3,13 +3,12 @@ import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useSpaceStore } from '@/modules/Roleplay/Space/Store/spaces';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
-import { useUserStore } from '@/modules/Core/User/Store/users';
-import { accessService } from '@/modules/Core/User/init';
+import { accessService, useCurrentUser } from '@/modules/Core/User/init';
 import type { Space } from '@/modules/Roleplay/Space/Dto/Space';
 
 const router = useRouter();
 const store = useSpaceStore();
-const userStore = useUserStore();
+const { currentUser } = useCurrentUser();
 const { signal } = useAbortable();
 
 const space = ref<Space | null>(null);
@@ -20,7 +19,7 @@ const showDeactivateDialog = ref(false);
 const deactivating = ref(false);
 const actionError = ref<string | null>(null);
 
-const canDeactivate = computed(() => accessService.hasAnyPermission(userStore.currentUser, ['space.edit_all']));
+const canDeactivate = computed(() => accessService.hasAnyPermission(currentUser.value, ['space.edit_all']));
 
 onMounted(() => {
   // Пространство уже загружено layout-ом SpaceContextLayout на уровне :code

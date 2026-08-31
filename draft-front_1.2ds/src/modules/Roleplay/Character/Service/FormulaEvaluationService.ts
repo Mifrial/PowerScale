@@ -3,7 +3,7 @@ import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/Dimension
 import type { FormulaContext } from '@/modules/Roleplay/Character/Dto/FormulaContext';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import { CHARACTERISTIC_BASE_RANGE } from '@/modules/Roleplay/Character/Constant/CHARACTERISTIC_BASE_RANGE';
-import { CharacteristicNumber } from '@/modules/Roleplay/Rule/Value/CharacteristicNumber';
+import { CharacteristicNumber } from '@/modules/Roleplay/Rule/init';
 
 /**
  * Оценка формул правил по значениям персонажа. Используется для производных величин

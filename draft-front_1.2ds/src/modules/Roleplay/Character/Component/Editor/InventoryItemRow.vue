@@ -15,7 +15,7 @@ import type { FormulaContext } from '@/modules/Roleplay/Character/Dto/FormulaCon
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { ItemSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpec';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import { itemModifierService } from '@/modules/Roleplay/Rule/Service/Instance/itemModifierService';
+import { itemModifierService } from '@/modules/Roleplay/Rule/init';
 import type { InventoryCatalogItem } from '@/modules/Roleplay/Character/Dto/Editor/InventoryCatalogItem';
 import type { InventoryRowMode } from '@/modules/Roleplay/Character/Enum/InventoryRowMode';
 

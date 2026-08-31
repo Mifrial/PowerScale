@@ -5,11 +5,11 @@ import type { MovementOperation } from '@/modules/Roleplay/Rule/Dto/Ability/Move
 import type { ActionOperationRequest } from '@/modules/Roleplay/Game/Dto/ActionOperationRequest';
 import type { ActionResolution } from '@/modules/Roleplay/Game/Dto/ActionResolution';
 import type { ISpatialResolver } from '@/modules/Roleplay/Game/Interface/ISpatialResolver';
-import { MovementDistanceExpressionService } from '@/modules/Roleplay/Rule/Service/MovementDistanceExpressionService';
+import { movementDistanceExpressionService } from '@/modules/Roleplay/Rule/init';
 
 export class ActionOperationResolutionService {
   constructor(
-    private readonly expressionService = new MovementDistanceExpressionService(),
+    private readonly expressionService = movementDistanceExpressionService,
     private readonly spatialResolver?: ISpatialResolver,
   ) {}
 

@@ -1,11 +1,12 @@
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
-import { CharacteristicNumber } from '@/modules/Roleplay/Rule/Value/CharacteristicNumber';
+import { CharacteristicNumber } from '@/modules/Roleplay/Rule/init';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { raceSpecService } from '@/modules/Roleplay/Rule/init';
 
 export class MovementContextService {
+  constructor(private readonly races = raceSpecService) {}
   resolveMovementStep(
     version?: CharacterVersion,
     rules?: Rule[],
@@ -28,7 +29,7 @@ export class MovementContextService {
         : undefined;
     const automaticRacialAbilities = [
       ...(raceSpec?.abilities ?? []),
-      ...raceSpecService.collectInheritedAbilities(raceSpec?.parent_race_code ?? null, rulesByCode),
+      ...this.races.collectInheritedAbilities(raceSpec?.parent_race_code ?? null, rulesByCode),
     ].filter((ability) => ability.automatic);
     const automaticAbilityCodes = automaticRacialAbilities.map((ability) => ability.ability_code);
     for (const abilityCode of [...abilityLevels, ...automaticAbilityCodes]) {

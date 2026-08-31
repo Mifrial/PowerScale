@@ -5,8 +5,7 @@ import { storeToRefs } from 'pinia';
 import { useCharacterStore } from '@/modules/Roleplay/Character/Store/characters';
 import { characterAccessService } from '@/modules/Roleplay/Character/Service/Instance/characterAccessService';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
-import { useUserStore } from '@/modules/Core/User/Store/users';
-import { accessService } from '@/modules/Core/User/init';
+import { accessService, useCurrentUser } from '@/modules/Core/User/init';
 import { useFilteredRows } from '@/modules/Core/UI/Composables/useFilteredRows';
 import FilterBar from '@/modules/Core/UI/Component/FilterBar.vue';
 import { filterFields } from '@/modules/Roleplay/Character/Constant/charactersGridManifest';
@@ -17,15 +16,15 @@ import type { CharacterStatus } from '@/modules/Roleplay/Character/Enum/Characte
 
 const router = useRouter();
 const store = useCharacterStore();
-const userStore = useUserStore();
+const { currentUser } = useCurrentUser();
 const { loading } = storeToRefs(store);
 const { signal } = useAbortable();
 
-const canCreate = computed(() => accessService.hasAnyPermission(userStore.currentUser, ['character.create']));
+const canCreate = computed(() => accessService.hasAnyPermission(currentUser.value, ['character.create']));
 
 // «Полностью невидим»: персонажи, к которым у текущего пользователя нет доступа по зонам, не в списке.
 const visibleCharacters = computed(() =>
-  store.characters.filter((character) => characterAccessService.canViewCharacter(userStore.currentUser, character)),
+  store.characters.filter((character) => characterAccessService.canViewCharacter(currentUser.value, character)),
 );
 
 const rows = computed(() =>

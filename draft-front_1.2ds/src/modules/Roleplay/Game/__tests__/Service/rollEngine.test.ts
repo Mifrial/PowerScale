@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { RollEngine } from '@/modules/Roleplay/Game/Service/Roll/RollEngine';
-import { MechanicEngine } from '@/modules/Roleplay/Rule/Service/Mechanic/MechanicEngine';
-import { MechanicHandlerRegistry } from '@/modules/Roleplay/Rule/Service/Mechanic/MechanicHandlerRegistry';
-import { rollAdvantageHandler } from '@/modules/Roleplay/Rule/Service/Mechanic/Handlers/RollAdvantageHandler';
-import { rollSixOneHandler } from '@/modules/Roleplay/Rule/Service/Mechanic/Handlers/RollSixOneHandler';
-import { rollCriticalStrikeHandler } from '@/modules/Roleplay/Rule/Service/Mechanic/Handlers/RollCriticalStrikeHandler';
+import { MechanicEngine } from '@/modules/Roleplay/Rule/init';
+import { MechanicHandlerRegistry } from '@/modules/Roleplay/Rule/init';
+import { rollAdvantageHandler } from '@/modules/Roleplay/Rule/init';
+import { rollSixOneHandler } from '@/modules/Roleplay/Rule/init';
+import { rollCriticalStrikeHandler } from '@/modules/Roleplay/Rule/init';
 import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec';
 import type { DiceRng } from '@/modules/Roleplay/Game/Dto/DiceRng';
 import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/Service/Instance/aggregateSourceDeltasService';
+import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/init';
 
 const MECHANICS: Mechanic[] = [
   { id: 1, code: 'six_one_rule', name: 'Правило 6 и 1', description: '', version: '4.5.0' },

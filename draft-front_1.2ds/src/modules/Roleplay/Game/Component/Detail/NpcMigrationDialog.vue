@@ -1,9 +1,8 @@
 <script setup lang="ts">
+import { useSpaceCatalog, useSpaceRevision } from '@/modules/Roleplay/Space/init';
 import { computed, ref, watch } from 'vue';
-import { useSpaceStore } from '@/modules/Roleplay/Space/Store/spaces';
-import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
-import { useCharacterDraftStore } from '@/modules/Roleplay/Character/Store/characterDraft';
+import { useCharacterDraft } from '@/modules/Roleplay/Character/init';
 import { characterBuildService } from '@/modules/Roleplay/Character/init';
 import { characterMigrationService } from '@/modules/Roleplay/Character/init';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
@@ -12,7 +11,7 @@ import { MigrationReport } from '@/modules/Roleplay/Character/init';
 import SlidePanel from '@/modules/Core/UI/Component/SlidePanel.vue';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
-import type { MigrationResult } from '@/modules/Roleplay/Character/Service/CharacterMigrationService';
+import type { MigrationResult } from '@/modules/Roleplay/Character/Dto/MigrationResult';
 import type { CharacterCreationConfig } from '@/modules/Roleplay/Character/Dto/Editor/CharacterCreationConfig';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { isEmptyMembershipDiff, membershipDiff } from '@/modules/Roleplay/Game/Utils/membershipDiff';
@@ -30,9 +29,9 @@ const emit = defineEmits<{
   applied: [];
 }>();
 
-const spaceStore = useSpaceStore();
-const spaceRevisionStore = useSpaceRevisionStore();
-const draftStore = useCharacterDraftStore();
+const spaceCatalog = useSpaceCatalog();
+const spaceRevision = useSpaceRevision();
+const draftStore = useCharacterDraft();
 const { signal } = useAbortable();
 
 const loading = ref(false);
@@ -109,15 +108,11 @@ async function run(): Promise<void> {
   loading.value = true;
   error.value = null;
   try {
-    const oldSpace = await spaceStore.fetchSpaceByCode(source.spaceCode, signal.value);
-    const oldRevision = await spaceRevisionStore.fetchRevision(oldSpace.id, source.rulesRevision, signal.value);
+    const oldSpace = await spaceCatalog.fetchSpaceByCode(source.spaceCode, signal.value);
+    const oldRevision = await spaceRevision.fetchRevision(oldSpace.id, source.rulesRevision, signal.value);
     originalVersion.value = source;
     oldRules.value = oldRevision.rules;
-    const newRevision = await spaceRevisionStore.fetchRevision(
-      props.gameSpaceId,
-      props.gameRulesRevision,
-      signal.value,
-    );
+    const newRevision = await spaceRevision.fetchRevision(props.gameSpaceId, props.gameRulesRevision, signal.value);
     names.value = Object.fromEntries(newRevision.rules.map((rule) => [rule.id, rule.name]));
     targetRules.value = newRevision.rules;
     result.value = characterMigrationService.migrate({

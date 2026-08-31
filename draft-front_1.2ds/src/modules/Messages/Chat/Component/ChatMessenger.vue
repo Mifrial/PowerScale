@@ -14,7 +14,7 @@ import ChatMessageList from '@/modules/Messages/Chat/Component/ChatMessageList.v
 import ChatInput from '@/modules/Messages/Chat/Component/ChatInput.vue';
 import ChatSyncStatusBanner from '@/modules/Messages/Chat/Component/ChatSyncStatusBanner.vue';
 import ChatReadAckBanner from '@/modules/Messages/Chat/Component/ChatReadAckBanner.vue';
-import UserProfileSlider from '@/modules/Core/User/Component/UserProfileSlider.vue';
+import { UserProfileSlider } from '@/modules/Core/User/init';
 
 const store = useChatStore();
 const permissions = usePermissions();
