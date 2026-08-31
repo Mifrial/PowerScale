@@ -23,7 +23,8 @@
 - `auth-system.md` — users, groups, sessions, permissions, security и user routes;
 - `rule-system.md` — Rule DTO, RuleType, Rule Engine, Space, revisions, catalog и publication;
 - `character-system.md` — Character, versions, creation, validation, inventory и membership;
-- `game-system.md` — Game, sessions, combat, movement, chronicle, economy и loot;
+- `game-system.md` — Game, sessions, combat, abstract movement, chronicle, economy и loot;
+- `battleground-system.md` — SceneTemplate, GameScene, SceneSpace, Enclosure, SupportSurface, Token, Obstacle, Watercourse, Opening, occupancy, projection, sceneVersion, spatial combat context, SSE сцены;
 - `chat-system.md` — Chat protocol, attachments, commands, sync и visibility;
 - `ui-system.md` — routes/UI behavior, notifications и frontend acceptance criteria;
 - `decisions.md` — индекс решений, без повторения доменных контрактов;

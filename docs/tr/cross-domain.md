@@ -32,6 +32,16 @@
 **Error/concurrency:** conflicting overlay versions return `currentVersion` for a retriable read.  
 **Backend boundary:** delivery, persistence and SSE are backend `OPEN`; frontend mock/polling is not SSE implementation.
 
+## GameScene → spatial combat / PlayerSceneProjection
+
+**Input:** `current` GameScene, actor tokens, occupancy, openings, выбранный активный персонаж.  
+**Output:** `PlayerSceneProjection` (токены и области по vis); для атаки — дистанция, LOS, flank.  
+**Owner:** [`battleground-system.md`](battleground-system.md). Combat читает spatial context; атака не является командой сцены.  
+**Visibility:** сервер фильтрует projection; fog клиента не расширяет доступ.  
+**Version invariant:** мутации сцены несут `sceneVersion`.  
+**Error/concurrency:** stale version — conflict, не успех валидации.  
+**Backend boundary:** blob, SSE, stamp occupancy/navmesh — `OPEN`; реализация `NOT_IMPLEMENTED`.
+
 ## События игры → уведомления
 
 **Вход:** типизированный факт события, ключ, круг получателей, версия объекта.  
@@ -68,7 +78,7 @@ Every transition returns either a typed result or `{ code, message, field?, curr
 
 ## Evidence boundary for transition cards
 
-For all six cards the evidence is separated into three layers:
+For the transition cards the evidence is separated into three layers:
 
 - **Shape:** frontend DTOs, interfaces and attachment payloads prove field names and discriminated forms only.
 - **Behavior:** frontend services, stores and route guards prove only the listed client-side orchestration; they do not prove server authorization, persistence or atomicity.

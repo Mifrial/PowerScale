@@ -1,6 +1,6 @@
 # Система игр
 
-**Статус:** текущий frontend/domain канон, 2026-08-30. Незавершённые backend и battleground-контракты явно помечены.
+**Статус:** текущий frontend/domain канон, 2026-08-30. Незавершённые backend-контракты явно помечены. Battleground — [`battleground-system.md`](battleground-system.md), не этот файл.
 
 ## Контекст и lifecycle
 
@@ -43,9 +43,9 @@ Backend-схема летописи, формат сохранения `event_ti
 
 ## Движение и battleground
 
-Абстрактное движение представлено action/process-контуром и `ISpatialResolver`, включая разрешение движения и валидацию целей атаки.
+Абстрактное движение представлено action/process-контуром и `ISpatialResolver`, включая разрешение движения и валидацию целей атаки без координат сцены (`DEC-026`).
 
-Battleground — отдельный незавершённый контур. Координаты, сцены, токены, препятствия, порталы, видимость, realtime-позиции и тактическая карта не входят в уже реализованный контракт движения.
+Пространственная сцена — [`battleground-system.md`](battleground-system.md) (`DEC-069`): `REQUIREMENT`, `NOT_IMPLEMENTED`. Токен на overlay листа не смешивать с токеном карты без явного инварианта.
 
 ## Инвентарь
 
@@ -113,7 +113,7 @@ Wide attack requires at least one target and a defender key for every target. Ea
 
 ### Movement
 
-Movement is resolved through `ISpatialResolver` and typed horizontal/vertical directions. A movement operation must validate direction, distance, current speed and action-point cost before mutating the session overlay. Tactical coordinates, obstacles, portals and realtime token positions belong to the separate battleground backlog.
+Movement is resolved through `ISpatialResolver` and typed horizontal/vertical directions. A movement operation must validate direction, distance, current speed and action-point cost before mutating the session overlay. When a current `GameScene` exists, path, collision and portal crossing follow [`battleground-system.md`](battleground-system.md); that domain is not implemented yet.
 
 ### Loot and stores
 
@@ -140,7 +140,7 @@ Combat resources, states, ActionEffect, movement, initiative, checks, chronicle 
 ## Backlog и release blockers
 
 - `N → 1` attack;
-- полноценный battleground;
+- реализация battleground по [`battleground-system.md`](battleground-system.md);
 - полная backend-модель GameTime/летописи;
 - торговля, обмен, loot и модерация в реальном backend;
 - интеграция runtime магии после выгрузки контента.

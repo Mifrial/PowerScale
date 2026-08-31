@@ -33,7 +33,7 @@
 - **5. Пространства, строки 1037–1227** → `rule-system.md`; `MIGRATE` revision, inheritance, SpaceRevision, draft, URL context, publish, stores; selective publish remains required by `DEC-015`.
 - **6. Правила, строки 1228–1680** → `rule-system.md`; `MIGRATE` mechanics, all confirmed rule DTOs, dimensional values, keywords, modifiers and specifications; unknown backend semantics — `OPEN`.
 - **7. Персонажи, строки 1681–1851** → `character-system.md`; `MIGRATE` creation, editing, calculations, modifiers, inventory, states and routes; old status/storage variants — `HISTORICAL`.
-- **8. Игры, строки 1852–1980** → `game-system.md`; `MIGRATE` lifecycle, roles, NPC, tabs, GameTime, combat and known status; battleground and unfinished variants — `BACKLOG`.
+- **8. Игры, строки 1852–1980** → `game-system.md`; `MIGRATE` lifecycle, roles, NPC, tabs, GameTime, combat and known status. Живой контракт сцены — `battleground-system.md` (`REQUIREMENT`, не legacy-диапазон); в legacy battleground был незавершён.
 - **9. Chat, строки 1981–2235** → `chat-system.md`; `MIGRATE` host, plugins, attachments, loading, virtualization and frontend behavior; SSE/backend details — `OPEN` or `DEFERRED` where unverified.
 - **10. Уведомления, строки 2236–2250** → system document; `MIGRATE` confirmed UI/data contract, unfinished backend generation — `OPEN`.
 - **11. Интерфейс, строки 2251–2388** → system document or `architecture.md`; `MIGRATE` current routes/layout/editor patterns; cancelled layout variants — `HISTORICAL`.

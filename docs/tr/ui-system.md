@@ -62,7 +62,7 @@ Polling/mock-поведение и целевой SSE-контракт не см
 
 Auth routes: `/login`, `/register`, `/forgot-password`, `/reset-password`. Logout не является отдельной страницей или frontend route: authenticated action `auth.logout` запускается через confirmation dialog; после успеха сессия сбрасывается и пользователь попадает на `/login`. Core routes: `/users`, `/users/new`, `/users/:id`, `/users/:id/edit`, `/admin/groups` и `/admin/keywords` с permission guards из `auth-system.md`.
 
-Space/Rule routes выбирают `space code` и revision context. Character routes описаны в `character-system.md`; Game routes и tabs — в `game-system.md`. Деактивация сущности выполняется action-dialog на странице сущности, а не отдельной страницей.
+Space/Rule routes выбирают `space code` и revision context; карточка правила — `/space/:spaceCode/:ctx/rules/:ruleCode`. Character routes описаны в `character-system.md`; Game routes и tabs — в `game-system.md`. Полноэкранный battlemap и библиотека шаблонов сцен — [`battleground-system.md`](battleground-system.md) (`REQUIREMENT` поверхностей, маршруты `NOT_IMPLEMENTED`). Деактивация сущности выполняется action-dialog на странице сущности, а не отдельной страницей.
 
 Guest видит публичные games/spaces и публичные chats, но не создаёт и не редактирует доменные объекты и не пишет в Chat. Auth screens не используют основной sidebar.
 

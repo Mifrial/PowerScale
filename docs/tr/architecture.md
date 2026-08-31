@@ -132,13 +132,16 @@ Auth зависит от User: после входа и выхода Auth выз
 - **Требование к серверу:** доменные инварианты серверных операций: авторизация, фильтрация видимости, оптимистичные версии, транзакции, идемпотентность, журнал.
 - **Реализация сервера `OPEN`:** физическая схема, endpoints, репозитории, хранение, транзакции, авторизация/reconnect/retention SSE и боевое логирование.
 
-Наличие DTO и API на фронте не доказывает реализацию на сервере. Физическая схема таблиц экономических операций и точные endpoint — задача проектирования сервера; доменные инварианты — в [`game-system.md`](game-system.md).
+Наличие DTO и API на фронте не доказывает реализацию на сервере. Физическая схема таблиц экономических операций и точные endpoint — задача проектирования сервера; доменные инварианты экономики — в [`game-system.md`](game-system.md), сцены — в [`battleground-system.md`](battleground-system.md). PHP battleground не начинать до серверного Core.
+
+Battleground живёт в `Roleplay/Game` (библиотека шаблонов — UI того же модуля). Новых DAG-рёбер в Core/Chat нет. SSE сцены — существующая `OPEN` граница realtime.
 
 ## Связанные документы
 
 - [`rule-system.md`](rule-system.md)
 - [`character-system.md`](character-system.md)
 - [`game-system.md`](game-system.md)
+- [`battleground-system.md`](battleground-system.md)
 - [`chat-system.md`](chat-system.md)
 - [`auth-system.md`](auth-system.md)
 - [`data-model.md`](data-model.md)

@@ -504,3 +504,5 @@ Legacy `game_characters.active_json`, `pending_json` и `draft_json` не явл
 Legacy `character_moderation` как отдельная таблица также не является владельцем moderation state: moderation принадлежит membership Game и его version/concurrency contract.
 
 `dice_result` — legacy field; текущая модель сообщения использует `ChatAttachment[]`. `event_time`/`sort_order` — legacy storage; frontend использует `GameTime`. SSE, unread, visibility, notification generation и ownership constraints требуют backend-подтверждения (`OPEN`).
+
+Логические сущности battleground (`GameScene`, occupancy blob, openings) — [`battleground-system.md`](battleground-system.md). Таблиц сцены в legacy SQL нет. Candidate для подложек — существующий `files()`; этого недостаточно как схемы сцены (`OPEN`).

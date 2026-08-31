@@ -23,7 +23,7 @@
 - `DEC-003` — сообщения используют `ChatAttachment[]`.
 - `DEC-004` — `points` является отдельным типом правила.
 - `DEC-005` — ссылки на правила используют семантические `*_code`.
-- `DEC-060` — публичные поля ссылок на правила используют явные `*_code`-имена (`ruleCode`, `raceRuleCode`, `sourceRuleCode`); numeric `id` — только storage key.
+- `DEC-060` — публичные поля ссылок на правила используют явные `*_code`-имена (`ruleCode`, `raceRuleCode`, `sourceRuleCode`); `Rule.id` — `number | null`, только storage key. Реализовано 2026-08-31.
 - `DEC-061` — loot имеет статусы `prepared | available | distributed`; интерес игрока хранится отдельно в `game_loot_interest`.
 - `DEC-062` — `keyword` — технический термин; пользовательские UI-тексты используют «признак»/«Признаки», не «тег».
 - `DEC-063` — Chat sync публикует `ok`/`retrying`, сохраняет cursor при ошибке и ретраит с backoff 1s–30s плюс ручной «Повторить»; `markChatRead` в этот контракт не входит (ack прочтения — в chat-system).
@@ -44,7 +44,8 @@
 - `DEC-020` — отдельные верхнее меню и footer не являются текущим layout-контрактом.
 - `DEC-021` — однозначные редакционные ошибки ТР исправляются при финальной миграции.
 - `DEC-022` — имя справочника признаков: `keywords`.
-- `DEC-026` — движение и battleground разделены.
+- `DEC-026` — абстрактное движение реализовано; battleground — отдельный контур (`DEC-069` принимает requirement-канон).
+- `DEC-069` — `battleground-system.md`: логическая модель сцены `REQUIREMENT`, реализация `NOT_IMPLEMENTED`, persistence `OPEN`.
 - `DEC-027` — старый план Chat → Game перенесён в историю.
 - `DEC-028` — готовность RuleType оценивается независимо по доменной модели, frontend, backend и контенту.
 

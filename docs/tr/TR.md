@@ -22,11 +22,12 @@
 - [Архитектура](architecture.md) — модули, таблица рёбер DAG, поверхность и CODE_GAP границ.
 - [Система правил](rule-system.md) — RuleType, ревизии, каталог, ресурсы и публикация.
 - [Система персонажей](character-system.md) — версии, membership, validation и модерация.
-- [Система игр](game-system.md) — игра, бой, движение, overlay, инвентарь и экономика.
+- [Система игр](game-system.md) — игра, бой, абстрактное движение, overlay, инвентарь и экономика.
+- [Система battleground](battleground-system.md) — тактическая сцена (`REQUIREMENT`, не реализована).
 - [Система Chat](chat-system.md) — host, attachments и plugin-контракты.
 - [Пользователи и авторизация](auth-system.md) — профили, группы, права и сессии.
 - [Интерфейс и уведомления](ui-system.md) — UI-разделы, frontend-паттерны и незавершённые backend-контракты.
-- [Сквозные переходы](cross-domain.md) — границы Rule→Character→Game→Chat, события и concurrency.
+- [Сквозные переходы](cross-domain.md) — границы Rule→Character→Game→Chat и GameScene→бой; события и concurrency.
 - [Актуальные решения](decisions.md) — реестр решений с уникальными ID.
 - [История](history.md) — отменённые модели, старые планы и отложенные вопросы.
 - [Карта миграции](migration-map.md) — соответствие разделов старого монолита новым документам.
