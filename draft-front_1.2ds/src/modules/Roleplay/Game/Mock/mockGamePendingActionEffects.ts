@@ -13,7 +13,7 @@ export async function fetchPendingActionEffects(
   return Object.fromEntries(
     [...gamePending.entries()].map(([key, effects]) => [
       key,
-      effects.map((effect) => ({ sourceRuleId: effect.sourceRuleId, effect: { ...effect.effect } })),
+      effects.map((effect) => ({ sourceRuleCode: effect.sourceRuleCode, effect: { ...effect.effect } })),
     ]),
   );
 }
@@ -27,9 +27,9 @@ export async function setPendingActionEffects(
   const gamePending = pending.get(gameId) ?? new Map<CombatEntityKey, PendingActionEffect[]>();
   gamePending.set(
     entityKey,
-    effects.map((effect) => ({ sourceRuleId: effect.sourceRuleId, effect: { ...effect.effect } })),
+    effects.map((effect) => ({ sourceRuleCode: effect.sourceRuleCode, effect: { ...effect.effect } })),
   );
   pending.set(gameId, gamePending);
 
-  return effects.map((effect) => ({ sourceRuleId: effect.sourceRuleId, effect: { ...effect.effect } }));
+  return effects.map((effect) => ({ sourceRuleCode: effect.sourceRuleCode, effect: { ...effect.effect } }));
 }

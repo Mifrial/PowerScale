@@ -8,15 +8,15 @@ export const useRuleStore = defineStore('rules', () => {
   const currentRule = ref<Rule | null>(null);
   const ruleVersions = ref<RuleVersion[]>([]);
 
-  async function fetchRule(ruleId: string, signal?: AbortSignal): Promise<Rule> {
-    const rule = await getRuleApi().getRule(ruleId, signal);
+  async function fetchRule(code: string, signal?: AbortSignal): Promise<Rule> {
+    const rule = await getRuleApi().getRule(code, signal);
     currentRule.value = rule;
 
     return rule;
   }
 
-  async function fetchRuleVersions(ruleId: string, signal?: AbortSignal) {
-    ruleVersions.value = await getRuleApi().getRuleVersions(ruleId, signal);
+  async function fetchRuleVersions(code: string, signal?: AbortSignal) {
+    ruleVersions.value = await getRuleApi().getRuleVersions(code, signal);
   }
 
   function setCurrentRule(rule: Rule) {

@@ -2,10 +2,10 @@ import { describe, it, expect } from 'vitest';
 import { publishService } from '@/modules/Roleplay/Space/Service/Instance/publishService';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
-function rule(id: string, name: string, overrides: Partial<Rule> = {}): Rule {
+function rule(code: string, name: string, overrides: Partial<Rule> = {}): Rule {
   return {
-    id,
-    code: id,
+    id: null,
+    code,
     type: 'simple',
     name,
     description: `Описание ${name}`,
@@ -22,8 +22,8 @@ describe('PublishService.prepare', () => {
 
     const summary = publishService.prepare(published, draft, draft, []);
 
-    expect(summary.added.map((r) => r.id)).toEqual(['r2']);
-    expect(summary.changed.map((r) => r.id)).toEqual(['r1']);
+    expect(summary.added.map((r) => r.code)).toEqual(['r2']);
+    expect(summary.changed.map((r) => r.code)).toEqual(['r1']);
   });
 
   it('пустой черновик не даёт изменений', () => {

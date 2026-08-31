@@ -16,14 +16,14 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  'update:open': [ruleId: string, open: boolean];
-  'set-level': [ruleId: string, level: number];
-  'set-parameter': [ruleId: string, code: string, value: number | { base: number; size: number }];
-  'add-instance': [ruleId: string, domain: string, domainCode: string | null];
-  'set-instance-level': [ruleId: string, domain: string, level: number];
-  'set-instance-domain': [ruleId: string, oldDomain: string, newDomain: string, domainCode: string | null];
-  'remove-instance': [ruleId: string, domain: string];
-  'set-ability-domain': [ruleId: string, domain: string, domainCode: string | null];
+  'update:open': [ruleCode: string, open: boolean];
+  'set-level': [ruleCode: string, level: number];
+  'set-parameter': [ruleCode: string, code: string, value: number | { base: number; size: number }];
+  'add-instance': [ruleCode: string, domain: string, domainCode: string | null];
+  'set-instance-level': [ruleCode: string, domain: string, level: number];
+  'set-instance-domain': [ruleCode: string, oldDomain: string, newDomain: string, domainCode: string | null];
+  'remove-instance': [ruleCode: string, domain: string];
+  'set-ability-domain': [ruleCode: string, domain: string, domainCode: string | null];
 }>();
 
 function childrenOf(ability: EditorAbility): EditorAbility[] {
@@ -39,38 +39,39 @@ function childrenOf(ability: EditorAbility): EditorAbility[] {
       :rules="rules"
       zone-code="or"
       zone-label="ОР"
-      :open="openSet.has(ability.ruleId)"
-      @update:open="emit('update:open', ability.ruleId, $event)"
-      @set-parameter="(ruleId, code, value) => emit('set-parameter', ruleId, code, value)"
-      @set-level="(ruleId, level) => emit('set-level', ruleId, level)"
-      @add-instance="(ruleId, domain, code) => emit('add-instance', ruleId, domain, code)"
-      @set-instance-level="(ruleId, domain, level) => emit('set-instance-level', ruleId, domain, level)"
+      :open="openSet.has(ability.ruleCode)"
+      @update:open="emit('update:open', ability.ruleCode, $event)"
+      @set-parameter="(ruleCode, code, value) => emit('set-parameter', ruleCode, code, value)"
+      @set-level="(ruleCode, level) => emit('set-level', ruleCode, level)"
+      @add-instance="(ruleCode, domain, code) => emit('add-instance', ruleCode, domain, code)"
+      @set-instance-level="(ruleCode, domain, level) => emit('set-instance-level', ruleCode, domain, level)"
       @set-instance-domain="
-        (ruleId, oldDomain, newDomain, code) => emit('set-instance-domain', ruleId, oldDomain, newDomain, code)
+        (ruleCode, oldDomain, newDomain, code) => emit('set-instance-domain', ruleCode, oldDomain, newDomain, code)
       "
-      @remove-instance="(ruleId, domain) => emit('remove-instance', ruleId, domain)"
-      @set-ability-domain="(ruleId, domain, code) => emit('set-ability-domain', ruleId, domain, code)"
+      @remove-instance="(ruleCode, domain) => emit('remove-instance', ruleCode, domain)"
+      @set-ability-domain="(ruleCode, domain, code) => emit('set-ability-domain', ruleCode, domain, code)"
     >
       <template v-if="childrenOf(ability).length" #nested>
         <div class="ability-node__nested">
           <DevelopmentAbilityNode
             v-for="child in childrenOf(ability)"
-            :key="child.ruleId"
+            :key="child.ruleCode"
             :ability="child"
             :children-by-code="childrenByCode"
             :keywords="keywords"
             :rules="rules"
             :open-set="openSet"
-            @update:open="(ruleId, open) => emit('update:open', ruleId, open)"
-            @set-parameter="(ruleId, code, value) => emit('set-parameter', ruleId, code, value)"
-            @set-level="(ruleId, level) => emit('set-level', ruleId, level)"
-            @add-instance="(ruleId, domain, code) => emit('add-instance', ruleId, domain, code)"
-            @set-instance-level="(ruleId, domain, level) => emit('set-instance-level', ruleId, domain, level)"
+            @update:open="(ruleCode, open) => emit('update:open', ruleCode, open)"
+            @set-parameter="(ruleCode, code, value) => emit('set-parameter', ruleCode, code, value)"
+            @set-level="(ruleCode, level) => emit('set-level', ruleCode, level)"
+            @add-instance="(ruleCode, domain, code) => emit('add-instance', ruleCode, domain, code)"
+            @set-instance-level="(ruleCode, domain, level) => emit('set-instance-level', ruleCode, domain, level)"
             @set-instance-domain="
-              (ruleId, oldDomain, newDomain, code) => emit('set-instance-domain', ruleId, oldDomain, newDomain, code)
+              (ruleCode, oldDomain, newDomain, code) =>
+                emit('set-instance-domain', ruleCode, oldDomain, newDomain, code)
             "
-            @remove-instance="(ruleId, domain) => emit('remove-instance', ruleId, domain)"
-            @set-ability-domain="(ruleId, domain, code) => emit('set-ability-domain', ruleId, domain, code)"
+            @remove-instance="(ruleCode, domain) => emit('remove-instance', ruleCode, domain)"
+            @set-ability-domain="(ruleCode, domain, code) => emit('set-ability-domain', ruleCode, domain, code)"
           />
         </div>
       </template>

@@ -1,5 +1,5 @@
-/** Избранные способности одного персонажа: characterId → список ruleId. */
+/** Избранные способности одного персонажа: characterId → список ruleCode. */
 export interface CharacterAbilityFavorites {
   characterId: number;
-  ruleIds: string[];
+  ruleCodes: string[];
 }

@@ -3,7 +3,7 @@ import { formatHitCheckMessage } from '@/modules/Roleplay/Game/Utils/hitCheckMes
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
 const dagger: Rule = {
-  id: 'item-dagger',
+  id: null,
   code: 'dagger',
   type: 'item',
   name: 'Кинжал',
@@ -14,7 +14,7 @@ const dagger: Rule = {
   createdAt: '2026-01-01T00:00:00Z',
 };
 
-const shield: Rule = { ...dagger, id: 'item-shield', code: 'classic-shield', name: 'Классический щит' };
+const shield: Rule = { ...dagger, id: null, code: 'classic-shield', name: 'Классический щит' };
 
 describe('formatHitCheckMessage', () => {
   it('уклон со ссылками', () => {
@@ -24,7 +24,7 @@ describe('formatHitCheckMessage', () => {
         attackerName: 'Гаррик из Тени',
         defenderKey: 'character:1',
         defenderName: 'Старый Бородач',
-        weaponRuleId: 'item-dagger',
+        weaponRuleCode: 'dagger',
         weaponName: 'Кинжал',
         reaction: 'dodge',
         rules: [dagger],
@@ -41,10 +41,10 @@ describe('formatHitCheckMessage', () => {
         attackerName: 'Ворон',
         defenderKey: 'character:1',
         defenderName: 'Бородач',
-        weaponRuleId: 'item-dagger',
+        weaponRuleCode: 'dagger',
         weaponName: 'Кинжал',
         reaction: 'block',
-        blockItemRuleId: 'item-shield',
+        blockItemRuleCode: 'classic-shield',
         rules: [dagger, shield],
       }),
     ).toContain('пытается блокировать, используя [[rule:classic-shield]]');

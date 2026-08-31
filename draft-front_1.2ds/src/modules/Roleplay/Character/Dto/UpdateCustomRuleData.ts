@@ -1,10 +1,10 @@
 /**
  * Обновление записи кастомного правила («Уникальные правила»): правка текста, пометка
- * «заменено на правило» (`status: 'deprecated'` + `replacedWithRuleId`).
+ * «заменено на правило» (`status: 'deprecated'` + `replacedWithRuleCode`).
  */
 export interface UpdateCustomRuleData {
   name?: string;
   description?: string | null;
   status?: 'active' | 'deprecated';
-  replacedWithRuleId?: string;
+  replacedWithRuleCode?: string;
 }

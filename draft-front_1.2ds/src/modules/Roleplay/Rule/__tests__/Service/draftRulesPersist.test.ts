@@ -24,7 +24,7 @@ describe('DraftRulesPersistService', () => {
           spaceId: 1,
           changedRules: {
             r1: {
-              id: 'r1',
+              id: 1,
               code: 'c1',
               type: 'simple',
               name: 'Правило',
@@ -40,5 +40,31 @@ describe('DraftRulesPersistService', () => {
     expect(result.discarded).toBe(true);
     expect(result.entries).toHaveLength(1);
     expect(result.entries[0]?.spaceId).toBe(1);
+    expect(Object.keys(result.entries[0]?.changedRules ?? {})).toEqual(['c1']);
+  });
+
+  it('старый ключ map по id переиндексирует на rule.code', () => {
+    localStorage.setItem(
+      DRAFT_RULES_STORAGE_KEY,
+      JSON.stringify([
+        {
+          spaceId: 1,
+          changedRules: {
+            'rule-73': {
+              id: 73,
+              code: 'dodge',
+              type: 'simple',
+              name: 'Уклонение',
+              description: '',
+              spaceId: 1,
+              createdAt: '2026-08-02T00:00:00Z',
+            },
+          },
+        },
+      ]),
+    );
+    const result = draftRulesPersistService.read();
+    expect(result.discarded).toBe(false);
+    expect(Object.keys(result.entries[0]?.changedRules ?? {})).toEqual(['dodge']);
   });
 });

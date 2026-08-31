@@ -17,14 +17,14 @@ function withFlag(version: CharacterVersion, code: string): CharacterVersion {
   const rule = rules.find((item) => item.code === code && item.type === 'state');
   if (!rule) throw new Error(code);
 
-  return { ...version, states: [...version.states, { stateRuleId: rule.id }] };
+  return { ...version, states: [...version.states, { stateRuleCode: rule.code }] };
 }
 
 function withMaim(version: CharacterVersion, strength: number): CharacterVersion {
   const rule = rules.find((item) => item.code === MAIM_STATE_CODE && item.type === 'state');
   if (!rule) throw new Error('maim');
 
-  return { ...version, states: [...version.states, { stateRuleId: rule.id, value: strength }] };
+  return { ...version, states: [...version.states, { stateRuleCode: rule.code, value: strength }] };
 }
 
 describe('liveActionPointsLimit', () => {

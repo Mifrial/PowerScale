@@ -51,7 +51,7 @@ describe('applyAttackDamage', () => {
       defense: {
         armor: [
           {
-            itemRuleId: 'a',
+            itemRuleCode: 'a',
             itemName: 'Доспех',
             href: '',
             lines: [
@@ -93,7 +93,7 @@ describe('applyAttackDamage', () => {
       defense: {
         armor: [
           {
-            itemRuleId: 'a',
+            itemRuleCode: 'a',
             itemName: 'Плащ',
             href: '',
             lines: [
@@ -125,7 +125,7 @@ describe('applyAttackDamage', () => {
       sr: 4,
       damageTypeCode: 'piercing',
       defense: {
-        armor: [{ itemRuleId: 'a', itemName: 'A', href: '', lines, tiers: [] }],
+        armor: [{ itemRuleCode: 'a', itemName: 'A', href: '', lines, tiers: [] }],
         constantDefense: 0,
         tiers: [],
         shield: null,
@@ -149,7 +149,7 @@ describe('applyAttackDamage', () => {
       sr: 8,
       damageTypeCode: 'piercing',
       defense: {
-        armor: [{ itemRuleId: 'quilted', itemName: 'Стёганый доспех', href: '', lines, tiers: [] }],
+        armor: [{ itemRuleCode: 'quilted', itemName: 'Стёганый доспех', href: '', lines, tiers: [] }],
         constantDefense: 3,
         tiers: [],
         shield: null,
@@ -176,7 +176,7 @@ describe('applyAttackDamage', () => {
       sr: 4,
       damageTypeCode: 'blunt',
       defense: {
-        armor: [{ itemRuleId: 'a', itemName: 'A', href: '', lines, tiers: [] }],
+        armor: [{ itemRuleCode: 'a', itemName: 'A', href: '', lines, tiers: [] }],
         constantDefense: 0,
         tiers: [],
         shield: null,
@@ -253,7 +253,7 @@ describe('applyAttackDamage', () => {
       sr: 1,
       damageTypeCode: 'blunt',
       defense: {
-        armor: [{ itemRuleId: 'a', itemName: 'A', href: '', lines, tiers: [] }],
+        armor: [{ itemRuleCode: 'a', itemName: 'A', href: '', lines, tiers: [] }],
         constantDefense: 2,
         tiers: [],
         shield: null,
@@ -267,7 +267,7 @@ describe('applyAttackDamage', () => {
       sr: 1,
       damageTypeCode: 'blunt',
       defense: {
-        armor: [{ itemRuleId: 'a', itemName: 'A', href: '', lines, tiers: [] }],
+        armor: [{ itemRuleCode: 'a', itemName: 'A', href: '', lines, tiers: [] }],
         constantDefense: 2,
         tiers: [],
         shield: null,
@@ -280,7 +280,12 @@ describe('applyAttackDamage', () => {
   });
 
   it('сообщения атаки и подпись РУ', () => {
-    const action = { ruleId: 'rule-900', code: 'simple-melee-attack', name: 'Простая атака (ближний бой)', odCost: 3 };
+    const action = {
+      ruleCode: 'simple-melee-attack',
+      code: 'simple-melee-attack',
+      name: 'Простая атака (ближний бой)',
+      odCost: 3,
+    };
     expect(
       formatAttackActionMessage({
         attackerKey: 'character:1',
@@ -289,7 +294,7 @@ describe('applyAttackDamage', () => {
         attackerAp: 3,
         rules: [
           {
-            id: 'rule-900',
+            id: 900,
             code: 'simple-melee-attack',
             type: 'ability',
             name: 'Простая атака (ближний бой)',
@@ -307,7 +312,7 @@ describe('applyAttackDamage', () => {
         attackerKey: 'character:1',
         attackerName: 'Гарик',
         action: {
-          ruleId: 'rule-process',
+          ruleCode: 'seriya-udarov',
           code: 'simple-melee-attack',
           name: 'Серия ударов · Первая часть',
           odCost: 3,
@@ -315,7 +320,7 @@ describe('applyAttackDamage', () => {
         attackerAp: 3,
         rules: [
           {
-            id: 'rule-process',
+            id: null,
             code: 'seriya-udarov',
             type: 'ability',
             name: 'Серия ударов',
@@ -326,7 +331,7 @@ describe('applyAttackDamage', () => {
             createdAt: '2026-01-01T00:00:00Z',
           },
           {
-            id: 'rule-900',
+            id: 900,
             code: 'simple-melee-attack',
             type: 'ability',
             name: 'Простая атака (ближний бой)',
@@ -345,15 +350,15 @@ describe('applyAttackDamage', () => {
         attackerName: 'Гарик',
         defenderKey: 'npc:2',
         defenderName: 'Бородач',
-        weaponRuleId: 'item-scythe',
+        weaponRuleCode: 'scythe',
         weaponName: 'Боевая коса',
         damageTypeCode: 'slashing',
         reaction: 'dodge',
-        reactionAction: { ruleId: 'rule-902', code: 'dodge', name: 'Уклонение', odCost: 1 },
+        reactionAction: { ruleCode: 'dodge', code: 'dodge', name: 'Уклонение', odCost: 1 },
         reactionAp: 1,
         rules: [
           {
-            id: 'item-scythe',
+            id: null,
             code: 'scythe',
             type: 'item',
             name: 'Боевая коса',
@@ -364,7 +369,7 @@ describe('applyAttackDamage', () => {
             createdAt: '2026-01-01T00:00:00Z',
           },
           {
-            id: 'dt',
+            id: null,
             code: 'slashing',
             type: 'damage_type',
             name: 'Рубящий',
@@ -375,7 +380,7 @@ describe('applyAttackDamage', () => {
             createdAt: '2026-01-01T00:00:00Z',
           },
           {
-            id: 'rule-902',
+            id: 902,
             code: 'dodge',
             type: 'ability',
             name: 'Уклонение',
@@ -394,18 +399,18 @@ describe('applyAttackDamage', () => {
         attackerName: 'Гарик',
         defenderKey: 'npc:2',
         defenderName: 'Бородач',
-        weaponRuleId: 'item-dagger',
+        weaponRuleCode: 'dagger',
         weaponName: 'Кинжал',
         damageTypeCode: 'piercing',
         profileType: 'throw',
         flank: true,
         turn: true,
         reaction: 'dodge',
-        reactionAction: { ruleId: 'rule-902', code: 'dodge', name: 'Уклонение', odCost: 1 },
+        reactionAction: { ruleCode: 'dodge', code: 'dodge', name: 'Уклонение', odCost: 1 },
         reactionAp: 2,
         rules: [
           {
-            id: 'item-dagger',
+            id: null,
             code: 'dagger',
             type: 'item',
             name: 'Кинжал',
@@ -416,7 +421,7 @@ describe('applyAttackDamage', () => {
             createdAt: '2026-01-01T00:00:00Z',
           },
           {
-            id: 'dt-p',
+            id: null,
             code: 'piercing',
             type: 'damage_type',
             name: 'Колющий',
@@ -427,7 +432,7 @@ describe('applyAttackDamage', () => {
             createdAt: '2026-01-01T00:00:00Z',
           },
           {
-            id: 'rule-902',
+            id: 902,
             code: 'dodge',
             type: 'ability',
             name: 'Уклонение',
@@ -469,7 +474,7 @@ describe('applyAttackDamage', () => {
       damageTypeCode: 'blunt',
       rules: [
         {
-          id: 'dt',
+          id: null,
           code: 'blunt',
           type: 'damage_type',
           name: 'Дробящий',

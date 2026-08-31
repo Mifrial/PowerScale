@@ -7,7 +7,7 @@ import { CHECK_SIMPLE_CODE } from '@/modules/Roleplay/Rule/init';
 
 const RULES: Rule[] = [
   {
-    id: 'roll',
+    id: null,
     code: 'roll',
     type: 'simple',
     name: 'Бросок',
@@ -18,7 +18,7 @@ const RULES: Rule[] = [
     createdAt: '2026-08-22T12:00:00Z',
   },
   {
-    id: 'six',
+    id: null,
     code: 'rule-6-and-1',
     type: 'simple',
     name: 'Правило 6 и 1',
@@ -28,7 +28,7 @@ const RULES: Rule[] = [
     createdAt: '2026-08-22T12:00:00Z',
   },
   {
-    id: 'check-simple',
+    id: null,
     code: CHECK_SIMPLE_CODE,
     type: 'check',
     name: 'Простая проверка',
@@ -43,7 +43,7 @@ const RULES: Rule[] = [
     createdAt: '2026-08-22T12:00:00Z',
   },
   {
-    id: 'check-strength',
+    id: null,
     code: 'check-strength',
     type: 'check',
     name: 'Проверка на Силу',
@@ -59,7 +59,7 @@ const RULES: Rule[] = [
     createdAt: '2026-08-22T12:00:00Z',
   },
   {
-    id: 'check-exhaustion',
+    id: null,
     code: 'check-exhaustion',
     type: 'check',
     name: 'Проверка на истощение',

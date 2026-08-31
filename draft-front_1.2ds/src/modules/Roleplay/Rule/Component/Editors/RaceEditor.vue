@@ -28,7 +28,7 @@ const props = defineProps<{
   mechanicOptions: { title: string; value: number }[];
   keywordOptions: { title: string; value: number }[];
   spaceId: number;
-  ruleId?: string;
+  ruleCode?: string;
   rules: Rule[];
 }>();
 
@@ -59,7 +59,7 @@ const innerSpec = ref<RaceSpec>(raceFromSpec(props.spec));
 
 const spaceRules = computed(() => props.rules);
 
-const speciesOptions = computed(() => ruleReferenceService.speciesOptions(spaceRules.value, props.ruleId));
+const speciesOptions = computed(() => ruleReferenceService.speciesOptions(spaceRules.value, props.ruleCode));
 const characteristicOptions = computed(() =>
   ruleReferenceService.characteristicOptions(spaceRules.value, props.spaceId),
 );

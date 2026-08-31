@@ -35,6 +35,7 @@ import {
   asActionAbilitySpec,
   asProcessAbilitySpec,
   WAIT_ACTION_CODE,
+  findRuleByRef,
 } from '@/modules/Roleplay/Game/Utils/combatActions';
 import { formatProcessEffect } from '@/modules/Roleplay/Game/Utils/processMessage';
 
@@ -123,7 +124,7 @@ const waitAction = computed(() => {
 
   return rule && spec
     ? {
-        ruleId: rule.id,
+        ruleCode: rule.code,
         code: rule.code,
         name: rule.name,
         odCost: 0,
@@ -284,12 +285,12 @@ async function refillActionPoints(entityKey: CombatEntityKey): Promise<void> {
   const ap = combatCardModelService.combatActionPoints(version, props.rules);
   if (!ap) return;
   const resource = version.resources.find((item) => {
-    const rule = props.rules.find((candidate) => candidate.id === item.ruleId);
+    const rule = props.rules.find((candidate) => candidate.code === item.ruleCode);
 
     return rule?.code === ACTION_POINTS_CODE;
   });
   if (!resource) return;
-  await getGameApi().setCombatResource(props.gameId, entityKey, resource.ruleId, {
+  await getGameApi().setCombatResource(props.gameId, entityKey, resource.ruleCode, {
     base: ap.max,
     size: resource.current.size,
   });
@@ -368,7 +369,7 @@ async function confirmWaitAndPass(): Promise<void> {
   waitError.value = null;
   try {
     const processSession = processSessions.value[key];
-    const processRule = processSession ? props.rules.find((rule) => rule.id === processSession.processRuleId) : null;
+    const processRule = processSession ? findRuleByRef(props.rules, processSession.processRuleCode) : null;
     const processSpec = processRule ? asProcessAbilitySpec(processRule) : null;
     const processStep =
       processSession && processSpec
@@ -500,7 +501,7 @@ async function nextTurn(): Promise<void> {
 async function clearAccumulatedDamage(entityKey: string): Promise<void> {
   const overlay = overlays.value.find((item) => item.entityKey === entityKey);
   const index = overlay?.states.findIndex((state) => {
-    const rule = props.rules.find((candidate) => candidate.id === state.stateRuleId);
+    const rule = props.rules.find((candidate) => candidate.code === state.stateRuleCode);
 
     return rule?.type === 'state' && rule.code === ACCUMULATED_DAMAGE_STATE_CODE;
   });

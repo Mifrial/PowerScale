@@ -93,8 +93,8 @@ export class CombatCardModelService {
   }
 
   poisonName(state: CharacterStateValue, rules: Rule[]): string {
-    const poisonRuleId = state.poison?.poisonRuleId;
-    const rule = poisonRuleId ? rules.find((candidate) => candidate.id === poisonRuleId) : null;
+    const poisonRuleCode = state.poison?.poisonRuleCode;
+    const rule = poisonRuleCode ? rules.find((candidate) => candidate.code === poisonRuleCode) : null;
 
     return rule?.name ?? 'Отравление';
   }
@@ -138,7 +138,7 @@ export class CombatCardModelService {
 
   private stateSummary(entries: CharacterStateValue[], spec: StateSpec | null, rules: Rule[]): string | null {
     if (spec === null) return null;
-    const stateCode = rules.find((rule) => rule.id === entries[0]?.stateRuleId)?.code;
+    const stateCode = rules.find((rule) => rule.code === entries[0]?.stateRuleCode)?.code;
     if (entries.some((entry) => entry.poison)) {
       return entries.map((entry) => this.poisonName(entry, rules)).join(', ');
     }
@@ -174,20 +174,20 @@ export class CombatCardModelService {
   combatStateRows(states: CharacterStateValue[], rules: Rule[]): CombatStateRow[] {
     const groups = new Map<string, { indices: number[]; entries: CharacterStateValue[] }>();
     states.forEach((state, index) => {
-      const group = groups.get(state.stateRuleId) ?? { indices: [], entries: [] };
+      const group = groups.get(state.stateRuleCode) ?? { indices: [], entries: [] };
       group.indices.push(index);
       group.entries.push(state);
-      groups.set(state.stateRuleId, group);
+      groups.set(state.stateRuleCode, group);
     });
 
-    return Array.from(groups.entries()).map(([ruleId, group]) => {
-      const rule = rules.find((candidate) => candidate.id === ruleId);
+    return Array.from(groups.entries()).map(([ruleCode, group]) => {
+      const rule = rules.find((candidate) => candidate.code === ruleCode);
       const spec = rule?.type === 'state' ? (rule.spec as StateSpec) : null;
 
       return {
-        ruleId,
+        ruleCode,
         code: rule?.code ?? '',
-        name: rule?.name ?? ruleId,
+        name: rule?.name ?? ruleCode,
         iconCode: spec?.icon_code ?? null,
         valueType: spec?.value_type ?? 'flag',
         aggregation: spec?.aggregation ?? 'independent',
@@ -206,7 +206,7 @@ export class CombatCardModelService {
   combatExhaustion(states: CharacterStateValue[], rules: Rule[]): number | null {
     const rule = rules.find((candidate) => candidate.code === 'exhaustion' && candidate.type === 'state');
     if (!rule) return null;
-    const entries = states.filter((state) => state.stateRuleId === rule.id);
+    const entries = states.filter((state) => state.stateRuleCode === rule.code);
     if (entries.length === 0) return null;
     const total = entries.reduce((sum, entry) => sum + (entry.value ?? 0), 0);
 
@@ -220,7 +220,7 @@ export class CombatCardModelService {
   combatMaim(states: CharacterStateValue[], rules: Rule[]): number | null {
     const rule = rules.find((candidate) => candidate.code === 'maim' && candidate.type === 'state');
     if (!rule) return null;
-    const entries = states.filter((state) => state.stateRuleId === rule.id);
+    const entries = states.filter((state) => state.stateRuleCode === rule.code);
     if (entries.length === 0) return null;
     const total = entries.reduce((sum, entry) => sum + (entry.value ?? 0), 0);
 
@@ -231,7 +231,7 @@ export class CombatCardModelService {
   combatActionPoints(version: CharacterVersion, rules: Rule[]): { current: number; max: number } | null {
     const rule = rules.find((candidate) => candidate.code === ACTION_POINTS_CODE && candidate.type === 'resource');
     if (!rule) return null;
-    const resource = version.resources.find((item) => item.ruleId === rule.id);
+    const resource = version.resources.find((item) => item.ruleCode === rule.code);
     if (!resource) return null;
 
     const live = liveActionPointsLimitService.liveActionPointsLimit(
@@ -251,7 +251,7 @@ export class CombatCardModelService {
         const spec = rule.spec as StateSpec | undefined;
 
         return {
-          ruleId: rule.id,
+          ruleCode: rule.code,
           code: rule.code,
           name: rule.name,
           iconCode: spec?.icon_code ?? null,
@@ -265,7 +265,7 @@ export class CombatCardModelService {
    *  Оружие помечается секцией («ББ:»/«ДБ:»), чтобы различать одинаковое оружие ближнего/дальнего боя. */
   quickRollRecords(overview: CharacterOverview): QuickRollRecord[] {
     const records: QuickRollRecord[] = overview.characteristics.map((characteristic) => ({
-      ruleId: characteristic.ruleId,
+      ruleCode: characteristic.ruleCode,
       name: characteristic.shortName ?? characteristic.name,
       value: characteristic.value,
       valueLabel: characteristic.valueLabel,
@@ -278,14 +278,14 @@ export class CombatCardModelService {
     for (const { section, name, prefix } of sections) {
       if (!section) continue;
       records.push({
-        ruleId: section.stat.ruleId,
+        ruleCode: section.stat.ruleCode,
         name,
         value: section.stat.value,
         valueLabel: section.stat.valueLabel,
       });
       for (const weapon of section.weapons) {
         records.push({
-          ruleId: weapon.ruleId,
+          ruleCode: weapon.ruleCode,
           name: `${prefix}: ${weapon.shortName ?? weapon.name}`,
           value: weapon.value,
           valueLabel: weapon.valueLabel,
@@ -296,29 +296,31 @@ export class CombatCardModelService {
     return records;
   }
 
-  /** Резолюция макросов быстрых бросков (CD-8): ruleId → запись кандидатов.
-   *  Сохраняет порядок записей; неизвестные ruleId отбрасываются. */
-  resolveQuickRollRecords(ruleIds: string[], records: QuickRollRecord[]): QuickRollRecord[] {
-    const byId = new Map(records.map((record) => [record.ruleId, record]));
+  /** Резолюция макросов быстрых бросков (CD-8): ruleCode → запись кандидатов.
+   *  Сохраняет порядок записей; неизвестные ruleCode отбрасываются. */
+  resolveQuickRollRecords(ruleCodes: string[], records: QuickRollRecord[]): QuickRollRecord[] {
+    const byId = new Map(records.map((record) => [record.ruleCode, record]));
 
-    return ruleIds
-      .map((ruleId) => byId.get(ruleId))
+    return ruleCodes
+      .map((ruleCode) => byId.get(ruleCode))
       .filter((record): record is QuickRollRecord => record !== undefined);
   }
 
-  poisonRuleOptions(rules: Rule[]): { ruleId: string; name: string }[] {
-    return rules.filter((rule) => rule.type === 'poison').map((rule) => ({ ruleId: rule.id, name: rule.name }));
+  poisonRuleOptions(rules: Rule[]): { ruleCode: string; name: string }[] {
+    return rules.filter((rule) => rule.type === 'poison').map((rule) => ({ ruleCode: rule.code, name: rule.name }));
   }
 
-  poisonValueFromRule(rules: Rule[], poisonRuleId: string | null): CharacterPoisonValue {
-    const rule = poisonRuleId ? rules.find((item) => item.id === poisonRuleId && item.type === 'poison') : undefined;
+  poisonValueFromRule(rules: Rule[], poisonRuleCode: string | null): CharacterPoisonValue {
+    const rule = poisonRuleCode
+      ? rules.find((item) => item.code === poisonRuleCode && item.type === 'poison')
+      : undefined;
     if (!rule) {
-      return { poisonRuleId: null, strength: { base: 1, size: 0 } };
+      return { poisonRuleCode: null, strength: { base: 1, size: 0 } };
     }
     const spec = rule.spec as PoisonSpec | undefined;
 
     return {
-      poisonRuleId: rule.id,
+      poisonRuleCode: rule.code,
       damage_type_code: spec?.damage_type_code,
       strength: spec?.default_strength ?? { base: 1, size: 0 },
       periodicity: spec?.default_periodicity,
@@ -327,10 +329,10 @@ export class CombatCardModelService {
   }
 
   resolvedPoisonValue(state: CharacterStateValue, rules: Rule[]): CharacterPoisonValue {
-    const fromRule = this.poisonValueFromRule(rules, state.poison?.poisonRuleId ?? null);
+    const fromRule = this.poisonValueFromRule(rules, state.poison?.poisonRuleCode ?? null);
 
     return {
-      poisonRuleId: state.poison?.poisonRuleId ?? fromRule.poisonRuleId,
+      poisonRuleCode: state.poison?.poisonRuleCode ?? fromRule.poisonRuleCode,
       damage_type_code: state.poison?.damage_type_code ?? fromRule.damage_type_code,
       strength: state.poison?.strength ?? fromRule.strength,
       periodicity: state.poison?.periodicity ?? fromRule.periodicity,
@@ -343,11 +345,11 @@ export class CombatCardModelService {
   }
 
   /** Значение по умолчанию для нового состояния из пикера (number → 1, dimensional → 1с0). */
-  defaultStateEntry(option: CombatStateOption, rules: Rule[] = []): Omit<CharacterStateValue, 'stateRuleId'> {
+  defaultStateEntry(option: CombatStateOption, rules: Rule[] = []): Omit<CharacterStateValue, 'stateRuleCode'> {
     if (option.code === POISONING_STATE_CODE) {
       const first = this.poisonRuleOptions(rules)[0];
 
-      return { poison: this.poisonValueFromRule(rules, first?.ruleId ?? null) };
+      return { poison: this.poisonValueFromRule(rules, first?.ruleCode ?? null) };
     }
     if (option.valueType === 'number') return { value: 1 };
     if (option.valueType === 'dimensional') return { dimensionalValue: { base: 1, size: 0 } };

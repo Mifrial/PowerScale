@@ -61,7 +61,7 @@ const confirmDeleteOpen = computed({
 });
 
 const itemNameById = computed(
-  () => new Map(rules.value.filter((rule) => rule.type === 'item').map((rule) => [rule.id, rule.name])),
+  () => new Map(rules.value.filter((rule) => rule.type === 'item').map((rule) => [rule.code, rule.name])),
 );
 
 const groupOptions = computed(() =>
@@ -97,8 +97,8 @@ const availableLoots = computed(() => loots.value.filter((loot) => loot.status =
 const distributedLoots = computed(() => loots.value.filter((loot) => loot.status === 'distributed'));
 
 function titleOf(loot: GameLoot): string {
-  if (loot.itemRuleId !== null) {
-    const name = itemNameById.value.get(loot.itemRuleId) ?? loot.itemRuleId;
+  if (loot.itemRuleCode !== null) {
+    const name = itemNameById.value.get(loot.itemRuleCode) ?? loot.itemRuleCode;
 
     return loot.quantity > 1 ? `${name} ×${loot.quantity}` : name;
   }
@@ -107,7 +107,7 @@ function titleOf(loot: GameLoot): string {
 }
 
 function isMoney(loot: GameLoot): boolean {
-  return loot.itemRuleId === null;
+  return loot.itemRuleCode === null;
 }
 
 function isInterested(loot: GameLoot): boolean {

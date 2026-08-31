@@ -3,8 +3,8 @@ import type { MigrationResult } from '@/modules/Roleplay/Character/Dto/Migration
 
 const props = defineProps<{
   result: MigrationResult;
-  /** Разрешение ruleId → имя правила (из целевой ревизии); fallback — ruleId. */
-  resolve?: (ruleId: string) => string;
+  /** Разрешение ruleCode → имя правила (из целевой ревизии); fallback — ruleCode. */
+  resolve?: (ruleCode: string) => string;
 }>();
 
 const KIND_LABEL: Record<MigrationResult['kind'], string> = {

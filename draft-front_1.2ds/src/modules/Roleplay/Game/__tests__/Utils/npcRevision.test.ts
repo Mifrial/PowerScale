@@ -11,7 +11,7 @@ function version(overrides: Partial<CharacterVersion> = {}): CharacterVersion {
     fullDescription: null,
     spaceCode: 'actual',
     rulesRevision: 12,
-    raceRuleId: null,
+    raceRuleCode: null,
     characteristics: [],
     resources: [],
     abilities: [],

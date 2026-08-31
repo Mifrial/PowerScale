@@ -109,7 +109,7 @@ function label(value: { base: number; size: number }): string {
         <div v-if="resourceViews.length" class="resource-grid">
           <v-menu
             v-for="resource in resourceViews"
-            :key="resource.ruleId"
+            :key="resource.ruleCode"
             location="right top"
             open-on-hover
             :close-on-content-click="false"

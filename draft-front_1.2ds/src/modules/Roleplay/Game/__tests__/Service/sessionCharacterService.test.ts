@@ -11,9 +11,9 @@ const version = (partial: Partial<CharacterVersion> = {}): CharacterVersion =>
     fullDescription: null,
     spaceCode: 'actual',
     rulesRevision: 12,
-    raceRuleId: null,
+    raceRuleCode: null,
     characteristics: [],
-    resources: [{ ruleId: 'rule-18', current: { base: 3, size: 0 }, base: { base: 3, size: 0 }, bonuses: [] }],
+    resources: [{ ruleCode: 'action-points', current: { base: 3, size: 0 }, base: { base: 3, size: 0 }, bonuses: [] }],
     abilities: [],
     points: { osSpent: 0, olSpent: 0, olTotal: 0, orSpent: 0, orTotal: null },
     money: 10,
@@ -51,12 +51,12 @@ describe('SessionCharacterService', () => {
       approved,
       overlay({
         updatedAt: '2026-08-30T10:00:00Z',
-        resources: [{ ruleId: 'rule-18', current: { base: 1, size: 0 } }],
-        states: [{ stateRuleId: 'rule-63', value: 5 }],
+        resources: [{ ruleCode: 'action-points', current: { base: 1, size: 0 } }],
+        states: [{ stateRuleCode: 'stunned', value: 5 }],
       }),
     );
     expect(result?.resources[0]?.current).toEqual({ base: 1, size: 0 });
-    expect(result?.states).toEqual([{ stateRuleId: 'rule-63', value: 5 }]);
+    expect(result?.states).toEqual([{ stateRuleCode: 'stunned', value: 5 }]);
   });
 
   it('stripIdentity не даёт overlay сменить spaceCode и rulesRevision', () => {

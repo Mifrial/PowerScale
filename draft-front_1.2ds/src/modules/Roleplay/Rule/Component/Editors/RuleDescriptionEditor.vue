@@ -131,7 +131,7 @@ onBeforeUnmount(() => editor.value?.destroy());
             class="ma-2"
           />
           <v-list v-if="filteredRules.length" density="compact" max-height="320" class="overflow-y-auto">
-            <v-list-item v-for="rule in filteredRules" :key="rule.id" :title="rule.name" @click="insertRule(rule)" />
+            <v-list-item v-for="rule in filteredRules" :key="rule.code" :title="rule.name" @click="insertRule(rule)" />
           </v-list>
           <div v-else class="text-caption text-medium-emphasis px-4 pb-3">
             {{ ruleSearch ? 'Правила не найдены' : 'Введите название или код' }}

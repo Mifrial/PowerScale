@@ -1,7 +1,7 @@
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 
 export interface CharacterAbility {
-  ruleId: string;
+  ruleCode: string;
   level: number;
   /** Значения параметров покупки (resolution 'purchase') по кодам параметров способности. */
   parameters?: Record<string, DimensionalNumberValue | number>;

@@ -10,7 +10,7 @@ import { fetchRevision } from '@/modules/Roleplay/Space/Mock/mockSpaces';
 
 const dim = (base: number, size = 0) => ({ base, size });
 
-const base = (id: string, code: string, type: Rule['type'], name: string, spec?: Rule['spec']): Rule => ({
+const base = (id: number | null, code: string, type: Rule['type'], name: string, spec?: Rule['spec']): Rule => ({
   id,
   code,
   type,
@@ -26,9 +26,9 @@ const base = (id: string, code: string, type: Rule['type'], name: string, spec?:
 /** Минимальный валидный набор правил: раса + характеристики + способность + предмет. */
 function makeRules(): Rule[] {
   return [
-    base('rule-strength', 'strength', 'characteristic', 'Сила', { type: 'characteristic', group: 'primary' }),
-    base('rule-dexterity', 'dexterity', 'characteristic', 'Ловкость', { type: 'characteristic', group: 'primary' }),
-    base('rule-human', 'human', 'race', 'Человек', {
+    base(1, 'strength', 'characteristic', 'Сила', { type: 'characteristic', group: 'primary' }),
+    base(2, 'dexterity', 'characteristic', 'Ловкость', { type: 'characteristic', group: 'primary' }),
+    base(3, 'human', 'race', 'Человек', {
       parent_race_code: null,
       cost_os: 0,
       characteristics: [
@@ -37,7 +37,7 @@ function makeRules(): Rule[] {
       ],
       abilities: [],
     }),
-    base('rule-toughness', 'toughness', 'ability', 'Стойкость', {
+    base(4, 'toughness', 'ability', 'Стойкость', {
       type: 'trait',
       zones: { os: { kind: 'array', levels_cost: [2] } },
       requirements: [
@@ -46,20 +46,20 @@ function makeRules(): Rule[] {
       grants: [],
       parent_ability_code: null,
     }),
-    base('rule-focus', 'focus', 'ability', 'Сосредоточенность', {
+    base(5, 'focus', 'ability', 'Сосредоточенность', {
       type: 'trait',
       zones: { os: { kind: 'array', levels_cost: [3] } },
       requirements: [{ level: 1, requirements: [{ type: 'has_ability', ability_code: 'toughness', min_level: 1 }] }],
       grants: [],
       parent_ability_code: null,
     }),
-    base('rule-sword', 'sword', 'item', 'Меч', {
+    base(6, 'sword', 'item', 'Меч', {
       category: 'other',
       cost_gm: 10,
       weight: null,
       special_rule_codes: [],
     }),
-    base('rule-sense', 'vision', 'sense', 'Зрение', {
+    base(7, 'vision', 'sense', 'Зрение', {
       type: 'sense',
       status: 'precise',
       radius: dim(30),
@@ -74,17 +74,17 @@ function makeVersion(senses: CharacterVersion['senses'] = []): CharacterVersion 
     fullDescription: null,
     spaceCode: 'space',
     rulesRevision: 1,
-    raceRuleId: 'rule-human',
+    raceRuleCode: 'human',
     characteristics: [
-      { ruleId: 'rule-strength', base: dim(3), modifiers: [] },
-      { ruleId: 'rule-dexterity', base: dim(4), modifiers: [] },
+      { ruleCode: 'strength', base: dim(3), modifiers: [] },
+      { ruleCode: 'dexterity', base: dim(4), modifiers: [] },
     ],
     resources: [],
-    abilities: [{ ruleId: 'rule-toughness', level: 1 }],
+    abilities: [{ ruleCode: 'toughness', level: 1 }],
     points: { osSpent: 2, olSpent: 0, olTotal: 0, orSpent: 0, orTotal: 25 },
     money: 10,
     ageYears: null,
-    inventory: [{ id: 1, ruleId: 'rule-sword', quantity: 1, equipped: false }],
+    inventory: [{ id: 1, ruleCode: 'sword', quantity: 1, equipped: false }],
     states: [],
     senses,
     budgets: { osTotal: 10, moneyBudget: 100 },
@@ -112,7 +112,7 @@ function migrate(version: CharacterVersion, oldRules: Rule[], newRules: Rule[]) 
 
 describe('CharacterMigrationService', () => {
   it('добавляет поля статуса и дальности старому экземпляру чувства', () => {
-    const legacySense = { ruleId: 'rule-sense', value: 0, modifiers: [] } as unknown as CharacterSenseValue;
+    const legacySense = { ruleCode: 'vision', value: 0, modifiers: [] } as unknown as CharacterSenseValue;
     const result = migrate(makeVersion([legacySense]), makeRules(), makeRules());
 
     expect(result.version.senses[0]).toMatchObject({
@@ -123,20 +123,18 @@ describe('CharacterMigrationService', () => {
 
   it('чистый ремап по code: id правила сменился, версия ссылается на новый id (kind ok)', () => {
     const oldRules = makeRules();
-    const newRules = makeRules().map((rule) =>
-      rule.id === 'rule-toughness' ? { ...rule, id: 'rule-toughness-v2' } : rule,
-    );
+    const newRules = makeRules().map((rule) => (rule.code === 'toughness' ? { ...rule, id: null } : rule));
     const result = migrate(makeVersion(), oldRules, newRules);
     expect(result.kind).toBe('ok');
     expect(result.version.rulesRevision).toBe(2);
     expect(result.version.spaceCode).toBe('new-space');
-    expect(result.version.abilities[0].ruleId).toBe('rule-toughness-v2');
+    expect(result.version.abilities[0].ruleCode).toBe('toughness');
     expect(result.problems).toHaveLength(0);
   });
 
   it('удалённое правило способности → конфликт, способность сброшена', () => {
     const oldRules = makeRules();
-    const newRules = makeRules().filter((rule) => rule.id !== 'rule-toughness');
+    const newRules = makeRules().filter((rule) => rule.code !== 'toughness');
     const result = migrate(makeVersion(), oldRules, newRules);
     expect(result.kind).toBe('conflicts');
     expect(result.problems.some((problem) => problem.kind === 'removedRule')).toBe(true);
@@ -145,21 +143,21 @@ describe('CharacterMigrationService', () => {
 
   it('удалённая раса → конфликт, раса сброшена', () => {
     const oldRules = makeRules();
-    const newRules = makeRules().filter((rule) => rule.id !== 'rule-human');
+    const newRules = makeRules().filter((rule) => rule.code !== 'human');
     const result = migrate(makeVersion(), oldRules, newRules);
     expect(result.kind).toBe('conflicts');
     expect(result.problems.some((problem) => problem.kind === 'raceRemoved')).toBe(true);
-    expect(result.version.raceRuleId).toBeNull();
+    expect(result.version.raceRuleCode).toBeNull();
   });
 
   it('предмет с удалённым правилом → кастомный «предмет мастера» (не конфликт)', () => {
     const oldRules = makeRules();
-    const newRules = makeRules().filter((rule) => rule.id !== 'rule-sword');
+    const newRules = makeRules().filter((rule) => rule.code !== 'sword');
     const result = migrate(makeVersion(), oldRules, newRules);
     expect(result.kind).not.toBe('conflicts');
     expect(result.convertedItems).toBe(1);
     const item = result.version.inventory[0];
-    expect(item.ruleId).toBeNull();
+    expect(item.ruleCode).toBeNull();
     expect(item.name).toBe('Меч');
     expect(item.quantity).toBe(1);
   });
@@ -167,8 +165,8 @@ describe('CharacterMigrationService', () => {
   it('удорожание способности → перерасход реального лимита (конфликт + красный diff)', () => {
     const oldRules = makeRules();
     const newRules = makeRules().map((rule) =>
-      rule.id === 'rule-toughness'
-        ? base('rule-toughness', 'toughness', 'ability', 'Стойкость', {
+      rule.code === 'toughness'
+        ? base(null, 'toughness', 'ability', 'Стойкость', {
             type: 'trait',
             zones: { os: { kind: 'array', levels_cost: [20] } },
             requirements: [],
@@ -186,8 +184,8 @@ describe('CharacterMigrationService', () => {
   it('невыполненные требования способности → способность сброшена (конфликт)', () => {
     const oldRules = makeRules();
     const newRules = makeRules().map((rule) =>
-      rule.id === 'rule-toughness'
-        ? base('rule-toughness', 'toughness', 'ability', 'Стойкость', {
+      rule.code === 'toughness'
+        ? base(null, 'toughness', 'ability', 'Стойкость', {
             type: 'trait',
             zones: { os: { kind: 'array', levels_cost: [2] } },
             requirements: [
@@ -210,8 +208,8 @@ describe('CharacterMigrationService', () => {
   it('изменение значения характеристики → resolved с diff (нейтрально)', () => {
     const oldRules = makeRules();
     const newRules = makeRules().map((rule) =>
-      rule.id === 'rule-human'
-        ? base('rule-human', 'human', 'race', 'Человек', {
+      rule.code === 'human'
+        ? base(null, 'human', 'race', 'Человек', {
             parent_race_code: null,
             cost_os: 0,
             characteristics: [
@@ -232,9 +230,9 @@ describe('CharacterMigrationService', () => {
     expect(result.diffs.some((diff) => diff.label === 'Сила')).toBe(true);
   });
 
-  it('label проблемы удалённого правила — имя правила (не ruleId)', () => {
+  it('label проблемы удалённого правила — имя правила (не ruleCode)', () => {
     const oldRules = makeRules();
-    const newRules = makeRules().filter((rule) => rule.id !== 'rule-toughness');
+    const newRules = makeRules().filter((rule) => rule.code !== 'toughness');
     const result = migrate(makeVersion(), oldRules, newRules);
     const problem = result.problems.find((entry) => entry.kind === 'removedRule');
     expect(problem?.label).toBe('Стойкость');
@@ -245,8 +243,8 @@ describe('CharacterMigrationService', () => {
     // Честный диф сравнивает значения обеих моделей — ложного «3 → 4» нет.
     const version = makeVersion();
     version.characteristics = [
-      { ruleId: 'rule-strength', base: dim(3), modifiers: [] },
-      { ruleId: 'rule-dexterity', base: dim(3), modifiers: [] },
+      { ruleCode: 'strength', base: dim(3), modifiers: [] },
+      { ruleCode: 'dexterity', base: dim(3), modifiers: [] },
     ];
     const result = migrate(version, makeRules(), makeRules());
     expect(result.diffs.some((diff) => diff.label === 'Ловкость')).toBe(false);
@@ -255,11 +253,11 @@ describe('CharacterMigrationService', () => {
   it('каскад: удаление правила роняет зависимую способность (обе в abilities)', () => {
     const version = makeVersion();
     version.abilities = [
-      { ruleId: 'rule-toughness', level: 1 },
-      { ruleId: 'rule-focus', level: 1 },
+      { ruleCode: 'toughness', level: 1 },
+      { ruleCode: 'focus', level: 1 },
     ];
     const oldRules = makeRules();
-    const newRules = makeRules().filter((rule) => rule.id !== 'rule-toughness');
+    const newRules = makeRules().filter((rule) => rule.code !== 'toughness');
     const result = migrate(version, oldRules, newRules);
     const removed = result.abilities.filter((change) => change.kind === 'removed');
     expect(removed.map((change) => change.label)).toContain('Стойкость');
@@ -270,8 +268,8 @@ describe('CharacterMigrationService', () => {
   it('бюджетный сдвиг объясняется способностями (пересчитанная стоимость)', () => {
     const oldRules = makeRules();
     const newRules = makeRules().map((rule) =>
-      rule.id === 'rule-toughness'
-        ? base('rule-toughness', 'toughness', 'ability', 'Стойкость', {
+      rule.code === 'toughness'
+        ? base(null, 'toughness', 'ability', 'Стойкость', {
             type: 'trait',
             zones: { os: { kind: 'array', levels_cost: [20] } },
             requirements: [],
@@ -288,13 +286,13 @@ describe('CharacterMigrationService', () => {
 
   it('потолок на основе отсутствующей характеристики не ужимает характеристику в отрицательное', () => {
     const rules: Rule[] = [
-      base('rule-str', 'strength', 'characteristic', 'Сила', { type: 'characteristic', group: 'primary' }),
-      base('rule-react', 'reaction', 'characteristic', 'Реакция', {
+      base(null, 'strength', 'characteristic', 'Сила', { type: 'characteristic', group: 'primary' }),
+      base(null, 'reaction', 'characteristic', 'Реакция', {
         type: 'characteristic',
         group: 'base',
         automatic: true,
       }),
-      base('rule-shield', 'shield', 'item', 'Щит', {
+      base(null, 'shield', 'item', 'Щит', {
         category: 'equipment',
         cost_gm: 100,
         weight: null,
@@ -315,8 +313,8 @@ describe('CharacterMigrationService', () => {
     const version = {
       ...makeVersion(),
       // Расы нет → Сила не выводится моделью; сохранённая база Силы не участвует в модели.
-      characteristics: [{ ruleId: 'rule-str', base: dim(3), modifiers: [] }],
-      inventory: [{ id: 1, ruleId: 'rule-shield', quantity: 1, equipped: true }],
+      characteristics: [{ ruleCode: 'strength', base: dim(3), modifiers: [] }],
+      inventory: [{ id: 1, ruleCode: 'shield', quantity: 1, equipped: true }],
     };
     const model = characterEditorService.build(characterBuildService.fromVersion(version, 1, rules), rules, {
       osTotal: null,
@@ -330,7 +328,7 @@ describe('CharacterMigrationService', () => {
 
   it('Гаррик (Ацелатль, rev6 → rev12): раса валидна, характеристики не теряются, «Ночное зрение» — конфликт', async () => {
     const version = versions[3];
-    expect(version.raceRuleId).toBe('rule-122');
+    expect(version.raceRuleCode).toBe('acelatl');
     const oldRules = (await fetchRevision(2, 6)).rules;
     const newRules = (await fetchRevision(2, 12)).rules;
     const result = service.migrate({
@@ -353,13 +351,13 @@ describe('CharacterMigrationService', () => {
     );
     expect(result.problems.some((problem) => problem.kind === 'lostCharacteristic')).toBe(false);
     expect(result.problems.some((problem) => problem.kind === 'raceBroken')).toBe(false);
-    expect(result.version.raceRuleId).toBe('rule-122');
+    expect(result.version.raceRuleCode).toBe('acelatl');
   });
 
   it('раса без базовых характеристик: характеристики «исчезнут», раса сброшена', () => {
     const rules: Rule[] = [
-      base('rule-str', 'strength', 'characteristic', 'Сила', { type: 'characteristic', group: 'primary' }),
-      base('rule-empty-race', 'empty-race', 'race', 'Пустая раса', {
+      base(null, 'strength', 'characteristic', 'Сила', { type: 'characteristic', group: 'primary' }),
+      base(null, 'empty-race', 'race', 'Пустая раса', {
         parent_race_code: null,
         cost_os: 0,
         characteristics: [],
@@ -368,22 +366,22 @@ describe('CharacterMigrationService', () => {
     ];
     const version = {
       ...makeVersion(),
-      raceRuleId: 'rule-empty-race',
-      characteristics: [{ ruleId: 'rule-str', base: dim(3), modifiers: [] }],
+      raceRuleCode: 'empty-race',
+      characteristics: [{ ruleCode: 'strength', base: dim(3), modifiers: [] }],
     };
     const result = migrate(version, rules, rules);
     expect(result.problems.some((problem) => problem.kind === 'lostCharacteristic' && problem.label === 'Сила')).toBe(
       true,
     );
     expect(result.problems.some((problem) => problem.kind === 'raceBroken')).toBe(true);
-    expect(result.version.raceRuleId).toBeNull();
+    expect(result.version.raceRuleCode).toBeNull();
   });
 
   it('compareCurrent: добавленная способность и изменение характеристики видны в сравнении', () => {
     const oldRules = makeRules();
     const newRules = [
       ...makeRules(),
-      base('rule-might', 'might', 'ability', 'Мощь', {
+      base(null, 'might', 'ability', 'Мощь', {
         type: 'trait',
         zones: { os: { kind: 'array', levels_cost: [3] } },
         requirements: [],
@@ -405,7 +403,7 @@ describe('CharacterMigrationService', () => {
     ];
     const original = makeVersion();
     const draft = characterBuildService.fromVersion(original, 1, newRules);
-    draft.abilities = [...draft.abilities, { ruleId: 'rule-might', level: 1 }];
+    draft.abilities = [...draft.abilities, { ruleCode: 'might', level: 1 }];
     const result = service.compareCurrent(original, draft, oldRules, newRules, {
       osTotal: original.budgets?.osTotal ?? null,
       orTotal: original.points.orTotal,
@@ -424,7 +422,7 @@ describe('CharacterMigrationService', () => {
     const newRules = (await fetchRevision(2, 12)).rules;
     const draft = characterBuildService.fromVersion(original, 2, newRules);
     const innate = newRules.find((rule) => rule.code === 'innate-strength');
-    draft.abilities = [...draft.abilities, { ruleId: innate?.id ?? '', level: 1, parameters: { x: 2 } }];
+    draft.abilities = [...draft.abilities, { ruleCode: innate?.code ?? '', level: 1, parameters: { x: 2 } }];
     const result = service.compareCurrent(original, draft, oldRules, newRules, {
       osTotal: original.budgets?.osTotal ?? null,
       orTotal: original.points.orTotal,

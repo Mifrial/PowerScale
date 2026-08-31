@@ -54,7 +54,7 @@ const { appliedFilters, filteredRows, onFilterChange } = useFilteredRows({
 const filteredAbilities = computed(() => {
   let result = filteredRows.value as unknown as AbilityOverview[];
   if (activeTab.value === 'favorites') {
-    result = result.filter((ability) => favoritesStore.isFavorite(props.characterId, ability.ruleId));
+    result = result.filter((ability) => favoritesStore.isFavorite(props.characterId, ability.ruleCode));
   } else if (activeTab.value !== 'all') {
     result = result.filter((ability) => ability.type === activeTab.value);
   }
@@ -81,12 +81,12 @@ function keywordsOf(ability: AbilityOverview): Keyword[] {
   return keywords.value.filter((keyword) => ability.keywordIds.includes(keyword.id));
 }
 
-function isFavorite(ruleId: string): boolean {
-  return favoritesStore.isFavorite(props.characterId, ruleId);
+function isFavorite(ruleCode: string): boolean {
+  return favoritesStore.isFavorite(props.characterId, ruleCode);
 }
 
-function toggleFavorite(ruleId: string): void {
-  favoritesStore.toggle(props.characterId, ruleId);
+function toggleFavorite(ruleCode: string): void {
+  favoritesStore.toggle(props.characterId, ruleCode);
 }
 
 onMounted(() => {
@@ -147,7 +147,7 @@ onMounted(() => {
 
             <v-spacer />
             <v-divider vertical class="mx-1 align-self-stretch" />
-            <v-btn icon size="small" variant="text" title="Открыть правило" @click.stop="openRule(ability.ruleId)">
+            <v-btn icon size="small" variant="text" title="Открыть правило" @click.stop="openRule(ability.ruleCode)">
               <v-icon icon="mdi-open-in-new" />
             </v-btn>
             <v-btn
@@ -155,11 +155,11 @@ onMounted(() => {
               icon
               size="small"
               variant="text"
-              :color="isFavorite(ability.ruleId) ? 'amber' : undefined"
-              :title="isFavorite(ability.ruleId) ? 'Убрать из избранного' : 'В избранное'"
-              @click.stop="toggleFavorite(ability.ruleId)"
+              :color="isFavorite(ability.ruleCode) ? 'amber' : undefined"
+              :title="isFavorite(ability.ruleCode) ? 'Убрать из избранного' : 'В избранное'"
+              @click.stop="toggleFavorite(ability.ruleCode)"
             >
-              <v-icon :icon="isFavorite(ability.ruleId) ? 'mdi-star' : 'mdi-star-outline'" />
+              <v-icon :icon="isFavorite(ability.ruleCode) ? 'mdi-star' : 'mdi-star-outline'" />
             </v-btn>
           </div>
         </v-expansion-panel-title>

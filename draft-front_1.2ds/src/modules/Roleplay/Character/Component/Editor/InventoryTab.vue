@@ -104,7 +104,7 @@ const catalog = computed<(InventoryCatalogItem & Record<string, unknown>)[]>(() 
       return entry.cost !== null && !entry.innate;
     })
     .map(({ rule, spec, cost }) => ({
-      ruleId: rule.id,
+      ruleCode: rule.code,
       name: rule.name,
       description: rule.description,
       cost,
@@ -119,7 +119,7 @@ const catalog = computed<(InventoryCatalogItem & Record<string, unknown>)[]>(() 
 
 function itemViewFromRule(rule: Rule, spec: ItemSpec | undefined, cost: number): InventoryCatalogItem {
   return {
-    ruleId: rule.id,
+    ruleCode: rule.code,
     name: rule.name,
     description: rule.description,
     cost,
@@ -132,17 +132,36 @@ function itemViewFromRule(rule: Rule, spec: ItemSpec | undefined, cost: number):
   };
 }
 
+function ruleOf(code: string | null): Rule | undefined {
+  if (!code) return undefined;
+
+  return props.rules.find((entry) => entry.code === code);
+}
+
 function itemViewFromOwned(owned: InventoryItem): InventoryCatalogItem | null {
-  if (owned.ruleId) {
-    const rule = props.rules.find((entry) => entry.id === owned.ruleId);
-    if (!rule) return null;
+  const rule = ruleOf(owned.ruleCode);
+  if (rule) {
     const spec = rule.spec as ItemSpec | undefined;
 
     return itemViewFromRule(rule, spec, spec?.cost_gm ?? 0);
   }
+  if (owned.ruleCode) {
+    return {
+      ruleCode: owned.ruleCode,
+      name: owned.name ?? owned.ruleCode,
+      description: owned.description ?? '',
+      cost: 0,
+      section: null,
+      subtitle: ITEM_LABELS.category.other,
+      type: 'other',
+      spec: undefined,
+      featureKeywords: [],
+      keywordIds: [],
+    };
+  }
 
   return {
-    ruleId: '',
+    ruleCode: '',
     name: owned.name ?? 'Предмет мастера',
     description: owned.description ?? '',
     cost: 0,
@@ -235,7 +254,7 @@ function modifiersOf(item: InventoryCatalogItem): InventoryModifierOption[] {
         .map((effect) => (effect.label ? `${effect.label}: ${effect.text}` : effect.text));
 
       return {
-        ruleId: rule.id,
+        ruleCode: rule.code,
         name: rule.name,
         category: typeRule?.name ?? '',
         priceLabel: itemModifierService.formatPriceLabel(spec.price, codes),
@@ -244,11 +263,11 @@ function modifiersOf(item: InventoryCatalogItem): InventoryModifierOption[] {
     });
 }
 
-function costOf(item: InventoryCatalogItem, modifierRuleIds: readonly string[]): number {
+function costOf(item: InventoryCatalogItem, modifierRuleCodes: readonly string[]): number {
   const codes = itemKeywordCodes(item.keywordIds);
   if (!item.spec) return item.cost;
-  const modifiers = modifierRuleIds
-    .map((id) => props.rules.find((entry) => entry.id === id))
+  const modifiers = modifierRuleCodes
+    .map((id) => props.rules.find((entry) => entry.code === id))
     .filter((entry): entry is Rule => entry !== undefined);
 
   return itemModifierService.applyStack(item.spec, modifiers, codes).cost;
@@ -264,8 +283,8 @@ const baseline = computed(() => draftStore.draftOf(props.draftKey)?.inventoryBas
 const ownedByRuleId = computed(() => {
   const map = new Map<string, number>();
   for (const item of props.build.inventory) {
-    if (item.ruleId === null) continue;
-    map.set(item.ruleId, (map.get(item.ruleId) ?? 0) + item.quantity);
+    if (item.ruleCode === null) continue;
+    map.set(item.ruleCode, (map.get(item.ruleCode) ?? 0) + item.quantity);
   }
 
   return map;
@@ -274,8 +293,8 @@ const ownedByRuleId = computed(() => {
 const baselineByRuleId = computed(() => {
   const map = new Map<string, number>();
   for (const item of baseline.value?.inventory ?? []) {
-    if (item.ruleId === null) continue;
-    map.set(item.ruleId, (map.get(item.ruleId) ?? 0) + item.quantity);
+    if (item.ruleCode === null) continue;
+    map.set(item.ruleCode, (map.get(item.ruleCode) ?? 0) + item.quantity);
   }
 
   return map;
@@ -284,7 +303,7 @@ const baselineByRuleId = computed(() => {
 const equippedByRuleId = computed(() => {
   const map = new Set<string>();
   for (const item of props.build.inventory) {
-    if (item.equipped && item.ruleId !== null) map.add(item.ruleId);
+    if (item.equipped && item.ruleCode !== null) map.add(item.ruleCode);
   }
 
   return map;
@@ -292,10 +311,11 @@ const equippedByRuleId = computed(() => {
 
 function passesFilters(item: InventoryCatalogItem, instanceEquipped?: boolean): boolean {
   if (categoryFilter.value !== 'all' && item.type !== categoryFilter.value) return false;
-  if (props.variant !== 'sheet' && acquiredOnly.value && (ownedByRuleId.value.get(item.ruleId) ?? 0) <= 0) return false;
+  if (props.variant !== 'sheet' && acquiredOnly.value && (ownedByRuleId.value.get(item.ruleCode) ?? 0) <= 0)
+    return false;
   if (equippedOnly.value) {
     if (props.variant === 'sheet') return instanceEquipped === true;
-    if (!equippedByRuleId.value.has(item.ruleId)) return false;
+    if (!equippedByRuleId.value.has(item.ruleCode)) return false;
   }
 
   return true;
@@ -317,7 +337,7 @@ const catalogRows = computed<InventoryListRow[]>(() => {
     return rows.sort((a, b) => {
       const section = (a.section ?? '').localeCompare(b.section ?? '');
       if (section !== 0) return section;
-      if (a.ruleId !== b.ruleId) return a.name.localeCompare(b.name);
+      if (a.ruleCode !== b.ruleCode) return a.name.localeCompare(b.name);
 
       return (a.inventoryId ?? 0) - (b.inventoryId ?? 0);
     });
@@ -329,7 +349,7 @@ const catalogRows = computed<InventoryListRow[]>(() => {
       rows.push({ ...item, rowKind: 'shop', inventoryId: null });
     }
     if (!isInstanced(item)) continue;
-    for (const owned of props.build.inventory.filter((entry) => entry.ruleId === item.ruleId)) {
+    for (const owned of props.build.inventory.filter((entry) => entry.ruleCode === item.ruleCode)) {
       if (equippedOnly.value && !owned.equipped) continue;
       rows.push({ ...item, rowKind: 'owned', inventoryId: owned.id });
     }
@@ -338,7 +358,7 @@ const catalogRows = computed<InventoryListRow[]>(() => {
   return rows.sort((a, b) => {
     const section = (a.section ?? '').localeCompare(b.section ?? '');
     if (section !== 0) return section;
-    if (a.ruleId !== b.ruleId) return a.name.localeCompare(b.name);
+    if (a.ruleCode !== b.ruleCode) return a.name.localeCompare(b.name);
     if (a.rowKind !== b.rowKind) return a.rowKind === 'shop' ? -1 : 1;
 
     return (a.inventoryId ?? 0) - (b.inventoryId ?? 0);
@@ -365,10 +385,10 @@ const inventoryChanged = computed(() => {
       !props.build.inventory.some(
         (right) =>
           right.id === left.id &&
-          right.ruleId === left.ruleId &&
+          right.ruleCode === left.ruleCode &&
           right.quantity === left.quantity &&
-          itemModifierService.identityKey(right.ruleId ?? '', right.modifierRuleIds) ===
-            itemModifierService.identityKey(left.ruleId ?? '', left.modifierRuleIds),
+          itemModifierService.identityKey(right.ruleCode ?? '', right.modifierRuleCodes) ===
+            itemModifierService.identityKey(left.ruleCode ?? '', left.modifierRuleCodes),
       ),
   );
 });
@@ -393,16 +413,16 @@ function mutateBuild(patch: Partial<CharacterBuild>): void {
   draftStore.patchBuild(props.draftKey, patch);
 }
 
-function buy(ruleId: string): void {
-  const next = characterBuildService.buyItem(currentBuild(), ruleId, 1, props.rules, props.keywords);
+function buy(ruleCode: string): void {
+  const next = characterBuildService.buyItem(currentBuild(), ruleCode, 1, props.rules, props.keywords);
   mutateBuild({ inventory: next.inventory, money: next.money });
 }
 
-function cancel(ruleId: string, quantity: number): void {
+function cancel(ruleCode: string, quantity: number): void {
   const next = characterBuildService.cancelItemPurchase(
     currentBuild(),
     baseline.value,
-    ruleId,
+    ruleCode,
     quantity,
     props.rules,
     props.keywords,
@@ -431,11 +451,11 @@ function toggleEquipped(itemId: number): void {
   mutateBuild({ inventory: next.inventory });
 }
 
-function applyOwnedModifiers(itemId: number, modifierRuleIds: string[]): void {
+function applyOwnedModifiers(itemId: number, modifierRuleCodes: string[]): void {
   const next = characterBuildService.applyItemModifiers(
     currentBuild(),
     itemId,
-    modifierRuleIds,
+    modifierRuleCodes,
     props.rules,
     props.keywords,
   );
@@ -443,7 +463,7 @@ function applyOwnedModifiers(itemId: number, modifierRuleIds: string[]): void {
 }
 
 function itemKey(item: InventoryListRow): string {
-  return item.rowKind === 'owned' ? `owned-${item.inventoryId}` : `shop-${item.ruleId}`;
+  return item.rowKind === 'owned' ? `owned-${item.inventoryId}` : `shop-${item.ruleCode}`;
 }
 
 function ownedOf(row: InventoryListRow) {
@@ -454,7 +474,7 @@ function ownedOf(row: InventoryListRow) {
 function train(mastery: ItemMasteryView, level: number): void {
   const next = characterBuildService.setWeaponMastery(
     currentBuild(),
-    mastery.masteryRuleId,
+    mastery.masteryRuleCode,
     mastery.familyName,
     mastery.familyCode,
     level,
@@ -464,8 +484,8 @@ function train(mastery: ItemMasteryView, level: number): void {
 }
 
 /** Покупка/снятие оружейного навыка из слайдера (зона ОР, как на вкладке «Развитие»). */
-function setSkillLevel(ruleId: string, level: number): void {
-  const next = characterBuildService.setAbilityLevel(currentBuild(), ruleId, level, props.rules, { zone: 'or' });
+function setSkillLevel(ruleCode: string, level: number): void {
+  const next = characterBuildService.setAbilityLevel(currentBuild(), ruleCode, level, props.rules, { zone: 'or' });
   mutateBuild({ abilities: next.abilities });
 }
 
@@ -491,9 +511,9 @@ const modifierPickerCatalogItem = computed(() => {
   const itemId = modifierPickerItemId.value;
   if (itemId === null) return null;
   const owned = props.build.inventory.find((entry) => entry.id === itemId);
-  if (!owned?.ruleId) return null;
+  if (!owned?.ruleCode) return null;
 
-  return catalog.value.find((item) => item.ruleId === owned.ruleId) ?? null;
+  return catalog.value.find((item) => item.ruleCode === owned.ruleCode) ?? null;
 });
 
 const modifierPickerModifiers = computed(() =>
@@ -501,16 +521,16 @@ const modifierPickerModifiers = computed(() =>
 );
 
 const modifierPickerSelected = computed(
-  () => props.build.inventory.find((entry) => entry.id === modifierPickerItemId.value)?.modifierRuleIds ?? [],
+  () => props.build.inventory.find((entry) => entry.id === modifierPickerItemId.value)?.modifierRuleCodes ?? [],
 );
 
 function openModifiers(itemId: number): void {
   modifierPickerItemId.value = itemId;
 }
 
-function applyModifierPicker(modifierRuleIds: string[]): void {
+function applyModifierPicker(modifierRuleCodes: string[]): void {
   if (modifierPickerItemId.value === null) return;
-  applyOwnedModifiers(modifierPickerItemId.value, modifierRuleIds);
+  applyOwnedModifiers(modifierPickerItemId.value, modifierRuleCodes);
 }
 
 /** Очистка состояния слайдера при закрытии (пользователь кликнет на панель). */
@@ -596,19 +616,19 @@ watch(showWeaponSkills, (val) => {
           :rules="rules"
           :characteristic-values="characteristicValues"
           :abilities="build.abilities"
-          :owned-qty="item.rowKind === 'owned' ? 1 : (ownedByRuleId.get(item.ruleId) ?? 0)"
+          :owned-qty="item.rowKind === 'owned' ? 1 : (ownedByRuleId.get(item.ruleCode) ?? 0)"
           :baseline-qty="
             item.rowKind === 'owned'
               ? baseline?.inventory.some((entry) => entry.id === item.inventoryId)
                 ? 1
                 : 0
-              : (baselineByRuleId.get(item.ruleId) ?? 0)
+              : (baselineByRuleId.get(item.ruleCode) ?? 0)
           "
           :equipped="item.rowKind === 'owned' ? (ownedOf(item)?.equipped ?? false) : false"
           :open="openSet.has(itemKey(item))"
           :modifiers="item.rowKind === 'owned' ? modifiersOf(item) : []"
-          :selected-modifier-rule-ids="ownedOf(item)?.modifierRuleIds ?? []"
-          :display-cost="costOf(item, ownedOf(item)?.modifierRuleIds ?? [])"
+          :selected-modifier-rule-ids="ownedOf(item)?.modifierRuleCodes ?? []"
+          :display-cost="costOf(item, ownedOf(item)?.modifierRuleCodes ?? [])"
           :keyword-codes="itemKeywordCodes(item.keywordIds)"
           :mode="item.rowKind"
           :show-purchase="variant === 'editor'"

@@ -12,7 +12,7 @@ describe('mockSpaces: публикация черновика собирает �
   it('новая ревизия = все правила предыдущей + закоммиченное правило', async () => {
     const before = await fetchRevision(2, 12);
     const draftRule: Rule = {
-      id: 'draft-1',
+      id: null,
       code: 'lavash',
       type: 'item',
       name: 'Лаваш',
@@ -31,14 +31,31 @@ describe('mockSpaces: публикация черновика собирает �
     }
     const lavash = after.rules.find((r) => r.code === 'lavash');
     expect(lavash).toBeDefined();
-    expect(lavash?.id).toMatch(/^rule-\d+$/);
-    expect(lavash?.id).not.toBe('draft-1');
+    expect(typeof lavash?.id).toBe('number');
+    expect(lavash?.id).not.toBeNull();
+  });
+
+  it('опубликованное правило вне alwaysIncluded попадает в срез ревизии', async () => {
+    const after = await commitDraft(2, [
+      {
+        id: null,
+        code: 'zavtrak-gm',
+        type: 'simple',
+        name: 'Завтрак мастера',
+        description: 'Появляется после публикации',
+        spaceId: 2,
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+
+    expect(after.rules.find((rule) => rule.code === 'zavtrak-gm')?.name).toBe('Завтрак мастера');
+    expect(typeof after.rules.find((rule) => rule.code === 'zavtrak-gm')?.id).toBe('number');
   });
 
   it('правило из черновика сохраняет id при повторном коммите (перезапись по code)', async () => {
     const first = await commitDraft(2, [
       {
-        id: 'draft-2',
+        id: null,
         code: 'lavash-2',
         type: 'item',
         name: 'Лаваш 2',
@@ -52,7 +69,7 @@ describe('mockSpaces: публикация черновика собирает �
 
     const second = await commitDraft(2, [
       {
-        id: firstId ?? 'draft-2',
+        id: firstId ?? null,
         code: 'lavash-2',
         type: 'item',
         name: 'Лаваш 2 (обновлён)',
@@ -101,7 +118,7 @@ describe('mockSpaces: публикация черновика собирает �
     const space = await createSpace({ name: 'Пустое', description: '' });
     const published = await commitDraft(space.id, [
       {
-        id: 'imported-from-file',
+        id: null,
         code: 'from-file',
         type: 'simple',
         name: 'Из файла',
@@ -114,5 +131,15 @@ describe('mockSpaces: публикация черновика собирает �
     expect(published.rules.map((rule) => rule.code)).toEqual(['from-file']);
     const meta = await fetchRevisions(space.id);
     expect(meta.map((item) => item.revision)).toEqual([1]);
+  });
+
+  it('inherit копирует правила без PK родителя', async () => {
+    const { createSpace } = await import('@/modules/Roleplay/Space/Mock/mockSpaces');
+    const parent = await fetchRevision(1, 5);
+    const child = await createSpace({ name: 'Наследник', description: '', inheritFrom: 1 });
+    const slice = await fetchRevision(child.id, 0);
+    expect(slice.rules.map((rule) => rule.code)).toEqual(parent.rules.map((rule) => rule.code));
+    expect(slice.rules.every((rule) => rule.id === null)).toBe(true);
+    expect(slice.rules.every((rule) => rule.spaceId === child.id)).toBe(true);
   });
 });

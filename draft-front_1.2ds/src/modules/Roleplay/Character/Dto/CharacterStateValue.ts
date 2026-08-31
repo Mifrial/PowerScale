@@ -1,12 +1,12 @@
 import type { CharacterPoisonValue } from '@/modules/Roleplay/Character/Dto/CharacterPoisonValue';
 
 /**
- * Состояние на персонаже — ссылка на правило + значение. Один и тот же stateRuleId
+ * Состояние на персонаже — ссылка на правило + значение. Один и тот же stateRuleCode
  * может встречаться несколько раз (повторы); как они объединяются — решает
  * StateSpec.aggregation правила.
  */
 export interface CharacterStateValue {
-  stateRuleId: string;
+  stateRuleCode: string;
   /** flag: не заполняется; number: целое значение. */
   value?: number;
   /** Только для value_type 'dimensional'. */

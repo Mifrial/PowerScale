@@ -8,7 +8,7 @@ import type { EditorAbility } from '@/modules/Roleplay/Character/Dto/Editor/Edit
 
 const base = (over: Partial<EditorAbility>): EditorAbility =>
   ({
-    ruleId: 'rule-x',
+    ruleCode: 'rule-x',
     code: 'x',
     name: 'X',
     type: null,

@@ -17,7 +17,7 @@ export class AbilityCheckAdvantagesService {
     const entries: AdvantageModifier[] = [];
     for (const ability of version.abilities) {
       if (ability.level < 1) continue;
-      const rule = rules.find((entry) => entry.id === ability.ruleId);
+      const rule = rules.find((entry) => entry.code === ability.ruleCode);
       if (!rule || rule.type !== 'ability') continue;
       const spec = rule.spec as AbilitySpec | undefined;
       if (!spec || spec.type === 'group') continue;
@@ -50,7 +50,7 @@ export class AbilityCheckAdvantagesService {
     const entries: AdvantageModifier[] = [];
     for (const ability of version.abilities) {
       if (ability.level < 1) continue;
-      const rule = rules.find((entry) => entry.id === ability.ruleId);
+      const rule = rules.find((entry) => entry.code === ability.ruleCode);
       if (!rule || rule.type !== 'ability') continue;
       const spec = rule.spec as AbilitySpec | undefined;
       if (!spec || spec.type === 'group') continue;
@@ -100,7 +100,7 @@ export class AbilityCheckAdvantagesService {
     }
     if (formula.type === 'ability_level') {
       const target = abilities.find(
-        (ability) => rules.find((rule) => rule.id === ability.ruleId)?.code === formula.ability_code,
+        (ability) => rules.find((rule) => rule.code === ability.ruleCode)?.code === formula.ability_code,
       );
 
       return (target?.level ?? 0) * (formula.multiplier ?? 1) + (formula.offset ?? 0);

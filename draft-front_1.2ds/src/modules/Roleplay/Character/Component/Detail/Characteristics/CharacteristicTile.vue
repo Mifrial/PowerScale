@@ -22,7 +22,7 @@ const props = withDefaults(
 );
 
 const open = ref(false);
-const byId = computed(() => new Map(props.rules.map((rule) => [rule.id, rule])));
+const byCode = computed(() => new Map(props.rules.map((rule) => [rule.code, rule])));
 const statusLabels: Record<CharacterSenseValue['status'], string> = {
   precise: 'точное',
   imprecise: 'неточное',
@@ -30,7 +30,7 @@ const statusLabels: Record<CharacterSenseValue['status'], string> = {
   absent: 'отсутствует',
 };
 const showsSenses = computed(() => {
-  const characteristicCode = byId.value.get(props.characteristic.ruleId)?.code;
+  const characteristicCode = byCode.value.get(props.characteristic.ruleCode)?.code;
 
   return characteristicCode === 'attention';
 });
@@ -62,7 +62,7 @@ function label(): string {
 }
 
 function senseRule(sense: CharacterSenseValue): Rule | undefined {
-  return byId.value.get(sense.ruleId);
+  return byCode.value.get(sense.ruleCode);
 }
 </script>
 
@@ -111,7 +111,7 @@ function senseRule(sense: CharacterSenseValue): Rule | undefined {
           <span v-else class="font-weight-medium">{{ signed(modifier.delta) }}</span>
           <span v-if="modifier.sourceRole" class="text-medium-emphasis">{{ modifier.sourceRole }}</span>
           <span class="text-medium-emphasis">|</span>
-          <RuleLink v-if="modifier.sourceRuleId" :rule-id="modifier.sourceRuleId" class="text-body-2">
+          <RuleLink v-if="modifier.sourceRuleCode" :rule-code="modifier.sourceRuleCode" class="text-body-2">
             {{ modifierLabel(modifier) }}
           </RuleLink>
           <span v-else class="text-body-2 text-medium-emphasis">{{ modifierLabel(modifier) }}</span>
@@ -138,14 +138,14 @@ function senseRule(sense: CharacterSenseValue): Rule | undefined {
           <div class="text-caption text-medium-emphasis mb-1">Чувства</div>
           <v-menu
             v-for="sense in senses"
-            :key="sense.ruleId"
+            :key="sense.ruleCode"
             location="right top"
             open-on-hover
             :close-on-content-click="false"
           >
             <template #activator="{ props: menuProps }">
               <div v-bind="menuProps" class="d-flex align-center justify-space-between ga-3 py-1 text-body-2 base-row">
-                <span class="text-medium-emphasis">{{ senseRule(sense)?.name ?? sense.ruleId }}</span>
+                <span class="text-medium-emphasis">{{ senseRule(sense)?.name ?? sense.ruleCode }}</span>
                 <span class="font-weight-medium">
                   {{ signed(sense.value) }} / {{ statusLabels[sense.status] }} /
                   {{ new DimensionalNumber(sense.radius).toString() }}

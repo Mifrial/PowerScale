@@ -20,17 +20,17 @@ export class ItemCheckAdvantagesService {
     if (!version) return [];
     const entries: AdvantageModifier[] = [];
     for (const item of version.inventory) {
-      if (!item.equipped || item.ruleId === null) continue;
-      const rule = rules.find((entry) => entry.id === item.ruleId);
+      if (!item.equipped || item.ruleCode === null) continue;
+      const rule = rules.find((entry) => entry.code === item.ruleCode);
       if (!rule || rule.type !== 'item') continue;
-      const modifiers = (item.modifierRuleIds ?? [])
-        .map((id) => rules.find((entry) => entry.id === id))
+      const modifiers = (item.modifierRuleCodes ?? [])
+        .map((id) => rules.find((entry) => entry.code === id))
         .filter((entry): entry is Rule => entry != null);
       const spec = this.itemModifiers.applyStack(rule.spec as ItemSpec, modifiers, []).spec;
       for (const effect of spec.check_advantages ?? []) {
         if (effect.delta === 0 || !this.matchesQuery(effect, query)) continue;
         entries.push({
-          source_code: item.ruleId,
+          source_code: item.ruleCode,
           source_label: rule.name,
           delta: effect.delta,
         });

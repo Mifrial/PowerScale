@@ -2,10 +2,10 @@ import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKe
 
 /**
  * Быстрый бросок (макрос) характеристики персонажа в боевом контексте игры.
- * Хранится per (game, entity); characteristicRuleId — характеристика версии листа.
+ * Хранится per (game, entity); characteristicRuleCode — характеристика версии листа.
  */
 export interface GameQuickRoll {
   gameId: number;
   entityKey: CombatEntityKey;
-  characteristicRuleId: string;
+  characteristicRuleCode: string;
 }

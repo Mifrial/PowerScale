@@ -31,12 +31,12 @@ export class EndOfTurnDotsService {
   ): Promise<GameCombatOverlay | null> {
     const rule = args.rules.find((item) => item.code === ACCUMULATED_DAMAGE_STATE_CODE && item.type === 'state');
     if (!rule) return null;
-    const index = version.states.findIndex((state) => state.stateRuleId === rule.id);
+    const index = version.states.findIndex((state) => state.stateRuleCode === rule.code);
     if (amount <= 0) {
       return index >= 0 ? this.resolveGameApi().removeCombatState(args.gameId, args.targetKey, index) : null;
     }
 
-    const state = { stateRuleId: rule.id, dimensionalValue: { base: amount, size: 0 } };
+    const state = { stateRuleCode: rule.code, dimensionalValue: { base: amount, size: 0 } };
 
     return index >= 0
       ? this.resolveGameApi().replaceCombatState(args.gameId, args.targetKey, index, state)
@@ -53,7 +53,7 @@ export class EndOfTurnDotsService {
     const rule = args.rules.find((item) => item.code === code && item.type === 'state');
     if (!rule) return null;
     const independent = (rule.spec as StateSpec | undefined)?.aggregation === 'independent';
-    const index = version.states.findIndex((state) => state.stateRuleId === rule.id);
+    const index = version.states.findIndex((state) => state.stateRuleCode === rule.code);
     if (!independent && index >= 0) {
       return this.resolveGameApi().setCombatStateValue(
         args.gameId,
@@ -63,7 +63,10 @@ export class EndOfTurnDotsService {
       );
     }
 
-    return this.resolveGameApi().addCombatState(args.gameId, args.targetKey, { stateRuleId: rule.id, value: amount });
+    return this.resolveGameApi().addCombatState(args.gameId, args.targetKey, {
+      stateRuleCode: rule.code,
+      value: amount,
+    });
   }
 
   async applyEndOfTurnDots(args: ApplyEndOfTurnDotsArgs): Promise<GameCombatOverlay | null> {

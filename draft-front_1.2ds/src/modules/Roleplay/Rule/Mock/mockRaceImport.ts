@@ -86,7 +86,7 @@ const humanRace = (
   };
 
   return {
-    id: `rule-${nextId++}`,
+    id: nextId++,
     code,
     type: 'race',
     name,
@@ -110,7 +110,7 @@ const speciesRule = (
   ageYears?: { age: string; ageStart: number; ageEnd: number }[],
   abilities: RaceAbilityRef[] = [],
 ): Rule => ({
-  id: `rule-${nextId++}`,
+  id: nextId++,
   code,
   type: 'species',
   name,
@@ -146,7 +146,7 @@ const raceRule = (
   };
 
   return {
-    id: `rule-${nextId++}`,
+    id: nextId++,
     code,
     type: 'race',
     name,

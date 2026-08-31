@@ -30,7 +30,7 @@ const displayName = computed(() => props.segment.params[1]?.trim() || rule.value
 
   <RuleSlider
     v-model:open="sliderOpen"
-    :rule-id="rule?.id ?? null"
+    :rule-code="code || null"
     :space-id="props.context?.spaceId ?? null"
     :rules-revision="props.context?.rulesRevision ?? null"
   />

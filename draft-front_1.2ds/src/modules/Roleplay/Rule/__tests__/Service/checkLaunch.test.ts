@@ -4,7 +4,7 @@ import { checkLaunchService } from '@/modules/Roleplay/Rule/Service/Instance/che
 
 function check(code: string, extra: Partial<Rule> = {}): Rule {
   return {
-    id: code,
+    id: null,
     code,
     type: 'check',
     name: code,
@@ -27,7 +27,7 @@ describe('checkLaunch', () => {
         spec: { type: 'check', difficulty_input: { kind: 'ask' }, allowed_modes: 'solo' },
       }),
       check('check-hit'),
-      { id: 'roll', code: 'roll', type: 'simple', name: 'Бросок', description: '', spaceId: 1, createdAt: '' } as Rule,
+      { id: null, code: 'roll', type: 'simple', name: 'Бросок', description: '', spaceId: 1, createdAt: '' } as Rule,
     ];
     expect(checkLaunchService.launchableChecks(rules).map((rule) => rule.code)).toEqual(['check-simple']);
     expect(checkLaunchService.isLaunchableCheck(rules[1]!)).toBe(false);
@@ -50,7 +50,7 @@ describe('checkLaunch', () => {
     const rules: Rule[] = [
       exhaustion,
       {
-        id: 'willpower',
+        id: null,
         code: 'willpower',
         type: 'characteristic',
         name: 'Сила воли',
@@ -59,7 +59,7 @@ describe('checkLaunch', () => {
         createdAt: '',
       },
       {
-        id: 'exhaustion',
+        id: null,
         code: 'exhaustion',
         type: 'state',
         name: 'Истощение',

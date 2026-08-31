@@ -12,7 +12,7 @@ const props = withDefaults(
     spaceCode: string;
     ctx: string | undefined;
     isDraftContext: boolean;
-    draftRuleIds: Set<string>;
+    draftRuleCodes: Set<string>;
     /** Высота скролл-области списка правил. */
     height?: string | number;
   }>(),
@@ -47,12 +47,12 @@ const filteredRules = computed(() => {
 /** Сброс скролла наверх при смене вкладки/поиска. */
 const resetKey = computed(() => `${activeTab.value}|${searchQuery.value}`);
 
-function ruleLink(ruleId: string): string {
-  return `/space/${props.spaceCode}/${props.ctx ?? ''}/rules/${ruleId}`;
+function ruleLink(code: string): string {
+  return `/space/${props.spaceCode}/${props.ctx ?? ''}/rules/${encodeURIComponent(code)}`;
 }
 
 function ruleKey(rule: Rule): string {
-  return rule.id;
+  return rule.code;
 }
 </script>
 
@@ -82,10 +82,10 @@ function ruleKey(rule: Rule): string {
       empty-text="Правила не найдены"
     >
       <template #default="{ item }">
-        <v-list-item :to="ruleLink(item.id)">
+        <v-list-item :to="ruleLink(item.code)">
           <v-list-item-title>
             {{ item.name }}
-            <v-chip v-if="draftRuleIds.has(item.id)" size="x-small" color="warning" variant="tonal" class="ml-2">
+            <v-chip v-if="draftRuleCodes.has(item.code)" size="x-small" color="warning" variant="tonal" class="ml-2">
               Изменено
             </v-chip>
           </v-list-item-title>
@@ -98,7 +98,7 @@ function ruleKey(rule: Rule): string {
                 {{ RULE_TYPE_LABELS[item.type] }}
               </v-chip>
               <v-btn
-                v-if="isDraftContext && draftRuleIds.has(item.id)"
+                v-if="isDraftContext && draftRuleCodes.has(item.code)"
                 icon
                 size="x-small"
                 color="error"

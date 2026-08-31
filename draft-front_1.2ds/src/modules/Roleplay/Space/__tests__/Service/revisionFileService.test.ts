@@ -17,7 +17,7 @@ function sampleRevision(rules: Rule[]): SpaceRevision<Rule> {
 
 function rule(code: string, name: string, overrides: Partial<Rule> = {}): Rule {
   return {
-    id: `id-${code}`,
+    id: null,
     code,
     type: 'simple',
     name,
@@ -43,11 +43,15 @@ describe('RevisionFileService', () => {
   });
 
   it('serialize/parse круг и diff пропускает равный payload с другими id', () => {
-    const published = [rule('a', 'А', { id: 'local-a', spaceId: 2 })];
-    const fileRules = [rule('a', 'А', { id: 'foreign-a', spaceId: 9 }), rule('b', 'Б')];
+    const published = [rule('a', 'А', { id: 2, spaceId: 2 })];
+    const fileRules = [rule('a', 'А', { id: 9, spaceId: 9 }), rule('b', 'Б')];
     const file = revisionFileService.serialize(sampleRevision(fileRules));
     const parsed = revisionFileService.parse(JSON.stringify(file));
     expect(parsed.revision.rules).toHaveLength(2);
+    expect(parsed.revision.rules.every((item) => item.id === null && item.spaceId === 0)).toBe(true);
+    const raw = JSON.parse(JSON.stringify(file)) as { revision: { rules: Record<string, unknown>[] } };
+    expect(raw.revision.rules[0]?.id).toBeUndefined();
+    expect(raw.revision.rules[0]?.spaceId).toBeUndefined();
 
     const diff = revisionFileService.diffAgainstPublished(parsed.revision.rules, published, 2, {
       removeMissing: false,
@@ -85,13 +89,13 @@ describe('RevisionFileService', () => {
 describe('срез ревизии: spec ссылается по code, не по id', () => {
   it('ни одно spec не содержит id другого правила среза', () => {
     const rules = generateRevisionRules(2, 12);
-    const ids = new Set(rules.map((item) => item.id));
+    const idTexts = new Set(rules.map((item) => (item.id == null ? '' : String(item.id))).filter(Boolean));
     for (const item of rules) {
       const strings: string[] = [];
       collectStrings(item.spec, strings);
       collectStrings(item.mechanic_payload, strings);
       for (const text of strings) {
-        if (ids.has(text) && text !== item.id) {
+        if (idTexts.has(text) && text !== String(item.id)) {
           throw new Error(`${item.code} ссылается на id ${text}`);
         }
       }

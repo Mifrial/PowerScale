@@ -20,17 +20,10 @@ const revisionRulePool: Rule[] = ruleCatalog;
 // выбранной»; здесь overlay поверх каталога даёт тот же эффект без мутации глобального каталога.
 const committedRules: Rule[] = [];
 
-// Уникальный rule-id поверх каталога + закоммиченных правил (id «rule-N» по числовому суффиксу).
-let nextCommittedId = Math.max(
-  0,
-  ...[...revisionRulePool, ...committedRules].map((r) => {
-    const m = r.id.match(/^rule-(\d+)$/);
-
-    return m ? Number(m[1]) : 0;
-  }),
-);
-function nextRuleId(): string {
-  return `rule-${++nextCommittedId}`;
+// Уникальный числовой id поверх каталога + закоммиченных правил.
+let nextCommittedId = Math.max(0, ...[...revisionRulePool, ...committedRules].map((r) => r.id ?? 0));
+function nextRuleId(): number {
+  return ++nextCommittedId;
 }
 
 // Правила, «выведенные из обращения» в старших ревизиях — для демо миграции персонажей:
@@ -163,7 +156,7 @@ export async function createSpace(data: SpaceCreateData, _signal?: AbortSignal):
       publishedAt: new Date().toISOString(),
       spaceCode: space.code,
       spaceName: space.name,
-      rules: inheritedRules.map((r) => ({ ...r, spaceId: space.id })),
+      rules: inheritedRules.map((r) => ({ ...r, spaceId: space.id, id: null })),
     });
   }
 
@@ -240,6 +233,7 @@ export function generateRevisionRules(spaceId: number, revision: number): Rule[]
 
   for (const rule of alwaysIncluded) addRule(rule);
   for (const rule of sliced) addRule(rule);
+  for (const rule of committedRules) addRule(rule);
 
   // Вывод правил из обращения в старших ревизиях (демо миграции персонажей).
   for (const retired of retiredMarkers) {
@@ -338,15 +332,13 @@ export async function commitDraft(
   const now = new Date().toISOString();
   const poolByCode = new Map([...revisionRulePool, ...committedRules].map((r) => [r.code, r]));
 
-  // Вносим черновик в overlay: новые правила (code не встречается в пуле) получают стабильный
-  // rule-id, изменённые сохраняют id существующего правила. Эмуляция бэка: версия правила
-  // пишется в пространство, ревизия собирается из актуального набора.
+  // Вносим черновик в overlay: новые правила получают следующий integer, изменённые сохраняют id.
   committedRules.length = 0;
   const removed = new Set(removedCodes);
   for (const draftRule of rules) {
     if (removed.has(draftRule.code)) continue;
     const existing = poolByCode.get(draftRule.code);
-    const id = existing ? existing.id : nextRuleId();
+    const id = existing?.id ?? nextRuleId();
     committedRules.push({ ...draftRule, id, updatedAt: now });
   }
 

@@ -14,10 +14,10 @@ export function stateRuleOf(rules: Rule[], code: string): Rule | undefined {
   return rules.find((rule) => rule.code === code && rule.type === 'state');
 }
 
-export function stateIndicesOf(version: CharacterVersion, ruleId: string): number[] {
+export function stateIndicesOf(version: CharacterVersion, ruleCode: string): number[] {
   const indices: number[] = [];
   version.states.forEach((state, index) => {
-    if (state.stateRuleId === ruleId) indices.push(index);
+    if (state.stateRuleCode === ruleCode) indices.push(index);
   });
 
   return indices;
@@ -31,9 +31,9 @@ export async function removeStatesByCodes(
   rules: Rule[],
   codes: readonly string[],
 ): Promise<GameCombatOverlay | null> {
-  const ids = new Set(codes.map((code) => stateRuleOf(rules, code)?.id).filter((id): id is string => Boolean(id)));
+  const wanted = new Set(codes);
   const indices = version.states
-    .map((state, index) => (ids.has(state.stateRuleId) ? index : -1))
+    .map((state, index) => (wanted.has(state.stateRuleCode) ? index : -1))
     .filter((index) => index >= 0)
     .sort((a, b) => b - a);
   let overlay: GameCombatOverlay | null = null;
@@ -54,7 +54,7 @@ export async function addFlagState(
   const rule = stateRuleOf(rules, code);
   if (!rule) return null;
 
-  return gameApi.addCombatState(gameId, key, { stateRuleId: rule.id } as CharacterStateValue);
+  return gameApi.addCombatState(gameId, key, { stateRuleCode: rule.code } as CharacterStateValue);
 }
 
 export async function setNumericState(
@@ -70,7 +70,7 @@ export async function setNumericState(
   if (!rule) return null;
   const spec = rule.spec as StateSpec | undefined;
   const independent = spec?.aggregation === 'independent';
-  const indices = stateIndicesOf(version, rule.id);
+  const indices = stateIndicesOf(version, rule.code);
   if (value <= 0 && !independent) {
     if (indices.length === 0) return null;
 
@@ -79,13 +79,13 @@ export async function setNumericState(
   if (independent) {
     if (value <= 0) return null;
 
-    return gameApi.addCombatState(gameId, key, { stateRuleId: rule.id, value } as CharacterStateValue);
+    return gameApi.addCombatState(gameId, key, { stateRuleCode: rule.code, value } as CharacterStateValue);
   }
   if (indices.length > 0) {
     return gameApi.setCombatStateValue(gameId, key, indices[0], value);
   }
 
-  return gameApi.addCombatState(gameId, key, { stateRuleId: rule.id, value } as CharacterStateValue);
+  return gameApi.addCombatState(gameId, key, { stateRuleCode: rule.code, value } as CharacterStateValue);
 }
 
 export async function clampCombatActionPoints(
@@ -99,10 +99,10 @@ export async function clampCombatActionPoints(
   if (!ap) return null;
   const rule = rules.find((item) => item.code === ACTION_POINTS_CODE && item.type === 'resource');
   if (!rule) return null;
-  const resource = version.resources.find((item) => item.ruleId === rule.id);
+  const resource = version.resources.find((item) => item.ruleCode === rule.code);
   if (!resource) return null;
   if (resource.current.base <= ap.max) return null;
   const current: DimensionalNumberValue = { ...resource.current, base: ap.max };
 
-  return gameApi.setCombatResource(gameId, key, rule.id, current);
+  return gameApi.setCombatResource(gameId, key, rule.code, current);
 }

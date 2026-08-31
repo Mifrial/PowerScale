@@ -19,7 +19,7 @@ function build(abilities: CharacterBuild['abilities'] = []): CharacterBuild {
     spaceId: 1,
     spaceCode: 'razrabotka',
     rulesRevision: 5,
-    raceRuleId: null,
+    raceRuleCode: null,
     characteristicPurchases: [],
     abilities,
     resources: [],
@@ -40,7 +40,7 @@ describe('itemMasteryView (блок владения в панели предм�
     const view = itemMasteryService.itemMasteryView(knifeSpec, build().abilities, ruleCatalog);
 
     expect(view).toEqual({
-      masteryRuleId: masteryRule!.id,
+      masteryRuleCode: masteryRule!.code,
       familyName: family!.name,
       familyCode: 'fam-kinzhal-nozh',
       ladder: [1, 3, 5],
@@ -50,7 +50,7 @@ describe('itemMasteryView (блок владения в панели предм�
   });
 
   it('уровень берётся из экземпляра владения семьи', () => {
-    const abilities = [{ ruleId: masteryRule!.id, level: 2, domain: family!.name, domainCode: family!.code }];
+    const abilities = [{ ruleCode: masteryRule!.code, level: 2, domain: family!.name, domainCode: family!.code }];
 
     const view = itemMasteryService.itemMasteryView(knifeSpec, build(abilities).abilities, ruleCatalog);
 
@@ -65,7 +65,7 @@ describe('itemMasteryView (блок владения в панели предм�
     // взять уровень 1
     current = characterBuildService.setWeaponMastery(
       current,
-      mastery!.masteryRuleId,
+      mastery!.masteryRuleCode,
       mastery!.familyName,
       mastery!.familyCode,
       1,
@@ -78,7 +78,7 @@ describe('itemMasteryView (блок владения в панели предм�
     // прокачать до 3 (лестница 1+3+5 = 9 ОР)
     current = characterBuildService.setWeaponMastery(
       current,
-      mastery!.masteryRuleId,
+      mastery!.masteryRuleCode,
       mastery!.familyName,
       mastery!.familyCode,
       3,
@@ -91,7 +91,7 @@ describe('itemMasteryView (блок владения в панели предм�
     // снять владение
     current = characterBuildService.setWeaponMastery(
       current,
-      mastery!.masteryRuleId,
+      mastery!.masteryRuleCode,
       mastery!.familyName,
       mastery!.familyCode,
       0,
@@ -103,18 +103,18 @@ describe('itemMasteryView (блок владения в панели предм�
   });
 
   it('понижение до уровня 1 из существующего экземпляра (регрессия: addAbilityInstance no-op)', () => {
-    const existing = [{ ruleId: masteryRule!.id, level: 2, domain: family!.name, domainCode: family!.code }];
+    const existing = [{ ruleCode: masteryRule!.code, level: 2, domain: family!.name, domainCode: family!.code }];
 
     const next = characterBuildService.setWeaponMastery(
       build(existing),
-      masteryRule!.id,
+      masteryRule!.code,
       family!.name,
       family!.code,
       1,
       ruleCatalog,
     );
 
-    const instances = next.abilities.filter((a) => a.ruleId === masteryRule!.id);
+    const instances = next.abilities.filter((a) => a.ruleCode === masteryRule!.code);
     expect(instances).toHaveLength(1);
     expect(instances[0]?.level).toBe(1);
     expect(weaponProficiencyService.weaponProficiencyLevels(next.abilities, ruleCatalog).get(family!.code)).toBe(1);

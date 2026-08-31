@@ -4,7 +4,7 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { attackActionSourceService } from '@/modules/Roleplay/Game/Service/Instance/attackActionSourceService';
 
 const profile = (profileType: AttackOverview['profileType']): AttackOverview => ({
-  itemRuleId: `${profileType}-item`,
+  itemRuleCode: `${profileType}-item`,
   itemName: profileType,
   itemHref: '',
   profileType,
@@ -26,7 +26,7 @@ const profile = (profileType: AttackOverview['profileType']): AttackOverview => 
 });
 
 const rule = (keywordIds: number[], attackMode?: 'single' | 'wide'): Rule => ({
-  id: 'attack',
+  id: null,
   code: 'attack',
   type: 'ability',
   name: 'Атака',
@@ -74,6 +74,37 @@ describe('AttackActionSourceService', () => {
       false,
     );
     expect(attackActionSourceService.isProfileAvailable(favorite, [favorite])).toBe(true);
+  });
+
+  it('resolves a favorite by item code, not storage id', () => {
+    const strike = { ...profile('strike'), itemRuleCode: 'ruka', profileIndex: 0 };
+    const rules: Rule[] = [
+      {
+        id: 520,
+        code: 'ruka',
+        type: 'item',
+        name: 'Рука',
+        description: '',
+        spaceId: 1,
+        keywordIds: [],
+        createdAt: '',
+      },
+    ];
+
+    expect(
+      attackActionSourceService.favoriteAttack(
+        [strike],
+        { itemRuleCode: 'ruka', profileType: 'strike', profileIndex: 0 },
+        rules,
+      )?.itemName,
+    ).toBe('strike');
+    expect(
+      attackActionSourceService.favoriteAttack(
+        [strike],
+        { itemRuleCode: 'rule-520', profileType: 'strike', profileIndex: 0 },
+        rules,
+      ),
+    ).toBeNull();
   });
 
   it('limits wide attacks to three distinct targets and single attacks to one', () => {

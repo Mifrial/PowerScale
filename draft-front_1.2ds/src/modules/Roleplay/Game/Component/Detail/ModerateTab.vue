@@ -52,8 +52,8 @@ const queueMemberships = computed(() =>
   }),
 );
 
-function resolve(ruleId: string): string {
-  return names.value.get(ruleId) ?? `Удалённое правило (id: ${ruleId})`;
+function resolve(ruleCode: string): string {
+  return names.value.get(ruleCode) ?? `Удалённое правило (id: ${ruleCode})`;
 }
 
 function actualOf(membership: GameCharacterMembership): CharacterVersion | null {
@@ -65,7 +65,7 @@ async function loadRules(): Promise<void> {
   if (props.spaceId !== null && props.rulesRevision !== null) {
     try {
       const revision = await spaceRevision.fetchRevision(props.spaceId, props.rulesRevision, signal.value);
-      for (const rule of revision.rules) merged.set(rule.id, rule.name);
+      for (const rule of revision.rules) merged.set(rule.code, rule.name);
     } catch {
       // ревизия игры недоступна
     }
@@ -76,7 +76,7 @@ async function loadRules(): Promise<void> {
     try {
       const revision = await spaceRevision.fetchRevision(props.spaceId, approved.rulesRevision, signal.value);
       for (const rule of revision.rules) {
-        if (!merged.has(rule.id)) merged.set(rule.id, rule.name);
+        if (!merged.has(rule.code)) merged.set(rule.code, rule.name);
       }
     } catch {
       // ревизия approved недоступна

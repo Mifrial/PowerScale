@@ -15,7 +15,7 @@ export function effectiveResources(version: CharacterVersion, overlay: GameComba
   if (!overlay || overlay.resources.length === 0) return version.resources;
 
   return version.resources.map((resource) => {
-    const override = overlay.resources.find((item) => item.ruleId === resource.ruleId);
+    const override = overlay.resources.find((item) => item.ruleCode === resource.ruleCode);
     if (!override) return resource;
 
     return { ...resource, current: { ...override.current } };

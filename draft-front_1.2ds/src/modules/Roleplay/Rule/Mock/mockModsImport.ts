@@ -23,7 +23,7 @@ function modifier(
   const spec: ItemModifierSpec = { type_code: typeCode, applies, price: priceSpec, effects, ...extra };
 
   return {
-    id: `rule-${800 + index}`,
+    id: 800 + index,
     code,
     type: 'item_modifier',
     name,

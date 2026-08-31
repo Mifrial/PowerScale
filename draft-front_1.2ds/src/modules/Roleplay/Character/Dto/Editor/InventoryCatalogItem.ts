@@ -2,7 +2,7 @@ import type { InventoryItemType } from '@/modules/Roleplay/Character/Enum/Invent
 import type { ItemSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpec';
 
 export type InventoryCatalogItem = {
-  ruleId: string;
+  ruleCode: string;
   name: string;
   description: string;
   cost: number;

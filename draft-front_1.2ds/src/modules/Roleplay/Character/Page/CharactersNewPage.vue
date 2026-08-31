@@ -58,7 +58,7 @@ function start(): void {
     spaceId: space.id,
     spaceCode: space.code,
     rulesRevision: revision.value,
-    raceRuleId: null,
+    raceRuleCode: null,
     characteristicPurchases: [],
     abilities: [],
     resources: [],

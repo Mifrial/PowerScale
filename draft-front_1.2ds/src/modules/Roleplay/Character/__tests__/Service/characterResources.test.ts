@@ -8,7 +8,7 @@ import { CharacterBuildService } from '@/modules/Roleplay/Character/Service/Char
 
 const dim = (base: number, size = 0) => ({ base, size });
 
-const base = (id: string, code: string, type: Rule['type'], name: string, spec?: Rule['spec']): Rule => ({
+const base = (id: number | null, code: string, type: Rule['type'], name: string, spec?: Rule['spec']): Rule => ({
   id,
   code,
   type,
@@ -23,7 +23,7 @@ const base = (id: string, code: string, type: Rule['type'], name: string, spec?:
 
 /** Раса с фиксированными характеристиками (для детерминированных тестов лимита ОД). */
 const raceWith = (characteristics: RaceCharacteristic[]): Rule =>
-  base('r-human', 'human', 'race', 'Человек', {
+  base(null, 'human', 'race', 'Человек', {
     parent_race_code: null,
     cost_os: 0,
     characteristics,
@@ -31,32 +31,32 @@ const raceWith = (characteristics: RaceCharacteristic[]): Rule =>
   });
 
 const rules: Rule[] = [
-  base('r-strength', 'strength', 'characteristic', 'Сила', { type: 'characteristic', group: 'primary' }),
-  base('r-dexterity', 'dexterity', 'characteristic', 'Ловкость', { type: 'characteristic', group: 'primary' }),
-  base('r-attention', 'attention', 'characteristic', 'Внимательность', {
+  base(null, 'strength', 'characteristic', 'Сила', { type: 'characteristic', group: 'primary' }),
+  base(null, 'dexterity', 'characteristic', 'Ловкость', { type: 'characteristic', group: 'primary' }),
+  base(null, 'attention', 'characteristic', 'Внимательность', {
     type: 'characteristic',
     group: 'base',
     automatic: true,
   }),
-  base('r-reaction', 'reaction', 'characteristic', 'Реакция', {
+  base(null, 'reaction', 'characteristic', 'Реакция', {
     type: 'characteristic',
     group: 'base',
     automatic: true,
   }),
-  base('r-perception', 'perception', 'characteristic', 'Восприятие', {
+  base(null, 'perception', 'characteristic', 'Восприятие', {
     type: 'characteristic',
     formula: 'min(attention, reaction)',
     group: 'primary',
   }),
-  base('r-weight', 'weight', 'characteristic', 'Вес', {
+  base(null, 'weight', 'characteristic', 'Вес', {
     type: 'characteristic',
     group: 'primary',
     automatic: true,
     base_from: { characteristic_code: 'strength', source_codes: ['innate'] },
   }),
-  base('r-innate', 'innate', 'source', 'Врождённый'),
-  base('r-training', 'training', 'source', 'Тренировка'),
-  base('r-ap', 'action-points', 'resource', 'Очки Действий', {
+  base(null, 'innate', 'source', 'Врождённый'),
+  base(null, 'training', 'source', 'Тренировка'),
+  base(null, 'action-points', 'resource', 'Очки Действий', {
     is_dimensional: false,
     auto_add: true,
     limit: {
@@ -81,7 +81,7 @@ const rules: Rule[] = [
     { characteristic_code: 'attention', mode: 'fixed', base: dim(3) },
     { characteristic_code: 'reaction', mode: 'fixed', base: dim(3) },
   ]),
-  base('r-strength-innate', 'strength-innate', 'ability', 'Врождённая Сила', {
+  base(null, 'strength-innate', 'ability', 'Врождённая Сила', {
     type: 'trait',
     zones: { os: { kind: 'array', levels_cost: [2] } },
     requirements: [],
@@ -100,7 +100,7 @@ const rules: Rule[] = [
     ],
     parent_ability_code: null,
   }),
-  base('r-strength-training', 'strength-training', 'ability', 'Тренировка силы', {
+  base(null, 'strength-training', 'ability', 'Тренировка силы', {
     type: 'trait',
     zones: { or: { kind: 'array', levels_cost: [3] } },
     requirements: [],
@@ -119,7 +119,7 @@ const rules: Rule[] = [
     ],
     parent_ability_code: null,
   }),
-  base('r-costly', 'costly', 'ability', 'Затратный навык', {
+  base(null, 'costly', 'ability', 'Затратный навык', {
     type: 'skill',
     zones: { or: { kind: 'array', levels_cost: [2] } },
     requirements: [{ level: 1, requirements: [{ type: 'resource_limit', resource_code: 'action-points', min: 2 }] }],
@@ -141,7 +141,7 @@ function makeBuild(overrides: Partial<CharacterBuild> = {}): CharacterBuild {
     spaceCode: 'razrabotka',
     rulesRevision: 5,
     spaceId: 1,
-    raceRuleId: 'r-human',
+    raceRuleCode: 'human',
     characteristicPurchases: [],
     abilities: [],
     resources: [],
@@ -155,7 +155,7 @@ function makeBuild(overrides: Partial<CharacterBuild> = {}): CharacterBuild {
 }
 
 function odOf(version: ReturnType<CharacterEditorService['toVersion']>) {
-  return version.resources.find((resource) => resource.ruleId === 'r-ap');
+  return version.resources.find((resource) => resource.ruleCode === 'action-points');
 }
 
 describe('Авто-ресурс ОД (buildResources)', () => {
@@ -193,12 +193,12 @@ describe('Авто-ресурс ОД (buildResources)', () => {
     // Врождённая Сила (+1, врождённый) меняет и Силу, и Вес; Тренировка силы (+3, «Тренировка»)
     // меняет только Силу → Сила на полный размер выше Веса.
     let build = makeBuild();
-    build = buildService.setAbilityLevel(build, 'r-strength-innate', 1, rules);
-    build = buildService.setAbilityLevel(build, 'r-strength-training', 1, rules);
+    build = buildService.setAbilityLevel(build, 'strength-innate', 1, rules);
+    build = buildService.setAbilityLevel(build, 'strength-training', 1, rules);
     const version = service.toVersion(build, rules, config);
     const od = odOf(version);
 
-    expect(version.characteristics.find((c) => c.ruleId === 'r-weight')?.base).toEqual({ base: 4, size: 0 });
+    expect(version.characteristics.find((c) => c.ruleCode === 'weight')?.base).toEqual({ base: 4, size: 0 });
     expect(od?.bonuses[2].delta).toBe(1);
     expect(od?.current).toEqual({ base: 6, size: 0 });
   });
@@ -224,7 +224,7 @@ describe('Авто-ресурс ОД (buildResources)', () => {
 
   it('сохранённый current выше лимита клампится к лимиту', () => {
     const build = makeBuild({
-      resources: [{ ruleId: 'r-ap', current: dim(9), base: dim(5), bonuses: [] }],
+      resources: [{ ruleCode: 'action-points', current: dim(9), base: dim(5), bonuses: [] }],
     });
     const version = service.toVersion(build, rules, config);
     expect(odOf(version)?.current).toEqual({ base: 5, size: 0 });
@@ -238,19 +238,21 @@ describe('Авто-ресурс ОД (buildResources)', () => {
   });
 
   it('устаревшие не-авто ресурсы без действующего гранта удаляются', () => {
-    const build = makeBuild({ resources: [{ ruleId: 'r-concentration', current: dim(2), base: dim(3), bonuses: [] }] });
+    const build = makeBuild({
+      resources: [{ ruleCode: 'r-concentration', current: dim(2), base: dim(3), bonuses: [] }],
+    });
     const version = service.toVersion(build, rules, config);
-    const concentration = version.resources.find((resource) => resource.ruleId === 'r-concentration');
+    const concentration = version.resources.find((resource) => resource.ruleCode === 'r-concentration');
 
     expect(concentration).toBeUndefined();
   });
 
   it('устаревший не-авто ресурс не возвращается даже при сохранённом current', () => {
     const build = makeBuild({
-      resources: [{ ruleId: 'r-concentration', current: dim(9), base: dim(3), bonuses: [] }],
+      resources: [{ ruleCode: 'r-concentration', current: dim(9), base: dim(3), bonuses: [] }],
     });
     const version = service.toVersion(build, rules, config);
-    const concentration = version.resources.find((resource) => resource.ruleId === 'r-concentration');
+    const concentration = version.resources.find((resource) => resource.ruleCode === 'r-concentration');
 
     expect(concentration).toBeUndefined();
   });
@@ -259,15 +261,15 @@ describe('Авто-ресурс ОД (buildResources)', () => {
 describe('Вес (base_from)', () => {
   it('база = база Силы + модификаторы от врождённого источника', () => {
     let build = makeBuild();
-    build = buildService.setAbilityLevel(build, 'r-strength-innate', 1, rules);
-    build = buildService.setAbilityLevel(build, 'r-strength-training', 1, rules);
+    build = buildService.setAbilityLevel(build, 'strength-innate', 1, rules);
+    build = buildService.setAbilityLevel(build, 'strength-training', 1, rules);
 
     const version = service.toVersion(build, rules, config);
-    const weight = version.characteristics.find((c) => c.ruleId === 'r-weight');
+    const weight = version.characteristics.find((c) => c.ruleCode === 'weight');
 
     // Сила {3|0} + врождённый +1 → Вес {4|0}; «Тренировка» (+3) в Вес не входит.
     expect(weight?.base).toEqual({ base: 4, size: 0 });
-    const strength = version.characteristics.find((c) => c.ruleId === 'r-strength');
+    const strength = version.characteristics.find((c) => c.ruleCode === 'strength');
     expect(strength?.modifiers.reduce((sum, m) => sum + m.delta, 0)).toBe(4);
   });
 });
@@ -279,7 +281,7 @@ describe('Round-trip версии (create → edit → save)', () => {
     const again = service.toVersion(restored, rules, config);
 
     expect(again.name).toBe(original.name);
-    expect(again.raceRuleId).toBe(original.raceRuleId);
+    expect(again.raceRuleCode).toBe(original.raceRuleCode);
     expect(again.points).toEqual(original.points);
     expect(again.ageYears).toBeNull();
     expect(again.inventory).toEqual(original.inventory);
@@ -288,7 +290,7 @@ describe('Round-trip версии (create → edit → save)', () => {
 
   it('orTotal без лимита (null) сохраняется и переживает round-trip', () => {
     const noOrLimit: CharacterCreationConfig = { osTotal: null, orTotal: null, moneyBudget: null };
-    const build = makeBuild({ abilities: [{ ruleId: 'r-costly', level: 1 }] });
+    const build = makeBuild({ abilities: [{ ruleCode: 'costly', level: 1 }] });
     const version = service.toVersion(build, rules, noOrLimit);
     expect(version.points.orTotal).toBeNull();
 
@@ -306,13 +308,13 @@ describe('Round-trip версии (create → edit → save)', () => {
 
   it('изменённый характер пересчитывается и в ресурсе ОД, и в характеристиках', () => {
     let build = makeBuild();
-    build = buildService.setAbilityLevel(build, 'r-strength-training', 1, rules);
+    build = buildService.setAbilityLevel(build, 'strength-training', 1, rules);
     const version = service.toVersion(build, rules, config);
     const restored = buildService.fromVersion(version, 1, rules);
     const again = service.toVersion(restored, rules, config);
 
-    expect(again.characteristics.find((c) => c.ruleId === 'r-strength')).toEqual(
-      version.characteristics.find((c) => c.ruleId === 'r-strength'),
+    expect(again.characteristics.find((c) => c.ruleCode === 'strength')).toEqual(
+      version.characteristics.find((c) => c.ruleCode === 'strength'),
     );
     expect(odOf(again)).toEqual(odOf(version));
   });

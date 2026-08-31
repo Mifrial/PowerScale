@@ -3,7 +3,7 @@ import type { MechanicPayload } from '@/modules/Roleplay/Rule/Dto/MechanicPayloa
 
 export interface RuleVersion {
   id: number;
-  ruleId: string;
+  ruleId: number;
   spaceId: number;
   versionA: number;
   versionB: number;

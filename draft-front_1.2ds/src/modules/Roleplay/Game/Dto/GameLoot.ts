@@ -20,14 +20,14 @@ export interface GameLootDistribution {
 
 /**
  * Запись добычи (ТР §3 `game_loot` + `game_loot_interest`). Лут — предмет
- * (`itemRuleId` из правил ревизии + `quantity`) ИЛИ деньги (`moneyAmount` гм).
+ * (`itemRuleCode` из правил ревизии + `quantity`) ИЛИ деньги (`moneyAmount` гм).
  * `group` — свободный тег-группа для группировки подготовленной добычи.
  */
 export interface GameLoot {
   id: number;
   gameId: number;
   group: string | null;
-  itemRuleId: string | null;
+  itemRuleCode: string | null;
   quantity: number;
   moneyAmount: number | null;
   notes: string | null;

@@ -4,7 +4,7 @@ import type { AttackCalcPayload } from '@/modules/Roleplay/Game/Dto/AttackCalcPa
 import type { HitDefenseReaction } from '@/modules/Roleplay/Game/Enum/HitDefenseReaction';
 import type { ApplyAttackDamageResult } from '@/modules/Roleplay/Game/Dto/ApplyAttackDamageResult';
 
-import type { CombatActionOption } from '@/modules/Roleplay/Game/Utils/combatActions';
+import { findRuleByRef, type CombatActionOption } from '@/modules/Roleplay/Game/Utils/combatActions';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
 function entityToken(key: CombatEntityKey, name: string): string {
@@ -13,9 +13,9 @@ function entityToken(key: CombatEntityKey, name: string): string {
   return `[[character:${key.slice(10)},${name}]]`;
 }
 
-function ruleTokenById(ruleId: string | null | undefined, fallbackName: string, rules: Rule[]): string {
-  if (!ruleId) return fallbackName;
-  const rule = rules.find((entry) => entry.id === ruleId);
+function ruleTokenById(ruleCode: string | null | undefined, fallbackName: string, rules: Rule[]): string {
+  if (!ruleCode) return fallbackName;
+  const rule = rules.find((entry) => entry.code === ruleCode);
 
   return rule ? `[[rule:${rule.code}]]` : fallbackName;
 }
@@ -28,7 +28,7 @@ function ruleTokenByCode(code: string | null | undefined, fallbackName: string, 
 }
 
 function actionToken(action: CombatActionOption, rules: Rule[]): string {
-  const rule = rules.find((entry) => entry.id === action.ruleId) ?? rules.find((entry) => entry.code === action.code);
+  const rule = findRuleByRef(rules, action.ruleCode) ?? findRuleByRef(rules, action.code);
   if (!rule) return action.name;
   if (rule.name === action.name) return `[[rule:${rule.code}]]`;
 
@@ -63,7 +63,7 @@ export function formatStrikeNarrativeMessage(input: {
   attackerName: string;
   defenderKey: CombatEntityKey;
   defenderName: string;
-  weaponRuleId: string;
+  weaponRuleCode: string;
   weaponName: string;
   damageTypeCode?: string | null;
   profileType?: 'strike' | 'throw' | 'shoot';
@@ -76,7 +76,7 @@ export function formatStrikeNarrativeMessage(input: {
 }): string {
   const attacker = entityToken(input.attackerKey, input.attackerName);
   const defender = entityToken(input.defenderKey, input.defenderName);
-  const weapon = ruleTokenById(input.weaponRuleId, input.weaponName, input.rules);
+  const weapon = ruleTokenById(input.weaponRuleCode, input.weaponName, input.rules);
   const typeRule = input.damageTypeCode ? input.rules.find((rule) => rule.code === input.damageTypeCode) : undefined;
   const typeBit = typeRule ? typeRule.name.toLowerCase() : 'безымянный';
   const kind = input.profileType === 'throw' ? 'бросок' : input.profileType === 'shoot' ? 'выстрел' : 'удар';

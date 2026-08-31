@@ -8,7 +8,7 @@ import MembershipDiffView from '@/modules/Roleplay/Game/Component/Detail/Members
 const props = defineProps<{
   membership: GameCharacterMembership | null;
   actual: CharacterVersion | null;
-  /** Имена правил (ruleId → name) из ревизии игры. */
+  /** Имена правил (ruleCode → name) из ревизии игры. */
   names: Record<string, string>;
 }>();
 
@@ -22,7 +22,7 @@ const diff = computed(() => {
   return membershipDiff(
     membership.approvedCharacterVersion,
     props.actual,
-    (ruleId) => props.names[ruleId] ?? `Удалённое правило (id: ${ruleId})`,
+    (ruleCode) => props.names[ruleCode] ?? `Удалённое правило (id: ${ruleCode})`,
   );
 });
 </script>

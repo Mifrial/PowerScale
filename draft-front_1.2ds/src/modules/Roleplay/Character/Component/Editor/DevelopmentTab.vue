@@ -46,7 +46,7 @@ const sectionTreeOptions = abilitySectionTreeService.flatten(
 );
 
 function sectionOf(ability: EditorAbility): string | null {
-  const rule = props.rules.find((entry) => entry.id === ability.ruleId);
+  const rule = props.rules.find((entry) => entry.code === ability.ruleCode);
 
   return rule?.catalogSection ?? null;
 }
@@ -107,14 +107,14 @@ const abilitiesByName = computed<(EditorAbility & { section: string | null })[]>
   const result: (EditorAbility & { section: string | null })[] = [];
   const seen = new Set<string>();
   for (const row of rows) {
-    if (seen.has(row.ruleId)) continue;
-    seen.add(row.ruleId);
+    if (seen.has(row.ruleCode)) continue;
+    seen.add(row.ruleCode);
     result.push(row);
     let node = row.parentCode ? (byCode.get(row.parentCode) ?? null) : null;
     while (node) {
       if (appliedFilters.value.section && sectionOf(node) !== row.section) break;
-      if (seen.has(node.ruleId)) break;
-      seen.add(node.ruleId);
+      if (seen.has(node.ruleCode)) break;
+      seen.add(node.ruleCode);
       result.push(node);
       node = node.parentCode ? (byCode.get(node.parentCode) ?? null) : null;
     }
@@ -136,7 +136,7 @@ function passesFilters(ability: EditorAbility): boolean {
 const sectionOrderByCode = new Map(sectionTreeOptions.map((section, index) => [section.code, index]));
 
 function abilitySortOrder(ability: EditorAbility & { section: string | null }): number {
-  const rule = props.rules.find((entry) => entry.id === ability.ruleId);
+  const rule = props.rules.find((entry) => entry.code === ability.ruleCode);
   const sortOrder = typeof rule?.catalogSortOrder === 'number' ? rule.catalogSortOrder : Number.MAX_SAFE_INTEGER;
 
   return sortOrder;
@@ -192,7 +192,7 @@ const autoOpenSet = computed(() => {
     while (node.parentCode) {
       node = byCode.get(node.parentCode);
       if (!node) break;
-      result.add(node.ruleId);
+      result.add(node.ruleCode);
     }
   }
 
@@ -221,44 +221,44 @@ const resetKey = computed(() =>
 /** Высота скролл-области каталога: почти весь вьюпорт под шапкой/фильтрами. */
 const catalogHeight = 'calc(100vh - 295px)';
 
-function setOpen(ruleId: string, open: boolean): void {
-  if (open) openSet.value.add(ruleId);
-  else openSet.value.delete(ruleId);
+function setOpen(ruleCode: string, open: boolean): void {
+  if (open) openSet.value.add(ruleCode);
+  else openSet.value.delete(ruleCode);
 }
 
 function abilityKey(ability: EditorAbility): string {
-  return ability.ruleId;
+  return ability.ruleCode;
 }
 
-function setLevel(ruleId: string, level: number): void {
-  const next = characterBuildService.setAbilityLevel(props.build, ruleId, level, props.rules, { zone: 'or' });
+function setLevel(ruleCode: string, level: number): void {
+  const next = characterBuildService.setAbilityLevel(props.build, ruleCode, level, props.rules, { zone: 'or' });
   draftStore.patchBuild(props.draftKey, { abilities: next.abilities });
 }
 
-function setParameter(ruleId: string, code: string, value: number | { base: number; size: number }): void {
-  const next = characterBuildService.setAbilityParameter(props.build, ruleId, code, value, props.rules);
+function setParameter(ruleCode: string, code: string, value: number | { base: number; size: number }): void {
+  const next = characterBuildService.setAbilityParameter(props.build, ruleCode, code, value, props.rules);
   draftStore.patchBuild(props.draftKey, { abilities: next.abilities });
 }
 
-function addInstance(ruleId: string, domain: string, domainCode: string | null): void {
-  const next = characterBuildService.addAbilityInstance(props.build, ruleId, domain, props.rules, {
+function addInstance(ruleCode: string, domain: string, domainCode: string | null): void {
+  const next = characterBuildService.addAbilityInstance(props.build, ruleCode, domain, props.rules, {
     zone: 'or',
     domainCode,
   });
   draftStore.patchBuild(props.draftKey, { abilities: next.abilities });
 }
 
-function setInstanceLevel(ruleId: string, domain: string, level: number): void {
-  const next = characterBuildService.setAbilityInstanceLevel(props.build, ruleId, domain, level, props.rules, {
+function setInstanceLevel(ruleCode: string, domain: string, level: number): void {
+  const next = characterBuildService.setAbilityInstanceLevel(props.build, ruleCode, domain, level, props.rules, {
     zone: 'or',
   });
   draftStore.patchBuild(props.draftKey, { abilities: next.abilities });
 }
 
-function setInstanceDomain(ruleId: string, oldDomain: string, newDomain: string, domainCode: string | null): void {
+function setInstanceDomain(ruleCode: string, oldDomain: string, newDomain: string, domainCode: string | null): void {
   const next = characterBuildService.setAbilityInstanceDomain(
     props.build,
-    ruleId,
+    ruleCode,
     oldDomain,
     newDomain,
     {
@@ -269,13 +269,13 @@ function setInstanceDomain(ruleId: string, oldDomain: string, newDomain: string,
   draftStore.patchBuild(props.draftKey, { abilities: next.abilities });
 }
 
-function removeInstance(ruleId: string, domain: string): void {
-  const next = characterBuildService.removeAbilityInstance(props.build, ruleId, domain, props.rules);
+function removeInstance(ruleCode: string, domain: string): void {
+  const next = characterBuildService.removeAbilityInstance(props.build, ruleCode, domain, props.rules);
   draftStore.patchBuild(props.draftKey, { abilities: next.abilities });
 }
 
-function setAbilityDomain(ruleId: string, domain: string, domainCode: string | null): void {
-  const next = characterBuildService.setAbilityDomain(props.build, ruleId, domain, { domainCode });
+function setAbilityDomain(ruleCode: string, domain: string, domainCode: string | null): void {
+  const next = characterBuildService.setAbilityDomain(props.build, ruleCode, domain, { domainCode });
   draftStore.patchBuild(props.draftKey, { abilities: next.abilities });
 }
 </script>
@@ -321,7 +321,7 @@ function setAbilityDomain(ruleId: string, domain: string, domainCode: string | n
         <div class="d-flex flex-wrap ga-2">
           <v-chip
             v-for="ability in giftedAbilities"
-            :key="ability.ruleId"
+            :key="ability.ruleCode"
             size="small"
             variant="tonal"
             color="secondary"

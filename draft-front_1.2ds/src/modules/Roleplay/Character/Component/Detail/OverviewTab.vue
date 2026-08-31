@@ -33,11 +33,11 @@ const importantCharacteristics = computed(() => overview.value.characteristics.f
 const secondaryCharacteristics = computed(() => overview.value.characteristics.filter((c) => c.group === 'secondary'));
 
 function armorKey(item: DefenseArmorOverview): string {
-  return item.itemRuleId;
+  return item.itemRuleCode;
 }
 
 function attackKey(attack: AttackOverview): string {
-  return `${attack.itemRuleId}_${attack.profileType}`;
+  return `${attack.itemRuleCode}_${attack.profileType}`;
 }
 </script>
 
@@ -50,12 +50,12 @@ function attackKey(attack: AttackOverview): string {
           <template v-if="primarySimple.length || primaryDerived.length">
             <div class="text-subtitle-2 text-medium-emphasis mb-1">Основные</div>
             <v-row v-if="primarySimple.length" dense>
-              <v-col v-for="characteristic in primarySimple" :key="characteristic.ruleId" cols="6" sm="4" md="3">
+              <v-col v-for="characteristic in primarySimple" :key="characteristic.ruleCode" cols="6" sm="4" md="3">
                 <CharacteristicTile :characteristic="characteristic" :rules="rules" :senses="version.senses" />
               </v-col>
             </v-row>
             <v-row v-if="primaryDerived.length" dense class="mt-2">
-              <v-col v-for="characteristic in primaryDerived" :key="characteristic.ruleId" cols="12" md="6">
+              <v-col v-for="characteristic in primaryDerived" :key="characteristic.ruleCode" cols="12" md="6">
                 <DerivedCharacteristicTile :characteristic="characteristic" :rules="rules" :senses="version.senses" />
               </v-col>
             </v-row>
@@ -70,7 +70,7 @@ function attackKey(attack: AttackOverview): string {
             <v-row dense>
               <v-col
                 v-for="characteristic in importantCharacteristics"
-                :key="characteristic.ruleId"
+                :key="characteristic.ruleCode"
                 cols="6"
                 sm="4"
                 md="3"
@@ -85,7 +85,7 @@ function attackKey(attack: AttackOverview): string {
             <v-row dense>
               <v-col
                 v-for="characteristic in secondaryCharacteristics"
-                :key="characteristic.ruleId"
+                :key="characteristic.ruleCode"
                 cols="6"
                 sm="4"
                 md="3"
@@ -101,7 +101,7 @@ function attackKey(attack: AttackOverview): string {
         <v-expansion-panel-title>Ресурсы</v-expansion-panel-title>
         <v-expansion-panel-text>
           <v-row v-if="overview.resources.length" dense>
-            <v-col v-for="resource in overview.resources" :key="resource.ruleId" cols="6">
+            <v-col v-for="resource in overview.resources" :key="resource.ruleCode" cols="6">
               <ResourceTile :resource="resource" />
             </v-col>
           </v-row>
@@ -152,7 +152,7 @@ function attackKey(attack: AttackOverview): string {
                 <v-sheet class="shield-tile pa-2 rounded border d-flex flex-column">
                   <div class="d-flex align-center ga-2">
                     <v-icon icon="mdi-shield-outline" color="primary" />
-                    <RuleLink :rule-id="overview.defense.shield.itemRuleId" class="text-body-2 font-weight-medium">
+                    <RuleLink :rule-code="overview.defense.shield.itemRuleCode" class="text-body-2 font-weight-medium">
                       {{ overview.defense.shield.itemName }} — блокирование
                     </RuleLink>
                   </div>

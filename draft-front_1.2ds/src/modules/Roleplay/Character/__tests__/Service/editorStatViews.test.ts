@@ -40,7 +40,7 @@ function characteristics(): { code: string; name: string; base: { base: number; 
 }
 
 const editorCharacteristics = characteristics().map((entry) => ({
-  ruleId: entry.code,
+  ruleCode: entry.code,
   code: entry.code,
   name: entry.name,
   base: { base: 3, size: 0 },

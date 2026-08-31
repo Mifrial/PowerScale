@@ -7,7 +7,7 @@ import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
 
 const RULES: Rule[] = [
   {
-    id: 'rule-roll',
+    id: null,
     code: 'roll',
     type: 'simple',
     name: 'Бросок',
@@ -19,7 +19,7 @@ const RULES: Rule[] = [
     createdAt: '2026-01-15T10:00:00Z',
   },
   {
-    id: 'rule-1',
+    id: 1,
     code: 'rule-6-and-1',
     type: 'simple',
     name: 'Правило 6 и 1',
@@ -31,7 +31,7 @@ const RULES: Rule[] = [
     createdAt: '2026-01-15T10:00:00Z',
   },
   {
-    id: 'rule-check-simple',
+    id: null,
     code: 'check-simple',
     type: 'check',
     name: 'Простая проверка',

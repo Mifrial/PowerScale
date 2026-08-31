@@ -4,13 +4,14 @@ import {
   defenseOdCost,
   actionOdCost,
   actionUsesChosenCost,
+  attackActionById,
   listAttackActions,
   reactionOdCost,
   SIMPLE_MELEE_ATTACK_CODE,
   SIMPLE_RANGED_ATTACK_CODE,
 } from '@/modules/Roleplay/Game/Utils/combatActions';
 
-function ability(id: string, code: string, name: string, keywordIds: number[], od: number, automatic: boolean): Rule {
+function ability(id: number, code: string, name: string, keywordIds: number[], od: number, automatic: boolean): Rule {
   return {
     id,
     code,
@@ -33,11 +34,11 @@ function ability(id: string, code: string, name: string, keywordIds: number[], o
 }
 
 describe('combatActions', () => {
-  const melee = ability('r1', SIMPLE_MELEE_ATTACK_CODE, 'Простая атака (ближний бой)', [14, 71, 1, 20], 3, true);
-  const ranged = ability('r2', SIMPLE_RANGED_ATTACK_CODE, 'Простая атака (дальний бой)', [14, 71, 2, 20], 3, true);
-  const extra = ability('r3', 'power-strike', 'Мощный удар', [14, 71, 1], 4, false);
-  const dodge = ability('r4', 'dodge', 'Уклонение', [14, 53, 20], 1, true);
-  const block = ability('r5', 'block', 'Блок', [14, 53, 20], 2, true);
+  const melee = ability(1, SIMPLE_MELEE_ATTACK_CODE, 'Простая атака (ближний бой)', [14, 71, 1, 20], 3, true);
+  const ranged = ability(2, SIMPLE_RANGED_ATTACK_CODE, 'Простая атака (дальний бой)', [14, 71, 2, 20], 3, true);
+  const extra = ability(3, 'power-strike', 'Мощный удар', [14, 71, 1], 4, false);
+  const dodge = ability(4, 'dodge', 'Уклонение', [14, 53, 20], 1, true);
+  const block = ability(5, 'block', 'Блок', [14, 53, 20], 2, true);
   const rules = [melee, ranged, extra, dodge, block];
 
   it('автоматические атаки доступны без записи на листе', () => {
@@ -49,9 +50,16 @@ describe('combatActions', () => {
   });
 
   it('взятая атака с листа добавляется к автоматическим', () => {
-    const options = listAttackActions(rules, { abilities: [{ ruleId: 'r3' }] } as never, 'strike');
+    const options = listAttackActions(rules, { abilities: [{ ruleCode: 'power-strike' }] } as never, 'strike');
     expect(options.map((item) => item.code)).toEqual([SIMPLE_MELEE_ATTACK_CODE, 'power-strike']);
     expect(options.find((item) => item.code === 'power-strike')?.odCost).toBe(4);
+    expect(options.find((item) => item.code === 'power-strike')?.ruleCode).toBe('power-strike');
+  });
+
+  it('attackActionById находит по code', () => {
+    expect(attackActionById(rules, SIMPLE_MELEE_ATTACK_CODE)?.name).toBe('Простая атака (ближний бой)');
+    expect(attackActionById(rules, '1')).toBeNull();
+    expect(attackActionById(rules, SIMPLE_MELEE_ATTACK_CODE)?.ruleCode).toBe(SIMPLE_MELEE_ATTACK_CODE);
   });
 
   it('ОД реакций из спеки действия', () => {

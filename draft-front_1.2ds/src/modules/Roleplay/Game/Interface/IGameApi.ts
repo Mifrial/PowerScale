@@ -137,7 +137,7 @@ export interface IGameApi {
   setCombatResource(
     gameId: number,
     entityKey: CombatEntityKey,
-    ruleId: string,
+    ruleCode: string,
     current: DimensionalNumberValue,
     signal?: AbortSignal,
   ): Promise<GameCombatOverlay>;
@@ -175,8 +175,13 @@ export interface IGameApi {
     signal?: AbortSignal,
   ): Promise<GameCombatOverlay>;
   getQuickRolls(gameId: number, signal?: AbortSignal): Promise<Record<CombatEntityKey, string[]>>;
-  addQuickRoll(gameId: number, entityKey: CombatEntityKey, ruleId: string, signal?: AbortSignal): Promise<string[]>;
-  removeQuickRoll(gameId: number, entityKey: CombatEntityKey, ruleId: string, signal?: AbortSignal): Promise<string[]>;
+  addQuickRoll(gameId: number, entityKey: CombatEntityKey, ruleCode: string, signal?: AbortSignal): Promise<string[]>;
+  removeQuickRoll(
+    gameId: number,
+    entityKey: CombatEntityKey,
+    ruleCode: string,
+    signal?: AbortSignal,
+  ): Promise<string[]>;
   getChronicle(gameId: number, signal?: AbortSignal): Promise<Chronicle>;
   getChronicleEntries(gameId: number, signal?: AbortSignal): Promise<ChronicleEntry[]>;
   createChronicleEntry(gameId: number, data: CreateChronicleEntryData, signal?: AbortSignal): Promise<ChronicleEntry>;

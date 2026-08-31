@@ -10,7 +10,7 @@ import { endOfTurnDotsService } from '@/modules/Roleplay/Game/Service/Instance/e
 import { mockGameApi } from '@/modules/Roleplay/Game/Mock/mockGameApi';
 
 const burning: Rule = {
-  id: 'rule-burn',
+  id: null,
   code: 'burning',
   type: 'state',
   name: 'Горение',
@@ -29,7 +29,7 @@ const burning: Rule = {
 };
 
 const poisoning: Rule = {
-  id: 'rule-poisoning',
+  id: null,
   code: 'poisoning',
   type: 'state',
   name: 'Отравление',
@@ -42,7 +42,7 @@ const poisoning: Rule = {
 };
 
 const accumulatedDamage: Rule = {
-  id: 'rule-damage',
+  id: null,
   code: 'accumulated-damage',
   type: 'state',
   name: 'Повреждения',
@@ -55,7 +55,7 @@ const accumulatedDamage: Rule = {
 };
 
 const scorpion: Rule = {
-  id: 'rule-scorpion',
+  id: null,
   code: 'poison-scorpion',
   type: 'poison',
   name: 'Яд скорпиона',
@@ -79,7 +79,7 @@ function versionOf(states: CharacterStateValue[]): CharacterVersion {
     fullDescription: null,
     spaceCode: 'x',
     rulesRevision: 1,
-    raceRuleId: null,
+    raceRuleCode: null,
     characteristics: [],
     resources: [],
     abilities: [],
@@ -110,9 +110,9 @@ describe('applyEndOfTurnDots', () => {
 
   it('горение тикает каждый ход; яд period 2 на первом ходе только ждёт', async () => {
     const states: CharacterStateValue[] = [
-      { stateRuleId: 'rule-burn', dimensionalValue: { base: 2, size: 0 } },
-      { stateRuleId: 'rule-poisoning', poison: { poisonRuleId: 'rule-scorpion' } },
-      { stateRuleId: 'rule-damage', dimensionalValue: { base: 3, size: 0 } },
+      { stateRuleCode: 'burning', dimensionalValue: { base: 2, size: 0 } },
+      { stateRuleCode: 'poisoning', poison: { poisonRuleCode: 'poison-scorpion' } },
+      { stateRuleCode: 'accumulated-damage', dimensionalValue: { base: 3, size: 0 } },
     ];
     const api = {
       replaceCombatState: async (_g: number, _k: string, index: number, state: CharacterStateValue) => {

@@ -133,9 +133,9 @@ export class CharacterEditorService {
       fullDescription: synced.fullDescription,
       spaceCode: synced.spaceCode,
       rulesRevision: synced.rulesRevision,
-      raceRuleId: synced.raceRuleId,
+      raceRuleCode: synced.raceRuleCode,
       characteristics: characteristics.map((value) => ({
-        ruleId: value.ruleId,
+        ruleCode: value.ruleCode,
         base: value.base,
         modifiers: value.modifiers,
       })),
@@ -153,7 +153,7 @@ export class CharacterEditorService {
       inventory: synced.inventory,
       states: this.buildDerivedStates(synced, reference, keywords),
       senses: senses.map((value) => ({
-        ruleId: value.ruleId,
+        ruleCode: value.ruleCode,
         value: value.value,
         modifiers: value.modifiers,
         status: value.status,
@@ -168,28 +168,28 @@ export class CharacterEditorService {
     rules: Rule[],
   ): CharacterVersion['abilities'] {
     const result = [...abilities];
-    const existingRuleIds = new Set(result.map((ability) => ability.ruleId));
+    const existingRuleIds = new Set(result.map((ability) => ability.ruleCode));
 
     for (const rule of rules) {
-      if (rule.type !== 'ability' || existingRuleIds.has(rule.id)) continue;
+      if (rule.type !== 'ability' || existingRuleIds.has(rule.code)) continue;
       const spec = rule.spec as AbilitySpec | undefined;
       if (!spec || spec.type === 'group') continue;
       const isAutomatic = Object.values(spec.zones ?? {}).find((cost) => cost?.kind === 'automatic') !== undefined;
       if (!isAutomatic) continue;
-      result.push({ ruleId: rule.id, level: 1 });
-      existingRuleIds.add(rule.id);
+      result.push({ ruleCode: rule.code, level: 1 });
+      existingRuleIds.add(rule.code);
     }
 
     return result;
   }
 
   private buildRace(build: CharacterBuild, reference: CharacterReferenceService): EditorRace {
-    if (build.raceRuleId === null) return { ruleId: null, name: null, costOs: 0 };
+    if (build.raceRuleCode === null) return { ruleCode: null, name: null, costOs: 0 };
 
-    const rule = reference.ruleById(build.raceRuleId);
+    const rule = reference.ruleByCode(build.raceRuleCode);
     const spec = rule?.type === 'race' ? (rule.spec as RaceSpec | undefined) : undefined;
 
-    return { ruleId: rule?.id ?? null, name: rule?.name ?? null, costOs: spec?.cost_os ?? 0 };
+    return { ruleCode: rule?.code ?? null, name: rule?.name ?? null, costOs: spec?.cost_os ?? 0 };
   }
 
   private buildCharacteristics(
@@ -211,14 +211,14 @@ export class CharacterEditorService {
 
     // 1) Базы из расы (fixed — фикс.; purchased — минимум или закупленный уровень).
     const bases = new Map<string, DimensionalNumberValue>();
-    const ruleIds = new Map<string, string>();
-    this.applyRaceCharacteristics(build, reference, bases, ruleIds);
+    const ruleCodes = new Map<string, string>();
+    this.applyRaceCharacteristics(build, reference, bases, ruleCodes);
 
     // 2) Дары «characteristic» (дать характеристику) задают базу и переопределяют расовую
     //    fixed-базу той же характеристики (напр. «Врождённая Магия X» поверх «Магия 4↓» у Ахтара).
     this.forEachActiveGrant(build, reference, (grant) => {
       if (grant.type !== 'characteristic') return;
-      ruleIds.set(grant.characteristic_code, this.ruleIdOfCode(reference, grant.characteristic_code));
+      ruleCodes.set(grant.characteristic_code, this.ruleIdOfCode(reference, grant.characteristic_code));
       bases.set(grant.characteristic_code, grant.value);
     });
 
@@ -233,16 +233,16 @@ export class CharacterEditorService {
       if (bases.has(rule.code)) continue;
       const autoValue = typeof automatic === 'object' ? automatic.value : { base: 3, size: 0 };
       bases.set(rule.code, autoValue);
-      ruleIds.set(rule.code, rule.id);
+      ruleCodes.set(rule.code, rule.code);
     }
 
     // 3) Модификаторы «characteristic_modify»: агрегация по роли источника (макс+ и мин− в роли).
     //    Модификатор к производной применяется к её базам (attention+reaction / memory+reasoning).
-    const deltas = new Map<string, { role: string | null; sourceRuleId: string | null; delta: number }[]>();
+    const deltas = new Map<string, { role: string | null; sourceRuleCode: string | null; delta: number }[]>();
     // Условные модификаторы (scope): в значение не входят, показываются в попапе как «условно: …».
     const scoped = new Map<
       string,
-      { role: string | null; sourceRuleId: string | null; delta: number; scope: string }[]
+      { role: string | null; sourceRuleCode: string | null; delta: number; scope: string }[]
     >();
     this.forEachActiveGrant(build, reference, (grant) => {
       if (grant.type !== 'characteristic_modify') return;
@@ -250,7 +250,7 @@ export class CharacterEditorService {
       const source = grant.source_code === null ? null : reference.ruleByCode(grant.source_code);
       const entry = {
         role: source === null ? null : this.sourceRoleOf(source.type),
-        sourceRuleId: source?.id ?? null,
+        sourceRuleCode: source?.code ?? null,
         delta,
       };
       const targets = derivedFormulas.get(grant.characteristic_code)?.codes ?? [grant.characteristic_code];
@@ -284,7 +284,7 @@ export class CharacterEditorService {
       const source = grant.source_code === null ? null : reference.ruleByCode(grant.source_code);
       const entry = {
         role: source === null ? null : this.sourceRoleOf(source.type),
-        sourceRuleId: source?.id ?? null,
+        sourceRuleCode: source?.code ?? null,
         delta,
       };
       const targets = derivedFormulas.get(grant.characteristic_code)?.codes ?? [grant.characteristic_code];
@@ -320,17 +320,22 @@ export class CharacterEditorService {
             if (list)
               list.push({
                 role: 'от возраста',
-                sourceRuleId: ageContext.ageRule.id,
+                sourceRuleCode: ageContext.ageRule.code,
                 delta: effect.delta,
                 scope: effect.scope,
               });
             else
               scoped.set(target, [
-                { role: 'от возраста', sourceRuleId: ageContext.ageRule.id, delta: effect.delta, scope: effect.scope },
+                {
+                  role: 'от возраста',
+                  sourceRuleCode: ageContext.ageRule.code,
+                  delta: effect.delta,
+                  scope: effect.scope,
+                },
               ]);
           } else {
             const list = deltas.get(target);
-            const entry = { role: 'от возраста', sourceRuleId: ageContext.ageRule.id, delta: effect.delta };
+            const entry = { role: 'от возраста', sourceRuleCode: ageContext.ageRule.code, delta: effect.delta };
             if (list) list.push(entry);
             else deltas.set(target, [entry]);
           }
@@ -343,7 +348,7 @@ export class CharacterEditorService {
       const itemSpec = this.effectiveEquippedSpec(item, reference, keywords);
       const penalty = itemSpec?.armor?.strength_penalty;
       if (penalty === undefined || penalty === null || penalty === 0) continue;
-      const entry = { role: 'от предмета', sourceRuleId: item.ruleId, delta: penalty };
+      const entry = { role: 'от предмета', sourceRuleCode: item.ruleCode, delta: penalty };
       const strength = deltas.get('strength');
       if (strength) strength.push(entry);
       else deltas.set('strength', [entry]);
@@ -360,14 +365,14 @@ export class CharacterEditorService {
       if (!donorBase) continue;
       const sourceRuleIds = new Set(baseFrom.source_codes.map((code) => this.ruleIdOfCode(reference, code)));
       const sourceEntries = (deltas.get(baseFrom.characteristic_code) ?? []).filter(
-        (entry) => entry.sourceRuleId !== null && sourceRuleIds.has(entry.sourceRuleId),
+        (entry) => entry.sourceRuleCode !== null && sourceRuleIds.has(entry.sourceRuleCode),
       );
       const delta = this.aggregateModifiers(baseFrom.characteristic_code, sourceEntries).reduce(
         (sum, modifier) => sum + modifier.delta,
         0,
       );
       bases.set(rule.code, CharacteristicNumber.from(donorBase).modifyWith(delta).value);
-      ruleIds.set(rule.code, rule.id);
+      ruleCodes.set(rule.code, rule.code);
     }
 
     // 4) Чувства: наибольшее значение среди чувств применяется как модификатор к Внимательности.
@@ -377,7 +382,7 @@ export class CharacterEditorService {
     );
     if (bestSense !== null && bestSense.value !== 0) {
       const attention = deltas.get('attention');
-      const entry = { role: 'от чувства', sourceRuleId: bestSense.ruleId, delta: bestSense.value };
+      const entry = { role: 'от чувства', sourceRuleCode: bestSense.ruleCode, delta: bestSense.value };
       if (attention) attention.push(entry);
       else deltas.set('attention', [entry]);
     }
@@ -385,7 +390,7 @@ export class CharacterEditorService {
     const result = [...bases.entries()].map(([code, base]) => {
       const modifiers = this.aggregateModifiers(code, deltas.get(code) ?? []);
       const scopedModifiers = (scoped.get(code) ?? []).map((entry) => ({
-        sourceRuleId: entry.sourceRuleId,
+        sourceRuleCode: entry.sourceRuleCode,
         sourceLabel: null,
         delta: entry.delta,
         target: code,
@@ -394,7 +399,7 @@ export class CharacterEditorService {
       const delta = modifiers.reduce((sum, modifier) => sum + modifier.delta, 0);
 
       return {
-        ruleId: ruleIds.get(code) ?? code,
+        ruleCode: ruleCodes.get(code) ?? code,
         code,
         name: reference.ruleByCode(code)?.name ?? code,
         base,
@@ -409,10 +414,13 @@ export class CharacterEditorService {
     const finalValues = new Map(result.map((characteristic) => [characteristic.code, characteristic.value]));
     const equipmentContext = this.formulaContext(build, finalValues, reference, keywords);
     const limitResolveName = (code: string): string | null => reference.ruleByCode(code)?.name ?? null;
-    const caps = new Map<string, { cap: DimensionalNumberValue; sourceRuleId: string; limitFormula: string | null }>();
+    const caps = new Map<
+      string,
+      { cap: DimensionalNumberValue; sourceRuleCode: string; limitFormula: string | null }
+    >();
     for (const item of build.inventory) {
       const itemSpec = this.effectiveEquippedSpec(item, reference, keywords);
-      if (!itemSpec || item.ruleId === null) continue;
+      if (!itemSpec || item.ruleCode === null) continue;
 
       const rawCaps: { characteristic_code: string; cap: DimensionalNumberValue; limitFormula: string | null }[] = [];
       if (itemSpec.armor?.max_agility != null) {
@@ -441,7 +449,7 @@ export class CharacterEditorService {
         if (!existing || new DimensionalNumber(raw.cap).compare(new DimensionalNumber(existing.cap)) < 0) {
           caps.set(raw.characteristic_code, {
             cap: raw.cap,
-            sourceRuleId: item.ruleId,
+            sourceRuleCode: item.ruleCode,
             limitFormula: raw.limitFormula,
           });
         }
@@ -453,7 +461,7 @@ export class CharacterEditorService {
       if (new DimensionalNumber(characteristic.value).compare(new DimensionalNumber(capEntry.cap)) <= 0) continue;
       characteristic.value = capEntry.cap;
       characteristic.modifiers.push({
-        sourceRuleId: capEntry.sourceRuleId,
+        sourceRuleCode: capEntry.sourceRuleCode,
         sourceLabel: null,
         delta: 0,
         target: characteristic.code,
@@ -469,7 +477,7 @@ export class CharacterEditorService {
       const value = this.derivedCharacteristics.evaluateDerivedValue(parsed, (baseCode) => values.get(baseCode));
       if (value === null) continue;
       result.push({
-        ruleId: ruleIds.get(code) ?? this.ruleIdOfCode(reference, code),
+        ruleCode: ruleCodes.get(code) ?? this.ruleIdOfCode(reference, code),
         code,
         name: reference.ruleByCode(code)?.name ?? code,
         base: value,
@@ -493,14 +501,14 @@ export class CharacterEditorService {
       if (rule.type === 'sense') byCode.set(rule.code, rule);
     }
 
-    const deltas = new Map<string, { role: string | null; sourceRuleId: string | null; delta: number }[]>();
+    const deltas = new Map<string, { role: string | null; sourceRuleCode: string | null; delta: number }[]>();
     this.forEachActiveGrant(build, reference, (grant) => {
       if (grant.type !== 'sense_modify') return;
       const delta = this.formula.evaluate(grant.amount, this.formulaContext(build, new Map(), reference));
       const source = grant.source_code === null ? null : reference.ruleByCode(grant.source_code);
       const entry = {
         role: source === null ? null : this.sourceRoleOf(source.type),
-        sourceRuleId: source?.id ?? null,
+        sourceRuleCode: source?.code ?? null,
         delta,
       };
       const list = deltas.get(grant.sense_code);
@@ -513,7 +521,7 @@ export class CharacterEditorService {
       const value = modifiers.reduce((sum, modifier) => sum + modifier.delta, 0);
       const spec = rule.spec as SenseSpec;
 
-      return { ruleId: rule.id, value, modifiers, status: spec.status, radius: spec.radius };
+      return { ruleCode: rule.code, value, modifiers, status: spec.status, radius: spec.radius };
     });
   }
 
@@ -531,26 +539,26 @@ export class CharacterEditorService {
   ): ResourceValue[] {
     const characteristicValues = new Map(characteristics.map((c) => [c.code, c.value]));
     const context = this.formulaContext(build, characteristicValues, reference, keywords);
-    const storedByRuleId = new Map(build.resources.map((resource) => [resource.ruleId, resource]));
+    const storedByRuleId = new Map(build.resources.map((resource) => [resource.ruleCode, resource]));
 
     const result: ResourceValue[] = [];
     const grantedResources = new Map<string, { base: DimensionalNumberValue; bonuses: ResourceLimitBonus[] }>();
     this.forEachActiveGrant(build, reference, (grant) => {
       if (grant.type === 'resource') {
         const resourceRule = reference.ruleByCode(grant.resource_code);
-        if (!resourceRule || grantedResources.has(resourceRule.id)) return;
+        if (!resourceRule || grantedResources.has(resourceRule.code)) return;
         const base = typeof grant.limit === 'number' ? { base: grant.limit, size: 0 } : grant.limit;
-        grantedResources.set(resourceRule.id, { base, bonuses: [] });
+        grantedResources.set(resourceRule.code, { base, bonuses: [] });
 
         return;
       }
 
       if (grant.type !== 'resource_limit_change') return;
       const resourceRule = reference.ruleByCode(grant.resource_code);
-      const granted = resourceRule ? grantedResources.get(resourceRule.id) : undefined;
+      const granted = resourceRule ? grantedResources.get(resourceRule.code) : undefined;
       if (!granted) return;
       granted.bonuses.push({
-        sourceRuleId: grant.source_code === null ? null : (reference.ruleByCode(grant.source_code)?.id ?? null),
+        sourceRuleCode: grant.source_code,
         sourceLabel: null,
         delta: this.formula.evaluate(grant.amount, context),
       });
@@ -561,7 +569,7 @@ export class CharacterEditorService {
       const spec = rule.spec as ResourceSpec | undefined;
       if (spec?.auto_add !== true || !spec.limit) continue;
 
-      const stored = storedByRuleId.get(rule.id);
+      const stored = storedByRuleId.get(rule.code);
       const rawBase = spec.limit.base;
       const base: DimensionalNumberValue = typeof rawBase === 'number' ? { base: rawBase, size: 0 } : rawBase;
       const bonuses: ResourceLimitBonus[] = [];
@@ -571,7 +579,7 @@ export class CharacterEditorService {
         const amount = this.formula.evaluate(adjustment.value, context);
         delta += amount;
         bonuses.push({
-          sourceRuleId: this.ruleIdOfCode(reference, adjustment.source_code),
+          sourceRuleCode: this.ruleIdOfCode(reference, adjustment.source_code),
           sourceLabel: null,
           delta: amount,
         });
@@ -580,17 +588,17 @@ export class CharacterEditorService {
       this.forEachActiveGrant(build, reference, (grant) => {
         if (grant.type !== 'resource_limit_change') return;
         const resourceRule = reference.ruleByCode(grant.resource_code);
-        if (resourceRule?.id !== rule.id) return;
+        if (resourceRule?.code !== rule.code) return;
         const amount = this.formula.evaluate(grant.amount, context);
         const source = grant.source_code === null ? null : reference.ruleByCode(grant.source_code);
         delta += amount;
-        bonuses.push({ sourceRuleId: source?.id ?? null, sourceLabel: null, delta: amount });
+        bonuses.push({ sourceRuleCode: source?.code ?? null, sourceLabel: null, delta: amount });
       });
 
       // Лимит = база + дельты (сдвиг базы без смены размера, D38); минимум 0 («не может действовать»).
       const limit = { base: Math.max(0, base.base + delta), size: base.size };
       result.push({
-        ruleId: rule.id,
+        ruleCode: rule.code,
         current: this.clampCurrentToLimit(stored?.current ?? limit, limit),
         base,
         bonuses,
@@ -598,12 +606,12 @@ export class CharacterEditorService {
     }
 
     // Неавтоматический ресурс существует только пока его даёт активный грант.
-    for (const [ruleId, granted] of grantedResources) {
-      if (result.some((entry) => entry.ruleId === ruleId)) continue;
-      const stored = storedByRuleId.get(ruleId);
+    for (const [ruleCode, granted] of grantedResources) {
+      if (result.some((entry) => entry.ruleCode === ruleCode)) continue;
+      const stored = storedByRuleId.get(ruleCode);
       const limitBase = Math.max(0, granted.base.base + granted.bonuses.reduce((sum, bonus) => sum + bonus.delta, 0));
       result.push({
-        ruleId,
+        ruleCode,
         current: this.clampCurrentToLimit(stored?.current ?? { base: limitBase, size: granted.base.size }, {
           base: limitBase,
           size: granted.base.size,
@@ -625,13 +633,16 @@ export class CharacterEditorService {
     build: CharacterBuild,
     reference: CharacterReferenceService,
     bases: Map<string, DimensionalNumberValue>,
-    ruleIds: Map<string, string>,
+    ruleCodes: Map<string, string>,
   ): void {
-    if (build.raceRuleId === null) return;
-    const rule = reference.ruleById(build.raceRuleId);
+    if (build.raceRuleCode === null) return;
+    const rule = reference.ruleByCode(build.raceRuleCode);
     const spec = rule?.type === 'race' ? (rule.spec as RaceSpec | undefined) : undefined;
     for (const characteristic of spec?.characteristics ?? []) {
-      ruleIds.set(characteristic.characteristic_code, this.ruleIdOfCode(reference, characteristic.characteristic_code));
+      ruleCodes.set(
+        characteristic.characteristic_code,
+        this.ruleIdOfCode(reference, characteristic.characteristic_code),
+      );
       if (characteristic.mode === 'fixed') {
         bases.set(characteristic.characteristic_code, characteristic.base);
         continue;
@@ -650,8 +661,8 @@ export class CharacterEditorService {
     reference: CharacterReferenceService,
   ): Map<string, DimensionalNumberValue> {
     const result = new Map<string, DimensionalNumberValue>();
-    if (build.raceRuleId === null) return result;
-    const rule = reference.ruleById(build.raceRuleId);
+    if (build.raceRuleCode === null) return result;
+    const rule = reference.ruleByCode(build.raceRuleCode);
     const spec = rule?.type === 'race' ? (rule.spec as RaceSpec | undefined) : undefined;
     for (const characteristic of spec?.characteristics ?? []) {
       if (characteristic.mode === 'fixed') result.set(characteristic.characteristic_code, characteristic.base);
@@ -685,7 +696,7 @@ export class CharacterEditorService {
     // дарованного навыка списывается только разница сверх подаренного уровня.
     const giftedLevels = this.giftedAbilityLevels(build, reference);
     for (const ability of build.abilities) {
-      const rule = reference.ruleById(ability.ruleId);
+      const rule = reference.ruleByCode(ability.ruleCode);
       const spec = rule?.type === 'ability' ? (rule.spec as AbilitySpec | undefined) : undefined;
       if (!spec || !rule) continue;
       if (spec.type === 'group') continue;
@@ -723,7 +734,7 @@ export class CharacterEditorService {
     const osSurcharge = surchargeItems.length > 0 ? { total: mechanicDelta, items: surchargeItems } : undefined;
 
     const characteristicPurchases =
-      race.ruleId !== null ? build.characteristicPurchases.reduce((sum, purchase) => sum + purchase.cost, 0) : 0;
+      race.ruleCode !== null ? build.characteristicPurchases.reduce((sum, purchase) => sum + purchase.cost, 0) : 0;
     const effectiveMoney = this.effectiveMoneyBudget(config, this.activeMoneyGrants(build, reference));
     const moneySpent = effectiveMoney === null ? 0 : Math.max(0, effectiveMoney - build.money);
     const age = this.ageContextOf(build, reference)?.age ?? null;
@@ -806,8 +817,8 @@ export class CharacterEditorService {
 
   /** Таблица лет «годы → ступень» вида/расы, поднимаясь по parent_race_code. */
   private ageYearsOf(build: CharacterBuild, reference: CharacterReferenceService): AgeRange[] | null {
-    if (build.raceRuleId === null) return null;
-    let current = reference.ruleById(build.raceRuleId);
+    if (build.raceRuleCode === null) return null;
+    let current = reference.ruleByCode(build.raceRuleCode);
     let guard = 0;
     while (current && guard++ < 20) {
       if (current.type === 'race' || current.type === 'species') {
@@ -886,14 +897,14 @@ export class CharacterEditorService {
     });
   }
 
-  /** ruleId правил-способностей с признаком «Богатство» (особенности богатства). */
+  /** ruleCode правил-способностей с признаком «Богатство» (особенности богатства). */
   private wealthRuleIds(reference: CharacterReferenceService, keywords: Keyword[]): Set<string> {
     const keywordCodes = new Map(keywords.map((keyword) => [keyword.id, keyword.code]));
     const result = new Set<string>();
     for (const rule of reference.rules()) {
       if (rule.type !== 'ability') continue;
       const isWealth = (rule.keywordIds ?? []).some((id) => keywordCodes.get(id) === 'wealth');
-      if (isWealth) result.add(rule.id);
+      if (isWealth) result.add(rule.code);
     }
 
     return result;
@@ -915,7 +926,7 @@ export class CharacterEditorService {
     const keywordCodes = new Map<number, string>(keywords.map((keyword) => [keyword.id, keyword.code]));
 
     for (const ability of build.abilities) {
-      const rule = reference.ruleById(ability.ruleId);
+      const rule = reference.ruleByCode(ability.ruleCode);
       if (!rule) continue;
       // У множественного навыка несколько экземпляров (записей) — уровень для механик = max.
       const current = abilityLevels.get(rule.code) ?? 0;
@@ -988,8 +999,8 @@ export class CharacterEditorService {
         });
       }
       const maxLevel = Math.max(1, ...zones.map((zone) => zone.maxLevel));
-      // Экземпляры множественного навыка (записи одного ruleId; у не-multiple — один-единственный).
-      const instances = build.abilities.filter((ability) => ability.ruleId === rule.id);
+      // Экземпляры множественного навыка (записи одного ruleCode; у не-multiple — один-единственный).
+      const instances = build.abilities.filter((ability) => ability.ruleCode === rule.code);
       const chosen = instances[0];
       const instanceLevel = instances.reduce((max, instance) => (instance.level > max ? instance.level : max), 0);
       const multiple = spec.multiple === true;
@@ -1052,7 +1063,7 @@ export class CharacterEditorService {
       };
 
       result.push({
-        ruleId: rule.id,
+        ruleCode: rule.code,
         code: rule.code,
         name: rule.name,
         type: spec.type,
@@ -1304,7 +1315,7 @@ export class CharacterEditorService {
       const spec = rule.spec as { type?: string; selectLimit?: number } | undefined;
       if (spec?.type !== 'group') continue;
       result.push({
-        ruleId: rule.id,
+        ruleCode: rule.code,
         code: rule.code,
         name: rule.name,
         description: rule.description,
@@ -1337,10 +1348,10 @@ export class CharacterEditorService {
       }
     };
 
-    if (race.ruleId !== null) addKeywords(reference.ruleById(race.ruleId));
+    if (race.ruleCode !== null) addKeywords(reference.ruleByCode(race.ruleCode));
 
     for (const ability of build.abilities) {
-      const rule = reference.ruleById(ability.ruleId);
+      const rule = reference.ruleByCode(ability.ruleCode);
       if (!rule) continue;
       // У множественного навыка несколько экземпляров (записей) — уровень для требований = max.
       const current = abilityLevels.get(rule.code) ?? 0;
@@ -1385,11 +1396,11 @@ export class CharacterEditorService {
     // Код ресурса — из правила; неизвестный код остаётся без лимита (требование «есть ресурс» не пройдёт).
     const resourceCodeByRuleId = new Map<string, string>();
     for (const rule of reference.rules()) {
-      if (rule.type === 'resource') resourceCodeByRuleId.set(rule.id, rule.code);
+      if (rule.type === 'resource') resourceCodeByRuleId.set(rule.code, rule.code);
     }
     const resourceLimits = new Map<string, number | DimensionalNumberValue>();
     for (const resource of resources) {
-      const code = resourceCodeByRuleId.get(resource.ruleId);
+      const code = resourceCodeByRuleId.get(resource.ruleCode);
       if (!code) continue;
       const delta = resource.bonuses.reduce((sum, bonus) => sum + bonus.delta, 0);
       resourceLimits.set(code, { base: Math.max(0, resource.base.base + delta), size: resource.base.size });
@@ -1443,9 +1454,9 @@ export class CharacterEditorService {
     reference: CharacterReferenceService,
     rules: Rule[],
   ): RaceAbilityRef[] {
-    if (build.raceRuleId === null) return [];
+    if (build.raceRuleCode === null) return [];
 
-    const raceRule = reference.ruleById(build.raceRuleId);
+    const raceRule = reference.ruleByCode(build.raceRuleCode);
     const spec = raceRule?.type === 'race' ? (raceRule.spec as RaceSpec | undefined) : undefined;
     if (!spec) return [];
 
@@ -1540,7 +1551,7 @@ export class CharacterEditorService {
   ): Map<string, Record<string, number>> {
     const result = new Map<string, Record<string, number>>();
     for (const ability of build.abilities) {
-      const rule = reference.ruleById(ability.ruleId);
+      const rule = reference.ruleByCode(ability.ruleCode);
       if (!rule) continue;
       if (!ability.parameters) continue;
       const entries: Record<string, number> = {};
@@ -1567,7 +1578,7 @@ export class CharacterEditorService {
     });
     const value = Math.min(ATTRACTIVENESS_MAX, Math.max(ATTRACTIVENESS_MIN, total));
 
-    return [...build.states.filter((state) => state.stateRuleId !== rule.id), { stateRuleId: rule.id, value }];
+    return [...build.states.filter((state) => state.stateRuleCode !== rule.code), { stateRuleCode: rule.code, value }];
   }
 
   /**
@@ -1581,7 +1592,7 @@ export class CharacterEditorService {
   ): void {
     for (const ability of build.abilities) {
       if (ability.level < 1) continue;
-      const rule = reference.ruleById(ability.ruleId);
+      const rule = reference.ruleByCode(ability.ruleCode);
       if (!rule) continue;
       const spec = rule.type === 'ability' ? (rule.spec as AbilitySpec | undefined) : undefined;
       if (!spec || spec.type === 'group') continue;
@@ -1600,12 +1611,12 @@ export class CharacterEditorService {
     // Если способность уже выбрана персонажем (докупка сверх авто-значения) — грант уже применён выше,
     // иначе автоматический грант задвоится.
     const rules = this.rulesOf(reference);
-    const chosenRuleIds = new Set(build.abilities.map((ability) => ability.ruleId));
+    const chosenRuleIds = new Set(build.abilities.map((ability) => ability.ruleCode));
     for (const ref of this.racialAbilityRefs(build, reference, rules)) {
       if (!ref.automatic) continue;
       const rule = reference.ruleByCode(ref.ability_code);
       if (!rule) continue;
-      if (chosenRuleIds.has(rule.id)) continue;
+      if (chosenRuleIds.has(rule.code)) continue;
       const spec = rule.type === 'ability' ? (rule.spec as AbilitySpec | undefined) : undefined;
       if (!spec || spec.type === 'group') continue;
 
@@ -1728,17 +1739,17 @@ export class CharacterEditorService {
   /**
    * Модификаторы одного источника не складываются: применяется самый сильный бонус (макс.
    * положительный) и самый сильный штраф (мин. отрицательный) — по ТР §7 «Модификаторы».
-   * Группа — конкретный источник (sourceRuleId): модификаторы от разных источников суммируются.
+   * Группа — конкретный источник (sourceRuleCode): модификаторы от разных источников суммируются.
    */
   private aggregateModifiers(
     targetCode: string,
-    entries: { role: string | null; sourceRuleId: string | null; delta: number }[],
+    entries: { role: string | null; sourceRuleCode: string | null; delta: number }[],
   ): CharacteristicModifier[] {
     const groups = new Map<string | null, typeof entries>();
     for (const entry of entries) {
-      const group = groups.get(entry.sourceRuleId);
+      const group = groups.get(entry.sourceRuleCode);
       if (group) group.push(entry);
-      else groups.set(entry.sourceRuleId, [entry]);
+      else groups.set(entry.sourceRuleCode, [entry]);
     }
 
     const result: CharacteristicModifier[] = [];
@@ -1757,10 +1768,16 @@ export class CharacterEditorService {
   }
 
   private modifierOf(
-    entry: { sourceRuleId: string | null; delta: number },
+    entry: { sourceRuleCode: string | null; delta: number },
     targetCode: string,
   ): CharacteristicModifier {
-    return { sourceRuleId: entry.sourceRuleId, sourceLabel: null, delta: entry.delta, target: targetCode, scope: null };
+    return {
+      sourceRuleCode: entry.sourceRuleCode,
+      sourceLabel: null,
+      delta: entry.delta,
+      target: targetCode,
+      scope: null,
+    };
   }
 
   private sourceRoleOf(ruleType: string): string {
@@ -1785,14 +1802,14 @@ export class CharacterEditorService {
     reference: CharacterReferenceService,
     keywords: Keyword[],
   ): ItemSpec | null {
-    if (!item.equipped || item.ruleId === null) return null;
-    const rule = reference.ruleById(item.ruleId);
+    if (!item.equipped || item.ruleCode === null) return null;
+    const rule = reference.ruleByCode(item.ruleCode);
     const spec = rule?.type === 'item' ? (rule.spec as ItemSpec | undefined) : undefined;
     if (!rule || !spec) return null;
     const byId = new Map(keywords.map((keyword) => [keyword.id, keyword.code]));
     const codes = (rule.keywordIds ?? []).map((id) => byId.get(id)).filter((code): code is string => Boolean(code));
-    const modifiers = (item.modifierRuleIds ?? [])
-      .map((id) => reference.ruleById(id))
+    const modifiers = (item.modifierRuleCodes ?? [])
+      .map((id) => reference.ruleByCode(id))
       .filter((entry): entry is Rule => entry !== null);
 
     return this.itemModifiers.applyStack(spec, modifiers, codes).spec;
@@ -1806,7 +1823,7 @@ export class CharacterEditorService {
   ): FormulaContext {
     const abilityLevels = new Map<string, number>();
     for (const ability of build.abilities) {
-      const rule = reference.ruleById(ability.ruleId);
+      const rule = reference.ruleByCode(ability.ruleCode);
       if (!rule) continue;
       // У множественного навыка несколько экземпляров (записей) — уровень для формул = max.
       const current = abilityLevels.get(rule.code) ?? 0;
@@ -1823,7 +1840,7 @@ export class CharacterEditorService {
   }
 
   private ruleIdOfCode(reference: CharacterReferenceService, code: string): string {
-    return reference.ruleByCode(code)?.id ?? code;
+    return code;
   }
 
   private toNumber(value: number | DimensionalNumberValue): number {
@@ -1958,7 +1975,7 @@ export class CharacterEditorService {
       if (!parentRule) return [];
 
       return build.abilities
-        .filter((ability) => ability.ruleId === parentRule.id && ability.domain != null)
+        .filter((ability) => ability.ruleCode === parentRule.code && ability.domain != null)
         .map((ability) => ({ code: ability.domainCode ?? '', name: ability.domain ?? '' }));
     }
 
@@ -1998,7 +2015,7 @@ export class CharacterEditorService {
       let sum = 0;
       for (const ability of build.abilities) {
         if (ability.level < 1) continue;
-        const rule = reference.ruleById(ability.ruleId);
+        const rule = reference.ruleByCode(ability.ruleCode);
         if (!rule) continue;
         const keywordIds = new Set(rule.keywordIds ?? []);
         if (!keywordIds.has(keywordByCode.get(sourceKeyword) ?? -1)) continue;
@@ -2064,7 +2081,7 @@ export class CharacterEditorService {
     const costs: number[] = [];
     for (const ability of build.abilities) {
       if (ability.level < 1) continue;
-      const rule = reference.ruleById(ability.ruleId);
+      const rule = reference.ruleByCode(ability.ruleCode);
       if (!rule) continue;
       if (!(rule.keywordIds ?? []).includes(methodId)) continue;
       const spec = rule.type === 'ability' ? (rule.spec as AbilitySpec | undefined) : undefined;
@@ -2116,7 +2133,7 @@ export class CharacterEditorService {
     raceFixedBases: Map<string, DimensionalNumberValue> = new Map(),
   ): number {
     if (spec.type === 'group') return 1;
-    const chosen = build.abilities.find((ability) => ability.ruleId === rule.id)?.parameters?.[code];
+    const chosen = build.abilities.find((ability) => ability.ruleCode === rule.code)?.parameters?.[code];
     const osCost = spec.zones?.os;
     if (osCost?.kind === 'parameter_table') {
       const grantCode = this.parameterGrantCode(spec);

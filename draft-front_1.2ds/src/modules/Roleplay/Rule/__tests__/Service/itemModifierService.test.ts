@@ -96,7 +96,7 @@ describe('ItemModifierService', () => {
   describe('toggleSelection', () => {
     it('exclusive-тип заменяет модификатор того же типа', () => {
       const typeRule = {
-        id: 't1',
+        id: null,
         code: 'craft-quality',
         type: 'item_modifier_type' as const,
         name: 'Качество',
@@ -109,7 +109,7 @@ describe('ItemModifierService', () => {
       };
       const poor = {
         ...typeRule,
-        id: 'poor',
+        id: null,
         code: 'mod-poor',
         type: 'item_modifier' as const,
         spec: {
@@ -119,17 +119,22 @@ describe('ItemModifierService', () => {
           effects: [],
         },
       };
-      const sturdy = { ...poor, id: 'sturdy', code: 'mod-sturdy' };
+      const sturdy = { ...poor, id: null, code: 'mod-sturdy' };
       const coating = {
         ...poor,
-        id: 'coat',
+        id: null,
         code: 'mod-coat',
         spec: { ...poor.spec, type_code: 'coating' },
       };
 
-      expect(service.toggleSelection(['poor'], 'sturdy', [typeRule, poor, sturdy, coating])).toEqual(['sturdy']);
-      expect(service.toggleSelection(['poor'], 'coat', [typeRule, poor, sturdy, coating])).toEqual(['poor', 'coat']);
-      expect(service.toggleSelection(['poor'], 'poor', [typeRule, poor, sturdy])).toEqual([]);
+      expect(service.toggleSelection(['mod-poor'], 'mod-sturdy', [typeRule, poor, sturdy, coating])).toEqual([
+        'mod-sturdy',
+      ]);
+      expect(service.toggleSelection(['mod-poor'], 'mod-coat', [typeRule, poor, sturdy, coating])).toEqual([
+        'mod-poor',
+        'mod-coat',
+      ]);
+      expect(service.toggleSelection(['mod-poor'], 'mod-poor', [typeRule, poor, sturdy])).toEqual([]);
     });
   });
 

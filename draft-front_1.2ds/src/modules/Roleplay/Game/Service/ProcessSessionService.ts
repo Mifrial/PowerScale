@@ -5,7 +5,7 @@ import type { ProcessStep } from '@/modules/Roleplay/Rule/Dto/Ability/ProcessSte
 import type { ActionResolution } from '@/modules/Roleplay/Game/Dto/ActionResolution';
 
 export class ProcessSessionService {
-  start(gameId: number, entityKey: CombatEntityKey, processRuleId: string, spec: ProcessSpec): ProcessSession {
+  start(gameId: number, entityKey: CombatEntityKey, processRuleCode: string, spec: ProcessSpec): ProcessSession {
     const startStepCode = spec.start_step_code ?? spec.steps[0]?.code;
     if (!startStepCode || !spec.steps.some((step) => step.code === startStepCode)) {
       throw new Error('У процесса нет корректного входного шага');
@@ -15,7 +15,7 @@ export class ProcessSessionService {
     return {
       gameId,
       entityKey,
-      processRuleId,
+      processRuleCode,
       currentStepCode: startStepCode,
       currentStepStatus: 'pending',
       status: 'active',

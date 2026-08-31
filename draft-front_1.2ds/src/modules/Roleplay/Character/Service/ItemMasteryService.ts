@@ -26,7 +26,7 @@ export class ItemMasteryService {
     const level = weaponProficiencyService.weaponProficiencyLevels(abilities, rules).get(familyCode) ?? 0;
 
     return {
-      masteryRuleId: masteryRule.id,
+      masteryRuleCode: masteryRule.code,
       familyName: family.name,
       familyCode,
       ladder: [...costs],

@@ -10,24 +10,24 @@ const version: CharacterVersion = {
   fullDescription: null,
   spaceCode: 'actual',
   rulesRevision: 12,
-  raceRuleId: 'race',
-  characteristics: [{ ruleId: 'characteristic', base: { base: 3, size: 0 }, modifiers: [] }],
+  raceRuleCode: 'race',
+  characteristics: [{ ruleCode: 'characteristic', base: { base: 3, size: 0 }, modifiers: [] }],
   resources: [],
-  abilities: [{ ruleId: 'ability', level: 1 }],
+  abilities: [{ ruleCode: 'ability', level: 1 }],
   points: { osSpent: 0, olSpent: 0, olTotal: 0, orSpent: 0, orTotal: 0 },
   money: 0,
   ageYears: null,
-  inventory: [{ id: 1, ruleId: 'item', quantity: 1, equipped: false, modifierRuleIds: ['modifier'] }],
-  states: [{ stateRuleId: 'state', poison: { poisonRuleId: 'poison' } }],
-  senses: [{ ruleId: 'sense', value: 1, modifiers: [], status: 'precise', radius: { base: 30, size: 0 } }],
+  inventory: [{ id: 1, ruleCode: 'item', quantity: 1, equipped: false, modifierRuleCodes: ['modifier'] }],
+  states: [{ stateRuleCode: 'state', poison: { poisonRuleCode: 'poison' } }],
+  senses: [{ ruleCode: 'sense', value: 1, modifiers: [], status: 'precise', radius: { base: 30, size: 0 } }],
 };
 
 describe('CharacterVersionIntegrityService', () => {
   it('finds every rule reference absent from the exact revision', () => {
-    const rules = ['race', 'characteristic', 'ability', 'item', 'state', 'sense'].map<Rule>((id) => ({
-      id,
-      code: id,
-      name: id,
+    const rules = ['race', 'characteristic', 'ability', 'item', 'state', 'sense'].map<Rule>((code) => ({
+      id: null,
+      code,
+      name: code,
       type: 'characteristic',
       description: '',
       spaceId: 2,
@@ -39,10 +39,10 @@ describe('CharacterVersionIntegrityService', () => {
 
   it('accepts a version when all references resolve', () => {
     const rules = ['race', 'characteristic', 'ability', 'item', 'modifier', 'state', 'poison', 'sense'].map<Rule>(
-      (id) => ({
-        id,
-        code: id,
-        name: id,
+      (code) => ({
+        id: null,
+        code,
+        name: code,
         type: 'characteristic',
         description: '',
         spaceId: 2,
@@ -61,15 +61,15 @@ describe('CharacterVersionIntegrityService', () => {
       spaceId: 2,
       spaceCode: 'actual',
       rulesRevision: 12,
-      raceRuleId: 'race',
+      raceRuleCode: 'race',
       characteristicPurchases: [],
-      abilities: [{ ruleId: 'ability', level: 1 }],
-      resources: [{ ruleId: 'resource', current: { base: 0, size: 0 }, base: { base: 0, size: 0 }, bonuses: [] }],
+      abilities: [{ ruleCode: 'ability', level: 1 }],
+      resources: [{ ruleCode: 'resource', current: { base: 0, size: 0 }, base: { base: 0, size: 0 }, bonuses: [] }],
       inventory: [
-        { id: 1, ruleId: 'item', quantity: 1, equipped: false, modifierRuleIds: ['modifier'] },
-        { id: 2, ruleId: null, quantity: 1, equipped: false },
+        { id: 1, ruleCode: 'item', quantity: 1, equipped: false, modifierRuleCodes: ['modifier'] },
+        { id: 2, ruleCode: null, quantity: 1, equipped: false },
       ],
-      states: [{ stateRuleId: 'state', poison: { poisonRuleId: 'poison' } }],
+      states: [{ stateRuleCode: 'state', poison: { poisonRuleCode: 'poison' } }],
       money: 0,
       ageYears: null,
       olTotal: 0,
@@ -85,7 +85,7 @@ describe('CharacterVersionIntegrityService', () => {
     expect(cleaned.abilities).toEqual([]);
     expect(cleaned.resources).toEqual([]);
     expect(cleaned.inventory).toHaveLength(2);
-    expect(cleaned.inventory[0]?.modifierRuleIds).toEqual([]);
-    expect(cleaned.states[0]?.poison?.poisonRuleId).toBeNull();
+    expect(cleaned.inventory[0]?.modifierRuleCodes).toEqual([]);
+    expect(cleaned.states[0]?.poison?.poisonRuleCode).toBeNull();
   });
 });

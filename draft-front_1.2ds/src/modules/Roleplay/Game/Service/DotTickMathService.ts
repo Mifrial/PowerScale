@@ -86,7 +86,7 @@ export class DotTickMathService {
   private poisoningDot(state: CharacterStateValue, poisoningRule: Rule, rules: Rule[]): DotAdvance {
     const poison = state.poison;
     if (!poison) return { kind: 'skip' };
-    const template = poison.poisonRuleId ? rules.find((rule) => rule.id === poison.poisonRuleId) : undefined;
+    const template = poison.poisonRuleCode ? rules.find((rule) => rule.code === poison.poisonRuleCode) : undefined;
     const spec = this.asPoisonSpec(template);
     const periodicity = poison.periodicity ?? spec?.default_periodicity;
     const period = this.turnPeriod(periodicity);
@@ -112,7 +112,7 @@ export class DotTickMathService {
   }
 
   advanceDotState(state: CharacterStateValue, rules: Rule[]): DotAdvance {
-    const rule = rules.find((item) => item.id === state.stateRuleId && item.type === 'state');
+    const rule = rules.find((item) => item.code === state.stateRuleCode && item.type === 'state');
     if (!rule) return { kind: 'skip' };
     if (rule.code === BURNING_STATE_CODE) {
       const spec = this.asStateSpec(rule);

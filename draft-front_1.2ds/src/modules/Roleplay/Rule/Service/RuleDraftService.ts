@@ -5,7 +5,7 @@ import { slugify } from '@/modules/Roleplay/Rule/Utils/Text/slugify';
 export class RuleDraftService {
   createDraft(params: CreateDraftParams): Rule {
     return {
-      id: params.isEdit ? params.id : `draft-${Date.now()}`,
+      id: params.isEdit ? params.id : null,
       code: params.isEdit ? params.loadedCode : params.code.trim() || slugify(params.name),
       type: params.type,
       name: params.name,

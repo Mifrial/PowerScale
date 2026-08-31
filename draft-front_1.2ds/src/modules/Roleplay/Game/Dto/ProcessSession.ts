@@ -4,7 +4,7 @@ import type { ActionResolution } from '@/modules/Roleplay/Game/Dto/ActionResolut
 export interface ProcessSession {
   gameId: number;
   entityKey: CombatEntityKey;
-  processRuleId: string;
+  processRuleCode: string;
   currentStepCode: string;
   currentStepStatus: 'pending' | 'completed';
   status: 'active';

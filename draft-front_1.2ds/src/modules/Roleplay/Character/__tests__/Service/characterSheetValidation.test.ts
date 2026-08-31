@@ -28,7 +28,7 @@ function build(over: Partial<CharacterBuild> = {}): CharacterBuild {
     spaceId: 1,
     spaceCode: 'razrabotka',
     rulesRevision: 5,
-    raceRuleId: 'race-1',
+    raceRuleCode: 'race-1',
     characteristicPurchases: [],
     abilities: [],
     resources: [],
@@ -54,7 +54,7 @@ describe('characterSheetValidationIssues', () => {
   it('пустое имя и нет расы', () => {
     expect(
       characterSheetValidationService.characterSheetValidationIssues(
-        build({ name: '  ', raceRuleId: null }),
+        build({ name: '  ', raceRuleCode: null }),
         model(),
         true,
       ),
@@ -63,7 +63,7 @@ describe('characterSheetValidationIssues', () => {
 
   it('НПС без обязательной расы проходит по расе', () => {
     expect(
-      characterSheetValidationService.characterSheetValidationIssues(build({ raceRuleId: null }), model(), false),
+      characterSheetValidationService.characterSheetValidationIssues(build({ raceRuleCode: null }), model(), false),
     ).toEqual([]);
   });
 

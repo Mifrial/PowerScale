@@ -56,13 +56,13 @@ const { appliedFilters, filteredRows, onFilterChange } = useFilteredRows({
   searchFields: ['name'],
 });
 
-const allowedRaceIds = computed(() => new Set(filteredRows.value.map((view) => view.rule.id)));
+const allowedRaceIds = computed(() => new Set(filteredRows.value.map((view) => view.rule.code)));
 
 interface TreeRow {
   key: string;
   name: string;
   kind: 'species' | 'race';
-  ruleId: string | null;
+  ruleCode: string | null;
   depth: number;
   expandable: boolean;
 }
@@ -87,21 +87,21 @@ const treeRows = computed<TreeRow[]>(() => {
 
   const rows: TreeRow[] = [];
   const hasVisible = (code: string): boolean => {
-    if (racesOf(code).some((race) => allowedRaceIds.value.has(race.id))) return true;
+    if (racesOf(code).some((race) => allowedRaceIds.value.has(race.code))) return true;
 
     return speciesChildren(code).some((child) => hasVisible(child.code));
   };
   const walkSpecies = (rule: Rule, depth: number): void => {
     if (!hasVisible(rule.code)) return;
-    rows.push({ key: rule.code, name: rule.name, kind: 'species', ruleId: null, depth, expandable: true });
+    rows.push({ key: rule.code, name: rule.name, kind: 'species', ruleCode: null, depth, expandable: true });
     if (collapsedKeys.value.has(rule.code)) return;
     for (const race of racesOf(rule.code)) {
-      if (allowedRaceIds.value.has(race.id)) {
+      if (allowedRaceIds.value.has(race.code)) {
         rows.push({
-          key: race.id,
+          key: race.code,
           name: race.name,
           kind: 'race',
-          ruleId: race.id,
+          ruleCode: race.code,
           depth: depth + 1,
           expandable: false,
         });
@@ -114,11 +114,11 @@ const treeRows = computed<TreeRow[]>(() => {
     .filter((rule) => {
       const parent = (rule.spec as RaceSpec | undefined)?.parent_race_code ?? null;
 
-      return (parent === null || !speciesByCode.has(parent)) && allowedRaceIds.value.has(rule.id);
+      return (parent === null || !speciesByCode.has(parent)) && allowedRaceIds.value.has(rule.code);
     })
     .sort((a, b) => a.name.localeCompare(b.name, 'ru'));
   for (const race of orphanRaces) {
-    rows.push({ key: race.id, name: race.name, kind: 'race', ruleId: race.id, depth: 0, expandable: false });
+    rows.push({ key: race.code, name: race.name, kind: 'race', ruleCode: race.code, depth: 0, expandable: false });
   }
 
   const roots = [...speciesByCode.values()]
@@ -133,16 +133,16 @@ const treeRows = computed<TreeRow[]>(() => {
   return rows;
 });
 
-const selectedRaceId = ref<string | null>(props.build.raceRuleId ?? null);
+const selectedRaceId = ref<string | null>(props.build.raceRuleCode ?? null);
 
 watch(
   treeRows,
   (rows) => {
-    const raceIds = rows.filter((row) => row.kind === 'race').map((row) => row.ruleId);
+    const raceIds = rows.filter((row) => row.kind === 'race').map((row) => row.ruleCode);
     // Не сбрасываем молча выбранную расу, если её нет в списке листьев (напр. вид как раса) —
     // показываем её с предупреждением, чтобы пользователь выбрал другую.
     if (selectedRaceId.value === null || !raceIds.includes(selectedRaceId.value)) {
-      if (selectedRaceId.value === null || props.build.raceRuleId === null) {
+      if (selectedRaceId.value === null || props.build.raceRuleCode === null) {
         selectedRaceId.value = raceIds[0] ?? null;
       }
     }
@@ -153,12 +153,12 @@ watch(
 /** Выбранная раса (из черновика) отсутствует среди выбираемых листьев (напр. вид как раса). */
 const selectedRaceUnavailable = computed(
   () =>
-    props.build.raceRuleId !== null &&
-    !treeRows.value.some((row) => row.kind === 'race' && row.ruleId === props.build.raceRuleId),
+    props.build.raceRuleCode !== null &&
+    !treeRows.value.some((row) => row.kind === 'race' && row.ruleCode === props.build.raceRuleCode),
 );
 
 const selectedRule = computed(() =>
-  selectedRaceId.value ? props.rules.find((rule) => rule.id === selectedRaceId.value) : null,
+  selectedRaceId.value ? props.rules.find((rule) => rule.code === selectedRaceId.value) : null,
 );
 const selectedSpec = computed(() =>
   selectedRule.value?.type === 'race' ? (selectedRule.value.spec as RaceSpec | undefined) : undefined,
@@ -235,7 +235,7 @@ const selectedAccessAbilities = computed<AbilityEntry[]>(() => {
   return entries;
 });
 
-const isSelected = computed(() => props.build.raceRuleId === selectedRaceId.value);
+const isSelected = computed(() => props.build.raceRuleCode === selectedRaceId.value);
 
 function chooseRace(): void {
   if (!selectedRaceId.value || isSelected.value) return;
@@ -253,10 +253,10 @@ function confirmRaceChange(): void {
   confirmDialog.value = false;
 }
 
-function applyRace(ruleId: string): void {
-  const next = characterBuildService.applyRace(props.build, ruleId, props.rules, props.config, props.keywords);
+function applyRace(ruleCode: string): void {
+  const next = characterBuildService.applyRace(props.build, ruleCode, props.rules, props.config, props.keywords);
   draftStore.patchBuild(props.draftKey, {
-    raceRuleId: next.raceRuleId,
+    raceRuleCode: next.raceRuleCode,
     abilities: next.abilities,
     characteristicPurchases: next.characteristicPurchases,
     inventory: next.inventory,
@@ -299,10 +299,10 @@ function applyRace(ruleId: string): void {
           <button
             v-else
             class="tree-race"
-            :class="{ chosen: build.raceRuleId === row.ruleId, selected: selectedRaceId === row.ruleId }"
+            :class="{ chosen: build.raceRuleCode === row.ruleCode, selected: selectedRaceId === row.ruleCode }"
             :style="{ paddingLeft: `${row.depth * 16 + 8}px` }"
             type="button"
-            @click="selectedRaceId = row.ruleId"
+            @click="selectedRaceId = row.ruleCode"
           >
             {{ row.name }}
           </button>

@@ -20,7 +20,7 @@ const props = defineProps<{
   mechanicOptions: { title: string; value: number }[];
   keywordOptions: { title: string; value: number }[];
   spaceId: number;
-  ruleId?: string;
+  ruleCode?: string;
   rules: Rule[];
 }>();
 
@@ -52,7 +52,7 @@ const spaceRules = computed(() => props.rules);
 
 const speciesOptions = computed(() =>
   spaceRules.value
-    .filter((r: Rule) => r.type === 'species' && r.id !== props.ruleId)
+    .filter((r: Rule) => r.type === 'species' && r.code !== props.ruleCode)
     .map((r) => ({ code: r.code, name: r.name })),
 );
 

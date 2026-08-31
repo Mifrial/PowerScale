@@ -2,7 +2,7 @@ import type { CharacterAbility } from '@/modules/Roleplay/Character/Dto/Characte
 import type { InventoryItem } from '@/modules/Roleplay/Character/Dto/InventoryItem';
 
 export interface RacialInnateGearSheet {
-  raceRuleId: string | null;
+  raceRuleCode: string | null;
   inventory: InventoryItem[];
   abilities: CharacterAbility[];
 }

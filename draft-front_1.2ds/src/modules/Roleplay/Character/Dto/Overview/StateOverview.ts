@@ -6,7 +6,7 @@ import type { StateAggregation } from '@/modules/Roleplay/Rule/Dto/State/StateSp
  */
 export interface StateEntryOverview {
   id: string;
-  ruleId: string;
+  ruleCode: string;
   name: string;
   iconCode: string | null;
   /** Итоговое значение (flag → null): «3», «4», «2с1». */

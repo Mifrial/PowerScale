@@ -15,15 +15,15 @@ export class RuleApi implements IRuleApi {
     return res.data ?? [];
   }
 
-  async getRule(ruleId: string, signal?: AbortSignal): Promise<Rule> {
-    const res = await this.engine.runAction<Rule>('rule.get', { ruleId }, signal);
+  async getRule(code: string, signal?: AbortSignal): Promise<Rule> {
+    const res = await this.engine.runAction<Rule>('rule.get', { code }, signal);
     if (!res.data) throw new Error('Rule not found');
 
     return res.data;
   }
 
-  async getRuleVersions(ruleId: string, signal?: AbortSignal): Promise<RuleVersion[]> {
-    const res = await this.engine.runAction<RuleVersion[]>('rule.getVersions', { ruleId }, signal);
+  async getRuleVersions(code: string, signal?: AbortSignal): Promise<RuleVersion[]> {
+    const res = await this.engine.runAction<RuleVersion[]>('rule.getVersions', { code }, signal);
 
     return res.data ?? [];
   }
@@ -35,15 +35,15 @@ export class RuleApi implements IRuleApi {
     return res.data;
   }
 
-  async updateRule(ruleId: string, data: UpdateRuleData, signal?: AbortSignal): Promise<Rule> {
-    const res = await this.engine.runAction<Rule>('rule.update', { ruleId, ...data }, signal);
+  async updateRule(code: string, data: UpdateRuleData, signal?: AbortSignal): Promise<Rule> {
+    const res = await this.engine.runAction<Rule>('rule.update', { code, ...data }, signal);
     if (!res.data) throw new Error('Failed to update rule');
 
     return res.data;
   }
 
-  async deleteRule(ruleId: string, signal?: AbortSignal): Promise<void> {
-    await this.engine.runAction('rule.delete', { ruleId }, signal);
+  async deleteRule(code: string, signal?: AbortSignal): Promise<void> {
+    await this.engine.runAction('rule.delete', { code }, signal);
   }
 
   async getMechanics(signal?: AbortSignal): Promise<Mechanic[]> {

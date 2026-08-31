@@ -9,7 +9,7 @@ import type {
 
 const props = defineProps<{
   diff: MembershipDiff;
-  /** Имена правил (ruleId → name) из ревизии игры; отсутствующие показываются как ruleId. */
+  /** Имена правил (ruleCode → name) из ревизии игры; отсутствующие показываются как ruleCode. */
   names: Record<string, string>;
 }>();
 
@@ -25,14 +25,14 @@ const KIND_COLOR: Record<DiffChange['kind'], string> = {
   changed: 'warning',
 };
 
-function resolve(ruleId: string): string {
-  return props.names[ruleId] ?? `Удалённое правило (id: ${ruleId})`;
+function resolve(ruleCode: string): string {
+  return props.names[ruleCode] ?? `Удалённое правило (id: ${ruleCode})`;
 }
 
-/** Label строки: ruleId → имя; для multiple-навыков (ruleId|домен) — имя + домен. */
+/** Label строки: ruleCode → имя; для multiple-навыков (ruleCode|домен) — имя + домен. */
 function labelOf(raw: string): string {
-  const [ruleId, domain] = raw.split('|');
-  const name = resolve(ruleId);
+  const [ruleCode, domain] = raw.split('|');
+  const name = resolve(ruleCode);
 
   return domain ? `${name} (${domain})` : name;
 }

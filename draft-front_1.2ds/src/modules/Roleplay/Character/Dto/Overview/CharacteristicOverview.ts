@@ -4,7 +4,7 @@ import type { DerivedCharacteristicOverview } from '@/modules/Roleplay/Character
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 
 export interface CharacteristicOverview {
-  ruleId: string;
+  ruleCode: string;
   name: string;
   /** Короткая подпись плашки (для секций с известным контекстом), напр. «Общее», «Меч»; null — полное имя. */
   shortName: string | null;

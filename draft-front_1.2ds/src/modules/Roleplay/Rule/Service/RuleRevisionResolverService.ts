@@ -6,19 +6,17 @@ import type { RevisionRuleSlice } from '@/modules/Roleplay/Rule/Dto/RevisionRule
 export class RuleRevisionResolverService {
   constructor(
     private readonly getFetcher: () => IRevisionRulesFetcher | null,
-    private readonly fetchCatalogRule: (ruleId: string, signal?: AbortSignal) => Promise<Rule | null>,
+    private readonly fetchCatalogRule: (code: string, signal?: AbortSignal) => Promise<Rule | null>,
   ) {}
 
-  /** Поиск правила в срезе ревизии по коду или id (код — ключ среза, id — глобальный). */
-  findRuleInRevision(rules: Rule[], ruleId: string): Rule | null {
-    return rules.find((rule) => rule.code === ruleId || rule.id === ruleId) ?? null;
+  /** Поиск в срезе ревизии только по semantic code. */
+  findRuleInRevision(rules: Rule[], ruleCode: string): Rule | null {
+    return rules.find((rule) => rule.code === ruleCode) ?? null;
   }
 
   /**
-   * Резолв правила из контекста ревизии (Слой 1, §7.20): слайдеры/чипы правил должны
-   * показывать версию ревизии (spaceId + rulesRevision), а не глобальный каталог. Если
-   * ревизия задана — берём из её среза (по code||id); правило может отсутствовать в срезе
-   * (изъято из ревизии) — тогда фолбэк на каталог по id.
+   * Резолв правила из контекста ревизии: слайдеры/чипы показывают версию среза
+   * (spaceId + rulesRevision), а не глобальный каталог. Нет в срезе — фолбэк каталога по code.
    */
   async resolveRuleFromRevision(query: RuleRevisionQuery, signal?: AbortSignal): Promise<Rule | null> {
     const slice = await this.resolveRevisionSlice(query, signal);
@@ -27,18 +25,18 @@ export class RuleRevisionResolverService {
   }
 
   async resolveRevisionSlice(query: RuleRevisionQuery, signal?: AbortSignal): Promise<RevisionRuleSlice> {
-    const { spaceId, rulesRevision, ruleId } = query;
-    if (ruleId == null) return { rule: null, rules: [] };
+    const { spaceId, rulesRevision, ruleCode } = query;
+    if (ruleCode == null) return { rule: null, rules: [] };
 
     if (spaceId != null && rulesRevision != null) {
       const fetcher = this.getFetcher();
       if (fetcher) {
         try {
           const rules = await fetcher.fetchRules(spaceId, rulesRevision, signal);
-          const found = this.findRuleInRevision(rules, ruleId);
+          const found = this.findRuleInRevision(rules, ruleCode);
           if (found) return { rule: found, rules };
 
-          const fallback = await this.tryCatalogRule(ruleId, signal);
+          const fallback = await this.tryCatalogRule(ruleCode, signal);
 
           return { rule: fallback, rules };
         } catch (error) {
@@ -47,15 +45,14 @@ export class RuleRevisionResolverService {
       }
     }
 
-    const rule = await this.tryCatalogRule(ruleId, signal);
+    const rule = await this.tryCatalogRule(ruleCode, signal);
 
     return { rule, rules: rule ? [rule] : [] };
   }
 
-  /** Чип чата передаёт code, каталог — id; getRule кидает, если ключ не тот. */
-  private async tryCatalogRule(ruleId: string, signal?: AbortSignal): Promise<Rule | null> {
+  private async tryCatalogRule(code: string, signal?: AbortSignal): Promise<Rule | null> {
     try {
-      return await this.fetchCatalogRule(ruleId, signal);
+      return await this.fetchCatalogRule(code, signal);
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') throw error;
 

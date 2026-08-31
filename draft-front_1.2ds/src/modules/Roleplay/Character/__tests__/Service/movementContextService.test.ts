@@ -38,7 +38,7 @@ describe('MovementContextService', () => {
       fullDescription: null,
       spaceCode: 'test',
       rulesRevision: 1,
-      raceRuleId: 'race',
+      raceRuleCode: 'turim',
       characteristics: [],
       resources: [],
       abilities: [],
@@ -51,21 +51,23 @@ describe('MovementContextService', () => {
     };
     const rules = [
       {
-        id: 'race',
+        id: null,
         code: 'turim',
         type: 'race',
         name: 'Турим',
         description: '',
         spaceId: 1,
+        createdAt: '',
         spec: { parent_race_code: null, abilities: [{ ability_code: 'small-step', automatic: true }] },
       },
       {
-        id: 'small-step-rule',
+        id: null,
         code: 'small-step',
         type: 'ability',
         name: 'Маленький шаг',
         description: '',
         spaceId: 1,
+        createdAt: '',
         spec: { type: 'trait', movement_step_size_delta: -1 },
       },
     ] as Rule[];

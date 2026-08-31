@@ -2,7 +2,7 @@ import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/Dimension
 
 /** Кандидат макроса быстрых бросков (CD-8): характеристика, боевой стат или оружие. */
 export interface QuickRollRecord {
-  ruleId: string;
+  ruleCode: string;
   /** Имя броска: подпись характеристики/оружия; для статов секции — «Ближний бой»/«Дальний бой». */
   name: string;
   value: DimensionalNumberValue;

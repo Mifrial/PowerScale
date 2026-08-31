@@ -90,7 +90,7 @@ const traitRule = (
   ];
 
   return {
-    id: `rule-${nextId++}`,
+    id: nextId++,
     code,
     type: 'ability',
     name,
@@ -106,7 +106,7 @@ const traitRule = (
 
 /** Группирующее правило (type 'group'): контейнер с лимитом выбора. */
 const groupRule = (code: string, name: string, description: string, selectLimit: number): Rule => ({
-  id: `rule-${nextId++}`,
+  id: nextId++,
   code,
   type: 'ability',
   name,
@@ -213,7 +213,7 @@ const personalityRule = (
   cost: number,
   options: { group_code?: string; grants?: Grant[]; keywordIds?: number[] } = {},
 ): Rule => ({
-  id: `rule-${olNextId++}`,
+  id: olNextId++,
   code,
   type: 'ability',
   name,
@@ -241,7 +241,7 @@ const personalityRule = (
 
 /** Навык (тип 'skill') — даётся особенностью; в каталоге «Основа»/«Личность» не покупается напрямую. */
 const skillRule = (code: string, name: string, description: string): Rule => ({
-  id: `rule-${olNextId++}`,
+  id: olNextId++,
   code,
   type: 'ability',
   name,
@@ -492,7 +492,7 @@ const importedRules: Rule[] = [
 
   // --- Тип урона «магия» (для resistance-гранта «Сопротивление магии X») ---
   {
-    id: `rule-${nextId++}`,
+    id: nextId++,
     code: 'magic-damage',
     type: 'damage_type',
     name: 'Магия',
@@ -507,7 +507,7 @@ const importedRules: Rule[] = [
 
   // --- Тип урона «холод» (для resistance-гранта «Сопротивление холоду») ---
   {
-    id: `rule-${nextId++}`,
+    id: nextId++,
     code: 'cold',
     type: 'damage_type',
     name: 'Холод',
@@ -662,7 +662,7 @@ const importedRules: Rule[] = [
 
   // --- Механика «Общие черты»: 3-я и каждая последующая общая черта +2 ОС ---
   {
-    id: `rule-${nextId++}`,
+    id: nextId++,
     code: 'common-traits-surcharge',
     type: 'simple',
     name: 'Общие черты: прогрессивная доплата',
@@ -701,7 +701,7 @@ const importedRules: Rule[] = [
   ),
 
   {
-    id: 'rule-610',
+    id: 610,
     code: 'from-appearance',
     type: 'source',
     name: 'Внешность',
@@ -713,7 +713,7 @@ const importedRules: Rule[] = [
     createdAt: '2026-08-27T10:00:00Z',
   },
   {
-    id: 'rule-611',
+    id: 611,
     code: 'from-voice',
     type: 'source',
     name: 'Голос',
@@ -727,7 +727,7 @@ const importedRules: Rule[] = [
 
   // --- Источник модификаторов чувств «Совершенство» ---
   {
-    id: 'rule-136',
+    id: 136,
     code: 'perfection',
     type: 'source',
     name: 'Совершенство',
@@ -741,7 +741,7 @@ const importedRules: Rule[] = [
 
   // --- Чувства (type 'sense'): значение — модификатор к Внимательности ---
   {
-    id: 'rule-137',
+    id: 137,
     code: SENSE_HEARING,
     type: 'sense',
     name: 'Слух',
@@ -754,7 +754,7 @@ const importedRules: Rule[] = [
     createdAt: '2026-08-08T10:00:00Z',
   },
   {
-    id: 'rule-138',
+    id: 138,
     code: SENSE_VISION,
     type: 'sense',
     name: 'Зрение',
@@ -771,7 +771,7 @@ const importedRules: Rule[] = [
 
   // --- Правило «Возраст» (type 'age'): ступени с ОЛ, лимитом особенностей и эффектами ---
   {
-    id: `rule-${olNextId++}`,
+    id: olNextId++,
     code: 'age',
     type: 'age',
     name: 'Возраст',
@@ -882,7 +882,7 @@ const importedRules: Rule[] = [
 
   // --- Источники модификаторов особенностей ---
   {
-    id: `rule-${olNextId++}`,
+    id: olNextId++,
     code: 'character',
     type: 'source',
     name: 'Характер',
@@ -894,7 +894,7 @@ const importedRules: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: `rule-${olNextId++}`,
+    id: olNextId++,
     code: 'alcoholism',
     type: 'source',
     name: 'Алкоголизм',
@@ -906,7 +906,7 @@ const importedRules: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-176',
+    id: 176,
     code: 'development',
     type: 'source',
     name: 'Развитие',
@@ -930,7 +930,7 @@ const importedRules: Rule[] = [
 
   // --- Группы особенностей личности (type 'group', «1 из группы») ---
   {
-    id: `rule-${olNextId++}`,
+    id: olNextId++,
     code: 'sociability',
     type: 'ability',
     name: 'Общительность',
@@ -943,7 +943,7 @@ const importedRules: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: `rule-${olNextId++}`,
+    id: olNextId++,
     code: 'attentiveness',
     type: 'ability',
     name: 'Внимательность',
@@ -956,7 +956,7 @@ const importedRules: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: `rule-${olNextId++}`,
+    id: olNextId++,
     code: 'wealth',
     type: 'ability',
     name: 'Богатство',

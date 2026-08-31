@@ -8,8 +8,8 @@ const props = defineProps<{
   rules: Rule[];
 }>();
 
-function sourceName(sourceRuleId: string | null, sourceLabel: string | null): string {
-  return props.rules.find((rule) => rule.id === sourceRuleId)?.name ?? sourceLabel ?? 'источник';
+function sourceName(sourceRuleCode: string | null, sourceLabel: string | null): string {
+  return props.rules.find((rule) => rule.code === sourceRuleCode)?.name ?? sourceLabel ?? 'источник';
 }
 
 function signed(delta: number): string {
@@ -29,16 +29,16 @@ function signed(delta: number): string {
       <div class="text-caption text-medium-emphasis mb-1">Модификаторы</div>
       <div
         v-for="(modifier, index) in bonus.modifiers"
-        :key="`${modifier.sourceRuleId ?? modifier.sourceLabel}_${index}`"
+        :key="`${modifier.sourceRuleCode ?? modifier.sourceLabel}_${index}`"
         class="d-flex align-center flex-wrap ga-2 py-1"
       >
         <span class="font-weight-medium">{{ signed(modifier.delta) }}</span>
         <span class="text-medium-emphasis">|</span>
-        <RuleLink v-if="modifier.sourceRuleId" :rule-id="modifier.sourceRuleId" class="text-body-2">
-          {{ sourceName(modifier.sourceRuleId, modifier.sourceLabel) }}
+        <RuleLink v-if="modifier.sourceRuleCode" :rule-code="modifier.sourceRuleCode" class="text-body-2">
+          {{ sourceName(modifier.sourceRuleCode, modifier.sourceLabel) }}
         </RuleLink>
         <span v-else class="text-body-2 text-medium-emphasis">
-          {{ sourceName(modifier.sourceRuleId, modifier.sourceLabel) }}
+          {{ sourceName(modifier.sourceRuleCode, modifier.sourceLabel) }}
         </span>
       </div>
     </v-card-text>

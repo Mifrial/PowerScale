@@ -1,7 +1,7 @@
 import type { StateAggregation, StateValueType } from '@/modules/Roleplay/Rule/Dto/State/StateSpec';
 /** Строка состояния боевой карточки: правило + записи (индексы в списке боя) для правок. */
 export interface CombatStateRow {
-  ruleId: string;
+  ruleCode: string;
   code: string;
   name: string;
   iconCode: string | null;

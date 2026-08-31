@@ -114,7 +114,7 @@ async function publishDraft() {
             <div class="text-subtitle-2 font-weight-medium mb-1">Изменённые ({{ publishChanged.length }})</div>
             <div
               v-for="rule in publishChanged"
-              :key="rule.id"
+              :key="rule.code"
               class="d-flex align-center pa-2 mb-1 bg-surface-variant rounded"
             >
               <span class="text-body-2">{{ rule.name }}</span>
@@ -126,7 +126,7 @@ async function publishDraft() {
             <div class="text-subtitle-2 font-weight-medium mb-1">Новые ({{ publishAdded.length }})</div>
             <div
               v-for="rule in publishAdded"
-              :key="rule.id"
+              :key="rule.code"
               class="d-flex align-center pa-2 mb-1 bg-surface-variant rounded"
             >
               <span class="text-body-2">{{ rule.name }}</span>
@@ -138,7 +138,7 @@ async function publishDraft() {
             <div class="text-subtitle-2 font-weight-medium mb-1">Удаляемые ({{ publishRemoved.length }})</div>
             <div
               v-for="rule in publishRemoved"
-              :key="rule.id"
+              :key="rule.code"
               class="d-flex align-center pa-2 mb-1 bg-surface-variant rounded"
             >
               <span class="text-body-2">{{ rule.name }}</span>

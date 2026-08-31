@@ -19,7 +19,7 @@ function rngFromDice(values: number[], faces = 6): DiceRng {
 }
 
 const checkSimple: Rule = {
-  id: 'rule-check-simple',
+  id: null,
   code: 'check-simple',
   type: 'check',
   name: 'Простая проверка',
@@ -38,7 +38,7 @@ const checkSimple: Rule = {
 
 const checkHit: Rule = {
   ...checkSimple,
-  id: 'rule-check-hit',
+  id: null,
   code: 'check-hit',
   name: 'Попадание',
   spec: {
@@ -50,7 +50,7 @@ const checkHit: Rule = {
 };
 
 const strikeRule = (mechanicId: number): Rule => ({
-  id: 'rule-strike-procedure',
+  id: null,
   code: STRIKE_PROCEDURE_RULE_CODE,
   type: 'simple',
   name: 'Удар',
@@ -155,8 +155,8 @@ describe('rollMeleeHit', () => {
   it('уклон: лучшее оружие ББ и помеха Ловкость/Восприятие', () => {
     const defender = {
       characteristics: [
-        { ruleId: 'rule-7', value: { base: 4, size: -2 } },
-        { ruleId: 'rule-perception', value: { base: 4, size: -1 } },
+        { ruleCode: 'dexterity', value: { base: 4, size: -2 } },
+        { ruleCode: 'perception', value: { base: 4, size: -1 } },
       ],
       combat: {
         melee: {
@@ -167,8 +167,8 @@ describe('rollMeleeHit', () => {
       },
     } as unknown as CharacterOverview;
     const statRules: Rule[] = [
-      { ...checkSimple, id: 'rule-7', code: 'dexterity', type: 'characteristic', name: 'Ловкость' },
-      { ...checkSimple, id: 'rule-perception', code: 'perception', type: 'characteristic', name: 'Восприятие' },
+      { ...checkSimple, id: 7, code: 'dexterity', type: 'characteristic', name: 'Ловкость' },
+      { ...checkSimple, id: null, code: 'perception', type: 'characteristic', name: 'Восприятие' },
     ];
     const rolled = hitRollService.rollMeleeHit(
       {
@@ -444,11 +444,11 @@ describe('rollMeleeHit', () => {
 describe('listBlockProfiles', () => {
   it('берёт equipped щит', () => {
     const version = {
-      inventory: [{ id: 1, ruleId: 'shield-1', quantity: 1, equipped: true }],
+      inventory: [{ id: 1, ruleCode: 'buckler', quantity: 1, equipped: true }],
     } as unknown as CharacterVersion;
     const rules: Rule[] = [
       {
-        id: 'shield-1',
+        id: null,
         code: 'buckler',
         type: 'item',
         name: 'Баклер',
@@ -470,17 +470,17 @@ describe('listBlockProfiles', () => {
       },
     ];
     expect(hitRollService.listBlockProfiles(version, rules)).toEqual([
-      { itemRuleId: 'shield-1', itemName: 'Баклер', efficiency: { base: 5, size: 0 } },
+      { itemRuleCode: 'buckler', itemName: 'Баклер', efficiency: { base: 5, size: 0 } },
     ]);
   });
 
   it('shieldsOnly не берёт block_profile оружия', () => {
     const version = {
-      inventory: [{ id: 1, ruleId: 'sword-1', quantity: 1, equipped: true }],
+      inventory: [{ id: 1, ruleCode: 'sword', quantity: 1, equipped: true }],
     } as unknown as CharacterVersion;
     const rules: Rule[] = [
       {
-        id: 'sword-1',
+        id: null,
         code: 'sword',
         type: 'item',
         name: 'Меч',

@@ -3,7 +3,7 @@ import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/Characte
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { CharacterOverviewService } from '@/modules/Roleplay/Character/Service/Overview/CharacterOverviewService';
 
-const base = (id: string, code: string, type: Rule['type'], name: string, spec?: Rule['spec']): Rule => ({
+const base = (id: number | null, code: string, type: Rule['type'], name: string, spec?: Rule['spec']): Rule => ({
   id,
   code,
   type,
@@ -17,14 +17,14 @@ const base = (id: string, code: string, type: Rule['type'], name: string, spec?:
 });
 
 const rules: Rule[] = [
-  base('rule-borba', 'borba', 'ability', 'Борьба', {
+  base(null, 'borba', 'ability', 'Борьба', {
     type: 'skill',
     zones: { or: { kind: 'array', levels_cost: [2, 2, 3] } },
     requirements: [],
     grants: [],
     parent_ability_code: null,
   }),
-  base('rule-prof', 'vladenie-oruzhiem', 'ability', 'Владение оружием', {
+  base(null, 'vladenie-oruzhiem', 'ability', 'Владение оружием', {
     type: 'skill',
     zones: { or: { kind: 'array', levels_cost: [1, 1, 1] } },
     requirements: [],
@@ -33,8 +33,8 @@ const rules: Rule[] = [
     multiple: true,
     domain_ref: 'weapon-family',
   }),
-  base('rule-swords', 'mechi', 'weapon_family', 'Мечи'),
-  base('rule-bows', 'luki', 'weapon_family', 'Луки'),
+  base(null, 'mechi', 'weapon_family', 'Мечи'),
+  base(null, 'luki', 'weapon_family', 'Луки'),
 ];
 
 function versionWith(overrides: Partial<CharacterVersion> = {}): CharacterVersion {
@@ -44,7 +44,7 @@ function versionWith(overrides: Partial<CharacterVersion> = {}): CharacterVersio
     fullDescription: null,
     spaceCode: 'razrabotka',
     rulesRevision: 5,
-    raceRuleId: null,
+    raceRuleCode: null,
     characteristics: [],
     resources: [],
     abilities: [],
@@ -65,14 +65,14 @@ describe('CharacterOverviewService: вкладка способностей', ()
     const overview = service.build(
       versionWith({
         abilities: [
-          { ruleId: 'rule-borba', level: 2 },
-          { ruleId: 'rule-borba', level: 1 },
+          { ruleCode: 'borba', level: 2 },
+          { ruleCode: 'borba', level: 1 },
         ],
       }),
       rules,
     );
 
-    const borba = overview.abilities.filter((ability) => ability.ruleId === 'rule-borba');
+    const borba = overview.abilities.filter((ability) => ability.ruleCode === 'borba');
     expect(borba).toHaveLength(1);
     expect(borba[0].level).toBe(2);
     expect(borba[0].domainLabel).toBeNull();
@@ -82,14 +82,14 @@ describe('CharacterOverviewService: вкладка способностей', ()
     const overview = service.build(
       versionWith({
         abilities: [
-          { ruleId: 'rule-prof', level: 1, domain: 'Мечи', domainCode: 'mechi' },
-          { ruleId: 'rule-prof', level: 2, domain: 'Луки', domainCode: 'luki' },
+          { ruleCode: 'vladenie-oruzhiem', level: 1, domain: 'Мечи', domainCode: 'mechi' },
+          { ruleCode: 'vladenie-oruzhiem', level: 2, domain: 'Луки', domainCode: 'luki' },
         ],
       }),
       rules,
     );
 
-    const rows = overview.abilities.filter((ability) => ability.ruleId === 'rule-prof');
+    const rows = overview.abilities.filter((ability) => ability.ruleCode === 'vladenie-oruzhiem');
     expect(rows).toHaveLength(2);
     expect(rows.map((row) => `${row.domainLabel}:${row.level}`).sort()).toEqual(['Луки:2', 'Мечи:1']);
   });

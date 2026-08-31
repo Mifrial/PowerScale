@@ -96,19 +96,19 @@ export class HitRollService {
     if (!version) return [];
     const profiles: HitBlockProfile[] = [];
     for (const item of version.inventory) {
-      if (!item.equipped || !item.ruleId) continue;
-      const rule = rules.find((entry) => entry.id === item.ruleId);
+      if (!item.equipped || !item.ruleCode) continue;
+      const rule = rules.find((entry) => entry.code === item.ruleCode);
       const spec = rule?.spec as ItemSpec | undefined;
       if (!rule || !spec) continue;
-      const modifiers = (item.modifierRuleIds ?? [])
-        .map((id) => rules.find((entry) => entry.id === id))
+      const modifiers = (item.modifierRuleCodes ?? [])
+        .map((id) => rules.find((entry) => entry.code === id))
         .filter((entry): entry is Rule => entry != null);
       const stacked = itemModifierService.applyStack(spec, modifiers, []).spec;
       const block = options.shieldsOnly
         ? stacked.shield?.block
         : (stacked.shield?.block ?? stacked.weapon?.block_profile);
       if (!block) continue;
-      profiles.push({ itemRuleId: item.ruleId, itemName: rule.name, efficiency: block.efficiency });
+      profiles.push({ itemRuleCode: item.ruleCode, itemName: rule.name, efficiency: block.efficiency });
     }
 
     return profiles;

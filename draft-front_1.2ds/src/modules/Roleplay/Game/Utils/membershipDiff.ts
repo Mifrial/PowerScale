@@ -70,7 +70,7 @@ function characteristicValue(characteristic: CharacteristicValue): DimensionalNu
 }
 
 function characteristicLabel(characteristic: CharacteristicValue): string {
-  return characteristic.ruleId;
+  return characteristic.ruleCode;
 }
 
 function characteristicRender(characteristic: CharacteristicValue): string {
@@ -79,7 +79,7 @@ function characteristicRender(characteristic: CharacteristicValue): string {
 
 function characteristicDetail(
   characteristic: CharacteristicValue,
-  resolve: (ruleId: string) => string,
+  resolve: (ruleCode: string) => string,
 ): CharacteristicDiffDetail {
   return {
     value: dim(characteristicValue(characteristic)),
@@ -92,14 +92,14 @@ function characteristicDetail(
   };
 }
 
-function modifierName(modifier: CharacteristicModifier, resolve: (ruleId: string) => string): string {
+function modifierName(modifier: CharacteristicModifier, resolve: (ruleCode: string) => string): string {
   if (modifier.sourceLabel) return modifier.sourceLabel;
 
-  return modifier.sourceRuleId ? resolve(modifier.sourceRuleId) : 'источник';
+  return modifier.sourceRuleCode ? resolve(modifier.sourceRuleCode) : 'источник';
 }
 
 function resourceLabel(resource: ResourceValue): string {
-  return resource.ruleId;
+  return resource.ruleCode;
 }
 
 function resourceRender(resource: ResourceValue): string {
@@ -109,7 +109,7 @@ function resourceRender(resource: ResourceValue): string {
   return `${dim(resource.current)} / ${dim(limit)}`;
 }
 
-function resourceDetail(resource: ResourceValue, resolve: (ruleId: string) => string): ResourceDiffDetail {
+function resourceDetail(resource: ResourceValue, resolve: (ruleCode: string) => string): ResourceDiffDetail {
   const bonuses = resource.bonuses.reduce((sum, bonus) => sum + bonus.delta, 0);
   const limit = bonuses === 0 ? resource.base : DimensionalNumber.from(resource.base).modify(bonuses).value;
 
@@ -118,7 +118,7 @@ function resourceDetail(resource: ResourceValue, resolve: (ruleId: string) => st
     limit: dim(limit),
     base: dim(resource.base),
     bonuses: resource.bonuses.map((bonus) => ({
-      name: bonus.sourceLabel ?? (bonus.sourceRuleId ? resolve(bonus.sourceRuleId) : 'источник'),
+      name: bonus.sourceLabel ?? (bonus.sourceRuleCode ? resolve(bonus.sourceRuleCode) : 'источник'),
       delta: bonus.delta,
     })),
   };
@@ -126,8 +126,8 @@ function resourceDetail(resource: ResourceValue, resolve: (ruleId: string) => st
 
 function abilityKey(ability: CharacterAbility): string {
   return ability.domain !== undefined && ability.domain !== null
-    ? `${ability.ruleId}|${ability.domain}`
-    : ability.ruleId;
+    ? `${ability.ruleCode}|${ability.domain}`
+    : ability.ruleCode;
 }
 
 function abilityLabel(ability: CharacterAbility): string {
@@ -175,11 +175,11 @@ function moneyLabel(version: CharacterVersion | null): string {
 }
 
 function inventoryKey(item: InventoryItem): string {
-  return `${item.ruleId}|${item.id}`;
+  return `${item.ruleCode}|${item.id}`;
 }
 
 function inventoryLabel(item: InventoryItem): string {
-  return item.ruleId ?? `custom:${item.id}`;
+  return item.ruleCode ?? `custom:${item.id}`;
 }
 
 function inventoryRender(item: InventoryItem): string {
@@ -191,15 +191,15 @@ function inventoryRender(item: InventoryItem): string {
 }
 
 function stateKey(state: CharacterStateValue, index: number): string {
-  return `${state.stateRuleId}|${index}`;
+  return `${state.stateRuleCode}|${index}`;
 }
 
 function stateLabel(state: CharacterStateValue): string {
-  return state.stateRuleId;
+  return state.stateRuleCode;
 }
 
 function stateRender(state: CharacterStateValue): string {
-  if (state.poison) return `яд: ${state.poison.poisonRuleId ?? '?'}`;
+  if (state.poison) return `яд: ${state.poison.poisonRuleCode ?? '?'}`;
   if (state.dimensionalValue) return dim(state.dimensionalValue);
   if (state.value !== undefined) return String(state.value);
 
@@ -207,7 +207,7 @@ function stateRender(state: CharacterStateValue): string {
 }
 
 function senseLabel(sense: CharacterSenseValue): string {
-  return sense.ruleId;
+  return sense.ruleCode;
 }
 
 function senseRender(sense: CharacterSenseValue): string {
@@ -286,7 +286,7 @@ const SCALARS: { key: string; label: string; render: (version: CharacterVersion 
   { key: 'name', label: 'Имя', render: (version) => version?.name ?? '—' },
   { key: 'shortDescription', label: 'Краткое описание', render: (version) => version?.shortDescription ?? '—' },
   { key: 'fullDescription', label: 'Полное описание', render: (version) => version?.fullDescription ?? '—' },
-  { key: 'race', label: 'Раса', render: (version) => version?.raceRuleId ?? '—' },
+  { key: 'race', label: 'Раса', render: (version) => version?.raceRuleCode ?? '—' },
   { key: 'age', label: 'Возраст', render: (version) => (version?.ageYears == null ? '—' : String(version.ageYears)) },
   { key: 'points', label: 'Очки', render: pointsLabel },
   { key: 'money', label: 'Деньги', render: moneyLabel },
@@ -310,12 +310,12 @@ function scalarChanges(active: CharacterVersion | null, pending: CharacterVersio
 /**
  * Diff двух состояний листа персонажа в игре (модерация, ТР §7.8): по-элементное сравнение
  * списков листа + скалярные поля. Первая подача (active null) — всё помечается 'added'.
- * `resolve` резолвит ruleId в имя (имена из ревизий); label'ы содержат ruleId.
+ * `resolve` резолвит ruleCode в имя (имена из ревизий); label'ы содержат ruleCode.
  */
 export function membershipDiff(
   active: CharacterVersion | null,
   pending: CharacterVersion | null,
-  resolve: (ruleId: string) => string = (ruleId) => ruleId,
+  resolve: (ruleCode: string) => string = (ruleCode) => ruleCode,
 ): MembershipDiff {
   const sections: DiffSection[] = [
     {
@@ -324,7 +324,7 @@ export function membershipDiff(
       changes: diffList(
         active?.characteristics ?? [],
         pending?.characteristics ?? [],
-        (item) => item.ruleId,
+        (item) => item.ruleCode,
         characteristicLabel,
         characteristicRender,
         (item) => characteristicDetail(item, resolve),
@@ -336,7 +336,7 @@ export function membershipDiff(
       changes: diffList(
         active?.resources ?? [],
         pending?.resources ?? [],
-        (item) => item.ruleId,
+        (item) => item.ruleCode,
         resourceLabel,
         resourceRender,
         (item) => resourceDetail(item, resolve),
@@ -366,7 +366,7 @@ export function membershipDiff(
     {
       key: 'senses',
       label: 'Чувства',
-      changes: diffList(active?.senses ?? [], pending?.senses ?? [], (item) => item.ruleId, senseLabel, senseRender),
+      changes: diffList(active?.senses ?? [], pending?.senses ?? [], (item) => item.ruleCode, senseLabel, senseRender),
     },
     {
       key: 'customRules',

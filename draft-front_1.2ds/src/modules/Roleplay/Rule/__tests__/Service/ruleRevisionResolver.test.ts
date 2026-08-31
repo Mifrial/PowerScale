@@ -20,7 +20,7 @@ beforeEach(() => {
   });
 });
 
-function rule(id: string, code: string): Rule {
+function rule(id: number | null, code: string): Rule {
   return {
     id,
     code,
@@ -33,20 +33,15 @@ function rule(id: string, code: string): Rule {
 }
 
 describe('findRuleInRevision', () => {
-  it('ищет по коду (ключ среза ревизии)', () => {
-    const rules = [rule('r-1', 'movement')];
+  it('ищет только по semantic code', () => {
+    const rules = [rule(null, 'movement')];
 
-    expect(ruleRevisionResolverService.findRuleInRevision(rules, 'movement')?.id).toBe('r-1');
-  });
-
-  it('ищет по id (глобальный ключ)', () => {
-    const rules = [rule('r-1', 'movement')];
-
-    expect(ruleRevisionResolverService.findRuleInRevision(rules, 'r-1')?.code).toBe('movement');
+    expect(ruleRevisionResolverService.findRuleInRevision(rules, 'movement')?.code).toBe('movement');
+    expect(ruleRevisionResolverService.findRuleInRevision(rules, 'r-1')).toBeNull();
   });
 
   it('возвращает null, если правила нет в срезе', () => {
-    expect(ruleRevisionResolverService.findRuleInRevision([rule('r-1', 'movement')], 'absent')).toBeNull();
+    expect(ruleRevisionResolverService.findRuleInRevision([rule(null, 'movement')], 'absent')).toBeNull();
   });
 });
 
@@ -55,42 +50,50 @@ describe('resolveRuleFromRevision', () => {
     const resolved = await ruleRevisionResolverService.resolveRuleFromRevision({
       spaceId: 1,
       rulesRevision: 5,
-      ruleId: 'dodge',
+      ruleCode: 'dodge',
     });
 
     expect(resolved).not.toBeNull();
     expect(resolved?.code).toBe('dodge');
-    // Ревизия перезаписывает spaceId — это правило из среза, а не каталога.
     expect(resolved?.spaceId).toBe(1);
   });
 
-  it('правила нет в срезе (выведено из обращения) — фолбэк на каталог по id', async () => {
-    // night-vision выведено из обращения на ревизиях ≥ 8 (mockSpaces).
+  it('правила нет в срезе — фолбэк на каталог по code', async () => {
     const resolved = await ruleRevisionResolverService.resolveRuleFromRevision({
       spaceId: 1,
       rulesRevision: 12,
-      ruleId: 'rule-26',
+      ruleCode: 'night-vision',
     });
 
     expect(resolved).not.toBeNull();
     expect(resolved?.code).toBe('night-vision');
   });
 
-  it('без контекста ревизии резолвит из глобального каталога', async () => {
+  it('слайдер со storage id не резолвит правило по numeric/строковому PK', async () => {
+    const resolved = await ruleRevisionResolverService.resolveRuleFromRevision({
+      spaceId: 1,
+      rulesRevision: 12,
+      ruleCode: '__storage-pk-not-a-code__',
+    });
+
+    expect(resolved).toBeNull();
+  });
+
+  it('без контекста ревизии резолвит из глобального каталога по code', async () => {
     const resolved = await ruleRevisionResolverService.resolveRuleFromRevision({
       spaceId: null,
       rulesRevision: null,
-      ruleId: 'rule-6',
+      ruleCode: 'human',
     });
 
     expect(resolved?.code).toBe('human');
   });
 
-  it('ruleId null → null без обращения к API', async () => {
+  it('ruleCode null → null без обращения к API', async () => {
     const resolved = await ruleRevisionResolverService.resolveRuleFromRevision({
       spaceId: 1,
       rulesRevision: 5,
-      ruleId: null,
+      ruleCode: null,
     });
 
     expect(resolved).toBeNull();
@@ -102,7 +105,7 @@ describe('resolveRevisionSlice', () => {
     const slice = await ruleRevisionResolverService.resolveRevisionSlice({
       spaceId: 1,
       rulesRevision: 5,
-      ruleId: 'dodge',
+      ruleCode: 'dodge',
     });
 
     expect(slice.rule?.code).toBe('dodge');
@@ -114,18 +117,18 @@ describe('resolveRevisionSlice', () => {
     const slice = await ruleRevisionResolverService.resolveRevisionSlice({
       spaceId: 2,
       rulesRevision: 12,
-      ruleId: 'magic-resistance',
+      ruleCode: 'magic-resistance',
     });
 
     expect(slice.rule?.code).toBe('magic-resistance');
     expect(slice.rule?.name).toContain('Сопротивление магии');
   });
 
-  it('без ревизии резолвит каталог по code, а не только по id', async () => {
+  it('без ревизии резолвит каталог по code', async () => {
     const slice = await ruleRevisionResolverService.resolveRevisionSlice({
       spaceId: null,
       rulesRevision: null,
-      ruleId: 'magic-resistance',
+      ruleCode: 'magic-resistance',
     });
 
     expect(slice.rule?.code).toBe('magic-resistance');

@@ -6,10 +6,10 @@ import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
 
 export interface IRuleApi {
   getRules(spaceId: number, signal?: AbortSignal): Promise<Rule[]>;
-  getRule(ruleId: string, signal?: AbortSignal): Promise<Rule>;
-  getRuleVersions(ruleId: string, signal?: AbortSignal): Promise<RuleVersion[]>;
+  getRule(code: string, signal?: AbortSignal): Promise<Rule>;
+  getRuleVersions(code: string, signal?: AbortSignal): Promise<RuleVersion[]>;
   createRule(spaceId: number, data: CreateRuleData, signal?: AbortSignal): Promise<Rule>;
-  updateRule(ruleId: string, data: UpdateRuleData, signal?: AbortSignal): Promise<Rule>;
-  deleteRule(ruleId: string, signal?: AbortSignal): Promise<void>;
+  updateRule(code: string, data: UpdateRuleData, signal?: AbortSignal): Promise<Rule>;
+  deleteRule(code: string, signal?: AbortSignal): Promise<void>;
   getMechanics(signal?: AbortSignal): Promise<Mechanic[]>;
 }

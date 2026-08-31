@@ -22,7 +22,7 @@ function lineKey(line: DefenseLineOverview, index: number): string {
 <template>
   <v-sheet class="armor-tile pa-2 rounded border d-flex flex-column">
     <div class="d-flex align-center justify-space-between ga-2">
-      <RuleLink :rule-id="item.itemRuleId" class="text-body-2 font-weight-medium armor-tile__name">
+      <RuleLink :rule-code="item.itemRuleCode" class="text-body-2 font-weight-medium armor-tile__name">
         {{ item.itemName }}
       </RuleLink>
       <v-menu attach location="bottom end" :z-index="2200">

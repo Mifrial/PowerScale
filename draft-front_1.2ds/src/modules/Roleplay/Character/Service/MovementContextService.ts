@@ -15,9 +15,9 @@ export class MovementContextService {
     if (explicitStep) return explicitStep;
     let step = new DimensionalNumber({ base: 1, size: 0 });
     if (!version || !rules) return step.value;
-    const abilityLevels = new Set(version.abilities.map((ability) => ability.ruleId));
+    const abilityLevels = new Set(version.abilities.map((ability) => ability.ruleCode));
     const rulesByCode = new Map(rules.map((rule) => [rule.code, rule]));
-    const raceRule = rules.find((rule) => rule.id === version.raceRuleId);
+    const raceRule = rules.find((rule) => rule.code === version.raceRuleCode);
     const raceSpec =
       raceRule?.type === 'race' || raceRule?.type === 'species'
         ? (raceRule.spec as
@@ -33,7 +33,7 @@ export class MovementContextService {
     ].filter((ability) => ability.automatic);
     const automaticAbilityCodes = automaticRacialAbilities.map((ability) => ability.ability_code);
     for (const abilityCode of [...abilityLevels, ...automaticAbilityCodes]) {
-      const rule = rulesByCode.get(abilityCode) ?? rules.find((entry) => entry.id === abilityCode);
+      const rule = rulesByCode.get(abilityCode);
       const delta =
         rule?.type === 'ability'
           ? ((rule.spec as { movement_step_size_delta?: number } | undefined)?.movement_step_size_delta ?? 0)

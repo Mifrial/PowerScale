@@ -43,7 +43,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
     ...mockDevelopmentImport,
     // --- Справочник языков (type 'language'): домены множественного навыка «Владение языком» ---
     {
-      id: 'rule-394',
+      id: 394,
       code: 'language-common',
       type: 'language',
       name: 'Общий язык',
@@ -56,7 +56,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-10T10:00:00Z',
     },
     {
-      id: 'rule-395',
+      id: 395,
       code: 'language-elf',
       type: 'language',
       name: 'Эльфийский',
@@ -69,7 +69,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-10T10:00:00Z',
     },
     {
-      id: 'rule-396',
+      id: 396,
       code: 'language-dwarf',
       type: 'language',
       name: 'Дварфийский',
@@ -82,7 +82,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-10T10:00:00Z',
     },
     {
-      id: 'rule-397',
+      id: 397,
       code: 'language-orc',
       type: 'language',
       name: 'Орочий',
@@ -95,7 +95,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-10T10:00:00Z',
     },
     {
-      id: 'rule-905',
+      id: 905,
       code: 'wait',
       type: 'ability',
       name: 'Ожидание',
@@ -123,7 +123,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-23T10:00:00Z',
     },
     {
-      id: 'rule-900',
+      id: 900,
       code: 'simple-melee-attack',
       type: 'ability',
       name: 'Простая атака (ближний бой)',
@@ -142,7 +142,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-23T10:00:00Z',
     },
     {
-      id: 'rule-901',
+      id: 901,
       code: 'simple-ranged-attack',
       type: 'ability',
       name: 'Простая атака (дальний бой)',
@@ -161,7 +161,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-23T10:00:00Z',
     },
     {
-      id: 'rule-902',
+      id: 902,
       code: 'dodge',
       type: 'ability',
       name: 'Уклонение',
@@ -181,7 +181,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-23T10:00:00Z',
     },
     {
-      id: 'rule-903',
+      id: 903,
       code: 'block',
       type: 'ability',
       name: 'Блок',
@@ -200,7 +200,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-23T10:00:00Z',
     },
     {
-      id: 'rule-904',
+      id: 904,
       code: 'turn',
       type: 'ability',
       name: 'Поворот',
@@ -220,7 +220,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-25T16:00:00Z',
     },
     {
-      id: 'rule-906',
+      id: 906,
       code: 'careful-movement',
       type: 'ability',
       name: 'Осторожное передвижение',
@@ -254,7 +254,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-28T10:00:00Z',
     },
     {
-      id: 'rule-907',
+      id: 907,
       code: 'walk',
       type: 'ability',
       name: 'Ходьба',
@@ -288,7 +288,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-28T10:00:00Z',
     },
     {
-      id: 'rule-908',
+      id: 908,
       code: 'jump',
       type: 'ability',
       name: 'Прыжок',
@@ -331,7 +331,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-28T10:00:00Z',
     },
     {
-      id: 'rule-909',
+      id: 909,
       code: 'stand-up',
       type: 'ability',
       name: 'Лечь или встать',
@@ -351,7 +351,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-28T10:00:00Z',
     },
     {
-      id: 'rule-910',
+      id: 910,
       code: 'run',
       type: 'ability',
       name: 'Бег',
@@ -409,7 +409,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-28T10:00:00Z',
     },
     {
-      id: 'rule-911',
+      id: 911,
       code: 'sprint',
       type: 'ability',
       name: 'Спринт',
@@ -474,7 +474,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-28T10:00:00Z',
     },
     {
-      id: 'rule-912',
+      id: 912,
       code: 'movement-state',
       type: 'simple',
       name: 'Состояние движения',
@@ -486,7 +486,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-28T10:00:00Z',
     },
     {
-      id: 'rule-1',
+      id: 1,
       code: 'rule-6-and-1',
       type: 'simple',
       name: 'Правило 6 и 1',
@@ -497,7 +497,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-01-15T10:00:00Z',
     },
     {
-      id: 'rule-roll',
+      id: 9201,
       code: 'roll',
       type: 'simple',
       name: 'Бросок',
@@ -519,7 +519,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-01-15T10:00:00Z',
     },
     {
-      id: 'rule-strike-procedure',
+      id: 9202,
       code: 'strike-procedure',
       type: 'simple',
       name: 'Удар',
@@ -532,7 +532,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-22T21:00:00Z',
     },
     {
-      id: 'rule-throw-procedure',
+      id: 9203,
       code: 'throw-procedure',
       type: 'simple',
       name: 'Бросок',
@@ -545,7 +545,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-25T16:00:00Z',
     },
     {
-      id: 'rule-shoot-procedure',
+      id: 9204,
       code: 'shoot-procedure',
       type: 'simple',
       name: 'Выстрел',
@@ -558,7 +558,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-25T16:00:00Z',
     },
     {
-      id: 'rule-flanking-attack',
+      id: 9205,
       code: 'flanking-attack',
       type: 'simple',
       name: 'Фланговая атака',
@@ -571,7 +571,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-25T16:00:00Z',
     },
     {
-      id: 'rule-2',
+      id: 2,
       code: 'advantages',
       type: 'simple',
       name: 'Помехи и преимущества',
@@ -583,7 +583,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-01-16T10:00:00Z',
     },
     {
-      id: 'rule-3',
+      id: 3,
       code: 'strength',
       type: 'characteristic',
       name: 'Сила',
@@ -595,7 +595,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-01-17T10:00:00Z',
     },
     {
-      id: 'rule-7',
+      id: 7,
       code: 'dexterity',
       type: 'characteristic',
       name: 'Ловкость',
@@ -607,7 +607,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-01-17T10:00:00Z',
     },
     {
-      id: 'rule-8',
+      id: 8,
       code: 'memory',
       type: 'characteristic',
       name: 'Память',
@@ -619,7 +619,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-01-17T10:00:00Z',
     },
     {
-      id: 'rule-9',
+      id: 9,
       code: 'reasoning',
       type: 'characteristic',
       name: 'Мышление',
@@ -631,7 +631,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-01-17T10:00:00Z',
     },
     {
-      id: 'rule-10',
+      id: 10,
       code: 'intellect',
       type: 'characteristic',
       name: 'Интеллект',
@@ -643,7 +643,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-01-17T10:00:00Z',
     },
     {
-      id: 'rule-6',
+      id: 6,
       code: 'human',
       type: 'species',
       name: 'Человек',
@@ -668,7 +668,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-01-20T10:00:00Z',
     },
     {
-      id: 'rule-11',
+      id: 11,
       code: 'slashing',
       type: 'damage_type',
       name: 'Рубящий',
@@ -685,7 +685,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-01-21T10:00:00Z',
     },
     {
-      id: 'rule-12',
+      id: 12,
       code: 'piercing',
       type: 'damage_type',
       name: 'Колющий',
@@ -702,7 +702,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-01-22T10:00:00Z',
     },
     {
-      id: 'rule-13',
+      id: 13,
       code: 'blunt',
       type: 'damage_type',
       name: 'Дробящий',
@@ -715,7 +715,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-01-23T10:00:00Z',
     },
     {
-      id: 'rule-14',
+      id: 14,
       code: 'cutting',
       type: 'damage_type',
       name: 'Режущий',
@@ -727,7 +727,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-01-24T10:00:00Z',
     },
     {
-      id: 'rule-15',
+      id: 15,
       code: 'fire',
       type: 'damage_type',
       name: 'Огонь',
@@ -739,7 +739,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-01-25T10:00:00Z',
     },
     {
-      id: 'rule-16',
+      id: 16,
       code: 'electricity',
       type: 'damage_type',
       name: 'Электричество',
@@ -751,7 +751,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-01-26T10:00:00Z',
     },
     {
-      id: 'rule-17',
+      id: 17,
       code: 'light',
       type: 'damage_type',
       name: 'Свет',
@@ -763,7 +763,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-01-27T10:00:00Z',
     },
     {
-      id: 'rule-66',
+      id: 66,
       code: 'poison-1',
       type: 'damage_type',
       name: 'Яд 1 типа',
@@ -775,7 +775,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-06T10:00:00Z',
     },
     {
-      id: 'rule-67',
+      id: 67,
       code: 'poison-2',
       type: 'damage_type',
       name: 'Яд 2 типа',
@@ -787,7 +787,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-06T10:00:00Z',
     },
     {
-      id: 'rule-68',
+      id: 68,
       code: 'poison-3',
       type: 'damage_type',
       name: 'Яд 3 типа',
@@ -799,7 +799,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-06T10:00:00Z',
     },
     {
-      id: 'rule-69',
+      id: 69,
       code: 'spirit-1',
       type: 'damage_type',
       name: 'Яд духовный 1 типа',
@@ -811,7 +811,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-06T10:00:00Z',
     },
     {
-      id: 'rule-18',
+      id: 18,
       code: 'action-points',
       type: 'resource',
       name: 'Очки Действий',
@@ -848,7 +848,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-01-28T10:00:00Z',
     },
     {
-      id: 'rule-19',
+      id: 19,
       code: 'spirit-energy',
       type: 'resource',
       name: 'Ци Духа',
@@ -860,7 +860,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-01-28T10:00:00Z',
     },
     {
-      id: 'rule-20',
+      id: 20,
       code: 'concentration',
       type: 'resource',
       name: 'Концентрация',
@@ -872,7 +872,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-01-28T10:00:00Z',
     },
     {
-      id: 'rule-22',
+      id: 22,
       code: 'os',
       type: 'points',
       name: 'Очки Создания',
@@ -883,7 +883,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-01-28T10:00:00Z',
     },
     {
-      id: 'rule-23',
+      id: 23,
       code: 'ol',
       type: 'points',
       name: 'Очки Личности',
@@ -894,7 +894,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-01-28T10:00:00Z',
     },
     {
-      id: 'rule-24',
+      id: 24,
       code: 'or',
       type: 'points',
       name: 'Очки Развития',
@@ -905,7 +905,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-01-28T10:00:00Z',
     },
     {
-      id: 'rule-25',
+      id: 25,
       code: 'keen-hearing',
       type: 'ability',
       name: 'Острый слух',
@@ -923,7 +923,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-01-28T10:00:00Z',
     },
     {
-      id: 'rule-26',
+      id: 26,
       code: 'night-vision',
       type: 'ability',
       name: 'Ночное зрение',
@@ -941,7 +941,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-01-28T10:00:00Z',
     },
     {
-      id: 'rule-27',
+      id: 27,
       code: 'elves',
       type: 'species',
       name: 'Эльфы',
@@ -969,7 +969,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-01-29T10:00:00Z',
     },
     {
-      id: 'rule-28',
+      id: 28,
       code: 'wood-elves',
       type: 'species',
       name: 'Лесные эльфы',
@@ -984,7 +984,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-01-29T10:00:00Z',
     },
     {
-      id: 'rule-35',
+      id: 35,
       code: 'armor',
       type: 'source',
       name: 'Доспех',
@@ -995,7 +995,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-01-30T10:00:00Z',
     },
     {
-      id: 'rule-36',
+      id: 36,
       code: 'shield',
       type: 'source',
       name: 'Щит',
@@ -1006,7 +1006,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-01-30T10:00:00Z',
     },
     {
-      id: 'rule-37',
+      id: 37,
       code: 'spell',
       type: 'source',
       name: 'Заклинание',
@@ -1017,7 +1017,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-01-30T10:00:00Z',
     },
     {
-      id: 'rule-38',
+      id: 38,
       code: 'training',
       type: 'source',
       name: 'Тренировка',
@@ -1028,7 +1028,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-01-30T10:00:00Z',
     },
     {
-      id: 'rule-39',
+      id: 39,
       code: 'innate',
       type: 'source',
       name: 'Врождённый',
@@ -1039,7 +1039,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-01-30T10:00:00Z',
     },
     {
-      id: 'rule-40',
+      id: 40,
       code: 'mastery',
       type: 'source',
       name: 'Мастерство',
@@ -1050,7 +1050,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-01-30T10:00:00Z',
     },
     {
-      id: 'rule-42',
+      id: 42,
       code: 'endurance',
       type: 'characteristic',
       name: 'Стойкость',
@@ -1062,7 +1062,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-01-17T10:00:00Z',
     },
     {
-      id: 'rule-43',
+      id: 43,
       code: 'attention',
       type: 'characteristic',
       name: 'Внимательность',
@@ -1074,7 +1074,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-01-17T10:00:00Z',
     },
     {
-      id: 'rule-44',
+      id: 44,
       code: 'reaction',
       type: 'characteristic',
       name: 'Реакция',
@@ -1086,7 +1086,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-01-17T10:00:00Z',
     },
     {
-      id: 'rule-45',
+      id: 45,
       code: 'perception',
       type: 'characteristic',
       name: 'Восприятие',
@@ -1098,7 +1098,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-01-17T10:00:00Z',
     },
     {
-      id: 'rule-46',
+      id: 46,
       code: 'magic',
       type: 'characteristic',
       name: 'Магия',
@@ -1110,7 +1110,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-01-17T10:00:00Z',
     },
     {
-      id: 'rule-47',
+      id: 47,
       code: 'communication',
       type: 'characteristic',
       name: 'Красноречие',
@@ -1122,7 +1122,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-01-17T10:00:00Z',
     },
     {
-      id: 'rule-48',
+      id: 48,
       code: 'willpower',
       type: 'characteristic',
       name: 'Сила воли',
@@ -1134,7 +1134,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-01-17T10:00:00Z',
     },
     {
-      id: 'rule-49',
+      id: 49,
       code: 'melee-combat',
       type: 'characteristic',
       name: 'Мастерство ближнего боя',
@@ -1146,7 +1146,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-01-17T10:00:00Z',
     },
     {
-      id: 'rule-600',
+      id: 600,
       code: 'ranged-combat',
       type: 'characteristic',
       name: 'Мастерство дальнего боя',
@@ -1158,7 +1158,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-11T10:00:00Z',
     },
     {
-      id: 'rule-50',
+      id: 50,
       code: 'qi-control',
       type: 'characteristic',
       name: 'Контроль Ци',
@@ -1170,7 +1170,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-01-17T10:00:00Z',
     },
     {
-      id: 'rule-51',
+      id: 51,
       code: 'medicine',
       type: 'characteristic',
       name: 'Медицина',
@@ -1182,7 +1182,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-01-17T10:00:00Z',
     },
     {
-      id: 'rule-174',
+      id: 174,
       code: 'fine-motor',
       type: 'characteristic',
       name: 'Мелкая моторика',
@@ -1194,7 +1194,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-09T10:00:00Z',
     },
     {
-      id: 'rule-175',
+      id: 175,
       code: 'music',
       type: 'characteristic',
       name: 'Музицирование',
@@ -1207,7 +1207,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-09T10:00:00Z',
     },
     {
-      id: 'rule-54',
+      id: 54,
       code: 'underarmor',
       type: 'source',
       name: 'Поддоспешник',
@@ -1218,7 +1218,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-01-31T10:00:00Z',
     },
     {
-      id: 'rule-55',
+      id: 55,
       code: 'health',
       type: 'resource',
       name: 'Здоровье',
@@ -1230,7 +1230,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-06T10:00:00Z',
     },
     {
-      id: 'rule-56',
+      id: 56,
       code: 'exhaustion',
       type: 'state',
       name: 'Истощение',
@@ -1248,7 +1248,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-06T10:00:00Z',
     },
     {
-      id: 'rule-565',
+      id: 565,
       code: 'accumulated-damage',
       type: 'state',
       name: 'Повреждения',
@@ -1265,7 +1265,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-29T10:00:00Z',
     },
     {
-      id: 'rule-57',
+      id: 57,
       code: 'weakness',
       type: 'state',
       name: 'Слабость',
@@ -1283,7 +1283,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-06T10:00:00Z',
     },
     {
-      id: 'rule-58',
+      id: 58,
       code: 'disabled',
       type: 'state',
       name: 'Обессилен',
@@ -1304,7 +1304,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-06T10:00:00Z',
     },
     {
-      id: 'rule-59',
+      id: 59,
       code: 'unconscious',
       type: 'state',
       name: 'Потеря сознания',
@@ -1321,7 +1321,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-06T10:00:00Z',
     },
     {
-      id: 'rule-60',
+      id: 60,
       code: 'wound',
       type: 'state',
       name: 'Рана',
@@ -1345,7 +1345,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-06T10:00:00Z',
     },
     {
-      id: 'rule-606',
+      id: 606,
       code: 'maim',
       type: 'state',
       name: 'Увечье',
@@ -1372,7 +1372,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-06T10:00:00Z',
     },
     {
-      id: 'rule-607',
+      id: 607,
       code: 'blood-loss',
       type: 'state',
       name: 'Кровопотеря',
@@ -1390,7 +1390,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-24T10:00:00Z',
     },
     {
-      id: 'rule-61',
+      id: 61,
       code: 'burning',
       type: 'state',
       name: 'Горение',
@@ -1413,7 +1413,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-06T10:00:00Z',
     },
     {
-      id: 'rule-62',
+      id: 62,
       code: 'poison-scorpion',
       type: 'poison',
       name: 'Яд скорпиона',
@@ -1432,7 +1432,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-06T10:00:00Z',
     },
     {
-      id: 'rule-63',
+      id: 63,
       code: 'stunned',
       type: 'state',
       name: 'Оглушение',
@@ -1452,7 +1452,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-06T10:00:00Z',
     },
     {
-      id: 'rule-64',
+      id: 64,
       code: 'poison-viper',
       type: 'poison',
       name: 'Яд гадюки',
@@ -1471,7 +1471,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-06T10:00:00Z',
     },
     {
-      id: 'rule-65',
+      id: 65,
       code: 'poisoning',
       type: 'state',
       name: 'Отравление',
@@ -1489,7 +1489,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-06T10:00:00Z',
     },
     {
-      id: 'rule-601',
+      id: 601,
       code: 'vladenie-oruzhiem',
       type: 'ability',
       name: 'Владение оружием ( x из 3, оружие )',
@@ -1511,7 +1511,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-11T10:00:00Z',
     },
     {
-      id: 'rule-602',
+      id: 602,
       code: 'weight',
       type: 'characteristic',
       name: 'Вес',
@@ -1529,7 +1529,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-13T10:00:00Z',
     },
     {
-      id: 'rule-603',
+      id: 603,
       code: 'dexterity_source',
       type: 'source',
       name: 'Ловкость',
@@ -1540,7 +1540,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-13T10:00:00Z',
     },
     {
-      id: 'rule-604',
+      id: 604,
       code: 'perception_source',
       type: 'source',
       name: 'Восприятие',
@@ -1551,7 +1551,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-13T10:00:00Z',
     },
     {
-      id: 'rule-605',
+      id: 605,
       code: 'strength_weight_source',
       type: 'source',
       name: 'Сила и вес',
@@ -1562,7 +1562,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-13T10:00:00Z',
     },
     {
-      id: 'rule-608',
+      id: 608,
       code: 'humanoid-body',
       type: 'ability',
       name: 'Гуманоидное тело',
@@ -1588,7 +1588,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: '2026-08-25T10:00:00Z',
     },
     {
-      id: 'rule-609',
+      id: 609,
       code: 'attractiveness',
       type: 'state',
       name: 'Привлекательность',
@@ -1640,7 +1640,7 @@ export const ruleCatalog: Rule[] = [
 
 const ruleVersions: RuleVersion[] = rules.map((r, idx) => ({
   id: idx + 1,
-  ruleId: r.id,
+  ruleId: r.id ?? 0,
   spaceId: 1,
   versionA: 1,
   versionB: 0,
@@ -1661,24 +1661,33 @@ export async function fetchRules(_spaceId: number, _signal?: AbortSignal): Promi
   return rules.map((r) => ({ ...r }));
 }
 
-export async function fetchRule(ruleId: string, _signal?: AbortSignal): Promise<Rule> {
+function findCatalogRule(code: string): Rule | undefined {
+  return ruleCatalog.find((entry) => entry.code === code);
+}
+
+export async function fetchRule(code: string, _signal?: AbortSignal): Promise<Rule> {
   await delay();
-  const rule = ruleCatalog.find((entry) => entry.id === ruleId || entry.code === ruleId);
-  if (!rule) throw new Error(`Rule ${ruleId} not found`);
+  const rule = findCatalogRule(code);
+  if (!rule) throw new Error(`Rule ${code} not found`);
 
   return { ...rule };
 }
 
-export async function fetchRuleVersions(ruleId: string, _signal?: AbortSignal): Promise<RuleVersion[]> {
+export async function fetchRuleVersions(code: string, _signal?: AbortSignal): Promise<RuleVersion[]> {
   await delay();
+  const rule = findCatalogRule(code);
+  if (!rule) return [];
 
-  return ruleVersions.filter((v) => v.ruleId === ruleId).map((v) => ({ ...v }));
+  return ruleVersions.filter((v) => v.ruleId === rule.id).map((v) => ({ ...v }));
 }
+
+let nextCatalogRuleId = Math.max(0, ...ruleCatalog.map((rule) => rule.id ?? 0));
 
 export async function createRule(spaceId: number, data: CreateRuleData, _signal?: AbortSignal): Promise<Rule> {
   await delay();
+  const id = ++nextCatalogRuleId;
   const rule: Rule = {
-    id: `rule-${rules.length + 1}`,
+    id,
     code: data.code ?? slugify(data.name),
     type: data.type,
     name: data.name,
@@ -1694,7 +1703,7 @@ export async function createRule(spaceId: number, data: CreateRuleData, _signal?
 
   ruleVersions.push({
     id: nextVersionId++,
-    ruleId: rule.id,
+    ruleId: id,
     spaceId,
     versionA: 1,
     versionB: 0,
@@ -1711,10 +1720,10 @@ export async function createRule(spaceId: number, data: CreateRuleData, _signal?
   return { ...rule };
 }
 
-export async function updateRule(ruleId: string, data: UpdateRuleData, _signal?: AbortSignal): Promise<Rule> {
+export async function updateRule(code: string, data: UpdateRuleData, _signal?: AbortSignal): Promise<Rule> {
   await delay();
-  const rule = rules.find((r) => r.id === ruleId);
-  if (!rule) throw new Error(`Rule ${ruleId} not found`);
+  const rule = rules.find((r) => r.code === code);
+  if (!rule) throw new Error(`Rule ${code} not found`);
   if (data.name !== undefined) rule.name = data.name;
   if (data.description !== undefined) rule.description = data.description;
   if (data.spec !== undefined) rule.spec = data.spec;
@@ -1725,8 +1734,8 @@ export async function updateRule(ruleId: string, data: UpdateRuleData, _signal?:
   return { ...rule };
 }
 
-export async function deleteRule(ruleId: string, _signal?: AbortSignal): Promise<void> {
+export async function deleteRule(code: string, _signal?: AbortSignal): Promise<void> {
   await delay();
-  const idx = rules.findIndex((r) => r.id === ruleId);
+  const idx = rules.findIndex((r) => r.code === code);
   if (idx !== -1) rules.splice(idx, 1);
 }

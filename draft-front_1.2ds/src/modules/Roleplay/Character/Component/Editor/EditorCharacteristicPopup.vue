@@ -18,7 +18,7 @@ const props = defineProps<{
   proficiencyLevels?: Map<string, number>;
 }>();
 
-const byId = computed(() => new Map(props.rules.map((rule) => [rule.id, rule])));
+const byCode = computed(() => new Map(props.rules.map((rule) => [rule.code, rule])));
 
 /** Чувства относятся к Внимательности: показываем блок у неё самой или у её производных. */
 const showsSenses = computed(() => {
@@ -42,8 +42,8 @@ const weaponMastery = computed(() => {
 const senses = computed(() =>
   props.senses.map((sense) => ({
     ...sense,
-    ruleId: sense.ruleId,
-    name: byId.value.get(sense.ruleId)?.name ?? sense.ruleId,
+    ruleCode: sense.ruleCode,
+    name: byCode.value.get(sense.ruleCode)?.name ?? sense.ruleCode,
     value: sense.value,
     status: sense.status,
     radius: sense.radius,
@@ -60,7 +60,7 @@ function limitLabel(limit: { base: number; size: number }): string {
 }
 
 function modifierLabel(modifier: CharacteristicModifier): string {
-  const name = byId.value.get(modifier.sourceRuleId ?? '')?.name ?? modifier.sourceLabel ?? 'источник';
+  const name = byCode.value.get(modifier.sourceRuleCode ?? '')?.name ?? modifier.sourceLabel ?? 'источник';
 
   return name;
 }
@@ -86,7 +86,7 @@ function statusLabel(status: CharacterSenseValue['status']): string {
 function baseStatView(base: EditorCharacteristic): EditorStatView {
   return {
     characteristic: base,
-    rule: byId.value.get(base.ruleId),
+    rule: byCode.value.get(base.ruleCode),
     derived: false,
     bases: [],
   };
@@ -108,7 +108,7 @@ function baseStatView(base: EditorCharacteristic): EditorStatView {
 
       <div
         v-for="(modifier, index) in stat.characteristic.modifiers"
-        :key="`${modifier.sourceRuleId}_${modifier.target}_${index}`"
+        :key="`${modifier.sourceRuleCode}_${modifier.target}_${index}`"
         class="d-flex align-center flex-wrap ga-2 py-1"
       >
         <span v-if="modifier.limit != null" class="font-weight-medium">
@@ -117,7 +117,7 @@ function baseStatView(base: EditorCharacteristic): EditorStatView {
         </span>
         <span v-else class="font-weight-medium">{{ signed(modifier.delta) }}</span>
         <span class="text-medium-emphasis">|</span>
-        <RuleLink v-if="modifier.sourceRuleId" :rule-id="modifier.sourceRuleId" class="text-body-2">
+        <RuleLink v-if="modifier.sourceRuleCode" :rule-code="modifier.sourceRuleCode" class="text-body-2">
           {{ modifierLabel(modifier) }}
         </RuleLink>
         <span v-else class="text-body-2 text-medium-emphasis">{{ modifierLabel(modifier) }}</span>
@@ -149,7 +149,7 @@ function baseStatView(base: EditorCharacteristic): EditorStatView {
         <div class="text-caption text-medium-emphasis mb-1">Чувства</div>
         <v-menu
           v-for="sense in senses"
-          :key="sense.ruleId"
+          :key="sense.ruleCode"
           location="right top"
           open-on-hover
           :close-on-content-click="false"
@@ -162,7 +162,7 @@ function baseStatView(base: EditorCharacteristic): EditorStatView {
               </span>
             </div>
           </template>
-          <SensePopup :sense="sense" :rule="byId.get(sense.ruleId)" :rules="rules" />
+          <SensePopup :sense="sense" :rule="byCode.get(sense.ruleCode)" :rules="rules" />
         </v-menu>
       </template>
 

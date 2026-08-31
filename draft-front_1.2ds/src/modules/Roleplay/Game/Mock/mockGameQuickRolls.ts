@@ -2,7 +2,7 @@ import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKe
 
 const delay = (ms = 100) => new Promise((r) => setTimeout(r, ms));
 
-// Быстрые броски (макросы) per-game: entityKey → ruleId характеристик (порядок добавления).
+// Быстрые броски (макросы) per-game: entityKey → ruleCode характеристик (порядок добавления).
 // Прототип на моке (ТР §8 «Боевая карточка»); модель допускает перенос на бэк.
 const quickRolls = new Map<number, Map<CombatEntityKey, string[]>>();
 
@@ -16,7 +16,7 @@ function storeOf(gameId: number): Map<CombatEntityKey, string[]> {
   return store;
 }
 
-/** Быстрые броски игры: ключ сущности → ruleId характеристик. */
+/** Быстрые броски игры: ключ сущности → ruleCode характеристик. */
 export async function fetchQuickRolls(
   gameId: number,
   _signal?: AbortSignal,
@@ -28,17 +28,17 @@ export async function fetchQuickRolls(
   return result;
 }
 
-/** Добавить быстрый бросок (ruleId характеристики сущности); дубликаты игнорируются. */
+/** Добавить быстрый бросок (ruleCode характеристики сущности); дубликаты игнорируются. */
 export async function addQuickRoll(
   gameId: number,
   entityKey: CombatEntityKey,
-  ruleId: string,
+  ruleCode: string,
   _signal?: AbortSignal,
 ): Promise<string[]> {
   await delay(100);
   const store = storeOf(gameId);
   const list = store.get(entityKey) ?? [];
-  if (!list.includes(ruleId)) list.push(ruleId);
+  if (!list.includes(ruleCode)) list.push(ruleCode);
   store.set(entityKey, list);
 
   return [...list];
@@ -48,12 +48,12 @@ export async function addQuickRoll(
 export async function removeQuickRoll(
   gameId: number,
   entityKey: CombatEntityKey,
-  ruleId: string,
+  ruleCode: string,
   _signal?: AbortSignal,
 ): Promise<string[]> {
   await delay(100);
   const store = storeOf(gameId);
-  const list = (store.get(entityKey) ?? []).filter((id) => id !== ruleId);
+  const list = (store.get(entityKey) ?? []).filter((id) => id !== ruleCode);
   store.set(entityKey, list);
 
   return [...list];

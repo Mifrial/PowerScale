@@ -61,7 +61,7 @@ const npcs: GameNpc[] = [
 ];
 
 function stateRule(
-  id: string,
+  id: number | null,
   code: string,
   name: string,
   valueType: StateValueType,
@@ -83,11 +83,11 @@ function stateRule(
 }
 
 const STATE_RULES: Rule[] = [
-  stateRule('rule-56', 'exhaustion', 'Истощение', 'number', 'sum'),
-  stateRule('rule-60', 'wound', 'Рана', 'number', 'independent'),
-  stateRule('rule-61', 'burning', 'Горение', 'dimensional', 'sum'),
-  stateRule('rule-63', 'stunned', 'Оглушение', 'number', 'sum'),
-  stateRule('rule-65', 'poisoning', 'Отравление', 'flag', 'independent'),
+  stateRule(56, 'exhaustion', 'Истощение', 'number', 'sum'),
+  stateRule(60, 'wound', 'Рана', 'number', 'independent'),
+  stateRule(61, 'burning', 'Горение', 'dimensional', 'sum'),
+  stateRule(63, 'stunned', 'Оглушение', 'number', 'sum'),
+  stateRule(65, 'poisoning', 'Отравление', 'flag', 'independent'),
 ];
 
 describe('combatCardModel: резолюция entity', () => {
@@ -123,7 +123,7 @@ describe('combatCardModel: права (CD-6)', () => {
 
 describe('combatActionPoints', () => {
   it('читает текущие ОД и лимит с ресурса action-points', () => {
-    const rules = [{ id: 'rule-18', code: 'action-points', type: 'resource' }] as Rule[];
+    const rules = [{ id: 18, code: 'action-points', type: 'resource' }] as Rule[];
     expect(combatCardModelService.combatActionPoints(versions[1], rules)).toEqual({ current: 4, max: 4 });
   });
 });
@@ -134,15 +134,15 @@ describe('combatCardModel: версия + оверлей', () => {
       gameId: 2,
       entityKey: 'character:1',
       kind: 'character',
-      resources: [{ ruleId: 'rule-18', current: { base: 1, size: 0 } }],
-      states: [{ stateRuleId: 'rule-56', value: 5 }],
+      resources: [{ ruleCode: 'action-points', current: { base: 1, size: 0 } }],
+      states: [{ stateRuleCode: 'exhaustion', value: 5 }],
       updatedAt: '2026-08-19T12:00:00',
     });
     expect(model.kind).toBe('character');
     expect(model.entityId).toBe(1);
     expect(model.name).toBe('Торвин');
     expect(model.canEdit).toBe(true);
-    expect(model.effectiveVersion?.states).toEqual([{ stateRuleId: 'rule-56', value: 5 }]);
+    expect(model.effectiveVersion?.states).toEqual([{ stateRuleCode: 'exhaustion', value: 5 }]);
   });
 
   it('пустая запись оверлея (updatedAt === "") — версия как есть', () => {
@@ -169,18 +169,20 @@ describe('combatCardModel: версия + оверлей', () => {
   it('ресурсы оверлея видны поверх overlay.sheet (списание ОД после правки экипировки)', () => {
     const sheet = JSON.parse(JSON.stringify(versions[1])) as (typeof versions)[1];
     sheet.resources = sheet.resources.map((resource) =>
-      resource.ruleId === 'rule-18' ? { ...resource, current: { base: 3, size: 0 } } : resource,
+      resource.ruleCode === 'action-points' ? { ...resource, current: { base: 3, size: 0 } } : resource,
     );
     const model = combatCardModelService.combatCardModel('character:1', memberships, npcs, true, 1, {
       gameId: 2,
       entityKey: 'character:1',
       kind: 'character',
       sheet,
-      resources: [{ ruleId: 'rule-18', current: { base: 1, size: 0 } }],
+      resources: [{ ruleCode: 'action-points', current: { base: 1, size: 0 } }],
       states: sheet.states,
       updatedAt: '2026-08-23T12:00:00',
     });
-    expect(model.effectiveVersion?.resources.find((resource) => resource.ruleId === 'rule-18')?.current).toEqual({
+    expect(
+      model.effectiveVersion?.resources.find((resource) => resource.ruleCode === 'action-points')?.current,
+    ).toEqual({
       base: 1,
       size: 0,
     });
@@ -189,22 +191,24 @@ describe('combatCardModel: версия + оверлей', () => {
 
 describe('resolveQuickRollRecords (CD-8)', () => {
   const records = [
-    { ruleId: 'rule-1', name: 'Сила', value: { base: 4, size: 0 }, valueLabel: '4' },
-    { ruleId: 'rule-2', name: 'Ловкость', value: { base: 2, size: 0 }, valueLabel: '2' },
+    { ruleCode: 'rule-6-and-1', name: 'Сила', value: { base: 4, size: 0 }, valueLabel: '4' },
+    { ruleCode: 'advantages', name: 'Ловкость', value: { base: 2, size: 0 }, valueLabel: '2' },
   ];
 
-  it('сохраняет порядок записей и резолвит по ruleId', () => {
-    expect(
-      combatCardModelService.resolveQuickRollRecords(['rule-2', 'rule-1'], records).map((item) => item.ruleId),
-    ).toEqual(['rule-2', 'rule-1']);
-  });
-
-  it('отбрасывает неизвестные ruleId (не характеристика ревизии)', () => {
+  it('сохраняет порядок записей и резолвит по ruleCode', () => {
     expect(
       combatCardModelService
-        .resolveQuickRollRecords(['rule-2', 'rule-99', 'rule-1'], records)
-        .map((item) => item.ruleId),
-    ).toEqual(['rule-2', 'rule-1']);
+        .resolveQuickRollRecords(['advantages', 'rule-6-and-1'], records)
+        .map((item) => item.ruleCode),
+    ).toEqual(['advantages', 'rule-6-and-1']);
+  });
+
+  it('отбрасывает неизвестные ruleCode (не характеристика ревизии)', () => {
+    expect(
+      combatCardModelService
+        .resolveQuickRollRecords(['advantages', 'rule-99', 'rule-6-and-1'], records)
+        .map((item) => item.ruleCode),
+    ).toEqual(['advantages', 'rule-6-and-1']);
   });
 
   it('пустой список — пустой результат', () => {
@@ -214,14 +218,14 @@ describe('resolveQuickRollRecords (CD-8)', () => {
 
 describe('quickRollRecords (CD-8): кандидаты включают боевые характеристики', () => {
   const characteristic = (
-    ruleId: string,
+    ruleCode: string,
     name: string,
     shortName: string | null,
     value: number,
   ): CharacterOverview => ({
     characteristics: [
       {
-        ruleId,
+        ruleCode,
         name,
         shortName,
         base: { base: value, size: 0 },
@@ -254,7 +258,7 @@ describe('quickRollRecords (CD-8): кандидаты включают боев�
       combat: {
         melee: {
           stat: {
-            ruleId: 'rule-melee',
+            ruleCode: 'rule-melee',
             name: 'Ближний бой',
             shortName: null,
             base: { base: 3, size: 0 },
@@ -272,7 +276,7 @@ describe('quickRollRecords (CD-8): кандидаты включают боев�
           },
           weapons: [
             {
-              ruleId: 'combat:melee:Меч',
+              ruleCode: 'combat:melee:Меч',
               name: 'Меч',
               shortName: 'Меч',
               base: { base: 2, size: 0 },
@@ -292,7 +296,7 @@ describe('quickRollRecords (CD-8): кандидаты включают боев�
         },
         ranged: {
           stat: {
-            ruleId: 'rule-ranged',
+            ruleCode: 'rule-ranged',
             name: 'Дальний бой',
             shortName: null,
             base: { base: 2, size: 0 },
@@ -310,7 +314,7 @@ describe('quickRollRecords (CD-8): кандидаты включают боев�
           },
           weapons: [
             {
-              ruleId: 'combat:ranged:Кинжал',
+              ruleCode: 'combat:ranged:Кинжал',
               name: 'Кинжал',
               shortName: 'Кинжал',
               base: { base: 1, size: 0 },
@@ -332,7 +336,7 @@ describe('quickRollRecords (CD-8): кандидаты включают боев�
     };
 
     const records = combatCardModelService.quickRollRecords(overview);
-    expect(records.map((record) => record.ruleId)).toEqual([
+    expect(records.map((record) => record.ruleCode)).toEqual([
       'rule-1',
       'rule-melee',
       'combat:melee:Меч',
@@ -364,7 +368,7 @@ describe('combatStateRows', () => {
   });
 
   it('неизвестное правило — фолбэк-строка', () => {
-    const rows = combatCardModelService.combatStateRows([{ stateRuleId: 'rule-unknown', value: 2 }], STATE_RULES);
+    const rows = combatCardModelService.combatStateRows([{ stateRuleCode: 'rule-unknown', value: 2 }], STATE_RULES);
     expect(rows[0].name).toBe('rule-unknown');
     expect(rows[0].valueType).toBe('flag');
     expect(rows[0].summary).toBeNull();
@@ -376,9 +380,9 @@ describe('combatExhaustion', () => {
     expect(
       combatCardModelService.combatExhaustion(
         [
-          { stateRuleId: 'rule-56', value: 2 },
-          { stateRuleId: 'rule-56', value: 1 },
-          { stateRuleId: 'rule-60', value: 4 },
+          { stateRuleCode: 'exhaustion', value: 2 },
+          { stateRuleCode: 'exhaustion', value: 1 },
+          { stateRuleCode: 'wound', value: 4 },
         ],
         STATE_RULES,
       ),
@@ -386,30 +390,34 @@ describe('combatExhaustion', () => {
   });
 
   it('null при отсутствии правила истощения в ревизии', () => {
-    const rules = [stateRule('rule-60', 'wound', 'Рана', 'number', 'independent')];
-    expect(combatCardModelService.combatExhaustion([{ stateRuleId: 'rule-56', value: 2 }], rules)).toBeNull();
+    const rules = [stateRule(60, 'wound', 'Рана', 'number', 'independent')];
+    expect(combatCardModelService.combatExhaustion([{ stateRuleCode: 'exhaustion', value: 2 }], rules)).toBeNull();
   });
 
   it('null при отсутствии записей истощения', () => {
-    expect(combatCardModelService.combatExhaustion([{ stateRuleId: 'rule-60', value: 4 }], STATE_RULES)).toBeNull();
+    expect(combatCardModelService.combatExhaustion([{ stateRuleCode: 'wound', value: 4 }], STATE_RULES)).toBeNull();
   });
 
   it('null при нулевом/отрицательном итоге (нет истощения)', () => {
-    expect(combatCardModelService.combatExhaustion([{ stateRuleId: 'rule-56', value: 0 }], STATE_RULES)).toBeNull();
-    expect(combatCardModelService.combatExhaustion([{ stateRuleId: 'rule-56', value: -1 }], STATE_RULES)).toBeNull();
+    expect(
+      combatCardModelService.combatExhaustion([{ stateRuleCode: 'exhaustion', value: 0 }], STATE_RULES),
+    ).toBeNull();
+    expect(
+      combatCardModelService.combatExhaustion([{ stateRuleCode: 'exhaustion', value: -1 }], STATE_RULES),
+    ).toBeNull();
   });
 });
 
 describe('combatMaim', () => {
-  const maimRules = [...STATE_RULES, stateRule('rule-606', 'maim', 'Увечье', 'number', 'independent')];
+  const maimRules = [...STATE_RULES, stateRule(606, 'maim', 'Увечье', 'number', 'independent')];
 
   it('суммирует силу всех записей увечья', () => {
     expect(
       combatCardModelService.combatMaim(
         [
-          { stateRuleId: 'rule-606', value: 2 },
-          { stateRuleId: 'rule-606', value: 1 },
-          { stateRuleId: 'rule-56', value: 4 },
+          { stateRuleCode: 'maim', value: 2 },
+          { stateRuleCode: 'maim', value: 1 },
+          { stateRuleCode: 'exhaustion', value: 4 },
         ],
         maimRules,
       ),
@@ -417,12 +425,12 @@ describe('combatMaim', () => {
   });
 
   it('null при отсутствии правила увечья в ревизии', () => {
-    expect(combatCardModelService.combatMaim([{ stateRuleId: 'rule-606', value: 2 }], STATE_RULES)).toBeNull();
+    expect(combatCardModelService.combatMaim([{ stateRuleCode: 'maim', value: 2 }], STATE_RULES)).toBeNull();
   });
 
   it('null при отсутствии записей или нулевом итоге', () => {
-    expect(combatCardModelService.combatMaim([{ stateRuleId: 'rule-56', value: 4 }], maimRules)).toBeNull();
-    expect(combatCardModelService.combatMaim([{ stateRuleId: 'rule-606', value: 0 }], maimRules)).toBeNull();
+    expect(combatCardModelService.combatMaim([{ stateRuleCode: 'exhaustion', value: 4 }], maimRules)).toBeNull();
+    expect(combatCardModelService.combatMaim([{ stateRuleCode: 'maim', value: 0 }], maimRules)).toBeNull();
   });
 });
 
@@ -430,7 +438,7 @@ describe('maimTotalDurationLabel', () => {
   it('полный срок = интервал −1 × сила', () => {
     expect(
       combatCardModelService.maimTotalDurationLabel({
-        stateRuleId: 'rule-606',
+        stateRuleCode: 'maim',
         value: 2,
         maim: { permanent: false, healTotal: 4, healUnit: 'days' },
       }),
@@ -440,7 +448,7 @@ describe('maimTotalDurationLabel', () => {
   it('постоянное — пост.', () => {
     expect(
       combatCardModelService.maimTotalDurationLabel({
-        stateRuleId: 'rule-606',
+        stateRuleCode: 'maim',
         value: 3,
         maim: { permanent: true },
       }),
@@ -456,7 +464,7 @@ describe('combatStatePicker', () => {
   it('defaultStateEntry — значение по умолчанию по типу', () => {
     expect(
       combatCardModelService.defaultStateEntry({
-        ruleId: 'r',
+        ruleCode: 'r',
         code: 'wound',
         name: 'Рана',
         iconCode: null,
@@ -466,7 +474,7 @@ describe('combatStatePicker', () => {
     ).toEqual({ value: 1 });
     expect(
       combatCardModelService.defaultStateEntry({
-        ruleId: 'r',
+        ruleCode: 'r',
         code: 'burning',
         name: 'Горение',
         iconCode: null,
@@ -476,18 +484,18 @@ describe('combatStatePicker', () => {
     ).toEqual({ dimensionalValue: { base: 1, size: 0 } });
     expect(
       combatCardModelService.defaultStateEntry({
-        ruleId: 'r',
+        ruleCode: 'r',
         code: 'poisoning',
         name: 'Отравление',
         iconCode: null,
         valueType: 'flag',
         aggregation: 'independent',
       }),
-    ).toEqual({ poison: { poisonRuleId: null, strength: { base: 1, size: 0 } } });
+    ).toEqual({ poison: { poisonRuleCode: null, strength: { base: 1, size: 0 } } });
     expect(
       combatCardModelService.defaultStateEntry(
         {
-          ruleId: 'r',
+          ruleCode: 'r',
           code: 'poisoning',
           name: 'Отравление',
           iconCode: null,
@@ -496,7 +504,7 @@ describe('combatStatePicker', () => {
         },
         [
           {
-            id: 'rule-scorpion',
+            id: null,
             code: 'poison-scorpion',
             type: 'poison',
             name: 'Яд скорпиона',
@@ -514,7 +522,7 @@ describe('combatStatePicker', () => {
         ],
       ),
     ).toMatchObject({
-      poison: { poisonRuleId: 'rule-scorpion', damage_type_code: 'poison-1', strength: { base: 3, size: 1 } },
+      poison: { poisonRuleCode: 'poison-scorpion', damage_type_code: 'poison-1', strength: { base: 3, size: 1 } },
     });
   });
 });

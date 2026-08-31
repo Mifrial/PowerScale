@@ -3,6 +3,27 @@ import { ref } from 'vue';
 import type { CharacterAttackFavorite } from '@/modules/Roleplay/Character/Dto/CharacterAttackFavorite';
 import { ATTACK_FAVORITES_STORAGE_KEY } from '@/modules/Roleplay/Character/Constant/attackFavoritesConfig';
 
+function favoriteFromUnknown(entry: unknown): CharacterAttackFavorite | null {
+  if (typeof entry !== 'object' || entry === null) return null;
+  const record = entry as Record<string, unknown>;
+  const itemRuleCode = typeof record.itemRuleCode === 'string' ? record.itemRuleCode : null;
+  if (
+    typeof record.entityKey !== 'string' ||
+    itemRuleCode === null ||
+    (record.profileType !== 'strike' && record.profileType !== 'throw' && record.profileType !== 'shoot') ||
+    typeof record.profileIndex !== 'number'
+  ) {
+    return null;
+  }
+
+  return {
+    entityKey: record.entityKey,
+    itemRuleCode,
+    profileType: record.profileType,
+    profileIndex: record.profileIndex,
+  };
+}
+
 function load(): CharacterAttackFavorite[] {
   try {
     const raw = localStorage.getItem(ATTACK_FAVORITES_STORAGE_KEY);
@@ -10,15 +31,11 @@ function load(): CharacterAttackFavorite[] {
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
 
-    return parsed.filter(
-      (entry): entry is CharacterAttackFavorite =>
-        typeof entry === 'object' &&
-        entry !== null &&
-        typeof entry.entityKey === 'string' &&
-        typeof entry.itemRuleId === 'string' &&
-        (entry.profileType === 'strike' || entry.profileType === 'throw' || entry.profileType === 'shoot') &&
-        typeof entry.profileIndex === 'number',
-    );
+    return parsed.flatMap((entry) => {
+      const favorite = favoriteFromUnknown(entry);
+
+      return favorite ? [favorite] : [];
+    });
   } catch {
     return [];
   }
@@ -37,8 +54,8 @@ function persist(entries: CharacterAttackFavorite[]): void {
   }
 }
 
-function profileKey(profile: Pick<CharacterAttackFavorite, 'itemRuleId' | 'profileType' | 'profileIndex'>): string {
-  return `${profile.itemRuleId}:${profile.profileType}:${profile.profileIndex}`;
+function profileKey(profile: Pick<CharacterAttackFavorite, 'itemRuleCode' | 'profileType' | 'profileIndex'>): string {
+  return `${profile.itemRuleCode}:${profile.profileType}:${profile.profileIndex}`;
 }
 
 export const useAttackFavoritesStore = defineStore('attackFavorites', () => {
@@ -50,7 +67,7 @@ export const useAttackFavoritesStore = defineStore('attackFavorites', () => {
 
   function isFavorite(
     entityKey: string,
-    profile: Pick<CharacterAttackFavorite, 'itemRuleId' | 'profileType' | 'profileIndex'>,
+    profile: Pick<CharacterAttackFavorite, 'itemRuleCode' | 'profileType' | 'profileIndex'>,
   ): boolean {
     const favorite = favoriteOf(entityKey);
 
@@ -59,7 +76,7 @@ export const useAttackFavoritesStore = defineStore('attackFavorites', () => {
 
   function setFavorite(
     entityKey: string,
-    profile: Pick<CharacterAttackFavorite, 'itemRuleId' | 'profileType' | 'profileIndex'>,
+    profile: Pick<CharacterAttackFavorite, 'itemRuleCode' | 'profileType' | 'profileIndex'>,
   ): void {
     const next = [...entries.value.filter((entry) => entry.entityKey !== entityKey), { entityKey, ...profile }];
     entries.value = next;

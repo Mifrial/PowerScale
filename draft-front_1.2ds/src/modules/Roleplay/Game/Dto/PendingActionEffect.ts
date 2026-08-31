@@ -2,6 +2,6 @@ import type { ActionEffect } from '@/modules/Roleplay/Rule/Dto/Ability/ActionEff
 
 /** Временный эффект, который действует между действиями в рамках боевой сессии. */
 export interface PendingActionEffect {
-  sourceRuleId: string;
+  sourceRuleCode: string;
   effect: ActionEffect;
 }

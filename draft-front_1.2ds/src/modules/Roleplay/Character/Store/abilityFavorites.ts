@@ -15,8 +15,8 @@ function load(): CharacterAbilityFavorites[] {
         typeof entry === 'object' &&
         entry !== null &&
         typeof entry.characterId === 'number' &&
-        Array.isArray(entry.ruleIds) &&
-        entry.ruleIds.every((id: unknown) => typeof id === 'string'),
+        Array.isArray(entry.ruleCodes) &&
+        entry.ruleCodes.every((id: unknown) => typeof id === 'string'),
     );
   } catch {
     return [];
@@ -43,23 +43,23 @@ export const useAbilityFavoritesStore = defineStore('abilityFavorites', () => {
     return entries.value.find((entry) => entry.characterId === characterId);
   }
 
-  function isFavorite(characterId: number, ruleId: string): boolean {
-    return entryOf(characterId)?.ruleIds.includes(ruleId) ?? false;
+  function isFavorite(characterId: number, ruleCode: string): boolean {
+    return entryOf(characterId)?.ruleCodes.includes(ruleCode) ?? false;
   }
 
   /** Переключает избранность способности; возвращает true, если теперь она избранная. */
-  function toggle(characterId: number, ruleId: string): boolean {
+  function toggle(characterId: number, ruleCode: string): boolean {
     let entry = entryOf(characterId);
     if (!entry) {
-      entry = { characterId, ruleIds: [] };
+      entry = { characterId, ruleCodes: [] };
       entries.value.push(entry);
     }
 
-    const index = entry.ruleIds.indexOf(ruleId);
+    const index = entry.ruleCodes.indexOf(ruleCode);
     if (index === -1) {
-      entry.ruleIds.push(ruleId);
+      entry.ruleCodes.push(ruleCode);
     } else {
-      entry.ruleIds.splice(index, 1);
+      entry.ruleCodes.splice(index, 1);
     }
     persist(entries.value);
 

@@ -3,7 +3,7 @@ import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/Dimension
 
 /** Характеристика в модели редактора: база (раса/покупка/дары) + модификаторы способностей. */
 export interface EditorCharacteristic {
-  ruleId: string;
+  ruleCode: string;
   code: string;
   name: string;
   /** База из расы/покупки (без модификаторов). */

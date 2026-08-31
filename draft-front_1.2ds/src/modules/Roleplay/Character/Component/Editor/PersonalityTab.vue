@@ -49,7 +49,7 @@ const chosenAbilities = computed(() => olAbilities.value.filter((ability) => abi
 
 /** Взятые особенности без богатства — считаются против лимита числа особенностей. */
 const takenNonWealth = computed(() =>
-  chosenAbilities.value.filter((ability) => !wealthRuleIds.value.has(ability.ruleId)),
+  chosenAbilities.value.filter((ability) => !wealthRuleIds.value.has(ability.ruleCode)),
 );
 
 const featureLimitReached = computed(
@@ -62,24 +62,24 @@ function chosenInGroup(group: EditorAbilityGroup): number {
 }
 
 /** Заблокированные правила: исчерпанная группа N>1, лимит числа особенностей, богатство при edit. */
-const lockedRuleIds = computed<Set<string>>(() => {
+const lockedRuleCodes = computed<Set<string>>(() => {
   const locked = new Set<string>();
   for (const group of props.model.groups) {
     if (group.selectLimit <= 1) continue;
     if (chosenInGroup(group) >= group.selectLimit) {
       for (const member of group.members) {
-        if (member.level === 0 && !member.automatic) locked.add(member.ruleId);
+        if (member.level === 0 && !member.automatic) locked.add(member.ruleCode);
       }
     }
   }
   if (featureLimitReached.value) {
     for (const ability of olAbilities.value) {
       if (ability.level > 0 || ability.automatic) continue;
-      if (!wealthRuleIds.value.has(ability.ruleId)) locked.add(ability.ruleId);
+      if (!wealthRuleIds.value.has(ability.ruleCode)) locked.add(ability.ruleCode);
     }
   }
   if (props.draftKey !== null) {
-    for (const ruleId of wealthRuleIds.value) locked.add(ruleId);
+    for (const ruleCode of wealthRuleIds.value) locked.add(ruleCode);
   }
 
   return locked;
@@ -109,10 +109,10 @@ const allAbilities = computed(() => {
 
 /** Верхний уровень каталога: секции-группы (с отфильтрованными участниками) и одиночные. */
 const catalogItems = computed<CatalogItem[]>(() => {
-  const visibleIds = new Set(allAbilities.value.map((ability) => ability.ruleId));
+  const visibleIds = new Set(allAbilities.value.map((ability) => ability.ruleCode));
   const items: CatalogItem[] = [];
   for (const group of props.model.groups) {
-    const members = group.members.filter((member) => visibleIds.has(member.ruleId));
+    const members = group.members.filter((member) => visibleIds.has(member.ruleCode));
     if (members.length) items.push({ kind: 'group', group, members });
   }
   for (const ability of allAbilities.value) {
@@ -133,7 +133,7 @@ const autoOpenSet = computed(() => {
   for (const ability of allAbilities.value) {
     if (!ability.groupCode) continue;
     const group = props.model.groups.find((entry) => entry.code === ability.groupCode);
-    if (group) result.add(group.ruleId);
+    if (group) result.add(group.ruleCode);
   }
 
   return result;
@@ -161,17 +161,17 @@ function rangeLabel(step: { name: string; min: number; max: number | null }): st
   return `от ${step.min} до ${step.max}`;
 }
 
-function setOpen(ruleId: string, open: boolean): void {
-  if (open) openSet.value.add(ruleId);
-  else openSet.value.delete(ruleId);
+function setOpen(ruleCode: string, open: boolean): void {
+  if (open) openSet.value.add(ruleCode);
+  else openSet.value.delete(ruleCode);
 }
 
 function itemKey(item: CatalogItem): string {
-  return item.kind === 'group' ? item.group.ruleId : item.ability.ruleId;
+  return item.kind === 'group' ? item.group.ruleCode : item.ability.ruleCode;
 }
 
-function setLevel(ruleId: string, level: number): void {
-  const next = characterBuildService.setAbilityLevel(props.build, ruleId, level, props.rules, {
+function setLevel(ruleCode: string, level: number): void {
+  const next = characterBuildService.setAbilityLevel(props.build, ruleCode, level, props.rules, {
     zone: 'ol',
     featureLimit: personality.value.featureLimit,
     wealthLocked: props.draftKey !== null,
@@ -180,25 +180,25 @@ function setLevel(ruleId: string, level: number): void {
   draftStore.patchBuild(props.draftKey, { abilities: next.abilities });
 }
 
-function addInstance(ruleId: string, domain: string, domainCode: string | null): void {
-  const next = characterBuildService.addAbilityInstance(props.build, ruleId, domain, props.rules, {
+function addInstance(ruleCode: string, domain: string, domainCode: string | null): void {
+  const next = characterBuildService.addAbilityInstance(props.build, ruleCode, domain, props.rules, {
     zone: 'ol',
     domainCode,
   });
   draftStore.patchBuild(props.draftKey, { abilities: next.abilities });
 }
 
-function setInstanceLevel(ruleId: string, domain: string, level: number): void {
-  const next = characterBuildService.setAbilityInstanceLevel(props.build, ruleId, domain, level, props.rules, {
+function setInstanceLevel(ruleCode: string, domain: string, level: number): void {
+  const next = characterBuildService.setAbilityInstanceLevel(props.build, ruleCode, domain, level, props.rules, {
     zone: 'ol',
   });
   draftStore.patchBuild(props.draftKey, { abilities: next.abilities });
 }
 
-function setInstanceDomain(ruleId: string, oldDomain: string, newDomain: string, domainCode: string | null): void {
+function setInstanceDomain(ruleCode: string, oldDomain: string, newDomain: string, domainCode: string | null): void {
   const next = characterBuildService.setAbilityInstanceDomain(
     props.build,
-    ruleId,
+    ruleCode,
     oldDomain,
     newDomain,
     {
@@ -209,20 +209,20 @@ function setInstanceDomain(ruleId: string, oldDomain: string, newDomain: string,
   draftStore.patchBuild(props.draftKey, { abilities: next.abilities });
 }
 
-function removeInstance(ruleId: string, domain: string): void {
-  const next = characterBuildService.removeAbilityInstance(props.build, ruleId, domain, props.rules);
+function removeInstance(ruleCode: string, domain: string): void {
+  const next = characterBuildService.removeAbilityInstance(props.build, ruleCode, domain, props.rules);
   draftStore.patchBuild(props.draftKey, { abilities: next.abilities });
 }
 
-function setAbilityDomain(ruleId: string, domain: string, domainCode: string | null): void {
-  const next = characterBuildService.setAbilityDomain(props.build, ruleId, domain, { domainCode });
+function setAbilityDomain(ruleCode: string, domain: string, domainCode: string | null): void {
+  const next = characterBuildService.setAbilityDomain(props.build, ruleCode, domain, { domainCode });
   draftStore.patchBuild(props.draftKey, { abilities: next.abilities });
 }
 </script>
 
 <template>
   <div>
-    <div v-if="!model.race.ruleId" class="text-medium-emphasis pa-4">
+    <div v-if="!model.race.ruleCode" class="text-medium-emphasis pa-4">
       Сначала выберите расу — возраст и особенности личности зависят от вида.
     </div>
     <div v-else-if="!personality.hasAgeRule" class="text-medium-emphasis pa-4">
@@ -306,7 +306,7 @@ function setAbilityDomain(ruleId: string, domain: string, domainCode: string | n
             :members="item.members"
             :keywords="keywords"
             :rules="rules"
-            :locked-rule-ids="lockedRuleIds"
+            :locked-rule-codes="lockedRuleCodes"
             zone-code="ol"
             zone-label="ОЛ"
             :open-set="effectiveOpenSet"
@@ -323,11 +323,11 @@ function setAbilityDomain(ruleId: string, domain: string, domainCode: string | n
             :ability="item.ability"
             :keywords="keywords"
             :rules="rules"
-            :locked-rule-ids="lockedRuleIds"
+            :locked-rule-codes="lockedRuleCodes"
             zone-code="ol"
             zone-label="ОЛ"
-            :open="effectiveOpenSet.has(item.ability.ruleId)"
-            @update:open="setOpen(item.ability.ruleId, $event)"
+            :open="effectiveOpenSet.has(item.ability.ruleCode)"
+            @update:open="setOpen(item.ability.ruleCode, $event)"
             @set-level="setLevel"
             @add-instance="addInstance"
             @set-instance-level="setInstanceLevel"

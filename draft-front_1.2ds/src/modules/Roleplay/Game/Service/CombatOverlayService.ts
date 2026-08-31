@@ -10,7 +10,7 @@ export class CombatOverlayService {
    */
   mergeCombatOverlay(version: CharacterVersion, overlay: GameCombatOverlay): CharacterVersion {
     const resources = version.resources.map((resource) => {
-      const override = overlay.resources.find((item) => item.ruleId === resource.ruleId);
+      const override = overlay.resources.find((item) => item.ruleCode === resource.ruleCode);
       const limit = Math.max(0, resourceLimitBase(resource));
       const sourceBase = override?.current.base ?? resource.current.base;
       const clamped = Math.max(0, Math.min(limit, sourceBase));

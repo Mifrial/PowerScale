@@ -77,7 +77,7 @@ function overlayFromNpcVersion(
   version: CharacterVersion,
 ): GameCombatOverlay {
   const overlay = ensureOverlay(gameId, entityKey, version);
-  overlay.resources = version.resources.map((item) => ({ ruleId: item.ruleId, current: { ...item.current } }));
+  overlay.resources = version.resources.map((item) => ({ ruleCode: item.ruleCode, current: { ...item.current } }));
   overlay.states = version.states.map((state) => ({ ...state }));
   overlay.updatedAt = new Date().toISOString();
 
@@ -192,14 +192,14 @@ export async function fetchCombatOverlays(gameId: number, _signal?: AbortSignal)
 export async function setCombatResource(
   gameId: number,
   entityKey: CombatEntityKey,
-  ruleId: string,
+  ruleCode: string,
   current: DimensionalNumberValue,
   _signal?: AbortSignal,
 ): Promise<GameCombatOverlay> {
   await delay(150);
   const version = entityVersion(gameId, entityKey);
   if (!version) throw new Error('Лист участника не заполнен');
-  const resource = version.resources.find((item) => item.ruleId === ruleId);
+  const resource = version.resources.find((item) => item.ruleCode === ruleCode);
   if (!resource) throw new Error('Ресурс не найден в листе участника');
   const clamped = Math.max(0, Math.min(resourceLimitBase(resource), current.base));
 
@@ -207,7 +207,7 @@ export async function setCombatResource(
   if (npc) {
     if (!npc.version) throw new Error('Лист НПС не заполнен');
     npc.version.resources = npc.version.resources.map((item) =>
-      item.ruleId === ruleId
+      item.ruleCode === ruleCode
         ? {
             ...item,
             current: { base: Math.max(0, Math.min(resourceLimitBase(item), current.base)), size: item.current.size },
@@ -220,8 +220,8 @@ export async function setCombatResource(
   }
 
   const overlay = ensureOverlay(gameId, entityKey, version);
-  const index = overlay.resources.findIndex((item) => item.ruleId === ruleId);
-  const override = { ruleId, current: { base: clamped, size: resource.current.size } };
+  const index = overlay.resources.findIndex((item) => item.ruleCode === ruleCode);
+  const override = { ruleCode, current: { base: clamped, size: resource.current.size } };
   if (index >= 0) overlay.resources[index] = override;
   else overlay.resources.push(override);
   overlay.updatedAt = new Date().toISOString();

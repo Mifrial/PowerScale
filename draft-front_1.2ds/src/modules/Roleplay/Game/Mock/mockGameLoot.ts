@@ -30,7 +30,7 @@ function ensureNpcVersion(npc: GameNpc): CharacterVersion {
     fullDescription: npc.fullDescription,
     spaceCode: game?.spaceCode ?? '',
     rulesRevision: game?.rulesRevision ?? 1,
-    raceRuleId: null,
+    raceRuleCode: null,
     characteristics: [],
     resources: [],
     abilities: [],
@@ -46,13 +46,13 @@ function ensureNpcVersion(npc: GameNpc): CharacterVersion {
 }
 
 // Добыча игр (ТР §8 «Добыча»). Инварианты: gameId — из mockGames, интересы — участники игры,
-// получатели раздачи — участники игры / НПС игры / «вникуда»; itemRuleId — предмет ревизии.
+// получатели раздачи — участники игры / НПС игры / «вникуда»; itemRuleCode — предмет ревизии.
 export const gameLoot: GameLoot[] = [
   {
     id: 1,
     gameId: 1,
     group: 'Тролльи холмы',
-    itemRuleId: 'rule-400',
+    itemRuleCode: 'boevoy-posokh',
     quantity: 1,
     moneyAmount: null,
     notes: 'Боевой посох из логова вождей.',
@@ -66,7 +66,7 @@ export const gameLoot: GameLoot[] = [
     id: 2,
     gameId: 1,
     group: 'Тролльи холмы',
-    itemRuleId: 'rule-402',
+    itemRuleCode: 'kusarigama',
     quantity: 2,
     moneyAmount: null,
     notes: null,
@@ -80,7 +80,7 @@ export const gameLoot: GameLoot[] = [
     id: 3,
     gameId: 1,
     group: 'Тролльи холмы',
-    itemRuleId: null,
+    itemRuleCode: null,
     quantity: 0,
     moneyAmount: 100,
     notes: 'Казна набега.',
@@ -94,7 +94,7 @@ export const gameLoot: GameLoot[] = [
     id: 4,
     gameId: 1,
     group: 'Сундук короля',
-    itemRuleId: 'rule-401',
+    itemRuleCode: 'tekko-kagi',
     quantity: 1,
     moneyAmount: null,
     notes: null,
@@ -108,7 +108,7 @@ export const gameLoot: GameLoot[] = [
     id: 5,
     gameId: 1,
     group: 'Сундук короля',
-    itemRuleId: null,
+    itemRuleCode: null,
     quantity: 0,
     moneyAmount: 500,
     notes: 'Выкуп за заложников.',
@@ -122,7 +122,7 @@ export const gameLoot: GameLoot[] = [
     id: 6,
     gameId: 2,
     group: null,
-    itemRuleId: 'rule-400',
+    itemRuleCode: 'boevoy-posokh',
     quantity: 1,
     moneyAmount: null,
     notes: 'Награда за курсовую работу.',
@@ -143,7 +143,7 @@ export async function fetchLoot(gameId: number, _signal?: AbortSignal): Promise<
 }
 
 function assertCreateData(data: CreateLootData): void {
-  const hasItem = data.itemRuleId !== null;
+  const hasItem = data.itemRuleCode !== null;
   const hasMoney = data.moneyAmount !== null;
   if (hasItem === hasMoney) throw new Error('Лут должен быть предметом или деньгами (не оба сразу)');
   if (hasItem && (!Number.isInteger(data.quantity) || data.quantity < 1))
@@ -158,8 +158,8 @@ function buildLoot(gameId: number, data: CreateLootData): GameLoot {
     id: nextLootId++,
     gameId,
     group: data.group,
-    itemRuleId: data.itemRuleId,
-    quantity: data.itemRuleId !== null ? data.quantity : 0,
+    itemRuleCode: data.itemRuleCode,
+    quantity: data.itemRuleCode !== null ? data.quantity : 0,
     moneyAmount: data.moneyAmount,
     notes: data.notes,
     status: 'prepared',
@@ -265,7 +265,7 @@ export async function distributeLoot(
     return { type: 'nowhere', amount: entry.amount ?? null };
   });
 
-  if (loot.itemRuleId !== null) {
+  if (loot.itemRuleCode !== null) {
     if (resolved.length !== 1) throw new Error('Предмет раздаётся одному получателю');
   } else if (loot.moneyAmount !== null) {
     const total = resolved.reduce((sum, entry) => sum + (entry.amount ?? 0), 0);
@@ -282,10 +282,10 @@ export async function distributeLoot(
       if (target) {
         const sheet = await overlaySheetBase(target, entry.characterId ?? -1);
         if (amount !== null) sheet.money += amount;
-        if (loot.itemRuleId !== null) {
+        if (loot.itemRuleCode !== null) {
           sheet.inventory.push({
             id: nextInventoryItemId++,
-            ruleId: loot.itemRuleId,
+            ruleCode: loot.itemRuleCode,
             quantity: loot.quantity,
             equipped: false,
           });
@@ -296,10 +296,10 @@ export async function distributeLoot(
       const version = versions[entry.characterId ?? -1];
       if (version) {
         if (amount !== null) version.money += amount;
-        if (loot.itemRuleId !== null) {
+        if (loot.itemRuleCode !== null) {
           version.inventory.push({
             id: nextInventoryItemId++,
-            ruleId: loot.itemRuleId,
+            ruleCode: loot.itemRuleCode,
             quantity: loot.quantity,
             equipped: false,
           });
@@ -312,10 +312,10 @@ export async function distributeLoot(
       if (!npc) continue;
       const version = ensureNpcVersion(npc);
       if (amount !== null) version.money += amount;
-      if (loot.itemRuleId !== null) {
+      if (loot.itemRuleCode !== null) {
         version.inventory.push({
           id: nextInventoryItemId++,
-          ruleId: loot.itemRuleId,
+          ruleCode: loot.itemRuleCode,
           quantity: loot.quantity,
           equipped: false,
         });

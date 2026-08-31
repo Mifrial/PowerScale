@@ -4,7 +4,7 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { dotTickMathService } from '@/modules/Roleplay/Game/Service/Instance/dotTickMathService';
 
 const burning: Rule = {
-  id: 'rule-burn',
+  id: null,
   code: 'burning',
   type: 'state',
   name: 'Горение',
@@ -23,7 +23,7 @@ const burning: Rule = {
 };
 
 const poisoning: Rule = {
-  id: 'rule-poisoning',
+  id: null,
   code: 'poisoning',
   type: 'state',
   name: 'Отравление',
@@ -36,7 +36,7 @@ const poisoning: Rule = {
 };
 
 const scorpion: Rule = {
-  id: 'rule-scorpion',
+  id: null,
   code: 'poison-scorpion',
   type: 'poison',
   name: 'Яд скорпиона',
@@ -55,7 +55,7 @@ const scorpion: Rule = {
 
 const hourly: Rule = {
   ...burning,
-  id: 'rule-hourly',
+  id: null,
   spec: {
     value_type: 'dimensional',
     aggregation: 'sum',
@@ -83,7 +83,7 @@ describe('dotTickMath', () => {
   });
 
   it('горение period 1 тикает и остаётся без decay', () => {
-    const state: CharacterStateValue = { stateRuleId: 'rule-burn', dimensionalValue: { base: 3, size: 1 } };
+    const state: CharacterStateValue = { stateRuleCode: 'burning', dimensionalValue: { base: 3, size: 1 } };
     const first = dotTickMathService.advanceDotState(state, [burning]);
     expect(first.kind).toBe('tick');
     if (first.kind !== 'tick') return;
@@ -94,8 +94,8 @@ describe('dotTickMath', () => {
 
   it('яд period 2: первый ход wait, второй tick и decay', () => {
     const state: CharacterStateValue = {
-      stateRuleId: 'rule-poisoning',
-      poison: { poisonRuleId: 'rule-scorpion' },
+      stateRuleCode: 'poisoning',
+      poison: { poisonRuleCode: 'poison-scorpion' },
     };
     const first = dotTickMathService.advanceDotState(state, [poisoning, scorpion]);
     expect(first).toMatchObject({ kind: 'wait', next: { dotTurnsLeft: 1 } });
@@ -111,7 +111,7 @@ describe('dotTickMath', () => {
   });
 
   it('step не turn — skip', () => {
-    const state: CharacterStateValue = { stateRuleId: 'rule-hourly', dimensionalValue: { base: 2, size: 0 } };
+    const state: CharacterStateValue = { stateRuleCode: 'rule-hourly', dimensionalValue: { base: 2, size: 0 } };
     expect(dotTickMathService.advanceDotState(state, [hourly]).kind).toBe('skip');
   });
 });

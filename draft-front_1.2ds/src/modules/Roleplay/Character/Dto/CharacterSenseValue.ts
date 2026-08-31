@@ -7,7 +7,7 @@ import type { SenseStatus } from '@/modules/Roleplay/Rule/Enum/SenseStatus';
  * а `value` и `modifiers` — результат грантов `sense_modify`.
  */
 export interface CharacterSenseValue {
-  ruleId: string;
+  ruleCode: string;
   value: number;
   modifiers: CharacteristicModifier[];
   status: SenseStatus;

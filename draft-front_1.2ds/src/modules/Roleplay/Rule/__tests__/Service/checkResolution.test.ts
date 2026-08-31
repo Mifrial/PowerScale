@@ -10,7 +10,7 @@ import { checkResolutionService } from '@/modules/Roleplay/Rule/Service/Instance
 
 function checkRule(code: string, spec: CheckSpec): Rule {
   return {
-    id: code,
+    id: null,
     code,
     type: 'check',
     name: code,
@@ -23,7 +23,7 @@ function checkRule(code: string, spec: CheckSpec): Rule {
 
 const catalog: Rule[] = [
   {
-    id: 'roll',
+    id: null,
     code: 'roll',
     type: 'simple',
     name: 'Бросок',

@@ -328,13 +328,13 @@ const speakerAction = computed<{ icon: string; title: string; onClick: () => voi
 });
 
 // Добавить/убрать макрос быстрого броска (CD-8): результат хранилища — актуальный список.
-async function toggleQuickRoll(entityKey: string, ruleId: string): Promise<void> {
+async function toggleQuickRoll(entityKey: string, ruleCode: string): Promise<void> {
   const key = entityKey as CombatEntityKey;
   try {
     const current = quickRolls.value[key] ?? [];
-    const next = current.includes(ruleId)
-      ? await getGameApi().removeQuickRoll(gameId.value, key, ruleId)
-      : await getGameApi().addQuickRoll(gameId.value, key, ruleId);
+    const next = current.includes(ruleCode)
+      ? await getGameApi().removeQuickRoll(gameId.value, key, ruleCode)
+      : await getGameApi().addQuickRoll(gameId.value, key, ruleCode);
     quickRolls.value = { ...quickRolls.value, [key]: next };
   } catch {
     // Прототип: сбой тумблера не блокирует интерфейс (запись остаётся прежней).

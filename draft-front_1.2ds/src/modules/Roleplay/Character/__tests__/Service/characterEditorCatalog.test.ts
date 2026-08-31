@@ -43,7 +43,7 @@ function makeBuild(overrides: Partial<CharacterBuild> = {}): CharacterBuild {
     spaceId: 1,
     spaceCode: 'razrabotka',
     rulesRevision: 5,
-    raceRuleId: null,
+    raceRuleCode: null,
     characteristicPurchases: [],
     abilities: [],
     resources: [],
@@ -68,7 +68,7 @@ describe('CharacterEditorService с каталогом правил (интег�
 
   it('раса human (acelatl): purchased/фикс характеристики, стоимость 0', () => {
     const rule = ruleCatalog.find((r) => r.code === 'acelatl');
-    const model = service.build(makeBuild({ raceRuleId: rule?.id ?? '' }), ruleCatalog, config);
+    const model = service.build(makeBuild({ raceRuleCode: rule?.code ?? '' }), ruleCatalog, config);
 
     expect(model.race).toMatchObject({ name: 'Ацелатль', costOs: 0 });
     expect(model.characteristics.map((c) => c.code).sort()).toEqual([
@@ -96,7 +96,7 @@ describe('CharacterEditorService с каталогом правил (интег�
 
   it('раса aeron: cost_os 12, характеристики с размерностью', () => {
     const rule = ruleCatalog.find((r) => r.code === 'aeron');
-    const model = service.build(makeBuild({ raceRuleId: rule?.id ?? '' }), ruleCatalog, config);
+    const model = service.build(makeBuild({ raceRuleCode: rule?.code ?? '' }), ruleCatalog, config);
 
     expect(model.race).toMatchObject({ costOs: 12 });
     expect(model.budgets.os.spent).toBe(12);
@@ -106,7 +106,7 @@ describe('CharacterEditorService с каталогом правил (интег�
 
   it('производные характеристики вычисляются из баз (Восприятие = min(Внимательность, Реакция))', () => {
     const aeron = service.build(
-      makeBuild({ raceRuleId: ruleCatalog.find((r) => r.code === 'aeron')?.id ?? '' }),
+      makeBuild({ raceRuleCode: ruleCatalog.find((r) => r.code === 'aeron')?.code ?? '' }),
       ruleCatalog,
       config,
     );
@@ -118,7 +118,7 @@ describe('CharacterEditorService с каталогом правил (интег�
 
   it('орки: «Интеллект 5↓» из баз Память/Мышление 5↓, модификатор к производной идёт на базы', () => {
     const orgul = service.build(
-      makeBuild({ raceRuleId: ruleCatalog.find((r) => r.code === 'orgul')?.id ?? '' }),
+      makeBuild({ raceRuleCode: ruleCatalog.find((r) => r.code === 'orgul')?.code ?? '' }),
       ruleCatalog,
       config,
     );
@@ -131,8 +131,8 @@ describe('CharacterEditorService с каталогом правил (интег�
     const rule = ruleCatalog.find((r) => r.code === 'innate-intellect')!;
     const boosted = service.build(
       makeBuild({
-        raceRuleId: ruleCatalog.find((r) => r.code === 'orgul')?.id ?? '',
-        abilities: [{ ruleId: rule.id, level: 1, parameters: { x: { base: 1, size: 0 } } }],
+        raceRuleCode: ruleCatalog.find((r) => r.code === 'orgul')?.code ?? '',
+        abilities: [{ ruleCode: rule.code, level: 1, parameters: { x: { base: 1, size: 0 } } }],
       }),
       ruleCatalog,
       config,
@@ -147,7 +147,7 @@ describe('CharacterEditorService с каталогом правил (интег�
   });
 
   it('раса arilet: наследуемые способности вида (keen-hearing) — расовые', () => {
-    const model = service.build(makeBuild({ raceRuleId: 'rule-126' }), ruleCatalog, config);
+    const model = service.build(makeBuild({ raceRuleCode: 'arilet' }), ruleCatalog, config);
 
     expect(model.race.costOs).toBe(2);
     expect(model.budgets.os.spent).toBe(2);
@@ -162,7 +162,7 @@ describe('CharacterEditorService с каталогом правил (интег�
     expect(strike?.levels[0].met).toBe(false);
 
     const withSkill = service.build(
-      makeBuild({ abilities: [{ ruleId: 'rule-329', level: 1 }] }),
+      makeBuild({ abilities: [{ ruleCode: 'borba', level: 1 }] }),
       ruleCatalog,
       config,
       keywords,
@@ -180,11 +180,11 @@ describe('CharacterEditorService с каталогом правил (интег�
   });
 
   it('toVersion: arilet + покупка способности даёт корректные очки', () => {
-    const build = makeBuild({ raceRuleId: 'rule-126', abilities: [{ ruleId: 'rule-25', level: 1 }] });
+    const build = makeBuild({ raceRuleCode: 'arilet', abilities: [{ ruleCode: 'keen-hearing', level: 1 }] });
     const version = service.toVersion(build, ruleCatalog, config);
 
     expect(version.points.osSpent).toBe(2);
-    expect(version.raceRuleId).toBe('rule-126');
+    expect(version.raceRuleCode).toBe('arilet');
   });
 
   it('видимость черт: общие видны всем, уникальные только от расы, старые скрыты', () => {
@@ -195,12 +195,12 @@ describe('CharacterEditorService с каталогом правил (интег�
 
     // Ацелатль даёт Быстроногий расой — виден.
     const acelatlRule = ruleCatalog.find((r) => r.code === 'acelatl');
-    const withRace = service.build(makeBuild({ raceRuleId: acelatlRule?.id ?? '' }), ruleCatalog, config, keywords);
+    const withRace = service.build(makeBuild({ raceRuleCode: acelatlRule?.code ?? '' }), ruleCatalog, config, keywords);
     expect(withRace.abilities.find((a) => a.code === 'fast-footed')?.visible).toBe(true);
 
     // Выбранная способность всегда видна (даже если скрыта в каталоге).
     const chosen = service.build(
-      makeBuild({ abilities: [{ ruleId: 'rule-329', level: 1 }] }),
+      makeBuild({ abilities: [{ ruleCode: 'borba', level: 1 }] }),
       ruleCatalog,
       config,
       keywords,
@@ -210,7 +210,7 @@ describe('CharacterEditorService с каталогом правил (интег�
 
   it('наследование способностей по дереву вид→подвид→раса (Арилет)', () => {
     const arilet = ruleCatalog.find((r) => r.code === 'arilet');
-    const model = service.build(makeBuild({ raceRuleId: arilet?.id ?? '' }), ruleCatalog, config, keywords);
+    const model = service.build(makeBuild({ raceRuleCode: arilet?.code ?? '' }), ruleCatalog, config, keywords);
 
     expect(model.race).toMatchObject({ costOs: 2 });
     expect(model.budgets.os.spent).toBe(2);
@@ -240,7 +240,7 @@ describe('CharacterEditorService с каталогом правил (интег�
 
   it('расовые automatic-способности даются бесплатно (Дюариец: Сопротивление холоду)', () => {
     const duariets = ruleCatalog.find((r) => r.code === 'duariets');
-    const model = service.build(makeBuild({ raceRuleId: duariets?.id ?? '' }), ruleCatalog, config, keywords);
+    const model = service.build(makeBuild({ raceRuleCode: duariets?.code ?? '' }), ruleCatalog, config, keywords);
 
     const cold = model.abilities.find((a) => a.code === 'cold-resistance');
     expect(cold?.racial).toBe(true);
@@ -269,7 +269,7 @@ describe('CharacterEditorService с каталогом правил (интег�
 
   it('Дюариец: Сопротивление магии ограничено потолком X=2 (покупаемая)', () => {
     const duariets = ruleCatalog.find((r) => r.code === 'duariets');
-    const model = service.build(makeBuild({ raceRuleId: duariets?.id ?? '' }), ruleCatalog, config, keywords);
+    const model = service.build(makeBuild({ raceRuleCode: duariets?.code ?? '' }), ruleCatalog, config, keywords);
 
     const res = model.abilities.find((a) => a.code === 'magic-resistance');
     expect(res?.racial).toBe(true);
@@ -292,8 +292,8 @@ describe('CharacterEditorService с каталогом правил (интег�
     // Взятие с X=2: стоимость = 2 × 2 = 4 ОС.
     const taken = service.build(
       makeBuild({
-        raceRuleId: duariets?.id ?? '',
-        abilities: [{ ruleId: res?.ruleId ?? '', level: 1, parameters: { x: { base: 2, size: 0 } } }],
+        raceRuleCode: duariets?.code ?? '',
+        abilities: [{ ruleCode: res?.ruleCode ?? '', level: 1, parameters: { x: { base: 2, size: 0 } } }],
       }),
       ruleCatalog,
       config,
@@ -304,7 +304,7 @@ describe('CharacterEditorService с каталогом правил (интег�
 
   it('Ахтар: автоматическое Сопротивление магии несёт значение X=2 из расы', () => {
     const ahtar = ruleCatalog.find((r) => r.code === 'ahtar');
-    const model = service.build(makeBuild({ raceRuleId: ahtar?.id ?? '' }), ruleCatalog, config, keywords);
+    const model = service.build(makeBuild({ raceRuleCode: ahtar?.code ?? '' }), ruleCatalog, config, keywords);
 
     const res = model.abilities.find((a) => a.code === 'magic-resistance');
     expect(res?.automatic).toBe(true);
@@ -316,7 +316,7 @@ describe('CharacterEditorService с каталогом правил (интег�
   it('Невероятное зрение: чувство Зрение +3 → Внимательность {3|1}', () => {
     const vision = ruleCatalog.find((r) => r.code === 'incredible-vision');
     const model = service.build(
-      makeBuild({ raceRuleId: 'rule-126', abilities: [{ ruleId: vision?.id ?? '', level: 1 }] }),
+      makeBuild({ raceRuleCode: 'arilet', abilities: [{ ruleCode: vision?.code ?? '', level: 1 }] }),
       ruleCatalog,
       config,
       keywords,
@@ -329,11 +329,11 @@ describe('CharacterEditorService с каталогом правил (интег�
     expect(attention?.modifiers).toEqual([expect.objectContaining({ delta: 3, target: 'attention' })]);
 
     const visionSense = ruleCatalog.find((r) => r.code === 'sense-vision');
-    const sense = model.senses.find((s) => s.ruleId === visionSense?.id);
+    const sense = model.senses.find((s) => s.ruleCode === visionSense?.code);
     expect(sense?.value).toBe(3);
     expect(sense?.status).toBe('precise');
     expect(sense?.radius).toEqual({ base: 30, size: 0 });
-    expect(model.senses.find((s) => s.ruleId === sense?.ruleId)?.modifiers[0]).toMatchObject({ delta: 3 });
+    expect(model.senses.find((s) => s.ruleCode === sense?.ruleCode)?.modifiers[0]).toMatchObject({ delta: 3 });
   });
 
   it('чувства: -6 слух + +3 зрение → Внимательность берёт максимум (+3)', () => {
@@ -341,10 +341,10 @@ describe('CharacterEditorService с каталогом правил (интег�
     const vision = ruleCatalog.find((r) => r.code === 'incredible-vision');
     const model = service.build(
       makeBuild({
-        raceRuleId: 'rule-126',
+        raceRuleCode: 'arilet',
         abilities: [
-          { ruleId: hearing?.id ?? '', level: 1 },
-          { ruleId: vision?.id ?? '', level: 1 },
+          { ruleCode: hearing?.code ?? '', level: 1 },
+          { ruleCode: vision?.code ?? '', level: 1 },
         ],
       }),
       ruleCatalog,
@@ -360,7 +360,7 @@ describe('CharacterEditorService с каталогом правил (интег�
   it('чувства: -6 слух + нормальное зрение (не взято) → 0 к Внимательности', () => {
     const hearing = ruleCatalog.find((r) => r.code === 'terrible-hearing');
     const model = service.build(
-      makeBuild({ raceRuleId: 'rule-126', abilities: [{ ruleId: hearing?.id ?? '', level: 1 }] }),
+      makeBuild({ raceRuleCode: 'arilet', abilities: [{ ruleCode: hearing?.code ?? '', level: 1 }] }),
       ruleCatalog,
       config,
       keywords,
@@ -377,10 +377,10 @@ describe('CharacterEditorService с каталогом правил (интег�
     const weakHearing = ruleCatalog.find((r) => r.code === 'weak-hearing');
     const model = service.build(
       makeBuild({
-        raceRuleId: 'rule-126',
+        raceRuleCode: 'arilet',
         abilities: [
-          { ruleId: terribleHearing?.id ?? '', level: 1 },
-          { ruleId: weakHearing?.id ?? '', level: 1 },
+          { ruleCode: terribleHearing?.code ?? '', level: 1 },
+          { ruleCode: weakHearing?.code ?? '', level: 1 },
         ],
       }),
       ruleCatalog,
@@ -391,7 +391,7 @@ describe('CharacterEditorService с каталогом правил (интег�
     // Оба модификатора слуха от источника «Совершенство» → действует только наибольший штраф (−6);
     // зрение нормальное (0) → максимум среди чувств = 0, Внимательность не меняется.
     const hearingSense = ruleCatalog.find((r) => r.code === 'sense-hearing');
-    const sense = model.senses.find((s) => s.ruleId === hearingSense?.id);
+    const sense = model.senses.find((s) => s.ruleCode === hearingSense?.code);
     expect(sense?.value).toBe(-6);
     const attention = model.characteristics.find((c) => c.code === 'attention');
     expect(attention?.delta).toBe(0);
@@ -404,7 +404,7 @@ describe('CharacterEditorService с каталогом правил (интег�
       ['orzack', 3],
     ] as const) {
       const race = ruleCatalog.find((r) => r.code === code);
-      const model = service.build(makeBuild({ raceRuleId: race?.id ?? '' }), ruleCatalog, config, keywords);
+      const model = service.build(makeBuild({ raceRuleCode: race?.code ?? '' }), ruleCatalog, config, keywords);
 
       const res = model.abilities.find((a) => a.code === 'magic-resistance');
       expect(res?.automatic).toBe(true);
@@ -418,7 +418,7 @@ describe('CharacterEditorService с каталогом правил (интег�
 
   it('орки: Магия доступна с потолком X=3', () => {
     const race = ruleCatalog.find((r) => r.code === 'orgul');
-    const model = service.build(makeBuild({ raceRuleId: race?.id ?? '' }), ruleCatalog, config, keywords);
+    const model = service.build(makeBuild({ raceRuleCode: race?.code ?? '' }), ruleCatalog, config, keywords);
 
     const potential = model.abilities.find((a) => a.code === 'magic-potential');
     expect(potential?.racial).toBe(true);
@@ -428,7 +428,7 @@ describe('CharacterEditorService с каталогом правил (интег�
 
   it('эльфы (Арилет): бесплатно Сопротивление магии 1, доступна Магия 4 и Сопротивление магии до 3', () => {
     const race = ruleCatalog.find((r) => r.code === 'arilet');
-    const model = service.build(makeBuild({ raceRuleId: race?.id ?? '' }), ruleCatalog, config, keywords);
+    const model = service.build(makeBuild({ raceRuleCode: race?.code ?? '' }), ruleCatalog, config, keywords);
 
     const res = model.abilities.find((a) => a.code === 'magic-resistance');
     expect(res?.automatic).toBe(true);
@@ -440,7 +440,7 @@ describe('CharacterEditorService с каталогом правил (интег�
 
   it('Турим: Магия доступна с потолком X=5', () => {
     const race = ruleCatalog.find((r) => r.code === 'turim');
-    const model = service.build(makeBuild({ raceRuleId: race?.id ?? '' }), ruleCatalog, config, keywords);
+    const model = service.build(makeBuild({ raceRuleCode: race?.code ?? '' }), ruleCatalog, config, keywords);
 
     const potential = model.abilities.find((a) => a.code === 'magic-potential');
     expect(potential?.parameters[0]).toMatchObject({ max: { base: 5, size: 0 }, cappedByRace: true });
@@ -449,7 +449,7 @@ describe('CharacterEditorService с каталогом правил (интег�
   it('Аэрон: авто Сопротивление магии X=2, докупка до 5 сверх авто, без задвоения гранта', () => {
     const race = ruleCatalog.find((r) => r.code === 'aeron');
     const mr = ruleCatalog.find((r) => r.code === 'magic-resistance');
-    const plain = service.build(makeBuild({ raceRuleId: race?.id ?? '' }), ruleCatalog, config, keywords);
+    const plain = service.build(makeBuild({ raceRuleCode: race?.code ?? '' }), ruleCatalog, config, keywords);
 
     const res = plain.abilities.find((a) => a.code === 'magic-resistance');
     expect(res?.automatic).toBe(true);
@@ -463,8 +463,8 @@ describe('CharacterEditorService с каталогом правил (интег�
     // Докупка до 5: оплачивается только 5−2 = 3 единицы × per_unit 2 = 6 ОС (поверх cost_os 12).
     const taken = service.build(
       makeBuild({
-        raceRuleId: race?.id ?? '',
-        abilities: [{ ruleId: mr?.id ?? '', level: 1, parameters: { x: { base: 5, size: 0 } } }],
+        raceRuleCode: race?.code ?? '',
+        abilities: [{ ruleCode: mr?.code ?? '', level: 1, parameters: { x: { base: 5, size: 0 } } }],
       }),
       ruleCatalog,
       config,
@@ -477,7 +477,7 @@ describe('CharacterEditorService с каталогом правил (интег�
 
   it('Му’укай: нет доступной Магии (убрана по доке), авто Сопротивление магии 1', () => {
     const race = ruleCatalog.find((r) => r.code === 'muukai');
-    const model = service.build(makeBuild({ raceRuleId: race?.id ?? '' }), ruleCatalog, config, keywords);
+    const model = service.build(makeBuild({ raceRuleCode: race?.code ?? '' }), ruleCatalog, config, keywords);
 
     const potential = model.abilities.find((a) => a.code === 'magic-potential');
     expect(potential?.racial ?? false).toBe(false);
@@ -487,7 +487,7 @@ describe('CharacterEditorService с каталогом правил (интег�
 
   it('Дюариец: автоматическое Сопротивление холоду несёт значение X=1', () => {
     const race = ruleCatalog.find((r) => r.code === 'duariets');
-    const model = service.build(makeBuild({ raceRuleId: race?.id ?? '' }), ruleCatalog, config, keywords);
+    const model = service.build(makeBuild({ raceRuleCode: race?.code ?? '' }), ruleCatalog, config, keywords);
 
     const cold = model.abilities.find((a) => a.code === 'cold-resistance');
     expect(cold?.automatic).toBe(true);
@@ -513,7 +513,7 @@ describe('CharacterEditorService с каталогом правил (интег�
     });
 
     const withX = service.build(
-      makeBuild({ abilities: [{ ruleId: rule?.id ?? '', level: 1, parameters: { x: { base: 2, size: 0 } } }] }),
+      makeBuild({ abilities: [{ ruleCode: rule?.code ?? '', level: 1, parameters: { x: { base: 2, size: 0 } } }] }),
       ruleCatalog,
       config,
       keywords,
@@ -526,8 +526,8 @@ describe('CharacterEditorService с каталогом правил (интег�
     const rule = ruleCatalog.find((r) => r.code === 'innate-strength');
     const model = service.build(
       makeBuild({
-        raceRuleId: race?.id ?? '',
-        abilities: [{ ruleId: rule?.id ?? '', level: 1, parameters: { x: { base: -1, size: 0 } } }],
+        raceRuleCode: race?.code ?? '',
+        abilities: [{ ruleCode: rule?.code ?? '', level: 1, parameters: { x: { base: -1, size: 0 } } }],
       }),
       ruleCatalog,
       config,
@@ -544,7 +544,7 @@ describe('CharacterEditorService с каталогом правил (интег�
 
     // Стойкость не выбрана (0): Сила может быть до +3.
     const onlyStrength = service.build(
-      makeBuild({ abilities: [{ ruleId: strength?.id ?? '', level: 1, parameters: { x: { base: 1, size: 0 } } }] }),
+      makeBuild({ abilities: [{ ruleCode: strength?.code ?? '', level: 1, parameters: { x: { base: 1, size: 0 } } }] }),
       ruleCatalog,
       config,
       keywords,
@@ -558,8 +558,8 @@ describe('CharacterEditorService с каталогом правил (интег�
     const withEndurance = service.build(
       makeBuild({
         abilities: [
-          { ruleId: strength?.id ?? '', level: 1, parameters: { x: { base: 2, size: 0 } } },
-          { ruleId: endurance?.id ?? '', level: 1, parameters: { x: { base: 0, size: 0 } } },
+          { ruleCode: strength?.code ?? '', level: 1, parameters: { x: { base: 2, size: 0 } } },
+          { ruleCode: endurance?.code ?? '', level: 1, parameters: { x: { base: 0, size: 0 } } },
         ],
       }),
       ruleCatalog,
@@ -574,8 +574,8 @@ describe('CharacterEditorService с каталогом правил (интег�
     const constrainedStrength = service.build(
       makeBuild({
         abilities: [
-          { ruleId: strength?.id ?? '', level: 1, parameters: { x: { base: 0, size: 0 } } },
-          { ruleId: endurance?.id ?? '', level: 1, parameters: { x: { base: -2, size: 0 } } },
+          { ruleCode: strength?.code ?? '', level: 1, parameters: { x: { base: 0, size: 0 } } },
+          { ruleCode: endurance?.code ?? '', level: 1, parameters: { x: { base: -2, size: 0 } } },
         ],
       }),
       ruleCatalog,
@@ -630,7 +630,7 @@ describe('CharacterEditorService с каталогом правил (интег�
   it('Врождённая Магия X: выбор значения 5 → 8 ОС, размерное значение хранится как есть', () => {
     const rule = ruleCatalog.find((r) => r.code === 'magic-potential');
     const model = service.build(
-      makeBuild({ abilities: [{ ruleId: rule?.id ?? '', level: 1, parameters: { x: { base: 5, size: 0 } } }] }),
+      makeBuild({ abilities: [{ ruleCode: rule?.code ?? '', level: 1, parameters: { x: { base: 5, size: 0 } } }] }),
       ruleCatalog,
       config,
       keywords,
@@ -655,7 +655,7 @@ describe('CharacterEditorService с каталогом правил (интег�
 
   it('Ахтар: Магия 4↓ расы бесплатна (дар не взят) — value/min 4↓, ступени ниже недоступны', () => {
     const ahtar = ruleCatalog.find((r) => r.code === 'ahtar');
-    const model = service.build(makeBuild({ raceRuleId: ahtar?.id ?? '' }), ruleCatalog, config, keywords);
+    const model = service.build(makeBuild({ raceRuleCode: ahtar?.code ?? '' }), ruleCatalog, config, keywords);
 
     const potential = model.abilities.find((a) => a.code === 'magic-potential');
     expect(potential?.racial).toBe(true);
@@ -688,8 +688,8 @@ describe('CharacterEditorService с каталогом правил (интег�
     const potential = ruleCatalog.find((r) => r.code === 'magic-potential');
     const model = service.build(
       makeBuild({
-        raceRuleId: ahtar?.id ?? '',
-        abilities: [{ ruleId: potential?.id ?? '', level: 1, parameters: { x: { base: 5, size: -1 } } }],
+        raceRuleCode: ahtar?.code ?? '',
+        abilities: [{ ruleCode: potential?.code ?? '', level: 1, parameters: { x: { base: 5, size: -1 } } }],
       }),
       ruleCatalog,
       config,
@@ -710,8 +710,8 @@ describe('CharacterEditorService с каталогом правил (интег�
     const potential = ruleCatalog.find((r) => r.code === 'magic-potential');
     const model = service.build(
       makeBuild({
-        raceRuleId: ahtar?.id ?? '',
-        abilities: [{ ruleId: potential?.id ?? '', level: 1, parameters: { x: { base: 5, size: 0 } } }],
+        raceRuleCode: ahtar?.code ?? '',
+        abilities: [{ ruleCode: potential?.code ?? '', level: 1, parameters: { x: { base: 5, size: 0 } } }],
       }),
       ruleCatalog,
       config,
@@ -737,7 +737,7 @@ describe('CharacterEditorService с каталогом правил (интег�
 
     // Алиерц → вид human: годы 22 → Молодой (18–25) по наследуемой таблице.
     const model = service.build(
-      makeBuild({ raceRuleId: alierets?.id ?? '', ageYears: 22 }),
+      makeBuild({ raceRuleCode: alierets?.code ?? '', ageYears: 22 }),
       ruleCatalog,
       config,
       keywords,
@@ -751,7 +751,7 @@ describe('CharacterEditorService с каталогом правил (интег�
 
   it('дефолт возраста в каталоге: средняя ступень шкалы (9 ступеней → «Молодой», минимум 18)', () => {
     const alierets = ruleCatalog.find((r) => r.code === 'alierets');
-    const model = service.build(makeBuild({ raceRuleId: alierets?.id ?? '' }), ruleCatalog, config, keywords);
+    const model = service.build(makeBuild({ raceRuleCode: alierets?.code ?? '' }), ruleCatalog, config, keywords);
 
     expect(model.personality.ageScale).toHaveLength(9);
     expect(model.personality.defaultAgeYears).toBe(18);
@@ -760,7 +760,7 @@ describe('CharacterEditorService с каталогом правил (интег�
   it('возраст: ступень «Старый» за диапазонами лет с эффектами', () => {
     const alierets = ruleCatalog.find((r) => r.code === 'alierets');
     const model = service.build(
-      makeBuild({ raceRuleId: alierets?.id ?? '', ageYears: 200 }),
+      makeBuild({ raceRuleCode: alierets?.code ?? '', ageYears: 200 }),
       ruleCatalog,
       config,
       keywords,
@@ -788,14 +788,18 @@ describe('CharacterEditorService с каталогом правил (интег�
     expect(rich).toBeDefined();
     const alierets = ruleCatalog.find((r) => r.code === 'alierets');
     const model = service.build(
-      makeBuild({ raceRuleId: alierets?.id ?? '', ageYears: 22, abilities: [{ ruleId: rich?.id ?? '', level: 1 }] }),
+      makeBuild({
+        raceRuleCode: alierets?.code ?? '',
+        ageYears: 22,
+        abilities: [{ ruleCode: rich?.code ?? '', level: 1 }],
+      }),
       ruleCatalog,
       config,
       keywords,
     );
 
     expect(model.budgets.money.total).toBe(400);
-    expect(model.personality.wealthRuleIds).toContain(rich?.id);
+    expect(model.personality.wealthRuleIds).toContain(rich?.code);
     // Лимит числа особенностей (Молодой = 3) не учитывает богатство: взятая 1 особенность не исчерпывает лимит.
     expect(model.personality.featureLimit).toBe(3);
   });
@@ -803,7 +807,7 @@ describe('CharacterEditorService с каталогом правил (интег�
   it('дары-навыки (D100): «Общительный» даёт «Тренировку Красноречия 1» и «Манеру общения 1», снять нельзя', () => {
     const sociable = ruleCatalog.find((r) => r.code === 'sociable');
     const model = service.build(
-      makeBuild({ abilities: [{ ruleId: sociable?.id ?? '', level: 1 }] }),
+      makeBuild({ abilities: [{ ruleCode: sociable?.code ?? '', level: 1 }] }),
       ruleCatalog,
       config,
       keywords,
@@ -820,7 +824,7 @@ describe('CharacterEditorService с каталогом правил (интег�
   it('дары-навыки (D100): «Общительный» не даёт бюджет — gifted-записи не списывают ОР', () => {
     const sociable = ruleCatalog.find((r) => r.code === 'sociable');
     const model = service.build(
-      makeBuild({ abilities: [{ ruleId: sociable?.id ?? '', level: 1 }] }),
+      makeBuild({ abilities: [{ ruleCode: sociable?.code ?? '', level: 1 }] }),
       ruleCatalog,
       config,
       keywords,
@@ -836,8 +840,8 @@ describe('CharacterEditorService с каталогом правил (интег�
     const model = service.build(
       makeBuild({
         abilities: [
-          { ruleId: sociable?.id ?? '', level: 1 },
-          { ruleId: training?.id ?? '', level: 2 },
+          { ruleCode: sociable?.code ?? '', level: 1 },
+          { ruleCode: training?.code ?? '', level: 2 },
         ],
       }),
       ruleCatalog,
@@ -854,7 +858,7 @@ describe('CharacterEditorService с каталогом правил (интег�
 
   it('автоматические характеристики: у нелюдской расы (эльф arilet) base-характеристики = 3 средних', () => {
     const rule = ruleCatalog.find((r) => r.code === 'arilet');
-    const model = service.build(makeBuild({ raceRuleId: rule?.id ?? '' }), ruleCatalog, config, keywords);
+    const model = service.build(makeBuild({ raceRuleCode: rule?.code ?? '' }), ruleCatalog, config, keywords);
 
     for (const code of ['attention', 'reaction', 'memory', 'reasoning', 'communication', 'willpower']) {
       expect(model.characteristics.find((c) => c.code === code)?.base).toEqual({ base: 3, size: 0 });
@@ -868,7 +872,7 @@ describe('CharacterEditorService с каталогом правил (интег�
   it('«Тренировка Красноречия»: +{уровень} к Красноречию от тренировки, не метод развития общения', () => {
     const rule = ruleCatalog.find((r) => r.code === 'krasnorechie');
     const model = service.build(
-      makeBuild({ abilities: [{ ruleId: rule?.id ?? '', level: 2 }] }),
+      makeBuild({ abilities: [{ ruleCode: rule?.code ?? '', level: 2 }] }),
       ruleCatalog,
       config,
       keywords,
@@ -900,8 +904,8 @@ describe('CharacterEditorService с каталогом правил (интег�
     const sociable = ruleCatalog.find((r) => r.code === 'sociable');
     const manner = ruleCatalog.find((r) => r.code === 'manera-obscheniya');
     const build = characterBuildService.setAbilityDomain(
-      makeBuild({ abilities: [{ ruleId: sociable?.id ?? '', level: 1 }] }),
-      manner?.id ?? '',
+      makeBuild({ abilities: [{ ruleCode: sociable?.code ?? '', level: 1 }] }),
+      manner?.code ?? '',
       'Запугивание',
       { domainCode: 'intimidation' },
     );
@@ -919,7 +923,7 @@ describe('CharacterEditorService с каталогом правил (интег�
     const cost2 = (code: string) => {
       const rule = ruleCatalog.find((r) => r.code === code);
 
-      return rule ? { ruleId: rule.id, level: 1 } : null;
+      return rule ? { ruleCode: rule.code, level: 1 } : null;
     };
     const taken = [
       cost2('otstuplenie'), // 1
@@ -927,7 +931,7 @@ describe('CharacterEditorService с каталогом правил (интег�
       cost2('adaptatsiya-k-protivniku'), // 2
       cost2('podderzhka'), // 2
       cost2('fekhtovanie'), // 2 → сумма 9
-    ].filter((x): x is { ruleId: string; level: number } => x !== null);
+    ].filter((x): x is { ruleCode: string; level: number } => x !== null);
 
     const model = service.build(makeBuild({ abilities: taken }), ruleCatalog, config, keywords);
 
@@ -942,7 +946,7 @@ describe('CharacterEditorService с каталогом правил (интег�
     const cost2 = (code: string) => {
       const rule = ruleCatalog.find((r) => r.code === code);
 
-      return rule ? { ruleId: rule.id, level: 1 } : null;
+      return rule ? { ruleCode: rule.code, level: 1 } : null;
     };
     const taken = [
       cost2('otstuplenie'), // 1
@@ -950,7 +954,7 @@ describe('CharacterEditorService с каталогом правил (интег�
       cost2('adaptatsiya-k-protivniku'), // 2
       cost2('podderzhka'), // 2
       cost2('fekhtovanie'), // 2 → сумма 9
-    ].filter((x): x is { ruleId: string; level: number } => x !== null);
+    ].filter((x): x is { ruleCode: string; level: number } => x !== null);
 
     const model = service.build(makeBuild({ abilities: taken }), ruleCatalog, config, keywords);
 
@@ -966,15 +970,15 @@ describe('CharacterEditorService с каталогом правил (интег�
     const skill = (code: string) => {
       const rule = ruleCatalog.find((r) => r.code === code);
 
-      return rule ? { ruleId: rule.id, level: 1 } : null;
+      return rule ? { ruleCode: rule.code, level: 1 } : null;
     };
     // Ориентирование и Чтение следов — методы развития восприятия, Стоимость 2 каждый.
     const taken = [skill('orientirovanie'), skill('chtenie-sledov')].filter(
-      (x): x is { ruleId: string; level: number } => x !== null,
+      (x): x is { ruleCode: string; level: number } => x !== null,
     );
     const alierets = ruleCatalog.find((r) => r.code === 'alierets');
     const model = service.build(
-      makeBuild({ raceRuleId: alierets?.id ?? '', abilities: taken }),
+      makeBuild({ raceRuleCode: alierets?.code ?? '', abilities: taken }),
       ruleCatalog,
       config,
       keywords,
@@ -999,10 +1003,10 @@ describe('CharacterEditorService с каталогом правил (интег�
     const alierets = ruleCatalog.find((r) => r.code === 'alierets');
     const model = service.build(
       makeBuild({
-        raceRuleId: alierets?.id ?? '',
+        raceRuleCode: alierets?.code ?? '',
         abilities: [
-          { ruleId: vnim?.id ?? '', level: 1 },
-          { ruleId: reak?.id ?? '', level: 2 },
+          { ruleCode: vnim?.code ?? '', level: 1 },
+          { ruleCode: reak?.code ?? '', level: 2 },
         ],
       }),
       ruleCatalog,
@@ -1012,13 +1016,13 @@ describe('CharacterEditorService с каталогом правил (интег�
 
     // Модификатор от «Тренировки» (источник training): +1 к Внимательности за уровень навыка.
     const attention = model.characteristics.find((c) => c.code === 'attention');
-    const attentionMod = attention?.modifiers.find((m) => m.sourceRuleId === 'rule-38');
+    const attentionMod = attention?.modifiers.find((m) => m.sourceRuleCode === 'training');
     expect(attentionMod?.delta).toBe(1);
     expect(attention?.value).toEqual({ base: 4, size: 0 });
 
     // +2 к Реакции за второй уровень.
     const reaction = model.characteristics.find((c) => c.code === 'reaction');
-    const reactionMod = reaction?.modifiers.find((m) => m.sourceRuleId === 'rule-38');
+    const reactionMod = reaction?.modifiers.find((m) => m.sourceRuleCode === 'training');
     expect(reactionMod?.delta).toBe(2);
     expect(reaction?.value).toEqual({ base: 5, size: 0 });
 
@@ -1031,15 +1035,15 @@ describe('CharacterEditorService с каталогом правил (интег�
     const skill = (code: string) => {
       const rule = ruleCatalog.find((r) => r.code === code);
 
-      return rule ? { ruleId: rule.id, level: 1 } : null;
+      return rule ? { ruleCode: rule.code, level: 1 } : null;
     };
     // Два «Развития внимательности/реакции» — раньше ошибочно давали бонус агрегата «Развитие восприятия».
     const taken = [skill('razvitie-vnimatelnosti'), skill('razvitie-reaktsii')].filter(
-      (x): x is { ruleId: string; level: number } => x !== null,
+      (x): x is { ruleCode: string; level: number } => x !== null,
     );
     const alierets = ruleCatalog.find((r) => r.code === 'alierets');
     const model = service.build(
-      makeBuild({ raceRuleId: alierets?.id ?? '', abilities: taken }),
+      makeBuild({ raceRuleCode: alierets?.code ?? '', abilities: taken }),
       ruleCatalog,
       config,
       keywords,
@@ -1059,10 +1063,10 @@ describe('CharacterEditorService с каталогом правил (интег�
     const alierets = ruleCatalog.find((r) => r.code === 'alierets');
     const model = service.build(
       makeBuild({
-        raceRuleId: alierets?.id ?? '',
+        raceRuleCode: alierets?.code ?? '',
         abilities: [
-          { ruleId: pamyat?.id ?? '', level: 1 },
-          { ruleId: myshlenie?.id ?? '', level: 2 },
+          { ruleCode: pamyat?.code ?? '', level: 1 },
+          { ruleCode: myshlenie?.code ?? '', level: 2 },
         ],
       }),
       ruleCatalog,
@@ -1071,12 +1075,12 @@ describe('CharacterEditorService с каталогом правил (интег�
     );
 
     const memory = model.characteristics.find((c) => c.code === 'memory');
-    const memoryMod = memory?.modifiers.find((m) => m.sourceRuleId === 'rule-38');
+    const memoryMod = memory?.modifiers.find((m) => m.sourceRuleCode === 'training');
     expect(memoryMod?.delta).toBe(1);
     expect(memory?.value).toEqual({ base: 4, size: 0 });
 
     const reasoning = model.characteristics.find((c) => c.code === 'reasoning');
-    const reasoningMod = reasoning?.modifiers.find((m) => m.sourceRuleId === 'rule-38');
+    const reasoningMod = reasoning?.modifiers.find((m) => m.sourceRuleCode === 'training');
     expect(reasoningMod?.delta).toBe(2);
     expect(reasoning?.value).toEqual({ base: 5, size: 0 });
 
@@ -1088,15 +1092,15 @@ describe('CharacterEditorService с каталогом правил (интег�
     const skill = (code: string) => {
       const rule = ruleCatalog.find((r) => r.code === code);
 
-      return rule ? { ruleId: rule.id, level: 1 } : null;
+      return rule ? { ruleCode: rule.code, level: 1 } : null;
     };
     // Два метода стоимости 2 (Ориентирование, Чтение следов): для уровня 1 хватает, для 2 — нет.
     const taken = [skill('orientirovanie'), skill('chtenie-sledov')].filter(
-      (x): x is { ruleId: string; level: number } => x !== null,
+      (x): x is { ruleCode: string; level: number } => x !== null,
     );
     const alierets = ruleCatalog.find((r) => r.code === 'alierets');
     const model = service.build(
-      makeBuild({ raceRuleId: alierets?.id ?? '', abilities: taken }),
+      makeBuild({ raceRuleCode: alierets?.code ?? '', abilities: taken }),
       ruleCatalog,
       config,
       keywords,
@@ -1106,14 +1110,14 @@ describe('CharacterEditorService с каталогом правил (интег�
     expect(aggregate?.level).toBe(1);
     // Бонус от уровня агрегата приходит на базы Восприятия (attention/reaction) источником «Развитие».
     const attention = model.characteristics.find((c) => c.code === 'attention');
-    expect(attention?.modifiers.some((m) => m.delta === 1 && m.sourceRuleId === 'rule-176')).toBe(true);
+    expect(attention?.modifiers.some((m) => m.delta === 1 && m.sourceRuleCode === 'development')).toBe(true);
   });
 
   it('агрегат «Развитие восприятия»: уровень 2 за [2,1,2,1] (без пересечения методов)', () => {
     const skill = (code: string) => {
       const rule = ruleCatalog.find((r) => r.code === code);
 
-      return rule ? { ruleId: rule.id, level: 1 } : null;
+      return rule ? { ruleCode: rule.code, level: 1 } : null;
     };
     // Два метода стоимости 2 + два метода стоимости 1: уровень 1 берёт [1,1], уровень 2 — [2,2].
     const taken = [
@@ -1121,10 +1125,10 @@ describe('CharacterEditorService с каталогом правил (интег�
       skill('orientirovanie-po-sledam'), // 1
       skill('chtenie-sledov'), // 2
       skill('postoyannaya-bditelnost'), // 1
-    ].filter((x): x is { ruleId: string; level: number } => x !== null);
+    ].filter((x): x is { ruleCode: string; level: number } => x !== null);
     const alierets = ruleCatalog.find((r) => r.code === 'alierets');
     const model = service.build(
-      makeBuild({ raceRuleId: alierets?.id ?? '', abilities: taken }),
+      makeBuild({ raceRuleCode: alierets?.code ?? '', abilities: taken }),
       ruleCatalog,
       config,
       keywords,
@@ -1153,7 +1157,7 @@ describe('CharacterEditorService с каталогом правил (интег�
 
     // Родитель взят — улучшение доступно.
     const withParent = service.build(
-      makeBuild({ abilities: [{ ruleId: akrobatika?.id ?? '', level: 1 }] }),
+      makeBuild({ abilities: [{ ruleCode: akrobatika?.code ?? '', level: 1 }] }),
       ruleCatalog,
       config,
     );
@@ -1172,8 +1176,8 @@ describe('CharacterEditorService с каталогом правил (интег�
     const model = service.build(
       makeBuild({
         abilities: [
-          { ruleId: language?.id ?? '', level: 3, domain: 'Эльфийский', zone: 'or', domainCode: 'language-elf' },
-          { ruleId: language?.id ?? '', level: 1, domain: 'Орочий', zone: 'or', domainCode: 'language-orc' },
+          { ruleCode: language?.code ?? '', level: 3, domain: 'Эльфийский', zone: 'or', domainCode: 'language-elf' },
+          { ruleCode: language?.code ?? '', level: 1, domain: 'Орочий', zone: 'or', domainCode: 'language-orc' },
         ],
       }),
       ruleCatalog,
@@ -1207,7 +1211,7 @@ describe('CharacterEditorService с каталогом правил (интег�
     expect(pronunciation?.levels[0]?.met).toBe(false);
 
     const withLanguage = service.build(
-      makeBuild({ abilities: [{ ruleId: language?.id ?? '', level: 1, domain: 'Эльфийский', zone: 'or' }] }),
+      makeBuild({ abilities: [{ ruleCode: language?.code ?? '', level: 1, domain: 'Эльфийский', zone: 'or' }] }),
       ruleCatalog,
       config,
       keywords,
@@ -1233,7 +1237,7 @@ describe('«Владение оружием» (C2): семья оружия и �
   it('бюджет списывает лестницу семьи (Кинжал и Нож [1,3,5])', () => {
     const build = makeBuild({
       abilities: [
-        { ruleId: skill?.id ?? '', level: 1, domain: 'Кинжал и Нож', domainCode: 'fam-kinzhal-nozh', zone: 'or' },
+        { ruleCode: skill?.code ?? '', level: 1, domain: 'Кинжал и Нож', domainCode: 'fam-kinzhal-nozh', zone: 'or' },
       ],
     });
     const model = service.build(build, ruleCatalog, config, keywords);
@@ -1242,7 +1246,7 @@ describe('«Владение оружием» (C2): семья оружия и �
     const lvl3 = service.build(
       makeBuild({
         abilities: [
-          { ruleId: skill?.id ?? '', level: 3, domain: 'Кинжал и Нож', domainCode: 'fam-kinzhal-nozh', zone: 'or' },
+          { ruleCode: skill?.code ?? '', level: 3, domain: 'Кинжал и Нож', domainCode: 'fam-kinzhal-nozh', zone: 'or' },
         ],
       }),
       ruleCatalog,
@@ -1254,19 +1258,19 @@ describe('«Владение оружием» (C2): семья оружия и �
 
   it('лимит уровня экземпляра = длина лестницы семьи (Лук 5 уровней)', () => {
     const base = makeBuild();
-    const withLuk = characterBuildService.addAbilityInstance(base, skill?.id ?? '', 'Лук', ruleCatalog, {
+    const withLuk = characterBuildService.addAbilityInstance(base, skill?.code ?? '', 'Лук', ruleCatalog, {
       zone: 'or',
       domainCode: 'fam-luk',
     });
-    const up = characterBuildService.setAbilityInstanceLevel(withLuk, skill?.id ?? '', 'Лук', 5, ruleCatalog, {
+    const up = characterBuildService.setAbilityInstanceLevel(withLuk, skill?.code ?? '', 'Лук', 5, ruleCatalog, {
       zone: 'or',
     });
-    expect(up.abilities.find((a) => a.ruleId === skill?.id && a.domain === 'Лук')?.level).toBe(5);
+    expect(up.abilities.find((a) => a.ruleCode === skill?.code && a.domain === 'Лук')?.level).toBe(5);
 
-    const over = characterBuildService.setAbilityInstanceLevel(withLuk, skill?.id ?? '', 'Лук', 6, ruleCatalog, {
+    const over = characterBuildService.setAbilityInstanceLevel(withLuk, skill?.code ?? '', 'Лук', 6, ruleCatalog, {
       zone: 'or',
     });
-    expect(over.abilities.find((a) => a.ruleId === skill?.id && a.domain === 'Лук')?.level).toBe(1);
+    expect(over.abilities.find((a) => a.ruleCode === skill?.code && a.domain === 'Лук')?.level).toBe(1);
   });
 });
 
@@ -1277,8 +1281,8 @@ describe('«Владение оружием» — мастерство оруж�
   it('weaponProficiencyLevels: семьи из экземпляров владения', () => {
     const levels = weaponProficiencyService.weaponProficiencyLevels(
       [
-        { ruleId: skill?.id ?? '', level: 3, domain: 'Кинжал и Нож', domainCode: 'fam-kinzhal-nozh' },
-        { ruleId: skill?.id ?? '', level: 2, domain: 'Лук', domainCode: 'fam-luk' },
+        { ruleCode: skill?.code ?? '', level: 3, domain: 'Кинжал и Нож', domainCode: 'fam-kinzhal-nozh' },
+        { ruleCode: skill?.code ?? '', level: 2, domain: 'Лук', domainCode: 'fam-luk' },
       ],
       ruleCatalog,
     );
@@ -1290,7 +1294,7 @@ describe('«Владение оружием» — мастерство оруж�
     const model = service.build(
       makeBuild({
         abilities: [
-          { ruleId: skill?.id ?? '', level: 3, domain: 'Кинжал и Нож', domainCode: 'fam-kinzhal-nozh', zone: 'or' },
+          { ruleCode: skill?.code ?? '', level: 3, domain: 'Кинжал и Нож', domainCode: 'fam-kinzhal-nozh', zone: 'or' },
         ],
       }),
       ruleCatalog,
@@ -1299,7 +1303,7 @@ describe('«Владение оружием» — мастерство оруж�
     );
     const melee = model.characteristics.find((c) => c.code === 'melee-combat');
     const levels = weaponProficiencyService.weaponProficiencyLevels(
-      [{ ruleId: skill?.id ?? '', level: 3, domain: 'Кинжал и Нож', domainCode: 'fam-kinzhal-nozh' }],
+      [{ ruleCode: skill?.code ?? '', level: 3, domain: 'Кинжал и Нож', domainCode: 'fam-kinzhal-nozh' }],
       ruleCatalog,
     );
     const entries = weaponProficiencyService.weaponMasteryEntries('melee-combat', melee!, levels, ruleCatalog);
@@ -1320,9 +1324,8 @@ describe('«Владение оружием» — мастерство оруж�
   });
 
   describe('бюджет денег + инвентарь (шаг «Инвентарь», R2/R6)', () => {
-    const dagger = ruleCatalog.find((r) => r.code === 'kinzhal') ?? ruleCatalog.find((r) => r.id === 'rule-404');
-    const sword =
-      ruleCatalog.find((r) => r.code === 'fehtovalnyy-mech') ?? ruleCatalog.find((r) => r.id === 'rule-407');
+    const dagger = ruleCatalog.find((r) => r.code === 'kinzhal');
+    const sword = ruleCatalog.find((r) => r.code === 'fekhtovalnyy-mech');
     const moneyConfig: CharacterCreationConfig = { osTotal: 20, orTotal: 12, moneyBudget: 3000 };
 
     it('покупка списывает деньги; бюджет считает потраченное; превышение гейтится', () => {
@@ -1337,17 +1340,17 @@ describe('«Владение оружием» — мастерство оруж�
       expect(model.budgets.money.exceeded).toBe(false);
 
       // Покупка кинжала (800 гм): деньги уменьшаются, потрачено = 800.
-      build = characterBuildService.buyItem(build, dagger?.id ?? '', 1, ruleCatalog);
+      build = characterBuildService.buyItem(build, dagger?.code ?? '', 1, ruleCatalog);
       model = service.build(build, ruleCatalog, moneyConfig);
       expect(build.money).toBe(2200);
       expect(model.budgets.money.spent).toBe(800);
       expect(model.budgets.money.exceeded).toBe(false);
 
       // Покупка двух мечей (2000 гм каждый): уходим в минус → превышение (R6 — в модели разрешено).
-      build = characterBuildService.buyItem(build, sword?.id ?? '', 2, ruleCatalog);
+      build = characterBuildService.buyItem(build, sword?.code ?? '', 2, ruleCatalog);
       model = service.build(build, ruleCatalog, moneyConfig);
       expect(build.money).toBe(-1800);
-      expect(build.inventory.filter((item) => item.ruleId === sword?.id)).toHaveLength(2);
+      expect(build.inventory.filter((item) => item.ruleCode === sword?.code)).toHaveLength(2);
       expect(model.budgets.money.spent).toBe(4800);
       expect(model.budgets.money.exceeded).toBe(true);
     });
@@ -1355,9 +1358,9 @@ describe('«Владение оружием» — мастерство оруж�
     it('отмена покупки возвращает деньги в бюджет', () => {
       const baseline = { inventory: [], money: 3000 };
       let build = makeBuild({ money: 3000 });
-      build = characterBuildService.buyItem(build, dagger?.id ?? '', 1, ruleCatalog);
+      build = characterBuildService.buyItem(build, dagger?.code ?? '', 1, ruleCatalog);
 
-      build = characterBuildService.cancelItemPurchase(build, baseline, dagger?.id ?? '', 1, ruleCatalog);
+      build = characterBuildService.cancelItemPurchase(build, baseline, dagger?.code ?? '', 1, ruleCatalog);
 
       expect(build.money).toBe(3000);
       expect(build.inventory).toEqual([]);
@@ -1375,8 +1378,8 @@ describe('«Владение оружием» — мастерство оруж�
 
       const model = service.build(
         makeBuild({
-          raceRuleId: ahtar!.id,
-          inventory: [{ id: 1, ruleId: armor!.id, quantity: 1, equipped: true }],
+          raceRuleCode: ahtar!.code,
+          inventory: [{ id: 1, ruleCode: armor!.code, quantity: 1, equipped: true }],
         }),
         ruleCatalog,
         config,
@@ -1386,12 +1389,12 @@ describe('«Владение оружием» — мастерство оруж�
       const dexterity = model.characteristics.find((c) => c.code === 'dexterity');
       // база 3 + штраф −2 → 4↓ (значение 2)
       expect(strength?.value).toEqual({ base: 4, size: -1 });
-      expect(strength?.modifiers.some((m) => m.sourceRuleId === armor!.id && m.delta === -2)).toBe(true);
+      expect(strength?.modifiers.some((m) => m.sourceRuleCode === armor!.code && m.delta === -2)).toBe(true);
       // потолок 4↓² (значение 1): база 3 зажимается
       expect(dexterity?.value).toEqual({ base: 4, size: -2 });
       const capMod = dexterity?.modifiers.find((m) => m.limit != null);
       expect(capMod?.limit).toEqual({ base: 4, size: -2 });
-      expect(capMod?.sourceRuleId).toBe(armor!.id);
+      expect(capMod?.sourceRuleCode).toBe(armor!.code);
       // фикс. потолок (max_agility) формулы не несёт
       expect(capMod?.limitFormula ?? null).toBeNull();
     });
@@ -1404,8 +1407,8 @@ describe('«Владение оружием» — мастерство оруж�
 
       const model = service.build(
         makeBuild({
-          raceRuleId: liten!.id,
-          inventory: [{ id: 1, ruleId: shield!.id, quantity: 1, equipped: true }],
+          raceRuleCode: liten!.code,
+          inventory: [{ id: 1, ruleCode: shield!.code, quantity: 1, equipped: true }],
         }),
         ruleCatalog,
         config,
@@ -1417,7 +1420,7 @@ describe('«Владение оружием» — мастерство оруж�
       const capMod = dexterity?.modifiers.find((m) => m.limit != null);
       expect(capMod?.limit).toEqual({ base: 5, size: -1 });
       expect(capMod?.limitFormula).toBe('Сила');
-      expect(capMod?.sourceRuleId).toBe(shield!.id);
+      expect(capMod?.sourceRuleCode).toBe(shield!.code);
     });
 
     it('неэкипированный предмет не влияет на характеристики', () => {
@@ -1426,8 +1429,8 @@ describe('«Владение оружием» — мастерство оруж�
 
       const model = service.build(
         makeBuild({
-          raceRuleId: ahtar!.id,
-          inventory: [{ id: 1, ruleId: armor!.id, quantity: 1, equipped: false }],
+          raceRuleCode: ahtar!.code,
+          inventory: [{ id: 1, ruleCode: armor!.code, quantity: 1, equipped: false }],
         }),
         ruleCatalog,
         config,
@@ -1446,7 +1449,7 @@ describe('«Владение оружием» — мастерство оруж�
       description: '',
       version: '1.0.0',
     };
-    const innateRuleId = (code: string): string => ruleCatalog.find((r) => r.code === code)?.id ?? '';
+    const innateRuleId = (code: string): string => ruleCatalog.find((r) => r.code === code)?.code ?? '';
     let build = makeBuild();
     build = characterBuildService.setAbilityParameter(build, innateRuleId('innate-strength'), 'x', 1, ruleCatalog);
     build = characterBuildService.setAbilityParameter(build, innateRuleId('innate-endurance'), 'x', 1, ruleCatalog);

@@ -11,7 +11,7 @@ function makeBuild(overrides: Partial<CharacterBuild> = {}): CharacterBuild {
     spaceCode: 'razrabotka',
     rulesRevision: 5,
     spaceId: 1,
-    raceRuleId: '',
+    raceRuleCode: '',
     characteristicPurchases: [],
     abilities: [],
     resources: [],
@@ -28,7 +28,7 @@ describe('EditorCheckBonusesService', () => {
   it('показывает бонус Скрытности от активной способности', () => {
     const stealth = ruleCatalog.find((rule) => rule.code === 'skrytnost')!;
     const bonuses = editorCheckBonusesService.build(
-      makeBuild({ abilities: [{ ruleId: stealth.id, level: 1 }] }),
+      makeBuild({ abilities: [{ ruleCode: stealth.code, level: 1 }] }),
       ruleCatalog,
     );
 
@@ -36,7 +36,7 @@ describe('EditorCheckBonusesService', () => {
       expect.objectContaining({
         checkCode: 'stealth',
         delta: 2,
-        modifiers: [expect.objectContaining({ sourceRuleId: stealth.id, delta: 2 })],
+        modifiers: [expect.objectContaining({ sourceRuleCode: stealth.code, delta: 2 })],
       }),
     ]);
   });
@@ -45,7 +45,7 @@ describe('EditorCheckBonusesService', () => {
     const stealth = ruleCatalog.find((rule) => rule.code === 'skrytnost')!;
 
     expect(
-      editorCheckBonusesService.build(makeBuild({ abilities: [{ ruleId: stealth.id, level: 0 }] }), ruleCatalog),
+      editorCheckBonusesService.build(makeBuild({ abilities: [{ ruleCode: stealth.code, level: 0 }] }), ruleCatalog),
     ).toEqual([]);
   });
 });

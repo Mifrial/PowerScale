@@ -77,7 +77,7 @@ function emptyBuild(
     spaceId,
     spaceCode,
     rulesRevision,
-    raceRuleId: null,
+    raceRuleCode: null,
     characteristicPurchases: [],
     abilities: [],
     resources: [],

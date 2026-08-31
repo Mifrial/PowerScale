@@ -8,7 +8,7 @@ import { CharacterEditorService } from '@/modules/Roleplay/Character/Service/Cha
 
 const dim = (base: number, size = 0) => ({ base, size });
 
-const base = (id: string, code: string, type: Rule['type'], name: string, spec?: Rule['spec']): Rule => ({
+const base = (id: number | null, code: string, type: Rule['type'], name: string, spec?: Rule['spec']): Rule => ({
   id,
   code,
   type,
@@ -22,9 +22,9 @@ const base = (id: string, code: string, type: Rule['type'], name: string, spec?:
 });
 
 const rules: Rule[] = [
-  base('rule-strength', 'strength', 'characteristic', 'Сила', { type: 'characteristic', group: 'primary' }),
-  base('rule-dexterity', 'dexterity', 'characteristic', 'Ловкость', { type: 'characteristic', group: 'primary' }),
-  base('rule-human', 'human', 'race', 'Человек', {
+  base(null, 'strength', 'characteristic', 'Сила', { type: 'characteristic', group: 'primary' }),
+  base(null, 'dexterity', 'characteristic', 'Ловкость', { type: 'characteristic', group: 'primary' }),
+  base(null, 'human', 'race', 'Человек', {
     parent_race_code: null,
     cost_os: 0,
     characteristics: [
@@ -41,8 +41,8 @@ const rules: Rule[] = [
     ],
     abilities: [{ ability_code: 'keen-hearing', automatic: true }],
   }),
-  base('rule-training', 'training', 'source', 'Тренировка'),
-  base('rule-toughness', 'toughness', 'ability', 'Стойкость', {
+  base(null, 'training', 'source', 'Тренировка'),
+  base(null, 'toughness', 'ability', 'Стойкость', {
     type: 'trait',
     zones: { os: { kind: 'array', levels_cost: [2] } },
     requirements: [
@@ -63,7 +63,7 @@ const rules: Rule[] = [
     ],
     parent_ability_code: null,
   }),
-  base('rule-agility', 'agility', 'ability', 'Ловкость рук', {
+  base(null, 'agility', 'ability', 'Ловкость рук', {
     type: 'trait',
     zones: { os: { kind: 'array', levels_cost: [3] } },
     requirements: [],
@@ -82,8 +82,8 @@ const rules: Rule[] = [
     ],
     parent_ability_code: null,
   }),
-  base('rule-perfection', 'perfection', 'source', 'Совершенство'),
-  base('rule-precision', 'precision', 'ability', 'Точность', {
+  base(null, 'perfection', 'source', 'Совершенство'),
+  base(null, 'precision', 'ability', 'Точность', {
     type: 'trait',
     zones: { os: { kind: 'array', levels_cost: [2] } },
     requirements: [],
@@ -102,7 +102,7 @@ const rules: Rule[] = [
     ],
     parent_ability_code: null,
   }),
-  base('rule-frostbite', 'frostbite', 'ability', 'Стойкость к холоду', {
+  base(null, 'frostbite', 'ability', 'Стойкость к холоду', {
     type: 'trait',
     zones: { os: { kind: 'array', levels_cost: [2] } },
     requirements: [
@@ -111,28 +111,28 @@ const rules: Rule[] = [
     grants: [],
     parent_ability_code: null,
   }),
-  base('rule-keen', 'keen-hearing', 'ability', 'Острый слух', {
+  base(null, 'keen-hearing', 'ability', 'Острый слух', {
     type: 'trait',
     zones: { os: { kind: 'automatic' } },
     requirements: [],
     grants: [],
     parent_ability_code: null,
   }),
-  base('rule-meditation', 'meditation', 'ability', 'Медитация', {
+  base(null, 'meditation', 'ability', 'Медитация', {
     type: 'skill',
     zones: { or: { kind: 'array', levels_cost: [3, 4] } },
     requirements: [],
     grants: [],
     parent_ability_code: null,
   }),
-  base('rule-archery', 'archery', 'ability', 'Лучник', {
+  base(null, 'archery', 'ability', 'Лучник', {
     type: 'skill',
     zones: { or: { kind: 'progression', max_level: 3, base_cost: 2, step: 1 } },
     requirements: [],
     grants: [],
     parent_ability_code: null,
   }),
-  base('rule-dual', 'dual-zone', 'ability', 'Двухзонная', {
+  base(null, 'dual-zone', 'ability', 'Двухзонная', {
     type: 'skill',
     zones: {
       os: { kind: 'array', levels_cost: [1, 2] },
@@ -142,7 +142,7 @@ const rules: Rule[] = [
     grants: [],
     parent_ability_code: null,
   }),
-  base('rule-magic-res', 'magic-resistance', 'ability', 'Сопротивление магии', {
+  base(null, 'magic-resistance', 'ability', 'Сопротивление магии', {
     type: 'trait',
     zones: { os: { kind: 'parameter', parameter_code: 'x', per_unit: 2 } },
     requirements: [],
@@ -150,7 +150,7 @@ const rules: Rule[] = [
     parent_ability_code: null,
     parameters: [{ code: 'x', label: 'X', resolution: 'purchase', default: dim(1) }],
   }),
-  base('rule-mobility', 'mobility', 'ability', 'Манёвренность', {
+  base(null, 'mobility', 'ability', 'Манёвренность', {
     type: 'skill',
     zones: { or: { kind: 'array', levels_cost: [2, 2] } },
     requirements: [
@@ -173,7 +173,7 @@ function makeBuild(overrides: Partial<CharacterBuild> = {}): CharacterBuild {
     spaceCode: 'razrabotka',
     rulesRevision: 5,
     spaceId: 1,
-    raceRuleId: null,
+    raceRuleCode: null,
     characteristicPurchases: [],
     abilities: [],
     resources: [],
@@ -186,21 +186,21 @@ function makeBuild(overrides: Partial<CharacterBuild> = {}): CharacterBuild {
   };
 }
 
-function ability(ruleId: string, level: number) {
-  return { ruleId, level };
+function ability(ruleCode: string, level: number) {
+  return { ruleCode, level };
 }
 
 describe('CharacterEditorService.build', () => {
   it('пустой выбор: расы нет, характеристики пустые, бюджеты нулевые', () => {
     const model = service.build(makeBuild(), rules, config);
 
-    expect(model.race).toEqual({ ruleId: null, name: null, costOs: 0 });
+    expect(model.race).toEqual({ ruleCode: null, name: null, costOs: 0 });
     expect(model.characteristics).toEqual([]);
     expect(model.budgets.os).toEqual({ total: 10, spent: 0, exceeded: false });
   });
 
   it('раса human: purchased-характеристика на минимуме, fixed — по базе', () => {
-    const model = service.build(makeBuild({ raceRuleId: 'rule-human' }), rules, config);
+    const model = service.build(makeBuild({ raceRuleCode: 'human' }), rules, config);
 
     const strength = model.characteristics.find((c) => c.code === 'strength');
     const dexterity = model.characteristics.find((c) => c.code === 'dexterity');
@@ -212,7 +212,7 @@ describe('CharacterEditorService.build', () => {
   it('покупка характеристики за 1 ОС: база из лестницы + трата ОС', () => {
     const model = service.build(
       makeBuild({
-        raceRuleId: 'rule-human',
+        raceRuleCode: 'human',
         characteristicPurchases: [{ characteristicCode: 'strength', cost: 1 }],
       }),
       rules,
@@ -226,7 +226,7 @@ describe('CharacterEditorService.build', () => {
 
   it('черта за ОС: трата в бюджете, грант даёт модификатор характеристики', () => {
     const model = service.build(
-      makeBuild({ raceRuleId: 'rule-human', abilities: [ability('rule-toughness', 1)] }),
+      makeBuild({ raceRuleCode: 'human', abilities: [ability('toughness', 1)] }),
       rules,
       config,
     );
@@ -235,14 +235,14 @@ describe('CharacterEditorService.build', () => {
     const dexterity = model.characteristics.find((c) => c.code === 'dexterity');
     expect(dexterity?.delta).toBe(1);
     expect(dexterity?.value).toEqual(dim(5));
-    expect(dexterity?.modifiers[0]).toMatchObject({ sourceRuleId: 'rule-training', delta: 1, target: 'dexterity' });
+    expect(dexterity?.modifiers[0]).toMatchObject({ sourceRuleCode: 'training', delta: 1, target: 'dexterity' });
   });
 
   it('модификаторы одной роли источника не складываются (только макс. плюс)', () => {
     const model = service.build(
       makeBuild({
-        raceRuleId: 'rule-human',
-        abilities: [ability('rule-toughness', 1), ability('rule-agility', 1)],
+        raceRuleCode: 'human',
+        abilities: [ability('toughness', 1), ability('agility', 1)],
       }),
       rules,
       config,
@@ -257,8 +257,8 @@ describe('CharacterEditorService.build', () => {
   it('модификаторы от разных источников суммируются (ТР §7: +3 от тренировок + +1 от совершенства = +4)', () => {
     const model = service.build(
       makeBuild({
-        raceRuleId: 'rule-human',
-        abilities: [ability('rule-toughness', 1), ability('rule-agility', 1), ability('rule-precision', 1)],
+        raceRuleCode: 'human',
+        abilities: [ability('toughness', 1), ability('agility', 1), ability('precision', 1)],
       }),
       rules,
       config,
@@ -272,7 +272,7 @@ describe('CharacterEditorService.build', () => {
   });
 
   it('автоматическая расовая способность: automatic и racial', () => {
-    const model = service.build(makeBuild({ raceRuleId: 'rule-human' }), rules, config);
+    const model = service.build(makeBuild({ raceRuleCode: 'human' }), rules, config);
 
     const keen = model.abilities.find((a) => a.code === 'keen-hearing');
     expect(keen?.automatic).toBe(true);
@@ -281,7 +281,7 @@ describe('CharacterEditorService.build', () => {
   });
 
   it('невыполненное требование: метка причины', () => {
-    const model = service.build(makeBuild({ raceRuleId: 'rule-human' }), rules, config);
+    const model = service.build(makeBuild({ raceRuleCode: 'human' }), rules, config);
 
     const frostbite = model.abilities.find((a) => a.code === 'frostbite');
     expect(frostbite?.levels[0].met).toBe(false);
@@ -289,7 +289,7 @@ describe('CharacterEditorService.build', () => {
   });
 
   it('баг «Манёвренность»: уровень 2 не доступен, пока не выполнен уровень 1', () => {
-    const model = service.build(makeBuild({ raceRuleId: 'rule-human' }), rules, config);
+    const model = service.build(makeBuild({ raceRuleCode: 'human' }), rules, config);
 
     const mobility = model.abilities.find((a) => a.code === 'mobility');
     expect(mobility?.levels).toHaveLength(2);
@@ -301,7 +301,7 @@ describe('CharacterEditorService.build', () => {
 
   it('зоны: массив уровней и прогрессия с суммарной тратой', () => {
     const model = service.build(
-      makeBuild({ abilities: [ability('rule-meditation', 2), ability('rule-archery', 2)] }),
+      makeBuild({ abilities: [ability('meditation', 2), ability('archery', 2)] }),
       rules,
       config,
     );
@@ -315,7 +315,7 @@ describe('CharacterEditorService.build', () => {
   it('зона покупки (D111): мультизонная способность списывает только выбранную зону', () => {
     // Куплена за ОР (level 2: or [2,3] = 5 ОР) — ОС не тратятся.
     const inOr = service.build(
-      makeBuild({ abilities: [{ ruleId: 'rule-dual', level: 2, zone: 'or' }] }),
+      makeBuild({ abilities: [{ ruleCode: 'dual-zone', level: 2, zone: 'or' }] }),
       rules,
       config,
     );
@@ -324,7 +324,7 @@ describe('CharacterEditorService.build', () => {
 
     // Куплена за ОС (level 2: os [1,2] = 3 ОС) — ОР не тратятся.
     const inOs = service.build(
-      makeBuild({ abilities: [{ ruleId: 'rule-dual', level: 2, zone: 'os' }] }),
+      makeBuild({ abilities: [{ ruleCode: 'dual-zone', level: 2, zone: 'os' }] }),
       rules,
       config,
     );
@@ -332,13 +332,13 @@ describe('CharacterEditorService.build', () => {
     expect(inOs.budgets.or.spent).toBe(0);
 
     // Без зоны (старый черновик) — инференс первой покупаемой зоны (os), без задвоения.
-    const legacy = service.build(makeBuild({ abilities: [{ ruleId: 'rule-dual', level: 2 }] }), rules, config);
+    const legacy = service.build(makeBuild({ abilities: [{ ruleCode: 'dual-zone', level: 2 }] }), rules, config);
     expect(legacy.budgets.os.spent).toBe(3);
     expect(legacy.budgets.or.spent).toBe(0);
   });
 
   it('превышение лимита отмечается', () => {
-    const model = service.build(makeBuild({ abilities: [ability('rule-agility', 1)] }), rules, {
+    const model = service.build(makeBuild({ abilities: [ability('agility', 1)] }), rules, {
       ...config,
       osTotal: 1,
     });
@@ -347,12 +347,12 @@ describe('CharacterEditorService.build', () => {
   });
 
   it('параметрическая цена: дефолт и значение из инстанса', () => {
-    const withDefault = service.build(makeBuild({ abilities: [ability('rule-magic-res', 1)] }), rules, config);
+    const withDefault = service.build(makeBuild({ abilities: [ability('magic-resistance', 1)] }), rules, config);
     expect(withDefault.budgets.os.spent).toBe(2); // 2 × x, x=1 (дефолт)
 
     const withChosen = service.build(
       makeBuild({
-        abilities: [{ ruleId: 'rule-magic-res', level: 1, parameters: { x: dim(3) } }],
+        abilities: [{ ruleCode: 'magic-resistance', level: 1, parameters: { x: dim(3) } }],
       }),
       rules,
       config,
@@ -372,7 +372,7 @@ describe('CharacterEditorService.build', () => {
       description: '',
       version: '1.0.0',
     };
-    const common = (id: string, code: string): Rule => ({
+    const common = (id: number | null, code: string): Rule => ({
       ...base(id, code, 'ability', code, {
         type: 'trait',
         zones: { os: { kind: 'array', levels_cost: [1] } },
@@ -384,12 +384,12 @@ describe('CharacterEditorService.build', () => {
     });
     const withMechanics: Rule[] = [
       ...rules,
-      common('rule-c1', 'common-1'),
-      common('rule-c2', 'common-2'),
-      common('rule-c3', 'common-3'),
-      common('rule-c4', 'common-4'),
+      common(null, 'common-1'),
+      common(null, 'common-2'),
+      common(null, 'common-3'),
+      common(null, 'common-4'),
       {
-        id: 'rule-surcharge',
+        id: null,
         code: 'common-traits-surcharge',
         type: 'simple',
         name: 'Общие черты: прогрессивная доплата',
@@ -408,7 +408,7 @@ describe('CharacterEditorService.build', () => {
     ];
 
     const two = service.build(
-      makeBuild({ abilities: [ability('rule-c1', 1), ability('rule-c2', 1)] }),
+      makeBuild({ abilities: [ability('common-1', 1), ability('common-2', 1)] }),
       withMechanics,
       config,
       [commonKeyword],
@@ -417,7 +417,7 @@ describe('CharacterEditorService.build', () => {
     expect(two.budgets.os.spent).toBe(2); // 1+1, доплаты нет
 
     const three = service.build(
-      makeBuild({ abilities: [ability('rule-c1', 1), ability('rule-c2', 1), ability('rule-c3', 1)] }),
+      makeBuild({ abilities: [ability('common-1', 1), ability('common-2', 1), ability('common-3', 1)] }),
       withMechanics,
       config,
       [commonKeyword],
@@ -431,7 +431,7 @@ describe('CharacterEditorService.build', () => {
 
     const four = service.build(
       makeBuild({
-        abilities: [ability('rule-c1', 1), ability('rule-c2', 1), ability('rule-c3', 1), ability('rule-c4', 1)],
+        abilities: [ability('common-1', 1), ability('common-2', 1), ability('common-3', 1), ability('common-4', 1)],
       }),
       withMechanics,
       config,
@@ -450,14 +450,14 @@ describe('CharacterEditorService.build', () => {
 
   it('автоматические расовые способности применяют дары (уровень 1)', () => {
     const grantRules: Rule[] = [
-      base('rule-strength', 'strength', 'characteristic', 'Сила', { type: 'characteristic', group: 'primary' }),
-      base('rule-human', 'human', 'race', 'Человек', {
+      base(null, 'strength', 'characteristic', 'Сила', { type: 'characteristic', group: 'primary' }),
+      base(null, 'human', 'race', 'Человек', {
         parent_race_code: null,
         cost_os: 0,
         characteristics: [{ characteristic_code: 'strength', mode: 'fixed', base: dim(3) }],
         abilities: [{ ability_code: 'stone-skin', automatic: true }],
       }),
-      base('rule-stone-skin', 'stone-skin', 'ability', 'Каменная кожа', {
+      base(null, 'stone-skin', 'ability', 'Каменная кожа', {
         type: 'trait',
         zones: {},
         requirements: [],
@@ -478,7 +478,7 @@ describe('CharacterEditorService.build', () => {
       }),
     ];
 
-    const model = service.build(makeBuild({ raceRuleId: 'rule-human' }), grantRules, config);
+    const model = service.build(makeBuild({ raceRuleCode: 'human' }), grantRules, config);
     const strength = model.characteristics.find((c) => c.code === 'strength');
     expect(strength?.base).toEqual(dim(3));
     expect(strength?.delta).toBe(2);
@@ -489,20 +489,20 @@ describe('CharacterEditorService.build', () => {
 describe('CharacterEditorService.toVersion', () => {
   it('выводит версию: очки, характеристики с модификаторами, сохранённые поля', () => {
     const build = makeBuild({
-      raceRuleId: 'rule-human',
-      abilities: [ability('rule-toughness', 1)],
-      inventory: [{ id: 1, ruleId: 'rule-x', quantity: 1, equipped: false }],
+      raceRuleCode: 'human',
+      abilities: [ability('toughness', 1)],
+      inventory: [{ id: 1, ruleCode: 'rule-x', quantity: 1, equipped: false }],
       money: 40,
       olTotal: 3,
     });
     const version = service.toVersion(build, rules, config);
 
-    expect(version.raceRuleId).toBe('rule-human');
+    expect(version.raceRuleCode).toBe('human');
     expect(version.points).toEqual({ osSpent: 2, olSpent: 0, olTotal: 3, orSpent: 0, orTotal: 20 });
     expect(version.money).toBe(40);
     expect(version.ageYears).toBeNull();
-    expect(version.inventory).toEqual([{ id: 1, ruleId: 'rule-x', quantity: 1, equipped: false }]);
-    const dexterity = version.characteristics.find((c) => c.ruleId === 'rule-dexterity');
+    expect(version.inventory).toEqual([{ id: 1, ruleCode: 'rule-x', quantity: 1, equipped: false }]);
+    const dexterity = version.characteristics.find((c) => c.ruleCode === 'dexterity');
     expect(dexterity?.base).toEqual(dim(4));
     expect(dexterity?.modifiers[0]).toMatchObject({ delta: 1 });
   });
@@ -511,12 +511,12 @@ describe('CharacterEditorService.toVersion', () => {
 describe('CharacterEditorService: возраст и деньги (заход C)', () => {
   const ageRules: Rule[] = [
     ...rules,
-    base('rule-intellect', 'intellect', 'characteristic', 'Интеллект', {
+    base(null, 'intellect', 'characteristic', 'Интеллект', {
       type: 'characteristic',
       formula: 'min(memory, reasoning)',
       group: 'primary',
     }),
-    base('rule-age', 'age', 'age', 'Возраст', {
+    base(null, 'age', 'age', 'Возраст', {
       type: 'age',
       ages: [
         { name: 'Молодой', ol: 3, featureLimit: 3, effects: [] },
@@ -539,7 +539,7 @@ describe('CharacterEditorService: возраст и деньги (заход C)'
     }),
   ];
   // Раса с таблицей лет: Молодой 18–25, Взрослый 25–35, за 35 — «Старый».
-  const humanAge = base('rule-human', 'human', 'race', 'Человек', {
+  const humanAge = base(null, 'human', 'race', 'Человек', {
     parent_race_code: null,
     cost_os: 0,
     characteristics: [
@@ -554,10 +554,10 @@ describe('CharacterEditorService: возраст и деньги (заход C)'
       { age: 'Взрослый', ageStart: 25, ageEnd: 35 },
     ],
   });
-  const ageCatalog = ageRules.map((rule) => (rule.id === 'rule-human' ? humanAge : rule));
+  const ageCatalog = ageRules.map((rule) => (rule.code === 'human' ? humanAge : rule));
 
   it('ступень по годам и таблице расы: ОЛ и лимит особенностей', () => {
-    const model = service.build(makeBuild({ raceRuleId: 'rule-human', ageYears: 22 }), ageCatalog, config);
+    const model = service.build(makeBuild({ raceRuleCode: 'human', ageYears: 22 }), ageCatalog, config);
 
     expect(model.personality.hasAgeRule).toBe(true);
     expect(model.personality.ageName).toBe('Молодой');
@@ -567,7 +567,7 @@ describe('CharacterEditorService: возраст и деньги (заход C)'
   });
 
   it('за диапазонами лет — ступень «Старый» с эффектами к характеристикам', () => {
-    const model = service.build(makeBuild({ raceRuleId: 'rule-human', ageYears: 70 }), ageCatalog, config);
+    const model = service.build(makeBuild({ raceRuleCode: 'human', ageYears: 70 }), ageCatalog, config);
 
     expect(model.personality.ageName).toBe('Старый');
     expect(model.personality.ol).toBe(7);
@@ -576,7 +576,7 @@ describe('CharacterEditorService: возраст и деньги (заход C)'
   });
 
   it('шкала возраста: все ступени правила, за диапазонами — «Старый» от последнего максимума', () => {
-    const model = service.build(makeBuild({ raceRuleId: 'rule-human', ageYears: 22 }), ageCatalog, config);
+    const model = service.build(makeBuild({ raceRuleCode: 'human', ageYears: 22 }), ageCatalog, config);
 
     expect(model.personality.ageScale).toEqual([
       { name: 'Молодой', min: 18, max: 25 },
@@ -586,7 +586,7 @@ describe('CharacterEditorService: возраст и деньги (заход C)'
   });
 
   it('дефолт возраста: минимум средней ступени шкалы; без расы (нет таблицы лет) — null', () => {
-    const withRace = service.build(makeBuild({ raceRuleId: 'rule-human' }), ageCatalog, config);
+    const withRace = service.build(makeBuild({ raceRuleCode: 'human' }), ageCatalog, config);
     expect(withRace.personality.defaultAgeYears).toBe(25);
 
     const withoutRace = service.build(makeBuild(), ageCatalog, config);
@@ -594,7 +594,7 @@ describe('CharacterEditorService: возраст и деньги (заход C)'
   });
 
   it('условный эффект (scope) в значение не входит, помечается в модификаторах', () => {
-    const model = service.build(makeBuild({ raceRuleId: 'rule-human', ageYears: 30 }), ageCatalog, config);
+    const model = service.build(makeBuild({ raceRuleCode: 'human', ageYears: 30 }), ageCatalog, config);
 
     expect(model.personality.ageName).toBe('Взрослый');
     // Интеллект — производная: условный эффект применяется к её базам (memory/reasoning), но в значение не входит.
@@ -607,7 +607,7 @@ describe('CharacterEditorService: возраст и деньги (заход C)'
   it('особенность богатства: эффективный бюджет денег = max(фикс, % от лимита)', () => {
     const wealthKeyword: Keyword = { id: 50, code: 'wealth', name: 'Богатство', active: true };
     const richRule: Rule = {
-      id: 'rule-rich',
+      id: null,
       code: 'rich',
       type: 'ability',
       name: 'Богатый',
@@ -625,18 +625,18 @@ describe('CharacterEditorService: возраст и деньги (заход C)'
       },
     };
     const grantRules = [...ageCatalog, richRule];
-    const model = service.build(makeBuild({ ageYears: 22, abilities: [ability('rule-rich', 1)] }), grantRules, config, [
+    const model = service.build(makeBuild({ ageYears: 22, abilities: [ability('rich', 1)] }), grantRules, config, [
       wealthKeyword,
     ]);
 
     expect(model.budgets.money.total).toBe(400);
-    expect(model.personality.wealthRuleIds).toContain('rule-rich');
+    expect(model.personality.wealthRuleIds).toContain('rich');
   });
 
   it('Нищий: бюджет денег = min(фикс, % от лимита)', () => {
     const grantRules = [
       ...ageCatalog,
-      base('rule-pauper', 'pauper', 'ability', 'Нищий', {
+      base(null, 'pauper', 'ability', 'Нищий', {
         type: 'feature',
         zones: { ol: { kind: 'array', levels_cost: [-1] } },
         requirements: [],
@@ -644,18 +644,14 @@ describe('CharacterEditorService: возраст и деньги (заход C)'
         parent_ability_code: null,
       }),
     ];
-    const model = service.build(
-      makeBuild({ ageYears: 22, abilities: [ability('rule-pauper', 1)] }),
-      grantRules,
-      config,
-    );
+    const model = service.build(makeBuild({ ageYears: 22, abilities: [ability('pauper', 1)] }), grantRules, config);
 
     expect(model.budgets.money.total).toBe(10);
     expect(model.budgets.ol.spent).toBe(-1);
   });
 
   it('toVersion: переносит возраст и ОЛ из ступени', () => {
-    const build = makeBuild({ raceRuleId: 'rule-human', ageYears: 22, olTotal: 0 });
+    const build = makeBuild({ raceRuleCode: 'human', ageYears: 22, olTotal: 0 });
     const version = service.toVersion(build, ageCatalog, config);
 
     expect(version.ageYears).toBe(22);
@@ -664,14 +660,14 @@ describe('CharacterEditorService: возраст и деньги (заход C)'
 
   it('перетрата ОЛ (взято больше, чем даёт ступень) отмечается exceeded', () => {
     // Ступень «Молодой» даёт 3 ОЛ; две положительные особенности по 2 ОЛ — перетрата.
-    const traitA = base('rule-a', 'feature-a', 'ability', 'Особенность A', {
+    const traitA = base(null, 'feature-a', 'ability', 'Особенность A', {
       type: 'feature',
       zones: { ol: { kind: 'array', levels_cost: [2] } },
       requirements: [],
       grants: [],
       parent_ability_code: null,
     });
-    const traitB = base('rule-b', 'feature-b', 'ability', 'Особенность B', {
+    const traitB = base(null, 'feature-b', 'ability', 'Особенность B', {
       type: 'feature',
       zones: { ol: { kind: 'array', levels_cost: [2] } },
       requirements: [],
@@ -680,7 +676,7 @@ describe('CharacterEditorService: возраст и деньги (заход C)'
     });
     const grantRules = [...ageCatalog, traitA, traitB];
     const model = service.build(
-      makeBuild({ raceRuleId: 'rule-human', ageYears: 22, abilities: [ability('rule-a', 1), ability('rule-b', 1)] }),
+      makeBuild({ raceRuleCode: 'human', ageYears: 22, abilities: [ability('feature-a', 1), ability('feature-b', 1)] }),
       grantRules,
       config,
     );
@@ -692,7 +688,7 @@ describe('CharacterEditorService: возраст и деньги (заход C)'
 
   it('orTotal без лимита: null сохраняется в версии (edit не блокируется лимитом 0)', () => {
     const noLimit: CharacterCreationConfig = { osTotal: null, orTotal: null, moneyBudget: null };
-    const build = makeBuild({ abilities: [ability('rule-meditation', 1)] });
+    const build = makeBuild({ abilities: [ability('meditation', 1)] });
     const version = service.toVersion(build, rules, noLimit);
 
     expect(version.points.orTotal).toBeNull();

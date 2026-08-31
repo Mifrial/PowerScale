@@ -13,7 +13,7 @@ import {
   CHECK_INJURY_ATTACHED_RULE_CODES,
 } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
 
-function checkRule(id: string, code: string, name: string, description: string, spec: CheckSpec): Rule {
+function checkRule(id: number, code: string, name: string, description: string, spec: CheckSpec): Rule {
   return {
     id,
     code,
@@ -34,18 +34,12 @@ const askBoth: Pick<CheckSpec, 'difficulty_input' | 'allowed_modes'> = {
 };
 
 function characteristicCheck(idSuffix: number, characteristicCode: string, name: string): Rule {
-  return checkRule(
-    `rule-check-${idSuffix}`,
-    `check-${characteristicCode}`,
-    `Проверка на ${name}`,
-    `Проверка на ${name}.`,
-    {
-      type: 'check',
-      parent_check_code: CHECK_SIMPLE_CODE,
-      characteristic_code: characteristicCode,
-      ...askBoth,
-    },
-  );
+  return checkRule(9000 + idSuffix, `check-${characteristicCode}`, `Проверка на ${name}`, `Проверка на ${name}.`, {
+    type: 'check',
+    parent_check_code: CHECK_SIMPLE_CODE,
+    characteristic_code: characteristicCode,
+    ...askBoth,
+  });
 }
 
 /**
@@ -53,7 +47,7 @@ function characteristicCheck(idSuffix: number, characteristicCode: string, name:
  */
 export const mockChecks: Rule[] = [
   checkRule(
-    'rule-check-1',
+    9001,
     CHECK_SIMPLE_CODE,
     'Простая проверка',
     'Корень обычных проверок. Правила броска (6 и 1, преимущества) наследуются потомкам.',
@@ -64,7 +58,7 @@ export const mockChecks: Rule[] = [
     },
   ),
   checkRule(
-    'rule-check-2',
+    9002,
     CHECK_INJURY_CODE,
     'Проверка на увечье',
     'Отдельный корень: те же правила броска, что у простой проверки; сложность и сила — процедура увечья.',
@@ -76,7 +70,7 @@ export const mockChecks: Rule[] = [
     },
   ),
   checkRule(
-    'rule-check-3',
+    9003,
     CHECK_HIT_CODE,
     'Проверка на попадание',
     'Обычно совместная. Эффективность атакующего — точность оружия. Процедура — карточки Удар / Бросок / Выстрел в ревизии.',
@@ -87,7 +81,7 @@ export const mockChecks: Rule[] = [
     },
   ),
   checkRule(
-    'rule-check-4',
+    9004,
     CHECK_EXHAUSTION_CODE,
     'Проверка на истощение',
     'Сила воли против Истощения. Пул — характеристика, сложность — значение состояния.',
@@ -99,22 +93,16 @@ export const mockChecks: Rule[] = [
       allowed_modes: 'solo',
     },
   ),
+  checkRule(9005, CHECK_INITIATIVE_CODE, 'Проверка на инициативу', 'Совместная. Характеристику называет мастер.', {
+    type: 'check',
+    parent_check_code: CHECK_SIMPLE_CODE,
+    characteristic_code: 'perception',
+    allow_characteristic_override: true,
+    difficulty_input: { kind: 'none' },
+    allowed_modes: 'joint',
+  }),
   checkRule(
-    'rule-check-5',
-    CHECK_INITIATIVE_CODE,
-    'Проверка на инициативу',
-    'Совместная. Характеристику называет мастер.',
-    {
-      type: 'check',
-      parent_check_code: CHECK_SIMPLE_CODE,
-      characteristic_code: 'perception',
-      allow_characteristic_override: true,
-      difficulty_input: { kind: 'none' },
-      allowed_modes: 'joint',
-    },
-  ),
-  checkRule(
-    'rule-check-6',
+    9006,
     CHECK_COMMUNICATION_CODE,
     'Проверка на общение',
     'Пул по умолчанию — Красноречие; на запуске можно подменить характеристику.',
@@ -126,38 +114,38 @@ export const mockChecks: Rule[] = [
       ...askBoth,
     },
   ),
-  checkRule('rule-check-7', 'intimidation', 'Запугивание', 'Проверка на общение: запугивание.', {
+  checkRule(9007, 'intimidation', 'Запугивание', 'Проверка на общение: запугивание.', {
     type: 'check',
     parent_check_code: CHECK_COMMUNICATION_CODE,
     ...askBoth,
   }),
-  checkRule('rule-check-8', 'persuasion', 'Убеждение', 'Проверка на общение: убеждение.', {
+  checkRule(9008, 'persuasion', 'Убеждение', 'Проверка на общение: убеждение.', {
     type: 'check',
     parent_check_code: CHECK_COMMUNICATION_CODE,
     ...askBoth,
   }),
-  checkRule('rule-check-9', 'deception', 'Обман', 'Проверка на общение: обман.', {
+  checkRule(9009, 'deception', 'Обман', 'Проверка на общение: обман.', {
     type: 'check',
     parent_check_code: CHECK_COMMUNICATION_CODE,
     ...askBoth,
   }),
-  checkRule('rule-check-10', 'seduction', 'Обольщение', 'Проверка на общение: обольщение.', {
+  checkRule(9010, 'seduction', 'Обольщение', 'Проверка на общение: обольщение.', {
     type: 'check',
     parent_check_code: CHECK_COMMUNICATION_CODE,
     ...askBoth,
   }),
-  checkRule('rule-check-11', 'trade', 'Торговля', 'Проверка на общение: торговля.', {
+  checkRule(9011, 'trade', 'Торговля', 'Проверка на общение: торговля.', {
     type: 'check',
     parent_check_code: CHECK_COMMUNICATION_CODE,
     ...askBoth,
   }),
-  checkRule('rule-check-12', CHECK_STEALTH_CODE, 'Проверка на скрытность', 'Проверка на скрытность.', {
+  checkRule(9012, CHECK_STEALTH_CODE, 'Проверка на скрытность', 'Проверка на скрытность.', {
     type: 'check',
     parent_check_code: CHECK_SIMPLE_CODE,
     characteristic_code: 'dexterity',
     ...askBoth,
   }),
-  checkRule('rule-check-13', CHECK_ACROBATICS_CODE, 'Проверка на Акробатику', 'Проверка на Акробатику.', {
+  checkRule(9013, CHECK_ACROBATICS_CODE, 'Проверка на Акробатику', 'Проверка на Акробатику.', {
     type: 'check',
     parent_check_code: CHECK_SIMPLE_CODE,
     characteristic_code: 'dexterity',

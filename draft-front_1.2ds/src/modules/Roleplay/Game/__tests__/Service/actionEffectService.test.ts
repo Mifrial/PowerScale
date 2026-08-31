@@ -3,12 +3,12 @@ import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingAct
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/actionEffectService';
 
-const sourceRuleId = 'rule-fast-strike';
+const sourceRuleCode = 'rule-fast-strike';
 
 describe('ActionEffectService', () => {
   it('resolves a dimensional current attack characteristic modifier by attack component and hit', () => {
     const rule = {
-      id: 'rule-sweeping-strike',
+      id: null,
       code: 'razmashistyy-udar',
       type: 'ability',
       name: 'Размашистый удар',
@@ -44,7 +44,7 @@ describe('ActionEffectService', () => {
   it('applies next-action cost and consumes the effect on an attack', () => {
     const pending: PendingActionEffect[] = [
       {
-        sourceRuleId,
+        sourceRuleCode,
         effect: { type: 'next_action_attack_cost', resource_code: 'action-points', delta: 1 },
       },
     ];
@@ -57,7 +57,7 @@ describe('ActionEffectService', () => {
   it('loses a next-action effect when the next action is not an attack', () => {
     const pending: PendingActionEffect[] = [
       {
-        sourceRuleId,
+        sourceRuleCode,
         effect: {
           type: 'next_action_attack_target_characteristic_modifier',
           check_code: 'melee-combat',
@@ -79,7 +79,7 @@ describe('ActionEffectService', () => {
   it('does not apply target modifier when final attack cost exceeds the limit', () => {
     const pending: PendingActionEffect[] = [
       {
-        sourceRuleId,
+        sourceRuleCode,
         effect: {
           type: 'next_action_attack_cost',
           resource_code: 'action-points',
@@ -87,7 +87,7 @@ describe('ActionEffectService', () => {
         },
       },
       {
-        sourceRuleId,
+        sourceRuleCode,
         effect: {
           type: 'next_action_attack_target_characteristic_modifier',
           check_code: 'melee-combat',
@@ -110,7 +110,7 @@ describe('ActionEffectService', () => {
     const result = actionEffectService.resolveForNextAction(
       [
         {
-          sourceRuleId: 'rule-swift-strike',
+          sourceRuleCode: 'rule-swift-strike',
           effect: {
             type: 'next_action_attack_target_characteristic_modifier',
             check_code: 'melee-combat',
@@ -126,7 +126,7 @@ describe('ActionEffectService', () => {
     );
 
     expect(result.targetDexterityMasteryDelta).toBe(-1);
-    expect(result.targetDexterityMasteryAdjustments).toEqual([{ sourceRuleId: 'rule-swift-strike', delta: -1 }]);
+    expect(result.targetDexterityMasteryAdjustments).toEqual([{ sourceRuleCode: 'rule-swift-strike', delta: -1 }]);
   });
 
   it('describes target effects in player-facing language', () => {
@@ -147,12 +147,13 @@ describe('ActionEffectService', () => {
 
   it('resolves current and pending hit disadvantages with the rule source', () => {
     const rule = {
-      id: 'rule-sweeping-strike',
+      id: null,
+      code: 'sweeping-strike',
       name: 'Размашистый удар',
     } as Rule;
     const pending: PendingActionEffect[] = [
       {
-        sourceRuleId: rule.id,
+        sourceRuleCode: rule.code,
         effect: {
           type: 'after_action_until_resource_spent_check_modifier',
           resource_code: 'action-points',
@@ -188,7 +189,7 @@ describe('ActionEffectService', () => {
   it('consumes a duration effect by spending its resource', () => {
     const pending: PendingActionEffect[] = [
       {
-        sourceRuleId,
+        sourceRuleCode,
         effect: {
           type: 'after_action_until_resource_spent_check_modifier',
           resource_code: 'action-points',

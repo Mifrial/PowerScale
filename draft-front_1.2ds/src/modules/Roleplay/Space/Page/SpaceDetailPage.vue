@@ -41,7 +41,7 @@ onMounted(() => {
 const ctx = computed(() => route.params.ctx as string | undefined);
 const isDraftContext = computed(() => ctx.value === 'draft');
 
-const draftRuleIds = computed(() => new Set(drafts.getDraftRules(space.value?.id ?? 0).map((r) => r.id)));
+const draftRuleCodes = computed(() => new Set(drafts.getDraftRules(space.value?.id ?? 0).map((r) => r.code)));
 
 function formatPublished(iso: string): string {
   const d = new Date(iso);
@@ -103,9 +103,7 @@ function onImportConfirm(payload: { file: RevisionFile; intoCurrent: boolean; re
 
     return;
   }
-  for (const rule of [...diff.changed, ...diff.added]) {
-    drafts.saveRule(spaceId, rule);
-  }
+  drafts.saveRules(spaceId, [...diff.changed, ...diff.added]);
   drafts.setRemovedCodes(spaceId, diff.removedCodes);
   snackbar.value = { show: true, text: revisionFileService.formatImportSummary(diff), color: 'success' };
   router.push(`/space/${space.value?.code}/draft`);
@@ -129,7 +127,7 @@ function showDiscardRuleDialog(rule: Rule) {
 
 function discardRule() {
   if (!space.value || !ruleToDiscard.value) return;
-  drafts.removeRule(space.value.id, ruleToDiscard.value.id);
+  drafts.removeRule(space.value.id, ruleToDiscard.value.code);
   showDiscardDialog.value = false;
   ruleToDiscard.value = null;
 
@@ -186,7 +184,7 @@ function discardRule() {
       :space-code="space.code"
       :ctx="ctx"
       :is-draft-context="isDraftContext"
-      :draft-rule-ids="draftRuleIds"
+      :draft-rule-codes="draftRuleCodes"
       @discard="showDiscardRuleDialog"
     />
 

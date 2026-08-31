@@ -42,7 +42,7 @@ function onActivate(): void {
 
     <v-card class="rounded border" elevation="3" style="width: max-content; min-width: 280px; max-width: 420px">
       <v-card-title class="text-body-1">
-        <RuleLink :rule-id="attack.itemRuleId">{{ attack.itemName }}</RuleLink>
+        <RuleLink :rule-code="attack.itemRuleCode">{{ attack.itemName }}</RuleLink>
         — {{ attack.profileTypeLabel }}
       </v-card-title>
       <v-card-text class="pt-0">

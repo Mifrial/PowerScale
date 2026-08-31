@@ -45,7 +45,7 @@ function makeCreateData(name: string): CreateCharacterData {
       fullDescription: null,
       spaceCode: 'actual',
       rulesRevision: 12,
-      raceRuleId: null,
+      raceRuleCode: null,
       characteristics: [],
       resources: [],
       abilities: [],
@@ -270,20 +270,20 @@ describe('mockGameMemberships: остановка сессии', () => {
     const beforeApproved = (await fetchGameCharacters(2)).find((m) => m.characterId === 1)!.approvedCharacterVersion!;
 
     detail.game.status = 'playing';
-    await setCombatResource(2, charKey, 'rule-18', { base: 1, size: 0 });
+    await setCombatResource(2, charKey, 'action-points', { base: 1, size: 0 });
 
     await stopGameSession(2, 'in_process');
 
     const membership = (await fetchGameCharacters(2)).find((m) => m.characterId === 1)!;
     expect(membership.membershipStatus).toBe('active');
     expect(membership.approvedCharacterVersion).toEqual(beforeApproved);
-    expect(versions[1].resources.find((r) => r.ruleId === 'rule-18')?.current).toEqual({ base: 1, size: 0 });
+    expect(versions[1].resources.find((r) => r.ruleCode === 'action-points')?.current).toEqual({ base: 1, size: 0 });
     expect(membership.reviewState).toBe('changes_pending');
     expect(getStoredCombatOverlay(2, charKey)).toBeNull();
 
     const approved = await moderateCharacter(2, 1, 'approve');
     expect(approved.reviewState).toBe('clean');
-    expect(approved.approvedCharacterVersion?.resources.find((r) => r.ruleId === 'rule-18')?.current).toEqual({
+    expect(approved.approvedCharacterVersion?.resources.find((r) => r.ruleCode === 'action-points')?.current).toEqual({
       base: 1,
       size: 0,
     });
@@ -299,12 +299,12 @@ describe('mockGameMemberships: остановка сессии', () => {
     const charKey = combatKey('character', 1);
     const npcKey = combatKey('npc', 5);
     const beforeActual = cloneData(versions[1]);
-    await setCombatResource(2, charKey, 'rule-18', { base: 1, size: 0 });
+    await setCombatResource(2, charKey, 'action-points', { base: 1, size: 0 });
     const npcOverlay: GameCombatOverlay = {
       gameId: 2,
       entityKey: npcKey,
       kind: 'npc',
-      resources: [{ ruleId: 'rule-18', current: { base: 2, size: 0 } }],
+      resources: [{ ruleCode: 'action-points', current: { base: 2, size: 0 } }],
       states: [],
       updatedAt: '2026-08-30T12:00:00.000Z',
     };
@@ -328,7 +328,7 @@ describe('mockGameMemberships: остановка сессии', () => {
         fullDescription: null,
         spaceCode: 'razrabotka',
         rulesRevision: 5,
-        raceRuleId: null,
+        raceRuleCode: null,
         characteristics: [],
         resources: [],
         abilities: [],
@@ -344,13 +344,13 @@ describe('mockGameMemberships: остановка сессии', () => {
     await moderateCharacter(2, second.characterId, 'approve');
     await writeOverlaySheet(2, combatKey('character', second.characterId), {
       ...versions[second.characterId],
-      raceRuleId: 'missing-rule-xyz',
+      raceRuleCode: 'missing-rule-xyz',
     });
 
     await expect(stopGameSession(2, 'in_process')).rejects.toThrow('отсутствующие в ревизии');
     expect(gameDetails.find((d) => d.game.id === 2)?.game.status).toBe('playing');
     expect(versions[1]).toEqual(beforeActual);
-    expect(getStoredCombatOverlay(2, charKey)?.resources.find((r) => r.ruleId === 'rule-18')?.current).toEqual({
+    expect(getStoredCombatOverlay(2, charKey)?.resources.find((r) => r.ruleCode === 'action-points')?.current).toEqual({
       base: 1,
       size: 0,
     });

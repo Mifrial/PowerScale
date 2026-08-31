@@ -37,7 +37,7 @@ async function loadRules(): Promise<void> {
   if (!props.spaceId || !props.rulesRevision) return;
   try {
     const revision = await spaceRevision.fetchRevision(props.spaceId, props.rulesRevision);
-    rules.value = Object.fromEntries(revision.rules.map((rule) => [rule.id, { name: rule.name }]));
+    rules.value = Object.fromEntries(revision.rules.map((rule) => [rule.code, { name: rule.name }]));
   } catch {
     rules.value = {};
   }
@@ -62,7 +62,7 @@ async function confirmReplace(): Promise<void> {
   try {
     await getCharacterApi().updateCustomRule(props.characterId, entry.id, {
       status: 'deprecated',
-      replacedWithRuleId: replaceRuleId.value,
+      replacedWithRuleCode: replaceRuleId.value,
     });
     replaceOpen.value = false;
     emit('updated');
@@ -78,7 +78,9 @@ function openFormAsRule(entry: CustomRuleEntry): void {
 }
 
 function replaceLabel(entry: CustomRuleEntry): string {
-  return entry.replacedWithRuleId ? (replaceNames.value.get(entry.replacedWithRuleId) ?? entry.replacedWithRuleId) : '';
+  return entry.replacedWithRuleCode
+    ? (replaceNames.value.get(entry.replacedWithRuleCode) ?? entry.replacedWithRuleCode)
+    : '';
 }
 </script>
 

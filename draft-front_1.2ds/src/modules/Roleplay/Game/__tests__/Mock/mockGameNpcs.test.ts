@@ -93,7 +93,7 @@ describe('mockGameNpcs: создание, предложение, модерац
       fullDescription: 'Полно',
       spaceCode: 'actual',
       rulesRevision: 12,
-      raceRuleId: null,
+      raceRuleCode: null,
       characteristics: [],
       resources: [],
       abilities: [],
@@ -119,7 +119,7 @@ describe('mockGameNpcs: создание, предложение, модерац
   it('фикстура Ворона (игра 1) на ревизии 6 — перевод пишет лист на ревизию игры', async () => {
     const npc = (await fetchNpcs(1)).find((entry) => entry.id === 2);
     expect(npc?.version?.rulesRevision).toBe(6);
-    expect(npc?.version?.abilities.some((ability) => ability.ruleId === 'rule-26')).toBe(true);
+    expect(npc?.version?.abilities.some((ability) => ability.ruleCode === 'night-vision')).toBe(true);
     const game = gameDetails.find((detail) => detail.game.id === 1)!.game;
     const oldSpace = await fetchSpaceByCode(npc!.version!.spaceCode);
     const oldRevision = await fetchRevision(oldSpace.id, npc!.version!.rulesRevision);
@@ -137,7 +137,7 @@ describe('mockGameNpcs: создание, предложение, модерац
         effectiveLimits: { osTotal: null, orTotal: null, moneyBudget: null },
       });
       expect(migrated.version.rulesRevision).toBe(game.rulesRevision);
-      expect(migrated.version.abilities.some((ability) => ability.ruleId === 'rule-26')).toBe(false);
+      expect(migrated.version.abilities.some((ability) => ability.ruleCode === 'rule-26')).toBe(false);
       const updated = await updateNpc(2, {
         name: migrated.version.name,
         shortDescription: migrated.version.shortDescription,

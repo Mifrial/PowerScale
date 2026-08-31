@@ -20,7 +20,7 @@ defineProps<{
         <v-col cols="6" sm="4" md="3">
           <CharacteristicTile :characteristic="combat.melee.stat" :rules="rules" :senses="senses" />
         </v-col>
-        <v-col v-for="weapon in combat.melee.weapons" :key="weapon.ruleId" cols="6" sm="4" md="3">
+        <v-col v-for="weapon in combat.melee.weapons" :key="weapon.ruleCode" cols="6" sm="4" md="3">
           <CharacteristicTile :characteristic="weapon" :rules="rules" :senses="senses" />
         </v-col>
       </v-row>
@@ -31,7 +31,7 @@ defineProps<{
         <v-col cols="6" sm="4" md="3">
           <CharacteristicTile :characteristic="combat.ranged.stat" :rules="rules" :senses="senses" />
         </v-col>
-        <v-col v-for="weapon in combat.ranged.weapons" :key="weapon.ruleId" cols="6" sm="4" md="3">
+        <v-col v-for="weapon in combat.ranged.weapons" :key="weapon.ruleCode" cols="6" sm="4" md="3">
           <CharacteristicTile :characteristic="weapon" :rules="rules" :senses="senses" />
         </v-col>
       </v-row>

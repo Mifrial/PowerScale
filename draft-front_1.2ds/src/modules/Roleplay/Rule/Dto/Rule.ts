@@ -3,7 +3,8 @@ import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec';
 import type { MechanicPayload } from '@/modules/Roleplay/Rule/Dto/MechanicPayload';
 
 export interface Rule {
-  id: string;
+  /** Ключ строки каталога; `null` — черновик / импорт, ещё не в БД. */
+  id: number | null;
   /** Семантический ключ правила (глобально уникален). Задаётся при создании и не меняется. */
   code: string;
   type: RuleType;

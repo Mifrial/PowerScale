@@ -77,7 +77,7 @@ export class ActionEffectService {
           effect.type === 'next_action_attack_target_characteristic_modifier' ||
           effect.type === 'after_action_until_resource_spent_check_modifier',
       )
-      .map((effect) => ({ sourceRuleId: rule?.id ?? '', effect }));
+      .map((effect) => ({ sourceRuleCode: rule?.code ?? '', effect }));
   }
 
   effectsAfterProcess(rule: Rule | null | undefined): PendingActionEffect[] {
@@ -85,7 +85,7 @@ export class ActionEffectService {
       return [];
 
     return (rule.spec.process.completion_effects ?? []).map((effect) => ({
-      sourceRuleId: rule.id,
+      sourceRuleCode: rule.code,
       effect,
     }));
   }
@@ -101,7 +101,7 @@ export class ActionEffectService {
   ): {
     actionCostDelta: number;
     targetDexterityMasteryDelta: number;
-    targetDexterityMasteryAdjustments: { sourceRuleId: string; delta: number }[];
+    targetDexterityMasteryAdjustments: { sourceRuleCode: string; delta: number }[];
     remainingEffects: PendingActionEffect[];
   } {
     const costDelta = pendingEffects
@@ -115,7 +115,7 @@ export class ActionEffectService {
       .reduce((total, pending) => total + pending.effect.delta, 0);
     const finalCost = action.baseCost + costDelta;
     let targetDexterityMasteryDelta = 0;
-    const targetDexterityMasteryAdjustments: { sourceRuleId: string; delta: number }[] = [];
+    const targetDexterityMasteryAdjustments: { sourceRuleCode: string; delta: number }[] = [];
     const remainingEffects: PendingActionEffect[] = [];
 
     for (const pending of pendingEffects) {
@@ -139,7 +139,7 @@ export class ActionEffectService {
             ? effect.delta
             : Math.max(effect.min - ((action.targetDexterityMastery ?? 0) + targetDexterityMasteryDelta), effect.delta);
         targetDexterityMasteryDelta += appliedDelta;
-        targetDexterityMasteryAdjustments.push({ sourceRuleId: pending.sourceRuleId, delta: appliedDelta });
+        targetDexterityMasteryAdjustments.push({ sourceRuleCode: pending.sourceRuleCode, delta: appliedDelta });
       }
     }
 

@@ -11,7 +11,7 @@ const props = defineProps<{
   rules: Rule[];
 }>();
 
-const byId = computed(() => new Map(props.rules.map((rule) => [rule.id, rule])));
+const byCode = computed(() => new Map(props.rules.map((rule) => [rule.code, rule])));
 const statusLabels: Record<CharacterSenseValue['status'], string> = {
   precise: 'точное',
   imprecise: 'неточное',
@@ -19,7 +19,7 @@ const statusLabels: Record<CharacterSenseValue['status'], string> = {
   absent: 'отсутствует',
 };
 
-const name = computed(() => props.rule?.name ?? props.sense.ruleId);
+const name = computed(() => props.rule?.name ?? props.sense.ruleCode);
 const radius = computed(() => new DimensionalNumber(props.sense.radius).toString());
 
 function signed(value: number): string {
@@ -28,8 +28,8 @@ function signed(value: number): string {
   return String(value);
 }
 
-function modifierLabel(sourceRuleId: string | null, sourceLabel: string | null): string {
-  if (sourceRuleId) return byId.value.get(sourceRuleId)?.name ?? sourceLabel ?? sourceRuleId;
+function modifierLabel(sourceRuleCode: string | null, sourceLabel: string | null): string {
+  if (sourceRuleCode) return byCode.value.get(sourceRuleCode)?.name ?? sourceLabel ?? sourceRuleCode;
 
   return sourceLabel ?? 'источник';
 }
@@ -62,16 +62,16 @@ function modifierLabel(sourceRuleId: string | null, sourceLabel: string | null):
         <div class="text-caption text-medium-emphasis mb-1">Модификаторы</div>
         <div
           v-for="(modifier, index) in sense.modifiers"
-          :key="`${modifier.sourceRuleId}_${modifier.target}_${index}`"
+          :key="`${modifier.sourceRuleCode}_${modifier.target}_${index}`"
           class="d-flex align-center flex-wrap ga-2 py-1 text-body-2"
         >
           <span class="font-weight-medium">{{ signed(modifier.delta) }}</span>
           <span class="text-medium-emphasis">|</span>
-          <RuleLink v-if="modifier.sourceRuleId" :rule-id="modifier.sourceRuleId">
-            {{ modifierLabel(modifier.sourceRuleId, modifier.sourceLabel) }}
+          <RuleLink v-if="modifier.sourceRuleCode" :rule-code="modifier.sourceRuleCode">
+            {{ modifierLabel(modifier.sourceRuleCode, modifier.sourceLabel) }}
           </RuleLink>
           <span v-else class="text-medium-emphasis">{{
-            modifierLabel(modifier.sourceRuleId, modifier.sourceLabel)
+            modifierLabel(modifier.sourceRuleCode, modifier.sourceLabel)
           }}</span>
         </div>
       </template>

@@ -1,7 +1,7 @@
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 
 export interface AttackOverview {
-  itemRuleId: string;
+  itemRuleCode: string;
   itemName: string;
   itemHref: string;
   profileType: 'strike' | 'throw' | 'shoot';

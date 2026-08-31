@@ -5,7 +5,7 @@ import { itemSpecService } from '@/modules/Roleplay/Rule/Service/Instance/itemSp
 import { raceSpecService } from '@/modules/Roleplay/Rule/Service/Instance/raceSpecService';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
-const baseRule = (id: string, code: string, type: Rule['type'], spec?: any): Rule => ({
+const baseRule = (id: number | null, code: string, type: Rule['type'], spec?: any): Rule => ({
   id,
   code,
   type,
@@ -19,10 +19,10 @@ const baseRule = (id: string, code: string, type: Rule['type'], spec?: any): Rul
 describe('validateRuleReferences', () => {
   it('passes for a fully consistent pool', () => {
     const rules: Rule[] = [
-      baseRule('s', 'strength', 'characteristic'),
-      baseRule('dt', 'slashing', 'damage_type'),
-      baseRule('sr', 'rule-6-and-1', 'simple'),
-      baseRule('i', 'sword', 'item', {
+      baseRule(null, 'strength', 'characteristic'),
+      baseRule(null, 'slashing', 'damage_type'),
+      baseRule(null, 'rule-6-and-1', 'simple'),
+      baseRule(null, 'sword', 'item', {
         special_rule_codes: ['rule-6-and-1'],
         weapon: {
           weapon_profiles: [
@@ -42,8 +42,8 @@ describe('validateRuleReferences', () => {
 
   it('reports missing characteristic code in item formula', () => {
     const rules: Rule[] = [
-      baseRule('dt', 'slashing', 'damage_type'),
-      baseRule('i', 'sword', 'item', {
+      baseRule(null, 'slashing', 'damage_type'),
+      baseRule(null, 'sword', 'item', {
         weapon: {
           weapon_profiles: [
             {
@@ -64,8 +64,8 @@ describe('validateRuleReferences', () => {
 
   it('reports type mismatch when item references a characteristic as damage_type', () => {
     const rules: Rule[] = [
-      baseRule('s', 'strength', 'characteristic'),
-      baseRule('i', 'sword', 'item', {
+      baseRule(null, 'strength', 'characteristic'),
+      baseRule(null, 'sword', 'item', {
         weapon: {
           weapon_profiles: [
             {
@@ -83,10 +83,10 @@ describe('validateRuleReferences', () => {
 
   it('validates ability references: requirements, grants, action costs', () => {
     const rules: Rule[] = [
-      baseRule('a', 'melee-fighting', 'ability'),
-      baseRule('ap', 'action-points', 'resource', { is_dimensional: true, initial_value: 3 }),
-      baseRule('s', 'strength', 'characteristic'),
-      baseRule('ds', 'double-strike', 'ability', {
+      baseRule(null, 'melee-fighting', 'ability'),
+      baseRule(null, 'action-points', 'resource', { is_dimensional: true, initial_value: 3 }),
+      baseRule(null, 'strength', 'characteristic'),
+      baseRule(null, 'double-strike', 'ability', {
         requirements: [
           { level: 1, requirements: [{ type: 'has_ability', ability_code: 'melee-fighting', min_level: 1 }] },
         ],
@@ -112,7 +112,7 @@ describe('validateRuleReferences', () => {
 
   it('reports missing resource in ability action cost', () => {
     const rules: Rule[] = [
-      baseRule('ds', 'double-strike', 'ability', {
+      baseRule(null, 'double-strike', 'ability', {
         requirements: [],
         grants: [],
         action_components: [{ type: 'resource', resource_code: 'action-points', amount: 1 }],
@@ -126,9 +126,9 @@ describe('validateRuleReferences', () => {
 
   it('checks ability_level formula inside a level grant', () => {
     const rules: Rule[] = [
-      baseRule('a', 'melee-fighting', 'ability'),
-      baseRule('s', 'strength', 'characteristic'),
-      baseRule('mf', 'melee-mastery', 'ability', {
+      baseRule(null, 'melee-fighting', 'ability'),
+      baseRule(null, 'strength', 'characteristic'),
+      baseRule(null, 'melee-mastery', 'ability', {
         requirements: [],
         grants: [
           {
@@ -151,9 +151,9 @@ describe('validateRuleReferences', () => {
 
   it('validates resistance grant: damage_type and source refs', () => {
     const rules: Rule[] = [
-      baseRule('dt', 'magic', 'damage_type'),
-      baseRule('sr', 'innate', 'source'),
-      baseRule('mr', 'magic-resistance', 'ability', {
+      baseRule(null, 'magic', 'damage_type'),
+      baseRule(null, 'innate', 'source'),
+      baseRule(null, 'magic-resistance', 'ability', {
         requirements: [],
         grants: [
           {
@@ -175,7 +175,7 @@ describe('validateRuleReferences', () => {
     expect(ruleValidationService.validateRuleReferences(rules, [])).toEqual([]);
 
     const bad = [
-      baseRule('mr', 'magic-resistance', 'ability', {
+      baseRule(null, 'magic-resistance', 'ability', {
         requirements: [],
         grants: [
           {
@@ -201,7 +201,7 @@ describe('validateRuleReferences', () => {
 
   it('validates keyword references against provided keywords', () => {
     const rules: Rule[] = [
-      baseRule('a', 'melee-fighting', 'ability', {
+      baseRule(null, 'melee-fighting', 'ability', {
         requirements: [
           { level: 1, requirements: [{ type: 'has_ability_keyword', keyword_code: 'combat', min_count: 1 }] },
         ],
@@ -218,8 +218,8 @@ describe('validateRuleReferences', () => {
 
   it('validates level-based requirements references', () => {
     const rules: Rule[] = [
-      baseRule('ap', 'action-points', 'resource', { is_dimensional: true, initial_value: { base: 3, size: 0 } }),
-      baseRule('mf', 'melee-fighting', 'ability', {
+      baseRule(null, 'action-points', 'resource', { is_dimensional: true, initial_value: { base: 3, size: 0 } }),
+      baseRule(null, 'melee-fighting', 'ability', {
         requirements: [
           {
             level: 2,
@@ -234,7 +234,7 @@ describe('validateRuleReferences', () => {
     expect(ruleValidationService.validateRuleReferences(rules, [])).toEqual([]);
 
     const bad = [
-      baseRule('mf', 'melee-fighting', 'ability', {
+      baseRule(null, 'melee-fighting', 'ability', {
         requirements: [
           {
             level: 2,
@@ -253,15 +253,15 @@ describe('validateRuleReferences', () => {
 
   it('validates characteristic formula string references', () => {
     const rules: Rule[] = [
-      baseRule('m', 'memory', 'characteristic'),
-      baseRule('r', 'reasoning', 'characteristic'),
-      baseRule('i', 'intellect', 'characteristic', { formula: 'min(memory, reasoning)' }),
+      baseRule(null, 'memory', 'characteristic'),
+      baseRule(null, 'reasoning', 'characteristic'),
+      baseRule(null, 'intellect', 'characteristic', { formula: 'min(memory, reasoning)' }),
     ];
     expect(ruleValidationService.validateRuleReferences(rules, [])).toEqual([]);
 
     const bad = [
-      baseRule('m', 'memory', 'characteristic'),
-      baseRule('i', 'intellect', 'characteristic', { formula: 'min(memory, dexterity)' }),
+      baseRule(null, 'memory', 'characteristic'),
+      baseRule(null, 'intellect', 'characteristic', { formula: 'min(memory, dexterity)' }),
     ];
     const errors = ruleValidationService.validateRuleReferences(bad, []);
     expect(errors).toHaveLength(1);
@@ -270,10 +270,10 @@ describe('validateRuleReferences', () => {
 
   it('validates race references: parent species, characteristics, abilities', () => {
     const rules: Rule[] = [
-      baseRule('sp', 'elves', 'species', { parent_race_code: null, abilities: [] }),
-      baseRule('s', 'strength', 'characteristic'),
-      baseRule('a', 'keen-hearing', 'ability'),
-      baseRule('r', 'elf', 'race', {
+      baseRule(null, 'elves', 'species', { parent_race_code: null, abilities: [] }),
+      baseRule(null, 'strength', 'characteristic'),
+      baseRule(null, 'keen-hearing', 'ability'),
+      baseRule(null, 'elf', 'race', {
         parent_race_code: 'elves',
         cost_os: 8,
         characteristics: [{ characteristic_code: 'strength', mode: 'fixed', base: { base: 3, size: 0 } }],
@@ -285,8 +285,8 @@ describe('validateRuleReferences', () => {
 
   it('reports race parent referencing a race instead of a species', () => {
     const rules: Rule[] = [
-      baseRule('r2', 'human', 'race'),
-      baseRule('r', 'elf', 'race', {
+      baseRule(null, 'human', 'race'),
+      baseRule(null, 'elf', 'race', {
         parent_race_code: 'human',
         cost_os: 8,
         characteristics: [],
@@ -300,7 +300,7 @@ describe('validateRuleReferences', () => {
 
   it('reports missing characteristic in race characteristics', () => {
     const rules: Rule[] = [
-      baseRule('r', 'elf', 'race', {
+      baseRule(null, 'elf', 'race', {
         parent_race_code: null,
         cost_os: 8,
         characteristics: [{ characteristic_code: 'missing-stat', mode: 'fixed', base: { base: 3, size: 0 } }],
@@ -314,9 +314,9 @@ describe('validateRuleReferences', () => {
 
   it('validates species references: parent species and abilities', () => {
     const rules: Rule[] = [
-      baseRule('sp', 'elves', 'species', { parent_race_code: null, abilities: [] }),
-      baseRule('a', 'keen-hearing', 'ability'),
-      baseRule('sp2', 'wood-elves', 'species', {
+      baseRule(null, 'elves', 'species', { parent_race_code: null, abilities: [] }),
+      baseRule(null, 'keen-hearing', 'ability'),
+      baseRule(null, 'wood-elves', 'species', {
         parent_race_code: 'elves',
         abilities: [{ ability_code: 'keen-hearing', automatic: true }],
       }),
@@ -326,8 +326,8 @@ describe('validateRuleReferences', () => {
 
   it('validates ability zone keys reference point rules', () => {
     const rules: Rule[] = [
-      baseRule('p', 'os', 'points'),
-      baseRule('a', 'keen-hearing', 'ability', {
+      baseRule(null, 'os', 'points'),
+      baseRule(null, 'keen-hearing', 'ability', {
         zones: { os: { kind: 'automatic' } },
         requirements: [],
         grants: [],
@@ -340,7 +340,7 @@ describe('validateRuleReferences', () => {
 
   it('reports a missing point rule for a zone key', () => {
     const rules: Rule[] = [
-      baseRule('a', 'keen-hearing', 'ability', {
+      baseRule(null, 'keen-hearing', 'ability', {
         zones: { missing: { kind: 'automatic' } },
         requirements: [],
         grants: [],
@@ -355,8 +355,8 @@ describe('validateRuleReferences', () => {
 
   it('passes for a state with valid characteristic and decay refs', () => {
     const rules: Rule[] = [
-      baseRule('c', 'strength', 'characteristic'),
-      baseRule('s', 'weakness', 'state', {
+      baseRule(null, 'strength', 'characteristic'),
+      baseRule(null, 'weakness', 'state', {
         value_type: 'flag',
         aggregation: 'max',
         effects: [
@@ -374,7 +374,7 @@ describe('validateRuleReferences', () => {
 
   it('reports missing characteristic ref in a check-based decay', () => {
     const rules: Rule[] = [
-      baseRule('s', 'poison', 'state', {
+      baseRule(null, 'poison', 'state', {
         value_type: 'flag',
         aggregation: 'independent',
         effects: [
@@ -393,8 +393,8 @@ describe('validateRuleReferences', () => {
 
   it('passes for a consistent poison rule', () => {
     const rules: Rule[] = [
-      baseRule('dt', 'poison-1', 'damage_type'),
-      baseRule('p', 'poison-x', 'poison', {
+      baseRule(null, 'poison-1', 'damage_type'),
+      baseRule(null, 'poison-x', 'poison', {
         damage_type_code: 'poison-1',
         default_strength: { base: 3, size: 1 },
         default_periodicity: { kind: 'literal', value: 2, step: 'turn' },
@@ -406,7 +406,7 @@ describe('validateRuleReferences', () => {
 
   it('reports missing damage_type ref in a poison rule', () => {
     const rules: Rule[] = [
-      baseRule('p', 'poison-x', 'poison', {
+      baseRule(null, 'poison-x', 'poison', {
         damage_type_code: 'missing-dt',
       }),
     ];
@@ -417,8 +417,8 @@ describe('validateRuleReferences', () => {
 
   it('reports missing characteristic ref in poison decay', () => {
     const rules: Rule[] = [
-      baseRule('dt', 'poison-1', 'damage_type'),
-      baseRule('p', 'poison-x', 'poison', {
+      baseRule(null, 'poison-1', 'damage_type'),
+      baseRule(null, 'poison-x', 'poison', {
         damage_type_code: 'poison-1',
         default_decay: { kind: 'check', characteristic_code: 'missing-char' },
       }),
@@ -429,7 +429,7 @@ describe('validateRuleReferences', () => {
 
   it('reports missing characteristic ref in state effects', () => {
     const rules: Rule[] = [
-      baseRule('s', 'stunned', 'state', {
+      baseRule(null, 'stunned', 'state', {
         value_type: 'number',
         aggregation: 'sum',
         effects: [{ type: 'characteristic_modify', characteristic_code: 'missing-char', amount: -3 }],
@@ -473,7 +473,7 @@ describe('validateAbilityStructure', () => {
 
   it('requires an action point cost for action type', () => {
     const rules: Rule[] = [
-      baseRule('a', 'strike', 'ability', {
+      baseRule(null, 'strike', 'ability', {
         type: 'action',
         action_components: [],
         grants: [],
@@ -489,7 +489,7 @@ describe('validateAbilityStructure', () => {
 
   it('passes action type with an action point cost', () => {
     const rules: Rule[] = [
-      baseRule('a', 'strike', 'ability', {
+      baseRule(null, 'strike', 'ability', {
         type: 'action',
         action_components: [{ type: 'resource', resource_code: 'action-points', amount: 1 }],
         grants: [],
@@ -502,7 +502,7 @@ describe('validateAbilityStructure', () => {
 
   it('requires at least two steps for a process', () => {
     const rules: Rule[] = [
-      baseRule('p', 'movement', 'ability', {
+      baseRule(null, 'movement', 'ability', {
         type: 'process',
         action_components: [],
         process: { steps: [], transition: { mode: 'chain', max_shift: 1 } },
@@ -517,7 +517,7 @@ describe('validateAbilityStructure', () => {
 
   it('validates process steps have action point cost and existing start step', () => {
     const rules: Rule[] = [
-      baseRule('p', 'movement', 'ability', {
+      baseRule(null, 'movement', 'ability', {
         type: 'process',
         action_components: [],
         process: {
@@ -552,7 +552,7 @@ describe('validateAbilityStructure', () => {
 
   it('flags a process step without an action point cost', () => {
     const rules: Rule[] = [
-      baseRule('p', 'movement', 'ability', {
+      baseRule(null, 'movement', 'ability', {
         type: 'process',
         action_components: [],
         process: {
@@ -579,7 +579,7 @@ describe('validateAbilityStructure', () => {
 
   it('validates custom transition edges reference existing steps', () => {
     const rules: Rule[] = [
-      baseRule('p', 'movement', 'ability', {
+      baseRule(null, 'movement', 'ability', {
         type: 'process',
         action_components: [],
         process: {
@@ -612,8 +612,8 @@ describe('validateAbilityStructure', () => {
 
   it('requires difficulty and validates material item for a spell', () => {
     const rules: Rule[] = [
-      baseRule('i', 'ash', 'item'),
-      baseRule('sp', 'fire-bolt', 'ability', {
+      baseRule(null, 'ash', 'item'),
+      baseRule(null, 'fire-bolt', 'ability', {
         type: 'spell',
         action_components: [
           { type: 'resource', resource_code: 'action-points', amount: 1, label: 'Сотворение' },
@@ -634,7 +634,7 @@ describe('validateAbilityStructure', () => {
 
   it('flags a material item whose code matches a keyword but has no item rule', () => {
     const rules: Rule[] = [
-      baseRule('sp', 'fire-bolt', 'ability', {
+      baseRule(null, 'fire-bolt', 'ability', {
         type: 'spell',
         action_components: [
           { type: 'resource', resource_code: 'action-points', amount: 1, label: 'Сотворение' },
@@ -652,7 +652,7 @@ describe('validateAbilityStructure', () => {
 
   it('validates material by tags against existing keywords', () => {
     const rules: Rule[] = [
-      baseRule('sp', 'fire-bolt', 'ability', {
+      baseRule(null, 'fire-bolt', 'ability', {
         type: 'spell',
         action_components: [
           { type: 'resource', resource_code: 'action-points', amount: 1, label: 'Сотворение' },
@@ -675,8 +675,8 @@ describe('validateAbilityStructure', () => {
 
   it('flags a material component with no target or both targets', () => {
     const rules: Rule[] = [
-      baseRule('i', 'ash', 'item'),
-      baseRule('sp', 'fire-bolt', 'ability', {
+      baseRule(null, 'ash', 'item'),
+      baseRule(null, 'fire-bolt', 'ability', {
         type: 'spell',
         action_components: [
           { type: 'resource', resource_code: 'action-points', amount: 1, label: 'Сотворение' },
@@ -695,8 +695,8 @@ describe('validateAbilityStructure', () => {
 
   it('accepts both consume and use modes for a material component', () => {
     const rules: Rule[] = [
-      baseRule('i', 'ash', 'item'),
-      baseRule('sp', 'fire-bolt', 'ability', {
+      baseRule(null, 'ash', 'item'),
+      baseRule(null, 'fire-bolt', 'ability', {
         type: 'spell',
         action_components: [
           { type: 'resource', resource_code: 'action-points', amount: 1, label: 'Сотворение' },
@@ -715,7 +715,7 @@ describe('validateAbilityStructure', () => {
   it('derives type from keywords when spec.type is absent', () => {
     const rules: Rule[] = [
       {
-        ...baseRule('a', 'strike', 'ability', {
+        ...baseRule(null, 'strike', 'ability', {
           action_components: [],
           grants: [],
           requirements: [],
@@ -817,7 +817,7 @@ describe('pruneItemSpecBySubtypes', () => {
 describe('validateRaceStructure', () => {
   it('passes for a well-formed race', () => {
     const rules: Rule[] = [
-      baseRule('r', 'elf', 'race', {
+      baseRule(null, 'elf', 'race', {
         parent_race_code: null,
         cost_os: 8,
         characteristics: [
@@ -840,7 +840,7 @@ describe('validateRaceStructure', () => {
 
   it('flags non-integer cost_os', () => {
     const rules: Rule[] = [
-      baseRule('r', 'elf', 'race', {
+      baseRule(null, 'elf', 'race', {
         parent_race_code: null,
         cost_os: 8.5,
         characteristics: [],
@@ -853,7 +853,7 @@ describe('validateRaceStructure', () => {
 
   it('flags duplicate characteristic codes', () => {
     const rules: Rule[] = [
-      baseRule('r', 'elf', 'race', {
+      baseRule(null, 'elf', 'race', {
         parent_race_code: null,
         cost_os: 8,
         characteristics: [
@@ -869,7 +869,7 @@ describe('validateRaceStructure', () => {
 
   it('flags empty characteristic code', () => {
     const rules: Rule[] = [
-      baseRule('r', 'elf', 'race', {
+      baseRule(null, 'elf', 'race', {
         parent_race_code: null,
         cost_os: 8,
         characteristics: [{ characteristic_code: '', mode: 'fixed', base: { base: 3, size: 0 } }],
@@ -882,7 +882,7 @@ describe('validateRaceStructure', () => {
 
   it('flags purchase level with cost < 1 and duplicate costs', () => {
     const rules: Rule[] = [
-      baseRule('r', 'elf', 'race', {
+      baseRule(null, 'elf', 'race', {
         parent_race_code: null,
         cost_os: 8,
         characteristics: [
@@ -907,7 +907,7 @@ describe('validateRaceStructure', () => {
 
   it('не флагает дубль способности «бесплатно + доступна покупка» (automatic true/false)', () => {
     const rules: Rule[] = [
-      baseRule('r', 'elf', 'race', {
+      baseRule(null, 'elf', 'race', {
         parent_race_code: null,
         cost_os: 8,
         characteristics: [],
@@ -923,7 +923,7 @@ describe('validateRaceStructure', () => {
 
   it('флагает настоящий дубль способности (одинаковый automatic)', () => {
     const rules: Rule[] = [
-      baseRule('r', 'elf', 'race', {
+      baseRule(null, 'elf', 'race', {
         parent_race_code: null,
         cost_os: 8,
         characteristics: [],
@@ -939,7 +939,7 @@ describe('validateRaceStructure', () => {
 
   it('flags characteristic base and purchase level value outside 3–5', () => {
     const rules: Rule[] = [
-      baseRule('r', 'elf', 'race', {
+      baseRule(null, 'elf', 'race', {
         parent_race_code: null,
         cost_os: 8,
         characteristics: [
@@ -967,7 +967,7 @@ describe('validateRaceStructure', () => {
 describe('validateSpeciesStructure', () => {
   it('passes for a well-formed species', () => {
     const rules: Rule[] = [
-      baseRule('sp', 'elves', 'species', {
+      baseRule(null, 'elves', 'species', {
         parent_race_code: null,
         abilities: [{ ability_code: 'keen-hearing', automatic: true }],
       }),
@@ -977,7 +977,7 @@ describe('validateSpeciesStructure', () => {
 
   it('не флагает дубль способности вида «бесплатно + доступна покупка» (automatic true/false)', () => {
     const rules: Rule[] = [
-      baseRule('sp', 'elves', 'species', {
+      baseRule(null, 'elves', 'species', {
         parent_race_code: null,
         abilities: [
           { ability_code: 'keen-hearing', automatic: true },
@@ -991,7 +991,7 @@ describe('validateSpeciesStructure', () => {
 
   it('флагает настоящий дубль способности вида (одинаковый automatic)', () => {
     const rules: Rule[] = [
-      baseRule('sp', 'elves', 'species', {
+      baseRule(null, 'elves', 'species', {
         parent_race_code: null,
         abilities: [
           { ability_code: 'keen-hearing', automatic: false },
@@ -1005,7 +1005,7 @@ describe('validateSpeciesStructure', () => {
 
   it('flags empty ability code', () => {
     const rules: Rule[] = [
-      baseRule('sp', 'elves', 'species', {
+      baseRule(null, 'elves', 'species', {
         parent_race_code: null,
         abilities: [{ ability_code: '', automatic: false }],
       }),
@@ -1018,17 +1018,17 @@ describe('validateSpeciesStructure', () => {
 describe('findSpeciesCycle', () => {
   it('returns null for an acyclic chain', () => {
     const rules: Rule[] = [
-      baseRule('sp1', 'a', 'species', { parent_race_code: null, abilities: [] }),
-      baseRule('sp2', 'b', 'species', { parent_race_code: 'a', abilities: [] }),
-      baseRule('sp3', 'c', 'species', { parent_race_code: 'b', abilities: [] }),
+      baseRule(null, 'a', 'species', { parent_race_code: null, abilities: [] }),
+      baseRule(null, 'b', 'species', { parent_race_code: 'a', abilities: [] }),
+      baseRule(null, 'c', 'species', { parent_race_code: 'b', abilities: [] }),
     ];
     expect(ruleValidationService.findSpeciesCycle(rules)).toBeNull();
   });
 
   it('detects a two-node cycle', () => {
     const rules: Rule[] = [
-      baseRule('sp1', 'a', 'species', { parent_race_code: 'b', abilities: [] }),
-      baseRule('sp2', 'b', 'species', { parent_race_code: 'a', abilities: [] }),
+      baseRule(null, 'a', 'species', { parent_race_code: 'b', abilities: [] }),
+      baseRule(null, 'b', 'species', { parent_race_code: 'a', abilities: [] }),
     ];
     expect(ruleValidationService.findSpeciesCycle(rules)).toContain('a');
     expect(ruleValidationService.findSpeciesCycle(rules)).toContain('b');
@@ -1036,18 +1036,18 @@ describe('findSpeciesCycle', () => {
 
   it('detects a longer cycle', () => {
     const rules: Rule[] = [
-      baseRule('sp1', 'a', 'species', { parent_race_code: 'c', abilities: [] }),
-      baseRule('sp2', 'b', 'species', { parent_race_code: 'a', abilities: [] }),
-      baseRule('sp3', 'c', 'species', { parent_race_code: 'b', abilities: [] }),
+      baseRule(null, 'a', 'species', { parent_race_code: 'c', abilities: [] }),
+      baseRule(null, 'b', 'species', { parent_race_code: 'a', abilities: [] }),
+      baseRule(null, 'c', 'species', { parent_race_code: 'b', abilities: [] }),
     ];
     expect(ruleValidationService.findSpeciesCycle(rules)).toBeTruthy();
   });
 
   it('ignores races in the chain', () => {
     const rules: Rule[] = [
-      baseRule('sp1', 'a', 'species', { parent_race_code: null, abilities: [] }),
-      baseRule('sp2', 'b', 'species', { parent_race_code: 'a', abilities: [] }),
-      baseRule('r', 'elf', 'race', { parent_race_code: 'b', cost_os: 8, characteristics: [], abilities: [] }),
+      baseRule(null, 'a', 'species', { parent_race_code: null, abilities: [] }),
+      baseRule(null, 'b', 'species', { parent_race_code: 'a', abilities: [] }),
+      baseRule(null, 'elf', 'race', { parent_race_code: 'b', cost_os: 8, characteristics: [], abilities: [] }),
     ];
     expect(ruleValidationService.findSpeciesCycle(rules)).toBeNull();
   });
@@ -1056,15 +1056,15 @@ describe('findSpeciesCycle', () => {
 describe('collectInheritedAbilities', () => {
   it('collects abilities from the whole ancestor chain', () => {
     const rules: Rule[] = [
-      baseRule('sp1', 'elves', 'species', {
+      baseRule(null, 'elves', 'species', {
         parent_race_code: null,
         abilities: [{ ability_code: 'keen-hearing', automatic: true }],
       }),
-      baseRule('sp2', 'wood-elves', 'species', {
+      baseRule(null, 'wood-elves', 'species', {
         parent_race_code: 'elves',
         abilities: [{ ability_code: 'night-vision', automatic: false }],
       }),
-      baseRule('r', 'elf', 'race', { parent_race_code: 'wood-elves', cost_os: 8, characteristics: [], abilities: [] }),
+      baseRule(null, 'elf', 'race', { parent_race_code: 'wood-elves', cost_os: 8, characteristics: [], abilities: [] }),
     ];
     const byCode = new Map(rules.map((r) => [r.code, r]));
     const inherited = raceSpecService.collectInheritedAbilities('wood-elves', byCode);
@@ -1075,7 +1075,7 @@ describe('collectInheritedAbilities', () => {
 
   it('returns empty when no parent is set', () => {
     const rules: Rule[] = [
-      baseRule('r', 'human', 'race', { parent_race_code: null, cost_os: 0, characteristics: [], abilities: [] }),
+      baseRule(null, 'human', 'race', { parent_race_code: null, cost_os: 0, characteristics: [], abilities: [] }),
     ];
     const byCode = new Map(rules.map((r) => [r.code, r]));
     expect(raceSpecService.collectInheritedAbilities(null, byCode)).toEqual([]);
@@ -1083,8 +1083,8 @@ describe('collectInheritedAbilities', () => {
 
   it('stops at a cycle instead of looping forever', () => {
     const rules: Rule[] = [
-      baseRule('sp1', 'a', 'species', { parent_race_code: 'b', abilities: [{ ability_code: 'x', automatic: true }] }),
-      baseRule('sp2', 'b', 'species', { parent_race_code: 'a', abilities: [] }),
+      baseRule(null, 'a', 'species', { parent_race_code: 'b', abilities: [{ ability_code: 'x', automatic: true }] }),
+      baseRule(null, 'b', 'species', { parent_race_code: 'a', abilities: [] }),
     ];
     const byCode = new Map(rules.map((r) => [r.code, r]));
     const inherited = raceSpecService.collectInheritedAbilities('a', byCode);
@@ -1095,18 +1095,18 @@ describe('collectInheritedAbilities', () => {
 describe('validateRuleCodeFormat', () => {
   it('пропускает латинские коды с дефисом, подчёркиванием и цифрами', () => {
     const rules: Rule[] = [
-      baseRule('1', 'lavash', 'item'),
-      baseRule('2', 'rule-6-and-1', 'simple'),
-      baseRule('3', 'vtoraya_faza', 'item'),
+      baseRule(null, 'lavash', 'item'),
+      baseRule(null, 'rule-6-and-1', 'simple'),
+      baseRule(null, 'vtoraya_faza', 'item'),
     ];
     expect(ruleValidationService.validateRuleCodeFormat(rules)).toEqual([]);
   });
 
   it('режет кириллицу, пробелы и недопустимые символы', () => {
     const rules: Rule[] = [
-      baseRule('1', 'лаваш', 'item'),
-      baseRule('2', 'double strike', 'simple'),
-      baseRule('3', 'kristall-4↑', 'item'),
+      baseRule(null, 'лаваш', 'item'),
+      baseRule(null, 'double strike', 'simple'),
+      baseRule(null, 'kristall-4↑', 'item'),
     ];
     const errors = ruleValidationService.validateRuleCodeFormat(rules);
     expect(errors.map((e) => e.ruleCode)).toEqual(['лаваш', 'double strike', 'kristall-4↑']);
@@ -1116,13 +1116,13 @@ describe('validateRuleCodeFormat', () => {
 describe('validateCheckStructure', () => {
   it('ломается на цикле parent_check_code', () => {
     const rules: Rule[] = [
-      baseRule('a', 'check-a', 'check', {
+      baseRule(null, 'check-a', 'check', {
         type: 'check',
         parent_check_code: 'check-b',
         difficulty_input: { kind: 'ask' },
         allowed_modes: 'both',
       }),
-      baseRule('b', 'check-b', 'check', {
+      baseRule(null, 'check-b', 'check', {
         type: 'check',
         parent_check_code: 'check-a',
         difficulty_input: { kind: 'ask' },
@@ -1136,7 +1136,7 @@ describe('validateCheckStructure', () => {
 
   it('ломается на неизвестном правиле броска', () => {
     const rules: Rule[] = [
-      baseRule('p', 'check-simple', 'check', {
+      baseRule(null, 'check-simple', 'check', {
         type: 'check',
         difficulty_input: { kind: 'ask' },
         allowed_modes: 'both',
@@ -1151,14 +1151,14 @@ describe('validateCheckStructure', () => {
 describe('validateRuleReferences check', () => {
   it('резолвит parent, характеристику и состояние', () => {
     const rules: Rule[] = [
-      baseRule('c', 'willpower', 'characteristic'),
-      baseRule('s', 'exhaustion', 'state', { value_type: 'dimensional', aggregation: 'max' }),
-      baseRule('p', 'check-simple', 'check', {
+      baseRule(null, 'willpower', 'characteristic'),
+      baseRule(null, 'exhaustion', 'state', { value_type: 'dimensional', aggregation: 'max' }),
+      baseRule(null, 'check-simple', 'check', {
         type: 'check',
         difficulty_input: { kind: 'ask' },
         allowed_modes: 'both',
       }),
-      baseRule('x', 'check-exhaustion', 'check', {
+      baseRule(null, 'check-exhaustion', 'check', {
         type: 'check',
         parent_check_code: 'check-simple',
         characteristic_code: 'willpower',
@@ -1172,13 +1172,13 @@ describe('validateRuleReferences check', () => {
 
 describe('validateDamageTypeStructure', () => {
   it('требует спеку type damage_type', () => {
-    const errors = ruleValidationService.validateDamageTypeStructure([baseRule('dt', 'cold', 'damage_type')]);
+    const errors = ruleValidationService.validateDamageTypeStructure([baseRule(null, 'cold', 'damage_type')]);
     expect(errors[0]?.message).toContain('type damage_type');
   });
 
   it('требует родительный и дательный', () => {
     const errors = ruleValidationService.validateDamageTypeStructure([
-      baseRule('dt', 'cold', 'damage_type', {
+      baseRule(null, 'cold', 'damage_type', {
         type: 'damage_type',
         forms: { genitive: '  ', dative: '' },
         attached_rule_codes: [],
@@ -1191,8 +1191,8 @@ describe('validateDamageTypeStructure', () => {
 describe('validateCatalog', () => {
   it('собирает проблему ссылки и не блокирует чужое правило', () => {
     const effective: Rule[] = [
-      baseRule('ok', 'ok', 'simple'),
-      baseRule('i', 'sword', 'item', {
+      baseRule(null, 'ok', 'simple'),
+      baseRule(null, 'sword', 'item', {
         special_rule_codes: ['missing-simple'],
       }),
     ];
@@ -1205,10 +1205,10 @@ describe('validateCatalog', () => {
   });
 
   it('требует спеку и тип у способности', () => {
-    const noSpec = ruleValidationService.validateAbilityStructure([baseRule('a', 'skill', 'ability')], []);
+    const noSpec = ruleValidationService.validateAbilityStructure([baseRule(null, 'skill', 'ability')], []);
     expect(noSpec[0]?.message).toContain('спеку');
     const noType = ruleValidationService.validateAbilityStructure(
-      [baseRule('a', 'skill', 'ability', { zones: {}, grants: [], requirements: [] })],
+      [baseRule(null, 'skill', 'ability', { zones: {}, grants: [], requirements: [] })],
       [],
     );
     expect(noType[0]?.message).toContain('тип');
@@ -1217,12 +1217,10 @@ describe('validateCatalog', () => {
 
 describe('validateAgeStructure', () => {
   it('требует ступени с именами', () => {
-    const empty = ruleValidationService.validateAgeStructure([
-      baseRule('age', 'age', 'age', { type: 'age', ages: [] }),
-    ]);
+    const empty = ruleValidationService.validateAgeStructure([baseRule(null, 'age', 'age', { type: 'age', ages: [] })]);
     expect(empty[0]?.message).toContain('хотя бы одну ступень');
     const unnamed = ruleValidationService.validateAgeStructure([
-      baseRule('age', 'age', 'age', { type: 'age', ages: [{ name: '  ', ol: 0, featureLimit: 0, effects: [] }] }),
+      baseRule(null, 'age', 'age', { type: 'age', ages: [{ name: '  ', ol: 0, featureLimit: 0, effects: [] }] }),
     ]);
     expect(unnamed[0]?.message).toContain('имя');
   });
@@ -1231,9 +1229,9 @@ describe('validateAgeStructure', () => {
 describe('validateSenseStructure', () => {
   it('требует статус и точную неотрицательную дальность', () => {
     const errors = ruleValidationService.validateSenseStructure([
-      baseRule('sense', 'vision', 'sense', { type: 'sense', status: 'precise', radius: { base: 30, size: 0 } }),
-      baseRule('missing', 'missing-sense', 'sense'),
-      baseRule('negative', 'negative-sense', 'sense', {
+      baseRule(null, 'vision', 'sense', { type: 'sense', status: 'precise', radius: { base: 30, size: 0 } }),
+      baseRule(null, 'missing-sense', 'sense'),
+      baseRule(null, 'negative-sense', 'sense', {
         type: 'sense',
         status: 'absent',
         radius: { base: -1, size: 0 },

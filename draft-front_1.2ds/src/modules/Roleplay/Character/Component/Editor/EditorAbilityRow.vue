@@ -25,7 +25,7 @@ const props = defineProps<{
   /** Общий каталог правил (для имён ресурсов в шагах процесса). */
   rules?: Rule[];
   /** Способность, недоступная для взятия (группа исчерпала лимит выбора). */
-  lockedRuleIds?: Set<string>;
+  lockedRuleCodes?: Set<string>;
   /** Зона цен способности (os/ol/or); по умолчанию «Основа». */
   zoneCode?: string;
   /** Подпись зоны в ценах («ОС»/«ОЛ»/«ОР»). */
@@ -37,13 +37,13 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  'set-level': [ruleId: string, level: number];
-  'set-parameter': [ruleId: string, code: string, value: number | { base: number; size: number }];
-  'add-instance': [ruleId: string, domain: string, domainCode: string | null];
-  'set-instance-level': [ruleId: string, domain: string, level: number];
-  'set-instance-domain': [ruleId: string, oldDomain: string, newDomain: string, domainCode: string | null];
-  'remove-instance': [ruleId: string, domain: string];
-  'set-ability-domain': [ruleId: string, domain: string, domainCode: string | null];
+  'set-level': [ruleCode: string, level: number];
+  'set-parameter': [ruleCode: string, code: string, value: number | { base: number; size: number }];
+  'add-instance': [ruleCode: string, domain: string, domainCode: string | null];
+  'set-instance-level': [ruleCode: string, domain: string, level: number];
+  'set-instance-domain': [ruleCode: string, oldDomain: string, newDomain: string, domainCode: string | null];
+  'remove-instance': [ruleCode: string, domain: string];
+  'set-ability-domain': [ruleCode: string, domain: string, domainCode: string | null];
   'update:open': [open: boolean];
 }>();
 
@@ -94,7 +94,7 @@ function prevLevelCost(ability: EditorAbility): number | null {
 function canRaise(ability: EditorAbility): boolean {
   const zone = zoneOf(ability);
   if (!zone) return false;
-  if (props.lockedRuleIds?.has(ability.ruleId)) return false;
+  if (props.lockedRuleCodes?.has(ability.ruleCode)) return false;
   const next = ability.level + 1;
   if (next > zone.maxLevel) return false;
 
@@ -107,14 +107,14 @@ function canRaise(ability: EditorAbility): boolean {
 // выполнены требования всех уровней вплоть до него (взятие уровня N подразумевает владение уровнями 1..N).
 function chipEnabled(ability: EditorAbility, level: number): boolean {
   if (level <= displayLevel(ability)) return true;
-  if (props.lockedRuleIds?.has(ability.ruleId)) return false;
+  if (props.lockedRuleCodes?.has(ability.ruleCode)) return false;
 
   return ability.levels.filter((entry) => entry.level <= level).every((entry) => entry.met);
 }
 
 // Для array: клик по текущему уровню снимает способность до 0, по любому другому — ставит его.
 function setArrayLevel(ability: EditorAbility, level: number): void {
-  emit('set-level', ability.ruleId, level === displayLevel(ability) ? 0 : level);
+  emit('set-level', ability.ruleCode, level === displayLevel(ability) ? 0 : level);
 }
 
 function keywordName(ability: EditorAbility, keywordId: number): string {
@@ -178,7 +178,7 @@ function canAddInstance(): boolean {
   const pending = (pendingDomain.value ?? '').trim();
   if (!pending) return false;
   if (props.ability.instances.some((instance) => instance.domain === pending)) return false;
-  if (props.lockedRuleIds?.has(props.ability.ruleId)) return false;
+  if (props.lockedRuleCodes?.has(props.ability.ruleCode)) return false;
   if (props.ability.derived) return false;
   if (props.ability.multiple && props.ability.parentCode !== null) {
     if (!props.ability.domainOptions.some((option) => option.name === pending)) return false;
@@ -190,7 +190,7 @@ function canAddInstance(): boolean {
 function addInstance(): void {
   const value = (pendingDomain.value ?? '').trim();
   if (!value) return;
-  emit('add-instance', props.ability.ruleId, value, domainCodeFor(value));
+  emit('add-instance', props.ability.ruleCode, value, domainCodeFor(value));
   pendingDomain.value = '';
 }
 
@@ -202,7 +202,7 @@ function instanceNextCost(ability: EditorAbility, instance: EditorAbilityInstanc
 /** Можно ли повысить уровень экземпляра: не потолок, не заблокировано, требования уровня выполнены
  *  (пер-экземплярные levels — has_ability домен-скоупировано, «Письменность того же языка»). */
 function canRaiseInstance(ability: EditorAbility, instance: EditorAbilityInstance): boolean {
-  if (props.lockedRuleIds?.has(ability.ruleId)) return false;
+  if (props.lockedRuleCodes?.has(ability.ruleCode)) return false;
   const next = instance.level + 1;
   if (next > maxLevel(ability)) return false;
 
@@ -222,17 +222,17 @@ function canLowerInstance(instance: EditorAbilityInstance): boolean {
 }
 
 function setInstanceLevel(instance: EditorAbilityInstance, level: number): void {
-  emit('set-instance-level', props.ability.ruleId, instance.domain, level);
+  emit('set-instance-level', props.ability.ruleCode, instance.domain, level);
 }
 
 /** VCombobox при очистке отдаёт null — приводим к пустой строке (сервис отклоняет пустые). */
 function onInstanceDomainEdit(instance: EditorAbilityInstance, value: string | null): void {
   const next = value ?? '';
-  emit('set-instance-domain', props.ability.ruleId, instance.domain, next, domainCodeFor(next));
+  emit('set-instance-domain', props.ability.ruleCode, instance.domain, next, domainCodeFor(next));
 }
 
 function removeInstance(instance: EditorAbilityInstance): void {
-  emit('remove-instance', props.ability.ruleId, instance.domain);
+  emit('remove-instance', props.ability.ruleCode, instance.domain);
 }
 
 // --- Домен одиночной способности (domain_ref без multiple) ---
@@ -240,7 +240,7 @@ function removeInstance(instance: EditorAbilityInstance): void {
 /** VCombobox одиночного домена: очистка отдаёт null — приводим к пустой строке (снимает домен). */
 function onDomainEdit(value: string | null): void {
   const next = value ?? '';
-  emit('set-ability-domain', props.ability.ruleId, next, domainCodeFor(next));
+  emit('set-ability-domain', props.ability.ruleCode, next, domainCodeFor(next));
 }
 
 // Автоматическая способность (даётся расой/видом бесплатно) считается взятой на уровне 1,
@@ -313,13 +313,13 @@ function stepUp(ability: EditorAbility, param: EditorAbilityParameter): void {
   if (param.steps.length) {
     const index = param.steps.findIndex((step) => sameStep(step.value, param.value));
     const next = param.steps[index + 1];
-    if (next) emit('set-parameter', ability.ruleId, param.code, next.value);
+    if (next) emit('set-parameter', ability.ruleCode, param.code, next.value);
 
     return;
   }
   // Отрицательное X: шаг вверх идёт к 0 и выше (не прыгает на первый положительный).
   const next = v < 0 ? Math.min(v + 1, paramMax(param)) : v <= 0 ? paramMin(param) : Math.min(v + 1, paramMax(param));
-  emit('set-parameter', ability.ruleId, param.code, next);
+  emit('set-parameter', ability.ruleCode, param.code, next);
 }
 
 function stepDown(ability: EditorAbility, param: EditorAbilityParameter): void {
@@ -327,13 +327,13 @@ function stepDown(ability: EditorAbility, param: EditorAbilityParameter): void {
   if (param.steps.length) {
     const index = param.steps.findIndex((step) => sameStep(step.value, param.value));
     const prev = param.steps[index - 1];
-    if (prev) emit('set-parameter', ability.ruleId, param.code, prev.value);
+    if (prev) emit('set-parameter', ability.ruleCode, param.code, prev.value);
 
     return;
   }
   const floor = paramFloor(ability, param);
   const next = v <= floor ? 0 : v - 1;
-  emit('set-parameter', ability.ruleId, param.code, next);
+  emit('set-parameter', ability.ruleCode, param.code, next);
 }
 
 // Цена шага параметра: таблица цен по значению (parameter_table) или цена за единицу.
@@ -434,7 +434,7 @@ function displayName(ability: EditorAbility): string {
 function actionOdCostLabel(ability: EditorAbility): string | null {
   if (ability.type !== 'action') return null;
 
-  const spec = props.rules?.find((rule) => rule.id === ability.ruleId)?.spec as AbilitySpec | undefined;
+  const spec = props.rules?.find((rule) => rule.code === ability.ruleCode)?.spec as AbilitySpec | undefined;
   if (spec?.type !== 'action') return null;
 
   const costs = spec.action_components.filter(
@@ -499,7 +499,7 @@ function stepLabel(param: EditorAbilityParameter): string {
           class="ability-row__slider-btn"
           title="Открыть правило"
           aria-label="Открыть правило"
-          @click.stop="openRule(ability.ruleId)"
+          @click.stop="openRule(ability.ruleCode)"
         >
           <i class="mdi mdi-open-in-new" aria-hidden="true" />
         </LightButton>
@@ -571,7 +571,7 @@ function stepLabel(param: EditorAbilityParameter): string {
           <LightButton
             :disabled="ability.automatic || ability.level === 0"
             :title="ability.automatic ? 'Автоматическая способность' : 'Снять уровень'"
-            @click.stop="emit('set-level', ability.ruleId, ability.level - 1)"
+            @click.stop="emit('set-level', ability.ruleCode, ability.level - 1)"
           >
             {{ prevLevelCost(ability) ?? 0 }} {{ zoneLabelOf() }} · <i class="mdi mdi-minus" aria-hidden="true" />
           </LightButton>
@@ -582,7 +582,7 @@ function stepLabel(param: EditorAbilityParameter): string {
                 ? `Уровень ${ability.level + 1}: ${nextLevelCost(ability)} ${zoneLabelOf()}`
                 : undefined
             "
-            @click.stop="emit('set-level', ability.ruleId, ability.level + 1)"
+            @click.stop="emit('set-level', ability.ruleCode, ability.level + 1)"
           >
             <i class="mdi mdi-plus" aria-hidden="true" /> {{ nextLevelCost(ability) ?? 0 }} {{ zoneLabelOf() }}
           </LightButton>

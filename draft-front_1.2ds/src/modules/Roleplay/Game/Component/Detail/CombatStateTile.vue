@@ -24,7 +24,7 @@ const props = withDefaults(
     poison?: CharacterPoisonValue | null;
     poisonItems?: { title: string; value: string }[];
     damageTypeItems?: { title: string; value: string }[];
-    poisonTemplate?: (poisonRuleId: string | null) => CharacterPoisonValue;
+    poisonTemplate?: (poisonRuleCode: string | null) => CharacterPoisonValue;
   }>(),
   {
     iconCode: null,
@@ -60,7 +60,7 @@ watch(menuOpen, (open) => {
   if (!open) return;
   draft.value = Math.max(props.minValue, props.current);
   draftDim.value = { ...(props.dimensionalValue ?? { base: 1, size: 0 }) };
-  draftPoisonRuleId.value = props.poison?.poisonRuleId ?? '';
+  draftPoisonRuleId.value = props.poison?.poisonRuleCode ?? '';
   draftDamageType.value = props.poison?.damage_type_code ?? '';
   draftStrength.value = { ...(props.poison?.strength ?? { base: 1, size: 0 }) };
   draftPeriodicity.value = props.poison?.periodicity;
@@ -84,7 +84,7 @@ function submitDimensional(): void {
 
 function submitPoison(): void {
   emit('applyPoison', {
-    poisonRuleId: draftPoisonRuleId.value || null,
+    poisonRuleCode: draftPoisonRuleId.value || null,
     damage_type_code: draftDamageType.value || undefined,
     strength: { ...draftStrength.value },
     periodicity: draftPeriodicity.value,

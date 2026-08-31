@@ -2,7 +2,7 @@ import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/Dimension
 
 export interface OverviewModifier {
   source: string;
-  sourceRuleId: string | null;
+  sourceRuleCode: string | null;
   sourceHref: string | null;
   sourceResolved: boolean;
   /** Роль источника в читаемом виде, напр. «от мастерства», «от предмета»; null для источников без правила. */

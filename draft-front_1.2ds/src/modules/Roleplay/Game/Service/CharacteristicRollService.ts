@@ -48,7 +48,7 @@ export class CharacteristicRollService {
     const withMechanics = rules.length > 0 && mechanics.length > 0;
     const checkCode = entry.characteristicCode
       ? checkResolutionService.resolveCheckCodeForCharacteristic(entry.characteristicCode, rules)
-      : checkResolutionService.resolveCheckCodeFromRuleId(entry.ruleId, rules);
+      : checkResolutionService.resolveCheckCodeFromRuleCode(entry.ruleCode, rules);
     const attachedRuleCodes = checkResolutionService.resolveCheckAttachedRuleCodes(checkCode, rules);
 
     const rolled = withMechanics

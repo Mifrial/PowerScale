@@ -2,7 +2,7 @@ import type { AbilityType } from '@/modules/Roleplay/Rule/Enum/Ability/AbilityTy
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 
 export interface AbilityOverview {
-  ruleId: string;
+  ruleCode: string;
   /** Уникальный ключ строки: правило + экземпляр домена (множественный навык). */
   instanceKey: string;
   name: string;

@@ -28,6 +28,7 @@ import { characteristicRollService } from '@/modules/Roleplay/Game/Service/Insta
 import type { CombatStateOption } from '@/modules/Roleplay/Game/Dto/CombatStateOption';
 import type { CombatStateRow } from '@/modules/Roleplay/Game/Dto/CombatStateRow';
 import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
+import { findRuleByRef } from '@/modules/Roleplay/Game/Utils/combatActions';
 
 import type { CharacterPoisonValue } from '@/modules/Roleplay/Character/Dto/CharacterPoisonValue';
 import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/CharacterStateValue';
@@ -85,7 +86,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:open': [value: boolean];
   /** Переключить макрос быстрого броска (add/remove) для участника карточки. */
-  'toggle-quick-roll': [entityKey: string, ruleId: string];
+  'toggle-quick-roll': [entityKey: string, ruleCode: string];
   /** Оверлей боевых изменений мутировал (ресурс/состояние) — для обновления соседних блоков (школа инициативы). */
   'overlay-changed': [];
   'launch-hit': [payload: { attackerKey: CombatEntityKey; attack: AttackOverview }];
@@ -124,11 +125,11 @@ const activeProcess = computed(() =>
   props.entityKey && props.processSessions ? (props.processSessions[props.entityKey] ?? null) : null,
 );
 const activeProcessRule = computed(() =>
-  activeProcess.value ? (props.rules.find((rule) => rule.id === activeProcess.value?.processRuleId) ?? null) : null,
+  activeProcess.value ? (findRuleByRef(props.rules, activeProcess.value.processRuleCode) ?? null) : null,
 );
 const activeEffectLabels = computed(() =>
   pendingEffects.value.map((pending) => {
-    const source = props.rules.find((rule) => rule.id === pending.sourceRuleId)?.name ?? 'Временный эффект';
+    const source = props.rules.find((rule) => rule.code === pending.sourceRuleCode)?.name ?? 'Временный эффект';
 
     return `${source}: ${actionEffectService.describe(pending.effect)}`;
   }),
@@ -195,7 +196,7 @@ const overview = computed(() => {
     ? {
         ...version,
         characteristics: live.characteristics.map((characteristic) => ({
-          ruleId: characteristic.ruleId,
+          ruleCode: characteristic.ruleCode,
           base: characteristic.base,
           modifiers: characteristic.modifiers,
         })),
@@ -288,7 +289,7 @@ const stateTiles = computed((): CombatStateTileModel[] => {
       const name = isPoison && state ? combatCardModelService.poisonName(state, props.rules) : row.name;
       const current = row.valueType === 'number' ? (state?.value ?? 0) : 0;
       tiles.push({
-        key: `${row.ruleId}-${index}`,
+        key: `${row.ruleCode}-${index}`,
         name,
         iconCode: row.iconCode,
         leftLabel: timeLabel ? `${name} ${timeLabel}` : name,
@@ -310,7 +311,7 @@ const stateTiles = computed((): CombatStateTileModel[] => {
 
 const poisonSelectItems = computed(() => [
   { title: 'Свой яд', value: '' },
-  ...combatCardModelService.poisonRuleOptions(props.rules).map((item) => ({ title: item.name, value: item.ruleId })),
+  ...combatCardModelService.poisonRuleOptions(props.rules).map((item) => ({ title: item.name, value: item.ruleCode })),
 ]);
 
 const damageTypeSelectItems = computed(() =>
@@ -403,12 +404,12 @@ async function roll(characteristic: CharacteristicOverview, name?: string): Prom
   if (props.chatId === null) return;
   error.value = null;
   try {
-    const rule = props.rules.find((candidate) => candidate.id === characteristic.ruleId);
+    const rule = props.rules.find((candidate) => candidate.code === characteristic.ruleCode);
     const result = characteristicRollService.rollCharacteristic(
       {
         name: rollName,
         value: characteristic.value,
-        ruleId: characteristic.ruleId,
+        ruleCode: characteristic.ruleCode,
         characteristicCode: rule?.type === 'characteristic' ? rule.code : null,
         actorKey: props.entityKey ?? undefined,
       },
@@ -427,13 +428,13 @@ function onTileRoll(characteristic: CharacteristicOverview, name: string): void 
 
 function onStarToggle(characteristic: CharacteristicOverview): void {
   if (!model.value) return;
-  emit('toggle-quick-roll', model.value.entityKey, characteristic.ruleId);
+  emit('toggle-quick-roll', model.value.entityKey, characteristic.ruleCode);
 }
 
-function isStarred(ruleId: string): boolean {
+function isStarred(ruleCode: string): boolean {
   if (!model.value) return false;
 
-  return (props.quickRolls[model.value.entityKey] ?? []).includes(ruleId);
+  return (props.quickRolls[model.value.entityKey] ?? []).includes(ruleCode);
 }
 
 function clampResource(value: number, min: number, max: number): number {
@@ -448,7 +449,12 @@ async function changeResource(resource: ResourceOverview, delta: number): Promis
       base: clampResource(resource.current.base + delta, 0, resource.max.base),
       size: resource.current.size,
     };
-    const result = await getGameApi().setCombatResource(props.gameId, model.value.entityKey, resource.ruleId, current);
+    const result = await getGameApi().setCombatResource(
+      props.gameId,
+      model.value.entityKey,
+      resource.ruleCode,
+      current,
+    );
     applyOverlay(result);
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Не удалось изменить ресурс';
@@ -460,7 +466,7 @@ async function addState(option: CombatStateOption): Promise<void> {
   if (option.code === POISONING_STATE_CODE) {
     pickerOpen.value = false;
     const first = combatCardModelService.poisonRuleOptions(props.rules)[0];
-    fillPoisonDraft(combatCardModelService.poisonValueFromRule(props.rules, first?.ruleId ?? null));
+    fillPoisonDraft(combatCardModelService.poisonValueFromRule(props.rules, first?.ruleCode ?? null));
     poisonAddOpen.value = true;
 
     return;
@@ -469,7 +475,7 @@ async function addState(option: CombatStateOption): Promise<void> {
   pickerOpen.value = false;
   try {
     const state: CharacterStateValue = {
-      stateRuleId: option.ruleId,
+      stateRuleCode: option.ruleCode,
       ...combatCardModelService.defaultStateEntry(option, props.rules),
     };
     const result = await getGameApi().addCombatState(props.gameId, model.value.entityKey, state);
@@ -481,7 +487,7 @@ async function addState(option: CombatStateOption): Promise<void> {
 
 function fillPoisonDraft(value: CharacterPoisonValue): void {
   poisonDraft.value = value;
-  poisonDraftRuleId.value = value.poisonRuleId ?? '';
+  poisonDraftRuleId.value = value.poisonRuleCode ?? '';
   poisonDraftType.value = value.damage_type_code ?? '';
   poisonDraftStrength.value = { ...(value.strength ?? { base: 1, size: 0 }) };
 }
@@ -500,14 +506,14 @@ async function confirmPoisonAdd(): Promise<void> {
   poisonAddOpen.value = false;
   try {
     const poison: CharacterPoisonValue = {
-      poisonRuleId: poisonDraftRuleId.value || null,
+      poisonRuleCode: poisonDraftRuleId.value || null,
       damage_type_code: poisonDraftType.value || undefined,
       strength: { ...poisonDraftStrength.value },
       periodicity: poisonDraft.value?.periodicity,
       decay: poisonDraft.value?.decay,
     };
     const result = await getGameApi().addCombatState(props.gameId, model.value.entityKey, {
-      stateRuleId: option.ruleId,
+      stateRuleCode: option.ruleCode,
       poison,
     });
     applyOverlay(result);
@@ -721,7 +727,7 @@ function onSheetToggleEquipped(itemId: number): void {
         <v-window-item value="overview">
           <div class="combat-card-panel__body">
             <v-alert v-if="activeProcess" type="info" variant="tonal" density="compact" class="mb-3">
-              Активный процесс: {{ activeProcessRule?.name ?? activeProcess.processRuleId }} · шаг
+              Активный процесс: {{ activeProcessRule?.name ?? activeProcess.processRuleCode }} · шаг
               {{ activeProcess.currentStepCode }}. Для продолжения используйте меню «Действие».
             </v-alert>
             <section class="combat-card-section">
@@ -737,13 +743,13 @@ function onSheetToggleEquipped(itemId: number): void {
                   <div v-if="primarySimple.length" class="combat-card-characteristics">
                     <CombatCardCharacteristicTile
                       v-for="characteristic in primarySimple"
-                      :key="characteristic.ruleId"
+                      :key="characteristic.ruleCode"
                       :characteristic="characteristic"
                       :rules="rules"
                       :senses="senses"
                       :proficiency-levels="proficiencyLevels"
                       :rollable="chatId !== null"
-                      :starred="isStarred(characteristic.ruleId)"
+                      :starred="isStarred(characteristic.ruleCode)"
                       :star-enabled="model.canEdit"
                       @roll="onTileRoll"
                       @star-toggle="onStarToggle"
@@ -752,13 +758,13 @@ function onSheetToggleEquipped(itemId: number): void {
                   <div v-if="primaryDerived.length" class="combat-card-characteristics mt-1">
                     <CombatCardCharacteristicTile
                       v-for="characteristic in primaryDerived"
-                      :key="characteristic.ruleId"
+                      :key="characteristic.ruleCode"
                       :characteristic="characteristic"
                       :rules="rules"
                       :senses="senses"
                       :proficiency-levels="proficiencyLevels"
                       :rollable="chatId !== null"
-                      :starred="isStarred(characteristic.ruleId)"
+                      :starred="isStarred(characteristic.ruleCode)"
                       :star-enabled="model.canEdit"
                       @roll="onTileRoll"
                       @star-toggle="onStarToggle"
@@ -770,13 +776,13 @@ function onSheetToggleEquipped(itemId: number): void {
                   <div class="combat-card-characteristics">
                     <CombatCardCharacteristicTile
                       v-for="characteristic in importantCharacteristics"
-                      :key="characteristic.ruleId"
+                      :key="characteristic.ruleCode"
                       :characteristic="characteristic"
                       :rules="rules"
                       :senses="senses"
                       :proficiency-levels="proficiencyLevels"
                       :rollable="chatId !== null"
-                      :starred="isStarred(characteristic.ruleId)"
+                      :starred="isStarred(characteristic.ruleCode)"
                       :star-enabled="model.canEdit"
                       @roll="onTileRoll"
                       @star-toggle="onStarToggle"
@@ -788,13 +794,13 @@ function onSheetToggleEquipped(itemId: number): void {
                   <div class="combat-card-characteristics">
                     <CombatCardCharacteristicTile
                       v-for="characteristic in secondaryCharacteristics"
-                      :key="characteristic.ruleId"
+                      :key="characteristic.ruleCode"
                       :characteristic="characteristic"
                       :rules="rules"
                       :senses="senses"
                       :proficiency-levels="proficiencyLevels"
                       :rollable="chatId !== null"
-                      :starred="isStarred(characteristic.ruleId)"
+                      :starred="isStarred(characteristic.ruleCode)"
                       :star-enabled="model.canEdit"
                       @roll="onTileRoll"
                       @star-toggle="onStarToggle"
@@ -831,20 +837,20 @@ function onSheetToggleEquipped(itemId: number): void {
                         :proficiency-levels="proficiencyLevels"
                         :rollable="chatId !== null"
                         :roll-name="sectionKey === 'melee' ? 'Ближний бой' : 'Дальний бой'"
-                        :starred="isStarred(section.stat.ruleId)"
+                        :starred="isStarred(section.stat.ruleCode)"
                         :star-enabled="model.canEdit"
                         @roll="onTileRoll"
                         @star-toggle="onStarToggle"
                       />
                       <CombatCardCharacteristicTile
                         v-for="weapon in section.weapons"
-                        :key="weapon.ruleId"
+                        :key="weapon.ruleCode"
                         :characteristic="weapon"
                         :rules="rules"
                         :senses="senses"
                         :proficiency-levels="proficiencyLevels"
                         :rollable="chatId !== null"
-                        :starred="isStarred(weapon.ruleId)"
+                        :starred="isStarred(weapon.ruleCode)"
                         :star-enabled="model.canEdit"
                         @roll="onTileRoll"
                         @star-toggle="onStarToggle"
@@ -868,7 +874,7 @@ function onSheetToggleEquipped(itemId: number): void {
                 <div v-else class="combat-card-characteristics">
                   <CombatResourceTile
                     v-for="resource in overview?.resources ?? []"
-                    :key="resource.ruleId"
+                    :key="resource.ruleCode"
                     :resource="resource"
                     :rules="rules"
                     :can-edit="model.canEdit"
@@ -923,7 +929,7 @@ function onSheetToggleEquipped(itemId: number): void {
                         <v-list dense max-height="240">
                           <v-list-item
                             v-for="option in stateOptions"
-                            :key="option.ruleId"
+                            :key="option.ruleCode"
                             density="compact"
                             :prepend-icon="option.iconCode ?? 'mdi-star-outline'"
                             :title="option.name"

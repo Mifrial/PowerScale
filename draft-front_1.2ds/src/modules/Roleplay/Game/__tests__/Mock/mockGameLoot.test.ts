@@ -32,12 +32,12 @@ function npcIdsOf(gameId: number): number[] {
   return gameNpcs.filter((npc) => npc.gameId === gameId).map((npc) => npc.id);
 }
 
-function itemData(itemRuleId: string, quantity = 1): CreateLootData {
-  return { group: 'Группа', itemRuleId, quantity, moneyAmount: null, notes: null };
+function itemData(itemRuleCode: string, quantity = 1): CreateLootData {
+  return { group: 'Группа', itemRuleCode, quantity, moneyAmount: null, notes: null };
 }
 
 function moneyData(moneyAmount: number): CreateLootData {
-  return { group: null, itemRuleId: null, quantity: 0, moneyAmount, notes: null };
+  return { group: null, itemRuleCode: null, quantity: 0, moneyAmount, notes: null };
 }
 
 describe('mockGameLoot: согласованность фикстур', () => {
@@ -73,36 +73,36 @@ describe('mockGameLoot: создание и правка', () => {
   });
 
   it('addLoot создаёт лут в запасе', async () => {
-    const loot = await addLoot(1, itemData('rule-400'));
+    const loot = await addLoot(1, itemData('boevoy-posokh'));
     expect(loot.status).toBe('prepared');
-    expect(loot.itemRuleId).toBe('rule-400');
+    expect(loot.itemRuleCode).toBe('boevoy-posokh');
     expect(loot.distribution).toEqual([]);
   });
 
-  it('addLoot требует ровно один из itemRuleId/moneyAmount', async () => {
+  it('addLoot требует ровно один из itemRuleCode/moneyAmount', async () => {
     await expect(
-      addLoot(1, { group: null, itemRuleId: 'rule-400', quantity: 1, moneyAmount: 100, notes: null }),
+      addLoot(1, { group: null, itemRuleCode: 'boevoy-posokh', quantity: 1, moneyAmount: 100, notes: null }),
     ).rejects.toThrow('предметом или деньгами');
     await expect(
-      addLoot(1, { group: null, itemRuleId: null, quantity: 0, moneyAmount: null, notes: null }),
+      addLoot(1, { group: null, itemRuleCode: null, quantity: 0, moneyAmount: null, notes: null }),
     ).rejects.toThrow('предметом или деньгами');
   });
 
   it('updateLoot правит только лут в запасе', async () => {
-    const created = await addLoot(1, itemData('rule-400'));
+    const created = await addLoot(1, itemData('boevoy-posokh'));
     const updated = await updateLoot(created.id, moneyData(250));
     expect(updated.moneyAmount).toBe(250);
-    expect(updated.itemRuleId).toBeNull();
+    expect(updated.itemRuleCode).toBeNull();
 
-    const available = await addLoot(1, itemData('rule-401'));
+    const available = await addLoot(1, itemData('tekko-kagi'));
     await handoutLoot([available.id]);
-    await expect(updateLoot(available.id, itemData('rule-402'))).rejects.toThrow('в запасе');
+    await expect(updateLoot(available.id, itemData('kusarigama'))).rejects.toThrow('в запасе');
   });
 });
 
 describe('mockGameLoot: выдача на разбор и интерес', () => {
   it('handoutLoot переводит prepared → available', async () => {
-    const created = await addLoot(1, itemData('rule-400'));
+    const created = await addLoot(1, itemData('boevoy-posokh'));
     const [handed] = await handoutLoot([created.id]);
     expect(handed.status).toBe('available');
     await expect(handoutLoot([created.id])).rejects.toThrow('из запаса');
@@ -118,14 +118,14 @@ describe('mockGameLoot: выдача на разбор и интерес', () =>
   });
 
   it('интерес возможен только к луту на разборе', async () => {
-    const created = await addLoot(1, itemData('rule-400'));
+    const created = await addLoot(1, itemData('boevoy-posokh'));
     await expect(toggleLootInterest(created.id)).rejects.toThrow('на разборе');
   });
 });
 
 describe('mockGameLoot: раздача', () => {
   async function availableItem(): Promise<number> {
-    const loot = await addLoot(1, itemData('rule-400'));
+    const loot = await addLoot(1, itemData('boevoy-posokh'));
     await handoutLoot([loot.id]);
 
     return loot.id;
@@ -212,7 +212,7 @@ describe('mockGameLoot: раздача', () => {
     const id = await availableItem();
     await distributeLoot(id, { distribution: [{ type: 'character', characterId: 4 }] });
     expect(versions[4].inventory.length).toBe(beforeCount + 1);
-    expect(versions[4].inventory.at(-1)).toMatchObject({ ruleId: 'rule-400', quantity: 1, equipped: false });
+    expect(versions[4].inventory.at(-1)).toMatchObject({ ruleCode: 'boevoy-posokh', quantity: 1, equipped: false });
   });
 
   it('во время активной сессии добыча пишется в оверлей (approved заморожен, latest чист)', async () => {
@@ -253,14 +253,14 @@ describe('mockGameLoot: раздача', () => {
     await distributeLoot(id, { distribution: [{ type: 'npc', npcId: 1 }] });
     expect(npc?.version).not.toBeNull();
     expect(npc?.version?.inventory).toContainEqual(
-      expect.objectContaining({ ruleId: 'rule-400', quantity: 1, equipped: false }),
+      expect.objectContaining({ ruleCode: 'boevoy-posokh', quantity: 1, equipped: false }),
     );
   });
 });
 
 describe('mockGameLoot: удаление', () => {
   it('deleteLoot удаляет запись', async () => {
-    const created = await addLoot(1, itemData('rule-400'));
+    const created = await addLoot(1, itemData('boevoy-posokh'));
     await deleteLoot(created.id);
     const all = await fetchLoot(1);
     expect(all.some((loot) => loot.id === created.id)).toBe(false);

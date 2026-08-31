@@ -5,7 +5,7 @@ import { characteristicRollService } from '@/modules/Roleplay/Game/Service/Insta
 
 const RULES: Rule[] = [
   {
-    id: 'rule-roll',
+    id: null,
     code: 'roll',
     type: 'simple',
     name: 'Бросок',
@@ -20,7 +20,7 @@ const RULES: Rule[] = [
     createdAt: '2026-01-15T10:00:00Z',
   },
   {
-    id: 'rule-6-and-1',
+    id: null,
     code: 'rule-6-and-1',
     type: 'simple',
     name: 'Правило 6 и 1',
@@ -32,7 +32,7 @@ const RULES: Rule[] = [
     createdAt: '2026-01-15T10:00:00Z',
   },
   {
-    id: 'rule-strength',
+    id: null,
     code: 'strength',
     type: 'characteristic',
     name: 'Сила',
@@ -44,7 +44,7 @@ const RULES: Rule[] = [
     createdAt: '2026-01-15T10:00:00Z',
   },
   {
-    id: 'rule-check-simple',
+    id: null,
     code: 'check-simple',
     type: 'check',
     name: 'Простая проверка',
@@ -59,7 +59,7 @@ const RULES: Rule[] = [
     createdAt: '2026-08-22T12:00:00Z',
   },
   {
-    id: 'rule-check-strength',
+    id: null,
     code: 'check-strength',
     type: 'check',
     name: 'Проверка на Силу',

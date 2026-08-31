@@ -4,11 +4,11 @@ import type { ProblemEntry } from '@/modules/Roleplay/Rule/Dto/ProblemEntry';
 
 export class RuleDiffService {
   classifyDraftDiff(published: Rule[], draft: Rule[], removedCodes: readonly string[] = []): PublishDiff {
-    const publishedById = new Map(published.map((r) => [r.id, r]));
+    const publishedByCode = new Map(published.map((r) => [r.code, r]));
     const added: Rule[] = [];
     const changed: Rule[] = [];
     for (const d of draft) {
-      const pub = publishedById.get(d.id);
+      const pub = publishedByCode.get(d.code);
       if (!pub) {
         added.push(d);
       } else if (!this.samePayload(d, pub)) {

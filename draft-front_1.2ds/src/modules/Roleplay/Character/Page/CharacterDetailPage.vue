@@ -406,7 +406,7 @@ watch(detail, (value) => {
 
   <RuleSlider
     v-model:open="ruleSlider.state.open"
-    :rule-id="ruleSlider.state.ruleId"
+    :rule-code="ruleSlider.state.ruleCode"
     :space-id="detail?.character.spaceId ?? null"
     :rules-revision="detail?.version.rulesRevision ?? null"
     :rules="rules"

@@ -17,7 +17,7 @@ function version(inventory: InventoryItem[]): CharacterVersion {
     fullDescription: null,
     spaceCode: 'razrabotka',
     rulesRevision: 5,
-    raceRuleId: null,
+    raceRuleCode: null,
     characteristics: [],
     resources: [],
     abilities: [],
@@ -33,10 +33,10 @@ function version(inventory: InventoryItem[]): CharacterVersion {
 describe('checkAdvantageModifiersFromItems', () => {
   const helmed: InventoryItem = {
     id: 1,
-    ruleId: plate.id,
+    ruleCode: plate.code,
     quantity: 1,
     equipped: true,
-    modifierRuleIds: [helm.id],
+    modifierRuleCodes: [helm.code],
   };
 
   it('экипированный шлем: помеха на внимательность от предмета, не на восприятие и не на попадание', () => {
@@ -46,7 +46,7 @@ describe('checkAdvantageModifiersFromItems', () => {
         kind: 'characteristic',
         code: 'attention',
       }),
-    ).toEqual([{ source_code: plate.id, source_label: 'Латный доспех', delta: -1 }]);
+    ).toEqual([{ source_code: plate.code, source_label: 'Латный доспех', delta: -1 }]);
     expect(
       itemCheckAdvantagesService.checkAdvantageModifiersFromItems(sheet, rules, {
         kind: 'characteristic',
@@ -65,7 +65,7 @@ describe('checkAdvantageModifiersFromItems', () => {
     ).toEqual([]);
     expect(
       itemCheckAdvantagesService.checkAdvantageModifiersFromItems(
-        version([{ id: 1, ruleId: plate.id, quantity: 1, equipped: true }]),
+        version([{ id: 1, ruleCode: plate.code, quantity: 1, equipped: true }]),
         rules,
         {
           kind: 'characteristic',

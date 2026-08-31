@@ -26,9 +26,9 @@ const props = withDefaults(
   },
 );
 
-const byId = computed(() => new Map(props.rules.map((rule) => [rule.id, rule])));
+const byCode = computed(() => new Map(props.rules.map((rule) => [rule.code, rule])));
 
-const code = computed(() => props.rules.find((rule) => rule.id === props.characteristic.ruleId)?.code ?? '');
+const code = computed(() => props.rules.find((rule) => rule.code === props.characteristic.ruleCode)?.code ?? '');
 
 /** Чувства относятся к Внимательности: показываем блок у неё самой или у её производных. */
 const showsSenses = computed(() => {
@@ -50,8 +50,8 @@ const weaponMastery = computed(() => {
 const senses = computed(() =>
   props.senses.map((sense) => ({
     ...sense,
-    ruleId: sense.ruleId,
-    name: byId.value.get(sense.ruleId)?.name ?? sense.ruleId,
+    ruleCode: sense.ruleCode,
+    name: byCode.value.get(sense.ruleCode)?.name ?? sense.ruleCode,
   })),
 );
 
@@ -72,7 +72,7 @@ function limitLabel(limit: { base: number; size: number }): string {
 }
 
 function modifierLabel(modifier: OverviewModifier): string {
-  return byId.value.get(modifier.sourceRuleId ?? '')?.name ?? modifier.source ?? 'источник';
+  return byCode.value.get(modifier.sourceRuleCode ?? '')?.name ?? modifier.source ?? 'источник';
 }
 
 function signed(delta: number): string {
@@ -111,7 +111,7 @@ function signed(delta: number): string {
         <div class="text-caption text-medium-emphasis mb-1">Модификаторы</div>
         <div
           v-for="(modifier, index) in characteristic.modifiers"
-          :key="`${modifier.sourceRuleId}_${modifier.target}_${index}`"
+          :key="`${modifier.sourceRuleCode}_${modifier.target}_${index}`"
           class="d-flex align-center flex-wrap ga-2 py-1"
         >
           <span v-if="modifier.limit != null" class="font-weight-medium">
@@ -120,7 +120,7 @@ function signed(delta: number): string {
           </span>
           <span v-else class="font-weight-medium">{{ signed(modifier.delta) }}</span>
           <span class="text-medium-emphasis">|</span>
-          <RuleLink v-if="modifier.sourceRuleId" :rule-id="modifier.sourceRuleId" class="text-body-2">
+          <RuleLink v-if="modifier.sourceRuleCode" :rule-code="modifier.sourceRuleCode" class="text-body-2">
             {{ modifierLabel(modifier) }}
           </RuleLink>
           <span v-else class="text-body-2 text-medium-emphasis">{{ modifierLabel(modifier) }}</span>
@@ -132,12 +132,12 @@ function signed(delta: number): string {
         <div class="text-caption text-medium-emphasis mb-1">Условно</div>
         <div
           v-for="(modifier, index) in characteristic.conditionalModifiers"
-          :key="`${modifier.sourceRuleId}_${modifier.target}_${index}`"
+          :key="`${modifier.sourceRuleCode}_${modifier.target}_${index}`"
           class="d-flex align-center flex-wrap ga-2 py-1"
         >
           <span class="font-weight-medium">{{ signed(modifier.delta) }}</span>
           <span class="text-medium-emphasis">|</span>
-          <RuleLink v-if="modifier.sourceRuleId" :rule-id="modifier.sourceRuleId" class="text-body-2">
+          <RuleLink v-if="modifier.sourceRuleCode" :rule-code="modifier.sourceRuleCode" class="text-body-2">
             {{ modifierLabel(modifier) }}
           </RuleLink>
           <span v-else class="text-body-2 text-medium-emphasis">{{ modifierLabel(modifier) }}</span>
@@ -150,7 +150,7 @@ function signed(delta: number): string {
         <div class="text-caption text-medium-emphasis mb-1">{{ characteristic.derived.label ?? 'Производная' }}:</div>
         <v-menu
           v-for="base in characteristic.derived.bases"
-          :key="base.ruleId"
+          :key="base.ruleCode"
           location="right top"
           open-on-hover
           :close-on-content-click="false"
@@ -178,7 +178,7 @@ function signed(delta: number): string {
         <div class="text-caption text-medium-emphasis mb-1">Чувства</div>
         <v-menu
           v-for="sense in senses"
-          :key="sense.ruleId"
+          :key="sense.ruleCode"
           location="right top"
           open-on-hover
           :close-on-content-click="false"
@@ -191,7 +191,7 @@ function signed(delta: number): string {
               </span>
             </div>
           </template>
-          <SensePopup :sense="sense" :rule="byId.get(sense.ruleId)" :rules="rules" />
+          <SensePopup :sense="sense" :rule="byCode.get(sense.ruleCode)" :rules="rules" />
         </v-menu>
       </template>
 

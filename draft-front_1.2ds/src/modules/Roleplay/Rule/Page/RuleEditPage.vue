@@ -44,9 +44,9 @@ const { signal } = useAbortable();
 
 const code = computed(() => route.params.code as string);
 const ctx = computed(() => route.params.ctx as string);
-const ruleId = computed(() => route.params.ruleId as string);
-const routeKey = computed(() => `${code.value}|${ctx.value}|${ruleId.value}`);
-const isEdit = computed(() => !!ruleId.value && ruleId.value !== 'new');
+const routeRuleCode = computed(() => route.params.ruleCode as string);
+const routeKey = computed(() => `${code.value}|${ctx.value}|${routeRuleCode.value}`);
+const isEdit = computed(() => !!routeRuleCode.value && routeRuleCode.value !== 'new');
 const isRevisionContext = computed(() => !!ctx.value && ctx.value !== 'draft');
 
 const spaceId = computed(() => ruleHost.value.spaceId ?? 0);
@@ -70,7 +70,7 @@ const storageToast = ref(false);
 
 const showConflictDialog = ref(false);
 const conflictRuleName = ref('');
-const conflictRuleId = ref('');
+const loadedStorageId = ref<number | null>(null);
 const baseLoaded = ref<string | null>(null);
 
 const mechanicOptions = ref<{ title: string; value: number }[]>([]);
@@ -103,12 +103,13 @@ function applyForm(form: RuleFormState) {
 }
 
 async function resolveRoute(): Promise<void> {
-  const key = `${code.value}|${ctx.value}|${ruleId.value}`;
+  const key = `${code.value}|${ctx.value}|${routeRuleCode.value}`;
   if (baseLoaded.value === key) return;
   baseLoaded.value = key;
 
   loading.value = true;
   error.value = null;
+  loadedStorageId.value = null;
 
   try {
     const mechanics = await getRuleApi().getMechanics(signal.value);
@@ -117,17 +118,18 @@ async function resolveRoute(): Promise<void> {
     await keywordStore.fetchTags(signal.value);
 
     if (isEdit.value) {
-      const found = ruleHost.value.effectiveRules.find((r) => r.id === ruleId.value);
+      const found = ruleHost.value.effectiveRules.find((r) => r.code === routeRuleCode.value);
       if (found) {
+        loadedStorageId.value = found.id;
         applyForm(ruleToForm(found));
       } else {
-        const rule = await store.fetchRule(ruleId.value, signal.value);
+        const rule = await store.fetchRule(routeRuleCode.value, signal.value);
+        loadedStorageId.value = rule.id;
         applyForm(ruleToForm(rule));
       }
 
-      if (isRevisionContext.value && draftHasRule(ruleId.value)) {
+      if (isRevisionContext.value && draftHasRule(routeRuleCode.value)) {
         conflictRuleName.value = name.value;
-        conflictRuleId.value = ruleId.value;
         showConflictDialog.value = true;
       }
     } else {
@@ -153,16 +155,15 @@ function retry() {
   resolveRoute();
 }
 
-function draftHasRule(id: string): boolean {
+function draftHasRule(code: string): boolean {
   if (!spaceId.value) return false;
 
-  return draftStore.getDraftRules(spaceId.value).some((r) => r.id === id);
+  return draftStore.getDraftRules(spaceId.value).some((r) => r.code === code);
 }
 
 function confirmConflict() {
   showConflictDialog.value = false;
   conflictRuleName.value = '';
-  conflictRuleId.value = '';
 }
 
 /** Является ли строка допустимым типом правила (для предзаполнения формы из query). */
@@ -173,7 +174,6 @@ function isRuleType(value: string): value is RuleType {
 function cancelConflict() {
   showConflictDialog.value = false;
   conflictRuleName.value = '';
-  conflictRuleId.value = '';
   router.back();
 }
 
@@ -184,7 +184,7 @@ onMounted(() => {
   }
   void resolveRoute();
 });
-watch(() => [route.params.code, route.params.ctx, route.params.ruleId], resolveRoute);
+watch(() => [route.params.code, route.params.ctx, route.params.ruleCode], resolveRoute);
 
 async function save() {
   if (!name.value.trim()) return;
@@ -195,7 +195,7 @@ async function save() {
   try {
     const rule = ruleDraftService.createDraft({
       isEdit: isEdit.value,
-      id: ruleId.value,
+      id: loadedStorageId.value,
       type: type.value,
       name: name.value,
       code: ruleCode.value,
@@ -219,7 +219,7 @@ async function save() {
       return;
     }
     draftStore.saveRule(spaceId.value, rule);
-    router.push(`/space/${code.value}/draft/rules/${rule.id}`);
+    router.push(`/space/${code.value}/draft/rules/${encodeURIComponent(rule.code)}`);
   } catch {
     saveError.value = 'Не удалось сохранить черновик';
   } finally {
@@ -349,7 +349,7 @@ async function save() {
             :mechanic-options="mechanicOptions"
             :keyword-options="keywordOptions"
             :space-id="spaceId"
-            :rule-id="ruleId"
+            :rule-code="ruleCode"
             :rules="ruleHost.effectiveRules"
           />
 
@@ -366,7 +366,7 @@ async function save() {
             :mechanic-options="mechanicOptions"
             :keyword-options="keywordOptions"
             :space-id="spaceId"
-            :rule-id="ruleId"
+            :rule-code="ruleCode"
             :rules="ruleHost.effectiveRules"
           />
 

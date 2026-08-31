@@ -1,7 +1,7 @@
 export interface InventoryItemOverview {
   id: number;
   /** null — кастомный «предмет мастера» (без правила). */
-  ruleId: string | null;
+  ruleCode: string | null;
   name: string;
   categoryLabel: string;
   quantity: number;

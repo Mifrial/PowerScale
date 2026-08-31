@@ -24,16 +24,16 @@ watch(open, (value) => {
   if (value) draft.value = [...props.selectedRuleIds];
 });
 
-function modifierRule(ruleId: string): Rule | undefined {
-  return props.rules.find((rule) => rule.id === ruleId);
+function modifierRule(ruleCode: string): Rule | undefined {
+  return props.rules.find((rule) => rule.code === ruleCode);
 }
 
 const visibleModifiers = computed(() => {
   const selected = draft.value.map((id) => modifierRule(id)).filter((rule): rule is Rule => rule !== undefined);
 
   return props.modifiers.filter((option) => {
-    if (draft.value.includes(option.ruleId)) return true;
-    const candidate = modifierRule(option.ruleId);
+    if (draft.value.includes(option.ruleCode)) return true;
+    const candidate = modifierRule(option.ruleCode);
     if (!candidate) return false;
     const spec = candidate.spec as ItemModifierSpec | undefined;
     const codes = itemModifierService.effectiveKeywordCodes(props.itemKeywordCodes, [...selected, candidate]);
@@ -57,12 +57,12 @@ const groups = computed(() => {
   return titles.map((title) => ({ title, items: byTitle.get(title) ?? [] }));
 });
 
-function isSelected(ruleId: string): boolean {
-  return draft.value.includes(ruleId);
+function isSelected(ruleCode: string): boolean {
+  return draft.value.includes(ruleCode);
 }
 
-function toggle(ruleId: string): void {
-  draft.value = itemModifierService.toggleSelection(draft.value, ruleId, props.rules);
+function toggle(ruleCode: string): void {
+  draft.value = itemModifierService.toggleSelection(draft.value, ruleCode, props.rules);
 }
 
 function onCancel(): void {
@@ -88,11 +88,11 @@ function onApply(): void {
           <div class="picker-group__title">{{ group.title }}</div>
           <button
             v-for="modifier in group.items"
-            :key="modifier.ruleId"
+            :key="modifier.ruleCode"
             type="button"
             class="picker-option"
-            :class="{ 'picker-option--selected': isSelected(modifier.ruleId) }"
-            @click="toggle(modifier.ruleId)"
+            :class="{ 'picker-option--selected': isSelected(modifier.ruleCode) }"
+            @click="toggle(modifier.ruleCode)"
           >
             <div class="picker-option__head">
               <span class="picker-option__name">{{ modifier.name }}</span>

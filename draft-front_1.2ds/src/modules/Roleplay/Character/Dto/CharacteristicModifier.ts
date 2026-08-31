@@ -1,7 +1,7 @@
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 
 export interface CharacteristicModifier {
-  sourceRuleId: string | null;
+  sourceRuleCode: string | null;
   sourceLabel: string | null;
   delta: number;
   target: string;

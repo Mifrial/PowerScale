@@ -81,9 +81,7 @@ async function save() {
         removeMissing: false,
         existingRemovedCodes: [],
       });
-      for (const rule of diff.added) {
-        drafts.saveRule(space.id, rule);
-      }
+      drafts.saveRules(space.id, diff.added);
       router.push(`/space/${space.code}/draft`);
 
       return;

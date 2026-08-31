@@ -69,7 +69,7 @@ function limitLabel(): string {
           >
             <span class="font-weight-medium">{{ signed(bonus.delta) }}</span>
             <span class="text-medium-emphasis">|</span>
-            <RuleLink v-if="bonus.sourceRuleId" :rule-id="bonus.sourceRuleId" class="text-body-2">
+            <RuleLink v-if="bonus.sourceRuleCode" :rule-code="bonus.sourceRuleCode" class="text-body-2">
               {{ bonus.source }}
             </RuleLink>
             <span v-else class="text-body-2 text-medium-emphasis">{{ bonus.source }}</span>

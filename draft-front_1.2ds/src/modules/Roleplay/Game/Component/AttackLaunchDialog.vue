@@ -21,7 +21,7 @@ import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/at
 import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/actionEffectService';
 import { attackActionSourceService } from '@/modules/Roleplay/Game/Service/Instance/attackActionSourceService';
 import { processSessionService } from '@/modules/Roleplay/Game/Service/Instance/processSessionService';
-import { asProcessAbilitySpec } from '@/modules/Roleplay/Game/Utils/combatActions';
+import { asProcessAbilitySpec, actionRefEquals, findRuleByRef } from '@/modules/Roleplay/Game/Utils/combatActions';
 import { ACTION_POINTS_CODE } from '@/modules/Roleplay/Game/Constant/Combat/ACTION_POINTS_CODE';
 import { AttackProfileOption } from '@/modules/Roleplay/Character/init';
 import { combatChatSendService } from '@/modules/Roleplay/Game/Service/Instance/combatChatSendService';
@@ -46,7 +46,7 @@ const emit = defineEmits<{
 
 const overlays = ref<GameCombatOverlay[]>([]);
 const processSessions = ref<Record<CombatEntityKey, ProcessSession>>({});
-const sourceRuleId = ref<string | null>(null);
+const sourceRuleCode = ref<string | null>(null);
 const processStepCode = ref<string | null>(null);
 const slots = ref<AttackActionSlotDraft[]>([{ profile: null, targetKey: null }]);
 const profileMenuSlot = ref<number | null>(null);
@@ -73,22 +73,13 @@ const actorVersion = computed(() => {
 const actorOverview = computed(() =>
   actorVersion.value ? characterOverviewService.build(actorVersion.value, props.rules) : null,
 );
-const favoriteAttack = computed(() => {
-  const key = actorKey.value;
-  const overview = actorOverview.value;
-  if (!key || !overview) return null;
-  const favorite = attackFavorites.favoriteOf(key);
-  if (!favorite) return null;
-
-  return (
-    overview.attacks.find(
-      (attack) =>
-        attack.itemRuleId === favorite.itemRuleId &&
-        attack.profileType === favorite.profileType &&
-        (attack.profileIndex ?? 0) === favorite.profileIndex,
-    ) ?? null
-  );
-});
+const favoriteAttack = computed(() =>
+  attackActionSourceService.favoriteAttack(
+    actorOverview.value?.attacks ?? [],
+    actorKey.value ? (attackFavorites.favoriteOf(actorKey.value) ?? null) : null,
+    props.rules,
+  ),
+);
 const activeProcess = computed(() =>
   actorKey.value && processSessions.value[actorKey.value] ? processSessions.value[actorKey.value] : null,
 );
@@ -96,20 +87,22 @@ const sources = computed(() => {
   const available = attackActionSourceService.list(props.rules, actorOverview.value);
   if (!activeProcess.value) return available;
 
-  return available.filter((source) => source.isProcess && source.ruleId === activeProcess.value?.processRuleId);
+  return available.filter(
+    (source) => source.isProcess && actionRefEquals(source, activeProcess.value?.processRuleCode, props.rules),
+  );
 });
 const selectedSource = computed<CombatActionOption | null>(
-  () => sources.value.find((source) => source.ruleId === sourceRuleId.value) ?? null,
+  () =>
+    sources.value.find((source) => source.code === sourceRuleCode.value || source.ruleCode === sourceRuleCode.value) ??
+    null,
 );
 const isWideAttack = computed(() => selectedSource.value?.attackMode === 'wide');
-const selectedSourceRule = computed(() =>
-  selectedSource.value ? (props.rules.find((rule) => rule.id === selectedSource.value?.ruleId) ?? null) : null,
-);
+const selectedSourceRule = computed(() => findRuleByRef(props.rules, selectedSource.value?.code) ?? null);
 const processSteps = computed(() => {
   const process = selectedSource.value?.process;
   if (!process) return [];
   const currentStepCode =
-    activeProcess.value?.processRuleId === selectedSource.value.ruleId
+    activeProcess.value && actionRefEquals(selectedSource.value, activeProcess.value.processRuleCode, props.rules)
       ? activeProcess.value.currentStepCode
       : (process.start_step_code ?? process.steps[0]?.code);
   if (!currentStepCode) return [];
@@ -198,7 +191,7 @@ function profileLabel(profile: AttackOverview | null): string {
 }
 
 function profileKey(profile: AttackOverview): string {
-  return `${profile.itemRuleId}:${profile.profileType}:${profile.profileIndex ?? 'legacy'}`;
+  return `${profile.itemRuleCode}:${profile.profileType}:${profile.profileIndex ?? 'legacy'}`;
 }
 
 function selectProfile(slotIndex: number, profile: AttackOverview): void {
@@ -211,7 +204,7 @@ function selectProfile(slotIndex: number, profile: AttackOverview): void {
   }
   if (actorKey.value) {
     attackFavorites.setFavorite(actorKey.value, {
-      itemRuleId: profile.itemRuleId,
+      itemRuleCode: profile.itemRuleCode,
       profileType: profile.profileType,
       profileIndex: profile.profileIndex ?? 0,
     });
@@ -240,7 +233,7 @@ async function hydrate(): Promise<void> {
   overlays.value = nextOverlays;
   pendingEffects.value = nextPending;
   processSessions.value = nextProcesses;
-  sourceRuleId.value = sources.value[0]?.ruleId ?? null;
+  sourceRuleCode.value = sources.value[0]?.code ?? null;
   slots.value = [{ profile: null, targetKey: targetOptions.value[0]?.value ?? null }];
 }
 
@@ -248,7 +241,7 @@ async function stopProcess(): Promise<void> {
   const key = actorKey.value;
   const session = activeProcess.value;
   if (!key || !session) return;
-  const processRule = props.rules.find((rule) => rule.id === session.processRuleId);
+  const processRule = findRuleByRef(props.rules, session.processRuleCode);
   const processSpec = processRule ? asProcessAbilitySpec(processRule) : null;
   if (
     !processRule ||
@@ -279,7 +272,7 @@ async function stopProcess(): Promise<void> {
     const nextSessions = { ...processSessions.value };
     delete nextSessions[key];
     processSessions.value = nextSessions;
-    sourceRuleId.value = sources.value[0]?.ruleId ?? null;
+    sourceRuleCode.value = sources.value[0]?.code ?? null;
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : 'Не удалось прекратить процесс';
   } finally {
@@ -318,7 +311,7 @@ async function submit(): Promise<void> {
   if (finalCost.value > actionPoints.value) throw new Error('Недостаточно ОД для атаки');
   const processSession =
     activeProcess.value ??
-    (source.process ? processSessionService.start(props.gameId, initiator, source.ruleId, source.process) : null);
+    (source.process ? processSessionService.start(props.gameId, initiator, source.code, source.process) : null);
   if (source.isProcess && !processSession) throw new Error('Не удалось создать сессию процесса');
   const processSource =
     source.isProcess && processSession && selectedStepCode
@@ -328,7 +321,7 @@ async function submit(): Promise<void> {
 
   emit('launch-attack', {
     initiator,
-    source: processSource ?? { kind: 'action', actionRuleId: source.ruleId },
+    source: processSource ?? { kind: 'action', actionRuleCode: source.code },
     strikes: attackStrikes,
     mode: isWideAttack.value ? 'wide' : 'single',
     reactionMode: 'simultaneous',
@@ -384,10 +377,10 @@ watch(selectedProcessStep, () => {
       <v-card-title>Атака</v-card-title>
       <v-card-text>
         <v-autocomplete
-          v-model="sourceRuleId"
+          v-model="sourceRuleCode"
           :items="sources"
           :item-title="sourceTitle"
-          item-value="ruleId"
+          item-value="code"
           label="Атака или процесс"
           :disabled="busy || !actorKey"
         >

@@ -8,9 +8,9 @@ function entityToken(key: CombatEntityKey, name: string): string {
   return `[[character:${key.slice(10)},${name}]]`;
 }
 
-function ruleToken(ruleId: string | null | undefined, fallbackName: string, rules: Rule[]): string {
-  if (!ruleId) return fallbackName;
-  const rule = rules.find((entry) => entry.id === ruleId);
+function ruleToken(ruleCode: string | null | undefined, fallbackName: string, rules: Rule[]): string {
+  if (!ruleCode) return fallbackName;
+  const rule = rules.find((entry) => entry.code === ruleCode);
 
   return rule ? `[[rule:${rule.code}]]` : fallbackName;
 }
@@ -20,19 +20,19 @@ export function formatHitCheckMessage(input: {
   attackerName: string;
   defenderKey: CombatEntityKey;
   defenderName: string;
-  weaponRuleId: string;
+  weaponRuleCode: string;
   weaponName: string;
   reaction: HitDefenseReaction;
-  blockItemRuleId?: string | null;
+  blockItemRuleCode?: string | null;
   rules: Rule[];
 }): string {
   const attacker = entityToken(input.attackerKey, input.attackerName);
   const defender = entityToken(input.defenderKey, input.defenderName);
-  const weapon = ruleToken(input.weaponRuleId, input.weaponName, input.rules);
+  const weapon = ruleToken(input.weaponRuleCode, input.weaponName, input.rules);
   let reactionText = 'игнорирует удар';
   if (input.reaction === 'dodge') reactionText = 'пытается уклониться';
   if (input.reaction === 'block') {
-    const block = ruleToken(input.blockItemRuleId, 'щит', input.rules);
+    const block = ruleToken(input.blockItemRuleCode, 'щит', input.rules);
     reactionText = `пытается блокировать, используя ${block}`;
   }
 

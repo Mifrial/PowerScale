@@ -39,12 +39,12 @@ function signed(delta: number): string {
         <div class="text-caption text-medium-emphasis mb-1">Бонусы лимита</div>
         <div
           v-for="(bonus, index) in resource.bonuses"
-          :key="`${bonus.sourceRuleId}_${bonus.delta}_${index}`"
+          :key="`${bonus.sourceRuleCode}_${bonus.delta}_${index}`"
           class="d-flex align-center flex-wrap ga-2 py-1"
         >
           <span class="font-weight-medium">{{ signed(bonus.delta) }}</span>
           <span class="text-medium-emphasis">|</span>
-          <RuleLink v-if="bonus.sourceRuleId" :rule-id="bonus.sourceRuleId" class="text-body-2">
+          <RuleLink v-if="bonus.sourceRuleCode" :rule-code="bonus.sourceRuleCode" class="text-body-2">
             {{ bonus.source }}
           </RuleLink>
           <span v-else class="text-body-2 text-medium-emphasis">{{ bonus.source }}</span>

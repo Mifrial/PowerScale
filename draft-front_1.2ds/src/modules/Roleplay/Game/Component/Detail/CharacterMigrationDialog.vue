@@ -72,8 +72,8 @@ const sheetUnchanged = computed(() => {
   return isEmptyMembershipDiff(membershipDiff(source, pending));
 });
 
-function resolve(ruleId: string): string {
-  return names.value[ruleId] ?? ruleId;
+function resolve(ruleCode: string): string {
+  return names.value[ruleCode] ?? ruleCode;
 }
 
 /**
@@ -117,7 +117,7 @@ async function run(): Promise<void> {
     originalVersion.value = source;
     oldRules.value = oldRevision.rules;
     const newRevision = await spaceRevision.fetchRevision(props.gameSpaceId, props.gameRulesRevision, signal.value);
-    names.value = Object.fromEntries(newRevision.rules.map((rule) => [rule.id, rule.name]));
+    names.value = Object.fromEntries(newRevision.rules.map((rule) => [rule.code, rule.name]));
     targetRules.value = newRevision.rules;
     result.value = characterMigrationService.migrate({
       version: source,

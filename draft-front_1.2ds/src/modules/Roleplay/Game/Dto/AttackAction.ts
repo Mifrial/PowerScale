@@ -4,7 +4,7 @@ import type { ProcessActionContext } from '@/modules/Roleplay/Game/Dto/ProcessAc
 
 export interface AttackAction {
   initiator: CombatEntityKey;
-  source: { kind: 'action'; actionRuleId: string } | { kind: 'process'; process: ProcessActionContext };
+  source: { kind: 'action'; actionRuleCode: string } | { kind: 'process'; process: ProcessActionContext };
   strikes: AttackActionStrike[];
   /** Групповая атака по нескольким целям (например, Широкий удар). */
   mode?: 'single' | 'wide';

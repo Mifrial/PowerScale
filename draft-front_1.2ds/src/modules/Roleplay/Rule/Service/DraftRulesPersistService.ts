@@ -55,9 +55,10 @@ export class DraftRulesPersistService {
       return null;
     }
     const changedRules: Record<string, Rule> = {};
-    for (const [ruleId, rule] of Object.entries(row.changedRules as Record<string, unknown>)) {
-      if (!this.isRule(rule) || rule.id !== ruleId) return null;
-      changedRules[ruleId] = rule;
+    for (const rule of Object.values(row.changedRules as Record<string, unknown>)) {
+      const parsed = this.parseRule(rule);
+      if (!parsed) return null;
+      changedRules[parsed.code] = parsed;
     }
 
     const removedCodes = this.parseRemovedCodes(row.removedCodes);
@@ -74,18 +75,22 @@ export class DraftRulesPersistService {
     return value;
   }
 
-  private isRule(value: unknown): value is Rule {
-    if (typeof value !== 'object' || value === null) return false;
+  private parseRule(value: unknown): Rule | null {
+    if (typeof value !== 'object' || value === null) return null;
     const row = value as Record<string, unknown>;
+    const id = row.id === null || typeof row.id === 'number' ? row.id : typeof row.id === 'string' ? null : undefined;
+    if (
+      id === undefined ||
+      typeof row.code !== 'string' ||
+      typeof row.type !== 'string' ||
+      typeof row.name !== 'string' ||
+      typeof row.description !== 'string' ||
+      typeof row.spaceId !== 'number' ||
+      typeof row.createdAt !== 'string'
+    ) {
+      return null;
+    }
 
-    return (
-      typeof row.id === 'string' &&
-      typeof row.code === 'string' &&
-      typeof row.type === 'string' &&
-      typeof row.name === 'string' &&
-      typeof row.description === 'string' &&
-      typeof row.spaceId === 'number' &&
-      typeof row.createdAt === 'string'
-    );
+    return { ...(row as unknown as Rule), id };
   }
 }

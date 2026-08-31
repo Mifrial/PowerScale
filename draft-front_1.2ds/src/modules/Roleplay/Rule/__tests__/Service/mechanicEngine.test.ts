@@ -12,7 +12,7 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
 function rule(overrides: Partial<Rule>): Rule {
   return {
-    id: 'rule-x',
+    id: null,
     code: 'code-x',
     type: 'simple',
     name: 'Правило',
@@ -42,7 +42,7 @@ describe('MechanicEngine', () => {
     registry.register(handler);
     const engine = new MechanicEngine(registry);
 
-    const rules = [rule({ id: 'r1', code: 'roll', mechanicId: 5 }), rule({ id: 'r2', code: 'plain' })];
+    const rules = [rule({ id: 1, code: 'roll', mechanicId: 5 }), rule({ id: 2, code: 'plain' })];
     const mechanics = [mechanic({ id: 5, code: 'm', version: '1.0.0' })];
 
     const resolved = engine.resolveActive(rules, mechanics);
@@ -67,7 +67,7 @@ describe('MechanicEngine', () => {
     registry.register(handlerA);
     registry.register(handlerB);
     const engine = new MechanicEngine(registry);
-    const rules = [rule({ id: 'r1', code: 'one', mechanicId: 1 }), rule({ id: 'r2', code: 'two', mechanicId: 2 })];
+    const rules = [rule({ id: 1, code: 'one', mechanicId: 1 }), rule({ id: 2, code: 'two', mechanicId: 2 })];
     const mechanics = [
       mechanic({ id: 1, code: 'a', version: '1.0.0' }),
       mechanic({ id: 2, code: 'b', version: '1.0.0' }),

@@ -4,7 +4,7 @@ import { DOT_TICK_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Dot/D
 import { buildDotTickAttachment, formatDotTickMessage } from '@/modules/Roleplay/Game/Utils/dotTickMessage';
 
 const fire: Rule = {
-  id: 'rule-fire',
+  id: null,
   code: 'fire',
   type: 'damage_type',
   name: 'Огонь',

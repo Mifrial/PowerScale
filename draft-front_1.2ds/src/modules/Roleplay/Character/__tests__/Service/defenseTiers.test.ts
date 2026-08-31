@@ -5,7 +5,7 @@ import type { InventoryItem } from '@/modules/Roleplay/Character/Dto/InventoryIt
 import { CharacterOverviewService } from '@/modules/Roleplay/Character/Service/Overview/CharacterOverviewService';
 
 function armorRule(
-  id: string,
+  id: number | null,
   code: string,
   name: string,
   defenseSlots: { defense: { base: number; size: number }; durability: number; source_code: string | null }[],
@@ -35,7 +35,7 @@ function version(inventory: InventoryItem[]): CharacterVersion {
     fullDescription: null,
     spaceCode: 'razrabotka',
     rulesRevision: 5,
-    raceRuleId: null,
+    raceRuleCode: null,
     characteristics: [],
     resources: [],
     abilities: [],
@@ -51,18 +51,18 @@ function version(inventory: InventoryItem[]): CharacterVersion {
 describe('CharacterOverviewService: ступени защиты по надёжности', () => {
   it('строит ступени: доспех 5/надёжн. 3 + поддоспешник 3/надёжн. 2', () => {
     const rules: Rule[] = [
-      armorRule('rule-armor', 'steel-armor', 'Стальной доспех', [
+      armorRule(null, 'steel-armor', 'Стальной доспех', [
         { defense: { base: 5, size: 0 }, durability: 3, source_code: 'armor-source' },
       ]),
-      armorRule('rule-gambeson', 'gambeson', 'Поддоспешник', [
+      armorRule(null, 'gambeson', 'Поддоспешник', [
         { defense: { base: 3, size: 0 }, durability: 2, source_code: null },
       ]),
     ];
     const service = new CharacterOverviewService();
     const defense = service.build(
       version([
-        { id: 1, ruleId: 'rule-armor', quantity: 1, equipped: true },
-        { id: 2, ruleId: 'rule-gambeson', quantity: 1, equipped: true },
+        { id: 1, ruleCode: 'steel-armor', quantity: 1, equipped: true },
+        { id: 2, ruleCode: 'gambeson', quantity: 1, equipped: true },
       ]),
       rules,
     ).defense;
@@ -80,14 +80,14 @@ describe('CharacterOverviewService: ступени защиты по надёж�
 
   it('защиты одного источника не суммируются: берётся максимум', () => {
     const rules: Rule[] = [
-      armorRule('rule-armor', 'steel-armor', 'Стальной доспех', [
+      armorRule(null, 'steel-armor', 'Стальной доспех', [
         { defense: { base: 5, size: 0 }, durability: 3, source_code: 'armor-source' },
         { defense: { base: 2, size: 0 }, durability: 3, source_code: 'armor-source' },
       ]),
     ];
     const service = new CharacterOverviewService();
     const defense = service.build(
-      version([{ id: 1, ruleId: 'rule-armor', quantity: 1, equipped: true }]),
+      version([{ id: 1, ruleCode: 'steel-armor', quantity: 1, equipped: true }]),
       rules,
     ).defense;
 
@@ -98,13 +98,13 @@ describe('CharacterOverviewService: ступени защиты по надёж�
 
   it('не экипированные предметы не учитываются в защите', () => {
     const rules: Rule[] = [
-      armorRule('rule-armor', 'steel-armor', 'Стальной доспех', [
+      armorRule(null, 'steel-armor', 'Стальной доспех', [
         { defense: { base: 5, size: 0 }, durability: 3, source_code: 'armor-source' },
       ]),
     ];
     const service = new CharacterOverviewService();
     const defense = service.build(
-      version([{ id: 1, ruleId: 'rule-armor', quantity: 1, equipped: false }]),
+      version([{ id: 1, ruleCode: 'steel-armor', quantity: 1, equipped: false }]),
       rules,
     ).defense;
 

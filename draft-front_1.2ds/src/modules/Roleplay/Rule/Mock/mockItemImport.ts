@@ -8,7 +8,7 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
 export const mockItemImport: Rule[] = [
   {
-    id: 'rule-400',
+    id: 400,
     code: 'boevoy-posokh',
     type: 'item',
     name: 'Боевой посох',
@@ -50,7 +50,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-401',
+    id: 401,
     code: 'tekko-kagi',
     type: 'item',
     name: 'Текко-каги',
@@ -109,7 +109,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-402',
+    id: 402,
     code: 'kusarigama',
     type: 'item',
     name: 'Кусаригама',
@@ -193,7 +193,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-403',
+    id: 403,
     code: 'knut',
     type: 'item',
     name: 'Кнут',
@@ -235,7 +235,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-404',
+    id: 404,
     code: 'kinzhal',
     type: 'item',
     name: 'Кинжал',
@@ -325,7 +325,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-405',
+    id: 405,
     code: 'stilet',
     type: 'item',
     name: 'Стилет',
@@ -378,7 +378,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-406',
+    id: 406,
     code: 'metatelnyy-nozh',
     type: 'item',
     name: 'Метательный нож',
@@ -460,7 +460,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-407',
+    id: 407,
     code: 'fekhtovalnyy-mech',
     type: 'item',
     name: 'Фехтовальный меч',
@@ -528,7 +528,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-408',
+    id: 408,
     code: 'sablya',
     type: 'item',
     name: 'Сабля',
@@ -595,7 +595,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-409',
+    id: 409,
     code: 'polutornyy-mech',
     type: 'item',
     name: 'Полуторный меч',
@@ -663,7 +663,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-410',
+    id: 410,
     code: 'dvuruchnyy-mech',
     type: 'item',
     name: 'Двуручный меч',
@@ -731,7 +731,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-411',
+    id: 411,
     code: 'flamberg',
     type: 'item',
     name: 'Фламберг',
@@ -799,7 +799,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-412',
+    id: 412,
     code: 'gibkiy-mech',
     type: 'item',
     name: 'Гибкий меч',
@@ -838,7 +838,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-413',
+    id: 413,
     code: 'urumi',
     type: 'item',
     name: 'Уруми',
@@ -877,7 +877,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-414',
+    id: 414,
     code: 'pata',
     type: 'item',
     name: 'Пата',
@@ -945,7 +945,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-415',
+    id: 415,
     code: 'boevoy-topor',
     type: 'item',
     name: 'Боевой топор',
@@ -1014,7 +1014,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-416',
+    id: 416,
     code: 'metatelnyy-toporik',
     type: 'item',
     name: 'Метательный топорик',
@@ -1083,7 +1083,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-417',
+    id: 417,
     code: 'sekira',
     type: 'item',
     name: 'Секира',
@@ -1130,7 +1130,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-418',
+    id: 418,
     code: 'kope',
     type: 'item',
     name: 'Копьё',
@@ -1186,7 +1186,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-419',
+    id: 419,
     code: 'metatelnoe-kope',
     type: 'item',
     name: 'Метательное копьё',
@@ -1255,7 +1255,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-420',
+    id: 420,
     code: 'alebarda',
     type: 'item',
     name: 'Алебарда',
@@ -1323,7 +1323,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-421',
+    id: 421,
     code: 'boevaya-kosa',
     type: 'item',
     name: 'Боевая коса',
@@ -1391,7 +1391,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-422',
+    id: 422,
     code: 'bulava',
     type: 'item',
     name: 'Булава',
@@ -1432,7 +1432,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-423',
+    id: 423,
     code: 'boevoy-molot',
     type: 'item',
     name: 'Боевой молот',
@@ -1474,7 +1474,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-424',
+    id: 424,
     code: 'ruchnaya-kulevrina',
     type: 'item',
     name: 'Ручная кулеврина',
@@ -1510,7 +1510,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-425',
+    id: 425,
     code: 'ruchnoy-arbalet',
     type: 'item',
     name: 'Ручной арбалет',
@@ -1552,7 +1552,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-426',
+    id: 426,
     code: 'korotkiy-luk',
     type: 'item',
     name: 'Короткий лук',
@@ -1600,7 +1600,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-427',
+    id: 427,
     code: 'dlinnyy-luk',
     type: 'item',
     name: 'Длинный лук',
@@ -1649,7 +1649,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-428',
+    id: 428,
     code: 'rekursivnyy-luk',
     type: 'item',
     name: 'Рекурсивный лук',
@@ -1698,7 +1698,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-429',
+    id: 429,
     code: 'blochnyy-luk',
     type: 'item',
     name: 'Блочный лук',
@@ -1747,7 +1747,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-430',
+    id: 430,
     code: 'malenkiy-shchit',
     type: 'item',
     name: 'Маленький щит',
@@ -1799,7 +1799,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-431',
+    id: 431,
     code: 'klassicheskiy-shchit',
     type: 'item',
     name: 'Классический щит',
@@ -1851,7 +1851,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-432',
+    id: 432,
     code: 'rostovoy-shchit',
     type: 'item',
     name: 'Ростовой щит',
@@ -1903,7 +1903,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-433',
+    id: 433,
     code: 'kozhanyy-dospekh',
     type: 'item',
     name: 'Кожаный доспех',
@@ -1926,7 +1926,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-434',
+    id: 434,
     code: 'steganyy-dospekh',
     type: 'item',
     name: 'Стёганый доспех',
@@ -1949,7 +1949,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-435',
+    id: 435,
     code: 'kolchuzhnyy-dospekh',
     type: 'item',
     name: 'Кольчужный доспех',
@@ -1977,7 +1977,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-436',
+    id: 436,
     code: 'cheshuychatyy-dospekh',
     type: 'item',
     name: 'Чешуйчатый доспех',
@@ -2005,7 +2005,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-437',
+    id: 437,
     code: 'latnyy-dospekh',
     type: 'item',
     name: 'Латный доспех',
@@ -2033,7 +2033,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-438',
+    id: 438,
     code: 'kristall-otvorota-4-down',
     type: 'item',
     name: 'Кристалл отворота 4↓',
@@ -2052,7 +2052,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-439',
+    id: 439,
     code: 'kristall-otvorota-4',
     type: 'item',
     name: 'Кристалл отворота 4',
@@ -2071,7 +2071,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-440',
+    id: 440,
     code: 'kristall-otvorota-4-up',
     type: 'item',
     name: 'Кристалл отворота 4↑',
@@ -2090,7 +2090,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-441',
+    id: 441,
     code: 'kristall-odnostoronnego-kupola-4-down',
     type: 'item',
     name: 'Кристалл одностороннего купола 4↓',
@@ -2109,7 +2109,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-442',
+    id: 442,
     code: 'kristall-odnostoronnego-kupola-4',
     type: 'item',
     name: 'Кристалл одностороннего купола 4',
@@ -2128,7 +2128,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-443',
+    id: 443,
     code: 'kristall-odnostoronnego-kupola-4-up',
     type: 'item',
     name: 'Кристалл одностороннего купола 4↑',
@@ -2147,7 +2147,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-444',
+    id: 444,
     code: 'kristall-elektromagnitnogo-shchita-4-down',
     type: 'item',
     name: 'Кристалл электромагнитного щита 4↓',
@@ -2166,7 +2166,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-445',
+    id: 445,
     code: 'kristall-elektromagnitnogo-shchita-4',
     type: 'item',
     name: 'Кристалл электромагнитного щита 4',
@@ -2185,7 +2185,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-446',
+    id: 446,
     code: 'kristall-elektromagnitnogo-shchita-4-up',
     type: 'item',
     name: 'Кристалл электромагнитного щита 4↑',
@@ -2204,7 +2204,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-447',
+    id: 447,
     code: 'parovaya-bomba-4-down',
     type: 'item',
     name: 'Паровая бомба 4↓',
@@ -2223,7 +2223,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-448',
+    id: 448,
     code: 'parovaya-bomba-4',
     type: 'item',
     name: 'Паровая бомба 4',
@@ -2242,7 +2242,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-449',
+    id: 449,
     code: 'parovaya-bomba-4-up',
     type: 'item',
     name: 'Паровая бомба 4↑',
@@ -2261,7 +2261,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-450',
+    id: 450,
     code: 'maloe-zele-vosstanovleniya',
     type: 'item',
     name: 'Малое зелье восстановления',
@@ -2279,7 +2279,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-451',
+    id: 451,
     code: 'boevoe-zele-iroda',
     type: 'item',
     name: 'Боевое зелье Ирода',
@@ -2297,7 +2297,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-452',
+    id: 452,
     code: 'pot-ogra',
     type: 'item',
     name: 'Пот огра',
@@ -2315,7 +2315,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-453',
+    id: 453,
     code: 'zele-lozhnoy-zhizni',
     type: 'item',
     name: 'Зелье ложной жизни',
@@ -2333,7 +2333,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-454',
+    id: 454,
     code: 'zele-ottorzheniya-magii',
     type: 'item',
     name: 'Зелье отторжения магии',
@@ -2351,7 +2351,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-455',
+    id: 455,
     code: 'zele-iskatelya',
     type: 'item',
     name: 'Зелье искателя',
@@ -2369,7 +2369,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-456',
+    id: 456,
     code: 'zele-kontsentratsii',
     type: 'item',
     name: 'Зелье концентрации',
@@ -2387,7 +2387,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-457',
+    id: 457,
     code: 'zele-bessmertnogo-strazha',
     type: 'item',
     name: 'Зелье бессмертного стража',
@@ -2405,7 +2405,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-458',
+    id: 458,
     code: 'slezy-ukhmadara',
     type: 'item',
     name: 'Слёзы Ух’мадара',
@@ -2422,7 +2422,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-459',
+    id: 459,
     code: 'perdezh-trollya',
     type: 'item',
     name: 'Пердёж тролля',
@@ -2439,7 +2439,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-460',
+    id: 460,
     code: 'zoloto-1-gramm',
     type: 'item',
     name: 'Золото, 1 грамм',
@@ -2456,7 +2456,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-461',
+    id: 461,
     code: 'serebro-1-gramm',
     type: 'item',
     name: 'Серебро, 1 грамм',
@@ -2473,7 +2473,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-462',
+    id: 462,
     code: 'med-1-gramm',
     type: 'item',
     name: 'Медь, 1 грамм',
@@ -2490,7 +2490,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-463',
+    id: 463,
     code: 'korova-ili-osel',
     type: 'item',
     name: 'Корова или Осёл',
@@ -2507,7 +2507,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-464',
+    id: 464,
     code: 'upryazhnaya-loshad',
     type: 'item',
     name: 'Упряжная лошадь',
@@ -2524,7 +2524,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-465',
+    id: 465,
     code: 'ezdovaya-loshad',
     type: 'item',
     name: 'Ездовая лошадь',
@@ -2541,7 +2541,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-466',
+    id: 466,
     code: 'boevoy-kon',
     type: 'item',
     name: 'Боевой конь',
@@ -2558,7 +2558,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-467',
+    id: 467,
     code: 'ovtsa',
     type: 'item',
     name: 'Овца',
@@ -2575,7 +2575,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-468',
+    id: 468,
     code: 'svinya',
     type: 'item',
     name: 'Свинья',
@@ -2592,7 +2592,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-469',
+    id: 469,
     code: 'lnyanaya-rubakha',
     type: 'item',
     name: 'Льняная рубаха',
@@ -2610,7 +2610,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-470',
+    id: 470,
     code: 'lnyanye-shtany',
     type: 'item',
     name: 'Льняные штаны',
@@ -2628,7 +2628,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-471',
+    id: 471,
     code: 'lnyanaya-tunika',
     type: 'item',
     name: 'Льняная туника',
@@ -2646,7 +2646,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-472',
+    id: 472,
     code: 'lnyanoy-plashch',
     type: 'item',
     name: 'Льняной плащ',
@@ -2663,7 +2663,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-473',
+    id: 473,
     code: 'deshevaya-obuv',
     type: 'item',
     name: 'Дешёвая обувь',
@@ -2680,7 +2680,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-474',
+    id: 474,
     code: 'khoroshie-sapogi',
     type: 'item',
     name: 'Хорошие сапоги',
@@ -2697,7 +2697,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-475',
+    id: 475,
     code: 'neokrashennaya-tkan-m2',
     type: 'item',
     name: 'Неокрашенная ткань, м2',
@@ -2714,7 +2714,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-476',
+    id: 476,
     code: 'zelenaya-tkan-m2',
     type: 'item',
     name: 'Зелёная ткань, м2',
@@ -2731,7 +2731,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-477',
+    id: 477,
     code: 'el-1-litr',
     type: 'item',
     name: 'Эль, 1 литр',
@@ -2748,7 +2748,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-478',
+    id: 478,
     code: 'otlichnyy-el-1-litr',
     type: 'item',
     name: 'Отличный Эль, 1 литр',
@@ -2765,7 +2765,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-479',
+    id: 479,
     code: 'pivo-1-litr',
     type: 'item',
     name: 'Пиво, 1 литр',
@@ -2782,7 +2782,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-480',
+    id: 480,
     code: 'otlichnoe-pivo-1-litr',
     type: 'item',
     name: 'Отличное Пиво, 1 литр',
@@ -2799,7 +2799,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-481',
+    id: 481,
     code: 'vino-1-litr',
     type: 'item',
     name: 'Вино, 1 литр',
@@ -2816,7 +2816,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-482',
+    id: 482,
     code: 'khoroshee-vino-1-litr',
     type: 'item',
     name: 'Хорошее вино, 1 литр',
@@ -2833,7 +2833,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-483',
+    id: 483,
     code: 'kilogramm-zerna',
     type: 'item',
     name: 'Килограмм зерна',
@@ -2850,7 +2850,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-484',
+    id: 484,
     code: 'odno-yaytso',
     type: 'item',
     name: 'Одно яйцо',
@@ -2867,7 +2867,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-485',
+    id: 485,
     code: 'kilogramm-govyadiny',
     type: 'item',
     name: 'Килограмм говядины',
@@ -2884,7 +2884,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-486',
+    id: 486,
     code: 'kilogramm-dichi',
     type: 'item',
     name: 'Килограмм дичи',
@@ -2901,7 +2901,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-487',
+    id: 487,
     code: 'kristall-3-down-3me-khod',
     type: 'item',
     name: '3↓ (3м.е./ход)',
@@ -2918,7 +2918,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-488',
+    id: 488,
     code: 'kristall-4-down-4me-khod',
     type: 'item',
     name: '4↓ (4м.е./ход)',
@@ -2935,7 +2935,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-489',
+    id: 489,
     code: 'kristall-5-down-5me-khod',
     type: 'item',
     name: '5↓ (5м.е./ход)',
@@ -2952,7 +2952,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-490',
+    id: 490,
     code: 'kristall-3-up-12me-khod',
     type: 'item',
     name: '3↑ (12м.е./ход)',
@@ -2969,7 +2969,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-491',
+    id: 491,
     code: 'kristall-4-up-16me-khod',
     type: 'item',
     name: '4↑ (16м.е./ход)',
@@ -2986,7 +2986,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-492',
+    id: 492,
     code: 'kristall-5-up-20me-khod',
     type: 'item',
     name: '5↑ (20м.е./ход)',
@@ -3003,7 +3003,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-493',
+    id: 493,
     code: 'kristall-3-up-up-24me-khod',
     type: 'item',
     name: '3↑↑ (24м.е./ход)',
@@ -3020,7 +3020,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-494',
+    id: 494,
     code: 'kristall-4-up-up-32me-khod',
     type: 'item',
     name: '4↑↑ (32м.е./ход)',
@@ -3037,7 +3037,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-495',
+    id: 495,
     code: 'kristall-5-up-up-40me-khod',
     type: 'item',
     name: '5↑↑ (40м.е./ход)',
@@ -3054,7 +3054,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-496',
+    id: 496,
     code: 'kristall-5-up-up-up-80me-khod',
     type: 'item',
     name: '5↑↑↑ (80м.е./ход)',
@@ -3071,7 +3071,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-497',
+    id: 497,
     code: 'kristall-5-up-up-up-up-160me-khod',
     type: 'item',
     name: '5↑↑↑↑ (160м.е./ход)',
@@ -3088,7 +3088,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-498',
+    id: 498,
     code: 'fam-kinzhal-nozh',
     type: 'weapon_family',
     name: 'Кинжал и Нож',
@@ -3102,7 +3102,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-499',
+    id: 499,
     code: 'fam-mech-ne-dlinnyy',
     type: 'weapon_family',
     name: 'Меч не длинный',
@@ -3116,7 +3116,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-500',
+    id: 500,
     code: 'fam-mech',
     type: 'weapon_family',
     name: 'Меч',
@@ -3130,7 +3130,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-501',
+    id: 501,
     code: 'fam-sablya',
     type: 'weapon_family',
     name: 'Не длинная сабля',
@@ -3144,7 +3144,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-502',
+    id: 502,
     code: 'fam-dlinnyy-mech',
     type: 'weapon_family',
     name: 'Длинный меч',
@@ -3158,7 +3158,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-503',
+    id: 503,
     code: 'fam-gibkiy-korotkiy',
     type: 'weapon_family',
     name: 'Гибкий клинок, Короткий меч',
@@ -3172,7 +3172,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-504',
+    id: 504,
     code: 'fam-gibkiy-knut',
     type: 'weapon_family',
     name: 'Гибкий клинок, Кнут',
@@ -3186,7 +3186,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-505',
+    id: 505,
     code: 'fam-prostoy-topor',
     type: 'weapon_family',
     name: 'Простой топор',
@@ -3200,7 +3200,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-506',
+    id: 506,
     code: 'fam-alebardy',
     type: 'weapon_family',
     name: 'Алебарда, Бердыш',
@@ -3214,7 +3214,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-507',
+    id: 507,
     code: 'fam-kosa',
     type: 'weapon_family',
     name: 'Коса',
@@ -3228,7 +3228,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-508',
+    id: 508,
     code: 'fam-kopyo',
     type: 'weapon_family',
     name: 'Копьё',
@@ -3242,7 +3242,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-509',
+    id: 509,
     code: 'fam-palitsa',
     type: 'weapon_family',
     name: 'Палица',
@@ -3256,7 +3256,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-510',
+    id: 510,
     code: 'fam-boevoy-molot',
     type: 'weapon_family',
     name: 'Боевой молот',
@@ -3270,7 +3270,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-511',
+    id: 511,
     code: 'fam-pata',
     type: 'weapon_family',
     name: 'Пата',
@@ -3284,7 +3284,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-512',
+    id: 512,
     code: 'fam-posokh',
     type: 'weapon_family',
     name: 'Посох',
@@ -3298,7 +3298,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-513',
+    id: 513,
     code: 'fam-kogti-ruki',
     type: 'weapon_family',
     name: 'Когти, Руки',
@@ -3312,7 +3312,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-514',
+    id: 514,
     code: 'fam-serp-tsep',
     type: 'weapon_family',
     name: 'Серп, Цеп',
@@ -3326,7 +3326,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-515',
+    id: 515,
     code: 'fam-knut',
     type: 'weapon_family',
     name: 'Кнут',
@@ -3340,7 +3340,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-516',
+    id: 516,
     code: 'fam-luk',
     type: 'weapon_family',
     name: 'Лук',
@@ -3354,7 +3354,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-517',
+    id: 517,
     code: 'fam-arbalet',
     type: 'weapon_family',
     name: 'Арбалет',
@@ -3368,7 +3368,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-518',
+    id: 518,
     code: 'fam-ognestrelnoe',
     type: 'weapon_family',
     name: 'Ручное огнестрельное',
@@ -3382,7 +3382,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-519',
+    id: 519,
     code: 'fam-shchit',
     type: 'weapon_family',
     name: 'Щит',
@@ -3396,7 +3396,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-11T10:00:00Z',
   },
   {
-    id: 'rule-520',
+    id: 520,
     code: 'ruka',
     type: 'item',
     name: 'Рука',
@@ -3439,7 +3439,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-25T10:00:00Z',
   },
   {
-    id: 'rule-521',
+    id: 521,
     code: 'noga',
     type: 'item',
     name: 'Нога',
@@ -3482,7 +3482,7 @@ export const mockItemImport: Rule[] = [
     createdAt: '2026-08-25T10:00:00Z',
   },
   {
-    id: 'rule-522',
+    id: 522,
     code: 'fam-noga',
     type: 'weapon_family',
     name: 'Нога',

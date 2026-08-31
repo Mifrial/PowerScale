@@ -3,7 +3,7 @@ import type { RuleType } from '@/modules/Roleplay/Rule/Enum/RuleType';
 
 export interface CreateDraftParams {
   isEdit: boolean;
-  id: string;
+  id: number | null;
   type: RuleType;
   name: string;
   code: string;

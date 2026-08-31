@@ -4,7 +4,7 @@ import type { CreateDraftParams } from '@/modules/Roleplay/Rule/Dto/CreateDraftP
 
 const baseParams = (overrides: Partial<CreateDraftParams> = {}): CreateDraftParams => ({
   isEdit: false,
-  id: '',
+  id: null,
   type: 'simple',
   name: 'Правило',
   code: '',
@@ -17,9 +17,9 @@ const baseParams = (overrides: Partial<CreateDraftParams> = {}): CreateDraftPara
 });
 
 describe('RuleDraftService.createDraft', () => {
-  it('новой записи присваивает draft-id и генерирует code через slugify(name) при пустом code', () => {
+  it('новой записи id = null и генерирует code через slugify(name) при пустом code', () => {
     const draft = ruleDraftService.createDraft(baseParams({ name: 'Боевой Топор' }));
-    expect(draft.id.startsWith('draft-')).toBe(true);
+    expect(draft.id).toBeNull();
     expect(draft.code).toBe('boevoy-topor');
   });
 
@@ -30,9 +30,9 @@ describe('RuleDraftService.createDraft', () => {
 
   it('isEdit сохраняет id и берёт code из loadedCode', () => {
     const draft = ruleDraftService.createDraft(
-      baseParams({ isEdit: true, id: 'r-42', code: 'new-code', loadedCode: 'old-code' }),
+      baseParams({ isEdit: true, id: 42, code: 'new-code', loadedCode: 'old-code' }),
     );
-    expect(draft.id).toBe('r-42');
+    expect(draft.id).toBe(42);
     expect(draft.code).toBe('old-code');
   });
 

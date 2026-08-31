@@ -1,7 +1,7 @@
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
 export interface ResolvedReference {
-  ruleId: string;
+  ruleCode: string;
   name: string;
   href: string | null;
   isResolved: boolean;

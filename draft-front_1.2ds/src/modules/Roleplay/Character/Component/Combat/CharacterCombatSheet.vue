@@ -63,11 +63,11 @@ function onToggleEquipped(itemId: number): void {
       </span>
     </div>
     <div v-show="defenseOpen" class="combat-sheet-pair">
-      <ArmorTile v-for="armor in overview.defense.armor" :key="armor.itemRuleId" :item="armor" />
+      <ArmorTile v-for="armor in overview.defense.armor" :key="armor.itemRuleCode" :item="armor" />
       <v-sheet v-if="overview.defense.shield" class="pa-2 rounded border">
         <div class="d-flex align-center ga-2">
           <v-icon icon="mdi-shield-outline" color="primary" />
-          <RuleLink :rule-id="overview.defense.shield.itemRuleId" class="text-body-2 font-weight-medium">
+          <RuleLink :rule-code="overview.defense.shield.itemRuleCode" class="text-body-2 font-weight-medium">
             {{ overview.defense.shield.itemName }} — блокирование
           </RuleLink>
         </div>
@@ -93,7 +93,7 @@ function onToggleEquipped(itemId: number): void {
     <div v-show="attacksOpen" class="combat-sheet-pair">
       <AttackTile
         v-for="attack in overview?.attacks ?? []"
-        :key="`${attack.itemRuleId}_${attack.profileType}_${attack.profileIndex ?? 0}`"
+        :key="`${attack.itemRuleCode}_${attack.profileType}_${attack.profileIndex ?? 0}`"
         variant="combat"
         :attack="attack"
         @launch="emit('launch', $event)"
@@ -127,7 +127,7 @@ function onToggleEquipped(itemId: number): void {
   <RuleSlider
     v-if="showSlider"
     v-model:open="ruleSlider.state.open"
-    :rule-id="ruleSlider.state.ruleId"
+    :rule-code="ruleSlider.state.ruleCode"
     :space-id="spaceId"
     :rules-revision="rulesRevision"
     :rules="rules"

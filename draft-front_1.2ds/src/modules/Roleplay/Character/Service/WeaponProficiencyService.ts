@@ -26,12 +26,12 @@ export class WeaponProficiencyService {
    * Множественный навык — по записи на экземпляр (домен), уровень агрегируется максимумом.
    */
   weaponProficiencyLevels(
-    abilities: Pick<CharacterAbility, 'ruleId' | 'level' | 'domain' | 'domainCode'>[],
+    abilities: Pick<CharacterAbility, 'ruleCode' | 'level' | 'domain' | 'domainCode'>[],
     rules: Rule[],
   ): Map<string, number> {
     const result = new Map<string, number>();
     for (const ability of abilities) {
-      const rule = rules.find((entry) => entry.id === ability.ruleId);
+      const rule = rules.find((entry) => entry.code === ability.ruleCode);
       const spec = rule?.type === 'ability' ? (rule.spec as { domain_ref?: string | null } | undefined) : undefined;
       if (spec?.domain_ref !== 'weapon-family') continue;
       const family = ability.domainCode ?? ability.domain;

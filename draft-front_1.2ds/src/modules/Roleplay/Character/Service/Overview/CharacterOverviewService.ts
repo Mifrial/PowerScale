@@ -102,7 +102,7 @@ export class CharacterOverviewService {
   attackAtDistance(
     version: CharacterVersion,
     rules: Rule[],
-    itemRuleId: string,
+    itemRuleCode: string,
     profileType: 'strike' | 'throw' | 'shoot',
     distanceIpari: number,
     profileIndex?: number,
@@ -112,13 +112,13 @@ export class CharacterOverviewService {
 
     return (
       this.buildAttacks(synced, reference, context, {
-        itemRuleId,
+        itemRuleCode,
         profileType,
         distanceIpari,
         actionCharacteristicModifier,
       }).find(
         (item) =>
-          item.itemRuleId === itemRuleId &&
+          item.itemRuleCode === itemRuleCode &&
           item.profileType === profileType &&
           (profileIndex === undefined || item.profileIndex === profileIndex),
       ) ?? null
@@ -142,7 +142,7 @@ export class CharacterOverviewService {
     );
     const byCode = new Map<string, CharacteristicOverview>();
     for (const overview of coreList) {
-      const rule = reference.ruleById(overview.ruleId);
+      const rule = reference.ruleByCode(overview.ruleCode);
       if (rule) byCode.set(rule.code, overview);
     }
     this.recomputeDerivedValues(coreList, byCode);
@@ -153,7 +153,7 @@ export class CharacterOverviewService {
     });
     const stateEffects = this.runtimeEffects.accumulateStateEffects(version.states, rules);
     const withStates = allCharacteristics.map((overview) => {
-      const rule = reference.ruleById(overview.ruleId);
+      const rule = reference.ruleByCode(overview.ruleCode);
       const amount = rule ? (stateEffects.characteristicDeltas.get(rule.code) ?? 0) : 0;
       if (!amount) return overview;
       const value = new DimensionalNumber(overview.value).modify(amount, CHARACTERISTIC_BASE_RANGE).value;
@@ -176,13 +176,13 @@ export class CharacterOverviewService {
   ): FormulaContext {
     const characteristicValues = new Map<string, DimensionalNumberValue>();
     for (const overview of coreList) {
-      const rule = reference.ruleById(overview.ruleId);
+      const rule = reference.ruleByCode(overview.ruleCode);
       if (rule) characteristicValues.set(rule.code, overview.value);
     }
 
     const abilityLevels = new Map<string, number>();
     for (const ability of version.abilities) {
-      const rule = reference.ruleById(ability.ruleId);
+      const rule = reference.ruleByCode(ability.ruleCode);
       if (!rule) continue;
       const current = abilityLevels.get(rule.code) ?? 0;
       if (ability.level > current) abilityLevels.set(rule.code, ability.level);
@@ -197,7 +197,7 @@ export class CharacterOverviewService {
     abilityLevels: Map<string, number>,
     version: CharacterVersion,
   ): CharacteristicOverview {
-    const resolved = reference.resolve(value.ruleId);
+    const resolved = reference.resolve(value.ruleCode);
     const spec = this.characteristicSpecOf(resolved.rule);
     const formula = spec?.formula ?? null;
     const modifiers = value.modifiers
@@ -212,7 +212,7 @@ export class CharacterOverviewService {
     const computedValue = this.applyCharacteristicLimits(uncapped, permanent);
 
     return {
-      ruleId: value.ruleId,
+      ruleCode: value.ruleCode,
       name: resolved.name,
       shortName: null,
       base: value.base,
@@ -249,9 +249,9 @@ export class CharacterOverviewService {
   /** Потолок с предмета, который уже снят, не показываем и не применяем. */
   private limitModifierIsLive(modifier: CharacteristicModifier, version: CharacterVersion): boolean {
     if (modifier.limit == null) return true;
-    if (modifier.sourceRuleId == null) return true;
+    if (modifier.sourceRuleCode == null) return true;
 
-    return version.inventory.some((item) => item.equipped && item.ruleId === modifier.sourceRuleId);
+    return version.inventory.some((item) => item.equipped && item.ruleCode === modifier.sourceRuleCode);
   }
 
   /** Производные — min/max живых баз (после потолков), не снимок в версии. */
@@ -303,19 +303,19 @@ export class CharacterOverviewService {
     reference: CharacterReferenceService,
     abilityLevels: Map<string, number>,
   ): OverviewModifier {
-    const source = modifier.sourceRuleId === null ? null : reference.resolve(modifier.sourceRuleId);
+    const source = modifier.sourceRuleCode === null ? null : reference.resolve(modifier.sourceRuleCode);
     const target = reference.ruleByCode(modifier.target);
 
     return {
       source: modifier.sourceLabel ?? source?.name ?? 'Персонаж',
-      sourceRuleId: modifier.sourceRuleId,
+      sourceRuleCode: modifier.sourceRuleCode,
       sourceHref: source?.href ?? null,
       sourceResolved: source?.isResolved ?? false,
       sourceRole: source?.rule ? this.sourceRoleOf(source.rule.type) : null,
-      sourceLevel: modifier.sourceRuleId === null ? null : (abilityLevels.get(modifier.sourceRuleId) ?? null),
+      sourceLevel: modifier.sourceRuleCode === null ? null : (abilityLevels.get(modifier.sourceRuleCode) ?? null),
       delta: modifier.delta,
       target: target?.name ?? modifier.target,
-      targetHref: target ? reference.href(target.id) : null,
+      targetHref: target ? reference.href(target.code) : null,
       scope: modifier.scope,
       limit: modifier.limit ?? null,
       limitFormula: modifier.limitFormula ?? null,
@@ -339,13 +339,13 @@ export class CharacterOverviewService {
 
   /**
    * Модификаторы одного источника не складываются: из группы берётся один с наибольшим плюсом
-   * и один с наибольшим минусом. Группа — конкретный источник (sourceRuleId); модификаторы
+   * и один с наибольшим минусом. Группа — конкретный источник (sourceRuleCode); модификаторы
    * от разных источников суммируются.
    */
   private aggregateModifiers(modifiers: OverviewModifier[]): OverviewModifier[] {
     const groups = new Map<string, OverviewModifier[]>();
     for (const modifier of modifiers) {
-      const key = modifier.sourceRuleId ?? 'прочее';
+      const key = modifier.sourceRuleCode ?? 'прочее';
       const group = groups.get(key);
       if (group) group.push(modifier);
       else groups.set(key, [modifier]);
@@ -372,7 +372,7 @@ export class CharacterOverviewService {
     reference: CharacterReferenceService,
   ): CombatOverview | null {
     const statOf = (code: string): CharacteristicOverview | undefined =>
-      allCharacteristics.find((overview) => reference.ruleById(overview.ruleId)?.code === code);
+      allCharacteristics.find((overview) => reference.ruleByCode(overview.ruleCode)?.code === code);
     const meleeStat = statOf('melee-combat');
     const rangedStat = statOf('ranged-combat');
     const proficiencyLevels = this.proficiencyLevelsOf(version, reference);
@@ -398,7 +398,7 @@ export class CharacterOverviewService {
   private proficiencyLevelsOf(version: CharacterVersion, reference: CharacterReferenceService): Map<string, number> {
     const result = new Map<string, number>();
     for (const ability of version.abilities) {
-      const rule = reference.ruleById(ability.ruleId);
+      const rule = reference.ruleByCode(ability.ruleCode);
       const spec = rule?.type === 'ability' ? (rule.spec as { domain_ref?: string | null } | undefined) : undefined;
       if (spec?.domain_ref !== 'weapon-family') continue;
       const family = ability.domainCode ?? ability.domain;
@@ -423,8 +423,8 @@ export class CharacterOverviewService {
   ): CharacteristicOverview[] {
     const result: CharacteristicOverview[] = [];
     for (const item of version.inventory) {
-      if (!item.equipped || item.ruleId === null) continue;
-      const rule = reference.ruleById(item.ruleId);
+      if (!item.equipped || item.ruleCode === null) continue;
+      const rule = reference.ruleByCode(item.ruleCode);
       const spec = this.effectiveSpecOf(item, reference);
       if (!spec?.weapon) continue;
       // Ближний бой — удары; дальний бой — метание и выстрелы (R14).
@@ -437,7 +437,7 @@ export class CharacterOverviewService {
 
       const familyCode = spec.proficiency_family_code ?? null;
       const bonus = familyCode === null ? 0 : (proficiencyLevels.get(familyCode) ?? 0);
-      result.push(this.buildCombatWeaponTile(rule?.name ?? item.ruleId, bonus, stat, combat));
+      result.push(this.buildCombatWeaponTile(rule?.name ?? item.ruleCode, bonus, stat, combat));
     }
 
     return result;
@@ -451,7 +451,7 @@ export class CharacterOverviewService {
   ): CharacteristicOverview {
     const weaponModifier: OverviewModifier = {
       source: 'Владение оружием',
-      sourceRuleId: null,
+      sourceRuleCode: null,
       sourceHref: null,
       sourceResolved: true,
       sourceRole: 'от владения оружием',
@@ -469,8 +469,8 @@ export class CharacterOverviewService {
     ).value;
 
     return {
-      // Секция в ruleId, чтобы одинаковое оружие ближнего/дальнего боя не сливалось (избранное/броски).
-      ruleId: `combat:${combat}:${weaponName}`,
+      // Секция в ruleCode, чтобы одинаковое оружие ближнего/дальнего боя не сливалось (избранное/броски).
+      ruleCode: `combat:${combat}:${weaponName}`,
       name: weaponName,
       shortName: weaponName,
       base: stat.base,
@@ -497,12 +497,12 @@ export class CharacterOverviewService {
     const resources: ResourceOverview[] = [];
 
     for (const resource of version.resources) {
-      const rule = reference.ruleById(resource.ruleId);
+      const rule = reference.ruleByCode(resource.ruleCode);
       let max = this.resourceMax(resource);
       if (rule?.code === ACTION_POINTS_RESOURCE_CODE) {
         const values = new Map<string, DimensionalNumberValue>();
         for (const characteristic of characteristics) {
-          const characteristicRule = reference.ruleById(characteristic.ruleId);
+          const characteristicRule = reference.ruleByCode(characteristic.ruleCode);
           if (characteristicRule) values.set(characteristicRule.code, characteristic.value);
         }
         const live = this.liveActionPoints.liveActionPointsLimit(version, rules, values);
@@ -513,10 +513,10 @@ export class CharacterOverviewService {
       // не-авто ресурс с лимитом 0 — у персонажа отсутствует (D38), не показываем.
       if (max.base === 0 && !autoAdd) continue;
 
-      const resolved = reference.resolve(resource.ruleId);
+      const resolved = reference.resolve(resource.ruleCode);
 
       resources.push({
-        ruleId: resource.ruleId,
+        ruleCode: resource.ruleCode,
         name: resolved.name,
         current: resource.current,
         currentLabel: new DimensionalNumber(resource.current).toString(),
@@ -541,12 +541,12 @@ export class CharacterOverviewService {
 
   private buildResourceBonuses(resource: ResourceValue, reference: CharacterReferenceService): ResourceLimitOverview[] {
     return resource.bonuses.map((bonus) => {
-      const sourceRule = bonus.sourceRuleId === null ? null : reference.ruleById(bonus.sourceRuleId);
+      const sourceRule = bonus.sourceRuleCode === null ? null : reference.ruleByCode(bonus.sourceRuleCode);
 
       return {
-        source: sourceRule?.name ?? bonus.sourceLabel ?? bonus.sourceRuleId ?? '',
-        sourceRuleId: bonus.sourceRuleId,
-        sourceHref: bonus.sourceRuleId === null ? null : reference.href(bonus.sourceRuleId),
+        source: sourceRule?.name ?? bonus.sourceLabel ?? bonus.sourceRuleCode ?? '',
+        sourceRuleCode: bonus.sourceRuleCode,
+        sourceHref: bonus.sourceRuleCode === null ? null : reference.href(bonus.sourceRuleCode),
         delta: bonus.delta,
       };
     });
@@ -555,8 +555,8 @@ export class CharacterOverviewService {
   private maxAbilityLevelsByRuleId(abilities: CharacterVersion['abilities']): Map<string, number> {
     const levels = new Map<string, number>();
     for (const ability of abilities) {
-      const current = levels.get(ability.ruleId) ?? 0;
-      if (ability.level > current) levels.set(ability.ruleId, ability.level);
+      const current = levels.get(ability.ruleCode) ?? 0;
+      if (ability.level > current) levels.set(ability.ruleCode, ability.level);
     }
 
     return levels;
@@ -571,17 +571,17 @@ export class CharacterOverviewService {
         !spec ||
         spec.type === 'group' ||
         spec.multiple === true ||
-        existingKeys.has(rule.id) ||
+        existingKeys.has(rule.code) ||
         !Object.values(spec.zones ?? {}).some((cost) => cost?.kind === 'automatic')
       ) {
         continue;
       }
-      collapsed.push({ ruleId: rule.id, level: 1 });
-      existingKeys.add(rule.id);
+      collapsed.push({ ruleCode: rule.code, level: 1 });
+      existingKeys.add(rule.code);
     }
 
     return collapsed.map((ability) => {
-      const resolved = reference.resolve(ability.ruleId);
+      const resolved = reference.resolve(ability.ruleCode);
       const spec = this.abilitySpecOf(resolved.rule);
       const type = spec?.type ?? null;
       const domainLabel = this.abilityDomainLabel(ability, reference);
@@ -600,7 +600,7 @@ export class CharacterOverviewService {
       }
 
       return {
-        ruleId: ability.ruleId,
+        ruleCode: ability.ruleCode,
         instanceKey: this.abilityInstanceKey(ability, reference),
         name: resolved.name,
         domainLabel,
@@ -638,12 +638,12 @@ export class CharacterOverviewService {
     ability: CharacterVersion['abilities'][number],
     reference: CharacterReferenceService,
   ): string {
-    const spec = this.abilitySpecOf(reference.ruleById(ability.ruleId));
+    const spec = this.abilitySpecOf(reference.ruleByCode(ability.ruleCode));
     if (spec && spec.type !== 'group' && spec.multiple === true) {
-      return `${ability.ruleId}:${ability.domainCode ?? ''}:${ability.domain ?? ''}`;
+      return `${ability.ruleCode}:${ability.domainCode ?? ''}:${ability.domain ?? ''}`;
     }
 
-    return ability.ruleId;
+    return ability.ruleCode;
   }
 
   private abilityDomainLabel(
@@ -737,11 +737,11 @@ export class CharacterOverviewService {
 
   private buildInventory(version: CharacterVersion, reference: CharacterReferenceService): InventoryItemOverview[] {
     return version.inventory.map((item) => {
-      // Кастомный «предмет мастера» (ruleId null): имя/описание задаёт мастер, правила нет.
-      if (item.ruleId === null) {
+      // Кастомный «предмет мастера» (ruleCode null): имя/описание задаёт мастер, правила нет.
+      if (item.ruleCode === null) {
         return {
           id: item.id,
-          ruleId: null,
+          ruleCode: null,
           name: item.name ?? 'Предмет мастера',
           categoryLabel: this.itemLabels.category.other,
           quantity: item.quantity,
@@ -753,15 +753,15 @@ export class CharacterOverviewService {
           modifierNames: [],
         };
       }
-      const resolved = reference.resolve(item.ruleId);
+      const resolved = reference.resolve(item.ruleCode);
       const spec = this.itemSpecOf(resolved.rule);
-      const modifierNames = (item.modifierRuleIds ?? [])
+      const modifierNames = (item.modifierRuleCodes ?? [])
         .map((id) => reference.resolve(id).name)
         .filter((name) => name.length > 0);
 
       return {
         id: item.id,
-        ruleId: item.ruleId,
+        ruleCode: item.ruleCode,
         name: resolved.name,
         categoryLabel: this.categoryLabelOf(spec),
         quantity: item.quantity,
@@ -791,14 +791,14 @@ export class CharacterOverviewService {
   private buildStates(version: CharacterVersion, reference: CharacterReferenceService): StateEntryOverview[] {
     const grouped = new Map<string, CharacterStateValue[]>();
     for (const entry of version.states) {
-      const list = grouped.get(entry.stateRuleId);
+      const list = grouped.get(entry.stateRuleCode);
       if (list) list.push(entry);
-      else grouped.set(entry.stateRuleId, [entry]);
+      else grouped.set(entry.stateRuleCode, [entry]);
     }
 
     const result: StateEntryOverview[] = [];
-    for (const [ruleId, entries] of grouped) {
-      const resolved = reference.resolve(ruleId);
+    for (const [ruleCode, entries] of grouped) {
+      const resolved = reference.resolve(ruleCode);
       const rule = resolved.rule;
       const spec = rule?.type === 'state' ? (rule.spec as StateSpec) : null;
 
@@ -807,15 +807,15 @@ export class CharacterOverviewService {
       if (spec?.value_type === 'flag' && entries.some((entry) => entry.poison)) {
         for (const [index, entry] of entries.entries()) {
           if (!entry.poison) continue;
-          result.push(this.buildPoisonState(ruleId, index, entry.poison, resolved, reference, spec));
+          result.push(this.buildPoisonState(ruleCode, index, entry.poison, resolved, reference, spec));
         }
         continue;
       }
 
       if (!spec) {
         result.push({
-          id: ruleId,
-          ruleId,
+          id: ruleCode,
+          ruleCode,
           name: resolved.name,
           iconCode: null,
           valueLabel: null,
@@ -831,8 +831,8 @@ export class CharacterOverviewService {
       if (spec.aggregation === 'independent') {
         for (const [index, entry] of entries.entries()) {
           result.push({
-            id: `${ruleId}#${index}`,
-            ruleId,
+            id: `${ruleCode}#${index}`,
+            ruleCode,
             name: resolved.name,
             iconCode: spec.icon_code ?? null,
             valueLabel: this.stateValueLabel(spec, entry),
@@ -847,8 +847,8 @@ export class CharacterOverviewService {
       }
 
       result.push({
-        id: ruleId,
-        ruleId,
+        id: ruleCode,
+        ruleCode,
         name: resolved.name,
         iconCode: spec.icon_code ?? null,
         valueLabel: this.combineStateValue(spec, entries),
@@ -865,15 +865,15 @@ export class CharacterOverviewService {
 
   /** Строка отравления: имя/иконка из правила-да (если есть), параметры из poison-блока. */
   private buildPoisonState(
-    stateRuleId: string,
+    stateRuleCode: string,
     index: number,
     poison: CharacterPoisonValue,
     stateResolved: ResolvedReference,
     reference: CharacterReferenceService,
     stateSpec: StateSpec,
   ): StateEntryOverview {
-    const isLinked = poison.poisonRuleId !== null && poison.poisonRuleId !== undefined;
-    const poisonResolved = isLinked ? reference.resolve(poison.poisonRuleId ?? '') : null;
+    const isLinked = poison.poisonRuleCode !== null && poison.poisonRuleCode !== undefined;
+    const poisonResolved = isLinked ? reference.resolve(poison.poisonRuleCode ?? '') : null;
     const poisonSpec = poisonResolved?.rule?.type === 'poison' ? (poisonResolved.rule.spec as PoisonSpec) : null;
 
     const damageTypeCode = poison.damage_type_code ?? poisonSpec?.damage_type_code ?? '';
@@ -882,8 +882,8 @@ export class CharacterOverviewService {
     const decay = poison.decay ?? poisonSpec?.default_decay;
 
     return {
-      id: `${stateRuleId}#poison-${index}`,
-      ruleId: poisonResolved?.ruleId ?? stateRuleId,
+      id: `${stateRuleCode}#poison-${index}`,
+      ruleCode: poisonResolved?.ruleCode ?? stateRuleCode,
       name: poisonResolved?.name ?? stateResolved.name,
       iconCode: poisonSpec?.icon_code ?? stateSpec.icon_code ?? null,
       valueLabel: strength == null ? null : new DimensionalNumber(strength).toString(),
@@ -963,8 +963,8 @@ export class CharacterOverviewService {
     let shield: DefenseShieldOverview | null = null;
 
     for (const item of version.inventory) {
-      if (!item.equipped || item.ruleId === null) continue;
-      const rule = reference.ruleById(item.ruleId);
+      if (!item.equipped || item.ruleCode === null) continue;
+      const rule = reference.ruleByCode(item.ruleCode);
       const spec = this.effectiveSpecOf(item, reference);
       if (!spec) continue;
       if (spec.armor) {
@@ -1000,9 +1000,9 @@ export class CharacterOverviewService {
           });
         }
         const overview: DefenseArmorOverview = {
-          itemRuleId: item.ruleId,
-          itemName: rule?.name ?? item.ruleId,
-          href: reference.href(item.ruleId),
+          itemRuleCode: item.ruleCode,
+          itemName: rule?.name ?? item.ruleCode,
+          href: reference.href(item.ruleCode),
           lines,
           tiers: [],
         };
@@ -1012,9 +1012,9 @@ export class CharacterOverviewService {
 
       if (spec.shield && shield === null) {
         shield = {
-          itemRuleId: item.ruleId,
-          itemName: rule?.name ?? item.ruleId,
-          href: reference.href(item.ruleId),
+          itemRuleCode: item.ruleCode,
+          itemName: rule?.name ?? item.ruleCode,
+          href: reference.href(item.ruleCode),
           defense: new DimensionalNumber(spec.shield.block.defense).toString(),
           efficiency: new DimensionalNumber(spec.shield.block.efficiency).toString(),
           efficiencyValue: spec.shield.block.efficiency,
@@ -1074,7 +1074,7 @@ export class CharacterOverviewService {
       for (const line of item.lines) {
         if (line.kind !== 'defense') continue;
         if (line.durability < minDurability) continue;
-        const key = line.sourceCode ?? item.itemRuleId;
+        const key = line.sourceCode ?? item.itemRuleCode;
         const current = groups.get(key) ?? 0;
         if (line.value > current) groups.set(key, line.value);
       }
@@ -1091,7 +1091,7 @@ export class CharacterOverviewService {
     reference: CharacterReferenceService,
     context: FormulaContext,
     atDistance?: {
-      itemRuleId: string;
+      itemRuleCode: string;
       profileType: 'strike' | 'throw' | 'shoot';
       distanceIpari: number;
       profileIndex?: number;
@@ -1101,23 +1101,23 @@ export class CharacterOverviewService {
     const attacks: AttackOverview[] = [];
 
     for (const item of version.inventory) {
-      if (!item.equipped || item.ruleId === null) continue;
-      const rule = reference.ruleById(item.ruleId);
+      if (!item.equipped || item.ruleCode === null) continue;
+      const rule = reference.ruleByCode(item.ruleCode);
       const spec = this.effectiveSpecOf(item, reference);
       if (!spec?.weapon) continue;
 
       for (const [profileIndex, profile] of spec.weapon.weapon_profiles.entries()) {
         const distanceIpari =
           atDistance &&
-          atDistance.itemRuleId === item.ruleId &&
+          atDistance.itemRuleCode === item.ruleCode &&
           atDistance.profileType === profile.type &&
           (atDistance.profileIndex === undefined || atDistance.profileIndex === profileIndex)
             ? atDistance.distanceIpari
             : null;
         attacks.push(
           this.buildAttack(
-            item.ruleId,
-            rule?.name ?? item.ruleId,
+            item.ruleCode,
+            rule?.name ?? item.ruleCode,
             profile,
             reference,
             context,
@@ -1133,7 +1133,7 @@ export class CharacterOverviewService {
   }
 
   private buildAttack(
-    itemRuleId: string,
+    itemRuleCode: string,
     itemName: string,
     profile: WeaponProfile,
     reference: CharacterReferenceService,
@@ -1175,9 +1175,9 @@ export class CharacterOverviewService {
     const forms = profile.damage.damage_type_code === null ? null : DAMAGE_TYPE_FORMS[profile.damage.damage_type_code];
 
     return {
-      itemRuleId,
+      itemRuleCode,
       itemName,
-      itemHref: reference.href(itemRuleId),
+      itemHref: reference.href(itemRuleCode),
       profileType: profile.type,
       profileIndex,
       profileTypeLabel: WEAPON_PROFILE_LABELS[profile.type],
@@ -1198,11 +1198,11 @@ export class CharacterOverviewService {
     };
   }
   private effectiveSpecOf(item: InventoryItem, reference: CharacterReferenceService): ItemSpec | null {
-    if (item.ruleId === null) return null;
-    const spec = this.itemSpecOf(reference.ruleById(item.ruleId));
+    if (item.ruleCode === null) return null;
+    const spec = this.itemSpecOf(reference.ruleByCode(item.ruleCode));
     if (!spec) return null;
-    const modifiers = (item.modifierRuleIds ?? [])
-      .map((id) => reference.ruleById(id))
+    const modifiers = (item.modifierRuleCodes ?? [])
+      .map((id) => reference.ruleByCode(id))
       .filter((rule): rule is Rule => rule !== null);
 
     return this.itemModifiers.applyStack(spec, modifiers, []).spec;

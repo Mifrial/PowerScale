@@ -38,17 +38,28 @@ export const useDraftRuleStore = defineStore('draftRules', () => {
     return entry;
   }
 
-  function saveRule(spaceId: number, rule: Rule): void {
+  function saveRules(spaceId: number, rules: Rule[]): void {
+    if (rules.length === 0) return;
     const entry = ensureDraft(spaceId);
-    entry.changedRules = { ...entry.changedRules, [rule.id]: rule };
-    entry.removedCodes = entry.removedCodes.filter((code) => code !== rule.code);
+    const next = { ...entry.changedRules };
+    const importedCodes = new Set<string>();
+    for (const rule of rules) {
+      next[rule.code] = rule;
+      importedCodes.add(rule.code);
+    }
+    entry.changedRules = next;
+    entry.removedCodes = entry.removedCodes.filter((code) => !importedCodes.has(code));
     persistDrafts();
   }
 
-  function removeRule(spaceId: number, ruleId: string): void {
+  function saveRule(spaceId: number, rule: Rule): void {
+    saveRules(spaceId, [rule]);
+  }
+
+  function removeRule(spaceId: number, code: string): void {
     const entry = drafts.value.find((d) => d.spaceId === spaceId);
     if (entry) {
-      const { [ruleId]: _, ...rest } = entry.changedRules;
+      const { [code]: _, ...rest } = entry.changedRules;
       entry.changedRules = rest;
       persistDrafts();
     }
@@ -62,8 +73,8 @@ export const useDraftRuleStore = defineStore('draftRules', () => {
 
   function addToDraft(spaceId: number, rule: Rule): boolean {
     const entry = ensureDraft(spaceId);
-    const existed = rule.id in entry.changedRules;
-    entry.changedRules = { ...entry.changedRules, [rule.id]: rule };
+    const existed = rule.code in entry.changedRules;
+    entry.changedRules = { ...entry.changedRules, [rule.code]: rule };
     entry.removedCodes = entry.removedCodes.filter((code) => code !== rule.code);
     persistDrafts();
 
@@ -106,6 +117,7 @@ export const useDraftRuleStore = defineStore('draftRules', () => {
     activeDraft,
     hasDraft,
     saveRule,
+    saveRules,
     removeRule,
     getDraftRules,
     addToDraft,

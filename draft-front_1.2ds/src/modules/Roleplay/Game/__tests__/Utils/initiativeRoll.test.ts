@@ -81,7 +81,7 @@ describe('rollInitiative', () => {
   it('механики броска — с проверки выбранной характеристики, не с check-initiative', () => {
     const rules: Rule[] = [
       {
-        id: 'rule-check-simple',
+        id: null,
         code: 'check-simple',
         type: 'check',
         name: 'Простая проверка',
@@ -96,7 +96,7 @@ describe('rollInitiative', () => {
         createdAt: '2026-08-22T12:00:00Z',
       },
       {
-        id: 'rule-check-initiative',
+        id: null,
         code: 'check-initiative',
         type: 'check',
         name: 'Проверка на инициативу',
@@ -113,7 +113,7 @@ describe('rollInitiative', () => {
         createdAt: '2026-08-22T12:00:00Z',
       },
       {
-        id: 'rule-check-perception',
+        id: null,
         code: 'check-perception',
         type: 'check',
         name: 'Проверка на Восприятие',
@@ -130,7 +130,7 @@ describe('rollInitiative', () => {
         createdAt: '2026-08-22T12:00:00Z',
       },
       {
-        id: 'rule-check-attention',
+        id: null,
         code: 'check-attention',
         type: 'check',
         name: 'Проверка на Внимательность',
@@ -147,7 +147,7 @@ describe('rollInitiative', () => {
         createdAt: '2026-08-22T12:00:00Z',
       },
       {
-        id: 'rule-6-and-1',
+        id: null,
         code: 'rule-6-and-1',
         type: 'simple',
         name: 'Правило 6 и 1',

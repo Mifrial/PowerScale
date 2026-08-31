@@ -23,7 +23,7 @@ const { signal } = useAbortable();
 
 const code = computed(() => route.params.code as string);
 const ctx = computed(() => route.params.ctx as string);
-const ruleId = computed(() => route.params.ruleId as string);
+const ruleCode = computed(() => route.params.ruleCode as string);
 const isDraftContext = computed(() => ctx.value === 'draft');
 
 const rule = ref<Rule | null>(null);
@@ -48,7 +48,7 @@ const ruleTags = computed(() => {
   return keywordStore.keywords.filter((t) => keywords.includes(t.id));
 });
 
-const editLink = computed(() => `/space/${code.value}/${ctx.value}/rules/${ruleId.value}/edit`);
+const editLink = computed(() => `/space/${code.value}/${ctx.value}/rules/${encodeURIComponent(ruleCode.value)}/edit`);
 
 function openInlineRule(ruleCode: string): void {
   inlineRuleId.value = ruleCode;
@@ -56,7 +56,7 @@ function openInlineRule(ruleCode: string): void {
 }
 
 async function resolveRoute(): Promise<void> {
-  const key = `${code.value}|${ctx.value}|${ruleId.value}`;
+  const key = `${code.value}|${ctx.value}|${ruleCode.value}`;
   if (loaded.value === key) return;
   loaded.value = key;
 
@@ -65,18 +65,16 @@ async function resolveRoute(): Promise<void> {
   rule.value = null;
 
   try {
-    // Ищем правило в effectiveRules (уже смержено с черновиками в draft-контексте)
-    const found = ruleHost.value.effectiveRules.find((r) => r.id === ruleId.value);
+    const found = ruleHost.value.effectiveRules.find((r) => r.code === ruleCode.value);
 
     if (found) {
       rule.value = found;
       store.setCurrentRule(found);
     } else {
-      // Fallback: загружаем напрямую из API
-      rule.value = await store.fetchRule(ruleId.value, signal.value);
+      rule.value = await store.fetchRule(ruleCode.value, signal.value);
     }
 
-    await store.fetchRuleVersions(ruleId.value, signal.value);
+    await store.fetchRuleVersions(ruleCode.value, signal.value);
     ruleVersions.value = store.ruleVersions;
 
     await keywordStore.fetchTags(signal.value);
@@ -95,7 +93,7 @@ function retry() {
 }
 
 onMounted(resolveRoute);
-watch(() => [route.params.code, route.params.ctx, route.params.ruleId], resolveRoute);
+watch(() => [route.params.code, route.params.ctx, route.params.ruleCode], resolveRoute);
 </script>
 
 <template>
@@ -119,7 +117,7 @@ watch(() => [route.params.code, route.params.ctx, route.params.ruleId], resolveR
     </v-card>
 
     <RuleSpecView :rule="rule" :rules="ruleHost.effectiveRules" :keywords="keywordStore.keywords" class="mb-4" />
-    <RuleSlider v-model:open="inlineRuleOpen" :rule-id="inlineRuleId" :rules="ruleHost.effectiveRules" />
+    <RuleSlider v-model:open="inlineRuleOpen" :rule-code="inlineRuleId" :rules="ruleHost.effectiveRules" />
 
     <v-card v-if="mechanic" class="mb-4">
       <v-card-title>Механика</v-card-title>

@@ -54,7 +54,7 @@ function label(): string {
           <div class="text-body-2">{{ state.dotLabel }}</div>
         </div>
         <div class="pt-2">
-          <RuleLink v-if="state.ruleId" :rule-id="state.ruleId" class="text-body-2"> Открыть правило → </RuleLink>
+          <RuleLink v-if="state.ruleCode" :rule-code="state.ruleCode" class="text-body-2"> Открыть правило → </RuleLink>
         </div>
       </v-card-text>
     </v-card>

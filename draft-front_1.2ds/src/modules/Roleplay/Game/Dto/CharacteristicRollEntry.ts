@@ -7,7 +7,7 @@ export interface CharacteristicRollEntry {
   value: DimensionalNumberValue;
   /** Код характеристики → проверка `check-{code}`. */
   characteristicCode?: string | null;
-  /** ruleId характеристики или проверки, если кода нет. */
-  ruleId?: string | null;
+  /** ruleCode характеристики или проверки, если кода нет. */
+  ruleCode?: string | null;
   actorKey?: CombatEntityKey;
 }

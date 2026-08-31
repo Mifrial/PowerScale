@@ -9,50 +9,50 @@ import type { InventoryItem } from '@/modules/Roleplay/Character/Dto/InventoryIt
 import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/CharacterStateValue';
 import type { CharacterSenseValue } from '@/modules/Roleplay/Character/Dto/CharacterSenseValue';
 
-const ability = (ruleId: string, level: number, extra: Partial<CharacterAbility> = {}): CharacterAbility => ({
-  ruleId,
+const ability = (ruleCode: string, level: number, extra: Partial<CharacterAbility> = {}): CharacterAbility => ({
+  ruleCode,
   level,
   ...extra,
 });
 
 const characteristic = (
-  ruleId: string,
+  ruleCode: string,
   base: number,
   modifiers: CharacteristicValue['modifiers'] = [],
 ): CharacteristicValue => ({
-  ruleId,
+  ruleCode,
   base: { base, size: 0 },
   modifiers,
 });
 
 const resource = (
-  ruleId: string,
+  ruleCode: string,
   current: number,
   base: number,
   bonuses: ResourceValue['bonuses'] = [],
 ): ResourceValue => ({
-  ruleId,
+  ruleCode,
   current: { base: current, size: 0 },
   base: { base, size: 0 },
   bonuses,
 });
 
-const item = (id: number, ruleId: string, quantity = 1, equipped = false): InventoryItem => ({
+const item = (id: number, ruleCode: string, quantity = 1, equipped = false): InventoryItem => ({
   id,
-  ruleId,
+  ruleCode,
   quantity,
   equipped,
 });
 
-const state = (stateRuleId: string, value: number | undefined = undefined): CharacterStateValue =>
-  value === undefined ? { stateRuleId } : { stateRuleId, value };
+const state = (stateRuleCode: string, value: number | undefined = undefined): CharacterStateValue =>
+  value === undefined ? { stateRuleCode } : { stateRuleCode, value };
 
 const sense = (
-  ruleId: string,
+  ruleCode: string,
   value: number,
   extra: Partial<Pick<CharacterSenseValue, 'status' | 'radius'>> = {},
 ): CharacterSenseValue => ({
-  ruleId,
+  ruleCode,
   value,
   modifiers: [],
   status: extra.status ?? 'precise',
@@ -66,7 +66,7 @@ function makeVersion(overrides: Partial<CharacterVersion> = {}): CharacterVersio
     fullDescription: null,
     spaceCode: 'razrabotka',
     rulesRevision: 5,
-    raceRuleId: 'rule-race-human',
+    raceRuleCode: 'rule-race-human',
     characteristics: [],
     resources: [],
     abilities: [],
@@ -156,11 +156,11 @@ describe('membershipDiff: секции списков', () => {
     const pending = makeVersion({
       characteristics: [
         characteristic('rule-str', 3, [
-          { sourceRuleId: 'rule-gift', sourceLabel: null, delta: 2, target: 'rule-str', scope: null },
+          { sourceRuleCode: 'rule-gift', sourceLabel: null, delta: 2, target: 'rule-str', scope: null },
         ]),
       ],
     });
-    const resolve = (ruleId: string) => (ruleId === 'rule-gift' ? 'Врождённая Сила 2' : ruleId);
+    const resolve = (ruleCode: string) => (ruleCode === 'rule-gift' ? 'Врождённая Сила 2' : ruleCode);
     const diff = membershipDiff(active, pending, resolve);
     const changes = sectionChanges(diff, 'characteristics');
     expect(changes).toHaveLength(1);
@@ -185,9 +185,9 @@ describe('membershipDiff: секции списков', () => {
   it('ресурс: значение/лимит + попап-детали с бонусами', () => {
     const active = makeVersion({ resources: [resource('rule-hp', 6, 12)] });
     const pending = makeVersion({
-      resources: [resource('rule-hp', 10, 12, [{ sourceRuleId: 'rule-x', sourceLabel: null, delta: -2 }])],
+      resources: [resource('rule-hp', 10, 12, [{ sourceRuleCode: 'rule-x', sourceLabel: null, delta: -2 }])],
     });
-    const resolve = (ruleId: string) => (ruleId === 'rule-x' ? 'Источник' : ruleId);
+    const resolve = (ruleCode: string) => (ruleCode === 'rule-x' ? 'Источник' : ruleCode);
     const diff = membershipDiff(active, pending, resolve);
     const changes = sectionChanges(diff, 'resources');
     expect(changes[0]).toMatchObject({ kind: 'changed', before: '6 / 12', after: '10 / 10' });

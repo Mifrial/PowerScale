@@ -18,7 +18,7 @@ function makeBuild(overrides: Partial<CharacterBuild> = {}): CharacterBuild {
     spaceId: 1,
     spaceCode: 'razrabotka',
     rulesRevision: 5,
-    raceRuleId: ruleCatalog.find((rule) => rule.code === 'alierets')?.id ?? null,
+    raceRuleCode: ruleCatalog.find((rule) => rule.code === 'alierets')?.code ?? null,
     characteristicPurchases: [],
     abilities: [],
     resources: [],
@@ -31,7 +31,7 @@ function makeBuild(overrides: Partial<CharacterBuild> = {}): CharacterBuild {
   };
 }
 
-const physId = () => ruleCatalog.find((rule) => rule.code === 'fizicheskoe-razvitie')?.id ?? '';
+const physId = () => ruleCatalog.find((rule) => rule.code === 'fizicheskoe-razvitie')?.code ?? '';
 
 function param(base: number) {
   return { base, size: 0 };

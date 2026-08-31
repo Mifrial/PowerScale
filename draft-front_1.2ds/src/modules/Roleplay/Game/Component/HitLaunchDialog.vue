@@ -69,9 +69,10 @@ import {
   reactionAction,
   defenseOdCost,
   turnAction,
+  findRuleByRef,
 } from '@/modules/Roleplay/Game/Utils/combatActions';
 import { ATTACK_CALC_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Attack/ATTACK_CALC_ATTACHMENT_TYPE';
-import { damageTypeSpecService } from '@/modules/Roleplay/Rule/init';
+import { damageTypeSpecService, DAMAGE_TYPE_FORMS } from '@/modules/Roleplay/Rule/init';
 import { injuryCheckService } from '@/modules/Roleplay/Game/Service/Instance/injuryCheckService';
 
 import { exhaustionCheckService } from '@/modules/Roleplay/Game/Service/Instance/exhaustionCheckService';
@@ -120,8 +121,8 @@ const reaction = ref<HitDefenseReaction | null>(null);
 const attackerAdv = ref(0);
 const defenderAdv = ref(0);
 const defenseEfficiency = ref<DimensionalNumberValue>({ base: 4, size: -1 });
-const blockItemRuleId = ref<string | null>(null);
-const selectedActionRuleId = ref<string | null>(null);
+const blockItemRuleCode = ref<string | null>(null);
+const selectedActionRuleCode = ref<string | null>(null);
 const distanceIpari = ref(1);
 const cover = ref(0);
 const flank = ref(false);
@@ -156,12 +157,12 @@ const opponentOptions = computed(() => entityOptions.value.filter((item) => item
 
 const isCompose = computed(() => offer.value === null);
 const resolvedAttackAction = computed(() => offer.value?.proposal.attackAction ?? props.attackAction ?? null);
-const resolvedActionRuleId = computed(() => {
+const resolvedActionRuleCode = computed(() => {
   const source = resolvedAttackAction.value?.source;
-  if (source?.kind === 'action') return source.actionRuleId;
-  if (source?.kind === 'process') return source.process.session.processRuleId;
+  if (source?.kind === 'action') return source.actionRuleCode;
+  if (source?.kind === 'process') return source.process.session.processRuleCode;
 
-  return offer.value?.proposal.hit?.actionRuleId ?? selectedActionRuleId.value;
+  return offer.value?.proposal.hit?.actionRuleCode ?? selectedActionRuleCode.value;
 });
 const targetProposals = computed(() => offer.value?.proposal.targetProposals ?? []);
 const selectedTargetKeys = computed(() => {
@@ -260,7 +261,7 @@ function attackFromOffer(current: CheckOffer): AttackOverview | null {
   if (!hit) return props.attack;
 
   return {
-    itemRuleId: hit.itemRuleId,
+    itemRuleCode: hit.itemRuleCode,
     itemName: hit.itemName,
     itemHref: '',
     profileType: hit.profileType,
@@ -302,7 +303,7 @@ const resolvedAttack = computed(() => {
     characterOverviewService.attackAtDistance(
       version,
       props.rules,
-      attack.itemRuleId,
+      attack.itemRuleCode,
       attack.profileType,
       isRanged.value ? distanceIpari.value : 0,
       attack.profileIndex,
@@ -315,18 +316,18 @@ const attackOptions = computed(() =>
   listAttackActions(props.rules, overviewOf(resolvedAttackerKey.value), currentAttack.value?.profileType ?? 'strike'),
 );
 
-const fixedActionRuleId = computed(() =>
-  resolvedAttackAction.value?.source.kind === 'action' ? resolvedAttackAction.value.source.actionRuleId : null,
+const fixedActionRuleCode = computed(() =>
+  resolvedAttackAction.value?.source.kind === 'action' ? resolvedAttackAction.value.source.actionRuleCode : null,
 );
 const selectedAction = computed(
   () =>
-    attackActionById(props.rules, resolvedActionRuleId.value ?? fixedActionRuleId.value) ??
+    attackActionById(props.rules, resolvedActionRuleCode.value ?? fixedActionRuleCode.value) ??
     attackOptions.value[0] ??
     null,
 );
 const currentActionCharacteristicModifier = computed(() =>
   actionEffectService.currentAttackActionCharacteristicModifier(
-    selectedAction.value ? props.rules.find((rule) => rule.id === selectedAction.value?.ruleId) : null,
+    selectedAction.value ? findRuleByRef(props.rules, selectedAction.value.code) : null,
     currentAttack.value?.profileType ?? 'strike',
   ),
 );
@@ -349,7 +350,7 @@ const attackerHitAdvantageSummary = computed(() => {
     }),
     ...actionEffectService.checkAdvantageModifiers(attackerPendingEffects.value, CHECK_HIT_CODE),
     ...actionEffectService.currentActionCheckModifiers(
-      selectedAction.value ? props.rules.find((rule) => rule.id === selectedAction.value.ruleId) : null,
+      selectedAction.value ? findRuleByRef(props.rules, selectedAction.value.code) : null,
       CHECK_HIT_CODE,
     ),
     { source_code: ADVANTAGE_SOURCE_MANUAL, source_label: 'Игрок', delta: attackerAdv.value },
@@ -392,7 +393,7 @@ const effectiveProcessContext = computed(
 );
 const processSpec = computed(() => {
   const rule = effectiveProcessContext.value
-    ? props.rules.find((item) => item.id === effectiveProcessContext.value?.session.processRuleId)
+    ? findRuleByRef(props.rules, effectiveProcessContext.value?.session.processRuleCode)
     : undefined;
 
   return rule ? asProcessAbilitySpec(rule) : null;
@@ -437,12 +438,13 @@ const attackSelectItems = computed(() =>
   attackOptions.value.map((option) => ({
     ...option,
     title: `${option.name} · ${
-      option.ruleId === resolvedSelectedAction.value?.ruleId ? resolvedSelectedAction.value.odCost : option.odCost
+      option.ruleCode === resolvedSelectedAction.value?.ruleCode ? resolvedSelectedAction.value.odCost : option.odCost
     } ОД`,
     props: {
       disabled:
-        (option.ruleId === resolvedSelectedAction.value?.ruleId ? resolvedSelectedAction.value.odCost : option.odCost) >
-        attackerAp.value,
+        (option.ruleCode === resolvedSelectedAction.value?.ruleCode
+          ? resolvedSelectedAction.value.odCost
+          : option.odCost) > attackerAp.value,
     },
   })),
 );
@@ -478,11 +480,14 @@ const blockAffordable = computed(() => {
 });
 
 watch(attackOptions, (options) => {
-  if (selectedActionRuleId.value && options.some((item) => item.ruleId === selectedActionRuleId.value)) return;
+  if (
+    selectedActionRuleCode.value &&
+    options.some((item) => item.code === selectedActionRuleCode.value || item.ruleCode === selectedActionRuleCode.value)
+  )
+    return;
   const preferredCode =
     currentAttack.value?.profileType === 'strike' ? SIMPLE_MELEE_ATTACK_CODE : SIMPLE_RANGED_ATTACK_CODE;
-  selectedActionRuleId.value =
-    options.find((item) => item.code === preferredCode)?.ruleId ?? options[0]?.ruleId ?? null;
+  selectedActionRuleCode.value = options.find((item) => item.code === preferredCode)?.code ?? options[0]?.code ?? null;
 });
 
 const blockProfiles = computed(() =>
@@ -514,11 +519,11 @@ function processContinueToken(key: CombatEntityKey): string {
 function applyReactionDefaults(next: HitDefenseReaction | null): void {
   if (next === 'dodge') {
     defenseEfficiency.value = { ...procedure.value.dodgeEfficiency };
-    blockItemRuleId.value = null;
+    blockItemRuleCode.value = null;
   }
   if (next === 'block') {
     const first = blockProfiles.value[0] ?? null;
-    blockItemRuleId.value = first?.itemRuleId ?? null;
+    blockItemRuleCode.value = first?.itemRuleCode ?? null;
     defenseEfficiency.value = first ? { ...first.efficiency } : { ...procedure.value.minBlockEfficiency };
   }
 }
@@ -528,9 +533,9 @@ watch(reaction, (next, prev) => {
   applyReactionDefaults(next);
 });
 
-watch(blockItemRuleId, (id) => {
+watch(blockItemRuleCode, (id) => {
   if (!isDefenderStep.value || reaction.value !== 'block' || !id) return;
-  const profile = blockProfiles.value.find((item) => item.itemRuleId === id);
+  const profile = blockProfiles.value.find((item) => item.itemRuleCode === id);
   if (profile) defenseEfficiency.value = { ...profile.efficiency };
 });
 
@@ -558,8 +563,8 @@ async function hydrate(): Promise<void> {
     agreedInitiatorAdv.value = props.resumeOffer.proposal.initiatorAdv;
     agreedOpponentAdv.value = props.resumeOffer.proposal.opponentAdv;
     agreedCover.value = Math.max(0, hit?.cover ?? 0);
-    blockItemRuleId.value = hit?.blockItemRuleId ?? null;
-    selectedActionRuleId.value = hit?.actionRuleId ?? fixedActionRuleId.value ?? selectedActionRuleId.value;
+    blockItemRuleCode.value = hit?.blockItemRuleCode ?? null;
+    selectedActionRuleCode.value = hit?.actionRuleCode ?? fixedActionRuleCode.value ?? selectedActionRuleCode.value;
     distanceIpari.value = hit?.distanceIpari ?? props.attack?.minDistance ?? 1;
     cover.value = Math.max(0, hit?.cover ?? 0);
     flank.value = hit?.flank ?? false;
@@ -580,7 +585,7 @@ async function hydrate(): Promise<void> {
   agreedInitiatorAdv.value = 0;
   agreedOpponentAdv.value = 0;
   agreedCover.value = 0;
-  blockItemRuleId.value = null;
+  blockItemRuleCode.value = null;
   distanceIpari.value = Math.max(1, props.attack?.minDistance ?? 1);
   cover.value = 0;
   flank.value = false;
@@ -603,23 +608,23 @@ function hitProposal(attack: AttackOverview, nextReaction: HitDefenseReaction | 
   const preview = resolvedAttack.value ?? attack;
 
   return {
-    itemRuleId: preview.itemRuleId,
+    itemRuleCode: preview.itemRuleCode,
     itemName: preview.itemName,
     profileType: preview.profileType,
     profileIndex: preview.profileIndex,
     accuracy: preview.accuracy,
     reaction: nextReaction,
     defenseEfficiency: nextReaction === 'ignore' || nextReaction === null ? null : defenseEfficiency.value,
-    blockItemRuleId: nextReaction === 'block' ? blockItemRuleId.value : null,
+    blockItemRuleCode: nextReaction === 'block' ? blockItemRuleCode.value : null,
     damageTypeCode: preview.damageTypeCode,
     damage: preview.damage,
     penetration: preview.penetration,
-    actionRuleId:
-      effectiveProcessContext.value?.session.processRuleId ??
-      resolvedSelectedAction.value?.ruleId ??
-      (resolvedAttackAction.value?.source.kind === 'action' ? resolvedAttackAction.value.source.actionRuleId : null),
+    actionRuleCode:
+      effectiveProcessContext.value?.session.processRuleCode ??
+      resolvedSelectedAction.value?.ruleCode ??
+      (resolvedAttackAction.value?.source.kind === 'action' ? resolvedAttackAction.value.source.actionRuleCode : null),
     actionName: effectiveProcessContext.value
-      ? `${props.rules.find((rule) => rule.id === effectiveProcessContext.value?.session.processRuleId)?.name ?? 'Процесс'} · ${processStep.value?.name ?? ''}`
+      ? `${findRuleByRef(props.rules, effectiveProcessContext.value?.session.processRuleCode)?.name ?? 'Процесс'} · ${processStep.value?.name ?? ''}`
       : resolvedSelectedAction.value?.name,
     actionOd: processStepCost.value ?? resolvedSelectedAction.value?.odCost,
     distanceIpari: isRanged.value ? distanceIpari.value : null,
@@ -678,7 +683,7 @@ async function performPreparation(): Promise<void> {
 
   const nextEffects = [
     ...actionEffectService.consumeResource(pendingResolution.remainingEffects, ACTION_POINTS_CODE, action.odCost),
-    ...actionEffectService.effectsAfterAction(props.rules.find((rule) => rule.id === action.ruleId)),
+    ...actionEffectService.effectsAfterAction(findRuleByRef(props.rules, action.code)),
   ];
   pendingEffectsByEntity.value = { ...pendingEffectsByEntity.value, [initiator]: nextEffects };
   await getGameApi().setCombatActionEffects(props.gameId, initiator, nextEffects);
@@ -703,7 +708,7 @@ function defenderProposal(): CheckOfferProposal {
   const attack = resolvedAttack.value;
   if (!current || !attack) throw new Error('Нет оферты');
   if (!reaction.value) throw new Error('Выберите игнор, уклон или блок');
-  if (reaction.value === 'block' && !blockItemRuleId.value) throw new Error('Выберите профиль блока');
+  if (reaction.value === 'block' && !blockItemRuleCode.value) throw new Error('Выберите профиль блока');
   const turned = Boolean(flank.value && turn.value && reaction.value !== 'ignore');
   const reactionCost = defenseOdCost(reaction.value, turned, props.rules);
   const targetKey = targetKeyOf(current);
@@ -781,7 +786,7 @@ async function acceptWideAttack(
         defenderDexterityMasteryDelta: pendingResolution.targetDexterityMasteryDelta,
         defenderMasteryAdjustments: pendingResolution.targetDexterityMasteryAdjustments.map((adjustment) => ({
           source_code: 'action-effect',
-          source_label: props.rules.find((rule) => rule.id === adjustment.sourceRuleId)?.name ?? 'Временный эффект',
+          source_label: props.rules.find((rule) => rule.code === adjustment.sourceRuleCode)?.name ?? 'Временный эффект',
           delta: adjustment.delta,
         })),
         flank: target.hit.flank,
@@ -896,9 +901,7 @@ async function acceptWideAttack(
 
     const actionCost =
       resolvedAttackAction.value?.totalOdCost ?? resolvedSelectedAction.value?.odCost ?? DEFAULT_ATTACK_AP;
-    const processRule = processContext
-      ? props.rules.find((rule) => rule.id === processContext.session.processRuleId)
-      : null;
+    const processRule = processContext ? findRuleByRef(props.rules, processContext.session.processRuleCode) : null;
     const nextEffects = [
       ...actionEffectService.consumeResource(pendingResolution.remainingEffects, ACTION_POINTS_CODE, actionCost),
       ...actionEffectService.effectsAfterAction(actionRule),
@@ -926,19 +929,15 @@ async function acceptAndRoll(): Promise<void> {
     return;
   }
   if (accepted.proposal.targetProposals?.length) {
-    await acceptWideAttack(
-      accepted,
-      attack,
-      props.rules.find((rule) => rule.id === resolvedActionRuleId.value),
-    );
+    await acceptWideAttack(accepted, attack, findRuleByRef(props.rules, resolvedActionRuleCode.value));
     offer.value = accepted;
 
     return;
   }
   const hit = accepted.proposal.hit;
   if (!hit?.reaction) throw new Error('Защитник ещё не выбрал реакцию');
-  const actionRuleId = resolvedActionRuleId.value ?? hit.actionRuleId;
-  const actionRule = props.rules.find((rule) => rule.id === actionRuleId);
+  const actionRuleCode = resolvedActionRuleCode.value ?? hit.actionRuleCode;
+  const actionRule = findRuleByRef(props.rules, actionRuleCode);
   const actionCharacteristicModifier = actionEffectService.currentAttackActionCharacteristicModifier(
     actionRule,
     hit.profileType,
@@ -948,14 +947,14 @@ async function acceptAndRoll(): Promise<void> {
     ? (characterOverviewService.attackAtDistance(
         attackerVersion,
         props.rules,
-        attack.itemRuleId,
+        attack.itemRuleCode,
         attack.profileType,
         hit.distanceIpari ?? 0,
         attack.profileIndex,
         actionCharacteristicModifier,
       ) ?? attack)
     : attack;
-  const rawAction = attackActionById(props.rules, actionRuleId);
+  const rawAction = attackActionById(props.rules, actionRuleCode);
   const pendingResolution = actionEffectService.resolveForNextAction(attackerPendingEffects.value, {
     isAttack: true,
     component: hit.profileType,
@@ -990,7 +989,7 @@ async function acceptAndRoll(): Promise<void> {
     defenderDexterityMasteryDelta: pendingResolution.targetDexterityMasteryDelta,
     defenderMasteryAdjustments: pendingResolution.targetDexterityMasteryAdjustments.map((adjustment) => ({
       source_code: 'action-effect',
-      source_label: props.rules.find((rule) => rule.id === adjustment.sourceRuleId)?.name ?? 'Временный эффект',
+      source_label: props.rules.find((rule) => rule.code === adjustment.sourceRuleCode)?.name ?? 'Временный эффект',
       delta: adjustment.delta,
     })),
     distanceIpari: hit.distanceIpari,
@@ -1024,7 +1023,7 @@ async function acceptAndRoll(): Promise<void> {
     await getGameApi().setProcessSession(props.gameId, accepted.initiator, nextProcessSession);
   }
   const processRule = effectiveProcessContext.value
-    ? props.rules.find((rule) => rule.id === effectiveProcessContext.value?.session.processRuleId)
+    ? findRuleByRef(props.rules, effectiveProcessContext.value?.session.processRuleCode)
     : null;
   const processCompletionEffects = nextProcessSession ? [] : actionEffectService.effectsAfterProcess(processRule);
   await applyClickAttack(accepted, hit, rolled.attacker.check?.rating ?? 0, effectiveAttack, rolled);
@@ -1032,7 +1031,7 @@ async function acceptAndRoll(): Promise<void> {
     if (index === 0) continue;
     const strikeHit = {
       ...hit,
-      itemRuleId: strike.profile.itemRuleId,
+      itemRuleCode: strike.profile.itemRuleCode,
       itemName: strike.profile.itemName,
       profileType: strike.profile.profileType,
       accuracy: strike.profile.accuracy,
@@ -1082,7 +1081,7 @@ async function spendAp(key: CombatEntityKey, cost: number): Promise<number> {
   if (!resource) return 0;
   const spent = Math.min(cost, Math.max(0, resource.current.base));
   const next = attackDamageService.spendActionPoints(resource.current, spent);
-  const overlay = await getGameApi().setCombatResource(props.gameId, key, resource.ruleId, next);
+  const overlay = await getGameApi().setCombatResource(props.gameId, key, resource.ruleCode, next);
   overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, overlay);
   await getGameApi().setCurrentSpeed(props.gameId, key, {
     horizontal: { stepsPerActionPoint: 0, direction: null },
@@ -1098,12 +1097,12 @@ async function applyCombatState(key: CombatEntityKey, code: string, amount: numb
   if (!rule) return;
   const independent = (rule.spec as StateSpec | undefined)?.aggregation === 'independent';
   const states = versionOf(key)?.states ?? [];
-  const index = states.findIndex((state) => state.stateRuleId === rule.id);
+  const index = states.findIndex((state) => state.stateRuleCode === rule.code);
   const overlay =
     !independent && index >= 0
       ? await getGameApi().setCombatStateValue(props.gameId, key, index, (states[index]?.value ?? 0) + amount)
       : await getGameApi().addCombatState(props.gameId, key, {
-          stateRuleId: rule.id,
+          stateRuleCode: rule.code,
           value: amount,
         } as CharacterStateValue);
   overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, overlay);
@@ -1114,7 +1113,7 @@ async function writeAccumulatedDamage(key: CombatEntityKey, amount: number): Pro
   if (!rule) return;
   const version = versionOf(key);
   if (!version) return;
-  const index = version.states.findIndex((state) => state.stateRuleId === rule.id);
+  const index = version.states.findIndex((state) => state.stateRuleCode === rule.code);
   if (amount <= 0) {
     if (index >= 0) {
       const overlay = await getGameApi().removeCombatState(props.gameId, key, index);
@@ -1124,7 +1123,7 @@ async function writeAccumulatedDamage(key: CombatEntityKey, amount: number): Pro
     return;
   }
 
-  const state: CharacterStateValue = { stateRuleId: rule.id, dimensionalValue: { base: amount, size: 0 } };
+  const state: CharacterStateValue = { stateRuleCode: rule.code, dimensionalValue: { base: amount, size: 0 } };
   const overlay =
     index >= 0
       ? await getGameApi().replaceCombatState(props.gameId, key, index, state)
@@ -1237,13 +1236,13 @@ async function applyClickAttack(
     defenseIgnored,
   });
   const action = resolvedSelectedAction.value ??
-    attackActionById(props.rules, hit.actionRuleId) ?? {
-      ruleId: hit.actionRuleId ?? '',
+    attackActionById(props.rules, hit.actionRuleCode) ?? {
+      ruleCode: hit.actionRuleCode ?? '',
       code: '',
       name: hit.actionName ?? 'Простая атака',
       odCost: hit.actionOd ?? DEFAULT_ATTACK_AP,
     };
-  const processRule = hit.actionRuleId ? props.rules.find((rule) => rule.id === hit.actionRuleId) : null;
+  const processRule = hit.actionRuleCode ? findRuleByRef(props.rules, hit.actionRuleCode) : null;
   const processSpec = processRule ? asProcessAbilitySpec(processRule) : null;
   const processStepName =
     processStep.value?.name ??
@@ -1255,7 +1254,7 @@ async function applyClickAttack(
     effectiveProcessContext.value || processSpec
       ? {
           ...action,
-          ruleId: processRule?.id ?? action.ruleId,
+          ruleCode: processRule?.code ?? action.ruleCode,
           code: processRule?.code ?? action.code,
           name: `${processRule?.name ?? 'Процесс'} · ${processStepName ?? ''}`,
         }
@@ -1288,7 +1287,7 @@ async function applyClickAttack(
           attackerName: nameOf(accepted.initiator),
           defenderKey: accepted.opponent,
           defenderName: nameOf(accepted.opponent),
-          weaponRuleId: hit.itemRuleId,
+          weaponRuleCode: hit.itemRuleCode,
           weaponName: hit.itemName,
           damageTypeCode: attack.damageTypeCode,
           profileType: hit.profileType,
@@ -1417,6 +1416,13 @@ const hitDialogTitle = computed(() => {
   return 'Удар';
 });
 
+const damageTypeLabel = computed(() => {
+  const code = resolvedAttack.value?.damageTypeCode;
+  if (!code) return '';
+
+  return DAMAGE_TYPE_FORMS[code]?.genitive ?? findRuleByRef(props.rules, code)?.name ?? code;
+});
+
 const canSubmit = computed(() => {
   if (isCompose.value) {
     if (isPreparationAction.value) {
@@ -1453,10 +1459,10 @@ const canSubmit = computed(() => {
       <v-card-text class="hit-dialog-body px-4 py-2">
         <v-select
           v-if="isCompose && !attackAction"
-          v-model="selectedActionRuleId"
+          v-model="selectedActionRuleCode"
           :items="attackSelectItems"
           item-title="title"
-          item-value="ruleId"
+          item-value="code"
           density="compact"
           variant="outlined"
           hide-details
@@ -1493,8 +1499,8 @@ const canSubmit = computed(() => {
         <div v-if="resolvedAttack && !isPreparationAction" class="text-caption text-medium-emphasis mt-1">
           Точность: {{ new DimensionalNumber(resolvedAttack.accuracy).toString() }} · Урон:
           {{ new DimensionalNumber(resolvedAttack.damage).toString() }}
-          {{ resolvedAttack.damageTypeCode ?? '' }} · Пробитие:
-          {{ new DimensionalNumber(resolvedAttack.penetration).toString() }} · {{ attackActionCost }} ОД
+          {{ damageTypeLabel }} · Пробитие: {{ new DimensionalNumber(resolvedAttack.penetration).toString() }} ·
+          {{ attackActionCost }} ОД
         </div>
         <div v-if="!isPreparationAction" class="text-caption text-medium-emphasis mt-1">
           {{ attackerHitAdvantageSummary }}
@@ -1610,10 +1616,10 @@ const canSubmit = computed(() => {
           />
           <v-select
             v-if="reaction === 'block'"
-            v-model="blockItemRuleId"
+            v-model="blockItemRuleCode"
             :items="blockProfiles"
             item-title="itemName"
-            item-value="itemRuleId"
+            item-value="itemRuleCode"
             density="compact"
             variant="outlined"
             hide-details

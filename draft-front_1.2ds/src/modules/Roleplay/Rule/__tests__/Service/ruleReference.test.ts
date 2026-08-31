@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { ruleReferenceService } from '@/modules/Roleplay/Rule/Service/Instance/ruleReferenceService';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
-const baseRule = (id: string, code: string, type: Rule['type'], spec?: any, spaceId = 1): Rule => ({
+const baseRule = (id: number | null, code: string, type: Rule['type'], spec?: any, spaceId = 1): Rule => ({
   id,
   code,
   type,
@@ -16,9 +16,9 @@ const baseRule = (id: string, code: string, type: Rule['type'], spec?: any, spac
 describe('RuleReferenceService.characteristicOptions', () => {
   it('исключает формульные характеристики и правила других пространств', () => {
     const rules = [
-      baseRule('c1', 'str', 'characteristic'),
-      baseRule('c2', 'wiz', 'characteristic', { formula: {} }),
-      baseRule('c3', 'str-other', 'characteristic', undefined, 2),
+      baseRule(null, 'str', 'characteristic'),
+      baseRule(null, 'wiz', 'characteristic', { formula: {} }),
+      baseRule(null, 'str-other', 'characteristic', undefined, 2),
     ];
     expect(ruleReferenceService.characteristicOptions(rules, 1)).toEqual([{ code: 'str', name: 'str' }]);
   });
@@ -26,7 +26,7 @@ describe('RuleReferenceService.characteristicOptions', () => {
 
 describe('RuleReferenceService.resourceOptions', () => {
   it('проставляет isDimensional по спеку ресурса', () => {
-    const rules = [baseRule('r1', 'mana', 'resource'), baseRule('r2', 'hp', 'resource', { is_dimensional: true })];
+    const rules = [baseRule(null, 'mana', 'resource'), baseRule(null, 'hp', 'resource', { is_dimensional: true })];
     expect(ruleReferenceService.resourceOptions(rules)).toEqual([
       { code: 'mana', name: 'mana', isDimensional: false },
       { code: 'hp', name: 'hp', isDimensional: true },
@@ -37,9 +37,9 @@ describe('RuleReferenceService.resourceOptions', () => {
 describe('RuleReferenceService.abilityOptions / sourceOptions / zoneOptions', () => {
   it('фильтруют правила по типу', () => {
     const rules = [
-      baseRule('a1', 'bash', 'ability'),
-      baseRule('s1', 'cast', 'source'),
-      baseRule('z1', 'core', 'points'),
+      baseRule(null, 'bash', 'ability'),
+      baseRule(null, 'cast', 'source'),
+      baseRule(null, 'core', 'points'),
     ];
     expect(ruleReferenceService.abilityOptions(rules)).toEqual([{ code: 'bash', name: 'bash' }]);
     expect(ruleReferenceService.sourceOptions(rules)).toEqual([{ code: 'cast', name: 'cast' }]);
@@ -49,15 +49,15 @@ describe('RuleReferenceService.abilityOptions / sourceOptions / zoneOptions', ()
 
 describe('RuleReferenceService.itemOptions', () => {
   it('возвращает только предметы', () => {
-    const rules = [baseRule('i1', 'sword', 'item'), baseRule('a1', 'bash', 'ability')];
+    const rules = [baseRule(null, 'sword', 'item'), baseRule(null, 'bash', 'ability')];
     expect(ruleReferenceService.itemOptions(rules)).toEqual([{ code: 'sword', name: 'sword' }]);
   });
 });
 
 describe('RuleReferenceService.speciesOptions', () => {
-  it('исключает правило с excludeRuleId', () => {
-    const rules = [baseRule('sp1', 'human', 'species'), baseRule('sp2', 'elf', 'species')];
-    expect(ruleReferenceService.speciesOptions(rules, 'sp1')).toEqual([{ code: 'elf', name: 'elf' }]);
+  it('исключает правило с excludeCode', () => {
+    const rules = [baseRule(null, 'human', 'species'), baseRule(null, 'elf', 'species')];
+    expect(ruleReferenceService.speciesOptions(rules, 'human')).toEqual([{ code: 'elf', name: 'elf' }]);
     expect(ruleReferenceService.speciesOptions(rules)).toEqual([
       { code: 'human', name: 'human' },
       { code: 'elf', name: 'elf' },
@@ -68,9 +68,9 @@ describe('RuleReferenceService.speciesOptions', () => {
 describe('RuleReferenceService.abilityNameMap', () => {
   it('собирает name только для способностей', () => {
     const rules = [
-      baseRule('a1', 'bash', 'ability'),
-      baseRule('a2', 'focus', 'ability'),
-      baseRule('s1', 'cast', 'source'),
+      baseRule(null, 'bash', 'ability'),
+      baseRule(null, 'focus', 'ability'),
+      baseRule(null, 'cast', 'source'),
     ];
     expect(ruleReferenceService.abilityNameMap(rules)).toEqual(
       new Map([

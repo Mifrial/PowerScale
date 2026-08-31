@@ -5,7 +5,7 @@
  *
  * Жизненный цикл: `active` (выдано) → «Оформить как правило» (ведущий создаёт правило в черновике
  * и коммитит) → «Заменить на правило» (запись становится `deprecated` и ссылается на настоящее
- * правило ревизии через `replacedWithRuleId`).
+ * правило ревизии через `replacedWithRuleCode`).
  */
 export interface CustomRuleEntry {
   id: number;
@@ -14,6 +14,6 @@ export interface CustomRuleEntry {
   name: string;
   description: string | null;
   status: 'active' | 'deprecated';
-  /** ruleId правила, на которое заменена устаревшая запись (после «Заменить на правило»). */
-  replacedWithRuleId?: string;
+  /** ruleCode правила, на которое заменена устаревшая запись (после «Заменить на правило»). */
+  replacedWithRuleCode?: string;
 }

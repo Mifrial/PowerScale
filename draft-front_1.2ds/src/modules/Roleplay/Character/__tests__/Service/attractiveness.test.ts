@@ -18,7 +18,7 @@ function makeBuild(overrides: Partial<CharacterBuild> = {}): CharacterBuild {
     spaceCode: 'razrabotka',
     rulesRevision: 5,
     spaceId: 1,
-    raceRuleId: '',
+    raceRuleCode: '',
     characteristicPurchases: [],
     abilities: [],
     resources: [],
@@ -35,7 +35,7 @@ describe('Привлекательность', () => {
   it('без черт внешности статус есть и равен 0', () => {
     const version = service.toVersion(makeBuild(), ruleCatalog, config, keywords);
     const rule = ruleCatalog.find((entry) => entry.code === ATTRACTIVENESS_STATE_CODE);
-    const state = version.states.find((entry) => entry.stateRuleId === rule?.id);
+    const state = version.states.find((entry) => entry.stateRuleCode === rule?.code);
     expect(state?.value).toBe(0);
   });
 
@@ -45,8 +45,8 @@ describe('Привлекательность', () => {
     const version = service.toVersion(
       makeBuild({
         abilities: [
-          { ruleId: gorgeous.id, level: 1 },
-          { ruleId: voice.id, level: 1 },
+          { ruleCode: gorgeous.code, level: 1 },
+          { ruleCode: voice.code, level: 1 },
         ],
       }),
       ruleCatalog,
@@ -54,7 +54,7 @@ describe('Привлекательность', () => {
       keywords,
     );
     const rule = ruleCatalog.find((entry) => entry.code === ATTRACTIVENESS_STATE_CODE);
-    expect(version.states.find((entry) => entry.stateRuleId === rule?.id)?.value).toBe(3);
+    expect(version.states.find((entry) => entry.stateRuleCode === rule?.code)?.value).toBe(3);
 
     expect(
       stateRuntimeEffectsService.checkAdvantageFromStates(version, ruleCatalog, {
@@ -86,7 +86,7 @@ describe('Привлекательность', () => {
   it('Омерзительная: −1 на обман, −2 на обольщение', () => {
     const repulsive = ruleCatalog.find((entry) => entry.code === 'repulsive')!;
     const version = service.toVersion(
-      makeBuild({ abilities: [{ ruleId: repulsive.id, level: 1 }] }),
+      makeBuild({ abilities: [{ ruleCode: repulsive.code, level: 1 }] }),
       ruleCatalog,
       config,
       keywords,

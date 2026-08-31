@@ -1,5 +1,5 @@
 export type InventoryModifierOption = {
-  ruleId: string;
+  ruleCode: string;
   name: string;
   category: string;
   priceLabel: string | null;

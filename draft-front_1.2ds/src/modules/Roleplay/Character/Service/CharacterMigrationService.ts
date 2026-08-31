@@ -86,16 +86,13 @@ const ZONE_LABEL: Record<string, string> = { os: 'ОС', or: 'ОР', ol: 'ОЛ' 
 export class CharacterMigrationService {
   migrate(input: MigrationInput): MigrationResult {
     const { version, oldRules, newRules } = input;
-    const codeById = new Map(oldRules.map((rule) => [rule.id, rule.code]));
-    const newCodeById = new Map(newRules.map((rule) => [rule.id, rule.code]));
     const ruleByCode = new Map(newRules.map((rule) => [rule.code, rule]));
     const problems: MigrationProblem[] = [];
 
-    const oldNameOf = (ruleId: string): string => oldRules.find((rule) => rule.id === ruleId)?.name ?? ruleId;
+    const oldNameOf = (ruleCode: string): string => oldRules.find((rule) => rule.code === ruleCode)?.name ?? ruleCode;
 
-    const remap = (oldRuleId: string, isRace: boolean, label: string): string | null => {
-      const code = codeById.get(oldRuleId);
-      const rule = code === undefined ? undefined : ruleByCode.get(code);
+    const remap = (oldCode: string, isRace: boolean, label: string): string | null => {
+      const rule = ruleByCode.get(oldCode);
       if (!rule) {
         if (isRace) problems.push({ kind: 'raceRemoved', label, detail: 'Расы нет в новой версии правил' });
         else problems.push({ kind: 'removedRule', label, detail: 'Правило удалено из новой версии' });
@@ -103,86 +100,80 @@ export class CharacterMigrationService {
         return null;
       }
 
-      return rule.id;
+      return rule.code;
     };
 
-    const raceRuleId =
-      version.raceRuleId === null ? null : remap(version.raceRuleId, true, oldNameOf(version.raceRuleId));
+    const raceRuleCode =
+      version.raceRuleCode === null ? null : remap(version.raceRuleCode, true, oldNameOf(version.raceRuleCode));
 
     const characteristics = [];
     for (const characteristic of version.characteristics) {
-      const newId = remap(characteristic.ruleId, false, oldNameOf(characteristic.ruleId));
+      const newId = remap(characteristic.ruleCode, false, oldNameOf(characteristic.ruleCode));
       if (newId === null) continue;
-      characteristics.push({ ...characteristic, ruleId: newId });
+      characteristics.push({ ...characteristic, ruleCode: newId });
     }
 
     const resources = [];
     for (const resource of version.resources) {
-      const newId = remap(resource.ruleId, false, oldNameOf(resource.ruleId));
+      const newId = remap(resource.ruleCode, false, oldNameOf(resource.ruleCode));
       if (newId === null) continue;
-      resources.push({ ...resource, ruleId: newId });
+      resources.push({ ...resource, ruleCode: newId });
     }
 
     const remappedAbilities = [];
     for (const ability of version.abilities) {
-      const newId = remap(ability.ruleId, false, oldNameOf(ability.ruleId));
+      const newId = remap(ability.ruleCode, false, oldNameOf(ability.ruleCode));
       if (newId === null) continue;
-      remappedAbilities.push({ ...ability, ruleId: newId });
+      remappedAbilities.push({ ...ability, ruleCode: newId });
     }
 
     // Инвентарь не перезакупается; предмет с удалённым правилом → кастомный «предмет мастера».
     let convertedItems = 0;
     const inventory = [];
     for (const item of version.inventory) {
-      if (item.ruleId === null) {
+      if (item.ruleCode === null) {
         inventory.push(item);
         continue;
       }
-      const code = codeById.get(item.ruleId);
-      const rule = code === undefined ? undefined : ruleByCode.get(code);
+      const rule = ruleByCode.get(item.ruleCode);
       if (!rule) {
-        const oldRule = oldRules.find((entry) => entry.id === item.ruleId);
+        const oldRule = oldRules.find((entry) => entry.code === item.ruleCode);
         convertedItems += 1;
         inventory.push({
           id: item.id,
-          ruleId: null,
+          ruleCode: null,
           quantity: item.quantity,
           equipped: item.equipped,
           durabilityLeft: item.durabilityLeft ?? null,
           note: item.note ?? null,
-          name: oldRule?.name ?? item.ruleId,
+          name: oldRule?.name ?? item.ruleCode,
           description: oldRule?.description ?? null,
-          modifierRuleIds: item.modifierRuleIds ?? [],
+          modifierRuleCodes: item.modifierRuleCodes ?? [],
         });
         continue;
       }
-      const modifierRuleIds = (item.modifierRuleIds ?? [])
-        .map((id) => {
-          const modifierCode = codeById.get(id) ?? newCodeById.get(id);
-          const modifier = modifierCode === undefined ? undefined : ruleByCode.get(modifierCode);
-
-          return modifier?.id;
-        })
-        .filter((id): id is string => Boolean(id));
-      inventory.push({ ...item, ruleId: rule.id, modifierRuleIds });
+      const modifierRuleCodes = (item.modifierRuleCodes ?? [])
+        .map((code) => ruleByCode.get(code)?.code)
+        .filter((code): code is string => Boolean(code));
+      inventory.push({ ...item, ruleCode: rule.code, modifierRuleCodes });
     }
 
     const states = [];
     for (const state of version.states) {
-      const newId = remap(state.stateRuleId, false, oldNameOf(state.stateRuleId));
+      const newId = remap(state.stateRuleCode, false, oldNameOf(state.stateRuleCode));
       if (newId === null) continue;
-      states.push({ ...state, stateRuleId: newId });
+      states.push({ ...state, stateRuleCode: newId });
     }
 
     const senses = [];
     for (const sense of version.senses) {
-      const newId = remap(sense.ruleId, false, oldNameOf(sense.ruleId));
+      const newId = remap(sense.ruleCode, false, oldNameOf(sense.ruleCode));
       if (newId === null) continue;
-      const newRule = newRules.find((rule) => rule.id === newId);
+      const newRule = newRules.find((rule) => rule.code === newId);
       const senseSpec = newRule?.type === 'sense' ? (newRule.spec as SenseSpec | undefined) : undefined;
       senses.push({
         ...sense,
-        ruleId: newId,
+        ruleCode: newId,
         status: sense.status ?? senseSpec?.status ?? 'precise',
         radius: sense.radius ?? senseSpec?.radius ?? { base: 0, size: 0 },
       });
@@ -192,7 +183,7 @@ export class CharacterMigrationService {
       ...version,
       spaceCode: input.newSpaceCode,
       rulesRevision: input.newRevision,
-      raceRuleId,
+      raceRuleCode,
       characteristics,
       resources,
       abilities: remappedAbilities,
@@ -206,9 +197,7 @@ export class CharacterMigrationService {
     // Способности с невыполненными требованиями сбрасываются (конфликт-редактор открывается уже без них).
     const droppedAbilities = this.unmetAbilities(migrated, input);
     const droppedCodes = new Set(droppedAbilities.map((entry) => entry.code));
-    const finalAbilities = migrated.abilities.filter(
-      (ability) => !droppedCodes.has(codeById.get(ability.ruleId) ?? ability.ruleId),
-    );
+    const finalAbilities = migrated.abilities.filter((ability) => !droppedCodes.has(ability.ruleCode));
     for (const dropped of droppedAbilities) {
       problems.push({ kind: 'unmetRequirement', label: dropped.label, detail: dropped.reason });
     }
@@ -231,6 +220,8 @@ export class CharacterMigrationService {
       input.mechanics ?? [],
     );
 
+    const codeById = new Map(oldRules.map((rule) => [rule.code, rule.code]));
+    const newCodeById = new Map(newRules.map((rule) => [rule.code, rule.code]));
     const abilityChanges = this.abilityChanges(oldModel, newModel, oldRules, newRules, codeById, newCodeById);
     const diffs = this.diffsOf(oldModel, newModel, codeById, newCodeById, abilityChanges);
 
@@ -238,7 +229,7 @@ export class CharacterMigrationService {
     // персонаж их потеряет в редакторе. Если теряется вся база — раса некорректна, сбрасываем её.
     const lostProblems = this.lostCharacteristicProblems(finalVersion, newModel, oldRules, newCodeById, newRules);
     const brokenRace = lostProblems.some((problem) => problem.kind === 'raceBroken');
-    const finalWithRace = brokenRace ? { ...finalVersion, raceRuleId: null } : finalVersion;
+    const finalWithRace = brokenRace ? { ...finalVersion, raceRuleCode: null } : finalVersion;
     problems.push(...lostProblems);
 
     const budgetOverruns: MigrationProblem[] = [];
@@ -286,8 +277,8 @@ export class CharacterMigrationService {
     mechanics?: Mechanic[],
   ): MigrationResult {
     const config = this.configOf(effectiveLimits);
-    const oldCodeById = new Map(oldRules.map((rule) => [rule.id, rule.code]));
-    const newCodeById = new Map(newRules.map((rule) => [rule.id, rule.code]));
+    const oldCodeById = new Map(oldRules.map((rule) => [rule.code, rule.code]));
+    const newCodeById = new Map(newRules.map((rule) => [rule.code, rule.code]));
     const oldModel = characterEditorService.build(
       characterBuildService.fromVersion(originalVersion, oldRules[0]?.spaceId ?? 0, oldRules),
       oldRules,
@@ -329,19 +320,19 @@ export class CharacterMigrationService {
     const newCodes = new Set(newModel.characteristics.map((characteristic) => characteristic.code));
     const lost: MigrationProblem[] = [];
     for (const characteristic of finalVersion.characteristics) {
-      const code = newCodeById.get(characteristic.ruleId);
+      const code = characteristic.ruleCode;
       if (!code || newCodes.has(code)) continue;
-      const rule = oldRules.find((entry) => entry.id === characteristic.ruleId);
+      const rule = oldRules.find((entry) => entry.code === characteristic.ruleCode);
       lost.push({
         kind: 'lostCharacteristic',
-        label: rule?.name ?? characteristic.ruleId,
+        label: rule?.name ?? characteristic.ruleCode,
         detail: 'Исчезнет: раса не предоставляет базовую характеристику в новой версии',
       });
     }
 
     // Раса некорректна, если не даёт базы вообще (в спеке нет характеристик) — сбрасываем её.
-    if (lost.length > 0 && finalVersion.raceRuleId !== null && newModel.race.name !== null) {
-      const raceRule = newRules.find((rule) => rule.id === finalVersion.raceRuleId);
+    if (lost.length > 0 && finalVersion.raceRuleCode !== null && newModel.race.name !== null) {
+      const raceRule = newRules.find((rule) => rule.code === finalVersion.raceRuleCode);
       const spec =
         raceRule?.type === 'race' ? (raceRule.spec as { characteristics?: unknown[] } | undefined) : undefined;
       if (!spec || (spec.characteristics ?? []).length === 0) {
@@ -457,12 +448,12 @@ export class CharacterMigrationService {
     /** Стоимость способности в выбранной зоне с учётом параметров (array/progression/parameter/parameter_table). */
     const ruleCostOf = (
       rules: Rule[],
-      ruleId: string,
+      ruleCode: string,
       level: number,
       parameters: Map<string, number>,
       zone?: string,
     ): { zone: string; cost: number } | null => {
-      const rule = rules.find((entry) => entry.id === ruleId);
+      const rule = rules.find((entry) => entry.code === ruleCode);
       const spec = rule?.spec as AbilitySpec | undefined;
       if (!spec || spec.type === 'group') return null;
       const zones = spec.zones as Partial<Record<string, AbilityCost>> | undefined;
@@ -573,7 +564,7 @@ export class CharacterMigrationService {
     _domain: string | undefined,
     _codeById: Map<string, string>,
   ): string | null {
-    return model.abilities.find((entry) => entry.code === code)?.ruleId ?? null;
+    return model.abilities.find((entry) => entry.code === code)?.ruleCode ?? null;
   }
 
   /** Честный диф по обеим моделям: характеристики, ресурсы, бюджеты. */
@@ -607,10 +598,10 @@ export class CharacterMigrationService {
     }
 
     const oldRes = new Map(
-      oldModel.resources.map((resource) => [oldCodeById.get(resource.ruleId) ?? resource.ruleId, resource]),
+      oldModel.resources.map((resource) => [oldCodeById.get(resource.ruleCode) ?? resource.ruleCode, resource]),
     );
     const newRes = new Map(
-      newModel.resources.map((resource) => [newCodeById.get(resource.ruleId) ?? resource.ruleId, resource]),
+      newModel.resources.map((resource) => [newCodeById.get(resource.ruleCode) ?? resource.ruleCode, resource]),
     );
     for (const code of new Set([...oldRes.keys(), ...newRes.keys()])) {
       const oldResource = oldRes.get(code);

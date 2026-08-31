@@ -18,7 +18,7 @@ export interface DefenseLineOverview {
 }
 
 export interface DefenseArmorOverview {
-  itemRuleId: string;
+  itemRuleCode: string;
   itemName: string;
   href: string;
   lines: DefenseLineOverview[];
@@ -27,7 +27,7 @@ export interface DefenseArmorOverview {
 }
 
 export interface DefenseShieldOverview {
-  itemRuleId: string;
+  itemRuleCode: string;
   itemName: string;
   href: string;
   defense: string;

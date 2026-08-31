@@ -9,7 +9,7 @@ export const ruleCtxChildren: RouteRecordRaw[] = [
     meta: { title: 'Создание правила', crumb: () => [{ title: 'Создание правила' }] },
   },
   {
-    path: 'rules/:ruleId',
+    path: 'rules/:ruleCode',
     meta: { crumb: ruleDetailCrumb },
     children: [
       {
@@ -37,7 +37,7 @@ function ruleDetailCrumb(to: RouteLocationNormalizedLoaded) {
   return [
     {
       title: ruleName() || 'Правило',
-      to: `/space/${to.params.code}/${to.params.ctx}/rules/${to.params.ruleId}`,
+      to: `/space/${String(to.params.code)}/${String(to.params.ctx)}/rules/${encodeURIComponent(String(to.params.ruleCode))}`,
     },
   ];
 }

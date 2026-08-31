@@ -33,9 +33,9 @@ export const useSpaceRevisionStore = defineStore('spaceRevision', () => {
     const removedCodes = new Set(drafts.getRemovedCodes(ctx.spaceId));
     if (draftRules.length === 0 && removedCodes.size === 0) return published;
 
-    const draftMap = new Map(draftRules.map((r) => [r.id, r]));
-    const merged = published.filter((r) => !removedCodes.has(r.code)).map((r) => draftMap.get(r.id) ?? r);
-    const newRules = draftRules.filter((r) => !published.some((p) => p.id === r.id));
+    const draftMap = new Map(draftRules.map((r) => [r.code, r]));
+    const merged = published.filter((r) => !removedCodes.has(r.code)).map((r) => draftMap.get(r.code) ?? r);
+    const newRules = draftRules.filter((r) => !published.some((p) => p.code === r.code));
 
     return [...merged, ...newRules];
   });

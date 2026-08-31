@@ -252,7 +252,7 @@ describe('типы урона и увечье', () => {
   it('валидация хуков типа урона', () => {
     const rules: Rule[] = [
       {
-        id: 'dt',
+        id: null,
         code: 'blunt',
         type: 'damage_type',
         name: 'Дробящий',

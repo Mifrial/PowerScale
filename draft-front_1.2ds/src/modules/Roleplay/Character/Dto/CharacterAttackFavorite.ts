@@ -1,6 +1,6 @@
 export interface CharacterAttackFavorite {
   entityKey: string;
-  itemRuleId: string;
+  itemRuleCode: string;
   profileType: 'strike' | 'throw' | 'shoot';
   profileIndex: number;
 }

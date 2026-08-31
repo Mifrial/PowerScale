@@ -103,8 +103,8 @@ watch(
 
 watch(
   unsupportedRuleIds,
-  (ruleIds) => {
-    if (ruleIds.length > 0 && !integrityDismissed.value) integrityPromptOpen.value = true;
+  (ruleCodes) => {
+    if (ruleCodes.length > 0 && !integrityDismissed.value) integrityPromptOpen.value = true;
   },
   { immediate: true },
 );
@@ -243,8 +243,8 @@ onMounted(() => {
             В черновике есть ссылки на правила, которых нет в выбранной ревизии. Их нельзя сохранить в текущем виде:
           </p>
           <div class="d-flex flex-wrap ga-2">
-            <v-chip v-for="ruleId in unsupportedRuleIds" :key="ruleId" size="small" variant="tonal">
-              {{ ruleId }}
+            <v-chip v-for="ruleCode in unsupportedRuleIds" :key="ruleCode" size="small" variant="tonal">
+              {{ ruleCode }}
             </v-chip>
           </div>
           <p class="text-caption text-medium-emphasis mt-3">
@@ -363,7 +363,7 @@ onMounted(() => {
 
       <RuleSlider
         v-model:open="ruleSlider.state.open"
-        :rule-id="ruleSlider.state.ruleId"
+        :rule-code="ruleSlider.state.ruleCode"
         :space-id="draft.build.spaceId"
         :rules-revision="draft.build.rulesRevision"
         :rules="rules"

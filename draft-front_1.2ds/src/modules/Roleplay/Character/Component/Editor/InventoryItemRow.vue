@@ -53,8 +53,8 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:open': [open: boolean];
-  buy: [ruleId: string];
-  cancel: [ruleId: string, quantity: number];
+  buy: [ruleCode: string];
+  cancel: [ruleCode: string, quantity: number];
   'cancel-instance': [];
   'toggle-equipped': [];
   train: [mastery: ItemMasteryView, level: number];
@@ -63,14 +63,14 @@ const emit = defineEmits<{
 }>();
 
 const selectedEffects = computed(() =>
-  props.modifiers.filter((modifier) => props.selectedModifierRuleIds.includes(modifier.ruleId)),
+  props.modifiers.filter((modifier) => props.selectedModifierRuleIds.includes(modifier.ruleCode)),
 );
 
 const effectiveSpec = computed<ItemSpec | undefined>(() => {
   const spec = props.item.spec;
   if (!spec) return undefined;
   const modifiers = props.selectedModifierRuleIds
-    .map((id) => props.rules.find((rule) => rule.id === id))
+    .map((id) => props.rules.find((rule) => rule.code === id))
     .filter((rule): rule is Rule => rule !== undefined);
 
   return itemModifierService.applyStack(spec, modifiers, props.keywordCodes).spec;
@@ -170,11 +170,11 @@ const open = computed({
     <template #title>
       <div class="d-flex align-center ga-2 w-100">
         <LightButton
-          v-if="item.ruleId"
+          v-if="item.ruleCode"
           class="item-row__slider-btn"
           title="Открыть правило"
           aria-label="Открыть правило"
-          @click.stop="openRule(item.ruleId)"
+          @click.stop="openRule(item.ruleCode)"
         >
           <i class="mdi mdi-open-in-new" aria-hidden="true" />
         </LightButton>
@@ -196,7 +196,7 @@ const open = computed({
             :disabled="!canCancel"
             title="Отменить покупку"
             aria-label="Отменить покупку"
-            @click.stop="mode === 'owned' ? emit('cancel-instance') : emit('cancel', item.ruleId, 1)"
+            @click.stop="mode === 'owned' ? emit('cancel-instance') : emit('cancel', item.ruleCode, 1)"
           >
             <i class="mdi mdi-minus" aria-hidden="true" />
           </LightButton>
@@ -205,7 +205,7 @@ const open = computed({
             v-if="showPurchase && mode === 'shop'"
             title="Купить"
             aria-label="Купить"
-            @click.stop="emit('buy', item.ruleId)"
+            @click.stop="emit('buy', item.ruleCode)"
           >
             <i class="mdi mdi-plus" aria-hidden="true" />
           </LightButton>
@@ -326,14 +326,14 @@ const open = computed({
       <div v-if="mode === 'owned' && modifiers.length" class="item-row__mods">
         <div class="d-flex align-center ga-2 flex-wrap">
           <span class="text-caption text-medium-emphasis">Модификаторы</span>
-          <LightChip v-for="modifier in selectedEffects" :key="modifier.ruleId" variant="outlined">
+          <LightChip v-for="modifier in selectedEffects" :key="modifier.ruleCode" variant="outlined">
             {{ modifier.name }}
           </LightChip>
           <LightButton v-if="allowAbilityEdit" class="item-row__mods-btn" @click.stop="emit('open-modifiers')">
             {{ selectedEffects.length > 0 ? 'Изменить' : 'Выбрать' }}
           </LightButton>
         </div>
-        <div v-for="modifier in selectedEffects" :key="`${modifier.ruleId}-fx`" class="item-row__mod-effect">
+        <div v-for="modifier in selectedEffects" :key="`${modifier.ruleCode}-fx`" class="item-row__mod-effect">
           <strong>{{ modifier.name }}</strong>
           <span v-if="modifier.category" class="text-medium-emphasis"> · {{ modifier.category }}</span>
           <span v-if="modifier.priceLabel" class="text-medium-emphasis"> · {{ modifier.priceLabel }}</span>

@@ -32,8 +32,8 @@ interface PurchasedCharacteristic {
 }
 
 const purchasedCharacteristics = computed<PurchasedCharacteristic[]>(() => {
-  if (props.build.raceRuleId === null) return [];
-  const raceRule = props.rules.find((rule) => rule.id === props.build.raceRuleId);
+  if (props.build.raceRuleCode === null) return [];
+  const raceRule = props.rules.find((rule) => rule.code === props.build.raceRuleCode);
   const spec = raceRule?.type === 'race' ? (raceRule.spec as RaceSpec | undefined) : undefined;
   if (!spec) return [];
 
@@ -80,8 +80,8 @@ function setPurchase(code: string, cost: number): void {
   draftStore.patchBuild(props.draftKey, { characteristicPurchases: next });
 }
 
-function setInnateParameter(ruleId: string, code: string, value: number | { base: number; size: number }): void {
-  const next = characterBuildService.setAbilityParameter(props.build, ruleId, code, value, props.rules);
+function setInnateParameter(ruleCode: string, code: string, value: number | { base: number; size: number }): void {
+  const next = characterBuildService.setAbilityParameter(props.build, ruleCode, code, value, props.rules);
   draftStore.patchBuild(props.draftKey, { abilities: next.abilities });
 }
 </script>

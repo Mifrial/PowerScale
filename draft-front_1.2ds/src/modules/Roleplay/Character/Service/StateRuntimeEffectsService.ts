@@ -52,7 +52,7 @@ export class StateRuntimeEffectsService {
     const resourceLimitSet = new Map<string, number>();
 
     for (const state of states) {
-      const rule = this.ruleById(rules, state.stateRuleId);
+      const rule = this.ruleByCode(rules, state.stateRuleCode);
       const spec = this.specOf(rule);
       if (!spec) continue;
       const magnitude = this.stateMagnitude(state, spec);
@@ -81,7 +81,7 @@ export class StateRuntimeEffectsService {
   sheetCharacteristicValues(version: CharacterVersion, rules: Rule[]): Map<string, DimensionalNumberValue> {
     const values = new Map<string, DimensionalNumberValue>();
     for (const characteristic of version.characteristics) {
-      const rule = this.ruleById(rules, characteristic.ruleId);
+      const rule = this.ruleByCode(rules, characteristic.ruleCode);
       if (!rule) continue;
       const delta = characteristic.modifiers.reduce((sum, modifier) => sum + modifier.delta, 0);
       values.set(rule.code, new DimensionalNumber(characteristic.base).modify(delta, CHARACTERISTIC_BASE_RANGE).value);
@@ -115,7 +115,7 @@ export class StateRuntimeEffectsService {
     if (!version) return [];
     const entries: AdvantageModifier[] = [];
     for (const [index, state] of version.states.entries()) {
-      const rule = this.ruleById(rules, state.stateRuleId);
+      const rule = this.ruleByCode(rules, state.stateRuleCode);
       const spec = this.specOf(rule);
       if (!rule || !spec) continue;
       const magnitude = this.stateMagnitude(state, spec);
@@ -125,7 +125,7 @@ export class StateRuntimeEffectsService {
         const delta = this.scaledAmount(effect, magnitude);
         if (!delta) continue;
         const sourceCode =
-          spec.aggregation === 'independent' ? `${rule.id}#${index}` : (effect.source_code ?? ADVANTAGE_SOURCE_STATE);
+          spec.aggregation === 'independent' ? `${rule.code}#${index}` : (effect.source_code ?? ADVANTAGE_SOURCE_STATE);
         entries.push({
           source_code: sourceCode,
           source_label: sourceCode === ADVANTAGE_SOURCE_APPEARANCE ? 'внешность' : rule.name,
@@ -173,8 +173,8 @@ export class StateRuntimeEffectsService {
     return (rule.spec as StateSpec | undefined) ?? null;
   }
 
-  private ruleById(rules: Rule[], id: string): Rule | undefined {
-    return rules.find((rule) => rule.id === id);
+  private ruleByCode(rules: Rule[], id: string): Rule | undefined {
+    return rules.find((rule) => rule.code === id);
   }
 
   private scaledAmount(effect: { amount: number; per_unit?: boolean; scale?: 'sign' }, magnitude: number): number {

@@ -3,9 +3,9 @@ import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/Chara
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 
-/** Переопределение текущего значения ресурса в бою (по ruleId версии листа). */
+/** Переопределение текущего значения ресурса в бою (по ruleCode версии листа). */
 export interface CombatResourceOverride {
-  ruleId: string;
+  ruleCode: string;
   current: DimensionalNumberValue;
 }
 

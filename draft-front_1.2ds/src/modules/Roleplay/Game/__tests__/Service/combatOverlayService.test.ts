@@ -11,8 +11,8 @@ function makeOverlay(): GameCombatOverlay {
     gameId: 2,
     entityKey: 'character:1',
     kind: 'character',
-    resources: [{ ruleId: 'rule-18', current: { base: 1, size: 0 } }],
-    states: [{ stateRuleId: 'rule-63', value: 5 }],
+    resources: [{ ruleCode: 'action-points', current: { base: 1, size: 0 } }],
+    states: [{ stateRuleCode: 'stunned', value: 5 }],
     updatedAt: '2026-08-19T12:00:00',
   };
 }
@@ -20,15 +20,16 @@ function makeOverlay(): GameCombatOverlay {
 describe('mergeCombatOverlay: применение оверлея на версию', () => {
   it('применяет current ресурсов (с клампом к лимиту) и заменяет состояния', () => {
     const merged = combatOverlayService.mergeCombatOverlay(version, makeOverlay());
-    expect(merged.resources.find((r) => r.ruleId === 'rule-18')?.current).toEqual({ base: 1, size: 0 });
-    expect(merged.states).toEqual([{ stateRuleId: 'rule-63', value: 5 }]);
+    expect(merged.resources.find((r) => r.ruleCode === 'action-points')?.current).toEqual({ base: 1, size: 0 });
+    expect(merged.states).toEqual([{ stateRuleCode: 'stunned', value: 5 }]);
   });
 
   it('значение выше лимита клампится к лимиту актуальной версии', () => {
     const overlay = makeOverlay();
-    overlay.resources = [{ ruleId: 'rule-18', current: { base: 99, size: 0 } }];
+    overlay.resources = [{ ruleCode: 'action-points', current: { base: 99, size: 0 } }];
     expect(
-      combatOverlayService.mergeCombatOverlay(version, overlay).resources.find((r) => r.ruleId === 'rule-18')?.current,
+      combatOverlayService.mergeCombatOverlay(version, overlay).resources.find((r) => r.ruleCode === 'action-points')
+        ?.current,
     ).toEqual({
       base: 4,
       size: 0,
@@ -37,9 +38,10 @@ describe('mergeCombatOverlay: применение оверлея на верс�
 
   it('размерный ресурс: кламп в базовых пунктах (1↓ не сплющивается в 0)', () => {
     const overlay = makeOverlay();
-    overlay.resources = [{ ruleId: 'rule-19', current: { base: 1, size: -1 } }];
+    overlay.resources = [{ ruleCode: 'spirit-energy', current: { base: 1, size: -1 } }];
     expect(
-      combatOverlayService.mergeCombatOverlay(version, overlay).resources.find((r) => r.ruleId === 'rule-19')?.current,
+      combatOverlayService.mergeCombatOverlay(version, overlay).resources.find((r) => r.ruleCode === 'spirit-energy')
+        ?.current,
     ).toEqual({
       base: 1,
       size: -1,
@@ -51,7 +53,7 @@ describe('mergeCombatOverlay: применение оверлея на верс�
     const merged = combatOverlayService.mergeCombatOverlay(changed, makeOverlay());
     expect(merged.name).toBe('Торвин II');
     expect(merged.money).toBe(777);
-    expect(merged.resources.find((r) => r.ruleId === 'rule-19')?.current).toEqual(version.resources[1].current);
+    expect(merged.resources.find((r) => r.ruleCode === 'spirit-energy')?.current).toEqual(version.resources[1].current);
   });
 
   it('не мутирует исходную версию', () => {
@@ -66,20 +68,21 @@ describe('mergeCombatOverlay: применение оверлея на верс�
     overlay.resources = [];
     const merged = combatOverlayService.mergeCombatOverlay(version, overlay);
     expect(merged.resources).toEqual(version.resources);
-    expect(merged.states).toEqual([{ stateRuleId: 'rule-63', value: 5 }]);
+    expect(merged.states).toEqual([{ stateRuleCode: 'stunned', value: 5 }]);
   });
 
   it('клампит current листа к лимиту даже без переопределения оверлея', () => {
     const over = {
       ...version,
       resources: version.resources.map((resource) =>
-        resource.ruleId === 'rule-18' ? { ...resource, current: { base: 99, size: 0 } } : resource,
+        resource.ruleCode === 'action-points' ? { ...resource, current: { base: 99, size: 0 } } : resource,
       ),
     };
     const overlay = makeOverlay();
     overlay.resources = [];
     expect(
-      combatOverlayService.mergeCombatOverlay(over, overlay).resources.find((r) => r.ruleId === 'rule-18')?.current,
+      combatOverlayService.mergeCombatOverlay(over, overlay).resources.find((r) => r.ruleCode === 'action-points')
+        ?.current,
     ).toEqual({
       base: 4,
       size: 0,
@@ -100,7 +103,7 @@ describe('preferNewerCombatOverlays / replaceCombatOverlay', () => {
   it('replaceCombatOverlay отдаёт новый массив с подменённым снимком', () => {
     const previous = makeOverlay();
     const next = makeOverlay();
-    next.resources = [{ ruleId: 'rule-18', current: { base: 2, size: 0 } }];
+    next.resources = [{ ruleCode: 'action-points', current: { base: 2, size: 0 } }];
     const list = combatOverlayService.replaceCombatOverlay([previous], next);
     expect(list).not.toBe([previous]);
     expect(list[0]?.resources[0]?.current.base).toBe(2);

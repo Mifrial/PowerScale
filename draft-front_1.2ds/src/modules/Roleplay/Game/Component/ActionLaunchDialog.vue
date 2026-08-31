@@ -31,6 +31,8 @@ import {
   asActionAbilitySpec,
   asProcessAbilitySpec,
   WAIT_ACTION_CODE,
+  findRuleByRef,
+  actionRefEquals,
 } from '@/modules/Roleplay/Game/Utils/combatActions';
 import { processSessionService } from '@/modules/Roleplay/Game/Service/Instance/processSessionService';
 import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
@@ -109,7 +111,7 @@ const actorMovementStep = computed(() =>
 );
 
 const actions = computed<CombatActionOption[]>(() => {
-  const owned = new Set(actorOverview.value?.abilities.map((ability) => ability.ruleId) ?? []);
+  const owned = new Set(actorOverview.value?.abilities.map((ability) => ability.ruleCode) ?? []);
 
   return props.rules.flatMap((rule) => {
     const spec = asActionAbilitySpec(rule);
@@ -120,10 +122,10 @@ const actions = computed<CombatActionOption[]>(() => {
     if (!spec && !process) return [];
     if (spec && !requirementsSatisfied(spec.requirements)) return [];
     if (process && !requirementsSatisfied(requirements)) return [];
-    if (!owned.has(rule.id) && (!spec || !Object.values(spec.zones ?? {}).some((zone) => zone?.kind === 'automatic')))
+    if (!owned.has(rule.code) && (!spec || !Object.values(spec.zones ?? {}).some((zone) => zone?.kind === 'automatic')))
       return [];
     const option: CombatActionOption = {
-      ruleId: rule.id,
+      ruleCode: rule.code,
       code: rule.code,
       name: rule.name,
       odCost: spec ? actionOdCost(spec.action_components) : 0,
@@ -163,7 +165,7 @@ function requirementsSatisfied(entries: { level: number; requirements: Requireme
 const visibleActions = computed(() => actions.value.filter((action) => action.isReaction === showReactions.value));
 const activeProcess = computed(() => (actorKey.value ? processSessionsByEntity.value[actorKey.value] : undefined));
 const processRule = computed(() =>
-  activeProcess.value ? props.rules.find((rule) => rule.id === activeProcess.value?.processRuleId) : null,
+  activeProcess.value ? (findRuleByRef(props.rules, activeProcess.value.processRuleCode) ?? null) : null,
 );
 const processRuleSpec = computed(() => (processRule.value ? asProcessAbilitySpec(processRule.value) : null));
 const selectableActions = computed(() => {
@@ -171,11 +173,15 @@ const selectableActions = computed(() => {
 
   return visibleActions.value.filter(
     (action) =>
-      (action.isProcess && action.ruleId === activeProcess.value?.processRuleId) || action.code === WAIT_ACTION_CODE,
+      (action.isProcess && actionRefEquals(action, activeProcess.value?.processRuleCode, props.rules)) ||
+      action.code === WAIT_ACTION_CODE,
   );
 });
 const selectedAction = computed(
-  () => selectableActions.value.find((action) => action.ruleId === selectedRuleId.value) ?? null,
+  () =>
+    selectableActions.value.find(
+      (action) => action.ruleCode === selectedRuleId.value || action.code === selectedRuleId.value,
+    ) ?? null,
 );
 const selectedActionOdCost = computed(() =>
   selectedAction.value?.isVariableCost ? chosenActionOdCost.value : (selectedAction.value?.odCost ?? 0),
@@ -183,7 +189,7 @@ const selectedActionOdCost = computed(() =>
 const processSteps = computed(() => {
   if (!selectedAction.value?.process) return [];
   const currentStep =
-    activeProcess.value?.processRuleId === selectedAction.value.ruleId
+    activeProcess.value && actionRefEquals(selectedAction.value, activeProcess.value.processRuleCode, props.rules)
       ? activeProcess.value.currentStepCode
       : (selectedAction.value.process.start_step_code ?? selectedAction.value.process.steps[0]?.code);
   if (!currentStep) return [];
@@ -202,7 +208,7 @@ const processSteps = computed(() => {
 const processAttacks = computed(() => {
   const action = selectedAction.value;
   if (!action?.process || !actorOverview.value) return [];
-  const rule = processRule.value ?? props.rules.find((item) => item.id === action.ruleId);
+  const rule = processRule.value ?? findRuleByRef(props.rules, action.code);
   const keywordIds = rule?.keywordIds ?? [];
   const melee = keywordIds.includes(1);
   const ranged = keywordIds.includes(2);
@@ -215,7 +221,7 @@ const processAttacks = computed(() => {
 const selectedProcessAttack = computed<AttackOverview | null>(
   () =>
     processAttacks.value.find(
-      (attack) => `${attack.itemRuleId}:${attack.profileType}` === selectedProcessAttackKey.value,
+      (attack) => `${attack.itemRuleCode}:${attack.profileType}` === selectedProcessAttackKey.value,
     ) ?? null,
 );
 const selectedProcessStep = computed(
@@ -238,7 +244,7 @@ const movementContext = computed(() => ({
   currentMovementStep: actorMovementStep.value,
   characteristicValues: new Map(
     actorOverview.value?.characteristics.flatMap((characteristic) => {
-      const rule = props.rules.find((item) => item.id === characteristic.ruleId);
+      const rule = props.rules.find((item) => item.code === characteristic.ruleCode);
 
       return rule ? [[rule.code, characteristic.value] as const] : [];
     }),
@@ -341,7 +347,7 @@ async function hydrate(): Promise<void> {
   overlays.value = nextOverlays;
   pendingEffectsByEntity.value = nextPending;
   if (nextSpeed) currentSpeed.value = nextSpeed;
-  selectedRuleId.value = selectableActions.value[0]?.ruleId ?? null;
+  selectedRuleId.value = selectableActions.value[0]?.code ?? null;
   selectedProcessStepCode.value = null;
   selectedProcessAttackKey.value = null;
 }
@@ -384,7 +390,7 @@ async function submit(): Promise<void> {
     if (!action.process || !stepCode) throw new Error('Выберите шаг процесса');
     if (processStepApCost.value > actionPoints.value) throw new Error('Недостаточно ОД для шага процесса');
     const session =
-      activeProcess.value ?? processSessionService.start(props.gameId, key, action.ruleId, action.process);
+      activeProcess.value ?? processSessionService.start(props.gameId, key, action.ruleCode, action.process);
     const step = action.process.steps.find((item) => item.code === stepCode);
     if (!step) throw new Error('Шаг процесса не найден');
     if (step.operations?.length || isMovementProcess.value) {
@@ -394,7 +400,7 @@ async function submit(): Promise<void> {
         gameId: props.gameId,
         entityKey: key,
         version,
-        rule: processRule.value ?? actionRuleOf(action.ruleId),
+        rule: processRule.value ?? actionRuleOf(action.ruleCode),
         action,
         rules: props.rules,
         mechanics: props.mechanics,
@@ -439,12 +445,12 @@ async function submit(): Promise<void> {
   if (actionOd > actionPoints.value) throw new Error('Недостаточно ОД для действия');
   const version = versionOf(key);
   if (!version) throw new Error('Лист участника не найден');
-  const actionRule = props.rules.find((rule) => rule.id === action.ruleId);
+  const actionRule = findRuleByRef(props.rules, action.code);
   if (!actionRule) throw new Error('Правило действия не найдено в текущей ревизии');
   let pendingEffects = pendingEffectsByEntity.value[key] ?? [];
   const processSession = activeProcess.value;
   if (processSession) {
-    const processRule = props.rules.find((rule) => rule.id === processSession.processRuleId);
+    const processRule = findRuleByRef(props.rules, processSession.processRuleCode);
     const processSpec = processRule ? asProcessAbilitySpec(processRule) : null;
     if (
       !processRule ||
@@ -486,7 +492,7 @@ async function submit(): Promise<void> {
     currentMovementStep: actorMovementStep.value,
     characteristicValues: new Map(
       actorOverview.value?.characteristics.flatMap((characteristic) => {
-        const rule = props.rules.find((item) => item.id === characteristic.ruleId);
+        const rule = props.rules.find((item) => item.code === characteristic.ruleCode);
 
         return rule ? [[rule.code, characteristic.value] as const] : [];
       }),
@@ -500,8 +506,8 @@ async function submit(): Promise<void> {
   emit('overlay-changed');
 }
 
-function actionRuleOf(ruleId: string): Rule {
-  const rule = props.rules.find((entry) => entry.id === ruleId);
+function actionRuleOf(ruleCode: string): Rule {
+  const rule = props.rules.find((entry) => entry.code === ruleCode);
   if (!rule) throw new Error('Правило действия не найдено в текущей ревизии');
 
   return rule;
@@ -563,8 +569,12 @@ watch(
 );
 
 watch(showReactions, () => {
-  if (!selectableActions.value.some((action) => action.ruleId === selectedRuleId.value)) {
-    selectedRuleId.value = selectableActions.value[0]?.ruleId ?? null;
+  if (
+    !selectableActions.value.some(
+      (action) => action.ruleCode === selectedRuleId.value || action.code === selectedRuleId.value,
+    )
+  ) {
+    selectedRuleId.value = selectableActions.value[0]?.code ?? null;
   }
 });
 
@@ -584,7 +594,7 @@ watch(selectedAction, (action) => {
   selectedProcessStepCode.value =
     processSteps.value[0]?.code ?? action.process.start_step_code ?? action.process.steps[0]?.code ?? null;
   const attack = processAttacks.value[0];
-  selectedProcessAttackKey.value = attack ? `${attack.itemRuleId}:${attack.profileType}` : null;
+  selectedProcessAttackKey.value = attack ? `${attack.itemRuleCode}:${attack.profileType}` : null;
 });
 watch(actionPoints, (points) => {
   if (selectedAction.value?.isVariableCost && chosenActionOdCost.value === 0) chosenActionOdCost.value = points;
@@ -621,7 +631,7 @@ watch(
           v-model="selectedRuleId"
           :items="selectableActions"
           item-title="name"
-          item-value="ruleId"
+          item-value="ruleCode"
           label="Выберите действие"
           placeholder="Начните вводить название"
           no-data-text="Действия не найдены"
@@ -641,7 +651,7 @@ watch(
           </template>
         </v-autocomplete>
         <div v-if="activeProcess" class="text-body-2 text-medium-emphasis mb-2">
-          Активный процесс: <strong>{{ processRule?.name ?? activeProcess.processRuleId }}</strong
+          Активный процесс: <strong>{{ processRule?.name ?? activeProcess.processRuleCode }}</strong
           >, текущий шаг — {{ activeProcess.currentStepCode }}
           <v-btn
             v-if="
@@ -735,7 +745,7 @@ watch(
             v-model="selectedProcessAttackKey"
             :items="processAttacks"
             :item-title="(item) => `${item.itemName} · ${item.profileTypeLabel}`"
-            :item-value="(item) => `${item.itemRuleId}:${item.profileType}`"
+            :item-value="(item) => `${item.itemRuleCode}:${item.profileType}`"
             label="Профиль атаки"
             :disabled="busy"
           />

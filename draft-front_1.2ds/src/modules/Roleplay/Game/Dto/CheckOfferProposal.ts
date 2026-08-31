@@ -17,18 +17,18 @@ export interface CheckOfferProposal {
   targetProposals?: CheckOfferTargetProposal[];
   /** Попадание: профиль оружия; реакцию и эффективность защиты пишет защитник. */
   hit?: {
-    itemRuleId: string;
+    itemRuleCode: string;
     itemName: string;
     profileType: 'strike' | 'throw' | 'shoot';
     profileIndex?: number;
     accuracy: DimensionalNumberValue;
     reaction: HitDefenseReaction | null;
     defenseEfficiency?: DimensionalNumberValue | null;
-    blockItemRuleId?: string | null;
+    blockItemRuleCode?: string | null;
     damageTypeCode?: string | null;
     damage?: DimensionalNumberValue;
     penetration?: DimensionalNumberValue;
-    actionRuleId?: string | null;
+    actionRuleCode?: string | null;
     actionName?: string;
     actionOd?: number;
     distanceIpari?: number | null;

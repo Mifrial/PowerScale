@@ -13,7 +13,7 @@ export interface CharacterVersion {
   fullDescription: string | null;
   spaceCode: string;
   rulesRevision: number;
-  raceRuleId: string | null;
+  raceRuleCode: string | null;
   characteristics: CharacteristicValue[];
   resources: ResourceValue[];
   abilities: CharacterAbility[];

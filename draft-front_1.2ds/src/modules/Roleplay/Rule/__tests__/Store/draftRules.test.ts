@@ -1,14 +1,16 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { setActivePinia, createPinia } from 'pinia';
 import { useDraftRuleStore } from '@/modules/Roleplay/Rule/Store/draftRules';
+import { draftRulesPersistService } from '@/modules/Roleplay/Rule/Service/Instance/draftRulesPersistService';
+import { DRAFT_RULES_STORAGE_KEY } from '@/modules/Roleplay/Rule/Constant/draftRulesConfig';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
-function makeRule(id: string): Rule {
+function makeRule(n: number): Rule {
   return {
-    id,
-    code: `code-${id}`,
+    id: n,
+    code: `code-${n}`,
     type: 'simple',
-    name: `Правило ${id}`,
+    name: `Правило ${n}`,
     description: '',
     spaceId: 1,
     createdAt: '2026-08-02T00:00:00Z',
@@ -23,9 +25,9 @@ describe('draftRules store persistence', () => {
 
   it('сохраняет черновик в localStorage и восстанавливает после пересоздания стора', () => {
     const store = useDraftRuleStore();
-    store.saveRule(1, makeRule('r1'));
-    store.saveRule(1, makeRule('r2'));
-    store.saveRule(2, makeRule('r3'));
+    store.saveRule(1, makeRule(1));
+    store.saveRule(1, makeRule(2));
+    store.saveRule(2, makeRule(3));
 
     const fresh = useDraftRuleStore();
     expect(fresh.getDraftRules(1)).toHaveLength(2);
@@ -34,8 +36,8 @@ describe('draftRules store persistence', () => {
         .getDraftRules(1)
         .map((r) => r.id)
         .sort(),
-    ).toEqual(['r1', 'r2']);
-    expect(fresh.getDraftRules(2).map((r) => r.id)).toEqual(['r3']);
+    ).toEqual([1, 2]);
+    expect(fresh.getDraftRules(2).map((r) => r.code)).toEqual(['code-3']);
     expect(fresh.hasDraft(1)).toBe(true);
   });
 
@@ -50,25 +52,37 @@ describe('draftRules store persistence', () => {
     expect(fresh.getRemovedCodes(1)).toEqual(['gone']);
   });
 
+  it('saveRules пишет persist один раз', () => {
+    const store = useDraftRuleStore();
+    const write = vi.spyOn(draftRulesPersistService, 'write');
+    try {
+      store.saveRules(1, [makeRule(1), makeRule(2), makeRule(3)]);
+      expect(write).toHaveBeenCalledTimes(1);
+      expect(store.getDraftRules(1)).toHaveLength(3);
+    } finally {
+      write.mockRestore();
+    }
+  });
+
   it('discardDraft удаляет ключ из localStorage', () => {
     const store = useDraftRuleStore();
-    store.saveRule(1, makeRule('r1'));
+    store.saveRule(1, makeRule(1));
     store.discardDraft(1);
-    expect(localStorage.getItem('powerscale.drafts.v1')).toBeNull();
+    expect(localStorage.getItem(DRAFT_RULES_STORAGE_KEY)).toBeNull();
 
     const fresh = useDraftRuleStore();
     expect(fresh.hasDraft(1)).toBe(false);
   });
 
   it('невалидный JSON в хранилище не ломает стор и помечает discarded', () => {
-    localStorage.setItem('powerscale.drafts.v1', '{not json');
+    localStorage.setItem(DRAFT_RULES_STORAGE_KEY, '{not json');
     const store = useDraftRuleStore();
     expect(store.hasDraft(1)).toBe(false);
     expect(store.storageDiscarded).toBe(true);
   });
 
   it('неподходящая структура игнорируется', () => {
-    localStorage.setItem('powerscale.drafts.v1', JSON.stringify([{ foo: 1 }, 42]));
+    localStorage.setItem(DRAFT_RULES_STORAGE_KEY, JSON.stringify([{ foo: 1 }, 42]));
     const store = useDraftRuleStore();
     expect(store.getDraftRules(1)).toEqual([]);
   });

@@ -3,10 +3,10 @@ import { ruleDiffService } from '@/modules/Roleplay/Rule/Service/Instance/ruleDi
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec';
 
-function rule(id: string, name: string, overrides: Partial<Rule> = {}): Rule {
+function rule(code: string, name: string, overrides: Partial<Rule> = {}): Rule {
   return {
-    id,
-    code: id,
+    id: null,
+    code,
     type: 'simple',
     name,
     description: `Описание ${name}`,
@@ -21,17 +21,25 @@ function spec(value: Record<string, unknown>): RuleSpec {
 }
 
 describe('classifyDraftDiff', () => {
+  it('same code при разных storage id — changed, не added', () => {
+    const published = [rule('r1', 'Старое')];
+    const draft = [rule('r1', 'Старое', { id: null, description: 'Изменённое описание' })];
+    const diff = ruleDiffService.classifyDraftDiff(published, draft);
+    expect(diff.changed.map((r) => r.code)).toEqual(['r1']);
+    expect(diff.added).toEqual([]);
+  });
+
   it('новые правила отделяются от изменённых', () => {
     const published = [rule('r1', 'Старое'), rule('r2', 'Второе')];
     const draft = [rule('r1', 'Старое', { description: 'Изменённое описание' }), rule('r3', 'Третье')];
     const diff = ruleDiffService.classifyDraftDiff(published, draft);
-    expect(diff.changed.map((r) => r.id)).toEqual(['r1']);
-    expect(diff.added.map((r) => r.id)).toEqual(['r3']);
+    expect(diff.changed.map((r) => r.code)).toEqual(['r1']);
+    expect(diff.added.map((r) => r.code)).toEqual(['r3']);
   });
 
   it('samePayload считает равными правила с разными id и spaceId', () => {
-    const left = rule('r1', 'Одно', { id: 'a', spaceId: 1 });
-    const right = rule('r1', 'Одно', { id: 'b', spaceId: 2 });
+    const left = rule('r1', 'Одно', { id: null, spaceId: 1 });
+    const right = rule('r1', 'Одно', { id: null, spaceId: 2 });
     expect(ruleDiffService.samePayload(left, right)).toBe(true);
   });
 
@@ -69,7 +77,7 @@ describe('classifyDraftDiff', () => {
       }),
     ];
     const diff = ruleDiffService.classifyDraftDiff(published, draft);
-    expect(diff.changed.map((r) => r.id)).toEqual(['r1']);
+    expect(diff.changed.map((r) => r.code)).toEqual(['r1']);
   });
 
   it('изменение порядка элементов массива в spec помечается как changed', () => {
@@ -90,7 +98,7 @@ describe('classifyDraftDiff', () => {
     const published = [rule('r1', 'Одно', { spec: reorder })];
     const draft = [rule('r1', 'Одно', { spec: reorderSwapped })];
     const diff = ruleDiffService.classifyDraftDiff(published, draft);
-    expect(diff.changed.map((r) => r.id)).toEqual(['r1']);
+    expect(diff.changed.map((r) => r.code)).toEqual(['r1']);
   });
 
   it('пустой черновик', () => {

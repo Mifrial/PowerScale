@@ -45,7 +45,7 @@ export class CharacterBuildService {
    */
   setAbilityLevel(
     build: CharacterBuild,
-    ruleId: string,
+    ruleCode: string,
     level: number,
     rules: Rule[],
     options: {
@@ -55,33 +55,33 @@ export class CharacterBuildService {
       zone?: string;
     } = {},
   ): CharacterBuild {
-    if (this.isMultipleRule(rules, ruleId)) return build;
+    if (this.isMultipleRule(rules, ruleCode)) return build;
     if (level > 0) {
-      if (options.wealthLocked && options.wealthRuleIds?.has(ruleId)) return build;
-      if (options.featureLimit !== null && options.featureLimit !== undefined && this.isOlZoneRule(rules, ruleId)) {
+      if (options.wealthLocked && options.wealthRuleIds?.has(ruleCode)) return build;
+      if (options.featureLimit !== null && options.featureLimit !== undefined && this.isOlZoneRule(rules, ruleCode)) {
         const taken = new Set(
           build.abilities
             .filter(
               (ability) =>
                 ability.level > 0 &&
-                !options.wealthRuleIds?.has(ability.ruleId) &&
-                this.isOlZoneRule(rules, ability.ruleId),
+                !options.wealthRuleIds?.has(ability.ruleCode) &&
+                this.isOlZoneRule(rules, ability.ruleCode),
             )
-            .map((ability) => ability.ruleId),
+            .map((ability) => ability.ruleCode),
         ).size;
-        const alreadyTaken = build.abilities.some((ability) => ability.ruleId === ruleId && ability.level > 0);
+        const alreadyTaken = build.abilities.some((ability) => ability.ruleCode === ruleCode && ability.level > 0);
         if (!alreadyTaken && taken >= options.featureLimit) return build;
       }
     }
 
-    const others = build.abilities.filter((ability) => ability.ruleId !== ruleId);
-    const existing = build.abilities.find((ability) => ability.ruleId === ruleId);
+    const others = build.abilities.filter((ability) => ability.ruleCode !== ruleCode);
+    const existing = build.abilities.find((ability) => ability.ruleCode === ruleCode);
     const abilities =
       level > 0
         ? [
             ...others,
             {
-              ruleId,
+              ruleCode,
               level,
               ...(existing?.parameters ? { parameters: existing.parameters } : {}),
               ...((options.zone ?? existing?.zone) ? { zone: options.zone ?? existing?.zone } : {}),
@@ -91,13 +91,13 @@ export class CharacterBuildService {
 
     return {
       ...build,
-      abilities: this.applyGroupSelectLimit(abilities, ruleId, level, rules, build.abilities),
+      abilities: this.applyGroupSelectLimit(abilities, ruleCode, level, rules, build.abilities),
     };
   }
 
   /** Множественный навык ревизии (spec.multiple): экземпляры управляются dedicated-методами. */
-  private isMultipleRule(rules: Rule[], ruleId: string): boolean {
-    const rule = rules.find((entry) => entry.id === ruleId);
+  private isMultipleRule(rules: Rule[], ruleCode: string): boolean {
+    const rule = rules.find((entry) => entry.code === ruleCode);
     const spec = rule?.type === 'ability' ? (rule.spec as { multiple?: boolean } | undefined) : undefined;
 
     return spec?.multiple === true;
@@ -106,26 +106,26 @@ export class CharacterBuildService {
   /** Добавляет экземпляр множественного навыка (новый домен, стартовый уровень 1). */
   addAbilityInstance(
     build: CharacterBuild,
-    ruleId: string,
+    ruleCode: string,
     domain: string,
     rules: Rule[],
     options: { zone?: string; domainCode?: string | null } = {},
   ): CharacterBuild {
     const trimmed = domain.trim();
     if (!trimmed) return build;
-    if (build.abilities.some((ability) => ability.ruleId === ruleId && ability.domain === trimmed)) return build;
+    if (build.abilities.some((ability) => ability.ruleCode === ruleCode && ability.domain === trimmed)) return build;
     // Экземплярное улучшение (multiple + родитель): домен должен быть у экземпляра родителя —
     // улучшение «Письменности» распространяется на конкретный язык, который уже известен.
-    if (this.isInstanceImprovement(rules, ruleId)) {
-      const parentRuleId = this.parentRuleIdOf(rules, ruleId);
+    if (this.isInstanceImprovement(rules, ruleCode)) {
+      const parentRuleId = this.parentRuleIdOf(rules, ruleCode);
       if (parentRuleId === null) return build;
       const parentInstance = build.abilities.find(
-        (ability) => ability.ruleId === parentRuleId && ability.domain === trimmed,
+        (ability) => ability.ruleCode === parentRuleId && ability.domain === trimmed,
       );
       if (!parentInstance) return build;
-      const parentCode = rules.find((entry) => entry.id === parentRuleId)?.code;
+      const parentCode = parentRuleId;
       if (parentCode) {
-        const requiredLevel = this.parentLevelRequiredFor(rules, ruleId, parentCode);
+        const requiredLevel = this.parentLevelRequiredFor(rules, ruleCode, parentCode);
         if (requiredLevel !== null && parentInstance.level < requiredLevel) return build;
       }
     }
@@ -133,7 +133,7 @@ export class CharacterBuildService {
     const abilities = [
       ...build.abilities,
       {
-        ruleId,
+        ruleCode,
         level: 1,
         domain: trimmed,
         zone: options.zone,
@@ -141,23 +141,23 @@ export class CharacterBuildService {
       },
     ];
 
-    return { ...build, abilities: this.applyGroupSelectLimit(abilities, ruleId, 1, rules, build.abilities) };
+    return { ...build, abilities: this.applyGroupSelectLimit(abilities, ruleCode, 1, rules, build.abilities) };
   }
 
   /** Устанавливает уровень конкретного экземпляра (0 — снять экземпляр). */
   setAbilityInstanceLevel(
     build: CharacterBuild,
-    ruleId: string,
+    ruleCode: string,
     domain: string,
     level: number,
     rules: Rule[],
     options: { zone?: string } = {},
   ): CharacterBuild {
-    const existing = build.abilities.find((ability) => ability.ruleId === ruleId && ability.domain === domain);
+    const existing = build.abilities.find((ability) => ability.ruleCode === ruleCode && ability.domain === domain);
     if (!existing) return build;
-    if (level > 0 && level > this.maxInstanceLevelOf(rules, ruleId, domain)) return build;
+    if (level > 0 && level > this.maxInstanceLevelOf(rules, ruleCode, domain)) return build;
 
-    const others = build.abilities.filter((ability) => !(ability.ruleId === ruleId && ability.domain === domain));
+    const others = build.abilities.filter((ability) => !(ability.ruleCode === ruleCode && ability.domain === domain));
     const abilities =
       level > 0
         ? [
@@ -179,7 +179,7 @@ export class CharacterBuildService {
    */
   setAbilityInstanceDomain(
     build: CharacterBuild,
-    ruleId: string,
+    ruleCode: string,
     oldDomain: string,
     newDomain: string,
     options: { domainCode?: string | null } = {},
@@ -187,14 +187,14 @@ export class CharacterBuildService {
   ): CharacterBuild {
     const trimmed = newDomain.trim();
     if (!trimmed || trimmed === oldDomain) return build;
-    if (build.abilities.some((ability) => ability.ruleId === ruleId && ability.domain === trimmed)) return build;
+    if (build.abilities.some((ability) => ability.ruleCode === ruleCode && ability.domain === trimmed)) return build;
 
-    const cascadeRuleIds = new Set(this.instanceImprovementRuleIds(rules, ruleId));
+    const cascadeRuleIds = new Set(this.instanceImprovementRuleIds(rules, ruleCode));
 
     return {
       ...build,
       abilities: build.abilities.map((ability) =>
-        (ability.ruleId === ruleId || cascadeRuleIds.has(ability.ruleId)) && ability.domain === oldDomain
+        (ability.ruleCode === ruleCode || cascadeRuleIds.has(ability.ruleCode)) && ability.domain === oldDomain
           ? {
               ...ability,
               domain: trimmed,
@@ -206,13 +206,13 @@ export class CharacterBuildService {
   }
 
   /** Удаляет экземпляр множественного навыка по домену; экземпляры-улучшения того же домена — каскадно. */
-  removeAbilityInstance(build: CharacterBuild, ruleId: string, domain: string, rules: Rule[] = []): CharacterBuild {
-    const removedRuleIds = new Set([ruleId, ...this.instanceImprovementRuleIds(rules, ruleId)]);
+  removeAbilityInstance(build: CharacterBuild, ruleCode: string, domain: string, rules: Rule[] = []): CharacterBuild {
+    const removedRuleIds = new Set([ruleCode, ...this.instanceImprovementRuleIds(rules, ruleCode)]);
 
     return {
       ...build,
       abilities: build.abilities.filter(
-        (ability) => !(removedRuleIds.has(ability.ruleId) && ability.domain === domain),
+        (ability) => !(removedRuleIds.has(ability.ruleCode) && ability.domain === domain),
       ),
     };
   }
@@ -224,7 +224,7 @@ export class CharacterBuildService {
    */
   setWeaponMastery(
     build: CharacterBuild,
-    masteryRuleId: string,
+    masteryRuleCode: string,
     familyName: string,
     familyCode: string,
     level: number,
@@ -233,22 +233,22 @@ export class CharacterBuildService {
     if (level <= 0) {
       const existing = build.abilities.find(
         (ability) =>
-          ability.ruleId === masteryRuleId && (ability.domain === familyName || ability.domainCode === familyCode),
+          ability.ruleCode === masteryRuleCode && (ability.domain === familyName || ability.domainCode === familyCode),
       );
       if (existing?.gifted) {
-        return this.setAbilityInstanceLevel(build, masteryRuleId, existing.domain ?? familyName, 1, rules, {
+        return this.setAbilityInstanceLevel(build, masteryRuleCode, existing.domain ?? familyName, 1, rules, {
           zone: 'or',
         });
       }
 
-      return this.removeAbilityInstance(build, masteryRuleId, familyName, rules);
+      return this.removeAbilityInstance(build, masteryRuleCode, familyName, rules);
     }
-    const withInstance = this.addAbilityInstance(build, masteryRuleId, familyName, rules, {
+    const withInstance = this.addAbilityInstance(build, masteryRuleCode, familyName, rules, {
       zone: 'or',
       domainCode: familyCode,
     });
 
-    return this.setAbilityInstanceLevel(withInstance, masteryRuleId, familyName, level, rules, { zone: 'or' });
+    return this.setAbilityInstanceLevel(withInstance, masteryRuleCode, familyName, level, rules, { zone: 'or' });
   }
 
   /**
@@ -258,23 +258,23 @@ export class CharacterBuildService {
    */
   setAbilityDomain(
     build: CharacterBuild,
-    ruleId: string,
+    ruleCode: string,
     domain: string,
     options: { domainCode?: string | null } = {},
   ): CharacterBuild {
     const trimmed = domain.trim();
-    const existing = build.abilities.find((ability) => ability.ruleId === ruleId);
+    const existing = build.abilities.find((ability) => ability.ruleCode === ruleCode);
 
     if (!trimmed) {
       if (!existing) return build;
       if (existing.gifted) {
-        return { ...build, abilities: build.abilities.filter((ability) => ability.ruleId !== ruleId) };
+        return { ...build, abilities: build.abilities.filter((ability) => ability.ruleCode !== ruleCode) };
       }
 
       return {
         ...build,
         abilities: build.abilities.map((ability) => {
-          if (ability.ruleId !== ruleId) return ability;
+          if (ability.ruleCode !== ruleCode) return ability;
           const next = { ...ability };
           delete next.domain;
           delete next.domainCode;
@@ -288,7 +288,7 @@ export class CharacterBuildService {
       return {
         ...build,
         abilities: build.abilities.map((ability) =>
-          ability.ruleId === ruleId
+          ability.ruleCode === ruleCode
             ? {
                 ...ability,
                 domain: trimmed,
@@ -304,7 +304,7 @@ export class CharacterBuildService {
       abilities: [
         ...build.abilities,
         {
-          ruleId,
+          ruleCode,
           level: 1,
           domain: trimmed,
           gifted: true,
@@ -315,8 +315,8 @@ export class CharacterBuildService {
   }
 
   /** Экземплярное улучшение (multiple с родителем): привязка к конкретному экземпляру родителя. */
-  private isInstanceImprovement(rules: Rule[], ruleId: string): boolean {
-    const rule = rules.find((entry) => entry.id === ruleId);
+  private isInstanceImprovement(rules: Rule[], ruleCode: string): boolean {
+    const rule = rules.find((entry) => entry.code === ruleCode);
     const spec =
       rule?.type === 'ability'
         ? (rule.spec as { multiple?: boolean; parent_ability_code?: string | null } | undefined)
@@ -325,20 +325,20 @@ export class CharacterBuildService {
     return spec?.multiple === true && spec.parent_ability_code != null;
   }
 
-  /** ruleId родительского правила экземплярного улучшения (null — не улучшение/родитель не найден). */
-  private parentRuleIdOf(rules: Rule[], ruleId: string): string | null {
-    const rule = rules.find((entry) => entry.id === ruleId);
+  /** ruleCode родительского правила экземплярного улучшения (null — не улучшение/родитель не найден). */
+  private parentRuleIdOf(rules: Rule[], ruleCode: string): string | null {
+    const rule = rules.find((entry) => entry.code === ruleCode);
     const spec =
       rule?.type === 'ability' ? (rule.spec as { parent_ability_code?: string | null } | undefined) : undefined;
     const parentCode = spec?.parent_ability_code;
     if (!parentCode) return null;
 
-    return rules.find((entry) => entry.code === parentCode)?.id ?? null;
+    return rules.find((entry) => entry.code === parentCode)?.code ?? null;
   }
 
-  /** ruleId экземплярных улучшений правила (multiple с parent_ability_code == code правила). */
-  private instanceImprovementRuleIds(rules: Rule[], ruleId: string): string[] {
-    const rule = rules.find((entry) => entry.id === ruleId);
+  /** ruleCode экземплярных улучшений правила (multiple с parent_ability_code == code правила). */
+  private instanceImprovementRuleIds(rules: Rule[], ruleCode: string): string[] {
+    const rule = rules.find((entry) => entry.code === ruleCode);
     if (!rule) return [];
 
     return rules
@@ -348,7 +348,7 @@ export class CharacterBuildService {
 
         return spec?.multiple === true && spec.parent_ability_code === rule.code;
       })
-      .map((entry) => entry.id);
+      .map((entry) => entry.code);
   }
 
   /**
@@ -356,8 +356,8 @@ export class CharacterBuildService {
    * максимум min_level по has_ability-требованиям уровня 1, ссылающимся на родителя
    * (синтез родителя по D114 даёт минимум 1). Пример: Грамотность → язык уровня 2.
    */
-  private parentLevelRequiredFor(rules: Rule[], ruleId: string, parentCode: string): number | null {
-    const rule = rules.find((entry) => entry.id === ruleId);
+  private parentLevelRequiredFor(rules: Rule[], ruleCode: string, parentCode: string): number | null {
+    const rule = rules.find((entry) => entry.code === ruleCode);
     const spec =
       rule?.type === 'ability'
         ? (rule.spec as { requirements?: { level: number; requirements: unknown[] }[] } | undefined)
@@ -377,8 +377,8 @@ export class CharacterBuildService {
   }
 
   /** Максимальный уровень экземпляра множественного навыка (по покупаемым зонам спека). */
-  private maxInstanceLevelOf(rules: Rule[], ruleId: string, domain?: string): number {
-    const rule = rules.find((entry) => entry.id === ruleId);
+  private maxInstanceLevelOf(rules: Rule[], ruleCode: string, domain?: string): number {
+    const rule = rules.find((entry) => entry.code === ruleCode);
     const spec =
       rule?.type === 'ability'
         ? (rule.spec as { zones?: Partial<Record<string, AbilityCost>>; domain_ref?: string | null } | undefined)
@@ -399,8 +399,8 @@ export class CharacterBuildService {
   }
 
   /** Правило — способность с зоной цен `ol` (особенность личности). */
-  private isOlZoneRule(rules: Rule[], ruleId: string): boolean {
-    const rule = rules.find((entry) => entry.id === ruleId);
+  private isOlZoneRule(rules: Rule[], ruleCode: string): boolean {
+    const rule = rules.find((entry) => entry.code === ruleCode);
     const spec =
       rule?.type === 'ability'
         ? (rule.spec as { type?: string; zones?: Record<string, unknown> } | undefined)
@@ -420,20 +420,20 @@ export class CharacterBuildService {
    */
   setAbilityParameter(
     build: CharacterBuild,
-    ruleId: string,
+    ruleCode: string,
     code: string,
     value: number | DimensionalNumberValue,
     rules: Rule[],
   ): CharacterBuild {
-    const others = build.abilities.filter((ability) => ability.ruleId !== ruleId);
-    const existing = build.abilities.find((ability) => ability.ruleId === ruleId);
+    const others = build.abilities.filter((ability) => ability.ruleCode !== ruleCode);
+    const existing = build.abilities.find((ability) => ability.ruleCode === ruleCode);
     const nextValue = typeof value === 'number' ? { base: value, size: 0 } : { ...value };
     const parameters = {
       ...existing?.parameters,
       [code]: nextValue,
     };
 
-    const rule = rules.find((entry) => entry.id === ruleId);
+    const rule = rules.find((entry) => entry.code === ruleCode);
     const spec = rule?.type === 'ability' ? (rule.spec as AbilitySpec | undefined) : undefined;
     const zones = spec && spec.type !== 'group' ? spec.zones : undefined;
     const purchaseCost = zones
@@ -465,41 +465,41 @@ export class CharacterBuildService {
       const level = Object.keys(purchaseCost.tables).reduce((sum, parameterCode) => sum + numericOf(parameterCode), 0);
       if (level <= 0) return { ...build, abilities: others };
 
-      const abilities = [...others, { ruleId, level, parameters }];
+      const abilities = [...others, { ruleCode, level, parameters }];
 
-      return { ...build, abilities: this.applyGroupSelectLimit(abilities, ruleId, 1, rules, build.abilities) };
+      return { ...build, abilities: this.applyGroupSelectLimit(abilities, ruleCode, 1, rules, build.abilities) };
     }
 
     const numeric = typeof value === 'number' ? value : value.base;
     if (numeric === 0) return { ...build, abilities: others };
 
-    const abilities = [...others, { ruleId, level: 1, parameters }];
+    const abilities = [...others, { ruleCode, level: 1, parameters }];
 
-    return { ...build, abilities: this.applyGroupSelectLimit(abilities, ruleId, 1, rules, build.abilities) };
+    return { ...build, abilities: this.applyGroupSelectLimit(abilities, ruleCode, 1, rules, build.abilities) };
   }
 
   /**
    * Покупка предмета на шаге «Инвентарь» (R1/R4–R6): списывает базовую цену × qty.
    * Снаряжение (оружие/щит/доспех) — всегда новые строки qty 1 без модификаторов.
-   * Стекуемые (зелья, товары) — суммируют quantity по ruleId. Модификаторы при покупке игнорируются.
+   * Стекуемые (зелья, товары) — суммируют quantity по ruleCode. Модификаторы при покупке игнорируются.
    * Предмет без цены или innate (R5) — no-op.
    */
   buyItem(
     build: CharacterBuild,
-    ruleId: string,
+    ruleCode: string,
     quantity: number,
     rules: Rule[],
     keywords: Keyword[] = [],
     _modifierRuleIds: readonly string[] = [],
   ): CharacterBuild {
-    const cost = this.itemCostOf(ruleId, rules, keywords, []);
+    const cost = this.itemCostOf(ruleCode, rules, keywords, []);
     if (cost === null || quantity <= 0) return build;
 
-    if (this.isInstancedRule(ruleId, rules)) {
+    if (this.isInstancedRule(ruleCode, rules)) {
       const inventory = [...build.inventory];
       let nextId = inventory.reduce((max, item) => Math.max(max, item.id), 0) + 1;
       for (let i = 0; i < quantity; i += 1) {
-        inventory.push({ id: nextId, ruleId, quantity: 1, equipped: false, modifierRuleIds: [] });
+        inventory.push({ id: nextId, ruleCode, quantity: 1, equipped: false, modifierRuleCodes: [] });
         nextId += 1;
       }
 
@@ -507,11 +507,11 @@ export class CharacterBuildService {
     }
 
     const inventory = build.inventory.map((item) =>
-      item.ruleId === ruleId ? { ...item, quantity: item.quantity + quantity } : item,
+      item.ruleCode === ruleCode ? { ...item, quantity: item.quantity + quantity } : item,
     );
-    if (!inventory.some((item) => item.ruleId === ruleId)) {
+    if (!inventory.some((item) => item.ruleCode === ruleCode)) {
       const nextId = build.inventory.reduce((max, item) => Math.max(max, item.id), 0) + 1;
-      inventory.push({ id: nextId, ruleId, quantity, equipped: false, modifierRuleIds: [] });
+      inventory.push({ id: nextId, ruleCode, quantity, equipped: false, modifierRuleCodes: [] });
     }
 
     return { ...build, inventory, money: build.money - cost * quantity };
@@ -520,12 +520,12 @@ export class CharacterBuildService {
   /**
    * Отмена покупки (R2): возвращает деньги и уменьшает количество ТОЛЬКО сверх базовой линии.
    * Снаряжение — снимает последние добавленные экземпляры (каждый со своей текущей ценой).
-   * Стекуемые — уменьшают quantity той же ruleId.
+   * Стекуемые — уменьшают quantity той же ruleCode.
    */
   cancelItemPurchase(
     build: CharacterBuild,
     baseline: InventoryBaseline | null | undefined,
-    ruleId: string,
+    ruleCode: string,
     quantity: number,
     rules: Rule[],
     keywords: Keyword[] = [],
@@ -533,11 +533,11 @@ export class CharacterBuildService {
   ): CharacterBuild {
     if (!baseline || quantity <= 0) return build;
 
-    if (this.isInstancedRule(ruleId, rules)) {
+    if (this.isInstancedRule(ruleCode, rules)) {
       const baselineIds = new Set(
-        baseline.inventory.filter((entry) => entry.ruleId === ruleId).map((entry) => entry.id),
+        baseline.inventory.filter((entry) => entry.ruleCode === ruleCode).map((entry) => entry.id),
       );
-      const extras = build.inventory.filter((entry) => entry.ruleId === ruleId && !baselineIds.has(entry.id));
+      const extras = build.inventory.filter((entry) => entry.ruleCode === ruleCode && !baselineIds.has(entry.id));
       const amount = Math.min(quantity, extras.length);
       if (amount <= 0) return build;
 
@@ -545,7 +545,7 @@ export class CharacterBuildService {
       const removedIds = new Set(removed.map((entry) => entry.id));
       let refund = 0;
       for (const entry of removed) {
-        const cost = this.itemCostOf(ruleId, rules, keywords, this.normalizedMods(entry.modifierRuleIds));
+        const cost = this.itemCostOf(ruleCode, rules, keywords, this.normalizedMods(entry.modifierRuleCodes));
         if (cost === null) return build;
         refund += cost;
       }
@@ -557,14 +557,14 @@ export class CharacterBuildService {
       };
     }
 
-    const cost = this.itemCostOf(ruleId, rules, keywords, []);
+    const cost = this.itemCostOf(ruleCode, rules, keywords, []);
     if (cost === null) return build;
 
-    const item = build.inventory.find((entry) => entry.ruleId === ruleId);
+    const item = build.inventory.find((entry) => entry.ruleCode === ruleCode);
     if (!item) return build;
 
     const baselineQuantity = baseline.inventory
-      .filter((entry) => entry.ruleId === ruleId)
+      .filter((entry) => entry.ruleCode === ruleCode)
       .reduce((sum, entry) => sum + entry.quantity, 0);
     const removable = Math.max(0, item.quantity - baselineQuantity);
     const amount = Math.min(quantity, removable);
@@ -592,10 +592,10 @@ export class CharacterBuildService {
   ): CharacterBuild {
     if (!baseline) return build;
     const item = build.inventory.find((entry) => entry.id === itemId);
-    if (!item?.ruleId) return build;
+    if (!item?.ruleCode) return build;
     if (baseline.inventory.some((entry) => entry.id === itemId)) return build;
 
-    const cost = this.itemCostOf(item.ruleId, rules, keywords, this.normalizedMods(item.modifierRuleIds));
+    const cost = this.itemCostOf(item.ruleCode, rules, keywords, this.normalizedMods(item.modifierRuleCodes));
     if (cost === null) return build;
 
     return {
@@ -612,29 +612,30 @@ export class CharacterBuildService {
   applyItemModifiers(
     build: CharacterBuild,
     itemId: number,
-    modifierRuleIds: readonly string[],
+    modifierRuleCodes: readonly string[],
     rules: Rule[],
     keywords: Keyword[] = [],
   ): CharacterBuild {
     const source = build.inventory.find((item) => item.id === itemId);
-    if (!source?.ruleId || source.quantity < 1) return build;
-    if (!this.isInstancedRule(source.ruleId, rules)) return build;
+    if (!source?.ruleCode || source.quantity < 1) return build;
+    if (!this.isInstancedRule(source.ruleCode, rules)) return build;
 
-    const newMods = this.constrainExclusive(this.normalizedMods(modifierRuleIds), rules);
-    const oldMods = this.normalizedMods(source.modifierRuleIds);
+    const newMods = this.constrainExclusive(this.normalizedMods(modifierRuleCodes), rules);
+    const oldMods = this.normalizedMods(source.modifierRuleCodes);
     if (
-      this.itemModifiers.identityKey(source.ruleId, oldMods) === this.itemModifiers.identityKey(source.ruleId, newMods)
+      this.itemModifiers.identityKey(source.ruleCode, oldMods) ===
+      this.itemModifiers.identityKey(source.ruleCode, newMods)
     ) {
       return build;
     }
-    if (!this.modifiersApplicable(source.ruleId, rules, keywords, newMods)) return build;
+    if (!this.modifiersApplicable(source.ruleCode, rules, keywords, newMods)) return build;
 
-    const oldCost = this.itemCostOf(source.ruleId, rules, keywords, oldMods);
-    const newCost = this.itemCostOf(source.ruleId, rules, keywords, newMods);
+    const oldCost = this.itemCostOf(source.ruleCode, rules, keywords, oldMods);
+    const newCost = this.itemCostOf(source.ruleCode, rules, keywords, newMods);
     if (oldCost === null || newCost === null) return build;
 
     const inventory = build.inventory.map((item) =>
-      item.id === itemId ? { ...item, modifierRuleIds: newMods } : item,
+      item.id === itemId ? { ...item, modifierRuleCodes: newMods } : item,
     );
 
     return { ...build, inventory, money: build.money - (newCost - oldCost) };
@@ -643,8 +644,8 @@ export class CharacterBuildService {
   /** Тумблер экипировки предмета (R3): без жёстких слотов. */
   toggleItemEquipped(build: CharacterBuild, itemId: number, rules: Rule[] = []): CharacterBuild {
     const target = build.inventory.find((item) => item.id === itemId);
-    if (target?.ruleId) {
-      const rule = rules.find((entry) => entry.id === target.ruleId);
+    if (target?.ruleCode) {
+      const rule = rules.find((entry) => entry.code === target.ruleCode);
       const spec = rule?.type === 'item' ? (rule.spec as ItemSpec | undefined) : undefined;
       if (spec?.innate) return build;
     }
@@ -671,34 +672,34 @@ export class CharacterBuildService {
 
   /** Цена предмета в гм с учётом модификаторов; null для не-предметов, innate и без cost_gm (R5). */
   private itemCostOf(
-    ruleId: string,
+    ruleCode: string,
     rules: Rule[],
     keywords: Keyword[],
-    modifierRuleIds: readonly string[],
+    modifierRuleCodes: readonly string[],
   ): number | null {
-    const rule = rules.find((entry) => entry.id === ruleId);
+    const rule = rules.find((entry) => entry.code === ruleCode);
     const spec = rule?.type === 'item' ? (rule.spec as ItemSpec | undefined) : undefined;
     if (!rule || !spec || spec.innate || spec.cost_gm === null || spec.cost_gm === undefined) return null;
 
     const codes = this.itemKeywordCodes(rule, keywords);
-    const modifiers = modifierRuleIds
-      .map((id) => rules.find((entry) => entry.id === id))
+    const modifiers = modifierRuleCodes
+      .map((id) => rules.find((entry) => entry.code === id))
       .filter((entry): entry is Rule => entry !== undefined);
 
     return this.itemModifiers.applyStack(spec, modifiers, codes).cost;
   }
 
   private modifiersApplicable(
-    ruleId: string,
+    ruleCode: string,
     rules: Rule[],
     keywords: Keyword[],
-    modifierRuleIds: readonly string[],
+    modifierRuleCodes: readonly string[],
   ): boolean {
-    const rule = rules.find((entry) => entry.id === ruleId);
+    const rule = rules.find((entry) => entry.code === ruleCode);
     if (!rule) return false;
     const codes = this.itemKeywordCodes(rule, keywords);
-    const modifiers = modifierRuleIds
-      .map((id) => rules.find((entry) => entry.id === id))
+    const modifiers = modifierRuleCodes
+      .map((id) => rules.find((entry) => entry.code === id))
       .filter((entry): entry is Rule => entry !== undefined);
     const effective = this.itemModifiers.effectiveKeywordCodes(codes, modifiers);
     for (const modifier of modifiers) {
@@ -716,20 +717,20 @@ export class CharacterBuildService {
     return (rule.keywordIds ?? []).map((id) => byId.get(id)).filter((code): code is string => Boolean(code));
   }
 
-  private normalizedMods(modifierRuleIds: readonly string[] | undefined): string[] {
-    return [...(modifierRuleIds ?? [])].filter((id) => id.length > 0).sort();
+  private normalizedMods(modifierRuleCodes: readonly string[] | undefined): string[] {
+    return [...(modifierRuleCodes ?? [])].filter((id) => id.length > 0).sort();
   }
 
-  private isInstancedRule(ruleId: string, rules: Rule[]): boolean {
-    const rule = rules.find((entry) => entry.id === ruleId);
+  private isInstancedRule(ruleCode: string, rules: Rule[]): boolean {
+    const rule = rules.find((entry) => entry.code === ruleCode);
     const spec = rule?.type === 'item' ? (rule.spec as ItemSpec | undefined) : undefined;
 
     return Boolean(spec?.weapon || spec?.armor || spec?.shield);
   }
 
-  private constrainExclusive(modifierRuleIds: readonly string[], rules: Rule[]): string[] {
+  private constrainExclusive(modifierRuleCodes: readonly string[], rules: Rule[]): string[] {
     let selected: string[] = [];
-    for (const id of modifierRuleIds) {
+    for (const id of modifierRuleCodes) {
       if (selected.includes(id)) continue;
       selected = this.itemModifiers.toggleSelection(selected, id, rules);
     }
@@ -744,23 +745,23 @@ export class CharacterBuildService {
    */
   applyRace(
     build: CharacterBuild,
-    raceRuleId: string | null,
+    raceRuleCode: string | null,
     rules: Rule[],
     config: CharacterCreationConfig,
     keywords: Keyword[],
   ): CharacterBuild {
     const withNewRace: CharacterBuild = {
       ...build,
-      raceRuleId,
-      characteristicPurchases: this.purchasesOf(build, raceRuleId, rules),
+      raceRuleCode,
+      characteristicPurchases: this.purchasesOf(build, raceRuleCode, rules),
     };
     const model = this.editor.build(withNewRace, rules, config, keywords);
-    const abilityByRuleId = new Map(model.abilities.map((ability) => [ability.ruleId, ability]));
+    const abilityByRuleId = new Map(model.abilities.map((ability) => [ability.ruleCode, ability]));
 
     // Способность остаётся, если доступна в новой расе (automatic или требования выполнены) и
     // каждое выбранное значение параметра «X» лежит в её диапазоне [min, max] (потолок/минимум).
     const compatible = (ability: CharacterBuild['abilities'][number]): boolean => {
-      const editor = abilityByRuleId.get(ability.ruleId);
+      const editor = abilityByRuleId.get(ability.ruleCode);
       if (!editor || !(editor.automatic || editor.levels[0]?.met)) return false;
 
       for (const parameter of editor.parameters) {
@@ -791,11 +792,15 @@ export class CharacterBuildService {
         spaceId,
         spaceCode: version.spaceCode,
         rulesRevision: version.rulesRevision,
-        raceRuleId: version.raceRuleId,
+        raceRuleCode: version.raceRuleCode,
         characteristicPurchases: this.purchasesFromVersion(version, rules),
         abilities: version.abilities.map((ability) => ({ ...ability })),
         resources: version.resources,
-        inventory: version.inventory.map((item) => ({ ...item })),
+        inventory: version.inventory.map((item) => ({
+          ...item,
+          ruleCode: this.canonicalRuleCode(item.ruleCode, rules),
+          modifierRuleCodes: item.modifierRuleCodes?.map((code) => this.canonicalRuleCode(code, rules) ?? code),
+        })),
         states: version.states,
         money: version.money,
         ageYears: version.ageYears ?? null,
@@ -805,8 +810,15 @@ export class CharacterBuildService {
     );
   }
 
+  private canonicalRuleCode(code: string | null, rules: Rule[]): string | null {
+    if (code === null) return null;
+    const rule = rules.find((entry) => entry.code === code);
+
+    return rule?.code ?? code;
+  }
+
   private purchasesFromVersion(version: CharacterVersion, rules: Rule[]): CharacteristicPurchase[] {
-    const raceRule = version.raceRuleId === null ? null : rules.find((rule) => rule.id === version.raceRuleId);
+    const raceRule = version.raceRuleCode === null ? null : rules.find((rule) => rule.code === version.raceRuleCode);
     const spec = raceRule?.type === 'race' ? (raceRule.spec as RaceSpec | undefined) : undefined;
     if (!spec) return [];
 
@@ -814,7 +826,7 @@ export class CharacterBuildService {
     for (const characteristic of spec.characteristics ?? []) {
       if (characteristic.mode !== 'purchased') continue;
       const versionValue = version.characteristics.find((value) => {
-        const rule = rules.find((entry) => entry.id === value.ruleId);
+        const rule = rules.find((entry) => entry.code === value.ruleCode);
 
         return rule?.code === characteristic.characteristic_code;
       });
@@ -830,8 +842,8 @@ export class CharacterBuildService {
     return a.base === b.base && a.size === b.size;
   }
 
-  private purchasesOf(build: CharacterBuild, raceRuleId: string | null, rules: Rule[]): CharacteristicPurchase[] {
-    const rule = raceRuleId === null ? null : rules.find((entry) => entry.id === raceRuleId);
+  private purchasesOf(build: CharacterBuild, raceRuleCode: string | null, rules: Rule[]): CharacteristicPurchase[] {
+    const rule = raceRuleCode === null ? null : rules.find((entry) => entry.code === raceRuleCode);
     const spec = rule?.type === 'race' ? (rule.spec as RaceSpec | undefined) : undefined;
     const purchasedCodes = new Set(
       (spec?.characteristics ?? []).filter((c) => c.mode === 'purchased').map((c) => c.characteristic_code),
@@ -848,14 +860,14 @@ export class CharacterBuildService {
    */
   private applyGroupSelectLimit(
     abilities: CharacterBuild['abilities'],
-    ruleId: string,
+    ruleCode: string,
     level: number,
     rules: Rule[],
     previous: CharacterBuild['abilities'],
   ): CharacterBuild['abilities'] {
     if (level < 1) return abilities;
 
-    const rule = rules.find((entry) => entry.id === ruleId);
+    const rule = rules.find((entry) => entry.code === ruleCode);
     const memberSpec = rule?.type === 'ability' ? (rule.spec as { group_code?: string | null } | undefined) : undefined;
     const groupCode = memberSpec?.group_code;
     if (!groupCode) return abilities;
@@ -874,16 +886,18 @@ export class CharacterBuildService {
 
           return candidate === groupCode;
         })
-        .map((entry) => entry.id),
+        .map((entry) => entry.code),
     );
 
     if (selectLimit === 1) {
-      return abilities.filter((ability) => ability.ruleId === ruleId || !groupRuleIds.has(ability.ruleId));
+      return abilities.filter((ability) => ability.ruleCode === ruleCode || !groupRuleIds.has(ability.ruleCode));
     }
 
-    // Считаем разные правила группы (у множественных навыков несколько экземпляров — один ruleId).
+    // Считаем разные правила группы (у множественных навыков несколько экземпляров — один ruleCode).
     const takenInGroup = new Set(
-      abilities.filter((ability) => ability.ruleId !== ruleId && groupRuleIds.has(ability.ruleId)).map((a) => a.ruleId),
+      abilities
+        .filter((ability) => ability.ruleCode !== ruleCode && groupRuleIds.has(ability.ruleCode))
+        .map((a) => a.ruleCode),
     ).size;
     if (takenInGroup >= selectLimit) return previous;
 

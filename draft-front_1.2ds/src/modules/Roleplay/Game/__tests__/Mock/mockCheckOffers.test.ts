@@ -76,13 +76,13 @@ describe('mockCheckOffers: handshake pairwise', () => {
       ...proposal,
       opponentAdv: 2,
       hit: {
-        itemRuleId: 'sword',
+        itemRuleCode: 'sword',
         itemName: 'Меч',
         profileType: 'strike',
         accuracy: { base: 4, size: 0 },
         reaction: 'dodge',
         defenseEfficiency: { base: 4, size: -1 },
-        blockItemRuleId: null,
+        blockItemRuleCode: null,
       },
     });
     expect(accepted.status).toBe('accepted');
@@ -117,7 +117,7 @@ describe('mockCheckOffers: handshake pairwise', () => {
   it('групповая оферта ждёт независимые ответы всех целей', async () => {
     const targetThree = 'character:3' as const;
     const groupHit = {
-      itemRuleId: 'sword',
+      itemRuleCode: 'sword',
       itemName: 'Меч',
       profileType: 'strike' as const,
       accuracy: { base: 4, size: 0 },
@@ -127,7 +127,7 @@ describe('mockCheckOffers: handshake pairwise', () => {
       ...proposal,
       attackAction: {
         initiator,
-        source: { kind: 'action', actionRuleId: 'wide' },
+        source: { kind: 'action', actionRuleCode: 'wide' },
         mode: 'wide',
         strikes: [
           { targetKey: opponent, profile: {} },

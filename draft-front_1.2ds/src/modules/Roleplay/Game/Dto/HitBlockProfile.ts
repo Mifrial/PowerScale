@@ -1,7 +1,7 @@
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 
 export interface HitBlockProfile {
-  itemRuleId: string;
+  itemRuleCode: string;
   itemName: string;
   efficiency: DimensionalNumberValue;
 }

@@ -20,7 +20,7 @@ const MECHANICS: Mechanic[] = [
 
 function rule(overrides: Partial<Rule>): Rule {
   return {
-    id: 'rule-x',
+    id: null,
     code: 'code-x',
     type: 'simple',
     name: 'Правило',
@@ -44,7 +44,7 @@ function rollRule(
     sub_mechanics: string[];
   }>,
 ): Rule {
-  return rule({ id: 'rule-roll', code: 'roll', mechanicId: 5, mechanic_payload: { type: 'roll', data } });
+  return rule({ id: null, code: 'roll', mechanicId: 5, mechanic_payload: { type: 'roll', data } });
 }
 
 const ROLL_SUB_MECHANICS = ['six_one_rule', 'advantage_disadvantage'];
@@ -91,8 +91,8 @@ describe('RollEngine: без механик', () => {
 describe('RollEngine: механики ревизии', () => {
   const rules = [
     rollRule({ efficiency: 3, sub_mechanics: ROLL_SUB_MECHANICS }),
-    rule({ id: 'rule-1', code: 'rule-6-and-1', mechanicId: 1 }),
-    rule({ id: 'rule-2', code: 'advantages', mechanicId: 2 }),
+    rule({ id: 1, code: 'rule-6-and-1', mechanicId: 1 }),
+    rule({ id: 2, code: 'advantages', mechanicId: 2 }),
   ];
 
   it('преимущества и «6 и 1» меняют бросок и попадают в appliedMechanics', () => {
@@ -142,9 +142,9 @@ describe('RollEngine: механики ревизии', () => {
 describe('RollEngine: пер-ролл механики (Критический удар)', () => {
   const rules = [
     rollRule({ efficiency: 3, sub_mechanics: ROLL_SUB_MECHANICS }),
-    rule({ id: 'rule-1', code: 'rule-6-and-1', mechanicId: 1 }),
+    rule({ id: 1, code: 'rule-6-and-1', mechanicId: 1 }),
     rule({
-      id: 'rule-critical-strike',
+      id: null,
       code: 'critical-strike',
       type: 'ability',
       mechanicId: 6,
@@ -198,7 +198,7 @@ describe('RollEngine: дефолты из правила «Бросок»', () =
   it('помехи/преимущества разных источников суммируются, одного — max+/min−', () => {
     const rules = [
       rollRule({ sub_mechanics: ['advantage_disadvantage'] }),
-      rule({ id: 'rule-2', code: 'advantages', mechanicId: 2 }),
+      rule({ id: 2, code: 'advantages', mechanicId: 2 }),
     ];
     const stacked = createEngine().roll(
       spec({

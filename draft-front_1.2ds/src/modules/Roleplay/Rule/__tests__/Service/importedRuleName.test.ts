@@ -33,7 +33,7 @@ describe('ImportedRuleNameService', () => {
 
   it('дописывает domain_ref только если в спеке пусто', () => {
     const filled = service.sanitizeRule({
-      id: 'r1',
+      id: 1,
       code: 'instr',
       type: 'ability',
       name: 'Владение музыкальным инструментом ( x из 3, инструмент )',
@@ -55,7 +55,7 @@ describe('ImportedRuleNameService', () => {
     expect(spec.parameters).toBeUndefined();
 
     const kept = service.sanitizeRule({
-      id: 'r2',
+      id: null,
       code: 'lips',
       type: 'ability',
       name: 'Чтение по губам( Вид )',
@@ -77,7 +77,7 @@ describe('ImportedRuleNameService', () => {
 
   it('параметр из хвоста — только если зона не кодирует тот же максимум уровнями', () => {
     const withParam = service.sanitizeRule({
-      id: 'r3',
+      id: null,
       code: 'hold',
       type: 'ability',
       name: 'Длительное напряжение( n из 5)',
@@ -97,7 +97,7 @@ describe('ImportedRuleNameService', () => {
     ]);
 
     const levels = service.sanitizeRule({
-      id: 'r4',
+      id: null,
       code: 'attn',
       type: 'ability',
       name: 'Развитие внимательности( х из 3)',

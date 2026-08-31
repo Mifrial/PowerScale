@@ -5,7 +5,7 @@ function typeRule(index: number, code: string, name: string, description: string
   const spec: ItemModifierTypeSpec = { exclusive: true };
 
   return {
-    id: `rule-${840 + index}`,
+    id: 840 + index,
     code,
     type: 'item_modifier_type',
     name,

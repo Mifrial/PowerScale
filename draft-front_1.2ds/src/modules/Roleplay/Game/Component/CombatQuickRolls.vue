@@ -12,6 +12,7 @@ import { characteristicRollService } from '@/modules/Roleplay/Game/Service/Insta
 import type { QuickRollRecord } from '@/modules/Roleplay/Game/Dto/QuickRollRecord';
 import type { AttackOverview } from '@/modules/Roleplay/Character/Dto/Overview/AttackOverview';
 import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
+import { attackActionSourceService } from '@/modules/Roleplay/Game/Service/Instance/attackActionSourceService';
 
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
@@ -44,7 +45,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  'toggle-quick-roll': [entityKey: string, ruleId: string];
+  'toggle-quick-roll': [entityKey: string, ruleCode: string];
   'launch-hit': [payload: { attackerKey: CombatEntityKey; attack: AttackOverview }];
 }>();
 
@@ -110,22 +111,13 @@ const records = computed<QuickRollRecord[]>(() => {
   );
 });
 const attackFavorites = useAttackFavorites();
-const favoriteAttack = computed(() => {
-  const entity = model.value;
-  const currentOverview = overview.value;
-  if (!entity || !currentOverview || !selectedKey.value) return null;
-  const favorite = attackFavorites.favoriteOf(selectedKey.value);
-  if (!favorite) return null;
-
-  return (
-    currentOverview.attacks.find(
-      (attack) =>
-        attack.itemRuleId === favorite.itemRuleId &&
-        attack.profileType === favorite.profileType &&
-        (attack.profileIndex ?? 0) === favorite.profileIndex,
-    ) ?? null
-  );
-});
+const favoriteAttack = computed(() =>
+  attackActionSourceService.favoriteAttack(
+    overview.value?.attacks ?? [],
+    selectedKey.value ? (attackFavorites.favoriteOf(selectedKey.value) ?? null) : null,
+    props.rules,
+  ),
+);
 
 const speaker = computed<ChatSpeaker>(() => {
   const current = model.value;
@@ -144,7 +136,7 @@ async function rollRecord(record: QuickRollRecord): Promise<void> {
       {
         name: record.name,
         value: record.value,
-        ruleId: record.ruleId,
+        ruleCode: record.ruleCode,
         actorKey: selectedKey.value ?? undefined,
       },
       props.rules,
@@ -156,9 +148,9 @@ async function rollRecord(record: QuickRollRecord): Promise<void> {
   }
 }
 
-function removeRecord(ruleId: string): void {
+function removeRecord(ruleCode: string): void {
   if (selectedKey.value === null) return;
-  emit('toggle-quick-roll', selectedKey.value, ruleId);
+  emit('toggle-quick-roll', selectedKey.value, ruleCode);
 }
 
 function launchFavoriteAttack(): void {
@@ -192,7 +184,7 @@ function launchFavoriteAttack(): void {
             <div v-else class="combat-quick-rolls__list">
               <div
                 v-for="record in records"
-                :key="record.ruleId"
+                :key="record.ruleCode"
                 class="combat-quick-rolls__record"
                 :class="{ 'combat-quick-rolls__record--rollable': chatId !== null }"
                 @click="chatId !== null && rollRecord(record)"
@@ -205,7 +197,7 @@ function launchFavoriteAttack(): void {
                   type="button"
                   class="combat-quick-rolls__remove"
                   title="Снять звёздочку"
-                  @click.stop="removeRecord(record.ruleId)"
+                  @click.stop="removeRecord(record.ruleCode)"
                 >
                   <v-icon icon="mdi-close" size="small" />
                 </button>

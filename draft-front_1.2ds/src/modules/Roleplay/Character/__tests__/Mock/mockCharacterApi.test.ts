@@ -20,10 +20,10 @@ const version: CharacterVersion = {
   fullDescription: null,
   spaceCode: 'razrabotka',
   rulesRevision: 5,
-  raceRuleId: 'rule-6',
+  raceRuleCode: 'human',
   characteristics: [],
   resources: [],
-  abilities: [{ ruleId: 'rule-25', level: 1 }],
+  abilities: [{ ruleCode: 'keen-hearing', level: 1 }],
   points: { osSpent: 10, olSpent: 0, olTotal: 0, orSpent: 0, orTotal: 12 },
   money: 0,
   ageYears: null,
@@ -62,7 +62,7 @@ describe('mockCharacterApi: create/update', () => {
     expect(chat?.type).toBe('character_discussion');
     expect(chat?.name).toBe('Новичок');
     expect(chat?.members.some((m) => m.userId === detail.character.ownerId)).toBe(true);
-    expect(detail.version.abilities).toEqual([{ ruleId: 'rule-25', level: 1 }]);
+    expect(detail.version.abilities).toEqual([{ ruleCode: 'keen-hearing', level: 1 }]);
 
     const list = await fetchCharacters();
     expect(list.some((c) => c.id === detail.character.id)).toBe(true);
@@ -78,7 +78,7 @@ describe('mockCharacterApi: create/update', () => {
 
   it('updateCharacter применяет переданный статус листа', async () => {
     const created = await createCharacter({ ...createData, status: 'ready' });
-    const updatedVersion: CharacterVersion = { ...version, name: 'Новичок II', raceRuleId: 'rule-126' };
+    const updatedVersion: CharacterVersion = { ...version, name: 'Новичок II', raceRuleCode: 'arilet' };
 
     const detail = await updateCharacter(created.character.id, { version: updatedVersion, status: 'ready' });
     expect(detail.character.status).toBe('ready');
@@ -129,7 +129,7 @@ describe('mockCharacterApi: custom rules («Уникальные правила�
     expect(entry.name).toBe('Амулет дракона');
     expect(entry.description).toBe('Дарует жаркое дыхание раз в день.');
     expect(entry.status).toBe('active');
-    expect(entry.replacedWithRuleId).toBeUndefined();
+    expect(entry.replacedWithRuleCode).toBeUndefined();
     // Персист: повторная загрузка отдаёт запись.
     const fetched = await fetchCharacter(created.character.id);
     expect(fetched.version.customRules?.[0]?.name).toBe('Амулет дракона');
@@ -148,7 +148,7 @@ describe('mockCharacterApi: custom rules («Уникальные правила�
     expect(detail.version.rulesRevision).toBe(5);
   });
 
-  it('updateCustomRule заменяет запись (deprecated + replacedWithRuleId)', async () => {
+  it('updateCustomRule заменяет запись (deprecated + replacedWithRuleCode)', async () => {
     const created = await createCharacter(freshCreateData());
     const detail = await addCustomRule(created.character.id, {
       kind: 'ability',
@@ -159,11 +159,11 @@ describe('mockCharacterApi: custom rules («Уникальные правила�
 
     const updated = await updateCustomRule(created.character.id, entryId, {
       status: 'deprecated',
-      replacedWithRuleId: 'rule-25',
+      replacedWithRuleCode: 'keen-hearing',
     });
 
     expect(updated.version.customRules![0].status).toBe('deprecated');
-    expect(updated.version.customRules![0].replacedWithRuleId).toBe('rule-25');
+    expect(updated.version.customRules![0].replacedWithRuleCode).toBe('keen-hearing');
     expect(updated.version.customRules![0].name).toBe('Ярость');
   });
 
@@ -204,12 +204,12 @@ describe('mockCharacterApi: custom rules («Уникальные правила�
 
     const updated = await updateCustomRule(created.character.id, entryId, {
       status: 'deprecated',
-      replacedWithRuleId: 'rule-407',
+      replacedWithRuleCode: 'fekhtovalnyy-mech',
     });
 
     expect(updated.version.customRules![0].status).toBe('deprecated');
-    expect(updated.version.customRules![0].replacedWithRuleId).toBe('rule-407');
-    const item = updated.version.inventory.find((entry) => entry.ruleId === 'rule-407');
+    expect(updated.version.customRules![0].replacedWithRuleCode).toBe('fekhtovalnyy-mech');
+    const item = updated.version.inventory.find((entry) => entry.ruleCode === 'fekhtovalnyy-mech');
     expect(item).toBeDefined();
     expect(item?.quantity).toBe(1);
     expect(item?.equipped).toBe(false);
@@ -225,14 +225,14 @@ describe('mockCharacterApi: custom rules («Уникальные правила�
 
     await updateCustomRule(created.character.id, entryId, {
       status: 'deprecated',
-      replacedWithRuleId: 'rule-407',
+      replacedWithRuleCode: 'fekhtovalnyy-mech',
     });
     const second = await updateCustomRule(created.character.id, entryId, {
       status: 'deprecated',
-      replacedWithRuleId: 'rule-407',
+      replacedWithRuleCode: 'fekhtovalnyy-mech',
     });
 
-    const items = second.version.inventory.filter((entry) => entry.ruleId === 'rule-407');
+    const items = second.version.inventory.filter((entry) => entry.ruleCode === 'fekhtovalnyy-mech');
     expect(items).toHaveLength(1);
     expect(items[0].quantity).toBe(2);
   });
@@ -245,10 +245,10 @@ describe('mockCharacterApi: custom rules («Уникальные правила�
 
     const updated = await updateCustomRule(created.character.id, entryId, {
       status: 'deprecated',
-      replacedWithRuleId: 'rule-25',
+      replacedWithRuleCode: 'keen-hearing',
     });
 
-    expect(updated.version.customRules![0].replacedWithRuleId).toBe('rule-25');
+    expect(updated.version.customRules![0].replacedWithRuleCode).toBe('keen-hearing');
     expect(updated.version.inventory.length).toBe(inventoryBefore);
   });
 
@@ -267,7 +267,7 @@ describe('mockCharacterApi: custom rules («Уникальные правила�
     // Коммитим «Палку» в space 2 → появляется в ревизии 13 (id rule-N, вне ruleCatalog).
     const rev = await commitDraft(2, [
       {
-        id: 'draft-x',
+        id: null,
         code: 'palochka',
         type: 'item',
         name: 'Палка',
@@ -278,7 +278,7 @@ describe('mockCharacterApi: custom rules («Уникальные правила�
     ]);
     const palka = rev.rules.find((r) => r.code === 'palochka');
     expect(palka).toBeDefined();
-    const palkaId = palka!.id;
+    const palkaCode = palka!.code;
 
     // Персонаж на ревизии 12, а правило в 13 — переведём на 13 через прямое обновление версии,
     // чтобы updateCustomRule резолвил тип из ревизии 13. Черновик редактора несёт кастом-записи
@@ -289,10 +289,10 @@ describe('mockCharacterApi: custom rules («Уникальные правила�
 
     const updated = await updateCustomRule(created.character.id, entryId, {
       status: 'deprecated',
-      replacedWithRuleId: palkaId,
+      replacedWithRuleCode: palkaCode,
     });
 
-    const item = updated.version.inventory.find((entry) => entry.ruleId === palkaId);
+    const item = updated.version.inventory.find((entry) => entry.ruleCode === palkaCode);
     expect(item).toBeDefined();
     expect(item?.quantity).toBe(1);
     expect(item?.equipped).toBe(false);

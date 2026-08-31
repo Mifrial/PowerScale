@@ -42,10 +42,10 @@ export class ItemModifierService {
     return true;
   }
 
-  identityKey(ruleId: string, modifierRuleIds: readonly string[] | undefined): string {
-    const sorted = [...(modifierRuleIds ?? [])].filter((id) => id.length > 0).sort();
+  identityKey(ruleCode: string, modifierRuleCodes: readonly string[] | undefined): string {
+    const sorted = [...(modifierRuleCodes ?? [])].filter((id) => id.length > 0).sort();
 
-    return `${ruleId}|${sorted.join(',')}`;
+    return `${ruleCode}|${sorted.join(',')}`;
   }
 
   sameIdentity(
@@ -65,7 +65,7 @@ export class ItemModifierService {
   toggleSelection(selected: readonly string[], modifierId: string, rules: readonly Rule[]): string[] {
     if (selected.includes(modifierId)) return selected.filter((id) => id !== modifierId);
 
-    const incoming = rules.find((rule) => rule.id === modifierId);
+    const incoming = rules.find((rule) => rule.code === modifierId);
     const incomingSpec =
       incoming?.type === 'item_modifier' ? (incoming.spec as ItemModifierSpec | undefined) : undefined;
     const typeCode = incomingSpec?.type_code ?? '';
@@ -74,7 +74,7 @@ export class ItemModifierService {
     if (!exclusive || !typeCode) return [...selected, modifierId];
 
     const kept = selected.filter((id) => {
-      const rule = rules.find((entry) => entry.id === id);
+      const rule = rules.find((entry) => entry.code === id);
       const spec = rule?.type === 'item_modifier' ? (rule.spec as ItemModifierSpec | undefined) : undefined;
 
       return spec?.type_code !== typeCode;

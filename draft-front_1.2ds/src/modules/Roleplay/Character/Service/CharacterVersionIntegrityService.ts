@@ -5,42 +5,42 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 export class CharacterVersionIntegrityService {
   invalidBuildRuleIds(build: CharacterBuild, rules: Rule[]): string[] {
     const referencedRuleIds = new Set<string>();
-    if (build.raceRuleId) referencedRuleIds.add(build.raceRuleId);
-    build.resources.forEach((entry) => referencedRuleIds.add(entry.ruleId));
-    build.abilities.forEach((entry) => referencedRuleIds.add(entry.ruleId));
+    if (build.raceRuleCode) referencedRuleIds.add(build.raceRuleCode);
+    build.resources.forEach((entry) => referencedRuleIds.add(entry.ruleCode));
+    build.abilities.forEach((entry) => referencedRuleIds.add(entry.ruleCode));
     build.inventory.forEach((entry) => {
-      if (entry.ruleId) referencedRuleIds.add(entry.ruleId);
-      entry.modifierRuleIds?.forEach((ruleId) => referencedRuleIds.add(ruleId));
+      if (entry.ruleCode) referencedRuleIds.add(entry.ruleCode);
+      entry.modifierRuleCodes?.forEach((ruleCode) => referencedRuleIds.add(ruleCode));
     });
     build.states.forEach((entry) => {
-      referencedRuleIds.add(entry.stateRuleId);
-      if (entry.poison?.poisonRuleId) referencedRuleIds.add(entry.poison.poisonRuleId);
+      referencedRuleIds.add(entry.stateRuleCode);
+      if (entry.poison?.poisonRuleCode) referencedRuleIds.add(entry.poison.poisonRuleCode);
     });
 
     return this.missingRuleIds(referencedRuleIds, rules);
   }
 
-  removeUnsupportedFromBuild(build: CharacterBuild, ruleIds: string[]): CharacterBuild {
-    const unsupported = new Set(ruleIds);
+  removeUnsupportedFromBuild(build: CharacterBuild, ruleCodes: string[]): CharacterBuild {
+    const unsupported = new Set(ruleCodes);
 
     return {
       ...build,
-      raceRuleId: build.raceRuleId && unsupported.has(build.raceRuleId) ? null : build.raceRuleId,
-      resources: build.resources.filter((entry) => !unsupported.has(entry.ruleId)),
-      abilities: build.abilities.filter((entry) => !unsupported.has(entry.ruleId)),
+      raceRuleCode: build.raceRuleCode && unsupported.has(build.raceRuleCode) ? null : build.raceRuleCode,
+      resources: build.resources.filter((entry) => !unsupported.has(entry.ruleCode)),
+      abilities: build.abilities.filter((entry) => !unsupported.has(entry.ruleCode)),
       inventory: build.inventory
-        .filter((entry) => !entry.ruleId || !unsupported.has(entry.ruleId))
+        .filter((entry) => !entry.ruleCode || !unsupported.has(entry.ruleCode))
         .map((entry) => ({
           ...entry,
-          modifierRuleIds: entry.modifierRuleIds?.filter((ruleId) => !unsupported.has(ruleId)),
+          modifierRuleCodes: entry.modifierRuleCodes?.filter((ruleCode) => !unsupported.has(ruleCode)),
         })),
       states: build.states
-        .filter((entry) => !unsupported.has(entry.stateRuleId))
+        .filter((entry) => !unsupported.has(entry.stateRuleCode))
         .map((entry) => ({
           ...entry,
           poison:
-            entry.poison && entry.poison.poisonRuleId && unsupported.has(entry.poison.poisonRuleId)
-              ? { ...entry.poison, poisonRuleId: null }
+            entry.poison && entry.poison.poisonRuleCode && unsupported.has(entry.poison.poisonRuleCode)
+              ? { ...entry.poison, poisonRuleCode: null }
               : entry.poison,
         })),
     };
@@ -48,32 +48,32 @@ export class CharacterVersionIntegrityService {
 
   invalidRuleIds(version: CharacterVersion, rules: Rule[]): string[] {
     const referencedRuleIds = new Set<string>();
-    if (version.raceRuleId) referencedRuleIds.add(version.raceRuleId);
+    if (version.raceRuleCode) referencedRuleIds.add(version.raceRuleCode);
     version.characteristics.forEach((entry) => {
-      referencedRuleIds.add(entry.ruleId);
+      referencedRuleIds.add(entry.ruleCode);
       entry.modifiers.forEach((modifier) => {
-        if (modifier.sourceRuleId) referencedRuleIds.add(modifier.sourceRuleId);
+        if (modifier.sourceRuleCode) referencedRuleIds.add(modifier.sourceRuleCode);
       });
     });
     version.resources.forEach((entry) => {
-      referencedRuleIds.add(entry.ruleId);
+      referencedRuleIds.add(entry.ruleCode);
       entry.bonuses.forEach((bonus) => {
-        if (bonus.sourceRuleId) referencedRuleIds.add(bonus.sourceRuleId);
+        if (bonus.sourceRuleCode) referencedRuleIds.add(bonus.sourceRuleCode);
       });
     });
-    version.abilities.forEach((entry) => referencedRuleIds.add(entry.ruleId));
+    version.abilities.forEach((entry) => referencedRuleIds.add(entry.ruleCode));
     version.inventory.forEach((entry) => {
-      if (entry.ruleId) referencedRuleIds.add(entry.ruleId);
-      entry.modifierRuleIds?.forEach((ruleId) => referencedRuleIds.add(ruleId));
+      if (entry.ruleCode) referencedRuleIds.add(entry.ruleCode);
+      entry.modifierRuleCodes?.forEach((ruleCode) => referencedRuleIds.add(ruleCode));
     });
     version.states.forEach((entry) => {
-      referencedRuleIds.add(entry.stateRuleId);
-      if (entry.poison?.poisonRuleId) referencedRuleIds.add(entry.poison.poisonRuleId);
+      referencedRuleIds.add(entry.stateRuleCode);
+      if (entry.poison?.poisonRuleCode) referencedRuleIds.add(entry.poison.poisonRuleCode);
     });
     version.senses.forEach((entry) => {
-      referencedRuleIds.add(entry.ruleId);
+      referencedRuleIds.add(entry.ruleCode);
       entry.modifiers.forEach((modifier) => {
-        if (modifier.sourceRuleId) referencedRuleIds.add(modifier.sourceRuleId);
+        if (modifier.sourceRuleCode) referencedRuleIds.add(modifier.sourceRuleCode);
       });
     });
 
@@ -88,8 +88,8 @@ export class CharacterVersionIntegrityService {
   }
 
   private missingRuleIds(referencedRuleIds: Set<string>, rules: Rule[]): string[] {
-    const knownRuleIds = new Set(rules.map((rule) => rule.id));
+    const knownRuleIds = new Set(rules.map((rule) => rule.code));
 
-    return [...referencedRuleIds].filter((ruleId) => !knownRuleIds.has(ruleId)).sort();
+    return [...referencedRuleIds].filter((ruleCode) => !knownRuleIds.has(ruleCode)).sort();
   }
 }

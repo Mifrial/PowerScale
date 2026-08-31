@@ -22,7 +22,7 @@ export class InjuryCheckService {
     if (!rule || !version) return 0;
 
     return version.states
-      .filter((state) => state.stateRuleId === rule.id)
+      .filter((state) => state.stateRuleCode === rule.code)
       .reduce((sum, state) => sum + (state.value ?? 0), 0);
   }
 
@@ -62,7 +62,7 @@ export class InjuryCheckService {
       const maimRule = args.rules.find((rule) => rule.code === MAIM_STATE_CODE && rule.type === 'state');
       if (maimRule) {
         overlay = await this.resolveGameApi().addCombatState(args.gameId, args.targetKey, {
-          stateRuleId: maimRule.id,
+          stateRuleCode: maimRule.code,
           value: injury.strength,
           maim: {
             permanent: injury.permanent,

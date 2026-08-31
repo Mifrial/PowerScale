@@ -15,7 +15,7 @@ function makeBuild(name = 'Тест'): CharacterBuild {
     spaceCode: 'razrabotka',
     rulesRevision: 5,
     spaceId: 1,
-    raceRuleId: null,
+    raceRuleCode: null,
     characteristicPurchases: [],
     abilities: [],
     resources: [],
@@ -46,9 +46,9 @@ describe('characterDraft store', () => {
     const store = useCharacterDraftStore();
     store.initDraft('character:1', makeBuild(), config);
 
-    store.patchBuild('character:1', { raceRuleId: 'rule-human' });
+    store.patchBuild('character:1', { raceRuleCode: 'human' });
     const entry = store.draftOf('character:1');
-    expect(entry?.build.raceRuleId).toBe('rule-human');
+    expect(entry?.build.raceRuleCode).toBe('human');
     expect(entry?.dirty).toBe(true);
   });
 
@@ -64,15 +64,15 @@ describe('characterDraft store', () => {
   it('patchBuild инвентаря помечает черновик грязным (экип с карточки)', () => {
     const store = useCharacterDraftStore();
     const withItem = makeBuild();
-    withItem.inventory = [{ id: 1, ruleId: 'rule-404', quantity: 1, equipped: false }];
+    withItem.inventory = [{ id: 1, ruleCode: 'rule-404', quantity: 1, equipped: false }];
     store.initDraft('character:1', withItem, config, {
-      inventory: [{ id: 1, ruleId: 'rule-404', quantity: 1, equipped: false }],
+      inventory: [{ id: 1, ruleCode: 'rule-404', quantity: 1, equipped: false }],
       money: 0,
     });
     expect(store.draftOf('character:1')?.dirty).toBe(false);
 
     store.patchBuild('character:1', {
-      inventory: [{ id: 1, ruleId: 'rule-404', quantity: 1, equipped: true }],
+      inventory: [{ id: 1, ruleCode: 'rule-404', quantity: 1, equipped: true }],
     });
     expect(store.draftOf('character:1')?.dirty).toBe(true);
     expect(store.draftOf('character:1')?.build.inventory[0]?.equipped).toBe(true);
@@ -115,7 +115,7 @@ describe('characterDraft store', () => {
     it('initDraft сохраняет переданную базовую линию (edit: снапшот оригинала)', () => {
       const store = useCharacterDraftStore();
       const baseline = {
-        inventory: [{ id: 1, ruleId: 'rule-404', quantity: 1, equipped: true }],
+        inventory: [{ id: 1, ruleCode: 'rule-404', quantity: 1, equipped: true }],
         money: 50,
       };
 
@@ -152,7 +152,7 @@ describe('characterDraft store', () => {
       const store = useCharacterDraftStore();
       const build = makeBuild();
       build.money = 50;
-      build.inventory = [{ id: 1, ruleId: 'rule-404', quantity: 2, equipped: false }];
+      build.inventory = [{ id: 1, ruleCode: 'rule-404', quantity: 2, equipped: false }];
       store.initDraft('character:1', build, config);
 
       store.ensureInventoryBaseline('character:1', 0);
@@ -160,7 +160,7 @@ describe('characterDraft store', () => {
       const entry = store.draftOf('character:1');
       expect(entry?.build.money).toBe(50);
       expect(entry?.inventoryBaseline).toEqual({
-        inventory: [{ id: 1, ruleId: 'rule-404', quantity: 2, equipped: false }],
+        inventory: [{ id: 1, ruleCode: 'rule-404', quantity: 2, equipped: false }],
         money: 50,
       });
       expect(entry?.dirty).toBe(false);
@@ -169,7 +169,7 @@ describe('characterDraft store', () => {
     it('ensureInventoryBaseline no-op, когда линия уже есть (edit)', () => {
       const store = useCharacterDraftStore();
       const baseline = {
-        inventory: [{ id: 1, ruleId: 'rule-404', quantity: 1, equipped: true }],
+        inventory: [{ id: 1, ruleCode: 'rule-404', quantity: 1, equipped: true }],
         money: 50,
       };
       store.initDraft('character:1', makeBuild(), config, baseline);

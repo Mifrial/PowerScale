@@ -2,7 +2,7 @@ import type { EditorAbility } from '@/modules/Roleplay/Character/Dto/Editor/Edit
 
 /** Группа способностей в модели редактора: группирующее правило + его участники. */
 export interface EditorAbilityGroup {
-  ruleId: string;
+  ruleCode: string;
   code: string;
   name: string;
   description: string;

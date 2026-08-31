@@ -3,7 +3,7 @@ import type { EditorResourceBonus } from '@/modules/Roleplay/Character/Dto/Edito
 
 /** Представление ресурса для попапа редактора персонажа. */
 export interface EditorResourceView {
-  ruleId: string;
+  ruleCode: string;
   name: string;
   current: DimensionalNumberValue;
   base: DimensionalNumberValue;

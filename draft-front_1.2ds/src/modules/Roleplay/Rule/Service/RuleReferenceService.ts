@@ -8,9 +8,9 @@ import type { SourceRef } from '@/modules/Roleplay/Rule/Dto/Ability/SourceRef';
 import type { NamedOption } from '@/modules/Roleplay/Rule/Dto/NamedOption';
 
 export class RuleReferenceService {
-  speciesOptions(rules: Rule[], excludeRuleId?: string): NamedOption[] {
+  speciesOptions(rules: Rule[], excludeCode?: string): NamedOption[] {
     return rules
-      .filter((r) => r.type === 'species' && r.id !== excludeRuleId)
+      .filter((r) => r.type === 'species' && r.code !== excludeCode)
       .map((r) => ({ code: r.code, name: r.name }));
   }
 

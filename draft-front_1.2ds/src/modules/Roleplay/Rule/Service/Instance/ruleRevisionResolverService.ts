@@ -4,5 +4,5 @@ import { useRuleStore } from '@/modules/Roleplay/Rule/Store/rules';
 
 export const ruleRevisionResolverService = new RuleRevisionResolverService(
   () => revisionRulesFetcherRegistry.get(),
-  (ruleId, signal) => useRuleStore().fetchRule(ruleId, signal),
+  (code, signal) => useRuleStore().fetchRule(code, signal),
 );

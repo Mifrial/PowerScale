@@ -7,7 +7,7 @@ import type { EditorAbilityInstance } from '@/modules/Roleplay/Character/Dto/Edi
 
 /** Способность в модели редактора: зоны с ценами, выполнимость требований, текущий уровень. */
 export interface EditorAbility {
-  ruleId: string;
+  ruleCode: string;
   code: string;
   name: string;
   type: AbilityType | null;

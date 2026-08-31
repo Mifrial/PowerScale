@@ -458,13 +458,13 @@ export class GameApi implements IGameApi {
   async setCombatResource(
     gameId: number,
     entityKey: CombatEntityKey,
-    ruleId: string,
+    ruleCode: string,
     current: DimensionalNumberValue,
     signal?: AbortSignal,
   ): Promise<GameCombatOverlay> {
     const res = await this.engine.runAction<GameCombatOverlay>(
       'game.setCombatResource',
-      { gameId, entityKey, ruleId, current },
+      { gameId, entityKey, ruleCode, current },
       signal,
     );
     if (!res.data) throw new Error('Set combat resource failed');
@@ -568,10 +568,10 @@ export class GameApi implements IGameApi {
   async addQuickRoll(
     gameId: number,
     entityKey: CombatEntityKey,
-    ruleId: string,
+    ruleCode: string,
     signal?: AbortSignal,
   ): Promise<string[]> {
-    const res = await this.engine.runAction<string[]>('game.addQuickRoll', { gameId, entityKey, ruleId }, signal);
+    const res = await this.engine.runAction<string[]>('game.addQuickRoll', { gameId, entityKey, ruleCode }, signal);
     if (!res.data) throw new Error('Add quick roll failed');
 
     return res.data;
@@ -580,10 +580,10 @@ export class GameApi implements IGameApi {
   async removeQuickRoll(
     gameId: number,
     entityKey: CombatEntityKey,
-    ruleId: string,
+    ruleCode: string,
     signal?: AbortSignal,
   ): Promise<string[]> {
-    const res = await this.engine.runAction<string[]>('game.removeQuickRoll', { gameId, entityKey, ruleId }, signal);
+    const res = await this.engine.runAction<string[]>('game.removeQuickRoll', { gameId, entityKey, ruleCode }, signal);
     if (!res.data) throw new Error('Remove quick roll failed');
 
     return res.data;

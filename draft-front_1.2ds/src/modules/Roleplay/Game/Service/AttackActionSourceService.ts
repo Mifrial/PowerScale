@@ -2,24 +2,29 @@ import type { AttackOverview } from '@/modules/Roleplay/Character/Dto/Overview/A
 import type { CharacterOverview } from '@/modules/Roleplay/Character/Dto/Overview/CharacterOverview';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { CombatActionOption } from '@/modules/Roleplay/Game/Utils/combatActions';
-import { asActionAbilitySpec, asProcessAbilitySpec, actionOdCost } from '@/modules/Roleplay/Game/Utils/combatActions';
+import {
+  asActionAbilitySpec,
+  asProcessAbilitySpec,
+  actionOdCost,
+  findRuleByRef,
+} from '@/modules/Roleplay/Game/Utils/combatActions';
 import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/actionEffectService';
 import { ATTACK_KEYWORD_IDS } from '@/modules/Roleplay/Game/Constant/Combat/ATTACK_KEYWORD_IDS';
 
 export class AttackActionSourceService {
   list(rules: Rule[], overview: CharacterOverview | null): CombatActionOption[] {
-    const ownedRuleIds = new Set(overview?.abilities.map((ability) => ability.ruleId) ?? []);
+    const ownedRuleIds = new Set(overview?.abilities.map((ability) => ability.ruleCode) ?? []);
 
     return rules.flatMap((rule) => {
       const actionSpec = asActionAbilitySpec(rule);
       const processSpec = asProcessAbilitySpec(rule);
       const isAttack = (rule.keywordIds ?? []).includes(ATTACK_KEYWORD_IDS.attack);
       if (!isAttack || (!actionSpec && !processSpec)) return [];
-      if (!ownedRuleIds.has(rule.id) && !this.isAutomatic(actionSpec?.zones)) return [];
+      if (!ownedRuleIds.has(rule.code) && !this.isAutomatic(actionSpec?.zones)) return [];
 
       return [
         {
-          ruleId: rule.id,
+          ruleCode: rule.code,
           code: rule.code,
           name: rule.name,
           odCost: actionSpec ? actionOdCost(actionSpec.action_components) : 0,
@@ -50,9 +55,34 @@ export class AttackActionSourceService {
 
     return availableProfiles.some(
       (candidate) =>
-        candidate.itemRuleId === profile.itemRuleId &&
+        candidate.itemRuleCode === profile.itemRuleCode &&
         candidate.profileType === profile.profileType &&
         (candidate.profileIndex ?? 0) === (profile.profileIndex ?? 0),
+    );
+  }
+
+  sameItemRef(left: string, right: string, rules: Rule[]): boolean {
+    if (left === right) return true;
+    const leftRule = findRuleByRef(rules, left);
+    const rightRule = findRuleByRef(rules, right);
+
+    return Boolean(leftRule && rightRule && leftRule.code === rightRule.code);
+  }
+
+  favoriteAttack(
+    attacks: AttackOverview[],
+    favorite: { itemRuleCode: string; profileType: AttackOverview['profileType']; profileIndex: number } | null,
+    rules: Rule[],
+  ): AttackOverview | null {
+    if (!favorite) return null;
+
+    return (
+      attacks.find(
+        (attack) =>
+          this.sameItemRef(attack.itemRuleCode, favorite.itemRuleCode, rules) &&
+          attack.profileType === favorite.profileType &&
+          (attack.profileIndex ?? 0) === favorite.profileIndex,
+      ) ?? null
     );
   }
 

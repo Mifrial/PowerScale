@@ -16,7 +16,7 @@ export function characteristicSizeByCode(
 ): number | null {
   if (!overview) return null;
   for (const entry of overview.characteristics ?? []) {
-    const rule = rules.find((item) => item.id === entry.ruleId);
+    const rule = rules.find((item) => item.code === entry.ruleCode);
     if (rule?.code === code) return entry.value.size;
   }
 

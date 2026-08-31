@@ -5,7 +5,7 @@ import { CharacterOverviewService } from '@/modules/Roleplay/Character/Service/O
 
 const dim = (base: number, size = 0) => ({ base, size });
 
-const base = (id: string, code: string, type: Rule['type'], name: string, spec?: Rule['spec']): Rule => ({
+const base = (id: number | null, code: string, type: Rule['type'], name: string, spec?: Rule['spec']): Rule => ({
   id,
   code,
   type,
@@ -19,8 +19,8 @@ const base = (id: string, code: string, type: Rule['type'], name: string, spec?:
 });
 
 const rules: Rule[] = [
-  base('rule-strength', 'strength', 'characteristic', 'Сила', { type: 'characteristic', group: 'primary' }),
-  base('rule-halberd', 'alebarda', 'item', 'Алебарда', {
+  base(null, 'strength', 'characteristic', 'Сила', { type: 'characteristic', group: 'primary' }),
+  base(null, 'alebarda', 'item', 'Алебарда', {
     category: 'equipment',
     cost_gm: 1500,
     weight: { base: 3.5, size: 0 },
@@ -63,7 +63,7 @@ function versionWith(overrides: Partial<CharacterVersion> = {}): CharacterVersio
     fullDescription: null,
     spaceCode: 'razrabotka',
     rulesRevision: 5,
-    raceRuleId: null,
+    raceRuleCode: null,
     characteristics: [],
     resources: [],
     abilities: [],
@@ -85,12 +85,12 @@ describe('CharacterOverviewService: формулы атак', () => {
     const version = versionWith({
       characteristics: [
         {
-          ruleId: 'rule-strength',
+          ruleCode: 'strength',
           base: dim(3),
-          modifiers: [{ sourceRuleId: null, sourceLabel: 'Тренировка', delta: 2, target: 'strength', scope: null }],
+          modifiers: [{ sourceRuleCode: null, sourceLabel: 'Тренировка', delta: 2, target: 'strength', scope: null }],
         },
       ],
-      inventory: [{ id: 1, ruleId: 'rule-halberd', quantity: 1, equipped: true }],
+      inventory: [{ id: 1, ruleCode: 'alebarda', quantity: 1, equipped: true }],
     });
 
     const overview = service.build(version, rules);
@@ -106,8 +106,8 @@ describe('CharacterOverviewService: формулы атак', () => {
 
   it('без модификаторов база равна итогу (регрессия: не падает)', () => {
     const version = versionWith({
-      characteristics: [{ ruleId: 'rule-strength', base: dim(5), modifiers: [] }],
-      inventory: [{ id: 1, ruleId: 'rule-halberd', quantity: 1, equipped: true }],
+      characteristics: [{ ruleCode: 'strength', base: dim(5), modifiers: [] }],
+      inventory: [{ id: 1, ruleCode: 'alebarda', quantity: 1, equipped: true }],
     });
 
     const overview = service.build(version, rules);
@@ -118,29 +118,29 @@ describe('CharacterOverviewService: формулы атак', () => {
 
 describe('CharacterOverviewService: потолки экипировки', () => {
   const limitRules: Rule[] = [
-    base('rule-attention', 'attention', 'characteristic', 'Внимательность', {
+    base(null, 'attention', 'characteristic', 'Внимательность', {
       type: 'characteristic',
       group: 'primary',
     }),
-    base('rule-reaction', 'reaction', 'characteristic', 'Реакция', { type: 'characteristic', group: 'primary' }),
-    base('rule-perception', 'perception', 'characteristic', 'Восприятие', {
+    base(null, 'reaction', 'characteristic', 'Реакция', { type: 'characteristic', group: 'primary' }),
+    base(null, 'perception', 'characteristic', 'Восприятие', {
       type: 'characteristic',
       formula: 'min(attention, reaction)',
       group: 'primary',
     }),
-    base('rule-shield', 'klassicheskiy-shchit', 'item', 'Классический щит'),
+    base(null, 'klassicheskiy-shchit', 'item', 'Классический щит'),
   ];
 
   it('limit {3|-1} пишется как 3↓, а не 3; снятие щита убирает потолок и пересчитывает производную', () => {
     const version = versionWith({
       characteristics: [
-        { ruleId: 'rule-attention', base: dim(3), modifiers: [] },
+        { ruleCode: 'attention', base: dim(3), modifiers: [] },
         {
-          ruleId: 'rule-reaction',
+          ruleCode: 'reaction',
           base: dim(3),
           modifiers: [
             {
-              sourceRuleId: 'rule-shield',
+              sourceRuleCode: 'klassicheskiy-shchit',
               sourceLabel: null,
               delta: 0,
               target: 'reaction',
@@ -150,22 +150,22 @@ describe('CharacterOverviewService: потолки экипировки', () => 
             },
           ],
         },
-        { ruleId: 'rule-perception', base: dim(3, -1), modifiers: [] },
+        { ruleCode: 'perception', base: dim(3, -1), modifiers: [] },
       ],
-      inventory: [{ id: 1, ruleId: 'rule-shield', quantity: 1, equipped: true }],
+      inventory: [{ id: 1, ruleCode: 'klassicheskiy-shchit', quantity: 1, equipped: true }],
     });
     const equipped = service.build(version, limitRules);
-    expect(equipped.characteristics.find((item) => item.ruleId === 'rule-reaction')?.valueLabel).toBe('3↓');
-    expect(equipped.characteristics.find((item) => item.ruleId === 'rule-perception')?.valueLabel).toBe('3↓');
+    expect(equipped.characteristics.find((item) => item.ruleCode === 'reaction')?.valueLabel).toBe('3↓');
+    expect(equipped.characteristics.find((item) => item.ruleCode === 'perception')?.valueLabel).toBe('3↓');
 
     const unequipped = service.build(
-      { ...version, inventory: [{ id: 1, ruleId: 'rule-shield', quantity: 1, equipped: false }] },
+      { ...version, inventory: [{ id: 1, ruleCode: 'klassicheskiy-shchit', quantity: 1, equipped: false }] },
       limitRules,
     );
-    expect(unequipped.characteristics.find((item) => item.ruleId === 'rule-reaction')?.valueLabel).toBe('3');
-    expect(unequipped.characteristics.find((item) => item.ruleId === 'rule-perception')?.valueLabel).toBe('3');
+    expect(unequipped.characteristics.find((item) => item.ruleCode === 'reaction')?.valueLabel).toBe('3');
+    expect(unequipped.characteristics.find((item) => item.ruleCode === 'perception')?.valueLabel).toBe('3');
     expect(
-      unequipped.characteristics.find((item) => item.ruleId === 'rule-reaction')?.modifiers.some((item) => item.limit),
+      unequipped.characteristics.find((item) => item.ruleCode === 'reaction')?.modifiers.some((item) => item.limit),
     ).toBe(false);
   });
 });

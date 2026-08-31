@@ -5,7 +5,7 @@ import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
 
 const rules: Rule[] = [
   {
-    id: 'c',
+    id: null,
     code: 'strength',
     type: 'characteristic',
     name: 'Сила',
@@ -14,7 +14,7 @@ const rules: Rule[] = [
     createdAt: '2026-01-01T00:00:00Z',
   },
   {
-    id: 'dt',
+    id: null,
     code: 'fire',
     type: 'damage_type',
     name: 'Огонь',
@@ -23,7 +23,7 @@ const rules: Rule[] = [
     createdAt: '2026-01-01T00:00:00Z',
   },
   {
-    id: 's',
+    id: null,
     code: 'sense-hearing',
     type: 'sense',
     name: 'Слух',
@@ -32,7 +32,7 @@ const rules: Rule[] = [
     createdAt: '2026-01-01T00:00:00Z',
   },
   {
-    id: 'src',
+    id: null,
     code: 'innate',
     type: 'source',
     name: 'Врождённый',

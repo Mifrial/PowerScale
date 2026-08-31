@@ -37,7 +37,7 @@ export class AttackDamageService {
 
   actionPointsResource(overview: CharacterOverview, rules: Rule[]): ResourceOverview | null {
     for (const resource of overview.resources) {
-      if (rules.find((rule) => rule.id === resource.ruleId)?.code === ACTION_POINTS_CODE) return resource;
+      if (rules.find((rule) => rule.code === resource.ruleCode)?.code === ACTION_POINTS_CODE) return resource;
     }
 
     return null;
@@ -45,7 +45,7 @@ export class AttackDamageService {
 
   enduranceValueOf(overview: CharacterOverview, rules: Rule[]): DimensionalNumberValue {
     for (const characteristic of overview.characteristics) {
-      if (rules.find((rule) => rule.id === characteristic.ruleId)?.code === 'endurance') {
+      if (rules.find((rule) => rule.code === characteristic.ruleCode)?.code === 'endurance') {
         return characteristic.value;
       }
     }
@@ -64,7 +64,7 @@ export class AttackDamageService {
     if (!rule) return { base: 0, size: 0 };
 
     return states
-      .filter((state) => state.stateRuleId === rule.id)
+      .filter((state) => state.stateRuleCode === rule.code)
       .reduce(
         (total, state) => total.add(new DimensionalNumber(state.dimensionalValue ?? { base: 0, size: 0 })),
         new DimensionalNumber({ base: 0, size: 0 }),

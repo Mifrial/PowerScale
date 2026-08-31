@@ -35,7 +35,7 @@ const formulaLabel = computed(() => props.characteristic.derived?.label ?? props
       >
         <CharacteristicTile
           v-for="base in bases"
-          :key="base.ruleId"
+          :key="base.ruleCode"
           :characteristic="base"
           :rules="rules"
           :senses="senses"

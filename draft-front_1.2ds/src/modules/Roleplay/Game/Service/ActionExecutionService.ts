@@ -85,7 +85,7 @@ export class ActionExecutionService {
     const overlay = await this.resolveGameApi().setCombatResource(
       input.gameId,
       input.entityKey,
-      resource.ruleId,
+      resource.ruleCode,
       nextResource,
     );
     const effects = [

@@ -6,7 +6,7 @@ import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/Chara
 import { CharacterOverviewService } from '@/modules/Roleplay/Character/Service/Overview/CharacterOverviewService';
 
 function stateRule(
-  id: string,
+  id: number | null,
   code: string,
   name: string,
   spec: { value_type: 'flag' | 'number' | 'dimensional'; aggregation: 'sum' | 'max' | 'independent' },
@@ -23,7 +23,7 @@ function stateRule(
   };
 }
 
-function poisonRule(id: string, code: string, name: string, spec: Partial<PoisonSpec>): Rule {
+function poisonRule(id: number | null, code: string, name: string, spec: Partial<PoisonSpec>): Rule {
   return {
     id,
     code,
@@ -42,7 +42,7 @@ function poisonRule(id: string, code: string, name: string, spec: Partial<Poison
   };
 }
 
-function damageTypeRule(id: string, code: string, name: string): Rule {
+function damageTypeRule(id: number | null, code: string, name: string): Rule {
   return {
     id,
     code,
@@ -61,7 +61,7 @@ function version(states: CharacterStateValue[]): CharacterVersion {
     fullDescription: null,
     spaceCode: 'razrabotka',
     rulesRevision: 5,
-    raceRuleId: null,
+    raceRuleCode: null,
     characteristics: [],
     resources: [],
     abilities: [],
@@ -76,17 +76,15 @@ function version(states: CharacterStateValue[]): CharacterVersion {
 
 describe('CharacterOverviewService: состояния и агрегация повторов', () => {
   it('sum: несколько горений складываются в одну строку', () => {
-    const rules: Rule[] = [
-      stateRule('rule-burn', 'burning', 'Горение', { value_type: 'dimensional', aggregation: 'sum' }),
-    ];
+    const rules: Rule[] = [stateRule(null, 'burning', 'Горение', { value_type: 'dimensional', aggregation: 'sum' })];
     const states = serviceStates(rules, [
-      { stateRuleId: 'rule-burn', dimensionalValue: { base: 2, size: 0 } },
-      { stateRuleId: 'rule-burn', dimensionalValue: { base: 3, size: 0 } },
+      { stateRuleCode: 'burning', dimensionalValue: { base: 2, size: 0 } },
+      { stateRuleCode: 'burning', dimensionalValue: { base: 3, size: 0 } },
     ]);
 
     expect(states).toHaveLength(1);
     expect(states[0]).toMatchObject({
-      ruleId: 'rule-burn',
+      ruleCode: 'burning',
       name: 'Горение',
       valueLabel: '5',
       count: 2,
@@ -95,12 +93,10 @@ describe('CharacterOverviewService: состояния и агрегация п�
   });
 
   it('max: из повторов берётся наибольшее значение', () => {
-    const rules: Rule[] = [
-      stateRule('rule-weak', 'weakness', 'Слабость', { value_type: 'number', aggregation: 'max' }),
-    ];
+    const rules: Rule[] = [stateRule(null, 'weakness', 'Слабость', { value_type: 'number', aggregation: 'max' })];
     const states = serviceStates(rules, [
-      { stateRuleId: 'rule-weak', value: 2 },
-      { stateRuleId: 'rule-weak', value: 5 },
+      { stateRuleCode: 'weakness', value: 2 },
+      { stateRuleCode: 'weakness', value: 5 },
     ]);
 
     expect(states).toHaveLength(1);
@@ -108,31 +104,29 @@ describe('CharacterOverviewService: состояния и агрегация п�
   });
 
   it('independent: каждая Рана со своим значением — отдельная строка', () => {
-    const rules: Rule[] = [
-      stateRule('rule-wound', 'wound', 'Рана', { value_type: 'number', aggregation: 'independent' }),
-    ];
+    const rules: Rule[] = [stateRule(null, 'wound', 'Рана', { value_type: 'number', aggregation: 'independent' })];
     const states = serviceStates(rules, [
-      { stateRuleId: 'rule-wound', value: 3 },
-      { stateRuleId: 'rule-wound', value: 2 },
+      { stateRuleCode: 'wound', value: 3 },
+      { stateRuleCode: 'wound', value: 2 },
     ]);
 
     expect(states).toHaveLength(2);
     expect(states.map((s) => s.valueLabel)).toEqual(['3', '2']);
-    expect(states.map((s) => s.id)).toEqual(['rule-wound#0', 'rule-wound#1']);
+    expect(states.map((s) => s.id)).toEqual(['wound#0', 'wound#1']);
   });
 
   it('flag: значение не показывается, повторы объединяются', () => {
     const rules: Rule[] = [
-      stateRule('rule-flag', 'unconscious', 'Потеря сознания', { value_type: 'flag', aggregation: 'max' }),
+      stateRule(null, 'unconscious', 'Потеря сознания', { value_type: 'flag', aggregation: 'max' }),
     ];
-    const states = serviceStates(rules, [{ stateRuleId: 'rule-flag' }, { stateRuleId: 'rule-flag' }]);
+    const states = serviceStates(rules, [{ stateRuleCode: 'unconscious' }, { stateRuleCode: 'unconscious' }]);
 
     expect(states).toHaveLength(1);
     expect(states[0]).toMatchObject({ valueLabel: null, count: 2 });
   });
 
   it('неизвестное правило резолвится с флагом isResolved=false и не падает', () => {
-    const states = serviceStates([], [{ stateRuleId: 'rule-missing' }]);
+    const states = serviceStates([], [{ stateRuleCode: 'rule-missing' }]);
 
     expect(states).toHaveLength(1);
     expect(states[0]).toMatchObject({ name: 'rule-missing', isResolved: false, href: '' });
@@ -140,16 +134,16 @@ describe('CharacterOverviewService: состояния и агрегация п�
 
   it('отравление: каждая запись poison-блока — отдельная строка, имя/параметры из правила-яда', () => {
     const rules: Rule[] = [
-      stateRule('rule-poisoning', 'poisoning', 'Отравление', {
+      stateRule(null, 'poisoning', 'Отравление', {
         value_type: 'flag',
         aggregation: 'independent',
       }),
-      damageTypeRule('rule-dt1', 'poison-1', 'Яд 1 типа'),
-      damageTypeRule('rule-dt3', 'poison-3', 'Яд 3 типа'),
-      poisonRule('rule-poison-a', 'poison-scorpion', 'Яд скорпиона', {
+      damageTypeRule(null, 'poison-1', 'Яд 1 типа'),
+      damageTypeRule(null, 'poison-3', 'Яд 3 типа'),
+      poisonRule(null, 'poison-scorpion', 'Яд скорпиона', {
         default_strength: { base: 3, size: 1 },
       }),
-      poisonRule('rule-poison-b', 'poison-viper', 'Яд гадюки', {
+      poisonRule(null, 'poison-viper', 'Яд гадюки', {
         damage_type_code: 'poison-3',
         default_strength: { base: 5, size: 0 },
         default_periodicity: { kind: 'literal', value: 3, step: 'turn' },
@@ -157,12 +151,12 @@ describe('CharacterOverviewService: состояния и агрегация п�
       }),
     ];
     const states = serviceStates(rules, [
-      { stateRuleId: 'rule-poisoning', poison: { poisonRuleId: 'rule-poison-a' } },
-      { stateRuleId: 'rule-poisoning', poison: { poisonRuleId: 'rule-poison-b' } },
+      { stateRuleCode: 'poisoning', poison: { poisonRuleCode: 'poison-scorpion' } },
+      { stateRuleCode: 'poisoning', poison: { poisonRuleCode: 'poison-viper' } },
     ]);
 
     expect(states.map((s) => s.name)).toEqual(['Яд скорпиона', 'Яд гадюки']);
-    expect(states.map((s) => s.id)).toEqual(['rule-poisoning#poison-0', 'rule-poisoning#poison-1']);
+    expect(states.map((s) => s.id)).toEqual(['poisoning#poison-0', 'poisoning#poison-1']);
     expect(states.map((s) => s.valueLabel)).toEqual(['3↑', '5']);
     expect(states[0].dotLabel).toContain('3↑ яд 1 типа');
     expect(states[1].dotLabel).toContain('затухание 2');
@@ -170,17 +164,17 @@ describe('CharacterOverviewService: состояния и агрегация п�
 
   it('отравление без правила-яда: имя из состояния «Отравление», параметры из записи', () => {
     const rules: Rule[] = [
-      stateRule('rule-poisoning', 'poisoning', 'Отравление', {
+      stateRule(null, 'poisoning', 'Отравление', {
         value_type: 'flag',
         aggregation: 'independent',
       }),
-      damageTypeRule('rule-dt2', 'poison-2', 'Яд 2 типа'),
+      damageTypeRule(null, 'poison-2', 'Яд 2 типа'),
     ];
     const states = serviceStates(rules, [
       {
-        stateRuleId: 'rule-poisoning',
+        stateRuleCode: 'poisoning',
         poison: {
-          poisonRuleId: null,
+          poisonRuleCode: null,
           damage_type_code: 'poison-2',
           strength: { base: 7, size: 0 },
           periodicity: { kind: 'literal', value: 1, step: 'turn' },
@@ -190,7 +184,7 @@ describe('CharacterOverviewService: состояния и агрегация п�
     ]);
 
     expect(states).toHaveLength(1);
-    expect(states[0]).toMatchObject({ name: 'Отравление', valueLabel: '7', ruleId: 'rule-poisoning' });
+    expect(states[0]).toMatchObject({ name: 'Отравление', valueLabel: '7', ruleCode: 'poisoning' });
     expect(states[0].dotLabel).toContain('яд 2 типа');
     expect(states[0].dotLabel).toContain('каждый ход');
   });

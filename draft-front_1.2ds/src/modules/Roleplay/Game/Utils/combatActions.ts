@@ -21,7 +21,7 @@ export const TURN_CODE = 'turn';
 export const WAIT_ACTION_CODE = 'wait';
 
 export interface CombatActionOption {
-  ruleId: string;
+  ruleCode: string;
   code: string;
   name: string;
   odCost: number;
@@ -81,47 +81,27 @@ function hasKeyword(rule: Rule, keywordId: number): boolean {
   return (rule.keywordIds ?? []).includes(keywordId);
 }
 
-export function listAttackActions(
-  rules: Rule[],
-  overview: CharacterOverview | null,
-  profileType: 'strike' | 'throw' | 'shoot',
-): CombatActionOption[] {
-  const owned = new Set(overview?.abilities.map((ability) => ability.ruleId) ?? []);
-  const options: CombatActionOption[] = [];
-  for (const rule of rules) {
-    const spec = asActionAbilitySpec(rule);
-    if (!spec) continue;
-    const isAttack = hasKeyword(rule, ATTACK_KEYWORD_IDS.attack);
-    if (!isAttack) continue;
-    if (!isAutomaticAbility(spec) && !owned.has(rule.id)) continue;
-    const melee = hasKeyword(rule, ATTACK_KEYWORD_IDS.melee);
-    const ranged = hasKeyword(rule, ATTACK_KEYWORD_IDS.ranged);
-    if (profileType === 'strike' && ranged && !melee) continue;
-    if ((profileType === 'throw' || profileType === 'shoot') && melee && !ranged) continue;
-    options.push({
-      ruleId: rule.id,
-      code: rule.code,
-      name: rule.name,
-      odCost: actionOdCost(spec.action_components) || DEFAULT_ATTACK_AP,
-      effects: actionEffectService.effectsOf(rule),
-      operations: spec.operations,
-      attackMode: spec.attack_mode,
-      isAttack: true,
-    });
-  }
+/** Ссылка на правило в бою: semantic code или ещё лежащий storage id. */
+export function findRuleByRef(rules: Rule[], ref: string | null | undefined): Rule | undefined {
+  if (!ref) return undefined;
 
-  return options;
+  return rules.find((entry) => entry.code === ref);
 }
 
-export function attackActionById(rules: Rule[], ruleId: string | null | undefined): CombatActionOption | null {
-  if (!ruleId) return null;
-  const rule = rules.find((entry) => entry.id === ruleId);
-  if (!rule) return null;
-  const spec = asActionAbilitySpec(rule);
-  if (!spec) return null;
+export function actionRefEquals(option: CombatActionOption, ref: string | null | undefined, rules: Rule[]): boolean {
+  if (!ref) return false;
+  if (option.code === ref || option.ruleCode === ref) return true;
+  const rule = findRuleByRef(rules, ref);
 
+  return Boolean(rule && (rule.code === option.code || rule.code === option.ruleCode));
+}
+
+function optionFromAttackRule(
+  rule: Rule,
+  spec: NonNullable<ReturnType<typeof asActionAbilitySpec>>,
+): CombatActionOption {
   return {
-    ruleId: rule.id,
+    ruleCode: rule.code,
     code: rule.code,
     name: rule.name,
     odCost: actionOdCost(spec.action_components) || DEFAULT_ATTACK_AP,
@@ -132,13 +112,45 @@ export function attackActionById(rules: Rule[], ruleId: string | null | undefine
   };
 }
 
+export function listAttackActions(
+  rules: Rule[],
+  overview: CharacterOverview | null,
+  profileType: 'strike' | 'throw' | 'shoot',
+): CombatActionOption[] {
+  const owned = new Set(overview?.abilities.map((ability) => ability.ruleCode) ?? []);
+  const options: CombatActionOption[] = [];
+  for (const rule of rules) {
+    const spec = asActionAbilitySpec(rule);
+    if (!spec) continue;
+    const isAttack = hasKeyword(rule, ATTACK_KEYWORD_IDS.attack);
+    if (!isAttack) continue;
+    if (!isAutomaticAbility(spec) && !owned.has(rule.code)) continue;
+    const melee = hasKeyword(rule, ATTACK_KEYWORD_IDS.melee);
+    const ranged = hasKeyword(rule, ATTACK_KEYWORD_IDS.ranged);
+    if (profileType === 'strike' && ranged && !melee) continue;
+    if ((profileType === 'throw' || profileType === 'shoot') && melee && !ranged) continue;
+    options.push(optionFromAttackRule(rule, spec));
+  }
+
+  return options;
+}
+
+export function attackActionById(rules: Rule[], ruleCode: string | null | undefined): CombatActionOption | null {
+  const rule = findRuleByRef(rules, ruleCode);
+  if (!rule) return null;
+  const spec = asActionAbilitySpec(rule);
+  if (!spec) return null;
+
+  return optionFromAttackRule(rule, spec);
+}
+
 export function reactionAction(rules: Rule[], reaction: HitDefenseReaction | null): CombatActionOption | null {
   if (reaction !== 'dodge' && reaction !== 'block') return null;
   const code = reaction === 'dodge' ? DODGE_CODE : BLOCK_CODE;
   const rule = rules.find((entry) => entry.code === code && entry.type === 'ability');
   if (!rule) {
     return {
-      ruleId: '',
+      ruleCode: code,
       code,
       name: reaction === 'dodge' ? 'Уклонение' : 'Блок',
       odCost: reaction === 'dodge' ? 1 : 2,
@@ -149,7 +161,7 @@ export function reactionAction(rules: Rule[], reaction: HitDefenseReaction | nul
   const spec = asActionAbilitySpec(rule);
 
   return {
-    ruleId: rule.id,
+    ruleCode: rule.code,
     code: rule.code,
     name: rule.name,
     odCost: actionOdCost(spec?.action_components) || (reaction === 'dodge' ? 1 : 2),
@@ -167,12 +179,12 @@ export function reactionOdCost(reaction: HitDefenseReaction | null, rules: Rule[
 export function turnAction(rules: Rule[]): CombatActionOption {
   const rule = rules.find((entry) => entry.code === TURN_CODE && entry.type === 'ability');
   if (!rule) {
-    return { ruleId: '', code: TURN_CODE, name: 'Поворот', odCost: 1, effects: [], isAttack: true };
+    return { ruleCode: TURN_CODE, code: TURN_CODE, name: 'Поворот', odCost: 1, effects: [], isAttack: true };
   }
   const spec = asActionAbilitySpec(rule);
 
   return {
-    ruleId: rule.id,
+    ruleCode: rule.code,
     code: rule.code,
     name: rule.name,
     odCost: actionOdCost(spec?.action_components) || 1,

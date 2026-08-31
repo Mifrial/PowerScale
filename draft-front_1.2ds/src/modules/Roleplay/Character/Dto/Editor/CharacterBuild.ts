@@ -16,7 +16,7 @@ export interface CharacterBuild {
   spaceId: number;
   spaceCode: string;
   rulesRevision: number;
-  raceRuleId: string | null;
+  raceRuleCode: string | null;
   /** Закупки характеристик (режим purchased расы). */
   characteristicPurchases: CharacteristicPurchase[];
   abilities: CharacterAbility[];

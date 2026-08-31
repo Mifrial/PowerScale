@@ -14,7 +14,7 @@ export class CharacterSheetValidationService {
     if (!build || !model) return ['Черновик не загружен'];
     const issues: string[] = [];
     if (!build.name.trim()) issues.push('Не задано имя');
-    if (requireRace && build.raceRuleId === null) issues.push('Не выбрана раса');
+    if (requireRace && build.raceRuleCode === null) issues.push('Не выбрана раса');
     const { os, ol, or, money } = model.budgets;
     if (os.exceeded) issues.push('Превышен лимит ОС');
     if (ol.exceeded) issues.push('Превышен лимит ОЛ');

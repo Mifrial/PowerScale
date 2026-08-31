@@ -6,7 +6,7 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
 export const mockWeaponSkillsImport: Rule[] = [
   {
-    id: 'rule-700',
+    id: 700,
     code: 'kogti_tochnost_v_gibkosti',
     type: 'ability',
     name: 'Точность в гибкости',
@@ -30,7 +30,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-701',
+    id: 701,
     code: 'kogti_tekhnichniy_napor',
     type: 'ability',
     name: 'Техничный напор',
@@ -53,7 +53,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-702',
+    id: 702,
     code: 'kogti_nemedlennaya_krovopoterya',
     type: 'ability',
     name: 'Немедленная кровопотеря',
@@ -77,7 +77,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-703',
+    id: 703,
     code: 'kogti_smertelnie_rani',
     type: 'ability',
     name: 'Смертельные раны',
@@ -100,7 +100,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-704',
+    id: 704,
     code: 'kogti_razrivayushchiy_udar',
     type: 'ability',
     name: 'Разрывающий удар',
@@ -124,7 +124,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-705',
+    id: 705,
     code: 'kogti_bolshie_rani',
     type: 'ability',
     name: 'Большие раны',
@@ -148,7 +148,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-706',
+    id: 706,
     code: 'posokh_dalnie_udari',
     type: 'ability',
     name: 'Дальние удары',
@@ -171,7 +171,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-707',
+    id: 707,
     code: 'posokh_krugovaya_oborona',
     type: 'ability',
     name: 'Круговая оборона',
@@ -195,7 +195,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-708',
+    id: 708,
     code: 'posokh_otvetniy_udar',
     type: 'ability',
     name: 'Ответный удар',
@@ -219,7 +219,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-709',
+    id: 709,
     code: 'posokh_grad_udarov_posokhom',
     type: 'ability',
     name: 'Град ударов посохом',
@@ -243,7 +243,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-710',
+    id: 710,
     code: 'posokh_dvoynoy_udar',
     type: 'ability',
     name: 'Двойной удар',
@@ -267,7 +267,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-711',
+    id: 711,
     code: 'posokh_masterstvo_blokirovaniya_posokhom',
     type: 'ability',
     name: 'Мастерство блокирования посохом',
@@ -291,7 +291,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-712',
+    id: 712,
     code: 'posokh_masterstvo_zashchiti_posokhom',
     type: 'ability',
     name: 'Мастерство защиты посохом',
@@ -315,7 +315,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-713',
+    id: 713,
     code: 'metch_podavlenie_preimushchestvom',
     type: 'ability',
     name: 'Подавление преимуществом',
@@ -339,7 +339,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-714',
+    id: 714,
     code: 'metch_prikritie_slabostey',
     type: 'ability',
     name: 'Прикрытие слабостей',
@@ -363,7 +363,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-715',
+    id: 715,
     code: 'metch_lozhnie_trudnosti',
     type: 'ability',
     name: 'Ложные трудности(',
@@ -387,7 +387,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-716',
+    id: 716,
     code: 'metch_perekhodyashchie_ataki',
     type: 'ability',
     name: 'Переходящие атаки',
@@ -411,7 +411,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-717',
+    id: 717,
     code: 'metch_preimushchestvo_v_zashchite',
     type: 'ability',
     name: 'Преимущество в защите',
@@ -435,7 +435,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-718',
+    id: 718,
     code: 'metch_srazhenie_na_rasstoyanii',
     type: 'ability',
     name: 'Сражение на расстоянии',
@@ -459,7 +459,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-719',
+    id: 719,
     code: 'metch_preimushchestva_iz_preimushchestv',
     type: 'ability',
     name: 'Преимущества из преимуществ',
@@ -483,7 +483,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-720',
+    id: 720,
     code: 'kopyo_ispolzovanie_vozmozhnostey',
     type: 'ability',
     name: 'Использование возможностей',
@@ -507,7 +507,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-721',
+    id: 721,
     code: 'kopyo_podavlyayushchee_preimushchestvo',
     type: 'ability',
     name: 'Подавляющее преимущество',
@@ -531,7 +531,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-722',
+    id: 722,
     code: 'kopyo_podvizhnost_v_boyu',
     type: 'ability',
     name: 'Подвижность в бою',
@@ -555,7 +555,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-723',
+    id: 723,
     code: 'kopyo_preimushchestvo_ot_sili',
     type: 'ability',
     name: 'Преимущество от силы',
@@ -578,7 +578,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-724',
+    id: 724,
     code: 'kopyo_glubokie_rani',
     type: 'ability',
     name: 'Глубокие раны',
@@ -602,7 +602,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-725',
+    id: 725,
     code: 'kopyo_bistriy_brosok',
     type: 'ability',
     name: 'Быстрый бросок',
@@ -626,7 +626,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-726',
+    id: 726,
     code: 'knut_shirokoe_primenenie',
     type: 'ability',
     name: 'Широкое применение',
@@ -650,7 +650,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-727',
+    id: 727,
     code: 'knut_prityanut',
     type: 'ability',
     name: 'Притянуть',
@@ -674,7 +674,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-728',
+    id: 728,
     code: 'knut_gibkost_atak',
     type: 'ability',
     name: 'Гибкость атак',
@@ -698,7 +698,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-729',
+    id: 729,
     code: 'knut_neprerivniy_grad_udarov',
     type: 'ability',
     name: 'Непрерывный град ударов',
@@ -722,7 +722,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-730',
+    id: 730,
     code: 'knut_sbivanie_s_nog',
     type: 'ability',
     name: 'Сбивание с ног',
@@ -746,7 +746,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-731',
+    id: 731,
     code: 'prostoi-topor_mnozhestvennie_udari',
     type: 'ability',
     name: 'Множественные удары',
@@ -772,7 +772,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-732',
+    id: 732,
     code: 'prostoi-topor_kontrol_sili',
     type: 'ability',
     name: 'Контроль силы',
@@ -798,7 +798,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-733',
+    id: 733,
     code: 'prostoi-topor_kraynosti_v_borbe',
     type: 'ability',
     name: 'Крайности в борьбе',
@@ -824,7 +824,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-734',
+    id: 734,
     code: 'prostoi-topor_gran_smerti',
     type: 'ability',
     name: 'Грань смерти',
@@ -850,7 +850,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-735',
+    id: 735,
     code: 'prostoi-topor_vikhr_smerti',
     type: 'ability',
     name: 'Вихрь смерти',
@@ -876,7 +876,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-736',
+    id: 736,
     code: 'ruka_gibkost_napadeniya',
     type: 'ability',
     name: 'Гибкость нападения',
@@ -902,7 +902,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-737',
+    id: 737,
     code: 'ruka_ottochennie_udari',
     type: 'ability',
     name: 'Отточенные удары',
@@ -928,7 +928,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-738',
+    id: 738,
     code: 'ruka_mnozhestvennie_udari',
     type: 'ability',
     name: 'Множественные удары',
@@ -954,7 +954,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-739',
+    id: 739,
     code: 'ruka_trenirovka_paltsev',
     type: 'ability',
     name: 'Тренировка пальцев',
@@ -980,7 +980,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-740',
+    id: 740,
     code: 'noga_sokhranenie_balansa',
     type: 'ability',
     name: 'Сохранение баланса',
@@ -1006,7 +1006,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-741',
+    id: 741,
     code: 'noga_otrabotanniy_verkhniy',
     type: 'ability',
     name: 'Отработанный верхний',
@@ -1032,7 +1032,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-742',
+    id: 742,
     code: 'noga_dvoynoy_udar',
     type: 'ability',
     name: 'Двойной удар',
@@ -1058,7 +1058,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-743',
+    id: 743,
     code: 'tekko-kagi_odnovremennie_udari',
     type: 'ability',
     name: 'Одновременные удары',
@@ -1084,7 +1084,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-744',
+    id: 744,
     code: 'tekko-kagi_bistrie_ataki',
     type: 'ability',
     name: 'Быстрые атаки',
@@ -1110,7 +1110,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-745',
+    id: 745,
     code: 'tekko-kagi_rubyashcherezhushchie_udari',
     type: 'ability',
     name: 'Рубяще-режущие удары',
@@ -1135,7 +1135,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-746',
+    id: 746,
     code: 'tekko-kagi_gibkost_napadeniya',
     type: 'ability',
     name: 'Гибкость нападения',
@@ -1161,7 +1161,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-747',
+    id: 747,
     code: 'kinzhal-nozh_odnovremennie_udari',
     type: 'ability',
     name: 'Одновременные удары',
@@ -1187,7 +1187,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-748',
+    id: 748,
     code: 'kinzhal-nozh_ispolzovanie_vozmozhnostey',
     type: 'ability',
     name: 'Использование возможностей',
@@ -1213,7 +1213,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-749',
+    id: 749,
     code: 'kinzhal-nozh_udacha_iz_masterstva',
     type: 'ability',
     name: 'Удача из мастерства',
@@ -1239,7 +1239,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-750',
+    id: 750,
     code: 'kinzhal-nozh_bistriy_brosok',
     type: 'ability',
     name: 'Быстрый бросок',
@@ -1265,7 +1265,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-751',
+    id: 751,
     code: 'polutoruiy-mech_udar_za_udarom',
     type: 'ability',
     name: 'Удар за ударом',
@@ -1291,7 +1291,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-752',
+    id: 752,
     code: 'polutoruiy-mech_tyazhyoloe_fekhtovanie',
     type: 'ability',
     name: 'Тяжёлое фехтование',
@@ -1316,7 +1316,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-753',
+    id: 753,
     code: 'polutoruiy-mech_bezostanovochnaya_rubka',
     type: 'ability',
     name: 'Безостановочная рубка',
@@ -1342,7 +1342,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-754',
+    id: 754,
     code: 'polutoruiy-mech_podavlenie_preimushchestvom',
     type: 'ability',
     name: 'Подавление преимуществом',
@@ -1368,7 +1368,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-755',
+    id: 755,
     code: 'sekira_ubiystvennaya_seriya',
     type: 'ability',
     name: 'Убийственная серия',
@@ -1394,7 +1394,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-756',
+    id: 756,
     code: 'sekira_kriticheskie_popadaniya',
     type: 'ability',
     name: 'Критические попадания',
@@ -1420,7 +1420,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-757',
+    id: 757,
     code: 'sekira_smertelnie_uvechya',
     type: 'ability',
     name: 'Смертельные увечья',
@@ -1446,7 +1446,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-758',
+    id: 758,
     code: 'sekira_moguchiy_blok',
     type: 'ability',
     name: 'Могучий блок',
@@ -1472,7 +1472,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-759',
+    id: 759,
     code: 'boevoy-molot_dalnie_udari',
     type: 'ability',
     name: 'Дальние удары',
@@ -1497,7 +1497,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-760',
+    id: 760,
     code: 'boevoy-molot_silovie_udari',
     type: 'ability',
     name: 'Силовые удары',
@@ -1523,7 +1523,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-761',
+    id: 761,
     code: 'boevoy-molot_seryoznie_uvechya',
     type: 'ability',
     name: 'Серьёзные увечья',
@@ -1549,7 +1549,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-762',
+    id: 762,
     code: 'boevoy-molot_moguchiy_blok',
     type: 'ability',
     name: 'Могучий блок',
@@ -1575,7 +1575,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-763',
+    id: 763,
     code: 'dolgiy-mech_silniy_blok',
     type: 'ability',
     name: 'Сильный блок',
@@ -1601,7 +1601,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-764',
+    id: 764,
     code: 'dolgiy-mech_silovoy_metod',
     type: 'ability',
     name: 'Силовой метод',
@@ -1627,7 +1627,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-765',
+    id: 765,
     code: 'dolgiy-mech_podavlenie_preimushchestvom',
     type: 'ability',
     name: 'Подавление преимуществом',
@@ -1653,7 +1653,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-766',
+    id: 766,
     code: 'pata_bistrie_ataki',
     type: 'ability',
     name: 'Быстрые атаки',
@@ -1677,7 +1677,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-767',
+    id: 767,
     code: 'pata_mnozhestvennie_udari',
     type: 'ability',
     name: 'Множественные удары',
@@ -1701,7 +1701,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-768',
+    id: 768,
     code: 'pata_odnovremennie_udari',
     type: 'ability',
     name: 'Одновременные удары',
@@ -1725,7 +1725,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-769',
+    id: 769,
     code: 'luk_bistraya_perezaryadka',
     type: 'ability',
     name: 'Быстрая перезарядка',
@@ -1749,7 +1749,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-770',
+    id: 770,
     code: 'luk_masterskaya_strelba',
     type: 'ability',
     name: 'Мастерская стрельба',
@@ -1773,7 +1773,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-771',
+    id: 771,
     code: 'luk_skorostnaya_strelba',
     type: 'ability',
     name: 'Скоростная стрельба',
@@ -1797,7 +1797,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-772',
+    id: 772,
     code: 'zagnutiye-kogti_khvatat_i_kolot',
     type: 'ability',
     name: 'Хватать и колоть',
@@ -1823,7 +1823,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-773',
+    id: 773,
     code: 'zagnutiye-kogti_tsepkiy_khvat',
     type: 'ability',
     name: 'Цепкий хват',
@@ -1849,7 +1849,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-774',
+    id: 774,
     code: 'korotkiy-klinoq_seriya_bistrikh_udarov',
     type: 'ability',
     name: 'Серия быстрых ударов',
@@ -1875,7 +1875,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-775',
+    id: 775,
     code: 'korotkiy-klinoq_odnovremennie_udari',
     type: 'ability',
     name: 'Одновременные удары',
@@ -1901,7 +1901,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-776',
+    id: 776,
     code: 'urumi_besprestannie_udari',
     type: 'ability',
     name: 'Беспрестанные удары',
@@ -1925,7 +1925,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-777',
+    id: 777,
     code: 'urumi_zashchita_v_atake',
     type: 'ability',
     name: 'Защита в атаке',
@@ -1948,7 +1948,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-778',
+    id: 778,
     code: 'palitsa_vishibit_dukh',
     type: 'ability',
     name: 'Вышибить дух',
@@ -1972,7 +1972,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-779',
+    id: 779,
     code: 'palitsa_podavlenie_oglusheniem',
     type: 'ability',
     name: 'Подавление оглушением',
@@ -1995,7 +1995,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-780',
+    id: 780,
     code: 'shield-med_seriya_blokirovaniya',
     type: 'ability',
     name: 'Серия блокирования',
@@ -2021,7 +2021,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-781',
+    id: 781,
     code: 'shield-med_umeloe_prikritie',
     type: 'ability',
     name: 'Умелое прикрытие',
@@ -2047,7 +2047,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-782',
+    id: 782,
     code: 'shield-any_tolchki_i_shchiti',
     type: 'ability',
     name: 'Толчки и щиты',
@@ -2072,7 +2072,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-783',
+    id: 783,
     code: 'shield-any_otvetniy_udar',
     type: 'ability',
     name: 'Ответный удар',
@@ -2098,7 +2098,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-784',
+    id: 784,
     code: 'roga_taran',
     type: 'ability',
     name: 'Таран',
@@ -2122,7 +2122,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-785',
+    id: 785,
     code: 'sablya_bistrie_ataki',
     type: 'ability',
     name: 'Быстрые атаки',
@@ -2146,7 +2146,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-786',
+    id: 786,
     code: 'flamberg_rezhushchie_ataki',
     type: 'ability',
     name: 'Режущие атаки',
@@ -2171,7 +2171,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-787',
+    id: 787,
     code: 'gibkiy-klinoq_rasshirenniy_diapazon',
     type: 'ability',
     name: 'Расширенный диапазон',
@@ -2197,7 +2197,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-788',
+    id: 788,
     code: 'alebarde_dalniy_vipad',
     type: 'ability',
     name: 'Дальний выпад',
@@ -2223,7 +2223,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-789',
+    id: 789,
     code: 'small-shield_shchit_i_oruzhie',
     type: 'ability',
     name: 'Щит и оружие',
@@ -2248,7 +2248,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-790',
+    id: 790,
     code: 'class-shield_shchit_i_oruzhie',
     type: 'ability',
     name: 'Щит и оружие',
@@ -2274,7 +2274,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     createdAt: '2026-08-17T10:00:00Z',
   },
   {
-    id: 'rule-791',
+    id: 791,
     code: 'big-shield_ustoychivost',
     type: 'ability',
     name: 'Устойчивость',

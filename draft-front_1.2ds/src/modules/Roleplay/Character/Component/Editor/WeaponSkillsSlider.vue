@@ -20,7 +20,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  'set-level': [ruleId: string, level: number];
+  'set-level': [ruleCode: string, level: number];
 }>();
 
 const open = defineModel<boolean>('open', { default: false });
@@ -58,10 +58,10 @@ function toEditorAbility(rule: Rule): EditorAbility {
 
   // Минимальное владение, требуемое навыком (min_weapon_mastery).
   const requiredLevel = skillMinLevel(rule) ?? 0;
-  const currentLevel = props.abilities.find((a) => a.ruleId === rule.id)?.level ?? 0;
+  const currentLevel = props.abilities.find((a) => a.ruleCode === rule.code)?.level ?? 0;
 
   return {
-    ruleId: rule.id,
+    ruleCode: rule.code,
     code: rule.code,
     name: rule.name,
     type: (rule.type === 'ability' ? (spec?.type as string) || null : null) as AbilityType | null,
@@ -148,7 +148,7 @@ const groupedSkills = computed<SkillGroup[]>(() => {
     .map(([level, skills]) => ({ label: `Мин. владение: ${level}`, abilities: skills }));
 });
 
-/** Все ruleId раскрыты по умолчанию. */
+/** Все ruleCode раскрыты по умолчанию. */
 const openSet = ref(new Set<string>());
 
 /** childrenByCode для развития навыков-улучшений. */
@@ -184,19 +184,19 @@ const rootAbilities = computed(() => {
       <div class="text-subtitle-2 font-weight-bold mb-2">{{ group.label }}</div>
       <EditorAbilityNode
         v-for="ability in rootAbilities.filter((a) => group.abilities.includes(a))"
-        :key="ability.ruleId"
+        :key="ability.ruleCode"
         :ability="ability"
         :children-by-code="childrenByCode"
         :keywords="keywords ?? []"
         :rules="rules"
         :open-set="openSet"
         @update:open="
-          (ruleId, o) => {
-            if (o) openSet.add(ruleId);
-            else openSet.delete(ruleId);
+          (ruleCode, o) => {
+            if (o) openSet.add(ruleCode);
+            else openSet.delete(ruleCode);
           }
         "
-        @set-level="(ruleId, level) => emit('set-level', ruleId, level)"
+        @set-level="(ruleCode, level) => emit('set-level', ruleCode, level)"
         @add-instance="() => {}"
         @set-instance-level="() => {}"
         @set-instance-domain="() => {}"

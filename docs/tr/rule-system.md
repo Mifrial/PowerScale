@@ -47,7 +47,7 @@ DTO-слой также содержит связанные модели для:
 
 ### Ссылки
 
-Межправильные ссылки используют семантические коды: `characteristicCode`/`characteristic_code` и аналогичные явно названные `*_code` поля (`ruleCode`, `raceRuleCode`, `sourceRuleCode`). Numeric `id` — только внутренний ключ хранения и не принимается на публичных DTO/API boundaries, включая fallback-резолвинг. Переименование существующих `ruleId`-полей и миграция consumers — `CODE_GAP / implementation OPEN`.
+Межправильные ссылки используют семантический `code` (`DEC-060`): в спеках `characteristic_code` и аналогичные `*_code`, в DTO листа и игры — `ruleCode`, `raceRuleCode`, `sourceRuleCode` и те же имена на игровых полях вне листа. URL каталога — `/space/{spaceCode}/{ctx}/rules/{ruleCode}` (`ctx` — `draft` или номер ревизии). `Rule.id` — `number | null`: ключ строки хранения; `null` — черновик или импорт, пока правило не опубликовано. Numeric `id` не принимается на публичных DTO/API и не используется как fallback-резолв. Файл ревизии идентифицирует правила только `code` (без `id`/`spaceId`).
 
 ### Keywords
 
@@ -93,7 +93,7 @@ Ability поддерживает requirements, grants, references на character
 
 Draft — редакторское состояние до публикации. Контекст пространства и ревизии передаётся через URL/route или публичный context API; Rule не импортирует Space и не читает его store напрямую.
 
-Draft stores отвечают за локальное редактирование и persistence. Они не заменяют `SpaceRevision` и не делают публикацию автоматически.
+Draft stores отвечают за локальное редактирование и persistence. Ключи localStorage версионируются; при смене формата старые данные не мигрируются. Они не заменяют `SpaceRevision` и не делают публикацию автоматически.
 
 ### Публикация
 

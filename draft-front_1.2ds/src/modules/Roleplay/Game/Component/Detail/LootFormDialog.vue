@@ -18,7 +18,7 @@ const emit = defineEmits<{
 }>();
 
 const kind = ref<'item' | 'money'>('item');
-const itemRuleId = ref<string | null>(null);
+const itemRuleCode = ref<string | null>(null);
 const quantity = ref<number>(1);
 const moneyAmount = ref<number | null>(null);
 const group = ref('');
@@ -27,7 +27,7 @@ const notes = ref('');
 const itemRules = computed(() => props.rules.filter((rule) => rule.type === 'item'));
 
 const canSave = computed(() => {
-  if (kind.value === 'item') return itemRuleId.value !== null && quantity.value >= 1;
+  if (kind.value === 'item') return itemRuleCode.value !== null && quantity.value >= 1;
   const amount = moneyAmount.value;
 
   return amount !== null && Number.isFinite(amount) && amount > 0;
@@ -35,19 +35,19 @@ const canSave = computed(() => {
 
 function reset(): void {
   const initial = props.initial;
-  if (initial && initial.itemRuleId !== null) {
+  if (initial && initial.itemRuleCode !== null) {
     kind.value = 'item';
-    itemRuleId.value = initial.itemRuleId;
+    itemRuleCode.value = initial.itemRuleCode;
     quantity.value = initial.quantity;
     moneyAmount.value = null;
   } else if (initial && initial.moneyAmount !== null) {
     kind.value = 'money';
     moneyAmount.value = initial.moneyAmount;
-    itemRuleId.value = null;
+    itemRuleCode.value = null;
     quantity.value = 1;
   } else {
     kind.value = 'item';
-    itemRuleId.value = null;
+    itemRuleCode.value = null;
     quantity.value = 1;
     moneyAmount.value = null;
   }
@@ -58,7 +58,7 @@ function reset(): void {
 function save(): void {
   const data: CreateLootData = {
     group: group.value.trim() || null,
-    itemRuleId: kind.value === 'item' ? itemRuleId.value : null,
+    itemRuleCode: kind.value === 'item' ? itemRuleCode.value : null,
     quantity: kind.value === 'item' ? quantity.value : 0,
     moneyAmount: kind.value === 'money' ? moneyAmount.value : null,
     notes: notes.value.trim() || null,
@@ -90,10 +90,10 @@ watch(open, (value) => {
 
         <template v-if="kind === 'item'">
           <v-autocomplete
-            v-model="itemRuleId"
+            v-model="itemRuleCode"
             :items="itemRules"
             item-title="name"
-            item-value="id"
+            item-value="code"
             label="Предмет"
             hint="Из правил ревизии игры"
             persistent-hint

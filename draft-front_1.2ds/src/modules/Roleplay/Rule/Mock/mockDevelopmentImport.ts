@@ -14,7 +14,7 @@ import { mockWeaponSkillsImport } from './mockWeaponSkillsImport';
 
 const mockDevelopmentImportRaw: Rule[] = [
   {
-    id: 'rule-200',
+    id: 200,
     code: 'razvitie-vospriyatiya',
     type: 'ability',
     name: 'Развитие восприятия',
@@ -55,7 +55,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-201',
+    id: 201,
     code: 'primenenie-ot-uma',
     type: 'ability',
     name: 'Применение от ума',
@@ -78,7 +78,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-202',
+    id: 202,
     code: 'razvitie-vnimatelnosti',
     type: 'ability',
     name: 'Развитие внимательности( х из 3)',
@@ -113,7 +113,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-203',
+    id: 203,
     code: 'razvitie-reaktsii',
     type: 'ability',
     name: 'Развитие реакции( х из 3)',
@@ -148,7 +148,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-204',
+    id: 204,
     code: 'orientirovanie',
     type: 'ability',
     name: 'Ориентирование',
@@ -172,7 +172,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-205',
+    id: 205,
     code: 'chtenie-sledov',
     type: 'ability',
     name: 'Чтение следов',
@@ -196,7 +196,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-206',
+    id: 206,
     code: 'orientirovanie-po-sledam',
     type: 'ability',
     name: 'Ориентирование по следам',
@@ -220,7 +220,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-207',
+    id: 207,
     code: 'poisk-i-sokrytie-ulik',
     type: 'ability',
     name: 'Поиск и сокрытие улик',
@@ -244,7 +244,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-208',
+    id: 208,
     code: 'sopostavlenie-ulik',
     type: 'ability',
     name: 'Сопоставление улик',
@@ -268,7 +268,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-209',
+    id: 209,
     code: 'rabota-s-lovushkami',
     type: 'ability',
     name: 'Работа с ловушками',
@@ -292,7 +292,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-210',
+    id: 210,
     code: 'postoyannaya-bditelnost',
     type: 'ability',
     name: 'Постоянная бдительность',
@@ -315,7 +315,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-211',
+    id: 211,
     code: 'poisk-trav',
     type: 'ability',
     name: 'Поиск трав',
@@ -339,7 +339,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-212',
+    id: 212,
     code: 'obnaruzhenie-dobavok',
     type: 'ability',
     name: 'Обнаружение добавок',
@@ -363,7 +363,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-213',
+    id: 213,
     code: 'razvitie-intellekta',
     type: 'ability',
     name: 'Развитие интеллекта',
@@ -404,7 +404,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-214',
+    id: 214,
     code: 'razvitie-pamyati',
     type: 'ability',
     name: 'Развитие памяти( х из 3)',
@@ -439,7 +439,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-215',
+    id: 215,
     code: 'razvitie-myshleniya',
     type: 'ability',
     name: 'Развитие мышления( х из 3)',
@@ -474,7 +474,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-216',
+    id: 216,
     code: 'neytralizatsiya-pomekh',
     type: 'ability',
     name: 'Нейтрализация помех',
@@ -512,7 +512,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-217',
+    id: 217,
     code: 'neytralizatsiya-pomekh-2',
     type: 'ability',
     name: 'Нейтрализация помех',
@@ -550,7 +550,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-218',
+    id: 218,
     code: 'kontsentratsiya',
     type: 'ability',
     name: 'Концентрация',
@@ -588,7 +588,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-219',
+    id: 219,
     code: 'predelnaya-kontsentratsiya',
     type: 'ability',
     name: 'Предельная концентрация( x из 2 )',
@@ -614,7 +614,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-220',
+    id: 220,
     code: 'sosredotochenie-vnimaniya',
     type: 'ability',
     name: 'Сосредоточение внимания',
@@ -638,7 +638,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-221',
+    id: 221,
     code: 'parallelnye-deystviya',
     type: 'ability',
     name: 'Параллельные действия',
@@ -662,7 +662,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-222',
+    id: 222,
     code: 'sosredotochenie-voli',
     type: 'ability',
     name: 'Сосредоточение воли',
@@ -686,7 +686,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-223',
+    id: 223,
     code: 'volevoe-usilie',
     type: 'ability',
     name: 'Волевое усилие',
@@ -710,7 +710,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-224',
+    id: 224,
     code: 'molnienosnaya-reaktsiya',
     type: 'ability',
     name: 'Молниеносная реакция',
@@ -734,7 +734,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-225',
+    id: 225,
     code: 'dlitelnoe-napryazhenie',
     type: 'ability',
     name: 'Длительное напряжение( n из 5)',
@@ -759,7 +759,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-226',
+    id: 226,
     code: 'vladenie-yazykom',
     type: 'ability',
     name: 'Владение языком( Язык , х из 3)',
@@ -800,7 +800,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-227',
+    id: 227,
     code: 'pravilnoe-proiznoshenie',
     type: 'ability',
     name: 'Правильное произношение',
@@ -825,7 +825,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-228',
+    id: 228,
     code: 'pismennost',
     type: 'ability',
     name: 'Письменность',
@@ -861,7 +861,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-229',
+    id: 229,
     code: 'chtenie-po-gubam',
     type: 'ability',
     name: 'Чтение по губам( Вид )',
@@ -897,7 +897,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-230',
+    id: 230,
     code: 'gramotnost',
     type: 'ability',
     name: 'Грамотность',
@@ -933,7 +933,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-231',
+    id: 231,
     code: 'etiket',
     type: 'ability',
     name: 'Этикет( Культура )',
@@ -958,7 +958,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-232',
+    id: 232,
     code: 'manernost',
     type: 'ability',
     name: 'Манерность',
@@ -982,7 +982,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-233',
+    id: 233,
     code: 'schet',
     type: 'ability',
     name: 'Счёт',
@@ -1005,7 +1005,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-234',
+    id: 234,
     code: 'matematika',
     type: 'ability',
     name: 'Математика',
@@ -1029,7 +1029,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-235',
+    id: 235,
     code: 'estestvoznanie',
     type: 'ability',
     name: 'Естествознание',
@@ -1052,7 +1052,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-236',
+    id: 236,
     code: 'fizika',
     type: 'ability',
     name: 'Физика',
@@ -1086,7 +1086,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-237',
+    id: 237,
     code: 'torgovlya',
     type: 'ability',
     name: 'Торговля( регион )',
@@ -1111,7 +1111,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-238',
+    id: 238,
     code: 'znanie-zakonov',
     type: 'ability',
     name: 'Знание законов( субъект )',
@@ -1136,7 +1136,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-239',
+    id: 239,
     code: 'zaschita-ot-zakona',
     type: 'ability',
     name: 'Защита от закона( x из 3)',
@@ -1159,7 +1159,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-240',
+    id: 240,
     code: 'znanie-o-zhivotnykh',
     type: 'ability',
     name: 'Знание о животных( регион )',
@@ -1184,7 +1184,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-241',
+    id: 241,
     code: 'znanie-o-rasteniyakh',
     type: 'ability',
     name: 'Знание о растениях( регион )',
@@ -1209,7 +1209,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-242',
+    id: 242,
     code: 'znanie-o-istorii',
     type: 'ability',
     name: 'Знание о истории( регион )',
@@ -1234,7 +1234,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-243',
+    id: 243,
     code: 'shifr',
     type: 'ability',
     name: 'Шифр',
@@ -1268,7 +1268,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-244',
+    id: 244,
     code: 'slozhnyy-shifr',
     type: 'ability',
     name: 'Сложный шифр',
@@ -1292,7 +1292,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-245',
+    id: 245,
     code: 'pervaya-pomosch',
     type: 'ability',
     name: 'Первая помощь( вид )',
@@ -1317,7 +1317,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-246',
+    id: 246,
     code: 'predpisaniya-o-lechenii',
     type: 'ability',
     name: 'Предписания о лечении',
@@ -1340,7 +1340,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-247',
+    id: 247,
     code: 'sporaya-perevyazka',
     type: 'ability',
     name: 'Спорая перевязка',
@@ -1363,7 +1363,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-248',
+    id: 248,
     code: 'ukhod',
     type: 'ability',
     name: 'Уход( вид )',
@@ -1388,7 +1388,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-249',
+    id: 249,
     code: 'znanie-bolezney',
     type: 'ability',
     name: 'Знание болезней( вид , х )',
@@ -1414,7 +1414,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-250',
+    id: 250,
     code: 'fiziologiya',
     type: 'ability',
     name: 'Физиология( вид , х )',
@@ -1439,7 +1439,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-251',
+    id: 251,
     code: 'farmatsiya',
     type: 'ability',
     name: 'Фармация( вид , х )',
@@ -1464,7 +1464,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-252',
+    id: 252,
     code: 'khirurgiya',
     type: 'ability',
     name: 'Хирургия( вид , х )',
@@ -1490,7 +1490,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-253',
+    id: 253,
     code: 'smertonosnye-udary',
     type: 'ability',
     name: 'Смертоносные удары',
@@ -1514,7 +1514,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-254',
+    id: 254,
     code: 'pitanie',
     type: 'ability',
     name: 'Питание( вид )',
@@ -1540,7 +1540,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-255',
+    id: 255,
     code: 'trenirovka-voli',
     type: 'ability',
     name: 'Тренировка воли( х из 3)',
@@ -1563,7 +1563,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-256',
+    id: 256,
     code: 'podavlenie-somneniy',
     type: 'ability',
     name: 'Подавление сомнений',
@@ -1586,7 +1586,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-257',
+    id: 257,
     code: 'nesgibaemyy-razum',
     type: 'ability',
     name: 'Несгибаемый разум',
@@ -1609,7 +1609,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-258',
+    id: 258,
     code: 'otkhodchivost',
     type: 'ability',
     name: 'Отходчивость',
@@ -1632,7 +1632,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-259',
+    id: 259,
     code: 'adaptatsiya',
     type: 'ability',
     name: 'Адаптация',
@@ -1655,7 +1655,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-261',
+    id: 261,
     code: 'fizicheskoe-razvitie',
     type: 'ability',
     name: 'Физическое развитие',
@@ -1742,7 +1742,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-262',
+    id: 262,
     code: 'trenirovka-skorosti',
     type: 'ability',
     name: 'Тренировка скорости',
@@ -1788,7 +1788,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-263',
+    id: 263,
     code: 'manevrennost',
     type: 'ability',
     name: 'Манёвренность( х из 2)',
@@ -1825,7 +1825,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-264',
+    id: 264,
     code: 'begun',
     type: 'ability',
     name: 'Бегун',
@@ -1848,7 +1848,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-265',
+    id: 265,
     code: 'skrytnost',
     type: 'ability',
     name: 'Скрытность( х из 3)',
@@ -1911,7 +1911,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-266',
+    id: 266,
     code: 'ottochennyy-navyk',
     type: 'ability',
     name: 'Отточенный навык',
@@ -1934,7 +1934,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-267',
+    id: 267,
     code: 'akrobatika',
     type: 'ability',
     name: 'Акробатика( х из 3)',
@@ -1971,7 +1971,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-268',
+    id: 268,
     code: 'ottochennyy-navyk-2',
     type: 'ability',
     name: 'Отточенный навык',
@@ -1994,7 +1994,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-269',
+    id: 269,
     code: 'boevaya-akrobatika',
     type: 'ability',
     name: 'Боевая акробатика',
@@ -2018,7 +2018,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-270',
+    id: 270,
     code: 'smertonosnye-tryuki',
     type: 'ability',
     name: 'Смертоносные трюки',
@@ -2042,7 +2042,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-271',
+    id: 271,
     code: 'smertonosnye-tryuki-2',
     type: 'ability',
     name: 'Смертоносные трюки',
@@ -2065,7 +2065,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-272',
+    id: 272,
     code: 'polnoe-otstuplenie',
     type: 'ability',
     name: 'Полное отступление',
@@ -2088,7 +2088,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-273',
+    id: 273,
     code: 'udar-nogami',
     type: 'ability',
     name: 'Удар ногами',
@@ -2112,7 +2112,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-274',
+    id: 274,
     code: 'soblyusti-balans',
     type: 'ability',
     name: 'Соблюсти баланс',
@@ -2136,7 +2136,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-275',
+    id: 275,
     code: 'kontrol-balansa',
     type: 'ability',
     name: 'Контроль баланса',
@@ -2159,7 +2159,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-276',
+    id: 276,
     code: 'pryzhki-s-vysoty',
     type: 'ability',
     name: 'Прыжки с высоты',
@@ -2183,7 +2183,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-277',
+    id: 277,
     code: 'razdelka-tush',
     type: 'ability',
     name: 'Разделка туш',
@@ -2206,7 +2206,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-278',
+    id: 278,
     code: 'vladenie-muzykalnym-instrumentom',
     type: 'ability',
     name: 'Владение музыкальным инструментом ( x из 3, инструмент )',
@@ -2230,7 +2230,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-279',
+    id: 279,
     code: 'muzitsirovanie',
     type: 'ability',
     name: 'Музицирование( x из 3)',
@@ -2253,7 +2253,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-280',
+    id: 280,
     code: 'trenirovka-melkoy-motoriki',
     type: 'ability',
     name: 'Тренировка мелкой моторики( х из 3)',
@@ -2277,7 +2277,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-281',
+    id: 281,
     code: 'vzlom',
     type: 'ability',
     name: 'Взлом',
@@ -2301,7 +2301,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-282',
+    id: 282,
     code: 'vnimanie-k-detalyam',
     type: 'ability',
     name: 'Внимание к деталям',
@@ -2325,7 +2325,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-283',
+    id: 283,
     code: 'opyt-vzloma',
     type: 'ability',
     name: 'Опыт взлома( х из 5)',
@@ -2348,7 +2348,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-284',
+    id: 284,
     code: 'karmannye-krazhi',
     type: 'ability',
     name: 'Карманные кражи( х из 5)',
@@ -2371,7 +2371,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-285',
+    id: 285,
     code: 'lovkost-ruk',
     type: 'ability',
     name: 'Ловкость рук',
@@ -2395,7 +2395,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-286',
+    id: 286,
     code: 'razrez',
     type: 'ability',
     name: 'Разрез',
@@ -2419,7 +2419,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-287',
+    id: 287,
     code: 'makiyazh',
     type: 'ability',
     name: 'Макияж',
@@ -2443,7 +2443,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-288',
+    id: 288,
     code: 'professionalnyy-makiyazh',
     type: 'ability',
     name: 'Профессиональный макияж',
@@ -2467,7 +2467,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-289',
+    id: 289,
     code: 'masterstvo-makiyazha',
     type: 'ability',
     name: 'Мастерство макияжа',
@@ -2491,7 +2491,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-290',
+    id: 290,
     code: 'nanesenie-grima',
     type: 'ability',
     name: 'Нанесение грима( х из 3)',
@@ -2517,7 +2517,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-291',
+    id: 291,
     code: 'razvitie-obscheniya',
     type: 'ability',
     name: 'Развитие общения',
@@ -2558,7 +2558,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-292',
+    id: 292,
     code: 'krasnorechie',
     type: 'ability',
     name: 'Тренировка Красноречия',
@@ -2593,7 +2593,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-293',
+    id: 293,
     code: 'manera-obscheniya',
     type: 'ability',
     name: 'Манера общения',
@@ -2618,7 +2618,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-294',
+    id: 294,
     code: 'masterstvo-torga',
     type: 'ability',
     name: 'Мастерство торга( х из 2)',
@@ -2642,7 +2642,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-295',
+    id: 295,
     code: 'opytnyy-torgovets',
     type: 'ability',
     name: 'Опытный торговец',
@@ -2665,7 +2665,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-296',
+    id: 296,
     code: 'pronitsatelnyy-torgovets',
     type: 'ability',
     name: 'Проницательный торговец',
@@ -2689,7 +2689,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-297',
+    id: 297,
     code: 'poverkhnostnaya-otsenka',
     type: 'ability',
     name: 'Поверхностная оценка',
@@ -2727,7 +2727,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-298',
+    id: 298,
     code: 'khvalebnye-rechi',
     type: 'ability',
     name: 'Хвалебные речи',
@@ -2765,7 +2765,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-299',
+    id: 299,
     code: 'pronitsatelnost',
     type: 'ability',
     name: 'Проницательность( х из 2)',
@@ -2789,7 +2789,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-300',
+    id: 300,
     code: 'dobycha-informatsii',
     type: 'ability',
     name: 'Добыча информации',
@@ -2813,7 +2813,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-301',
+    id: 301,
     code: 'kholodnyy-um',
     type: 'ability',
     name: 'Холодный ум',
@@ -2837,7 +2837,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-302',
+    id: 302,
     code: 'moralnaya-podderzhka',
     type: 'ability',
     name: 'Моральная поддержка',
@@ -2861,7 +2861,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-303',
+    id: 303,
     code: 'psikhologicheskaya-pomosch',
     type: 'ability',
     name: 'Психологическая помощь ( х из 2)',
@@ -2885,7 +2885,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-304',
+    id: 304,
     code: 'prorabotka-problem',
     type: 'ability',
     name: 'Проработка проблем',
@@ -2909,7 +2909,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-305',
+    id: 305,
     code: 'rabota-nad-soboy',
     type: 'ability',
     name: 'Работа над собой',
@@ -2933,7 +2933,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-306',
+    id: 306,
     code: 'rabota-nad-soboy-2',
     type: 'ability',
     name: 'Работа над собой',
@@ -2967,7 +2967,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-307',
+    id: 307,
     code: 'masterstvo-obmana',
     type: 'ability',
     name: 'Мастерство обмана( х из 2)',
@@ -2991,7 +2991,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-308',
+    id: 308,
     code: 'bezuprechnyy-drug',
     type: 'ability',
     name: 'Безупречный друг',
@@ -3015,7 +3015,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-309',
+    id: 309,
     code: 'zapugivanie',
     type: 'ability',
     name: 'Запугивание( х из 2)',
@@ -3039,7 +3039,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-310',
+    id: 310,
     code: 'vnushenie-strakha',
     type: 'ability',
     name: 'Внушение страха',
@@ -3063,7 +3063,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-311',
+    id: 311,
     code: 'obolschenie',
     type: 'ability',
     name: 'Обольщение( х из 2)',
@@ -3087,7 +3087,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-312',
+    id: 312,
     code: 'lstivye-rechi',
     type: 'ability',
     name: 'Льстивые речи',
@@ -3111,7 +3111,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-313',
+    id: 313,
     code: 'vedenie-doprosa',
     type: 'ability',
     name: 'Ведение допроса',
@@ -3135,7 +3135,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-314',
+    id: 314,
     code: 'akterskoe-masterstvo',
     type: 'ability',
     name: 'Актёрское мастерство( х из 3)',
@@ -3158,7 +3158,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-315',
+    id: 315,
     code: 'igra-po-zhizni',
     type: 'ability',
     name: 'Игра по жизни',
@@ -3181,7 +3181,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-316',
+    id: 316,
     code: 'menyaya-maski',
     type: 'ability',
     name: 'Меняя маски',
@@ -3205,7 +3205,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-317',
+    id: 317,
     code: 'otvlech-vnimanie',
     type: 'ability',
     name: 'Отвлечь внимание',
@@ -3237,7 +3237,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-318',
+    id: 318,
     code: 'prikinutsya-mertvym',
     type: 'ability',
     name: 'Прикинуться мёртвым',
@@ -3269,7 +3269,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-319',
+    id: 319,
     code: 'blizhniy-boy',
     type: 'ability',
     name: 'Навыки боя',
@@ -3309,7 +3309,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-320',
+    id: 320,
     code: 'boevye-refleksy',
     type: 'ability',
     name: 'Боевые рефлексы',
@@ -3332,7 +3332,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-321',
+    id: 321,
     code: 'otstuplenie',
     type: 'ability',
     name: 'Отступление',
@@ -3364,7 +3364,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-322',
+    id: 322,
     code: 'zaschita-znaniem',
     type: 'ability',
     name: 'Защита знанием',
@@ -3387,7 +3387,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-323',
+    id: 323,
     code: 'adaptatsiya-k-protivniku',
     type: 'ability',
     name: 'Адаптация к противнику',
@@ -3411,7 +3411,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-324',
+    id: 324,
     code: 'podavlenie-ponimaniem',
     type: 'ability',
     name: 'Подавление пониманием',
@@ -3435,7 +3435,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-325',
+    id: 325,
     code: 'podderzhka',
     type: 'ability',
     name: 'Поддержка',
@@ -3459,7 +3459,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-326',
+    id: 326,
     code: 'fekhtovanie',
     type: 'ability',
     name: 'Фехтование',
@@ -3483,7 +3483,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-327',
+    id: 327,
     code: 'videnie-boya',
     type: 'ability',
     name: 'Видение боя',
@@ -3518,7 +3518,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-328',
+    id: 328,
     code: 'bezoruzhnyy-boy',
     type: 'ability',
     name: 'Безоружный бой',
@@ -3542,7 +3542,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-329',
+    id: 329,
     code: 'borba',
     type: 'ability',
     name: 'Борьба( х из 3)',
@@ -3565,7 +3565,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-330',
+    id: 330,
     code: 'perekhvat',
     type: 'ability',
     name: 'Перехват',
@@ -3589,7 +3589,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-331',
+    id: 331,
     code: 'kontrudar',
     type: 'ability',
     name: 'Контрудар',
@@ -3613,7 +3613,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-332',
+    id: 332,
     code: 'brosok-protivnikom',
     type: 'ability',
     name: 'Бросок противником',
@@ -3656,7 +3656,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-333',
+    id: 333,
     code: 'kontrmery',
     type: 'ability',
     name: 'Контрмеры',
@@ -3680,7 +3680,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-334',
+    id: 334,
     code: 'boy-s-oruzhiem-v-neskolkikh-rukakh',
     type: 'ability',
     name: 'Бой с оружием в нескольких руках',
@@ -3704,7 +3704,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-335',
+    id: 335,
     code: 'balans',
     type: 'ability',
     name: 'Баланс',
@@ -3728,7 +3728,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-336',
+    id: 336,
     code: 'podgotovka',
     type: 'ability',
     name: 'Подготовка',
@@ -3752,7 +3752,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-337',
+    id: 337,
     code: 'bystryy-udar',
     type: 'ability',
     name: 'Быстрый удар',
@@ -3796,7 +3796,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-338',
+    id: 338,
     code: 'stremitelnyy-udar',
     type: 'ability',
     name: 'Стремительный удар',
@@ -3855,7 +3855,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-339',
+    id: 339,
     code: 'seriya-udarov',
     type: 'ability',
     name: 'Серия ударов',
@@ -3926,7 +3926,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-340',
+    id: 340,
     code: 'kombinatsiya-udarov',
     type: 'ability',
     name: 'Комбинация ударов',
@@ -3997,7 +3997,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-341',
+    id: 341,
     code: 'raskrytie',
     type: 'ability',
     name: 'Раскрытие',
@@ -4021,7 +4021,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-342',
+    id: 342,
     code: 'neotvratimaya-kombinatsiya',
     type: 'ability',
     name: 'Неотвратимая комбинация',
@@ -4045,7 +4045,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-343',
+    id: 343,
     code: 'oboerukaya-ataka',
     type: 'ability',
     name: 'Обоерукая атака',
@@ -4077,7 +4077,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-344',
+    id: 344,
     code: 'sinkhronnaya-ataka',
     type: 'ability',
     name: 'Синхронная атака',
@@ -4101,7 +4101,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-345',
+    id: 345,
     code: 'sdvoennyy-udar',
     type: 'ability',
     name: 'Сдвоенный удар',
@@ -4144,7 +4144,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-346',
+    id: 346,
     code: 'mnozhestvo-ruk',
     type: 'ability',
     name: 'Множество рук',
@@ -4168,7 +4168,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-347',
+    id: 347,
     code: 'mnozhestvo-udarov',
     type: 'ability',
     name: 'Множество ударов',
@@ -4228,7 +4228,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-349',
+    id: 349,
     code: 'razmashistyy-udar',
     type: 'ability',
     name: 'Размашистый удар',
@@ -4279,7 +4279,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-350',
+    id: 350,
     code: 'yarostnyy-ryvok',
     type: 'ability',
     name: 'Яростный рывок',
@@ -4303,7 +4303,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-351',
+    id: 351,
     code: 'udvoennaya-mosch',
     type: 'ability',
     name: 'Удвоенная мощь',
@@ -4327,7 +4327,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-352',
+    id: 352,
     code: 'tolkayuschiy-udar',
     type: 'ability',
     name: 'Толкающий удар',
@@ -4370,7 +4370,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-353',
+    id: 353,
     code: 'silovoy-udar',
     type: 'ability',
     name: 'Силовой удар',
@@ -4422,7 +4422,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-354',
+    id: 354,
     code: 'shirokiy-udar',
     type: 'ability',
     name: 'Широкий удар',
@@ -4477,7 +4477,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-355',
+    id: 355,
     code: 'tochnyy-udar',
     type: 'ability',
     name: 'Точный удар',
@@ -4508,7 +4508,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-356',
+    id: 356,
     code: 'masterstvo-v-tochnosti',
     type: 'ability',
     name: 'Мастерство в точности',
@@ -4532,7 +4532,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-357',
+    id: 357,
     code: 'napravlennyy-udar',
     type: 'ability',
     name: 'Направленный удар',
@@ -4575,7 +4575,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-358',
+    id: 358,
     code: 'protivodeystvuyuschiy-udar',
     type: 'ability',
     name: 'Противодействующий удар',
@@ -4628,7 +4628,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-359',
+    id: 359,
     code: 'udar-v-sochlenenie',
     type: 'ability',
     name: 'Удар в сочленение',
@@ -4681,7 +4681,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-360',
+    id: 360,
     code: 'smertelnyy-udar',
     type: 'ability',
     name: 'Смертельный удар( x из 2)',
@@ -4724,7 +4724,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-361',
+    id: 361,
     code: 'kriticheskiy-udar',
     type: 'ability',
     name: 'Критический удар',
@@ -4777,7 +4777,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-362',
+    id: 362,
     code: 'vypad',
     type: 'ability',
     name: 'Выпад',
@@ -4808,7 +4808,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-363',
+    id: 363,
     code: 'vyverennyy-udar',
     type: 'ability',
     name: 'Выверенный удар',
@@ -4840,7 +4840,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-364',
+    id: 364,
     code: 'riskovannyy-udar',
     type: 'ability',
     name: 'Рискованный удар',
@@ -4872,7 +4872,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-365',
+    id: 365,
     code: 'raschetlivaya-ataka',
     type: 'ability',
     name: 'Расчётливая атака',
@@ -4909,7 +4909,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-366',
+    id: 366,
     code: 'obezoruzhivanie',
     type: 'ability',
     name: 'Обезоруживание',
@@ -4944,7 +4944,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-367',
+    id: 367,
     code: 'udar-v-padenii',
     type: 'ability',
     name: 'Удар в падении',
@@ -4989,7 +4989,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-368',
+    id: 368,
     code: 'kontrudar-2',
     type: 'ability',
     name: 'Контрудар',
@@ -5031,7 +5031,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-369',
+    id: 369,
     code: 'prikrytie',
     type: 'ability',
     name: 'Прикрытие',
@@ -5074,7 +5074,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-370',
+    id: 370,
     code: 'perestanovka',
     type: 'ability',
     name: 'Перестановка',
@@ -5098,7 +5098,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-371',
+    id: 371,
     code: 'podderzhka-v-boyu',
     type: 'ability',
     name: 'Поддержка в бою',
@@ -5141,7 +5141,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-372',
+    id: 372,
     code: 'koordinatsiya',
     type: 'ability',
     name: 'Координация',
@@ -5165,7 +5165,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-373',
+    id: 373,
     code: 'obmannyy-manevr',
     type: 'ability',
     name: 'Обманный манёвр',
@@ -5210,7 +5210,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-374',
+    id: 374,
     code: 'sovmestnaya-ataka',
     type: 'ability',
     name: 'Совместная атака',
@@ -5245,7 +5245,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-375',
+    id: 375,
     code: 'opyt-koordinatsii-atak',
     type: 'ability',
     name: 'Опыт координации атак',
@@ -5269,7 +5269,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-376',
+    id: 376,
     code: 'obezoruzhit-protivnika',
     type: 'ability',
     name: 'Обезоружить противника',
@@ -5301,7 +5301,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-377',
+    id: 377,
     code: 'zastavit-otkrytsya',
     type: 'ability',
     name: 'Заставить открыться',
@@ -5333,7 +5333,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-378',
+    id: 378,
     code: 'razbit-zaschitu',
     type: 'ability',
     name: 'Разбить защиту',
@@ -5364,7 +5364,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-379',
+    id: 379,
     code: 'vskryt-slabost',
     type: 'ability',
     name: 'Вскрыть слабость',
@@ -5388,7 +5388,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-380',
+    id: 380,
     code: 'poymat-moment',
     type: 'ability',
     name: 'Поймать момент',
@@ -5420,7 +5420,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-381',
+    id: 381,
     code: 'smenit-pozitsiyu',
     type: 'ability',
     name: 'Сменить позицию',
@@ -5452,7 +5452,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-382',
+    id: 382,
     code: 'mnogooborotnaya-tekhnika-metaniya',
     type: 'ability',
     name: 'Многооборотная техника метания',
@@ -5476,7 +5476,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-383',
+    id: 383,
     code: 'moschnaya-zakrutka',
     type: 'ability',
     name: 'Мощная закрутка',
@@ -5500,7 +5500,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-384',
+    id: 384,
     code: 'otrabotannaya-tekhnika',
     type: 'ability',
     name: 'Отработанная техника',
@@ -5524,7 +5524,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-385',
+    id: 385,
     code: 'bezoborotnaya-tekhnika-metaniya',
     type: 'ability',
     name: 'Безоборотная техника метания',
@@ -5548,7 +5548,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-386',
+    id: 386,
     code: 'dalniy-brosok',
     type: 'ability',
     name: 'Дальний бросок',
@@ -5571,7 +5571,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-387',
+    id: 387,
     code: 'otrabotannaya-tekhnika-2',
     type: 'ability',
     name: 'Отработанная техника',
@@ -5594,7 +5594,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-388',
+    id: 388,
     code: 'ataka-po-nezaschischennym-mestam',
     type: 'ability',
     name: 'Атака по незащищённым местам',
@@ -5618,7 +5618,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-389',
+    id: 389,
     code: 'popadanie-po-sochleneniyam',
     type: 'ability',
     name: 'Попадание по сочленениям',
@@ -5642,7 +5642,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-390',
+    id: 390,
     code: 'ataka-po-uyazvimym-mestam',
     type: 'ability',
     name: 'Атака по уязвимым местам',
@@ -5666,7 +5666,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-391',
+    id: 391,
     code: 'smertelnyy-vystrel',
     type: 'ability',
     name: 'Смертельный выстрел',
@@ -5690,7 +5690,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-392',
+    id: 392,
     code: 'riskovannaya-ataka',
     type: 'ability',
     name: 'Рискованная атака',
@@ -5714,7 +5714,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: '2026-08-09T10:00:00Z',
   },
   {
-    id: 'rule-393',
+    id: 393,
     code: 'popadanie-po-sochleneniyam-2',
     type: 'ability',
     name: 'Попадание по сочленениям',

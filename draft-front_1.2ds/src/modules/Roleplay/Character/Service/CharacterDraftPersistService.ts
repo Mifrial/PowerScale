@@ -57,9 +57,9 @@ export class CharacterDraftPersistService {
     if (row.draftKey !== null && typeof row.draftKey !== 'string') return null;
     if (typeof row.build !== 'object' || row.build === null) return null;
     if (typeof row.config !== 'object' || row.config === null) return null;
-    const build = row.build as CharacterBuild;
+    const build = this.normalizeBuild(row.build);
     const config = row.config as CharacterCreationConfig;
-    if (typeof build.name !== 'string') return null;
+    if (!build) return null;
     const dirty = typeof row.dirty === 'boolean' ? row.dirty : false;
     const updatedAt = typeof row.updatedAt === 'string' ? row.updatedAt : new Date().toISOString();
 
@@ -82,6 +82,65 @@ export class CharacterDraftPersistService {
     const row = value as Record<string, unknown>;
     if (!Array.isArray(row.inventory) || typeof row.money !== 'number') return null;
 
-    return { inventory: row.inventory as InventoryItem[], money: row.money };
+    return { inventory: this.normalizeInventory(row.inventory), money: row.money };
+  }
+
+  /**
+   * Черновики до этапа 2 хранили storage id в `ruleId`. Поле переименовано, значение ещё может быть
+   * `rule-407` — резолв имени на карточке ищет и code, и id.
+   */
+  private normalizeBuild(value: unknown): CharacterBuild | null {
+    if (typeof value !== 'object' || value === null) return null;
+    const row = value as Record<string, unknown>;
+    if (typeof row.name !== 'string') return null;
+    const raceRuleCode = this.currentOrLegacyString(row, 'raceRuleCode', 'raceRuleId');
+    const inventory = Array.isArray(row.inventory) ? this.normalizeInventory(row.inventory) : [];
+
+    return {
+      ...(row as unknown as CharacterBuild),
+      raceRuleCode,
+      inventory,
+    };
+  }
+
+  private normalizeInventory(items: unknown[]): InventoryItem[] {
+    const result: InventoryItem[] = [];
+    for (const item of items) {
+      const normalized = this.normalizeInventoryItem(item);
+      if (normalized) result.push(normalized);
+    }
+
+    return result;
+  }
+
+  private normalizeInventoryItem(value: unknown): InventoryItem | null {
+    if (typeof value !== 'object' || value === null) return null;
+    const row = value as Record<string, unknown>;
+    const ruleCode = this.currentOrLegacyString(row, 'ruleCode', 'ruleId');
+    const modifierRuleCodes =
+      this.stringArray(row.modifierRuleCodes) ?? this.stringArray(row.modifierRuleIds) ?? undefined;
+
+    return {
+      ...(row as unknown as InventoryItem),
+      ruleCode,
+      ...(modifierRuleCodes ? { modifierRuleCodes } : {}),
+    };
+  }
+
+  private currentOrLegacyString(row: Record<string, unknown>, current: string, legacy: string): string | null {
+    if (current in row && row[current] !== undefined) {
+      const value = row[current];
+      if (value === null || typeof value === 'string') return value;
+    }
+    const legacyValue = row[legacy];
+    if (legacyValue === null || typeof legacyValue === 'string') return legacyValue;
+
+    return null;
+  }
+
+  private stringArray(value: unknown): string[] | null {
+    if (!Array.isArray(value)) return null;
+
+    return value.filter((entry): entry is string => typeof entry === 'string');
   }
 }

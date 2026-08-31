@@ -2,7 +2,7 @@ import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/Dimension
 import type { ResourceLimitOverview } from '@/modules/Roleplay/Character/Dto/Overview/ResourceLimitOverview';
 
 export interface ResourceOverview {
-  ruleId: string;
+  ruleCode: string;
   name: string;
   /** Текущее значение — размерное число. */
   current: DimensionalNumberValue;

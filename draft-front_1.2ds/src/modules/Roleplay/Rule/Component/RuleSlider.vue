@@ -10,7 +10,7 @@ import { useKeywordStore } from '@/modules/Roleplay/Rule/Store/keywords';
 import DescriptionHtml from '@/modules/Core/UI/Component/DescriptionHtml.vue';
 
 const props = defineProps<{
-  ruleId: string | null;
+  ruleCode: string | null;
   /** Контекст ревизии (пространство + номер ревизии): резолвим правило из её среза, а не каталога. */
   spaceId?: number | null;
   rulesRevision?: number | null;
@@ -35,7 +35,7 @@ const typeLabel = computed(() =>
 const resolvedKeywords = computed(() => props.keywords ?? keywordStore.keywords);
 
 async function loadRule() {
-  const id = props.ruleId;
+  const id = props.ruleCode;
   if (id == null) {
     ruleData.value = null;
     sliceRules.value = [];
@@ -48,7 +48,7 @@ async function loadRule() {
   sliceRules.value = [];
   try {
     if (props.rules?.length) {
-      const found = props.rules.find((rule) => rule.code === id || rule.id === id) ?? null;
+      const found = props.rules.find((rule) => rule.code === id) ?? null;
       ruleData.value = found;
       sliceRules.value = props.rules;
       if (found == null) error.value = 'Правило не найдено в ревизии';
@@ -56,7 +56,7 @@ async function loadRule() {
       const slice = await ruleRevisionResolverService.resolveRevisionSlice({
         spaceId: props.spaceId ?? null,
         rulesRevision: props.rulesRevision ?? null,
-        ruleId: id,
+        ruleCode: id,
       });
       ruleData.value = slice.rule;
       sliceRules.value = slice.rules;
@@ -77,7 +77,7 @@ function openInlineRule(ruleCode: string): void {
 }
 
 watch(
-  () => `${props.ruleId ?? ''}|${props.spaceId ?? ''}|${props.rulesRevision ?? ''}|${props.rules?.length ?? 0}`,
+  () => `${props.ruleCode ?? ''}|${props.spaceId ?? ''}|${props.rulesRevision ?? ''}|${props.rules?.length ?? 0}`,
   loadRule,
   { immediate: true },
 );
@@ -119,7 +119,7 @@ watch(
     <div v-else class="d-flex justify-center pa-8">
       <v-progress-circular indeterminate width="2" size="28" color="primary" />
     </div>
-    <RuleSlider v-model:open="nestedOpen" :rule-id="nestedRuleId" :rules="sliceRules" :keywords="resolvedKeywords" />
+    <RuleSlider v-model:open="nestedOpen" :rule-code="nestedRuleId" :rules="sliceRules" :keywords="resolvedKeywords" />
   </SlidePanel>
 </template>
 

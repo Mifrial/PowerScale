@@ -35,7 +35,7 @@ export class EditorCheckBonusesService {
           ...this.characteristicModifiersFromAbilities(version, rules, check.code),
         ];
         const aggregated = this.aggregate.aggregateSourceDeltas(modifiers).map((modifier) => ({
-          sourceRuleId: modifier.source_code,
+          sourceRuleCode: modifier.source_code,
           sourceLabel: modifier.source_label,
           delta: modifier.delta,
         }));
@@ -59,7 +59,7 @@ export class EditorCheckBonusesService {
     const modifiers: AdvantageModifier[] = [];
     for (const ability of version.abilities) {
       if (ability.level < 1) continue;
-      const rule = rules.find((candidate) => candidate.id === ability.ruleId);
+      const rule = rules.find((candidate) => candidate.code === ability.ruleCode);
       if (!rule || rule.type !== 'ability') continue;
       const spec = rule.spec as AbilitySpec | undefined;
       if (!spec || spec.type === 'group') continue;
@@ -72,7 +72,7 @@ export class EditorCheckBonusesService {
           const delta = this.formulaValue(grant.amount, ability.parameters, version.abilities, rules);
           if (delta === 0) continue;
           modifiers.push({
-            source_code: rule.id,
+            source_code: rule.code,
             source_label: rule.name,
             delta,
           });
@@ -99,7 +99,7 @@ export class EditorCheckBonusesService {
     }
     if (formula.type === 'ability_level') {
       const target = abilities.find(
-        (ability) => rules.find((rule) => rule.id === ability.ruleId)?.code === formula.ability_code,
+        (ability) => rules.find((rule) => rule.code === ability.ruleCode)?.code === formula.ability_code,
       );
 
       return (target?.level ?? 0) * (formula.multiplier ?? 1) + (formula.offset ?? 0);

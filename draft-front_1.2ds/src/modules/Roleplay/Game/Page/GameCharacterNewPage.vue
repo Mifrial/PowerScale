@@ -58,7 +58,7 @@ async function load(): Promise<void> {
       spaceId: gameDetail.game.spaceId,
       spaceCode: gameDetail.game.spaceCode,
       rulesRevision: gameDetail.game.rulesRevision,
-      raceRuleId: null,
+      raceRuleCode: null,
       characteristicPurchases: [],
       abilities: [],
       resources: [],

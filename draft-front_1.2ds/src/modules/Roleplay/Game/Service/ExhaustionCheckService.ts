@@ -44,7 +44,7 @@ export class ExhaustionCheckService {
     const rule = rules.find((item) => item.code === UNCONSCIOUS_STATE_CODE && item.type === 'state');
     if (!rule) return false;
 
-    return version.states.some((state) => state.stateRuleId === rule.id);
+    return version.states.some((state) => state.stateRuleCode === rule.code);
   }
 
   async applyExhaustionCheck(args: ApplyExhaustionCheckArgs): Promise<ApplyExhaustionCheckResult> {

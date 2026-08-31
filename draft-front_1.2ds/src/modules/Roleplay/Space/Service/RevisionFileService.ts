@@ -10,6 +10,8 @@ import {
 import type { ruleDiffService } from '@/modules/Roleplay/Rule/init';
 import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
 
+const SUPPORTED_FILE_FORMAT_VERSIONS = new Set([1, REVISION_FILE_FORMAT_VERSION]);
+
 export class RevisionFileService {
   constructor(
     private readonly ruleDiff: typeof ruleDiffService,
@@ -21,7 +23,10 @@ export class RevisionFileService {
       format: REVISION_FILE_FORMAT,
       formatVersion: REVISION_FILE_FORMAT_VERSION,
       exportedAt: new Date().toISOString(),
-      revision,
+      revision: {
+        ...revision,
+        rules: revision.rules.map((rule) => this.stripCatalogKeys(rule) as Rule),
+      },
     };
   }
 
@@ -35,7 +40,9 @@ export class RevisionFileService {
     if (typeof parsed !== 'object' || parsed === null) throw new Error('Некорректный файл ревизии');
     const row = parsed as Record<string, unknown>;
     if (row.format !== REVISION_FILE_FORMAT) throw new Error('Это не файл ревизии PowerScale');
-    if (row.formatVersion !== REVISION_FILE_FORMAT_VERSION) throw new Error('Неподдерживаемая версия файла ревизии');
+    if (typeof row.formatVersion !== 'number' || !SUPPORTED_FILE_FORMAT_VERSIONS.has(row.formatVersion)) {
+      throw new Error('Неподдерживаемая версия файла ревизии');
+    }
     if (typeof row.exportedAt !== 'string') throw new Error('Некорректный файл ревизии');
     const revision = this.parseRevision(row.revision);
 
@@ -47,11 +54,11 @@ export class RevisionFileService {
     };
   }
 
-  remapForSpace(rules: readonly Rule[], spaceId: number, idByCode: ReadonlyMap<string, string>): Rule[] {
+  remapForSpace(rules: readonly Rule[], spaceId: number): Rule[] {
     return rules.map((rule) => ({
       ...cloneData(rule),
       spaceId,
-      id: idByCode.get(rule.code) ?? rule.id,
+      id: null,
     }));
   }
 
@@ -70,7 +77,7 @@ export class RevisionFileService {
     for (const fileRule of fileRules) {
       const local = publishedByCode.get(fileRule.code);
       if (!local) {
-        added.push({ ...cloneData(fileRule), spaceId, id: `imported-${fileRule.code}` });
+        added.push({ ...cloneData(fileRule), spaceId, id: null });
         continue;
       }
       if (this.ruleDiff.samePayload(fileRule, local)) {
@@ -102,6 +109,12 @@ export class RevisionFileService {
     return diff.added.length === 0 && diff.changed.length === 0 && diff.removedCodes.length === 0;
   }
 
+  private stripCatalogKeys(rule: Rule): Omit<Rule, 'id' | 'spaceId'> {
+    const { id: _id, spaceId: _spaceId, ...rest } = rule;
+
+    return rest;
+  }
+
   private parseRevision(value: unknown): SpaceRevision<Rule> {
     if (typeof value !== 'object' || value === null) throw new Error('Некорректный файл ревизии');
     const row = value as Record<string, unknown>;
@@ -125,24 +138,24 @@ export class RevisionFileService {
   private parseRule(value: unknown): Rule {
     if (typeof value !== 'object' || value === null) throw new Error('Некорректное правило в файле');
     const row = value as Record<string, unknown>;
-    if (typeof row.id !== 'string' || typeof row.code !== 'string') throw new Error('Некорректное правило в файле');
+    if (typeof row.code !== 'string') throw new Error('Некорректное правило в файле');
     if (typeof row.type !== 'string' || !(row.type in this.typeLabels)) {
       throw new Error(`Неизвестный тип правила: ${String(row.type)}`);
     }
     if (typeof row.name !== 'string' || typeof row.description !== 'string') {
       throw new Error('Некорректное правило в файле');
     }
-    if (typeof row.spaceId !== 'number' || typeof row.createdAt !== 'string') {
+    if (typeof row.createdAt !== 'string') {
       throw new Error('Некорректное правило в файле');
     }
 
     return {
-      id: row.id,
+      id: null,
       code: row.code,
       type: row.type as RuleType,
       name: row.name,
       description: row.description,
-      spaceId: row.spaceId,
+      spaceId: 0,
       spec: row.spec as Rule['spec'],
       keywordIds: Array.isArray(row.keywordIds) ? (row.keywordIds as number[]) : undefined,
       mechanicId: typeof row.mechanicId === 'number' || row.mechanicId === null ? row.mechanicId : undefined,

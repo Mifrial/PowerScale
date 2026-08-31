@@ -31,7 +31,7 @@ function defaultVisibility(): SheetVisibility {
 // Инвариант привязки (БД §3): space_id + rules_version_at. В фикстурах (spaceId, spaceCode,
 // rulesRevision) согласованы с моками Space: spaceId 1 = razrabotka (revision 5, rulesRevision ≤ 5),
 // spaceId 2 = actual (revision 12, rulesRevision ≤ 12).
-// Версия ссылается на правила каталога (Rule) только ruleId; каждое правило обязано разрешаться
+// Версия ссылается на правила каталога (Rule) только ruleCode; каждое правило обязано разрешаться
 // в ревизии (Mock/mockSpaces: предметы/расы/виды всегда входят в срез ревизии).
 export const characters: Character[] = [
   {
@@ -132,7 +132,7 @@ export const characters: Character[] = [
   },
 ];
 
-// Версия хранит ссылки (ruleId), базы характеристик и модификаторы; значения считаются в карточке
+// Версия хранит ссылки (ruleCode), базы характеристик и модификаторы; значения считаются в карточке
 // (база + модификаторы). Ресурс: значение и базовый лимит — размерные числа (безразмерный — размер 0)
 // + бонусы/штрафы; лимит = база + сумма дельт, лимит 0 — ресурса у персонажа нет. Очки (points: ОС/ОЛ/ОР)
 // и деньги (money) — данные персонажа, блок «Разное». Имена/формулы правил разрешаются из ревизии при отрисовке.
@@ -144,24 +144,24 @@ export const versions: Record<number, CharacterVersion> = {
       'Торвин — последний из гильдии горных кузнецов, переживших осаду старой цитадели. Он куёт оружие из обломков крепостных ворот и хранит карту подвалов, куда не ступала нога десять лет.',
     spaceCode: 'razrabotka',
     rulesRevision: 5,
-    raceRuleId: 'rule-6',
+    raceRuleCode: 'human',
     characteristics: [
-      { ruleId: 'rule-3', base: dim(5), modifiers: [] },
-      { ruleId: 'rule-42', base: dim(3, 1), modifiers: [] },
-      { ruleId: 'rule-7', base: dim(3, 3), modifiers: [] },
-      { ruleId: 'rule-45', base: dim(3), modifiers: [] },
-      { ruleId: 'rule-10', base: dim(3), modifiers: [] },
-      { ruleId: 'rule-46', base: dim(4, -3), modifiers: [] },
-      { ruleId: 'rule-43', base: dim(5), modifiers: [] },
-      { ruleId: 'rule-44', base: dim(3), modifiers: [] },
-      { ruleId: 'rule-8', base: dim(3), modifiers: [] },
-      { ruleId: 'rule-9', base: dim(3), modifiers: [] },
+      { ruleCode: 'strength', base: dim(5), modifiers: [] },
+      { ruleCode: 'endurance', base: dim(3, 1), modifiers: [] },
+      { ruleCode: 'dexterity', base: dim(3, 3), modifiers: [] },
+      { ruleCode: 'perception', base: dim(3), modifiers: [] },
+      { ruleCode: 'intellect', base: dim(3), modifiers: [] },
+      { ruleCode: 'magic', base: dim(4, -3), modifiers: [] },
+      { ruleCode: 'attention', base: dim(5), modifiers: [] },
+      { ruleCode: 'reaction', base: dim(3), modifiers: [] },
+      { ruleCode: 'memory', base: dim(3), modifiers: [] },
+      { ruleCode: 'reasoning', base: dim(3), modifiers: [] },
       {
-        ruleId: 'rule-47',
+        ruleCode: 'communication',
         base: dim(3),
         modifiers: [
           {
-            sourceRuleId: null,
+            sourceRuleCode: null,
             sourceLabel: 'Обстоятельства',
             delta: 1,
             target: 'communication',
@@ -169,37 +169,39 @@ export const versions: Record<number, CharacterVersion> = {
           },
         ],
       },
-      { ruleId: 'rule-48', base: dim(4), modifiers: [] },
+      { ruleCode: 'willpower', base: dim(4), modifiers: [] },
       {
-        ruleId: 'rule-49',
+        ruleCode: 'melee-combat',
         base: dim(3, -1),
-        modifiers: [{ sourceRuleId: 'rule-319', sourceLabel: null, delta: 1, target: 'melee-combat', scope: null }],
+        modifiers: [
+          { sourceRuleCode: 'blizhniy-boy', sourceLabel: null, delta: 1, target: 'melee-combat', scope: null },
+        ],
       },
     ],
     resources: [
-      { ruleId: 'rule-18', current: dim(4), base: dim(4), bonuses: [] },
-      { ruleId: 'rule-19', current: dim(3, -1), base: dim(8, -1), bonuses: [] },
-      { ruleId: 'rule-20', current: dim(0), base: dim(0), bonuses: [] },
+      { ruleCode: 'action-points', current: dim(4), base: dim(4), bonuses: [] },
+      { ruleCode: 'spirit-energy', current: dim(3, -1), base: dim(8, -1), bonuses: [] },
+      { ruleCode: 'concentration', current: dim(0), base: dim(0), bonuses: [] },
     ],
     abilities: [
-      { ruleId: 'rule-329', level: 1 },
-      { ruleId: 'rule-25', level: 1 },
+      { ruleCode: 'borba', level: 1 },
+      { ruleCode: 'keen-hearing', level: 1 },
     ],
     points: { osSpent: 30, olSpent: 0, olTotal: 7, orSpent: 0, orTotal: 12 },
     money: 50,
     ageYears: null,
     inventory: [
-      { id: 1, ruleId: 'rule-407', quantity: 1, equipped: true },
-      { id: 2, ruleId: 'rule-437', quantity: 1, equipped: true },
+      { id: 1, ruleCode: 'fekhtovalnyy-mech', quantity: 1, equipped: true },
+      { id: 2, ruleCode: 'latnyy-dospekh', quantity: 1, equipped: true },
     ],
     states: [
-      { stateRuleId: 'rule-56', value: 2 },
-      { stateRuleId: 'rule-60', value: 4 },
-      { stateRuleId: 'rule-60', value: 1 },
-      { stateRuleId: 'rule-65', poison: { poisonRuleId: 'rule-62', damage_type_code: 'poison-1' } },
-      { stateRuleId: 'rule-65', poison: { poisonRuleId: 'rule-64', damage_type_code: 'poison-3' } },
-      { stateRuleId: 'rule-61', dimensionalValue: { base: 3, size: 1 } },
-      { stateRuleId: 'rule-63', value: 2 },
+      { stateRuleCode: 'exhaustion', value: 2 },
+      { stateRuleCode: 'wound', value: 4 },
+      { stateRuleCode: 'wound', value: 1 },
+      { stateRuleCode: 'poisoning', poison: { poisonRuleCode: 'poison-scorpion', damage_type_code: 'poison-1' } },
+      { stateRuleCode: 'poisoning', poison: { poisonRuleCode: 'poison-viper', damage_type_code: 'poison-3' } },
+      { stateRuleCode: 'burning', dimensionalValue: { base: 3, size: 1 } },
+      { stateRuleCode: 'stunned', value: 2 },
     ],
     senses: [],
   },
@@ -210,49 +212,49 @@ export const versions: Record<number, CharacterVersion> = {
       'Элиандра покинула свой лес после того, как тень прогнала её народ. Она ведёт охоту на бесплотных созданий и собирает их эссенцию для обряда возвращения.',
     spaceCode: 'razrabotka',
     rulesRevision: 4,
-    raceRuleId: 'rule-126',
+    raceRuleCode: 'arilet',
     characteristics: [
-      { ruleId: 'rule-3', base: dim(3), modifiers: [] },
+      { ruleCode: 'strength', base: dim(3), modifiers: [] },
       {
-        ruleId: 'rule-7',
+        ruleCode: 'dexterity',
         base: dim(5),
-        modifiers: [{ sourceRuleId: 'rule-126', sourceLabel: null, delta: 1, target: 'dexterity', scope: null }],
+        modifiers: [{ sourceRuleCode: 'arilet', sourceLabel: null, delta: 1, target: 'dexterity', scope: null }],
       },
-      { ruleId: 'rule-8', base: dim(3), modifiers: [] },
-      { ruleId: 'rule-9', base: dim(3), modifiers: [] },
-      { ruleId: 'rule-10', base: dim(3), modifiers: [] },
-      { ruleId: 'rule-43', base: dim(3), modifiers: [] },
-      { ruleId: 'rule-44', base: dim(3), modifiers: [] },
-      { ruleId: 'rule-47', base: dim(3), modifiers: [] },
-      { ruleId: 'rule-49', base: dim(3, -1), modifiers: [] },
+      { ruleCode: 'memory', base: dim(3), modifiers: [] },
+      { ruleCode: 'reasoning', base: dim(3), modifiers: [] },
+      { ruleCode: 'intellect', base: dim(3), modifiers: [] },
+      { ruleCode: 'attention', base: dim(3), modifiers: [] },
+      { ruleCode: 'reaction', base: dim(3), modifiers: [] },
+      { ruleCode: 'communication', base: dim(3), modifiers: [] },
+      { ruleCode: 'melee-combat', base: dim(3, -1), modifiers: [] },
     ],
     resources: [
       {
-        ruleId: 'rule-18',
+        ruleCode: 'action-points',
         current: dim(4),
         base: dim(3),
-        bonuses: [{ sourceRuleId: null, sourceLabel: 'Раса — эльф', delta: 1 }],
+        bonuses: [{ sourceRuleCode: null, sourceLabel: 'Раса — эльф', delta: 1 }],
       },
       {
-        ruleId: 'rule-19',
+        ruleCode: 'spirit-energy',
         current: dim(2, -1),
         base: dim(3, -1),
-        bonuses: [{ sourceRuleId: null, sourceLabel: 'Усталость', delta: -1 }],
+        bonuses: [{ sourceRuleCode: null, sourceLabel: 'Усталость', delta: -1 }],
       },
-      { ruleId: 'rule-20', current: dim(0), base: dim(0), bonuses: [] },
+      { ruleCode: 'concentration', current: dim(0), base: dim(0), bonuses: [] },
     ],
     abilities: [
-      { ruleId: 'rule-25', level: 1 },
-      { ruleId: 'rule-26', level: 1 },
+      { ruleCode: 'keen-hearing', level: 1 },
+      { ruleCode: 'night-vision', level: 1 },
     ],
     points: { osSpent: 25, olSpent: 3, olTotal: 7, orSpent: 0, orTotal: 5 },
     money: 20,
     ageYears: null,
     inventory: [
-      { id: 1, ruleId: 'rule-427', quantity: 1, equipped: true },
-      { id: 2, ruleId: 'rule-404', quantity: 1, equipped: false },
+      { id: 1, ruleCode: 'dlinnyy-luk', quantity: 1, equipped: true },
+      { id: 2, ruleCode: 'kinzhal', quantity: 1, equipped: false },
     ],
-    states: [{ stateRuleId: 'rule-56', value: 1 }],
+    states: [{ stateRuleCode: 'exhaustion', value: 1 }],
     senses: [],
   },
   3: {
@@ -262,44 +264,44 @@ export const versions: Record<number, CharacterVersion> = {
       'Гаррик знает все тайные ходы торгового квартала. Работает на старшего гильдии, но его верность продаётся дороже любого товара.',
     spaceCode: 'actual',
     rulesRevision: 6,
-    raceRuleId: 'rule-122',
+    raceRuleCode: 'acelatl',
     characteristics: [
-      { ruleId: 'rule-3', base: dim(3), modifiers: [] },
-      { ruleId: 'rule-42', base: dim(5), modifiers: [] },
-      { ruleId: 'rule-7', base: dim(3), modifiers: [] },
-      { ruleId: 'rule-8', base: dim(3), modifiers: [] },
-      { ruleId: 'rule-9', base: dim(3), modifiers: [] },
-      { ruleId: 'rule-10', base: dim(3), modifiers: [] },
-      { ruleId: 'rule-43', base: dim(3), modifiers: [] },
-      { ruleId: 'rule-44', base: dim(3), modifiers: [] },
-      { ruleId: 'rule-47', base: dim(3), modifiers: [] },
-      { ruleId: 'rule-49', base: dim(3, -1), modifiers: [] },
+      { ruleCode: 'strength', base: dim(3), modifiers: [] },
+      { ruleCode: 'endurance', base: dim(5), modifiers: [] },
+      { ruleCode: 'dexterity', base: dim(3), modifiers: [] },
+      { ruleCode: 'memory', base: dim(3), modifiers: [] },
+      { ruleCode: 'reasoning', base: dim(3), modifiers: [] },
+      { ruleCode: 'intellect', base: dim(3), modifiers: [] },
+      { ruleCode: 'attention', base: dim(3), modifiers: [] },
+      { ruleCode: 'reaction', base: dim(3), modifiers: [] },
+      { ruleCode: 'communication', base: dim(3), modifiers: [] },
+      { ruleCode: 'melee-combat', base: dim(3, -1), modifiers: [] },
     ],
     resources: [
       {
-        ruleId: 'rule-18',
+        ruleCode: 'action-points',
         current: dim(5),
         base: dim(3),
-        bonuses: [{ sourceRuleId: 'rule-122', sourceLabel: null, delta: 2 }],
+        bonuses: [{ sourceRuleCode: 'acelatl', sourceLabel: null, delta: 2 }],
       },
-      { ruleId: 'rule-19', current: dim(1, -1), base: dim(1, -1), bonuses: [] },
-      { ruleId: 'rule-20', current: dim(0), base: dim(0), bonuses: [] },
+      { ruleCode: 'spirit-energy', current: dim(1, -1), base: dim(1, -1), bonuses: [] },
+      { ruleCode: 'concentration', current: dim(0), base: dim(0), bonuses: [] },
     ],
     abilities: [
-      { ruleId: 'rule-329', level: 2 },
-      { ruleId: 'rule-26', level: 1 },
+      { ruleCode: 'borba', level: 2 },
+      { ruleCode: 'night-vision', level: 1 },
     ],
     points: { osSpent: 20, olSpent: 0, olTotal: 7, orSpent: 0, orTotal: 18 },
     money: 130,
     ageYears: null,
     inventory: [
-      { id: 1, ruleId: 'rule-404', quantity: 2, equipped: true },
-      { id: 2, ruleId: 'rule-407', quantity: 1, equipped: false },
-      { id: 3, ruleId: 'rule-431', quantity: 1, equipped: true },
+      { id: 1, ruleCode: 'kinzhal', quantity: 2, equipped: true },
+      { id: 2, ruleCode: 'fekhtovalnyy-mech', quantity: 1, equipped: false },
+      { id: 3, ruleCode: 'klassicheskiy-shchit', quantity: 1, equipped: true },
     ],
     states: [
-      { stateRuleId: 'rule-65', poison: { poisonRuleId: 'rule-62', damage_type_code: 'poison-1' } },
-      { stateRuleId: 'rule-65', poison: { poisonRuleId: 'rule-64', damage_type_code: 'poison-3' } },
+      { stateRuleCode: 'poisoning', poison: { poisonRuleCode: 'poison-scorpion', damage_type_code: 'poison-1' } },
+      { stateRuleCode: 'poisoning', poison: { poisonRuleCode: 'poison-viper', damage_type_code: 'poison-3' } },
     ],
     senses: [],
   },
@@ -310,44 +312,44 @@ export const versions: Record<number, CharacterVersion> = {
       'Морган потерял глаз, когда выдал нанимателя. Теперь его кредо — платить только один гвоздь от каждого дела, иначе живым не уйти.',
     spaceCode: 'actual',
     rulesRevision: 11,
-    raceRuleId: 'rule-6',
+    raceRuleCode: 'human',
     characteristics: [
       {
-        ruleId: 'rule-3',
+        ruleCode: 'strength',
         base: dim(4),
-        modifiers: [{ sourceRuleId: 'rule-6', sourceLabel: null, delta: 1, target: 'strength', scope: null }],
+        modifiers: [{ sourceRuleCode: 'human', sourceLabel: null, delta: 1, target: 'strength', scope: null }],
       },
-      { ruleId: 'rule-7', base: dim(3), modifiers: [] },
-      { ruleId: 'rule-8', base: dim(3), modifiers: [] },
-      { ruleId: 'rule-9', base: dim(3), modifiers: [] },
-      { ruleId: 'rule-10', base: dim(3), modifiers: [] },
-      { ruleId: 'rule-43', base: dim(3), modifiers: [] },
-      { ruleId: 'rule-44', base: dim(3), modifiers: [] },
-      { ruleId: 'rule-47', base: dim(3), modifiers: [] },
-      { ruleId: 'rule-49', base: dim(3, -1), modifiers: [] },
+      { ruleCode: 'dexterity', base: dim(3), modifiers: [] },
+      { ruleCode: 'memory', base: dim(3), modifiers: [] },
+      { ruleCode: 'reasoning', base: dim(3), modifiers: [] },
+      { ruleCode: 'intellect', base: dim(3), modifiers: [] },
+      { ruleCode: 'attention', base: dim(3), modifiers: [] },
+      { ruleCode: 'reaction', base: dim(3), modifiers: [] },
+      { ruleCode: 'communication', base: dim(3), modifiers: [] },
+      { ruleCode: 'melee-combat', base: dim(3, -1), modifiers: [] },
     ],
     resources: [
-      { ruleId: 'rule-18', current: dim(4), base: dim(4), bonuses: [] },
+      { ruleCode: 'action-points', current: dim(4), base: dim(4), bonuses: [] },
       {
-        ruleId: 'rule-19',
+        ruleCode: 'spirit-energy',
         current: dim(0, -1),
         base: dim(1, -1),
-        bonuses: [{ sourceRuleId: null, sourceLabel: 'Тяжёлое ранение', delta: -1 }],
+        bonuses: [{ sourceRuleCode: null, sourceLabel: 'Тяжёлое ранение', delta: -1 }],
       },
-      { ruleId: 'rule-20', current: dim(0), base: dim(0), bonuses: [] },
+      { ruleCode: 'concentration', current: dim(0), base: dim(0), bonuses: [] },
     ],
-    abilities: [{ ruleId: 'rule-329', level: 2 }],
+    abilities: [{ ruleCode: 'borba', level: 2 }],
     points: { osSpent: 30, olSpent: 0, olTotal: 7, orSpent: 0, orTotal: 7 },
     money: 85,
     ageYears: null,
     inventory: [
-      { id: 1, ruleId: 'rule-407', quantity: 1, equipped: true },
-      { id: 2, ruleId: 'rule-437', quantity: 1, equipped: true },
-      { id: 3, ruleId: 'rule-431', quantity: 1, equipped: true },
+      { id: 1, ruleCode: 'fekhtovalnyy-mech', quantity: 1, equipped: true },
+      { id: 2, ruleCode: 'latnyy-dospekh', quantity: 1, equipped: true },
+      { id: 3, ruleCode: 'klassicheskiy-shchit', quantity: 1, equipped: true },
     ],
     states: [
-      { stateRuleId: 'rule-60', value: 3 },
-      { stateRuleId: 'rule-56', value: 1 },
+      { stateRuleCode: 'wound', value: 3 },
+      { stateRuleCode: 'exhaustion', value: 1 },
     ],
     senses: [],
   },
@@ -358,37 +360,37 @@ export const versions: Record<number, CharacterVersion> = {
       'Серафина ведёт переговоры на границах трёх королевств. Её герб — древний ветер гильдии, но за печатью скрыт договор, который она не смеет разорвать.',
     spaceCode: 'razrabotka',
     rulesRevision: 5,
-    raceRuleId: 'rule-127',
+    raceRuleCode: 'liten',
     characteristics: [
-      { ruleId: 'rule-3', base: dim(3), modifiers: [] },
-      { ruleId: 'rule-7', base: dim(4), modifiers: [] },
+      { ruleCode: 'strength', base: dim(3), modifiers: [] },
+      { ruleCode: 'dexterity', base: dim(4), modifiers: [] },
       {
-        ruleId: 'rule-8',
+        ruleCode: 'memory',
         base: dim(3),
-        modifiers: [{ sourceRuleId: 'rule-127', sourceLabel: null, delta: 1, target: 'memory', scope: null }],
+        modifiers: [{ sourceRuleCode: 'liten', sourceLabel: null, delta: 1, target: 'memory', scope: null }],
       },
-      { ruleId: 'rule-9', base: dim(4), modifiers: [] },
-      { ruleId: 'rule-10', base: dim(4), modifiers: [] },
-      { ruleId: 'rule-43', base: dim(3), modifiers: [] },
-      { ruleId: 'rule-44', base: dim(3), modifiers: [] },
-      { ruleId: 'rule-47', base: dim(3), modifiers: [] },
-      { ruleId: 'rule-49', base: dim(3, -1), modifiers: [] },
+      { ruleCode: 'reasoning', base: dim(4), modifiers: [] },
+      { ruleCode: 'intellect', base: dim(4), modifiers: [] },
+      { ruleCode: 'attention', base: dim(3), modifiers: [] },
+      { ruleCode: 'reaction', base: dim(3), modifiers: [] },
+      { ruleCode: 'communication', base: dim(3), modifiers: [] },
+      { ruleCode: 'melee-combat', base: dim(3, -1), modifiers: [] },
     ],
     resources: [
-      { ruleId: 'rule-18', current: dim(4), base: dim(4), bonuses: [] },
-      { ruleId: 'rule-19', current: dim(2, -1), base: dim(2, -1), bonuses: [] },
-      { ruleId: 'rule-20', current: dim(0), base: dim(0), bonuses: [] },
+      { ruleCode: 'action-points', current: dim(4), base: dim(4), bonuses: [] },
+      { ruleCode: 'spirit-energy', current: dim(2, -1), base: dim(2, -1), bonuses: [] },
+      { ruleCode: 'concentration', current: dim(0), base: dim(0), bonuses: [] },
     ],
     abilities: [
-      { ruleId: 'rule-25', level: 1 },
-      { ruleId: 'rule-26', level: 1 },
+      { ruleCode: 'keen-hearing', level: 1 },
+      { ruleCode: 'night-vision', level: 1 },
     ],
     points: { osSpent: 27, olSpent: 2, olTotal: 7, orSpent: 0, orTotal: 10 },
     money: 200,
     ageYears: null,
     inventory: [
-      { id: 1, ruleId: 'rule-427', quantity: 1, equipped: true },
-      { id: 2, ruleId: 'rule-404', quantity: 1, equipped: false },
+      { id: 1, ruleCode: 'dlinnyy-luk', quantity: 1, equipped: true },
+      { id: 2, ruleCode: 'kinzhal', quantity: 1, equipped: false },
     ],
     states: [],
     senses: [],
@@ -468,17 +470,16 @@ export async function updateOwnerNotes(id: number, notes: string, _signal?: Abor
 
 let nextId = 6;
 
-function raceLabelOf(raceRuleId: string | null): string | null {
-  if (raceRuleId === null) return null;
+function raceLabelOf(raceRuleCode: string | null): string | null {
+  if (raceRuleCode === null) return null;
 
-  return ruleCatalog.find((rule) => rule.id === raceRuleId)?.name ?? null;
+  return ruleCatalog.find((rule) => rule.code === raceRuleCode)?.name ?? null;
 }
 
-function raceIdOf(raceRuleId: string | null): number | null {
-  if (raceRuleId === null) return null;
-  const match = raceRuleId.match(/rule-(\d+)/);
+function raceIdOf(raceRuleCode: string | null): number | null {
+  if (raceRuleCode === null) return null;
 
-  return match ? Number(match[1]) : null;
+  return ruleCatalog.find((entry) => entry.code === raceRuleCode)?.id ?? null;
 }
 
 function pointsOf(version: CharacterVersion): Character['currentPoints'] {
@@ -495,8 +496,8 @@ function summaryOf(id: number, version: CharacterVersion, spaceId: number, statu
     active: true,
     ownerId: owner.id,
     ownerName: owner.name,
-    raceId: raceIdOf(version.raceRuleId),
-    raceLabel: raceLabelOf(version.raceRuleId),
+    raceId: raceIdOf(version.raceRuleCode),
+    raceLabel: raceLabelOf(version.raceRuleCode),
     gameId: null,
     gameName: null,
     spaceId,
@@ -542,8 +543,8 @@ export async function updateCharacter(
   await assertVersionMatchesSpace(data.version, character.spaceId);
 
   character.name = data.version.name;
-  character.raceId = raceIdOf(data.version.raceRuleId);
-  character.raceLabel = raceLabelOf(data.version.raceRuleId);
+  character.raceId = raceIdOf(data.version.raceRuleCode);
+  character.raceLabel = raceLabelOf(data.version.raceRuleCode);
   character.shortDescription = data.version.shortDescription;
   character.currentPoints = pointsOf(data.version);
   character.spaceCode = data.version.spaceCode;
@@ -609,8 +610,8 @@ export async function applyMigration(
   const next = cloneData(version);
   versions[characterId] = next;
   character.name = next.name;
-  character.raceId = raceIdOf(next.raceRuleId);
-  character.raceLabel = raceLabelOf(next.raceRuleId);
+  character.raceId = raceIdOf(next.raceRuleCode);
+  character.raceLabel = raceLabelOf(next.raceRuleCode);
   character.shortDescription = next.shortDescription;
   character.currentPoints = pointsOf(next);
   character.spaceCode = next.spaceCode;
@@ -678,7 +679,7 @@ export function appendCustomRule(version: CharacterVersion, data: AddCustomRuleD
 }
 
 /**
- * Правка/замена записи кастомного правила («Заменить на правило» → deprecated + replacedWithRuleId).
+ * Правка/замена записи кастомного правила («Заменить на правило» → deprecated + replacedWithRuleCode).
  * Возвращает новую версию; исходную не мутирует. Для персиста вызывается в mock.updateCustomRule.
  */
 export async function updateCustomRuleInVersion(
@@ -694,35 +695,35 @@ export async function updateCustomRuleInVersion(
     ...(data.name !== undefined ? { name: data.name } : {}),
     ...(data.description !== undefined ? { description: data.description } : {}),
     ...(data.status !== undefined ? { status: data.status } : {}),
-    ...(data.replacedWithRuleId !== undefined ? { replacedWithRuleId: data.replacedWithRuleId } : {}),
+    ...(data.replacedWithRuleCode !== undefined ? { replacedWithRuleCode: data.replacedWithRuleCode } : {}),
   };
   let next = { ...version, customRules };
 
   // «Заменить на правило»: если замена указывает на правило-предмет, материализуем его в инвентаре
   // персонажа (выдача ведущим — без списания денег/бюджета). Правила других типов (ability/simple/…)
   // инвентарь не трогают — только маркировка записи выше.
-  if (data.replacedWithRuleId !== undefined) {
+  if (data.replacedWithRuleCode !== undefined) {
     // Тип правила резолвим из ревизии версии (правило могло быть создано черновиком и закоммичено —
     // тогда его нет в ruleCatalog, но оно есть в срезе ревизии). Fallback на каталог.
     let rule: { type?: string } | undefined;
     try {
       const space = await fetchSpaceByCode(next.spaceCode);
       const revision = await fetchRevision(space.id, next.rulesRevision);
-      rule = revision.rules.find((entry) => entry.id === data.replacedWithRuleId);
+      rule = revision.rules.find((entry) => entry.code === data.replacedWithRuleCode);
     } catch {
       rule = undefined;
     }
-    if (!rule) rule = ruleCatalog.find((entry) => entry.id === data.replacedWithRuleId);
+    if (!rule) rule = ruleCatalog.find((entry) => entry.code === data.replacedWithRuleCode);
     if (rule?.type === 'item') {
       const inventory = (next.inventory ?? []).map((item) => ({ ...item }));
-      const existing = inventory.find((item) => item.ruleId === data.replacedWithRuleId);
+      const existing = inventory.find((item) => item.ruleCode === data.replacedWithRuleCode);
       if (existing) {
         existing.quantity += 1;
       } else {
         const nextItemId = inventory.reduce((max, item) => Math.max(max, item.id), 0) + 1;
         inventory.push({
           id: nextItemId,
-          ruleId: data.replacedWithRuleId,
+          ruleCode: data.replacedWithRuleCode,
           quantity: 1,
           equipped: false,
         });
@@ -752,7 +753,7 @@ export async function addCustomRule(
   return toViewerDetail(id);
 }
 
-/** Правка/замена записи кастомного правила («Заменить на правило» → deprecated + replacedWithRuleId). */
+/** Правка/замена записи кастомного правила («Заменить на правило» → deprecated + replacedWithRuleCode). */
 export async function updateCustomRule(
   id: number,
   entryId: number,

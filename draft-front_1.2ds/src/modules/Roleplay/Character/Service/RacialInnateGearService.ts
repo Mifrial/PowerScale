@@ -14,9 +14,9 @@ const WEAPON_PROFICIENCY_CODE = 'vladenie-oruzhiem';
 export class RacialInnateGearService {
   constructor(private readonly races = raceSpecService) {}
   /** Item grants from automatic racial abilities: later (race) overrides earlier (species). */
-  racialItemGrants(raceRuleId: string | null, rules: Rule[]): Map<string, number> {
+  racialItemGrants(raceRuleCode: string | null, rules: Rule[]): Map<string, number> {
     const result = new Map<string, number>();
-    for (const ref of this.racialAutomaticRefs(raceRuleId, rules)) {
+    for (const ref of this.racialAutomaticRefs(raceRuleCode, rules)) {
       for (const grant of this.itemGrantsOf(ref.ability_code, rules)) {
         result.set(grant.item_code, grant.quantity ?? 1);
       }
@@ -47,15 +47,14 @@ export class RacialInnateGearService {
    * Мутация (предмет не из расового automatic-гранта) не трогается.
    */
   applyRacialInnateGear<T extends RacialInnateGearSheet>(sheet: T, rules: Rule[]): T {
-    const grants = this.racialItemGrants(sheet.raceRuleId, rules);
+    const grants = this.racialItemGrants(sheet.raceRuleCode, rules);
     const managed = this.managedRacialItemCodes(rules);
     const byCode = new Map(rules.map((rule) => [rule.code, rule]));
-    const byId = new Map(rules.map((rule) => [rule.id, rule]));
 
     let inventory = sheet.inventory.map((item) => ({ ...item }));
     inventory = inventory.filter((item) => {
-      if (item.ruleId === null) return true;
-      const rule = byId.get(item.ruleId);
+      if (item.ruleCode === null) return true;
+      const rule = byCode.get(item.ruleCode);
       const spec = rule?.type === 'item' ? (rule.spec as ItemSpec | undefined) : undefined;
       if (!rule || !spec?.innate) return true;
       if (!managed.has(rule.code)) return true;
@@ -68,14 +67,14 @@ export class RacialInnateGearService {
       const rule = byCode.get(itemCode);
       const spec = rule?.type === 'item' ? (rule.spec as ItemSpec | undefined) : undefined;
       if (!rule || !spec?.innate) continue;
-      const existing = inventory.find((item) => item.ruleId === rule.id);
+      const existing = inventory.find((item) => item.ruleCode === rule.code);
       if (existing) {
         existing.quantity = quantity;
         existing.equipped = true;
         continue;
       }
       nextId += 1;
-      inventory.push({ id: nextId, ruleId: rule.id, quantity, equipped: true, modifierRuleIds: [] });
+      inventory.push({ id: nextId, ruleCode: rule.code, quantity, equipped: true, modifierRuleCodes: [] });
     }
 
     const proficiencyRule = rules.find((rule) => rule.code === WEAPON_PROFICIENCY_CODE);
@@ -90,10 +89,10 @@ export class RacialInnateGearService {
         const family = byCode.get(familyCode);
         if (!family) continue;
         grantedFamilies.add(family.code);
-        const existing = abilities.find((ability) => this.isProficiencyOf(ability, proficiencyRule.id, family));
+        const existing = abilities.find((ability) => this.isProficiencyOf(ability, proficiencyRule.code, family));
         if (!existing) {
           abilities.push({
-            ruleId: proficiencyRule.id,
+            ruleCode: proficiencyRule.code,
             level: 1,
             domain: family.name,
             domainCode: family.code,
@@ -107,7 +106,7 @@ export class RacialInnateGearService {
       }
 
       abilities = abilities.filter((ability) => {
-        if (ability.ruleId !== proficiencyRule.id || !ability.gifted) return true;
+        if (ability.ruleCode !== proficiencyRule.code || !ability.gifted) return true;
         const familyCode = ability.domainCode ?? ability.domain;
         if (!familyCode) return true;
         const family = rules.find(
@@ -128,9 +127,9 @@ export class RacialInnateGearService {
     return { ...sheet, inventory, abilities };
   }
 
-  private racialAutomaticRefs(raceRuleId: string | null, rules: Rule[]): RaceAbilityRef[] {
-    if (!raceRuleId) return [];
-    const raceRule = rules.find((rule) => rule.id === raceRuleId);
+  private racialAutomaticRefs(raceRuleCode: string | null, rules: Rule[]): RaceAbilityRef[] {
+    if (!raceRuleCode) return [];
+    const raceRule = rules.find((rule) => rule.code === raceRuleCode);
     if (!raceRule) return [];
     const byCode = new Map(rules.map((rule) => [rule.code, rule]));
     if (raceRule.type !== 'race' && raceRule.type !== 'species') return [];
@@ -160,7 +159,7 @@ export class RacialInnateGearService {
   }
 
   private isProficiencyOf(ability: CharacterAbility, proficiencyRuleId: string, family: Rule): boolean {
-    if (ability.ruleId !== proficiencyRuleId) return false;
+    if (ability.ruleCode !== proficiencyRuleId) return false;
     const key = ability.domainCode ?? ability.domain;
 
     return key === family.code || key === family.name;

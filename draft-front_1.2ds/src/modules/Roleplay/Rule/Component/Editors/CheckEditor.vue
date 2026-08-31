@@ -124,7 +124,7 @@ const stateCode = computed({
 const versusPreview = computed(() =>
   checkLaunchService.checkVersusLabel(
     {
-      id: props.code,
+      id: null,
       code: props.code,
       type: 'check',
       name: props.name,

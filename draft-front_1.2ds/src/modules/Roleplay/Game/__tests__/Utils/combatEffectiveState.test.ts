@@ -26,16 +26,16 @@ function makeOverlay(partial: Partial<GameCombatOverlay> = {}): GameCombatOverla
 describe('combatEffectiveState: ресурсы', () => {
   it('resourceLimitBase считает базу + сумму бонусов в базовых пунктах', () => {
     expect(
-      resourceLimitBase({ ruleId: 'r', current: { base: 0, size: 0 }, base: { base: 5, size: 0 }, bonuses: [] }),
+      resourceLimitBase({ ruleCode: 'r', current: { base: 0, size: 0 }, base: { base: 5, size: 0 }, bonuses: [] }),
     ).toBe(5);
     expect(
       resourceLimitBase({
-        ruleId: 'r',
+        ruleCode: 'r',
         current: { base: 0, size: 0 },
         base: { base: 3, size: 0 },
         bonuses: [
-          { sourceRuleId: null, sourceLabel: 'x', delta: 2 },
-          { sourceRuleId: null, sourceLabel: 'y', delta: -1 },
+          { sourceRuleCode: null, sourceLabel: 'x', delta: 2 },
+          { sourceRuleCode: null, sourceLabel: 'y', delta: -1 },
         ],
       }),
     ).toBe(4);
@@ -43,16 +43,16 @@ describe('combatEffectiveState: ресурсы', () => {
 
   it('resourceLimitBase для размерной шкалы возвращает лимит в базовых пунктах (не сплющенный)', () => {
     expect(
-      resourceLimitBase({ ruleId: 'r', current: { base: 3, size: -1 }, base: { base: 8, size: -1 }, bonuses: [] }),
+      resourceLimitBase({ ruleCode: 'r', current: { base: 3, size: -1 }, base: { base: 8, size: -1 }, bonuses: [] }),
     ).toBe(8);
   });
 
   it('effectiveResources применяет переопределения current из оверлея, остальное берёт из версии', () => {
-    const overlay = makeOverlay({ resources: [{ ruleId: 'rule-18', current: { base: 1, size: 0 } }] });
+    const overlay = makeOverlay({ resources: [{ ruleCode: 'action-points', current: { base: 1, size: 0 } }] });
     const effective = effectiveResources(version, overlay);
 
-    expect(effective.find((r) => r.ruleId === 'rule-18')?.current).toEqual({ base: 1, size: 0 });
-    expect(effective.find((r) => r.ruleId === 'rule-19')?.current).toEqual(version.resources[1].current);
+    expect(effective.find((r) => r.ruleCode === 'action-points')?.current).toEqual({ base: 1, size: 0 });
+    expect(effective.find((r) => r.ruleCode === 'spirit-energy')?.current).toEqual(version.resources[1].current);
     // Оверлей не мутирует версию.
     expect(version.resources[0].current).toEqual({ base: 4, size: 0 });
   });
@@ -75,15 +75,15 @@ describe('combatEffectiveState: состояния', () => {
   });
 
   it('реальный оверлей — авторитетный список состояний', () => {
-    const overlay = makeOverlay({ states: [{ stateRuleId: 'rule-63', value: 5 }] });
-    expect(effectiveStates(version, overlay)).toEqual([{ stateRuleId: 'rule-63', value: 5 }]);
+    const overlay = makeOverlay({ states: [{ stateRuleCode: 'stunned', value: 5 }] });
+    expect(effectiveStates(version, overlay)).toEqual([{ stateRuleCode: 'stunned', value: 5 }]);
   });
 });
 
 describe('combatEffectiveState: сравнение состояний', () => {
   it('statesEqual сравнивает содержимое, а не ссылки', () => {
-    expect(statesEqual([{ stateRuleId: 'a', value: 1 }], [{ stateRuleId: 'a', value: 1 }])).toBe(true);
-    expect(statesEqual([{ stateRuleId: 'a', value: 1 }], [{ stateRuleId: 'a', value: 2 }])).toBe(false);
+    expect(statesEqual([{ stateRuleCode: 'a', value: 1 }], [{ stateRuleCode: 'a', value: 1 }])).toBe(true);
+    expect(statesEqual([{ stateRuleCode: 'a', value: 1 }], [{ stateRuleCode: 'a', value: 2 }])).toBe(false);
     expect(statesEqual([], [])).toBe(true);
   });
 });

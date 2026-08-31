@@ -4,7 +4,7 @@ import type { EditorResourceView } from '@/modules/Roleplay/Character/Dto/Editor
 
 export class EditorResourceViewsService {
   build(resources: ResourceValue[], rules: Rule[]): EditorResourceView[] {
-    const rulesById = new Map(rules.map((rule) => [rule.id, rule]));
+    const rulesByCode = new Map(rules.map((rule) => [rule.code, rule]));
 
     return resources.map((resource) => {
       const max = {
@@ -13,16 +13,19 @@ export class EditorResourceViewsService {
       };
 
       return {
-        ruleId: resource.ruleId,
-        name: rulesById.get(resource.ruleId)?.name ?? resource.ruleId,
+        ruleCode: resource.ruleCode,
+        name: rulesByCode.get(resource.ruleCode)?.name ?? resource.ruleCode,
         current: resource.current,
         base: resource.base,
         max,
         bonuses: resource.bonuses.map((bonus) => ({
           delta: bonus.delta,
           source:
-            rulesById.get(bonus.sourceRuleId ?? '')?.name ?? bonus.sourceLabel ?? bonus.sourceRuleId ?? 'источник',
-          sourceRuleId: bonus.sourceRuleId,
+            rulesByCode.get(bonus.sourceRuleCode ?? '')?.name ??
+            bonus.sourceLabel ??
+            bonus.sourceRuleCode ??
+            'источник',
+          sourceRuleCode: bonus.sourceRuleCode,
         })),
       };
     });

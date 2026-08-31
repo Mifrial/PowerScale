@@ -22,7 +22,7 @@ export class LiveActionPointsLimitService {
     characteristicValues: Map<string, DimensionalNumberValue>,
     resourceCode: string,
   ): number {
-    const rule = rules.find((item) => item.id === resource.ruleId);
+    const rule = rules.find((item) => item.code === resource.ruleCode);
     const spec = rule?.spec as ResourceSpec | undefined;
     if (!spec?.auto_add || !spec.limit) return Math.max(0, this.storedResourceLimit(resource));
 
@@ -32,10 +32,10 @@ export class LiveActionPointsLimitService {
     for (const adjustment of spec.limit.adjustments) {
       delta += this.formula.evaluate(adjustment.value, context);
       const source = rules.find((item) => item.code === adjustment.source_code);
-      if (source) adjustmentSourceIds.add(source.id);
+      if (source) adjustmentSourceIds.add(source.code);
     }
     for (const bonus of resource.bonuses) {
-      if (adjustmentSourceIds.has(bonus.sourceRuleId)) continue;
+      if (adjustmentSourceIds.has(bonus.sourceRuleCode)) continue;
       delta += bonus.delta;
     }
     const rawBase = spec.limit.base;
@@ -56,7 +56,7 @@ export class LiveActionPointsLimitService {
   ): number | null {
     const rule = rules.find((item) => item.code === ACTION_POINTS_RESOURCE_CODE && item.type === 'resource');
     if (!rule) return null;
-    const resource = version.resources.find((item) => item.ruleId === rule.id);
+    const resource = version.resources.find((item) => item.ruleCode === rule.code);
     if (!resource) return null;
 
     return this.liveAutoResourceLimit(resource, version, rules, characteristicValues, ACTION_POINTS_RESOURCE_CODE);
@@ -69,7 +69,7 @@ export class LiveActionPointsLimitService {
   private abilityLevelsOf(version: CharacterVersion, rules: Rule[]): Map<string, number> {
     const levels = new Map<string, number>();
     for (const ability of version.abilities) {
-      const rule = rules.find((item) => item.id === ability.ruleId);
+      const rule = rules.find((item) => item.code === ability.ruleCode);
       if (!rule) continue;
       const current = levels.get(rule.code) ?? 0;
       if (ability.level > current) levels.set(rule.code, ability.level);

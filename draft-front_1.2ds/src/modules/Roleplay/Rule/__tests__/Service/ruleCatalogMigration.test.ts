@@ -5,7 +5,7 @@ import { mockCombatAbilitySectionByCode } from '@/modules/Roleplay/Rule/Mock/moc
 
 function rule(overrides: Partial<Rule>): Rule {
   return {
-    id: overrides.id ?? 'rule',
+    id: overrides.id ?? null,
     code: overrides.code ?? 'rule',
     type: overrides.type ?? 'simple',
     name: overrides.name ?? 'Правило',
@@ -22,9 +22,9 @@ describe('RuleCatalogMigrationService', () => {
   it('places species and race rules into the species section', () => {
     const migrated = ruleCatalogMigrationService.migrateRules(
       [
-        rule({ id: 'species-elves', code: 'elves', type: 'species', spec: { parent_race_code: null, abilities: [] } }),
+        rule({ id: null, code: 'elves', type: 'species', spec: { parent_race_code: null, abilities: [] } }),
         rule({
-          id: 'race-wood',
+          id: null,
           code: 'wood-elves',
           type: 'race',
           spec: { parent_race_code: 'elves', cost_os: 2, characteristics: [], abilities: [] },

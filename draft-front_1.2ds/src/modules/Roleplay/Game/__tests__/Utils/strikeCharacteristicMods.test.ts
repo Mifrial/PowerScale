@@ -6,15 +6,15 @@ import { applyStrikeMastery, strikeCharacteristicMods } from '@/modules/Roleplay
 function overview(dexSize: number, percSize: number): CharacterOverview {
   return {
     characteristics: [
-      { ruleId: 'rule-dex', value: { base: 4, size: dexSize } },
-      { ruleId: 'rule-perc', value: { base: 4, size: percSize } },
+      { ruleCode: 'dexterity', value: { base: 4, size: dexSize } },
+      { ruleCode: 'perception', value: { base: 4, size: percSize } },
     ],
   } as unknown as CharacterOverview;
 }
 
 const rules: Rule[] = [
-  { id: 'rule-dex', code: 'dexterity', type: 'characteristic', name: 'Ловкость' } as Rule,
-  { id: 'rule-perc', code: 'perception', type: 'characteristic', name: 'Восприятие' } as Rule,
+  { id: null, code: 'dexterity', type: 'characteristic', name: 'Ловкость' } as Rule,
+  { id: null, code: 'perception', type: 'characteristic', name: 'Восприятие' } as Rule,
 ];
 
 describe('strikeCharacteristicMods', () => {

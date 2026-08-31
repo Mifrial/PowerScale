@@ -14,7 +14,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  'set-parameter': [ruleId: string, code: string, value: number | { base: number; size: number }];
+  'set-parameter': [ruleCode: string, code: string, value: number | { base: number; size: number }];
 }>();
 
 const MODIFIER_KEYWORD_ID = 46;
@@ -152,7 +152,7 @@ function select(ability: EditorAbility, value: { base: number; size: number }): 
   const param = paramOf(ability);
   if (!param) return;
   const chosen = isChosen(param, value);
-  emit('set-parameter', ability.ruleId, param.code, chosen ? 0 : value);
+  emit('set-parameter', ability.ruleCode, param.code, chosen ? 0 : value);
 }
 </script>
 
@@ -175,7 +175,7 @@ function select(ability: EditorAbility, value: { base: number; size: number }): 
           </tr>
         </thead>
         <tbody>
-          <tr v-for="row in modifierRows" :key="row.ability.ruleId">
+          <tr v-for="row in modifierRows" :key="row.ability.ruleCode">
             <td>
               <span class="font-weight-medium">{{ row.name }}</span>
               <v-chip v-if="row.current !== 0" size="x-small" variant="tonal" color="primary" class="ml-1">
@@ -210,7 +210,7 @@ function select(ability: EditorAbility, value: { base: number; size: number }): 
           </tr>
         </thead>
         <tbody>
-          <tr v-for="row in giftRows" :key="row.ability.ruleId">
+          <tr v-for="row in giftRows" :key="row.ability.ruleCode">
             <td>
               <span class="font-weight-medium">{{ row.name }}</span>
               <v-chip v-if="row.current !== 0" size="x-small" variant="tonal" color="primary" class="ml-1">

@@ -79,9 +79,9 @@ export class CheckResolutionService {
     return CHECK_SIMPLE_CODE;
   }
 
-  resolveCheckCodeFromRuleId(ruleId: string | null | undefined, rules: Rule[]): string {
-    if (!ruleId) return CHECK_SIMPLE_CODE;
-    const rule = rules.find((candidate) => candidate.id === ruleId);
+  resolveCheckCodeFromRuleCode(ruleCode: string | null | undefined, rules: Rule[]): string {
+    if (!ruleCode) return CHECK_SIMPLE_CODE;
+    const rule = rules.find((candidate) => candidate.code === ruleCode);
     if (!rule) return CHECK_SIMPLE_CODE;
     if (rule.type === 'check') return rule.code;
     if (rule.type === 'characteristic') return this.resolveCheckCodeForCharacteristic(rule.code, rules);
