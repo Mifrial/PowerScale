@@ -46,6 +46,14 @@
 - `DEC-022` — имя справочника признаков: `keywords`.
 - `DEC-026` — абстрактное движение реализовано; battleground — отдельный контур (`DEC-069` принимает requirement-канон).
 - `DEC-069` — `battleground-system.md`: логическая модель сцены `REQUIREMENT`, реализация `NOT_IMPLEMENTED`, persistence `OPEN`.
+- `DEC-070` — PHP DI: процесс собирает `Application`; локатор каталогизирует контейнеры (в том числе ленивые слоты); `ModuleManager` не держит локатор. Owner [`architecture.md`](architecture.md). Порты Kernel для соседей — `OPEN`.
+- `DEC-071` — PHP quality markers: complexity и архитектурные проблемы — ошибки анализа; очевидные исправления делает агент, обоснованные исключения запрашиваются точечно, глобальные отключения запрещены. Owner [`architecture.md`](architecture.md).
+- `DEC-072` — PHP-правила отделены от фронтенд-правил и собраны в `docs/tr/php-coding-standards.md`; корневой `AGENTS.md` ссылается на них при работе с бэкендом. Обязательны PHPDoc типов и методов, порядок методов и class quality markers. Owner [`architecture.md`](architecture.md).
+- `DEC-077` — PHPDoc/JSDoc обязателен не только у методов и функций, но и у классов (и интерфейсов/type alias на фронте). Owner [`architecture.md`](architecture.md) и `frontend-rules.md`.
+- `DEC-073` — `mifrial/init.php` является чистым bootstrap; API имеет отдельные entrypoint’ы в `mifrial/API/`, а корневой `www/index.php` не является API-контроллером. Owner [`architecture.md`](architecture.md).
+- `DEC-074` — параметры action: JSON-объект биндится на имена и типы `handle`; лишние поля и несовпадение типа — `INVALID_PARAMS`. Owner [`architecture.md`](architecture.md).
+- `DEC-075` — Action возвращает данные, не `ActionResponse`; доменная ошибка — `ActionException` с кодом. Owner [`architecture.md`](architecture.md).
+- `DEC-076` — Kernel: неймспейс `Mifrial\Core\Kernel`, CSRF double-submit, HTTP-статусы, `debug`+trace, `ILogger`, свои исключения, `ApplicationFactory`. Owner [`architecture.md`](architecture.md).
 - `DEC-027` — старый план Chat → Game перенесён в историю.
 - `DEC-028` — готовность RuleType оценивается независимо по доменной модели, frontend, backend и контенту.
 

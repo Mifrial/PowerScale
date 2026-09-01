@@ -1,21 +1,43 @@
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { DimensionalNumberBaseRange } from '@/modules/Core/Engine/Dto/DimensionalNumberBaseRange';
 
+/**
+ * Размерное число: база и размер (степень двойки) без потери точности при сложении.
+ */
 export class DimensionalNumber {
   readonly value: DimensionalNumberValue;
 
+  /**
+   * Сохраняет пару база/размер.
+   *
+   * @param value Значение размерного числа.
+   */
   constructor(value: DimensionalNumberValue) {
     this.value = value;
   }
 
+  /**
+   * Создаёт размерное число из plain-значения.
+   *
+   * @param v Значение база/размер.
+   */
   static from(v: DimensionalNumberValue): DimensionalNumber {
     return new DimensionalNumber(v);
   }
 
+  /**
+   * Переводит значение в целое: floor(base × 2^size).
+   */
   toNumber(): number {
     return Math.floor(this.value.base * Math.pow(2, this.value.size));
   }
 
+  /**
+   * Сдвигает базу на delta с переносом размера при выходе за диапазон.
+   *
+   * @param delta Сдвиг базы в пунктах текущего размера.
+   * @param range Допустимый интервал базы; без него размер не меняется.
+   */
   modify(delta: number, range?: DimensionalNumberBaseRange): DimensionalNumber {
     if (!range) {
       return new DimensionalNumber({ base: this.value.base + delta, size: this.value.size });
@@ -68,6 +90,11 @@ export class DimensionalNumber {
     return this.withSize(minSize);
   }
 
+  /**
+   * Складывает два значения, приводя к меньшему размеру.
+   *
+   * @param other Второе слагаемое.
+   */
   add(other: DimensionalNumber): DimensionalNumber {
     const size = Math.min(this.value.size, other.value.size);
     const a = this.value.base * Math.pow(2, this.value.size - size);
@@ -76,6 +103,11 @@ export class DimensionalNumber {
     return new DimensionalNumber({ base: a + b, size });
   }
 
+  /**
+   * Вычитает значение, приводя к меньшему размеру.
+   *
+   * @param other Вычитаемое.
+   */
   subtract(other: DimensionalNumber): DimensionalNumber {
     const size = Math.min(this.value.size, other.value.size);
     const a = this.value.base * Math.pow(2, this.value.size - size);
@@ -84,14 +116,29 @@ export class DimensionalNumber {
     return new DimensionalNumber({ base: a - b, size });
   }
 
+  /**
+   * Умножает базу, размер не меняет.
+   *
+   * @param multiplier Множитель базы.
+   */
   multiply(multiplier: number): DimensionalNumber {
     return new DimensionalNumber({ base: this.value.base * multiplier, size: this.value.size });
   }
 
+  /**
+   * Сравнивает базу и размер без нормализации.
+   *
+   * @param other Второе значение.
+   */
   equalsStrict(other: DimensionalNumber): boolean {
     return this.value.base === other.value.base && this.value.size === other.value.size;
   }
 
+  /**
+   * Сравнивает численное равенство после приведения к общему размеру.
+   *
+   * @param other Второе значение.
+   */
   equals(other: DimensionalNumber): boolean {
     const size = Math.min(this.value.size, other.value.size);
     const a = this.value.base * Math.pow(2, this.value.size - size);
@@ -100,6 +147,11 @@ export class DimensionalNumber {
     return a === b;
   }
 
+  /**
+   * Сравнивает значения: −1, 0 или 1.
+   *
+   * @param other Второе значение.
+   */
   compare(other: DimensionalNumber): number {
     const size = Math.min(this.value.size, other.value.size);
     const a = this.value.base * Math.pow(2, this.value.size - size);
@@ -111,6 +163,11 @@ export class DimensionalNumber {
     return 0;
   }
 
+  /**
+   * Целочисленно делит на другое размерное число.
+   *
+   * @param divisor Делитель.
+   */
   divideFloor(divisor: DimensionalNumber): number {
     if (divisor.value.base === 0) throw new Error('Деление на нулевое размерное значение');
 
@@ -121,6 +178,9 @@ export class DimensionalNumber {
     return Number(dividend / divisorValue);
   }
 
+  /**
+   * Форматирует значение для UI: база и стрелка размера.
+   */
   toString(): string {
     if (this.value.size === 0) return String(this.value.base);
     const arrow = this.value.size > 0 ? '↑' : '↓';
@@ -152,6 +212,11 @@ export class DimensionalNumber {
 
 const superscriptDigits = '⁰¹²³⁴⁵⁶⁷⁸⁹';
 
+/**
+ * Переводит неотрицательное число в надстрочные цифры.
+ *
+ * @param n Число для отображения размера.
+ */
 function toSuperscript(n: number): string {
   const digits = superscriptDigits;
 
@@ -161,6 +226,11 @@ function toSuperscript(n: number): string {
     .join('');
 }
 
+/**
+ * Разбирает надстрочные цифры в число.
+ *
+ * @param text Строка из символов ⁰–⁹.
+ */
 function fromSuperscript(text: string): number {
   let value = 0;
   for (const char of text) {
