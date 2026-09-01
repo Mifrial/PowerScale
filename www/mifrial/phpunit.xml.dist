@@ -7,5 +7,8 @@
         <testsuite name="kernel">
             <directory>modules/Core/Kernel/tests</directory>
         </testsuite>
+        <testsuite name="smarttable">
+            <directory>modules/Core/SmartTable/tests</directory>
+        </testsuite>
     </testsuites>
 </phpunit>

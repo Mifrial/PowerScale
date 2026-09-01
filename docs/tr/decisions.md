@@ -54,6 +54,7 @@
 - `DEC-074` — параметры action: JSON-объект биндится на имена и типы `handle`; лишние поля и несовпадение типа — `INVALID_PARAMS`. Owner [`architecture.md`](architecture.md).
 - `DEC-075` — Action возвращает данные, не `ActionResponse`; доменная ошибка — `ActionException` с кодом. Owner [`architecture.md`](architecture.md).
 - `DEC-076` — Kernel: неймспейс `Mifrial\Core\Kernel`, CSRF double-submit, HTTP-статусы, `debug`+trace, `ILogger`, свои исключения, `ApplicationFactory`. Owner [`architecture.md`](architecture.md).
+- `DEC-078` — SmartTable: `illuminate/database` без Eloquent и без Laravel-приложения; Basic затем Versioned; админка после Auth; тегированный кэш и runtime-DDL в v1. Owner [`smarttable.md`](smarttable.md).
 - `DEC-027` — старый план Chat → Game перенесён в историю.
 - `DEC-028` — готовность RuleType оценивается независимо по доменной модели, frontend, backend и контенту.
 

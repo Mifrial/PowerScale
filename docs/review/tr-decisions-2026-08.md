@@ -684,4 +684,14 @@
 - **Решение (Vue/TS):** JSDoc обязателен у объявления `class`. У функций и методов вне `.vue` — по возможности, не гейт и не кампания «документировать весь фронт». В `.vue` JSDoc не требуется. Уже написанный JSDoc не удаляем.
 - **Последствие:** стеки не смешиваются. PHP — PHPDoc типов и методов как ошибка quality. Фронт — класс обязательно, функции вне Vue по возможности.
 
+## DEC-078 — SmartTable на illuminate/database
+
+- **Дата:** 2026-09-01
+- **Связанный пункт:** единственная точка доступа к данным; runtime HL; кэш; индексы.
+- **Решение:** не Doctrine ORM. Внутри SmartTable — пакет `illuminate/database` (Query + Schema), MIT, без Eloquent и без приложения Laravel. `Capsule::setAsGlobal` / `bootEloquent` запрещены. Репозитории модулей видят только API SmartTable.
+- **v1 Basic:** поля с нашим типом, `multiple` как таблица значений, Reference, hydrator, CRUD/`getList`, транзакции, индексы, runtime-DDL с API, тегированный кэш. Fluent `query()` — OPEN.
+- **VersionedSmartTable:** оболочка в ТР сразу; реализация только после ворот Basic.
+- **Админка SmartTables:** после Auth; до этого — тесты и API.
+- **Последствие:** User/Auth/Журнал не стартуют до ворот Basic. Нарезка — [`smarttable-roadmap.md`](../tr/smarttable-roadmap.md).
+
 

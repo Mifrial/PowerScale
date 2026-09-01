@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Mifrial\Core\Kernel\Tests;
 
-use Mifrial\Core\Kernel\Interface\Service\IKernelContainer;
+use Mifrial\Core\Kernel\Interface\Container\IKernelContainer;
+use Mifrial\Core\Kernel\Interface\Service\IRuntimeConfig;
 use Mifrial\Core\Kernel\Service\ApplicationFactory;
 use PHPUnit\Framework\TestCase;
 
@@ -25,6 +26,11 @@ final class PingDispatchTest extends TestCase
         self::assertSame(['ok' => true], $payload['data']);
         self::assertArrayNotHasKey('error', $payload);
         self::assertTrue($app->getLocator()->has(IKernelContainer::class));
+
+        $kernelContainer = $app->getLocator()->get(IKernelContainer::class);
+        $runtimeConfig = $kernelContainer->get(IRuntimeConfig::class);
+        self::assertInstanceOf(IRuntimeConfig::class, $runtimeConfig);
+        self::assertSame((bool) $app->getConfig()['debug'], $runtimeConfig->debug());
     }
 
     /**

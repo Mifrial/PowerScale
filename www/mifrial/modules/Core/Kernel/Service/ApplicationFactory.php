@@ -6,6 +6,7 @@ namespace Mifrial\Core\Kernel\Service;
 
 use Mifrial\Core\Kernel\Http\ResponseEmitter;
 use Mifrial\Core\Kernel\Interface\Service\IModuleManager;
+use Mifrial\Core\Kernel\Interface\Service\IRuntimeConfig;
 use Mifrial\Core\Kernel\Interface\Service\IServiceLocator;
 
 /**
@@ -22,9 +23,10 @@ final class ApplicationFactory
      */
     public function boot(string $root): Application
     {
+        $config = (new LocalConfigLoader())->load($root);
         $serviceLocator = new ServiceLocator();
         $moduleManager = new ModuleManager($root . '/modules');
-        $containerBinder = new ModuleContainerBinder();
+        $containerBinder = $this->createContainerBinder($config);
         $moduleManager->loadCore();
         $moduleManager->getRoutes();
         $containerBinder->bindEager($serviceLocator, $moduleManager);
@@ -37,30 +39,25 @@ final class ApplicationFactory
             new Dispatcher($moduleManager),
             new ResponseEmitter(),
             new ErrorLogLogger(),
-            $this->loadLocalConfig($root),
+            $config,
         );
     }
 
     /**
-     * Читает config/local.php.
+     * Собирает binder с extra-портами только для Kernel.
      *
-     * @param string $root Корень Mifrial.
+     * @param array<string, mixed> $config Локальная конфигурация.
      *
-     * @return array<string, mixed> Локальная конфигурация.
+     * @return ModuleContainerBinder Сборщик контейнеров.
      */
-    private function loadLocalConfig(string $root): array
+    private function createContainerBinder(array $config): ModuleContainerBinder
     {
-        $configPath = $root . '/config/local.php';
-        $config = is_file($configPath) ? require $configPath : [];
-        if (!is_array($config)) {
-            return ['debug' => false];
-        }
+        $runtimeConfig = RuntimeConfig::fromLocal($config);
+        $kernelPortFactories = [
+            IRuntimeConfig::class => static fn (): IRuntimeConfig => $runtimeConfig,
+        ];
 
-        if (!array_key_exists('debug', $config)) {
-            $config['debug'] = false;
-        }
-
-        return $config;
+        return new ModuleContainerBinder(new ModuleContainerFactory($kernelPortFactories));
     }
 
     /**

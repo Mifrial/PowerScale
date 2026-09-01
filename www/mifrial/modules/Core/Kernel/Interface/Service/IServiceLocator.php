@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Core\Kernel\Interface\Service;
 
 use Mifrial\Core\Kernel\Exception\KernelException;
+use Mifrial\Core\Kernel\Interface\Container\IModuleContainer;
 
 /**
  * Контракт каталога контейнеров модулей.

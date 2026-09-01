@@ -4,7 +4,12 @@
   "type": "project",
   "license": "proprietary",
   "require": {
-    "php": "^8.2"
+    "php": "^8.2",
+    "ext-mbstring": "*",
+    "illuminate/database": "^11.0"
+  },
+  "suggest": {
+    "ext-redis": "SmartTable redis cache driver"
   },
   "require-dev": {
     "friendsofphp/php-cs-fixer": "^3.95",
@@ -19,16 +24,19 @@
   },
   "autoload": {
     "psr-4": {
-      "Mifrial\\Core\\Kernel\\": "modules/Core/Kernel/"
+      "Mifrial\\Core\\Kernel\\": "modules/Core/Kernel/",
+      "Mifrial\\Core\\SmartTable\\": "modules/Core/SmartTable/"
     },
     "exclude-from-classmap": [
-      "/modules/Core/Kernel/tests/"
+      "/modules/Core/Kernel/tests/",
+      "/modules/Core/SmartTable/tests/"
     ]
   },
   "autoload-dev": {
     "psr-4": {
       "MifrialCodingStandard\\": "tools/phpcs/MifrialCodingStandard/",
-      "Mifrial\\Core\\Kernel\\Tests\\": "modules/Core/Kernel/tests/"
+      "Mifrial\\Core\\Kernel\\Tests\\": "modules/Core/Kernel/tests/",
+      "Mifrial\\Core\\SmartTable\\Tests\\": "modules/Core/SmartTable/tests/"
     }
   },
   "config": {

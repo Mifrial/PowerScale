@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 use Mifrial\Core\Kernel\Action\PingAction;
-use Mifrial\Core\Kernel\Interface\Service\IKernelContainer;
-use Mifrial\Core\Kernel\Service\KernelContainer;
+use Mifrial\Core\Kernel\Container\KernelContainer;
+use Mifrial\Core\Kernel\Interface\Container\IKernelContainer;
 
 return [
     'container' => KernelContainer::class,

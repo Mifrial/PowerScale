@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Mifrial\Core\Kernel\Service;
+namespace Mifrial\Core\Kernel\Container;
 
-use Mifrial\Core\Kernel\Interface\Service\IKernelContainer;
+use Mifrial\Core\Kernel\Interface\Container\IKernelContainer;
 
 /**
  * Контейнер портов модуля Kernel.

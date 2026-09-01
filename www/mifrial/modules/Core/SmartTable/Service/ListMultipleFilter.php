@@ -1,0 +1,267 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Mifrial\Core\SmartTable\Service;
+
+use Closure;
+use Illuminate\Database\Query\Builder;
+use Mifrial\Core\SmartTable\Dto\FilterCondition;
+use Mifrial\Core\SmartTable\Exception\Field\FieldInvalidException;
+use Mifrial\Core\SmartTable\Exception\Field\FieldMultipleUnsupportedException;
+use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
+use Mifrial\Core\SmartTable\Field\BaseField;
+use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
+
+/**
+ * Contains и равенство множеств на mfv.
+ */
+final class ListMultipleFilter
+{
+    /**
+     * Вешает `@` или `=` на multiple-поле.
+     *
+     * @param Builder $query Билдер основной таблицы.
+     * @param FilterCondition $condition Условие.
+     * @param BaseField $field Multiple-поле.
+     * @param string $boolean And или or.
+     * @param SmartTableDefinition $tableDefinition Карта.
+     *
+     * @return void
+     *
+     * @throws MapInvalidException Если оператор или пустой contains.
+     * @throws FieldInvalidException Если операнд не list/скаляр.
+     * @throws FieldMultipleUnsupportedException Если оператор не @/=.
+     */
+    public function apply(
+        Builder $query,
+        FilterCondition $condition,
+        BaseField $field,
+        string $boolean,
+        SmartTableDefinition $tableDefinition,
+    ): void {
+        $operator = $condition->operator();
+        if ($operator === '@') {
+            $this->applyContains($query, $condition, $field, $boolean, $tableDefinition);
+
+            return;
+        }
+
+        if ($operator === '=') {
+            $this->applyEquals($query, $condition, $field, $boolean, $tableDefinition);
+
+            return;
+        }
+
+        throw new FieldMultipleUnsupportedException();
+    }
+
+    /**
+     * S ⊆ M через EXISTS.
+     *
+     * @param Builder $query Билдер.
+     * @param FilterCondition $condition Условие.
+     * @param BaseField $field Поле.
+     * @param string $boolean And или or.
+     * @param SmartTableDefinition $tableDefinition Карта.
+     *
+     * @return void
+     *
+     * @throws MapInvalidException Если contains пуст или null.
+     */
+    private function applyContains(
+        Builder $query,
+        FilterCondition $condition,
+        BaseField $field,
+        string $boolean,
+        SmartTableDefinition $tableDefinition,
+    ): void {
+        $extractedValues = $this->extractedSet($field, $condition->operand(), false);
+        $this->attachGroup($query, $boolean, function (Builder $nestedQuery) use (
+            $tableDefinition,
+            $field,
+            $extractedValues,
+        ): void {
+            foreach ($extractedValues as $extractedValue) {
+                $this->whereValueExists($nestedQuery, $tableDefinition, $field, $extractedValue, 'and');
+            }
+        });
+    }
+
+    /**
+     * Накладывает равенство множеств.
+     *
+     * @param Builder $query Билдер.
+     * @param FilterCondition $condition Условие.
+     * @param BaseField $field Поле.
+     * @param string $boolean And или or.
+     * @param SmartTableDefinition $tableDefinition Карта.
+     *
+     * @return void
+     *
+     * @throws MapInvalidException Если операнд null.
+     */
+    private function applyEquals(
+        Builder $query,
+        FilterCondition $condition,
+        BaseField $field,
+        string $boolean,
+        SmartTableDefinition $tableDefinition,
+    ): void {
+        $extractedValues = $this->extractedSet($field, $condition->operand(), true);
+        $this->attachGroup(
+            $query,
+            $boolean,
+            function (Builder $nestedQuery) use ($tableDefinition, $field, $extractedValues): void {
+                $this->whereSetEquals($nestedQuery, $tableDefinition, $field, $extractedValues);
+            },
+        );
+    }
+
+    /**
+     * Вешает группу AND/OR одним предикатом.
+     *
+     * @param Builder $query Билдер.
+     * @param string $boolean And или or.
+     * @param Closure $group Вложенные условия.
+     *
+     * @return void
+     */
+    private function attachGroup(Builder $query, string $boolean, Closure $group): void
+    {
+        if ($boolean === 'or') {
+            $query->orWhere($group);
+
+            return;
+        }
+
+        $query->where($group);
+    }
+
+    /**
+     * Равенство множества внутри уже скобочной группы.
+     *
+     * @param Builder $query Вложенный билдер.
+     * @param SmartTableDefinition $tableDefinition Карта.
+     * @param BaseField $field Поле.
+     * @param array<int, mixed> $extractedValues Набор S.
+     *
+     * @return void
+     */
+    private function whereSetEquals(
+        Builder $query,
+        SmartTableDefinition $tableDefinition,
+        BaseField $field,
+        array $extractedValues,
+    ): void {
+        $mfvName = MfvSchema::tableName($tableDefinition, $field);
+        $mainName = $tableDefinition->getName();
+        if ($extractedValues === []) {
+            $query->whereNotExists(function (Builder $subQuery) use ($mfvName, $mainName): void {
+                $subQuery->from($mfvName)->whereColumn($mfvName . '.owner_id', $mainName . '.id');
+            });
+
+            return;
+        }
+
+        $valueCount = count($extractedValues);
+        $placeholders = implode(', ', array_fill(0, $valueCount, '?'));
+        $quotedMfv = '`' . $mfvName . '`';
+        $quotedMain = '`' . $mainName . '`';
+        $countSql = '(select count(*) from ' . $quotedMfv
+            . ' where owner_id = ' . $quotedMain . '.id) = ?';
+        $inSql = '(select count(*) from ' . $quotedMfv
+            . ' where owner_id = ' . $quotedMain . '.id and `value` in (' . $placeholders . ')) = ?';
+        $bindings = array_merge([$valueCount], $extractedValues, [$valueCount]);
+        $query->whereRaw('(' . $countSql . ' and ' . $inSql . ')', $bindings);
+    }
+
+    /**
+     * EXISTS одного value.
+     *
+     * @param Builder $query Билдер.
+     * @param SmartTableDefinition $tableDefinition Карта.
+     * @param BaseField $field Поле.
+     * @param mixed $extractedValue Значение SQL.
+     * @param string $boolean And или or.
+     *
+     * @return void
+     */
+    private function whereValueExists(
+        Builder $query,
+        SmartTableDefinition $tableDefinition,
+        BaseField $field,
+        mixed $extractedValue,
+        string $boolean,
+    ): void {
+        $mfvName = MfvSchema::tableName($tableDefinition, $field);
+        $mainName = $tableDefinition->getName();
+        $query->whereExists(function (Builder $subQuery) use ($mfvName, $mainName, $extractedValue): void {
+            $subQuery->from($mfvName)
+                ->whereColumn($mfvName . '.owner_id', $mainName . '.id')
+                ->where('value', $extractedValue);
+        }, $boolean);
+    }
+
+    /**
+     * Скаляр или list → уникальный extract-набор.
+     *
+     * @param BaseField $field Поле.
+     * @param mixed $operand Операнд API.
+     * @param bool $allowEmpty Пустой list допустим.
+     *
+     * @return array<int, mixed> Значения SQL.
+     *
+     * @throws MapInvalidException Если null / пустой contains / дубль.
+     * @throws FieldInvalidException Если форма неверна.
+     */
+    private function extractedSet(BaseField $field, mixed $operand, bool $allowEmpty): array
+    {
+        if ($operand === null) {
+            throw new MapInvalidException('Multiple filter cannot be null');
+        }
+
+        if (!is_array($operand)) {
+            return [$this->extractedItem($field, $operand)];
+        }
+
+        if (!array_is_list($operand)) {
+            throw new FieldInvalidException('Multiple filter must be a list');
+        }
+
+        if ($operand === [] && !$allowEmpty) {
+            throw new MapInvalidException('Contains filter cannot be empty');
+        }
+
+        $extractedValues = [];
+        foreach ($operand as $itemValue) {
+            $extractedValue = $this->extractedItem($field, $itemValue);
+            if (in_array($extractedValue, $extractedValues, true)) {
+                throw new MapInvalidException('Multiple list cannot contain duplicates');
+            }
+
+            $extractedValues[] = $extractedValue;
+        }
+
+        return $extractedValues;
+    }
+
+    /**
+     * cast+extract одного элемента без required пустого множества.
+     *
+     * @param BaseField $field Поле.
+     * @param mixed $itemValue Элемент.
+     *
+     * @return mixed Значение SQL.
+     *
+     * @throws FieldInvalidException Если элемент недопустим.
+     */
+    private function extractedItem(BaseField $field, mixed $itemValue): mixed
+    {
+        if ($itemValue === null) {
+            throw new FieldInvalidException('Multiple list cannot contain null');
+        }
+
+        return $field->extract($field->cast([$itemValue], true))[0];
+    }
+}

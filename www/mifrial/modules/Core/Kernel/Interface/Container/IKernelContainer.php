@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Mifrial\Core\Kernel\Interface\Service;
+namespace Mifrial\Core\Kernel\Interface\Container;
 
 /**
  * Публичный контейнер модуля Kernel.

@@ -18,7 +18,10 @@ sudo bash install-local.sh
 curl -sS -X POST 'http://powerscale.test.ru/api/run?action=mifrial.ping' -H 'Content-Type: application/json'
 ```
 
-Фронт: `http://powerscale.test.ru:3000`. Тесты Kernel: `vendor/bin/phpunit`.
+Фронт: `http://powerscale.test.ru:3000`. Тесты: `vendor/bin/phpunit`. Интеграция SmartTable ждёт MySQL с теми же ключами, что `config/local.php` (либо `MIFRIAL_TEST_DB_*`).
+
+Данные: SmartTable (`DEC-078`) на `illuminate/database` без Eloquent. Нарезка —
+[`docs/tr/smarttable-roadmap.md`](../../docs/tr/smarttable-roadmap.md).
 
 Проверка и исправление PHP-стиля:
 

@@ -7,7 +7,7 @@ namespace Mifrial\Core\Kernel\Service;
 use Mifrial\Core\Kernel\Exception\KernelException;
 use Mifrial\Core\Kernel\Exception\ModuleManager\InvalidModuleConfigException;
 use Mifrial\Core\Kernel\Exception\ModuleManager\ModuleNotFoundException;
-use Mifrial\Core\Kernel\Interface\Service\IModuleContainer;
+use Mifrial\Core\Kernel\Interface\Container\IModuleContainer;
 use Mifrial\Core\Kernel\Interface\Service\IModuleManager;
 
 /**

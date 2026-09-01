@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Mifrial\Core\Kernel\Service;
 
 use Closure;
-use Mifrial\Core\Kernel\Interface\Service\IKernelContainer;
-use Mifrial\Core\Kernel\Interface\Service\IModuleContainer;
+use Mifrial\Core\Kernel\Container\KernelContainer;
+use Mifrial\Core\Kernel\Container\ModuleContainer;
+use Mifrial\Core\Kernel\Interface\Container\IKernelContainer;
+use Mifrial\Core\Kernel\Interface\Container\IModuleContainer;
 use Mifrial\Core\Kernel\Interface\Service\IServiceLocator;
 
 /**
@@ -14,6 +16,18 @@ use Mifrial\Core\Kernel\Interface\Service\IServiceLocator;
  */
 final class ModuleContainerFactory
 {
+    /**
+     * Создаёт фабрику контейнеров.
+     *
+     * @param array<string, Closure> $kernelPortFactories Доп. порты только для Kernel.
+     *
+     * @return void
+     */
+    public function __construct(
+        private readonly array $kernelPortFactories = [],
+    ) {
+    }
+
     /**
      * Создаёт контейнер модуля по классу из конфигурации.
      *
@@ -29,6 +43,9 @@ final class ModuleContainerFactory
         array $moduleConfig,
     ): IModuleContainer {
         $portFactories = $this->extractPortFactories($moduleConfig);
+        if ($this->isKernelContainerClass($containerClass)) {
+            $portFactories = array_merge($portFactories, $this->kernelPortFactories);
+        }
 
         if (
             is_string($containerClass)
@@ -67,5 +84,23 @@ final class ModuleContainerFactory
         }
 
         return $extractedFactories;
+    }
+
+    /**
+     * Проверяет, что создаётся контейнер Kernel.
+     *
+     * @param mixed $containerClass Класс контейнера.
+     *
+     * @return bool true, если extra-порты Kernel нужно влить.
+     */
+    private function isKernelContainerClass(mixed $containerClass): bool
+    {
+        if ($containerClass === IKernelContainer::class || $containerClass === KernelContainer::class) {
+            return true;
+        }
+
+        return is_string($containerClass)
+            && class_exists($containerClass)
+            && is_subclass_of($containerClass, KernelContainer::class);
     }
 }

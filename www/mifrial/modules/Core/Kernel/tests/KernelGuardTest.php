@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Mifrial\Core\Kernel\Tests;
 
+use Mifrial\Core\Kernel\Container\ModuleContainer;
 use Mifrial\Core\Kernel\Dto\ActionResponse;
 use Mifrial\Core\Kernel\Exception\KernelException;
 use Mifrial\Core\Kernel\Exception\ModuleManager\InvalidModuleConfigException;
@@ -12,7 +13,6 @@ use Mifrial\Core\Kernel\Http\DebugResponseFormatter;
 use Mifrial\Core\Kernel\Http\HttpStatusMapper;
 use Mifrial\Core\Kernel\Http\ResponseEmitter;
 use Mifrial\Core\Kernel\Interface\Http\IHttpRequest;
-use Mifrial\Core\Kernel\Service\ModuleContainer;
 use Mifrial\Core\Kernel\Service\ModuleManager;
 use Mifrial\Core\Kernel\Service\ServiceLocator;
 use PHPUnit\Framework\TestCase;

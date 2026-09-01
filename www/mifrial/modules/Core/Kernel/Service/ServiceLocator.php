@@ -6,7 +6,7 @@ namespace Mifrial\Core\Kernel\Service;
 
 use Closure;
 use Mifrial\Core\Kernel\Exception\KernelException;
-use Mifrial\Core\Kernel\Interface\Service\IModuleContainer;
+use Mifrial\Core\Kernel\Interface\Container\IModuleContainer;
 use Mifrial\Core\Kernel\Interface\Service\IServiceLocator;
 
 /**

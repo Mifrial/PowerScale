@@ -20,6 +20,20 @@
 ## Канонические документы
 
 - [Архитектура](architecture.md) — модули, таблица рёбер DAG, поверхность и CODE_GAP границ.
+- [SmartTable](smarttable.md) — доступ к данным, Basic/Versioned, `DEC-078`.
+- [Нарезка SmartTable](smarttable-roadmap.md) — планы реализации SmartTable.
+- [План 1: соединение](smarttable-plan-01-connection.md) — Illuminate MySQL из `local.php`.
+- [План 2: поля Basic](smarttable-plan-02-fields.md) — типы, getMap, hydrator-заготовка.
+- [План 3: CRUD](smarttable-plan-03-crud.md) — open, строка, транзакция, DDL.
+- [План 4: getList](smarttable-plan-04-getlist.md) — filter / sort / page / select.
+- [План 5: multiple](smarttable-plan-05-multiple.md) — mfv и contains; reference отдельно.
+- [План 5b: reference](smarttable-plan-05-reference.md) — INT+FK, restrict / setNull / none.
+- [План 6: индексы](smarttable-plan-06-indexes.md) — indexed/unique из FieldSettings.
+- [План 7a: force DDL](smarttable-plan-07-force-ddl.md) — forceUpdateTable / deleteTable.
+- [План 7b: словарь](smarttable-plan-07-dictionary.md) — мета-таблицы и runtime DDL.
+- [План 8: кэш](smarttable-plan-08-cache.md) — TTL get/getList и теги после commit.
+- [План 9: накат схемы](smarttable-plan-09-migrations.md) — журнал наката не в SmartTable (решение).
+- [План 10: ворота Basic](smarttable-plan-10-gates.md) — сверка канона v1, Basic закрыт.
 - [Система правил](rule-system.md) — RuleType, ревизии, каталог, ресурсы и публикация.
 - [Система персонажей](character-system.md) — версии, membership, validation и модерация.
 - [Система игр](game-system.md) — игра, бой, абстрактное движение, overlay, инвентарь и экономика.

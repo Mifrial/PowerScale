@@ -7,6 +7,7 @@ namespace Mifrial\Core\Kernel\Interface\Service;
 use Mifrial\Core\Kernel\Exception\KernelException;
 use Mifrial\Core\Kernel\Exception\ModuleManager\InvalidModuleConfigException;
 use Mifrial\Core\Kernel\Exception\ModuleManager\ModuleManagerException;
+use Mifrial\Core\Kernel\Interface\Container\IModuleContainer;
 
 /**
  * Контракт загрузки модулей и маршрутов.

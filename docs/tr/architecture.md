@@ -18,6 +18,8 @@
 Правила разработки бэкенда и фронтенда не смешиваются в одном файле.
 Файл правил соответствующего стека должен быть доступен без загрузки всего
 ТР и использоваться как единый источник для повседневной разработки.
+PHP дополнительно фиксирует KISS, SOLID, DRY и разделение слоёв в
+[`php-coding-standards.md`](php-coding-standards.md).
 
 ## Контракт фундамента сервера
 
@@ -31,7 +33,7 @@ API-запросы входят через `mifrial/API/action.php`; отдел�
 Модули сервера двухуровневые: `Namespace/ModuleName`. PHP-неймспейс Kernel —
 `Mifrial\Core\Kernel`. `ModuleManager`: `includeModule` возвращает `false`, если модуля нет; `requireModule` бросает `ModuleManagerException`. Сразу грузится только `Core/*` через `requireModule`, остальные — лениво. `module.config.php` объявляет `container`, `locator`, `ports`, `routes` и `events`. Дубль кода action или кривой `handler` — исключение при загрузке модуля.
 
-Исключения `ModuleManager` наследуют общего родителя с `getModuleKey()` (`group/name`). Интерфейс PHP зеркалит путь класса: `Service/Application.php` → `Interface/Service/IApplication.php`. Префикс `I` у интерфейса допустим; однобуквенные и сокращённые имена параметров (`$l`, `$c`) запрещены.
+Исключения `ModuleManager` наследуют общего родителя с `getModuleKey()` (`group/name`). Интерфейс PHP зеркалит путь класса: `Service/Application.php` → `Interface/Service/IApplication.php`, `Container/KernelContainer.php` → `Interface/Container/IKernelContainer.php`. Контейнер модуля — не сервис: он лежит в `Container/`, а не в `Service/`. Префикс `I` у интерфейса допустим; однобуквенные и сокращённые имена параметров (`$l`, `$c`) запрещены.
 
 На фронте — общий локатор `set`/`get`/`reset` из `Core/Engine`; каждый модуль отдаёт `registerXApi(impl)` и `getXApi(): IXApi` (`DEC-064`).
 
@@ -88,13 +90,15 @@ API-запросы входят через `mifrial/API/action.php`; отдел�
 
 `main.ts` регистрирует mock или боевые API и инициализирует CSRF. `HttpClient` берёт CSRF-токен через callback и шлёт его на запросы, меняющие состояние. `runAction` кодирует имя действия и возвращает типизированный конверт ответа или ошибки.
 
-## Контракт SmartTable
+## Контракт SmartTable (`DEC-078`)
 
-SmartTable — единственная серверная абстракция доступа к данным. `BaseField` задаёт имя, подпись, required, multiple и default; `ReferenceField` — внешние ссылки; `SmartTableDefinition.getMap()` возвращает карту полей. Гидраторы модулей регистрируются как `smarttable_fields`.
+Полный канон: [`smarttable.md`](smarttable.md). Нарезка: [`smarttable-roadmap.md`](smarttable-roadmap.md).
 
-Репозиторий открывает таблицу через `Core.SmartTable.Service.open(tableName)`. Сервис: `open`/`create`, CRUD (`add`, `update`, `delete`, `getList` с фильтром, сортировкой, пагинацией, select), локальная `transaction()` и глобальные `beginTransaction`/`commit`/`rollback`. `MigrationService` сравнивает определения и генерирует миграции; `SmartTableMigration` даёт `up`/`down`.
+SmartTable — единственная серверная абстракция доступа к данным. Репозиторий не вызывает SQL, Eloquent и Query/Schema Illuminate. Внутри `Core/SmartTable` — `illuminate/database` (Connection, Query Builder, Schema), без фреймворка Laravel. `multiple` хранится доп. таблицей значений. Тегированный кэш `getList` — требование v1. Runtime-создание таблиц/полей с нашими типами — требование v1. Админский UI — после Auth. Versioned-оболочка — контракт заранее, код — план 11.
 
-Журнал сервера в основном в SmartTable логов; запись в файл — запасной путь на старте или если база недоступна. Точная боевая реализация сервера — `OPEN`.
+Репозиторий открывает таблицу через контейнер модуля SmartTable: PHP-класс — `ISmartTableGateway::open` (class-string определения), таблица из словаря — `ITableCatalog::openByName`. Не строковый ключ локатора. Гидраторы регистрируются конфигом модуля. Схема таблицы с PHP-классом сверяется с БД вызовами `createTable` / `updateTable` / `forceUpdateTable`. Журнал наката (кто, когда, up/down) — не модуль SmartTable.
+
+Журнал сервера — таблица SmartTable; файл/`error_log` — запасной путь. Basic принят: прикладные модули ходят только через порты SmartTable.
 
 ## Дополнения сервера (требование, реализация OPEN)
 
@@ -102,8 +106,7 @@ SmartTable — единственная серверная абстракция 
 
 - EventManager: `fire`/`on`/`off`, синхронные слушатели, очередь для асинхронных;
 - детальная иерархия доменных ошибок поверх `ActionException` (базовый контракт — DEC-075);
-- SmartTable QueryBuilder (`query()` для сложных случаев);
-- тегированный кэш `getList` (TTL, теги).
+- SmartTable fluent `query()` для сложных случаев (не v1).
 
 Код фронта их не реализует. Оставить или выкинуть — только явным решением; молча выкидывать нельзя.
 

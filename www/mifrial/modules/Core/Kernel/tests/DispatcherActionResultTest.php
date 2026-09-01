@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Core\Kernel\Tests;
 
 use Mifrial\Core\Kernel\Interface\Action\IActionHandler;
-use Mifrial\Core\Kernel\Interface\Service\IModuleContainer;
+use Mifrial\Core\Kernel\Interface\Container\IModuleContainer;
 use Mifrial\Core\Kernel\Interface\Service\IModuleManager;
 use Mifrial\Core\Kernel\Service\Dispatcher;
 use Mifrial\Core\Kernel\Tests\Fixture\CodedFailAction;

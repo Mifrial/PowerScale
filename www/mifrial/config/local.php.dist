@@ -5,8 +5,17 @@ declare(strict_types=1);
 return [
     'debug' => false,
     'db' => [
-        'dsn' => 'mysql:host=127.0.0.1;port=3306;dbname=powerscale;charset=utf8mb4',
-        'user' => 'powerscale',
+        'host' => '127.0.0.1',
+        'port' => 3306,
+        'database' => 'powerscale',
+        'username' => 'powerscale',
         'password' => 'changeme',
+        'charset' => 'utf8mb4',
+        'collation' => 'utf8mb4_unicode_ci',
+        'timezone' => '+00:00',
+    ],
+    'cache' => [
+        'driver' => 'file',
+        'path' => __DIR__ . '/../var/cache/smarttable',
     ],
 ];
