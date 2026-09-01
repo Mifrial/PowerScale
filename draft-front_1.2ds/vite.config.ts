@@ -16,7 +16,13 @@ function publicBase(): string {
 export default defineConfig({
   base: publicBase(),
   plugins: [vue({ template: { transformAssetUrls } }), vuetify({ autoImport: true }), VueMcp()],
-  server: { port: 3000 },
+  server: {
+    host: 'powerscale.test.ru',
+    port: 3000,
+    proxy: {
+      '/api': { target: 'http://powerscale.test.ru', changeOrigin: true },
+    },
+  },
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),
