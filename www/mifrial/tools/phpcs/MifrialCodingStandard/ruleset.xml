@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+<ruleset name="MifrialCodingStandard">
+    <description>Project-specific Mifrial coding rules.</description>
+    <rule ref="MifrialCodingStandard.WhiteSpace.ControlStructureSpacing"/>
+</ruleset>

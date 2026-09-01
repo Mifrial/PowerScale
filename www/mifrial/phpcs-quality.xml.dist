@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<ruleset name="MifrialQuality">
+    <description>Mifrial PHP quality gates.</description>
+
+    <arg name="colors"/>
+    <arg name="extensions" value="php"/>
+    <arg value="p"/>
+    <arg value="s"/>
+
+    <file>modules</file>
+    <exclude-pattern>*/vendor/*</exclude-pattern>
+    <exclude-pattern>*/tests/*</exclude-pattern>
+    <config name="installed_paths" value="vendor/slevomat/coding-standard,tools/phpcs"/>
+
+    <rule ref="MifrialCodingStandard.Metrics.MethodQuality"/>
+    <rule ref="MifrialCodingStandard.Metrics.ClassQuality"/>
+    <rule ref="MifrialCodingStandard.Commenting.MethodDocumentation"/>
+    <rule ref="MifrialCodingStandard.Commenting.ClassDocumentation"/>
+    <rule ref="MifrialCodingStandard.Classes.MethodOrder"/>
+</ruleset>

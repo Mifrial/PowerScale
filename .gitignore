@@ -1,3 +1,7 @@
+**/.php-cs-fixer.cache
+www/mifrial/vendor/
+www/mifrial/config/local.php
+www/mifrial/.phpunit.result.cache
 node_modules/
 draft-front_1.2ds/dist/
 draft-front_1.2ds/package-lock.json

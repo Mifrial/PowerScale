@@ -1,0 +1,6 @@
+RewriteEngine On
+RewriteBase /
+
+RewriteRule ^api/run$ mifrial/API/action.php [L,QSA]
+
+RewriteRule ^mifrial/(?!API/action\.php$) - [F,L,NC]
