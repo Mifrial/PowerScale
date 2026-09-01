@@ -49,7 +49,7 @@
 - `DEC-070` — PHP DI: процесс собирает `Application`; локатор каталогизирует контейнеры (в том числе ленивые слоты); `ModuleManager` не держит локатор. Owner [`architecture.md`](architecture.md). Порты Kernel для соседей — `OPEN`.
 - `DEC-071` — PHP quality markers: complexity и архитектурные проблемы — ошибки анализа; очевидные исправления делает агент, обоснованные исключения запрашиваются точечно, глобальные отключения запрещены. Owner [`architecture.md`](architecture.md).
 - `DEC-072` — PHP-правила отделены от фронтенд-правил и собраны в `docs/tr/php-coding-standards.md`; корневой `AGENTS.md` ссылается на них при работе с бэкендом. Обязательны PHPDoc типов и методов, порядок методов и class quality markers. Owner [`architecture.md`](architecture.md).
-- `DEC-077` — PHPDoc/JSDoc обязателен не только у методов и функций, но и у классов (и интерфейсов/type alias на фронте). Owner [`architecture.md`](architecture.md) и `frontend-rules.md`.
+- `DEC-077` — фронт: JSDoc обязателен у `class`, у функций вне `.vue` — по возможности (не гейт). PHP: PHPDoc типов и методов. Owner `frontend-rules.md` / [`architecture.md`](architecture.md).
 - `DEC-073` — `mifrial/init.php` является чистым bootstrap; API имеет отдельные entrypoint’ы в `mifrial/API/`, а корневой `www/index.php` не является API-контроллером. Owner [`architecture.md`](architecture.md).
 - `DEC-074` — параметры action: JSON-объект биндится на имена и типы `handle`; лишние поля и несовпадение типа — `INVALID_PARAMS`. Owner [`architecture.md`](architecture.md).
 - `DEC-075` — Action возвращает данные, не `ActionResponse`; доменная ошибка — `ActionException` с кодом. Owner [`architecture.md`](architecture.md).
