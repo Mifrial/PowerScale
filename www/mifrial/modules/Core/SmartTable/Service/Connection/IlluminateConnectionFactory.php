@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Mifrial\Core\SmartTable\Service;
+namespace Mifrial\Core\SmartTable\Service\Connection;
 
 use Illuminate\Database\Connectors\MySqlConnector;
 use Illuminate\Database\MySqlConnection;

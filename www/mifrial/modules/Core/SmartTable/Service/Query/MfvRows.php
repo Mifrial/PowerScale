@@ -2,9 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Mifrial\Core\SmartTable\Service;
+namespace Mifrial\Core\SmartTable\Service\Query;
 
 use Mifrial\Core\SmartTable\Field\BaseField;
+use Mifrial\Core\SmartTable\Service\Connection\IlluminateDatabaseConnection;
+use Mifrial\Core\SmartTable\Service\DriverErrorTranslator;
+use Mifrial\Core\SmartTable\Service\Schema\MfvSchema;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
 
 /**

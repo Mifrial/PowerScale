@@ -9,6 +9,8 @@ use Mifrial\Core\Kernel\Interface\Service\IRuntimeConfig;
 use Mifrial\Core\Kernel\Interface\Service\IServiceLocator;
 use Mifrial\Core\SmartTable\Exception\Database\DbConfigInvalidException;
 use Mifrial\Core\SmartTable\Interface\Service\IDatabaseConnection;
+use Mifrial\Core\SmartTable\Service\Connection\IlluminateConnectionFactory;
+use Mifrial\Core\SmartTable\Service\Connection\IlluminateDatabaseConnection;
 
 /**
  * Фабрика порта соединения: читает локатор только здесь.

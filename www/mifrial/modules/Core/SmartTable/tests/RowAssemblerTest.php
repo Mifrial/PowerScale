@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Core\SmartTable\Tests;
 
 use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
-use Mifrial\Core\SmartTable\Service\RowAssembler;
+use Mifrial\Core\SmartTable\Service\Query\RowAssembler;
 use Mifrial\Core\SmartTable\Tests\Fixture\SampleTable;
 use PHPUnit\Framework\TestCase;
 

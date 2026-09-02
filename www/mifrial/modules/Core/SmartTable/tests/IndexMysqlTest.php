@@ -13,9 +13,9 @@ use Mifrial\Core\SmartTable\Exception\Row\UniqueConstraintException;
 use Mifrial\Core\SmartTable\Interface\Container\ISmartTableContainer;
 use Mifrial\Core\SmartTable\Interface\Service\IDatabaseConnection;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
-use Mifrial\Core\SmartTable\Service\IlluminateConnectionFactory;
-use Mifrial\Core\SmartTable\Service\IlluminateDatabaseConnection;
-use Mifrial\Core\SmartTable\Service\IndexSchema;
+use Mifrial\Core\SmartTable\Service\Connection\IlluminateConnectionFactory;
+use Mifrial\Core\SmartTable\Service\Connection\IlluminateDatabaseConnection;
+use Mifrial\Core\SmartTable\Service\Schema\IndexSchema;
 use Mifrial\Core\SmartTable\Tests\Fixture\BothIndexFlagsTable;
 use Mifrial\Core\SmartTable\Tests\Fixture\IndexedAgeTable;
 use Mifrial\Core\SmartTable\Tests\Fixture\UniqueTitleTable;
@@ -97,7 +97,7 @@ final class IndexMysqlTest extends TestCase
         } catch (UniqueConstraintException $exception) {
             self::assertSame('UNIQUE_CONSTRAINT', $exception->getErrorCode());
         }
-        self::assertNotNull($table->get($firstId));
+        self::assertNotNull($table->getById($firstId));
 
         try {
             $table->update($secondId, ['title' => 'a']);
@@ -105,7 +105,7 @@ final class IndexMysqlTest extends TestCase
         } catch (UniqueConstraintException $exception) {
             self::assertSame('UNIQUE_CONSTRAINT', $exception->getErrorCode());
         }
-        self::assertSame('b', $table->get($secondId)['title']);
+        self::assertSame('b', $table->getById($secondId)['title']);
     }
 
     /**
@@ -119,8 +119,8 @@ final class IndexMysqlTest extends TestCase
         $table->createTable();
         $firstId = $table->add(['title' => 'a']);
         $secondId = $table->add(['title' => 'b']);
-        self::assertNull($table->get($firstId)['code']);
-        self::assertNull($table->get($secondId)['code']);
+        self::assertNull($table->getById($firstId)['code']);
+        self::assertNull($table->getById($secondId)['code']);
     }
 
     /**

@@ -10,6 +10,10 @@ use Mifrial\Core\SmartTable\Dto\ListQuery;
 use Mifrial\Core\SmartTable\Dto\ListResult;
 use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
 use Mifrial\Core\SmartTable\Interface\Service\IOpenedTable;
+use Mifrial\Core\SmartTable\Service\Cache\TableCache;
+use Mifrial\Core\SmartTable\Service\Query\TableList;
+use Mifrial\Core\SmartTable\Service\Query\TableRows;
+use Mifrial\Core\SmartTable\Service\Schema\TableSchema;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
 
 /**
@@ -128,7 +132,7 @@ final class OpenedTable implements IOpenedTable
     }
 
     /**
-     * Читает строку или null.
+     * Читает строку по id или null.
      *
      * @param int $rowId Идентификатор.
      * @param int|null $cacheTtl Секунды кэша или БД.
@@ -137,7 +141,7 @@ final class OpenedTable implements IOpenedTable
      *
      * @throws MapInvalidException Если TTL ≤ 0.
      */
-    public function get(int $rowId, ?int $cacheTtl = null): ?array
+    public function getById(int $rowId, ?int $cacheTtl = null): ?array
     {
         $this->assertTtl($cacheTtl);
         $tableName = $this->tableDefinition->getName();
@@ -151,7 +155,7 @@ final class OpenedTable implements IOpenedTable
             }
         }
 
-        $row = $this->tableRows->get($this->tableDefinition, $rowId);
+        $row = $this->tableRows->getById($this->tableDefinition, $rowId);
         if ($cacheTtl !== null) {
             $this->tableCache->saveGet($tableName, $rowId, $row, $cacheTtl);
         }

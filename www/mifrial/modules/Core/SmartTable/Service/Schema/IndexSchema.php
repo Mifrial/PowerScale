@@ -2,13 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Mifrial\Core\SmartTable\Service;
+namespace Mifrial\Core\SmartTable\Service\Schema;
 
 use Illuminate\Database\Schema\Blueprint;
 use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
 use Mifrial\Core\SmartTable\Exception\Schema\DdlFailedException;
 use Mifrial\Core\SmartTable\Exception\SmartTableException;
 use Mifrial\Core\SmartTable\Field\BaseField;
+use Mifrial\Core\SmartTable\Service\Connection\IlluminateDatabaseConnection;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
 use Throwable;
 

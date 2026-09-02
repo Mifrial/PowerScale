@@ -9,7 +9,7 @@ use Illuminate\Database\Query\Builder;
 use Mifrial\Core\SmartTable\Dto\ListQuery;
 use Mifrial\Core\SmartTable\Exception\Field\FieldMultipleUnsupportedException;
 use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
-use Mifrial\Core\SmartTable\Service\ListQueryCompiler;
+use Mifrial\Core\SmartTable\Service\Query\ListQueryCompiler;
 use Mifrial\Core\SmartTable\Tests\Fixture\ChildRestrictTable;
 use Mifrial\Core\SmartTable\Tests\Fixture\CrudProbeTable;
 use Mifrial\Core\SmartTable\Tests\Fixture\ListMultipleTable;

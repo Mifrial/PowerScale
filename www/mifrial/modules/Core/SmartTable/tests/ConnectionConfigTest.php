@@ -6,8 +6,8 @@ namespace Mifrial\Core\SmartTable\Tests;
 
 use Mifrial\Core\Kernel\Dto\DatabaseSettings;
 use Mifrial\Core\SmartTable\Exception\Database\DbConfigInvalidException;
-use Mifrial\Core\SmartTable\Service\IlluminateConnectionFactory;
-use Mifrial\Core\SmartTable\Service\IlluminateDatabaseConnection;
+use Mifrial\Core\SmartTable\Service\Connection\IlluminateConnectionFactory;
+use Mifrial\Core\SmartTable\Service\Connection\IlluminateDatabaseConnection;
 use PHPUnit\Framework\TestCase;
 
 final class ConnectionConfigTest extends TestCase

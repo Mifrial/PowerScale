@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Mifrial\Core\SmartTable\Service;
+namespace Mifrial\Core\SmartTable\Service\Query;
 
 use Closure;
 use Illuminate\Database\Query\Builder;
@@ -11,6 +11,7 @@ use Mifrial\Core\SmartTable\Exception\Field\FieldInvalidException;
 use Mifrial\Core\SmartTable\Exception\Field\FieldMultipleUnsupportedException;
 use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
 use Mifrial\Core\SmartTable\Field\BaseField;
+use Mifrial\Core\SmartTable\Service\Schema\MfvSchema;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
 
 /**

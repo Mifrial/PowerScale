@@ -16,8 +16,8 @@ use Mifrial\Core\SmartTable\Interface\Container\ISmartTableContainer;
 use Mifrial\Core\SmartTable\Interface\Service\IDatabaseConnection;
 use Mifrial\Core\SmartTable\Interface\Service\IOpenedTable;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
-use Mifrial\Core\SmartTable\Service\IlluminateConnectionFactory;
-use Mifrial\Core\SmartTable\Service\IlluminateDatabaseConnection;
+use Mifrial\Core\SmartTable\Service\Connection\IlluminateConnectionFactory;
+use Mifrial\Core\SmartTable\Service\Connection\IlluminateDatabaseConnection;
 use Mifrial\Core\SmartTable\Tests\Fixture\ChildNoneTable;
 use Mifrial\Core\SmartTable\Tests\Fixture\ChildRestrictTable;
 use Mifrial\Core\SmartTable\Tests\Fixture\ChildSetNullTable;
@@ -120,7 +120,7 @@ final class ReferenceMysqlTest extends TestCase
         $child->createTable();
         $parentId = $parent->add(['title' => 'p']);
         $childId = $child->add(['parent_id' => $parentId]);
-        $row = $child->get($childId);
+        $row = $child->getById($childId);
         self::assertIsArray($row);
         self::assertSame($parentId, $row['parent_id']);
 
@@ -158,10 +158,10 @@ final class ReferenceMysqlTest extends TestCase
         } catch (ReferenceConstraintException $exception) {
             self::assertSame('REFERENCE_CONSTRAINT', $exception->getErrorCode());
         }
-        self::assertNotNull($child->get($childId));
+        self::assertNotNull($child->getById($childId));
         $child->delete($childId);
         $parent->delete($parentId);
-        self::assertNull($parent->get($parentId));
+        self::assertNull($parent->getById($parentId));
     }
 
     /**
@@ -181,9 +181,9 @@ final class ReferenceMysqlTest extends TestCase
         $setNullId = $setNull->add(['parent_id' => $parentId]);
         $noneId = $none->add(['parent_id' => $parentId]);
         $parent->delete($parentId);
-        self::assertNull($setNull->get($setNullId)['parent_id']);
-        self::assertSame($parentId, $none->get($noneId)['parent_id']);
-        self::assertNull($parent->get($parentId));
+        self::assertNull($setNull->getById($setNullId)['parent_id']);
+        self::assertSame($parentId, $none->getById($noneId)['parent_id']);
+        self::assertNull($parent->getById($parentId));
     }
 
     /**
@@ -257,7 +257,7 @@ final class ReferenceMysqlTest extends TestCase
         }
         $table->delete($rowA);
         $table->delete($rowB);
-        self::assertNull($table->get($rowB));
+        self::assertNull($table->getById($rowB));
     }
 
     /**

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Mifrial\Core\SmartTable\Service;
+namespace Mifrial\Core\SmartTable\Service\Query;
 
 use Illuminate\Database\Query\Builder;
 use Mifrial\Core\SmartTable\Exception\Row\ReferenceConstraintException;
@@ -10,6 +10,8 @@ use Mifrial\Core\SmartTable\Exception\Row\RowNotFoundException;
 use Mifrial\Core\SmartTable\Exception\Row\RowWriteFailedException;
 use Mifrial\Core\SmartTable\Exception\Row\UniqueConstraintException;
 use Mifrial\Core\SmartTable\Exception\Schema\SchemaMismatchException;
+use Mifrial\Core\SmartTable\Service\Connection\IlluminateDatabaseConnection;
+use Mifrial\Core\SmartTable\Service\DriverErrorTranslator;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
 use Throwable;
 
@@ -129,7 +131,7 @@ final class TableRows
     }
 
     /**
-     * Читает строку.
+     * Читает строку по id.
      *
      * @param SmartTableDefinition $tableDefinition Определение.
      * @param int $rowId Идентификатор.
@@ -138,7 +140,7 @@ final class TableRows
      *
      * @throws SchemaMismatchException Если драйвер вернул не карту колонок.
      */
-    public function get(SmartTableDefinition $tableDefinition, int $rowId): ?array
+    public function getById(SmartTableDefinition $tableDefinition, int $rowId): ?array
     {
         $sqlColumns = $this->scalarColumnNames($tableDefinition);
         $databaseRow = $this->driverErrors->run(function () use ($tableDefinition, $sqlColumns, $rowId): mixed {

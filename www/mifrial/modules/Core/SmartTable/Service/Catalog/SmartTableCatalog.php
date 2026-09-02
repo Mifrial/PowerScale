@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Mifrial\Core\SmartTable\Service;
+namespace Mifrial\Core\SmartTable\Service\Catalog;
 
 use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
 use Mifrial\Core\SmartTable\Exception\Schema\DdlFailedException;
@@ -10,6 +10,12 @@ use Mifrial\Core\SmartTable\Exception\Schema\TableExistsException;
 use Mifrial\Core\SmartTable\Exception\Schema\TableMissingException;
 use Mifrial\Core\SmartTable\Interface\Service\IOpenedTable;
 use Mifrial\Core\SmartTable\Interface\Service\ITableCatalog;
+use Mifrial\Core\SmartTable\Service\Cache\TableCache;
+use Mifrial\Core\SmartTable\Service\OpenedTable;
+use Mifrial\Core\SmartTable\Service\Query\TableList;
+use Mifrial\Core\SmartTable\Service\Query\TableRows;
+use Mifrial\Core\SmartTable\Service\Schema\MfvSchema;
+use Mifrial\Core\SmartTable\Service\Schema\TableSchema;
 use Mifrial\Core\SmartTable\Table\MetaFieldDefinition;
 use Mifrial\Core\SmartTable\Table\MetaTableDefinition;
 use Mifrial\Core\SmartTable\Table\RuntimeDefinition;

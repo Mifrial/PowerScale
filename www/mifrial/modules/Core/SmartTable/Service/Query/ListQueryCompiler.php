@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Mifrial\Core\SmartTable\Service;
+namespace Mifrial\Core\SmartTable\Service\Query;
 
 use Illuminate\Database\Query\Builder;
 use Mifrial\Core\SmartTable\Dto\FilterCondition;

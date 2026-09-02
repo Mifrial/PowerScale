@@ -31,7 +31,7 @@
 - [План 6: индексы](smarttable-plan-06-indexes.md) — indexed/unique из FieldSettings.
 - [План 7a: force DDL](smarttable-plan-07-force-ddl.md) — forceUpdateTable / deleteTable.
 - [План 7b: словарь](smarttable-plan-07-dictionary.md) — мета-таблицы и runtime DDL.
-- [План 8: кэш](smarttable-plan-08-cache.md) — TTL get/getList и теги после commit.
+- [План 8: кэш](smarttable-plan-08-cache.md) — TTL getById/getList и теги после commit.
 - [План 9: накат схемы](smarttable-plan-09-migrations.md) — журнал наката не в SmartTable (решение).
 - [План 10: ворота Basic](smarttable-plan-10-gates.md) — сверка канона v1, Basic закрыт.
 - [Система правил](rule-system.md) — RuleType, ревизии, каталог, ресурсы и публикация.

@@ -5,6 +5,16 @@ declare(strict_types=1);
 namespace Mifrial\Core\SmartTable\Service;
 
 use Mifrial\Core\Kernel\Dto\CacheSettings;
+use Mifrial\Core\SmartTable\Service\Cache\TableCache;
+use Mifrial\Core\SmartTable\Service\Catalog\SmartTableCatalog;
+use Mifrial\Core\SmartTable\Service\Connection\IlluminateDatabaseConnection;
+use Mifrial\Core\SmartTable\Service\Query\ListQueryCompiler;
+use Mifrial\Core\SmartTable\Service\Query\MfvRows;
+use Mifrial\Core\SmartTable\Service\Query\RowAssembler;
+use Mifrial\Core\SmartTable\Service\Query\TableList;
+use Mifrial\Core\SmartTable\Service\Query\TableRows;
+use Mifrial\Core\SmartTable\Service\Schema\MfvSchema;
+use Mifrial\Core\SmartTable\Service\Schema\TableSchema;
 use WeakMap;
 
 /**

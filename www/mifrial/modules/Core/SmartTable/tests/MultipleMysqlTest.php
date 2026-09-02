@@ -15,8 +15,8 @@ use Mifrial\Core\SmartTable\Interface\Container\ISmartTableContainer;
 use Mifrial\Core\SmartTable\Interface\Service\IDatabaseConnection;
 use Mifrial\Core\SmartTable\Interface\Service\IOpenedTable;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
-use Mifrial\Core\SmartTable\Service\IlluminateConnectionFactory;
-use Mifrial\Core\SmartTable\Service\IlluminateDatabaseConnection;
+use Mifrial\Core\SmartTable\Service\Connection\IlluminateConnectionFactory;
+use Mifrial\Core\SmartTable\Service\Connection\IlluminateDatabaseConnection;
 use Mifrial\Core\SmartTable\Tests\Fixture\IntMultipleTable;
 use Mifrial\Core\SmartTable\Tests\Fixture\MultipleProbeTable;
 use Mifrial\Core\SmartTable\Tests\Fixture\MultipleRequiredTable;
@@ -64,18 +64,18 @@ final class MultipleMysqlTest extends TestCase
         $table = $this->openProbe();
         $this->assertProbeStorage();
         $rowId = $table->add(['title' => 'n', 'tags' => ['b', 'a']]);
-        $row = $table->get($rowId);
+        $row = $table->getById($rowId);
         self::assertIsArray($row);
         self::assertSame(['a', 'b'], $row['tags']);
 
         $table->update($rowId, ['tags' => ['c']]);
-        self::assertSame(['c'], $table->get($rowId)['tags']);
+        self::assertSame(['c'], $table->getById($rowId)['tags']);
 
         $emptyId = $table->add(['title' => 'e']);
-        self::assertSame([], $table->get($emptyId)['tags']);
+        self::assertSame([], $table->getById($emptyId)['tags']);
 
         $table->delete($rowId);
-        self::assertNull($table->get($rowId));
+        self::assertNull($table->getById($rowId));
         $leftover = $this->databaseConnection?->illuminateConnection()
             ->table('st_mfv_probe_mfv_tags')
             ->where('owner_id', $rowId)
@@ -102,7 +102,7 @@ final class MultipleMysqlTest extends TestCase
         $probe = $this->openProbe();
         $rowId = $probe->add(['title' => 'n', 'tags' => ['a']]);
         $probe->update($rowId, ['tags' => ['z']]);
-        $row = $probe->get($rowId);
+        $row = $probe->getById($rowId);
         self::assertSame('n', $row['title']);
         self::assertSame(['z'], $row['tags']);
     }
@@ -218,7 +218,7 @@ final class MultipleMysqlTest extends TestCase
         self::assertFalse($schemaBuilder->hasColumn('st_mfv_ints', 'codes'));
 
         $rowId = $table->add(['codes' => [2, 1]]);
-        self::assertSame([1, 2], $table->get($rowId)['codes']);
+        self::assertSame([1, 2], $table->getById($rowId)['codes']);
         $table->add(['codes' => [1]]);
         $exact = $table->getList(ListQuery::fromOptions(['limit' => 10, 'filter' => ['codes' => 1]]));
         self::assertCount(1, $exact->rows());

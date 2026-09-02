@@ -18,8 +18,8 @@ use Mifrial\Core\SmartTable\Exception\Transaction\TransactionOpenException;
 use Mifrial\Core\SmartTable\Interface\Container\ISmartTableContainer;
 use Mifrial\Core\SmartTable\Interface\Service\IDatabaseConnection;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
-use Mifrial\Core\SmartTable\Service\IlluminateConnectionFactory;
-use Mifrial\Core\SmartTable\Service\IlluminateDatabaseConnection;
+use Mifrial\Core\SmartTable\Service\Connection\IlluminateConnectionFactory;
+use Mifrial\Core\SmartTable\Service\Connection\IlluminateDatabaseConnection;
 use Mifrial\Core\SmartTable\Tests\Fixture\CrudProbeTable;
 use Mifrial\Core\SmartTable\Tests\Fixture\MiniTitleNoteTable;
 use Mifrial\Core\SmartTable\Tests\Fixture\MiniTitleTable;
@@ -76,7 +76,7 @@ final class CrudMysqlTest extends TestCase
             'created' => $created,
             'payload' => ['a' => 1],
         ]);
-        $row = $table->get($rowId);
+        $row = $table->getById($rowId);
         self::assertNotNull($row);
         self::assertSame($rowId, $row['id']);
         self::assertSame('hello', $row['title']);
@@ -99,12 +99,12 @@ final class CrudMysqlTest extends TestCase
         $table->createTable();
         $rowId = $table->add(['title' => 'a']);
         $table->update($rowId, ['title' => 'b']);
-        $row = $table->get($rowId);
+        $row = $table->getById($rowId);
         self::assertNotNull($row);
         self::assertSame('b', $row['title']);
         $table->delete($rowId);
-        self::assertNull($table->get($rowId));
-        self::assertNull($table->get(999999));
+        self::assertNull($table->getById($rowId));
+        self::assertNull($table->getById(999999));
         try {
             $table->update($rowId, ['title' => 'c']);
             self::fail('update missing row must fail');
@@ -162,7 +162,7 @@ final class CrudMysqlTest extends TestCase
 
         $this->dropFixtureTables();
         try {
-            $table->get(1);
+            $table->getById(1);
             self::fail('missing table must fail');
         } catch (TableMissingException $exception) {
             self::assertSame('TABLE_MISSING', $exception->getErrorCode());
@@ -180,7 +180,7 @@ final class CrudMysqlTest extends TestCase
         $extended = $this->gateway()->open(MiniTitleNoteTable::class);
         $extended->updateTable();
         $rowId = $extended->add(['title' => 'a', 'note' => 'n']);
-        $row = $extended->get($rowId);
+        $row = $extended->getById($rowId);
         self::assertNotNull($row);
         self::assertSame('n', $row['note']);
     }
@@ -206,7 +206,7 @@ final class CrudMysqlTest extends TestCase
             self::assertSame('MAP_INVALID', $exception->getErrorCode());
         }
 
-        self::assertNull($table->get($rowId));
+        self::assertNull($table->getById($rowId));
 
         try {
             $gateway->transaction(function () use ($gateway): void {

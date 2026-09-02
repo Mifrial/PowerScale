@@ -9,7 +9,7 @@ use Mifrial\Core\SmartTable\Dto\ListQuery;
 use Mifrial\Core\SmartTable\Dto\ListResult;
 use Mifrial\Core\SmartTable\Exception\Cache\CacheConfigInvalidException;
 use Mifrial\Core\SmartTable\Exception\Cache\CacheDriverFailedException;
-use Mifrial\Core\SmartTable\Service\TableCache;
+use Mifrial\Core\SmartTable\Service\Cache\TableCache;
 use PHPUnit\Framework\TestCase;
 
 final class TableCacheTest extends TestCase

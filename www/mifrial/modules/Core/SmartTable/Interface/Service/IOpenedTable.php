@@ -124,7 +124,7 @@ interface IOpenedTable
     public function delete(int $rowId): void;
 
     /**
-     * Читает строку или null.
+     * Читает строку по id или null.
      *
      * @param int $rowId Идентификатор.
      * @param int|null $cacheTtl Секунды кэша; null — всегда БД.
@@ -135,7 +135,7 @@ interface IOpenedTable
      * @throws SchemaMismatchException Если колонки карты нет.
      * @throws MapInvalidException Если TTL ≤ 0.
      */
-    public function get(int $rowId, ?int $cacheTtl = null): ?array;
+    public function getById(int $rowId, ?int $cacheTtl = null): ?array;
 
     /**
      * Возвращает страницу строк по запросу.

@@ -9,7 +9,7 @@ use Mifrial\Core\SmartTable\Field\IdField;
 use Mifrial\Core\SmartTable\Field\JsonField;
 use Mifrial\Core\SmartTable\Field\ReferenceField;
 use Mifrial\Core\SmartTable\Field\StringField;
-use Mifrial\Core\SmartTable\Service\FieldSpecAssembler;
+use Mifrial\Core\SmartTable\Service\Catalog\FieldSpecAssembler;
 use Mifrial\Core\SmartTable\Table\RuntimeDefinition;
 use Mifrial\Core\SmartTable\Tests\Fixture\SampleTable;
 use PHPUnit\Framework\TestCase;

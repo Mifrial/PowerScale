@@ -22,7 +22,7 @@
 Подробно: [`smarttable-plan-03-crud.md`](smarttable-plan-03-crud.md).
 
 - `SmartTableDefinition` в коде (фикстура теста).
-- `open` / `add` / `update` / `delete` / `get` / `createTable` / `updateTable`.
+- `open` / `add` / `update` / `delete` / `getById` / `createTable` / `updateTable`.
 - Транзакция `transaction()`.
 - PHPUnit против MySQL.
 
@@ -54,7 +54,7 @@ Multiple — сделано: [`smarttable-plan-05-multiple.md`](smarttable-plan-
 
 ## 8. Тегированный кэш
 
-Подробно: [`smarttable-plan-08-cache.md`](smarttable-plan-08-cache.md). TTL только если передан в get/getList; инвалидация после commit; `redis` | `file`. **Сделано.**
+Подробно: [`smarttable-plan-08-cache.md`](smarttable-plan-08-cache.md). TTL только если передан в getById/getList; инвалидация после commit; `redis` | `file`. **Сделано.**
 
 ## 9. Накат схемы — не SmartTable (решение)
 

@@ -15,8 +15,8 @@ use Mifrial\Core\SmartTable\Interface\Container\ISmartTableContainer;
 use Mifrial\Core\SmartTable\Interface\Service\IDatabaseConnection;
 use Mifrial\Core\SmartTable\Interface\Service\IOpenedTable;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
-use Mifrial\Core\SmartTable\Service\IlluminateConnectionFactory;
-use Mifrial\Core\SmartTable\Service\IlluminateDatabaseConnection;
+use Mifrial\Core\SmartTable\Service\Connection\IlluminateConnectionFactory;
+use Mifrial\Core\SmartTable\Service\Connection\IlluminateDatabaseConnection;
 use Mifrial\Core\SmartTable\Tests\Fixture\MiniTitleNoteTable;
 use PHPUnit\Framework\TestCase;
 
@@ -73,14 +73,14 @@ final class CacheMysqlTest extends TestCase
         $table->add(['title' => 'three', 'note' => 'm']);
         self::assertCount(2, $table->getList($titleQuery, 60)->rows());
 
-        $cached = $table->get($rowId, 60);
+        $cached = $table->getById($rowId, 60);
         self::assertNotNull($cached);
         $table->delete($rowId);
-        self::assertNull($table->get($rowId, 60));
+        self::assertNull($table->getById($rowId, 60));
 
         $missingId = $rowId + 100;
-        self::assertNull($table->get($missingId, 60));
-        self::assertNull($table->get($missingId, 60));
+        self::assertNull($table->getById($missingId, 60));
+        self::assertNull($table->getById($missingId, 60));
 
         $this->assertRollbackKeepsCache($table, $titleQuery);
         $this->assertNoTtlReadsDatabase($table);
@@ -188,9 +188,9 @@ final class CacheMysqlTest extends TestCase
     private function assertNoTtlReadsDatabase(IOpenedTable $table): void
     {
         $rowId = $table->add(['title' => 'fresh', 'note' => 'z']);
-        $table->get($rowId, 60);
+        $table->getById($rowId, 60);
         $table->update($rowId, ['title' => 'db']);
-        self::assertSame('db', $table->get($rowId)['title'] ?? null);
+        self::assertSame('db', $table->getById($rowId)['title'] ?? null);
     }
 
     /**

@@ -35,7 +35,7 @@
 - fulltext; составной unique; ALTER TYPE
 - события CRUD → EventManager (OPEN)
 - hydrator JSON в словаре
-- `canOpen()` redis без `ext-redis` vs `get`+TTL: invalidate молчит, чтение с TTL бросает `CACHE_CONFIG_INVALID`; слотов нет
+- `canOpen()` redis без `ext-redis` vs `getById`+TTL: invalidate молчит, чтение с TTL бросает `CACHE_CONFIG_INVALID`; слотов нет
 - журнал наката — не SmartTable (план 9)
 
 ## Не входит

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Mifrial\Core\SmartTable\Service;
+namespace Mifrial\Core\SmartTable\Service\Query;
 
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Collection;
@@ -10,6 +10,8 @@ use Mifrial\Core\SmartTable\Dto\ListQuery;
 use Mifrial\Core\SmartTable\Dto\ListResult;
 use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
 use Mifrial\Core\SmartTable\Exception\Schema\SchemaMismatchException;
+use Mifrial\Core\SmartTable\Service\Connection\IlluminateDatabaseConnection;
+use Mifrial\Core\SmartTable\Service\DriverErrorTranslator;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
 
 /**

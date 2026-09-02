@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Core\SmartTable\Tests;
 
 use Mifrial\Core\SmartTable\Exception\Cache\CacheDriverFailedException;
-use Mifrial\Core\SmartTable\Service\RedisCacheStore;
+use Mifrial\Core\SmartTable\Service\Cache\RedisCacheStore;
 use PHPUnit\Framework\TestCase;
 use Redis;
 

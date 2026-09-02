@@ -10,8 +10,8 @@ use Mifrial\Core\Kernel\Service\ApplicationFactory;
 use Mifrial\Core\SmartTable\Exception\Database\DatabaseException;
 use Mifrial\Core\SmartTable\Interface\Container\ISmartTableContainer;
 use Mifrial\Core\SmartTable\Interface\Service\IDatabaseConnection;
-use Mifrial\Core\SmartTable\Service\IlluminateConnectionFactory;
-use Mifrial\Core\SmartTable\Service\IlluminateDatabaseConnection;
+use Mifrial\Core\SmartTable\Service\Connection\IlluminateConnectionFactory;
+use Mifrial\Core\SmartTable\Service\Connection\IlluminateDatabaseConnection;
 use PHPUnit\Framework\TestCase;
 
 final class MysqlPingTest extends TestCase

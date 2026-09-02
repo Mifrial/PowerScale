@@ -90,7 +90,7 @@ MySQL DDL = неявный commit. Не эмулировать rollback схем
 
 Assembler: неизвестный ключ → `MAP_INVALID`. Add без ключа → `cast(..., false)`. `id` на add не `null` → `MAP_INVALID`. Update: пустой массив или ключ `id` → `MAP_INVALID`; только переданные ключи; required только для них.
 
-Не `affected rows`. Нет строки на update/delete: exists по `id` → `ROW_NOT_FOUND`. Гонка exists/update в v1 допустима. `get` без строки → `null`.
+Не `affected rows`. Нет строки на update/delete: exists по `id` → `ROW_NOT_FOUND`. Гонка exists/update в v1 допустима. `getById` без строки → `null`.
 
 SELECT колонки из карты, не `*`.
 

@@ -18,8 +18,8 @@ use Mifrial\Core\SmartTable\Interface\Container\ISmartTableContainer;
 use Mifrial\Core\SmartTable\Interface\Service\IDatabaseConnection;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Core\SmartTable\Interface\Service\ITableCatalog;
-use Mifrial\Core\SmartTable\Service\IlluminateConnectionFactory;
-use Mifrial\Core\SmartTable\Service\IlluminateDatabaseConnection;
+use Mifrial\Core\SmartTable\Service\Connection\IlluminateConnectionFactory;
+use Mifrial\Core\SmartTable\Service\Connection\IlluminateDatabaseConnection;
 use Mifrial\Core\SmartTable\Table\MetaTableDefinition;
 use Mifrial\Core\SmartTable\Table\RuntimeDefinition;
 use Mifrial\Core\SmartTable\Tests\Fixture\MiniTitleTable;
@@ -83,7 +83,7 @@ final class DictionaryMysqlTest extends TestCase
             ['name' => 'title', 'type' => 'string', 'required' => true],
         ]);
         $rowId = $openedTable->add(['title' => 'hello']);
-        $row = $this->catalog()->openByName('st_dict_probe')->get($rowId);
+        $row = $this->catalog()->openByName('st_dict_probe')->getById($rowId);
         self::assertIsArray($row);
         self::assertSame('hello', $row['title']);
     }
@@ -100,7 +100,7 @@ final class DictionaryMysqlTest extends TestCase
         ]);
         $this->catalog()->addField('st_dict_probe', ['name' => 'note', 'type' => 'string']);
         $rowId = $this->catalog()->openByName('st_dict_probe')->add(['title' => 'a', 'note' => 'b']);
-        $row = $this->catalog()->openByName('st_dict_probe')->get($rowId);
+        $row = $this->catalog()->openByName('st_dict_probe')->getById($rowId);
         self::assertIsArray($row);
         self::assertSame('b', $row['note']);
         $this->catalog()->dropField('st_dict_probe', 'note');
@@ -175,7 +175,7 @@ final class DictionaryMysqlTest extends TestCase
     {
         $openedTable = $this->catalog()->createTable('st_dict_empty', []);
         $rowId = $openedTable->add([]);
-        $row = $openedTable->get($rowId);
+        $row = $openedTable->getById($rowId);
         self::assertIsArray($row);
         self::assertSame($rowId, $row['id']);
     }

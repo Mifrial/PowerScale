@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Mifrial\Core\SmartTable\Service;
+namespace Mifrial\Core\SmartTable\Service\Cache;
 
 use Mifrial\Core\Kernel\Value\DateTime as UnixDateTime;
 use Mifrial\Core\SmartTable\Dto\CacheHit;

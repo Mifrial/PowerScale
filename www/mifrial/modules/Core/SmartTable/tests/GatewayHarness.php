@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Mifrial\Core\SmartTable\Tests;
 
 use Mifrial\Core\Kernel\Dto\CacheSettings;
-use Mifrial\Core\SmartTable\Service\IlluminateDatabaseConnection;
-use Mifrial\Core\SmartTable\Service\SmartTableCatalog;
+use Mifrial\Core\SmartTable\Service\Catalog\SmartTableCatalog;
+use Mifrial\Core\SmartTable\Service\Connection\IlluminateDatabaseConnection;
 use Mifrial\Core\SmartTable\Service\SmartTableGateway;
 use Mifrial\Core\SmartTable\Service\SmartTableSupport;
 

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Mifrial\Core\SmartTable\Service;
+namespace Mifrial\Core\SmartTable\Service\Cache;
 
 use Closure;
 use Mifrial\Core\Kernel\Dto\CacheSettings;
