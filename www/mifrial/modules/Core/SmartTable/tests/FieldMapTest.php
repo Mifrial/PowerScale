@@ -21,6 +21,7 @@ use Mifrial\Core\SmartTable\Field\TextField;
 use Mifrial\Core\SmartTable\Interface\Field\IFieldHydrator;
 use Mifrial\Core\SmartTable\Tests\Fixture\AbstractProbeTable;
 use Mifrial\Core\SmartTable\Tests\Fixture\BothIndexFlagsTable;
+use Mifrial\Core\SmartTable\Tests\Fixture\CascadeMultipleTable;
 use Mifrial\Core\SmartTable\Tests\Fixture\JsonMultipleTable;
 use Mifrial\Core\SmartTable\Tests\Fixture\LongStringMultipleTable;
 use Mifrial\Core\SmartTable\Tests\Fixture\LongUniqueStringTable;
@@ -272,6 +273,8 @@ final class FieldMapTest extends TestCase
         self::assertSame('reference', $field->type());
         self::assertSame('INT', $field->column()->sqlType);
         self::assertSame('st_ref_parent', $field->targetTableName());
+        self::assertSame('id', $field->targetIdField());
+        self::assertSame(ParentRefTable::class, $field->targetDefinitionClass());
         self::assertSame(3, $field->cast(3, true));
         try {
             $field->cast(0, true);
@@ -292,7 +295,6 @@ final class FieldMapTest extends TestCase
             [FieldSettings::fromOptions(['required' => true]), ParentRefTable::class, 'none'],
             [FieldSettings::fromOptions(['multiple' => true]), ParentRefTable::class, 'restrict'],
             [FieldSettings::fromOptions(), \stdClass::class, 'restrict'],
-            [FieldSettings::fromOptions(), ParentRefTable::class, 'cascade'],
             [FieldSettings::fromOptions(), AbstractProbeTable::class, 'restrict'],
             [FieldSettings::fromOptions(), '', 'restrict'],
             [FieldSettings::fromOptions(), 'NopeNotATable', 'restrict'],
@@ -304,6 +306,41 @@ final class FieldMapTest extends TestCase
             } catch (MapInvalidException $exception) {
                 self::assertSame('MAP_INVALID', $exception->getErrorCode());
             }
+        }
+    }
+
+    /**
+     * bigint, широкий id, required cascade; cascade+multiple на карте — отказ.
+     *
+     * @return void
+     */
+    public function testBigintAndCascadeMap(): void
+    {
+        $bigInt = new IntField('score', FieldSettings::fromOptions(), 0, null, true);
+        self::assertTrue($bigInt->isBig());
+        self::assertSame('bigint', $bigInt->type());
+        self::assertSame('BIGINT', $bigInt->column()->sqlType);
+        self::assertSame(3, $bigInt->hydrate('3'));
+
+        $wideId = IdField::big();
+        self::assertTrue($wideId->isBig());
+        self::assertSame('bigint', $wideId->type());
+        self::assertSame('BIGINT', $wideId->column()->sqlType);
+
+        $cascade = new ReferenceField(
+            'parent_id',
+            FieldSettings::fromOptions(['required' => true]),
+            ParentRefTable::class,
+            'cascade',
+        );
+        self::assertSame('cascade', $cascade->onDelete());
+        self::assertSame('INT', $cascade->column()->sqlType);
+
+        try {
+            (new CascadeMultipleTable())->getMap();
+            self::fail('cascade with multiple must fail');
+        } catch (MapInvalidException $exception) {
+            self::assertSame('MAP_INVALID', $exception->getErrorCode());
         }
     }
 

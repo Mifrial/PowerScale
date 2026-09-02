@@ -10,5 +10,11 @@
         <testsuite name="smarttable">
             <directory>modules/Core/SmartTable/tests</directory>
         </testsuite>
+        <testsuite name="user">
+            <directory>modules/Core/User/tests</directory>
+        </testsuite>
+        <testsuite name="auth">
+            <directory>modules/Core/Auth/tests</directory>
+        </testsuite>
     </testsuites>
 </phpunit>

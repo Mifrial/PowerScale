@@ -20,4 +20,18 @@ final class DateTimeTest extends TestCase
         self::assertSame(0, $moment->toUnix());
         self::assertSame(1700000000, DateTime::fromUnix(1700000000)->toUnix());
     }
+
+    /**
+     * Проверяет, что now() — текущий unix UTC.
+     *
+     * @return void
+     */
+    public function testNowIsCurrentUnix(): void
+    {
+        $beforeUnix = time();
+        $moment = DateTime::now();
+        $afterUnix = time();
+        self::assertGreaterThanOrEqual($beforeUnix, $moment->toUnix());
+        self::assertLessThanOrEqual($afterUnix, $moment->toUnix());
+    }
 }

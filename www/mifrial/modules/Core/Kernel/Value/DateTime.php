@@ -34,6 +34,16 @@ final class DateTime
     }
 
     /**
+     * Текущий момент. Единственная точка «сейчас»; не `fromUnix(time())` у соседа.
+     *
+     * @return self Сейчас (v1 — unix UTC через `time()`).
+     */
+    public static function now(): self
+    {
+        return self::fromUnix(time());
+    }
+
+    /**
      * Возвращает unix-секунды UTC.
      *
      * @return int Секунды.

@@ -141,7 +141,11 @@ final class ColumnSchema
     private function defineColumn(Blueprint $blueprint, BaseField $field): void
     {
         if ($field instanceof IdField) {
-            $blueprint->integer('id', true, false);
+            if ($field->isBig()) {
+                $blueprint->bigInteger('id', true, false);
+            } else {
+                $blueprint->integer('id', true, false);
+            }
 
             return;
         }
@@ -225,6 +229,7 @@ final class ColumnSchema
             'TEXT' => $blueprint->text($columnName),
             'LONGTEXT' => $blueprint->longText($columnName),
             'INT' => $blueprint->integer($columnName),
+            'BIGINT' => $blueprint->bigInteger($columnName),
             'TINYINT' => $this->tinyIntegerColumn($blueprint, $columnName, $columnMeta),
             'JSON' => $blueprint->json($columnName),
             default => throw new MapInvalidException('Unknown column sqlType'),

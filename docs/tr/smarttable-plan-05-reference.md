@@ -2,7 +2,9 @@
 
 **Статус:** сделано, 2026-09-01. Канон — [`smarttable.md`](smarttable.md) § типы и § Reference и удаление. Нарезка — [`smarttable-roadmap.md`](smarttable-roadmap.md). Multiple — [`smarttable-plan-05-multiple.md`](smarttable-plan-05-multiple.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
 
-Цель: тип `reference` — колонка `INT` (id другой Basic-таблицы), PHP `int|null`. Restrict по умолчанию, **без CASCADE**. `SET NULL` только если поле не `required`. Выключить restrict на `required` нельзя. Сигнатуры `IOpenedTable` не расширять; `@throws` дополнить. `Service/` не резать на подпапки. Multiple+reference — **не** в этом заходе.
+**Дополнение:** `onDelete` + `cascade` и ширина целого — [`smarttable-plan-15-bigint.md`](smarttable-plan-15-bigint.md). Канон — актуальный [`smarttable.md`](smarttable.md), не «CASCADE нет» ниже как запрет навсегда.
+
+Цель: тип `reference` — колонка `INT` (id другой Basic-таблицы), PHP `int|null`. Restrict по умолчанию. `SET NULL` только если поле не `required`. Сигнатуры `IOpenedTable` не расширять.
 
 ## Todo
 

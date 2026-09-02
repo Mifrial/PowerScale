@@ -248,7 +248,7 @@ final class ListQueryOptionsParser
      */
     private function assertFieldName(mixed $fieldName, string $message): void
     {
-        if (!is_string($fieldName) || preg_match('/^[a-z][a-z0-9_]*$/', $fieldName) !== 1) {
+        if (!is_string($fieldName) || preg_match(FieldPath::NAME_PATTERN, $fieldName) !== 1) {
             throw new MapInvalidException($message);
         }
     }

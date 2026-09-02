@@ -10,9 +10,11 @@ use Mifrial\Core\SmartTable\Dto\ListQuery;
 use Mifrial\Core\SmartTable\Exception\Field\FieldMultipleUnsupportedException;
 use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
 use Mifrial\Core\SmartTable\Service\Query\ListQueryCompiler;
+use Mifrial\Core\SmartTable\Tests\Fixture\BigIdTable;
 use Mifrial\Core\SmartTable\Tests\Fixture\ChildRestrictTable;
 use Mifrial\Core\SmartTable\Tests\Fixture\CrudProbeTable;
 use Mifrial\Core\SmartTable\Tests\Fixture\ListMultipleTable;
+use Mifrial\Core\SmartTable\Tests\Fixture\PathChildTable;
 use PHPUnit\Framework\TestCase;
 
 final class ListQueryCompilerTest extends TestCase
@@ -77,6 +79,23 @@ final class ListQueryCompilerTest extends TestCase
             $query,
             ListQuery::fromOptions(['limit' => 10, 'filter' => ['id' => [1, 2]]]),
             new CrudProbeTable(),
+        );
+    }
+
+    /**
+     * bigint принимает range-оператор, не только равенство.
+     *
+     * @return void
+     */
+    public function testBigintAllowsRange(): void
+    {
+        $compiler = new ListQueryCompiler();
+        $query = $this->invokingBuilder();
+        $query->expects(self::atLeastOnce())->method('where');
+        $compiler->applyWhere(
+            $query,
+            ListQuery::fromOptions(['limit' => 10, 'filter' => ['<score' => 10]]),
+            new BigIdTable(),
         );
     }
 
@@ -156,6 +175,26 @@ final class ListQueryCompilerTest extends TestCase
             ListQuery::fromOptions(['limit' => 10, 'filter' => ['LOGIC' => 'OR', ['tags' => ['a', 'b']]]]),
             $table,
         );
+    }
+
+    /**
+     * Неизвестный лист пути.
+     *
+     * @return void
+     */
+    public function testUnknownPathRejected(): void
+    {
+        $compiler = new ListQueryCompiler();
+        try {
+            $compiler->applyWhere(
+                $this->invokingBuilder(),
+                ListQuery::fromOptions(['limit' => 10, 'filter' => ['parent_id.nope' => true]]),
+                new PathChildTable(),
+            );
+            self::fail('unknown path must fail');
+        } catch (MapInvalidException $exception) {
+            self::assertSame('MAP_INVALID', $exception->getErrorCode());
+        }
     }
 
     /**

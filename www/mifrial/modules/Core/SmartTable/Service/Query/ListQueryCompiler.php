@@ -18,16 +18,27 @@ use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
  */
 final class ListQueryCompiler
 {
+    private readonly ListPathFilter $pathFilter;
+
+    private readonly FieldPathWalker $fieldPathWalker;
+
+    private readonly ListPathSql $pathSql;
+
     /**
      * Создаёт компилятор.
      *
-     * @param ListFilterBinder $filterBinder Условия фильтра.
+     * @param ListFilterBinder $filterBinder Условия своей карты.
+     * @param FieldPathWalker|null $fieldPathWalker Разбор пути.
      *
      * @return void
      */
     public function __construct(
         private readonly ListFilterBinder $filterBinder = new ListFilterBinder(),
+        ?FieldPathWalker $fieldPathWalker = null,
     ) {
+        $this->fieldPathWalker = $fieldPathWalker ?? new FieldPathWalker();
+        $this->pathFilter = new ListPathFilter($this->fieldPathWalker, $this->filterBinder);
+        $this->pathSql = new ListPathSql();
     }
 
     /**
@@ -76,8 +87,7 @@ final class ListQueryCompiler
 
         $fieldMap = $tableDefinition->getMap();
         foreach ($sortMap as $fieldName => $direction) {
-            $this->assertSortField($fieldMap, $fieldName);
-            $query->orderBy($fieldName, strtolower($direction));
+            $this->applySortKey($query, $tableDefinition, $fieldMap, $fieldName, strtolower($direction));
         }
     }
 
@@ -116,7 +126,7 @@ final class ListQueryCompiler
                 if ($childNode instanceof FilterGroup) {
                     $this->applyGroup($nestedQuery, $childNode, $childBoolean, $tableDefinition);
                 } elseif ($childNode instanceof FilterCondition) {
-                    $this->filterBinder->apply($nestedQuery, $childNode, $childBoolean, $tableDefinition);
+                    $this->applyCondition($nestedQuery, $childNode, $childBoolean, $tableDefinition);
                 }
             }
         };
@@ -130,7 +140,68 @@ final class ListQueryCompiler
     }
 
     /**
-     * Проверяет поле сортировки.
+     * Условие своей колонки или пути.
+     *
+     * @param Builder $query Билдер.
+     * @param FilterCondition $condition Условие.
+     * @param string $boolean Связка.
+     * @param SmartTableDefinition $tableDefinition Карта.
+     *
+     * @return void
+     */
+    private function applyCondition(
+        Builder $query,
+        FilterCondition $condition,
+        string $boolean,
+        SmartTableDefinition $tableDefinition,
+    ): void {
+        if (str_contains($condition->fieldName(), '.')) {
+            $this->pathFilter->apply($query, $condition, $boolean, $tableDefinition);
+
+            return;
+        }
+
+        $this->filterBinder->apply($query, $condition, $boolean, $tableDefinition);
+    }
+
+    /**
+     * ORDER BY своей колонки или подзапроса пути.
+     *
+     * @param Builder $query Билдер.
+     * @param SmartTableDefinition $tableDefinition Карта.
+     * @param array<string, BaseField> $fieldMap Своя карта.
+     * @param string $fieldName Ключ sort.
+     * @param string $direction asc|desc.
+     *
+     * @return void
+     *
+     * @throws MapInvalidException Если поле неизвестно.
+     * @throws FieldMultipleUnsupportedException Если multiple.
+     */
+    private function applySortKey(
+        Builder $query,
+        SmartTableDefinition $tableDefinition,
+        array $fieldMap,
+        string $fieldName,
+        string $direction,
+    ): void {
+        if (str_contains($fieldName, '.')) {
+            $resolvedPath = $this->fieldPathWalker->resolve($tableDefinition, $fieldName);
+            if ($resolvedPath->leafField()->settings()->multiple()) {
+                throw new FieldMultipleUnsupportedException();
+            }
+
+            $query->orderByRaw($this->pathSql->scalarSql($resolvedPath) . ' ' . $direction);
+
+            return;
+        }
+
+        $this->assertSortField($fieldMap, $fieldName);
+        $query->orderBy($fieldName, $direction);
+    }
+
+    /**
+     * Проверяет поле сортировки своей карты.
      *
      * @param array<string, BaseField> $fieldMap Карта.
      * @param string $fieldName Имя.

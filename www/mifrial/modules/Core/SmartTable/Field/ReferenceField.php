@@ -20,7 +20,7 @@ final class ReferenceField extends IntField
      * @param string $fieldName Имя поля.
      * @param FieldSettings $fieldSettings Настройки.
      * @param string $targetClass Класс определения цели.
-     * @param string $onDelete Режим restrict, setNull или none.
+     * @param string $onDelete Режим restrict, setNull, none или cascade.
      * @param bool $targetIsPhysicalName True, если $targetClass — физ. имя.
      *
      * @return void
@@ -51,7 +51,7 @@ final class ReferenceField extends IntField
      * @param string $fieldName Имя поля.
      * @param FieldSettings $fieldSettings Настройки.
      * @param string $tableName Физическое имя цели.
-     * @param string $onDelete Режим restrict, setNull или none.
+     * @param string $onDelete Режим restrict, setNull, none или cascade.
      *
      * @return self Поле.
      *
@@ -105,6 +105,30 @@ final class ReferenceField extends IntField
     }
 
     /**
+     * Возвращает имя колонки цели: всегда id.
+     *
+     * @return string id.
+     */
+    public function targetIdField(): string
+    {
+        return 'id';
+    }
+
+    /**
+     * Class-string цели или null для словаря.
+     *
+     * @return string|null Класс definition.
+     */
+    public function targetDefinitionClass(): ?string
+    {
+        if ($this->targetIsPhysicalName) {
+            return null;
+        }
+
+        return $this->targetClass;
+    }
+
+    /**
      * Проверяет multiple и onDelete.
      *
      * @return void
@@ -117,12 +141,12 @@ final class ReferenceField extends IntField
             throw new MapInvalidException('Reference cannot be multiple');
         }
 
-        if (!in_array($this->onDelete, ['restrict', 'setNull', 'none'], true)) {
+        if (!in_array($this->onDelete, ['restrict', 'setNull', 'none', 'cascade'], true)) {
             throw new MapInvalidException('Reference onDelete is invalid');
         }
 
-        if ($this->settings()->required() && $this->onDelete !== 'restrict') {
-            throw new MapInvalidException('Required reference must restrict on delete');
+        if ($this->settings()->required() && !in_array($this->onDelete, ['restrict', 'cascade'], true)) {
+            throw new MapInvalidException('Required reference must restrict or cascade on delete');
         }
     }
 

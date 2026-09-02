@@ -18,6 +18,7 @@ use Mifrial\Core\SmartTable\Interface\Service\IOpenedTable;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Core\SmartTable\Service\Connection\IlluminateConnectionFactory;
 use Mifrial\Core\SmartTable\Service\Connection\IlluminateDatabaseConnection;
+use Mifrial\Core\SmartTable\Tests\Fixture\ChildCascadeTable;
 use Mifrial\Core\SmartTable\Tests\Fixture\ChildNoneTable;
 use Mifrial\Core\SmartTable\Tests\Fixture\ChildRestrictTable;
 use Mifrial\Core\SmartTable\Tests\Fixture\ChildSetNullTable;
@@ -66,8 +67,8 @@ final class ReferenceMysqlTest extends TestCase
     {
         $parent = $this->openParent();
         $child = $this->openChild();
-        $parent->createTable();
-        $child->createTable();
+        $parent->schema()->createTable();
+        $child->schema()->createTable();
         $schemaBuilder = $this->databaseConnection?->illuminateConnection()->getSchemaBuilder();
         self::assertNotNull($schemaBuilder);
         $column = null;
@@ -96,7 +97,7 @@ final class ReferenceMysqlTest extends TestCase
     public function testCreateChildWithoutParent(): void
     {
         try {
-            $this->openChild()->createTable();
+            $this->openChild()->schema()->createTable();
             self::fail('child without parent table must fail');
         } catch (TableMissingException $exception) {
             self::assertSame('TABLE_MISSING', $exception->getErrorCode());
@@ -116,23 +117,23 @@ final class ReferenceMysqlTest extends TestCase
     {
         $parent = $this->openParent();
         $child = $this->openChild();
-        $parent->createTable();
-        $child->createTable();
-        $parentId = $parent->add(['title' => 'p']);
-        $childId = $child->add(['parent_id' => $parentId]);
-        $row = $child->getById($childId);
+        $parent->schema()->createTable();
+        $child->schema()->createTable();
+        $parentId = $parent->records()->add(['title' => 'p']);
+        $childId = $child->records()->add(['parent_id' => $parentId]);
+        $row = $child->records()->getById($childId);
         self::assertIsArray($row);
         self::assertSame($parentId, $row['parent_id']);
 
         try {
-            $child->add(['parent_id' => $parentId + 100]);
+            $child->records()->add(['parent_id' => $parentId + 100]);
             self::fail('add missing parent must fail');
         } catch (ReferenceConstraintException $exception) {
             self::assertSame('REFERENCE_CONSTRAINT', $exception->getErrorCode());
         }
 
         try {
-            $child->update($childId, ['parent_id' => $parentId + 100]);
+            $child->records()->update($childId, ['parent_id' => $parentId + 100]);
             self::fail('update missing parent must fail');
         } catch (ReferenceConstraintException $exception) {
             self::assertSame('REFERENCE_CONSTRAINT', $exception->getErrorCode());
@@ -148,20 +149,38 @@ final class ReferenceMysqlTest extends TestCase
     {
         $parent = $this->openParent();
         $child = $this->openChild();
-        $parent->createTable();
-        $child->createTable();
-        $parentId = $parent->add(['title' => 'p']);
-        $childId = $child->add(['parent_id' => $parentId]);
+        $parent->schema()->createTable();
+        $child->schema()->createTable();
+        $parentId = $parent->records()->add(['title' => 'p']);
+        $childId = $child->records()->add(['parent_id' => $parentId]);
         try {
-            $parent->delete($parentId);
+            $parent->records()->delete($parentId);
             self::fail('delete parent with child must fail');
         } catch (ReferenceConstraintException $exception) {
             self::assertSame('REFERENCE_CONSTRAINT', $exception->getErrorCode());
         }
-        self::assertNotNull($child->getById($childId));
-        $child->delete($childId);
-        $parent->delete($parentId);
-        self::assertNull($parent->getById($parentId));
+        self::assertNotNull($child->records()->getById($childId));
+        $child->records()->delete($childId);
+        $parent->records()->delete($parentId);
+        self::assertNull($parent->records()->getById($parentId));
+    }
+
+    /**
+     * cascade: delete родителя сносит детей без mfv.
+     *
+     * @return void
+     */
+    public function testCascadeDelete(): void
+    {
+        $parent = $this->openParent();
+        $child = $this->gateway()->open(ChildCascadeTable::class);
+        $parent->schema()->createTable();
+        $child->schema()->createTable();
+        $parentId = $parent->records()->add(['title' => 'p']);
+        $childId = $child->records()->add(['parent_id' => $parentId]);
+        $parent->records()->delete($parentId);
+        self::assertNull($parent->records()->getById($parentId));
+        self::assertNull($child->records()->getById($childId));
     }
 
     /**
@@ -174,16 +193,16 @@ final class ReferenceMysqlTest extends TestCase
         $parent = $this->openParent();
         $setNull = $this->gateway()->open(ChildSetNullTable::class);
         $none = $this->gateway()->open(ChildNoneTable::class);
-        $parent->createTable();
-        $setNull->createTable();
-        $none->createTable();
-        $parentId = $parent->add(['title' => 'p']);
-        $setNullId = $setNull->add(['parent_id' => $parentId]);
-        $noneId = $none->add(['parent_id' => $parentId]);
-        $parent->delete($parentId);
-        self::assertNull($setNull->getById($setNullId)['parent_id']);
-        self::assertSame($parentId, $none->getById($noneId)['parent_id']);
-        self::assertNull($parent->getById($parentId));
+        $parent->schema()->createTable();
+        $setNull->schema()->createTable();
+        $none->schema()->createTable();
+        $parentId = $parent->records()->add(['title' => 'p']);
+        $setNullId = $setNull->records()->add(['parent_id' => $parentId]);
+        $noneId = $none->records()->add(['parent_id' => $parentId]);
+        $parent->records()->delete($parentId);
+        self::assertNull($setNull->records()->getById($setNullId)['parent_id']);
+        self::assertSame($parentId, $none->records()->getById($noneId)['parent_id']);
+        self::assertNull($parent->records()->getById($parentId));
     }
 
     /**
@@ -195,15 +214,15 @@ final class ReferenceMysqlTest extends TestCase
     {
         $parent = $this->openParent();
         $child = $this->openChild();
-        $parent->createTable();
-        $child->createTable();
+        $parent->schema()->createTable();
+        $child->schema()->createTable();
         $schemaBuilder = $this->databaseConnection?->illuminateConnection()->getSchemaBuilder();
         self::assertNotNull($schemaBuilder);
         $schemaBuilder->table('st_ref_child', function (Blueprint $blueprint): void {
             $blueprint->dropForeign('st_ref_child_parent_id_fk');
         });
         self::assertTrue($schemaBuilder->hasColumn('st_ref_child', 'parent_id'));
-        $child->updateTable();
+        $child->schema()->updateTable();
         $constraintNames = [];
         foreach ($schemaBuilder->getForeignKeys('st_ref_child') as $foreignKey) {
             if (isset($foreignKey['name']) && is_string($foreignKey['name'])) {
@@ -222,13 +241,13 @@ final class ReferenceMysqlTest extends TestCase
     {
         $parent = $this->openParent();
         $child = $this->openChild();
-        $parent->createTable();
-        $child->createTable();
-        $firstParent = $parent->add(['title' => 'a']);
-        $secondParent = $parent->add(['title' => 'b']);
-        $child->add(['parent_id' => $secondParent]);
-        $child->add(['parent_id' => $firstParent]);
-        $listResult = $child->getList(ListQuery::fromOptions([
+        $parent->schema()->createTable();
+        $child->schema()->createTable();
+        $firstParent = $parent->records()->add(['title' => 'a']);
+        $secondParent = $parent->records()->add(['title' => 'b']);
+        $child->records()->add(['parent_id' => $secondParent]);
+        $child->records()->add(['parent_id' => $firstParent]);
+        $listResult = $child->records()->getList(ListQuery::fromOptions([
             'limit' => 10,
             'filter' => ['parent_id' => [$firstParent, $secondParent]],
             'sort' => ['parent_id' => 'asc'],
@@ -246,18 +265,18 @@ final class ReferenceMysqlTest extends TestCase
     public function testSelfReference(): void
     {
         $table = $this->gateway()->open(SelfRefTable::class);
-        $table->createTable();
-        $rowB = $table->add([]);
-        $rowA = $table->add(['parent_id' => $rowB]);
+        $table->schema()->createTable();
+        $rowB = $table->records()->add([]);
+        $rowA = $table->records()->add(['parent_id' => $rowB]);
         try {
-            $table->delete($rowB);
+            $table->records()->delete($rowB);
             self::fail('delete referenced self-row must fail');
         } catch (ReferenceConstraintException $exception) {
             self::assertSame('REFERENCE_CONSTRAINT', $exception->getErrorCode());
         }
-        $table->delete($rowA);
-        $table->delete($rowB);
-        self::assertNull($table->getById($rowB));
+        $table->records()->delete($rowA);
+        $table->records()->delete($rowB);
+        self::assertNull($table->records()->getById($rowB));
     }
 
     /**
@@ -340,6 +359,7 @@ final class ReferenceMysqlTest extends TestCase
 
         $schemaBuilder = $this->databaseConnection->illuminateConnection()->getSchemaBuilder();
         $schemaBuilder->dropIfExists('st_ref_child');
+        $schemaBuilder->dropIfExists('st_ref_cascade');
         $schemaBuilder->dropIfExists('st_ref_setnull');
         $schemaBuilder->dropIfExists('st_ref_none');
         $schemaBuilder->dropIfExists('st_ref_self');

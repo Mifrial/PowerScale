@@ -99,6 +99,7 @@ final class FieldSpecAssembler
         }
 
         $this->assertKeys($fieldSpec, $fieldType);
+        $fieldSpec = (new DatetimeSpecDefault())->apply($fieldSpec, $fieldType);
         $fieldSettings = FieldSettings::fromOptions($fieldSpec);
 
         return $this->makeField($fieldName, $fieldType, $fieldSettings, $fieldSpec);
@@ -137,7 +138,7 @@ final class FieldSpecAssembler
     {
         return match ($fieldType) {
             'string' => ['maxLength'],
-            'int' => ['min', 'max'],
+            'int', 'bigint' => ['min', 'max'],
             'reference' => ['target', 'onDelete'],
             'bool', 'datetime', 'text', 'html', 'json' => [],
             default => throw new MapInvalidException('Field spec type is invalid'),
@@ -164,7 +165,8 @@ final class FieldSpecAssembler
     ): BaseField {
         return match ($fieldType) {
             'string' => $this->makeString($fieldName, $fieldSettings, $fieldSpec),
-            'int' => $this->makeInt($fieldName, $fieldSettings, $fieldSpec),
+            'int' => $this->makeInt($fieldName, $fieldSettings, $fieldSpec, false),
+            'bigint' => $this->makeInt($fieldName, $fieldSettings, $fieldSpec, true),
             'reference' => $this->makeReference($fieldName, $fieldSettings, $fieldSpec),
             default => $this->makePlain($fieldName, $fieldType, $fieldSettings),
         };
@@ -224,18 +226,24 @@ final class FieldSpecAssembler
      * @param string $fieldName Имя.
      * @param FieldSettings $fieldSettings Настройки.
      * @param array<string, mixed> $fieldSpec Спека.
+     * @param bool $big True — BIGINT.
      *
      * @return IntField Поле.
      *
      * @throws MapInvalidException Если min/max не int.
      */
-    private function makeInt(string $fieldName, FieldSettings $fieldSettings, array $fieldSpec): IntField
-    {
+    private function makeInt(
+        string $fieldName,
+        FieldSettings $fieldSettings,
+        array $fieldSpec,
+        bool $big,
+    ): IntField {
         return new IntField(
             $fieldName,
             $fieldSettings,
             $this->optionalInt($fieldSpec, 'min'),
             $this->optionalInt($fieldSpec, 'max'),
+            $big,
         );
     }
 

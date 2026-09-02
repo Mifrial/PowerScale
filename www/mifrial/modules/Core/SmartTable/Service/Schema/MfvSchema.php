@@ -11,6 +11,7 @@ use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
 use Mifrial\Core\SmartTable\Exception\Schema\DdlFailedException;
 use Mifrial\Core\SmartTable\Exception\SmartTableException;
 use Mifrial\Core\SmartTable\Field\BaseField;
+use Mifrial\Core\SmartTable\Field\IdField;
 use Mifrial\Core\SmartTable\Service\Connection\IlluminateDatabaseConnection;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
 use Throwable;
@@ -202,8 +203,8 @@ final class MfvSchema
         $physicalName = self::tableName($tableDefinition, $field);
         $schemaBuilder = $this->databaseConnection->illuminateConnection()->getSchemaBuilder();
         try {
-            $schemaBuilder->create($physicalName, function (Blueprint $blueprint) use ($field): void {
-                $blueprint->integer('owner_id');
+            $schemaBuilder->create($physicalName, function (Blueprint $blueprint) use ($field, $tableDefinition): void {
+                $this->defineOwnerId($blueprint, $tableDefinition);
                 $valueColumn = $this->valueColumn($blueprint, $field->column());
                 $valueColumn->nullable(false);
                 $blueprint->primary(['owner_id', 'value']);
@@ -249,6 +250,7 @@ final class MfvSchema
         return match ($columnMeta->sqlType) {
             'VARCHAR' => $this->varcharValue($blueprint, $columnMeta),
             'INT' => $blueprint->integer('value'),
+            'BIGINT' => $blueprint->bigInteger('value'),
             'TINYINT' => $this->tinyIntegerValue($blueprint, $columnMeta),
             default => throw new MapInvalidException('Unknown column sqlType'),
         };
@@ -290,5 +292,25 @@ final class MfvSchema
         }
 
         return $blueprint->tinyInteger('value');
+    }
+
+    /**
+     * Колонка owner_id той же ширины, что id таблицы.
+     *
+     * @param Blueprint $blueprint Чертёж sidecar.
+     * @param SmartTableDefinition $tableDefinition Карта владельца.
+     *
+     * @return void
+     */
+    private function defineOwnerId(Blueprint $blueprint, SmartTableDefinition $tableDefinition): void
+    {
+        $idField = $tableDefinition->getMap()['id'] ?? null;
+        if ($idField instanceof IdField && $idField->isBig()) {
+            $blueprint->bigInteger('owner_id');
+
+            return;
+        }
+
+        $blueprint->integer('owner_id');
     }
 }

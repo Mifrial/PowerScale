@@ -19,6 +19,7 @@ final class RuntimeConfig implements IRuntimeConfig
      * @param bool $debug Признак debug.
      * @param DatabaseSettings $databaseSettings Настройки MySQL.
      * @param CacheSettings $cacheSettings Настройки кэша.
+     * @param array<string, mixed> $localConfig Полный массив local.php.
      *
      * @return void
      */
@@ -26,6 +27,7 @@ final class RuntimeConfig implements IRuntimeConfig
         private readonly bool $debug,
         private readonly DatabaseSettings $databaseSettings,
         private readonly CacheSettings $cacheSettings,
+        private readonly array $localConfig,
     ) {
     }
 
@@ -42,6 +44,7 @@ final class RuntimeConfig implements IRuntimeConfig
             $localConfig['debug'] === true,
             DatabaseSettings::fromConfig($localConfig['db'] ?? null),
             CacheSettings::fromConfig($localConfig['cache'] ?? null),
+            $localConfig,
         );
     }
 
@@ -83,5 +86,21 @@ final class RuntimeConfig implements IRuntimeConfig
     public function cacheDriver(): string
     {
         return $this->cacheSettings->driver();
+    }
+
+    /**
+     * Возвращает срез ключа local.php.
+     *
+     * @param string $name Имя верхнего ключа.
+     *
+     * @return mixed Значение или null, если ключа нет.
+     */
+    public function section(string $name): mixed
+    {
+        if ($name === '' || !array_key_exists($name, $this->localConfig)) {
+            return null;
+        }
+
+        return $this->localConfig[$name];
     }
 }

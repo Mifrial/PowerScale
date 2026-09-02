@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Mifrial\Core\Kernel\Service;
 
+use Mifrial\Core\Kernel\Http\RequestContext;
 use Mifrial\Core\Kernel\Http\ResponseEmitter;
+use Mifrial\Core\Kernel\Interface\Http\IRequestContext;
 use Mifrial\Core\Kernel\Interface\Service\IModuleManager;
 use Mifrial\Core\Kernel\Interface\Service\IRuntimeConfig;
 use Mifrial\Core\Kernel\Interface\Service\IServiceLocator;
@@ -23,21 +25,57 @@ final class ApplicationFactory
      */
     public function boot(string $root): Application
     {
+        return $this->assemble($root, false);
+    }
+
+    /**
+     * Собирает приложение со всеми модулями на диске для CLI setup.
+     *
+     * Без ленивых слотов catalog: freeze после eager всех каталогов.
+     *
+     * @param string $root Корень Mifrial.
+     *
+     * @return Application Собранное приложение.
+     */
+    public function bootSetup(string $root): Application
+    {
+        return $this->assemble($root, true);
+    }
+
+    /**
+     * Собирает локатор и менеджер модулей.
+     *
+     * @param string $root Корень Mifrial.
+     * @param bool $loadAllDiskModules true — все группы на диске, без lazy catalog.
+     *
+     * @return Application Собранное приложение.
+     */
+    private function assemble(string $root, bool $loadAllDiskModules): Application
+    {
         $config = (new LocalConfigLoader())->load($root);
         $serviceLocator = new ServiceLocator();
         $moduleManager = new ModuleManager($root . '/modules');
-        $containerBinder = $this->createContainerBinder($config);
-        $moduleManager->loadCore();
+        $requestContext = new RequestContext();
+        $containerBinder = $this->createContainerBinder($config, $requestContext);
+        if ($loadAllDiskModules) {
+            $moduleManager->loadAllFromDisk();
+        } else {
+            $moduleManager->loadCore();
+        }
+
         $moduleManager->getRoutes();
         $containerBinder->bindEager($serviceLocator, $moduleManager);
-        $this->registerLazyFromCatalog($root, $serviceLocator, $moduleManager, $containerBinder);
+        if (!$loadAllDiskModules) {
+            $this->registerLazyFromCatalog($root, $serviceLocator, $moduleManager, $containerBinder);
+        }
+
         $serviceLocator->freeze();
 
         return new Application(
             $serviceLocator,
             $moduleManager,
             new Dispatcher($moduleManager),
-            new ResponseEmitter(),
+            new ResponseEmitter(requestContext: $requestContext),
             new ErrorLogLogger(),
             $config,
         );
@@ -47,14 +85,16 @@ final class ApplicationFactory
      * Собирает binder с extra-портами только для Kernel.
      *
      * @param array<string, mixed> $config Локальная конфигурация.
+     * @param IRequestContext $requestContext Контекст cookie процесса.
      *
      * @return ModuleContainerBinder Сборщик контейнеров.
      */
-    private function createContainerBinder(array $config): ModuleContainerBinder
+    private function createContainerBinder(array $config, IRequestContext $requestContext): ModuleContainerBinder
     {
         $runtimeConfig = RuntimeConfig::fromLocal($config);
         $kernelPortFactories = [
             IRuntimeConfig::class => static fn (): IRuntimeConfig => $runtimeConfig,
+            IRequestContext::class => static fn (): IRequestContext => $requestContext,
         ];
 
         return new ModuleContainerBinder(new ModuleContainerFactory($kernelPortFactories));

@@ -57,6 +57,8 @@ INDEX (token), (user_id)
 
 ### Users, groups and permissions
 
+Канон текущей физики учётки и групп — [`user.md`](user.md) и планы User, не SQL ниже. Блок — legacy-sketch (`users`/`groups`/`super_admin`/`password_hash`/составной PK членства). SmartTable v1: одно поле unique, не PRIMARY KEY из двух колонок; пароль — Auth, не User.
+
 ```sql
 users(
   id,

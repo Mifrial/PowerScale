@@ -140,6 +140,41 @@ final class TableSchema
     }
 
     /**
+     * Столы с FK CASCADE/SET NULL на этот PK (кэш детей после delete).
+     *
+     * @param string $parentTableName Физическое имя родителя.
+     *
+     * @return array<int, string> Имена детей, без дублей.
+     */
+    public function cacheDependentTableNames(string $parentTableName): array
+    {
+        try {
+            $rows = $this->databaseConnection->illuminateConnection()->select(
+                'select distinct table_name as child_table'
+                . ' from information_schema.referential_constraints'
+                . ' where constraint_schema = database()'
+                . ' and referenced_table_name = ?'
+                . ' and delete_rule in (\'CASCADE\', \'SET NULL\')',
+                [$parentTableName],
+            );
+        } catch (Throwable) {
+            return [];
+        }
+
+        $tableNames = [];
+        foreach ($rows as $row) {
+            $childName = is_object($row) ? ($row->child_table ?? null) : null;
+            if (!is_string($childName) || $childName === '') {
+                continue;
+            }
+
+            $tableNames[$childName] = true;
+        }
+
+        return array_keys($tableNames);
+    }
+
+    /**
      * Индексы, mfv и FK после CREATE колонок.
      *
      * @param SmartTableDefinition $tableDefinition Определение.

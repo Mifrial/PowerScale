@@ -15,6 +15,7 @@ use Mifrial\Core\SmartTable\Service\Query\TableRows;
 use Mifrial\Core\SmartTable\Service\Schema\TableSchema;
 use Mifrial\Core\SmartTable\Table\MetaFieldDefinition;
 use Mifrial\Core\SmartTable\Table\MetaTableDefinition;
+use Mifrial\Core\SmartTable\Table\RuntimeDefinition;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
 
 /**
@@ -51,7 +52,7 @@ final class CatalogDictionary
      */
     public function findTable(string $tableName): ?array
     {
-        $rows = $this->tablesHandle()->getList(ListQuery::fromOptions([
+        $rows = $this->tablesHandle()->records()->getList(ListQuery::fromOptions([
             'filter' => ['name' => $tableName],
             'limit' => 1,
         ]))->rows();
@@ -79,6 +80,31 @@ final class CatalogDictionary
     }
 
     /**
+     * Собирает runtime-карту из словаря.
+     *
+     * @param string $tableName Имя.
+     *
+     * @return RuntimeDefinition Карта.
+     *
+     * @throws TableMissingException Если строки нет.
+     * @throws MapInvalidException Если поля некорректны.
+     */
+    public function runtimeDefinition(string $tableName): RuntimeDefinition
+    {
+        $metaRow = $this->requireTable($tableName);
+        $fieldSpecs = [];
+        foreach ($this->fieldRows((int) $metaRow['id']) as $fieldRow) {
+            $settings = is_array($fieldRow['settings']) ? $fieldRow['settings'] : [];
+            $fieldSpecs[] = array_merge($settings, [
+                'name' => $fieldRow['name'],
+                'type' => $fieldRow['type'],
+            ]);
+        }
+
+        return (new FieldSpecAssembler())->makeDefinition($tableName, $fieldSpecs);
+    }
+
+    /**
      * Пишет таблицу и поля словаря.
      *
      * @param string $tableName Имя.
@@ -90,9 +116,9 @@ final class CatalogDictionary
      */
     public function insertTable(string $tableName, array $fieldSpecs): void
     {
-        $tableId = $this->tablesHandle()->add(['name' => $tableName]);
+        $tableId = $this->tablesHandle()->records()->add(['name' => $tableName]);
         foreach ($fieldSpecs as $fieldSpec) {
-            $this->fieldsHandle()->add($this->fieldRow($tableId, $fieldSpec));
+            $this->fieldsHandle()->records()->add($this->fieldRow($tableId, $fieldSpec));
         }
     }
 
@@ -108,7 +134,7 @@ final class CatalogDictionary
      */
     public function addFieldRow(int $tableId, array $fieldSpec): void
     {
-        $this->fieldsHandle()->add($this->fieldRow($tableId, $fieldSpec));
+        $this->fieldsHandle()->records()->add($this->fieldRow($tableId, $fieldSpec));
     }
 
     /**
@@ -122,7 +148,7 @@ final class CatalogDictionary
      */
     public function fieldRows(int $tableId): array
     {
-        return $this->fieldsHandle()->getList(ListQuery::fromOptions([
+        return $this->fieldsHandle()->records()->getList(ListQuery::fromOptions([
             'filter' => ['table_id' => $tableId],
             'sort' => ['id' => 'ASC'],
             'limit' => 500,
@@ -144,7 +170,7 @@ final class CatalogDictionary
     {
         foreach ($this->fieldRows($tableId) as $fieldRow) {
             if ($fieldRow['name'] === $fieldName) {
-                $this->fieldsHandle()->delete((int) $fieldRow['id']);
+                $this->fieldsHandle()->records()->delete((int) $fieldRow['id']);
 
                 return;
             }
@@ -165,10 +191,10 @@ final class CatalogDictionary
     public function deleteTable(int $tableId): void
     {
         foreach ($this->fieldRows($tableId) as $fieldRow) {
-            $this->fieldsHandle()->delete((int) $fieldRow['id']);
+            $this->fieldsHandle()->records()->delete((int) $fieldRow['id']);
         }
 
-        $this->tablesHandle()->delete($tableId);
+        $this->tablesHandle()->records()->delete($tableId);
     }
 
     /**
@@ -229,7 +255,7 @@ final class CatalogDictionary
      */
     private function openHandle(SmartTableDefinition $tableDefinition): IOpenedTable
     {
-        return new OpenedTable(
+        return OpenedTable::bind(
             $tableDefinition,
             $this->tableSchema,
             $this->tableRows,

@@ -9,7 +9,7 @@ use Mifrial\Core\SmartTable\Dto\FieldSettings;
 use Mifrial\Core\SmartTable\Exception\Field\FieldInvalidException;
 
 /**
- * Целое INT с опциональными min/max.
+ * Целое INT или BIGINT с опциональными min/max.
  */
 class IntField extends BaseField
 {
@@ -20,6 +20,7 @@ class IntField extends BaseField
      * @param FieldSettings $fieldSettings Настройки.
      * @param int|null $minimum Нижняя граница или null.
      * @param int|null $maximum Верхняя граница или null.
+     * @param bool $big True — signed BIGINT, иначе INT.
      *
      * @return void
      */
@@ -28,8 +29,19 @@ class IntField extends BaseField
         FieldSettings $fieldSettings,
         private readonly ?int $minimum = null,
         private readonly ?int $maximum = null,
+        private readonly bool $big = false,
     ) {
         parent::__construct($fieldName, $fieldSettings);
+    }
+
+    /**
+     * Широкая колонка BIGINT.
+     *
+     * @return bool true, если BIGINT.
+     */
+    public function isBig(): bool
+    {
+        return $this->big;
     }
 
     /**
@@ -39,7 +51,7 @@ class IntField extends BaseField
      */
     public function type(): string
     {
-        return 'int';
+        return $this->big ? 'bigint' : 'int';
     }
 
     /**
@@ -49,7 +61,7 @@ class IntField extends BaseField
      */
     public function column(): ColumnMeta
     {
-        return new ColumnMeta('INT');
+        return new ColumnMeta($this->big ? 'BIGINT' : 'INT');
     }
 
     /**

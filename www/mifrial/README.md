@@ -9,7 +9,7 @@
 [`API/action.php`](API/action.php); будущий SSE-транспорт будет отдельным
 entrypoint рядом с ним.
 
-`VITE_API_MODE=real` не включать, пока нет `auth.login`.
+`VITE_API_MODE=real` включает боевой `auth.login` (нужны `php bin/setup.php` и ключ `auth` в `local.php`).
 
 ```bash
 cp config/local.php.dist config/local.php
@@ -18,10 +18,16 @@ sudo bash install-local.sh
 curl -sS -X POST 'http://powerscale.test.ru/api/run?action=mifrial.ping' -H 'Content-Type: application/json'
 ```
 
-Фронт: `http://powerscale.test.ru:3000`. Тесты: `vendor/bin/phpunit`. Интеграция SmartTable ждёт MySQL с теми же ключами, что `config/local.php` (либо `MIFRIAL_TEST_DB_*`).
+Фронт: `http://powerscale.test.ru:3000`. Тесты: `vendor/bin/phpunit`. Интеграция SmartTable и User ждёт MySQL с теми же ключами, что `config/local.php` (либо `MIFRIAL_TEST_DB_*`).
 
-Данные: SmartTable (`DEC-078`) на `illuminate/database` без Eloquent. Нарезка —
+Данные: SmartTable (`DEC-078`) на `illuminate/database` без Eloquent. User — таблицы `user`, `user_group`, `user_group_member`. Auth — `user_identity`, `auth_session`, httpOnly cookie `mifrial-session`. Нарезка —
 [`docs/tr/smarttable-roadmap.md`](../../docs/tr/smarttable-roadmap.md).
+
+Установка/обновление схемы всех модулей на диске (граф `reference`, data-шаги):
+
+```bash
+php bin/setup.php
+```
 
 Проверка и исправление PHP-стиля:
 

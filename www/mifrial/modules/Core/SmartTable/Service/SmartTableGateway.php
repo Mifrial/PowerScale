@@ -50,7 +50,7 @@ final class SmartTableGateway implements ISmartTableGateway
      *
      * @param string $definitionClass Наследник SmartTableDefinition.
      *
-     * @return IOpenedTable Handle таблицы.
+     * @return IOpenedTable Сумка schema() + records().
      *
      * @throws MapInvalidException Если класс нельзя инстанцировать как definition.
      */
@@ -58,7 +58,7 @@ final class SmartTableGateway implements ISmartTableGateway
     {
         $tableDefinition = $this->instantiateDefinition($definitionClass);
 
-        return new OpenedTable(
+        return OpenedTable::bind(
             $tableDefinition,
             $this->tableSchema,
             $this->tableRows,

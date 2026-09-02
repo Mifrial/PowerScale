@@ -82,8 +82,8 @@ final class DictionaryMysqlTest extends TestCase
         $openedTable = $this->catalog()->createTable('st_dict_probe', [
             ['name' => 'title', 'type' => 'string', 'required' => true],
         ]);
-        $rowId = $openedTable->add(['title' => 'hello']);
-        $row = $this->catalog()->openByName('st_dict_probe')->getById($rowId);
+        $rowId = $openedTable->records()->add(['title' => 'hello']);
+        $row = $this->catalog()->openByName('st_dict_probe')->records()->getById($rowId);
         self::assertIsArray($row);
         self::assertSame('hello', $row['title']);
     }
@@ -99,8 +99,8 @@ final class DictionaryMysqlTest extends TestCase
             ['name' => 'title', 'type' => 'string', 'required' => true],
         ]);
         $this->catalog()->addField('st_dict_probe', ['name' => 'note', 'type' => 'string']);
-        $rowId = $this->catalog()->openByName('st_dict_probe')->add(['title' => 'a', 'note' => 'b']);
-        $row = $this->catalog()->openByName('st_dict_probe')->getById($rowId);
+        $rowId = $this->catalog()->openByName('st_dict_probe')->records()->add(['title' => 'a', 'note' => 'b']);
+        $row = $this->catalog()->openByName('st_dict_probe')->records()->getById($rowId);
         self::assertIsArray($row);
         self::assertSame('b', $row['note']);
         $this->catalog()->dropField('st_dict_probe', 'note');
@@ -174,8 +174,8 @@ final class DictionaryMysqlTest extends TestCase
     public function testEmptyFieldSpecs(): void
     {
         $openedTable = $this->catalog()->createTable('st_dict_empty', []);
-        $rowId = $openedTable->add([]);
-        $row = $openedTable->getById($rowId);
+        $rowId = $openedTable->records()->add([]);
+        $row = $openedTable->records()->getById($rowId);
         self::assertIsArray($row);
         self::assertSame($rowId, $row['id']);
     }
@@ -245,9 +245,9 @@ final class DictionaryMysqlTest extends TestCase
      */
     public function testDuplicateNames(): void
     {
-        $this->gateway()->open(MetaTableDefinition::class)->add(['name' => 'st_dict_dup']);
+        $this->gateway()->open(MetaTableDefinition::class)->records()->add(['name' => 'st_dict_dup']);
         try {
-            $this->gateway()->open(MetaTableDefinition::class)->add(['name' => 'st_dict_dup']);
+            $this->gateway()->open(MetaTableDefinition::class)->records()->add(['name' => 'st_dict_dup']);
             self::fail('unique');
         } catch (UniqueConstraintException $exception) {
             self::assertSame('UNIQUE_CONSTRAINT', $exception->getErrorCode());
@@ -271,7 +271,7 @@ final class DictionaryMysqlTest extends TestCase
      */
     public function testCreateAgainstCodedTable(): void
     {
-        $this->gateway()->open(MiniTitleTable::class)->createTable();
+        $this->gateway()->open(MiniTitleTable::class)->schema()->createTable();
         try {
             $this->catalog()->createTable('st_crud_mini', [
                 ['name' => 'title', 'type' => 'string'],
@@ -289,7 +289,7 @@ final class DictionaryMysqlTest extends TestCase
      */
     public function testOrphanMeta(): void
     {
-        $this->gateway()->open(MetaTableDefinition::class)->add(['name' => 'st_dict_orphan']);
+        $this->gateway()->open(MetaTableDefinition::class)->records()->add(['name' => 'st_dict_orphan']);
         self::assertFalse($this->schema()->hasTable('st_dict_orphan'));
         $this->catalog()->createTable('st_dict_orphan', []);
         self::assertTrue($this->schema()->hasTable('st_dict_orphan'));
@@ -336,10 +336,10 @@ final class DictionaryMysqlTest extends TestCase
                 'target' => 'st_dict_parent',
             ],
         ]);
-        $parentId = $this->catalog()->openByName('st_dict_parent')->add(['title' => 'p']);
-        $this->catalog()->openByName('st_dict_child')->add(['parent_id' => $parentId]);
+        $parentId = $this->catalog()->openByName('st_dict_parent')->records()->add(['title' => 'p']);
+        $this->catalog()->openByName('st_dict_child')->records()->add(['parent_id' => $parentId]);
 
-        $this->gateway()->open(MiniTitleTable::class)->createTable();
+        $this->gateway()->open(MiniTitleTable::class)->schema()->createTable();
         $this->catalog()->createTable('st_dict_probe', [
             [
                 'name' => 'mini_id',

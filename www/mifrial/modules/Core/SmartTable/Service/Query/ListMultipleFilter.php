@@ -27,6 +27,7 @@ final class ListMultipleFilter
      * @param BaseField $field Multiple-поле.
      * @param string $boolean And или or.
      * @param SmartTableDefinition $tableDefinition Карта.
+     * @param string $ownerIdSql Квалифицированный id владельца или пусто.
      *
      * @return void
      *
@@ -40,16 +41,17 @@ final class ListMultipleFilter
         BaseField $field,
         string $boolean,
         SmartTableDefinition $tableDefinition,
+        string $ownerIdSql = '',
     ): void {
         $operator = $condition->operator();
         if ($operator === '@') {
-            $this->applyContains($query, $condition, $field, $boolean, $tableDefinition);
+            $this->applyContains($query, $condition, $field, $boolean, $tableDefinition, $ownerIdSql);
 
             return;
         }
 
         if ($operator === '=') {
-            $this->applyEquals($query, $condition, $field, $boolean, $tableDefinition);
+            $this->applyEquals($query, $condition, $field, $boolean, $tableDefinition, $ownerIdSql);
 
             return;
         }
@@ -65,6 +67,7 @@ final class ListMultipleFilter
      * @param BaseField $field Поле.
      * @param string $boolean And или or.
      * @param SmartTableDefinition $tableDefinition Карта.
+     * @param string $ownerIdSql Id владельца mfv.
      *
      * @return void
      *
@@ -76,15 +79,18 @@ final class ListMultipleFilter
         BaseField $field,
         string $boolean,
         SmartTableDefinition $tableDefinition,
+        string $ownerIdSql,
     ): void {
         $extractedValues = $this->extractedSet($field, $condition->operand(), false);
+        $ownerIdSql = $this->ownerIdSql($tableDefinition, $ownerIdSql);
         $this->attachGroup($query, $boolean, function (Builder $nestedQuery) use (
             $tableDefinition,
             $field,
             $extractedValues,
+            $ownerIdSql,
         ): void {
             foreach ($extractedValues as $extractedValue) {
-                $this->whereValueExists($nestedQuery, $tableDefinition, $field, $extractedValue, 'and');
+                $this->whereValueExists($nestedQuery, $tableDefinition, $field, $extractedValue, 'and', $ownerIdSql);
             }
         });
     }
@@ -97,6 +103,7 @@ final class ListMultipleFilter
      * @param BaseField $field Поле.
      * @param string $boolean And или or.
      * @param SmartTableDefinition $tableDefinition Карта.
+     * @param string $ownerIdSql Id владельца mfv.
      *
      * @return void
      *
@@ -108,13 +115,15 @@ final class ListMultipleFilter
         BaseField $field,
         string $boolean,
         SmartTableDefinition $tableDefinition,
+        string $ownerIdSql,
     ): void {
         $extractedValues = $this->extractedSet($field, $condition->operand(), true);
+        $ownerIdSql = $this->ownerIdSql($tableDefinition, $ownerIdSql);
         $this->attachGroup(
             $query,
             $boolean,
-            function (Builder $nestedQuery) use ($tableDefinition, $field, $extractedValues): void {
-                $this->whereSetEquals($nestedQuery, $tableDefinition, $field, $extractedValues);
+            function (Builder $nestedQuery) use ($tableDefinition, $field, $extractedValues, $ownerIdSql): void {
+                $this->whereSetEquals($nestedQuery, $tableDefinition, $field, $extractedValues, $ownerIdSql);
             },
         );
     }
@@ -146,6 +155,7 @@ final class ListMultipleFilter
      * @param SmartTableDefinition $tableDefinition Карта.
      * @param BaseField $field Поле.
      * @param array<int, mixed> $extractedValues Набор S.
+     * @param string $ownerIdSql Id владельца.
      *
      * @return void
      */
@@ -154,12 +164,12 @@ final class ListMultipleFilter
         SmartTableDefinition $tableDefinition,
         BaseField $field,
         array $extractedValues,
+        string $ownerIdSql,
     ): void {
         $mfvName = MfvSchema::tableName($tableDefinition, $field);
-        $mainName = $tableDefinition->getName();
         if ($extractedValues === []) {
-            $query->whereNotExists(function (Builder $subQuery) use ($mfvName, $mainName): void {
-                $subQuery->from($mfvName)->whereColumn($mfvName . '.owner_id', $mainName . '.id');
+            $query->whereNotExists(function (Builder $subQuery) use ($mfvName, $ownerIdSql): void {
+                $subQuery->from($mfvName)->whereRaw('`' . $mfvName . '`.owner_id = ' . $ownerIdSql);
             });
 
             return;
@@ -168,11 +178,10 @@ final class ListMultipleFilter
         $valueCount = count($extractedValues);
         $placeholders = implode(', ', array_fill(0, $valueCount, '?'));
         $quotedMfv = '`' . $mfvName . '`';
-        $quotedMain = '`' . $mainName . '`';
         $countSql = '(select count(*) from ' . $quotedMfv
-            . ' where owner_id = ' . $quotedMain . '.id) = ?';
+            . ' where owner_id = ' . $ownerIdSql . ') = ?';
         $inSql = '(select count(*) from ' . $quotedMfv
-            . ' where owner_id = ' . $quotedMain . '.id and `value` in (' . $placeholders . ')) = ?';
+            . ' where owner_id = ' . $ownerIdSql . ' and `value` in (' . $placeholders . ')) = ?';
         $bindings = array_merge([$valueCount], $extractedValues, [$valueCount]);
         $query->whereRaw('(' . $countSql . ' and ' . $inSql . ')', $bindings);
     }
@@ -185,6 +194,7 @@ final class ListMultipleFilter
      * @param BaseField $field Поле.
      * @param mixed $extractedValue Значение SQL.
      * @param string $boolean And или or.
+     * @param string $ownerIdSql Квалифицированный id владельца или пусто.
      *
      * @return void
      */
@@ -194,14 +204,31 @@ final class ListMultipleFilter
         BaseField $field,
         mixed $extractedValue,
         string $boolean,
+        string $ownerIdSql,
     ): void {
         $mfvName = MfvSchema::tableName($tableDefinition, $field);
-        $mainName = $tableDefinition->getName();
-        $query->whereExists(function (Builder $subQuery) use ($mfvName, $mainName, $extractedValue): void {
+        $query->whereExists(function (Builder $subQuery) use ($mfvName, $ownerIdSql, $extractedValue): void {
             $subQuery->from($mfvName)
-                ->whereColumn($mfvName . '.owner_id', $mainName . '.id')
+                ->whereRaw('`' . $mfvName . '`.owner_id = ' . $ownerIdSql)
                 ->where('value', $extractedValue);
         }, $boolean);
+    }
+
+    /**
+     * Квалифицирует id владельца mfv.
+     *
+     * @param SmartTableDefinition $tableDefinition Карта владельца.
+     * @param string $ownerIdSql Уже заданный SQL или пусто.
+     *
+     * @return string SQL выражения id.
+     */
+    private function ownerIdSql(SmartTableDefinition $tableDefinition, string $ownerIdSql): string
+    {
+        if ($ownerIdSql !== '') {
+            return $ownerIdSql;
+        }
+
+        return '`' . $tableDefinition->getName() . '`.`id`';
     }
 
     /**

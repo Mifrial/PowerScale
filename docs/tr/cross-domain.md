@@ -69,7 +69,7 @@
 **Owner:** `auth-system.md` owns ordered authorization; domain documents own object-specific policy.  
 **Visibility:** route visibility is coarse; object and sheet visibility are checked before response serialization.  
 **Version invariant:** mutating actions use the current object version where optimistic concurrency applies.  
-**Error/concurrency:** ordered checks are super-admin bypass, global permission, object permission/role, ownership, then deny; stale version returns conflict.  
+**Error/concurrency:** ordered checks are group bypass, global permission, object permission/role, ownership, then deny; stale version returns conflict.  
 **Backend boundary:** server-side enforcement and effective permission resolution remain `OPEN`.
 
 ## Shared error and concurrency envelope

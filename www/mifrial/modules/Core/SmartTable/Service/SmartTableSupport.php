@@ -8,6 +8,9 @@ use Mifrial\Core\Kernel\Dto\CacheSettings;
 use Mifrial\Core\SmartTable\Service\Cache\TableCache;
 use Mifrial\Core\SmartTable\Service\Catalog\SmartTableCatalog;
 use Mifrial\Core\SmartTable\Service\Connection\IlluminateDatabaseConnection;
+use Mifrial\Core\SmartTable\Service\Query\CatalogDefinitionLookup;
+use Mifrial\Core\SmartTable\Service\Query\FieldPathWalker;
+use Mifrial\Core\SmartTable\Service\Query\ListFilterBinder;
 use Mifrial\Core\SmartTable\Service\Query\ListQueryCompiler;
 use Mifrial\Core\SmartTable\Service\Query\MfvRows;
 use Mifrial\Core\SmartTable\Service\Query\RowAssembler;
@@ -15,6 +18,7 @@ use Mifrial\Core\SmartTable\Service\Query\TableList;
 use Mifrial\Core\SmartTable\Service\Query\TableRows;
 use Mifrial\Core\SmartTable\Service\Schema\MfvSchema;
 use Mifrial\Core\SmartTable\Service\Schema\TableSchema;
+use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
 use WeakMap;
 
 /**
@@ -54,7 +58,7 @@ final class SmartTableSupport
             $this->databaseConnection,
             $this->tableSchema(),
             $this->tableRows(),
-            $this->tableList(),
+            $this->tableList(new CatalogDefinitionLookup()),
             $this->tableCache(),
         );
     }
@@ -66,13 +70,22 @@ final class SmartTableSupport
      */
     public function makeCatalog(): SmartTableCatalog
     {
-        return new SmartTableCatalog(
+        $catalogLookup = new CatalogDefinitionLookup();
+        $tableList = $this->tableList($catalogLookup);
+        $catalog = new SmartTableCatalog(
             $this->tableSchema(),
             $this->tableRows(),
-            $this->tableList(),
+            $tableList,
             new MfvSchema($this->databaseConnection),
             $this->tableCache(),
         );
+        $catalogLookup->attach(
+            static function (string $tableName) use ($catalog): SmartTableDefinition {
+                return $catalog->definitionByName($tableName);
+            },
+        );
+
+        return $catalog;
     }
 
     /**
@@ -130,19 +143,23 @@ final class SmartTableSupport
     /**
      * Список таблицы.
      *
+     * @param CatalogDefinitionLookup $catalogLookup Карты словаря для hop.
+     *
      * @return TableList Список.
      */
-    private function tableList(): TableList
+    private function tableList(CatalogDefinitionLookup $catalogLookup): TableList
     {
         $driverErrors = new DriverErrorTranslator();
         $mfvRows = new MfvRows($this->databaseConnection, $driverErrors);
+        $fieldPathWalker = new FieldPathWalker($catalogLookup);
 
         return new TableList(
             $this->databaseConnection,
             new RowAssembler(),
             $driverErrors,
-            new ListQueryCompiler(),
+            new ListQueryCompiler(new ListFilterBinder(), $fieldPathWalker),
             $mfvRows,
+            $fieldPathWalker,
         );
     }
 }

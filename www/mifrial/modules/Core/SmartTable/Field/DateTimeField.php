@@ -7,6 +7,7 @@ namespace Mifrial\Core\SmartTable\Field;
 use Mifrial\Core\Kernel\Value\DateTime as UnixDateTime;
 use Mifrial\Core\SmartTable\Dto\ColumnMeta;
 use Mifrial\Core\SmartTable\Exception\Field\FieldInvalidException;
+use Mifrial\Core\SmartTable\Value\DateTimeNow;
 
 /**
  * Момент времени: в PHP объект ядра, в БД unix INT.
@@ -44,6 +45,10 @@ final class DateTimeField extends BaseField
      */
     protected function castPresent(mixed $inputValue): mixed
     {
+        if ($inputValue instanceof DateTimeNow) {
+            return UnixDateTime::now();
+        }
+
         if (!$inputValue instanceof UnixDateTime) {
             $this->invalidValue();
         }

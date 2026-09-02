@@ -118,6 +118,7 @@ final class RuntimeConfigTest extends TestCase
 
         self::assertInstanceOf(IRuntimeConfig::class, $resolvedConfig);
         self::assertTrue($resolvedConfig->debug());
+        self::assertNull($resolvedConfig->section('auth'));
     }
 
     /**

@@ -65,9 +65,9 @@ final class CrudMysqlTest extends TestCase
     public function testRoundTrip(): void
     {
         $table = $this->gateway()->open(CrudProbeTable::class);
-        $table->createTable();
+        $table->schema()->createTable();
         $created = UnixDateTime::fromUnix(1700000000);
-        $rowId = $table->add([
+        $rowId = $table->records()->add([
             'title' => 'hello',
             'body' => 'text',
             'html' => '<b>',
@@ -76,7 +76,7 @@ final class CrudMysqlTest extends TestCase
             'created' => $created,
             'payload' => ['a' => 1],
         ]);
-        $row = $table->getById($rowId);
+        $row = $table->records()->getById($rowId);
         self::assertNotNull($row);
         self::assertSame($rowId, $row['id']);
         self::assertSame('hello', $row['title']);
@@ -96,24 +96,24 @@ final class CrudMysqlTest extends TestCase
     public function testUpdateDeleteAndMissingGet(): void
     {
         $table = $this->gateway()->open(CrudProbeTable::class);
-        $table->createTable();
-        $rowId = $table->add(['title' => 'a']);
-        $table->update($rowId, ['title' => 'b']);
-        $row = $table->getById($rowId);
+        $table->schema()->createTable();
+        $rowId = $table->records()->add(['title' => 'a']);
+        $table->records()->update($rowId, ['title' => 'b']);
+        $row = $table->records()->getById($rowId);
         self::assertNotNull($row);
         self::assertSame('b', $row['title']);
-        $table->delete($rowId);
-        self::assertNull($table->getById($rowId));
-        self::assertNull($table->getById(999999));
+        $table->records()->delete($rowId);
+        self::assertNull($table->records()->getById($rowId));
+        self::assertNull($table->records()->getById(999999));
         try {
-            $table->update($rowId, ['title' => 'c']);
+            $table->records()->update($rowId, ['title' => 'c']);
             self::fail('update missing row must fail');
         } catch (RowNotFoundException $exception) {
             self::assertSame('ROW_NOT_FOUND', $exception->getErrorCode());
         }
 
         try {
-            $table->delete($rowId);
+            $table->records()->delete($rowId);
             self::fail('delete missing row must fail');
         } catch (RowNotFoundException $exception) {
             self::assertSame('ROW_NOT_FOUND', $exception->getErrorCode());
@@ -128,16 +128,16 @@ final class CrudMysqlTest extends TestCase
     public function testAddValidation(): void
     {
         $table = $this->gateway()->open(CrudProbeTable::class);
-        $table->createTable();
+        $table->schema()->createTable();
         try {
-            $table->add([]);
+            $table->records()->add([]);
             self::fail('required title must fail');
         } catch (FieldRequiredException $exception) {
             self::assertSame('FIELD_REQUIRED', $exception->getErrorCode());
         }
 
         try {
-            $table->add(['title' => 'a', 'nope' => 1]);
+            $table->records()->add(['title' => 'a', 'nope' => 1]);
             self::fail('unknown key must fail');
         } catch (MapInvalidException $exception) {
             self::assertSame('MAP_INVALID', $exception->getErrorCode());
@@ -152,17 +152,20 @@ final class CrudMysqlTest extends TestCase
     public function testCreateTwiceAndMissingTable(): void
     {
         $table = $this->gateway()->open(CrudProbeTable::class);
-        $table->createTable();
+        self::assertFalse($table->schema()->exists());
+        $table->schema()->createTable();
+        self::assertTrue($table->schema()->exists());
         try {
-            $table->createTable();
+            $table->schema()->createTable();
             self::fail('second create must fail');
         } catch (TableExistsException $exception) {
             self::assertSame('TABLE_EXISTS', $exception->getErrorCode());
         }
 
         $this->dropFixtureTables();
+        self::assertFalse($table->schema()->exists());
         try {
-            $table->getById(1);
+            $table->records()->getById(1);
             self::fail('missing table must fail');
         } catch (TableMissingException $exception) {
             self::assertSame('TABLE_MISSING', $exception->getErrorCode());
@@ -176,11 +179,11 @@ final class CrudMysqlTest extends TestCase
      */
     public function testUpdateTableAddsColumn(): void
     {
-        $this->gateway()->open(MiniTitleTable::class)->createTable();
+        $this->gateway()->open(MiniTitleTable::class)->schema()->createTable();
         $extended = $this->gateway()->open(MiniTitleNoteTable::class);
-        $extended->updateTable();
-        $rowId = $extended->add(['title' => 'a', 'note' => 'n']);
-        $row = $extended->getById($rowId);
+        $extended->schema()->updateTable();
+        $rowId = $extended->records()->add(['title' => 'a', 'note' => 'n']);
+        $row = $extended->records()->getById($rowId);
         self::assertNotNull($row);
         self::assertSame('n', $row['note']);
     }
@@ -194,11 +197,11 @@ final class CrudMysqlTest extends TestCase
     {
         $gateway = $this->gateway();
         $table = $gateway->open(CrudProbeTable::class);
-        $table->createTable();
+        $table->schema()->createTable();
         $rowId = 0;
         try {
             $gateway->transaction(function () use ($table, &$rowId): void {
-                $rowId = $table->add(['title' => 'tx']);
+                $rowId = $table->records()->add(['title' => 'tx']);
                 throw new MapInvalidException('rollback probe');
             });
             self::fail('transaction must rethrow');
@@ -206,7 +209,7 @@ final class CrudMysqlTest extends TestCase
             self::assertSame('MAP_INVALID', $exception->getErrorCode());
         }
 
-        self::assertNull($table->getById($rowId));
+        self::assertNull($table->records()->getById($rowId));
 
         try {
             $gateway->transaction(function () use ($gateway): void {

@@ -19,7 +19,9 @@
 Один контракт имеет одного владельца:
 
 - `architecture.md` — модули, DAG, слои, ServiceLocator, инфраструктурные границы и общие frontend-правила;
-- `data-model.md` — legacy-backed backend schema requirements, поля, связи и индексы;
+- `smarttable.md` — серверный доступ к MySQL (Basic);
+- `user.md` — серверная учётка и группы модуля User;
+- `data-model.md` — legacy-backed backend schema requirements; при конфликте с `user.md` / `smarttable.md` побеждает канон модуля;
 - `auth-system.md` — users, groups, sessions, permissions, security и user routes;
 - `rule-system.md` — Rule DTO, RuleType, Rule Engine, Space, revisions, catalog и publication;
 - `character-system.md` — Character, versions, creation, validation, inventory и membership;

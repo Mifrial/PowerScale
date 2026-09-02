@@ -15,11 +15,11 @@ use Mifrial\Core\SmartTable\Exception\Transaction\TransactionOpenException;
 interface ISmartTableGateway
 {
     /**
-     * Открывает handle по классу определения.
+     * Открывает сумку schema/records по классу определения.
      *
      * @param string $definitionClass Наследник SmartTableDefinition.
      *
-     * @return IOpenedTable Handle таблицы.
+     * @return IOpenedTable Сумка schema() + records().
      *
      * @throws MapInvalidException Если класс нельзя инстанцировать как definition.
      */

@@ -241,7 +241,7 @@ final class ReferenceSchema
     }
 
     /**
-     * Вешает FK restrict/setNull без CASCADE.
+     * Вешает FK restrict/setNull/cascade.
      *
      * @param Blueprint $blueprint ALTER.
      * @param ReferenceField $field Поле.
@@ -257,11 +257,17 @@ final class ReferenceSchema
         string $targetName,
     ): void {
         $foreignKey = $blueprint->foreign($field->name(), $constraintName)
-            ->references('id')
+            ->references($field->targetIdField())
             ->on($targetName)
             ->restrictOnUpdate();
         if ($field->onDelete() === 'setNull') {
             $foreignKey->nullOnDelete();
+
+            return;
+        }
+
+        if ($field->onDelete() === 'cascade') {
+            $foreignKey->cascadeOnDelete();
 
             return;
         }

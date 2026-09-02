@@ -148,6 +148,27 @@ final class ModuleManager implements IModuleManager
     }
 
     /**
+     * Подключает все модули на диске: группы и имена с module.config.php.
+     *
+     * @return void
+     *
+     * @throws KernelException Если корень модулей недоступен.
+     * @throws ModuleNotFoundException Если require не нашёл файл после проверки.
+     * @throws InvalidModuleConfigException Если конфигурация некорректна.
+     */
+    public function loadAllFromDisk(): void
+    {
+        foreach ($this->childDirectoryNames($this->modulesRoot) as $moduleGroup) {
+            $groupDirectory = $this->modulesRoot . '/' . $moduleGroup;
+            foreach ($this->childDirectoryNames($groupDirectory) as $moduleName) {
+                if (is_file($groupDirectory . '/' . $moduleName . '/module.config.php')) {
+                    $this->requireModule($moduleGroup, $moduleName);
+                }
+            }
+        }
+    }
+
+    /**
      * Возвращает загруженные модули без контейнеров.
      *
      * @return array<int, array{group: string, name: string, config: array<string, mixed>}> Список модулей.
@@ -252,5 +273,62 @@ final class ModuleManager implements IModuleManager
         }
 
         return $moduleConfig;
+    }
+
+    /**
+     * Возвращает имена подкаталогов, отсортированные.
+     *
+     * @param string $directoryPath Каталог.
+     *
+     * @return array<int, string> Имена.
+     *
+     * @throws KernelException Если каталог нельзя прочитать.
+     */
+    private function childDirectoryNames(string $directoryPath): array
+    {
+        $entryNames = $this->scanDirectory($directoryPath);
+        $directoryNames = [];
+        foreach ($entryNames as $entryName) {
+            if ($entryName === '.' || $entryName === '..') {
+                continue;
+            }
+
+            if (is_dir($directoryPath . '/' . $entryName)) {
+                $directoryNames[] = $entryName;
+            }
+        }
+
+        sort($directoryNames);
+
+        return $directoryNames;
+    }
+
+    /**
+     * Читает имена записей каталога.
+     *
+     * @param string $directoryPath Каталог.
+     *
+     * @return array<int, string> Имена scandir.
+     *
+     * @throws KernelException Если каталог нельзя прочитать.
+     */
+    private function scanDirectory(string $directoryPath): array
+    {
+        if (!is_dir($directoryPath)) {
+            throw new KernelException(
+                'MODULES_MISSING',
+                'Modules directory is missing: ' . $directoryPath,
+            );
+        }
+
+        $entryNames = scandir($directoryPath);
+        if ($entryNames === false) {
+            throw new KernelException(
+                'MODULES_UNREADABLE',
+                'Cannot read modules directory: ' . $directoryPath,
+            );
+        }
+
+        return $entryNames;
     }
 }

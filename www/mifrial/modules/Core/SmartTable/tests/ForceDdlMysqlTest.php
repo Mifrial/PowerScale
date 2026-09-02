@@ -73,11 +73,11 @@ final class ForceDdlMysqlTest extends TestCase
      */
     public function testForceDropsLeftoverColumnUpdateKeepsIt(): void
     {
-        $this->gateway()->open(MiniTitleNoteTable::class)->createTable();
-        $this->gateway()->open(MiniTitleTable::class)->updateTable();
+        $this->gateway()->open(MiniTitleNoteTable::class)->schema()->createTable();
+        $this->gateway()->open(MiniTitleTable::class)->schema()->updateTable();
         $schemaBuilder = $this->schema();
         self::assertContains('note', $schemaBuilder->getColumnListing('st_crud_mini'));
-        $this->gateway()->open(MiniTitleTable::class)->forceUpdateTable();
+        $this->gateway()->open(MiniTitleTable::class)->schema()->forceUpdateTable();
         self::assertNotContains('note', $schemaBuilder->getColumnListing('st_crud_mini'));
         self::assertContains('title', $schemaBuilder->getColumnListing('st_crud_mini'));
     }
@@ -89,12 +89,12 @@ final class ForceDdlMysqlTest extends TestCase
      */
     public function testForceDropsLeftoverUnique(): void
     {
-        $this->gateway()->open(ForceUniqueTable::class)->createTable();
-        $this->gateway()->open(ForcePlainTitleTable::class)->forceUpdateTable();
+        $this->gateway()->open(ForceUniqueTable::class)->schema()->createTable();
+        $this->gateway()->open(ForcePlainTitleTable::class)->schema()->forceUpdateTable();
         self::assertNotContains('st_force_unq_title_unq', $this->indexNames('st_force_unq'));
         $plainTable = $this->gateway()->open(ForcePlainTitleTable::class);
-        self::assertSame(1, $plainTable->add(['title' => 'same']));
-        self::assertSame(2, $plainTable->add(['title' => 'same']));
+        self::assertSame(1, $plainTable->records()->add(['title' => 'same']));
+        self::assertSame(2, $plainTable->records()->add(['title' => 'same']));
     }
 
     /**
@@ -104,8 +104,8 @@ final class ForceDdlMysqlTest extends TestCase
      */
     public function testForceDropsLeftoverIndex(): void
     {
-        $this->gateway()->open(ForceIndexedTable::class)->createTable();
-        $this->gateway()->open(ForcePlainAgeTable::class)->forceUpdateTable();
+        $this->gateway()->open(ForceIndexedTable::class)->schema()->createTable();
+        $this->gateway()->open(ForcePlainAgeTable::class)->schema()->forceUpdateTable();
         self::assertNotContains('st_force_idx_age_idx', $this->indexNames('st_force_idx'));
     }
 
@@ -116,12 +116,12 @@ final class ForceDdlMysqlTest extends TestCase
      */
     public function testForceFlipsUniqueAndIndexed(): void
     {
-        $this->gateway()->open(ForceFlipUniqueTable::class)->createTable();
-        $this->gateway()->open(ForceFlipIndexedTable::class)->forceUpdateTable();
+        $this->gateway()->open(ForceFlipUniqueTable::class)->schema()->createTable();
+        $this->gateway()->open(ForceFlipIndexedTable::class)->schema()->forceUpdateTable();
         $afterIndexed = $this->indexNames('st_force_flip');
         self::assertContains('st_force_flip_title_idx', $afterIndexed);
         self::assertNotContains('st_force_flip_title_unq', $afterIndexed);
-        $this->gateway()->open(ForceFlipUniqueTable::class)->forceUpdateTable();
+        $this->gateway()->open(ForceFlipUniqueTable::class)->schema()->forceUpdateTable();
         $afterUnique = $this->indexNames('st_force_flip');
         self::assertContains('st_force_flip_title_unq', $afterUnique);
         self::assertNotContains('st_force_flip_title_idx', $afterUnique);
@@ -134,9 +134,9 @@ final class ForceDdlMysqlTest extends TestCase
      */
     public function testForceDropsLeftoverMfv(): void
     {
-        $this->gateway()->open(ForceMfvTable::class)->createTable();
+        $this->gateway()->open(ForceMfvTable::class)->schema()->createTable();
         self::assertTrue($this->schema()->hasTable('st_force_mfv_mfv_tags'));
-        $this->gateway()->open(ForceMfvScalarTable::class)->forceUpdateTable();
+        $this->gateway()->open(ForceMfvScalarTable::class)->schema()->forceUpdateTable();
         self::assertFalse($this->schema()->hasTable('st_force_mfv_mfv_tags'));
         self::assertContains('tags', $this->schema()->getColumnListing('st_force_mfv'));
     }
@@ -148,9 +148,9 @@ final class ForceDdlMysqlTest extends TestCase
      */
     public function testForceDropsLeftoverReference(): void
     {
-        $this->gateway()->open(ForceParentTable::class)->createTable();
-        $this->gateway()->open(ForceChildTable::class)->createTable();
-        $this->gateway()->open(ForceChildBareTable::class)->forceUpdateTable();
+        $this->gateway()->open(ForceParentTable::class)->schema()->createTable();
+        $this->gateway()->open(ForceChildTable::class)->schema()->createTable();
+        $this->gateway()->open(ForceChildBareTable::class)->schema()->forceUpdateTable();
         $schemaBuilder = $this->schema();
         self::assertNotContains('parent_id', $schemaBuilder->getColumnListing('st_force_child'));
         self::assertSame([], $schemaBuilder->getForeignKeys('st_force_child'));
@@ -164,9 +164,9 @@ final class ForceDdlMysqlTest extends TestCase
      */
     public function testForceDropsFkWhenOnDeleteNone(): void
     {
-        $this->gateway()->open(ForceParentTable::class)->createTable();
-        $this->gateway()->open(ForceRelRestrictTable::class)->createTable();
-        $this->gateway()->open(ForceRelNoneTable::class)->forceUpdateTable();
+        $this->gateway()->open(ForceParentTable::class)->schema()->createTable();
+        $this->gateway()->open(ForceRelRestrictTable::class)->schema()->createTable();
+        $this->gateway()->open(ForceRelNoneTable::class)->schema()->forceUpdateTable();
         $schemaBuilder = $this->schema();
         self::assertContains('parent_id', $schemaBuilder->getColumnListing('st_force_rel'));
         self::assertSame([], $schemaBuilder->getForeignKeys('st_force_rel'));
@@ -179,13 +179,13 @@ final class ForceDdlMysqlTest extends TestCase
      */
     public function testDeleteTableDropsMainAndMappedMfv(): void
     {
-        $this->gateway()->open(ForceMfvTable::class)->createTable();
-        $this->gateway()->open(ForceMfvTable::class)->deleteTable();
+        $this->gateway()->open(ForceMfvTable::class)->schema()->createTable();
+        $this->gateway()->open(ForceMfvTable::class)->schema()->deleteTable();
         $schemaBuilder = $this->schema();
         self::assertFalse($schemaBuilder->hasTable('st_force_mfv'));
         self::assertFalse($schemaBuilder->hasTable('st_force_mfv_mfv_tags'));
         try {
-            $this->gateway()->open(ForceMfvTable::class)->deleteTable();
+            $this->gateway()->open(ForceMfvTable::class)->schema()->deleteTable();
             self::fail('second deleteTable must fail');
         } catch (TableMissingException $exception) {
             self::assertSame('TABLE_MISSING', $exception->getErrorCode());
@@ -199,8 +199,8 @@ final class ForceDdlMysqlTest extends TestCase
      */
     public function testDeleteSelfRefTable(): void
     {
-        $this->gateway()->open(ForceSelfTable::class)->createTable();
-        $this->gateway()->open(ForceSelfTable::class)->deleteTable();
+        $this->gateway()->open(ForceSelfTable::class)->schema()->createTable();
+        $this->gateway()->open(ForceSelfTable::class)->schema()->deleteTable();
         self::assertFalse($this->schema()->hasTable('st_force_self'));
     }
 
@@ -212,12 +212,12 @@ final class ForceDdlMysqlTest extends TestCase
     public function testDeleteParentWithChildFails(): void
     {
         $parentTable = $this->gateway()->open(ForceParentTable::class);
-        $parentTable->createTable();
-        $this->gateway()->open(ForceChildTable::class)->createTable();
-        $parentId = $parentTable->add(['title' => 'p']);
-        $this->gateway()->open(ForceChildTable::class)->add(['parent_id' => $parentId]);
+        $parentTable->schema()->createTable();
+        $this->gateway()->open(ForceChildTable::class)->schema()->createTable();
+        $parentId = $parentTable->records()->add(['title' => 'p']);
+        $this->gateway()->open(ForceChildTable::class)->records()->add(['parent_id' => $parentId]);
         try {
-            $parentTable->deleteTable();
+            $parentTable->schema()->deleteTable();
             self::fail('delete parent with child must fail');
         } catch (DdlFailedException $exception) {
             self::assertSame('DDL_FAILED', $exception->getErrorCode());
@@ -235,14 +235,14 @@ final class ForceDdlMysqlTest extends TestCase
     public function testMissingTableErrors(): void
     {
         try {
-            $this->gateway()->open(MiniTitleTable::class)->forceUpdateTable();
+            $this->gateway()->open(MiniTitleTable::class)->schema()->forceUpdateTable();
             self::fail('force without table must fail');
         } catch (TableMissingException $exception) {
             self::assertSame('TABLE_MISSING', $exception->getErrorCode());
         }
 
         try {
-            $this->gateway()->open(MiniTitleTable::class)->deleteTable();
+            $this->gateway()->open(MiniTitleTable::class)->schema()->deleteTable();
             self::fail('delete without table must fail');
         } catch (TableMissingException $exception) {
             self::assertSame('TABLE_MISSING', $exception->getErrorCode());

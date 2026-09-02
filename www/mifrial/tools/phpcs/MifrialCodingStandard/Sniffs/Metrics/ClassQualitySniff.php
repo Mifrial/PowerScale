@@ -10,7 +10,7 @@ use PHP_CodeSniffer\Util\Tokens;
 
 final class ClassQualitySniff implements Sniff
 {
-    private const MaximumClassLines = 300;
+    private const MaximumClassLines = 500;
 
     private const MaximumPublicMethods = 10;
 

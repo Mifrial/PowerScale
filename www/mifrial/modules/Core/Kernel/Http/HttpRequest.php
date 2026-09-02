@@ -132,6 +132,16 @@ final readonly class HttpRequest implements IHttpRequest
     }
 
     /**
+     * Возвращает карту входящих cookie.
+     *
+     * @return array<string, mixed> Имя => значение.
+     */
+    public function getCookieMap(): array
+    {
+        return $this->inputBags['cookies'];
+    }
+
+    /**
      * Декодирует JSON-тело запроса.
      *
      * @return mixed Декодированная полезная нагрузка или null для пустого тела.

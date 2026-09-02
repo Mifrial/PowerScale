@@ -39,4 +39,13 @@ interface IRuntimeConfig
      * @return string Имя драйвера, по умолчанию file.
      */
     public function cacheDriver(): string;
+
+    /**
+     * Возвращает срез ключа local.php.
+     *
+     * @param string $name Имя верхнего ключа.
+     *
+     * @return mixed Значение или null, если ключа нет.
+     */
+    public function section(string $name): mixed;
 }

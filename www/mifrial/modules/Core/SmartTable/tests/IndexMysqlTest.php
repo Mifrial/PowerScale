@@ -62,15 +62,15 @@ final class IndexMysqlTest extends TestCase
     {
         $uniqueTable = $this->gateway()->open(UniqueTitleTable::class);
         $indexedTable = $this->gateway()->open(IndexedAgeTable::class);
-        $uniqueTable->createTable();
-        $indexedTable->createTable();
+        $uniqueTable->schema()->createTable();
+        $indexedTable->schema()->createTable();
         $uniqueNames = $this->indexNames('st_idx_unique');
         $indexedNames = $this->indexNames('st_idx_int');
         self::assertContains('st_idx_unique_title_unq', $uniqueNames);
         self::assertContains('st_idx_unique_code_unq', $uniqueNames);
         self::assertContains('st_idx_int_age_idx', $indexedNames);
         $bothTable = $this->gateway()->open(BothIndexFlagsTable::class);
-        $bothTable->createTable();
+        $bothTable->schema()->createTable();
         $bothNames = $this->indexNames('st_idx_both');
         self::assertContains('st_idx_both_title_unq', $bothNames);
         self::assertNotContains('st_idx_both_title_idx', $bothNames);
@@ -88,24 +88,24 @@ final class IndexMysqlTest extends TestCase
     public function testUniqueDuplicateOnAddAndUpdate(): void
     {
         $table = $this->gateway()->open(UniqueTitleTable::class);
-        $table->createTable();
-        $firstId = $table->add(['title' => 'a']);
-        $secondId = $table->add(['title' => 'b']);
+        $table->schema()->createTable();
+        $firstId = $table->records()->add(['title' => 'a']);
+        $secondId = $table->records()->add(['title' => 'b']);
         try {
-            $table->add(['title' => 'a']);
+            $table->records()->add(['title' => 'a']);
             self::fail('duplicate unique add must fail');
         } catch (UniqueConstraintException $exception) {
             self::assertSame('UNIQUE_CONSTRAINT', $exception->getErrorCode());
         }
-        self::assertNotNull($table->getById($firstId));
+        self::assertNotNull($table->records()->getById($firstId));
 
         try {
-            $table->update($secondId, ['title' => 'a']);
+            $table->records()->update($secondId, ['title' => 'a']);
             self::fail('duplicate unique update must fail');
         } catch (UniqueConstraintException $exception) {
             self::assertSame('UNIQUE_CONSTRAINT', $exception->getErrorCode());
         }
-        self::assertSame('b', $table->getById($secondId)['title']);
+        self::assertSame('b', $table->records()->getById($secondId)['title']);
     }
 
     /**
@@ -116,11 +116,11 @@ final class IndexMysqlTest extends TestCase
     public function testNullableUniqueAllowsMultipleNulls(): void
     {
         $table = $this->gateway()->open(UniqueTitleTable::class);
-        $table->createTable();
-        $firstId = $table->add(['title' => 'a']);
-        $secondId = $table->add(['title' => 'b']);
-        self::assertNull($table->getById($firstId)['code']);
-        self::assertNull($table->getById($secondId)['code']);
+        $table->schema()->createTable();
+        $firstId = $table->records()->add(['title' => 'a']);
+        $secondId = $table->records()->add(['title' => 'b']);
+        self::assertNull($table->records()->getById($firstId)['code']);
+        self::assertNull($table->records()->getById($secondId)['code']);
     }
 
     /**
@@ -132,8 +132,8 @@ final class IndexMysqlTest extends TestCase
     {
         $uniqueTable = $this->gateway()->open(UniqueTitleTable::class);
         $indexedTable = $this->gateway()->open(IndexedAgeTable::class);
-        $uniqueTable->createTable();
-        $indexedTable->createTable();
+        $uniqueTable->schema()->createTable();
+        $indexedTable->schema()->createTable();
         $schemaBuilder = $this->databaseConnection?->illuminateConnection()->getSchemaBuilder();
         self::assertNotNull($schemaBuilder);
         $schemaBuilder->table('st_idx_unique', function (Blueprint $blueprint): void {
@@ -142,8 +142,8 @@ final class IndexMysqlTest extends TestCase
         $schemaBuilder->table('st_idx_int', function (Blueprint $blueprint): void {
             $blueprint->dropIndex('st_idx_int_age_idx');
         });
-        $uniqueTable->updateTable();
-        $indexedTable->updateTable();
+        $uniqueTable->schema()->updateTable();
+        $indexedTable->schema()->updateTable();
         self::assertContains('st_idx_unique_title_unq', $this->indexNames('st_idx_unique'));
         self::assertContains('st_idx_int_age_idx', $this->indexNames('st_idx_int'));
     }

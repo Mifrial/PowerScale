@@ -11,15 +11,16 @@ use Mifrial\Core\SmartTable\Dto\ListQuery;
 use Mifrial\Core\SmartTable\Dto\ListResult;
 use Mifrial\Core\SmartTable\Exception\Cache\CacheConfigInvalidException;
 use Mifrial\Core\SmartTable\Exception\Cache\CacheDriverFailedException;
+use Mifrial\Core\SmartTable\Service\Query\ListCacheFieldTags;
 use Throwable;
 
 /**
  * Сценарий кэша get/getList: ключи, теги OR, pending транзакции, fail-soft.
  *
- * Слоты и сброс делят один lazy store. Длина класса выше порога 300 осознанно:
- * вынос invalidator давал второй клиент Redis на те же ключи.
+ * Слоты и сброс делят один lazy store: отдельный invalidator давал бы
+ * второй клиент Redis на те же ключи.
  */
-final class TableCache // phpcs:ignore MifrialCodingStandard.Metrics.ClassQuality.ClassTooLong
+final class TableCache
 {
     private FileCacheStore|RedisCacheStore|null $cacheStore = null;
 
@@ -92,7 +93,7 @@ final class TableCache // phpcs:ignore MifrialCodingStandard.Metrics.ClassQualit
     public function saveGet(string $tableName, int $rowId, ?array $row, int $cacheTtl): void
     {
         if (!$this->isTransactionOpen()) {
-            $this->saveValue($tableName . ':get:' . $rowId, $row, $cacheTtl, []);
+            $this->saveValue($tableName . ':get:' . $rowId, $row, $cacheTtl, ['st:' . $tableName . ':rows']);
         }
     }
 
@@ -121,7 +122,7 @@ final class TableCache // phpcs:ignore MifrialCodingStandard.Metrics.ClassQualit
      * @param ListQuery $listQuery Запрос.
      * @param ListResult $listResult Страница.
      * @param int $cacheTtl Секунды жизни.
-     * @param array<int, string> $fieldNames Поля запроса.
+     * @param array<int, string> $fieldNames Поля или пары table:field.
      *
      * @return void
      *
@@ -139,11 +140,7 @@ final class TableCache // phpcs:ignore MifrialCodingStandard.Metrics.ClassQualit
             return;
         }
 
-        $tagNames = ['st:' . $tableName];
-        foreach ($fieldNames as $fieldName) {
-            $tagNames[] = 'st:' . $tableName . ':' . $fieldName;
-        }
-
+        $tagNames = (new ListCacheFieldTags())->storeTags($tableName, $fieldNames);
         $this->saveValue($this->listCacheKey->make($tableName, $listQuery), $listResult, $cacheTtl, $tagNames);
     }
 
@@ -190,16 +187,21 @@ final class TableCache // phpcs:ignore MifrialCodingStandard.Metrics.ClassQualit
      *
      * @param string $tableName Физическое имя.
      * @param int $rowId Идентификатор.
+     * @param Closure|null $dependentTableNames Имена столов CASCADE/SET NULL или null.
      *
      * @return void
      *
      * @throws CacheDriverFailedException Если debug и сброс упал.
      */
-    public function noteDelete(string $tableName, int $rowId): void
+    public function noteDelete(string $tableName, int $rowId, ?Closure $dependentTableNames = null): void
     {
+        $tagNames = array_merge(
+            ['st:' . $tableName],
+            DependentRowCacheTags::names($dependentTableNames, $this->storeFactory->canOpen()),
+        );
         $this->queueOrFlush([
             'keys' => [$tableName . ':get:' . $rowId],
-            'tags' => ['st:' . $tableName],
+            'tags' => $tagNames,
         ]);
     }
 

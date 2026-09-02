@@ -1,33 +1,26 @@
-# План 9 — накат схемы не в SmartTable
+# План 9 — DDL одной таблицы в SmartTable; прогон модулей не здесь
 
-**Статус:** решение, 2026-09-02. Канон — [`smarttable.md`](smarttable.md) § Назначение. Нарезка — [`smarttable-roadmap.md`](smarttable-roadmap.md) пункт 9. Стандарты — [`php-coding-standards.md`](php-coding-standards.md).
+**Статус:** решение, 2026-09-02, уточнение терминов 2026-09-02. Канон — [`smarttable.md`](smarttable.md) § Назначение. Прогон модулей — [`kernel-plan-01-setup.md`](kernel-plan-01-setup.md). Нарезка ST — [`smarttable-roadmap.md`](smarttable-roadmap.md) пункт 9.
 
-Код в `Core/SmartTable` по этому пункту **не пишем**. Следующий заход SmartTable — план 10 (ворота Basic).
+Код прогона в `Core/SmartTable` **не пишем**. Ворота Basic (план 10) этот код не ждут.
 
 ## Решение
 
-SmartTable — HL-подобный доступ к **одной** таблице: карта, строка, список, кэш, DDL (`createTable` / `updateTable` / `forceUpdateTable` / `deleteTable`).
+SmartTable — доступ к **одной** таблице: карта, строка, список, кэш, DDL (`createTable` / `updateTable` / `forceUpdateTable` / `deleteTable`).
 
-Журнал наката репозитория (какие шаги уже в этой БД, up/down, CLI, порядок модулей, шаги не про таблицы SmartTable) — **отдельный модуль Core**, по роли как sprint.migration относительно HL. Он клиент SmartTable: `open` + DDL, без Schema Builder и без Illuminate migrate.
+Установка и обновление **набора** модулей (граф FK, CLI, реестр data-шагов) — **Kernel**, не SmartTable и не отдельный `Core/Migration`. Не журнал аудита.
 
-Ворота Basic **не ждут** этот модуль. Пока его нет, прикладной install может один раз вызвать `createTable`. Runtime-таблицы накатывает словарь, не git.
-
-Имя модуля наката здесь не фиксируем.
-
-## В SmartTable уже есть (не этот пункт)
-
-- DDL и сверка `getMap()` ↔ физика одной таблицы.
-- Словарь: runtime живёт строками meta.
+Пока CLI нет, прикладной `install()` модуля может один раз вызвать `createTable` / `updateTable`. Runtime-таблицы словаря накатывает каталог, не git.
 
 ## Не класть в SmartTable
 
 - `ISchemaMigrator`, `st_schema_log`, `bin/smarttable-migrate`.
-- Реестр всех class-string таблиц приложения и обход `ModuleManager`.
-- Numbered PHP с произвольным `up` (seed, не-табличные шаги).
-- Laravel migrate / artisan.
+- Реестр class-string всего приложения и обход `ModuleManager`.
+- Numbered PHP `up`/`down`, Laravel migrate / artisan.
 
 Иначе у SmartTable вторая причина меняться: релиз, не доступ к данным.
 
-## Следующий заход SmartTable
+## В SmartTable уже есть
 
-План 10: чеклист [`smarttable.md`](smarttable.md) v1, без UI, без Versioned. Модуль наката — своя нарезка, не пункт внутри SmartTable.
+- DDL и сверка `getMap()` ↔ физика одной таблицы.
+- Словарь: runtime живёт строками meta.

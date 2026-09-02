@@ -17,7 +17,10 @@ use Mifrial\Core\SmartTable\Interface\Service\IOpenedTable;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Core\SmartTable\Service\Connection\IlluminateConnectionFactory;
 use Mifrial\Core\SmartTable\Service\Connection\IlluminateDatabaseConnection;
+use Mifrial\Core\SmartTable\Tests\Fixture\ChildCascadeTable;
+use Mifrial\Core\SmartTable\Tests\Fixture\ChildSetNullTable;
 use Mifrial\Core\SmartTable\Tests\Fixture\MiniTitleNoteTable;
+use Mifrial\Core\SmartTable\Tests\Fixture\ParentRefTable;
 use PHPUnit\Framework\TestCase;
 
 final class CacheMysqlTest extends TestCase
@@ -60,30 +63,56 @@ final class CacheMysqlTest extends TestCase
     public function testTaggedCacheAgainstMysql(): void
     {
         $table = $this->gateway()->open(MiniTitleNoteTable::class);
-        $table->createTable();
-        $rowId = $table->add(['title' => 'one', 'note' => 'n']);
+        $table->schema()->createTable();
+        $rowId = $table->records()->add(['title' => 'one', 'note' => 'n']);
         $titleQuery = ListQuery::fromOptions(['limit' => 10, 'select' => ['title']]);
         $noteQuery = ListQuery::fromOptions(['limit' => 10, 'select' => ['note']]);
-        $table->getList($titleQuery, 60);
-        $table->getList($noteQuery, 60);
-        $table->update($rowId, ['title' => 'two']);
-        self::assertSame('two', $table->getList($titleQuery, 60)->rows()[0]['title']);
-        self::assertSame('n', $table->getList($noteQuery, 60)->rows()[0]['note']);
+        $table->records()->getList($titleQuery, 60);
+        $table->records()->getList($noteQuery, 60);
+        $table->records()->update($rowId, ['title' => 'two']);
+        self::assertSame('two', $table->records()->getList($titleQuery, 60)->rows()[0]['title']);
+        self::assertSame('n', $table->records()->getList($noteQuery, 60)->rows()[0]['note']);
 
-        $table->add(['title' => 'three', 'note' => 'm']);
-        self::assertCount(2, $table->getList($titleQuery, 60)->rows());
+        $table->records()->add(['title' => 'three', 'note' => 'm']);
+        self::assertCount(2, $table->records()->getList($titleQuery, 60)->rows());
 
-        $cached = $table->getById($rowId, 60);
+        $cached = $table->records()->getById($rowId, 60);
         self::assertNotNull($cached);
-        $table->delete($rowId);
-        self::assertNull($table->getById($rowId, 60));
+        $table->records()->delete($rowId);
+        self::assertNull($table->records()->getById($rowId, 60));
 
         $missingId = $rowId + 100;
-        self::assertNull($table->getById($missingId, 60));
-        self::assertNull($table->getById($missingId, 60));
+        self::assertNull($table->records()->getById($missingId, 60));
+        self::assertNull($table->records()->getById($missingId, 60));
 
         $this->assertRollbackKeepsCache($table, $titleQuery);
         $this->assertNoTtlReadsDatabase($table);
+    }
+
+    /**
+     * CASCADE/SET NULL после delete родителя сбрасывают кэш детей.
+     *
+     * @return void
+     */
+    public function testParentDeleteFlushesChildCache(): void
+    {
+        $parent = $this->gateway()->open(ParentRefTable::class);
+        $cascade = $this->gateway()->open(ChildCascadeTable::class);
+        $setNull = $this->gateway()->open(ChildSetNullTable::class);
+        $parent->schema()->createTable();
+        $cascade->schema()->createTable();
+        $setNull->schema()->createTable();
+        $parentId = $parent->records()->add(['title' => 'p']);
+        $cascadeId = $cascade->records()->add(['parent_id' => $parentId]);
+        $setNullId = $setNull->records()->add(['parent_id' => $parentId]);
+        $cascadeList = ListQuery::fromOptions(['limit' => 10]);
+        self::assertNotNull($cascade->records()->getById($cascadeId, 60));
+        $cascade->records()->getList($cascadeList, 60);
+        self::assertSame($parentId, $setNull->records()->getById($setNullId, 60)['parent_id'] ?? null);
+        $parent->records()->delete($parentId);
+        self::assertNull($cascade->records()->getById($cascadeId, 60));
+        self::assertCount(0, $cascade->records()->getList($cascadeList, 60)->rows());
+        self::assertNull($setNull->records()->getById($setNullId, 60)['parent_id'] ?? null);
     }
 
     /**
@@ -159,10 +188,10 @@ final class CacheMysqlTest extends TestCase
      */
     private function assertRollbackKeepsCache(IOpenedTable $table, ListQuery $titleQuery): void
     {
-        $table->getList($titleQuery, 60);
+        $table->records()->getList($titleQuery, 60);
         try {
             $this->gateway()->transaction(function () use ($table): void {
-                $table->add(['title' => 'tx', 'note' => 't']);
+                $table->records()->add(['title' => 'tx', 'note' => 't']);
                 throw new MapInvalidException('rollback cache probe');
             });
             self::fail('transaction must rethrow');
@@ -171,7 +200,7 @@ final class CacheMysqlTest extends TestCase
         }
 
         $titles = [];
-        foreach ($table->getList($titleQuery, 60)->rows() as $row) {
+        foreach ($table->records()->getList($titleQuery, 60)->rows() as $row) {
             $titles[] = $row['title'];
         }
 
@@ -187,10 +216,10 @@ final class CacheMysqlTest extends TestCase
      */
     private function assertNoTtlReadsDatabase(IOpenedTable $table): void
     {
-        $rowId = $table->add(['title' => 'fresh', 'note' => 'z']);
-        $table->getById($rowId, 60);
-        $table->update($rowId, ['title' => 'db']);
-        self::assertSame('db', $table->getById($rowId)['title'] ?? null);
+        $rowId = $table->records()->add(['title' => 'fresh', 'note' => 'z']);
+        $table->records()->getById($rowId, 60);
+        $table->records()->update($rowId, ['title' => 'db']);
+        self::assertSame('db', $table->records()->getById($rowId)['title'] ?? null);
     }
 
     /**
@@ -204,7 +233,11 @@ final class CacheMysqlTest extends TestCase
             return;
         }
 
-        $this->databaseConnection->illuminateConnection()->getSchemaBuilder()->dropIfExists('st_crud_mini');
+        $schemaBuilder = $this->databaseConnection->illuminateConnection()->getSchemaBuilder();
+        $schemaBuilder->dropIfExists('st_ref_cascade');
+        $schemaBuilder->dropIfExists('st_ref_setnull');
+        $schemaBuilder->dropIfExists('st_ref_parent');
+        $schemaBuilder->dropIfExists('st_crud_mini');
     }
 
     /**

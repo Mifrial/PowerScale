@@ -18,7 +18,6 @@ use Mifrial\Core\SmartTable\Service\Schema\MfvSchema;
 use Mifrial\Core\SmartTable\Service\Schema\TableSchema;
 use Mifrial\Core\SmartTable\Table\MetaFieldDefinition;
 use Mifrial\Core\SmartTable\Table\MetaTableDefinition;
-use Mifrial\Core\SmartTable\Table\RuntimeDefinition;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
 
 /**
@@ -71,6 +70,21 @@ final class SmartTableCatalog implements ITableCatalog
     }
 
     /**
+     * Карта runtime-таблицы для hop пути.
+     *
+     * @param string $tableName Физическое имя.
+     *
+     * @return SmartTableDefinition Карта.
+     *
+     * @throws TableMissingException Если строки словаря нет.
+     * @throws MapInvalidException Если карта некорректна.
+     */
+    public function definitionByName(string $tableName): SmartTableDefinition
+    {
+        return $this->dictionary->runtimeDefinition($tableName);
+    }
+
+    /**
      * Открывает handle runtime-таблицы по строке словаря.
      *
      * @param string $tableName Физическое имя.
@@ -82,7 +96,7 @@ final class SmartTableCatalog implements ITableCatalog
      */
     public function openByName(string $tableName): IOpenedTable
     {
-        return $this->openHandle($this->loadDefinition($tableName));
+        return $this->openHandle($this->dictionary->runtimeDefinition($tableName));
     }
 
     /**
@@ -143,7 +157,7 @@ final class SmartTableCatalog implements ITableCatalog
         (new FieldSpecAssembler())->assembleOne($fieldSpec);
         $this->assertNewFieldName($metaRow, $fieldSpec);
         $this->dictionary->addFieldRow((int) $metaRow['id'], $fieldSpec);
-        $this->openByName($tableName)->updateTable();
+        $this->openByName($tableName)->schema()->updateTable();
     }
 
     /**
@@ -160,7 +174,7 @@ final class SmartTableCatalog implements ITableCatalog
      */
     public function dropField(string $tableName, string $fieldName): void
     {
-        $definition = $this->loadDefinition($tableName);
+        $definition = $this->dictionary->runtimeDefinition($tableName);
         $fieldMap = $definition->getMap();
         if ($fieldName === 'id' || !isset($fieldMap[$fieldName])) {
             throw new MapInvalidException('Dictionary field is invalid');
@@ -173,7 +187,7 @@ final class SmartTableCatalog implements ITableCatalog
 
         $this->dictionary->deleteFieldRow((int) $this->dictionary->requireTable($tableName)['id'], $fieldName);
         if ($this->tableSchema->hasPhysicalTable($tableName)) {
-            $this->openByName($tableName)->forceUpdateTable();
+            $this->openByName($tableName)->schema()->forceUpdateTable();
         }
     }
 
@@ -190,7 +204,7 @@ final class SmartTableCatalog implements ITableCatalog
      */
     public function dropTable(string $tableName): void
     {
-        $definition = $this->loadDefinition($tableName);
+        $definition = $this->dictionary->runtimeDefinition($tableName);
         $metaRow = $this->dictionary->requireTable($tableName);
         if ($this->tableSchema->hasPhysicalTable($tableName)) {
             $this->tableSchema->deleteTable($definition);
@@ -239,7 +253,7 @@ final class SmartTableCatalog implements ITableCatalog
      */
     private function createPhysicsFromDictionary(string $tableName): IOpenedTable
     {
-        $definition = $this->loadDefinition($tableName);
+        $definition = $this->dictionary->runtimeDefinition($tableName);
         if ($this->tableSchema->hasPhysicalTable($definition->getName())) {
             throw new TableExistsException();
         }
@@ -248,31 +262,6 @@ final class SmartTableCatalog implements ITableCatalog
         $this->tableCache->noteDdl($tableName);
 
         return $this->openHandle($definition);
-    }
-
-    /**
-     * Собирает definition из строк словаря.
-     *
-     * @param string $tableName Имя.
-     *
-     * @return RuntimeDefinition Определение.
-     *
-     * @throws TableMissingException Если строки таблицы нет.
-     * @throws MapInvalidException Если поля словаря некорректны.
-     */
-    private function loadDefinition(string $tableName): RuntimeDefinition
-    {
-        $metaRow = $this->dictionary->requireTable($tableName);
-        $fieldSpecs = [];
-        foreach ($this->dictionary->fieldRows((int) $metaRow['id']) as $fieldRow) {
-            $settings = is_array($fieldRow['settings']) ? $fieldRow['settings'] : [];
-            $fieldSpecs[] = array_merge($settings, [
-                'name' => $fieldRow['name'],
-                'type' => $fieldRow['type'],
-            ]);
-        }
-
-        return (new FieldSpecAssembler())->makeDefinition($tableName, $fieldSpecs);
     }
 
     /**
@@ -309,7 +298,7 @@ final class SmartTableCatalog implements ITableCatalog
      */
     private function openHandle(SmartTableDefinition $tableDefinition): IOpenedTable
     {
-        return new OpenedTable(
+        return OpenedTable::bind(
             $tableDefinition,
             $this->tableSchema,
             $this->tableRows,

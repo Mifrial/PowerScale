@@ -53,6 +53,7 @@ final class Application implements IApplication
      */
     public function handle(IHttpRequest $httpRequest): never
     {
+        $this->responseEmitter->beginRequest($httpRequest);
         $this->responseEmitter->emitJson($this->respondTo($httpRequest));
     }
 
@@ -89,6 +90,16 @@ final class Application implements IApplication
     public function getLocator(): IServiceLocator
     {
         return $this->locator;
+    }
+
+    /**
+     * Возвращает менеджер модулей. Для CLI setup, не для HTTP-соседей.
+     *
+     * @return IModuleManager Менеджер.
+     */
+    public function getModuleManager(): IModuleManager
+    {
+        return $this->modules;
     }
 
     /**

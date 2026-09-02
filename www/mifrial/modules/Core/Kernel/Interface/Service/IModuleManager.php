@@ -58,6 +58,16 @@ interface IModuleManager
     public function loadCore(): void;
 
     /**
+     * Подключает все модули каталога `modules/{Group}/{Name}`.
+     *
+     * @return void
+     *
+     * @throws KernelException Если каталог модулей недоступен.
+     * @throws ModuleManagerException Если конфигурация некорректна.
+     */
+    public function loadAllFromDisk(): void;
+
+    /**
      * Возвращает загруженные модули.
      *
      * @return array<int, array{group: string, name: string, config: array<string, mixed>}> Список модулей.

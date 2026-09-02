@@ -23,6 +23,7 @@ final class ListJsonFilter
      * @param string $operator Equals или not-equals.
      * @param mixed $operand Документ API.
      * @param string $boolean And или or.
+     * @param string $columnName Колонка SQL или имя поля.
      *
      * @return void
      *
@@ -35,13 +36,15 @@ final class ListJsonFilter
         string $operator,
         mixed $operand,
         string $boolean,
+        string $columnName = '',
     ): void {
         if ($operator !== '=' && $operator !== '!=') {
             throw new MapInvalidException('Filter operator is not allowed for field type');
         }
 
         $sqlOperator = $operator === '=' ? '=' : '<>';
-        $sqlExpression = '`' . $field->name() . '` ' . $sqlOperator . ' cast(? as json)';
+        $sqlExpression = $this->jsonColumnSql($columnName !== '' ? $columnName : $field->name())
+            . ' ' . $sqlOperator . ' cast(? as json)';
         $query->whereRaw(
             $sqlExpression,
             [$this->encodedOperand($field, $operand)],
@@ -50,7 +53,7 @@ final class ListJsonFilter
     }
 
     /**
-     * cast, extract и json_encode для драйвера.
+     * Кодирует операнд JSON для драйвера.
      *
      * @param BaseField $field Поле.
      * @param mixed $operand Операнд API.
@@ -67,5 +70,23 @@ final class ListJsonFilter
         } catch (JsonException) {
             throw new FieldInvalidException('JSON value cannot be encoded');
         }
+    }
+
+    /**
+     * Квалифицирует колонку JSON.
+     *
+     * @param string $columnName Имя или alias.field.
+     *
+     * @return string SQL.
+     */
+    private function jsonColumnSql(string $columnName): string
+    {
+        if (!str_contains($columnName, '.')) {
+            return '`' . $columnName . '`';
+        }
+
+        $parts = explode('.', $columnName, 2);
+
+        return '`' . $parts[0] . '`.`' . $parts[1] . '`';
     }
 }

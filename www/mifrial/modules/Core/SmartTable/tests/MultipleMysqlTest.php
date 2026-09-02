@@ -63,19 +63,19 @@ final class MultipleMysqlTest extends TestCase
     {
         $table = $this->openProbe();
         $this->assertProbeStorage();
-        $rowId = $table->add(['title' => 'n', 'tags' => ['b', 'a']]);
-        $row = $table->getById($rowId);
+        $rowId = $table->records()->add(['title' => 'n', 'tags' => ['b', 'a']]);
+        $row = $table->records()->getById($rowId);
         self::assertIsArray($row);
         self::assertSame(['a', 'b'], $row['tags']);
 
-        $table->update($rowId, ['tags' => ['c']]);
-        self::assertSame(['c'], $table->getById($rowId)['tags']);
+        $table->records()->update($rowId, ['tags' => ['c']]);
+        self::assertSame(['c'], $table->records()->getById($rowId)['tags']);
 
-        $emptyId = $table->add(['title' => 'e']);
-        self::assertSame([], $table->getById($emptyId)['tags']);
+        $emptyId = $table->records()->add(['title' => 'e']);
+        self::assertSame([], $table->records()->getById($emptyId)['tags']);
 
-        $table->delete($rowId);
-        self::assertNull($table->getById($rowId));
+        $table->records()->delete($rowId);
+        self::assertNull($table->records()->getById($rowId));
         $leftover = $this->databaseConnection?->illuminateConnection()
             ->table('st_mfv_probe_mfv_tags')
             ->where('owner_id', $rowId)
@@ -91,18 +91,18 @@ final class MultipleMysqlTest extends TestCase
     public function testRequiredAndPartialUpdate(): void
     {
         $required = $this->gateway()->open(MultipleRequiredTable::class);
-        $required->createTable();
+        $required->schema()->createTable();
         try {
-            $required->add([]);
+            $required->records()->add([]);
             self::fail('required empty tags must fail');
         } catch (FieldRequiredException $exception) {
             self::assertSame('FIELD_REQUIRED', $exception->getErrorCode());
         }
 
         $probe = $this->openProbe();
-        $rowId = $probe->add(['title' => 'n', 'tags' => ['a']]);
-        $probe->update($rowId, ['tags' => ['z']]);
-        $row = $probe->getById($rowId);
+        $rowId = $probe->records()->add(['title' => 'n', 'tags' => ['a']]);
+        $probe->records()->update($rowId, ['tags' => ['z']]);
+        $row = $probe->records()->getById($rowId);
         self::assertSame('n', $row['title']);
         self::assertSame(['z'], $row['tags']);
     }
@@ -115,36 +115,36 @@ final class MultipleMysqlTest extends TestCase
     public function testContainsEqualsSelect(): void
     {
         $table = $this->openProbe();
-        $table->add(['title' => 'one', 'tags' => ['a', 'b']]);
-        $table->add(['title' => 'two', 'tags' => ['a', 'b', 'c']]);
-        $table->add(['title' => 'empty']);
+        $table->records()->add(['title' => 'one', 'tags' => ['a', 'b']]);
+        $table->records()->add(['title' => 'two', 'tags' => ['a', 'b', 'c']]);
+        $table->records()->add(['title' => 'empty']);
 
-        $hasA = $table->getList(ListQuery::fromOptions(['limit' => 10, 'filter' => ['@tags' => 'a']]));
+        $hasA = $table->records()->getList(ListQuery::fromOptions(['limit' => 10, 'filter' => ['@tags' => 'a']]));
         self::assertCount(2, $hasA->rows());
 
-        $hasAb = $table->getList(ListQuery::fromOptions(['limit' => 10, 'filter' => ['@tags' => ['a', 'b']]]));
+        $hasAb = $table->records()->getList(ListQuery::fromOptions(['limit' => 10, 'filter' => ['@tags' => ['a', 'b']]]));
         self::assertCount(2, $hasAb->rows());
 
-        $hasAz = $table->getList(ListQuery::fromOptions(['limit' => 10, 'filter' => ['@tags' => ['a', 'z']]]));
+        $hasAz = $table->records()->getList(ListQuery::fromOptions(['limit' => 10, 'filter' => ['@tags' => ['a', 'z']]]));
         self::assertSame([], $hasAz->rows());
 
         try {
-            $table->getList(ListQuery::fromOptions(['limit' => 10, 'filter' => ['@tags' => []]]));
+            $table->records()->getList(ListQuery::fromOptions(['limit' => 10, 'filter' => ['@tags' => []]]));
             self::fail('empty contains must fail');
         } catch (MapInvalidException $exception) {
             self::assertSame('MAP_INVALID', $exception->getErrorCode());
         }
 
-        $exactAb = $table->getList(ListQuery::fromOptions(['limit' => 10, 'filter' => ['tags' => ['a', 'b']]]));
+        $exactAb = $table->records()->getList(ListQuery::fromOptions(['limit' => 10, 'filter' => ['tags' => ['a', 'b']]]));
         self::assertCount(1, $exactAb->rows());
         self::assertSame('one', $exactAb->rows()[0]['title']);
 
-        $table->add(['title' => 'onlya', 'tags' => ['a']]);
-        $scalarA = $table->getList(ListQuery::fromOptions(['limit' => 10, 'filter' => ['tags' => 'a']]));
+        $table->records()->add(['title' => 'onlya', 'tags' => ['a']]);
+        $scalarA = $table->records()->getList(ListQuery::fromOptions(['limit' => 10, 'filter' => ['tags' => 'a']]));
         self::assertCount(1, $scalarA->rows());
         self::assertSame('onlya', $scalarA->rows()[0]['title']);
 
-        $orListContains = $table->getList(ListQuery::fromOptions([
+        $orListContains = $table->records()->getList(ListQuery::fromOptions([
             'limit' => 10,
             'filter' => ['LOGIC' => 'OR', ['@tags' => ['a', 'b']], ['=title' => 'empty']],
         ]));
@@ -152,7 +152,7 @@ final class MultipleMysqlTest extends TestCase
         sort($orTitles);
         self::assertSame(['empty', 'one', 'two'], $orTitles);
 
-        $orEquals = $table->getList(ListQuery::fromOptions([
+        $orEquals = $table->records()->getList(ListQuery::fromOptions([
             'limit' => 10,
             'filter' => ['LOGIC' => 'OR', ['tags' => ['a', 'b']], ['=title' => 'empty']],
         ]));
@@ -160,17 +160,17 @@ final class MultipleMysqlTest extends TestCase
         sort($equalsTitles);
         self::assertSame(['empty', 'one'], $equalsTitles);
 
-        $emptySet = $table->getList(ListQuery::fromOptions(['limit' => 10, 'filter' => ['tags' => []]]));
+        $emptySet = $table->records()->getList(ListQuery::fromOptions(['limit' => 10, 'filter' => ['tags' => []]]));
         self::assertCount(1, $emptySet->rows());
         self::assertSame('empty', $emptySet->rows()[0]['title']);
 
-        $orContains = $table->getList(ListQuery::fromOptions([
+        $orContains = $table->records()->getList(ListQuery::fromOptions([
             'limit' => 10,
             'filter' => ['LOGIC' => 'OR', ['@tags' => 'c'], ['=title' => 'empty']],
         ]));
         self::assertCount(2, $orContains->rows());
 
-        $tagsOnly = $table->getList(ListQuery::fromOptions([
+        $tagsOnly = $table->records()->getList(ListQuery::fromOptions([
             'limit' => 10,
             'select' => ['tags'],
             'filter' => ['=title' => 'one'],
@@ -178,7 +178,7 @@ final class MultipleMysqlTest extends TestCase
         self::assertSame(['a', 'b'], $tagsOnly->rows()[0]['tags']);
         self::assertArrayNotHasKey('id', $tagsOnly->rows()[0]);
 
-        $noTags = $table->getList(ListQuery::fromOptions([
+        $noTags = $table->records()->getList(ListQuery::fromOptions([
             'limit' => 10,
             'select' => ['id', 'title'],
             'filter' => ['=title' => 'one'],
@@ -194,11 +194,11 @@ final class MultipleMysqlTest extends TestCase
     public function testUpdateTableCreatesMfv(): void
     {
         $table = $this->gateway()->open(MultipleProbeTable::class);
-        $table->createTable();
+        $table->schema()->createTable();
         $schemaBuilder = $this->databaseConnection?->illuminateConnection()->getSchemaBuilder();
         self::assertNotNull($schemaBuilder);
         $schemaBuilder->dropIfExists('st_mfv_probe_mfv_tags');
-        $table->updateTable();
+        $table->schema()->updateTable();
         self::assertTrue($schemaBuilder->hasTable('st_mfv_probe_mfv_tags'));
         self::assertFalse($schemaBuilder->hasColumn('st_mfv_probe', 'tags'));
     }
@@ -211,16 +211,16 @@ final class MultipleMysqlTest extends TestCase
     public function testIntMultiple(): void
     {
         $table = $this->gateway()->open(IntMultipleTable::class);
-        $table->createTable();
+        $table->schema()->createTable();
         $schemaBuilder = $this->databaseConnection?->illuminateConnection()->getSchemaBuilder();
         self::assertNotNull($schemaBuilder);
         self::assertTrue($schemaBuilder->hasTable('st_mfv_ints_mfv_codes'));
         self::assertFalse($schemaBuilder->hasColumn('st_mfv_ints', 'codes'));
 
-        $rowId = $table->add(['codes' => [2, 1]]);
-        self::assertSame([1, 2], $table->getById($rowId)['codes']);
-        $table->add(['codes' => [1]]);
-        $exact = $table->getList(ListQuery::fromOptions(['limit' => 10, 'filter' => ['codes' => 1]]));
+        $rowId = $table->records()->add(['codes' => [2, 1]]);
+        self::assertSame([1, 2], $table->records()->getById($rowId)['codes']);
+        $table->records()->add(['codes' => [1]]);
+        $exact = $table->records()->getList(ListQuery::fromOptions(['limit' => 10, 'filter' => ['codes' => 1]]));
         self::assertCount(1, $exact->rows());
         self::assertSame([1], $exact->rows()[0]['codes']);
     }
@@ -233,7 +233,7 @@ final class MultipleMysqlTest extends TestCase
     private function openProbe(): IOpenedTable
     {
         $table = $this->gateway()->open(MultipleProbeTable::class);
-        $table->createTable();
+        $table->schema()->createTable();
 
         return $table;
     }

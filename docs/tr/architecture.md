@@ -81,12 +81,14 @@ API-запросы входят через `mifrial/API/action.php`; отдел�
 Конвейер запроса:
 
 ```text
-запрос → маршрутизация action → CSRF (если не csrf:false) → биндинг handle → данные или ActionException → ActionResponse
+запрос → маршрутизация action → CSRF (если не csrf:false) → request_bind (актор сессии, если модуль заявил) → биндинг handle → данные или ActionException → ActionResponse
 ```
 
 `runAction` на фронте передаёт JSON-объект. Диспетчер сопоставляет ключи объекта с именами параметров `handle` и проверяет типы (`int`, `float`, `string`, `bool`, `array`, backed enum). Лишние ключи, отсутствие обязательного поля и несовпадение типа дают `INVALID_PARAMS`. `null` допустим только у `?T`. Сервисы в `handle` не передаются — только через конструктор обработчика. Общий `handle(mixed $payload)` не является контрактом.
 
 `handle` возвращает данные успеха (`array` / скаляр / `null`). Диспетчер оборачивает их в `ActionResponse::ok`. Доменная ошибка — `ActionException` с машиночитаемым кодом; диспетчер собирает `fail`. Класс Action не знает про `ActionResponse`. Непойманный throwable на HTTP-границе — `INTERNAL` (при `debug` в `local.php` — класс, message и trace в JSON) и запись в `ILogger` (`error_log` до модуля Logger). CSRF: кука `csrf-token` и заголовок `X-CSRF-Token`. HTTP: 200 успех, 400 доменные/`INVALID_*`/`UNKNOWN_ACTION`, 403 CSRF, 500 INTERNAL; не 401.
+
+Cookie ответа: порт `IRequestContext` (extra Kernel, как `IRuntimeConfig`). `Application::handle` сбрасывает контекст и копирует входящие cookie; модули кладут исходящие в очередь, не вызывая `setcookie`. `ResponseEmitter` шлёт `Set-Cookie` до JSON. `dispatch()` без HTTP входящие cookie не подставляет. Актор сессии — тот же контекст; модуль с ключом `request_bind` кладёт снимок до dispatch ([`user-plan-03-http.md`](user-plan-03-http.md)). Kernel не импортирует Auth.
 
 `main.ts` регистрирует mock или боевые API и инициализирует CSRF. `HttpClient` берёт CSRF-токен через callback и шлёт его на запросы, меняющие состояние. `runAction` кодирует имя действия и возвращает типизированный конверт ответа или ошибки.
 
@@ -96,7 +98,7 @@ API-запросы входят через `mifrial/API/action.php`; отдел�
 
 SmartTable — единственная серверная абстракция доступа к данным. Репозиторий не вызывает SQL, Eloquent и Query/Schema Illuminate. Внутри `Core/SmartTable` — `illuminate/database` (Connection, Query Builder, Schema), без фреймворка Laravel. `multiple` хранится доп. таблицей значений. Тегированный кэш `getList` — требование v1. Runtime-создание таблиц/полей с нашими типами — требование v1. Админский UI — после Auth. Versioned-оболочка — контракт заранее, код — план 11.
 
-Репозиторий открывает таблицу через контейнер модуля SmartTable: PHP-класс — `ISmartTableGateway::open` (class-string определения), таблица из словаря — `ITableCatalog::openByName`. Не строковый ключ локатора. Гидраторы регистрируются конфигом модуля. Схема таблицы с PHP-классом сверяется с БД вызовами `createTable` / `updateTable` / `forceUpdateTable`. Журнал наката (кто, когда, up/down) — не модуль SmartTable.
+Фабрика прикладного модуля открывает таблицу через контейнер SmartTable: PHP-класс — `ISmartTableGateway::open` (class-string), таблица из словаря — `ITableCatalog::openByName`. Не строковый ключ локатора. `open` отдаёт сумку `IOpenedTable`: `schema()` — DDL (`createTable` / `updateTable` / `forceUpdateTable` / `deleteTable`), `records()` — строки (`add` / `getList` / `getUnique` / …). Репозиторий получает `records()`, класс схемы — `schema()`; сосед прикладного модуля не зовёт `open`. Гидраторы — конфиг модуля SmartTable. Установка/обновление набора модулей (граф DDL, CLI) — Kernel, не SmartTable ([`kernel-plan-01-setup.md`](kernel-plan-01-setup.md)). Журнал аудита — не этот контур.
 
 Журнал сервера — таблица SmartTable; файл/`error_log` — запасной путь. Basic принят: прикладные модули ходят только через порты SmartTable.
 

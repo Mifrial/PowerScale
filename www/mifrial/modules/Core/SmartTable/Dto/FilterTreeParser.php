@@ -104,7 +104,7 @@ final class FilterTreeParser
     private function parseCondition(string $filterKey, mixed $operand): FilterCondition
     {
         [$operator, $fieldName] = $this->splitOperator($filterKey);
-        if (preg_match('/^[a-z][a-z0-9_]*$/', $fieldName) !== 1) {
+        if (preg_match(FieldPath::NAME_PATTERN, $fieldName) !== 1) {
             throw new MapInvalidException('Filter field name is invalid');
         }
 
@@ -132,7 +132,7 @@ final class FilterTreeParser
             }
         }
 
-        if (preg_match('/^[a-z][a-z0-9_]*$/', $filterKey) === 1) {
+        if (preg_match(FieldPath::NAME_PATTERN, $filterKey) === 1) {
             return ['=', $filterKey];
         }
 

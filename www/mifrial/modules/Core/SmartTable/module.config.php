@@ -13,10 +13,12 @@ use Mifrial\Core\SmartTable\Service\DatabaseConnectionPortFactory;
 use Mifrial\Core\SmartTable\Service\HydratorRegistry;
 use Mifrial\Core\SmartTable\Service\SmartTableGatewayPortFactory;
 use Mifrial\Core\SmartTable\Service\TableCatalogPortFactory;
+use Mifrial\Core\SmartTable\Setup\SmartTableModuleSetup;
 
 return [
     'container' => SmartTableContainer::class,
     'locator' => ISmartTableContainer::class,
+    'setup' => SmartTableModuleSetup::class,
     'ports' => [
         IDatabaseConnection::class => static function (
             IServiceLocator $serviceLocator,

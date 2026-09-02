@@ -10,6 +10,7 @@ use Mifrial\Core\Kernel\Value\DateTime as UnixDateTime;
 use Mifrial\Core\SmartTable\Dto\ListQuery;
 use Mifrial\Core\SmartTable\Exception\Database\DatabaseException;
 use Mifrial\Core\SmartTable\Exception\Database\DbConfigInvalidException;
+use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
 use Mifrial\Core\SmartTable\Exception\Schema\TableMissingException;
 use Mifrial\Core\SmartTable\Interface\Container\ISmartTableContainer;
 use Mifrial\Core\SmartTable\Interface\Service\IDatabaseConnection;
@@ -60,20 +61,20 @@ final class GetListMysqlTest extends TestCase
     public function testEqualsInLike(): void
     {
         $table = $this->seedProbe();
-        $equal = $table->getList(ListQuery::fromOptions(['limit' => 10, 'filter' => ['=title' => 'hello']]));
+        $equal = $table->records()->getList(ListQuery::fromOptions(['limit' => 10, 'filter' => ['=title' => 'hello']]));
         self::assertCount(1, $equal->rows());
         self::assertSame('hello', $equal->rows()[0]['title']);
         self::assertNull($equal->total());
 
-        $inList = $table->getList(ListQuery::fromOptions(['limit' => 10, 'filter' => ['id' => [
+        $inList = $table->records()->getList(ListQuery::fromOptions(['limit' => 10, 'filter' => ['id' => [
             $equal->rows()[0]['id'],
         ]]]));
         self::assertCount(1, $inList->rows());
 
-        $like = $table->getList(ListQuery::fromOptions(['limit' => 10, 'filter' => ['%title' => '%hel%']]));
+        $like = $table->records()->getList(ListQuery::fromOptions(['limit' => 10, 'filter' => ['%title' => '%hel%']]));
         self::assertGreaterThanOrEqual(2, count($like->rows()));
 
-        $notHello = $table->getList(ListQuery::fromOptions(['limit' => 10, 'filter' => ['!=title' => 'hello']]));
+        $notHello = $table->records()->getList(ListQuery::fromOptions(['limit' => 10, 'filter' => ['!=title' => 'hello']]));
         self::assertSame([], array_filter($notHello->rows(), static fn (array $row): bool => $row['title'] === 'hello'));
     }
 
@@ -85,26 +86,26 @@ final class GetListMysqlTest extends TestCase
     public function testComparePageTotal(): void
     {
         $table = $this->seedProbe();
-        $older = $table->getList(ListQuery::fromOptions([
+        $older = $table->records()->getList(ListQuery::fromOptions([
             'limit' => 10,
             'filter' => ['>age' => 12],
             'sort' => ['id' => 'desc'],
         ]));
         self::assertNotSame([], $older->rows());
 
-        $between = $table->getList(ListQuery::fromOptions(['limit' => 10, 'filter' => ['><age' => [10, 15]]]));
+        $between = $table->records()->getList(ListQuery::fromOptions(['limit' => 10, 'filter' => ['><age' => [10, 15]]]));
         foreach ($between->rows() as $row) {
             self::assertGreaterThanOrEqual(10, $row['age']);
             self::assertLessThanOrEqual(15, $row['age']);
         }
 
-        $orGroup = $table->getList(ListQuery::fromOptions([
+        $orGroup = $table->records()->getList(ListQuery::fromOptions([
             'limit' => 10,
             'filter' => ['LOGIC' => 'OR', ['=title' => 'hello'], ['=title' => 'world']],
         ]));
         self::assertCount(2, $orGroup->rows());
 
-        $page = $table->getList(ListQuery::fromOptions([
+        $page = $table->records()->getList(ListQuery::fromOptions([
             'limit' => 1,
             'offset' => 1,
             'countTotal' => true,
@@ -124,39 +125,39 @@ final class GetListMysqlTest extends TestCase
     public function testJsonNullAndEmpty(): void
     {
         $table = $this->seedProbe();
-        $jsonDoc = $table->getList(ListQuery::fromOptions(['limit' => 10, 'filter' => ['=payload' => ['a' => 1]]]));
+        $jsonDoc = $table->records()->getList(ListQuery::fromOptions(['limit' => 10, 'filter' => ['=payload' => ['a' => 1]]]));
         self::assertCount(1, $jsonDoc->rows());
         self::assertSame(['a' => 1], $jsonDoc->rows()[0]['payload']);
 
-        $jsonArray = $table->getList(ListQuery::fromOptions(['limit' => 10, 'filter' => ['=payload' => [1, 2]]]));
+        $jsonArray = $table->records()->getList(ListQuery::fromOptions(['limit' => 10, 'filter' => ['=payload' => [1, 2]]]));
         self::assertCount(1, $jsonArray->rows());
 
-        $orJson = $table->getList(ListQuery::fromOptions([
+        $orJson = $table->records()->getList(ListQuery::fromOptions([
             'limit' => 10,
             'filter' => ['LOGIC' => 'OR', ['=payload' => ['a' => 1]], ['=payload' => ['b' => 2]]],
         ]));
         self::assertCount(2, $orJson->rows());
 
-        $bools = $table->getList(ListQuery::fromOptions(['limit' => 10, 'filter' => ['=active' => true]]));
+        $bools = $table->records()->getList(ListQuery::fromOptions(['limit' => 10, 'filter' => ['=active' => true]]));
         self::assertNotSame([], $bools->rows());
 
-        $nullTitle = $table->getList(ListQuery::fromOptions(['limit' => 10, 'filter' => ['=title' => null]]));
+        $nullTitle = $table->records()->getList(ListQuery::fromOptions(['limit' => 10, 'filter' => ['=title' => null]]));
         self::assertSame([], $nullTitle->rows());
 
-        $empty = $table->getList(ListQuery::fromOptions(['limit' => 10, 'filter' => ['=title' => 'missing']]));
+        $empty = $table->records()->getList(ListQuery::fromOptions(['limit' => 10, 'filter' => ['=title' => 'missing']]));
         self::assertSame([], $empty->rows());
 
         $created = UnixDateTime::fromUnix(1700000000);
-        $byCreated = $table->getList(ListQuery::fromOptions(['limit' => 10, 'filter' => ['=created' => $created]]));
+        $byCreated = $table->records()->getList(ListQuery::fromOptions(['limit' => 10, 'filter' => ['=created' => $created]]));
         self::assertCount(3, $byCreated->rows());
 
-        $newest = $table->getList(ListQuery::fromOptions([
+        $newest = $table->records()->getList(ListQuery::fromOptions([
             'limit' => 1,
             'sort' => ['id' => 'desc'],
         ]));
         $lastId = $newest->rows()[0]['id'];
         self::assertIsInt($lastId);
-        $olderChat = $table->getList(ListQuery::fromOptions([
+        $olderChat = $table->records()->getList(ListQuery::fromOptions([
             'limit' => 10,
             'filter' => ['<id' => $lastId],
             'sort' => ['id' => 'desc'],
@@ -176,10 +177,94 @@ final class GetListMysqlTest extends TestCase
     {
         $table = $this->gateway()->open(CrudProbeTable::class);
         try {
-            $table->getList(ListQuery::fromOptions(['limit' => 10]));
+            $table->records()->getList(ListQuery::fromOptions(['limit' => 10]));
             self::fail('missing table must fail');
         } catch (TableMissingException $exception) {
             self::assertSame('TABLE_MISSING', $exception->getErrorCode());
+        }
+    }
+
+    /**
+     * getUnique/getFirst — оболочка над getList.
+     *
+     * @return void
+     */
+    public function testGetUniqueAndGetFirst(): void
+    {
+        $records = $this->seedProbe()->records();
+        $hello = $records->getUnique(ListQuery::fromOptions([
+            'filter' => ['title' => 'hello'],
+            'limit' => 1,
+        ]));
+        self::assertIsArray($hello);
+        self::assertSame('hello', $hello['title']);
+        self::assertNull($records->getUnique(ListQuery::fromOptions([
+            'filter' => ['title' => 'missing'],
+            'limit' => 1,
+        ])));
+        $firstActive = $records->getFirst(ListQuery::fromOptions([
+            'filter' => ['active' => true],
+            'sort' => ['id' => 'ASC'],
+            'limit' => 1,
+        ]));
+        self::assertSame('hello', $firstActive['title'] ?? null);
+        $titleOnly = $records->getUnique(ListQuery::fromOptions([
+            'filter' => ['title' => 'world'],
+            'select' => ['title'],
+            'limit' => 1,
+        ]));
+        self::assertSame(['title' => 'world'], $titleOnly);
+        $records->add([
+            'title' => 'hello',
+            'age' => 1,
+            'active' => true,
+            'created' => UnixDateTime::fromUnix(1),
+            'payload' => [],
+        ]);
+        try {
+            $records->getUnique(ListQuery::fromOptions([
+                'filter' => ['title' => 'hello'],
+                'limit' => 1,
+            ]));
+            self::fail('two rows must fail unique');
+        } catch (MapInvalidException $exception) {
+            self::assertSame('MAP_INVALID', $exception->getErrorCode());
+        }
+
+        try {
+            $records->getUnique(ListQuery::fromOptions(['limit' => 1]));
+            self::fail('empty filter must fail unique');
+        } catch (MapInvalidException $exception) {
+            self::assertSame('MAP_INVALID', $exception->getErrorCode());
+        }
+
+        try {
+            $records->getFirst(ListQuery::fromOptions(['limit' => 1]));
+            self::fail('first without filter or sort must fail');
+        } catch (MapInvalidException $exception) {
+            self::assertSame('MAP_INVALID', $exception->getErrorCode());
+        }
+
+        try {
+            $records->getFirst(ListQuery::fromOptions([
+                'filter' => ['title' => 'world'],
+                'limit' => 1,
+                'offset' => 1,
+            ]));
+            self::fail('offset must fail');
+        } catch (MapInvalidException $exception) {
+            self::assertSame('MAP_INVALID', $exception->getErrorCode());
+        }
+
+        try {
+            $records->getUnique(ListQuery::fromOptions([
+                'filter' => ['title' => 'world'],
+                'limit' => 1,
+                'countTotal' => true,
+            ]));
+            self::fail('countTotal must fail');
+        } catch (MapInvalidException $exception) {
+            self::assertSame('MAP_INVALID', $exception->getErrorCode());
         }
     }
 
@@ -191,23 +276,23 @@ final class GetListMysqlTest extends TestCase
     private function seedProbe(): IOpenedTable
     {
         $table = $this->gateway()->open(CrudProbeTable::class);
-        $table->createTable();
+        $table->schema()->createTable();
         $created = UnixDateTime::fromUnix(1700000000);
-        $table->add([
+        $table->records()->add([
             'title' => 'hello',
             'age' => 10,
             'active' => true,
             'created' => $created,
             'payload' => ['a' => 1],
         ]);
-        $table->add([
+        $table->records()->add([
             'title' => 'world',
             'age' => 20,
             'active' => false,
             'created' => $created,
             'payload' => ['b' => 2],
         ]);
-        $table->add([
+        $table->records()->add([
             'title' => 'help',
             'age' => 15,
             'active' => true,

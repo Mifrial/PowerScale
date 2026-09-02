@@ -10,15 +10,23 @@ use Mifrial\Core\SmartTable\Dto\ListQuery;
 use Mifrial\Core\SmartTable\Dto\ListResult;
 use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
 use Mifrial\Core\SmartTable\Exception\Schema\SchemaMismatchException;
+use Mifrial\Core\SmartTable\Field\BaseField;
 use Mifrial\Core\SmartTable\Service\Connection\IlluminateDatabaseConnection;
 use Mifrial\Core\SmartTable\Service\DriverErrorTranslator;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
 
 /**
  * Выборка страницы строк и optional COUNT.
+ *
+ * Суммарная complexity чуть выше порога: getList — один сценарий (свои
+ * колонки, свои mfv, путь). Вынос ради sniff уже смешивал роли.
  */
-final class TableList
+final class TableList // phpcs:ignore MifrialCodingStandard.Metrics.ClassQuality.ClassComplexityTooHigh
 {
+    private readonly ListPathSql $pathSql;
+
+    private readonly PathListHydrator $pathHydrator;
+
     /**
      * Создаёт доступ к списку.
      *
@@ -27,6 +35,7 @@ final class TableList
      * @param DriverErrorTranslator $driverErrors Переводчик SQLSTATE.
      * @param ListQueryCompiler $listQueryCompiler WHERE/ORDER/page.
      * @param MfvRows $mfvRows Догрузка множеств.
+     * @param FieldPathWalker $fieldPathWalker Пути reference.
      *
      * @return void
      */
@@ -36,7 +45,10 @@ final class TableList
         private readonly DriverErrorTranslator $driverErrors,
         private readonly ListQueryCompiler $listQueryCompiler,
         private readonly MfvRows $mfvRows,
+        private readonly FieldPathWalker $fieldPathWalker = new FieldPathWalker(),
     ) {
+        $this->pathSql = new ListPathSql();
+        $this->pathHydrator = new PathListHydrator($this->fieldPathWalker, $this->mfvRows);
     }
 
     /**
@@ -52,16 +64,29 @@ final class TableList
     public function getList(SmartTableDefinition $tableDefinition, ListQuery $listQuery): ListResult
     {
         $hydrateNames = $this->resolveSelect($listQuery, $tableDefinition);
-        $sqlColumns = $this->sqlColumns($hydrateNames, $tableDefinition);
         $filteredQuery = $this->filteredBuilder($tableDefinition, $listQuery);
         $totalCount = $this->optionalTotal($filteredQuery, $listQuery);
         $this->listQueryCompiler->applyOrder($filteredQuery, $listQuery, $tableDefinition);
         $this->listQueryCompiler->applyPage($filteredQuery, $listQuery);
+        $this->applySelect($filteredQuery, $hydrateNames, $tableDefinition);
         $databaseRows = $this->driverErrors->run(
-            static fn (): Collection => $filteredQuery->select($sqlColumns)->get(),
+            static fn (): Collection => $filteredQuery->get(),
         );
 
         return new ListResult($this->hydrateRows($databaseRows, $tableDefinition, $hydrateNames), $totalCount);
+    }
+
+    /**
+     * Теги кэша списка по запросу.
+     *
+     * @param SmartTableDefinition $tableDefinition Карта.
+     * @param ListQuery $listQuery Запрос.
+     *
+     * @return array<int, string> table:field.
+     */
+    public function cacheFieldTags(SmartTableDefinition $tableDefinition, ListQuery $listQuery): array
+    {
+        return (new ListCacheFieldTags($this->fieldPathWalker))->collect($tableDefinition, $listQuery);
     }
 
     /**
@@ -120,12 +145,88 @@ final class TableList
         }
 
         foreach ($selectedNames as $fieldName) {
+            if (str_contains($fieldName, '.')) {
+                $this->fieldPathWalker->resolve($tableDefinition, $fieldName);
+                continue;
+            }
+
             if (!isset($fieldMap[$fieldName])) {
                 throw new MapInvalidException('Unknown field name');
             }
         }
 
         return $selectedNames;
+    }
+
+    /**
+     * SELECT своих колонок и подзапросов пути.
+     *
+     * @param Builder $query Билдер.
+     * @param array<int, string> $hydrateNames Поля ответа.
+     * @param SmartTableDefinition $tableDefinition Карта.
+     *
+     * @return void
+     */
+    private function applySelect(
+        Builder $query,
+        array $hydrateNames,
+        SmartTableDefinition $tableDefinition,
+    ): void {
+        $ownColumns = $this->sqlColumns($hydrateNames, $tableDefinition);
+        if ($ownColumns !== []) {
+            $query->select($ownColumns);
+        }
+
+        $this->applyPathSelect($query, $hydrateNames, $tableDefinition);
+    }
+
+    /**
+     * Добавляет подзапросы пути в SELECT.
+     *
+     * @param Builder $query Билдер.
+     * @param array<int, string> $hydrateNames Поля ответа.
+     * @param SmartTableDefinition $tableDefinition Карта.
+     *
+     * @return void
+     */
+    private function applyPathSelect(
+        Builder $query,
+        array $hydrateNames,
+        SmartTableDefinition $tableDefinition,
+    ): void {
+        $mfvIndex = 0;
+        foreach ($hydrateNames as $fieldName) {
+            if (!str_contains($fieldName, '.')) {
+                continue;
+            }
+
+            $query->selectRaw($this->pathSelectRaw($tableDefinition, $fieldName, $mfvIndex));
+        }
+    }
+
+    /**
+     * SQL «выражение as alias» для пути.
+     *
+     * @param SmartTableDefinition $tableDefinition Карта.
+     * @param string $fieldName Путь.
+     * @param int $mfvIndex Счётчик mfv-алиасов.
+     *
+     * @return string RAW.
+     */
+    private function pathSelectRaw(
+        SmartTableDefinition $tableDefinition,
+        string $fieldName,
+        int &$mfvIndex,
+    ): string {
+        $resolvedPath = $this->fieldPathWalker->resolve($tableDefinition, $fieldName);
+        if ($resolvedPath->leafField()->settings()->multiple()) {
+            $aliasName = '__st_m' . $mfvIndex;
+            $mfvIndex++;
+
+            return $this->pathSql->leafIdSql($resolvedPath) . ' as `' . $aliasName . '`';
+        }
+
+        return $this->pathSql->scalarSql($resolvedPath) . ' as `' . $fieldName . '`';
     }
 
     /**
@@ -142,6 +243,10 @@ final class TableList
         $sqlColumns = [];
         $needsOwnerId = false;
         foreach ($hydrateNames as $fieldName) {
+            if (str_contains($fieldName, '.')) {
+                continue;
+            }
+
             if ($fieldMap[$fieldName]->settings()->multiple()) {
                 $needsOwnerId = true;
                 continue;
@@ -179,32 +284,49 @@ final class TableList
             $rowMaps[] = $this->rowMap($databaseRow);
         }
 
-        $this->attachMultipleLists($rowMaps, $tableDefinition, $hydrateNames);
+        $this->attachOwnMultiple($rowMaps, $tableDefinition, $hydrateNames);
+        $this->pathHydrator->attachMultiple($rowMaps, $tableDefinition, $hydrateNames);
         foreach ($rowMaps as $rowMap) {
-            $hydratedRows[] = $this->rowAssembler->hydrateSelected(
-                $rowMap,
-                $tableDefinition,
-                $hydrateNames,
-            );
+            $hydratedRows[] = $this->hydrateRow($rowMap, $tableDefinition, $hydrateNames);
         }
 
         return $hydratedRows;
     }
 
     /**
-     * Подставляет сырые mfv list в строки страницы.
+     * Догружает свои multiple-поля страницы.
      *
-     * @param array<int, array<string, mixed>> $rowMaps Строки драйвера.
-     * @param SmartTableDefinition $tableDefinition Определение.
+     * @param array<int, array<string, mixed>> $rowMaps Строки.
+     * @param SmartTableDefinition $tableDefinition Карта.
      * @param array<int, string> $hydrateNames Поля ответа.
      *
      * @return void
      */
-    private function attachMultipleLists(
+    private function attachOwnMultiple(
         array &$rowMaps,
         SmartTableDefinition $tableDefinition,
         array $hydrateNames,
     ): void {
+        $ownerIds = $this->ownerIds($rowMaps);
+        $fieldMap = $tableDefinition->getMap();
+        foreach ($hydrateNames as $fieldName) {
+            if (str_contains($fieldName, '.') || !$fieldMap[$fieldName]->settings()->multiple()) {
+                continue;
+            }
+
+            $this->writeOwnLists($rowMaps, $tableDefinition, $fieldMap[$fieldName], $fieldName, $ownerIds);
+        }
+    }
+
+    /**
+     * Id строк страницы.
+     *
+     * @param array<int, array<string, mixed>> $rowMaps Строки.
+     *
+     * @return array<int, int> Id.
+     */
+    private function ownerIds(array $rowMaps): array
+    {
         $ownerIds = [];
         foreach ($rowMaps as $rowMap) {
             if (isset($rowMap['id'])) {
@@ -212,19 +334,61 @@ final class TableList
             }
         }
 
-        $fieldMap = $tableDefinition->getMap();
-        foreach ($hydrateNames as $fieldName) {
-            $field = $fieldMap[$fieldName];
-            if (!$field->settings()->multiple()) {
-                continue;
-            }
+        return $ownerIds;
+    }
 
-            $groupedValues = $this->mfvRows->loadByOwners($tableDefinition, $field, $ownerIds);
-            foreach ($rowMaps as $rowIndex => $rowMap) {
-                $ownerId = (int) ($rowMap['id'] ?? 0);
-                $rowMaps[$rowIndex][$fieldName] = $groupedValues[$ownerId] ?? [];
+    /**
+     * Пишет list своего multiple в строки.
+     *
+     * @param array<int, array<string, mixed>> $rowMaps Строки.
+     * @param SmartTableDefinition $tableDefinition Карта.
+     * @param BaseField $field Поле.
+     * @param string $fieldName Имя.
+     * @param array<int, int> $ownerIds Id.
+     *
+     * @return void
+     */
+    private function writeOwnLists(
+        array &$rowMaps,
+        SmartTableDefinition $tableDefinition,
+        BaseField $field,
+        string $fieldName,
+        array $ownerIds,
+    ): void {
+        $groupedValues = $this->mfvRows->loadByOwners($tableDefinition, $field, $ownerIds);
+        foreach ($rowMaps as $rowIndex => $rowMap) {
+            $ownerId = (int) ($rowMap['id'] ?? 0);
+            $rowMaps[$rowIndex][$fieldName] = $groupedValues[$ownerId] ?? [];
+        }
+    }
+
+    /**
+     * Гидратирует одну строку: свои поля и пути.
+     *
+     * @param array<string, mixed> $rowMap Сырая строка.
+     * @param SmartTableDefinition $tableDefinition Карта.
+     * @param array<int, string> $hydrateNames Поля ответа.
+     *
+     * @return array<string, mixed> PHP-строка.
+     */
+    private function hydrateRow(
+        array $rowMap,
+        SmartTableDefinition $tableDefinition,
+        array $hydrateNames,
+    ): array {
+        $ownNames = [];
+        foreach ($hydrateNames as $fieldName) {
+            if (!str_contains($fieldName, '.')) {
+                $ownNames[] = $fieldName;
             }
         }
+
+        $hydratedRow = [];
+        if ($ownNames !== []) {
+            $hydratedRow = $this->rowAssembler->hydrateSelected($rowMap, $tableDefinition, $ownNames);
+        }
+
+        return $this->pathHydrator->hydratePaths($rowMap, $hydratedRow, $tableDefinition, $hydrateNames);
     }
 
     /**

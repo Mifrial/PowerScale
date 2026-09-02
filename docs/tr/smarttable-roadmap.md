@@ -58,11 +58,25 @@ Multiple — сделано: [`smarttable-plan-05-multiple.md`](smarttable-plan-
 
 ## 9. Накат схемы — не SmartTable (решение)
 
-Подробно: [`smarttable-plan-09-migrations.md`](smarttable-plan-09-migrations.md). **Кода в SmartTable нет.** DDL одной таблицы (`createTable` / `updateTable` / `forceUpdateTable` / `deleteTable`) уже в модуле. Журнал наката, CLI, порядок модулей — отдельный модуль Core (как sprint.migration относительно HL), не блокирует план 10. Runtime — словарь, не git.
+Подробно: [`smarttable-plan-09-migrations.md`](smarttable-plan-09-migrations.md). **Кода прогона в SmartTable нет.** DDL одной таблицы уже в модуле. Установка всех модулей, граф FK, CLI, реестр data-шагов — [`kernel-plan-01-setup.md`](kernel-plan-01-setup.md) (Kernel, не ST). Runtime-словарь — не git.
 
 ## 10. Ворота Basic — сделано
 
-Подробно: [`smarttable-plan-10-gates.md`](smarttable-plan-10-gates.md). Чеклист [`smarttable.md`](smarttable.md) v1 закрыт. Нет UI и Versioned-кода. Дальше — User/Auth/Журнал **или** план 11. Модуль наката схемы не обязателен до User.
+Подробно: [`smarttable-plan-10-gates.md`](smarttable-plan-10-gates.md). Чеклист [`smarttable.md`](smarttable.md) v1 закрыт. Нет UI и Versioned-кода. Дальше — [`auth-plan-01-session.md`](auth-plan-01-session.md) или план 11.
+
+**После ворот (не отдельный пункт нарезки):** handle разрезан. `IOpenedTable` — сумка `schema()` / `records()`, не 9–10 CRUD-методов на одном типе. Закрытые планы 3–8 и «9 public» в плане 10 описывают API той недели; текущий контракт — [`smarttable.md`](smarttable.md). `getUnique` / `getFirst` — оболочка над `getList` + TTL.
+
+## 13. DateTime default «сейчас» — сделано
+
+Подробно: [`smarttable-plan-13-datetime-now.md`](smarttable-plan-13-datetime-now.md). Sentinel в `default` на datetime: add без ключа → `DateTime::now()`. Не SQL. User `registered_at` / `created_at` в том же заходе. Не блокирует план 11.
+
+## 14. Путь через `reference` в getList — сделано
+
+Подробно: [`smarttable-plan-14-reference-path.md`](smarttable-plan-14-reference-path.md). Тип `reference` — FK на `id` цели. Путь: hop только `reference`→`id`; лист — любое поле цели (в т.ч. multiple); в SQL только select/sort/filter. FROM — своя таблица. Повтор стола в пути законен. Не блокирует план 11. User: `hasBypass` / LAST_BYPASS — путь на членстве.
+
+## 15. BIGINT и cascade — сделано
+
+Подробно: [`smarttable-plan-15-bigint.md`](smarttable-plan-15-bigint.md). Ширина на `IntField`; PK — `IdField::big()`; словарь `type: bigint`; `onDelete: cascade`. Не `BigIdField`. Ссылка ширину не выбирает. Блокер Auth 1. Не блокирует план 11.
 
 ## 11. VersionedSmartTable
 

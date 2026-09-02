@@ -18,4 +18,10 @@ return [
         'driver' => 'file',
         'path' => __DIR__ . '/../var/cache/smarttable',
     ],
+    'auth' => [
+        'operator_login' => 'admin',
+        'operator_password' => 'changeme',
+        'operator_name' => 'Администратор',
+        'cookie_secure' => false,
+    ],
 ];

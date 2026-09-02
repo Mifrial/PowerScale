@@ -32,8 +32,18 @@
 - [План 7a: force DDL](smarttable-plan-07-force-ddl.md) — forceUpdateTable / deleteTable.
 - [План 7b: словарь](smarttable-plan-07-dictionary.md) — мета-таблицы и runtime DDL.
 - [План 8: кэш](smarttable-plan-08-cache.md) — TTL getById/getList и теги после commit.
-- [План 9: накат схемы](smarttable-plan-09-migrations.md) — журнал наката не в SmartTable (решение).
+- [План 9: DDL vs прогон](smarttable-plan-09-migrations.md) — прогон модулей не в SmartTable.
+- [План Kernel 1: setup](kernel-plan-01-setup.md) — установка/обновление модулей, граф `reference`, CLI.
 - [План 10: ворота Basic](smarttable-plan-10-gates.md) — сверка канона v1, Basic закрыт.
+- [План 13: DateTime now](smarttable-plan-13-datetime-now.md) — `default` sentinel «сейчас» на datetime.
+- [План 14: путь reference](smarttable-plan-14-reference-path.md) — `reference` на `id` цели; путь в getList без JOIN.
+- [План 15: BIGINT и cascade](smarttable-plan-15-bigint.md) — `IdField::big()`, `type: bigint`, `onDelete: cascade`.
+- [User (backend)](user.md) — учётка; сессия в Auth.
+- [Нарезка User](user-roadmap.md) — планы модуля User.
+- [План User 1: учётка](user-plan-01-account.md) — таблица `user`, фасад `IUserAccounts`, без HTTP.
+- [План User 2: группы](user-plan-02-groups.md) — членство, ключи прав, bypass.
+- [План Auth 1: сессия](auth-plan-01-session.md) — cookie, `user_identity`, login/register, seed групп.
+- [План User 3: HTTP учётки](user-plan-03-http.md) — `user.*`, актор запроса, `user.create` в Auth.
 - [Система правил](rule-system.md) — RuleType, ревизии, каталог, ресурсы и публикация.
 - [Система персонажей](character-system.md) — версии, membership, validation и модерация.
 - [Система игр](game-system.md) — игра, бой, абстрактное движение, overlay, инвентарь и экономика.

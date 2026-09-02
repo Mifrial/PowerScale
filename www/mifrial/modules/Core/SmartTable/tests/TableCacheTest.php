@@ -100,6 +100,24 @@ final class TableCacheTest extends TestCase
     }
 
     /**
+     * Delete родителя бьёт get и списки CASCADE/SET NULL-детей, не чужой стол.
+     *
+     * @return void
+     */
+    public function testDeleteFlushesDependentRowsAndLists(): void
+    {
+        $tableCache = $this->makeCache(true);
+        $childQuery = ListQuery::fromOptions(['limit' => 10]);
+        $tableCache->saveList('st_child', $childQuery, new ListResult([['id' => 2]], null), 60, ['id']);
+        $tableCache->saveGet('st_child', 2, ['parent_id' => 1], 60);
+        $tableCache->saveGet('st_other', 9, ['x' => 1], 60);
+        $tableCache->noteDelete('st_parent', 1, static fn (): array => ['st_child']);
+        self::assertFalse($tableCache->lookupList('st_child', $childQuery)->found());
+        self::assertFalse($tableCache->lookupGet('st_child', 2)->found());
+        self::assertTrue($tableCache->lookupGet('st_other', 9)->found());
+    }
+
+    /**
      * null get кэшируется; пустой path не валит invalidate.
      *
      * @return void
