@@ -44,4 +44,16 @@ final class MetaFieldDefinition extends SmartTableDefinition
             new JsonField('settings', FieldSettings::fromOptions(['default' => []])),
         ];
     }
+
+    /**
+     * Имя поля уникально в пределах таблицы словаря.
+     *
+     * @return array<int, array<int, string>> Кортежи.
+     */
+    protected function defineUniqueKeys(): array
+    {
+        return [
+            ['table_id', 'name'],
+        ];
+    }
 }

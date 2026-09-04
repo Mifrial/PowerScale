@@ -2,17 +2,20 @@
 
 declare(strict_types=1);
 
-namespace Mifrial\Core\User\Table;
+namespace Mifrial\Core\User\Tests\Fixture;
 
 use Mifrial\Core\SmartTable\Dto\FieldSettings;
 use Mifrial\Core\SmartTable\Field\IdField;
 use Mifrial\Core\SmartTable\Field\ReferenceField;
+use Mifrial\Core\SmartTable\Field\StringField;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
+use Mifrial\Core\User\Table\UserGroupTable;
+use Mifrial\Core\User\Table\UserTable;
 
 /**
- * Карта членства `user_group_member`.
+ * Старая карта членства с member_key, то же физ. имя.
  */
-final class UserGroupMemberTable extends SmartTableDefinition
+final class UserGroupMemberLegacyTable extends SmartTableDefinition
 {
     /**
      * Задаёт физическое имя таблицы.
@@ -43,18 +46,7 @@ final class UserGroupMemberTable extends SmartTableDefinition
                 FieldSettings::fromOptions(['required' => true]),
                 UserGroupTable::class,
             ),
-        ];
-    }
-
-    /**
-     * Пара учётка+группа уникальна.
-     *
-     * @return array<int, array<int, string>> Кортежи.
-     */
-    protected function defineUniqueKeys(): array
-    {
-        return [
-            ['user_id', 'group_id'],
+            new StringField('member_key', FieldSettings::fromOptions(['required' => true, 'unique' => true])),
         ];
     }
 }

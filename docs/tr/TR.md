@@ -39,6 +39,7 @@
 - [План 13: DateTime now](smarttable-plan-13-datetime-now.md) — `default` sentinel «сейчас» на datetime.
 - [План 14: путь reference](smarttable-plan-14-reference-path.md) — `reference` на `id` цели; путь в getList без JOIN.
 - [План 15: BIGINT и cascade](smarttable-plan-15-bigint.md) — `IdField::big()`, `type: bigint`, `onDelete: cascade`.
+- [План 16: составной unique](smarttable-plan-16-composite-unique.md) — `defineUniqueKeys()`; словарь `unique_keys`; не флаг поля.
 - [User (backend)](user.md) — учётка; сессия в Auth.
 - [Нарезка User](user-roadmap.md) — планы модуля User.
 - [План User 1: учётка](user-plan-01-account.md) — таблица `user`, фасад `IUserAccounts`, без HTTP.
@@ -49,8 +50,13 @@
 - [Нарезка хвостов Guest / члены](core-tails-roadmap.md) — Guest и страница `getMembers` сделаны.
 - [План Auth 4: гость](auth-plan-04-guest.md) — сделано; сессия без `user_id`.
 - [План User 6: страница членов](user-plan-06-members-page.md) — сделано; `userGroup.getMembers` `{ items, total }`.
+- [План User 7: unique членства](user-plan-07-member-unique.md) — `UNIQUE (user_id, group_id)`; без `member_key`.
 - [План Agent 1: тик](agent-plan-01-tick.md) — таблица `agent`, `IAgents`, CLI `bin/agent.php`.
 - [План Mail 1: очередь](mail-plan-01-queue.md) — `mail_event` / `mail_template` / `mail_job`, плейсхолдеры, flush.
+- [План Logger 1: узкий логер](logger-plan-01.md) — сделано; таблица `log`, адаптер `ILogger`; не audit.
+- [План Logger 2: куда писать](logger-plan-02.md) — сделано; mail job failed; CLI setup/agent.
+- [Нарезка Chat](chat-roadmap.md) — `Messages/Chat`: фасад → HTTP → SSE → Vue → visibility.
+- [План Chat 1: таблицы и фасад](chat-plan-01.md) — `IChats`; без HTTP/SSE.
 - [План User 3: HTTP учётки](user-plan-03-http.md) — `user.*`, актор запроса, `user.create` в Auth.
 - [План User 4: HTTP групп](user-plan-04-groups-http.md) — `userGroup.*`, `memberCount`, subset ключей.
 - [План User 5: выправить контракт](user-plan-05-no-catalog-dump.md) — сделано; `findPage`, JSON-вид, Vue.
@@ -58,7 +64,7 @@
 - [Система персонажей](character-system.md) — версии, membership, validation и модерация.
 - [Система игр](game-system.md) — игра, бой, абстрактное движение, overlay, инвентарь и экономика.
 - [Система battleground](battleground-system.md) — тактическая сцена (`REQUIREMENT`, не реализована).
-- [Система Chat](chat-system.md) — host, attachments и plugin-контракты.
+- [Система Chat](chat-system.md) — host, attachments и plugin-контракты. PHP — [`chat-roadmap.md`](chat-roadmap.md).
 - [Пользователи и авторизация](auth-system.md) — профили, группы, права и сессии.
 - [Интерфейс и уведомления](ui-system.md) — UI-разделы, frontend-паттерны и незавершённые backend-контракты.
 - [Сквозные переходы](cross-domain.md) — границы Rule→Character→Game→Chat и GameScene→бой; события и concurrency.

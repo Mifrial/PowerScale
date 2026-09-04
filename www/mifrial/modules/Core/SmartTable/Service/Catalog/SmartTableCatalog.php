@@ -104,6 +104,7 @@ final class SmartTableCatalog implements ITableCatalog
      *
      * @param string $tableName Физическое имя.
      * @param array<int, array<string, mixed>> $fieldSpecs Спеки полей без id.
+     * @param array<int, array<int, string>> $uniqueKeys Составные unique.
      *
      * @return IOpenedTable Handle новой или поднятой таблицы.
      *
@@ -112,8 +113,11 @@ final class SmartTableCatalog implements ITableCatalog
      * @throws MapInvalidException Если имя или спеки недопустимы.
      * @throws DdlFailedException Если драйвер отклонил DDL.
      */
-    public function createTable(string $tableName, array $fieldSpecs): IOpenedTable
-    {
+    public function createTable(
+        string $tableName,
+        array $fieldSpecs,
+        array $uniqueKeys = [],
+    ): IOpenedTable {
         if ($tableName === 'st_meta_table' || $tableName === 'st_meta_field') {
             throw new MapInvalidException('Dictionary table name is reserved');
         }
@@ -123,16 +127,36 @@ final class SmartTableCatalog implements ITableCatalog
             return $this->createPhysicsFromDictionary($tableName);
         }
 
-        $definition = (new FieldSpecAssembler())->makeDefinition($tableName, $fieldSpecs);
+        $definition = (new FieldSpecAssembler())->makeDefinition($tableName, $fieldSpecs, $uniqueKeys);
         if ($this->tableSchema->hasPhysicalTable($definition->getName())) {
             throw new TableExistsException();
         }
 
-        $this->dictionary->insertTable($tableName, $fieldSpecs);
+        $this->dictionary->insertTable($tableName, $fieldSpecs, $uniqueKeys);
         $this->tableSchema->createTable($definition);
         $this->tableCache->noteDdl($tableName);
 
         return $this->openHandle($definition);
+    }
+
+    /**
+     * Заменяет составные unique runtime-таблицы.
+     *
+     * @param string $tableName Физическое имя.
+     * @param array<int, array<int, string>> $uniqueKeys Кортежи.
+     *
+     * @return void
+     *
+     * @throws TableMissingException Если строки словаря нет.
+     * @throws MapInvalidException Если ключи некорректны.
+     * @throws DdlFailedException Если драйвер отклонил DDL.
+     */
+    public function setUniqueKeys(string $tableName, array $uniqueKeys): void
+    {
+        $this->dictionary->updateUniqueKeys($tableName, $uniqueKeys);
+        if ($this->tableSchema->hasPhysicalTable($tableName)) {
+            $this->openByName($tableName)->schema()->updateTable();
+        }
     }
 
     /**
@@ -174,6 +198,8 @@ final class SmartTableCatalog implements ITableCatalog
      */
     public function dropField(string $tableName, string $fieldName): void
     {
+        $metaRow = $this->dictionary->requireTable($tableName);
+        $this->assertFieldNotInUniqueKeys($metaRow, $fieldName);
         $definition = $this->dictionary->runtimeDefinition($tableName);
         $fieldMap = $definition->getMap();
         if ($fieldName === 'id' || !isset($fieldMap[$fieldName])) {
@@ -285,6 +311,34 @@ final class SmartTableCatalog implements ITableCatalog
         foreach ($this->dictionary->fieldRows((int) $metaRow['id']) as $fieldRow) {
             if ($fieldRow['name'] === $fieldName) {
                 throw new MapInvalidException('Duplicate field name');
+            }
+        }
+    }
+
+    /**
+     * Поле не должно входить в unique_keys.
+     *
+     * @param array<string, mixed> $metaRow Строка таблицы словаря.
+     * @param string $fieldName Имя поля.
+     *
+     * @return void
+     *
+     * @throws MapInvalidException Если поле в составном unique.
+     */
+    private function assertFieldNotInUniqueKeys(array $metaRow, string $fieldName): void
+    {
+        $uniqueKeys = $metaRow['unique_keys'] ?? [];
+        if ($uniqueKeys === null) {
+            return;
+        }
+
+        if (!is_array($uniqueKeys)) {
+            throw new MapInvalidException('Unique keys are invalid');
+        }
+
+        foreach ($uniqueKeys as $tuple) {
+            if (is_array($tuple) && in_array($fieldName, $tuple, true)) {
+                throw new MapInvalidException('Field is used in unique key');
             }
         }
     }

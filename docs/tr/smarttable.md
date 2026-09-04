@@ -98,7 +98,7 @@ Versioned (контракт): к `id` добавляется обязатель�
 
 ## Индексы
 
-В определении поля: `indexed` и `unique` на **одной** колонке. `unique` ⇒ UNIQUE INDEX. Составные unique — не v1. Fulltext — хвост (не v1 этого слоя). `updateTable` не снимает лишние индексы: leftover UNIQUE продолжает отвергать дубли, пока нет `forceUpdateTable`.
+В определении поля: `indexed` и `unique` на **одной** колонке. Составной unique — `defineUniqueKeys()` на definition (класс и словарь, [`smarttable-plan-16-composite-unique.md`](smarttable-plan-16-composite-unique.md)): JSON `st_meta_table.unique_keys`, не флаг поля. Fulltext — хвост. `updateTable` не снимает лишние индексы: leftover UNIQUE продолжает отвергать дубли, пока нет `forceUpdateTable`.
 
 ## Языки
 
@@ -121,7 +121,7 @@ Versioned (контракт): к `id` добавляется обязатель�
 - Fluent `query()`.
 - Join/группировка/runtime-поля в стиле полного Bitrix.
 - Поле «файл» (модуль Files).
-- Составные индексы / unique по двум полям.
+- Составные **неуникальные** индексы.
 - Код VersionedSmartTable; переименование NAME/колонок.
 - События CRUD → EventManager (нужны, подключать осторожно — OPEN).
 - Права на словарь — после Auth.

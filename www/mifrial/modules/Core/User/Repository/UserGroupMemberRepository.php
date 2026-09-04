@@ -22,7 +22,7 @@ use Mifrial\Core\User\Exception\UserInvalidException;
 use Mifrial\Core\User\Exception\UserNotFoundException;
 
 /**
- * Членство: member_key и списки id, без публичного порта.
+ * Членство: пара user+group и списки id, без публичного порта.
  */
 final class UserGroupMemberRepository
 {
@@ -55,7 +55,6 @@ final class UserGroupMemberRepository
             return $this->memberRecords->add([
                 'user_id' => $userId,
                 'group_id' => $groupId,
-                'member_key' => $this->memberKey($userId, $groupId),
             ]);
         });
     }
@@ -89,7 +88,10 @@ final class UserGroupMemberRepository
     public function findId(int $userId, int $groupId): ?int
     {
         $row = $this->memberRecords->getUnique(ListQuery::fromOptions([
-            'filter' => ['member_key' => $this->memberKey($userId, $groupId)],
+            'filter' => [
+                'user_id' => $userId,
+                'group_id' => $groupId,
+            ],
             'limit' => 1,
             'select' => ['id'],
         ]));
@@ -280,19 +282,6 @@ final class UserGroupMemberRepository
             'group_id.active' => true,
             'group_id.bypass' => true,
         ];
-    }
-
-    /**
-     * Ключ уникальности пары.
-     *
-     * @param int $userId Учётка.
-     * @param int $groupId Группа.
-     *
-     * @return string Ключ.
-     */
-    private function memberKey(int $userId, int $groupId): string
-    {
-        return $userId . ':' . $groupId;
     }
 
     /**

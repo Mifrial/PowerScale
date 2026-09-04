@@ -6,6 +6,7 @@ namespace Mifrial\Core\SmartTable\Table;
 
 use Mifrial\Core\SmartTable\Dto\FieldSettings;
 use Mifrial\Core\SmartTable\Field\IdField;
+use Mifrial\Core\SmartTable\Field\JsonField;
 use Mifrial\Core\SmartTable\Field\StringField;
 
 /**
@@ -26,7 +27,7 @@ final class MetaTableDefinition extends SmartTableDefinition
     /**
      * Перечисляет поля словаря таблиц.
      *
-     * @return array<int, IdField|StringField> Поля.
+     * @return array<int, IdField|StringField|JsonField> Поля.
      */
     protected function defineFields(): array
     {
@@ -37,6 +38,7 @@ final class MetaTableDefinition extends SmartTableDefinition
                 'unique' => true,
             ])),
             new StringField('label', FieldSettings::fromOptions()),
+            new JsonField('unique_keys', FieldSettings::fromOptions(['default' => []])),
         ];
     }
 }

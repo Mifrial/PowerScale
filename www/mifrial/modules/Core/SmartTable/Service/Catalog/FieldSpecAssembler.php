@@ -68,14 +68,18 @@ final class FieldSpecAssembler
      *
      * @param string $tableName Имя.
      * @param array<int, mixed> $fieldSpecs Спеки.
+     * @param array<int, array<int, string>> $uniqueKeys Составные unique.
      *
      * @return RuntimeDefinition Определение.
      *
      * @throws MapInvalidException Если спеки или имя некорректны.
      */
-    public function makeDefinition(string $tableName, array $fieldSpecs): RuntimeDefinition
-    {
-        $definition = new RuntimeDefinition($tableName, $this->assembleAll($fieldSpecs));
+    public function makeDefinition(
+        string $tableName,
+        array $fieldSpecs,
+        array $uniqueKeys = [],
+    ): RuntimeDefinition {
+        $definition = new RuntimeDefinition($tableName, $this->assembleAll($fieldSpecs), $uniqueKeys);
         $definition->getMap();
 
         return $definition;

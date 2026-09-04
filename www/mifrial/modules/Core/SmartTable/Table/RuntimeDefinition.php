@@ -17,12 +17,14 @@ final class RuntimeDefinition extends SmartTableDefinition
      *
      * @param string $tableName Физическое имя.
      * @param array<int, BaseField> $fields Поля без IdField.
+     * @param array<int, array<int, string>> $uniqueKeys Составные unique.
      *
      * @return void
      */
     public function __construct(
         private readonly string $tableName,
         private readonly array $fields,
+        private readonly array $uniqueKeys = [],
     ) {
     }
 
@@ -44,5 +46,15 @@ final class RuntimeDefinition extends SmartTableDefinition
     protected function defineFields(): array
     {
         return array_merge([new IdField()], $this->fields);
+    }
+
+    /**
+     * Отдаёт составные unique из конструктора.
+     *
+     * @return array<int, array<int, string>> Кортежи.
+     */
+    protected function defineUniqueKeys(): array
+    {
+        return $this->uniqueKeys;
     }
 }

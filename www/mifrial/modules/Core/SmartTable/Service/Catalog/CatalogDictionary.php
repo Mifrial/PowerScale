@@ -92,16 +92,12 @@ final class CatalogDictionary
     public function runtimeDefinition(string $tableName): RuntimeDefinition
     {
         $metaRow = $this->requireTable($tableName);
-        $fieldSpecs = [];
-        foreach ($this->fieldRows((int) $metaRow['id']) as $fieldRow) {
-            $settings = is_array($fieldRow['settings']) ? $fieldRow['settings'] : [];
-            $fieldSpecs[] = array_merge($settings, [
-                'name' => $fieldRow['name'],
-                'type' => $fieldRow['type'],
-            ]);
-        }
 
-        return (new FieldSpecAssembler())->makeDefinition($tableName, $fieldSpecs);
+        return (new FieldSpecAssembler())->makeDefinition(
+            $tableName,
+            $this->fieldSpecs((int) $metaRow['id']),
+            $this->uniqueKeysFromRow($metaRow),
+        );
     }
 
     /**
@@ -109,17 +105,43 @@ final class CatalogDictionary
      *
      * @param string $tableName Имя.
      * @param array<int, array<string, mixed>> $fieldSpecs Спеки.
+     * @param array<int, array<int, string>> $uniqueKeys Составные unique.
      *
      * @return void
      *
      * @throws MapInvalidException Если спека некорректна.
      */
-    public function insertTable(string $tableName, array $fieldSpecs): void
+    public function insertTable(string $tableName, array $fieldSpecs, array $uniqueKeys = []): void
     {
-        $tableId = $this->tablesHandle()->records()->add(['name' => $tableName]);
+        $tableId = $this->tablesHandle()->records()->add([
+            'name' => $tableName,
+            'unique_keys' => $uniqueKeys,
+        ]);
         foreach ($fieldSpecs as $fieldSpec) {
             $this->fieldsHandle()->records()->add($this->fieldRow($tableId, $fieldSpec));
         }
+    }
+
+    /**
+     * Проверяет карту и пишет unique_keys.
+     *
+     * @param string $tableName Имя.
+     * @param array<int, array<int, string>> $uniqueKeys Кортежи.
+     *
+     * @return void
+     *
+     * @throws TableMissingException Если строки нет.
+     * @throws MapInvalidException Если ключи некорректны.
+     */
+    public function updateUniqueKeys(string $tableName, array $uniqueKeys): void
+    {
+        $metaRow = $this->requireTable($tableName);
+        (new FieldSpecAssembler())->makeDefinition(
+            $tableName,
+            $this->fieldSpecs((int) $metaRow['id']),
+            $uniqueKeys,
+        );
+        $this->tablesHandle()->records()->update((int) $metaRow['id'], ['unique_keys' => $uniqueKeys]);
     }
 
     /**
@@ -195,6 +217,52 @@ final class CatalogDictionary
         }
 
         $this->tablesHandle()->records()->delete($tableId);
+    }
+
+    /**
+     * Спеки полей одной таблицы словаря.
+     *
+     * @param int $tableId Id st_meta_table.
+     *
+     * @return array<int, array<string, mixed>> Спеки.
+     *
+     * @throws TableMissingException Если meta-полей нет.
+     */
+    private function fieldSpecs(int $tableId): array
+    {
+        $fieldSpecs = [];
+        foreach ($this->fieldRows($tableId) as $fieldRow) {
+            $settings = is_array($fieldRow['settings']) ? $fieldRow['settings'] : [];
+            $fieldSpecs[] = array_merge($settings, [
+                'name' => $fieldRow['name'],
+                'type' => $fieldRow['type'],
+            ]);
+        }
+
+        return $fieldSpecs;
+    }
+
+    /**
+     * unique_keys строки meta; NULL → [].
+     *
+     * @param array<string, mixed> $metaRow Строка.
+     *
+     * @return array<int, array<int, string>> Кортежи.
+     *
+     * @throws MapInvalidException Если JSON не массив.
+     */
+    private function uniqueKeysFromRow(array $metaRow): array
+    {
+        $uniqueKeys = $metaRow['unique_keys'] ?? [];
+        if ($uniqueKeys === null) {
+            return [];
+        }
+
+        if (!is_array($uniqueKeys)) {
+            throw new MapInvalidException('Unique keys are invalid');
+        }
+
+        return $uniqueKeys;
     }
 
     /**

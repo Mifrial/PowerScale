@@ -10,7 +10,7 @@
 
 **Членство — таблица, не mfv.** Нужны FK restrict на `user` и на группу, поиск «кто в группе» / «группы человека», инвариант последнего bypass. mfv int без FK это не даёт.
 
-**Составной unique в SmartTable v1 нет.** Пара `(user_id, group_id)` в БД как UNIQUE из двух колонок не ставим. Колонка **`member_key`** string unique required: `{userId}:{groupId}`, пишет репозиторий членства, не фасад и не DTO соседа. Плюс два `reference`. Дубль пары → `USER_DUPLICATE`.
+**Составной unique** — [`user-plan-07-member-unique.md`](user-plan-07-member-unique.md) (**сделано**): `UNIQUE (user_id, group_id)`, колонки `member_key` нет.
 
 **Ключи прав — mfv string на группе**, не третья таблица. Дубль ключа у одной группы уже режет PK sidecar `(owner_id, value)` и cast списка. Флаг **`unique` на multiple ставить нельзя** (`MAP_INVALID`, план 6; фикстура `UniqueMultipleTable` — отказ карты, не образец). Каталог ключей фронта **не** валидируем (как RFC email): паттерн на нормализаторе, неизвестный ключ Rule/Chat допустим. Пустой ключ / дубль в одном patch → `USER_INVALID`. Object-level — не этот план.
 
@@ -61,7 +61,7 @@
 
 ## Ошибки
 
-Листья: существующие `USER_*` + **`USER_LAST_BYPASS`**. Unique имя группы / `member_key` → `USER_DUPLICATE`. Reference на несуществующего user/group → не маскировать в LAST_BYPASS: нет строки user/group заранее `USER_NOT_FOUND`; гонка FK → `REFERENCE_CONSTRAINT` SmartTable **не** маскируем (как DDL). `write()` членства: unique → DUPLICATE; row not found → NOT_FOUND; field/map → INVALID — тот же кривой, но локальный, перевод, что у учётки.
+Листья: существующие `USER_*` + **`USER_LAST_BYPASS`**. Unique имя группы / пара членства → `USER_DUPLICATE`. Reference на несуществующего user/group → не маскировать в LAST_BYPASS: нет строки user/group заранее `USER_NOT_FOUND`; гонка FK → `REFERENCE_CONSTRAINT` SmartTable **не** маскируем (как DDL). `write()` членства: unique → DUPLICATE; row not found → NOT_FOUND; field/map → INVALID — тот же кривой, но локальный, перевод, что у учётки.
 
 ## Слои
 

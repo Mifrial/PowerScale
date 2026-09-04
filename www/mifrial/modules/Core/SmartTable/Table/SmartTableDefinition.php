@@ -22,6 +22,11 @@ abstract class SmartTableDefinition
     private ?array $fieldMap = null;
 
     /**
+     * @var array<int, array<int, string>>|null
+     */
+    private ?array $uniqueKeys = null;
+
+    /**
      * Возвращает физическое имя таблицы.
      *
      * @return string Имя.
@@ -51,9 +56,28 @@ abstract class SmartTableDefinition
             return $this->fieldMap;
         }
 
-        $this->fieldMap = $this->indexFields($this->defineFields());
+        $fieldMap = $this->indexFields($this->defineFields());
+        $uniqueKeyMap = new UniqueKeyMap();
+        $uniqueKeys = $uniqueKeyMap->collect($fieldMap, $this->defineUniqueKeys());
+        $uniqueKeyMap->assertPlannedNames($this->getName(), $fieldMap, $uniqueKeys);
+        $this->fieldMap = $fieldMap;
+        $this->uniqueKeys = $uniqueKeys;
 
         return $this->fieldMap;
+    }
+
+    /**
+     * Возвращает составные unique после проверки карты.
+     *
+     * @return array<int, array<int, string>> Кортежи имён полей.
+     *
+     * @throws MapInvalidException Если карта или ключи некорректны.
+     */
+    public function getUniqueKeys(): array
+    {
+        $this->getMap();
+
+        return $this->uniqueKeys ?? [];
     }
 
     /**
@@ -69,6 +93,16 @@ abstract class SmartTableDefinition
      * @return array<int, BaseField> Список полей.
      */
     abstract protected function defineFields(): array;
+
+    /**
+     * Перечисляет составные unique: каждый кортеж — два и более имени поля.
+     *
+     * @return array<int, array<int, string>> Кортежи.
+     */
+    protected function defineUniqueKeys(): array
+    {
+        return [];
+    }
 
     /**
      * Индексирует поля и проверяет id.
@@ -148,18 +182,7 @@ abstract class SmartTableDefinition
             return;
         }
 
-        if ($field instanceof IdField || $fieldSettings->multiple()) {
-            throw new MapInvalidException('Index flags are not allowed on this field');
-        }
-
-        $fieldType = $field->type();
-        if (!in_array($fieldType, ['string', 'int', 'bigint', 'bool', 'datetime', 'reference'], true)) {
-            throw new MapInvalidException('Index flags are not allowed for this field type');
-        }
-
-        if ($field instanceof StringField && $field->maxLength() > 255) {
-            throw new MapInvalidException('Indexed string maxLength cannot exceed 255');
-        }
+        (new UniqueKeyMap())->assertFieldCanBeUnique($field);
     }
 
     /**

@@ -78,6 +78,10 @@ Multiple — сделано: [`smarttable-plan-05-multiple.md`](smarttable-plan-
 
 Подробно: [`smarttable-plan-15-bigint.md`](smarttable-plan-15-bigint.md). Ширина на `IntField`; PK — `IdField::big()`; словарь `type: bigint`; `onDelete: cascade`. Не `BigIdField`. Ссылка ширину не выбирает. Блокер Auth 1. Не блокирует план 11.
 
+## 16. Составной unique
+
+Подробно: [`smarttable-plan-16-composite-unique.md`](smarttable-plan-16-composite-unique.md). Unique по нескольким колонкам из `defineUniqueKeys()` — PHP-класс и словарь (`st_meta_table.unique_keys`). Не флаг поля. Хвост User — [`user-plan-07-member-unique.md`](user-plan-07-member-unique.md). Блокер Chat 1. **Не** план 11.
+
 ## 11. VersionedSmartTable
 
 - Только после плана 10.

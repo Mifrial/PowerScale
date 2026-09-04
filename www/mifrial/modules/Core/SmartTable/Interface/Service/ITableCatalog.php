@@ -44,6 +44,7 @@ interface ITableCatalog
      *
      * @param string $tableName Физическое имя.
      * @param array<int, array<string, mixed>> $fieldSpecs Спеки полей без id.
+     * @param array<int, array<int, string>> $uniqueKeys Составные unique.
      *
      * @return IOpenedTable Handle новой или поднятой таблицы.
      *
@@ -53,7 +54,11 @@ interface ITableCatalog
      * @throws UniqueConstraintException Если имя таблицы в словаре занято.
      * @throws DdlFailedException Если драйвер отклонил DDL.
      */
-    public function createTable(string $tableName, array $fieldSpecs): IOpenedTable;
+    public function createTable(
+        string $tableName,
+        array $fieldSpecs,
+        array $uniqueKeys = [],
+    ): IOpenedTable;
 
     /**
      * Добавляет поле в словарь и колонку/sidecar.
@@ -95,4 +100,18 @@ interface ITableCatalog
      * @throws MapInvalidException Если карта некорректна.
      */
     public function dropTable(string $tableName): void;
+
+    /**
+     * Заменяет составные unique runtime-таблицы.
+     *
+     * @param string $tableName Физическое имя.
+     * @param array<int, array<int, string>> $uniqueKeys Кортежи.
+     *
+     * @return void
+     *
+     * @throws TableMissingException Если строки словаря нет.
+     * @throws MapInvalidException Если ключи некорректны.
+     * @throws DdlFailedException Если драйвер отклонил DDL.
+     */
+    public function setUniqueKeys(string $tableName, array $uniqueKeys): void;
 }

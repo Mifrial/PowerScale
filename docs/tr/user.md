@@ -35,7 +35,7 @@ Guest — **не** строка `user` (сессия Auth без `user_id`). Ext
 
 ## Группы
 
-Таблицы модуля User (не Auth): `user_group`, `user_group_member`. Ключи прав — multiple string на группе; членство — отдельная строка (`member_key` unique, два reference). `assign_on_register` — автовыдача при `auth.register` и `user.create` с пустым `groups` (Auth читает `IUserGroups::getAssignOnRegisterIds()`; «Игрок» — контент seed). Каталог ключей и object-ACL — не строка `user`. Подробно — [`user-plan-02-groups.md`](user-plan-02-groups.md).
+Таблицы модуля User (не Auth): `user_group`, `user_group_member`. Ключи прав — multiple string на группе; членство — отдельная строка, составной unique `(user_id, group_id)`. `assign_on_register` — автовыдача при `auth.register` и `user.create` с пустым `groups` (Auth читает `IUserGroups::getAssignOnRegisterIds()`; «Игрок» — контент seed). Каталог ключей и object-ACL — не строка `user`. Подробно — [`user-plan-02-groups.md`](user-plan-02-groups.md), хвост суррогата — [`user-plan-07-member-unique.md`](user-plan-07-member-unique.md).
 
 HTTP `user.create` / `user.update`: поле `groups` — **id групп** (`int[]`), не отображаемые имена.
 

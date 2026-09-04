@@ -19,6 +19,7 @@ use Mifrial\Core\SmartTable\Field\ReferenceField;
 use Mifrial\Core\SmartTable\Field\StringField;
 use Mifrial\Core\SmartTable\Field\TextField;
 use Mifrial\Core\SmartTable\Interface\Field\IFieldHydrator;
+use Mifrial\Core\SmartTable\Table\RuntimeDefinition;
 use Mifrial\Core\SmartTable\Tests\Fixture\AbstractProbeTable;
 use Mifrial\Core\SmartTable\Tests\Fixture\BothIndexFlagsTable;
 use Mifrial\Core\SmartTable\Tests\Fixture\CascadeMultipleTable;
@@ -370,5 +371,58 @@ final class FieldMapTest extends TestCase
         } catch (FieldInvalidException $exception) {
             self::assertSame('FIELD_INVALID', $exception->getErrorCode());
         }
+    }
+
+    /**
+     * Составной unique: валидный кортеж и отказы карты.
+     *
+     * @return void
+     */
+    public function testCompositeUniqueKeysOnMap(): void
+    {
+        $pairFields = [
+            new StringField('left_val', FieldSettings::fromOptions()),
+            new StringField('right_val', FieldSettings::fromOptions()),
+        ];
+        $valid = new RuntimeDefinition('st_uk_ok', $pairFields, [['left_val', 'right_val']]);
+        self::assertSame([['left_val', 'right_val']], $valid->getUniqueKeys());
+
+        foreach ($this->invalidUniqueDefinitions($pairFields) as $definition) {
+            try {
+                $definition->getMap();
+                self::fail('invalid unique keys must fail');
+            } catch (MapInvalidException $exception) {
+                self::assertSame('MAP_INVALID', $exception->getErrorCode());
+            }
+        }
+    }
+
+    /**
+     * Карты с недопустимым составным unique.
+     *
+     * @param array<int, StringField> $pairFields Два string-поля.
+     *
+     * @return array<int, RuntimeDefinition> Определения.
+     */
+    private function invalidUniqueDefinitions(array $pairFields): array
+    {
+        return [
+            new RuntimeDefinition('st_uk_one', $pairFields, [['left_val']]),
+            new RuntimeDefinition('st_uk_unk', $pairFields, [['left_val', 'missing']]),
+            new RuntimeDefinition('st_uk_dupf', $pairFields, [['left_val', 'left_val']]),
+            new RuntimeDefinition('st_uk_dupt', $pairFields, [
+                ['left_val', 'right_val'],
+                ['left_val', 'right_val'],
+            ]),
+            new RuntimeDefinition('st_uk_txt', [
+                new TextField('body', FieldSettings::fromOptions()),
+                new StringField('title', FieldSettings::fromOptions()),
+            ], [['body', 'title']]),
+            new RuntimeDefinition('st_uk_clash', [
+                new StringField('a', FieldSettings::fromOptions()),
+                new StringField('b', FieldSettings::fromOptions()),
+                new StringField('a_b', FieldSettings::fromOptions(['unique' => true])),
+            ], [['a', 'b']]),
+        ];
     }
 }

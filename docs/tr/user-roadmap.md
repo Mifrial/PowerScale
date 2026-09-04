@@ -16,7 +16,7 @@
 
 ## 2. Группы и членство — сделано
 
-Подробно: [`user-plan-02-groups.md`](user-plan-02-groups.md). Таблица `user_group` (права mfv string, `bypass`), таблица членства с `member_key` (составной unique ST v1 нет). Фасад `IUserGroups`. Не HTTP, не seed проды.
+Подробно: [`user-plan-02-groups.md`](user-plan-02-groups.md). Таблица `user_group` (права mfv string, `bypass`), членство `UNIQUE (user_id, group_id)` — [`user-plan-07-member-unique.md`](user-plan-07-member-unique.md). Фасад `IUserGroups`. Не HTTP, не seed проды.
 
 ## 3. HTTP User — сделано
 
@@ -40,9 +40,11 @@
 
 ## 8. Хвосты: гость и члены
 
-Гость — [`auth-plan-04-guest.md`](auth-plan-04-guest.md) (**сделано**). Члены — [`user-plan-06-members-page.md`](user-plan-06-members-page.md) (**сделано**).
+Гость — [`auth-plan-04-guest.md`](auth-plan-04-guest.md) (**сделано**). Члены — [`user-plan-06-members-page.md`](user-plan-06-members-page.md) (**сделано**). Сводка — [`core-tails-roadmap.md`](core-tails-roadmap.md).
 
-Подробно: [`core-tails-roadmap.md`](core-tails-roadmap.md).
+## 9. Unique членства без member_key
+
+Подробно: [`user-plan-07-member-unique.md`](user-plan-07-member-unique.md). После ST 16. До Chat 1. **Код — этот заход.**
 
 ## Параллелить нельзя
 

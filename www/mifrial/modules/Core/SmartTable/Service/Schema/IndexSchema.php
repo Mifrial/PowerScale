@@ -14,7 +14,7 @@ use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
 use Throwable;
 
 /**
- * DDL одноколоночных index/unique из FieldSettings.
+ * DDL index/unique из FieldSettings и составных ключей.
  */
 final class IndexSchema
 {
@@ -71,9 +71,7 @@ final class IndexSchema
      */
     public function assertNames(SmartTableDefinition $tableDefinition): void
     {
-        foreach ($this->plannedIndexes($tableDefinition) as $plannedIndex) {
-            self::physicalName($tableDefinition, $plannedIndex['field'], $plannedIndex['suffix']);
-        }
+        $this->plannedIndexNames($tableDefinition);
     }
 
     /**
@@ -88,7 +86,7 @@ final class IndexSchema
     public function createAll(SmartTableDefinition $tableDefinition): void
     {
         foreach ($this->plannedIndexes($tableDefinition) as $plannedIndex) {
-            $this->createOne($tableDefinition, $plannedIndex['field'], $plannedIndex['unique']);
+            $this->createPlanned($tableDefinition->getName(), $plannedIndex);
         }
     }
 
@@ -105,12 +103,11 @@ final class IndexSchema
     {
         $existingNames = $this->existingIndexNames($tableDefinition->getName());
         foreach ($this->plannedIndexes($tableDefinition) as $plannedIndex) {
-            $indexName = self::physicalName($tableDefinition, $plannedIndex['field'], $plannedIndex['suffix']);
-            if (in_array($indexName, $existingNames, true)) {
+            if (in_array($plannedIndex['name'], $existingNames, true)) {
                 continue;
             }
 
-            $this->createOne($tableDefinition, $plannedIndex['field'], $plannedIndex['unique']);
+            $this->createPlanned($tableDefinition->getName(), $plannedIndex);
         }
     }
 
@@ -156,7 +153,39 @@ final class IndexSchema
         BaseField $field,
         string $suffix,
     ): string {
-        $physicalName = $tableDefinition->getName() . '_' . $field->name() . '_' . $suffix;
+        return self::assertIndexName($tableDefinition->getName() . '_' . $field->name() . '_' . $suffix);
+    }
+
+    /**
+     * Имя составного unique.
+     *
+     * @param SmartTableDefinition $tableDefinition Таблица.
+     * @param array<int, string> $fieldNames Поля в порядке кортежа.
+     *
+     * @return string Имя.
+     *
+     * @throws MapInvalidException Если имя недопустимо.
+     */
+    private static function compositeUniqueName(
+        SmartTableDefinition $tableDefinition,
+        array $fieldNames,
+    ): string {
+        return self::assertIndexName(
+            $tableDefinition->getName() . '_' . implode('_', $fieldNames) . '_unq',
+        );
+    }
+
+    /**
+     * Проверяет шаблон и длину имени индекса.
+     *
+     * @param string $physicalName Имя.
+     *
+     * @return string То же имя.
+     *
+     * @throws MapInvalidException Если имя недопустимо.
+     */
+    private static function assertIndexName(string $physicalName): string
+    {
         if (preg_match('/^[a-z][a-z0-9_]*$/', $physicalName) !== 1 || strlen($physicalName) > 64) {
             throw new MapInvalidException('Index name is invalid');
         }
@@ -165,24 +194,89 @@ final class IndexSchema
     }
 
     /**
-     * Поля с index или unique из карты.
+     * Плановые индексы: одноколоночные и кортежи.
      *
      * @param SmartTableDefinition $tableDefinition Определение.
      *
-     * @return array<int, array{field: BaseField, suffix: string, unique: bool}> Список.
+     * @return array<int, array{name: string, columns: array<int, string>, unique: bool}> Список.
+     *
+     * @throws MapInvalidException Если имя недопустимо.
      */
     private function plannedIndexes(SmartTableDefinition $tableDefinition): array
+    {
+        return array_merge(
+            $this->plannedFieldIndexes($tableDefinition),
+            $this->plannedCompositeIndexes($tableDefinition),
+        );
+    }
+
+    /**
+     * Одноколоночные index/unique.
+     *
+     * @param SmartTableDefinition $tableDefinition Определение.
+     *
+     * @return array<int, array{name: string, columns: array<int, string>, unique: bool}> Список.
+     *
+     * @throws MapInvalidException Если имя недопустимо.
+     */
+    private function plannedFieldIndexes(SmartTableDefinition $tableDefinition): array
     {
         $plannedIndexes = [];
         foreach ($tableDefinition->getMap() as $field) {
             if ($field->settings()->unique()) {
-                $plannedIndexes[] = ['field' => $field, 'suffix' => 'unq', 'unique' => true];
+                $plannedIndexes[] = $this->fieldPlan($tableDefinition, $field, true);
                 continue;
             }
 
             if ($field->settings()->indexed()) {
-                $plannedIndexes[] = ['field' => $field, 'suffix' => 'idx', 'unique' => false];
+                $plannedIndexes[] = $this->fieldPlan($tableDefinition, $field, false);
             }
+        }
+
+        return $plannedIndexes;
+    }
+
+    /**
+     * Один план по полю.
+     *
+     * @param SmartTableDefinition $tableDefinition Таблица.
+     * @param BaseField $field Поле.
+     * @param bool $unique UNIQUE или INDEX.
+     *
+     * @return array{name: string, columns: array<int, string>, unique: bool} План.
+     *
+     * @throws MapInvalidException Если имя недопустимо.
+     */
+    private function fieldPlan(
+        SmartTableDefinition $tableDefinition,
+        BaseField $field,
+        bool $unique,
+    ): array {
+        return [
+            'name' => self::physicalName($tableDefinition, $field, $unique ? 'unq' : 'idx'),
+            'columns' => [$field->name()],
+            'unique' => $unique,
+        ];
+    }
+
+    /**
+     * Составные unique из definition.
+     *
+     * @param SmartTableDefinition $tableDefinition Определение.
+     *
+     * @return array<int, array{name: string, columns: array<int, string>, unique: bool}> Список.
+     *
+     * @throws MapInvalidException Если имя недопустимо.
+     */
+    private function plannedCompositeIndexes(SmartTableDefinition $tableDefinition): array
+    {
+        $plannedIndexes = [];
+        foreach ($tableDefinition->getUniqueKeys() as $fieldNames) {
+            $plannedIndexes[] = [
+                'name' => self::compositeUniqueName($tableDefinition, $fieldNames),
+                'columns' => $fieldNames,
+                'unique' => true,
+            ];
         }
 
         return $plannedIndexes;
@@ -201,14 +295,14 @@ final class IndexSchema
     {
         $plannedNames = [];
         foreach ($this->plannedIndexes($tableDefinition) as $plannedIndex) {
-            $plannedNames[] = self::physicalName($tableDefinition, $plannedIndex['field'], $plannedIndex['suffix']);
+            $plannedNames[] = $plannedIndex['name'];
         }
 
         return $plannedNames;
     }
 
     /**
-     * Наше одноколоночное имя `_idx` или `_unq`.
+     * Наше имя `_idx` или `_unq`.
      *
      * @param string $tableName Таблица.
      * @param string $indexName Имя индекса.
@@ -254,36 +348,27 @@ final class IndexSchema
     }
 
     /**
-     * Создаёт один индекс.
+     * Создаёт индекс по плану.
      *
-     * @param SmartTableDefinition $tableDefinition Таблица.
-     * @param BaseField $field Поле.
-     * @param bool $unique UNIQUE или INDEX.
+     * @param string $tableName Таблица.
+     * @param array{name: string, columns: array<int, string>, unique: bool} $plannedIndex План.
      *
      * @return void
      *
      * @throws DdlFailedException Если драйвер отклонил DDL.
      */
-    private function createOne(SmartTableDefinition $tableDefinition, BaseField $field, bool $unique): void
+    private function createPlanned(string $tableName, array $plannedIndex): void
     {
-        $indexName = $unique
-            ? self::uniqueName($tableDefinition, $field)
-            : self::indexName($tableDefinition, $field);
-        $tableName = $tableDefinition->getName();
         $schemaBuilder = $this->databaseConnection->illuminateConnection()->getSchemaBuilder();
         try {
-            $schemaBuilder->table($tableName, function (Blueprint $blueprint) use (
-                $field,
-                $indexName,
-                $unique,
-            ): void {
-                if ($unique) {
-                    $blueprint->unique($field->name(), $indexName);
+            $schemaBuilder->table($tableName, function (Blueprint $blueprint) use ($plannedIndex): void {
+                if ($plannedIndex['unique']) {
+                    $blueprint->unique($plannedIndex['columns'], $plannedIndex['name']);
 
                     return;
                 }
 
-                $blueprint->index($field->name(), $indexName);
+                $blueprint->index($plannedIndex['columns'], $plannedIndex['name']);
             });
         } catch (SmartTableException $exception) {
             throw $exception;

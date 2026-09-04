@@ -17,6 +17,7 @@ use Mifrial\Core\SmartTable\Service\Connection\IlluminateConnectionFactory;
 use Mifrial\Core\SmartTable\Service\Connection\IlluminateDatabaseConnection;
 use Mifrial\Core\SmartTable\Service\Schema\IndexSchema;
 use Mifrial\Core\SmartTable\Tests\Fixture\BothIndexFlagsTable;
+use Mifrial\Core\SmartTable\Tests\Fixture\CompositePairTable;
 use Mifrial\Core\SmartTable\Tests\Fixture\IndexedAgeTable;
 use Mifrial\Core\SmartTable\Tests\Fixture\UniqueTitleTable;
 use PHPUnit\Framework\TestCase;
@@ -78,6 +79,35 @@ final class IndexMysqlTest extends TestCase
         $ageField = (new IndexedAgeTable())->getMap()['age'];
         self::assertSame('st_idx_unique_title_unq', IndexSchema::uniqueName(new UniqueTitleTable(), $titleField));
         self::assertSame('st_idx_int_age_idx', IndexSchema::indexName(new IndexedAgeTable(), $ageField));
+    }
+
+    /**
+     * CREATE составного unique, дубль add, два NULL, updateTable restore.
+     *
+     * @return void
+     */
+    public function testCompositeUnique(): void
+    {
+        $table = $this->gateway()->open(CompositePairTable::class);
+        $table->schema()->createTable();
+        self::assertContains('st_idx_pair_left_val_right_val_unq', $this->indexNames('st_idx_pair'));
+        $table->records()->add(['left_val' => 'a', 'right_val' => 'b']);
+        try {
+            $table->records()->add(['left_val' => 'a', 'right_val' => 'b']);
+            self::fail('duplicate composite add must fail');
+        } catch (UniqueConstraintException $exception) {
+            self::assertSame('UNIQUE_CONSTRAINT', $exception->getErrorCode());
+        }
+
+        $table->records()->add([]);
+        $table->records()->add([]);
+        $schemaBuilder = $this->databaseConnection?->illuminateConnection()->getSchemaBuilder();
+        self::assertNotNull($schemaBuilder);
+        $schemaBuilder->table('st_idx_pair', function (Blueprint $blueprint): void {
+            $blueprint->dropUnique('st_idx_pair_left_val_right_val_unq');
+        });
+        $table->schema()->updateTable();
+        self::assertContains('st_idx_pair_left_val_right_val_unq', $this->indexNames('st_idx_pair'));
     }
 
     /**
@@ -233,6 +263,7 @@ final class IndexMysqlTest extends TestCase
         $schemaBuilder->dropIfExists('st_idx_unique');
         $schemaBuilder->dropIfExists('st_idx_int');
         $schemaBuilder->dropIfExists('st_idx_both');
+        $schemaBuilder->dropIfExists('st_idx_pair');
     }
 
     /**

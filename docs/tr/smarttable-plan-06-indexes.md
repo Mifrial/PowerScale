@@ -13,7 +13,9 @@
 
 ## Не входит
 
-Fulltext / `MATCH AGAINST`, составные index/unique, индекс на mfv кроме уже существующего PK `(owner_id, value)`, `forceUpdateTable` (снятие лишнего индекса), префиксные VARCHAR-индексы, unique на `text`/`html`/`json`, functional indexes, смена unique→index DROP+ADD, план 7 словарь, кэш, JOIN, multiple+reference.
+Fulltext / `MATCH AGAINST`, составной **неуникальный** index, индекс на mfv кроме уже существующего PK `(owner_id, value)`, `forceUpdateTable` (снятие лишнего индекса), префиксные VARCHAR-индексы, unique на `text`/`html`/`json`, functional indexes, смена unique→index DROP+ADD, план 7 словарь, кэш, JOIN, multiple+reference.
+
+Составной **unique** закрыт: [`smarttable-plan-16-composite-unique.md`](smarttable-plan-16-composite-unique.md).
 
 ## Зачем не с fulltext и не с составными
 

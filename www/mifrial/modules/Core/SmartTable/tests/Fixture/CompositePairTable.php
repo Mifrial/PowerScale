@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace Mifrial\Core\User\Table;
+namespace Mifrial\Core\SmartTable\Tests\Fixture;
 
 use Mifrial\Core\SmartTable\Dto\FieldSettings;
 use Mifrial\Core\SmartTable\Field\IdField;
-use Mifrial\Core\SmartTable\Field\ReferenceField;
+use Mifrial\Core\SmartTable\Field\StringField;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
 
 /**
- * Карта членства `user_group_member`.
+ * Две колонки с составным unique.
  */
-final class UserGroupMemberTable extends SmartTableDefinition
+final class CompositePairTable extends SmartTableDefinition
 {
     /**
      * Задаёт физическое имя таблицы.
@@ -21,7 +21,7 @@ final class UserGroupMemberTable extends SmartTableDefinition
      */
     protected function tableName(): string
     {
-        return 'user_group_member';
+        return 'st_idx_pair';
     }
 
     /**
@@ -33,28 +33,20 @@ final class UserGroupMemberTable extends SmartTableDefinition
     {
         return [
             new IdField(),
-            new ReferenceField(
-                'user_id',
-                FieldSettings::fromOptions(['required' => true]),
-                UserTable::class,
-            ),
-            new ReferenceField(
-                'group_id',
-                FieldSettings::fromOptions(['required' => true]),
-                UserGroupTable::class,
-            ),
+            new StringField('left_val', FieldSettings::fromOptions()),
+            new StringField('right_val', FieldSettings::fromOptions()),
         ];
     }
 
     /**
-     * Пара учётка+группа уникальна.
+     * Пара колонок уникальна вместе.
      *
      * @return array<int, array<int, string>> Кортежи.
      */
     protected function defineUniqueKeys(): array
     {
         return [
-            ['user_id', 'group_id'],
+            ['left_val', 'right_val'],
         ];
     }
 }

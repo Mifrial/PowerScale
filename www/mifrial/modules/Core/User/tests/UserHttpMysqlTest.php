@@ -687,12 +687,7 @@ final class UserHttpMysqlTest extends TestCase
             return;
         }
 
-        foreach ([UserGroupMemberTable::class, UserGroupTable::class, UserTable::class] as $tableClass) {
-            $openedTable = $this->smartTableGateway->open($tableClass);
-            if ($openedTable->schema()->exists()) {
-                $openedTable->schema()->deleteTable();
-            }
-        }
+        UserMysqlTables::drop($this->smartTableGateway);
     }
 
     /**
