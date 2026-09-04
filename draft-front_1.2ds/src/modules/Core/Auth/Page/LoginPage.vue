@@ -19,7 +19,7 @@ const canLogin = computed(() => loginOrEmail.value.length >= 3 && password.value
 async function handleLogin() {
   const { valid } = (await formRef.value?.validate()) ?? { valid: false };
   if (!valid) return;
-  const ok = await auth.login(loginOrEmail.value, password.value);
+  const ok = await auth.login(loginOrEmail.value, password.value, remember.value);
   if (ok) {
     router.push('/');
   }

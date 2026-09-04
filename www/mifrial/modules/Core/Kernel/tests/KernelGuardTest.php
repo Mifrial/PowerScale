@@ -166,4 +166,22 @@ final class KernelGuardTest extends TestCase
         $this->expectException(InvalidModuleConfigException::class);
         (new ModuleManager($modulesRoot))->loadCore();
     }
+
+    /**
+     * request_bind должен быть ключом ports.
+     *
+     * @return void
+     */
+    public function testInvalidRequestBindThrows(): void
+    {
+        $modulesRoot = sys_get_temp_dir() . '/mifrial-bind-' . uniqid();
+        mkdir($modulesRoot . '/Core/BadBind', 0777, true);
+        file_put_contents(
+            $modulesRoot . '/Core/BadBind/module.config.php',
+            '<?php return ["request_bind" => "Nope", "ports" => []];',
+        );
+
+        $this->expectException(InvalidModuleConfigException::class);
+        (new ModuleManager($modulesRoot))->loadCore();
+    }
 }

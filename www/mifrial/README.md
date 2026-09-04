@@ -20,13 +20,21 @@ curl -sS -X POST 'http://powerscale.test.ru/api/run?action=mifrial.ping' -H 'Con
 
 Фронт: `http://powerscale.test.ru:3000`. Тесты: `vendor/bin/phpunit`. Интеграция SmartTable и User ждёт MySQL с теми же ключами, что `config/local.php` (либо `MIFRIAL_TEST_DB_*`).
 
-Данные: SmartTable (`DEC-078`) на `illuminate/database` без Eloquent. User — таблицы `user`, `user_group`, `user_group_member`. Auth — `user_identity`, `auth_session`, httpOnly cookie `mifrial-session`. Нарезка —
+Данные: SmartTable (`DEC-078`) на `illuminate/database` без Eloquent. User — таблицы `user`, `user_group`, `user_group_member`. Auth — `user_identity`, `auth_session` (`kind` user/guest, `user_id` у гостя пуст), httpOnly cookie `mifrial-session`. Нарезка —
 [`docs/tr/smarttable-roadmap.md`](../../docs/tr/smarttable-roadmap.md).
 
 Установка/обновление схемы всех модулей на диске (граф `reference`, data-шаги):
 
 ```bash
 php bin/setup.php
+```
+
+Почта: `IMail::trigger`, очередь `mail_job`, тик агента `mail.flush`. SMTP в v1 нет — `LogMailTransport` пишет в `error_log`. Inline-flush — ключ `mail.flush_inline` в `local.php` (dist false).
+
+Тик агентов (cron ОС раз в минуту). Ключ `agents` в `module.config` донора; строку расписания пишет его data-шаг:
+
+```bash
+php bin/agent.php
 ```
 
 Проверка и исправление PHP-стиля:

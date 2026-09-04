@@ -7,5 +7,4 @@ export const columns: ColumnDefinition[] = [
   { key: 'login', label: 'Логин', type: 'string' },
   { key: 'email', label: 'Email', type: 'string' },
   { key: 'active', label: 'Активность', type: 'active', sortable: true },
-  { key: 'lastLogin', label: 'Последний вход', type: 'date' },
 ];

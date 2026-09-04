@@ -77,7 +77,7 @@ async function respond(invitation: GameInvitation, action: 'accept' | 'decline')
 async function openSendDialog(): Promise<void> {
   sendOpen.value = true;
   inviteeId.value = null;
-  userOptions.value = await getUserApi().getUsers();
+  userOptions.value = (await getUserApi().findPage({ limit: 50, offset: 0 })).items;
 }
 
 const inviteeOptions = computed(() => {

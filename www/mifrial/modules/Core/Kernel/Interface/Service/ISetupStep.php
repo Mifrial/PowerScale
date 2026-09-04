@@ -14,7 +14,7 @@ interface ISetupStep
      *
      * @return string Ключ вида Group/Name:имя.
      */
-    public function id(): string;
+    public function getId(): string;
 
     /**
      * Выполняет шаг. Вызывается, только если id ещё нет в реестре.

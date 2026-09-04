@@ -32,7 +32,7 @@ final class ArrayModuleSetup implements IModuleSetup
      *
      * @return array<int, class-string<SmartTableDefinition>> Карты.
      */
-    public function tableClasses(): array
+    public function getTableClasses(): array
     {
         return $this->tableClasses;
     }
@@ -42,7 +42,7 @@ final class ArrayModuleSetup implements IModuleSetup
      *
      * @return array<int, ISetupStep> Шаги.
      */
-    public function dataSteps(): array
+    public function getDataSteps(): array
     {
         return $this->dataSteps;
     }

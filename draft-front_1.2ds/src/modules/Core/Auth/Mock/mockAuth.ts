@@ -1,5 +1,6 @@
 import type { User } from '@/modules/Core/User/Dto/User';
 import type { PasswordPolicy } from '@/modules/Core/Auth/Dto/PasswordPolicy';
+import type { CurrentSession } from '@/modules/Core/Auth/Dto/CurrentSession';
 import { resolvePermissions } from '@/modules/Core/User/Mock/resolvePermissions';
 import { DEFAULT_PASSWORD_POLICY } from '@/modules/Core/Auth/Constant/defaultPasswordPolicy';
 import { abortableDelay } from '@/modules/Core/Engine/Mock/abortableDelay';
@@ -9,6 +10,10 @@ type MockUser = Omit<User, 'permissions'> & { password: string };
 // Осознанное разделение: mockAuth содержит только тестовые учётные данные для авторизации.
 // Полные данные пользователей хранятся в Core/User/Mock/mockUsers.ts.
 // Пароли не должны храниться на клиенте — это только mock для тестирования.
+function utc(year: number, month: number, day: number, hour = 0, minute = 0): number {
+  return Math.floor(Date.UTC(year, month - 1, day, hour, minute) / 1000);
+}
+
 const mockUsers: MockUser[] = [
   {
     id: 1,
@@ -18,10 +23,11 @@ const mockUsers: MockUser[] = [
     login: 'ivan_p',
     email: 'player@test.com',
     password: 'test',
-    groups: ['Игрок'],
-    registered: '01.01.2026',
+    groups: [2],
+    registered: utc(2026, 1, 1),
     active: true,
-    lastLogin: '27.07.2026 18:30',
+    lastLogin: utc(2026, 7, 27, 18, 30),
+    bypass: false,
   },
   {
     id: 2,
@@ -29,24 +35,23 @@ const mockUsers: MockUser[] = [
     login: 'admin',
     email: 'admin@test.com',
     password: 'test',
-    groups: ['Администраторы', 'Игрок'],
-    registered: '01.01.2025',
+    groups: [1, 2],
+    registered: utc(2025, 1, 1),
     active: true,
-    lastLogin: '28.07.2026 09:00',
-    super_admin: true,
+    lastLogin: utc(2026, 7, 28, 9, 0),
+    bypass: true,
   },
   {
-    id: 3,
-    name: 'Анна',
-    surname: 'Смирнова',
-    nickname: 'Annet',
-    login: 'anna_s',
-    email: 'gm@test.com',
+    id: 4,
+    name: 'Без почты',
+    login: 'no_mail',
+    email: null,
     password: 'test',
-    groups: ['Ведущий', 'Игрок'],
-    registered: '15.02.2026',
+    groups: [2],
+    registered: utc(2026, 3, 1),
     active: true,
-    lastLogin: '27.07.2026 22:15',
+    lastLogin: utc(2026, 7, 20, 12, 0),
+    bypass: false,
   },
 ];
 
@@ -62,6 +67,7 @@ function toSafeUser(user: MockUser): SafeUser {
 // Мок «серверной сессии»: id вошедшего пользователя живёт в sessionStorage,
 // чтобы сессия переживала обновление страницы, как реальная cookie-сессия.
 const SESSION_KEY = 'mock_session_user_id';
+const GUEST_KEY = 'mock_session_guest';
 
 function readStoredUserId(): number | null {
   try {
@@ -84,7 +90,25 @@ function writeStoredUserId(id: number | null): void {
   }
 }
 
+function readStoredGuest(): boolean {
+  try {
+    return window.sessionStorage.getItem(GUEST_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function writeStoredGuest(guest: boolean): void {
+  try {
+    if (guest) window.sessionStorage.setItem(GUEST_KEY, '1');
+    else window.sessionStorage.removeItem(GUEST_KEY);
+  } catch {
+    /* noop */
+  }
+}
+
 let loggedInUserId: number | null = readStoredUserId();
+let guestSession = readStoredGuest();
 
 // Текущий аутентифицированный пользователь. Fixtures чатов используют sentinel «я» (SELF = -1),
 // который в рантайме заменяется на реального пользователя. По умолчанию — Иван Петров (id 1),
@@ -101,18 +125,20 @@ export function getCurrentUserSummary(): { id: number; name: string } {
   return { id, name: user ? [user.name, user.surname].filter(Boolean).join(' ') || user.login : 'Иван Петров' };
 }
 
-export async function mockGetPasswordPolicy(): Promise<PasswordPolicy> {
+export async function mockGetPasswordPolicy(_userId?: number): Promise<PasswordPolicy> {
   await abortableDelay(200);
 
   return { ...DEFAULT_PASSWORD_POLICY };
 }
 
-export async function mockLogin(loginOrEmail: string, password: string): Promise<SafeUser> {
+export async function mockLogin(loginOrEmail: string, password: string, _remember = false): Promise<SafeUser> {
   await abortableDelay(200);
   const user = mockUsers.find((u) => (u.email === loginOrEmail || u.login === loginOrEmail) && u.password === password);
   if (!user) throw new Error('Неверный логин или пароль');
   loggedInUserId = user.id;
+  guestSession = false;
   writeStoredUserId(user.id);
+  writeStoredGuest(false);
 
   return toSafeUser(user);
 }
@@ -125,46 +151,77 @@ export async function mockRegister(login: string, email: string, password: strin
     id: mockUsers.length + 1,
     name: login,
     login,
-    email,
+    email: email.trim() === '' ? null : email,
     password,
-    groups: ['Игрок'],
-    registered: new Date().toLocaleDateString('ru-RU'),
+    groups: [2],
+    registered: Math.floor(Date.now() / 1000),
     active: true,
+    bypass: false,
   };
   mockUsers.push(newUser);
   loggedInUserId = newUser.id;
+  guestSession = false;
   writeStoredUserId(newUser.id);
+  writeStoredGuest(false);
 
   return toSafeUser(newUser);
 }
 
-export async function mockFindUser(loginOrEmail: string): Promise<SafeUser | null> {
+export async function mockStartPasswordReset(loginOrEmail: string): Promise<PasswordResetStartResult> {
   await abortableDelay(200);
   const user = mockUsers.find((u) => u.login === loginOrEmail || u.email === loginOrEmail);
-  if (!user) return null;
+  if (!user || !user.active) return { status: 'not_found' };
+  if (user.email === null) return { status: 'no_email' };
+  const resetToken = 'mock-reset-token';
 
-  return toSafeUser(user);
+  return { status: 'sent', login: user.login, resetToken };
 }
 
-export async function mockResetPassword(login: string, _token: string, _newPassword: string): Promise<boolean> {
+export async function mockFinalPasswordReset(login: string, _token: string, newPassword: string): Promise<boolean> {
   await abortableDelay(200);
   const user = mockUsers.find((u) => u.login === login);
-  if (!user) throw new Error('Пользователь не найден');
+  if (!user) throw new Error('Неверный логин или код сброса');
+  user.password = newPassword;
 
   return true;
+}
+
+export async function mockSetPassword(userId: number, newPassword: string, currentPassword?: string): Promise<boolean> {
+  await abortableDelay(200);
+  const user = mockUsers.find((u) => u.id === userId);
+  if (!user) throw new Error('Пользователь не найден');
+  if (loggedInUserId === userId && user.password !== currentPassword) {
+    throw new Error('Неверный текущий пароль');
+  }
+
+  user.password = newPassword;
+
+  return true;
+}
+
+export async function mockGuest(): Promise<void> {
+  await abortableDelay(200);
+  if (loggedInUserId !== null) throw new Error('Authentication failed');
+  loggedInUserId = null;
+  guestSession = true;
+  writeStoredUserId(null);
+  writeStoredGuest(true);
 }
 
 export async function mockLogout(): Promise<void> {
   await abortableDelay(200);
   loggedInUserId = null;
+  guestSession = false;
   writeStoredUserId(null);
+  writeStoredGuest(false);
 }
 
-export async function mockGetCurrentUser(): Promise<SafeUser | null> {
+export async function mockGetCurrentUser(): Promise<CurrentSession | null> {
   await abortableDelay(200);
+  if (guestSession) return { kind: 'guest' };
   if (loggedInUserId === null) return null;
   const user = mockUsers.find((u) => u.id === loggedInUserId);
   if (!user) return null;
 
-  return toSafeUser(user);
+  return { kind: 'user', user: toSafeUser(user) };
 }

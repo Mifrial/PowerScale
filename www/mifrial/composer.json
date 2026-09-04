@@ -26,14 +26,18 @@
     "psr-4": {
       "Mifrial\\Core\\Kernel\\": "modules/Core/Kernel/",
       "Mifrial\\Core\\SmartTable\\": "modules/Core/SmartTable/",
+      "Mifrial\\Core\\Agent\\": "modules/Core/Agent/",
       "Mifrial\\Core\\User\\": "modules/Core/User/",
-      "Mifrial\\Core\\Auth\\": "modules/Core/Auth/"
+      "Mifrial\\Core\\Auth\\": "modules/Core/Auth/",
+      "Mifrial\\Core\\Mail\\": "modules/Core/Mail/"
     },
     "exclude-from-classmap": [
       "/modules/Core/Kernel/tests/",
       "/modules/Core/SmartTable/tests/",
+      "/modules/Core/Agent/tests/",
       "/modules/Core/User/tests/",
-      "/modules/Core/Auth/tests/"
+      "/modules/Core/Auth/tests/",
+      "/modules/Core/Mail/tests/"
     ]
   },
   "autoload-dev": {
@@ -41,8 +45,10 @@
       "MifrialCodingStandard\\": "tools/phpcs/MifrialCodingStandard/",
       "Mifrial\\Core\\Kernel\\Tests\\": "modules/Core/Kernel/tests/",
       "Mifrial\\Core\\SmartTable\\Tests\\": "modules/Core/SmartTable/tests/",
+      "Mifrial\\Core\\Agent\\Tests\\": "modules/Core/Agent/tests/",
       "Mifrial\\Core\\User\\Tests\\": "modules/Core/User/tests/",
-      "Mifrial\\Core\\Auth\\Tests\\": "modules/Core/Auth/tests/"
+      "Mifrial\\Core\\Auth\\Tests\\": "modules/Core/Auth/tests/",
+      "Mifrial\\Core\\Mail\\Tests\\": "modules/Core/Mail/tests/"
     }
   },
   "config": {

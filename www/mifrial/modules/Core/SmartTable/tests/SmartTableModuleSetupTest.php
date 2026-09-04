@@ -20,8 +20,8 @@ final class SmartTableModuleSetupTest extends TestCase
     {
         self::assertSame(
             [MetaTableDefinition::class, MetaFieldDefinition::class],
-            (new SmartTableModuleSetup())->tableClasses(),
+            (new SmartTableModuleSetup())->getTableClasses(),
         );
-        self::assertSame([], (new SmartTableModuleSetup())->dataSteps());
+        self::assertSame([], (new SmartTableModuleSetup())->getDataSteps());
     }
 }

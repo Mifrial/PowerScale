@@ -68,6 +68,7 @@ final class ModuleManager implements IModuleManager
             $moduleConfig,
             array_keys($this->getRoutes()),
         );
+        $this->assertRequestBind($moduleGroup, $moduleName, $moduleConfig);
 
         $this->loadedModules[$moduleKey] = [
             'group' => $moduleGroup,
@@ -273,6 +274,34 @@ final class ModuleManager implements IModuleManager
         }
 
         return $moduleConfig;
+    }
+
+    /**
+     * Проверяет, что request_bind — порт из карты ports.
+     *
+     * @param string $moduleGroup Группа.
+     * @param string $moduleName Имя.
+     * @param array<string, mixed> $moduleConfig Конфиг.
+     *
+     * @return void
+     *
+     * @throws InvalidModuleConfigException Если ключ задан криво.
+     */
+    private function assertRequestBind(string $moduleGroup, string $moduleName, array $moduleConfig): void
+    {
+        if (!array_key_exists('request_bind', $moduleConfig)) {
+            return;
+        }
+
+        $requestBind = $moduleConfig['request_bind'];
+        $portFactories = $moduleConfig['ports'] ?? [];
+        if (!is_string($requestBind) || $requestBind === '' || !is_array($portFactories) || !isset($portFactories[$requestBind])) {
+            throw new InvalidModuleConfigException(
+                $moduleGroup,
+                $moduleName,
+                'request_bind must be a ports key',
+            );
+        }
     }
 
     /**

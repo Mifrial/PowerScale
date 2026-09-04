@@ -10,11 +10,17 @@
         <testsuite name="smarttable">
             <directory>modules/Core/SmartTable/tests</directory>
         </testsuite>
+        <testsuite name="agent">
+            <directory>modules/Core/Agent/tests</directory>
+        </testsuite>
         <testsuite name="user">
             <directory>modules/Core/User/tests</directory>
         </testsuite>
         <testsuite name="auth">
             <directory>modules/Core/Auth/tests</directory>
+        </testsuite>
+        <testsuite name="mail">
+            <directory>modules/Core/Mail/tests</directory>
         </testsuite>
     </testsuites>
 </phpunit>

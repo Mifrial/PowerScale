@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
+import { useGroupStore } from '@/modules/Core/User/Store/groups';
 import { useUserStore } from '@/modules/Core/User/Store/users';
 import { isAdmin, useCurrentUser } from '@/modules/Core/User/init';
 import type { User } from '@/modules/Core/User/Dto/User';
 import SlidePanel from '@/modules/Core/UI/Component/SlidePanel.vue';
 import { initials as userInitials } from '@/modules/Core/User/Utils/initials';
 import { displayName as userDisplayName } from '@/modules/Core/User/Utils/displayName';
+import { formatUnix } from '@/modules/Core/User/Utils/formatUnix';
 
 const props = defineProps<{
   userId: number | null;
@@ -14,6 +16,7 @@ const props = defineProps<{
 const open = defineModel<boolean>('open', { default: false });
 
 const userStore = useUserStore();
+const groupStore = useGroupStore();
 const { userId: viewerId, currentUser } = useCurrentUser();
 const userData = ref<User | null>(null);
 const loadError = ref('');
@@ -52,6 +55,12 @@ function retryLoad() {
   if (props.userId != null) loadUser(props.userId);
 }
 
+onMounted(() => {
+  if (userData.value) {
+    void groupStore.ensureGroups(userData.value.groups);
+  }
+});
+
 watch(
   () => props.userId,
   async (id) => {
@@ -62,6 +71,9 @@ watch(
       return;
     }
     await loadUser(id);
+    if (userData.value) {
+      await groupStore.ensureGroups(userData.value.groups);
+    }
   },
   { immediate: true },
 );
@@ -106,7 +118,7 @@ watch(
           </v-list-item>
           <v-list-item v-if="canViewSensitive">
             <template #title>Email</template>
-            <template #subtitle>{{ userData.email }}</template>
+            <template #subtitle>{{ userData.email || '—' }}</template>
           </v-list-item>
           <v-list-item>
             <template #title>Статус</template>
@@ -118,11 +130,11 @@ watch(
           </v-list-item>
           <v-list-item v-if="canViewSensitive">
             <template #title>Зарегистрирован</template>
-            <template #subtitle>{{ userData.registered || '—' }}</template>
+            <template #subtitle>{{ formatUnix(userData.registered) }}</template>
           </v-list-item>
           <v-list-item v-if="canViewSensitive">
             <template #title>Последний вход</template>
-            <template #subtitle>{{ userData.lastLogin || '—' }}</template>
+            <template #subtitle>{{ formatUnix(userData.lastLogin, true) }}</template>
           </v-list-item>
         </v-list>
       </v-card>
@@ -132,7 +144,9 @@ watch(
           <v-card-title class="text-body-2 font-weight-bold">Группы</v-card-title>
         </v-card-item>
         <v-card-text>
-          <v-chip v-for="g in userData.groups" :key="g" size="small" label class="mr-1 mb-1">{{ g }}</v-chip>
+          <v-chip v-for="groupId in userData.groups" :key="groupId" size="small" label class="mr-1 mb-1">
+            {{ groupStore.getGroupName(groupId) }}
+          </v-chip>
         </v-card-text>
       </v-card>
     </div>

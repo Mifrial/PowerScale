@@ -56,6 +56,51 @@ describe('HttpClient.post', () => {
     expect(res.data).toEqual({ data: [1, 2, 3] });
   });
 
+  it('на 400 AUTH_REQUIRED вызывает onUnauthorized', async () => {
+    vi.stubGlobal('fetch', fetchMock);
+    const onUnauthorized = vi.fn();
+    mockResponse(
+      '{"success":false,"data":null,"error":{"code":"AUTH_REQUIRED","message":"Authentication is required"}}',
+      400,
+    );
+
+    const res = await createClient({ onUnauthorized }).post('/run');
+
+    expect(onUnauthorized).toHaveBeenCalledTimes(1);
+    expect(res.ok).toBe(false);
+    expect(res.status).toBe(400);
+  });
+
+  it('на 400 AUTH_DENIED не вылогинивает', async () => {
+    vi.stubGlobal('fetch', fetchMock);
+    const onUnauthorized = vi.fn();
+    mockResponse('{"success":false,"data":null,"error":{"code":"AUTH_DENIED","message":"Permission denied"}}', 400);
+
+    await createClient({ onUnauthorized }).post('/run');
+
+    expect(onUnauthorized).not.toHaveBeenCalled();
+  });
+
+  it('на 403 CSRF не вылогинивает', async () => {
+    vi.stubGlobal('fetch', fetchMock);
+    const onUnauthorized = vi.fn();
+    mockResponse('{"success":false,"data":null,"error":{"code":"CSRF","message":"CSRF failed"}}', 403);
+
+    await createClient({ onUnauthorized }).post('/run');
+
+    expect(onUnauthorized).not.toHaveBeenCalled();
+  });
+
+  it('на 401 без AUTH_REQUIRED не вылогинивает', async () => {
+    vi.stubGlobal('fetch', fetchMock);
+    const onUnauthorized = vi.fn();
+    mockResponse('{"success":false}', 401);
+
+    await createClient({ onUnauthorized }).post('/run');
+
+    expect(onUnauthorized).not.toHaveBeenCalled();
+  });
+
   it('возвращает ok:false и JSON-тело ошибки на не-2xx', async () => {
     vi.stubGlobal('fetch', fetchMock);
     mockResponse('{"success":false}', 400);

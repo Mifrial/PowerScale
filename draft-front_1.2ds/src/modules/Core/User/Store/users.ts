@@ -3,54 +3,65 @@ import { ref, computed } from 'vue';
 import type { User } from '@/modules/Core/User/Dto/User';
 import type { CreateUserData } from '@/modules/Core/User/Dto/CreateUserData';
 import type { UpdateUserData } from '@/modules/Core/User/Dto/UpdateUserData';
+import type { FindPageQuery } from '@/modules/Core/User/Dto/FindPageQuery';
+import type { FindPageResult } from '@/modules/Core/User/Dto/FindPageResult';
 import { getUserApi } from '@/modules/Core/User/init';
 import { initials } from '@/modules/Core/User/Utils/initials';
 import { displayName } from '@/modules/Core/User/Utils/displayName';
 
 export const useUserStore = defineStore('users', () => {
   const currentUser = ref<User | null>(null);
+  const profileUser = ref<User | null>(null);
+  const guestActor = ref(false);
   const users = ref<User[]>([]);
+  const total = ref(0);
   const loading = ref(false);
 
-  const username = computed(() =>
-    currentUser.value ? displayName(currentUser.value.name, currentUser.value.surname, currentUser.value.login) : '',
-  );
+  const username = computed(() => {
+    if (guestActor.value) return 'Гость';
+    if (!currentUser.value) return '';
+
+    return displayName(currentUser.value.name, currentUser.value.surname, currentUser.value.login);
+  });
   const userLogin = computed(() => currentUser.value?.login || '');
   const avatarLetters = computed(() => {
+    if (guestActor.value) return '?';
     if (!currentUser.value) return '??';
-    if (currentUser.value.id === 0) return '?';
 
     return initials(currentUser.value.name, currentUser.value.surname);
   });
 
   function setCurrent(user: User): void {
+    guestActor.value = false;
     currentUser.value = user;
   }
 
   function setGuest(): void {
-    currentUser.value = {
-      id: 0,
-      name: 'Гость',
-      login: 'guest',
-      email: '',
-      groups: ['Гость'],
-      registered: '',
-      active: true,
-      nickname: 'guest',
-    };
+    currentUser.value = null;
+    guestActor.value = true;
   }
 
   function clearCurrent(): void {
     currentUser.value = null;
+    guestActor.value = false;
   }
 
-  async function fetchUsers(signal?: AbortSignal) {
+  function setProfileUser(user: User | null): void {
+    profileUser.value = user;
+  }
+
+  async function findPage(query: FindPageQuery, signal?: AbortSignal): Promise<FindPageResult<User>> {
     loading.value = true;
     try {
-      users.value = await getUserApi().getUsers(signal);
+      const page = await getUserApi().findPage(query, signal);
+      users.value = page.items;
+      total.value = page.total;
+
+      return page;
     } catch (e) {
-      if (e instanceof DOMException && e.name === 'AbortError') return;
-      console.error('fetchUsers failed', e);
+      if (e instanceof DOMException && e.name === 'AbortError') return { items: [], total: 0 };
+      console.error('findPage failed', e);
+      throw e;
     } finally {
       loading.value = false;
     }
@@ -67,11 +78,6 @@ export const useUserStore = defineStore('users', () => {
   async function ensureUsers(ids: number[]): Promise<void> {
     const missing = ids.filter((id) => !users.value.some((u) => u.id === id));
     if (!missing.length) return;
-    if (!users.value.length) {
-      await fetchUsers();
-
-      return;
-    }
     try {
       const fetched = await getUsersByIds(missing);
       for (const u of fetched) {
@@ -107,22 +113,26 @@ export const useUserStore = defineStore('users', () => {
     const user = users.value.find((u) => u.id === id);
     if (user) {
       user.active = false;
-      user.deactivate_reason = reason;
-      user.deactivated_until = deactivatedUntil;
+      user.deactivateReason = reason;
+      user.deactivatedUntil = deactivatedUntil ? Math.floor(Date.parse(`${deactivatedUntil}T00:00:00Z`) / 1000) : null;
     }
   }
 
   return {
     currentUser,
+    profileUser,
     users,
+    total,
     loading,
     username,
     userLogin,
     avatarLetters,
+    guestActor,
     setCurrent,
     setGuest,
     clearCurrent,
-    fetchUsers,
+    setProfileUser,
+    findPage,
     getUser,
     getUsersByIds,
     ensureUsers,

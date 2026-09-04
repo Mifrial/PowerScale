@@ -30,7 +30,7 @@ final class RecordingSetupStep implements ISetupStep
      *
      * @return string Ключ.
      */
-    public function id(): string
+    public function getId(): string
     {
         return $this->stepId;
     }

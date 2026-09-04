@@ -17,7 +17,7 @@ interface IRuntimeConfig
      *
      * @return bool true, если debug включён.
      */
-    public function debug(): bool;
+    public function isDebug(): bool;
 
     /**
      * Возвращает срез настроек базы без подключения.

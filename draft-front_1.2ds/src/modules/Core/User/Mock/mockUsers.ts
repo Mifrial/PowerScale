@@ -1,9 +1,17 @@
 import type { User } from '@/modules/Core/User/Dto/User';
+import type { CreateUserData } from '@/modules/Core/User/Dto/CreateUserData';
+import type { FindPageQuery } from '@/modules/Core/User/Dto/FindPageQuery';
+import type { FindPageResult } from '@/modules/Core/User/Dto/FindPageResult';
 import { abortableDelay } from '@/modules/Core/Engine/Mock/abortableDelay';
+import { resolvePermissions } from '@/modules/Core/User/Mock/resolvePermissions';
 
 let nextId = 100;
 
-export const users: User[] = [
+function utc(year: number, month: number, day: number, hour = 0, minute = 0): number {
+  return Math.floor(Date.UTC(year, month - 1, day, hour, minute) / 1000);
+}
+
+const catalog: Omit<User, 'permissions'>[] = [
   {
     id: 1,
     name: 'Иван',
@@ -11,21 +19,22 @@ export const users: User[] = [
     nickname: 'IvanTheGreat',
     login: 'ivan_p',
     email: 'player@test.com',
-    groups: ['Игрок'],
-    registered: '01.01.2026',
+    groups: [2],
+    registered: utc(2026, 1, 1),
     active: true,
-    lastLogin: '27.07.2026 18:30',
+    lastLogin: utc(2026, 7, 27, 18, 30),
+    bypass: false,
   },
   {
     id: 2,
     name: 'Администратор',
     login: 'admin',
     email: 'admin@test.com',
-    groups: ['Администраторы', 'Игрок'],
-    registered: '01.01.2025',
+    groups: [1, 2],
+    registered: utc(2025, 1, 1),
     active: true,
-    lastLogin: '28.07.2026 09:00',
-    super_admin: true,
+    lastLogin: utc(2026, 7, 28, 9, 0),
+    bypass: true,
   },
   {
     id: 3,
@@ -34,10 +43,11 @@ export const users: User[] = [
     nickname: 'Annet',
     login: 'anna_s',
     email: 'gm@test.com',
-    groups: ['Ведущий', 'Игрок'],
-    registered: '15.02.2026',
+    groups: [3, 2],
+    registered: utc(2026, 2, 15),
     active: true,
-    lastLogin: '27.07.2026 22:15',
+    lastLogin: utc(2026, 7, 27, 22, 15),
+    bypass: false,
   },
   {
     id: 4,
@@ -45,10 +55,11 @@ export const users: User[] = [
     surname: 'Козлов',
     login: 'petr_k',
     email: 'petr@test.com',
-    groups: ['Игрок'],
-    registered: '10.03.2026',
+    groups: [2],
+    registered: utc(2026, 3, 10),
     active: true,
-    lastLogin: '26.07.2026 14:00',
+    lastLogin: utc(2026, 7, 26, 14, 0),
+    bypass: false,
   },
   {
     id: 5,
@@ -57,10 +68,11 @@ export const users: User[] = [
     nickname: 'LenaMagic',
     login: 'elena_m',
     email: 'elena@test.com',
-    groups: ['Ведущий', 'Игрок'],
-    registered: '22.04.2026',
+    groups: [3, 2],
+    registered: utc(2026, 4, 22),
     active: true,
-    lastLogin: '28.07.2026 07:45',
+    lastLogin: utc(2026, 7, 28, 7, 45),
+    bypass: false,
   },
   {
     id: 6,
@@ -68,10 +80,11 @@ export const users: User[] = [
     surname: 'Волков',
     login: 'dmitry_v',
     email: 'dmitry@test.com',
-    groups: ['Игрок'],
-    registered: '05.05.2026',
+    groups: [2],
+    registered: utc(2026, 5, 5),
     active: false,
-    lastLogin: '15.06.2026 11:20',
+    lastLogin: utc(2026, 6, 15, 11, 20),
+    bypass: false,
   },
   {
     id: 7,
@@ -80,10 +93,11 @@ export const users: User[] = [
     nickname: 'OlyaN',
     login: 'olga_n',
     email: 'olga@test.com',
-    groups: ['Администраторы', 'Ведущий', 'Игрок'],
-    registered: '01.03.2025',
+    groups: [1, 3, 2],
+    registered: utc(2025, 3, 1),
     active: true,
-    lastLogin: '28.07.2026 08:30',
+    lastLogin: utc(2026, 7, 28, 8, 30),
+    bypass: true,
   },
   {
     id: 8,
@@ -91,10 +105,11 @@ export const users: User[] = [
     surname: 'Лебедев',
     login: 'sergey_l',
     email: 'sergey@test.com',
-    groups: ['Игрок'],
-    registered: '18.06.2026',
+    groups: [2],
+    registered: utc(2026, 6, 18),
     active: true,
-    lastLogin: '25.07.2026 20:10',
+    lastLogin: utc(2026, 7, 25, 20, 10),
+    bypass: false,
   },
   {
     id: 9,
@@ -102,9 +117,10 @@ export const users: User[] = [
     surname: 'Соколова',
     login: 'maria_s',
     email: 'maria@test.com',
-    groups: ['Ведущий', 'Игрок'],
-    registered: '30.07.2025',
+    groups: [3, 2],
+    registered: utc(2025, 7, 30),
     active: false,
+    bypass: false,
   },
   {
     id: 10,
@@ -113,17 +129,40 @@ export const users: User[] = [
     nickname: 'AlexF',
     login: 'alexey_f',
     email: 'alexey@test.com',
-    groups: ['Игрок'],
-    registered: '12.08.2026',
+    groups: [2],
+    registered: utc(2026, 8, 12),
     active: true,
-    lastLogin: '27.07.2026 16:55',
+    lastLogin: utc(2026, 7, 27, 16, 55),
+    bypass: false,
   },
 ];
 
-export async function mockGetUsers(signal?: AbortSignal): Promise<User[]> {
-  await abortableDelay(150, signal);
+export const users: User[] = catalog.map((user) => ({
+  ...user,
+  permissions: resolvePermissions(user.groups),
+}));
 
-  return [...users.map((u) => ({ ...u }))];
+function toHttpUser(user: User): User {
+  const { lastLogin: _lastLogin, ...rest } = user;
+
+  return rest;
+}
+
+export async function mockFindPage(query: FindPageQuery, signal?: AbortSignal): Promise<FindPageResult<User>> {
+  await abortableDelay(150, signal);
+  const needle = query.q?.trim().toLowerCase() ?? '';
+  const matched = users.filter((user) => {
+    if (query.active !== undefined && user.active !== query.active) return false;
+    if (!needle) return true;
+
+    return [user.login, user.name, user.surname, user.nickname, user.email]
+      .filter((part): part is string => !!part)
+      .some((part) => part.toLowerCase().includes(needle));
+  });
+  const offset = query.offset;
+  const items = matched.slice(offset, offset + query.limit).map(toHttpUser);
+
+  return { items, total: matched.length };
 }
 
 export async function mockGetUser(id: number, signal?: AbortSignal): Promise<User> {
@@ -131,27 +170,31 @@ export async function mockGetUser(id: number, signal?: AbortSignal): Promise<Use
   const u = users.find((x) => x.id === id);
   if (!u) throw new Error('User not found');
 
-  return { ...u };
+  return toHttpUser(u);
 }
 
 export async function mockGetUsersByIds(ids: number[], signal?: AbortSignal): Promise<User[]> {
   await abortableDelay(150, signal);
   const idSet = new Set(ids);
 
-  return users.filter((u) => idSet.has(u.id)).map((u) => ({ ...u }));
+  return users.filter((u) => idSet.has(u.id)).map(toHttpUser);
 }
 
-export async function mockCreateUser(
-  data: { name: string; login: string; email: string; password: string; groups: string[] },
-  signal?: AbortSignal,
-): Promise<User> {
+export async function mockCreateUser(data: CreateUserData, signal?: AbortSignal): Promise<User> {
   await abortableDelay(150, signal);
   const id = nextId++;
   const user: User = {
     id,
-    ...data,
-    registered: new Date().toISOString().slice(0, 10).replace(/-/g, '.'),
+    name: data.name,
+    login: data.login,
+    email: data.email ?? null,
+    groups: data.groups,
+    registered: Math.floor(Date.now() / 1000),
     active: true,
+    bypass: false,
+    permissions: resolvePermissions(data.groups),
+    surname: data.surname,
+    nickname: data.nickname,
   };
   users.push(user);
 
@@ -164,7 +207,7 @@ export async function mockUpdateUser(id: number, data: Record<string, unknown>, 
   if (!u) throw new Error('User not found');
   Object.assign(u, data);
 
-  return { ...u };
+  return toHttpUser(u);
 }
 
 export async function mockDeactivateUser(
@@ -177,6 +220,6 @@ export async function mockDeactivateUser(
   const u = users.find((x) => x.id === id);
   if (!u) throw new Error('User not found');
   u.active = false;
-  u.deactivate_reason = reason;
-  u.deactivated_until = deactivatedUntil;
+  u.deactivateReason = reason ?? null;
+  u.deactivatedUntil = deactivatedUntil ? Math.floor(Date.parse(`${deactivatedUntil}T00:00:00Z`) / 1000) : null;
 }

@@ -52,7 +52,7 @@ final class RuntimeConfigTest extends TestCase
     {
         $runtimeConfig = RuntimeConfig::fromLocal(['debug' => false]);
 
-        self::assertFalse($runtimeConfig->debug());
+        self::assertFalse($runtimeConfig->isDebug());
         self::assertSame('file', $runtimeConfig->cacheDriver());
         self::assertSame('', $runtimeConfig->cache()->path());
         self::assertSame('', $runtimeConfig->database()->host());
@@ -117,7 +117,7 @@ final class RuntimeConfigTest extends TestCase
         $resolvedConfig = $kernelContainer->get(IRuntimeConfig::class);
 
         self::assertInstanceOf(IRuntimeConfig::class, $resolvedConfig);
-        self::assertTrue($resolvedConfig->debug());
+        self::assertTrue($resolvedConfig->isDebug());
         self::assertNull($resolvedConfig->section('auth'));
     }
 

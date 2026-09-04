@@ -3,6 +3,7 @@ import { defineAsyncComponent } from 'vue';
 import type { IUserApi } from '@/modules/Core/User/Interface/IUserApi';
 import type { IGroupApi } from '@/modules/Core/User/Interface/IGroupApi';
 import type { ProfileSection } from '@/modules/Core/User/Dto/ProfileSection';
+import type { UserEditSection } from '@/modules/Core/User/Dto/UserEditSection';
 import type { PermissionCategory } from '@/modules/Core/User/Interface/PermissionCategory';
 import type { AdminSection } from '@/modules/Core/User/Interface/AdminSection';
 import { accessService } from '@/modules/Core/User/Service/Instance/accessService';
@@ -48,6 +49,18 @@ export function registerProfileSection(section: ProfileSection): void {
 
 export function getProfileSections(): ProfileSection[] {
   return profileSections;
+}
+
+const userEditSections: UserEditSection[] = [];
+
+export function registerUserEditSection(section: UserEditSection): void {
+  if (!userEditSections.some((s) => s.id === section.id)) {
+    userEditSections.push(section);
+  }
+}
+
+export function getUserEditSections(): UserEditSection[] {
+  return userEditSections;
 }
 
 const permissionCategories: PermissionCategory[] = [];

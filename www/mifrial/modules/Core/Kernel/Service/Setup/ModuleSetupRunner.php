@@ -81,8 +81,8 @@ final class ModuleSetupRunner
     {
         $seenIds = [];
         foreach ($sortedSetups as $moduleSetup) {
-            foreach ($moduleSetup['setup']->dataSteps() as $setupStep) {
-                $stepId = $setupStep->id();
+            foreach ($moduleSetup['setup']->getDataSteps() as $setupStep) {
+                $stepId = $setupStep->getId();
                 if (isset($seenIds[$stepId])) {
                     throw new SetupException(
                         'SETUP_STEP_DUPLICATE',
@@ -106,7 +106,7 @@ final class ModuleSetupRunner
     {
         $tableClasses = [];
         foreach ($this->moduleSetups as $moduleSetup) {
-            foreach ($moduleSetup['setup']->tableClasses() as $tableClass) {
+            foreach ($moduleSetup['setup']->getTableClasses() as $tableClass) {
                 $tableClasses[] = $tableClass;
             }
         }
@@ -145,7 +145,7 @@ final class ModuleSetupRunner
             $this->smartTableGateway->open(SetupStepTable::class)->records(),
         );
         foreach ($sortedSetups as $moduleSetup) {
-            foreach ($moduleSetup['setup']->dataSteps() as $setupStep) {
+            foreach ($moduleSetup['setup']->getDataSteps() as $setupStep) {
                 $this->applyStep($registry, $setupStep);
             }
         }
@@ -161,7 +161,7 @@ final class ModuleSetupRunner
      */
     private function applyStep(SetupStepRepository $registry, ISetupStep $setupStep): void
     {
-        $stepId = $setupStep->id();
+        $stepId = $setupStep->getId();
         if ($registry->has($stepId)) {
             return;
         }

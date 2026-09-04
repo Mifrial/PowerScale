@@ -3,14 +3,19 @@ import type { IUserApi } from '@/modules/Core/User/Interface/IUserApi';
 import type { CreateUserData } from '@/modules/Core/User/Dto/CreateUserData';
 import type { UpdateUserData } from '@/modules/Core/User/Dto/UpdateUserData';
 import type { User } from '@/modules/Core/User/Dto/User';
+import type { FindPageQuery } from '@/modules/Core/User/Dto/FindPageQuery';
+import type { FindPageResult } from '@/modules/Core/User/Dto/FindPageResult';
 
 export class UserApi implements IUserApi {
   constructor(private readonly engine: Engine) {}
 
-  async getUsers(signal?: AbortSignal): Promise<User[]> {
-    const res = await this.engine.runAction<User[]>('user.getList', undefined, signal);
+  async findPage(query: FindPageQuery, signal?: AbortSignal): Promise<FindPageResult<User>> {
+    const res = await this.engine.runAction<FindPageResult<User>>('user.findPage', query, signal);
+    if (!res.data) {
+      return { items: [], total: 0 };
+    }
 
-    return res.data ?? [];
+    return res.data;
   }
 
   async getUser(id: number, signal?: AbortSignal): Promise<User> {

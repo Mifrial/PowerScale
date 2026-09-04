@@ -3,9 +3,11 @@ import {
   mockLogin,
   mockRegister,
   mockLogout,
+  mockGuest,
   mockGetCurrentUser,
-  mockFindUser,
-  mockResetPassword,
+  mockStartPasswordReset,
+  mockFinalPasswordReset,
+  mockSetPassword,
   mockGetPasswordPolicy,
 } from '@/modules/Core/Auth/Mock/mockAuth';
 
@@ -13,8 +15,10 @@ export const mockAuthApi: IAuthApi = {
   login: mockLogin,
   register: mockRegister,
   logout: mockLogout,
+  guest: mockGuest,
   getCurrentUser: mockGetCurrentUser,
-  findUser: mockFindUser,
-  resetPassword: mockResetPassword,
+  startPasswordReset: mockStartPasswordReset,
+  finalPasswordReset: mockFinalPasswordReset,
+  setPassword: mockSetPassword,
   getPasswordPolicy: mockGetPasswordPolicy,
 };

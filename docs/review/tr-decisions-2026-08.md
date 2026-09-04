@@ -657,10 +657,10 @@
 
 ## DEC-074 — биндинг параметров action из JSON
 
-- **Дата:** 2026-09-01
+- **Дата:** 2026-09-01, уточнение 2026-09-03
 - **Связанный пункт:** контракт `runAction` / сигнатура обработчика.
-- **Решение:** `IActionHandler` — маркер без общей сигнатуры `handle`. Диспетчер отражает метод `handle` и биндит JSON-объект на имена параметров. Типы: `int`, `float`, `string`, `bool`, `array`, backed enum. Строка в `int` и `0`/`1` в `bool` не приводятся. JSON-число без дробной части допускается как `int`. Лишние ключи, отсутствие required-поля и несовпадение типа — `INVALID_PARAMS`. `null` только для `?T`. Default используется, если ключа нет. Сервисы в `handle` не инжектятся.
-- **Последствие:** фронтовый `runAction('x', { id, code })` соответствует `handle(int $id, string $code)`.
+- **Решение:** `IActionHandler` — маркер без общей сигнатуры `handle`. Диспетчер отражает метод `handle` и биндит JSON-объект: либо на имена параметров `handle` (скаляры, `array`, backed enum), либо на конструктор ровно одного `IActionInput` (ключи ctor; имя параметра `handle` не ключ JSON). Типы скаляров: `int`, `float`, `string`, `bool`, `array`, backed enum. Строка в `int` и `0`/`1` в `bool` не приводятся. JSON-число без дробной части допускается как `int`. Лишние ключи, отсутствие required-поля и несовпадение типа — `INVALID_PARAMS`. `null` только для `?T`. Default используется, если ключа нет. Листья `OptionalValue` отличают отсутствие ключа от JSON `null`. Сервисы и Kernel `DateTime` в `handle` не инжектятся. Смесь скаляра с input, два input, класс без маркера — unsupported.
+- **Последствие:** фронтовый `runAction('x', { id, code })` соответствует `handle(int $id, string $code)` или `handle(SomeInput $input)` с ctor `id`/`code`.
 
 ## DEC-075 — Action без знания ActionResponse
 
@@ -693,5 +693,12 @@
 - **VersionedSmartTable:** оболочка в ТР сразу; реализация только после ворот Basic.
 - **Админка SmartTables:** после Auth; до этого — тесты и API.
 - **Последствие:** User/Auth/Журнал не стартуют до ворот Basic. Нарезка — [`smarttable-roadmap.md`](../tr/smarttable-roadmap.md).
+
+## DEC-079 — Record не мешок колонок
+
+- **Дата:** 2026-09-03
+- **Связанный пункт:** DTO прикладного модуля; граница Service / Repository / HTTP.
+- **Решение:** `*Record` отдаёт смысл свойств геттерами (`getId`, `isActive`, `isBypass`, `getPermissionKeys`). `fromNormalized` принимает карту строки SmartTable на границе репозитория. Публичного `values()` нет. `New*` / `*Patch` остаются набором присутствующих ключей (`fields()`): отсутствие ключа = не трогать колонку. JSON action/view — отдельный маппинг, не Record и не колонки. Инварианты на фасаде, не в репозитории. Optional-лес на Patch не заводить, пока единственный сток — ST; HTTP input — `IActionInput` (`DEC-074`).
+- **Последствие:** сервис не пишет `$record->values()['bypass']`. Имена колонок живут в Table, `fromNormalized` и в `fields()` New/Patch.
 
 

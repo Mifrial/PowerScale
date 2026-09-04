@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Core\Kernel\Http;
 
 use Mifrial\Core\Kernel\Dto\OutgoingCookie;
+use Mifrial\Core\Kernel\Dto\RequestActor;
 use Mifrial\Core\Kernel\Interface\Http\IHttpRequest;
 use Mifrial\Core\Kernel\Interface\Http\IRequestContext;
 
@@ -23,6 +24,8 @@ final class RequestContext implements IRequestContext
      */
     private array $queuedCookies = [];
 
+    private ?RequestActor $requestActor = null;
+
     /**
      * Сбрасывает входящие cookie и очередь исходящих.
      *
@@ -32,6 +35,7 @@ final class RequestContext implements IRequestContext
     {
         $this->incomingCookies = [];
         $this->queuedCookies = [];
+        $this->requestActor = null;
     }
 
     /**
@@ -45,6 +49,7 @@ final class RequestContext implements IRequestContext
     {
         $this->incomingCookies = [];
         $this->queuedCookies = [];
+        $this->requestActor = null;
         foreach ($httpRequest->getCookieMap() as $cookieName => $cookieValue) {
             if (is_string($cookieName) && is_string($cookieValue) && $cookieValue !== '') {
                 $this->incomingCookies[$cookieName] = $cookieValue;
@@ -87,5 +92,27 @@ final class RequestContext implements IRequestContext
         $this->queuedCookies = [];
 
         return $queuedCookies;
+    }
+
+    /**
+     * Кладёт снимок актора сессии.
+     *
+     * @param RequestActor|null $requestActor Актор или null.
+     *
+     * @return void
+     */
+    public function setActor(?RequestActor $requestActor): void
+    {
+        $this->requestActor = $requestActor;
+    }
+
+    /**
+     * Возвращает актора текущего запроса.
+     *
+     * @return RequestActor|null Актор или null.
+     */
+    public function getActor(): ?RequestActor
+    {
+        return $this->requestActor;
     }
 }

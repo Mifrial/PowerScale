@@ -2,16 +2,16 @@ import { describe, it, expect } from 'vitest';
 import { accessService } from '@/modules/Core/User/init';
 import type { User } from '@/modules/Core/User/Dto/User';
 
-const user = (permissions: string[] | undefined, superAdmin = false): User => ({
+const user = (permissions: string[] = [], hasBypass = false): User => ({
   id: 1,
   name: 'U',
   login: 'u',
   email: 'u@t',
   groups: [],
-  registered: '',
+  registered: 0,
   active: true,
   permissions,
-  super_admin: superAdmin,
+  bypass: hasBypass,
 });
 
 describe('hasAnyPermission', () => {
@@ -25,7 +25,7 @@ describe('hasAnyPermission', () => {
   });
 
   it('нет permissions → false', () => {
-    expect(accessService.hasAnyPermission(user(undefined), ['user.view'])).toBe(false);
+    expect(accessService.hasAnyPermission(user([]), ['user.view'])).toBe(false);
   });
 
   it('любой ключ из списка → true', () => {
@@ -36,7 +36,7 @@ describe('hasAnyPermission', () => {
     expect(accessService.hasAnyPermission(user(['keyword.view']), ['user.view'])).toBe(false);
   });
 
-  it('super_admin обходит без ключей', () => {
+  it('bypass обходит без ключей', () => {
     expect(accessService.hasAnyPermission(user([], true), ['user.view'])).toBe(true);
   });
 });
@@ -59,7 +59,7 @@ describe('hasAllPermissions', () => {
     expect(accessService.hasAllPermissions(user([]), [])).toBe(true);
   });
 
-  it('super_admin обходит без ключей', () => {
+  it('bypass обходит без ключей', () => {
     expect(accessService.hasAllPermissions(user([], true), ['user.view', 'user.edit'])).toBe(true);
   });
 });

@@ -48,7 +48,7 @@ final class TableSetupOrderTest extends TestCase
      */
     public function testUserMemberAfterParents(): void
     {
-        $ordered = (new TableSetupOrder())->order(UserSchema::tableClasses());
+        $ordered = (new TableSetupOrder())->order(UserSchema::getTableClasses());
         $names = [];
         foreach ($ordered as $definition) {
             $names[] = $definition->getName();

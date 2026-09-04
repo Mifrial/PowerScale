@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Core\Kernel\Interface\Http;
 
 use Mifrial\Core\Kernel\Dto\OutgoingCookie;
+use Mifrial\Core\Kernel\Dto\RequestActor;
 
 /**
  * Процессный снимок входящих cookie и очередь исходящих.
@@ -51,4 +52,20 @@ interface IRequestContext
      * @return array<int, OutgoingCookie> Очередь.
      */
     public function takeQueuedCookies(): array;
+
+    /**
+     * Кладёт снимок актора сессии.
+     *
+     * @param RequestActor|null $requestActor Актор или null.
+     *
+     * @return void
+     */
+    public function setActor(?RequestActor $requestActor): void;
+
+    /**
+     * Возвращает актора текущего запроса.
+     *
+     * @return RequestActor|null Актор или null.
+     */
+    public function getActor(): ?RequestActor;
 }

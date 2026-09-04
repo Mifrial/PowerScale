@@ -9,7 +9,10 @@ use Mifrial\Core\Kernel\Dto\ActionResponse;
 use Mifrial\Core\Kernel\Http\CsrfGuard;
 use Mifrial\Core\Kernel\Http\DebugResponseFormatter;
 use Mifrial\Core\Kernel\Http\ResponseEmitter;
+use Mifrial\Core\Kernel\Interface\Container\IKernelContainer;
 use Mifrial\Core\Kernel\Interface\Http\IHttpRequest;
+use Mifrial\Core\Kernel\Interface\Http\IRequestBinder;
+use Mifrial\Core\Kernel\Interface\Http\IRequestContext;
 use Mifrial\Core\Kernel\Interface\Service\IApplication;
 use Mifrial\Core\Kernel\Interface\Service\IDispatcher;
 use Mifrial\Core\Kernel\Interface\Service\ILogger;
@@ -149,7 +152,48 @@ final class Application implements IApplication
             return ActionResponse::fail('INVALID_JSON', 'Request body is not JSON');
         }
 
+        $this->bindRequestActors();
+
         return $this->dispatcher->dispatch($actionCode, $payload);
+    }
+
+    /**
+     * Вызывает request_bind загруженных модулей.
+     *
+     * @return void
+     */
+    private function bindRequestActors(): void
+    {
+        $kernelContainer = $this->locator->get(IKernelContainer::class);
+        $requestContext = $kernelContainer->get(IRequestContext::class);
+        if (!$requestContext instanceof IRequestContext) {
+            return;
+        }
+
+        foreach ($this->modules->getLoadedModules() as $loadedModule) {
+            $this->bindModuleActor($loadedModule, $requestContext);
+        }
+    }
+
+    /**
+     * Вызывает binder одного модуля, если ключ задан.
+     *
+     * @param array{group: string, name: string, config: array<string, mixed>} $loadedModule Модуль.
+     * @param IRequestContext $requestContext Контекст.
+     *
+     * @return void
+     */
+    private function bindModuleActor(array $loadedModule, IRequestContext $requestContext): void
+    {
+        $requestBind = $loadedModule['config']['request_bind'] ?? null;
+        if (!is_string($requestBind) || $requestBind === '') {
+            return;
+        }
+
+        $binder = $this->modules->getContainer($loadedModule['group'], $loadedModule['name'])->get($requestBind);
+        if ($binder instanceof IRequestBinder) {
+            $binder->bind($requestContext);
+        }
     }
 
     /**

@@ -52,7 +52,7 @@ function startEdit() {
     name: user.value.name,
     surname: user.value.surname ?? '',
     nickname: user.value.nickname ?? '',
-    email: user.value.email,
+    email: user.value.email ?? '',
   };
   editing.value = true;
 }
@@ -69,9 +69,10 @@ async function save() {
       name: editForm.value.name,
       surname: editForm.value.surname || undefined,
       nickname: editForm.value.nickname || undefined,
-      email: editForm.value.email,
+      email: editForm.value.email.trim() === '' ? null : editForm.value.email,
     };
     user.value = await store.updateUser(user.value.id, data);
+    store.setProfileUser(user.value);
     editing.value = false;
     snackbar.value = { show: true, text: 'Профиль обновлён', color: 'success' };
   } catch {
@@ -87,8 +88,8 @@ async function handleDeactivate(reason?: string, until?: string) {
     await store.deactivateUser(Number(route.params.id), reason, until);
     if (user.value) {
       user.value.active = false;
-      user.value.deactivate_reason = reason;
-      user.value.deactivated_until = until;
+      user.value.deactivateReason = reason;
+      user.value.deactivatedUntil = until ? Math.floor(Date.parse(`${until}T00:00:00Z`) / 1000) : null;
     }
     const parts = ['Пользователь отключён'];
     if (reason) parts.push(`: ${reason}`);
@@ -107,6 +108,7 @@ async function loadUser() {
   error.value = null;
   try {
     user.value = await store.getUser(Number(route.params.id), signal.value);
+    store.setProfileUser(user.value);
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') return;
     error.value = e instanceof Error ? e.message : 'Ошибка загрузки пользователя';
@@ -121,14 +123,28 @@ onMounted(loadUser);
 <template>
   <v-container fluid>
     <div v-if="user">
-      <div class="d-flex align-center mb-6 ga-3">
-        <v-btn icon variant="text" @click="$router.back()"><v-icon>mdi-arrow-left</v-icon></v-btn>
-        <h1 class="text-h4 font-weight-bold">{{ displayName }}</h1>
-        <v-spacer />
-        <v-btn v-if="user.active && canDeactivate" variant="tonal" color="error" @click="confirmDeactivate = true"
-          >Отключить</v-btn
+      <Teleport to="#editor-actions">
+        <v-btn
+          v-if="canEdit"
+          variant="tonal"
+          color="primary"
+          size="small"
+          prepend-icon="mdi-pencil"
+          :to="`/users/${user.id}/edit`"
         >
-      </div>
+          Редактировать
+        </v-btn>
+        <v-btn
+          v-if="user.active && canDeactivate"
+          variant="tonal"
+          color="error"
+          size="small"
+          prepend-icon="mdi-cancel"
+          @click="confirmDeactivate = true"
+        >
+          Отключить
+        </v-btn>
+      </Teleport>
 
       <div class="d-flex ga-6">
         <div class="profile-side text-center">

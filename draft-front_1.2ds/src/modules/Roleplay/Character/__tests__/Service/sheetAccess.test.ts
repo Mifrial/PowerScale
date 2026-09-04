@@ -12,9 +12,11 @@ function makeUser(id: number, overrides: Partial<User> = {}): User {
     name: 'Пользователь',
     login: `user${id}`,
     email: `user${id}@test.com`,
-    groups: ['Игрок'],
-    registered: '01.01.2026',
+    groups: [2],
+    registered: 1767225600,
     active: true,
+    bypass: false,
+    permissions: [],
     ...overrides,
   };
 }
@@ -30,12 +32,12 @@ describe('canSeeSheet / visibleSheetSections', () => {
     resetSheetRoles();
   });
 
-  it('владелец и super_admin видят всё', () => {
+  it('владелец и bypass видят всё', () => {
     const owner = makeCtx(makeUser(1));
     expect(sheetAccessService.canSeeSheet(makeUser(1), [], owner)).toBe(true);
     expect(sheetAccessService.visibleSheetSections(makeUser(1), [], owner)).toEqual(SHEET_VISIBLE_SECTIONS);
 
-    const admin = makeUser(9, { super_admin: true });
+    const admin = makeUser(9, { bypass: true });
     expect(sheetAccessService.visibleSheetSections(admin, [], makeCtx(admin))).toEqual(SHEET_VISIBLE_SECTIONS);
   });
 

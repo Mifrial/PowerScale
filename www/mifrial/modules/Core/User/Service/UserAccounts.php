@@ -7,6 +7,7 @@ namespace Mifrial\Core\User\Service;
 use Mifrial\Core\User\Dto\NewUser;
 use Mifrial\Core\User\Dto\UserPatch;
 use Mifrial\Core\User\Dto\UserRecord;
+use Mifrial\Core\User\Dto\UserRecordPage;
 use Mifrial\Core\User\Exception\UserInvalidException;
 use Mifrial\Core\User\Interface\Service\IUserAccounts;
 use Mifrial\Core\User\Repository\UserRepository;
@@ -40,6 +41,37 @@ final class UserAccounts implements IUserAccounts
     public function getById(int $userId): UserRecord
     {
         return $this->userRepository->getById($userId);
+    }
+
+    /**
+     * Страница учёток: id asc, COUNT фильтра.
+     *
+     * @param int $limit Размер.
+     * @param int $offset Сдвиг.
+     * @param string|null $searchQuery Подстрока.
+     * @param bool|null $active Фильтр active.
+     *
+     * @return UserRecordPage Страница.
+     *
+     * @throws UserInvalidException Если страница недопустима.
+     */
+    public function findPage(int $limit, int $offset, ?string $searchQuery, ?bool $active): UserRecordPage
+    {
+        return $this->userRepository->findPage($limit, $offset, $searchQuery, $active);
+    }
+
+    /**
+     * Учётки по списку id.
+     *
+     * @param array<int, int> $userIds Идентификаторы.
+     *
+     * @return array<int, UserRecord> Найденные.
+     *
+     * @throws UserInvalidException Если больше 500 id.
+     */
+    public function getByIds(array $userIds): array
+    {
+        return $this->userRepository->getByIds($userIds);
     }
 
     /**

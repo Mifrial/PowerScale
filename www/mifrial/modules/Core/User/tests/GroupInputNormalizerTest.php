@@ -25,6 +25,7 @@ final class GroupInputNormalizerTest extends TestCase
         self::assertSame('Admins', $fields['name']);
         self::assertTrue($fields['active']);
         self::assertFalse($fields['bypass']);
+        self::assertFalse($fields['assign_on_register']);
         self::assertSame(['user.view', 'user.edit'], $fields['permissions']);
     }
 

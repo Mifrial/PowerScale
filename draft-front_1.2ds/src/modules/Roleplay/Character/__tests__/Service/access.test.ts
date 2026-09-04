@@ -32,9 +32,11 @@ function makeUser(overrides: Partial<User> = {}): User {
     name: 'Пользователь',
     login: 'user',
     email: 'user@test.com',
-    groups: ['Игрок'],
-    registered: '01.01.2026',
+    groups: [2],
+    registered: 1767225600,
     active: true,
+    bypass: false,
+    permissions: [],
     ...overrides,
   };
 }
@@ -59,8 +61,8 @@ describe('canViewCharacter', () => {
     expect(characterAccessService.canViewCharacter(makeUser(), makeCharacter(7))).toBe(false);
   });
 
-  it('super_admin обходит проверку для чужого персонажа', () => {
-    expect(characterAccessService.canViewCharacter(makeUser({ super_admin: true }), makeCharacter(7))).toBe(true);
+  it('bypass обходит проверку для чужого персонажа', () => {
+    expect(characterAccessService.canViewCharacter(makeUser({ bypass: true }), makeCharacter(7))).toBe(true);
   });
 });
 

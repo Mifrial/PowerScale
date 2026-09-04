@@ -92,6 +92,25 @@ final class UserIdentityRepository
     }
 
     /**
+     * Меняет hash пароля.
+     *
+     * @param int $identityId Строка identity.
+     * @param string $secretHash Новый hash.
+     *
+     * @return void
+     *
+     * @throws AuthInvalidException Если поля недопустимы.
+     */
+    public function updateSecretHash(int $identityId, string $secretHash): void
+    {
+        $this->write(function () use ($identityId, $secretHash): mixed {
+            $this->identityRecords->update($identityId, ['secret_hash' => $secretHash]);
+
+            return null;
+        });
+    }
+
+    /**
      * Мапит ошибки строки.
      *
      * @param Closure $work Запись.

@@ -3,11 +3,15 @@
 declare(strict_types=1);
 
 // phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.TooManyPublicMethods
+// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.ClassComplexityTooHigh
+// replaceMembership и LAST_BYPASS остаются на фасаде; отдельный тип дублировал бы инвариант.
 
 namespace Mifrial\Core\User\Service;
 
 use Mifrial\Core\User\Dto\GroupPatch;
 use Mifrial\Core\User\Dto\GroupRecord;
+use Mifrial\Core\User\Dto\GroupRecordPage;
+use Mifrial\Core\User\Dto\MemberIdPage;
 use Mifrial\Core\User\Dto\NewGroup;
 use Mifrial\Core\User\Exception\UserInvalidException;
 use Mifrial\Core\User\Exception\UserLastBypassException;
@@ -20,7 +24,7 @@ use Mifrial\Core\User\Repository\UserRepository;
 /**
  * Сценарий групп: без SmartTable и без имён колонок.
  *
- * Одиннадцатый public метод findByName нужен Auth 1; отдельный фасад раздувал бы границу.
+ * Public-методы findByName (unique подпись) и getAssignOnRegisterIds нужны соседям; отдельный фасад раздувал бы границу.
  */
 final class UserGroups implements IUserGroups
 {
@@ -50,6 +54,35 @@ final class UserGroups implements IUserGroups
     public function getById(int $groupId): GroupRecord
     {
         return $this->groupRepository->getById($groupId);
+    }
+
+    /**
+     * Группы по id; нет в БД — нет в результате.
+     *
+     * @param array<int, int> $groupIds Идентификаторы.
+     *
+     * @return array<int, GroupRecord> Ключ = id.
+     */
+    public function getByIds(array $groupIds): array
+    {
+        return $this->groupRepository->getByIds($groupIds);
+    }
+
+    /**
+     * Страница групп: id asc, COUNT фильтра.
+     *
+     * @param int $limit Размер.
+     * @param int $offset Сдвиг.
+     * @param string|null $searchQuery Подстрока.
+     * @param bool|null $active Фильтр active.
+     *
+     * @return GroupRecordPage Страница.
+     *
+     * @throws UserInvalidException Если страница недопустима.
+     */
+    public function findPage(int $limit, int $offset, ?string $searchQuery, ?bool $active): GroupRecordPage
+    {
+        return $this->groupRepository->findPage($limit, $offset, $searchQuery, $active);
     }
 
     /**
@@ -94,11 +127,30 @@ final class UserGroups implements IUserGroups
      *
      * @return array<int, int> user id.
      */
-    public function members(int $groupId): array
+    public function getMemberIds(int $groupId): array
     {
         $this->groupRepository->getById($groupId);
 
-        return $this->memberRepository->listUserIdsInGroup($groupId);
+        return $this->memberRepository->getUserIdsInGroup($groupId);
+    }
+
+    /**
+     * Страница user_id группы: id членства asc, COUNT членств.
+     *
+     * @param int $groupId Группа.
+     * @param int $limit Размер 1…500.
+     * @param int $offset Сдвиг ≥ 0.
+     *
+     * @return MemberIdPage Страница.
+     *
+     * @throws UserNotFoundException Если группы нет.
+     * @throws UserInvalidException Если страница недопустима.
+     */
+    public function findMemberPage(int $groupId, int $limit, int $offset): MemberIdPage
+    {
+        $this->groupRepository->getById($groupId);
+
+        return $this->memberRepository->findUserIdPage($groupId, $limit, $offset);
     }
 
     /**
@@ -129,17 +181,43 @@ final class UserGroups implements IUserGroups
      */
     public function removeMember(int $userId, int $groupId): void
     {
-        $memberId = $this->memberRepository->findId($userId, $groupId);
-        if ($memberId === null) {
-            throw new UserNotFoundException();
+        $this->deleteMembership($userId, $groupId, $this->groupRepository->getById($groupId));
+    }
+
+    /**
+     * Ставит членство пользователя в точности как список id.
+     *
+     * @param int $userId Учётка.
+     * @param array<int, int> $groupIds Id групп.
+     *
+     * @return void
+     *
+     * @throws UserNotFoundException Если нет учётки или группы.
+     * @throws UserLastBypassException Если снять последнее живое bypass-членство.
+     */
+    public function replaceMembership(int $userId, array $groupIds): void
+    {
+        $this->userRepository->getById($userId);
+        $wantedIds = $this->uniqueGroupIds($groupIds);
+        $wantedGroups = $this->groupRepository->getByIds($wantedIds);
+        foreach ($wantedIds as $groupId) {
+            if (!isset($wantedGroups[$groupId])) {
+                throw new UserNotFoundException();
+            }
         }
 
-        $groupValues = $this->groupRepository->getById($groupId)->values();
-        if ($groupValues['active'] === true && $groupValues['bypass'] === true) {
-            $this->assertNotSoleActiveBypassMembership();
+        $currentIds = [];
+        foreach ($this->memberRepository->getGroupIdsOfUser($userId) as $groupId) {
+            $currentIds[$groupId] = $groupId;
         }
 
-        $this->memberRepository->deleteById($memberId);
+        foreach ($wantedIds as $groupId) {
+            if (!isset($currentIds[$groupId])) {
+                $this->memberRepository->add($userId, $groupId);
+            }
+        }
+
+        $this->removeUnwantedMemberships($userId, $wantedIds, $currentIds);
     }
 
     /**
@@ -149,11 +227,11 @@ final class UserGroups implements IUserGroups
      *
      * @return array<int, int> group id.
      */
-    public function groupsOfUser(int $userId): array
+    public function getGroupIdsOfUser(int $userId): array
     {
         $this->userRepository->getById($userId);
 
-        return $this->memberRepository->listGroupIdsOfUser($userId);
+        return $this->memberRepository->getGroupIdsOfUser($userId);
     }
 
     /**
@@ -162,18 +240,26 @@ final class UserGroups implements IUserGroups
      * @param int $userId Учётка.
      *
      * @return array<int, string> Ключи.
+     *
+     * @throws UserNotFoundException Если учётки нет или членство без группы.
      */
-    public function permissionKeys(int $userId): array
+    public function getPermissionKeys(int $userId): array
     {
         $this->userRepository->getById($userId);
+        $groupIds = $this->memberRepository->getGroupIdsOfUser($userId);
+        $groupsById = $this->groupRepository->getByIds($groupIds);
         $permissionKeys = [];
-        foreach ($this->memberRepository->listGroupIdsOfUser($userId) as $groupId) {
-            $groupValues = $this->groupRepository->getById($groupId)->values();
-            if ($groupValues['active'] !== true) {
+        foreach ($groupIds as $groupId) {
+            if (!isset($groupsById[$groupId])) {
+                throw new UserNotFoundException();
+            }
+
+            $groupRecord = $groupsById[$groupId];
+            if (!$groupRecord->isActive()) {
                 continue;
             }
 
-            foreach ($groupValues['permissions'] as $permissionKey) {
+            foreach ($groupRecord->getPermissionKeys() as $permissionKey) {
                 $permissionKeys[$permissionKey] = $permissionKey;
             }
         }
@@ -205,6 +291,95 @@ final class UserGroups implements IUserGroups
     public function findByName(string $name): ?GroupRecord
     {
         return $this->groupRepository->findByName($name);
+    }
+
+    /**
+     * Id групп с флагом автовыдачи.
+     *
+     * @return array<int, int> Id.
+     */
+    public function getAssignOnRegisterIds(): array
+    {
+        return $this->groupRepository->getAssignOnRegisterIds();
+    }
+
+    /**
+     * Уникальные id без смены порядка первого вхождения.
+     *
+     * @param array<int, int> $groupIds Вход.
+     *
+     * @return array<int, int> Id.
+     */
+    private function uniqueGroupIds(array $groupIds): array
+    {
+        $uniqueIds = [];
+        foreach ($groupIds as $groupId) {
+            $uniqueIds[$groupId] = $groupId;
+        }
+
+        return array_values($uniqueIds);
+    }
+
+    /**
+     * Снимает членства, которых нет в wanted.
+     *
+     * @param int $userId Учётка.
+     * @param array<int, int> $wantedIds Новый набор.
+     * @param array<int, int> $currentIds Текущие id, ключ = id.
+     *
+     * @return void
+     *
+     * @throws UserNotFoundException Если сняли id, которого нет в каталоге.
+     * @throws UserLastBypassException Если снять последнее живое bypass-членство.
+     */
+    private function removeUnwantedMemberships(int $userId, array $wantedIds, array $currentIds): void
+    {
+        $wantedMap = [];
+        foreach ($wantedIds as $groupId) {
+            $wantedMap[$groupId] = $groupId;
+        }
+
+        $removedIds = [];
+        foreach ($currentIds as $groupId) {
+            if (!isset($wantedMap[$groupId])) {
+                $removedIds[] = $groupId;
+            }
+        }
+
+        $removedGroups = $this->groupRepository->getByIds($removedIds);
+        foreach ($removedIds as $groupId) {
+            if (!isset($removedGroups[$groupId])) {
+                throw new UserNotFoundException();
+            }
+
+            $this->deleteMembership($userId, $groupId, $removedGroups[$groupId]);
+        }
+    }
+
+    /**
+     * Удаляет строку членства с инвариантом LAST_BYPASS.
+     *
+     * @param int $userId Учётка.
+     * @param int $groupId Группа.
+     * @param GroupRecord $groupRecord Уже загруженная группа.
+     *
+     * @return void
+     *
+     * @throws UserNotFoundException Если членства нет.
+     * @throws UserLastBypassException Если это последнее активное bypass-членство.
+     */
+    private function deleteMembership(int $userId, int $groupId, GroupRecord $groupRecord): void
+    {
+        $memberId = $this->memberRepository->findId($userId, $groupId);
+        if ($memberId === null) {
+            throw new UserNotFoundException();
+        }
+
+        if ($groupRecord->isActive() && $groupRecord->isBypass()) {
+            $this->assertNotSoleActiveBypassMembership();
+        }
+
+        $this->memberRepository->deleteById($memberId);
     }
 
     /**
@@ -244,7 +419,7 @@ final class UserGroups implements IUserGroups
     private function assertBypassPatchAllowed(GroupRecord $current, GroupPatch $groupPatch): void
     {
         if ($this->patchTurnsOffActiveBypass($current, $groupPatch)) {
-            $this->assertGroupNotLastLiveBypass((int) $current->values()['id']);
+            $this->assertGroupNotLastLiveBypass($current->getId());
         }
     }
 
@@ -263,13 +438,12 @@ final class UserGroups implements IUserGroups
             return false;
         }
 
-        $currentValues = $current->values();
-        if ($currentValues['active'] !== true || $currentValues['bypass'] !== true) {
+        if (!$current->isActive() || !$current->isBypass()) {
             return false;
         }
 
-        $nextActive = array_key_exists('active', $patchFields) ? $patchFields['active'] : $currentValues['active'];
-        $nextBypass = array_key_exists('bypass', $patchFields) ? $patchFields['bypass'] : $currentValues['bypass'];
+        $nextActive = array_key_exists('active', $patchFields) ? $patchFields['active'] : $current->isActive();
+        $nextBypass = array_key_exists('bypass', $patchFields) ? $patchFields['bypass'] : $current->isBypass();
 
         return $nextActive !== true || $nextBypass !== true;
     }

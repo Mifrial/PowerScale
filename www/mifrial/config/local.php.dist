@@ -23,5 +23,9 @@ return [
         'operator_password' => 'changeme',
         'operator_name' => 'Администратор',
         'cookie_secure' => false,
+        'expose_reset_token' => false,
+    ],
+    'mail' => [
+        'flush_inline' => false,
     ],
 ];

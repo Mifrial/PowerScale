@@ -39,6 +39,10 @@ final class UserGroupTable extends SmartTableDefinition
             new StringField('name', FieldSettings::fromOptions(['required' => true, 'unique' => true])),
             new BoolField('active', FieldSettings::fromOptions(['required' => true, 'default' => true])),
             new BoolField('bypass', FieldSettings::fromOptions(['required' => true, 'default' => false])),
+            new BoolField(
+                'assign_on_register',
+                FieldSettings::fromOptions(['required' => true, 'default' => false]),
+            ),
             new DateTimeField(
                 'created_at',
                 FieldSettings::fromOptions(['required' => true, 'default' => DateTimeNow::instance()]),

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { User } from '@/modules/Core/User/Dto/User';
+import { formatUnix } from '@/modules/Core/User/Utils/formatUnix';
 
 const props = defineProps<{
   user: User;
@@ -26,6 +27,11 @@ const emit = defineEmits<{
         <v-icon start size="small" class="mb-1">mdi-account-outline</v-icon>
         Основная информация
       </v-card-title>
+      <template v-if="canEdit && !editing" #append>
+        <v-btn icon variant="text" size="small" aria-label="Редактировать" @click="emit('start')">
+          <v-icon size="small">mdi-pencil</v-icon>
+        </v-btn>
+      </template>
     </v-card-item>
     <v-divider />
     <v-list>
@@ -63,27 +69,22 @@ const emit = defineEmits<{
             {{ props.user.active ? 'Активен' : 'Отключён' }}
           </v-chip>
           <template v-if="!props.user.active">
-            <div v-if="props.user.deactivate_reason" class="text-caption mt-1">
-              Причина: {{ props.user.deactivate_reason }}
+            <div v-if="props.user.deactivateReason" class="text-caption mt-1">
+              Причина: {{ props.user.deactivateReason }}
             </div>
-            <div v-if="props.user.deactivated_until" class="text-caption">
-              Отключён до: {{ props.user.deactivated_until }}
+            <div v-if="props.user.deactivatedUntil" class="text-caption">
+              Отключён до: {{ formatUnix(props.user.deactivatedUntil) }}
             </div>
           </template>
         </template>
       </v-list-item>
     </v-list>
-    <v-card-actions v-if="canEdit">
-      <template v-if="editing">
-        <v-btn color="primary" :loading="saving" @click="emit('save')">
-          <v-icon start size="small">mdi-check</v-icon>Сохранить
-        </v-btn>
-        <v-btn variant="text" color="medium-emphasis" @click="emit('cancel')">
-          <v-icon start size="small">mdi-close</v-icon>Отмена
-        </v-btn>
-      </template>
-      <v-btn v-else variant="tonal" color="primary" @click="emit('start')">
-        <v-icon start size="small">mdi-pencil</v-icon>Редактировать
+    <v-card-actions v-if="canEdit && editing">
+      <v-btn color="primary" :loading="saving" @click="emit('save')">
+        <v-icon start size="small">mdi-check</v-icon>Сохранить
+      </v-btn>
+      <v-btn variant="text" color="medium-emphasis" @click="emit('cancel')">
+        <v-icon start size="small">mdi-close</v-icon>Отмена
       </v-btn>
     </v-card-actions>
   </v-card>

@@ -141,11 +141,16 @@ final class MethodOrderSniff implements Sniff
     private function findVisibilityToken(array $tokens, int $stackPtr): ?int
     {
         for ($tokenIndex = $stackPtr - 1; $tokenIndex >= 0; $tokenIndex--) {
-            if (in_array($tokens[$tokenIndex]['code'], [T_PUBLIC, T_PROTECTED, T_PRIVATE], true)) {
-                return $tokens[$tokenIndex]['code'];
+            $tokenCode = $tokens[$tokenIndex]['code'];
+            if (in_array($tokenCode, [T_PUBLIC, T_PROTECTED, T_PRIVATE], true)) {
+                return $tokenCode;
             }
 
-            if (!in_array($tokens[$tokenIndex]['code'], Tokens::$emptyTokens, true)) {
+            if (!in_array($tokenCode, Tokens::$emptyTokens, true)
+                && $tokenCode !== T_FINAL
+                && $tokenCode !== T_STATIC
+                && $tokenCode !== T_ABSTRACT
+            ) {
                 break;
             }
         }

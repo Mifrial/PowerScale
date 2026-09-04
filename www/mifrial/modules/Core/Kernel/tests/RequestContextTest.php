@@ -6,6 +6,7 @@ namespace Mifrial\Core\Kernel\Tests;
 
 use Mifrial\Core\Kernel\Dto\ActionResponse;
 use Mifrial\Core\Kernel\Dto\OutgoingCookie;
+use Mifrial\Core\Kernel\Dto\RequestActor;
 use Mifrial\Core\Kernel\Http\RequestContext;
 use Mifrial\Core\Kernel\Http\ResponseEmitter;
 use Mifrial\Core\Kernel\Interface\Container\IKernelContainer;
@@ -67,6 +68,27 @@ final class RequestContextTest extends TestCase
 
         self::assertNull($requestContext->incomingCookie('mifrial-session'));
         self::assertSame([], $requestContext->takeQueuedCookies());
+        self::assertNull($requestContext->getActor());
+    }
+
+    /**
+     * setActor и reset/bindIncoming сбрасывают актора.
+     *
+     * @return void
+     */
+    public function testActorResetAndBindIncoming(): void
+    {
+        $requestContext = new RequestContext();
+        $requestActor = new RequestActor(3, ['user.view'], false);
+        $requestContext->setActor($requestActor);
+        self::assertSame(3, $requestContext->getActor()?->getUserId());
+        $requestContext->reset();
+        self::assertNull($requestContext->getActor());
+        $requestContext->setActor($requestActor);
+        $httpRequest = $this->createStub(IHttpRequest::class);
+        $httpRequest->method('getCookieMap')->willReturn([]);
+        $requestContext->bindIncoming($httpRequest);
+        self::assertNull($requestContext->getActor());
     }
 
     /**

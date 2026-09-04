@@ -79,12 +79,21 @@ final class UserMysqlTest extends TestCase
         $this->userSchema()->install();
         $alice = $userAccounts->getById($firstId);
         $bob = $userAccounts->getById($secondId);
-        self::assertSame('alice', $alice->values()['login']);
-        self::assertNull($alice->values()['email']);
-        self::assertSame('bob', $bob->values()['login']);
+        self::assertSame('alice', $alice->getLogin());
+        self::assertNull($alice->getEmail());
+        self::assertSame('bob', $bob->getLogin());
         self::assertNull($userAccounts->findByLogin('carol'));
-        self::assertInstanceOf(DateTime::class, $alice->values()['registered_at']);
-        $registeredUnix = $alice->values()['registered_at']->toUnix();
+        $listed = $userAccounts->findPage(500, 0, null, null)->getRecords();
+        self::assertCount(2, $listed);
+        self::assertSame($firstId, $listed[0]->getId());
+        self::assertSame([], $userAccounts->getByIds([]));
+        $byIds = $userAccounts->getByIds([$secondId, $firstId, $secondId]);
+        self::assertSame([$secondId, $firstId], array_map(
+            static fn (UserRecord $userRecord): int => $userRecord->getId(),
+            $byIds,
+        ));
+        self::assertInstanceOf(DateTime::class, $alice->getRegisteredAt());
+        $registeredUnix = $alice->getRegisteredAt()->toUnix();
         self::assertGreaterThanOrEqual(time() - 5, $registeredUnix);
         self::assertLessThanOrEqual(time(), $registeredUnix);
     }
@@ -129,15 +138,15 @@ final class UserMysqlTest extends TestCase
         ]));
         $record = $userAccounts->getById($userId);
         self::assertInstanceOf(UserRecord::class, $record);
-        self::assertNull($record->values()['email']);
-        self::assertSame($userId, $userAccounts->findByLogin(' alice ')?->values()['id']);
+        self::assertNull($record->getEmail());
+        self::assertSame($userId, $userAccounts->findByLogin(' alice ')?->getId());
         self::assertNull($userAccounts->findByEmail('  '));
         $userAccounts->update($userId, $this->userPatch([
             'nickname' => ' Ali ',
             'email' => 'a@x.test',
         ]));
-        self::assertSame('Ali', $userAccounts->getById($userId)->values()['nickname']);
-        self::assertSame($userId, $userAccounts->findByEmail(' a@x.test ')?->values()['id']);
+        self::assertSame('Ali', $userAccounts->getById($userId)->getNickname());
+        self::assertSame($userId, $userAccounts->findByEmail(' a@x.test ')?->getId());
         try {
             $userAccounts->getById(999999);
             self::fail('missing id must fail');

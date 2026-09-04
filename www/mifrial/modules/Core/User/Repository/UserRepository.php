@@ -2,10 +2,14 @@
 
 declare(strict_types=1);
 
+// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.ClassComplexityTooHigh
+// findPage и пачка id — одна коллекция учётки.
+
 namespace Mifrial\Core\User\Repository;
 
 use Closure;
 use Mifrial\Core\SmartTable\Dto\ListQuery;
+use Mifrial\Core\SmartTable\Dto\ListResult;
 use Mifrial\Core\SmartTable\Exception\Field\FieldInvalidException;
 use Mifrial\Core\SmartTable\Exception\Field\FieldRequiredException;
 use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
@@ -15,6 +19,7 @@ use Mifrial\Core\SmartTable\Interface\Service\IOpenedRecords;
 use Mifrial\Core\User\Dto\NewUser;
 use Mifrial\Core\User\Dto\UserPatch;
 use Mifrial\Core\User\Dto\UserRecord;
+use Mifrial\Core\User\Dto\UserRecordPage;
 use Mifrial\Core\User\Exception\UserDuplicateException;
 use Mifrial\Core\User\Exception\UserInvalidException;
 use Mifrial\Core\User\Exception\UserNotFoundException;
@@ -53,6 +58,69 @@ final class UserRepository
         }
 
         return UserRecord::fromNormalized($row);
+    }
+
+    /**
+     * Страница учёток: id asc, COUNT фильтра.
+     *
+     * @param int $limit Размер 1…500.
+     * @param int $offset Сдвиг ≥ 0.
+     * @param string|null $searchQuery Подстрока или null.
+     * @param bool|null $active Фильтр active или null.
+     *
+     * @return UserRecordPage Страница.
+     *
+     * @throws UserInvalidException Если страница или фильтр недопустимы.
+     */
+    public function findPage(int $limit, int $offset, ?string $searchQuery, ?bool $active): UserRecordPage
+    {
+        $this->assertPageBounds($limit, $offset);
+        $listResult = $this->readList(ListQuery::fromOptions([
+            'limit' => $limit,
+            'offset' => $offset,
+            'countTotal' => true,
+            'sort' => ['id' => 'asc'],
+            'filter' => $this->pageFilter(
+                $searchQuery,
+                $active,
+                ['login', 'name', 'surname', 'nickname', 'email'],
+            ),
+        ]));
+
+        return new UserRecordPage(
+            $this->recordsFromRows($listResult->rows()),
+            $listResult->total() ?? 0,
+        );
+    }
+
+    /**
+     * Учётки по id.
+     *
+     * @param array<int, int> $userIds Идентификаторы.
+     *
+     * @return array<int, UserRecord> Найденные в порядке уникальных id.
+     *
+     * @throws UserInvalidException Если больше 500 id.
+     */
+    public function getByIds(array $userIds): array
+    {
+        $orderedIds = $this->uniqueUserIds($userIds);
+        if ($orderedIds === []) {
+            return [];
+        }
+
+        $foundById = [];
+        foreach (
+            $this->userRecords->getList(ListQuery::fromOptions([
+                'filter' => ['id' => $orderedIds],
+                'limit' => 500,
+            ]))->rows() as $row
+        ) {
+            $record = UserRecord::fromNormalized($row);
+            $foundById[$record->getId()] = $record;
+        }
+
+        return $this->recordsInIdOrder($orderedIds, $foundById);
     }
 
     /**
@@ -147,6 +215,190 @@ final class UserRepository
         }
 
         return UserRecord::fromNormalized($row);
+    }
+
+    /**
+     * Собирает Record из строк getList.
+     *
+     * @param array<int, array<string, mixed>> $rows Строки.
+     *
+     * @return array<int, UserRecord> Учётки.
+     */
+    private function recordsFromRows(array $rows): array
+    {
+        $records = [];
+        foreach ($rows as $row) {
+            $records[] = UserRecord::fromNormalized($row);
+        }
+
+        return $records;
+    }
+
+    /**
+     * Границы страницы.
+     *
+     * @param int $limit Размер.
+     * @param int $offset Сдвиг.
+     *
+     * @return void
+     *
+     * @throws UserInvalidException Если вне диапазона.
+     */
+    private function assertPageBounds(int $limit, int $offset): void
+    {
+        if ($limit < 1 || $limit > 500 || $offset < 0) {
+            throw new UserInvalidException('User page bounds are invalid');
+        }
+    }
+
+    /**
+     * Фильтр страницы: active AND (OR LIKE).
+     *
+     * @param string|null $searchQuery Подстрока.
+     * @param bool|null $active Active.
+     * @param array<int, string> $likeFields Поля LIKE.
+     *
+     * @return array<string|int, mixed>|null Дерево или нет WHERE.
+     *
+     * @throws UserInvalidException Если q слишком длинный.
+     */
+    private function pageFilter(?string $searchQuery, ?bool $active, array $likeFields): ?array
+    {
+        $clauses = [];
+        if ($active !== null) {
+            $clauses[] = ['=active' => $active];
+        }
+
+        $likePattern = $this->likePattern($searchQuery);
+        if ($likePattern !== null) {
+            $clauses[] = $this->likeOrGroup($likeFields, $likePattern);
+        }
+
+        if ($clauses === []) {
+            return null;
+        }
+
+        if (count($clauses) === 1) {
+            return $clauses[0];
+        }
+
+        $andGroup = ['LOGIC' => 'AND'];
+        foreach ($clauses as $clause) {
+            $andGroup[] = $clause;
+        }
+
+        return $andGroup;
+    }
+
+    /**
+     * OR LIKE по полям.
+     *
+     * @param array<int, string> $likeFields Поля.
+     * @param string $likePattern Шаблон.
+     *
+     * @return array<string|int, mixed> Группа OR.
+     */
+    private function likeOrGroup(array $likeFields, string $likePattern): array
+    {
+        $orGroup = ['LOGIC' => 'OR'];
+        foreach ($likeFields as $fieldName) {
+            $orGroup[] = ['%' . $fieldName => $likePattern];
+        }
+
+        return $orGroup;
+    }
+
+    /**
+     * Шаблон contains или null.
+     *
+     * @param string|null $searchQuery Вход.
+     *
+     * @return string|null %q%.
+     *
+     * @throws UserInvalidException Если длиннее 100.
+     */
+    private function likePattern(?string $searchQuery): ?string
+    {
+        if ($searchQuery === null) {
+            return null;
+        }
+
+        $trimmedQuery = trim($searchQuery);
+        if ($trimmedQuery === '') {
+            return null;
+        }
+
+        if (strlen($trimmedQuery) > 100) {
+            throw new UserInvalidException('Search query is too long');
+        }
+
+        return '%' . addcslashes($trimmedQuery, '%_\\') . '%';
+    }
+
+    /**
+     * getList ST с мапом ошибок.
+     *
+     * @param ListQuery $listQuery Запрос.
+     *
+     * @return ListResult Страница.
+     *
+     * @throws UserInvalidException Если запрос недопустим.
+     */
+    private function readList(ListQuery $listQuery): ListResult
+    {
+        try {
+            return $this->userRecords->getList($listQuery);
+        } catch (MapInvalidException $exception) {
+            throw new UserInvalidException('User list query is invalid', $exception);
+        }
+    }
+
+    /**
+     * Уникальные id с сохранением порядка, не больше 500.
+     *
+     * @param array<int, int> $userIds Вход.
+     *
+     * @return array<int, int> Id.
+     *
+     * @throws UserInvalidException Если тип или длина.
+     */
+    private function uniqueUserIds(array $userIds): array
+    {
+        $uniqueIds = [];
+        foreach ($userIds as $userId) {
+            if (!is_int($userId)) {
+                throw new UserInvalidException('User id list is invalid');
+            }
+
+            $uniqueIds[$userId] = $userId;
+        }
+
+        $orderedIds = array_values($uniqueIds);
+        if (count($orderedIds) > 500) {
+            throw new UserInvalidException('User id list is too long');
+        }
+
+        return $orderedIds;
+    }
+
+    /**
+     * Ставит найденные записи в порядок запроса.
+     *
+     * @param array<int, int> $orderedIds Порядок.
+     * @param array<int, UserRecord> $foundById Найденные.
+     *
+     * @return array<int, UserRecord> Результат.
+     */
+    private function recordsInIdOrder(array $orderedIds, array $foundById): array
+    {
+        $records = [];
+        foreach ($orderedIds as $userId) {
+            if (isset($foundById[$userId])) {
+                $records[] = $foundById[$userId];
+            }
+        }
+
+        return $records;
     }
 
     /**

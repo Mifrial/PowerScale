@@ -28,9 +28,9 @@ export const useAuthStore = defineStore('auth', () => {
     session.value = { kind: 'anon' };
   }
 
-  async function fetchPasswordPolicy(): Promise<PasswordPolicy> {
+  async function fetchPasswordPolicy(userId?: number): Promise<PasswordPolicy> {
     try {
-      const policy = await getAuthApi().getPasswordPolicy();
+      const policy = await getAuthApi().getPasswordPolicy(userId);
       passwordPolicy.value = policy;
 
       return policy;
@@ -39,11 +39,11 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function login(emailOrLogin: string, password: string): Promise<boolean> {
+  async function login(emailOrLogin: string, password: string, remember = false): Promise<boolean> {
     loading.value = true;
     error.value = null;
     try {
-      const user = await getAuthApi().login(emailOrLogin, password);
+      const user = await getAuthApi().login(emailOrLogin, password, remember);
       setUserSession(user.id);
       currentUserSessionService.setCurrent(user);
 
@@ -79,21 +79,26 @@ export const useAuthStore = defineStore('auth', () => {
     loading.value = true;
     error.value = null;
     try {
+      await getAuthApi().guest();
       setGuestSession();
       currentUserSessionService.setGuest();
 
       return true;
+    } catch (e: unknown) {
+      error.value = e instanceof Error ? e.message : String(e);
+
+      return false;
     } finally {
       loading.value = false;
     }
   }
 
-  async function findUser(loginOrEmail: string) {
-    return getAuthApi().findUser(loginOrEmail);
+  async function startPasswordReset(loginOrEmail: string) {
+    return getAuthApi().startPasswordReset(loginOrEmail);
   }
 
-  async function resetPassword(loginVal: string, resetToken: string, newPassword: string): Promise<boolean> {
-    return getAuthApi().resetPassword(loginVal, resetToken, newPassword);
+  async function finalPasswordReset(loginVal: string, resetToken: string, newPassword: string): Promise<boolean> {
+    return getAuthApi().finalPasswordReset(loginVal, resetToken, newPassword);
   }
 
   async function logout(): Promise<void> {
@@ -114,10 +119,16 @@ export const useAuthStore = defineStore('auth', () => {
   async function checkAuth(): Promise<boolean> {
     if (session.value.kind !== 'anon') return true;
     try {
-      const user = await getAuthApi().getCurrentUser();
-      if (user) {
-        setUserSession(user.id);
-        currentUserSessionService.setCurrent(user);
+      const current = await getAuthApi().getCurrentUser();
+      if (current?.kind === 'guest') {
+        setGuestSession();
+        currentUserSessionService.setGuest();
+
+        return true;
+      }
+      if (current?.kind === 'user' && current.user) {
+        setUserSession(current.user.id);
+        currentUserSessionService.setCurrent(current.user);
 
         return true;
       }
@@ -138,8 +149,8 @@ export const useAuthStore = defineStore('auth', () => {
     login,
     register,
     guestLogin,
-    findUser,
-    resetPassword,
+    startPasswordReset,
+    finalPasswordReset,
     logout,
     checkAuth,
     fetchPasswordPolicy,

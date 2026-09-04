@@ -74,6 +74,8 @@ API-запросы входят через `mifrial/API/action.php`; отдел�
 разработчику при работе с бэкендом. Здесь не дублируются детали PHPDoc
 типов и методов, порядка методов и class quality markers.
 
+Прочитанная строка модуля — Record с геттерами смысла (`getId`, `isBypass`), не ассоциативный мешок. New/Patch — карта присутствующих ключей для insert/update SmartTable. JSON HTTP — отдельный маппинг (`DEC-079`).
+
 На фронте JSDoc обязателен у объявления `class`; у функций вне `.vue` —
 по возможности, не гейт (`DEC-077`). PHPDoc методов и типов — отдельное
 правило бэкенда.
@@ -84,7 +86,7 @@ API-запросы входят через `mifrial/API/action.php`; отдел�
 запрос → маршрутизация action → CSRF (если не csrf:false) → request_bind (актор сессии, если модуль заявил) → биндинг handle → данные или ActionException → ActionResponse
 ```
 
-`runAction` на фронте передаёт JSON-объект. Диспетчер сопоставляет ключи объекта с именами параметров `handle` и проверяет типы (`int`, `float`, `string`, `bool`, `array`, backed enum). Лишние ключи, отсутствие обязательного поля и несовпадение типа дают `INVALID_PARAMS`. `null` допустим только у `?T`. Сервисы в `handle` не передаются — только через конструктор обработчика. Общий `handle(mixed $payload)` не является контрактом.
+`runAction` на фронте передаёт JSON-объект. Диспетчер сопоставляет ключи объекта либо с именами параметров `handle` (скаляры, `array`, backed enum), либо с именами параметров конструктора единственного `IActionInput`. Имя параметра `handle(UpdateUserInput $input)` не является ключом JSON: тело остаётся плоским `{id, name, …}`. Типы скаляров — `int`, `float`, `string`, `bool`, `array`, backed enum. Лишние ключи, отсутствие обязательного поля и несовпадение типа дают `INVALID_PARAMS`. `null` допустим только у `?T`. Поля `OptionalValue` отличают отсутствие ключа (`absent`) от JSON `null` (у `OptionalString` — `present(null)`; у `OptionalBool`/`OptionalArray` — `INVALID_PARAMS`). Сервисы и Kernel `DateTime` в `handle` не передаются — только через конструктор обработчика. Общий `handle(mixed $payload)` не является контрактом.
 
 `handle` возвращает данные успеха (`array` / скаляр / `null`). Диспетчер оборачивает их в `ActionResponse::ok`. Доменная ошибка — `ActionException` с машиночитаемым кодом; диспетчер собирает `fail`. Класс Action не знает про `ActionResponse`. Непойманный throwable на HTTP-границе — `INTERNAL` (при `debug` в `local.php` — класс, message и trace в JSON) и запись в `ILogger` (`error_log` до модуля Logger). CSRF: кука `csrf-token` и заголовок `X-CSRF-Token`. HTTP: 200 успех, 400 доменные/`INVALID_*`/`UNKNOWN_ACTION`, 403 CSRF, 500 INTERNAL; не 401.
 
@@ -156,7 +158,7 @@ Auth зависит от User: после входа и выхода Auth выз
 - Engine — никого вне себя
 - UI → Engine
 - Auth → Engine, UI, User (публично)
-- User → Engine, UI (не Auth; хост плагинов прав, профиля и админки)
+- User → Engine, UI (не Auth; хост плагинов прав, профиля, админки и секций `/users/:id/edit`)
 - Chat → Engine, UI, User (публично). Не Roleplay, не Notifications, не Auth
 - Notifications → Engine, UI, User (публично). Не Chat, не Roleplay, не Auth
 - Home → Engine, UI, User, Notifications (публично). Не Auth
@@ -199,6 +201,8 @@ Auth зависит от User: после входа и выхода Auth выз
 - **Реализация сервера `OPEN`:** физическая схема, endpoints, репозитории, хранение, транзакции, авторизация/reconnect/retention SSE и боевое логирование.
 
 Наличие DTO и API на фронте не доказывает реализацию на сервере. Физическая схема таблиц экономических операций и точные endpoint — задача проектирования сервера; доменные инварианты экономики — в [`game-system.md`](game-system.md), сцены — в [`battleground-system.md`](battleground-system.md). PHP battleground не начинать до серверного Core.
+
+PHP-инфраструктура (не фронтовое дерево): **`Core/Agent`** — расписание тиков, CLI `bin/agent.php`, обработчики в памяти (не PHP в БД). **`Core/Mail`** — каталог событий, шаблоны, очередь jobs; агент `mail.flush`. Рёбра: Agent → SmartTable; Mail → SmartTable + Agent (`IAgents`); Auth → User и (Auth 3) Mail (`IMail`). Kernel не шлёт почту. Vue Engine агентов не настраивает. Нарезка — [`mail-roadmap.md`](mail-roadmap.md). План сброса через очередь — [`auth-plan-03-mail-reset.md`](auth-plan-03-mail-reset.md).
 
 Battleground живёт в `Roleplay/Game` (библиотека шаблонов — UI того же модуля). Новых DAG-рёбер в Core/Chat нет. SSE сцены — существующая `OPEN` граница realtime.
 

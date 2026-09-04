@@ -26,8 +26,8 @@ final class UserModuleSetupTest extends TestCase
             UserGroupMemberTable::class,
         ];
 
-        self::assertSame($expected, UserSchema::tableClasses());
-        self::assertSame($expected, (new UserModuleSetup())->tableClasses());
-        self::assertSame([], (new UserModuleSetup())->dataSteps());
+        self::assertSame($expected, UserSchema::getTableClasses());
+        self::assertSame($expected, (new UserModuleSetup())->getTableClasses());
+        self::assertSame([], (new UserModuleSetup())->getDataSteps());
     }
 }

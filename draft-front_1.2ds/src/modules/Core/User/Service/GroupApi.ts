@@ -4,14 +4,19 @@ import type { CreateGroupData } from '@/modules/Core/User/Dto/CreateGroupData';
 import type { UpdateGroupData } from '@/modules/Core/User/Dto/UpdateGroupData';
 import type { Group } from '@/modules/Core/User/Dto/Group';
 import type { GroupMember } from '@/modules/Core/User/Dto/GroupMember';
+import type { FindPageQuery } from '@/modules/Core/User/Dto/FindPageQuery';
+import type { FindPageResult } from '@/modules/Core/User/Dto/FindPageResult';
 
 export class GroupApi implements IGroupApi {
   constructor(private readonly engine: Engine) {}
 
-  async getGroups(signal?: AbortSignal): Promise<Group[]> {
-    const res = await this.engine.runAction<Group[]>('userGroup.getList', undefined, signal);
+  async findPage(query: FindPageQuery, signal?: AbortSignal): Promise<FindPageResult<Group>> {
+    const res = await this.engine.runAction<FindPageResult<Group>>('userGroup.findPage', query, signal);
+    if (!res.data) {
+      return { items: [], total: 0 };
+    }
 
-    return res.data ?? [];
+    return res.data;
   }
 
   async getGroup(id: number, signal?: AbortSignal): Promise<Group> {
@@ -21,10 +26,21 @@ export class GroupApi implements IGroupApi {
     return res.data;
   }
 
-  async getGroupMembers(groupId: number, signal?: AbortSignal): Promise<GroupMember[]> {
-    const res = await this.engine.runAction<GroupMember[]>('userGroup.getMembers', { groupId }, signal);
+  async getGroupMembers(
+    groupId: number,
+    query: { limit: number; offset: number },
+    signal?: AbortSignal,
+  ): Promise<FindPageResult<GroupMember>> {
+    const res = await this.engine.runAction<FindPageResult<GroupMember>>(
+      'userGroup.getMembers',
+      { groupId, ...query },
+      signal,
+    );
+    if (!res.data) {
+      return { items: [], total: 0 };
+    }
 
-    return res.data ?? [];
+    return res.data;
   }
 
   async createGroup(data: CreateGroupData, signal?: AbortSignal): Promise<Group> {

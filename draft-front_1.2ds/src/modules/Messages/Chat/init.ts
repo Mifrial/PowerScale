@@ -67,20 +67,12 @@ registerTokenSource({
   label: 'Пользователь',
   icon: 'mdi-account',
   search: async (query) => {
-    const catalogStore = useUserCatalog();
-    let catalog = catalogStore.users.value;
-    if (!catalog.length) {
-      catalog = await getUserApi().getUsers();
-    }
-    const q = query.toLowerCase();
-    const matched = q
-      ? catalog.filter(
-          (u) =>
-            u.login.toLowerCase().includes(q) ||
-            (u.name ?? '').toLowerCase().includes(q) ||
-            (u.nickname ?? '').toLowerCase().includes(q),
-        )
-      : catalog.slice(0, 10);
+    const page = await getUserApi().findPage({
+      limit: 10,
+      offset: 0,
+      q: query.trim() || undefined,
+    });
+    const matched = page.items;
 
     return matched.map((u) => ({
       value: u.login,

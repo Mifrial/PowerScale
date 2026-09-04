@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Mifrial\Core\Auth\Action;
 
+use Mifrial\Core\Auth\Dto\Action\GetPasswordPolicyInput;
 use Mifrial\Core\Auth\Service\AuthService;
 use Mifrial\Core\Kernel\Interface\Action\IActionHandler;
 
@@ -25,12 +26,14 @@ final class GetPasswordPolicyAction implements IActionHandler
     }
 
     /**
-     * Возвращает политику v1.
+     * Возвращает default или effective политику.
+     *
+     * @param GetPasswordPolicyInput $input JSON.
      *
      * @return array{minLength: int, requireMixedCase: bool, requireDigit: bool, requireSpecialChar: bool}
      */
-    public function handle(): array
+    public function handle(GetPasswordPolicyInput $input): array
     {
-        return $this->authService->passwordPolicy();
+        return $this->authService->getPasswordPolicy($input->userId);
     }
 }

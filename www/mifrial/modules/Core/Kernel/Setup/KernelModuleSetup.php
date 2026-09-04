@@ -18,7 +18,7 @@ final class KernelModuleSetup implements IModuleSetup
      *
      * @return array<int, class-string<SetupStepTable>> Карты.
      */
-    public function tableClasses(): array
+    public function getTableClasses(): array
     {
         return [SetupStepTable::class];
     }
@@ -28,7 +28,7 @@ final class KernelModuleSetup implements IModuleSetup
      *
      * @return array<int, ISetupStep> Пустой список.
      */
-    public function dataSteps(): array
+    public function getDataSteps(): array
     {
         return [];
     }

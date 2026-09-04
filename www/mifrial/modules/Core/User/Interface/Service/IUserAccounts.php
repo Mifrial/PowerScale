@@ -7,6 +7,7 @@ namespace Mifrial\Core\User\Interface\Service;
 use Mifrial\Core\User\Dto\NewUser;
 use Mifrial\Core\User\Dto\UserPatch;
 use Mifrial\Core\User\Dto\UserRecord;
+use Mifrial\Core\User\Dto\UserRecordPage;
 use Mifrial\Core\User\Exception\UserDuplicateException;
 use Mifrial\Core\User\Exception\UserInvalidException;
 use Mifrial\Core\User\Exception\UserNotFoundException;
@@ -26,6 +27,31 @@ interface IUserAccounts
      * @throws UserNotFoundException Если учётки нет.
      */
     public function getById(int $userId): UserRecord;
+
+    /**
+     * Страница учёток: id asc, COUNT фильтра.
+     *
+     * @param int $limit Размер 1…500.
+     * @param int $offset Сдвиг.
+     * @param string|null $searchQuery Подстрока.
+     * @param bool|null $active Фильтр active.
+     *
+     * @return UserRecordPage Страница.
+     *
+     * @throws UserInvalidException Если страница недопустима.
+     */
+    public function findPage(int $limit, int $offset, ?string $searchQuery, ?bool $active): UserRecordPage;
+
+    /**
+     * Учётки по списку id (без дырок, без пустого IN).
+     *
+     * @param array<int, int> $userIds Идентификаторы.
+     *
+     * @return array<int, UserRecord> Найденные, порядок как у уникальных id запроса.
+     *
+     * @throws UserInvalidException Если больше 500 id.
+     */
+    public function getByIds(array $userIds): array;
 
     /**
      * Ищет учётку по login.

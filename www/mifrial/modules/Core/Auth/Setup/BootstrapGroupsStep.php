@@ -8,6 +8,7 @@ use Mifrial\Core\Auth\Dto\AuthSettings;
 use Mifrial\Core\Auth\Repository\UserIdentityRepository;
 use Mifrial\Core\Kernel\Exception\Setup\SetupException;
 use Mifrial\Core\Kernel\Interface\Service\ISetupStep;
+use Mifrial\Core\User\Dto\GroupPatch;
 use Mifrial\Core\User\Dto\NewGroup;
 use Mifrial\Core\User\Exception\UserDuplicateException;
 use Mifrial\Core\User\Exception\UserInvalidException;
@@ -42,7 +43,7 @@ final class BootstrapGroupsStep implements ISetupStep
      *
      * @return string Ключ шага.
      */
-    public function id(): string
+    public function getId(): string
     {
         return 'Core/Auth:seed.bootstrap-groups';
     }
@@ -57,8 +58,8 @@ final class BootstrapGroupsStep implements ISetupStep
     public function run(): void
     {
         $this->authSettings->assertOperatorComplete();
-        $adminGroupId = $this->ensureGroup('Администраторы', true);
-        $playerGroupId = $this->ensureGroup('Игрок', false);
+        $adminGroupId = $this->ensureGroup('Администраторы', true, false);
+        $playerGroupId = $this->ensureGroup('Игрок', false, true);
         $operatorId = $this->ensureOperator();
         $this->ensureMember($operatorId, $adminGroupId);
         $this->ensureMember($operatorId, $playerGroupId);
@@ -75,16 +76,19 @@ final class BootstrapGroupsStep implements ISetupStep
      *
      * @param string $groupName Имя.
      * @param bool $bypass Флаг bypass.
+     * @param bool $assignOnRegister Автовыдача при пустом groups.
      *
      * @return int Id группы.
      *
      * @throws SetupException Если создать группу нельзя.
      */
-    private function ensureGroup(string $groupName, bool $bypass): int
+    private function ensureGroup(string $groupName, bool $bypass, bool $assignOnRegister): int
     {
         $existing = $this->userGroups->findByName($groupName);
         if ($existing !== null) {
-            return (int) $existing->values()['id'];
+            $this->ensureAssignOnRegister($existing->getId(), $existing->isAssignOnRegister(), $assignOnRegister);
+
+            return $existing->getId();
         }
 
         try {
@@ -92,10 +96,37 @@ final class BootstrapGroupsStep implements ISetupStep
                 'name' => $groupName,
                 'active' => true,
                 'bypass' => $bypass,
+                'assign_on_register' => $assignOnRegister,
                 'permissions' => [],
             ]));
         } catch (UserInvalidException $exception) {
             throw new SetupException('SETUP_INVALID', 'Cannot create seed group', $exception);
+        }
+    }
+
+    /**
+     * Дописывает флаг seed на уже существующую группу.
+     *
+     * @param int $groupId Id.
+     * @param bool $currentAssign Текущий флаг.
+     * @param bool $assignOnRegister Целевой флаг.
+     *
+     * @return void
+     *
+     * @throws SetupException Если patch недопустим.
+     */
+    private function ensureAssignOnRegister(int $groupId, bool $currentAssign, bool $assignOnRegister): void
+    {
+        if ($currentAssign === $assignOnRegister) {
+            return;
+        }
+
+        try {
+            $this->userGroups->update($groupId, GroupPatch::fromNormalized([
+                'assign_on_register' => $assignOnRegister,
+            ]));
+        } catch (UserInvalidException $exception) {
+            throw new SetupException('SETUP_INVALID', 'Cannot update seed group', $exception);
         }
     }
 
@@ -111,7 +142,7 @@ final class BootstrapGroupsStep implements ISetupStep
         $login = $this->authSettings->operatorLogin();
         $existing = $this->userAccounts->findByLogin($login);
         if ($existing !== null) {
-            return (int) $existing->values()['id'];
+            return $existing->getId();
         }
 
         try {

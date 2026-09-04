@@ -24,7 +24,7 @@
 
 **Проверка «оператор выдаёт только свои права»** — HTTP + текущий пользователь Auth, не репозиторий.
 
-**`hasBypass` / `permissionKeys`** смотрят только **активные** группы (`active === true`). Членство в выключенной bypass-группе ключи и bypass не даёт. Само членство при `addMember` в неактивную группу **можно** (потом включат группу).
+**`hasBypass` / `getPermissionKeys`** смотрят только **активные** группы (`active === true`). Членство в выключенной bypass-группе ключи и bypass не даёт. Само членство при `addMember` в неактивную группу **можно** (потом включат группу).
 
 **Инвариант LAST_BYPASS** — только членство / `bypass` / `active`. `name` / `permissions` — нет. **Проверка до записи.** `removeMember`: если членство в активной bypass-группе и `countActiveBypassMemberships() === 1` → бросить, строку не delete. `update` группы: если снимаем `bypass` или `active` с группы, которая сейчас активный bypass, и без её членов счётчик стал бы 0, а сейчас > 0 → бросить, `update` не звать. Пустая БД / выключить пустую bypass-группу — ок. Гонка двух `removeMember` как unique login: без `transaction()` (шлюз в фасад не тащим).
 
@@ -38,20 +38,20 @@
 
 **Фабрики:** closure `IUserGroups` отдельно от Accounts. Accounts не зависит от Groups. `UserGroups` внутри модуля — два репозитория групп/членства + `UserRepository` (есть ли user), **не** `get(IUserAccounts)` (порт-на-порт не нужен). `open`: группа и членство в фабрике Groups; `user` уже открывает фабрика Accounts — Groups при необходимости открывает `user` ещё раз (дешёвая сумка) или тесты передают тот же `records()`. `UserSchema` не в карте.
 
-**Возвраты фасада:** `members` / `groupsOfUser` → `int[]`; `getById` группы → `GroupRecord`; нет группы/нет user на методах, где нужен существующий субъект → `USER_NOT_FOUND` (`getById` учётки / группы). `removeMember` без строки членства → `USER_NOT_FOUND`.
+**Возвраты фасада:** `getMemberIds` / `getGroupIdsOfUser` → `int[]`; `getById` группы → `GroupRecord`; нет группы/нет user на методах, где нужен существующий субъект → `USER_NOT_FOUND` (`getById` учётки / группы). `removeMember` без строки членства → `USER_NOT_FOUND`.
 
 ## Todo
 
 - [x] **tables** — `UserGroupTable` имя `user_group`: `name` string unique required; `active` bool required default true; `bypass` bool required default false; `created_at` datetime required; `permissions` string multiple, без unique (не required: `[]` ок). `UserGroupMemberTable` имя `user_group_member`: `user_id` `new ReferenceField(..., UserTable::class, 'restrict')` required; `group_id` → `UserGroupTable::class` restrict required; `member_key` string unique required. Create: `user` → `user_group` → `user_group_member`.
 - [x] **schema** — `UserSchema` ctor: три `IOpenedSchema`. `install()` независимо по каждой карте. Не `open` внутри. Не seed. Не в локаторе.
-- [x] **facade** — `IUserGroups`: `getById`; `add` / `update`; `members`; `addMember` / `removeMember`; `groupsOfUser`; `permissionKeys`; `hasBypass`. 9 public, без `install`. Нет `IUser`. Снаружи модуля репозитории не торчат.
+- [x] **facade** — `IUserGroups`: `getById`; `add` / `update`; `getMemberIds`; `addMember` / `removeMember`; `getGroupIdsOfUser`; `getPermissionKeys`; `hasBypass`. 9 public, без `install`. Нет `IUser`. Снаружи модуля репозитории не торчат.
 - [x] **factory** — второй closure на `IUserGroups`. `open` только фабрики и тесты.
 - [x] **invariant** — проверка до write (см. решения). Пустая БД: первая bypass-группа и первый член ок.
 - [x] **tests-gates** — MySQL skip как ping. Drop member→group→user в setUp/tearDown учётки и групп. Две группы; дубль `name`; дубль членства; сумма ключей двух групп; неактивная не даёт ключи и bypass; член в неактивной остаётся в `members`; hasBypass; вторая bypass-группа → `USER_INVALID`; пустые permissions + bypass; снять последнего bypass-члена → `USER_LAST_BYPASS` и строка на месте; выключить `bypass`/`active` единственной живой bypass-группы при членах → отказ, группа не изменилась; второй bypass-член — первого снимаем; `install()` на уже существующем `user` создаёт две новые таблицы. phpunit suite `user` + cs/quality.
 
 ## DTO
 
-Группа: `NewGroup` / `GroupPatch` / `GroupRecord` — `fromNormalized` / `fields()` как учётка. Отдельный `GroupInputNormalizer` (не раздувать `UserInputNormalizer`). `NewGroup`: `name` required; нет ключа `active`/`bypass`/`permissions` → true / false / `[]`. Не содержит `created_at`. Patch: непустой набор; `permissions` целиком (замена, не merge); пустой patch → `USER_INVALID`. `members(groupId)` / `update` / `getById`: нет группы → `USER_NOT_FOUND`. `addMember`: нет user или группы → `USER_NOT_FOUND` (репозиторий учётки / группы, не ждать FK). Неактивный user — членство можно (как неактивная группа).
+Группа: `NewGroup` / `GroupPatch` — `fromNormalized` / `fields()` как учётка. `GroupRecord` — геттеры (`getId`, `isBypass`, `getPermissionKeys`), не `values()`. Отдельный `GroupInputNormalizer` (не раздувать `UserInputNormalizer`). `NewGroup`: `name` required; нет ключа `active`/`bypass`/`permissions` → true / false / `[]`. Не содержит `created_at`. Patch: непустой набор; `permissions` целиком (замена, не merge); пустой patch → `USER_INVALID`. `getMemberIds(groupId)` / `update` / `getById`: нет группы → `USER_NOT_FOUND`. `addMember`: нет user или группы → `USER_NOT_FOUND` (репозиторий учётки / группы, не ждать FK). Неактивный user — членство можно (как неактивная группа).
 
 Членство с фасада: `userId` + `groupId`, не `member_key`.
 
@@ -70,7 +70,7 @@
 | `UserGroupTable` / `UserGroupMemberTable` | `Table/` | карты | HTTP |
 | DTO групп | `Dto/` | имя, bypass, ключи | `member_key` |
 | `IUserGroups` | `Interface/Service/` | фасад для Auth/HTTP позже | `open`, схема |
-| `UserGroups` | `Service/` | trim, now, инвариант bypass, объединение ключей | колонки ST |
+| `UserGroups` | `Service/` | trim, now, инвариант bypass, объединение ключей | `ListQuery`, `member_key` |
 | репозитории группы и членства | `Repository/` | records, `member_key`, getUnique | публичный порт |
 | `UserSchema` | `Schema/` | все карты User | seed |
 

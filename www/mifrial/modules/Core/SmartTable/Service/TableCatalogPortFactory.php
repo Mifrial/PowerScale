@@ -45,7 +45,7 @@ final class TableCatalogPortFactory
         return (new SmartTableSupport(
             $databaseConnection,
             $runtimeConfig->cache(),
-            $runtimeConfig->debug(),
+            $runtimeConfig->isDebug(),
         ))->makeCatalog();
     }
 }

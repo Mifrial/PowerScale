@@ -16,12 +16,12 @@ interface IModuleSetup
      *
      * @return array<int, class-string<SmartTableDefinition>> Карты.
      */
-    public function tableClasses(): array;
+    public function getTableClasses(): array;
 
     /**
      * Возвращает data-шаги модуля в порядке внутри модуля.
      *
      * @return array<int, ISetupStep> Шаги или пустой список.
      */
-    public function dataSteps(): array;
+    public function getDataSteps(): array;
 }

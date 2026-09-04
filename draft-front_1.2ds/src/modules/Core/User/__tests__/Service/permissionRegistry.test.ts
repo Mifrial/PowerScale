@@ -11,16 +11,16 @@ import {
 } from '@/modules/Core/User/init';
 import type { User } from '@/modules/Core/User/Dto/User';
 
-const user = (permissions: string[], superAdmin = false): User => ({
+const user = (permissions: string[], hasBypass = false): User => ({
   id: 1,
   name: 'U',
   login: 'u',
   email: 'u@t',
   groups: [],
-  registered: '',
+  registered: 0,
   active: true,
   permissions,
-  super_admin: superAdmin,
+  bypass: hasBypass,
 });
 
 beforeEach(() => {
@@ -97,7 +97,7 @@ describe('реестр админ-секций', () => {
     expect(isAdmin(user(['user.view', 'character.create']))).toBe(false);
   });
 
-  it('isAdmin: super_admin → true', () => {
+  it('isAdmin: bypass → true', () => {
     expect(isAdmin(user([], true))).toBe(true);
   });
 

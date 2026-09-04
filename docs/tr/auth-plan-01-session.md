@@ -13,7 +13,7 @@
 | Identity | Строка способа входа (`user_identity`). Пароль — `kind=password`. Не колонки `user`. |
 | Сессия | Строка `auth_session`: хеш непрозрачного токена, срок, `user_id`. Cookie держит **сырой** токен. |
 | Seed | Data-шаг CLI: группы «Администраторы» / «Игрок» и первый оператор. Не `UserSchema::install()`. |
-| Текущий пользователь | Сборка JSON под фронтовый `User` (имена групп, `permissions`, `super_admin` ← `hasBypass`). Не колонка `super_admin`. |
+| Текущий пользователь | Сборка JSON портом `IUserViews`: `bypass`, unix-даты, `email` null. Не колонка `super_admin`. |
 
 HTTP **не** 401: нет сессии на `getCurrentUser` → `success` + `data: null` (как `AuthApi`). Отказ login/register — `ActionException` `AUTH_*`, HTTP 400.
 
@@ -77,7 +77,7 @@ ST до карт Auth: [`smarttable-plan-15-bigint.md`](smarttable-plan-15-bigin
 
 Несколько сессий на человека (другие устройства). Logout инвалидирует **эту** сессию по cookie, не все.
 
-Граф CLI: оба стола после `user` (`user_id`). mfv нет. `IModuleSetup::tableClasses()` — эти два class-string. `AuthSchema::install()` для mysql-тестов (как User), не оркестратор прода.
+Граф CLI: оба стола после `user` (`user_id`). mfv нет. `IModuleSetup::getTableClasses()` — эти два class-string. `AuthSchema::install()` для mysql-тестов (как User), не оркестратор прода.
 
 ### 3. Cookie и сроки
 
@@ -109,17 +109,7 @@ TTL: 24 часа; `remember === true` — 30 суток. Поле JSON `remember
 
 **getCurrentUser:** нет/просрочена сессия → `null`. Неактивный user **или** `USER_NOT_FOUND` на профиле **или на сборке JSON** (группы/`hasBypass`) → как нет сессии: `data: null`, строку сессии снести, гасить cookie не обязательно. Не 401. Вход неактивного — `AUTH_INVALID` (главное: деактивированный не авторизуется).
 
-Сборка JSON — тип Auth (`AuthUserView`), не порт User:
-
-- имена групп: `groupsOfUser` + `getById`;
-- `permissions` ← `permissionKeys`;
-- `super_admin` ← `hasBypass`;
-- `registered`, `lastLogin` — **unix int** UTC (`DateTime::toUnix()`); `lastLogin` нет (`last_used_at` null) — ключ опустить или `null`;
-- `deactivated_until` — unix int или `null`; `deactivate_reason` — строка или `null` (поля уже в `UserRecord`; не резать, иначе экран профиля потом ломается);
-- `email` null → `""`;
-- без `avatar_file_id`; объект `DateTime` в JSON не класть.
-
-Во фронтовом `User.ts` `registered` / `lastLogin` сейчас **string** (mock — локаль). Этот план **не** меняет Vue: типы будут врать до отдельного захода. Групп у человека ≤ 500 (лимит фасада User).
+Сборка JSON — порт User `IUserViews` (канон — [`user-plan-05-no-catalog-dump.md`](user-plan-05-no-catalog-dump.md)): `bypass`, unix-даты, `email` null, без `super_admin`. Auth только передаёт `lastLogin`.
 
 Повторный login в том же браузере: если в запросе уже есть живая сессионная cookie — **снести эту строку**, потом выдать новую (не копить сирот до `expires_at`). Чужие устройства не трогать.
 
@@ -133,7 +123,7 @@ Id: `Core/Auth:seed.bootstrap-groups`. После **всей** схемы CLI.
 2. Группа «Игрок»: `bypass=false`, `permissions=[]`.
 3. Оператор: `auth.operator_login` / `operator_password` / `operator_name` из `local.php` (dist: `admin` / `changeme` / `Администратор`). Нет учётки с этим login → `add` + password identity + членство в «Администраторы» **и** в «Игрок» (как mock-админ: bypass не заменяет обычную группу). Учётка есть, identity нет → дописать hash. Пароль существующего оператора **не** перезаписывать. Членства дописать, если нет.
 
-`setup` в config: **closure локатора** (шагу нужны порты User). `tableClasses()` без БД. `get(IUserAccounts)` в collect до DDL допустим: `open` не требует физики; запись — в `ISetupStep::run()` после графа. Не `get` внутри `tableClasses()`.
+`setup` в config: **closure локатора** (шагу нужны порты User). `getTableClasses()` без БД. `get(IUserAccounts)` в collect до DDL допустим: `open` не требует физики; запись — в `ISetupStep::run()` после графа. Не `get` внутри `getTableClasses()`.
 
 Имена групп — строки seed, не магия bypass (bypass = флаг).
 
@@ -194,4 +184,4 @@ Guest. VK / иные `kind`. Reset/forgot, `findUser`. HTTP `user.*` / `user_gro
 
 ## Следующий заход после кода
 
-HTTP учётки — [`user-plan-03-http.md`](user-plan-03-http.md). Reset-пароля. Guest. VK. Remember на фронте.
+HTTP учётки — [`user-plan-03-http.md`](user-plan-03-http.md) (**сделано**). Политика / remember / reset — [`auth-plan-02-password-flow.md`](auth-plan-02-password-flow.md). Гость — [`auth-plan-04-guest.md`](auth-plan-04-guest.md). VK.

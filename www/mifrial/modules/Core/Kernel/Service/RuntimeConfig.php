@@ -53,7 +53,7 @@ final class RuntimeConfig implements IRuntimeConfig
      *
      * @return bool true, если debug включён.
      */
-    public function debug(): bool
+    public function isDebug(): bool
     {
         return $this->debug;
     }

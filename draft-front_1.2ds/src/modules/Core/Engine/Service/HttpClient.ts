@@ -8,7 +8,7 @@ export class HttpClient {
   /**
    * Сохраняет настройки транспорта.
    *
-   * @param config Базовый URL, CSRF и реакция на 401.
+   * @param config Базовый URL, CSRF и реакция на AUTH_REQUIRED.
    */
   constructor(private readonly config: HttpClientConfig) {}
 
@@ -45,20 +45,54 @@ export class HttpClient {
       signal,
     });
 
-    if (res.status === 401) {
-      const onUnauthorized =
-        this.config.onUnauthorized ??
-        (() => {
-          if (!window.location.pathname.startsWith('/login')) {
-            window.location.href = '/login';
-          }
-        });
-      onUnauthorized();
+    const data = await this.parseJsonBody<T>(res);
+    if (this.shouldRedirectToLogin(res.status, data)) {
+      this.redirectToLogin();
     }
 
-    const data = await this.parseJsonBody<T>(res);
-
     return { ok: res.ok, status: res.status, data };
+  }
+
+  /**
+   * AUTH_REQUIRED на HTTP 400 — нет сессии. CSRF 403 не вылогинивает.
+   *
+   * @param status Код HTTP.
+   * @param data Тело JSON.
+   */
+  private shouldRedirectToLogin(status: number, data: unknown): boolean {
+    return status === 400 && this.errorCodeOf(data) === 'AUTH_REQUIRED';
+  }
+
+  /**
+   * Код ошибки конверта action.
+   *
+   * @param data Тело JSON.
+   */
+  private errorCodeOf(data: unknown): string | null {
+    if (data === null || typeof data !== 'object' || !('error' in data)) {
+      return null;
+    }
+
+    const error = data.error;
+    if (error === null || typeof error !== 'object' || !('code' in error)) {
+      return null;
+    }
+
+    return typeof error.code === 'string' ? error.code : null;
+  }
+
+  /**
+   * Уводит на login, если ещё не там.
+   */
+  private redirectToLogin(): void {
+    const onUnauthorized =
+      this.config.onUnauthorized ??
+      (() => {
+        if (!window.location.pathname.startsWith('/login')) {
+          window.location.href = '/login';
+        }
+      });
+    onUnauthorized();
   }
 
   /**

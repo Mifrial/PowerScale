@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Mifrial\Core\Auth\Schema;
 
+use Mifrial\Core\Auth\Table\AuthGroupSecurityPolicyTable;
+use Mifrial\Core\Auth\Table\AuthPasswordResetTable;
+use Mifrial\Core\Auth\Table\AuthSecurityPolicyTable;
 use Mifrial\Core\Auth\Table\AuthSessionTable;
 use Mifrial\Core\Auth\Table\UserIdentityTable;
 use Mifrial\Core\SmartTable\Interface\Service\IOpenedSchema;
@@ -19,12 +22,18 @@ final class AuthSchema
      *
      * @param IOpenedSchema $identitySchema DDL `user_identity`.
      * @param IOpenedSchema $sessionSchema DDL `auth_session`.
+     * @param IOpenedSchema $policySchema DDL `auth_security_policy`.
+     * @param IOpenedSchema $groupPolicySchema DDL `auth_group_security_policy`.
+     * @param IOpenedSchema $resetSchema DDL `auth_password_reset`.
      *
      * @return void
      */
     public function __construct(
         private readonly IOpenedSchema $identitySchema,
         private readonly IOpenedSchema $sessionSchema,
+        private readonly IOpenedSchema $policySchema,
+        private readonly IOpenedSchema $groupPolicySchema,
+        private readonly IOpenedSchema $resetSchema,
     ) {
     }
 
@@ -33,11 +42,14 @@ final class AuthSchema
      *
      * @return array<int, class-string<SmartTableDefinition>> Карты Auth.
      */
-    public static function tableClasses(): array
+    public static function getTableClasses(): array
     {
         return [
             UserIdentityTable::class,
             AuthSessionTable::class,
+            AuthSecurityPolicyTable::class,
+            AuthGroupSecurityPolicyTable::class,
+            AuthPasswordResetTable::class,
         ];
     }
 
@@ -50,6 +62,9 @@ final class AuthSchema
     {
         $this->apply($this->identitySchema);
         $this->apply($this->sessionSchema);
+        $this->apply($this->policySchema);
+        $this->apply($this->groupPolicySchema);
+        $this->apply($this->resetSchema);
     }
 
     /**

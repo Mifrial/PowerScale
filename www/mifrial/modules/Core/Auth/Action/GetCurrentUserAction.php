@@ -25,12 +25,12 @@ final class GetCurrentUserAction implements IActionHandler
     }
 
     /**
-     * Возвращает User или null.
+     * Возвращает конверт сессии или null.
      *
-     * @return array<string, mixed>|null Сборка или нет сессии.
+     * @return array<string, mixed>|null Guest, user+JSON или нет сессии.
      */
     public function handle(): ?array
     {
-        return $this->authService->currentUser();
+        return $this->authService->getCurrentUser();
     }
 }

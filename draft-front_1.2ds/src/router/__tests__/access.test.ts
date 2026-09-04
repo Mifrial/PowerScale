@@ -33,16 +33,16 @@ function makeTo(
   } as unknown as RouteLocationNormalized;
 }
 
-const user = (id: number, permissions: string[], superAdmin = false): User => ({
+const user = (id: number, permissions: string[], hasBypass = false): User => ({
   id,
   name: `U${id}`,
   login: `u${id}`,
   email: `u${id}@t`,
   groups: [],
-  registered: '',
+  registered: 0,
   active: true,
   permissions,
-  super_admin: superAdmin,
+  bypass: hasBypass,
 });
 
 const ctx = (u: User | null, guest = false): RouteAccessContext => ({
@@ -124,7 +124,7 @@ describe('evaluateRouteAccess', () => {
     });
   });
 
-  describe('super_admin bypass', () => {
+  describe('bypass', () => {
     it('проходит requires без ключей', () => {
       const to = makeTo({ name: 'Admin', meta: { requiresAny: ['user_group.view'] } });
       expect(evaluateRouteAccess(to, ctx(user(1, [], true))).allow).toBe(true);
@@ -143,7 +143,7 @@ describe('evaluateRouteAccess', () => {
       expect(d).toEqual({ allow: false, redirect: { name: 'NotFound' } });
     });
 
-    it('super_admin проходит', () => {
+    it('bypass проходит', () => {
       expect(evaluateRouteAccess(admin, ctx(user(1, [], true))).allow).toBe(true);
     });
 

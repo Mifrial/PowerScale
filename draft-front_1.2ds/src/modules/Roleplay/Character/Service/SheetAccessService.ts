@@ -8,7 +8,7 @@ import { SHEET_VISIBLE_SECTIONS } from '@/modules/Roleplay/Character/Constant/Sh
 
 /**
  * Оценка видимости листа (персонажа/НПС) по зонам `SheetVisibility`:
- * владелец и super_admin — всегда; инжектированная роль с `fullAccess` (ведущие) — всегда;
+ * владелец и bypass — всегда; инжектированная роль с `fullAccess` (ведущие) — всегда;
  * иначе — объединение секций правил, чья аудитория подходит зрителю в контексте.
  * В игровом контексте 'all' = участники; на standalone — `character.view`.
  */
@@ -20,7 +20,7 @@ export class SheetAccessService {
 
   canSeeSheet(user: User | null | undefined, visibility: SheetVisibility, ctx: SheetAccessContext): boolean {
     if (!user) return false;
-    if (user.super_admin || (ctx.ownerId !== null && user.id === ctx.ownerId)) return true;
+    if (user.bypass || (ctx.ownerId !== null && user.id === ctx.ownerId)) return true;
     const roles = this.resolvedRoles(ctx);
     if (roles.some((role) => role.fullAccess)) return true;
 
@@ -35,7 +35,7 @@ export class SheetAccessService {
   ): SheetSection[] {
     if (!this.canSeeSheet(user, visibility, ctx)) return [];
     if (!user) return [];
-    if (user.super_admin || (ctx.ownerId !== null && user.id === ctx.ownerId)) return [...SHEET_VISIBLE_SECTIONS];
+    if (user.bypass || (ctx.ownerId !== null && user.id === ctx.ownerId)) return [...SHEET_VISIBLE_SECTIONS];
     const roles = this.resolvedRoles(ctx);
     if (roles.some((role) => role.fullAccess)) return [...SHEET_VISIBLE_SECTIONS];
 

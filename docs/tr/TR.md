@@ -34,6 +34,7 @@
 - [План 8: кэш](smarttable-plan-08-cache.md) — TTL getById/getList и теги после commit.
 - [План 9: DDL vs прогон](smarttable-plan-09-migrations.md) — прогон модулей не в SmartTable.
 - [План Kernel 1: setup](kernel-plan-01-setup.md) — установка/обновление модулей, граф `reference`, CLI.
+- [План Kernel 2: DTO action](kernel-plan-02-action-input.md) — сделано; `IActionInput` в binder, Optional-поля.
 - [План 10: ворота Basic](smarttable-plan-10-gates.md) — сверка канона v1, Basic закрыт.
 - [План 13: DateTime now](smarttable-plan-13-datetime-now.md) — `default` sentinel «сейчас» на datetime.
 - [План 14: путь reference](smarttable-plan-14-reference-path.md) — `reference` на `id` цели; путь в getList без JOIN.
@@ -43,7 +44,16 @@
 - [План User 1: учётка](user-plan-01-account.md) — таблица `user`, фасад `IUserAccounts`, без HTTP.
 - [План User 2: группы](user-plan-02-groups.md) — членство, ключи прав, bypass.
 - [План Auth 1: сессия](auth-plan-01-session.md) — cookie, `user_identity`, login/register, seed групп.
+- [План Auth 2: политика и сброс](auth-plan-02-password-flow.md) — сделано; remember, политика в БД, start/final reset, `setPassword`, право `auth.user.edit`.
+- [План Auth 3: сброс через Mail](auth-plan-03-mail-reset.md) — сделано; `MailPasswordResetNotifier` + seed `auth.password_reset`; не SMTP.
+- [Нарезка хвостов Guest / члены](core-tails-roadmap.md) — Guest и страница `getMembers` сделаны.
+- [План Auth 4: гость](auth-plan-04-guest.md) — сделано; сессия без `user_id`.
+- [План User 6: страница членов](user-plan-06-members-page.md) — сделано; `userGroup.getMembers` `{ items, total }`.
+- [План Agent 1: тик](agent-plan-01-tick.md) — таблица `agent`, `IAgents`, CLI `bin/agent.php`.
+- [План Mail 1: очередь](mail-plan-01-queue.md) — `mail_event` / `mail_template` / `mail_job`, плейсхолдеры, flush.
 - [План User 3: HTTP учётки](user-plan-03-http.md) — `user.*`, актор запроса, `user.create` в Auth.
+- [План User 4: HTTP групп](user-plan-04-groups-http.md) — `userGroup.*`, `memberCount`, subset ключей.
+- [План User 5: выправить контракт](user-plan-05-no-catalog-dump.md) — сделано; `findPage`, JSON-вид, Vue.
 - [Система правил](rule-system.md) — RuleType, ревизии, каталог, ресурсы и публикация.
 - [Система персонажей](character-system.md) — версии, membership, validation и модерация.
 - [Система игр](game-system.md) — игра, бой, абстрактное движение, overlay, инвентарь и экономика.

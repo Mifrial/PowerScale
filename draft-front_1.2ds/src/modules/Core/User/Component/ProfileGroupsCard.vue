@@ -1,9 +1,17 @@
 <script setup lang="ts">
+import { onMounted } from 'vue';
 import type { User } from '@/modules/Core/User/Dto/User';
+import { useGroupStore } from '@/modules/Core/User/Store/groups';
 
 const props = defineProps<{
   user: User;
 }>();
+
+const groupStore = useGroupStore();
+
+onMounted(() => {
+  void groupStore.ensureGroups(props.user.groups);
+});
 </script>
 
 <template>
@@ -16,7 +24,9 @@ const props = defineProps<{
     </v-card-item>
     <v-divider />
     <v-card-text>
-      <v-chip v-for="g in props.user.groups" :key="g" size="small" label class="mr-1 mb-1">{{ g }}</v-chip>
+      <v-chip v-for="groupId in props.user.groups" :key="groupId" size="small" label class="mr-1 mb-1">
+        {{ groupStore.getGroupName(groupId) }}
+      </v-chip>
       <span v-if="!props.user.groups.length" class="text-caption text-medium-emphasis">Нет групп</span>
     </v-card-text>
   </v-card>

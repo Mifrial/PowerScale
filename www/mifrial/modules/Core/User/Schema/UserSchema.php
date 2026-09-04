@@ -36,7 +36,7 @@ final class UserSchema
      *
      * @return array<int, class-string<SmartTableDefinition>> Карты User.
      */
-    public static function tableClasses(): array
+    public static function getTableClasses(): array
     {
         return [
             UserTable::class,

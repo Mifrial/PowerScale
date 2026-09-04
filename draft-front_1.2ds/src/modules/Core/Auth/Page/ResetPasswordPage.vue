@@ -42,7 +42,7 @@ async function handleReset() {
   try {
     const loginVal = routeLogin.value || login.value;
     const tokenVal = routeToken.value || resetToken.value;
-    const ok = await auth.resetPassword(loginVal, tokenVal, newPassword.value);
+    const ok = await auth.finalPasswordReset(loginVal, tokenVal, newPassword.value);
     if (ok) {
       messageType.value = 'success';
       message.value = 'Пароль успешно изменён';

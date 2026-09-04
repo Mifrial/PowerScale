@@ -6,8 +6,10 @@ namespace Mifrial\Core\Kernel\Tests;
 
 use Mifrial\Core\Kernel\Dto\ParameterBindResult;
 use Mifrial\Core\Kernel\Service\ActionParameterBinder;
+use Mifrial\Core\Kernel\Tests\Fixture\ParameterBindingInputTarget;
 use Mifrial\Core\Kernel\Tests\Fixture\ParameterBindingTarget;
 use Mifrial\Core\Kernel\Tests\Fixture\SampleColor;
+use Mifrial\Core\Kernel\Tests\Fixture\SampleUpdateInput;
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
 
@@ -148,6 +150,62 @@ final class ActionParameterBinderTest extends TestCase
     }
 
     /**
+     * Плоский JSON на IActionInput; Optional absent и present.
+     *
+     * @return void
+     */
+    public function testBindsActionInputFromFlatJson(): void
+    {
+        $withName = $this->bindInput('handle', ['id' => 4, 'name' => 'Ann']);
+        $withoutName = $this->bindInput('handle', ['id' => 4]);
+        self::assertTrue($withName->isOk());
+        $named = $withName->arguments()[0];
+        self::assertInstanceOf(SampleUpdateInput::class, $named);
+        self::assertSame(4, $named->id);
+        self::assertTrue($named->name->isPresent());
+        self::assertSame('Ann', $named->name->getValue());
+        self::assertTrue($withoutName->isOk());
+        $skipped = $withoutName->arguments()[0];
+        self::assertInstanceOf(SampleUpdateInput::class, $skipped);
+        self::assertFalse($skipped->name->isPresent());
+        self::assertFalse($skipped->active->isPresent());
+        $nullActive = $this->bindInput('handle', ['id' => 1, 'active' => null]);
+        self::assertSame('Invalid parameter: active', $nullActive->errorResponse()->toArray()['error']['message']);
+    }
+
+    /**
+     * Extra key, missing id, JSON null у OptionalString, отказ bool-null.
+     *
+     * @return void
+     */
+    public function testActionInputRejectsUnknownMissingAndNullRules(): void
+    {
+        $extra = $this->bindInput('handle', ['id' => 1, 'name' => 'A', 'extra' => true]);
+        $missing = $this->bindInput('handle', []);
+        $nullName = $this->bindInput('handle', ['id' => 1, 'name' => null]);
+        self::assertSame('Unknown parameter: extra', $extra->errorResponse()->toArray()['error']['message']);
+        self::assertSame('Missing parameter: id', $missing->errorResponse()->toArray()['error']['message']);
+        self::assertTrue($nullName->isOk());
+        $input = $nullName->arguments()[0];
+        self::assertInstanceOf(SampleUpdateInput::class, $input);
+        self::assertTrue($input->name->isPresent());
+        self::assertNull($input->name->getValue());
+    }
+
+    /**
+     * Смесь скаляра и DTO; DateTime на handle.
+     *
+     * @return void
+     */
+    public function testRejectsMixedInputAndDateTimeHandle(): void
+    {
+        $mix = $this->bindInput('withMix', ['id' => 1, 'name' => 'A']);
+        $dateTime = $this->bindInput('withDateTime', ['moment' => 1]);
+        self::assertSame('Unsupported parameter: input', $mix->errorResponse()->toArray()['error']['message']);
+        self::assertSame('Unsupported parameter: moment', $dateTime->errorResponse()->toArray()['error']['message']);
+    }
+
+    /**
      * Привязывает payload к методу фикстуры.
      *
      * @param string $methodName Имя метода фикстуры.
@@ -159,6 +217,22 @@ final class ActionParameterBinderTest extends TestCase
     {
         $binder = new ActionParameterBinder();
         $handleMethod = new ReflectionMethod(ParameterBindingTarget::class, $methodName);
+
+        return $binder->bind($handleMethod, $payload);
+    }
+
+    /**
+     * Биндит методы фикстуры с IActionInput.
+     *
+     * @param string $methodName Имя метода.
+     * @param mixed $payload JSON.
+     *
+     * @return ParameterBindResult Результат.
+     */
+    private function bindInput(string $methodName, mixed $payload): ParameterBindResult
+    {
+        $binder = new ActionParameterBinder();
+        $handleMethod = new ReflectionMethod(ParameterBindingInputTarget::class, $methodName);
 
         return $binder->bind($handleMethod, $payload);
     }

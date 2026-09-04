@@ -13,7 +13,7 @@
 
 ## DTO и нормализация
 
-`NewUser` / `UserPatch` — из массива **присутствующих** ключей (`fromNormalized` + `fields()`). `UserRecord` — все свойства профиля (`id`, даты — `DateTime` ядра; пустые строки уже `null`). Имена свойств = имена колонок; отдельного identity-map нет. Репозиторий: `fields()` (+ `registered_at` на add), `UserRecord::fromNormalized` на чтении, ошибки строки → `USER_*`.
+`NewUser` / `UserPatch` — из массива **присутствующих** ключей (`fromNormalized` + `fields()`). `UserRecord` — полный профиль геттерами (`getId`, `getLogin`, `isActive`, даты — `DateTime` ядра; пустые строки уже `null`). Карта ключей = колонки только в `fromNormalized` репозитория и в `fields()` New/Patch; отдельного identity-map нет. Репозиторий: `fields()` (+ `registered_at` на add), `UserRecord::fromNormalized` на чтении, ошибки строки → `USER_*`. Публичного `values()` у Record нет (`DEC-079`).
 
 `NewUser`: обязательны `login`, `name`; опционально `email`, `surname`, `nickname`, `active` (нет ключа → true). Не содержит `registered_at`, аватар, deactivate. Неизвестный ключ → `USER_INVALID` (как у patch).
 
@@ -46,7 +46,7 @@ Auth, cookie, HTTP `user.*`. Группы и bypass. Guest. Identity / hash / VK
 | Тип | Папка | Задача | Не делает |
 |---|---|---|---|
 | `UserTable` | `Table/` | карта `user` | identity |
-| `UserRecord` / `NewUser` / `UserPatch` | `Dto/` | профиль; patch по ключам | колонки SmartTable |
+| `UserRecord` / `NewUser` / `UserPatch` | `Dto/` | Record — геттеры; New/Patch — ключи | SQL, `ListQuery` |
 | `UserInputNormalizer` | `Service/` | trim/ключи → DTO | SmartTable |
 | `IUserAccounts` | `Interface/Service/` | фасад учётки для соседа | схема, `ListQuery` |
 | `UserAccounts` | `Service/` | trim find, `DateTime::now()` на add | колонки, SmartTable, `open` |

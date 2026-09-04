@@ -16,12 +16,12 @@ final class GroupInputNormalizer
     /**
      * @var array<int, string>
      */
-    private const NEW_GROUP_KEYS = ['name', 'active', 'bypass', 'permissions'];
+    private const NEW_GROUP_KEYS = ['name', 'active', 'bypass', 'assign_on_register', 'permissions'];
 
     /**
      * @var array<int, string>
      */
-    private const PATCH_KEYS = ['name', 'active', 'bypass', 'permissions'];
+    private const PATCH_KEYS = ['name', 'active', 'bypass', 'assign_on_register', 'permissions'];
 
     /**
      * Собирает NewGroup из присутствующих ключей.
@@ -46,6 +46,10 @@ final class GroupInputNormalizer
 
         if (!array_key_exists('bypass', $normalizedValues)) {
             $normalizedValues['bypass'] = false;
+        }
+
+        if (!array_key_exists('assign_on_register', $normalizedValues)) {
+            $normalizedValues['assign_on_register'] = false;
         }
 
         if (!array_key_exists('permissions', $normalizedValues)) {
@@ -134,7 +138,7 @@ final class GroupInputNormalizer
         }
 
         if ($fieldName === 'permissions') {
-            return $this->permissionKeys($fieldValue);
+            return $this->parsePermissionKeys($fieldValue);
         }
 
         return $this->boolValue($fieldValue);
@@ -190,7 +194,7 @@ final class GroupInputNormalizer
      *
      * @throws UserInvalidException Если список или ключ недопустимы.
      */
-    private function permissionKeys(mixed $fieldValue): array
+    private function parsePermissionKeys(mixed $fieldValue): array
     {
         if (!is_array($fieldValue)) {
             throw new UserInvalidException('Group permissions must be a list');

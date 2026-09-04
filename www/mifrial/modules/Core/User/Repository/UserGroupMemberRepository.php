@@ -2,6 +2,10 @@
 
 declare(strict_types=1);
 
+// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.TooManyPublicMethods
+// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.ClassComplexityTooHigh
+// COUNT пачкой, списки id и страница членств — одна коллекция, не второй репозиторий.
+
 namespace Mifrial\Core\User\Repository;
 
 use Closure;
@@ -12,6 +16,7 @@ use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
 use Mifrial\Core\SmartTable\Exception\Row\RowNotFoundException;
 use Mifrial\Core\SmartTable\Exception\Row\UniqueConstraintException;
 use Mifrial\Core\SmartTable\Interface\Service\IOpenedRecords;
+use Mifrial\Core\User\Dto\MemberIdPage;
 use Mifrial\Core\User\Exception\UserDuplicateException;
 use Mifrial\Core\User\Exception\UserInvalidException;
 use Mifrial\Core\User\Exception\UserNotFoundException;
@@ -102,9 +107,39 @@ final class UserGroupMemberRepository
      *
      * @return array<int, int> user id.
      */
-    public function listUserIdsInGroup(int $groupId): array
+    public function getUserIdsInGroup(int $groupId): array
     {
         return $this->intColumn($this->pageByField('group_id', $groupId, 'user_id'), 'user_id');
+    }
+
+    /**
+     * Страница user_id группы: id членства asc, COUNT группы.
+     *
+     * @param int $groupId Группа.
+     * @param int $limit Размер 1…500.
+     * @param int $offset Сдвиг ≥ 0.
+     *
+     * @return MemberIdPage Страница.
+     *
+     * @throws UserInvalidException Если страница недопустима.
+     */
+    public function findUserIdPage(int $groupId, int $limit, int $offset): MemberIdPage
+    {
+        $this->assertPageBounds($limit, $offset);
+        try {
+            $listResult = $this->memberRecords->getList(ListQuery::fromOptions([
+                'filter' => ['group_id' => $groupId],
+                'limit' => $limit,
+                'offset' => $offset,
+                'countTotal' => true,
+                'sort' => ['id' => 'asc'],
+                'select' => ['user_id'],
+            ]));
+        } catch (MapInvalidException $exception) {
+            throw new UserInvalidException('Member map is invalid', $exception);
+        }
+
+        return new MemberIdPage($this->intColumn($listResult->rows(), 'user_id'), $listResult->total() ?? 0);
     }
 
     /**
@@ -114,9 +149,68 @@ final class UserGroupMemberRepository
      *
      * @return array<int, int> group id.
      */
-    public function listGroupIdsOfUser(int $userId): array
+    public function getGroupIdsOfUser(int $userId): array
     {
         return $this->intColumn($this->pageByField('user_id', $userId, 'group_id'), 'group_id');
+    }
+
+    /**
+     * Id групп нескольких учёток, страницами по 500.
+     *
+     * @param array<int, int> $userIds Учётки.
+     *
+     * @return array<int, array<int, int>> user id => group id[].
+     */
+    public function getGroupIdsByUserIds(array $userIds): array
+    {
+        $uniqueIds = [];
+        foreach ($userIds as $userId) {
+            $uniqueIds[$userId] = $userId;
+        }
+
+        $orderedIds = array_values($uniqueIds);
+        if ($orderedIds === []) {
+            return [];
+        }
+
+        $groupIdsByUserId = [];
+        foreach ($orderedIds as $userId) {
+            $groupIdsByUserId[$userId] = [];
+        }
+
+        $offset = 0;
+        do {
+            $pageRows = $this->membershipPage($orderedIds, $offset);
+            $this->appendMembershipPage($groupIdsByUserId, $pageRows);
+            $offset += 500;
+        } while (count($pageRows) === 500);
+
+        return $groupIdsByUserId;
+    }
+
+    /**
+     * Число членов по группам; страницы до пустой.
+     *
+     * @param array<int, int> $groupIds Группы.
+     *
+     * @return array<int, int> group id => COUNT.
+     */
+    public function getCountsByGroupIds(array $groupIds): array
+    {
+        $countsByGroupId = $this->zeroCounts($groupIds);
+        $orderedIds = array_keys($countsByGroupId);
+        if ($orderedIds === []) {
+            return [];
+        }
+
+        $offset = 0;
+        do {
+            $pageRows = $this->countPage($orderedIds, $offset);
+            $this->addCountPage($countsByGroupId, $pageRows);
+            $offset += 500;
+        } while (count($pageRows) === 500);
+
+        return $countsByGroupId;
     }
 
     /**
@@ -217,6 +311,110 @@ final class UserGroupMemberRepository
             'limit' => 500,
             'select' => [$selectName],
         ]))->rows();
+    }
+
+    /**
+     * Страница членства по списку user id.
+     *
+     * @param array<int, int> $userIds Учётки.
+     * @param int $offset Сдвиг.
+     *
+     * @return array<int, array<string, mixed>> Строки.
+     */
+    private function membershipPage(array $userIds, int $offset): array
+    {
+        return $this->memberRecords->getList(ListQuery::fromOptions([
+            'filter' => ['user_id' => $userIds],
+            'limit' => 500,
+            'offset' => $offset,
+            'select' => ['user_id', 'group_id'],
+        ]))->rows();
+    }
+
+    /**
+     * Дописывает страницу в карту user => group id[].
+     *
+     * @param array<int, array<int, int>> $groupIdsByUserId Карта.
+     * @param array<int, array<string, mixed>> $pageRows Строки.
+     *
+     * @return void
+     */
+    private function appendMembershipPage(array &$groupIdsByUserId, array $pageRows): void
+    {
+        foreach ($pageRows as $memberRow) {
+            $userId = (int) $memberRow['user_id'];
+            $groupIdsByUserId[$userId][] = (int) $memberRow['group_id'];
+        }
+    }
+
+    /**
+     * Нулевые счётчики по id.
+     *
+     * @param array<int, int> $groupIds Группы.
+     *
+     * @return array<int, int> Карта.
+     */
+    private function zeroCounts(array $groupIds): array
+    {
+        $countsByGroupId = [];
+        foreach ($groupIds as $groupId) {
+            $countsByGroupId[$groupId] = 0;
+        }
+
+        return $countsByGroupId;
+    }
+
+    /**
+     * Страница group_id членств.
+     *
+     * @param array<int, int> $groupIds Группы.
+     * @param int $offset Сдвиг.
+     *
+     * @return array<int, array<string, mixed>> Строки.
+     */
+    private function countPage(array $groupIds, int $offset): array
+    {
+        return $this->memberRecords->getList(ListQuery::fromOptions([
+            'filter' => ['group_id' => $groupIds],
+            'limit' => 500,
+            'offset' => $offset,
+            'select' => ['group_id'],
+        ]))->rows();
+    }
+
+    /**
+     * Добавляет страницу к COUNT.
+     *
+     * @param array<int, int> $countsByGroupId Счётчики.
+     * @param array<int, array<string, mixed>> $pageRows Строки.
+     *
+     * @return void
+     */
+    private function addCountPage(array &$countsByGroupId, array $pageRows): void
+    {
+        foreach ($pageRows as $memberRow) {
+            $groupId = (int) $memberRow['group_id'];
+            if (isset($countsByGroupId[$groupId])) {
+                $countsByGroupId[$groupId]++;
+            }
+        }
+    }
+
+    /**
+     * Границы страницы.
+     *
+     * @param int $limit Размер.
+     * @param int $offset Сдвиг.
+     *
+     * @return void
+     *
+     * @throws UserInvalidException Если вне диапазона.
+     */
+    private function assertPageBounds(int $limit, int $offset): void
+    {
+        if ($limit < 1 || $limit > 500 || $offset < 0) {
+            throw new UserInvalidException('Member page bounds are invalid');
+        }
     }
 
     /**

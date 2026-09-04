@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Mifrial\Core\Auth\Setup;
 
 use Mifrial\Core\Auth\Dto\AuthSettings;
+use Mifrial\Core\Auth\Repository\GroupSecurityPolicyRepository;
+use Mifrial\Core\Auth\Repository\PasswordPolicyRepository;
 use Mifrial\Core\Auth\Repository\UserIdentityRepository;
 use Mifrial\Core\Auth\Schema\AuthSchema;
 use Mifrial\Core\Kernel\Interface\Service\IModuleSetup;
@@ -14,7 +16,7 @@ use Mifrial\Core\User\Interface\Service\IUserAccounts;
 use Mifrial\Core\User\Interface\Service\IUserGroups;
 
 /**
- * Карты Auth и data-шаг seed групп.
+ * Карты Auth и data-шаги: политика пароля, seed групп.
  */
 final class AuthModuleSetup implements IModuleSetup
 {
@@ -24,6 +26,8 @@ final class AuthModuleSetup implements IModuleSetup
      * @param IUserAccounts $userAccounts Учётки.
      * @param IUserGroups $userGroups Группы.
      * @param UserIdentityRepository $identityRepository Identity.
+     * @param PasswordPolicyRepository $policyRepository Каталог политик.
+     * @param GroupSecurityPolicyRepository $groupPolicyRepository Связи.
      * @param AuthSettings $authSettings Срез auth.
      *
      * @return void
@@ -32,26 +36,28 @@ final class AuthModuleSetup implements IModuleSetup
         private readonly IUserAccounts $userAccounts,
         private readonly IUserGroups $userGroups,
         private readonly UserIdentityRepository $identityRepository,
+        private readonly PasswordPolicyRepository $policyRepository,
+        private readonly GroupSecurityPolicyRepository $groupPolicyRepository,
         private readonly AuthSettings $authSettings,
     ) {
     }
 
     /**
-     * Возвращает две карты Auth.
+     * Возвращает карты Auth.
      *
      * @return array<int, class-string<SmartTableDefinition>> Карты.
      */
-    public function tableClasses(): array
+    public function getTableClasses(): array
     {
-        return AuthSchema::tableClasses();
+        return AuthSchema::getTableClasses();
     }
 
     /**
-     * Seed групп и оператора.
+     * Seed политики, групп и оператора.
      *
      * @return array<int, ISetupStep> Шаги.
      */
-    public function dataSteps(): array
+    public function getDataSteps(): array
     {
         return [
             new BootstrapGroupsStep(
@@ -59,6 +65,11 @@ final class AuthModuleSetup implements IModuleSetup
                 $this->userGroups,
                 $this->identityRepository,
                 $this->authSettings,
+            ),
+            new SeedPasswordPolicyStep(
+                $this->policyRepository,
+                $this->groupPolicyRepository,
+                $this->userGroups,
             ),
         ];
     }

@@ -42,7 +42,7 @@ Effective permissions должны вычисляться на backend. Frontend
 - async-запросы имеют loading/error/retry-состояния;
 - отменяемые операции используют `AbortController`.
 
-Регистрация открыта. Вход принимает login или email и пароль. Reset сначала ищет по login, затем по email; если email отсутствует, пользователь получает понятное сообщение без раскрытия лишних данных. Сессия по умолчанию живёт 24 часа, `remember me` — 30 дней; logout инвалидирует server-side session. Refresh/reset tokens хранятся только в хешированном виде.
+Регистрация открыта. Вход принимает login или email и пароль. Forgot — один action `auth.startPasswordReset` (login, иначе email): в `data` статусы `not_found` / `no_email` / `sent` (+ `login`; email в JSON нет). Публичного `auth.findUser` нет. Завершение сброса — `auth.finalPasswordReset` (`login`, `resetToken`, `newPassword`); автологина нет. Политика пароля — `auth.getPasswordPolicy` (каталог `auth_security_policy`, связь с группой `auth_group_security_policy`; эффективная = наибольшая среди активных групп, иначе default). Сессия по умолчанию живёт 24 часа, `remember me` — 30 дней; logout инвалидирует server-side session. Reset-токен и session token в БД только как хеш.
 
 Регистрация, редактирование профиля, деактивация и guest entry являются отдельными сценариями UI. Их backend-правила должны быть описаны только после сверки с фактическим API.
 
@@ -68,16 +68,17 @@ Route access:
 - `/users` — `user.view`;
 - `/users/new` — `user.create`;
 - `/users/:id` — `user.view`, владелец может видеть свой профиль;
-- `/users/:id/edit` — владелец или `user.edit`;
+- `/users/:id/edit` — владелец или `user.edit` (`auth.user.edit` в meta **не** добавлять);
+- блок пароля на edit — владелец **этой** учётки или ключ `auth.user.edit` (bypass = ключ есть); одного `user.edit` на чужом профиле недостаточно;
 - `/admin/groups` и descendants — соответствующий `user_group.*`;
 - `/admin/keywords` и descendants — соответствующий `keyword.*`;
 - `auth.logout` — authenticated user, POST action из logout confirmation dialog.
 
 ## Поля пользователя
 
-В текущем контуре используются `id`, `login`, `email`, display name fields, registration metadata и состояние активности. Серверная строка `user` — [`user.md`](user.md): нет `super_admin` и `last_login_at`. Фронтовый `super_admin` / `lastLogin` — до групп и Auth считать производными, не колонками профиля.
+В текущем контуре JSON User: `id`, `login`, `email` (`string|null`), display name fields, `registered` / `lastLogin` unix, `bypass`, `permissions`, `groups` (id). Строка `user` — [`user.md`](user.md): нет `super_admin` и `last_login_at`. Ключи API — [`user-plan-05-no-catalog-dump.md`](user-plan-05-no-catalog-dump.md).
 
-Первый администратор создаётся при установке и состоит в bypass-группе; его нельзя снять как последнего члена активных bypass-групп. Новому пользователю по legacy-требованию назначается группа `Игрок`. Backend seed и сессия — [`auth-plan-01-session.md`](auth-plan-01-session.md) (не план User 2).
+Первый администратор создаётся при установке и состоит в bypass-группе; его нельзя снять как последнего члена активных bypass-групп. Новому пользователю при пустом `groups` назначаются группы с `assign_on_register` (seed кладёт флаг на «Игрок»). Backend seed и сессия — [`auth-plan-01-session.md`](auth-plan-01-session.md) (не план User 2).
 
 ## Permission invariants
 
@@ -89,17 +90,17 @@ Route access:
 
 ## Guest
 
-Guest session создаётся без регистрации и пароля, действует до закрытия браузера и не переносит временные просмотры после регистрации. Гость может видеть только публичные pages, games, spaces и chats; не может создавать/редактировать users, rules, characters, games или spaces и не может писать в Chat.
+Гость — сессия Auth **без** `user_id` и без объекта User. На Vue: `session.kind === 'guest'`, `currentUser === null`, флаг `guestActor` (не `User { id: 0 }`). Гость видит публичные pages / games / spaces / chats с `meta.guestAllowed`; не создаёт/не правит users, rules, characters, games, spaces и не пишет в Chat. HTTP без актора на защищённом action → `AUTH_REQUIRED` (400); клиент уводит на `/login` по коду. CSRF 403 не считается выходом.
 
 ## Profile and avatar
 
-Владелец может менять собственные login, password, email, имя, фамилию, nickname и avatar, но не группы. Пользователь с `user.edit` может менять также группы. Заполненный email уникален. Avatar upload принимает PNG/JPG до 2 MB; storage и image processing относятся к `data-model.md` и backend `OPEN`.
+Владелец может менять собственные login, email, имя, фамилию, nickname и avatar, но не группы. Пароль — identity Auth: `auth.setPassword` (на `/users/:id/edit` — отдельный submit плагина Auth, не поле `user.update`). Чужой пароль — ключ **`auth.user.edit`**, не `user.edit`. Пользователь с `user.edit` может менять группы профиля. Заполненный email уникален. Avatar upload принимает PNG/JPG до 2 MB; storage и image processing относятся к `data-model.md` и backend `OPEN`.
 
 ## Permission catalog semantics
 
-`user.*`, `user_group.*`, `keyword.*`, `notification_template.*` — глобальные административные области. `space.*` и `rule.*` применяются в контексте пространства; `game.*` — в контексте игры; `chat.*` — в контексте чата. Группы, keywords и notification templates soft-deactivate вместо физического удаления.
+`user.*`, `user_group.*`, `keyword.*`, `notification_template.*` — глобальные административные области. `auth.user.edit` — смена чужого пароля (категория Auth, не User). `space.*` и `rule.*` применяются в контексте пространства; `game.*` — в контексте игры; `chat.*` — в контексте чата. Группы, keywords и notification templates soft-deactivate вместо физического удаления.
 
-По legacy-требованию новая учётная запись получает группу `Игрок`, а bypass-группа (имя вроде «Администраторы») даёт полный обход ACL, не обязательно полный каталог ключей в строке. Инициализация групп — data-шаг [`auth-plan-01-session.md`](auth-plan-01-session.md).
+По legacy-требованию новая учётная запись получает группы с `assign_on_register` (seed — «Игрок»), а bypass-группа (имя вроде «Администраторы») даёт полный обход ACL, не обязательно полный каталог ключей в строке. Инициализация групп — data-шаг [`auth-plan-01-session.md`](auth-plan-01-session.md).
 
 ## Ordered access algorithm
 

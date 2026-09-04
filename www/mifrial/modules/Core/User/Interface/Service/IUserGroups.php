@@ -2,18 +2,26 @@
 
 declare(strict_types=1);
 
+// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.TooManyPublicMethods
+
 namespace Mifrial\Core\User\Interface\Service;
 
 use Mifrial\Core\User\Dto\GroupPatch;
 use Mifrial\Core\User\Dto\GroupRecord;
+use Mifrial\Core\User\Dto\GroupRecordPage;
+use Mifrial\Core\User\Dto\MemberIdPage;
 use Mifrial\Core\User\Dto\NewGroup;
 use Mifrial\Core\User\Exception\UserDuplicateException;
 use Mifrial\Core\User\Exception\UserInvalidException;
 use Mifrial\Core\User\Exception\UserLastBypassException;
 use Mifrial\Core\User\Exception\UserNotFoundException;
 
+// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.TooManyPublicMethods
+
 /**
  * Фасад групп и членства для соседей: без схемы и без таблиц.
+ *
+ * getAssignOnRegisterIds нужен Auth; отдельный порт раздувал бы границу.
  */
 interface IUserGroups
 {
@@ -27,6 +35,29 @@ interface IUserGroups
      * @throws UserNotFoundException Если группы нет.
      */
     public function getById(int $groupId): GroupRecord;
+
+    /**
+     * Группы по id; нет в БД — нет в результате. Пустой список без запроса.
+     *
+     * @param array<int, int> $groupIds Идентификаторы.
+     *
+     * @return array<int, GroupRecord> Ключ = id.
+     */
+    public function getByIds(array $groupIds): array;
+
+    /**
+     * Страница групп: id asc, COUNT фильтра.
+     *
+     * @param int $limit Размер 1…500.
+     * @param int $offset Сдвиг.
+     * @param string|null $searchQuery Подстрока.
+     * @param bool|null $active Фильтр active.
+     *
+     * @return GroupRecordPage Страница.
+     *
+     * @throws UserInvalidException Если страница недопустима.
+     */
+    public function findPage(int $limit, int $offset, ?string $searchQuery, ?bool $active): GroupRecordPage;
 
     /**
      * Создаёт группу.
@@ -64,7 +95,21 @@ interface IUserGroups
      *
      * @throws UserNotFoundException Если группы нет.
      */
-    public function members(int $groupId): array;
+    public function getMemberIds(int $groupId): array;
+
+    /**
+     * Страница user_id группы: id членства asc, COUNT членств.
+     *
+     * @param int $groupId Группа.
+     * @param int $limit Размер 1…500.
+     * @param int $offset Сдвиг ≥ 0.
+     *
+     * @return MemberIdPage Страница.
+     *
+     * @throws UserNotFoundException Если группы нет.
+     * @throws UserInvalidException Если страница недопустима.
+     */
+    public function findMemberPage(int $groupId, int $limit, int $offset): MemberIdPage;
 
     /**
      * Добавляет членство.
@@ -93,6 +138,19 @@ interface IUserGroups
     public function removeMember(int $userId, int $groupId): void;
 
     /**
+     * Ставит членство пользователя в точности как список id.
+     *
+     * @param int $userId Учётка.
+     * @param array<int, int> $groupIds Id групп.
+     *
+     * @return void
+     *
+     * @throws UserNotFoundException Если нет учётки или группы.
+     * @throws UserLastBypassException Если снять последнее живое bypass-членство.
+     */
+    public function replaceMembership(int $userId, array $groupIds): void;
+
+    /**
      * Id групп пользователя.
      *
      * @param int $userId Учётка.
@@ -101,7 +159,7 @@ interface IUserGroups
      *
      * @throws UserNotFoundException Если учётки нет.
      */
-    public function groupsOfUser(int $userId): array;
+    public function getGroupIdsOfUser(int $userId): array;
 
     /**
      * Ключи прав активных групп без дубля.
@@ -112,7 +170,7 @@ interface IUserGroups
      *
      * @throws UserNotFoundException Если учётки нет.
      */
-    public function permissionKeys(int $userId): array;
+    public function getPermissionKeys(int $userId): array;
 
     /**
      * Есть ли членство в активной bypass-группе.
@@ -133,4 +191,11 @@ interface IUserGroups
      * @return GroupRecord|null Группа или null, если после trim пусто или нет строки.
      */
     public function findByName(string $name): ?GroupRecord;
+
+    /**
+     * Id групп с флагом автовыдачи при register/create с пустым groups.
+     *
+     * @return array<int, int> Id; пусто, если таких групп нет.
+     */
+    public function getAssignOnRegisterIds(): array;
 }

@@ -5,7 +5,7 @@ import router from '@/router';
 import vuetify from '@/plugins/vuetify';
 import './assets/global.css';
 
-import { registerAuthApi } from '@/modules/Core/Auth/init';
+import { registerAuthApi, registerAuthModule } from '@/modules/Core/Auth/init';
 import { registerUserApi, registerGroupApi } from '@/modules/Core/User/init';
 import { registerKeywordApi } from '@/modules/Roleplay/Rule/init';
 import { registerTemplateApi } from '@/modules/Messages/Notifications/init';
@@ -101,6 +101,7 @@ async function bootstrap(): Promise<void> {
   app.use(createPinia());
 
   registerUserModule();
+  registerAuthModule();
   registerRuleModule();
   registerSpaceModule();
   registerGameModule();

@@ -2,12 +2,18 @@ import type { Group } from '@/modules/Core/User/Dto/Group';
 import type { GroupMember } from '@/modules/Core/User/Dto/GroupMember';
 import type { CreateGroupData } from '@/modules/Core/User/Dto/CreateGroupData';
 import type { UpdateGroupData } from '@/modules/Core/User/Dto/UpdateGroupData';
+import type { FindPageQuery } from '@/modules/Core/User/Dto/FindPageQuery';
+import type { FindPageResult } from '@/modules/Core/User/Dto/FindPageResult';
 import { GROUP_PERMISSIONS } from '@/modules/Core/User/Mock/GROUP_PERMISSIONS';
 import { groupPermissions } from '@/modules/Core/User/Mock/groupPermissions';
 import { abortableDelay } from '@/modules/Core/Engine/Mock/abortableDelay';
 import { mockGroupMembers } from '@/modules/Core/User/Mock/mockGroupMembers';
 
 let nextId = 4;
+
+function utcDay(year: number, month: number, day: number): number {
+  return Math.floor(Date.UTC(year, month - 1, day) / 1000);
+}
 
 const groups: Group[] = [
   {
@@ -16,7 +22,9 @@ const groups: Group[] = [
     active: true,
     memberCount: 2,
     permissions: [],
-    createdAt: '2026-01-01T00:00:00Z',
+    createdAt: utcDay(2026, 1, 1),
+    bypass: true,
+    assignOnRegister: false,
   },
   {
     id: 2,
@@ -24,7 +32,9 @@ const groups: Group[] = [
     active: true,
     memberCount: 8,
     permissions: [...GROUP_PERMISSIONS['Игрок']],
-    createdAt: '2026-01-01T00:00:00Z',
+    createdAt: utcDay(2026, 1, 1),
+    bypass: false,
+    assignOnRegister: true,
   },
   {
     id: 3,
@@ -32,19 +42,40 @@ const groups: Group[] = [
     active: true,
     memberCount: 3,
     permissions: [...GROUP_PERMISSIONS['Ведущий']],
-    createdAt: '2026-02-15T00:00:00Z',
+    createdAt: utcDay(2026, 2, 15),
+    bypass: false,
+    assignOnRegister: false,
   },
 ];
+
+export function permissionKeysOfGroupId(groupId: number): string[] {
+  const group = groups.find((entry) => entry.id === groupId);
+  if (!group) return [];
+
+  return resolveGroupPermissions(group);
+}
 
 /** Права «Администраторы» всегда = полный реестр (лениво, из реестра прав). */
 function resolveGroupPermissions(g: Group): string[] {
   return g.name === 'Администраторы' ? groupPermissions(g.name) : [...g.permissions];
 }
 
-export async function fetchGroups(signal?: AbortSignal): Promise<Group[]> {
+export async function mockFindPage(query: FindPageQuery, signal?: AbortSignal): Promise<FindPageResult<Group>> {
   await abortableDelay(300, signal);
+  const needle = query.q?.trim().toLowerCase() ?? '';
+  const matched = groups.filter((group) => {
+    if (query.active !== undefined && group.active !== query.active) return false;
+    if (!needle) return true;
 
-  return groups.map((g) => ({ ...g, permissions: resolveGroupPermissions(g) }));
+    return group.name.toLowerCase().includes(needle);
+  });
+  const offset = query.offset;
+  const items = matched.slice(offset, offset + query.limit).map((group) => ({
+    ...group,
+    permissions: resolveGroupPermissions(group),
+  }));
+
+  return { items, total: matched.length };
 }
 
 export async function fetchGroup(id: number, signal?: AbortSignal): Promise<Group> {
@@ -55,10 +86,17 @@ export async function fetchGroup(id: number, signal?: AbortSignal): Promise<Grou
   return { ...g, permissions: resolveGroupPermissions(g) };
 }
 
-export async function getGroupMembers(_groupId: number, signal?: AbortSignal): Promise<GroupMember[]> {
+export async function getGroupMembers(
+  _groupId: number,
+  query: { limit: number; offset: number },
+  signal?: AbortSignal,
+): Promise<FindPageResult<GroupMember>> {
   await abortableDelay(300, signal);
+  const items = mockGroupMembers.map((m) => ({ ...m }));
+  const offset = Math.max(0, query.offset);
+  const sliced = items.slice(offset, offset + query.limit);
 
-  return mockGroupMembers.map((m) => ({ ...m }));
+  return { items: sliced, total: items.length };
 }
 
 export async function createGroup(data: CreateGroupData, signal?: AbortSignal): Promise<Group> {
@@ -69,7 +107,9 @@ export async function createGroup(data: CreateGroupData, signal?: AbortSignal): 
     active: true,
     memberCount: 0,
     permissions: [...data.permissions],
-    createdAt: new Date().toISOString(),
+    createdAt: Math.floor(Date.now() / 1000),
+    bypass: false,
+    assignOnRegister: false,
   };
   groups.push(group);
 

@@ -1,7 +1,9 @@
 export interface CreateUserData {
   name: string;
   login: string;
-  email: string;
+  email?: string | null;
   password: string;
-  groups: string[];
+  groups: number[];
+  surname?: string;
+  nickname?: string;
 }

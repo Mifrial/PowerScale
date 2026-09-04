@@ -38,10 +38,11 @@ final class AuthSessionTable extends SmartTableDefinition
             IdField::big(),
             new ReferenceField(
                 'user_id',
-                FieldSettings::fromOptions(['required' => true]),
+                FieldSettings::fromOptions(['required' => false]),
                 UserTable::class,
                 'cascade',
             ),
+            new StringField('kind', FieldSettings::fromOptions(['required' => false]), 16),
             new StringField('token_hash', FieldSettings::fromOptions(['required' => true, 'unique' => true])),
             new DateTimeField('expires_at', FieldSettings::fromOptions(['required' => true])),
         ];

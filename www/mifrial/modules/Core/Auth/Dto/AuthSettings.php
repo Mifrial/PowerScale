@@ -18,6 +18,7 @@ final class AuthSettings
      * @param string $operatorPassword Пароль seed-оператора.
      * @param string $operatorName Имя seed-оператора.
      * @param bool $cookieSecure Secure на cookie.
+     * @param bool $exposeResetToken Отдавать сырой reset-токен в JSON.
      *
      * @return void
      */
@@ -26,6 +27,7 @@ final class AuthSettings
         private readonly string $operatorPassword,
         private readonly string $operatorName,
         private readonly bool $cookieSecure,
+        private readonly bool $exposeResetToken,
     ) {
     }
 
@@ -53,6 +55,7 @@ final class AuthSettings
             self::stringField($section, 'operator_password'),
             self::stringField($section, 'operator_name'),
             ($section['cookie_secure'] ?? false) === true,
+            ($section['expose_reset_token'] ?? false) === true,
         );
     }
 
@@ -94,6 +97,16 @@ final class AuthSettings
     public function cookieSecure(): bool
     {
         return $this->cookieSecure;
+    }
+
+    /**
+     * Dev: сырой токен в ответе startPasswordReset.
+     *
+     * @return bool true, если отдавать.
+     */
+    public function exposeResetToken(): bool
+    {
+        return $this->exposeResetToken;
     }
 
     /**

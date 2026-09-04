@@ -50,23 +50,29 @@ final class AuthSessionRepository
     /**
      * Создаёт сессию.
      *
-     * @param int $userId Учётка.
+     * @param int|null $userId Учётка или null у гостя.
      * @param string $tokenHash Хеш токена.
      * @param DateTime $expiresAt Срок.
+     * @param string $kind `user` или `guest`.
      *
      * @return int Новый id.
      *
      * @throws AuthDuplicateException Если хеш занят.
      * @throws AuthInvalidException Если поля недопустимы.
      */
-    public function add(int $userId, string $tokenHash, DateTime $expiresAt): int
+    public function add(?int $userId, string $tokenHash, DateTime $expiresAt, string $kind): int
     {
-        return $this->write(function () use ($userId, $tokenHash, $expiresAt): int {
-            return $this->sessionRecords->add([
-                'user_id' => $userId,
+        return $this->write(function () use ($userId, $tokenHash, $expiresAt, $kind): int {
+            $sessionValues = [
                 'token_hash' => $tokenHash,
                 'expires_at' => $expiresAt,
-            ]);
+                'kind' => $kind,
+            ];
+            if ($userId !== null) {
+                $sessionValues['user_id'] = $userId;
+            }
+
+            return $this->sessionRecords->add($sessionValues);
         });
     }
 
@@ -84,6 +90,30 @@ final class AuthSessionRepository
         }
 
         $this->sessionRecords->delete($sessionId);
+    }
+
+    /**
+     * Сносит сессии учётки, опционально оставляя одну.
+     *
+     * @param int $userId Учётка.
+     * @param int|null $keepSessionId Id сессии, которую не удалять.
+     *
+     * @return void
+     */
+    public function deleteByUserId(int $userId, ?int $keepSessionId = null): void
+    {
+        $listResult = $this->sessionRecords->getList(ListQuery::fromOptions([
+            'filter' => ['user_id' => $userId],
+            'limit' => 500,
+        ]));
+        foreach ($listResult->rows() as $sessionRow) {
+            $sessionId = (int) $sessionRow['id'];
+            if ($keepSessionId !== null && $sessionId === $keepSessionId) {
+                continue;
+            }
+
+            $this->sessionRecords->delete($sessionId);
+        }
     }
 
     /**

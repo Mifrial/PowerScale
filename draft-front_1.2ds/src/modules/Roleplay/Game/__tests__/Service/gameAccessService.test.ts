@@ -53,9 +53,11 @@ function makeUser(overrides: Partial<User> = {}): User {
     name: 'Пользователь',
     login: 'user',
     email: 'user@test.com',
-    groups: ['Игрок'],
-    registered: '01.01.2026',
+    groups: [2],
+    registered: 1767225600,
     active: true,
+    bypass: false,
+    permissions: [],
     ...overrides,
   };
 }
@@ -92,10 +94,8 @@ describe('canViewGame', () => {
     expect(gameAccessService.canViewGame(makeUser({ id: 10 }), game, [10])).toBe(true);
   });
 
-  it('super_admin видит черновик чужой игры', () => {
-    expect(gameAccessService.canViewGame(makeUser({ super_admin: true }), makeGame({ status: 'draft' }), [])).toBe(
-      true,
-    );
+  it('bypass видит черновик чужой игры', () => {
+    expect(gameAccessService.canViewGame(makeUser({ bypass: true }), makeGame({ status: 'draft' }), [])).toBe(true);
   });
 });
 

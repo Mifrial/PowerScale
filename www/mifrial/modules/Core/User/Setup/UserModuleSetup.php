@@ -19,9 +19,9 @@ final class UserModuleSetup implements IModuleSetup
      *
      * @return array<int, class-string<SmartTableDefinition>> Карты.
      */
-    public function tableClasses(): array
+    public function getTableClasses(): array
     {
-        return UserSchema::tableClasses();
+        return UserSchema::getTableClasses();
     }
 
     /**
@@ -29,7 +29,7 @@ final class UserModuleSetup implements IModuleSetup
      *
      * @return array<int, ISetupStep> Пустой список.
      */
-    public function dataSteps(): array
+    public function getDataSteps(): array
     {
         return [];
     }

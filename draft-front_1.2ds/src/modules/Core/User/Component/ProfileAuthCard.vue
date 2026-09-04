@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { User } from '@/modules/Core/User/Dto/User';
+import { formatUnix } from '@/modules/Core/User/Utils/formatUnix';
 
 const props = defineProps<{
   user: User;
@@ -28,16 +29,16 @@ const formEmail = defineModel<string>('formEmail', { required: true });
         <template v-if="editing" #subtitle>
           <v-text-field v-model="formEmail" density="compact" hide-details variant="outlined" />
         </template>
-        <template v-else #subtitle>{{ props.user.email }}</template>
+        <template v-else #subtitle>{{ props.user.email || '—' }}</template>
       </v-list-item>
       <v-divider />
       <v-list-item>
         <template #title>Зарегистрирован</template>
-        <template #subtitle>{{ props.user.registered || '—' }}</template>
+        <template #subtitle>{{ formatUnix(props.user.registered) }}</template>
       </v-list-item>
       <v-list-item>
         <template #title>Последний вход</template>
-        <template #subtitle>{{ props.user.lastLogin || '—' }}</template>
+        <template #subtitle>{{ formatUnix(props.user.lastLogin, true) }}</template>
       </v-list-item>
     </v-list>
   </v-card>

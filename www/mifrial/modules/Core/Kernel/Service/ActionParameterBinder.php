@@ -4,17 +4,20 @@ declare(strict_types=1);
 
 namespace Mifrial\Core\Kernel\Service;
 
-use Mifrial\Core\Kernel\Dto\BoundArgument;
 use Mifrial\Core\Kernel\Dto\ParameterBindResult;
+use Mifrial\Core\Kernel\Interface\Action\IActionInput;
+use ReflectionClass;
 use ReflectionMethod;
 use ReflectionNamedType;
 use ReflectionParameter;
 
 /**
- * Биндинг JSON на параметры handle.
+ * Биндинг JSON на параметры handle или конструктор IActionInput.
  */
 final class ActionParameterBinder
 {
+    private readonly ActionNamedParameterBinder $namedBinder;
+
     /**
      * Создаёт биндер параметров действия.
      *
@@ -23,8 +26,9 @@ final class ActionParameterBinder
      * @return void
      */
     public function __construct(
-        private readonly ActionParameterTypeMatcher $typeMatcher = new ActionParameterTypeMatcher(),
+        ActionParameterTypeMatcher $typeMatcher = new ActionParameterTypeMatcher(),
     ) {
+        $this->namedBinder = new ActionNamedParameterBinder($typeMatcher);
     }
 
     /**
@@ -42,12 +46,16 @@ final class ActionParameterBinder
         }
 
         $payloadMap = $payload ?? [];
-        $unknownName = $this->firstUnknownParameterName($handleMethod, $payloadMap);
-        if ($unknownName !== null) {
-            return ParameterBindResult::fail('INVALID_PARAMS', 'Unknown parameter: ' . $unknownName);
+        $shapeError = $this->actionInputShapeError($handleMethod);
+        if ($shapeError !== null) {
+            return ParameterBindResult::fail('INVALID_PARAMS', $shapeError);
         }
 
-        return $this->bindAllParameters($handleMethod, $payloadMap);
+        $inputClass = $this->soleActionInputClass($handleMethod);
+
+        return $inputClass === null
+            ? $this->namedBinder->bind($handleMethod, $payloadMap)
+            : $this->bindActionInput($handleMethod, $inputClass, $payloadMap);
     }
 
     /**
@@ -71,23 +79,63 @@ final class ActionParameterBinder
     }
 
     /**
-     * Возвращает первое лишнее поле JSON.
+     * Отвергает смесь IActionInput со скалярами и nullable input.
      *
      * @param ReflectionMethod $handleMethod Метод handle.
-     * @param array<mixed> $payloadMap Поля JSON.
      *
-     * @return string|null Имя лишнего поля.
+     * @return string|null Сообщение или null.
      */
-    private function firstUnknownParameterName(ReflectionMethod $handleMethod, array $payloadMap): ?string
+    private function actionInputShapeError(ReflectionMethod $handleMethod): ?string
     {
-        $declaredNames = [];
-        foreach ($handleMethod->getParameters() as $parameter) {
-            $declaredNames[$parameter->getName()] = true;
+        $inputParameter = $this->firstActionInputParameter($handleMethod);
+        if ($inputParameter === null) {
+            return null;
         }
 
-        foreach (array_keys($payloadMap) as $payloadKey) {
-            if (!is_string($payloadKey) || !isset($declaredNames[$payloadKey])) {
-                return is_string($payloadKey) ? $payloadKey : '0';
+        if (count($handleMethod->getParameters()) !== 1
+            || $inputParameter->allowsNull()
+            || $inputParameter->isDefaultValueAvailable()
+        ) {
+            return 'Unsupported parameter: ' . $inputParameter->getName();
+        }
+
+        return null;
+    }
+
+    /**
+     * Class-string единственного IActionInput, если форма верна.
+     *
+     * @param ReflectionMethod $handleMethod Метод handle.
+     *
+     * @return class-string<IActionInput>|null Класс DTO.
+     */
+    private function soleActionInputClass(ReflectionMethod $handleMethod): ?string
+    {
+        $inputParameter = $this->firstActionInputParameter($handleMethod);
+        if ($inputParameter === null || count($handleMethod->getParameters()) !== 1) {
+            return null;
+        }
+
+        $parameterType = $inputParameter->getType();
+        if (!$parameterType instanceof ReflectionNamedType || $parameterType->isBuiltin()) {
+            return null;
+        }
+
+        return $parameterType->getName();
+    }
+
+    /**
+     * Первый параметр-маркер IActionInput.
+     *
+     * @param ReflectionMethod $handleMethod Метод handle.
+     *
+     * @return ReflectionParameter|null Параметр или null.
+     */
+    private function firstActionInputParameter(ReflectionMethod $handleMethod): ?ReflectionParameter
+    {
+        foreach ($handleMethod->getParameters() as $parameter) {
+            if ($this->isActionInputType($parameter)) {
+                return $parameter;
             }
         }
 
@@ -95,117 +143,92 @@ final class ActionParameterBinder
     }
 
     /**
-     * Привязывает все параметры метода.
+     * Параметр — IActionInput.
      *
-     * @param ReflectionMethod $handleMethod Метод handle.
-     * @param array<string, mixed> $payloadMap Поля JSON.
+     * @param ReflectionParameter $parameter Параметр.
      *
-     * @return ParameterBindResult Аргументы или ошибка.
+     * @return bool true, если маркер.
      */
-    private function bindAllParameters(ReflectionMethod $handleMethod, array $payloadMap): ParameterBindResult
-    {
-        $boundArguments = [];
-        foreach ($handleMethod->getParameters() as $parameter) {
-            $boundParameter = $this->bindParameter($parameter, $payloadMap);
-            if (!$boundParameter->isValid) {
-                return ParameterBindResult::fail('INVALID_PARAMS', $boundParameter->errorMessage);
-            }
-
-            $boundArguments[] = $boundParameter->value;
-        }
-
-        return ParameterBindResult::ok($boundArguments);
-    }
-
-    /**
-     * Привязывает один параметр handle.
-     *
-     * @param ReflectionParameter $parameter Параметр метода.
-     * @param array<string, mixed> $payloadMap Поля JSON.
-     *
-     * @return BoundArgument Значение или ошибка.
-     */
-    private function bindParameter(ReflectionParameter $parameter, array $payloadMap): BoundArgument
-    {
-        if ($parameter->isVariadic() || $parameter->isPassedByReference()) {
-            return BoundArgument::invalid('Unsupported parameter: ' . $parameter->getName());
-        }
-
-        if (!array_key_exists($parameter->getName(), $payloadMap)) {
-            return $this->missingParameter($parameter);
-        }
-
-        return $this->typedValue($parameter, $payloadMap[$parameter->getName()]);
-    }
-
-    /**
-     * Обрабатывает отсутствие поля в JSON.
-     *
-     * @param ReflectionParameter $parameter Параметр метода.
-     *
-     * @return BoundArgument Default, либо ошибка отсутствия.
-     */
-    private function missingParameter(ReflectionParameter $parameter): BoundArgument
-    {
-        if ($parameter->isDefaultValueAvailable()) {
-            return BoundArgument::valid($parameter->getDefaultValue());
-        }
-
-        return BoundArgument::invalid('Missing parameter: ' . $parameter->getName());
-    }
-
-    /**
-     * Приводит присутствующее значение к типу параметра.
-     *
-     * @param ReflectionParameter $parameter Параметр метода.
-     * @param mixed $value Значение из JSON.
-     *
-     * @return BoundArgument Приведённое значение или ошибка.
-     */
-    private function typedValue(ReflectionParameter $parameter, mixed $value): BoundArgument
-    {
-        if ($value === null) {
-            return $this->nullValue($parameter);
-        }
-
-        return $this->nonNullValue($parameter, $value);
-    }
-
-    /**
-     * Приводит ненулевое значение к типу параметра.
-     *
-     * @param ReflectionParameter $parameter Параметр метода.
-     * @param mixed $value Значение из JSON.
-     *
-     * @return BoundArgument Приведённое значение или ошибка.
-     */
-    private function nonNullValue(ReflectionParameter $parameter, mixed $value): BoundArgument
+    private function isActionInputType(ReflectionParameter $parameter): bool
     {
         $parameterType = $parameter->getType();
-        if ($parameterType === null) {
-            return BoundArgument::valid($value);
+        if (!$parameterType instanceof ReflectionNamedType || $parameterType->isBuiltin()) {
+            return false;
         }
 
-        if (!$parameterType instanceof ReflectionNamedType) {
-            return BoundArgument::invalid('Unsupported parameter: ' . $parameter->getName());
-        }
-
-        return $this->typeMatcher->match($parameterType, $value, $parameter->getName());
+        return is_a($parameterType->getName(), IActionInput::class, true);
     }
 
     /**
-     * Принимает JSON null только для nullable-параметра.
+     * Гидрирует DTO из плоского JSON.
      *
-     * @param ReflectionParameter $parameter Параметр метода.
+     * @param ReflectionMethod $handleMethod Метод handle.
+     * @param class-string<IActionInput> $inputClass Класс DTO.
+     * @param array<mixed> $payloadMap Поля JSON.
      *
-     * @return BoundArgument null или ошибка.
+     * @return ParameterBindResult Один аргумент DTO.
      */
-    private function nullValue(ReflectionParameter $parameter): BoundArgument
-    {
-        if ($parameter->allowsNull()) {
-            return BoundArgument::valid(null);
+    private function bindActionInput(
+        ReflectionMethod $handleMethod,
+        string $inputClass,
+        array $payloadMap,
+    ): ParameterBindResult {
+        $inputReflection = new ReflectionClass($inputClass);
+        $prepared = $this->preparedInputConstructor($handleMethod, $inputReflection, $payloadMap);
+        if (!$prepared->isOk()) {
+            return $prepared;
         }
 
-        return BoundArgument::invalid('Invalid parameter: ' . $parameter->getName());
+        return ParameterBindResult::ok([$inputReflection->newInstanceArgs($prepared->arguments())]);
+    }
+
+    /**
+     * Конструктор DTO или отказ формы класса.
+     *
+     * @param ReflectionMethod $handleMethod Метод handle.
+     * @param ReflectionClass $inputReflection Класс DTO.
+     * @param array<mixed> $payloadMap Поля JSON.
+     *
+     * @return ParameterBindResult Аргументы ctor или ошибка.
+     */
+    private function preparedInputConstructor(
+        ReflectionMethod $handleMethod,
+        ReflectionClass $inputReflection,
+        array $payloadMap,
+    ): ParameterBindResult {
+        $handleParameter = $handleMethod->getParameters()[0];
+        if (!$inputReflection->isFinal() || !$inputReflection->isInstantiable()) {
+            return ParameterBindResult::fail(
+                'INVALID_PARAMS',
+                'Unsupported parameter: ' . $handleParameter->getName(),
+            );
+        }
+
+        $constructor = $inputReflection->getConstructor();
+        if ($constructor === null) {
+            return $this->emptyConstructorInput($inputReflection, $payloadMap);
+        }
+
+        return $this->namedBinder->bind($constructor, $payloadMap);
+    }
+
+    /**
+     * DTO без конструктора: только пустое тело.
+     *
+     * @param ReflectionClass $inputReflection Класс DTO.
+     * @param array<mixed> $payloadMap Поля JSON.
+     *
+     * @return ParameterBindResult DTO или extra key.
+     */
+    private function emptyConstructorInput(ReflectionClass $inputReflection, array $payloadMap): ParameterBindResult
+    {
+        if ($payloadMap === []) {
+            return ParameterBindResult::ok([]);
+        }
+
+        $payloadKey = array_key_first($payloadMap);
+        $unknownName = is_string($payloadKey) ? $payloadKey : '0';
+
+        return ParameterBindResult::fail('INVALID_PARAMS', 'Unknown parameter: ' . $unknownName);
     }
 }

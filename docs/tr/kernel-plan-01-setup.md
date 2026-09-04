@@ -63,32 +63,32 @@ HTTP `loadCore()` / ленивые слоты **не** меняются: зап�
 
 ### 4. Шаги данных
 
-После **всей** схемы. Порядок data-шагов: модули **отсортированы по `Group/Name`**, не `scandir`; внутри модуля — порядок `dataSteps()`. Это не граф FK. Зависимость двух шагов разных модулей в v1 не моделируем (шаги с общей зависимостью — в одном модуле).
+После **всей** схемы. Порядок data-шагов: модули **отсортированы по `Group/Name`**, не `scandir`; внутри модуля — порядок `getDataSteps()`. Это не граф FK. Зависимость двух шагов разных модулей в v1 не моделируем (шаги с общей зависимостью — в одном модуле).
 
 Модуль отдаёт шаги с стабильным id (`Core/User:seed.bypass-group`). Kernel: нет строки в реестре → `run()` → при успехе записать id. Повтор CLI не дублирует seed. Упал `run()` до записи реестра — шаг можно повторить: **идемпотентность на шаге** (или транзакция `run`+реестр, OPEN). Упал DDL в середине графа — повтор CLI: уже созданные столы идут в `updateTable`.
 
-`setup` в config: class-string без аргументов **или** closure локатора (шаги, которым нужны порты). `tableClasses()` не зовёт БД.
+`setup` в config: class-string без аргументов **или** closure локатора (шаги, которым нужны порты). `getTableClasses()` не зовёт БД.
 
 DDL MySQL не в одной транзакции (неявный commit). Шаг данных — одна транзакция OPEN (можно без неё в v1, как unique login).
 
-Содержимое seed «Администраторы» / «Игрок» — **не этот заход** (Auth / продуктовый seed). Инфраструктура списка шагов и реестра — да, с фикстурой в тесте Kernel. User в этом заходе: `tableClasses()` + пустой список data-шагов (или без шагов).
+Содержимое seed «Администраторы» / «Игрок» — **не этот заход** (Auth / продуктовый seed). Инфраструктура списка шагов и реестра — да, с фикстурой в тесте Kernel. User в этом заходе: `getTableClasses()` + пустой список data-шагов (или без шагов).
 
 Гонка двух CLI — как unique login: без распределённой блокировки в v1; unique на `step_key` → второй проигрывает.
 
 ### 5. `UserSchema::install()`
 
-Не удалять. Тесты User по-прежнему ставят тройку столов сами. `IModuleSetup::tableClasses()` User — **те же** три class-string, что `UserSchema` (не второй список). `install()` может гонять их в зашитом порядке для теста; CLI берёт граф.
+Не удалять. Тесты User по-прежнему ставят тройку столов сами. `IModuleSetup::getTableClasses()` User — **те же** три class-string, что `UserSchema` (не второй список). `install()` может гонять их в зашитом порядке для теста; CLI берёт граф.
 
 ### 6. Meta словаря
 
-`st_meta_table` / `st_meta_field` — PHP-классы, `table_id` → meta table. SmartTable **обязан** отдать их в `tableClasses()` (иначе CLI не создаст словарь). `installMeta()` каталога — тот же apply двух карт; тесты словаря могут звать его дальше. CLI не зовёт `installMeta()` отдельно от графа. Runtime-строки словаря по-прежнему не git.
+`st_meta_table` / `st_meta_field` — PHP-классы, `table_id` → meta table. SmartTable **обязан** отдать их в `getTableClasses()` (иначе CLI не создаст словарь). `installMeta()` каталога — тот же apply двух карт; тесты словаря могут звать его дальше. CLI не зовёт `installMeta()` отдельно от графа. Runtime-строки словаря по-прежнему не git.
 
 ## Контракт (черновик)
 
 ```text
 IModuleSetup
-  tableClasses(): class-string<SmartTableDefinition>[]
-  dataSteps(): ISetupStep[]     # можно [] 
+  getTableClasses(): class-string<SmartTableDefinition>[]
+  getDataSteps(): ISetupStep[]     # можно [] 
 
 ISetupStep
   id(): string
@@ -102,7 +102,7 @@ CLI: `www/mifrial/bin/setup.php`. Свой boot (все модули диска,
 ## Todo
 
 - [x] **docs-terms** — канон в этом файле; план 9 «не в ST»; TR/roadmap/architecture. Хвост: «журнал наката» в старых планах 3/10 как история.
-- [x] **contract** — `IModuleSetup` / `ISetupStep`; `setup` в `module.config`; не порт контейнера соседа; factory без БД для `tableClasses()`.
+- [x] **contract** — `IModuleSetup` / `ISetupStep`; `setup` в `module.config`; не порт контейнера соседа; factory без БД для `getTableClasses()`.
 - [x] **graph** — диск всех групп; topo; дубль имени / цикл → ошибка; self-ref ок; `none` не ребро; apply create/update.
 - [x] **boot** — CLI-boot без HTTP freeze; не `ApplicationFactory::boot()` как есть.
 - [x] **registry** — карта Kernel для реестра шагов; в графе.
@@ -115,4 +115,4 @@ CLI: `www/mifrial/bin/setup.php`. Свой boot (все модули диска,
 
 ## Следующий заход после кода
 
-Auth 1 — [`auth-plan-01-session.md`](auth-plan-01-session.md) (сессия + seed групп). Журнал событий — когда будет UI ленты.
+План Kernel 2 сделан: [`kernel-plan-02-action-input.md`](kernel-plan-02-action-input.md). Журнал событий — когда будет UI ленты.

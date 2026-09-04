@@ -92,7 +92,7 @@ async function openAddDialog(): Promise<void> {
   addOpen.value = true;
   newUserId.value = null;
   newRole.value = 'player';
-  userOptions.value = await getUserApi().getUsers();
+  userOptions.value = (await getUserApi().findPage({ limit: 50, offset: 0 })).items;
 }
 
 function addMember(): void {

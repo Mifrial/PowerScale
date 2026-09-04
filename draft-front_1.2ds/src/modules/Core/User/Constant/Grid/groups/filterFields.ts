@@ -1,7 +1,7 @@
 import type { FilterField } from '@/modules/Core/UI/Dto/Filter/Field';
 
 export const filterFields: FilterField[] = [
-  { key: 'name', label: 'Название', type: 'string' },
+  { key: 'q', label: 'Поиск', type: 'string' },
   {
     key: 'active',
     label: 'Статус',

@@ -1,5 +1,16 @@
-import type { RouteRecordRaw } from 'vue-router';
+import type { RouteLocationNormalizedLoaded, RouteRecordRaw } from 'vue-router';
 import { useGroupStore } from '@/modules/Core/User/Store/groups';
+import { useUserStore } from '@/modules/Core/User/Store/users';
+import { displayName } from '@/modules/Core/User/Utils/displayName';
+
+function userProfileCrumbTitle(to: RouteLocationNormalizedLoaded): string {
+  const store = useUserStore();
+  const id = Number(to.params.id);
+  const user =
+    store.profileUser?.id === id ? store.profileUser : store.users.find((entry) => entry.id === id);
+
+  return user ? displayName(user.name, user.surname, user.login) : 'Профиль';
+}
 
 export const routes: RouteRecordRaw[] = [
   {
@@ -25,13 +36,20 @@ export const routes: RouteRecordRaw[] = [
         path: ':id',
         name: 'UserProfile',
         component: () => import('@/modules/Core/User/Page/UserProfilePage.vue'),
-        meta: { title: 'Пользователь', crumb: () => [{ title: 'Профиль' }] },
+        meta: { title: 'Пользователь', crumb: (to) => [{ title: userProfileCrumbTitle(to) }] },
       },
       {
         path: ':id/edit',
         name: 'UserEdit',
         component: () => import('@/modules/Core/User/Page/UserEditPage.vue'),
-        meta: { title: 'Редактирование', crumb: () => [{ title: 'Редактирование' }], requiresAny: ['user.edit'] },
+        meta: {
+          title: 'Редактирование',
+          crumb: (to) => [
+            { title: userProfileCrumbTitle(to), to: `/users/${String(to.params.id)}` },
+            { title: 'Редактирование' },
+          ],
+          requiresAny: ['user.edit'],
+        },
       },
     ],
   },

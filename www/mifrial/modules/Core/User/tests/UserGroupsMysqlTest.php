@@ -19,6 +19,7 @@ use Mifrial\Core\User\Dto\NewUser;
 use Mifrial\Core\User\Exception\UserDuplicateException;
 use Mifrial\Core\User\Exception\UserInvalidException;
 use Mifrial\Core\User\Exception\UserLastBypassException;
+use Mifrial\Core\User\Exception\UserNotFoundException;
 use Mifrial\Core\User\Interface\Container\IUserContainer;
 use Mifrial\Core\User\Interface\Service\IUserAccounts;
 use Mifrial\Core\User\Interface\Service\IUserGroups;
@@ -91,15 +92,61 @@ final class UserGroupsMysqlTest extends TestCase
         ]));
         $userGroups->addMember($userId, $firstId);
         $userGroups->addMember($userId, $secondId);
-        $keys = $userGroups->permissionKeys($userId);
+        $keys = $userGroups->getPermissionKeys($userId);
         sort($keys);
         self::assertSame(['chat.message', 'user.edit', 'user.view'], $keys);
         $userGroups->update($secondId, (new GroupInputNormalizer())->patch(['active' => false]));
-        $after = $userGroups->permissionKeys($userId);
+        $after = $userGroups->getPermissionKeys($userId);
         sort($after);
         self::assertSame(['user.edit', 'user.view'], $after);
-        self::assertContains($userId, $userGroups->members($secondId));
+        self::assertContains($userId, $userGroups->getMemberIds($secondId));
         self::assertFalse($userGroups->hasBypass($userId));
+        $byIds = $userGroups->getByIds([$secondId, $firstId, $firstId]);
+        self::assertCount(2, $byIds);
+        self::assertSame('One', $byIds[$firstId]->getName());
+        $listedGroups = $userGroups->findPage(500, 0, null, null)->getRecords();
+        self::assertCount(2, $listedGroups);
+        self::assertSame($firstId, $listedGroups[0]->getId());
+        $userGroups->replaceMembership($userId, [$firstId, $firstId]);
+        self::assertSame([$firstId], $userGroups->getGroupIdsOfUser($userId));
+    }
+
+    /**
+     * Страница членов: порядок id членства, bounds, нет группы.
+     *
+     * @return void
+     */
+    public function testFindMemberPage(): void
+    {
+        $userGroups = $this->userGroups();
+        $firstId = $this->userAccounts()->add($this->newUser(['login' => 'aa', 'name' => 'Aa']));
+        $secondId = $this->userAccounts()->add($this->newUser(['login' => 'bb', 'name' => 'Bb']));
+        $groupId = $userGroups->add($this->newGroup(['name' => 'Crew']));
+        $emptyId = $userGroups->add($this->newGroup(['name' => 'Empty']));
+        $userGroups->addMember($firstId, $groupId);
+        $userGroups->addMember($secondId, $groupId);
+        $firstPage = $userGroups->findMemberPage($groupId, 1, 0);
+        self::assertSame([$firstId], $firstPage->getIds());
+        self::assertSame(2, $firstPage->getTotal());
+        $secondPage = $userGroups->findMemberPage($groupId, 1, 1);
+        self::assertSame([$secondId], $secondPage->getIds());
+        self::assertSame(2, $secondPage->getTotal());
+        $emptyPage = $userGroups->findMemberPage($emptyId, 10, 0);
+        self::assertSame([], $emptyPage->getIds());
+        self::assertSame(0, $emptyPage->getTotal());
+        try {
+            $userGroups->findMemberPage(9_999_999, 10, 0);
+            self::fail('missing group');
+        } catch (UserNotFoundException $exception) {
+            self::assertSame('USER_NOT_FOUND', $exception->getErrorCode());
+        }
+
+        try {
+            $userGroups->findMemberPage($groupId, 0, 0);
+            self::fail('limit 0');
+        } catch (UserInvalidException $exception) {
+            self::assertSame('USER_INVALID', $exception->getErrorCode());
+        }
     }
 
     /**
@@ -138,9 +185,28 @@ final class UserGroupsMysqlTest extends TestCase
         $userGroups = $this->userGroups();
         $groupId = $userGroups->add($this->newGroup(['name' => 'Игрок']));
 
-        self::assertSame($groupId, $userGroups->findByName(' Игрок ')?->values()['id']);
+        self::assertSame($groupId, $userGroups->findByName(' Игрок ')?->getId());
         self::assertNull($userGroups->findByName('missing'));
         self::assertNull($userGroups->findByName('  '));
+    }
+
+    /**
+     * Автовыдача: default false, флаг даёт id.
+     *
+     * @return void
+     */
+    public function testAssignOnRegisterIds(): void
+    {
+        $userGroups = $this->userGroups();
+        $userGroups->add($this->newGroup(['name' => 'Игрок']));
+        self::assertSame([], $userGroups->getAssignOnRegisterIds());
+        $guestId = $userGroups->add($this->newGroup([
+            'name' => 'Гость',
+            'assign_on_register' => true,
+        ]));
+        self::assertSame([$guestId], $userGroups->getAssignOnRegisterIds());
+        $userGroups->update($guestId, (new GroupInputNormalizer())->patch(['assign_on_register' => false]));
+        self::assertSame([], $userGroups->getAssignOnRegisterIds());
     }
 
     /**
@@ -163,7 +229,7 @@ final class UserGroupsMysqlTest extends TestCase
             self::assertSame('USER_LAST_BYPASS', $exception->getErrorCode());
         }
 
-        self::assertSame([$firstUser], $userGroups->members($groupId));
+        self::assertSame([$firstUser], $userGroups->getMemberIds($groupId));
         try {
             $userGroups->update($groupId, (new GroupInputNormalizer())->patch(['bypass' => false]));
             self::fail('clear last bypass flag must fail');
@@ -171,7 +237,7 @@ final class UserGroupsMysqlTest extends TestCase
             self::assertSame('USER_LAST_BYPASS', $exception->getErrorCode());
         }
 
-        self::assertTrue($userGroups->getById($groupId)->values()['bypass']);
+        self::assertTrue($userGroups->getById($groupId)->isBypass());
         try {
             $userGroups->update($groupId, (new GroupInputNormalizer())->patch(['active' => false]));
             self::fail('deactivate last bypass group must fail');
@@ -181,7 +247,7 @@ final class UserGroupsMysqlTest extends TestCase
 
         $userGroups->addMember($secondUser, $groupId);
         $userGroups->removeMember($firstUser, $groupId);
-        self::assertSame([$secondUser], $userGroups->members($groupId));
+        self::assertSame([$secondUser], $userGroups->getMemberIds($groupId));
         self::assertTrue($userGroups->hasBypass($secondUser));
         self::assertFalse($userGroups->hasBypass($firstUser));
     }
@@ -215,7 +281,7 @@ final class UserGroupsMysqlTest extends TestCase
         $userGroups->update($otherId, (new GroupInputNormalizer())->patch(['bypass' => true]));
         $userGroups->addMember($userId, $otherId);
         self::assertTrue($userGroups->hasBypass($userId));
-        self::assertSame([], $userGroups->permissionKeys($userId));
+        self::assertSame([], $userGroups->getPermissionKeys($userId));
     }
 
     /**

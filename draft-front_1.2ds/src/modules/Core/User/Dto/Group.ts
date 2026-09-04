@@ -4,5 +4,7 @@ export interface Group {
   active: boolean;
   memberCount: number;
   permissions: string[];
-  createdAt?: string;
+  createdAt: number;
+  bypass: boolean;
+  assignOnRegister: boolean;
 }

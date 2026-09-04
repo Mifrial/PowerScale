@@ -45,7 +45,7 @@ final class SmartTableGatewayPortFactory
         return (new SmartTableSupport(
             $databaseConnection,
             $runtimeConfig->cache(),
-            $runtimeConfig->debug(),
+            $runtimeConfig->isDebug(),
         ))->makeGateway();
     }
 }
