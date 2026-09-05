@@ -26,13 +26,35 @@ final class ListQueryTest extends TestCase
     }
 
     /**
-     * Отказывает без limit, с 0, 501 и неизвестным префиксом.
+     * Потолок getList — 10000; 501 допустим.
+     *
+     * @return void
+     */
+    public function testFromOptionsAcceptsLimit501AndMax(): void
+    {
+        self::assertSame(501, ListQuery::fromOptions(['limit' => 501])->limit());
+        self::assertSame(
+            ListQuery::MAX_LIMIT,
+            ListQuery::fromOptions(['limit' => ListQuery::MAX_LIMIT])->limit(),
+        );
+        $direct = new ListQuery(null, [], 500, 0, false, null);
+        self::assertSame(500, $direct->limit());
+    }
+
+    /**
+     * Отказывает без limit, с 0, 10001 и неизвестным префиксом.
      *
      * @return void
      */
     public function testFromOptionsRejectsLimitAndPrefix(): void
     {
-        foreach ([[], ['limit' => 0], ['limit' => 501], ['limit' => 10, 'filter' => ['~title' => 'a']]] as $options) {
+        $invalidOptions = [
+            [],
+            ['limit' => 0],
+            ['limit' => ListQuery::MAX_LIMIT + 1],
+            ['limit' => 10, 'filter' => ['~title' => 'a']],
+        ];
+        foreach ($invalidOptions as $options) {
             try {
                 ListQuery::fromOptions($options);
                 self::fail('invalid options must fail');
@@ -69,13 +91,15 @@ final class ListQueryTest extends TestCase
      *
      * @return void
      */
-    public function testConstructorRejectsLimitZero(): void
+    public function testConstructorRejectsLimitZeroAndAboveMax(): void
     {
-        try {
-            new ListQuery(null, [], 0, 0, false, null);
-            self::fail('limit 0 must fail');
-        } catch (MapInvalidException $exception) {
-            self::assertSame('MAP_INVALID', $exception->getErrorCode());
+        foreach ([0, ListQuery::MAX_LIMIT + 1] as $limit) {
+            try {
+                new ListQuery(null, [], $limit, 0, false, null);
+                self::fail('limit out of range must fail');
+            } catch (MapInvalidException $exception) {
+                self::assertSame('MAP_INVALID', $exception->getErrorCode());
+            }
         }
     }
 }

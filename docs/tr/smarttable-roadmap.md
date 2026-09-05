@@ -2,7 +2,7 @@
 
 **Статус:** план реализации, 2026-09-02. Канон требований — [`smarttable.md`](smarttable.md). Каждый пункт — отдельный заход (чат/PR), не один мега-diff.
 
-Порядок строгий сверху вниз, кроме явно параллельных. Versioned и админка не стартуют раньше своих ворот.
+Порядок строгий сверху вниз, кроме явно параллельных. Версионность — не этот модуль ([`versioning-roadmap.md`](versioning-roadmap.md)). Админка не стартует раньше Auth.
 
 ## 0. Сделано
 
@@ -62,7 +62,7 @@ Multiple — сделано: [`smarttable-plan-05-multiple.md`](smarttable-plan-
 
 ## 10. Ворота Basic — сделано
 
-Подробно: [`smarttable-plan-10-gates.md`](smarttable-plan-10-gates.md). Чеклист [`smarttable.md`](smarttable.md) v1 закрыт. Нет UI и Versioned-кода. Дальше — [`auth-plan-01-session.md`](auth-plan-01-session.md) или план 11.
+Подробно: [`smarttable-plan-10-gates.md`](smarttable-plan-10-gates.md). Чеклист [`smarttable.md`](smarttable.md) v1 закрыт. Нет UI и `Versioned*`-кода в ST. Дальше — Auth-хвосты или [`versioning-plan-01.md`](versioning-plan-01.md).
 
 **После ворот (не отдельный пункт нарезки):** handle разрезан. `IOpenedTable` — сумка `schema()` / `records()`, не 9–10 CRUD-методов на одном типе. Закрытые планы 3–8 и «9 public» в плане 10 описывают API той недели; текущий контракт — [`smarttable.md`](smarttable.md). `getUnique` / `getFirst` — оболочка над `getList` + TTL.
 
@@ -86,11 +86,21 @@ Multiple — сделано: [`smarttable-plan-05-multiple.md`](smarttable-plan-
 
 Подробно: [`smarttable-plan-17-aggregate.md`](smarttable-plan-17-aggregate.md). `IOpenedRecords::aggregate`: `GROUP BY` своих колонок + `CountField` / `MaxField` / `MinField` / `SumField`. Фильтр — `FilterGroup` getList. JOIN в FROM нет. Порог с другой карты — `SubqueryValue`, не JOIN. Не слот `getList`. Блокер Chat 5 (unread/preview). Хвост User — [`user-plan-08-member-count-aggregate.md`](user-plan-08-member-count-aggregate.md). **Не** план 11.
 
-## 11. VersionedSmartTable
+## 18. Срез 10k и addMany — сделано
 
-- Только после плана 10.
-- Оболочка: ревизия, чтение среза, copy-on-write.
-- Без админки правил.
+Подробно: [`smarttable-plan-18-slice-batch.md`](smarttable-plan-18-slice-batch.md). Потолок `getList` 10000; `addMany`; aggregate 500. Блокер [`versioning-plan-01.md`](versioning-plan-01.md). Не `getByIds`. Не Versioned-оболочка. mfv в addMany — не здесь (план 19).
+
+## 19. addMany пишет mfv — сделано
+
+Подробно: [`smarttable-plan-19-addmany-mfv.md`](smarttable-plan-19-addmany-mfv.md). Sidecar как у `add`; вложенная `transaction()` — join, не `TRANSACTION_OPEN`. Блокер Rule 1. Не новый тип поля.
+
+## 20. Тип `linkset` — сделано
+
+Подробно: [`smarttable-plan-20-linkset.md`](smarttable-plan-20-linkset.md). `LinkSetField`: 1:N связей в mfv. Не hop. `reference` остаётся N:1 hop. После 19. Блокер Rule 1 (`keywords`).
+
+## 11. VersionedSmartTable — снято
+
+Не оболочка ST. Модуль **`Versioning/Space`**: [`versioning-roadmap.md`](versioning-roadmap.md), первый заход [`versioning-plan-01.md`](versioning-plan-01.md). `DEC-080`.
 
 ## 12. Админка SmartTables (фронт)
 
@@ -99,6 +109,9 @@ Multiple — сделано: [`smarttable-plan-05-multiple.md`](smarttable-plan-
 
 ## Параллелить нельзя
 
-- 11 с 3–8.
+- 18 с незакрытым Basic (ворота 10).
+- Versioning 1 без 18.
+- 19 без закрытого 18 (addMany уже есть).
+- 20 без 19 (linkset пишется через addMany+mfv).
 - 12 с отсутствием Auth.
 - Прикладные репозитории с обходом SmartTable «на PDO, потом заменим».

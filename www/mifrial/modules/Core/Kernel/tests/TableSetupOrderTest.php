@@ -12,6 +12,9 @@ use Mifrial\Core\Kernel\Tests\Fixture\DupNameAlphaTable;
 use Mifrial\Core\Kernel\Tests\Fixture\DupNameBetaTable;
 use Mifrial\Core\Kernel\Tests\Fixture\NoneChildTable;
 use Mifrial\Core\Kernel\Tests\Fixture\NoneParentTable;
+use Mifrial\Core\SmartTable\Tests\Fixture\LinkSetNoneOwnerTable;
+use Mifrial\Core\SmartTable\Tests\Fixture\LinkSetOwnerTable;
+use Mifrial\Core\SmartTable\Tests\Fixture\ParentRefTable;
 use Mifrial\Core\SmartTable\Tests\Fixture\PathChildTable;
 use Mifrial\Core\SmartTable\Tests\Fixture\PathOwnerTable;
 use Mifrial\Core\SmartTable\Tests\Fixture\PathParentTable;
@@ -67,6 +70,44 @@ final class TableSetupOrderTest extends TestCase
         $ordered = (new TableSetupOrder())->order([SelfRefTable::class]);
 
         self::assertSame('st_ref_self', $ordered[0]->getName());
+    }
+
+    /**
+     * linkset restrict: цель раньше владельца, даже если владелец в списке первым.
+     *
+     * @return void
+     */
+    public function testLinksetRestrictCreatesTargetFirst(): void
+    {
+        $ordered = (new TableSetupOrder())->order([
+            LinkSetOwnerTable::class,
+            ParentRefTable::class,
+        ]);
+        $names = [];
+        foreach ($ordered as $definition) {
+            $names[] = $definition->getName();
+        }
+
+        self::assertSame(['st_ref_parent', 'st_linkset_owner'], $names);
+    }
+
+    /**
+     * linkset none не даёт ребра: владелец может быть раньше цели.
+     *
+     * @return void
+     */
+    public function testLinksetNoneOnDeleteIsNotAnEdge(): void
+    {
+        $ordered = (new TableSetupOrder())->order([
+            LinkSetNoneOwnerTable::class,
+            ParentRefTable::class,
+        ]);
+        $names = [];
+        foreach ($ordered as $definition) {
+            $names[] = $definition->getName();
+        }
+
+        self::assertSame(['st_linkset_owner', 'st_ref_parent'], $names);
     }
 
     /**

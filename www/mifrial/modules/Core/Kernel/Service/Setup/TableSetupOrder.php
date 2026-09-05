@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace Mifrial\Core\Kernel\Service\Setup;
 
 use Mifrial\Core\Kernel\Exception\Setup\SetupException;
+use Mifrial\Core\SmartTable\Field\BaseField;
+use Mifrial\Core\SmartTable\Field\LinkSetField;
 use Mifrial\Core\SmartTable\Field\ReferenceField;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
 use ReflectionClass;
 
 /**
- * Топологический порядок карт по FK reference → физ. имя.
+ * Топологический порядок карт по FK reference и linkset → физ. имя.
  */
 final class TableSetupOrder
 {
@@ -141,14 +143,35 @@ final class TableSetupOrder
     {
         $parentNames = [];
         foreach ($definition->getMap() as $field) {
-            if (!$field instanceof ReferenceField || $field->onDelete() === 'none') {
+            $parentName = $this->setupForeignTarget($field);
+            if ($parentName === null) {
                 continue;
             }
 
-            $parentNames[] = $field->targetTableName();
+            $parentNames[] = $parentName;
         }
 
         return $parentNames;
+    }
+
+    /**
+     * Цель FK, который должен стоять раньше в DDL.
+     *
+     * @param BaseField $field Поле карты.
+     *
+     * @return string|null Физ. имя цели или null.
+     */
+    private function setupForeignTarget(BaseField $field): ?string
+    {
+        if (!($field instanceof ReferenceField || $field instanceof LinkSetField)) {
+            return null;
+        }
+
+        if ($field->onDelete() === 'none') {
+            return null;
+        }
+
+        return $field->targetTableName();
     }
 
     /**

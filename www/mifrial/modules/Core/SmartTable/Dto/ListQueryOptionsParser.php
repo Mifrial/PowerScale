@@ -111,20 +111,17 @@ final class ListQueryOptionsParser
      *
      * @return int Limit.
      *
-     * @throws MapInvalidException Если limit не 1..500.
+     * @throws MapInvalidException Если limit не 1..10000.
      */
     private function parseLimit(array $options): int
     {
         if (!array_key_exists('limit', $options) || !is_int($options['limit'])) {
-            throw new MapInvalidException('List query requires limit 1..500');
+            throw new MapInvalidException('List query requires limit 1..10000');
         }
 
-        $limit = $options['limit'];
-        if ($limit < 1 || $limit > 500) {
-            throw new MapInvalidException('List query requires limit 1..500');
-        }
+        ListQuery::assertPageLimit($options['limit']);
 
-        return $limit;
+        return $options['limit'];
     }
 
     /**

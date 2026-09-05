@@ -43,6 +43,24 @@ interface IOpenedRecords
     public function add(array $values): int;
 
     /**
+     * Вставляет пачку строк и возвращает id в порядке входа.
+     *
+     * @param array<int, array<string, mixed>> $rows Список карт без id.
+     *
+     * @return array<int, int> Новые id.
+     *
+     * @throws MapInvalidException Если пачка пуста, не list, длиннее 10000, ряд не карта или есть multiple.
+     * @throws FieldInvalidException Если значение не прошло cast.
+     * @throws FieldRequiredException Если required нарушен.
+     * @throws TableMissingException Если таблицы нет.
+     * @throws SchemaMismatchException Если колонки нет.
+     * @throws RowWriteFailedException Если insert не дал id.
+     * @throws ReferenceConstraintException Если нет родителя.
+     * @throws UniqueConstraintException Если unique нарушен.
+     */
+    public function addMany(array $rows): array;
+
+    /**
      * Обновляет переданные поля строки.
      *
      * @param int $rowId Идентификатор.
@@ -86,7 +104,7 @@ interface IOpenedRecords
      *
      * @throws TableMissingException Если таблицы нет.
      * @throws SchemaMismatchException Если колонки карты нет.
-     * @throws MapInvalidException Если TTL ≤ 0.
+     * @throws MapInvalidException Если TTL вне 1..2592000.
      */
     public function getById(int $rowId, ?int $cacheTtl = null): ?array;
 
@@ -98,7 +116,7 @@ interface IOpenedRecords
      *
      * @return ListResult Строки и optional total.
      *
-     * @throws MapInvalidException Если запрос не сходится с картой или TTL ≤ 0.
+     * @throws MapInvalidException Если запрос не сходится с картой или TTL вне 1..2592000.
      * @throws FieldInvalidException Если операнд фильтра не прошёл cast.
      * @throws FieldMultipleUnsupportedException Если фильтр/sort по multiple или @.
      * @throws TableMissingException Если таблицы нет.
@@ -115,7 +133,7 @@ interface IOpenedRecords
      *
      * @return array<string, mixed>|null Строка или null, если нет совпадений.
      *
-     * @throws MapInvalidException Если запрос непригоден, TTL ≤ 0 или совпадений больше одного.
+     * @throws MapInvalidException Если запрос непригоден, TTL вне 1..2592000 или совпадений больше одного.
      * @throws FieldInvalidException Если операнд фильтра не прошёл cast.
      * @throws FieldMultipleUnsupportedException Если фильтр/sort по multiple или @.
      * @throws TableMissingException Если таблицы нет.
@@ -132,7 +150,7 @@ interface IOpenedRecords
      *
      * @return array<string, mixed>|null Строка или null.
      *
-     * @throws MapInvalidException Если запрос непригоден или TTL ≤ 0.
+     * @throws MapInvalidException Если запрос непригоден или TTL вне 1..2592000.
      * @throws FieldInvalidException Если операнд фильтра не прошёл cast.
      * @throws FieldMultipleUnsupportedException Если фильтр/sort по multiple или @.
      * @throws TableMissingException Если таблицы нет.
@@ -149,7 +167,7 @@ interface IOpenedRecords
      *
      * @return AggregateResult Ряды групп.
      *
-     * @throws MapInvalidException Если запрос не сходится с картой или TTL ≤ 0.
+     * @throws MapInvalidException Если запрос не сходится с картой или TTL вне 1..2592000.
      * @throws FieldInvalidException Если операнд фильтра не прошёл cast.
      * @throws FieldMultipleUnsupportedException Если фильтр по multiple или @.
      * @throws TableMissingException Если таблицы нет.

@@ -54,7 +54,9 @@
 - `DEC-074` — параметры action: JSON-объект биндится на имена `handle` **или** на конструктор единственного `IActionInput`; лишние поля и несовпадение типа — `INVALID_PARAMS`. Owner [`architecture.md`](architecture.md).
 - `DEC-075` — Action возвращает данные, не `ActionResponse`; доменная ошибка — `ActionException` с кодом. Owner [`architecture.md`](architecture.md).
 - `DEC-076` — Kernel: неймспейс `Mifrial\Core\Kernel`, CSRF double-submit, HTTP-статусы, `debug`+trace, `ILogger`, свои исключения, `ApplicationFactory`. Owner [`architecture.md`](architecture.md).
-- `DEC-078` — SmartTable: `illuminate/database` без Eloquent и без Laravel-приложения; Basic затем Versioned; админка после Auth; тегированный кэш и runtime-DDL в v1. Owner [`smarttable.md`](smarttable.md).
+- `DEC-078` — SmartTable: `illuminate/database` без Eloquent и без Laravel-приложения; Basic; админка после Auth; тегированный кэш и runtime-DDL в v1. Версионность вынесена в `DEC-080`. Owner [`smarttable.md`](smarttable.md).
+- `DEC-080` — версионность: ленивый `Versioning/Space` (не Core, не оболочка ST). Один репозиторий — свои пространство-время; состав ревизии материализован; срез без нового SQL. `Roleplay/RuleSpace` — оператор правил. Связка нескольких репозиториев — выше. Owner [`versioning-roadmap.md`](versioning-roadmap.md).
+- `DEC-081` — драйвер кэша `Core/Cache` (`ICacheStore`); TTL 1..30 суток, без «навсегда». ST `TableCache` и Versioning — политики ключей/тегов. Owner [`cache-plan-01.md`](cache-plan-01.md).
 - `DEC-079` — PHP Record: геттеры смысла; New/Patch — карта ключей; JSON-вид отдельно. Owner [`php-coding-standards.md`](php-coding-standards.md) / [`user.md`](user.md).
 - `DEC-027` — старый план Chat → Game перенесён в историю.
 - `DEC-028` — готовность RuleType оценивается независимо по доменной модели, frontend, backend и контенту.

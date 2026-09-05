@@ -79,6 +79,16 @@ abstract class BaseField
     }
 
     /**
+     * Значение в sidecar mfv, не в колонке строки.
+     *
+     * @return bool true для multiple и linkset.
+     */
+    public function isMfv(): bool
+    {
+        return $this->fieldSettings->multiple() || $this->type() === 'linkset';
+    }
+
+    /**
      * Возвращает метаданные колонки.
      *
      * @return ColumnMeta Описание SQL-типа.
@@ -100,7 +110,7 @@ abstract class BaseField
     public function cast(mixed $inputValue, bool $keyPresent): mixed
     {
         $resolvedValue = $this->resolveIncoming($inputValue, $keyPresent);
-        if ($this->fieldSettings->multiple()) {
+        if ($this->isMfv()) {
             return $this->castMultiple($resolvedValue);
         }
 
@@ -125,7 +135,7 @@ abstract class BaseField
      */
     public function extract(mixed $phpValue): mixed
     {
-        if ($this->fieldSettings->multiple()) {
+        if ($this->isMfv()) {
             return $this->extractMultiple($phpValue);
         }
 

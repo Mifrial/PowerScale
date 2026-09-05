@@ -50,7 +50,7 @@ final class ColumnSchema
         try {
             $schemaBuilder->create($tableName, function (Blueprint $blueprint) use ($tableDefinition): void {
                 foreach ($tableDefinition->getMap() as $field) {
-                    if ($field->settings()->multiple()) {
+                    if ($field->isMfv()) {
                         continue;
                     }
 
@@ -172,7 +172,7 @@ final class ColumnSchema
     {
         $missingFields = [];
         foreach ($tableDefinition->getMap() as $fieldName => $field) {
-            if ($fieldName === 'id' || $field->settings()->multiple() || in_array($fieldName, $columnNames, true)) {
+            if ($fieldName === 'id' || $field->isMfv() || in_array($fieldName, $columnNames, true)) {
                 continue;
             }
 
@@ -194,7 +194,7 @@ final class ColumnSchema
     {
         $mappedNames = [];
         foreach ($tableDefinition->getMap() as $fieldName => $field) {
-            if (!$field->settings()->multiple()) {
+            if (!$field->isMfv()) {
                 $mappedNames[] = $fieldName;
             }
         }

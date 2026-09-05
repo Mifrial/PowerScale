@@ -166,7 +166,7 @@ final class ListPathFilter
     ): void {
         $leafField = $resolvedPath->leafField();
         $leafCondition = new FilterCondition($leafField->name(), $condition->operator(), $condition->operand());
-        if (!$leafField->settings()->multiple()) {
+        if (!$leafField->isMfv()) {
             $this->filterBinder->applyOnColumn(
                 $subQuery,
                 $leafCondition,

@@ -50,7 +50,7 @@ final class ListFilterBinder
         SmartTableDefinition $tableDefinition,
     ): void {
         $field = $this->mappedField($tableDefinition, $condition->fieldName());
-        if ($field->settings()->multiple()) {
+        if ($field->isMfv()) {
             $this->multipleFilter->apply($query, $condition, $field, $boolean, $tableDefinition);
 
             return;

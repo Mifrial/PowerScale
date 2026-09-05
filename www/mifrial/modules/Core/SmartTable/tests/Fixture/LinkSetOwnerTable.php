@@ -5,17 +5,15 @@ declare(strict_types=1);
 namespace Mifrial\Core\SmartTable\Tests\Fixture;
 
 use Mifrial\Core\SmartTable\Dto\FieldSettings;
-use Mifrial\Core\SmartTable\Field\BoolField;
 use Mifrial\Core\SmartTable\Field\IdField;
 use Mifrial\Core\SmartTable\Field\LinkSetField;
-use Mifrial\Core\SmartTable\Field\ReferenceField;
 use Mifrial\Core\SmartTable\Field\StringField;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
 
 /**
- * Цель child.parent_id: скаляр, multiple, hop дальше.
+ * Владелец linkset на ParentRefTable.
  */
-final class PathParentTable extends SmartTableDefinition
+final class LinkSetOwnerTable extends SmartTableDefinition
 {
     /**
      * Задаёт физическое имя таблицы.
@@ -24,7 +22,7 @@ final class PathParentTable extends SmartTableDefinition
      */
     protected function tableName(): string
     {
-        return 'st_path_parent';
+        return 'st_linkset_owner';
     }
 
     /**
@@ -37,11 +35,7 @@ final class PathParentTable extends SmartTableDefinition
         return [
             new IdField(),
             new StringField('title', FieldSettings::fromOptions(['required' => true])),
-            new BoolField('active', FieldSettings::fromOptions(['required' => true, 'default' => true])),
-            new StringField('note', FieldSettings::fromOptions()),
-            new ReferenceField('owner_id', FieldSettings::fromOptions(), PathOwnerTable::class),
-            new LinkSetField('peers', FieldSettings::fromOptions(), PathOwnerTable::class),
-            new StringField('tags', FieldSettings::fromOptions(['multiple' => true])),
+            new LinkSetField('keywords', FieldSettings::fromOptions(), ParentRefTable::class),
         ];
     }
 }

@@ -6,6 +6,7 @@ namespace Mifrial\Core\SmartTable\Tests;
 
 use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
 use Mifrial\Core\SmartTable\Service\Query\FieldPathWalker;
+use Mifrial\Core\SmartTable\Tests\Fixture\LinkSetOwnerTable;
 use Mifrial\Core\SmartTable\Tests\Fixture\PathChildTable;
 use Mifrial\Core\SmartTable\Tests\Fixture\PathParentTable;
 use PHPUnit\Framework\TestCase;
@@ -28,13 +29,22 @@ final class FieldPathWalkerTest extends TestCase
         self::assertSame('login', $twoHop->leafField()->name());
         $tagsPath = $walker->resolve($childTable, 'parent_id.tags');
         self::assertTrue($tagsPath->leafField()->settings()->multiple());
-        foreach (['parent_id.nope', 'parent_id.tags.x', 'title.active'] as $invalidPath) {
+        $peersPath = $walker->resolve($childTable, 'parent_id.peers');
+        self::assertSame('linkset', $peersPath->leafField()->type());
+        foreach (['parent_id.nope', 'parent_id.tags.x', 'title.active', 'parent_id.peers.login'] as $invalidPath) {
             try {
                 $walker->resolve($childTable, $invalidPath);
                 self::fail('walker must reject ' . $invalidPath);
             } catch (MapInvalidException $exception) {
                 self::assertSame('MAP_INVALID', $exception->getErrorCode());
             }
+        }
+
+        try {
+            $walker->resolve(new LinkSetOwnerTable(), 'keywords.title');
+            self::fail('linkset hop must fail');
+        } catch (MapInvalidException $exception) {
+            self::assertSame('MAP_INVALID', $exception->getErrorCode());
         }
     }
 }

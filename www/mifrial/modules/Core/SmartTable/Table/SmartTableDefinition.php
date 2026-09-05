@@ -200,7 +200,7 @@ abstract class SmartTableDefinition
             return;
         }
 
-        if ($field->type() !== 'datetime' || $field->settings()->multiple()) {
+        if ($field->type() !== 'datetime' || $field->isMfv()) {
             throw new MapInvalidException('DateTime now default is not allowed on this field');
         }
     }
@@ -219,7 +219,7 @@ abstract class SmartTableDefinition
         $hasMultiple = false;
         $hasCascade = false;
         foreach ($fieldMap as $field) {
-            if ($field->settings()->multiple()) {
+            if ($field->isMfv()) {
                 $hasMultiple = true;
             }
 

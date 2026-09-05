@@ -7,7 +7,6 @@ namespace Mifrial\Core\SmartTable\Interface\Service;
 use Closure;
 use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
 use Mifrial\Core\SmartTable\Exception\Transaction\TransactionFailedException;
-use Mifrial\Core\SmartTable\Exception\Transaction\TransactionOpenException;
 
 /**
  * Порт открытия таблиц по PHP-классу и транзакции соединения.
@@ -32,8 +31,14 @@ interface ISmartTableGateway
      *
      * @return mixed Результат $work.
      *
-     * @throws TransactionOpenException Если транзакция уже открыта.
      * @throws TransactionFailedException Если commit или rollback не удались.
      */
     public function transaction(Closure $work): mixed;
+
+    /**
+     * Есть ли открытая TX на соединении шлюза.
+     *
+     * @return bool true, если begin уже был.
+     */
+    public function isTransactionOpen(): bool;
 }

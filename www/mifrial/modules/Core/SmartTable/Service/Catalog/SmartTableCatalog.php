@@ -211,7 +211,7 @@ final class SmartTableCatalog implements ITableCatalog
         }
 
         $field = $fieldMap[$fieldName];
-        if ($field->settings()->multiple()) {
+        if ($field->isMfv()) {
             $this->mfvSchema->dropFieldStorage($definition, $field);
         }
 

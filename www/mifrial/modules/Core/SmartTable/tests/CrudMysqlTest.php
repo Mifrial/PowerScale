@@ -14,7 +14,6 @@ use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
 use Mifrial\Core\SmartTable\Exception\Row\RowNotFoundException;
 use Mifrial\Core\SmartTable\Exception\Schema\TableExistsException;
 use Mifrial\Core\SmartTable\Exception\Schema\TableMissingException;
-use Mifrial\Core\SmartTable\Exception\Transaction\TransactionOpenException;
 use Mifrial\Core\SmartTable\Interface\Container\ISmartTableContainer;
 use Mifrial\Core\SmartTable\Interface\Service\IDatabaseConnection;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
@@ -211,15 +210,13 @@ final class CrudMysqlTest extends TestCase
 
         self::assertNull($table->records()->getById($rowId));
 
-        try {
-            $gateway->transaction(function () use ($gateway): void {
-                $gateway->transaction(static function (): void {
-                });
+        $nestedId = 0;
+        $gateway->transaction(function () use ($gateway, $table, &$nestedId): void {
+            $gateway->transaction(function () use ($table, &$nestedId): void {
+                $nestedId = $table->records()->add(['title' => 'nested']);
             });
-            self::fail('nested transaction must fail');
-        } catch (TransactionOpenException $exception) {
-            self::assertSame('TRANSACTION_OPEN', $exception->getErrorCode());
-        }
+        });
+        self::assertSame('nested', $table->records()->getById($nestedId)['title'] ?? null);
     }
 
     /**

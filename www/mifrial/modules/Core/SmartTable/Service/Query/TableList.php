@@ -223,7 +223,7 @@ final class TableList // phpcs:ignore MifrialCodingStandard.Metrics.ClassQuality
         int &$mfvIndex,
     ): string {
         $resolvedPath = $this->fieldPathWalker->resolve($tableDefinition, $fieldName);
-        if ($resolvedPath->leafField()->settings()->multiple()) {
+        if ($resolvedPath->leafField()->isMfv()) {
             $aliasName = '__st_m' . $mfvIndex;
             $mfvIndex++;
 
@@ -251,7 +251,7 @@ final class TableList // phpcs:ignore MifrialCodingStandard.Metrics.ClassQuality
                 continue;
             }
 
-            if ($fieldMap[$fieldName]->settings()->multiple()) {
+            if ($fieldMap[$fieldName]->isMfv()) {
                 $needsOwnerId = true;
                 continue;
             }
@@ -314,7 +314,7 @@ final class TableList // phpcs:ignore MifrialCodingStandard.Metrics.ClassQuality
         $ownerIds = $this->ownerIds($rowMaps);
         $fieldMap = $tableDefinition->getMap();
         foreach ($hydrateNames as $fieldName) {
-            if (str_contains($fieldName, '.') || !$fieldMap[$fieldName]->settings()->multiple()) {
+            if (str_contains($fieldName, '.') || !$fieldMap[$fieldName]->isMfv()) {
                 continue;
             }
 

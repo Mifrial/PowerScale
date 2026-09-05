@@ -50,6 +50,7 @@ final class AggregateQueryTest extends TestCase
             ['group' => ['group_id'], 'select' => ['group_id'], 'limit' => 10],
             ['group' => [], 'select' => ['group_id', new CountField('c')], 'limit' => 10],
             ['group' => ['group_id'], 'select' => ['group_id', new CountField('c')], 'limit' => 0],
+            ['group' => ['group_id'], 'select' => ['group_id', new CountField('c')], 'limit' => 501],
             [
                 'group' => ['group_id'],
                 'select' => ['group_id', new CountField('c')],

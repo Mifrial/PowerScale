@@ -83,11 +83,12 @@ final class MfvSchema
         $schemaBuilder = $this->databaseConnection->illuminateConnection()->getSchemaBuilder();
         foreach ($this->multipleFields($tableDefinition) as $field) {
             $physicalName = self::tableName($tableDefinition, $field);
-            if ($schemaBuilder->hasTable($physicalName)) {
+            if (!$schemaBuilder->hasTable($physicalName)) {
+                $this->createOne($tableDefinition, $field);
                 continue;
             }
 
-            $this->createOne($tableDefinition, $field);
+            $this->linksetForeign()->sync($tableDefinition, $field);
         }
     }
 
@@ -104,7 +105,7 @@ final class MfvSchema
     public function dropLeftover(SmartTableDefinition $tableDefinition): void
     {
         foreach ($tableDefinition->getMap() as $fieldName => $field) {
-            if ($fieldName === 'id' || $field->settings()->multiple()) {
+            if ($fieldName === 'id' || $field->isMfv()) {
                 continue;
             }
 
@@ -209,6 +210,7 @@ final class MfvSchema
                 $valueColumn->nullable(false);
                 $blueprint->primary(['owner_id', 'value']);
             });
+            $this->linksetForeign()->sync($tableDefinition, $field);
         } catch (SmartTableException $exception) {
             throw $exception;
         } catch (Throwable $throwable) {
@@ -227,12 +229,22 @@ final class MfvSchema
     {
         $multipleFields = [];
         foreach ($tableDefinition->getMap() as $field) {
-            if ($field->settings()->multiple()) {
+            if ($field->isMfv()) {
                 $multipleFields[] = $field;
             }
         }
 
         return $multipleFields;
+    }
+
+    /**
+     * FK sidecar для linkset.
+     *
+     * @return LinksetMfvForeign Помощник.
+     */
+    private function linksetForeign(): LinksetMfvForeign
+    {
+        return new LinksetMfvForeign($this->databaseConnection);
     }
 
     /**

@@ -10,6 +10,7 @@ use Mifrial\Core\SmartTable\Field\DateTimeField;
 use Mifrial\Core\SmartTable\Field\IdField;
 use Mifrial\Core\SmartTable\Field\IntField;
 use Mifrial\Core\SmartTable\Field\JsonField;
+use Mifrial\Core\SmartTable\Field\LinkSetField;
 use Mifrial\Core\SmartTable\Field\ReferenceField;
 use Mifrial\Core\SmartTable\Field\StringField;
 use Mifrial\Core\SmartTable\Service\Catalog\FieldSpecAssembler;
@@ -88,6 +89,15 @@ final class FieldSpecAssemblerTest extends TestCase
         self::assertSame('st_sample', $referenceField->targetTableName());
         self::assertSame('restrict', $referenceField->onDelete());
         self::assertSame('st_sample', (new SampleTable())->getName());
+
+        $linkSetField = (new FieldSpecAssembler())->assembleOne([
+            'name' => 'keywords',
+            'type' => 'linkset',
+            'target' => 'st_sample',
+        ]);
+        self::assertInstanceOf(LinkSetField::class, $linkSetField);
+        self::assertSame('st_sample', $linkSetField->targetTableName());
+        self::assertTrue($linkSetField->isMfv());
     }
 
     /**

@@ -12,6 +12,7 @@ use Mifrial\Core\SmartTable\Field\DateTimeField;
 use Mifrial\Core\SmartTable\Field\HtmlField;
 use Mifrial\Core\SmartTable\Field\IntField;
 use Mifrial\Core\SmartTable\Field\JsonField;
+use Mifrial\Core\SmartTable\Field\LinkSetField;
 use Mifrial\Core\SmartTable\Field\ReferenceField;
 use Mifrial\Core\SmartTable\Field\StringField;
 use Mifrial\Core\SmartTable\Field\TextField;
@@ -144,6 +145,7 @@ final class FieldSpecAssembler
             'string' => ['maxLength'],
             'int', 'bigint' => ['min', 'max'],
             'reference' => ['target', 'onDelete'],
+            'linkset' => ['target', 'onDelete'],
             'bool', 'datetime', 'text', 'html', 'json' => [],
             default => throw new MapInvalidException('Field spec type is invalid'),
         };
@@ -172,6 +174,7 @@ final class FieldSpecAssembler
             'int' => $this->makeInt($fieldName, $fieldSettings, $fieldSpec, false),
             'bigint' => $this->makeInt($fieldName, $fieldSettings, $fieldSpec, true),
             'reference' => $this->makeReference($fieldName, $fieldSettings, $fieldSpec),
+            'linkset' => $this->makeLinkSet($fieldName, $fieldSettings, $fieldSpec),
             default => $this->makePlain($fieldName, $fieldType, $fieldSettings),
         };
     }
@@ -278,6 +281,35 @@ final class FieldSpecAssembler
         }
 
         return ReferenceField::forTable($fieldName, $fieldSettings, $targetName, $onDelete);
+    }
+
+    /**
+     * Собирает linkset по физическому имени цели.
+     *
+     * @param string $fieldName Имя.
+     * @param FieldSettings $fieldSettings Настройки.
+     * @param array<string, mixed> $fieldSpec Спека.
+     *
+     * @return LinkSetField Поле.
+     *
+     * @throws MapInvalidException Если target нет или onDelete не строка.
+     */
+    private function makeLinkSet(
+        string $fieldName,
+        FieldSettings $fieldSettings,
+        array $fieldSpec,
+    ): LinkSetField {
+        $targetName = $fieldSpec['target'] ?? null;
+        if (!is_string($targetName) || $targetName === '') {
+            throw new MapInvalidException('Linkset target is required');
+        }
+
+        $onDelete = $fieldSpec['onDelete'] ?? 'restrict';
+        if (!is_string($onDelete)) {
+            throw new MapInvalidException('Linkset onDelete is invalid');
+        }
+
+        return LinkSetField::forTable($fieldName, $fieldSettings, $targetName, $onDelete);
     }
 
     /**

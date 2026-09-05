@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Core\SmartTable\Service\Query;
 
 use Illuminate\Database\Query\Builder;
+use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
 use Mifrial\Core\SmartTable\Exception\Row\ReferenceConstraintException;
 use Mifrial\Core\SmartTable\Exception\Row\RowNotFoundException;
 use Mifrial\Core\SmartTable\Exception\Row\RowWriteFailedException;
@@ -157,6 +158,79 @@ final class TableRows
     }
 
     /**
+     * Вставляет пачку строк и возвращает id в порядке входа.
+     *
+     * @param SmartTableDefinition $tableDefinition Определение.
+     * @param array<int, mixed> $rows Список карт.
+     *
+     * @return array<int, int> Новые id.
+     *
+     * @throws MapInvalidException Если пачка некорректна.
+     * @throws RowWriteFailedException Если insert не дал id.
+     * @throws ReferenceConstraintException Если нет родителя.
+     * @throws UniqueConstraintException Если unique нарушен.
+     */
+    public function addMany(SmartTableDefinition $tableDefinition, array $rows): array
+    {
+        (new InsertBatch())->assertRows($rows);
+        $insertPayloads = [];
+        $multiplePayloads = [];
+        foreach ($rows as $row) {
+            if (!is_array($row)) {
+                throw new MapInvalidException('addMany row must be a map');
+            }
+
+            $insertPayloads[] = $this->rowAssembler->encodeJsonColumns(
+                $this->rowAssembler->assembleInsert($row, $tableDefinition),
+                $tableDefinition,
+            );
+            $multiplePayloads[] = $this->rowAssembler->assembleMultiple($row, $tableDefinition, true);
+        }
+
+        return $this->writeAtomic(function () use ($tableDefinition, $insertPayloads, $multiplePayloads): array {
+            return $this->insertBatchRows($tableDefinition, $insertPayloads, $multiplePayloads);
+        });
+    }
+
+    /**
+     * Multi-insert и sidecar по выданным id.
+     *
+     * @param SmartTableDefinition $tableDefinition Определение.
+     * @param array<int, array<string, mixed>> $insertPayloads Скаляры рядов.
+     * @param array<int, array<string, array<int, mixed>>> $multiplePayloads mfv рядов.
+     *
+     * @return array<int, int> Новые id.
+     *
+     * @throws RowWriteFailedException Если insert не дал id.
+     */
+    private function insertBatchRows(
+        SmartTableDefinition $tableDefinition,
+        array $insertPayloads,
+        array $multiplePayloads,
+    ): array {
+        $normalizedRows = [];
+        foreach ($insertPayloads as $payload) {
+            $normalizedRows[] = $payload === [] ? ['id' => null] : $payload;
+        }
+
+        $firstId = $this->driverErrors->run(function () use ($tableDefinition, $normalizedRows): int {
+            $this->query($tableDefinition)->insert($normalizedRows);
+
+            return (int) $this->databaseConnection->illuminateConnection()->getPdo()->lastInsertId();
+        });
+        if ($firstId <= 0) {
+            throw new RowWriteFailedException();
+        }
+
+        $rowIds = range($firstId, $firstId + count($normalizedRows) - 1);
+        foreach ($rowIds as $rowIndex => $rowId) {
+            $this->replaceMultiple($tableDefinition, $rowId, $multiplePayloads[$rowIndex]);
+        }
+
+        return $rowIds;
+    }
+
+    /**
      * Дописывает mfv в одну строку get.
      *
      * @param array<string, mixed> $rowMap Строка драйвера.
@@ -171,7 +245,7 @@ final class TableRows
         int $ownerId,
     ): void {
         foreach ($tableDefinition->getMap() as $fieldName => $field) {
-            if (!$field->settings()->multiple()) {
+            if (!$field->isMfv()) {
                 continue;
             }
 
@@ -231,7 +305,7 @@ final class TableRows
     {
         $columnNames = [];
         foreach ($tableDefinition->getMap() as $fieldName => $field) {
-            if (!$field->settings()->multiple()) {
+            if (!$field->isMfv()) {
                 $columnNames[] = $fieldName;
             }
         }

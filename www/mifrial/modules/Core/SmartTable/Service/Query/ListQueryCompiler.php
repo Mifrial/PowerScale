@@ -262,7 +262,7 @@ final class ListQueryCompiler
     ): void {
         if (str_contains($fieldName, '.')) {
             $resolvedPath = $this->fieldPathWalker->resolve($tableDefinition, $fieldName);
-            if ($resolvedPath->leafField()->settings()->multiple()) {
+            if ($resolvedPath->leafField()->isMfv()) {
                 throw new FieldMultipleUnsupportedException();
             }
 
@@ -292,7 +292,7 @@ final class ListQueryCompiler
             throw new MapInvalidException('Unknown field name');
         }
 
-        if ($fieldMap[$fieldName]->settings()->multiple()) {
+        if ($fieldMap[$fieldName]->isMfv()) {
             throw new FieldMultipleUnsupportedException();
         }
     }

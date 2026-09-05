@@ -7,7 +7,6 @@ namespace Mifrial\Core\SmartTable\Service;
 use Closure;
 use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
 use Mifrial\Core\SmartTable\Exception\Transaction\TransactionFailedException;
-use Mifrial\Core\SmartTable\Exception\Transaction\TransactionOpenException;
 use Mifrial\Core\SmartTable\Interface\Service\IOpenedTable;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Core\SmartTable\Service\Cache\TableCache;
@@ -78,14 +77,13 @@ final class SmartTableGateway implements ISmartTableGateway
      *
      * @return mixed Результат $work.
      *
-     * @throws TransactionOpenException Если транзакция уже открыта.
      * @throws TransactionFailedException Если commit или rollback не удались.
      */
     public function transaction(Closure $work): mixed
     {
         $mySqlConnection = $this->databaseConnection->illuminateConnection();
         if ($mySqlConnection->transactionLevel() > 0) {
-            throw new TransactionOpenException();
+            return $work();
         }
 
         try {
@@ -95,6 +93,16 @@ final class SmartTableGateway implements ISmartTableGateway
         }
 
         return $this->runTransaction($work);
+    }
+
+    /**
+     * Есть ли открытая TX на соединении шлюза.
+     *
+     * @return bool true, если begin уже был.
+     */
+    public function isTransactionOpen(): bool
+    {
+        return $this->databaseConnection->illuminateConnection()->transactionLevel() > 0;
     }
 
     /**

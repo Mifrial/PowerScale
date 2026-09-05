@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Mifrial\Core\SmartTable\Service;
 
+use Mifrial\Core\Cache\Interface\Service\ICacheStore;
 use Mifrial\Core\SmartTable\Dto\AggregateQuery;
 use Mifrial\Core\SmartTable\Dto\AggregateResult;
 use Mifrial\Core\SmartTable\Dto\ListQuery;
@@ -61,6 +62,21 @@ final class OpenedRecords implements IOpenedRecords
     }
 
     /**
+     * Вставляет пачку строк и возвращает id в порядке входа.
+     *
+     * @param array<int, array<string, mixed>> $rows Список карт без id.
+     *
+     * @return array<int, int> Новые id.
+     */
+    public function addMany(array $rows): array
+    {
+        $rowIds = $this->tableRows->addMany($this->tableDefinition, $rows);
+        $this->tableCache->noteAdd($this->tableDefinition->getName());
+
+        return $rowIds;
+    }
+
+    /**
      * Обновляет переданные поля строки.
      *
      * @param int $rowId Идентификатор.
@@ -104,7 +120,7 @@ final class OpenedRecords implements IOpenedRecords
      *
      * @return array<string, mixed>|null Гидратированные поля или null.
      *
-     * @throws MapInvalidException Если TTL ≤ 0.
+     * @throws MapInvalidException Если TTL вне 1..2592000.
      */
     public function getById(int $rowId, ?int $cacheTtl = null): ?array
     {
@@ -136,7 +152,7 @@ final class OpenedRecords implements IOpenedRecords
      *
      * @return ListResult Строки и optional total.
      *
-     * @throws MapInvalidException Если TTL ≤ 0.
+     * @throws MapInvalidException Если TTL вне 1..2592000.
      */
     public function getList(ListQuery $listQuery, ?int $cacheTtl = null): ListResult
     {
@@ -172,7 +188,7 @@ final class OpenedRecords implements IOpenedRecords
      *
      * @return AggregateResult Ряды групп.
      *
-     * @throws MapInvalidException Если TTL ≤ 0 или запрос не сходится с картой.
+     * @throws MapInvalidException Если TTL вне 1..2592000 или запрос не сходится с картой.
      */
     public function aggregate(AggregateQuery $aggregateQuery, ?int $cacheTtl = null): AggregateResult
     {
@@ -208,7 +224,7 @@ final class OpenedRecords implements IOpenedRecords
      *
      * @return array<string, mixed>|null Строка или null.
      *
-     * @throws MapInvalidException Если запрос непригоден, TTL ≤ 0 или совпадений больше одного.
+     * @throws MapInvalidException Если запрос непригоден, TTL вне 1..2592000 или совпадений больше одного.
      */
     public function getUnique(ListQuery $listQuery, ?int $cacheTtl = null): ?array
     {
@@ -232,7 +248,7 @@ final class OpenedRecords implements IOpenedRecords
      *
      * @return array<string, mixed>|null Строка или null.
      *
-     * @throws MapInvalidException Если запрос непригоден или TTL ≤ 0.
+     * @throws MapInvalidException Если запрос непригоден или TTL вне 1..2592000.
      */
     public function getFirst(ListQuery $listQuery, ?int $cacheTtl = null): ?array
     {
@@ -285,18 +301,18 @@ final class OpenedRecords implements IOpenedRecords
     }
 
     /**
-     * Отвергает неположительный TTL.
+     * Отвергает TTL вне 1..2592000.
      *
      * @param int|null $cacheTtl Секунды или null.
      *
      * @return void
      *
-     * @throws MapInvalidException Если TTL ≤ 0.
+     * @throws MapInvalidException Если TTL вне диапазона.
      */
     private function assertTtl(?int $cacheTtl): void
     {
-        if ($cacheTtl !== null && $cacheTtl <= 0) {
-            throw new MapInvalidException('Cache TTL must be greater than 0');
+        if ($cacheTtl !== null && ($cacheTtl < 1 || $cacheTtl > ICacheStore::MAX_TTL_SECONDS)) {
+            throw new MapInvalidException('Cache TTL must be 1..2592000');
         }
     }
 

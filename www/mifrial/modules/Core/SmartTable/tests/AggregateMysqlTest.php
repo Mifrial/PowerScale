@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Mifrial\Core\SmartTable\Tests;
 
-use Mifrial\Core\Kernel\Dto\CacheSettings;
 use Mifrial\Core\Kernel\Dto\DatabaseSettings;
 use Mifrial\Core\Kernel\Service\ApplicationFactory;
 use Mifrial\Core\Kernel\Value\DateTime as UnixDateTime;
@@ -529,10 +528,9 @@ final class AggregateMysqlTest extends TestCase
         self::assertInstanceOf(IlluminateDatabaseConnection::class, $this->databaseConnection);
         $this->gateway = GatewayHarness::make(
             $this->databaseConnection,
-            CacheSettings::fromConfig([
-                'driver' => 'file',
-                'path' => sys_get_temp_dir() . '/mifrial-st-agg-cache-' . uniqid('', true),
-            ]),
+            GatewayHarness::fileStore(
+                sys_get_temp_dir() . '/mifrial-st-agg-cache-' . uniqid('', true),
+            ),
             true,
         );
     }

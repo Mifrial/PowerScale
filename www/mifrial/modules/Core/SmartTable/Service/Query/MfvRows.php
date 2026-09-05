@@ -69,7 +69,7 @@ final class MfvRows
     public function deleteByOwner(SmartTableDefinition $tableDefinition, int $ownerId): void
     {
         foreach ($tableDefinition->getMap() as $field) {
-            if (!$field->settings()->multiple()) {
+            if (!$field->isMfv()) {
                 continue;
             }
 

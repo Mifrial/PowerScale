@@ -158,7 +158,7 @@ final class TableAggregate
     {
         foreach ($groupNames as $groupName) {
             $field = $this->ownField($tableDefinition, $groupName);
-            if ($field->settings()->multiple() || !in_array($field->type(), self::GROUP_TYPES, true)) {
+            if ($field->isMfv() || !in_array($field->type(), self::GROUP_TYPES, true)) {
                 throw new MapInvalidException('Aggregate group field is invalid');
             }
         }
@@ -271,7 +271,7 @@ final class TableAggregate
      */
     private function assertArgumentTypes(BaseField $field, array $allowedTypes): void
     {
-        if ($field->settings()->multiple() || !in_array($field->type(), $allowedTypes, true)) {
+        if ($field->isMfv() || !in_array($field->type(), $allowedTypes, true)) {
             throw new MapInvalidException('Aggregate argument field is invalid');
         }
     }

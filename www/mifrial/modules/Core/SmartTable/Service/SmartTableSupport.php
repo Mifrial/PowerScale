@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Mifrial\Core\SmartTable\Service;
 
-use Mifrial\Core\Kernel\Dto\CacheSettings;
+use Mifrial\Core\Cache\Interface\Service\ICacheStore;
 use Mifrial\Core\SmartTable\Service\Cache\TableCache;
 use Mifrial\Core\SmartTable\Service\Catalog\SmartTableCatalog;
 use Mifrial\Core\SmartTable\Service\Connection\IlluminateDatabaseConnection;
@@ -36,14 +36,14 @@ final class SmartTableSupport
      * Создаёт сборщик.
      *
      * @param IlluminateDatabaseConnection $databaseConnection Адаптер.
-     * @param CacheSettings $cacheSettings Срез кэша.
+     * @param ICacheStore $cacheStore Драйвер Core/Cache.
      * @param bool $debug Режим исключений I/O кэша.
      *
      * @return void
      */
     public function __construct(
         private readonly IlluminateDatabaseConnection $databaseConnection,
-        private readonly CacheSettings $cacheSettings,
+        private readonly ICacheStore $cacheStore,
         private readonly bool $debug,
     ) {
     }
@@ -107,7 +107,7 @@ final class SmartTableSupport
 
         $databaseConnection = $this->databaseConnection;
         $tableCache = new TableCache(
-            $this->cacheSettings,
+            $this->cacheStore,
             $this->debug,
             static function () use ($databaseConnection): int {
                 return $databaseConnection->illuminateConnection()->transactionLevel();

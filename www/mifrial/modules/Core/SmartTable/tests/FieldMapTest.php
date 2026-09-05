@@ -15,6 +15,7 @@ use Mifrial\Core\SmartTable\Field\HtmlField;
 use Mifrial\Core\SmartTable\Field\IdField;
 use Mifrial\Core\SmartTable\Field\IntField;
 use Mifrial\Core\SmartTable\Field\JsonField;
+use Mifrial\Core\SmartTable\Field\LinkSetField;
 use Mifrial\Core\SmartTable\Field\ReferenceField;
 use Mifrial\Core\SmartTable\Field\StringField;
 use Mifrial\Core\SmartTable\Field\TextField;
@@ -22,6 +23,7 @@ use Mifrial\Core\SmartTable\Interface\Field\IFieldHydrator;
 use Mifrial\Core\SmartTable\Table\RuntimeDefinition;
 use Mifrial\Core\SmartTable\Tests\Fixture\AbstractProbeTable;
 use Mifrial\Core\SmartTable\Tests\Fixture\BothIndexFlagsTable;
+use Mifrial\Core\SmartTable\Tests\Fixture\CascadeLinkSetTable;
 use Mifrial\Core\SmartTable\Tests\Fixture\CascadeMultipleTable;
 use Mifrial\Core\SmartTable\Tests\Fixture\JsonMultipleTable;
 use Mifrial\Core\SmartTable\Tests\Fixture\LongStringMultipleTable;
@@ -342,6 +344,48 @@ final class FieldMapTest extends TestCase
             self::fail('cascade with multiple must fail');
         } catch (MapInvalidException $exception) {
             self::assertSame('MAP_INVALID', $exception->getErrorCode());
+        }
+
+        try {
+            (new CascadeLinkSetTable())->getMap();
+            self::fail('cascade with linkset must fail');
+        } catch (MapInvalidException $exception) {
+            self::assertSame('MAP_INVALID', $exception->getErrorCode());
+        }
+    }
+
+    /**
+     * type linkset; множество id; отказы ctor.
+     *
+     * @return void
+     */
+    public function testLinkSetFieldContract(): void
+    {
+        $field = new LinkSetField('keywords', FieldSettings::fromOptions(), ParentRefTable::class);
+        self::assertSame('linkset', $field->type());
+        self::assertTrue($field->isMfv());
+        self::assertSame('st_ref_parent', $field->targetTableName());
+        self::assertSame([5, 2], $field->cast([5, 2], true));
+        try {
+            $field->extract([1, 1]);
+            self::fail('duplicate linkset must fail');
+        } catch (MapInvalidException $exception) {
+            self::assertSame('MAP_INVALID', $exception->getErrorCode());
+        }
+
+        $invalidCases = [
+            [FieldSettings::fromOptions(['multiple' => true]), ParentRefTable::class, 'restrict'],
+            [FieldSettings::fromOptions(['indexed' => true]), ParentRefTable::class, 'restrict'],
+            [FieldSettings::fromOptions(), ParentRefTable::class, 'cascade'],
+            [FieldSettings::fromOptions(), ParentRefTable::class, 'setNull'],
+        ];
+        foreach ($invalidCases as [$settings, $targetClass, $onDelete]) {
+            try {
+                new LinkSetField('keywords', $settings, $targetClass, $onDelete);
+                self::fail('invalid linkset ctor must fail');
+            } catch (MapInvalidException $exception) {
+                self::assertSame('MAP_INVALID', $exception->getErrorCode());
+            }
         }
     }
 

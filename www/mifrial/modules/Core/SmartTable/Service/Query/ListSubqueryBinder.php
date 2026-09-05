@@ -129,7 +129,7 @@ final class ListSubqueryBinder
     {
         $field = $this->requireOwnField($innerTable, $fieldName);
         $fieldType = $field->type();
-        if ($field->settings()->multiple() || in_array($fieldType, ['json', 'text', 'html'], true)) {
+        if ($field->isMfv() || in_array($fieldType, ['json', 'text', 'html'], true)) {
             throw new MapInvalidException('Subquery select field is invalid');
         }
 

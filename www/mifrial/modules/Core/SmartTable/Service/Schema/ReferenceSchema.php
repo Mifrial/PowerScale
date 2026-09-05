@@ -9,6 +9,7 @@ use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
 use Mifrial\Core\SmartTable\Exception\Schema\DdlFailedException;
 use Mifrial\Core\SmartTable\Exception\Schema\TableMissingException;
 use Mifrial\Core\SmartTable\Exception\SmartTableException;
+use Mifrial\Core\SmartTable\Field\LinkSetField;
 use Mifrial\Core\SmartTable\Field\ReferenceField;
 use Mifrial\Core\SmartTable\Service\Connection\IlluminateDatabaseConnection;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
@@ -67,8 +68,7 @@ final class ReferenceSchema
         $tableName = $tableDefinition->getName();
         $schemaBuilder = $this->databaseConnection->illuminateConnection()->getSchemaBuilder();
         $ownTableExists = $schemaBuilder->hasTable($tableName);
-        foreach ($this->foreignFields($tableDefinition) as $field) {
-            $targetName = $field->targetTableName();
+        foreach ($this->foreignTargets($tableDefinition) as $targetName) {
             if ($targetName === $tableName && !$ownTableExists) {
                 continue;
             }
@@ -151,6 +151,29 @@ final class ReferenceSchema
     public function dropOwned(SmartTableDefinition $tableDefinition): void
     {
         $this->dropManagedExcept($tableDefinition->getName(), []);
+    }
+
+    /**
+     * Физические имена целей FK (reference и linkset restrict).
+     *
+     * @param SmartTableDefinition $tableDefinition Определение.
+     *
+     * @return array<int, string> Имена таблиц.
+     */
+    private function foreignTargets(SmartTableDefinition $tableDefinition): array
+    {
+        $targetNames = [];
+        foreach ($this->foreignFields($tableDefinition) as $field) {
+            $targetNames[] = $field->targetTableName();
+        }
+
+        foreach ($tableDefinition->getMap() as $field) {
+            if ($field instanceof LinkSetField && $field->onDelete() !== 'none') {
+                $targetNames[] = $field->targetTableName();
+            }
+        }
+
+        return $targetNames;
     }
 
     /**

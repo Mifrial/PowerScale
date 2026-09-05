@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Mifrial\Core\SmartTable\Tests;
 
-use Mifrial\Core\Kernel\Dto\CacheSettings;
 use Mifrial\Core\Kernel\Dto\DatabaseSettings;
 use Mifrial\Core\Kernel\Service\ApplicationFactory;
 use Mifrial\Core\SmartTable\Dto\ListQuery;
@@ -267,10 +266,9 @@ final class ReferencePathMysqlTest extends TestCase
         self::assertInstanceOf(IlluminateDatabaseConnection::class, $this->databaseConnection);
         $this->gateway = GatewayHarness::make(
             $this->databaseConnection,
-            CacheSettings::fromConfig([
-                'driver' => 'file',
-                'path' => sys_get_temp_dir() . '/mifrial-st-path-cache-' . uniqid('', true),
-            ]),
+            GatewayHarness::fileStore(
+                sys_get_temp_dir() . '/mifrial-st-path-cache-' . uniqid('', true),
+            ),
             true,
         );
     }
@@ -302,6 +300,7 @@ final class ReferencePathMysqlTest extends TestCase
         foreach (['st_path_child', 'st_path_parent', 'st_path_owner'] as $tableName) {
             $schemaBuilder->dropIfExists($tableName);
             $schemaBuilder->dropIfExists($tableName . '_mfv_tags');
+            $schemaBuilder->dropIfExists($tableName . '_mfv_peers');
         }
     }
 

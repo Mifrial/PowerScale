@@ -45,7 +45,7 @@ final class PathListHydrator
             }
 
             $resolvedPath = $this->fieldPathWalker->resolve($tableDefinition, $fieldName);
-            if (!$resolvedPath->leafField()->settings()->multiple()) {
+            if (!$resolvedPath->leafField()->isMfv()) {
                 continue;
             }
 
@@ -77,7 +77,7 @@ final class PathListHydrator
 
             $leafField = $this->fieldPathWalker->resolve($tableDefinition, $fieldName)->leafField();
             $rawValue = $rowMap[$fieldName] ?? null;
-            $hydratedRow[$fieldName] = $leafField->settings()->multiple()
+            $hydratedRow[$fieldName] = $leafField->isMfv()
                 ? $this->hydrateMultiple($leafField, is_array($rawValue) ? $rawValue : [])
                 : $leafField->hydrate($rawValue);
         }

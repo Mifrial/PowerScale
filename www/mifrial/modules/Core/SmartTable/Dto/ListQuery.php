@@ -11,6 +11,8 @@ use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
  */
 final class ListQuery
 {
+    public const MAX_LIMIT = 10000;
+
     /**
      * Создаёт запрос.
      *
@@ -33,12 +35,26 @@ final class ListQuery
         private readonly bool $countTotal,
         private readonly ?array $select,
     ) {
-        if ($limit < 1 || $limit > 500) {
-            throw new MapInvalidException('List query requires limit 1..500');
-        }
+        self::assertPageLimit($limit);
 
         if ($offset < 0) {
             throw new MapInvalidException('List query offset is invalid');
+        }
+    }
+
+    /**
+     * Отвергает limit вне 1..10000.
+     *
+     * @param int $limit Размер страницы.
+     *
+     * @return void
+     *
+     * @throws MapInvalidException Если limit вне диапазона.
+     */
+    public static function assertPageLimit(int $limit): void
+    {
+        if ($limit < 1 || $limit > self::MAX_LIMIT) {
+            throw new MapInvalidException('List query requires limit 1..10000');
         }
     }
 
@@ -79,7 +95,7 @@ final class ListQuery
     /**
      * Возвращает limit.
      *
-     * @return int 1..500.
+     * @return int 1..10000.
      */
     public function limit(): int
     {

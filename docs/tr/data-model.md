@@ -114,7 +114,7 @@ Permission catalog:
 - `space.create`, `space.view_all`, `space.edit_all`, `space.view`, `space.comment`, `space.edit`;
 - `rule.view`, `rule.create`, `rule.edit`, `rule.delete`;
 - `character.create`, `character.view`;
-- `keyword.view`, `keyword.create`, `keyword.edit`, `keyword.delete`;
+- `keyword.view`, `keyword.create`, `keyword.edit`, `keyword.delete` (ключ выключения строки, не DROP; HTTP `keyword.deactivate` — [`keyword-plan-02.md`](keyword-plan-02.md));
 - `notification_template.view`, `notification_template.create`, `notification_template.edit`, `notification_template.delete`;
 - `game.create`, `game.view_all`, `game.edit_all`, `game.edit`, `game.moderate`, `game.manage`, `game.edit_inventory`;
 - `chat.create`, `chat.message`, `chat.delete`.
@@ -171,6 +171,7 @@ keywords(
   description TEXT,
   active BOOL DEFAULT true NOT NULL
 )
+-- CURRENT PHP: [`keyword-plan-01.md`](keyword-plan-01.md). Физический delete строк нет.
 
 rules(
   rule_id UUID PRIMARY KEY,
@@ -180,13 +181,14 @@ rules(
 
 mechanics(
   id,
-  code VARCHAR UNIQUE NOT NULL,
+  code VARCHAR NOT NULL,
   name VARCHAR NOT NULL,
   description TEXT,
-  version VARCHAR NOT NULL,
-  created_at
+  handler_version VARCHAR NOT NULL,
+  UNIQUE (code, handler_version)
 )
-INDEX (code, version)
+-- CURRENT PHP: [`mechanic-plan-01.md`](mechanic-plan-01.md). Строки не удаляют.
+-- HISTORICAL: unique только `code`; колонка `version`; `created_at`.
 
 rule_versions(
   id,
@@ -207,6 +209,7 @@ rule_keywords(
   keyword_id → keywords.id NOT NULL,
   PRIMARY KEY (rule_version_id, keyword_id)
 )
+-- CURRENT PHP: признаки снимка — `linkset keywords` на `rule_version` ([`rule-plan-01.md`](rule-plan-01.md), [`smarttable-plan-20-linkset.md`](smarttable-plan-20-linkset.md)), не эта join-таблица.
 ```
 
 Для среза правил выбирается последняя версия конкретного `rule_id` в `space_id`, чей timestamp не превышает `publishedAt`. Удаление не переписывает старую версию: создаётся marker-version с `active=false`. Этот SQL-механизм — legacy-backed storage requirement; канонический внешний идентификатор публикации — `(spaceId, revision)` с immutable `publishedAt`.

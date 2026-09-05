@@ -36,7 +36,7 @@ final class RowAssembler
 
         $payload = [];
         foreach ($fieldMap as $fieldName => $field) {
-            if ($fieldName === 'id' || $field->settings()->multiple()) {
+            if ($fieldName === 'id' || $field->isMfv()) {
                 continue;
             }
 
@@ -68,7 +68,7 @@ final class RowAssembler
         $this->assertKnownKeys($values, $fieldMap);
         $multiplePayload = [];
         foreach ($fieldMap as $fieldName => $field) {
-            if (!$field->settings()->multiple()) {
+            if (!$field->isMfv()) {
                 continue;
             }
 
@@ -110,7 +110,7 @@ final class RowAssembler
         $this->assertKnownKeys($values, $fieldMap);
         $payload = [];
         foreach ($values as $fieldName => $inputValue) {
-            if ($fieldMap[$fieldName]->settings()->multiple()) {
+            if ($fieldMap[$fieldName]->isMfv()) {
                 continue;
             }
 
@@ -201,7 +201,7 @@ final class RowAssembler
             }
 
             $field = $fieldMap[$fieldName];
-            $hydratedRow[$fieldName] = $field->settings()->multiple()
+            $hydratedRow[$fieldName] = $field->isMfv()
                 ? $this->hydrateMultipleList($field, $databaseRow[$fieldName])
                 : $field->hydrate($databaseRow[$fieldName]);
         }

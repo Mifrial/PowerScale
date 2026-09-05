@@ -25,7 +25,7 @@ final class UniqueKeyMap
      */
     public function assertFieldCanBeUnique(BaseField $field): void
     {
-        if ($field instanceof IdField || $field->settings()->multiple()) {
+        if ($field instanceof IdField || $field->isMfv()) {
             throw new MapInvalidException('Index flags are not allowed on this field');
         }
 
