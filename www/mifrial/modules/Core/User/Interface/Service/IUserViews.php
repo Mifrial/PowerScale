@@ -16,7 +16,7 @@ interface IUserViews
      * Собирает объект User.
      *
      * @param UserRecord $userRecord Профиль.
-     * @param DateTime|null $lastLogin last_used_at или null (ключ опустить).
+     * @param DateTime|null $lastLogin Метка last_used_at или null (ключ опустить).
      *
      * @return array<string, mixed> JSON-поля.
      */

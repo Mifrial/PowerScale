@@ -12,7 +12,7 @@ final class MemberIdPage
     /**
      * Собирает страницу.
      *
-     * @param array<int, int> $ids user id в порядке id членства.
+     * @param array<int, int> $ids User id в порядке id членства.
      * @param int $total Число членств группы.
      *
      * @return void

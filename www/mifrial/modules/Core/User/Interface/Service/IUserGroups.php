@@ -21,7 +21,7 @@ use Mifrial\Core\User\Exception\UserNotFoundException;
 /**
  * Фасад групп и членства для соседей: без схемы и без таблиц.
  *
- * getAssignOnRegisterIds нужен Auth; отдельный порт раздувал бы границу.
+ * Метод getAssignOnRegisterIds нужен Auth; отдельный порт раздувал бы границу.
  */
 interface IUserGroups
 {

@@ -24,7 +24,8 @@ use Mifrial\Core\User\Repository\UserRepository;
 /**
  * Сценарий групп: без SmartTable и без имён колонок.
  *
- * Public-методы findByName (unique подпись) и getAssignOnRegisterIds нужны соседям; отдельный фасад раздувал бы границу.
+ * Public-методы findByName (unique подпись) и getAssignOnRegisterIds нужны соседям;
+ * отдельный фасад раздувал бы границу.
  */
 final class UserGroups implements IUserGroups
 {
