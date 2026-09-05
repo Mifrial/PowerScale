@@ -1,0 +1,51 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Mifrial\Messages\Chat\Table;
+
+use Mifrial\Core\SmartTable\Dto\FieldSettings;
+use Mifrial\Core\SmartTable\Field\DateTimeField;
+use Mifrial\Core\SmartTable\Field\IdField;
+use Mifrial\Core\SmartTable\Field\StringField;
+use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
+use Mifrial\Core\SmartTable\Value\DateTimeNow;
+
+/**
+ * Карта чата `chat`.
+ */
+final class ChatTable extends SmartTableDefinition
+{
+    /**
+     * Задаёт физическое имя таблицы.
+     *
+     * @return string Имя.
+     */
+    protected function tableName(): string
+    {
+        return 'chat';
+    }
+
+    /**
+     * Перечисляет поля определения.
+     *
+     * @return array Список полей.
+     */
+    protected function defineFields(): array
+    {
+        return [
+            new IdField(),
+            new StringField('type', FieldSettings::fromOptions(['required' => true])),
+            new StringField('name', FieldSettings::fromOptions(['required' => true])),
+            new StringField('pair_key', FieldSettings::fromOptions(['unique' => true])),
+            new DateTimeField(
+                'created_at',
+                FieldSettings::fromOptions(['required' => true, 'default' => DateTimeNow::instance()]),
+            ),
+            new DateTimeField(
+                'updated_at',
+                FieldSettings::fromOptions(['required' => true, 'default' => DateTimeNow::instance()]),
+            ),
+        ];
+    }
+}

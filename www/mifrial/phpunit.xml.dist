@@ -22,5 +22,14 @@
         <testsuite name="mail">
             <directory>modules/Core/Mail/tests</directory>
         </testsuite>
+        <testsuite name="logger">
+            <directory>modules/Core/Logger/tests</directory>
+        </testsuite>
+        <testsuite name="chat">
+            <directory>modules/Messages/Chat/tests</directory>
+        </testsuite>
     </testsuites>
+    <php>
+        <env name="MIFRIAL_CONFIG" value="test" force="true"/>
+    </php>
 </phpunit>

@@ -1,6 +1,6 @@
 # Система Chat
 
-**Статус:** текущий frontend/domain канон, 2026-08-30. Реальный backend transport отделён от mock/polling.
+**Статус:** текущий frontend/domain канон, 2026-08-30. PHP-нарезка — [`chat-roadmap.md`](chat-roadmap.md). Реальный backend transport отделён от mock/polling.
 
 ## Граница модуля
 
@@ -22,7 +22,7 @@ attachments: ChatAttachment[]
 
 Attachment может быть доменным opaque payload, который обрабатывается зарегистрированным renderer/processor. Inline-чипы используют отдельный renderer context с подписями токенов и ключами среза, без импорта внутренних DTO донора.
 
-`IChatApi` предоставляет `getChats`, `getMessages`, `getTotalMessageCount`, `sendMessage(chatId, content, attachments)`, `updateMessageVisibility`, `sendSystemMessage`, `markChatRead` и `sync(since)`. Доменные команды не добавляют поля в базовый `ChatMessage`: результат передаётся через `ChatAttachment`.
+`IChatApi` предоставляет `getChats`, `addPrivate`, `addGroup`, `getMessages`, `getTotalMessageCount`, `sendMessage(chatId, content, attachments)`, `updateMessageVisibility`, `sendSystemMessage`, `markChatRead` и `sync(since)`. Inbox `getChats` — только `private`/`group`. Доменные команды не добавляют поля в базовый `ChatMessage`: результат передаётся через `ChatAttachment`.
 
 ## Загрузка и отображение
 
@@ -51,8 +51,8 @@ interface ChatMessage {
   userId: number;
   content: string;
   attachments: ChatAttachment[];
-  createdAt: string;
-  updatedAt?: string;
+  createdAt: number;
+  updatedAt?: number;
   thread?: { id: string; parentId?: string; kind: string };
 }
 
@@ -88,31 +88,29 @@ Macro — optional text template и/или один или несколько ro
 
 ## Real-time
 
-Старая документация описывает SSE как целевой transport. Mock/polling и фактическая готовность backend не должны описываться как SSE-ready без доказательства.
+PHP поток — [`chat-plan-03.md`](chat-plan-03.md). Vue real — [`chat-plan-04.md`](chat-plan-04.md). Mock остаётся polling. `Engine.openSse` — транспорт шага 4.
 
-До подтверждения backend-контракта имеют статус `OPEN`:
+Visibility / unread / preview на PHP+real — [`chat-plan-05.md`](chat-plan-05.md) (не `forRole` / `see_all`). `OPEN`: редактирование/удаление сообщений; retention; spoiler-сегменты.
 
-- SSE authorization;
-- reconnect и повторная доставка;
-- visibility filtering;
-- retention;
-- ordering;
-- unread synchronization;
-- редактирование/удаление сообщений.
+Закрыты контрактом PHP (шаг 3): cookie без CSRF; reconnect парой `(since, afterId)`; порядок sync `updated_at ASC, id ASC`; hello при пустом `since`; `since=0` — эпоха.
 
-### Целевой SSE protocol
+### SSE protocol
 
-В mock используется polling с интервалом 5 секунд. Целевой backend transport — одно SSE-соединение на весь sync:
+Одно соединение на слайдер, не на `userId`:
 
 ```text
-/api/chat/sync?since=ISO_TIMESTAMP
+GET /api/chat/sync           # live, hello
+GET /api/chat/sync?since=0   # эпоха
+GET /api/chat/sync?since=S&afterId=A
 ```
 
-Payload содержит `now`, chat summaries, `newChats` и messages. `now` используется как следующий since, heartbeat отправляется после 60 секунд тишины, reconnect продолжает с последним since. Pagination сортируется по `created_at DESC`, sync — по `updated_at ASC`; нужны индексы `(chat_id, created_at)` и `(chat_id, updated_at)`.
+Кадр `event: sync`: `{ now, afterId, chats, newChats, messages }`. Даты Chat/Message — unix int UTC, как User. `now`/`afterId` — курсор (hello: стена `H`, `afterId: 0`). Heartbeat `: ping` ~60 с, курсор не двигает. Клиент: `Engine.openSse('/chat/sync', query)` — не `EventSource` в Chat и не `runAction('chat.sync')`. Upsert чата из `chats`, не только из `newChats`.
+
+Страница ленты — `chat.findMessagePage` (`created_at DESC`, offset). Не `beforeId` на PHP.
 
 ### Error/retry contract
 
-`ChatSyncService` публикует `ChatSyncHealth`: `status` — `ok` | `retrying`, плюс `lastError`. Статус `ok` только после успешного кадра (`SyncResponse`); cursor `lastSync` сдвигается только тогда. Ошибка канала (poll throw / SSE `onerror`) не двигает cursor, ставит `retrying` и ретраит, пока `connect` без `disconnect`. Backoff `1s → 2s → 4s …` с потолком `30s`; успешный кадр сбрасывает delay на `1s` и дальше poll идёт с интервалом `5s`. Ручной `retryNow` сбрасывает delay и бьёт сразу (во время in-flight poll — no-op). Мусорный SSE JSON cursor не двигает и канал в error не переводит. Mock остаётся polling; backend SSE не объявлен реализованным. UI-баннер при `retrying` над уже загруженной лентой; empty-state `chatsError`/`chatError` не подменяется.
+`ChatSyncService` публикует `ChatSyncHealth`: `status` — `ok` | `retrying`, плюс `lastError`. Статус `ok` только после успешного кадра (`SyncResponse`); cursor сдвигается только тогда. Ошибка канала (poll throw / SSE `onError`) не двигает cursor, ставит `retrying` и ретраит, пока `connect` без `disconnect`. Backoff `1s → 2s → 4s …` с потолком `30s`; успешный кадр сбрасывает delay на `1s` и дальше poll идёт с интервалом `5s`. Ручной `retryNow` сбрасывает delay и бьёт сразу (во время in-flight poll — no-op). Мусорный SSE JSON cursor не двигает и канал в error не переводит. `AUTH_REQUIRED` — login (HttpClient), не ретрай Chat. `CHAT_INVALID` — сброс на live, не тот же query. UI-баннер при `retrying` над уже загруженной лентой; empty-state `chatsError`/`chatError` не подменяется.
 
 ### Read ack (`markChatRead`)
 
