@@ -10,6 +10,7 @@ use Mifrial\Core\SmartTable\Exception\Schema\TableMissingException;
 use Mifrial\Core\SmartTable\Interface\Service\IOpenedTable;
 use Mifrial\Core\SmartTable\Service\Cache\TableCache;
 use Mifrial\Core\SmartTable\Service\OpenedTable;
+use Mifrial\Core\SmartTable\Service\Query\TableAggregate;
 use Mifrial\Core\SmartTable\Service\Query\TableList;
 use Mifrial\Core\SmartTable\Service\Query\TableRows;
 use Mifrial\Core\SmartTable\Service\Schema\TableSchema;
@@ -29,7 +30,8 @@ final class CatalogDictionary
      * @param TableSchema $tableSchema DDL.
      * @param TableRows $tableRows Строки.
      * @param TableList $tableList Списки.
-     * @param TableCache $tableCache Кэш get/getList.
+     * @param TableCache $tableCache Кэш get и запросов.
+     * @param TableAggregate $tableAggregate Агрегат.
      *
      * @return void
      */
@@ -38,6 +40,7 @@ final class CatalogDictionary
         private readonly TableRows $tableRows,
         private readonly TableList $tableList,
         private readonly TableCache $tableCache,
+        private readonly TableAggregate $tableAggregate,
     ) {
     }
 
@@ -329,6 +332,7 @@ final class CatalogDictionary
             $this->tableRows,
             $this->tableList,
             $this->tableCache,
+            $this->tableAggregate,
         );
     }
 }

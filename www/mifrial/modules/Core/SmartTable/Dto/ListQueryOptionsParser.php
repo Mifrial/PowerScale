@@ -30,7 +30,7 @@ final class ListQueryOptionsParser
         $this->assertKnownOptionKeys($options);
 
         return new ListQuery(
-            $this->parseFilter($options['filter'] ?? null),
+            (new FilterTreeParser())->parseOptional($options['filter'] ?? null),
             $this->parseSort($options['sort'] ?? []),
             $this->parseLimit($options),
             $this->parseOffset($options['offset'] ?? 0),
@@ -55,28 +55,6 @@ final class ListQueryOptionsParser
                 throw new MapInvalidException('Unknown list query option');
             }
         }
-    }
-
-    /**
-     * Разбирает filter.
-     *
-     * @param mixed $filterValue Сырой фильтр.
-     *
-     * @return FilterGroup|null Дерево.
-     *
-     * @throws MapInvalidException Если фильтр не массив.
-     */
-    private function parseFilter(mixed $filterValue): ?FilterGroup
-    {
-        if ($filterValue === null || $filterValue === []) {
-            return null;
-        }
-
-        if (!is_array($filterValue)) {
-            throw new MapInvalidException('Filter must be an array');
-        }
-
-        return (new FilterTreeParser())->parseGroup($filterValue);
     }
 
     /**

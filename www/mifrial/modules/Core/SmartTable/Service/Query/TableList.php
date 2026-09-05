@@ -145,6 +145,10 @@ final class TableList // phpcs:ignore MifrialCodingStandard.Metrics.ClassQuality
         }
 
         foreach ($selectedNames as $fieldName) {
+            if (!is_string($fieldName)) {
+                throw new MapInvalidException('Select field name is invalid');
+            }
+
             if (str_contains($fieldName, '.')) {
                 $this->fieldPathWalker->resolve($tableDefinition, $fieldName);
                 continue;

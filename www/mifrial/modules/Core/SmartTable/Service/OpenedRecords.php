@@ -4,18 +4,22 @@ declare(strict_types=1);
 
 namespace Mifrial\Core\SmartTable\Service;
 
+use Mifrial\Core\SmartTable\Dto\AggregateQuery;
+use Mifrial\Core\SmartTable\Dto\AggregateResult;
 use Mifrial\Core\SmartTable\Dto\ListQuery;
 use Mifrial\Core\SmartTable\Dto\ListResult;
 use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
 use Mifrial\Core\SmartTable\Interface\Service\IOpenedRecords;
+use Mifrial\Core\SmartTable\Service\Cache\ListCacheKey;
 use Mifrial\Core\SmartTable\Service\Cache\TableCache;
+use Mifrial\Core\SmartTable\Service\Query\TableAggregate;
 use Mifrial\Core\SmartTable\Service\Query\TableList;
 use Mifrial\Core\SmartTable\Service\Query\TableRows;
 use Mifrial\Core\SmartTable\Service\Schema\TableSchema;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
 
 /**
- * Строки открытой карты: CRUD, список, unique/first.
+ * Строки открытой карты: CRUD, список, unique/first, агрегат.
  */
 final class OpenedRecords implements IOpenedRecords
 {
@@ -27,6 +31,7 @@ final class OpenedRecords implements IOpenedRecords
      * @param TableList $tableList Список.
      * @param TableCache $tableCache Кэш.
      * @param TableSchema $tableSchema Имена CASCADE/SET NULL-детей.
+     * @param TableAggregate $tableAggregate Агрегат.
      *
      * @return void
      */
@@ -36,6 +41,7 @@ final class OpenedRecords implements IOpenedRecords
         private readonly TableList $tableList,
         private readonly TableCache $tableCache,
         private readonly TableSchema $tableSchema,
+        private readonly TableAggregate $tableAggregate,
     ) {
     }
 
@@ -136,8 +142,9 @@ final class OpenedRecords implements IOpenedRecords
     {
         $this->assertTtl($cacheTtl);
         $tableName = $this->tableDefinition->getName();
+        $cacheKey = (new ListCacheKey())->make($tableName, $listQuery);
         if ($cacheTtl !== null) {
-            $cacheHit = $this->tableCache->lookupList($tableName, $listQuery);
+            $cacheHit = $this->tableCache->lookupTagged($cacheKey);
             if ($cacheHit->found() && $cacheHit->value() instanceof ListResult) {
                 return $cacheHit->value();
             }
@@ -145,9 +152,9 @@ final class OpenedRecords implements IOpenedRecords
 
         $listResult = $this->tableList->getList($this->tableDefinition, $listQuery);
         if ($cacheTtl !== null) {
-            $this->tableCache->saveList(
+            $this->tableCache->saveTagged(
                 $tableName,
-                $listQuery,
+                $cacheKey,
                 $listResult,
                 $cacheTtl,
                 $this->listFieldTags($listQuery),
@@ -155,6 +162,42 @@ final class OpenedRecords implements IOpenedRecords
         }
 
         return $listResult;
+    }
+
+    /**
+     * Возвращает пачку GROUP BY своей таблицы.
+     *
+     * @param AggregateQuery $aggregateQuery Запрос агрегата.
+     * @param int|null $cacheTtl Секунды кэша или БД.
+     *
+     * @return AggregateResult Ряды групп.
+     *
+     * @throws MapInvalidException Если TTL ≤ 0 или запрос не сходится с картой.
+     */
+    public function aggregate(AggregateQuery $aggregateQuery, ?int $cacheTtl = null): AggregateResult
+    {
+        $this->assertTtl($cacheTtl);
+        $tableName = $this->tableDefinition->getName();
+        $cacheKey = (new ListCacheKey())->makeAggregate($tableName, $aggregateQuery);
+        if ($cacheTtl !== null) {
+            $cacheHit = $this->tableCache->lookupTagged($cacheKey);
+            if ($cacheHit->found() && $cacheHit->value() instanceof AggregateResult) {
+                return $cacheHit->value();
+            }
+        }
+
+        $aggregateResult = $this->tableAggregate->aggregate($this->tableDefinition, $aggregateQuery);
+        if ($cacheTtl !== null) {
+            $this->tableCache->saveTagged(
+                $tableName,
+                $cacheKey,
+                $aggregateResult,
+                $cacheTtl,
+                $this->tableAggregate->cacheFieldTags($this->tableDefinition, $aggregateQuery),
+            );
+        }
+
+        return $aggregateResult;
     }
 
     /**

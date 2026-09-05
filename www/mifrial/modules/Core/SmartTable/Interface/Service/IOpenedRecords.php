@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Mifrial\Core\SmartTable\Interface\Service;
 
+use Mifrial\Core\SmartTable\Dto\AggregateQuery;
+use Mifrial\Core\SmartTable\Dto\AggregateResult;
 use Mifrial\Core\SmartTable\Dto\ListQuery;
 use Mifrial\Core\SmartTable\Dto\ListResult;
 use Mifrial\Core\SmartTable\Exception\Field\FieldInvalidException;
@@ -138,4 +140,21 @@ interface IOpenedRecords
      * @throws RowWriteFailedException Если драйвер отклонил SELECT.
      */
     public function getFirst(ListQuery $listQuery, ?int $cacheTtl = null): ?array;
+
+    /**
+     * Возвращает пачку GROUP BY своей таблицы.
+     *
+     * @param AggregateQuery $aggregateQuery Запрос агрегата.
+     * @param int|null $cacheTtl Секунды кэша; null — всегда БД.
+     *
+     * @return AggregateResult Ряды групп.
+     *
+     * @throws MapInvalidException Если запрос не сходится с картой или TTL ≤ 0.
+     * @throws FieldInvalidException Если операнд фильтра не прошёл cast.
+     * @throws FieldMultipleUnsupportedException Если фильтр по multiple или @.
+     * @throws TableMissingException Если таблицы нет.
+     * @throws SchemaMismatchException Если колонки нет.
+     * @throws RowWriteFailedException Если драйвер отклонил SELECT.
+     */
+    public function aggregate(AggregateQuery $aggregateQuery, ?int $cacheTtl = null): AggregateResult;
 }

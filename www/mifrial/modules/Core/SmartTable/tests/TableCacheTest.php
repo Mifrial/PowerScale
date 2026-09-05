@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Mifrial\Core\SmartTable\Tests;
 
 use Mifrial\Core\Kernel\Dto\CacheSettings;
-use Mifrial\Core\SmartTable\Dto\ListQuery;
+use Mifrial\Core\Kernel\Value\DateTime as UnixDateTime;
+use Mifrial\Core\SmartTable\Dto\AggregateResult;
 use Mifrial\Core\SmartTable\Dto\ListResult;
 use Mifrial\Core\SmartTable\Exception\Cache\CacheConfigInvalidException;
 use Mifrial\Core\SmartTable\Exception\Cache\CacheDriverFailedException;
@@ -67,16 +68,14 @@ final class TableCacheTest extends TestCase
     public function testFieldTagFlushIsOr(): void
     {
         $tableCache = $this->makeCache(true);
-        $titleQuery = ListQuery::fromOptions(['limit' => 10, 'select' => ['title']]);
-        $ageQuery = ListQuery::fromOptions(['limit' => 10, 'select' => ['age']]);
         $titleList = new ListResult([['title' => 'a']], null);
         $ageList = new ListResult([['age' => 1]], null);
-        $tableCache->saveList('users', $titleQuery, $titleList, 60, ['title']);
-        $tableCache->saveList('users', $ageQuery, $ageList, 60, ['age']);
+        $tableCache->saveTagged('users', 'k-title', $titleList, 60, ['title']);
+        $tableCache->saveTagged('users', 'k-age', $ageList, 60, ['age']);
         $tableCache->noteUpdate('users', 5, ['title']);
 
-        self::assertFalse($tableCache->lookupList('users', $titleQuery)->found());
-        self::assertTrue($tableCache->lookupList('users', $ageQuery)->found());
+        self::assertFalse($tableCache->lookupTagged('k-title')->found());
+        self::assertTrue($tableCache->lookupTagged('k-age')->found());
         self::assertFalse($tableCache->lookupGet('users', 5)->found());
     }
 
@@ -88,11 +87,10 @@ final class TableCacheTest extends TestCase
     public function testAddFlushesListsAndDeleteRemovesGet(): void
     {
         $tableCache = $this->makeCache(true);
-        $listQuery = ListQuery::fromOptions(['limit' => 10]);
-        $tableCache->saveList('users', $listQuery, new ListResult([], 0), 60, ['id', 'title']);
+        $tableCache->saveTagged('users', 'k-list', new ListResult([], 0), 60, ['id', 'title']);
         $tableCache->saveGet('users', 3, ['title' => 'x'], 60);
         $tableCache->noteAdd('users');
-        self::assertFalse($tableCache->lookupList('users', $listQuery)->found());
+        self::assertFalse($tableCache->lookupTagged('k-list')->found());
         self::assertTrue($tableCache->lookupGet('users', 3)->found());
 
         $tableCache->noteDelete('users', 3);
@@ -107,12 +105,11 @@ final class TableCacheTest extends TestCase
     public function testDeleteFlushesDependentRowsAndLists(): void
     {
         $tableCache = $this->makeCache(true);
-        $childQuery = ListQuery::fromOptions(['limit' => 10]);
-        $tableCache->saveList('st_child', $childQuery, new ListResult([['id' => 2]], null), 60, ['id']);
+        $tableCache->saveTagged('st_child', 'k-child', new ListResult([['id' => 2]], null), 60, ['id']);
         $tableCache->saveGet('st_child', 2, ['parent_id' => 1], 60);
         $tableCache->saveGet('st_other', 9, ['x' => 1], 60);
         $tableCache->noteDelete('st_parent', 1, static fn (): array => ['st_child']);
-        self::assertFalse($tableCache->lookupList('st_child', $childQuery)->found());
+        self::assertFalse($tableCache->lookupTagged('k-child')->found());
         self::assertFalse($tableCache->lookupGet('st_child', 2)->found());
         self::assertTrue($tableCache->lookupGet('st_other', 9)->found());
     }
@@ -167,6 +164,33 @@ final class TableCacheTest extends TestCase
     }
 
     /**
+     * AggregateResult с DateTime в ряду переживает слот.
+     *
+     * @return void
+     */
+    public function testTaggedAggregateResultKeepsDateTime(): void
+    {
+        $tableCache = $this->makeCache(true);
+        $stamp = UnixDateTime::fromUnix(1_700_000_010);
+        $tableCache->saveTagged(
+            'st_agg_item',
+            'k-agg',
+            new AggregateResult([['group_id' => 10, 'last_at' => $stamp]]),
+            60,
+            ['created'],
+        );
+        $cacheHit = $tableCache->lookupTagged('k-agg');
+        self::assertTrue($cacheHit->found());
+        $value = $cacheHit->value();
+        self::assertInstanceOf(AggregateResult::class, $value);
+        $lastAt = $value->rows()[0]['last_at'];
+        self::assertInstanceOf(UnixDateTime::class, $lastAt);
+        self::assertSame(1_700_000_010, $lastAt->toUnix());
+        $tableCache->noteUpdate('st_agg_item', 1, ['created']);
+        self::assertFalse($tableCache->lookupTagged('k-agg')->found());
+    }
+
+    /**
      * В транзакции не читаем и не пишем; rollback забывает pending.
      *
      * @return void
@@ -182,21 +206,20 @@ final class TableCacheTest extends TestCase
             },
             fn (): int => $this->now,
         );
-        $listQuery = ListQuery::fromOptions(['limit' => 10, 'select' => ['title']]);
-        $tableCache->saveList('users', $listQuery, new ListResult([['title' => 'a']], null), 60, ['title']);
+        $tableCache->saveTagged('users', 'k-title', new ListResult([['title' => 'a']], null), 60, ['title']);
         $level = 1;
         $tableCache->saveGet('users', 1, ['title' => 'b'], 60);
         self::assertFalse($tableCache->lookupGet('users', 1)->found());
         $tableCache->noteAdd('users');
         $tableCache->settleTransaction(false);
         $level = 0;
-        self::assertTrue($tableCache->lookupList('users', $listQuery)->found());
+        self::assertTrue($tableCache->lookupTagged('k-title')->found());
 
         $level = 1;
         $tableCache->noteAdd('users');
         $level = 0;
         $tableCache->settleTransaction(true);
-        self::assertFalse($tableCache->lookupList('users', $listQuery)->found());
+        self::assertFalse($tableCache->lookupTagged('k-title')->found());
     }
 
     /**

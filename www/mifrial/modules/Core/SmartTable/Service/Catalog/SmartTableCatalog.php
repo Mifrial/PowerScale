@@ -12,6 +12,7 @@ use Mifrial\Core\SmartTable\Interface\Service\IOpenedTable;
 use Mifrial\Core\SmartTable\Interface\Service\ITableCatalog;
 use Mifrial\Core\SmartTable\Service\Cache\TableCache;
 use Mifrial\Core\SmartTable\Service\OpenedTable;
+use Mifrial\Core\SmartTable\Service\Query\TableAggregate;
 use Mifrial\Core\SmartTable\Service\Query\TableList;
 use Mifrial\Core\SmartTable\Service\Query\TableRows;
 use Mifrial\Core\SmartTable\Service\Schema\MfvSchema;
@@ -34,7 +35,8 @@ final class SmartTableCatalog implements ITableCatalog
      * @param TableRows $tableRows Строки.
      * @param TableList $tableList Списки.
      * @param MfvSchema $mfvSchema Sidecar multiple.
-     * @param TableCache $tableCache Кэш get/getList.
+     * @param TableCache $tableCache Кэш get и запросов.
+     * @param TableAggregate $tableAggregate Агрегат.
      *
      * @return void
      */
@@ -44,12 +46,14 @@ final class SmartTableCatalog implements ITableCatalog
         private readonly TableList $tableList,
         private readonly MfvSchema $mfvSchema,
         private readonly TableCache $tableCache,
+        private readonly TableAggregate $tableAggregate,
     ) {
         $this->dictionary = new CatalogDictionary(
             $tableSchema,
             $tableRows,
             $tableList,
             $tableCache,
+            $tableAggregate,
         );
     }
 
@@ -358,6 +362,7 @@ final class SmartTableCatalog implements ITableCatalog
             $this->tableRows,
             $this->tableList,
             $this->tableCache,
+            $this->tableAggregate,
         );
     }
 }

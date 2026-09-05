@@ -8,6 +8,8 @@ use Illuminate\Database\Query\Builder;
 use Mifrial\Core\SmartTable\Dto\FilterCondition;
 use Mifrial\Core\SmartTable\Dto\FilterGroup;
 use Mifrial\Core\SmartTable\Dto\ListQuery;
+use Mifrial\Core\SmartTable\Dto\OuterColumn;
+use Mifrial\Core\SmartTable\Dto\SubqueryValue;
 use Mifrial\Core\SmartTable\Exception\Field\FieldMultipleUnsupportedException;
 use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
 use Mifrial\Core\SmartTable\Field\BaseField;
@@ -24,6 +26,8 @@ final class ListQueryCompiler
 
     private readonly ListPathSql $pathSql;
 
+    private readonly ListSubqueryBinder $subqueryBinder;
+
     /**
      * Создаёт компилятор.
      *
@@ -39,6 +43,7 @@ final class ListQueryCompiler
         $this->fieldPathWalker = $fieldPathWalker ?? new FieldPathWalker();
         $this->pathFilter = new ListPathFilter($this->fieldPathWalker, $this->filterBinder);
         $this->pathSql = new ListPathSql();
+        $this->subqueryBinder = new ListSubqueryBinder($this->fieldPathWalker);
     }
 
     /**
@@ -55,9 +60,29 @@ final class ListQueryCompiler
         ListQuery $listQuery,
         SmartTableDefinition $tableDefinition,
     ): void {
-        $filterGroup = $listQuery->filter();
+        $this->applyFilter($query, $listQuery->filter(), $tableDefinition);
+    }
+
+    /**
+     * Вешает WHERE по уже разобранному дереву.
+     *
+     * @param Builder $query Билдер.
+     * @param FilterGroup|null $filterGroup Дерево или нет WHERE.
+     * @param SmartTableDefinition $tableDefinition Локальная карта.
+     * @param SmartTableDefinition|null $outerTable Внешняя FROM подзапроса.
+     *
+     * @return void
+     *
+     * @throws MapInvalidException Если дерево или подзапрос недопустимы.
+     */
+    public function applyFilter(
+        Builder $query,
+        ?FilterGroup $filterGroup,
+        SmartTableDefinition $tableDefinition,
+        ?SmartTableDefinition $outerTable = null,
+    ): void {
         if ($filterGroup instanceof FilterGroup) {
-            $this->applyGroup($query, $filterGroup, 'and', $tableDefinition);
+            $this->applyGroup($query, $filterGroup, 'and', $tableDefinition, $outerTable);
         }
     }
 
@@ -111,6 +136,7 @@ final class ListQueryCompiler
      * @param FilterGroup $filterGroup Группа.
      * @param string $boolean Связка с родителем.
      * @param SmartTableDefinition $tableDefinition Карта.
+     * @param SmartTableDefinition|null $outerTable Внешняя FROM подзапроса.
      *
      * @return void
      */
@@ -119,14 +145,15 @@ final class ListQueryCompiler
         FilterGroup $filterGroup,
         string $boolean,
         SmartTableDefinition $tableDefinition,
+        ?SmartTableDefinition $outerTable = null,
     ): void {
-        $nested = function (Builder $nestedQuery) use ($filterGroup, $tableDefinition): void {
+        $nested = function (Builder $nestedQuery) use ($filterGroup, $tableDefinition, $outerTable): void {
             $childBoolean = $filterGroup->logic() === 'OR' ? 'or' : 'and';
             foreach ($filterGroup->children() as $childNode) {
                 if ($childNode instanceof FilterGroup) {
-                    $this->applyGroup($nestedQuery, $childNode, $childBoolean, $tableDefinition);
+                    $this->applyGroup($nestedQuery, $childNode, $childBoolean, $tableDefinition, $outerTable);
                 } elseif ($childNode instanceof FilterCondition) {
-                    $this->applyCondition($nestedQuery, $childNode, $childBoolean, $tableDefinition);
+                    $this->applyCondition($nestedQuery, $childNode, $childBoolean, $tableDefinition, $outerTable);
                 }
             }
         };
@@ -146,15 +173,27 @@ final class ListQueryCompiler
      * @param FilterCondition $condition Условие.
      * @param string $boolean Связка.
      * @param SmartTableDefinition $tableDefinition Карта.
+     * @param SmartTableDefinition|null $outerTable Внешняя FROM подзапроса.
      *
      * @return void
+     *
+     * @throws MapInvalidException Если подзапрос или путь недопустимы.
      */
     private function applyCondition(
         Builder $query,
         FilterCondition $condition,
         string $boolean,
         SmartTableDefinition $tableDefinition,
+        ?SmartTableDefinition $outerTable = null,
     ): void {
+        if ($this->applySpecialOperand($query, $condition, $boolean, $tableDefinition, $outerTable)) {
+            return;
+        }
+
+        if ($outerTable instanceof SmartTableDefinition && str_contains($condition->fieldName(), '.')) {
+            throw new MapInvalidException('Subquery filter path is invalid');
+        }
+
         if (str_contains($condition->fieldName(), '.')) {
             $this->pathFilter->apply($query, $condition, $boolean, $tableDefinition);
 
@@ -162,6 +201,42 @@ final class ListQueryCompiler
         }
 
         $this->filterBinder->apply($query, $condition, $boolean, $tableDefinition);
+    }
+
+    /**
+     * Подзапрос или OuterColumn.
+     *
+     * @param Builder $query Билдер.
+     * @param FilterCondition $condition Условие.
+     * @param string $boolean Связка.
+     * @param SmartTableDefinition $tableDefinition Локальная карта.
+     * @param SmartTableDefinition|null $outerTable Внешняя FROM.
+     *
+     * @return bool True, если операнд обработан.
+     *
+     * @throws MapInvalidException Если подзапрос недопустим.
+     */
+    private function applySpecialOperand(
+        Builder $query,
+        FilterCondition $condition,
+        string $boolean,
+        SmartTableDefinition $tableDefinition,
+        ?SmartTableDefinition $outerTable,
+    ): bool {
+        $operand = $condition->operand();
+        if ($operand instanceof SubqueryValue) {
+            $this->subqueryBinder->apply($query, $condition, $boolean, $tableDefinition, $outerTable, $this);
+
+            return true;
+        }
+
+        if ($operand instanceof OuterColumn) {
+            $this->subqueryBinder->applyOuter($query, $condition, $boolean, $tableDefinition, $outerTable);
+
+            return true;
+        }
+
+        return false;
     }
 
     /**

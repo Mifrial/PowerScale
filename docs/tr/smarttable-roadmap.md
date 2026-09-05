@@ -82,6 +82,10 @@ Multiple — сделано: [`smarttable-plan-05-multiple.md`](smarttable-plan-
 
 Подробно: [`smarttable-plan-16-composite-unique.md`](smarttable-plan-16-composite-unique.md). Unique по нескольким колонкам из `defineUniqueKeys()` — PHP-класс и словарь (`st_meta_table.unique_keys`). Не флаг поля. Хвост User — [`user-plan-07-member-unique.md`](user-plan-07-member-unique.md). Блокер Chat 1. **Не** план 11.
 
+## 17. Агрегат своей таблицы — сделано
+
+Подробно: [`smarttable-plan-17-aggregate.md`](smarttable-plan-17-aggregate.md). `IOpenedRecords::aggregate`: `GROUP BY` своих колонок + `CountField` / `MaxField` / `MinField` / `SumField`. Фильтр — `FilterGroup` getList. JOIN в FROM нет. Порог с другой карты — `SubqueryValue`, не JOIN. Не слот `getList`. Блокер Chat 5 (unread/preview). Хвост User — [`user-plan-08-member-count-aggregate.md`](user-plan-08-member-count-aggregate.md). **Не** план 11.
+
 ## 11. VersionedSmartTable
 
 - Только после плана 10.

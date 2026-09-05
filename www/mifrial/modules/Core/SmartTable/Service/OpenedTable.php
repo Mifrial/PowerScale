@@ -8,6 +8,7 @@ use Mifrial\Core\SmartTable\Interface\Service\IOpenedRecords;
 use Mifrial\Core\SmartTable\Interface\Service\IOpenedSchema;
 use Mifrial\Core\SmartTable\Interface\Service\IOpenedTable;
 use Mifrial\Core\SmartTable\Service\Cache\TableCache;
+use Mifrial\Core\SmartTable\Service\Query\TableAggregate;
 use Mifrial\Core\SmartTable\Service\Query\TableList;
 use Mifrial\Core\SmartTable\Service\Query\TableRows;
 use Mifrial\Core\SmartTable\Service\Schema\TableSchema;
@@ -40,6 +41,7 @@ final class OpenedTable implements IOpenedTable
      * @param TableRows $tableRows Строки.
      * @param TableList $tableList Список.
      * @param TableCache $tableCache Кэш.
+     * @param TableAggregate $tableAggregate Агрегат.
      *
      * @return self Сумка.
      */
@@ -49,10 +51,11 @@ final class OpenedTable implements IOpenedTable
         TableRows $tableRows,
         TableList $tableList,
         TableCache $tableCache,
+        TableAggregate $tableAggregate,
     ): self {
         return new self(
             new OpenedSchema($tableDefinition, $tableSchema, $tableCache),
-            new OpenedRecords($tableDefinition, $tableRows, $tableList, $tableCache, $tableSchema),
+            new OpenedRecords($tableDefinition, $tableRows, $tableList, $tableCache, $tableSchema, $tableAggregate),
         );
     }
 

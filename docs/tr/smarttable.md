@@ -6,7 +6,7 @@
 
 SmartTable — единственная точка доступа модулей к MySQL. Репозиторий не пишет SQL, не вызывает Query Builder/Schema и не использует Eloquent. Наружу — HL-подобный API.
 
-Все таблицы в БД устроены одинаково. PHP-класс (написанный вручную или сгенерированный из словаря) — фасад определения, не второй вид хранения. `ISmartTableGateway::open(class)` возвращает сумку: **`schema()`** (`exists` / `createTable` / `updateTable` / `forceUpdateTable` / `deleteTable`) и **`records()`** (`add` / `update` / `delete` / `getById` / `getList` / `getUnique` / `getFirst`). Прикладной репозиторий получает `records()` с фабрики, не зовёт `open`. Класс может опережать схему: `exists()` (есть ли физика) / `createTable` / `updateTable` (не удаляет лишние колонки в БД) / `forceUpdateTable` (снимает leftover колонок, индексов, FK и mfv, которых нет в классе) / `deleteTable`. `createTable` при уже существующей таблице — `TABLE_EXISTS`, не ветка install. Если класс ссылается на поле, которого нет в БД — исключение. Поля в БД, которых нет в классе, при обычном `updateTable` не трогаются. Имя таблицы одно: PHP-класс и запись словаря не делят два разных `users`. Таблица из словаря открывается по имени (`ITableCatalog::openByName`), не через `ISmartTableGateway::open` по class-string. Журнал наката схемы (up/down по репозиторию) — не API SmartTable; SmartTable даёт DDL одной таблицы.
+Все таблицы в БД устроены одинаково. PHP-класс (написанный вручную или сгенерированный из словаря) — фасад определения, не второй вид хранения. `ISmartTableGateway::open(class)` возвращает сумку: **`schema()`** (`exists` / `createTable` / `updateTable` / `forceUpdateTable` / `deleteTable`) и **`records()`** (`add` / `update` / `delete` / `getById` / `getList` / `getUnique` / `getFirst` / `aggregate`). Прикладной репозиторий получает `records()` с фабрики, не зовёт `open`. Класс может опережать схему: `exists()` (есть ли физика) / `createTable` / `updateTable` (не удаляет лишние колонки в БД) / `forceUpdateTable` (снимает leftover колонок, индексов, FK и mfv, которых нет в классе) / `deleteTable`. `createTable` при уже существующей таблице — `TABLE_EXISTS`, не ветка install. Если класс ссылается на поле, которого нет в БД — исключение. Поля в БД, которых нет в классе, при обычном `updateTable` не трогаются. Имя таблицы одно: PHP-класс и запись словаря не делят два разных `users`. Таблица из словаря открывается по имени (`ITableCatalog::openByName`), не через `ISmartTableGateway::open` по class-string. Журнал наката схемы (up/down по репозиторию) — не API SmartTable; SmartTable даёт DDL одной таблицы.
 
 Две оболочки:
 
@@ -88,11 +88,15 @@ Versioned (контракт): к `id` добавляется обязатель�
 
 Прочие операторы фильтра v1: `=`, `!=`, `IN`, `%`, `<`, `>`, `<=`, `>=`, `><` (интервал), AND/OR. Без `<`/`>` лента чата на Basic не собирается.
 
-Путь через `reference`: hop только по `reference` на `id` цели; лист — любое поле достигнутой карты (в т.ч. multiple). Ключ с точками в filter/sort/select. FROM списка — только своя таблица (EXISTS / подзапрос / догрузка mfv, без JOIN). `select: null` — своя карта без путей. Своё поле `reference` в ряду остаётся `int`. Подробно — [`smarttable-plan-14-reference-path.md`](smarttable-plan-14-reference-path.md). Полный JOIN Bitrix по-прежнему не v1.
+Путь через `reference`: hop только по `reference` на `id` цели; лист — любое поле достигнутой карты (в т.ч. multiple). Ключ с точками в filter/sort/select. FROM списка — только своя таблица (EXISTS / подзапрос / догрузка mfv, без JOIN). `select: null` — своя карта без путей. Своё поле `reference` в ряду остаётся `int`. Подробно — [`smarttable-plan-14-reference-path.md`](smarttable-plan-14-reference-path.md). Полный JOIN Bitrix по-прежнему не v1. `GROUP BY` / меры — не слот `getList` (ряд getList = строка карты).
+
+## Агрегат
+
+Пачка `COUNT` / `MAX` / `MIN` / `SUM` по **своей** таблице: `records()->aggregate(AggregateQuery, ttl)`. Ряд результата — ключи `GROUP BY` + агрегатные функции, не сущность карты. `countTotal` на getList — одно число на весь WHERE, не замена. FROM как у getList: своя таблица, JOIN в FROM нет. Функции — `new CountField('unread')` / `new MaxField('id', 'last_id')` в `Dto/`, не колонка карты, не `['fn' => …]`, не Bitrix `ExpressionField`. Порог с другой карты — `SubqueryValue` в операнде фильтра (`getList` и `aggregate`), не JOIN. Промах группы (0 строк) ST не дописывает — репозиторий. Код — [`smarttable-plan-17-aggregate.md`](smarttable-plan-17-aggregate.md). Chat 5 (unread/preview); User `memberCount` — [`user-plan-08-member-count-aggregate.md`](user-plan-08-member-count-aggregate.md).
 
 ## Кэш
 
-Кэш **только если** у `getList` / `getById` / `getUnique` / `getFirst` явно задан TTL. Без TTL запрос в БД. Инвалидация тегов таблицы/поля — **после успешного commit**. `get` живёт на теге `st:{table}:rows` (не на теге стола списков: `add` списки бьёт, чужие get — нет). Delete родителя дополнительно сбрасывает `st:{child}` и `st:{child}:rows` у столов с физическим FK `ON DELETE CASCADE` или `SET NULL` на этот PK (иначе SQL меняет детей в обход PHP). Restrict/`none` — нет. Окно commit→сброс допустимо.
+Кэш **только если** у `getList` / `getById` / `getUnique` / `getFirst` / `aggregate` явно задан TTL. Без TTL запрос в БД. Инвалидация тегов таблицы/поля — **после успешного commit**. `get` живёт на теге `st:{table}:rows` (не на теге стола списков: `add` списки бьёт, чужие get — нет). Delete родителя дополнительно сбрасывает `st:{child}` и `st:{child}:rows` у столов с физическим FK `ON DELETE CASCADE` или `SET NULL` на этот PK (иначе SQL меняет детей в обход PHP). Restrict/`none` — нет. Окно commit→сброс допустимо. `SubqueryValue` в filter: ключ канонизирует объект; теги — стол и поля **той** карты (как путь). `CountField` / `MaxField` в aggregate: ключ канонизирует вид+поле+alias; теги — `group`/filter и аргумент Max/Min/Sum, не alias; `COUNT(*)` не равен `select: null`. `update` бьёт поле, не стол — одного тега чужого стола мало.
 
 Драйвер: `redis` или `file` из `local.php`. Redis — основной, file — запасной. Дырявый **конфиг** кэша — ошибка всегда. Драйвер **отвалился** (I/O): на `debug` — исключение; без `debug` — чтение из БД, запись/сброс кэша пропускается, запрос не падает.
 
@@ -119,7 +123,7 @@ Versioned (контракт): к `id` добавляется обязатель�
 ## Не v1
 
 - Fluent `query()`.
-- Join/группировка/runtime-поля в стиле полного Bitrix.
+- Полный JOIN Bitrix и runtime-поля. Агрегат своей таблицы — план 17, не getList.
 - Поле «файл» (модуль Files).
 - Составные **неуникальные** индексы.
 - Код VersionedSmartTable; переименование NAME/колонок.
@@ -136,4 +140,4 @@ Versioned (контракт): к `id` добавляется обязатель�
 
 ## Нарезка
 
-[`smarttable-roadmap.md`](smarttable-roadmap.md). User закрыт до HTTP. План 15 (BIGINT, cascade) — блокер Auth 1. Дальше Auth / Versioned.
+[`smarttable-roadmap.md`](smarttable-roadmap.md). User закрыт до HTTP. План 15 (BIGINT, cascade) — блокер Auth 1. План 17 (агрегат) — блокер Chat 5. Дальше Auth / Versioned.

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Core\SmartTable\Service\Cache;
 
 use Mifrial\Core\Kernel\Value\DateTime as UnixDateTime;
+use Mifrial\Core\SmartTable\Dto\AggregateResult;
 use Mifrial\Core\SmartTable\Dto\CacheHit;
 use Mifrial\Core\SmartTable\Dto\ListResult;
 
@@ -43,7 +44,9 @@ final class CachePayload
 
         $expiresAt = (int) substr($payload, 0, $separator);
         $body = substr($payload, $separator + 1);
-        $decoded = unserialize($body, ['allowed_classes' => [ListResult::class, UnixDateTime::class]]);
+        $decoded = unserialize($body, [
+            'allowed_classes' => [ListResult::class, AggregateResult::class, UnixDateTime::class],
+        ]);
         $broken = $decoded === false && $body !== serialize(false);
         if ($expiresAt <= $now || $broken) {
             return new CacheHit(false, null);

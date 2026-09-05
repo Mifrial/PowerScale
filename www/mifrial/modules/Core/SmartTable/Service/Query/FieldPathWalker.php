@@ -69,6 +69,27 @@ final class FieldPathWalker
     }
 
     /**
+     * Карта по class-string definition или физ. имени словаря.
+     *
+     * @param string $tableRef Класс или имя.
+     *
+     * @return SmartTableDefinition Карта.
+     *
+     * @throws MapInvalidException Если карту нельзя открыть.
+     */
+    public function definitionFor(string $tableRef): SmartTableDefinition
+    {
+        if (class_exists($tableRef) && is_subclass_of($tableRef, SmartTableDefinition::class)) {
+            $tableDefinition = new $tableRef();
+            if ($tableDefinition instanceof SmartTableDefinition) {
+                return $tableDefinition;
+            }
+        }
+
+        return $this->catalogLookup->definitionByName($tableRef);
+    }
+
+    /**
      * Берёт поле карты.
      *
      * @param SmartTableDefinition $tableDefinition Карта.

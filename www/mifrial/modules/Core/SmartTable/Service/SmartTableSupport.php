@@ -14,6 +14,7 @@ use Mifrial\Core\SmartTable\Service\Query\ListFilterBinder;
 use Mifrial\Core\SmartTable\Service\Query\ListQueryCompiler;
 use Mifrial\Core\SmartTable\Service\Query\MfvRows;
 use Mifrial\Core\SmartTable\Service\Query\RowAssembler;
+use Mifrial\Core\SmartTable\Service\Query\TableAggregate;
 use Mifrial\Core\SmartTable\Service\Query\TableList;
 use Mifrial\Core\SmartTable\Service\Query\TableRows;
 use Mifrial\Core\SmartTable\Service\Schema\MfvSchema;
@@ -54,12 +55,15 @@ final class SmartTableSupport
      */
     public function makeGateway(): SmartTableGateway
     {
+        $catalogLookup = new CatalogDefinitionLookup();
+
         return new SmartTableGateway(
             $this->databaseConnection,
             $this->tableSchema(),
             $this->tableRows(),
-            $this->tableList(new CatalogDefinitionLookup()),
+            $this->tableList($catalogLookup),
             $this->tableCache(),
+            $this->tableAggregate($catalogLookup),
         );
     }
 
@@ -78,6 +82,7 @@ final class SmartTableSupport
             $tableList,
             new MfvSchema($this->databaseConnection),
             $this->tableCache(),
+            $this->tableAggregate($catalogLookup),
         );
         $catalogLookup->attach(
             static function (string $tableName) use ($catalog): SmartTableDefinition {
@@ -159,6 +164,25 @@ final class SmartTableSupport
             $driverErrors,
             new ListQueryCompiler(new ListFilterBinder(), $fieldPathWalker),
             $mfvRows,
+            $fieldPathWalker,
+        );
+    }
+
+    /**
+     * Агрегат таблицы.
+     *
+     * @param CatalogDefinitionLookup $catalogLookup Карты словаря.
+     *
+     * @return TableAggregate Агрегат.
+     */
+    private function tableAggregate(CatalogDefinitionLookup $catalogLookup): TableAggregate
+    {
+        $fieldPathWalker = new FieldPathWalker($catalogLookup);
+
+        return new TableAggregate(
+            $this->databaseConnection,
+            new DriverErrorTranslator(),
+            new ListQueryCompiler(new ListFilterBinder(), $fieldPathWalker),
             $fieldPathWalker,
         );
     }

@@ -12,6 +12,7 @@ use Mifrial\Core\SmartTable\Interface\Service\IOpenedTable;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Core\SmartTable\Service\Cache\TableCache;
 use Mifrial\Core\SmartTable\Service\Connection\IlluminateDatabaseConnection;
+use Mifrial\Core\SmartTable\Service\Query\TableAggregate;
 use Mifrial\Core\SmartTable\Service\Query\TableList;
 use Mifrial\Core\SmartTable\Service\Query\TableRows;
 use Mifrial\Core\SmartTable\Service\Schema\TableSchema;
@@ -32,7 +33,8 @@ final class SmartTableGateway implements ISmartTableGateway
      * @param TableSchema $tableSchema DDL.
      * @param TableRows $tableRows Строки.
      * @param TableList $tableList Список.
-     * @param TableCache $tableCache Кэш get/getList.
+     * @param TableCache $tableCache Кэш get и запросов.
+     * @param TableAggregate $tableAggregate Агрегат.
      *
      * @return void
      */
@@ -42,6 +44,7 @@ final class SmartTableGateway implements ISmartTableGateway
         private readonly TableRows $tableRows,
         private readonly TableList $tableList,
         private readonly TableCache $tableCache,
+        private readonly TableAggregate $tableAggregate,
     ) {
     }
 
@@ -64,6 +67,7 @@ final class SmartTableGateway implements ISmartTableGateway
             $this->tableRows,
             $this->tableList,
             $this->tableCache,
+            $this->tableAggregate,
         );
     }
 

@@ -7,6 +7,7 @@ namespace Mifrial\Core\SmartTable\Tests;
 use Closure;
 use Illuminate\Database\Query\Builder;
 use Mifrial\Core\SmartTable\Dto\ListQuery;
+use Mifrial\Core\SmartTable\Dto\SubqueryValue;
 use Mifrial\Core\SmartTable\Exception\Field\FieldMultipleUnsupportedException;
 use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
 use Mifrial\Core\SmartTable\Service\Query\ListQueryCompiler;
@@ -15,6 +16,8 @@ use Mifrial\Core\SmartTable\Tests\Fixture\ChildRestrictTable;
 use Mifrial\Core\SmartTable\Tests\Fixture\CrudProbeTable;
 use Mifrial\Core\SmartTable\Tests\Fixture\ListMultipleTable;
 use Mifrial\Core\SmartTable\Tests\Fixture\PathChildTable;
+use Mifrial\Core\SmartTable\Tests\Fixture\PathParentTable;
+use Mifrial\Core\SmartTable\Tests\Fixture\SampleTable;
 use PHPUnit\Framework\TestCase;
 
 final class ListQueryCompilerTest extends TestCase
@@ -198,6 +201,38 @@ final class ListQueryCompilerTest extends TestCase
     }
 
     /**
+     * Путь + SubqueryValue, LIKE и вложенный подзапрос — MAP_INVALID.
+     *
+     * @return void
+     */
+    public function testSubqueryRejectsPathLikeAndNesting(): void
+    {
+        $compiler = new ListQueryCompiler();
+        $pathOperand = new SubqueryValue(PathParentTable::class, 'id', filter: ['id' => 1]);
+        $likeOperand = new SubqueryValue(SampleTable::class, 'id', filter: ['id' => 1]);
+        $nestedOperand = new SubqueryValue(
+            SampleTable::class,
+            'id',
+            filter: [
+                '>id' => new SubqueryValue(SampleTable::class, 'id', filter: ['id' => 1]),
+            ],
+        );
+        $cases = [
+            [new PathChildTable(), ['limit' => 10, 'filter' => ['>parent_id.title' => $pathOperand]]],
+            [new SampleTable(), ['limit' => 10, 'filter' => ['%title' => $likeOperand]]],
+            [new SampleTable(), ['limit' => 10, 'filter' => ['>id' => $nestedOperand]]],
+        ];
+        foreach ($cases as [$table, $options]) {
+            try {
+                $compiler->applyWhere($this->invokingBuilder(), ListQuery::fromOptions($options), $table);
+                self::fail('invalid subquery must fail');
+            } catch (MapInvalidException $exception) {
+                self::assertSame('MAP_INVALID', $exception->getErrorCode());
+            }
+        }
+    }
+
+    /**
      * Мок билдера, который исполняет nested where-замыкания.
      *
      * @return Builder&object Мок.
@@ -223,6 +258,10 @@ final class ListQueryCompilerTest extends TestCase
         $query->method('whereRaw')->willReturn($query);
         $query->method('from')->willReturn($query);
         $query->method('whereColumn')->willReturn($query);
+        $query->method('newQuery')->willReturn($query);
+        $query->method('select')->willReturn($query);
+        $query->method('toSql')->willReturn('select 1');
+        $query->method('getBindings')->willReturn([]);
 
         return $query;
     }

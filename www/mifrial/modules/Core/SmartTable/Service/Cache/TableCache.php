@@ -7,15 +7,13 @@ namespace Mifrial\Core\SmartTable\Service\Cache;
 use Closure;
 use Mifrial\Core\Kernel\Dto\CacheSettings;
 use Mifrial\Core\SmartTable\Dto\CacheHit;
-use Mifrial\Core\SmartTable\Dto\ListQuery;
-use Mifrial\Core\SmartTable\Dto\ListResult;
 use Mifrial\Core\SmartTable\Exception\Cache\CacheConfigInvalidException;
 use Mifrial\Core\SmartTable\Exception\Cache\CacheDriverFailedException;
 use Mifrial\Core\SmartTable\Service\Query\ListCacheFieldTags;
 use Throwable;
 
 /**
- * Сценарий кэша get/getList: ключи, теги OR, pending транзакции, fail-soft.
+ * Сценарий кэша get и запросов: ключи, теги OR, pending транзакции, fail-soft.
  *
  * Слоты и сброс делят один lazy store: отдельный invalidator давал бы
  * второй клиент Redis на те же ключи.
@@ -25,8 +23,6 @@ final class TableCache
     private FileCacheStore|RedisCacheStore|null $cacheStore = null;
 
     private readonly CachePayload $cachePayload;
-
-    private readonly ListCacheKey $listCacheKey;
 
     private readonly CacheStoreFactory $storeFactory;
 
@@ -54,7 +50,6 @@ final class TableCache
         private readonly ?Closure $clock = null,
     ) {
         $this->cachePayload = new CachePayload();
-        $this->listCacheKey = new ListCacheKey();
         $this->storeFactory = new CacheStoreFactory($cacheSettings);
         $this->failSoft = new CacheFailSoft($debug);
     }
@@ -98,50 +93,49 @@ final class TableCache
     }
 
     /**
-     * Читает кэш списка.
+     * Читает кэш запроса по готовому ключу.
      *
-     * @param string $tableName Физическое имя.
-     * @param ListQuery $listQuery Запрос.
+     * @param string $cacheKey Ключ.
      *
      * @return CacheHit Попадание или промах.
      *
      * @throws CacheConfigInvalidException Если store нельзя открыть.
      * @throws CacheDriverFailedException Если debug и I/O упал.
      */
-    public function lookupList(string $tableName, ListQuery $listQuery): CacheHit
+    public function lookupTagged(string $cacheKey): CacheHit
     {
         return $this->isTransactionOpen()
             ? new CacheHit(false, null)
-            : $this->lookupValue($this->listCacheKey->make($tableName, $listQuery));
+            : $this->lookupValue($cacheKey);
     }
 
     /**
-     * Пишет кэш списка с тегами стола и полей.
+     * Пишет кэш запроса с тегами стола и полей.
      *
-     * @param string $tableName Физическое имя.
-     * @param ListQuery $listQuery Запрос.
-     * @param ListResult $listResult Страница.
+     * @param string $tableName Физическое имя своей карты.
+     * @param string $cacheKey Ключ.
+     * @param mixed $value Результат.
      * @param int $cacheTtl Секунды жизни.
-     * @param array<int, string> $fieldNames Поля или пары table:field.
+     * @param array<int, string> $fieldTags Поля или пары table:field.
      *
      * @return void
      *
      * @throws CacheConfigInvalidException Если store нельзя открыть.
      * @throws CacheDriverFailedException Если debug и I/O упал.
      */
-    public function saveList(
+    public function saveTagged(
         string $tableName,
-        ListQuery $listQuery,
-        ListResult $listResult,
+        string $cacheKey,
+        mixed $value,
         int $cacheTtl,
-        array $fieldNames,
+        array $fieldTags,
     ): void {
         if ($this->isTransactionOpen()) {
             return;
         }
 
-        $tagNames = (new ListCacheFieldTags())->storeTags($tableName, $fieldNames);
-        $this->saveValue($this->listCacheKey->make($tableName, $listQuery), $listResult, $cacheTtl, $tagNames);
+        $tagNames = (new ListCacheFieldTags())->storeTags($tableName, $fieldTags);
+        $this->saveValue($cacheKey, $value, $cacheTtl, $tagNames);
     }
 
     /**

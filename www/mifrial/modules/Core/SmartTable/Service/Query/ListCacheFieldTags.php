@@ -7,17 +7,19 @@ namespace Mifrial\Core\SmartTable\Service\Query;
 use Mifrial\Core\SmartTable\Dto\FilterCondition;
 use Mifrial\Core\SmartTable\Dto\FilterGroup;
 use Mifrial\Core\SmartTable\Dto\ListQuery;
+use Mifrial\Core\SmartTable\Dto\OuterColumn;
+use Mifrial\Core\SmartTable\Dto\SubqueryValue;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
 
 /**
- * Теги кэша getList: стол:поле по сегментам пути.
+ * Теги кэша запроса: стол:поле по сегментам пути и подзапросу.
  */
 final class ListCacheFieldTags
 {
     /**
      * Создаёт сборщик.
      *
-     * @param FieldPathWalker $fieldPathWalker Пути.
+     * @param FieldPathWalker $fieldPathWalker Пути и карты подзапроса.
      *
      * @return void
      */
@@ -27,7 +29,7 @@ final class ListCacheFieldTags
     }
 
     /**
-     * Возвращает пары стол:поле.
+     * Возвращает пары стол:поле списка.
      *
      * @param SmartTableDefinition $tableDefinition Своя карта.
      * @param ListQuery $listQuery Запрос.
@@ -36,18 +38,37 @@ final class ListCacheFieldTags
      */
     public function collect(SmartTableDefinition $tableDefinition, ListQuery $listQuery): array
     {
+        $tags = [];
         $keys = $listQuery->select() ?? array_keys($tableDefinition->getMap());
         foreach (array_keys($listQuery->sort()) as $sortField) {
             $keys[] = $sortField;
         }
 
-        $keys = array_merge($keys, $this->filterKeys($listQuery->filter()));
-        $tags = [];
         foreach (array_unique($keys) as $fieldName) {
             foreach ($this->tagsForKey($tableDefinition, $fieldName) as $fieldTag) {
                 $tags[$fieldTag] = true;
             }
         }
+
+        foreach ($this->collectFilter($tableDefinition, $listQuery->filter()) as $fieldTag) {
+            $tags[$fieldTag] = true;
+        }
+
+        return array_keys($tags);
+    }
+
+    /**
+     * Теги фильтра, включая подзапрос чужой карты.
+     *
+     * @param SmartTableDefinition $tableDefinition Своя карта.
+     * @param FilterGroup|null $filterGroup Дерево.
+     *
+     * @return array<int, string> table:field.
+     */
+    public function collectFilter(SmartTableDefinition $tableDefinition, ?FilterGroup $filterGroup): array
+    {
+        $tags = [];
+        $this->appendFilterTags($tableDefinition, $filterGroup, $tags);
 
         return array_keys($tags);
     }
@@ -72,6 +93,115 @@ final class ListCacheFieldTags
     }
 
     /**
+     * Обходит дерево фильтра.
+     *
+     * @param SmartTableDefinition $localTable Локальная карта.
+     * @param FilterGroup|null $filterGroup Дерево.
+     * @param array<string, true> $tags Набор.
+     *
+     * @return void
+     */
+    private function appendFilterTags(
+        SmartTableDefinition $localTable,
+        ?FilterGroup $filterGroup,
+        array &$tags,
+    ): void {
+        if ($filterGroup === null) {
+            return;
+        }
+
+        foreach ($filterGroup->children() as $child) {
+            if ($child instanceof FilterGroup) {
+                $this->appendFilterTags($localTable, $child, $tags);
+                continue;
+            }
+
+            if ($child instanceof FilterCondition) {
+                $this->appendConditionTags($localTable, $child, $tags);
+            }
+        }
+    }
+
+    /**
+     * Теги поля условия и операнда.
+     *
+     * @param SmartTableDefinition $localTable Локальная карта.
+     * @param FilterCondition $condition Условие.
+     * @param array<string, true> $tags Набор.
+     *
+     * @return void
+     */
+    private function appendConditionTags(
+        SmartTableDefinition $localTable,
+        FilterCondition $condition,
+        array &$tags,
+    ): void {
+        foreach ($this->tagsForKey($localTable, $condition->fieldName()) as $fieldTag) {
+            $tags[$fieldTag] = true;
+        }
+
+        $this->appendOperandTags($localTable, $condition->operand(), $tags);
+    }
+
+    /**
+     * Теги операнда: OuterColumn или SubqueryValue.
+     *
+     * @param SmartTableDefinition $localTable Локальная карта.
+     * @param mixed $operand Операнд.
+     * @param array<string, true> $tags Набор.
+     *
+     * @return void
+     */
+    private function appendOperandTags(SmartTableDefinition $localTable, mixed $operand, array &$tags): void
+    {
+        if ($operand instanceof OuterColumn) {
+            $tags[$localTable->getName() . ':' . $operand->fieldName()] = true;
+
+            return;
+        }
+
+        if (!$operand instanceof SubqueryValue) {
+            return;
+        }
+
+        $innerTable = $this->fieldPathWalker->definitionFor($operand->table());
+        $tags[$innerTable->getName() . ':' . $operand->field()] = true;
+        $this->appendInnerFilterTags($innerTable, $localTable, $operand->filter(), $tags);
+    }
+
+    /**
+     * Поля внутреннего WHERE и OuterColumn внешней карты.
+     *
+     * @param SmartTableDefinition $innerTable Внутренняя карта.
+     * @param SmartTableDefinition $outerTable Внешняя FROM.
+     * @param FilterGroup $filterGroup Внутренний фильтр.
+     * @param array<string, true> $tags Набор.
+     *
+     * @return void
+     */
+    private function appendInnerFilterTags(
+        SmartTableDefinition $innerTable,
+        SmartTableDefinition $outerTable,
+        FilterGroup $filterGroup,
+        array &$tags,
+    ): void {
+        foreach ($filterGroup->children() as $child) {
+            if ($child instanceof FilterGroup) {
+                $this->appendInnerFilterTags($innerTable, $outerTable, $child, $tags);
+                continue;
+            }
+
+            if ($child instanceof FilterCondition) {
+                $tags[$innerTable->getName() . ':' . $child->fieldName()] = true;
+                $operand = $child->operand();
+                if ($operand instanceof OuterColumn) {
+                    $tags[$outerTable->getName() . ':' . $operand->fieldName()] = true;
+                }
+            }
+        }
+    }
+
+    /**
      * Теги одного ключа.
      *
      * @param SmartTableDefinition $tableDefinition Карта.
@@ -91,32 +221,6 @@ final class ListCacheFieldTags
         }
 
         return $tags;
-    }
-
-    /**
-     * Ключи фильтра.
-     *
-     * @param FilterGroup|null $filterGroup Дерево.
-     *
-     * @return array<int, string> Ключи.
-     */
-    private function filterKeys(?FilterGroup $filterGroup): array
-    {
-        if ($filterGroup === null) {
-            return [];
-        }
-
-        $fieldNames = [];
-        foreach ($filterGroup->children() as $child) {
-            if ($child instanceof FilterCondition) {
-                $fieldNames[] = $child->fieldName();
-                continue;
-            }
-
-            array_push($fieldNames, ...$this->filterKeys($child));
-        }
-
-        return $fieldNames;
     }
 
     /**

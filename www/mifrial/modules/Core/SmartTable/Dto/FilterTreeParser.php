@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Mifrial\Core\SmartTable\Dto;
 
+use Mifrial\Core\Kernel\Value\DateTime as UnixDateTime;
 use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
 
 /**
@@ -43,6 +44,28 @@ final class FilterTreeParser
         }
 
         return new FilterGroup($logic, $children);
+    }
+
+    /**
+     * Разбирает optional filter слота fromOptions.
+     *
+     * @param mixed $filterValue Сырой фильтр.
+     *
+     * @return FilterGroup|null Дерево или нет WHERE.
+     *
+     * @throws MapInvalidException Если фильтр не массив.
+     */
+    public function parseOptional(mixed $filterValue): ?FilterGroup
+    {
+        if ($filterValue === null || $filterValue === []) {
+            return null;
+        }
+
+        if (!is_array($filterValue)) {
+            throw new MapInvalidException('Filter must be an array');
+        }
+
+        return $this->parseGroup($filterValue);
     }
 
     /**
@@ -112,6 +135,8 @@ final class FilterTreeParser
             $this->assertBetweenOperand($operand);
         }
 
+        $this->assertOperand($operand);
+
         return new FilterCondition($fieldName, $operator, $operand);
     }
 
@@ -153,5 +178,31 @@ final class FilterTreeParser
         if (!is_array($operand) || !array_is_list($operand) || count($operand) !== 2) {
             throw new MapInvalidException('Interval filter requires two values');
         }
+    }
+
+    /**
+     * Допускает скаляр, DateTime, list, подзапрос или OuterColumn.
+     *
+     * @param mixed $operand Операнд условия.
+     *
+     * @return void
+     *
+     * @throws MapInvalidException Если объект неизвестен.
+     */
+    private function assertOperand(mixed $operand): void
+    {
+        if ($operand === null || is_scalar($operand) || $operand instanceof UnixDateTime) {
+            return;
+        }
+
+        if ($operand instanceof SubqueryValue || $operand instanceof OuterColumn) {
+            return;
+        }
+
+        if (is_array($operand)) {
+            return;
+        }
+
+        throw new MapInvalidException('Filter operand is invalid');
     }
 }
