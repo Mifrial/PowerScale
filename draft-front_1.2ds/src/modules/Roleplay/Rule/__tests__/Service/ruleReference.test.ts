@@ -10,7 +10,7 @@ const baseRule = (id: number | null, code: string, type: Rule['type'], spec?: an
   description: '',
   spaceId,
   spec,
-  createdAt: '2026-01-01T00:00:00Z',
+  createdAt: 1767225600,
 });
 
 describe('RuleReferenceService.characteristicOptions', () => {

@@ -1,4 +1,4 @@
-import type { RevisionKind } from '@/modules/Roleplay/Space/Enum/RevisionKind';
+import type { RevisionKind } from '@/modules/Roleplay/RuleSpace/Enum/RevisionKind';
 
 export interface RevisionContext {
   spaceId: number | null;

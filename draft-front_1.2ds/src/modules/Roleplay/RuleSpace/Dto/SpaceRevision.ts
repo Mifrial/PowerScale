@@ -1,11 +1,10 @@
-import type { AbilitySection } from '@/modules/Roleplay/Space/Dto/AbilitySection';
+import type { AbilitySection } from '@/modules/Roleplay/RuleSpace/Dto/AbilitySection';
 
 export interface SpaceRevision<TRule = unknown> {
   revision: number;
-  publishedAt: string;
+  publishedAt: number;
   spaceCode: string;
   spaceName: string;
   rules: TRule[];
-  /** Навигационное дерево каталога способностей. Старые ревизии могут не содержать поле. */
-  sections?: AbilitySection[];
+  sections: AbilitySection[];
 }

@@ -93,7 +93,7 @@ describe('rollInitiative', () => {
           allowed_modes: 'both',
           attached_rule_codes: ['advantages'],
         },
-        createdAt: '2026-08-22T12:00:00Z',
+        createdAt: 1787400000,
       },
       {
         id: null,
@@ -110,7 +110,7 @@ describe('rollInitiative', () => {
           difficulty_input: { kind: 'none' },
           allowed_modes: 'joint',
         },
-        createdAt: '2026-08-22T12:00:00Z',
+        createdAt: 1787400000,
       },
       {
         id: null,
@@ -127,7 +127,7 @@ describe('rollInitiative', () => {
           allowed_modes: 'both',
           attached_rule_codes: ['rule-6-and-1'],
         },
-        createdAt: '2026-08-22T12:00:00Z',
+        createdAt: 1787400000,
       },
       {
         id: null,
@@ -144,7 +144,7 @@ describe('rollInitiative', () => {
           allowed_modes: 'both',
           attached_rule_codes: [],
         },
-        createdAt: '2026-08-22T12:00:00Z',
+        createdAt: 1787400000,
       },
       {
         id: null,
@@ -155,8 +155,8 @@ describe('rollInitiative', () => {
         spaceId: 1,
         keywordIds: [],
         mechanicId: 1,
-        mechanic_payload: null,
-        createdAt: '2026-08-22T12:00:00Z',
+        mechanicPayload: null,
+        createdAt: 1787400000,
       },
     ];
     const mechanics: Mechanic[] = [

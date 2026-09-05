@@ -17,7 +17,7 @@ function itemRule(code: string, name: string, cost_gm: number | null, extra?: Pa
     spaceId: 1,
     keywordIds: [],
     mechanicId: null,
-    createdAt: '2026-01-01T00:00:00Z',
+    createdAt: 1767225600,
     spec: {
       category: 'equipment',
       cost_gm,
@@ -239,7 +239,7 @@ describe('CharacterBuildService · инвентарь', () => {
       spaceId: 1,
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-01-01T00:00:00Z',
+      createdAt: 1767225600,
       spec: { exclusive: true },
     };
     const craftType: Rule = {
@@ -251,7 +251,7 @@ describe('CharacterBuildService · инвентарь', () => {
       spaceId: 1,
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-01-01T00:00:00Z',
+      createdAt: 1767225600,
       spec: { exclusive: true },
     };
     const silvered: Rule = {
@@ -263,7 +263,7 @@ describe('CharacterBuildService · инвентарь', () => {
       spaceId: 1,
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-01-01T00:00:00Z',
+      createdAt: 1767225600,
       spec: {
         type_code: 'coating',
         applies: { keyword_all: [], keyword_any: [], keyword_none: [] },
@@ -280,7 +280,7 @@ describe('CharacterBuildService · инвентарь', () => {
       spaceId: 1,
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-01-01T00:00:00Z',
+      createdAt: 1767225600,
       spec: {
         type_code: 'craft-quality',
         applies: { keyword_all: [], keyword_any: [], keyword_none: [] },
@@ -297,7 +297,7 @@ describe('CharacterBuildService · инвентарь', () => {
       spaceId: 1,
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-01-01T00:00:00Z',
+      createdAt: 1767225600,
       spec: {
         type_code: 'craft-quality',
         applies: { keyword_all: [], keyword_any: [], keyword_none: [] },
@@ -314,7 +314,7 @@ describe('CharacterBuildService · инвентарь', () => {
       spaceId: 1,
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-01-01T00:00:00Z',
+      createdAt: 1767225600,
       spec: {
         type_code: 'ferrule',
         applies: { keyword_all: ['weapon', 'staff'], keyword_any: [], keyword_none: [] },

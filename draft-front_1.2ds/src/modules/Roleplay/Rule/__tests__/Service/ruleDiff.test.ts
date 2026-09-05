@@ -11,7 +11,7 @@ function rule(code: string, name: string, overrides: Partial<Rule> = {}): Rule {
     name,
     description: `Описание ${name}`,
     spaceId: 1,
-    createdAt: '2026-01-01T00:00:00Z',
+    createdAt: 1767225600,
     ...overrides,
   };
 }
@@ -51,9 +51,9 @@ describe('classifyDraftDiff', () => {
     expect(diff.added).toEqual([]);
   });
 
-  it('служебные временные поля не влияют на сравнение', () => {
-    const published = [rule('r1', 'Одно', { updatedAt: '2026-01-01T00:00:00Z' })];
-    const draft = [rule('r1', 'Одно', { updatedAt: '2026-02-01T00:00:00Z' })];
+  it('даты не влияют на сравнение payload', () => {
+    const published = [rule('r1', 'Одно', { createdAt: 100 })];
+    const draft = [rule('r1', 'Одно', { createdAt: 200 })];
     const diff = ruleDiffService.classifyDraftDiff(published, draft);
     expect(diff.changed).toEqual([]);
   });

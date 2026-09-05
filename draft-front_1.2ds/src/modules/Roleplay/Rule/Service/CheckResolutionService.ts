@@ -96,7 +96,7 @@ export class CheckResolutionService {
       if (value != null) return value;
     }
     const roll = rules.find((rule) => rule.code === ROLL_RULE_CODE);
-    const payload = roll?.mechanic_payload;
+    const payload = roll?.mechanicPayload;
     if (payload?.type === 'roll' && payload.data.efficiency != null) {
       return payload.data.efficiency;
     }

@@ -33,7 +33,7 @@ const checkSimple: Rule = {
   },
   keywordIds: [],
   mechanicId: null,
-  createdAt: '2026-01-01T00:00:00Z',
+  createdAt: 1767225600,
 };
 
 const checkHit: Rule = {
@@ -58,7 +58,7 @@ const strikeRule = (mechanicId: number): Rule => ({
   spaceId: 1,
   keywordIds: [],
   mechanicId,
-  createdAt: '2026-01-01T00:00:00Z',
+  createdAt: 1767225600,
 });
 
 const mechanics: Mechanic[] = [
@@ -466,7 +466,7 @@ describe('listBlockProfiles', () => {
         },
         keywordIds: [],
         mechanicId: null,
-        createdAt: '2026-01-01T00:00:00Z',
+        createdAt: 1767225600,
       },
     ];
     expect(hitRollService.listBlockProfiles(version, rules)).toEqual([
@@ -500,7 +500,7 @@ describe('listBlockProfiles', () => {
         },
         keywordIds: [],
         mechanicId: null,
-        createdAt: '2026-01-01T00:00:00Z',
+        createdAt: 1767225600,
       },
     ];
     expect(hitRollService.listBlockProfiles(version, rules).length).toBe(1);

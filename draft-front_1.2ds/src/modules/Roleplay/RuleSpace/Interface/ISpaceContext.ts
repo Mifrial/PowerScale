@@ -1,4 +1,4 @@
-import type { Space } from '@/modules/Roleplay/Space/Dto/Space';
+import type { Space } from '@/modules/Roleplay/RuleSpace/Dto/Space';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
 /** Контракт hosting-контекста пространства, который Space предоставляет страницам-детям

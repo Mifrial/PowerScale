@@ -6,7 +6,7 @@ import { CharacterMigrationService } from '@/modules/Roleplay/Character/Service/
 import { characterEditorService } from '@/modules/Roleplay/Character/Service/Instance/characterEditorService';
 import { characterBuildService } from '@/modules/Roleplay/Character/Service/Instance/characterBuildService';
 import { versions } from '@/modules/Roleplay/Character/Mock/mockCharacters';
-import { fetchRevision } from '@/modules/Roleplay/Space/Mock/mockSpaces';
+import { fetchRevision } from '@/modules/Roleplay/RuleSpace/Mock/mockSpaces';
 
 const dim = (base: number, size = 0) => ({ base, size });
 
@@ -19,7 +19,7 @@ const base = (id: number | null, code: string, type: Rule['type'], name: string,
   spaceId: 1,
   keywordIds: [],
   mechanicId: null,
-  createdAt: '2026-01-01T00:00:00Z',
+  createdAt: 1767225600,
   spec,
 });
 

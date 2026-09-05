@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useSpaceRevision } from '@/modules/Roleplay/Space/init';
+import { useSpaceRevision } from '@/modules/Roleplay/RuleSpace/init';
 import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useCharacterDraftStore } from '@/modules/Roleplay/Character/Store/characterDraft';

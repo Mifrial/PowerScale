@@ -15,8 +15,8 @@ const RULES: Rule[] = [
     spaceId: 1,
     keywordIds: [],
     mechanicId: 5,
-    mechanic_payload: { type: 'roll', data: { sub_mechanics: ['advantage_disadvantage'] } },
-    createdAt: '2026-01-15T10:00:00Z',
+    mechanicPayload: { type: 'roll', data: { sub_mechanics: ['advantage_disadvantage'] } },
+    createdAt: 1768471200,
   },
   {
     id: 1,
@@ -27,8 +27,8 @@ const RULES: Rule[] = [
     spaceId: 1,
     keywordIds: [],
     mechanicId: 1,
-    mechanic_payload: null,
-    createdAt: '2026-01-15T10:00:00Z',
+    mechanicPayload: null,
+    createdAt: 1768471200,
   },
   {
     id: null,
@@ -43,7 +43,7 @@ const RULES: Rule[] = [
       allowed_modes: 'both',
       attached_rule_codes: ['rule-6-and-1', 'advantages'],
     },
-    createdAt: '2026-08-22T12:00:00Z',
+    createdAt: 1787400000,
   },
 ];
 

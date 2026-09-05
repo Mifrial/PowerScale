@@ -1,61 +1,69 @@
 import type { Engine } from '@/modules/Core/Engine/Service/Engine';
-import type { ISpaceApi } from '@/modules/Roleplay/Space/Interface/ISpaceApi';
-import type { Space } from '@/modules/Roleplay/Space/Dto/Space';
-import type { SpaceCreateData } from '@/modules/Roleplay/Space/Dto/SpaceCreateData';
-import type { SpaceUpdateData } from '@/modules/Roleplay/Space/Dto/SpaceUpdateData';
-import type { SpaceRevisionMeta } from '@/modules/Roleplay/Space/Dto/SpaceRevisionMeta';
-import type { SpaceRevision } from '@/modules/Roleplay/Space/Dto/SpaceRevision';
+import type { IRuleSpaceApi } from '@/modules/Roleplay/RuleSpace/Interface/IRuleSpaceApi';
+import type { Space } from '@/modules/Roleplay/RuleSpace/Dto/Space';
+import type { SpaceCreateData } from '@/modules/Roleplay/RuleSpace/Dto/SpaceCreateData';
+import type { SpaceUpdateData } from '@/modules/Roleplay/RuleSpace/Dto/SpaceUpdateData';
+import type { SpaceRevisionMeta } from '@/modules/Roleplay/RuleSpace/Dto/SpaceRevisionMeta';
+import type { SpaceRevision } from '@/modules/Roleplay/RuleSpace/Dto/SpaceRevision';
+import type { AbilitySection } from '@/modules/Roleplay/RuleSpace/Dto/AbilitySection';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
-export class SpaceApi implements ISpaceApi {
+/**
+ * HTTP-клиент мира правил (`ruleSpace.*`).
+ */
+export class RuleSpaceApi implements IRuleSpaceApi {
   constructor(private readonly engine: Engine) {}
 
   async getSpaces(signal?: AbortSignal): Promise<Space[]> {
-    const res = await this.engine.runAction<Space[]>('space.getList', undefined, signal);
+    const res = await this.engine.runAction<Space[]>('ruleSpace.getList', undefined, signal);
 
     return res.data ?? [];
   }
 
   async getSpace(id: number, signal?: AbortSignal): Promise<Space> {
-    const res = await this.engine.runAction<Space>('space.get', { id }, signal);
+    const res = await this.engine.runAction<Space>('ruleSpace.get', { id }, signal);
     if (!res.data) throw new Error('Space not found');
 
     return res.data;
   }
 
   async getSpaceByCode(code: string, signal?: AbortSignal): Promise<Space> {
-    const res = await this.engine.runAction<Space>('space.getByCode', { code }, signal);
+    const res = await this.engine.runAction<Space>('ruleSpace.getByCode', { code }, signal);
     if (!res.data) throw new Error('Space not found');
 
     return res.data;
   }
 
   async createSpace(data: SpaceCreateData, signal?: AbortSignal): Promise<Space> {
-    const res = await this.engine.runAction<Space>('space.create', data, signal);
+    const res = await this.engine.runAction<Space>('ruleSpace.create', data, signal);
     if (!res.data) throw new Error('Failed to create space');
 
     return res.data;
   }
 
   async updateSpace(id: number, data: SpaceUpdateData, signal?: AbortSignal): Promise<Space> {
-    const res = await this.engine.runAction<Space>('space.update', { id, ...data }, signal);
+    const res = await this.engine.runAction<Space>('ruleSpace.update', { id, ...data }, signal);
     if (!res.data) throw new Error('Failed to update space');
 
     return res.data;
   }
 
   async deactivateSpace(id: number, signal?: AbortSignal): Promise<void> {
-    await this.engine.runAction('space.deactivate', { id }, signal);
+    await this.engine.runAction('ruleSpace.deactivate', { id }, signal);
   }
 
   async getRevisions(spaceId: number, signal?: AbortSignal): Promise<SpaceRevisionMeta[]> {
-    const res = await this.engine.runAction<SpaceRevisionMeta[]>('space.getRevisions', { spaceId }, signal);
+    const res = await this.engine.runAction<SpaceRevisionMeta[]>('ruleSpace.getRevisions', { spaceId }, signal);
 
     return res.data ?? [];
   }
 
   async getRevision(spaceId: number, revision: number, signal?: AbortSignal): Promise<SpaceRevision<Rule>> {
-    const res = await this.engine.runAction<SpaceRevision<Rule>>('space.getRevision', { spaceId, revision }, signal);
+    const res = await this.engine.runAction<SpaceRevision<Rule>>(
+      'ruleSpace.getRevision',
+      { spaceId, revision },
+      signal,
+    );
     if (!res.data) throw new Error('Revision not found');
 
     return res.data;
@@ -66,10 +74,11 @@ export class SpaceApi implements ISpaceApi {
     rules: Rule[],
     signal?: AbortSignal,
     removedCodes?: string[],
+    sections?: AbilitySection[],
   ): Promise<SpaceRevision<Rule>> {
     const res = await this.engine.runAction<SpaceRevision<Rule>>(
-      'space.commitDraft',
-      { spaceId, rules, removedCodes },
+      'ruleSpace.commitDraft',
+      { spaceId, rules, removedCodes, sections },
       signal,
     );
     if (!res.data) throw new Error('Failed to commit draft');

@@ -1,5 +1,5 @@
 import { computed } from 'vue';
-import { useSpaceStore } from '@/modules/Roleplay/Space/Store/spaces';
+import { useSpaceStore } from '@/modules/Roleplay/RuleSpace/Store/spaces';
 
 export function useSpaceCatalog() {
   const store = useSpaceStore();

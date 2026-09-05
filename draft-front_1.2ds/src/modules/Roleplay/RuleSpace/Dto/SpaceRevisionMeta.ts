@@ -1,6 +1,5 @@
 export interface SpaceRevisionMeta {
   revision: number;
-  publishedAt: string;
+  publishedAt: number;
   ruleCount: number;
-  changedCount: number;
 }

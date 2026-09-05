@@ -12,7 +12,7 @@ import {
 } from '@/modules/Roleplay/Character/Mock/mockCharacters';
 import { mockLogin, mockLogout } from '@/modules/Core/Auth/Mock/mockAuth';
 import { mockGetChats } from '@/modules/Messages/Chat/Mock/mockChat';
-import { commitDraft } from '@/modules/Roleplay/Space/Mock/mockSpaces';
+import { commitDraft } from '@/modules/Roleplay/RuleSpace/Mock/mockSpaces';
 
 const version: CharacterVersion = {
   name: 'Новичок',
@@ -273,7 +273,7 @@ describe('mockCharacterApi: custom rules («Уникальные правила�
         name: 'Палка',
         description: 'Копалка',
         spaceId: 2,
-        createdAt: new Date().toISOString(),
+        createdAt: Math.floor(Date.now() / 1000),
       },
     ]);
     const palka = rev.rules.find((r) => r.code === 'palochka');

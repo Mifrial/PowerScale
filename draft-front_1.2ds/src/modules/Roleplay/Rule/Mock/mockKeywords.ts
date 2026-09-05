@@ -610,7 +610,7 @@ export async function createTag(data: CreateKeywordData, _signal?: AbortSignal):
     id: nextId++,
     code: data.code,
     name: data.name,
-    description: data.description,
+    description: data.description ?? '',
     active: true,
   };
   keywords.push(keyword);
@@ -622,10 +622,8 @@ export async function updateTag(id: number, data: UpdateKeywordData, _signal?: A
   await delay();
   const t = keywords.find((t) => t.id === id);
   if (!t) throw new Error(`Keyword ${id} not found`);
-  if (data.code !== undefined) t.code = data.code;
   if (data.name !== undefined) t.name = data.name;
   if (data.description !== undefined) t.description = data.description;
-  if (data.active !== undefined) t.active = data.active;
 
   return { ...t };
 }

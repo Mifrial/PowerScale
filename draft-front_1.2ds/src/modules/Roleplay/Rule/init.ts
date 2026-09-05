@@ -2,12 +2,14 @@ import { serviceLocator } from '@/modules/Core/Engine/Service/ServiceLocator';
 import { defineAsyncComponent } from 'vue';
 import type { IRuleApi } from '@/modules/Roleplay/Rule/Interface/IRuleApi';
 import type { IKeywordApi } from '@/modules/Roleplay/Rule/Interface/IKeywordApi';
+import type { IMechanicApi } from '@/modules/Roleplay/Rule/Interface/IMechanicApi';
 import type { IRevisionRulesFetcher } from '@/modules/Roleplay/Rule/Interface/IRevisionRulesFetcher';
 import { revisionRulesFetcherRegistry } from '@/modules/Roleplay/Rule/Service/Instance/revisionRulesFetcherRegistry';
 import { registerPermissionCategory, registerAdminSection } from '@/modules/Core/User/init';
 import { registerInlineRenderer, registerTokenSource } from '@/modules/Messages/Chat/init';
 import { RULE_PERMISSION_CATEGORY } from '@/modules/Roleplay/Rule/Constant/Permission/RULE_PERMISSION_CATEGORY';
 import { KEYWORD_PERMISSION_CATEGORY } from '@/modules/Roleplay/Rule/Constant/Permission/KEYWORD_PERMISSION_CATEGORY';
+import { MECHANIC_PERMISSION_CATEGORY } from '@/modules/Roleplay/Rule/Constant/Permission/MECHANIC_PERMISSION_CATEGORY';
 import { KEYWORDS_ADMIN_SECTION } from '@/modules/Roleplay/Rule/Constant/Permission/KEYWORDS_ADMIN_SECTION';
 
 export { ruleValidationService } from '@/modules/Roleplay/Rule/Service/Instance/ruleValidationService';
@@ -83,6 +85,14 @@ export function getKeywordApi(): IKeywordApi {
   return serviceLocator.get('Roleplay.Rule.Keyword.Service.KeywordApi');
 }
 
+export function registerMechanicApi(api: IMechanicApi): void {
+  serviceLocator.set('Roleplay.Rule.Mechanic.Service.MechanicApi', api);
+}
+
+export function getMechanicApi(): IMechanicApi {
+  return serviceLocator.get('Roleplay.Rule.Mechanic.Service.MechanicApi');
+}
+
 export function registerRevisionRulesFetcher(fetcher: IRevisionRulesFetcher): void {
   revisionRulesFetcherRegistry.register(fetcher);
 }
@@ -94,6 +104,7 @@ export function getRevisionRulesFetcher(): IRevisionRulesFetcher | null {
 export function registerRuleModule(): void {
   registerPermissionCategory(RULE_PERMISSION_CATEGORY);
   registerPermissionCategory(KEYWORD_PERMISSION_CATEGORY);
+  registerPermissionCategory(MECHANIC_PERMISSION_CATEGORY);
   registerAdminSection(KEYWORDS_ADMIN_SECTION);
   registerInlineRenderer({
     type: 'rule',

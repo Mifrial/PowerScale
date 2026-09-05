@@ -36,11 +36,12 @@ describe('RuleDraftService.createDraft', () => {
     expect(draft.code).toBe('old-code');
   });
 
-  it('прокидывает keywordIds/mechanicId и создаёт ISO createdAt', () => {
+  it('прокидывает keywordIds/mechanicId и unix createdAt', () => {
     const draft = ruleDraftService.createDraft(baseParams({ keywordIds: [7, 9], mechanicId: 3 }));
     expect(draft.keywordIds).toEqual([7, 9]);
     expect(draft.mechanicId).toBe(3);
-    expect(new Date(draft.createdAt).toISOString()).toBe(draft.createdAt);
+    expect(typeof draft.createdAt).toBe('number');
+    expect(draft.createdAt).toBeGreaterThan(1_700_000_000);
   });
 
   it('spec null сводится к undefined, заданный spec сохраняется как есть', () => {

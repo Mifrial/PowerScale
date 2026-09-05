@@ -1,27 +1,27 @@
 import { serviceLocator } from '@/modules/Core/Engine/Service/ServiceLocator';
-import type { ISpaceApi } from '@/modules/Roleplay/Space/Interface/ISpaceApi';
+import type { IRuleSpaceApi } from '@/modules/Roleplay/RuleSpace/Interface/IRuleSpaceApi';
 import { registerPermissionCategory } from '@/modules/Core/User/init';
-import { SPACE_PERMISSION_CATEGORY } from '@/modules/Roleplay/Space/Constant/permissions';
+import { SPACE_PERMISSION_CATEGORY } from '@/modules/Roleplay/RuleSpace/Constant/permissions';
 import { registerRevisionRulesFetcher } from '@/modules/Roleplay/Rule/init';
-import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
+import { useSpaceRevisionStore } from '@/modules/Roleplay/RuleSpace/Store/spaceRevision';
 
-export function registerSpaceApi(api: ISpaceApi): void {
-  serviceLocator.set('Roleplay.Space.Service.SpaceApi', api);
+export function registerRuleSpaceApi(api: IRuleSpaceApi): void {
+  serviceLocator.set('Roleplay.RuleSpace.Service.RuleSpaceApi', api);
 }
 
-export function getSpaceApi(): ISpaceApi {
-  return serviceLocator.get('Roleplay.Space.Service.SpaceApi');
+export function getRuleSpaceApi(): IRuleSpaceApi {
+  return serviceLocator.get('Roleplay.RuleSpace.Service.RuleSpaceApi');
 }
 
-export { ACTUAL_RULES_SPACE_CODE } from '@/modules/Roleplay/Space/Constant/ACTUAL_RULES_SPACE_CODE';
-export { spaceContextKey } from '@/modules/Roleplay/Space/Constant/spaceContextKey';
-export { useSpaceContext } from '@/modules/Roleplay/Space/Composables/useSpaceContext';
-export { useSpaceCatalog } from '@/modules/Roleplay/Space/Composables/useSpaceCatalog';
-export { useSpaceRevision } from '@/modules/Roleplay/Space/Composables/useSpaceRevision';
-export type { ISpaceContext } from '@/modules/Roleplay/Space/Interface/ISpaceContext';
-export { abilitySectionTreeService } from '@/modules/Roleplay/Space/Service/Instance/abilitySectionTreeService';
+export { ACTUAL_RULES_SPACE_CODE } from '@/modules/Roleplay/RuleSpace/Constant/ACTUAL_RULES_SPACE_CODE';
+export { spaceContextKey } from '@/modules/Roleplay/RuleSpace/Constant/spaceContextKey';
+export { useSpaceContext } from '@/modules/Roleplay/RuleSpace/Composables/useSpaceContext';
+export { useSpaceCatalog } from '@/modules/Roleplay/RuleSpace/Composables/useSpaceCatalog';
+export { useSpaceRevision } from '@/modules/Roleplay/RuleSpace/Composables/useSpaceRevision';
+export type { ISpaceContext } from '@/modules/Roleplay/RuleSpace/Interface/ISpaceContext';
+export { abilitySectionTreeService } from '@/modules/Roleplay/RuleSpace/Service/Instance/abilitySectionTreeService';
 
-export function registerSpaceModule(): void {
+export function registerRuleSpaceModule(): void {
   registerPermissionCategory(SPACE_PERMISSION_CATEGORY);
   registerRevisionRulesFetcher({
     fetchRules: async (spaceId, revision, signal) => {

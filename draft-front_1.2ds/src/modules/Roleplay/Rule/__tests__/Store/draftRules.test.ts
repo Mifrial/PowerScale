@@ -13,7 +13,7 @@ function makeRule(n: number): Rule {
     name: `Правило ${n}`,
     description: '',
     spaceId: 1,
-    createdAt: '2026-08-02T00:00:00Z',
+    createdAt: 1785628800,
   };
 }
 

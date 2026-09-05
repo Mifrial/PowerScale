@@ -1,12 +1,12 @@
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { RuleType } from '@/modules/Roleplay/Rule/Enum/RuleType';
-import type { SpaceRevision } from '@/modules/Roleplay/Space/Dto/SpaceRevision';
-import type { RevisionFile } from '@/modules/Roleplay/Space/Dto/RevisionFile';
-import type { RevisionFileImportDiff } from '@/modules/Roleplay/Space/Dto/RevisionFileImportDiff';
+import type { SpaceRevision } from '@/modules/Roleplay/RuleSpace/Dto/SpaceRevision';
+import type { RevisionFile } from '@/modules/Roleplay/RuleSpace/Dto/RevisionFile';
+import type { RevisionFileImportDiff } from '@/modules/Roleplay/RuleSpace/Dto/RevisionFileImportDiff';
 import {
   REVISION_FILE_FORMAT,
   REVISION_FILE_FORMAT_VERSION,
-} from '@/modules/Roleplay/Space/Constant/REVISION_FILE_FORMAT';
+} from '@/modules/Roleplay/RuleSpace/Constant/REVISION_FILE_FORMAT';
 import type { ruleDiffService } from '@/modules/Roleplay/Rule/init';
 import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
 
@@ -118,7 +118,7 @@ export class RevisionFileService {
   private parseRevision(value: unknown): SpaceRevision<Rule> {
     if (typeof value !== 'object' || value === null) throw new Error('Некорректный файл ревизии');
     const row = value as Record<string, unknown>;
-    if (typeof row.revision !== 'number' || typeof row.publishedAt !== 'string') {
+    if (typeof row.revision !== 'number' || typeof row.publishedAt !== 'number') {
       throw new Error('Некорректный файл ревизии');
     }
     if (typeof row.spaceCode !== 'string' || typeof row.spaceName !== 'string') {
@@ -131,6 +131,7 @@ export class RevisionFileService {
       publishedAt: row.publishedAt,
       spaceCode: row.spaceCode,
       spaceName: row.spaceName,
+      sections: Array.isArray(row.sections) ? (row.sections as SpaceRevision<Rule>['sections']) : [],
       rules: row.rules.map((item) => this.parseRule(item)),
     };
   }
@@ -145,7 +146,7 @@ export class RevisionFileService {
     if (typeof row.name !== 'string' || typeof row.description !== 'string') {
       throw new Error('Некорректное правило в файле');
     }
-    if (typeof row.createdAt !== 'string') {
+    if (typeof row.createdAt !== 'number') {
       throw new Error('Некорректное правило в файле');
     }
 
@@ -159,9 +160,8 @@ export class RevisionFileService {
       spec: row.spec as Rule['spec'],
       keywordIds: Array.isArray(row.keywordIds) ? (row.keywordIds as number[]) : undefined,
       mechanicId: typeof row.mechanicId === 'number' || row.mechanicId === null ? row.mechanicId : undefined,
-      mechanic_payload: row.mechanic_payload as Rule['mechanic_payload'],
+      mechanicPayload: row.mechanicPayload as Rule['mechanicPayload'],
       createdAt: row.createdAt,
-      updatedAt: typeof row.updatedAt === 'string' ? row.updatedAt : undefined,
     };
   }
 }

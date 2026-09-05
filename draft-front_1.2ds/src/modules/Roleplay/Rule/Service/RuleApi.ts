@@ -4,7 +4,6 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { CreateRuleData } from '@/modules/Roleplay/Rule/Dto/CreateRuleData';
 import type { UpdateRuleData } from '@/modules/Roleplay/Rule/Dto/UpdateRuleData';
 import type { RuleVersion } from '@/modules/Roleplay/Rule/Dto/RuleVersion';
-import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
 
 export class RuleApi implements IRuleApi {
   constructor(private readonly engine: Engine) {}
@@ -44,11 +43,5 @@ export class RuleApi implements IRuleApi {
 
   async deleteRule(code: string, signal?: AbortSignal): Promise<void> {
     await this.engine.runAction('rule.delete', { code }, signal);
-  }
-
-  async getMechanics(signal?: AbortSignal): Promise<Mechanic[]> {
-    const res = await this.engine.runAction<Mechanic[]>('rule.getMechanics', {}, signal);
-
-    return res.data ?? [];
   }
 }

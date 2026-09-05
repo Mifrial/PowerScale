@@ -17,7 +17,7 @@ const base = (id: number | null, code: string, type: Rule['type'], name: string,
   spaceId: 1,
   keywordIds: [],
   mechanicId: null,
-  createdAt: '2026-01-01T00:00:00Z',
+  createdAt: 1767225600,
   spec,
 });
 
@@ -364,7 +364,7 @@ describe('CharacterEditorService.build', () => {
   });
 
   it('механика «Общие»: 3-я и последующие общие черты доплачивают +2 ОС к os.spent', () => {
-    const commonKeyword: Keyword = { id: 20, code: 'common', name: 'Общая', active: true };
+    const commonKeyword: Keyword = { id: 20, code: 'common', name: 'Общая', description: '', active: true };
     const surchargeMechanic: Mechanic = {
       id: 4,
       code: 'purchase_surcharge',
@@ -397,13 +397,13 @@ describe('CharacterEditorService.build', () => {
         spaceId: 1,
         keywordIds: [20],
         mechanicId: 4,
-        mechanic_payload: {
+        mechanicPayload: {
           type: 'purchase_surcharge',
           filter: { keyword_code: 'common' },
           free_count: 2,
           surcharge: 2,
         },
-        createdAt: '2026-01-01T00:00:00Z',
+        createdAt: 1767225600,
       },
     ];
 
@@ -605,7 +605,7 @@ describe('CharacterEditorService: возраст и деньги (заход C)'
   });
 
   it('особенность богатства: эффективный бюджет денег = max(фикс, % от лимита)', () => {
-    const wealthKeyword: Keyword = { id: 50, code: 'wealth', name: 'Богатство', active: true };
+    const wealthKeyword: Keyword = { id: 50, code: 'wealth', name: 'Богатство', description: '', active: true };
     const richRule: Rule = {
       id: null,
       code: 'rich',
@@ -615,7 +615,7 @@ describe('CharacterEditorService: возраст и деньги (заход C)'
       spaceId: 1,
       keywordIds: [50],
       mechanicId: null,
-      createdAt: '2026-01-01T00:00:00Z',
+      createdAt: 1767225600,
       spec: {
         type: 'feature',
         zones: { ol: { kind: 'array', levels_cost: [3] } },

@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { useSpaceRevision } from '@/modules/Roleplay/Space/init';
+import { useSpaceRevision } from '@/modules/Roleplay/RuleSpace/init';
 import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useGameStore } from '@/modules/Roleplay/Game/Store/games';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
-import { getRuleApi } from '@/modules/Roleplay/Rule/init';
+import { getMechanicApi } from '@/modules/Roleplay/Rule/init';
 import { gameChatRulesContextService } from '@/modules/Roleplay/Game/Service/Instance/gameChatRulesContextService';
 
 import { useCurrentUser } from '@/modules/Core/User/init';
@@ -239,7 +239,7 @@ async function loadDiscussionContext(): Promise<void> {
   try {
     const revision = await spaceRevision.fetchRevision(current.game.spaceId, current.game.rulesRevision, signal.value);
     discussionRules.value = revision.rules;
-    discussionMechanics.value = await getRuleApi().getMechanics(signal.value);
+    discussionMechanics.value = await getMechanicApi().getMechanics(signal.value);
   } catch (caught) {
     if (caught instanceof DOMException && caught.name === 'AbortError') return;
     discussionRules.value = [];

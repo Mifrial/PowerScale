@@ -5,7 +5,7 @@ import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { characterEditorService } from '@/modules/Roleplay/Character/Service/Instance/characterEditorService';
 import { characterSheetValidationService } from '@/modules/Roleplay/Character/Service/Instance/characterSheetValidationService';
 import { clampAgeYears } from '@/modules/Roleplay/Character/Utils/clampAgeYears';
-import { getRuleApi, useKeywords } from '@/modules/Roleplay/Rule/init';
+import { getMechanicApi, useKeywords } from '@/modules/Roleplay/Rule/init';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
@@ -20,8 +20,8 @@ import InventoryTab from '@/modules/Roleplay/Character/Component/Editor/Inventor
 import { RuleSlider } from '@/modules/Roleplay/Rule/init';
 import { useRuleDetailSlider } from '@/modules/Roleplay/Character/Composables/useRuleDetailSlider';
 import { characterVersionIntegrityService } from '@/modules/Roleplay/Character/init';
-import type { AbilitySection } from '@/modules/Roleplay/Space/Dto/AbilitySection';
-import { abilitySectionTreeService, useSpaceRevision } from '@/modules/Roleplay/Space/init';
+import type { AbilitySection } from '@/modules/Roleplay/RuleSpace/Dto/AbilitySection';
+import { abilitySectionTreeService, useSpaceRevision } from '@/modules/Roleplay/RuleSpace/init';
 
 /**
  * Редактор листа персонажа/НПС (переиспользуемый, ТР §7): владеет черновиком (по `draftKey`
@@ -221,7 +221,7 @@ onMounted(() => {
   }
   if (keywords.value.length === 0) void fetchTags();
   if (mechanics.value.length === 0) {
-    void getRuleApi()
+    void getMechanicApi()
       .getMechanics(signal.value)
       .then((list) => {
         mechanics.value = list;

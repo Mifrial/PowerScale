@@ -52,7 +52,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 201,
@@ -75,7 +75,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 56],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 202,
@@ -110,7 +110,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 203,
@@ -145,7 +145,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 204,
@@ -169,7 +169,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 56],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 205,
@@ -193,7 +193,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 56],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 206,
@@ -217,7 +217,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 56],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 207,
@@ -241,7 +241,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 56],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 208,
@@ -265,7 +265,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 56],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 209,
@@ -289,7 +289,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 56],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 210,
@@ -312,7 +312,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 56],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 211,
@@ -336,7 +336,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 56],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 212,
@@ -360,7 +360,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 56],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 213,
@@ -401,7 +401,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 214,
@@ -436,7 +436,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 215,
@@ -471,7 +471,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 216,
@@ -509,7 +509,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 57],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 217,
@@ -547,7 +547,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 57],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 218,
@@ -585,7 +585,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 57],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 219,
@@ -611,7 +611,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 57],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 220,
@@ -635,7 +635,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 57],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 221,
@@ -659,7 +659,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 57],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 222,
@@ -683,7 +683,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 57],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 223,
@@ -707,7 +707,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 57],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 224,
@@ -731,7 +731,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 57],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 225,
@@ -756,7 +756,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 57],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 226,
@@ -797,7 +797,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 57],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 227,
@@ -822,7 +822,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 57],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 228,
@@ -858,7 +858,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 57],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 229,
@@ -894,7 +894,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 57],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 230,
@@ -930,7 +930,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 57],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 231,
@@ -955,7 +955,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 57],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 232,
@@ -979,7 +979,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 57],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 233,
@@ -1002,7 +1002,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 57],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 234,
@@ -1026,7 +1026,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 57],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 235,
@@ -1049,7 +1049,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 57],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 236,
@@ -1083,7 +1083,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 57],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 237,
@@ -1108,7 +1108,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 57],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 238,
@@ -1133,7 +1133,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 57],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 239,
@@ -1156,7 +1156,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 57],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 240,
@@ -1181,7 +1181,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 57],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 241,
@@ -1206,7 +1206,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 57],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 242,
@@ -1231,7 +1231,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 57],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 243,
@@ -1265,7 +1265,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 57],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 244,
@@ -1289,7 +1289,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 57],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 245,
@@ -1314,7 +1314,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 59],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 246,
@@ -1337,7 +1337,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 59],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 247,
@@ -1360,7 +1360,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 59],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 248,
@@ -1385,7 +1385,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 59],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 249,
@@ -1411,7 +1411,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 57, 59],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 250,
@@ -1436,7 +1436,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 59],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 251,
@@ -1461,7 +1461,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 59],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 252,
@@ -1487,7 +1487,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 57, 59],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 253,
@@ -1511,7 +1511,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 59],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 254,
@@ -1537,7 +1537,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 57, 59],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 255,
@@ -1560,7 +1560,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 60],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 256,
@@ -1583,7 +1583,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 60],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 257,
@@ -1606,7 +1606,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 60],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 258,
@@ -1629,7 +1629,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 60],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 259,
@@ -1652,7 +1652,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 60],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 261,
@@ -1739,7 +1739,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [11, 61],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 262,
@@ -1785,7 +1785,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [11, 61],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 263,
@@ -1822,7 +1822,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 61],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 264,
@@ -1845,7 +1845,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 61],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 265,
@@ -1908,7 +1908,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 61],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 266,
@@ -1931,7 +1931,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 61],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 267,
@@ -1968,7 +1968,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 61],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 268,
@@ -1991,7 +1991,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 61],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 269,
@@ -2015,7 +2015,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 61],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 270,
@@ -2039,7 +2039,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 61],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 271,
@@ -2062,7 +2062,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 61],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 272,
@@ -2085,7 +2085,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 61],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 273,
@@ -2109,7 +2109,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 61],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 274,
@@ -2133,7 +2133,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 61],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 275,
@@ -2156,7 +2156,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 61],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 276,
@@ -2180,7 +2180,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 61],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 277,
@@ -2203,7 +2203,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 62],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 278,
@@ -2227,7 +2227,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 62],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 279,
@@ -2250,7 +2250,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 62],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 280,
@@ -2274,7 +2274,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [11, 62],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 281,
@@ -2298,7 +2298,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 62],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 282,
@@ -2322,7 +2322,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 62],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 283,
@@ -2345,7 +2345,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 62],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 284,
@@ -2368,7 +2368,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 62],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 285,
@@ -2392,7 +2392,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 62],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 286,
@@ -2416,7 +2416,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 62],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 287,
@@ -2440,7 +2440,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 62],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 288,
@@ -2464,7 +2464,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 62],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 289,
@@ -2488,7 +2488,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 62],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 290,
@@ -2514,7 +2514,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 62],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 291,
@@ -2555,7 +2555,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 63],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 292,
@@ -2590,7 +2590,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 63],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 293,
@@ -2615,7 +2615,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 58, 63],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 294,
@@ -2639,7 +2639,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 58, 63],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 295,
@@ -2662,7 +2662,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 58, 63],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 296,
@@ -2686,7 +2686,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 58, 63],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 297,
@@ -2724,7 +2724,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 58, 63],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 298,
@@ -2762,7 +2762,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 58, 63, 70],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 299,
@@ -2786,7 +2786,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 58, 63],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 300,
@@ -2810,7 +2810,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 58, 63],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 301,
@@ -2834,7 +2834,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 58, 63],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 302,
@@ -2858,7 +2858,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 58, 63],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 303,
@@ -2882,7 +2882,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 57, 58, 63],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 304,
@@ -2906,7 +2906,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 58, 63],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 305,
@@ -2930,7 +2930,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 58, 63],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 306,
@@ -2964,7 +2964,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 58, 63],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 307,
@@ -2988,7 +2988,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 58, 63, 70],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 308,
@@ -3012,7 +3012,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 58, 63, 70],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 309,
@@ -3036,7 +3036,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 58, 63],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 310,
@@ -3060,7 +3060,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 58, 63, 70],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 311,
@@ -3084,7 +3084,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 58, 63],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 312,
@@ -3108,7 +3108,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 58, 63, 70],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 313,
@@ -3132,7 +3132,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 58, 63],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 314,
@@ -3155,7 +3155,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 58, 63],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 315,
@@ -3178,7 +3178,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 58, 63, 70],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 316,
@@ -3202,7 +3202,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 58, 63],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 317,
@@ -3234,7 +3234,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 14, 58, 63, 70],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 318,
@@ -3266,7 +3266,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 14, 58, 63],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 319,
@@ -3306,7 +3306,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 64],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 320,
@@ -3329,7 +3329,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 64],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 321,
@@ -3361,7 +3361,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 14, 53, 64],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 322,
@@ -3384,7 +3384,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 64],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 323,
@@ -3408,7 +3408,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 64],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 324,
@@ -3432,7 +3432,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 64],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 325,
@@ -3456,7 +3456,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 64],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 326,
@@ -3480,7 +3480,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 64],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 327,
@@ -3515,7 +3515,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 56, 64],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 328,
@@ -3539,7 +3539,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 64],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 329,
@@ -3562,7 +3562,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 64],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 330,
@@ -3586,7 +3586,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 64],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 331,
@@ -3610,7 +3610,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 64],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 332,
@@ -3653,7 +3653,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 14, 64],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 333,
@@ -3677,7 +3677,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 64],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 334,
@@ -3701,7 +3701,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 64],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 335,
@@ -3725,7 +3725,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 64],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 336,
@@ -3749,7 +3749,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 64],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 337,
@@ -3793,7 +3793,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 338,
@@ -3852,7 +3852,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 14, 64, 226],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 339,
@@ -3923,7 +3923,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 14, 15, 64, 71],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 340,
@@ -3994,7 +3994,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 14, 15, 64, 71],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 341,
@@ -4018,7 +4018,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 64],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 342,
@@ -4042,7 +4042,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 64],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 343,
@@ -4074,7 +4074,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 344,
@@ -4098,7 +4098,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 64],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 345,
@@ -4141,7 +4141,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 346,
@@ -4165,7 +4165,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 64],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 347,
@@ -4225,7 +4225,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 14, 15, 64, 71],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 349,
@@ -4276,7 +4276,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 350,
@@ -4300,7 +4300,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 64],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 351,
@@ -4324,7 +4324,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 64],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 352,
@@ -4367,7 +4367,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 353,
@@ -4419,7 +4419,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 354,
@@ -4474,7 +4474,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 355,
@@ -4505,7 +4505,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 356,
@@ -4529,7 +4529,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 64],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 357,
@@ -4572,7 +4572,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 358,
@@ -4625,7 +4625,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 359,
@@ -4678,7 +4678,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 360,
@@ -4721,7 +4721,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 361,
@@ -4774,7 +4774,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 362,
@@ -4805,7 +4805,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 363,
@@ -4837,7 +4837,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 364,
@@ -4869,7 +4869,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 365,
@@ -4906,7 +4906,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 64],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 366,
@@ -4941,7 +4941,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 64],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 367,
@@ -4986,7 +4986,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 64],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 368,
@@ -5028,7 +5028,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 14, 53, 64],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 369,
@@ -5071,7 +5071,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 14, 53, 64],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 370,
@@ -5095,7 +5095,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 64],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 371,
@@ -5138,7 +5138,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 14, 53, 64],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 372,
@@ -5162,7 +5162,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 64],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 373,
@@ -5207,7 +5207,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 64, 70],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 374,
@@ -5242,7 +5242,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 64],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 375,
@@ -5266,7 +5266,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 64],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 376,
@@ -5298,7 +5298,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 14, 54, 65],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 377,
@@ -5330,7 +5330,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 14, 54, 65],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 378,
@@ -5361,7 +5361,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 14, 54, 65],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 379,
@@ -5385,7 +5385,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 54, 65],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 380,
@@ -5417,7 +5417,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 14, 54, 65],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 381,
@@ -5449,7 +5449,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 14, 54, 65],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 382,
@@ -5473,7 +5473,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 55, 66, 68],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 383,
@@ -5497,7 +5497,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 66],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 384,
@@ -5521,7 +5521,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 66],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 385,
@@ -5545,7 +5545,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 55, 66, 68],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 386,
@@ -5568,7 +5568,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 66],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 387,
@@ -5591,7 +5591,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 66],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 388,
@@ -5615,7 +5615,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 66],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 389,
@@ -5639,7 +5639,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 66],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 390,
@@ -5663,7 +5663,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 66],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 391,
@@ -5687,7 +5687,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 66],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 392,
@@ -5711,7 +5711,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 66],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   {
     id: 393,
@@ -5735,7 +5735,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     },
     keywordIds: [13, 66],
     mechanicId: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    createdAt: 1786269600,
   },
   ...mockWeaponSkillsImport,
 ];

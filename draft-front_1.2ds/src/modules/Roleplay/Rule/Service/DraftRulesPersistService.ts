@@ -86,7 +86,7 @@ export class DraftRulesPersistService {
       typeof row.name !== 'string' ||
       typeof row.description !== 'string' ||
       typeof row.spaceId !== 'number' ||
-      typeof row.createdAt !== 'string'
+      typeof row.createdAt !== 'number'
     ) {
       return null;
     }

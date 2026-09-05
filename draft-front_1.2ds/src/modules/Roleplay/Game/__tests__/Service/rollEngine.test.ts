@@ -28,8 +28,8 @@ function rule(overrides: Partial<Rule>): Rule {
     spaceId: 1,
     keywordIds: [],
     mechanicId: null,
-    mechanic_payload: null,
-    createdAt: '2026-01-15T10:00:00Z',
+    mechanicPayload: null,
+    createdAt: 1768471200,
     ...overrides,
   };
 }
@@ -44,7 +44,7 @@ function rollRule(
     sub_mechanics: string[];
   }>,
 ): Rule {
-  return rule({ id: null, code: 'roll', mechanicId: 5, mechanic_payload: { type: 'roll', data } });
+  return rule({ id: null, code: 'roll', mechanicId: 5, mechanicPayload: { type: 'roll', data } });
 }
 
 const ROLL_SUB_MECHANICS = ['six_one_rule', 'advantage_disadvantage'];
@@ -148,7 +148,7 @@ describe('RollEngine: пер-ролл механики (Критический �
       code: 'critical-strike',
       type: 'ability',
       mechanicId: 6,
-      mechanic_payload: { type: 'roll_score_adjust', data: { oneDelta: 1, faceDelta: -1 } },
+      mechanicPayload: { type: 'roll_score_adjust', data: { oneDelta: 1, faceDelta: -1 } },
     }),
   ];
 

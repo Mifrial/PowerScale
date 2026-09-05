@@ -20,8 +20,8 @@ function rule(overrides: Partial<Rule>): Rule {
     spaceId: 1,
     keywordIds: [],
     mechanicId: null,
-    mechanic_payload: null,
-    createdAt: '2026-01-15T10:00:00Z',
+    mechanicPayload: null,
+    createdAt: 1768471200,
     ...overrides,
   };
 }
@@ -139,11 +139,11 @@ describe('PurchaseSurchargeHandler (миграция на контекст)', ()
     };
   }
 
-  function run(abilities: AbilitySeed[], racialCodes: string[], payload: Rule['mechanic_payload']) {
+  function run(abilities: AbilitySeed[], racialCodes: string[], payload: Rule['mechanicPayload']) {
     const registry = new MechanicHandlerRegistry();
     registry.register(purchaseSurchargeHandler);
     const engine = new MechanicEngine(registry);
-    const rules = [rule({ mechanicId: 4, mechanic_payload: payload })];
+    const rules = [rule({ mechanicId: 4, mechanicPayload: payload })];
     const mechanics = [mechanic({ id: 4, code: 'purchase_surcharge', version: '1.0.0' })];
     const context = contextOf(abilities, racialCodes);
     engine.runEvent(PURCHASE_SURCHARGE_EVENT, context, engine.resolveActive(rules, mechanics));

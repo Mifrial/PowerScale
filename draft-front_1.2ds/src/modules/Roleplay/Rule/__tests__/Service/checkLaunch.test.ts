@@ -13,7 +13,7 @@ function check(code: string, extra: Partial<Rule> = {}): Rule {
     spec: { type: 'check', difficulty_input: { kind: 'ask' }, allowed_modes: 'both' },
     keywordIds: [],
     mechanicId: null,
-    createdAt: '2026-08-22T12:00:00Z',
+    createdAt: 1787400000,
     ...extra,
   };
 }
@@ -27,7 +27,7 @@ describe('checkLaunch', () => {
         spec: { type: 'check', difficulty_input: { kind: 'ask' }, allowed_modes: 'solo' },
       }),
       check('check-hit'),
-      { id: null, code: 'roll', type: 'simple', name: 'Бросок', description: '', spaceId: 1, createdAt: '' } as Rule,
+      { id: null, code: 'roll', type: 'simple', name: 'Бросок', description: '', spaceId: 1, createdAt: 0 } as Rule,
     ];
     expect(checkLaunchService.launchableChecks(rules).map((rule) => rule.code)).toEqual(['check-simple']);
     expect(checkLaunchService.isLaunchableCheck(rules[1]!)).toBe(false);
@@ -56,7 +56,7 @@ describe('checkLaunch', () => {
         name: 'Сила воли',
         description: '',
         spaceId: 1,
-        createdAt: '',
+        createdAt: 0,
       },
       {
         id: null,
@@ -65,7 +65,7 @@ describe('checkLaunch', () => {
         name: 'Истощение',
         description: '',
         spaceId: 1,
-        createdAt: '',
+        createdAt: 0,
       },
     ];
     expect(checkLaunchService.checkVersusLabel(exhaustion, rules)).toBe('Сила воли против «Истощение»');

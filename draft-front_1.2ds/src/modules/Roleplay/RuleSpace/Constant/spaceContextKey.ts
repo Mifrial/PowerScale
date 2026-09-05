@@ -1,4 +1,4 @@
 import type { InjectionKey, ComputedRef } from 'vue';
-import type { ISpaceContext } from '@/modules/Roleplay/Space/Interface/ISpaceContext';
+import type { ISpaceContext } from '@/modules/Roleplay/RuleSpace/Interface/ISpaceContext';
 
 export const spaceContextKey: InjectionKey<ComputedRef<ISpaceContext>> = Symbol('spaceContext');

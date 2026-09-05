@@ -3,8 +3,9 @@ export interface Space {
   code: string;
   name: string;
   description: string;
+  ownerId: number;
   revision: number;
   active: boolean;
-  createdAt: string;
+  createdAt: number;
   rulesCount: number;
 }

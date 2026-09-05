@@ -1,3 +1,3 @@
-import { AbilitySectionTreeService } from '@/modules/Roleplay/Space/Service/AbilitySectionTreeService';
+import { AbilitySectionTreeService } from '@/modules/Roleplay/RuleSpace/Service/AbilitySectionTreeService';
 
 export const abilitySectionTreeService = new AbilitySectionTreeService();

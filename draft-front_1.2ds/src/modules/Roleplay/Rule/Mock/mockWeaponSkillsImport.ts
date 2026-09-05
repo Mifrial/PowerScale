@@ -27,7 +27,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 701,
@@ -50,7 +50,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 702,
@@ -74,7 +74,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 703,
@@ -97,7 +97,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 704,
@@ -121,7 +121,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 705,
@@ -145,7 +145,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 706,
@@ -168,7 +168,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 116],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 707,
@@ -192,7 +192,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 116],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 708,
@@ -216,7 +216,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 116],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 709,
@@ -240,7 +240,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 116],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 710,
@@ -264,7 +264,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 116],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 711,
@@ -288,7 +288,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 116],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 712,
@@ -312,7 +312,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 116],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 713,
@@ -336,7 +336,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 111, 134, 135, 136],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 714,
@@ -360,7 +360,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 111, 134, 135, 136],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 715,
@@ -384,7 +384,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 111, 134, 135, 136],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 716,
@@ -408,7 +408,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 111, 134, 135, 136],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 717,
@@ -432,7 +432,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 111, 134, 135, 136],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 718,
@@ -456,7 +456,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 111, 134, 135, 136],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 719,
@@ -480,7 +480,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 111, 134, 135, 136],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 720,
@@ -504,7 +504,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 122, 141],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 721,
@@ -528,7 +528,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 122, 141],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 722,
@@ -552,7 +552,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 122, 141],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 723,
@@ -575,7 +575,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 122, 141],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 724,
@@ -599,7 +599,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 122, 141],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 725,
@@ -623,7 +623,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 122, 141],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 726,
@@ -647,7 +647,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 115],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 727,
@@ -671,7 +671,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 115],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 728,
@@ -695,7 +695,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 115],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 729,
@@ -719,7 +719,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 115],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 730,
@@ -743,7 +743,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 115],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 731,
@@ -769,7 +769,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 139],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 732,
@@ -795,7 +795,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 139],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 733,
@@ -821,7 +821,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 139],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 734,
@@ -847,7 +847,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 139],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 735,
@@ -873,7 +873,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 139],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 736,
@@ -899,7 +899,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 737,
@@ -925,7 +925,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 738,
@@ -951,7 +951,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 739,
@@ -977,7 +977,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 740,
@@ -1003,7 +1003,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 741,
@@ -1029,7 +1029,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 742,
@@ -1055,7 +1055,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 743,
@@ -1081,7 +1081,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 744,
@@ -1107,7 +1107,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 745,
@@ -1132,7 +1132,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 746,
@@ -1158,7 +1158,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 747,
@@ -1184,7 +1184,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 108, 109, 184],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 748,
@@ -1210,7 +1210,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 108, 109, 184],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 749,
@@ -1236,7 +1236,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 108, 109, 184],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 750,
@@ -1262,7 +1262,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 108, 109, 184],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 751,
@@ -1288,7 +1288,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 135],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 752,
@@ -1313,7 +1313,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 135],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 753,
@@ -1339,7 +1339,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 135],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 754,
@@ -1365,7 +1365,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 135],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 755,
@@ -1391,7 +1391,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 118],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 756,
@@ -1417,7 +1417,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 118],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 757,
@@ -1443,7 +1443,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 118],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 758,
@@ -1469,7 +1469,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 118],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 759,
@@ -1494,7 +1494,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 143],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 760,
@@ -1520,7 +1520,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 143],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 761,
@@ -1546,7 +1546,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 143],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 762,
@@ -1572,7 +1572,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 143],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 763,
@@ -1598,7 +1598,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 764,
@@ -1624,7 +1624,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 765,
@@ -1650,7 +1650,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 766,
@@ -1674,7 +1674,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 113],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 767,
@@ -1698,7 +1698,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 113],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 768,
@@ -1722,7 +1722,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 113],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 769,
@@ -1746,7 +1746,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 128, 146, 147, 148, 149, 129, 145],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 770,
@@ -1770,7 +1770,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 128, 146, 147, 148, 149, 129, 145],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 771,
@@ -1794,7 +1794,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 128, 146, 147, 148, 149, 129, 145],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 772,
@@ -1820,7 +1820,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 773,
@@ -1846,7 +1846,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 774,
@@ -1872,7 +1872,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 775,
@@ -1898,7 +1898,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 776,
@@ -1922,7 +1922,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 777,
@@ -1945,7 +1945,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 778,
@@ -1969,7 +1969,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 121, 120],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 779,
@@ -1992,7 +1992,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 121, 120],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 780,
@@ -2018,7 +2018,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 781,
@@ -2044,7 +2044,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 782,
@@ -2069,7 +2069,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 783,
@@ -2095,7 +2095,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 784,
@@ -2119,7 +2119,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 785,
@@ -2143,7 +2143,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 786,
@@ -2168,7 +2168,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 787,
@@ -2194,7 +2194,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 788,
@@ -2220,7 +2220,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 789,
@@ -2245,7 +2245,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 150],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 790,
@@ -2271,7 +2271,7 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 151],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
   {
     id: 791,
@@ -2297,6 +2297,6 @@ export const mockWeaponSkillsImport: Rule[] = [
     },
     keywordIds: [13, 152],
     mechanicId: null,
-    createdAt: '2026-08-17T10:00:00Z',
+    createdAt: 1786960800,
   },
 ];

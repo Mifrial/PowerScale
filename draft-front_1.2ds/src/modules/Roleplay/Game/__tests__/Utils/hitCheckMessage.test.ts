@@ -11,7 +11,7 @@ const dagger: Rule = {
   spaceId: 1,
   keywordIds: [],
   mechanicId: null,
-  createdAt: '2026-01-01T00:00:00Z',
+  createdAt: 1767225600,
 };
 
 const shield: Rule = { ...dagger, id: null, code: 'classic-shield', name: 'Классический щит' };

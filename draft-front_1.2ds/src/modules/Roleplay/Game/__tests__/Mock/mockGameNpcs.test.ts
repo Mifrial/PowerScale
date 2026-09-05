@@ -10,7 +10,7 @@ import {
 } from '@/modules/Roleplay/Game/Mock/mockGameNpcs';
 import { gameDetails } from '@/modules/Roleplay/Game/Mock/mockGames';
 import { users as realUsers } from '@/modules/Core/User/Mock/mockUsers';
-import { fetchRevision, fetchSpaceByCode } from '@/modules/Roleplay/Space/Mock/mockSpaces';
+import { fetchRevision, fetchSpaceByCode } from '@/modules/Roleplay/RuleSpace/Mock/mockSpaces';
 import { characterMigrationService } from '@/modules/Roleplay/Character/init';
 import type { CreateNpcData } from '@/modules/Roleplay/Game/Dto/CreateNpcData';
 

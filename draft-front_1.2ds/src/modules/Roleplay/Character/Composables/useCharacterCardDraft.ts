@@ -9,7 +9,7 @@ import { useCharacterDraftStore } from '@/modules/Roleplay/Character/Store/chara
 import { useCharacterStore } from '@/modules/Roleplay/Character/Store/characters';
 import { getCharacterApi } from '@/modules/Roleplay/Character/init';
 import { characterSheetValidationService } from '@/modules/Roleplay/Character/Service/Instance/characterSheetValidationService';
-import { getRuleApi, useKeywords } from '@/modules/Roleplay/Rule/init';
+import { getMechanicApi, useKeywords } from '@/modules/Roleplay/Rule/init';
 
 /**
  * Черновик и быстрое сохранение с карточки персонажа: экип (и дальше другие правки)
@@ -148,7 +148,7 @@ export function useCharacterCardDraft(
         pending.push(fetchTags(signal.value));
       }
       pending.push(
-        getRuleApi()
+        getMechanicApi()
           .getMechanics(signal.value)
           .then((list) => {
             mechanics.value = list;

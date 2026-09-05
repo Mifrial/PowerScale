@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useSpaceRevision } from '@/modules/Roleplay/Space/init';
+import { useSpaceRevision } from '@/modules/Roleplay/RuleSpace/init';
 import { computed, ref, watch } from 'vue';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 import { getCharacterApi } from '@/modules/Roleplay/Character/init';

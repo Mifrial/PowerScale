@@ -28,7 +28,7 @@ export class DamageTypeHooksService {
       if (!mechanic) continue;
       const handler = damageTypeHookRegistry.resolve(mechanic.code, mechanic.version);
       if (!handler) continue;
-      const payload = attached.mechanic_payload;
+      const payload = attached.mechanicPayload;
       const woundMultiplier =
         payload?.type === 'exhaustion_wound' ? payload.multiplier : handler.defaultWoundMultiplier;
       const efficiencyDelta = payload?.type === 'injury_efficiency' ? payload.delta : handler.efficiencyDelta;

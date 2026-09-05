@@ -24,7 +24,7 @@ function checkRule(id: number, code: string, name: string, description: string, 
     spec,
     keywordIds: [],
     mechanicId: null,
-    createdAt: '2026-08-22T12:00:00Z',
+    createdAt: 1787400000,
   };
 }
 

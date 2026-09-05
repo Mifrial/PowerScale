@@ -10,7 +10,7 @@ export const columns: ColumnDefinition[] = [
     type: 'boolean',
     meta: {
       trueLabel: 'Активен',
-      falseLabel: 'Удалён',
+      falseLabel: 'Выключен',
       trueIcon: 'mdi-check-circle',
       falseIcon: 'mdi-cancel',
       trueColor: 'success',

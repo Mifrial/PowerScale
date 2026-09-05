@@ -11,7 +11,7 @@ function rule(overrides: Partial<Rule>): Rule {
     name: overrides.name ?? 'Правило',
     description: '',
     spaceId: 1,
-    createdAt: '2026-01-01T00:00:00Z',
+    createdAt: 1767225600,
     ...overrides,
   };
 }

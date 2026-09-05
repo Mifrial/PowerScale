@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { publishService } from '@/modules/Roleplay/Space/Service/Instance/publishService';
+import { publishService } from '@/modules/Roleplay/RuleSpace/Service/Instance/publishService';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
 function rule(code: string, name: string, overrides: Partial<Rule> = {}): Rule {
@@ -10,7 +10,7 @@ function rule(code: string, name: string, overrides: Partial<Rule> = {}): Rule {
     name,
     description: `Описание ${name}`,
     spaceId: 1,
-    createdAt: '2026-01-01T00:00:00Z',
+    createdAt: 1767225600,
     ...overrides,
   };
 }
@@ -98,5 +98,12 @@ describe('PublishService.prepare', () => {
 
     expect(summary.spaceErrors.length).toBe(1);
     expect(summary.spaceErrors[0]).toContain('Цикл');
+  });
+
+  it('помечает грязный каталог секций', () => {
+    const published = [rule('r1', 'Одно')];
+    const summary = publishService.prepare(published, [], published, [], [], true);
+    expect(summary.catalogDirty).toBe(true);
+    expect(summary.added).toEqual([]);
   });
 });

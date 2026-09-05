@@ -131,7 +131,7 @@ const versusPreview = computed(() =>
       description: props.description,
       spaceId: 0,
       spec: draft.value,
-      createdAt: '',
+      createdAt: 0,
     },
     props.rules,
   ),

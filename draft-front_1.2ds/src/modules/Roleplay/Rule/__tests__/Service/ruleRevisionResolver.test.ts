@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { setActivePinia, createPinia } from 'pinia';
 import { resetRegisteredApis } from '@/modules/Core/Engine/init';
 import { registerRuleApi, registerRevisionRulesFetcher } from '@/modules/Roleplay/Rule/init';
-import { mockSpaceApi } from '@/modules/Roleplay/Space/Mock/mockSpaceApi';
+import { mockRuleSpaceApi } from '@/modules/Roleplay/RuleSpace/Mock/mockRuleSpaceApi';
 import { mockRuleApi } from '@/modules/Roleplay/Rule/Mock/mockRuleApi';
 import { ruleRevisionResolverService } from '@/modules/Roleplay/Rule/Service/Instance/ruleRevisionResolverService';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
@@ -13,7 +13,7 @@ beforeEach(() => {
   registerRuleApi(mockRuleApi);
   registerRevisionRulesFetcher({
     fetchRules: async (spaceId, revision, signal) => {
-      const slice = await mockSpaceApi.getRevision(spaceId, revision, signal);
+      const slice = await mockRuleSpaceApi.getRevision(spaceId, revision, signal);
 
       return slice.rules;
     },
@@ -28,7 +28,7 @@ function rule(id: number | null, code: string): Rule {
     name: code,
     description: '',
     spaceId: 1,
-    createdAt: '2026-01-01T00:00:00Z',
+    createdAt: 1767225600,
   };
 }
 

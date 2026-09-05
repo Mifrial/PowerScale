@@ -12,7 +12,7 @@ const rule = (id: number | null, code: string, name: string): Rule => ({
   spaceId: 1,
   keywordIds: [],
   mechanicId: null,
-  createdAt: '2026-01-01T00:00:00Z',
+  createdAt: 1767225600,
 });
 
 const resource: ResourceValue = {

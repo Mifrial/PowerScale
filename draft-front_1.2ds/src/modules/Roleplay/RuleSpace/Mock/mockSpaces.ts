@@ -1,14 +1,15 @@
-import type { Space } from '@/modules/Roleplay/Space/Dto/Space';
-import type { SpaceCreateData } from '@/modules/Roleplay/Space/Dto/SpaceCreateData';
-import type { SpaceUpdateData } from '@/modules/Roleplay/Space/Dto/SpaceUpdateData';
-import type { SpaceRevisionMeta } from '@/modules/Roleplay/Space/Dto/SpaceRevisionMeta';
-import type { SpaceRevision } from '@/modules/Roleplay/Space/Dto/SpaceRevision';
-import { abilitySectionTreeService } from '@/modules/Roleplay/Space/Service/Instance/abilitySectionTreeService';
+import type { Space } from '@/modules/Roleplay/RuleSpace/Dto/Space';
+import type { SpaceCreateData } from '@/modules/Roleplay/RuleSpace/Dto/SpaceCreateData';
+import type { SpaceUpdateData } from '@/modules/Roleplay/RuleSpace/Dto/SpaceUpdateData';
+import type { SpaceRevisionMeta } from '@/modules/Roleplay/RuleSpace/Dto/SpaceRevisionMeta';
+import type { SpaceRevision } from '@/modules/Roleplay/RuleSpace/Dto/SpaceRevision';
+import type { AbilitySection } from '@/modules/Roleplay/RuleSpace/Dto/AbilitySection';
+import { abilitySectionTreeService } from '@/modules/Roleplay/RuleSpace/Service/Instance/abilitySectionTreeService';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec';
 import { ruleCatalog } from '@/modules/Roleplay/Rule/Mock/mockRules';
 import { slugify } from '@/modules/Roleplay/Rule/init';
-import { mockAbilitySectionTree } from '@/modules/Roleplay/Space/Mock/mockAbilitySectionTree';
+import { mockAbilitySectionTree } from '@/modules/Roleplay/RuleSpace/Mock/mockAbilitySectionTree';
 
 let nextId = 3;
 
@@ -57,7 +58,7 @@ function isAlwaysIncluded(rule: Rule): boolean {
     rule.type === 'check' ||
     rule.type === 'damage_type' ||
     // Правило «Бросок» (дефолты бросков чата) присутствует в любой ревизии игры.
-    rule.mechanic_payload?.type === 'roll' ||
+    rule.mechanicPayload?.type === 'roll' ||
     rule.code === 'strike-procedure' ||
     rule.code === 'throw-procedure' ||
     rule.code === 'shoot-procedure' ||
@@ -84,8 +85,9 @@ const spaces: Space[] = [
     name: 'Разработка',
     description: 'Рабочее пространство для разработки правил',
     revision: 5,
+    ownerId: 1,
     active: true,
-    createdAt: '2026-01-15T10:00:00Z',
+    createdAt: 1768471200,
     rulesCount: generatedRuleCount(5),
   },
   {
@@ -94,8 +96,9 @@ const spaces: Space[] = [
     name: 'Актуальные правила',
     description: 'Опубликованные правила для игроков',
     revision: 12,
+    ownerId: 1,
     active: true,
-    createdAt: '2026-02-01T09:00:00Z',
+    createdAt: 1769936400,
     rulesCount: generatedRuleCount(12),
   },
 ];
@@ -144,8 +147,9 @@ export async function createSpace(data: SpaceCreateData, _signal?: AbortSignal):
     name: data.name,
     description: data.description,
     revision: 0,
+    ownerId: 1,
     active: true,
-    createdAt: new Date().toISOString(),
+    createdAt: Math.floor(Date.now() / 1000),
     rulesCount,
   };
   spaces.push(space);
@@ -153,10 +157,11 @@ export async function createSpace(data: SpaceCreateData, _signal?: AbortSignal):
   if (inheritedRules) {
     revisionRulesCache.set(`${space.id}:0`, {
       revision: 0,
-      publishedAt: new Date().toISOString(),
+      publishedAt: space.createdAt,
       spaceCode: space.code,
       spaceName: space.name,
       rules: inheritedRules.map((r) => ({ ...r, spaceId: space.id, id: null })),
+      sections: abilitySectionTreeService.normalize(mockAbilitySectionTree),
     });
   }
 
@@ -243,7 +248,6 @@ export function generateRevisionRules(spaceId: number, revision: number): Rule[]
   return Array.from(included.values()).map((r) => ({
     ...r,
     spaceId,
-    updatedAt: new Date(2026, 0, 15 + revision).toISOString(),
   }));
 }
 
@@ -258,9 +262,8 @@ function buildRevisionsMeta(space: Space): SpaceRevisionMeta[] {
   for (let r = 1; r <= space.revision; r++) {
     items.push({
       revision: r,
-      publishedAt: new Date(2026, 0, 10 + r * 5).toISOString(),
+      publishedAt: Math.floor(new Date(2026, 0, 10 + r * 5).getTime() / 1000),
       ruleCount: generatedRuleCount(r),
-      changedCount: 1 + (r % 3),
     });
   }
   revisionMetaCache.set(key, items);
@@ -306,7 +309,7 @@ export async function fetchRevision(
 
   const result: SpaceRevision<Rule> = {
     revision,
-    publishedAt: new Date(2026, 0, 10 + revision * 5).toISOString(),
+    publishedAt: Math.floor(new Date(2026, 0, 10 + revision * 5).getTime() / 1000),
     spaceCode: space.code,
     spaceName: space.name,
     rules: generateRevisionRules(spaceId, revision),
@@ -322,14 +325,16 @@ export async function commitDraft(
   rules: Rule[],
   _signal?: AbortSignal,
   removedCodes: string[] = [],
+  sections?: AbilitySection[],
 ): Promise<SpaceRevision<Rule>> {
   await delay(500);
   const space = spaces.find((s) => s.id === spaceId);
   if (!space) throw new Error(`Space ${spaceId} not found`);
-  const sectionErrors = abilitySectionTreeService.validateRuleSections(rules, mockAbilitySectionTree);
+  const catalog = abilitySectionTreeService.normalize(sections ?? mockAbilitySectionTree);
+  const sectionErrors = abilitySectionTreeService.validateRuleSections(rules, catalog);
   if (sectionErrors.length > 0) throw new Error(sectionErrors.join('; '));
 
-  const now = new Date().toISOString();
+  const now = Math.floor(Date.now() / 1000);
   const poolByCode = new Map([...revisionRulePool, ...committedRules].map((r) => [r.code, r]));
 
   // Вносим черновик в overlay: новые правила получают следующий integer, изменённые сохраняют id.
@@ -339,7 +344,7 @@ export async function commitDraft(
     if (removed.has(draftRule.code)) continue;
     const existing = poolByCode.get(draftRule.code);
     const id = existing?.id ?? nextRuleId();
-    committedRules.push({ ...draftRule, id, updatedAt: now });
+    committedRules.push({ ...draftRule, id });
   }
 
   const hadPublishedSnapshot = space.revision >= 1 || revisionRulesCache.has(`${spaceId}:0`);
@@ -360,7 +365,7 @@ export async function commitDraft(
     spaceCode: space.code,
     spaceName: space.name,
     rules: snapshotRules,
-    sections: abilitySectionTreeService.normalize(mockAbilitySectionTree),
+    sections: catalog,
   };
 
   const key = `${spaceId}:${revision}`;

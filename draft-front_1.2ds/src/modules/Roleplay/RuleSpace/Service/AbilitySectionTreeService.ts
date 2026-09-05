@@ -1,8 +1,11 @@
-import type { AbilitySection } from '@/modules/Roleplay/Space/Dto/AbilitySection';
-import type { AbilitySectionTreeNode } from '@/modules/Roleplay/Space/Dto/AbilitySectionTreeNode';
+import type { AbilitySection } from '@/modules/Roleplay/RuleSpace/Dto/AbilitySection';
+import type { AbilitySectionTreeNode } from '@/modules/Roleplay/RuleSpace/Dto/AbilitySectionTreeNode';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import type { RuleCatalogArea } from '@/modules/Roleplay/Space/Enum/RuleCatalogArea';
+import type { RuleCatalogArea } from '@/modules/Roleplay/RuleSpace/Enum/RuleCatalogArea';
 
+/**
+ * Нормализует и проверяет дерево секций каталога.
+ */
 export class AbilitySectionTreeService {
   normalize(sections?: AbilitySection[]): AbilitySection[] {
     const source = sections ?? [];
@@ -86,6 +89,10 @@ export class AbilitySectionTreeService {
         ...section,
         parentCode: section.parentCode === root.code ? null : section.parentCode,
       }));
+  }
+
+  sameCatalog(left?: AbilitySection[], right?: AbilitySection[]): boolean {
+    return JSON.stringify(this.normalize(left)) === JSON.stringify(this.normalize(right));
   }
 
   validateRuleSections(rules: Rule[], sections?: AbilitySection[]): string[] {

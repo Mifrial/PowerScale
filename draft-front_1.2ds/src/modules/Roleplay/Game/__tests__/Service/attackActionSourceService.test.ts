@@ -33,7 +33,7 @@ const rule = (keywordIds: number[], attackMode?: 'single' | 'wide'): Rule => ({
   description: '',
   spaceId: 1,
   keywordIds,
-  createdAt: '',
+  createdAt: 0,
   spec: {
     type: 'action',
     zones: {},
@@ -87,7 +87,7 @@ describe('AttackActionSourceService', () => {
         description: '',
         spaceId: 1,
         keywordIds: [],
-        createdAt: '',
+        createdAt: 0,
       },
     ];
 

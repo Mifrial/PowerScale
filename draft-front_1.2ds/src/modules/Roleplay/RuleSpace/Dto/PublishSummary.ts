@@ -8,4 +8,5 @@ export interface PublishSummary {
   removed: Rule[];
   problems: ProblemEntry[];
   spaceErrors: string[];
+  catalogDirty: boolean;
 }

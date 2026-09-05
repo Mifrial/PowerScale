@@ -17,7 +17,7 @@ function checkRule(code: string, spec: CheckSpec): Rule {
     description: '',
     spaceId: 1,
     spec,
-    createdAt: '2026-08-22T12:00:00Z',
+    createdAt: 1787400000,
   };
 }
 
@@ -29,11 +29,11 @@ const catalog: Rule[] = [
     name: 'Бросок',
     description: '',
     spaceId: 1,
-    mechanic_payload: {
+    mechanicPayload: {
       type: 'roll',
       data: { sub_mechanics: ['advantage_disadvantage'], efficiency: 3 },
     },
-    createdAt: '2026-08-22T12:00:00Z',
+    createdAt: 1787400000,
   },
   checkRule(CHECK_SIMPLE_CODE, {
     type: 'check',

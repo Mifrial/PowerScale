@@ -9,6 +9,6 @@ export interface IRuleHostContext {
     name: string;
     parentCode: string | null;
     sortOrder: number;
-    catalogRootFor?: 'base' | 'race' | 'personality' | 'development' | 'inventory';
+    catalogRootFor?: string;
   }[];
 }

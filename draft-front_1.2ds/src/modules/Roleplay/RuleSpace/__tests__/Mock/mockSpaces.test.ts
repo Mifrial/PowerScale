@@ -4,7 +4,7 @@ import {
   fetchRevisions,
   commitDraft,
   generateRevisionRules,
-} from '@/modules/Roleplay/Space/Mock/mockSpaces';
+} from '@/modules/Roleplay/RuleSpace/Mock/mockSpaces';
 import { DT_PAY_SR_VS_RELIABILITY_CODE } from '@/modules/Roleplay/Rule/init';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
@@ -18,7 +18,7 @@ describe('mockSpaces: публикация черновика собирает �
       name: 'Лаваш',
       description: 'Лавалава',
       spaceId: 2,
-      createdAt: new Date().toISOString(),
+      createdAt: Math.floor(Date.now() / 1000),
     };
 
     const after = await commitDraft(2, [draftRule]);
@@ -44,7 +44,7 @@ describe('mockSpaces: публикация черновика собирает �
         name: 'Завтрак мастера',
         description: 'Появляется после публикации',
         spaceId: 2,
-        createdAt: new Date().toISOString(),
+        createdAt: Math.floor(Date.now() / 1000),
       },
     ]);
 
@@ -61,7 +61,7 @@ describe('mockSpaces: публикация черновика собирает �
         name: 'Лаваш 2',
         description: '',
         spaceId: 2,
-        createdAt: new Date().toISOString(),
+        createdAt: Math.floor(Date.now() / 1000),
       },
     ]);
     const firstLavash = first.rules.find((r) => r.code === 'lavash-2');
@@ -75,7 +75,7 @@ describe('mockSpaces: публикация черновика собирает �
         name: 'Лаваш 2 (обновлён)',
         description: 'новое описание',
         spaceId: 2,
-        createdAt: new Date().toISOString(),
+        createdAt: Math.floor(Date.now() / 1000),
       },
     ]);
     const secondLavash = second.rules.find((r) => r.code === 'lavash-2');
@@ -102,7 +102,7 @@ describe('mockSpaces: публикация черновика собирает �
   });
 
   it('createSpace без снимка — ревизия 0 и пустой срез', async () => {
-    const { createSpace } = await import('@/modules/Roleplay/Space/Mock/mockSpaces');
+    const { createSpace } = await import('@/modules/Roleplay/RuleSpace/Mock/mockSpaces');
     const space = await createSpace({
       name: 'Из файла',
       description: '',
@@ -114,7 +114,7 @@ describe('mockSpaces: публикация черновика собирает �
   });
 
   it('первая публикация на пустом пространстве даёт v1 из черновика, не каталог', async () => {
-    const { createSpace } = await import('@/modules/Roleplay/Space/Mock/mockSpaces');
+    const { createSpace } = await import('@/modules/Roleplay/RuleSpace/Mock/mockSpaces');
     const space = await createSpace({ name: 'Пустое', description: '' });
     const published = await commitDraft(space.id, [
       {
@@ -124,7 +124,7 @@ describe('mockSpaces: публикация черновика собирает �
         name: 'Из файла',
         description: '',
         spaceId: space.id,
-        createdAt: '2026-01-01T00:00:00Z',
+        createdAt: 1767225600,
       },
     ]);
     expect(published.revision).toBe(1);
@@ -134,7 +134,7 @@ describe('mockSpaces: публикация черновика собирает �
   });
 
   it('inherit копирует правила без PK родителя', async () => {
-    const { createSpace } = await import('@/modules/Roleplay/Space/Mock/mockSpaces');
+    const { createSpace } = await import('@/modules/Roleplay/RuleSpace/Mock/mockSpaces');
     const parent = await fetchRevision(1, 5);
     const child = await createSpace({ name: 'Наследник', description: '', inheritFrom: 1 });
     const slice = await fetchRevision(child.id, 0);

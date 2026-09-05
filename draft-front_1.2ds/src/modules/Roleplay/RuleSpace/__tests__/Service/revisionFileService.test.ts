@@ -1,17 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { reactive } from 'vue';
-import { revisionFileService } from '@/modules/Roleplay/Space/Service/Instance/revisionFileService';
-import { generateRevisionRules } from '@/modules/Roleplay/Space/Mock/mockSpaces';
+import { revisionFileService } from '@/modules/Roleplay/RuleSpace/Service/Instance/revisionFileService';
+import { generateRevisionRules } from '@/modules/Roleplay/RuleSpace/Mock/mockSpaces';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import type { SpaceRevision } from '@/modules/Roleplay/Space/Dto/SpaceRevision';
+import type { SpaceRevision } from '@/modules/Roleplay/RuleSpace/Dto/SpaceRevision';
 
 function sampleRevision(rules: Rule[]): SpaceRevision<Rule> {
   return {
     revision: 3,
-    publishedAt: '2026-01-01T00:00:00Z',
+    publishedAt: 1767225600,
     spaceCode: 'src',
     spaceName: 'Источник',
     rules,
+    sections: [],
   };
 }
 
@@ -23,7 +24,7 @@ function rule(code: string, name: string, overrides: Partial<Rule> = {}): Rule {
     name,
     description: `Описание ${name}`,
     spaceId: 1,
-    createdAt: '2026-01-01T00:00:00Z',
+    createdAt: 1767225600,
     ...overrides,
   };
 }
@@ -93,7 +94,7 @@ describe('срез ревизии: spec ссылается по code, не по 
     for (const item of rules) {
       const strings: string[] = [];
       collectStrings(item.spec, strings);
-      collectStrings(item.mechanic_payload, strings);
+      collectStrings(item.mechanicPayload, strings);
       for (const text of strings) {
         if (idTexts.has(text) && text !== String(item.id)) {
           throw new Error(`${item.code} ссылается на id ${text}`);

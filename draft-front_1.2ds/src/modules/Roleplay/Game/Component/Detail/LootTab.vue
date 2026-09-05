@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useSpaceRevision } from '@/modules/Roleplay/Space/init';
+import { useSpaceRevision } from '@/modules/Roleplay/RuleSpace/init';
 import { computed, ref, watch } from 'vue';
 import { useCurrentUser } from '@/modules/Core/User/init';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';

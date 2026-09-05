@@ -15,7 +15,7 @@ export const useKeywordStore = defineStore('keywords', () => {
     loading.value = true;
     error.value = null;
     try {
-      keywords.value = await getKeywordApi().getTags(signal);
+      keywords.value = await getKeywordApi().getKeywords(signal);
     } catch (e) {
       if (e instanceof DOMException && e.name === 'AbortError') return;
       error.value = 'Не удалось загрузить признаки';
@@ -25,21 +25,21 @@ export const useKeywordStore = defineStore('keywords', () => {
   }
 
   async function fetchTag(id: number, signal?: AbortSignal): Promise<Keyword> {
-    const keyword = await getKeywordApi().getTag(id, signal);
+    const keyword = await getKeywordApi().getKeyword(id, signal);
     currentTag.value = keyword;
 
     return keyword;
   }
 
   async function createTag(data: CreateKeywordData, signal?: AbortSignal): Promise<Keyword> {
-    const keyword = await getKeywordApi().createTag(data, signal);
+    const keyword = await getKeywordApi().createKeyword(data, signal);
     keywords.value.push(keyword);
 
     return keyword;
   }
 
   async function updateTag(id: number, data: UpdateKeywordData, signal?: AbortSignal): Promise<Keyword> {
-    const keyword = await getKeywordApi().updateTag(id, data, signal);
+    const keyword = await getKeywordApi().updateKeyword(id, data, signal);
     const idx = keywords.value.findIndex((t) => t.id === id);
     if (idx !== -1) keywords.value[idx] = keyword;
     if (currentTag.value?.id === id) currentTag.value = keyword;
@@ -48,7 +48,7 @@ export const useKeywordStore = defineStore('keywords', () => {
   }
 
   async function deactivateTag(id: number, signal?: AbortSignal): Promise<void> {
-    await getKeywordApi().deactivateTag(id, signal);
+    await getKeywordApi().deactivate(id, signal);
     const keyword = keywords.value.find((t) => t.id === id);
     if (keyword) keyword.active = false;
     if (currentTag.value?.id === id) currentTag.value.active = false;

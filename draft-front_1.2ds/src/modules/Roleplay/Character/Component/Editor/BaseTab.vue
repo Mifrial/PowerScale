@@ -210,7 +210,7 @@ function setAbilityDomain(ruleCode: string, domain: string, domainCode: string |
 /** Правило механики прогрессивной доплаты (объяснение на вкладке). */
 const surchargeRule = computed<Rule | undefined>(() =>
   props.rules.find((rule) => {
-    const payload = rule.mechanic_payload as { type?: string } | null | undefined;
+    const payload = rule.mechanicPayload as { type?: string } | null | undefined;
 
     return payload?.type === 'purchase_surcharge';
   }),

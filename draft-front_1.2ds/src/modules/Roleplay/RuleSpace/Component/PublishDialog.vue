@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
-import type { Space } from '@/modules/Roleplay/Space/Dto/Space';
-import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
+import type { Space } from '@/modules/Roleplay/RuleSpace/Dto/Space';
+import { useSpaceRevisionStore } from '@/modules/Roleplay/RuleSpace/Store/spaceRevision';
+import { useSectionCatalogStore } from '@/modules/Roleplay/RuleSpace/Store/sectionCatalog';
 import { RULE_TYPE_LABELS, useKeywords, useRuleDrafts } from '@/modules/Roleplay/Rule/init';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
-import { publishService } from '@/modules/Roleplay/Space/Service/Instance/publishService';
-import type { PublishSummary } from '@/modules/Roleplay/Space/Dto/PublishSummary';
+import { publishService } from '@/modules/Roleplay/RuleSpace/Service/Instance/publishService';
+import type { PublishSummary } from '@/modules/Roleplay/RuleSpace/Dto/PublishSummary';
 
 const props = defineProps<{
   modelValue: boolean;
@@ -19,6 +20,7 @@ const emit = defineEmits<{
 }>();
 
 const revisionStore = useSpaceRevisionStore();
+const sectionCatalog = useSectionCatalogStore();
 const drafts = useRuleDrafts();
 const { keywords, error: keywordsError, fetchTags } = useKeywords();
 const { signal } = useAbortable();
@@ -40,7 +42,11 @@ const publishSpaceErrors = computed(() => summary.value?.spaceErrors ?? []);
 
 const hasPublishProblems = computed(() => publishProblems.value.length > 0 || publishSpaceErrors.value.length > 0);
 const publishCount = computed(
-  () => publishAdded.value.length + publishChanged.value.length + publishRemoved.value.length,
+  () =>
+    publishAdded.value.length +
+    publishChanged.value.length +
+    publishRemoved.value.length +
+    (summary.value?.catalogDirty ? 1 : 0),
 );
 
 watch(
@@ -60,12 +66,15 @@ async function prepare() {
       await fetchTags(signal.value);
     }
     if (keywordsError.value) return;
+    const spaceId = space.id;
+    const catalogDirty = sectionCatalog.isDirty(spaceId, revisionStore.activeRevision?.sections ?? []);
     summary.value = publishService.prepare(
       revisionStore.activeRevision?.rules ?? [],
-      drafts.getDraftRules(space.id),
+      drafts.getDraftRules(spaceId),
       revisionStore.effectiveRules,
       keywords.value,
-      drafts.getRemovedCodes(space.id),
+      drafts.getRemovedCodes(spaceId),
+      catalogDirty,
     );
   } finally {
     preparing.value = false;
@@ -78,7 +87,15 @@ async function publishDraft() {
   publishing.value = true;
   try {
     const rules = drafts.getDraftRules(space.id);
-    const result = await revisionStore.commitDraft(space.id, rules, undefined, drafts.getRemovedCodes(space.id));
+    const catalogDirty = sectionCatalog.isDirty(space.id, revisionStore.activeRevision?.sections ?? []);
+    const sections = catalogDirty ? (sectionCatalog.getDraftSections(space.id) ?? []) : undefined;
+    const result = await revisionStore.commitDraft(
+      space.id,
+      rules,
+      undefined,
+      drafts.getRemovedCodes(space.id),
+      sections,
+    );
     drafts.discardDraft(space.id);
     emit('update:modelValue', false);
     emit('published', result.revision);
@@ -109,6 +126,8 @@ async function publishDraft() {
           <div class="text-body-2 mb-4">
             Будут опубликованы {{ publishCount }} изменений поверх версии {{ space?.revision }}.
           </div>
+
+          <div v-if="summary?.catalogDirty" class="mb-3 text-body-2">Изменено дерево секций каталога.</div>
 
           <div v-if="publishChanged.length > 0" class="mb-3">
             <div class="text-subtitle-2 font-weight-medium mb-1">Изменённые ({{ publishChanged.length }})</div>

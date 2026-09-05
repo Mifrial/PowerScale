@@ -2,7 +2,7 @@ import type { IChatRulesProvider } from '@/modules/Messages/Chat/Interface/IChat
 import type { Character } from '@/modules/Roleplay/Character/Dto/Character';
 import type { ICharacterApi } from '@/modules/Roleplay/Character/Interface/ICharacterApi';
 import { characterChatRulesContextService } from '@/modules/Roleplay/Character/Service/Instance/characterChatRulesContextService';
-import { useSpaceRevision } from '@/modules/Roleplay/Space/init';
+import { useSpaceRevision } from '@/modules/Roleplay/RuleSpace/init';
 
 async function characterApi(): Promise<ICharacterApi> {
   // Динамический импорт: провайдер регистрируется в Character/init — статический импорт

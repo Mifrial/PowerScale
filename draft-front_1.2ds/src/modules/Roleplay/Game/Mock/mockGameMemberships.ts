@@ -25,7 +25,7 @@ import { gameMembershipReviewService } from '@/modules/Roleplay/Game/Service/Ins
 import { mockSendSystemMessage } from '@/modules/Messages/Chat/Mock/mockChat';
 import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
 import { getCurrentUserId } from '@/modules/Core/Auth/Mock/mockAuth';
-import { fetchRevision } from '@/modules/Roleplay/Space/Mock/mockSpaces';
+import { fetchRevision } from '@/modules/Roleplay/RuleSpace/Mock/mockSpaces';
 import { characterVersionIntegrityService } from '@/modules/Roleplay/Character/init';
 
 const delay = (ms = 100) => new Promise((r) => setTimeout(r, ms));

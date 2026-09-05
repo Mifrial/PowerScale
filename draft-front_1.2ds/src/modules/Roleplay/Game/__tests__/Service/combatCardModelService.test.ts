@@ -76,9 +76,9 @@ function stateRule(
     spaceId: 1,
     keywordIds: [],
     mechanicId: null,
-    mechanic_payload: null,
+    mechanicPayload: null,
     spec: { icon_code: 'mdi-star', value_type: valueType, aggregation },
-    createdAt: '2026-08-06T10:00:00Z',
+    createdAt: 1786010400,
   };
 }
 
@@ -517,7 +517,7 @@ describe('combatStatePicker', () => {
             },
             keywordIds: [],
             mechanicId: null,
-            createdAt: '2026-01-01T00:00:00Z',
+            createdAt: 1767225600,
           },
         ],
       ),

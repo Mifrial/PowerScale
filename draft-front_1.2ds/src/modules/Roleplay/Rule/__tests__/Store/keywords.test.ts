@@ -11,10 +11,10 @@ beforeEach(() => {
   resetRegisteredApis();
 });
 
-function failingApi(getTags: () => Promise<never>): IKeywordApi {
+function failingApi(getKeywords: () => Promise<never>): IKeywordApi {
   return {
     ...mockKeywordApi,
-    getTags,
+    getKeywords,
   };
 }
 

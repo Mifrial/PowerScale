@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { useSpaceRevision } from '@/modules/Roleplay/Space/init';
+import { useSpaceRevision } from '@/modules/Roleplay/RuleSpace/init';
 import { computed, onUnmounted, ref, watch } from 'vue';
 import { useCurrentUser } from '@/modules/Core/User/init';
 import { useGameStore } from '@/modules/Roleplay/Game/Store/games';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 import { getCharacterApi } from '@/modules/Roleplay/Character/init';
-import { getRuleApi } from '@/modules/Roleplay/Rule/init';
+import { getMechanicApi } from '@/modules/Roleplay/Rule/init';
 import { sessionCharacterService } from '@/modules/Roleplay/Game/Service/Instance/sessionCharacterService';
 import { gameChatRulesContextService } from '@/modules/Roleplay/Game/Service/Instance/gameChatRulesContextService';
 
@@ -222,7 +222,7 @@ async function load(): Promise<void> {
     npcs.value = await getGameApi().getNpcs(gameId.value);
     quickRolls.value = await getGameApi().getQuickRolls(gameId.value);
     await refreshProcessSessions();
-    mechanics.value = await getRuleApi().getMechanics();
+    mechanics.value = await getMechanicApi().getMechanics();
     await loadRevision();
   } catch (e) {
     loadError.value = e instanceof Error ? e.message : 'Не удалось загрузить данные чата';

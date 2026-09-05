@@ -14,8 +14,8 @@ const RULES: Rule[] = [
     description: '',
     spaceId: 1,
     mechanicId: 5,
-    mechanic_payload: { type: 'roll', data: { efficiency: 3, sub_mechanics: ['advantage_disadvantage'] } },
-    createdAt: '2026-08-22T12:00:00Z',
+    mechanicPayload: { type: 'roll', data: { efficiency: 3, sub_mechanics: ['advantage_disadvantage'] } },
+    createdAt: 1787400000,
   },
   {
     id: null,
@@ -25,7 +25,7 @@ const RULES: Rule[] = [
     description: '',
     spaceId: 1,
     mechanicId: 1,
-    createdAt: '2026-08-22T12:00:00Z',
+    createdAt: 1787400000,
   },
   {
     id: null,
@@ -40,7 +40,7 @@ const RULES: Rule[] = [
       allowed_modes: 'both',
       attached_rule_codes: ['rule-6-and-1', 'advantages'],
     },
-    createdAt: '2026-08-22T12:00:00Z',
+    createdAt: 1787400000,
   },
   {
     id: null,
@@ -56,7 +56,7 @@ const RULES: Rule[] = [
       difficulty_input: { kind: 'ask' },
       allowed_modes: 'both',
     },
-    createdAt: '2026-08-22T12:00:00Z',
+    createdAt: 1787400000,
   },
   {
     id: null,
@@ -72,7 +72,7 @@ const RULES: Rule[] = [
       difficulty_input: { kind: 'from_state', state_code: 'exhaustion' },
       allowed_modes: 'solo',
     },
-    createdAt: '2026-08-22T12:00:00Z',
+    createdAt: 1787400000,
   },
 ];
 

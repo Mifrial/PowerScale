@@ -31,7 +31,7 @@ describe('CharacterVersionIntegrityService', () => {
       type: 'characteristic',
       description: '',
       spaceId: 2,
-      createdAt: '',
+      createdAt: 0,
     }));
 
     expect(characterVersionIntegrityService.invalidRuleIds(version, rules)).toEqual(['modifier', 'poison']);
@@ -46,7 +46,7 @@ describe('CharacterVersionIntegrityService', () => {
         type: 'characteristic',
         description: '',
         spaceId: 2,
-        createdAt: '',
+        createdAt: 0,
       }),
     );
 

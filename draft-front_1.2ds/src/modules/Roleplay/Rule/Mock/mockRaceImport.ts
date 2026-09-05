@@ -95,8 +95,8 @@ const humanRace = (
     spec,
     keywordIds: HUMAN_RACE_KEYWORDS[code] ?? [17, 21],
     mechanicId: null,
-    mechanic_payload: null,
-    createdAt: '2026-08-07T10:00:00Z',
+    mechanicPayload: null,
+    createdAt: 1786096800,
   };
 };
 
@@ -123,8 +123,8 @@ const speciesRule = (
   },
   keywordIds,
   mechanicId: null,
-  mechanic_payload: null,
-  createdAt: '2026-08-07T10:00:00Z',
+  mechanicPayload: null,
+  createdAt: 1786096800,
 });
 
 /** Раса произвольного вида: база 3 + переопределения, признаки [гуманоид, вид, раса]. */
@@ -155,8 +155,8 @@ const raceRule = (
     spec,
     keywordIds,
     mechanicId: null,
-    mechanic_payload: null,
-    createdAt: '2026-08-07T10:00:00Z',
+    mechanicPayload: null,
+    createdAt: 1786096800,
   };
 };
 

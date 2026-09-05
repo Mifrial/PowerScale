@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import type { RevisionFile } from '@/modules/Roleplay/Space/Dto/RevisionFile';
-import { revisionFileService } from '@/modules/Roleplay/Space/Service/Instance/revisionFileService';
+import type { RevisionFile } from '@/modules/Roleplay/RuleSpace/Dto/RevisionFile';
+import { revisionFileService } from '@/modules/Roleplay/RuleSpace/Service/Instance/revisionFileService';
 
 const props = defineProps<{
   modelValue: boolean;

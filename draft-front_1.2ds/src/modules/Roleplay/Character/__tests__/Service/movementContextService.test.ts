@@ -57,7 +57,7 @@ describe('MovementContextService', () => {
         name: 'Турим',
         description: '',
         spaceId: 1,
-        createdAt: '',
+        createdAt: 0,
         spec: { parent_race_code: null, abilities: [{ ability_code: 'small-step', automatic: true }] },
       },
       {
@@ -67,7 +67,7 @@ describe('MovementContextService', () => {
         name: 'Маленький шаг',
         description: '',
         spaceId: 1,
-        createdAt: '',
+        createdAt: 0,
         spec: { type: 'trait', movement_step_size_delta: -1 },
       },
     ] as Rule[];

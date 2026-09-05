@@ -13,11 +13,11 @@ const RULES: Rule[] = [
     spaceId: 1,
     keywordIds: [],
     mechanicId: 5,
-    mechanic_payload: {
+    mechanicPayload: {
       type: 'roll',
       data: { diceCount: 3, dieFaces: 6, efficiency: 3, adv: 0, sub_mechanics: ['advantage_disadvantage'] },
     },
-    createdAt: '2026-01-15T10:00:00Z',
+    createdAt: 1768471200,
   },
   {
     id: null,
@@ -28,8 +28,8 @@ const RULES: Rule[] = [
     spaceId: 1,
     keywordIds: [],
     mechanicId: 1,
-    mechanic_payload: null,
-    createdAt: '2026-01-15T10:00:00Z',
+    mechanicPayload: null,
+    createdAt: 1768471200,
   },
   {
     id: null,
@@ -40,8 +40,8 @@ const RULES: Rule[] = [
     spaceId: 1,
     keywordIds: [],
     mechanicId: null,
-    mechanic_payload: null,
-    createdAt: '2026-01-15T10:00:00Z',
+    mechanicPayload: null,
+    createdAt: 1768471200,
   },
   {
     id: null,
@@ -56,7 +56,7 @@ const RULES: Rule[] = [
       allowed_modes: 'both',
       attached_rule_codes: ['rule-6-and-1', 'advantages'],
     },
-    createdAt: '2026-08-22T12:00:00Z',
+    createdAt: 1787400000,
   },
   {
     id: null,
@@ -72,7 +72,7 @@ const RULES: Rule[] = [
       difficulty_input: { kind: 'ask' },
       allowed_modes: 'both',
     },
-    createdAt: '2026-08-22T12:00:00Z',
+    createdAt: 1787400000,
   },
 ];
 

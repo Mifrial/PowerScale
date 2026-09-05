@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { useSpaceStore } from '@/modules/Roleplay/Space/Store/spaces';
+import { useSpaceStore } from '@/modules/Roleplay/RuleSpace/Store/spaces';
 import { useRuleDrafts } from '@/modules/Roleplay/Rule/init';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import { revisionFileService } from '@/modules/Roleplay/Space/Service/Instance/revisionFileService';
+import { revisionFileService } from '@/modules/Roleplay/RuleSpace/Service/Instance/revisionFileService';
 
 const router = useRouter();
 const store = useSpaceStore();
@@ -86,7 +86,7 @@ async function save() {
 
       return;
     }
-    router.push(`/space/${space.code}`);
+    router.push(space.revision < 1 ? `/space/${space.code}/draft` : `/space/${space.code}`);
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') return;
     saveError.value = 'Не удалось создать пространство';

@@ -99,8 +99,8 @@ const traitRule = (
     spec: abilitySpec,
     keywordIds,
     mechanicId: null,
-    mechanic_payload: null,
-    createdAt: '2026-08-07T10:00:00Z',
+    mechanicPayload: null,
+    createdAt: 1786096800,
   };
 };
 
@@ -115,8 +115,8 @@ const groupRule = (code: string, name: string, description: string, selectLimit:
   spec: { type: 'group', selectLimit },
   keywordIds: [GROUP_KEYWORD],
   mechanicId: null,
-  mechanic_payload: null,
-  createdAt: '2026-08-07T10:00:00Z',
+  mechanicPayload: null,
+  createdAt: 1786096800,
 });
 
 const attractivenessModify = (value: number, source_code: string): Grant => ({
@@ -235,8 +235,8 @@ const personalityRule = (
     ...(options.keywordIds ?? []),
   ],
   mechanicId: null,
-  mechanic_payload: null,
-  createdAt: '2026-08-09T10:00:00Z',
+  mechanicPayload: null,
+  createdAt: 1786269600,
 });
 
 /** Навык (тип 'skill') — даётся особенностью; в каталоге «Основа»/«Личность» не покупается напрямую. */
@@ -256,8 +256,8 @@ const skillRule = (code: string, name: string, description: string): Rule => ({
   },
   keywordIds: [SKILL_KEYWORD],
   mechanicId: null,
-  mechanic_payload: null,
-  createdAt: '2026-08-09T10:00:00Z',
+  mechanicPayload: null,
+  createdAt: 1786269600,
 });
 
 /** Стартовый капитал от особенности богатства: значение = apply(fixed, percent% от лимита денег). */
@@ -501,8 +501,8 @@ const importedRules: Rule[] = [
     spec: damageTypeSpecService.createEmpty('magic-damage'),
     keywordIds: [],
     mechanicId: null,
-    mechanic_payload: null,
-    createdAt: '2026-08-07T10:00:00Z',
+    mechanicPayload: null,
+    createdAt: 1786096800,
   },
 
   // --- Тип урона «холод» (для resistance-гранта «Сопротивление холоду») ---
@@ -516,8 +516,8 @@ const importedRules: Rule[] = [
     spec: damageTypeSpecService.createEmpty('cold'),
     keywordIds: [],
     mechanicId: null,
-    mechanic_payload: null,
-    createdAt: '2026-08-07T10:00:00Z',
+    mechanicPayload: null,
+    createdAt: 1786096800,
   },
 
   // --- Расовые черты (признак racial): доступны только от расы ---
@@ -670,13 +670,13 @@ const importedRules: Rule[] = [
     spaceId: 1,
     keywordIds: [COMMON_KEYWORD],
     mechanicId: 4,
-    mechanic_payload: {
+    mechanicPayload: {
       type: 'purchase_surcharge',
       filter: { keyword_code: 'common' },
       free_count: 2,
       surcharge: 2,
     },
-    createdAt: '2026-08-07T10:00:00Z',
+    createdAt: 1786096800,
   },
 
   // --- Группирующие правила (type 'group'): контейнеры «1 из группы» ---
@@ -709,8 +709,8 @@ const importedRules: Rule[] = [
     spaceId: 1,
     keywordIds: [],
     mechanicId: null,
-    mechanic_payload: null,
-    createdAt: '2026-08-27T10:00:00Z',
+    mechanicPayload: null,
+    createdAt: 1787824800,
   },
   {
     id: 611,
@@ -721,8 +721,8 @@ const importedRules: Rule[] = [
     spaceId: 1,
     keywordIds: [],
     mechanicId: null,
-    mechanic_payload: null,
-    createdAt: '2026-08-27T10:00:00Z',
+    mechanicPayload: null,
+    createdAt: 1787824800,
   },
 
   // --- Источник модификаторов чувств «Совершенство» ---
@@ -735,8 +735,8 @@ const importedRules: Rule[] = [
     spaceId: 1,
     keywordIds: [],
     mechanicId: null,
-    mechanic_payload: null,
-    createdAt: '2026-08-08T10:00:00Z',
+    mechanicPayload: null,
+    createdAt: 1786183200,
   },
 
   // --- Чувства (type 'sense'): значение — модификатор к Внимательности ---
@@ -750,8 +750,8 @@ const importedRules: Rule[] = [
     spec: { type: 'sense', status: 'imprecise', radius: dim(30) },
     keywordIds: [],
     mechanicId: null,
-    mechanic_payload: null,
-    createdAt: '2026-08-08T10:00:00Z',
+    mechanicPayload: null,
+    createdAt: 1786183200,
   },
   {
     id: 138,
@@ -763,8 +763,8 @@ const importedRules: Rule[] = [
     spec: { type: 'sense', status: 'precise', radius: dim(30) },
     keywordIds: [],
     mechanicId: null,
-    mechanic_payload: null,
-    createdAt: '2026-08-08T10:00:00Z',
+    mechanicPayload: null,
+    createdAt: 1786183200,
   },
 
   // ================= Фаза 4 (S11): Личность — возраст и особенности (2026-08-09) =================
@@ -876,8 +876,8 @@ const importedRules: Rule[] = [
     },
     keywordIds: [],
     mechanicId: null,
-    mechanic_payload: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    mechanicPayload: null,
+    createdAt: 1786269600,
   },
 
   // --- Источники модификаторов особенностей ---
@@ -890,8 +890,8 @@ const importedRules: Rule[] = [
     spaceId: 1,
     keywordIds: [],
     mechanicId: null,
-    mechanic_payload: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    mechanicPayload: null,
+    createdAt: 1786269600,
   },
   {
     id: olNextId++,
@@ -902,8 +902,8 @@ const importedRules: Rule[] = [
     spaceId: 1,
     keywordIds: [],
     mechanicId: null,
-    mechanic_payload: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    mechanicPayload: null,
+    createdAt: 1786269600,
   },
   {
     id: 176,
@@ -914,8 +914,8 @@ const importedRules: Rule[] = [
     spaceId: 1,
     keywordIds: [],
     mechanicId: null,
-    mechanic_payload: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    mechanicPayload: null,
+    createdAt: 1786269600,
   },
 
   // --- Навыки, которые дают особенности личности («даёт навык») ---
@@ -939,8 +939,8 @@ const importedRules: Rule[] = [
     spec: { type: 'group', selectLimit: 1 },
     keywordIds: [GROUP_KEYWORD],
     mechanicId: null,
-    mechanic_payload: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    mechanicPayload: null,
+    createdAt: 1786269600,
   },
   {
     id: olNextId++,
@@ -952,8 +952,8 @@ const importedRules: Rule[] = [
     spec: { type: 'group', selectLimit: 1 },
     keywordIds: [GROUP_KEYWORD],
     mechanicId: null,
-    mechanic_payload: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    mechanicPayload: null,
+    createdAt: 1786269600,
   },
   {
     id: olNextId++,
@@ -965,8 +965,8 @@ const importedRules: Rule[] = [
     spec: { type: 'group', selectLimit: 1 },
     keywordIds: [GROUP_KEYWORD],
     mechanicId: null,
-    mechanic_payload: null,
-    createdAt: '2026-08-09T10:00:00Z',
+    mechanicPayload: null,
+    createdAt: 1786269600,
   },
 
   // --- 15 особенностей личности (зона ol; отрицательные стоимости дают ОЛ) ---

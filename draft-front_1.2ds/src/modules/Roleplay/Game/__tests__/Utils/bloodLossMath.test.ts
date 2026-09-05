@@ -76,7 +76,7 @@ describe('characteristicDependsOn', () => {
         description: '',
         spaceId: 1,
         spec: { type: 'characteristic' },
-        createdAt: '',
+        createdAt: 0,
       },
       {
         id: null,
@@ -86,7 +86,7 @@ describe('characteristicDependsOn', () => {
         description: '',
         spaceId: 1,
         spec: { type: 'characteristic' },
-        createdAt: '',
+        createdAt: 0,
       },
       {
         id: null,
@@ -96,7 +96,7 @@ describe('characteristicDependsOn', () => {
         description: '',
         spaceId: 1,
         spec: { type: 'characteristic', formula: 'min(strength, dexterity)' },
-        createdAt: '',
+        createdAt: 0,
       },
     ];
     expect(stateRuntimeEffectsService.characteristicDependsOn('might', 'strength', derived)).toBe(true);

@@ -1,8 +1,11 @@
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
-import type { PublishSummary } from '@/modules/Roleplay/Space/Dto/PublishSummary';
+import type { PublishSummary } from '@/modules/Roleplay/RuleSpace/Dto/PublishSummary';
 import type { ruleValidationService, ruleDiffService } from '@/modules/Roleplay/Rule/init';
 
+/**
+ * Готовит сводку публикации черновика правил и каталога.
+ */
 export class PublishService {
   constructor(
     private readonly ruleValidation: typeof ruleValidationService,
@@ -15,6 +18,7 @@ export class PublishService {
     effective: Rule[],
     keywords: Keyword[],
     removedCodes: readonly string[] = [],
+    catalogDirty = false,
   ): PublishSummary {
     const diff = this.ruleDiff.classifyDraftDiff(published, draftRules, removedCodes);
     const catalog = this.ruleValidation.validateCatalog(effective, keywords);
@@ -25,6 +29,7 @@ export class PublishService {
       removed: diff.removed,
       problems: this.ruleDiff.groupProblems(catalog.items),
       spaceErrors: catalog.spaceErrors,
+      catalogDirty,
     };
   }
 }

@@ -3,9 +3,9 @@ import type { CreateKeywordData } from '@/modules/Roleplay/Rule/Dto/CreateKeywor
 import type { UpdateKeywordData } from '@/modules/Roleplay/Rule/Dto/UpdateKeywordData';
 
 export interface IKeywordApi {
-  getTags(signal?: AbortSignal): Promise<Keyword[]>;
-  getTag(id: number, signal?: AbortSignal): Promise<Keyword>;
-  createTag(data: CreateKeywordData, signal?: AbortSignal): Promise<Keyword>;
-  updateTag(id: number, data: UpdateKeywordData, signal?: AbortSignal): Promise<Keyword>;
-  deactivateTag(id: number, signal?: AbortSignal): Promise<void>;
+  getKeywords(signal?: AbortSignal): Promise<Keyword[]>;
+  getKeyword(id: number, signal?: AbortSignal): Promise<Keyword>;
+  createKeyword(data: CreateKeywordData, signal?: AbortSignal): Promise<Keyword>;
+  updateKeyword(id: number, data: UpdateKeywordData, signal?: AbortSignal): Promise<Keyword>;
+  deactivate(id: number, signal?: AbortSignal): Promise<void>;
 }

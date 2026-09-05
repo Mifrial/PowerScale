@@ -1,7 +1,7 @@
 import { inject } from 'vue';
 import type { ComputedRef } from 'vue';
-import { spaceContextKey } from '@/modules/Roleplay/Space/Constant/spaceContextKey';
-import type { ISpaceContext } from '@/modules/Roleplay/Space/Interface/ISpaceContext';
+import { spaceContextKey } from '@/modules/Roleplay/RuleSpace/Constant/spaceContextKey';
+import type { ISpaceContext } from '@/modules/Roleplay/RuleSpace/Interface/ISpaceContext';
 
 /** Читает hosting-контекст пространства, предоставляемый `SpaceContextLayout`.
  *  Вызывать только внутри страниц, смонтированных под `/space/:code/...`. */

@@ -13,6 +13,6 @@ export interface RuleVersion {
   spec?: RuleSpec;
   keywordIds?: number[];
   mechanicId?: number | null;
-  mechanic_payload?: MechanicPayload | null;
-  createdAt: string;
+  mechanicPayload?: MechanicPayload | null;
+  createdAt: number;
 }

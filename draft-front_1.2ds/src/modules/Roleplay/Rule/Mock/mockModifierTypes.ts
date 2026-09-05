@@ -14,7 +14,7 @@ function typeRule(index: number, code: string, name: string, description: string
     spec,
     keywordIds: [],
     mechanicId: null,
-    createdAt: '2026-08-22T10:00:00Z',
+    createdAt: 1787392800,
   };
 }
 

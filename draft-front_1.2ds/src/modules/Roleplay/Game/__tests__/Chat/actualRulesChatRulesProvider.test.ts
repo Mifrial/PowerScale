@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 import { resetRegisteredApis } from '@/modules/Core/Engine/init';
-import { registerSpaceApi, ACTUAL_RULES_SPACE_CODE } from '@/modules/Roleplay/Space/init';
-import { registerRuleApi } from '@/modules/Roleplay/Rule/init';
-import { mockSpaceApi } from '@/modules/Roleplay/Space/Mock/mockSpaceApi';
+import { registerRuleSpaceApi, ACTUAL_RULES_SPACE_CODE } from '@/modules/Roleplay/RuleSpace/init';
+import { registerMechanicApi, registerRuleApi } from '@/modules/Roleplay/Rule/init';
+import { mockMechanicApi } from '@/modules/Roleplay/Rule/Mock/mockMechanicApi';
+import { mockRuleSpaceApi } from '@/modules/Roleplay/RuleSpace/Mock/mockRuleSpaceApi';
 import { mockRuleApi } from '@/modules/Roleplay/Rule/Mock/mockRuleApi';
 import { actualRulesChatRulesProvider } from '@/modules/Roleplay/Game/Chat/actualRulesChatRulesProvider';
 
@@ -14,8 +15,9 @@ beforeEach(() => {
 
 describe('actualRulesChatRulesProvider', () => {
   it('резолвит срез пространства актуальных правил', async () => {
-    registerSpaceApi(mockSpaceApi);
+    registerRuleSpaceApi(mockRuleSpaceApi);
     registerRuleApi(mockRuleApi);
+    registerMechanicApi(mockMechanicApi);
 
     const context = await actualRulesChatRulesProvider.resolve('private', 1);
 

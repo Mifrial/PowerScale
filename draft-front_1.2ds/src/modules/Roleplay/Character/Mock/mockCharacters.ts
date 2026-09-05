@@ -12,7 +12,7 @@ import { ruleCatalog } from '@/modules/Roleplay/Rule/Mock/mockRules';
 import { getCurrentUserId, getCurrentUserSummary } from '@/modules/Core/Auth/Mock/mockAuth';
 import { mockCreateCharacterDiscussion } from '@/modules/Messages/Chat/Mock/mockChat';
 import { SHEET_VISIBILITY_DEFAULT } from '@/modules/Roleplay/Character/Constant/Sheet/SHEET_VISIBILITY_PRESETS';
-import { fetchRevision, fetchSpace, fetchSpaceByCode } from '@/modules/Roleplay/Space/Mock/mockSpaces';
+import { fetchRevision, fetchSpace, fetchSpaceByCode } from '@/modules/Roleplay/RuleSpace/Mock/mockSpaces';
 import { characterMigrationService } from '@/modules/Roleplay/Character/Service/Instance/characterMigrationService';
 import { characterVersionIntegrityService } from '@/modules/Roleplay/Character/Service/Instance/characterVersionIntegrityService';
 import type { MigrationResult } from '@/modules/Roleplay/Character/Dto/MigrationResult';

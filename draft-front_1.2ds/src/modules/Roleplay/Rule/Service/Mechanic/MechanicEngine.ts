@@ -26,7 +26,7 @@ export class MechanicEngine {
       if (!force && options.includeCodes && !options.includeCodes.includes(mechanic.code)) return;
       const handler = this.registry.resolve(mechanic.code, mechanic.version);
       if (!handler) return;
-      resolved.push({ handler, payload: rule.mechanic_payload ?? null });
+      resolved.push({ handler, payload: rule.mechanicPayload ?? null });
     };
 
     for (const rule of rules) pushRule(rule, false);

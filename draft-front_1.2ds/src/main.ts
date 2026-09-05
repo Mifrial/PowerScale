@@ -7,9 +7,9 @@ import './assets/global.css';
 
 import { registerAuthApi, registerAuthModule } from '@/modules/Core/Auth/init';
 import { registerUserApi, registerGroupApi } from '@/modules/Core/User/init';
-import { registerKeywordApi } from '@/modules/Roleplay/Rule/init';
+import { registerKeywordApi, registerMechanicApi } from '@/modules/Roleplay/Rule/init';
 import { registerTemplateApi } from '@/modules/Messages/Notifications/init';
-import { registerSpaceApi } from '@/modules/Roleplay/Space/init';
+import { registerRuleSpaceApi } from '@/modules/Roleplay/RuleSpace/init';
 import { registerRuleApi } from '@/modules/Roleplay/Rule/init';
 import { registerChatApi } from '@/modules/Messages/Chat/init';
 import { registerNotificationApi } from '@/modules/Messages/Notifications/init';
@@ -17,7 +17,7 @@ import { registerCsrfApi, getCsrfApi } from '@/modules/Core/Engine/init';
 import { registerMacroApi, registerGameApi, registerGameModule } from '@/modules/Roleplay/Game/init';
 import { registerUserModule } from '@/modules/Core/User/init';
 import { registerRuleModule } from '@/modules/Roleplay/Rule/init';
-import { registerSpaceModule } from '@/modules/Roleplay/Space/init';
+import { registerRuleSpaceModule } from '@/modules/Roleplay/RuleSpace/init';
 import { registerCharacterModule, registerCharacterApi } from '@/modules/Roleplay/Character/init';
 import { registerNotificationModule } from '@/modules/Messages/Notifications/init';
 
@@ -34,8 +34,9 @@ async function registerApiLayer(): Promise<void> {
     const { mockUserApi } = await import('@/modules/Core/User/Mock/mockUserApi');
     const { mockGroupApi } = await import('@/modules/Core/User/Mock/mockGroupApi');
     const { mockKeywordApi } = await import('@/modules/Roleplay/Rule/Mock/mockKeywordApi');
+    const { mockMechanicApi } = await import('@/modules/Roleplay/Rule/Mock/mockMechanicApi');
     const { mockTemplateApi } = await import('@/modules/Messages/Notifications/Mock/mockTemplateApi');
-    const { mockSpaceApi } = await import('@/modules/Roleplay/Space/Mock/mockSpaceApi');
+    const { mockRuleSpaceApi } = await import('@/modules/Roleplay/RuleSpace/Mock/mockRuleSpaceApi');
     const { mockRuleApi } = await import('@/modules/Roleplay/Rule/Mock/mockRuleApi');
     const { mockMacroApi } = await import('@/modules/Roleplay/Game/Mock/mockMacroApi');
     const { mockGameApi } = await import('@/modules/Roleplay/Game/Mock/mockGameApi');
@@ -47,8 +48,9 @@ async function registerApiLayer(): Promise<void> {
     registerUserApi(mockUserApi);
     registerGroupApi(mockGroupApi);
     registerKeywordApi(mockKeywordApi);
+    registerMechanicApi(mockMechanicApi);
     registerTemplateApi(mockTemplateApi);
-    registerSpaceApi(mockSpaceApi);
+    registerRuleSpaceApi(mockRuleSpaceApi);
     registerRuleApi(mockRuleApi);
     registerMacroApi(mockMacroApi);
     registerGameApi(mockGameApi);
@@ -63,9 +65,10 @@ async function registerApiLayer(): Promise<void> {
     const { UserApi } = await import('@/modules/Core/User/Service/UserApi');
     const { GroupApi } = await import('@/modules/Core/User/Service/GroupApi');
     const { KeywordApi } = await import('@/modules/Roleplay/Rule/Service/KeywordApi');
+    const { MechanicApi } = await import('@/modules/Roleplay/Rule/Service/MechanicApi');
     const { NotificationTemplateApi } =
       await import('@/modules/Messages/Notifications/Service/NotificationTemplateApi');
-    const { SpaceApi } = await import('@/modules/Roleplay/Space/Service/SpaceApi');
+    const { RuleSpaceApi } = await import('@/modules/Roleplay/RuleSpace/Service/RuleSpaceApi');
     const { RuleApi } = await import('@/modules/Roleplay/Rule/Service/RuleApi');
     const { MacroApi } = await import('@/modules/Roleplay/Game/Service/MacroApi');
     const { GameApi } = await import('@/modules/Roleplay/Game/Service/GameApi');
@@ -84,8 +87,9 @@ async function registerApiLayer(): Promise<void> {
     registerUserApi(new UserApi(engine));
     registerGroupApi(new GroupApi(engine));
     registerKeywordApi(new KeywordApi(engine));
+    registerMechanicApi(new MechanicApi(engine));
     registerTemplateApi(new NotificationTemplateApi(engine));
-    registerSpaceApi(new SpaceApi(engine));
+    registerRuleSpaceApi(new RuleSpaceApi(engine));
     registerRuleApi(new RuleApi(engine));
     registerMacroApi(new MacroApi(engine));
     registerGameApi(new GameApi(engine));
@@ -104,7 +108,7 @@ async function bootstrap(): Promise<void> {
   registerUserModule();
   registerAuthModule();
   registerRuleModule();
-  registerSpaceModule();
+  registerRuleSpaceModule();
   registerGameModule();
   registerCharacterModule();
   registerNotificationModule();

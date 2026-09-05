@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { setActivePinia, createPinia } from 'pinia';
-import { registerSpaceApi, getSpaceApi } from '@/modules/Roleplay/Space/init';
+import { registerRuleSpaceApi, getRuleSpaceApi } from '@/modules/Roleplay/RuleSpace/init';
 import { resetRegisteredApis } from '@/modules/Core/Engine/init';
-import { mockSpaceApi } from '@/modules/Roleplay/Space/Mock/mockSpaceApi';
-import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
+import { mockRuleSpaceApi } from '@/modules/Roleplay/RuleSpace/Mock/mockRuleSpaceApi';
+import { useSpaceRevisionStore } from '@/modules/Roleplay/RuleSpace/Store/spaceRevision';
 import { useRuleDrafts } from '@/modules/Roleplay/Rule/init';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
@@ -11,7 +11,7 @@ beforeEach(() => {
   localStorage.clear();
   setActivePinia(createPinia());
   resetRegisteredApis();
-  registerSpaceApi(mockSpaceApi);
+  registerRuleSpaceApi(mockRuleSpaceApi);
 });
 
 function freshRule(id: number | null): Rule {
@@ -22,7 +22,7 @@ function freshRule(id: number | null): Rule {
     name: `Правило ${id}`,
     description: '',
     spaceId: 1,
-    createdAt: '2026-01-01T00:00:00Z',
+    createdAt: 1767225600,
   };
 }
 
@@ -91,8 +91,8 @@ describe('resolveLatestRevision', () => {
   it('берёт последнюю ревизию из закэшированной meta', async () => {
     const store = useSpaceRevisionStore();
     store.revisionsMeta.set(2, [
-      { revision: 3, publishedAt: '2026-01-01T00:00:00Z', ruleCount: 1, changedCount: 1 },
-      { revision: 4, publishedAt: '2026-01-02T00:00:00Z', ruleCount: 1, changedCount: 1 },
+      { revision: 3, publishedAt: 1767225600, ruleCount: 1 },
+      { revision: 4, publishedAt: 1767312000, ruleCount: 1 },
     ]);
 
     await expect(store.resolveLatestRevision(2)).resolves.toBe(4);
@@ -144,7 +144,7 @@ describe('commitDraft', () => {
 
 describe('unpublished space', () => {
   it('effectiveRules в draft — только правила черновика', async () => {
-    const space = await getSpaceApi().createSpace({ name: 'Из файла', description: '' });
+    const space = await getRuleSpaceApi().createSpace({ name: 'Из файла', description: '' });
     const store = useSpaceRevisionStore();
     const drafts = useRuleDrafts();
     drafts.saveRule(space.id, {
@@ -154,10 +154,22 @@ describe('unpublished space', () => {
       name: 'Из файла',
       description: '',
       spaceId: space.id,
-      createdAt: '2026-01-01T00:00:00Z',
+      createdAt: 1767225600,
     });
     await store.syncFromContext(space.id, 'draft', 0);
 
     expect(store.effectiveRules.map((rule) => rule.code)).toEqual(['from-file']);
+  });
+
+  it('ревизия 0 не вызывает HTTP getRevision', async () => {
+    const getRevision = vi.fn(mockRuleSpaceApi.getRevision);
+    registerRuleSpaceApi({ ...mockRuleSpaceApi, getRevision });
+    const space = await getRuleSpaceApi().createSpace({ name: 'Пустое', description: '' });
+    const store = useSpaceRevisionStore();
+    await store.syncFromContext(space.id, 'draft', 0);
+
+    expect(getRevision).not.toHaveBeenCalled();
+    expect(store.activeRevision?.revision).toBe(0);
+    expect(store.activeRevision?.rules).toEqual([]);
   });
 });

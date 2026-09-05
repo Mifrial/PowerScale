@@ -23,7 +23,7 @@ tester.run('powerscale/no-foreign-module-internals', rule, {
       code: `import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';`,
     },
     {
-      filename: filename('modules/Roleplay/Space/Mock/mockSpaces.ts'),
+      filename: filename('modules/Roleplay/RuleSpace/Mock/mockSpaces.ts'),
       code: `import { ruleCatalog } from '@/modules/Roleplay/Rule/Mock/mockRules';`,
     },
     {

@@ -20,7 +20,8 @@ export interface Rule {
   keywordIds?: number[];
   mechanicId?: number | null;
   /** Контекст инстанции механики (см. MechanicPayload); есть только при mechanicId. */
-  mechanic_payload?: MechanicPayload | null;
-  createdAt: string;
-  updatedAt?: string;
+  mechanicPayload?: MechanicPayload | null;
+  contentStatus?: string;
+  active?: boolean;
+  createdAt: number;
 }

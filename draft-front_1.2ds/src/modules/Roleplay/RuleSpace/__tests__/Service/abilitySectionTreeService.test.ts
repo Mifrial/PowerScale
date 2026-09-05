@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { AbilitySection } from '@/modules/Roleplay/Space/Dto/AbilitySection';
-import { abilitySectionTreeService } from '@/modules/Roleplay/Space/Service/Instance/abilitySectionTreeService';
+import type { AbilitySection } from '@/modules/Roleplay/RuleSpace/Dto/AbilitySection';
+import { abilitySectionTreeService } from '@/modules/Roleplay/RuleSpace/Service/Instance/abilitySectionTreeService';
 
 const sections: AbilitySection[] = [
   { code: 'body', name: 'Тело', parentCode: null, sortOrder: 20 },

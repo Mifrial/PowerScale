@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fetchRevision } from '@/modules/Roleplay/Space/Mock/mockSpaces';
+import { fetchRevision } from '@/modules/Roleplay/RuleSpace/Mock/mockSpaces';
 
 describe('mockSpaces: мутации ревизий (демо миграции)', () => {
   it('«Ночное зрение» есть на ревизии 6 и удалена на ревизии 12', async () => {

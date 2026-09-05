@@ -17,7 +17,7 @@ function hookRule(
   name: string,
   description: string,
   mechanicId: number,
-  payload?: Rule['mechanic_payload'],
+  payload?: Rule['mechanicPayload'],
 ): Rule {
   return {
     id,
@@ -28,8 +28,8 @@ function hookRule(
     spaceId: 1,
     keywordIds: [],
     mechanicId,
-    mechanic_payload: payload ?? null,
-    createdAt: '2026-08-23T12:00:00Z',
+    mechanicPayload: payload ?? null,
+    createdAt: 1787486400,
   };
 }
 

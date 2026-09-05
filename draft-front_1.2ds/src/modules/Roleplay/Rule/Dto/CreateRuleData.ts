@@ -11,5 +11,5 @@ export interface CreateRuleData {
   spec?: RuleSpec;
   keywordIds?: number[];
   mechanicId?: number | null;
-  mechanic_payload?: MechanicPayload | null;
+  mechanicPayload?: MechanicPayload | null;
 }

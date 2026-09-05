@@ -52,8 +52,8 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spec: { type: 'language' },
       keywordIds: [],
       mechanicId: null,
-      mechanic_payload: null,
-      createdAt: '2026-08-10T10:00:00Z',
+      mechanicPayload: null,
+      createdAt: 1786356000,
     },
     {
       id: 395,
@@ -65,8 +65,8 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spec: { type: 'language' },
       keywordIds: [],
       mechanicId: null,
-      mechanic_payload: null,
-      createdAt: '2026-08-10T10:00:00Z',
+      mechanicPayload: null,
+      createdAt: 1786356000,
     },
     {
       id: 396,
@@ -78,8 +78,8 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spec: { type: 'language' },
       keywordIds: [],
       mechanicId: null,
-      mechanic_payload: null,
-      createdAt: '2026-08-10T10:00:00Z',
+      mechanicPayload: null,
+      createdAt: 1786356000,
     },
     {
       id: 397,
@@ -91,8 +91,8 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spec: { type: 'language' },
       keywordIds: [],
       mechanicId: null,
-      mechanic_payload: null,
-      createdAt: '2026-08-10T10:00:00Z',
+      mechanicPayload: null,
+      createdAt: 1786356000,
     },
     {
       id: 905,
@@ -120,7 +120,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       mechanicId: null,
       catalogSection: 'scenes-combat-other',
       catalogSortOrder: 100,
-      createdAt: '2026-08-23T10:00:00Z',
+      createdAt: 1787479200,
     },
     {
       id: 900,
@@ -139,7 +139,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       },
       keywordIds: [14, 71, 1],
       mechanicId: null,
-      createdAt: '2026-08-23T10:00:00Z',
+      createdAt: 1787479200,
     },
     {
       id: 901,
@@ -158,7 +158,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       },
       keywordIds: [14, 71, 2],
       mechanicId: null,
-      createdAt: '2026-08-23T10:00:00Z',
+      createdAt: 1787479200,
     },
     {
       id: 902,
@@ -178,7 +178,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       },
       keywordIds: [14, 53],
       mechanicId: null,
-      createdAt: '2026-08-23T10:00:00Z',
+      createdAt: 1787479200,
     },
     {
       id: 903,
@@ -197,7 +197,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       },
       keywordIds: [14, 53],
       mechanicId: null,
-      createdAt: '2026-08-23T10:00:00Z',
+      createdAt: 1787479200,
     },
     {
       id: 904,
@@ -217,7 +217,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       },
       keywordIds: [14, 53, 222],
       mechanicId: null,
-      createdAt: '2026-08-25T16:00:00Z',
+      createdAt: 1787673600,
     },
     {
       id: 906,
@@ -251,7 +251,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       },
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-08-28T10:00:00Z',
+      createdAt: 1787911200,
     },
     {
       id: 907,
@@ -285,7 +285,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       },
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-08-28T10:00:00Z',
+      createdAt: 1787911200,
     },
     {
       id: 908,
@@ -328,7 +328,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       },
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-08-28T10:00:00Z',
+      createdAt: 1787911200,
     },
     {
       id: 909,
@@ -348,7 +348,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       },
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-08-28T10:00:00Z',
+      createdAt: 1787911200,
     },
     {
       id: 910,
@@ -406,7 +406,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       },
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-08-28T10:00:00Z',
+      createdAt: 1787911200,
     },
     {
       id: 911,
@@ -471,7 +471,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       },
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-08-28T10:00:00Z',
+      createdAt: 1787911200,
     },
     {
       id: 912,
@@ -482,8 +482,8 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       keywordIds: [],
       mechanicId: 18,
-      mechanic_payload: null,
-      createdAt: '2026-08-28T10:00:00Z',
+      mechanicPayload: null,
+      createdAt: 1787911200,
     },
     {
       id: 1,
@@ -494,7 +494,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       keywordIds: [1, 2],
       mechanicId: 1,
-      createdAt: '2026-01-15T10:00:00Z',
+      createdAt: 1768471200,
     },
     {
       id: 9201,
@@ -506,7 +506,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       keywordIds: [],
       mechanicId: 5,
-      mechanic_payload: {
+      mechanicPayload: {
         type: 'roll',
         data: {
           diceCount: 3,
@@ -516,7 +516,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
           sub_mechanics: ['advantage_disadvantage'],
         },
       },
-      createdAt: '2026-01-15T10:00:00Z',
+      createdAt: 1768471200,
     },
     {
       id: 9202,
@@ -528,8 +528,8 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       keywordIds: [],
       mechanicId: 7,
-      mechanic_payload: null,
-      createdAt: '2026-08-22T21:00:00Z',
+      mechanicPayload: null,
+      createdAt: 1787432400,
     },
     {
       id: 9203,
@@ -541,8 +541,8 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       keywordIds: [],
       mechanicId: 16,
-      mechanic_payload: null,
-      createdAt: '2026-08-25T16:00:00Z',
+      mechanicPayload: null,
+      createdAt: 1787673600,
     },
     {
       id: 9204,
@@ -554,8 +554,8 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       keywordIds: [],
       mechanicId: 17,
-      mechanic_payload: null,
-      createdAt: '2026-08-25T16:00:00Z',
+      mechanicPayload: null,
+      createdAt: 1787673600,
     },
     {
       id: 9205,
@@ -567,8 +567,8 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       keywordIds: [],
       mechanicId: null,
-      mechanic_payload: null,
-      createdAt: '2026-08-25T16:00:00Z',
+      mechanicPayload: null,
+      createdAt: 1787673600,
     },
     {
       id: 2,
@@ -580,7 +580,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       keywordIds: [1, 3],
       mechanicId: 2,
-      createdAt: '2026-01-16T10:00:00Z',
+      createdAt: 1768557600,
     },
     {
       id: 3,
@@ -592,7 +592,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spec: { type: 'characteristic', group: 'primary' },
       keywordIds: [4],
       mechanicId: null,
-      createdAt: '2026-01-17T10:00:00Z',
+      createdAt: 1768644000,
     },
     {
       id: 7,
@@ -604,7 +604,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spec: { type: 'characteristic', group: 'primary' },
       keywordIds: [4],
       mechanicId: null,
-      createdAt: '2026-01-17T10:00:00Z',
+      createdAt: 1768644000,
     },
     {
       id: 8,
@@ -616,7 +616,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spec: { type: 'characteristic', group: 'base', automatic: true },
       keywordIds: [4],
       mechanicId: null,
-      createdAt: '2026-01-17T10:00:00Z',
+      createdAt: 1768644000,
     },
     {
       id: 9,
@@ -628,7 +628,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spec: { type: 'characteristic', group: 'base', automatic: true },
       keywordIds: [4],
       mechanicId: null,
-      createdAt: '2026-01-17T10:00:00Z',
+      createdAt: 1768644000,
     },
     {
       id: 10,
@@ -640,7 +640,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spec: { type: 'characteristic', formula: 'min(memory, reasoning)', group: 'primary' },
       keywordIds: [4],
       mechanicId: null,
-      createdAt: '2026-01-17T10:00:00Z',
+      createdAt: 1768644000,
     },
     {
       id: 6,
@@ -665,7 +665,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       },
       keywordIds: [17, 21],
       mechanicId: null,
-      createdAt: '2026-01-20T10:00:00Z',
+      createdAt: 1768903200,
     },
     {
       id: 11,
@@ -682,7 +682,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       ]),
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-01-21T10:00:00Z',
+      createdAt: 1768989600,
     },
     {
       id: 12,
@@ -699,7 +699,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       ]),
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-01-22T10:00:00Z',
+      createdAt: 1769076000,
     },
     {
       id: 13,
@@ -712,7 +712,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spec: damageTypeSpec('blunt', [DT_EXHAUSTION_TO_STUN_CODE, DT_BLUNT_KO_CODE]),
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-01-23T10:00:00Z',
+      createdAt: 1769162400,
     },
     {
       id: 14,
@@ -724,7 +724,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spec: damageTypeSpec('cutting', [DT_CUTTING_AS_WOUNDS_CODE, DT_PAY_SR_VS_RELIABILITY_CODE]),
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-01-24T10:00:00Z',
+      createdAt: 1769248800,
     },
     {
       id: 15,
@@ -736,7 +736,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spec: damageTypeSpec('fire'),
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-01-25T10:00:00Z',
+      createdAt: 1769335200,
     },
     {
       id: 16,
@@ -748,7 +748,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spec: damageTypeSpec('electricity'),
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-01-26T10:00:00Z',
+      createdAt: 1769421600,
     },
     {
       id: 17,
@@ -760,7 +760,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spec: damageTypeSpec('light'),
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-01-27T10:00:00Z',
+      createdAt: 1769508000,
     },
     {
       id: 66,
@@ -772,7 +772,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spec: damageTypeSpec('poison-1'),
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-08-06T10:00:00Z',
+      createdAt: 1786010400,
     },
     {
       id: 67,
@@ -784,7 +784,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spec: damageTypeSpec('poison-2'),
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-08-06T10:00:00Z',
+      createdAt: 1786010400,
     },
     {
       id: 68,
@@ -796,7 +796,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spec: damageTypeSpec('poison-3'),
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-08-06T10:00:00Z',
+      createdAt: 1786010400,
     },
     {
       id: 69,
@@ -808,7 +808,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spec: damageTypeSpec('spirit-1'),
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-08-06T10:00:00Z',
+      createdAt: 1786010400,
     },
     {
       id: 18,
@@ -845,7 +845,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       },
       keywordIds: [1],
       mechanicId: null,
-      createdAt: '2026-01-28T10:00:00Z',
+      createdAt: 1769594400,
     },
     {
       id: 19,
@@ -857,7 +857,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spec: { is_dimensional: true, limit: { base: { base: 8, size: -1 }, adjustments: [] } },
       keywordIds: [3],
       mechanicId: null,
-      createdAt: '2026-01-28T10:00:00Z',
+      createdAt: 1769594400,
     },
     {
       id: 20,
@@ -869,7 +869,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spec: { is_dimensional: false, limit: { base: 3, adjustments: [] } },
       keywordIds: [3],
       mechanicId: null,
-      createdAt: '2026-01-28T10:00:00Z',
+      createdAt: 1769594400,
     },
     {
       id: 22,
@@ -880,7 +880,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-01-28T10:00:00Z',
+      createdAt: 1769594400,
     },
     {
       id: 23,
@@ -891,7 +891,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-01-28T10:00:00Z',
+      createdAt: 1769594400,
     },
     {
       id: 24,
@@ -902,7 +902,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-01-28T10:00:00Z',
+      createdAt: 1769594400,
     },
     {
       id: 25,
@@ -920,7 +920,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       },
       keywordIds: [8, 11],
       mechanicId: null,
-      createdAt: '2026-01-28T10:00:00Z',
+      createdAt: 1769594400,
     },
     {
       id: 26,
@@ -938,7 +938,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       },
       keywordIds: [8, 11],
       mechanicId: null,
-      createdAt: '2026-01-28T10:00:00Z',
+      createdAt: 1769594400,
     },
     {
       id: 27,
@@ -966,7 +966,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       },
       keywordIds: [17, 18],
       mechanicId: null,
-      createdAt: '2026-01-29T10:00:00Z',
+      createdAt: 1769680800,
     },
     {
       id: 28,
@@ -981,7 +981,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       },
       keywordIds: [17, 18, 19],
       mechanicId: null,
-      createdAt: '2026-01-29T10:00:00Z',
+      createdAt: 1769680800,
     },
     {
       id: 35,
@@ -992,7 +992,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-01-30T10:00:00Z',
+      createdAt: 1769767200,
     },
     {
       id: 36,
@@ -1003,7 +1003,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-01-30T10:00:00Z',
+      createdAt: 1769767200,
     },
     {
       id: 37,
@@ -1014,7 +1014,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-01-30T10:00:00Z',
+      createdAt: 1769767200,
     },
     {
       id: 38,
@@ -1025,7 +1025,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-01-30T10:00:00Z',
+      createdAt: 1769767200,
     },
     {
       id: 39,
@@ -1036,7 +1036,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-01-30T10:00:00Z',
+      createdAt: 1769767200,
     },
     {
       id: 40,
@@ -1047,7 +1047,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-01-30T10:00:00Z',
+      createdAt: 1769767200,
     },
     {
       id: 42,
@@ -1059,7 +1059,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spec: { type: 'characteristic', group: 'primary' },
       keywordIds: [4],
       mechanicId: null,
-      createdAt: '2026-01-17T10:00:00Z',
+      createdAt: 1768644000,
     },
     {
       id: 43,
@@ -1071,7 +1071,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spec: { type: 'characteristic', group: 'base', automatic: true },
       keywordIds: [4],
       mechanicId: null,
-      createdAt: '2026-01-17T10:00:00Z',
+      createdAt: 1768644000,
     },
     {
       id: 44,
@@ -1083,7 +1083,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spec: { type: 'characteristic', group: 'base', automatic: true },
       keywordIds: [4],
       mechanicId: null,
-      createdAt: '2026-01-17T10:00:00Z',
+      createdAt: 1768644000,
     },
     {
       id: 45,
@@ -1095,7 +1095,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spec: { type: 'characteristic', formula: 'min(attention, reaction)', group: 'primary' },
       keywordIds: [4],
       mechanicId: null,
-      createdAt: '2026-01-17T10:00:00Z',
+      createdAt: 1768644000,
     },
     {
       id: 46,
@@ -1107,7 +1107,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spec: { type: 'characteristic', group: 'primary' },
       keywordIds: [4],
       mechanicId: null,
-      createdAt: '2026-01-17T10:00:00Z',
+      createdAt: 1768644000,
     },
     {
       id: 47,
@@ -1119,7 +1119,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spec: { type: 'characteristic', group: 'important', automatic: true },
       keywordIds: [4],
       mechanicId: null,
-      createdAt: '2026-01-17T10:00:00Z',
+      createdAt: 1768644000,
     },
     {
       id: 48,
@@ -1131,7 +1131,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spec: { type: 'characteristic', group: 'important', automatic: true },
       keywordIds: [4],
       mechanicId: null,
-      createdAt: '2026-01-17T10:00:00Z',
+      createdAt: 1768644000,
     },
     {
       id: 49,
@@ -1143,7 +1143,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spec: { type: 'characteristic', group: 'combat', automatic: { value: { base: 3, size: -1 } } },
       keywordIds: [4, 5],
       mechanicId: null,
-      createdAt: '2026-01-17T10:00:00Z',
+      createdAt: 1768644000,
     },
     {
       id: 600,
@@ -1155,7 +1155,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spec: { type: 'characteristic', group: 'combat', automatic: { value: { base: 3, size: -1 } } },
       keywordIds: [4, 5],
       mechanicId: null,
-      createdAt: '2026-08-11T10:00:00Z',
+      createdAt: 1786442400,
     },
     {
       id: 50,
@@ -1167,7 +1167,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spec: { type: 'characteristic', group: 'secondary' },
       keywordIds: [4],
       mechanicId: null,
-      createdAt: '2026-01-17T10:00:00Z',
+      createdAt: 1768644000,
     },
     {
       id: 51,
@@ -1179,7 +1179,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spec: { type: 'characteristic', group: 'secondary' },
       keywordIds: [4],
       mechanicId: null,
-      createdAt: '2026-01-17T10:00:00Z',
+      createdAt: 1768644000,
     },
     {
       id: 174,
@@ -1191,7 +1191,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spec: { type: 'characteristic', group: 'base' },
       keywordIds: [4],
       mechanicId: null,
-      createdAt: '2026-08-09T10:00:00Z',
+      createdAt: 1786269600,
     },
     {
       id: 175,
@@ -1204,7 +1204,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spec: { type: 'characteristic', group: 'combat' },
       keywordIds: [4],
       mechanicId: null,
-      createdAt: '2026-08-09T10:00:00Z',
+      createdAt: 1786269600,
     },
     {
       id: 54,
@@ -1215,7 +1215,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-01-31T10:00:00Z',
+      createdAt: 1769853600,
     },
     {
       id: 55,
@@ -1227,7 +1227,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spec: { is_dimensional: false, limit: { base: 10, adjustments: [] } },
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-08-06T10:00:00Z',
+      createdAt: 1786010400,
     },
     {
       id: 56,
@@ -1245,7 +1245,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       },
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-08-06T10:00:00Z',
+      createdAt: 1786010400,
     },
     {
       id: 565,
@@ -1262,7 +1262,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       },
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-08-29T10:00:00Z',
+      createdAt: 1787997600,
     },
     {
       id: 57,
@@ -1280,7 +1280,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       },
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-08-06T10:00:00Z',
+      createdAt: 1786010400,
     },
     {
       id: 58,
@@ -1301,7 +1301,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       },
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-08-06T10:00:00Z',
+      createdAt: 1786010400,
     },
     {
       id: 59,
@@ -1318,7 +1318,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       },
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-08-06T10:00:00Z',
+      createdAt: 1786010400,
     },
     {
       id: 60,
@@ -1342,7 +1342,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       },
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-08-06T10:00:00Z',
+      createdAt: 1786010400,
     },
     {
       id: 606,
@@ -1369,7 +1369,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       },
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-08-06T10:00:00Z',
+      createdAt: 1786010400,
     },
     {
       id: 607,
@@ -1387,7 +1387,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       },
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-08-24T10:00:00Z',
+      createdAt: 1787565600,
     },
     {
       id: 61,
@@ -1410,7 +1410,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       },
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-08-06T10:00:00Z',
+      createdAt: 1786010400,
     },
     {
       id: 62,
@@ -1429,7 +1429,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       },
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-08-06T10:00:00Z',
+      createdAt: 1786010400,
     },
     {
       id: 63,
@@ -1449,7 +1449,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       },
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-08-06T10:00:00Z',
+      createdAt: 1786010400,
     },
     {
       id: 64,
@@ -1468,7 +1468,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       },
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-08-06T10:00:00Z',
+      createdAt: 1786010400,
     },
     {
       id: 65,
@@ -1486,7 +1486,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       },
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-08-06T10:00:00Z',
+      createdAt: 1786010400,
     },
     {
       id: 601,
@@ -1508,7 +1508,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       },
       keywordIds: [13],
       mechanicId: null,
-      createdAt: '2026-08-11T10:00:00Z',
+      createdAt: 1786442400,
     },
     {
       id: 602,
@@ -1526,7 +1526,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       },
       keywordIds: [4],
       mechanicId: null,
-      createdAt: '2026-08-13T10:00:00Z',
+      createdAt: 1786615200,
     },
     {
       id: 603,
@@ -1537,7 +1537,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-08-13T10:00:00Z',
+      createdAt: 1786615200,
     },
     {
       id: 604,
@@ -1548,7 +1548,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-08-13T10:00:00Z',
+      createdAt: 1786615200,
     },
     {
       id: 605,
@@ -1559,7 +1559,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-08-13T10:00:00Z',
+      createdAt: 1786615200,
     },
     {
       id: 608,
@@ -1585,7 +1585,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       },
       keywordIds: [31, 44, 11],
       mechanicId: null,
-      createdAt: '2026-08-25T10:00:00Z',
+      createdAt: 1787652000,
     },
     {
       id: 609,
@@ -1618,7 +1618,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       },
       keywordIds: [],
       mechanicId: null,
-      createdAt: '2026-08-27T10:00:00Z',
+      createdAt: 1787824800,
     },
   ]),
   new Map(keywords.map((keyword) => [keyword.id, keyword.code])),
@@ -1696,8 +1696,8 @@ export async function createRule(spaceId: number, data: CreateRuleData, _signal?
     spec: data.spec,
     keywordIds: data.keywordIds,
     mechanicId: data.mechanicId,
-    mechanic_payload: data.mechanic_payload,
-    createdAt: new Date().toISOString(),
+    mechanicPayload: data.mechanicPayload,
+    createdAt: Math.floor(Date.now() / 1000),
   };
   rules.push(rule);
 
@@ -1713,7 +1713,7 @@ export async function createRule(spaceId: number, data: CreateRuleData, _signal?
     spec: rule.spec,
     keywordIds: rule.keywordIds,
     mechanicId: rule.mechanicId,
-    mechanic_payload: rule.mechanic_payload,
+    mechanicPayload: rule.mechanicPayload,
     createdAt: rule.createdAt,
   });
 
@@ -1729,7 +1729,7 @@ export async function updateRule(code: string, data: UpdateRuleData, _signal?: A
   if (data.spec !== undefined) rule.spec = data.spec;
   if (data.keywordIds !== undefined) rule.keywordIds = data.keywordIds;
   if (data.mechanicId !== undefined) rule.mechanicId = data.mechanicId;
-  if (data.mechanic_payload !== undefined) rule.mechanic_payload = data.mechanic_payload;
+  if (data.mechanicPayload !== undefined) rule.mechanicPayload = data.mechanicPayload;
 
   return { ...rule };
 }

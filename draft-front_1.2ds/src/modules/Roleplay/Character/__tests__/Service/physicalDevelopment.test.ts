@@ -8,7 +8,7 @@ import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
 
 const service = new CharacterEditorService();
 const config: CharacterCreationConfig = { osTotal: 20, orTotal: 40, moneyBudget: 100 };
-const keywords: Keyword[] = [{ id: 61, code: 'section-body', name: 'Тело', active: true }];
+const keywords: Keyword[] = [{ id: 61, code: 'section-body', name: 'Тело', description: '', active: true }];
 
 function makeBuild(overrides: Partial<CharacterBuild> = {}): CharacterBuild {
   return {

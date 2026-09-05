@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed, provide, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { useSpaceStore } from '@/modules/Roleplay/Space/Store/spaces';
-import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
+import { useSpaceStore } from '@/modules/Roleplay/RuleSpace/Store/spaces';
+import { useSpaceRevisionStore } from '@/modules/Roleplay/RuleSpace/Store/spaceRevision';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
-import { spaceContextKey } from '@/modules/Roleplay/Space/Constant/spaceContextKey';
-import type { ISpaceContext } from '@/modules/Roleplay/Space/Interface/ISpaceContext';
+import { spaceContextKey } from '@/modules/Roleplay/RuleSpace/Constant/spaceContextKey';
+import type { ISpaceContext } from '@/modules/Roleplay/RuleSpace/Interface/ISpaceContext';
 import { ruleHostContextKey } from '@/modules/Roleplay/Rule/init';
 import type { IRuleHostContext } from '@/modules/Roleplay/Rule/Interface/IRuleHostContext';
 
@@ -61,6 +61,11 @@ async function resolve(): Promise<void> {
 
       return;
     }
+    if (ctx.value === '0') {
+      router.replace(`/space/${code.value}/draft`);
+
+      return;
+    }
     await syncContext();
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') return;
@@ -94,7 +99,7 @@ provide(spaceContextKey, context);
 const ruleHost = computed<IRuleHostContext>(() => ({
   spaceId: spaceStore.currentSpace?.id ?? null,
   effectiveRules: revisionStore.effectiveRules,
-  sections: revisionStore.activeRevision?.sections,
+  sections: revisionStore.effectiveSections,
 }));
 provide(ruleHostContextKey, ruleHost);
 </script>

@@ -2,7 +2,7 @@ import type { RollMechanicPayload } from '@/modules/Roleplay/Rule/Dto/RollMechan
 import type { RollScoreAdjustPayload } from '@/modules/Roleplay/Rule/Dto/RollScoreAdjustPayload';
 
 /**
- * Контекст инстанции механики на правиле (rule.mechanic_payload).
+ * Контекст инстанции механики на правиле (rule.mechanicPayload).
  * Разные хендлеры несут свой payload; дискриминатор — поле type.
  */
 export type MechanicPayload =

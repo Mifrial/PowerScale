@@ -18,7 +18,7 @@ function stateRule(
     name,
     description: '',
     spaceId: 1,
-    createdAt: '2026-01-01T00:00:00Z',
+    createdAt: 1767225600,
     spec: { ...spec, icon_code: null, effects: [] },
   };
 }
@@ -31,7 +31,7 @@ function poisonRule(id: number | null, code: string, name: string, spec: Partial
     name,
     description: '',
     spaceId: 1,
-    createdAt: '2026-01-01T00:00:00Z',
+    createdAt: 1767225600,
     spec: {
       damage_type_code: 'poison-1',
       default_strength: { base: 3, size: 0 },
@@ -50,7 +50,7 @@ function damageTypeRule(id: number | null, code: string, name: string): Rule {
     name,
     description: '',
     spaceId: 1,
-    createdAt: '2026-01-01T00:00:00Z',
+    createdAt: 1767225600,
   };
 }
 

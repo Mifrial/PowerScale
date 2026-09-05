@@ -1,15 +1,19 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import type { SpaceRevisionMeta } from '@/modules/Roleplay/Space/Dto/SpaceRevisionMeta';
-import type { SpaceRevision } from '@/modules/Roleplay/Space/Dto/SpaceRevision';
-import type { RevisionKind } from '@/modules/Roleplay/Space/Enum/RevisionKind';
-import type { RevisionContext } from '@/modules/Roleplay/Space/Dto/RevisionContext';
+import type { SpaceRevisionMeta } from '@/modules/Roleplay/RuleSpace/Dto/SpaceRevisionMeta';
+import type { SpaceRevision } from '@/modules/Roleplay/RuleSpace/Dto/SpaceRevision';
+import type { RevisionKind } from '@/modules/Roleplay/RuleSpace/Enum/RevisionKind';
+import type { RevisionContext } from '@/modules/Roleplay/RuleSpace/Dto/RevisionContext';
+import type { AbilitySection } from '@/modules/Roleplay/RuleSpace/Dto/AbilitySection';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import { getSpaceApi } from '@/modules/Roleplay/Space/init';
+import { getRuleSpaceApi } from '@/modules/Roleplay/RuleSpace/init';
 import { useRuleDrafts } from '@/modules/Roleplay/Rule/init';
+import { useSectionCatalogStore } from '@/modules/Roleplay/RuleSpace/Store/sectionCatalog';
+import { useSpaceStore } from '@/modules/Roleplay/RuleSpace/Store/spaces';
 
 export const useSpaceRevisionStore = defineStore('spaceRevision', () => {
   const drafts = useRuleDrafts();
+  const sectionCatalog = useSectionCatalogStore();
   const revisionsMeta = ref<Map<number, SpaceRevisionMeta[]>>(new Map());
   const cachedRevisions = ref<Map<string, SpaceRevision<Rule>>>(new Map());
 
@@ -40,16 +44,40 @@ export const useSpaceRevisionStore = defineStore('spaceRevision', () => {
     return [...merged, ...newRules];
   });
 
+  const effectiveSections = computed<AbilitySection[]>(() => {
+    const published = activeRevision.value?.sections ?? [];
+    const spaceId = activeContext.value.spaceId;
+    if (!spaceId || activeContext.value.kind !== 'draft') return published;
+    const draft = sectionCatalog.getDraftSections(spaceId);
+
+    return draft ?? published;
+  });
+
   function cacheKey(spaceId: number, revision: number): string {
     return `${spaceId}:${revision}`;
   }
 
   async function fetchRevisionsMeta(spaceId: number, signal?: AbortSignal): Promise<SpaceRevisionMeta[]> {
-    const api = getSpaceApi();
+    const api = getRuleSpaceApi();
     const meta = await api.getRevisions(spaceId, signal);
     revisionsMeta.value.set(spaceId, meta);
 
     return meta;
+  }
+
+  function unpublishedSlice(spaceId: number): SpaceRevision<Rule> {
+    const spaces = useSpaceStore();
+    const space =
+      spaces.currentSpace?.id === spaceId ? spaces.currentSpace : spaces.spaces.find((row) => row.id === spaceId);
+
+    return {
+      revision: 0,
+      publishedAt: space?.createdAt ?? 0,
+      spaceCode: space?.code ?? '',
+      spaceName: space?.name ?? '',
+      rules: [],
+      sections: [],
+    };
   }
 
   async function fetchRevision(spaceId: number, revision: number, signal?: AbortSignal): Promise<SpaceRevision<Rule>> {
@@ -57,7 +85,14 @@ export const useSpaceRevisionStore = defineStore('spaceRevision', () => {
     const cached = cachedRevisions.value.get(key);
     if (cached) return cached;
 
-    const rev = await getSpaceApi().getRevision(spaceId, revision, signal);
+    if (revision < 1) {
+      const empty = unpublishedSlice(spaceId);
+      cachedRevisions.value.set(key, empty);
+
+      return empty;
+    }
+
+    const rev = await getRuleSpaceApi().getRevision(spaceId, revision, signal);
     cachedRevisions.value.set(key, rev);
 
     return rev;
@@ -97,11 +132,13 @@ export const useSpaceRevisionStore = defineStore('spaceRevision', () => {
     rules: Rule[],
     signal?: AbortSignal,
     removedCodes?: string[],
+    sections?: AbilitySection[],
   ): Promise<SpaceRevision<Rule>> {
-    const result = await getSpaceApi().commitDraft(spaceId, rules, signal, removedCodes);
+    const result = await getRuleSpaceApi().commitDraft(spaceId, rules, signal, removedCodes, sections);
     cachedRevisions.value.set(cacheKey(spaceId, result.revision), result);
     activeContext.value = { spaceId, revision: result.revision, kind: 'rev' };
     await fetchRevisionsMeta(spaceId, signal);
+    sectionCatalog.discardDraft(spaceId);
 
     return result;
   }
@@ -112,6 +149,7 @@ export const useSpaceRevisionStore = defineStore('spaceRevision', () => {
     activeContext,
     activeRevision,
     effectiveRules,
+    effectiveSections,
     fetchRevisionsMeta,
     fetchRevision,
     resolveLatestRevision,

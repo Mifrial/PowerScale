@@ -2,7 +2,7 @@
 import { watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useRuleDrafts } from '@/modules/Roleplay/Rule/init';
-import { useSpaceContext } from '@/modules/Roleplay/Space/Composables/useSpaceContext';
+import { useSpaceContext } from '@/modules/Roleplay/RuleSpace/Composables/useSpaceContext';
 
 const router = useRouter();
 const drafts = useRuleDrafts();
@@ -12,7 +12,7 @@ watch(
   () => context.value.space,
   (space) => {
     if (!space) return;
-    const target = drafts.hasDraft(space.id) ? 'draft' : String(space.revision);
+    const target = drafts.hasDraft(space.id) || space.revision < 1 ? 'draft' : String(space.revision);
     router.replace(`/space/${space.code}/${target}`);
   },
   { immediate: true },

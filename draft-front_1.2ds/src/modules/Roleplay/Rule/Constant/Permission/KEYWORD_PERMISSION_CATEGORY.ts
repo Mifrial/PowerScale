@@ -7,6 +7,6 @@ export const KEYWORD_PERMISSION_CATEGORY: PermissionCategory = {
     { key: 'view', label: 'Просмотр' },
     { key: 'create', label: 'Создание' },
     { key: 'edit', label: 'Редактирование' },
-    { key: 'delete', label: 'Удаление' },
+    { key: 'delete', label: 'Выключение' },
   ],
 };

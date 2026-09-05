@@ -17,9 +17,9 @@ import type { CharacterEditorModel } from '@/modules/Roleplay/Character/Dto/Edit
 import type { EditorAbility } from '@/modules/Roleplay/Character/Dto/Editor/EditorAbility';
 import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import type { AbilitySection } from '@/modules/Roleplay/Space/Dto/AbilitySection';
-import type { RuleCatalogArea } from '@/modules/Roleplay/Space/Enum/RuleCatalogArea';
-import { abilitySectionTreeService } from '@/modules/Roleplay/Space/init';
+import type { AbilitySection } from '@/modules/Roleplay/RuleSpace/Dto/AbilitySection';
+import type { RuleCatalogArea } from '@/modules/Roleplay/RuleSpace/Enum/RuleCatalogArea';
+import { abilitySectionTreeService } from '@/modules/Roleplay/RuleSpace/init';
 
 const props = defineProps<{
   build: CharacterBuild;

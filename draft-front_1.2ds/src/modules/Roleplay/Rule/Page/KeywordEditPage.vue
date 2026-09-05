@@ -36,7 +36,7 @@ async function loadTag() {
     const keyword = await store.fetchTag(tagId.value, signal.value);
     code.value = keyword.code;
     name.value = keyword.name;
-    description.value = keyword.description ?? '';
+    description.value = keyword.description;
     active.value = keyword.active;
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') return;
@@ -58,7 +58,7 @@ async function save() {
         tagId.value,
         {
           name: name.value,
-          description: description.value || undefined,
+          description: description.value,
         },
         signal.value,
       );
@@ -67,7 +67,7 @@ async function save() {
         {
           code: code.value,
           name: name.value,
-          description: description.value || undefined,
+          description: description.value,
         },
         signal.value,
       );
@@ -89,7 +89,7 @@ async function handleDelete() {
     router.push('/admin/keywords');
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') return;
-    actionError.value = 'Не удалось удалить признак';
+    actionError.value = 'Не удалось выключить признак';
   } finally {
     deleting.value = false;
   }
@@ -116,10 +116,10 @@ async function handleDelete() {
             label="Код (code)"
             :rules="[
               (v) => !!v || 'Обязательное поле',
-              (v) => /^[a-z0-9_]+$/.test(v) || 'Только латиница, цифры и подчёркивание',
+              (v) => /^[a-z0-9_-]+$/.test(v) || 'Только латиница, цифры, подчёркивание и дефис',
             ]"
             :disabled="isEdit"
-            hint="Уникальный идентификатор, например: melee, magic, stealth"
+            hint="Уникальный идентификатор, например: melee, wood-elf, item-section-armor"
             persistent-hint
           />
 
@@ -136,7 +136,7 @@ async function handleDelete() {
             prepend-icon="mdi-trash-can-outline"
             @click="showDeleteDialog = true"
           >
-            Удалить
+            Выключить
           </v-btn>
           <v-spacer />
           <v-btn variant="text" @click="router.back()">Отмена</v-btn>
@@ -146,14 +146,12 @@ async function handleDelete() {
 
       <v-dialog v-model="showDeleteDialog" max-width="400">
         <v-card>
-          <v-card-title>Удалить признак?</v-card-title>
-          <v-card-text>
-            Признак «{{ name }}» будет деактивирован (soft-delete): скроется из выбора, старые связи сохранятся.
-          </v-card-text>
+          <v-card-title>Выключить признак?</v-card-title>
+          <v-card-text> Признак «{{ name }}» будет выключен: скроется из выбора, старые связи сохранятся. </v-card-text>
           <v-card-actions>
             <v-spacer />
             <v-btn variant="text" @click="showDeleteDialog = false">Отмена</v-btn>
-            <v-btn color="error" :loading="deleting" @click="handleDelete">Удалить</v-btn>
+            <v-btn color="error" :loading="deleting" @click="handleDelete">Выключить</v-btn>
           </v-card-actions>
         </v-card>
       </v-dialog>

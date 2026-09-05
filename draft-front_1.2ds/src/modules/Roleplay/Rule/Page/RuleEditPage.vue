@@ -32,7 +32,7 @@ import { ruleToForm } from '@/modules/Roleplay/Rule/Utils/Rule/ruleToForm';
 import type { RuleType } from '@/modules/Roleplay/Rule/Enum/RuleType';
 import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec';
 import type { RuleFormState } from '@/modules/Roleplay/Rule/Dto/RuleFormState';
-import { getRuleApi } from '@/modules/Roleplay/Rule/init';
+import { getMechanicApi } from '@/modules/Roleplay/Rule/init';
 
 const route = useRoute();
 const router = useRouter();
@@ -112,7 +112,7 @@ async function resolveRoute(): Promise<void> {
   loadedStorageId.value = null;
 
   try {
-    const mechanics = await getRuleApi().getMechanics(signal.value);
+    const mechanics = await getMechanicApi().getMechanics(signal.value);
     mechanicOptions.value = mechanics.map((m) => ({ title: `${m.name} (v${m.version})`, value: m.id }));
 
     await keywordStore.fetchTags(signal.value);

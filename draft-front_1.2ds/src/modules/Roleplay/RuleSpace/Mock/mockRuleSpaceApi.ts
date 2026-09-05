@@ -1,7 +1,7 @@
-import type { ISpaceApi } from '@/modules/Roleplay/Space/Interface/ISpaceApi';
-import * as mock from '@/modules/Roleplay/Space/Mock/mockSpaces';
+import type { IRuleSpaceApi } from '@/modules/Roleplay/RuleSpace/Interface/IRuleSpaceApi';
+import * as mock from '@/modules/Roleplay/RuleSpace/Mock/mockSpaces';
 
-export const mockSpaceApi: ISpaceApi = {
+export const mockRuleSpaceApi: IRuleSpaceApi = {
   getSpaces: mock.fetchSpaces,
   getSpace: mock.fetchSpace,
   getSpaceByCode: mock.fetchSpaceByCode,

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useSpaceCatalog, useSpaceRevision } from '@/modules/Roleplay/Space/init';
+import { useSpaceCatalog, useSpaceRevision } from '@/modules/Roleplay/RuleSpace/init';
 import { computed, onMounted, ref } from 'vue';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';

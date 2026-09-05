@@ -1,4 +1,4 @@
-import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
+import { useSpaceRevisionStore } from '@/modules/Roleplay/RuleSpace/Store/spaceRevision';
 
 export function useSpaceRevision() {
   const store = useSpaceRevisionStore();

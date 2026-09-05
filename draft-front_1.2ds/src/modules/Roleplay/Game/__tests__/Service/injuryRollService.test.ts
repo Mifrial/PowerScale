@@ -259,7 +259,7 @@ describe('типы урона и увечье', () => {
         description: '',
         spaceId: 1,
         spec: { type: 'damage_type', forms: { genitive: 'а', dative: 'б' }, attached_rule_codes: ['missing'] },
-        createdAt: '2026-01-01T00:00:00Z',
+        createdAt: 1767225600,
       },
     ];
     const errors = ruleValidationService.validateDamageTypeStructure(rules);

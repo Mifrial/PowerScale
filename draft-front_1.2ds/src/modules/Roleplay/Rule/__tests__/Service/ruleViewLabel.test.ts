@@ -11,7 +11,7 @@ const rules: Rule[] = [
     name: 'Сила',
     description: '',
     spaceId: 1,
-    createdAt: '2026-01-01T00:00:00Z',
+    createdAt: 1767225600,
   },
   {
     id: null,
@@ -20,7 +20,7 @@ const rules: Rule[] = [
     name: 'Огонь',
     description: '',
     spaceId: 1,
-    createdAt: '2026-01-01T00:00:00Z',
+    createdAt: 1767225600,
   },
   {
     id: null,
@@ -29,7 +29,7 @@ const rules: Rule[] = [
     name: 'Слух',
     description: '',
     spaceId: 1,
-    createdAt: '2026-01-01T00:00:00Z',
+    createdAt: 1767225600,
   },
   {
     id: null,
@@ -38,11 +38,11 @@ const rules: Rule[] = [
     name: 'Врождённый',
     description: '',
     spaceId: 1,
-    createdAt: '2026-01-01T00:00:00Z',
+    createdAt: 1767225600,
   },
 ];
 
-const keywords: Keyword[] = [{ id: 1, code: 'weapon', name: 'Оружие', active: true }];
+const keywords: Keyword[] = [{ id: 1, code: 'weapon', name: 'Оружие', description: '', active: true }];
 
 describe('RuleViewLabelService', () => {
   it('подписывает сопротивление и чувство', () => {

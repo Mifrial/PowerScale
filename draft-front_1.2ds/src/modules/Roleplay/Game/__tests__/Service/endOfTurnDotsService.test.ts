@@ -25,7 +25,7 @@ const burning: Rule = {
   },
   keywordIds: [],
   mechanicId: null,
-  createdAt: '2026-01-01T00:00:00Z',
+  createdAt: 1767225600,
 };
 
 const poisoning: Rule = {
@@ -38,7 +38,7 @@ const poisoning: Rule = {
   spec: { value_type: 'flag', aggregation: 'independent', effects: [] },
   keywordIds: [],
   mechanicId: null,
-  createdAt: '2026-01-01T00:00:00Z',
+  createdAt: 1767225600,
 };
 
 const accumulatedDamage: Rule = {
@@ -51,7 +51,7 @@ const accumulatedDamage: Rule = {
   spec: { value_type: 'dimensional', aggregation: 'sum', effects: [] },
   keywordIds: [],
   mechanicId: null,
-  createdAt: '2026-01-01T00:00:00Z',
+  createdAt: 1767225600,
 };
 
 const scorpion: Rule = {
@@ -69,7 +69,7 @@ const scorpion: Rule = {
   },
   keywordIds: [],
   mechanicId: null,
-  createdAt: '2026-01-01T00:00:00Z',
+  createdAt: 1767225600,
 };
 
 function versionOf(states: CharacterStateValue[]): CharacterVersion {

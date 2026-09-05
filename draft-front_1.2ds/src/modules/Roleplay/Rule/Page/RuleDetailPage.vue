@@ -8,7 +8,7 @@ import { useRuleHostContext } from '@/modules/Roleplay/Rule/init';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { RuleVersion } from '@/modules/Roleplay/Rule/Dto/RuleVersion';
 import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
-import { getRuleApi } from '@/modules/Roleplay/Rule/init';
+import { getMechanicApi } from '@/modules/Roleplay/Rule/init';
 import { RULE_TYPE_LABELS } from '@/modules/Roleplay/Rule/Constant/RULE_TYPE_LABELS';
 import RuleSpecView from '@/modules/Roleplay/Rule/Component/RuleSpecView.vue';
 import DescriptionHtml from '@/modules/Core/UI/Component/DescriptionHtml.vue';
@@ -78,7 +78,7 @@ async function resolveRoute(): Promise<void> {
     ruleVersions.value = store.ruleVersions;
 
     await keywordStore.fetchTags(signal.value);
-    mechanics.value = await getRuleApi().getMechanics(signal.value);
+    mechanics.value = await getMechanicApi().getMechanics(signal.value);
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') return;
     error.value = e instanceof Error ? e.message : 'Ошибка загрузки правила';
@@ -148,7 +148,7 @@ watch(() => [route.params.code, route.params.ctx, route.params.ruleCode], resolv
               v{{ version.versionA }}.{{ version.versionB }}.{{ version.versionC }}
             </v-list-item-title>
             <v-list-item-subtitle>
-              {{ new Date(version.createdAt).toLocaleString('ru-RU') }}
+              {{ new Date(version.createdAt * 1000).toLocaleString('ru-RU') }}
             </v-list-item-subtitle>
           </v-list-item>
         </v-list>

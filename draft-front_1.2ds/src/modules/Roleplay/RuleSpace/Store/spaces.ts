@@ -1,10 +1,10 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import type { Space } from '@/modules/Roleplay/Space/Dto/Space';
-import type { SpaceCreateData } from '@/modules/Roleplay/Space/Dto/SpaceCreateData';
-import type { SpaceUpdateData } from '@/modules/Roleplay/Space/Dto/SpaceUpdateData';
+import type { Space } from '@/modules/Roleplay/RuleSpace/Dto/Space';
+import type { SpaceCreateData } from '@/modules/Roleplay/RuleSpace/Dto/SpaceCreateData';
+import type { SpaceUpdateData } from '@/modules/Roleplay/RuleSpace/Dto/SpaceUpdateData';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import { getSpaceApi } from '@/modules/Roleplay/Space/init';
+import { getRuleSpaceApi } from '@/modules/Roleplay/RuleSpace/init';
 
 export const useSpaceStore = defineStore('spaces', () => {
   const spaces = ref<Space[]>([]);
@@ -17,7 +17,7 @@ export const useSpaceStore = defineStore('spaces', () => {
     loading.value = true;
     error.value = null;
     try {
-      spaces.value = await getSpaceApi().getSpaces(signal);
+      spaces.value = await getRuleSpaceApi().getSpaces(signal);
     } catch (e) {
       if (e instanceof DOMException && e.name === 'AbortError') return;
       error.value = 'Не удалось загрузить пространства';
@@ -27,28 +27,28 @@ export const useSpaceStore = defineStore('spaces', () => {
   }
 
   async function fetchSpace(id: number, signal?: AbortSignal): Promise<Space> {
-    const space = await getSpaceApi().getSpace(id, signal);
+    const space = await getRuleSpaceApi().getSpace(id, signal);
     currentSpace.value = space;
 
     return space;
   }
 
   async function fetchSpaceByCode(code: string, signal?: AbortSignal): Promise<Space> {
-    const space = await getSpaceApi().getSpaceByCode(code, signal);
+    const space = await getRuleSpaceApi().getSpaceByCode(code, signal);
     currentSpace.value = space;
 
     return space;
   }
 
   async function createSpace(data: SpaceCreateData, signal?: AbortSignal): Promise<Space> {
-    const space = await getSpaceApi().createSpace(data, signal);
+    const space = await getRuleSpaceApi().createSpace(data, signal);
     spaces.value.push(space);
 
     return space;
   }
 
   async function updateSpace(id: number, data: SpaceUpdateData, signal?: AbortSignal): Promise<Space> {
-    const space = await getSpaceApi().updateSpace(id, data, signal);
+    const space = await getRuleSpaceApi().updateSpace(id, data, signal);
     const idx = spaces.value.findIndex((s) => s.id === id);
     if (idx !== -1) spaces.value[idx] = space;
     if (currentSpace.value?.id === id) currentSpace.value = space;
@@ -57,7 +57,7 @@ export const useSpaceStore = defineStore('spaces', () => {
   }
 
   async function deactivateSpace(id: number, signal?: AbortSignal): Promise<void> {
-    await getSpaceApi().deactivateSpace(id, signal);
+    await getRuleSpaceApi().deactivateSpace(id, signal);
     const space = spaces.value.find((s) => s.id === id);
     if (space) space.active = false;
     if (currentSpace.value?.id === id) currentSpace.value.active = false;

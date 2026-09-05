@@ -1,5 +1,5 @@
 import type { RouteLocationNormalizedLoaded, RouteRecordRaw } from 'vue-router';
-import { useSpaceStore } from '@/modules/Roleplay/Space/Store/spaces';
+import { useSpaceStore } from '@/modules/Roleplay/RuleSpace/Store/spaces';
 
 function spaceRoot() {
   return [{ title: 'Пространства', to: '/spaces' }];
@@ -18,21 +18,21 @@ function ctxCrumb(to: RouteLocationNormalizedLoaded) {
   return [{ title, to: `/space/${to.params.code}/${ctx}` }];
 }
 
-export function createSpaceRoutes(ruleCtxChildren: RouteRecordRaw[]): RouteRecordRaw[] {
+export function createRuleSpaceRoutes(ruleCtxChildren: RouteRecordRaw[]): RouteRecordRaw[] {
   return [
     {
       path: 'spaces',
-      meta: { crumb: spaceRoot, guestAllowed: true },
+      meta: { crumb: spaceRoot },
       children: [
         {
           path: '',
           name: 'Spaces',
-          component: () => import('@/modules/Roleplay/Space/Page/SpacesPage.vue'),
+          component: () => import('@/modules/Roleplay/RuleSpace/Page/SpacesPage.vue'),
         },
         {
           path: 'new',
           name: 'SpaceNew',
-          component: () => import('@/modules/Roleplay/Space/Page/SpaceNewPage.vue'),
+          component: () => import('@/modules/Roleplay/RuleSpace/Page/SpaceNewPage.vue'),
           meta: {
             title: 'Создание пространства',
             crumb: () => [{ title: 'Создание пространства' }],
@@ -47,7 +47,7 @@ export function createSpaceRoutes(ruleCtxChildren: RouteRecordRaw[]): RouteRecor
       children: [
         {
           path: ':code',
-          component: () => import('@/modules/Roleplay/Space/Component/SpaceContextLayout.vue'),
+          component: () => import('@/modules/Roleplay/RuleSpace/Component/SpaceContextLayout.vue'),
           meta: {
             crumb: (to) => [{ title: spaceName(to), to: `/space/${to.params.code}` }],
           },
@@ -55,7 +55,7 @@ export function createSpaceRoutes(ruleCtxChildren: RouteRecordRaw[]): RouteRecor
             {
               path: '',
               name: 'SpaceLanding',
-              component: () => import('@/modules/Roleplay/Space/Page/SpaceLandingPage.vue'),
+              component: () => import('@/modules/Roleplay/RuleSpace/Page/SpaceLandingPage.vue'),
             },
             {
               path: ':ctx',
@@ -64,7 +64,7 @@ export function createSpaceRoutes(ruleCtxChildren: RouteRecordRaw[]): RouteRecor
                 {
                   path: '',
                   name: 'SpaceDetail',
-                  component: () => import('@/modules/Roleplay/Space/Page/SpaceDetailPage.vue'),
+                  component: () => import('@/modules/Roleplay/RuleSpace/Page/SpaceDetailPage.vue'),
                 },
                 ...ruleCtxChildren,
               ],
@@ -72,7 +72,7 @@ export function createSpaceRoutes(ruleCtxChildren: RouteRecordRaw[]): RouteRecor
             {
               path: 'settings',
               name: 'SpaceSettings',
-              component: () => import('@/modules/Roleplay/Space/Page/SpaceSettingsPage.vue'),
+              component: () => import('@/modules/Roleplay/RuleSpace/Page/SpaceSettingsPage.vue'),
               meta: {
                 title: 'Настройки пространства',
                 crumb: () => [{ title: 'Настройки' }],

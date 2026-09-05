@@ -1,22 +1,24 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { useSpaceStore } from '@/modules/Roleplay/Space/Store/spaces';
-import { useSpaceRevisionStore } from '@/modules/Roleplay/Space/Store/spaceRevision';
+import { useSpaceStore } from '@/modules/Roleplay/RuleSpace/Store/spaces';
+import { useSpaceRevisionStore } from '@/modules/Roleplay/RuleSpace/Store/spaceRevision';
+import { useSectionCatalogStore } from '@/modules/Roleplay/RuleSpace/Store/sectionCatalog';
 import { useRuleDrafts } from '@/modules/Roleplay/Rule/init';
-import { useSpaceContext } from '@/modules/Roleplay/Space/Composables/useSpaceContext';
+import { useSpaceContext } from '@/modules/Roleplay/RuleSpace/Composables/useSpaceContext';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import PublishDialog from '@/modules/Roleplay/Space/Component/PublishDialog.vue';
-import RevisionImportDialog from '@/modules/Roleplay/Space/Component/RevisionImportDialog.vue';
-import RuleListPanel from '@/modules/Roleplay/Space/Component/RuleListPanel.vue';
+import PublishDialog from '@/modules/Roleplay/RuleSpace/Component/PublishDialog.vue';
+import RevisionImportDialog from '@/modules/Roleplay/RuleSpace/Component/RevisionImportDialog.vue';
+import RuleListPanel from '@/modules/Roleplay/RuleSpace/Component/RuleListPanel.vue';
 import { downloadJson } from '@/modules/Core/UI/Utils/downloadJson';
-import { revisionFileService } from '@/modules/Roleplay/Space/Service/Instance/revisionFileService';
-import type { RevisionFile } from '@/modules/Roleplay/Space/Dto/RevisionFile';
+import { revisionFileService } from '@/modules/Roleplay/RuleSpace/Service/Instance/revisionFileService';
+import type { RevisionFile } from '@/modules/Roleplay/RuleSpace/Dto/RevisionFile';
 
 const route = useRoute();
 const router = useRouter();
 const spaceStore = useSpaceStore();
 const revisionStore = useSpaceRevisionStore();
+const sectionCatalog = useSectionCatalogStore();
 const drafts = useRuleDrafts();
 const context = useSpaceContext();
 
@@ -41,10 +43,17 @@ onMounted(() => {
 const ctx = computed(() => route.params.ctx as string | undefined);
 const isDraftContext = computed(() => ctx.value === 'draft');
 
+const hasLocalDraft = computed(() => {
+  const spaceId = space.value?.id ?? 0;
+  if (!spaceId) return false;
+
+  return drafts.hasDraft(spaceId) || sectionCatalog.isDirty(spaceId, revisionStore.activeRevision?.sections ?? []);
+});
+
 const draftRuleCodes = computed(() => new Set(drafts.getDraftRules(space.value?.id ?? 0).map((r) => r.code)));
 
-function formatPublished(iso: string): string {
-  const d = new Date(iso);
+function formatPublished(unix: number): string {
+  const d = new Date(unix * 1000);
   const date = d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
   const time = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
 
@@ -57,7 +66,7 @@ const revisionsList = computed(() => {
     label: `v${m.revision}: ${formatPublished(m.publishedAt)}`,
     value: m.revision,
   }));
-  if (drafts.hasDraft(space.value?.id ?? 0)) {
+  if (hasLocalDraft.value) {
     items.push({ label: 'Черновик', value: -1 });
   }
 
@@ -132,8 +141,8 @@ function discardRule() {
   ruleToDiscard.value = null;
 
   // Если черновиков больше нет, переходим на последнюю ревизию
-  if (!drafts.hasDraft(space.value.id)) {
-    router.replace(`/space/${space.value.code}/${space.value.revision}`);
+  if (!hasLocalDraft.value) {
+    router.replace(`/space/${space.value.code}/${space.value.revision < 1 ? 'draft' : space.value.revision}`);
   }
 }
 </script>
@@ -163,7 +172,7 @@ function discardRule() {
         style="max-width: 220px"
       />
 
-      <v-chip v-if="drafts.hasDraft(space.id)" color="primary" variant="tonal" size="small"> Есть черновик </v-chip>
+      <v-chip v-if="hasLocalDraft" color="primary" variant="tonal" size="small"> Есть черновик </v-chip>
 
       <v-spacer />
 
@@ -172,7 +181,7 @@ function discardRule() {
       </v-btn>
       <v-btn variant="tonal" size="small" prepend-icon="mdi-upload" @click="showImportDialog = true"> Импорт </v-btn>
 
-      <template v-if="drafts.hasDraft(space.id) && isDraftContext">
+      <template v-if="hasLocalDraft && isDraftContext">
         <v-btn variant="tonal" color="success" size="small" prepend-icon="mdi-source-branch" @click="openPublishDialog">
           Опубликовать
         </v-btn>

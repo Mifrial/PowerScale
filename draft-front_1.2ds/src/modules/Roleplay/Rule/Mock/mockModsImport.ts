@@ -32,7 +32,7 @@ function modifier(
     spec,
     keywordIds: [],
     mechanicId: null,
-    createdAt: '2026-08-21T10:00:00Z',
+    createdAt: 1787306400,
   };
 }
 

@@ -35,7 +35,7 @@ export class RuleDiffService {
         spec: a.spec,
         keywordIds: a.keywordIds,
         mechanicId: a.mechanicId,
-        mechanic_payload: a.mechanic_payload,
+        mechanicPayload: a.mechanicPayload,
       },
       {
         code: b.code,
@@ -45,7 +45,7 @@ export class RuleDiffService {
         spec: b.spec,
         keywordIds: b.keywordIds,
         mechanicId: b.mechanicId,
-        mechanic_payload: b.mechanic_payload,
+        mechanicPayload: b.mechanicPayload,
       },
     );
   }

@@ -1,4 +1,4 @@
-import type { AbilitySection } from '@/modules/Roleplay/Space/Dto/AbilitySection';
+import type { AbilitySection } from '@/modules/Roleplay/RuleSpace/Dto/AbilitySection';
 
 export const mockAbilitySectionTree: AbilitySection[] = [
   { code: 'basic-rules', name: 'Основные правила', parentCode: null, sortOrder: 10, catalogRootFor: 'base' },

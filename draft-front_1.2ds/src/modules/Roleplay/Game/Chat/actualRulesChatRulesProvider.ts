@@ -1,5 +1,5 @@
-import { getRuleApi } from '@/modules/Roleplay/Rule/init';
-import { ACTUAL_RULES_SPACE_CODE, useSpaceCatalog, useSpaceRevision } from '@/modules/Roleplay/Space/init';
+import { getMechanicApi } from '@/modules/Roleplay/Rule/init';
+import { ACTUAL_RULES_SPACE_CODE, useSpaceCatalog, useSpaceRevision } from '@/modules/Roleplay/RuleSpace/init';
 import type { IChatRulesProvider } from '@/modules/Messages/Chat/Interface/IChatRulesProvider';
 import { gameChatRulesContextService } from '@/modules/Roleplay/Game/Service/Instance/gameChatRulesContextService';
 
@@ -17,7 +17,7 @@ export const actualRulesChatRulesProvider: IChatRulesProvider = {
       throw new Error('Не найдено пространство актуальных правил');
     }
     const revision = await useSpaceRevision().fetchRevision(space.id, space.revision);
-    const mechanics = await getRuleApi().getMechanics();
+    const mechanics = await getMechanicApi().getMechanics();
 
     return gameChatRulesContextService.buildChatRulesContext(revision.rules, mechanics, space.id, space.revision);
   },

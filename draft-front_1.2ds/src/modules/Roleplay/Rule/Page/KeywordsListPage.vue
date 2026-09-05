@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { onMounted } from 'vue';
+import { computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useKeywordStore } from '@/modules/Roleplay/Rule/Store/keywords';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { useGridPage } from '@/modules/Core/UI/Composables/useGridPage';
+import { accessService, useCurrentUser } from '@/modules/Core/User/init';
 import FilterBar from '@/modules/Core/UI/Component/FilterBar.vue';
 import SmartGrid from '@/modules/Core/UI/Component/Grid/SmartGrid.vue';
 import { columns } from '@/modules/Roleplay/Rule/Constant/Grid/keywords/columns';
@@ -11,7 +12,10 @@ import { filterFields } from '@/modules/Roleplay/Rule/Constant/Grid/keywords/fil
 
 const router = useRouter();
 const store = useKeywordStore();
+const { currentUser } = useCurrentUser();
 const { signal } = useAbortable();
+
+const canCreate = computed(() => accessService.hasAnyPermission(currentUser.value, ['keyword.create']));
 
 const { sort, pagination, appliedFilters, pageRows, total, onSortChange, onPaginationChange, onFilterChange } =
   useGridPage({
@@ -37,7 +41,9 @@ function onRowAction(payload: { action: string; row: Record<string, unknown> }) 
     <div class="d-flex align-center mb-4">
       <h1 class="text-h5">Признаки</h1>
       <v-spacer />
-      <v-btn color="primary" prepend-icon="mdi-plus" @click="router.push('/admin/keywords/new')"> Создать </v-btn>
+      <v-btn v-if="canCreate" color="primary" prepend-icon="mdi-plus" @click="router.push('/admin/keywords/new')">
+        Создать
+      </v-btn>
     </div>
 
     <FilterBar

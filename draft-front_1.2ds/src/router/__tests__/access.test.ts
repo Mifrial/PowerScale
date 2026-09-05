@@ -82,8 +82,16 @@ describe('evaluateRouteAccess', () => {
 
   describe('гостевой доступ', () => {
     it('guestAllowed пускает гостя', () => {
-      const to = makeTo({ name: 'Spaces', meta: { guestAllowed: true } });
+      const to = makeTo({ name: 'Home', meta: { guestAllowed: true } });
       expect(evaluateRouteAccess(to, ctx(user(0, [], false), true)).allow).toBe(true);
+    });
+
+    it('список пространств без guestAllowed не пускает гостя', () => {
+      const to = makeTo({ name: 'Spaces' });
+      expect(evaluateRouteAccess(to, ctx(user(0, [], false), true))).toEqual({
+        allow: false,
+        redirect: { name: 'NotFound' },
+      });
     });
 
     it('не-guestAllowed страница редиректит гостя на NotFound (даже с requires, которые у гостя есть)', () => {

@@ -46,7 +46,7 @@ describe('ImportedRuleNameService', () => {
         grants: [],
         parent_ability_code: null,
       },
-      createdAt: '',
+      createdAt: 0,
     });
     const spec = filled.spec as AbilitySpecBase;
     expect(filled.name).toBe('Владение музыкальным инструментом');
@@ -70,7 +70,7 @@ describe('ImportedRuleNameService', () => {
         multiple: true,
         domain_ref: 'language',
       },
-      createdAt: '',
+      createdAt: 0,
     });
     expect((kept.spec as AbilitySpecBase).domain_ref).toBe('language');
   });
@@ -90,7 +90,7 @@ describe('ImportedRuleNameService', () => {
         grants: [],
         parent_ability_code: null,
       },
-      createdAt: '',
+      createdAt: 0,
     });
     expect((withParam.spec as AbilitySpecBase).parameters).toEqual([
       { code: 'n', label: 'N', resolution: 'purchase', default: 1, min: 1, max: 5 },
@@ -110,7 +110,7 @@ describe('ImportedRuleNameService', () => {
         grants: [],
         parent_ability_code: null,
       },
-      createdAt: '',
+      createdAt: 0,
     });
     expect((levels.spec as AbilitySpecBase).parameters).toBeUndefined();
   });

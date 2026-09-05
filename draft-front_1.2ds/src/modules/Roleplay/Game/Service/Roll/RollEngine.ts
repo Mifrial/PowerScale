@@ -27,7 +27,7 @@ export class RollEngine {
   /** Дефолты спеки из правила «Бросок» ревизии (нейтральные параметры — как в прежнем resolveFromRevision). */
   resolveDefaults(rules: Rule[], spec: DiceRollSpec): DiceRollSpec {
     const rule = rules.find((candidate) => candidate.code === ROLL_RULE_CODE);
-    const payload = rule?.mechanic_payload;
+    const payload = rule?.mechanicPayload;
     if (!rule || !payload || payload.type !== 'roll') return spec;
     const data = payload.data;
 
@@ -74,8 +74,8 @@ export class RollEngine {
     const includeCodes =
       subMechanicCodes !== undefined
         ? subMechanicCodes
-        : rollRule?.mechanic_payload?.type === 'roll'
-          ? rollRule.mechanic_payload.data.sub_mechanics
+        : rollRule?.mechanicPayload?.type === 'roll'
+          ? rollRule.mechanicPayload.data.sub_mechanics
           : undefined;
     const active = this.engine.resolveActive(rules, mechanics, {
       includeCodes,

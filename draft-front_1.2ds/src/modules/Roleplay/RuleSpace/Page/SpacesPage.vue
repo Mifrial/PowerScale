@@ -1,17 +1,21 @@
 <script setup lang="ts">
-import { onMounted } from 'vue';
+import { computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
-import { useSpaceStore } from '@/modules/Roleplay/Space/Store/spaces';
+import { useSpaceStore } from '@/modules/Roleplay/RuleSpace/Store/spaces';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { useFilteredRows } from '@/modules/Core/UI/Composables/useFilteredRows';
 import FilterBar from '@/modules/Core/UI/Component/FilterBar.vue';
-import { filterFields } from '@/modules/Roleplay/Space/Constant/spacesGridManifest';
+import { filterFields } from '@/modules/Roleplay/RuleSpace/Constant/spacesGridManifest';
+import { accessService, useCurrentUser } from '@/modules/Core/User/init';
 
 const router = useRouter();
 const store = useSpaceStore();
+const { currentUser } = useCurrentUser();
 const { loading } = storeToRefs(store);
 const { signal } = useAbortable();
+
+const canCreate = computed(() => accessService.hasAnyPermission(currentUser.value, ['space.create']));
 
 const { appliedFilters, filteredRows, onFilterChange } = useFilteredRows({
   getItems: () => store.spaces,
@@ -27,7 +31,9 @@ onMounted(() => store.fetchSpaces(signal.value));
     <div class="d-flex align-center mb-4">
       <h1 class="text-h5">Пространства</h1>
       <v-spacer />
-      <v-btn color="primary" prepend-icon="mdi-plus" @click="router.push('/spaces/new')"> Создать </v-btn>
+      <v-btn v-if="canCreate" color="primary" prepend-icon="mdi-plus" @click="router.push('/spaces/new')">
+        Создать
+      </v-btn>
     </div>
 
     <FilterBar

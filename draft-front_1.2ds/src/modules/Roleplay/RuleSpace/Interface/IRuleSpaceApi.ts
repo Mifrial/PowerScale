@@ -1,11 +1,12 @@
-import type { Space } from '@/modules/Roleplay/Space/Dto/Space';
-import type { SpaceCreateData } from '@/modules/Roleplay/Space/Dto/SpaceCreateData';
-import type { SpaceUpdateData } from '@/modules/Roleplay/Space/Dto/SpaceUpdateData';
-import type { SpaceRevisionMeta } from '@/modules/Roleplay/Space/Dto/SpaceRevisionMeta';
-import type { SpaceRevision } from '@/modules/Roleplay/Space/Dto/SpaceRevision';
+import type { Space } from '@/modules/Roleplay/RuleSpace/Dto/Space';
+import type { SpaceCreateData } from '@/modules/Roleplay/RuleSpace/Dto/SpaceCreateData';
+import type { SpaceUpdateData } from '@/modules/Roleplay/RuleSpace/Dto/SpaceUpdateData';
+import type { SpaceRevisionMeta } from '@/modules/Roleplay/RuleSpace/Dto/SpaceRevisionMeta';
+import type { SpaceRevision } from '@/modules/Roleplay/RuleSpace/Dto/SpaceRevision';
+import type { AbilitySection } from '@/modules/Roleplay/RuleSpace/Dto/AbilitySection';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
-export interface ISpaceApi {
+export interface IRuleSpaceApi {
   getSpaces(signal?: AbortSignal): Promise<Space[]>;
   getSpace(id: number, signal?: AbortSignal): Promise<Space>;
   getSpaceByCode(code: string, signal?: AbortSignal): Promise<Space>;
@@ -20,5 +21,6 @@ export interface ISpaceApi {
     rules: Rule[],
     signal?: AbortSignal,
     removedCodes?: string[],
+    sections?: AbilitySection[],
   ): Promise<SpaceRevision<Rule>>;
 }
