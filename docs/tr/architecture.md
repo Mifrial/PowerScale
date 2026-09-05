@@ -98,7 +98,7 @@ Cookie ответа: порт `IRequestContext` (extra Kernel, как `IRuntimeC
 
 Полный канон: [`smarttable.md`](smarttable.md). Нарезка: [`smarttable-roadmap.md`](smarttable-roadmap.md).
 
-SmartTable — единственная серверная абстракция доступа к данным. Репозиторий не вызывает SQL, Eloquent и Query/Schema Illuminate. Внутри `Core/SmartTable` — `illuminate/database` (Connection, Query Builder, Schema), без фреймворка Laravel. `multiple` хранится доп. таблицей значений. Тегированный кэш `getList` — требование v1. Runtime-создание таблиц/полей с нашими типами — требование v1. Админский UI — после Auth. Versioned-оболочка — контракт заранее, код — план 11.
+SmartTable — единственная серверная абстракция доступа к данным. Репозиторий не вызывает SQL, Eloquent и Query/Schema Illuminate. Внутри `Core/SmartTable` — `illuminate/database` (Connection, Query Builder, Schema), без фреймворка Laravel. `multiple` и `linkset` хранятся доп. таблицей значений; hop в getList — только `reference` ([`smarttable-plan-20-linkset.md`](smarttable-plan-20-linkset.md)). Тегированный кэш `getList` — требование v1. Runtime-создание таблиц/полей с нашими типами — требование v1. Админский UI — после Auth. Версионность строк — не оболочка SmartTable; модуль [`versioning-roadmap.md`](versioning-roadmap.md) (`DEC-080`).
 
 Фабрика прикладного модуля открывает таблицу через контейнер SmartTable: PHP-класс — `ISmartTableGateway::open` (class-string), таблица из словаря — `ITableCatalog::openByName`. Не строковый ключ локатора. `open` отдаёт сумку `IOpenedTable`: `schema()` — DDL (`createTable` / `updateTable` / `forceUpdateTable` / `deleteTable`), `records()` — строки (`add` / `getList` / `getUnique` / `aggregate` / …). Репозиторий получает `records()`, класс схемы — `schema()`; сосед прикладного модуля не зовёт `open`. Гидраторы — конфиг модуля SmartTable. Установка/обновление набора модулей (граф DDL, CLI) — Kernel, не SmartTable ([`kernel-plan-01-setup.md`](kernel-plan-01-setup.md)). Журнал аудита — не этот контур.
 
@@ -129,11 +129,15 @@ Messages
 └── Notifications
 Roleplay
 ├── Home
+├── Keyword
+├── Mechanic
 ├── Rule
-├── Space
+├── RuleSpace
 ├── Character
 └── Game
 ```
+
+PHP (не фронтовое дерево), лениво: **`Versioning/Space`** — репозиторий одной сущности с пространствами и ревизиями. Нарезка — [`versioning-roadmap.md`](versioning-roadmap.md). Vue-модуля Versioning нет, пока нет второго UI-потребителя. **`Roleplay/Keyword`**, **`Roleplay/Mechanic`**, **`Roleplay/Rule`**, **`Roleplay/RuleSpace`** — отдельные lazy-слоты; нарезка — [`rule-roadmap.md`](rule-roadmap.md). PHP RuleSpace → `IRules` + sidecar ST, не SQL кластера и не `openCluster`. Продуктовый UI — `Roleplay/RuleSpace`. Vue Keyword/Mechanic пока лежат в папке Rule (`CODE_GAP`).
 
 ### Поверхность
 
@@ -162,16 +166,18 @@ Auth зависит от User: после входа и выхода Auth выз
 - Chat → Engine, UI, User (публично). Не Roleplay, не Notifications, не Auth
 - Notifications → Engine, UI, User (публично). Не Chat, не Roleplay, не Auth
 - Home → Engine, UI, User, Notifications (публично). Не Auth
-- Rule → Engine, UI, User (плагин), Chat (плагин). Не Space/Character/Game. Не Notifications. `spaceId` и ревизия — проп, роут или ключ inject; Space только `provide`
-- Space → Engine, UI, User, Rule (публично). Не Character/Game. Не Notifications
-- Character → Engine, UI, User, Rule, Space, Chat (плагин), Notifications (публично, отправка). Не Game
-- Game → Engine, UI, User, Rule, Space, Character, Chat (плагин), Notifications (публично, отправка)
+- Keyword → Engine, UI, User (плагин админки). PHP: SmartTable + `IUserAccess` ([`keyword-plan-02.md`](keyword-plan-02.md)). Не Rule/RuleSpace/Character/Game. Не Versioning. Vue-папка — `CODE_GAP` в Rule
+- Mechanic → Engine, UI. PHP: SmartTable + `IUserAccess` ([`mechanic-plan-02.md`](mechanic-plan-02.md)). Не Rule/Keyword/RuleSpace/Character/Game. Не Versioning. Хендлеры — этот модуль, когда закроют OPEN. Vue-папка — `CODE_GAP` в Rule. Не Vue Mechanic → User (нет админ-плагина)
+- Rule → Engine, UI, User (плагин), Chat (плагин), Keyword, Mechanic (публично). Не RuleSpace/Character/Game. Не Notifications. Не Versioning. `spaceId` и ревизия — проп, роут или ключ inject; RuleSpace только `provide`
+- RuleSpace → Engine, UI, User, Rule (публично). Не Character/Game. Не Notifications. PHP-оператор → `IRules` + sidecar; не SQL карт `rule*` кластера; Vue ↛ Versioning
+- Character → Engine, UI, User, Rule, RuleSpace, Chat (плагин), Notifications (публично, отправка). Не Game. Не Versioning. Позже — Mechanic (Engine)
+- Game → Engine, UI, User, Rule, RuleSpace, Character, Chat (плагин), Notifications (публично, отправка). Не Versioning. Позже — Mechanic
 
 ### Долг кода (CODE_GAP, не реализация)
 
 Это нарушение канона в текущем дереве, не норма.
 
-Поверхность модулей и locator закрыты этапами 6b–8. Линтер `powerscale/no-foreign-module-internals` держит чужие внутренности. Текущего долга по этому канону нет.
+Поверхность модулей и locator закрыты этапами 6b–8. Линтер `powerscale/no-foreign-module-internals` держит чужие внутренности. Долг: Vue Keyword и Mechanic живут в папке `Roleplay/Rule`, канон — отдельные модули ([`rule-roadmap.md`](rule-roadmap.md)).
 
 ## Слои фронтенда
 
@@ -202,7 +208,7 @@ Auth зависит от User: после входа и выхода Auth выз
 
 Наличие DTO и API на фронте не доказывает реализацию на сервере. Физическая схема таблиц экономических операций и точные endpoint — задача проектирования сервера; доменные инварианты экономики — в [`game-system.md`](game-system.md), сцены — в [`battleground-system.md`](battleground-system.md). PHP battleground не начинать до серверного Core.
 
-PHP-инфраструктура (не фронтовое дерево): **`Core/Agent`** — расписание тиков, CLI `bin/agent.php`, обработчики в памяти (не PHP в БД). **`Core/Mail`** — каталог событий, шаблоны, очередь jobs; агент `mail.flush`. **`Core/Logger`** — таблица `log`, адаптер `ILogger` (class-string в site config — [`logger-plan-03.md`](logger-plan-03.md); ключ `logger` в module.config плана 1 — хвост). **`Messages/Chat`** (ленивый) — хост сообщений, HTTP actions + SSE `/api/chat/sync`; не Roleplay. Рёбра: Agent → SmartTable + `ILogger` (Kernel); Mail → SmartTable + Agent (`IAgents`) + `ILogger` (Kernel); Logger → SmartTable; Auth → User и (Auth 3) Mail (`IMail`); Chat → SmartTable + User (публично). Kernel не шлёт почту и не импортирует Logger. Vue Engine агентов не настраивает. Нарезка почты — [`mail-roadmap.md`](mail-roadmap.md). Планы логера — [`logger-plan-01.md`](logger-plan-01.md), [`logger-plan-02.md`](logger-plan-02.md), [`logger-plan-03.md`](logger-plan-03.md). Нарезка чата — [`chat-roadmap.md`](chat-roadmap.md). План сброса через очередь — [`auth-plan-03-mail-reset.md`](auth-plan-03-mail-reset.md).
+PHP-инфраструктура (не фронтовое дерево): **`Core/Agent`** — расписание тиков, CLI `bin/agent.php`, обработчики в памяти (не PHP в БД). **`Core/Mail`** — каталог событий, шаблоны, очередь jobs; агент `mail.flush`. **`Core/Logger`** — таблица `log`, адаптер `ILogger` (class-string в site config — [`logger-plan-03.md`](logger-plan-03.md); ключ `logger` в module.config плана 1 — хвост). **`Core/Cache`** — `ICacheStore` (file/redis, TTL ≤ 30 суток); не теги списков ST. **`Messages/Chat`** (ленивый) — хост сообщений, HTTP actions + SSE `/api/chat/sync`; не Roleplay. **`Versioning/Space`** (ленивый) — кластер identity/экземпляр/space/revision + состав; не Core, не Rule. **`Roleplay/Keyword`**, **`Roleplay/Mechanic`**, **`Roleplay/Rule`**, **`Roleplay/RuleSpace`** — ленивые; Keyword → SmartTable + User (`IUserAccess`); Rule → Versioning + Keyword + Mechanic; RuleSpace → Rule + SmartTable + User (`IUserAccess`). Рёбра: Agent → SmartTable + `ILogger` (Kernel); Mail → SmartTable + Agent (`IAgents`) + `ILogger` (Kernel); Logger → SmartTable; Cache никого; SmartTable → Cache; Auth → User и (Auth 3) Mail (`IMail`); Chat → SmartTable + User (публично); Versioning/Space → SmartTable + Cache; Keyword → SmartTable; Mechanic → SmartTable + User (`IUserAccess`); Rule → SmartTable + Versioning + Keyword + Mechanic; RuleSpace → SmartTable + Rule + User. Kernel не шлёт почту и не импортирует Logger. Vue Engine агентов не настраивает. Нарезка почты — [`mail-roadmap.md`](mail-roadmap.md). Планы логера — [`logger-plan-01.md`](logger-plan-01.md), [`logger-plan-02.md`](logger-plan-02.md), [`logger-plan-03.md`](logger-plan-03.md). Нарезка чата — [`chat-roadmap.md`](chat-roadmap.md). Нарезка Versioning — [`versioning-roadmap.md`](versioning-roadmap.md). План кэша — [`cache-plan-01.md`](cache-plan-01.md). План сброса через очередь — [`auth-plan-03-mail-reset.md`](auth-plan-03-mail-reset.md).
 
 Battleground живёт в `Roleplay/Game` (библиотека шаблонов — UI того же модуля). Новых DAG-рёбер в Chat нет. SSE сцены — отдельный entrypoint, не кадры `/api/chat/sync`. Нарезка чата — [`chat-roadmap.md`](chat-roadmap.md).
 
@@ -218,3 +224,6 @@ Battleground живёт в `Roleplay/Game` (библиотека шаблоно�
 - [`ui-system.md`](ui-system.md)
 - [`decisions.md`](decisions.md)
 - [`history.md`](history.md)
+- [`versioning-roadmap.md`](versioning-roadmap.md)
+- [`rule-roadmap.md`](rule-roadmap.md)
+- [`cache-plan-01.md`](cache-plan-01.md)

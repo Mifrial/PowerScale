@@ -20,7 +20,7 @@
 ## Канонические документы
 
 - [Архитектура](architecture.md) — модули, таблица рёбер DAG, поверхность и CODE_GAP границ.
-- [SmartTable](smarttable.md) — доступ к данным, Basic/Versioned, `DEC-078`.
+- [SmartTable](smarttable.md) — доступ к данным, Basic, `DEC-078`. Версионность — не ST, `DEC-080`.
 - [Нарезка SmartTable](smarttable-roadmap.md) — планы реализации SmartTable.
 - [План 1: соединение](smarttable-plan-01-connection.md) — Illuminate MySQL из `local.php`.
 - [План 2: поля Basic](smarttable-plan-02-fields.md) — типы, getMap, hydrator-заготовка.
@@ -41,6 +41,9 @@
 - [План 15: BIGINT и cascade](smarttable-plan-15-bigint.md) — `IdField::big()`, `type: bigint`, `onDelete: cascade`.
 - [План 16: составной unique](smarttable-plan-16-composite-unique.md) — `defineUniqueKeys()`; словарь `unique_keys`; не флаг поля.
 - [План 17: агрегат](smarttable-plan-17-aggregate.md) — `aggregate` / `GROUP BY`; `CountField` / `SubqueryValue`; не JOIN; блокер Chat 5.
+- [План 18: срез и addMany](smarttable-plan-18-slice-batch.md) — getList max 10000; `addMany`; блокер Versioning 1.
+- [План 19: addMany + mfv](smarttable-plan-19-addmany-mfv.md) — sidecar в пачке; вложенная TX; блокер Rule 1.
+- [План 20: linkset](smarttable-plan-20-linkset.md) — `LinkSetField`, 1:N, не hop; `reference` остаётся hop.
 - [User (backend)](user.md) — учётка; сессия в Auth.
 - [Нарезка User](user-roadmap.md) — планы модуля User.
 - [План User 1: учётка](user-plan-01-account.md) — таблица `user`, фасад `IUserAccounts`, без HTTP.
@@ -65,6 +68,20 @@
 - [План Chat 4: Vue real](chat-plan-04.md) — `Engine.openSse`; unix; не `chat.sync` action.
 - [План Chat 5: visibility](chat-plan-05.md) — аудитория `all`/`users`; unread/preview через `aggregate`; не `forRole`.
 - [План Chat 6: создать host](chat-plan-06.md) — `addPrivate` / `addGroup` HTTP+UI; inbox только `private`/`group`.
+- [План Cache 1: драйвер](cache-plan-01.md) — `Core/Cache`, `ICacheStore`; TTL ≤ 30 суток; ST и Versioning — политики.
+- [Нарезка Versioning](versioning-roadmap.md) — `Versioning/Space`: кластер; хвост часов в Rule 1.
+- [План Versioning 1: кластер и фасад](versioning-plan-01.md) — сделано; `vt_note`; TTL среза 30 суток.
+- [Нарезка Rule](rule-roadmap.md) — Keyword → Mechanic → Rule → RuleSpace 1–6 → Vue-имя → HTTP справочников.
+- [План Keyword 1](keyword-plan-01.md) — каркас `Roleplay/Keyword` под Rule.
+- [План Keyword 2: HTTP](keyword-plan-02.md) — публичка `keyword.*` сделана; Vue в папке Rule.
+- [План Mechanic 1](mechanic-plan-01.md) — каркас `Roleplay/Mechanic` под Rule; HTTP — план 2; модуль не закрыт (нет Engine).
+- [План Mechanic 2: HTTP](mechanic-plan-02.md) — публичка `mechanic.*` сделана; Vue в папке Rule.
+- [План Rule 1: кластер](rule-plan-01.md) — `Roleplay/Rule`; `rule*`; Reference на Keyword/Mechanic; generic body Versioning.
+- [План RuleSpace 1: оператор](rulespace-plan-01.md) — sidecar мира, inherit `keep`, без HTTP.
+- [План RuleSpace 4: HTTP](rulespace-plan-04.md) — `ruleSpace.*` в RuleSpace; JSON-вид; без прав шага 8.
+- [План RuleSpace 5: права](rulespace-plan-05.md) — `space.create` / `view_all` / `edit_all` на HTTP; `owner_id` sidecar.
+- [План RuleSpace 6: секции](rulespace-plan-06.md) — `section_version` + указатель на ревизии; каталог-only через all-keep часов.
+- [План RuleSpace 10: Vue](rulespace-plan-10.md) — папка `Roleplay/RuleSpace`, клиент `ruleSpace.*`; URL `/space` без смены.
 - [План User 3: HTTP учётки](user-plan-03-http.md) — `user.*`, актор запроса, `user.create` в Auth.
 - [План User 4: HTTP групп](user-plan-04-groups-http.md) — `userGroup.*`, `memberCount`, subset ключей.
 - [План User 5: выправить контракт](user-plan-05-no-catalog-dump.md) — сделано; `findPage`, JSON-вид, Vue.
