@@ -25,8 +25,26 @@
         <testsuite name="logger">
             <directory>modules/Core/Logger/tests</directory>
         </testsuite>
+        <testsuite name="cache">
+            <directory>modules/Core/Cache/tests</directory>
+        </testsuite>
         <testsuite name="chat">
             <directory>modules/Messages/Chat/tests</directory>
+        </testsuite>
+        <testsuite name="versioning">
+            <directory>modules/Versioning/Space/tests</directory>
+        </testsuite>
+        <testsuite name="keyword">
+            <directory>modules/Roleplay/Keyword/tests</directory>
+        </testsuite>
+        <testsuite name="mechanic">
+            <directory>modules/Roleplay/Mechanic/tests</directory>
+        </testsuite>
+        <testsuite name="rule">
+            <directory>modules/Roleplay/Rule/tests</directory>
+        </testsuite>
+        <testsuite name="rulespace">
+            <directory>modules/Roleplay/RuleSpace/tests</directory>
         </testsuite>
     </testsuites>
     <php>
