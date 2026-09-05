@@ -20,4 +20,14 @@ final class ModuleNotFoundException extends ModuleManagerException
     {
         return 'Module not found: ' . $moduleKey;
     }
+
+    /**
+     * Код отсутствия модуля.
+     *
+     * @return string Код.
+     */
+    protected function moduleErrorCode(): string
+    {
+        return 'MODULE_NOT_FOUND';
+    }
 }

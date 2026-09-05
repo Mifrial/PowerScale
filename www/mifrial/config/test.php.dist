@@ -1,0 +1,32 @@
+<?php
+
+declare(strict_types=1);
+
+return [
+    'debug' => true,
+    'db' => [
+        'host' => '127.0.0.1',
+        'port' => 3306,
+        'database' => 'powerscale_test',
+        'username' => 'powerscale',
+        'password' => 'changeme',
+        'charset' => 'utf8mb4',
+        'collation' => 'utf8mb4_unicode_ci',
+        'timezone' => '+00:00',
+    ],
+    'cache' => [
+        'driver' => 'file',
+        'path' => __DIR__ . '/../var/cache/smarttable-test',
+    ],
+    'auth' => [
+        'operator_login' => 'admin',
+        'operator_password' => 'changeme',
+        'operator_name' => 'Администратор',
+        'cookie_secure' => false,
+        'expose_reset_token' => true,
+    ],
+    'mail' => [
+        'flush_inline' => false,
+    ],
+    'logger' => Mifrial\Core\Logger\Service\TableLogWriter::class,
+];

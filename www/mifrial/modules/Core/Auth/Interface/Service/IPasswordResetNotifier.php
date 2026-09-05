@@ -20,7 +20,6 @@ interface IPasswordResetNotifier
      */
     public function notify(string $login, string $rawToken, string $email): void;
 
-
     /**
      * Нужно ли отдать сырой токен в JSON (dev).
      *

@@ -6,8 +6,10 @@ namespace Mifrial\Core\Kernel\Tests;
 
 use Mifrial\Core\Kernel\Interface\Container\IKernelContainer;
 use Mifrial\Core\Kernel\Interface\Http\IRequestContext;
+use Mifrial\Core\Kernel\Interface\Service\ILogger;
 use Mifrial\Core\Kernel\Interface\Service\IRuntimeConfig;
 use Mifrial\Core\Kernel\Service\ApplicationFactory;
+use Mifrial\Core\Kernel\Service\ProcessLogger;
 use PHPUnit\Framework\TestCase;
 
 final class PingDispatchTest extends TestCase
@@ -35,6 +37,11 @@ final class PingDispatchTest extends TestCase
         $requestContext = $kernelContainer->get(IRequestContext::class);
         self::assertInstanceOf(IRequestContext::class, $requestContext);
         self::assertNull($requestContext->getActor());
+        $firstLogger = $kernelContainer->get(ILogger::class);
+        $secondLogger = $kernelContainer->get(ILogger::class);
+        self::assertInstanceOf(ILogger::class, $firstLogger);
+        self::assertInstanceOf(ProcessLogger::class, $firstLogger);
+        self::assertSame($firstLogger, $secondLogger);
     }
 
     /**

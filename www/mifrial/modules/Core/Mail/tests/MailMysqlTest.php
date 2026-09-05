@@ -10,6 +10,7 @@ use Mifrial\Core\Agent\Service\AgentService;
 use Mifrial\Core\Agent\Table\AgentTable;
 use Mifrial\Core\Kernel\Dto\DatabaseSettings;
 use Mifrial\Core\Kernel\Service\ApplicationFactory;
+use Mifrial\Core\Kernel\Service\ErrorLogLogger;
 use Mifrial\Core\Mail\Dto\MailSettings;
 use Mifrial\Core\Mail\Exception\MailException;
 use Mifrial\Core\Mail\Repository\MailEventRepository;
@@ -34,6 +35,7 @@ use Mifrial\Core\SmartTable\Service\Connection\IlluminateConnectionFactory;
 use Mifrial\Core\SmartTable\Service\Connection\IlluminateDatabaseConnection;
 use Mifrial\Core\SmartTable\Tests\GatewayHarness;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 
 final class MailMysqlTest extends TestCase
 {
@@ -50,6 +52,8 @@ final class MailMysqlTest extends TestCase
     private ?MailFlushService $mailFlushService = null;
 
     private ?MailService $mailService = null;
+
+    private ?RecordingLogger $recordingLogger = null;
 
     /**
      * MySQL или skip.
@@ -122,6 +126,7 @@ final class MailMysqlTest extends TestCase
         self::assertSame('sent', $jobRow['status']);
         self::assertSame('Hello Ann', $this->mailTransport()->sent[0]['subject']);
         self::assertSame('a@example.test', $this->mailTransport()->sent[0]['to']);
+        self::assertSame([], $this->recordingLogger()->entries);
     }
 
     /**
@@ -150,6 +155,16 @@ final class MailMysqlTest extends TestCase
         self::assertSame('failed', $failedJob['status']);
         $this->mailFlushService()->flush();
         self::assertSame('failed', $this->jobRepository()->getById((int) $failedJob['id'])['status']);
+        $warnings = array_values(array_filter(
+            $this->recordingLogger()->entries,
+            static fn (array $entry): bool => $entry['level'] === 'warning',
+        ));
+        self::assertCount(3, $warnings);
+        self::assertSame('Mail job failed', $warnings[0]['message']);
+        self::assertSame('mail.flush', $warnings[0]['context']['source']);
+        self::assertSame('No active mail templates', $warnings[0]['context']['message']);
+        self::assertSame('MAIL_INVALID', $warnings[1]['context']['errorCode']);
+        self::assertSame(RuntimeException::class, $warnings[2]['context']['class']);
     }
 
     /**
@@ -203,7 +218,7 @@ final class MailMysqlTest extends TestCase
         $this->mailService()->trigger('demo.ping', ['name' => 'Ann', 'to' => 'a@example.test']);
         $agentService = new AgentService(new AgentRepository(
             $this->smartTableGateway()->open(AgentTable::class)->records(),
-        ));
+        ), new ErrorLogLogger());
         $agentService->ensureAgent('mail.flush', 60);
         $agentService->bindHandler('mail.flush', new MailFlushHandler($this->mailFlushService()));
         $agentService->tick();
@@ -292,11 +307,13 @@ final class MailMysqlTest extends TestCase
         );
         $this->jobRepository = new MailJobRepository($smartTableGateway->open(MailJobTable::class)->records());
         $this->mailTransport = new RecordingMailTransport();
+        $this->recordingLogger = new RecordingLogger();
         $this->mailFlushService = new MailFlushService(
             $this->jobRepository,
             $this->templateRepository,
             new PlaceholderRenderer(),
             $this->mailTransport,
+            $this->recordingLogger,
         );
         $this->mailService = new MailService(
             $this->eventRepository,
@@ -449,6 +466,16 @@ final class MailMysqlTest extends TestCase
         self::assertInstanceOf(RecordingMailTransport::class, $this->mailTransport);
 
         return $this->mailTransport;
+    }
+
+    /**
+     * @return RecordingLogger Записи flush.
+     */
+    private function recordingLogger(): RecordingLogger
+    {
+        self::assertInstanceOf(RecordingLogger::class, $this->recordingLogger);
+
+        return $this->recordingLogger;
     }
 
     /**

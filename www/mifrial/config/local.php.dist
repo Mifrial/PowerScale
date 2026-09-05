@@ -28,4 +28,5 @@ return [
     'mail' => [
         'flush_inline' => false,
     ],
+    'logger' => Mifrial\Core\Logger\Service\TableLogWriter::class,
 ];

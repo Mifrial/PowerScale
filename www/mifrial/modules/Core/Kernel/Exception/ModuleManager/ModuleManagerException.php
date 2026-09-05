@@ -26,7 +26,11 @@ abstract class ModuleManagerException extends MifrialException
         private readonly string $name,
         ?Throwable $previous = null,
     ) {
-        parent::__construct($this->buildMessage($this->getModuleKey()), 0, $previous);
+        parent::__construct(
+            $this->moduleErrorCode(),
+            $this->buildMessage($this->getModuleKey()),
+            $previous,
+        );
     }
 
     /**
@@ -67,4 +71,11 @@ abstract class ModuleManagerException extends MifrialException
      * @return string Текст исключения.
      */
     abstract protected function buildMessage(string $moduleKey): string;
+
+    /**
+     * Возвращает код ошибки листа.
+     *
+     * @return string Код MODULE_*.
+     */
+    abstract protected function moduleErrorCode(): string;
 }

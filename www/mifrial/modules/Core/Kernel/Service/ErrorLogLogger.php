@@ -12,7 +12,7 @@ use Mifrial\Core\Kernel\Interface\Service\ILogger;
 final class ErrorLogLogger implements ILogger
 {
     /**
-     * Пишет сообщение в error_log PHP.
+     * Пишет ошибку в error_log.
      *
      * @param string $message Текст сообщения.
      * @param array<string, mixed> $context Дополнительный контекст.
@@ -20,6 +20,59 @@ final class ErrorLogLogger implements ILogger
      * @return void
      */
     public function error(string $message, array $context = []): void
+    {
+        $this->write('error', $message, $context);
+    }
+
+    /**
+     * Пишет предупреждение в error_log.
+     *
+     * @param string $message Текст сообщения.
+     * @param array<string, mixed> $context Дополнительный контекст.
+     *
+     * @return void
+     */
+    public function warning(string $message, array $context = []): void
+    {
+        $this->write('warning', $message, $context);
+    }
+
+    /**
+     * Пишет информацию в error_log.
+     *
+     * @param string $message Текст сообщения.
+     * @param array<string, mixed> $context Дополнительный контекст.
+     *
+     * @return void
+     */
+    public function info(string $message, array $context = []): void
+    {
+        $this->write('info', $message, $context);
+    }
+
+    /**
+     * Пишет отладку в error_log.
+     *
+     * @param string $message Текст сообщения.
+     * @param array<string, mixed> $context Дополнительный контекст.
+     *
+     * @return void
+     */
+    public function debug(string $message, array $context = []): void
+    {
+        $this->write('debug', $message, $context);
+    }
+
+    /**
+     * Пишет строку в error_log.
+     *
+     * @param string $level Уровень.
+     * @param string $message Текст.
+     * @param array<string, mixed> $context Контекст.
+     *
+     * @return void
+     */
+    private function write(string $level, string $message, array $context): void
     {
         $details = [];
         foreach ($context as $contextKey => $contextValue) {
@@ -29,6 +82,6 @@ final class ErrorLogLogger implements ILogger
         }
 
         $suffix = $details === [] ? '' : ' ' . implode(' ', $details);
-        error_log($message . $suffix);
+        error_log('[' . $level . '] ' . $message . $suffix);
     }
 }

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 use Mifrial\Core\Auth\Action\FinalPasswordResetAction;
 use Mifrial\Core\Auth\Action\GetCurrentUserAction;
-use Mifrial\Core\Auth\Action\GuestAction;
 use Mifrial\Core\Auth\Action\GetPasswordPolicyAction;
+use Mifrial\Core\Auth\Action\GuestAction;
 use Mifrial\Core\Auth\Action\LoginAction;
 use Mifrial\Core\Auth\Action\LogoutAction;
 use Mifrial\Core\Auth\Action\RegisterAction;

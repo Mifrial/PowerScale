@@ -29,7 +29,9 @@
       "Mifrial\\Core\\Agent\\": "modules/Core/Agent/",
       "Mifrial\\Core\\User\\": "modules/Core/User/",
       "Mifrial\\Core\\Auth\\": "modules/Core/Auth/",
-      "Mifrial\\Core\\Mail\\": "modules/Core/Mail/"
+      "Mifrial\\Core\\Mail\\": "modules/Core/Mail/",
+      "Mifrial\\Core\\Logger\\": "modules/Core/Logger/",
+      "Mifrial\\Messages\\Chat\\": "modules/Messages/Chat/"
     },
     "exclude-from-classmap": [
       "/modules/Core/Kernel/tests/",
@@ -37,7 +39,9 @@
       "/modules/Core/Agent/tests/",
       "/modules/Core/User/tests/",
       "/modules/Core/Auth/tests/",
-      "/modules/Core/Mail/tests/"
+      "/modules/Core/Mail/tests/",
+      "/modules/Core/Logger/tests/",
+      "/modules/Messages/Chat/tests/"
     ]
   },
   "autoload-dev": {
@@ -48,7 +52,9 @@
       "Mifrial\\Core\\Agent\\Tests\\": "modules/Core/Agent/tests/",
       "Mifrial\\Core\\User\\Tests\\": "modules/Core/User/tests/",
       "Mifrial\\Core\\Auth\\Tests\\": "modules/Core/Auth/tests/",
-      "Mifrial\\Core\\Mail\\Tests\\": "modules/Core/Mail/tests/"
+      "Mifrial\\Core\\Mail\\Tests\\": "modules/Core/Mail/tests/",
+      "Mifrial\\Core\\Logger\\Tests\\": "modules/Core/Logger/tests/",
+      "Mifrial\\Messages\\Chat\\Tests\\": "modules/Messages/Chat/tests/"
     }
   },
   "config": {

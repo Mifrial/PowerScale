@@ -6,6 +6,9 @@ namespace Mifrial\Core\Kernel\Service;
 
 use JsonException;
 use Mifrial\Core\Kernel\Dto\ActionResponse;
+use Mifrial\Core\Kernel\Dto\RequestActor;
+use Mifrial\Core\Kernel\Exception\ActionException;
+use Mifrial\Core\Kernel\Exception\MifrialException;
 use Mifrial\Core\Kernel\Http\CsrfGuard;
 use Mifrial\Core\Kernel\Http\DebugResponseFormatter;
 use Mifrial\Core\Kernel\Http\ResponseEmitter;
@@ -56,8 +59,64 @@ final class Application implements IApplication
      */
     public function handle(IHttpRequest $httpRequest): never
     {
-        $this->responseEmitter->beginRequest($httpRequest);
+        $this->prepareHttp($httpRequest);
         $this->responseEmitter->emitJson($this->respondTo($httpRequest));
+    }
+
+    /**
+     * Копирует cookie запроса в контекст и вызывает request_bind.
+     *
+     * @param IHttpRequest $httpRequest Снимок входящего запроса.
+     *
+     * @return void
+     */
+    public function prepareHttp(IHttpRequest $httpRequest): void
+    {
+        $this->responseEmitter->beginRequest($httpRequest);
+        $this->bindRequestActors();
+    }
+
+    /**
+     * Отправляет JSON-конверт и завершает процесс.
+     *
+     * @param ActionResponse $response Конверт.
+     *
+     * @return never Управление не возвращается.
+     */
+    public function emitJson(ActionResponse $response): never
+    {
+        $this->responseEmitter->emitJson($response);
+    }
+
+    /**
+     * Пишет отказ HTTP: до потока — JSON-конверт; после start() — только лог.
+     *
+     * @param IHttpRequest $httpRequest Снимок.
+     * @param Throwable $throwable Отказ.
+     * @param bool $streamStarted True, если SSE-заголовки уже ушли.
+     *
+     * @return void После потока управление возвращается; до потока — never через emitJson.
+     */
+    public function emitHttpError(
+        IHttpRequest $httpRequest,
+        Throwable $throwable,
+        bool $streamStarted = false,
+    ): void {
+        if ($streamStarted) {
+            $this->logUnhandled($httpRequest, $throwable);
+
+            return;
+        }
+
+        if ($throwable instanceof ActionException) {
+            $this->responseEmitter->emitJson(ActionResponse::fail(
+                $throwable->getErrorCode(),
+                $throwable->getMessage(),
+            ));
+        }
+
+        $this->logUnhandled($httpRequest, $throwable);
+        $this->responseEmitter->emitJson($this->debugFormatter()->internalError($throwable));
     }
 
     /**
@@ -119,12 +178,7 @@ final class Application implements IApplication
                 $this->dispatchFromRequest($httpRequest),
             );
         } catch (Throwable $throwable) {
-            $this->logger->error('Unhandled kernel error', [
-                'class' => $throwable::class,
-                'message' => $throwable->getMessage(),
-                'file' => $throwable->getFile(),
-                'line' => $throwable->getLine(),
-            ]);
+            $this->logUnhandled($httpRequest, $throwable);
 
             return $this->debugFormatter()->internalError($throwable);
         }
@@ -151,8 +205,6 @@ final class Application implements IApplication
         } catch (JsonException) {
             return ActionResponse::fail('INVALID_JSON', 'Request body is not JSON');
         }
-
-        $this->bindRequestActors();
 
         return $this->dispatcher->dispatch($actionCode, $payload);
     }
@@ -227,5 +279,57 @@ final class Application implements IApplication
     private function debugFormatter(): DebugResponseFormatter
     {
         return new DebugResponseFormatter($this->config['debug'] ?? false);
+    }
+
+    /**
+     * Пишет INTERNAL в логер.
+     *
+     * @param IHttpRequest $httpRequest Снимок.
+     * @param Throwable $throwable Непойманное.
+     *
+     * @return void
+     */
+    private function logUnhandled(IHttpRequest $httpRequest, Throwable $throwable): void
+    {
+        $context = [
+            'class' => $throwable::class,
+            'message' => $throwable->getMessage(),
+            'file' => $throwable->getFile(),
+            'line' => $throwable->getLine(),
+        ];
+        $actionCode = $httpRequest->getQueryValue('action');
+        if (is_string($actionCode) && $actionCode !== '') {
+            $context['source'] = $actionCode;
+        }
+
+        if ($throwable instanceof MifrialException) {
+            $context['errorCode'] = $throwable->getErrorCode();
+        }
+
+        $requestActor = $this->findRequestActor();
+        if ($requestActor instanceof RequestActor) {
+            $context['userId'] = $requestActor->getUserId();
+        }
+
+        $this->logger->error('Unhandled kernel error', $context);
+    }
+
+    /**
+     * Актор текущего запроса, если контекст собран.
+     *
+     * @return RequestActor|null Актор.
+     */
+    private function findRequestActor(): ?RequestActor
+    {
+        if (!$this->locator->has(IKernelContainer::class)) {
+            return null;
+        }
+
+        $requestContext = $this->locator->get(IKernelContainer::class)->get(IRequestContext::class);
+        if (!$requestContext instanceof IRequestContext) {
+            return null;
+        }
+
+        return $requestContext->getActor();
     }
 }

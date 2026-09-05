@@ -9,15 +9,17 @@ use Mifrial\Core\Auth\Setup\AuthModuleSetup;
 use Mifrial\Core\Kernel\Service\ApplicationFactory;
 use Mifrial\Core\Kernel\Service\Setup\ModuleSetupCollector;
 use Mifrial\Core\Kernel\Setup\KernelModuleSetup;
+use Mifrial\Core\Logger\Setup\LoggerModuleSetup;
 use Mifrial\Core\Mail\Setup\MailModuleSetup;
 use Mifrial\Core\SmartTable\Setup\SmartTableModuleSetup;
 use Mifrial\Core\User\Setup\UserModuleSetup;
+use Mifrial\Messages\Chat\Setup\ChatModuleSetup;
 use PHPUnit\Framework\TestCase;
 
 final class ModuleSetupCollectorTest extends TestCase
 {
     /**
-     * Ключ setup есть у Agent, Auth, Mail, Kernel, SmartTable и User.
+     * Ключ setup есть у Agent, Auth, Logger, Mail, Kernel, SmartTable, User и Chat.
      *
      * @return void
      */
@@ -35,9 +37,11 @@ final class ModuleSetupCollectorTest extends TestCase
 
         self::assertInstanceOf(AgentModuleSetup::class, $byKey['Core/Agent']);
         self::assertInstanceOf(AuthModuleSetup::class, $byKey['Core/Auth']);
+        self::assertInstanceOf(LoggerModuleSetup::class, $byKey['Core/Logger']);
         self::assertInstanceOf(MailModuleSetup::class, $byKey['Core/Mail']);
         self::assertInstanceOf(KernelModuleSetup::class, $byKey['Core/Kernel']);
         self::assertInstanceOf(SmartTableModuleSetup::class, $byKey['Core/SmartTable']);
         self::assertInstanceOf(UserModuleSetup::class, $byKey['Core/User']);
+        self::assertInstanceOf(ChatModuleSetup::class, $byKey['Messages/Chat']);
     }
 }

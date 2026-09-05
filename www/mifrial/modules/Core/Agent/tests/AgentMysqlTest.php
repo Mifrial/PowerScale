@@ -28,6 +28,8 @@ final class AgentMysqlTest extends TestCase
 
     private ?AgentRepository $agentRepository = null;
 
+    private ?RecordingLogger $recordingLogger = null;
+
     private ?ISmartTableGateway $smartTableGateway = null;
 
     /**
@@ -130,6 +132,12 @@ final class AgentMysqlTest extends TestCase
         self::assertNull($this->agentRepository()->findByCode('boom')['last_run_at'] ?? null);
         self::assertInstanceOf(DateTime::class, $this->agentRepository()->findByCode('ok')['last_run_at'] ?? null);
         self::assertSame(1, $okHandler->runs);
+        $levels = array_column($this->recordingLogger()->entries, 'level');
+        $messages = array_column($this->recordingLogger()->entries, 'message');
+        self::assertContains('warning', $levels);
+        self::assertContains('error', $levels);
+        self::assertContains('Agent handler is missing', $messages);
+        self::assertContains('Agent handler failed', $messages);
     }
 
     /**
@@ -177,7 +185,8 @@ final class AgentMysqlTest extends TestCase
         $this->agentRepository = new AgentRepository(
             $smartTableGateway->open(AgentTable::class)->records(),
         );
-        $this->agentService = new AgentService($this->agentRepository);
+        $this->recordingLogger = new RecordingLogger();
+        $this->agentService = new AgentService($this->agentRepository, $this->recordingLogger);
     }
 
     /**
@@ -198,6 +207,16 @@ final class AgentMysqlTest extends TestCase
         self::assertInstanceOf(AgentRepository::class, $this->agentRepository);
 
         return $this->agentRepository;
+    }
+
+    /**
+     * @return RecordingLogger Логер тика.
+     */
+    private function recordingLogger(): RecordingLogger
+    {
+        self::assertInstanceOf(RecordingLogger::class, $this->recordingLogger);
+
+        return $this->recordingLogger;
     }
 
     /**

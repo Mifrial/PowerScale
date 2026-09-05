@@ -7,6 +7,7 @@ namespace Mifrial\Core\Kernel\Service;
 use Mifrial\Core\Kernel\Http\RequestContext;
 use Mifrial\Core\Kernel\Http\ResponseEmitter;
 use Mifrial\Core\Kernel\Interface\Http\IRequestContext;
+use Mifrial\Core\Kernel\Interface\Service\ILogger;
 use Mifrial\Core\Kernel\Interface\Service\IModuleManager;
 use Mifrial\Core\Kernel\Interface\Service\IRuntimeConfig;
 use Mifrial\Core\Kernel\Interface\Service\IServiceLocator;
@@ -56,7 +57,43 @@ final class ApplicationFactory
         $serviceLocator = new ServiceLocator();
         $moduleManager = new ModuleManager($root . '/modules');
         $requestContext = new RequestContext();
-        $containerBinder = $this->createContainerBinder($config, $requestContext);
+        $processLogger = $this->processLogger($config, $moduleManager, $serviceLocator);
+        $this->bindLoadedModules(
+            $root,
+            $loadAllDiskModules,
+            $serviceLocator,
+            $moduleManager,
+            $this->createContainerBinder($config, $requestContext, $processLogger),
+        );
+
+        return new Application(
+            $serviceLocator,
+            $moduleManager,
+            new Dispatcher($moduleManager, new ActionParameterBinder(), $serviceLocator),
+            new ResponseEmitter(requestContext: $requestContext),
+            $processLogger,
+            $config,
+        );
+    }
+
+    /**
+     * Грузит модули, вешает контейнеры, freeze локатора.
+     *
+     * @param string $root Корень Mifrial.
+     * @param bool $loadAllDiskModules true — все группы на диске.
+     * @param IServiceLocator $serviceLocator Каталог.
+     * @param IModuleManager $moduleManager Менеджер.
+     * @param ModuleContainerBinder $containerBinder Сборщик.
+     *
+     * @return void
+     */
+    private function bindLoadedModules(
+        string $root,
+        bool $loadAllDiskModules,
+        IServiceLocator $serviceLocator,
+        IModuleManager $moduleManager,
+        ModuleContainerBinder $containerBinder,
+    ): void {
         if ($loadAllDiskModules) {
             $moduleManager->loadAllFromDisk();
         } else {
@@ -70,15 +107,6 @@ final class ApplicationFactory
         }
 
         $serviceLocator->freeze();
-
-        return new Application(
-            $serviceLocator,
-            $moduleManager,
-            new Dispatcher($moduleManager),
-            new ResponseEmitter(requestContext: $requestContext),
-            new ErrorLogLogger(),
-            $config,
-        );
     }
 
     /**
@@ -86,15 +114,20 @@ final class ApplicationFactory
      *
      * @param array<string, mixed> $config Локальная конфигурация.
      * @param IRequestContext $requestContext Контекст cookie процесса.
+     * @param ILogger $processLogger Extra ILogger процесса.
      *
      * @return ModuleContainerBinder Сборщик контейнеров.
      */
-    private function createContainerBinder(array $config, IRequestContext $requestContext): ModuleContainerBinder
-    {
+    private function createContainerBinder(
+        array $config,
+        IRequestContext $requestContext,
+        ILogger $processLogger,
+    ): ModuleContainerBinder {
         $runtimeConfig = RuntimeConfig::fromLocal($config);
         $kernelPortFactories = [
             IRuntimeConfig::class => static fn (): IRuntimeConfig => $runtimeConfig,
             IRequestContext::class => static fn (): IRequestContext => $requestContext,
+            ILogger::class => static fn (): ILogger => $processLogger,
         ];
 
         return new ModuleContainerBinder(new ModuleContainerFactory($kernelPortFactories));
@@ -135,6 +168,7 @@ final class ApplicationFactory
                 $moduleReference['group'],
                 $moduleReference['name'],
             );
+            $moduleManager->requireModule($moduleReference['group'], $moduleReference['name']);
         }
     }
 
@@ -152,5 +186,31 @@ final class ApplicationFactory
             && is_array($moduleReference)
             && is_string($moduleReference['group'] ?? null)
             && is_string($moduleReference['name'] ?? null);
+    }
+
+    /**
+     * Один ProcessLogger на процесс: extra Kernel и ctor Application.
+     *
+     * @param array<string, mixed> $config Site config.
+     * @param IModuleManager $moduleManager Менеджер.
+     * @param IServiceLocator $serviceLocator Каталог.
+     *
+     * @return ProcessLogger Обёртка.
+     */
+    private function processLogger(
+        array $config,
+        IModuleManager $moduleManager,
+        IServiceLocator $serviceLocator,
+    ): ProcessLogger {
+        $fallback = new ErrorLogLogger();
+        $resolver = new ConfiguredLoggerResolver();
+
+        return new ProcessLogger(
+            $fallback,
+            static function () use ($config, $fallback, $moduleManager, $resolver, $serviceLocator): ILogger {
+                return $resolver->resolve($config['logger'] ?? null, $moduleManager, $serviceLocator)
+                    ?? $fallback;
+            },
+        );
     }
 }

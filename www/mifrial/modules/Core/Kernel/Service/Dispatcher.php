@@ -10,6 +10,7 @@ use Mifrial\Core\Kernel\Exception\ActionException;
 use Mifrial\Core\Kernel\Interface\Action\IActionHandler;
 use Mifrial\Core\Kernel\Interface\Service\IDispatcher;
 use Mifrial\Core\Kernel\Interface\Service\IModuleManager;
+use Mifrial\Core\Kernel\Interface\Service\IServiceLocator;
 use ReflectionMethod;
 
 /**
@@ -22,12 +23,14 @@ final class Dispatcher implements IDispatcher
      *
      * @param IModuleManager $modules Менеджер модулей и маршрутов.
      * @param ActionParameterBinder $parameterBinder Биндер параметров handle.
+     * @param IServiceLocator|null $serviceLocator Каталог; null — контейнер уже в менеджере.
      *
      * @return void
      */
     public function __construct(
         private readonly IModuleManager $modules,
         private readonly ActionParameterBinder $parameterBinder = new ActionParameterBinder(),
+        private readonly ?IServiceLocator $serviceLocator = null,
     ) {
     }
 
@@ -63,6 +66,7 @@ final class Dispatcher implements IDispatcher
      */
     private function resolveHandler(array $routeSpecification): HandlerResolveResult
     {
+        $this->attachModuleContainer($routeSpecification['group'], $routeSpecification['name']);
         $handlerPort = $routeSpecification['handler'];
         $moduleContainer = $this->modules->getContainer(
             $routeSpecification['group'],
@@ -97,6 +101,54 @@ final class Dispatcher implements IDispatcher
         }
 
         return ActionResponse::fail('INVALID_HANDLER', 'Handler handle() must be public: ' . $handlerPort);
+    }
+
+    /**
+     * Вешает контейнер lazy-модуля по ключу locator, если его ещё нет.
+     *
+     * @param string $moduleGroup Группа.
+     * @param string $moduleName Имя.
+     *
+     * @return void
+     */
+    private function attachModuleContainer(string $moduleGroup, string $moduleName): void
+    {
+        if ($this->serviceLocator === null || $this->modules->hasContainer($moduleGroup, $moduleName)) {
+            return;
+        }
+
+        $locatorKey = $this->locatorKeyOf($moduleGroup, $moduleName);
+        if ($locatorKey === null) {
+            return;
+        }
+
+        $this->serviceLocator->get($locatorKey);
+    }
+
+    /**
+     * Ключ локатора загруженного модуля.
+     *
+     * @param string $moduleGroup Группа.
+     * @param string $moduleName Имя.
+     *
+     * @return string|null Интерфейс контейнера.
+     */
+    private function locatorKeyOf(string $moduleGroup, string $moduleName): ?string
+    {
+        foreach ($this->modules->getLoadedModules() as $loadedModule) {
+            if ($loadedModule['group'] !== $moduleGroup || $loadedModule['name'] !== $moduleName) {
+                continue;
+            }
+
+            $locatorKey = $loadedModule['config']['locator'] ?? null;
+            if (is_string($locatorKey) && $locatorKey !== '') {
+                return $locatorKey;
+            }
+
+            return null;
+        }
+
+        return null;
     }
 
     /**

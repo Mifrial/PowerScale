@@ -92,7 +92,8 @@ final class ActionParameterBinder
             return null;
         }
 
-        if (count($handleMethod->getParameters()) !== 1
+        if (
+            count($handleMethod->getParameters()) !== 1
             || $inputParameter->allowsNull()
             || $inputParameter->isDefaultValueAvailable()
         ) {

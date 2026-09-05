@@ -22,6 +22,17 @@ interface IApplication
     public function handle(IHttpRequest $httpRequest): never;
 
     /**
+     * Копирует cookie запроса в контекст и вызывает request_bind.
+     *
+     * Без CSRF, без JSON-ответа. Для SSE и других входов кроме action.php.
+     *
+     * @param IHttpRequest $httpRequest Снимок входящего запроса.
+     *
+     * @return void
+     */
+    public function prepareHttp(IHttpRequest $httpRequest): void;
+
+    /**
      * Выполняет action без отправки HTTP-ответа.
      *
      * @param string $action Код действия.

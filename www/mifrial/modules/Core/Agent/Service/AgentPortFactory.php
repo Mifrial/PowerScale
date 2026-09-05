@@ -8,6 +8,8 @@ use Mifrial\Core\Agent\Interface\Service\IAgents;
 use Mifrial\Core\Agent\Repository\AgentRepository;
 use Mifrial\Core\Agent\Table\AgentTable;
 use Mifrial\Core\Kernel\Exception\KernelException;
+use Mifrial\Core\Kernel\Interface\Container\IKernelContainer;
+use Mifrial\Core\Kernel\Interface\Service\ILogger;
 use Mifrial\Core\Kernel\Interface\Service\IServiceLocator;
 use Mifrial\Core\SmartTable\Interface\Container\ISmartTableContainer;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
@@ -34,8 +36,16 @@ final class AgentPortFactory
             throw new KernelException('PORT_TYPE', 'Agent requires ISmartTableGateway');
         }
 
-        return new AgentService(new AgentRepository(
-            $smartTableGateway->open(AgentTable::class)->records(),
-        ));
+        $logger = $serviceLocator->get(IKernelContainer::class)->get(ILogger::class);
+        if (!$logger instanceof ILogger) {
+            throw new KernelException('PORT_TYPE', 'Agent requires ILogger');
+        }
+
+        return new AgentService(
+            new AgentRepository(
+                $smartTableGateway->open(AgentTable::class)->records(),
+            ),
+            $logger,
+        );
     }
 }

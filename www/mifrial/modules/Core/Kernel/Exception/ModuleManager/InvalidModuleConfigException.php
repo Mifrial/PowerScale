@@ -46,4 +46,14 @@ final class InvalidModuleConfigException extends ModuleManagerException
 
         return $message . ': ' . $this->configError;
     }
+
+    /**
+     * Код кривого конфига.
+     *
+     * @return string Код.
+     */
+    protected function moduleErrorCode(): string
+    {
+        return 'INVALID_MODULE_CONFIG';
+    }
 }

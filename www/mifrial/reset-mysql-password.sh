@@ -66,6 +66,9 @@ ALTER USER '${DB_USER}'@'localhost' IDENTIFIED BY '${PASSWORD}';
 ALTER USER '${DB_USER}'@'127.0.0.1' IDENTIFIED BY '${PASSWORD}';
 GRANT ALL ON \`${DATABASE}\`.* TO '${DB_USER}'@'localhost';
 GRANT ALL ON \`${DATABASE}\`.* TO '${DB_USER}'@'127.0.0.1';
+CREATE DATABASE IF NOT EXISTS \`powerscale_test\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+GRANT ALL ON \`powerscale_test\`.* TO '${DB_USER}'@'localhost';
+GRANT ALL ON \`powerscale_test\`.* TO '${DB_USER}'@'127.0.0.1';
 FLUSH PRIVILEGES;
 SQL
 

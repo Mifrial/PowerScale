@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.ClassComplexityTooHigh
+
 namespace Mifrial\Core\Kernel\Service;
 
 use Mifrial\Core\Kernel\Exception\KernelException;
@@ -69,7 +71,6 @@ final class ModuleManager implements IModuleManager
             array_keys($this->getRoutes()),
         );
         $this->assertRequestBind($moduleGroup, $moduleName, $moduleConfig);
-
         $this->loadedModules[$moduleKey] = [
             'group' => $moduleGroup,
             'name' => $moduleName,

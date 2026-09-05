@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Mifrial\Core\Mail\Service;
 
+use Mifrial\Core\Kernel\Exception\MifrialException;
+use Mifrial\Core\Kernel\Interface\Service\ILogger;
 use Mifrial\Core\Mail\Exception\MailException;
 use Mifrial\Core\Mail\Repository\MailJobRepository;
 use Mifrial\Core\Mail\Repository\MailTemplateRepository;
@@ -21,6 +23,7 @@ final class MailFlushService
      * @param MailTemplateRepository $templateRepository Шаблоны.
      * @param PlaceholderRenderer $placeholderRenderer Подстановка.
      * @param IMailTransport $mailTransport Транспорт.
+     * @param ILogger $logger Журнал сбоя job.
      *
      * @return void
      */
@@ -29,6 +32,7 @@ final class MailFlushService
         private readonly MailTemplateRepository $templateRepository,
         private readonly PlaceholderRenderer $placeholderRenderer,
         private readonly IMailTransport $mailTransport,
+        private readonly ILogger $logger,
     ) {
     }
 
@@ -104,19 +108,19 @@ final class MailFlushService
         $attempts = ((int) $jobRow['attempts']) + 1;
         $templates = $this->templateRepository->listActiveByEventId((int) $jobRow['event_id']);
         if ($templates === []) {
-            $this->jobRepository->markFailed($jobId, $attempts, 'No active mail templates');
+            $this->failJob($jobId, $attempts, 'No active mail templates', null);
 
             return;
         }
 
-        $sendError = $this->sendTemplates($templates, $this->payloadMap($jobRow));
-        if ($sendError === null) {
+        $sendFailure = $this->sendTemplates($templates, $this->payloadMap($jobRow));
+        if (!$sendFailure instanceof Throwable) {
             $this->jobRepository->markSent($jobId, $attempts);
 
             return;
         }
 
-        $this->jobRepository->markFailed($jobId, $attempts, $sendError);
+        $this->failJob($jobId, $attempts, $sendFailure->getMessage(), $sendFailure);
     }
 
     /**
@@ -125,20 +129,50 @@ final class MailFlushService
      * @param array<int, array<string, mixed>> $templates Шаблоны.
      * @param array<string, string> $payload Поля.
      *
-     * @return string|null Первая ошибка или null.
+     * @return Throwable|null Первая ошибка или null.
      */
-    private function sendTemplates(array $templates, array $payload): ?string
+    private function sendTemplates(array $templates, array $payload): ?Throwable
     {
-        $sendError = null;
+        $sendFailure = null;
         foreach ($templates as $templateRow) {
             try {
                 $this->sendOneTemplate($templateRow, $payload);
             } catch (Throwable $exception) {
-                $sendError ??= $exception->getMessage();
+                $sendFailure ??= $exception;
             }
         }
 
-        return $sendError;
+        return $sendFailure;
+    }
+
+    /**
+     * Помечает job failed и пишет warning.
+     *
+     * @param int $jobId Id.
+     * @param int $attempts Попытки.
+     * @param string $lastError Текст в очередь.
+     * @param Throwable|null $throwable Причина, если была.
+     *
+     * @return void
+     */
+    private function failJob(int $jobId, int $attempts, string $lastError, ?Throwable $throwable): void
+    {
+        $this->jobRepository->markFailed($jobId, $attempts, $lastError);
+        $context = [
+            'source' => 'mail.flush',
+            'jobId' => $jobId,
+            'attempts' => $attempts,
+            'message' => $lastError,
+        ];
+        if ($throwable !== null) {
+            $context['class'] = $throwable::class;
+            $context['message'] = $throwable->getMessage();
+            if ($throwable instanceof MifrialException) {
+                $context['errorCode'] = $throwable->getErrorCode();
+            }
+        }
+
+        $this->logger->warning('Mail job failed', $context);
     }
 
     /**

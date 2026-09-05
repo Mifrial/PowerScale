@@ -8,6 +8,7 @@ use Mifrial\Core\Agent\Interface\Container\IAgentContainer;
 use Mifrial\Core\Agent\Interface\Service\IAgents;
 use Mifrial\Core\Kernel\Exception\KernelException;
 use Mifrial\Core\Kernel\Interface\Container\IKernelContainer;
+use Mifrial\Core\Kernel\Interface\Service\ILogger;
 use Mifrial\Core\Kernel\Interface\Service\IRuntimeConfig;
 use Mifrial\Core\Kernel\Interface\Service\IServiceLocator;
 use Mifrial\Core\Mail\Dto\MailSettings;
@@ -105,23 +106,58 @@ final class MailPortFactory
             $gateway->open(MailTemplateTable::class)->records(),
         );
         $kernelContainer = $serviceLocator->get(IKernelContainer::class);
-        $runtimeConfig = $kernelContainer->get(IRuntimeConfig::class);
-        if (!$runtimeConfig instanceof IRuntimeConfig) {
-            throw new KernelException('PORT_TYPE', 'Mail requires IRuntimeConfig');
-        }
 
         return [
             'events' => new MailEventRepository($gateway->open(MailEventTable::class)->records()),
             'templates' => $templateRepository,
             'jobs' => $jobRepository,
-            'settings' => MailSettings::fromSection($runtimeConfig->section('mail')),
+            'settings' => MailSettings::fromSection($this->runtimeConfig($kernelContainer)->section('mail')),
             'flush' => new MailFlushService(
                 $jobRepository,
                 $templateRepository,
                 new PlaceholderRenderer(),
                 new LogMailTransport(),
+                $this->processLogger($kernelContainer),
             ),
         ];
+    }
+
+    /**
+     * Runtime из extra Kernel.
+     *
+     * @param IKernelContainer $kernelContainer Kernel.
+     *
+     * @return IRuntimeConfig Конфиг.
+     *
+     * @throws KernelException Если тип порта чужой.
+     */
+    private function runtimeConfig(IKernelContainer $kernelContainer): IRuntimeConfig
+    {
+        $runtimeConfig = $kernelContainer->get(IRuntimeConfig::class);
+        if (!$runtimeConfig instanceof IRuntimeConfig) {
+            throw new KernelException('PORT_TYPE', 'Mail requires IRuntimeConfig');
+        }
+
+        return $runtimeConfig;
+    }
+
+    /**
+     * Процессный логер.
+     *
+     * @param IKernelContainer $kernelContainer Kernel.
+     *
+     * @return ILogger Логер.
+     *
+     * @throws KernelException Если тип порта чужой.
+     */
+    private function processLogger(IKernelContainer $kernelContainer): ILogger
+    {
+        $logger = $kernelContainer->get(ILogger::class);
+        if (!$logger instanceof ILogger) {
+            throw new KernelException('PORT_TYPE', 'Mail requires ILogger');
+        }
+
+        return $logger;
     }
 
     /**

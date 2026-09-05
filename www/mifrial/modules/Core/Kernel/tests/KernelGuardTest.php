@@ -8,6 +8,7 @@ use Mifrial\Core\Kernel\Container\ModuleContainer;
 use Mifrial\Core\Kernel\Dto\ActionResponse;
 use Mifrial\Core\Kernel\Exception\KernelException;
 use Mifrial\Core\Kernel\Exception\ModuleManager\InvalidModuleConfigException;
+use Mifrial\Core\Kernel\Exception\ModuleManager\ModuleNotFoundException;
 use Mifrial\Core\Kernel\Http\CsrfGuard;
 use Mifrial\Core\Kernel\Http\DebugResponseFormatter;
 use Mifrial\Core\Kernel\Http\HttpStatusMapper;
@@ -183,5 +184,19 @@ final class KernelGuardTest extends TestCase
 
         $this->expectException(InvalidModuleConfigException::class);
         (new ModuleManager($modulesRoot))->loadCore();
+    }
+
+    /**
+     * Коды ModuleManager на базе MifrialException.
+     *
+     * @return void
+     */
+    public function testModuleManagerErrorCodes(): void
+    {
+        self::assertSame('MODULE_NOT_FOUND', (new ModuleNotFoundException('Core', 'Nope'))->getErrorCode());
+        self::assertSame(
+            'INVALID_MODULE_CONFIG',
+            (new InvalidModuleConfigException('Core', 'Bad', 'x'))->getErrorCode(),
+        );
     }
 }

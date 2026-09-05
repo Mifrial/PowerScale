@@ -8,6 +8,8 @@ use Mifrial\Core\Agent\Exception\AgentException;
 use Mifrial\Core\Agent\Interface\Service\IAgentHandler;
 use Mifrial\Core\Agent\Interface\Service\IAgents;
 use Mifrial\Core\Agent\Repository\AgentRepository;
+use Mifrial\Core\Kernel\Exception\MifrialException;
+use Mifrial\Core\Kernel\Interface\Service\ILogger;
 use Mifrial\Core\Kernel\Value\DateTime;
 use Throwable;
 
@@ -25,11 +27,13 @@ final class AgentService implements IAgents
      * Создаёт сервис.
      *
      * @param AgentRepository $agentRepository Строки.
+     * @param ILogger $logger Журнал тика.
      *
      * @return void
      */
     public function __construct(
         private readonly AgentRepository $agentRepository,
+        private readonly ILogger $logger,
     ) {
     }
 
@@ -119,16 +123,42 @@ final class AgentService implements IAgents
 
         $handler = $this->handlers[$code] ?? null;
         if (!$handler instanceof IAgentHandler) {
+            $this->logger->warning('Agent handler is missing', ['source' => $code]);
+
             return;
         }
 
         try {
             $handler->run();
-        } catch (Throwable) {
+        } catch (Throwable $throwable) {
+            $this->logHandlerFailure($code, $throwable);
+
             return;
         }
 
         $this->agentRepository->markRan((int) $agentRow['id'], DateTime::now());
+    }
+
+    /**
+     * Пишет падение обработчика.
+     *
+     * @param string $code Код агента.
+     * @param Throwable $throwable Ошибка run.
+     *
+     * @return void
+     */
+    private function logHandlerFailure(string $code, Throwable $throwable): void
+    {
+        $context = [
+            'source' => $code,
+            'class' => $throwable::class,
+            'message' => $throwable->getMessage(),
+        ];
+        if ($throwable instanceof MifrialException) {
+            $context['errorCode'] = $throwable->getErrorCode();
+        }
+
+        $this->logger->error('Agent handler failed', $context);
     }
 
     /**

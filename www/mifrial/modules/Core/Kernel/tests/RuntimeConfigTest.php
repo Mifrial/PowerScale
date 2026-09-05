@@ -44,6 +44,52 @@ final class RuntimeConfigTest extends TestCase
     }
 
     /**
+     * Проверяет, что load() берёт config/{MIFRIAL_CONFIG}.php.
+     *
+     * @return void
+     */
+    public function testLoadReadsNamedConfigFile(): void
+    {
+        $root = sys_get_temp_dir() . '/mifrial-config-' . bin2hex(random_bytes(4));
+        mkdir($root . '/config', 0777, true);
+        file_put_contents($root . '/config/local.php', '<?php return ["debug" => false, "marker" => "local"];');
+        file_put_contents($root . '/config/test.php', '<?php return ["debug" => true, "marker" => "test"];');
+
+        $previous = getenv('MIFRIAL_CONFIG');
+        putenv('MIFRIAL_CONFIG=test');
+        try {
+            $config = (new LocalConfigLoader())->load($root);
+        } finally {
+            $this->restoreMifrialConfig($previous);
+        }
+
+        self::assertSame('test', $config['marker']);
+        self::assertTrue($config['debug']);
+    }
+
+    /**
+     * Проверяет, что кривое имя MIFRIAL_CONFIG даёт local.php.
+     *
+     * @return void
+     */
+    public function testLoadRejectsUnsafeConfigName(): void
+    {
+        $root = sys_get_temp_dir() . '/mifrial-config-' . bin2hex(random_bytes(4));
+        mkdir($root . '/config', 0777, true);
+        file_put_contents($root . '/config/local.php', '<?php return ["debug" => false, "marker" => "local"];');
+
+        $previous = getenv('MIFRIAL_CONFIG');
+        putenv('MIFRIAL_CONFIG=../x');
+        try {
+            $config = (new LocalConfigLoader())->load($root);
+        } finally {
+            $this->restoreMifrialConfig($previous);
+        }
+
+        self::assertSame('local', $config['marker']);
+    }
+
+    /**
      * Проверяет снимок без ключа db.
      *
      * @return void
@@ -135,5 +181,23 @@ final class RuntimeConfigTest extends TestCase
         file_put_contents($configPath, $contents);
 
         return $configPath;
+    }
+
+    /**
+     * Возвращает MIFRIAL_CONFIG как было.
+     *
+     * @param string|false $previous Прежнее getenv.
+     *
+     * @return void
+     */
+    private function restoreMifrialConfig(string|false $previous): void
+    {
+        if ($previous === false) {
+            putenv('MIFRIAL_CONFIG');
+
+            return;
+        }
+
+        putenv('MIFRIAL_CONFIG=' . $previous);
     }
 }

@@ -53,7 +53,7 @@
 |---|---|
 | `ensureAgent(code, intervalSec)` | Нет строки → insert; есть → не трогать interval/active (идемпотентный seed) |
 | `bindHandler(code, handler)` | Память процесса: `IAgentHandler::run(): void`. Повтор того же code — замена |
-| `tick()` | Due и `active`; страницы `getList` по 500; неизвестный code без handler — пропуск, `last_run_at` **не** двигать. Лог — когда будет модуль Logger. |
+| `tick()` | Due и `active`; страницы `getList` по 500; неизвестный code без handler — пропуск, `last_run_at` **не** двигать, `ILogger::warning`. Исключение handler — `ILogger::error`, last_run не двигать. |
 
 Due **в PHP** после `getList` `active=true` страницами 500: у каждой строки свой `interval_sec`, фильтр ST не выражает «`last_run_at` + колонка интервала ≤ now». Due: `last_run_at === null` или `last_run_at + interval_sec <= now`. После **успешного** `run()` — `last_run_at = now`. Исключение обработчика: тик остальных продолжить; `last_run_at` не двигать.
 
@@ -93,7 +93,7 @@ HTTP этот файл не вызывает. `loadCore()` агентов не �
 
 ## Не входит
 
-Почта и SMTP. Админка агентов. HTTP `agent.*`. Хранение PHP в БД. Демон. Параллельные тики (два cron) — без блокировки в v1. Vue. Лог missing handler / exception тика — когда появится модуль Logger; до тех пор тик молча пропускает (last_run не двигаем).
+Почта и SMTP. Админка агентов. HTTP `agent.*`. Хранение PHP в БД. Демон. Параллельные тики (два cron) — без блокировки в v1. Vue.
 
 ## Документы захода
 
