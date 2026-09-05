@@ -52,6 +52,15 @@ export class DateTime {
   }
 
   /**
+   * Собирает значение времени из unix-секунд UTC.
+   *
+   * @param unix Секунды с эпохи.
+   */
+  static fromUnix(unix: number): DateTime {
+    return new DateTime(new Date(unix * 1000).toISOString());
+  }
+
+  /**
    * Форматирует давность по ISO-строке.
    *
    * @param iso Момент времени в ISO-8601.

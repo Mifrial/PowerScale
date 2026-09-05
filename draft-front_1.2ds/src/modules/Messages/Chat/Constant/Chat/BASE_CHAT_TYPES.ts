@@ -7,6 +7,6 @@ const GROUP_ROLES = [
 ];
 
 export const BASE_CHAT_TYPES: IChatType[] = [
-  { type: 'private', icon: 'mdi-account', color: 'primary' },
+  { type: 'private', icon: 'mdi-account', color: 'primary', supportsVisibility: true },
   { type: 'group', icon: 'mdi-account-group', color: 'success', roles: GROUP_ROLES, supportsVisibility: true },
 ];

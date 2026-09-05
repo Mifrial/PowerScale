@@ -8,7 +8,7 @@ export interface Chat {
   unreadCount: number;
   lastReadMessageId: number | null;
   lastMessage?: string;
-  lastMessageAt: string;
+  lastMessageAt: number;
   members: MemberInfo[];
   visibility?: ChatVisibility;
 }

@@ -10,8 +10,8 @@ export interface ChatMessage {
   username: string;
   content: string;
   attachments: ChatAttachment[];
-  createdAt: string;
-  updatedAt: string;
+  createdAt: number;
+  updatedAt: number;
   /** «От лица кого» (игровой чат): персонаж/НПС/ведущий. Отсутствует в обычных чатах. */
   speaker?: ChatSpeaker;
   /** Системное уведомление (рендерится разделителем, не карточкой). `default` — напр. «Ходит Имя»; `highlighted` — акцентное (цветом primary). */

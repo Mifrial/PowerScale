@@ -11,6 +11,68 @@ import { currentUserSessionService } from '@/modules/Core/User/init';
 import type { IChatApi } from '@/modules/Messages/Chat/Interface/IChatApi';
 import type { Chat } from '@/modules/Messages/Chat/Dto/Chat';
 import type { ChatMessage } from '@/modules/Messages/Chat/Dto/ChatMessage';
+import { PAGE_SIZE } from '@/modules/Messages/Chat/Constant/Chat/PAGE_SIZE';
+
+function stubChatApi(overrides: Partial<IChatApi> = {}): IChatApi {
+  const api: IChatApi = {
+    getChats: async () => [],
+    getMessages: async () => [],
+    getMessagesBefore: async () => [],
+    getTotalMessageCount: async () => 0,
+    findMessagePage: async (chatId, limit, offset) => ({
+      items: await api.getMessages(chatId, limit, offset),
+      total: await api.getTotalMessageCount(chatId),
+    }),
+    sendMessage: async () => ({
+      id: 999,
+      chatId: 1,
+      userId: 1,
+      username: 'U',
+      content: 'sent',
+      attachments: [],
+      createdAt: 0,
+      updatedAt: 0,
+    }),
+    updateMessageVisibility: async (_chatId, messageId) => ({
+      id: messageId,
+      chatId: 1,
+      userId: 1,
+      username: 'U',
+      content: 'updated',
+      attachments: [],
+      createdAt: 0,
+      updatedAt: 0,
+    }),
+    sendSystemMessage: async () => ({
+      id: 998,
+      chatId: 1,
+      userId: 2,
+      username: 'Система',
+      content: 'Ходит X',
+      attachments: [],
+      createdAt: 0,
+      updatedAt: 0,
+      kind: 'default',
+    }),
+    markChatRead: async () => {},
+    addPrivate: async () => {
+      throw new Error('addPrivate not stubbed');
+    },
+    addGroup: async () => {
+      throw new Error('addGroup not stubbed');
+    },
+    sync: async () => ({ now: 0, afterId: 0, chats: [], newChats: [], messages: {} }),
+    ...overrides,
+  };
+  if (overrides.findMessagePage === undefined) {
+    api.findMessagePage = async (chatId, limit, offset) => ({
+      items: await api.getMessages(chatId, limit, offset),
+      total: await api.getTotalMessageCount(chatId),
+    });
+  }
+
+  return api;
+}
 
 beforeEach(() => {
   setActivePinia(createPinia());
@@ -37,6 +99,29 @@ describe('chat store', () => {
     expect(store.chats.length).toBeGreaterThan(0);
     expect(store.chats[0]).toHaveProperty('id');
     expect(store.chats[0]).toHaveProperty('name');
+  });
+
+  it('addPrivate upserts chat and opens it', async () => {
+    await mockLogin('admin', 'test');
+    const created: Chat = {
+      id: 42,
+      type: 'private',
+      name: '',
+      unreadCount: 0,
+      lastReadMessageId: null,
+      lastMessageAt: 1,
+      members: [],
+    };
+    registerChatApi(
+      stubChatApi({
+        addPrivate: async () => created,
+      }),
+    );
+    const store = useChatStore();
+    const ok = await store.addPrivate(3);
+    expect(ok).toBe(true);
+    expect(store.chats.map((item) => item.id)).toContain(42);
+    expect(store.activeChatId).toBe(42);
   });
 
   it('openChat sets activeChatId and loads messages', async () => {
@@ -99,19 +184,15 @@ describe('chat store', () => {
     store.stopSync();
   });
 
-  it('lastSyncTimestamp updates after sync', async () => {
+  it('lastSyncCursor updates after sync', async () => {
     const store = useChatStore();
     store.startSync();
-    const before = store.lastSyncTimestamp;
-    expect(before).toBe('');
+    expect(store.lastSyncCursor).toBeNull();
 
     await store.fetchChats();
-    if (store.chats.length > 0) {
-      const api = mockChatApi;
-      const res = await api.sync('');
-      expect(res.now).toBeTruthy();
-      expect(typeof res.now).toBe('string');
-    }
+    const res = await mockChatApi.sync(0);
+    expect(typeof res.now).toBe('number');
+    expect(typeof res.afterId).toBe('number');
     store.stopSync();
   });
 
@@ -143,7 +224,7 @@ describe('chat store', () => {
     }
 
     function makeMsg(id: number, chatId: number, content: string): ChatMessage {
-      return { id, chatId, userId: 1, username: 'U', content, attachments: [], createdAt: '', updatedAt: '' };
+      return { id, chatId, userId: 1, username: 'U', content, attachments: [], createdAt: 0, updatedAt: 0 };
     }
 
     it('openChat race: late response for A does not overwrite B', async () => {
@@ -152,7 +233,7 @@ describe('chat store', () => {
       const bMsgs = deferred<ChatMessage[]>();
       const bTotal = deferred<number>();
 
-      const fakeApi: IChatApi = {
+      const fakeApi = stubChatApi({
         getChats: async () => [],
         getMessages: (chatId) => (chatId === 1 ? aMsgs.promise : bMsgs.promise),
         getMessagesBefore: async () => [],
@@ -166,13 +247,13 @@ describe('chat store', () => {
           username: 'Система',
           content: 'Ходит X',
           attachments: [],
-          createdAt: '',
-          updatedAt: '',
+          createdAt: 0,
+          updatedAt: 0,
           kind: 'default',
         }),
         markChatRead: async () => {},
-        sync: async () => ({ now: '', chats: [], newChats: [], messages: {} }),
-      };
+        sync: async () => ({ now: 0, afterId: 0, chats: [], newChats: [], messages: {} }),
+      });
       registerChatApi(fakeApi);
 
       const store = useChatStore();
@@ -204,7 +285,8 @@ describe('chat store', () => {
       const syncMsg = makeMsg(9999, otherChatId, 'sync-msg');
 
       store.applySyncResponse({
-        now: '2026-01-01T00:00:00',
+        now: 1,
+        afterId: 0,
         chats: [],
         newChats: [],
         messages: { [otherChatId]: [syncMsg] },
@@ -213,11 +295,33 @@ describe('chat store', () => {
       await store.openChat(otherChatId);
       expect(store.allMessages.find((m) => m.content === 'sync-msg')).toBeTruthy();
     });
+
+    it('sync upserts chat from chats when it is not in the list', () => {
+      const store = useChatStore();
+      store.applySyncResponse({
+        now: 1,
+        afterId: 0,
+        chats: [
+          {
+            id: 77,
+            type: 'group',
+            name: 'Новый',
+            unreadCount: 0,
+            lastReadMessageId: null,
+            lastMessageAt: 1,
+            members: [],
+          },
+        ],
+        newChats: [],
+        messages: {},
+      });
+      expect(store.chats.find((c) => c.id === 77)?.name).toBe('Новый');
+    });
   });
 
   describe('unread position (lastReadMessageId)', () => {
     function makeMsg(id: number, chatId: number, content: string): ChatMessage {
-      return { id, chatId, userId: 1, username: 'U', content, attachments: [], createdAt: '', updatedAt: '' };
+      return { id, chatId, userId: 1, username: 'U', content, attachments: [], createdAt: 0, updatedAt: 0 };
     }
 
     function chat(id: number, unreadCount: number, lastReadMessageId: number | null): Chat {
@@ -227,14 +331,14 @@ describe('chat store', () => {
         name: `Chat ${id}`,
         unreadCount,
         lastReadMessageId,
-        lastMessageAt: '2026-07-27T00:00:00',
+        lastMessageAt: 1753574400,
         members: [],
       };
     }
 
     it('openChat marks read and advances lastReadMessageId to newest loaded message', async () => {
       let marked = false;
-      const fakeApi: IChatApi = {
+      const fakeApi = stubChatApi({
         getChats: async () => [chat(1, 3, 2)],
         getMessages: async () => [makeMsg(1, 1, 'A'), makeMsg(2, 1, 'B'), makeMsg(3, 1, 'C'), makeMsg(4, 1, 'D')],
         getMessagesBefore: async () => [],
@@ -248,15 +352,15 @@ describe('chat store', () => {
           username: 'Система',
           content: 'Ходит X',
           attachments: [],
-          createdAt: '',
-          updatedAt: '',
+          createdAt: 0,
+          updatedAt: 0,
           kind: 'default',
         }),
         markChatRead: async () => {
           marked = true;
         },
-        sync: async () => ({ now: '', chats: [], newChats: [], messages: {} }),
-      };
+        sync: async () => ({ now: 0, afterId: 0, chats: [], newChats: [], messages: {} }),
+      });
       registerChatApi(fakeApi);
 
       const store = useChatStore();
@@ -270,7 +374,7 @@ describe('chat store', () => {
     });
 
     it('firstUnreadMessageId points to first message after lastReadMessageId', async () => {
-      const fakeApi: IChatApi = {
+      const fakeApi = stubChatApi({
         getChats: async () => [chat(1, 0, 2)],
         getMessages: async () => [makeMsg(1, 1, 'A'), makeMsg(2, 1, 'B'), makeMsg(3, 1, 'C'), makeMsg(4, 1, 'D')],
         getMessagesBefore: async () => [],
@@ -284,13 +388,13 @@ describe('chat store', () => {
           username: 'Система',
           content: 'Ходит X',
           attachments: [],
-          createdAt: '',
-          updatedAt: '',
+          createdAt: 0,
+          updatedAt: 0,
           kind: 'default',
         }),
         markChatRead: async () => {},
-        sync: async () => ({ now: '', chats: [], newChats: [], messages: {} }),
-      };
+        sync: async () => ({ now: 0, afterId: 0, chats: [], newChats: [], messages: {} }),
+      });
       registerChatApi(fakeApi);
 
       const store = useChatStore();
@@ -300,7 +404,8 @@ describe('chat store', () => {
 
       const syncMsg = makeMsg(5, 1, 'E');
       store.applySyncResponse({
-        now: '2026-01-01T00:00:00',
+        now: 1,
+        afterId: 0,
         chats: [{ ...store.activeChat!, unreadCount: 1 }],
         newChats: [],
         messages: { 1: [syncMsg] },
@@ -310,7 +415,7 @@ describe('chat store', () => {
     });
 
     it('sync with autoScroll on reads active chat and clears divider', async () => {
-      const fakeApi: IChatApi = {
+      const fakeApi = stubChatApi({
         getChats: async () => [chat(1, 0, 2)],
         getMessages: async () => [makeMsg(1, 1, 'A'), makeMsg(2, 1, 'B'), makeMsg(3, 1, 'C'), makeMsg(4, 1, 'D')],
         getMessagesBefore: async () => [],
@@ -324,13 +429,13 @@ describe('chat store', () => {
           username: 'Система',
           content: 'Ходит X',
           attachments: [],
-          createdAt: '',
-          updatedAt: '',
+          createdAt: 0,
+          updatedAt: 0,
           kind: 'default',
         }),
         markChatRead: async () => {},
-        sync: async () => ({ now: '', chats: [], newChats: [], messages: {} }),
-      };
+        sync: async () => ({ now: 0, afterId: 0, chats: [], newChats: [], messages: {} }),
+      });
       registerChatApi(fakeApi);
 
       const store = useChatStore();
@@ -339,7 +444,8 @@ describe('chat store', () => {
 
       const syncMsg = makeMsg(5, 1, 'E');
       store.applySyncResponse({
-        now: '2026-01-01T00:00:00',
+        now: 1,
+        afterId: 0,
         chats: [{ ...store.activeChat!, unreadCount: 1 }],
         newChats: [],
         messages: { 1: [syncMsg] },
@@ -351,7 +457,7 @@ describe('chat store', () => {
     });
 
     it('sync merge не поднимает unread при меньшем lastRead с сервера', async () => {
-      const fakeApi: IChatApi = {
+      const fakeApi = stubChatApi({
         getChats: async () => [chat(1, 0, 2)],
         getMessages: async () => [makeMsg(1, 1, 'A'), makeMsg(2, 1, 'B'), makeMsg(3, 1, 'C'), makeMsg(4, 1, 'D')],
         getMessagesBefore: async () => [],
@@ -360,8 +466,8 @@ describe('chat store', () => {
         updateMessageVisibility: async (chatId, messageId) => makeMsg(messageId, chatId, 'updated'),
         sendSystemMessage: async () => makeMsg(998, 1, 'sys'),
         markChatRead: async () => {},
-        sync: async () => ({ now: '', chats: [], newChats: [], messages: {} }),
-      };
+        sync: async () => ({ now: 0, afterId: 0, chats: [], newChats: [], messages: {} }),
+      });
       registerChatApi(fakeApi);
 
       const store = useChatStore();
@@ -370,7 +476,8 @@ describe('chat store', () => {
       expect(store.activeChat!.lastReadMessageId).toBe(4);
 
       store.applySyncResponse({
-        now: '2026-01-01T00:00:00',
+        now: 1,
+        afterId: 0,
         chats: [{ ...store.activeChat!, unreadCount: 9, lastReadMessageId: 2 }],
         newChats: [],
         messages: {},
@@ -382,7 +489,7 @@ describe('chat store', () => {
 
     it('loadChat на initialized снова зовёт markChatRead', async () => {
       const markChatRead = vi.fn().mockResolvedValue(undefined);
-      const fakeApi: IChatApi = {
+      const fakeApi = stubChatApi({
         getChats: async () => [chat(1, 0, 2)],
         getMessages: async () => [makeMsg(1, 1, 'A'), makeMsg(2, 1, 'B')],
         getMessagesBefore: async () => [],
@@ -391,8 +498,8 @@ describe('chat store', () => {
         updateMessageVisibility: async (chatId, messageId) => makeMsg(messageId, chatId, 'updated'),
         sendSystemMessage: async () => makeMsg(998, 1, 'sys'),
         markChatRead,
-        sync: async () => ({ now: '', chats: [], newChats: [], messages: {} }),
-      };
+        sync: async () => ({ now: 0, afterId: 0, chats: [], newChats: [], messages: {} }),
+      });
       registerChatApi(fakeApi);
 
       const store = useChatStore();
@@ -406,7 +513,7 @@ describe('chat store', () => {
     it('reject markChatRead → retrying и повтор после backoff', async () => {
       vi.useFakeTimers();
       const markChatRead = vi.fn().mockRejectedValue(new Error('сеть'));
-      const fakeApi: IChatApi = {
+      const fakeApi = stubChatApi({
         getChats: async () => [chat(1, 0, 2)],
         getMessages: async () => [makeMsg(1, 1, 'A')],
         getMessagesBefore: async () => [],
@@ -415,8 +522,8 @@ describe('chat store', () => {
         updateMessageVisibility: async (chatId, messageId) => makeMsg(messageId, chatId, 'updated'),
         sendSystemMessage: async () => makeMsg(998, 1, 'sys'),
         markChatRead,
-        sync: async () => ({ now: '', chats: [], newChats: [], messages: {} }),
-      };
+        sync: async () => ({ now: 0, afterId: 0, chats: [], newChats: [], messages: {} }),
+      });
       registerChatApi(fakeApi);
 
       const store = useChatStore();
@@ -437,7 +544,7 @@ describe('chat store', () => {
 
   describe('history loading and storage limits', () => {
     function makeMsg(id: number, chatId: number, content: string): ChatMessage {
-      return { id, chatId, userId: 1, username: 'U', content, attachments: [], createdAt: '', updatedAt: '' };
+      return { id, chatId, userId: 1, username: 'U', content, attachments: [], createdAt: 0, updatedAt: 0 };
     }
 
     function chat(id: number): Chat {
@@ -447,13 +554,13 @@ describe('chat store', () => {
         name: `Chat ${id}`,
         unreadCount: 0,
         lastReadMessageId: null,
-        lastMessageAt: '2026-07-27T00:00:00',
+        lastMessageAt: 1753574400,
         members: [],
       };
     }
 
     it('P2-3: openChat loads history when state was created by sync', async () => {
-      const fakeApi: IChatApi = {
+      const fakeApi = stubChatApi({
         getChats: async () => [chat(1)],
         getMessages: async () => [makeMsg(1, 1, 'A'), makeMsg(2, 1, 'B'), makeMsg(3, 1, 'C'), makeMsg(4, 1, 'D')],
         getMessagesBefore: async () => [],
@@ -467,13 +574,13 @@ describe('chat store', () => {
           username: 'Система',
           content: 'Ходит X',
           attachments: [],
-          createdAt: '',
-          updatedAt: '',
+          createdAt: 0,
+          updatedAt: 0,
           kind: 'default',
         }),
         markChatRead: async () => {},
-        sync: async () => ({ now: '', chats: [], newChats: [], messages: {} }),
-      };
+        sync: async () => ({ now: 0, afterId: 0, chats: [], newChats: [], messages: {} }),
+      });
       registerChatApi(fakeApi);
 
       const store = useChatStore();
@@ -481,7 +588,8 @@ describe('chat store', () => {
 
       // sync создаёт state без открытия
       store.applySyncResponse({
-        now: '2026-01-01T00:00:00',
+        now: 1,
+        afterId: 0,
         chats: [],
         newChats: [],
         messages: { 1: [makeMsg(5, 1, 'E')] },
@@ -493,7 +601,7 @@ describe('chat store', () => {
     });
 
     it('P2-3: openChat does not reload an already initialized chat', async () => {
-      const fakeApi: IChatApi = {
+      const fakeApi = stubChatApi({
         getChats: async () => [chat(1)],
         getMessages: async () => [makeMsg(1, 1, 'A'), makeMsg(2, 1, 'B')],
         getMessagesBefore: async () => [],
@@ -507,13 +615,13 @@ describe('chat store', () => {
           username: 'Система',
           content: 'Ходит X',
           attachments: [],
-          createdAt: '',
-          updatedAt: '',
+          createdAt: 0,
+          updatedAt: 0,
           kind: 'default',
         }),
         markChatRead: async () => {},
-        sync: async () => ({ now: '', chats: [], newChats: [], messages: {} }),
-      };
+        sync: async () => ({ now: 0, afterId: 0, chats: [], newChats: [], messages: {} }),
+      });
       registerChatApi(fakeApi);
 
       const store = useChatStore();
@@ -522,7 +630,8 @@ describe('chat store', () => {
 
       // Повторное открытие того же чата не должно заново грузить историю
       store.applySyncResponse({
-        now: '2026-01-01T00:00:00',
+        now: 1,
+        afterId: 0,
         chats: [],
         newChats: [],
         messages: { 1: [makeMsg(3, 1, 'F')] },
@@ -532,7 +641,7 @@ describe('chat store', () => {
     });
 
     it('P2-2: sync caps inactive chat messages to MAX_STORED', async () => {
-      const fakeApi: IChatApi = {
+      const fakeApi = stubChatApi({
         getChats: async () => [chat(1), chat(2)],
         getMessages: async () => [],
         getMessagesBefore: async () => [],
@@ -546,13 +655,13 @@ describe('chat store', () => {
           username: 'Система',
           content: 'Ходит X',
           attachments: [],
-          createdAt: '',
-          updatedAt: '',
+          createdAt: 0,
+          updatedAt: 0,
           kind: 'default',
         }),
         markChatRead: async () => {},
-        sync: async () => ({ now: '', chats: [], newChats: [], messages: {} }),
-      };
+        sync: async () => ({ now: 0, afterId: 0, chats: [], newChats: [], messages: {} }),
+      });
       registerChatApi(fakeApi);
 
       const store = useChatStore();
@@ -561,7 +670,8 @@ describe('chat store', () => {
 
       const manyMsgs = Array.from({ length: 600 }, (_, i) => makeMsg(i + 1, 2, `m${i}`));
       store.applySyncResponse({
-        now: '2026-01-01T00:00:00',
+        now: 1,
+        afterId: 0,
         chats: [],
         newChats: [],
         messages: { 2: manyMsgs },
@@ -572,7 +682,7 @@ describe('chat store', () => {
     });
 
     it('P2-4: fetchChats sets chatsError on failure', async () => {
-      const failingApi: IChatApi = {
+      const failingApi = stubChatApi({
         getChats: async () => {
           throw new Error('boom');
         },
@@ -588,13 +698,13 @@ describe('chat store', () => {
           username: 'Система',
           content: 'Ходит X',
           attachments: [],
-          createdAt: '',
-          updatedAt: '',
+          createdAt: 0,
+          updatedAt: 0,
           kind: 'default',
         }),
         markChatRead: async () => {},
-        sync: async () => ({ now: '', chats: [], newChats: [], messages: {} }),
-      };
+        sync: async () => ({ now: 0, afterId: 0, chats: [], newChats: [], messages: {} }),
+      });
       registerChatApi(failingApi);
 
       const store = useChatStore();
@@ -604,7 +714,7 @@ describe('chat store', () => {
     });
 
     it('P2-4: openChat sets chatError on failure', async () => {
-      const failingApi: IChatApi = {
+      const failingApi = stubChatApi({
         getChats: async () => [chat(1)],
         getMessages: async () => {
           throw new Error('boom');
@@ -620,13 +730,13 @@ describe('chat store', () => {
           username: 'Система',
           content: 'Ходит X',
           attachments: [],
-          createdAt: '',
-          updatedAt: '',
+          createdAt: 0,
+          updatedAt: 0,
           kind: 'default',
         }),
         markChatRead: async () => {},
-        sync: async () => ({ now: '', chats: [], newChats: [], messages: {} }),
-      };
+        sync: async () => ({ now: 0, afterId: 0, chats: [], newChats: [], messages: {} }),
+      });
       registerChatApi(failingApi);
 
       const store = useChatStore();
@@ -637,7 +747,7 @@ describe('chat store', () => {
     });
 
     it('P2-4: sendMessage sets actionError on failure', async () => {
-      const failingApi: IChatApi = {
+      const failingApi = stubChatApi({
         getChats: async () => [chat(1)],
         getMessages: async () => [makeMsg(1, 1, 'A')],
         getMessagesBefore: async () => [],
@@ -653,13 +763,13 @@ describe('chat store', () => {
           username: 'Система',
           content: 'Ходит X',
           attachments: [],
-          createdAt: '',
-          updatedAt: '',
+          createdAt: 0,
+          updatedAt: 0,
           kind: 'default',
         }),
         markChatRead: async () => {},
-        sync: async () => ({ now: '', chats: [], newChats: [], messages: {} }),
-      };
+        sync: async () => ({ now: 0, afterId: 0, chats: [], newChats: [], messages: {} }),
+      });
       registerChatApi(failingApi);
 
       const store = useChatStore();
@@ -672,9 +782,9 @@ describe('chat store', () => {
     });
   });
 
-  describe('loadOlderMessages (id cursor)', () => {
+  describe('loadOlderMessages (offset page)', () => {
     function makeMsg(id: number, chatId: number, content: string): ChatMessage {
-      return { id, chatId, userId: 1, username: 'U', content, attachments: [], createdAt: '', updatedAt: '' };
+      return { id, chatId, userId: 1, username: 'U', content, attachments: [], createdAt: 0, updatedAt: 0 };
     }
 
     function chat(id: number): Chat {
@@ -684,38 +794,26 @@ describe('chat store', () => {
         name: `Chat ${id}`,
         unreadCount: 0,
         lastReadMessageId: null,
-        lastMessageAt: '2026-07-27T00:00:00',
+        lastMessageAt: 1753574400,
         members: [],
       };
     }
 
-    it('appends older messages and keeps hasMore true while new unique ids arrive', async () => {
-      let beforeId = 0;
-      const fakeApi: IChatApi = {
-        getChats: async () => [chat(1)],
-        getMessages: async () => [makeMsg(3, 1, 'C'), makeMsg(4, 1, 'D')],
-        getMessagesBefore: async (_cid, bId) => {
-          beforeId = bId;
+    function firstPage(): ChatMessage[] {
+      return Array.from({ length: PAGE_SIZE }, (_, i) => makeMsg(100 + i, 1, `n${i}`));
+    }
 
-          return [makeMsg(1, 1, 'A'), makeMsg(2, 1, 'B')];
+    it('догружает старше по offset = loadedCount', async () => {
+      let olderOffset = -1;
+      const fakeApi = stubChatApi({
+        getChats: async () => [chat(1)],
+        findMessagePage: async (_chatId, _limit, offset) => {
+          if (offset === 0) return { items: firstPage(), total: PAGE_SIZE + 2 };
+          olderOffset = offset;
+
+          return { items: [makeMsg(1, 1, 'A'), makeMsg(2, 1, 'B')], total: PAGE_SIZE + 2 };
         },
-        getTotalMessageCount: async () => 4,
-        sendMessage: async () => makeMsg(99, 1, 'sent'),
-        updateMessageVisibility: async (chatId, messageId) => makeMsg(messageId, chatId, 'updated'),
-        sendSystemMessage: async () => ({
-          id: 998,
-          chatId: 1,
-          userId: 2,
-          username: 'Система',
-          content: 'Ходит X',
-          attachments: [],
-          createdAt: '',
-          updatedAt: '',
-          kind: 'default',
-        }),
-        markChatRead: async () => {},
-        sync: async () => ({ now: '', chats: [], newChats: [], messages: {} }),
-      };
+      });
       registerChatApi(fakeApi);
 
       const store = useChatStore();
@@ -724,32 +822,20 @@ describe('chat store', () => {
 
       expect(store.hasMoreOlder).toBe(true);
       await store.loadOlderMessages();
-      expect(beforeId).toBe(3);
-      expect(store.allMessages.map((m) => m.content)).toEqual(['A', 'B', 'C', 'D']);
+      expect(olderOffset).toBe(PAGE_SIZE);
+      expect(store.allMessages.map((m) => m.content)).toEqual(['A', 'B', ...firstPage().map((m) => m.content)]);
     });
 
-    it('sets hasMore false when no new unique messages are added', async () => {
-      const fakeApi: IChatApi = {
+    it('короткая повторная страница без новых id — конец истории', async () => {
+      const page = firstPage();
+      const fakeApi = stubChatApi({
         getChats: async () => [chat(1)],
-        getMessages: async () => [makeMsg(1, 1, 'A'), makeMsg(2, 1, 'B')],
-        getMessagesBefore: async () => [makeMsg(1, 1, 'A'), makeMsg(2, 1, 'B')],
-        getTotalMessageCount: async () => 4,
-        sendMessage: async () => makeMsg(99, 1, 'sent'),
-        updateMessageVisibility: async (chatId, messageId) => makeMsg(messageId, chatId, 'updated'),
-        sendSystemMessage: async () => ({
-          id: 998,
-          chatId: 1,
-          userId: 2,
-          username: 'Система',
-          content: 'Ходит X',
-          attachments: [],
-          createdAt: '',
-          updatedAt: '',
-          kind: 'default',
-        }),
-        markChatRead: async () => {},
-        sync: async () => ({ now: '', chats: [], newChats: [], messages: {} }),
-      };
+        findMessagePage: async (_chatId, _limit, offset) => {
+          if (offset === 0) return { items: page, total: PAGE_SIZE + 10 };
+
+          return { items: page, total: PAGE_SIZE + 10 };
+        },
+      });
       registerChatApi(fakeApi);
 
       const store = useChatStore();
@@ -758,37 +844,22 @@ describe('chat store', () => {
 
       expect(store.hasMoreOlder).toBe(true);
       await store.loadOlderMessages();
-      // Повтор страницы вернул только уже загруженные id — курсор-терминатор останавливает историю.
       expect(store.hasMoreOlder).toBe(false);
-      expect(store.allMessages.map((m) => m.content)).toEqual(['A', 'B']);
+      expect(store.allMessages.map((m) => m.content)).toEqual(page.map((m) => m.content));
     });
 
     it('ошибка догрузки — olderError, лента на месте, retry повторяет запрос', async () => {
-      const getMessagesBefore = vi
-        .fn()
-        .mockRejectedValueOnce(new Error('сеть'))
-        .mockResolvedValueOnce([makeMsg(1, 1, 'A'), makeMsg(2, 1, 'B')]);
-      const fakeApi: IChatApi = {
+      let olderCalls = 0;
+      const fakeApi = stubChatApi({
         getChats: async () => [chat(1)],
-        getMessages: async () => [makeMsg(3, 1, 'C')],
-        getMessagesBefore,
-        getTotalMessageCount: async () => 4,
-        sendMessage: async () => makeMsg(99, 1, 'sent'),
-        updateMessageVisibility: async (chatId, messageId) => makeMsg(messageId, chatId, 'updated'),
-        sendSystemMessage: async () => ({
-          id: 998,
-          chatId: 1,
-          userId: 2,
-          username: 'Система',
-          content: 'Ходит X',
-          attachments: [],
-          createdAt: '',
-          updatedAt: '',
-          kind: 'default',
-        }),
-        markChatRead: async () => {},
-        sync: async () => ({ now: '', chats: [], newChats: [], messages: {} }),
-      };
+        findMessagePage: async (_chatId, _limit, offset) => {
+          if (offset === 0) return { items: firstPage(), total: PAGE_SIZE + 2 };
+          olderCalls += 1;
+          if (olderCalls === 1) throw new Error('сеть');
+
+          return { items: [makeMsg(1, 1, 'A'), makeMsg(2, 1, 'B')], total: PAGE_SIZE + 2 };
+        },
+      });
       registerChatApi(fakeApi);
 
       const store = useChatStore();
@@ -798,12 +869,12 @@ describe('chat store', () => {
       await store.loadOlderMessages();
       expect(store.olderError).toBe('сеть');
       expect(store.chatError).toBe('');
-      expect(store.allMessages.map((m) => m.content)).toEqual(['C']);
+      expect(store.allMessages.map((m) => m.content)).toEqual(firstPage().map((m) => m.content));
       expect(store.hasMoreOlder).toBe(true);
 
       await store.loadOlderMessages();
       expect(store.olderError).toBe('');
-      expect(store.allMessages.map((m) => m.content)).toEqual(['A', 'B', 'C']);
+      expect(store.allMessages.map((m) => m.content)).toEqual(['A', 'B', ...firstPage().map((m) => m.content)]);
     });
   });
 
@@ -862,13 +933,13 @@ describe('chat store', () => {
         name,
         unreadCount: 0,
         lastReadMessageId: null,
-        lastMessageAt: '2026-07-27T00:00:00',
-        members: memberIds.map((userId) => ({ userId, status: 'member', joinedAt: '2026-07-01T00:00:00' })),
+        lastMessageAt: 1753574400,
+        members: memberIds.map((userId) => ({ userId, status: 'member', joinedAt: 1751328000 })),
       };
     }
 
     function chatApi(chats: Chat[]): IChatApi {
-      return {
+      return stubChatApi({
         getChats: async () => chats,
         getMessages: async () => [],
         getMessagesBefore: async () => [],
@@ -880,8 +951,8 @@ describe('chat store', () => {
           username: 'A',
           content: 'sent',
           attachments: [],
-          createdAt: '',
-          updatedAt: '',
+          createdAt: 0,
+          updatedAt: 0,
         }),
         sendMessage: async () => ({
           id: 999,
@@ -890,8 +961,8 @@ describe('chat store', () => {
           username: 'A',
           content: 'sent',
           attachments: [],
-          createdAt: '',
-          updatedAt: '',
+          createdAt: 0,
+          updatedAt: 0,
         }),
         sendSystemMessage: async () => ({
           id: 998,
@@ -900,13 +971,13 @@ describe('chat store', () => {
           username: 'Система',
           content: 'Ходит X',
           attachments: [],
-          createdAt: '',
-          updatedAt: '',
+          createdAt: 0,
+          updatedAt: 0,
           kind: 'default',
         }),
         markChatRead: async () => {},
-        sync: async () => ({ now: '', chats: [], newChats: [], messages: {} }),
-      };
+        sync: async () => ({ now: 0, afterId: 0, chats: [], newChats: [], messages: {} }),
+      });
     }
 
     it('tab «Обсуждения персонажей» shows only chats where the user participates', async () => {

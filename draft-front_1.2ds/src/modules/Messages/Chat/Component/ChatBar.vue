@@ -20,6 +20,17 @@ function handleChatClick(id: number) {
 <template>
   <v-navigation-drawer location="right" permanent width="56" class="chat-bar">
     <div class="d-flex flex-column align-center py-3 ga-3">
+      <v-btn
+        variant="text"
+        size="small"
+        icon
+        class="flex-shrink-0"
+        title="Мессенджер"
+        aria-label="Мессенджер"
+        @click="emit('open-chat', 0)"
+      >
+        <v-icon size="small">mdi-message-text</v-icon>
+      </v-btn>
       <template v-for="ch in recentChats" :key="ch.id">
         <v-btn
           variant="text"

@@ -2,13 +2,22 @@ import type { IChatApi } from '@/modules/Messages/Chat/Interface/IChatApi';
 import type { Engine } from '@/modules/Core/Engine/Service/Engine';
 import type { Chat } from '@/modules/Messages/Chat/Dto/Chat';
 import type { ChatMessage } from '@/modules/Messages/Chat/Dto/ChatMessage';
+import type { ChatMessagePage } from '@/modules/Messages/Chat/Dto/ChatMessagePage';
 import type { SyncResponse } from '@/modules/Messages/Chat/Dto/SyncResponse';
 import type { ChatAttachment } from '@/modules/Messages/Chat/Dto/ChatAttachment';
 import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
 import type { ChatMessageVisibility } from '@/modules/Messages/Chat/Dto/ChatMessageVisibility';
 import type { ChatThreadRef } from '@/modules/Messages/Chat/Dto/ChatThreadRef';
 
+/**
+ * Real Chat: action и страница; SSE не через runAction.
+ */
 export class ChatApi implements IChatApi {
+  /**
+   * Сохраняет Engine для HTTP action.
+   *
+   * @param engine Фасад HTTP.
+   */
   constructor(private readonly engine: Engine) {}
 
   async getChats(): Promise<Chat[]> {
@@ -18,43 +27,36 @@ export class ChatApi implements IChatApi {
     return res.data;
   }
 
-  async getMessages(chatId: number, limit: number, offset: number): Promise<ChatMessage[]> {
-    const res = await this.engine.runAction<ChatMessage[]>('chat.getMessages', { chatId, limit, offset });
+  async findMessagePage(chatId: number, limit: number, offset: number): Promise<ChatMessagePage> {
+    const res = await this.engine.runAction<ChatMessagePage>('chat.findMessagePage', { chatId, limit, offset });
     if (!res.success || !res.data) throw new Error(res.error?.message ?? 'Failed to load messages');
 
     return res.data;
   }
 
-  async getMessagesBefore(chatId: number, beforeId: number, limit: number): Promise<ChatMessage[]> {
-    const res = await this.engine.runAction<ChatMessage[]>('chat.getMessages', { chatId, beforeId, limit });
-    if (!res.success || !res.data) throw new Error(res.error?.message ?? 'Failed to load messages');
+  async getMessages(chatId: number, limit: number, offset: number): Promise<ChatMessage[]> {
+    return (await this.findMessagePage(chatId, limit, offset)).items;
+  }
 
-    return res.data;
+  async getMessagesBefore(_chatId: number, _beforeId: number, _limit: number): Promise<ChatMessage[]> {
+    throw new Error('getMessagesBefore is not an action');
   }
 
   async getTotalMessageCount(chatId: number): Promise<number> {
-    const res = await this.engine.runAction<number>('chat.getTotalMessageCount', { chatId });
-    if (!res.success || res.data === null) throw new Error(res.error?.message ?? 'Failed to get message count');
-
-    return res.data;
+    return (await this.findMessagePage(chatId, 1, 0)).total;
   }
 
   async sendMessage(
     chatId: number,
     content: string,
     attachments: ChatAttachment[],
-    speaker?: ChatSpeaker,
+    _speaker?: ChatSpeaker,
     visibility?: ChatMessageVisibility,
-    thread?: ChatThreadRef,
+    _thread?: ChatThreadRef,
   ): Promise<ChatMessage> {
-    const res = await this.engine.runAction<ChatMessage>('chat.sendMessage', {
-      chatId,
-      content,
-      attachments,
-      speaker,
-      visibility,
-      thread,
-    });
+    const payload: Record<string, unknown> = { chatId, content, attachments };
+    if (visibility !== undefined) payload.visibility = visibility;
+    const res = await this.engine.runAction<ChatMessage>('chat.sendMessage', payload);
     if (!res.success || !res.data) throw new Error(res.error?.message ?? 'Failed to send message');
 
     return res.data;
@@ -65,31 +67,21 @@ export class ChatApi implements IChatApi {
     messageId: number,
     visibility?: ChatMessageVisibility,
   ): Promise<ChatMessage> {
-    const res = await this.engine.runAction<ChatMessage>('chat.updateMessageVisibility', {
-      chatId,
-      messageId,
-      visibility,
-    });
-    if (!res.success || !res.data) throw new Error(res.error?.message ?? 'Failed to update message visibility');
+    const payload: Record<string, unknown> = { chatId, messageId };
+    if (visibility !== undefined) payload.visibility = visibility;
+    const res = await this.engine.runAction<ChatMessage>('chat.updateMessageVisibility', payload);
+    if (!res.success || !res.data) throw new Error(res.error?.message ?? 'Failed to update visibility');
 
     return res.data;
   }
 
   async sendSystemMessage(
-    chatId: number,
-    content: string,
-    kind?: ChatMessage['kind'],
-    thread?: ChatThreadRef,
+    _chatId: number,
+    _content: string,
+    _kind?: ChatMessage['kind'],
+    _thread?: ChatThreadRef,
   ): Promise<ChatMessage> {
-    const res = await this.engine.runAction<ChatMessage>('chat.sendSystemMessage', {
-      chatId,
-      content,
-      kind,
-      thread,
-    });
-    if (!res.success || !res.data) throw new Error(res.error?.message ?? 'Failed to send system message');
-
-    return res.data;
+    throw new Error('chat.sendSystemMessage is not an action');
   }
 
   async markChatRead(chatId: number): Promise<void> {
@@ -97,10 +89,21 @@ export class ChatApi implements IChatApi {
     if (!res.success) throw new Error(res.error?.message ?? 'Failed to mark chat read');
   }
 
-  async sync(since: string): Promise<SyncResponse> {
-    const res = await this.engine.runAction<SyncResponse>('chat.sync', { since });
-    if (!res.success || !res.data) throw new Error(res.error?.message ?? 'Sync failed');
+  async addPrivate(userId: number): Promise<Chat> {
+    const res = await this.engine.runAction<Chat>('chat.addPrivate', { userId });
+    if (!res.success || !res.data) throw new Error(res.error?.message ?? 'Failed to create private chat');
 
     return res.data;
+  }
+
+  async addGroup(name: string, memberIds: number[] = []): Promise<Chat> {
+    const res = await this.engine.runAction<Chat>('chat.addGroup', { name, memberIds });
+    if (!res.success || !res.data) throw new Error(res.error?.message ?? 'Failed to create group chat');
+
+    return res.data;
+  }
+
+  async sync(_since: number): Promise<SyncResponse> {
+    throw new Error('chat.sync is not an action');
   }
 }

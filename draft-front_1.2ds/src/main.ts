@@ -55,7 +55,7 @@ async function registerApiLayer(): Promise<void> {
     registerCharacterApi(mockCharacterApi);
     registerCsrfApi(mockCsrfApi);
   } else {
-    const { HttpClient, Engine } = await import('@/modules/Core/Engine/init');
+    const { HttpClient, Engine, registerEngine } = await import('@/modules/Core/Engine/init');
     const { AuthApi } = await import('@/modules/Core/Auth/Service/AuthApi');
     const { ChatApi } = await import('@/modules/Messages/Chat/Service/ChatApi');
     const { NotificationApi } = await import('@/modules/Messages/Notifications/Service/NotificationApi');
@@ -77,6 +77,7 @@ async function registerApiLayer(): Promise<void> {
     const getCsrfToken = () => getCsrfApi().getToken();
     const http = new HttpClient({ baseUrl: import.meta.env.VITE_API_BASE_URL || '/api', getCsrfToken });
     const engine = new Engine(http);
+    registerEngine(engine);
     registerAuthApi(new AuthApi(engine));
     registerChatApi(new ChatApi(engine));
     registerNotificationApi(new NotificationApi(engine));

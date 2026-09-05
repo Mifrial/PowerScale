@@ -12,8 +12,8 @@ function msg(id: number, content: string, extra: Partial<ChatMessage> = {}): Cha
     username: 't',
     content,
     attachments: [],
-    createdAt: `2026-08-25T10:00:${String(id).padStart(2, '0')}Z`,
-    updatedAt: `2026-08-25T10:00:${String(id).padStart(2, '0')}Z`,
+    createdAt: id,
+    updatedAt: id,
     ...extra,
   };
 }

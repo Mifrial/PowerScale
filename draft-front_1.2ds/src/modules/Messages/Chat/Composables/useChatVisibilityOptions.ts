@@ -5,9 +5,9 @@ import { useChatUsers } from '@/modules/Messages/Chat/Composables/useChatUsers';
 import type { Chat } from '@/modules/Messages/Chat/Dto/Chat';
 
 /**
- * Опции видимости сообщений для хоста чата: выводятся из данных самого чата (роли типа +
- * участники), без провайдера. `allowVisibility` — по флагу типа (`supportsVisibility`),
- * роли/права инъектирует домен через `IChatType.roles`.
+ * Опции видимости для хоста чата: участники чата, без провайдера.
+ * `allowVisibility` — флаг типа (`supportsVisibility`). Host `private`/`group` не отдают
+ * роли в меню (`roleOptions: []`); Game по-прежнему инъектирует `IChatType.roles`.
  */
 export function useChatVisibilityOptions(chat: ComputedRef<Pick<Chat, 'type' | 'members'> | null>) {
   const chatUsers = useChatUsers();
@@ -18,9 +18,14 @@ export function useChatVisibilityOptions(chat: ComputedRef<Pick<Chat, 'type' | '
 
   const allowVisibility = computed(() => chatType.value?.supportsVisibility ?? false);
 
-  const roleOptions = computed(() =>
-    (chatType.value?.roles ?? []).map((role) => ({ code: role.code, label: role.label })),
-  );
+  const roleOptions = computed(() => {
+    const chatTypeName = chat.value?.type;
+    if (chatTypeName === 'private' || chatTypeName === 'group') {
+      return [];
+    }
+
+    return (chatType.value?.roles ?? []).map((role) => ({ code: role.code, label: role.label }));
+  });
 
   watch(
     () => chat.value?.members.map((member) => member.userId).join(',') ?? '',

@@ -15,6 +15,15 @@ class ServiceLocator {
   }
 
   /**
+   * Есть ли регистрация по коду.
+   *
+   * @param serviceCode Ключ регистрации.
+   */
+  has(serviceCode: string): boolean {
+    return this.services.has(serviceCode);
+  }
+
+  /**
    * Возвращает ранее зарегистрированный сервис.
    *
    * @param serviceCode Ключ регистрации.

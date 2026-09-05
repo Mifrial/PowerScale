@@ -133,7 +133,7 @@ function onAuthorClick(): void {
           :context="pluginContext"
         />
       </template>
-      <span class="text-caption text-disabled">{{ DateTime.formatTime(props.msg.createdAt) }}</span>
+      <span class="text-caption text-disabled">{{ DateTime.fromUnix(props.msg.createdAt).formatTime() }}</span>
     </div>
     <div v-if="props.msg.content" class="chat-msg-text">
       <template v-for="(seg, si) in segments" :key="si">

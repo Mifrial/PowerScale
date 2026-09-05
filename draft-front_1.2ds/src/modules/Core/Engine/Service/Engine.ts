@@ -1,14 +1,16 @@
 import type { HttpClient } from '@/modules/Core/Engine/Service/HttpClient';
 import type { ActionResponse } from '@/modules/Core/Engine/Dto/ActionResponse';
+import type { SseHandle } from '@/modules/Core/Engine/Dto/SseHandle';
+import type { SseHandlers } from '@/modules/Core/Engine/Dto/SseHandlers';
 
 /**
- * Фасад вызова серверных action через HTTP-клиент.
+ * Фасад вызова серверных action и живого GET-потока.
  */
 export class Engine {
   /**
-   * Сохраняет транспорт для запросов action.
+   * Сохраняет транспорт для запросов action и SSE.
    *
-   * @param http Клиент JSON POST.
+   * @param http Клиент JSON POST и GET SSE.
    */
   constructor(private readonly http: HttpClient) {}
 
@@ -30,5 +32,16 @@ export class Engine {
     const res = await this.http.post<ActionResponse<T>>(`/run?action=${encodeURIComponent(action)}`, payload, signal);
 
     return res.data;
+  }
+
+  /**
+   * Открывает SSE. Хендл сразу; отказы только в handlers.
+   *
+   * @param path Путь относительно baseUrl.
+   * @param query Ключи; 0 слать, undefined нет.
+   * @param handlers Кадр и отказ канала.
+   */
+  openSse(path: string, query: Record<string, string | number | undefined>, handlers: SseHandlers): SseHandle {
+    return this.http.openSse(path, query, handlers);
   }
 }

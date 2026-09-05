@@ -8,6 +8,7 @@ import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
 import type { ChatMessageVisibility } from '@/modules/Messages/Chat/Dto/ChatMessageVisibility';
 import type { ChatThreadRef } from '@/modules/Messages/Chat/Dto/ChatThreadRef';
 import { getChatApi, getChatTabs } from '@/modules/Messages/Chat/init';
+import { tryGetEngine } from '@/modules/Core/Engine/init';
 import { useCurrentUser } from '@/modules/Core/User/init';
 import { ChatSyncService } from '@/modules/Messages/Chat/Service/ChatSyncService';
 import { ChatReadAckService } from '@/modules/Messages/Chat/Service/ChatReadAckService';
@@ -16,6 +17,7 @@ import { MAX_STORED } from '@/modules/Messages/Chat/Constant/Chat/MAX_STORED';
 import { messagePreview } from '@/modules/Messages/Chat/Utils/messagePreview';
 import type { IChatTab } from '@/modules/Messages/Chat/Interface/IChatTab';
 import type { ChatSyncHealth } from '@/modules/Messages/Chat/Dto/ChatSyncHealth';
+import type { ChatSyncCursor } from '@/modules/Messages/Chat/Dto/ChatSyncCursor';
 import type { ChatState } from '@/modules/Messages/Chat/Dto/ChatState';
 
 function createChatState(): ChatState {
@@ -51,9 +53,9 @@ function mergeMessages(target: ChatMessage[], incoming: ChatMessage[]): ChatMess
   for (const m of incoming) byId.set(m.id, m);
 
   return [...byId.values()].sort((a, b) => {
-    const d = a.createdAt.localeCompare(b.createdAt);
+    const createdDelta = a.createdAt - b.createdAt;
 
-    return d !== 0 ? d : a.id - b.id;
+    return createdDelta !== 0 ? createdDelta : a.id - b.id;
   });
 }
 
@@ -67,12 +69,14 @@ export const useChatStore = defineStore('chat', () => {
   const chatsError = ref('');
   const chatError = ref('');
   const actionError = ref('');
+  const creating = ref(false);
+  const createError = ref('');
   const syncHealth = ref<ChatSyncHealth>({ status: 'ok', lastError: null });
   const readAckHealth = reactive<Record<number, ChatSyncHealth>>({});
 
   const selectedTab = ref<string>('personal');
 
-  const sortedChats = computed(() => [...chats.value].sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt)));
+  const sortedChats = computed(() => [...chats.value].sort((a, b) => b.lastMessageAt - a.lastMessageAt));
 
   const tabs = computed<IChatTab[]>(() => getChatTabs());
 
@@ -125,6 +129,52 @@ export const useChatStore = defineStore('chat', () => {
     return first ? first.id : null;
   });
 
+  function upsertChat(chat: Chat) {
+    if (isGuest.value && chat.type === 'private') return;
+    const idx = chats.value.findIndex((item) => item.id === chat.id);
+    if (idx !== -1) {
+      chats.value[idx] = mergeSyncedChat(chats.value[idx], chat);
+    } else {
+      chats.value.push(chat);
+    }
+  }
+
+  async function addPrivate(userId: number): Promise<boolean> {
+    creating.value = true;
+    createError.value = '';
+    try {
+      const chat = await getChatApi().addPrivate(userId);
+      upsertChat(chat);
+      await openChat(chat.id);
+
+      return true;
+    } catch (e) {
+      createError.value = e instanceof Error ? e.message : 'Не удалось создать чат';
+
+      return false;
+    } finally {
+      creating.value = false;
+    }
+  }
+
+  async function addGroup(name: string, memberIds: number[] = []): Promise<boolean> {
+    creating.value = true;
+    createError.value = '';
+    try {
+      const chat = await getChatApi().addGroup(name, memberIds);
+      upsertChat(chat);
+      await openChat(chat.id);
+
+      return true;
+    } catch (e) {
+      createError.value = e instanceof Error ? e.message : 'Не удалось создать группу';
+
+      return false;
+    } finally {
+      creating.value = false;
+    }
+  }
+
   async function fetchChats() {
     loadingChats.value = true;
     chatsError.value = '';
@@ -154,14 +204,11 @@ export const useChatStore = defineStore('chat', () => {
     state.loading = true;
 
     try {
-      const [total, msgs] = await Promise.all([
-        getChatApi().getTotalMessageCount(chatId),
-        getChatApi().getMessages(chatId, PAGE_SIZE, 0),
-      ]);
-      state.messages = mergeMessages(state.messages, msgs);
-      state.loadedCount = Math.max(state.loadedCount, msgs.length);
-      state.total = total;
-      state.hasMore = state.loadedCount < total;
+      const page = await getChatApi().findMessagePage(chatId, PAGE_SIZE, 0);
+      state.messages = mergeMessages(state.messages, page.items);
+      state.loadedCount = page.items.length;
+      state.total = page.total;
+      state.hasMore = page.items.length >= PAGE_SIZE;
       state.olderError = '';
       state.initialized = true;
       markRead(chatId);
@@ -224,23 +271,15 @@ export const useChatStore = defineStore('chat', () => {
     const state = chatStates.value.get(chatId);
     if (!state || !state.hasMore || state.loadingOlder) return;
 
-    const oldestId = state.messages.length ? state.messages[0].id : null;
-    if (oldestId === null) {
-      state.hasMore = false;
-
-      return;
-    }
-
     state.loadingOlder = true;
     state.olderError = '';
     try {
-      const older = await getChatApi().getMessagesBefore(chatId, oldestId, PAGE_SIZE);
+      const page = await getChatApi().findMessagePage(chatId, PAGE_SIZE, state.loadedCount);
       const before = state.messages.length;
-      state.messages = mergeMessages(state.messages, older);
+      state.messages = mergeMessages(state.messages, page.items);
       const added = state.messages.length - before;
-      state.loadedCount = state.messages.length;
-      // Курсор-терминатор: если страница не принесла новых уникальных id — истории больше нет.
-      state.hasMore = added > 0 && older.length >= PAGE_SIZE;
+      state.loadedCount += page.items.length;
+      state.hasMore = added > 0 && page.items.length >= PAGE_SIZE;
     } catch (caught) {
       state.olderError = caught instanceof Error ? caught.message : 'Не удалось загрузить историю';
     } finally {
@@ -287,7 +326,12 @@ export const useChatStore = defineStore('chat', () => {
         if (currentUserId.value !== null && !(chat.members?.some((m) => m.userId === currentUserId.value) ?? false)) {
           chat.members = [
             ...(chat.members ?? []),
-            { userId: currentUserId.value, status: 'member', role: 'member', joinedAt: new Date().toISOString() },
+            {
+              userId: currentUserId.value,
+              status: 'member',
+              role: 'member',
+              joinedAt: Math.floor(Date.now() / 1000),
+            },
           ];
         }
         chat.lastMessage = messagePreview(content, attachments);
@@ -368,7 +412,7 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   const autoScroll = ref(true);
-  const lastSyncTimestamp = ref('');
+  const lastSyncCursor = ref<ChatSyncCursor | null>(null);
   // Инстанс создаётся здесь, а не в Service/Instance (правило 27): он store-bound
   // (onSync замыкается на state стора) и per-instance, а не app-синглтон.
   let syncService: ChatSyncService | null = null;
@@ -385,17 +429,12 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   function applySyncResponse(data: SyncResponse) {
-    lastSyncTimestamp.value = data.now;
+    lastSyncCursor.value = { since: data.now, afterId: data.afterId };
     for (const updated of data.chats) {
-      const idx = chats.value.findIndex((c) => c.id === updated.id);
-      if (idx !== -1) {
-        chats.value[idx] = mergeSyncedChat(chats.value[idx], updated);
-      }
+      upsertChat(updated);
     }
     for (const nc of data.newChats) {
-      if (chats.value.find((c) => c.id === nc.id)) continue;
-      if (isGuest.value && nc.type === 'private') continue;
-      chats.value.push(nc);
+      upsertChat(nc);
     }
     for (const [chatIdStr, msgs] of Object.entries(data.messages)) {
       const cid = Number(chatIdStr);
@@ -405,9 +444,6 @@ export const useChatStore = defineStore('chat', () => {
         chatStates.value.set(cid, state);
       }
       state.messages = mergeMessages(state.messages, msgs);
-      if (cid === activeChatId.value) {
-        state.loadedCount = state.messages.length;
-      }
       if (cid !== activeChatId.value) {
         state.messages = state.messages.slice(-MAX_STORED);
       }
@@ -429,14 +465,15 @@ export const useChatStore = defineStore('chat', () => {
   function startSync() {
     syncRefCount++;
     if (syncService) return;
+    const engine = tryGetEngine();
     syncService = new ChatSyncService({
       onSync: (data) => applySyncResponse(data),
       onStatus: (health) => {
         syncHealth.value = health;
       },
-      getSyncApi: () => getChatApi(),
+      ...(engine ? { mode: 'sse' as const, engine } : { getSyncApi: () => getChatApi() }),
     });
-    syncService.connect(lastSyncTimestamp.value);
+    syncService.connect(lastSyncCursor.value);
   }
 
   function stopSync() {
@@ -477,9 +514,13 @@ export const useChatStore = defineStore('chat', () => {
     chatsError,
     chatError,
     actionError,
+    creating,
+    createError,
     syncHealth,
     readAckHealth,
     fetchChats,
+    addPrivate,
+    addGroup,
     openChat,
     loadChat,
     loadOlderMessages,
@@ -498,7 +539,7 @@ export const useChatStore = defineStore('chat', () => {
     retryReadAck,
     autoScroll,
     setAutoScroll,
-    lastSyncTimestamp,
+    lastSyncCursor,
     applySyncResponse,
     selectedTab,
     tabs,

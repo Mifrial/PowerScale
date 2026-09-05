@@ -10,6 +10,7 @@ import type { ChatAttachment } from '@/modules/Messages/Chat/Dto/ChatAttachment'
 import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
 import type { ChatMessageVisibility } from '@/modules/Messages/Chat/Dto/ChatMessageVisibility';
 import ChatList from '@/modules/Messages/Chat/Component/ChatList.vue';
+import ChatCreateDialog from '@/modules/Messages/Chat/Component/ChatCreateDialog.vue';
 import ChatMessageList from '@/modules/Messages/Chat/Component/ChatMessageList.vue';
 import ChatInput from '@/modules/Messages/Chat/Component/ChatInput.vue';
 import ChatSyncStatusBanner from '@/modules/Messages/Chat/Component/ChatSyncStatusBanner.vue';
@@ -35,6 +36,8 @@ const { allowVisibility, roleOptions, userOptions } = useChatVisibilityOptions(c
 
 const userSliderOpen = ref(false);
 const userSliderUserId = ref<number | null>(null);
+const createOpen = ref(false);
+const listQuery = ref('');
 
 function openUserProfile(userId: number) {
   userSliderUserId.value = userId;
@@ -95,12 +98,29 @@ onUnmounted(() => {
     <slot name="tabs" />
 
     <div class="chat-body">
-      <ChatList
-        :chats="store.currentTabChats"
-        :active-chat-id="store.activeChatId"
-        @select-chat="store.openChat"
-        @open-profile="openUserProfile"
-      />
+      <div class="chat-sidebar">
+        <div class="chat-list-toolbar">
+          <v-text-field
+            v-model="listQuery"
+            density="compact"
+            hide-details
+            variant="outlined"
+            placeholder="Поиск по названию"
+            prepend-inner-icon="mdi-magnify"
+            clearable
+          />
+          <v-btn icon variant="text" color="primary" aria-label="Новый чат" @click="createOpen = true">
+            <v-icon>mdi-plus</v-icon>
+          </v-btn>
+        </div>
+        <ChatList
+          :chats="store.currentTabChats"
+          :query="listQuery"
+          :active-chat-id="store.activeChatId"
+          @select-chat="store.openChat"
+          @open-profile="openUserProfile"
+        />
+      </div>
 
       <div class="chat-main">
         <div v-if="store.chatsError" class="chat-error pa-4">
@@ -118,13 +138,15 @@ onUnmounted(() => {
             <v-btn variant="tonal" color="primary" size="small" @click="retryOpenChat"> Попробовать снова </v-btn>
           </div>
           <template v-else>
-            <div v-if="rulesError" class="chat-error pa-4">
-              <div class="text-error text-body-2 mb-2">{{ rulesError }}</div>
-              <v-btn variant="tonal" color="primary" size="small" @click="retryRules"> Попробовать снова </v-btn>
+            <div class="chat-thread">
+              <div v-if="rulesError" class="chat-error pa-4">
+                <div class="text-error text-body-2 mb-2">{{ rulesError }}</div>
+                <v-btn variant="tonal" color="primary" size="small" @click="retryRules"> Попробовать снова </v-btn>
+              </div>
+              <ChatSyncStatusBanner />
+              <ChatReadAckBanner :chat-id="store.activeChatId" />
+              <ChatMessageList :renderer-context="inlineContext ?? undefined" @open-profile="openUserProfile" />
             </div>
-            <ChatSyncStatusBanner />
-            <ChatReadAckBanner :chat-id="store.activeChatId" />
-            <ChatMessageList :renderer-context="inlineContext ?? undefined" @open-profile="openUserProfile" />
           </template>
 
           <ChatInput
@@ -152,6 +174,7 @@ onUnmounted(() => {
     </div>
 
     <UserProfileSlider v-model:open="userSliderOpen" :user-id="userSliderUserId" />
+    <ChatCreateDialog v-model:open="createOpen" />
   </div>
 </template>
 
@@ -168,6 +191,29 @@ onUnmounted(() => {
   display: flex;
   flex: 1;
   min-height: 0;
+  overflow: hidden;
+}
+
+.chat-sidebar {
+  display: flex;
+  flex-direction: column;
+  width: 280px;
+  flex-shrink: 0;
+  min-height: 0;
+  border-right: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+.chat-list-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px;
+  flex-shrink: 0;
+}
+
+.chat-list-toolbar :deep(.v-text-field) {
+  flex: 1;
+  min-width: 0;
 }
 
 .chat-main {
@@ -176,6 +222,15 @@ onUnmounted(() => {
   flex-direction: column;
   min-width: 0;
   min-height: 0;
+  overflow: hidden;
+}
+
+.chat-thread {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .chat-main-empty {

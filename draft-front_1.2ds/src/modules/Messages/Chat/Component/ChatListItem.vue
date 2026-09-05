@@ -77,7 +77,7 @@ const groupInitials = computed(() => {
     <div class="chat-list-body">
       <div class="d-flex align-center">
         <span class="chat-list-name text-truncate">{{ name }}</span>
-        <span class="chat-list-time ml-auto">{{ DateTime.formatRelative(props.chat.lastMessageAt) }}</span>
+        <span class="chat-list-time ml-auto">{{ DateTime.fromUnix(props.chat.lastMessageAt).formatRelative() }}</span>
       </div>
       <div v-if="props.chat.lastMessage" class="chat-list-preview text-truncate">
         {{ inlineContentService.toText(props.chat.lastMessage) }}

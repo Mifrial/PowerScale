@@ -11,8 +11,8 @@ const ROLES: ChatRole[] = [
 ];
 
 const MEMBERS = [
-  { userId: 1, status: 'member', role: 'gm', joinedAt: '' },
-  { userId: 2, status: 'member', role: 'player', joinedAt: '' },
+  { userId: 1, status: 'member', role: 'gm', joinedAt: 0 },
+  { userId: 2, status: 'member', role: 'player', joinedAt: 0 },
 ];
 
 function message(userId: number, visibility?: ChatMessageVisibility): ChatMessage {
@@ -23,8 +23,8 @@ function message(userId: number, visibility?: ChatMessageVisibility): ChatMessag
     username: 'X',
     content: 'текст',
     attachments: [],
-    createdAt: '',
-    updatedAt: '',
+    createdAt: 0,
+    updatedAt: 0,
     visibility,
   };
 }

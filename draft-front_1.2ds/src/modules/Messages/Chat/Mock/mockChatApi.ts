@@ -3,6 +3,7 @@ import * as mock from '@/modules/Messages/Chat/Mock/mockChat';
 
 export const mockChatApi: IChatApi = {
   getChats: mock.mockGetChats,
+  findMessagePage: mock.mockFindMessagePage,
   getMessages: mock.mockGetMessages,
   getMessagesBefore: mock.mockGetMessagesBefore,
   getTotalMessageCount: mock.mockGetTotalMessageCount,
@@ -10,5 +11,7 @@ export const mockChatApi: IChatApi = {
   updateMessageVisibility: mock.mockUpdateMessageVisibility,
   sendSystemMessage: mock.mockSendSystemMessage,
   markChatRead: mock.mockMarkChatRead,
+  addPrivate: mock.mockAddPrivate,
+  addGroup: mock.mockAddGroup,
   sync: mock.mockSync,
 };

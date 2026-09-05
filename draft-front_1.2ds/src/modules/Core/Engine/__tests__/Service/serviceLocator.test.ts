@@ -6,6 +6,12 @@ beforeEach(() => {
 });
 
 describe('ServiceLocator', () => {
+  it('has is false until set', () => {
+    expect(serviceLocator.has('test')).toBe(false);
+    serviceLocator.set('test', 1);
+    expect(serviceLocator.has('test')).toBe(true);
+  });
+
   it('throws on get before set', () => {
     expect(() => serviceLocator.get('test')).toThrow('Service "test" not registered');
   });

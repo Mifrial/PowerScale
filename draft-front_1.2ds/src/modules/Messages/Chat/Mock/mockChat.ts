@@ -6,6 +6,7 @@ import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
 import type { ChatMessageVisibility } from '@/modules/Messages/Chat/Dto/ChatMessageVisibility';
 import type { ChatThreadRef } from '@/modules/Messages/Chat/Dto/ChatThreadRef';
 import type { SyncResponse } from '@/modules/Messages/Chat/Dto/SyncResponse';
+import type { ChatMessagePage } from '@/modules/Messages/Chat/Dto/ChatMessagePage';
 import { users as realUsers } from '@/modules/Core/User/Mock/mockUsers';
 import { getCurrentUserId } from '@/modules/Core/Auth/Mock/mockAuth';
 import { getAttachmentProcessor, getChatTypes } from '@/modules/Messages/Chat/init';
@@ -15,6 +16,14 @@ import { messagePreview } from '@/modules/Messages/Chat/Utils/messagePreview';
 const delay = (ms = 100) => new Promise((r) => setTimeout(r, ms));
 // id для сообщений, создаваемых в рантайме (send/sync): не пересекаются с рукописными (< 1000).
 let msgIdSeq = 1000;
+
+function unixAt(iso: string): number {
+  return Math.floor(new Date(iso).getTime() / 1000);
+}
+
+function nowUnix(): number {
+  return Math.floor(Date.now() / 1000);
+}
 
 // Sentinel «текущий пользователь» в фикстурах: не привязан к конкретному id.
 // В рантайме резолвится в фактически авторизованного пользователя.
@@ -35,7 +44,7 @@ function userName(u: { name: string; surname?: string }): string {
 }
 
 function member(userId: number, status: string, role?: string): MemberInfo {
-  return { userId, status, joinedAt: '2026-06-01T00:00:00', ...(role ? { role } : {}) };
+  return { userId, status, joinedAt: unixAt('2026-06-01T00:00:00'), ...(role ? { role } : {}) };
 }
 
 function msg(
@@ -49,6 +58,7 @@ function msg(
 ): ChatMessage {
   const resolvedId = userId === SELF ? getCurrentUserId() : userId;
   const u = realUsers.find((x) => x.id === resolvedId);
+  const at = unixAt(createdAt);
 
   return {
     id,
@@ -57,8 +67,8 @@ function msg(
     username: u ? userName(u) : 'Неизвестно',
     content,
     attachments,
-    createdAt,
-    updatedAt: createdAt,
+    createdAt: at,
+    updatedAt: at,
     ...(speaker ? { speaker } : {}),
   };
 }
@@ -763,46 +773,10 @@ const rawMessages: Record<number, ChatMessage[]> = {
     msg(204, 8, 3, 'Вы открываете дверь и находите запечатанный сундук', [], '2026-07-26T09:20:00'),
   ],
   9: [
-    {
-      id: 70,
-      chatId: 9,
-      userId: 2,
-      username: 'Администратор',
-      content: 'Привет, Дмитрий! Как персонаж?',
-      attachments: [],
-      createdAt: '2026-07-26T18:00:00',
-      updatedAt: '2026-07-26T18:00:00',
-    },
-    {
-      id: 71,
-      chatId: 9,
-      userId: 6,
-      username: 'Дмитрий Волков',
-      content: 'Отлично, добавил новые навыки',
-      attachments: [],
-      createdAt: '2026-07-26T18:05:00',
-      updatedAt: '2026-07-26T18:05:00',
-    },
-    {
-      id: 72,
-      chatId: 9,
-      userId: 2,
-      username: 'Администратор',
-      content: 'Супер! На следующей сессии попробуем',
-      attachments: [],
-      createdAt: '2026-07-26T18:10:00',
-      updatedAt: '2026-07-26T18:10:00',
-    },
-    {
-      id: 73,
-      chatId: 9,
-      userId: 6,
-      username: 'Дмитрий Волков',
-      content: 'Спасибо за игру',
-      attachments: [],
-      createdAt: '2026-07-26T22:00:00',
-      updatedAt: '2026-07-26T22:00:00',
-    },
+    msg(70, 9, 2, 'Привет, Дмитрий! Как персонаж?', [], '2026-07-26T18:00:00'),
+    msg(71, 9, 6, 'Отлично, добавил новые навыки', [], '2026-07-26T18:05:00'),
+    msg(72, 9, 2, 'Супер! На следующей сессии попробуем', [], '2026-07-26T18:10:00'),
+    msg(73, 9, 6, 'Спасибо за игру', [], '2026-07-26T22:00:00'),
   ],
   10: [
     msg(210, 10, 3, 'Новый модуль вышел, коллеги', [], '2026-07-27T09:00:00'),
@@ -910,7 +884,7 @@ function deriveChat(meta: Omit<Chat, 'lastMessage' | 'lastMessageAt' | 'unreadCo
   const last = lastMessageOf(visible);
 
   if (!last) {
-    return { ...meta, members, lastMessage: undefined, lastMessageAt: '2026-01-01T00:00:00', unreadCount: 0 };
+    return { ...meta, members, lastMessage: undefined, lastMessageAt: unixAt('2026-01-01T00:00:00'), unreadCount: 0 };
   }
 
   return {
@@ -926,6 +900,70 @@ export async function mockGetChats(): Promise<Chat[]> {
   await delay();
 
   return chatMetas.map((meta) => deriveChat(meta, rawMessages[meta.id] ?? []));
+}
+
+export async function mockAddPrivate(userId: number): Promise<Chat> {
+  await delay();
+  const selfId = getCurrentUserId();
+  if (userId === selfId) {
+    throw new Error('Нельзя создать чат с собой');
+  }
+
+  if (!realUsers.some((user) => user.id === userId)) {
+    throw new Error('Пользователь не найден');
+  }
+
+  const existing = chatMetas.find((meta) => {
+    if (meta.type !== 'private') return false;
+    const memberIds = resolveSelfMembers(meta.members).map((chatMember) => chatMember.userId);
+
+    return memberIds.includes(selfId) && memberIds.includes(userId);
+  });
+  if (existing) {
+    return deriveChat(existing, rawMessages[existing.id] ?? []);
+  }
+
+  const id = nextChatId++;
+  const meta = {
+    id,
+    type: 'private',
+    name: '',
+    lastReadMessageId: null,
+    members: [member(selfId, 'member'), member(userId, 'member')],
+  };
+  chatMetas.push(meta);
+  rawMessages[id] = [];
+
+  return deriveChat(meta, []);
+}
+
+export async function mockAddGroup(name: string, memberIds: number[] = []): Promise<Chat> {
+  await delay();
+  const trimmedName = name.trim();
+  if (trimmedName === '') {
+    throw new Error('Имя группы пустое');
+  }
+
+  const selfId = getCurrentUserId();
+  const uniqueIds = [...new Set([selfId, ...memberIds])];
+  for (const memberId of uniqueIds) {
+    if (!realUsers.some((user) => user.id === memberId)) {
+      throw new Error('Пользователь не найден');
+    }
+  }
+
+  const id = nextChatId++;
+  const meta = {
+    id,
+    type: 'group',
+    name: trimmedName,
+    lastReadMessageId: null,
+    members: uniqueIds.map((memberId) => member(memberId, 'member')),
+  };
+  chatMetas.push(meta);
+  rawMessages[id] = [];
+
+  return deriveChat(meta, []);
 }
 
 let nextChatId = Math.max(0, ...chatMetas.map((meta) => meta.id)) + 1;
@@ -978,7 +1016,7 @@ export function mockSetChatMembers(chatId: number, members: { userId: number; ro
     userId: entry.userId,
     status: 'member',
     role: entry.role,
-    joinedAt: '2026-06-01T00:00:00',
+    joinedAt: unixAt('2026-06-01T00:00:00'),
   }));
 }
 
@@ -1001,14 +1039,18 @@ export function mockCreateGameChat(name: string): number {
   return id;
 }
 
-export async function mockGetMessages(chatId: number, limit = 20, offset = 0): Promise<ChatMessage[]> {
+export async function mockFindMessagePage(chatId: number, limit = 20, offset = 0): Promise<ChatMessagePage> {
   await delay();
   const meta = chatMetas.find((candidate) => candidate.id === chatId);
   const all = meta ? visibleMessagesFor(meta, rawMessages[chatId] || []) : rawMessages[chatId] || [];
   const start = Math.max(0, all.length - offset - limit);
   const end = all.length - offset;
 
-  return all.slice(start, end);
+  return { items: all.slice(start, end), total: all.length };
+}
+
+export async function mockGetMessages(chatId: number, limit = 20, offset = 0): Promise<ChatMessage[]> {
+  return (await mockFindMessagePage(chatId, limit, offset)).items;
 }
 
 export async function mockGetMessagesBefore(chatId: number, beforeId: number, limit = 20): Promise<ChatMessage[]> {
@@ -1047,7 +1089,7 @@ export async function mockSendMessage(
     const payload = processor ? await processor.process(att.payload) : att.payload;
     processed.push({ type: att.type, payload });
   }
-  const now = new Date().toISOString();
+  const now = nowUnix();
   const selfId = getCurrentUserId();
   const me = realUsers.find((x) => x.id === selfId);
   const created: ChatMessage = {
@@ -1089,7 +1131,7 @@ export async function mockUpdateMessageVisibility(
   const all = rawMessages[chatId] || [];
   const idx = all.findIndex((message) => message.id === messageId);
   if (idx === -1) throw new Error('Сообщение не найдено');
-  const updated: ChatMessage = { ...all[idx], updatedAt: new Date().toISOString() };
+  const updated: ChatMessage = { ...all[idx], updatedAt: nowUnix() };
   if (visibility === undefined) delete updated.visibility;
   else updated.visibility = visibility;
   all[idx] = updated;
@@ -1105,7 +1147,7 @@ export async function mockSendSystemMessage(
 ): Promise<ChatMessage> {
   await delay(150);
   msgIdSeq++;
-  const now = new Date().toISOString();
+  const now = nowUnix();
   const created: ChatMessage = {
     id: msgIdSeq,
     chatId,
@@ -1135,11 +1177,11 @@ export async function mockMarkChatRead(chatId: number): Promise<void> {
 
 let syncCallCount = 0;
 
-export async function mockSync(_since: string): Promise<SyncResponse> {
+export async function mockSync(_since: number): Promise<SyncResponse> {
   await delay(100);
   syncCallCount++;
 
-  const now = new Date();
+  const now = nowUnix();
   const updates: Chat[] = [];
   const newChats: Chat[] = [];
   const messages: Record<number, ChatMessage[]> = {};
@@ -1170,8 +1212,8 @@ export async function mockSync(_since: string): Promise<SyncResponse> {
       username: u ? userName(u) : 'Неизвестно',
       content: contentPool[Math.floor(Math.random() * contentPool.length)],
       attachments: [],
-      createdAt: now.toISOString(),
-      updatedAt: now.toISOString(),
+      createdAt: now,
+      updatedAt: now,
     };
     rawMessages[targetMeta.id].push(created);
     messages[targetMeta.id] = [created];
@@ -1189,7 +1231,6 @@ export async function mockSync(_since: string): Promise<SyncResponse> {
     if (otherUser) {
       msgIdSeq++;
       const newId = msgIdSeq + 1000;
-      const nowISO = now.toISOString();
       const meta: Omit<Chat, 'lastMessage' | 'lastMessageAt' | 'unreadCount'> = {
         id: newId,
         type: 'private',
@@ -1208,13 +1249,13 @@ export async function mockSync(_since: string): Promise<SyncResponse> {
           username: userName(otherUser),
           content: 'Привет! Давно не виделись',
           attachments: [],
-          createdAt: nowISO,
-          updatedAt: nowISO,
+          createdAt: now,
+          updatedAt: now,
         },
       ];
       newChats.push(deriveChat(meta, rawMessages[newId]));
     }
   }
 
-  return { now: now.toISOString(), chats: updates, newChats, messages };
+  return { now, afterId: 0, chats: updates, newChats, messages };
 }

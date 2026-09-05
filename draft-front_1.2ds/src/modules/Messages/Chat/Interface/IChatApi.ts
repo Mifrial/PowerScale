@@ -1,5 +1,6 @@
 import type { Chat } from '@/modules/Messages/Chat/Dto/Chat';
 import type { ChatMessage } from '@/modules/Messages/Chat/Dto/ChatMessage';
+import type { ChatMessagePage } from '@/modules/Messages/Chat/Dto/ChatMessagePage';
 import type { SyncResponse } from '@/modules/Messages/Chat/Dto/SyncResponse';
 import type { ChatAttachment } from '@/modules/Messages/Chat/Dto/ChatAttachment';
 import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
@@ -8,6 +9,7 @@ import type { ChatThreadRef } from '@/modules/Messages/Chat/Dto/ChatThreadRef';
 
 export interface IChatApi {
   getChats(): Promise<Chat[]>;
+  findMessagePage(chatId: number, limit: number, offset: number): Promise<ChatMessagePage>;
   getMessages(chatId: number, limit: number, offset: number): Promise<ChatMessage[]>;
   getMessagesBefore(chatId: number, beforeId: number, limit: number): Promise<ChatMessage[]>;
   getTotalMessageCount(chatId: number): Promise<number>;
@@ -29,5 +31,7 @@ export interface IChatApi {
     thread?: ChatThreadRef,
   ): Promise<ChatMessage>;
   markChatRead(chatId: number): Promise<void>;
-  sync(since: string): Promise<SyncResponse>;
+  addPrivate(userId: number): Promise<Chat>;
+  addGroup(name: string, memberIds?: number[]): Promise<Chat>;
+  sync(since: number): Promise<SyncResponse>;
 }
