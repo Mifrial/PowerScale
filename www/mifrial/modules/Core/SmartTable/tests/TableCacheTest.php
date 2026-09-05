@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Mifrial\Core\SmartTable\Tests;
 
-use Mifrial\Core\Kernel\Dto\CacheSettings;
+use Mifrial\Core\Cache\Service\FileCacheStore;
+use Mifrial\Core\Cache\Service\UnusableCacheStore;
 use Mifrial\Core\Kernel\Value\DateTime as UnixDateTime;
 use Mifrial\Core\SmartTable\Dto\AggregateResult;
 use Mifrial\Core\SmartTable\Dto\ListResult;
@@ -128,10 +129,9 @@ final class TableCacheTest extends TestCase
         self::assertNull($cacheHit->value());
 
         $empty = new TableCache(
-            CacheSettings::fromConfig(null),
+            new UnusableCacheStore(),
             true,
             static fn (): int => 0,
-            fn (): int => $this->now,
         );
         $empty->noteAdd('users');
         try {
@@ -143,17 +143,16 @@ final class TableCacheTest extends TestCase
     }
 
     /**
-     * Неизвестный driver — CONFIG всегда.
+     * Непригодный store — CONFIG всегда.
      *
      * @return void
      */
     public function testUnknownDriverThrowsConfigInvalid(): void
     {
         $tableCache = new TableCache(
-            CacheSettings::fromConfig(['driver' => 'memcached', 'path' => $this->cachePath]),
+            new UnusableCacheStore(),
             true,
             static fn (): int => 0,
-            fn (): int => $this->now,
         );
         try {
             $tableCache->lookupGet('users', 1);
@@ -199,12 +198,11 @@ final class TableCacheTest extends TestCase
     {
         $level = 0;
         $tableCache = new TableCache(
-            CacheSettings::fromConfig(['driver' => 'file', 'path' => $this->cachePath]),
+            new FileCacheStore($this->cachePath),
             true,
             static function () use (&$level): int {
                 return $level;
             },
-            fn (): int => $this->now,
         );
         $tableCache->saveTagged('users', 'k-title', new ListResult([['title' => 'a']], null), 60, ['title']);
         $level = 1;
@@ -231,8 +229,8 @@ final class TableCacheTest extends TestCase
     {
         $blocked = $this->cachePath . '-blocked';
         file_put_contents($blocked, 'not-a-dir');
-        $blockedSettings = CacheSettings::fromConfig(['driver' => 'file', 'path' => $blocked]);
-        $debugCache = new TableCache($blockedSettings, true, static fn (): int => 0);
+        $blockedStore = new FileCacheStore($blocked);
+        $debugCache = new TableCache($blockedStore, true, static fn (): int => 0);
         try {
             $debugCache->saveGet('users', 1, ['a' => 1], 10);
             self::fail('debug must throw on driver fail');
@@ -240,7 +238,7 @@ final class TableCacheTest extends TestCase
             self::assertSame('CACHE_DRIVER_FAILED', $exception->getErrorCode());
         }
 
-        $quietCache = new TableCache($blockedSettings, false, static fn (): int => 0);
+        $quietCache = new TableCache(new FileCacheStore($blocked), false, static fn (): int => 0);
         $quietCache->saveGet('users', 1, ['a' => 1], 10);
         self::assertFalse($quietCache->lookupGet('users', 1)->found());
     }
@@ -255,10 +253,9 @@ final class TableCacheTest extends TestCase
     private function makeCache(bool $debug): TableCache
     {
         return new TableCache(
-            CacheSettings::fromConfig(['driver' => 'file', 'path' => $this->cachePath]),
+            new FileCacheStore($this->cachePath, fn (): int => $this->now),
             $debug,
             static fn (): int => 0,
-            fn (): int => $this->now,
         );
     }
 

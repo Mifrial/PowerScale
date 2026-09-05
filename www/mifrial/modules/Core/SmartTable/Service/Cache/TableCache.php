@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Mifrial\Core\SmartTable\Service\Cache;
 
 use Closure;
-use Mifrial\Core\Kernel\Dto\CacheSettings;
+use Mifrial\Core\Cache\Exception\CacheInvalidException;
+use Mifrial\Core\Cache\Interface\Service\ICacheStore;
 use Mifrial\Core\SmartTable\Dto\CacheHit;
 use Mifrial\Core\SmartTable\Exception\Cache\CacheConfigInvalidException;
 use Mifrial\Core\SmartTable\Exception\Cache\CacheDriverFailedException;
@@ -14,17 +15,10 @@ use Throwable;
 
 /**
  * Сценарий кэша get и запросов: ключи, теги OR, pending транзакции, fail-soft.
- *
- * Слоты и сброс делят один lazy store: отдельный invalidator давал бы
- * второй клиент Redis на те же ключи.
  */
 final class TableCache
 {
-    private FileCacheStore|RedisCacheStore|null $cacheStore = null;
-
     private readonly CachePayload $cachePayload;
-
-    private readonly CacheStoreFactory $storeFactory;
 
     private readonly CacheFailSoft $failSoft;
 
@@ -36,21 +30,18 @@ final class TableCache
     /**
      * Создаёт кэш таблицы.
      *
-     * @param CacheSettings $cacheSettings Срез local.php.
+     * @param ICacheStore $cacheStore Драйвер Core/Cache.
      * @param bool $debug Кидать I/O или глотать.
      * @param Closure $transactionLevel Уровень транзакции соединения.
-     * @param Closure|null $clock Секунды UTC или системные.
      *
      * @return void
      */
     public function __construct(
-        CacheSettings $cacheSettings,
+        private readonly ICacheStore $cacheStore,
         bool $debug,
         private readonly Closure $transactionLevel,
-        private readonly ?Closure $clock = null,
     ) {
         $this->cachePayload = new CachePayload();
-        $this->storeFactory = new CacheStoreFactory($cacheSettings);
         $this->failSoft = new CacheFailSoft($debug);
     }
 
@@ -62,7 +53,7 @@ final class TableCache
      *
      * @return CacheHit Попадание или промах.
      *
-     * @throws CacheConfigInvalidException Если store нельзя открыть.
+     * @throws CacheConfigInvalidException Если store непригоден.
      * @throws CacheDriverFailedException Если debug и I/O упал.
      */
     public function lookupGet(string $tableName, int $rowId): CacheHit
@@ -82,7 +73,7 @@ final class TableCache
      *
      * @return void
      *
-     * @throws CacheConfigInvalidException Если store нельзя открыть.
+     * @throws CacheConfigInvalidException Если store непригоден.
      * @throws CacheDriverFailedException Если debug и I/O упал.
      */
     public function saveGet(string $tableName, int $rowId, ?array $row, int $cacheTtl): void
@@ -99,7 +90,7 @@ final class TableCache
      *
      * @return CacheHit Попадание или промах.
      *
-     * @throws CacheConfigInvalidException Если store нельзя открыть.
+     * @throws CacheConfigInvalidException Если store непригоден.
      * @throws CacheDriverFailedException Если debug и I/O упал.
      */
     public function lookupTagged(string $cacheKey): CacheHit
@@ -120,7 +111,7 @@ final class TableCache
      *
      * @return void
      *
-     * @throws CacheConfigInvalidException Если store нельзя открыть.
+     * @throws CacheConfigInvalidException Если store непригоден.
      * @throws CacheDriverFailedException Если debug и I/O упал.
      */
     public function saveTagged(
@@ -191,7 +182,7 @@ final class TableCache
     {
         $tagNames = array_merge(
             ['st:' . $tableName],
-            DependentRowCacheTags::names($dependentTableNames, $this->storeFactory->canOpen()),
+            DependentRowCacheTags::names($dependentTableNames, $this->cacheStore->isUsable()),
         );
         $this->queueOrFlush([
             'keys' => [$tableName . ':get:' . $rowId],
@@ -291,7 +282,7 @@ final class TableCache
      */
     private function runFlush(array $operations): void
     {
-        if ($operations === [] || !$this->storeFactory->canOpen()) {
+        if ($operations === [] || !$this->cacheStore->isUsable()) {
             return;
         }
 
@@ -323,15 +314,14 @@ final class TableCache
     private function flushStore(array $tagNames, array $cacheKeys): void
     {
         try {
-            $store = $this->store();
             if ($tagNames !== []) {
-                $store->flushTags($tagNames);
+                $this->cacheStore->flushTags($tagNames);
             }
 
             if ($cacheKeys !== []) {
-                $store->deleteKeys($cacheKeys);
+                $this->cacheStore->deleteKeys($cacheKeys);
             }
-        } catch (CacheConfigInvalidException) {
+        } catch (CacheInvalidException) {
             return;
         } catch (Throwable $throwable) {
             $this->failSoft->write($throwable);
@@ -345,25 +335,26 @@ final class TableCache
      *
      * @return CacheHit Попадание или промах.
      *
-     * @throws CacheConfigInvalidException Если store нельзя открыть.
+     * @throws CacheConfigInvalidException Если store непригоден.
      * @throws CacheDriverFailedException Если debug и I/O упал.
      */
     private function lookupValue(string $cacheKey): CacheHit
     {
+        $this->assertStoreUsable();
         try {
-            $payload = $this->store()->read($cacheKey);
+            $payload = $this->cacheStore->read($cacheKey);
             if ($payload === null) {
                 return new CacheHit(false, null);
             }
 
-            $cacheHit = $this->cachePayload->decode($payload, $this->now());
+            $cacheHit = $this->cachePayload->decode($payload);
             if (!$cacheHit->found()) {
-                $this->store()->deleteKeys([$cacheKey]);
+                $this->cacheStore->deleteKeys([$cacheKey]);
             }
 
             return $cacheHit;
-        } catch (CacheConfigInvalidException $exception) {
-            throw $exception;
+        } catch (CacheInvalidException $exception) {
+            throw new CacheConfigInvalidException($exception->getMessage());
         } catch (Throwable $throwable) {
             return $this->failSoft->read($throwable);
         }
@@ -379,45 +370,32 @@ final class TableCache
      *
      * @return void
      *
-     * @throws CacheConfigInvalidException Если store нельзя открыть.
+     * @throws CacheConfigInvalidException Если store непригоден.
      * @throws CacheDriverFailedException Если debug и I/O упал.
      */
     private function saveValue(string $cacheKey, mixed $value, int $cacheTtl, array $tagNames): void
     {
+        $this->assertStoreUsable();
         try {
-            $this->store()->write(
-                $cacheKey,
-                $this->cachePayload->encode($value, $this->now() + $cacheTtl),
-                $tagNames,
-            );
-        } catch (CacheConfigInvalidException $exception) {
-            throw $exception;
+            $this->cacheStore->write($cacheKey, $this->cachePayload->encode($value), $cacheTtl, $tagNames);
+        } catch (CacheInvalidException $exception) {
+            throw new CacheConfigInvalidException($exception->getMessage());
         } catch (Throwable $throwable) {
             $this->failSoft->write($throwable);
         }
     }
 
     /**
-     * Открывает store лениво.
+     * Дырявый конфиг — всегда ошибка, не fail-soft.
      *
-     * @return FileCacheStore|RedisCacheStore Store.
+     * @return void
      *
-     * @throws CacheConfigInvalidException Если конфиг непригоден.
+     * @throws CacheConfigInvalidException Если isUsable false.
      */
-    private function store(): FileCacheStore|RedisCacheStore
+    private function assertStoreUsable(): void
     {
-        $this->cacheStore ??= $this->storeFactory->open();
-
-        return $this->cacheStore;
-    }
-
-    /**
-     * Текущие unix-секунды.
-     *
-     * @return int Секунды.
-     */
-    private function now(): int
-    {
-        return $this->clock instanceof Closure ? ($this->clock)() : time();
+        if (!$this->cacheStore->isUsable()) {
+            throw new CacheConfigInvalidException();
+        }
     }
 }

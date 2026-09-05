@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace Mifrial\Core\SmartTable\Service;
 
+use Mifrial\Core\Cache\Interface\Container\ICacheContainer;
+use Mifrial\Core\Cache\Interface\Service\ICacheStore;
 use Mifrial\Core\Kernel\Interface\Container\IKernelContainer;
 use Mifrial\Core\Kernel\Interface\Container\IModuleContainer;
 use Mifrial\Core\Kernel\Interface\Service\IRuntimeConfig;
 use Mifrial\Core\Kernel\Interface\Service\IServiceLocator;
+use Mifrial\Core\SmartTable\Exception\Cache\CacheConfigInvalidException;
 use Mifrial\Core\SmartTable\Exception\Database\DbConfigInvalidException;
 use Mifrial\Core\SmartTable\Interface\Service\IDatabaseConnection;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
@@ -26,7 +29,8 @@ final class SmartTableGatewayPortFactory
      *
      * @return ISmartTableGateway Шлюз.
      *
-     * @throws DbConfigInvalidException Если порт соединения не Illuminate-адаптер.
+     * @throws DbConfigInvalidException Если порт соединения не Illuminate-адаптер или нет runtime.
+     * @throws CacheConfigInvalidException Если порт ICacheStore не того типа.
      */
     public function create(
         IServiceLocator $serviceLocator,
@@ -42,9 +46,14 @@ final class SmartTableGatewayPortFactory
             throw new DbConfigInvalidException('Runtime cache config is missing');
         }
 
+        $cacheStore = $serviceLocator->get(ICacheContainer::class)->get(ICacheStore::class);
+        if (!$cacheStore instanceof ICacheStore) {
+            throw new CacheConfigInvalidException('Cache store port is missing');
+        }
+
         return (new SmartTableSupport(
             $databaseConnection,
-            $runtimeConfig->cache(),
+            $cacheStore,
             $runtimeConfig->isDebug(),
         ))->makeGateway();
     }

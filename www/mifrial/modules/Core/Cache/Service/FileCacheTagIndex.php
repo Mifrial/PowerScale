@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Mifrial\Core\SmartTable\Service\Cache;
+namespace Mifrial\Core\Cache\Service;
 
-use Mifrial\Core\SmartTable\Exception\Cache\CacheDriverFailedException;
+use Mifrial\Core\Cache\Exception\CacheDriverFailedException;
 
 /**
- * Индекс тегов file-store: ключи getList в файле с flock.
+ * Индекс тегов file-store: ключи в файле с flock.
  */
 final class FileCacheTagIndex
 {

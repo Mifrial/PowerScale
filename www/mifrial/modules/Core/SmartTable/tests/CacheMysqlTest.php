@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Mifrial\Core\SmartTable\Tests;
 
-use Mifrial\Core\Kernel\Dto\CacheSettings;
 use Mifrial\Core\Kernel\Dto\DatabaseSettings;
 use Mifrial\Core\Kernel\Service\ApplicationFactory;
 use Mifrial\Core\SmartTable\Dto\ListQuery;
@@ -158,10 +157,9 @@ final class CacheMysqlTest extends TestCase
         self::assertInstanceOf(IlluminateDatabaseConnection::class, $this->databaseConnection);
         $this->gateway = GatewayHarness::make(
             $this->databaseConnection,
-            CacheSettings::fromConfig([
-                'driver' => 'file',
-                'path' => sys_get_temp_dir() . '/mifrial-st-mysql-cache-' . uniqid('', true),
-            ]),
+            GatewayHarness::fileStore(
+                sys_get_temp_dir() . '/mifrial-st-mysql-cache-' . uniqid('', true),
+            ),
             true,
         );
     }

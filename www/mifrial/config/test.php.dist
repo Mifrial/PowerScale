@@ -16,7 +16,7 @@ return [
     ],
     'cache' => [
         'driver' => 'file',
-        'path' => __DIR__ . '/../var/cache/smarttable-test',
+        'path' => __DIR__ . '/../var/cache',
     ],
     'auth' => [
         'operator_login' => 'admin',

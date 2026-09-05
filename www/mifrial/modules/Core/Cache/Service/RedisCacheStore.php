@@ -2,18 +2,21 @@
 
 declare(strict_types=1);
 
-namespace Mifrial\Core\SmartTable\Service\Cache;
+namespace Mifrial\Core\Cache\Service;
 
-use Mifrial\Core\SmartTable\Exception\Cache\CacheDriverFailedException;
+use Mifrial\Core\Cache\Exception\CacheDriverFailedException;
+use Mifrial\Core\Cache\Interface\Service\ICacheStore;
 use Redis;
 use Throwable;
 
 /**
- * Redis-store: payload SET и множества ключей getList по тегу.
+ * Redis-store: SET EX, множества тегов, конверт TTL.
  */
-final class RedisCacheStore
+final class RedisCacheStore implements ICacheStore
 {
     private ?Redis $redisClient = null;
+
+    private readonly CacheEnvelope $cacheEnvelope;
 
     /**
      * Создаёт store к сокету Redis.
@@ -27,58 +30,79 @@ final class RedisCacheStore
         private readonly string $redisHost,
         private readonly int $redisPort,
     ) {
+        $this->cacheEnvelope = new CacheEnvelope();
     }
 
     /**
-     * Читает сырой payload ключа или null.
+     * Читает payload ключа без конверта TTL.
      *
      * @param string $cacheKey Ключ слота.
      *
-     * @return string|null Байты или miss.
+     * @return string|null Байты потребителя или промах.
      *
+     * @throws CacheInvalidException Если ключ пуст.
      * @throws CacheDriverFailedException Если GET не удался.
      */
     public function read(string $cacheKey): ?string
     {
+        CacheStoreGuard::assertKey($cacheKey);
         try {
-            $payload = $this->client()->get($cacheKey);
+            $raw = $this->client()->get($cacheKey);
         } catch (Throwable $throwable) {
-            throw new CacheDriverFailedException($throwable);
+            throw $this->asDriverFailed($throwable);
         }
 
-        return is_string($payload) ? $payload : null;
+        if (!is_string($raw) || $raw === '') {
+            return null;
+        }
+
+        $payload = $this->cacheEnvelope->unpack($raw, time());
+        if ($payload === null) {
+            $this->deleteKeys([$cacheKey]);
+
+            return null;
+        }
+
+        return $payload;
     }
 
     /**
-     * Пишет payload и добавляет ключ в множества тегов.
+     * Пишет payload с SET EX, затем SADD в теги.
      *
      * @param string $cacheKey Ключ слота.
-     * @param string $payload Байты с expire.
-     * @param array<int, string> $tagNames Теги getList; пусто для get.
+     * @param string $payload Байты потребителя.
+     * @param int $ttlSeconds Срок 1..2592000.
+     * @param array<int, string> $tagNames Теги; пусто — без множеств.
      *
      * @return void
      *
+     * @throws CacheInvalidException Если аргументы непригодны.
      * @throws CacheDriverFailedException Если SET/SADD не удался.
      */
-    public function write(string $cacheKey, string $payload, array $tagNames): void
+    public function write(string $cacheKey, string $payload, int $ttlSeconds, array $tagNames = []): void
     {
+        CacheStoreGuard::assertKey($cacheKey);
+        CacheStoreGuard::assertTtl($ttlSeconds);
+        CacheStoreGuard::assertTags($tagNames);
+        $packed = $this->cacheEnvelope->pack($payload, time() + $ttlSeconds);
         try {
-            $this->client()->set($cacheKey, $payload);
+            $this->client()->setex($cacheKey, $ttlSeconds, $packed);
             foreach ($tagNames as $tagName) {
                 $this->client()->sAdd('stg:' . $tagName, $cacheKey);
             }
         } catch (Throwable $throwable) {
-            throw new CacheDriverFailedException($throwable);
+            throw $this->asDriverFailed($throwable);
         }
     }
 
     /**
      * Удаляет payload ключей.
      *
-     * @param array<int, string> $cacheKeys Ключи.
+     * @param array<int, string> $cacheKeys Ключи; пусто — no-op.
      *
      * @return void
      *
+     * @throws CacheInvalidException Если ключ пуст.
      * @throws CacheDriverFailedException Если DEL не удался.
      */
     public function deleteKeys(array $cacheKeys): void
@@ -87,24 +111,31 @@ final class RedisCacheStore
             return;
         }
 
+        CacheStoreGuard::assertKeys($cacheKeys);
         try {
             $this->client()->del($cacheKeys);
         } catch (Throwable $throwable) {
-            throw new CacheDriverFailedException($throwable);
+            throw $this->asDriverFailed($throwable);
         }
     }
 
     /**
-     * Сбрасывает ключи всех переданных тегов (OR).
+     * Сбрасывает ключи всех переданных тегов.
      *
-     * @param array<int, string> $tagNames Теги.
+     * @param array<int, string> $tagNames Теги; пусто — no-op.
      *
      * @return void
      *
+     * @throws CacheInvalidException Если тег пуст.
      * @throws CacheDriverFailedException Если множества недоступны.
      */
     public function flushTags(array $tagNames): void
     {
+        if ($tagNames === []) {
+            return;
+        }
+
+        CacheStoreGuard::assertTags($tagNames);
         $cacheKeys = [];
         try {
             foreach ($tagNames as $tagName) {
@@ -115,10 +146,20 @@ final class RedisCacheStore
                 $this->client()->del('stg:' . $tagName);
             }
         } catch (Throwable $throwable) {
-            throw new CacheDriverFailedException($throwable);
+            throw $this->asDriverFailed($throwable);
         }
 
         $this->deleteKeys(array_keys($cacheKeys));
+    }
+
+    /**
+     * Redis-store из factory всегда пригоден до connect.
+     *
+     * @return bool True.
+     */
+    public function isUsable(): bool
+    {
+        return true;
     }
 
     /**
@@ -164,7 +205,7 @@ final class RedisCacheStore
             $redisClient = new Redis();
             $connected = $redisClient->connect($this->redisHost, $this->redisPort, 1.0);
         } catch (Throwable $throwable) {
-            throw new CacheDriverFailedException($throwable);
+            throw $this->asDriverFailed($throwable);
         }
 
         if ($connected !== true) {
@@ -174,5 +215,19 @@ final class RedisCacheStore
         $this->redisClient = $redisClient;
 
         return $redisClient;
+    }
+
+    /**
+     * Не оборачивает уже типизированный отказ драйвера.
+     *
+     * @param Throwable $throwable Причина.
+     *
+     * @return CacheDriverFailedException Отказ I/O.
+     */
+    private function asDriverFailed(Throwable $throwable): CacheDriverFailedException
+    {
+        return $throwable instanceof CacheDriverFailedException
+            ? $throwable
+            : new CacheDriverFailedException($throwable);
     }
 }

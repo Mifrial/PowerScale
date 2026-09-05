@@ -2,67 +2,82 @@
 
 declare(strict_types=1);
 
-namespace Mifrial\Core\SmartTable\Service\Cache;
+namespace Mifrial\Core\Cache\Service;
 
-use Mifrial\Core\SmartTable\Exception\Cache\CacheDriverFailedException;
+use Closure;
+use Mifrial\Core\Cache\Exception\CacheDriverFailedException;
+use Mifrial\Core\Cache\Interface\Service\ICacheStore;
 use Throwable;
 
 /**
- * File-store: payload-файлы и индекс тегов getList.
+ * File-store: payload-файлы, индекс тегов, конверт TTL.
  */
-final class FileCacheStore
+final class FileCacheStore implements ICacheStore
 {
     private readonly FileCacheTagIndex $tagIndex;
+
+    private readonly CacheEnvelope $cacheEnvelope;
 
     /**
      * Создаёт store в каталоге.
      *
      * @param string $basePath Каталог кэша.
+     * @param Closure|null $clock Unix-секунды для тестов expire.
      *
      * @return void
      */
     public function __construct(
         private readonly string $basePath,
+        private readonly ?Closure $clock = null,
     ) {
         $this->tagIndex = new FileCacheTagIndex($basePath);
+        $this->cacheEnvelope = new CacheEnvelope();
     }
 
     /**
-     * Читает сырой payload ключа или null.
+     * Читает payload ключа без конверта TTL.
      *
      * @param string $cacheKey Ключ слота.
      *
-     * @return string|null Байты или miss.
+     * @return string|null Байты потребителя или промах.
      *
-     * @throws CacheDriverFailedException Если чтение файла не удалось.
+     * @throws CacheInvalidException Если ключ пуст.
+     * @throws CacheDriverFailedException Если I/O файла упал.
      */
     public function read(string $cacheKey): ?string
     {
+        CacheStoreGuard::assertKey($cacheKey);
         $filePath = $this->payloadPath($cacheKey);
         if (!is_file($filePath)) {
             return null;
         }
 
-        $payload = $this->lockedRead($filePath);
-
-        return $payload === '' ? null : $payload;
+        return $this->unpackOrDelete($cacheKey, $this->lockedRead($filePath));
     }
 
     /**
-     * Пишет payload и добавляет ключ в индексы тегов.
+     * Пишет payload с TTL, затем вешает ключ на теги.
      *
      * @param string $cacheKey Ключ слота.
-     * @param string $payload Байты с expire.
-     * @param array<int, string> $tagNames Теги getList; пусто для get.
+     * @param string $payload Байты потребителя.
+     * @param int $ttlSeconds Срок 1..2592000.
+     * @param array<int, string> $tagNames Теги; пусто — без множеств.
      *
      * @return void
      *
-     * @throws CacheDriverFailedException Если запись не удалась.
+     * @throws CacheInvalidException Если аргументы непригодны.
+     * @throws CacheDriverFailedException Если I/O файла упал.
      */
-    public function write(string $cacheKey, string $payload, array $tagNames): void
+    public function write(string $cacheKey, string $payload, int $ttlSeconds, array $tagNames = []): void
     {
+        CacheStoreGuard::assertKey($cacheKey);
+        CacheStoreGuard::assertTtl($ttlSeconds);
+        CacheStoreGuard::assertTags($tagNames);
         $this->ensureDirectories();
-        $this->lockedWrite($this->payloadPath($cacheKey), $payload);
+        $this->lockedWrite(
+            $this->payloadPath($cacheKey),
+            $this->cacheEnvelope->pack($payload, $this->now() + $ttlSeconds),
+        );
         foreach ($tagNames as $tagName) {
             $this->tagIndex->add($tagName, $cacheKey);
         }
@@ -71,14 +86,20 @@ final class FileCacheStore
     /**
      * Удаляет payload ключей.
      *
-     * @param array<int, string> $cacheKeys Ключи.
+     * @param array<int, string> $cacheKeys Ключи; пусто — no-op.
      *
      * @return void
      *
+     * @throws CacheInvalidException Если ключ пуст.
      * @throws CacheDriverFailedException Если unlink не удался.
      */
     public function deleteKeys(array $cacheKeys): void
     {
+        if ($cacheKeys === []) {
+            return;
+        }
+
+        CacheStoreGuard::assertKeys($cacheKeys);
         foreach ($cacheKeys as $cacheKey) {
             $filePath = $this->payloadPath($cacheKey);
             if (is_file($filePath) && !unlink($filePath) && is_file($filePath)) {
@@ -88,16 +109,22 @@ final class FileCacheStore
     }
 
     /**
-     * Сбрасывает ключи всех переданных тегов (OR).
+     * Сбрасывает ключи всех переданных тегов.
      *
-     * @param array<int, string> $tagNames Теги.
+     * @param array<int, string> $tagNames Теги; пусто — no-op.
      *
      * @return void
      *
+     * @throws CacheInvalidException Если тег пуст.
      * @throws CacheDriverFailedException Если индекс недоступен.
      */
     public function flushTags(array $tagNames): void
     {
+        if ($tagNames === []) {
+            return;
+        }
+
+        CacheStoreGuard::assertTags($tagNames);
         $cacheKeys = [];
         foreach ($tagNames as $tagName) {
             foreach ($this->tagIndex->keys($tagName) as $cacheKey) {
@@ -108,6 +135,42 @@ final class FileCacheStore
         }
 
         $this->deleteKeys(array_keys($cacheKeys));
+    }
+
+    /**
+     * File-store из factory всегда пригоден до I/O.
+     *
+     * @return bool True.
+     */
+    public function isUsable(): bool
+    {
+        return true;
+    }
+
+    /**
+     * Снимает конверт или удаляет истёкший слот.
+     *
+     * @param string $cacheKey Ключ.
+     * @param string $raw Байты файла.
+     *
+     * @return string|null Payload или промах.
+     *
+     * @throws CacheDriverFailedException Если unlink истёкшего слота не удался.
+     */
+    private function unpackOrDelete(string $cacheKey, string $raw): ?string
+    {
+        if ($raw === '') {
+            return null;
+        }
+
+        $payload = $this->cacheEnvelope->unpack($raw, $this->now());
+        if ($payload !== null) {
+            return $payload;
+        }
+
+        $this->deleteKeys([$cacheKey]);
+
+        return null;
     }
 
     /**
@@ -215,5 +278,15 @@ final class FileCacheStore
         }
 
         fclose($handle);
+    }
+
+    /**
+     * Текущие unix-секунды.
+     *
+     * @return int Секунды.
+     */
+    private function now(): int
+    {
+        return $this->clock instanceof Closure ? ($this->clock)() : time();
     }
 }

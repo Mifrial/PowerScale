@@ -9,7 +9,7 @@
     "illuminate/database": "^11.0"
   },
   "suggest": {
-    "ext-redis": "SmartTable redis cache driver"
+    "ext-redis": "Core/Cache redis driver"
   },
   "require-dev": {
     "friendsofphp/php-cs-fixer": "^3.95",
@@ -31,7 +31,13 @@
       "Mifrial\\Core\\Auth\\": "modules/Core/Auth/",
       "Mifrial\\Core\\Mail\\": "modules/Core/Mail/",
       "Mifrial\\Core\\Logger\\": "modules/Core/Logger/",
-      "Mifrial\\Messages\\Chat\\": "modules/Messages/Chat/"
+      "Mifrial\\Core\\Cache\\": "modules/Core/Cache/",
+      "Mifrial\\Messages\\Chat\\": "modules/Messages/Chat/",
+      "Mifrial\\Versioning\\Space\\": "modules/Versioning/Space/",
+      "Mifrial\\Roleplay\\Keyword\\": "modules/Roleplay/Keyword/",
+      "Mifrial\\Roleplay\\Mechanic\\": "modules/Roleplay/Mechanic/",
+      "Mifrial\\Roleplay\\Rule\\": "modules/Roleplay/Rule/",
+      "Mifrial\\Roleplay\\RuleSpace\\": "modules/Roleplay/RuleSpace/"
     },
     "exclude-from-classmap": [
       "/modules/Core/Kernel/tests/",
@@ -41,7 +47,13 @@
       "/modules/Core/Auth/tests/",
       "/modules/Core/Mail/tests/",
       "/modules/Core/Logger/tests/",
-      "/modules/Messages/Chat/tests/"
+      "/modules/Core/Cache/tests/",
+      "/modules/Messages/Chat/tests/",
+      "/modules/Versioning/Space/tests/",
+      "/modules/Roleplay/Keyword/tests/",
+      "/modules/Roleplay/Mechanic/tests/",
+      "/modules/Roleplay/Rule/tests/",
+      "/modules/Roleplay/RuleSpace/tests/"
     ]
   },
   "autoload-dev": {
@@ -54,7 +66,13 @@
       "Mifrial\\Core\\Auth\\Tests\\": "modules/Core/Auth/tests/",
       "Mifrial\\Core\\Mail\\Tests\\": "modules/Core/Mail/tests/",
       "Mifrial\\Core\\Logger\\Tests\\": "modules/Core/Logger/tests/",
-      "Mifrial\\Messages\\Chat\\Tests\\": "modules/Messages/Chat/tests/"
+      "Mifrial\\Core\\Cache\\Tests\\": "modules/Core/Cache/tests/",
+      "Mifrial\\Messages\\Chat\\Tests\\": "modules/Messages/Chat/tests/",
+      "Mifrial\\Versioning\\Space\\Tests\\": "modules/Versioning/Space/tests/",
+      "Mifrial\\Roleplay\\Keyword\\Tests\\": "modules/Roleplay/Keyword/tests/",
+      "Mifrial\\Roleplay\\Mechanic\\Tests\\": "modules/Roleplay/Mechanic/tests/",
+      "Mifrial\\Roleplay\\Rule\\Tests\\": "modules/Roleplay/Rule/tests/",
+      "Mifrial\\Roleplay\\RuleSpace\\Tests\\": "modules/Roleplay/RuleSpace/tests/"
     }
   },
   "config": {

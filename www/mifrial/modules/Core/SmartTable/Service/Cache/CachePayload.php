@@ -10,45 +10,36 @@ use Mifrial\Core\SmartTable\Dto\CacheHit;
 use Mifrial\Core\SmartTable\Dto\ListResult;
 
 /**
- * Кодирование слота: expire плюс serialize допустимых типов.
+ * Serialize ListResult, AggregateResult и ряда get без строки expire.
  */
 final class CachePayload
 {
     /**
-     * Собирает байты слота.
+     * Собирает байты значения ST.
      *
      * @param mixed $value Значение.
-     * @param int $expiresAt Unix истечения.
      *
-     * @return string Байты.
+     * @return string Байты serialize.
      */
-    public function encode(mixed $value, int $expiresAt): string
+    public function encode(mixed $value): string
     {
-        return $expiresAt . "\n" . serialize($value);
+        return serialize($value);
     }
 
     /**
-     * Разбирает payload; промах если истёк или битый.
+     * Разбирает payload; промах если битый serialize.
      *
      * @param string $payload Байты.
-     * @param int $now Unix сейчас.
      *
      * @return CacheHit Попадание, в том числе value null.
      */
-    public function decode(string $payload, int $now): CacheHit
+    public function decode(string $payload): CacheHit
     {
-        $separator = strpos($payload, "\n");
-        if ($separator === false) {
-            return new CacheHit(false, null);
-        }
-
-        $expiresAt = (int) substr($payload, 0, $separator);
-        $body = substr($payload, $separator + 1);
-        $decoded = unserialize($body, [
+        $decoded = unserialize($payload, [
             'allowed_classes' => [ListResult::class, AggregateResult::class, UnixDateTime::class],
         ]);
-        $broken = $decoded === false && $body !== serialize(false);
-        if ($expiresAt <= $now || $broken) {
+        $broken = $decoded === false && $payload !== serialize(false);
+        if ($broken) {
             return new CacheHit(false, null);
         }
 
