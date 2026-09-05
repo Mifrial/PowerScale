@@ -348,7 +348,7 @@ final class UserHttpMysqlTest extends TestCase
     }
 
     /**
-     * Страница членов: total, offset, пустая группа, нет группы, bounds.
+     * Страница членов: total, offset, пустая группа, нет группы, bounds; memberCount 0/N.
      *
      * @return void
      */
@@ -405,6 +405,24 @@ final class UserHttpMysqlTest extends TestCase
         } catch (UserInvalidException $exception) {
             self::assertSame('USER_INVALID', $exception->getErrorCode());
         }
+
+        $crew = $groupHttp->get($groupId);
+        $emptyGroup = $groupHttp->get($emptyId);
+        self::assertSame(3, $crew['memberCount']);
+        self::assertSame(0, $emptyGroup['memberCount']);
+        $listed = $groupHttp->findPage(new FindPageInput(
+            50,
+            0,
+            OptionalString::absent(),
+            OptionalBool::absent(),
+        ));
+        $countById = [];
+        foreach ($listed['items'] as $item) {
+            $countById[$item['id']] = $item['memberCount'];
+        }
+
+        self::assertSame(3, $countById[$groupId]);
+        self::assertSame(0, $countById[$emptyId]);
     }
 
     /**

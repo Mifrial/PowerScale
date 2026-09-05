@@ -66,7 +66,7 @@ CSRF **true** на всех (как `user.*`). HTTP 401 нет: нет акто�
 
 `GroupMember`: `id`, `name`, `login`. Без `initials` в JSON; Vue считает тем же `initials()`. Email не светить.
 
-`memberCount`: COUNT по `user_group_member` на пачку id групп из `findPage`/`get`. Публичного GROUP BY у SmartTable нет: `getList` членств `filter group_id in`, **страницы по 500 до пустой**, агрегат в PHP (`getCountsByGroupIds` в репозитории). Нет строк у группы — 0. Лимит **500 групп** на странице. Страница членов — [`user-plan-06-members-page.md`](user-plan-06-members-page.md).
+`memberCount`: COUNT по `user_group_member` на пачку id групп из `findPage`/`get`. Один `aggregate` (`GROUP BY group_id`) — [`user-plan-08-member-count-aggregate.md`](user-plan-08-member-count-aggregate.md). Нет строк у группы — 0. Лимит **500 групп** на странице. Страница членов — [`user-plan-06-members-page.md`](user-plan-06-members-page.md).
 
 `getMembers`: `findMemberPage` + `IUserAccounts::getByIds` (один IN), не N×`getById`. Нет учётки по id членства — пропуск, не 404 всего списка.
 
@@ -103,7 +103,7 @@ Deactivate HTTP = `update` + `GroupPatch` `active => false`, не `delete` гр�
 
 ## Todo
 
-- [x] **list-count** — `IUserGroups::getList` + COUNT членств пачкой; mysql.
+- [x] **list-count** — `IUserGroups::findPage` + COUNT членств; mysql. Перепись на `aggregate` — [`user-plan-08-member-count-aggregate.md`](user-plan-08-member-count-aggregate.md).
 - [x] **json-members** — JSON Group / GroupMember / initials; unix `createdAt`; геттеры Record.
 - [x] **guard-keys** — таблица §3; subset permissions в HTTP-сценарии.
 - [x] **action-input** — `CreateGroupInput` / `UpdateGroupInput`; чтения скалярами.
@@ -112,7 +112,7 @@ Deactivate HTTP = `update` + `GroupPatch` `active => false`, не `delete` гр�
 
 ## Не входит
 
-Vue / смена имён action и типа `createdAt` на фронте. Политика пароля. `remember`. HTTP 401. Транзакции. Object-ACL / `can_edit` на группе. Каталог ключей как enum. Delete группы. Пагинация >500. Seed новых групп. Проводка `assign_on_register` в Vue-форму. Запись `bypass` с HTTP / чекбокс bypass в форме. Новый метод ACL «subset ключей» на `IUserAccess`. GROUP BY / fluent ST.
+Vue / смена имён action и типа `createdAt` на фронте. Политика пароля. `remember`. HTTP 401. Транзакции. Object-ACL / `can_edit` на группе. Каталог ключей как enum. Delete группы. Пагинация >500. Seed новых групп. Проводка `assign_on_register` в Vue-форму. Запись `bypass` с HTTP / чекбокс bypass в форме. Новый метод ACL «subset ключей» на `IUserAccess`. GROUP BY / fluent ST в этом файле (хвост — [`user-plan-08-member-count-aggregate.md`](user-plan-08-member-count-aggregate.md)).
 
 ## Документы захода
 

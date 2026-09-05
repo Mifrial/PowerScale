@@ -46,6 +46,10 @@
 
 Подробно: [`user-plan-07-member-unique.md`](user-plan-07-member-unique.md). После ST 16. До Chat 1. **Код — этот заход.**
 
+## 10. memberCount через aggregate
+
+Подробно: [`user-plan-08-member-count-aggregate.md`](user-plan-08-member-count-aggregate.md). Хвост User 4 после ST 17. Не Chat.
+
 ## Параллелить нельзя
 
 - Auth с отсутствием плана 1.
