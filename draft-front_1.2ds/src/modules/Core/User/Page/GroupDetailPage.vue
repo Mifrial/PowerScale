@@ -89,7 +89,11 @@ async function deactivate() {
         </v-list>
         <div v-else class="text-body-2 text-medium-emphasis">Нет участников</div>
       </v-card-text>
-      <GridFooter :pagination="pagination" :total-items="store.groupMembersTotal" @update:pagination="onPaginationChange" />
+      <GridFooter
+        :pagination="pagination"
+        :total-items="store.groupMembersTotal"
+        @update:pagination="onPaginationChange"
+      />
     </v-card>
 
     <v-card>

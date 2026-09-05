@@ -6,8 +6,7 @@ import { displayName } from '@/modules/Core/User/Utils/displayName';
 function userProfileCrumbTitle(to: RouteLocationNormalizedLoaded): string {
   const store = useUserStore();
   const id = Number(to.params.id);
-  const user =
-    store.profileUser?.id === id ? store.profileUser : store.users.find((entry) => entry.id === id);
+  const user = store.profileUser?.id === id ? store.profileUser : store.users.find((entry) => entry.id === id);
 
   return user ? displayName(user.name, user.surname, user.login) : 'Профиль';
 }

@@ -64,8 +64,9 @@ const macrosByUser: Record<number, UserMacro[]> = {
 
 async function currentUserId(): Promise<number> {
   const me = await mockGetCurrentUser();
+  if (me?.kind === 'user') return me.user.id;
 
-  return me?.id ?? 1;
+  return 1;
 }
 
 export async function mockGetMyMacros(signal?: AbortSignal): Promise<UserMacro[]> {

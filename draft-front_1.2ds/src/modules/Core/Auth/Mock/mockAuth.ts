@@ -1,5 +1,6 @@
 import type { User } from '@/modules/Core/User/Dto/User';
 import type { PasswordPolicy } from '@/modules/Core/Auth/Dto/PasswordPolicy';
+import type { PasswordResetStartResult } from '@/modules/Core/Auth/Dto/PasswordResetStartResult';
 import type { CurrentSession } from '@/modules/Core/Auth/Dto/CurrentSession';
 import { resolvePermissions } from '@/modules/Core/User/Mock/resolvePermissions';
 import { DEFAULT_PASSWORD_POLICY } from '@/modules/Core/Auth/Constant/defaultPasswordPolicy';

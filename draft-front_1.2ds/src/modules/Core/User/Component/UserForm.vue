@@ -47,7 +47,7 @@ onMounted(() => {
   void groupStore.findPage({ limit: 500, offset: 0 });
 });
 
-function required(v: unknown): string | boolean {
+function required(v: unknown): string | true {
   if (!v || (typeof v === 'string' && !v.trim())) return 'Обязательное поле';
 
   return true;
@@ -95,7 +95,14 @@ defineExpose({ submit: handleSubmit });
         </v-card-item>
         <v-divider />
         <v-card-text>
-          <v-text-field v-model="form.name" label="Имя" :rules="[required]" variant="outlined" density="compact" class="mb-2" />
+          <v-text-field
+            v-model="form.name"
+            label="Имя"
+            :rules="[required]"
+            variant="outlined"
+            density="compact"
+            class="mb-2"
+          />
           <v-text-field v-model="form.surname" label="Фамилия" variant="outlined" density="compact" class="mb-2" />
           <v-text-field v-model="form.nickname" label="Псевдоним" variant="outlined" density="compact" class="mb-2" />
           <v-switch v-if="mode === 'edit'" v-model="form.active" label="Активен" color="success" hide-details />
@@ -120,7 +127,14 @@ defineExpose({ submit: handleSubmit });
             density="compact"
             class="mb-2"
           />
-          <v-text-field v-model="form.email" label="Email" type="email" variant="outlined" density="compact" class="mb-2" />
+          <v-text-field
+            v-model="form.email"
+            label="Email"
+            type="email"
+            variant="outlined"
+            density="compact"
+            class="mb-2"
+          />
           <PasswordField
             v-if="mode === 'create'"
             v-model="form.password"

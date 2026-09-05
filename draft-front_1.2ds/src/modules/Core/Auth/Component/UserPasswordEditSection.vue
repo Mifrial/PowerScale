@@ -63,7 +63,11 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <v-card v-if="canEditPassword" class="mt-4" style="border: thin solid rgba(var(--v-border-color), var(--v-border-opacity))">
+  <v-card
+    v-if="canEditPassword"
+    class="mt-4"
+    style="border: thin solid rgba(var(--v-border-color), var(--v-border-opacity))"
+  >
     <v-card-item>
       <v-card-title class="text-body-1 font-weight-bold">
         <v-icon start size="small" class="mb-1">mdi-lock-outline</v-icon>

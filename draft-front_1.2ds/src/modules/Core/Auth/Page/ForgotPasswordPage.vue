@@ -19,18 +19,18 @@ async function handleReset() {
   loading.value = true;
   message.value = '';
   try {
-    const user = await auth.findUser(loginOrEmail.value);
-    if (!user) {
+    const result = await auth.startPasswordReset(loginOrEmail.value);
+    if (result.status === 'not_found') {
       messageType.value = 'error';
       message.value = 'Аккаунт с таким логином или email не найден';
-    } else if (!user.email) {
+    } else if (result.status === 'no_email') {
       messageType.value = 'error';
       message.value = 'Для этого аккаунта не указан email, обратитесь к администратору';
     } else {
       messageType.value = 'success';
-      message.value = `Инструкция по сбросу пароля отправлена на ${user.email}`;
+      message.value = 'Инструкция по сбросу пароля отправлена';
       setTimeout(() => {
-        router.push({ name: 'ResetPassword', query: { login: user.login } });
+        router.push({ name: 'ResetPassword', query: { login: result.login ?? loginOrEmail.value } });
       }, 1500);
     }
   } finally {
