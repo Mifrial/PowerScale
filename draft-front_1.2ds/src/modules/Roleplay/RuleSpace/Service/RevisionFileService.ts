@@ -218,7 +218,7 @@ export class RevisionFileService {
         spec: external.spec as RuleSpec,
         keywordIds,
         mechanicId,
-        mechanicPayload: this.asMechanicPayload(external.mechanicPayload),
+        mechanicPayload: this.asMechanicPayload(external.mechanicPayload) ?? undefined,
         contentStatus: external.contentStatus,
         active: external.active,
         createdAt: file.source.publishedAt,

@@ -51,6 +51,32 @@ final class RuleSpaceHttpUnitTest extends TestCase
         self::assertInstanceOf(RuleCommitEntry::class, $puts[0]);
         self::assertSame('human', $puts[0]->getCode());
         self::assertSame('needs_work', $puts[0]->getBody()?->getContentStatus());
+        $nullPayload = $mapper->mapPuts([
+            [
+                'code' => 'test',
+                'type' => 'simple',
+                'name' => 'Тест',
+                'mechanicId' => 3,
+                'mechanicPayload' => null,
+                'spec' => [],
+            ],
+        ]);
+        self::assertSame([], $nullPayload[0]->getBody()?->getMechanicPayload());
+        self::assertSame(3, $nullPayload[0]->getBody()?->getMechanicId());
+        try {
+            $mapper->mapPuts([
+                [
+                    'code' => 'test',
+                    'type' => 'simple',
+                    'name' => 'Тест',
+                    'keywordIds' => ['1'],
+                ],
+            ]);
+            self::fail('string keyword ids must fail');
+        } catch (RuleSpaceInvalidException $exception) {
+            self::assertSame('RULESPACE_INVALID', $exception->getErrorCode());
+            self::assertSame('Commit rule "test" field keywordIds is invalid', $exception->getMessage());
+        }
         self::assertSame(['gone'], $mapper->mapRemovedCodes(['gone']));
         try {
             $mapper->mapPuts(['nope']);

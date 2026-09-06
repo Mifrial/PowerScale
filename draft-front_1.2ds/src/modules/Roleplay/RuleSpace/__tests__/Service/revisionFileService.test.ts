@@ -124,6 +124,29 @@ describe('RevisionFileService', () => {
     expect(raw.rules[0]?.createdAt).toBeUndefined();
   });
 
+  it('пустой mechanicPayload материализуется без JSON null', () => {
+    const service = new RevisionFileService(ruleDiffService, () => FIXED_UNIX);
+    const file = sampleFile({
+      mechanics: [{ code: 'test', name: 'М', description: '', version: '1' }],
+      rules: [
+        {
+          ...sampleFile().rules[0],
+          mechanic: { code: 'test', version: '1' },
+          mechanicPayload: [],
+        },
+      ],
+    });
+    const rules = service.materializeRules(
+      file,
+      1,
+      [{ id: 1, code: 'common', name: 'Общая', description: '', active: true }],
+      [{ id: 2, code: 'test', name: 'М', description: '', version: '1' }],
+    );
+    expect(rules[0]?.mechanicId).toBe(2);
+    expect(rules[0]?.mechanicPayload).toBeUndefined();
+    expect(JSON.stringify(rules[0])).not.toContain('mechanicPayload');
+  });
+
   it('запрещает keywordIds и handlerVersion', () => {
     const withIds = sampleFile();
     expectProblem(
@@ -236,6 +259,7 @@ describe('RevisionFileService', () => {
     expect(back[0]?.mechanicId).toBe(4);
     expect(back[0]?.spaceId).toBe(8);
     expect(back[0]?.id).toBeNull();
+    expect(JSON.stringify(back[0])).not.toContain('"mechanicPayload":null');
 
     expectProblem(
       () => service.assemble({ ...revision, rules: [rule('x', 'X', { keywordIds: [99] })] }, keywords, mechanics),

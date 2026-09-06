@@ -78,11 +78,33 @@ export class RuleSpaceApi implements IRuleSpaceApi {
   ): Promise<SpaceRevision<Rule>> {
     const res = await this.engine.runAction<SpaceRevision<Rule>>(
       'ruleSpace.commitDraft',
-      { spaceId, rules, removedCodes, sections },
+      {
+        spaceId,
+        rules: rules.map((rule) => this.commitRulePayload(rule)),
+        removedCodes,
+        sections,
+      },
       signal,
     );
-    if (!res.data) throw new Error('Failed to commit draft');
+    if (!res.success || res.data === null) {
+      throw new Error(res.error?.message ?? 'Не удалось опубликовать черновик');
+    }
 
     return res.data;
+  }
+
+  /**
+   * Убирает null-поля Vue-DTO: PHP принимает отсутствие ключа или массив, не JSON null.
+   */
+  private commitRulePayload(rule: Rule): Rule {
+    const payload = { ...rule };
+    if (payload.mechanicPayload == null) {
+      delete payload.mechanicPayload;
+    }
+    if (payload.spec == null) {
+      delete payload.spec;
+    }
+
+    return payload;
   }
 }

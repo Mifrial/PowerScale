@@ -87,11 +87,14 @@ final class RuleSpaceCommitDraftMapper
         try {
             return RuleCommitEntry::put(
                 $code,
-                $this->mapBody($ruleRow),
-                $this->optionalBool($ruleRow, 'active', true),
+                $this->mapBody($ruleRow, $code),
+                $this->optionalBool($ruleRow, 'active', true, $code),
             );
         } catch (RuleInvalidException $exception) {
-            throw new RuleSpaceInvalidException('Commit rule is invalid', $exception);
+            throw new RuleSpaceInvalidException(
+                sprintf('Commit rule "%s" is invalid: %s', $code, $exception->getMessage()),
+                $exception,
+            );
         }
     }
 
@@ -99,29 +102,32 @@ final class RuleSpaceCommitDraftMapper
      * Тело снимка.
      *
      * @param array<string|int, mixed> $ruleRow JSON.
+     * @param string $ruleCode Код правила.
      *
      * @return RuleVersionBody Тело.
      *
      * @throws RuleSpaceInvalidException Если поля.
      * @throws RuleInvalidException Если инвариант тела.
      */
-    private function mapBody(array $ruleRow): RuleVersionBody
+    private function mapBody(array $ruleRow, string $ruleCode): RuleVersionBody
     {
         $type = $ruleRow['type'] ?? null;
         $name = $ruleRow['name'] ?? null;
         if (!is_string($type) || !is_string($name)) {
-            throw new RuleSpaceInvalidException('Commit rule type and name are required');
+            throw new RuleSpaceInvalidException(
+                sprintf('Commit rule "%s" type and name are required', $ruleCode),
+            );
         }
 
         return new RuleVersionBody(
             $type,
             $name,
-            $this->optionalString($ruleRow, 'description', ''),
-            $this->optionalArray($ruleRow, 'spec'),
-            $this->optionalIntList($ruleRow, 'keywordIds'),
-            $this->optionalMechanicId($ruleRow),
-            $this->optionalArray($ruleRow, 'mechanicPayload'),
-            $this->optionalString($ruleRow, 'contentStatus', 'needs_work'),
+            $this->optionalString($ruleRow, 'description', '', $ruleCode),
+            $this->optionalArray($ruleRow, 'spec', $ruleCode),
+            $this->optionalIntList($ruleRow, 'keywordIds', $ruleCode),
+            $this->optionalMechanicId($ruleRow, $ruleCode),
+            $this->optionalArray($ruleRow, 'mechanicPayload', $ruleCode),
+            $this->optionalString($ruleRow, 'contentStatus', 'needs_work', $ruleCode),
         );
     }
 
@@ -131,20 +137,25 @@ final class RuleSpaceCommitDraftMapper
      * @param array<string|int, mixed> $ruleRow JSON.
      * @param string $fieldName Ключ.
      * @param string $defaultValue Нет ключа.
+     * @param string $ruleCode Код правила.
      *
      * @return string Значение.
      *
      * @throws RuleSpaceInvalidException Если не строка.
      */
-    private function optionalString(array $ruleRow, string $fieldName, string $defaultValue): string
-    {
-        if (!array_key_exists($fieldName, $ruleRow)) {
+    private function optionalString(
+        array $ruleRow,
+        string $fieldName,
+        string $defaultValue,
+        string $ruleCode,
+    ): string {
+        if (!array_key_exists($fieldName, $ruleRow) || $ruleRow[$fieldName] === null) {
             return $defaultValue;
         }
 
         $value = $ruleRow[$fieldName];
         if (!is_string($value)) {
-            throw new RuleSpaceInvalidException('Commit rule field is invalid');
+            $this->rejectField($ruleCode, $fieldName);
         }
 
         return $value;
@@ -155,20 +166,21 @@ final class RuleSpaceCommitDraftMapper
      *
      * @param array<string|int, mixed> $ruleRow JSON.
      * @param string $fieldName Ключ.
+     * @param string $ruleCode Код правила.
      *
      * @return array<string|int, mixed> JSON.
      *
-     * @throws RuleSpaceInvalidException Если не массив.
+     * @throws RuleSpaceInvalidException Если не массив и не null.
      */
-    private function optionalArray(array $ruleRow, string $fieldName): array
+    private function optionalArray(array $ruleRow, string $fieldName, string $ruleCode): array
     {
-        if (!array_key_exists($fieldName, $ruleRow)) {
+        if (!array_key_exists($fieldName, $ruleRow) || $ruleRow[$fieldName] === null) {
             return [];
         }
 
         $value = $ruleRow[$fieldName];
         if (!is_array($value)) {
-            throw new RuleSpaceInvalidException('Commit rule field is invalid');
+            $this->rejectField($ruleCode, $fieldName);
         }
 
         return $value;
@@ -179,26 +191,27 @@ final class RuleSpaceCommitDraftMapper
      *
      * @param array<string|int, mixed> $ruleRow JSON.
      * @param string $fieldName Ключ.
+     * @param string $ruleCode Код правила.
      *
      * @return array<int, int> Id.
      *
      * @throws RuleSpaceInvalidException Если форма.
      */
-    private function optionalIntList(array $ruleRow, string $fieldName): array
+    private function optionalIntList(array $ruleRow, string $fieldName, string $ruleCode): array
     {
-        if (!array_key_exists($fieldName, $ruleRow)) {
+        if (!array_key_exists($fieldName, $ruleRow) || $ruleRow[$fieldName] === null) {
             return [];
         }
 
         $value = $ruleRow[$fieldName];
         if (!is_array($value) || !array_is_list($value)) {
-            throw new RuleSpaceInvalidException('Commit rule field is invalid');
+            $this->rejectField($ruleCode, $fieldName);
         }
 
         $keywordIds = [];
         foreach ($value as $item) {
             if (!is_int($item)) {
-                throw new RuleSpaceInvalidException('Commit rule field is invalid');
+                $this->rejectField($ruleCode, $fieldName);
             }
 
             $keywordIds[] = $item;
@@ -211,12 +224,13 @@ final class RuleSpaceCommitDraftMapper
      * Читает необязательный mechanicId.
      *
      * @param array<string|int, mixed> $ruleRow JSON.
+     * @param string $ruleCode Код правила.
      *
      * @return int|null Id.
      *
      * @throws RuleSpaceInvalidException Если не int|null.
      */
-    private function optionalMechanicId(array $ruleRow): ?int
+    private function optionalMechanicId(array $ruleRow, string $ruleCode): ?int
     {
         if (!array_key_exists('mechanicId', $ruleRow) || $ruleRow['mechanicId'] === null) {
             return null;
@@ -224,7 +238,7 @@ final class RuleSpaceCommitDraftMapper
 
         $value = $ruleRow['mechanicId'];
         if (!is_int($value)) {
-            throw new RuleSpaceInvalidException('Commit rule field is invalid');
+            $this->rejectField($ruleCode, 'mechanicId');
         }
 
         return $value;
@@ -236,22 +250,40 @@ final class RuleSpaceCommitDraftMapper
      * @param array<string|int, mixed> $ruleRow JSON.
      * @param string $fieldName Ключ.
      * @param bool $defaultValue Нет ключа.
+     * @param string $ruleCode Код правила.
      *
      * @return bool Значение.
      *
      * @throws RuleSpaceInvalidException Если не bool.
      */
-    private function optionalBool(array $ruleRow, string $fieldName, bool $defaultValue): bool
+    private function optionalBool(array $ruleRow, string $fieldName, bool $defaultValue, string $ruleCode): bool
     {
-        if (!array_key_exists($fieldName, $ruleRow)) {
+        if (!array_key_exists($fieldName, $ruleRow) || $ruleRow[$fieldName] === null) {
             return $defaultValue;
         }
 
         $value = $ruleRow[$fieldName];
         if (!is_bool($value)) {
-            throw new RuleSpaceInvalidException('Commit rule field is invalid');
+            $this->rejectField($ruleCode, $fieldName);
         }
 
         return $value;
+    }
+
+    /**
+     * Бросает INVALID с кодом правила и именем поля.
+     *
+     * @param string $ruleCode Код.
+     * @param string $fieldName Поле JSON.
+     *
+     * @return never
+     *
+     * @throws RuleSpaceInvalidException Всегда.
+     */
+    private function rejectField(string $ruleCode, string $fieldName): never
+    {
+        throw new RuleSpaceInvalidException(
+            sprintf('Commit rule "%s" field %s is invalid', $ruleCode, $fieldName),
+        );
     }
 }

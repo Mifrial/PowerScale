@@ -33,6 +33,7 @@ const open = computed({
 const publishing = ref(false);
 const preparing = ref(false);
 const summary = ref<PublishSummary | null>(null);
+const publishError = ref<string | null>(null);
 
 const publishAdded = computed(() => summary.value?.added ?? []);
 const publishChanged = computed(() => summary.value?.changed ?? []);
@@ -61,6 +62,7 @@ async function prepare() {
   if (!space) return;
   preparing.value = true;
   summary.value = null;
+  publishError.value = null;
   try {
     if (keywords.value.length === 0) {
       await fetchTags(signal.value);
@@ -85,6 +87,7 @@ async function publishDraft() {
   const space = props.space;
   if (!space || hasPublishProblems.value) return;
   publishing.value = true;
+  publishError.value = null;
   try {
     const rules = drafts.getDraftRules(space.id);
     const catalogDirty = sectionCatalog.isDirty(space.id, revisionStore.activeRevision?.sections ?? []);
@@ -101,7 +104,9 @@ async function publishDraft() {
     emit('published', result.revision);
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') return;
-    emit('error', e instanceof Error ? e.message : 'Ошибка публикации');
+    const message = e instanceof Error ? e.message : 'Ошибка публикации';
+    publishError.value = message;
+    emit('error', message);
   } finally {
     publishing.value = false;
   }
@@ -164,6 +169,10 @@ async function publishDraft() {
               <v-chip size="x-small" class="ml-2" variant="tonal">{{ RULE_TYPE_LABELS[rule.type] }}</v-chip>
             </div>
           </div>
+
+          <v-alert v-if="publishError" type="error" class="mb-4" closable @click:close="publishError = null">
+            {{ publishError }}
+          </v-alert>
 
           <div v-if="hasPublishProblems">
             <div class="text-subtitle-2 font-weight-medium text-error mb-1">
