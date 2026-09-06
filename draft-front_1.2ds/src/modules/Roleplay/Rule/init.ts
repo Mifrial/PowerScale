@@ -11,6 +11,7 @@ import { RULE_PERMISSION_CATEGORY } from '@/modules/Roleplay/Rule/Constant/Permi
 import { KEYWORD_PERMISSION_CATEGORY } from '@/modules/Roleplay/Rule/Constant/Permission/KEYWORD_PERMISSION_CATEGORY';
 import { MECHANIC_PERMISSION_CATEGORY } from '@/modules/Roleplay/Rule/Constant/Permission/MECHANIC_PERMISSION_CATEGORY';
 import { KEYWORDS_ADMIN_SECTION } from '@/modules/Roleplay/Rule/Constant/Permission/KEYWORDS_ADMIN_SECTION';
+import { MECHANICS_ADMIN_SECTION } from '@/modules/Roleplay/Rule/Constant/Permission/MECHANICS_ADMIN_SECTION';
 
 export { ruleValidationService } from '@/modules/Roleplay/Rule/Service/Instance/ruleValidationService';
 export { ruleDiffService } from '@/modules/Roleplay/Rule/Service/Instance/ruleDiffService';
@@ -19,6 +20,7 @@ export type { ResolvedMechanic } from '@/modules/Roleplay/Rule/Dto/ResolvedMecha
 export type { MechanicHandler } from '@/modules/Roleplay/Rule/Interface/MechanicHandler';
 export { ROLL_EVENTS } from '@/modules/Roleplay/Rule/Constant/Mechanic/ROLL_EVENTS';
 export { RULE_TYPE_LABELS } from '@/modules/Roleplay/Rule/Constant/RULE_TYPE_LABELS';
+export { RULE_CONTENT_STATUSES } from '@/modules/Roleplay/Rule/Constant/RULE_CONTENT_STATUSES';
 export { itemModifierService } from '@/modules/Roleplay/Rule/Service/Instance/itemModifierService';
 export { checkResolutionService } from '@/modules/Roleplay/Rule/Service/Instance/checkResolutionService';
 export { checkLaunchService } from '@/modules/Roleplay/Rule/Service/Instance/checkLaunchService';
@@ -106,6 +108,7 @@ export function registerRuleModule(): void {
   registerPermissionCategory(KEYWORD_PERMISSION_CATEGORY);
   registerPermissionCategory(MECHANIC_PERMISSION_CATEGORY);
   registerAdminSection(KEYWORDS_ADMIN_SECTION);
+  registerAdminSection(MECHANICS_ADMIN_SECTION);
   registerInlineRenderer({
     type: 'rule',
     component: defineAsyncComponent(() => import('@/modules/Roleplay/Rule/Component/RuleChip.vue')),

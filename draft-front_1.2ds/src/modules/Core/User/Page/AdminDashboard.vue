@@ -32,6 +32,20 @@
       </v-col>
 
       <v-col cols="12" sm="6" md="4">
+        <v-card to="/admin/mechanics" class="admin-card">
+          <v-card-title class="d-flex align-center">
+            <v-icon class="mr-2">mdi-cog-play</v-icon>
+            Механики
+          </v-card-title>
+          <v-card-text> Справочник механик для правил </v-card-text>
+          <v-card-actions>
+            <v-spacer />
+            <v-btn variant="text" color="primary">Перейти</v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-col>
+
+      <v-col cols="12" sm="6" md="4">
         <v-card to="/admin/notification-templates" class="admin-card">
           <v-card-title class="d-flex align-center">
             <v-icon class="mr-2">mdi-bell-cog</v-icon>

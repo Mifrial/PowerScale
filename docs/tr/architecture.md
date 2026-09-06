@@ -167,7 +167,7 @@ Auth зависит от User: после входа и выхода Auth выз
 - Notifications → Engine, UI, User (публично). Не Chat, не Roleplay, не Auth
 - Home → Engine, UI, User, Notifications (публично). Не Auth
 - Keyword → Engine, UI, User (плагин админки). PHP: SmartTable + `IUserAccess` ([`keyword-plan-02.md`](keyword-plan-02.md)). Не Rule/RuleSpace/Character/Game. Не Versioning. Vue-папка — `CODE_GAP` в Rule
-- Mechanic → Engine, UI. PHP: SmartTable + `IUserAccess` ([`mechanic-plan-02.md`](mechanic-plan-02.md)). Не Rule/Keyword/RuleSpace/Character/Game. Не Versioning. Хендлеры — этот модуль, когда закроют OPEN. Vue-папка — `CODE_GAP` в Rule. Не Vue Mechanic → User (нет админ-плагина)
+- Mechanic → Engine, UI, User (плагин админки, как Keyword). PHP: SmartTable + `IUserAccess` ([`mechanic-plan-02.md`](mechanic-plan-02.md)). Не Rule/Keyword/RuleSpace/Character/Game. Не Versioning. Хендлеры — этот модуль, когда закроют OPEN. Vue-папка — `CODE_GAP` в Rule. Vue Mechanic → User через `registerAdminSection` из Rule init (не отдельный Vue-модуль Mechanic).
 - Rule → Engine, UI, User (плагин), Chat (плагин), Keyword, Mechanic (публично). Не RuleSpace/Character/Game. Не Notifications. Не Versioning. `spaceId` и ревизия — проп, роут или ключ inject; RuleSpace только `provide`
 - RuleSpace → Engine, UI, User, Rule (публично). Не Character/Game. Не Notifications. PHP-оператор → `IRules` + sidecar; не SQL карт `rule*` кластера; Vue ↛ Versioning
 - Character → Engine, UI, User, Rule, RuleSpace, Chat (плагин), Notifications (публично, отправка). Не Game. Не Versioning. Позже — Mechanic (Engine)

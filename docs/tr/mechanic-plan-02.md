@@ -56,7 +56,7 @@ CSRF **true**. Нет актора → `AUTH_REQUIRED` → 400. Лишний к�
 
 Кап HTTP **500**: если строк больше — `MECHANIC_INVALID` (неполный каталог), **не** тихая обрезка. Мок ~18; тот же dump+кап, что Keyword. `findPage` не этот заход.
 
-**Чтение без ключа view.** Каталог нужен редактору правила, Character, Game (снимки хранят `mechanic_id` конкретной поставки). Ключ **`mechanic.view` не заводим**: оболочки `/admin/mechanics` нет. Не маскировать будущий view как «это админка User». Нет актора → `AUTH_REQUIRED` (гость не читает). Не открывать анониму.
+**Чтение HTTP без ключа view.** Каталог нужен редактору правила, Character, Game (снимки хранят `mechanic_id` конкретной поставки). PHP **не** проверяет `mechanic.view` на `getList`/`get`. Ключ `mechanic.view` — только Vue-оболочка `/admin/mechanics` (как `keyword.view`), не маска «это админка User». Нет актора → `AUTH_REQUIRED` (гость не читает). Не открывать анониму.
 
 `create` / `update`: нет актора → `AUTH_REQUIRED` (`requireKey` сначала требует актора). Актор без ключа → `AUTH_DENIED`. Bypass — пропуск ключа. Нет строки при акторе на get/update → `MECHANIC_NOT_FOUND`, не DENIED.
 
@@ -92,9 +92,9 @@ Trim; пустой `code` / `name` / `version` → `MECHANIC_INVALID`. Дубл�
 - Клиент **`IMechanicApi` + `MechanicApi` + mock** в папке Rule. `registerMechanicApi` / `getMechanicApi` в `Rule/init.ts`; `main.ts` mock/real рядом с Keyword. Метод каталога: `getMechanics()` → action **`mechanic.getList`**. Character/Game зовут **публичку Rule** (`getMechanicApi`), не внутренности и не будущий Vue-модуль Mechanic (ребро Character/Game → Mechanic по канону — «Позже», Engine).
 - Call sites и тесты, которые `registerRuleApi` + `getMechanics`: `RuleDetailPage`, `RuleEditPage`, Character editor/draft, Game chat/providers/`GameDetailPage`. Перевести на `registerMechanicApi` / `getMechanicApi`.
 - JSON: поле **`version`** оставить. `description` всегда string.
-- Методы create/update на Api **не обязательны**: оболочки списка нет. PHP-запись без Vue-форм.
-- Категория прав в Rule (плагин User, как Keyword): `mechanic.create` / `mechanic.edit` в матрице групп. **Без `view` и `delete`.** Без `registerAdminSection`. Иначе ключи записи есть только у bypass. Не seed PHP «Администраторы».
-- Не seed PHP из `mockMechanics`. Не выносить Engine / хендлеры. Не страница `/admin/mechanics`. Vue DAG: Mechanic по-прежнему ↛ User (нет админ-плагина модуля Mechanic); категория живёт в папке Rule (`CODE_GAP`).
+- Методы `createMechanic` / `updateMechanic` / `getMechanic` на Api — для админки и импорта ревизии.
+- Категория прав в Rule (плагин User, как Keyword): `mechanic.view` / `mechanic.create` / `mechanic.edit` в матрице групп. **Без `delete`.** Секция `registerAdminSection` → `/admin/mechanics`. HTTP записи по-прежнему `create`/`edit`; `view` не гейтит PHP. Не seed PHP «Администраторы».
+- Не seed PHP из `mockMechanics`. Не выносить Engine / хендлеры. Vue DAG: Mechanic по-прежнему ↛ User (нет админ-плагина модуля Mechanic); категория и страницы живут в папке Rule (`CODE_GAP`).
 
 ### 7. Тесты
 
@@ -127,7 +127,7 @@ cs/quality модуля Mechanic. HttpService без +1 public сверх сце
 
 1. `rule.getMechanics` на `IRuleApi` — чужой модуль; канон `mechanic.getList`.
 2. Имя колонки `handler_version` vs JSON `version` — не тащить Record-ключ на провод.
-3. Нет админки — не изобретать deactivate/view «как у Keyword».
+3. Deactivate механики нет — не копировать кнопку «Выключить» с Keyword. `mechanic.view` только для Vue-маршрута/сайдбара.
 4. `getByCode` без версии неоднозначен; на HTTP не открывать даже `getByCodeVersion` (каталог dump + get по id).
 5. Тесты Game/Character держат каталог через `registerRuleApi(mockRuleApi)` — сломаются, если снять `getMechanics` и не зарегистрировать MechanicApi.
 
@@ -135,8 +135,8 @@ cs/quality модуля Mechanic. HttpService без +1 public сверх сце
 
 - [x] **facade** — `getList` / `update`; trim description на `add`; `code` и `handler_version` иммутабельны.
 - [x] **http** — четыре actions, JSON `version`, `ActionException`, Mechanic → User.
-- [x] **guard** — чтение любому актору; запись `mechanic.create` / `mechanic.edit`; без `mechanic.view`.
-- [x] **vue** — `IMechanicApi` + locator в Rule init/`main.ts`; снять `rule.getMechanics`; категория create/edit без админки; DTO `version`.
+- [x] **guard** — чтение любому актору; запись `mechanic.create` / `mechanic.edit`; HTTP без `mechanic.view`.
+- [x] **vue** — `IMechanicApi` + locator в Rule init/`main.ts`; снять `rule.getMechanics`; категория view/create/edit + `/admin/mechanics`; DTO `version`.
 - [x] **gates** — phpunit `mechanic`; cs/quality Mechanic; фронт format/lint/tsc/test.
 - [x] **docs** — шаг 12 в `rule-roadmap.md`; `TR.md`; PHP Mechanic → User (`IUserAccess`) в `architecture.md` (абзац сервера **и** строка Vue-DAG: PHP-ребро, **не** Vue Mechanic → User); `mechanic-plan-01.md`: HTTP этого шага закрыт, модуль **не** закрыт (Engine — «Позже»).
 
