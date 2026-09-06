@@ -1,4 +1,6 @@
+import type { CreateMechanicData } from '@/modules/Roleplay/Rule/Dto/CreateMechanicData';
 import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
+import type { UpdateMechanicData } from '@/modules/Roleplay/Rule/Dto/UpdateMechanicData';
 
 const mechanics: Mechanic[] = [
   {
@@ -135,8 +137,42 @@ const mechanics: Mechanic[] = [
 
 const delay = (ms = 300) => new Promise((r) => setTimeout(r, ms));
 
+let nextId = 19;
+
 export async function fetchMechanics(_signal?: AbortSignal): Promise<Mechanic[]> {
   await delay();
 
   return mechanics.map((m) => ({ ...m }));
+}
+
+export async function fetchMechanic(id: number, _signal?: AbortSignal): Promise<Mechanic> {
+  await delay();
+  const row = mechanics.find((item) => item.id === id);
+  if (!row) throw new Error(`Mechanic ${id} not found`);
+
+  return { ...row };
+}
+
+export async function createMechanic(data: CreateMechanicData, _signal?: AbortSignal): Promise<Mechanic> {
+  await delay();
+  const mechanic: Mechanic = {
+    id: nextId++,
+    code: data.code,
+    name: data.name,
+    version: data.version,
+    description: data.description ?? '',
+  };
+  mechanics.push(mechanic);
+
+  return { ...mechanic };
+}
+
+export async function updateMechanic(id: number, data: UpdateMechanicData, _signal?: AbortSignal): Promise<Mechanic> {
+  await delay();
+  const row = mechanics.find((item) => item.id === id);
+  if (!row) throw new Error(`Mechanic ${id} not found`);
+  if (data.name !== undefined) row.name = data.name;
+  if (data.description !== undefined) row.description = data.description;
+
+  return { ...row };
 }

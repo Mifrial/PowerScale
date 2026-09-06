@@ -1,0 +1,8 @@
+export const REVISION_FILE_PROBLEM_CODE = {
+  notJson: 'REVISION_FILE_NOT_JSON',
+  unsupportedVersion: 'REVISION_FILE_UNSUPPORTED_VERSION',
+  format: 'REVISION_FILE_FORMAT',
+  forbiddenField: 'REVISION_FILE_FORBIDDEN_FIELD',
+  duplicate: 'REVISION_FILE_DUPLICATE',
+  unresolved: 'REVISION_FILE_UNRESOLVED',
+} as const;

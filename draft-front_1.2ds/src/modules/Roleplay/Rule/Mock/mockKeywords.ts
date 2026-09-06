@@ -11,6 +11,7 @@ export const keywords: Keyword[] = [
   { id: 2, code: 'ranged', name: 'Дальний бой', description: 'Дистанционное оружие', active: true },
   { id: 3, code: 'magic', name: 'Волшебство', description: 'Магические способности и заклинания', active: true },
   { id: 4, code: 'stealth', name: 'Скрытность', description: 'Навыки скрытного передвижения', active: true },
+  { id: 5, code: 'combat-mastery', name: 'Боевое мастерство', description: 'Общее владение оружием', active: true },
   { id: 7, code: 'combat', name: 'Боевое', description: 'Подтип боевых способностей', active: true },
   { id: 8, code: 'utility', name: 'Полезное', description: 'Подтип утилитарных способностей', active: true },
   { id: 9, code: 'passive', name: 'Пассивное', description: 'Подтип пассивных способностей', active: true },

@@ -82,6 +82,11 @@
 - [План RuleSpace 5: права](rulespace-plan-05.md) — `space.create` / `view_all` / `edit_all` на HTTP; `owner_id` sidecar.
 - [План RuleSpace 6: секции](rulespace-plan-06.md) — `section_version` + указатель на ревизии; каталог-only через all-keep часов.
 - [План RuleSpace 10: Vue](rulespace-plan-10.md) — папка `Roleplay/RuleSpace`, клиент `ruleSpace.*`; URL `/space` без смены.
+- [Нарезка файла ревизии](revision-file-roadmap.md) — импорт/экспорт JSON на клиенте; коды на границе; без HTTP файла.
+- [План файла ревизии 1](revision-file-plan-01.md) — формат v3, parse/serialize, без внутренних id.
+- [План файла ревизии 2](revision-file-plan-02.md) — экспорт опубликованного среза в v3 сделан; used keyword/mechanic; без HTTP файла.
+- [План файла ревизии 3](revision-file-plan-03.md) — импорт v3 в черновик сделан: preview, секции, latest, тройка при draft; не commitDraft.
+- [План файла ревизии 4](revision-file-plan-04.md) — upsert used keyword/mechanic из снимков файла сделан; затем overlay шага 3.
 - [План User 3: HTTP учётки](user-plan-03-http.md) — `user.*`, актор запроса, `user.create` в Auth.
 - [План User 4: HTTP групп](user-plan-04-groups-http.md) — `userGroup.*`, `memberCount`, subset ключей.
 - [План User 5: выправить контракт](user-plan-05-no-catalog-dump.md) — сделано; `findPage`, JSON-вид, Vue.

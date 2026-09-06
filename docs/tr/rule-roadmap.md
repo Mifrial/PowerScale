@@ -69,7 +69,7 @@ Versioning 1 (`vt_note`) сделан. ST 18–20, Cache 1 — закрыты.
 ## Позже (явный OPEN, не шаги 4–12)
 
 - Вынос Vue Keyword и Mechanic из папки Rule (закрыть `CODE_GAP`).
-- Файл ревизии (импорт/экспорт; коды на границе, не slice-кэш).
+- Файл ревизии — отдельная нарезка [`revision-file-roadmap.md`](revision-file-roadmap.md) (клиент, коды на границе; HTTP файла нет).
 - Inherit queue / progress UI — не контракт (`rule-system`).
 - Закрытый набор `RuleType` + hydrator/валидация spec по типу — блокер Engine, не persist.
 - Хендлеры Engine в модуле Mechanic — блокер Character/Game runtime.

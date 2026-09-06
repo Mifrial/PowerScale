@@ -26,28 +26,31 @@ export class RuleDiffService {
    * иначе равные спеки всегда казались бы правкой.
    */
   samePayload(a: Rule, b: Rule): boolean {
-    return RuleDiffService.deepEqual(
-      {
-        code: a.code,
-        type: a.type,
-        name: a.name,
-        description: a.description,
-        spec: a.spec,
-        keywordIds: a.keywordIds,
-        mechanicId: a.mechanicId,
-        mechanicPayload: a.mechanicPayload,
-      },
-      {
-        code: b.code,
-        type: b.type,
-        name: b.name,
-        description: b.description,
-        spec: b.spec,
-        keywordIds: b.keywordIds,
-        mechanicId: b.mechanicId,
-        mechanicPayload: b.mechanicPayload,
-      },
-    );
+    return RuleDiffService.deepEqual(RuleDiffService.payloadView(a), RuleDiffService.payloadView(b));
+  }
+
+  private static payloadView(rule: Rule): Record<string, unknown> {
+    return {
+      code: rule.code,
+      type: rule.type,
+      name: rule.name,
+      description: rule.description,
+      spec: rule.spec ?? {},
+      keywordIds: rule.keywordIds ?? [],
+      mechanicId: rule.mechanicId ?? null,
+      mechanicPayload: RuleDiffService.normalizePayload(rule.mechanicPayload),
+      active: rule.active !== false,
+      contentStatus: rule.contentStatus ?? 'needs_work',
+      catalogSection: rule.catalogSection ?? null,
+      catalogSortOrder: rule.catalogSortOrder,
+    };
+  }
+
+  private static normalizePayload(value: unknown): unknown {
+    if (value === undefined || value === null) return null;
+    if (Array.isArray(value) && value.length === 0) return null;
+
+    return value;
   }
 
   private static deepEqual(a: unknown, b: unknown): boolean {

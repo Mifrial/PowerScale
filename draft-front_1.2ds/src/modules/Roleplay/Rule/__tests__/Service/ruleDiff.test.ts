@@ -58,6 +58,30 @@ describe('classifyDraftDiff', () => {
     expect(diff.changed).toEqual([]);
   });
 
+  it('смена только active — changed', () => {
+    const published = [rule('r1', 'Одно', { active: true })];
+    const draft = [rule('r1', 'Одно', { active: false })];
+    const diff = ruleDiffService.classifyDraftDiff(published, draft);
+    expect(diff.changed.map((item) => item.code)).toEqual(['r1']);
+  });
+
+  it('срез без active равен файлу с active: true', () => {
+    const published = rule('r1', 'Одно');
+    const fromFile = rule('r1', 'Одно', { active: true });
+    expect(ruleDiffService.samePayload(published, fromFile)).toBe(true);
+  });
+
+  it('смена только catalogSection — changed', () => {
+    const published = [rule('r1', 'Одно', { catalogSection: 'a' })];
+    const draft = [rule('r1', 'Одно', { catalogSection: 'b' })];
+    const diff = ruleDiffService.classifyDraftDiff(published, draft);
+    expect(diff.changed.map((item) => item.code)).toEqual(['r1']);
+  });
+
+  it('omit catalogSection равен null', () => {
+    expect(ruleDiffService.samePayload(rule('r1', 'Одно'), rule('r1', 'Одно', { catalogSection: null }))).toBe(true);
+  });
+
   it('порядок ключей в spec (и во вложенных объектах) не даёт ложного changed', () => {
     const published = [
       rule('r1', 'Одно', { spec: spec({ type: 'ability', requirements: [], zones: { melee: { base: 1, size: 0 } } }) }),

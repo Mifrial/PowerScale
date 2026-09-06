@@ -6,4 +6,6 @@ export interface RevisionFileImportDiff {
   changed: Rule[];
   unchangedCount: number;
   removedCodes: string[];
+  /** Дерево секций файла отличается от latest. */
+  sectionsDiffer: boolean;
 }

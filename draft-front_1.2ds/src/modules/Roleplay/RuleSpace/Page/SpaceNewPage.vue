@@ -2,22 +2,27 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useSpaceStore } from '@/modules/Roleplay/RuleSpace/Store/spaces';
+import { useSectionCatalogStore } from '@/modules/Roleplay/RuleSpace/Store/sectionCatalog';
 import { useRuleDrafts } from '@/modules/Roleplay/Rule/init';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
-import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import type { PendingRevisionImport } from '@/modules/Roleplay/RuleSpace/Dto/PendingRevisionImport';
+import { revisionFileCatalogService } from '@/modules/Roleplay/RuleSpace/Service/Instance/revisionFileCatalogService';
+import { revisionFileCatalogSyncService } from '@/modules/Roleplay/RuleSpace/Service/Instance/revisionFileCatalogSyncService';
+import { revisionFileImportService } from '@/modules/Roleplay/RuleSpace/Service/Instance/revisionFileImportService';
 import { revisionFileService } from '@/modules/Roleplay/RuleSpace/Service/Instance/revisionFileService';
 
 const router = useRouter();
 const store = useSpaceStore();
+const sectionCatalog = useSectionCatalogStore();
 const drafts = useRuleDrafts();
 const { signal } = useAbortable();
 
 const name = ref('');
 const description = ref('');
 const inheritFrom = ref<number | null>(null);
-const importedRules = ref<Rule[] | null>(null);
-const importLabel = ref('');
+const imported = ref<PendingRevisionImport | null>(null);
 const importError = ref<string | null>(null);
+const catalogHint = ref('');
 const saving = ref(false);
 const saveError = ref<string | null>(null);
 
@@ -29,13 +34,41 @@ onMounted(() => {
   if (store.spaces.length === 0) {
     store.fetchSpaces(signal.value);
   }
-  if (store.pendingImportedRules?.length) {
-    importedRules.value = store.pendingImportedRules;
-    importLabel.value = `Файл: ${store.pendingImportedRules.length} правил`;
-    store.pendingImportedRules = null;
+  if (store.pendingImported) {
+    imported.value = store.pendingImported;
+    store.pendingImported = null;
     inheritFrom.value = null;
+    void refreshCatalogHint();
   }
 });
+
+async function refreshCatalogHint(): Promise<void> {
+  const pending = imported.value;
+  if (!pending) {
+    catalogHint.value = '';
+
+    return;
+  }
+  try {
+    const catalogs = await revisionFileCatalogService.load(signal.value);
+    const merged = revisionFileCatalogSyncService.merge(pending.file, catalogs.keywords, catalogs.mechanics);
+    revisionFileImportService.prepare(pending.file, merged, {
+      spaceId: 0,
+      latest: revisionFileImportService.emptySlice(),
+      removeMissing: false,
+      draftRules: [],
+      draftRemovedCodes: [],
+      draftSections: null,
+    });
+    catalogHint.value = revisionFileCatalogSyncService.formatSummary(
+      revisionFileCatalogSyncService.plan(pending.file, catalogs.keywords, catalogs.mechanics),
+    );
+  } catch (error) {
+    imported.value = null;
+    catalogHint.value = '';
+    importError.value = error instanceof Error ? error.message : 'Не удалось прочитать файл';
+  }
+}
 
 async function onImportFile(files: File | File[] | null): Promise<void> {
   const file = Array.isArray(files) ? (files[0] ?? null) : files;
@@ -43,20 +76,23 @@ async function onImportFile(files: File | File[] | null): Promise<void> {
   if (!file) return;
   try {
     const parsed = revisionFileService.parse(await file.text());
-    importedRules.value = parsed.revision.rules;
-    importLabel.value = `${parsed.revision.spaceName} v${parsed.revision.revision}, правил: ${parsed.revision.rules.length}`;
+    imported.value = {
+      file: parsed,
+      label: `${parsed.source.spaceName} v${parsed.source.revision}, правил: ${parsed.rules.length}`,
+    };
     inheritFrom.value = null;
+    await refreshCatalogHint();
   } catch (error) {
-    importedRules.value = null;
-    importLabel.value = '';
+    imported.value = null;
+    catalogHint.value = '';
     importError.value = error instanceof Error ? error.message : 'Не удалось прочитать файл';
   }
 }
 
 function clearImport(): void {
-  importedRules.value = null;
-  importLabel.value = '';
+  imported.value = null;
   importError.value = null;
+  catalogHint.value = '';
 }
 
 watch(inheritFrom, (value) => {
@@ -72,16 +108,30 @@ async function save() {
       {
         name: name.value,
         description: description.value,
-        inheritFrom: importedRules.value ? null : inheritFrom.value,
+        inheritFrom: imported.value ? null : inheritFrom.value,
       },
       signal.value,
     );
-    if (importedRules.value) {
-      const diff = revisionFileService.diffAgainstPublished(importedRules.value, [], space.id, {
+    if (imported.value) {
+      const live = await revisionFileCatalogService.load(signal.value);
+      const catalogPlan = revisionFileCatalogSyncService.plan(imported.value.file, live.keywords, live.mechanics);
+      if (revisionFileCatalogSyncService.isDirty(catalogPlan)) {
+        await revisionFileCatalogSyncService.apply(catalogPlan, signal.value);
+      }
+      const catalogs = revisionFileCatalogSyncService.isDirty(catalogPlan)
+        ? await revisionFileCatalogService.load(signal.value)
+        : live;
+      const preview = revisionFileImportService.prepare(imported.value.file, catalogs, {
+        spaceId: space.id,
+        latest: revisionFileImportService.emptySlice(),
         removeMissing: false,
-        existingRemovedCodes: [],
+        draftRules: [],
+        draftRemovedCodes: [],
+        draftSections: null,
       });
-      drafts.saveRules(space.id, diff.added);
+      const plan = revisionFileImportService.planApply(preview, 'prefer_file');
+      if (plan.saveRules.length) drafts.saveRules(space.id, plan.saveRules);
+      if (plan.sectionAction === 'save') sectionCatalog.saveDraft(space.id, plan.sections);
       router.push(`/space/${space.code}/draft`);
 
       return;
@@ -89,7 +139,7 @@ async function save() {
     router.push(space.revision < 1 ? `/space/${space.code}/draft` : `/space/${space.code}`);
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') return;
-    saveError.value = 'Не удалось создать пространство';
+    saveError.value = e instanceof Error ? e.message : 'Не удалось создать пространство';
   } finally {
     saving.value = false;
   }
@@ -119,7 +169,7 @@ async function save() {
           hint="Все правила будут скопированы из выбранного пространства"
           persistent-hint
           clearable
-          :disabled="!!importedRules"
+          :disabled="!!imported"
         />
 
         <v-file-input
@@ -131,12 +181,13 @@ async function save() {
           @update:model-value="onImportFile"
         />
         <v-alert v-if="importError" type="error" class="mt-2" density="compact">{{ importError }}</v-alert>
-        <v-chip v-if="importedRules" class="mt-2" closable @click:close="clearImport">{{ importLabel }}</v-chip>
-        <div v-if="importedRules" class="text-caption text-medium-emphasis mt-2">
+        <v-chip v-if="imported" class="mt-2" closable @click:close="clearImport">{{ imported.label }}</v-chip>
+        <div v-if="imported" class="text-caption text-medium-emphasis mt-2">
           Правила попадут в черновик. Опубликовать можно после проверки валидатором — первая ревизия будет v1.
         </div>
+        <div v-if="catalogHint" class="text-caption mt-1">{{ catalogHint }}</div>
 
-        <v-card v-if="inheritFrom && !importedRules" variant="tonal" color="info" class="mt-4">
+        <v-card v-if="inheritFrom && !imported" variant="tonal" color="info" class="mt-4">
           <v-card-text>
             <div class="d-flex align-center mb-2">
               <v-icon class="mr-2">mdi-information</v-icon>

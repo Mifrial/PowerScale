@@ -1,15 +1,15 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
+import type { PendingRevisionImport } from '@/modules/Roleplay/RuleSpace/Dto/PendingRevisionImport';
 import type { Space } from '@/modules/Roleplay/RuleSpace/Dto/Space';
 import type { SpaceCreateData } from '@/modules/Roleplay/RuleSpace/Dto/SpaceCreateData';
 import type { SpaceUpdateData } from '@/modules/Roleplay/RuleSpace/Dto/SpaceUpdateData';
-import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { getRuleSpaceApi } from '@/modules/Roleplay/RuleSpace/init';
 
 export const useSpaceStore = defineStore('spaces', () => {
   const spaces = ref<Space[]>([]);
   const currentSpace = ref<Space | null>(null);
-  const pendingImportedRules = ref<Rule[] | null>(null);
+  const pendingImported = ref<PendingRevisionImport | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
 
@@ -70,7 +70,7 @@ export const useSpaceStore = defineStore('spaces', () => {
   return {
     spaces,
     currentSpace,
-    pendingImportedRules,
+    pendingImported,
     loading,
     error,
     fetchSpaces,

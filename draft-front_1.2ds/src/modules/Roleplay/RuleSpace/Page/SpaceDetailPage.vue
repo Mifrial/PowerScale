@@ -5,14 +5,22 @@ import { useSpaceStore } from '@/modules/Roleplay/RuleSpace/Store/spaces';
 import { useSpaceRevisionStore } from '@/modules/Roleplay/RuleSpace/Store/spaceRevision';
 import { useSectionCatalogStore } from '@/modules/Roleplay/RuleSpace/Store/sectionCatalog';
 import { useRuleDrafts } from '@/modules/Roleplay/Rule/init';
+import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { useSpaceContext } from '@/modules/Roleplay/RuleSpace/Composables/useSpaceContext';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import PublishDialog from '@/modules/Roleplay/RuleSpace/Component/PublishDialog.vue';
 import RevisionImportDialog from '@/modules/Roleplay/RuleSpace/Component/RevisionImportDialog.vue';
 import RuleListPanel from '@/modules/Roleplay/RuleSpace/Component/RuleListPanel.vue';
 import { downloadJson } from '@/modules/Core/UI/Utils/downloadJson';
+import { revisionFileCatalogService } from '@/modules/Roleplay/RuleSpace/Service/Instance/revisionFileCatalogService';
+import { revisionFileCatalogSyncService } from '@/modules/Roleplay/RuleSpace/Service/Instance/revisionFileCatalogSyncService';
+import { revisionFileImportService } from '@/modules/Roleplay/RuleSpace/Service/Instance/revisionFileImportService';
 import { revisionFileService } from '@/modules/Roleplay/RuleSpace/Service/Instance/revisionFileService';
+import type { RevisionFileImportPlan } from '@/modules/Roleplay/RuleSpace/Dto/RevisionFileImportPlan';
+import type { RevisionFileImportPreview } from '@/modules/Roleplay/RuleSpace/Dto/RevisionFileImportPreview';
+import type { RevisionFileImportContext } from '@/modules/Roleplay/RuleSpace/Dto/RevisionFileImportContext';
 import type { RevisionFile } from '@/modules/Roleplay/RuleSpace/Dto/RevisionFile';
+import type { RevisionFileConflictPolicy } from '@/modules/Roleplay/RuleSpace/Enum/RevisionFileConflictPolicy';
 
 const route = useRoute();
 const router = useRouter();
@@ -20,7 +28,9 @@ const spaceStore = useSpaceStore();
 const revisionStore = useSpaceRevisionStore();
 const sectionCatalog = useSectionCatalogStore();
 const drafts = useRuleDrafts();
+const { signal } = useAbortable();
 const context = useSpaceContext();
+const exporting = ref(false);
 
 const space = computed(() => context.value.space);
 const showPublishDialog = ref(false);
@@ -87,35 +97,103 @@ const selectedRevision = computed<number | null>({
   },
 });
 
-function exportRevision(): void {
+async function exportRevision(): Promise<void> {
   const revision = revisionStore.activeRevision;
   if (!revision || isDraftContext.value) return;
-  downloadJson(`${revision.spaceCode}-v${revision.revision}.json`, revisionFileService.serialize(revision));
+  exporting.value = true;
+  try {
+    const catalogs = await revisionFileCatalogService.load(signal.value);
+    const file = revisionFileService.assemble(revision, catalogs.keywords, catalogs.mechanics);
+    downloadJson(`${revision.spaceCode}-v${revision.revision}.json`, file);
+  } catch (error) {
+    snackbar.value = {
+      show: true,
+      text: error instanceof Error ? error.message : 'Не удалось выгрузить ревизию',
+      color: 'error',
+    };
+  } finally {
+    exporting.value = false;
+  }
 }
 
-function onImportConfirm(payload: { file: RevisionFile; intoCurrent: boolean; removeMissing: boolean }): void {
-  if (!payload.intoCurrent) {
-    spaceStore.pendingImportedRules = payload.file.revision.rules;
-    router.push('/spaces/new');
-
-    return;
+function applyImportPlan(spaceId: number, plan: RevisionFileImportPlan): void {
+  if (plan.saveRules.length) drafts.saveRules(spaceId, plan.saveRules);
+  for (const code of plan.clearDraftCodes) {
+    drafts.removeRule(spaceId, code);
   }
-  const spaceId = space.value?.id;
-  if (!spaceId) return;
-  const published = revisionStore.activeRevision?.rules ?? [];
-  const diff = revisionFileService.diffAgainstPublished(payload.file.revision.rules, published, spaceId, {
-    removeMissing: payload.removeMissing,
-    existingRemovedCodes: drafts.getRemovedCodes(spaceId),
+  if (plan.shouldSetRemovedCodes) drafts.setRemovedCodes(spaceId, plan.removedCodes);
+  if (plan.sectionAction === 'save') sectionCatalog.saveDraft(spaceId, plan.sections);
+  if (plan.sectionAction === 'discard') sectionCatalog.discardDraft(spaceId);
+}
+
+async function applyFileToSpace(
+  file: RevisionFile,
+  spaceId: number,
+  policy: RevisionFileConflictPolicy,
+  context: Omit<RevisionFileImportContext, 'spaceId' | 'latest'> & { latest?: RevisionFileImportContext['latest'] },
+): Promise<{ plan: RevisionFileImportPlan; catalogDirty: boolean; catalogSummary: string }> {
+  const live = await revisionFileCatalogService.load(signal.value);
+  const catalogPlan = revisionFileCatalogSyncService.plan(file, live.keywords, live.mechanics);
+  const catalogDirty = revisionFileCatalogSyncService.isDirty(catalogPlan);
+  if (catalogDirty) await revisionFileCatalogSyncService.apply(catalogPlan, signal.value);
+  const catalogs = catalogDirty ? await revisionFileCatalogService.load(signal.value) : live;
+  const latest = context.latest ?? (await revisionFileImportService.loadLatest(spaceId, signal.value));
+  const preview = revisionFileImportService.prepare(file, catalogs, {
+    spaceId,
+    latest,
+    removeMissing: context.removeMissing,
+    draftRules: context.draftRules,
+    draftRemovedCodes: context.draftRemovedCodes,
+    draftSections: context.draftSections,
   });
-  if (revisionFileService.isEmptyDiff(diff)) {
-    snackbar.value = { show: true, text: revisionFileService.formatImportSummary(diff), color: 'info' };
+  const plan = revisionFileImportService.planApply(preview, policy);
+  if (!plan.isNoOp) applyImportPlan(spaceId, plan);
 
-    return;
+  return {
+    plan,
+    catalogDirty,
+    catalogSummary: revisionFileCatalogSyncService.formatSummary(catalogPlan),
+  };
+}
+
+async function onImportConfirm(payload: {
+  preview: RevisionFileImportPreview;
+  intoCurrent: boolean;
+  policy: RevisionFileConflictPolicy;
+}): Promise<void> {
+  try {
+    if (!payload.intoCurrent) {
+      spaceStore.pendingImported = {
+        file: payload.preview.file,
+        label: `${payload.preview.file.source.spaceName} v${payload.preview.file.source.revision}`,
+      };
+      router.push('/spaces/new');
+
+      return;
+    }
+    const spaceId = space.value?.id ?? 0;
+    if (!spaceId) return;
+    const result = await applyFileToSpace(payload.preview.file, spaceId, payload.policy, {
+      removeMissing: payload.preview.removeMissing,
+      draftRules: drafts.getDraftRules(spaceId),
+      draftRemovedCodes: drafts.getRemovedCodes(spaceId),
+      draftSections: sectionCatalog.getDraftSections(spaceId),
+    });
+    if (result.plan.isNoOp && !result.catalogDirty) {
+      snackbar.value = { show: true, text: result.plan.summary, color: 'info' };
+
+      return;
+    }
+    const text = result.catalogDirty ? `${result.plan.summary}. ${result.catalogSummary}` : result.plan.summary;
+    snackbar.value = { show: true, text, color: 'success' };
+    router.push(`/space/${space.value?.code}/draft`);
+  } catch (error) {
+    snackbar.value = {
+      show: true,
+      text: error instanceof Error ? error.message : 'Не удалось импортировать',
+      color: 'error',
+    };
   }
-  drafts.saveRules(spaceId, [...diff.changed, ...diff.added]);
-  drafts.setRemovedCodes(spaceId, diff.removedCodes);
-  snackbar.value = { show: true, text: revisionFileService.formatImportSummary(diff), color: 'success' };
-  router.push(`/space/${space.value?.code}/draft`);
 }
 
 function openPublishDialog() {
@@ -176,7 +254,14 @@ function discardRule() {
 
       <v-spacer />
 
-      <v-btn v-if="!isDraftContext" variant="tonal" size="small" prepend-icon="mdi-download" @click="exportRevision">
+      <v-btn
+        v-if="!isDraftContext"
+        variant="tonal"
+        size="small"
+        prepend-icon="mdi-download"
+        :loading="exporting"
+        @click="exportRevision"
+      >
         Экспорт
       </v-btn>
       <v-btn variant="tonal" size="small" prepend-icon="mdi-upload" @click="showImportDialog = true"> Импорт </v-btn>
@@ -205,7 +290,15 @@ function discardRule() {
       @error="(m) => (snackbar = { show: true, text: m, color: 'error' })"
     />
 
-    <RevisionImportDialog v-model="showImportDialog" :allow-current="true" @confirm="onImportConfirm" />
+    <RevisionImportDialog
+      v-model="showImportDialog"
+      :allow-current="true"
+      :space-id="space.id"
+      :draft-rules="drafts.getDraftRules(space.id)"
+      :draft-removed-codes="drafts.getRemovedCodes(space.id)"
+      :draft-sections="sectionCatalog.getDraftSections(space.id)"
+      @confirm="onImportConfirm"
+    />
 
     <!-- Discard rule dialog -->
     <v-dialog v-model="showDiscardDialog" max-width="500">
