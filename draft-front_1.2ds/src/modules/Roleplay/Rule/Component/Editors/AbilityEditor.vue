@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch, onMounted } from 'vue';
-import { useKeywordStore } from '@/modules/Roleplay/Rule/Store/keywords';
+import { useKeywords } from '@/modules/Roleplay/Keyword/init';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpec';
 import type { AbilitySpecDraft } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpecDraft';
@@ -57,7 +57,7 @@ const emit = defineEmits<{
   'update:catalogSortOrder': [value: number];
 }>();
 
-const keywordStore = useKeywordStore();
+const { keywords: catalogKeywords, error: keywordsError, fetchTags } = useKeywords();
 
 const expandedPanels = ref<string[]>(['general', 'zones', 'requirements', 'grants', 'action_components', 'upgrade']);
 
@@ -99,7 +99,7 @@ const innerSpec = ref<AbilitySpecDraft>(abilityDraftFromSpec(props.spec));
 const currentType = computed<AbilityType | null>(() => {
   if (innerSpec.value.type) return innerSpec.value.type;
   const codes = props.keywordIds
-    .map((id) => keywordStore.keywords.find((t) => t.id === id)?.code)
+    .map((id) => catalogKeywords.value.find((t) => t.id === id)?.code)
     .filter((c): c is string => !!c);
 
   return abilitySpecService.resolveTypeFromKeywords(codes);
@@ -128,7 +128,7 @@ const groups = computed(() => ruleReferenceService.groupOptions(props.rules));
 
 const items = computed(() => ruleReferenceService.itemOptions(props.rules));
 
-const keywords = computed<KeywordRef[]>(() => keywordStore.keywords.map((t) => ({ code: t.code, name: t.name })));
+const keywords = computed<KeywordRef[]>(() => catalogKeywords.value.map((t) => ({ code: t.code, name: t.name })));
 
 const abilityKeywords = computed<KeywordRef[]>(() => keywords.value);
 
@@ -190,7 +190,7 @@ function setType(value: string | null) {
   const type = (value as AbilityType | null) ?? null;
   innerSpec.value = { ...innerSpec.value, type: type ?? undefined };
   if (type) {
-    emit('update:keywordIds', abilitySpecService.syncTypeTags(type, props.keywordIds, keywordStore.keywords));
+    emit('update:keywordIds', abilitySpecService.syncTypeTags(type, props.keywordIds, catalogKeywords.value));
   }
   if (type === 'spell' || type === 'action') {
     innerSpec.value = abilitySpecService.ensureActionPointCost(innerSpec.value, isSpell.value);
@@ -200,7 +200,7 @@ function setType(value: string | null) {
 /** Смена группы у участника: кладёт group_code и признак домена (Внешность/Голос/Слух/Зрение). */
 function updateGroupCode(value: string | null) {
   innerSpec.value = { ...innerSpec.value, group_code: value ?? null };
-  emit('update:keywordIds', abilitySpecService.syncGroupPartTag(value, props.keywordIds, keywordStore.keywords));
+  emit('update:keywordIds', abilitySpecService.syncGroupPartTag(value, props.keywordIds, catalogKeywords.value));
 }
 
 const specToEmit = computed<AbilitySpec | AbilitySpecDraft>(() => {
@@ -214,8 +214,8 @@ const specToEmit = computed<AbilitySpec | AbilitySpecDraft>(() => {
 watch(specToEmit, (value) => emit('update:spec', cloneData(value) as AbilitySpec), { deep: true, immediate: true });
 
 onMounted(async () => {
-  if (keywordStore.keywords.length === 0) {
-    await keywordStore.fetchTags();
+  if (catalogKeywords.value.length === 0) {
+    await fetchTags();
   }
   if ((innerSpec.value.type === 'spell' || innerSpec.value.type === 'action') && !hasActionPointCost()) {
     innerSpec.value = abilitySpecService.ensureActionPointCost(innerSpec.value, isSpell.value);
@@ -232,9 +232,9 @@ function hasActionPointCost(): boolean {
 
 <template>
   <div>
-    <v-alert v-if="keywordStore.error" type="error" variant="tonal" density="compact" class="mb-2">
-      {{ keywordStore.error }}
-      <v-btn class="ml-2" size="small" variant="tonal" @click="keywordStore.fetchTags()">Повторить</v-btn>
+    <v-alert v-if="keywordsError" type="error" variant="tonal" density="compact" class="mb-2">
+      {{ keywordsError }}
+      <v-btn class="ml-2" size="small" variant="tonal" @click="fetchTags()">Повторить</v-btn>
     </v-alert>
     <v-expansion-panels v-model="expandedPanels" multiple>
       <v-expansion-panel value="general">

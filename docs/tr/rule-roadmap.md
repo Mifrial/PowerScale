@@ -6,7 +6,7 @@
 
 Порядок сверху вниз. Vue `Rule ↛ Versioning` не отменяется. **PHP Rule → Versioning + Keyword + Mechanic.** PHP Rule ↛ RuleSpace. Keyword ↛ Rule. Mechanic ↛ Rule.
 
-Vue-папка пока держит Keyword/Mechanic внутри Rule (`CODE_GAP`); PHP-модули не ждут сплита фронта.
+Vue Keyword — папка `Roleplay/Keyword` ([`keyword-plan-03.md`](keyword-plan-03.md)). Vue Mechanic пока внутри Rule (`CODE_GAP`); PHP-модули не ждут сплита фронта.
 
 План-файл пишем, когда шаг начинается. Пока нет файла — контракт шага в этом роудмапе, не «выпало».
 
@@ -60,7 +60,7 @@ Versioning 1 (`vt_note`) сделан. ST 18–20, Cache 1 — закрыты.
 
 ## 11. Keyword HTTP
 
-[`keyword-plan-02.md`](keyword-plan-02.md). **Каркас PHP+Vue сделан.** Публичка `keyword.*` в модуле Keyword: getList / get / create / update / deactivate (`active=false`, не DELETE). Права `keyword.*` на запись; чтение справочника любому актору. Vue остаётся в папке Rule. Не RuleSpace.
+[`keyword-plan-02.md`](keyword-plan-02.md). **Каркас PHP+Vue сделан.** Публичка `keyword.*` в модуле Keyword: getList / get / create / update / deactivate (`active=false`, не DELETE). Права `keyword.*` на запись; чтение справочника любому актору. Vue-папка — [`keyword-plan-03.md`](keyword-plan-03.md). Не RuleSpace.
 
 ## 12. Mechanic HTTP
 
@@ -68,7 +68,7 @@ Versioning 1 (`vt_note`) сделан. ST 18–20, Cache 1 — закрыты.
 
 ## Позже (явный OPEN, не шаги 4–12)
 
-- Вынос Vue Keyword и Mechanic из папки Rule (закрыть `CODE_GAP`).
+- Вынос Vue Mechanic из папки Rule (закрыть остаток `CODE_GAP`). Keyword — [`keyword-plan-03.md`](keyword-plan-03.md).
 - Файл ревизии — отдельная нарезка [`revision-file-roadmap.md`](revision-file-roadmap.md) (клиент, коды на границе; HTTP файла нет).
 - Inherit queue / progress UI — не контракт (`rule-system`).
 - Закрытый набор `RuleType` + hydrator/валидация spec по типу — блокер Engine, не persist.

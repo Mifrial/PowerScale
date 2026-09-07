@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { mockItemImport } from '@/modules/Roleplay/Rule/Mock/mockItemImport';
-import { keywords as mockKeywords } from '@/modules/Roleplay/Rule/Mock/mockKeywords';
+import { keywords as mockKeywords } from '@/modules/Roleplay/Keyword/Mock/mockKeywords';
 import { ruleCatalog } from '@/modules/Roleplay/Rule/Mock/mockRules';
 import type { ItemSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpec';
 import type { WeaponProfile } from '@/modules/Roleplay/Rule/Dto/Item/WeaponProfile';

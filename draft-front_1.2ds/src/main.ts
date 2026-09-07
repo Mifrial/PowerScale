@@ -7,7 +7,8 @@ import './assets/global.css';
 
 import { registerAuthApi, registerAuthModule } from '@/modules/Core/Auth/init';
 import { registerUserApi, registerGroupApi } from '@/modules/Core/User/init';
-import { registerKeywordApi, registerMechanicApi } from '@/modules/Roleplay/Rule/init';
+import { registerKeywordApi, registerKeywordModule } from '@/modules/Roleplay/Keyword/init';
+import { registerMechanicApi } from '@/modules/Roleplay/Rule/init';
 import { registerTemplateApi } from '@/modules/Messages/Notifications/init';
 import { registerRuleSpaceApi } from '@/modules/Roleplay/RuleSpace/init';
 import { registerRuleApi } from '@/modules/Roleplay/Rule/init';
@@ -33,7 +34,7 @@ async function registerApiLayer(): Promise<void> {
     const { mockCsrfApi } = await import('@/modules/Core/Engine/Mock/mockCsrfApi');
     const { mockUserApi } = await import('@/modules/Core/User/Mock/mockUserApi');
     const { mockGroupApi } = await import('@/modules/Core/User/Mock/mockGroupApi');
-    const { mockKeywordApi } = await import('@/modules/Roleplay/Rule/Mock/mockKeywordApi');
+    const { mockKeywordApi } = await import('@/modules/Roleplay/Keyword/Mock/mockKeywordApi');
     const { mockMechanicApi } = await import('@/modules/Roleplay/Rule/Mock/mockMechanicApi');
     const { mockTemplateApi } = await import('@/modules/Messages/Notifications/Mock/mockTemplateApi');
     const { mockRuleSpaceApi } = await import('@/modules/Roleplay/RuleSpace/Mock/mockRuleSpaceApi');
@@ -64,7 +65,7 @@ async function registerApiLayer(): Promise<void> {
     const { CsrfApi } = await import('@/modules/Core/Engine/Service/CsrfApi');
     const { UserApi } = await import('@/modules/Core/User/Service/UserApi');
     const { GroupApi } = await import('@/modules/Core/User/Service/GroupApi');
-    const { KeywordApi } = await import('@/modules/Roleplay/Rule/Service/KeywordApi');
+    const { KeywordApi } = await import('@/modules/Roleplay/Keyword/Service/KeywordApi');
     const { MechanicApi } = await import('@/modules/Roleplay/Rule/Service/MechanicApi');
     const { NotificationTemplateApi } =
       await import('@/modules/Messages/Notifications/Service/NotificationTemplateApi');
@@ -107,6 +108,7 @@ async function bootstrap(): Promise<void> {
 
   registerUserModule();
   registerAuthModule();
+  registerKeywordModule();
   registerRuleModule();
   registerRuleSpaceModule();
   registerGameModule();

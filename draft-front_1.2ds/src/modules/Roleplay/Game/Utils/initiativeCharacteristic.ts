@@ -3,7 +3,7 @@ import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/Dimension
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { characterBuildService } from '@/modules/Roleplay/Character/init';
 import { characterEditorService } from '@/modules/Roleplay/Character/init';
-import { useKeywords } from '@/modules/Roleplay/Rule/init';
+import { useKeywords } from '@/modules/Roleplay/Keyword/init';
 
 /** Движковое значение характеристики (для пула проверки инициативы). */
 export interface InitiativeCharacteristicView {

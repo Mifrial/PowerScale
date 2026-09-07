@@ -37,7 +37,7 @@ import CombatResourceTile from '@/modules/Roleplay/Game/Component/Detail/CombatR
 import CombatStateTile from '@/modules/Roleplay/Game/Component/Detail/CombatStateTile.vue';
 import type { CombatStateDetailRow } from '@/modules/Roleplay/Game/Dto/CombatStateDetailRow';
 import type { CombatStateEditKind } from '@/modules/Roleplay/Game/Enum/CombatStateEditKind';
-import { useKeywords } from '@/modules/Roleplay/Rule/init';
+import { useKeywords } from '@/modules/Roleplay/Keyword/init';
 import type { CharacterCreationConfig } from '@/modules/Roleplay/Character/Dto/Editor/CharacterCreationConfig';
 import type { InventoryItemOverview } from '@/modules/Roleplay/Character/Dto/Overview/InventoryItemOverview';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';

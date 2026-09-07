@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
+import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { ItemModifierSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierSpec';
 import type { ItemModifierOp } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierOp';
 import { ruleViewLabelService } from '@/modules/Roleplay/Rule/Service/Instance/ruleViewLabelService';

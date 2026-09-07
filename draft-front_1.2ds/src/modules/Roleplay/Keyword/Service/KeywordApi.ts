@@ -1,8 +1,8 @@
 import type { Engine } from '@/modules/Core/Engine/Service/Engine';
-import type { IKeywordApi } from '@/modules/Roleplay/Rule/Interface/IKeywordApi';
-import type { CreateKeywordData } from '@/modules/Roleplay/Rule/Dto/CreateKeywordData';
-import type { UpdateKeywordData } from '@/modules/Roleplay/Rule/Dto/UpdateKeywordData';
-import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
+import type { IKeywordApi } from '@/modules/Roleplay/Keyword/Interface/IKeywordApi';
+import type { CreateKeywordData } from '@/modules/Roleplay/Keyword/Dto/CreateKeywordData';
+import type { UpdateKeywordData } from '@/modules/Roleplay/Keyword/Dto/UpdateKeywordData';
+import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 
 /**
  * Транспорт справочника признаков.

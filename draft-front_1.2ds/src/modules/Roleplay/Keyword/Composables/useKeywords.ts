@@ -1,5 +1,5 @@
 import { computed } from 'vue';
-import { useKeywordStore } from '@/modules/Roleplay/Rule/Store/keywords';
+import { useKeywordStore } from '@/modules/Roleplay/Keyword/Store/keywords';
 
 export function useKeywords() {
   const store = useKeywordStore();

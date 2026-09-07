@@ -10,7 +10,7 @@ import type { CharacterBuild } from '@/modules/Roleplay/Character/Dto/Editor/Cha
 import type { CharacterEditorModel } from '@/modules/Roleplay/Character/Dto/Editor/CharacterEditorModel';
 import type { EditorAbility } from '@/modules/Roleplay/Character/Dto/Editor/EditorAbility';
 import type { EditorAbilityZone } from '@/modules/Roleplay/Character/Dto/Editor/EditorAbilityZone';
-import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
+import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import EditorAbilityGroupNode from '@/modules/Roleplay/Character/Component/Editor/EditorAbilityGroupNode.vue';
 import EditorAbilityRow from '@/modules/Roleplay/Character/Component/Editor/EditorAbilityRow.vue';

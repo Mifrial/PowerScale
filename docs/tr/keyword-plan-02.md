@@ -2,7 +2,7 @@
 
 **Статус:** каркас PHP+Vue сделан, 2026-09-06. Нарезка — [`rule-roadmap.md`](rule-roadmap.md) шаг **11**. Каркас — [`keyword-plan-01.md`](keyword-plan-01.md). Актор — [`user-plan-03-http.md`](user-plan-03-http.md). Input-DTO — [`kernel-plan-02-action-input.md`](kernel-plan-02-action-input.md). JSON-вид — `DEC-079`. UI-термин — `DEC-062`. Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Фронт — `draft-front_1.2ds/frontend-rules.md`.
 
-Цель: публичка **`keyword.*` в модуле `Roleplay/Keyword`**, ключи **`keyword.*`**, JSON как Record (camelCase, без дат). Vue остаётся в папке Rule (`CODE_GAP`). Не RuleSpace, не Mechanic, не seed справочника, не физический DELETE.
+Цель: публичка **`keyword.*` в модуле `Roleplay/Keyword`**, ключи **`keyword.*`**, JSON как Record (camelCase, без дат). Vue-папка этого шага оставалась в Rule; вынос — [`keyword-plan-03.md`](keyword-plan-03.md). Не RuleSpace, не Mechanic, не seed справочника, не физический DELETE.
 
 Набросок Vue уже бьёт в `keyword.getList` / `get` / `create` / `update` / `deactivate`; `IKeywordApi.*Tag` и ключ `keyword.delete` — эскиз, канон — этот файл.
 

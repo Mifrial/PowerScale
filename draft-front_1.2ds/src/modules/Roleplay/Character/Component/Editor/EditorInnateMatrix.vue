@@ -4,7 +4,7 @@ import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber
 import type { CharacterEditorModel } from '@/modules/Roleplay/Character/Dto/Editor/CharacterEditorModel';
 import type { EditorAbility } from '@/modules/Roleplay/Character/Dto/Editor/EditorAbility';
 import type { EditorAbilityParameter } from '@/modules/Roleplay/Character/Dto/Editor/EditorAbilityParameter';
-import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
+import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
 const props = defineProps<{

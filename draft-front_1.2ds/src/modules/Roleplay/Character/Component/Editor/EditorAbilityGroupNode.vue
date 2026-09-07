@@ -4,7 +4,7 @@ import LightChip from '@/modules/Core/UI/Component/light/LightChip.vue';
 import EditorAbilityRow from '@/modules/Roleplay/Character/Component/Editor/EditorAbilityRow.vue';
 import type { EditorAbility } from '@/modules/Roleplay/Character/Dto/Editor/EditorAbility';
 import type { EditorAbilityGroup } from '@/modules/Roleplay/Character/Dto/Editor/EditorAbilityGroup';
-import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
+import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { characterEditorService } from '@/modules/Roleplay/Character/Service/Instance/characterEditorService';
 import DescriptionHtml from '@/modules/Core/UI/Component/DescriptionHtml.vue';

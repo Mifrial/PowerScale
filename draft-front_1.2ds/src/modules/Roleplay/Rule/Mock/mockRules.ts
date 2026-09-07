@@ -25,7 +25,7 @@ import {
 } from '@/modules/Roleplay/Rule/Constant/Damage/DAMAGE_TYPE_HOOKS';
 import { importedRuleNameService } from '@/modules/Roleplay/Rule/Service/Instance/importedRuleNameService';
 import { MockRuleCatalogMigrationService } from '@/modules/Roleplay/Rule/Mock/MockRuleCatalogMigrationService';
-import { keywords } from '@/modules/Roleplay/Rule/Mock/mockKeywords';
+import { keywords } from '@/modules/Roleplay/Keyword/Mock/mockKeywords';
 import { mockCombatAbilitySectionByCode } from '@/modules/Roleplay/Rule/Mock/mockCombatAbilitySectionByCode';
 
 function damageTypeSpec(code: string, attached: string[] = []): DamageTypeSpec {

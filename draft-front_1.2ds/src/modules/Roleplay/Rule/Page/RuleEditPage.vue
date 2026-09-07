@@ -3,7 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useRuleStore } from '@/modules/Roleplay/Rule/Store/rules';
 import { useDraftRuleStore } from '@/modules/Roleplay/Rule/Store/draftRules';
-import { useKeywordStore } from '@/modules/Roleplay/Rule/Store/keywords';
+import { useKeywords } from '@/modules/Roleplay/Keyword/init';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { useRuleHostContext } from '@/modules/Roleplay/Rule/init';
 import SimpleRuleEditor from '@/modules/Roleplay/Rule/Component/Editors/SimpleRuleEditor.vue';
@@ -38,7 +38,7 @@ const route = useRoute();
 const router = useRouter();
 const store = useRuleStore();
 const draftStore = useDraftRuleStore();
-const keywordStore = useKeywordStore();
+const { keywords, fetchTags } = useKeywords();
 const ruleHost = useRuleHostContext();
 const { signal } = useAbortable();
 
@@ -74,8 +74,8 @@ const loadedStorageId = ref<number | null>(null);
 const baseLoaded = ref<string | null>(null);
 
 const mechanicOptions = ref<{ title: string; value: number }[]>([]);
-const keywordOptions = computed(() => keywordStore.keywords.map((t) => ({ title: t.name, value: t.id })));
-const keywordCodeById = computed(() => new Map(keywordStore.keywords.map((k) => [k.id, k.code])));
+const keywordOptions = computed(() => keywords.value.map((t) => ({ title: t.name, value: t.id })));
+const keywordCodeById = computed(() => new Map(keywords.value.map((k) => [k.id, k.code])));
 const modifierTypeOptions = computed(() =>
   ruleHost.value.effectiveRules
     .filter((rule) => rule.type === 'item_modifier_type')
@@ -115,7 +115,7 @@ async function resolveRoute(): Promise<void> {
     const mechanics = await getMechanicApi().getMechanics(signal.value);
     mechanicOptions.value = mechanics.map((m) => ({ title: `${m.name} (v${m.version})`, value: m.id }));
 
-    await keywordStore.fetchTags(signal.value);
+    await fetchTags(signal.value);
 
     if (isEdit.value) {
       const found = ruleHost.value.effectiveRules.find((r) => r.code === routeRuleCode.value);
@@ -210,7 +210,7 @@ async function save() {
     });
     const rest = ruleHost.value.effectiveRules.filter((entry) => entry.code !== rule.code);
     const blocking = ruleValidationService.blockingMessagesForRule(
-      ruleValidationService.validateCatalog([...rest, rule], keywordStore.keywords),
+      ruleValidationService.validateCatalog([...rest, rule], keywords.value),
       rule.code,
     );
     if (blocking[0]) {

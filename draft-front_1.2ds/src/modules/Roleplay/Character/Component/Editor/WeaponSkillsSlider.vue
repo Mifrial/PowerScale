@@ -5,7 +5,7 @@ import EditorAbilityNode from '@/modules/Roleplay/Character/Component/Editor/Dev
 import { weaponProficiencyService } from '@/modules/Roleplay/Character/Service/Instance/weaponProficiencyService';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { EditorAbility } from '@/modules/Roleplay/Character/Dto/Editor/EditorAbility';
-import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
+import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { EditorAbilityZone } from '@/modules/Roleplay/Character/Dto/Editor/EditorAbilityZone';
 import type { AbilityType } from '@/modules/Roleplay/Rule/Enum/Ability/AbilityType';
 import type { CharacterAbility } from '@/modules/Roleplay/Character/Dto/CharacterAbility';

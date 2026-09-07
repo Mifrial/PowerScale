@@ -73,7 +73,8 @@
 - [План Versioning 1: кластер и фасад](versioning-plan-01.md) — сделано; `vt_note`; TTL среза 30 суток.
 - [Нарезка Rule](rule-roadmap.md) — Keyword → Mechanic → Rule → RuleSpace 1–6 → Vue-имя → HTTP справочников.
 - [План Keyword 1](keyword-plan-01.md) — каркас `Roleplay/Keyword` под Rule.
-- [План Keyword 2: HTTP](keyword-plan-02.md) — публичка `keyword.*` сделана; Vue в папке Rule.
+- [План Keyword 2: HTTP](keyword-plan-02.md) — публичка `keyword.*` сделана.
+- [План Keyword 3: Vue-модуль](keyword-plan-03.md) — папка `Roleplay/Keyword`; URL `/admin/keywords` без смены.
 - [План Mechanic 1](mechanic-plan-01.md) — каркас `Roleplay/Mechanic` под Rule; HTTP — план 2; модуль не закрыт (нет Engine).
 - [План Mechanic 2: HTTP](mechanic-plan-02.md) — публичка `mechanic.*` сделана; Vue в папке Rule.
 - [План Rule 1: кластер](rule-plan-01.md) — `Roleplay/Rule`; `rule*`; Reference на Keyword/Mechanic; generic body Versioning.

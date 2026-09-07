@@ -6,7 +6,7 @@ import type { CharacterCreationConfig } from '@/modules/Roleplay/Character/Dto/E
 import type { CharacteristicPurchase } from '@/modules/Roleplay/Character/Dto/Editor/CharacteristicPurchase';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
+import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { ItemSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpec';
 import type { ItemModifierSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierSpec';
 import type { RaceSpec } from '@/modules/Roleplay/Rule/Dto/Race/RaceSpec';

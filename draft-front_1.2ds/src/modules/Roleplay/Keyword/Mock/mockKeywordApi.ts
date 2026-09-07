@@ -1,5 +1,5 @@
-import type { IKeywordApi } from '@/modules/Roleplay/Rule/Interface/IKeywordApi';
-import * as mock from '@/modules/Roleplay/Rule/Mock/mockKeywords';
+import type { IKeywordApi } from '@/modules/Roleplay/Keyword/Interface/IKeywordApi';
+import * as mock from '@/modules/Roleplay/Keyword/Mock/mockKeywords';
 
 export const mockKeywordApi: IKeywordApi = {
   getKeywords: mock.fetchTags,

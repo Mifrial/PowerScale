@@ -1,5 +1,5 @@
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
+import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { PublishSummary } from '@/modules/Roleplay/RuleSpace/Dto/PublishSummary';
 import type { ruleValidationService, ruleDiffService } from '@/modules/Roleplay/Rule/init';
 

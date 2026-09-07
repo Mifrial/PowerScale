@@ -1,6 +1,6 @@
-import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
-import type { CreateKeywordData } from '@/modules/Roleplay/Rule/Dto/CreateKeywordData';
-import type { UpdateKeywordData } from '@/modules/Roleplay/Rule/Dto/UpdateKeywordData';
+import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
+import type { CreateKeywordData } from '@/modules/Roleplay/Keyword/Dto/CreateKeywordData';
+import type { UpdateKeywordData } from '@/modules/Roleplay/Keyword/Dto/UpdateKeywordData';
 
 export interface IKeywordApi {
   getKeywords(signal?: AbortSignal): Promise<Keyword[]>;

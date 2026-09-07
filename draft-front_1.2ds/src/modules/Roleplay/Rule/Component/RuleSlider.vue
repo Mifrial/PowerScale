@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
+import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import SlidePanel from '@/modules/Core/UI/Component/SlidePanel.vue';
 import RuleSpecView from '@/modules/Roleplay/Rule/Component/RuleSpecView.vue';
 import { RULE_TYPE_LABELS } from '@/modules/Roleplay/Rule/Constant/RULE_TYPE_LABELS';
 import { ruleRevisionResolverService } from '@/modules/Roleplay/Rule/Service/Instance/ruleRevisionResolverService';
-import { useKeywordStore } from '@/modules/Roleplay/Rule/Store/keywords';
+import { useKeywords } from '@/modules/Roleplay/Keyword/init';
 import DescriptionHtml from '@/modules/Core/UI/Component/DescriptionHtml.vue';
 
 const props = defineProps<{
@@ -20,7 +20,7 @@ const props = defineProps<{
 }>();
 
 const open = defineModel<boolean>('open', { default: false });
-const keywordStore = useKeywordStore();
+const { keywords: catalogKeywords, fetchTags } = useKeywords();
 
 const ruleData = ref<Rule | null>(null);
 const sliceRules = ref<Rule[]>([]);
@@ -32,7 +32,7 @@ const typeLabel = computed(() =>
   ruleData.value ? (RULE_TYPE_LABELS[ruleData.value.type] ?? ruleData.value.type) : '',
 );
 
-const resolvedKeywords = computed(() => props.keywords ?? keywordStore.keywords);
+const resolvedKeywords = computed(() => props.keywords ?? catalogKeywords.value);
 
 async function loadRule() {
   const id = props.ruleCode;
@@ -62,8 +62,8 @@ async function loadRule() {
       sliceRules.value = slice.rules;
       if (slice.rule == null) error.value = 'Правило не найдено в ревизии';
     }
-    if (!props.keywords && keywordStore.keywords.length === 0) {
-      await keywordStore.fetchTags();
+    if (!props.keywords && catalogKeywords.value.length === 0) {
+      await fetchTags();
     }
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') return;

@@ -10,7 +10,7 @@ import type { CharacterBuild } from '@/modules/Roleplay/Character/Dto/Editor/Cha
 import type { CharacterCreationConfig } from '@/modules/Roleplay/Character/Dto/Editor/CharacterCreationConfig';
 import type { CharacterEditorModel } from '@/modules/Roleplay/Character/Dto/Editor/CharacterEditorModel';
 import type { FilterField } from '@/modules/Core/UI/Dto/Filter/Field';
-import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
+import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { RaceSpec } from '@/modules/Roleplay/Rule/Dto/Race/RaceSpec';
 import type { SpeciesSpec } from '@/modules/Roleplay/Rule/Dto/Race/SpeciesSpec';

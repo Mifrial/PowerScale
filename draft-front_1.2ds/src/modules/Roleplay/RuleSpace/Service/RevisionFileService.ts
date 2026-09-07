@@ -1,4 +1,4 @@
-import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
+import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
 import type { MechanicPayload } from '@/modules/Roleplay/Rule/Dto/MechanicPayload';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';

@@ -9,7 +9,8 @@ import { useCharacterDraftStore } from '@/modules/Roleplay/Character/Store/chara
 import { useCharacterStore } from '@/modules/Roleplay/Character/Store/characters';
 import { getCharacterApi } from '@/modules/Roleplay/Character/init';
 import { characterSheetValidationService } from '@/modules/Roleplay/Character/Service/Instance/characterSheetValidationService';
-import { getMechanicApi, useKeywords } from '@/modules/Roleplay/Rule/init';
+import { getMechanicApi } from '@/modules/Roleplay/Rule/init';
+import { useKeywords } from '@/modules/Roleplay/Keyword/init';
 
 /**
  * Черновик и быстрое сохранение с карточки персонажа: экип (и дальше другие правки)

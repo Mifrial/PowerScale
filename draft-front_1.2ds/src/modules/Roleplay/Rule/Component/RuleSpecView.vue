@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
+import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import AbilityCard from '@/modules/Roleplay/Rule/Component/Cards/AbilityCard.vue';
 import AgeCard from '@/modules/Roleplay/Rule/Component/Cards/AgeCard.vue';

@@ -15,7 +15,7 @@ import type { FilterField } from '@/modules/Core/UI/Dto/Filter/Field';
 import type { CharacterBuild } from '@/modules/Roleplay/Character/Dto/Editor/CharacterBuild';
 import type { CharacterEditorModel } from '@/modules/Roleplay/Character/Dto/Editor/CharacterEditorModel';
 import type { EditorAbility } from '@/modules/Roleplay/Character/Dto/Editor/EditorAbility';
-import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
+import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { AbilitySection } from '@/modules/Roleplay/RuleSpace/Dto/AbilitySection';
 import type { RuleCatalogArea } from '@/modules/Roleplay/RuleSpace/Enum/RuleCatalogArea';

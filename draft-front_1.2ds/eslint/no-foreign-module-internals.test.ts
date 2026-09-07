@@ -42,6 +42,14 @@ tester.run('powerscale/no-foreign-module-internals', rule, {
       filename: filename('modules/Roleplay/routes.ts'),
       code: `import { routes as characterRoutes } from '@/modules/Roleplay/Character/routes';`,
     },
+    {
+      filename: filename('modules/Roleplay/Game/Service/Foo.ts'),
+      code: `import { useKeywords } from '@/modules/Roleplay/Keyword/init';`,
+    },
+    {
+      filename: filename('modules/Roleplay/Game/Service/Foo.ts'),
+      code: `import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';`,
+    },
   ],
   invalid: [
     {
@@ -52,6 +60,11 @@ tester.run('powerscale/no-foreign-module-internals', rule, {
     {
       filename: filename('modules/Roleplay/Character/Service/Foo.ts'),
       code: `import { CharacteristicNumber } from '@/modules/Roleplay/Rule/Value/CharacteristicNumber';`,
+      errors: [{ messageId: 'foreignInternals' }],
+    },
+    {
+      filename: filename('modules/Roleplay/Game/Service/Foo.ts'),
+      code: `import { useKeywordStore } from '@/modules/Roleplay/Keyword/Store/keywords';`,
       errors: [{ messageId: 'foreignInternals' }],
     },
   ],

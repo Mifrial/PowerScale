@@ -5,7 +5,7 @@ import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber
 import { characterBuildService } from '@/modules/Roleplay/Character/Service/Instance/characterBuildService';
 import type { CharacterBuild } from '@/modules/Roleplay/Character/Dto/Editor/CharacterBuild';
 import type { CharacterEditorModel } from '@/modules/Roleplay/Character/Dto/Editor/CharacterEditorModel';
-import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
+import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { RaceSpec } from '@/modules/Roleplay/Rule/Dto/Race/RaceSpec';
 import EditorInnateMatrix from '@/modules/Roleplay/Character/Component/Editor/EditorInnateMatrix.vue';

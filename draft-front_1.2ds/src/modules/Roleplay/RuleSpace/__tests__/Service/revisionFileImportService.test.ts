@@ -8,7 +8,7 @@ import {
 } from '@/modules/Roleplay/RuleSpace/Constant/REVISION_FILE_FORMAT';
 import { REVISION_FILE_PROBLEM_CODE } from '@/modules/Roleplay/RuleSpace/Constant/REVISION_FILE_PROBLEM_CODE';
 import { RevisionFileProblemError } from '@/modules/Roleplay/RuleSpace/Service/RevisionFileProblemError';
-import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
+import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { RevisionFile } from '@/modules/Roleplay/RuleSpace/Dto/RevisionFile';
 import type { SpaceRevision } from '@/modules/Roleplay/RuleSpace/Dto/SpaceRevision';

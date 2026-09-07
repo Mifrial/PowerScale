@@ -4,7 +4,7 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { AbilitySpecDraft } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpecDraft';
 import type { Grant } from '@/modules/Roleplay/Rule/Dto/Ability/Grant';
 import type { Requirement } from '@/modules/Roleplay/Rule/Dto/Ability/Requirement';
-import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
+import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { AbilityType } from '@/modules/Roleplay/Rule/Enum/Ability/AbilityType';
 import type { ActionComponent } from '@/modules/Roleplay/Rule/Dto/Ability/ActionComponent';
 import type { ActionEffect } from '@/modules/Roleplay/Rule/Dto/Ability/ActionEffect';

@@ -4,7 +4,7 @@ import type { CharacterCreationConfig } from '@/modules/Roleplay/Character/Dto/E
 import { CharacterEditorService } from '@/modules/Roleplay/Character/Service/CharacterEditorService';
 import { characterBuildService } from '@/modules/Roleplay/Character/Service/Instance/characterBuildService';
 import { ruleCatalog } from '@/modules/Roleplay/Rule/Mock/mockRules';
-import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
+import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 
 const service = new CharacterEditorService();
 const config: CharacterCreationConfig = { osTotal: 20, orTotal: 40, moneyBudget: 100 };

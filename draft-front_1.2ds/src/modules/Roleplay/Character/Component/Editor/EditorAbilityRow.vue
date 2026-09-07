@@ -11,7 +11,7 @@ import type { EditorAbility } from '@/modules/Roleplay/Character/Dto/Editor/Edit
 import type { EditorAbilityParameter } from '@/modules/Roleplay/Character/Dto/Editor/EditorAbilityParameter';
 import type { EditorAbilityZone } from '@/modules/Roleplay/Character/Dto/Editor/EditorAbilityZone';
 import type { EditorAbilityInstance } from '@/modules/Roleplay/Character/Dto/Editor/EditorAbilityInstance';
-import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
+import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { ProcessStep } from '@/modules/Roleplay/Rule/Dto/Ability/ProcessStep';
 import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpec';
 import type { ResourceSpec } from '@/modules/Roleplay/Rule/Dto/ResourceSpec';

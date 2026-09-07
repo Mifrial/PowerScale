@@ -4,7 +4,7 @@ import { stateRuntimeEffectsService } from '@/modules/Roleplay/Character/Service
 import { abilityCheckAdvantagesService } from '@/modules/Roleplay/Character/Service/Instance/abilityCheckAdvantagesService';
 import type { CharacterBuild } from '@/modules/Roleplay/Character/Dto/Editor/CharacterBuild';
 import { ruleCatalog } from '@/modules/Roleplay/Rule/Mock/mockRules';
-import { keywords } from '@/modules/Roleplay/Rule/Mock/mockKeywords';
+import { keywords } from '@/modules/Roleplay/Keyword/Mock/mockKeywords';
 import { ATTRACTIVENESS_STATE_CODE } from '@/modules/Roleplay/Rule/init';
 
 const config = { osTotal: 20, orTotal: 10, moneyBudget: 100 };

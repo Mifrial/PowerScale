@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { ruleViewLabelService } from '@/modules/Roleplay/Rule/Service/Instance/ruleViewLabelService';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
+import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 
 const rules: Rule[] = [
   {

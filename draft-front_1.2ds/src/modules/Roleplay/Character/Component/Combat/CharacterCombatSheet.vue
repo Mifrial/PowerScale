@@ -13,7 +13,7 @@ import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/Characte
 import type { CharacterBuild } from '@/modules/Roleplay/Character/Dto/Editor/CharacterBuild';
 import type { CharacterEditorModel } from '@/modules/Roleplay/Character/Dto/Editor/CharacterEditorModel';
 import type { AttackOverview } from '@/modules/Roleplay/Character/Dto/Overview/AttackOverview';
-import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
+import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
 withDefaults(

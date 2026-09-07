@@ -4,7 +4,7 @@ import type { Grant } from '@/modules/Roleplay/Rule/Dto/Ability/Grant';
 import type { BlockProfile } from '@/modules/Roleplay/Rule/Dto/Item/BlockProfile';
 import type { ItemModifierOp } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierOp';
 import type { WeaponProfile } from '@/modules/Roleplay/Rule/Dto/Item/WeaponProfile';
-import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
+import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { WEAPON_PROFILE_TYPES } from '@/modules/Roleplay/Rule/Constant/Item/WEAPON_PROFILE_TYPES';
 

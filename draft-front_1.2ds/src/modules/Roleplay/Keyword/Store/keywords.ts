@@ -1,9 +1,9 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
-import type { CreateKeywordData } from '@/modules/Roleplay/Rule/Dto/CreateKeywordData';
-import type { UpdateKeywordData } from '@/modules/Roleplay/Rule/Dto/UpdateKeywordData';
-import { getKeywordApi } from '@/modules/Roleplay/Rule/init';
+import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
+import type { CreateKeywordData } from '@/modules/Roleplay/Keyword/Dto/CreateKeywordData';
+import type { UpdateKeywordData } from '@/modules/Roleplay/Keyword/Dto/UpdateKeywordData';
+import { getKeywordApi } from '@/modules/Roleplay/Keyword/init';
 
 export const useKeywordStore = defineStore('keywords', () => {
   const keywords = ref<Keyword[]>([]);

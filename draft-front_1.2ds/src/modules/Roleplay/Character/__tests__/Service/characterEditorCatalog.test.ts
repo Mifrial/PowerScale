@@ -6,7 +6,7 @@ import { CharacterEditorService } from '@/modules/Roleplay/Character/Service/Cha
 import { characterBuildService } from '@/modules/Roleplay/Character/Service/Instance/characterBuildService';
 import { ruleCatalog } from '@/modules/Roleplay/Rule/Mock/mockRules';
 import { weaponProficiencyService } from '@/modules/Roleplay/Character/Service/Instance/weaponProficiencyService';
-import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
+import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
 
 const service = new CharacterEditorService();

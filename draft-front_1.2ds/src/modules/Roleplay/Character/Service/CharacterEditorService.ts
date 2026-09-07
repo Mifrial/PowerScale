@@ -20,7 +20,7 @@ import type { FormulaContext } from '@/modules/Roleplay/Character/Dto/FormulaCon
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { ItemSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpec';
-import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
+import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
 import type { AbilityCost } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityCost';
 import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpec';

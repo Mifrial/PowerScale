@@ -1,6 +1,6 @@
-import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
+import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
-import type { IKeywordApi } from '@/modules/Roleplay/Rule/Interface/IKeywordApi';
+import type { IKeywordApi } from '@/modules/Roleplay/Keyword/Interface/IKeywordApi';
 import type { IMechanicApi } from '@/modules/Roleplay/Rule/Interface/IMechanicApi';
 import type { RevisionFile } from '@/modules/Roleplay/RuleSpace/Dto/RevisionFile';
 import type { RevisionFileCatalogPlan } from '@/modules/Roleplay/RuleSpace/Dto/RevisionFileCatalogPlan';

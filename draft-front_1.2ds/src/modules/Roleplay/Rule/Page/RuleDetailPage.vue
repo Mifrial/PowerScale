@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useRuleStore } from '@/modules/Roleplay/Rule/Store/rules';
-import { useKeywordStore } from '@/modules/Roleplay/Rule/Store/keywords';
+import { useKeywords } from '@/modules/Roleplay/Keyword/init';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { useRuleHostContext } from '@/modules/Roleplay/Rule/init';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
@@ -17,7 +17,7 @@ import RuleSlider from '@/modules/Roleplay/Rule/Component/RuleSlider.vue';
 const route = useRoute();
 const router = useRouter();
 const store = useRuleStore();
-const keywordStore = useKeywordStore();
+const { keywords, fetchTags } = useKeywords();
 const ruleHost = useRuleHostContext();
 const { signal } = useAbortable();
 
@@ -42,10 +42,10 @@ const mechanic = computed(() => {
 });
 
 const ruleTags = computed(() => {
-  const keywords = rule.value?.keywordIds;
-  if (!keywords || keywords.length === 0) return [];
+  const keywordIds = rule.value?.keywordIds;
+  if (!keywordIds || keywordIds.length === 0) return [];
 
-  return keywordStore.keywords.filter((t) => keywords.includes(t.id));
+  return keywords.value.filter((t) => keywordIds.includes(t.id));
 });
 
 const editLink = computed(() => `/space/${code.value}/${ctx.value}/rules/${encodeURIComponent(ruleCode.value)}/edit`);
@@ -77,7 +77,7 @@ async function resolveRoute(): Promise<void> {
     await store.fetchRuleVersions(ruleCode.value, signal.value);
     ruleVersions.value = store.ruleVersions;
 
-    await keywordStore.fetchTags(signal.value);
+    await fetchTags(signal.value);
     mechanics.value = await getMechanicApi().getMechanics(signal.value);
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') return;
@@ -116,7 +116,7 @@ watch(() => [route.params.code, route.params.ctx, route.params.ruleCode], resolv
       </v-card-text>
     </v-card>
 
-    <RuleSpecView :rule="rule" :rules="ruleHost.effectiveRules" :keywords="keywordStore.keywords" class="mb-4" />
+    <RuleSpecView :rule="rule" :rules="ruleHost.effectiveRules" :keywords="keywords" class="mb-4" />
     <RuleSlider v-model:open="inlineRuleOpen" :rule-code="inlineRuleId" :rules="ruleHost.effectiveRules" />
 
     <v-card v-if="mechanic" class="mb-4">

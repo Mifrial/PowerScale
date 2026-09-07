@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { RevisionFileCatalogService } from '@/modules/Roleplay/RuleSpace/Service/RevisionFileCatalogService';
-import type { Keyword } from '@/modules/Roleplay/Rule/Dto/Keyword';
+import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
 
 describe('RevisionFileCatalogService', () => {
