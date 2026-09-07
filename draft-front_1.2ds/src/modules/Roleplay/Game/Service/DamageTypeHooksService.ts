@@ -3,7 +3,7 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { DamageTypeHook } from '@/modules/Roleplay/Game/Dto/DamageTypeHook';
 import { damageTypeSpecService } from '@/modules/Roleplay/Rule/init';
 import { damageTypeHookRegistry } from '@/modules/Roleplay/Game/Service/Damage/Instance/damageTypeHookRegistry';
-import { DAMAGE_TYPE_HOOK_VERSION_1 } from '@/modules/Roleplay/Rule/init';
+import { DAMAGE_TYPE_HOOK_VERSION_1 } from '@/modules/Roleplay/Rule/Constant/Damage/DAMAGE_TYPE_HOOKS';
 
 export class DamageTypeHooksService {
   /**

@@ -8,7 +8,7 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { StateSpec } from '@/modules/Roleplay/Rule/Dto/State/StateSpec';
 import type { StateEffect } from '@/modules/Roleplay/Rule/Dto/State/StateEffect';
 import { CHARACTERISTIC_BASE_RANGE } from '@/modules/Roleplay/Character/Constant/CHARACTERISTIC_BASE_RANGE';
-import { ADVANTAGE_SOURCE_APPEARANCE, ADVANTAGE_SOURCE_STATE } from '@/modules/Roleplay/Rule/init';
+import { ADVANTAGE_SOURCE_APPEARANCE, ADVANTAGE_SOURCE_STATE } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
 import { aggregateSourceDeltasService, derivedCharacteristicService } from '@/modules/Roleplay/Rule/init';
 import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
 import type { CharacteristicSpec } from '@/modules/Roleplay/Rule/Dto/CharacteristicSpec';

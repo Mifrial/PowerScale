@@ -2,7 +2,11 @@ import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/Characte
 import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
 import type { StateSpec } from '@/modules/Roleplay/Rule/Dto/State/StateSpec';
 import { characterOverviewService } from '@/modules/Roleplay/Character/init';
-import { EXHAUSTION_STATE_CODE, STUNNED_STATE_CODE, WOUND_STATE_CODE } from '@/modules/Roleplay/Rule/init';
+import {
+  EXHAUSTION_STATE_CODE,
+  STUNNED_STATE_CODE,
+  WOUND_STATE_CODE,
+} from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
 import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
 
 import { exhaustionCheckService } from '@/modules/Roleplay/Game/Service/Instance/exhaustionCheckService';
@@ -18,7 +22,7 @@ import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/c
 import { damageTypeHooksService } from '@/modules/Roleplay/Game/Service/Instance/damageTypeHooksService';
 
 import { damageTypeSpecService } from '@/modules/Roleplay/Rule/init';
-import { ACCUMULATED_DAMAGE_STATE_CODE } from '@/modules/Roleplay/Rule/init';
+import { ACCUMULATED_DAMAGE_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
 
 import type { ApplyEndOfTurnDotsArgs } from '@/modules/Roleplay/Game/Dto/ApplyEndOfTurnDotsArgs';
 export class EndOfTurnDotsService {

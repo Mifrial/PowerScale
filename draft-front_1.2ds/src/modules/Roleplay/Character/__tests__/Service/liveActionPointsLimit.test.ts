@@ -9,7 +9,7 @@ import {
   MAIM_STATE_CODE,
   UNCONSCIOUS_STATE_CODE,
   WEAKNESS_STATE_CODE,
-} from '@/modules/Roleplay/Rule/init';
+} from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
 
 const rules = ruleCatalog;
 

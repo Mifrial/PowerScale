@@ -5,7 +5,7 @@ import {
   commitDraft,
   generateRevisionRules,
 } from '@/modules/Roleplay/RuleSpace/Mock/mockSpaces';
-import { DT_PAY_SR_VS_RELIABILITY_CODE } from '@/modules/Roleplay/Rule/init';
+import { DT_PAY_SR_VS_RELIABILITY_CODE } from '@/modules/Roleplay/Rule/Constant/Damage/DAMAGE_TYPE_HOOKS';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
 describe('mockSpaces: публикация черновика собирает ревизию из каталога', () => {

@@ -141,9 +141,9 @@ PHP (не фронтовое дерево), лениво: **`Versioning/Space`**
 
 ### Поверхность
 
-Чужой модуль может импортировать только `init.ts` (фасады `get*` / `register*` и узкий композабл-фасад) и типы из `Dto/` / `Interface/` / `Enum/`.
+Чужой модуль может импортировать `init.ts` (фасады `get*` / `register*` и узкий композабл-фасад), `Dto/` / `Interface/` / `Enum/`, `Constant/` / `Value/`, `Mock`, `routes` (`DEC-082`). Динамический `import()` чужого `Component/**/*.vue` разрешён; статический импорт `Component/` — нет.
 
-Чужой модуль не импортирует: `Service/`, `Component/`, `Constant/`, `Store/`, `Page/`, `Composables/`, `Utils/`. Из `init` нельзя реэкспортировать `useXxxStore()`.
+Чужой модуль не импортирует: `Service/`, `Store/`, `Page/`, `Composables/`, `Utils/`. Из `init` нельзя реэкспортировать `useXxxStore()`.
 
 Исключения: `Core/Engine` и `Core/UI` открыты целиком; Engine не импортирует UI. Auth и User — как прикладные модули. Между модулями можно импортировать только mock-фикстуры. `src/shell/`, `src/router/`, `main.ts` — корень сборки; прикладные модули не импортируют shell.
 
@@ -157,7 +157,7 @@ Auth зависит от User: после входа и выхода Auth выз
 
 ### Разрешённые рёбра
 
-«Публично» = `init` / `Dto` / `Interface` / `Enum`, не `Store` и не `Component`.
+«Публично» = `init` / `Dto` / `Interface` / `Enum` / `Mock` / `routes` / `Constant` / `Value`; не `Store`; `Component` — только динамический `.vue`.
 
 - Engine — никого вне себя
 - UI → Engine

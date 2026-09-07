@@ -39,7 +39,7 @@ import type { AttackOverview } from '@/modules/Roleplay/Character/Dto/Overview/A
 import type { ProcessActionContext } from '@/modules/Roleplay/Game/Dto/ProcessActionContext';
 import type { ProcessSession } from '@/modules/Roleplay/Game/Dto/ProcessSession';
 import type { AttackAction } from '@/modules/Roleplay/Game/Dto/AttackAction';
-import { CHECK_HIT_CODE } from '@/modules/Roleplay/Rule/init';
+import { CHECK_HIT_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
 import { useCombatChatThread } from '@/modules/Roleplay/Game/Composables/useCombatChatThread';
 import { combatChatFoldService } from '@/modules/Roleplay/Game/Service/Instance/combatChatFoldService';
 import type { ChatMessage } from '@/modules/Messages/Chat/Dto/ChatMessage';

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useSpaceRevision } from '@/modules/Roleplay/RuleSpace/init';
-import { computed, ref, watch } from 'vue';
+import { computed, defineAsyncComponent, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useCharacterStore } from '@/modules/Roleplay/Character/Store/characters';
 import { useCurrentUser } from '@/modules/Core/User/init';
@@ -15,7 +15,6 @@ import DescriptionTab from '@/modules/Roleplay/Character/Component/Detail/Descri
 import AbilityTab from '@/modules/Roleplay/Character/Component/Detail/AbilityTab.vue';
 import InventoryTab from '@/modules/Roleplay/Character/Component/Editor/InventoryTab.vue';
 import DiscussionTab from '@/modules/Roleplay/Character/Component/Detail/DiscussionTab.vue';
-import { RuleSlider } from '@/modules/Roleplay/Rule/init';
 import { useRuleDetailSlider } from '@/modules/Roleplay/Character/Composables/useRuleDetailSlider';
 import { useCharacterCardDraft } from '@/modules/Roleplay/Character/Composables/useCharacterCardDraft';
 import { getCharacterApi, getCharacterCardExtensions } from '@/modules/Roleplay/Character/init';
@@ -25,6 +24,8 @@ import type { SheetAccessContext } from '@/modules/Roleplay/Character/Interface/
 import SheetCard from '@/modules/Roleplay/Character/Component/SheetCard.vue';
 import UniqueRulesTab from '@/modules/Roleplay/Character/Component/Detail/UniqueRulesTab.vue';
 import OwnerNotesDialog from '@/modules/Roleplay/Character/Component/OwnerNotesDialog.vue';
+
+const RuleSlider = defineAsyncComponent(() => import('@/modules/Roleplay/Rule/Component/RuleSlider.vue'));
 
 const route = useRoute();
 const router = useRouter();

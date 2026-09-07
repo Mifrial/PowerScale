@@ -5,7 +5,7 @@ import type { InjuryRollInput } from '@/modules/Roleplay/Game/Dto/InjuryRollInpu
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { INJURY_DETAILS_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Injury/INJURY_DETAILS_ATTACHMENT_TYPE';
 import { ROLL_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ATTACHMENT_TYPE';
-import { MAIM_STATE_CODE } from '@/modules/Roleplay/Rule/init';
+import { MAIM_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
 import type { IGameApi } from '@/modules/Roleplay/Game/Interface/IGameApi';
 import { formatInjuryReceivedMessage } from '@/modules/Roleplay/Game/Utils/injuryCheckMessage';
 import { injuryRollService } from '@/modules/Roleplay/Game/Service/Instance/injuryRollService';

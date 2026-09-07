@@ -69,6 +69,7 @@ Versioning 1 (`vt_note`) сделан. ST 18–20, Cache 1 — закрыты.
 ## Позже (явный OPEN, не шаги 4–12)
 
 - Вынос Vue Keyword и Mechanic из папки Rule — сделан ([`keyword-plan-03.md`](keyword-plan-03.md), [`mechanic-plan-03.md`](mechanic-plan-03.md)).
+- Поверхность Vue `Rule/init` — сделано ([`rule-plan-02-init-surface.md`](rule-plan-02-init-surface.md); Constant/Value публичны; не PHP Engine).
 - Файл ревизии — отдельная нарезка [`revision-file-roadmap.md`](revision-file-roadmap.md) (клиент, коды на границе; HTTP файла нет).
 - Inherit queue / progress UI — не контракт (`rule-system`).
 - Закрытый набор `RuleType` + hydrator/валидация spec по типу — блокер Engine, не persist.

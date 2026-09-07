@@ -1,11 +1,11 @@
 <script setup lang="ts">
+import { defineAsyncComponent } from 'vue';
 import AbilityTab from '@/modules/Roleplay/Character/Component/Detail/AbilityTab.vue';
 import InventoryTab from '@/modules/Roleplay/Character/Component/Editor/InventoryTab.vue';
 import AttackTile from '@/modules/Roleplay/Character/Component/Detail/Attacks/AttackTile.vue';
 import DefenseValue from '@/modules/Roleplay/Character/Component/Detail/Defense/DefenseValue.vue';
 import ArmorTile from '@/modules/Roleplay/Character/Component/Detail/Defense/ArmorTile.vue';
 import RuleLink from '@/modules/Roleplay/Character/Component/Detail/RuleLink.vue';
-import { RuleSlider } from '@/modules/Roleplay/Rule/init';
 import { useRuleDetailSlider } from '@/modules/Roleplay/Character/Composables/useRuleDetailSlider';
 import type { CharacterCombatSheetPane } from '@/modules/Roleplay/Character/Enum/CharacterCombatSheetPane';
 import type { CharacterOverview } from '@/modules/Roleplay/Character/Dto/Overview/CharacterOverview';
@@ -15,6 +15,8 @@ import type { CharacterEditorModel } from '@/modules/Roleplay/Character/Dto/Edit
 import type { AttackOverview } from '@/modules/Roleplay/Character/Dto/Overview/AttackOverview';
 import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+
+const RuleSlider = defineAsyncComponent(() => import('@/modules/Roleplay/Rule/Component/RuleSlider.vue'));
 
 withDefaults(
   defineProps<{

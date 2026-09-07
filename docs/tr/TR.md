@@ -79,6 +79,7 @@
 - [План Mechanic 2: HTTP](mechanic-plan-02.md) — публичка `mechanic.*` сделана; Vue-папка — план 3.
 - [План Mechanic 3: Vue-модуль](mechanic-plan-03.md) — папка `Roleplay/Mechanic`, Binding, Engine; URL `/admin/mechanics` без смены.
 - [План Rule 1: кластер](rule-plan-01.md) — `Roleplay/Rule`; `rule*`; Reference на Keyword/Mechanic; generic body Versioning.
+- [План Rule 2: поверхность init](rule-plan-02-init-surface.md) — Constant/Value публичны (`DEC-082`); `Rule/init` без барреля констант и без SFC/`defineAsyncComponent`; композабл-фасады в `init` по-прежнему тянут vue.
 - [План RuleSpace 1: оператор](rulespace-plan-01.md) — sidecar мира, inherit `keep`, без HTTP.
 - [План RuleSpace 4: HTTP](rulespace-plan-04.md) — `ruleSpace.*` в RuleSpace; JSON-вид; без прав шага 8.
 - [План RuleSpace 5: права](rulespace-plan-05.md) — `space.create` / `view_all` / `edit_all` на HTTP; `owner_id` sidecar.

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { RULE_TYPE_LABELS } from '@/modules/Roleplay/Rule/init';
+import { RULE_TYPE_LABELS } from '@/modules/Roleplay/Rule/Constant/RULE_TYPE_LABELS';
 import VirtualList from '@/modules/Core/UI/Component/VirtualList.vue';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { RuleType } from '@/modules/Roleplay/Rule/Enum/RuleType';

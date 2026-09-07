@@ -27,7 +27,7 @@
 - `DEC-061` — loot имеет статусы `prepared | available | distributed`; интерес игрока хранится отдельно в `game_loot_interest`.
 - `DEC-062` — `keyword` — технический термин; пользовательские UI-тексты используют «признак»/«Признаки», не «тег».
 - `DEC-063` — Chat sync публикует `ok`/`retrying`, сохраняет cursor при ошибке и ретраит с backoff 1s–30s плюс ручной «Повторить»; `markChatRead` в этот контракт не входит (ack прочтения — в chat-system).
-- `DEC-064` — чужой модуль видит только `init`, Dto, Interface, Enum; чужие Store/Service/Component/Constant/Utils нельзя; Pinia не в локаторе; `useXxxStore` из `init` не реэкспортировать; локатор только в корне сборки и в `init.ts`; доменные `Service/` получают порты в конструктор.
+- `DEC-064` — чужой модуль видит `init`, Dto, Interface, Enum (и с `DEC-082` — Constant, Value, Mock, routes); чужие Store/Service/Utils нельзя; статический чужой Component нельзя; Pinia не в локаторе; `useXxxStore` из `init` не реэкспортировать; локатор только в корне сборки и в `init.ts`; доменные `Service/` получают порты в конструктор.
 - `DEC-065` — `DEC-064` для всех прикладных модулей, включая Auth и User; исключения — Core/Engine, Core/UI и регистрация плагина через публичный API хоста. Таблица рёбер — [`architecture.md`](architecture.md).
 - `DEC-066` — UI использует adapter boundaries, batch lookup и необязательный `AbortSignal` для отмены устаревших async-запросов.
 - `DEC-067` — в Game-ТР фиксируются только минимальные combat/session contract cards; старая A/L/O/P-модерация и three-way reconcile исключены.
@@ -57,6 +57,7 @@
 - `DEC-078` — SmartTable: `illuminate/database` без Eloquent и без Laravel-приложения; Basic; админка после Auth; тегированный кэш и runtime-DDL в v1. Версионность вынесена в `DEC-080`. Owner [`smarttable.md`](smarttable.md).
 - `DEC-080` — версионность: ленивый `Versioning/Space` (не Core, не оболочка ST). Один репозиторий — свои пространство-время; состав ревизии материализован; срез без нового SQL. `Roleplay/RuleSpace` — оператор правил. Связка нескольких репозиториев — выше. Owner [`versioning-roadmap.md`](versioning-roadmap.md).
 - `DEC-081` — драйвер кэша `Core/Cache` (`ICacheStore`); TTL 1..30 суток, без «навсегда». ST `TableCache` и Versioning — политики ключей/тегов. Owner [`cache-plan-01.md`](cache-plan-01.md).
+- `DEC-082` — на фронте `Constant/` и `Value/` публичны как Dto (прямой путь, не баррель `init`); `DEC-064` в части «не Constant» сужен, не отменён. Динамический чужой `Component/*.vue` разрешён. Owner [`architecture.md`](architecture.md), [`rule-plan-02-init-surface.md`](rule-plan-02-init-surface.md).
 - `DEC-079` — PHP Record: геттеры смысла; New/Patch — карта ключей; JSON-вид отдельно. Owner [`php-coding-standards.md`](php-coding-standards.md) / [`user.md`](user.md).
 - `DEC-027` — старый план Chat → Game перенесён в историю.
 - `DEC-028` — готовность RuleType оценивается независимо по доменной модели, frontend, backend и контенту.

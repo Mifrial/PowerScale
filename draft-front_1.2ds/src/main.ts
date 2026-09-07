@@ -110,7 +110,7 @@ async function bootstrap(): Promise<void> {
   registerAuthModule();
   registerKeywordModule();
   registerMechanicModule();
-  registerRuleModule();
+  await registerRuleModule();
   registerRuleSpaceModule();
   registerGameModule();
   registerCharacterModule();

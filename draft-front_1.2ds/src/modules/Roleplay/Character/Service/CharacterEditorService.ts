@@ -42,17 +42,19 @@ import type { AgeRange } from '@/modules/Roleplay/Rule/Dto/Race/AgeRange';
 import type { ResourceSpec } from '@/modules/Roleplay/Rule/Dto/ResourceSpec';
 import type { SenseSpec } from '@/modules/Roleplay/Rule/Dto/SenseSpec';
 import {
-  ATTRACTIVENESS_MAX,
-  ATTRACTIVENESS_MIN,
-  ATTRACTIVENESS_STATE_CODE,
   itemModifierService,
-  DOMAIN_REF_RULE_TYPES,
-  DOMAIN_STATIC_OPTIONS,
   checkResolutionService,
   derivedCharacteristicService,
   RaceSpecService,
-  CharacteristicNumber,
 } from '@/modules/Roleplay/Rule/init';
+import {
+  ATTRACTIVENESS_MAX,
+  ATTRACTIVENESS_MIN,
+  ATTRACTIVENESS_STATE_CODE,
+} from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
+import { DOMAIN_REF_RULE_TYPES } from '@/modules/Roleplay/Rule/Constant/Ability/DOMAIN_REF_RULE_TYPES';
+import { DOMAIN_STATIC_OPTIONS } from '@/modules/Roleplay/Rule/Constant/Ability/DOMAIN_STATIC_OPTIONS';
+import { CharacteristicNumber } from '@/modules/Roleplay/Rule/Value/CharacteristicNumber';
 import { mechanicEngine, PURCHASE_SURCHARGE_EVENT } from '@/modules/Roleplay/Mechanic/init';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import { formulaLabel } from '@/modules/Roleplay/Character/Utils/formulaLabel';

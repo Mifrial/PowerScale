@@ -21,7 +21,7 @@ import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance
 import { ACTION_POINTS_CODE } from '@/modules/Roleplay/Game/Constant/Combat/ACTION_POINTS_CODE';
 
 import { bloodLossService } from '@/modules/Roleplay/Game/Service/Instance/bloodLossService';
-import { ACCUMULATED_DAMAGE_STATE_CODE } from '@/modules/Roleplay/Rule/init';
+import { ACCUMULATED_DAMAGE_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
 
 import { stateRuntimeEffectsService } from '@/modules/Roleplay/Character/init';
 import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';

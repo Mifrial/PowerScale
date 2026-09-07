@@ -13,7 +13,11 @@ import { injuryCheckService } from '@/modules/Roleplay/Game/Service/Instance/inj
 import { reservedExhaustion } from '@/modules/Roleplay/Game/Utils/bloodLossMath';
 import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
 
-import { BLOOD_LOSS_STATE_CODE, EXHAUSTION_STATE_CODE, POISONING_STATE_CODE } from '@/modules/Roleplay/Rule/init';
+import {
+  BLOOD_LOSS_STATE_CODE,
+  EXHAUSTION_STATE_CODE,
+  POISONING_STATE_CODE,
+} from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 import {
   characterOverviewService,

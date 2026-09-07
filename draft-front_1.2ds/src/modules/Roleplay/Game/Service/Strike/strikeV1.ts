@@ -1,5 +1,8 @@
 import type { StrikeProcedure } from '@/modules/Roleplay/Game/Dto/StrikeProcedure';
-import { STRIKE_PROCEDURE_MECHANIC_CODE, STRIKE_PROCEDURE_VERSION_1 } from '@/modules/Roleplay/Rule/init';
+import {
+  STRIKE_PROCEDURE_MECHANIC_CODE,
+  STRIKE_PROCEDURE_VERSION_1,
+} from '@/modules/Roleplay/Rule/Constant/Combat/HIT_PROCEDURE';
 
 /** Процедура удара 1.0.0 — выгрузка «Ближний бой: нанесение удара / защита». */
 export const strikeV1: StrikeProcedure = {

@@ -11,7 +11,7 @@ import FilterBar from '@/modules/Core/UI/Component/FilterBar.vue';
 import { characterOverviewService } from '@/modules/Roleplay/Character/Service/Instance/characterOverviewService';
 import { useAbilityFavoritesStore } from '@/modules/Roleplay/Character/Store/abilityFavorites';
 import { useRuleDetailSlider } from '@/modules/Roleplay/Character/Composables/useRuleDetailSlider';
-import { ABILITY_TYPE_LABELS } from '@/modules/Roleplay/Rule/init';
+import { ABILITY_TYPE_LABELS } from '@/modules/Roleplay/Rule/Constant/Ability/ABILITY_TYPE_LABELS';
 import { useKeywords } from '@/modules/Roleplay/Keyword/init';
 import type { AbilityOverview } from '@/modules/Roleplay/Character/Dto/Overview/AbilityOverview';
 import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';

@@ -1,1 +1,1 @@
-export { CHARACTERISTIC_BASE_RANGE } from '@/modules/Roleplay/Rule/init';
+export { CHARACTERISTIC_BASE_RANGE } from '@/modules/Roleplay/Rule/Value/CharacteristicNumber';

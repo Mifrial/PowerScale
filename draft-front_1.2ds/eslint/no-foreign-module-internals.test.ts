@@ -58,6 +58,18 @@ tester.run('powerscale/no-foreign-module-internals', rule, {
       filename: filename('modules/Roleplay/Game/Service/Foo.ts'),
       code: `import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';`,
     },
+    {
+      filename: filename('modules/Roleplay/Game/Service/Foo.ts'),
+      code: `import { CHECK_HIT_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';`,
+    },
+    {
+      filename: filename('modules/Roleplay/Character/Service/Foo.ts'),
+      code: `import { CharacteristicNumber } from '@/modules/Roleplay/Rule/Value/CharacteristicNumber';`,
+    },
+    {
+      filename: filename('modules/Roleplay/Character/Page/Bar.vue'),
+      code: `const RuleSlider = defineAsyncComponent(() => import('@/modules/Roleplay/Rule/Component/RuleSlider.vue'));`,
+    },
   ],
   invalid: [
     {
@@ -66,8 +78,13 @@ tester.run('powerscale/no-foreign-module-internals', rule, {
       errors: [{ messageId: 'foreignInternals' }],
     },
     {
-      filename: filename('modules/Roleplay/Character/Service/Foo.ts'),
-      code: `import { CharacteristicNumber } from '@/modules/Roleplay/Rule/Value/CharacteristicNumber';`,
+      filename: filename('modules/Roleplay/Game/Service/Foo.ts'),
+      code: `import { slugify } from '@/modules/Roleplay/Rule/Utils/Text/slugify';`,
+      errors: [{ messageId: 'foreignInternals' }],
+    },
+    {
+      filename: filename('modules/Roleplay/Character/Page/Bar.vue'),
+      code: `import RuleSlider from '@/modules/Roleplay/Rule/Component/RuleSlider.vue';`,
       errors: [{ messageId: 'foreignInternals' }],
     },
     {

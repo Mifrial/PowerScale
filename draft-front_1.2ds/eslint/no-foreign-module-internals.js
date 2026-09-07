@@ -1,7 +1,7 @@
 import path from 'node:path';
 
 const PUBLIC_ROOT_FILES = new Set(['init', 'init.ts', 'routes', 'routes.ts']);
-const PUBLIC_DIRS = new Set(['Dto', 'Interface', 'Enum', 'Mock']);
+const PUBLIC_DIRS = new Set(['Dto', 'Interface', 'Enum', 'Mock', 'Constant', 'Value']);
 const OPEN_MODULES = new Set(['Core/Engine', 'Core/UI']);
 
 function normalize(filePath) {
@@ -45,11 +45,19 @@ function remainderAfterModule(rel) {
   return parts.slice(3);
 }
 
-function isPublicRemainder(remainder) {
+function isDynamicVueComponent(remainder) {
+  if (remainder[0] !== 'Component') return false;
+  const last = remainder[remainder.length - 1] ?? '';
+
+  return last.endsWith('.vue');
+}
+
+function isPublicRemainder(remainder, { allowDynamicVue = false } = {}) {
   if (remainder.length === 0) return false;
   const first = remainder[0];
   if (PUBLIC_ROOT_FILES.has(first)) return true;
   if (PUBLIC_DIRS.has(first)) return true;
+  if (allowDynamicVue && isDynamicVueComponent(remainder)) return true;
 
   return false;
 }
@@ -69,7 +77,7 @@ function resolveSpec(filename, spec) {
   return null;
 }
 
-function checkSpec(context, node, spec) {
+function checkSpec(context, node, spec, { allowDynamicVue = false } = {}) {
   if (typeof spec !== 'string') return;
   const filename = context.filename;
   const importerRel = relFromSrc(filename);
@@ -86,7 +94,7 @@ function checkSpec(context, node, spec) {
   if (OPEN_MODULES.has(imported.id)) return;
   if (importer?.kind === 'module' && importer.id === imported.id) return;
 
-  if (isPublicRemainder(remainderAfterModule(importedRel))) return;
+  if (isPublicRemainder(remainderAfterModule(importedRel), { allowDynamicVue })) return;
 
   context.report({
     node,
@@ -100,12 +108,13 @@ const rule = {
   meta: {
     type: 'problem',
     docs: {
-      description: 'Forbid importing another module’s internals (only init, Dto, Interface, Enum, Mock, routes).',
+      description:
+        'Forbid importing another module’s internals (only init, Dto, Interface, Enum, Mock, Constant, Value, routes; dynamic Component/*.vue).',
     },
     schema: [],
     messages: {
       foreignInternals:
-        'Чужой модуль: импорт внутренностей запрещён ({{spec}}). Публично: init, Dto, Interface, Enum, Mock, routes.',
+        'Чужой модуль: импорт внутренностей запрещён ({{spec}}). Публично: init, Dto, Interface, Enum, Mock, Constant, Value, routes; динамический Component/*.vue.',
     },
   },
   create(context) {
@@ -121,7 +130,7 @@ const rule = {
       ExportAllDeclaration: visitSource,
       ImportExpression(node) {
         if (node.source?.type === 'Literal') {
-          checkSpec(context, node.source, node.source.value);
+          checkSpec(context, node.source, node.source.value, { allowDynamicVue: true });
         }
       },
     };

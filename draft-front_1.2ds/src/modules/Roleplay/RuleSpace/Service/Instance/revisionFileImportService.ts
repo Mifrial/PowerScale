@@ -2,7 +2,8 @@ import { RevisionFileImportService } from '@/modules/Roleplay/RuleSpace/Service/
 import { revisionFileService } from '@/modules/Roleplay/RuleSpace/Service/Instance/revisionFileService';
 import { abilitySectionTreeService } from '@/modules/Roleplay/RuleSpace/Service/Instance/abilitySectionTreeService';
 import { getRuleSpaceApi } from '@/modules/Roleplay/RuleSpace/init';
-import { RULE_CONTENT_STATUSES, RULE_TYPE_LABELS } from '@/modules/Roleplay/Rule/init';
+import { RULE_CONTENT_STATUSES } from '@/modules/Roleplay/Rule/Constant/RULE_CONTENT_STATUSES';
+import { RULE_TYPE_LABELS } from '@/modules/Roleplay/Rule/Constant/RULE_TYPE_LABELS';
 
 const knownStatuses = new Set<string>(RULE_CONTENT_STATUSES);
 

@@ -1,5 +1,9 @@
 import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
-import { BLOOD_LOSS_STATE_CODE, EXHAUSTION_STATE_CODE, WOUND_STATE_CODE } from '@/modules/Roleplay/Rule/init';
+import {
+  BLOOD_LOSS_STATE_CODE,
+  EXHAUSTION_STATE_CODE,
+  WOUND_STATE_CODE,
+} from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
 import type { IGameApi } from '@/modules/Roleplay/Game/Interface/IGameApi';
 import { injuryCheckService } from '@/modules/Roleplay/Game/Service/Instance/injuryCheckService';
 import { exhaustionCheckService } from '@/modules/Roleplay/Game/Service/Instance/exhaustionCheckService';

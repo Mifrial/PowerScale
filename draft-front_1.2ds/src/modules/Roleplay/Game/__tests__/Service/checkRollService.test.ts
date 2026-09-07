@@ -3,7 +3,7 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import { checkRollService } from '@/modules/Roleplay/Game/Service/Instance/checkRollService';
 
-import { CHECK_SIMPLE_CODE } from '@/modules/Roleplay/Rule/init';
+import { CHECK_SIMPLE_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
 
 const RULES: Rule[] = [
   {

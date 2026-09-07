@@ -77,7 +77,7 @@ Vue Mechanic → Engine, UI, **User (плагин админки)**. Строк�
 
 Спеки, редакторы, `IRuleApi` / эскиз HTTP, `useRuleDrafts`, чат-плагин `type: 'rule'`, валидация каталога, `ruleValidationService` и прочие spec-сервисы, `AbilityCard` / `RuleSlider`.
 
-`Rule/init.ts` перестаёт быть баррелем Keyword/Mechanic/Engine. Толщину реэкспорта спек для Character/Game **не** резать в этом заходе (отдельный долг публички Rule).
+`Rule/init.ts` перестаёт быть баррелем Keyword/Mechanic/Engine. Толщину реэкспорта спек для Character/Game этот сплит **не** резал; долг — [`rule-plan-02-init-surface.md`](rule-plan-02-init-surface.md).
 
 ### 6. Architecture / roadmap
 

@@ -3,7 +3,7 @@ import { computed, ref } from 'vue';
 import ExpandableItem from '@/modules/Core/UI/Component/ExpandableItem.vue';
 import LightChip from '@/modules/Core/UI/Component/light/LightChip.vue';
 import LightButton from '@/modules/Core/UI/Component/light/LightButton.vue';
-import { ABILITY_TYPE_LABELS } from '@/modules/Roleplay/Rule/init';
+import { ABILITY_TYPE_LABELS } from '@/modules/Roleplay/Rule/Constant/Ability/ABILITY_TYPE_LABELS';
 import { parameterLimitName, resourceShortName } from '@/modules/Roleplay/Rule/init';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';

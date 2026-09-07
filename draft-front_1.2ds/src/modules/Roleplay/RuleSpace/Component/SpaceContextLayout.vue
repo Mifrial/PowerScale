@@ -6,7 +6,7 @@ import { useSpaceRevisionStore } from '@/modules/Roleplay/RuleSpace/Store/spaceR
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { spaceContextKey } from '@/modules/Roleplay/RuleSpace/Constant/spaceContextKey';
 import type { ISpaceContext } from '@/modules/Roleplay/RuleSpace/Interface/ISpaceContext';
-import { ruleHostContextKey } from '@/modules/Roleplay/Rule/init';
+import { ruleHostContextKey } from '@/modules/Roleplay/Rule/Constant/ruleHostContextKey';
 import type { IRuleHostContext } from '@/modules/Roleplay/Rule/Interface/IRuleHostContext';
 
 const route = useRoute();

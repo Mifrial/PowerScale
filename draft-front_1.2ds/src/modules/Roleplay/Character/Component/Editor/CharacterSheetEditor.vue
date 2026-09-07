@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, defineAsyncComponent, onMounted, ref, watch } from 'vue';
 import { useCharacterDraftStore } from '@/modules/Roleplay/Character/Store/characterDraft';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { characterEditorService } from '@/modules/Roleplay/Character/Service/Instance/characterEditorService';
@@ -18,11 +18,12 @@ import PersonalityTab from '@/modules/Roleplay/Character/Component/Editor/Person
 import DevelopmentTab from '@/modules/Roleplay/Character/Component/Editor/DevelopmentTab.vue';
 import EditorDescriptionTab from '@/modules/Roleplay/Character/Component/Editor/EditorDescriptionTab.vue';
 import InventoryTab from '@/modules/Roleplay/Character/Component/Editor/InventoryTab.vue';
-import { RuleSlider } from '@/modules/Roleplay/Rule/init';
 import { useRuleDetailSlider } from '@/modules/Roleplay/Character/Composables/useRuleDetailSlider';
 import { characterVersionIntegrityService } from '@/modules/Roleplay/Character/init';
 import type { AbilitySection } from '@/modules/Roleplay/RuleSpace/Dto/AbilitySection';
 import { abilitySectionTreeService, useSpaceRevision } from '@/modules/Roleplay/RuleSpace/init';
+
+const RuleSlider = defineAsyncComponent(() => import('@/modules/Roleplay/Rule/Component/RuleSlider.vue'));
 
 /**
  * Редактор листа персонажа/НПС (переиспользуемый, ТР §7): владеет черновиком (по `draftKey`

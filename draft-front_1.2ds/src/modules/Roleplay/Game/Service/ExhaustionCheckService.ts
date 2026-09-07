@@ -1,14 +1,14 @@
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import { CHECK_EXHAUSTION_CODE } from '@/modules/Roleplay/Rule/init';
+import { CHECK_EXHAUSTION_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
 import {
   DECLINE_STATE_CODES,
   DISABLED_STATE_CODE,
   UNCONSCIOUS_STATE_CODE,
   WEAKNESS_STATE_CODE,
   EXHAUSTION_STATE_CODE,
-} from '@/modules/Roleplay/Rule/init';
+} from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
 import { ROLL_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ATTACHMENT_TYPE';
 import { checkRollService } from '@/modules/Roleplay/Game/Service/Instance/checkRollService';
 

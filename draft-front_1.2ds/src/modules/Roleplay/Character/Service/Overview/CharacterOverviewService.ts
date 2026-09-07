@@ -37,11 +37,11 @@ import { moneyBreakdownLabel } from '@/modules/Roleplay/Character/Utils/moneyBre
 import { CharacterReferenceService } from '@/modules/Roleplay/Character/Service/CharacterReferenceService';
 import {
   derivedCharacteristicService,
-  ACTION_POINTS_RESOURCE_CODE,
-  DAMAGE_TYPE_FORMS,
   itemModifierService,
   formatStateEffectsService,
 } from '@/modules/Roleplay/Rule/init';
+import { ACTION_POINTS_RESOURCE_CODE } from '@/modules/Roleplay/Rule/Constant/Ability/ACTION_POINTS_RESOURCE_CODE';
+import { DAMAGE_TYPE_FORMS } from '@/modules/Roleplay/Rule/Constant/DAMAGE_TYPE_FORMS';
 import type { ItemLabels } from '@/modules/Roleplay/Character/Constant/ITEM_LABELS';
 import { ITEM_LABELS } from '@/modules/Roleplay/Character/Constant/ITEM_LABELS';
 import { stateRuntimeEffectsService } from '@/modules/Roleplay/Character/Service/Instance/stateRuntimeEffectsService';

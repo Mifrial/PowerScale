@@ -12,7 +12,7 @@ import {
   ROLL_DEFAULT_EFFICIENCY,
   ROLL_DEFAULT_DIE_SIZE,
 } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_RULE_CODE';
-import { ADVANTAGE_SOURCE_ROLL } from '@/modules/Roleplay/Rule/init';
+import { ADVANTAGE_SOURCE_ROLL } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
 import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/init';
 
 /**
