@@ -2,11 +2,11 @@ import { CharacterEditorService } from '@/modules/Roleplay/Character/Service/Cha
 import { FormulaEvaluationService } from '@/modules/Roleplay/Character/Service/FormulaEvaluationService';
 import {
   RaceSpecService,
-  mechanicEngine,
   itemModifierService,
   checkResolutionService,
   derivedCharacteristicService,
 } from '@/modules/Roleplay/Rule/init';
+import { mechanicEngine } from '@/modules/Roleplay/Mechanic/init';
 import { racialInnateGearService } from '@/modules/Roleplay/Character/Service/Instance/racialInnateGearService';
 import { weaponProficiencyService } from '@/modules/Roleplay/Character/Service/Instance/weaponProficiencyService';
 

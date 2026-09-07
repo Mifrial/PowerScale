@@ -11,7 +11,7 @@ import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOv
 import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
 import type { ProcessSession } from '@/modules/Roleplay/Game/Dto/ProcessSession';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
+import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
 import type { CombatActionOption } from '@/modules/Roleplay/Game/Utils/combatActions';
 import { getGameApi } from '@/modules/Roleplay/Game/init';

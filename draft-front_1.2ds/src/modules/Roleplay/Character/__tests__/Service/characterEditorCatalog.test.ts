@@ -7,7 +7,7 @@ import { characterBuildService } from '@/modules/Roleplay/Character/Service/Inst
 import { ruleCatalog } from '@/modules/Roleplay/Rule/Mock/mockRules';
 import { weaponProficiencyService } from '@/modules/Roleplay/Character/Service/Instance/weaponProficiencyService';
 import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
-import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
+import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 
 const service = new CharacterEditorService();
 const config: CharacterCreationConfig = { osTotal: 20, orTotal: 12, moneyBudget: 100 };

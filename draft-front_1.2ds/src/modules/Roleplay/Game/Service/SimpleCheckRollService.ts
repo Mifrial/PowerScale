@@ -1,7 +1,7 @@
 import type { DiceRng } from '@/modules/Roleplay/Game/Dto/DiceRng';
 import type { DiceRollResult } from '@/modules/Roleplay/Game/Dto/DiceRollResult';
 import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec';
-import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
+import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { CHECK_SIMPLE_CODE } from '@/modules/Roleplay/Rule/init';
 import { checkResolutionService } from '@/modules/Roleplay/Rule/init';

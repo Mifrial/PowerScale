@@ -5,7 +5,7 @@ import type { DiceRollResult } from '@/modules/Roleplay/Game/Dto/DiceRollResult'
 import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec';
 import type { GameInitiativeParticipant } from '@/modules/Roleplay/Game/Dto/GameInitiative';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
+import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import { CharacteristicNumber } from '@/modules/Roleplay/Rule/init';
 import { rollService } from '@/modules/Roleplay/Game/Service/Instance/rollService';

@@ -5,7 +5,7 @@ import { useCurrentUser } from '@/modules/Core/User/init';
 import { useGameStore } from '@/modules/Roleplay/Game/Store/games';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 import { getCharacterApi } from '@/modules/Roleplay/Character/init';
-import { getMechanicApi } from '@/modules/Roleplay/Rule/init';
+import { getMechanicApi } from '@/modules/Roleplay/Mechanic/init';
 import { sessionCharacterService } from '@/modules/Roleplay/Game/Service/Instance/sessionCharacterService';
 import { gameChatRulesContextService } from '@/modules/Roleplay/Game/Service/Instance/gameChatRulesContextService';
 
@@ -21,7 +21,7 @@ import type { GameDetail } from '@/modules/Roleplay/Game/Dto/GameDetail';
 import type { ITokenSource } from '@/modules/Messages/Chat/Interface/ITokenSource';
 import type { ChatAttachment } from '@/modules/Messages/Chat/Dto/ChatAttachment';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
+import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import { ChatThread, chatInlineRendererContext } from '@/modules/Messages/Chat/init';
 import InitiativeTrack from '@/modules/Roleplay/Game/Component/InitiativeTrack.vue';
 import CombatQuickRolls from '@/modules/Roleplay/Game/Component/CombatQuickRolls.vue';

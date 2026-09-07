@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
+import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import { characteristicRollService } from '@/modules/Roleplay/Game/Service/Instance/characteristicRollService';
 
 const RULES: Rule[] = [

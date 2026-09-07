@@ -50,6 +50,14 @@ tester.run('powerscale/no-foreign-module-internals', rule, {
       filename: filename('modules/Roleplay/Game/Service/Foo.ts'),
       code: `import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';`,
     },
+    {
+      filename: filename('modules/Roleplay/Game/Service/Foo.ts'),
+      code: `import { useMechanics } from '@/modules/Roleplay/Mechanic/init';`,
+    },
+    {
+      filename: filename('modules/Roleplay/Game/Service/Foo.ts'),
+      code: `import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';`,
+    },
   ],
   invalid: [
     {
@@ -65,6 +73,11 @@ tester.run('powerscale/no-foreign-module-internals', rule, {
     {
       filename: filename('modules/Roleplay/Game/Service/Foo.ts'),
       code: `import { useKeywordStore } from '@/modules/Roleplay/Keyword/Store/keywords';`,
+      errors: [{ messageId: 'foreignInternals' }],
+    },
+    {
+      filename: filename('modules/Roleplay/Character/Service/Foo.ts'),
+      code: `import { useMechanicStore } from '@/modules/Roleplay/Mechanic/Store/mechanics';`,
       errors: [{ messageId: 'foreignInternals' }],
     },
   ],

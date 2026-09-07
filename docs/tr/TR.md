@@ -76,7 +76,8 @@
 - [План Keyword 2: HTTP](keyword-plan-02.md) — публичка `keyword.*` сделана.
 - [План Keyword 3: Vue-модуль](keyword-plan-03.md) — папка `Roleplay/Keyword`; URL `/admin/keywords` без смены.
 - [План Mechanic 1](mechanic-plan-01.md) — каркас `Roleplay/Mechanic` под Rule; HTTP — план 2; модуль не закрыт (нет Engine).
-- [План Mechanic 2: HTTP](mechanic-plan-02.md) — публичка `mechanic.*` сделана; Vue в папке Rule.
+- [План Mechanic 2: HTTP](mechanic-plan-02.md) — публичка `mechanic.*` сделана; Vue-папка — план 3.
+- [План Mechanic 3: Vue-модуль](mechanic-plan-03.md) — папка `Roleplay/Mechanic`, Binding, Engine; URL `/admin/mechanics` без смены.
 - [План Rule 1: кластер](rule-plan-01.md) — `Roleplay/Rule`; `rule*`; Reference на Keyword/Mechanic; generic body Versioning.
 - [План RuleSpace 1: оператор](rulespace-plan-01.md) — sidecar мира, inherit `keep`, без HTTP.
 - [План RuleSpace 4: HTTP](rulespace-plan-04.md) — `ruleSpace.*` в RuleSpace; JSON-вид; без прав шага 8.

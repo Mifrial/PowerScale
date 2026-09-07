@@ -8,7 +8,7 @@ import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingAct
 import type { ProcessSession } from '@/modules/Roleplay/Game/Dto/ProcessSession';
 import type { AttackOverview } from '@/modules/Roleplay/Character/Dto/Overview/AttackOverview';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
+import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import type {
   HorizontalMovementDirection,
   VerticalMovementDirection,

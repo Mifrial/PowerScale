@@ -6,6 +6,7 @@ import {
   COMBAT_CHAT_ROUND,
   COMBAT_CHAT_TURN,
 } from '@/modules/Roleplay/Game/Constant/Combat/COMBAT_CHAT_FOLD_KINDS';
+import { createRandomId } from '@/modules/Core/Engine/Utils/createRandomId';
 
 interface CombatChatThreadState {
   roundId: string | null;
@@ -36,7 +37,7 @@ function stateOf(gameId: number): CombatChatThreadState {
 }
 
 function newId(): string {
-  return crypto.randomUUID();
+  return createRandomId();
 }
 
 /** `gameId` — число, computed или getter: штампы читаются по текущему id, не по снимку setup. */

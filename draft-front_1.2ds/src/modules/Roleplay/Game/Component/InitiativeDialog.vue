@@ -20,7 +20,7 @@ import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
 import type { GameInitiativeParticipant } from '@/modules/Roleplay/Game/Dto/GameInitiative';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
+import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import { sessionCharacterService } from '@/modules/Roleplay/Game/Service/Instance/sessionCharacterService';
 
 /**

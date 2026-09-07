@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { DiceRng } from '@/modules/Roleplay/Game/Dto/DiceRng';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { ruleCatalog } from '@/modules/Roleplay/Rule/Mock/mockRules';
-import { fetchMechanics } from '@/modules/Roleplay/Rule/Mock/mockMechanics';
+import { fetchMechanics } from '@/modules/Roleplay/Mechanic/Mock/mockMechanics';
 import { damageTypeHooksService } from '@/modules/Roleplay/Game/Service/Instance/damageTypeHooksService';
 
 import { injuryRollService } from '@/modules/Roleplay/Game/Service/Instance/injuryRollService';

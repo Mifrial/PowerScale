@@ -1,7 +1,7 @@
 import { computed, onMounted, ref, type ComputedRef, type Ref } from 'vue';
 import type { CharacterDetail } from '@/modules/Roleplay/Character/Dto/CharacterDetail';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
-import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
+import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { characterBuildService } from '@/modules/Roleplay/Character/Service/Instance/characterBuildService';
 import { characterEditorService } from '@/modules/Roleplay/Character/Service/Instance/characterEditorService';
@@ -9,7 +9,7 @@ import { useCharacterDraftStore } from '@/modules/Roleplay/Character/Store/chara
 import { useCharacterStore } from '@/modules/Roleplay/Character/Store/characters';
 import { getCharacterApi } from '@/modules/Roleplay/Character/init';
 import { characterSheetValidationService } from '@/modules/Roleplay/Character/Service/Instance/characterSheetValidationService';
-import { getMechanicApi } from '@/modules/Roleplay/Rule/init';
+import { getMechanicApi } from '@/modules/Roleplay/Mechanic/init';
 import { useKeywords } from '@/modules/Roleplay/Keyword/init';
 
 /**

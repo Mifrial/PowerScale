@@ -3,7 +3,7 @@ import { rollInitiative, orderInitiative } from '@/modules/Roleplay/Game/Utils/i
 import type { InitiativeRollEntry, InitiativeRollResult } from '@/modules/Roleplay/Game/Utils/initiativeRoll';
 import type { DiceRng } from '@/modules/Roleplay/Game/Dto/DiceRng';
 import type { GameInitiativeParticipant } from '@/modules/Roleplay/Game/Dto/GameInitiative';
-import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
+import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/init';
 

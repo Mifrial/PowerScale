@@ -1,4 +1,4 @@
-import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
+import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { InjuryProcedure } from '@/modules/Roleplay/Game/Dto/InjuryProcedure';
 import { injuryProcedureRegistry } from '@/modules/Roleplay/Game/Service/Injury/Instance/injuryProcedureRegistry';

@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { RollEngine } from '@/modules/Roleplay/Game/Service/Roll/RollEngine';
-import { MechanicEngine } from '@/modules/Roleplay/Rule/init';
-import { MechanicHandlerRegistry } from '@/modules/Roleplay/Rule/init';
-import { rollAdvantageHandler } from '@/modules/Roleplay/Rule/init';
-import { rollSixOneHandler } from '@/modules/Roleplay/Rule/init';
-import { rollCriticalStrikeHandler } from '@/modules/Roleplay/Rule/init';
+import { MechanicEngine } from '@/modules/Roleplay/Mechanic/init';
+import { MechanicHandlerRegistry } from '@/modules/Roleplay/Mechanic/init';
+import { rollAdvantageHandler } from '@/modules/Roleplay/Game/Service/Handler/RollAdvantageHandler';
+import { rollSixOneHandler } from '@/modules/Roleplay/Game/Service/Handler/RollSixOneHandler';
+import { rollCriticalStrikeHandler } from '@/modules/Roleplay/Game/Service/Handler/RollCriticalStrikeHandler';
 import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec';
 import type { DiceRng } from '@/modules/Roleplay/Game/Dto/DiceRng';
-import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
+import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/init';
 

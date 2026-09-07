@@ -5,7 +5,7 @@ import { RevisionFileService } from '@/modules/Roleplay/RuleSpace/Service/Revisi
 import { RevisionFileProblemError } from '@/modules/Roleplay/RuleSpace/Service/RevisionFileProblemError';
 import { generateRevisionRules } from '@/modules/Roleplay/RuleSpace/Mock/mockSpaces';
 import { keywords as mockKeywords } from '@/modules/Roleplay/Keyword/Mock/mockKeywords';
-import { fetchMechanics } from '@/modules/Roleplay/Rule/Mock/mockMechanics';
+import { fetchMechanics } from '@/modules/Roleplay/Mechanic/Mock/mockMechanics';
 import {
   REVISION_FILE_FORMAT,
   REVISION_FILE_FORMAT_VERSION,
@@ -13,7 +13,7 @@ import {
 import { REVISION_FILE_PROBLEM_CODE } from '@/modules/Roleplay/RuleSpace/Constant/REVISION_FILE_PROBLEM_CODE';
 import { ruleDiffService } from '@/modules/Roleplay/Rule/init';
 import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
-import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
+import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { RevisionFile } from '@/modules/Roleplay/RuleSpace/Dto/RevisionFile';
 import type { SpaceRevision } from '@/modules/Roleplay/RuleSpace/Dto/SpaceRevision';

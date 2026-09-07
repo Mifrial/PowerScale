@@ -1,4 +1,4 @@
-import { getMechanicApi } from '@/modules/Roleplay/Rule/init';
+import { getMechanicApi } from '@/modules/Roleplay/Mechanic/init';
 import type { IChatRulesProvider } from '@/modules/Messages/Chat/Interface/IChatRulesProvider';
 import type { Game } from '@/modules/Roleplay/Game/Dto/Game';
 import type { IGameApi } from '@/modules/Roleplay/Game/Interface/IGameApi';

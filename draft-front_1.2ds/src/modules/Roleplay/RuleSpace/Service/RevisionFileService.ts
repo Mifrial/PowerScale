@@ -1,6 +1,6 @@
 import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
-import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
-import type { MechanicPayload } from '@/modules/Roleplay/Rule/Dto/MechanicPayload';
+import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
+import type { MechanicPayload } from '@/modules/Roleplay/Mechanic/Dto/MechanicPayload';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec';
 import type { RuleType } from '@/modules/Roleplay/Rule/Enum/RuleType';

@@ -32,7 +32,7 @@ import { ruleToForm } from '@/modules/Roleplay/Rule/Utils/Rule/ruleToForm';
 import type { RuleType } from '@/modules/Roleplay/Rule/Enum/RuleType';
 import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec';
 import type { RuleFormState } from '@/modules/Roleplay/Rule/Dto/RuleFormState';
-import { getMechanicApi } from '@/modules/Roleplay/Rule/init';
+import { getMechanicApi } from '@/modules/Roleplay/Mechanic/init';
 
 const route = useRoute();
 const router = useRouter();

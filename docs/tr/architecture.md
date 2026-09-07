@@ -137,7 +137,7 @@ Roleplay
 └── Game
 ```
 
-PHP (не фронтовое дерево), лениво: **`Versioning/Space`** — репозиторий одной сущности с пространствами и ревизиями. Нарезка — [`versioning-roadmap.md`](versioning-roadmap.md). Vue-модуля Versioning нет, пока нет второго UI-потребителя. **`Roleplay/Keyword`**, **`Roleplay/Mechanic`**, **`Roleplay/Rule`**, **`Roleplay/RuleSpace`** — отдельные lazy-слоты; нарезка — [`rule-roadmap.md`](rule-roadmap.md). PHP RuleSpace → `IRules` + sidecar ST, не SQL кластера и не `openCluster`. Продуктовый UI — `Roleplay/RuleSpace`. Vue Keyword — папка `Roleplay/Keyword` ([`keyword-plan-03.md`](keyword-plan-03.md)). Vue Mechanic пока в папке Rule (`CODE_GAP`).
+PHP (не фронтовое дерево), лениво: **`Versioning/Space`** — репозиторий одной сущности с пространствами и ревизиями. Нарезка — [`versioning-roadmap.md`](versioning-roadmap.md). Vue-модуля Versioning нет, пока нет второго UI-потребителя. **`Roleplay/Keyword`**, **`Roleplay/Mechanic`**, **`Roleplay/Rule`**, **`Roleplay/RuleSpace`** — отдельные lazy-слоты; нарезка — [`rule-roadmap.md`](rule-roadmap.md). PHP RuleSpace → `IRules` + sidecar ST, не SQL кластера и не `openCluster`. Продуктовый UI — `Roleplay/RuleSpace`. Vue Keyword — папка `Roleplay/Keyword` ([`keyword-plan-03.md`](keyword-plan-03.md)). Vue Mechanic — папка `Roleplay/Mechanic` ([`mechanic-plan-03.md`](mechanic-plan-03.md)).
 
 ### Поверхность
 
@@ -167,17 +167,17 @@ Auth зависит от User: после входа и выхода Auth выз
 - Notifications → Engine, UI, User (публично). Не Chat, не Roleplay, не Auth
 - Home → Engine, UI, User, Notifications (публично). Не Auth
 - Keyword → Engine, UI, User (плагин админки). PHP: SmartTable + `IUserAccess` ([`keyword-plan-02.md`](keyword-plan-02.md)). Vue: папка `Roleplay/Keyword` ([`keyword-plan-03.md`](keyword-plan-03.md)). Не Rule/RuleSpace/Character/Game. Не Versioning
-- Mechanic → Engine, UI, User (плагин админки, как Keyword). PHP: SmartTable + `IUserAccess` ([`mechanic-plan-02.md`](mechanic-plan-02.md)). Не Rule/Keyword/RuleSpace/Character/Game. Не Versioning. Хендлеры — этот модуль, когда закроют OPEN. Vue-папка — `CODE_GAP` в Rule. Vue Mechanic → User через `registerAdminSection` из Rule init (не отдельный Vue-модуль Mechanic).
+- Mechanic → Engine, UI, User (плагин админки, как Keyword). PHP: SmartTable + `IUserAccess` ([`mechanic-plan-02.md`](mechanic-plan-02.md)). Не Rule/Keyword/RuleSpace/Character/Game. Не Versioning. PHP-хендлеры Engine — OPEN. Vue: папка `Roleplay/Mechanic` ([`mechanic-plan-03.md`](mechanic-plan-03.md)).
 - Rule → Engine, UI, User (плагин), Chat (плагин), Keyword, Mechanic (публично). Не RuleSpace/Character/Game. Не Notifications. Не Versioning. `spaceId` и ревизия — проп, роут или ключ inject; RuleSpace только `provide`
-- RuleSpace → Engine, UI, User, Rule, Keyword (публично). Не Character/Game. Не Notifications. PHP-оператор → `IRules` + sidecar; не SQL карт `rule*` кластера; PHP RuleSpace ↛ Keyword; Vue ↛ Versioning
-- Character → Engine, UI, User, Rule, RuleSpace, Keyword, Chat (плагин), Notifications (публично, отправка). Не Game. Не Versioning. Позже — Mechanic (Engine)
-- Game → Engine, UI, User, Rule, RuleSpace, Character, Keyword, Chat (плагин), Notifications (публично, отправка). Не Versioning. Позже — Mechanic
+- RuleSpace → Engine, UI, User, Rule, Keyword, Mechanic (публично). Не Character/Game. Не Notifications. PHP-оператор → `IRules` + sidecar; не SQL карт `rule*` кластера; PHP RuleSpace ↛ Keyword; PHP RuleSpace ↛ Mechanic; Vue ↛ Versioning
+- Character → Engine, UI, User, Rule, RuleSpace, Keyword, Mechanic, Chat (плагин), Notifications (публично, отправка). Не Game. Не Versioning
+- Game → Engine, UI, User, Rule, RuleSpace, Character, Keyword, Mechanic, Chat (плагин), Notifications (публично, отправка). Не Versioning
 
 ### Долг кода (CODE_GAP, не реализация)
 
 Это нарушение канона в текущем дереве, не норма.
 
-Поверхность модулей и locator закрыты этапами 6b–8. Линтер `powerscale/no-foreign-module-internals` держит чужие внутренности. Долг: Vue Mechanic живёт в папке `Roleplay/Rule`, канон — отдельный модуль ([`rule-roadmap.md`](rule-roadmap.md), [`vue-rule-split-plan-01.md`](vue-rule-split-plan-01.md)). Vue Keyword вынесен ([`keyword-plan-03.md`](keyword-plan-03.md)).
+Поверхность модулей и locator закрыты этапами 6b–8. Линтер `powerscale/no-foreign-module-internals` держит чужие внутренности. Текущих CODE_GAP дерева Vue нет: Keyword и Mechanic — отдельные папки ([`keyword-plan-03.md`](keyword-plan-03.md), [`mechanic-plan-03.md`](mechanic-plan-03.md)).
 
 ## Слои фронтенда
 

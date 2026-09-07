@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
+import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import { checkRollService } from '@/modules/Roleplay/Game/Service/Instance/checkRollService';
 
 import { CHECK_SIMPLE_CODE } from '@/modules/Roleplay/Rule/init';

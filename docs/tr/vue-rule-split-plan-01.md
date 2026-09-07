@@ -1,6 +1,6 @@
 # План — Vue: Keyword и Mechanic из папки Rule
 
-**Статус:** план, 2026-09-06. Нарезка — [`rule-roadmap.md`](rule-roadmap.md) блок «Позже» (`CODE_GAP`). Эталон переезда папки — [`rulespace-plan-10.md`](rulespace-plan-10.md). HTTP справочников уже есть: [`keyword-plan-02.md`](keyword-plan-02.md), [`mechanic-plan-02.md`](mechanic-plan-02.md). Канон рёбер — [`architecture.md`](architecture.md). Фронт — `draft-front_1.2ds/frontend-rules.md`. `DEC-062`, `DEC-064`.
+**Статус:** сделано, 2026-09-07. Нарезка — [`rule-roadmap.md`](rule-roadmap.md). Эталон переезда папки — [`rulespace-plan-10.md`](rulespace-plan-10.md). HTTP справочников: [`keyword-plan-02.md`](keyword-plan-02.md), [`mechanic-plan-02.md`](mechanic-plan-02.md). Канон рёбер — [`architecture.md`](architecture.md). Фронт — `draft-front_1.2ds/frontend-rules.md`. `DEC-062`, `DEC-064`.
 
 Цель: закрыть `CODE_GAP` дерева Vue, чтобы **новый** код справочника и Engine не оседали в `Roleplay/Rule`. Не PHP. Не HTTP правил. Не смена URL `/admin/keywords` и `/admin/mechanics`. Не seed.
 
@@ -24,7 +24,7 @@
 ### 2. Порядок заходов
 
 1. **Keyword** — [`keyword-plan-03.md`](keyword-plan-03.md).
-2. **Mechanic: каталог + админка + Engine** сразу. Оставить Engine в Rule = продолжить рост, из‑за которого сплит «потом никогда».
+2. **Mechanic: каталог + админка + Engine** сразу — [`mechanic-plan-03.md`](mechanic-plan-03.md). Оставить Engine в Rule = продолжить рост, из‑за которого сплит «потом никогда».
 
 Не параллелить в одном PR без нужды: eslint `filename` и `init` проще чинить по очереди.
 
@@ -65,9 +65,9 @@ Vue Mechanic → Engine, UI, **User (плагин админки)**. Строк�
 | Хендлер | Дом |
 |---|---|
 | `purchase_surcharge` | Mechanic (контекст без Rule) |
-| `six_one` / `critical_strike` + `rollScoreAdjust` | Mechanic, если контекст броска не тянет Rule; иначе донор Game |
+| `six_one` / `critical_strike` + `rollScoreAdjust` | **Game** (`RollMechanicContext` тянет `AdvantageModifier`) |
 | `movement_state` | Game (контекст действия игры) |
-| `advantage_disadvantage` | **Rule** (сейчас импортирует `aggregateSourceDeltasService` / `advantageDropService`) |
+| `advantage_disadvantage` | **Game** (событие броска; Rule ↛ Game, Mechanic ↛ Rule). Не донор Rule. |
 
 Реестр наполняют `registerMechanicModule` (свои) и доноры из своего `register*Module`. Engine не импортирует доноров.
 
@@ -103,14 +103,14 @@ Vue Mechanic → Engine, UI, **User (плагин админки)**. Строк�
 ## Риски
 
 1. `MechanicEngine(rules: Rule[])` — главная дыра Mechanic ↛ Rule; чинить контрактом Binding, не `as`.
-2. `rollAdvantageHandler` оставить донором Rule, не тащить spec-сервисы в Mechanic.
+2. `rollAdvantageHandler` — донор Game, не Rule и не копировать `AdvantageModifier` в Mechanic.
 3. RuleSpace `assemble(..., keywords, mechanics)` импортирует Dto из Keyword/Mechanic, не из Rule.
 4. Старый `Roleplay/Space` (если ещё в дереве) не реанимировать; admin-склейка только Keyword + Mechanic + User.
 
 ## Todo
 
 - [x] **keyword** — [`keyword-plan-03.md`](keyword-plan-03.md).
-- [ ] **mechanic** — папка каталога + Engine, Binding, доноры хендлеров, `/admin/mechanics`, DAG в `architecture.md`.
-- [ ] **rule-init** — без `getKeywordApi` / `getMechanicApi` / `mechanicEngine` / admin-секций справочников.
-- [ ] **gates** — eslint internals/filename; format/lint/tsc/test фронта.
-- [ ] **docs** — roadmap «Позже» Vue-сплит закрыт; `CODE_GAP` снят.
+- [x] **mechanic** — [`mechanic-plan-03.md`](mechanic-plan-03.md).
+- [x] **rule-init** — без `getKeywordApi` / `getMechanicApi` / `mechanicEngine` / admin-секций справочников.
+- [x] **gates** — eslint internals; format/lint/tsc/test фронта.
+- [x] **docs** — roadmap «Позже» Vue-сплит закрыт; `CODE_GAP` снят.

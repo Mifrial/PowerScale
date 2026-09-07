@@ -21,7 +21,7 @@ import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/Dimension
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { ItemSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpec';
 import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
-import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
+import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import type { AbilityCost } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityCost';
 import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpec';
 import type { Requirement } from '@/modules/Roleplay/Rule/Dto/Ability/Requirement';
@@ -42,8 +42,6 @@ import type { AgeRange } from '@/modules/Roleplay/Rule/Dto/Race/AgeRange';
 import type { ResourceSpec } from '@/modules/Roleplay/Rule/Dto/ResourceSpec';
 import type { SenseSpec } from '@/modules/Roleplay/Rule/Dto/SenseSpec';
 import {
-  mechanicEngine,
-  PURCHASE_SURCHARGE_EVENT,
   ATTRACTIVENESS_MAX,
   ATTRACTIVENESS_MIN,
   ATTRACTIVENESS_STATE_CODE,
@@ -55,6 +53,7 @@ import {
   RaceSpecService,
   CharacteristicNumber,
 } from '@/modules/Roleplay/Rule/init';
+import { mechanicEngine, PURCHASE_SURCHARGE_EVENT } from '@/modules/Roleplay/Mechanic/init';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import { formulaLabel } from '@/modules/Roleplay/Character/Utils/formulaLabel';
 import { CharacterReferenceService } from '@/modules/Roleplay/Character/Service/CharacterReferenceService';
@@ -64,8 +63,9 @@ import type { ParsedDerivedFormula } from '@/modules/Roleplay/Rule/Dto/ParsedDer
 import { racialInnateGearService } from '@/modules/Roleplay/Character/Service/Instance/racialInnateGearService';
 import type { InventoryItem } from '@/modules/Roleplay/Character/Dto/InventoryItem';
 import { weaponProficiencyService } from '@/modules/Roleplay/Character/Service/Instance/weaponProficiencyService';
-import type { MechanicState } from '@/modules/Roleplay/Rule/Dto/MechanicState';
-import type { CharacterMechanicContext } from '@/modules/Roleplay/Rule/Dto/CharacterMechanicContext';
+import type { MechanicState } from '@/modules/Roleplay/Mechanic/Dto/MechanicState';
+import type { CharacterMechanicContext } from '@/modules/Roleplay/Mechanic/Dto/CharacterMechanicContext';
+import type { MechanicBinding } from '@/modules/Roleplay/Mechanic/Dto/MechanicBinding';
 
 /**
  * Расчётное ядро редактора персонажа: из выборов (CharacterBuild) и правил ревизии строит
@@ -727,7 +727,7 @@ export class CharacterEditorService {
     this.mechanics.runEvent(
       PURCHASE_SURCHARGE_EVENT,
       mechanicContext,
-      this.mechanics.resolveActive(this.rulesOf(reference), mechanics),
+      this.mechanics.resolveActive(this.mechanicBindingsOf(this.rulesOf(reference)), mechanics),
     );
     const mechanicDelta = mechanicContext.osSurchargeTotal;
     const surchargeItems = mechanicContext.surchargeItems.map((item) => ({ ...item }));
@@ -913,6 +913,15 @@ export class CharacterEditorService {
   /** Правила ревизии из reference-сервиса (для диспетчера механик). */
   private rulesOf(reference: CharacterReferenceService): Rule[] {
     return reference.rules();
+  }
+
+  /** Срез правил для Engine: Mechanic не видит Rule. */
+  private mechanicBindingsOf(rules: Rule[]): MechanicBinding[] {
+    return rules.map((rule) => ({
+      ruleCode: rule.code,
+      mechanicId: rule.mechanicId ?? null,
+      mechanicPayload: rule.mechanicPayload ?? null,
+    }));
   }
 
   /** Read-only снимок для механик: уровни способностей, признаки, расовые способности. */

@@ -1,11 +1,12 @@
 import type { DiceRng } from '@/modules/Roleplay/Game/Dto/DiceRng';
 import type { DiceRollResult } from '@/modules/Roleplay/Game/Dto/DiceRollResult';
 import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec';
-import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
+import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
+import type { MechanicBinding } from '@/modules/Roleplay/Mechanic/Dto/MechanicBinding';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import type { RollMechanicContext } from '@/modules/Roleplay/Rule/Dto/RollMechanicContext';
-import type { MechanicEngine } from '@/modules/Roleplay/Rule/init';
-import { ROLL_EVENTS } from '@/modules/Roleplay/Rule/init';
+import type { RollMechanicContext } from '@/modules/Roleplay/Game/Dto/RollMechanicContext';
+import type { MechanicEngine } from '@/modules/Roleplay/Mechanic/init';
+import { ROLL_EVENTS } from '@/modules/Roleplay/Mechanic/init';
 import {
   ROLL_RULE_CODE,
   ROLL_DEFAULT_EFFICIENCY,
@@ -77,7 +78,7 @@ export class RollEngine {
         : rollRule?.mechanicPayload?.type === 'roll'
           ? rollRule.mechanicPayload.data.sub_mechanics
           : undefined;
-    const active = this.engine.resolveActive(rules, mechanics, {
+    const active = this.engine.resolveActive(this.mechanicBindingsOf(rules), mechanics, {
       includeCodes,
       extraRuleCodes: activeRuleCodes,
     });
@@ -104,6 +105,14 @@ export class RollEngine {
       totalSuccesses: context.totalSuccesses,
       appliedMechanics: appliedMechanics.length > 0 ? appliedMechanics : undefined,
     };
+  }
+
+  private mechanicBindingsOf(rules: Rule[]): MechanicBinding[] {
+    return rules.map((rule) => ({
+      ruleCode: rule.code,
+      mechanicId: rule.mechanicId ?? null,
+      mechanicPayload: rule.mechanicPayload ?? null,
+    }));
   }
 
   private appliedNames(codes: string[], mechanics: Mechanic[]): string[] {

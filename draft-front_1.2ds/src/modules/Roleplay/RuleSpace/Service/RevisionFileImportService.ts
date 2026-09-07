@@ -1,5 +1,5 @@
 import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
-import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
+import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { AbilitySection } from '@/modules/Roleplay/RuleSpace/Dto/AbilitySection';
 import type { RevisionFile } from '@/modules/Roleplay/RuleSpace/Dto/RevisionFile';

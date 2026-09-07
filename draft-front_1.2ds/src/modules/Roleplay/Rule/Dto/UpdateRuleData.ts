@@ -1,5 +1,5 @@
 import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec';
-import type { MechanicPayload } from '@/modules/Roleplay/Rule/Dto/MechanicPayload';
+import type { MechanicPayload } from '@/modules/Roleplay/Mechanic/Dto/MechanicPayload';
 
 export interface UpdateRuleData {
   name?: string;

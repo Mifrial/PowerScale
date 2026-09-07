@@ -1,4 +1,4 @@
-import { getMechanicApi } from '@/modules/Roleplay/Rule/init';
+import { getMechanicApi } from '@/modules/Roleplay/Mechanic/init';
 import { ACTUAL_RULES_SPACE_CODE, useSpaceCatalog, useSpaceRevision } from '@/modules/Roleplay/RuleSpace/init';
 import type { IChatRulesProvider } from '@/modules/Messages/Chat/Interface/IChatRulesProvider';
 import { gameChatRulesContextService } from '@/modules/Roleplay/Game/Service/Instance/gameChatRulesContextService';

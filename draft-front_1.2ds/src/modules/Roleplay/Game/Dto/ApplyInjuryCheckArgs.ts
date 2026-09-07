@@ -5,7 +5,7 @@ import type { DiceRng } from '@/modules/Roleplay/Game/Dto/DiceRng';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { InjuryRollInput } from '@/modules/Roleplay/Game/Dto/InjuryRollInput';
 
-import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
+import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 export interface ApplyInjuryCheckArgs {
   input: InjuryRollInput;

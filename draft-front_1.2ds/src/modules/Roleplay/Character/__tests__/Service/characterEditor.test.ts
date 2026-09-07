@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import type { CharacterBuild } from '@/modules/Roleplay/Character/Dto/Editor/CharacterBuild';
 import type { CharacterCreationConfig } from '@/modules/Roleplay/Character/Dto/Editor/CharacterCreationConfig';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
+import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import { CharacterEditorService } from '@/modules/Roleplay/Character/Service/CharacterEditorService';
 

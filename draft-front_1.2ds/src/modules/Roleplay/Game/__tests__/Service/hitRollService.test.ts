@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { DiceRng } from '@/modules/Roleplay/Game/Dto/DiceRng';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
+import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import type { CharacterOverview } from '@/modules/Roleplay/Character/Dto/Overview/CharacterOverview';
 import { hitRollService } from '@/modules/Roleplay/Game/Service/Instance/hitRollService';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';

@@ -1,6 +1,6 @@
 import type { RuleType } from '@/modules/Roleplay/Rule/Enum/RuleType';
 import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec';
-import type { MechanicPayload } from '@/modules/Roleplay/Rule/Dto/MechanicPayload';
+import type { MechanicPayload } from '@/modules/Roleplay/Mechanic/Dto/MechanicPayload';
 
 export interface CreateRuleData {
   /** Опционально: если пусто — генерируется slug-ом из названия. Далее не изменяется. */

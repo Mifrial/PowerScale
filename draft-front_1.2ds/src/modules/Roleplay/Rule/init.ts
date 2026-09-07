@@ -1,21 +1,14 @@
 import { serviceLocator } from '@/modules/Core/Engine/Service/ServiceLocator';
 import { defineAsyncComponent } from 'vue';
 import type { IRuleApi } from '@/modules/Roleplay/Rule/Interface/IRuleApi';
-import type { IMechanicApi } from '@/modules/Roleplay/Rule/Interface/IMechanicApi';
 import type { IRevisionRulesFetcher } from '@/modules/Roleplay/Rule/Interface/IRevisionRulesFetcher';
 import { revisionRulesFetcherRegistry } from '@/modules/Roleplay/Rule/Service/Instance/revisionRulesFetcherRegistry';
-import { registerPermissionCategory, registerAdminSection } from '@/modules/Core/User/init';
+import { registerPermissionCategory } from '@/modules/Core/User/init';
 import { registerInlineRenderer, registerTokenSource } from '@/modules/Messages/Chat/init';
 import { RULE_PERMISSION_CATEGORY } from '@/modules/Roleplay/Rule/Constant/Permission/RULE_PERMISSION_CATEGORY';
-import { MECHANIC_PERMISSION_CATEGORY } from '@/modules/Roleplay/Rule/Constant/Permission/MECHANIC_PERMISSION_CATEGORY';
-import { MECHANICS_ADMIN_SECTION } from '@/modules/Roleplay/Rule/Constant/Permission/MECHANICS_ADMIN_SECTION';
 
 export { ruleValidationService } from '@/modules/Roleplay/Rule/Service/Instance/ruleValidationService';
 export { ruleDiffService } from '@/modules/Roleplay/Rule/Service/Instance/ruleDiffService';
-export { mechanicEngine } from '@/modules/Roleplay/Rule/Service/Instance/mechanicEngine';
-export type { ResolvedMechanic } from '@/modules/Roleplay/Rule/Dto/ResolvedMechanic';
-export type { MechanicHandler } from '@/modules/Roleplay/Rule/Interface/MechanicHandler';
-export { ROLL_EVENTS } from '@/modules/Roleplay/Rule/Constant/Mechanic/ROLL_EVENTS';
 export { RULE_TYPE_LABELS } from '@/modules/Roleplay/Rule/Constant/RULE_TYPE_LABELS';
 export { RULE_CONTENT_STATUSES } from '@/modules/Roleplay/Rule/Constant/RULE_CONTENT_STATUSES';
 export { itemModifierService } from '@/modules/Roleplay/Rule/Service/Instance/itemModifierService';
@@ -25,17 +18,13 @@ export { checkSuccessRatingService } from '@/modules/Roleplay/Rule/Service/Insta
 export { damageTypeSpecService } from '@/modules/Roleplay/Rule/Service/Instance/damageTypeSpecService';
 export { derivedCharacteristicService } from '@/modules/Roleplay/Rule/Service/Instance/derivedCharacteristicService';
 export { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/Service/Instance/aggregateSourceDeltasService';
+export { advantageDropService } from '@/modules/Roleplay/Rule/Service/Instance/advantageDropService';
 export { formatStateEffectsService } from '@/modules/Roleplay/Rule/Service/Instance/formatStateEffectsService';
 export { raceSpecService } from '@/modules/Roleplay/Rule/Service/Instance/raceSpecService';
 export { RaceSpecService } from '@/modules/Roleplay/Rule/Service/Spec/RaceSpecService';
 export { ruleReferenceService } from '@/modules/Roleplay/Rule/Service/Instance/ruleReferenceService';
 export { actionEffectLabelService } from '@/modules/Roleplay/Rule/Service/Instance/actionEffectLabelService';
 export { movementDistanceExpressionService } from '@/modules/Roleplay/Rule/Service/Instance/movementDistanceExpressionService';
-export { MechanicEngine } from '@/modules/Roleplay/Rule/Service/Mechanic/MechanicEngine';
-export { MechanicHandlerRegistry } from '@/modules/Roleplay/Rule/Service/Mechanic/MechanicHandlerRegistry';
-export { rollAdvantageHandler } from '@/modules/Roleplay/Rule/Service/Mechanic/Handlers/RollAdvantageHandler';
-export { rollSixOneHandler } from '@/modules/Roleplay/Rule/Service/Mechanic/Handlers/RollSixOneHandler';
-export { rollCriticalStrikeHandler } from '@/modules/Roleplay/Rule/Service/Mechanic/Handlers/RollCriticalStrikeHandler';
 export { CharacteristicNumber, CHARACTERISTIC_BASE_RANGE } from '@/modules/Roleplay/Rule/Value/CharacteristicNumber';
 export { parameterLimitName } from '@/modules/Roleplay/Rule/Utils/parameterLimitName';
 export { resourceShortName } from '@/modules/Roleplay/Rule/Utils/resourceShortName';
@@ -47,7 +36,6 @@ export * from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
 export * from '@/modules/Roleplay/Rule/Constant/Damage/DAMAGE_TYPE_HOOKS';
 export * from '@/modules/Roleplay/Rule/Constant/Combat/HIT_PROCEDURE';
 export * from '@/modules/Roleplay/Rule/Constant/Combat/INJURY_PROCEDURE';
-export { PURCHASE_SURCHARGE_EVENT } from '@/modules/Roleplay/Rule/Service/Mechanic/Handlers/PurchaseSurchargeHandler';
 export { ABILITY_TYPE_LABELS } from '@/modules/Roleplay/Rule/Constant/Ability/ABILITY_TYPE_LABELS';
 export type { ProblemEntry } from '@/modules/Roleplay/Rule/Dto/ProblemEntry';
 export { ruleHostContextKey } from '@/modules/Roleplay/Rule/Constant/ruleHostContextKey';
@@ -75,14 +63,6 @@ export function getRuleApi(): IRuleApi {
   return serviceLocator.get('Roleplay.Rule.Service.RuleApi');
 }
 
-export function registerMechanicApi(api: IMechanicApi): void {
-  serviceLocator.set('Roleplay.Rule.Mechanic.Service.MechanicApi', api);
-}
-
-export function getMechanicApi(): IMechanicApi {
-  return serviceLocator.get('Roleplay.Rule.Mechanic.Service.MechanicApi');
-}
-
 export function registerRevisionRulesFetcher(fetcher: IRevisionRulesFetcher): void {
   revisionRulesFetcherRegistry.register(fetcher);
 }
@@ -93,8 +73,6 @@ export function getRevisionRulesFetcher(): IRevisionRulesFetcher | null {
 
 export function registerRuleModule(): void {
   registerPermissionCategory(RULE_PERMISSION_CATEGORY);
-  registerPermissionCategory(MECHANIC_PERMISSION_CATEGORY);
-  registerAdminSection(MECHANICS_ADMIN_SECTION);
   registerInlineRenderer({
     type: 'rule',
     component: defineAsyncComponent(() => import('@/modules/Roleplay/Rule/Component/RuleChip.vue')),
@@ -109,7 +87,6 @@ export function registerRuleModule(): void {
     type: 'rule',
     label: 'Правило',
     icon: 'mdi-book-open-variant',
-    // Глобальный пикер без среза хоста: пусто. Поиск по ревизии — tokenSources провайдера.
     search: async () => [],
   });
 }

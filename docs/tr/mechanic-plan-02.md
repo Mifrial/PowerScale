@@ -2,7 +2,7 @@
 
 **Статус:** каркас PHP+Vue сделан, 2026-09-06. Нарезка — [`rule-roadmap.md`](rule-roadmap.md) шаг **12** (последний шаг этой нарезки). Каркас — [`mechanic-plan-01.md`](mechanic-plan-01.md). Эталон публички справочника — [`keyword-plan-02.md`](keyword-plan-02.md); физика другая — не копировать `active` / `deactivate` / unique `code`. Актор — [`user-plan-03-http.md`](user-plan-03-http.md). Input-DTO — [`kernel-plan-02-action-input.md`](kernel-plan-02-action-input.md). JSON-вид — `DEC-079`. UI-термин — `DEC-062`. Стандарты — [`php-coding-standards.md`](php-coding-standards.md). Фронт — `draft-front_1.2ds/frontend-rules.md`.
 
-Цель: публичка **`mechanic.*` в модуле `Roleplay/Mechanic`**, ключи **`mechanic.create` / `mechanic.edit`**, JSON как вид API (camelCase, без дат). Vue-клиент каталога остаётся в папке Rule (`CODE_GAP`). Не RuleSpace, не Keyword, не Engine, не seed справочника, не физический DELETE, не колонка `active`.
+Цель: публичка **`mechanic.*` в модуле `Roleplay/Mechanic`**, ключи **`mechanic.create` / `mechanic.edit`**, JSON как вид API (camelCase, без дат). Vue-папка — [`mechanic-plan-03.md`](mechanic-plan-03.md). Не RuleSpace, не Keyword, не Engine, не seed справочника, не физический DELETE, не колонка `active`.
 
 Эскиз Vue бьёт в **`rule.getMechanics`** на `IRuleApi`; JSON-поле **`version`**. Канон — этот файл: action **`mechanic.getList`**, PHP Mechanic ↛ Rule.
 
@@ -117,7 +117,7 @@ cs/quality модуля Mechanic. HttpService без +1 public сверх сце
 ## Что не трогаем
 
 - `MechanicEngine`, hydrator payload, хендлеры PHP/Vue.
-- Вынос Vue Mechanic/Keyword из `Roleplay/Rule` (`CODE_GAP`), в т.ч. с hypothetical `/admin` в оператор контента.
+- Вынос Vue Mechanic — [`mechanic-plan-03.md`](mechanic-plan-03.md). Keyword уже вынесен. Hypothetical `/admin` в оператор контента — не этот HTTP-заход.
 - HTTP правил в `Roleplay/Rule`. RuleSpace.
 - Seed справочника, semver-«последняя» в SQL, `findPage`, смена `code` / `handler_version`.
 - PHP-каталог ключей / seed на «Администраторы».

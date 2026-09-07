@@ -6,7 +6,7 @@ import { injuryRollService } from '@/modules/Roleplay/Game/Service/Instance/inju
 
 import { resolveInjuryProcedure } from '@/modules/Roleplay/Game/Utils/resolveInjuryProcedure';
 import { ruleCatalog } from '@/modules/Roleplay/Rule/Mock/mockRules';
-import { fetchMechanics } from '@/modules/Roleplay/Rule/Mock/mockMechanics';
+import { fetchMechanics } from '@/modules/Roleplay/Mechanic/Mock/mockMechanics';
 
 function rngFromFaces(faces: number[]): DiceRng {
   let index = 0;

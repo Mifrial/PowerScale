@@ -4,7 +4,7 @@ import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useGameStore } from '@/modules/Roleplay/Game/Store/games';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
-import { getMechanicApi } from '@/modules/Roleplay/Rule/init';
+import { getMechanicApi } from '@/modules/Roleplay/Mechanic/init';
 import { gameChatRulesContextService } from '@/modules/Roleplay/Game/Service/Instance/gameChatRulesContextService';
 
 import { useCurrentUser } from '@/modules/Core/User/init';
@@ -23,7 +23,7 @@ import { ChatThread, chatInlineRendererContext } from '@/modules/Messages/Chat/i
 import type { ChatRulesContext } from '@/modules/Messages/Chat/Dto/ChatRulesContext';
 import type { GameJoinRequest } from '@/modules/Roleplay/Game/Dto/GameJoinRequest';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
+import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import { UserProfileSlider } from '@/modules/Core/User/init';
 import { OwnerNotesDialog } from '@/modules/Roleplay/Character/init';
 

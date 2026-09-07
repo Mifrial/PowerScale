@@ -9,7 +9,7 @@ import type {
 } from '@/modules/Roleplay/Game/Dto/InjuryOutcome';
 import type { InjuryProcedure } from '@/modules/Roleplay/Game/Dto/InjuryProcedure';
 import type { DamageTypeHook } from '@/modules/Roleplay/Game/Dto/DamageTypeHook';
-import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
+import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { CHECK_INJURY_CODE } from '@/modules/Roleplay/Rule/init';
 import { ADVANTAGE_SOURCE_MANUAL } from '@/modules/Roleplay/Rule/init';

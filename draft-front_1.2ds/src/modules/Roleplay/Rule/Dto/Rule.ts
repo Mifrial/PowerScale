@@ -1,6 +1,6 @@
 import type { RuleType } from '@/modules/Roleplay/Rule/Enum/RuleType';
 import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec';
-import type { MechanicPayload } from '@/modules/Roleplay/Rule/Dto/MechanicPayload';
+import type { MechanicPayload } from '@/modules/Roleplay/Mechanic/Dto/MechanicPayload';
 
 export interface Rule {
   /** Ключ строки каталога; `null` — черновик / импорт, ещё не в БД. */

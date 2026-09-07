@@ -8,7 +8,7 @@ import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { GameInitiative } from '@/modules/Roleplay/Game/Dto/GameInitiative';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import type { Mechanic } from '@/modules/Roleplay/Rule/Dto/Mechanic';
+import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import InitiativeDialog from '@/modules/Roleplay/Game/Component/InitiativeDialog.vue';
 import type { ChatMessage } from '@/modules/Messages/Chat/Dto/ChatMessage';
 import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
