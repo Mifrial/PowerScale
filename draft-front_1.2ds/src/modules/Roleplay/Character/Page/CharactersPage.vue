@@ -58,13 +58,18 @@ onMounted(() => store.fetchCharacters(signal.value));
 
 <template>
   <v-container>
-    <div class="d-flex align-center mb-4">
-      <h1 class="text-h5">Персонажи</h1>
-      <v-spacer />
-      <v-btn v-if="canCreate" color="primary" prepend-icon="mdi-plus" @click="router.push('/characters/new')">
+    <Teleport to="#editor-actions">
+      <v-btn
+        v-if="canCreate"
+        variant="tonal"
+        color="primary"
+        size="small"
+        prepend-icon="mdi-plus"
+        @click="router.push('/characters/new')"
+      >
         Новый персонаж
       </v-btn>
-    </div>
+    </Teleport>
 
     <FilterBar
       :fields="filterFields"
@@ -81,7 +86,7 @@ onMounted(() => store.fetchCharacters(signal.value));
     </v-alert>
 
     <v-row class="mt-4">
-      <v-col v-for="character in filteredRows" :key="character.id" cols="12" sm="6" md="4">
+      <v-col v-for="character in filteredRows" :key="character.id" cols="12" sm="6" md="6">
         <v-card :to="`/characters/${character.id}`" class="character-card">
           <v-card-title class="d-flex align-center character-card-title">
             <span class="character-card-name">{{ character.name }}</span>
@@ -125,8 +130,15 @@ onMounted(() => store.fetchCharacters(signal.value));
 .character-card {
   height: 100%;
   transition:
+    background-color 0.2s,
     transform 0.2s,
     box-shadow 0.2s;
+}
+.character-card:hover {
+  background-color: rgb(var(--v-theme-primaryLight));
+}
+:deep(.character-card:hover .v-card__overlay) {
+  opacity: 0;
 }
 .character-card-title {
   min-width: 0;

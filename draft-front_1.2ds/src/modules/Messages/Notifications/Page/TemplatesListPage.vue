@@ -31,13 +31,17 @@ function onRowAction(payload: { action: string; row: Record<string, unknown> }) 
 
 <template>
   <v-container>
-    <div class="d-flex align-center mb-4">
-      <h1 class="text-h5">Шаблоны уведомлений</h1>
-      <v-spacer />
-      <v-btn color="primary" prepend-icon="mdi-plus" @click="router.push('/admin/notification-templates/new')">
+    <Teleport to="#editor-actions">
+      <v-btn
+        variant="tonal"
+        color="primary"
+        size="small"
+        prepend-icon="mdi-plus"
+        @click="router.push('/admin/notification-templates/new')"
+      >
         Создать
       </v-btn>
-    </div>
+    </Teleport>
 
     <FilterBar
       :fields="filterFields"

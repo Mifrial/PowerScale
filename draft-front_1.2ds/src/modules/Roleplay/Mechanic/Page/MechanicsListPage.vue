@@ -30,11 +30,18 @@ onMounted(load);
 
 <template>
   <v-container>
-    <div class="d-flex align-center mb-4">
-      <h1 class="text-h5">Механики</h1>
-      <v-spacer />
-      <v-btn v-if="canCreate" color="primary" prepend-icon="mdi-plus" @click="goCreate"> Создать </v-btn>
-    </div>
+    <Teleport to="#editor-actions">
+      <v-btn
+        v-if="canCreate"
+        variant="tonal"
+        color="primary"
+        size="small"
+        prepend-icon="mdi-plus"
+        @click="goCreate"
+      >
+        Создать
+      </v-btn>
+    </Teleport>
 
     <FilterBar
       :fields="filterFields"

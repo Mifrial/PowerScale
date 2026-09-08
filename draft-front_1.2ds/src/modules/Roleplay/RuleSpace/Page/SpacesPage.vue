@@ -28,13 +28,18 @@ onMounted(() => store.fetchSpaces(signal.value));
 
 <template>
   <v-container>
-    <div class="d-flex align-center mb-4">
-      <h1 class="text-h5">Пространства</h1>
-      <v-spacer />
-      <v-btn v-if="canCreate" color="primary" prepend-icon="mdi-plus" @click="router.push('/spaces/new')">
+    <Teleport to="#editor-actions">
+      <v-btn
+        v-if="canCreate"
+        variant="tonal"
+        color="primary"
+        size="small"
+        prepend-icon="mdi-plus"
+        @click="router.push('/spaces/new')"
+      >
         Создать
       </v-btn>
-    </div>
+    </Teleport>
 
     <FilterBar
       :fields="filterFields"
@@ -51,7 +56,7 @@ onMounted(() => store.fetchSpaces(signal.value));
     </v-alert>
 
     <v-row class="mt-4">
-      <v-col v-for="space in filteredRows" :key="space.id" cols="12" sm="6" md="4">
+      <v-col v-for="space in filteredRows" :key="space.id" cols="12" sm="6" md="6">
         <v-card :to="`/space/${space.code}`" class="space-card">
           <v-card-title class="d-flex align-center space-card-title">
             <span class="space-card-name">{{ space.name }}</span>
@@ -78,13 +83,18 @@ onMounted(() => store.fetchSpaces(signal.value));
 .space-card {
   height: 100%;
   transition:
+    background-color 0.2s,
     transform 0.2s,
     box-shadow 0.2s;
   cursor: pointer;
 }
 .space-card:hover {
+  background-color: rgb(var(--v-theme-primaryLight));
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(var(--v-theme-scrim), var(--v-shadow-sm-opacity));
+}
+:deep(.space-card:hover .v-card__overlay) {
+  opacity: 0;
 }
 .space-card-title {
   min-width: 0;

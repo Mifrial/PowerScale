@@ -45,13 +45,18 @@ onMounted(() => store.fetchGames(signal.value));
 
 <template>
   <v-container>
-    <div class="d-flex align-center mb-4">
-      <h1 class="text-h5">Игры</h1>
-      <v-spacer />
-      <v-btn v-if="canCreate" color="primary" prepend-icon="mdi-plus" @click="router.push('/games/new')">
+    <Teleport to="#editor-actions">
+      <v-btn
+        v-if="canCreate"
+        variant="tonal"
+        color="primary"
+        size="small"
+        prepend-icon="mdi-plus"
+        @click="router.push('/games/new')"
+      >
         Новая игра
       </v-btn>
-    </div>
+    </Teleport>
 
     <FilterBar
       :fields="filterFields"
@@ -68,7 +73,7 @@ onMounted(() => store.fetchGames(signal.value));
     </v-alert>
 
     <v-row class="mt-4">
-      <v-col v-for="game in filteredRows" :key="game.id" cols="12" sm="6" md="4">
+      <v-col v-for="game in filteredRows" :key="game.id" cols="12" sm="6" md="6">
         <v-card :to="`/games/${game.id}`" class="game-card">
           <v-card-title class="d-flex align-center game-card-title">
             <span class="game-card-name">{{ game.name }}</span>
@@ -110,8 +115,15 @@ onMounted(() => store.fetchGames(signal.value));
 .game-card {
   height: 100%;
   transition:
+    background-color 0.2s,
     transform 0.2s,
     box-shadow 0.2s;
+}
+.game-card:hover {
+  background-color: rgb(var(--v-theme-primaryLight));
+}
+:deep(.game-card:hover .v-card__overlay) {
+  opacity: 0;
 }
 .game-card-title {
   min-width: 0;
