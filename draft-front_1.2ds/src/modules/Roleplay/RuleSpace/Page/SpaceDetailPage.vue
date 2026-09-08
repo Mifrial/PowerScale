@@ -227,18 +227,24 @@ function discardRule() {
 
 <template>
   <v-container v-if="space">
-    <div class="d-flex align-center mb-4">
-      <h1 class="text-h5">{{ space.name }}</h1>
-      <v-spacer />
-      <v-btn variant="text" prepend-icon="mdi-cog" @click="router.push(`/space/${space.code}/settings`)">
+    <Teleport to="#editor-actions">
+      <v-btn
+        variant="tonal"
+        size="small"
+        prepend-icon="mdi-file-tree-outline"
+        :to="`/space/${space.code}/${ctx ?? 'draft'}/sections`"
+      >
+        Секции
+      </v-btn>
+      <v-btn variant="tonal" size="small" prepend-icon="mdi-cog" :to="`/space/${space.code}/settings`">
         Настройки
       </v-btn>
-    </div>
+      <v-btn color="primary" size="small" prepend-icon="mdi-plus" :to="`/space/${space.code}/draft/rules/new`">
+        Создать правило
+      </v-btn>
+    </Teleport>
 
-    <v-card-subtitle class="mb-4">{{ space.description }}</v-card-subtitle>
-
-    <!-- Контекст просмотра -->
-    <div class="d-flex align-center mb-4 gap-2">
+    <div class="d-flex align-center mb-3 ga-2">
       <v-select
         v-model="selectedRevision"
         :items="revisionsList"
@@ -324,12 +330,3 @@ function discardRule() {
     </v-snackbar>
   </v-container>
 </template>
-
-<style scoped>
-.gap-2 {
-  gap: 8px;
-}
-.cursor-pointer {
-  cursor: pointer;
-}
-</style>

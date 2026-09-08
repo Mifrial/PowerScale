@@ -14,6 +14,7 @@ import { useSpaceStore } from '@/modules/Roleplay/RuleSpace/Store/spaces';
 export const useSpaceRevisionStore = defineStore('spaceRevision', () => {
   const drafts = useRuleDrafts();
   const sectionCatalog = useSectionCatalogStore();
+  const spaceStore = useSpaceStore();
   const revisionsMeta = ref<Map<number, SpaceRevisionMeta[]>>(new Map());
   const cachedRevisions = ref<Map<string, SpaceRevision<Rule>>>(new Map());
 
@@ -139,6 +140,12 @@ export const useSpaceRevisionStore = defineStore('spaceRevision', () => {
     activeContext.value = { spaceId, revision: result.revision, kind: 'rev' };
     await fetchRevisionsMeta(spaceId, signal);
     sectionCatalog.discardDraft(spaceId);
+    const current = spaceStore.currentSpace;
+    if (current?.id === spaceId) {
+      spaceStore.currentSpace = { ...current, revision: result.revision };
+    }
+    const listed = spaceStore.spaces.find((space) => space.id === spaceId);
+    if (listed) listed.revision = result.revision;
 
     return result;
   }

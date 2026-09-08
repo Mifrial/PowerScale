@@ -56,6 +56,7 @@ function isAlwaysIncluded(rule: Rule): boolean {
     rule.type === 'poison' ||
     rule.type === 'age' ||
     rule.type === 'check' ||
+    rule.type === 'magic_path' ||
     rule.type === 'damage_type' ||
     // Правило «Бросок» (дефолты бросков чата) присутствует в любой ревизии игры.
     rule.mechanicPayload?.type === 'roll' ||

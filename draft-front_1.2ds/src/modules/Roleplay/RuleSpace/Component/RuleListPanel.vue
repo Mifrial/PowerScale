@@ -17,7 +17,7 @@ const props = withDefaults(
     height?: string | number;
   }>(),
   {
-    height: 'calc(100vh - 300px)',
+    height: 'calc(100vh - 220px)',
   },
 );
 
@@ -58,20 +58,20 @@ function ruleKey(rule: Rule): string {
 
 <template>
   <div>
-    <div class="d-flex align-center mb-4">
-      <div class="text-h6">Правила ({{ filteredRules.length }})</div>
-      <v-spacer />
-      <v-btn color="primary" prepend-icon="mdi-plus" :to="`/space/${spaceCode}/draft/rules/new`">
-        Создать правило
-      </v-btn>
-    </div>
-
-    <v-tabs v-model="activeTab" class="mb-4">
+    <v-tabs v-model="activeTab" class="mb-2" density="compact">
       <v-tab value="all">Все</v-tab>
       <v-tab v-for="tab in tabs" :key="tab" :value="tab">{{ RULE_TYPE_LABELS[tab] }}</v-tab>
     </v-tabs>
 
-    <v-text-field v-model="searchQuery" label="Поиск" prepend-inner-icon="mdi-magnify" clearable class="mb-4" />
+    <v-text-field
+      v-model="searchQuery"
+      label="Поиск"
+      prepend-inner-icon="mdi-magnify"
+      clearable
+      density="compact"
+      hide-details
+      class="mb-2"
+    />
 
     <VirtualList
       :items="filteredRules"

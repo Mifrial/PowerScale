@@ -66,7 +66,11 @@ Versioning 1 (`vt_note`) сделан. ST 18–20, Cache 1 — закрыты.
 
 [`mechanic-plan-02.md`](mechanic-plan-02.md). **Каркас PHP+Vue сделан.** Публичка `mechanic.*` в модуле Mechanic: getList / get / create / update. Нет DELETE/`active`. Права `mechanic.create` / `edit` на запись; чтение любому актору. Vue-клиент каталога — [`mechanic-plan-03.md`](mechanic-plan-03.md). Не PHP Engine, не RuleSpace.
 
-## Позже (явный OPEN, не шаги 4–12)
+## 13. Vue: редактор секций каталога
+
+[`rulespace-plan-11-sections-vue.md`](rulespace-plan-11-sections-vue.md). **Каркас Vue сделан.** Редактор секций остаётся внутри `Roleplay/RuleSpace`: локальный draft каталога, просмотр snapshot старых ревизий, публикация через существующий `ruleSpace.commitDraft`. Отдельный модуль `Roleplay/RuleSection` и action `updateSections` не вводятся.
+
+## Позже (явный OPEN, не шаги 4–13)
 
 - Вынос Vue Keyword и Mechanic из папки Rule — сделан ([`keyword-plan-03.md`](keyword-plan-03.md), [`mechanic-plan-03.md`](mechanic-plan-03.md)).
 - Поверхность Vue `Rule/init` — сделано ([`rule-plan-02-init-surface.md`](rule-plan-02-init-surface.md); Constant/Value публичны; не PHP Engine).

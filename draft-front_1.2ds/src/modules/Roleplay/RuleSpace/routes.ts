@@ -67,6 +67,15 @@ export function createRuleSpaceRoutes(ruleCtxChildren: RouteRecordRaw[]): RouteR
                   component: () => import('@/modules/Roleplay/RuleSpace/Page/SpaceDetailPage.vue'),
                 },
                 ...ruleCtxChildren,
+                {
+                  path: 'sections',
+                  name: 'SpaceSections',
+                  component: () => import('@/modules/Roleplay/RuleSpace/Page/SectionCatalogPage.vue'),
+                  meta: {
+                    title: 'Секции каталога',
+                    crumb: () => [{ title: 'Секции каталога' }],
+                  },
+                },
               ],
             },
             {
@@ -77,6 +86,10 @@ export function createRuleSpaceRoutes(ruleCtxChildren: RouteRecordRaw[]): RouteR
                 title: 'Настройки пространства',
                 crumb: () => [{ title: 'Настройки' }],
               },
+            },
+            {
+              path: 'sections',
+              redirect: (to) => `/space/${to.params.code}/draft/sections`,
             },
           ],
         },

@@ -85,6 +85,7 @@
 - [План RuleSpace 5: права](rulespace-plan-05.md) — `space.create` / `view_all` / `edit_all` на HTTP; `owner_id` sidecar.
 - [План RuleSpace 6: секции](rulespace-plan-06.md) — `section_version` + указатель на ревизии; каталог-only через all-keep часов.
 - [План RuleSpace 10: Vue](rulespace-plan-10.md) — папка `Roleplay/RuleSpace`, клиент `ruleSpace.*`; URL `/space` без смены.
+- [План RuleSpace 11: редактор секций](rulespace-plan-11-sections-vue.md) — Vue-дерево каталога в RuleSpace; draft local; не отдельный модуль.
 - [Нарезка файла ревизии](revision-file-roadmap.md) — импорт/экспорт JSON на клиенте; коды на границе; без HTTP файла.
 - [План файла ревизии 1](revision-file-plan-01.md) — формат v3, parse/serialize, без внутренних id.
 - [План файла ревизии 2](revision-file-plan-02.md) — экспорт опубликованного среза в v3 сделан; used keyword/mechanic; без HTTP файла.
