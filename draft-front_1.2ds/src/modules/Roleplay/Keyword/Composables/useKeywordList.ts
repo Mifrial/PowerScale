@@ -2,7 +2,7 @@ import { storeToRefs } from 'pinia';
 import { useRouter } from 'vue-router';
 import { useKeywordStore } from '@/modules/Roleplay/Keyword/Store/keywords';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
-import { useGridPage } from '@/modules/Core/UI/Composables/useGridPage';
+import { useGridData } from '@/modules/Core/UI/Composables/useGridData';
 import { columns } from '@/modules/Roleplay/Keyword/Constant/Grid/keywords/columns';
 import { filterFields } from '@/modules/Roleplay/Keyword/Constant/Grid/keywords/filterFields';
 
@@ -15,7 +15,8 @@ export function useKeywordList() {
   const { loading, error } = storeToRefs(store);
   const { signal } = useAbortable();
 
-  const grid = useGridPage({
+  const grid = useGridData({
+    mode: 'client',
     getItems: () => store.keywords,
     fields: filterFields,
     columns,
@@ -44,8 +45,8 @@ export function useKeywordList() {
     onRowAction,
     sort: grid.sort,
     pagination: grid.pagination,
-    appliedFilters: grid.appliedFilters,
-    pageRows: grid.pageRows,
+    filters: grid.filters,
+    rows: grid.rows,
     total: grid.total,
     onSortChange: grid.onSortChange,
     onPaginationChange: grid.onPaginationChange,

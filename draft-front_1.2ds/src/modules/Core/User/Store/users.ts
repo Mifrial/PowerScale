@@ -59,7 +59,7 @@ export const useUserStore = defineStore('users', () => {
 
       return page;
     } catch (e) {
-      if (e instanceof DOMException && e.name === 'AbortError') return { items: [], total: 0 };
+      if (e instanceof DOMException && e.name === 'AbortError') throw e;
       console.error('findPage failed', e);
       throw e;
     } finally {

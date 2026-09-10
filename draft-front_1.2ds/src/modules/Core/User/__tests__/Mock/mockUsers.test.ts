@@ -18,6 +18,13 @@ describe('mockDeactivateUser', () => {
     expect(user.deactivatedUntil).toBeNull();
   });
 
+  it('findPage не сортирует страницу локально — порядок каталога (id)', async () => {
+    const page = await mockFindPage({ limit: 3, offset: 0 });
+    expect(page.items.map((item) => item.id)).toEqual([1, 2, 3]);
+    const byName = [...page.items].sort((left, right) => left.name.localeCompare(right.name));
+    expect(page.items.map((item) => item.id)).not.toEqual(byName.map((item) => item.id));
+  });
+
   it('findPage и get не отдают lastLogin', async () => {
     const page = await mockFindPage({ limit: 50, offset: 0 });
     expect(page.items.every((item) => !('lastLogin' in item))).toBe(true);

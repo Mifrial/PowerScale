@@ -3,7 +3,7 @@ import { onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useTemplateStore } from '@/modules/Messages/Notifications/Store/templates';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
-import { useGridPage } from '@/modules/Core/UI/Composables/useGridPage';
+import { useGridData } from '@/modules/Core/UI/Composables/useGridData';
 import FilterBar from '@/modules/Core/UI/Component/FilterBar.vue';
 import SmartGrid from '@/modules/Core/UI/Component/Grid/SmartGrid.vue';
 import { columns } from '@/modules/Messages/Notifications/Constant/Grid/templates/columns';
@@ -13,12 +13,12 @@ const router = useRouter();
 const store = useTemplateStore();
 const { signal } = useAbortable();
 
-const { sort, pagination, appliedFilters, pageRows, total, onSortChange, onPaginationChange, onFilterChange } =
-  useGridPage({
-    getItems: () => store.templates,
-    fields: filterFields,
-    columns,
-  });
+const { sort, pagination, filters, rows, total, onSortChange, onPaginationChange, onFilterChange } = useGridData({
+  mode: 'client',
+  getItems: () => store.templates,
+  fields: filterFields,
+  columns,
+});
 
 onMounted(() => store.fetchTemplates(signal.value));
 
@@ -45,7 +45,7 @@ function onRowAction(payload: { action: string; row: Record<string, unknown> }) 
 
     <FilterBar
       :fields="filterFields"
-      :model-value="appliedFilters"
+      :model-value="filters"
       settings-key="templates"
       @update:model-value="onFilterChange"
     />
@@ -61,7 +61,7 @@ function onRowAction(payload: { action: string; row: Record<string, unknown> }) 
       class="mt-4"
       grid-id="templates-list"
       :columns="columns"
-      :rows="pageRows"
+      :rows="rows"
       :pagination="pagination"
       :total="total"
       :sort="sort"

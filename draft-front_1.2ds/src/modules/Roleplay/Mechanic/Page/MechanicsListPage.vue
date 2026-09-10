@@ -17,8 +17,8 @@ const {
   onRowAction,
   sort,
   pagination,
-  appliedFilters,
-  pageRows,
+  filters,
+  rows,
   total,
   onSortChange,
   onPaginationChange,
@@ -31,21 +31,14 @@ onMounted(load);
 <template>
   <v-container>
     <Teleport to="#editor-actions">
-      <v-btn
-        v-if="canCreate"
-        variant="tonal"
-        color="primary"
-        size="small"
-        prepend-icon="mdi-plus"
-        @click="goCreate"
-      >
+      <v-btn v-if="canCreate" variant="tonal" color="primary" size="small" prepend-icon="mdi-plus" @click="goCreate">
         Создать
       </v-btn>
     </Teleport>
 
     <FilterBar
       :fields="filterFields"
-      :model-value="appliedFilters"
+      :model-value="filters"
       settings-key="mechanics"
       @update:model-value="onFilterChange"
     />
@@ -61,7 +54,7 @@ onMounted(load);
       class="mt-4"
       grid-id="mechanics-list"
       :columns="columns"
-      :rows="pageRows"
+      :rows="rows"
       :pagination="pagination"
       :total="total"
       :sort="sort"
