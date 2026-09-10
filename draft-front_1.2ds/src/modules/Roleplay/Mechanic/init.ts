@@ -1,9 +1,12 @@
 import { serviceLocator } from '@/modules/Core/Engine/Service/ServiceLocator';
-import { registerPermissionCategory, registerAdminSection } from '@/modules/Core/User/init';
+import { registerPermissionCategory, registerAdminSection, accessService } from '@/modules/Core/User/init';
+import type { User } from '@/modules/Core/User/Dto/User';
 import type { IMechanicApi } from '@/modules/Roleplay/Mechanic/Interface/IMechanicApi';
 import type { MechanicHandler } from '@/modules/Roleplay/Mechanic/Interface/MechanicHandler';
 import { MECHANIC_PERMISSION_CATEGORY } from '@/modules/Roleplay/Mechanic/Constant/Permission/MECHANIC_PERMISSION_CATEGORY';
 import { MECHANICS_ADMIN_SECTION } from '@/modules/Roleplay/Mechanic/Constant/Permission/MECHANICS_ADMIN_SECTION';
+import { MECHANICS_MENU_ITEM } from '@/modules/Roleplay/Mechanic/Constant/Navigation/MECHANICS_MENU_ITEM';
+import { registerMenuContribution, registerMenuItem } from '@/modules/Core/UI/init';
 import { mechanicHandlerRegistry } from '@/modules/Roleplay/Mechanic/Service/Instance/mechanicHandlerRegistry';
 
 export { useMechanics } from '@/modules/Roleplay/Mechanic/Composables/useMechanics';
@@ -28,4 +31,14 @@ export function registerMechanicHandler(handler: MechanicHandler): void {
 export function registerMechanicModule(): void {
   registerPermissionCategory(MECHANIC_PERMISSION_CATEGORY);
   registerAdminSection(MECHANICS_ADMIN_SECTION);
+  registerMenuContribution({
+    id: 'mechanic.admin',
+    apply: (actor) => {
+      const user = actor === null || actor === undefined ? null : (actor as User);
+      if (!accessService.hasAnyPermission(user, ['mechanic.view'])) {
+        return;
+      }
+      registerMenuItem(MECHANICS_MENU_ITEM);
+    },
+  });
 }

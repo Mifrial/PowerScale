@@ -68,7 +68,7 @@ Guest видит публичные games/spaces и публичные chats, н
 
 ## Current visual contracts
 
-- Shell: `v-app-bar` с menu toggle, breadcrumbs и notifications; sidebar содержит user block и domain/admin navigation;
+- Shell: `v-app-bar` с menu toggle, breadcrumbs и notifications; sidebar — user block и дерево из реестра Core/UI (`menuSection` / `menuItem`);
 - filter bar: chips, text search, filter popup, apply/reset и chip-level removal;
 - длинные rows/grids/chats — virtualized;
 - editor stages — horizontal navigation with active stage, budget summary и characteristic chips;

@@ -8,7 +8,6 @@ import {
   getAdminSections,
   getAdminSectionPermissions,
   isAdmin,
-  visibleAdminSections,
 } from '@/modules/Core/User/init';
 import type { User } from '@/modules/Core/User/Dto/User';
 
@@ -56,16 +55,10 @@ describe('реестр админ-секций', () => {
   it('getAdminSectionPermissions собирает permission секций', () => {
     registerAdminSection({
       id: 'groups',
-      title: 'Группы',
-      to: '/admin/groups',
-      icon: 'mdi-account-group',
       permission: 'user_group.view',
     });
     registerAdminSection({
       id: 'keywords',
-      title: 'Признаки',
-      to: '/admin/keywords',
-      icon: 'mdi-tag-multiple',
       permission: 'keyword.view',
     });
     expect(getAdminSections()).toHaveLength(2);
@@ -79,9 +72,6 @@ describe('реестр админ-секций', () => {
   it('isAdmin по ключу секции → true', () => {
     registerAdminSection({
       id: 'groups',
-      title: 'Группы',
-      to: '/admin/groups',
-      icon: 'mdi-account-group',
       permission: 'user_group.view',
     });
     expect(isAdmin(user(['user_group.view']))).toBe(true);
@@ -90,9 +80,6 @@ describe('реестр админ-секций', () => {
   it('isAdmin: обычный игрок без админ-ключей → false', () => {
     registerAdminSection({
       id: 'groups',
-      title: 'Группы',
-      to: '/admin/groups',
-      icon: 'mdi-account-group',
       permission: 'user_group.view',
     });
     expect(isAdmin(user(['user.view', 'character.create']))).toBe(false);
@@ -104,25 +91,5 @@ describe('реестр админ-секций', () => {
 
   it('isAdmin: null → false', () => {
     expect(isAdmin(null)).toBe(false);
-  });
-
-  it('visibleAdminSections оставляет только секции с ключом', () => {
-    registerAdminSection({
-      id: 'groups',
-      title: 'Группы',
-      to: '/admin/groups',
-      icon: 'mdi-account-group',
-      permission: 'user_group.view',
-    });
-    registerAdminSection({
-      id: 'logs',
-      title: 'Журнал',
-      to: '/admin/logs',
-      icon: 'mdi-text-box-search-outline',
-      permission: 'logger.view',
-    });
-    expect(visibleAdminSections(user(['user_group.view'])).map((section) => section.id)).toEqual(['groups']);
-    expect(visibleAdminSections(user(['logger.view'])).map((section) => section.id)).toEqual(['logs']);
-    expect(visibleAdminSections(user([], true)).map((section) => section.id)).toEqual(['groups', 'logs']);
   });
 });

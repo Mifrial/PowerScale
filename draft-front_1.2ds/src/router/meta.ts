@@ -12,7 +12,7 @@ declare module 'vue-router' {
     requiresAny?: string[];
     /** Нужны все ключи (AND). Мержится с родительским meta. */
     requiresAll?: string[];
-    /** Страница раздела «Администрирование»: доступ через реестр админ-секций (isAdmin). */
+    /** Страница раздела «Администрирование»: доступ через ключи registerAdminSection (isAdmin). */
     admin?: boolean;
   }
 }

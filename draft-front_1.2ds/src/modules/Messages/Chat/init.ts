@@ -14,6 +14,8 @@ import type { ChatRulesContext } from '@/modules/Messages/Chat/Dto/ChatRulesCont
 import { BASE_CHAT_TYPES } from '@/modules/Messages/Chat/Constant/Chat/BASE_CHAT_TYPES';
 import { BASE_CHAT_TABS } from '@/modules/Messages/Chat/Constant/Chat/BASE_CHAT_TABS';
 import { displayName, getUserApi, useUserCatalog } from '@/modules/Core/User/init';
+import { registerMenuItem } from '@/modules/Core/UI/init';
+import { MESSENGER_MENU_ITEM } from '@/modules/Messages/Chat/Constant/Navigation/MESSENGER_MENU_ITEM';
 import { chatInlineRendererRegistry } from '@/modules/Messages/Chat/Service/Instance/chatInlineRendererRegistry';
 
 // Реэкспорт синтаксиса инлайн-токенов `[[type:param]]`: синтаксис един на все модули
@@ -182,6 +184,10 @@ export function getChatIcon(type: string): string {
 
 export function getChatColor(type: string): string {
   return getChatTypes().find((t) => t.type === type)?.color ?? 'grey';
+}
+
+export function registerChatModule(): void {
+  registerMenuItem(MESSENGER_MENU_ITEM);
 }
 
 // Встраиваемая лента по chatId (обсуждение персонажа/игры). Async — init не тянет .vue в node-тестах.

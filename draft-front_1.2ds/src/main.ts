@@ -13,7 +13,7 @@ import { registerMechanicApi, registerMechanicModule } from '@/modules/Roleplay/
 import { registerTemplateApi } from '@/modules/Messages/Notifications/init';
 import { registerRuleSpaceApi } from '@/modules/Roleplay/RuleSpace/init';
 import { registerRuleApi } from '@/modules/Roleplay/Rule/init';
-import { registerChatApi } from '@/modules/Messages/Chat/init';
+import { registerChatApi, registerChatModule } from '@/modules/Messages/Chat/init';
 import { registerNotificationApi } from '@/modules/Messages/Notifications/init';
 import { registerCsrfApi, getCsrfApi } from '@/modules/Core/Engine/init';
 import { registerMacroApi, registerGameApi, registerGameModule } from '@/modules/Roleplay/Game/init';
@@ -22,6 +22,8 @@ import { registerRuleModule } from '@/modules/Roleplay/Rule/init';
 import { registerRuleSpaceModule } from '@/modules/Roleplay/RuleSpace/init';
 import { registerCharacterModule, registerCharacterApi } from '@/modules/Roleplay/Character/init';
 import { registerNotificationModule } from '@/modules/Messages/Notifications/init';
+import { registerHomeModule } from '@/modules/Roleplay/Home/init';
+import { assertMenuTree } from '@/modules/Core/UI/init';
 
 import { initBaseFieldTypes } from '@/modules/Core/UI/Service/Field/initBaseFieldTypes';
 
@@ -113,6 +115,8 @@ async function bootstrap(): Promise<void> {
 
   registerUserModule();
   registerAuthModule();
+  registerHomeModule();
+  registerChatModule();
   registerKeywordModule();
   registerLoggerModule();
   registerMechanicModule();
@@ -121,6 +125,7 @@ async function bootstrap(): Promise<void> {
   registerGameModule();
   registerCharacterModule();
   registerNotificationModule();
+  assertMenuTree();
 
   initBaseFieldTypes();
 

@@ -30,7 +30,7 @@ export function evaluateRouteAccess(to: RouteLocationNormalized, ctx: RouteAcces
     return to.meta.guestAllowed ? { allow: true } : { allow: false, redirect: { name: 'NotFound' } };
   }
 
-  // Раздел «Администрирование»: доступ через реестр админ-секций (isAdmin).
+  // Раздел «Администрирование»: доступ через ключи registerAdminSection (isAdmin).
   if (to.meta.admin && !isAdmin(ctx.user)) {
     return { allow: false, redirect: { name: 'NotFound' } };
   }

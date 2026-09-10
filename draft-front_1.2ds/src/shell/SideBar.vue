@@ -2,8 +2,9 @@
 import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/modules/Core/Auth/Store/auth';
-import { isAdmin as checkIsAdmin, useCurrentUser, visibleAdminSections } from '@/modules/Core/User/init';
-import { navItems } from '@/shell/navItems';
+import { useCurrentUser } from '@/modules/Core/User/init';
+import { useMenuTree } from '@/modules/Core/UI/Composables/useMenuTree';
+import MenuTree from '@/modules/Core/UI/Component/Navigation/MenuTree.vue';
 import LogoutConfirmDialog from '@/modules/Core/Auth/Component/LogoutConfirmDialog.vue';
 
 const props = defineProps<{ collapsed: boolean }>();
@@ -12,10 +13,10 @@ const emit = defineEmits<{ 'update:collapsed': [value: boolean] }>();
 const router = useRouter();
 const auth = useAuthStore();
 const { currentUser, username, userLogin, avatarLetters } = useCurrentUser();
+const { tree } = useMenuTree();
 
 const isCollapsed = computed(() => props.collapsed);
 const showLogoutDialog = ref(false);
-const adminOpen = ref(false);
 
 function expand() {
   emit('update:collapsed', false);
@@ -29,16 +30,6 @@ function openProfile(): void {
 function openLogoutDialog(): void {
   showLogoutDialog.value = true;
 }
-
-const isAdmin = computed(() => checkIsAdmin(currentUser.value));
-
-const adminItems = computed(() =>
-  visibleAdminSections(currentUser.value).map((section) => ({
-    icon: section.icon,
-    label: section.title,
-    to: section.to,
-  })),
-);
 </script>
 
 <template>
@@ -85,36 +76,7 @@ const adminItems = computed(() =>
 
     <v-divider />
 
-    <v-list density="compact" nav>
-      <v-list-item
-        v-for="item in navItems"
-        :key="item.to"
-        :prepend-icon="item.icon"
-        :title="item.label"
-        :to="item.to"
-        :exact="item.exact"
-        color="primary"
-      />
-    </v-list>
-
-    <template #append>
-      <v-divider />
-      <v-list density="compact" nav>
-        <v-list-group v-if="isAdmin" v-model="adminOpen">
-          <template #activator="{ props }">
-            <v-list-item v-bind="props" prepend-icon="mdi-shield-crown" title="Администрирование" />
-          </template>
-          <v-list-item
-            v-for="item in adminItems"
-            :key="item.to"
-            :prepend-icon="item.icon"
-            :title="item.label"
-            :to="item.to"
-            color="primary"
-          />
-        </v-list-group>
-      </v-list>
-    </template>
+    <MenuTree :nodes="tree" />
   </v-navigation-drawer>
   <LogoutConfirmDialog v-model="showLogoutDialog" />
 </template>

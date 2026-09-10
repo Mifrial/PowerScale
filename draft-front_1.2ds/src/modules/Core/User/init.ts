@@ -11,6 +11,10 @@ import type { User } from '@/modules/Core/User/Dto/User';
 import { USER_PERMISSION_CATEGORY } from '@/modules/Core/User/Constant/Permission/USER_PERMISSION_CATEGORY';
 import { USER_GROUP_PERMISSION_CATEGORY } from '@/modules/Core/User/Constant/Permission/USER_GROUP_PERMISSION_CATEGORY';
 import { GROUPS_ADMIN_SECTION } from '@/modules/Core/User/Constant/Permission/GROUPS_ADMIN_SECTION';
+import { ADMINISTRATION_MENU_SECTION } from '@/modules/Core/User/Constant/Navigation/ADMINISTRATION_MENU_SECTION';
+import { USERS_MENU_ITEM } from '@/modules/Core/User/Constant/Navigation/USERS_MENU_ITEM';
+import { GROUPS_MENU_ITEM } from '@/modules/Core/User/Constant/Navigation/GROUPS_MENU_ITEM';
+import { registerMenuContribution, registerMenuItem, registerMenuSection } from '@/modules/Core/UI/init';
 
 export { accessService } from '@/modules/Core/User/Service/Instance/accessService';
 export { currentUserSessionService } from '@/modules/Core/User/Service/Instance/currentUserSessionService';
@@ -90,11 +94,6 @@ export function getAdminSections(): AdminSection[] {
   return adminSections;
 }
 
-/** Секции админки, которые текущий актор может открыть (ключ секции или bypass). */
-export function visibleAdminSections(user: User | null | undefined): AdminSection[] {
-  return getAdminSections().filter((section) => accessService.hasAnyPermission(user, [section.permission]));
-}
-
 export function getAdminSectionPermissions(): string[] {
   return adminSections.map((s) => s.permission);
 }
@@ -112,4 +111,16 @@ export function registerUserModule(): void {
   registerPermissionCategory(USER_PERMISSION_CATEGORY);
   registerPermissionCategory(USER_GROUP_PERMISSION_CATEGORY);
   registerAdminSection(GROUPS_ADMIN_SECTION);
+  registerMenuSection(ADMINISTRATION_MENU_SECTION);
+  registerMenuItem(USERS_MENU_ITEM);
+  registerMenuContribution({
+    id: 'user.groups',
+    apply: (actor) => {
+      const user = actor === null || actor === undefined ? null : (actor as User);
+      if (!accessService.hasAnyPermission(user, ['user_group.view'])) {
+        return;
+      }
+      registerMenuItem(GROUPS_MENU_ITEM);
+    },
+  });
 }

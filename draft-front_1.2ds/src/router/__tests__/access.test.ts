@@ -9,16 +9,10 @@ beforeEach(() => {
   resetPermissionRegistries();
   registerAdminSection({
     id: 'groups',
-    title: 'Группы',
-    to: '/admin/groups',
-    icon: 'mdi-account-group',
     permission: 'user_group.view',
   });
   registerAdminSection({
     id: 'keywords',
-    title: 'Признаки',
-    to: '/admin/keywords',
-    icon: 'mdi-tag-multiple',
     permission: 'keyword.view',
   });
 });

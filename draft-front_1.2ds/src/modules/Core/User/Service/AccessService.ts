@@ -3,8 +3,8 @@ import type { User } from '@/modules/Core/User/Dto/User';
 /**
  * Проверка прав текущего пользователя по плоскому списку ключей.
  * bypass обходит все проверки (ТР §4).
- * Админ-секции (доступ к /admin, пункты меню) — реестр в `Core/User/init.ts`
- * (`registerAdminSection`/`getAdminSections`/`isAdmin`).
+ * Админ-ключи консоли — реестр в `Core/User/init.ts`
+ * (`registerAdminSection`/`getAdminSections`/`isAdmin`). Пункты меню — Core/UI.
  */
 export class AccessService {
   hasAnyPermission(user: User | null | undefined, keys: string[]): boolean {

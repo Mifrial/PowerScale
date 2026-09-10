@@ -196,7 +196,7 @@ Auth зависит от User: после входа и выхода Auth выз
 
 В каждом модуле: `Interface/` — контракты сервисов; `Dto/` — данные и дискриминированные объединения; `Enum/` — плоские string-literal union; `Service/` — доменные классы; `Constant/` — справочники; `Component/` — Vue; `Mock/`, `Utils/`, `Store/`, `Page/`, `__tests__/`. В корне модуля из файлов — только публичные `init.ts` и `routes.ts`.
 
-`Core/Engine` владеет `HttpClient`, `CsrfApi`, `Engine`, `ActionResponse`, `useAbortable` и размерными значениями. `Core/UI` — SmartGrid, FilterBar и общие композаблы. `Core/User` — профиль, группы, права и реестры админки. `Messages/Chat` — общая инфраструктура чата и плагинов; модули Roleplay регистрируют доменные плагины через публичные API.
+`Core/Engine` владеет `HttpClient`, `CsrfApi`, `Engine`, `ActionResponse`, `useAbortable` и размерными значениями. `Core/UI` — SmartGrid, FilterBar, реестр левого меню (`init.ts`: `registerMenuSection` / `registerMenuItem` / вклады актора) и общие композаблы. `Core/User` — профиль, группы, права и ключи админ-консоли (`isAdmin`); пункты sidebar кладут модули в Core/UI. Смена актора (`currentUserSessionService`) запускает вклады меню. `Messages/Chat` — общая инфраструктура чата и плагинов; модули Roleplay регистрируют доменные плагины через публичные API. Home имеет `init.ts` (`registerHomeModule`).
 
 Импорты исходников — только через алиас `@/`. Композаблы — в корневой `Composables/` модуля; общий UI — в `Core/UI`; `Core/Engine` не импортирует `Core/UI`. В компонентах нет доменных расчётов. Порядок блоков SFC: `script setup` → `template` → `style scoped`.
 
