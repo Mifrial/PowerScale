@@ -37,7 +37,8 @@
       "Mifrial\\Roleplay\\Keyword\\": "modules/Roleplay/Keyword/",
       "Mifrial\\Roleplay\\Mechanic\\": "modules/Roleplay/Mechanic/",
       "Mifrial\\Roleplay\\Rule\\": "modules/Roleplay/Rule/",
-      "Mifrial\\Roleplay\\RuleSpace\\": "modules/Roleplay/RuleSpace/"
+      "Mifrial\\Roleplay\\RuleSpace\\": "modules/Roleplay/RuleSpace/",
+      "Mifrial\\Roleplay\\Character\\": "modules/Roleplay/Character/"
     },
     "exclude-from-classmap": [
       "/modules/Core/Kernel/tests/",
@@ -53,7 +54,8 @@
       "/modules/Roleplay/Keyword/tests/",
       "/modules/Roleplay/Mechanic/tests/",
       "/modules/Roleplay/Rule/tests/",
-      "/modules/Roleplay/RuleSpace/tests/"
+      "/modules/Roleplay/RuleSpace/tests/",
+      "/modules/Roleplay/Character/tests/"
     ]
   },
   "autoload-dev": {
@@ -72,7 +74,8 @@
       "Mifrial\\Roleplay\\Keyword\\Tests\\": "modules/Roleplay/Keyword/tests/",
       "Mifrial\\Roleplay\\Mechanic\\Tests\\": "modules/Roleplay/Mechanic/tests/",
       "Mifrial\\Roleplay\\Rule\\Tests\\": "modules/Roleplay/Rule/tests/",
-      "Mifrial\\Roleplay\\RuleSpace\\Tests\\": "modules/Roleplay/RuleSpace/tests/"
+      "Mifrial\\Roleplay\\RuleSpace\\Tests\\": "modules/Roleplay/RuleSpace/tests/",
+      "Mifrial\\Roleplay\\Character\\Tests\\": "modules/Roleplay/Character/tests/"
     }
   },
   "config": {

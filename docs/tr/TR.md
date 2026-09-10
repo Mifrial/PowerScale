@@ -99,6 +99,10 @@
 - [План User 5: выправить контракт](user-plan-05-no-catalog-dump.md) — сделано; `findPage`, JSON-вид, Vue.
 - [Система правил](rule-system.md) — RuleType, ревизии, каталог, ресурсы и публикация.
 - [Система персонажей](character-system.md) — версии, membership, validation и модерация.
+- [Нарезка Character backend](character-roadmap.md) — actual state; save только после серверного build и validation; Engine — `runEvent`, не весь лист.
+- [План Character 1: контракт](character-plan-01.md) — выборы, свои лимиты, `grantedBy`/`studyPairId`, валидатор; спеки без отмашки не готовы.
+- [План Character 2: каркас](character-plan-02.md) — actual storage, `ICharacters` без save; видимость JSON+`is_public`; `BACKEND_OPEN`.
+- [План Character 3: срез ревизии](character-plan-03.md) — `ICharacterRuleSlices` через `IRuleSpaces`; keyword codes; `BACKEND_OPEN`.
 - [Система игр](game-system.md) — игра, бой, абстрактное движение, overlay, инвентарь и экономика.
 - [Система battleground](battleground-system.md) — тактическая сцена (`REQUIREMENT`, не реализована).
 - [Система Chat](chat-system.md) — host, attachments и plugin-контракты. PHP — [`chat-roadmap.md`](chat-roadmap.md).
