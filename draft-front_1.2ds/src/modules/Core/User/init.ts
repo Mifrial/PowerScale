@@ -90,6 +90,11 @@ export function getAdminSections(): AdminSection[] {
   return adminSections;
 }
 
+/** Секции админки, которые текущий актор может открыть (ключ секции или bypass). */
+export function visibleAdminSections(user: User | null | undefined): AdminSection[] {
+  return getAdminSections().filter((section) => accessService.hasAnyPermission(user, [section.permission]));
+}
+
 export function getAdminSectionPermissions(): string[] {
   return adminSections.map((s) => s.permission);
 }

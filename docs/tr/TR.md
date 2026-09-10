@@ -63,7 +63,7 @@
 - [План Logger 1: узкий логер](logger-plan-01.md) — сделано; таблица `log`, адаптер `ILogger`; не audit.
 - [План Logger 2: куда писать](logger-plan-02.md) — сделано; mail job failed; CLI setup/agent.
 - [План Logger 3: логер в site config](logger-plan-03.md) — сделано; class-string в `local.php`; extra `ILogger`; Kernel не импортирует Logger.
-- [План Logger 4: просмотр журнала](logger-plan-04-view.md) — TODO; после грида 1–2; read-only HTTP и Vue-таблица; не audit.
+- [План Logger 4: просмотр журнала](logger-plan-04-view.md) — сделано; `logger.findPage`/`get`, Vue `/admin/logs` на `useGridData` server; не audit.
 - [Нарезка Chat](chat-roadmap.md) — `Messages/Chat`: фасад → HTTP → SSE → Vue → visibility.
 - [План Chat 1: таблицы и фасад](chat-plan-01.md) — `IChats`; без HTTP/SSE.
 - [План Chat 2: HTTP commands](chat-plan-02.md) — `chat.getChats` / `findMessagePage` / `sendMessage` / `markChatRead`; lazy + маршруты.

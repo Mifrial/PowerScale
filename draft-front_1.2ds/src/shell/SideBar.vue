@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/modules/Core/Auth/Store/auth';
-import { isAdmin as checkIsAdmin, getAdminSections, useCurrentUser } from '@/modules/Core/User/init';
+import { isAdmin as checkIsAdmin, useCurrentUser, visibleAdminSections } from '@/modules/Core/User/init';
 import { navItems } from '@/shell/navItems';
 import LogoutConfirmDialog from '@/modules/Core/Auth/Component/LogoutConfirmDialog.vue';
 
@@ -32,7 +32,13 @@ function openLogoutDialog(): void {
 
 const isAdmin = computed(() => checkIsAdmin(currentUser.value));
 
-const adminItems = getAdminSections().map((s) => ({ icon: s.icon, label: s.title, to: s.to }));
+const adminItems = computed(() =>
+  visibleAdminSections(currentUser.value).map((section) => ({
+    icon: section.icon,
+    label: section.title,
+    to: section.to,
+  })),
+);
 </script>
 
 <template>

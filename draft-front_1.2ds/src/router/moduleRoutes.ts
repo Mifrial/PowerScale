@@ -7,12 +7,13 @@ import {
   adminChildren as notificationAdminChildren,
 } from '@/modules/Messages/Notifications/routes';
 import { routes as userRoutes, adminChildren as userAdminChildren } from '@/modules/Core/User/routes';
+import { adminChildren as loggerAdminChildren } from '@/modules/Core/Logger/routes';
 import { roleplayRoutes, roleplayAdminChildren } from '@/modules/Roleplay/routes';
 
 const adminRoutes: RouteRecordRaw = {
   path: 'admin',
   meta: { crumb: () => [{ title: 'Администрирование', to: '/admin' }] },
-  children: [...userAdminChildren, ...roleplayAdminChildren, ...notificationAdminChildren],
+  children: [...userAdminChildren, ...loggerAdminChildren, ...roleplayAdminChildren, ...notificationAdminChildren],
 };
 
 export const moduleChildren: RouteRecordRaw[] = [
