@@ -138,7 +138,7 @@ Approve запрещён при активном overlay до остановки
 - покупка характеристик по лестницам и отображение live-значений;
 - фильтры способностей по доступности, расе и общедоступности;
 - возраст и личность, если в ревизии есть правило age;
-- развитие, агрегаты и множественные навыки с domain/domainCode;
+- развитие, агрегаты и множественные навыки с domain/domainCode; изучение волшебства экземплярами пути (`magic_study` + `path_code`), попап путей, группа характеристик `magic`;
 - описание;
 - общий переиспользуемый `CharacterSheetEditor`;
 - редактор inventory остаётся частично реализованным.
@@ -178,4 +178,4 @@ Custom rule персонажа хранится в `CharacterVersion.customRules
 
 ## Магия
 
-Источник магии, пути, ветки и навыки не уточняются до реальной выгрузки (`DEFERRED`). До релиза обязательны выгрузка, структура, редактор, деталка и runtime-вертикаль на репрезентативном наборе механик. `contentStatus` и runtime-support независимы.
+Полная таксономия источников/веток и runtime сотворения — `DEFERRED` ([`spell-roadmap.md`](spell-roadmap.md)). В текущем frontend-редакторе: гранты `magic_path` / `magic_study` (`path_code`, слоты `max_instances`/`paid_cost`), покрытие `includes_path_codes`, требования `has_magic_path` / `magic_path_experience`. Game-каст и применение `spell_upgrade` на бросок ещё не входят. `contentStatus` и runtime-support независимы.

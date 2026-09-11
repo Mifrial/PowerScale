@@ -1,6 +1,6 @@
 # План Logger 4 — просмотр технического журнала
 
-**Статус:** сделано, 2026-09-10. Предыдущие заходы: [`logger-plan-01.md`](logger-plan-01.md), [`logger-plan-02.md`](logger-plan-02.md), [`logger-plan-03.md`](logger-plan-03.md). Сначала грид: [`core-ui-grid-plan-01-server-mode.md`](core-ui-grid-plan-01-server-mode.md), затем оставшиеся гриды: [`core-ui-grid-plan-02-user-lists.md`](core-ui-grid-plan-02-user-lists.md) (сделано). Канон HTTP — [`architecture.md`](architecture.md). Доступ — [`user-plan-03-http.md`](user-plan-03-http.md). Фронт — `draft-front_1.2ds/frontend-rules.md`.
+**Статус:** сделано, 2026-09-10. Даты на Vue — [`logger-plan-05-vue-datetime.md`](logger-plan-05-vue-datetime.md). Предыдущие заходы: [`logger-plan-01.md`](logger-plan-01.md), [`logger-plan-02.md`](logger-plan-02.md), [`logger-plan-03.md`](logger-plan-03.md). Сначала грид: [`core-ui-grid-plan-01-server-mode.md`](core-ui-grid-plan-01-server-mode.md), затем оставшиеся гриды: [`core-ui-grid-plan-02-user-lists.md`](core-ui-grid-plan-02-user-lists.md) (сделано). Канон HTTP — [`architecture.md`](architecture.md). Доступ — [`user-plan-03-http.md`](user-plan-03-http.md). Фронт — `draft-front_1.2ds/frontend-rules.md`.
 
 Цель: дать оператору безопасный постраничный просмотр таблицы `log` через HTTP и Vue. Это журнал технических ошибок процесса, не audit log и не пользовательская история действий.
 
@@ -216,7 +216,8 @@ Vue:
 - раскрытие stack trace, SQL, токенов или других секретов;
 - индексы и отдельная оптимизация SmartTable;
 - доступ обычного пользователя к собственным техническим ошибкам;
-- seed `logger.view` в группу «Администраторы».
+- seed `logger.view` в группу «Администраторы»;
+- человекочитаемые даты и UX фильтра периода — [`logger-plan-05-vue-datetime.md`](logger-plan-05-vue-datetime.md).
 
 ## Документы захода
 

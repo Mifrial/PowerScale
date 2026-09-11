@@ -13,7 +13,7 @@ export function useUsersList() {
     loadPage: async (query, signal) => {
       const page = await store.findPage(findPageQueryFromGridService.toQuery(query), signal);
 
-      return { rows: page.items as Array<User & Record<string, unknown>>, total: page.total };
+      return { rows: page.items as (User & Record<string, unknown>)[], total: page.total };
     },
   });
 

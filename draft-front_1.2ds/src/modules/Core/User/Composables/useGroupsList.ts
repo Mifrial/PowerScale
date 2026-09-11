@@ -13,7 +13,7 @@ export function useGroupsList() {
     loadPage: async (query, signal) => {
       const page = await store.findPage(findPageQueryFromGridService.toQuery(query), signal);
 
-      return { rows: page.items as Array<Group & Record<string, unknown>>, total: page.total };
+      return { rows: page.items as (Group & Record<string, unknown>)[], total: page.total };
     },
   });
 
