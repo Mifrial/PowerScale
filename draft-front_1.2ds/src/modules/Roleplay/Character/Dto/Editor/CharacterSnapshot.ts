@@ -32,6 +32,17 @@ export interface CharacterSnapshot {
   characteristicNames?: Map<string, string>;
   /** Имена ресурсов по кодам. */
   resourceNames?: Map<string, string>;
+  /** Имена путей волшебства по кодам. */
+  magicPathNames?: Map<string, string>;
+  /** Дарованные пути волшебства. */
+  magicPaths?: Set<string>;
+  /** Опыт пути: сумма каталожных стоимостей способностей этого пути. */
+  magicPathExperience?: Map<string, number>;
+  /**
+   * Владелец пути → множество покрытых путей (сам + includes_path_codes, транзитивно).
+   * Для шамана: {shaman, psionic}.
+   */
+  magicPathCovers?: Map<string, Set<string>>;
   currentSpeed?: {
     horizontal: { stepsPerActionPoint: number; direction: string | null };
     vertical: { stepsPerActionPoint: number; direction: string | null };

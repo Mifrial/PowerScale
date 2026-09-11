@@ -20,10 +20,12 @@ export interface AbilityOverview {
   actionOdCost: DimensionalNumberValue | number | null;
   /** Сотворение заклинания — стоимость в ОД (компонент action-points); у типа spell. Null у остальных. */
   spellCastCost: DimensionalNumberValue | number | null;
-  /** Сложность сотворения заклинания; у типа spell. Null у остальных. */
-  spellDifficulty: DimensionalNumberValue | null;
-  /** Длительность заклинания («Мгновенное», «Поддерживаемое (…»); у типа spell. Null у остальных. */
+  /** Длительность эффекта заклинания; у типа spell. Null у остальных. */
   spellDurationLabel: string | null;
+  /** Мощь заклинания (размерное значение или параметр вроде x↑). Null у не-spell. */
+  spellPowerLabel: string | null;
+  /** Контроль заклинания. Null у не-spell. */
+  spellControlLabel: string | null;
   href: string | null;
   isResolved: boolean;
 }

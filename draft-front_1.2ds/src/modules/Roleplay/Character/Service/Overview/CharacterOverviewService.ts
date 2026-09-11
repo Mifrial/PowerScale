@@ -6,6 +6,7 @@ import type { ItemSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpec';
 import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpec';
 import type { ActionComponent } from '@/modules/Roleplay/Rule/Dto/Ability/ActionComponent';
 import type { SpellDuration } from '@/modules/Roleplay/Rule/Dto/Ability/SpellDuration';
+import type { SpellValue } from '@/modules/Roleplay/Rule/Dto/Ability/SpellValue';
 import type { CharacteristicGroup } from '@/modules/Roleplay/Rule/Enum/CharacteristicGroup';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { CharacteristicValue } from '@/modules/Roleplay/Character/Dto/CharacteristicValue';
@@ -39,6 +40,7 @@ import {
   derivedCharacteristicService,
   itemModifierService,
   formatStateEffectsService,
+  spellDurationLabelService,
 } from '@/modules/Roleplay/Rule/init';
 import { ACTION_POINTS_RESOURCE_CODE } from '@/modules/Roleplay/Rule/Constant/Ability/ACTION_POINTS_RESOURCE_CODE';
 import { DAMAGE_TYPE_FORMS } from '@/modules/Roleplay/Rule/Constant/DAMAGE_TYPE_FORMS';
@@ -588,15 +590,20 @@ export class CharacterOverviewService {
 
       let actionOdCost: DimensionalNumberValue | number | null = null;
       let spellCastCost: DimensionalNumberValue | number | null = null;
-      let spellDifficulty: DimensionalNumberValue | null = null;
       let spellDurationLabel: string | null = null;
+      let spellPowerLabel: string | null = null;
+      let spellControlLabel: string | null = null;
 
       if (spec?.type === 'action') {
         actionOdCost = this.actionPointsCost(spec.action_components);
       } else if (spec?.type === 'spell') {
         spellCastCost = this.actionPointsCost(spec.action_components);
-        spellDifficulty = spec.spell.difficulty;
-        spellDurationLabel = this.spellDurationLabel(spec.spell.duration);
+        spellDurationLabel =
+          spec.spell.duration.type === 'sustained'
+            ? spellDurationLabelService.action(spec.spell.duration)
+            : this.spellDurationLabel(spec.spell.duration);
+        spellPowerLabel = this.spellValueLabel(spec.spell.power);
+        spellControlLabel = this.spellValueLabel(spec.spell.control);
       }
 
       return {
@@ -611,8 +618,9 @@ export class CharacterOverviewService {
         keywordIds: resolved.rule?.keywordIds ?? [],
         actionOdCost,
         spellCastCost,
-        spellDifficulty,
         spellDurationLabel,
+        spellPowerLabel,
+        spellControlLabel,
         href: resolved.href,
         isResolved: resolved.isResolved,
       };
@@ -680,11 +688,24 @@ export class CharacterOverviewService {
   }
 
   /** Компактный label длительности заклинания. */
-  private spellDurationLabel(duration: SpellDuration): string {
-    if (duration.type === 'instant') return 'Мгновенное';
+  private spellValueLabel(value: SpellValue): string {
+    if ('parameter_code' in value) {
+      return `${value.parameter_code}↑`;
+    }
 
-    const base = duration.type === 'refreshable' ? 'Обновляемое' : 'Поддерживаемое';
-    if (!duration.limit) return base;
+    return new DimensionalNumber(value).toString();
+  }
+
+  private spellDurationLabel(duration: SpellDuration): string {
+    const base =
+      duration.type === 'instant'
+        ? 'Мгновенное'
+        : duration.type === 'lingering'
+          ? 'Длительное'
+          : duration.type === 'refreshable'
+            ? 'Обновляемое'
+            : 'Поддерживаемое';
+    if (duration.type === 'instant' || !duration.limit) return base;
 
     const unitLabel = ({ turn: 'ход', minute: 'мин', hour: 'час' } as Record<string, string>)[duration.limit.unit];
 

@@ -54,5 +54,7 @@ export interface EditorAbility {
   /** Код правила словаря домена одиночной способности; null — свой текст. */
   domainCode: string | null;
   /** Опции словаря домена по domainRef (правила ревизии); пусто — свободный текст. */
-  domainOptions: { code: string; name: string }[];
+  domainOptions: { code: string; name: string; cost?: number }[];
+  /** Стоимость следующего экземпляра (скидка пути). */
+  nextInstanceCost?: number;
 }

@@ -46,9 +46,21 @@ interface InnateRow {
   characteristicCode: string | null;
   /** Название строки: характеристика или способность. */
   name: string;
+  subtitle: string | null;
   /** Итог: база+модификатор для модификатора, текущее значение для дара. */
   total: string;
   current: number;
+}
+
+function giftName(ability: EditorAbility): string {
+  return ability.name.replace(/\s*[XХ]\s*$/, '').trim();
+}
+
+function giftSubtitle(parameter: EditorAbilityParameter): string | null {
+  const label = parameter.label.trim();
+  if (!label || label === 'X' || label === 'Х') return null;
+
+  return label;
 }
 
 function characteristicName(code: string): string {
@@ -104,7 +116,12 @@ function rowsOf(list: EditorAbility[]): InnateRow[] {
         ability,
         parameter,
         characteristicCode: ability.characteristicCode,
-        name: ability.characteristicCode ? characteristicName(ability.characteristicCode) : ability.name,
+        name: ability.keywordIds.includes(GIFT_KEYWORD_ID)
+          ? giftName(ability)
+          : ability.characteristicCode
+            ? characteristicName(ability.characteristicCode)
+            : ability.name,
+        subtitle: ability.keywordIds.includes(GIFT_KEYWORD_ID) ? giftSubtitle(parameter) : null,
         total: totalOf(ability, ability.characteristicCode),
         current: paramValue(parameter),
       };
@@ -212,10 +229,8 @@ function select(ability: EditorAbility, value: { base: number; size: number }): 
         <tbody>
           <tr v-for="row in giftRows" :key="row.ability.ruleCode">
             <td>
-              <span class="font-weight-medium">{{ row.name }}</span>
-              <v-chip v-if="row.current !== 0" size="x-small" variant="tonal" color="primary" class="ml-1">
-                {{ valueLabel(row.parameter.value) }}
-              </v-chip>
+              <div class="font-weight-medium">{{ row.name }}</div>
+              <div v-if="row.subtitle" class="text-caption text-medium-emphasis">{{ row.subtitle }}</div>
             </td>
             <td class="text-center font-weight-medium">{{ row.total }}</td>
             <td v-for="step in giftSteps" :key="valueLabel(step.value)" class="text-center pa-1">

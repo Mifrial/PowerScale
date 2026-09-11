@@ -22,12 +22,28 @@ export class RequirementEvaluator {
 
   /** Первая невыполненная причина в человекочитаемом виде (null — все выполнены). */
   firstFailure(requirements: Requirement[], snapshot: CharacterSnapshot, domainContext?: string): string | null {
+    return this.failureReasons(requirements, snapshot, domainContext)[0] ?? null;
+  }
+
+  /** Все невыполненные причины списка (неявное И), через «; ». */
+  failureSummary(requirements: Requirement[], snapshot: CharacterSnapshot, domainContext?: string): string | null {
+    const reasons = this.failureReasons(requirements, snapshot, domainContext);
+
+    return reasons.length === 0 ? null : reasons.join('; ');
+  }
+
+  private failureReasons(requirements: Requirement[], snapshot: CharacterSnapshot, domainContext?: string): string[] {
+    const reasons: string[] = [];
     for (const requirement of requirements) {
+      if (requirement.type === 'and') {
+        reasons.push(...this.failureReasons(requirement.children, snapshot, domainContext));
+        continue;
+      }
       const reason = this.failureReason(requirement, snapshot, domainContext);
-      if (reason !== null) return reason;
+      if (reason !== null) reasons.push(reason);
     }
 
-    return null;
+    return reasons;
   }
 
   private failureReason(requirement: Requirement, snapshot: CharacterSnapshot, domainContext?: string): string | null {
@@ -37,7 +53,7 @@ export class RequirementEvaluator {
         const label = `«${this.abilityName(requirement.ability_code, snapshot)}» уровня ${minLevel}`;
         if (domainContext !== undefined) {
           const instances = snapshot.abilityInstances?.get(requirement.ability_code) ?? [];
-          if (instances.some((instance) => instance.domain === domainContext && instance.level >= minLevel)) {
+          if (instances.some((instance) => this.instanceMeetsDomain(instance, domainContext, snapshot, minLevel))) {
             return null;
           }
 
@@ -80,6 +96,17 @@ export class RequirementEvaluator {
 
         return `требуется характеристика «${this.characteristicName(requirement.characteristic_code, snapshot)}» от ${new DimensionalNumber(requirement.min).toString()}`;
       }
+      case 'has_magic_path': {
+        if (snapshot.magicPaths?.has(requirement.path_code)) return null;
+
+        return `требуется путь волшебства «${this.magicPathName(requirement.path_code, snapshot)}»`;
+      }
+      case 'magic_path_experience': {
+        const experience = snapshot.magicPathExperience?.get(requirement.path_code) ?? 0;
+        if (experience >= requirement.min) return null;
+
+        return `требуется опыт пути «${this.magicPathName(requirement.path_code, snapshot)}» от ${requirement.min}`;
+      }
       case 'resource_limit': {
         const limit = snapshot.resourceLimits.get(requirement.resource_code);
         if (limit === undefined) return `требуется ресурс «${this.resourceName(requirement.resource_code, snapshot)}»`;
@@ -101,7 +128,7 @@ export class RequirementEvaluator {
         return `требуется скорость ${requirement.direction} не менее ${requirement.min_steps_per_action_point} шагов/ОД`;
       }
       case 'and':
-        return this.firstFailure(requirement.children, snapshot, domainContext);
+        return this.failureSummary(requirement.children, snapshot, domainContext);
       case 'or': {
         if (
           requirement.children.length > 0 &&
@@ -141,6 +168,35 @@ export class RequirementEvaluator {
 
   private resourceName(code: string, snapshot: CharacterSnapshot): string {
     return snapshot.resourceNames?.get(code) ?? code;
+  }
+
+  private magicPathName(code: string, snapshot: CharacterSnapshot): string {
+    return snapshot.magicPathNames?.get(code) ?? snapshot.keywordNames?.get(code) ?? code;
+  }
+
+  /** Экземпляр покрывает домен: то же имя или путь, который контекст включает (шаман ← псионик). */
+  private instanceMeetsDomain(
+    instance: { domain: string; domainCode: string | null; level: number },
+    domainContext: string,
+    snapshot: CharacterSnapshot,
+    minLevel: number,
+  ): boolean {
+    if (instance.level < minLevel) return false;
+    if (instance.domain === domainContext || instance.domainCode === domainContext) return true;
+    const ownerPath = this.pathCodeOfDomain(domainContext, snapshot);
+    const learnedPath = instance.domainCode;
+    if (!ownerPath || !learnedPath) return false;
+
+    return snapshot.magicPathCovers?.get(ownerPath)?.has(learnedPath) ?? false;
+  }
+
+  private pathCodeOfDomain(domainContext: string, snapshot: CharacterSnapshot): string | null {
+    if (snapshot.magicPathNames?.has(domainContext)) return domainContext;
+    for (const [code, name] of snapshot.magicPathNames ?? []) {
+      if (name === domainContext) return code;
+    }
+
+    return null;
   }
 
   /** Все семьи оружия с указанным тэгом и их уровни владения. */

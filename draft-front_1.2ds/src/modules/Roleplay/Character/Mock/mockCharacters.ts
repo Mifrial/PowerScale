@@ -151,7 +151,6 @@ export const versions: Record<number, CharacterVersion> = {
       { ruleCode: 'dexterity', base: dim(3, 3), modifiers: [] },
       { ruleCode: 'perception', base: dim(3), modifiers: [] },
       { ruleCode: 'intellect', base: dim(3), modifiers: [] },
-      { ruleCode: 'magic', base: dim(4, -3), modifiers: [] },
       { ruleCode: 'attention', base: dim(5), modifiers: [] },
       { ruleCode: 'reaction', base: dim(3), modifiers: [] },
       { ruleCode: 'memory', base: dim(3), modifiers: [] },
@@ -177,6 +176,8 @@ export const versions: Record<number, CharacterVersion> = {
           { sourceRuleCode: 'blizhniy-boy', sourceLabel: null, delta: 1, target: 'melee-combat', scope: null },
         ],
       },
+      { ruleCode: 'magic-power', base: dim(3), modifiers: [] },
+      { ruleCode: 'magic-control', base: dim(3, -1), modifiers: [] },
     ],
     resources: [
       { ruleCode: 'action-points', current: dim(4), base: dim(4), bonuses: [] },
@@ -186,6 +187,14 @@ export const versions: Record<number, CharacterVersion> = {
     abilities: [
       { ruleCode: 'borba', level: 1 },
       { ruleCode: 'keen-hearing', level: 1 },
+      { ruleCode: 'becoming-arcanist', level: 1 },
+      { ruleCode: 'magic-core-capacity', level: 1, parameters: { x: dim(3) } },
+      {
+        ruleCode: 'discharge',
+        level: 1,
+        domain: 'Арканист',
+        domainCode: 'arcanist',
+      },
     ],
     points: { osSpent: 30, olSpent: 0, olTotal: 7, orSpent: 0, orTotal: 12 },
     money: 50,
@@ -193,6 +202,7 @@ export const versions: Record<number, CharacterVersion> = {
     inventory: [
       { id: 1, ruleCode: 'fekhtovalnyy-mech', quantity: 1, equipped: true },
       { id: 2, ruleCode: 'latnyy-dospekh', quantity: 1, equipped: true },
+      { id: 3, ruleCode: 'magic-core', quantity: 1, equipped: true, modifierRuleCodes: [] },
     ],
     states: [
       { stateRuleCode: 'exhaustion', value: 2 },

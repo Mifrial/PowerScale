@@ -3,6 +3,7 @@ import { computed, ref } from 'vue';
 import SlidePanel from '@/modules/Core/UI/Component/SlidePanel.vue';
 import EditorAbilityNode from '@/modules/Roleplay/Character/Component/Editor/DevelopmentAbilityNode.vue';
 import { weaponProficiencyService } from '@/modules/Roleplay/Character/Service/Instance/weaponProficiencyService';
+import { developmentListService } from '@/modules/Roleplay/Character/Service/Instance/developmentListService';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { EditorAbility } from '@/modules/Roleplay/Character/Dto/Editor/EditorAbility';
 import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
@@ -151,27 +152,9 @@ const groupedSkills = computed<SkillGroup[]>(() => {
 /** Все ruleCode раскрыты по умолчанию. */
 const openSet = ref(new Set<string>());
 
-/** childrenByCode для развития навыков-улучшений. */
-const childrenByCode = computed(() => {
-  const map = new Map<string, EditorAbility[]>();
-  for (const group of groupedSkills.value) {
-    for (const ability of group.abilities) {
-      if (!ability.parentCode) continue;
-      const list = map.get(ability.parentCode) ?? [];
-      list.push(ability);
-      map.set(ability.parentCode, list);
-    }
-  }
-
-  return map;
-});
-
-/** Верхний уровень дерева. */
-const rootAbilities = computed(() => {
-  const all = groupedSkills.value.flatMap((g) => g.abilities);
-
-  return all.filter((ability) => !ability.parentCode || !childrenByCode.value.has(ability.parentCode));
-});
+const listRows = computed(() => developmentListService.expand(groupedSkills.value.flatMap((group) => group.abilities)));
+const childrenByParentKey = computed(() => developmentListService.childrenByParentKey(listRows.value));
+const rootRows = computed(() => developmentListService.roots(listRows.value, childrenByParentKey.value));
 </script>
 
 <template>
@@ -183,17 +166,19 @@ const rootAbilities = computed(() => {
     <div v-for="group in groupedSkills" :key="group.label" class="skill-group pa-4">
       <div class="text-subtitle-2 font-weight-bold mb-2">{{ group.label }}</div>
       <EditorAbilityNode
-        v-for="ability in rootAbilities.filter((a) => group.abilities.includes(a))"
-        :key="ability.ruleCode"
-        :ability="ability"
-        :children-by-code="childrenByCode"
+        v-for="row in rootRows.filter((entry) =>
+          group.abilities.some((ability) => ability.ruleCode === entry.ability.ruleCode),
+        )"
+        :key="row.key"
+        :row="row"
+        :children-by-parent-key="childrenByParentKey"
         :keywords="keywords ?? []"
         :rules="rules"
         :open-set="openSet"
         @update:open="
-          (ruleCode, o) => {
-            if (o) openSet.add(ruleCode);
-            else openSet.delete(ruleCode);
+          (rowKey, o) => {
+            if (o) openSet.add(rowKey);
+            else openSet.delete(rowKey);
           }
         "
         @set-level="(ruleCode, level) => emit('set-level', ruleCode, level)"

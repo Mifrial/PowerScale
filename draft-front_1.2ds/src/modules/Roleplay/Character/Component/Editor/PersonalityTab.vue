@@ -209,8 +209,8 @@ function setInstanceDomain(ruleCode: string, oldDomain: string, newDomain: strin
   draftStore.patchBuild(props.draftKey, { abilities: next.abilities });
 }
 
-function removeInstance(ruleCode: string, domain: string): void {
-  const next = characterBuildService.removeAbilityInstance(props.build, ruleCode, domain, props.rules);
+function removeInstance(ruleCode: string, domain: string, domainCode?: string | null): void {
+  const next = characterBuildService.removeAbilityInstance(props.build, ruleCode, domain, props.rules, { domainCode });
   draftStore.patchBuild(props.draftKey, { abilities: next.abilities });
 }
 

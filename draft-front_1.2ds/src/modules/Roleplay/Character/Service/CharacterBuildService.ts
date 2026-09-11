@@ -11,11 +11,14 @@ import type { ItemSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpec';
 import type { ItemModifierSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierSpec';
 import type { RaceSpec } from '@/modules/Roleplay/Rule/Dto/Race/RaceSpec';
 import type { AbilityCost } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityCost';
+import type { CharacterAbility } from '@/modules/Roleplay/Character/Dto/CharacterAbility';
 import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpec';
 import { characterEditorService } from '@/modules/Roleplay/Character/Service/Instance/characterEditorService';
 import { itemModifierService } from '@/modules/Roleplay/Rule/init';
 import { weaponProficiencyService } from '@/modules/Roleplay/Character/Service/Instance/weaponProficiencyService';
 import { racialInnateGearService } from '@/modules/Roleplay/Character/Service/Instance/racialInnateGearService';
+import { magicStudyUnlockService } from '@/modules/Roleplay/Character/Service/Instance/magicStudyUnlockService';
+import { magicPathStudyCostService } from '@/modules/Roleplay/Character/Service/Instance/magicPathStudyCostService';
 
 /**
  * Иммутабельные переходы выборов редактора (CharacterBuild). Компоненты не мутируют build
@@ -27,6 +30,8 @@ export class CharacterBuildService {
     private readonly itemModifiers = itemModifierService,
     private readonly weaponProficiency = weaponProficiencyService,
     private readonly racialInnateGear = racialInnateGearService,
+    private readonly magicStudyUnlock = magicStudyUnlockService,
+    private readonly magicPathStudyCost = magicPathStudyCostService,
   ) {}
 
   /**
@@ -89,10 +94,10 @@ export class CharacterBuildService {
           ]
         : others;
 
-    return {
-      ...build,
-      abilities: this.applyGroupSelectLimit(abilities, ruleCode, level, rules, build.abilities),
-    };
+    return this.pruneStudy(
+      { ...build, abilities: this.applyGroupSelectLimit(abilities, ruleCode, level, rules, build.abilities) },
+      rules,
+    );
   }
 
   /** Множественный навык ревизии (spec.multiple): экземпляры управляются dedicated-методами. */
@@ -120,7 +125,10 @@ export class CharacterBuildService {
       const parentRuleId = this.parentRuleIdOf(rules, ruleCode);
       if (parentRuleId === null) return build;
       const parentInstance = build.abilities.find(
-        (ability) => ability.ruleCode === parentRuleId && ability.domain === trimmed,
+        (ability) =>
+          ability.ruleCode === parentRuleId &&
+          (ability.domain === trimmed ||
+            this.magicStudyUnlock.pathCovers(rules, options.domainCode, ability.domainCode ?? null)),
       );
       if (!parentInstance) return build;
       const parentCode = parentRuleId;
@@ -128,6 +136,20 @@ export class CharacterBuildService {
         const requiredLevel = this.parentLevelRequiredFor(rules, ruleCode, parentCode);
         if (requiredLevel !== null && parentInstance.level < requiredLevel) return build;
       }
+    }
+
+    if (this.isStudyAbility(rules, ruleCode)) {
+      const spec = this.abilitySpecOf(rules, ruleCode);
+      if (!spec) return build;
+      const unlocks = this.magicStudyUnlock.unlocksOf(build.abilities, rules);
+      const learned = this.magicStudyUnlock.learnedEntries(build.abilities, rules);
+      const granted = this.magicStudyUnlock.grantedPathCodes(build.abilities, rules);
+      const domainCode = options.domainCode ?? null;
+      const open = this.magicStudyUnlock.openPathCodes(spec, unlocks, granted, learned, null);
+      if (domainCode && !open.includes(domainCode)) return build;
+      if (!domainCode) return build;
+      if (this.magicStudyUnlock.knownOnPath(build.abilities, ruleCode, domainCode, rules)) return build;
+      if (!this.studyRequirementsMet(build, rules, spec, domainCode)) return build;
     }
 
     const abilities = [
@@ -141,7 +163,10 @@ export class CharacterBuildService {
       },
     ];
 
-    return { ...build, abilities: this.applyGroupSelectLimit(abilities, ruleCode, 1, rules, build.abilities) };
+    return this.pruneStudy(
+      { ...build, abilities: this.applyGroupSelectLimit(abilities, ruleCode, 1, rules, build.abilities) },
+      rules,
+    );
   }
 
   /** Устанавливает уровень конкретного экземпляра (0 — снять экземпляр). */
@@ -157,6 +182,8 @@ export class CharacterBuildService {
     if (!existing) return build;
     if (level > 0 && level > this.maxInstanceLevelOf(rules, ruleCode, domain)) return build;
 
+    if (level <= 0 && this.isStudyBound(build, rules, existing)) return build;
+
     const others = build.abilities.filter((ability) => !(ability.ruleCode === ruleCode && ability.domain === domain));
     const abilities =
       level > 0
@@ -170,7 +197,7 @@ export class CharacterBuildService {
           ]
         : others;
 
-    return { ...build, abilities };
+    return this.pruneStudy({ ...build, abilities }, rules);
   }
 
   /**
@@ -206,15 +233,39 @@ export class CharacterBuildService {
   }
 
   /** Удаляет экземпляр множественного навыка по домену; экземпляры-улучшения того же домена — каскадно. */
-  removeAbilityInstance(build: CharacterBuild, ruleCode: string, domain: string, rules: Rule[] = []): CharacterBuild {
+  removeAbilityInstance(
+    build: CharacterBuild,
+    ruleCode: string,
+    domain: string,
+    rules: Rule[] = [],
+    options: { domainCode?: string | null } = {},
+  ): CharacterBuild {
     const removedRuleIds = new Set([ruleCode, ...this.instanceImprovementRuleIds(rules, ruleCode)]);
+    const domainKey = domain.trim();
+    const domainCode = options.domainCode;
+    const target = build.abilities.find((ability) => {
+      if (ability.ruleCode !== ruleCode) return false;
+      if ((ability.domain ?? '').trim() !== domainKey) return false;
+      if (domainCode === undefined) return true;
 
-    return {
-      ...build,
-      abilities: build.abilities.filter(
-        (ability) => !(removedRuleIds.has(ability.ruleCode) && ability.domain === domain),
-      ),
-    };
+      return (ability.domainCode ?? null) === (domainCode ?? null);
+    });
+    if (target && this.isStudyBound(build, rules, target)) return build;
+
+    return this.pruneStudy(
+      {
+        ...build,
+        abilities: build.abilities.filter((ability) => {
+          if (!removedRuleIds.has(ability.ruleCode)) return true;
+          const abilityDomain = (ability.domain ?? '').trim();
+          if (abilityDomain !== domainKey) return true;
+          if (domainCode === undefined) return false;
+
+          return (ability.domainCode ?? null) !== (domainCode ?? null);
+        }),
+      },
+      rules,
+    );
   }
 
   /**
@@ -850,6 +901,84 @@ export class CharacterBuildService {
     );
 
     return build.characteristicPurchases.filter((purchase) => purchasedCodes.has(purchase.characteristicCode));
+  }
+
+  private pruneStudy(build: CharacterBuild, rules: Rule[]): CharacterBuild {
+    if (!this.hasMagicStudyGrants(rules)) return build;
+    const unlocks = this.magicStudyUnlock.unlocksOf(build.abilities, rules);
+    const granted = this.magicStudyUnlock.grantedPathCodes(build.abilities, rules);
+    const kept = build.abilities.filter((ability) => {
+      if (!this.isStudyAbility(rules, ability.ruleCode)) return true;
+      const spec = this.abilitySpecOf(rules, ability.ruleCode);
+      if (!spec) return true;
+      if (spec.type !== 'spell') return true;
+
+      return this.magicStudyUnlock.isJustified(spec, ability.domainCode ?? null, unlocks, granted, rules);
+    });
+    const withParents = kept.filter((ability) => {
+      if (!this.isInstanceImprovement(rules, ability.ruleCode)) return true;
+      const parentRuleId = this.parentRuleIdOf(rules, ability.ruleCode);
+      if (parentRuleId === null) return false;
+
+      return kept.some(
+        (parent) =>
+          parent.ruleCode === parentRuleId &&
+          parent.domain === ability.domain &&
+          (parent.domainCode ?? null) === (ability.domainCode ?? null),
+      );
+    });
+    if (withParents.length === build.abilities.length) return build;
+
+    return { ...build, abilities: withParents };
+  }
+
+  private hasMagicStudyGrants(rules: Rule[]): boolean {
+    return rules.some((rule) => {
+      if (rule.type !== 'ability' || !rule.spec || !('type' in rule.spec)) return false;
+      const spec = rule.spec as AbilitySpec;
+      if (spec.type === 'group') return false;
+
+      return spec.grants.some((entry) => entry.grants.some((grant) => grant.type === 'magic_study'));
+    });
+  }
+
+  private isStudyBound(build: CharacterBuild, rules: Rule[], ability: CharacterAbility): boolean {
+    if (!this.isStudyAbility(rules, ability.ruleCode)) return false;
+    const unlocks = this.magicStudyUnlock.unlocksOf(build.abilities, rules);
+    const learned = this.magicStudyUnlock.learnedEntries(build.abilities, rules);
+
+    return this.magicStudyUnlock.isBound(unlocks, learned, ability.ruleCode, ability.domainCode ?? null);
+  }
+
+  private studyRequirementsMet(build: CharacterBuild, rules: Rule[], spec: AbilitySpec, domainCode: string): boolean {
+    if (spec.type === 'group') return true;
+    const required: { ability_code: string; min_level: number }[] = [];
+    if (spec.parent_ability_code) {
+      required.push({ ability_code: spec.parent_ability_code, min_level: 1 });
+    }
+    for (const requirement of spec.requirements?.find((entry) => entry.level === 1)?.requirements ?? []) {
+      if (requirement.type === 'has_ability') {
+        required.push({ ability_code: requirement.ability_code, min_level: requirement.min_level ?? 1 });
+      }
+    }
+
+    return required.every((entry) =>
+      this.magicStudyUnlock.knownOnPath(build.abilities, entry.ability_code, domainCode, rules, entry.min_level),
+    );
+  }
+
+  private isStudyAbility(rules: Rule[], ruleCode: string): boolean {
+    const spec = this.abilitySpecOf(rules, ruleCode);
+    if (!spec) return false;
+
+    return this.magicPathStudyCost.usesPathStudyCost(spec, rules);
+  }
+
+  private abilitySpecOf(rules: Rule[], ruleCode: string): AbilitySpec | null {
+    const rule = rules.find((entry) => entry.code === ruleCode);
+    if (rule?.type !== 'ability' || !rule.spec || !('type' in rule.spec)) return null;
+
+    return rule.spec as AbilitySpec;
   }
 
   /**

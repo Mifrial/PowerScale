@@ -478,6 +478,39 @@ describe('CharacterBuildService', () => {
     expect(build.abilities.map((a) => a.domain)).toEqual(['Орочий']);
   });
 
+  it('снимает экземпляр без domain (кривая запись) и не трогает соседний путь', () => {
+    const spell = base(null, 'discharge', 'ability', 'Разряд', {
+      type: 'spell',
+      multiple: true,
+      domain_ref: 'magic-path',
+      zones: { or: { kind: 'array', levels_cost: [1] } },
+      requirements: [],
+      grants: [],
+      parent_ability_code: null,
+      action_components: [],
+      spell: {
+        power: { base: 3, size: 0 },
+        control: { base: 3, size: 0 },
+        duration: { type: 'instant' },
+      },
+    });
+    const build = makeBuild({
+      abilities: [
+        { ruleCode: 'discharge', level: 1 },
+        {
+          ruleCode: 'discharge',
+          level: 1,
+          domain: 'Становление Арканиста',
+          domainCode: 'becoming-arcanist',
+        },
+      ],
+    });
+    const next = service.removeAbilityInstance(build, 'discharge', '', [spell], { domainCode: null });
+    expect(next.abilities).toEqual([
+      { ruleCode: 'discharge', level: 1, domain: 'Становление Арканиста', domainCode: 'becoming-arcanist' },
+    ]);
+  });
+
   it('множественный навык: setAbilityLevel не трогает множественные (управляются экземплярами)', () => {
     const multiple = base(null, 'language', 'ability', 'Владение языком', {
       type: 'skill',

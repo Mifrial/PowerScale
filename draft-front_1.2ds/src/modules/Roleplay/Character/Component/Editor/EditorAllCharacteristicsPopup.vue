@@ -13,8 +13,12 @@ import EditorResourcePopup from '@/modules/Roleplay/Character/Component/Editor/E
 import { editorResourceViewsService } from '@/modules/Roleplay/Character/Service/Instance/editorResourceViewsService';
 import type { CharacterBuild } from '@/modules/Roleplay/Character/Dto/Editor/CharacterBuild';
 import type { EditorCheckBonus } from '@/modules/Roleplay/Character/Dto/Editor/EditorCheckBonus';
+import type { EditorMagicPathView } from '@/modules/Roleplay/Character/Dto/Editor/EditorMagicPathView';
+import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import EditorCheckBonusPopup from '@/modules/Roleplay/Character/Component/Editor/EditorCheckBonusPopup.vue';
+import EditorMagicPathPopup from '@/modules/Roleplay/Character/Component/Editor/EditorMagicPathPopup.vue';
 import { editorCheckBonusesService } from '@/modules/Roleplay/Character/Service/Instance/editorCheckBonusesService';
+import { editorMagicPathViewsService } from '@/modules/Roleplay/Character/Service/Instance/editorMagicPathViewsService';
 
 const props = defineProps<{
   /** Все характеристики (включая базовые), уже с resolved-правилами. */
@@ -23,15 +27,17 @@ const props = defineProps<{
   senses: CharacterSenseValue[];
   resources: ResourceValue[];
   build: CharacterBuild;
+  keywords?: Keyword[];
   /** Уровни «Владения оружием» по семьям (для попапа мастерства оружий). */
   proficiencyLevels?: Map<string, number>;
 }>();
 
-const GROUP_ORDER: CharacteristicGroup[] = ['primary', 'combat', 'important', 'secondary', 'base'];
+const GROUP_ORDER: CharacteristicGroup[] = ['primary', 'combat', 'magic', 'important', 'secondary', 'base'];
 
 const GROUP_LABELS: Record<CharacteristicGroup, string> = {
   primary: 'Основные',
   combat: 'Боевые',
+  magic: 'Магические',
   important: 'Важные',
   secondary: 'Вторичные',
   base: 'Базовые',
@@ -54,6 +60,9 @@ const resourceViews = computed<EditorResourceView[]>(() =>
 );
 
 const checkBonuses = computed<EditorCheckBonus[]>(() => editorCheckBonusesService.build(props.build, props.rules));
+const magicPaths = computed<EditorMagicPathView[]>(() =>
+  editorMagicPathViewsService.build(props.build, props.rules, props.keywords ?? []),
+);
 const checksExpanded = ref(false);
 
 function label(value: { base: number; size: number }): string {
@@ -149,6 +158,19 @@ function label(value: { base: number; size: number }): string {
           </v-menu>
         </div>
         <div v-else class="text-medium-emphasis">Бонусов нет</div>
+        <div class="text-caption text-medium-emphasis mt-3 mb-1">Пути волшебства</div>
+        <div v-if="magicPaths.length" class="check-grid">
+          <v-menu v-for="path in magicPaths" :key="path.pathCode" location="right top" :close-on-content-click="false">
+            <template #activator="{ props: menuProps }">
+              <div v-bind="menuProps" class="d-flex align-center justify-space-between ga-3 check-row">
+                <span class="text-body-2 text-medium-emphasis text-truncate">{{ path.pathName }}</span>
+                <span class="text-body-2 font-weight-medium">{{ path.experience }}</span>
+              </div>
+            </template>
+            <EditorMagicPathPopup :path="path" />
+          </v-menu>
+        </div>
+        <div v-else class="text-medium-emphasis">Путей нет</div>
       </div>
     </v-card-text>
   </v-card>

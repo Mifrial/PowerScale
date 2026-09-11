@@ -15,6 +15,10 @@ export interface CharacterStateValue {
   poison?: CharacterPoisonValue;
   /** Ходов до следующего тика DOT (`step: turn`). Нет — взять период (period 1 тикает в этот конец хода). */
   dotTurnsLeft?: number;
+  /** Привязка экземпляра к поддержанию (электрозаряд Генератора). */
+  boundSustainId?: string;
+  /** Привязка к источнику сотворения (`inventory:id` / `grant:code`). */
+  boundSourceKey?: string;
   /** Только для состояния «Увечье»: срок и флаги этой записи (не суммируется с другими). */
   maim?: {
     permanent: boolean;

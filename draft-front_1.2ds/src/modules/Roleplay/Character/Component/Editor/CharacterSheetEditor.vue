@@ -265,6 +265,7 @@ onMounted(() => {
       :model="model"
       :build="draft.build"
       :rules="rules"
+      :keywords="keywords"
       :active-tab="activeTab"
       @update:active-tab="(tab) => (activeTab = tab)"
     />

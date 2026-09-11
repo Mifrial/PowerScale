@@ -38,7 +38,7 @@ const emit = defineEmits<{
   'add-instance': [ruleCode: string, domain: string, domainCode: string | null];
   'set-instance-level': [ruleCode: string, domain: string, level: number];
   'set-instance-domain': [ruleCode: string, oldDomain: string, newDomain: string, domainCode: string | null];
-  'remove-instance': [ruleCode: string, domain: string];
+  'remove-instance': [ruleCode: string, domain: string, domainCode?: string | null];
   'set-ability-domain': [ruleCode: string, domain: string, domainCode: string | null];
 }>();
 
@@ -110,7 +110,7 @@ function zoneLabelOf(): string {
         @set-instance-domain="
           (ruleCode, oldDomain, newDomain, code) => emit('set-instance-domain', ruleCode, oldDomain, newDomain, code)
         "
-        @remove-instance="(ruleCode, domain) => emit('remove-instance', ruleCode, domain)"
+        @remove-instance="(ruleCode, domain, code) => emit('remove-instance', ruleCode, domain, code)"
         @set-ability-domain="(ruleCode, domain, code) => emit('set-ability-domain', ruleCode, domain, code)"
       />
     </div>

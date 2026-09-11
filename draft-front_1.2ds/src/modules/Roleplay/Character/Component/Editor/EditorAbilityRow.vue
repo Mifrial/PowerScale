@@ -3,8 +3,7 @@ import { computed, ref } from 'vue';
 import ExpandableItem from '@/modules/Core/UI/Component/ExpandableItem.vue';
 import LightChip from '@/modules/Core/UI/Component/light/LightChip.vue';
 import LightButton from '@/modules/Core/UI/Component/light/LightButton.vue';
-import { ABILITY_TYPE_LABELS } from '@/modules/Roleplay/Rule/Constant/Ability/ABILITY_TYPE_LABELS';
-import { parameterLimitName, resourceShortName } from '@/modules/Roleplay/Rule/init';
+import { abilityTypeChipLabelService, parameterLimitName, resourceShortName } from '@/modules/Roleplay/Rule/init';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { EditorAbility } from '@/modules/Roleplay/Character/Dto/Editor/EditorAbility';
@@ -17,7 +16,10 @@ import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpe
 import type { ResourceSpec } from '@/modules/Roleplay/Rule/Dto/ResourceSpec';
 import { useRuleDetailSlider } from '@/modules/Roleplay/Character/Composables/useRuleDetailSlider';
 import { characterEditorService } from '@/modules/Roleplay/Character/Service/Instance/characterEditorService';
+import { spellParamsViewService } from '@/modules/Roleplay/Character/Service/Instance/spellParamsViewService';
 import DescriptionHtml from '@/modules/Core/UI/Component/DescriptionHtml.vue';
+import EditorSpellParams from '@/modules/Roleplay/Character/Component/Editor/EditorSpellParams.vue';
+import EditorSpellPathDialog from '@/modules/Roleplay/Character/Component/Editor/EditorSpellPathDialog.vue';
 
 const props = defineProps<{
   ability: EditorAbility;
@@ -34,6 +36,8 @@ const props = defineProps<{
   surchargeAmount?: number;
   /** Раскрыта ли панель (управляемое состояние — переживает ремаунты виртуализации). */
   open?: boolean;
+  /** Каталог или экземпляр заклинания (отдельные строки списка). */
+  spellRowKind?: 'catalog' | 'instance' | null;
 }>();
 
 const emit = defineEmits<{
@@ -42,7 +46,7 @@ const emit = defineEmits<{
   'add-instance': [ruleCode: string, domain: string, domainCode: string | null];
   'set-instance-level': [ruleCode: string, domain: string, level: number];
   'set-instance-domain': [ruleCode: string, oldDomain: string, newDomain: string, domainCode: string | null];
-  'remove-instance': [ruleCode: string, domain: string];
+  'remove-instance': [ruleCode: string, domain: string, domainCode?: string | null];
   'set-ability-domain': [ruleCode: string, domain: string, domainCode: string | null];
   'update:open': [open: boolean];
 }>();
@@ -122,7 +126,7 @@ function keywordName(ability: EditorAbility, keywordId: number): string {
 }
 
 function typeLabel(ability: EditorAbility): string | null {
-  return ability.type === null ? null : (ABILITY_TYPE_LABELS[ability.type] ?? ability.type);
+  return abilityTypeChipLabelService.label(ability.type, props.keywords, ability.keywordIds, props.rules ?? []);
 }
 
 // Имя ресурса по коду (action-points → «Очки действий»), как в AbilityCard.
@@ -147,6 +151,7 @@ const DOMAIN_LABELS: Record<string, string> = {
   species: 'Вид',
   instrument: 'Инструмент',
   'communication-check': 'Тип проверки',
+  'magic-path': 'Путь',
 };
 
 /** Подпись поля домена множественного навыка (без значения): «Язык», «Вид» и т.п. */
@@ -169,7 +174,7 @@ const domainNames = computed(() => props.ability.domainOptions.map((option) => o
 
 /** Стоимость первого уровня экземпляра (кнопка «+ N ОР» формы добавления). */
 function nextAddCost(ability: EditorAbility): number {
-  return zoneOf(ability)?.levelCosts[0] ?? 0;
+  return ability.nextInstanceCost ?? zoneOf(ability)?.levelCosts[0] ?? 0;
 }
 
 /** Доступно добавление экземпляра: непустое значение, не дубль, не заблокировано, уровень 1 доступен.
@@ -192,6 +197,65 @@ function addInstance(): void {
   if (!value) return;
   emit('add-instance', props.ability.ruleCode, value, domainCodeFor(value));
   pendingDomain.value = '';
+}
+
+function isSpellCatalogRow(): boolean {
+  return (
+    props.ability.multiple === true &&
+    props.spellRowKind !== 'instance' &&
+    (props.ability.type === 'spell' || props.ability.domainRef === 'magic-path')
+  );
+}
+
+function isSpellInstanceRow(): boolean {
+  return props.spellRowKind === 'instance';
+}
+
+const spellParams = computed(() => {
+  const spec = props.rules?.find((rule) => rule.code === props.ability.ruleCode)?.spec as AbilitySpec | undefined;
+  if (spec?.type !== 'spell') return null;
+
+  return spellParamsViewService.view(spec);
+});
+
+const pathDialogOpen = ref(false);
+
+const unusedSpellPaths = computed(() =>
+  props.ability.domainOptions
+    .filter(
+      (option) =>
+        !props.ability.instances.some(
+          (instance) => instance.domain === option.name || instance.domainCode === option.code,
+        ),
+    )
+    .map((option) => ({
+      code: option.code,
+      name: option.name,
+      cost: option.cost ?? nextAddCost(props.ability),
+    })),
+);
+
+function canLearnSpell(): boolean {
+  if (!isSpellCatalogRow()) return false;
+  if (props.lockedRuleCodes?.has(props.ability.ruleCode)) return false;
+  if (props.ability.derived) return false;
+  if (!(props.ability.levels[0]?.met ?? true)) return false;
+
+  return unusedSpellPaths.value.length > 0;
+}
+
+function learnSpell(): void {
+  const available = unusedSpellPaths.value;
+  if (available.length === 1) {
+    emit('add-instance', props.ability.ruleCode, available[0].name, available[0].code);
+
+    return;
+  }
+  if (available.length > 1) pathDialogOpen.value = true;
+}
+
+function onSpellPathSelect(name: string, code: string | null): void {
+  emit('add-instance', props.ability.ruleCode, name, code);
 }
 
 /** Стоимость следующего уровня конкретного экземпляра. */
@@ -232,7 +296,13 @@ function onInstanceDomainEdit(instance: EditorAbilityInstance, value: string | n
 }
 
 function removeInstance(instance: EditorAbilityInstance): void {
-  emit('remove-instance', props.ability.ruleCode, instance.domain);
+  emit('remove-instance', props.ability.ruleCode, instance.domain, instance.domainCode);
+}
+
+function forgetSpellInstance(): void {
+  const instance = props.ability.instances[0];
+  if (!instance || instance.bound) return;
+  emit('remove-instance', props.ability.ruleCode, instance.domain, instance.domainCode);
 }
 
 // --- Домен одиночной способности (domain_ref без multiple) ---
@@ -251,6 +321,8 @@ function displayLevel(ability: EditorAbility): number {
 
 // Выбранная способность (уровень > 0 или бесплатная) подсвечивается бледно-голубым.
 function isChosen(ability: EditorAbility): boolean {
+  if (isSpellCatalogRow()) return false;
+
   return ability.automatic || ability.level > 0;
 }
 
@@ -406,6 +478,8 @@ function stepUpTitle(ability: EditorAbility, param: EditorAbilityParameter): str
 }
 
 function levelChipLabel(ability: EditorAbility): string {
+  if (isSpellCatalogRow()) return '';
+  if (isSpellInstanceRow()) return `${displayLevel(ability)} из ${maxLevel(ability)}`;
   if (ability.multiple) return `${ability.instances.length} экземпляров`;
   if (ability.parameters.length > 1) {
     const used = ability.parameters.reduce((sum, param) => sum + paramValue(param), 0);
@@ -504,16 +578,19 @@ function stepLabel(param: EditorAbilityParameter): string {
           <i class="mdi mdi-open-in-new" aria-hidden="true" />
         </LightButton>
         <span class="font-weight-medium">{{ displayName(ability) }}</span>
+        <LightChip v-if="isSpellInstanceRow()">{{ ability.domain || 'Путь не выбран' }}</LightChip>
         <LightChip v-if="typeLabel(ability)">{{ typeLabel(ability) }}</LightChip>
         <LightChip v-if="actionOdCostLabel(ability)">{{ actionOdCostLabel(ability) }}</LightChip>
         <LightChip v-if="ability.racial" color="primary">расовая</LightChip>
         <LightChip v-if="ability.automatic" color="secondary">авто</LightChip>
         <LightChip v-if="ability.gifted" color="secondary">дар</LightChip>
-        <LightChip v-if="ability.multiple" variant="outlined">множественный</LightChip>
-        <LightChip variant="outlined">{{ spentOf(ability) }} {{ zoneLabelOf() }}</LightChip>
+        <LightChip v-if="ability.multiple && !isSpellCatalogRow() && !isSpellInstanceRow()" variant="outlined">
+          множественный
+        </LightChip>
+        <LightChip v-if="!isSpellCatalogRow()" variant="outlined">{{ spentOf(ability) }} {{ zoneLabelOf() }}</LightChip>
 
         <div class="ability-row__spacer" />
-        <LightChip v-if="zoneOf(ability)">{{ levelChipLabel(ability) }}</LightChip>
+        <LightChip v-if="zoneOf(ability) && levelChipLabel(ability)">{{ levelChipLabel(ability) }}</LightChip>
         <LightChip
           v-if="props.surchargeAmount && props.surchargeAmount > 0"
           color="warning"
@@ -564,6 +641,24 @@ function stepLabel(param: EditorAbilityParameter): string {
             {{ cost }} {{ zoneLabelOf() }}
           </LightButton>
         </div>
+        <div v-else-if="isSpellCatalogRow() && !ability.derived" class="d-flex align-center ga-1">
+          <LightButton :disabled="!canLearnSpell()" title="Изучить заклинание" @click.stop="learnSpell">
+            <i class="mdi mdi-plus" aria-hidden="true" /> {{ nextAddCost(ability) }} {{ zoneLabelOf() }}
+          </LightButton>
+        </div>
+        <div v-else-if="isSpellInstanceRow()" class="d-flex align-center ga-1">
+          <LightButton
+            class="ability-row__slider-btn"
+            :disabled="props.ability.instances[0]?.bound === true"
+            :title="
+              props.ability.instances[0]?.bound ? 'Снимается вместе с навыком, который дал слот' : 'Забыть экземпляр'
+            "
+            aria-label="Забыть экземпляр"
+            @click.stop="forgetSpellInstance"
+          >
+            <i class="mdi mdi-close" aria-hidden="true" />
+          </LightButton>
+        </div>
         <div
           v-else-if="!ability.derived && !ability.multiple && costKind(ability) === 'progression'"
           class="d-flex align-center ga-1"
@@ -591,6 +686,7 @@ function stepLabel(param: EditorAbilityParameter): string {
     </template>
 
     <div class="ability-row__body">
+      <EditorSpellParams v-if="spellParams" :params="spellParams" />
       <DescriptionHtml
         v-if="ability.description"
         :html="ability.description"
@@ -654,7 +750,10 @@ function stepLabel(param: EditorAbilityParameter): string {
           </li>
         </ol>
       </div>
-      <div v-if="ability.multiple && open" class="ability-row__instances">
+      <div
+        v-if="ability.multiple && open && !isSpellCatalogRow() && !isSpellInstanceRow()"
+        class="ability-row__instances"
+      >
         <div v-for="(instance, index) in ability.instances" :key="index" class="ability-instance">
           <div class="ability-instance__controls">
             <v-combobox
@@ -720,6 +819,7 @@ function stepLabel(param: EditorAbilityParameter): string {
       <!-- Вложенные способности-«Улучшения» (дерево внутри тела родителя). -->
       <slot name="nested" />
     </div>
+    <EditorSpellPathDialog v-model="pathDialogOpen" :options="unusedSpellPaths" @select="onSpellPathSelect" />
   </ExpandableItem>
 </template>
 

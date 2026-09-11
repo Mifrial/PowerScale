@@ -65,6 +65,10 @@ import type { ParsedDerivedFormula } from '@/modules/Roleplay/Rule/Dto/ParsedDer
 import { racialInnateGearService } from '@/modules/Roleplay/Character/Service/Instance/racialInnateGearService';
 import type { InventoryItem } from '@/modules/Roleplay/Character/Dto/InventoryItem';
 import { weaponProficiencyService } from '@/modules/Roleplay/Character/Service/Instance/weaponProficiencyService';
+import { magicPathStudyCostService } from '@/modules/Roleplay/Character/Service/Instance/magicPathStudyCostService';
+import { magicStudyUnlockService } from '@/modules/Roleplay/Character/Service/Instance/magicStudyUnlockService';
+import { keywordExperienceService } from '@/modules/Roleplay/Character/Service/Instance/keywordExperienceService';
+import type { MagicStudyLearned } from '@/modules/Roleplay/Character/Dto/Editor/MagicStudyLearned';
 import type { MechanicState } from '@/modules/Roleplay/Mechanic/Dto/MechanicState';
 import type { CharacterMechanicContext } from '@/modules/Roleplay/Mechanic/Dto/CharacterMechanicContext';
 import type { MechanicBinding } from '@/modules/Roleplay/Mechanic/Dto/MechanicBinding';
@@ -84,6 +88,9 @@ export class CharacterEditorService {
     private readonly itemModifiers = itemModifierService,
     private readonly checkResolution = checkResolutionService,
     private readonly weaponProficiency = weaponProficiencyService,
+    private readonly magicPathStudyCost = magicPathStudyCostService,
+    private readonly magicStudyUnlock = magicStudyUnlockService,
+    private readonly keywordExperience = keywordExperienceService,
   ) {}
 
   build(
@@ -697,6 +704,9 @@ export class CharacterEditorService {
     // Уровни даров-навыков (D100): за подаренные уровни ОР не списываются, при апгрейде
     // дарованного навыка списывается только разница сверх подаренного уровня.
     const giftedLevels = this.giftedAbilityLevels(build, reference);
+    const keywordCodeById = new Map(keywords.map((keyword) => [keyword.id, keyword.code]));
+    const studyUnlocks = this.magicStudyUnlock.unlocksOf(build.abilities, rules, keywordCodeById);
+    const learnedStudy = this.magicStudyUnlock.learnedEntries(build.abilities, rules);
     for (const ability of build.abilities) {
       const rule = reference.ruleByCode(ability.ruleCode);
       const spec = rule?.type === 'ability' ? (rule.spec as AbilitySpec | undefined) : undefined;
@@ -713,6 +723,22 @@ export class CharacterEditorService {
       let paid = total;
       if (giftedLevel > 0) {
         paid = ability.level > giftedLevel ? total - this.totalCostAtLevel(cost, giftedLevel, resolveParameter) : 0;
+      }
+      if (this.magicPathStudyCost.usesPathStudyCost(spec, rules)) {
+        const firstLevelCost = this.totalCostAtLevel(cost, 1, resolveParameter);
+        paid =
+          this.magicStudyUnlock.paidCostOverride(spec, studyUnlocks, learnedStudy, ability.domainCode ?? null, {
+            ruleCode: ability.ruleCode,
+            domainCode: ability.domainCode ?? null,
+          }) ??
+          this.magicPathStudyCost.instancePaid(
+            build,
+            rules,
+            ability,
+            paid,
+            firstLevelCost,
+            this.skipGrantPaid(build, rules, studyUnlocks, learnedStudy),
+          );
       }
       const spent = (spentByZone.get(zoneCode) ?? 0) + paid;
       spentByZone.set(zoneCode, spent);
@@ -989,6 +1015,8 @@ export class CharacterEditorService {
     // Дары-навыки (D100) и производные уровни (D109) — одинаковы для всех способностей.
     const giftedLevels = this.giftedAbilityLevels(build, reference);
     const derivedLevels = this.derivedAbilityLevels(build, reference, keywords);
+    const studyUnlocks = this.magicStudyUnlock.unlocksOf(build.abilities, rules, keywordCodes);
+    const learnedStudy = this.magicStudyUnlock.learnedEntries(build.abilities, rules);
 
     const result: EditorAbility[] = [];
     for (const rule of rules) {
@@ -1049,15 +1077,17 @@ export class CharacterEditorService {
         levels.push({
           level,
           met: !hasRequirements || evaluator.evaluateAll(all, snapshot),
-          reason: hasRequirements ? evaluator.firstFailure(all, snapshot) : null,
+          reason: hasRequirements ? evaluator.failureSummary(all, snapshot) : null,
         });
       }
+      this.applyMagicStudyGate(levels, spec, rule, keywordCodes, studyUnlocks, learnedStudy, rule.code);
 
       // Пер-экземплярные требования множественного навыка: has_ability проверяется по экземплярам
       // с тем же доменом («Письменность того же языка», требование родителя-улучшения — тоже).
-      const instanceLevelsOf = (domain: string): EditorAbilityLevel[] => {
+      const instanceLevelsOf = (domain: string, domainCode: string | null): EditorAbilityLevel[] => {
         const result: EditorAbilityLevel[] = [];
         const accumulated: Requirement[] = [];
+        const domainContext = domainCode || domain;
         for (let level = 1; level <= maxLevel; level++) {
           const requirements = spec.requirements?.find((entry) => entry.level === level)?.requirements ?? [];
           accumulated.push(...requirements);
@@ -1065,13 +1095,38 @@ export class CharacterEditorService {
           const hasRequirements = all.length > 0;
           result.push({
             level,
-            met: !hasRequirements || evaluator.evaluateAll(all, snapshot, domain),
-            reason: hasRequirements ? evaluator.firstFailure(all, snapshot, domain) : null,
+            met: !hasRequirements || evaluator.evaluateAll(all, snapshot, domainContext),
+            reason: hasRequirements ? evaluator.failureSummary(all, snapshot, domainContext) : null,
           });
         }
+        this.applyMagicStudyGate(result, spec, rule, keywordCodes, studyUnlocks, learnedStudy, rule.code);
 
         return result;
       };
+
+      const domainOptions = this.instanceDomainOptions(
+        rules,
+        build,
+        spec,
+        studyUnlocks,
+        learnedStudy,
+        snapshot,
+        rule.code,
+      );
+      const firstLevelCost = zones.find((zone) => zone.levelCosts.length > 0)?.levelCosts[0] ?? 0;
+      const skipGrantPaid = this.skipGrantPaid(build, rules, studyUnlocks, learnedStudy);
+      const pathCosts = domainOptions.map((option) => ({
+        ...option,
+        cost:
+          this.magicStudyUnlock.paidCostOverride(spec, studyUnlocks, learnedStudy, option.code, null) ??
+          this.magicPathStudyCost.nextInstanceCost(build, rules, option.code, firstLevelCost, skipGrantPaid),
+      }));
+      const unusedPathCosts = pathCosts.filter(
+        (option) =>
+          !instances.some(
+            (instance) => instance.domain === option.name || (instance.domainCode ?? null) === option.code,
+          ),
+      );
 
       result.push({
         ruleCode: rule.code,
@@ -1102,17 +1157,54 @@ export class CharacterEditorService {
         multiple,
         domainRef: spec.domain_ref ?? null,
         instances: multiple
-          ? instances.map((instance) => ({
-              domain: instance.domain ?? '',
-              domainCode: instance.domainCode ?? null,
-              level: instance.level,
-              levels: instanceLevelsOf(instance.domain ?? ''),
-            }))
+          ? instances.map((instance) => {
+              const zone = zones.find((entry) => entry.levelCosts.length > 0) ?? zones[0];
+              const rawPaid = (zone?.levelCosts ?? []).slice(0, instance.level).reduce((sum, cost) => sum + cost, 0);
+
+              return {
+                domain: instance.domain ?? '',
+                domainCode: instance.domainCode ?? null,
+                level: instance.level,
+                levels: instanceLevelsOf(instance.domain ?? '', instance.domainCode ?? null),
+                paidCost:
+                  this.magicStudyUnlock.paidCostOverride(
+                    spec,
+                    studyUnlocks,
+                    learnedStudy,
+                    instance.domainCode ?? null,
+                    { ruleCode: rule.code, domainCode: instance.domainCode ?? null },
+                  ) ??
+                  this.magicPathStudyCost.instancePaid(
+                    build,
+                    rules,
+                    {
+                      ruleCode: rule.code,
+                      level: instance.level,
+                      domain: instance.domain,
+                      domainCode: instance.domainCode,
+                    },
+                    rawPaid,
+                    firstLevelCost,
+                    skipGrantPaid,
+                  ),
+                bound: this.magicStudyUnlock.isBound(
+                  studyUnlocks,
+                  learnedStudy,
+                  rule.code,
+                  instance.domainCode ?? null,
+                ),
+              };
+            })
           : [],
         // Домен одиночной способности (domain_ref без multiple): из единственной записи.
         domain: !multiple && spec.domain_ref ? (chosen?.domain ?? null) : null,
         domainCode: !multiple && spec.domain_ref ? (chosen?.domainCode ?? null) : null,
-        domainOptions: this.instanceDomainOptions(rules, build, spec),
+        domainOptions: pathCosts,
+        nextInstanceCost: this.magicPathStudyCost.usesPathStudyCost(spec, rules)
+          ? unusedPathCosts.length > 0
+            ? Math.min(...unusedPathCosts.map((option) => option.cost))
+            : undefined
+          : undefined,
         parameters: this.editorParameters(
           rule,
           spec,
@@ -1127,6 +1219,30 @@ export class CharacterEditorService {
     }
 
     return result;
+  }
+
+  private applyMagicStudyGate(
+    levels: EditorAbilityLevel[],
+    spec: AbilitySpec,
+    rule: Rule,
+    keywordCodes: Map<number, string>,
+    unlocks: Extract<Grant, { type: 'magic_study' }>[],
+    learned: readonly MagicStudyLearned[],
+    currentRuleCode: string,
+  ): void {
+    const codes = this.magicStudyUnlock.keywordCodesOf(rule, keywordCodes);
+    const reason = this.magicStudyUnlock.failureReason(spec, codes, unlocks, learned, currentRuleCode);
+    if (!reason) return;
+    for (const level of levels) {
+      if (level.met) {
+        level.met = false;
+        level.reason = reason;
+      } else if (!level.reason) {
+        level.reason = reason;
+      } else if (!level.reason.includes(reason)) {
+        level.reason = `${level.reason}; ${reason}`;
+      }
+    }
   }
 
   /** Параметры «X» покупки способности (для параметрических зон): диапазон с учётом потолка расы. */
@@ -1442,6 +1558,23 @@ export class CharacterEditorService {
       else if (rule.type === 'resource' || rule.type === 'points') resourceNames.set(rule.code, rule.name);
     }
     const keywordNames = new Map(keywords.map((keyword) => [keyword.code, keyword.name]));
+    const keywordCodeById = new Map(keywords.map((keyword) => [keyword.id, keyword.code]));
+    const magicPaths = new Set<string>();
+    this.forEachActiveGrant(build, reference, (grant) => {
+      if (grant.type === 'magic_path') magicPaths.add(grant.path_code);
+    });
+    const magicPathNames = new Map<string, string>();
+    const magicPathExperience = new Map<string, number>();
+    const magicPathCovers = new Map<string, Set<string>>();
+    for (const rule of reference.rules()) {
+      if (rule.type !== 'magic_path') continue;
+      magicPathNames.set(rule.code, rule.name);
+      magicPathExperience.set(
+        rule.code,
+        this.magicStudyUnlock.pathExperience(build.abilities, reference.rules(), rule.code, keywordCodeById),
+      );
+      magicPathCovers.set(rule.code, this.magicStudyUnlock.coveredPathCodes(reference.rules(), rule.code));
+    }
 
     return {
       abilityLevels,
@@ -1456,6 +1589,10 @@ export class CharacterEditorService {
       keywordNames,
       characteristicNames,
       resourceNames,
+      magicPathNames,
+      magicPaths,
+      magicPathExperience,
+      magicPathCovers,
     };
   }
 
@@ -1876,46 +2013,11 @@ export class CharacterEditorService {
   }
 
   private levelCosts(cost: AbilityCost, resolveParameter?: (code: string) => number): number[] {
-    switch (cost.kind) {
-      case 'array':
-        return [...cost.levels_cost];
-      case 'progression': {
-        const result: number[] = [];
-        for (let level = 1; level <= cost.max_level; level++) {
-          result.push(cost.base_cost + (level - 1) * cost.step);
-        }
-
-        return result;
-      }
-      case 'parameter': {
-        const value = resolveParameter?.(cost.parameter_code) ?? 1;
-
-        return [cost.per_unit * value];
-      }
-      case 'parameter_table': {
-        const value = resolveParameter?.(cost.parameter_code) ?? 1;
-
-        return [typeof value === 'number' ? value : (cost.costs[String(value)] ?? 0)];
-      }
-      case 'parameter_sum_tables': {
-        let sum = 0;
-        for (const [code, table] of Object.entries(cost.tables)) {
-          const value = resolveParameter?.(code) ?? 0;
-          sum += table[String(value)] ?? 0;
-        }
-
-        return [sum];
-      }
-      case 'automatic':
-        return [0];
-    }
+    return this.keywordExperience.levelCosts(cost, resolveParameter);
   }
 
   private totalCostAtLevel(cost: AbilityCost, level: number, resolveParameter?: (code: string) => number): number {
-    if (level <= 0) return 0;
-    const costs = this.levelCosts(cost, resolveParameter);
-
-    return costs.slice(0, Math.min(level, costs.length)).reduce((sum, value) => sum + value, 0);
+    return this.keywordExperience.totalCostAtLevel(cost, level, resolveParameter);
   }
 
   /**
@@ -1924,13 +2026,7 @@ export class CharacterEditorService {
    * объявления зон (обычно 'os'), чтобы не задваивать списание.
    */
   private purchasableZoneOf(spec: AbilitySpec): string | null {
-    if (spec.type === 'group') return null;
-    const zones = spec.zones as Partial<Record<string, AbilityCost>> | undefined;
-    const purchasable = Object.entries(zones ?? {})
-      .filter(([, cost]) => cost && cost.kind !== 'automatic')
-      .map(([zoneCode]) => zoneCode);
-
-    return purchasable.length > 0 ? purchasable[0] : null;
+    return this.keywordExperience.purchasableZoneOf(spec);
   }
 
   /**
@@ -1979,6 +2075,10 @@ export class CharacterEditorService {
     rules: Rule[],
     build: CharacterBuild,
     spec: AbilitySpec,
+    unlocks: Extract<Grant, { type: 'magic_study' }>[],
+    learned: readonly MagicStudyLearned[],
+    snapshot: CharacterSnapshot,
+    ruleCode: string,
   ): { code: string; name: string }[] {
     if (spec.type === 'group') return [];
     if (spec.multiple === true && spec.parent_ability_code) {
@@ -1990,7 +2090,83 @@ export class CharacterEditorService {
         .map((ability) => ({ code: ability.domainCode ?? '', name: ability.domain ?? '' }));
     }
 
+    if (spec.domain_ref === 'magic-path') {
+      return this.magicPathDomainOptions(build, rules, spec, unlocks, learned, snapshot, ruleCode);
+    }
+
     return this.domainOptionsOf(rules, spec.domain_ref ?? null);
+  }
+
+  /** Пути, которыми это заклинание сейчас можно изучить (грант + слот + требования + не покрыто включением). */
+  private magicPathDomainOptions(
+    build: CharacterBuild,
+    rules: Rule[],
+    spec: AbilitySpec,
+    unlocks: Extract<Grant, { type: 'magic_study' }>[],
+    learned: readonly MagicStudyLearned[],
+    snapshot: CharacterSnapshot,
+    ruleCode: string,
+  ): { code: string; name: string }[] {
+    const granted = this.magicStudyUnlock.grantedPathCodes(build.abilities, rules);
+    const codes = this.magicStudyUnlock.openPathCodes(spec, unlocks, granted, learned, null);
+    const options: { code: string; name: string }[] = [];
+    const seen = new Set<string>();
+    const evaluator = new RequirementEvaluator();
+    const studyRequirements = this.studyLevelOneRequirements(spec);
+    for (const code of codes) {
+      if (this.magicStudyUnlock.knownOnPath(build.abilities, ruleCode, code, rules)) continue;
+      const pathRule = rules.find((entry) => entry.code === code && entry.type === 'magic_path');
+      if (!pathRule) continue;
+      if (studyRequirements.length > 0 && !evaluator.evaluateAll(studyRequirements, snapshot, pathRule.code)) {
+        continue;
+      }
+      this.pushPathOption(seen, options, rules, code);
+    }
+
+    return options;
+  }
+
+  private studyLevelOneRequirements(spec: AbilitySpec): Requirement[] {
+    if (spec.type === 'group') return [];
+    const parentRequirement: Requirement | null = spec.parent_ability_code
+      ? { type: 'has_ability', ability_code: spec.parent_ability_code, min_level: 1 }
+      : null;
+    const levelOne = spec.requirements?.find((entry) => entry.level === 1)?.requirements ?? [];
+
+    return parentRequirement ? [parentRequirement, ...levelOne] : levelOne;
+  }
+
+  private skipGrantPaid(
+    build: CharacterBuild,
+    rules: Rule[],
+    unlocks: Extract<Grant, { type: 'magic_study' }>[],
+    learned: readonly MagicStudyLearned[],
+  ): (ability: CharacterAbility) => boolean {
+    return (ability) => {
+      const rule = rules.find((entry) => entry.code === ability.ruleCode);
+      const spec = rule?.type === 'ability' ? (rule.spec as AbilitySpec | undefined) : undefined;
+      if (!spec || spec.type === 'group') return false;
+
+      return (
+        this.magicStudyUnlock.paidCostOverride(spec, unlocks, learned, ability.domainCode ?? null, {
+          ruleCode: ability.ruleCode,
+          domainCode: ability.domainCode ?? null,
+        }) != null
+      );
+    };
+  }
+
+  private pushPathOption(
+    seen: Set<string>,
+    options: { code: string; name: string }[],
+    rules: Rule[],
+    pathCode: string,
+  ): void {
+    if (seen.has(pathCode)) return;
+    const pathRule = rules.find((entry) => entry.code === pathCode && entry.type === 'magic_path');
+    if (!pathRule) return;
+    seen.add(pathRule.code);
+    options.push({ code: pathRule.code, name: pathRule.name });
   }
 
   /**
@@ -2018,33 +2194,26 @@ export class CharacterEditorService {
     reference: CharacterReferenceService,
     keywords: Keyword[],
   ): Map<string, number> {
-    const keywordByCode = new Map(keywords.map((keyword) => [keyword.code, keyword.id]));
     const parameterAutoValues = this.racialAutomaticValues(build, reference, this.rulesOf(reference));
     const raceFixedBases = this.raceFixedBases(build, reference);
 
-    const experienceOf = (sourceKeyword: string): number => {
-      let sum = 0;
-      for (const ability of build.abilities) {
-        if (ability.level < 1) continue;
-        const rule = reference.ruleByCode(ability.ruleCode);
-        if (!rule) continue;
-        const keywordIds = new Set(rule.keywordIds ?? []);
-        if (!keywordIds.has(keywordByCode.get(sourceKeyword) ?? -1)) continue;
-        const spec = rule.type === 'ability' ? (rule.spec as AbilitySpec | undefined) : undefined;
-        if (!spec || spec.type === 'group') continue;
-        const zoneCode = ability.zone ?? this.purchasableZoneOf(spec);
-        if (!zoneCode) continue;
-        // «Владение оружием» (domain_ref weapon-family): стоимость уровней — лестница выбранной
-        // семьи (правило weapon_family), а не заглушка зоны способности.
-        const cost = this.weaponFamilyCostOf(rule, ability, reference) ?? spec.zones[zoneCode];
-        if (!cost) continue;
-        sum += this.totalCostAtLevel(cost, ability.level, (code) =>
-          this.parameterCostValue(build, rule, spec, code, parameterAutoValues, raceFixedBases),
-        );
-      }
+    const experienceOf = (sourceKeyword: string): number =>
+      this.keywordExperience.experienceOf(
+        sourceKeyword,
+        build.abilities,
+        reference.rules(),
+        keywords,
+        (ability, rule, spec) => {
+          const zoneCode = ability.zone ?? this.keywordExperience.purchasableZoneOf(spec);
+          if (!zoneCode) return 0;
+          const cost = this.weaponFamilyCostOf(rule, ability, reference) ?? spec.zones[zoneCode];
+          if (!cost) return 0;
 
-      return sum;
-    };
+          return this.keywordExperience.totalCostAtLevel(cost, ability.level, (code) =>
+            this.parameterCostValue(build, rule, spec, code, parameterAutoValues, raceFixedBases),
+          );
+        },
+      );
 
     const result = new Map<string, number>();
     for (const rule of reference.rules()) {
@@ -2204,11 +2373,11 @@ export class CharacterEditorService {
     if (!zone) return 0;
 
     if (ability.multiple) {
-      return ability.instances.reduce(
-        (sum, instance) =>
-          sum + zone.levelCosts.slice(0, instance.level).reduce((instanceSum, cost) => instanceSum + cost, 0),
-        0,
-      );
+      return ability.instances.reduce((sum, instance) => {
+        const raw = zone.levelCosts.slice(0, instance.level).reduce((instanceSum, cost) => instanceSum + cost, 0);
+
+        return sum + (instance.paidCost ?? raw);
+      }, 0);
     }
 
     return zone.levelCosts.slice(ability.giftedLevel, ability.level).reduce((sum, cost) => sum + cost, 0);

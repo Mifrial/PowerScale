@@ -6,6 +6,8 @@ import type { CharacterCardExtension } from '@/modules/Roleplay/Character/Interf
 import type { IInGameSheetSource } from '@/modules/Roleplay/Character/Interface/IInGameSheetSource';
 import type { ICharacterSessionOverlay } from '@/modules/Roleplay/Character/Interface/ICharacterSessionOverlay';
 import { registerPermissionCategory } from '@/modules/Core/User/init';
+import { registerMenuItem } from '@/modules/Core/UI/init';
+import { CHARACTERS_MENU_ITEM } from '@/modules/Roleplay/Character/Constant/Navigation/CHARACTERS_MENU_ITEM';
 import { registerChatTypes, registerChatTabs, registerChatRulesProvider } from '@/modules/Messages/Chat/init';
 import { CHARACTER_PERMISSION_CATEGORY } from '@/modules/Roleplay/Character/Constant/permissions';
 import { CHARACTER_CHAT_TYPES } from '@/modules/Roleplay/Character/Constant/Chat/CHARACTER_CHAT_TYPES';
@@ -117,6 +119,7 @@ export function getCharacterSessionOverlay(): ICharacterSessionOverlay | null {
 
 export function registerCharacterModule(): void {
   registerPermissionCategory(CHARACTER_PERMISSION_CATEGORY);
+  registerMenuItem(CHARACTERS_MENU_ITEM);
   registerChatTypes(CHARACTER_CHAT_TYPES);
   registerChatTabs(CHARACTER_CHAT_TABS);
   // Правила обсуждения персонажа: ревизия персонажа (чипы/ссылки/броски в мессенджере).
@@ -133,6 +136,7 @@ export { liveActionPointsLimitService } from '@/modules/Roleplay/Character/Servi
 export { racialInnateGearService } from '@/modules/Roleplay/Character/Service/Instance/racialInnateGearService';
 export { weaponProficiencyService } from '@/modules/Roleplay/Character/Service/Instance/weaponProficiencyService';
 export { editorStatViewsService } from '@/modules/Roleplay/Character/Service/Instance/editorStatViewsService';
+export { keywordExperienceService } from '@/modules/Roleplay/Character/Service/Instance/keywordExperienceService';
 export { itemWeaponProfilesService } from '@/modules/Roleplay/Character/Service/Instance/itemWeaponProfilesService';
 export { itemMasteryService } from '@/modules/Roleplay/Character/Service/Instance/itemMasteryService';
 export { weaponAttackRangeService } from '@/modules/Roleplay/Character/Service/Instance/weaponAttackRangeService';

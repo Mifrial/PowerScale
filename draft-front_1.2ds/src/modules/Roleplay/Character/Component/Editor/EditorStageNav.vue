@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import type { CharacterBuild } from '@/modules/Roleplay/Character/Dto/Editor/CharacterBuild';
 import type { CharacterEditorModel } from '@/modules/Roleplay/Character/Dto/Editor/CharacterEditorModel';
+import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { editorStatViewsService } from '@/modules/Roleplay/Character/Service/Instance/editorStatViewsService';
 import { moneyBreakdownLabel } from '@/modules/Roleplay/Character/Utils/moneyBreakdown';
@@ -15,6 +16,7 @@ const props = defineProps<{
   build: CharacterBuild;
   activeTab: string;
   rules: Rule[];
+  keywords?: Keyword[];
 }>();
 
 const emit = defineEmits<{
@@ -163,6 +165,7 @@ function go(key: string): void {
             :senses="props.model?.senses ?? []"
             :resources="props.model?.resources ?? []"
             :build="build"
+            :keywords="keywords ?? []"
             :proficiency-levels="proficiencyLevels"
           />
         </v-menu>

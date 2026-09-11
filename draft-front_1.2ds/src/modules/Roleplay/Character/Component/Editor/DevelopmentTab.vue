@@ -15,10 +15,12 @@ import type { FilterField } from '@/modules/Core/UI/Dto/Filter/Field';
 import type { CharacterBuild } from '@/modules/Roleplay/Character/Dto/Editor/CharacterBuild';
 import type { CharacterEditorModel } from '@/modules/Roleplay/Character/Dto/Editor/CharacterEditorModel';
 import type { EditorAbility } from '@/modules/Roleplay/Character/Dto/Editor/EditorAbility';
+import type { DevelopmentAbilityRow } from '@/modules/Roleplay/Character/Dto/Editor/DevelopmentAbilityRow';
 import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { AbilitySection } from '@/modules/Roleplay/RuleSpace/Dto/AbilitySection';
 import type { RuleCatalogArea } from '@/modules/Roleplay/RuleSpace/Enum/RuleCatalogArea';
+import { developmentListService } from '@/modules/Roleplay/Character/Service/Instance/developmentListService';
 import { abilitySectionTreeService } from '@/modules/Roleplay/RuleSpace/init';
 
 const props = defineProps<{
@@ -155,26 +157,10 @@ const allAbilities = computed(() =>
     ),
 );
 
-/** Дерево улучшений: «код способности → её улучшения» (рекурсивно для цепочек улучшений). */
-const childrenByCode = computed(() => {
-  const map = new Map<string, EditorAbility[]>();
-  for (const ability of allAbilities.value) {
-    if (!ability.parentCode) continue;
-    const list = map.get(ability.parentCode) ?? [];
-    list.push(ability);
-    map.set(ability.parentCode, list);
-  }
-
-  return map;
-});
-
-/**
- * Верхний уровень дерева: способности без родителя. Сироты-улучшения (родитель отфильтрован
- * или отсутствует) тоже попадают наверх, чтобы не терялись при поиске/фильтрах.
- */
-const rootAbilities = computed(() =>
-  allAbilities.value.filter((ability) => !ability.parentCode || !childrenByCode.value.has(ability.parentCode)),
-);
+/** Дерево улучшений: «код способности → её улучшения» заменяется строками списка после expand. */
+const listRows = computed(() => developmentListService.expand(allAbilities.value));
+const childrenByParentKey = computed(() => developmentListService.childrenByParentKey(listRows.value));
+const rootRows = computed(() => developmentListService.roots(listRows.value, childrenByParentKey.value));
 
 /**
  * Авто-раскрытие родителей при поиске: строка, совпавшая по имени, показывается внутри
@@ -193,6 +179,7 @@ const autoOpenSet = computed(() => {
       node = byCode.get(node.parentCode);
       if (!node) break;
       result.add(node.ruleCode);
+      result.add(`${node.ruleCode}:catalog`);
     }
   }
 
@@ -226,8 +213,8 @@ function setOpen(ruleCode: string, open: boolean): void {
   else openSet.value.delete(ruleCode);
 }
 
-function abilityKey(ability: EditorAbility): string {
-  return ability.ruleCode;
+function abilityKey(row: DevelopmentAbilityRow): string {
+  return row.key;
 }
 
 function setLevel(ruleCode: string, level: number): void {
@@ -269,8 +256,10 @@ function setInstanceDomain(ruleCode: string, oldDomain: string, newDomain: strin
   draftStore.patchBuild(props.draftKey, { abilities: next.abilities });
 }
 
-function removeInstance(ruleCode: string, domain: string): void {
-  const next = characterBuildService.removeAbilityInstance(props.build, ruleCode, domain, props.rules);
+function removeInstance(ruleCode: string, domain: string, domainCode?: string | null): void {
+  const next = characterBuildService.removeAbilityInstance(props.build, ruleCode, domain, props.rules, {
+    domainCode,
+  });
   draftStore.patchBuild(props.draftKey, { abilities: next.abilities });
 }
 
@@ -333,7 +322,7 @@ function setAbilityDomain(ruleCode: string, domain: string, domainCode: string |
     </div>
 
     <VirtualList
-      :items="rootAbilities"
+      :items="rootRows"
       :estimate-size="56"
       :get-item-key="abilityKey"
       :reset-key="resetKey"
@@ -342,8 +331,8 @@ function setAbilityDomain(ruleCode: string, domain: string, domainCode: string |
       v-slot="{ item }"
     >
       <DevelopmentAbilityNode
-        :ability="item"
-        :children-by-code="childrenByCode"
+        :row="item"
+        :children-by-parent-key="childrenByParentKey"
         :keywords="keywords"
         :rules="rules"
         :open-set="effectiveOpenSet"

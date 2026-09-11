@@ -246,7 +246,7 @@ describe('CharacterEditorService с каталогом правил (интег�
     expect(cold?.racial).toBe(true);
     expect(cold?.automatic).toBe(true);
     // Приобретаемые расовые черты — расовые, но не автоматические.
-    const magicPotential = model.abilities.find((a) => a.code === 'magic-potential');
+    const magicPotential = model.abilities.find((a) => a.code === 'magic-core-capacity');
     expect(magicPotential?.racial).toBe(true);
     expect(magicPotential?.automatic).toBe(false);
   });
@@ -420,7 +420,7 @@ describe('CharacterEditorService с каталогом правил (интег�
     const race = ruleCatalog.find((r) => r.code === 'orgul');
     const model = service.build(makeBuild({ raceRuleCode: race?.code ?? '' }), ruleCatalog, config, keywords);
 
-    const potential = model.abilities.find((a) => a.code === 'magic-potential');
+    const potential = model.abilities.find((a) => a.code === 'magic-core-capacity');
     expect(potential?.racial).toBe(true);
     expect(potential?.automatic).toBe(false);
     expect(potential?.parameters[0]).toMatchObject({ max: { base: 3, size: 0 }, cappedByRace: true, freeValue: 0 });
@@ -434,7 +434,7 @@ describe('CharacterEditorService с каталогом правил (интег�
     expect(res?.automatic).toBe(true);
     expect(res?.parameters[0]).toMatchObject({ value: { base: 1, size: 0 }, max: { base: 3, size: 0 }, freeValue: 1 });
 
-    const potential = model.abilities.find((a) => a.code === 'magic-potential');
+    const potential = model.abilities.find((a) => a.code === 'magic-core-capacity');
     expect(potential?.parameters[0]).toMatchObject({ max: { base: 4, size: 0 }, cappedByRace: true });
   });
 
@@ -442,7 +442,7 @@ describe('CharacterEditorService с каталогом правил (интег�
     const race = ruleCatalog.find((r) => r.code === 'turim');
     const model = service.build(makeBuild({ raceRuleCode: race?.code ?? '' }), ruleCatalog, config, keywords);
 
-    const potential = model.abilities.find((a) => a.code === 'magic-potential');
+    const potential = model.abilities.find((a) => a.code === 'magic-core-capacity');
     expect(potential?.parameters[0]).toMatchObject({ max: { base: 5, size: 0 }, cappedByRace: true });
   });
 
@@ -479,7 +479,7 @@ describe('CharacterEditorService с каталогом правил (интег�
     const race = ruleCatalog.find((r) => r.code === 'muukai');
     const model = service.build(makeBuild({ raceRuleCode: race?.code ?? '' }), ruleCatalog, config, keywords);
 
-    const potential = model.abilities.find((a) => a.code === 'magic-potential');
+    const potential = model.abilities.find((a) => a.code === 'magic-core-capacity');
     expect(potential?.racial ?? false).toBe(false);
     const res = model.abilities.find((a) => a.code === 'magic-resistance');
     expect(res?.parameters[0]).toMatchObject({ value: { base: 1, size: 0 }, freeValue: 1 });
@@ -601,17 +601,18 @@ describe('CharacterEditorService с каталогом правил (интег�
     }
   });
 
-  it('Врождённая Магия X: дар с размерной лестницей значений и табличной ценой', () => {
+  it('Врождённое магическое ядро: лестница базовой мощи и табличная цена', () => {
     const model = service.build(makeBuild(), ruleCatalog, config, keywords);
 
-    const potential = model.abilities.find((a) => a.code === 'magic-potential');
+    const potential = model.abilities.find((a) => a.code === 'magic-core-capacity');
     expect(potential?.visible).toBe(true);
     expect(potential?.characteristic).toBe(true);
-    expect(potential?.characteristicCode).toBe('magic');
+    expect(potential?.characteristicCode).toBe('magic-power');
     const param = potential?.parameters[0];
     expect(param).toMatchObject({
       min: { base: 3, size: -1 },
       max: { base: 5, size: 1 },
+      label: 'Базовая магическая мощь',
     });
     expect(param?.steps.map((step) => new DimensionalNumber(step.value).toString())).toEqual([
       '3↓',
@@ -627,8 +628,8 @@ describe('CharacterEditorService с каталогом правил (интег�
     expect(param?.steps.map((step) => step.cost)).toEqual([1, 2, 3, 4, 6, 8, 12, 16, 20]);
   });
 
-  it('Врождённая Магия X: выбор значения 5 → 8 ОС, размерное значение хранится как есть', () => {
-    const rule = ruleCatalog.find((r) => r.code === 'magic-potential');
+  it('Врождённое магическое ядро: выбор мощи 5 → 8 ОС и характеристика magic-power', () => {
+    const rule = ruleCatalog.find((r) => r.code === 'magic-core-capacity');
     const model = service.build(
       makeBuild({ abilities: [{ ruleCode: rule?.code ?? '', level: 1, parameters: { x: { base: 5, size: 0 } } }] }),
       ruleCatalog,
@@ -637,77 +638,41 @@ describe('CharacterEditorService с каталогом правил (интег�
     );
 
     expect(model.budgets.os.spent).toBe(8);
-    const param = model.abilities.find((a) => a.code === 'magic-potential')?.parameters[0];
+    const param = model.abilities.find((a) => a.code === 'magic-core-capacity')?.parameters[0];
     expect(param?.value).toEqual({ base: 5, size: 0 });
     expect(param?.steps.find((step) => new DimensionalNumber(step.value).toString() === '5')?.cost).toBe(8);
 
-    // Приобретённая Магия появляется среди характеристик (база = выбранное значение).
-    const magic = model.characteristics.find((c) => c.code === 'magic');
-    expect(magic).toBeDefined();
-    expect(magic?.base).toEqual({ base: 5, size: 0 });
+    const power = model.characteristics.find((c) => c.code === 'magic-power');
+    expect(power).toBeDefined();
+    expect(power?.base).toEqual({ base: 5, size: 0 });
   });
 
-  it('Врождённая Магия X: не выбранная — характеристики Магии нет', () => {
+  it('Врождённое магическое ядро: не выбранное — характеристики мощи нет', () => {
     const model = service.build(makeBuild(), ruleCatalog, config, keywords);
 
+    expect(model.characteristics.find((c) => c.code === 'magic-power')).toBeUndefined();
     expect(model.characteristics.find((c) => c.code === 'magic')).toBeUndefined();
   });
 
-  it('Ахтар: Магия 4↓ расы бесплатна (дар не взят) — value/min 4↓, ступени ниже недоступны', () => {
+  it('Ахтар: ядро доступно с потолком 5, без бесплатной расовой мощи', () => {
     const ahtar = ruleCatalog.find((r) => r.code === 'ahtar');
     const model = service.build(makeBuild({ raceRuleCode: ahtar?.code ?? '' }), ruleCatalog, config, keywords);
 
-    const potential = model.abilities.find((a) => a.code === 'magic-potential');
+    const potential = model.abilities.find((a) => a.code === 'magic-core-capacity');
     expect(potential?.racial).toBe(true);
     expect(potential?.automatic).toBe(false);
     const param = potential?.parameters[0];
-    expect(param?.value).toEqual({ base: 4, size: -1 });
-    expect(param?.min).toEqual({ base: 4, size: -1 });
     expect(param?.max).toEqual({ base: 5, size: 0 });
-    expect(param?.freeStepCost).toBe(2);
-    expect(param?.freeValue).toBe(2);
-    expect(param?.steps.map((step) => new DimensionalNumber(step.value).toString())).toEqual([
-      '4↓',
-      '5↓',
-      '3',
-      '4',
-      '5',
-    ]);
-    // Инкрементальная цена: табл(X) − табл(4↓) = табл(X) − 2.
-    expect(param?.steps.map((step) => step.cost)).toEqual([2, 3, 4, 6, 8]);
+    expect(param?.cappedByRace).toBe(true);
+    expect(param?.freeValue).toBe(0);
     expect(model.budgets.os.spent).toBe(0);
-
-    // Расовое фикс. значение 4↓ отображается как характеристика без трат ОС.
-    const magic = model.characteristics.find((c) => c.code === 'magic');
-    expect(magic?.base).toEqual({ base: 4, size: -1 });
-    expect(magic?.value).toEqual({ base: 4, size: -1 });
+    expect(model.characteristics.find((c) => c.code === 'magic')).toBeUndefined();
+    expect(model.characteristics.find((c) => c.code === 'magic-power')).toBeUndefined();
   });
 
-  it('Ахтар: покупка Магии 5↓ стоит 1 ОС (инкрементально от 4↓) и переопределяет базу', () => {
+  it('Ахтар: покупка ядра с мощью 5 стоит 8 ОС', () => {
     const ahtar = ruleCatalog.find((r) => r.code === 'ahtar');
-    const potential = ruleCatalog.find((r) => r.code === 'magic-potential');
-    const model = service.build(
-      makeBuild({
-        raceRuleCode: ahtar?.code ?? '',
-        abilities: [{ ruleCode: potential?.code ?? '', level: 1, parameters: { x: { base: 5, size: -1 } } }],
-      }),
-      ruleCatalog,
-      config,
-      keywords,
-    );
-
-    expect(model.budgets.os.spent).toBe(1);
-    const param = model.abilities.find((a) => a.code === 'magic-potential')?.parameters[0];
-    expect(param?.value).toEqual({ base: 5, size: -1 });
-    // Итог в блоке характеристик: 5↓ (переопределяет расовую 4↓).
-    const magic = model.characteristics.find((c) => c.code === 'magic');
-    expect(magic?.base).toEqual({ base: 5, size: -1 });
-    expect(magic?.value).toEqual({ base: 5, size: -1 });
-  });
-
-  it('Ахтар: покупка Магии 5 (средней) стоит 6 ОС (8 − 2)', () => {
-    const ahtar = ruleCatalog.find((r) => r.code === 'ahtar');
-    const potential = ruleCatalog.find((r) => r.code === 'magic-potential');
+    const potential = ruleCatalog.find((r) => r.code === 'magic-core-capacity');
     const model = service.build(
       makeBuild({
         raceRuleCode: ahtar?.code ?? '',
@@ -718,9 +683,9 @@ describe('CharacterEditorService с каталогом правил (интег�
       keywords,
     );
 
-    expect(model.budgets.os.spent).toBe(6);
-    const magic = model.characteristics.find((c) => c.code === 'magic');
-    expect(magic?.value).toEqual({ base: 5, size: 0 });
+    expect(model.budgets.os.spent).toBe(8);
+    const power = model.characteristics.find((c) => c.code === 'magic-power');
+    expect(power?.value).toEqual({ base: 5, size: 0 });
   });
 
   it('Врождённые черты характеристик не попадают в каталог этапа «Основа» (BaseTab фильтрует)', () => {
@@ -867,6 +832,21 @@ describe('CharacterEditorService с каталогом правил (интег�
     expect(model.characteristics.find((c) => c.code === 'melee-combat')?.base).toEqual({ base: 3, size: -1 });
     // Раса переопределяет базу автоматической характеристики (Выносливость 5) — её значение приоритетнее.
     expect(model.characteristics.find((c) => c.code === 'endurance')?.base).toEqual({ base: 5, size: 0 });
+  });
+
+  it('«Тренировка воли»: +{уровень} к Силе воли от тренировки', () => {
+    const rule = ruleCatalog.find((r) => r.code === 'trenirovka-voli');
+    const model = service.build(
+      makeBuild({ abilities: [{ ruleCode: rule?.code ?? '', level: 2 }] }),
+      ruleCatalog,
+      config,
+      keywords,
+    );
+
+    const training = model.abilities.find((a) => a.code === 'trenirovka-voli');
+    expect(training?.name).toBe('Тренировка воли');
+    const willpower = model.characteristics.find((c) => c.code === 'willpower');
+    expect(willpower?.modifiers.some((m) => m.delta === 2 && m.sourceRuleCode === 'training')).toBe(true);
   });
 
   it('«Тренировка Красноречия»: +{уровень} к Красноречию от тренировки, не метод развития общения', () => {
@@ -1465,7 +1445,7 @@ describe('«Владение оружием» — мастерство оруж�
 
   it('основные боевые действия — зона or и явная секция каталога', () => {
     const model = service.build(makeBuild(), ruleCatalog, config, keywords);
-    for (const code of ['dodge', 'block', 'simple-melee-attack', 'simple-ranged-attack', 'turn']) {
+    for (const code of ['dodge', 'block', 'simple-melee-attack', 'simple-ranged-attack', 'simple-touch', 'turn']) {
       const ability = model.abilities.find((entry) => entry.code === code);
       expect(
         ability?.zones.map((zone) => zone.zoneCode),
@@ -1475,7 +1455,7 @@ describe('«Владение оружием» — мастерство оруж�
       expect(ability?.visible, code).toBe(false);
       const rule = ruleCatalog.find((entry) => entry.code === code);
       expect(rule?.catalogSection).toBe(
-        code === 'simple-melee-attack' || code === 'simple-ranged-attack'
+        code === 'simple-melee-attack' || code === 'simple-ranged-attack' || code === 'simple-touch'
           ? 'scenes-combat-basic-attacks'
           : 'scenes-combat-defense',
       );

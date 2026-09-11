@@ -125,6 +125,16 @@ describe('RequirementEvaluator', () => {
     expect(evaluator.firstFailure(requirements, snapshot)).toBe('требуется признак «stealth»');
   });
 
+  it('failureSummary: все невыполненные причины списка', () => {
+    const requirements: Requirement[] = [
+      { type: 'has_keyword', keyword_code: 'stealth' },
+      { type: 'characteristic_value', characteristic_code: 'strength', min: dim(4) },
+    ];
+    expect(evaluator.failureSummary(requirements, namedSnapshot)).toBe(
+      'требуется признак «Скрытность»; требуется характеристика «Сила» от 4',
+    );
+  });
+
   it('человекочитаемые имена в причинах (снимок с именами)', () => {
     expect(
       evaluator.firstFailure([{ type: 'has_ability', ability_code: 'melee-fighting', min_level: 3 }], namedSnapshot),
@@ -202,6 +212,48 @@ describe('RequirementEvaluator', () => {
       evaluator.evaluate({ type: 'min_weapon_mastery', keyword_code: 'dagger', min_level: 1 }, {
         ...snapshot,
       } as CharacterSnapshot),
+    ).toBe(false);
+  });
+
+  it('has_magic_path и опыт пути', () => {
+    const withPath: CharacterSnapshot = {
+      ...snapshot,
+      magicPaths: new Set(['psionic']),
+      magicPathExperience: new Map([['psionic', 6]]),
+      magicPathNames: new Map([['psionic', 'Псионик']]),
+    };
+    expect(evaluator.evaluate({ type: 'has_magic_path', path_code: 'psionic' }, withPath)).toBe(true);
+    expect(evaluator.evaluate({ type: 'has_magic_path', path_code: 'psionic' }, snapshot)).toBe(false);
+    expect(evaluator.evaluate({ type: 'magic_path_experience', path_code: 'psionic', min: 6 }, withPath)).toBe(true);
+    expect(evaluator.evaluate({ type: 'magic_path_experience', path_code: 'psionic', min: 7 }, withPath)).toBe(false);
+  });
+
+  it('has_ability в домене пути учитывает includes_path_codes', () => {
+    const mixed: CharacterSnapshot = {
+      ...snapshot,
+      abilityLevels: new Map([['discharge', 1]]),
+      abilityInstances: new Map([['discharge', [{ domain: 'Псионик', domainCode: 'psionic', level: 1 }]]]),
+      magicPathNames: new Map([
+        ['psionic', 'Псионик'],
+        ['shaman', 'Шаман'],
+      ]),
+      magicPathCovers: new Map([
+        ['psionic', new Set(['psionic'])],
+        ['shaman', new Set(['shaman', 'psionic'])],
+      ]),
+    };
+    expect(evaluator.evaluate({ type: 'has_ability', ability_code: 'discharge', min_level: 1 }, mixed, 'Шаман')).toBe(
+      true,
+    );
+    expect(evaluator.evaluate({ type: 'has_ability', ability_code: 'discharge', min_level: 1 }, mixed, 'Псионик')).toBe(
+      true,
+    );
+    const reverse: CharacterSnapshot = {
+      ...mixed,
+      abilityInstances: new Map([['discharge', [{ domain: 'Шаман', domainCode: 'shaman', level: 1 }]]]),
+    };
+    expect(
+      evaluator.evaluate({ type: 'has_ability', ability_code: 'discharge', min_level: 1 }, reverse, 'Псионик'),
     ).toBe(false);
   });
 });

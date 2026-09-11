@@ -30,6 +30,7 @@ const overview = computed(() => characterOverviewService.build(props.version, pr
 const primarySimple = computed(() => overview.value.characteristics.filter((c) => c.group === 'primary' && !c.derived));
 const primaryDerived = computed(() => overview.value.characteristics.filter((c) => c.group === 'primary' && c.derived));
 const importantCharacteristics = computed(() => overview.value.characteristics.filter((c) => c.group === 'important'));
+const magicCharacteristics = computed(() => overview.value.characteristics.filter((c) => c.group === 'magic'));
 const secondaryCharacteristics = computed(() => overview.value.characteristics.filter((c) => c.group === 'secondary'));
 
 function armorKey(item: DefenseArmorOverview): string {
@@ -64,6 +65,21 @@ function attackKey(attack: AttackOverview): string {
           <div v-if="overview.combat" class="mt-3">
             <CombatSection :combat="overview.combat" :rules="rules" :senses="version.senses" />
           </div>
+
+          <template v-if="magicCharacteristics.length">
+            <div class="text-subtitle-2 text-medium-emphasis mt-3 mb-1">Магические</div>
+            <v-row dense>
+              <v-col
+                v-for="characteristic in magicCharacteristics"
+                :key="characteristic.ruleCode"
+                cols="6"
+                sm="4"
+                md="3"
+              >
+                <CharacteristicTile :characteristic="characteristic" :rules="rules" :senses="version.senses" />
+              </v-col>
+            </v-row>
+          </template>
 
           <template v-if="importantCharacteristics.length">
             <div class="text-subtitle-2 text-medium-emphasis mt-3 mb-1">Важные</div>

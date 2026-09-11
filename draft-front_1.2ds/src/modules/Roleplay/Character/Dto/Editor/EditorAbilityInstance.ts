@@ -13,4 +13,8 @@ export interface EditorAbilityInstance {
   level: number;
   /** Требования по уровням экземпляра (has_ability-требования домен-скоупированы). */
   levels: EditorAbilityLevel[];
+  /** Фактически списанная цена экземпляра с учётом скидки пути. */
+  paidCost?: number;
+  /** Экземпляр занимает слот гранта с max_instances — снять можно только вместе с грантом. */
+  bound?: boolean;
 }

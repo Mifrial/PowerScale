@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { CharacterOverviewService } from '@/modules/Roleplay/Character/Service/Overview/CharacterOverviewService';
+import { versions } from '@/modules/Roleplay/Character/Mock/mockCharacters';
+import { ruleCatalog } from '@/modules/Roleplay/Rule/Mock/mockRules';
 
 const base = (id: number | null, code: string, type: Rule['type'], name: string, spec?: Rule['spec']): Rule => ({
   id,
@@ -92,5 +94,49 @@ describe('CharacterOverviewService: вкладка способностей', ()
     const rows = overview.abilities.filter((ability) => ability.ruleCode === 'vladenie-oruzhiem');
     expect(rows).toHaveLength(2);
     expect(rows.map((row) => `${row.domainLabel}:${row.level}`).sort()).toEqual(['Луки:2', 'Мечи:1']);
+  });
+
+  it('заклинание несёт мощь, контроль и длительность', () => {
+    const overview = service.build(
+      versionWith({
+        abilities: [{ ruleCode: 'discharge', level: 1 }],
+      }),
+      [
+        ...rules,
+        base(null, 'action-points', 'resource', 'Очки Действий'),
+        base(null, 'discharge', 'ability', 'Разряд', {
+          type: 'spell',
+          zones: {},
+          requirements: [],
+          grants: [],
+          parent_ability_code: null,
+          action_components: [{ type: 'resource', resource_code: 'action-points', amount: 4, label: 'Сотворение' }],
+          hit_resolution: { type: 'attack' },
+          parameters: [{ code: 'x', label: 'X', resolution: 'activation', default: { base: 3, size: 0 } }],
+          spell: {
+            power: { type: 'parameter', parameter_code: 'x' },
+            control: { base: 3, size: -1 },
+            duration: { type: 'instant' },
+          },
+        }),
+      ],
+    );
+    const discharge = overview.abilities.find((ability) => ability.ruleCode === 'discharge');
+    expect(discharge?.spellPowerLabel).toBe('x↑');
+    expect(discharge?.spellControlLabel).toBe('3↓');
+    expect(discharge?.spellDurationLabel).toBe('Мгновенное');
+    expect(discharge?.spellCastCost).toBe(4);
+  });
+
+  it('фикстура Торвина показывает срез магии', () => {
+    const overview = service.build(versions[1], ruleCatalog);
+    const discharge = overview.abilities.find((ability) => ability.ruleCode === 'discharge');
+    expect(discharge?.spellPowerLabel).toBe('x↑');
+    expect(discharge?.spellControlLabel).toBe('3↓');
+    expect(discharge?.domainLabel).toBe('Арканист');
+    expect(overview.abilities.some((ability) => ability.ruleCode === 'becoming-arcanist')).toBe(true);
+    expect(overview.inventory.some((item) => item.ruleCode === 'magic-core')).toBe(true);
+    expect(overview.characteristics.some((entry) => entry.ruleCode === 'magic-power')).toBe(true);
+    expect(overview.characteristics.some((entry) => entry.ruleCode === 'magic')).toBe(false);
   });
 });

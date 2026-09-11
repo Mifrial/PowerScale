@@ -7,12 +7,12 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 export class EditorStatViewsService {
   /**
    * Строит записи для компактного блока характеристик панели навигации редактора:
-   * показываются только основные характеристики (group 'primary'). Остальные (базовые,
+   * показываются основные (group 'primary') и магические (group 'magic'). Остальные (базовые,
    * важные, боевые, вторичные) доступны в попапе «Все характеристики» (buildAllEditorStatViews).
    * Производные определяются по формуле правила характеристики.
    */
   buildEditorStatViews(characteristics: EditorCharacteristic[], rules: Rule[]): EditorStatView[] {
-    return this.buildStatViews(characteristics, rules, (group) => group === 'primary');
+    return this.buildStatViews(characteristics, rules, (group) => group === 'primary' || group === 'magic');
   }
 
   /**

@@ -12,6 +12,7 @@ import { characterOverviewService } from '@/modules/Roleplay/Character/Service/I
 import { useAbilityFavoritesStore } from '@/modules/Roleplay/Character/Store/abilityFavorites';
 import { useRuleDetailSlider } from '@/modules/Roleplay/Character/Composables/useRuleDetailSlider';
 import { ABILITY_TYPE_LABELS } from '@/modules/Roleplay/Rule/Constant/Ability/ABILITY_TYPE_LABELS';
+import { abilityTypeChipLabelService } from '@/modules/Roleplay/Rule/init';
 import { useKeywords } from '@/modules/Roleplay/Keyword/init';
 import type { AbilityOverview } from '@/modules/Roleplay/Character/Dto/Overview/AbilityOverview';
 import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
@@ -63,8 +64,8 @@ const filteredAbilities = computed(() => {
   return result;
 });
 
-function abilityTypeLabel(type: AbilityType | null): string | null {
-  return type === null ? null : (ABILITY_TYPE_LABELS[type] ?? type);
+function abilityTypeLabel(ability: AbilityOverview): string | null {
+  return abilityTypeChipLabelService.label(ability.type, keywords.value, ability.keywordIds, props.rules);
 }
 
 /** Стоимость/значение размерного числа: «3», «3↑». */
@@ -128,8 +129,8 @@ onMounted(() => {
             <v-chip v-if="ability.level > 0 && !ability.hasParameters" size="x-small" variant="tonal" color="primary">
               {{ ability.level }} ур.
             </v-chip>
-            <v-chip v-if="abilityTypeLabel(ability.type)" size="x-small" variant="tonal">
-              {{ abilityTypeLabel(ability.type) }}
+            <v-chip v-if="abilityTypeLabel(ability)" size="x-small" variant="tonal">
+              {{ abilityTypeLabel(ability) }}
             </v-chip>
             <v-chip v-if="ability.type === 'action' && costLabel(ability.actionOdCost)" size="x-small" variant="tonal">
               ОД: {{ costLabel(ability.actionOdCost) }}
@@ -138,8 +139,11 @@ onMounted(() => {
               <v-chip v-if="costLabel(ability.spellCastCost)" size="x-small" variant="tonal">
                 Сотворение: {{ costLabel(ability.spellCastCost) }}
               </v-chip>
-              <v-chip v-if="costLabel(ability.spellDifficulty)" size="x-small" variant="tonal">
-                Сложность: {{ costLabel(ability.spellDifficulty) }}
+              <v-chip v-if="ability.spellPowerLabel" size="x-small" variant="tonal">
+                Мощь: {{ ability.spellPowerLabel }}
+              </v-chip>
+              <v-chip v-if="ability.spellControlLabel" size="x-small" variant="tonal">
+                Контроль: {{ ability.spellControlLabel }}
               </v-chip>
               <v-chip v-if="ability.spellDurationLabel" size="x-small" variant="tonal">
                 {{ ability.spellDurationLabel }}
