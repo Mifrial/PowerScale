@@ -22,6 +22,7 @@
 - [Архитектура](architecture.md) — модули, таблица рёбер DAG, поверхность и CODE_GAP границ.
 - [План Core/UI 1: режимы client/server для грида](core-ui-grid-plan-01-server-mode.md) — сделано; `useGridData`; Keyword/Mechanic/templates на client.
 - [План Core/UI 2: Users/Groups на useGridData](core-ui-grid-plan-02-user-lists.md) — сделано; Users/Groups на `useGridData` server; без PHP sort; дальше Logger 4.
+- [План Core/UI 3: вложенная навигация](core-ui-navigation-plan-01.md) — план; один реестр `menuSection`/`menuItem`; роли не в меню.
 - [SmartTable](smarttable.md) — доступ к данным, Basic, `DEC-078`. Версионность — не ST, `DEC-080`.
 - [Нарезка SmartTable](smarttable-roadmap.md) — планы реализации SmartTable.
 - [План 1: соединение](smarttable-plan-01-connection.md) — Illuminate MySQL из `local.php`.
@@ -64,6 +65,7 @@
 - [План Logger 2: куда писать](logger-plan-02.md) — сделано; mail job failed; CLI setup/agent.
 - [План Logger 3: логер в site config](logger-plan-03.md) — сделано; class-string в `local.php`; extra `ILogger`; Kernel не импортирует Logger.
 - [План Logger 4: просмотр журнала](logger-plan-04-view.md) — сделано; `logger.findPage`/`get`, Vue `/admin/logs` на `useGridData` server; не audit.
+- [План Logger 5: даты на экране журнала](logger-plan-05-vue-datetime.md) — TODO; unix `createdAt` как дата/время и рабочий фильтр периода; HTTP не трогать.
 - [Нарезка Chat](chat-roadmap.md) — `Messages/Chat`: фасад → HTTP → SSE → Vue → visibility.
 - [План Chat 1: таблицы и фасад](chat-plan-01.md) — `IChats`; без HTTP/SSE.
 - [План Chat 2: HTTP commands](chat-plan-02.md) — `chat.getChats` / `findMessagePage` / `sendMessage` / `markChatRead`; lazy + маршруты.
@@ -83,6 +85,7 @@
 - [План Mechanic 3: Vue-модуль](mechanic-plan-03.md) — папка `Roleplay/Mechanic`, Binding, Engine; URL `/admin/mechanics` без смены.
 - [План Rule 1: кластер](rule-plan-01.md) — `Roleplay/Rule`; `rule*`; Reference на Keyword/Mechanic; generic body Versioning.
 - [План Rule 2: поверхность init](rule-plan-02-init-surface.md) — Constant/Value публичны (`DEC-082`); `Rule/init` без барреля констант и без SFC/`defineAsyncComponent`; композабл-фасады в `init` по-прежнему тянут vue.
+- [Нарезка магии и заклинаний](spell-roadmap.md) — inventory `AI.html`, representative slice, изучение в редакторе персонажа; полный каталог и runtime каста остаются `DEFERRED` до прохождения срезов.
 - [План RuleSpace 1: оператор](rulespace-plan-01.md) — sidecar мира, inherit `keep`, без HTTP.
 - [План RuleSpace 4: HTTP](rulespace-plan-04.md) — `ruleSpace.*` в RuleSpace; JSON-вид; без прав шага 8.
 - [План RuleSpace 5: права](rulespace-plan-05.md) — `space.create` / `view_all` / `edit_all` на HTTP; `owner_id` sidecar.
@@ -133,7 +136,7 @@
 
 - Документы описывают подтверждённый текущий контракт, а не желаемую архитектуру.
 - Backend-гипотезы помечаются `OPEN`.
-- Магия не уточняется до реальной выгрузки: источники, пути, ветки и навыки имеют статус `DEFERRED`.
+- Полный каталог магии и runtime сотворения — `DEFERRED`; срез путей и изучение листа — [`spell-roadmap.md`](spell-roadmap.md).
 - Редакционные статусы контента и runtime-поддержка независимы.
 - Исправления кода, frontend-правил и дизайн-спек выполняются отдельными задачами после явного решения.
 

@@ -28,6 +28,7 @@ weapon_family
 item_modifier
 item_modifier_type
 check
+magic_path
 ```
 
 DTO-слой также содержит связанные модели для:
@@ -152,7 +153,9 @@ type AbilityCost =
 
 Карта ability содержит `type`, `zones`, `requirements`, `grants`, `action_components`, optional `process`, optional `spell` и `parent_ability_code`. Редактор допускает широкий `AbilitySpecDraft`; перед сохранением `prune` удаляет поля, несовместимые с type.
 
-Канонические requirement types frontend DTO: `has_ability`, `has_ability_keyword`, `has_keyword`, `characteristic_value`, `resource_limit`, `and`, `or`, `min_weapon_mastery`, `current_speed`, `characteristic_parameter`, `resistance`, `sense_modify`, `state_modify`, `check_advantage` и `money`. Grants включают `characteristic`, `characteristic_modify`, `resource`, `resource_limit_change`, `ability`, `keyword` и `item`. Исторические `has_ability_tag`/`has_tag` заменены keyword-вариантами (`DEC-017`) и не являются current contract.
+Канонические requirement types frontend DTO: `has_ability`, `has_ability_keyword`, `has_keyword`, `characteristic_value`, `resource_limit`, `has_magic_path`, `magic_path_experience`, `and`, `or`, `min_weapon_mastery`, `current_speed`, `characteristic_parameter`, `resistance`, `sense_modify`, `state_modify`, `check_advantage` и `money`. Grants включают `characteristic`, `characteristic_modify`, `resource`, `resource_limit_change`, `ability`, `keyword`, `item`, `magic_path` и `magic_study` (`scope`, `max_cost`, optional `path_code` / `max_instances` / `paid_cost`). Исторические `has_ability_tag`/`has_tag` заменены keyword-вариантами (`DEC-017`) и не являются current contract.
+
+`MagicPathSpec` содержит `check_code`, `study_cost` и `includes_path_codes` (одностороннее покрытие чужого пути: шаман включает псионика). `has_ability` в контексте домена пути засчитывает экземпляр на самом пути или на включённом. `spell_upgrade` на skill: `action_point_delta`, optional `check_advantage` (только если модификатор выбран при касте, не грант `check_advantage`), optional `chain`. Без `parent_ability_code` это модификатор любого каста пути (`domain_ref: 'magic-path'`).
 
 `permanent` у grant по умолчанию true: эффект действует на последующих уровнях; false ограничивает эффект уровнем получения. `source_code` у модификаторов ссылается на правило типа `source`.
 
@@ -190,7 +193,7 @@ State описывает хранение, объединение повторо
 
 Готовность RuleType оценивается независимо по четырём осям: domain DTO/service, frontend UI, backend contract и real content. Наличие типа в `RuleType.ts` не закрывает остальные оси. Для каждого типа отдельно фиксируются evidence и один из статусов `IMPLEMENTED`, `PARTIAL`, `MOCK_ONLY`, `BACKEND_OPEN`, `NOT_IMPLEMENTED` и `DEFERRED`; итоговый типовой статус не должен скрывать слабейшую ось.
 
-Особый release gate: `spell`, magic source/path/branch/skill и полный runtime mechanics остаются `DEFERRED` до реальной выгрузки контента согласно `DEC-023`, `DEC-031`—`DEC-033`, `DEC-039`, `DEC-046` и `DEC-056`.
+Особый release gate: полный каталог источников/веток и **runtime** сотворения остаются `DEFERRED` до прохождения срезов (`DEC-023`, `DEC-031`—`DEC-033`, `DEC-039`, `DEC-046`, `DEC-056`). Срез `magic_path` + изучение в редакторе персонажа уже в frontend; детали — [`spell-roadmap.md`](spell-roadmap.md).
 
 | RuleType | Domain DTO/service | Frontend UI | Backend | Content | Evidence/disposition |
 | --- | --- | --- | --- | --- |
@@ -212,7 +215,8 @@ State описывает хранение, объединение повторо
 | `weapon_family` | `IMPLEMENTED` | `PARTIAL` | `OPEN` | `OPEN` | shape evidence: `RuleType.ts:1–20`; backend `OPEN`; content `DEFERRED` |
 | `item_modifier` | `IMPLEMENTED` | `PARTIAL` | `OPEN` | `OPEN` | shape evidence: `RuleType.ts:1–20`; backend `OPEN`; content `DEFERRED` |
 | `item_modifier_type` | `IMPLEMENTED` | `PARTIAL` | `OPEN` | `OPEN` | shape evidence: `RuleType.ts:1–20`; backend `OPEN`; content `DEFERRED` |
-| `check` | `IMPLEMENTED` | `PARTIAL` | `OPEN` | `OPEN` | shape evidence: `RuleType.ts:1–20`; backend `OPEN`; content `OPEN` |
+| `check` | `IMPLEMENTED` | `PARTIAL` | `OPEN` | `OPEN` | shape evidence: `RuleType.ts`; backend `OPEN`; content `OPEN` |
+| `magic_path` | `IMPLEMENTED` | `PARTIAL` | `OPEN` | `MOCK_ONLY` | shape evidence: `MagicPathSpec.ts`; `study_cost`, `includes_path_codes`; backend `OPEN` |
 
 Источник списка — `Rule/Enum/RuleType.ts`; domain evidence перечислена в DTO families выше. `IMPLEMENTED` в Domain DTO/service означает наличие и обработку frontend/domain-контракта, а не backend и не полноту реального контента.
 
@@ -226,5 +230,5 @@ State описывает хранение, объединение повторо
 - точный контракт Rule Sets и их связь с каталогом;
 - backend Rule Engine, порядок обработчиков и детерминизм;
 - полная backend-реализация выборочной публикации;
-- точная классификация магических источников, путей, веток и навыков — `DEFERRED` до выгрузки;
-- состав runtime-механик заклинаний — `DEFERRED` до выгрузки.
+- полная классификация магических источников, веток и навыков сверх текущего среза — `DEFERRED`;
+- состав runtime-механик заклинаний (диалог каста, применение `spell_upgrade`) — `DEFERRED` / M6–M9.
