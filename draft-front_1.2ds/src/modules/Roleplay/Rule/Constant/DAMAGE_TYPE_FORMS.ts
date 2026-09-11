@@ -9,6 +9,7 @@ export const DAMAGE_TYPE_FORMS: Record<string, DamageTypeForms> = {
   fire: { genitive: 'огня', dative: 'огню' },
   cold: { genitive: 'холода', dative: 'холоду' },
   electricity: { genitive: 'электричества', dative: 'электричеству' },
+  arcane: { genitive: 'арканного урона', dative: 'арканному урону' },
   light: { genitive: 'света', dative: 'свету' },
   'magic-damage': { genitive: 'магического урона', dative: 'магическому урону' },
   'poison-1': { genitive: 'яда 1 типа', dative: 'яду 1 типа' },

@@ -15,6 +15,7 @@ const props = defineProps<{
   abilities: AbilityRef[];
   keywords: KeywordRef[];
   abilityKeywords: KeywordRef[];
+  magicPaths?: { code: string; name: string }[];
 }>();
 
 const emit = defineEmits<{
@@ -69,6 +70,7 @@ watch(
         :abilities="abilities"
         :keywords="keywords"
         :ability-keywords="abilityKeywords"
+        :magic-paths="magicPaths ?? []"
         removable
         @remove="removeItem(index)"
       />

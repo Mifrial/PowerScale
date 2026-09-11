@@ -11,6 +11,7 @@ export const mockAbilitySectionTree: AbilitySection[] = [
   { code: 'magic-rules-damage-types', name: 'Типы урона', parentCode: 'magic-rules', sortOrder: 20 },
   { code: 'magic-rules-states', name: 'Состояния', parentCode: 'magic-rules', sortOrder: 30 },
   { code: 'magic-rules-paths', name: 'Пути волшебства', parentCode: 'magic-rules', sortOrder: 40 },
+  { code: 'magic-rules-casting', name: 'Сотворение и поддержание', parentCode: 'magic-rules', sortOrder: 50 },
   { code: 'scenes-combat', name: 'Сражение', parentCode: 'basic-scenes', sortOrder: 10 },
   { code: 'scenes-combat-basic-attacks', name: 'Базовые атаки', parentCode: 'scenes-combat', sortOrder: 10 },
   { code: 'scenes-combat-procedures', name: 'Удар / Бросок / Выстрел', parentCode: 'scenes-combat', sortOrder: 20 },
@@ -139,6 +140,18 @@ export const mockAbilitySectionTree: AbilitySection[] = [
     sortOrder: 10,
   },
   {
+    code: 'abilities-acquired-magic-paths-psionic',
+    name: 'Псионик',
+    parentCode: 'abilities-acquired-magic-paths',
+    sortOrder: 20,
+  },
+  {
+    code: 'abilities-acquired-magic-paths-shaman',
+    name: 'Шаман',
+    parentCode: 'abilities-acquired-magic-paths',
+    sortOrder: 30,
+  },
+  {
     code: 'abilities-acquired-magic-spells',
     name: 'Заклинания',
     parentCode: 'abilities-acquired-magic',
@@ -149,6 +162,12 @@ export const mockAbilitySectionTree: AbilitySection[] = [
     name: 'Электромантия',
     parentCode: 'abilities-acquired-magic-spells',
     sortOrder: 10,
+  },
+  {
+    code: 'abilities-acquired-magic-spells-psionic',
+    name: 'Псионик',
+    parentCode: 'abilities-acquired-magic-spells',
+    sortOrder: 20,
   },
   {
     code: 'abilities-acquired-magic-common',

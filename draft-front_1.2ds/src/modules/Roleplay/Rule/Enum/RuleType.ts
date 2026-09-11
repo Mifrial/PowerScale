@@ -17,4 +17,5 @@ export type RuleType =
   | 'weapon_family'
   | 'item_modifier'
   | 'item_modifier_type'
-  | 'check';
+  | 'check'
+  | 'magic_path';

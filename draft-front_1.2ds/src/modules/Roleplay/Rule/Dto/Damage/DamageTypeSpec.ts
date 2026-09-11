@@ -8,4 +8,8 @@ export interface DamageTypeSpec {
   attached_rule_codes: string[];
   /** Если true, линии защиты не складываются в сопротивление этому типу. */
   defense_ignored?: boolean;
+  /** Если true, сопротивление этому типу увеличивает Сложность сотворения. */
+  modifies_spell_difficulty?: boolean;
+  /** Потолок РУ как множителя повреждений: (урон − сопротивление) × min(РУ, cap). */
+  max_success_rating?: number | null;
 }

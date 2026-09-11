@@ -110,8 +110,8 @@ describe('mockRuleImport (S2)', () => {
     const grants = spec?.grants?.[0]?.grants as Grant[] | undefined;
     expect(grants?.[0]).toMatchObject({
       type: 'resistance',
-      damage_type_code: 'magic-damage',
-      value: { type: 'parameter', parameter_code: 'x', per_unit: 2 },
+      damage_type_code: 'arcane',
+      value: { type: 'parameter', parameter_code: 'x', per_unit: 1 },
       source_code: 'innate',
     });
 
@@ -160,9 +160,9 @@ describe('mockRuleImport (S2)', () => {
     }
   });
 
-  it('Врождённая Магия X (S9): дар со значением-потолком, размерная цена из дока', () => {
-    const rule = byCode.get('magic-potential');
-    expect(rule?.name).toBe('Врождённая Магия X');
+  it('Врождённое магическое ядро X: дар с табличной ценой мощи', () => {
+    const rule = byCode.get('magic-core-capacity');
+    expect(rule?.name).toBe('Врождённое магическое ядро X');
     // Дар: признаки «Врождённая», «Характеристика», «Дар» (47) — без «Модификатор» (46).
     expect(rule?.keywordIds).toEqual(expect.arrayContaining([44, 45, 47]));
     expect(rule?.keywordIds).not.toContain(46);
@@ -173,6 +173,7 @@ describe('mockRuleImport (S2)', () => {
       parameter_code: 'x',
       costs: { '3↓': 1, '4↓': 2, '5↓': 3, '3': 4, '4': 6, '5': 8, '3↑': 12, '4↑': 16, '5↑': 20 },
     });
+    expect(spec?.zones.or).toBeUndefined();
     expect(spec?.parameters?.[0]).toMatchObject({
       code: 'x',
       default: { base: 3, size: 0 },

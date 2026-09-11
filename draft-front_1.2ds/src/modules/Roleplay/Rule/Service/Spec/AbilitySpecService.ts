@@ -1,10 +1,16 @@
 import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpec';
+import type { SpellSpec } from '@/modules/Roleplay/Rule/Dto/Ability/SpellSpec';
+import type { SpellValue } from '@/modules/Roleplay/Rule/Dto/Ability/SpellValue';
 import type { AbilitySpecDraft } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpecDraft';
 import type { AbilityType } from '@/modules/Roleplay/Rule/Enum/Ability/AbilityType';
 import type { Requirement } from '@/modules/Roleplay/Rule/Dto/Ability/Requirement';
 import type { Grant } from '@/modules/Roleplay/Rule/Dto/Ability/Grant';
 import type { ActionComponent } from '@/modules/Roleplay/Rule/Dto/Ability/ActionComponent';
+import type { SpellDamage } from '@/modules/Roleplay/Rule/Dto/Ability/SpellDamage';
+import type { SpellUpgrade } from '@/modules/Roleplay/Rule/Dto/Ability/SpellUpgrade';
 import type { SpellDuration } from '@/modules/Roleplay/Rule/Dto/Ability/SpellDuration';
+import type { HitResolution } from '@/modules/Roleplay/Rule/Dto/Ability/HitResolution';
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { ResourceRef } from '@/modules/Roleplay/Rule/Dto/Ability/ResourceRef';
 import { ACTION_POINTS_RESOURCE_CODE } from '@/modules/Roleplay/Rule/Constant/Ability/ACTION_POINTS_RESOURCE_CODE';
 import { GROUP_DOMAIN_KEYWORD_CODES } from '@/modules/Roleplay/Rule/Constant/Ability/GROUP_DOMAIN_KEYWORD_CODES';
@@ -206,6 +212,10 @@ export class AbilitySpecService {
         return { type: 'keyword', keyword_code: '', remove: false };
       case 'item':
         return { type: 'item', item_code: '', quantity: 1 };
+      case 'magic_path':
+        return { type: 'magic_path', path_code: '' };
+      case 'magic_study':
+        return { type: 'magic_study', scope: 'spell', max_cost: 2 };
       case 'resistance':
         return {
           type: 'resistance',
@@ -268,6 +278,10 @@ export class AbilitySpecService {
         };
       case 'resource_limit':
         return { type: 'resource_limit', resource_code: '' };
+      case 'has_magic_path':
+        return { type: 'has_magic_path', path_code: '' };
+      case 'magic_path_experience':
+        return { type: 'magic_path_experience', path_code: '', min: 1 };
       case 'current_speed':
         return {
           type: 'current_speed',
@@ -296,6 +310,8 @@ export class AbilitySpecService {
       return { type: 'resource', resource_code: '', amount: 0, label: undefined };
     }
 
+    if (type === 'somatic') return { type: 'somatic', note: undefined, occupy_hands: undefined };
+
     return { type, note: undefined };
   }
 
@@ -318,9 +334,145 @@ export class AbilitySpecService {
     return components.filter((_, i) => i !== index);
   }
 
+  createEmptySpellSpec(): SpellSpec {
+    return {
+      power: { base: 3, size: 0 },
+      control: { base: 3, size: -1 },
+      duration: { type: 'instant' },
+    };
+  }
+
+  createEmptySpellDamage(): SpellDamage {
+    return {
+      damage_type_code: '',
+      experience_keyword_code: '',
+      power_modify_steps: [{ min_experience: 0, modify: 3 }],
+    };
+  }
+
+  setSpellDamage(spell: SpellSpec, damage: SpellDamage | null): SpellSpec {
+    if (!damage) {
+      return { power: spell.power, control: spell.control, duration: spell.duration };
+    }
+
+    return { ...spell, damage };
+  }
+
+  createEmptySpellFalloff(): NonNullable<SpellDamage['falloff']> {
+    return { free_ipari: 2, size_per_extra_ipari: 1, min: { base: 3, size: -1 } };
+  }
+
+  setSpellDamageFalloff(spell: SpellSpec, enabled: boolean): SpellSpec {
+    const damage = spell.damage ?? this.createEmptySpellDamage();
+    if (!enabled) {
+      return this.setSpellDamage(spell, {
+        damage_type_code: damage.damage_type_code,
+        experience_keyword_code: damage.experience_keyword_code,
+        power_modify_steps: damage.power_modify_steps,
+      });
+    }
+
+    return this.setSpellDamage(spell, { ...damage, falloff: damage.falloff ?? this.createEmptySpellFalloff() });
+  }
+
+  patchSpellDamageFalloff(spell: SpellSpec, patch: Partial<NonNullable<SpellDamage['falloff']>>): SpellSpec {
+    const damage = spell.damage ?? this.createEmptySpellDamage();
+    const falloff = { ...(damage.falloff ?? this.createEmptySpellFalloff()), ...patch };
+
+    return this.setSpellDamage(spell, { ...damage, falloff });
+  }
+
+  isSpellValueParameter(value: SpellValue): value is { type: 'parameter'; parameter_code: string } {
+    return typeof value === 'object' && 'type' in value && value.type === 'parameter';
+  }
+
+  ensureHitResolution(spec: AbilitySpecDraft): AbilitySpecDraft {
+    if (spec.hit_resolution) return spec;
+
+    return { ...spec, hit_resolution: { type: 'none' } };
+  }
+
   createEmptySpellDuration(type: SpellDuration['type']): SpellDuration {
     if (type === 'instant') return { type: 'instant' };
+    if (type === 'refreshable') return { type: 'refreshable', action_cost: 1 };
+    if (type === 'sustained') return { type: 'sustained', power: { type: 'parameter', parameter_code: 'x' } };
 
-    return { type, difficulty: { base: 3, size: 0 }, action_cost: 0 };
+    return { type };
+  }
+
+  setSpellDurationPower(duration: SpellDuration, power: SpellValue): SpellDuration {
+    if (duration.type !== 'sustained') return duration;
+
+    return { ...duration, power };
+  }
+
+  withSpellField<K extends keyof SpellSpec>(spell: SpellSpec, key: K, value: SpellSpec[K]): SpellSpec {
+    return { ...spell, [key]: value };
+  }
+
+  setSpellValueDimensional(fieldDefault: DimensionalNumberValue, value: DimensionalNumberValue | null): SpellValue {
+    return value ?? fieldDefault;
+  }
+
+  setSpellValueParameter(parameterCode: string): SpellValue {
+    return { type: 'parameter', parameter_code: parameterCode };
+  }
+
+  createHitResolution(type: HitResolution['type'], rating = 1): HitResolution {
+    if (type === 'auto') return { type: 'auto', rating };
+
+    return { type };
+  }
+
+  setHitResolutionType(spec: AbilitySpecDraft, type: HitResolution['type']): AbilitySpecDraft {
+    return { ...spec, hit_resolution: this.createHitResolution(type) };
+  }
+
+  setHitResolutionRating(spec: AbilitySpecDraft, rating: number): AbilitySpecDraft {
+    return { ...spec, hit_resolution: { type: 'auto', rating } };
+  }
+
+  toggleSpellDurationLimit(duration: SpellDuration, enabled: boolean): SpellDuration {
+    if (duration.type === 'instant') return duration;
+    const limit = enabled ? { value: 1, unit: 'turn' as const } : undefined;
+
+    return { ...duration, limit };
+  }
+
+  patchSpellDurationLimit(duration: SpellDuration, key: 'value' | 'unit', value: unknown): SpellDuration {
+    if (duration.type === 'instant' || !duration.limit) return duration;
+
+    return { ...duration, limit: { ...duration.limit, [key]: value } };
+  }
+
+  setRefreshableActionCost(duration: SpellDuration, actionCost: number): SpellDuration {
+    if (duration.type !== 'refreshable') return duration;
+
+    return { ...duration, action_cost: actionCost };
+  }
+
+  createEmptySpellUpgrade(): SpellUpgrade {
+    return { action_point_delta: 1 };
+  }
+
+  setSpellUpgrade(spec: AbilitySpecDraft, upgrade: SpellUpgrade | null): AbilitySpecDraft {
+    if (!upgrade) {
+      const next = { ...spec };
+      delete next.spell_upgrade;
+
+      return next;
+    }
+
+    return { ...spec, spell_upgrade: upgrade };
+  }
+
+  patchSpellUpgrade(spec: AbilitySpecDraft, patch: Partial<SpellUpgrade>): AbilitySpecDraft {
+    const current = spec.spell_upgrade ?? this.createEmptySpellUpgrade();
+    const next: SpellUpgrade = { ...current, ...patch };
+    if (!next.check_advantage) {
+      delete next.check_advantage;
+    }
+
+    return { ...spec, spell_upgrade: next };
   }
 }

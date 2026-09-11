@@ -120,4 +120,58 @@ describe('RuleCatalogMigrationService', () => {
 
     expect(migrated.every((entry) => entry.catalogSection === 'abilities-acquired-melee-combat-accuracy')).toBe(true);
   });
+
+  it('places magic slice abilities into magic catalog sections', () => {
+    const migrated = ruleCatalogMigrationService.migrateRules(
+      [
+        rule({
+          code: 'discharge',
+          type: 'ability',
+          spec: {
+            type: 'spell',
+            zones: {},
+            requirements: [],
+            grants: [],
+            parent_ability_code: null,
+            action_components: [],
+            spell: { power: { base: 3, size: 0 }, control: { base: 3, size: 0 }, duration: { type: 'instant' } },
+          },
+          keywordIds: [1],
+        }),
+        rule({
+          code: 'becoming-arcanist',
+          type: 'ability',
+          spec: { type: 'skill', zones: {}, requirements: [], grants: [], parent_ability_code: null },
+          keywordIds: [2],
+        }),
+        rule({
+          code: 'magic-core-capacity',
+          type: 'ability',
+          spec: { type: 'trait', zones: {}, requirements: [], grants: [], parent_ability_code: null },
+        }),
+        rule({ code: 'magic-power', type: 'characteristic' }),
+        rule({ code: 'arcane', type: 'damage_type' }),
+        rule({ code: 'shock', type: 'state' }),
+        rule({ code: 'spirituality', type: 'characteristic' }),
+        rule({ code: 'arcanist', type: 'magic_path' }),
+        rule({ code: 'spell-sustaining', type: 'simple' }),
+      ],
+      new Map([
+        [1, 'electromancy'],
+        [2, 'magic-path'],
+      ]),
+    );
+
+    expect(migrated.map((entry) => entry.catalogSection)).toEqual([
+      'abilities-acquired-magic-spells-electromancy',
+      'abilities-acquired-magic-paths-arcanist',
+      'abilities-acquired-magic-sources-core',
+      'magic-rules-characteristics',
+      'magic-rules-damage-types',
+      'magic-rules-states',
+      'magic-rules-characteristics',
+      'magic-rules-paths',
+      'magic-rules-casting',
+    ]);
+  });
 });

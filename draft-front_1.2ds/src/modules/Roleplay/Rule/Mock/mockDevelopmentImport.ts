@@ -1543,8 +1543,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     id: 255,
     code: 'trenirovka-voli',
     type: 'ability',
-    name: 'Тренировка воли( х из 3)',
-    description: 'Вы получаете + х к Силе воли.',
+    name: 'Тренировка воли',
+    description: 'Вы получаете +{уровень навыка} к Силе воли от тренировки.',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -1555,7 +1555,19 @@ const mockDevelopmentImportRaw: Rule[] = [
         },
       },
       requirements: [],
-      grants: [],
+      grants: [
+        {
+          level: 1,
+          grants: [
+            {
+              type: 'characteristic_modify',
+              characteristic_code: 'willpower',
+              amount: { type: 'ability_level', ability_code: 'trenirovka-voli', multiplier: 1, offset: 0 },
+              source_code: 'training',
+            },
+          ],
+        },
+      ],
       parent_ability_code: null,
     },
     keywordIds: [13, 60],

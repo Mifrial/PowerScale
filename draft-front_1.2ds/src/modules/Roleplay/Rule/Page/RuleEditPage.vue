@@ -22,10 +22,12 @@ import WeaponFamilyEditor from '@/modules/Roleplay/Rule/Component/Editors/Item/W
 import ItemModifierEditor from '@/modules/Roleplay/Rule/Component/Editors/ItemModifierEditor.vue';
 import ItemModifierTypeEditor from '@/modules/Roleplay/Rule/Component/Editors/ItemModifierTypeEditor.vue';
 import CheckEditor from '@/modules/Roleplay/Rule/Component/Editors/CheckEditor.vue';
+import MagicPathEditor from '@/modules/Roleplay/Rule/Component/Editors/MagicPathEditor.vue';
 import MarkerRuleEditor from '@/modules/Roleplay/Rule/Component/Editors/MarkerRuleEditor.vue';
 import AgeEditor from '@/modules/Roleplay/Rule/Component/Editors/AgeEditor.vue';
 import RuleConflictDialog from '@/modules/Roleplay/Rule/Component/RuleConflictDialog.vue';
 import { RULE_TYPES } from '@/modules/Roleplay/Rule/Constant/RULE_TYPES';
+import { RULE_CONTENT_STATUS_OPTIONS } from '@/modules/Roleplay/Rule/Constant/RULE_CONTENT_STATUS_OPTIONS';
 import { ruleDraftService } from '@/modules/Roleplay/Rule/Service/Instance/ruleDraftService';
 import { ruleValidationService } from '@/modules/Roleplay/Rule/Service/Instance/ruleValidationService';
 import { ruleToForm } from '@/modules/Roleplay/Rule/Utils/Rule/ruleToForm';
@@ -61,6 +63,7 @@ const keywordIds = ref<number[]>([]);
 const spec = ref<RuleSpec | null>(null);
 const catalogSection = ref<string | null>(null);
 const catalogSortOrder = ref(100);
+const contentStatus = ref('needs_work');
 const saving = ref(false);
 const loading = ref(true);
 const error = ref<string | null>(null);
@@ -100,6 +103,7 @@ function applyForm(form: RuleFormState) {
   spec.value = form.spec;
   catalogSection.value = form.catalogSection;
   catalogSortOrder.value = form.catalogSortOrder;
+  contentStatus.value = form.contentStatus;
 }
 
 async function resolveRoute(): Promise<void> {
@@ -141,6 +145,7 @@ async function resolveRoute(): Promise<void> {
       if (typeof q.type === 'string' && isRuleType(q.type)) type.value = q.type;
       catalogSection.value = null;
       catalogSortOrder.value = 100;
+      contentStatus.value = 'needs_work';
     }
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') return;
@@ -207,6 +212,7 @@ async function save() {
       mechanicId: mechanicId.value,
       catalogSection: catalogSection.value,
       catalogSortOrder: catalogSortOrder.value,
+      contentStatus: contentStatus.value,
     });
     const rest = ruleHost.value.effectiveRules.filter((entry) => entry.code !== rule.code);
     const blocking = ruleValidationService.blockingMessagesForRule(
@@ -252,6 +258,16 @@ async function save() {
             :items="RULE_TYPES"
             label="Тип правила"
             :rules="[(v) => !!v || 'Обязательное поле']"
+          />
+          <v-select
+            v-model="contentStatus"
+            :items="RULE_CONTENT_STATUS_OPTIONS"
+            item-title="title"
+            item-value="value"
+            label="Редакционный статус"
+            density="compact"
+            class="mt-2"
+            hide-details
           />
 
           <SimpleRuleEditor
@@ -473,6 +489,21 @@ async function save() {
             v-model:spec="spec"
             :mechanic-options="mechanicOptions"
             :keyword-options="keywordOptions"
+          />
+
+          <MagicPathEditor
+            v-else-if="type === 'magic_path'"
+            :key="routeKey"
+            v-model:name="name"
+            v-model:code="ruleCode"
+            :code-disabled="isEdit"
+            v-model:description="description"
+            v-model:mechanicId="mechanicId"
+            v-model:keywordIds="keywordIds"
+            v-model:spec="spec"
+            :mechanic-options="mechanicOptions"
+            :keyword-options="keywordOptions"
+            :rules="ruleHost.effectiveRules"
           />
 
           <CheckEditor

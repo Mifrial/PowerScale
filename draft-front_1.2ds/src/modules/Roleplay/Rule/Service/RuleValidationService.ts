@@ -10,6 +10,7 @@ import type { Grant } from '@/modules/Roleplay/Rule/Dto/Ability/Grant';
 import type { ItemSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpec';
 import type { ItemModifierSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierSpec';
 import type { CheckSpec } from '@/modules/Roleplay/Rule/Dto/Check/CheckSpec';
+import type { MagicPathSpec } from '@/modules/Roleplay/Rule/Dto/MagicPath/MagicPathSpec';
 import { checkResolutionService } from '@/modules/Roleplay/Rule/Service/Instance/checkResolutionService';
 import { damageTypeSpecService } from '@/modules/Roleplay/Rule/Service/Instance/damageTypeSpecService';
 import type { RaceSpec } from '@/modules/Roleplay/Rule/Dto/Race/RaceSpec';
@@ -31,6 +32,11 @@ import type { RefExpectation } from '@/modules/Roleplay/Rule/Dto/RefExpectation'
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { ActionOperation } from '@/modules/Roleplay/Rule/Dto/Ability/ActionOperation';
 import type { MovementDistanceExpression } from '@/modules/Roleplay/Rule/Dto/Ability/MovementDistanceExpression';
+import type { SpellDuration } from '@/modules/Roleplay/Rule/Dto/Ability/SpellDuration';
+import type { SpellDamage } from '@/modules/Roleplay/Rule/Dto/Ability/SpellDamage';
+import type { SpellValue } from '@/modules/Roleplay/Rule/Dto/Ability/SpellValue';
+import type { HitResolution } from '@/modules/Roleplay/Rule/Dto/Ability/HitResolution';
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 
 export class RuleValidationService {
   constructor(private readonly abilitySpec: AbilitySpecService) {}
@@ -142,7 +148,7 @@ export class RuleValidationService {
 
   /**
    * Структурная валидация способностей по типу: обязательная ОД-стоимость,
-   * шаги/переходы процесса, сложность и компоненты заклинания.
+   * шаги/переходы процесса, контракт заклинания и компоненты действия.
    */
   validateAbilityStructure(
     rules: Rule[],
@@ -198,11 +204,11 @@ export class RuleValidationService {
         });
       }
       const actionEffects = 'action_effects' in spec ? (spec.action_effects ?? []) : [];
-      if (actionEffects.length > 0 && type !== 'action') {
+      if (actionEffects.length > 0 && type !== 'action' && type !== 'spell') {
         errors.push({
           ruleName: rule.name,
           ruleCode: rule.code,
-          message: 'временные эффекты действия доступны только для способности типа «Действие»',
+          message: 'временные эффекты действия доступны для действия, включая заклинание',
         });
       }
       for (const effect of actionEffects) {
@@ -231,6 +237,21 @@ export class RuleValidationService {
             ruleCode: rule.code,
             message: 'модификатор силы действия должен иметь ненулевое числовое значение',
           });
+        }
+        if (effect.type === 'apply_state') {
+          if (!effect.state_code) {
+            errors.push({
+              ruleName: rule.name,
+              ruleCode: rule.code,
+              message: 'эффект apply_state должен указывать состояние',
+            });
+          } else if (!rules.some((entry) => entry.code === effect.state_code && entry.type === 'state')) {
+            errors.push({
+              ruleName: rule.name,
+              ruleCode: rule.code,
+              message: `эффект ссылается на отсутствующее состояние «${effect.state_code}»`,
+            });
+          }
         }
         if (
           effect.type === 'after_action_until_resource_spent_check_modifier' &&
@@ -329,17 +350,22 @@ export class RuleValidationService {
       }
 
       if (type === 'spell') {
-        const spell = 'spell' in spec ? spec.spell : undefined;
-        if (!spell?.difficulty) {
-          errors.push({
-            ruleName: rule.name,
-            ruleCode: rule.code,
-            message: 'заклинание требует сложность сотворения',
-          });
-        }
+        errors.push(...this.validateSpellContract(rule, spec));
+      }
+      if (spec.type !== 'group') {
+        errors.push(...this.validateSpellUpgrade(rule, spec, rules));
       }
 
       for (const component of components) {
+        if (component.type === 'somatic' && component.occupy_hands !== undefined) {
+          if (!Number.isInteger(component.occupy_hands) || component.occupy_hands < 1 || component.occupy_hands > 2) {
+            errors.push({
+              ruleName: rule.name,
+              ruleCode: rule.code,
+              message: 'соматический компонент занимает 1 или 2 руки',
+            });
+          }
+        }
         if (component.type !== 'material') continue;
         const hasItem = !!component.item_code;
         const hasTags = !!component.keyword_codes?.length;
@@ -470,6 +496,14 @@ export class RuleValidationService {
             message: `«${code}» нельзя повесить на тип урона`,
           });
         }
+      }
+      const cap = spec.max_success_rating;
+      if (cap != null && (!Number.isInteger(cap) || cap < 1)) {
+        errors.push({
+          ruleCode: rule.code,
+          ruleName: rule.name,
+          message: 'потолок множителя РУ должен быть целым ≥ 1',
+        });
       }
     }
 
@@ -921,6 +955,11 @@ export class RuleValidationService {
         for (const operation of 'operations' in ability ? (ability.operations ?? []) : []) {
           this.collectOperationRefs(operation, collect);
         }
+        for (const effect of 'action_effects' in ability ? (ability.action_effects ?? []) : []) {
+          if (effect.type === 'apply_state' && effect.state_code) {
+            collect({ code: effect.state_code, type: 'state' });
+          }
+        }
         if ('process' in ability) {
           for (const step of ability.process?.steps ?? []) {
             for (const cost of step.costs ?? []) {
@@ -929,6 +968,12 @@ export class RuleValidationService {
               }
             }
             for (const operation of step.operations ?? []) this.collectOperationRefs(operation, collect);
+          }
+        }
+        if (ability.type === 'spell' && ability.spell.damage) {
+          collect({ code: ability.spell.damage.damage_type_code, type: 'damage_type' });
+          if (ability.spell.damage.experience_keyword_code) {
+            collect({ code: ability.spell.damage.experience_keyword_code, type: 'keyword' });
           }
         }
         break;
@@ -1048,6 +1093,17 @@ export class RuleValidationService {
         break;
       }
 
+      case 'magic_path': {
+        const path = spec as MagicPathSpec;
+        if (path.check_code) {
+          collect({ code: path.check_code, type: 'check' });
+        }
+        for (const included of path.includes_path_codes ?? []) {
+          collect({ code: included, type: 'magic_path' });
+        }
+        break;
+      }
+
       case 'age': {
         const age = spec as AgeSpec;
         for (const stage of age.ages ?? []) {
@@ -1131,6 +1187,12 @@ export class RuleValidationService {
     if (node.type === 'resource_limit' && node.resource_code) {
       collect({ code: node.resource_code, type: 'resource' });
     }
+    if (node.type === 'has_magic_path' && node.path_code) {
+      collect({ code: node.path_code, type: 'magic_path' });
+    }
+    if (node.type === 'magic_path_experience' && node.path_code) {
+      collect({ code: node.path_code, type: 'magic_path' });
+    }
   }
 
   private walkGrant(grant: Grant | undefined, collect: (ref: RefExpectation) => void): void {
@@ -1163,6 +1225,12 @@ export class RuleValidationService {
     }
     if (grant.type === 'item' && grant.item_code) {
       collect({ code: grant.item_code, type: 'item' });
+    }
+    if (grant.type === 'magic_path' && grant.path_code) {
+      collect({ code: grant.path_code, type: 'magic_path' });
+    }
+    if (grant.type === 'magic_study' && grant.path_code) {
+      collect({ code: grant.path_code, type: 'magic_path' });
     }
     if (grant.type === 'resistance' && grant.damage_type_code) {
       collect({ code: grant.damage_type_code, type: 'damage_type' });
@@ -1298,6 +1366,313 @@ export class RuleValidationService {
     }
 
     return errors;
+  }
+
+  private validateSpellContract(rule: Rule, spec: AbilitySpec): AbilityStructureError[] {
+    const errors: AbilityStructureError[] = [];
+    const spell = 'spell' in spec ? spec.spell : undefined;
+    if (!spell) {
+      errors.push({ ruleName: rule.name, ruleCode: rule.code, message: 'заклинание требует спеку spell' });
+
+      return errors;
+    }
+    if (this.hasOwn(spell, 'difficulty')) {
+      errors.push({
+        ruleName: rule.name,
+        ruleCode: rule.code,
+        message: 'сложность сотворения не является свойством заклинания',
+      });
+    }
+    if (!spell.power) {
+      errors.push({ ruleName: rule.name, ruleCode: rule.code, message: 'заклинание требует мощь' });
+    } else {
+      errors.push(...this.validateSpellValue(rule, spec, spell.power, 'мощь'));
+    }
+    if (!spell.control) {
+      errors.push({ ruleName: rule.name, ruleCode: rule.code, message: 'заклинание требует контроль' });
+    } else {
+      errors.push(...this.validateSpellValue(rule, spec, spell.control, 'контроль'));
+    }
+    errors.push(...this.validateSpellDuration(rule, spec, spell.duration));
+    errors.push(...this.validateHitResolution(rule, 'hit_resolution' in spec ? spec.hit_resolution : undefined));
+    errors.push(...this.validateSpellDamage(rule, spell.damage));
+
+    return errors;
+  }
+
+  private validateSpellUpgrade(rule: Rule, spec: AbilitySpec, rules: Rule[]): AbilityStructureError[] {
+    if (spec.type === 'group' || !spec.spell_upgrade) return [];
+    const errors: AbilityStructureError[] = [];
+    if (!spec.parent_ability_code && spec.multiple !== true) {
+      errors.push({
+        ruleName: rule.name,
+        ruleCode: rule.code,
+        message: 'модификатор каста задаётся только у улучшения с родителем или у множественного навыка',
+      });
+
+      return errors;
+    }
+    if (spec.parent_ability_code) {
+      const parent = rules.find((entry) => entry.code === spec.parent_ability_code && entry.type === 'ability');
+      const parentSpec = parent?.spec as AbilitySpec | undefined;
+      if (!parentSpec || parentSpec.type !== 'spell') {
+        errors.push({
+          ruleName: rule.name,
+          ruleCode: rule.code,
+          message: 'модификатор каста требует родителя-заклинание',
+        });
+      }
+    }
+    if (!Number.isInteger(spec.spell_upgrade.action_point_delta)) {
+      errors.push({
+        ruleName: rule.name,
+        ruleCode: rule.code,
+        message: 'дельта ОД улучшения должна быть целой',
+      });
+    }
+    if (spec.spell_upgrade.check_advantage !== undefined && !Number.isInteger(spec.spell_upgrade.check_advantage)) {
+      errors.push({
+        ruleName: rule.name,
+        ruleCode: rule.code,
+        message: 'преимущество сотворения должно быть целым',
+      });
+    }
+    const chain = spec.spell_upgrade.chain;
+    if (!chain) return errors;
+    if (!Number.isInteger(chain.damage_size_per_hop) || chain.damage_size_per_hop < 1) {
+      errors.push({
+        ruleName: rule.name,
+        ruleCode: rule.code,
+        message: 'цепь требует снижение урона на целый размер ≥ 1',
+      });
+    }
+    if (!Number.isInteger(chain.min.base) || !Number.isInteger(chain.min.size)) {
+      errors.push({
+        ruleName: rule.name,
+        ruleCode: rule.code,
+        message: 'порог цепи должен быть размерным числом',
+      });
+    }
+    if (chain.retarget !== 'from_last_hit') {
+      errors.push({
+        ruleName: rule.name,
+        ruleCode: rule.code,
+        message: 'цепь считает дистанцию от последнего попадания',
+      });
+    }
+    if (chain.same_target !== 'via_other') {
+      errors.push({
+        ruleName: rule.name,
+        ruleCode: rule.code,
+        message: 'цепь бьёт ту же цель только через другую',
+      });
+    }
+
+    return errors;
+  }
+
+  private validateSpellDamage(rule: Rule, damage: SpellDamage | undefined): AbilityStructureError[] {
+    if (!damage) return [];
+    const errors: AbilityStructureError[] = [];
+    if (!damage.damage_type_code?.trim()) {
+      errors.push({ ruleName: rule.name, ruleCode: rule.code, message: 'урон заклинания требует тип урона' });
+    }
+    if (!damage.experience_keyword_code?.trim()) {
+      errors.push({
+        ruleName: rule.name,
+        ruleCode: rule.code,
+        message: 'урон заклинания требует keyword опыта',
+      });
+    }
+    if (!damage.power_modify_steps?.length) {
+      errors.push({
+        ruleName: rule.name,
+        ruleCode: rule.code,
+        message: 'урон заклинания требует ступени сдвига мощи',
+      });
+
+      return errors;
+    }
+    const seen = new Set<number>();
+    for (const step of damage.power_modify_steps) {
+      if (!Number.isInteger(step.min_experience) || step.min_experience < 0) {
+        errors.push({
+          ruleName: rule.name,
+          ruleCode: rule.code,
+          message: 'порог опыта урона должен быть неотрицательным целым',
+        });
+      }
+      if (!Number.isInteger(step.modify)) {
+        errors.push({
+          ruleName: rule.name,
+          ruleCode: rule.code,
+          message: 'сдвиг мощи урона должен быть целым',
+        });
+      }
+      if (seen.has(step.min_experience)) {
+        errors.push({
+          ruleName: rule.name,
+          ruleCode: rule.code,
+          message: `порог опыта урона ${step.min_experience} задан дважды`,
+        });
+      }
+      seen.add(step.min_experience);
+    }
+
+    if (damage.falloff) {
+      if (!Number.isInteger(damage.falloff.free_ipari) || damage.falloff.free_ipari < 0) {
+        errors.push({
+          ruleName: rule.name,
+          ruleCode: rule.code,
+          message: 'бесплатная дистанция falloff должна быть неотрицательным целым',
+        });
+      }
+      if (!Number.isInteger(damage.falloff.size_per_extra_ipari) || damage.falloff.size_per_extra_ipari < 1) {
+        errors.push({
+          ruleName: rule.name,
+          ruleCode: rule.code,
+          message: 'снижение falloff должно быть целым размером ≥ 1',
+        });
+      }
+      if (!Number.isInteger(damage.falloff.min.base) || !Number.isInteger(damage.falloff.min.size)) {
+        errors.push({
+          ruleName: rule.name,
+          ruleCode: rule.code,
+          message: 'порог falloff должен быть размерным числом',
+        });
+      }
+    }
+
+    return errors;
+  }
+
+  private validateSpellValue(rule: Rule, spec: AbilitySpec, value: SpellValue, label: string): AbilityStructureError[] {
+    if (this.isSpellParameterValue(value)) {
+      const parameter =
+        'parameters' in spec ? spec.parameters?.find((entry) => entry.code === value.parameter_code) : undefined;
+      if (!parameter) {
+        return [
+          {
+            ruleName: rule.name,
+            ruleCode: rule.code,
+            message: `${label} ссылается на отсутствующий параметр «${value.parameter_code}»`,
+          },
+        ];
+      }
+      for (const bound of [parameter.min, parameter.max]) {
+        if (this.isDimensionalNumberValue(bound) && (bound.base < 3 || bound.base > 5)) {
+          return [
+            {
+              ruleName: rule.name,
+              ruleCode: rule.code,
+              message: `${label}: база параметра «${value.parameter_code}» должна быть от 3 до 5`,
+            },
+          ];
+        }
+      }
+
+      return [];
+    }
+    if (!this.isDimensionalNumberValue(value)) {
+      return [
+        {
+          ruleName: rule.name,
+          ruleCode: rule.code,
+          message: `${label} должна быть размерным значением или параметром`,
+        },
+      ];
+    }
+    if (value.base < 3 || value.base > 5) {
+      return [
+        {
+          ruleName: rule.name,
+          ruleCode: rule.code,
+          message: `${label}: база размерного значения должна быть от 3 до 5`,
+        },
+      ];
+    }
+
+    return [];
+  }
+
+  private validateSpellDuration(
+    rule: Rule,
+    spec: AbilitySpec,
+    duration: SpellDuration | undefined,
+  ): AbilityStructureError[] {
+    if (!duration) {
+      return [{ ruleName: rule.name, ruleCode: rule.code, message: 'заклинание требует длительность' }];
+    }
+    if (this.hasOwn(duration, 'difficulty')) {
+      return [
+        {
+          ruleName: rule.name,
+          ruleCode: rule.code,
+          message: 'длительность не хранит сложность сотворения',
+        },
+      ];
+    }
+    if (duration.type === 'refreshable') {
+      if (duration.action_cost === undefined || duration.action_cost === null) {
+        return [{ ruleName: rule.name, ruleCode: rule.code, message: 'обновляемая длительность требует стоимость ОД' }];
+      }
+
+      return [];
+    }
+    if ((duration.type === 'lingering' || duration.type === 'sustained') && 'action_cost' in duration) {
+      return [
+        {
+          ruleName: rule.name,
+          ruleCode: rule.code,
+          message: 'длительное и поддерживаемое не тратят ОД на длительность',
+        },
+      ];
+    }
+    if (duration.type === 'sustained') {
+      if (!duration.power) {
+        return [{ ruleName: rule.name, ruleCode: rule.code, message: 'поддержание требует свою мощь' }];
+      }
+
+      return this.validateSpellValue(rule, spec, duration.power, 'мощь поддержания');
+    }
+
+    return [];
+  }
+
+  private validateHitResolution(rule: Rule, resolution: HitResolution | undefined): AbilityStructureError[] {
+    if (!resolution) {
+      return [{ ruleName: rule.name, ruleCode: rule.code, message: 'заклинание требует hit_resolution' }];
+    }
+    if (resolution.type === 'auto' && (!Number.isInteger(resolution.rating) || resolution.rating < 1)) {
+      return [
+        {
+          ruleName: rule.name,
+          ruleCode: rule.code,
+          message: 'автопопадание задаёт целое РУ атаки ≥ 1',
+        },
+      ];
+    }
+
+    return [];
+  }
+
+  private isSpellParameterValue(value: SpellValue): value is { type: 'parameter'; parameter_code: string } {
+    return typeof value === 'object' && 'type' in value && value.type === 'parameter';
+  }
+
+  private isDimensionalNumberValue(value: unknown): value is DimensionalNumberValue {
+    return (
+      typeof value === 'object' &&
+      value !== null &&
+      'base' in value &&
+      'size' in value &&
+      typeof value.base === 'number' &&
+      typeof value.size === 'number'
+    );
+  }
+
+  private hasOwn(value: object, key: string): boolean {
+    return Object.prototype.hasOwnProperty.call(value, key);
   }
 
   private compareExpressions(left: MovementDistanceExpression, right: MovementDistanceExpression): number {

@@ -5,6 +5,7 @@ import type { RuleVersion } from '@/modules/Roleplay/Rule/Dto/RuleVersion';
 import { slugify } from '@/modules/Roleplay/Rule/Utils/Text/slugify';
 import { mockRuleImport } from '@/modules/Roleplay/Rule/Mock/mockRuleImport';
 import { mockRaceImport } from '@/modules/Roleplay/Rule/Mock/mockRaceImport';
+import { mockSpellImport } from '@/modules/Roleplay/Rule/Mock/mockSpellImport';
 import { mockDevelopmentImport } from '@/modules/Roleplay/Rule/Mock/mockDevelopmentImport';
 import { mockItemImport } from '@/modules/Roleplay/Rule/Mock/mockItemImport';
 import { mockModsImport } from '@/modules/Roleplay/Rule/Mock/mockModsImport';
@@ -17,6 +18,7 @@ import {
   DT_BLUNT_KO_CODE,
   DT_CUTTING_AS_WOUNDS_CODE,
   DT_EXHAUSTION_TO_STUN_CODE,
+  DT_EXHAUSTION_TO_SHOCK_CODE,
   DT_EXHAUSTION_TO_WOUND_CODE,
   DT_EXHAUSTION_TO_WOUND_X2_CODE,
   DT_INJURY_EFFICIENCY_CODE,
@@ -41,6 +43,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
     ...mockRuleImport,
     ...mockRaceImport,
     ...mockDevelopmentImport,
+    ...mockSpellImport,
     // --- Справочник языков (type 'language'): домены множественного навыка «Владение языком» ---
     {
       id: 394,
@@ -128,6 +131,25 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       type: 'ability',
       name: 'Простая атака (ближний бой)',
       description: 'Базовая атака ближнего боя. Есть у каждого персонажа автоматически.',
+      spaceId: 1,
+      spec: {
+        type: 'action',
+        zones: { or: { kind: 'automatic' } },
+        requirements: [],
+        grants: [],
+        action_components: [{ type: 'resource', resource_code: 'action-points', amount: 3, label: 'Действие' }],
+        parent_ability_code: null,
+      },
+      keywordIds: [14, 71, 1],
+      mechanicId: null,
+      createdAt: 1787479200,
+    },
+    {
+      id: 916,
+      code: 'simple-touch',
+      type: 'ability',
+      name: 'Простое касание',
+      description: 'Касание без урона оружия. +1 РУ атаки. Есть у каждого персонажа автоматически.',
       spaceId: 1,
       spec: {
         type: 'action',
@@ -743,9 +765,14 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       code: 'electricity',
       type: 'damage_type',
       name: 'Электричество',
-      description: 'Повреждения электричеством.',
+      description:
+        'Игнорирует защиту. Множитель повреждений по РУ не больше 3. Истощение от этого типа накладывает Шок.',
       spaceId: 1,
-      spec: damageTypeSpec('electricity'),
+      spec: {
+        ...damageTypeSpec('electricity', [DT_EXHAUSTION_TO_SHOCK_CODE]),
+        defense_ignored: true,
+        max_success_rating: 3,
+      },
       keywordIds: [],
       mechanicId: null,
       createdAt: 1769421600,
@@ -1093,18 +1120,6 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       description: 'Способность воспринимать мир через органы чувств.',
       spaceId: 1,
       spec: { type: 'characteristic', formula: 'min(attention, reaction)', group: 'primary' },
-      keywordIds: [4],
-      mechanicId: null,
-      createdAt: 1768644000,
-    },
-    {
-      id: 46,
-      code: 'magic',
-      type: 'characteristic',
-      name: 'Магия',
-      description: 'Способность проводить и направлять магическую энергию.',
-      spaceId: 1,
-      spec: { type: 'characteristic', group: 'primary' },
       keywordIds: [4],
       mechanicId: null,
       createdAt: 1768644000,

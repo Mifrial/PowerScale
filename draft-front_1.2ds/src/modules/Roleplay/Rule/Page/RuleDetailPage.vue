@@ -10,6 +10,7 @@ import type { RuleVersion } from '@/modules/Roleplay/Rule/Dto/RuleVersion';
 import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import { getMechanicApi } from '@/modules/Roleplay/Mechanic/init';
 import { RULE_TYPE_LABELS } from '@/modules/Roleplay/Rule/Constant/RULE_TYPE_LABELS';
+import { RULE_CONTENT_STATUS_OPTIONS } from '@/modules/Roleplay/Rule/Constant/RULE_CONTENT_STATUS_OPTIONS';
 import RuleSpecView from '@/modules/Roleplay/Rule/Component/RuleSpecView.vue';
 import DescriptionHtml from '@/modules/Core/UI/Component/DescriptionHtml.vue';
 import RuleSlider from '@/modules/Roleplay/Rule/Component/RuleSlider.vue';
@@ -49,6 +50,12 @@ const ruleTags = computed(() => {
 });
 
 const editLink = computed(() => `/space/${code.value}/${ctx.value}/rules/${encodeURIComponent(ruleCode.value)}/edit`);
+
+const contentStatusLabel = computed(() => {
+  const status = rule.value?.contentStatus ?? 'needs_work';
+
+  return RULE_CONTENT_STATUS_OPTIONS.find((option) => option.value === status)?.title ?? status;
+});
 
 function openInlineRule(ruleCode: string): void {
   inlineRuleId.value = ruleCode;
@@ -105,6 +112,7 @@ watch(() => [route.params.code, route.params.ctx, route.params.ruleCode], resolv
       </v-chip>
       <v-chip v-if="isDraftContext" class="ml-2" color="warning" variant="tonal" size="small"> Черновик </v-chip>
       <v-chip v-else class="ml-2" color="info" variant="tonal" size="small"> Версия {{ route.params.ctx }} </v-chip>
+      <v-chip class="ml-2" variant="tonal" size="small">{{ contentStatusLabel }}</v-chip>
       <v-spacer />
       <v-btn variant="text" prepend-icon="mdi-pencil" @click="router.push(editLink)"> Редактировать </v-btn>
     </div>

@@ -3,6 +3,7 @@ import type { CheckSpec } from '@/modules/Roleplay/Rule/Dto/Check/CheckSpec';
 import {
   CHECK_SIMPLE_CODE,
   CHECK_HIT_CODE,
+  CHECK_SPELL_CAST_CODE,
   CHECK_EXHAUSTION_CODE,
   CHECK_INITIATIVE_CODE,
   CHECK_INJURY_CODE,
@@ -67,6 +68,18 @@ export const mockChecks: Rule[] = [
       difficulty_input: { kind: 'ask' },
       allowed_modes: 'solo',
       attached_rule_codes: CHECK_INJURY_ATTACHED_RULE_CODES,
+    },
+  ),
+  checkRule(
+    9014,
+    CHECK_SPELL_CAST_CODE,
+    'Проверка на сотворение',
+    'Стандартная проверка сотворения волшебства. Характеристику задаёт выбранный путь.',
+    {
+      type: 'check',
+      parent_check_code: CHECK_SIMPLE_CODE,
+      allow_characteristic_override: true,
+      ...askBoth,
     },
   ),
   checkRule(
@@ -161,7 +174,7 @@ export const mockChecks: Rule[] = [
   characteristicCheck(26, 'attention', 'Внимательность'),
   characteristicCheck(27, 'reaction', 'Реакция'),
   characteristicCheck(28, 'perception', 'Восприятие'),
-  characteristicCheck(29, 'magic', 'Магию'),
+  characteristicCheck(29, 'magic-power', 'Магическую мощь'),
   characteristicCheck(30, 'willpower', 'Силу воли'),
   characteristicCheck(31, 'melee-combat', 'Мастерство ближнего боя'),
   characteristicCheck(32, 'ranged-combat', 'Мастерство дальнего боя'),
@@ -170,4 +183,6 @@ export const mockChecks: Rule[] = [
   characteristicCheck(35, 'fine-motor', 'Мелкую моторику'),
   characteristicCheck(36, 'music', 'Музицирование'),
   characteristicCheck(37, 'weight', 'Вес'),
+  characteristicCheck(38, 'spirituality', 'Духовность'),
+  characteristicCheck(39, 'magic-control', 'Контроль магии'),
 ];

@@ -9,4 +9,5 @@ export const DOMAIN_REF_RULE_TYPES: Record<string, RuleType[]> = {
   species: ['species'],
   language: ['language'],
   'weapon-family': ['weapon_family'],
+  'magic-path': ['magic_path'],
 };

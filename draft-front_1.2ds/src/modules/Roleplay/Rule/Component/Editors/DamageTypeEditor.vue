@@ -5,6 +5,7 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import RuleEditorBase from '@/modules/Roleplay/Rule/Component/Editors/RuleEditorBase.vue';
 import { damageTypeSpecService } from '@/modules/Roleplay/Rule/Service/Instance/damageTypeSpecService';
 import { computed, ref, watch } from 'vue';
+import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
 import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
 
 const props = defineProps<{
@@ -39,6 +40,10 @@ const attachableOptions = computed(() =>
     .filter((rule) => damageTypeSpecService.isDamageTypeAttachableRule(rule))
     .map((rule) => ({ title: rule.name, value: rule.code })),
 );
+
+function setMaxSuccessRatingEnabled(enabled: boolean): void {
+  draft.value.max_success_rating = enabled ? 3 : null;
+}
 </script>
 
 <template>
@@ -81,6 +86,30 @@ const attachableOptions = computed(() =>
         v-model="draft.defense_ignored"
         label="Защита не помогает"
         hint="Линии защиты не добавляются к сопротивлению этому типу урона."
+        persistent-hint
+        hide-details="auto"
+        class="mb-3"
+      />
+      <v-checkbox
+        :model-value="draft.max_success_rating != null"
+        @update:model-value="(v) => setMaxSuccessRatingEnabled(!!v)"
+        label="Ограничить множитель РУ"
+        hint="Повреждения считают min(РУ, потолок), сам РУ попадания не режется."
+        persistent-hint
+        hide-details="auto"
+        class="mb-3"
+      />
+      <ClampedNumberField
+        v-if="draft.max_success_rating != null"
+        v-model="draft.max_success_rating"
+        label="Потолок множителя РУ"
+        :min="1"
+        class="mb-3"
+      />
+      <v-checkbox
+        v-model="draft.modifies_spell_difficulty"
+        label="Влияет на Сложность сотворения"
+        hint="Сопротивление этому типу увеличивает Сложность сотворения волшебства."
         persistent-hint
         hide-details="auto"
         class="mb-3"

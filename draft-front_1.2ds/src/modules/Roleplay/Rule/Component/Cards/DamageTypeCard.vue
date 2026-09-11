@@ -32,6 +32,12 @@ const attached = computed(() => {
       <div v-if="spec.forms.dative" class="text-body-2 mt-1">Дательный: {{ spec.forms.dative }}</div>
       <div v-else class="text-body-2 mt-1 text-error">Дательный не заполнен</div>
       <div v-if="spec.defense_ignored" class="text-body-2 mt-1">Защита не помогает</div>
+      <div v-if="spec.max_success_rating" class="text-body-2 mt-1">
+        Множитель РУ не больше {{ spec.max_success_rating }}
+      </div>
+      <div v-if="spec.modifies_spell_difficulty" class="text-body-2 mt-1">
+        Сопротивление этому типу увеличивает Сложность сотворения
+      </div>
       <div v-if="attached.length" class="text-body-2 mt-1">
         Механики:
         <strong>{{ attached.map((item) => item.name).join(', ') }}</strong>

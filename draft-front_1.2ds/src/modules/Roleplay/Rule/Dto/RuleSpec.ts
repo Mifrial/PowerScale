@@ -14,6 +14,7 @@ import type { ItemModifierSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemModi
 import type { ItemModifierTypeSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierTypeSpec';
 import type { CheckSpec } from '@/modules/Roleplay/Rule/Dto/Check/CheckSpec';
 import type { DamageTypeSpec } from '@/modules/Roleplay/Rule/Dto/Damage/DamageTypeSpec';
+import type { MagicPathSpec } from '@/modules/Roleplay/Rule/Dto/MagicPath/MagicPathSpec';
 
 /** Перечисление спеков правила по типам. simple/points/source спеки не несут (spec отсутствует). */
 export type RuleSpec =
@@ -32,4 +33,5 @@ export type RuleSpec =
   | ItemModifierSpec
   | ItemModifierTypeSpec
   | CheckSpec
-  | DamageTypeSpec;
+  | DamageTypeSpec
+  | MagicPathSpec;

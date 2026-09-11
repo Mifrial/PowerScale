@@ -59,7 +59,15 @@ const emit = defineEmits<{
 
 const { keywords: catalogKeywords, error: keywordsError, fetchTags } = useKeywords();
 
-const expandedPanels = ref<string[]>(['general', 'zones', 'requirements', 'grants', 'action_components', 'upgrade']);
+const expandedPanels = ref<string[]>([
+  'general',
+  'zones',
+  'requirements',
+  'grants',
+  'action_components',
+  'spell',
+  'upgrade',
+]);
 
 const typeOptions = Object.entries(ABILITY_TYPE_LABELS).map(([value, label]) => ({
   label,
@@ -81,6 +89,7 @@ function abilityDraftFromSpec(value: RuleSpec | null): AbilitySpecDraft {
   const loaded = cloneData(value as AbilitySpecDraft);
 
   return {
+    ...loaded,
     type: loaded.type,
     zones: loaded.zones ?? {},
     requirements: loaded.requirements ?? [],
@@ -127,6 +136,8 @@ const abilities = computed<AbilityRef[]>(() => ruleReferenceService.abilityOptio
 const groups = computed(() => ruleReferenceService.groupOptions(props.rules));
 
 const items = computed(() => ruleReferenceService.itemOptions(props.rules));
+
+const magicPaths = computed(() => ruleReferenceService.magicPathOptions(props.rules));
 
 const keywords = computed<KeywordRef[]>(() => catalogKeywords.value.map((t) => ({ code: t.code, name: t.name })));
 
@@ -186,14 +197,38 @@ function patchSpec(key: string, value: unknown) {
   innerSpec.value = { ...innerSpec.value, [key]: value };
 }
 
+function setHasSpellUpgrade(enabled: boolean) {
+  innerSpec.value = abilitySpecService.setSpellUpgrade(
+    innerSpec.value,
+    enabled ? abilitySpecService.createEmptySpellUpgrade() : null,
+  );
+}
+
+function patchSpellUpgradeDelta(delta: number) {
+  innerSpec.value = abilitySpecService.patchSpellUpgrade(innerSpec.value, { action_point_delta: delta });
+}
+
+function patchSpellUpgradeAdvantage(amount: number) {
+  innerSpec.value = abilitySpecService.patchSpellUpgrade(innerSpec.value, {
+    check_advantage: amount === 0 ? undefined : amount,
+  });
+}
+
 function setType(value: string | null) {
   const type = (value as AbilityType | null) ?? null;
-  innerSpec.value = { ...innerSpec.value, type: type ?? undefined };
+  let next: AbilitySpecDraft = { ...innerSpec.value, type: type ?? undefined };
+  if (type === 'spell') {
+    next = abilitySpecService.ensureHitResolution({
+      ...next,
+      spell: next.spell ?? abilitySpecService.createEmptySpellSpec(),
+    });
+  }
+  innerSpec.value = next;
   if (type) {
     emit('update:keywordIds', abilitySpecService.syncTypeTags(type, props.keywordIds, catalogKeywords.value));
   }
   if (type === 'spell' || type === 'action') {
-    innerSpec.value = abilitySpecService.ensureActionPointCost(innerSpec.value, isSpell.value);
+    innerSpec.value = abilitySpecService.ensureActionPointCost(innerSpec.value, type === 'spell');
   }
 }
 
@@ -217,8 +252,14 @@ onMounted(async () => {
   if (catalogKeywords.value.length === 0) {
     await fetchTags();
   }
+  if (innerSpec.value.type === 'spell') {
+    innerSpec.value = abilitySpecService.ensureHitResolution({
+      ...innerSpec.value,
+      spell: innerSpec.value.spell ?? abilitySpecService.createEmptySpellSpec(),
+    });
+  }
   if ((innerSpec.value.type === 'spell' || innerSpec.value.type === 'action') && !hasActionPointCost()) {
-    innerSpec.value = abilitySpecService.ensureActionPointCost(innerSpec.value, isSpell.value);
+    innerSpec.value = abilitySpecService.ensureActionPointCost(innerSpec.value, innerSpec.value.type === 'spell');
   }
 });
 
@@ -376,6 +417,7 @@ function hasActionPointCost(): boolean {
                 :abilities="abilities"
                 :keywords="keywords"
                 :ability-keywords="abilityKeywords"
+                :magic-paths="magicPaths"
               />
             </div>
           </div>
@@ -426,6 +468,7 @@ function hasActionPointCost(): boolean {
                   :abilities="abilities"
                   :keywords="keywords"
                   :items="items"
+                  :magic-paths="magicPaths"
                   :sources="sources"
                   :damage-types="damageTypes"
                   :senses="senses"
@@ -475,7 +518,14 @@ function hasActionPointCost(): boolean {
       <v-expansion-panel v-if="isSpell" value="spell">
         <v-expansion-panel-title>Заклинание</v-expansion-panel-title>
         <v-expansion-panel-text>
-          <SpellEditor :model-value="innerSpec.spell ?? null" @update:model-value="(v) => patchSpec('spell', v)" />
+          <SpellEditor
+            :model-value="innerSpec.spell ?? null"
+            :hit-resolution="innerSpec.hit_resolution"
+            :parameters="innerSpec.parameters ?? []"
+            :rules="rules"
+            @update:model-value="(v) => patchSpec('spell', v)"
+            @update:hit-resolution="(v) => patchSpec('hit_resolution', v)"
+          />
         </v-expansion-panel-text>
       </v-expansion-panel>
 
@@ -495,6 +545,32 @@ function hasActionPointCost(): boolean {
           />
           <div class="text-body-2 text-medium-emphasis mt-2">
             Если способность — улучшение другой, укажите родительскую способность.
+          </div>
+          <v-checkbox
+            :model-value="!!innerSpec.spell_upgrade"
+            label="Модификатор каста"
+            density="compact"
+            hide-details
+            class="mt-2"
+            @update:model-value="(v) => setHasSpellUpgrade(!!v)"
+          />
+          <div v-if="innerSpec.spell_upgrade" class="d-flex ga-2 mt-2 flex-wrap">
+            <ClampedNumberField
+              :model-value="innerSpec.spell_upgrade.action_point_delta"
+              label="Дельта ОД сотворения"
+              density="compact"
+              hide-details
+              style="max-width: 180px"
+              @update:model-value="patchSpellUpgradeDelta"
+            />
+            <ClampedNumberField
+              :model-value="innerSpec.spell_upgrade.check_advantage ?? 0"
+              label="Преимущество на сотворение"
+              density="compact"
+              hide-details
+              style="max-width: 220px"
+              @update:model-value="patchSpellUpgradeAdvantage"
+            />
           </div>
         </v-expansion-panel-text>
       </v-expansion-panel>

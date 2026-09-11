@@ -4,7 +4,7 @@ import type { UpdateKeywordData } from '@/modules/Roleplay/Keyword/Dto/UpdateKey
 
 const delay = (ms = 300) => new Promise((r) => setTimeout(r, ms));
 
-let nextId = 227;
+let nextId = 232;
 
 export const keywords: Keyword[] = [
   { id: 1, code: 'melee', name: 'Ближний бой', description: 'Оружие и навыки ближнего боя', active: true },
@@ -589,6 +589,41 @@ export const keywords: Keyword[] = [
   { id: 224, code: 'hearing', name: 'Слух', description: 'Черта слуха', active: true },
   { id: 225, code: 'vision', name: 'Зрение', description: 'Черта зрения', active: true },
   { id: 226, code: 'preparation', name: 'Подготовка', description: 'Признак подготовительного действия', active: true },
+  {
+    id: 227,
+    code: 'electromancy',
+    name: 'Электромантия',
+    description: 'Направление волшебства: электромантия; опыт школы — сумма базовых стоимостей с этим признаком',
+    active: true,
+  },
+  {
+    id: 228,
+    code: 'magic-path',
+    name: 'Путь волшебства',
+    description: 'Навык пути: открывает изучение прочих навыков волшебства',
+    active: true,
+  },
+  {
+    id: 229,
+    code: 'arcanist',
+    name: 'Арканист',
+    description: 'Принадлежность пути Арканиста',
+    active: true,
+  },
+  {
+    id: 230,
+    code: 'psionic',
+    name: 'Псионик',
+    description: 'Принадлежность пути Псионика',
+    active: true,
+  },
+  {
+    id: 231,
+    code: 'shaman',
+    name: 'Шаман',
+    description: 'Принадлежность пути Шамана',
+    active: true,
+  },
 ];
 
 export async function fetchTags(_signal?: AbortSignal): Promise<Keyword[]> {

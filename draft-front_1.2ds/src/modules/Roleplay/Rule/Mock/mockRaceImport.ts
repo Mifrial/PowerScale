@@ -15,7 +15,7 @@ import type { RaceCharacteristic } from '@/modules/Roleplay/Rule/Dto/Race/RaceCh
  * - Размерность: «5↓» = base 5, size −1 (меньше среднего); «3↑» = base 3, size +1.
  *
  * Способности: только существующие в каталоге (automatic: true = расовый automatic).
- * Параметрические (Сопротивление магии X, Сопротивление холоду X, Магия X) — с потолком/значением
+ * Параметрические (Сопротивление магии X, Сопротивление холоду X, ядро X) — с потолком/значением
  * параметра `x` из докла. Черты, которых нет в каталоге (Угольное тело, Долгожитель…) — отложены,
  * не ссылаемся (иначе падает валидация ссылок).
  */
@@ -64,7 +64,6 @@ const baseHumanCharacteristics = (
 
     return S3(code);
   });
-  if (overrides.magic) result.push(FIXED('magic', overrides.magic.base, overrides.magic.size ?? 0));
 
   return result;
 };
@@ -165,82 +164,90 @@ const raceRule = (
  * остальные = 3 средних. «Магия 5» как Опция/Доступная — расовая доступность/характеристика (S9).
  */
 export const mockRaceImport: Rule[] = [
-  // Алиерц — 10 ОС, Выносливость 5, доступна Магия 5
+  // Алиерц — 10 ОС, Выносливость 5, доступно ядро 5
   humanRace(
     'alierets',
     'Алиерц',
-    'Вид человека с выдающимися генами: 10 ОС, Выносливость 5, доступна Магия.',
+    'Вид человека с выдающимися генами: 10 ОС, Выносливость 5, доступно врождённое магическое ядро.',
     10,
     { endurance: { base: 5 } },
-    [{ ability_code: 'magic-potential', automatic: false, parameters: x(5) }],
+    [{ ability_code: 'magic-core-capacity', automatic: false, parameters: x(5) }],
   ),
   // Дюариец — 0 ОС, Выносливость 5; бесплатно Сопротивление холоду; доступны Магия 4, Сопротивление магии 1-2
   humanRace(
     'duariets',
     'Дюариец',
-    'Выносливый северянин: Выносливость 5, бесплатно Сопротивление холоду, доступны Магия и Сопротивление магии.',
+    'Выносливый северянин: Выносливость 5, бесплатно Сопротивление холоду, доступны магическое ядро и Сопротивление магии.',
     0,
     { endurance: { base: 5 } },
     [
       { ability_code: 'cold-resistance', automatic: true, parameters: x(1) },
-      { ability_code: 'magic-potential', automatic: false, parameters: x(4) },
+      { ability_code: 'magic-core-capacity', automatic: false, parameters: x(4) },
       { ability_code: 'magic-resistance', automatic: false, parameters: x(2) },
     ],
   ),
-  // Анеит — 0 ОС, Выносливость 5, Сила 5↓, Магия 4↓; доступна Магия 5
+  // Анеит — 0 ОС, Выносливость 5, Сила 5↓; доступно ядро 5
   humanRace(
     'aneit',
     'Анеит',
-    'Вид человека: Выносливость 5, Сила 5↓, Магия 4↓, доступна Магия.',
+    'Вид человека: Выносливость 5, Сила 5↓, доступно врождённое магическое ядро.',
     0,
     {
       endurance: { base: 5 },
       strength: { base: 5, size: -1 },
-      magic: { base: 4, size: -1 },
     },
-    [{ ability_code: 'magic-potential', automatic: false, parameters: x(5) }],
+    [{ ability_code: 'magic-core-capacity', automatic: false, parameters: x(5) }],
   ),
-  // Ахтар — 0 ОС, Выносливость 5, Магия 4↓; бесплатно Сопротивление магии 2; доступна Магия 5
+  // Ахтар — 0 ОС, Выносливость 5; бесплатно Сопротивление магии 2; доступно ядро 5
   humanRace(
     'ahtar',
     'Ахтар',
-    'Вид человека: Выносливость 5, Магия 4↓, бесплатно Сопротивление магии, доступна Магия.',
+    'Вид человека: Выносливость 5, бесплатно Сопротивление магии, доступно врождённое магическое ядро.',
     0,
     {
       endurance: { base: 5 },
-      magic: { base: 4, size: -1 },
     },
     [
       { ability_code: 'magic-resistance', automatic: true, parameters: x(2) },
-      { ability_code: 'magic-potential', automatic: false, parameters: x(5) },
+      { ability_code: 'magic-core-capacity', automatic: false, parameters: x(5) },
     ],
   ),
-  // Орф — 0 ОС, Выносливость 5; доступна Магия 5
-  humanRace('orf', 'Орф', 'Вид человека: Выносливость 5, доступна Магия.', 0, { endurance: { base: 5 } }, [
-    { ability_code: 'magic-potential', automatic: false, parameters: x(5) },
-  ]),
+  // Орф — 0 ОС, Выносливость 5; доступно ядро 5
+  humanRace(
+    'orf',
+    'Орф',
+    'Вид человека: Выносливость 5, доступно врождённое магическое ядро.',
+    0,
+    { endurance: { base: 5 } },
+    [{ ability_code: 'magic-core-capacity', automatic: false, parameters: x(5) }],
+  ),
   // Когир — 0 ОС, Выносливость 5, Сила 4
   humanRace('kogir', 'Когир', 'Вид человека: Выносливость 5, Сила 4.', 0, {
     endurance: { base: 5 },
     strength: { base: 4 },
   }),
-  // Ацелатль — 0 ОС, Выносливость 5, бесплатно «Быстроногий», доступна Магия 4
+  // Ацелатль — 0 ОС, Выносливость 5, бесплатно «Быстроногий», доступно врождённое магическое ядро 4
   humanRace(
     'acelatl',
     'Ацелатль',
-    'Вид человека: Выносливость 5, бесплатно Быстроногий, доступна Магия.',
+    'Вид человека: Выносливость 5, бесплатно Быстроногий, доступно врождённое магическое ядро.',
     0,
     { endurance: { base: 5 } },
     [
       { ability_code: 'fast-footed', automatic: true },
-      { ability_code: 'magic-potential', automatic: false, parameters: x(4) },
+      { ability_code: 'magic-core-capacity', automatic: false, parameters: x(4) },
     ],
   ),
-  // Иерит — 0 ОС, Выносливость 5; доступна Магия 5
-  humanRace('ierit', 'Иерит', 'Вид человека: Выносливость 5, доступна Магия.', 0, { endurance: { base: 5 } }, [
-    { ability_code: 'magic-potential', automatic: false, parameters: x(5) },
-  ]),
-  // Аэрон — 12 ОС, Выносливость 4↓, Память 3↑, Реакция 3↓; бесплатно Сопротивление магии; доступна Магия
+  // Иерит — 0 ОС, Выносливость 5; доступно врождённое магическое ядро 5
+  humanRace(
+    'ierit',
+    'Иерит',
+    'Вид человека: Выносливость 5, доступно врождённое магическое ядро.',
+    0,
+    { endurance: { base: 5 } },
+    [{ ability_code: 'magic-core-capacity', automatic: false, parameters: x(5) }],
+  ),
+  // Аэрон — 12 ОС, Выносливость 4↓, Память 3↑, Реакция 3↓; бесплатно Сопротивление магии; доступно врождённое магическое ядро
   humanRace(
     'aeron',
     'Аэрон',
@@ -254,7 +261,7 @@ export const mockRaceImport: Rule[] = [
     [
       { ability_code: 'magic-resistance', automatic: true, parameters: x(2) },
       { ability_code: 'magic-resistance', automatic: false, parameters: x(5) },
-      { ability_code: 'magic-potential', automatic: false, parameters: x(3) },
+      { ability_code: 'magic-core-capacity', automatic: false, parameters: x(3) },
     ],
   ),
 
@@ -264,7 +271,7 @@ export const mockRaceImport: Rule[] = [
   raceRule(
     'arilet',
     'Арилет',
-    'Эльф громового древа: Сила 5↓, Стойкость 5↓, Выносливость 5, доступна Магия.',
+    'Эльф громового древа: Сила 5↓, Стойкость 5↓, Выносливость 5, доступно врождённое магическое ядро.',
     'verto',
     2,
     { endurance: { base: 5 }, strength: { base: 5, size: -1 } },
@@ -272,14 +279,14 @@ export const mockRaceImport: Rule[] = [
     [
       { ability_code: 'magic-resistance', automatic: true, parameters: x(1) },
       { ability_code: 'magic-resistance', automatic: false, parameters: x(3) },
-      { ability_code: 'magic-potential', automatic: false, parameters: x(4) },
+      { ability_code: 'magic-core-capacity', automatic: false, parameters: x(4) },
     ],
   ),
   // Литен и Труул — расы лесных эльфов (parent wood-elves).
   raceRule(
     'liten',
     'Литен',
-    'Эльф резинового древа: Сила 5↓, Стойкость 5↓, Выносливость 4, Ловкость 4, доступна Магия.',
+    'Эльф резинового древа: Сила 5↓, Стойкость 5↓, Выносливость 4, Ловкость 4, доступно врождённое магическое ядро.',
     'wood-elves',
     2,
     { endurance: { base: 4 }, dexterity: { base: 4 }, strength: { base: 5, size: -1 } },
@@ -287,13 +294,13 @@ export const mockRaceImport: Rule[] = [
     [
       { ability_code: 'magic-resistance', automatic: true, parameters: x(1) },
       { ability_code: 'magic-resistance', automatic: false, parameters: x(3) },
-      { ability_code: 'magic-potential', automatic: false, parameters: x(4) },
+      { ability_code: 'magic-core-capacity', automatic: false, parameters: x(4) },
     ],
   ),
   raceRule(
     'truul',
     'Труул',
-    'Торфяной эльф: Сила 5↓, Стойкость 5↓, Выносливость 5, доступна Магия.',
+    'Торфяной эльф: Сила 5↓, Стойкость 5↓, Выносливость 5, доступно врождённое магическое ядро.',
     'wood-elves',
     2,
     { endurance: { base: 5 }, strength: { base: 5, size: -1 } },
@@ -301,7 +308,7 @@ export const mockRaceImport: Rule[] = [
     [
       { ability_code: 'magic-resistance', automatic: true, parameters: x(1) },
       { ability_code: 'magic-resistance', automatic: false, parameters: x(3) },
-      { ability_code: 'magic-potential', automatic: false, parameters: x(4) },
+      { ability_code: 'magic-core-capacity', automatic: false, parameters: x(4) },
     ],
   ),
 
@@ -327,7 +334,7 @@ export const mockRaceImport: Rule[] = [
   raceRule(
     'turim',
     'Турим',
-    'Дворф: Стойкость 4, Выносливость 5, бесплатно Пиворождённый/Маленький шаг/Темновидение, доступна Магия.',
+    'Дворф: Стойкость 4, Выносливость 5, бесплатно Пиворождённый/Маленький шаг/Темновидение, доступно врождённое магическое ядро.',
     'dwarves',
     0,
     { endurance: { base: 5 } },
@@ -336,7 +343,7 @@ export const mockRaceImport: Rule[] = [
       { ability_code: 'beerborn', automatic: true },
       { ability_code: 'small-step', automatic: true },
       { ability_code: 'dark-vision', automatic: true },
-      { ability_code: 'magic-potential', automatic: false, parameters: x(5) },
+      { ability_code: 'magic-core-capacity', automatic: false, parameters: x(5) },
     ],
   ),
 
@@ -362,7 +369,7 @@ export const mockRaceImport: Rule[] = [
   raceRule(
     'orgul',
     'Оргул',
-    'Орк: Сила 3↑, Стойкость 3↑, Ловкость 3↓, Интеллект 5↓, бесплатно Большой/Быстроногий/Сопротивление магии, доступна Магия.',
+    'Орк: Сила 3↑, Стойкость 3↑, Ловкость 3↓, Интеллект 5↓, бесплатно Большой/Быстроногий/Сопротивление магии, доступно врождённое магическое ядро.',
     'orcs',
     2,
     {
@@ -377,7 +384,7 @@ export const mockRaceImport: Rule[] = [
       { ability_code: 'big-build', automatic: true },
       { ability_code: 'fast-footed', automatic: true },
       { ability_code: 'magic-resistance', automatic: true, parameters: x(1) },
-      { ability_code: 'magic-potential', automatic: false, parameters: x(3) },
+      { ability_code: 'magic-core-capacity', automatic: false, parameters: x(3) },
       { ability_code: 'seeing', automatic: false },
       { ability_code: 'scenting', automatic: false },
     ],
@@ -399,7 +406,7 @@ export const mockRaceImport: Rule[] = [
     [
       { ability_code: 'big-build', automatic: true },
       { ability_code: 'magic-resistance', automatic: true, parameters: x(2) },
-      { ability_code: 'magic-potential', automatic: false, parameters: x(3) },
+      { ability_code: 'magic-core-capacity', automatic: false, parameters: x(3) },
       { ability_code: 'scenting', automatic: false },
     ],
   ),
@@ -420,13 +427,13 @@ export const mockRaceImport: Rule[] = [
     [
       { ability_code: 'big-build', automatic: true },
       { ability_code: 'magic-resistance', automatic: true, parameters: x(3) },
-      { ability_code: 'magic-potential', automatic: false, parameters: x(3) },
+      { ability_code: 'magic-core-capacity', automatic: false, parameters: x(3) },
     ],
   ),
   raceRule(
     'muukai',
     'Му’укай',
-    'Орк: Сила 3↑, Стойкость 3↑, Ловкость 3↓, Магия 3.',
+    'Орк: Сила 3↑, Стойкость 3↑, Ловкость 3↓.',
     'orcs',
     2,
     {

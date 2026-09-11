@@ -8,11 +8,16 @@ import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { AbilityType } from '@/modules/Roleplay/Rule/Enum/Ability/AbilityType';
 import type { ActionComponent } from '@/modules/Roleplay/Rule/Dto/Ability/ActionComponent';
 import type { ActionEffect } from '@/modules/Roleplay/Rule/Dto/Ability/ActionEffect';
-import { ABILITY_TYPE_LABELS } from '@/modules/Roleplay/Rule/Constant/Ability/ABILITY_TYPE_LABELS';
+import type { SpellValue } from '@/modules/Roleplay/Rule/Dto/Ability/SpellValue';
+import { abilityTypeChipLabelService } from '@/modules/Roleplay/Rule/Service/Instance/abilityTypeChipLabelService';
 import { abilitySpecService } from '@/modules/Roleplay/Rule/Service/Instance/abilitySpecService';
 import { ruleViewLabelService } from '@/modules/Roleplay/Rule/Service/Instance/ruleViewLabelService';
 import { resourceShortName } from '@/modules/Roleplay/Rule/Utils/resourceShortName';
 import { actionEffectLabelService } from '@/modules/Roleplay/Rule/Service/Instance/actionEffectLabelService';
+import { HIT_RESOLUTION_OPTIONS } from '@/modules/Roleplay/Rule/Constant/Ability/HIT_RESOLUTION_OPTIONS';
+import { SPELL_DURATION_OPTIONS } from '@/modules/Roleplay/Rule/Constant/Ability/SPELL_DURATION_OPTIONS';
+import { spellDurationLabelService } from '@/modules/Roleplay/Rule/Service/Instance/spellDurationLabelService';
+import { spellDamageService } from '@/modules/Roleplay/Rule/Service/Instance/spellDamageService';
 
 const props = defineProps<{
   rule: Rule;
@@ -34,6 +39,10 @@ const type = computed<AbilityType | null>(() => {
 
   return abilitySpecService.resolveTypeFromKeywords(ruleTagCodes.value);
 });
+
+const typeChipLabel = computed(() =>
+  abilityTypeChipLabelService.label(type.value, props.keywords, props.rule.keywordIds ?? [], props.rules),
+);
 
 const groupInfo = computed(() => {
   const s = spec.value;
@@ -89,14 +98,64 @@ function formatAmount(amount: unknown): string {
 const durationLabel = computed(() => {
   const d = spec.value?.spell?.duration;
   if (!d) return '—';
-  if (d.type === 'instant') return 'Мгновенное';
-  const parts = [d.type === 'refreshable' ? 'Обновляемое' : 'Поддерживаемое'];
-  if (d.difficulty) parts.push(`сложность ${ruleViewLabelService.dimensional(d.difficulty)}`);
-  if (d.action_cost !== undefined) parts.push(`${formatAmount(d.action_cost)} ОД`);
-  if (d.limit) parts.push(`предел ${formatAmount(d.limit.value)} ${limitUnitLabel(d.limit.unit)}`);
+  if (d.type === 'sustained') return spellDurationLabelService.action(d);
+  const typeLabel = SPELL_DURATION_OPTIONS.find((option) => option.value === d.type)?.title ?? d.type;
+  if (d.type === 'instant') return typeLabel;
+  const parts = [typeLabel];
+  if (d.type === 'refreshable' && d.action_cost !== undefined) parts.push(`${formatAmount(d.action_cost)} ОД`);
+  if ('limit' in d && d.limit) parts.push(`предел ${formatAmount(d.limit.value)} ${limitUnitLabel(d.limit.unit)}`);
 
   return parts.join(', ');
 });
+
+const hitResolutionLabel = computed(() => {
+  const resolution = spec.value?.hit_resolution;
+  if (!resolution) return null;
+  const typeLabel = HIT_RESOLUTION_OPTIONS.find((option) => option.value === resolution.type)?.title ?? resolution.type;
+  if (resolution.type === 'auto') return `${typeLabel} (${resolution.rating} РУ)`;
+
+  return typeLabel;
+});
+
+const spellDamageText = computed(() => {
+  const damage = spec.value?.spell?.damage;
+  if (!damage) return null;
+  const typeName = props.rules.find((rule) => rule.code === damage.damage_type_code)?.name ?? damage.damage_type_code;
+
+  return spellDamageService.describe(damage, typeName);
+});
+
+const spellUpgrade = computed(() => spec.value?.spell_upgrade ?? null);
+
+const spellUpgradeChainLabel = computed(() => {
+  const chain = spellUpgrade.value?.chain;
+  if (!chain) return null;
+
+  return `цепь: −${chain.damage_size_per_hop} размер за прыжок, порог ${ruleViewLabelService.dimensional(chain.min)}, дистанция от последнего попадания, ту же цель только через другую`;
+});
+
+const spellUpgradeCastLabel = computed(() => {
+  const upgrade = spellUpgrade.value;
+  if (!upgrade) return null;
+  const sign = upgrade.action_point_delta >= 0 ? '+' : '';
+  const parts = [`${sign}${upgrade.action_point_delta} ОД`];
+  const advantage = upgrade.check_advantage;
+  if (advantage) {
+    parts.push(
+      advantage > 0
+        ? `+${advantage} преимущества на проверку сотворения`
+        : `${Math.abs(advantage)} помехи на проверку сотворения`,
+    );
+  }
+
+  return `При сотворении: ${parts.join(', ')}`;
+});
+
+function spellValueLabel(value: SpellValue): string {
+  if (abilitySpecService.isSpellValueParameter(value)) return `параметр ${value.parameter_code}`;
+
+  return ruleViewLabelService.dimensional(value);
+}
 
 function limitUnitLabel(unit: string): string {
   return { turn: 'ход', minute: 'мин', hour: 'час' }[unit] ?? unit;
@@ -111,7 +170,14 @@ function componentLabel(comp: ActionComponent): string {
       : `${comp.label ?? resourceName(comp.resource_code)}: ${formatAmount(comp.amount)}`;
   }
   if (comp.type === 'verbal') return comp.note ? `Вербальный (${comp.note})` : 'Вербальный';
-  if (comp.type === 'somatic') return comp.note ? `Соматический (${comp.note})` : 'Соматический';
+  if (comp.type === 'somatic') {
+    const note = comp.note ? ` (${comp.note})` : '';
+    const hands = comp.occupy_hands
+      ? `, занимает ${comp.occupy_hands} ${comp.occupy_hands === 1 ? 'руку' : 'руки'}`
+      : '';
+
+    return `Соматический${note}${hands}`;
+  }
   const mode = comp.mode === 'consume' ? 'израсходовать' : 'использовать';
   if (comp.item_code) {
     const name = props.rules.find((r) => r.code === comp.item_code)?.name ?? comp.item_code;
@@ -199,6 +265,10 @@ function reqText(req: Requirement): string {
       return `признак «${ruleViewLabelService.keywordName(props.keywords, req.keyword_code)}»`;
     case 'characteristic_value':
       return `${ruleViewLabelService.ruleName(props.rules, req.characteristic_code)} ≥ ${ruleViewLabelService.dimensional(req.min)}`;
+    case 'has_magic_path':
+      return `путь «${ruleViewLabelService.ruleName(props.rules, req.path_code)}»`;
+    case 'magic_path_experience':
+      return `опыт пути «${ruleViewLabelService.ruleName(props.rules, req.path_code)}» ≥ ${req.min}`;
     case 'resource_limit':
       return `ресурс «${resourceName(req.resource_code)}»${req.min ? ` ≥ ${formatAmount(req.min)}` : ''}`;
     case 'and':
@@ -218,7 +288,7 @@ function grantLabel(grant: Grant): string {
 <template>
   <div v-if="spec">
     <div v-if="type" class="mb-2">
-      <v-chip color="primary" variant="tonal" size="small">{{ ABILITY_TYPE_LABELS[type] }}</v-chip>
+      <v-chip color="primary" variant="tonal" size="small">{{ typeChipLabel }}</v-chip>
     </div>
     <div v-if="props.rule.catalogSection" class="text-body-2 mb-2">Секция: {{ props.rule.catalogSection }}</div>
 
@@ -310,9 +380,15 @@ function grantLabel(grant: Grant): string {
       <v-card-text>
         <div class="text-subtitle-2 mb-1">Заклинание</div>
         <div class="d-flex align-center ga-2 mb-1">
-          <span>Сложность сотворения:</span>
-          <strong>{{ ruleViewLabelService.dimensional(spec.spell.difficulty) }}</strong>
+          <span>Мощь:</span>
+          <strong>{{ spellValueLabel(spec.spell.power) }}</strong>
         </div>
+        <div class="d-flex align-center ga-2 mb-1">
+          <span>Контроль:</span>
+          <strong>{{ spellValueLabel(spec.spell.control) }}</strong>
+        </div>
+        <div v-if="hitResolutionLabel" class="mb-1">Попадание: {{ hitResolutionLabel }}</div>
+        <div v-if="spellDamageText" class="mb-1">Урон: {{ spellDamageText }}</div>
         <div class="mb-1">Продолжительность: {{ durationLabel }}</div>
         <div v-if="nonResourceComponents.length" class="d-flex flex-wrap ga-2">
           <v-chip v-for="(comp, index) in nonResourceComponents" :key="index" size="small" variant="outlined">
@@ -355,11 +431,13 @@ function grantLabel(grant: Grant): string {
       </v-card-text>
     </v-card>
 
-    <v-card v-if="spec.parent_ability_code" variant="tonal" class="mb-3">
+    <v-card v-if="spec.parent_ability_code || spellUpgrade" variant="tonal" class="mb-3">
       <v-card-text>
-        <div class="text-body-2">
+        <div v-if="spec.parent_ability_code" class="text-body-2">
           Улучшение: <strong>{{ abilityName(spec.parent_ability_code) }}</strong>
         </div>
+        <div v-if="spellUpgradeCastLabel" class="text-body-2 mt-1">{{ spellUpgradeCastLabel }}</div>
+        <div v-if="spellUpgradeChainLabel" class="text-body-2 mt-1">{{ spellUpgradeChainLabel }}</div>
       </v-card-text>
     </v-card>
   </div>

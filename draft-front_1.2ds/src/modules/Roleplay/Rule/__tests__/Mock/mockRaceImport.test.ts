@@ -49,7 +49,7 @@ describe('mockRaceImport (S6)', () => {
 
     const aneit = raceSpec('aneit')?.characteristics;
     expect(aneit).toContainEqual({ characteristic_code: 'strength', mode: 'fixed', base: { base: 5, size: -1 } });
-    expect(aneit).toContainEqual({ characteristic_code: 'magic', mode: 'fixed', base: { base: 4, size: -1 } });
+    expect(aneit?.some((c) => c.characteristic_code === 'magic')).toBe(false);
     // magic добавляется только если переопределён; у duariets его нет.
     expect(duariets?.some((c) => c.characteristic_code === 'magic')).toBe(false);
   });
@@ -81,7 +81,7 @@ describe('mockRaceImport (S6)', () => {
     const abilities = raceSpec('duariets')?.abilities ?? [];
     expect(abilities).toContainEqual({ ability_code: 'cold-resistance', automatic: true, parameters: { x: dim(1) } });
     expect(abilities).toContainEqual({
-      ability_code: 'magic-potential',
+      ability_code: 'magic-core-capacity',
       automatic: false,
       parameters: { x: dim(4) },
     });
@@ -181,28 +181,28 @@ describe('mockRaceImport (S6)', () => {
     // Аэрон: бесплатно Сопротивление магии 2, опции до 5; Магия 3.
     expect(autoMr('aeron')?.parameters).toEqual({ x: dim(2) });
     expect(avail('aeron', 'magic-resistance')?.parameters).toEqual({ x: dim(5) });
-    expect(avail('aeron', 'magic-potential')?.parameters).toEqual({ x: dim(3) });
+    expect(avail('aeron', 'magic-core-capacity')?.parameters).toEqual({ x: dim(3) });
 
     // Эльфы: бесплатно Сопротивление магии 1, доступны Магия 4 и Сопротивление магии 3.
     for (const code of ['arilet', 'liten', 'truul']) {
       expect(autoMr(code)?.parameters).toEqual({ x: dim(1) });
       expect(avail(code, 'magic-resistance')?.parameters).toEqual({ x: dim(3) });
-      expect(avail(code, 'magic-potential')?.parameters).toEqual({ x: dim(4) });
+      expect(avail(code, 'magic-core-capacity')?.parameters).toEqual({ x: dim(4) });
     }
 
     // Турим: Магия 5.
-    expect(avail('turim', 'magic-potential')?.parameters).toEqual({ x: dim(5) });
+    expect(avail('turim', 'magic-core-capacity')?.parameters).toEqual({ x: dim(5) });
 
     // Орки: автоматическое Сопротивление магии 1/2/3, Магия 3.
     expect(autoMr('orgul')?.parameters).toEqual({ x: dim(1) });
     expect(autoMr('orhan')?.parameters).toEqual({ x: dim(2) });
     expect(autoMr('orzack')?.parameters).toEqual({ x: dim(3) });
     for (const code of ['orgul', 'orhan', 'orzack']) {
-      expect(avail(code, 'magic-potential')?.parameters).toEqual({ x: dim(3) });
+      expect(avail(code, 'magic-core-capacity')?.parameters).toEqual({ x: dim(3) });
     }
 
     // Му’укай: Сопротивление магии 1, доступной Магии нет.
     expect(autoMr('muukai')?.parameters).toEqual({ x: dim(1) });
-    expect(raceSpec('muukai')?.abilities.some((a) => a.ability_code === 'magic-potential')).toBe(false);
+    expect(raceSpec('muukai')?.abilities.some((a) => a.ability_code === 'magic-core-capacity')).toBe(false);
   });
 });

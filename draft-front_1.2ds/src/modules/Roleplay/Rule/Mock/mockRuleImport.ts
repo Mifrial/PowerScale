@@ -25,7 +25,6 @@ const APPEARANCE_KEYWORD = 43;
 const INNATE_KEYWORD = 44; // «Врождённая» — врождённая черта (от тела/вида)
 const CHARACTERISTIC_KEYWORD = 45; // «Характеристика» — черта характеристик (вкладка «Характеристики»)
 const MODIFIER_KEYWORD = 46; // «Модификатор» — даёт модификатор ±X к характеристике
-const GIFT_KEYWORD = 47; // «Дар» — даёт значение характеристики (потолок)
 const SKILL_KEYWORD = 13; // «Навык» — тип способности: навык
 const SOCIABILITY_KEYWORD = 48; // «Общительность» — особенность личности
 const ATTENTIVENESS_KEYWORD = 49; // «Внимательность» — особенность личности
@@ -147,19 +146,6 @@ const osCost = (cost: number): AbilitySpecBase['zones'] => ({ os: { kind: 'array
 
 /** Табличная цена параметра «X» (S8, «Телосложение»): модификатор → ОС (отрицательные возвращают ОС). */
 const INNATE_COSTS: Record<string, number> = { '-3': -3, '-2': -2, '-1': -1, '1': 2, '2': 4, '3': 8 };
-
-/** Таблица «Магия Х» (S9, док): размерное значение → ОС. Ключи — toString() размерного числа. */
-const MAGIC_COSTS: Record<string, number> = {
-  '3↓': 1,
-  '4↓': 2,
-  '5↓': 3,
-  '3': 4,
-  '4': 6,
-  '5': 8,
-  '3↑': 12,
-  '4↑': 16,
-  '5↑': 20,
-};
 
 /** Грант «модификатор характеристики от Телосложения/тела»: amount = параметр x (может быть отрицательным). */
 const innateModify = (characteristic_code: string): Grant => ({
@@ -296,26 +282,29 @@ const importedRules: Rule[] = [
     false,
     true,
   ),
-  traitRule(
-    'magic-resistance',
-    'Сопротивление магии X',
-    'Вы получаете +2X устойчивости к магии. Сложность проверок сотворения волшебства по вам увеличена на X.',
-    {
-      type: 'trait',
-      zones: { os: { kind: 'parameter', parameter_code: 'x', per_unit: 2 } },
-      parameters: [{ code: 'x', label: 'X', resolution: 'purchase', default: dim(1), min: dim(0), max: dim(10) }],
-      grants: [
-        {
-          type: 'resistance',
-          damage_type_code: 'magic-damage',
-          value: { type: 'parameter', parameter_code: 'x', per_unit: 2 },
-          source_code: 'innate',
-        },
-      ],
-    },
-    false,
-    true,
-  ),
+  {
+    ...traitRule(
+      'magic-resistance',
+      'Сопротивление магии X',
+      'Вы получаете +X устойчивости к арканному урону. Сложность сотворения волшебства по вам увеличена на X.',
+      {
+        type: 'trait',
+        zones: { os: { kind: 'parameter', parameter_code: 'x', per_unit: 2 } },
+        parameters: [{ code: 'x', label: 'X', resolution: 'purchase', default: dim(1), min: dim(0), max: dim(10) }],
+        grants: [
+          {
+            type: 'resistance',
+            damage_type_code: 'arcane',
+            value: { type: 'parameter', parameter_code: 'x', per_unit: 1 },
+            source_code: 'innate',
+          },
+        ],
+      },
+      false,
+      true,
+    ),
+    catalogSection: 'abilities-acquired-magic-common',
+  },
 
   // --- Внешность (группа «1 из группы») → статус Привлекательность ---
   traitRule(
@@ -604,44 +593,6 @@ const importedRules: Rule[] = [
     false,
     true,
   ),
-
-  // --- Черта характеристик «Врождённая Магия X» (дар: значение-потолок, размерная цена из дока) ---
-  // Таблица «Магия Х»: значение (размерное) → ОС. «Стоимость значений от 3↑ и выше равна их значению
-  // в эквиваленте маленького размера». Грант «characteristic» даёт базу характеристики Магия = X
-  // (размерное значение), поэтому приобретённая Магия отображается среди характеристик.
-  {
-    ...traitRule(
-      'magic-potential',
-      'Врождённая Магия X',
-      'Вы можете приобрести Магию со значением не выше X.',
-      {
-        type: 'trait',
-        zones: {
-          os: { kind: 'parameter_table', parameter_code: 'x', costs: MAGIC_COSTS },
-        },
-        parameters: [
-          {
-            code: 'x',
-            label: 'X',
-            resolution: 'purchase',
-            default: dim(3, 0),
-            min: dim(3, -1),
-            max: dim(5, 1),
-          },
-        ],
-        grants: [
-          {
-            type: 'characteristic_parameter',
-            characteristic_code: 'magic',
-            parameter_code: 'x',
-            per_unit: 1,
-          },
-        ],
-        keywordIds: [INNATE_KEYWORD, CHARACTERISTIC_KEYWORD, GIFT_KEYWORD],
-      },
-      true,
-    ),
-  },
 
   // --- Черты «Врождённая X» (S8 «Телосложение»): модификатор характеристики от тела по таблице цен ---
   // Сила и Стойкость связаны: |X_силы − X_стойкости| ≤ 3 (док: модификатор к Силе не выше Стойкости+3).

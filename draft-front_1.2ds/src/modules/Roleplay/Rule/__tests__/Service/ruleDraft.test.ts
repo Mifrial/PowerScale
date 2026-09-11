@@ -49,4 +49,9 @@ describe('RuleDraftService.createDraft', () => {
     expect(ruleDraftService.createDraft(baseParams({ spec: null })).spec).toBeUndefined();
     expect(ruleDraftService.createDraft(baseParams({ spec })).spec).toBe(spec);
   });
+
+  it('прокидывает contentStatus, иначе needs_work', () => {
+    expect(ruleDraftService.createDraft(baseParams()).contentStatus).toBe('needs_work');
+    expect(ruleDraftService.createDraft(baseParams({ contentStatus: 'ready' })).contentStatus).toBe('ready');
+  });
 });

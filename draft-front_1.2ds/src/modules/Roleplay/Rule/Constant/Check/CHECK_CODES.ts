@@ -2,6 +2,7 @@
 export const CHECK_SIMPLE_CODE = 'check-simple';
 
 export const CHECK_HIT_CODE = 'check-hit';
+export const CHECK_SPELL_CAST_CODE = 'check-spell-cast';
 export const CHECK_EXHAUSTION_CODE = 'check-exhaustion';
 export const CHECK_INITIATIVE_CODE = 'check-initiative';
 export const CHECK_INJURY_CODE = 'check-injury';

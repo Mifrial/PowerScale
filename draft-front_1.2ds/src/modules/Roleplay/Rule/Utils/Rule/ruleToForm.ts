@@ -13,5 +13,6 @@ export function ruleToForm(rule: Rule): RuleFormState {
     spec: rule.spec ?? null,
     catalogSection: rule.catalogSection ?? null,
     catalogSortOrder: rule.catalogSortOrder ?? 100,
+    contentStatus: rule.contentStatus ?? 'needs_work',
   };
 }

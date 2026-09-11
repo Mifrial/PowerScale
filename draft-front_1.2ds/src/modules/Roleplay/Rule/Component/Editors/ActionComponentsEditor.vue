@@ -224,6 +224,18 @@ function patchMaterialTags(index: number, codes: string[]) {
             hide-details
             class="mt-1"
           />
+          <ClampedNumberField
+            v-if="component.type === 'somatic'"
+            :model-value="component.occupy_hands ?? 0"
+            @update:model-value="(v) => patch(index, 'occupy_hands', v > 0 ? v : undefined)"
+            label="Занимает рук на каст"
+            :min="0"
+            :max="2"
+            density="compact"
+            hide-details
+            class="mt-1"
+            style="max-width: 180px"
+          />
         </template>
 
         <template v-else-if="component.type === 'material'">

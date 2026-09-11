@@ -1,3 +1,5 @@
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
+
 type AttackComponent = 'strike' | 'throw' | 'shoot';
 
 type AttackScope = {
@@ -41,4 +43,9 @@ export type ActionEffect =
       amount: number;
       check_codes: string[];
       delta: number;
+    }
+  | {
+      type: 'apply_state';
+      state_code: string;
+      amount?: DimensionalNumberValue | number;
     };

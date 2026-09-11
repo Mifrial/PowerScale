@@ -19,6 +19,7 @@ const props = defineProps<{
   abilities: AbilityRef[];
   keywords: KeywordRef[];
   abilityKeywords: KeywordRef[];
+  magicPaths?: { code: string; name: string }[];
   removable?: boolean;
 }>();
 
@@ -186,6 +187,28 @@ function removeChild(index: number) {
         />
       </template>
 
+      <template v-else-if="inner.type === 'has_magic_path' || inner.type === 'magic_path_experience'">
+        <v-autocomplete
+          :model-value="inner.path_code"
+          @update:model-value="patch('path_code', $event)"
+          :items="magicPaths ?? []"
+          item-title="name"
+          item-value="code"
+          label="Путь волшебства"
+          density="compact"
+          hide-details
+          clearable
+          class="flex-grow-1"
+        />
+        <ClampedNumberField
+          v-if="inner.type === 'magic_path_experience'"
+          :model-value="inner.min"
+          @update:model-value="patch('min', $event)"
+          label="Опыт (мин)"
+          :min="1"
+        />
+      </template>
+
       <template v-else-if="inner.type === 'resource_limit'">
         <v-autocomplete
           :model-value="inner.resource_code"
@@ -232,6 +255,7 @@ function removeChild(index: number) {
           :abilities="abilities"
           :keywords="keywords"
           :ability-keywords="abilityKeywords"
+          :magic-paths="magicPaths ?? []"
           removable
           @remove="removeChild(index)"
         />

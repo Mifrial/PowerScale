@@ -82,6 +82,13 @@ describe('classifyDraftDiff', () => {
     expect(ruleDiffService.samePayload(rule('r1', 'Одно'), rule('r1', 'Одно', { catalogSection: null }))).toBe(true);
   });
 
+  it('смена contentStatus — changed', () => {
+    const published = rule('r1', 'Одно', { contentStatus: 'needs_work' });
+    const draft = rule('r1', 'Одно', { contentStatus: 'ready' });
+    expect(ruleDiffService.samePayload(published, draft)).toBe(false);
+    expect(ruleDiffService.classifyDraftDiff([published], [draft]).changed.map((entry) => entry.code)).toEqual(['r1']);
+  });
+
   it('порядок ключей в spec (и во вложенных объектах) не даёт ложного changed', () => {
     const published = [
       rule('r1', 'Одно', { spec: spec({ type: 'ability', requirements: [], zones: { melee: { base: 1, size: 0 } } }) }),

@@ -12,4 +12,5 @@ export interface RuleFormState {
   spec: RuleSpec | null;
   catalogSection: string | null;
   catalogSortOrder: number;
+  contentStatus: string;
 }

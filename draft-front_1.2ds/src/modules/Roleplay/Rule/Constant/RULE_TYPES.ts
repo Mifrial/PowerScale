@@ -20,4 +20,5 @@ export const RULE_TYPES: { title: string; value: RuleType }[] = [
   { title: 'Модификатор предмета', value: 'item_modifier' },
   { title: 'Тип модификатора предмета', value: 'item_modifier_type' },
   { title: 'Проверка', value: 'check' },
+  { title: 'Путь волшебства', value: 'magic_path' },
 ];

@@ -7,7 +7,7 @@ import type { MaterialMode } from '@/modules/Roleplay/Rule/Enum/Ability/Material
 export type ActionComponent =
   | ({ type: 'resource' } & ActionCost)
   | { type: 'verbal'; note?: string }
-  | { type: 'somatic'; note?: string }
+  | { type: 'somatic'; note?: string; occupy_hands?: number }
   | {
       type: 'material';
       mode: MaterialMode;

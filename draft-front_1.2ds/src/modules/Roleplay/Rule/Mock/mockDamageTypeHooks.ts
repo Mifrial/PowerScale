@@ -3,6 +3,7 @@ import {
   DT_BLUNT_KO_CODE,
   DT_CUTTING_AS_WOUNDS_CODE,
   DT_EXHAUSTION_TO_STUN_CODE,
+  DT_EXHAUSTION_TO_SHOCK_CODE,
   DT_EXHAUSTION_TO_WOUND_CODE,
   DT_EXHAUSTION_TO_WOUND_X2_CODE,
   DT_INJURY_EFFICIENCY_CODE,
@@ -65,6 +66,13 @@ export const mockDamageTypeHooks: Rule[] = [
     11,
   ),
   hookRule(
+    9110,
+    DT_EXHAUSTION_TO_SHOCK_CODE,
+    'Истощение → шок',
+    'Истощение от электричества накладывает Шок силой [истощение].',
+    19,
+  ),
+  hookRule(
     9105,
     DT_EXHAUSTION_TO_WOUND_CODE,
     'Истощение → рана',
@@ -98,7 +106,7 @@ export const mockDamageTypeHooks: Rule[] = [
     9109,
     INJURY_PROCEDURE_RULE_CODE,
     'Увечье',
-    'Процедура проверки на увечье. Срез ревизии указывает mechanic injury@version.',
+    'По каждому типу ⌊повреждения / Стойкость⌋ проверок (хуки типа). Остатки разных типов в одном ударе складываются: ещё ⌊сумма / Стойкость⌋ от Упадка сил. Один тип — как раньше max(повреждения, рана, истощение).',
     15,
   ),
 ];

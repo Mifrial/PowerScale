@@ -18,4 +18,11 @@ export type AbilitySpec =
       max_targets?: number;
     })
   | (AbilitySpecBase & { type: 'process'; process: ProcessSpec })
-  | (AbilitySpecBase & { type: 'spell'; action_components: ActionComponent[]; spell: SpellSpec });
+  | (AbilitySpecBase & {
+      type: 'spell';
+      action_components: ActionComponent[];
+      spell: SpellSpec;
+      operations?: ActionOperation[];
+      attack_mode?: 'single' | 'wide';
+      max_targets?: number;
+    });

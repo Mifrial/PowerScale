@@ -15,4 +15,5 @@ export interface CreateDraftParams {
   mechanicId?: number | null;
   catalogSection?: string | null;
   catalogSortOrder?: number;
+  contentStatus?: string;
 }

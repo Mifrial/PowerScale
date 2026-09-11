@@ -125,6 +125,22 @@ export class RuleViewLabelService {
 
         return quantity > 1 ? `Даёт предмет «${name}» ×${quantity}` : `Даёт предмет «${name}»`;
       }
+      case 'magic_path':
+        return `Даёт путь волшебства «${this.ruleName(rules, grant.path_code)}»`;
+      case 'magic_study': {
+        const scopeLabel =
+          grant.scope === 'spell'
+            ? `заклинаний со стоимостью ${grant.max_cost} и меньше`
+            : `навыков волшебства (не заклинаний) со стоимостью ${grant.max_cost} и меньше`;
+        const parts = [`Открывает изучение ${scopeLabel}`];
+        if (grant.path_code) parts.push(`путь «${this.ruleName(rules, grant.path_code)}»`);
+        if (grant.max_instances != null) {
+          parts.push(grant.max_instances === 1 ? 'одно' : `не больше ${grant.max_instances}`);
+        }
+        if (grant.paid_cost != null) parts.push(`оплата ${grant.paid_cost} ОР`);
+
+        return parts.join('; ');
+      }
       case 'resistance':
         return `Сопротивление «${this.ruleName(rules, grant.damage_type_code)}»: ${this.amount(grant.value, rules)} (${this.ruleName(rules, grant.source_code)})`;
       case 'sense_modify':

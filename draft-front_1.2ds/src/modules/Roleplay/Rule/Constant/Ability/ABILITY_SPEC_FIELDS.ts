@@ -8,6 +8,6 @@ export const ABILITY_SPEC_FIELDS: Record<AbilityType, readonly (keyof AbilitySpe
   skill: [],
   action: ['action_components', 'action_effects', 'attack_mode', 'max_targets'],
   process: ['process'],
-  spell: ['action_components', 'spell'],
+  spell: ['action_components', 'action_effects', 'attack_mode', 'max_targets', 'spell'],
   group: [],
 };

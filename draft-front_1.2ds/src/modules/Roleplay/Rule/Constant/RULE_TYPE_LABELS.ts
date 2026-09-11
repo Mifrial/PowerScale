@@ -20,4 +20,5 @@ export const RULE_TYPE_LABELS: Record<RuleType, string> = {
   item_modifier: 'Модификатор предмета',
   item_modifier_type: 'Тип модификатора предмета',
   check: 'Проверка',
+  magic_path: 'Путь волшебства',
 };

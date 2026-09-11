@@ -12,6 +12,9 @@ export { checkResolutionService } from '@/modules/Roleplay/Rule/Service/Instance
 export { checkLaunchService } from '@/modules/Roleplay/Rule/Service/Instance/checkLaunchService';
 export { checkSuccessRatingService } from '@/modules/Roleplay/Rule/Service/Instance/checkSuccessRatingService';
 export { damageTypeSpecService } from '@/modules/Roleplay/Rule/Service/Instance/damageTypeSpecService';
+export { spellDamageService } from '@/modules/Roleplay/Rule/Service/Instance/spellDamageService';
+export { spellDurationLabelService } from '@/modules/Roleplay/Rule/Service/Instance/spellDurationLabelService';
+export { abilityTypeChipLabelService } from '@/modules/Roleplay/Rule/Service/Instance/abilityTypeChipLabelService';
 export { derivedCharacteristicService } from '@/modules/Roleplay/Rule/Service/Instance/derivedCharacteristicService';
 export { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/Service/Instance/aggregateSourceDeltasService';
 export { advantageDropService } from '@/modules/Roleplay/Rule/Service/Instance/advantageDropService';

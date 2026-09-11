@@ -610,7 +610,7 @@ describe('validateAbilityStructure', () => {
     expect(errors.some((e) => e.message.includes('шаг «sprint» не существует'))).toBe(true);
   });
 
-  it('requires difficulty and validates material item for a spell', () => {
+  it('requires power, control, hit_resolution and validates material item for a spell', () => {
     const rules: Rule[] = [
       baseRule(null, 'ash', 'item'),
       baseRule(null, 'fire-bolt', 'ability', {
@@ -627,7 +627,9 @@ describe('validateAbilityStructure', () => {
       }),
     ];
     const errors = ruleValidationService.validateAbilityStructure(rules, keywords);
-    expect(errors.some((e) => e.message.includes('сложность сотворения'))).toBe(true);
+    expect(errors.some((e) => e.message.includes('мощь'))).toBe(true);
+    expect(errors.some((e) => e.message.includes('контроль'))).toBe(true);
+    expect(errors.some((e) => e.message.includes('hit_resolution'))).toBe(true);
     expect(errors.some((e) => e.message.includes('отсутствующий предмет «missing-item»'))).toBe(true);
     expect(errors.some((e) => e.message.includes('отсутствующий предмет «ash»'))).toBe(false);
   });
@@ -659,7 +661,12 @@ describe('validateAbilityStructure', () => {
           { type: 'material', mode: 'use', keyword_codes: ['skill'] },
           { type: 'material', mode: 'use', keyword_codes: ['missing-tag'] },
         ],
-        spell: { difficulty: { base: 3, size: 0 }, duration: { type: 'instant' } },
+        spell: {
+          power: { base: 3, size: 0 },
+          control: { base: 3, size: -1 },
+          duration: { type: 'instant' },
+        },
+        hit_resolution: { type: 'none' },
         grants: [],
         requirements: [],
         parent_ability_code: null,
@@ -683,7 +690,12 @@ describe('validateAbilityStructure', () => {
           { type: 'material', mode: 'consume' },
           { type: 'material', mode: 'consume', item_code: 'ash', keyword_codes: ['skill'] },
         ],
-        spell: { difficulty: { base: 3, size: 0 }, duration: { type: 'instant' } },
+        spell: {
+          power: { base: 3, size: 0 },
+          control: { base: 3, size: -1 },
+          duration: { type: 'instant' },
+        },
+        hit_resolution: { type: 'none' },
         grants: [],
         requirements: [],
         parent_ability_code: null,
@@ -703,13 +715,85 @@ describe('validateAbilityStructure', () => {
           { type: 'material', mode: 'consume', item_code: 'ash' },
           { type: 'material', mode: 'use', keyword_codes: ['skill'] },
         ],
-        spell: { difficulty: { base: 3, size: 0 }, duration: { type: 'instant' } },
+        spell: {
+          power: { base: 3, size: 0 },
+          control: { base: 3, size: -1 },
+          duration: { type: 'instant' },
+        },
+        hit_resolution: { type: 'none' },
         grants: [],
         requirements: [],
         parent_ability_code: null,
       }),
     ];
     expect(ruleValidationService.validateAbilityStructure(rules, keywords)).toEqual([]);
+  });
+
+  it('rejects leftover cast difficulty and allows apply_state on a spell', () => {
+    const rules: Rule[] = [
+      baseRule(null, 'haste', 'state'),
+      baseRule(null, 'fire-bolt', 'ability', {
+        type: 'spell',
+        action_components: [{ type: 'resource', resource_code: 'action-points', amount: 1, label: 'Сотворение' }],
+        spell: {
+          power: { base: 3, size: 0 },
+          control: { base: 3, size: -1 },
+          duration: { type: 'instant' },
+          difficulty: { base: 3, size: 0 },
+        },
+        hit_resolution: { type: 'none' },
+        action_effects: [{ type: 'apply_state', state_code: 'haste' }],
+        grants: [],
+        requirements: [],
+        parent_ability_code: null,
+      }),
+    ];
+    const errors = ruleValidationService.validateAbilityStructure(rules, keywords);
+    expect(errors.some((e) => e.message.includes('не является свойством заклинания'))).toBe(true);
+    expect(errors.some((e) => e.message.includes('временные эффекты'))).toBe(false);
+    expect(errors.some((e) => e.message.includes('отсутствующее состояние'))).toBe(false);
+  });
+
+  it('requires action_cost only on refreshable duration', () => {
+    const missingCost = ruleValidationService.validateAbilityStructure(
+      [
+        baseRule(null, 'bolt', 'ability', {
+          type: 'spell',
+          action_components: [{ type: 'resource', resource_code: 'action-points', amount: 1 }],
+          spell: {
+            power: { base: 3, size: 0 },
+            control: { base: 3, size: -1 },
+            duration: { type: 'refreshable' },
+          },
+          hit_resolution: { type: 'none' },
+          grants: [],
+          requirements: [],
+          parent_ability_code: null,
+        }),
+      ],
+      keywords,
+    );
+    expect(missingCost.some((e) => e.message.includes('стоимость ОД'))).toBe(true);
+
+    const lingeringOd = ruleValidationService.validateAbilityStructure(
+      [
+        baseRule(null, 'ward', 'ability', {
+          type: 'spell',
+          action_components: [{ type: 'resource', resource_code: 'action-points', amount: 1 }],
+          spell: {
+            power: { base: 3, size: 0 },
+            control: { base: 3, size: -1 },
+            duration: { type: 'lingering', action_cost: 1 },
+          },
+          hit_resolution: { type: 'none' },
+          grants: [],
+          requirements: [],
+          parent_ability_code: null,
+        }),
+      ],
+      keywords,
+    );
+    expect(lingeringOd.some((e) => e.message.includes('не тратят ОД'))).toBe(true);
   });
 
   it('derives type from keywords when spec.type is absent', () => {
@@ -737,7 +821,11 @@ describe('pruneAbilitySpecForType', () => {
     grants: [],
     action_components: [{ type: 'resource' as const, resource_code: 'action-points', amount: 1 }],
     process: { steps: [], transition: { mode: 'chain' as const, max_shift: 1 } },
-    spell: { difficulty: { base: 3, size: 0 }, duration: { type: 'instant' as const } },
+    spell: {
+      power: { base: 3, size: 0 },
+      control: { base: 3, size: -1 },
+      duration: { type: 'instant' as const },
+    },
     parent_ability_code: null,
   };
 
@@ -779,6 +867,21 @@ describe('pruneAbilitySpecForType', () => {
     expect(out.requirements).toHaveLength(1);
     expect(out.grants).toEqual([]);
     expect(out.parent_ability_code).toBeNull();
+  });
+
+  it('keeps action_effects on spell and operations on action', () => {
+    const extra = {
+      ...draft,
+      action_effects: [{ type: 'apply_state' as const, state_code: 'haste' }],
+      operations: [{ type: 'turn' as const, maxDegrees: 90 }],
+    };
+    const spellOut = abilitySpecService.prune({ ...extra }, 'spell') as any;
+    expect(spellOut.action_effects).toEqual([{ type: 'apply_state', state_code: 'haste' }]);
+    expect(spellOut.operations).toEqual([{ type: 'turn', maxDegrees: 90 }]);
+
+    const actionOut = abilitySpecService.prune({ ...extra }, 'action') as any;
+    expect(actionOut.operations).toEqual([{ type: 'turn', maxDegrees: 90 }]);
+    expect(actionOut.spell).toBeUndefined();
   });
 });
 

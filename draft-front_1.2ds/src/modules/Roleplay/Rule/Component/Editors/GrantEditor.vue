@@ -6,6 +6,7 @@ import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberF
 import { abilitySpecService } from '@/modules/Roleplay/Rule/Service/Instance/abilitySpecService';
 import { useVModelSync } from '@/modules/Core/UI/Composables/useVModelSync';
 import { GRANT_TYPES } from '@/modules/Roleplay/Rule/Constant/Ability/GRANT_TYPES';
+import { MAGIC_STUDY_SCOPE_OPTIONS } from '@/modules/Roleplay/Rule/Constant/Ability/MAGIC_STUDY_SCOPE_OPTIONS';
 import type { Grant } from '@/modules/Roleplay/Rule/Dto/Ability/Grant';
 import type { CharacteristicRef } from '@/modules/Roleplay/Rule/Dto/Ability/CharacteristicRef';
 import type { ResourceRef } from '@/modules/Roleplay/Rule/Dto/Ability/ResourceRef';
@@ -21,6 +22,7 @@ const props = defineProps<{
   abilities: AbilityRef[];
   keywords: KeywordRef[];
   items: { code: string; name: string }[];
+  magicPaths: { code: string; name: string }[];
   sources: SourceRef[];
   damageTypes: { code: string; name: string }[];
   senses: { code: string; name: string }[];
@@ -285,6 +287,66 @@ function patch(key: string, value: unknown) {
           :min="1"
           @update:model-value="patch('quantity', $event)"
           label="Количество"
+          density="compact"
+          hide-details
+        />
+      </template>
+
+      <template v-else-if="inner.type === 'magic_path'">
+        <v-autocomplete
+          :model-value="inner.path_code"
+          @update:model-value="patch('path_code', $event)"
+          :items="magicPaths"
+          item-title="name"
+          item-value="code"
+          label="Путь волшебства"
+          density="compact"
+          hide-details
+          clearable
+        />
+      </template>
+
+      <template v-else-if="inner.type === 'magic_study'">
+        <v-select
+          :model-value="inner.scope"
+          @update:model-value="patch('scope', $event)"
+          :items="MAGIC_STUDY_SCOPE_OPTIONS"
+          item-title="title"
+          item-value="value"
+          label="Что открывает"
+          density="compact"
+          hide-details
+        />
+        <ClampedNumberField
+          :model-value="inner.max_cost"
+          :min="0"
+          @update:model-value="patch('max_cost', $event)"
+          label="Максимальная стоимость"
+          density="compact"
+          hide-details
+        />
+        <v-autocomplete
+          :model-value="inner.path_code ?? null"
+          @update:model-value="patch('path_code', $event || undefined)"
+          :items="magicPaths"
+          item-title="name"
+          item-value="code"
+          label="Путь изучения (без выдачи пути)"
+          density="compact"
+          hide-details
+          clearable
+        />
+        <v-checkbox
+          :model-value="inner.max_instances === 1"
+          @update:model-value="patch('max_instances', $event ? 1 : undefined)"
+          label="Только одно"
+          density="compact"
+          hide-details
+        />
+        <v-checkbox
+          :model-value="inner.paid_cost === 0"
+          @update:model-value="patch('paid_cost', $event ? 0 : undefined)"
+          label="Бесплатно"
           density="compact"
           hide-details
         />

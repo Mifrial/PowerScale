@@ -9,6 +9,7 @@ import DamageTypeCard from '@/modules/Roleplay/Rule/Component/Cards/DamageTypeCa
 import ItemCard from '@/modules/Roleplay/Rule/Component/Cards/ItemCard.vue';
 import ItemModifierTypeCard from '@/modules/Roleplay/Rule/Component/Cards/ItemModifierTypeCard.vue';
 import MarkerCard from '@/modules/Roleplay/Rule/Component/Cards/MarkerCard.vue';
+import MagicPathCard from '@/modules/Roleplay/Rule/Component/Cards/MagicPathCard.vue';
 import ModifierCard from '@/modules/Roleplay/Rule/Component/Cards/ModifierCard.vue';
 import PointsCard from '@/modules/Roleplay/Rule/Component/Cards/PointsCard.vue';
 import PoisonCard from '@/modules/Roleplay/Rule/Component/Cards/PoisonCard.vue';
@@ -34,6 +35,7 @@ defineProps<{
   <PoisonCard v-else-if="rule.type === 'poison'" :rule="rule" :rules="rules" />
   <ModifierCard v-else-if="rule.type === 'item_modifier'" :rule="rule" :keywords="keywords" :rules="rules" />
   <CheckCard v-else-if="rule.type === 'check'" :rule="rule" :rules="rules" />
+  <MagicPathCard v-else-if="rule.type === 'magic_path'" :rule="rule" :rules="rules" />
   <DamageTypeCard v-else-if="rule.type === 'damage_type'" :rule="rule" :rules="rules" />
   <ItemCard v-else-if="rule.type === 'item'" :rule="rule" :rules="rules" />
   <CharacteristicCard v-else-if="rule.type === 'characteristic'" :rule="rule" :rules="rules" />

@@ -16,6 +16,7 @@ export class RuleDraftService {
       mechanicId: params.mechanicId,
       catalogSection: params.catalogSection ?? null,
       catalogSortOrder: params.catalogSortOrder ?? 100,
+      contentStatus: params.contentStatus ?? 'needs_work',
       createdAt: Math.floor(Date.now() / 1000),
     };
   }

@@ -4,6 +4,8 @@ import type { Requirement } from '@/modules/Roleplay/Rule/Dto/Ability/Requiremen
 import type { Grant } from '@/modules/Roleplay/Rule/Dto/Ability/Grant';
 import type { AbilityParameter } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityParameter';
 import type { ActionEffect } from '@/modules/Roleplay/Rule/Dto/Ability/ActionEffect';
+import type { HitResolution } from '@/modules/Roleplay/Rule/Dto/Ability/HitResolution';
+import type { SpellUpgrade } from '@/modules/Roleplay/Rule/Dto/Ability/SpellUpgrade';
 
 /** Общие поля способности (не типоспецифичные). */
 export interface AbilitySpecBase {
@@ -12,10 +14,14 @@ export interface AbilitySpecBase {
   grants: { level: number; grants: Grant[] }[];
   /** Временные эффекты действия, исполняемые боевым движком. */
   action_effects?: ActionEffect[];
+  /** Доставка попадания. У заклинания обязательна; у обычного действия может отсутствовать. */
+  hit_resolution?: HitResolution;
   /** Режим выбора целей для атакующего действия. */
   attack_mode?: 'single' | 'wide';
   max_targets?: number;
   parent_ability_code: string | null;
+  /** Модификатор каста (дельта ОД, преимущество сотворения, цепь). С родителем — на то заклинание; без — на выбранный каст. */
+  spell_upgrade?: SpellUpgrade;
   /** Для способностей владения оружием — код предмета-оружия (напр. «sword»). */
   weapon_item_code?: string | null;
   /** Параметры «X»: подстановка `{code}` в цене/дарах/описании (Дискуссия 2). */

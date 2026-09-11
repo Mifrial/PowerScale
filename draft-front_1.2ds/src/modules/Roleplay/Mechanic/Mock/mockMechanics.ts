@@ -85,6 +85,13 @@ const mechanics: Mechanic[] = [
     version: '1.0.0',
   },
   {
+    id: 19,
+    code: 'exhaustion_to_shock',
+    name: 'Истощение в шок',
+    description: 'Истощение от этого типа урона накладывает Шок той же силы.',
+    version: '1.0.0',
+  },
+  {
     id: 12,
     code: 'exhaustion_to_wound',
     name: 'Истощение в рану',
@@ -109,7 +116,7 @@ const mechanics: Mechanic[] = [
     id: 15,
     code: 'injury',
     name: 'Увечье',
-    description: 'Процедура проверки на увечье. Алгоритм в клиенте: injury@version из среза ревизии.',
+    description: 'Процедура проверки на увечье. По каждому типу: ⌊повреждения / Стойкость⌋ проверок с хуками типа; нераспределённые остатки разных типов складываются — ещё ⌊сумма остатков / Стойкость⌋ от Упадка сил. Иначе max(повреждения, рана/2, истощение).',
     version: '1.0.0',
   },
   {
@@ -137,7 +144,7 @@ const mechanics: Mechanic[] = [
 
 const delay = (ms = 300) => new Promise((r) => setTimeout(r, ms));
 
-let nextId = 19;
+let nextId = 20;
 
 export async function fetchMechanics(_signal?: AbortSignal): Promise<Mechanic[]> {
   await delay();

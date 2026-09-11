@@ -1,5 +1,6 @@
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { Formula } from '@/modules/Roleplay/Rule/Dto/Ability/Formula';
+import type { MagicStudyScope } from '@/modules/Roleplay/Rule/Enum/Ability/MagicStudyScope';
 
 export type Grant =
   | { type: 'characteristic'; characteristic_code: string; value: DimensionalNumberValue; permanent?: boolean }
@@ -25,6 +26,19 @@ export type Grant =
   | { type: 'ability'; ability_code: string; level?: number; permanent?: boolean }
   | { type: 'keyword'; keyword_code: string; remove?: boolean; permanent?: boolean }
   | { type: 'item'; item_code: string; quantity?: number; permanent?: boolean }
+  | { type: 'magic_path'; path_code: string; permanent?: boolean }
+  | {
+      type: 'magic_study';
+      scope: MagicStudyScope;
+      max_cost: number;
+      /** Путь как домен изучения, без гранта самого пути (каст этим путём не открывается). */
+      path_code?: string;
+      /** Сколько способностей этот грант может открыть; без поля — без лимита. */
+      max_instances?: number;
+      /** Оплата изучения вместо каталожной стоимости; 0 — бесплатно. */
+      paid_cost?: number;
+      permanent?: boolean;
+    }
   | {
       type: 'resistance';
       damage_type_code: string;

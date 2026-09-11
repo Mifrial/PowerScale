@@ -1,1 +1,1 @@
-export type CharacteristicGroup = 'primary' | 'important' | 'secondary' | 'combat' | 'base';
+export type CharacteristicGroup = 'primary' | 'important' | 'secondary' | 'combat' | 'base' | 'magic';

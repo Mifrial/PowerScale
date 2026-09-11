@@ -37,6 +37,11 @@ export class ActionEffectLabelService {
 
       return `${effect.delta > 0 ? '+' : ''}${effect.delta} к ${this.characteristicLabel(effect.check_code)} от ${characteristic}${floor} у цели для ${hitCount} следующей атаки${limit}`;
     }
+    if (effect.type === 'apply_state') {
+      return typeof effect.amount === 'number'
+        ? `накладывает состояние «${effect.state_code}» (${effect.amount})`
+        : `накладывает состояние «${effect.state_code}»`;
+    }
 
     return `${this.deltaLabel(effect.delta)} к ${effect.check_codes.map((code) => this.checkLabel(code)).join(', ')} до траты ${effect.amount} ${this.resourceLabel(effect.resource_code)}`;
   }

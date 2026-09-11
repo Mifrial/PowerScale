@@ -72,6 +72,10 @@ export class RuleReferenceService {
     return rules.filter((r) => r.type === 'item').map((r) => ({ code: r.code, name: r.name }));
   }
 
+  magicPathOptions(rules: Rule[]): NamedOption[] {
+    return rules.filter((r) => r.type === 'magic_path').map((r) => ({ code: r.code, name: r.name }));
+  }
+
   zoneOptions(rules: Rule[]): { label: string; value: string }[] {
     return rules.filter((r) => r.type === 'points').map((r) => ({ label: r.name, value: r.code }));
   }

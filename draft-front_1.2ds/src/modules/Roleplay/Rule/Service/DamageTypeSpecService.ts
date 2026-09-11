@@ -13,6 +13,8 @@ export class DamageTypeSpecService {
       forms: { genitive: forms.genitive, dative: forms.dative },
       attached_rule_codes: [...attached],
       defense_ignored: false,
+      modifies_spell_difficulty: false,
+      max_success_rating: null,
     };
   }
 

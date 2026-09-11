@@ -28,11 +28,20 @@ export class MockRuleCatalogMigrationService {
 
       return parentCode && speciesByCode.has(parentCode) ? `species-${parentCode}` : 'races';
     }
-    if (rule.type === 'characteristic' || rule.type === 'sense') return 'basic-characteristics';
+    if (rule.type === 'characteristic' || rule.type === 'sense') {
+      if (rule.code === 'magic-power' || rule.code === 'magic-control' || rule.code === 'spirituality') {
+        return 'magic-rules-characteristics';
+      }
+
+      return 'basic-characteristics';
+    }
     if (rule.type === 'check') return 'basic-checks';
+    if (rule.type === 'magic_path') return 'magic-rules-paths';
     if (rule.type === 'resource' || rule.type === 'points') return 'basic-resources';
-    if (rule.type === 'damage_type') return 'scenes-damage-types';
-    if (rule.type === 'state') return 'scenes-states';
+    if (rule.type === 'damage_type') return rule.code === 'arcane' ? 'magic-rules-damage-types' : 'scenes-damage-types';
+    if (rule.type === 'state') {
+      return rule.code === 'shock' || rule.code === 'electrocharge' ? 'magic-rules-states' : 'scenes-states';
+    }
     if (rule.type === 'poison') return 'scenes-poisons';
     if (rule.type === 'language') return 'abilities-acquired-mental-intellect';
     if (rule.type === 'age') return 'races';
@@ -66,9 +75,9 @@ export class MockRuleCatalogMigrationService {
     keywordCodeById: ReadonlyMap<number, string>,
     combatSectionByCode: ReadonlyMap<string, string>,
   ): string {
-    const spec = rule.spec as { type?: string } | undefined;
+    const spec = rule.spec as { type?: string; parent_ability_code?: string | null } | undefined;
     if (rule.code === 'dodge' || rule.code === 'block' || rule.code === 'turn') return 'scenes-combat-defense';
-    if (rule.code === 'simple-melee-attack' || rule.code === 'simple-ranged-attack') {
+    if (rule.code === 'simple-melee-attack' || rule.code === 'simple-ranged-attack' || rule.code === 'simple-touch') {
       return 'scenes-combat-basic-attacks';
     }
     if (this.isWeaponSkill(rule)) return 'abilities-acquired-melee-weapon-skills';
@@ -82,6 +91,20 @@ export class MockRuleCatalogMigrationService {
 
       return 'scenes-other';
     }
+    if (keywords.has('electromancy')) return 'abilities-acquired-magic-spells-electromancy';
+    if (spec?.type === 'spell' && keywords.has('psionic')) return 'abilities-acquired-magic-spells-psionic';
+    if (spec?.type === 'spell') return 'abilities-acquired-magic-spells-electromancy';
+    if (keywords.has('shaman') || rule.code === 'otherworldly-contact') {
+      return 'abilities-acquired-magic-paths-shaman';
+    }
+    if (keywords.has('psionic') || rule.code === 'psionic-awakening' || rule.code === 'psionic-control') {
+      return 'abilities-acquired-magic-paths-psionic';
+    }
+    if (keywords.has('magic-path') || keywords.has('arcanist') || rule.code === 'becoming-arcanist') {
+      return 'abilities-acquired-magic-paths-arcanist';
+    }
+    if (rule.code === 'magic-core-capacity') return 'abilities-acquired-magic-sources-core';
+    if (rule.code === 'magic-resistance' || rule.code === 'careful-magic') return 'abilities-acquired-magic-common';
     if (spec?.type === 'trait') return 'abilities-innate-common';
     if (keywords.has('method-perception')) return 'abilities-acquired-mental-perception';
     if (keywords.has('method-intellect')) return 'abilities-acquired-mental-intellect';
@@ -110,6 +133,7 @@ export class MockRuleCatalogMigrationService {
       return 'scenes-combat-procedures';
     }
     if (rule.code === 'flanking-attack') return 'scenes-combat-tactics';
+    if (rule.code === 'spell-sustaining') return 'magic-rules-casting';
 
     return 'scenes-other';
   }
