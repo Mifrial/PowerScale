@@ -3,7 +3,12 @@ import { computed, ref, watch } from 'vue';
 import { useChatChannel } from '@/modules/Messages/Chat/init';
 import { useCombatChatThread } from '@/modules/Roleplay/Game/Composables/useCombatChatThread';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
-import { rollInitiative, orderInitiative, rollPoolDefaults } from '@/modules/Roleplay/Game/Utils/initiativeRoll';
+import {
+  rollInitiative,
+  orderInitiative,
+  rollPoolDefaults,
+  formatInitiativeOrderMessage,
+} from '@/modules/Roleplay/Game/Utils/initiativeRoll';
 import type { InitiativeRollMethod } from '@/modules/Roleplay/Game/Utils/initiativeRoll';
 import { initiativeCharacteristics } from '@/modules/Roleplay/Game/Utils/initiativeCharacteristic';
 import type { InitiativeCharacteristicView } from '@/modules/Roleplay/Game/Utils/initiativeCharacteristic';
@@ -21,6 +26,7 @@ import type { GameInitiativeParticipant } from '@/modules/Roleplay/Game/Dto/Game
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
+import { combatChatSendService } from '@/modules/Roleplay/Game/Service/Instance/combatChatSendService';
 import { sessionCharacterService } from '@/modules/Roleplay/Game/Service/Instance/sessionCharacterService';
 
 /**
@@ -48,6 +54,7 @@ const emit = defineEmits<{
 
 const chatStore = useChatChannel();
 const combatThread = useCombatChatThread(() => props.gameId);
+const sendChat = combatChatSendService.sendCombatChat(props.gameId);
 
 const DEFAULT_CHARACTERISTIC_CODE = 'perception';
 
@@ -263,16 +270,17 @@ async function roll(): Promise<void> {
       const round = combatThread.beginRound();
       await chatStore.postSystemMessage(`Новый раунд: 1`, props.chatId, 'highlighted', round);
       const rolled = results.filter((result) => result.result !== null);
+      combatThread.beginInitiative();
       if (rolled.length > 0) {
-        await chatStore.sendMessage(
+        await sendChat(
           'Проверка на инициативу',
           rolled.map((result) => ({ type: ROLL_ATTACHMENT_TYPE, payload: result.result })),
           props.chatId,
           { kind: 'gm' },
-          undefined,
-          round,
         );
       }
+      await sendChat(formatInitiativeOrderMessage(results, ordered), [], props.chatId, { kind: 'gm' });
+      combatThread.endInitiative();
       const first = ordered[0];
       if (first) {
         const turn = combatThread.beginTurn();

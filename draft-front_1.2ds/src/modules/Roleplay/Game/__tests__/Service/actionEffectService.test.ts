@@ -204,4 +204,17 @@ describe('ActionEffectService', () => {
     expect(remaining[0]?.effect).toMatchObject({ amount: 1 });
     expect(actionEffectService.consumeResource(remaining, 'action-points', 1)).toEqual([]);
   });
+
+  it('трата ОД не-атакой снимает надбавку следующего удара', () => {
+    const pending: PendingActionEffect[] = [
+      {
+        sourceRuleCode,
+        effect: { type: 'next_action_attack_cost', resource_code: 'action-points', delta: 1 },
+      },
+    ];
+
+    expect(
+      actionEffectService.afterDeclaredAction(pending, 2, { isAttack: false, component: 'strike', baseCost: 2 }),
+    ).toEqual([]);
+  });
 });

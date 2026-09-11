@@ -83,5 +83,17 @@ describe('buildChatRulesContext', () => {
 
     const passthrough = context.processAttachments([{ type: ROLL_ATTACHMENT_TYPE, payload: result }]);
     expect(passthrough[0].payload).toBe(result);
+
+    const faceSumSpec = {
+      diceCount: 2,
+      dieFaces: 6,
+      efficiency: 6,
+      advantages: [],
+      dieSize: 0,
+      scoring: 'face_sum' as const,
+    };
+    const faceSumKept = context.processAttachments([{ type: ROLL_ATTACHMENT_TYPE, payload: faceSumSpec }]);
+    expect(faceSumKept[0].payload).toBe(faceSumSpec);
+    expect(faceSumKept[0].payload).not.toHaveProperty('check');
   });
 });

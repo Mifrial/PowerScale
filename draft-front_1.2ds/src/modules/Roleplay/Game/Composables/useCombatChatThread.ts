@@ -3,6 +3,7 @@ import type { ChatMessage } from '@/modules/Messages/Chat/Dto/ChatMessage';
 import type { ChatThreadRef } from '@/modules/Messages/Chat/Dto/ChatThreadRef';
 import {
   COMBAT_CHAT_ATTACK,
+  COMBAT_CHAT_INITIATIVE,
   COMBAT_CHAT_ROUND,
   COMBAT_CHAT_TURN,
 } from '@/modules/Roleplay/Game/Constant/Combat/COMBAT_CHAT_FOLD_KINDS';
@@ -15,6 +16,8 @@ interface CombatChatThreadState {
   previousTurnId: string | null;
   attackId: string | null;
   lastAttackId: string | null;
+  initiativeId: string | null;
+  lastInitiativeId: string | null;
 }
 
 const byGame = new Map<number, CombatChatThreadState>();
@@ -29,6 +32,8 @@ function stateOf(gameId: number): CombatChatThreadState {
       previousTurnId: null,
       attackId: null,
       lastAttackId: null,
+      initiativeId: null,
+      lastInitiativeId: null,
     });
     byGame.set(gameId, state);
   }
@@ -56,6 +61,8 @@ export function useCombatChatThread(gameId: MaybeRefOrGetter<number>) {
     current.turnId = null;
     current.attackId = null;
     current.lastAttackId = null;
+    current.initiativeId = null;
+    current.lastInitiativeId = null;
 
     return { id: current.roundId, kind: COMBAT_CHAT_ROUND };
   }
@@ -83,10 +90,29 @@ export function useCombatChatThread(gameId: MaybeRefOrGetter<number>) {
     };
   }
 
+  function beginInitiative(): ChatThreadRef {
+    const current = state();
+    if (!current.roundId) beginRound();
+    current.initiativeId = newId();
+    current.lastInitiativeId = null;
+
+    return {
+      id: current.initiativeId,
+      parentId: current.roundId ?? undefined,
+      kind: COMBAT_CHAT_INITIATIVE,
+    };
+  }
+
   function endAttack(): void {
     const current = state();
     current.lastAttackId = current.attackId;
     current.attackId = null;
+  }
+
+  function endInitiative(): void {
+    const current = state();
+    current.lastInitiativeId = current.initiativeId;
+    current.initiativeId = null;
   }
 
   function clearLive(): void {
@@ -97,12 +123,21 @@ export function useCombatChatThread(gameId: MaybeRefOrGetter<number>) {
     current.previousTurnId = null;
     current.attackId = null;
     current.lastAttackId = null;
+    current.initiativeId = null;
+    current.lastInitiativeId = null;
   }
 
   function stamp(): ChatThreadRef | undefined {
     const current = state();
     if (current.attackId) {
       return { id: current.attackId, parentId: current.turnId ?? undefined, kind: COMBAT_CHAT_ATTACK };
+    }
+    if (current.initiativeId) {
+      return {
+        id: current.initiativeId,
+        parentId: current.roundId ?? undefined,
+        kind: COMBAT_CHAT_INITIATIVE,
+      };
     }
     if (current.turnId) {
       return { id: current.turnId, parentId: current.roundId ?? undefined, kind: COMBAT_CHAT_TURN };
@@ -146,6 +181,8 @@ export function useCombatChatThread(gameId: MaybeRefOrGetter<number>) {
       current.turnId,
       current.attackId,
       current.lastAttackId,
+      current.initiativeId,
+      current.lastInitiativeId,
     ].filter((id): id is string => id != null);
   });
 
@@ -153,7 +190,9 @@ export function useCombatChatThread(gameId: MaybeRefOrGetter<number>) {
     beginRound,
     beginTurn,
     beginAttack,
+    beginInitiative,
     endAttack,
+    endInitiative,
     clearLive,
     stamp,
     recoverFromMessages,

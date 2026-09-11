@@ -21,6 +21,8 @@ import {
   registerInlineRenderer,
 } from '@/modules/Messages/Chat/init';
 import { registerProfileSection, registerPermissionCategory } from '@/modules/Core/User/init';
+import { registerMenuItem } from '@/modules/Core/UI/init';
+import { GAMES_MENU_ITEM } from '@/modules/Roleplay/Game/Constant/Navigation/GAMES_MENU_ITEM';
 import { GAME_PERMISSION_CATEGORY } from '@/modules/Roleplay/Game/Constant/permissions';
 import { gameChatRulesProvider } from '@/modules/Roleplay/Game/Chat/gameChatRulesProvider';
 import { actualRulesChatRulesProvider } from '@/modules/Roleplay/Game/Chat/actualRulesChatRulesProvider';
@@ -66,6 +68,7 @@ export function getGameApi(): IGameApi {
 
 export function registerGameModule(): void {
   registerPermissionCategory(GAME_PERMISSION_CATEGORY);
+  registerMenuItem(GAMES_MENU_ITEM);
   registerGameSheetRoles();
   registerInGameSheetSource(inGameSheetSource);
   registerChatRulesProvider(gameChatRulesProvider);
@@ -163,5 +166,14 @@ export { ACTION_POINTS_CODE } from '@/modules/Roleplay/Game/Constant/Combat/ACTI
 export { DEFAULT_ATTACK_AP } from '@/modules/Roleplay/Game/Constant/Combat/DEFAULT_ATTACK_AP';
 export { FLANK_DEFENSE_LABEL } from '@/modules/Roleplay/Game/Constant/Combat/FLANK_DEFENSE_LABEL';
 export { SIMPLE_CHECK_ZERO_DIFFICULTY } from '@/modules/Roleplay/Game/Constant/Check/SIMPLE_CHECK_ZERO_DIFFICULTY';
+export { SPELL_CAST_BASE_DIFFICULTY } from '@/modules/Roleplay/Game/Constant/Spell/SPELL_CAST_BASE_DIFFICULTY';
+export { spellCastDifficultyService } from '@/modules/Roleplay/Game/Service/Instance/spellCastDifficultyService';
+export { spellCastOptionsService } from '@/modules/Roleplay/Game/Service/Instance/spellCastOptionsService';
+export { spellCastService } from '@/modules/Roleplay/Game/Service/Instance/spellCastService';
+export { spellCastExecutionService } from '@/modules/Roleplay/Game/Service/Instance/spellCastExecutionService';
+export { spellCastUpgradeService } from '@/modules/Roleplay/Game/Service/Instance/spellCastUpgradeService';
+export { activeSpellService } from '@/modules/Roleplay/Game/Service/Instance/activeSpellService';
+export { spellChainHopService } from '@/modules/Roleplay/Game/Service/Instance/spellChainHopService';
+export { SIMPLE_TOUCH_CODE } from '@/modules/Roleplay/Game/Constant/Combat/SIMPLE_TOUCH_CODE';
 export { GAME_STARTABLE_STATUSES } from '@/modules/Roleplay/Game/Constant/Game/GAME_STARTABLE_STATUSES';
 export { GAME_STOPPABLE_STATUSES } from '@/modules/Roleplay/Game/Constant/Game/GAME_STOPPABLE_STATUSES';

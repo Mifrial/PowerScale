@@ -33,6 +33,7 @@ import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/Chara
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
 import type { ProcessSession } from '@/modules/Roleplay/Game/Dto/ProcessSession';
+import type { ActiveSpell } from '@/modules/Roleplay/Game/Dto/Spell/ActiveSpell';
 import type { CurrentSpeed } from '@/modules/Roleplay/Game/Dto/CurrentSpeed';
 
 export interface IGameApi {
@@ -127,6 +128,9 @@ export interface IGameApi {
     session: ProcessSession | null,
     signal?: AbortSignal,
   ): Promise<ProcessSession | null>;
+  getActiveSpells(gameId: number, signal?: AbortSignal): Promise<ActiveSpell[]>;
+  upsertActiveSpell(gameId: number, spell: ActiveSpell, signal?: AbortSignal): Promise<ActiveSpell>;
+  dropActiveSpell(gameId: number, id: string, signal?: AbortSignal): Promise<void>;
   getCurrentSpeed(gameId: number, entityKey: CombatEntityKey, signal?: AbortSignal): Promise<CurrentSpeed>;
   setCurrentSpeed(
     gameId: number,

@@ -25,7 +25,7 @@ export class CharacteristicRollService {
       diceCount: pool,
       dieFaces: defaults.dieFaces,
       efficiency: defaults.efficiency,
-      advantages: [],
+      advantages: entry.advantages ?? [],
       dieSize: entry.value.size,
       poolSize: entry.value.size,
       efficiencySize: 0,

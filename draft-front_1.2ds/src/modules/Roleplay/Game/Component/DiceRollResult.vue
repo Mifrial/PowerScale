@@ -22,6 +22,7 @@ const props = defineProps<{
 }>();
 
 const roll = computed(() => props.attachment.payload);
+const isFaceSum = computed(() => roll.value.spec.scoring === 'face_sum');
 const sizeSuffix = computed(() => rollService.formatRollSize(roll.value.spec.dieSize || 0));
 const netAdv = computed(() => aggregateSourceDeltasService.netSourceDelta(roll.value.spec.advantages));
 const check = computed(() => roll.value.check);
@@ -49,6 +50,12 @@ const ratingClass = computed(() => {
   if (roll.value.injury) {
     return roll.value.injury.strength > 0 ? 'text-error' : 'text-medium-emphasis';
   }
+  if (isFaceSum.value) {
+    const strength = roll.value.deviationStrength ?? 0;
+    if (strength > 0) return 'text-error';
+
+    return 'text-medium-emphasis';
+  }
   if (!check.value) return roll.value.totalSuccesses >= 0 ? 'text-success' : 'text-error';
 
   return check.value.passed ? 'text-success' : 'text-error';
@@ -61,6 +68,14 @@ const ratingText = computed(() => {
     return `Увечье: ${injury.strength}`;
   }
   if (check.value) return `${check.value.rating} РУ`;
+  if (isFaceSum.value) {
+    const sum = roll.value.faceSum ?? 0;
+    const strength = roll.value.deviationStrength;
+    if (strength == null) return String(sum);
+    if (strength > 0) return `${sum} · сила ${strength}`;
+
+    return `${sum} · отклонения нет`;
+  }
   const total = roll.value.totalSuccesses;
 
   return `${total > 0 ? '+' : ''}${total}${sizeSuffix.value}`;
@@ -93,6 +108,7 @@ const droppedNote = computed(() => {
 const keptFaces = computed(() =>
   roll.value.adjustedRolls.map((face, i) => ({ face, success: roll.value.successes[i] ?? 0 })),
 );
+const shownFaces = computed(() => (isFaceSum.value ? roll.value.rolls : roll.value.adjustedRolls));
 const appliedMechanicNames = computed(() => resolveAppliedMechanicNames(roll.value));
 const injuryDifficultyRows = computed(() =>
   roll.value.injury?.breakdown ? injuryDifficultyDetailRows(roll.value.injury.breakdown) : [],
@@ -136,17 +152,17 @@ function dieFaceClass(success: number): string {
             <template v-else>{{ title }}</template>
           </v-card-title>
           <v-card-text class="pt-0 text-body-2">
-            <div class="chat-roll-row">
+            <div v-if="!isFaceSum" class="chat-roll-row">
               <span class="text-medium-emphasis">Пул</span>
               <span class="font-weight-medium">{{ rollService.formatPoolNotation(roll.spec) }}</span>
             </div>
-            <div class="chat-roll-row">
+            <div v-if="!isFaceSum" class="chat-roll-row">
               <span class="text-medium-emphasis">Эффективность</span>
               <span class="font-weight-medium">{{ rollService.formatEfficiencyLabel(roll.spec) }}</span>
             </div>
             <div v-if="check" class="chat-roll-row">
               <span class="text-medium-emphasis">Проверка</span>
-              <span class="font-weight-medium">{{ check.check_code }}</span>
+              <span class="font-weight-medium">{{ check.check_name || check.check_code }}</span>
             </div>
             <div v-if="difficultyLabel != null" class="chat-roll-row">
               <span class="text-medium-emphasis">Сложность</span>
@@ -170,9 +186,13 @@ function dieFaceClass(success: number): string {
                 {{ check.passed ? 'успех' : 'провал' }} · {{ check.rating }} РУ
               </span>
             </div>
-            <div class="chat-roll-row">
+            <div v-if="!isFaceSum" class="chat-roll-row">
               <span class="text-medium-emphasis">Успехи</span>
               <span class="font-weight-medium">{{ successesLabel }}</span>
+            </div>
+            <div v-if="isFaceSum" class="chat-roll-row">
+              <span class="text-medium-emphasis">Сумма граней</span>
+              <span class="font-weight-medium">{{ roll.faceSum }}</span>
             </div>
             <div v-if="masteryLines.length" class="mt-2">
               <div class="text-medium-emphasis mb-1">К мастерству</div>
@@ -203,7 +223,10 @@ function dieFaceClass(success: number): string {
             <div class="mt-2">
               <div class="text-medium-emphasis mb-1">Кубы</div>
               <div class="chat-roll-faces">
-                <span v-for="(die, i) in keptFaces" :key="i"> {{ die.face }} → {{ signed(die.success) }}</span>
+                <span v-for="(die, i) in keptFaces" :key="i">
+                  <template v-if="isFaceSum">{{ die.face }}</template>
+                  <template v-else> {{ die.face }} → {{ signed(die.success) }}</template>
+                </span>
               </div>
               <div v-if="droppedNote" class="mt-1">{{ droppedNote }}: {{ roll.droppedRolls.join(', ') }}</div>
             </div>
@@ -218,8 +241,13 @@ function dieFaceClass(success: number): string {
       <span class="font-weight-medium" :class="ratingClass">{{ ratingText }}</span>
     </div>
     <div class="chat-roll-detail">
-      <span v-for="(s, si) in roll.successes" :key="si" class="roll-die" :class="dieFaceClass(s)">
-        {{ roll.adjustedRolls[si] }}
+      <span
+        v-for="(face, si) in shownFaces"
+        :key="si"
+        class="roll-die"
+        :class="isFaceSum ? '' : dieFaceClass(roll.successes[si] ?? 0)"
+      >
+        {{ face }}
       </span>
       <span
         v-for="(d, di) in roll.droppedRolls"

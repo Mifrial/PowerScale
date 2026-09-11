@@ -25,6 +25,7 @@ import { asProcessAbilitySpec, actionRefEquals, findRuleByRef } from '@/modules/
 import { ACTION_POINTS_CODE } from '@/modules/Roleplay/Game/Constant/Combat/ACTION_POINTS_CODE';
 import { AttackProfileOption } from '@/modules/Roleplay/Character/init';
 import { combatChatSendService } from '@/modules/Roleplay/Game/Service/Instance/combatChatSendService';
+import CombatEntitySelect from '@/modules/Roleplay/Game/Component/CombatEntitySelect.vue';
 import { formatProcessEffect } from '@/modules/Roleplay/Game/Utils/processMessage';
 
 const props = defineProps<{
@@ -37,11 +38,13 @@ const props = defineProps<{
   mechanics: Mechanic[];
   activeSpeakerKey: string | null;
   actorKey?: CombatEntityKey | null;
+  initiativeKeys?: string[];
 }>();
 
 const emit = defineEmits<{
   'update:open': [value: boolean];
   'launch-attack': [attackAction: AttackAction];
+  'overlay-changed': [];
 }>();
 
 const overlays = ref<GameCombatOverlay[]>([]);
@@ -262,6 +265,7 @@ async function stopProcess(): Promise<void> {
     const nextEffects = [...currentEffects, ...completionEffects];
     pendingEffects.value = { ...pendingEffects.value, [key]: nextEffects };
     await getGameApi().setCombatActionEffects(props.gameId, key, nextEffects);
+    emit('overlay-changed');
     if (props.chatId !== null) {
       const effectText = completionEffects.length
         ? ` Эффект: ${completionEffects.map((item) => formatProcessEffect(item.effect, props.rules)).join('; ')}.`
@@ -477,14 +481,13 @@ watch(selectedProcessStep, () => {
           <div v-else-if="slot.profile" class="text-body-2 text-medium-emphasis mb-2">
             Профиль: {{ slot.profile.itemName }} · {{ slot.profile.profileTypeLabel }}
           </div>
-          <v-autocomplete
+          <CombatEntitySelect
             v-model="slot.targetKey"
-            :items="targetOptions"
-            item-title="title"
-            item-value="value"
             label="Цель удара"
-            density="compact"
-            hide-details
+            :characters="characters"
+            :npcs="npcs"
+            :initiative-keys="initiativeKeys"
+            :exclude="actorKey ? [actorKey] : []"
             :disabled="busy"
           />
         </div>

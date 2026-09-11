@@ -3,6 +3,7 @@ import type { ChatMessage } from '@/modules/Messages/Chat/Dto/ChatMessage';
 import { ATTACK_CALC_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Attack/ATTACK_CALC_ATTACHMENT_TYPE';
 import {
   COMBAT_CHAT_ATTACK,
+  COMBAT_CHAT_INITIATIVE,
   COMBAT_CHAT_ROUND,
   COMBAT_CHAT_TURN,
 } from '@/modules/Roleplay/Game/Constant/Combat/COMBAT_CHAT_FOLD_KINDS';
@@ -87,7 +88,7 @@ describe('buildCombatChatFolds', () => {
     const attack = turn.fold.children[0];
     if (attack?.type !== 'fold') return;
     expect(attack.fold.summary).toBe(
-      '[[character:1,Гаррик]] попадает по [[npc:2,Бородач]] с 4 РУ и наносит 2 истощения! Это наносит 4 постоянное обезображивающее увечье. [[npc:2,Бородач]] обессилен!',
+      '[[character:1,Гаррик]] попадает по [[npc:2,Бородач]] с 4 РУ и наносит 2 истощения! [[npc:2,Бородач]] получает постоянное обезображивающее увечье силой 4. [[npc:2,Бородач]] обессилен!',
     );
   });
 
@@ -115,5 +116,101 @@ describe('buildCombatChatFolds', () => {
     expect(rows.some((row) => row.type === 'panel' && row.foldId === 'a1' && !row.expanded)).toBe(true);
     expect(rows.some((row) => row.type === 'message' && row.message.id === 3)).toBe(false);
     expect(rows.some((row) => row.type === 'chrome' && row.foldId === 't1' && row.expanded)).toBe(true);
+  });
+
+  it('сводка заклинания без удара — итог сотворения, не «Атака»', () => {
+    const forest = combatChatFoldService.buildCombatChatFolds([
+      msg(1, 'Ходит Бородач', { kind: 'default', thread: { id: 't1', kind: COMBAT_CHAT_TURN } }),
+      msg(2, '[[character:1,Старый Бородач]] творит заклинание [[rule:lightning-generator]] за 4ОД!', {
+        thread: { id: 'a1', parentId: 't1', kind: COMBAT_CHAT_ATTACK },
+      }),
+      msg(3, '[[character:1,Старый Бородач]] успешно сотворил [[rule:lightning-generator]] за 4ОД!', {
+        thread: { id: 'a1', parentId: 't1', kind: COMBAT_CHAT_ATTACK },
+      }),
+    ]);
+    const turn = forest[0];
+    expect(turn?.type).toBe('fold');
+    if (turn?.type !== 'fold') return;
+    const attack = turn.fold.children[0];
+    if (attack?.type !== 'fold') return;
+    expect(attack.fold.summary).toBe(
+      '[[character:1,Старый Бородач]] успешно сотворил [[rule:lightning-generator]] за 4ОД!',
+    );
+  });
+
+  it('сводка удара с провалом сотворения держит оба факта', () => {
+    const forest = combatChatFoldService.buildCombatChatFolds([
+      msg(1, 'Ходит Бородач', { kind: 'default', thread: { id: 't1', kind: COMBAT_CHAT_TURN } }),
+      msg(2, '[[character:1,Старый Бородач]] попадает по [[npc:2,Гаррик из Тени]]!', {
+        thread: { id: 'a1', parentId: 't1', kind: COMBAT_CHAT_ATTACK },
+      }),
+      msg(3, '[[character:1,Старый Бородач]] не смог сотворить [[rule:discharge]].', {
+        thread: { id: 'a1', parentId: 't1', kind: COMBAT_CHAT_ATTACK },
+      }),
+    ]);
+    const turn = forest[0];
+    expect(turn?.type).toBe('fold');
+    if (turn?.type !== 'fold') return;
+    const attack = turn.fold.children[0];
+    if (attack?.type !== 'fold') return;
+    expect(attack.fold.summary).toBe(
+      '[[character:1,Старый Бородач]] не смог сотворить [[rule:discharge]]. [[character:1,Старый Бородач]] попадает по [[npc:2,Гаррик из Тени]]!',
+    );
+  });
+
+  it('сводка касания с заклинанием: сначала сотворение, затем суммарный удар', () => {
+    const forest = combatChatFoldService.buildCombatChatFolds([
+      msg(1, 'Ходит Бородач', { kind: 'default', thread: { id: 't1', kind: COMBAT_CHAT_TURN } }),
+      msg(2, '[[character:1,Старый Бородач]] успешно сотворил [[rule:discharge]] за 2ОД!', {
+        thread: { id: 'a1', parentId: 't1', kind: COMBAT_CHAT_ATTACK },
+      }),
+      msg(
+        3,
+        '[[character:1,Старый Бородач]] попадает по [[character:2,Гаррик из Тени]] с 0 РУ и наносит 4 истощения!',
+        {
+          thread: { id: 'a1', parentId: 't1', kind: COMBAT_CHAT_ATTACK },
+          attachments: [{ type: ATTACK_CALC_ATTACHMENT_TYPE, payload: {} }],
+        },
+      ),
+      msg(4, '[[rule:discharge]] бьёт по [[character:2,Гаррик из Тени]] и наносит 3 истощения!', {
+        thread: { id: 'a1', parentId: 't1', kind: COMBAT_CHAT_ATTACK },
+        attachments: [{ type: ATTACK_CALC_ATTACHMENT_TYPE, payload: {} }],
+      }),
+      msg(5, '[[character:2,Гаррик из Тени]] получает увечье с силой 5.', {
+        thread: { id: 'a1', parentId: 't1', kind: COMBAT_CHAT_ATTACK },
+      }),
+      msg(6, '[[character:2,Гаррик из Тени]] не выдерживает истощение (РУ -2) — Потеря сознания.', {
+        thread: { id: 'a1', parentId: 't1', kind: COMBAT_CHAT_ATTACK },
+      }),
+    ]);
+    const turn = forest[0];
+    expect(turn?.type).toBe('fold');
+    if (turn?.type !== 'fold') return;
+    const attack = turn.fold.children[0];
+    if (attack?.type !== 'fold') return;
+    expect(attack.fold.summary).toBe(
+      '[[character:1,Старый Бородач]] успешно сотворил [[rule:discharge]] за 2ОД! [[character:1,Старый Бородач]] попадает по [[character:2,Гаррик из Тени]] и наносит 7 истощения! [[character:2,Гаррик из Тени]] получает увечье силой 5. [[character:2,Гаррик из Тени]] потерял сознание!',
+    );
+  });
+
+  it('проверка на инициативу — отдельный тред со сводкой порядка', () => {
+    const forest = combatChatFoldService.buildCombatChatFolds([
+      msg(1, 'Новый раунд: 1', { kind: 'highlighted', thread: { id: 'r1', kind: COMBAT_CHAT_ROUND } }),
+      msg(2, 'Проверка на инициативу', {
+        thread: { id: 'i1', parentId: 'r1', kind: COMBAT_CHAT_INITIATIVE },
+      }),
+      msg(3, 'Порядок инициативы: А (5), Б (2).', {
+        thread: { id: 'i1', parentId: 'r1', kind: COMBAT_CHAT_INITIATIVE },
+      }),
+      msg(4, 'Ходит А', { kind: 'default', thread: { id: 't1', parentId: 'r1', kind: COMBAT_CHAT_TURN } }),
+    ]);
+    const round = forest[0];
+    expect(round?.type).toBe('fold');
+    if (round?.type !== 'fold') return;
+    const kinds = round.fold.children.map((child) => (child.type === 'fold' ? child.fold.kind : 'message'));
+    expect(kinds).toEqual([COMBAT_CHAT_INITIATIVE, COMBAT_CHAT_TURN]);
+    const initiative = round.fold.children[0];
+    if (initiative?.type !== 'fold') return;
+    expect(initiative.fold.summary).toBe('Порядок инициативы: А (5), Б (2).');
   });
 });

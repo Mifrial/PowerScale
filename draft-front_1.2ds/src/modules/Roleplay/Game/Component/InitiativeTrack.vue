@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useCurrentUser } from '@/modules/Core/User/init';
 import { useChatChannel } from '@/modules/Messages/Chat/init';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
@@ -38,6 +38,17 @@ import {
   findRuleByRef,
 } from '@/modules/Roleplay/Game/Utils/combatActions';
 import { formatProcessEffect } from '@/modules/Roleplay/Game/Utils/processMessage';
+import SpellSustainDialog from '@/modules/Roleplay/Game/Component/SpellSustainDialog.vue';
+import { electrochargeService } from '@/modules/Roleplay/Game/Service/Instance/electrochargeService';
+import { activeSpellService } from '@/modules/Roleplay/Game/Service/Instance/activeSpellService';
+import { useKeywords } from '@/modules/Roleplay/Keyword/init';
+import { spellCastOptionsService } from '@/modules/Roleplay/Game/Service/Instance/spellCastOptionsService';
+import { spellCastDifficultyService } from '@/modules/Roleplay/Game/Service/Instance/spellCastDifficultyService';
+import { spellDeviationService } from '@/modules/Roleplay/Game/Service/Instance/spellDeviationService';
+import { formatSustainDropMessage } from '@/modules/Roleplay/Game/Utils/attackDamageMessage';
+import type { ActiveSpell } from '@/modules/Roleplay/Game/Dto/Spell/ActiveSpell';
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
+import { characterOverviewService } from '@/modules/Roleplay/Character/init';
 
 import type { ChatThreadRef } from '@/modules/Messages/Chat/Dto/ChatThreadRef';
 
@@ -78,6 +89,7 @@ const emit = defineEmits<{
   /** Открыть боевую карточку участника (entityKey: `character:{id}` | `npc:{id}`). */
   'open-card': [entityKey: string];
   'overlay-changed': [];
+  participants: [keys: string[]];
 }>();
 
 const { currentUser } = useCurrentUser();
@@ -95,6 +107,14 @@ const addMenuOpen = ref(false);
 const waitDialogOpen = ref(false);
 const waitBusy = ref(false);
 const waitError = ref<string | null>(null);
+const sustainOpen = ref(false);
+const sustainSpell = ref<ActiveSpell | null>(null);
+const { keywords, fetchTags } = useKeywords();
+onMounted(() => {
+  if (keywords.value.length === 0) {
+    void fetchTags();
+  }
+});
 const processSessions = ref<Record<CombatEntityKey, ProcessSession>>({});
 const pendingEffectsByEntity = ref<Record<CombatEntityKey, PendingActionEffect[]>>({});
 
@@ -177,6 +197,10 @@ async function load(): Promise<void> {
     initiative.value = nextInitiative;
     processSessions.value = nextProcesses;
     pendingEffectsByEntity.value = nextPendingEffects;
+    emit(
+      'participants',
+      (initiative.value?.active ? initiative.value.participants : []).map((participant) => participant.id),
+    );
     if (initiative.value?.active && props.chatId != null) {
       combatThread.recoverFromMessages(chatStore.messagesOf(props.chatId));
     } else if (initiative.value && !initiative.value.active) {
@@ -321,6 +345,10 @@ async function save(next: GameInitiative): Promise<void> {
   error.value = null;
   try {
     initiative.value = await getGameApi().saveInitiative(props.gameId, next);
+    emit(
+      'participants',
+      (initiative.value.active ? initiative.value.participants : []).map((participant) => participant.id),
+    );
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Не удалось сохранить шкалу';
   } finally {
@@ -470,6 +498,28 @@ async function bleedCurrentTurn(entityKey: string): Promise<void> {
     overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, next);
     emit('overlay-changed');
   }
+  await decayCoreDeviation(entityKey as CombatEntityKey);
+}
+
+async function decayCoreDeviation(entityKey: CombatEntityKey): Promise<void> {
+  const overlay = overlays.value.find((item) => item.entityKey === entityKey) ?? null;
+  const model = combatCardModelService.combatCardModel(entityKey, props.characters, props.npcs, true, null, overlay);
+  const version = model.effectiveVersion;
+  if (!version) {
+    return;
+  }
+  const patches = spellDeviationService.decayPatches(version.states);
+  if (patches.length === 0) {
+    return;
+  }
+  for (const patch of [...patches].reverse()) {
+    const nextOverlay =
+      patch.next == null
+        ? await getGameApi().removeCombatState(props.gameId, entityKey, patch.index)
+        : await getGameApi().replaceCombatState(props.gameId, entityKey, patch.index, patch.next);
+    overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, nextOverlay);
+  }
+  emit('overlay-changed');
 }
 
 async function nextTurn(): Promise<void> {
@@ -496,6 +546,128 @@ async function nextTurn(): Promise<void> {
     notifications.push({ content: `Ходит ${nextParticipant.name}`, kind: 'default', thread: turn });
   }
   saveAndNotify({ ...data, activeIndex: nextIndex, round: nextRound }, notifications);
+  if (nextParticipant) {
+    await promptSustains(nextParticipant.id as CombatEntityKey, nextRound);
+  }
+}
+
+async function promptSustains(participantId: CombatEntityKey, round: number): Promise<void> {
+  const spells = await getGameApi().getActiveSpells(props.gameId);
+  for (const spell of spells) {
+    if (!activeSpellService.shouldPromptSustain(spell, round, participantId)) {
+      continue;
+    }
+    const overlay = overlays.value.find((item) => item.entityKey === spell.casterKey) ?? null;
+    const version = combatCardModelService.combatCardModel(
+      spell.casterKey,
+      props.characters,
+      props.npcs,
+      props.canEdit,
+      currentUser.value?.id ?? null,
+      overlay,
+    ).effectiveVersion;
+    if (!activeSpellService.isSourceAvailable(spell.sourceKey, version ?? null)) {
+      await dropSustain(spell, true);
+      continue;
+    }
+    sustainSpell.value = spell;
+    sustainOpen.value = true;
+    await new Promise<void>((resolve) => {
+      const stop = watch(sustainOpen, (open) => {
+        if (!open) {
+          stop();
+          resolve();
+        }
+      });
+    });
+  }
+}
+
+async function dropSustain(spell: ActiveSpell, lostSource: boolean): Promise<void> {
+  const states =
+    overlays.value.find((item) => item.entityKey === spell.casterKey)?.states ??
+    combatCardModelService.combatCardModel(
+      spell.casterKey,
+      props.characters,
+      props.npcs,
+      props.canEdit,
+      currentUser.value?.id ?? null,
+      overlays.value.find((item) => item.entityKey === spell.casterKey) ?? null,
+    ).effectiveVersion?.states ??
+    [];
+  for (const index of electrochargeService.boundIndices(states, spell.id)) {
+    const overlay = await getGameApi().removeCombatState(props.gameId, spell.casterKey, index);
+    overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, overlay);
+  }
+  await getGameApi().dropActiveSpell(props.gameId, spell.id);
+  sustainOpen.value = false;
+  sustainSpell.value = null;
+  if (props.chatId === null) {
+    return;
+  }
+  const rule = findRuleByRef(props.rules, spell.spellCode);
+  const model = combatCardModelService.combatCardModel(
+    spell.casterKey,
+    props.characters,
+    props.npcs,
+    props.canEdit,
+    currentUser.value?.id ?? null,
+    overlays.value.find((item) => item.entityKey === spell.casterKey) ?? null,
+  );
+  await sendChat(
+    formatSustainDropMessage({
+      casterKey: spell.casterKey,
+      casterName: model.name,
+      spellRuleCode: spell.spellCode,
+      spellName: rule?.name ?? spell.spellCode,
+      lostSource,
+      rules: props.rules,
+    }),
+    [],
+    props.chatId,
+    { kind: 'gm' },
+  );
+}
+
+async function continueSustain(power: DimensionalNumberValue): Promise<void> {
+  const spell = sustainSpell.value;
+  if (!spell) {
+    return;
+  }
+  const overlay = overlays.value.find((item) => item.entityKey === spell.casterKey) ?? null;
+  const version = combatCardModelService.combatCardModel(
+    spell.casterKey,
+    props.characters,
+    props.npcs,
+    props.canEdit,
+    currentUser.value?.id ?? null,
+    overlay,
+  ).effectiveVersion;
+  const overview = version ? characterOverviewService.build(version, props.rules) : null;
+  const maxPower = spellCastOptionsService.defaultUsedPower(overview, version?.states ?? [], spell.sourceKey);
+  const clamped = spellCastDifficultyService.clampToAtMost(power, maxPower);
+  const spec = spellCastDifficultyService.asSpellAbilitySpec(findRuleByRef(props.rules, spell.spellCode));
+  const requiredPower = spec
+    ? spellCastDifficultyService.resolveSpellValue(spec.spell.power, spell.parameterValues)
+    : { base: 0, size: 0 };
+  await getGameApi().upsertActiveSpell(
+    props.gameId,
+    activeSpellService.withSustainPower(spell, clamped, requiredPower),
+  );
+  const chargeSpec = electrochargeService.chargeSpec(spell.spellCode, props.rules);
+  if (chargeSpec && version) {
+    const cap = electrochargeService.cap(spell.spellCode, version.abilities, props.rules, keywords.value);
+    const next = electrochargeService.grant(version.states, spell.id, chargeSpec, cap);
+    const index = electrochargeService.boundIndex(version.states, chargeSpec.state_code, spell.id);
+    const overlay =
+      index >= 0
+        ? await getGameApi().replaceCombatState(props.gameId, spell.casterKey, index, next)
+        : await getGameApi().addCombatState(props.gameId, spell.casterKey, next);
+    overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, overlay);
+    emit('overlay-changed');
+  }
+  sustainOpen.value = false;
+  sustainSpell.value = null;
 }
 
 async function clearAccumulatedDamage(entityKey: string): Promise<void> {
@@ -539,7 +711,17 @@ function addToBattle(id: string): void {
       ...data.participants,
       { id: option.id, name: option.name, kind: option.kind, entityId: option.entityId },
     ],
-  }).then(() => refillParticipants([option.id]));
+  }).then(() => {
+    void refillParticipants([option.id]);
+    if (props.chatId !== null) {
+      void chatStore.postSystemMessage(
+        `${option.name} присоединяется к шкале инициативы.`,
+        props.chatId,
+        'default',
+        combatThread.stamp(),
+      );
+    }
+  });
 }
 
 watch(
@@ -756,6 +938,17 @@ function kindIcon(kind: 'character' | 'npc'): string {
       </v-card-actions>
     </v-card>
   </v-dialog>
+  <SpellSustainDialog
+    :open="sustainOpen"
+    :spell="sustainSpell"
+    :spell-name="
+      sustainSpell ? (findRuleByRef(props.rules, sustainSpell.spellCode)?.name ?? sustainSpell.spellCode) : ''
+    "
+    :max-power="sustainSpell ? { base: 5, size: 1 } : { base: 3, size: 0 }"
+    @update:open="sustainOpen = $event"
+    @continue="continueSustain"
+    @drop="sustainSpell && dropSustain(sustainSpell, false)"
+  />
 </template>
 
 <style scoped>

@@ -45,7 +45,12 @@ export class CheckRollService {
   }
 
   /** Навесить слой проверки (РУ) на уже посчитанный бросок. */
-  withCheckOutcome(result: DiceRollResult, checkCode: string, difficulty: DimensionalNumberValue): DiceRollResult {
+  withCheckOutcome(
+    result: DiceRollResult,
+    checkCode: string,
+    difficulty: DimensionalNumberValue,
+    checkName?: string,
+  ): DiceRollResult {
     const outcome = checkSuccessRatingService.checkSuccessRating(this.successesOf(result), difficulty, {
       minSize: checkCode === CHECK_HIT_CODE ? HIT_MIN_SUCCESS_SIZE : undefined,
     });
@@ -54,6 +59,7 @@ export class CheckRollService {
       ...result,
       check: {
         check_code: checkCode,
+        ...(checkName ? { check_name: checkName } : {}),
         difficulty,
         passed: outcome.passed,
         rating: outcome.rating,
@@ -72,8 +78,9 @@ export class CheckRollService {
   ): DiceRollResult {
     const attachedRuleCodes = checkResolutionService.resolveCheckAttachedRuleCodes(checkCode, rules);
     const rolled = rollEngine.roll(spec, rng, rules, mechanics, attachedRuleCodes, []);
+    const checkName = rules.find((rule) => rule.code === checkCode)?.name;
 
-    return this.withCheckOutcome(rolled, checkCode, difficulty);
+    return this.withCheckOutcome(rolled, checkCode, difficulty, checkName);
   }
 
   /**
@@ -91,9 +98,11 @@ export class CheckRollService {
     const leftRolled = rollEngine.roll(leftSpec, rng, rules, mechanics, attachedRuleCodes, []);
     const rightRolled = rollEngine.roll(rightSpec, rng, rules, mechanics, attachedRuleCodes, []);
 
+    const checkName = rules.find((rule) => rule.code === checkCode)?.name;
+
     return {
-      left: this.withCheckOutcome(leftRolled, checkCode, this.successesOf(rightRolled)),
-      right: this.withCheckOutcome(rightRolled, checkCode, this.successesOf(leftRolled)),
+      left: this.withCheckOutcome(leftRolled, checkCode, this.successesOf(rightRolled), checkName),
+      right: this.withCheckOutcome(rightRolled, checkCode, this.successesOf(leftRolled), checkName),
     };
   }
 }

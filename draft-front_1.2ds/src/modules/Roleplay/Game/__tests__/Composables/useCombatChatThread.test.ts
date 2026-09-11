@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { ref } from 'vue';
 import type { ChatMessage } from '@/modules/Messages/Chat/Dto/ChatMessage';
-import { COMBAT_CHAT_ROUND, COMBAT_CHAT_TURN } from '@/modules/Roleplay/Game/Constant/Combat/COMBAT_CHAT_FOLD_KINDS';
+import {
+  COMBAT_CHAT_INITIATIVE,
+  COMBAT_CHAT_ROUND,
+  COMBAT_CHAT_TURN,
+} from '@/modules/Roleplay/Game/Constant/Combat/COMBAT_CHAT_FOLD_KINDS';
 import { useCombatChatThread } from '@/modules/Roleplay/Game/Composables/useCombatChatThread';
 
 describe('useCombatChatThread', () => {
@@ -73,5 +77,19 @@ describe('useCombatChatThread', () => {
     expect(shared.stamp()?.id).toBe(roundB.id);
     first.clearLive();
     second.clearLive();
+  });
+
+  it('beginInitiative вкладывает проверку в раунд и снимает штамп после end', () => {
+    const thread = useCombatChatThread(91007);
+    thread.clearLive();
+    const round = thread.beginRound();
+    const initiative = thread.beginInitiative();
+    expect(initiative.parentId).toBe(round.id);
+    expect(initiative.kind).toBe(COMBAT_CHAT_INITIATIVE);
+    expect(thread.stamp()?.id).toBe(initiative.id);
+    thread.endInitiative();
+    expect(thread.stamp()?.id).toBe(round.id);
+    expect(thread.liveIds.value).toContain(initiative.id);
+    thread.clearLive();
   });
 });

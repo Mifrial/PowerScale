@@ -8,7 +8,7 @@ export interface InjuryHealRoll {
   total: number;
 }
 
-export type InjuryDifficultySource = 'manual' | 'leftover' | 'wound' | 'exhaustion';
+export type InjuryDifficultySource = 'manual' | 'leftover' | 'wound' | 'exhaustion' | 'collapse';
 
 /** Из чего сложилась сложность проверки на увечье. */
 export interface InjuryDifficultyBreakdown {

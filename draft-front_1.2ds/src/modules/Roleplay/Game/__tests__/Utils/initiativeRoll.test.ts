@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { rollInitiative, orderInitiative } from '@/modules/Roleplay/Game/Utils/initiativeRoll';
+import {
+  rollInitiative,
+  orderInitiative,
+  formatInitiativeOrderMessage,
+} from '@/modules/Roleplay/Game/Utils/initiativeRoll';
 import type { InitiativeRollEntry, InitiativeRollResult } from '@/modules/Roleplay/Game/Utils/initiativeRoll';
 import type { DiceRng } from '@/modules/Roleplay/Game/Dto/DiceRng';
 import type { GameInitiativeParticipant } from '@/modules/Roleplay/Game/Dto/GameInitiative';
@@ -235,5 +239,23 @@ describe('orderInitiative', () => {
   it('стабилен при отсутствии rng-вызовов для одиночных значений', () => {
     const ordered = orderInitiative([result('a', 3), result('b', 1)], rngFromDice([]));
     expect(ordered.map((p) => p.id)).toEqual(['a', 'b']);
+  });
+});
+
+describe('formatInitiativeOrderMessage', () => {
+  it('пишет порядок и размерный итог', () => {
+    const left: InitiativeRollResult = {
+      participant: participant('character:1', 'А'),
+      value: { base: 5, size: 0 },
+      result: null,
+    };
+    const right: InitiativeRollResult = {
+      participant: participant('npc:2', 'Б'),
+      value: { base: 2, size: 0 },
+      result: null,
+    };
+    expect(formatInitiativeOrderMessage([left, right], [left.participant, right.participant])).toBe(
+      'Порядок инициативы: А (5), Б (2).',
+    );
   });
 });

@@ -9,6 +9,10 @@ export interface DiceRollResult {
   adjustedRolls: number[];
   droppedRolls: number[];
   totalSuccesses: number;
+  /** Сумма граней при `scoring: 'face_sum'`. */
+  faceSum?: number;
+  /** Сила магического отклонения (сумма − 7); только подпись, не check. */
+  deviationStrength?: number;
   /** Имена механик, реально повлиявших на бросок (напр. «Правило 6 и 1»). */
   appliedMechanics?: string[];
   /** Слой проверки (чат: простая vs {0|0}). Нет — только бросок. */

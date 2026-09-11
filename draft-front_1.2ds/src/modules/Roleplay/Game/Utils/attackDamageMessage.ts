@@ -112,6 +112,152 @@ export function formatAttackResultMessage(input: {
   return `${attacker} попадает по ${defender} с ${input.remainingSr} РУ и наносит ${bits.join(' и ')}!`;
 }
 
+export function formatTouchConnectMessage(input: {
+  attackerKey: CombatEntityKey;
+  attackerName: string;
+  defenderKey: CombatEntityKey;
+  defenderName: string;
+  passed: boolean;
+}): string {
+  const attacker = entityToken(input.attackerKey, input.attackerName);
+  const defender = entityToken(input.defenderKey, input.defenderName);
+  if (!input.passed) {
+    return `${attacker} промахивается по ${defender}!`;
+  }
+
+  return `${attacker} попадает по ${defender}!`;
+}
+
+export function formatSpellCastBeginMessage(input: {
+  casterKey: CombatEntityKey;
+  casterName: string;
+  spellRuleCode: string;
+  spellName: string;
+  spellOd: number;
+  touchActionCode: string | null;
+  touchActionName: string;
+  touchOd: number;
+  spentOd: number;
+  targetKey?: CombatEntityKey | null;
+  targetName?: string | null;
+  appliedUpgradeCodes?: string[];
+  rules: Rule[];
+}): string {
+  const caster = entityToken(input.casterKey, input.casterName);
+  const spell = ruleTokenByCode(input.spellRuleCode, input.spellName, input.rules);
+  let text = `${caster} творит заклинание ${spell} за ${input.spellOd}ОД!`;
+  if (input.touchActionCode) {
+    const touch = ruleTokenByCode(input.touchActionCode, input.touchActionName, input.rules);
+    text += ` Заклинание требует касания, выбрано действие: ${touch} за ${input.touchOd}ОД. Итого будет потрачено ${input.spentOd}ОД!`;
+  } else if (input.targetKey && input.targetName) {
+    text += ` Цель: ${entityToken(input.targetKey, input.targetName)}.`;
+  }
+  const upgrades = (input.appliedUpgradeCodes ?? [])
+    .map((code) => ruleTokenByCode(code, code, input.rules))
+    .filter((token) => token !== '');
+  if (upgrades.length > 0) {
+    text += ` Применено: ${upgrades.join(', ')}.`;
+  }
+
+  return text;
+}
+
+export function formatSpellCastCheckMessage(input: {
+  casterKey: CombatEntityKey;
+  casterName: string;
+  characteristicName: string;
+}): string {
+  const caster = entityToken(input.casterKey, input.casterName);
+
+  return `${caster} проходит проверку на сотворение: ${input.characteristicName}.`;
+}
+
+export function formatSpellEffectMessage(input: {
+  spellRuleCode: string;
+  spellName: string;
+  defenderKey: CombatEntityKey;
+  defenderName: string;
+  exhaustion: number;
+  wound?: number;
+  raw?: number;
+  rules: Rule[];
+}): string {
+  const spell = ruleTokenByCode(input.spellRuleCode, input.spellName, input.rules);
+  const defender = entityToken(input.defenderKey, input.defenderName);
+  const bits: string[] = [];
+  const raw = Math.max(0, input.raw ?? 0);
+  if (input.exhaustion > 0) bits.push(`${input.exhaustion} истощения`);
+  const wound = Math.max(0, input.wound ?? 0);
+  if (wound > 0) bits.push(`${wound} рану`);
+  if (bits.length === 0) {
+    if (raw > 0) {
+      return `${spell} бьёт по ${defender} и наносит ${raw} повреждения!`;
+    }
+
+    return `${spell} бьёт по ${defender}, но не наносит повреждений!`;
+  }
+
+  return `${spell} бьёт по ${defender} и наносит ${bits.join(' и ')}!`;
+}
+
+export function formatChainBreakMessage(input: { spellRuleCode: string; spellName: string; rules: Rule[] }): string {
+  const spell = ruleTokenByCode(input.spellRuleCode, input.spellName, input.rules);
+
+  return `${spell} обрывается.`;
+}
+
+export function formatSustainBeginMessage(input: {
+  casterKey: CombatEntityKey;
+  casterName: string;
+  spellRuleCode: string;
+  spellName: string;
+  rules: Rule[];
+}): string {
+  const caster = entityToken(input.casterKey, input.casterName);
+  const spell = ruleTokenByCode(input.spellRuleCode, input.spellName, input.rules);
+
+  return `${caster} поддерживает ${spell}.`;
+}
+
+export function formatSustainDropMessage(input: {
+  casterKey: CombatEntityKey;
+  casterName: string;
+  spellRuleCode: string;
+  spellName: string;
+  lostSource: boolean;
+  rules: Rule[];
+}): string {
+  const caster = entityToken(input.casterKey, input.casterName);
+  const spell = ruleTokenByCode(input.spellRuleCode, input.spellName, input.rules);
+  if (input.lostSource) {
+    return `${caster}: источник недоступен, ${spell} спадает.`;
+  }
+
+  return `${caster} перестаёт поддерживать ${spell}.`;
+}
+
+export function formatSpellCastOutcomeMessage(input: {
+  milk: boolean;
+  castFailed: boolean;
+  casterKey: CombatEntityKey;
+  casterName: string;
+  spellRuleCode: string;
+  spellName: string;
+  spentOd: number;
+  rules: Rule[];
+}): string {
+  if (input.milk) {
+    return 'Эффект заклинания уходит в молоко.';
+  }
+  const caster = entityToken(input.casterKey, input.casterName);
+  const spell = ruleTokenByCode(input.spellRuleCode, input.spellName, input.rules);
+  if (input.castFailed) {
+    return `${caster} не смог сотворить ${spell}.`;
+  }
+
+  return `${caster} успешно сотворил ${spell} за ${input.spentOd}ОД!`;
+}
+
 export function buildAttackCalcPayload(input: {
   weaponDamage: DimensionalNumberValue;
   damageTypeCode?: string | null;
@@ -120,6 +266,7 @@ export function buildAttackCalcPayload(input: {
   endurance: DimensionalNumberValue;
   result: ApplyAttackDamageResult;
   defenseIgnored: boolean;
+  heading?: string | null;
 }): AttackCalcPayload {
   const typeRule = input.damageTypeCode ? input.rules.find((rule) => rule.code === input.damageTypeCode) : undefined;
   const typeName = typeRule?.name.toLowerCase() ?? 'урон';
@@ -132,7 +279,11 @@ export function buildAttackCalcPayload(input: {
     endurance: input.endurance,
     defenseIgnored: input.defenseIgnored,
     attackSrLabel: formatAttackSrLabel(input.sr),
+    appliedSr: input.result.appliedSr,
+    srCap: input.result.srCap,
+    heading: input.heading ?? null,
     stun: input.result.stun,
+    shock: input.result.shock,
     exhaustion: input.result.exhaustion,
     remainingHpDamage: input.result.remainingHpDamage,
     wound: input.result.wound,

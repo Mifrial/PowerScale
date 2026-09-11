@@ -1,11 +1,14 @@
 import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
+import type { DiceScoring } from '@/modules/Roleplay/Game/Enum/DiceScoring';
 
 export interface DiceRollSpec {
   diceCount: number;
   dieSize: number;
   dieFaces: number;
   efficiency: number;
+  /** Подсчёт: пул успехов или сумма граней. Нет — `'pool'`. */
+  scoring?: DiceScoring;
   /** Размер пула (мастерство), для записи 5↓к6. Scoring: dieSize = poolSize + efficiencySize. */
   poolSize?: number;
   /** Размер эффективности грани, для записи 4↓. */

@@ -2,6 +2,7 @@ import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/Dimension
 import type { HitDefenseReaction } from '@/modules/Roleplay/Game/Enum/HitDefenseReaction';
 import type { AttackAction } from '@/modules/Roleplay/Game/Dto/AttackAction';
 import type { CheckOfferTargetProposal } from '@/modules/Roleplay/Game/Dto/CheckOfferTargetProposal';
+import type { SpellCastOfferContext } from '@/modules/Roleplay/Game/Dto/Spell/SpellCastOfferContext';
 
 export interface CheckOfferProposal {
   initiatorCharacteristic: string | null;
@@ -38,4 +39,6 @@ export interface CheckOfferProposal {
     flank?: boolean;
     turn?: boolean;
   } | null;
+  /** Касание из сотворения: ОД уже списаны, каст после удара. */
+  spellCast?: SpellCastOfferContext | null;
 }

@@ -179,3 +179,19 @@ export function orderInitiative(
 
   return ordered.map((result) => result.participant);
 }
+
+/** Итог проверки: порядок хода и размерный результат каждого участника. */
+export function formatInitiativeOrderMessage(
+  results: InitiativeRollResult[],
+  ordered: GameInitiativeParticipant[],
+): string {
+  const byId = new Map(results.map((result) => [result.participant.id, result]));
+  const parts = ordered.map((participant) => {
+    const result = byId.get(participant.id);
+    const score = result ? new DimensionalNumber(result.value).toString() : '—';
+
+    return `${participant.name} (${score})`;
+  });
+
+  return `Порядок инициативы: ${parts.join(', ')}.`;
+}

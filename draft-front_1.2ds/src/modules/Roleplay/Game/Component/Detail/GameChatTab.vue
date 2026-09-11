@@ -26,11 +26,12 @@ import { ChatThread, chatInlineRendererContext } from '@/modules/Messages/Chat/i
 import InitiativeTrack from '@/modules/Roleplay/Game/Component/InitiativeTrack.vue';
 import CombatQuickRolls from '@/modules/Roleplay/Game/Component/CombatQuickRolls.vue';
 import CombatCardPanel from '@/modules/Roleplay/Game/Component/Detail/CombatCardPanel.vue';
+import type { SpellCastLaunchContext } from '@/modules/Roleplay/Game/Dto/Spell/SpellCastLaunchContext';
 import CheckLaunchDialog from '@/modules/Roleplay/Game/Component/CheckLaunchDialog.vue';
 import HitLaunchDialog from '@/modules/Roleplay/Game/Component/HitLaunchDialog.vue';
 import ActionLaunchDialog from '@/modules/Roleplay/Game/Component/ActionLaunchDialog.vue';
 import AttackLaunchDialog from '@/modules/Roleplay/Game/Component/AttackLaunchDialog.vue';
-import InjuryLaunchDialog from '@/modules/Roleplay/Game/Component/InjuryLaunchDialog.vue';
+import SpellCastDialog from '@/modules/Roleplay/Game/Component/SpellCastDialog.vue';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
 
@@ -270,6 +271,12 @@ function onTurn(participantId: string | null): void {
   applySpeakerKey();
 }
 
+const initiativeKeys = ref<string[]>([]);
+
+function onInitiativeParticipants(keys: string[]): void {
+  initiativeKeys.value = keys;
+}
+
 // Боевая карточка: слайд-овер по клику на участника шкалы инициативы (CD-5).
 const cardOpen = ref(false);
 const cardKey = ref<CombatEntityKey | null>(null);
@@ -349,6 +356,9 @@ const attackOpen = ref(false);
 const attackActorKey = ref<CombatEntityKey | null>(null);
 const hitOpen = ref(false);
 const injuryOpen = ref(false);
+const spellOpen = ref(false);
+const spellCasterKey = ref<CombatEntityKey | null>(null);
+const spellLaunchContext = ref<SpellCastLaunchContext>({ kind: 'free' });
 const resumeOffer = ref<CheckOffer | null>(null);
 const hitResumeOffer = ref<CheckOffer | null>(null);
 const hitAttackerKey = ref<CombatEntityKey | null>(null);
@@ -545,6 +555,18 @@ function onLaunchInjury(): void {
   injuryOpen.value = true;
 }
 
+function openSpellLaunch(): void {
+  spellCasterKey.value = null;
+  spellLaunchContext.value = { kind: 'free' };
+  spellOpen.value = true;
+}
+
+function onLaunchChargeCast(payload: { casterKey: CombatEntityKey; sustainId: string }): void {
+  spellCasterKey.value = payload.casterKey;
+  spellLaunchContext.value = { kind: 'charge_spend', sustainId: payload.sustainId };
+  spellOpen.value = true;
+}
+
 watch(
   () => [props.active, activeSpeakerKey.value, gameId.value] as const,
   ([active]) => {
@@ -608,6 +630,7 @@ onUnmounted(() => {
         <v-list density="compact">
           <v-list-item prepend-icon="mdi-plus" title="Новая проверка" @click="openNewCheck" />
           <v-list-item prepend-icon="mdi-sword-cross" title="Атака" @click="openAttackLaunch" />
+          <v-list-item prepend-icon="mdi-auto-fix" title="Заклинание" @click="openSpellLaunch" />
           <v-list-item prepend-icon="mdi-run-fast" title="Действие" @click="openActionLaunch" />
         </v-list>
       </v-menu>
@@ -640,6 +663,7 @@ onUnmounted(() => {
           @turn="onTurn"
           @open-card="onOpenCard"
           @overlay-changed="onOverlayChanged"
+          @participants="onInitiativeParticipants"
         />
 
         <CombatQuickRolls
@@ -703,6 +727,7 @@ onUnmounted(() => {
       @overlay-changed="onOverlayChanged"
       @launch-hit="onLaunchHit"
       @launch-injury="onLaunchInjury"
+      @launch-charge-cast="onLaunchChargeCast"
     />
 
     <CheckLaunchDialog
@@ -717,6 +742,7 @@ onUnmounted(() => {
       :can-edit="canEdit"
       :current-user-id="currentUser?.id ?? null"
       :active-speaker-key="activeSpeakerKey"
+      :initiative-keys="initiativeKeys"
       :resume-offer="resumeOffer"
       @update:open="onCheckClosed"
       @settled="refreshPendingOffers"
@@ -749,6 +775,7 @@ onUnmounted(() => {
       :mechanics="mechanics"
       :active-speaker-key="activeSpeakerKey"
       :actor-key="attackActorKey"
+      :initiative-keys="initiativeKeys"
       @update:open="onAttackClosed"
       @launch-attack="onLaunchAttack"
     />
@@ -769,6 +796,7 @@ onUnmounted(() => {
       :attack-action="attackAction"
       :resume-offer="hitResumeOffer"
       :process-context="processActionContext"
+      :initiative-keys="initiativeKeys"
       @update:open="onHitClosed"
       @settled="refreshPendingOffers"
       @overlay-changed="onOverlayChanged"
@@ -784,6 +812,24 @@ onUnmounted(() => {
       :target-key="cardKey"
       @update:open="injuryOpen = $event"
       @overlay-changed="onOverlayChanged"
+    />
+    <SpellCastDialog
+      :open="spellOpen"
+      :caster-key="spellCasterKey"
+      :launch-context="spellLaunchContext"
+      :active-speaker-key="activeSpeakerKey"
+      :game-id="gameId"
+      :chat-id="chatId"
+      :characters="eligibleMemberships"
+      :npcs="npcs"
+      :rules="revisionRules"
+      :mechanics="mechanics"
+      :can-edit="canEdit"
+      :current-user-id="currentUser?.id ?? null"
+      :initiative-keys="initiativeKeys"
+      @update:open="spellOpen = $event"
+      @overlay-changed="onOverlayChanged"
+      @settled="refreshPendingOffers"
     />
   </div>
 </template>

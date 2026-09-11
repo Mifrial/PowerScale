@@ -12,6 +12,7 @@ import {
   DAMAGE_TYPE_HOOK_MECHANIC_BLUNT_KO,
   DAMAGE_TYPE_HOOK_MECHANIC_CUTTING_WOUNDS,
   DAMAGE_TYPE_HOOK_MECHANIC_EXHAUSTION_STUN,
+  DAMAGE_TYPE_HOOK_MECHANIC_EXHAUSTION_SHOCK,
   DAMAGE_TYPE_HOOK_MECHANIC_EXHAUSTION_WOUND,
   DAMAGE_TYPE_HOOK_MECHANIC_PAY_SR,
 } from '@/modules/Roleplay/Rule/Constant/Damage/DAMAGE_TYPE_HOOKS';
@@ -150,13 +151,16 @@ export class AttackDamageService {
 
   applyAttackDamage(input: ApplyAttackDamageInput): ApplyAttackDamageResult {
     const remainingSr = Math.max(0, Math.floor(input.sr));
+    const cap = input.maxSuccessRating;
+    const injurySr =
+      cap == null || !Number.isFinite(cap) ? remainingSr : Math.min(remainingSr, Math.max(0, Math.floor(cap)));
     const ignoreAtMost = this.hasPaySrHook(input.hooks) ? remainingSr : 0;
     const includeDefense = !input.defenseIgnored;
     const layers = this.resistanceLayersOf(input.defense, input.damageTypeCode, ignoreAtMost, includeDefense);
     const lines = input.defense?.armor.flatMap((armor) => armor.lines) ?? [];
     const resistance = this.stackedResistance(lines, input.damageTypeCode, ignoreAtMost, includeDefense);
     const weapon = new DimensionalNumber(input.weaponDamage).toNumber();
-    const raw = Math.max(0, weapon - resistance) * remainingSr;
+    const raw = Math.max(0, weapon - resistance) * injurySr;
     const apply = damageTypeHooksService.applyHooksOf(input.hooks);
     const cutting = apply.some((hook) => hook.mechanicCode === DAMAGE_TYPE_HOOK_MECHANIC_CUTTING_WOUNDS);
     const hpDamage = cutting ? 0 : raw;
@@ -173,9 +177,11 @@ export class AttackDamageService {
     const exhaustion = Math.max(0, totalExhaustion - previousExhaustion);
     const remainingHpDamage = Math.max(0, totalDamage.subtract(endurance.multiply(totalExhaustion)).toNumber());
     let stun: number | null = null;
+    let shock: number | null = null;
     let wound: number | null = null;
     for (const hook of apply) {
       if (hook.mechanicCode === DAMAGE_TYPE_HOOK_MECHANIC_EXHAUSTION_STUN && exhaustion > 0) stun = exhaustion;
+      if (hook.mechanicCode === DAMAGE_TYPE_HOOK_MECHANIC_EXHAUSTION_SHOCK && exhaustion > 0) shock = exhaustion;
       if (hook.mechanicCode === DAMAGE_TYPE_HOOK_MECHANIC_EXHAUSTION_WOUND && exhaustion > 0) {
         wound = exhaustion * (hook.woundMultiplier ?? 1);
       }
@@ -186,12 +192,15 @@ export class AttackDamageService {
 
     return {
       remainingSr,
+      appliedSr: injurySr,
+      srCap: cap == null || !Number.isFinite(cap) ? null : Math.max(0, Math.floor(cap)),
       resistance,
       raw,
       hpDamage,
       exhaustion,
       remainingHpDamage,
       stun,
+      shock,
       wound,
       knockout,
       cuttingWound: cutting ? raw : null,

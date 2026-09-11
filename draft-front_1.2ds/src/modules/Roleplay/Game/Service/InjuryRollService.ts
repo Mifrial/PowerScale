@@ -25,7 +25,7 @@ export class InjuryRollService {
   injuryDifficultyBreakdown(
     input: Pick<
       InjuryRollInput,
-      'leftoverDamage' | 'woundStrength' | 'endurance' | 'exhaustion' | 'attackSr' | 'difficulty'
+      'leftoverDamage' | 'woundStrength' | 'endurance' | 'exhaustion' | 'attackSr' | 'difficulty' | 'forceSource'
     >,
     procedure: InjuryProcedure,
     extraDifficulty: number,
@@ -82,7 +82,7 @@ export class InjuryRollService {
       exhaustionOffset,
       fromExhaustion,
       extraDifficulty: extra,
-      source,
+      source: input.forceSource ?? source,
       total: Math.max(0, best + extra),
     };
   }
@@ -90,7 +90,7 @@ export class InjuryRollService {
   injuryDifficulty(
     input: Pick<
       InjuryRollInput,
-      'leftoverDamage' | 'woundStrength' | 'endurance' | 'exhaustion' | 'attackSr' | 'difficulty'
+      'leftoverDamage' | 'woundStrength' | 'endurance' | 'exhaustion' | 'attackSr' | 'difficulty' | 'forceSource'
     >,
     procedure: InjuryProcedure,
     extraDifficulty: number,

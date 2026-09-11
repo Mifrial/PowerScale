@@ -19,7 +19,11 @@ export interface AttackCalcPayload {
   endurance: DimensionalNumberValue;
   defenseIgnored: boolean;
   attackSrLabel: string;
+  appliedSr: number | null;
+  srCap: number | null;
+  heading: string | null;
   stun: number | null;
+  shock: number | null;
   exhaustion: number;
   remainingHpDamage: number;
   wound: number | null;

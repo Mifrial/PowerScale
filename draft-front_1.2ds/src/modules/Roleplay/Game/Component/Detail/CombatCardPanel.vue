@@ -32,13 +32,22 @@ import { characteristicRollService } from '@/modules/Roleplay/Game/Service/Insta
 import type { CombatStateOption } from '@/modules/Roleplay/Game/Dto/CombatStateOption';
 import type { CombatStateRow } from '@/modules/Roleplay/Game/Dto/CombatStateRow';
 import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
-import { findRuleByRef } from '@/modules/Roleplay/Game/Utils/combatActions';
+import { asProcessAbilitySpec, findRuleByRef } from '@/modules/Roleplay/Game/Utils/combatActions';
 
 import type { CharacterPoisonValue } from '@/modules/Roleplay/Character/Dto/CharacterPoisonValue';
 import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/CharacterStateValue';
 import CombatCardCharacteristicTile from '@/modules/Roleplay/Game/Component/Detail/CombatCardCharacteristicTile.vue';
 import CombatResourceTile from '@/modules/Roleplay/Game/Component/Detail/CombatResourceTile.vue';
+import CombatProcessTile from '@/modules/Roleplay/Game/Component/Detail/CombatProcessTile.vue';
 import CombatStateTile from '@/modules/Roleplay/Game/Component/Detail/CombatStateTile.vue';
+import type { ActiveSpell } from '@/modules/Roleplay/Game/Dto/Spell/ActiveSpell';
+import type { CombatProcessRow } from '@/modules/Roleplay/Game/Dto/CombatProcessRow';
+import { electrochargeService } from '@/modules/Roleplay/Game/Service/Instance/electrochargeService';
+import { spellCastOptionsService } from '@/modules/Roleplay/Game/Service/Instance/spellCastOptionsService';
+import { combatProcessListService } from '@/modules/Roleplay/Game/Service/Instance/combatProcessListService';
+import { processSessionService } from '@/modules/Roleplay/Game/Service/Instance/processSessionService';
+import { formatSustainDropMessage } from '@/modules/Roleplay/Game/Utils/attackDamageMessage';
+import { formatProcessEffect } from '@/modules/Roleplay/Game/Utils/processMessage';
 import type { CombatStateDetailRow } from '@/modules/Roleplay/Game/Dto/CombatStateDetailRow';
 import type { CombatStateEditKind } from '@/modules/Roleplay/Game/Enum/CombatStateEditKind';
 import { useKeywords } from '@/modules/Roleplay/Keyword/init';
@@ -61,7 +70,7 @@ import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber
 import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue';
 import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
 import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/actionEffectService';
-
+import { ACTION_POINTS_CODE } from '@/modules/Roleplay/Game/Constant/Combat/ACTION_POINTS_CODE';
 import { ruleReferenceService } from '@/modules/Roleplay/Rule/init';
 
 const props = defineProps<{
@@ -95,6 +104,7 @@ const emit = defineEmits<{
   'overlay-changed': [];
   'launch-hit': [payload: { attackerKey: CombatEntityKey; attack: AttackOverview }];
   'launch-injury': [];
+  'launch-charge-cast': [payload: { casterKey: CombatEntityKey; sustainId: string }];
 }>();
 
 const sendChat = combatChatSendService.sendCombatChat(props.gameId);
@@ -111,6 +121,7 @@ watch(isOpen, (value) => {
 });
 
 const overlays = ref<GameCombatOverlay[]>([]);
+const activeSpells = ref<ActiveSpell[]>([]);
 const pendingEffects = ref<PendingActionEffect[]>([]);
 /** Счётчик, чтобы overview пересобрался даже если версия листа та же ссылка (мутация НПС). */
 const viewEpoch = ref(0);
@@ -127,9 +138,6 @@ const { keywords, fetchTags } = useKeywords();
 
 const activeProcess = computed(() =>
   props.entityKey && props.processSessions ? (props.processSessions[props.entityKey] ?? null) : null,
-);
-const activeProcessRule = computed(() =>
-  activeProcess.value ? (findRuleByRef(props.rules, activeProcess.value.processRuleCode) ?? null) : null,
 );
 const activeEffectLabels = computed(() =>
   pendingEffects.value.map((pending) => {
@@ -214,6 +222,19 @@ const stateRows = computed(() =>
   effectiveVersion.value ? combatCardModelService.combatStateRows(effectiveVersion.value.states, props.rules) : [],
 );
 
+const processRows = computed(() => {
+  if (!props.entityKey) return [];
+
+  return combatProcessListService.listRows({
+    entityKey: props.entityKey,
+    processSession: activeProcess.value,
+    activeSpells: activeSpells.value,
+    version: effectiveVersion.value,
+    states: effectiveVersion.value?.states ?? [],
+    rules: props.rules,
+  });
+});
+
 type CombatStateTileModel = {
   key: string;
   name: string;
@@ -228,6 +249,8 @@ type CombatStateTileModel = {
   code: string;
   dimensionalValue: DimensionalNumberValue | null;
   poison: CharacterPoisonValue | null;
+  actionLabel: string | null;
+  sustainId: string | null;
 };
 
 function stateTileDetails(state: CharacterStateValue, row: CombatStateRow): CombatStateDetailRow[] {
@@ -249,6 +272,18 @@ function stateTileDetails(state: CharacterStateValue, row: CombatStateRow): Comb
     }
     rows.push({ label: 'Обезображивающее', value: state.maim.disfiguring ? 'да' : 'нет' });
     rows.push({ label: 'Смертельное', value: state.maim.lethal ? 'да' : 'нет' });
+  } else if (state.boundSustainId) {
+    const sustain = activeSpells.value.find((spell) => spell.id === state.boundSustainId);
+    const spellName = sustain
+      ? (findRuleByRef(props.rules, sustain.spellCode)?.name ?? sustain.spellCode)
+      : state.boundSustainId;
+    rows.push({ label: 'Поддержание', value: spellName });
+  } else if (state.boundSourceKey) {
+    const sourceName =
+      spellCastOptionsService
+        .listSources(effectiveVersion.value, props.rules)
+        .find((entry) => entry.key === state.boundSourceKey)?.name ?? state.boundSourceKey;
+    rows.push({ label: 'Ядро', value: sourceName });
   } else if (row.code !== POISONING_STATE_CODE && row.valueType !== 'dimensional' && row.summary) {
     rows.push({ label: 'Сводка', value: row.summary });
   }
@@ -306,6 +341,9 @@ const stateTiles = computed((): CombatStateTileModel[] => {
         code: row.code,
         dimensionalValue: state?.dimensionalValue ?? null,
         poison: isPoison && state ? combatCardModelService.resolvedPoisonValue(state, props.rules) : null,
+        actionLabel:
+          state && electrochargeService.canOpenCast(state, activeSpells.value, props.rules) ? 'Сотворить' : null,
+        sustainId: state?.boundSustainId ?? null,
       });
     }
   }
@@ -341,6 +379,9 @@ const primaryDerived = computed(
 const importantCharacteristics = computed(
   () => overview.value?.characteristics.filter((item) => item.group === 'important') ?? [],
 );
+const magicCharacteristics = computed(
+  () => overview.value?.characteristics.filter((item) => item.group === 'magic') ?? [],
+);
 const secondaryCharacteristics = computed(
   () => overview.value?.characteristics.filter((item) => item.group === 'secondary') ?? [],
 );
@@ -371,9 +412,11 @@ async function loadOverlays(): Promise<void> {
   try {
     const next = await getGameApi().getCombatOverlays(props.gameId);
     const allPendingEffects = await getGameApi().getPendingActionEffects(props.gameId);
+    const spells = await getGameApi().getActiveSpells(props.gameId);
     if (loadId !== overlaysLoadId) return;
     overlays.value = combatOverlayService.preferNewerCombatOverlays(overlays.value, next);
     pendingEffects.value = allPendingEffects[props.entityKey] ?? [];
+    activeSpells.value = spells;
     viewEpoch.value += 1;
   } catch (e) {
     if (loadId !== overlaysLoadId) return;
@@ -386,6 +429,82 @@ watch(
   () => void loadOverlays(),
   { immediate: true },
 );
+
+async function abortProcessRow(row: CombatProcessRow): Promise<void> {
+  if (!props.entityKey || !model.value?.canEdit) return;
+  error.value = null;
+  try {
+    if (row.kind === 'process') {
+      await abortProcessSession();
+    } else {
+      await abortSustainedSpell(row.id);
+    }
+    emit('overlay-changed');
+    await loadOverlays();
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : 'Не удалось оборвать';
+  }
+}
+
+async function abortProcessSession(): Promise<void> {
+  const key = props.entityKey;
+  const session = activeProcess.value;
+  if (!key || !session) return;
+  const processRule = findRuleByRef(props.rules, session.processRuleCode);
+  const processSpec = processRule ? asProcessAbilitySpec(processRule) : null;
+  if (
+    !processRule ||
+    !processSpec ||
+    !processSessionService.canInterruptNormally(processSpec, session.currentStepCode)
+  ) {
+    throw new Error('Текущий процесс нельзя прервать обычным способом');
+  }
+  await getGameApi().setProcessSession(props.gameId, key, null);
+  const completionEffects = actionEffectService.effectsAfterProcess(processRule);
+  const nextEffects = [...pendingEffects.value, ...completionEffects];
+  pendingEffects.value = nextEffects;
+  await getGameApi().setCombatActionEffects(props.gameId, key, nextEffects);
+  if (props.chatId === null) return;
+  const effectText = completionEffects.length
+    ? ` Эффект: ${completionEffects.map((item) => formatProcessEffect(item.effect, props.rules)).join('; ')}.`
+    : '';
+  await sendChat(`${processRule.name} прекращён.${effectText}`, [], props.chatId, speaker.value);
+}
+
+async function abortSustainedSpell(id: string): Promise<void> {
+  const spell = activeSpells.value.find((entry) => entry.id === id);
+  if (!spell) return;
+  await dropBoundCharges(spell.casterKey, spell.id);
+  await getGameApi().dropActiveSpell(props.gameId, spell.id);
+  activeSpells.value = activeSpells.value.filter((entry) => entry.id !== spell.id);
+  if (props.chatId === null) return;
+  const rule = findRuleByRef(props.rules, spell.spellCode);
+  await sendChat(
+    formatSustainDropMessage({
+      casterKey: spell.casterKey,
+      casterName: model.value?.name ?? '',
+      spellRuleCode: spell.spellCode,
+      spellName: rule?.name ?? spell.spellCode,
+      lostSource: false,
+      rules: props.rules,
+    }),
+    [],
+    props.chatId,
+    speaker.value,
+  );
+}
+
+async function dropBoundCharges(entityKey: CombatEntityKey, sustainId: string): Promise<void> {
+  const states = effectiveVersion.value?.states ?? [];
+  for (const index of electrochargeService.boundIndices(states, sustainId)) {
+    await getGameApi().removeCombatState(props.gameId, entityKey, index);
+  }
+}
+
+function launchChargeCast(sustainId: string): void {
+  if (!props.entityKey || !model.value?.canEdit) return;
+  emit('launch-charge-cast', { casterKey: props.entityKey, sustainId });
+}
 
 function launchHit(attack: AttackOverview): void {
   if (!props.entityKey) return;
@@ -459,6 +578,16 @@ async function changeResource(resource: ResourceOverview, delta: number): Promis
       resource.ruleCode,
       current,
     );
+    const spentAp = resource.ruleCode === ACTION_POINTS_CODE ? resource.current.base - current.base : 0;
+    if (spentAp > 0) {
+      const nextEffects = actionEffectService.afterDeclaredAction(pendingEffects.value, spentAp, {
+        isAttack: false,
+        component: 'strike',
+        baseCost: spentAp,
+      });
+      pendingEffects.value = nextEffects;
+      await getGameApi().setCombatActionEffects(props.gameId, model.value.entityKey, nextEffects);
+    }
     applyOverlay(result);
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Не удалось изменить ресурс';
@@ -730,10 +859,6 @@ function onSheetToggleEquipped(itemId: number): void {
       <v-window v-model="cardTab">
         <v-window-item value="overview">
           <div class="combat-card-panel__body">
-            <v-alert v-if="activeProcess" type="info" variant="tonal" density="compact" class="mb-3">
-              Активный процесс: {{ activeProcessRule?.name ?? activeProcess.processRuleCode }} · шаг
-              {{ activeProcess.currentStepCode }}. Для продолжения используйте меню «Действие».
-            </v-alert>
             <section class="combat-card-section">
               <button type="button" class="combat-card-section__title" @click="toggleSection('characteristics')">
                 <v-icon size="18">{{
@@ -762,6 +887,24 @@ function onSheetToggleEquipped(itemId: number): void {
                   <div v-if="primaryDerived.length" class="combat-card-characteristics mt-1">
                     <CombatCardCharacteristicTile
                       v-for="characteristic in primaryDerived"
+                      :key="characteristic.ruleCode"
+                      :characteristic="characteristic"
+                      :rules="rules"
+                      :senses="senses"
+                      :proficiency-levels="proficiencyLevels"
+                      :rollable="chatId !== null"
+                      :starred="isStarred(characteristic.ruleCode)"
+                      :star-enabled="model.canEdit"
+                      @roll="onTileRoll"
+                      @star-toggle="onStarToggle"
+                    />
+                  </div>
+                </template>
+                <template v-if="magicCharacteristics.length">
+                  <div class="combat-card-section__subtitle">Магические</div>
+                  <div class="combat-card-characteristics">
+                    <CombatCardCharacteristicTile
+                      v-for="characteristic in magicCharacteristics"
                       :key="characteristic.ruleCode"
                       :characteristic="characteristic"
                       :rules="rules"
@@ -914,10 +1057,12 @@ function onSheetToggleEquipped(itemId: number): void {
                     :poison-items="poisonSelectItems"
                     :damage-type-items="damageTypeSelectItems"
                     :poison-template="(id) => combatCardModelService.poisonValueFromRule(rules, id)"
+                    :action-label="tile.actionLabel"
                     @apply="(next) => applyStateTile(tile, next)"
                     @apply-dimensional="(next) => applyDimensionalTile(tile, next)"
                     @apply-poison="(next) => applyPoisonTile(tile, next)"
                     @remove="removeStateTile(tile)"
+                    @action="tile.sustainId && launchChargeCast(tile.sustainId)"
                   />
                 </div>
 
@@ -946,6 +1091,26 @@ function onSheetToggleEquipped(itemId: number): void {
                   <v-btn size="small" variant="tonal" prepend-icon="mdi-bone" @click="emit('launch-injury')">
                     Увечье
                   </v-btn>
+                </div>
+              </div>
+            </section>
+
+            <section class="combat-card-section">
+              <button type="button" class="combat-card-section__title" @click="toggleSection('processes')">
+                <v-icon size="18">{{ isSectionOpen('processes') ? 'mdi-chevron-down' : 'mdi-chevron-right' }}</v-icon>
+                Процессы
+              </button>
+              <div v-show="isSectionOpen('processes')">
+                <div v-if="processRows.length === 0" class="text-medium-emphasis text-body-2">Процессов нет</div>
+                <div v-else class="combat-card-states">
+                  <CombatProcessTile
+                    v-for="row in processRows"
+                    :key="row.id"
+                    :row="row"
+                    :can-edit="model.canEdit"
+                    @abort="abortProcessRow(row)"
+                    @charge-cast="launchChargeCast(row.id)"
+                  />
                 </div>
               </div>
             </section>

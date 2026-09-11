@@ -13,6 +13,8 @@ export interface RangedHitDifficultyBreakdown {
 /** Исход слоя проверки на броске (чат: простая проверка vs 0). */
 export interface DiceRollCheckOutcome {
   check_code: string;
+  /** Имя правила проверки, если оно было в каталоге на момент броска. */
+  check_name?: string;
   difficulty: DimensionalNumberValue;
   passed: boolean;
   rating: number;

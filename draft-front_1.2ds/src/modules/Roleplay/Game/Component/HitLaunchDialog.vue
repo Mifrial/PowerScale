@@ -10,6 +10,8 @@ import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/Dimensiona
 import { ROLL_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ATTACHMENT_TYPE';
 import { ROLL_ADV_MAX } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ADV_MAX';
 import type { CheckOffer } from '@/modules/Roleplay/Game/Dto/CheckOffer';
+import type { SpellCastOfferContext } from '@/modules/Roleplay/Game/Dto/Spell/SpellCastOfferContext';
+import type { ApplyAttackDamageResult } from '@/modules/Roleplay/Game/Dto/ApplyAttackDamageResult';
 import type { CheckOfferProposal } from '@/modules/Roleplay/Game/Dto/CheckOfferProposal';
 import type { HitDefenseReaction } from '@/modules/Roleplay/Game/Enum/HitDefenseReaction';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
@@ -35,9 +37,11 @@ import {
   ACCUMULATED_DAMAGE_STATE_CODE,
   EXHAUSTION_STATE_CODE,
   STUNNED_STATE_CODE,
+  SHOCK_STATE_CODE,
   WOUND_STATE_CODE,
 } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
 import { CHARACTERISTIC_BASE_RANGE } from '@/modules/Roleplay/Character/init';
+import CombatEntitySelect from '@/modules/Roleplay/Game/Component/CombatEntitySelect.vue';
 import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
 
 import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
@@ -59,7 +63,12 @@ import {
   buildAttackCalcPayload,
   formatAttackActionMessage,
   formatAttackResultMessage,
+  formatSpellCastBeginMessage,
+  formatSpellCastCheckMessage,
+  formatSpellCastOutcomeMessage,
+  formatSpellEffectMessage,
   formatStrikeNarrativeMessage,
+  formatTouchConnectMessage,
 } from '@/modules/Roleplay/Game/Utils/attackDamageMessage';
 import {
   SIMPLE_MELEE_ATTACK_CODE,
@@ -75,6 +84,7 @@ import { ATTACK_CALC_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/At
 import { damageTypeSpecService } from '@/modules/Roleplay/Rule/init';
 import { DAMAGE_TYPE_FORMS } from '@/modules/Roleplay/Rule/Constant/DAMAGE_TYPE_FORMS';
 import { injuryCheckService } from '@/modules/Roleplay/Game/Service/Instance/injuryCheckService';
+import { injuryPackageService } from '@/modules/Roleplay/Game/Service/Instance/injuryPackageService';
 
 import { exhaustionCheckService } from '@/modules/Roleplay/Game/Service/Instance/exhaustionCheckService';
 
@@ -85,6 +95,18 @@ import { ADVANTAGE_SOURCE_MANUAL } from '@/modules/Roleplay/Rule/Constant/ADVANT
 import { processSessionService } from '@/modules/Roleplay/Game/Service/Instance/processSessionService';
 import { asProcessAbilitySpec } from '@/modules/Roleplay/Game/Utils/combatActions';
 import { ACTION_POINTS_CODE } from '@/modules/Roleplay/Game/Constant/Combat/ACTION_POINTS_CODE';
+import { SIMPLE_TOUCH_CODE } from '@/modules/Roleplay/Game/Constant/Combat/SIMPLE_TOUCH_CODE';
+import { spellCastExecutionService } from '@/modules/Roleplay/Game/Service/Instance/spellCastExecutionService';
+import { spellCastOptionsService } from '@/modules/Roleplay/Game/Service/Instance/spellCastOptionsService';
+import { spellDeviationService } from '@/modules/Roleplay/Game/Service/Instance/spellDeviationService';
+import SpellArcaneBurstDialog from '@/modules/Roleplay/Game/Component/SpellArcaneBurstDialog.vue';
+import { electrochargeService } from '@/modules/Roleplay/Game/Service/Instance/electrochargeService';
+import { spellCastDifficultyService } from '@/modules/Roleplay/Game/Service/Instance/spellCastDifficultyService';
+import { ARCANE_DAMAGE_TYPE_CODE } from '@/modules/Roleplay/Game/Constant/Spell/ARCANE_DAMAGE_TYPE_CODE';
+import type { SpellBurstTarget } from '@/modules/Roleplay/Game/Dto/Spell/SpellBurstTarget';
+import type { SpellDeviationOutcome } from '@/modules/Roleplay/Game/Dto/Spell/SpellDeviationOutcome';
+import type { SpellCastExecutionResult } from '@/modules/Roleplay/Game/Dto/Spell/SpellCastExecutionResult';
+import { useKeywords } from '@/modules/Roleplay/Keyword/init';
 
 const props = defineProps<{
   open: boolean;
@@ -103,6 +125,7 @@ const props = defineProps<{
   processContext?: ProcessActionContext | null;
   attackAction?: AttackAction | null;
   spatialResolver?: ISpatialResolver | null;
+  initiativeKeys?: string[];
 }>();
 
 const emit = defineEmits<{
@@ -114,6 +137,7 @@ const emit = defineEmits<{
 
 const combatThread = useCombatChatThread(() => props.gameId);
 const sendChat = combatChatSendService.sendCombatChat(props.gameId);
+const { keywords, fetchTags } = useKeywords();
 const overlays = ref<GameCombatOverlay[]>([]);
 const pendingEffectsByEntity = ref<Record<CombatEntityKey, PendingActionEffect[]>>({});
 const offer = ref<CheckOffer | null>(null);
@@ -133,6 +157,8 @@ const agreedOpponentAdv = ref(0);
 const agreedCover = ref(0);
 const busy = ref(false);
 const error = ref<string | null>(null);
+const burstOpen = ref(false);
+let burstWait: ((value: SpellBurstTarget[]) => void) | null = null;
 
 const procedure = computed(() =>
   resolveHitProcedure(currentAttack.value?.profileType ?? 'strike', props.rules, props.mechanics),
@@ -253,6 +279,27 @@ function overviewOf(key: CombatEntityKey | null): CharacterOverview | null {
   if (!version) return null;
 
   return characterOverviewService.build(version, props.rules);
+}
+
+async function persistChargeSpendFromOffer(casterKey: CombatEntityKey, ctx: SpellCastOfferContext): Promise<void> {
+  if (!ctx.chargeSustainId) {
+    return;
+  }
+  const spells = await getGameApi().getActiveSpells(props.gameId);
+  const sustain = spells.find((spell) => spell.id === ctx.chargeSustainId);
+  const spec = sustain ? electrochargeService.chargeSpec(sustain.spellCode, props.rules) : null;
+  const states = versionOf(casterKey)?.states ?? [];
+  if (!spec) {
+    return;
+  }
+  const next = electrochargeService.spend(states, ctx.chargeSustainId, spec);
+  const index = electrochargeService.boundIndex(states, spec.state_code, ctx.chargeSustainId);
+  if (!next || index < 0) {
+    return;
+  }
+  const overlay = await getGameApi().replaceCombatState(props.gameId, casterKey, index, next);
+  overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, overlay);
+  emit('overlay-changed');
 }
 
 function attackFromOffer(current: CheckOffer): AttackOverview | null {
@@ -549,6 +596,9 @@ async function hydrate(): Promise<void> {
   ]);
   overlays.value = nextOverlays;
   pendingEffectsByEntity.value = nextPendingEffects;
+  if (keywords.value.length === 0) {
+    void fetchTags();
+  }
   if (props.resumeOffer) {
     offer.value = props.resumeOffer;
     opponentKey.value =
@@ -688,6 +738,7 @@ async function performPreparation(): Promise<void> {
   ];
   pendingEffectsByEntity.value = { ...pendingEffectsByEntity.value, [initiator]: nextEffects };
   await getGameApi().setCombatActionEffects(props.gameId, initiator, nextEffects);
+  emit('overlay-changed');
   if (props.chatId !== null) {
     await sendChat(
       `${formatAttackActionMessage({
@@ -910,6 +961,7 @@ async function acceptWideAttack(
     ];
     pendingEffectsByEntity.value = { ...pendingEffectsByEntity.value, [accepted.initiator]: nextEffects };
     await getGameApi().setCombatActionEffects(props.gameId, accepted.initiator, nextEffects);
+    emit('overlay-changed');
   } finally {
     if (shouldManageThread) combatThread.endAttack();
   }
@@ -1027,39 +1079,98 @@ async function acceptAndRoll(): Promise<void> {
     ? findRuleByRef(props.rules, effectiveProcessContext.value?.session.processRuleCode)
     : null;
   const processCompletionEffects = nextProcessSession ? [] : actionEffectService.effectsAfterProcess(processRule);
-  await applyClickAttack(accepted, hit, rolled.attacker.check?.rating ?? 0, effectiveAttack, rolled);
-  for (const [index, strike] of attackStrikes.entries()) {
-    if (index === 0) continue;
-    const strikeHit = {
-      ...hit,
-      itemRuleCode: strike.profile.itemRuleCode,
-      itemName: strike.profile.itemName,
-      profileType: strike.profile.profileType,
-      accuracy: strike.profile.accuracy,
-      damage: strike.profile.damage,
-      damageTypeCode: strike.profile.damageTypeCode,
-      reach: strike.profile.reach,
-      falloff: strike.profile.falloff,
-    };
-    await applyClickAttack(
+  const spellPaid = Boolean(accepted.proposal.spellCast);
+  const spellThread = spellPaid && props.chatId !== null;
+  try {
+    if (spellThread) {
+      combatThread.beginAttack();
+      const ctx = accepted.proposal.spellCast;
+      if (ctx) {
+        await sendChat(
+          formatSpellCastBeginMessage({
+            casterKey: accepted.initiator,
+            casterName: nameOf(accepted.initiator),
+            spellRuleCode: ctx.spellCode,
+            spellName: findRuleByRef(props.rules, ctx.spellCode)?.name ?? ctx.spellCode,
+            spellOd: ctx.spellOd,
+            touchActionCode: ctx.touchActionCode,
+            touchActionName: ctx.touchActionName,
+            touchOd: ctx.touchOd,
+            spentOd: ctx.spentAp,
+            appliedUpgradeCodes: ctx.appliedUpgradeCodes ?? [],
+            rules: props.rules,
+          }),
+          [],
+          props.chatId,
+          speakerFor(accepted.initiator),
+        );
+      }
+    }
+    const weaponResult = await applyClickAttack(
       accepted,
-      strikeHit,
-      simultaneous.attackers[index].check?.rating ?? 0,
-      strike.profile,
-      { attacker: simultaneous.attackers[index], defender: null },
-      { spendResources: false, announce: false },
+      hit,
+      rolled.attacker.check?.rating ?? 0,
+      effectiveAttack,
+      rolled,
+      {
+        spendAttackerAp: !spellPaid,
+        skipDamageApply: hit.actionRuleCode === SIMPLE_TOUCH_CODE,
+        skipActionMessage: spellPaid,
+        contactOnly: spellPaid,
+        deferConsequences: spellPaid,
+        manageThread: !spellPaid,
+      },
     );
+    for (const [index, strike] of attackStrikes.entries()) {
+      if (index === 0) continue;
+      const strikeHit = {
+        ...hit,
+        itemRuleCode: strike.profile.itemRuleCode,
+        itemName: strike.profile.itemName,
+        profileType: strike.profile.profileType,
+        accuracy: strike.profile.accuracy,
+        damage: strike.profile.damage,
+        damageTypeCode: strike.profile.damageTypeCode,
+        reach: strike.profile.reach,
+        falloff: strike.profile.falloff,
+      };
+      await applyClickAttack(
+        accepted,
+        strikeHit,
+        simultaneous.attackers[index].check?.rating ?? 0,
+        strike.profile,
+        { attacker: simultaneous.attackers[index], defender: null },
+        { spendResources: false, announce: false },
+      );
+    }
+    const touchAttacker =
+      simultaneous.attackers.find((item) => item.check?.passed) ?? simultaneous.attackers[0] ?? rolled.attacker;
+    await finishSpellAfterHit(
+      accepted,
+      { attacker: touchAttacker, defender: rolled.defender },
+      {
+        weaponResult: hit.actionRuleCode === SIMPLE_TOUCH_CODE ? null : weaponResult,
+        weaponAttack: effectiveAttack,
+      },
+    );
+  } finally {
+    if (spellThread) {
+      combatThread.endAttack();
+    }
   }
   const finalAttackCost =
     resolvedAttackAction.value?.totalOdCost ??
     (rawAction?.odCost ?? hit.actionOd ?? DEFAULT_ATTACK_AP) + pendingResolution.actionCostDelta;
   const nextEffects = [
-    ...actionEffectService.consumeResource(pendingResolution.remainingEffects, ACTION_POINTS_CODE, finalAttackCost),
+    ...(spellPaid
+      ? pendingResolution.remainingEffects
+      : actionEffectService.consumeResource(pendingResolution.remainingEffects, ACTION_POINTS_CODE, finalAttackCost)),
     ...actionEffectService.effectsAfterAction(actionRule),
     ...processCompletionEffects,
   ];
   pendingEffectsByEntity.value = { ...pendingEffectsByEntity.value, [accepted.initiator]: nextEffects };
   await getGameApi().setCombatActionEffects(props.gameId, accepted.initiator, nextEffects);
+  emit('overlay-changed');
   if (props.chatId !== null && effectiveProcessContext.value) {
     const processName = processRule?.name ?? 'Процесс';
     const effectText = processCompletionEffects.length
@@ -1090,6 +1201,461 @@ async function spendAp(key: CombatEntityKey, cost: number): Promise<number> {
   });
 
   return spent;
+}
+
+function waitBurstTargets(): Promise<SpellBurstTarget[]> {
+  burstOpen.value = true;
+
+  return new Promise((resolve) => {
+    burstWait = resolve;
+  });
+}
+
+function resolveBurst(targets: SpellBurstTarget[]): void {
+  burstOpen.value = false;
+  burstWait?.(targets);
+  burstWait = null;
+}
+
+async function persistCoreDeviation(
+  casterKey: CombatEntityKey,
+  sourceKeyValue: string,
+  strength: number,
+): Promise<void> {
+  const states = versionOf(casterKey)?.states ?? [];
+  const next = spellDeviationService.grant(states, sourceKeyValue, strength);
+  if (!next) {
+    return;
+  }
+  const index = spellDeviationService.boundIndex(states, sourceKeyValue);
+  const overlay =
+    index >= 0
+      ? await getGameApi().replaceCombatState(props.gameId, casterKey, index, next)
+      : await getGameApi().addCombatState(props.gameId, casterKey, next);
+  overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, overlay);
+  emit('overlay-changed');
+}
+
+async function persistBurstDamage(key: CombatEntityKey, result: ApplyAttackDamageResult): Promise<void> {
+  await writeAccumulatedDamage(key, result.remainingHpDamage);
+  await applyCombatState(key, EXHAUSTION_STATE_CODE, result.exhaustion);
+  await applyCombatState(key, WOUND_STATE_CODE, (result.wound ?? 0) + (result.cuttingWound ?? 0));
+  await applyCombatState(key, STUNNED_STATE_CODE, result.stun ?? 0);
+  await applyCombatState(key, SHOCK_STATE_CODE, result.shock ?? 0);
+  emit('overlay-changed');
+}
+
+async function announceArcaneBurst(
+  key: CombatEntityKey,
+  result: ApplyAttackDamageResult,
+  weapon: DimensionalNumberValue,
+  speaker: ChatSpeaker,
+): Promise<void> {
+  const rule = findRuleByRef(props.rules, ARCANE_DAMAGE_TYPE_CODE);
+  const defenderOverview = overviewOf(key);
+  if (props.chatId !== null) {
+    await sendChat(
+      formatSpellEffectMessage({
+        spellRuleCode: ARCANE_DAMAGE_TYPE_CODE,
+        spellName: rule?.name ?? ARCANE_DAMAGE_TYPE_CODE,
+        defenderKey: key,
+        defenderName: nameOf(key),
+        exhaustion: result.exhaustion,
+        wound: (result.wound ?? 0) + (result.cuttingWound ?? 0),
+        raw: result.raw,
+        rules: props.rules,
+      }),
+      [
+        {
+          type: ATTACK_CALC_ATTACHMENT_TYPE,
+          payload: buildAttackCalcPayload({
+            weaponDamage: weapon,
+            damageTypeCode: ARCANE_DAMAGE_TYPE_CODE,
+            rules: props.rules,
+            sr: 1,
+            endurance: defenderOverview
+              ? attackDamageService.enduranceValueOf(defenderOverview, props.rules)
+              : { base: 1, size: 0 },
+            result,
+            defenseIgnored: true,
+            heading: rule?.name ?? 'Излучение',
+          }),
+        },
+      ],
+      props.chatId,
+      speaker,
+    );
+  }
+  if (result.exhaustion > 0) {
+    const afterHit = versionOf(key);
+    if (afterHit) {
+      const exhaustion = await exhaustionCheckService.applyExhaustionCheck({
+        version: afterHit,
+        rules: props.rules,
+        mechanics: props.mechanics,
+        gameId: props.gameId,
+        targetKey: key,
+        targetName: nameOf(key),
+        chatId: props.chatId,
+        speaker: speakerFor(key),
+        change: 'increase',
+        sendMessage: (content, attachments, chatId, nextSpeaker) => sendChat(content, attachments, chatId, nextSpeaker),
+      });
+      if (exhaustion.overlay) {
+        overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, exhaustion.overlay);
+        emit('overlay-changed');
+      }
+    }
+  }
+  const planned = injuryPackageService.planFromLayers(
+    [
+      {
+        hpDamage: result.hpDamage,
+        remainingSr: result.appliedSr,
+        damageTypeCode: ARCANE_DAMAGE_TYPE_CODE,
+        cuttingWound: result.cuttingWound,
+        woundFromHit: result.wound,
+      },
+    ],
+    defenderOverview ? attackDamageService.enduranceOf(defenderOverview, props.rules) : 1,
+    injuryCheckService.overlayStateTotal(versionOf(key), props.rules, EXHAUSTION_STATE_CODE),
+    key,
+  );
+  const injuryPreview = injuryPackageService.describePlan(planned, props.rules);
+  if (injuryPreview && props.chatId !== null) {
+    await sendChat(injuryPreview, [], props.chatId, speaker);
+  }
+  for (const input of planned) {
+    const applied = await injuryCheckService.applyInjuryCheck({
+      input,
+      rules: props.rules,
+      mechanics: props.mechanics,
+      gameId: props.gameId,
+      targetKey: key,
+      targetName: nameOf(key),
+      chatId: props.chatId,
+      speaker: speakerFor(key),
+      skipIfNoRoll: true,
+      targetVersion: versionOf(key) ?? undefined,
+      sendMessage: (content, attachments, chatId, nextSpeaker) => sendChat(content, attachments, chatId, nextSpeaker),
+    });
+    if (applied.overlay) {
+      overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, applied.overlay);
+      emit('overlay-changed');
+    }
+  }
+}
+
+async function applyArcaneBurstFromHit(
+  ctx: SpellCastOfferContext,
+  target: SpellBurstTarget,
+  deviation: SpellDeviationOutcome,
+  speaker: ChatSpeaker,
+): Promise<void> {
+  const version = versionOf(target.key);
+  const grant = version
+    ? spellCastOptionsService.targetResistanceAmount(version, props.rules, ARCANE_DAMAGE_TYPE_CODE, {})
+    : 0;
+  const amount = spellDeviationService.explosionAmount(ctx.usedPower, target.distanceIpari, deviation.dieDigit, grant);
+  const weapon = spellDeviationService.explosionWeaponDamage(amount);
+  const applied = spellCastExecutionService.applySpellDamage(
+    weapon,
+    1,
+    ARCANE_DAMAGE_TYPE_CODE,
+    overviewOf(target.key),
+    props.rules,
+    props.mechanics,
+  );
+  await persistBurstDamage(target.key, applied);
+  await announceArcaneBurst(target.key, applied, weapon, speaker);
+}
+
+async function runSpellDeviationFromHit(
+  accepted: CheckOffer,
+  ctx: SpellCastOfferContext,
+  outcome: SpellCastExecutionResult,
+  speaker: ChatSpeaker,
+): Promise<void> {
+  if (!spellDeviationService.isFailedCastCheck(outcome.cast)) {
+    return;
+  }
+  const deviation = spellDeviationService.roll(Math.random, accepted.initiator);
+  if (props.chatId !== null) {
+    await sendChat('', [{ type: ROLL_ATTACHMENT_TYPE, payload: deviation.roll }], props.chatId, speaker);
+    await sendChat(spellDeviationService.formatOutcomeMessage(deviation), [], props.chatId, speaker);
+  }
+  if (deviation.hasEffect) {
+    await persistCoreDeviation(accepted.initiator, ctx.sourceKey ?? '', deviation.strength);
+  }
+  if (!deviation.isDoubles) {
+    return;
+  }
+  if (props.chatId !== null) {
+    const burstText = spellDeviationService.formatBurstBeginMessage(deviation);
+    if (burstText) {
+      await sendChat(burstText, [], props.chatId, speaker);
+    }
+  }
+  const targets = await waitBurstTargets();
+  for (const target of targets) {
+    await applyArcaneBurstFromHit(ctx, target, deviation, speaker);
+  }
+}
+
+async function finishSpellAfterHit(
+  accepted: CheckOffer,
+  rolled: HitCheckRoll,
+  touchWeapon: {
+    weaponResult: ReturnType<typeof attackDamageService.applyAttackDamage> | null;
+    weaponAttack: AttackOverview;
+  },
+): Promise<void> {
+  const ctx = accepted.proposal.spellCast;
+  const casterOverview = overviewOf(accepted.initiator);
+  if (!ctx || !casterOverview) {
+    return;
+  }
+  const passed = Boolean(rolled.attacker?.check?.passed);
+  let attackSr = rolled.attacker?.check?.rating ?? 0;
+  if (passed && attackSr === 0) {
+    attackSr = 1;
+  }
+  if (ctx.touchActionCode === SIMPLE_TOUCH_CODE && passed) {
+    attackSr += 1;
+  }
+  const milk = !passed;
+  const outcome = spellCastExecutionService.completeAfterHit(
+    {
+      spellCode: ctx.spellCode,
+      casterKey: accepted.initiator,
+      casterOverview,
+      casterAbilities: versionOf(accepted.initiator)?.abilities ?? [],
+      currentActionPoints: { base: 0, size: 0 },
+      resolve: {
+        spellCode: ctx.spellCode,
+        usedPower: ctx.usedPower,
+        availableControl: ctx.availableControl,
+        parameterValues: ctx.parameterValues,
+        hasTarget: ctx.hasSpellTarget,
+        targetResistanceAmount: ctx.targetResistanceAmount,
+      },
+      checkCode: ctx.checkCode,
+      characteristicValue: ctx.characteristicValue,
+      characteristicName: ctx.characteristicName,
+      parameterPower: ctx.parameterPower,
+      keywords: keywords.value,
+      rules: props.rules,
+      mechanics: props.mechanics,
+      rng: Math.random,
+      touchActionCode: ctx.touchActionCode,
+      touchProfile: resolvedAttack.value,
+      touchTargetKey: accepted.opponent,
+      touchTargetOverview: overviewOf(accepted.opponent),
+      effectTargetOverview: overviewOf(accepted.opponent),
+      distanceIpari: accepted.proposal.hit?.distanceIpari ?? 0,
+      sourceKey: ctx.sourceKey ?? '',
+      pathCode: ctx.pathCode ?? null,
+      appliedUpgradeCodes: ctx.appliedUpgradeCodes ?? [],
+    },
+    { milk, attackSr: passed ? attackSr : 0 },
+  );
+  await persistChargeSpendFromOffer(accepted.initiator, ctx);
+  const spellRule = findRuleByRef(props.rules, ctx.spellCode);
+  const spellSpec = spellCastDifficultyService.asSpellAbilitySpec(spellRule);
+  const damageTypeCode = spellSpec?.spell.damage?.damage_type_code ?? null;
+  const speaker = speakerFor(accepted.initiator);
+  const castFailed = Boolean(outcome.autoFail || (outcome.cast?.needsCheck && !outcome.cast.roll?.check?.passed));
+  if (props.chatId !== null) {
+    if (outcome.cast?.needsCheck) {
+      await sendChat(
+        formatSpellCastCheckMessage({
+          casterKey: accepted.initiator,
+          casterName: nameOf(accepted.initiator),
+          characteristicName: ctx.characteristicName,
+        }),
+        [],
+        props.chatId,
+        speaker,
+      );
+    }
+    if (outcome.cast?.roll) {
+      await sendChat('', [{ type: ROLL_ATTACHMENT_TYPE, payload: outcome.cast.roll }], props.chatId, speaker);
+    }
+    const outcomeText = formatSpellCastOutcomeMessage({
+      milk,
+      castFailed,
+      casterKey: accepted.initiator,
+      casterName: nameOf(accepted.initiator),
+      spellRuleCode: ctx.spellCode,
+      spellName: spellRule?.name ?? ctx.spellCode,
+      spentOd: ctx.spentAp,
+      rules: props.rules,
+    });
+    await sendChat(outcomeText, [], props.chatId, speaker);
+  }
+  await runSpellDeviationFromHit(accepted, ctx, outcome, speaker);
+  const weaponLayer = passed && touchWeapon.weaponResult ? touchWeapon.weaponResult : null;
+  if (milk || castFailed) {
+    if (weaponLayer) {
+      await applyAttackConsequences(accepted, touchWeapon.weaponAttack, weaponLayer);
+    }
+
+    return;
+  }
+  const defenderOverview = overviewOf(accepted.opponent);
+  if (props.chatId !== null && weaponLayer) {
+    await sendChat(
+      formatAttackResultMessage({
+        attackerKey: accepted.initiator,
+        attackerName: nameOf(accepted.initiator),
+        defenderKey: accepted.opponent,
+        defenderName: nameOf(accepted.opponent),
+        remainingSr: weaponLayer.remainingSr,
+        exhaustion: weaponLayer.exhaustion,
+        wound: (weaponLayer.wound ?? 0) + (weaponLayer.cuttingWound ?? 0),
+      }),
+      [
+        {
+          type: ATTACK_CALC_ATTACHMENT_TYPE,
+          payload: buildAttackCalcPayload({
+            weaponDamage: touchWeapon.weaponAttack.damage,
+            damageTypeCode: touchWeapon.weaponAttack.damageTypeCode,
+            rules: props.rules,
+            sr: Math.max(0, rolled.attacker?.check?.rating ?? 0),
+            endurance: defenderOverview
+              ? attackDamageService.enduranceValueOf(defenderOverview, props.rules)
+              : { base: 1, size: 0 },
+            result: weaponLayer,
+            defenseIgnored: false,
+          }),
+        },
+      ],
+      props.chatId,
+      speaker,
+    );
+  }
+  if (props.chatId !== null && outcome.spellApply) {
+    await sendChat(
+      formatSpellEffectMessage({
+        spellRuleCode: ctx.spellCode,
+        spellName: spellRule?.name ?? ctx.spellCode,
+        defenderKey: accepted.opponent,
+        defenderName: nameOf(accepted.opponent),
+        exhaustion: outcome.spellApply.exhaustion,
+        wound: (outcome.spellApply.wound ?? 0) + (outcome.spellApply.cuttingWound ?? 0),
+        raw: outcome.spellApply.raw,
+        rules: props.rules,
+      }),
+      [
+        {
+          type: ATTACK_CALC_ATTACHMENT_TYPE,
+          payload: buildAttackCalcPayload({
+            weaponDamage: outcome.spellDamage ?? { base: outcome.spellApply.raw, size: 0 },
+            damageTypeCode,
+            rules: props.rules,
+            sr: outcome.spellSr ?? 0,
+            endurance: defenderOverview
+              ? attackDamageService.enduranceValueOf(defenderOverview, props.rules)
+              : { base: 1, size: 0 },
+            result: outcome.spellApply,
+            defenseIgnored: false,
+            heading: spellRule?.name ?? 'Заклинание',
+          }),
+        },
+      ],
+      props.chatId,
+      speaker,
+    );
+  }
+  const results = [weaponLayer, outcome.spellApply].filter(
+    (item): item is NonNullable<typeof outcome.spellApply> => item != null,
+  );
+  if (results.length === 0) {
+    return;
+  }
+  await writeAccumulatedDamage(
+    accepted.opponent,
+    results.reduce((sum, item) => sum + item.remainingHpDamage, 0),
+  );
+  for (const result of results) {
+    await applyCombatState(accepted.opponent, EXHAUSTION_STATE_CODE, result.exhaustion);
+    await applyCombatState(accepted.opponent, WOUND_STATE_CODE, (result.wound ?? 0) + (result.cuttingWound ?? 0));
+    await applyCombatState(accepted.opponent, STUNNED_STATE_CODE, result.stun ?? 0);
+    await applyCombatState(accepted.opponent, SHOCK_STATE_CODE, result.shock ?? 0);
+  }
+  emit('overlay-changed');
+  const totalExhaustion = results.reduce((sum, item) => sum + item.exhaustion, 0);
+  if (totalExhaustion > 0) {
+    const afterHit = versionOf(accepted.opponent);
+    if (afterHit) {
+      const exhaustion = await exhaustionCheckService.applyExhaustionCheck({
+        version: afterHit,
+        rules: props.rules,
+        mechanics: props.mechanics,
+        gameId: props.gameId,
+        targetKey: accepted.opponent,
+        targetName: nameOf(accepted.opponent),
+        chatId: props.chatId,
+        speaker: speakerFor(accepted.opponent),
+        change: 'increase',
+        sendMessage: (content, attachments, chatId, speaker) => sendChat(content, attachments, chatId, speaker),
+      });
+      if (exhaustion.overlay) {
+        overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, exhaustion.overlay);
+        emit('overlay-changed');
+      }
+    }
+  }
+  const layers = [
+    weaponLayer
+      ? {
+          hpDamage: weaponLayer.hpDamage,
+          remainingSr: weaponLayer.appliedSr,
+          damageTypeCode: touchWeapon.weaponAttack.damageTypeCode,
+          cuttingWound: weaponLayer.cuttingWound,
+          woundFromHit: weaponLayer.wound,
+        }
+      : null,
+    outcome.spellApply
+      ? {
+          hpDamage: outcome.spellApply.hpDamage,
+          remainingSr: outcome.spellApply.appliedSr,
+          damageTypeCode,
+          cuttingWound: outcome.spellApply.cuttingWound,
+          woundFromHit: outcome.spellApply.wound,
+        }
+      : null,
+  ].filter((layer) => layer != null);
+  const defenderVersion = versionOf(accepted.opponent);
+  const planned = injuryPackageService.planFromLayers(
+    layers,
+    defenderOverview ? attackDamageService.enduranceOf(defenderOverview, props.rules) : 1,
+    injuryCheckService.overlayStateTotal(defenderVersion, props.rules, EXHAUSTION_STATE_CODE),
+    accepted.opponent,
+  );
+  const injuryPreview = injuryPackageService.describePlan(planned, props.rules);
+  if (injuryPreview && props.chatId !== null) {
+    await sendChat(injuryPreview, [], props.chatId, speaker);
+  }
+  for (const input of planned) {
+    const applied = await injuryCheckService.applyInjuryCheck({
+      input,
+      rules: props.rules,
+      mechanics: props.mechanics,
+      gameId: props.gameId,
+      targetKey: accepted.opponent,
+      targetName: nameOf(accepted.opponent),
+      chatId: props.chatId,
+      speaker: speakerFor(accepted.opponent),
+      skipIfNoRoll: true,
+      targetVersion: versionOf(accepted.opponent) ?? undefined,
+      sendMessage: (content, attachments, chatId, speaker) => sendChat(content, attachments, chatId, speaker),
+    });
+    if (applied.overlay) {
+      overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, applied.overlay);
+      emit('overlay-changed');
+    }
+  }
 }
 
 async function applyCombatState(key: CombatEntityKey, code: string, amount: number): Promise<void> {
@@ -1141,6 +1707,7 @@ async function applyAttackConsequences(
   await applyCombatState(accepted.opponent, EXHAUSTION_STATE_CODE, result.exhaustion);
   await applyCombatState(accepted.opponent, WOUND_STATE_CODE, (result.wound ?? 0) + (result.cuttingWound ?? 0));
   await applyCombatState(accepted.opponent, STUNNED_STATE_CODE, result.stun ?? 0);
+  await applyCombatState(accepted.opponent, SHOCK_STATE_CODE, result.shock ?? 0);
   emit('overlay-changed');
 
   if (result.exhaustion > 0) {
@@ -1213,6 +1780,11 @@ async function applyClickAttack(
   rolled: HitCheckRoll,
   options: {
     spendResources?: boolean;
+    spendAttackerAp?: boolean;
+    spendDefenderAp?: boolean;
+    skipDamageApply?: boolean;
+    skipActionMessage?: boolean;
+    contactOnly?: boolean;
     announce?: boolean;
     manageThread?: boolean;
     deferConsequences?: boolean;
@@ -1224,9 +1796,11 @@ async function applyClickAttack(
     ? props.rules.find((rule) => rule.code === attack.damageTypeCode && rule.type === 'damage_type')
     : undefined;
   const defenseIgnored = damageTypeSpecService.asDamageTypeSpec(typeRule)?.defense_ignored === true;
+  const maxSuccessRating = damageTypeSpecService.asDamageTypeSpec(typeRule)?.max_success_rating ?? null;
+  const weaponSr = options.skipDamageApply ? 0 : Math.max(0, sr);
   const result = attackDamageService.applyAttackDamage({
     weaponDamage: attack.damage,
-    sr: Math.max(0, sr),
+    sr: weaponSr,
     damageTypeCode: attack.damageTypeCode,
     defense: defenderOverview?.defense ?? null,
     endurance: defenderOverview
@@ -1235,6 +1809,7 @@ async function applyClickAttack(
     accumulatedDamage: attackDamageService.accumulatedDamageOf(versionOf(accepted.opponent)?.states ?? [], props.rules),
     hooks,
     defenseIgnored,
+    maxSuccessRating,
   });
   const action = resolvedSelectedAction.value ??
     attackActionById(props.rules, hit.actionRuleCode) ?? {
@@ -1262,26 +1837,33 @@ async function applyClickAttack(
       : action;
   const attackerAp = resolvedAttackAction.value?.totalOdCost ?? (actionForProcess.odCost || DEFAULT_ATTACK_AP);
   const defenderAp = defenseOdCost(hit.reaction, Boolean(hit.turn && hit.flank), props.rules);
-  const shouldSpendResources = options.spendResources !== false;
+  const shouldSpendAttacker = options.spendAttackerAp ?? options.spendResources ?? true;
+  const shouldSpendDefender = options.spendDefenderAp ?? options.spendResources ?? true;
   const shouldAnnounce = options.announce !== false;
-  const spentAttack = shouldSpendResources ? await spendAp(accepted.initiator, attackerAp) : 0;
-  const spentDefense = shouldSpendResources ? await spendAp(accepted.opponent, defenderAp) : 0;
+  const spentAttack = shouldSpendAttacker
+    ? await spendAp(accepted.initiator, attackerAp)
+    : accepted.proposal.spellCast
+      ? (hit.actionOd ?? 0)
+      : 0;
+  const spentDefense = shouldSpendDefender ? await spendAp(accepted.opponent, defenderAp) : 0;
   const speaker = speakerFor(accepted.initiator);
   if (props.chatId !== null && shouldAnnounce && options.manageThread !== false) combatThread.beginAttack();
   try {
     if (props.chatId !== null && shouldAnnounce) {
-      await sendChat(
-        `${formatAttackActionMessage({
-          attackerKey: accepted.initiator,
-          attackerName: nameOf(accepted.initiator),
-          action: actionForProcess,
-          attackerAp: spentAttack,
-          rules: props.rules,
-        })}${action.effects?.length ? `\nЭффекты: ${action.effects.map((effect) => actionEffectService.describe(effect)).join('; ')}` : ''}`,
-        [],
-        props.chatId,
-        speaker,
-      );
+      if (!options.skipActionMessage) {
+        await sendChat(
+          `${formatAttackActionMessage({
+            attackerKey: accepted.initiator,
+            attackerName: nameOf(accepted.initiator),
+            action: actionForProcess,
+            attackerAp: spentAttack,
+            rules: props.rules,
+          })}${action.effects?.length ? `\nЭффекты: ${action.effects.map((effect) => actionEffectService.describe(effect)).join('; ')}` : ''}`,
+          [],
+          props.chatId,
+          speaker,
+        );
+      }
       await sendChat(
         formatStrikeNarrativeMessage({
           attackerKey: accepted.initiator,
@@ -1310,38 +1892,53 @@ async function applyClickAttack(
         props.chatId,
         speaker,
       );
-      await sendChat(
-        formatAttackResultMessage({
-          attackerKey: accepted.initiator,
-          attackerName: nameOf(accepted.initiator),
-          defenderKey: accepted.opponent,
-          defenderName: nameOf(accepted.opponent),
-          remainingSr: result.remainingSr,
-          exhaustion: result.exhaustion,
-          wound: (result.wound ?? 0) + (result.cuttingWound ?? 0),
-        }),
-        [
-          {
-            type: ATTACK_CALC_ATTACHMENT_TYPE,
-            payload: buildAttackCalcPayload({
-              weaponDamage: attack.damage,
-              damageTypeCode: attack.damageTypeCode,
-              rules: props.rules,
-              sr: Math.max(0, sr),
-              endurance: defenderOverview
-                ? attackDamageService.enduranceValueOf(defenderOverview, props.rules)
-                : { base: 1, size: 0 },
-              result,
-              defenseIgnored,
-            }),
-          },
-        ],
-        props.chatId,
-        speaker,
-      );
+      if (options.skipDamageApply || options.contactOnly) {
+        await sendChat(
+          formatTouchConnectMessage({
+            attackerKey: accepted.initiator,
+            attackerName: nameOf(accepted.initiator),
+            defenderKey: accepted.opponent,
+            defenderName: nameOf(accepted.opponent),
+            passed: Boolean(rolled.attacker.check?.passed),
+          }),
+          [],
+          props.chatId,
+          speaker,
+        );
+      } else {
+        await sendChat(
+          formatAttackResultMessage({
+            attackerKey: accepted.initiator,
+            attackerName: nameOf(accepted.initiator),
+            defenderKey: accepted.opponent,
+            defenderName: nameOf(accepted.opponent),
+            remainingSr: result.remainingSr,
+            exhaustion: result.exhaustion,
+            wound: (result.wound ?? 0) + (result.cuttingWound ?? 0),
+          }),
+          [
+            {
+              type: ATTACK_CALC_ATTACHMENT_TYPE,
+              payload: buildAttackCalcPayload({
+                weaponDamage: attack.damage,
+                damageTypeCode: attack.damageTypeCode,
+                rules: props.rules,
+                sr: weaponSr,
+                endurance: defenderOverview
+                  ? attackDamageService.enduranceValueOf(defenderOverview, props.rules)
+                  : { base: 1, size: 0 },
+                result,
+                defenseIgnored,
+              }),
+            },
+          ],
+          props.chatId,
+          speaker,
+        );
+      }
     }
 
-    if (!options.deferConsequences) await applyAttackConsequences(accepted, attack, result);
+    if (!options.deferConsequences && !options.skipDamageApply) await applyAttackConsequences(accepted, attack, result);
   } finally {
     if (props.chatId !== null && shouldAnnounce && options.manageThread !== false) combatThread.endAttack();
   }
@@ -1550,16 +2147,14 @@ const canSubmit = computed(() => {
             {{ nameOf(target.targetKey) }}: {{ reactionLabel(target) }}
           </div>
         </div>
-        <v-select
+        <CombatEntitySelect
           v-else-if="!isPreparationAction && !hasFixedTargets"
           v-model="opponentKey"
-          :items="opponentOptions"
-          item-title="title"
-          item-value="value"
-          density="compact"
-          variant="outlined"
-          hide-details
           label="Цель"
+          :characters="characters"
+          :npcs="npcs"
+          :initiative-keys="initiativeKeys"
+          :exclude="resolvedAttackerKey ? [resolvedAttackerKey] : []"
           :disabled="!isCompose"
         />
         <ClampedNumberField
@@ -1649,6 +2244,16 @@ const canSubmit = computed(() => {
       </v-card-actions>
     </v-card>
   </v-dialog>
+  <SpellArcaneBurstDialog
+    :open="burstOpen"
+    :characters="characters"
+    :npcs="npcs"
+    :initiative-keys="initiativeKeys"
+    :caster-key="resolvedAttackerKey"
+    :caster-name="nameOf(resolvedAttackerKey)"
+    @update:open="burstOpen = $event"
+    @confirm="resolveBurst"
+  />
 </template>
 
 <style scoped>

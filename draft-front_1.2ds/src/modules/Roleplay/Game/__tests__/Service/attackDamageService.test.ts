@@ -8,12 +8,17 @@ import {
   formatAttackActionMessage,
   formatAttackResultMessage,
   formatAttackSrLabel,
+  formatSpellCastBeginMessage,
+  formatSpellCastOutcomeMessage,
+  formatSpellEffectMessage,
   formatStrikeNarrativeMessage,
+  formatTouchConnectMessage,
 } from '@/modules/Roleplay/Game/Utils/attackDamageMessage';
 import {
   DAMAGE_TYPE_HOOK_MECHANIC_BLUNT_KO,
   DAMAGE_TYPE_HOOK_MECHANIC_CUTTING_WOUNDS,
   DAMAGE_TYPE_HOOK_MECHANIC_EXHAUSTION_STUN,
+  DAMAGE_TYPE_HOOK_MECHANIC_EXHAUSTION_SHOCK,
   DAMAGE_TYPE_HOOK_MECHANIC_EXHAUSTION_WOUND,
   DAMAGE_TYPE_HOOK_MECHANIC_PAY_SR,
   DAMAGE_TYPE_HOOK_VERSION_1,
@@ -231,6 +236,52 @@ describe('applyAttackDamage', () => {
     expect(result.exhaustion).toBe(2);
     expect(result.stun).toBe(2);
     expect(result.wound).toBe(4);
+  });
+
+  it('потолок множителя РУ режет повреждения, но не сам РУ', () => {
+    const result = attackDamageService.applyAttackDamage({
+      weaponDamage: { base: 4, size: 0 },
+      sr: 5,
+      damageTypeCode: 'electricity',
+      defense: null,
+      endurance: 100,
+      hooks: [],
+      maxSuccessRating: 3,
+    });
+    expect(result.remainingSr).toBe(5);
+    expect(result.appliedSr).toBe(3);
+    expect(result.srCap).toBe(3);
+    expect(result.raw).toBe(12);
+  });
+
+  it('разряд: 6 урона при 4 РУ и капе 3 даёт 18 повреждений', () => {
+    const result = attackDamageService.applyAttackDamage({
+      weaponDamage: { base: 6, size: 0 },
+      sr: 4,
+      damageTypeCode: 'electricity',
+      defense: null,
+      endurance: 5,
+      hooks: [],
+      maxSuccessRating: 3,
+    });
+    expect(result.appliedSr).toBe(3);
+    expect(result.srCap).toBe(3);
+    expect(result.remainingSr).toBe(4);
+    expect(result.raw).toBe(18);
+  });
+
+  it('истощение → шок', () => {
+    const result = attackDamageService.applyAttackDamage({
+      weaponDamage: { base: 6, size: 0 },
+      sr: 1,
+      damageTypeCode: 'electricity',
+      defense: null,
+      endurance: 3,
+      hooks: [hook(DAMAGE_TYPE_HOOK_MECHANIC_EXHAUSTION_SHOCK, 'apply')],
+    });
+    expect(result.exhaustion).toBe(2);
+    expect(result.shock).toBe(2);
+    expect(result.stun).toBeNull();
   });
 
   it('ОД защиты и списание ресурса', () => {
@@ -468,6 +519,160 @@ describe('applyAttackDamage', () => {
         wound: 4,
       }),
     ).toContain('попадает по [[npc:2,Бородач]] с 2 РУ и наносит 2 истощения и 4 рану');
+    expect(
+      formatAttackResultMessage({
+        attackerKey: 'character:1',
+        attackerName: 'Гарик',
+        defenderKey: 'npc:2',
+        defenderName: 'Бородач',
+        remainingSr: 0,
+        exhaustion: 0,
+      }),
+    ).toContain('промахивается');
+    expect(
+      formatTouchConnectMessage({
+        attackerKey: 'character:1',
+        attackerName: 'Гарик',
+        defenderKey: 'npc:2',
+        defenderName: 'Бородач',
+        passed: true,
+      }),
+    ).toBe('[[character:1,Гарик]] попадает по [[npc:2,Бородач]]!');
+    expect(
+      formatSpellCastBeginMessage({
+        casterKey: 'character:1',
+        casterName: 'Бородач',
+        spellRuleCode: 'discharge',
+        spellName: 'Разряд',
+        spellOd: 4,
+        touchActionCode: 'simple-touch',
+        touchActionName: 'Простое касание',
+        touchOd: 3,
+        spentOd: 4,
+        rules: [
+          {
+            id: null,
+            code: 'discharge',
+            type: 'ability',
+            name: 'Разряд',
+            description: '',
+            spaceId: 1,
+            mechanicId: null,
+            createdAt: 1,
+          },
+          {
+            id: null,
+            code: 'simple-touch',
+            type: 'ability',
+            name: 'Простое касание',
+            description: '',
+            spaceId: 1,
+            mechanicId: null,
+            createdAt: 1,
+          },
+        ],
+      }),
+    ).toBe(
+      '[[character:1,Бородач]] творит заклинание [[rule:discharge]] за 4ОД! Заклинание требует касания, выбрано действие: [[rule:simple-touch]] за 3ОД. Итого будет потрачено 4ОД!',
+    );
+    expect(
+      formatSpellCastBeginMessage({
+        casterKey: 'character:1',
+        casterName: 'Бородач',
+        spellRuleCode: 'lightning-strike',
+        spellName: 'Удар молнии',
+        spellOd: 4,
+        touchActionCode: null,
+        touchActionName: '',
+        touchOd: 0,
+        spentOd: 4,
+        targetKey: 'character:2',
+        targetName: 'Гарик из Тени',
+        rules: [
+          {
+            id: null,
+            code: 'lightning-strike',
+            type: 'ability',
+            name: 'Удар молнии',
+            description: '',
+            spaceId: 1,
+            mechanicId: null,
+            createdAt: 1,
+          },
+        ],
+      }),
+    ).toBe(
+      '[[character:1,Бородач]] творит заклинание [[rule:lightning-strike]] за 4ОД! Цель: [[character:2,Гарик из Тени]].',
+    );
+    expect(
+      formatSpellCastOutcomeMessage({
+        milk: true,
+        castFailed: false,
+        casterKey: 'character:1',
+        casterName: 'Бородач',
+        spellRuleCode: 'lightning-generator',
+        spellName: 'Генератор молний',
+        spentOd: 4,
+        rules: [
+          {
+            id: null,
+            code: 'lightning-generator',
+            type: 'ability',
+            name: 'Генератор молний',
+            description: '',
+            spaceId: 1,
+            mechanicId: null,
+            createdAt: 1,
+          },
+        ],
+      }),
+    ).toBe('Эффект заклинания уходит в молоко.');
+    expect(
+      formatSpellCastOutcomeMessage({
+        milk: false,
+        castFailed: false,
+        casterKey: 'character:1',
+        casterName: 'Бородач',
+        spellRuleCode: 'lightning-generator',
+        spellName: 'Генератор молний',
+        spentOd: 4,
+        rules: [
+          {
+            id: null,
+            code: 'lightning-generator',
+            type: 'ability',
+            name: 'Генератор молний',
+            description: '',
+            spaceId: 1,
+            mechanicId: null,
+            createdAt: 1,
+          },
+        ],
+      }),
+    ).toBe('[[character:1,Бородач]] успешно сотворил [[rule:lightning-generator]] за 4ОД!');
+    expect(
+      formatSpellCastOutcomeMessage({
+        milk: false,
+        castFailed: true,
+        casterKey: 'character:1',
+        casterName: 'Бородач',
+        spellRuleCode: 'lightning-strike',
+        spellName: 'Удар молнии',
+        spentOd: 4,
+        rules: [
+          {
+            id: null,
+            code: 'lightning-strike',
+            type: 'ability',
+            name: 'Удар молнии',
+            description: '',
+            spaceId: 1,
+            mechanicId: null,
+            createdAt: 1,
+          },
+        ],
+      }),
+    ).toBe('[[character:1,Бородач]] не смог сотворить [[rule:lightning-strike]].');
     expect(formatAttackSrLabel(8)).toBe('8');
     const calc = buildAttackCalcPayload({
       weaponDamage: { base: 4, size: 1 },
@@ -490,12 +695,15 @@ describe('applyAttackDamage', () => {
       defenseIgnored: false,
       result: {
         remainingSr: 4,
+        appliedSr: 4,
+        srCap: null,
         resistance: 0,
         raw: 16,
         hpDamage: 16,
         exhaustion: 4,
         remainingHpDamage: 0,
         stun: 4,
+        shock: null,
         wound: null,
         knockout: false,
         cuttingWound: null,
@@ -505,5 +713,48 @@ describe('applyAttackDamage', () => {
     expect(calc.damage).toEqual({ base: 4, size: 1 });
     expect(calc.damageTypeName).toBe('дробящий');
     expect(calc.raw).toBe(16);
+    expect(
+      formatSpellEffectMessage({
+        spellRuleCode: 'discharge',
+        spellName: 'Разряд',
+        defenderKey: 'character:2',
+        defenderName: 'Гарик из Тени',
+        exhaustion: 3,
+        rules: [
+          {
+            id: null,
+            code: 'discharge',
+            type: 'ability',
+            name: 'Разряд',
+            description: '',
+            spaceId: 1,
+            mechanicId: null,
+            createdAt: 1,
+          },
+        ],
+      }),
+    ).toBe('[[rule:discharge]] бьёт по [[character:2,Гарик из Тени]] и наносит 3 истощения!');
+    expect(
+      formatSpellEffectMessage({
+        spellRuleCode: 'chain-lightning',
+        spellName: 'Цепная молния',
+        defenderKey: 'character:2',
+        defenderName: 'Гарик из Тени',
+        exhaustion: 0,
+        raw: 2,
+        rules: [
+          {
+            id: null,
+            code: 'chain-lightning',
+            type: 'ability',
+            name: 'Цепная молния',
+            description: '',
+            spaceId: 1,
+            mechanicId: null,
+            createdAt: 1,
+          },
+        ],
+      }),
+    ).toBe('[[rule:chain-lightning]] бьёт по [[character:2,Гарик из Тени]] и наносит 2 повреждения!');
   });
 });

@@ -10,6 +10,7 @@ function triggerLabel(source: InjuryDifficultyBreakdown['source']): string {
   if (source === 'manual') return 'заданная сложность';
   if (source === 'leftover') return 'повреждения удара';
   if (source === 'wound') return 'рана';
+  if (source === 'collapse') return 'упадок сил';
 
   return 'истощение';
 }
@@ -37,7 +38,7 @@ export function injuryDifficultyDetailRows(breakdown: InjuryDifficultyBreakdown)
       label: 'Повреждения',
       value: markChosen(
         breakdown,
-        'leftover',
+        breakdown.source === 'collapse' ? 'collapse' : 'leftover',
         `⌊${breakdown.leftoverDamage} / ${breakdown.endurance}⌋ = ${breakdown.fromDamage}`,
       ),
     });

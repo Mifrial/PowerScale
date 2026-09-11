@@ -51,6 +51,7 @@ export class GameChatRulesContextService {
         if (attachment.type !== ROLL_ATTACHMENT_TYPE) return attachment;
         const raw = attachment.payload as DiceRollSpec | DiceRollResult;
         if (rollService.isDiceRollResult(raw)) return attachment;
+        if (raw.scoring === 'face_sum') return attachment;
         const payload = simpleCheckRollService.rollSimpleCheckZero(raw, rng, rules, mechanics);
 
         return { ...attachment, payload };

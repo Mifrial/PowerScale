@@ -27,6 +27,7 @@ import { SIMPLE_CHECK_ZERO_DIFFICULTY } from '@/modules/Roleplay/Game/Constant/C
 
 import { initiativeCharacteristics } from '@/modules/Roleplay/Game/Utils/initiativeCharacteristic';
 import type { InitiativeCharacteristicView } from '@/modules/Roleplay/Game/Utils/initiativeCharacteristic';
+import CombatEntitySelect from '@/modules/Roleplay/Game/Component/CombatEntitySelect.vue';
 import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
 
 import { checkResolutionService } from '@/modules/Roleplay/Rule/init';
@@ -56,6 +57,7 @@ const props = defineProps<{
   currentUserId: number | null;
   activeSpeakerKey: string | null;
   resumeOffer: CheckOffer | null;
+  initiativeKeys?: string[];
 }>();
 
 const emit = defineEmits<{
@@ -652,17 +654,14 @@ const statusHint = computed(() => {
           <v-btn value="pairwise">Совместная</v-btn>
         </v-btn-toggle>
 
-        <v-select
+        <CombatEntitySelect
           v-model="initiatorKey"
-          :items="entityOptions"
-          item-title="title"
-          item-value="value"
-          density="compact"
-          variant="outlined"
-          hide-details
           label="Кто бросает"
-          class="mb-3"
+          :characters="characters"
+          :npcs="npcs"
+          :initiative-keys="initiativeKeys"
           :disabled="lockedParticipants"
+          class="mb-3"
         />
 
         <div class="check-launch-row">
@@ -752,17 +751,15 @@ const statusHint = computed(() => {
         </template>
 
         <template v-else>
-          <v-select
+          <CombatEntitySelect
             v-model="opponentKey"
-            :items="opponentOptions"
-            item-title="title"
-            item-value="value"
-            density="compact"
-            variant="outlined"
-            hide-details
             label="Оппонент"
-            class="mt-3 mb-3"
+            :characters="characters"
+            :npcs="npcs"
+            :initiative-keys="initiativeKeys"
+            :exclude="initiatorKey ? [initiatorKey] : []"
             :disabled="lockedParticipants"
+            class="mt-3 mb-3"
           />
           <div class="check-launch-row">
             <v-btn-toggle

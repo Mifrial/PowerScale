@@ -9,6 +9,7 @@ import * as mockInitiative from '@/modules/Roleplay/Game/Mock/mockGameInitiative
 import * as mockCombatOverlays from '@/modules/Roleplay/Game/Mock/mockGameCombatOverlays';
 import * as mockPendingActionEffects from '@/modules/Roleplay/Game/Mock/mockGamePendingActionEffects';
 import * as mockProcessSessions from '@/modules/Roleplay/Game/Mock/mockGameProcessSessions';
+import * as mockActiveSpells from '@/modules/Roleplay/Game/Mock/mockGameActiveSpells';
 import * as mockQuickRolls from '@/modules/Roleplay/Game/Mock/mockGameQuickRolls';
 import * as mockCheckOffers from '@/modules/Roleplay/Game/Mock/mockCheckOffers';
 import * as mockChronicle from '@/modules/Roleplay/Game/Mock/mockGameChronicle';
@@ -59,6 +60,9 @@ export const mockGameApi: IGameApi = {
   setCombatActionEffects: mockPendingActionEffects.setPendingActionEffects,
   getProcessSessions: mockProcessSessions.fetchProcessSessions,
   setProcessSession: mockProcessSessions.setProcessSession,
+  getActiveSpells: mockActiveSpells.fetchActiveSpells,
+  upsertActiveSpell: mockActiveSpells.upsertActiveSpell,
+  dropActiveSpell: mockActiveSpells.dropActiveSpell,
   getCurrentSpeed: mockMovementState.getCurrentSpeed,
   setCurrentSpeed: mockMovementState.setCurrentSpeed,
   setCombatResource: mockCombatOverlays.setCombatResource,

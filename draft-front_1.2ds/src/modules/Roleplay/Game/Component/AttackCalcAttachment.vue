@@ -30,7 +30,7 @@ const damageLabel = computed(() => new DimensionalNumber(calc.value.damage).toSt
       </v-btn>
     </template>
     <v-card class="rounded border" elevation="3" style="width: max-content; min-width: 280px; max-width: 420px">
-      <v-card-title class="text-body-1">Удар</v-card-title>
+      <v-card-title class="text-body-1">{{ calc.heading || 'Удар' }}</v-card-title>
       <v-card-text class="pt-0">
         <div class="d-flex align-center justify-space-between py-1 text-body-2">
           <span class="text-medium-emphasis">Повреждения</span>
@@ -65,6 +65,17 @@ const damageLabel = computed(() => new DimensionalNumber(calc.value.damage).toSt
           <span class="text-medium-emphasis">РУ атаки</span>
           <span class="font-weight-medium">{{ calc.attackSrLabel }}</span>
         </div>
+        <div v-if="calc.srCap != null" class="d-flex align-center justify-space-between py-1 text-body-2">
+          <span class="text-medium-emphasis">Кап РУ типа</span>
+          <span class="font-weight-medium">{{ calc.srCap }}</span>
+        </div>
+        <div
+          v-if="calc.appliedSr != null && calc.appliedSr !== Number(calc.attackSrLabel)"
+          class="d-flex align-center justify-space-between py-1 text-body-2"
+        >
+          <span class="text-medium-emphasis">Множитель РУ (кап)</span>
+          <span class="font-weight-medium">{{ calc.appliedSr }}</span>
+        </div>
         <div v-if="calc.cuttingWound !== null" class="d-flex align-center justify-space-between py-1 text-body-2">
           <span class="text-medium-emphasis">Режущий</span>
           <span class="font-weight-medium">рана силой {{ calc.cuttingWound }}</span>
@@ -72,6 +83,10 @@ const damageLabel = computed(() => new DimensionalNumber(calc.value.damage).toSt
         <div v-if="calc.stun !== null" class="d-flex align-center justify-space-between py-1 text-body-2">
           <span class="text-medium-emphasis">Оглушение</span>
           <span class="font-weight-medium">сила {{ calc.stun }}</span>
+        </div>
+        <div v-if="calc.shock !== null" class="d-flex align-center justify-space-between py-1 text-body-2">
+          <span class="text-medium-emphasis">Шок</span>
+          <span class="font-weight-medium">сила {{ calc.shock }}</span>
         </div>
         <div class="d-flex align-center justify-space-between py-1 text-body-2">
           <span class="text-medium-emphasis">Истощение</span>

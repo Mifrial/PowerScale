@@ -12,4 +12,6 @@ export interface ApplyAttackDamageInput {
   hooks: DamageTypeHook[];
   /** Тип урона с галочкой «Защита не помогает» — линии defense не складываются в сопротивление. */
   defenseIgnored?: boolean;
+  /** Потолок РУ как множителя повреждений. */
+  maxSuccessRating?: number | null;
 }

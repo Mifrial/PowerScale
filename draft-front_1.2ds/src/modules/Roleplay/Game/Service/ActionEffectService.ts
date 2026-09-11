@@ -47,7 +47,10 @@ export class ActionEffectService {
 
   currentActionCheckModifier(rule: Rule | null | undefined, checkCode: string): number {
     return this.effectsOf(rule)
-      .filter((effect) => effect.type === 'current_action_check_modifier' && effect.check_codes.includes(checkCode))
+      .filter(
+        (effect): effect is Extract<ActionEffect, { type: 'current_action_check_modifier' }> =>
+          effect.type === 'current_action_check_modifier' && effect.check_codes.includes(checkCode),
+      )
       .reduce((total, effect) => total + effect.delta, 0);
   }
 
@@ -196,6 +199,20 @@ export class ActionEffectService {
 
       return [{ ...pending, effect: { ...effect, amount: remaining } }];
     });
+  }
+
+  afterDeclaredAction(
+    pendingEffects: PendingActionEffect[],
+    spentOd: number,
+    action: {
+      isAttack: boolean;
+      component: 'strike' | 'throw' | 'shoot';
+      baseCost: number;
+    },
+  ): PendingActionEffect[] {
+    const resolved = this.resolveForNextAction(pendingEffects, action);
+
+    return this.consumeResource(resolved.remainingEffects, 'action-points', spentOd);
   }
 
   private scopeIncludesHit(scope: { hit_count: number | 'all' }, hitNumber: number): boolean {

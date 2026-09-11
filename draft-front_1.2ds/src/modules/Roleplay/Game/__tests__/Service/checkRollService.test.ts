@@ -114,6 +114,7 @@ describe('checkRoll', () => {
     expect(result.rolls).toEqual([1]);
     expect(result.successes).toEqual([2]);
     expect(result.check?.check_code).toBe('check-strength');
+    expect(result.check?.check_name).toBe('Проверка на Силу');
     expect(result.check?.difficulty).toEqual({ base: 2, size: 0 });
     expect(result.check?.passed).toBe(true);
     expect(result.check?.rating).toBe(0);

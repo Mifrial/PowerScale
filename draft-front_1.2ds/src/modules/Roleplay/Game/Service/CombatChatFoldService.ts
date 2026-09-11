@@ -4,6 +4,7 @@ import type { ChatFoldNode } from '@/modules/Messages/Chat/Dto/ChatFoldNode';
 import { ATTACK_CALC_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Attack/ATTACK_CALC_ATTACHMENT_TYPE';
 import {
   COMBAT_CHAT_ATTACK,
+  COMBAT_CHAT_INITIATIVE,
   COMBAT_CHAT_ROUND,
   COMBAT_CHAT_TURN,
 } from '@/modules/Roleplay/Game/Constant/Combat/COMBAT_CHAT_FOLD_KINDS';
@@ -18,6 +19,7 @@ export class CombatChatFoldService {
 
   private parentKindOf(kind: string): string {
     if (kind === COMBAT_CHAT_ATTACK) return COMBAT_CHAT_TURN;
+    if (kind === COMBAT_CHAT_INITIATIVE) return COMBAT_CHAT_ROUND;
     if (kind === COMBAT_CHAT_TURN) return COMBAT_CHAT_ROUND;
 
     return COMBAT_CHAT_ROUND;
@@ -25,15 +27,16 @@ export class CombatChatFoldService {
 
   private injurySummary(text: string): string | null {
     if (text.includes('не получает увечье')) return null;
-    const strength = text.match(/увечье с силой (\d+)/);
-    if (!strength) return null;
+    const match = text.match(/^(.*) получает(?: постоянное)? увечье с силой (\d+)/m);
+    if (!match) return null;
+    const target = match[1].trim();
     const attrs: string[] = [];
     if (text.includes('постоянное увечье')) attrs.push('постоянное');
     if (text.includes('обезображивает')) attrs.push('обезображивающее');
     if (text.includes('смертельно')) attrs.push('смертельное');
     const adj = attrs.length > 0 ? `${attrs.join(' ')} ` : '';
 
-    return `Это наносит ${strength[1]} ${adj}увечье.`;
+    return `${target} получает ${adj}увечье силой ${match[2]}.`;
   }
 
   private declineSummary(text: string): string | null {
@@ -45,18 +48,84 @@ export class CombatChatFoldService {
     return `${target} ${verb}!`;
   }
 
+  private compact(text: string): string {
+    return text.replace(/\s+/g, ' ').trim();
+  }
+
+  private exhaustionAmount(text: string): number {
+    const match = text.match(/наносит (\d+) истощения/);
+
+    return match ? Number(match[1]) : 0;
+  }
+
+  private woundAmount(text: string): number {
+    const match = text.match(/(\d+) рану/);
+
+    return match ? Number(match[1]) : 0;
+  }
+
+  private isSpellEffect(text: string): boolean {
+    return text.includes(' бьёт по ') && text.includes('наносит');
+  }
+
+  private isHitConnect(text: string): boolean {
+    return text.includes('попадает') || text.includes('промахивается');
+  }
+
+  private isHitResult(message: ChatMessage): boolean {
+    if (this.isSpellEffect(message.content)) return false;
+
+    return (
+      message.attachments.some((attachment) => attachment.type === ATTACK_CALC_ATTACHMENT_TYPE) ||
+      this.isHitConnect(message.content)
+    );
+  }
+
+  private isSpellOutcome(text: string): boolean {
+    return (
+      text.includes('успешно сотворил') ||
+      text.includes('не смог сотворить') ||
+      text.includes('уходит в молоко') ||
+      text.includes('Сотворение провалилось')
+    );
+  }
+
+  private combinedHitSummary(messages: ChatMessage[]): string | null {
+    const miss = messages.find((message) => message.content.includes('промахивается'));
+    if (miss?.content) return this.compact(miss.content);
+    const hit = messages.find((message) => this.isHitConnect(message.content) && !this.isSpellEffect(message.content));
+    const effect = messages.find((message) => this.isSpellEffect(message.content));
+    const exhaustion = this.exhaustionAmount(hit?.content ?? '') + this.exhaustionAmount(effect?.content ?? '');
+    const wound = this.woundAmount(hit?.content ?? '') + this.woundAmount(effect?.content ?? '');
+    const connect = hit?.content.match(/^(.*) попадает по (.*?)(?: с \d+ РУ)?(?: и наносит .*?)?!/);
+    const fromEffect = effect?.content.match(/^(.*) бьёт по (.*) и наносит /);
+    const attacker = connect?.[1] ?? null;
+    const defender = connect?.[2] ?? fromEffect?.[2] ?? null;
+    if (attacker && defender && exhaustion > 0) {
+      const bits = [`${exhaustion} истощения`];
+      if (wound > 0) bits.push(`${wound} рану`);
+
+      return `${this.compact(attacker)} попадает по ${this.compact(defender)} и наносит ${bits.join(' и ')}!`;
+    }
+    if (hit?.content) return this.compact(hit.content);
+    if (effect?.content) return this.compact(effect.content);
+
+    return null;
+  }
+
   attackFoldSummary(messages: ChatMessage[]): string {
     const joined = messages.map((message) => message.content).join('\n');
-    const result = [...messages]
-      .reverse()
-      .find(
-        (message) =>
-          message.attachments.some((attachment) => attachment.type === ATTACK_CALC_ATTACHMENT_TYPE) ||
-          message.content.includes('попадает') ||
-          message.content.includes('промахивается'),
-      );
+    const spell = messages.find((message) => this.isSpellOutcome(message.content));
+    const hasSpell = Boolean(spell) || messages.some((message) => this.isSpellEffect(message.content));
     const bits: string[] = [];
-    if (result?.content) bits.push(result.content.replace(/\s+/g, ' ').trim());
+    if (spell?.content) bits.push(this.compact(spell.content));
+    if (hasSpell) {
+      const hit = this.combinedHitSummary(messages);
+      if (hit) bits.push(hit);
+    } else {
+      const hit = [...messages].reverse().find((message) => this.isHitResult(message));
+      if (hit?.content) bits.push(this.compact(hit.content));
+    }
     const injury = this.injurySummary(joined);
     if (injury) bits.push(injury);
     const decline = this.declineSummary(joined);
@@ -66,8 +135,18 @@ export class CombatChatFoldService {
     return bits.join(' ');
   }
 
+  private initiativeFoldSummary(messages: ChatMessage[]): string {
+    const order = [...messages].reverse().find((message) => message.content.includes('Порядок инициативы'));
+    if (order?.content) return order.content.replace(/\s+/g, ' ').trim();
+    const titled = messages.find((message) => message.content.includes('Проверка на инициативу'));
+    if (titled?.content) return titled.content.replace(/\s+/g, ' ').trim();
+
+    return 'Проверка на инициативу';
+  }
+
   private foldSummary(kind: string, header: ChatMessage | undefined, body: ChatMessage[]): string {
     if (kind === COMBAT_CHAT_ATTACK) return this.attackFoldSummary(header ? [header, ...body] : body);
+    if (kind === COMBAT_CHAT_INITIATIVE) return this.initiativeFoldSummary(header ? [header, ...body] : body);
     if (header?.content) return header.content;
     if (kind === COMBAT_CHAT_TURN) return 'Ход';
     if (kind === COMBAT_CHAT_ROUND) return 'Раунд';
@@ -77,7 +156,9 @@ export class CombatChatFoldService {
 
   private toNode(acc: Map<string, CombatChatFoldGroup>, group: CombatChatFoldGroup): ChatFoldNode {
     const header =
-      group.kind === COMBAT_CHAT_ATTACK ? undefined : group.messages.find((message) => message.kind != null);
+      group.kind === COMBAT_CHAT_ATTACK || group.kind === COMBAT_CHAT_INITIATIVE
+        ? undefined
+        : group.messages.find((message) => message.kind != null);
     const body = header ? group.messages.filter((message) => message.id !== header.id) : group.messages;
     const childGroups = [...acc.values()].filter((candidate) => candidate.parentId === group.id);
     const children: ChatFoldChild[] = [
@@ -93,9 +174,9 @@ export class CombatChatFoldService {
       id: group.id,
       kind: group.kind,
       summary: this.foldSummary(group.kind, header, body),
-      chrome: group.kind === COMBAT_CHAT_ATTACK ? 'end' : 'start',
+      chrome: group.kind === COMBAT_CHAT_ATTACK || group.kind === COMBAT_CHAT_INITIATIVE ? 'end' : 'start',
       tone: group.kind === COMBAT_CHAT_ROUND ? 'highlighted' : 'default',
-      variant: group.kind === COMBAT_CHAT_ATTACK ? 'block' : 'divider',
+      variant: group.kind === COMBAT_CHAT_ATTACK || group.kind === COMBAT_CHAT_INITIATIVE ? 'block' : 'divider',
       children,
       messageIds,
     };

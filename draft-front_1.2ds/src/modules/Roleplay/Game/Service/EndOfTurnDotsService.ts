@@ -5,6 +5,7 @@ import { characterOverviewService } from '@/modules/Roleplay/Character/init';
 import {
   EXHAUSTION_STATE_CODE,
   STUNNED_STATE_CODE,
+  SHOCK_STATE_CODE,
   WOUND_STATE_CODE,
 } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
 import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
@@ -95,6 +96,7 @@ export class EndOfTurnDotsService {
       const overview = characterOverviewService.build(version, args.rules);
       const typeRule = args.rules.find((rule) => rule.code === step.damageTypeCode && rule.type === 'damage_type');
       const hooks = damageTypeHooksService.resolveDamageTypeHooks(step.damageTypeCode, args.rules, args.mechanics);
+      const typeSpec = damageTypeSpecService.asDamageTypeSpec(typeRule);
       const result = attackDamageService.applyAttackDamage({
         weaponDamage: step.strength,
         sr: 1,
@@ -105,7 +107,8 @@ export class EndOfTurnDotsService {
           : { base: Math.max(1, args.endurance), size: 0 },
         accumulatedDamage: attackDamageService.accumulatedDamageOf(version.states, args.rules),
         hooks,
-        defenseIgnored: damageTypeSpecService.asDamageTypeSpec(typeRule)?.defense_ignored === true,
+        defenseIgnored: typeSpec?.defense_ignored === true,
+        maxSuccessRating: typeSpec?.max_success_rating ?? null,
       });
       if (args.chatId !== null) {
         const sent = await args.sendMessage(
@@ -156,6 +159,11 @@ export class EndOfTurnDotsService {
       if (stun) {
         overlay = stun;
         version = combatOverlayService.mergeCombatOverlay(version, stun);
+      }
+      const shock = await this.addNumericState(args, version, SHOCK_STATE_CODE, result.shock ?? 0);
+      if (shock) {
+        overlay = shock;
+        version = combatOverlayService.mergeCombatOverlay(version, shock);
       }
       if (result.exhaustion > 0) {
         const checked = await exhaustionCheckService.applyExhaustionCheck({

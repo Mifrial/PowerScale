@@ -22,6 +22,7 @@ const props = withDefaults(
     minValue?: number;
     dimensionalValue?: DimensionalNumberValue | null;
     poison?: CharacterPoisonValue | null;
+    actionLabel?: string | null;
     poisonItems?: { title: string; value: string }[];
     damageTypeItems?: { title: string; value: string }[];
     poisonTemplate?: (poisonRuleCode: string | null) => CharacterPoisonValue;
@@ -35,6 +36,7 @@ const props = withDefaults(
     minValue: 0,
     dimensionalValue: null,
     poison: null,
+    actionLabel: null,
     poisonItems: () => [],
     damageTypeItems: () => [],
   },
@@ -45,6 +47,7 @@ const emit = defineEmits<{
   applyDimensional: [next: DimensionalNumberValue];
   applyPoison: [next: CharacterPoisonValue];
   remove: [];
+  action: [];
 }>();
 
 const menuOpen = ref(false);
@@ -102,6 +105,11 @@ function onPoisonRuleChange(next: unknown): void {
   draftStrength.value = { ...(templated.strength ?? { base: 1, size: 0 }) };
   draftPeriodicity.value = templated.periodicity;
   draftDecay.value = templated.decay;
+}
+
+function submitAction(): void {
+  emit('action');
+  menuOpen.value = false;
 }
 
 function submitRemove(): void {
@@ -180,6 +188,17 @@ function submitRemove(): void {
           </v-btn>
           <v-btn class="mt-2" color="error" variant="tonal" size="small" block @click="submitRemove">Убрать</v-btn>
         </template>
+        <v-btn
+          v-if="canEdit && actionLabel"
+          class="mt-3"
+          color="primary"
+          variant="tonal"
+          size="small"
+          block
+          @click="submitAction"
+        >
+          {{ actionLabel }}
+        </v-btn>
         <v-btn v-else-if="canEdit" class="mt-3" color="error" variant="tonal" size="small" block @click="submitRemove">
           Убрать
         </v-btn>

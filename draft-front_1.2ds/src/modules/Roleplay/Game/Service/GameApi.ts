@@ -35,6 +35,7 @@ import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/Chara
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
 import type { ProcessSession } from '@/modules/Roleplay/Game/Dto/ProcessSession';
+import type { ActiveSpell } from '@/modules/Roleplay/Game/Dto/Spell/ActiveSpell';
 import type { CurrentSpeed } from '@/modules/Roleplay/Game/Dto/CurrentSpeed';
 
 export class GameApi implements IGameApi {
@@ -426,6 +427,23 @@ export class GameApi implements IGameApi {
     );
 
     return res.data ?? null;
+  }
+
+  async getActiveSpells(gameId: number, signal?: AbortSignal): Promise<ActiveSpell[]> {
+    const res = await this.engine.runAction<ActiveSpell[]>('game.getActiveSpells', { gameId }, signal);
+
+    return res.data ?? [];
+  }
+
+  async upsertActiveSpell(gameId: number, spell: ActiveSpell, signal?: AbortSignal): Promise<ActiveSpell> {
+    const res = await this.engine.runAction<ActiveSpell>('game.upsertActiveSpell', { gameId, spell }, signal);
+    if (!res.data) throw new Error('Upsert active spell failed');
+
+    return res.data;
+  }
+
+  async dropActiveSpell(gameId: number, id: string, signal?: AbortSignal): Promise<void> {
+    await this.engine.runAction('game.dropActiveSpell', { gameId, id }, signal);
   }
 
   async getCurrentSpeed(gameId: number, entityKey: CombatEntityKey, signal?: AbortSignal): Promise<CurrentSpeed> {
