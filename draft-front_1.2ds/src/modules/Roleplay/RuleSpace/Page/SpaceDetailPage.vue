@@ -226,107 +226,122 @@ function discardRule() {
 </script>
 
 <template>
-  <v-container v-if="space">
-    <Teleport to="#editor-actions">
-      <v-btn
-        variant="tonal"
-        size="small"
-        prepend-icon="mdi-file-tree-outline"
-        :to="`/space/${space.code}/${ctx ?? 'draft'}/sections`"
-      >
-        Секции
-      </v-btn>
-      <v-btn variant="tonal" size="small" prepend-icon="mdi-cog" :to="`/space/${space.code}/settings`">
-        Настройки
-      </v-btn>
-      <v-btn color="primary" size="small" prepend-icon="mdi-plus" :to="`/space/${space.code}/draft/rules/new`">
-        Создать правило
-      </v-btn>
-    </Teleport>
+  <div v-if="space" class="space-detail-page">
+    <v-container>
+      <Teleport to="#editor-actions">
+        <v-btn
+          variant="tonal"
+          size="small"
+          prepend-icon="mdi-file-tree-outline"
+          :to="`/space/${space.code}/${ctx ?? 'draft'}/sections`"
+        >
+          Секции
+        </v-btn>
+        <v-btn variant="tonal" size="small" prepend-icon="mdi-cog" :to="`/space/${space.code}/settings`">
+          Настройки
+        </v-btn>
+        <v-btn color="primary" size="small" prepend-icon="mdi-plus" :to="`/space/${space.code}/draft/rules/new`">
+          Создать правило
+        </v-btn>
+      </Teleport>
 
-    <div class="d-flex align-center mb-3 ga-2">
-      <v-select
-        v-model="selectedRevision"
-        :items="revisionsList"
-        item-title="label"
-        item-value="value"
-        label="Версия"
-        density="compact"
-        hide-details
-        style="max-width: 220px"
+      <div class="d-flex align-center mb-3 ga-2">
+        <v-select
+          v-model="selectedRevision"
+          :items="revisionsList"
+          item-title="label"
+          item-value="value"
+          label="Версия"
+          density="compact"
+          hide-details
+          style="max-width: 220px"
+        />
+
+        <v-chip v-if="hasLocalDraft" color="primary" variant="tonal" size="small"> Есть черновик </v-chip>
+
+        <v-spacer />
+
+        <v-btn
+          v-if="!isDraftContext"
+          variant="tonal"
+          size="small"
+          prepend-icon="mdi-download"
+          :loading="exporting"
+          @click="exportRevision"
+        >
+          Экспорт
+        </v-btn>
+        <v-btn variant="tonal" size="small" prepend-icon="mdi-upload" @click="showImportDialog = true"> Импорт </v-btn>
+
+        <template v-if="hasLocalDraft && isDraftContext">
+          <v-btn
+            variant="tonal"
+            color="success"
+            size="small"
+            prepend-icon="mdi-source-branch"
+            @click="openPublishDialog"
+          >
+            Опубликовать
+          </v-btn>
+        </template>
+      </div>
+
+      <RuleListPanel
+        :rules="revisionStore.effectiveRules"
+        :space-code="space.code"
+        :ctx="ctx"
+        :is-draft-context="isDraftContext"
+        :draft-rule-codes="draftRuleCodes"
+        @discard="showDiscardRuleDialog"
       />
 
-      <v-chip v-if="hasLocalDraft" color="primary" variant="tonal" size="small"> Есть черновик </v-chip>
+      <!-- Publish dialog -->
+      <PublishDialog
+        v-model="showPublishDialog"
+        :space="space"
+        @published="onPublished"
+        @error="(m) => (snackbar = { show: true, text: m, color: 'error' })"
+      />
 
-      <v-spacer />
+      <RevisionImportDialog
+        v-model="showImportDialog"
+        :allow-current="true"
+        :space-id="space.id"
+        :draft-rules="drafts.getDraftRules(space.id)"
+        :draft-removed-codes="drafts.getRemovedCodes(space.id)"
+        :draft-sections="sectionCatalog.getDraftSections(space.id)"
+        @confirm="onImportConfirm"
+      />
 
-      <v-btn
-        v-if="!isDraftContext"
-        variant="tonal"
-        size="small"
-        prepend-icon="mdi-download"
-        :loading="exporting"
-        @click="exportRevision"
-      >
-        Экспорт
-      </v-btn>
-      <v-btn variant="tonal" size="small" prepend-icon="mdi-upload" @click="showImportDialog = true"> Импорт </v-btn>
+      <!-- Discard rule dialog -->
+      <v-dialog v-model="showDiscardDialog" max-width="500">
+        <v-card>
+          <v-card-title>Откатить изменения</v-card-title>
+          <v-card-text>
+            <div class="text-body-2 mb-4">
+              Вы уверены, что хотите откатить изменения в правиле "{{ ruleToDiscard?.name }}"?
+            </div>
+            <div class="text-body-2 text-medium-emphasis">
+              Правило вернётся к состоянию из последней опубликованной версии.
+            </div>
+          </v-card-text>
+          <v-card-actions>
+            <v-btn variant="text" @click="showDiscardDialog = false">Отмена</v-btn>
+            <v-btn color="error" variant="tonal" @click="discardRule"> Откатить </v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-dialog>
 
-      <template v-if="hasLocalDraft && isDraftContext">
-        <v-btn variant="tonal" color="success" size="small" prepend-icon="mdi-source-branch" @click="openPublishDialog">
-          Опубликовать
-        </v-btn>
-      </template>
-    </div>
-
-    <RuleListPanel
-      :rules="revisionStore.effectiveRules"
-      :space-code="space.code"
-      :ctx="ctx"
-      :is-draft-context="isDraftContext"
-      :draft-rule-codes="draftRuleCodes"
-      @discard="showDiscardRuleDialog"
-    />
-
-    <!-- Publish dialog -->
-    <PublishDialog
-      v-model="showPublishDialog"
-      :space="space"
-      @published="onPublished"
-      @error="(m) => (snackbar = { show: true, text: m, color: 'error' })"
-    />
-
-    <RevisionImportDialog
-      v-model="showImportDialog"
-      :allow-current="true"
-      :space-id="space.id"
-      :draft-rules="drafts.getDraftRules(space.id)"
-      :draft-removed-codes="drafts.getRemovedCodes(space.id)"
-      :draft-sections="sectionCatalog.getDraftSections(space.id)"
-      @confirm="onImportConfirm"
-    />
-
-    <!-- Discard rule dialog -->
-    <v-dialog v-model="showDiscardDialog" max-width="500">
-      <v-card>
-        <v-card-title>Откатить изменения</v-card-title>
-        <v-card-text>
-          <div class="text-body-2 mb-4">
-            Вы уверены, что хотите откатить изменения в правиле "{{ ruleToDiscard?.name }}"?
-          </div>
-          <div class="text-body-2 text-medium-emphasis">
-            Правило вернётся к состоянию из последней опубликованной версии.
-          </div>
-        </v-card-text>
-        <v-card-actions>
-          <v-btn variant="text" @click="showDiscardDialog = false">Отмена</v-btn>
-          <v-btn color="error" variant="tonal" @click="discardRule"> Откатить </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-
-    <v-snackbar v-model="snackbar.show" :color="snackbar.color" timeout="3000">
-      {{ snackbar.text }}
-    </v-snackbar>
-  </v-container>
+      <v-snackbar v-model="snackbar.show" :color="snackbar.color" timeout="3000">
+        {{ snackbar.text }}
+      </v-snackbar>
+    </v-container>
+  </div>
 </template>
+
+<style scoped>
+.space-detail-page {
+  background: rgb(var(--v-theme-surface));
+  min-height: calc(100vh - var(--v-layout-top, 64px));
+}
+</style>

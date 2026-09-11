@@ -41,6 +41,7 @@ export class RuleDiffService {
       mechanicPayload: RuleDiffService.normalizePayload(rule.mechanicPayload),
       active: rule.active !== false,
       contentStatus: rule.contentStatus ?? 'needs_work',
+      contentNote: rule.contentNote ?? '',
       catalogSection: rule.catalogSection ?? null,
       catalogSortOrder: rule.catalogSortOrder,
     };

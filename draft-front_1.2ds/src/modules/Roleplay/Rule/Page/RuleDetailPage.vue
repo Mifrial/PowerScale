@@ -10,7 +10,7 @@ import type { RuleVersion } from '@/modules/Roleplay/Rule/Dto/RuleVersion';
 import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import { getMechanicApi } from '@/modules/Roleplay/Mechanic/init';
 import { RULE_TYPE_LABELS } from '@/modules/Roleplay/Rule/Constant/RULE_TYPE_LABELS';
-import { RULE_CONTENT_STATUS_OPTIONS } from '@/modules/Roleplay/Rule/Constant/RULE_CONTENT_STATUS_OPTIONS';
+import { ruleContentStatusService } from '@/modules/Roleplay/Rule/Service/Instance/ruleContentStatusService';
 import RuleSpecView from '@/modules/Roleplay/Rule/Component/RuleSpecView.vue';
 import DescriptionHtml from '@/modules/Core/UI/Component/DescriptionHtml.vue';
 import RuleSlider from '@/modules/Roleplay/Rule/Component/RuleSlider.vue';
@@ -51,11 +51,10 @@ const ruleTags = computed(() => {
 
 const editLink = computed(() => `/space/${code.value}/${ctx.value}/rules/${encodeURIComponent(ruleCode.value)}/edit`);
 
-const contentStatusLabel = computed(() => {
-  const status = rule.value?.contentStatus ?? 'needs_work';
-
-  return RULE_CONTENT_STATUS_OPTIONS.find((option) => option.value === status)?.title ?? status;
-});
+const contentStatusLabel = computed(() => ruleContentStatusService.label(rule.value?.contentStatus));
+const contentStatusColor = computed(() => ruleContentStatusService.chipColor(rule.value?.contentStatus));
+const contentStatusFrame = computed(() => ruleContentStatusService.frameModifier(rule.value?.contentStatus));
+const contentNote = computed(() => rule.value?.contentNote?.trim() ?? '');
 
 function openInlineRule(ruleCode: string): void {
   inlineRuleId.value = ruleCode;
@@ -104,7 +103,7 @@ watch(() => [route.params.code, route.params.ctx, route.params.ruleCode], resolv
 </script>
 
 <template>
-  <v-container v-if="rule">
+  <v-container v-if="rule" class="rule-detail" :class="contentStatusFrame">
     <div class="d-flex align-center mb-4">
       <h1 class="text-h5">{{ rule.name }}</h1>
       <v-chip class="ml-3" variant="tonal" size="small">
@@ -112,10 +111,15 @@ watch(() => [route.params.code, route.params.ctx, route.params.ruleCode], resolv
       </v-chip>
       <v-chip v-if="isDraftContext" class="ml-2" color="warning" variant="tonal" size="small"> Черновик </v-chip>
       <v-chip v-else class="ml-2" color="info" variant="tonal" size="small"> Версия {{ route.params.ctx }} </v-chip>
-      <v-chip class="ml-2" variant="tonal" size="small">{{ contentStatusLabel }}</v-chip>
+      <v-chip class="ml-2" variant="tonal" size="small" :color="contentStatusColor">{{ contentStatusLabel }}</v-chip>
       <v-spacer />
       <v-btn variant="text" prepend-icon="mdi-pencil" @click="router.push(editLink)"> Редактировать </v-btn>
     </div>
+
+    <v-card v-if="contentNote" class="mb-4">
+      <v-card-title>Комментарий разработки</v-card-title>
+      <v-card-text class="rule-detail__note">{{ contentNote }}</v-card-text>
+    </v-card>
 
     <v-card class="mb-4">
       <v-card-title>Описание</v-card-title>
@@ -178,5 +182,26 @@ watch(() => [route.params.code, route.params.ctx, route.params.ruleCode], resolv
 /* Переносы строк внутри описания правила (текст моков содержит \n). */
 .rule-detail__description {
   white-space: pre-line;
+}
+
+.rule-detail__note {
+  white-space: pre-wrap;
+}
+
+.rule-detail {
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.rule-content-status--ready {
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+.rule-content-status--needs_work {
+  border: 1px solid rgb(var(--v-theme-warning));
+}
+
+.rule-content-status--broken {
+  border: 1px solid rgb(var(--v-theme-error));
 }
 </style>

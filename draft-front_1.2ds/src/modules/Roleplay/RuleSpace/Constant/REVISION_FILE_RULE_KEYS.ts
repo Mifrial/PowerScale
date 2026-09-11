@@ -8,6 +8,7 @@ export const REVISION_FILE_RULE_KEYS = [
   'mechanic',
   'mechanicPayload',
   'contentStatus',
+  'contentNote',
   'active',
   'catalogSection',
   'catalogSortOrder',

@@ -16,4 +16,5 @@ export interface CreateDraftParams {
   catalogSection?: string | null;
   catalogSortOrder?: number;
   contentStatus?: string;
+  contentNote?: string;
 }

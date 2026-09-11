@@ -10,6 +10,7 @@ export interface RuleExternal {
   mechanic: RevisionFileMechanicRef | null;
   mechanicPayload: object;
   contentStatus: string;
+  contentNote: string;
   active: boolean;
   catalogSection?: string | null;
   catalogSortOrder?: number;

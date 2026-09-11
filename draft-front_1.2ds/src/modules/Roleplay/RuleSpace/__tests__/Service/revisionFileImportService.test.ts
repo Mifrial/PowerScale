@@ -30,6 +30,7 @@ function external(code: string, overrides: Partial<RuleExternal> = {}): RuleExte
     mechanic: null,
     mechanicPayload: [],
     contentStatus: 'needs_work',
+    contentNote: '',
     active: true,
     ...overrides,
   };

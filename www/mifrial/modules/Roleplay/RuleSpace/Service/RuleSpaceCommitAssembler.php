@@ -189,6 +189,7 @@ final class RuleSpaceCommitAssembler
                     $versionRecord->getMechanicId(),
                     $versionRecord->getMechanicPayload(),
                     $versionRecord->getContentStatus(),
+                    $versionRecord->getContentNote(),
                 ),
                 false,
             );

@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { RULE_TYPE_LABELS } from '@/modules/Roleplay/Rule/Constant/RULE_TYPE_LABELS';
+import { RULE_LIST_FILTER_FIELDS } from '@/modules/Roleplay/RuleSpace/Constant/RULE_LIST_FILTER_FIELDS';
+import { ruleContentStatusService } from '@/modules/Roleplay/Rule/init';
+import { useFilteredRows } from '@/modules/Core/UI/Composables/useFilteredRows';
+import FilterBar from '@/modules/Core/UI/Component/FilterBar.vue';
 import VirtualList from '@/modules/Core/UI/Component/VirtualList.vue';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { RuleType } from '@/modules/Roleplay/Rule/Enum/RuleType';
@@ -26,26 +30,37 @@ const emit = defineEmits<{
 }>();
 
 const activeTab = ref<string>('all');
-const searchQuery = ref('');
+
+const filterRows = computed(() =>
+  props.rules.map((rule) => ({
+    ...rule,
+    contentStatus: ruleContentStatusService.normalize(rule.contentStatus),
+  })),
+);
+
+const { appliedFilters, filteredRows, onFilterChange } = useFilteredRows({
+  getItems: () => filterRows.value,
+  fields: RULE_LIST_FILTER_FIELDS,
+  searchFields: ['name', 'description'],
+});
 
 const tabs = computed<RuleType[]>(() => Object.keys(RULE_TYPE_LABELS) as RuleType[]);
 
 const filteredRules = computed(() => {
-  let result = props.rules;
   const tab = activeTab.value;
-  if (tab !== 'all') {
-    result = result.filter((r) => r.type === tab);
-  }
-  const q = searchQuery.value?.toLowerCase();
-  if (q) {
-    result = result.filter((r) => r.name.toLowerCase().includes(q) || r.description.toLowerCase().includes(q));
+  if (tab === 'all') {
+    return filteredRows.value;
   }
 
-  return result;
+  return filteredRows.value.filter((rule) => rule.type === tab);
 });
 
 /** Сброс скролла наверх при смене вкладки/поиска. */
-const resetKey = computed(() => `${activeTab.value}|${searchQuery.value}`);
+const resetKey = computed(() => `${activeTab.value}|${JSON.stringify(appliedFilters.value)}`);
+
+function statusFrameClass(rule: Rule): string {
+  return ruleContentStatusService.frameModifier(rule.contentStatus);
+}
 
 function ruleLink(code: string): string {
   return `/space/${props.spaceCode}/${props.ctx ?? ''}/rules/${encodeURIComponent(code)}`;
@@ -63,14 +78,13 @@ function ruleKey(rule: Rule): string {
       <v-tab v-for="tab in tabs" :key="tab" :value="tab">{{ RULE_TYPE_LABELS[tab] }}</v-tab>
     </v-tabs>
 
-    <v-text-field
-      v-model="searchQuery"
-      label="Поиск"
-      prepend-inner-icon="mdi-magnify"
-      clearable
-      density="compact"
-      hide-details
+    <FilterBar
+      :fields="RULE_LIST_FILTER_FIELDS"
+      :model-value="appliedFilters"
+      placeholder="Фильтр по правилам"
+      settings-key="space-rules"
       class="mb-2"
+      @update:model-value="onFilterChange"
     />
 
     <VirtualList
@@ -82,7 +96,7 @@ function ruleKey(rule: Rule): string {
       empty-text="Правила не найдены"
     >
       <template #default="{ item }">
-        <v-list-item :to="ruleLink(item.code)">
+        <v-list-item :to="ruleLink(item.code)" class="rule-list-panel__item" :class="statusFrameClass(item)">
           <v-list-item-title>
             {{ item.name }}
             <v-chip v-if="draftRuleCodes.has(item.code)" size="x-small" color="warning" variant="tonal" class="ml-2">
@@ -120,5 +134,24 @@ function ruleKey(rule: Rule): string {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.rule-list-panel__item {
+  margin-bottom: 6px;
+  overflow: hidden;
+  border-radius: 12px !important;
+  background: rgb(var(--v-theme-surface));
+}
+
+.rule-content-status--ready {
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+.rule-content-status--needs_work {
+  border: 1px solid rgb(var(--v-theme-warning));
+}
+
+.rule-content-status--broken {
+  border: 1px solid rgb(var(--v-theme-error));
 }
 </style>

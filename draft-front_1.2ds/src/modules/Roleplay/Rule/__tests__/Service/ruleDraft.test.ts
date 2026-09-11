@@ -54,4 +54,9 @@ describe('RuleDraftService.createDraft', () => {
     expect(ruleDraftService.createDraft(baseParams()).contentStatus).toBe('needs_work');
     expect(ruleDraftService.createDraft(baseParams({ contentStatus: 'ready' })).contentStatus).toBe('ready');
   });
+
+  it('прокидывает contentNote, иначе пустую строку', () => {
+    expect(ruleDraftService.createDraft(baseParams()).contentNote).toBe('');
+    expect(ruleDraftService.createDraft(baseParams({ contentNote: 'ждёт удар' })).contentNote).toBe('ждёт удар');
+  });
 });

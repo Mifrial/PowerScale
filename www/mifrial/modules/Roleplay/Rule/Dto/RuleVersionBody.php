@@ -25,6 +25,8 @@ final class RuleVersionBody
 
     private readonly string $contentStatus;
 
+    private readonly string $contentNote;
+
     /**
      * Создаёт тело снимка.
      *
@@ -36,6 +38,7 @@ final class RuleVersionBody
      * @param int|null $mechanicId Поставка механики.
      * @param array<string|int, mixed> $mechanicPayload Payload механики.
      * @param string $contentStatus Редакционный статус.
+     * @param string $contentNote Комментарий разработки.
      *
      * @return void
      *
@@ -50,11 +53,13 @@ final class RuleVersionBody
         private readonly ?int $mechanicId,
         private readonly array $mechanicPayload,
         string $contentStatus,
+        string $contentNote = '',
     ) {
         $this->keywordIds = $this->uniqueKeywordIds($keywordIds);
         $this->type = trim($type);
         $this->name = trim($name);
         $this->contentStatus = trim($contentStatus);
+        $this->contentNote = trim($contentNote);
         if ($this->type === '' || $this->name === '' || $this->contentStatus === '') {
             throw new RuleInvalidException('Rule body fields must not be empty');
         }
@@ -142,6 +147,16 @@ final class RuleVersionBody
     public function getContentStatus(): string
     {
         return $this->contentStatus;
+    }
+
+    /**
+     * Комментарий разработки.
+     *
+     * @return string Текст.
+     */
+    public function getContentNote(): string
+    {
+        return $this->contentNote;
     }
 
     /**

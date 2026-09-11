@@ -87,6 +87,10 @@ final class RuleVersionTable extends SmartTableDefinition
                 FieldSettings::fromOptions(['required' => true, 'default' => 'needs_work']),
                 32,
             ),
+            new TextField(
+                'content_note',
+                FieldSettings::fromOptions(['required' => true, 'default' => '']),
+            ),
         ];
     }
 }

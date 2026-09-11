@@ -53,6 +53,7 @@ function sampleFile(overrides: Partial<RevisionFile> = {}): RevisionFile {
         mechanic: null,
         mechanicPayload: [],
         contentStatus: 'needs_work',
+        contentNote: '',
         active: true,
       },
     ],

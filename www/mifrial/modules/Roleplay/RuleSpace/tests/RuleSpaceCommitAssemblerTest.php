@@ -102,6 +102,7 @@ final class RuleSpaceCommitAssemblerTest extends TestCase
             null,
             [],
             'needs_work',
+            '',
             DateTime::fromUnix(1),
         );
     }

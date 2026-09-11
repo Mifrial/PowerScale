@@ -32,6 +32,7 @@ final class RuleVersionRecord
      * @param int|null $mechanicId Механика.
      * @param array<string|int, mixed> $mechanicPayload Payload.
      * @param string $contentStatus Статус.
+     * @param string $contentNote Комментарий разработки.
      * @param DateTime $createdAt Создание.
      *
      * @return void
@@ -49,6 +50,7 @@ final class RuleVersionRecord
         private readonly ?int $mechanicId,
         private readonly array $mechanicPayload,
         private readonly string $contentStatus,
+        private readonly string $contentNote,
         private readonly DateTime $createdAt,
     ) {
     }
@@ -80,6 +82,7 @@ final class RuleVersionRecord
             self::optionalInt($fields, 'mechanic_id'),
             self::requireArray($fields, 'mechanic_payload'),
             self::requireString($fields, 'content_status'),
+            self::stringOrEmpty($fields, 'content_note'),
             $versionRecord->getCreatedAt(),
         );
     }
@@ -205,6 +208,16 @@ final class RuleVersionRecord
     }
 
     /**
+     * Комментарий разработки.
+     *
+     * @return string Текст.
+     */
+    public function getContentNote(): string
+    {
+        return $this->contentNote;
+    }
+
+    /**
      * Создание.
      *
      * @return DateTime UTC.
@@ -227,6 +240,30 @@ final class RuleVersionRecord
     private static function requireString(array $fields, string $fieldName): string
     {
         $value = $fields[$fieldName] ?? null;
+        if (!is_string($value)) {
+            throw new RuleInvalidException('Rule version record is incomplete');
+        }
+
+        return $value;
+    }
+
+    /**
+     * Строка поля или пустая, если ключа нет.
+     *
+     * @param array<string, mixed> $fields Карта.
+     * @param string $fieldName Ключ.
+     *
+     * @return string Значение.
+     *
+     * @throws RuleInvalidException Если не строка.
+     */
+    private static function stringOrEmpty(array $fields, string $fieldName): string
+    {
+        if (!array_key_exists($fieldName, $fields) || $fields[$fieldName] === null) {
+            return '';
+        }
+
+        $value = $fields[$fieldName];
         if (!is_string($value)) {
             throw new RuleInvalidException('Rule version record is incomplete');
         }

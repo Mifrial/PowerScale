@@ -128,6 +128,7 @@ final class RuleSpaceCommitDraftMapper
             $this->optionalMechanicId($ruleRow, $ruleCode),
             $this->optionalArray($ruleRow, 'mechanicPayload', $ruleCode),
             $this->optionalString($ruleRow, 'contentStatus', 'needs_work', $ruleCode),
+            $this->optionalString($ruleRow, 'contentNote', '', $ruleCode),
         );
     }
 

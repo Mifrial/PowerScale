@@ -101,6 +101,7 @@ export class RevisionFileService {
         mechanic,
         mechanicPayload,
         contentStatus: rule.contentStatus ?? 'needs_work',
+        contentNote: rule.contentNote ?? '',
         active: rule.active !== false,
       };
       if (rule.catalogSection !== undefined) {
@@ -220,6 +221,7 @@ export class RevisionFileService {
         mechanicId,
         mechanicPayload: this.asMechanicPayload(external.mechanicPayload) ?? undefined,
         contentStatus: external.contentStatus,
+        contentNote: external.contentNote,
         active: external.active,
         createdAt: file.source.publishedAt,
       };
@@ -338,6 +340,7 @@ export class RevisionFileService {
       mechanic: rule.mechanic ? { code: rule.mechanic.code, version: rule.mechanic.version } : null,
       mechanicPayload: rule.mechanicPayload,
       contentStatus: rule.contentStatus,
+      contentNote: rule.contentNote,
       active: rule.active,
     };
     if (rule.catalogSection !== undefined) {
@@ -530,6 +533,9 @@ export class RevisionFileService {
     if (typeof value.contentStatus !== 'string' || value.contentStatus.trim() === '') {
       this.fail(REVISION_FILE_PROBLEM_CODE.format, `${path}/contentStatus`, 'Некорректное правило в файле');
     }
+    if (value.contentNote !== undefined && typeof value.contentNote !== 'string') {
+      this.fail(REVISION_FILE_PROBLEM_CODE.format, `${path}/contentNote`, 'Некорректное правило в файле');
+    }
     if (typeof value.active !== 'boolean') {
       this.fail(REVISION_FILE_PROBLEM_CODE.format, `${path}/active`, 'Некорректное правило в файле');
     }
@@ -543,6 +549,7 @@ export class RevisionFileService {
       mechanic,
       mechanicPayload: value.mechanicPayload,
       contentStatus: value.contentStatus.trim(),
+      contentNote: typeof value.contentNote === 'string' ? value.contentNote : '',
       active: value.active,
     };
     if (value.catalogSection !== undefined) {

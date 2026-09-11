@@ -29,6 +29,7 @@ export { resourceShortName } from '@/modules/Roleplay/Rule/Utils/resourceShortNa
 export { slugify } from '@/modules/Roleplay/Rule/Utils/Text/slugify';
 export { useRuleHostContext } from '@/modules/Roleplay/Rule/Composables/useRuleHostContext';
 export { useRuleDrafts } from '@/modules/Roleplay/Rule/Composables/useRuleDrafts';
+export { ruleContentStatusService } from '@/modules/Roleplay/Rule/Service/Instance/ruleContentStatusService';
 
 export function registerRuleApi(api: IRuleApi): void {
   serviceLocator.set('Roleplay.Rule.Service.RuleApi', api);

@@ -140,6 +140,7 @@ final class RuleClockMapper
             'mechanic_id' => $body->getMechanicId(),
             'mechanic_payload' => $body->getMechanicPayload(),
             'content_status' => $body->getContentStatus(),
+            'content_note' => $body->getContentNote(),
         ];
     }
 

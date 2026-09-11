@@ -119,6 +119,7 @@ final class RuleSpaceViewAssembler
             'mechanicId' => $versionRecord->getMechanicId(),
             'mechanicPayload' => $versionRecord->getMechanicPayload(),
             'contentStatus' => $versionRecord->getContentStatus(),
+            'contentNote' => $versionRecord->getContentNote(),
             'active' => $versionRecord->isActive(),
             'createdAt' => $versionRecord->getCreatedAt()->toUnix(),
             'catalogSection' => $placement?->getSectionCode(),

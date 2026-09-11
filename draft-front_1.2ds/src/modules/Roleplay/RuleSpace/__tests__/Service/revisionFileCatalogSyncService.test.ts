@@ -36,6 +36,7 @@ function fileOf(overrides: Partial<RevisionFile> = {}): RevisionFile {
         mechanic: { code: 'm1', version: '1' },
         mechanicPayload: [],
         contentStatus: 'needs_work',
+        contentNote: '',
         active: true,
       },
     ],

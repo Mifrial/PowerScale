@@ -22,6 +22,8 @@ export interface Rule {
   /** Контекст инстанции механики (см. MechanicPayload); есть только при mechanicId. */
   mechanicPayload?: MechanicPayload | null;
   contentStatus?: string;
+  /** Комментарий разработки; не игровой текст. */
+  contentNote?: string;
   active?: boolean;
   createdAt: number;
 }

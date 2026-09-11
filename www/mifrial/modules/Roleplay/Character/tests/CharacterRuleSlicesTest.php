@@ -329,6 +329,7 @@ final class CharacterRuleSlicesTest extends TestCase
             null,
             [],
             'needs_work',
+            '',
             DateTime::now(),
         );
     }

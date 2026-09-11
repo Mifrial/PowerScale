@@ -64,6 +64,7 @@ const spec = ref<RuleSpec | null>(null);
 const catalogSection = ref<string | null>(null);
 const catalogSortOrder = ref(100);
 const contentStatus = ref('needs_work');
+const contentNote = ref('');
 const saving = ref(false);
 const loading = ref(true);
 const error = ref<string | null>(null);
@@ -104,6 +105,7 @@ function applyForm(form: RuleFormState) {
   catalogSection.value = form.catalogSection;
   catalogSortOrder.value = form.catalogSortOrder;
   contentStatus.value = form.contentStatus;
+  contentNote.value = form.contentNote;
 }
 
 async function resolveRoute(): Promise<void> {
@@ -146,6 +148,7 @@ async function resolveRoute(): Promise<void> {
       catalogSection.value = null;
       catalogSortOrder.value = 100;
       contentStatus.value = 'needs_work';
+      contentNote.value = '';
     }
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') return;
@@ -213,6 +216,7 @@ async function save() {
       catalogSection: catalogSection.value,
       catalogSortOrder: catalogSortOrder.value,
       contentStatus: contentStatus.value,
+      contentNote: contentNote.value,
     });
     const rest = ruleHost.value.effectiveRules.filter((entry) => entry.code !== rule.code);
     const blocking = ruleValidationService.blockingMessagesForRule(
@@ -267,6 +271,15 @@ async function save() {
             label="Редакционный статус"
             density="compact"
             class="mt-2"
+            hide-details
+          />
+          <v-textarea
+            v-model="contentNote"
+            label="Комментарий разработки"
+            density="compact"
+            class="mt-2"
+            rows="2"
+            auto-grow
             hide-details
           />
 
