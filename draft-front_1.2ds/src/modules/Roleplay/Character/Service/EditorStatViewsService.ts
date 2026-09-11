@@ -7,12 +7,15 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 export class EditorStatViewsService {
   /**
    * Строит записи для компактного блока характеристик панели навигации редактора:
-   * показываются основные (group 'primary') и магические (group 'magic'). Остальные (базовые,
-   * важные, боевые, вторичные) доступны в попапе «Все характеристики» (buildAllEditorStatViews).
-   * Производные определяются по формуле правила характеристики.
+   * показываются основные, магические и производные характеристики. Остальные доступны в попапе
+   * «Все характеристики» (buildAllEditorStatViews).
    */
   buildEditorStatViews(characteristics: EditorCharacteristic[], rules: Rule[]): EditorStatView[] {
-    return this.buildStatViews(characteristics, rules, (group) => group === 'primary' || group === 'magic');
+    return this.buildStatViews(
+      characteristics,
+      rules,
+      (group, derived) => group === 'primary' || group === 'magic' || derived,
+    );
   }
 
   /**
@@ -26,7 +29,7 @@ export class EditorStatViewsService {
   private buildStatViews(
     characteristics: EditorCharacteristic[],
     rules: Rule[],
-    includeGroup: (group: CharacteristicGroup | undefined) => boolean,
+    includeCharacteristic: (group: CharacteristicGroup | undefined, derived: boolean) => boolean,
   ): EditorStatView[] {
     const byCode = new Map(rules.map((rule) => [rule.code, rule]));
 
@@ -45,8 +48,9 @@ export class EditorStatViewsService {
       .filter((characteristic) => {
         const rule = byCode.get(characteristic.code);
         const group = (rule?.spec as CharacteristicSpec | undefined)?.group;
+        const derived = derivedBaseCodes.has(characteristic.code);
 
-        return includeGroup(group);
+        return includeCharacteristic(group, derived);
       })
       .map((characteristic) => {
         const rule = byCode.get(characteristic.code);

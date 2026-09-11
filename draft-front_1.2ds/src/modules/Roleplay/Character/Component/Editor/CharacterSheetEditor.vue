@@ -268,111 +268,112 @@ onMounted(() => {
       :keywords="keywords"
       :active-tab="activeTab"
       @update:active-tab="(tab) => (activeTab = tab)"
-    />
+    >
 
-    <div class="editor-content">
-      <Teleport v-if="actionsReady" :to="props.actionsTarget">
-        <div class="d-flex align-center ga-2">
-          <v-btn variant="outlined" prepend-icon="mdi-content-save" :disabled="!draft.dirty" @click="saveDraft">
-            Черновик
-          </v-btn>
-          <v-btn color="primary" prepend-icon="mdi-check" :disabled="!saveReady || saving" @click="finish">
-            {{ saving ? 'Сохранение…' : 'Сохранить' }}
-          </v-btn>
+      <div class="editor-content">
+        <Teleport v-if="actionsReady" :to="props.actionsTarget">
+          <div class="d-flex align-center ga-2">
+            <v-btn variant="outlined" prepend-icon="mdi-content-save" :disabled="!draft.dirty" @click="saveDraft">
+              Черновик
+            </v-btn>
+            <v-btn color="primary" prepend-icon="mdi-check" :disabled="!saveReady || saving" @click="finish">
+              {{ saving ? 'Сохранение…' : 'Сохранить' }}
+            </v-btn>
+          </div>
+        </Teleport>
+
+        <v-alert v-if="saveError" type="error" variant="tonal" density="compact" class="mb-4">{{ saveError }}</v-alert>
+        <v-alert v-if="saveMessage" type="success" variant="tonal" density="compact" class="mb-4" @click="clearMessage">
+          {{ saveMessage }}
+        </v-alert>
+
+        <v-alert
+          v-if="model && !saveError && validationIssues.length > 0"
+          type="warning"
+          variant="tonal"
+          density="compact"
+        class="editor-validation-alert mb-4"
+        >
+          <div class="font-weight-medium">Нельзя сохранить, пока не устранены проблемы:</div>
+          <ul class="mb-0 mt-1 ps-4">
+            <li v-for="issue in validationIssues" :key="issue">{{ issue }}</li>
+          </ul>
+        </v-alert>
+
+        <div v-if="rulesLoading && rules.length === 0" class="d-flex justify-center pa-8">
+          <v-progress-circular indeterminate width="2" size="28" color="primary" />
         </div>
-      </Teleport>
+        <div v-else-if="rulesError" class="muted-text pa-4">{{ rulesError }}</div>
 
-      <v-alert v-if="saveError" type="error" variant="tonal" density="compact" class="mb-4">{{ saveError }}</v-alert>
-      <v-alert v-if="saveMessage" type="success" variant="tonal" density="compact" class="mb-4" @click="clearMessage">
-        {{ saveMessage }}
-      </v-alert>
+        <template v-else-if="model">
+          <RaceTab
+            v-if="activeTab === 'race'"
+            :build="draft.build"
+            :rules="rules"
+            :model="model"
+            :draft-key="draftKey"
+            :keywords="keywords"
+            :config="config"
+          />
+          <CharacteristicsTab
+            v-else-if="activeTab === 'characteristics'"
+            :build="draft.build"
+            :rules="rules"
+            :model="model"
+            :keywords="keywords"
+            :draft-key="draftKey"
+          />
+          <BaseTab
+            v-else-if="activeTab === 'base'"
+            :build="draft.build"
+            :model="model"
+            :draft-key="draftKey"
+            :keywords="keywords"
+            :rules="rules"
+          />
+          <PersonalityTab
+            v-else-if="activeTab === 'personality'"
+            :build="draft.build"
+            :model="model"
+            :draft-key="draftKey"
+            :keywords="keywords"
+            :rules="rules"
+          />
+          <DevelopmentTab
+            v-else-if="activeTab === 'development'"
+            :build="draft.build"
+            :model="model"
+            :draft-key="draftKey"
+            :keywords="keywords"
+            :rules="rules"
+            :sections="sections"
+          />
+          <InventoryTab
+            v-else-if="activeTab === 'inventory'"
+            :build="draft.build"
+            :model="model"
+            :draft-key="draftKey"
+            :keywords="keywords"
+            :rules="rules"
+          />
+          <EditorDescriptionTab
+            v-else-if="activeTab === 'description'"
+            :build="draft.build"
+            :draft-key="draftKey"
+            :model="model"
+          />
+        </template>
 
-      <v-alert
-        v-if="model && !saveError && validationIssues.length > 0"
-        type="warning"
-        variant="tonal"
-        density="compact"
-        class="mb-4"
-      >
-        <div class="font-weight-medium">Нельзя сохранить, пока не устранены проблемы:</div>
-        <ul class="mb-0 mt-1 ps-4">
-          <li v-for="issue in validationIssues" :key="issue">{{ issue }}</li>
-        </ul>
-      </v-alert>
-
-      <div v-if="rulesLoading && rules.length === 0" class="d-flex justify-center pa-8">
-        <v-progress-circular indeterminate width="2" size="28" color="primary" />
+        <RuleSlider
+          v-model:open="ruleSlider.state.open"
+          :rule-code="ruleSlider.state.ruleCode"
+          :space-id="draft.build.spaceId"
+          :rules-revision="draft.build.rulesRevision"
+          :rules="rules"
+          :keywords="keywords"
+        />
       </div>
-      <div v-else-if="rulesError" class="muted-text pa-4">{{ rulesError }}</div>
-
-      <template v-else-if="model">
-        <RaceTab
-          v-if="activeTab === 'race'"
-          :build="draft.build"
-          :rules="rules"
-          :model="model"
-          :draft-key="draftKey"
-          :keywords="keywords"
-          :config="config"
-        />
-        <CharacteristicsTab
-          v-else-if="activeTab === 'characteristics'"
-          :build="draft.build"
-          :rules="rules"
-          :model="model"
-          :keywords="keywords"
-          :draft-key="draftKey"
-        />
-        <BaseTab
-          v-else-if="activeTab === 'base'"
-          :build="draft.build"
-          :model="model"
-          :draft-key="draftKey"
-          :keywords="keywords"
-          :rules="rules"
-        />
-        <PersonalityTab
-          v-else-if="activeTab === 'personality'"
-          :build="draft.build"
-          :model="model"
-          :draft-key="draftKey"
-          :keywords="keywords"
-          :rules="rules"
-        />
-        <DevelopmentTab
-          v-else-if="activeTab === 'development'"
-          :build="draft.build"
-          :model="model"
-          :draft-key="draftKey"
-          :keywords="keywords"
-          :rules="rules"
-          :sections="sections"
-        />
-        <InventoryTab
-          v-else-if="activeTab === 'inventory'"
-          :build="draft.build"
-          :model="model"
-          :draft-key="draftKey"
-          :keywords="keywords"
-          :rules="rules"
-        />
-        <EditorDescriptionTab
-          v-else-if="activeTab === 'description'"
-          :build="draft.build"
-          :draft-key="draftKey"
-          :model="model"
-        />
-      </template>
-
-      <RuleSlider
-        v-model:open="ruleSlider.state.open"
-        :rule-code="ruleSlider.state.ruleCode"
-        :space-id="draft.build.spaceId"
-        :rules-revision="draft.build.rulesRevision"
-        :rules="rules"
-        :keywords="keywords"
-      />
-    </div>
+    </EditorStageNav>
   </template>
   <v-snackbar v-model="storageToast" color="error" timeout="4000">
     Черновик листа в браузере повреждён и сброшен
@@ -385,7 +386,13 @@ onMounted(() => {
 }
 
 .editor-content {
-  padding: 10px;
+  width: 100%;
+  min-width: 0;
+  padding: 10px 10px 10px;
+}
+
+.editor-validation-alert {
+  min-height: 80px;
 }
 
 .muted-text {

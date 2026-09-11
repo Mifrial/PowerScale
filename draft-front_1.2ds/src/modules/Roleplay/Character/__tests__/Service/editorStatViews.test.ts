@@ -1,6 +1,76 @@
 import { describe, expect, it } from 'vitest';
+import type { EditorCharacteristic } from '@/modules/Roleplay/Character/Dto/Editor/EditorCharacteristic';
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import { EditorStatViewsService } from '@/modules/Roleplay/Character/Service/EditorStatViewsService';
 import { editorStatViewsService } from '@/modules/Roleplay/Character/Service/Instance/editorStatViewsService';
 import { ruleCatalog } from '@/modules/Roleplay/Rule/Mock/mockRules';
+
+const service = new EditorStatViewsService();
+
+function characteristicRule(code: string, group: 'primary' | 'secondary' | 'magic', formula?: string): Rule {
+  return {
+    id: null,
+    code,
+    type: 'characteristic',
+    name: code,
+    description: '',
+    spaceId: 1,
+    spec: {
+      type: 'characteristic',
+      group,
+      formula,
+    },
+    createdAt: 0,
+  };
+}
+
+function characteristic(code: string): EditorCharacteristic {
+  return {
+    ruleCode: code,
+    code,
+    name: code,
+    base: { base: 3, size: 0 },
+    delta: 0,
+    value: { base: 3, size: 0 },
+    modifiers: [],
+  };
+}
+
+describe('EditorStatViewsService', () => {
+  it('включает основные, магические и производные из других групп без дублей', () => {
+    const rules = [
+      characteristicRule('strength', 'primary'),
+      characteristicRule('perception', 'secondary', 'strength'),
+      characteristicRule('magic-power', 'magic'),
+      characteristicRule('secondary-only', 'secondary'),
+    ];
+    const characteristics = rules.map((rule) => characteristic(rule.code));
+
+    const stats = service.buildEditorStatViews(characteristics, rules);
+
+    expect(stats.map((stat) => stat.characteristic.code)).toEqual(['strength', 'perception', 'magic-power']);
+    expect(stats.find((stat) => stat.characteristic.code === 'perception')).toMatchObject({
+      derived: true,
+      bases: [{ code: 'strength' }],
+    });
+  });
+
+  it('сохраняет полный набор для попапа «Все характеристики»', () => {
+    const rules = [
+      characteristicRule('strength', 'primary'),
+      characteristicRule('perception', 'secondary', 'strength'),
+      characteristicRule('secondary-only', 'secondary'),
+    ];
+
+    const stats = service.buildAllEditorStatViews(
+      rules.map((rule) => characteristic(rule.code)),
+      rules,
+    );
+
+    expect(stats.map((stat) => stat.characteristic.code)).toEqual(['strength', 'perception', 'secondary-only']);
+  });
+});
+
 
 /**
  * Набор характеристик человека (как в правилах ревизии): 9 штук — Сила, Ловкость,
