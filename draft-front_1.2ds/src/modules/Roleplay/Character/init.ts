@@ -126,6 +126,8 @@ export function registerCharacterModule(): void {
   registerChatRulesProvider(characterChatRulesProvider);
 }
 
+export { knowledgeInstanceService } from '@/modules/Roleplay/Character/Service/Instance/knowledgeInstanceService';
+export { knowledgeCheckService } from '@/modules/Roleplay/Character/Service/Instance/knowledgeCheckService';
 export { characterAccessService } from '@/modules/Roleplay/Character/Service/Instance/characterAccessService';
 export { sheetAccessService } from '@/modules/Roleplay/Character/Service/Instance/sheetAccessService';
 export { characterSheetValidationService } from '@/modules/Roleplay/Character/Service/Instance/characterSheetValidationService';

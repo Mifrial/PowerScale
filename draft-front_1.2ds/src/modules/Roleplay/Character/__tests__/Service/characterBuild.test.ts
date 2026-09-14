@@ -529,4 +529,40 @@ describe('CharacterBuildService', () => {
     const next = service.setAbilityLevel(build, 'language', 2, rulesLocal, { zone: 'or' });
     expect(next).toBe(build);
   });
+
+  it('setAbilityLevel защиты от закона требует экземпляр znanie/laws, не physiology', () => {
+    const znanie = base(null, 'znanie', 'ability', 'Знание о…', {
+      type: 'skill',
+      multiple: true,
+      zones: { or: { kind: 'array', levels_cost: [1, 2, 2] } },
+      requirements: [],
+      grants: [],
+      parent_ability_code: null,
+    });
+    const defense = base(null, 'zaschita-ot-zakona', 'ability', 'Защита от закона', {
+      type: 'skill',
+      zones: { or: { kind: 'array', levels_cost: [1, 2, 3] } },
+      requirements: [],
+      grants: [],
+      parent_ability_code: 'znanie',
+      parent_knowledge_field: 'laws',
+    });
+    const local = [...rules, znanie, defense];
+    let build = makeBuild();
+    build = service.addAbilityInstance(build, 'znanie', 'Люди', local, {
+      zone: 'or',
+      fieldCode: 'physiology',
+      slots: { species: { code: 'human', text: 'Люди' } },
+    });
+    expect(service.setAbilityLevel(build, 'zaschita-ot-zakona', 1, local, { zone: 'or' })).toBe(build);
+    build = service.addAbilityInstance(build, 'znanie', 'Раден', local, {
+      zone: 'or',
+      fieldCode: 'laws',
+      slots: { region: { code: 'raden', text: 'Раден' } },
+    });
+    const taken = service.setAbilityLevel(build, 'zaschita-ot-zakona', 1, local, { zone: 'or' });
+    expect(taken.abilities.some((ability) => ability.ruleCode === 'zaschita-ot-zakona' && ability.level === 1)).toBe(
+      true,
+    );
+  });
 });

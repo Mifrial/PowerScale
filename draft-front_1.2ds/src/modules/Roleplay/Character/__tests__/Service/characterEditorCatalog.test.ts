@@ -397,6 +397,45 @@ describe('CharacterEditorService с каталогом правил (интег�
     expect(attention?.delta).toBe(0);
   });
 
+  it('глухота: статус Слуха absent, чувство не даёт вклад во Внимательность', () => {
+    const deaf = ruleCatalog.find((r) => r.code === 'deaf');
+    const model = service.build(
+      makeBuild({
+        raceRuleCode: 'arilet',
+        abilities: [{ ruleCode: deaf?.code ?? '', level: 1 }],
+      }),
+      ruleCatalog,
+      config,
+      keywords,
+    );
+    const hearingSense = ruleCatalog.find((r) => r.code === 'sense-hearing');
+    const sense = model.senses.find((s) => s.ruleCode === hearingSense?.code);
+    expect(sense?.status).toBe('absent');
+  });
+
+  it('слепота: статус Зрения absent', () => {
+    const blind = ruleCatalog.find((r) => r.code === 'blind');
+    const model = service.build(
+      makeBuild({
+        raceRuleCode: 'arilet',
+        abilities: [{ ruleCode: blind?.code ?? '', level: 1 }],
+      }),
+      ruleCatalog,
+      config,
+      keywords,
+    );
+    const visionSense = ruleCatalog.find((r) => r.code === 'sense-vision');
+    const sense = model.senses.find((s) => s.ruleCode === visionSense?.code);
+    expect(sense?.status).toBe('absent');
+  });
+
+  it('ночное зрение: Зрение видит минимальное освещение как хорошее', () => {
+    const model = service.build(makeBuild({ raceRuleCode: 'turim' }), ruleCatalog, config, keywords);
+    const visionSense = ruleCatalog.find((r) => r.code === 'sense-vision');
+    const sense = model.senses.find((s) => s.ruleCode === visionSense?.code);
+    expect(sense?.treatAsGoodDownTo).toBe('minimal');
+  });
+
   it('орки: автоматическое Сопротивление магии несёт значение расы (Орхан X=2, Орзак X=3)', () => {
     for (const [code, x] of [
       ['orgul', 1],
@@ -877,6 +916,7 @@ describe('CharacterEditorService с каталогом правил (интег�
       'Обман',
       'Обольщение',
       'Торговля',
+      'Проницательность',
     ]);
   });
 
@@ -1463,5 +1503,54 @@ describe('«Владение оружием» — мастерство оруж�
     }
     expect(ruleCatalog.some((rule) => rule.code === 'melee-fighting')).toBe(false);
     expect(model.abilities.some((ability) => ability.code === 'melee-fighting')).toBe(false);
+  });
+
+  it('перевязка и зажим — автоматические действия зоны or', () => {
+    const model = service.build(makeBuild(), ruleCatalog, config, keywords);
+    const bandage = model.abilities.find((entry) => entry.code === 'perevyazat');
+    const squeeze = model.abilities.find((entry) => entry.code === 'zazhat');
+    expect(bandage?.automatic).toBe(true);
+    expect(squeeze?.automatic).toBe(true);
+    expect(bandage?.zones.map((zone) => zone.zoneCode)).toEqual(['or']);
+    expect(squeeze?.zones.map((zone) => zone.zoneCode)).toEqual(['or']);
+    expect(ruleCatalog.find((rule) => rule.code === 'perevyazat')?.catalogSection).toBe('abilities-acquired-medicine');
+    expect(ruleCatalog.find((rule) => rule.code === 'zazhat')?.catalogSection).toBe('abilities-acquired-other');
+  });
+
+  it('защита от закона закрыта при physiology и открыта при laws', () => {
+    const blocked = service.build(
+      makeBuild({
+        abilities: [
+          {
+            ruleCode: 'znanie',
+            level: 1,
+            fieldCode: 'physiology',
+            slots: { species: { code: 'human', text: 'Люди' } },
+            domain: 'Знание о физиологии · Люди',
+          },
+        ],
+      }),
+      ruleCatalog,
+      config,
+      keywords,
+    );
+    expect(blocked.abilities.find((ability) => ability.code === 'zaschita-ot-zakona')?.levels[0].met).toBe(false);
+    const open = service.build(
+      makeBuild({
+        abilities: [
+          {
+            ruleCode: 'znanie',
+            level: 1,
+            fieldCode: 'laws',
+            slots: { region: { code: 'raden', text: 'Раден' } },
+            domain: 'Знание о законах · Раден',
+          },
+        ],
+      }),
+      ruleCatalog,
+      config,
+      keywords,
+    );
+    expect(open.abilities.find((ability) => ability.code === 'zaschita-ot-zakona')?.levels[0].met).toBe(true);
   });
 });

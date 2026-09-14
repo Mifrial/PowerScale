@@ -9,8 +9,10 @@ import type { EditorAbility } from '@/modules/Roleplay/Character/Dto/Editor/Edit
 import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpec';
 import type { AbilityCost } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityCost';
 import type { SenseSpec } from '@/modules/Roleplay/Rule/Dto/SenseSpec';
+import type { CharacterSenseValue } from '@/modules/Roleplay/Character/Dto/CharacterSenseValue';
 import { characterBuildService } from '@/modules/Roleplay/Character/Service/Instance/characterBuildService';
 import { characterEditorService } from '@/modules/Roleplay/Character/Service/Instance/characterEditorService';
+import { knowledgeInstanceService } from '@/modules/Roleplay/Character/Service/Instance/knowledgeInstanceService';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import type { MigrationResult } from '@/modules/Roleplay/Character/Dto/MigrationResult';
 
@@ -121,7 +123,7 @@ export class CharacterMigrationService {
     }
 
     const remappedAbilities = [];
-    for (const ability of version.abilities) {
+    for (const ability of knowledgeInstanceService.remapAbilities(version.abilities)) {
       const newId = remap(ability.ruleCode, false, oldNameOf(ability.ruleCode));
       if (newId === null) continue;
       remappedAbilities.push({ ...ability, ruleCode: newId });
@@ -171,11 +173,13 @@ export class CharacterMigrationService {
       if (newId === null) continue;
       const newRule = newRules.find((rule) => rule.code === newId);
       const senseSpec = newRule?.type === 'sense' ? (newRule.spec as SenseSpec | undefined) : undefined;
+      const raw = sense as CharacterSenseValue & { darkVision?: boolean };
       senses.push({
         ...sense,
         ruleCode: newId,
         status: sense.status ?? senseSpec?.status ?? 'precise',
         radius: sense.radius ?? senseSpec?.radius ?? { base: 0, size: 0 },
+        treatAsGoodDownTo: raw.treatAsGoodDownTo ?? (raw.darkVision === true ? 'minimal' : undefined),
       });
     }
 
@@ -433,13 +437,14 @@ export class CharacterMigrationService {
       return result;
     };
 
-    /** Подпись способности: имя правила с подставленными значениями параметров («Врождённая Сила X» → «Врождённая Сила 2»). */
+    /** Подпись способности: имя и значение параметра («Врождённая Сила» + X=2 → «Врождённая Сила 2»). */
     const labelOf = (ability: EditorAbility | undefined, domain?: string): string => {
       if (!ability) return domain ?? '?';
       let name = ability.name;
       for (const parameter of ability.parameters) {
         if (parameter.value.base === 0 && parameter.value.size === 0) continue;
-        name = name.replace(parameter.label, DimensionalNumber.from(parameter.value).toString());
+        const value = DimensionalNumber.from(parameter.value).toString();
+        name = name.includes(parameter.label) ? name.replace(parameter.label, value) : `${name} ${value}`;
       }
 
       return domain ? `${name} (${domain})` : name;

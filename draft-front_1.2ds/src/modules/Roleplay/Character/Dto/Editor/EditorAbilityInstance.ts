@@ -1,4 +1,5 @@
 import type { EditorAbilityLevel } from '@/modules/Roleplay/Character/Dto/Editor/EditorAbilityLevel';
+import type { CharacterKnowledgeSlot } from '@/modules/Roleplay/Character/Dto/CharacterKnowledgeSlot';
 
 /**
  * Экземпляр множественного навыка в модели редактора: домен (значение словаря или текст), уровень
@@ -9,6 +10,8 @@ export interface EditorAbilityInstance {
   domain: string;
   /** Код правила словаря домена (вид/язык); null — свободное текстовое значение. */
   domainCode: string | null;
+  fieldCode?: string | null;
+  slots?: Record<string, CharacterKnowledgeSlot>;
   /** Уровень этого экземпляра (1..maxLevel способности). */
   level: number;
   /** Требования по уровням экземпляра (has_ability-требования домен-скоупированы). */

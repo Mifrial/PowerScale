@@ -4,6 +4,7 @@ import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber
 import type { CharacterSenseValue } from '@/modules/Roleplay/Character/Dto/CharacterSenseValue';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import RuleLink from '@/modules/Roleplay/Character/Component/Detail/RuleLink.vue';
+import { LIGHTING_LEVEL_LABELS } from '@/modules/Roleplay/Rule/Constant/Lighting/LIGHTING_LEVEL_LABELS';
 
 const props = defineProps<{
   sense: CharacterSenseValue;
@@ -50,6 +51,10 @@ function modifierLabel(sourceRuleCode: string | null, sourceLabel: string | null
       <div class="d-flex align-center justify-space-between py-1 text-body-2">
         <span class="text-medium-emphasis">Дальность</span>
         <span class="font-weight-medium">{{ radius }}</span>
+      </div>
+      <div v-if="sense.treatAsGoodDownTo" class="d-flex align-center justify-space-between py-1 text-body-2">
+        <span class="text-medium-emphasis">Как при хорошем до</span>
+        <span class="font-weight-medium">{{ LIGHTING_LEVEL_LABELS[sense.treatAsGoodDownTo] }}</span>
       </div>
 
       <template v-if="rule?.description">

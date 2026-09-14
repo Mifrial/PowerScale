@@ -89,6 +89,20 @@ describe('FormulaEvaluationService', () => {
     expect(service.evaluate({ type: 'characteristic_size', characteristic_code: 'strength' }, sized)).toBe(1);
   });
 
+  it('characteristic_size_positive обрезает отрицательный размер', () => {
+    const sized: FormulaContext = {
+      ...context,
+      characteristicValues: new Map([
+        ['intellect', { base: 3, size: -1 }],
+        ['perception', { base: 5, size: 1 }],
+      ]),
+    };
+    expect(service.evaluate({ type: 'characteristic_size_positive', characteristic_code: 'intellect' }, sized)).toBe(0);
+    expect(service.evaluate({ type: 'characteristic_size_positive', characteristic_code: 'perception' }, sized)).toBe(
+      1,
+    );
+  });
+
   it('characteristic_size для отсутствующей/безразмерной характеристики — 0', () => {
     expect(service.evaluate({ type: 'characteristic_size', characteristic_code: 'magic' }, context)).toBe(0);
   });

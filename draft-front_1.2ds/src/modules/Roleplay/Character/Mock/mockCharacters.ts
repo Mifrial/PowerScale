@@ -182,7 +182,6 @@ export const versions: Record<number, CharacterVersion> = {
     resources: [
       { ruleCode: 'action-points', current: dim(4), base: dim(4), bonuses: [] },
       { ruleCode: 'spirit-energy', current: dim(3, -1), base: dim(8, -1), bonuses: [] },
-      { ruleCode: 'concentration', current: dim(0), base: dim(0), bonuses: [] },
     ],
     abilities: [
       { ruleCode: 'borba', level: 1 },
@@ -251,7 +250,6 @@ export const versions: Record<number, CharacterVersion> = {
         base: dim(3, -1),
         bonuses: [{ sourceRuleCode: null, sourceLabel: 'Усталость', delta: -1 }],
       },
-      { ruleCode: 'concentration', current: dim(0), base: dim(0), bonuses: [] },
     ],
     abilities: [
       { ruleCode: 'keen-hearing', level: 1 },
@@ -295,7 +293,6 @@ export const versions: Record<number, CharacterVersion> = {
         bonuses: [{ sourceRuleCode: 'acelatl', sourceLabel: null, delta: 2 }],
       },
       { ruleCode: 'spirit-energy', current: dim(1, -1), base: dim(1, -1), bonuses: [] },
-      { ruleCode: 'concentration', current: dim(0), base: dim(0), bonuses: [] },
     ],
     abilities: [
       { ruleCode: 'borba', level: 2 },
@@ -346,7 +343,6 @@ export const versions: Record<number, CharacterVersion> = {
         base: dim(1, -1),
         bonuses: [{ sourceRuleCode: null, sourceLabel: 'Тяжёлое ранение', delta: -1 }],
       },
-      { ruleCode: 'concentration', current: dim(0), base: dim(0), bonuses: [] },
     ],
     abilities: [{ ruleCode: 'borba', level: 2 }],
     points: { osSpent: 30, olSpent: 0, olTotal: 7, orSpent: 0, orTotal: 7 },
@@ -389,7 +385,6 @@ export const versions: Record<number, CharacterVersion> = {
     resources: [
       { ruleCode: 'action-points', current: dim(4), base: dim(4), bonuses: [] },
       { ruleCode: 'spirit-energy', current: dim(2, -1), base: dim(2, -1), bonuses: [] },
-      { ruleCode: 'concentration', current: dim(0), base: dim(0), bonuses: [] },
     ],
     abilities: [
       { ruleCode: 'keen-hearing', level: 1 },

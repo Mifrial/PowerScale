@@ -60,6 +60,11 @@ export class FormulaEvaluationService {
 
         return { base: value?.size ?? 0, size: 0 };
       }
+      case 'characteristic_size_positive': {
+        const value = context.characteristicValues.get(formula.characteristic_code);
+
+        return { base: Math.max(0, value?.size ?? 0), size: 0 };
+      }
       case 'characteristic_size_gap': {
         // Число полных размеров, на которое from выше to: trunc(modifyDiffTo(from, to) / 3).
         const from = context.characteristicValues.get(formula.characteristic_code_from);

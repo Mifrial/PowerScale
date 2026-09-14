@@ -19,7 +19,8 @@ import { characterEditorService } from '@/modules/Roleplay/Character/Service/Ins
 import { spellParamsViewService } from '@/modules/Roleplay/Character/Service/Instance/spellParamsViewService';
 import DescriptionHtml from '@/modules/Core/UI/Component/DescriptionHtml.vue';
 import EditorSpellParams from '@/modules/Roleplay/Character/Component/Editor/EditorSpellParams.vue';
-import EditorSpellPathDialog from '@/modules/Roleplay/Character/Component/Editor/EditorSpellPathDialog.vue';
+import type { AbilityInstanceAddPayload } from '@/modules/Roleplay/Character/Dto/Editor/AbilityInstanceAddPayload';
+import { knowledgeInstanceService } from '@/modules/Roleplay/Character/Service/Instance/knowledgeInstanceService';
 
 const props = defineProps<{
   ability: EditorAbility;
@@ -43,7 +44,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   'set-level': [ruleCode: string, level: number];
   'set-parameter': [ruleCode: string, code: string, value: number | { base: number; size: number }];
-  'add-instance': [ruleCode: string, domain: string, domainCode: string | null];
+  'add-instance': [ruleCode: string, domain: string, domainCode: string | null, extras?: AbilityInstanceAddPayload];
   'set-instance-level': [ruleCode: string, domain: string, level: number];
   'set-instance-domain': [ruleCode: string, oldDomain: string, newDomain: string, domainCode: string | null];
   'remove-instance': [ruleCode: string, domain: string, domainCode?: string | null];
@@ -168,6 +169,8 @@ function domainCodeFor(value: string): string | null {
 
 /** Значение нового домена в форме добавления (не сохраняется до клика «+»). */
 const pendingDomain = ref('');
+const pendingKnowledgeField = ref('');
+const pendingKnowledgeSlot = ref('');
 
 /** Имена из словаря домена (опции VCombobox: выбор из справочника или свой текст). */
 const domainNames = computed(() => props.ability.domainOptions.map((option) => option.name));
@@ -177,9 +180,48 @@ function nextAddCost(ability: EditorAbility): number {
   return ability.nextInstanceCost ?? zoneOf(ability)?.levelCosts[0] ?? 0;
 }
 
+const knowledgeFieldItems = knowledgeInstanceService.fieldSelectItems();
+
+const knowledgeSlotNames = computed(() =>
+  knowledgeInstanceService.slotOptions(pendingKnowledgeField.value, props.rules ?? []).map((option) => option.name),
+);
+
+const knowledgeSlotLabel = computed(() => knowledgeInstanceService.slotInputLabel(pendingKnowledgeField.value));
+
+function pendingKnowledgeSlots(): Record<string, { code: string | null; text: string }> | null {
+  return knowledgeInstanceService.composeSlots(
+    pendingKnowledgeField.value,
+    pendingKnowledgeSlot.value,
+    props.rules ?? [],
+  );
+}
+
+function canAddKnowledgeInstance(): boolean {
+  if (props.lockedRuleCodes?.has(props.ability.ruleCode)) return false;
+  if (props.ability.derived) return false;
+  const fieldCode = pendingKnowledgeField.value;
+  const slots = pendingKnowledgeSlots();
+  if (!fieldCode || !slots || !knowledgeInstanceService.slotsFilled(fieldCode, slots)) return false;
+  if (knowledgeInstanceService.hasFieldDuplicate(props.ability.instances, fieldCode, slots)) return false;
+
+  return props.ability.levels[0]?.met ?? true;
+}
+
+function addKnowledgeInstance(): void {
+  const fieldCode = pendingKnowledgeField.value;
+  const slots = pendingKnowledgeSlots();
+  if (!fieldCode || !slots) return;
+  const label = knowledgeInstanceService.label(fieldCode, slots);
+  const key = knowledgeInstanceService.primarySlotKey(fieldCode);
+  emit('add-instance', props.ability.ruleCode, label, slots[key]?.code ?? null, { fieldCode, slots });
+  pendingKnowledgeField.value = '';
+  pendingKnowledgeSlot.value = '';
+}
+
 /** Доступно добавление экземпляра: непустое значение, не дубль, не заблокировано, уровень 1 доступен.
  *  Для экземплярных улучшений домен ограничен экземплярами родителя (свободный текст запрещён). */
 function canAddInstance(): boolean {
+  if (props.ability.knowledge) return canAddKnowledgeInstance();
   const pending = (pendingDomain.value ?? '').trim();
   if (!pending) return false;
   if (props.ability.instances.some((instance) => instance.domain === pending)) return false;
@@ -193,6 +235,11 @@ function canAddInstance(): boolean {
 }
 
 function addInstance(): void {
+  if (props.ability.knowledge) {
+    addKnowledgeInstance();
+
+    return;
+  }
   const value = (pendingDomain.value ?? '').trim();
   if (!value) return;
   emit('add-instance', props.ability.ruleCode, value, domainCodeFor(value));
@@ -756,7 +803,9 @@ function stepLabel(param: EditorAbilityParameter): string {
       >
         <div v-for="(instance, index) in ability.instances" :key="index" class="ability-instance">
           <div class="ability-instance__controls">
+            <span v-if="ability.knowledge" class="ability-instance__field text-body-2">{{ instance.domain }}</span>
             <v-combobox
+              v-else
               :model-value="instance.domain"
               :items="domainNames"
               :label="`${domainBaseLabel(ability)} ${index + 1}`"
@@ -794,7 +843,29 @@ function stepLabel(param: EditorAbilityParameter): string {
         </div>
 
         <div class="ability-instance ability-instance--add">
+          <template v-if="ability.knowledge">
+            <v-select
+              v-model="pendingKnowledgeField"
+              :items="knowledgeFieldItems"
+              label="Тип знания"
+              class="ability-instance__field"
+              density="compact"
+              hide-details
+            />
+            <v-combobox
+              v-model="pendingKnowledgeSlot"
+              :items="knowledgeSlotNames"
+              :label="knowledgeSlotLabel"
+              class="ability-instance__field"
+              density="compact"
+              hide-details
+              hide-no-data
+              clearable
+              placeholder="Справочник или свой текст"
+            />
+          </template>
           <v-combobox
+            v-else
             v-model="pendingDomain"
             :items="domainNames"
             :label="domainBaseLabel(ability)"

@@ -19,6 +19,7 @@ import { weaponProficiencyService } from '@/modules/Roleplay/Character/Service/I
 import { racialInnateGearService } from '@/modules/Roleplay/Character/Service/Instance/racialInnateGearService';
 import { magicStudyUnlockService } from '@/modules/Roleplay/Character/Service/Instance/magicStudyUnlockService';
 import { magicPathStudyCostService } from '@/modules/Roleplay/Character/Service/Instance/magicPathStudyCostService';
+import { knowledgeInstanceService } from '@/modules/Roleplay/Character/Service/Instance/knowledgeInstanceService';
 
 /**
  * Иммутабельные переходы выборов редактора (CharacterBuild). Компоненты не мутируют build
@@ -32,6 +33,7 @@ export class CharacterBuildService {
     private readonly racialInnateGear = racialInnateGearService,
     private readonly magicStudyUnlock = magicStudyUnlockService,
     private readonly magicPathStudyCost = magicPathStudyCostService,
+    private readonly knowledge = knowledgeInstanceService,
   ) {}
 
   /**
@@ -62,6 +64,15 @@ export class CharacterBuildService {
   ): CharacterBuild {
     if (this.isMultipleRule(rules, ruleCode)) return build;
     if (level > 0) {
+      const spec = this.abilitySpecOf(rules, ruleCode);
+      if (
+        spec &&
+        spec.type !== 'group' &&
+        spec.parent_knowledge_field &&
+        !this.knowledge.hasFieldAtLeast(build.abilities, spec.parent_knowledge_field)
+      ) {
+        return build;
+      }
       if (options.wealthLocked && options.wealthRuleIds?.has(ruleCode)) return build;
       if (options.featureLimit !== null && options.featureLimit !== undefined && this.isOlZoneRule(rules, ruleCode)) {
         const taken = new Set(
@@ -114,10 +125,38 @@ export class CharacterBuildService {
     ruleCode: string,
     domain: string,
     rules: Rule[],
-    options: { zone?: string; domainCode?: string | null } = {},
+    options: {
+      zone?: string;
+      domainCode?: string | null;
+      fieldCode?: string | null;
+      slots?: CharacterAbility['slots'];
+    } = {},
   ): CharacterBuild {
     const trimmed = domain.trim();
     if (!trimmed) return build;
+    const fieldCode = options.fieldCode ?? null;
+    const slots = options.slots;
+    if (this.knowledge.isKnowledgeRule(ruleCode)) {
+      if (!fieldCode || !this.knowledge.slotsFilled(fieldCode, slots)) return build;
+      const candidate: CharacterAbility = {
+        ruleCode,
+        level: 1,
+        domain: this.knowledge.label(fieldCode, slots),
+        zone: options.zone,
+        domainCode: options.domainCode,
+        fieldCode,
+        slots,
+      };
+      if (this.knowledge.hasDuplicate(build.abilities, candidate)) return build;
+
+      return this.pruneStudy(
+        {
+          ...build,
+          abilities: this.applyGroupSelectLimit([...build.abilities, candidate], ruleCode, 1, rules, build.abilities),
+        },
+        rules,
+      );
+    }
     if (build.abilities.some((ability) => ability.ruleCode === ruleCode && ability.domain === trimmed)) return build;
     // Экземплярное улучшение (multiple + родитель): домен должен быть у экземпляра родителя —
     // улучшение «Письменности» распространяется на конкретный язык, который уже известен.

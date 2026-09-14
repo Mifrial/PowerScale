@@ -269,7 +269,6 @@ onMounted(() => {
       :active-tab="activeTab"
       @update:active-tab="(tab) => (activeTab = tab)"
     >
-
       <div class="editor-content">
         <Teleport v-if="actionsReady" :to="props.actionsTarget">
           <div class="d-flex align-center ga-2">
@@ -304,7 +303,7 @@ onMounted(() => {
           type="warning"
           variant="tonal"
           density="compact"
-        class="editor-validation-alert mb-4"
+          class="editor-validation-alert mb-4"
         >
           <div class="font-weight-medium">Нельзя сохранить, пока не устранены проблемы:</div>
           <ul class="mb-0 mt-1 ps-4">

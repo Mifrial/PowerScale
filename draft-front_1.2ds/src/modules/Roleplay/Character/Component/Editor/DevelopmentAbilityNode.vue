@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import EditorAbilityRow from '@/modules/Roleplay/Character/Component/Editor/EditorAbilityRow.vue';
+import type { AbilityInstanceAddPayload } from '@/modules/Roleplay/Character/Dto/Editor/AbilityInstanceAddPayload';
 import type { DevelopmentAbilityRow } from '@/modules/Roleplay/Character/Dto/Editor/DevelopmentAbilityRow';
 import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
@@ -16,7 +17,7 @@ const emit = defineEmits<{
   'update:open': [rowKey: string, open: boolean];
   'set-level': [ruleCode: string, level: number];
   'set-parameter': [ruleCode: string, code: string, value: number | { base: number; size: number }];
-  'add-instance': [ruleCode: string, domain: string, domainCode: string | null];
+  'add-instance': [ruleCode: string, domain: string, domainCode: string | null, extras?: AbilityInstanceAddPayload];
   'set-instance-level': [ruleCode: string, domain: string, level: number];
   'set-instance-domain': [ruleCode: string, oldDomain: string, newDomain: string, domainCode: string | null];
   'remove-instance': [ruleCode: string, domain: string, domainCode?: string | null];
@@ -41,7 +42,7 @@ function childrenOf(row: DevelopmentAbilityRow): DevelopmentAbilityRow[] {
       @update:open="emit('update:open', row.key, $event)"
       @set-parameter="(ruleCode, code, value) => emit('set-parameter', ruleCode, code, value)"
       @set-level="(ruleCode, level) => emit('set-level', ruleCode, level)"
-      @add-instance="(ruleCode, domain, code) => emit('add-instance', ruleCode, domain, code)"
+      @add-instance="(ruleCode, domain, code, extras) => emit('add-instance', ruleCode, domain, code, extras)"
       @set-instance-level="(ruleCode, domain, level) => emit('set-instance-level', ruleCode, domain, level)"
       @set-instance-domain="
         (ruleCode, oldDomain, newDomain, code) => emit('set-instance-domain', ruleCode, oldDomain, newDomain, code)
@@ -62,7 +63,7 @@ function childrenOf(row: DevelopmentAbilityRow): DevelopmentAbilityRow[] {
             @update:open="(rowKey, open) => emit('update:open', rowKey, open)"
             @set-parameter="(ruleCode, code, value) => emit('set-parameter', ruleCode, code, value)"
             @set-level="(ruleCode, level) => emit('set-level', ruleCode, level)"
-            @add-instance="(ruleCode, domain, code) => emit('add-instance', ruleCode, domain, code)"
+            @add-instance="(ruleCode, domain, code, extras) => emit('add-instance', ruleCode, domain, code, extras)"
             @set-instance-level="(ruleCode, domain, level) => emit('set-instance-level', ruleCode, domain, level)"
             @set-instance-domain="
               (ruleCode, oldDomain, newDomain, code) =>

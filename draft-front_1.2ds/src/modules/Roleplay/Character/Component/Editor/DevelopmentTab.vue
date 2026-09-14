@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { useCharacterDraftStore } from '@/modules/Roleplay/Character/Store/characterDraft';
+import type { AbilityInstanceAddPayload } from '@/modules/Roleplay/Character/Dto/Editor/AbilityInstanceAddPayload';
 import { characterBuildService } from '@/modules/Roleplay/Character/Service/Instance/characterBuildService';
 import { useFilteredRows } from '@/modules/Core/UI/Composables/useFilteredRows';
 import FilterBar from '@/modules/Core/UI/Component/FilterBar.vue';
@@ -227,10 +228,17 @@ function setParameter(ruleCode: string, code: string, value: number | { base: nu
   draftStore.patchBuild(props.draftKey, { abilities: next.abilities });
 }
 
-function addInstance(ruleCode: string, domain: string, domainCode: string | null): void {
+function addInstance(
+  ruleCode: string,
+  domain: string,
+  domainCode: string | null,
+  extras?: AbilityInstanceAddPayload,
+): void {
   const next = characterBuildService.addAbilityInstance(props.build, ruleCode, domain, props.rules, {
     zone: 'or',
     domainCode,
+    fieldCode: extras?.fieldCode,
+    slots: extras?.slots,
   });
   draftStore.patchBuild(props.draftKey, { abilities: next.abilities });
 }

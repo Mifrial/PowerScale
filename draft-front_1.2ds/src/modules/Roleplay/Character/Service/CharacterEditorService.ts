@@ -41,6 +41,10 @@ import type { AgeSpec } from '@/modules/Roleplay/Rule/Dto/Age/AgeSpec';
 import type { AgeRange } from '@/modules/Roleplay/Rule/Dto/Race/AgeRange';
 import type { ResourceSpec } from '@/modules/Roleplay/Rule/Dto/ResourceSpec';
 import type { SenseSpec } from '@/modules/Roleplay/Rule/Dto/SenseSpec';
+import type { SenseStatus } from '@/modules/Roleplay/Rule/Enum/SenseStatus';
+import type { LightingLevel } from '@/modules/Roleplay/Rule/Enum/LightingLevel';
+import { SENSE_STATUS_RANK } from '@/modules/Roleplay/Rule/Constant/Sense/SENSE_STATUS_RANK';
+import { LIGHTING_LEVEL_RANK } from '@/modules/Roleplay/Rule/Constant/Lighting/LIGHTING_LEVEL_RANK';
 import {
   itemModifierService,
   checkResolutionService,
@@ -54,6 +58,8 @@ import {
 } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
 import { DOMAIN_REF_RULE_TYPES } from '@/modules/Roleplay/Rule/Constant/Ability/DOMAIN_REF_RULE_TYPES';
 import { DOMAIN_STATIC_OPTIONS } from '@/modules/Roleplay/Rule/Constant/Ability/DOMAIN_STATIC_OPTIONS';
+import { CONCENTRATION_ABILITY_CODE } from '@/modules/Roleplay/Rule/Constant/Ability/CONCENTRATION_ABILITY_CODE';
+import { CONCENTRATION_RESOURCE_CODE } from '@/modules/Roleplay/Rule/Constant/Resource/CONCENTRATION_RESOURCE_CODE';
 import { CharacteristicNumber } from '@/modules/Roleplay/Rule/Value/CharacteristicNumber';
 import { mechanicEngine, PURCHASE_SURCHARGE_EVENT } from '@/modules/Roleplay/Mechanic/init';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
@@ -68,6 +74,7 @@ import { weaponProficiencyService } from '@/modules/Roleplay/Character/Service/I
 import { magicPathStudyCostService } from '@/modules/Roleplay/Character/Service/Instance/magicPathStudyCostService';
 import { magicStudyUnlockService } from '@/modules/Roleplay/Character/Service/Instance/magicStudyUnlockService';
 import { keywordExperienceService } from '@/modules/Roleplay/Character/Service/Instance/keywordExperienceService';
+import { knowledgeInstanceService } from '@/modules/Roleplay/Character/Service/Instance/knowledgeInstanceService';
 import type { MagicStudyLearned } from '@/modules/Roleplay/Character/Dto/Editor/MagicStudyLearned';
 import type { MechanicState } from '@/modules/Roleplay/Mechanic/Dto/MechanicState';
 import type { CharacterMechanicContext } from '@/modules/Roleplay/Mechanic/Dto/CharacterMechanicContext';
@@ -91,6 +98,7 @@ export class CharacterEditorService {
     private readonly magicPathStudyCost = magicPathStudyCostService,
     private readonly magicStudyUnlock = magicStudyUnlockService,
     private readonly keywordExperience = keywordExperienceService,
+    private readonly knowledge = knowledgeInstanceService,
   ) {}
 
   build(
@@ -167,6 +175,7 @@ export class CharacterEditorService {
         modifiers: value.modifiers,
         status: value.status,
         radius: value.radius,
+        treatAsGoodDownTo: value.treatAsGoodDownTo,
       })),
       budgets: { osTotal: config.osTotal, moneyBudget: config.moneyBudget },
     };
@@ -385,10 +394,11 @@ export class CharacterEditorService {
     }
 
     // 4) Чувства: наибольшее значение среди чувств применяется как модификатор к Внимательности.
-    const bestSense = senses.reduce<CharacterSenseValue | null>(
-      (best, sense) => (best === null || sense.value > best.value ? sense : best),
-      null,
-    );
+    const bestSense = senses.reduce<CharacterSenseValue | null>((best, sense) => {
+      if (sense.status === 'absent') return best;
+
+      return best === null || sense.value > best.value ? sense : best;
+    }, null);
     if (bestSense !== null && bestSense.value !== 0) {
       const attention = deltas.get('attention');
       const entry = { role: 'от чувства', sourceRuleCode: bestSense.ruleCode, delta: bestSense.value };
@@ -511,6 +521,8 @@ export class CharacterEditorService {
     }
 
     const deltas = new Map<string, { role: string | null; sourceRuleCode: string | null; delta: number }[]>();
+    const statusOverrides = new Map<string, SenseStatus>();
+    const lightingBySense = new Map<string, LightingLevel>();
     this.forEachActiveGrant(build, reference, (grant) => {
       if (grant.type !== 'sense_modify') return;
       const delta = this.formula.evaluate(grant.amount, this.formulaContext(build, new Map(), reference));
@@ -523,6 +535,18 @@ export class CharacterEditorService {
       const list = deltas.get(grant.sense_code);
       if (list) list.push(entry);
       else deltas.set(grant.sense_code, [entry]);
+      if (grant.status) {
+        const current = statusOverrides.get(grant.sense_code);
+        if (current === undefined || SENSE_STATUS_RANK[grant.status] > SENSE_STATUS_RANK[current]) {
+          statusOverrides.set(grant.sense_code, grant.status);
+        }
+      }
+      if (grant.treat_as_good_down_to) {
+        const current = lightingBySense.get(grant.sense_code);
+        if (current === undefined || LIGHTING_LEVEL_RANK[grant.treat_as_good_down_to] > LIGHTING_LEVEL_RANK[current]) {
+          lightingBySense.set(grant.sense_code, grant.treat_as_good_down_to);
+        }
+      }
     });
 
     return [...byCode.entries()].map(([code, rule]) => {
@@ -530,7 +554,14 @@ export class CharacterEditorService {
       const value = modifiers.reduce((sum, modifier) => sum + modifier.delta, 0);
       const spec = rule.spec as SenseSpec;
 
-      return { ruleCode: rule.code, value, modifiers, status: spec.status, radius: spec.radius };
+      return {
+        ruleCode: rule.code,
+        value,
+        modifiers,
+        status: statusOverrides.get(code) ?? spec.status,
+        radius: spec.radius,
+        treatAsGoodDownTo: lightingBySense.get(code),
+      };
     });
   }
 
@@ -552,26 +583,35 @@ export class CharacterEditorService {
 
     const result: ResourceValue[] = [];
     const grantedResources = new Map<string, { base: DimensionalNumberValue; bonuses: ResourceLimitBonus[] }>();
-    this.forEachActiveGrant(build, reference, (grant) => {
-      if (grant.type === 'resource') {
+    const skipAbilityCodes = new Set<string>();
+    if (this.ownsConcentrationAbility(build) && !this.isConcentrationRequirementMet(characteristics)) {
+      skipAbilityCodes.add(CONCENTRATION_ABILITY_CODE);
+    }
+    this.forEachActiveGrant(
+      build,
+      reference,
+      (grant) => {
+        if (grant.type === 'resource') {
+          const resourceRule = reference.ruleByCode(grant.resource_code);
+          if (!resourceRule || grantedResources.has(resourceRule.code)) return;
+          const base = typeof grant.limit === 'number' ? { base: grant.limit, size: 0 } : grant.limit;
+          grantedResources.set(resourceRule.code, { base, bonuses: [] });
+
+          return;
+        }
+
+        if (grant.type !== 'resource_limit_change') return;
         const resourceRule = reference.ruleByCode(grant.resource_code);
-        if (!resourceRule || grantedResources.has(resourceRule.code)) return;
-        const base = typeof grant.limit === 'number' ? { base: grant.limit, size: 0 } : grant.limit;
-        grantedResources.set(resourceRule.code, { base, bonuses: [] });
-
-        return;
-      }
-
-      if (grant.type !== 'resource_limit_change') return;
-      const resourceRule = reference.ruleByCode(grant.resource_code);
-      const granted = resourceRule ? grantedResources.get(resourceRule.code) : undefined;
-      if (!granted) return;
-      granted.bonuses.push({
-        sourceRuleCode: grant.source_code,
-        sourceLabel: null,
-        delta: this.formula.evaluate(grant.amount, context),
-      });
-    });
+        const granted = resourceRule ? grantedResources.get(resourceRule.code) : undefined;
+        if (!granted) return;
+        granted.bonuses.push({
+          sourceRuleCode: grant.source_code,
+          sourceLabel: null,
+          delta: this.formula.evaluate(grant.amount, context),
+        });
+      },
+      skipAbilityCodes,
+    );
 
     for (const rule of reference.rules()) {
       if (rule.type !== 'resource') continue;
@@ -627,6 +667,18 @@ export class CharacterEditorService {
         }),
         base: granted.base,
         bonuses: granted.bonuses,
+      });
+    }
+
+    if (
+      this.ownsConcentrationAbility(build) &&
+      !result.some((entry) => entry.ruleCode === CONCENTRATION_RESOURCE_CODE)
+    ) {
+      result.push({
+        ruleCode: CONCENTRATION_RESOURCE_CODE,
+        current: { base: 0, size: 0 },
+        base: { base: 0, size: 0 },
+        bonuses: [],
       });
     }
 
@@ -1024,6 +1076,7 @@ export class CharacterEditorService {
       const spec = rule.spec as AbilitySpec | undefined;
       if (!spec) continue;
       if (spec.type === 'group') continue;
+      if (spec.knowledge_template_field || this.knowledge.isKnowledgeTemplate(rule.code)) continue;
 
       const zones: EditorAbilityZone[] = [];
       for (const [zoneCode, cost] of Object.entries(spec.zones ?? {})) {
@@ -1080,6 +1133,7 @@ export class CharacterEditorService {
           reason: hasRequirements ? evaluator.failureSummary(all, snapshot) : null,
         });
       }
+      this.applyParentKnowledgeField(levels, spec, build);
       this.applyMagicStudyGate(levels, spec, rule, keywordCodes, studyUnlocks, learnedStudy, rule.code);
 
       // Пер-экземплярные требования множественного навыка: has_ability проверяется по экземплярам
@@ -1156,6 +1210,7 @@ export class CharacterEditorService {
         parentCode: spec.parent_ability_code ?? null,
         multiple,
         domainRef: spec.domain_ref ?? null,
+        knowledge: this.knowledge.isKnowledgeRule(rule.code),
         instances: multiple
           ? instances.map((instance) => {
               const zone = zones.find((entry) => entry.levelCosts.length > 0) ?? zones[0];
@@ -1164,6 +1219,8 @@ export class CharacterEditorService {
               return {
                 domain: instance.domain ?? '',
                 domainCode: instance.domainCode ?? null,
+                fieldCode: instance.fieldCode ?? null,
+                slots: instance.slots,
                 level: instance.level,
                 levels: instanceLevelsOf(instance.domain ?? '', instance.domainCode ?? null),
                 paidCost:
@@ -1219,6 +1276,22 @@ export class CharacterEditorService {
     }
 
     return result;
+  }
+
+  private applyParentKnowledgeField(levels: EditorAbilityLevel[], spec: AbilitySpec, build: CharacterBuild): void {
+    if (spec.type === 'group') return;
+    const field = spec.parent_knowledge_field;
+    const parent = spec.parent_ability_code;
+    if (!field || !parent) return;
+    if (this.knowledge.hasFieldAtLeast(build.abilities, field)) return;
+    const parentTaken = build.abilities.some((ability) => ability.ruleCode === parent && ability.level > 0);
+    if (!parentTaken) return;
+    const name = this.knowledge.fieldOf(field)?.name ?? field;
+    const reason = `требуется знание типа «${name}»`;
+    for (const level of levels) {
+      level.met = false;
+      level.reason = level.reason ? `${level.reason}; ${reason}` : reason;
+    }
   }
 
   private applyMagicStudyGate(
@@ -1729,6 +1802,20 @@ export class CharacterEditorService {
     return [...build.states.filter((state) => state.stateRuleCode !== rule.code), { stateRuleCode: rule.code, value }];
   }
 
+  private ownsConcentrationAbility(build: CharacterBuild): boolean {
+    return build.abilities.some((ability) => ability.ruleCode === CONCENTRATION_ABILITY_CODE && ability.level >= 1);
+  }
+
+  private isConcentrationRequirementMet(characteristics: EditorCharacteristic[]): boolean {
+    const minimum = new DimensionalNumber({ base: 5, size: 0 });
+
+    return characteristics.some(
+      (characteristic) =>
+        (characteristic.code === 'intellect' || characteristic.code === 'perception') &&
+        CharacteristicNumber.from(characteristic.value).compare(minimum) >= 0,
+    );
+  }
+
   /**
    * Обходит активные дары выбранных и автоматических расовых способностей. Дар уровня L:
    * permanent (по умолчанию) действует на всех уровнях >= L, non-permanent — строго на уровне L.
@@ -1737,11 +1824,13 @@ export class CharacterEditorService {
     build: CharacterBuild,
     reference: CharacterReferenceService,
     callback: (grant: Grant, rule: Rule) => void,
+    skipAbilityCodes: ReadonlySet<string> = new Set(),
   ): void {
     for (const ability of build.abilities) {
       if (ability.level < 1) continue;
       const rule = reference.ruleByCode(ability.ruleCode);
       if (!rule) continue;
+      if (skipAbilityCodes.has(rule.code)) continue;
       const spec = rule.type === 'ability' ? (rule.spec as AbilitySpec | undefined) : undefined;
       if (!spec || spec.type === 'group') continue;
 

@@ -80,9 +80,11 @@ describe('MagicPathStudyCostService', () => {
       { ruleCode: 'psionic-awakening', level: 1 },
       { ruleCode: 'discharge', level: 1, domain: 'Псионик', domainCode: 'psionic' },
     ]);
-    const strike = editor
-      .build(mixed, ruleCatalog, config, keywords)
-      .abilities.find((a) => a.ruleCode === 'lightning-strike');
-    expect(strike?.nextInstanceCost).toBe(1);
+    const model = editor.build(mixed, ruleCatalog, config, keywords);
+    const discharge = model.abilities.find((a) => a.ruleCode === 'discharge');
+    const strike = model.abilities.find((a) => a.ruleCode === 'lightning-strike');
+    expect(discharge?.nextInstanceCost).toBe(1);
+    expect(strike?.domainOptions).toEqual([]);
+    expect(strike?.nextInstanceCost).toBeUndefined();
   });
 });

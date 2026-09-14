@@ -1,4 +1,5 @@
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
+import type { CharacterKnowledgeSlot } from '@/modules/Roleplay/Character/Dto/CharacterKnowledgeSlot';
 
 export interface CharacterAbility {
   ruleCode: string;
@@ -17,6 +18,10 @@ export interface CharacterAbility {
   domain?: string;
   /** Код правила словаря домена (вид/язык); null — своё текстовое значение. */
   domainCode?: string | null;
+  /** Тип знания (`laws` / `physiology` / …) у экземпляра `znanie`. */
+  fieldCode?: string | null;
+  /** Слоты якоря знания: код словаря и/или текст. */
+  slots?: Record<string, CharacterKnowledgeSlot>;
   /**
    * Материализованная запись способности-дара (D100 / врождённое владение): уровень 1 из гранта
    * не списывает бюджет; апгрейд сверх gifted-уровня оплачивается разницей.

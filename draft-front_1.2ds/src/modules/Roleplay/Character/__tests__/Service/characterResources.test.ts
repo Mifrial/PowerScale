@@ -258,6 +258,154 @@ describe('Авто-ресурс ОД (buildResources)', () => {
   });
 });
 
+describe('Жетоны концентрации', () => {
+  const concentrationSkill = base(null, 'kontsentratsiya', 'ability', 'Концентрация', {
+    type: 'skill',
+    zones: { or: { kind: 'array', levels_cost: [2] } },
+    requirements: [
+      {
+        level: 1,
+        requirements: [
+          {
+            type: 'or',
+            children: [
+              { type: 'characteristic_value', characteristic_code: 'intellect', min: dim(5) },
+              { type: 'characteristic_value', characteristic_code: 'perception', min: dim(5) },
+            ],
+          },
+        ],
+      },
+    ],
+    grants: [
+      {
+        level: 1,
+        grants: [
+          { type: 'resource', resource_code: 'concentration', limit: 1 },
+          {
+            type: 'resource_limit_change',
+            resource_code: 'concentration',
+            amount: { type: 'characteristic_size_positive', characteristic_code: 'intellect' },
+            source_code: 'intellect',
+          },
+          {
+            type: 'resource_limit_change',
+            resource_code: 'concentration',
+            amount: { type: 'characteristic_size_positive', characteristic_code: 'perception' },
+            source_code: 'perception',
+          },
+        ],
+      },
+    ],
+    parent_ability_code: null,
+  });
+
+  const extra: Rule[] = [
+    base(null, 'memory', 'characteristic', 'Память', { type: 'characteristic', group: 'base', automatic: true }),
+    base(null, 'reasoning', 'characteristic', 'Мышление', { type: 'characteristic', group: 'base', automatic: true }),
+    base(null, 'intellect', 'characteristic', 'Интеллект', {
+      type: 'characteristic',
+      formula: 'min(memory, reasoning)',
+      group: 'primary',
+    }),
+    base(null, 'concentration', 'resource', 'Жетоны концентрации', { is_dimensional: false, auto_add: false }),
+    concentrationSkill,
+  ];
+
+  const withRace = (characteristics: RaceCharacteristic[]): Rule[] => [
+    ...rules.filter((rule) => rule.code !== 'human'),
+    ...extra,
+    raceWith(characteristics),
+  ];
+
+  const perceptionFive = withRace([
+    { characteristic_code: 'strength', mode: 'fixed', base: dim(3) },
+    { characteristic_code: 'dexterity', mode: 'fixed', base: dim(3) },
+    { characteristic_code: 'attention', mode: 'fixed', base: dim(5) },
+    { characteristic_code: 'reaction', mode: 'fixed', base: dim(5) },
+    { characteristic_code: 'memory', mode: 'fixed', base: dim(3) },
+    { characteristic_code: 'reasoning', mode: 'fixed', base: dim(3) },
+  ]);
+
+  const intellectFive = withRace([
+    { characteristic_code: 'strength', mode: 'fixed', base: dim(3) },
+    { characteristic_code: 'dexterity', mode: 'fixed', base: dim(3) },
+    { characteristic_code: 'attention', mode: 'fixed', base: dim(3) },
+    { characteristic_code: 'reaction', mode: 'fixed', base: dim(3) },
+    { characteristic_code: 'memory', mode: 'fixed', base: dim(5) },
+    { characteristic_code: 'reasoning', mode: 'fixed', base: dim(5) },
+  ]);
+
+  const bothLow = withRace([
+    { characteristic_code: 'strength', mode: 'fixed', base: dim(3) },
+    { characteristic_code: 'dexterity', mode: 'fixed', base: dim(3) },
+    { characteristic_code: 'attention', mode: 'fixed', base: dim(3) },
+    { characteristic_code: 'reaction', mode: 'fixed', base: dim(3) },
+    { characteristic_code: 'memory', mode: 'fixed', base: dim(3) },
+    { characteristic_code: 'reasoning', mode: 'fixed', base: dim(3) },
+  ]);
+
+  const perceptionSized = withRace([
+    { characteristic_code: 'strength', mode: 'fixed', base: dim(3) },
+    { characteristic_code: 'dexterity', mode: 'fixed', base: dim(3) },
+    { characteristic_code: 'attention', mode: 'fixed', base: dim(5, 1) },
+    { characteristic_code: 'reaction', mode: 'fixed', base: dim(5, 1) },
+    { characteristic_code: 'memory', mode: 'fixed', base: dim(3, -1) },
+    { characteristic_code: 'reasoning', mode: 'fixed', base: dim(3, -1) },
+  ]);
+
+  it('включается от Восприятия 5 или Интеллекта 5', () => {
+    const build = makeBuild({ abilities: [{ ruleCode: 'kontsentratsiya', level: 1 }] });
+    expect(
+      service.toVersion(build, perceptionFive, config).resources.find((r) => r.ruleCode === 'concentration')?.base,
+    ).toEqual(dim(1));
+    expect(
+      service.toVersion(build, intellectFive, config).resources.find((r) => r.ruleCode === 'concentration')?.base,
+    ).toEqual(dim(1));
+  });
+
+  it('при обоих ниже 5 слот остаётся с лимитом 0 и current 0', () => {
+    const build = makeBuild({
+      abilities: [{ ruleCode: 'kontsentratsiya', level: 1 }],
+      resources: [{ ruleCode: 'concentration', current: dim(2), base: dim(1), bonuses: [] }],
+    });
+    const resource = service.toVersion(build, bothLow, config).resources.find((r) => r.ruleCode === 'concentration');
+    expect(resource?.base).toEqual(dim(0));
+    expect(resource?.current).toEqual(dim(0));
+  });
+
+  it('после повторного включения current остаётся 0', () => {
+    const inactive = service.toVersion(
+      makeBuild({
+        abilities: [{ ruleCode: 'kontsentratsiya', level: 1 }],
+        resources: [{ ruleCode: 'concentration', current: dim(2), base: dim(1), bonuses: [] }],
+      }),
+      bothLow,
+      config,
+    );
+    const restored = buildService.fromVersion(inactive, 1, bothLow);
+    const again = service.toVersion(restored, perceptionFive, config);
+    expect(again.resources.find((r) => r.ruleCode === 'concentration')?.current).toEqual(dim(0));
+  });
+
+  it('отрицательный размер не уменьшает лимит; положительный даёт +1', () => {
+    const build = makeBuild({ abilities: [{ ruleCode: 'kontsentratsiya', level: 1 }] });
+    const resource = service
+      .toVersion(build, perceptionSized, config)
+      .resources.find((r) => r.ruleCode === 'concentration');
+    expect(resource?.bonuses.map((bonus) => bonus.delta)).toEqual([0, 1]);
+    expect(resource?.current).toEqual(dim(2));
+  });
+
+  it('без навыка лимита 3 нет', () => {
+    const version = service.toVersion(
+      makeBuild({ resources: [{ ruleCode: 'concentration', current: dim(3), base: dim(3), bonuses: [] }] }),
+      perceptionFive,
+      config,
+    );
+    expect(version.resources.find((r) => r.ruleCode === 'concentration')).toBeUndefined();
+  });
+});
+
 describe('Вес (base_from)', () => {
   it('база = база Силы + модификаторы от врождённого источника', () => {
     let build = makeBuild();

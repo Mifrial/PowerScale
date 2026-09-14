@@ -1,4 +1,5 @@
 import type { CharacterPoisonValue } from '@/modules/Roleplay/Character/Dto/CharacterPoisonValue';
+import type { CharacterWound } from '@/modules/Roleplay/Character/Dto/CharacterWound';
 
 /**
  * Состояние на персонаже — ссылка на правило + значение. Один и тот же stateRuleCode
@@ -27,4 +28,6 @@ export interface CharacterStateValue {
     lethal?: boolean;
     disfiguring?: boolean;
   };
+  /** Только для состояния «Рана»: вклады закрытости и зажим. */
+  wound?: CharacterWound;
 }

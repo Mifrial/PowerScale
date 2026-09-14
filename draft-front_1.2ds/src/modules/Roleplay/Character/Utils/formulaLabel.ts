@@ -34,6 +34,11 @@ export function formulaLabel(
       return `⌊параметр «${formula.parameter_code}» / ${formula.divisor}⌋`;
     case 'characteristic_size':
       return resolveName(formula.characteristic_code) ?? formula.characteristic_code;
+    case 'characteristic_size_positive': {
+      const name = resolveName(formula.characteristic_code) ?? formula.characteristic_code;
+
+      return `max(0, размер ${name})`;
+    }
     case 'characteristic_size_gap': {
       const from = resolveName(formula.characteristic_code_from) ?? formula.characteristic_code_from;
       const to = resolveName(formula.characteristic_code_to) ?? formula.characteristic_code_to;

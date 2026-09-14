@@ -55,6 +55,8 @@ export interface EditorAbility {
   domainCode: string | null;
   /** Опции словаря домена по domainRef (правила ревизии); пусто — свободный текст. */
   domainOptions: { code: string; name: string; cost?: number }[];
+  /** Типы знания для экземпляров `znanie`. */
+  knowledge?: boolean;
   /** Стоимость следующего экземпляра (скидка пути). */
   nextInstanceCost?: number;
 }

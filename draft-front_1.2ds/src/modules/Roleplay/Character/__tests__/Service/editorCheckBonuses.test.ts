@@ -36,7 +36,7 @@ describe('EditorCheckBonusesService', () => {
       expect.objectContaining({
         checkCode: 'stealth',
         delta: 2,
-        modifiers: [expect.objectContaining({ sourceRuleCode: stealth.code, delta: 2 })],
+        modifiers: [expect.objectContaining({ sourceRuleCode: 'training', sourceLabel: stealth.name, delta: 2 })],
       }),
     ]);
   });
