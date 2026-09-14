@@ -76,6 +76,7 @@ Versioning 1 (`vt_note`) сделан. ST 18–20, Cache 1 — закрыты.
 - Поверхность Vue `Rule/init` — сделано ([`rule-plan-02-init-surface.md`](rule-plan-02-init-surface.md); Constant/Value публичны; не PHP Engine).
 - Файл ревизии — отдельная нарезка [`revision-file-roadmap.md`](revision-file-roadmap.md) (клиент, коды на границе; HTTP файла нет).
 - Магия и заклинания — отдельная нарезка [`spell-roadmap.md`](spell-roadmap.md): inventory `AI.html` → representative slice → Rule/Ability → import → runtime → backend. Не расширять `Rule 1` гипотезами магии.
+- Редакционный проход каталога — [`rule-content-roadmap.md`](rule-content-roadmap.md): не путать с PHP Rule 1–13 и не с runtime-support.
 - Inherit queue / progress UI — не контракт (`rule-system`).
 - Закрытый набор `RuleType` + hydrator/валидация spec по типу — блокер Engine, не persist. **Спеки нигде не считать готовыми**, пока не будет явной отмашки (`decisions.md` / закрытие пункта). Текущие Vue DTO — рабочий черновик, не freeze. Character C4 не зашивает «как сейчас в TS».
 - Хендлеры Engine в модуле Mechanic — блокер Character/Game runtime.

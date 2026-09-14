@@ -86,6 +86,7 @@
 - [План Rule 1: кластер](rule-plan-01.md) — `Roleplay/Rule`; `rule*`; Reference на Keyword/Mechanic; generic body Versioning.
 - [План Rule 2: поверхность init](rule-plan-02-init-surface.md) — Constant/Value публичны (`DEC-082`); `Rule/init` без барреля констант и без SFC/`defineAsyncComponent`; композабл-фасады в `init` по-прежнему тянут vue.
 - [Нарезка магии и заклинаний](spell-roadmap.md) — inventory `AI.html`, representative slice, изучение в редакторе персонажа; полный каталог и runtime каста остаются `DEFERRED` до прохождения срезов.
+- [Нарезка редакционного прохода каталога](rule-content-roadmap.md) — `contentStatus` / `contentNote`, пачки по 10, очередь runtime; не подгонять Game под сырой мок.
 - [План RuleSpace 1: оператор](rulespace-plan-01.md) — sidecar мира, inherit `keep`, без HTTP.
 - [План RuleSpace 4: HTTP](rulespace-plan-04.md) — `ruleSpace.*` в RuleSpace; JSON-вид; без прав шага 8.
 - [План RuleSpace 5: права](rulespace-plan-05.md) — `space.create` / `view_all` / `edit_all` на HTTP; `owner_id` sidecar.
