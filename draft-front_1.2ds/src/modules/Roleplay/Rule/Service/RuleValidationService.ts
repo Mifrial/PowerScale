@@ -1028,6 +1028,9 @@ export class RuleValidationService {
 
       case 'state': {
         const state = spec as StateSpec;
+        for (const code of state.action_codes ?? []) {
+          collect({ code, type: 'ability' });
+        }
         for (const effect of state.effects ?? []) {
           if (effect.type === 'characteristic_modify' && effect.characteristic_code) {
             collect({ code: effect.characteristic_code, type: 'characteristic' });
@@ -1133,6 +1136,9 @@ export class RuleValidationService {
     if (node.type === 'characteristic_size' && node.characteristic_code) {
       collect({ code: node.characteristic_code, type: 'characteristic' });
     }
+    if (node.type === 'characteristic_size_positive' && node.characteristic_code) {
+      collect({ code: node.characteristic_code, type: 'characteristic' });
+    }
     if (node.type === 'characteristic_size_gap') {
       if (node.characteristic_code_from) collect({ code: node.characteristic_code_from, type: 'characteristic' });
       if (node.characteristic_code_to) collect({ code: node.characteristic_code_to, type: 'characteristic' });
@@ -1206,6 +1212,12 @@ export class RuleValidationService {
       if (grant.source_code) {
         collect({ code: grant.source_code, type: 'source' });
       }
+      for (const checkCode of grant.check_codes ?? []) {
+        collect({ code: checkCode, type: 'check' });
+      }
+    }
+    if (grant.type === 'process_distance_multiplier' && grant.ability_code) {
+      collect({ code: grant.ability_code, type: 'ability' });
     }
     if (grant.type === 'resource' && grant.resource_code) {
       collect({ code: grant.resource_code, type: 'resource' });

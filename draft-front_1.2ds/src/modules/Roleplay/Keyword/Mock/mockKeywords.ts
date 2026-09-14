@@ -4,7 +4,7 @@ import type { UpdateKeywordData } from '@/modules/Roleplay/Keyword/Dto/UpdateKey
 
 const delay = (ms = 300) => new Promise((r) => setTimeout(r, ms));
 
-let nextId = 232;
+let nextId = 233;
 
 export const keywords: Keyword[] = [
   { id: 1, code: 'melee', name: 'Ближний бой', description: 'Оружие и навыки ближнего боя', active: true },
@@ -622,6 +622,13 @@ export const keywords: Keyword[] = [
     code: 'shaman',
     name: 'Шаман',
     description: 'Принадлежность пути Шамана',
+    active: true,
+  },
+  {
+    id: 232,
+    code: 'training',
+    name: 'Тренировка',
+    description: 'Навык тренировки характеристики (не метод развития-агрегат)',
     active: true,
   },
 ];

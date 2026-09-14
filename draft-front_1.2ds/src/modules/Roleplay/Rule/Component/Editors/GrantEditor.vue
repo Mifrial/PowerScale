@@ -6,6 +6,8 @@ import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberF
 import { abilitySpecService } from '@/modules/Roleplay/Rule/Service/Instance/abilitySpecService';
 import { useVModelSync } from '@/modules/Core/UI/Composables/useVModelSync';
 import { GRANT_TYPES } from '@/modules/Roleplay/Rule/Constant/Ability/GRANT_TYPES';
+import { SENSE_STATUS_OPTIONS } from '@/modules/Roleplay/Rule/Constant/Sense/SENSE_STATUS_OPTIONS';
+import { LIGHTING_LEVEL_OPTIONS } from '@/modules/Roleplay/Rule/Constant/Lighting/LIGHTING_LEVEL_OPTIONS';
 import { MAGIC_STUDY_SCOPE_OPTIONS } from '@/modules/Roleplay/Rule/Constant/Ability/MAGIC_STUDY_SCOPE_OPTIONS';
 import type { Grant } from '@/modules/Roleplay/Rule/Dto/Ability/Grant';
 import type { CharacteristicRef } from '@/modules/Roleplay/Rule/Dto/Ability/CharacteristicRef';
@@ -404,6 +406,28 @@ function patch(key: string, value: unknown) {
           :modes="['fixed', 'ability_level']"
         />
         <v-select
+          :model-value="inner.status ?? null"
+          @update:model-value="patch('status', $event || undefined)"
+          :items="SENSE_STATUS_OPTIONS"
+          item-title="title"
+          item-value="value"
+          label="Статус чувства"
+          density="compact"
+          hide-details
+          clearable
+        />
+        <v-select
+          :model-value="inner.treat_as_good_down_to ?? null"
+          :items="LIGHTING_LEVEL_OPTIONS"
+          item-title="title"
+          item-value="value"
+          label="Как при хорошем освещении до"
+          density="compact"
+          hide-details
+          clearable
+          @update:model-value="patch('treat_as_good_down_to', $event || undefined)"
+        />
+        <v-select
           :model-value="inner.source_code || null"
           @update:model-value="patch('source_code', $event)"
           :items="sources"
@@ -413,6 +437,28 @@ function patch(key: string, value: unknown) {
           density="compact"
           hide-details
           clearable
+        />
+      </template>
+
+      <template v-else-if="inner.type === 'process_distance_multiplier'">
+        <v-autocomplete
+          :model-value="inner.ability_code"
+          @update:model-value="patch('ability_code', $event)"
+          :items="abilities"
+          item-title="name"
+          item-value="code"
+          label="Процесс"
+          density="compact"
+          hide-details
+          clearable
+        />
+        <ClampedNumberField
+          :model-value="inner.multiplier"
+          @update:model-value="patch('multiplier', $event)"
+          label="Множитель"
+          :min="1"
+          density="compact"
+          hide-details
         />
       </template>
 

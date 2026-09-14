@@ -38,6 +38,10 @@ export interface AbilitySpecBase {
    * 'culture' | 'subject' | 'instrument'). Заполняется вместе с `multiple`.
    */
   domain_ref?: string | null;
+  /** Шаблон знания: фиксирует тип поля экземпляра `znanie`, сам на лист не покупается. */
+  knowledge_template_field?: string | null;
+  /** У улучшения: фильтр типа знания родителя `znanie` (напр. `laws`). */
+  parent_knowledge_field?: string | null;
   /**
    * Агрегат «Развитие X» (D108): бесплатный навык-агрегатор. Уровень агрегата определяется
    * по числу взятых навыков с признаком method_keyword: уровень N достигнут, если для каждой

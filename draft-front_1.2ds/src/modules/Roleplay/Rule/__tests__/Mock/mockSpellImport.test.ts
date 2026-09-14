@@ -98,8 +98,8 @@ describe('mockSpellImport (M4)', () => {
     expect(byCode.get('chain-lightning')?.catalogSection).toBe('abilities-acquired-magic-spells-electromancy');
     expect(byCode.get('charge-accumulation')?.catalogSection).toBe('abilities-acquired-magic-spells-electromancy');
     expect(byCode.get('magic-core-capacity')?.catalogSection).toBe('abilities-acquired-magic-sources-core');
-    expect(byCode.get('magic-core-capacity')?.name).toBe('Врождённое магическое ядро X');
-    expect(byCode.get('magic-resistance')?.catalogSection).toBe('abilities-acquired-magic-common');
+    expect(byCode.get('magic-core-capacity')?.name).toBe('Врождённое магическое ядро');
+    expect(byCode.get('magic-resistance')?.catalogSection).toBe('abilities-innate-magic-individual');
     const path = abilitySpec('becoming-arcanist');
     expect(path && path.type !== 'group' ? path.zones : null).toEqual({
       or: { kind: 'array', levels_cost: [2] },

@@ -9,4 +9,5 @@ export const FORMULA_TYPE_LABELS: Partial<Record<Formula['type'], string>> = {
   dimensional: 'Размерное число',
   parameter: 'Параметр',
   parameter_floor_div: 'Параметр / N (целая часть)',
+  characteristic_size_positive: 'Положительный размер характеристики',
 };

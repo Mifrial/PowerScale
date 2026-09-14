@@ -53,6 +53,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13],
     mechanicId: null,
     createdAt: 1786269600,
+    catalogSection: 'abilities-acquired-mental-intellect',
   },
   {
     id: 201,
@@ -81,7 +82,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     id: 202,
     code: 'razvitie-vnimatelnosti',
     type: 'ability',
-    name: 'Развитие внимательности( х из 3)',
+    name: 'Тренировка внимательности',
     description: 'Вы получаете + х к Базовому Восприятию для проверок на внимательность от тренировок .',
     spaceId: 1,
     spec: {
@@ -108,16 +109,17 @@ const mockDevelopmentImportRaw: Rule[] = [
       ],
       parent_ability_code: null,
     },
-    keywordIds: [13],
+    keywordIds: [13, 232, 49],
     mechanicId: null,
     createdAt: 1786269600,
+    catalogSection: 'abilities-acquired-mental-perception',
   },
   {
     id: 203,
     code: 'razvitie-reaktsii',
     type: 'ability',
     name: 'Развитие реакции( х из 3)',
-    description: 'Вы получаете + х к Базовому Восприятию для проверок на реакцию от тренировок .',
+    description: '+X к Реакции от тренировок для проверок на реакцию.',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -143,9 +145,10 @@ const mockDevelopmentImportRaw: Rule[] = [
       ],
       parent_ability_code: null,
     },
-    keywordIds: [13],
+    keywordIds: [13, 232, 53],
     mechanicId: null,
     createdAt: 1786269600,
+    catalogSection: 'abilities-acquired-mental-perception',
   },
   {
     id: 204,
@@ -163,13 +166,22 @@ const mockDevelopmentImportRaw: Rule[] = [
           levels_cost: [2],
         },
       },
-      requirements: [],
+      requirements: [
+        {
+          level: 1,
+          requirements: [
+            { type: 'has_ability', ability_code: 'schet', min_level: 1 },
+            { type: 'has_ability', ability_code: 'pismennost', min_level: 1 },
+          ],
+        },
+      ],
       grants: [],
       parent_ability_code: null,
     },
     keywordIds: [13, 56],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Бонусы от мастерства и обстоятельств для ориентирования пока не исполняются Game.',
   },
   {
     id: 205,
@@ -194,6 +206,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 56],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Бонус от мастерства для чтения следов пока не исполняется Game.',
   },
   {
     id: 206,
@@ -218,6 +231,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 56],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Преимущество от обстоятельств для ориентирования по следам пока не исполняется Game.',
   },
   {
     id: 207,
@@ -242,6 +256,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 56],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Бонусы поиска и сокрытия улик пока не исполняются Game.',
   },
   {
     id: 208,
@@ -266,6 +281,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 56],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Бонус от обстоятельств при сопоставлении улик пока не исполняется Game.',
   },
   {
     id: 209,
@@ -290,6 +306,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 56],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Бонусы установки, сокрытия и поиска ловушек пока не исполняются Game.',
   },
   {
     id: 210,
@@ -313,14 +330,14 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 56],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Преимущество от состояния для реакции против ловушек пока не исполняется Game.',
   },
   {
     id: 211,
     code: 'poisk-trav',
     type: 'ability',
     name: 'Поиск трав',
-    description:
-      'Вы не только знаете о внешнем виде, свойствах и местах произрастания трав, но и обучены их поиску и сбору. +3 к Внимательности от мастерства для проверок на поиск и сбор знакомых трав.',
+    description: 'Вы обучены поиску и сбору трав в регионе, растения которого знаете. Бонуса +3 к Внимательности нет.',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -337,6 +354,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 56],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Сбор трав читает знание растений региона; проверка пока не исполняется Game.',
   },
   {
     id: 212,
@@ -361,6 +379,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 56],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Бонус обнаружения добавок пока не исполняется Game; зависимость от знаний остаётся текстовой.',
   },
   {
     id: 213,
@@ -402,13 +421,14 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13],
     mechanicId: null,
     createdAt: 1786269600,
+    catalogSection: 'abilities-acquired-mental-intellect',
   },
   {
     id: 214,
     code: 'razvitie-pamyati',
     type: 'ability',
     name: 'Развитие памяти( х из 3)',
-    description: 'Вы получаете + х к Базовому Интеллекту для проверок на память от тренировок .',
+    description: '+X к Памяти от тренировок для проверок памяти.',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -443,7 +463,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     code: 'razvitie-myshleniya',
     type: 'ability',
     name: 'Развитие мышления( х из 3)',
-    description: 'Вы получаете + х к Базовому Интеллекту для проверок на мышление от тренировок .',
+    description: '+X к Мышлению от тренировок для проверок мышления.',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -510,12 +530,13 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 57],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Удаление кубиков помех после броска пока не исполняется Game.',
   },
   {
     id: 217,
     code: 'neytralizatsiya-pomekh-2',
     type: 'ability',
-    name: 'Нейтрализация помех',
+    name: 'Усиленная нейтрализация помех',
     description:
       'Каждый размер интеллекта выше среднего позволяет получить вам получить в два раза больше - превратить до двух кубиков преимущества в обычные, или, если у вас есть навык Нейтрализация помех , убрать два кубика помехи (если это только не 6) .',
     spaceId: 1,
@@ -548,6 +569,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 57],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Механика удаления кубиков помех пока не исполняется Game. Карточку следует отличать от базовой Нейтрализации помех.',
   },
   {
     id: 218,
@@ -555,7 +578,136 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Концентрация',
     description:
-      'Вы получаете ресурс “Жетоны концентрации”, максимум которых - 1. Каждый размер восприятия и каждый размер интеллекта выше среднего увеличивают максимум на 1.\nПеред совершением проверки на попадание, восприятие, интеллект, общение или проворство вы можете потратить жетон концентрации, чтобы получить преимущество для этой проверки. В конце вашего хода, если вы не тратили жетоны концентрации с конца предыдущего хода, вы можете восполнить количество жетонов концентрации до максимума. В таком случае вы не сможете тратить жетоны концентрации до начала своего следующего хода.\nЕсли вы получаете повреждения, превышающие [Телосложение], рану или увечье, то совершите проверку на сохранение концентрации - проверку на Силу воли против боли со сложностью 2. Если повреждения превышают [Телосложение * 2]; сила раны 5 или больше; серьёзность увечья 2 - сложность становится большой. Если серьёзность полученного увечья 3 - огромной.\nНекоторые действия используют жетоны концентрации - используемые жетоны нельзя тратить, и пока вы используете хотя бы один жетон, нельзя восполнять жетоны концентрации. Когда вы перестанете использовать жетон концентрации, он станет потраченным.\nКонцентрация - это кратковременное сосредоточение умственных сил - вы не можете поддерживать её дольше одного хода. Когда вы должны перестать концентрироваться, вы можете потратить жетон концентрации, чтобы продолжить концентрироваться ещё такое же время.',
+      'Требуется Интеллект 5 или Восприятие 5. Пока ни одно из требований не выполняется, навык выключен: жетонов нет.\nВы получаете ресурс «Жетоны концентрации». Базовый максимум — 1. Каждый размер Интеллекта и каждый размер Восприятия выше среднего увеличивают максимум на 1.\nПеред проверкой на попадание, Восприятие, Внимательность, Реакцию, Интеллект, Память, Мышление или Красноречие (включая наследников этих проверок и проверки, которые фактически используют эти характеристики) вы можете потратить жетон, чтобы получить преимущество для этого броска.\nСконцентрироваться можно только на действии не длиннее одного хода.\nЕсли с конца предыдущего своего хода до конца текущего вы не тратили жетоны, в конце хода запас восстанавливается до максимума.',
+    spaceId: 1,
+    spec: {
+      type: 'skill',
+      zones: {
+        or: {
+          kind: 'array',
+          levels_cost: [2],
+        },
+      },
+      requirements: [
+        {
+          level: 1,
+          requirements: [
+            {
+              type: 'or',
+              children: [
+                {
+                  type: 'characteristic_value',
+                  characteristic_code: 'intellect',
+                  min: { base: 5, size: 0 },
+                },
+                {
+                  type: 'characteristic_value',
+                  characteristic_code: 'perception',
+                  min: { base: 5, size: 0 },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      grants: [
+        {
+          level: 1,
+          grants: [
+            { type: 'resource', resource_code: 'concentration', limit: 1 },
+            {
+              type: 'resource_limit_change',
+              resource_code: 'concentration',
+              amount: { type: 'characteristic_size_positive', characteristic_code: 'intellect' },
+              source_code: 'intellect',
+            },
+            {
+              type: 'resource_limit_change',
+              resource_code: 'concentration',
+              amount: { type: 'characteristic_size_positive', characteristic_code: 'perception' },
+              source_code: 'perception',
+            },
+          ],
+        },
+      ],
+      parent_ability_code: null,
+    },
+    keywordIds: [13, 57],
+    mechanicId: null,
+    createdAt: 1786269600,
+  },
+  {
+    id: 219,
+    code: 'predelnaya-kontsentratsiya',
+    type: 'ability',
+    name: 'Предельная концентрация (x из 2)',
+    description:
+      'Требуется Интеллект 5↑ или Восприятие 5↑; второй уровень — Интеллект 5↑↑ или Восприятие 5↑↑.\nВы можете потратить сразу несколько жетонов концентрации на одну проверку. Вы получаете столько преимуществ, сколько жетонов потратили, вплоть до [уровень + 1].',
+    spaceId: 1,
+    spec: {
+      type: 'skill',
+      zones: {
+        or: {
+          kind: 'array',
+          levels_cost: [2, 2],
+        },
+      },
+      requirements: [
+        {
+          level: 1,
+          requirements: [
+            {
+              type: 'or',
+              children: [
+                {
+                  type: 'characteristic_value',
+                  characteristic_code: 'intellect',
+                  min: { base: 5, size: 1 },
+                },
+                {
+                  type: 'characteristic_value',
+                  characteristic_code: 'perception',
+                  min: { base: 5, size: 1 },
+                },
+              ],
+            },
+          ],
+        },
+        {
+          level: 2,
+          requirements: [
+            {
+              type: 'or',
+              children: [
+                {
+                  type: 'characteristic_value',
+                  characteristic_code: 'intellect',
+                  min: { base: 5, size: 2 },
+                },
+                {
+                  type: 'characteristic_value',
+                  characteristic_code: 'perception',
+                  min: { base: 5, size: 2 },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      grants: [],
+      parent_ability_code: 'kontsentratsiya',
+    },
+    keywordIds: [13, 57],
+    mechanicId: null,
+    createdAt: 1786269600,
+  },
+  {
+    id: 222,
+    code: 'sosredotochenie-voli',
+    type: 'ability',
+    name: 'Сосредоточение воли',
+    description:
+      'Требуется Сила воли 5.\nВы можете тратить жетоны концентрации на проверки, в которых бросается Сила воли, включая проверку на истощение и потерю сознания.',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -571,161 +723,12 @@ const mockDevelopmentImportRaw: Rule[] = [
           requirements: [
             {
               type: 'characteristic_value',
-              characteristic_code: 'intellect',
-              min: {
-                base: 5,
-                size: 0,
-              },
+              characteristic_code: 'willpower',
+              min: { base: 5, size: 0 },
             },
           ],
         },
       ],
-      grants: [],
-      parent_ability_code: null,
-    },
-    keywordIds: [13, 57],
-    mechanicId: null,
-    createdAt: 1786269600,
-  },
-  {
-    id: 219,
-    code: 'predelnaya-kontsentratsiya',
-    type: 'ability',
-    name: 'Предельная концентрация( x из 2 )',
-    description:
-      'Вы можете тратить сразу несколько кубиков концентрации для получения преимуществ. Вы получаете столько преимуществ, сколько потратили кубиков для получения преимуществ, вплоть до [ х + 1].',
-    spaceId: 1,
-    spec: {
-      type: 'skill',
-      zones: {
-        or: {
-          kind: 'progression',
-          max_level: 2,
-          base_cost: 1,
-          step: 1,
-        },
-      },
-      requirements: [],
-      grants: [],
-      parent_ability_code: 'kontsentratsiya',
-    },
-    keywordIds: [13, 57],
-    mechanicId: null,
-    createdAt: 1786269600,
-  },
-  {
-    id: 220,
-    code: 'sosredotochenie-vnimaniya',
-    type: 'ability',
-    name: 'Сосредоточение внимания',
-    description:
-      'Когда вы концентрируетесь на чём-либо для получения преимуществ, вы можете использовать это улучшение, чтобы получить дополнительное преимущество. Но, в таком случае, все ваши проверки до начала вашего хода будут иметь помеху.',
-    spaceId: 1,
-    spec: {
-      type: 'skill',
-      zones: {
-        or: {
-          kind: 'array',
-          levels_cost: [2],
-        },
-      },
-      requirements: [],
-      grants: [],
-      parent_ability_code: 'kontsentratsiya',
-    },
-    keywordIds: [13, 57],
-    mechanicId: null,
-    createdAt: 1786269600,
-  },
-  {
-    id: 221,
-    code: 'parallelnye-deystviya',
-    type: 'ability',
-    name: 'Параллельные действия',
-    description:
-      'Вы можете сконцентрироваться на выполнении параллельных действий, используя k жетонов концентрации. Пока вы концентрируетесь на выполнении параллельных действий, вы получаете на k меньше помех от совершения параллельных действий.',
-    spaceId: 1,
-    spec: {
-      type: 'skill',
-      zones: {
-        or: {
-          kind: 'array',
-          levels_cost: [2],
-        },
-      },
-      requirements: [],
-      grants: [],
-      parent_ability_code: 'kontsentratsiya',
-    },
-    keywordIds: [13, 57],
-    mechanicId: null,
-    createdAt: 1786269600,
-  },
-  {
-    id: 222,
-    code: 'sosredotochenie-voli',
-    type: 'ability',
-    name: 'Сосредоточение воли',
-    description:
-      'Когда вы совершаете проверку на потерю сознания, вы можете использовать жетоны все концентрации (минимум 1) , чтобы получить преимущество для её совершения.',
-    spaceId: 1,
-    spec: {
-      type: 'skill',
-      zones: {
-        or: {
-          kind: 'array',
-          levels_cost: [2],
-        },
-      },
-      requirements: [],
-      grants: [],
-      parent_ability_code: 'kontsentratsiya',
-    },
-    keywordIds: [13, 57],
-    mechanicId: null,
-    createdAt: 1786269600,
-  },
-  {
-    id: 223,
-    code: 'volevoe-usilie',
-    type: 'ability',
-    name: 'Волевое усилие',
-    description:
-      'Когда вы должны прекратить концентрироваться из-за предела времени, вы можете пройти проверку на сохранение концентрации волей - это проверка на Силу воли со сложностью 1. В случае успеха время концентрации продлится на [Максимальное время концентрации]. В случае провала вы получаете не больше 1 истощения силы воли. Вне зависимости от успеха, сложность проверок на сохранение концентрации силой воли увеличена на размер до тех пор, пока вы концентрируетесь на чём-либо.',
-    spaceId: 1,
-    spec: {
-      type: 'skill',
-      zones: {
-        or: {
-          kind: 'array',
-          levels_cost: [2],
-        },
-      },
-      requirements: [],
-      grants: [],
-      parent_ability_code: 'kontsentratsiya',
-    },
-    keywordIds: [13, 57],
-    mechanicId: null,
-    createdAt: 1786269600,
-  },
-  {
-    id: 224,
-    code: 'molnienosnaya-reaktsiya',
-    type: 'ability',
-    name: 'Молниеносная реакция',
-    description:
-      'Вы можете сконцентрироваться, используя 2 жетона концентрации. В таком случае вы получите + 3 к реакции от концентрации до тех пор, пока концентрируетесь.',
-    spaceId: 1,
-    spec: {
-      type: 'skill',
-      zones: {
-        or: {
-          kind: 'array',
-          levels_cost: [2],
-        },
-      },
-      requirements: [],
       grants: [],
       parent_ability_code: 'kontsentratsiya',
     },
@@ -737,20 +740,40 @@ const mockDevelopmentImportRaw: Rule[] = [
     id: 225,
     code: 'dlitelnoe-napryazhenie',
     type: 'ability',
-    name: 'Длительное напряжение( n из 5)',
-    description: 'Вы можете концентрироваться вплоть до [2 * n ] ходов.',
+    name: 'Длительное напряжение',
+    description:
+      'Требуется Интеллект 4↑ или Восприятие 4↑.\nВы можете концентрироваться на действии длительностью до 10 ходов. Без этого навыка концентрация возможна только на действии не длиннее одного хода.',
     spaceId: 1,
     spec: {
       type: 'skill',
       zones: {
         or: {
-          kind: 'progression',
-          max_level: 1,
-          base_cost: 3,
-          step: 0,
+          kind: 'array',
+          levels_cost: [3],
         },
       },
-      requirements: [],
+      requirements: [
+        {
+          level: 1,
+          requirements: [
+            {
+              type: 'or',
+              children: [
+                {
+                  type: 'characteristic_value',
+                  characteristic_code: 'intellect',
+                  min: { base: 4, size: 1 },
+                },
+                {
+                  type: 'characteristic_value',
+                  characteristic_code: 'perception',
+                  min: { base: 4, size: 1 },
+                },
+              ],
+            },
+          ],
+        },
+      ],
       grants: [],
       parent_ability_code: 'kontsentratsiya',
     },
@@ -763,7 +786,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     code: 'vladenie-yazykom',
     type: 'ability',
     name: 'Владение языком( Язык , х из 3)',
-    description: '',
+    description: 'Множественный навык: владение выбранным языком на трёх уровнях.',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -798,13 +821,15 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 57],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Нужен автоэкземпляр «Родной язык» 2 из 3 и проверка требований 3-го уровня в домене того же языка; редактор этого пока не делает.',
   },
   {
     id: 227,
     code: 'pravilnoe-proiznoshenie',
     type: 'ability',
     name: 'Правильное произношение',
-    description: '',
+    description: 'Улучшение Владения языком для выбранного языка.',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -823,6 +848,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 57],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Домен улучшения должен совпадать с экземпляром языка; корректный выбор домена пока не поддержан.',
   },
   {
     id: 228,
@@ -859,13 +885,14 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 57],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Книжный червь должен бесплатно выдавать это улучшение для выбранного домена языка; гранта пока нет.',
   },
   {
     id: 229,
     code: 'chtenie-po-gubam',
     type: 'ability',
     name: 'Чтение по губам( Вид )',
-    description: '',
+    description: 'Улучшение Владения языком для чтения по губам на выбранном языке.',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -895,13 +922,14 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 57],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Домен языка и runtime чтения по губам пока не поддержаны Game.',
   },
   {
     id: 230,
     code: 'gramotnost',
     type: 'ability',
     name: 'Грамотность',
-    description: '',
+    description: 'Улучшение Владения языком: грамотная речь и письмо на выбранном языке.',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -931,13 +959,15 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 57],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Книжный червь должен бесплатно выдавать Грамотность или навык с признаком knowledge для выбранного домена; гранта пока нет.',
   },
   {
     id: 231,
     code: 'etiket',
     type: 'ability',
     name: 'Этикет( Культура )',
-    description: '',
+    description: 'Навык Этикета для выбранной культуры.',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -956,6 +986,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 57],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Словарь доменов культур и runtime Этикета пока не подтверждены.',
   },
   {
     id: 232,
@@ -980,13 +1011,14 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 57],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Домен выбранной культуры и ограничение «только одно улучшение» пока не выражены в spec/runtime.',
   },
   {
     id: 233,
     code: 'schet',
     type: 'ability',
     name: 'Счёт',
-    description: '',
+    description: 'Навык выполнения обычных вычислений и операций счёта.',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -1020,7 +1052,15 @@ const mockDevelopmentImportRaw: Rule[] = [
           levels_cost: [2],
         },
       },
-      requirements: [],
+      requirements: [
+        {
+          level: 1,
+          requirements: [
+            { type: 'has_ability', ability_code: 'schet', min_level: 1 },
+            { type: 'has_ability', ability_code: 'pismennost', min_level: 1 },
+          ],
+        },
+      ],
       grants: [],
       parent_ability_code: null,
     },
@@ -1033,7 +1073,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     code: 'estestvoznanie',
     type: 'ability',
     name: 'Естествознание',
-    description: '',
+    description: 'Базовые естественно-научные знания о мире.',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -1056,7 +1096,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     code: 'fizika',
     type: 'ability',
     name: 'Физика',
-    description: '',
+    description: 'Знание физических закономерностей и умение применять их на практике.',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -1075,6 +1115,11 @@ const mockDevelopmentImportRaw: Rule[] = [
               ability_code: 'estestvoznanie',
               min_level: 1,
             },
+            {
+              type: 'has_ability',
+              ability_code: 'matematika',
+              min_level: 1,
+            },
           ],
         },
       ],
@@ -1090,7 +1135,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     code: 'torgovlya',
     type: 'ability',
     name: 'Торговля( регион )',
-    description: '',
+    description: 'Множественный навык торговли для выбранного региона.',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -1100,7 +1145,12 @@ const mockDevelopmentImportRaw: Rule[] = [
           levels_cost: [2],
         },
       },
-      requirements: [],
+      requirements: [
+        {
+          level: 1,
+          requirements: [{ type: 'has_ability', ability_code: 'schet', min_level: 1 }],
+        },
+      ],
       grants: [],
       parent_ability_code: null,
       multiple: true,
@@ -1111,29 +1161,57 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: 1786269600,
   },
   {
-    id: 238,
-    code: 'znanie-zakonov',
+    id: 1199,
+    code: 'znanie',
     type: 'ability',
-    name: 'Знание законов( субъект )',
-    description: '',
+    name: 'Знание о…',
+    description:
+      'Множественный навык знания в выбранной сфере. Уровни осведомлён / эксперт / мастер. Не лечит, не варит и не оперирует: вспоминает факты. Проверка — Интеллект против сложности факта; нехватка уровня повышает сложность на столько размеров.',
+    catalogSection: 'abilities-acquired-mental-intellect',
     spaceId: 1,
     spec: {
       type: 'skill',
       zones: {
         or: {
           kind: 'array',
-          levels_cost: [2],
+          levels_cost: [1, 2, 2],
         },
       },
       requirements: [],
       grants: [],
       parent_ability_code: null,
       multiple: true,
-      domain_ref: 'subject',
     },
-    keywordIds: [13, 57],
+    keywordIds: [13, 57, 67],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Запуск — соло check-knowledge: полоса, слоты, нехватка размера DC.',
+  },
+  {
+    id: 238,
+    code: 'znanie-zakonov',
+    type: 'ability',
+    name: 'Знание законов',
+    description: 'Шаблон знания: тип «Законы», слот региона. На лист покупается как экземпляр «Знание о…».',
+    catalogSection: 'abilities-acquired-mental-intellect',
+    spaceId: 1,
+    spec: {
+      type: 'skill',
+      zones: {
+        or: {
+          kind: 'array',
+          levels_cost: [1, 2, 2],
+        },
+      },
+      requirements: [],
+      grants: [],
+      parent_ability_code: null,
+      knowledge_template_field: 'laws',
+    },
+    keywordIds: [13, 57, 67],
+    mechanicId: null,
+    createdAt: 1786269600,
+    contentNote: 'Шаблон `znanie` / laws. Запуск — check-knowledge.',
   },
   {
     id: 239,
@@ -1152,93 +1230,98 @@ const mockDevelopmentImportRaw: Rule[] = [
       },
       requirements: [],
       grants: [],
-      parent_ability_code: 'znanie-zakonov',
+      parent_ability_code: 'znanie',
+      parent_knowledge_field: 'laws',
     },
     keywordIds: [13, 57],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Ситуационный бонус к check-knowledge законов известного региона (уровень навыка).',
   },
   {
     id: 240,
     code: 'znanie-o-zhivotnykh',
     type: 'ability',
-    name: 'Знание о животных( регион )',
-    description: '',
+    name: 'Знание о животных',
+    description: 'Шаблон знания: тип «Животные», слот региона.',
+    catalogSection: 'abilities-acquired-mental-intellect',
     spaceId: 1,
     spec: {
       type: 'skill',
       zones: {
         or: {
           kind: 'array',
-          levels_cost: [2],
+          levels_cost: [1, 2, 2],
         },
       },
       requirements: [],
       grants: [],
       parent_ability_code: null,
-      multiple: true,
-      domain_ref: 'region',
+      knowledge_template_field: 'animals',
     },
-    keywordIds: [13, 57],
+    keywordIds: [13, 57, 67],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Шаблон `znanie`. Запуск — check-knowledge.',
   },
   {
     id: 241,
     code: 'znanie-o-rasteniyakh',
     type: 'ability',
-    name: 'Знание о растениях( регион )',
-    description: '',
+    name: 'Знание о растениях',
+    description: 'Шаблон знания: тип «Растения», слот региона.',
+    catalogSection: 'abilities-acquired-mental-intellect',
     spaceId: 1,
     spec: {
       type: 'skill',
       zones: {
         or: {
           kind: 'array',
-          levels_cost: [2],
+          levels_cost: [1, 2, 2],
         },
       },
       requirements: [],
       grants: [],
       parent_ability_code: null,
-      multiple: true,
-      domain_ref: 'region',
+      knowledge_template_field: 'plants',
     },
-    keywordIds: [13, 57],
+    keywordIds: [13, 57, 67],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Шаблон `znanie`. Запуск — check-knowledge.',
   },
   {
     id: 242,
     code: 'znanie-o-istorii',
     type: 'ability',
-    name: 'Знание о истории( регион )',
-    description: '',
+    name: 'Знание о истории',
+    description: 'Шаблон знания: тип «История», слот региона.',
+    catalogSection: 'abilities-acquired-mental-intellect',
     spaceId: 1,
     spec: {
       type: 'skill',
       zones: {
         or: {
           kind: 'array',
-          levels_cost: [2],
+          levels_cost: [1, 2, 2],
         },
       },
       requirements: [],
       grants: [],
       parent_ability_code: null,
-      multiple: true,
-      domain_ref: 'region',
+      knowledge_template_field: 'history',
     },
-    keywordIds: [13, 57],
+    keywordIds: [13, 57, 67],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Шаблон `znanie`. Запуск — check-knowledge.',
   },
   {
     id: 243,
     code: 'shifr',
     type: 'ability',
     name: 'Шифр',
-    description: '',
+    description: 'Навык создания и использования шифров.',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -1257,6 +1340,11 @@ const mockDevelopmentImportRaw: Rule[] = [
               ability_code: 'pismennost',
               min_level: 1,
             },
+            {
+              type: 'has_ability',
+              ability_code: 'schet',
+              min_level: 1,
+            },
           ],
         },
       ],
@@ -1273,7 +1361,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Сложный шифр',
     description:
-      'Вы узнаёте конкретный способ сложной шифра. Сложность и его расшифровки на размер больше обычной. Запись и расшифровка его занимают в десять раз больше времени.',
+      'Вы узнаёте конкретный способ сложного шифра. Сложность его записи и расшифровки на размер выше обычной. Запись и расшифровка занимают в десять раз больше времени.',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -1292,11 +1380,34 @@ const mockDevelopmentImportRaw: Rule[] = [
     createdAt: 1786269600,
   },
   {
+    id: 246,
+    code: 'perevyazat',
+    type: 'ability',
+    name: 'Перевязать',
+    description:
+      'Автоматическое действие: +2 к вкладу перевязки одной внешней раны. База 8 ОД. Первая помощь снижает до 4 ОД и снимает потолок +4 на этой ране; спорая после первой перевязки цели — 2 ОД. Вид не нужен.',
+    catalogSection: 'abilities-acquired-medicine',
+    spaceId: 1,
+    spec: {
+      type: 'action',
+      zones: { or: { kind: 'automatic' } },
+      requirements: [],
+      grants: [],
+      action_components: [{ type: 'resource', resource_code: 'action-points', amount: 8, label: 'Действие' }],
+      parent_ability_code: null,
+    },
+    keywordIds: [14, 59],
+    mechanicId: null,
+    createdAt: 1786269600,
+  },
+  {
     id: 245,
     code: 'pervaya-pomosch',
     type: 'ability',
-    name: 'Первая помощь( вид )',
-    description: '',
+    name: 'Первая помощь',
+    description:
+      'Модифицирует перевязку: 4 ОД за +2 закрытости вместо 8 и снимает потолок +4 с перевязки на этой ране. Вид не нужен.',
+    catalogSection: 'abilities-acquired-medicine',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -1309,31 +1420,6 @@ const mockDevelopmentImportRaw: Rule[] = [
       requirements: [],
       grants: [],
       parent_ability_code: null,
-      multiple: true,
-      domain_ref: 'species',
-    },
-    keywordIds: [13, 59],
-    mechanicId: null,
-    createdAt: 1786269600,
-  },
-  {
-    id: 246,
-    code: 'predpisaniya-o-lechenii',
-    type: 'ability',
-    name: 'Предписания о лечении',
-    description: '',
-    spaceId: 1,
-    spec: {
-      type: 'skill',
-      zones: {
-        or: {
-          kind: 'array',
-          levels_cost: [1],
-        },
-      },
-      requirements: [],
-      grants: [],
-      parent_ability_code: 'pervaya-pomosch',
     },
     keywordIds: [13, 59],
     mechanicId: null,
@@ -1344,7 +1430,9 @@ const mockDevelopmentImportRaw: Rule[] = [
     code: 'sporaya-perevyazka',
     type: 'ability',
     name: 'Спорая перевязка',
-    description: 'Уменьшает затраты времени на перевязку ранений на 2ОД от мастерства .',
+    description:
+      'После первой перевязки этого персонажа следующие перевязки любых его ран стоят 2 ОД. Без первой помощи не взять.',
+    catalogSection: 'abilities-acquired-medicine',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -1361,13 +1449,37 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 59],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Сутки −2 силы раны в бою пока не тикают.',
+  },
+  {
+    id: 918,
+    code: 'zazhat',
+    type: 'ability',
+    name: 'Зажать',
+    description:
+      'Автоматическое действие: зажать 1 или 2 внешние раны одной цели. 2 ОД за рану. Пока держат, тик крови этой раны не ниже чем сила − 1. Отпустить — 0 ОД, с карточки раны.',
+    catalogSection: 'abilities-acquired-other',
+    spaceId: 1,
+    spec: {
+      type: 'action',
+      zones: { or: { kind: 'automatic' } },
+      requirements: [],
+      grants: [],
+      action_components: [{ type: 'resource', resource_code: 'action-points', amount: 2, label: 'Действие' }],
+      parent_ability_code: null,
+    },
+    keywordIds: [14],
+    mechanicId: null,
+    createdAt: 1786269600,
   },
   {
     id: 248,
     code: 'ukhod',
     type: 'ability',
-    name: 'Уход( вид )',
-    description: '',
+    name: 'Уход',
+    description:
+      'На длинном отдыхе даёт ещё −1 истощения цели, чью физиологию вы знаете. Именованный курс — знание болезней или назначение, не отдельный навык.',
+    catalogSection: 'abilities-acquired-medicine',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -1380,8 +1492,6 @@ const mockDevelopmentImportRaw: Rule[] = [
       requirements: [],
       grants: [],
       parent_ability_code: null,
-      multiple: true,
-      domain_ref: 'species',
     },
     keywordIds: [13, 59],
     mechanicId: null,
@@ -1391,50 +1501,51 @@ const mockDevelopmentImportRaw: Rule[] = [
     id: 249,
     code: 'znanie-bolezney',
     type: 'ability',
-    name: 'Знание болезней( вид , х )',
+    name: 'Знание болезней',
     description:
-      'Даёт возможность определять болезни и даёт знание, чем можно болезни лечить, будь то травы, порошки или мази, но не даёт знаний о изготовлении лекарств.\nИнтеллект увеличен на х размеров для проверок на знание болезней.\nБазовая сложность опознания распространённой болезни равна 2; редкой - 4; очень редкой - 8;\nНекоторые болезни может быть трудно опознать. Если болезнь не имеет ярко выраженных симптомов, то сложность её распознания увеличивается на размер. Некоторые болезни могут иметь повышенную на два и три размера стоимость, или даже не быть возможными для распознавания доступными методами.\nПодробность описаний симптомов как правило влияет на сложность определения болезни. При их отсутствии сложность увеличивается на размер. При неверном описании симптомов, помимо этого, на проверку налагается две помехи.',
+      'Шаблон знания: тип «Болезни», слот вида. Опознание и название лечения; не варка и не курс. База сложности 2 / 4 / 8. Уровни знания не поднимают Интеллект.',
+    catalogSection: 'abilities-acquired-mental-intellect',
     spaceId: 1,
     spec: {
       type: 'skill',
       zones: {
         or: {
           kind: 'array',
-          levels_cost: [1, 2, 3],
+          levels_cost: [1, 2, 2],
         },
       },
       requirements: [],
       grants: [],
       parent_ability_code: null,
-      multiple: true,
-      domain_ref: 'species',
+      knowledge_template_field: 'diseases',
     },
-    keywordIds: [13, 57, 59],
+    keywordIds: [13, 57, 59, 67],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Шаблон `znanie` / diseases. Запуск — check-knowledge; посадка в тело — физиология цели.',
   },
   {
     id: 250,
     code: 'fiziologiya',
     type: 'ability',
-    name: 'Физиология( вид , х )',
-    description: '',
+    name: 'Физиология',
+    description: 'Шаблон знания: тип «Физиология», слот вида. Лестница 1/2/2. Не лечит.',
+    catalogSection: 'abilities-acquired-mental-intellect',
     spaceId: 1,
     spec: {
       type: 'skill',
       zones: {
         or: {
           kind: 'array',
-          levels_cost: [2, 4, 4],
+          levels_cost: [1, 2, 2],
         },
       },
       requirements: [],
       grants: [],
       parent_ability_code: null,
-      multiple: true,
-      domain_ref: 'species',
+      knowledge_template_field: 'physiology',
     },
-    keywordIds: [13, 59],
+    keywordIds: [13, 57, 59, 67],
     mechanicId: null,
     createdAt: 1786269600,
   },
@@ -1442,8 +1553,10 @@ const mockDevelopmentImportRaw: Rule[] = [
     id: 251,
     code: 'farmatsiya',
     type: 'ability',
-    name: 'Фармация( вид , х )',
-    description: '',
+    name: 'Фармация',
+    description:
+      'Приготовление средств. Для вида пациента нужна физиология (или близкий вид), для травы — знание растений региона. Именной недуг — знание болезней или назначение.',
+    catalogSection: 'abilities-acquired-medicine',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -1456,20 +1569,20 @@ const mockDevelopmentImportRaw: Rule[] = [
       requirements: [],
       grants: [],
       parent_ability_code: null,
-      multiple: true,
-      domain_ref: 'species',
     },
     keywordIds: [13, 59],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Варка и требования знаний цели/региона пока не исполняются Game.',
   },
   {
     id: 252,
     code: 'khirurgiya',
     type: 'ability',
-    name: 'Хирургия( вид , х )',
+    name: 'Хирургия',
     description:
-      'Вы получаете возможность проводить проверки на Хирургию. Базовая характеристика для проверок на Хирургию - это наименьшая из Предела хирургии , Мелкой моторики и Внимательности . Предел хирурги равен 5 и каждый уровень этого навыка после первого повышает его на размер.\nПомимо этого вы получаете к проверкам на Хирургию +[ х + Физиология] от мастерства .',
+      'Операции. Проверка: мелкая моторика + уровень хирургии + физиология цели против сложности операции. Первую помощь на покупку не требует. Успех делает внутреннюю рану обычной; силу не снимает.',
+    catalogSection: 'abilities-acquired-medicine',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -1482,12 +1595,11 @@ const mockDevelopmentImportRaw: Rule[] = [
       requirements: [],
       grants: [],
       parent_ability_code: null,
-      multiple: true,
-      domain_ref: 'species',
     },
     keywordIds: [13, 57, 59],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Операции и пул проверки пока не исполняются Game.',
   },
   {
     id: 253,
@@ -1496,6 +1608,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Смертоносные удары',
     description:
       'Когда вы наносите кому-либо, относящемуся к известному вам виду увечье, вы можете использовать этот навык, чтобы дать ему помеху или преимущество на совершение проверки на получение увечья.',
+    catalogSection: 'abilities-acquired-medicine',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -1512,14 +1625,16 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 59],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Преимущество или помеха на проверку получения увечья пока не исполняются Game.',
   },
   {
     id: 254,
     code: 'pitanie',
     type: 'ability',
-    name: 'Питание( вид )',
+    name: 'Питание',
     description:
-      'Вы знаете о свойствах разной еды и различные способы питания для существа вида, и схожим с этим видом существ.\nПитание для развития тела : если вы тренируетесь на протяжении большей части приобретения черты Физическое развитие, то её стоимость уменьшится на 1, вплоть до 2. Стоимость еды для подобной программы питания при генерации персонажа считайте равной 6гз в месяц.\nПитание для похудения : вы можете составить программу питания для похудения, которая не будет вредить здоровью.\nПитание для больного : вы можете составить программу для ослабленного человека или для человека с проблемами с пищеварением.',
+      'Программы питания для вида, чью физиологию знаете (близкие виды — общий тип тела вроде гуманоида, уровень − 1).',
+    catalogSection: 'abilities-acquired-medicine',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -1532,19 +1647,20 @@ const mockDevelopmentImportRaw: Rule[] = [
       requirements: [],
       grants: [],
       parent_ability_code: null,
-      multiple: true,
-      domain_ref: 'species',
     },
     keywordIds: [13, 57, 59],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Программы питания и их влияние на еду, здоровье и стоимость Физического развития пока не исполняются Game.',
   },
   {
     id: 255,
     code: 'trenirovka-voli',
     type: 'ability',
     name: 'Тренировка воли',
-    description: 'Вы получаете +{уровень навыка} к Силе воли от тренировки.',
+    description: 'Вы получаете +уровень навыка к Силе воли от тренировок.',
+    catalogSection: 'abilities-acquired-mental-will',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -1580,6 +1696,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Подавление сомнений',
     description: 'При броске на силу воли вы можете убрать одну выпавшую 6 до применения каких-либо эффектов.',
+    catalogSection: 'abilities-acquired-mental-will',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -1596,13 +1713,15 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 60],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Удаление выпавшей шестёрки при проверке Воли пока не исполняется Game.',
   },
   {
     id: 257,
     code: 'nesgibaemyy-razum',
     type: 'ability',
     name: 'Несгибаемый разум',
-    description: 'Вы получаете [Сила воли] сопротивления психическому урону от разума .',
+    description: 'Вы получаете сопротивление психическому урону от разума в размере Силы воли.',
+    catalogSection: 'abilities-acquired-mental-will',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -1619,6 +1738,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 60],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Сопротивление психическому урону пока не исполняется Game.',
   },
   {
     id: 258,
@@ -1626,6 +1746,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Отходчивость',
     description: '+1 к эффективности проверок на восстановление воли.',
+    catalogSection: 'abilities-acquired-mental-will',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -1642,6 +1763,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 60],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Модификатор эффективности восстановления Воли пока не исполняется Game.',
   },
   {
     id: 259,
@@ -1649,6 +1771,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Адаптация',
     description: 'Вы бросаете на 1 кубик больше для проверки на восстановление силы воли.',
+    catalogSection: 'abilities-acquired-mental-will',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -1665,13 +1788,16 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 60],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Дополнительный кубик на восстановление Воли пока не исполняется Game.',
   },
   {
     id: 261,
     code: 'fizicheskoe-razvitie',
     type: 'ability',
     name: 'Физическое развитие',
-    description: 'Навык позволяет развивать физическую форму, вплоть до +6 от тренировки к одной характеристике.',
+    description:
+      'Распределите до 9 пунктов между Силой, Стойкостью и Ловкостью, не более 6 на одну характеристику. Каждый пункт даёт +1 к выбранной характеристике от тренировок. Стоимость пунктов внутри характеристики: 1–2 по 2 ОР, 3–4 по 3 ОР, 5–6 по 4 ОР. Каждый второй пункт Силы даёт +1 к Весу от тренировок.',
+    catalogSection: 'abilities-acquired-physical',
     spaceId: 1,
     spec: {
       type: 'trait',
@@ -1758,14 +1884,15 @@ const mockDevelopmentImportRaw: Rule[] = [
     code: 'trenirovka-skorosti',
     type: 'ability',
     name: 'Тренировка скорости',
-    description: '+1 к лимиту ОД от тренировки .',
+    description: '+1 к лимиту ОД от тренировок.',
+    catalogSection: 'abilities-acquired-physical',
     spaceId: 1,
     spec: {
       type: 'trait',
       zones: {
         or: {
           kind: 'array',
-          levels_cost: [4],
+          levels_cost: [3],
         },
       },
       requirements: [
@@ -1805,6 +1932,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Манёвренность( х из 2)',
     description: '',
+    catalogSection: 'abilities-acquired-physical',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -1835,6 +1963,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 61],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Текст эффекта Манёвренности отсутствует в выгрузке; требование Восприятия 5 сохранено.',
   },
   {
     id: 264,
@@ -1842,6 +1971,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Бегун',
     description: 'Каждая часть бега позволяет вам переместиться на 1 шаг больше.',
+    catalogSection: 'abilities-acquired-physical',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -1858,14 +1988,16 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 61],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Требование Силы и Стойкости не ниже Веса персонажа пока не выражено в spec; эффект Бега уже описан текстом.',
   },
   {
     id: 265,
     code: 'skrytnost',
     type: 'ability',
     name: 'Скрытность( х из 3)',
-    description:
-      'Вы получаете +[2 * х] к проворству от мастерства для проверок на скрытность. Проверки на скрытность, как правило, проходят на основе характеристики Ловкость.',
+    description: 'Вы получаете +[2 × X] к проверке на Скрытность от тренировки.',
+    catalogSection: 'abilities-acquired-physical',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -1883,11 +2015,10 @@ const mockDevelopmentImportRaw: Rule[] = [
           level: 1,
           grants: [
             {
-              type: 'characteristic_modify',
-              characteristic_code: 'dexterity',
-              amount: { type: 'fixed', value: 2 },
-              source_code: 'mastery',
+              type: 'check_advantage',
+              amount: 2,
               check_codes: ['stealth'],
+              source_code: 'training',
             },
           ],
         },
@@ -1895,11 +2026,10 @@ const mockDevelopmentImportRaw: Rule[] = [
           level: 2,
           grants: [
             {
-              type: 'characteristic_modify',
-              characteristic_code: 'dexterity',
-              amount: { type: 'fixed', value: 2 },
-              source_code: 'mastery',
+              type: 'check_advantage',
+              amount: 2,
               check_codes: ['stealth'],
+              source_code: 'training',
             },
           ],
         },
@@ -1907,11 +2037,10 @@ const mockDevelopmentImportRaw: Rule[] = [
           level: 3,
           grants: [
             {
-              type: 'characteristic_modify',
-              characteristic_code: 'dexterity',
-              amount: { type: 'fixed', value: 2 },
-              source_code: 'mastery',
+              type: 'check_advantage',
+              amount: 2,
               check_codes: ['stealth'],
+              source_code: 'training',
             },
           ],
         },
@@ -1928,6 +2057,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Отточенный навык',
     description: '',
+    catalogSection: 'abilities-acquired-physical',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -1944,6 +2074,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 61],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Описание эффекта улучшения отсутствует в выгрузке; механику не выдумываем.',
   },
   {
     id: 267,
@@ -1952,6 +2083,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Акробатика( х из 3)',
     description:
       '<p>Вы получаете + х к <a data-rule-code="dexterity">проворству</a> от <a data-rule-code="mastery">мастерства</a> для проверок на <a data-rule-code="acrobatics">Акробатику</a>.</p><p>Проверки на <a data-rule-code="acrobatics">Акробатику</a> могут основываться на <a data-rule-code="reaction">Реакции</a>, <a data-rule-code="strength">Силе</a> или <a data-rule-code="dexterity">Ловкости</a>. Если для проверки важны несколько характеристик - для проверки выбирается меньшая.</p><p><span class="description-example">Пример: Прыжок от стены. Это проверка на <a data-rule-code="acrobatics">Акробатику</a> по <a data-rule-code="strength">Силе</a> со сложностью 3 для первого прыжка. Для второго прыжка сложность возрастает до 3↑. Сложность последующих прыжков равна 3↑↑</span></p>',
+    catalogSection: 'abilities-acquired-physical',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -1988,6 +2120,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Отточенный навык',
     description: '',
+    catalogSection: 'abilities-acquired-physical',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -2004,6 +2137,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 61],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Описание эффекта улучшения отсутствует в выгрузке; механику не выдумываем.',
   },
   {
     id: 269,
@@ -2012,6 +2146,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Боевая акробатика',
     description:
       '+[ х / 2] к Ловкости от техники для реакции на атаку по вам Избежать, если ваша Сила превышает минимальную каждого используемого оружия минимум на размер. Если вы не используете при защите ни оружие, ни щит, то вашим оружием считаются ваши руки.',
+    catalogSection: 'abilities-acquired-physical',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -2028,6 +2163,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 61],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Бонус к реакции «Избежать» и ситуативное требование по Силе пока не исполняются Game.',
   },
   {
     id: 270,
@@ -2035,7 +2171,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Смертоносные трюки',
     description:
-      'Бонус от улучшения Боевая акробатика распространяется на все совместные проверки попадание ударом, а не только при реакции Избежать . В том числе и на ваши удары.',
+      'Бонус от улучшения «Боевая акробатика» распространяется на все совместные проверки попадания ударом, а не только на реакцию «Избежать», в том числе на ваши удары.',
+    catalogSection: 'abilities-acquired-physical',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -2052,13 +2189,15 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 61],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Расширение области действия бонуса Боевой акробатики пока не исполняется Game.',
   },
   {
     id: 271,
     code: 'smertonosnye-tryuki-2',
     type: 'ability',
     name: 'Смертоносные трюки',
-    description: 'Пока вы имеете минимум две свободные руки, бонус от навыка Боевая акробатика увеличен вдвое.',
+    description: 'Если у вас есть минимум две свободные руки, бонус от навыка «Боевая акробатика» увеличен вдвое.',
+    catalogSection: 'abilities-acquired-physical',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -2075,6 +2214,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 61],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Удвоение бонуса Боевой акробатики при наличии двух свободных рук пока не исполняется Game.',
   },
   {
     id: 272,
@@ -2082,6 +2222,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Полное отступление',
     description: 'Вы можете совершать отступление и падение одновременно.',
+    catalogSection: 'abilities-acquired-physical',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -2091,13 +2232,22 @@ const mockDevelopmentImportRaw: Rule[] = [
           levels_cost: [1],
         },
       },
-      requirements: [],
+      requirements: [
+        {
+          level: 1,
+          requirements: [
+            { type: 'has_ability', ability_code: 'boevaya-akrobatika', min_level: 1 },
+            { type: 'has_ability', ability_code: 'bezoruzhnyy-boy', min_level: 1 },
+          ],
+        },
+      ],
       grants: [],
       parent_ability_code: 'boevaya-akrobatika',
     },
     keywordIds: [13, 61],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Совместное отступление и падение пока не исполняется Game.',
   },
   {
     id: 273,
@@ -2106,6 +2256,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Удар ногами',
     description:
       'Вы можете бить ногами без обычного ограничения по их количеству, доплатив 1ОД. Однако, в таком случае, вы получите дополнительно 2 неустойчивости на всё время ударов.',
+    catalogSection: 'abilities-acquired-physical',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -2115,13 +2266,19 @@ const mockDevelopmentImportRaw: Rule[] = [
           levels_cost: [2],
         },
       },
-      requirements: [],
+      requirements: [
+        {
+          level: 1,
+          requirements: [{ type: 'has_ability', ability_code: 'akrobatika', min_level: 2 }],
+        },
+      ],
       grants: [],
       parent_ability_code: 'akrobatika',
     },
     keywordIds: [13, 61],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Доплата ОД и дополнительная неустойчивость при ударах ногами пока не исполняются Game.',
   },
   {
     id: 274,
@@ -2130,6 +2287,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Соблюсти баланс',
     description:
       'Если вы должны совершить проверку, для которой неустойчивость даёт помехи, вы можете совершить проверку на неустойчивость перед этим с увеличенной на размер сложностью. В случае успеха, неустойчивость больше не будет давать помех для этой проверки, но в случае провала вы падаете.',
+    catalogSection: 'abilities-acquired-physical',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -2139,20 +2297,27 @@ const mockDevelopmentImportRaw: Rule[] = [
           levels_cost: [1],
         },
       },
-      requirements: [],
+      requirements: [
+        {
+          level: 1,
+          requirements: [{ type: 'has_ability', ability_code: 'akrobatika', min_level: 3 }],
+        },
+      ],
       grants: [],
       parent_ability_code: 'akrobatika',
     },
     keywordIds: [13, 61],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Проверка Неустойчивости и снятие помехи пока не исполняются Game.',
   },
   {
     id: 275,
     code: 'kontrol-balansa',
     type: 'ability',
     name: 'Контроль баланса',
-    description: 'Вы получаете +[ х / 2] к Ловкости от техники для проверок против неустойчивости.',
+    description: 'Вы получаете +[X / 2] к Ловкости от техники для проверок против Неустойчивости.',
+    catalogSection: 'abilities-acquired-physical',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -2162,13 +2327,20 @@ const mockDevelopmentImportRaw: Rule[] = [
           levels_cost: [1],
         },
       },
-      requirements: [],
+      requirements: [
+        {
+          level: 1,
+          requirements: [{ type: 'has_ability', ability_code: 'akrobatika', min_level: 3 }],
+        },
+      ],
       grants: [],
       parent_ability_code: 'akrobatika',
     },
     keywordIds: [13, 61],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'В источнике указана Акробатика 4, но у Акробатики максимум 3 уровня; принято требование уровня 3. Бонус к проверкам против Неустойчивости пока не исполняется Game.',
   },
   {
     id: 276,
@@ -2177,6 +2349,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Прыжки с высоты',
     description:
       'При приземлении на ноги вы можете перебросить брошенные для определения повреждений от падения кубики, чей результат вас не устраивает.',
+    catalogSection: 'abilities-acquired-physical',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -2193,6 +2366,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 61],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Требование «Выживание или Акробатика» не внесено: код навыка Выживание отсутствует. Переброс кубиков урона от падения пока не исполняется Game.',
   },
   {
     id: 277,
@@ -2200,6 +2375,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Разделка туш',
     description: '',
+    catalogSection: 'abilities-acquired-other',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -2216,6 +2392,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 62],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Описание эффекта отсутствует в выгрузке; механику не выдумываем.',
   },
   {
     id: 278,
@@ -2224,6 +2401,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Владение музыкальным инструментом ( x из 3, инструмент )',
     description:
       'Инструментом может выступать голос.\nВы получаете характеристику Музицирование на инструменте , равную 3.\nВы получаете +[ х - 1] к Музицированию на инструменте от владения инструментом .',
+    catalogSection: 'abilities-acquired-other',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -2240,13 +2418,16 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 62],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Домен выбранного инструмента и связанные с ним бонусы пока не поддержаны; новую ось domain_ref не вводим.',
   },
   {
     id: 279,
     code: 'muzitsirovanie',
     type: 'ability',
     name: 'Музицирование( x из 3)',
-    description: 'Вы получаете + х к Музицированию.',
+    description: 'Вы получаете +X к Музицированию.',
+    catalogSection: 'abilities-acquired-other',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -2263,6 +2444,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 62],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Требование Владения музыкальным инструментом и доменная связь инструмента пока не выражены в spec.',
   },
   {
     id: 280,
@@ -2271,6 +2453,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Тренировка мелкой моторики( х из 3)',
     description:
       'Эта черта отображает то, насколько хорошо у вас развита мелкая моторика. Этот навык может понадобиться, например, в хирургии или для краж. Обычно базовая Мелкая моторика равна 3. Однако, некоторые черты могут это изменить. Так у орков она существенно хуже от рождения.\n+ х к Мелкой моторике .',
+    catalogSection: 'abilities-acquired-other',
     spaceId: 1,
     spec: {
       type: 'trait',
@@ -2281,12 +2464,26 @@ const mockDevelopmentImportRaw: Rule[] = [
         },
       },
       requirements: [],
-      grants: [],
+      grants: [
+        {
+          level: 1,
+          grants: [
+            {
+              type: 'characteristic_modify',
+              characteristic_code: 'fine-motor',
+              amount: { type: 'ability_level', ability_code: 'trenirovka-melkoy-motoriki', multiplier: 1 },
+              source_code: 'training',
+            },
+          ],
+        },
+      ],
       parent_ability_code: null,
     },
     keywordIds: [11, 62],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Grant мелкой моторики добавлен; базовое значение 3 и расовые изменения остаются логикой характеристик.',
   },
   {
     id: 281,
@@ -2295,6 +2492,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Взлом',
     description:
       'Вы теперь умеете взламывать обыкновенные замки, используя предназначенные для этого инструменты. Обычно это отмычки. Каждый замок имеет определённую Сложность и Надёжность и может иметь дополнительные эффекты, влияющие на взлом. Сложность - это сложность проверок для взлома замка. Для простейшего замка она равна 1, однако сложность наиболее распространённых простых замков равна 3. Надёжность - это суммарное количество РУ успешных проверок, необходимого для взлома замка. Минимальная надёжность равна 1, однако Надёжность наиболее распространённых простых замков равна 5. Для взлома замка, используя подходящие инструменты для взлома, совершите действие со стоимостью 5ОД - Взлом. В её рамках совершите проверку на взлом: Мелкая моторика со сложностью Сложность взлома замка . В случае успеха вы получаете [ РУ проверки ] прогресса взлома. Если вы накопили Надёжность замка или больше прогресса взлома, то вы его успешно взломали. В случае провала вы теряете [ -РУ проверки ] прогресса взлома. Если при провале вы не выбросили хотя бы один маленький успех, то вы ломаете свой инструмент для взлома и прекращаете эту попытку взлома. По окончании действия взлом вы можете его Продолжить как процесс, стоимостью 5ОД или прекратить попытку взлома. При прекращении Взлома, вы теряете весь прогресс взлома.',
+    catalogSection: 'abilities-acquired-other',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -2311,6 +2509,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 62],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Действие/процесс Взлома, прогресс, Сложность и Надёжность пока не исполняются Game.',
   },
   {
     id: 282,
@@ -2319,6 +2518,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Внимание к деталям',
     description:
       'Вы получаете +1 к проверке на взлом от восприятия за каждый размер Восприятия выше среднего, вплоть до +3.',
+    catalogSection: 'abilities-acquired-other',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -2335,13 +2535,15 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 62],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Бонус к проверкам Взлома от Восприятия пока не исполняется Game.',
   },
   {
     id: 283,
     code: 'opyt-vzloma',
     type: 'ability',
     name: 'Опыт взлома( х из 5)',
-    description: 'Вы получаете + х к Мелкой моторике от мастерства для проверок на Взлом.',
+    description: 'Вы получаете +X к Мелкой моторике от мастерства для проверок на Взлом.',
+    catalogSection: 'abilities-acquired-other',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -2358,13 +2560,15 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 62],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Код проверки Взлома не подтверждён; бонус оставлен текстовым до появления соответствующего runtime.',
   },
   {
     id: 284,
     code: 'karmannye-krazhi',
     type: 'ability',
     name: 'Карманные кражи( х из 5)',
-    description: 'Вы получаете + х к Мелкой моторике от мастерства для проверок на карманные кражи.',
+    description: 'Вы получаете +X к Мелкой моторике от мастерства для проверок на карманные кражи.',
+    catalogSection: 'abilities-acquired-other',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -2381,6 +2585,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 62],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Код проверки карманной кражи не подтверждён; бонус оставлен текстовым до появления соответствующего runtime.',
   },
   {
     id: 285,
@@ -2389,6 +2595,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Ловкость рук',
     description:
       'Вы получаете +1 к проверке на карманную кражу от ловкости за каждый размер Ловкости выше среднего, вплоть до +3.',
+    catalogSection: 'abilities-acquired-other',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -2405,6 +2612,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 62],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Бонус от Ловкости к проверке карманной кражи пока не исполняется Game.',
   },
   {
     id: 286,
@@ -2413,6 +2621,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Разрез',
     description:
       'Вы научились скрытно подрезать вещи прямо на людях, чтобы незаметно вытащить их содержимое. Для этого вы используете режущее оружие. В зависимости от того, насколько ваше оружие скрытно, мастер может увеличить сложность проверки. Помимо этого, если Пробитие оружия без учёта силы не превышает защиту разрезаемого материала, сложность проверки увеличивается на 1. Если оно меньше - увеличивается на столько, на сколько оно меньше. Если защита превышает урон, вы не можете разрезать предмет.',
+    catalogSection: 'abilities-acquired-other',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -2429,6 +2638,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 62],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Действие и проверка Разреза, включая ограничения по Пробитию и защите материала, пока не исполняются Game.',
   },
   {
     id: 287,
@@ -2437,6 +2648,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Макияж',
     description:
       'Этот навык позволяет вам вносить корректировки во внешность с помощью косметических материалов, которые могут улучшить цели [Внешность] на 1, вплоть до 1 или ухудшить на произвольное значение, вплоть до -2. Время, которое необходимо потратить на макияж и время, в течении которого он будет оказывать эффект, зависит от используемых материалов. Важно отметить, что понятия о красоте у разных существ отличается, и вы можете сделать цель более красивой только для тех существ, чьи понятия о красоте вы понимаете.',
+    catalogSection: 'abilities-acquired-other',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -2453,6 +2665,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 62],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Временное изменение Внешности, длительность и зависимость от понимания культуры пока не исполняются Game.',
   },
   {
     id: 288,
@@ -2461,6 +2675,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Профессиональный макияж',
     description:
       'Это улучшение позволяет вам улучшать внешность цели на 2, если она меньше 0. В таком случае время наложения макияжа увеличивается в два раза.',
+    catalogSection: 'abilities-acquired-other',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -2477,6 +2692,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 62],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Эффект улучшения Внешности и удвоение времени нанесения пока не исполняются Game.',
   },
   {
     id: 289,
@@ -2485,6 +2701,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Мастерство макияжа',
     description:
       'Это улучшение позволяет вам улучшать внешность цели вплоть до 2, увеличив время наложения макияжа в 5 раз.',
+    catalogSection: 'abilities-acquired-other',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -2501,6 +2718,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 62],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Эффект улучшения Внешности и увеличение времени нанесения в 5 раз пока не исполняются Game.',
   },
   {
     id: 290,
@@ -2509,6 +2727,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Нанесение грима( х из 3)',
     description:
       'Чтобы нанести проверку на нанесение грима, потратьте комплект для наложения грима и пройдите проверку на нанесение грима: [Качество набора для грима * х ] со сложностью 1, и преимуществом за каждые 6 проворства и восприятия. РУ проверки - это качество получившегося грима. Если не приглядываться, то грим не заметен для существ с восприятием равным или меньше [Качество грима * 2]. Если существо приглядывается, то оно должно потратить 3 секунды и пройти проверку со сложностью, равной РУ вашей проверки. Время накладывания грима зависит от используемых инструментов для грима и уменьшается в х раз. Каждый комплект для грима имеет ограниченные варианты, в кого позволяет замаскироваться. При этом, если у вас не части комплекта для грима, мастер может позволить вам его наложить, увеличив сложность проверки. Если вы хотите загримироваться под конкретного человека, то сложность проверки увеличивается на 1.',
+    catalogSection: 'abilities-acquired-other',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -2527,14 +2746,16 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 62],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Проверки грима, качество, материалы, обнаружение и время маскировки пока не исполняются Game.',
   },
   {
     id: 291,
     code: 'razvitie-obscheniya',
     type: 'ability',
-    name: 'Развитие общения',
+    name: 'Опыт общения',
     description:
-      'Изучение методов развития общения развивает ваше Красноречие.\nВы получаете +1 к Красноречию от методов развития общения, если владеете минимум двумя методами развития общения со Стоимостью 1 или больше.\nБонус увеличивается до 2, если помимо этого вы владеете минимум двумя методами развития общения со Стоимостью 2 или больше; до 3 - если помимо этого двумя со стоимостью 3 или больше.',
+      'Изучение методов развития общения увеличивает ваш Опыт общения.\nЗа каждые два метода развития общения со Стоимостью 1 или больше вы получаете +1 к Красноречию от опыта общения. Бонус увеличивается до 2, если помимо этого вы владеете минимум двумя методами со Стоимостью 2 или больше; до 3 — если помимо этого двумя методами со Стоимостью 3 или больше.',
+    catalogSection: 'abilities-acquired-social',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -2553,7 +2774,7 @@ const mockDevelopmentImportRaw: Rule[] = [
               type: 'characteristic_modify',
               characteristic_code: 'communication',
               amount: { type: 'ability_level', ability_code: 'razvitie-obscheniya', multiplier: 1, offset: 0 },
-              source_code: 'development',
+              source_code: 'experience',
             },
           ],
         },
@@ -2568,13 +2789,16 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 63],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Агрегат настроен на признак `method-communication`; подсчёт методов по стоимости и бонус к Красноречию пока не исполняются полностью.',
   },
   {
     id: 292,
     code: 'krasnorechie',
     type: 'ability',
     name: 'Тренировка Красноречия',
-    description: 'Вы получаете +{уровень навыка} к Красноречию от тренировки.',
+    description: 'Вы получаете +уровень навыка к Красноречию от тренировок.',
+    catalogSection: 'abilities-acquired-social',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -2611,6 +2835,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Манера общения',
     description:
       'Вам свойственна манера общения, которая предоставляет вам преимущество от манеры для одного из видов проверок общения: на запугивание, на убеждение, на обман, на обольщение или на торговлю.',
+    catalogSection: 'abilities-acquired-social',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -2625,9 +2850,10 @@ const mockDevelopmentImportRaw: Rule[] = [
       parent_ability_code: null,
       domain_ref: 'communication-check',
     },
-    keywordIds: [13, 58, 63],
+    keywordIds: [13, 63],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Преимущество от выбранной Манеры общения пока не исполняется Game.',
   },
   {
     id: 294,
@@ -2635,7 +2861,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Мастерство торга( х из 2)',
     description:
-      '+ х к Мастерству общения при проверках на торговлю.\n+1 к Мастерству общения от техники при проверках на торговлю за каждый размер Интеллекта или Внимательности выше среднего, вплоть до максимального бонуса +3.\nЭтот навык не даёт вам знания о ценности тех или иных монет, а также стоимости товаров. Для этого существует навык “Торговля”.',
+      '+X к Красноречию от техники при проверках на торговлю.\n+1 к Красноречию от техники при проверках на торговлю за каждый размер Интеллекта или Восприятия выше среднего, вплоть до максимального бонуса +3.\nЭтот навык не даёт знаний о ценности монет и стоимости товаров. Для этого существует навык «Торговля».',
+    catalogSection: 'abilities-acquired-social',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -2652,6 +2879,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 58, 63],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Бонусы техники к Красноречию при торговле и зависимость от Интеллекта/Восприятия пока не исполняются Game.',
   },
   {
     id: 295,
@@ -2659,6 +2888,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Опытный торговец',
     description: '',
+    catalogSection: 'abilities-acquired-social',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -2675,6 +2905,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 58, 63],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Описание эффекта отсутствует в выгрузке; механику не выдумываем.',
   },
   {
     id: 296,
@@ -2683,6 +2914,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Проницательный торговец',
     description:
       'Даже не зная стоимости цели торга, вы можете пытаться торговаться как ни в чём ни бывало. Вместо обычных штрафов (повышения на два размера сложности) вы получаете 3 помехи на проверку.',
+    catalogSection: 'abilities-acquired-social',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -2699,6 +2931,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 58, 63],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Проверки торга, стоимость цели и замена штрафа на 3 помехи пока не исполняются Game.',
   },
   {
     id: 297,
@@ -2707,6 +2940,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Поверхностная оценка',
     description:
       'Вы всегда можете определить примерную цену товара, если знаете достаточно о самом товаре и о месте продажи. Для последнего можно потратить время на то, чтобы узнать о местных ценах, если вы вдруг оказались в новом для себя месте. В зависимости от трудности ситуации и ваших знаний мастер может назначить вам проверку [Восприятие + Модификаторы для проверок на торговлю] против установленной им сложности.',
+    catalogSection: 'abilities-acquired-social',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -2737,6 +2971,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 58, 63],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Проверка оценки стоимости и модификаторы торговли пока не исполняются Game.',
   },
   {
     id: 298,
@@ -2745,6 +2980,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Хвалебные речи',
     description:
       'Если вы лжёте при торговле, то можете вместо того, чтобы выбрать лучший модификатор, добавить половину модификатора обмана сверх модификатора торговли.',
+    catalogSection: 'abilities-acquired-social',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -2775,6 +3011,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 58, 63, 70],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Сочетание модификаторов Обмана и торговли при лжи пока не исполняется Game.',
   },
   {
     id: 299,
@@ -2782,7 +3019,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Проницательность( х из 2)',
     description:
-      '+ х к Мастерству общения при проверках на проницательность: попытках распознать ложь, намерения, настроение собеседника и т.д.\n+1 к Мастерству общения от техники при проверках на проницательность за каждый размер Интеллекта или Внимательности выше среднего, вплоть до максимального бонуса +3.',
+      '+X к Красноречию от техники при проверках на Проницательность: попытках распознать ложь, намерения, настроение собеседника и т.д.\n+1 к Красноречию от техники при проверках на Проницательность за каждый размер Интеллекта или Восприятия выше среднего, вплоть до максимального бонуса +3.',
+    catalogSection: 'abilities-acquired-social',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -2799,6 +3037,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 58, 63],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Бонусы техники к Красноречию при Проницательности пока не исполняются Game.',
   },
   {
     id: 300,
@@ -2807,6 +3046,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Добыча информации',
     description:
       'Вы понимаете, как и что нужно сказать и сделать, чтобы спровоцировать собеседника выдать словом, мимикой или делом свои намерения. Вы можете совершить проверку на общение любым удобным вам способом(убеждение, обман и т.д.), чтобы это сделать. В случае успеха вы получите [РУ проверки] преимуществ от техники для немедленной проверки на проницательность на тему, согласно которой вы провоцировали, вплоть до 3.',
+    catalogSection: 'abilities-acquired-social',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -2823,6 +3063,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 58, 63],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Провокация собеседника и передача преимуществ на проверку Проницательности пока не исполняются Game.',
   },
   {
     id: 301,
@@ -2830,7 +3071,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Холодный ум',
     description:
-      '+1 к Мастерству общения от техники при проверках на проницательность при попытке вас запугать за каждый размер Силы воли выше среднего, вплоть до максимального бонуса +3.',
+      '+1 к Красноречию от техники при проверках на Проницательность во время попытки вас запугать за каждый размер Силы воли выше среднего, вплоть до максимального бонуса +3.',
+    catalogSection: 'abilities-acquired-social',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -2847,6 +3089,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 58, 63],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Бонус к Проницательности против запугивания от Силы воли пока не исполняется Game.',
   },
   {
     id: 302,
@@ -2855,6 +3098,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Моральная поддержка',
     description:
       'При длительном общении (от часа) вы можете пройти проверку на оказание психологической помощи, аналогичную проверке в навыке Психологическая помощь. В случае успеха, собеседник получит преимущество от поддержки для проверки на снятие стресса. При использовании навыка Психологическая помощь это улучшение используется без дополнительных проверок.',
+    catalogSection: 'abilities-acquired-social',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -2871,6 +3115,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 58, 63],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Система стресса, снятие стресса и преимущество от поддержки пока не реализованы Game.',
   },
   {
     id: 303,
@@ -2879,6 +3124,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Психологическая помощь ( х из 2)',
     description:
       'Вы можете оказывать моральную поддержку другим, способным вас понимать существам. Проведите часовой сеанс и пройдите проверку на оказание психологической помощи : Общение со сложностью 1. За каждый размер выше маленького, сложность проверки возрастает на размер. В случае успеха, если это первый сеанс за день, то цель снимает 4 стресса.\n+ х к Общению от знаний для проверок на оказание психологической помощи.\nДлительная терапия : при длительной терапии раз в неделю, после первой недели, вы можете снять не 4, а 5 стресса в случае успеха. А раз в месяц - 6, а не 4 в случае успеха.',
+    catalogSection: 'abilities-acquired-social',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -2895,6 +3141,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 57, 58, 63],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Система стресса, снятие стресса, длительная терапия и бонус к Общению от знаний пока не реализованы Game.',
   },
   {
     id: 304,
@@ -2902,7 +3150,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Проработка проблем',
     description:
-      'В случае успеха проверки на оказание психологической помощи с 2РУ или больше, цель в течении недели или до перехода на следующий уровень стресса иметь преимущество для проверок против стресса от подготовки .',
+      'В случае успеха проверки на оказание психологической помощи с 2 РУ или больше цель получает преимущество на проверки против стресса от подготовки на неделю или до перехода на следующий уровень стресса.',
+    catalogSection: 'abilities-acquired-social',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -2919,6 +3168,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 58, 63],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Стресс и преимущество против стресса пока не реализованы Game.',
   },
   {
     id: 305,
@@ -2926,7 +3176,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Работа над собой',
     description:
-      'Вы можете провести часовой сеанс для себя. Он не может снизить стресс, но может оказать эффект от Проработки проблем .',
+      'Вы можете провести часовой сеанс для себя. Он не снижает стресс, но может оказать эффект от «Проработки проблем».',
+    catalogSection: 'abilities-acquired-social',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -2943,6 +3194,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 58, 63],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Система стресса и эффект Проработки проблем пока не реализованы Game.',
   },
   {
     id: 306,
@@ -2950,6 +3202,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Работа над собой',
     description: 'Увеличьте количество преимуществ от поддержки до РУ проверки, вплоть до 4.',
+    catalogSection: 'abilities-acquired-social',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -2977,6 +3230,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 58, 63],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Поддержка и передача преимуществ пока не исполняются Game.',
   },
   {
     id: 307,
@@ -2984,7 +3238,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Мастерство обмана( х из 2)',
     description:
-      '+ х к Мастерству общения при попытках обмануть.\n+1 к Мастерству общения от техники при попытках обмануть за каждый размер Интеллекта выше среднего, вплоть до максимального бонуса +3.',
+      '+X к Красноречию от техники при попытках обмануть.\n+1 к Красноречию от техники при попытках обмануть за каждый размер Интеллекта выше среднего, вплоть до максимального бонуса +3.',
+    catalogSection: 'abilities-acquired-social',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -3001,6 +3256,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 58, 63, 70],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Модификаторы Красноречия к проверкам Обмана пока не исполняются Game.',
   },
   {
     id: 308,
@@ -3009,6 +3265,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Безупречный друг',
     description:
       'Вы легко понимаете людей - их мысли, то что им нравится и т.д., чем можете умело пользоваться. Вы получаете преимущество для бросков на обман, когда пытаетесь втереться в доверие.',
+    catalogSection: 'abilities-acquired-social',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -3025,6 +3282,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 58, 63, 70],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Преимущество на Обман при попытке втереться в доверие пока не исполняется Game.',
   },
   {
     id: 309,
@@ -3032,7 +3290,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Запугивание( х из 2)',
     description:
-      '+ х к Мастерству общения при попытках запугивания.\n+1 к Мастерству общения от техники при попытках запугивания за каждый размер Интеллекта выше среднего, вплоть до максимального бонуса +3.',
+      '+X к Красноречию от техники при попытках запугивания.\n+1 к Красноречию от техники при попытках запугивания за каждый размер Интеллекта выше среднего, вплоть до максимального бонуса +3.',
+    catalogSection: 'abilities-acquired-social',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -3049,6 +3308,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 58, 63],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Модификаторы Красноречия к проверкам Запугивания пока не исполняются Game.',
   },
   {
     id: 310,
@@ -3056,7 +3316,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Внушение страха',
     description:
-      'Когда вы запугиваете обманывая, проведите сначала проверку на запугивание. За каждый РУ этой проверки оппонент получает помеху для проверки вашего высказывания на обман (если её потребует оппонент) .',
+      'Когда вы запугиваете обманывая, сначала пройдите проверку на Запугивание. За каждый РУ этой проверки оппонент получает помеху на проверку вашего высказывания на Обман, если она потребуется.',
+    catalogSection: 'abilities-acquired-social',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -3073,6 +3334,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 58, 63, 70],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Связанные проверки Запугивания и передача помех на Обман пока не исполняются Game.',
   },
   {
     id: 311,
@@ -3080,7 +3342,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Обольщение( х из 2)',
     description:
-      '+ х к Мастерству общения при попытках обольщения.\n+1 к Мастерству общения от техники при попытках обольщения за каждый размер Внимательности выше среднего, вплоть до максимального бонуса +3.',
+      '+X к Красноречию от техники при попытках обольщения.\n+1 к Красноречию от техники при попытках обольщения за каждый размер Восприятия выше среднего, вплоть до максимального бонуса +3.',
+    catalogSection: 'abilities-acquired-social',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -3097,6 +3360,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 58, 63],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Модификаторы Красноречия к проверкам Обольщения пока не исполняются Game.',
   },
   {
     id: 312,
@@ -3104,7 +3368,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Льстивые речи',
     description:
-      'Если вы используете это улучшение, то в ы получаете +1 к эффективности проверок на Обольщение. Однако, в случае провала, это вызовет более сильное отторжение у цели.',
+      'Если вы используете это улучшение, то получаете +1 к эффективности проверок на Обольщение. Однако в случае провала это вызовет более сильное отторжение у цели.',
+    catalogSection: 'abilities-acquired-social',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -3121,6 +3386,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 58, 63, 70],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Усиление проверки Обольщения и отторжение при провале пока не исполняются Game.',
   },
   {
     id: 313,
@@ -3129,6 +3395,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Ведение допроса',
     description:
       'Вы обучены ведению допроса, что даёт вам преимущество от мастерства для проверок на убеждение, запугивание и проницательность при допросе.',
+    catalogSection: 'abilities-acquired-social',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -3145,13 +3412,15 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 58, 63],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Контекст допроса и преимущество от мастерства пока не исполняются Game.',
   },
   {
     id: 314,
     code: 'akterskoe-masterstvo',
     type: 'ability',
     name: 'Актёрское мастерство( х из 3)',
-    description: 'Вы получаете + х к Мастерству общения для проверок на Актёрское мастерство.',
+    description: 'Вы получаете +X к Красноречию для проверок на Актёрское мастерство.',
+    catalogSection: 'abilities-acquired-social',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -3168,13 +3437,15 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 58, 63],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Бонус Красноречия для проверок на Актёрское мастерство пока не исполняется Game.',
   },
   {
     id: 315,
     code: 'igra-po-zhizni',
     type: 'ability',
     name: 'Игра по жизни',
-    description: 'Вы получаете +1 к Мастерству общения для проверок на Обман и Обольщение.',
+    description: 'Вы получаете +1 к Красноречию для проверок на Обман и Обольщение.',
+    catalogSection: 'abilities-acquired-social',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -3191,6 +3462,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 58, 63, 70],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Бонус Красноречия для проверок на Обман и Обольщение пока не исполняется Game.',
   },
   {
     id: 316,
@@ -3199,6 +3471,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Меняя маски',
     description:
       'Вы получаете преимущество от манеры для проверок общения на запугивание, на убеждение, на обман, на обольщение или на торговлю. Одновременно вы можете иметь только один бонус от манеры . Вы не можете изменить манеру во время общения.',
+    catalogSection: 'abilities-acquired-social',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -3215,6 +3488,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 58, 63],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Выбор Манеры и преимущество от неё пока не исполняются Game.',
   },
   {
     id: 317,
@@ -3223,6 +3497,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Отвлечь внимание',
     description:
       'Выберите действие тех, чьё внимание вы хотите отвлечь и совершите соответствующее контексту действие. Это может быть широкий круг действий. Например вы можете выкрикнуть фразу, чтобы привлечь внимание противника к себе для того, чтобы вашему товарищу было проще нанести удар. Вы не можете использовать этот навык, если не можете как-либо отвлечь внимание.\nСовершите совместную проверку на Обман против Проницательности целей, которые вы хотите отвлечь. Если ваш способ неубедителен - вы получите от одной до трёх помех на усмотрение ведущего.\nКаждый, кого вам удалось отвлечь, получает помеху для всех проверок, пока не потратит 2ОД и не могут отреагировать на это действие. Помеха не распространяется на цель отвлечения.',
+    catalogSection: 'abilities-acquired-social',
     spaceId: 1,
     spec: {
       type: 'action',
@@ -3247,6 +3522,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 14, 58, 63, 70],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Действие, совместная проверка Обмана и временные помехи пока не исполняются Game.',
   },
   {
     id: 318,
@@ -3255,6 +3531,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Прикинуться мёртвым',
     description:
       'Вы падаете ничком. Совершите проверку на Актёрское мастерство со сложностью [Пассивная внимательность целей]. Те, против кого вы прошли проверку считают вас погибшим. Однако при тщательном осмотре можно легко обнаружить то, что вы живы.\nПассивная внимательность равна уменьшенной на размер Внимательности.\nСложность проверки может модифицироваться мастером в зависимости от ситуации. Так окружающие вряд ли поверят в то, что вы внезапно умерли.',
+    catalogSection: 'abilities-acquired-social',
     spaceId: 1,
     spec: {
       type: 'action',
@@ -3279,6 +3556,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 14, 58, 63],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Действие, проверка Актёрского мастерства и сравнение с пассивной Внимательностью пока не исполняются Game.',
   },
   {
     id: 319,
@@ -3286,7 +3565,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Навыки боя',
     description:
-      'Этот навык показывает, насколько вы опытны как боец. Уровень навыка зависит от навыков ближнего боя, которыми вы владеете: вы получаете первый уровень навыка, когда ваш опыт ближнего боя достигает 2, второй — при 8 опыте, третий — при 16 опыте.\nВы получаете +{уровень навыка} к Мастерству боя от тренировок.\nОпыт ближнего боя - суммарная стоимость навыков ближнего боя. Обратите внимание, что навыки мастерства владения оружием не относятся к навыкам ближнего боя. Также обратите внимание, что все владеют врождённым естественным оружием. Обычно это руки и ноги.',
+      'Этот навык показывает, насколько вы опытны как боец. Первый уровень даётся при 2 опыте ближнего боя, второй — при 8, третий — при 16.\nВы получаете +уровень навыка к Мастерству боя от тренировок.\nОпыт ближнего боя — суммарная стоимость навыков ближнего боя. Навыки владения оружием в этот опыт не входят. Все владеют врождённым естественным оружием, обычно руками и ногами.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -3319,6 +3599,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 64],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Автоматический подсчёт опыта ближнего боя по стоимости навыков пока не исполняется Game.',
   },
   {
     id: 320,
@@ -3326,6 +3607,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Боевые рефлексы',
     description: 'Для всех проверок на попадание вы получаете +3 от реакции к Восприятию, вплоть до значения Реакции.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -3342,6 +3624,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 64],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Бонус Реакции к Восприятию для проверок попадания пока не исполняется Game.',
   },
   {
     id: 321,
@@ -3349,7 +3632,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Отступление',
     description:
-      'Это - реакция на удар по вам. Вы можете использовать её как сопутствующее действие любой другой реакции на удар по вам. Помните, что вы не можете совершать одновременно два действия движения и вы не можете одновременно падать и отступать. Помните, что реакция не может превышать требовать больше ОД, чем действие которое на которое она совершается. Помните то, что сопутствующее действие не может превышать основное в затратах ОД.\nСделайте шаг по направлению от совершённому по вам удару. Если этот шаг должен будет вас вывести за пределы радиуса действия оружия, то вы получите +1 к эффективности для проверки на попадание. Если вы оказались в два раза раза дальше - +2; в 4 раза - +3; в 8 - +4 и т.д. Перемещение происходит после того, как атака по вам будет закончена. После перемещения вы получаете эффект “Неустойчивость”.\nЕсли атака была процессом, то вы перемещаетесь после Части и следующая Часть начнётся уже после вашего перемещения, однако атакующий может согласно правилу одновременных действий совершить действие движения, которое занимает не больше ОД, чем сама Часть. За это он получит помеху для проверок, согласно правилу одновременных действий.',
+      'Это реакция на удар по вам. Вы можете использовать её как сопутствующее действие другой реакции на удар. Нельзя одновременно совершать два действия движения, а также одновременно падать и отступать. Стоимость реакции не должна превышать стоимость основного действия.\nСделайте шаг от направления удара. Если шаг выводит вас за пределы радиуса действия оружия, вы получаете бонус к эффективности проверки попадания: +1 при двукратном увеличении расстояния, +2 при четырёхкратном и так далее. После перемещения вы получаете эффект «Неустойчивость».\nЕсли атака была процессом, перемещение происходит после его части; атакующий может совершить действие движения не дороже этой части, получив помеху по правилу одновременных действий.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'action',
@@ -3374,6 +3658,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 14, 53, 64],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Реакция, перемещение, бонус к попаданию и эффект Неустойчивости пока не исполняются Game.',
   },
   {
     id: 322,
@@ -3381,6 +3666,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Защита знанием',
     description: 'Вы получаете преимущество для проверок на попадание атак по вам, которые вам известны.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -3397,6 +3683,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 64],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Запоминание известных атак и преимущество против них пока не исполняются Game.',
   },
   {
     id: 323,
@@ -3405,6 +3692,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Адаптация к противнику',
     description:
       'Когда по вам противник совершает удар такой же атакой, которую он уже совершал, или защищается той же реакцией, которую уже использовал, пройдите проверку на Интеллект со сложностью, равной мастерству боя противника. При этом каждый размер восприятия выше среднего даст вам преимущество для этой проверки. В случае успеха отметьте данную атаку или реакцию на атаку данного противника как ту, которой вы нашли противодействие. Вы получаете преимущество для любых проверок на попадание против атак, которым нашли противодействие. Противник, совершающий реакцию на вашу атаку, которой вы нашли противодействие, получает помеху. Этот бонус сохраняется до конца боя.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -3421,6 +3709,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 64],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Память о найденном противодействии, преимущества и помехи до конца боя пока не исполняются Game.',
   },
   {
     id: 324,
@@ -3429,6 +3718,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Подавление пониманием',
     description:
       'Когда против вас совершается удар атаки или реакция на удар, которой вы уже нашли противодействие, вы получаете вместо одного преимущества по одному преимуществу за каждый размер вашего Интеллекта выше среднего.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -3438,13 +3728,19 @@ const mockDevelopmentImportRaw: Rule[] = [
           levels_cost: [2],
         },
       },
-      requirements: [],
+      requirements: [
+        {
+          level: 1,
+          requirements: [{ type: 'has_ability', ability_code: 'blizhniy-boy', min_level: 1 }],
+        },
+      ],
       grants: [],
       parent_ability_code: 'adaptatsiya-k-protivniku',
     },
     keywordIds: [13, 64],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Найденные противодействия и замена преимущества пока не исполняются Game.',
   },
   {
     id: 325,
@@ -3453,6 +3749,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Поддержка',
     description:
       'Вы можете при атаке ближнего боя, её части или реакции на удар сказать, что используете свободную руку для поддержки. В таком случае вы получите преимущество от поддержки для всех проверок на попадание этой атаки ближнего боя, её части или реакции на удар соответственно.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -3462,13 +3759,19 @@ const mockDevelopmentImportRaw: Rule[] = [
           levels_cost: [2],
         },
       },
-      requirements: [],
+      requirements: [
+        {
+          level: 1,
+          requirements: [{ type: 'has_ability', ability_code: 'blizhniy-boy', min_level: 1 }],
+        },
+      ],
       grants: [],
       parent_ability_code: null,
     },
     keywordIds: [13, 64],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Свободная рука и преимущество поддержки пока не исполняются Game.',
   },
   {
     id: 326,
@@ -3476,7 +3779,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Фехтование',
     description:
-      'Вы можете применить эффект этого навыка п ри совершении удара или реакции на удар, если вы используете только фехтовальное оружие и у вас минимум половина рук свободна. В таком случае для этого удара вы не получаете никаких бонусов (в т.ч. урона и пробития) от силы кроме описанных в этом навыке, если они у вас были. Вы получаете одно преимущество, если имеете большое восприятие; ещё одно, если имеете силу на размер, превышающую минимальную для каждого используемого оружия.',
+      'Вы можете применить эффект этого навыка при ударе или реакции на удар, если используете только фехтовальное оружие и у вас свободна как минимум половина рук. Для этого удара вы не получаете бонусов к урону и Пробитию от Силы, кроме описанных в этом навыке. Вы получаете одно преимущество при большом Восприятии и ещё одно, если Сила превышает минимальную для каждого используемого оружия минимум на размер.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -3486,13 +3790,19 @@ const mockDevelopmentImportRaw: Rule[] = [
           levels_cost: [2],
         },
       },
-      requirements: [],
+      requirements: [
+        {
+          level: 1,
+          requirements: [{ type: 'has_ability', ability_code: 'blizhniy-boy', min_level: 1 }],
+        },
+      ],
       grants: [],
       parent_ability_code: null,
     },
     keywordIds: [13, 64],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Условия оружия и свободных рук, а также преимущества Фехтования пока не исполняются Game.',
   },
   {
     id: 327,
@@ -3500,7 +3810,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Видение боя',
     description:
-      'Если вы не застигнуты врасплох, то во считается, что вы видите атаки по вам со спины, что позволяет реагировать на них.',
+      'Если вы не застигнуты врасплох, то считается, что вы видите атаки по вам со спины и можете реагировать на них.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -3519,6 +3830,11 @@ const mockDevelopmentImportRaw: Rule[] = [
               ability_code: 'blizhniy-boy',
               min_level: 1,
             },
+            {
+              type: 'characteristic_value',
+              characteristic_code: 'perception',
+              min: { base: 0, size: 1 },
+            },
           ],
         },
       ],
@@ -3528,6 +3844,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 56, 64],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Атаки со спины и состояние внезапности пока не исполняются Game.',
   },
   {
     id: 328,
@@ -3535,7 +3852,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Безоружный бой',
     description:
-      'Вы получаете +1 к эффективности проверок на уклонение при попытках избежать удар, если у вас есть минимум две свободные руки.',
+      'Вы получаете +1 к эффективности проверок на уклонение при попытках избежать удара, если у вас есть минимум две свободные руки.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -3545,20 +3863,27 @@ const mockDevelopmentImportRaw: Rule[] = [
           levels_cost: [3],
         },
       },
-      requirements: [],
+      requirements: [
+        {
+          level: 1,
+          requirements: [{ type: 'has_ability', ability_code: 'blizhniy-boy', min_level: 1 }],
+        },
+      ],
       grants: [],
       parent_ability_code: null,
     },
     keywordIds: [13, 64],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Свободные руки и бонус к уклонению пока не исполняются Game.',
   },
   {
     id: 329,
     code: 'borba',
     type: 'ability',
-    name: 'Борьба( х из 3)',
-    description: 'Вы получаете + х к Силе и Мастерству боя для всех проверок на захват и толчок.',
+    name: 'Борьба',
+    description: 'Вы получаете +X к Силе и Мастерству боя для всех проверок на захват и толчок.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -3575,6 +3900,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 64],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Бонусы к Силе, захвату и толчку пока не исполняются Game.',
   },
   {
     id: 330,
@@ -3582,7 +3908,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Перехват',
     description:
-      'Когда против вас делают захват, вы можете в ответ вместо обычной реакции использовать “Перехват” за 3ОД. В таком случае будет проверка аналогичная “Избегать(сила)”, но, в случае вашего успеха с минимум 2РУ, не только избегаете захвата, но и сами берёте её в захват, после чего тратите ещё 1ОД.',
+      'Когда против вас совершают захват, вы можете вместо обычной реакции использовать «Перехват» за 3 ОД. Выполните проверку, аналогичную «Избеганию (Сила)». При успехе с минимум 2 РУ вы не только избегаете захвата, но и сами берёте противника в захват, после чего тратите ещё 1 ОД.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -3599,6 +3926,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 64],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Реакция, проверка и ответный захват пока не исполняются Game.',
   },
   {
     id: 331,
@@ -3606,7 +3934,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Контрудар',
     description:
-      'Когда цель, которая удерживает вас в захвате наносит вам удар, вы можете выбрать реакцию “Контрудар” за 2ОД. В таким случае вы используете свободную руку, бросаете [Мастерство боя] кубиков, получая преимущество за каждый размер наименьшего из Силы и Проворства. В остальном считается, что вы избегаете удар. Если вы выиграете эту проверку, то нападающий получит удар от себя своим же оружием с РУ, равным вашему РУ защиты от этого удара.',
+      'Когда цель, удерживающая вас в захвате, наносит вам удар, вы можете выбрать реакцию «Контрудар» за 2 ОД. Используйте свободную руку и бросьте [Мастерство боя] кубиков, получая преимущество за каждый размер наименьшего из Силы и Проворства. В остальном считается, что вы избегаете удар. При успехе нападающий получает удар собственным оружием с РУ, равным вашему РУ защиты от этого удара.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -3623,6 +3952,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 64],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Реакция, проверка и ответный удар оружием противника пока не исполняются Game.',
   },
   {
     id: 332,
@@ -3630,7 +3960,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Бросок противником',
     description:
-      'Перед Захватом вы можете сказать, что собираетесь сделать бросок. В таком случае, если вы получите меньше 2РУ размера Силы противника за захват, то захват проваливается. В противном случае вы берёте цель в захват, тратите дополнительно 1ОД, после чего перемещаете цель в любую соседнюю клетку, перестаёте удерживать в захвате, она падает и получает d3 дробящего урона своего размера. Бросок можно использовать в том числе, если цель уже в захвате - для этого просто проведите проверку на захват, продолжая удерживать цель и объявите, что собираетесь сделать бросок.',
+      'Перед захватом вы можете объявить бросок. Если вы получите меньше 2 РУ размера Силы противника за захват, захват проваливается. В противном случае вы берёте цель в захват, тратите дополнительно 1 ОД, перемещаете её в соседнюю клетку, отпускаете, и она падает и получает d3 дробящего урона своего размера. Бросок можно использовать и против цели, которую вы уже удерживаете: проведите проверку на захват и объявите бросок.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'action',
@@ -3666,6 +3997,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 14, 64],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Захват, бросок, перемещение, падение и урон пока не исполняются Game.',
   },
   {
     id: 333,
@@ -3673,7 +4005,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Контрмеры',
     description:
-      'Когда против вас совершается действие “Захват”, вы можете использовать реакцию “Бросок” за 3ОД. Она аналогична “Избегать(сила)”, однако если вы достигните успеха в проверке минимум с 2РУ размера силы противника, то вы берёте её в захват, тратите дополнительно 1ОД, после чего перемещаете цель в любую соседнюю клетку, перестаёте удерживать в захвате, она падает и получает d3 дробящего урона своего размера.',
+      'Когда против вас совершается действие «Захват», вы можете использовать реакцию «Бросок» за 3 ОД. Она аналогична «Избеганию (Сила)», но при успехе с минимум 2 РУ размера Силы противника вы берёте его в захват, тратите дополнительно 1 ОД, перемещаете в соседнюю клетку, отпускаете, и он падает и получает d3 дробящего урона своего размера.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -3690,6 +4023,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 64],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Реакция, захват, перемещение, падение и урон пока не исполняются Game.',
   },
   {
     id: 334,
@@ -3698,6 +4032,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Бой с оружием в нескольких руках',
     description:
       'Если всё оружие, которое вы выбрали для удара одинаковое, то вы получаете на одну помеху меньше за использование дополнительного оружия.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -3714,6 +4049,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 64],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Снижение помехи за дополнительное оружие пока не исполняется Game.',
   },
   {
     id: 335,
@@ -3721,7 +4057,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Баланс',
     description:
-      'Если всем оружием, которое вы выбрали для удара у вас есть минимум 4 среднее владение, то вы получаете на одну помеху меньше за использование дополнительного оружия.',
+      'Если для каждого оружия, выбранного для удара, у вас есть минимум 4 среднего владения, вы получаете на одну помеху меньше за использование дополнительного оружия.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -3738,6 +4075,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 64],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Проверка владения оружием и снижение помехи пока не исполняются Game.',
   },
   {
     id: 336,
@@ -3746,6 +4084,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Подготовка',
     description:
       'При объявлении атаки ближнего боя вы можете заявить, что используете этот навык. В таком случае все ваши удары этой атаки получают помеху, однако, если следующее ваше действие - это атака ближнего боя, то её первый ваш удар получит преимущество для проверки на попадания от подготовки .',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -3762,6 +4101,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 64],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Подготовка атаки, временная помеха и преимущество следующей атаки пока не исполняются Game; обязательна реализация.',
   },
   {
     id: 337,
@@ -3770,6 +4111,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Быстрый удар',
     description:
       'Совершите один удар с уменьшенной на 1 точностью. Если следующее действие - атака, то она будет стоить на 1ОД больше.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'action',
@@ -3814,6 +4156,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Стремительный удар',
     description:
       'Вы подготавливаетесь к совершению стремительного удара. Если ваше следующее действие — атака, на совершение которой вы тратите не более 2 ОД с учётом всех временных модификаторов, то у цели её первого удара модификатор к Мастерству боя от Ловкости уменьшится на 3 (вплоть до 0).',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'action',
@@ -3830,7 +4173,7 @@ const mockDevelopmentImportRaw: Rule[] = [
             {
               type: 'characteristic_value',
               characteristic_code: 'reaction',
-              min: { base: 3, size: 0 },
+              min: { base: 3, size: 1 },
             },
             {
               type: 'has_ability',
@@ -3872,7 +4215,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Серия ударов',
     description:
-      'Первый удар в процессе стоит 3 ОД, каждый следующий — 2 ОД. Процесс можно прервать в любой момент. Любой промах прерывает процесс. После окончания процесса вы получаете одну помеху от обстоятельств на любые проверки попадания, пока не потратите 1 ОД.',
+      'Первый удар в процессе стоит 3 ОД, каждый следующий — 2 ОД. Процесс можно прервать в любой момент, а любой промах его прерывает. После окончания процесса вы получаете одну помеху от обстоятельств на любые проверки попадания, пока не потратите 1 ОД.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'process',
@@ -3936,13 +4280,16 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 14, 15, 64, 71],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Описание приведено к текущему process spec; внутреннее повреждение из старого текста не добавлялось.',
   },
   {
     id: 340,
     code: 'kombinatsiya-udarov',
     type: 'ability',
     name: 'Комбинация ударов',
-    description: '',
+    description:
+      'Процесс состоит из подготовительной части за 2 ОД и части окончания за 2 ОД. Подготовительная часть даёт 1 Комбо; часть окончания использует его для бонуса точности и может уменьшить стоимость следующей атаки.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'process',
@@ -4007,6 +4354,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 14, 15, 64, 71],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Реализация Комбо, условий частей процесса и временных модификаторов обязательна; пока не исполняется Game.',
   },
   {
     id: 341,
@@ -4015,6 +4364,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Раскрытие',
     description:
       'Вы можете вместо Части окончания совершить любую атаку. Её первый удар или бросок получит +[Комбо] к точности от обстоятельств . После чего процесс оканчивается.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -4031,6 +4381,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 64],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Замена части окончания атакой/броском и бонус Комбо обязательны к реализации; пока не исполняются Game.',
   },
   {
     id: 342,
@@ -4039,6 +4391,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Неотвратимая комбинация',
     description:
       'Вы можете заменить бонус к точности Части окончания или её замены полностью или частично. Каждая обмененная 1 точности даёт одно преимущество на попадание от обстоятельств и даёт цели удара одну помеху на получение увечий от обстоятельств .',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -4055,6 +4408,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 64],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Обмен точности на преимущества и помехи обязателен к реализации; пока не исполняется Game.',
   },
   {
     id: 343,
@@ -4062,7 +4416,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Обоерукая атака',
     description:
-      'Это действие не может затратить меньше 3ОД.\nСовершите два удара с одной помехой от обстоятельств , не используя во втором ударе оружие, используемое в первом ударе. Т.е. если вы нанесли удар одной рукой, второй удар должен быть нанесён другой рукой или любым другим оружием на ваш выбор.\nЕсли ваше следующее действие - атака по той же цели, её первый удар получит +1 к точности.',
+      'Это действие стоит 4 ОД и не может стоить меньше 3 ОД.\nСовершите два удара с одной помехой от обстоятельств, не используя во втором ударе оружие, использованное в первом. Если следующее действие — атака по той же цели, её первый удар получает +1 к точности.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'action',
@@ -4087,6 +4442,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Два удара, ограничение стоимости и бонус следующей атаки обязательны к реализации; пока не исполняются Game.',
   },
   {
     id: 344,
@@ -4095,6 +4452,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Синхронная атака',
     description:
       'Вы совершаете все удары синхронно по разным местам. Из-за этого вы получаете одну помеху от обстоятельств , а цель вынуждена защищаться одновременно от двух ударов. Это не позволит ей использовать оружие, чтобы блокировать сразу два удара. И она получит помеху на защиту за каждый удар, от которого защищается после первого.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -4111,6 +4469,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 64],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Синхронная защита от нескольких ударов и дополнительные помехи обязательны к реализации; пока не исполняются Game.',
   },
   {
     id: 345,
@@ -4119,6 +4479,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Сдвоенный удар',
     description:
       'Совершите один удар с двумя помехами на попадания от обстоятельств , используя два оружия . В случае успеха вы попадаете каждым используемым для атаки оружием.\nДля проверки на попадание вы используете наименьшую точность используемых оружий; применяете помехи, которые есть хотя-бы для попадания одним оружием; и используете преимущества, которые распространяются только на каждое используемое оружие.\nВы получаете на одну помеху от обстоятельств больше, если используете голову для удара. Например, для удара рогами.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'action',
@@ -4154,6 +4515,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Два оружия, общая точность и распределение помех обязательны к реализации; пока не исполняются Game.',
   },
   {
     id: 346,
@@ -4161,7 +4523,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Множество рук',
     description:
-      'Вы можете использовать больше двух оружий для удара. В таком случае вместо двух помех, вы получите столько помех от обстоятельств , сколько используете оружия для атаки.',
+      'Вы можете использовать больше двух оружий для удара. В таком случае вместо двух помех получаете столько помех от обстоятельств, сколько используете оружия для атаки.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -4178,13 +4541,16 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 64],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Использование более двух оружий и расчёт помех обязательны к реализации; пока не исполняются Game.',
   },
   {
     id: 347,
     code: 'mnozhestvo-udarov',
     type: 'ability',
     name: 'Множество ударов',
-    description: '',
+    description:
+      'Процесс начинается ударом за 3 ОД; каждая следующая часть стоит 2 ОД. Промах завершает процесс. Для удара используется столько помех от обстоятельств, сколько раз соответствующее оружие уже использовалось в процессе.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'process',
@@ -4245,7 +4611,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Размашистый удар',
     description:
-      'Совершите удар с увеличенной на 2 Силой и помехой на попадание от обстоятельств . Помеха остается для всех проверок на попадание * до тех пор, пока вы не потратите 2ОД. *Включая проверки на попадание по вам.',
+      'Совершите удар с увеличенной на 2 Силой и помехой на попадание от обстоятельств. Помеха сохраняется для всех проверок на попадание, включая проверки по вам, пока вы не потратите 2 ОД.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'action',
@@ -4297,6 +4664,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Яростный рывок',
     description:
       'Вы можете после этого удара пройти проверку на Силу воли со сложностью 3, в случае успеха вы получаете [Сила удара]↓ внутреннего дробящего урона и не получаете помеху после удара.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -4313,6 +4681,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 64],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Проверка Воли, внутренний дробящий урон и снятие помехи обязательны к реализации; пока не исполняются Game.',
   },
   {
     id: 351,
@@ -4321,6 +4691,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Удвоенная мощь',
     description:
       'Если при рубящем или дробящем ударе действием Силовой удар вы держите оружие в двух или более руках, то ваша Сила для этого удара увеличена ещё на 1.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -4337,6 +4708,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 64],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Дополнительная Сила при Силовом ударе и оружии в нескольких руках обязательна к реализации; пока не исполняется Game.',
   },
   {
     id: 352,
@@ -4345,6 +4718,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Толкающий удар',
     description:
       'Совершите Толчок по цели своим оружием, выбрав рубящий или дробящий урон. РУ вашей проверки на толчок снижена на 1, однако такой толчок наносит урон как обычный удар: [Урон * РУ].',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'action',
@@ -4380,6 +4754,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Толчок оружием, снижение РУ и урон обязательны к реализации; пока не исполняются Game.',
   },
   {
     id: 353,
@@ -4387,6 +4762,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Силовой удар',
     description: 'Совершите один удар по цели с +[РУ атаки]↓ к силе удара от обстоятельств, вплоть до +3.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'action',
@@ -4432,6 +4808,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Расчёт бонуса к Силе удара от РУ атаки обязателен к реализации; пока не исполняется Game.',
   },
   {
     id: 354,
@@ -4440,6 +4817,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Широкий удар',
     description:
       'Совершите рубящий, режущий или дробящий удар по выбранной вами цели и двум стоящим рядом с ней целям с помехой на попадание от обстоятельств за каждую цель после первой.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'action',
@@ -4487,13 +4865,16 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Атака по нескольким целям и помехи за дополнительные цели обязательны к реализации; пока не исполняются Game.',
   },
   {
     id: 355,
     code: 'tochnyy-udar',
     type: 'ability',
     name: 'Точный удар',
-    description: 'Совершите удар с увеличенной на 1 Точностью от обстоятельств .',
+    description: 'Совершите удар с увеличенной на 1 Точностью от обстоятельств.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'action',
@@ -4518,6 +4899,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Бонус +1 к Точности от обстоятельств сейчас не отрабатывает; обязательная доработка runtime.',
   },
   {
     id: 356,
@@ -4526,6 +4908,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Мастерство в точности',
     description:
       'Если вы имеете понимание (2) во владении оружием, то вы можете уменьшить его для любого удара на 1, чтобы получить +2 к Точности оружия от обстоятельств вместо бонуса +1.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -4542,6 +4925,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 64],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Требование понимания во владении оружием и обмен бонуса Точности обязательны к реализации; пока не исполняются Game.',
   },
   {
     id: 357,
@@ -4550,6 +4935,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Направленный удар',
     description:
       'Совершите удар с уменьшенной на 1 силой. Бонус к Мастерству боя цели от Восприятия для этого удара будет снижен на 3, вплоть до 0.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'action',
@@ -4585,6 +4971,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Снижение Силы удара и бонуса Мастерства боя цели обязательны к реализации; пока не исполняются Game.',
   },
   {
     id: 358,
@@ -4593,6 +4980,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Противодействующий удар',
     description:
       'Объявите реакцию (блокирование, уклонение) , которой вы будете противодействовать и совершите удар. Если цель удара совершила эту реакцию в ответ на удар - вы получаете преимущество. Если она не проигнорировала удар и совершила другую реакцию - помеху.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'action',
@@ -4638,6 +5026,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Выбор реакции и выдача преимущества/помехи обязательны к реализации; пока не исполняются Game.',
   },
   {
     id: 359,
@@ -4646,6 +5035,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Удар в сочленение',
     description:
       'Совершите колющий, рубящий или режущий удар с помехой от обстоятельств за каждую единицу надёжности доспеха цели. Вы получаете на одну помеху меньше, если используете короткое оружие. Вы получаете на одну помеху меньше, если наносите колющий удар. В случае попадания с минимум 1РУ этот удар игнорирует защиту от доспеха.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'action',
@@ -4691,14 +5081,17 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Зависимость помех от Надёжности доспеха, скидки помех и игнорирование защиты обязательны к реализации; пока не исполняются Game.',
   },
   {
     id: 360,
     code: 'smertelnyy-udar',
     type: 'ability',
-    name: 'Смертельный удар( x из 2)',
+    name: 'Смертельный удар',
     description:
       'Совершите удар. Каждая единица и шестёрка при вашем броске на попадание для этого удара добавляют и убирают х дополнительных успехов соответственно.\nЕсли удар был колющим, то каждая 6 при броске на увечье добавляет дополнительный провал.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'action',
@@ -4734,6 +5127,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Применение параметра X к успехам, колющий удар и дополнительные провалы обязательны к реализации; доменное требование владения оружием пока не поддержано.',
   },
   {
     id: 361,
@@ -4742,6 +5137,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Критический удар',
     description:
       'Эту атаку можно применить только сразу после атаки, каждый удар которой нанёс повреждения.\nВыберите одну из целей ударов прошлой атаки и совершите по ней удар. Каждая 4 и 5 будет считаться за 6, а каждая 2 будет считаться за 1.\nЕсли атака нанесла истощение, то если ваше следующее действие - атака ближнего боя, то она получит эффект Критического удара. Включая возможность распространить эффект на следующую атаку',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'action',
@@ -4787,13 +5183,16 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Условие предыдущей атаки, преобразование результатов и перенос эффекта обязательны к реализации; пока не исполняются Game.',
   },
   {
     id: 362,
     code: 'vypad',
     type: 'ability',
     name: 'Выпад',
-    description: 'Совершите удар с дистанцией действия оружия увеличенной на полшага. Обычно - на ½ ипари.',
+    description: 'Совершите удар с дальностью действия оружия, увеличенной на полшага. Обычно это ½ ипари.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'action',
@@ -4818,6 +5217,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Увеличение дальности действия оружия обязательна к реализации; пока не исполняется Game.',
   },
   {
     id: 363,
@@ -4826,6 +5226,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Выверенный удар',
     description:
       'Если предыдущая действие оказывает эффект на следующую за ним атаку, то примените его дважды * . *Так двойной удар даёт +1 к точности для следующей атаки; для выверенного удара это будет +2.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'action',
@@ -4850,6 +5251,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Требование понимания во владении оружием и удвоение эффекта обязательны к реализации; пока не исполняются Game.',
   },
   {
     id: 364,
@@ -4858,6 +5261,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Рискованный удар',
     description:
       'Совершите атаку из оз одного удара по выбранной вами цели с вдвое меньшей точностью. В случае успеха удара вы получите в два раза больше РУ атаки.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'action',
@@ -4882,13 +5286,16 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Половина Точности, удвоение РУ и требование понимания во владении оружием обязательны к реализации; пока не исполняются Game.',
   },
   {
     id: 365,
     code: 'raschetlivaya-ataka',
     type: 'ability',
     name: 'Расчётливая атака',
-    description: 'Вы можете потратить жетон концентрации, чтобы получить +1 к точности удара от концентрации .',
+    description: 'Вы можете потратить жетон концентрации, чтобы получить +1 к Точности удара от концентрации.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -4919,6 +5326,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 64],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Жетоны концентрации, бонус Точности и доменное требование Мастерства боя обязательны к реализации; пока не исполняются Game.',
   },
   {
     id: 366,
@@ -4927,6 +5336,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Обезоруживание',
     description:
       'Когда вы наносите удар, вы можете за 5РУ атаки удара выбить у неё оружие из рук, если только ваша сила не более чем на два размера меньше, чем у цели. *Чтобы поднять оружие требуется 2ОД.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -4954,6 +5364,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 64],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Обезоруживание за 5 РУ атаки и поднятие оружия за 2 ОД обязательны к реализации; пока не исполняются Game.',
   },
   {
     id: 367,
@@ -4962,6 +5374,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Удар в падении',
     description:
       'Когда вы используете навык “удар в движении”, чтобы сделать удар в падении, вы получаете в два раза меньше помех.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -4999,13 +5412,16 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 64],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Удар в падении и уменьшение помех обязательны к реализации; код навыка «Удар в движении» не выдумывался.',
   },
   {
     id: 368,
     code: 'kontrudar-2',
     type: 'ability',
     name: 'Контрудар',
-    description: '',
+    description: 'Боевой контрудар за 2 ОД.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'action',
@@ -5041,6 +5457,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 14, 53, 64],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Описание эффекта отсутствует в выгрузке; реализация Контрудара обязательна, механику не выдумываем.',
   },
   {
     id: 369,
@@ -5049,6 +5466,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Прикрытие',
     description:
       'Реакция на удар, выстрел или бросок по союзнику, находящемуся в пределах шага от вас. Затраты ОД для этой реакции на 1ОД больше, чем для выбранной реакции прикрытия (обычно блокирования).\nВы присоединяетесь к совместной проверке на попадание на стороне цели удара. Выберите один или несколько ударов, от которых вы прикрываете цель удара. Выберите реакцию прикрытия (обычно блокирование с тратой ещё 2ОД). Вы совершаете проверку на попадание так, будто выбранные цели атаковали вас, но с одной помехой от обстоятельств. При этом вы не можете избегать атаку. В случае успеха вашей проверки целью удара считаетесь вы. В случае провала атакующий может выбрать цель сам.\nЕсли вы прикрываете союзника от каждой атаки, от которой защищается он, и у которого есть этот навык, то вы оба получаете преимущество от обстоятельств для проверок.\nПример: союзника атакуют с помощью атаки за 4ОД. У него есть навык Прикрытие. Вы защищаете его с помощью Блокирования. Это потребует [1+2] = 3ОД. Союзник получит преимущество для своей проверки, а вы — не получите помехи. У врага на кубах вышло 2 успеха. У союзника 1. У вас — 3. Итого удар прошёлся на вас вместо союзника и вы его успешно заблокировали.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'action',
@@ -5084,6 +5502,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 14, 53, 64],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Прикрытие, совместная проверка и перенос результата атаки обязательны к реализации; пока не исполняются Game.',
   },
   {
     id: 370,
@@ -5092,6 +5512,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Перестановка',
     description:
       'Вы и ваш союзник, которого вы прикрывали, если не получили истощения, можете сделать по окончанию проверки шаг за 1ОД, чтобы поменяться местами. Если у союзника нет этого улучшения, то шаг обойдётся ему в 2ОД.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -5108,6 +5529,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 64],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Перестановка после Прикрытия и стоимость шага обязательны к реализации; пока не исполняются Game.',
   },
   {
     id: 371,
@@ -5116,6 +5538,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Поддержка в бою',
     description:
       'Вы можете совершить эту реакцию, когда кто-либо совершает удар по кому-то, в пределах дистанции вашего оружия. Вы помогаете либо атакующему, либо защищающемуся, давая тому преимущество, и ещё одно преимущество за каждый размер вашего мастерства боя выше среднего.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'action',
@@ -5151,6 +5574,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 14, 53, 64],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Поддержка в бою и дополнительные преимущества от Мастерства боя обязательны к реализации; пока не исполняются Game.',
   },
   {
     id: 372,
@@ -5159,6 +5584,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Координация',
     description:
       'Если вы помогаете тому, у кого есть это улучшение, то он может проигнорировать первую выпавшую шестёрку на броске.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -5175,6 +5601,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 64],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Игнорирование первой шестёрки при поддержке обязательно к реализации; пока не исполняется Game.',
   },
   {
     id: 373,
@@ -5183,6 +5610,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Обманный манёвр',
     description:
       'Вы можете использовать этот навык после того, как были объявлены все защиты против вашего удара, но до проверок. Цель навыка — все, кто выбрал защиту против вашего удара.\nВы и цели навыка совершаете совместную проверку с признаком Обман, вместо обычной проверки на попадание (удар не наносится). Вы для проверки можете использовать либо своё Мастерство боя, либо Обман. Цель может использовать для проверки либо своё Мастерство боя, либо Проницательность. Каждая провалившая проверку цель теряет возможность сделать действие после этой вашей атаки и получает две помехи для проверки на защиту против первого вашего удара по ней в этом ходу.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -5220,6 +5648,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 64, 70],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Обманный манёвр, совместная проверка и временные запреты/помехи обязательны к реализации; пока не исполняются Game.',
   },
   {
     id: 374,
@@ -5228,6 +5658,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Совместная атака',
     description:
       'Вы можете присоединиться почти к любой атаке - цели будет сложнее сопротивляться нескольким ударам, броскам или выстрелам одновременно.\nКогда кто-либо совершает атаку, вы можете отреагировать. В таком случае эта атака считается Первичной атакой. Совершите атаку, которая стоит не больше ОД, нежели первичная атака. Эта атака получит признак Вторичной и к ней нельзя будет присоединиться посредством этого навыка.\nПри каждом ударе, броске или выстреле первичной атаки вы можете совершить один удар, бросок или выстрел вторичной атаки по той же цели.\nЦель выбирает реакцию на каждую атаку, которую не собирается игнорировать и тратит ОД по наибольшей стоимости среди выбранных реакций. Для одинаковых реакций цель бросает только одну проверку, к которой применяются все штрафы каждой проверки для этой реакции. Помимо этого применяется правило об одновременных действиях - цель получит столько помех от состояния , сколько действий (в т.ч. реакций) совершает.\nПример: цель получает удар спереди и с фланга. Блокировать нечем, поэтому она решает увернуться от от ударов. Т.к. среди них есть удар с фланга, она получает 2 помехи от обстоятельств. Т.к. совершается две реакции уклонения, она получает 2 помехи от состояния. Итого уклонение за 1ОД с 4 помехами.\nОдновременно бить по цели и не мешать друг другу - не просто. Вы получаете помеху на попадание от обстоятельств , если первичный атакующий не владеет этим навыком. Вы получаете помеху на попадание от обстоятельств . если атакуете не той же атакой, что и первичный атакующий. И вы получаете две помехи от обстоятельств , если соответствуете обоим условиям.',
+    catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -5255,6 +5686,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 64],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Совместная атака, первичная/вторичная атаки и одновременные реакции обязательны к реализации; пока не исполняются Game.',
   },
   {
     id: 375,
@@ -5279,6 +5712,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 64],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Обязательная боевая доработка: снижение помехи в Совместной атаке пока не исполняется Game.',
   },
   {
     id: 376,
@@ -5311,6 +5745,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 14, 54, 65],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Обязательная боевая доработка: триггеры, стоимость 5 РУ, выбивание оружия и поднятие оружия пока не исполняются Game.',
   },
   {
     id: 377,
@@ -5343,6 +5779,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 14, 54, 65],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Обязательная боевая доработка: блокирование/парирование, Неустойчивость и немедленная атака пока не исполняются Game.',
   },
   {
     id: 378,
@@ -5374,6 +5812,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 14, 54, 65],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Обязательная боевая доработка: манёвр при ударе и наложение Неустойчивости пока не исполняются Game.',
   },
   {
     id: 379,
@@ -5398,6 +5837,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 54, 65],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Обязательная боевая доработка: усиление Заставить открыться и Разбить защиту до Неустойчивости 2 пока не исполняется Game.',
   },
   {
     id: 380,
@@ -5430,6 +5871,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 14, 54, 65],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Обязательная боевая доработка: реакция после уклонения и немедленная атака пока не исполняются Game.',
   },
   {
     id: 381,
@@ -5462,6 +5904,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 14, 54, 65],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Обязательная боевая доработка: реакция после уклонения и действие Осторожное передвижение пока не исполняются Game.',
   },
   {
     id: 382,
@@ -5486,6 +5930,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 55, 66, 68],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Обязательная боевая доработка дальнего боя: выбор техники, бонус Точности и использование Мастерства боя пока не исполняются Game.',
   },
   {
     id: 383,
@@ -5510,6 +5956,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 66],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Обязательная боевая доработка дальнего боя: перенос размера в Силу броска, урон, пробитие и штраф Дальнобойности пока не исполняются Game.',
   },
   {
     id: 384,
@@ -5534,6 +5982,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 66],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Обязательная боевая доработка дальнего боя: бонус Точности от Восприятия и проверка Внимательности для определения расстояния пока не исполняются Game.',
   },
   {
     id: 385,
@@ -5558,6 +6008,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 55, 66, 68],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Обязательная боевая доработка дальнего боя: выбор техники, перенос размера в Силу броска и использование Мастерства боя пока не исполняются Game.',
   },
   {
     id: 386,
@@ -5581,6 +6033,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 66],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Обязательная боевая доработка дальнего боя: изменение потери Силы броска по Дальнобойности пока не исполняется Game.',
   },
   {
     id: 387,
@@ -5604,6 +6058,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 66],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Обязательная боевая доработка дальнего боя: увеличение Дальнобойности от Безоборотной техники пока не исполняется Game.',
   },
   {
     id: 388,
@@ -5628,6 +6084,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 66],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Обязательная боевая доработка дальнего боя: применение к выстрелу/броску, двойная помеха и уменьшение Надёжности доспеха пока не исполняются Game.',
   },
   {
     id: 389,
@@ -5652,6 +6110,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 66],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Обязательная боевая доработка дальнего боя: усиление Атаки по незащищённым местам и распространение на все виды защиты пока не исполняются Game.',
   },
   {
     id: 390,
@@ -5676,6 +6136,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 66],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Обязательная боевая доработка дальнего боя: условие по 3 РУ, дополнительное РУ и автоматический промах пока не исполняются Game.',
   },
   {
     id: 391,
@@ -5700,6 +6162,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 66],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Обязательная боевая доработка дальнего боя: несовместимость с Атакой по уязвимым местам, порог 4 РУ, +2 РУ и автоматический промах пока не исполняются Game.',
   },
   {
     id: 392,
@@ -5724,6 +6188,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 66],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Обязательная боевая доработка дальнего боя: изменение правила 6 и 1 и порядок применения помех/преимуществ пока не исполняются Game.',
   },
   {
     id: 393,
@@ -5748,6 +6214,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 66],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote:
+      'Обязательная боевая доработка дальнего боя: усиленное правило 6 и 1 для Рискованной атаки пока не исполняется Game.',
   },
   ...mockWeaponSkillsImport,
 ];

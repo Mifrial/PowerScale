@@ -29,6 +29,10 @@ const abilityLevelModel = computed(() => (props.modelValue?.type === 'ability_le
 
 const dimensionalModel = computed(() => (props.modelValue?.type === 'dimensional' ? props.modelValue : null));
 
+const sizePositiveModel = computed(() =>
+  props.modelValue?.type === 'characteristic_size_positive' ? props.modelValue : null,
+);
+
 const actionCharacteristicModel = computed(() =>
   props.modelValue?.type === 'actionCharacteristic' ? props.modelValue : null,
 );
@@ -61,6 +65,8 @@ function updateType(type: string) {
     emit('update:modelValue', emptyActionCharacteristic());
   } else if (type === 'ability_level') {
     emit('update:modelValue', { type: 'ability_level', ability_code: '', multiplier: 1, offset: 0 });
+  } else if (type === 'characteristic_size_positive') {
+    emit('update:modelValue', { type: 'characteristic_size_positive', characteristic_code: '' });
   } else {
     emit('update:modelValue', { type: 'dimensional', base: 3, size: 0 });
   }
@@ -154,6 +160,13 @@ function updateActionCharacteristicCode(characteristic: string | null) {
   const current = props.modelValue;
   if (current?.type !== 'actionCharacteristic') return;
   emit('update:modelValue', { ...current, characteristic: characteristic ?? '' });
+}
+
+function updateSizePositiveCode(characteristic_code: string | null) {
+  emit('update:modelValue', {
+    type: 'characteristic_size_positive',
+    characteristic_code: characteristic_code ?? '',
+  });
 }
 
 function updateActionCharacteristicDelta(val: string) {
@@ -266,6 +279,20 @@ function updateActionCharacteristicDelta(val: string) {
         density="compact"
         hide-details
         style="max-width: 80px"
+      />
+    </template>
+
+    <template v-if="currentType === 'characteristic_size_positive'">
+      <v-autocomplete
+        :model-value="sizePositiveModel?.characteristic_code"
+        :items="characteristics"
+        item-title="name"
+        item-value="code"
+        label="Характеристика"
+        density="compact"
+        hide-details
+        style="flex: 1 1 auto"
+        @update:model-value="updateSizePositiveCode"
       />
     </template>
 

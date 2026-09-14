@@ -13,6 +13,7 @@ export const GRANT_TYPES: { label: string; value: Grant['type'] }[] = [
   { label: 'Открывает изучение волшебства', value: 'magic_study' },
   { label: 'Сопротивление урону', value: 'resistance' },
   { label: 'Модификатор чувства', value: 'sense_modify' },
+  { label: 'Множитель дистанции процесса', value: 'process_distance_multiplier' },
   { label: 'Модификатор состояния', value: 'state_modify' },
   { label: 'Преимущество на проверку', value: 'check_advantage' },
   { label: 'Стартовый капитал (деньги)', value: 'money' },

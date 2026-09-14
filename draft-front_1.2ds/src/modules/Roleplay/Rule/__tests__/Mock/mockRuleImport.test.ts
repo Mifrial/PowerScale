@@ -79,6 +79,61 @@ describe('mockRuleImport (S2)', () => {
     expect(byCode.get('gifted')).toBeUndefined();
   });
 
+  it('Быстроногий удваивает дистанцию бега грантом', () => {
+    const grants = abilitySpec('fast-footed')?.grants?.[0]?.grants as Grant[] | undefined;
+    expect(grants?.[0]).toMatchObject({
+      type: 'process_distance_multiplier',
+      ability_code: 'run',
+      multiplier: 2,
+    });
+  });
+
+  it('Толстые пальцы: −6 к проверке мелкой моторики от состояния', () => {
+    const grants = abilitySpec('thick-fingers')?.grants?.[0]?.grants as Grant[] | undefined;
+    expect(grants?.[0]).toMatchObject({
+      type: 'characteristic_modify',
+      characteristic_code: 'dexterity',
+      amount: { type: 'fixed', value: -6 },
+      source_code: 'from-state',
+      check_codes: ['check-fine-motor'],
+    });
+    const check = byCode.get('check-fine-motor');
+    expect(check?.spec).toMatchObject({
+      parent_check_code: 'check-dexterity',
+      characteristic_code: 'dexterity',
+      allow_characteristic_override: true,
+    });
+  });
+
+  it('Глухота убивает чувство Слух', () => {
+    const grants = abilitySpec('deaf')?.grants?.[0]?.grants as Grant[] | undefined;
+    expect(grants?.[0]).toMatchObject({
+      type: 'sense_modify',
+      sense_code: 'sense-hearing',
+      status: 'absent',
+    });
+  });
+
+  it('Слепота убивает чувство Зрение', () => {
+    const grants = abilitySpec('blind')?.grants?.[0]?.grants as Grant[] | undefined;
+    expect(grants?.[0]).toMatchObject({
+      type: 'sense_modify',
+      sense_code: 'sense-vision',
+      status: 'absent',
+    });
+  });
+
+  it('Немой ждёт вербальный компонент', () => {
+    expect(byCode.get('mute')?.contentNote).toMatch(/вербальн/);
+  });
+
+  it('Быстроногий: contentNote про непрочитанный грант бега', () => {
+    expect(byCode.get('fast-footed')?.contentNote).toMatch(/не читает/);
+    expect(byCode.get('fast-footed')?.catalogSection).toBe('abilities-innate-individual');
+    expect(byCode.get('thick-fingers')?.catalogSection).toBe('abilities-innate-individual');
+    expect(byCode.get('magic-resistance')?.catalogSection).toBe('abilities-innate-magic-individual');
+  });
+
   it('Внешность копит Привлекательность, Слух/Зрение — чувство', () => {
     const appearance = abilitySpec('gorgeous')?.grants?.[0]?.grants as Grant[] | undefined;
     expect(appearance?.[0]).toMatchObject({
@@ -162,7 +217,7 @@ describe('mockRuleImport (S2)', () => {
 
   it('Врождённое магическое ядро X: дар с табличной ценой мощи', () => {
     const rule = byCode.get('magic-core-capacity');
-    expect(rule?.name).toBe('Врождённое магическое ядро X');
+    expect(rule?.name).toBe('Врождённое магическое ядро');
     // Дар: признаки «Врождённая», «Характеристика», «Дар» (47) — без «Модификатор» (46).
     expect(rule?.keywordIds).toEqual(expect.arrayContaining([44, 45, 47]));
     expect(rule?.keywordIds).not.toContain(46);
@@ -191,7 +246,7 @@ describe('mockRuleImport (S2)', () => {
     expect(dexterity).toMatchObject({ min: { base: -3, size: 0 }, max: { base: 3, size: 0 } });
   });
 
-  it('Устрашающий вид: требует Омерзительную или Уродливую', () => {
+  it('Устрашающий вид: требует Омерзительную или Уродливую и даёт преимущество на запугивание', () => {
     const reqs = abilitySpec('intimidating')?.requirements?.[0]?.requirements;
     expect(reqs?.[0]).toMatchObject({ type: 'or' });
     const children = (reqs?.[0] as { children: unknown[] }).children;
@@ -199,6 +254,115 @@ describe('mockRuleImport (S2)', () => {
       { type: 'has_ability', ability_code: 'repulsive' },
       { type: 'has_ability', ability_code: 'ugly' },
     ]);
+    const grants = abilitySpec('intimidating')?.grants?.[0]?.grants as Grant[] | undefined;
+    expect(grants?.[0]).toMatchObject({ type: 'check_advantage', amount: 1, check_codes: ['intimidation'] });
+  });
+
+  it('Пачка 3: секции, Бугай, ночное зрение, холод игнорирует защиту', () => {
+    expect(byCode.get('cold-resistance')?.catalogSection).toBe('abilities-innate-individual');
+    expect(byCode.get('dark-vision')?.catalogSection).toBe('abilities-innate-individual');
+    expect(byCode.get('beerborn')?.catalogSection).toBe('abilities-innate-individual');
+    expect(byCode.get('small-step')?.catalogSection).toBe('abilities-innate-individual');
+    expect(byCode.get('big-build')?.name).toBe('Бугай');
+    expect(byCode.get('big-build')?.catalogSection).toBe('abilities-innate-individual');
+    expect(abilitySpec('big-build')?.zones.os).toEqual({ kind: 'array', levels_cost: [6] });
+    expect(abilitySpec('big-build')?.grants?.[0]?.grants).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ characteristic_code: 'weight', amount: { type: 'fixed', value: 3 } }),
+        expect.objectContaining({ characteristic_code: 'strength', amount: { type: 'fixed', value: 2 } }),
+        expect.objectContaining({ characteristic_code: 'endurance', amount: { type: 'fixed', value: 1 } }),
+      ]),
+    );
+    expect(byCode.get('dark-vision')?.name).toBe('Ночное зрение');
+    expect(abilitySpec('dark-vision')?.grants?.[0]?.grants?.[0]).toMatchObject({
+      type: 'sense_modify',
+      sense_code: 'sense-vision',
+      treat_as_good_down_to: 'minimal',
+    });
+    expect(byCode.get('cold')?.contentNote).toMatch(/Эффектов/);
+    expect(byCode.get('cold')?.spec).toMatchObject({ defense_ignored: true });
+    expect(byCode.get('magic-resistance')?.name).toBe('Сопротивление магии');
+    expect(byCode.get('innate-strength')?.name).toBe('Врождённая Сила');
+  });
+
+  it('Пачка 4: врождённые характеристики, доплата, группы 1 из', () => {
+    for (const code of [
+      'innate-strength',
+      'innate-endurance',
+      'innate-dexterity',
+      'innate-intellect',
+      'innate-perception',
+    ]) {
+      expect(byCode.get(code)?.catalogSection).toBe('abilities-innate-characteristics');
+      expect(byCode.get(code)?.contentNote).toMatch(/не входит в прогрессивную доплату/);
+    }
+    expect(byCode.get('innate-strength')?.description).toMatch(/Стойкости больше чем на 3/);
+    expect(byCode.get('innate-intellect')?.description).toMatch(/−1…\+1/);
+    expect(byCode.get('common-traits-surcharge')?.catalogSection).toBe('abilities-innate-common');
+    expect(byCode.get('common-traits-surcharge')?.description).toMatch(/признаком «общая»/);
+    expect(byCode.get('appearance')?.catalogSection).toBe('abilities-innate-common');
+    expect(byCode.get('voice')?.description).toMatch(/Чудесный голос/);
+    expect(byCode.get('hearing')?.description).toMatch(/Глухота/);
+    expect(byCode.get('vision')?.description).toMatch(/Ночное зрение в эту группу не входит/);
+  });
+
+  it('Пачка 5: источники «От *», чувства, возраст', () => {
+    expect(byCode.get('from-appearance')?.name).toBe('От внешности');
+    expect(byCode.get('from-voice')?.name).toBe('От голоса');
+    expect(byCode.get('from-state')?.name).toBe('От состояния');
+    expect(byCode.get('from-size')?.name).toBe('От размера');
+    expect(byCode.get('perfection')?.name).toBe('От совершенства');
+    expect(byCode.get('character')?.name).toBe('От личности');
+    expect(byCode.get('alcoholism')?.name).toBe('От алкоголизма');
+    expect(byCode.get('development')?.name).toBe('От развития');
+    for (const code of [
+      'from-appearance',
+      'from-voice',
+      'from-state',
+      'from-size',
+      'perfection',
+      'character',
+      'alcoholism',
+      'development',
+    ]) {
+      expect(byCode.get(code)?.catalogSection).toBe('basic-sources');
+    }
+    expect(byCode.get('sense-hearing')?.catalogSection).toBe('basic-senses');
+    expect(byCode.get('sense-vision')?.catalogSection).toBe('basic-senses');
+    expect(byCode.get('age')?.description).toMatch(/только в попапе/);
+    expect(byCode.get('alcoholism')?.contentNote).toMatch(/не реализован/);
+  });
+
+  it('Пачка 6: заглушки навыков удалены, личность в одном корне, живые гранты', () => {
+    expect(byCode.get('literacy')).toBeUndefined();
+    expect(byCode.get('communication-mastery')).toBeUndefined();
+    expect(byCode.get('sociability')?.name).toBe('Личность: Общительность');
+    expect(byCode.get('sociability')?.catalogSection).toBe('abilities-personality');
+    expect(byCode.get('attentiveness')?.name).toBe('Личность: Внимательность');
+    expect(byCode.get('withdrawn')?.description).toMatch(/Красноречию/);
+    expect(abilitySpec('withdrawn')?.grants?.[0]?.grants?.[0]).toMatchObject({
+      type: 'characteristic_modify',
+      characteristic_code: 'communication',
+      amount: { type: 'ability_level', ability_code: 'razvitie-obscheniya', offset: -3 },
+    });
+    expect(abilitySpec('bookworm')?.grants).toEqual([]);
+    expect(byCode.get('bookworm')?.contentNote).toMatch(/magic_study/);
+    expect(abilitySpec('empathic')?.grants?.[0]?.grants).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: 'ability', ability_code: 'pronitsatelnost' }),
+        expect.objectContaining({ type: 'check_advantage', check_codes: ['check-insight'] }),
+      ]),
+    );
+    expect(abilitySpec('pedant')?.grants?.[0]?.grants?.[0]).toMatchObject({
+      type: 'ability',
+      ability_code: 'razvitie-vnimatelnosti',
+      level: 2,
+    });
+    expect(abilitySpec('grudge-holder')?.grants?.[0]?.grants?.[0]).toMatchObject({
+      type: 'ability',
+      ability_code: 'razvitie-pamyati',
+    });
+    expect(byCode.get('sociable')?.catalogSection).toBe('abilities-personality');
   });
 
   it('Чудесный голос: +1 Привлекательность и преимущество на музицирование голосом', () => {
@@ -275,7 +439,7 @@ describe('mockRuleImport (S11, Личность)', () => {
   });
 
   it('особенности, дающие навыки, ссылаются на существующие навыки; группы «1 из»', () => {
-    for (const featureCode of ['sociable', 'bookworm', 'empathic', 'pedant', 'grudge-holder']) {
+    for (const featureCode of ['sociable', 'empathic', 'pedant', 'grudge-holder']) {
       const grants = abilitySpec(featureCode)?.grants?.[0]?.grants as Grant[] | undefined;
       const skills = (grants ?? []).filter((grant) => grant.type === 'ability');
       for (const skill of skills) {

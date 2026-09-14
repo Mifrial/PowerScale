@@ -19,6 +19,11 @@ export type Formula =
       characteristic_code: string;
     }
   | {
+      /** max(0, размер характеристики): {3|-1} → 0, {5|1} → 1. */
+      type: 'characteristic_size_positive';
+      characteristic_code: string;
+    }
+  | {
       /**
        * Число ПОЛНЫХ размеров, на которое характеристика `characteristic_code_from` выше
        * `characteristic_code_to`: trunc(modifyDiffTo(from, to) / 3), остаток отбрасывается в

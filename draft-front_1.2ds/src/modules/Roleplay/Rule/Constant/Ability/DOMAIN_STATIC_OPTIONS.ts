@@ -10,4 +10,8 @@ export const DOMAIN_STATIC_OPTIONS: Record<string, { code: string; name: string 
     { code: 'seduction', name: 'Обольщение' },
     { code: 'trade', name: 'Торговля' },
   ],
+  region: [
+    { code: 'raden', name: 'Раден' },
+    { code: 'dolina-desyati-tysyach-rek', name: 'Долина десяти тысяч рек' },
+  ],
 };

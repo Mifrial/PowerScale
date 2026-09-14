@@ -112,3 +112,91 @@ describe('checkResolution', () => {
     expect(checkResolutionService.resolveCheckCodeForCharacteristic('unknown', withStrength)).toBe(CHECK_SIMPLE_CODE);
   });
 });
+
+describe('жетон концентрации: матчинг проверки', () => {
+  const tokenCatalog: Rule[] = [
+    ...catalog,
+    checkRule('check-hit', {
+      type: 'check',
+      difficulty_input: { kind: 'none' },
+      allowed_modes: 'joint',
+    }),
+    checkRule('check-intellect', {
+      type: 'check',
+      parent_check_code: CHECK_SIMPLE_CODE,
+      characteristic_code: 'intellect',
+      difficulty_input: { kind: 'ask' },
+      allowed_modes: 'both',
+    }),
+    checkRule('check-perception', {
+      type: 'check',
+      parent_check_code: CHECK_SIMPLE_CODE,
+      characteristic_code: 'perception',
+      difficulty_input: { kind: 'ask' },
+      allowed_modes: 'both',
+    }),
+    checkRule('check-attention', {
+      type: 'check',
+      parent_check_code: CHECK_SIMPLE_CODE,
+      characteristic_code: 'attention',
+      difficulty_input: { kind: 'ask' },
+      allowed_modes: 'both',
+    }),
+    checkRule('check-dexterity', {
+      type: 'check',
+      parent_check_code: CHECK_SIMPLE_CODE,
+      characteristic_code: 'dexterity',
+      difficulty_input: { kind: 'ask' },
+      allowed_modes: 'both',
+    }),
+    checkRule('check-willpower', {
+      type: 'check',
+      parent_check_code: CHECK_SIMPLE_CODE,
+      characteristic_code: 'willpower',
+      difficulty_input: { kind: 'ask' },
+      allowed_modes: 'both',
+    }),
+    checkRule('check-initiative', {
+      type: 'check',
+      parent_check_code: CHECK_SIMPLE_CODE,
+      characteristic_code: 'perception',
+      difficulty_input: { kind: 'none' },
+      allowed_modes: 'solo',
+    }),
+    checkRule('check-spell-cast', {
+      type: 'check',
+      parent_check_code: CHECK_SIMPLE_CODE,
+      difficulty_input: { kind: 'ask' },
+      allowed_modes: 'solo',
+    }),
+    checkRule('stealth', {
+      type: 'check',
+      parent_check_code: CHECK_SIMPLE_CODE,
+      characteristic_code: 'dexterity',
+      difficulty_input: { kind: 'ask' },
+      allowed_modes: 'both',
+    }),
+  ];
+
+  it('разрешает попадание, интеллект, восприятие, внимание, общение, обман, инициативу', () => {
+    const allowed = [
+      'check-hit',
+      'check-intellect',
+      'check-perception',
+      'check-attention',
+      CHECK_COMMUNICATION_CODE,
+      'deception',
+      'check-initiative',
+    ];
+    for (const code of allowed) {
+      expect(checkResolutionService.isConcentrationTokenCheck(code, tokenCatalog), code).toBe(true);
+    }
+  });
+
+  it('сотворение с override на интеллект — да; ловкость, скрытность, воля — нет', () => {
+    expect(checkResolutionService.isConcentrationTokenCheck('check-spell-cast', tokenCatalog, 'intellect')).toBe(true);
+    expect(checkResolutionService.isConcentrationTokenCheck('check-dexterity', tokenCatalog)).toBe(false);
+    expect(checkResolutionService.isConcentrationTokenCheck('stealth', tokenCatalog)).toBe(false);
+    expect(checkResolutionService.isConcentrationTokenCheck('check-willpower', tokenCatalog)).toBe(false);
+  });
+});

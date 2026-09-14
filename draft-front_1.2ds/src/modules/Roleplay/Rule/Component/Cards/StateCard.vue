@@ -48,6 +48,10 @@ function nameByCode(code: string): string {
         <div class="text-body-2 mt-1">
           Объединение повторов: <strong>{{ aggregationLabels[spec.aggregation] }}</strong>
         </div>
+        <div v-if="spec.action_codes?.length" class="text-body-2 mt-1">
+          Действия с попапа:
+          <strong>{{ spec.action_codes.map(nameByCode).join(', ') }}</strong>
+        </div>
       </v-card-text>
     </v-card>
 

@@ -12,6 +12,7 @@ import { mockModsImport } from '@/modules/Roleplay/Rule/Mock/mockModsImport';
 import { mockModifierTypes } from '@/modules/Roleplay/Rule/Mock/mockModifierTypes';
 import { mockChecks } from '@/modules/Roleplay/Rule/Mock/mockChecks';
 import { mockDamageTypeHooks } from '@/modules/Roleplay/Rule/Mock/mockDamageTypeHooks';
+import { BLOOD_CLOTTING_RULE_CODE } from '@/modules/Roleplay/Rule/Constant/Ability/BLOOD_CLOTTING_RULE_CODE';
 import { DAMAGE_TYPE_FORMS } from '@/modules/Roleplay/Rule/Constant/DAMAGE_TYPE_FORMS';
 import type { DamageTypeSpec } from '@/modules/Roleplay/Rule/Dto/Damage/DamageTypeSpec';
 import {
@@ -96,6 +97,23 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       mechanicId: null,
       mechanicPayload: null,
       createdAt: 1786356000,
+    },
+    {
+      id: 398,
+      code: 'language-native',
+      type: 'language',
+      name: 'Родной язык',
+      description:
+        'Заглушка родного языка персонажа. Канон: каждый получает Владение языком 2 из 3 с этим доменом автоматически. Редактор экземпляр пока не выдаёт.',
+      spaceId: 1,
+      spec: { type: 'language' },
+      keywordIds: [],
+      mechanicId: null,
+      mechanicPayload: null,
+      createdAt: 1786356000,
+      catalogSection: 'abilities-acquired-mental-intellect',
+      contentNote:
+        'Заглушка. Нужно: автоэкземпляр vladenie-yazykom level 2, domain «Родной язык», domainCode language-native.',
     },
     {
       id: 905,
@@ -519,6 +537,18 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       createdAt: 1768471200,
     },
     {
+      id: 9302,
+      code: BLOOD_CLOTTING_RULE_CODE,
+      type: 'simple',
+      name: 'Свёртывание крови',
+      description:
+        'В конце хода раненого по каждой ране (включая внутреннюю) проверка [1] против 0. Успех: вклад свёртывания этой раны +РУ, не выше силы, без капа перевязки. Нет правила в ревизии — свёртывания нет.',
+      spaceId: 1,
+      keywordIds: [],
+      mechanicId: null,
+      createdAt: 1787911200,
+    },
+    {
       id: 9201,
       code: 'roll',
       type: 'simple',
@@ -890,10 +920,11 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       id: 20,
       code: 'concentration',
       type: 'resource',
-      name: 'Концентрация',
-      description: 'Сосредоточенность для сложных действий и поддержания эффектов.',
+      name: 'Жетоны концентрации',
+      description:
+        'Запас жетонов для опционального преимущества на проверку попадания, Восприятия, Внимательности, Реакции, Интеллекта, Памяти, Мышления или Красноречия. Не используется для поддержания эффектов.',
       spaceId: 1,
-      spec: { is_dimensional: false, limit: { base: 3, adjustments: [] } },
+      spec: { is_dimensional: false, auto_add: false, limit: { base: 0, adjustments: [] } },
       keywordIds: [3],
       mechanicId: null,
       createdAt: 1769594400,
@@ -1341,19 +1372,14 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       type: 'state',
       name: 'Рана',
       description:
-        'Повреждение с кровотечением. В конце хода сумма ран добавляется к Кровопотере (не в leftover / HP). Ран может быть несколько.',
+        'Каждая запись — сила и закрытость. Кровопотеря в ход = сила − закрытость (зажим даёт минимум 1). Свёртывание — правило каталога в конце хода.',
       spaceId: 1,
       spec: {
         icon_code: 'mdi-knife',
         value_type: 'number',
         aggregation: 'independent',
-        effects: [
-          {
-            type: 'damage_over_time',
-            damage: { kind: 'value' },
-            periodicity: { kind: 'literal', value: 1, step: 'turn' },
-          },
-        ],
+        action_codes: ['perevyazat', 'zazhat'],
+        effects: [],
       },
       keywordIds: [],
       mechanicId: null,

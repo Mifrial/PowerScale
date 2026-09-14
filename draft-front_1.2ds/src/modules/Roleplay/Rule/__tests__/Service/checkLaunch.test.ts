@@ -33,6 +33,11 @@ describe('checkLaunch', () => {
     expect(checkLaunchService.isLaunchableCheck(rules[1]!)).toBe(false);
   });
 
+  it('скрывает свёртывание крови', () => {
+    const rules = [check('check-simple'), check('check-blood-clotting')];
+    expect(checkLaunchService.isLaunchableCheck(rules[1]!)).toBe(false);
+  });
+
   it('простая проверка первая в списке запуска', () => {
     const rules = [check('check-strength'), check('check-simple'), check('check-communication')];
     expect(checkLaunchService.launchableChecks(rules).map((rule) => rule.code)[0]).toBe('check-simple');

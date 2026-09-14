@@ -174,4 +174,36 @@ describe('RuleCatalogMigrationService', () => {
       'magic-rules-casting',
     ]);
   });
+
+  it('places sources and senses into dedicated basic-rules sections', () => {
+    const migrated = ruleCatalogMigrationService.migrateRules(
+      [rule({ code: 'armor', type: 'source' }), rule({ code: 'sense-hearing', type: 'sense' })],
+      new Map(),
+    );
+
+    expect(migrated.map((entry) => entry.catalogSection)).toEqual(['basic-sources', 'basic-senses']);
+  });
+
+  it('places innate characteristic traits and common-traits surcharge', () => {
+    const migrated = ruleCatalogMigrationService.migrateRules(
+      [
+        rule({
+          code: 'innate-strength',
+          type: 'ability',
+          spec: { type: 'trait', zones: {}, requirements: [], grants: [], parent_ability_code: null },
+          keywordIds: [3, 4],
+        }),
+        rule({ code: 'common-traits-surcharge', type: 'simple' }),
+      ],
+      new Map([
+        [3, 'innate'],
+        [4, 'characteristic'],
+      ]),
+    );
+
+    expect(migrated.map((entry) => entry.catalogSection)).toEqual([
+      'abilities-innate-characteristics',
+      'abilities-innate-common',
+    ]);
+  });
 });

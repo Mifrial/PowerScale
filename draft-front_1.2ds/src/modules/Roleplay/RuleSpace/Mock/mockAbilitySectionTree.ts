@@ -3,6 +3,8 @@ import type { AbilitySection } from '@/modules/Roleplay/RuleSpace/Dto/AbilitySec
 export const mockAbilitySectionTree: AbilitySection[] = [
   { code: 'basic-rules', name: 'Основные правила', parentCode: null, sortOrder: 10, catalogRootFor: 'base' },
   { code: 'basic-characteristics', name: 'Характеристики', parentCode: 'basic-rules', sortOrder: 10 },
+  { code: 'basic-senses', name: 'Чувства', parentCode: 'basic-rules', sortOrder: 15 },
+  { code: 'basic-sources', name: 'Источники', parentCode: 'basic-rules', sortOrder: 18 },
   { code: 'basic-checks', name: 'Проверки', parentCode: 'basic-rules', sortOrder: 20 },
   { code: 'basic-resources', name: 'Ресурсы', parentCode: 'basic-rules', sortOrder: 30 },
   { code: 'basic-scenes', name: 'Детальные сцены', parentCode: 'basic-rules', sortOrder: 40 },
@@ -48,7 +50,15 @@ export const mockAbilitySectionTree: AbilitySection[] = [
   { code: 'abilities', name: 'Способности', parentCode: null, sortOrder: 40 },
   { code: 'abilities-innate', name: 'Врождённые', parentCode: 'abilities', sortOrder: 10 },
   { code: 'abilities-innate-characteristics', name: 'Характеристики', parentCode: 'abilities-innate', sortOrder: 10 },
+  { code: 'abilities-innate-individual', name: 'Индивидуальные', parentCode: 'abilities-innate', sortOrder: 15 },
   { code: 'abilities-innate-common', name: 'Общедоступные', parentCode: 'abilities-innate', sortOrder: 20 },
+  { code: 'abilities-innate-magic', name: 'Волшебство', parentCode: 'abilities-innate', sortOrder: 25 },
+  {
+    code: 'abilities-innate-magic-individual',
+    name: 'Индивидуальные',
+    parentCode: 'abilities-innate-magic',
+    sortOrder: 10,
+  },
   { code: 'abilities-innate-other', name: 'Прочие', parentCode: 'abilities-innate', sortOrder: 30 },
   {
     code: 'abilities-personality',
@@ -118,6 +128,12 @@ export const mockAbilitySectionTree: AbilitySection[] = [
     name: 'Количество',
     parentCode: 'abilities-acquired-melee-combat',
     sortOrder: 40,
+  },
+  {
+    code: 'abilities-acquired-melee-combat-maneuvers',
+    name: 'Манёвры',
+    parentCode: 'abilities-acquired-melee-combat',
+    sortOrder: 45,
   },
   {
     code: 'abilities-acquired-melee-combat-other',

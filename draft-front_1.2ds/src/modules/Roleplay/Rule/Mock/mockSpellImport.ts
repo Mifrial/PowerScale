@@ -156,7 +156,7 @@ export const mockSpellImport: Rule[] = [
     id: nextId++,
     code: 'magic-core-capacity',
     type: 'ability',
-    name: 'Врождённое магическое ядро X',
+    name: 'Врождённое магическое ядро',
     description: 'Право приобрести одно врождённое магическое ядро. X — потолок базовой магической мощи ядра.',
     spec: {
       type: 'trait',

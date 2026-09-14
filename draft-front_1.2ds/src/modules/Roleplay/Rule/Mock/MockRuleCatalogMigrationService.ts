@@ -1,4 +1,5 @@
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import { BLOOD_CLOTTING_RULE_CODE } from '@/modules/Roleplay/Rule/Constant/Ability/BLOOD_CLOTTING_RULE_CODE';
 
 export class MockRuleCatalogMigrationService {
   migrateRules(
@@ -11,7 +12,9 @@ export class MockRuleCatalogMigrationService {
     return rules.map((rule, index) => ({
       ...rule,
       catalogSection:
-        rule.catalogSection ?? this.sectionForRule(rule, speciesByCode, keywordCodeById, combatSectionByCode),
+        combatSectionByCode.get(rule.code) ??
+        rule.catalogSection ??
+        this.sectionForRule(rule, speciesByCode, keywordCodeById, combatSectionByCode),
       catalogSortOrder: rule.catalogSortOrder ?? (index + 1) * 100,
     }));
   }
@@ -28,7 +31,9 @@ export class MockRuleCatalogMigrationService {
 
       return parentCode && speciesByCode.has(parentCode) ? `species-${parentCode}` : 'races';
     }
-    if (rule.type === 'characteristic' || rule.type === 'sense') {
+    if (rule.type === 'source') return 'basic-sources';
+    if (rule.type === 'sense') return 'basic-senses';
+    if (rule.type === 'characteristic') {
       if (rule.code === 'magic-power' || rule.code === 'magic-control' || rule.code === 'spirituality') {
         return 'magic-rules-characteristics';
       }
@@ -104,7 +109,11 @@ export class MockRuleCatalogMigrationService {
       return 'abilities-acquired-magic-paths-arcanist';
     }
     if (rule.code === 'magic-core-capacity') return 'abilities-acquired-magic-sources-core';
-    if (rule.code === 'magic-resistance' || rule.code === 'careful-magic') return 'abilities-acquired-magic-common';
+    if (rule.code === 'magic-resistance') return 'abilities-innate-magic-individual';
+    if (rule.code === 'careful-magic') return 'abilities-acquired-magic-common';
+    if (keywords.has('innate') && keywords.has('characteristic') && spec?.type === 'trait') {
+      return 'abilities-innate-characteristics';
+    }
     if (spec?.type === 'trait') return 'abilities-innate-common';
     if (keywords.has('method-perception')) return 'abilities-acquired-mental-perception';
     if (keywords.has('method-intellect')) return 'abilities-acquired-mental-intellect';
@@ -134,6 +143,8 @@ export class MockRuleCatalogMigrationService {
     }
     if (rule.code === 'flanking-attack') return 'scenes-combat-tactics';
     if (rule.code === 'spell-sustaining') return 'magic-rules-casting';
+    if (rule.code === 'common-traits-surcharge') return 'abilities-innate-common';
+    if (rule.code === BLOOD_CLOTTING_RULE_CODE) return 'scenes-other';
 
     return 'scenes-other';
   }

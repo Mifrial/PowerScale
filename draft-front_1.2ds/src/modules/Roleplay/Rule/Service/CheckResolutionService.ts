@@ -3,8 +3,13 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import {
   COMMUNICATION_CHECK_DOMAIN_REF,
   CHECK_COMMUNICATION_CODE,
+  CHECK_HIT_CODE,
   CHECK_SIMPLE_CODE,
 } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
+import {
+  CONCENTRATION_TOKEN_ANCESTOR_CODES,
+  CONCENTRATION_TOKEN_CHARACTERISTIC_CODES,
+} from '@/modules/Roleplay/Rule/Constant/Check/CONCENTRATION_TOKEN_CODES';
 
 /** Код правила «Бросок» (тот же, что Game ROLL_RULE_CODE) — без импорта Game. */
 const ROLL_RULE_CODE = 'roll';
@@ -116,5 +121,19 @@ export class CheckResolutionService {
 
   isCommunicationCheckDomain(domainRef: string): boolean {
     return domainRef === COMMUNICATION_CHECK_DOMAIN_REF;
+  }
+
+  /**
+   * Жетон концентрации: попадание (включая предков), семейство восприятия/интеллекта/общения
+   * или фактическая характеристика после override.
+   */
+  isConcentrationTokenCheck(checkCode: string, rules: Rule[], characteristicOverride?: string | null): boolean {
+    const ancestors = this.checkAncestorCodes(checkCode, rules);
+    if (ancestors.includes(CHECK_HIT_CODE)) return true;
+    if (CONCENTRATION_TOKEN_ANCESTOR_CODES.some((code) => ancestors.includes(code))) return true;
+    const characteristic = this.resolveCheckCharacteristicCode(checkCode, rules, characteristicOverride);
+    if (!characteristic) return false;
+
+    return (CONCENTRATION_TOKEN_CHARACTERISTIC_CODES as readonly string[]).includes(characteristic);
   }
 }

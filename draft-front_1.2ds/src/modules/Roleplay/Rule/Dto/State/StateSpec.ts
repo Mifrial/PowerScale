@@ -26,5 +26,10 @@ export interface StateSpec {
    * independent— каждая запись действует отдельно (Раны, каждая со своим значением)
    */
   aggregation: StateAggregation;
+  /**
+   * Коды способностей-действий, которые попап записи состояния предлагает открыть
+   * в диалоге «Действие» (цель и индекс записи подставляются).
+   */
+  action_codes?: string[];
   effects?: StateEffect[];
 }

@@ -7,6 +7,7 @@ import type { WeaponProfile } from '@/modules/Roleplay/Rule/Dto/Item/WeaponProfi
 import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { WEAPON_PROFILE_TYPES } from '@/modules/Roleplay/Rule/Constant/Item/WEAPON_PROFILE_TYPES';
+import { LIGHTING_LEVEL_LABELS } from '@/modules/Roleplay/Rule/Constant/Lighting/LIGHTING_LEVEL_LABELS';
 
 export class RuleViewLabelService {
   ruleName(rules: Rule[], code: string): string {
@@ -56,6 +57,9 @@ export class RuleViewLabelService {
     if (node.type === 'parameter') return `${node.parameter_code} × ${node.per_unit}`;
     if (node.type === 'parameter_floor_div') return `⌊${node.parameter_code} / ${node.divisor}⌋`;
     if (node.type === 'characteristic_size') return `размер «${this.ruleName(rules, node.characteristic_code)}»`;
+    if (node.type === 'characteristic_size_positive') {
+      return `max(0, размер «${this.ruleName(rules, node.characteristic_code)}»)`;
+    }
     if (node.type === 'characteristic_size_gap') {
       return `разница размеров «${this.ruleName(rules, node.characteristic_code_from)}» − «${this.ruleName(rules, node.characteristic_code_to)}»`;
     }
@@ -143,8 +147,16 @@ export class RuleViewLabelService {
       }
       case 'resistance':
         return `Сопротивление «${this.ruleName(rules, grant.damage_type_code)}»: ${this.amount(grant.value, rules)} (${this.ruleName(rules, grant.source_code)})`;
-      case 'sense_modify':
-        return `Чувство «${this.ruleName(rules, grant.sense_code)}»: ${this.formula(grant.amount, rules)} (${this.ruleName(rules, grant.source_code)})`;
+      case 'sense_modify': {
+        const status = grant.status ? `; статус ${grant.status}` : '';
+        const lighting = grant.treat_as_good_down_to
+          ? `; как при хорошем до «${LIGHTING_LEVEL_LABELS[grant.treat_as_good_down_to]}»`
+          : '';
+
+        return `Чувство «${this.ruleName(rules, grant.sense_code)}»: ${this.formula(grant.amount, rules)}${status}${lighting} (${this.ruleName(rules, grant.source_code)})`;
+      }
+      case 'process_distance_multiplier':
+        return `Дистанция процесса «${this.ruleName(rules, grant.ability_code)}» ×${grant.multiplier}`;
       case 'state_modify':
         return `Состояние «${this.ruleName(rules, grant.state_code)}»: ${this.formula(grant.amount, rules)} (${this.ruleName(rules, grant.source_code)})`;
       case 'check_advantage':

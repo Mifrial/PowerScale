@@ -45,6 +45,7 @@ function stateFromSpec(value: RuleSpec | null): StateSpec {
     value_type: existing.value_type ?? 'flag',
     aggregation: existing.aggregation ?? 'sum',
     icon_code: existing.icon_code ?? null,
+    action_codes: existing.action_codes ?? [],
     effects: existing.effects ?? [],
   };
 }
@@ -67,6 +68,17 @@ const aggregationOptions: { title: string; value: StateAggregation }[] = [
   { title: 'Берётся наибольшее', value: 'max' },
   { title: 'Каждая отдельно', value: 'independent' },
 ];
+const actionRuleOptions = computed(() =>
+  props.rules
+    .filter((rule) => {
+      if (rule.type !== 'ability' || !rule.spec || typeof rule.spec !== 'object' || !('type' in rule.spec)) {
+        return false;
+      }
+
+      return rule.spec.type === 'action';
+    })
+    .map((rule) => ({ title: rule.name, value: rule.code })),
+);
 const damageSourceOptions: { title: string; value: 'value' | 'fixed' }[] = [
   { title: 'Значение состояния', value: 'value' },
   { title: 'Фиксированное число', value: 'fixed' },
@@ -76,6 +88,7 @@ const specToEmit = computed<StateSpec>(() => ({
   value_type: innerSpec.value.value_type,
   aggregation: innerSpec.value.aggregation,
   icon_code: innerSpec.value.icon_code,
+  ...(innerSpec.value.action_codes?.length ? { action_codes: innerSpec.value.action_codes } : {}),
   effects: innerSpec.value.effects ?? [],
 }));
 
@@ -208,6 +221,20 @@ function effectTitle(effect: StateEffect): string {
             Повторы правила в списке состояний персонажа: суммируются, берётся наибольшее или действуют отдельно
             (например, каждая Рана со своим значением).
           </div>
+
+          <v-autocomplete
+            v-model="innerSpec.action_codes"
+            class="mt-3"
+            :items="actionRuleOptions"
+            label="Действия с попапа записи"
+            hint="Кнопки открывают диалог действия с этой целью и записью"
+            persistent-hint
+            density="compact"
+            multiple
+            chips
+            closable-chips
+            clearable
+          />
 
           <div class="d-flex align-center justify-space-between mt-3 mb-1">
             <div class="text-body-2 font-weight-medium">Эффекты</div>

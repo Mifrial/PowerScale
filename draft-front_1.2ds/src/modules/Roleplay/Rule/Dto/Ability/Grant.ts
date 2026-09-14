@@ -1,6 +1,8 @@
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { Formula } from '@/modules/Roleplay/Rule/Dto/Ability/Formula';
 import type { MagicStudyScope } from '@/modules/Roleplay/Rule/Enum/Ability/MagicStudyScope';
+import type { SenseStatus } from '@/modules/Roleplay/Rule/Enum/SenseStatus';
+import type { LightingLevel } from '@/modules/Roleplay/Rule/Enum/LightingLevel';
 
 export type Grant =
   | { type: 'characteristic'; characteristic_code: string; value: DimensionalNumberValue; permanent?: boolean }
@@ -56,6 +58,20 @@ export type Grant =
       sense_code: string;
       amount: Formula;
       source_code: string;
+      /** Если задан — перекрывает статус из спеки чувства (глухота: absent). */
+      status?: SenseStatus;
+      /**
+       * Худшее освещение, при котором это чувство работает как при хорошем.
+       * Нет поля — как обычное зрение (нужен свет). `minimal` — ночное зрение, не полная тьма.
+       */
+      treat_as_good_down_to?: LightingLevel;
+      permanent?: boolean;
+    }
+  | {
+      /** Множитель дистанции шагов процесса (напр. бег ×2). */
+      type: 'process_distance_multiplier';
+      ability_code: string;
+      multiplier: number;
       permanent?: boolean;
     }
   | {

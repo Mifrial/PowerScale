@@ -33,8 +33,11 @@ describe('mockDevelopmentImport (S14)', () => {
     expect(language?.multiple).toBe(true);
     expect(language?.domain_ref).toBe('language');
     const medicine = abilitySpec('pervaya-pomosch');
-    expect(medicine?.multiple).toBe(true);
-    expect(medicine?.domain_ref).toBe('species');
+    expect(medicine?.multiple).toBeUndefined();
+    expect(medicine?.domain_ref).toBeUndefined();
+    const knowledge = abilitySpec('znanie');
+    expect(knowledge?.multiple).toBe(true);
+    expect(knowledge?.domain_ref).toBeUndefined();
     const trade = abilitySpec('torgovlya');
     expect(trade?.multiple).toBe(true);
     expect(trade?.domain_ref).toBe('region');
@@ -253,9 +256,11 @@ describe('mockDevelopmentImport (S14)', () => {
   it('«Развитие внимательности/реакции» — навыки, не методы развития восприятия', () => {
     const vnim = byCode.get('razvitie-vnimatelnosti');
     const reak = byCode.get('razvitie-reaktsii');
-    expect(vnim?.keywordIds).toContain(13); // навык
+    expect(vnim?.name).toBe('Тренировка внимательности');
+    expect(vnim?.keywordIds).toEqual(expect.arrayContaining([13, 232, 49]));
     expect(vnim?.keywordIds).not.toContain(56); // НЕ метод развития восприятия
-    expect(reak?.keywordIds).toContain(13);
+    expect(reak?.keywordIds).toEqual(expect.arrayContaining([13, 232, 53]));
+    expect(reak?.catalogSection).toBe('abilities-acquired-mental-perception');
     expect(reak?.keywordIds).not.toContain(56);
   });
 
@@ -322,5 +327,442 @@ describe('mockDevelopmentImport (S14)', () => {
       ability_code: 'fizicheskoe-razvitie',
       min_level: 1,
     });
+  });
+
+  it('навыки «Знание *» несут признак knowledge (67)', () => {
+    expect(byCode.get('znanie')?.keywordIds).toContain(67);
+    for (const code of [
+      'znanie-zakonov',
+      'znanie-o-zhivotnykh',
+      'znanie-o-rasteniyakh',
+      'znanie-o-istorii',
+      'znanie-bolezney',
+      'fiziologiya',
+    ]) {
+      expect(byCode.get(code)?.keywordIds, code).toContain(67);
+      expect(abilitySpec(code)?.knowledge_template_field, code).toBeTruthy();
+    }
+  });
+
+  it('интеллектуальные навыки имеют требования и честные notes знаний', () => {
+    expect(abilitySpec('matematika')?.requirements?.[0]?.requirements).toEqual(
+      expect.arrayContaining([
+        { type: 'has_ability', ability_code: 'schet', min_level: 1 },
+        { type: 'has_ability', ability_code: 'pismennost', min_level: 1 },
+      ]),
+    );
+    expect(abilitySpec('fizika')?.requirements?.[0]?.requirements).toEqual(
+      expect.arrayContaining([
+        { type: 'has_ability', ability_code: 'estestvoznanie', min_level: 1 },
+        { type: 'has_ability', ability_code: 'matematika', min_level: 1 },
+      ]),
+    );
+    expect(abilitySpec('torgovlya')?.requirements?.[0]?.requirements).toContainEqual({
+      type: 'has_ability',
+      ability_code: 'schet',
+      min_level: 1,
+    });
+
+    for (const code of ['znanie-zakonov', 'znanie-o-zhivotnykh', 'znanie-o-rasteniyakh', 'znanie-o-istorii']) {
+      const rule = byCode.get(code);
+      expect(rule?.keywordIds).toContain(67);
+      expect(rule?.contentNote).toBeTruthy();
+    }
+    expect(byCode.get('zaschita-ot-zakona')?.contentNote).toBeTruthy();
+  });
+
+  it('Шифр и медицина имеют согласованные требования и секции', () => {
+    expect(abilitySpec('shifr')?.requirements?.[0]?.requirements).toEqual(
+      expect.arrayContaining([
+        { type: 'has_ability', ability_code: 'schet', min_level: 1 },
+        { type: 'has_ability', ability_code: 'pismennost', min_level: 1 },
+      ]),
+    );
+    for (const code of ['pervaya-pomosch', 'sporaya-perevyazka', 'ukhod', 'farmatsiya', 'khirurgiya', 'pitanie']) {
+      expect(byCode.get(code)?.catalogSection, code).toBe('abilities-acquired-medicine');
+      expect(abilitySpec(code)?.domain_ref, code).toBeUndefined();
+      expect(abilitySpec(code)?.multiple, code).toBeUndefined();
+    }
+    expect(byCode.get('predpisaniya-o-lechenii')).toBeUndefined();
+    expect(byCode.get('znanie')?.catalogSection).toBe('abilities-acquired-mental-intellect');
+    expect(abilitySpec('znanie')?.multiple).toBe(true);
+    expect(abilitySpec('znanie')?.zones?.or).toEqual({ kind: 'array', levels_cost: [1, 2, 2] });
+    expect(abilitySpec('zaschita-ot-zakona')?.parent_ability_code).toBe('znanie');
+    expect(abilitySpec('zaschita-ot-zakona')?.parent_knowledge_field).toBe('laws');
+    expect(byCode.get('sporaya-perevyazka')?.contentNote).toBeTruthy();
+    expect(byCode.get('znanie-bolezney')?.contentNote).toBeTruthy();
+    expect(byCode.get('farmatsiya')?.contentNote).toBeTruthy();
+    expect(byCode.get('khirurgiya')?.contentNote).toBeTruthy();
+  });
+
+  it('Воля и физическое развитие имеют согласованные секции и цены', () => {
+    for (const code of [
+      'trenirovka-voli',
+      'podavlenie-somneniy',
+      'nesgibaemyy-razum',
+      'otkhodchivost',
+      'adaptatsiya',
+    ]) {
+      expect(byCode.get(code)?.catalogSection, code).toBe('abilities-acquired-mental-will');
+    }
+    expect(byCode.get('fizicheskoe-razvitie')?.catalogSection).toBe('abilities-acquired-physical');
+    expect(abilitySpec('trenirovka-skorosti')?.zones?.or).toEqual({ kind: 'array', levels_cost: [3] });
+    expect(byCode.get('manevrennost')?.contentNote).toBeTruthy();
+  });
+
+  it('Скрытность даёт бонус к проверке, а физические улучшения имеют требования', () => {
+    const stealthGrants = (abilitySpec('skrytnost')?.grants ?? []).flatMap((entry) => entry.grants ?? []);
+    expect(stealthGrants).toHaveLength(3);
+    expect(stealthGrants).toEqual(
+      expect.arrayContaining([
+        {
+          type: 'check_advantage',
+          amount: 2,
+          check_codes: ['stealth'],
+          source_code: 'training',
+        },
+      ]),
+    );
+    expect(stealthGrants.every((grant) => grant.type !== 'characteristic_modify')).toBe(true);
+    expect(abilitySpec('polnoe-otstuplenie')?.requirements?.[0]?.requirements).toEqual(
+      expect.arrayContaining([
+        { type: 'has_ability', ability_code: 'boevaya-akrobatika', min_level: 1 },
+        { type: 'has_ability', ability_code: 'bezoruzhnyy-boy', min_level: 1 },
+      ]),
+    );
+    expect(abilitySpec('udar-nogami')?.requirements?.[0]?.requirements).toContainEqual({
+      type: 'has_ability',
+      ability_code: 'akrobatika',
+      min_level: 2,
+    });
+  });
+
+  it('Баланс и общие навыки имеют согласованные требования и секции', () => {
+    expect(abilitySpec('soblyusti-balans')?.requirements?.[0]?.requirements).toContainEqual({
+      type: 'has_ability',
+      ability_code: 'akrobatika',
+      min_level: 3,
+    });
+    expect(abilitySpec('kontrol-balansa')?.requirements?.[0]?.requirements).toContainEqual({
+      type: 'has_ability',
+      ability_code: 'akrobatika',
+      min_level: 3,
+    });
+    expect(abilitySpec('trenirovka-melkoy-motoriki')?.grants?.[0]?.grants).toContainEqual({
+      type: 'characteristic_modify',
+      characteristic_code: 'fine-motor',
+      amount: { type: 'ability_level', ability_code: 'trenirovka-melkoy-motoriki', multiplier: 1 },
+      source_code: 'training',
+    });
+    for (const code of [
+      'soblyusti-balans',
+      'kontrol-balansa',
+      'pryzhki-s-vysoty',
+      'razdelka-tush',
+      'vladenie-muzykalnym-instrumentom',
+      'muzitsirovanie',
+      'trenirovka-melkoy-motoriki',
+      'vzlom',
+      'vnimanie-k-detalyam',
+      'opyt-vzloma',
+    ]) {
+      expect(byCode.get(code)?.catalogSection, code).toBe(
+        code === 'soblyusti-balans' || code === 'kontrol-balansa' || code === 'pryzhki-s-vysoty'
+          ? 'abilities-acquired-physical'
+          : 'abilities-acquired-other',
+      );
+    }
+  });
+
+  it('Опыт общения считает методы по признаку method-communication', () => {
+    const communicationDevelopment = abilitySpec('razvitie-obscheniya');
+    expect(byCode.get('razvitie-obscheniya')?.name).toBe('Опыт общения');
+    expect(communicationDevelopment?.aggregate).toEqual({
+      characteristic_code: 'communication',
+      method_keyword: 'method-communication',
+      levels: [2, 2, 2],
+    });
+    const experienceGrant = communicationDevelopment?.grants?.[0]?.grants?.[0];
+    expect(experienceGrant).toMatchObject({ source_code: 'experience' });
+    expect(byCode.get('krasnorechie')?.keywordIds).not.toContain(58);
+    expect(byCode.get('manera-obscheniya')?.keywordIds).not.toContain(58);
+  });
+
+  it('Социальные карточки пачки используют Красноречие и явную секцию', () => {
+    for (const code of [
+      'masterstvo-torga',
+      'opytnyy-torgovets',
+      'pronitsatelnyy-torgovets',
+      'poverkhnostnaya-otsenka',
+      'khvalebnye-rechi',
+      'pronitsatelnost',
+      'dobycha-informatsii',
+      'kholodnyy-um',
+      'moralnaya-podderzhka',
+      'psikhologicheskaya-pomosch',
+    ]) {
+      expect(byCode.get(code)?.catalogSection, code).toBe('abilities-acquired-social');
+    }
+    expect(byCode.get('masterstvo-torga')?.description).toContain('Красноречию');
+    expect(byCode.get('pronitsatelnost')?.description).toContain('Красноречию');
+    expect(byCode.get('kholodnyy-um')?.description).toContain('Красноречию');
+    expect(byCode.get('moralnaya-podderzhka')?.contentNote).toContain('стресса');
+    expect(byCode.get('psikhologicheskaya-pomosch')?.contentNote).toContain('стресса');
+  });
+
+  it('Социальные карточки пачки 16 имеют секцию и очищенные формулировки', () => {
+    for (const code of [
+      'prorabotka-problem',
+      'rabota-nad-soboy',
+      'rabota-nad-soboy-2',
+      'masterstvo-obmana',
+      'bezuprechnyy-drug',
+      'zapugivanie',
+      'vnushenie-strakha',
+      'obolschenie',
+      'lstivye-rechi',
+      'vedenie-doprosa',
+    ]) {
+      expect(byCode.get(code)?.catalogSection, code).toBe('abilities-acquired-social');
+    }
+    expect(byCode.get('masterstvo-obmana')?.description).toContain('Красноречию');
+    expect(byCode.get('zapugivanie')?.description).toContain('Красноречию');
+    expect(byCode.get('obolschenie')?.description).toContain('Красноречию');
+    expect(byCode.get('prorabotka-problem')?.contentNote).toContain('стресс');
+    expect(byCode.get('psikhologicheskaya-pomosch')?.contentNote).toContain('стресса');
+  });
+
+  it('Пачка 17 разделена на социальные действия и ближний бой', () => {
+    for (const code of [
+      'akterskoe-masterstvo',
+      'igra-po-zhizni',
+      'menyaya-maski',
+      'otvlech-vnimanie',
+      'prikinutsya-mertvym',
+    ]) {
+      expect(byCode.get(code)?.catalogSection, code).toBe('abilities-acquired-social');
+    }
+    for (const code of [
+      'blizhniy-boy',
+      'boevye-refleksy',
+      'otstuplenie',
+      'zaschita-znaniem',
+      'adaptatsiya-k-protivniku',
+    ]) {
+      expect(byCode.get(code)?.catalogSection, code).toBe(
+        code === 'blizhniy-boy' ? 'abilities-acquired-melee-mastery' : 'abilities-acquired-melee-combat-other',
+      );
+    }
+    expect(byCode.get('akterskoe-masterstvo')?.description).toContain('Красноречию');
+    expect(byCode.get('igra-po-zhizni')?.description).toContain('Красноречию');
+    expect(byCode.get('otstuplenie')?.spec).toMatchObject({ type: 'action' });
+    expect(byCode.get('otstuplenie')?.contentNote).toContain('Неустойчивости');
+  });
+
+  it('Пачка 18 содержит требования ближнего боя и корректное имя Борьбы', () => {
+    expect(byCode.get('borba')?.name).toBe('Борьба');
+    expect(byCode.get('borba')?.catalogSection).toBe('abilities-acquired-melee-combat-other');
+    for (const code of ['podavlenie-ponimaniem', 'podderzhka', 'fekhtovanie', 'bezoruzhnyy-boy']) {
+      expect(abilitySpec(code)?.requirements?.[0]?.requirements).toContainEqual({
+        type: 'has_ability',
+        ability_code: 'blizhniy-boy',
+        min_level: 1,
+      });
+    }
+    expect(abilitySpec('videnie-boya')?.requirements?.[0]?.requirements).toContainEqual({
+      type: 'characteristic_value',
+      characteristic_code: 'perception',
+      min: { base: 0, size: 1 },
+    });
+    expect(abilitySpec('brosok-protivnikom')?.requirements?.[0]?.requirements).toContainEqual({
+      type: 'has_ability',
+      ability_code: 'borba',
+      min_level: 1,
+    });
+  });
+
+  it('Пачка 19 размещена в ближнем бою и уточняет требование Стремительного удара', () => {
+    for (const code of [
+      'boy-s-oruzhiem-v-neskolkikh-rukakh',
+      'balans',
+      'podgotovka',
+      'bystryy-udar',
+      'stremitelnyy-udar',
+      'seriya-udarov',
+      'kombinatsiya-udarov',
+      'raskrytie',
+      'neotvratimaya-kombinatsiya',
+      'oboerukaya-ataka',
+    ]) {
+      expect(byCode.get(code)?.catalogSection, code).toBe(
+        ['boy-s-oruzhiem-v-neskolkikh-rukakh', 'balans', 'oboerukaya-ataka'].includes(code)
+          ? 'abilities-acquired-melee-combat-quantity'
+          : ['bystryy-udar', 'stremitelnyy-udar', 'seriya-udarov', 'kombinatsiya-udarov'].includes(code)
+            ? 'abilities-acquired-melee-combat-speed'
+            : 'abilities-acquired-melee-combat-other',
+      );
+    }
+    expect(abilitySpec('stremitelnyy-udar')?.requirements?.[0]?.requirements).toContainEqual({
+      type: 'characteristic_value',
+      characteristic_code: 'reaction',
+      min: { base: 3, size: 1 },
+    });
+    expect(byCode.get('seriya-udarov')?.description).not.toContain('внутреннее повреждение');
+    expect(byCode.get('kombinatsiya-udarov')?.contentNote).toContain('обязательна');
+    expect(byCode.get('oboerukaya-ataka')?.contentNote).toContain('обязательны');
+  });
+
+  it('Пачка 20 размещена в ближнем бою и описывает Множество ударов', () => {
+    for (const code of [
+      'sinkhronnaya-ataka',
+      'sdvoennyy-udar',
+      'mnozhestvo-ruk',
+      'mnozhestvo-udarov',
+      'razmashistyy-udar',
+      'yarostnyy-ryvok',
+      'udvoennaya-mosch',
+      'tolkayuschiy-udar',
+      'silovoy-udar',
+      'shirokiy-udar',
+    ]) {
+      expect(byCode.get(code)?.catalogSection, code).toBe(
+        ['sinkhronnaya-ataka', 'sdvoennyy-udar', 'mnozhestvo-ruk', 'mnozhestvo-udarov'].includes(code)
+          ? 'abilities-acquired-melee-combat-quantity'
+          : ['razmashistyy-udar', 'tolkayuschiy-udar', 'silovoy-udar', 'shirokiy-udar'].includes(code)
+            ? 'abilities-acquired-melee-combat-power'
+            : 'abilities-acquired-melee-combat-other',
+      );
+    }
+    expect(byCode.get('mnozhestvo-udarov')?.description).toContain('3 ОД');
+    expect(byCode.get('mnozhestvo-udarov')?.description).toContain('2 ОД');
+    expect(byCode.get('razmashistyy-udar')?.description).not.toContain(' *');
+    expect(byCode.get('sinkhronnaya-ataka')?.contentNote).toContain('обязательны');
+    expect(byCode.get('shirokiy-udar')?.contentNote).toContain('обязательны');
+  });
+
+  it('Пачка 21 размещена в ближнем бою и отмечает обязательный runtime', () => {
+    for (const code of [
+      'tochnyy-udar',
+      'masterstvo-v-tochnosti',
+      'napravlennyy-udar',
+      'protivodeystvuyuschiy-udar',
+      'udar-v-sochlenenie',
+      'smertelnyy-udar',
+      'kriticheskiy-udar',
+      'vypad',
+      'vyverennyy-udar',
+      'riskovannyy-udar',
+    ]) {
+      expect(byCode.get(code)?.catalogSection, code).toBe(
+        [
+          'tochnyy-udar',
+          'masterstvo-v-tochnosti',
+          'napravlennyy-udar',
+          'protivodeystvuyuschiy-udar',
+          'udar-v-sochlenenie',
+          'smertelnyy-udar',
+          'kriticheskiy-udar',
+        ].includes(code)
+          ? 'abilities-acquired-melee-combat-accuracy'
+          : 'abilities-acquired-melee-combat-other',
+      );
+      expect(byCode.get(code)?.contentNote, code).toContain('обязатель');
+    }
+    expect(byCode.get('smertelnyy-udar')?.name).toBe('Смертельный удар');
+    expect(byCode.get('tochnyy-udar')?.contentNote).toContain('не отрабатывает');
+  });
+
+  it('Пачка 22 и карта боевых секций раскладывают прочее сражение отдельно', () => {
+    for (const code of [
+      'raschetlivaya-ataka',
+      'obezoruzhivanie',
+      'udar-v-padenii',
+      'kontrudar-2',
+      'prikrytie',
+      'perestanovka',
+      'podderzhka-v-boyu',
+      'koordinatsiya',
+      'obmannyy-manevr',
+      'sovmestnaya-ataka',
+    ]) {
+      expect(byCode.get(code)?.catalogSection, code).toBe('abilities-acquired-melee-combat-other');
+      expect(byCode.get(code)?.contentNote, code).toContain('обязатель');
+    }
+    expect(byCode.get('raschetlivaya-ataka')?.catalogSection).toBe('abilities-acquired-melee-combat-other');
+    expect(byCode.get('tochnyy-udar')?.catalogSection).toBe('abilities-acquired-melee-combat-accuracy');
+    expect(byCode.get('razmashistyy-udar')?.catalogSection).toBe('abilities-acquired-melee-combat-power');
+    expect(byCode.get('mnozhestvo-udarov')?.catalogSection).toBe('abilities-acquired-melee-combat-quantity');
+  });
+
+  it('Пачка 23 разделяет прочее и боевые манёвры', () => {
+    expect(byCode.get('opyt-koordinatsii-atak')?.catalogSection).toBe('abilities-acquired-melee-combat-other');
+    for (const code of [
+      'obezoruzhit-protivnika',
+      'zastavit-otkrytsya',
+      'razbit-zaschitu',
+      'vskryt-slabost',
+      'poymat-moment',
+      'smenit-pozitsiyu',
+    ]) {
+      expect(byCode.get(code)?.catalogSection, code).toBe('abilities-acquired-melee-combat-maneuvers');
+      expect(byCode.get(code)?.contentNote, code).toContain('Обязательная');
+    }
+  });
+
+  it('Отложенные техники дальнего боя тоже отмечены обязательной очередью', () => {
+    for (const code of [
+      'mnogooborotnaya-tekhnika-metaniya',
+      'moschnaya-zakrutka',
+      'otrabotannaya-tekhnika',
+      'bezoborotnaya-tekhnika-metaniya',
+      'dalniy-brosok',
+      'otrabotannaya-tekhnika-2',
+      'ataka-po-nezaschischennym-mestam',
+      'popadanie-po-sochleneniyam',
+      'ataka-po-uyazvimym-mestam',
+      'smertelnyy-vystrel',
+      'riskovannaya-ataka',
+      'popadanie-po-sochleneniyam-2',
+    ]) {
+      expect(byCode.get(code)?.contentNote, code).toContain('Обязательная');
+    }
+  });
+
+  it('концентрация: требование or, грант жетонов, описание без Проворства и удержания', () => {
+    const rule = byCode.get('kontsentratsiya');
+    const spec = abilitySpec('kontsentratsiya');
+    expect(rule?.contentNote).toBeUndefined();
+    expect(rule?.description).not.toMatch(/Проворств|Телосложен|удержан|сохранен/i);
+    expect(rule?.description).toContain('одного хода');
+    expect(JSON.stringify(spec?.requirements)).toContain('"type":"or"');
+    expect(spec?.grants?.[0]?.grants.some((grant) => grant.type === 'resource')).toBe(true);
+    expect(byCode.get('concentration')?.name).toBe('Жетоны концентрации');
+  });
+
+  it('предельная концентрация: 2+2 ОР и требования размера; сосредоточение внимания удалено', () => {
+    expect(byCode.get('sosredotochenie-vnimaniya')).toBeUndefined();
+    const spec = abilitySpec('predelnaya-kontsentratsiya');
+    expect(spec?.zones.or).toEqual({ kind: 'array', levels_cost: [2, 2] });
+    expect(spec?.parent_ability_code).toBe('kontsentratsiya');
+    expect(JSON.stringify(spec?.requirements)).toContain('"size":1');
+    expect(JSON.stringify(spec?.requirements)).toContain('"size":2');
+  });
+
+  it('сосредоточение воли и длительное напряжение; дропнутые дети концентрации удалены', () => {
+    for (const code of [
+      'sosredotochenie-vnimaniya',
+      'parallelnye-deystviya',
+      'volevoe-usilie',
+      'molnienosnaya-reaktsiya',
+    ]) {
+      expect(byCode.get(code), code).toBeUndefined();
+    }
+    const will = abilitySpec('sosredotochenie-voli');
+    expect(will?.zones.or).toEqual({ kind: 'array', levels_cost: [2] });
+    expect(JSON.stringify(will?.requirements)).toContain('willpower');
+    expect(byCode.get('sosredotochenie-voli')?.contentNote).toBeUndefined();
+    const long = abilitySpec('dlitelnoe-napryazhenie');
+    expect(long?.zones.or).toEqual({ kind: 'array', levels_cost: [3] });
+    expect(JSON.stringify(long?.requirements)).toContain('"size":1');
   });
 });

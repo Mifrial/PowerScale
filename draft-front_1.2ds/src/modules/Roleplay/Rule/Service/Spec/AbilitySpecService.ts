@@ -230,6 +230,8 @@ export class AbilitySpecService {
           amount: { type: 'fixed', value: 1 },
           source_code: defaultSourceCode,
         };
+      case 'process_distance_multiplier':
+        return { type: 'process_distance_multiplier', ability_code: '', multiplier: 2 };
       case 'state_modify':
         return {
           type: 'state_modify',

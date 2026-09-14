@@ -254,7 +254,7 @@ function discardRule() {
           label="Версия"
           density="compact"
           hide-details
-          style="max-width: 220px"
+          style="max-width: 230px"
         />
 
         <v-chip v-if="hasLocalDraft" color="primary" variant="tonal" size="small"> Есть черновик </v-chip>

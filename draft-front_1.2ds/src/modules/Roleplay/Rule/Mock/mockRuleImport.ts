@@ -6,7 +6,14 @@ import type { Grant } from '@/modules/Roleplay/Rule/Dto/Ability/Grant';
 import type { AbilityParameter } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityParameter';
 import { damageTypeSpecService } from '@/modules/Roleplay/Rule/Service/Instance/damageTypeSpecService';
 import { ATTRACTIVENESS_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
-import { CHECK_VOICE_MUSIC_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
+import {
+  CHECK_FINE_MOTOR_CODE,
+  CHECK_INSIGHT_CODE,
+  CHECK_INTIMIDATION_CODE,
+  CHECK_VOICE_MUSIC_CODE,
+} from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
+import type { SenseStatus } from '@/modules/Roleplay/Rule/Enum/SenseStatus';
+import type { LightingLevel } from '@/modules/Roleplay/Rule/Enum/LightingLevel';
 
 /**
  * Импорт черт из docs/rule/AI.html (раздел «Создание основы», S2).
@@ -25,7 +32,6 @@ const APPEARANCE_KEYWORD = 43;
 const INNATE_KEYWORD = 44; // «Врождённая» — врождённая черта (от тела/вида)
 const CHARACTERISTIC_KEYWORD = 45; // «Характеристика» — черта характеристик (вкладка «Характеристики»)
 const MODIFIER_KEYWORD = 46; // «Модификатор» — даёт модификатор ±X к характеристике
-const SKILL_KEYWORD = 13; // «Навык» — тип способности: навык
 const SOCIABILITY_KEYWORD = 48; // «Общительность» — особенность личности
 const ATTENTIVENESS_KEYWORD = 49; // «Внимательность» — особенность личности
 const WEALTH_KEYWORD = 50; // «Богатство» — особенность богатства (не в лимите числа особенностей)
@@ -47,7 +53,7 @@ const dim = (base: number, size = 0) => ({ base, size });
 let nextId = 73;
 
 // Правила Фазы 4 (возраст/особенности) — отдельный счётчик после занятых диапазонов
-// (каталог: 1–115 nextId, 116–135 mockRaceImport, 136–138 чувства/Совершенство).
+// (каталог: nextId с 73, расы 116–135, 136–138 чувства/Совершенство; группы личности — olNextId).
 let olNextId = 145;
 
 interface TraitSpec {
@@ -59,6 +65,8 @@ interface TraitSpec {
   parameters?: AbilityParameter[];
   keywordIds?: number[];
   movement_step_size_delta?: number;
+  contentNote?: string;
+  catalogSection?: string | null;
 }
 
 const traitRule = (
@@ -100,12 +108,21 @@ const traitRule = (
     mechanicId: null,
     mechanicPayload: null,
     createdAt: 1786096800,
+    ...(spec.contentNote ? { contentNote: spec.contentNote } : {}),
+    ...(spec.catalogSection !== undefined ? { catalogSection: spec.catalogSection } : {}),
   };
 };
 
 /** Группирующее правило (type 'group'): контейнер с лимитом выбора. */
-const groupRule = (code: string, name: string, description: string, selectLimit: number): Rule => ({
-  id: nextId++,
+const groupRule = (
+  code: string,
+  name: string,
+  description: string,
+  selectLimit: number,
+  catalogSection?: string,
+  id?: number,
+): Rule => ({
+  id: id ?? nextId++,
   code,
   type: 'ability',
   name,
@@ -116,6 +133,7 @@ const groupRule = (code: string, name: string, description: string, selectLimit:
   mechanicId: null,
   mechanicPayload: null,
   createdAt: 1786096800,
+  ...(catalogSection ? { catalogSection } : {}),
 });
 
 const attractivenessModify = (value: number, source_code: string): Grant => ({
@@ -132,12 +150,55 @@ const modify = (characteristic_code: string, value: number): Grant => ({
   source_code: 'innate',
 });
 
-const senseModify = (sense_code: string, value: number): Grant => ({
+const senseModify = (
+  sense_code: string,
+  value: number,
+  status?: SenseStatus,
+  treatAsGoodDownTo?: LightingLevel,
+): Grant => ({
   type: 'sense_modify',
   sense_code,
   amount: { type: 'fixed', value },
   source_code: 'perfection',
+  ...(status ? { status } : {}),
+  ...(treatAsGoodDownTo ? { treat_as_good_down_to: treatAsGoodDownTo } : {}),
 });
+
+const sizeModify = (characteristic_code: string, value: number): Grant => ({
+  type: 'characteristic_modify',
+  characteristic_code,
+  amount: { type: 'fixed', value },
+  source_code: 'from-size',
+});
+
+const BASIC_SOURCES = 'basic-sources';
+const BASIC_SENSES = 'basic-senses';
+
+const sourceRule = (
+  id: number,
+  code: string,
+  name: string,
+  description: string,
+  extra: { createdAt?: number; contentNote?: string } = {},
+): Rule => ({
+  id,
+  code,
+  type: 'source',
+  name,
+  description,
+  spaceId: 1,
+  keywordIds: [],
+  mechanicId: null,
+  mechanicPayload: null,
+  createdAt: extra.createdAt ?? 1787824800,
+  catalogSection: BASIC_SOURCES,
+  ...(extra.contentNote ? { contentNote: extra.contentNote } : {}),
+});
+const INNATE_INDIVIDUAL = 'abilities-innate-individual';
+const INNATE_CHARACTERISTICS = 'abilities-innate-characteristics';
+const INNATE_COMMON = 'abilities-innate-common';
+const INNATE_NOT_COMMON_NOTE = 'Не признак «общая»: не входит в прогрессивную доплату.';
+const INNATE_COST_TEXT = 'Цена по таблице: −3/−2/−1 ОС за x −3/−2/−1 (возвращают ОС); 2/4/8 ОС за x +1/+2/+3.';
 
 const SENSE_HEARING = 'sense-hearing';
 const SENSE_VISION = 'sense-vision';
@@ -155,18 +216,19 @@ const innateModify = (characteristic_code: string): Grant => ({
   source_code: 'innate',
 });
 
-/** Черта «Врождённая <Характеристика> X»: табличная цена по X (S8). */
+/** Черта «Врождённая <Характеристика>»: табличная цена по параметру x (S8). */
 const innateTrait = (
   code: string,
   name: string,
   characteristic_code: string,
+  description: string,
   linked?: { ability_code: string; parameter_code: string; max_delta: number },
   limits?: { min: number; max: number },
 ): Rule =>
   traitRule(
     code,
     name,
-    `Вы приобретаете модификатор +X к характеристике от тела (Телосложение).`,
+    description,
     {
       type: 'trait',
       zones: { os: { kind: 'parameter_table', parameter_code: 'x', costs: INNATE_COSTS } },
@@ -183,6 +245,8 @@ const innateTrait = (
       ],
       grants: [innateModify(characteristic_code)],
       keywordIds: [INNATE_KEYWORD, CHARACTERISTIC_KEYWORD, MODIFIER_KEYWORD],
+      catalogSection: INNATE_CHARACTERISTICS,
+      contentNote: INNATE_NOT_COMMON_NOTE,
     },
     // Врождённые черты характеристик — НЕ «общие черты» (свой блок «Характеристики»): иначе
     // механика прогрессивной доплаты (purchase_surcharge, фильтр «общая») ошибочно доплачивает ОС.
@@ -191,13 +255,16 @@ const innateTrait = (
 
 const olCost = (cost: number): AbilitySpecBase['zones'] => ({ ol: { kind: 'array', levels_cost: [cost] } });
 
+const PERSONALITY_SECTION = 'abilities-personality';
+const STRESS_NOTE = 'Системы стресса нет; текст про стресс не исполняется.';
+
 /** Особенность личности (Фаза 4): зона ol, отрицательная стоимость даёт ОЛ. */
 const personalityRule = (
   code: string,
   name: string,
   description: string,
   cost: number,
-  options: { group_code?: string; grants?: Grant[]; keywordIds?: number[] } = {},
+  options: { group_code?: string; grants?: Grant[]; keywordIds?: number[]; contentNote?: string } = {},
 ): Rule => ({
   id: olNextId++,
   code,
@@ -223,27 +290,8 @@ const personalityRule = (
   mechanicId: null,
   mechanicPayload: null,
   createdAt: 1786269600,
-});
-
-/** Навык (тип 'skill') — даётся особенностью; в каталоге «Основа»/«Личность» не покупается напрямую. */
-const skillRule = (code: string, name: string, description: string): Rule => ({
-  id: olNextId++,
-  code,
-  type: 'ability',
-  name,
-  description,
-  spaceId: 1,
-  spec: {
-    type: 'skill',
-    zones: {},
-    requirements: [],
-    grants: [],
-    parent_ability_code: null,
-  },
-  keywordIds: [SKILL_KEYWORD],
-  mechanicId: null,
-  mechanicPayload: null,
-  createdAt: 1786269600,
+  catalogSection: PERSONALITY_SECTION,
+  ...(options.contentNote ? { contentNote: options.contentNote } : {}),
 });
 
 /** Стартовый капитал от особенности богатства: значение = apply(fixed, percent% от лимита денег). */
@@ -270,23 +318,43 @@ const importedRules: Rule[] = [
     'fast-footed',
     'Быстроногий',
     'В беге каждый шаг — два шага.',
-    { type: 'trait', zones: osCost(2) },
+    {
+      type: 'trait',
+      zones: osCost(2),
+      grants: [{ type: 'process_distance_multiplier', ability_code: 'run', multiplier: 2 }],
+      contentNote:
+        'Грант process_distance_multiplier ×2 на процесс «Бег». Бег грант пока не читает; шаг ходьбы не меняется.',
+      catalogSection: 'abilities-innate-individual',
+    },
     false,
     true,
   ),
   traitRule(
     'thick-fingers',
     'Толстые пальцы',
-    'Толстые, грубые пальцы.',
-    { type: 'trait', zones: osCost(-1) },
+    'Черта даёт -6 от состояния для проверок на мелкую моторику.',
+    {
+      type: 'trait',
+      zones: osCost(-1),
+      grants: [
+        {
+          type: 'characteristic_modify',
+          characteristic_code: 'dexterity',
+          amount: { type: 'fixed', value: -6 },
+          source_code: 'from-state',
+          check_codes: [CHECK_FINE_MOTOR_CODE],
+        },
+      ],
+      catalogSection: 'abilities-innate-individual',
+    },
     false,
     true,
   ),
   {
     ...traitRule(
       'magic-resistance',
-      'Сопротивление магии X',
-      'Вы получаете +X устойчивости к арканному урону. Сложность сотворения волшебства по вам увеличена на X.',
+      'Сопротивление магии',
+      '+X устойчивости к арканному урону. Это не только уменьшает входящий арканный урон, но и увеличивает сложность проверок на сотворение волшебства против вас на X.',
       {
         type: 'trait',
         zones: { os: { kind: 'parameter', parameter_code: 'x', per_unit: 2 } },
@@ -303,14 +371,14 @@ const importedRules: Rule[] = [
       false,
       true,
     ),
-    catalogSection: 'abilities-acquired-magic-common',
+    catalogSection: 'abilities-innate-magic-individual',
   },
 
   // --- Внешность (группа «1 из группы») → статус Привлекательность ---
   traitRule(
     'repulsive',
     'Омерзительная',
-    'Внешность отталкивает: −2 к Привлекательности от внешности. Пока статус ниже нуля — одна помеха от внешности на убеждение, обман и торговлю и столько помех на обольщение, каково значение статуса.',
+    'Черта даёт −2 к состоянию «Привлекательность» от внешности. Помехи и преимущества на убеждение, обман, торговлю и обольщение считает само состояние, не черта.',
     {
       type: 'trait',
       zones: osCost(-2),
@@ -322,7 +390,7 @@ const importedRules: Rule[] = [
   traitRule(
     'ugly',
     'Уродливая',
-    'Внешность неприятна: −1 к Привлекательности от внешности. Пока статус ниже нуля — одна помеха от внешности на убеждение, обман и торговлю и столько помех на обольщение, каково значение статуса.',
+    'Черта даёт −1 к состоянию «Привлекательность» от внешности. Помехи и преимущества на убеждение, обман, торговлю и обольщение считает само состояние, не черта.',
     {
       type: 'trait',
       zones: osCost(-1),
@@ -334,14 +402,14 @@ const importedRules: Rule[] = [
   traitRule(
     'beautiful',
     'Красивая',
-    'Приятная внешность: +1 к Привлекательности от внешности. Пока статус выше нуля — одно преимущество от внешности на убеждение, обман и торговлю и столько преимуществ на обольщение, каково значение статуса.',
+    'Черта даёт +1 к состоянию «Привлекательность» от внешности. Помехи и преимущества на убеждение, обман, торговлю и обольщение считает само состояние, не черта.',
     { type: 'trait', zones: osCost(2), group_code: 'appearance', grants: [attractivenessModify(1, 'from-appearance')] },
     true,
   ),
   traitRule(
     'gorgeous',
     'Восхитительная',
-    'Внешность восхищает: +2 к Привлекательности от внешности. Пока статус выше нуля — одно преимущество от внешности на убеждение, обман и торговлю и столько преимуществ на обольщение, каково значение статуса.',
+    'Черта даёт +2 к состоянию «Привлекательность» от внешности. Помехи и преимущества на убеждение, обман, торговлю и обольщение считает само состояние, не черта.',
     { type: 'trait', zones: osCost(4), group_code: 'appearance', grants: [attractivenessModify(2, 'from-appearance')] },
     true,
   ),
@@ -351,7 +419,12 @@ const importedRules: Rule[] = [
     'mute',
     'Немой',
     'Вы не можете говорить: речь, пение и любые проверки, для которых нужен голос, недоступны.',
-    { type: 'trait', zones: osCost(-3), group_code: 'voice' },
+    {
+      type: 'trait',
+      zones: osCost(-3),
+      group_code: 'voice',
+      contentNote: 'Пока не реализовано. Ждёт действий с вербальным компонентом, чтобы получить спеку недоступности.',
+    },
     true,
   ),
   traitRule(
@@ -375,7 +448,12 @@ const importedRules: Rule[] = [
     'deaf',
     'Глухота',
     'Вы не слышите: звуки для вас недоступны, проверки и действия, требующие слуха, невозможны.',
-    { type: 'trait', zones: osCost(-4), group_code: 'hearing' },
+    {
+      type: 'trait',
+      zones: osCost(-4),
+      group_code: 'hearing',
+      grants: [senseModify(SENSE_HEARING, 0, 'absent')],
+    },
     true,
   ),
   traitRule(
@@ -409,7 +487,7 @@ const importedRules: Rule[] = [
   traitRule(
     'incredible-hearing',
     'Невероятный слух',
-    'Слышите почти всё: +3 к чувству Слух (вклад во Внимательность — по лучшему чувству).',
+    'Слышите значительно лучше обычного: +3 к чувству Слух (вклад во Внимательность — по лучшему чувству).',
     { type: 'trait', zones: osCost(4), group_code: 'hearing', grants: [senseModify(SENSE_HEARING, 3)] },
     true,
   ),
@@ -418,8 +496,13 @@ const importedRules: Rule[] = [
   traitRule(
     'blind',
     'Слепота',
-    'Вы не видите: зрение недоступно, проверки и действия, требующие зрения, невозможны.',
-    { type: 'trait', zones: osCost(-4), group_code: 'vision' },
+    'Вы не видите: зрение недоступно.',
+    {
+      type: 'trait',
+      zones: osCost(-4),
+      group_code: 'vision',
+      grants: [senseModify(SENSE_VISION, 0, 'absent')],
+    },
     true,
   ),
   traitRule(
@@ -453,7 +536,7 @@ const importedRules: Rule[] = [
   traitRule(
     'incredible-vision',
     'Невероятное зрение',
-    'Видите почти всё: +3 к чувству Зрение (вклад во Внимательность — по лучшему чувству).',
+    'Видите значительно лучше обычного: +3 к чувству Зрение (вклад во Внимательность — по лучшему чувству).',
     { type: 'trait', zones: osCost(4), group_code: 'vision', grants: [senseModify(SENSE_VISION, 3)] },
     true,
   ),
@@ -462,7 +545,7 @@ const importedRules: Rule[] = [
   traitRule(
     'intimidating',
     'Устрашающий вид',
-    'Ваш вид пугает окружающих. Можно взять только вместе с Омерзительной или Уродливой внешностью.',
+    'Одно преимущество на проверки запугивания. Можно взять только вместе с Омерзительной или Уродливой внешностью.',
     {
       type: 'feature',
       zones: osCost(1),
@@ -475,6 +558,7 @@ const importedRules: Rule[] = [
           ],
         },
       ],
+      grants: [{ type: 'check_advantage', amount: 1, check_codes: [CHECK_INTIMIDATION_CODE] }],
     },
     true,
   ),
@@ -502,19 +586,20 @@ const importedRules: Rule[] = [
     name: 'Холод',
     description: 'Урон холодом и низкой температурой.',
     spaceId: 1,
-    spec: damageTypeSpecService.createEmpty('cold'),
+    spec: { ...damageTypeSpecService.createEmpty('cold'), defense_ignored: true },
     keywordIds: [],
     mechanicId: null,
     mechanicPayload: null,
     createdAt: 1786096800,
+    contentNote: 'Эффектов у урона холодом пока нет. Защита не помогает (defense_ignored).',
   },
 
   // --- Расовые черты (признак racial): доступны только от расы ---
 
   traitRule(
     'cold-resistance',
-    'Сопротивление холоду X',
-    'Вы получаете X сопротивления урону холодом.',
+    'Сопротивление холоду',
+    '+X устойчивости к урону холодом.',
     {
       type: 'trait',
       zones: { os: { kind: 'parameter', parameter_code: 'x', per_unit: 1 } },
@@ -527,6 +612,7 @@ const importedRules: Rule[] = [
           source_code: 'innate',
         },
       ],
+      catalogSection: INNATE_INDIVIDUAL,
     },
     false,
     true,
@@ -534,9 +620,15 @@ const importedRules: Rule[] = [
 
   traitRule(
     'dark-vision',
-    'Темновидение',
-    'Вы видите в полной темноте.',
-    { type: 'trait', zones: osCost(2) },
+    'Ночное зрение',
+    'При минимальном освещении (ночь в лесу) вы видите как при хорошем. Без освещения черта не помогает.',
+    {
+      type: 'trait',
+      zones: osCost(2),
+      grants: [senseModify(SENSE_VISION, 0, undefined, 'minimal')],
+      catalogSection: INNATE_INDIVIDUAL,
+      contentNote: 'Спека: treat_as_good_down_to=minimal на Зрении. Освещение сцены Game пока не читает.',
+    },
     false,
     true,
   ),
@@ -545,7 +637,12 @@ const importedRules: Rule[] = [
     'beerborn',
     'Пиворождённый',
     'Вы можете питаться исключительно пивом без последствий для здоровья.',
-    { type: 'trait', zones: osCost(2) },
+    {
+      type: 'trait',
+      zones: osCost(2),
+      catalogSection: INNATE_INDIVIDUAL,
+      contentNote: 'Пока не реализовано. Ждёт правила еды, яда и алкоголя.',
+    },
     false,
     true,
   ),
@@ -553,17 +650,22 @@ const importedRules: Rule[] = [
   traitRule(
     'small-step',
     'Маленький шаг',
-    'Ваш шаг компактен и устойчив.',
-    { type: 'trait', zones: osCost(1), movement_step_size_delta: -1 },
+    'Размер вашего шага на 1 меньше.',
+    { type: 'trait', zones: osCost(1), movement_step_size_delta: -1, catalogSection: INNATE_INDIVIDUAL },
     false,
     true,
   ),
 
   traitRule(
     'big-build',
-    'Большой',
-    'Вы крупнее среднего существа вашего вида.',
-    { type: 'trait', zones: osCost(3) },
+    'Бугай',
+    '+3 к Весу, +2 к Силе, +1 к Стойкости от размера.',
+    {
+      type: 'trait',
+      zones: osCost(6),
+      catalogSection: INNATE_INDIVIDUAL,
+      grants: [sizeModify('weight', 3), sizeModify('strength', 2), sizeModify('endurance', 1)],
+    },
     false,
     true,
   ),
@@ -576,6 +678,7 @@ const importedRules: Rule[] = [
       type: 'trait',
       zones: osCost(2),
       grants: [modify('attention', 3)],
+      catalogSection: INNATE_INDIVIDUAL,
     },
     false,
     true,
@@ -589,6 +692,7 @@ const importedRules: Rule[] = [
       type: 'trait',
       zones: osCost(2),
       grants: [modify('reaction', 3)],
+      catalogSection: INNATE_INDIVIDUAL,
     },
     false,
     true,
@@ -596,20 +700,51 @@ const importedRules: Rule[] = [
 
   // --- Черты «Врождённая X» (S8 «Телосложение»): модификатор характеристики от тела по таблице цен ---
   // Сила и Стойкость связаны: |X_силы − X_стойкости| ≤ 3 (док: модификатор к Силе не выше Стойкости+3).
-  innateTrait('innate-strength', 'Врождённая Сила X', 'strength', {
-    ability_code: 'innate-endurance',
-    parameter_code: 'x',
-    max_delta: 3,
-  }),
-  innateTrait('innate-endurance', 'Врождённая Стойкость X', 'endurance', {
-    ability_code: 'innate-strength',
-    parameter_code: 'x',
-    max_delta: 3,
-  }),
-  innateTrait('innate-dexterity', 'Врождённая Ловкость X', 'dexterity'),
+  innateTrait(
+    'innate-strength',
+    'Врождённая Сила',
+    'strength',
+    `Модификатор Силы от тела (источник «врождённая»). Параметр x: −3…+3; 0 — без модификатора. ${INNATE_COST_TEXT} Значение x не может отличаться от Врождённой Стойкости больше чем на 3.`,
+    {
+      ability_code: 'innate-endurance',
+      parameter_code: 'x',
+      max_delta: 3,
+    },
+  ),
+  innateTrait(
+    'innate-endurance',
+    'Врождённая Стойкость',
+    'endurance',
+    `Модификатор Стойкости от тела (источник «врождённая»). Параметр x: −3…+3; 0 — без модификатора. ${INNATE_COST_TEXT} Значение x не может отличаться от Врождённой Силы больше чем на 3.`,
+    {
+      ability_code: 'innate-strength',
+      parameter_code: 'x',
+      max_delta: 3,
+    },
+  ),
+  innateTrait(
+    'innate-dexterity',
+    'Врождённая Ловкость',
+    'dexterity',
+    `Модификатор Ловкости от тела (источник «врождённая»). Параметр x: −3…+3; 0 — без модификатора. ${INNATE_COST_TEXT}`,
+  ),
   // Восприятие и Интеллект: максимальный модификатор от Телосложения = +1 (док) → диапазон ±1.
-  innateTrait('innate-intellect', 'Врождённый Интеллект X', 'intellect', undefined, { min: -1, max: 1 }),
-  innateTrait('innate-perception', 'Врождённое Восприятие X', 'perception', undefined, { min: -1, max: 1 }),
+  innateTrait(
+    'innate-intellect',
+    'Врождённый Интеллект',
+    'intellect',
+    'Модификатор Интеллекта от тела (источник «врождённая»). Параметр x только −1…+1; 0 — без модификатора. Цена: −1 ОС за x −1, 2 ОС за x +1.',
+    undefined,
+    { min: -1, max: 1 },
+  ),
+  innateTrait(
+    'innate-perception',
+    'Врождённое Восприятие',
+    'perception',
+    'Модификатор Восприятия от тела (источник «врождённая»). Параметр x только −1…+1; 0 — без модификатора. Цена: −1 ОС за x −1, 2 ОС за x +1.',
+    undefined,
+    { min: -1, max: 1 },
+  ),
 
   // --- Механика «Общие черты»: 3-я и каждая последующая общая черта +2 ОС ---
   {
@@ -617,7 +752,8 @@ const importedRules: Rule[] = [
     code: 'common-traits-surcharge',
     type: 'simple',
     name: 'Общие черты: прогрессивная доплата',
-    description: 'Третья и каждая последующая общая черта требует доплаты 2 ОС.',
+    description:
+      'Третья и каждая следующая черта с признаком «общая» доплачивает 2 ОС сверх своей цены. Первые две таких черты без доплаты. Врождённые характеристики (Сила, Стойкость, Ловкость, Интеллект, Восприятие) в этот счёт не входят.',
     spaceId: 1,
     keywordIds: [COMMON_KEYWORD],
     mechanicId: 4,
@@ -628,67 +764,62 @@ const importedRules: Rule[] = [
       surcharge: 2,
     },
     createdAt: 1786096800,
+    catalogSection: INNATE_COMMON,
+    contentNote: 'Считает keyword common; врождённые характеристики туда не входят.',
   },
 
   // --- Группирующие правила (type 'group'): контейнеры «1 из группы» ---
   groupRule(
     'appearance',
     'Внешность',
-    'Один вариант внешности. Черта задаёт вклад в статус Привлекательность от внешности (−2…+2).',
+    'Один вариант внешности. Член группы задаёт вклад в состояние Привлекательность от внешности: Омерзительная −2, Уродливая −1, Красивая +1, Восхитительная +2. Помехи и преимущества на убеждение, обман, торговлю и обольщение считает состояние, не группа.',
     1,
+    INNATE_COMMON,
   ),
-  groupRule('voice', 'Голос', 'Один вариант голоса: немой либо чудесный голос (+1 к Привлекательности от голоса).', 1),
+  groupRule(
+    'voice',
+    'Голос',
+    'Один вариант голоса: Немой (по тексту речь недоступна) или Чудесный голос (+1 к Привлекательности от голоса и одно преимущество на музицирование голосом).',
+    1,
+    INNATE_COMMON,
+  ),
   groupRule(
     'hearing',
     'Слух',
-    'Один вариант слуха: от глухоты до невероятного слуха, со своим модификатором чувства.',
+    'Один вариант слуха: Глухота (Слух отсутствует) либо модификатор чувства Слух −6 / −3 / +1 / +2 / +3. Вклад во Внимательность — по лучшему чувству, как у членов группы.',
     1,
+    INNATE_COMMON,
   ),
   groupRule(
     'vision',
     'Зрение',
-    'Один вариант зрения: от слепоты до невероятного зрения, со своим модификатором чувства.',
+    'Один вариант зрения: Слепота (Зрение отсутствует) либо модификатор чувства Зрение −6 / −3 / +1 / +2 / +3. Ночное зрение в эту группу не входит.',
     1,
+    INNATE_COMMON,
   ),
 
-  {
-    id: 610,
-    code: 'from-appearance',
-    type: 'source',
-    name: 'Внешность',
-    description: 'Источник модификатора Привлекательности от черты внешности.',
-    spaceId: 1,
-    keywordIds: [],
-    mechanicId: null,
-    mechanicPayload: null,
-    createdAt: 1787824800,
-  },
-  {
-    id: 611,
-    code: 'from-voice',
-    type: 'source',
-    name: 'Голос',
-    description: 'Источник модификатора Привлекательности от черты голоса.',
-    spaceId: 1,
-    keywordIds: [],
-    mechanicId: null,
-    mechanicPayload: null,
-    createdAt: 1787824800,
-  },
-
-  // --- Источник модификаторов чувств «Совершенство» ---
-  {
-    id: 136,
-    code: 'perfection',
-    type: 'source',
-    name: 'Совершенство',
-    description: 'Источник модификаторов: совершенствование чувств.',
-    spaceId: 1,
-    keywordIds: [],
-    mechanicId: null,
-    mechanicPayload: null,
+  sourceRule(
+    610,
+    'from-appearance',
+    'От внешности',
+    'Источник вклада в Привлекательность от черты внешности. Это ярлык слота модификатора, не группа Внешность.',
+  ),
+  sourceRule(
+    611,
+    'from-voice',
+    'От голоса',
+    'Источник вклада в Привлекательность от черты голоса. Это ярлык слота модификатора, не группа Голос.',
+  ),
+  sourceRule(
+    612,
+    'from-state',
+    'От состояния',
+    'Источник модификатора характеристики от состояния, не от базы характеристики (например Толстые пальцы).',
+  ),
+  sourceRule(613, 'from-size', 'От размера', 'Источник модификаторов характеристик от размера тела (например Бугай).'),
+  sourceRule(136, 'perfection', 'От совершенства', 'Источник модификаторов чувств (слух, зрение, глухота, слепота).', {
     createdAt: 1786183200,
-  },
+  }),
 
   // --- Чувства (type 'sense'): значение — модификатор к Внимательности ---
   {
@@ -696,26 +827,32 @@ const importedRules: Rule[] = [
     code: SENSE_HEARING,
     type: 'sense',
     name: 'Слух',
-    description: 'Восприятие звуков.',
+    description:
+      'Чувство: восприятие звуков. База — неточное. Вклад во Внимательность. Глухота ставит статус «отсутствует». В спеке радиус 30; движок радиус не читает.',
     spaceId: 1,
     spec: { type: 'sense', status: 'imprecise', radius: dim(30) },
     keywordIds: [],
     mechanicId: null,
     mechanicPayload: null,
     createdAt: 1786183200,
+    catalogSection: BASIC_SENSES,
+    contentNote: 'Радиус чувства в Game не используется.',
   },
   {
     id: 138,
     code: SENSE_VISION,
     type: 'sense',
     name: 'Зрение',
-    description: 'Восприятие света и форм.',
+    description:
+      'Чувство: свет и формы. База — точное. Слепота ставит статус «отсутствует». Ночное зрение — грант на этом чувстве (минимальное освещение как хорошее), не отдельное чувство. В спеке радиус 30; движок радиус не читает.',
     spaceId: 1,
     spec: { type: 'sense', status: 'precise', radius: dim(30) },
     keywordIds: [],
     mechanicId: null,
     mechanicPayload: null,
     createdAt: 1786183200,
+    catalogSection: BASIC_SENSES,
+    contentNote: 'Радиус чувства в Game не используется.',
   },
 
   // ================= Фаза 4 (S11): Личность — возраст и особенности (2026-08-09) =================
@@ -727,7 +864,7 @@ const importedRules: Rule[] = [
     type: 'age',
     name: 'Возраст',
     description:
-      'Возрастные ступени: ОЛ и лимит числа особенностей личности. Ступень определяется годами персонажа и таблицей лет расы; за диапазонами — «Старый».',
+      'Ступень по годам персонажа и таблице лет расы; за диапазоном — «Старый». Ступень даёт ОЛ и лимит особенностей личности (без богатства). Безусловные дельты характеристик входят в значение «от возраста». Условные (усвоение нового / наличные знания) только в попапе характеристики: в число и в проверки Game не входят.',
     spaceId: 1,
     spec: {
       type: 'age',
@@ -832,190 +969,167 @@ const importedRules: Rule[] = [
   },
 
   // --- Источники модификаторов особенностей ---
-  {
-    id: olNextId++,
-    code: 'character',
-    type: 'source',
-    name: 'Характер',
-    description: 'Источник модификаторов: особенности личности.',
-    spaceId: 1,
-    keywordIds: [],
-    mechanicId: null,
-    mechanicPayload: null,
+  sourceRule(olNextId++, 'character', 'От личности', 'Источник модификаторов от особенностей личности.', {
     createdAt: 1786269600,
-  },
-  {
-    id: olNextId++,
-    code: 'alcoholism',
-    type: 'source',
-    name: 'Алкоголизм',
-    description: 'Источник модификаторов: зависимость от алкоголя.',
-    spaceId: 1,
-    keywordIds: [],
-    mechanicId: null,
-    mechanicPayload: null,
+  }),
+  sourceRule(
+    olNextId++,
+    'alcoholism',
+    'От алкоголизма',
+    'Источник −1 Стойкости и −1 Силы воли у особенности Алкоголик. Стадии зависимости, проверки отрезвления и снятие стадии не реализованы.',
+    {
+      createdAt: 1786269600,
+      contentNote: 'Полноценный алкоголизм (стадии, проверки) не реализован; слот источника для штрафов есть.',
+    },
+  ),
+  sourceRule(176, 'development', 'От развития', 'Источник модификаторов от развития и тренировки.', {
     createdAt: 1786269600,
-  },
-  {
-    id: 176,
-    code: 'development',
-    type: 'source',
-    name: 'Развитие',
-    description: 'Источник модификаторов: развитие и тренировка.',
-    spaceId: 1,
-    keywordIds: [],
-    mechanicId: null,
-    mechanicPayload: null,
-    createdAt: 1786269600,
-  },
+  }),
 
-  // --- Навыки, которые дают особенности личности («даёт навык») ---
-  skillRule('communication-mastery', 'Мастерство общения', 'Общение и переговоры.'),
-  skillRule('literacy', 'Письменность', 'Письмо и чтение.'),
-  skillRule('grammar', 'Грамотность', 'Грамотная речь и письмо.'),
-  skillRule('knowledge', 'Знания', 'Общие знания.'),
-  skillRule('attention-skill', 'Внимательность', 'Навык внимательности.'),
-  skillRule('insight-skill', 'Проницательность', 'Навык проницательности.'),
-  skillRule('attention-development', 'Развитие внимания', 'Тренированное внимание.'),
-  skillRule('memory-development', 'Развитие памяти', 'Тренированная память.'),
+  groupRule(
+    'sociability',
+    'Личность: Общительность',
+    'Один из вариантов общительности персонажа.',
+    1,
+    PERSONALITY_SECTION,
+    olNextId++,
+  ),
+  groupRule(
+    'attentiveness',
+    'Личность: Внимательность',
+    'Один из вариантов внимательности персонажа.',
+    1,
+    PERSONALITY_SECTION,
+    olNextId++,
+  ),
+  groupRule(
+    'wealth',
+    'Личность: Богатство',
+    'Один из вариантов богатства персонажа.',
+    1,
+    PERSONALITY_SECTION,
+    olNextId++,
+  ),
 
-  // --- Группы особенностей личности (type 'group', «1 из группы») ---
-  {
-    id: olNextId++,
-    code: 'sociability',
-    type: 'ability',
-    name: 'Общительность',
-    description: 'Выберите один вариант общительности.',
-    spaceId: 1,
-    spec: { type: 'group', selectLimit: 1 },
-    keywordIds: [GROUP_KEYWORD],
-    mechanicId: null,
-    mechanicPayload: null,
-    createdAt: 1786269600,
-  },
-  {
-    id: olNextId++,
-    code: 'attentiveness',
-    type: 'ability',
-    name: 'Внимательность',
-    description: 'Выберите один вариант внимательности.',
-    spaceId: 1,
-    spec: { type: 'group', selectLimit: 1 },
-    keywordIds: [GROUP_KEYWORD],
-    mechanicId: null,
-    mechanicPayload: null,
-    createdAt: 1786269600,
-  },
-  {
-    id: olNextId++,
-    code: 'wealth',
-    type: 'ability',
-    name: 'Богатство',
-    description: 'Выберите одну особенность богатства.',
-    spaceId: 1,
-    spec: { type: 'group', selectLimit: 1 },
-    keywordIds: [GROUP_KEYWORD],
-    mechanicId: null,
-    mechanicPayload: null,
-    createdAt: 1786269600,
-  },
-
-  // --- 15 особенностей личности (зона ol; отрицательные стоимости дают ОЛ) ---
   personalityRule(
     'sociable',
     'Общительный',
-    'Вы бесплатно приобретаете навык Тренировка Красноречия с уровнем 1 и навык Манера общения. Снятие стресса с помощью общения получает одно преимущество от характера.',
+    'Вы бесплатно получаете Тренировку Красноречия 1 и Манеру общения 1. Снятие стресса общением получает одно преимущество от личности.',
     1,
     {
       group_code: 'sociability',
       grants: [grantAbility('krasnorechie', 1), grantAbility('manera-obscheniya', 1)],
       keywordIds: [SOCIABILITY_KEYWORD],
+      contentNote: STRESS_NOTE,
     },
   ),
   personalityRule(
     'withdrawn',
     'Замкнутый',
-    'Общение снижено на размер от характера, пока вы не приобретёте навык Мастерство общения. Первые три уровня навыка приобретаются только за очки вдохновения; с третьим уровнем особенность исчезает. Общение снимает на два размера меньше стресса.',
+    '−3 к Красноречию от личности. Штраф уменьшается на 1 за каждый уровень навыка Развитие общения.',
     -1,
     {
       group_code: 'sociability',
-      grants: [personalityModify('communication', -1, 'character')],
+      grants: [
+        {
+          type: 'characteristic_modify',
+          characteristic_code: 'communication',
+          amount: { type: 'ability_level', ability_code: 'razvitie-obscheniya', multiplier: 1, offset: -3 },
+          source_code: 'character',
+        },
+      ],
       keywordIds: [SOCIABILITY_KEYWORD],
     },
   ),
   personalityRule(
     'bookworm',
     'Книжный червь',
-    'Вы бесплатно приобретаете навык Письменность и один из навыков: Грамотность или любой навык Знаний. Чтение книг может для вас заменять общение, в том числе для снятия стресса.',
+    'На создании: бесплатно Владение одним языком и Письменность этого языка; плюс Грамотность этого языка или один навык с признаком «Знание». Чтение книг может заменять общение, в том числе для снятия стресса.',
     1,
-    { grants: [grantAbility('literacy'), grantAbility('grammar')] },
+    {
+      contentNote:
+        'Грантов нет: нужен аналог magic_study — конкретный навык, произвольный домен, paid_cost 0 (Письменность языка; Грамотность или навык с признаком knowledge). Заглушки literacy/grammar удалены. Стресса нет.',
+    },
   ),
-  personalityRule(
-    'brave',
-    'Храбрец',
-    'Вы получаете два преимущества от характера для проверок на силу воли против Ужаса.',
-    1,
-  ),
+  personalityRule('brave', 'Храбрец', 'Два преимущества от личности для проверок на силу воли против Ужаса.', 1, {
+    contentNote: 'Проверки Ужаса и преимуществ от личности на них в Game нет.',
+  }),
   personalityRule(
     'coward',
     'Трус',
-    'Ваша сила воли снижена на размер для проверок на силу воли против Ужаса и Боли. При успешном противостоянии страхам мастер может выдавать вам Очки Храбрости, при провале — отнимать. При достижении 5, 10 и 20 очков в первый раз штраф навсегда уменьшается на 1 и вы получаете 1 Очко Вдохновения на Силу воли.',
+    'Сила воли снижена на размер для проверок против Ужаса и Боли. Очки Храбрости и уменьшение штрафа за 5/10/20 — не реализованы.',
     -1,
+    {
+      contentNote: 'Нет гранта штрафа Воли на проверки Ужаса/Боли; нет Очков Храбрости и вдохновения.',
+    },
   ),
   personalityRule(
     'resilient',
     'Неунывающий',
-    'Вы получаете преимущество от характера для проверок на силу воли против отрицательных эмоций (скорбь, отчаяние и т.д.) и преимущество для проверок на преодоление стресса.',
+    'Преимущество от личности для проверок воли против отрицательных эмоций и для преодоления стресса.',
     1,
+    { contentNote: `${STRESS_NOTE} Проверок отрицательных эмоций нет.` },
   ),
   personalityRule(
     'alcoholic',
     'Алкоголик',
-    'Вы сильно зависимы от алкоголя (вторая стадия): −1 к Телосложению и Силе воли от алкоголизма. Когда вы трезвеете, вам необходимо пройти проверку на алкоголизм (силу воли) со сложностью 2 (простому способу выпить — 3, если вам предлагают — +1). Для избавления от стадии — не более половины дня в пьяном состоянии за три месяца.',
+    'Вы сильно зависимы от алкоголя (вторая стадия): −1 к Стойкости и Силе воли от алкоголизма. Когда вы трезвеете, вам необходимо пройти проверку на алкоголизм (силу воли) со сложностью 2 (простому способу выпить — 3, если вам предлагают — +1). Для избавления от стадии — не более половины дня в пьяном состоянии за три месяца.',
     -1,
     {
       grants: [personalityModify('endurance', -1, 'alcoholism'), personalityModify('willpower', -1, 'alcoholism')],
+      contentNote: 'Штрафы характеристик есть. Стадии, проверки отрезвления и снятие стадии не реализованы.',
     },
   ),
   personalityRule(
     'empathic',
     'Чуткий',
-    'Вы получаете навыки Внимательность 1 и Проницательность 1, преимущество для проверок на проницательность. Вы получаете на 1 больше стресса от характера, если этот стресс получен от группы, которой вы сочувствуете.',
+    'Вы получаете Проницательность 1 и одно преимущество от личности на проверки проницательности. На 1 больше стресса от личности, если стресс от группы, которой вы сочувствуете.',
     1,
     {
       group_code: 'attentiveness',
-      grants: [grantAbility('attention-skill'), grantAbility('insight-skill')],
+      grants: [
+        grantAbility('pronitsatelnost', 1),
+        { type: 'check_advantage', amount: 1, check_codes: [CHECK_INSIGHT_CODE], source_code: 'character' },
+      ],
       keywordIds: [ATTENTIVENESS_KEYWORD, INSIGHT_KEYWORD],
+      contentNote: STRESS_NOTE,
     },
   ),
   personalityRule(
     'pedant',
     'Педант',
-    'Вы получаете навык Развитие внимания 2. Вам важно, чтобы выполнялись даже незначительные, порой формальные, требования; иначе вы можете испытать стресс.',
+    'Вы получаете Тренировку внимательности 2. Вам важно, чтобы выполнялись даже незначительные требования; иначе можете испытать стресс.',
     1,
     {
       group_code: 'attentiveness',
-      grants: [grantAbility('attention-development', 2)],
+      grants: [grantAbility('razvitie-vnimatelnosti', 2)],
       keywordIds: [ATTENTIVENESS_KEYWORD],
+      contentNote: STRESS_NOTE,
     },
   ),
   personalityRule(
     'absent-minded',
     'Рассеянный',
-    'Внимательность снижена на размер от особенности, пока вы не приобретёте навык Развитие внимания. Первые три уровня навыка приобретаются только за очки вдохновения; с третьим уровнем особенность исчезает. Вы не можете концентрироваться на чём-либо.',
+    '−1 к Внимательности от личности. Канон: штраф пока нет Тренировки внимательности; первые три уровня навыка за вдохновение; с третьим уровнем особенность исчезает; нельзя концентрироваться. Сейчас только штраф −1.',
     -1,
     {
       group_code: 'attentiveness',
       grants: [personalityModify('attention', -1, 'character')],
       keywordIds: [ATTENTIVENESS_KEYWORD],
+      contentNote:
+        'Нет снятия штрафа уровнем Тренировки внимательности, нет вдохновения/исчезновения особенности, нет блока концентрации.',
     },
   ),
   personalityRule(
     'grudge-holder',
     'Злопамятный',
-    'Вы получаете навык Развитие памяти 1 и два преимущества от характера для всех проверок на память, связанных с неприятными для вас событиями. Вы можете снять стресс, когда заслуженная кара настигает попавшего в вашу книжечку обид.',
+    'Вы получаете Развитие памяти 1 и два преимущества от личности для проверок памяти о неприятных событиях. Можно снять стресс, когда кара настигает записанного в книжечку обид.',
     1,
-    { grants: [grantAbility('memory-development')], keywordIds: [MEMORY_KEYWORD] },
+    {
+      grants: [grantAbility('razvitie-pamyati')],
+      keywordIds: [MEMORY_KEYWORD],
+      contentNote: `${STRESS_NOTE} Преимуществ на проверки памяти нет (нет гранта check_advantage).`,
+    },
   ),
   personalityRule(
     'pauper',

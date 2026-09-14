@@ -3,6 +3,7 @@ import {
   CHECK_HIT_CODE,
   CHECK_INITIATIVE_CODE,
   CHECK_INJURY_CODE,
+  CHECK_BLOOD_CLOTTING_CODE,
   CHECK_SIMPLE_CODE,
 } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
 import type { CheckResolutionService } from '@/modules/Roleplay/Rule/Service/CheckResolutionService';
@@ -13,7 +14,12 @@ export class CheckLaunchService {
   /** Проверки, которые можно запустить из диалога (не инициатива / увечье / удар). */
   isLaunchableCheck(rule: Rule): boolean {
     if (rule.type !== 'check') return false;
-    if (rule.code === CHECK_INITIATIVE_CODE || rule.code === CHECK_INJURY_CODE || rule.code === CHECK_HIT_CODE) {
+    if (
+      rule.code === CHECK_INITIATIVE_CODE ||
+      rule.code === CHECK_INJURY_CODE ||
+      rule.code === CHECK_HIT_CODE ||
+      rule.code === CHECK_BLOOD_CLOTTING_CODE
+    ) {
       return false;
     }
 
