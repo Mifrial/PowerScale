@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue';
+import { computed, inject, nextTick, ref, watch } from 'vue';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
@@ -9,9 +9,12 @@ import { ATTACK_CALC_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/At
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
+import type { CommittedActionSession } from '@/modules/Roleplay/Game/Dto/CommittedActionSession';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
 import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
 import CombatEntitySelect from '@/modules/Roleplay/Game/Component/CombatEntitySelect.vue';
+import ConcentrationTokenOption from '@/modules/Roleplay/Game/Component/ConcentrationTokenOption.vue';
+import { CONCENTRATION_TOKEN_ASK_INJECT_KEY } from '@/modules/Roleplay/Game/Constant/CONCENTRATION_TOKEN_ASK_INJECT_KEY';
 import { combatChatSendService } from '@/modules/Roleplay/Game/Service/Instance/combatChatSendService';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 import { CHECK_HIT_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
@@ -20,8 +23,10 @@ import { spellCastOptionsService } from '@/modules/Roleplay/Game/Service/Instanc
 import { spellCastService } from '@/modules/Roleplay/Game/Service/Instance/spellCastService';
 import { spellCastExecutionService } from '@/modules/Roleplay/Game/Service/Instance/spellCastExecutionService';
 import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
+import { woundInstanceService } from '@/modules/Roleplay/Game/Service/Instance/woundInstanceService';
 import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/actionEffectService';
 import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
+import { concentrationTokenService } from '@/modules/Roleplay/Game/Service/Instance/concentrationTokenService';
 import { exhaustionCheckService } from '@/modules/Roleplay/Game/Service/Instance/exhaustionCheckService';
 import { injuryCheckService } from '@/modules/Roleplay/Game/Service/Instance/injuryCheckService';
 import { injuryPackageService } from '@/modules/Roleplay/Game/Service/Instance/injuryPackageService';
@@ -53,6 +58,7 @@ import {
 } from '@/modules/Roleplay/Game/Utils/attackDamageMessage';
 import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
 import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/CharacterStateValue';
 import type { StateSpec } from '@/modules/Roleplay/Rule/Dto/State/StateSpec';
 import type { ApplyAttackDamageResult } from '@/modules/Roleplay/Game/Dto/ApplyAttackDamageResult';
@@ -93,8 +99,11 @@ const emit = defineEmits<{
 }>();
 
 const sendChat = combatChatSendService.sendCombatChat(props.gameId);
+const askTokenSpend = inject(CONCENTRATION_TOKEN_ASK_INJECT_KEY, undefined);
 const combatThread = useCombatChatThread(() => props.gameId);
 const overlays = ref<GameCombatOverlay[]>([]);
+const committedSessions = ref<Record<CombatEntityKey, CommittedActionSession>>({});
+const spendConcentration = ref(0);
 const spellCode = ref('');
 const sourceKey = ref('');
 const pathCode = ref('');
@@ -403,6 +412,9 @@ watch(
       void fetchTags();
     }
     overlays.value = await getGameApi().getCombatOverlays(props.gameId);
+    committedSessions.value = await getGameApi()
+      .getCommittedActionSessions(props.gameId)
+      .catch(() => ({}));
     activeSpells.value = await getGameApi().getActiveSpells(props.gameId);
     appliedUpgradeCodes.value = [];
     await nextTick();
@@ -490,6 +502,11 @@ async function runCast(): Promise<void> {
   lastMilk.value = false;
   lastAutoFail.value = false;
   try {
+    if (resolvedCasterKey.value && committedSessions.value[resolvedCasterKey.value]) {
+      error.value = 'Сначала закончи или сорви текущее действие';
+
+      return;
+    }
     const characteristic = checkCharacteristic.value;
     const touchKey = touchTargetKey.value === '' ? null : touchTargetKey.value;
     if (needsTouchAttack.value && touchKey) {
@@ -532,6 +549,31 @@ async function runCast(): Promise<void> {
 
       return;
     }
+    const extraCheckAdvantages: AdvantageModifier[] = [];
+    if (spendConcentration.value > 0 && resolvedCasterKey.value && casterVersion.value) {
+      const overlay = overlays.value.find((item) => item.entityKey === resolvedCasterKey.value) ?? null;
+      const cap = concentrationTokenService.maxSpend(
+        casterVersion.value,
+        overlay,
+        props.rules,
+        selectedPath.value?.checkCode ?? '',
+        checkCharacteristicCode.value,
+      );
+      const spent = Math.min(spendConcentration.value, cap);
+      if (spent > 0) {
+        const next = await concentrationTokenService.spendToken(
+          getGameApi(),
+          props.gameId,
+          resolvedCasterKey.value,
+          casterVersion.value,
+          overlay,
+          spent,
+        );
+        overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, next);
+        extraCheckAdvantages.push(concentrationTokenService.tokenAdvantage(spent));
+        spendConcentration.value = 0;
+      }
+    }
     const outcome = spellCastExecutionService.execute({
       spellCode: spellCode.value,
       casterKey: resolvedCasterKey.value,
@@ -563,6 +605,7 @@ async function runCast(): Promise<void> {
       sourceKey: sourceKey.value,
       pathCode: pathCode.value || null,
       appliedUpgradeCodes: appliedUpgradeCodes.value,
+      extraCheckAdvantages,
       chargeSpendCost: chargeSpendCost.value,
     });
     if (!outcome.started) {
@@ -789,8 +832,11 @@ async function applyCombatState(key: CombatEntityKey, code: string, amount: numb
   ).effectiveVersion;
   const states = version?.states ?? [];
   const index = states.findIndex((state) => state.stateRuleCode === rule.code);
-  const overlay =
-    !independent && index >= 0
+  const addedWound = code === WOUND_STATE_CODE ? woundInstanceService.addWound(amount) : null;
+  if (code === WOUND_STATE_CODE && !addedWound) return;
+  const overlay = addedWound
+    ? await getGameApi().addCombatState(props.gameId, key, addedWound)
+    : !independent && index >= 0
       ? await getGameApi().setCombatStateValue(props.gameId, key, index, (states[index]?.value ?? 0) + amount)
       : await getGameApi().addCombatState(props.gameId, key, {
           stateRuleCode: rule.code,
@@ -974,6 +1020,7 @@ async function announceSpellApply(
     if (afterHit) {
       const exhaustion = await exhaustionCheckService.applyExhaustionCheck({
         version: afterHit,
+        overlay: overlays.value.find((item) => item.entityKey === effectKey) ?? null,
         rules: props.rules,
         mechanics: props.mechanics,
         gameId: props.gameId,
@@ -984,6 +1031,7 @@ async function announceSpellApply(
         change: 'increase',
         sendMessage: (content, attachments, nextChatId, nextSpeaker) =>
           sendChat(content, attachments, nextChatId, nextSpeaker),
+        askTokenSpend,
       });
       if (exhaustion.overlay) {
         overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, exhaustion.overlay);
@@ -1414,6 +1462,14 @@ async function runChainHops(outcome: SpellCastExecutionResult, firstKey: CombatE
           Без цели заклинания сотворение автоматически провалится
         </div>
         <div class="text-body-2 mt-4">{{ castCheckLine }}</div>
+        <ConcentrationTokenOption
+          v-model="spendConcentration"
+          :version="casterVersion"
+          :overlay="overlays.find((item) => item.entityKey === resolvedCasterKey) ?? null"
+          :rules="rules"
+          :check-code="selectedPath?.checkCode ?? ''"
+          :characteristic-code="checkCharacteristicCode"
+        />
         <div v-if="lastSkip" class="text-caption mt-1">Бросок не выполнялся</div>
         <div v-if="lastMilk" class="text-caption mt-1">Эффект в молоко</div>
         <div v-if="lastAutoFail" class="text-caption mt-1">Автопровал сотворения</div>

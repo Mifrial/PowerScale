@@ -20,6 +20,10 @@ export interface GameCombatOverlay {
   resources: CombatResourceOverride[];
   states: CharacterStateValue[];
   updatedAt: string;
+  /** Потрачен ли жетон концентрации с конца предыдущего своего хода. */
+  concentrationUsedInCycle?: boolean;
+  /** Была ли перевязка этой цели в текущей сессии боя. */
+  woundBandagedOnce?: boolean;
   /** Полная рабочая копия листа из in-game редактора (см. writeOverlaySheet). */
   sheet?: CharacterVersion | null;
 }

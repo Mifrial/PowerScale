@@ -7,6 +7,7 @@ import type { CharacterPoisonValue } from '@/modules/Roleplay/Character/Dto/Char
 import type { StatePeriodicity } from '@/modules/Roleplay/Rule/Dto/State/Periodicity';
 import type { StateDecay } from '@/modules/Roleplay/Rule/Dto/State/StateDecay';
 import type { CombatStateDetailRow } from '@/modules/Roleplay/Game/Dto/CombatStateDetailRow';
+import type { CombatStateLinkedAction } from '@/modules/Roleplay/Game/Dto/CombatStateLinkedAction';
 import type { CombatStateEditKind } from '@/modules/Roleplay/Game/Enum/CombatStateEditKind';
 
 const props = withDefaults(
@@ -26,6 +27,10 @@ const props = withDefaults(
     poisonItems?: { title: string; value: string }[];
     damageTypeItems?: { title: string; value: string }[];
     poisonTemplate?: (poisonRuleCode: string | null) => CharacterPoisonValue;
+    woundInternal?: boolean;
+    woundHeld?: boolean;
+    isMaster?: boolean;
+    linkedActions?: CombatStateLinkedAction[];
   }>(),
   {
     iconCode: null,
@@ -39,6 +44,10 @@ const props = withDefaults(
     actionLabel: null,
     poisonItems: () => [],
     damageTypeItems: () => [],
+    woundInternal: false,
+    woundHeld: false,
+    isMaster: false,
+    linkedActions: () => [],
   },
 );
 
@@ -46,8 +55,12 @@ const emit = defineEmits<{
   apply: [next: number];
   applyDimensional: [next: DimensionalNumberValue];
   applyPoison: [next: CharacterPoisonValue];
+  applyWound: [next: { value: number; internal: boolean }];
+  applyInternal: [internal: boolean];
+  releaseHold: [];
   remove: [];
   action: [];
+  launchAction: [code: string];
 }>();
 
 const menuOpen = ref(false);
@@ -58,6 +71,7 @@ const draftDamageType = ref('');
 const draftStrength = ref<DimensionalNumberValue>({ base: 1, size: 0 });
 const draftPeriodicity = ref<StatePeriodicity | undefined>();
 const draftDecay = ref<StateDecay | undefined>();
+const draftInternal = ref(false);
 
 watch(menuOpen, (open) => {
   if (!open) return;
@@ -68,6 +82,7 @@ watch(menuOpen, (open) => {
   draftStrength.value = { ...(props.poison?.strength ?? { base: 1, size: 0 }) };
   draftPeriodicity.value = props.poison?.periodicity;
   draftDecay.value = props.poison?.decay;
+  draftInternal.value = props.woundInternal;
 });
 
 function submitNumeric(): void {
@@ -107,6 +122,27 @@ function onPoisonRuleChange(next: unknown): void {
   draftDecay.value = templated.decay;
 }
 
+function submitWound(): void {
+  emit('applyWound', { value: draft.value, internal: draftInternal.value });
+  menuOpen.value = false;
+}
+
+function onInternal(next: unknown): void {
+  const internal = next === true;
+  draftInternal.value = internal;
+  emit('applyInternal', internal);
+}
+
+function submitRelease(): void {
+  emit('releaseHold');
+  menuOpen.value = false;
+}
+
+function submitLinkedAction(code: string): void {
+  emit('launchAction', code);
+  menuOpen.value = false;
+}
+
 function submitAction(): void {
   emit('action');
   menuOpen.value = false;
@@ -130,7 +166,7 @@ function submitRemove(): void {
     <v-card class="rounded border" elevation="8" style="width: max-content; min-width: 280px; max-width: 420px">
       <v-card-title class="text-body-1">{{ name }}</v-card-title>
       <v-card-text class="pt-0">
-        <template v-if="!(canEdit && (editKind === 'dimensional' || editKind === 'poison'))">
+        <template v-if="!(canEdit && (editKind === 'dimensional' || editKind === 'poison' || editKind === 'wound'))">
           <div class="d-flex align-center justify-space-between py-1 text-body-2">
             <span class="text-medium-emphasis">Сила</span>
             <span class="font-weight-medium">{{ valueLabel }}</span>
@@ -162,7 +198,30 @@ function submitRemove(): void {
           <v-btn class="mt-3" color="primary" variant="tonal" size="small" block @click="submitDimensional">
             Изменить
           </v-btn>
-          <v-btn class="mt-2" color="error" variant="tonal" size="small" block @click="submitRemove">Убрать</v-btn>
+        </template>
+        <template v-else-if="canEdit && editKind === 'wound'">
+          <ClampedNumberField v-model="draft" class="mt-3" label="Сила" :min="1" density="compact" hide-details />
+          <v-checkbox
+            v-if="isMaster"
+            v-model="draftInternal"
+            class="mt-2"
+            label="Внутренняя"
+            density="compact"
+            hide-details
+            @update:model-value="onInternal"
+          />
+          <v-btn class="mt-3" color="primary" variant="tonal" size="small" block @click="submitWound"> Изменить </v-btn>
+          <v-btn
+            v-if="woundHeld"
+            class="mt-2"
+            color="primary"
+            variant="tonal"
+            size="small"
+            block
+            @click="submitRelease"
+          >
+            Отпустить
+          </v-btn>
         </template>
         <template v-else-if="canEdit && editKind === 'poison'">
           <v-select
@@ -186,8 +245,19 @@ function submitRemove(): void {
           <v-btn class="mt-3" color="primary" variant="tonal" size="small" block @click="submitPoison">
             Изменить
           </v-btn>
-          <v-btn class="mt-2" color="error" variant="tonal" size="small" block @click="submitRemove">Убрать</v-btn>
         </template>
+        <v-btn
+          v-for="linked in linkedActions"
+          :key="linked.code"
+          class="mt-2"
+          color="primary"
+          variant="tonal"
+          size="small"
+          block
+          @click="submitLinkedAction(linked.code)"
+        >
+          {{ linked.name }}
+        </v-btn>
         <v-btn
           v-if="canEdit && actionLabel"
           class="mt-3"
@@ -199,7 +269,7 @@ function submitRemove(): void {
         >
           {{ actionLabel }}
         </v-btn>
-        <v-btn v-else-if="canEdit" class="mt-3" color="error" variant="tonal" size="small" block @click="submitRemove">
+        <v-btn v-if="canEdit" class="mt-2" color="error" variant="tonal" size="small" block @click="submitRemove">
           Убрать
         </v-btn>
       </v-card-text>

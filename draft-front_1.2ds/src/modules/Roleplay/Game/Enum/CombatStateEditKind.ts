@@ -1,1 +1,1 @@
-export type CombatStateEditKind = 'none' | 'numeric' | 'dimensional' | 'poison';
+export type CombatStateEditKind = 'none' | 'numeric' | 'dimensional' | 'poison' | 'wound';

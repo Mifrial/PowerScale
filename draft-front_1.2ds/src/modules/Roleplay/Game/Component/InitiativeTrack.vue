@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, inject, onMounted, ref, watch } from 'vue';
 import { useCurrentUser } from '@/modules/Core/User/init';
 import { useChatChannel } from '@/modules/Messages/Chat/init';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 import type { GameStatus } from '@/modules/Roleplay/Game/Enum/GameStatus';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
-import type { GameInitiative } from '@/modules/Roleplay/Game/Dto/GameInitiative';
+import type { GameInitiative, GameInitiativeParticipant } from '@/modules/Roleplay/Game/Dto/GameInitiative';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import InitiativeDialog from '@/modules/Roleplay/Game/Component/InitiativeDialog.vue';
@@ -14,9 +14,12 @@ import type { ChatMessage } from '@/modules/Messages/Chat/Dto/ChatMessage';
 import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { ProcessSession } from '@/modules/Roleplay/Game/Dto/ProcessSession';
+import type { CommittedActionSession } from '@/modules/Roleplay/Game/Dto/CommittedActionSession';
 import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
 import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
 import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
+import { concentrationTokenService } from '@/modules/Roleplay/Game/Service/Instance/concentrationTokenService';
+import { CONCENTRATION_TOKEN_ASK_INJECT_KEY } from '@/modules/Roleplay/Game/Constant/CONCENTRATION_TOKEN_ASK_INJECT_KEY';
 
 import { ACTION_POINTS_CODE } from '@/modules/Roleplay/Game/Constant/Combat/ACTION_POINTS_CODE';
 
@@ -30,6 +33,7 @@ import { useCombatChatThread } from '@/modules/Roleplay/Game/Composables/useComb
 import { combatChatSendService } from '@/modules/Roleplay/Game/Service/Instance/combatChatSendService';
 import { actionExecutionService } from '@/modules/Roleplay/Game/Service/Instance/actionExecutionService';
 import { processSessionService } from '@/modules/Roleplay/Game/Service/Instance/processSessionService';
+import { committedActionFlowService } from '@/modules/Roleplay/Game/Service/Instance/committedActionFlowService';
 import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/actionEffectService';
 import {
   asActionAbilitySpec,
@@ -37,8 +41,10 @@ import {
   WAIT_ACTION_CODE,
   findRuleByRef,
 } from '@/modules/Roleplay/Game/Utils/combatActions';
+import type { CombatActionOption } from '@/modules/Roleplay/Game/Utils/combatActions';
 import { formatProcessEffect } from '@/modules/Roleplay/Game/Utils/processMessage';
 import SpellSustainDialog from '@/modules/Roleplay/Game/Component/SpellSustainDialog.vue';
+import CommittedActionContinueDialog from '@/modules/Roleplay/Game/Component/CommittedActionContinueDialog.vue';
 import { electrochargeService } from '@/modules/Roleplay/Game/Service/Instance/electrochargeService';
 import { activeSpellService } from '@/modules/Roleplay/Game/Service/Instance/activeSpellService';
 import { useKeywords } from '@/modules/Roleplay/Keyword/init';
@@ -96,6 +102,7 @@ const { currentUser } = useCurrentUser();
 const chatStore = useChatChannel();
 const combatThread = useCombatChatThread(() => props.gameId);
 const sendChat = combatChatSendService.sendCombatChat(props.gameId);
+const askTokenSpend = inject(CONCENTRATION_TOKEN_ASK_INJECT_KEY, undefined);
 
 const initiative = ref<GameInitiative | null>(null);
 const loading = ref(false);
@@ -116,7 +123,13 @@ onMounted(() => {
   }
 });
 const processSessions = ref<Record<CombatEntityKey, ProcessSession>>({});
+const committedSessions = ref<Record<CombatEntityKey, CommittedActionSession>>({});
 const pendingEffectsByEntity = ref<Record<CombatEntityKey, PendingActionEffect[]>>({});
+const committedContinueOpen = ref(false);
+const committedContinueBusy = ref(false);
+const committedContinueSession = ref<CommittedActionSession | null>(null);
+const committedContinueSpeaker = ref<ChatSpeaker | null>(null);
+const committedContinueActorName = ref('');
 
 // Оверлеи боевых изменений участников: для текущего Истощения (сумма состояния 'exhaustion').
 const overlays = ref<GameCombatOverlay[]>([]);
@@ -185,7 +198,7 @@ async function load(): Promise<void> {
   loading.value = true;
   error.value = null;
   try {
-    const [nextInitiative, nextProcesses, nextPendingEffects] = await Promise.all([
+    const [nextInitiative, nextProcesses, nextPendingEffects, nextCommitted] = await Promise.all([
       getGameApi().getInitiative(props.gameId),
       getGameApi()
         .getProcessSessions(props.gameId)
@@ -193,10 +206,14 @@ async function load(): Promise<void> {
       getGameApi()
         .getPendingActionEffects(props.gameId)
         .catch(() => ({})),
+      getGameApi()
+        .getCommittedActionSessions(props.gameId)
+        .catch(() => ({})),
     ]);
     initiative.value = nextInitiative;
     processSessions.value = nextProcesses;
     pendingEffectsByEntity.value = nextPendingEffects;
+    committedSessions.value = nextCommitted;
     emit(
       'participants',
       (initiative.value?.active ? initiative.value.participants : []).map((participant) => participant.id),
@@ -270,6 +287,22 @@ const hasActiveProcess = computed(() => {
 
   return participantKey ? Boolean(processSessions.value[participantKey]) : false;
 });
+const hasActiveCommitted = computed(() => {
+  const participantKey = activeParticipantKey.value;
+
+  return participantKey ? Boolean(committedSessions.value[participantKey]) : false;
+});
+const committedContinueName = computed(() => {
+  const session = committedContinueSession.value;
+  if (!session) return '';
+
+  return findRuleByRef(props.rules, session.actionRuleCode)?.name ?? session.actionRuleCode;
+});
+const committedContinueAvailableOd = computed(() => {
+  const key = committedContinueSession.value?.entityKey;
+
+  return key ? (actionPointsByEntity.value.get(key) ?? 0) : 0;
+});
 
 const actionPointsByEntity = computed<Map<string, number>>(() => {
   const map = new Map<string, number>();
@@ -320,6 +353,14 @@ async function refillActionPoints(entityKey: CombatEntityKey): Promise<void> {
   });
 }
 
+async function refillConcentration(entityKey: CombatEntityKey): Promise<void> {
+  const overlay = overlays.value.find((item) => item.entityKey === entityKey) ?? null;
+  const model = combatCardModelService.combatCardModel(entityKey, props.characters, props.npcs, true, null, overlay);
+  const version = model.effectiveVersion;
+  if (!version) return;
+  await concentrationTokenService.refillIfUnused(getGameApi(), props.gameId, entityKey, version, overlay);
+}
+
 async function refillParticipants(keys: string[]): Promise<void> {
   await loadOverlays();
   for (const key of keys) {
@@ -327,6 +368,11 @@ async function refillParticipants(keys: string[]): Promise<void> {
       await refillActionPoints(key as CombatEntityKey);
     } catch {
       // Нет ОД на листе — шкалу не блокируем.
+    }
+    try {
+      await refillConcentration(key as CombatEntityKey);
+    } catch {
+      // Нет жетонов на листе — шкалу не блокируем.
     }
   }
   await loadOverlays();
@@ -430,6 +476,20 @@ async function confirmWaitAndPass(): Promise<void> {
         );
       }
     }
+    const committed = committedSessions.value[key];
+    if (committed) {
+      await committedActionFlowService.abort(
+        props.gameId,
+        committed,
+        props.rules,
+        props.chatId,
+        speakerFor(participant),
+        sendChat,
+      );
+      const nextCommitted = { ...committedSessions.value };
+      delete nextCommitted[key];
+      committedSessions.value = nextCommitted;
+    }
     const model = combatCardModelService.combatCardModel(
       key,
       props.characters,
@@ -484,6 +544,7 @@ async function bleedCurrentTurn(entityKey: string): Promise<void> {
     stateRuntimeEffectsService.effectiveCharacteristicValues(version, props.rules).get('endurance')?.base ?? 1;
   const next = await bloodLossService.applyTurnWoundBleed({
     version,
+    overlay,
     endurance,
     rules: props.rules,
     mechanics: props.mechanics,
@@ -493,6 +554,7 @@ async function bleedCurrentTurn(entityKey: string): Promise<void> {
     chatId: props.chatId,
     speaker: { kind: 'gm' },
     sendMessage: (content, attachments, chatId, speaker) => sendChat(content, attachments, chatId, speaker),
+    askTokenSpend,
   });
   if (next) {
     overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, next);
@@ -548,6 +610,7 @@ async function nextTurn(): Promise<void> {
   saveAndNotify({ ...data, activeIndex: nextIndex, round: nextRound }, notifications);
   if (nextParticipant) {
     await promptSustains(nextParticipant.id as CombatEntityKey, nextRound);
+    await promptCommittedContinue(nextParticipant);
   }
 }
 
@@ -580,6 +643,112 @@ async function promptSustains(participantId: CombatEntityKey, round: number): Pr
         }
       });
     });
+  }
+}
+
+function actionOptionForCommitted(session: CommittedActionSession): CombatActionOption {
+  const rule = findRuleByRef(props.rules, session.actionRuleCode);
+  if (!rule) throw new Error('Правило действия не найдено в текущей ревизии');
+  const spec = asActionAbilitySpec(rule);
+
+  return {
+    ruleCode: rule.code,
+    code: rule.code,
+    name: rule.name,
+    odCost: session.totalOd,
+    effects: spec ? actionEffectService.effectsOf(rule) : [],
+    operations: spec?.operations,
+    isAttack: false,
+  };
+}
+
+async function promptCommittedContinue(participant: GameInitiativeParticipant): Promise<void> {
+  const participantId = participant.id as CombatEntityKey;
+  const sessions: Record<CombatEntityKey, CommittedActionSession> = await getGameApi()
+    .getCommittedActionSessions(props.gameId)
+    .catch(() => ({}));
+  committedSessions.value = sessions;
+  const session = sessions[participantId];
+  if (!session) return;
+  committedContinueSession.value = session;
+  committedContinueSpeaker.value = speakerFor(participant);
+  committedContinueActorName.value = participant.name;
+  committedContinueOpen.value = true;
+  await new Promise<void>((resolve) => {
+    const stop = watch(committedContinueOpen, (open) => {
+      if (!open) {
+        stop();
+        resolve();
+      }
+    });
+  });
+}
+
+async function continueCommittedTurn(): Promise<void> {
+  const session = committedContinueSession.value;
+  const speaker = committedContinueSpeaker.value;
+  if (!session || !speaker) return;
+  committedContinueBusy.value = true;
+  error.value = null;
+  try {
+    await loadOverlays();
+    const overlay = overlays.value.find((item) => item.entityKey === session.entityKey) ?? null;
+    const model = combatCardModelService.combatCardModel(
+      session.entityKey,
+      props.characters,
+      props.npcs,
+      true,
+      null,
+      overlay,
+    );
+    if (!model.effectiveVersion) throw new Error('Лист участника не найден');
+    const available = combatCardModelService.combatActionPoints(model.effectiveVersion, props.rules)?.current ?? 0;
+    const next = await committedActionFlowService.continueTurn({
+      gameId: props.gameId,
+      session,
+      version: model.effectiveVersion,
+      rules: props.rules,
+      mechanics: props.mechanics,
+      available,
+      action: actionOptionForCommitted(session),
+      chatId: props.chatId,
+      speaker,
+      attackerName: committedContinueActorName.value,
+      sendChat,
+      pendingEffects: pendingEffectsByEntity.value[session.entityKey] ?? [],
+    });
+    const nextMap = { ...committedSessions.value };
+    if (next) nextMap[session.entityKey] = next;
+    else delete nextMap[session.entityKey];
+    committedSessions.value = nextMap;
+    await loadOverlays();
+    emit('overlay-changed');
+    committedContinueOpen.value = false;
+    committedContinueSession.value = null;
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : 'Не удалось продолжить действие';
+  } finally {
+    committedContinueBusy.value = false;
+  }
+}
+
+async function abortCommittedTurn(): Promise<void> {
+  const session = committedContinueSession.value;
+  const speaker = committedContinueSpeaker.value;
+  if (!session || !speaker) return;
+  committedContinueBusy.value = true;
+  error.value = null;
+  try {
+    await committedActionFlowService.abort(props.gameId, session, props.rules, props.chatId, speaker, sendChat);
+    const nextMap = { ...committedSessions.value };
+    delete nextMap[session.entityKey];
+    committedSessions.value = nextMap;
+    committedContinueOpen.value = false;
+    committedContinueSession.value = null;
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : 'Не удалось сорвать действие';
+  } finally {
+    committedContinueBusy.value = false;
   }
 }
 
@@ -927,6 +1096,7 @@ function kindIcon(kind: 'character' | 'npc'): string {
       <v-card-text>
         <p>Для передачи хода будет выполнено действие «Ожидание» за {{ activeActionPoints }} ОД.</p>
         <p v-if="hasActiveProcess" class="text-warning mt-2">Активный процесс будет прерван.</p>
+        <p v-if="hasActiveCommitted" class="text-warning mt-2">Незавершённое действие будет сорвано, ОД не вернутся.</p>
         <v-alert v-if="waitError" type="error" variant="tonal" density="compact" class="mt-3">
           {{ waitError }}
         </v-alert>
@@ -948,6 +1118,16 @@ function kindIcon(kind: 'character' | 'npc'): string {
     @update:open="sustainOpen = $event"
     @continue="continueSustain"
     @drop="sustainSpell && dropSustain(sustainSpell, false)"
+  />
+  <CommittedActionContinueDialog
+    :open="committedContinueOpen"
+    :session="committedContinueSession"
+    :action-name="committedContinueName"
+    :available-od="committedContinueAvailableOd"
+    :busy="committedContinueBusy"
+    @update:open="committedContinueOpen = $event"
+    @continue="continueCommittedTurn"
+    @abort="abortCommittedTurn"
   />
 </template>
 

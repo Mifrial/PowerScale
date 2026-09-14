@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, inject, ref, watch } from 'vue';
 import { useCombatChatThread } from '@/modules/Roleplay/Game/Composables/useCombatChatThread';
 import { combatChatSendService } from '@/modules/Roleplay/Game/Service/Instance/combatChatSendService';
 
@@ -18,6 +18,7 @@ import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKe
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
 import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
+import type { CommittedActionSession } from '@/modules/Roleplay/Game/Dto/CommittedActionSession';
 import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
 import type { ProcessActionContext } from '@/modules/Roleplay/Game/Dto/ProcessActionContext';
 import type { AttackAction } from '@/modules/Roleplay/Game/Dto/AttackAction';
@@ -42,7 +43,10 @@ import {
 } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
 import { CHARACTERISTIC_BASE_RANGE } from '@/modules/Roleplay/Character/init';
 import CombatEntitySelect from '@/modules/Roleplay/Game/Component/CombatEntitySelect.vue';
+import ConcentrationTokenOption from '@/modules/Roleplay/Game/Component/ConcentrationTokenOption.vue';
+import { CONCENTRATION_TOKEN_ASK_INJECT_KEY } from '@/modules/Roleplay/Game/Constant/CONCENTRATION_TOKEN_ASK_INJECT_KEY';
 import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
+import { concentrationTokenService } from '@/modules/Roleplay/Game/Service/Instance/concentrationTokenService';
 
 import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
 
@@ -56,6 +60,7 @@ import { damageTypeHooksService } from '@/modules/Roleplay/Game/Service/Instance
 
 import { DEFAULT_ATTACK_AP } from '@/modules/Roleplay/Game/Constant/Combat/DEFAULT_ATTACK_AP';
 import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
+import { woundInstanceService } from '@/modules/Roleplay/Game/Service/Instance/woundInstanceService';
 import { characteristicSizeByCode } from '@/modules/Roleplay/Game/Utils/strikeCharacteristicMods';
 import { formatProcessEffect } from '@/modules/Roleplay/Game/Utils/processMessage';
 
@@ -93,6 +98,7 @@ import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/ac
 import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/init';
 import { ADVANTAGE_SOURCE_MANUAL } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
 import { processSessionService } from '@/modules/Roleplay/Game/Service/Instance/processSessionService';
+import { committedActionFlowService } from '@/modules/Roleplay/Game/Service/Instance/committedActionFlowService';
 import { asProcessAbilitySpec } from '@/modules/Roleplay/Game/Utils/combatActions';
 import { ACTION_POINTS_CODE } from '@/modules/Roleplay/Game/Constant/Combat/ACTION_POINTS_CODE';
 import { SIMPLE_TOUCH_CODE } from '@/modules/Roleplay/Game/Constant/Combat/SIMPLE_TOUCH_CODE';
@@ -137,13 +143,17 @@ const emit = defineEmits<{
 
 const combatThread = useCombatChatThread(() => props.gameId);
 const sendChat = combatChatSendService.sendCombatChat(props.gameId);
+const askTokenSpend = inject(CONCENTRATION_TOKEN_ASK_INJECT_KEY, undefined);
 const { keywords, fetchTags } = useKeywords();
 const overlays = ref<GameCombatOverlay[]>([]);
 const pendingEffectsByEntity = ref<Record<CombatEntityKey, PendingActionEffect[]>>({});
+const committedSessions = ref<Record<CombatEntityKey, CommittedActionSession>>({});
 const offer = ref<CheckOffer | null>(null);
 const opponentKey = ref<CombatEntityKey | null>(null);
 const reaction = ref<HitDefenseReaction | null>(null);
 const attackerAdv = ref(0);
+const spendAttackerConcentration = ref(0);
+const spendDefenderConcentration = ref(0);
 const defenderAdv = ref(0);
 const defenseEfficiency = ref<DimensionalNumberValue>({ base: 4, size: -1 });
 const blockItemRuleCode = ref<string | null>(null);
@@ -272,6 +282,20 @@ function versionOf(key: CombatEntityKey | null): CharacterVersion | null {
     props.currentUserId,
     overlay,
   ).effectiveVersion;
+}
+
+async function applyConcentrationSpend(key: CombatEntityKey | null, requested: unknown): Promise<number> {
+  const amount = concentrationTokenService.parseSpendAmount(requested);
+  if (amount < 1 || !key) return 0;
+  const version = versionOf(key);
+  const overlay = overlays.value.find((item) => item.entityKey === key) ?? null;
+  const cap = concentrationTokenService.maxSpend(version, overlay, props.rules, CHECK_HIT_CODE);
+  const spent = Math.min(amount, cap);
+  if (!version || spent < 1) return 0;
+  const next = await concentrationTokenService.spendToken(getGameApi(), props.gameId, key, version, overlay, spent);
+  overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, next);
+
+  return spent;
 }
 
 function overviewOf(key: CombatEntityKey | null): CharacterOverview | null {
@@ -526,6 +550,35 @@ const blockAffordable = computed(() => {
 
   return (blockAction.value?.odCost ?? 2) + extra <= Math.min(defenderAp.value, reactionCostLimit.value);
 });
+const defenderCommitted = computed(() => {
+  const key = opponentKey.value;
+
+  return key ? (committedSessions.value[key] ?? null) : null;
+});
+const defenderReactionAbortsCommitted = computed(
+  () => Boolean(defenderCommitted.value) && reaction.value !== null && reaction.value !== 'ignore',
+);
+
+async function abortCommittedOnDefense(
+  entityKey: CombatEntityKey,
+  nextReaction: HitDefenseReaction | null,
+): Promise<void> {
+  if (!nextReaction || nextReaction === 'ignore') return;
+  const session = committedSessions.value[entityKey];
+  if (!session) return;
+  await committedActionFlowService.abort(
+    props.gameId,
+    session,
+    props.rules,
+    props.chatId,
+    speakerFor(entityKey),
+    sendChat,
+  );
+  const nextSessions = { ...committedSessions.value };
+  delete nextSessions[entityKey];
+  committedSessions.value = nextSessions;
+  emit('overlay-changed');
+}
 
 watch(attackOptions, (options) => {
   if (
@@ -590,12 +643,14 @@ watch(blockItemRuleCode, (id) => {
 async function hydrate(): Promise<void> {
   error.value = null;
   const api = getGameApi();
-  const [nextOverlays, nextPendingEffects] = await Promise.all([
+  const [nextOverlays, nextPendingEffects, nextCommitted] = await Promise.all([
     api.getCombatOverlays(props.gameId).catch(() => []),
     api.getPendingActionEffects(props.gameId).catch(() => ({})),
+    api.getCommittedActionSessions(props.gameId).catch(() => ({})),
   ]);
   overlays.value = nextOverlays;
   pendingEffectsByEntity.value = nextPendingEffects;
+  committedSessions.value = nextCommitted;
   if (keywords.value.length === 0) {
     void fetchTags();
   }
@@ -611,6 +666,12 @@ async function hydrate(): Promise<void> {
     reaction.value = hit?.reaction ?? null;
     attackerAdv.value = props.resumeOffer.proposal.initiatorAdv;
     defenderAdv.value = props.resumeOffer.proposal.opponentAdv;
+    spendAttackerConcentration.value = concentrationTokenService.parseSpendAmount(
+      props.resumeOffer.proposal.initiatorSpendConcentration,
+    );
+    spendDefenderConcentration.value = concentrationTokenService.parseSpendAmount(
+      props.resumeOffer.proposal.opponentSpendConcentration,
+    );
     agreedInitiatorAdv.value = props.resumeOffer.proposal.initiatorAdv;
     agreedOpponentAdv.value = props.resumeOffer.proposal.opponentAdv;
     agreedCover.value = Math.max(0, hit?.cover ?? 0);
@@ -632,6 +693,8 @@ async function hydrate(): Promise<void> {
   opponentKey.value = resolvedAttackAction.value?.strikes[0]?.targetKey ?? opponentOptions.value[0]?.value ?? null;
   reaction.value = null;
   attackerAdv.value = 0;
+  spendAttackerConcentration.value = 0;
+  spendDefenderConcentration.value = 0;
   defenderAdv.value = 0;
   agreedInitiatorAdv.value = 0;
   agreedOpponentAdv.value = 0;
@@ -691,6 +754,7 @@ async function sendOffer(): Promise<void> {
   const attack = resolvedAttack.value;
   const initiator = resolvedAttackerKey.value;
   if (!attack || !initiator || !opponentKey.value) throw new Error('Выберите цель');
+  if (committedSessions.value[initiator]) throw new Error('Сначала закончи или сорви текущее действие');
   if (!selectedAction.value) throw new Error('Выберите действие атаки');
   if (resolvedAttackAction.value?.mode === 'wide' && props.spatialResolver?.validateAttackTargets) {
     const validation = props.spatialResolver.validateAttackTargets(
@@ -711,6 +775,7 @@ async function sendOffer(): Promise<void> {
       opponentCharacteristic: null,
       initiatorAdv: attackerAdv.value,
       opponentAdv: 0,
+      initiatorSpendConcentration: spendAttackerConcentration.value,
       attackAction: resolvedAttackAction.value,
       hit: hitProposal(attack, null),
     },
@@ -771,6 +836,8 @@ function defenderProposal(): CheckOfferProposal {
     ...current.proposal,
     initiatorAdv: attackerAdv.value,
     opponentAdv: defenderAdv.value,
+    initiatorSpendConcentration: current.proposal.initiatorSpendConcentration,
+    opponentSpendConcentration: spendDefenderConcentration.value,
     hit: hitProposal(attack, reaction.value),
   };
 }
@@ -779,7 +846,9 @@ async function revise(): Promise<void> {
   const current = offer.value;
   const actor = current ? actingEntity(current) : null;
   if (!current || !actor) throw new Error('Нет оферты');
-  offer.value = await getGameApi().reviseCheckOffer(current.id, actor, defenderProposal());
+  const proposal = defenderProposal();
+  await abortCommittedOnDefense(targetKeyOf(current), proposal.hit?.reaction ?? null);
+  offer.value = await getGameApi().reviseCheckOffer(current.id, actor, proposal);
 }
 
 async function acceptWideAttack(
@@ -804,9 +873,15 @@ async function acceptWideAttack(
       component: 'strike',
       baseCost: resolvedSelectedAction.value?.odCost ?? DEFAULT_ATTACK_AP,
     });
+    const attackerSpent = await applyConcentrationSpend(
+      accepted.initiator,
+      accepted.proposal.initiatorSpendConcentration,
+    );
     const attackerAdvantage =
       accepted.proposal.initiatorAdv +
-      stateRuntimeEffectsService.checkAdvantageFromStates(versionOf(accepted.initiator), props.rules, { kind: 'hit' }) +
+      stateRuntimeEffectsService.checkAdvantageFromStates(versionOf(accepted.initiator), props.rules, {
+        kind: 'hit',
+      }) +
       Math.max(0, targetProposals.length - 1);
     const inputs = targetProposals.map((target) => {
       const profile = attackStrikes.find((strike) => strike.targetKey === target.targetKey)?.profile ?? attack;
@@ -824,7 +899,8 @@ async function acceptWideAttack(
         attackerAdv: attackerAdvantage,
         attackerAdvantageModifiers: actionEffectService
           .checkAdvantageModifiers(attackerPendingEffects.value, CHECK_HIT_CODE)
-          .concat(actionEffectService.currentActionCheckModifiers(actionRule, CHECK_HIT_CODE)),
+          .concat(actionEffectService.currentActionCheckModifiers(actionRule, CHECK_HIT_CODE))
+          .concat(attackerSpent > 0 ? [concentrationTokenService.tokenAdvantage(attackerSpent)] : []),
         defenderAdv:
           accepted.proposal.opponentAdv +
           stateRuntimeEffectsService.checkAdvantageFromStates(versionOf(target.targetKey), props.rules, {
@@ -973,6 +1049,7 @@ async function acceptAndRoll(): Promise<void> {
   const actor = current ? actingEntity(current) : null;
   if (!current || !attack || !actor) throw new Error('Нет оферты');
   const proposal = defenderProposal();
+  await abortCommittedOnDefense(targetKeyOf(current), proposal.hit?.reaction ?? null);
   const accepted = await getGameApi().acceptCheckOffer(current.id, actor, proposal);
   if (accepted.status === 'pending') {
     offer.value = accepted;
@@ -1014,6 +1091,11 @@ async function acceptAndRoll(): Promise<void> {
     baseCost: rawAction?.odCost ?? hit.actionOd ?? DEFAULT_ATTACK_AP,
     targetDexterityMastery: characteristicSizeByCode(overviewOf(accepted.opponent), props.rules, 'dexterity') ?? 0,
   });
+  const attackerSpent = await applyConcentrationSpend(
+    accepted.initiator,
+    accepted.proposal.initiatorSpendConcentration,
+  );
+  const defenderSpent = await applyConcentrationSpend(accepted.opponent, accepted.proposal.opponentSpendConcentration);
   const commonHitInput: Omit<HitRollInput, 'attack'> = {
     attackerLabel: nameOf(accepted.initiator),
     defenderLabel: nameOf(accepted.opponent),
@@ -1030,14 +1112,14 @@ async function acceptAndRoll(): Promise<void> {
       }),
     attackerAdvantageModifiers: actionEffectService
       .checkAdvantageModifiers(attackerPendingEffects.value, CHECK_HIT_CODE)
-      .concat(actionEffectService.currentActionCheckModifiers(actionRule, CHECK_HIT_CODE)),
+      .concat(actionEffectService.currentActionCheckModifiers(actionRule, CHECK_HIT_CODE))
+      .concat(attackerSpent > 0 ? [concentrationTokenService.tokenAdvantage(attackerSpent)] : []),
     defenderAdv:
       accepted.proposal.opponentAdv +
       stateRuntimeEffectsService.checkAdvantageFromStates(versionOf(accepted.opponent), props.rules, { kind: 'hit' }),
-    defenderAdvantageModifiers: actionEffectService.checkAdvantageModifiers(
-      pendingEffectsByEntity.value[accepted.opponent] ?? [],
-      CHECK_HIT_CODE,
-    ),
+    defenderAdvantageModifiers: actionEffectService
+      .checkAdvantageModifiers(pendingEffectsByEntity.value[accepted.opponent] ?? [], CHECK_HIT_CODE)
+      .concat(defenderSpent > 0 ? [concentrationTokenService.tokenAdvantage(defenderSpent)] : []),
     accuracyDelta: actionEffectService.currentAttackAccuracy(actionRule, hit.profileType),
     defenderDexterityMasteryDelta: pendingResolution.targetDexterityMasteryDelta,
     defenderMasteryAdjustments: pendingResolution.targetDexterityMasteryAdjustments.map((adjustment) => ({
@@ -1291,6 +1373,7 @@ async function announceArcaneBurst(
     if (afterHit) {
       const exhaustion = await exhaustionCheckService.applyExhaustionCheck({
         version: afterHit,
+        overlay: overlays.value.find((item) => item.entityKey === key) ?? null,
         rules: props.rules,
         mechanics: props.mechanics,
         gameId: props.gameId,
@@ -1300,6 +1383,7 @@ async function announceArcaneBurst(
         speaker: speakerFor(key),
         change: 'increase',
         sendMessage: (content, attachments, chatId, nextSpeaker) => sendChat(content, attachments, chatId, nextSpeaker),
+        askTokenSpend,
       });
       if (exhaustion.overlay) {
         overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, exhaustion.overlay);
@@ -1590,6 +1674,7 @@ async function finishSpellAfterHit(
     if (afterHit) {
       const exhaustion = await exhaustionCheckService.applyExhaustionCheck({
         version: afterHit,
+        overlay: overlays.value.find((item) => item.entityKey === accepted.opponent) ?? null,
         rules: props.rules,
         mechanics: props.mechanics,
         gameId: props.gameId,
@@ -1599,6 +1684,7 @@ async function finishSpellAfterHit(
         speaker: speakerFor(accepted.opponent),
         change: 'increase',
         sendMessage: (content, attachments, chatId, speaker) => sendChat(content, attachments, chatId, speaker),
+        askTokenSpend,
       });
       if (exhaustion.overlay) {
         overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, exhaustion.overlay);
@@ -1665,8 +1751,11 @@ async function applyCombatState(key: CombatEntityKey, code: string, amount: numb
   const independent = (rule.spec as StateSpec | undefined)?.aggregation === 'independent';
   const states = versionOf(key)?.states ?? [];
   const index = states.findIndex((state) => state.stateRuleCode === rule.code);
-  const overlay =
-    !independent && index >= 0
+  const addedWound = code === WOUND_STATE_CODE ? woundInstanceService.addWound(amount) : null;
+  if (code === WOUND_STATE_CODE && !addedWound) return;
+  const overlay = addedWound
+    ? await getGameApi().addCombatState(props.gameId, key, addedWound)
+    : !independent && index >= 0
       ? await getGameApi().setCombatStateValue(props.gameId, key, index, (states[index]?.value ?? 0) + amount)
       : await getGameApi().addCombatState(props.gameId, key, {
           stateRuleCode: rule.code,
@@ -1715,6 +1804,7 @@ async function applyAttackConsequences(
     if (afterHit) {
       const exhaustion = await exhaustionCheckService.applyExhaustionCheck({
         version: afterHit,
+        overlay: overlays.value.find((item) => item.entityKey === accepted.opponent) ?? null,
         rules: props.rules,
         mechanics: props.mechanics,
         gameId: props.gameId,
@@ -1724,6 +1814,7 @@ async function applyAttackConsequences(
         speaker: speakerFor(accepted.opponent),
         change: 'increase',
         sendMessage: (content, attachments, chatId, speaker) => sendChat(content, attachments, chatId, speaker),
+        askTokenSpend,
       });
       if (exhaustion.overlay) {
         overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, exhaustion.overlay);
@@ -1845,6 +1936,7 @@ async function applyClickAttack(
     : accepted.proposal.spellCast
       ? (hit.actionOd ?? 0)
       : 0;
+  await abortCommittedOnDefense(accepted.opponent, hit.reaction ?? null);
   const spentDefense = shouldSpendDefender ? await spendAp(accepted.opponent, defenderAp) : 0;
   const speaker = speakerFor(accepted.initiator);
   if (props.chatId !== null && shouldAnnounce && options.manageThread !== false) combatThread.beginAttack();
@@ -2166,6 +2258,14 @@ const canSubmit = computed(() => {
           density="compact"
           hide-details
         />
+        <ConcentrationTokenOption
+          v-if="isCompose && !isPreparationAction"
+          v-model="spendAttackerConcentration"
+          :version="versionOf(resolvedAttackerKey)"
+          :overlay="overlays.find((item) => item.entityKey === resolvedAttackerKey) ?? null"
+          :rules="rules"
+          :check-code="CHECK_HIT_CODE"
+        />
         <div v-if="offer && myTurn" class="d-flex ga-2">
           <ClampedNumberField
             v-model="attackerAdv"
@@ -2185,7 +2285,17 @@ const canSubmit = computed(() => {
           />
         </div>
         <template v-if="isDefenderStep">
+          <ConcentrationTokenOption
+            v-model="spendDefenderConcentration"
+            :version="versionOf(opponentKey)"
+            :overlay="overlays.find((item) => item.entityKey === opponentKey) ?? null"
+            :rules="rules"
+            :check-code="CHECK_HIT_CODE"
+          />
           <div class="text-caption text-medium-emphasis">Реакция защиты</div>
+          <p v-if="defenderReactionAbortsCommitted" class="text-warning text-body-2 mb-2">
+            Уклон или блок сорвут незавершённое действие, потраченные ОД не вернутся.
+          </p>
           <v-btn-toggle
             v-model="reaction"
             density="compact"

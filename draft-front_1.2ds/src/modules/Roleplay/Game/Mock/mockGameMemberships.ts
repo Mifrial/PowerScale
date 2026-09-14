@@ -21,6 +21,7 @@ import {
 import { membershipMatchesGameRevision } from '@/modules/Roleplay/Game/Utils/membershipRevision';
 import { SHEET_VISIBILITY_DEFAULT } from '@/modules/Roleplay/Character/init';
 import { sessionCharacterService } from '@/modules/Roleplay/Game/Service/Instance/sessionCharacterService';
+import { woundInstanceService } from '@/modules/Roleplay/Game/Service/Instance/woundInstanceService';
 import { gameMembershipReviewService } from '@/modules/Roleplay/Game/Service/Instance/gameMembershipReviewService';
 import { mockSendSystemMessage } from '@/modules/Messages/Chat/Mock/mockChat';
 import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
@@ -375,7 +376,11 @@ export async function commitSessionOverlays(gameId: number): Promise<void> {
     if (!overlay || overlay.updatedAt === '') continue;
     const resolved = sessionCharacterService.resolve(membership.approvedCharacterVersion, overlay);
     if (resolved === null) throw new Error('Не удалось собрать лист после сессии');
-    planned.push({ membership, next: resolved, entityKey: combatKey('character', membership.characterId) });
+    planned.push({
+      membership,
+      next: { ...resolved, states: woundInstanceService.stripHolds(resolved.states) },
+      entityKey: combatKey('character', membership.characterId),
+    });
   }
   if (planned.length > 0) {
     const revision = await fetchRevision(detail.game.spaceId, detail.game.rulesRevision);

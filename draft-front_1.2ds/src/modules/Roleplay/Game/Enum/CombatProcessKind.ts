@@ -1,1 +1,1 @@
-export type CombatProcessKind = 'process' | 'sustained-spell';
+export type CombatProcessKind = 'process' | 'sustained-spell' | 'committed-action';

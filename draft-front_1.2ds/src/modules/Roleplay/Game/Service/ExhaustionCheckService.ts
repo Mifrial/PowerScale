@@ -11,6 +11,7 @@ import {
 } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
 import { ROLL_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ATTACHMENT_TYPE';
 import { checkRollService } from '@/modules/Roleplay/Game/Service/Instance/checkRollService';
+import { concentrationTokenService } from '@/modules/Roleplay/Game/Service/Instance/concentrationTokenService';
 
 import { injuryCheckService } from '@/modules/Roleplay/Game/Service/Instance/injuryCheckService';
 
@@ -61,9 +62,34 @@ export class ExhaustionCheckService {
       DECLINE_STATE_CODES,
     );
     if (overlay) version = combatOverlayService.mergeCombatOverlay(version, overlay);
+    else overlay = args.overlay ?? null;
 
     const exhaustion = injuryCheckService.overlayStateTotal(version, args.rules, EXHAUSTION_STATE_CODE);
     const adv = stateRuntimeEffectsService.checkAdvantageFromStates(version, args.rules);
+    let spent = 0;
+    const maxSpend = concentrationTokenService.maxSpend(version, overlay, args.rules, CHECK_EXHAUSTION_CODE);
+    if (maxSpend > 0 && args.askTokenSpend) {
+      spent = Math.min(
+        maxSpend,
+        concentrationTokenService.parseSpendAmount(
+          await args.askTokenSpend({
+            maxSpend,
+            remaining: concentrationTokenService.tokenCurrent(version, overlay),
+          }),
+        ),
+      );
+      if (spent > 0) {
+        overlay = await concentrationTokenService.spendToken(
+          this.resolveGameApi(),
+          args.gameId,
+          args.targetKey,
+          version,
+          overlay,
+          spent,
+        );
+        version = combatOverlayService.mergeCombatOverlay(version, overlay);
+      }
+    }
     const spec = checkRollService.namedCheckSpec(
       `${args.targetName}: Воля (истощение)`,
       this.willpowerOf(version, args.rules),
@@ -71,6 +97,9 @@ export class ExhaustionCheckService {
       args.rules,
       args.targetKey,
     );
+    if (spent > 0) {
+      spec.advantages = spec.advantages.concat(concentrationTokenService.tokenAdvantage(spent));
+    }
     const roll = checkRollService.rollNamedCheck(
       spec,
       CHECK_EXHAUSTION_CODE,

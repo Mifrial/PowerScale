@@ -5,10 +5,12 @@ import type { DiceRng } from '@/modules/Roleplay/Game/Dto/DiceRng';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
 import type { ExhaustionChange } from '@/modules/Roleplay/Game/Utils/exhaustionCheckMessage';
 
 export interface ApplyExhaustionCheckArgs {
   version: CharacterVersion;
+  overlay?: GameCombatOverlay | null;
   rng?: DiceRng;
   rules: Rule[];
   mechanics: Mechanic[];
@@ -18,6 +20,7 @@ export interface ApplyExhaustionCheckArgs {
   chatId: number | null;
   speaker: ChatSpeaker;
   change: ExhaustionChange;
+  askTokenSpend?: (input: { maxSpend: number; remaining: number }) => Promise<number>;
   sendMessage: (
     content: string,
     attachments: ChatAttachment[],

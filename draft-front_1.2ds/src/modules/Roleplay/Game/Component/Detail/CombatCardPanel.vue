@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, inject, onMounted, ref, watch } from 'vue';
 import SlidePanel from '@/modules/Core/UI/Component/SlidePanel.vue';
 import { combatChatSendService } from '@/modules/Roleplay/Game/Service/Instance/combatChatSendService';
 
 import type { ChatAttachment } from '@/modules/Messages/Chat/Dto/ChatAttachment';
 import { exhaustionCheckService } from '@/modules/Roleplay/Game/Service/Instance/exhaustionCheckService';
+import { CONCENTRATION_TOKEN_ASK_INJECT_KEY } from '@/modules/Roleplay/Game/Constant/CONCENTRATION_TOKEN_ASK_INJECT_KEY';
 
 import { bloodLossService } from '@/modules/Roleplay/Game/Service/Instance/bloodLossService';
 
@@ -17,6 +18,7 @@ import {
   BLOOD_LOSS_STATE_CODE,
   EXHAUSTION_STATE_CODE,
   POISONING_STATE_CODE,
+  WOUND_STATE_CODE,
 } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 import {
@@ -44,12 +46,15 @@ import type { ActiveSpell } from '@/modules/Roleplay/Game/Dto/Spell/ActiveSpell'
 import type { CombatProcessRow } from '@/modules/Roleplay/Game/Dto/CombatProcessRow';
 import { electrochargeService } from '@/modules/Roleplay/Game/Service/Instance/electrochargeService';
 import { spellCastOptionsService } from '@/modules/Roleplay/Game/Service/Instance/spellCastOptionsService';
-import { combatProcessListService } from '@/modules/Roleplay/Game/Service/Instance/combatProcessListService';
 import { processSessionService } from '@/modules/Roleplay/Game/Service/Instance/processSessionService';
+import { combatProcessListService } from '@/modules/Roleplay/Game/Service/Instance/combatProcessListService';
+import { committedActionFlowService } from '@/modules/Roleplay/Game/Service/Instance/committedActionFlowService';
 import { formatSustainDropMessage } from '@/modules/Roleplay/Game/Utils/attackDamageMessage';
 import { formatProcessEffect } from '@/modules/Roleplay/Game/Utils/processMessage';
 import type { CombatStateDetailRow } from '@/modules/Roleplay/Game/Dto/CombatStateDetailRow';
 import type { CombatStateEditKind } from '@/modules/Roleplay/Game/Enum/CombatStateEditKind';
+import type { CombatStateLinkedAction } from '@/modules/Roleplay/Game/Dto/CombatStateLinkedAction';
+import type { ActionLaunchHint } from '@/modules/Roleplay/Game/Dto/ActionLaunchHint';
 import { useKeywords } from '@/modules/Roleplay/Keyword/init';
 import type { CharacterCreationConfig } from '@/modules/Roleplay/Character/Dto/Editor/CharacterCreationConfig';
 import type { InventoryItemOverview } from '@/modules/Roleplay/Character/Dto/Overview/InventoryItemOverview';
@@ -58,6 +63,7 @@ import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCh
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
 import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
 import type { ProcessSession } from '@/modules/Roleplay/Game/Dto/ProcessSession';
+import type { CommittedActionSession } from '@/modules/Roleplay/Game/Dto/CommittedActionSession';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
@@ -70,6 +76,7 @@ import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber
 import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue';
 import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
 import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/actionEffectService';
+import { woundInstanceService } from '@/modules/Roleplay/Game/Service/Instance/woundInstanceService';
 import { ACTION_POINTS_CODE } from '@/modules/Roleplay/Game/Constant/Combat/ACTION_POINTS_CODE';
 import { ruleReferenceService } from '@/modules/Roleplay/Rule/init';
 
@@ -105,9 +112,11 @@ const emit = defineEmits<{
   'launch-hit': [payload: { attackerKey: CombatEntityKey; attack: AttackOverview }];
   'launch-injury': [];
   'launch-charge-cast': [payload: { casterKey: CombatEntityKey; sustainId: string }];
+  'launch-action': [hint: ActionLaunchHint];
 }>();
 
 const sendChat = combatChatSendService.sendCombatChat(props.gameId);
+const askTokenSpend = inject(CONCENTRATION_TOKEN_ASK_INJECT_KEY, undefined);
 
 const isOpen = ref(props.open);
 watch(
@@ -123,6 +132,7 @@ watch(isOpen, (value) => {
 const overlays = ref<GameCombatOverlay[]>([]);
 const activeSpells = ref<ActiveSpell[]>([]);
 const pendingEffects = ref<PendingActionEffect[]>([]);
+const committedSessions = ref<Record<CombatEntityKey, CommittedActionSession>>({});
 /** Счётчик, чтобы overview пересобрался даже если версия листа та же ссылка (мутация НПС). */
 const viewEpoch = ref(0);
 const error = ref<string | null>(null);
@@ -228,6 +238,7 @@ const processRows = computed(() => {
   return combatProcessListService.listRows({
     entityKey: props.entityKey,
     processSession: activeProcess.value,
+    committedAction: props.entityKey ? (committedSessions.value[props.entityKey] ?? null) : null,
     activeSpells: activeSpells.value,
     version: effectiveVersion.value,
     states: effectiveVersion.value?.states ?? [],
@@ -251,10 +262,26 @@ type CombatStateTileModel = {
   poison: CharacterPoisonValue | null;
   actionLabel: string | null;
   sustainId: string | null;
+  woundInternal: boolean;
+  woundHeld: boolean;
+  linkedActions: CombatStateLinkedAction[];
 };
 
 function stateTileDetails(state: CharacterStateValue, row: CombatStateRow): CombatStateDetailRow[] {
   const rows: CombatStateDetailRow[] = [];
+  if (row.code === WOUND_STATE_CODE) {
+    const migrated = woundInstanceService.migrate(state);
+    const payload = woundInstanceService.payload(migrated);
+    rows.push({ label: 'Перевязка', value: String(payload.bandage) });
+    rows.push({ label: 'Свёртывание', value: String(payload.clotting) });
+    rows.push({ label: 'Кровопотеря в ход', value: String(woundInstanceService.tick(migrated)) });
+    if (!props.canEdit) {
+      rows.push({ label: 'Внутренняя', value: payload.internal ? 'да' : 'нет' });
+    }
+    rows.push({ label: 'Зажата', value: payload.heldBy ? 'да' : 'нет' });
+
+    return rows;
+  }
   if (state.maim) {
     rows.push({ label: 'Срок', value: state.maim.permanent ? 'постоянное' : 'временное' });
     if (!state.maim.permanent && state.maim.healTotal != null && state.maim.healUnit) {
@@ -306,6 +333,7 @@ function stateTileValue(state: CharacterStateValue | undefined, row: CombatState
 }
 
 function tileEditKind(row: CombatStateRow): CombatStateEditKind {
+  if (row.code === WOUND_STATE_CODE) return 'wound';
   if (row.code === POISONING_STATE_CODE) return 'poison';
   if (row.valueType === 'dimensional') return 'dimensional';
   if (row.valueType === 'number') return 'numeric';
@@ -344,6 +372,9 @@ const stateTiles = computed((): CombatStateTileModel[] => {
         actionLabel:
           state && electrochargeService.canOpenCast(state, activeSpells.value, props.rules) ? 'Сотворить' : null,
         sustainId: state?.boundSustainId ?? null,
+        woundInternal: state ? woundInstanceService.payload(state).internal : false,
+        woundHeld: state ? woundInstanceService.isHeld(state) : false,
+        linkedActions: row.linkedActions,
       });
     }
   }
@@ -413,10 +444,14 @@ async function loadOverlays(): Promise<void> {
     const next = await getGameApi().getCombatOverlays(props.gameId);
     const allPendingEffects = await getGameApi().getPendingActionEffects(props.gameId);
     const spells = await getGameApi().getActiveSpells(props.gameId);
+    const committed = await getGameApi()
+      .getCommittedActionSessions(props.gameId)
+      .catch(() => ({}));
     if (loadId !== overlaysLoadId) return;
     overlays.value = combatOverlayService.preferNewerCombatOverlays(overlays.value, next);
     pendingEffects.value = allPendingEffects[props.entityKey] ?? [];
     activeSpells.value = spells;
+    committedSessions.value = committed;
     viewEpoch.value += 1;
   } catch (e) {
     if (loadId !== overlaysLoadId) return;
@@ -436,6 +471,8 @@ async function abortProcessRow(row: CombatProcessRow): Promise<void> {
   try {
     if (row.kind === 'process') {
       await abortProcessSession();
+    } else if (row.kind === 'committed-action') {
+      await abortCommittedAction();
     } else {
       await abortSustainedSpell(row.id);
     }
@@ -469,6 +506,14 @@ async function abortProcessSession(): Promise<void> {
     ? ` Эффект: ${completionEffects.map((item) => formatProcessEffect(item.effect, props.rules)).join('; ')}.`
     : '';
   await sendChat(`${processRule.name} прекращён.${effectText}`, [], props.chatId, speaker.value);
+}
+
+async function abortCommittedAction(): Promise<void> {
+  const key = props.entityKey;
+  if (!key) return;
+  const session = committedSessions.value[key];
+  if (!session) return;
+  await committedActionFlowService.abort(props.gameId, session, props.rules, props.chatId, speaker.value, sendChat);
 }
 
 async function abortSustainedSpell(id: string): Promise<void> {
@@ -506,9 +551,15 @@ function launchChargeCast(sustainId: string): void {
   emit('launch-charge-cast', { casterKey: props.entityKey, sustainId });
 }
 
+function launchStateAction(tile: CombatStateTileModel, actionCode: string): void {
+  if (!props.entityKey) return;
+  emit('launch-action', { actionCode, targetKey: props.entityKey, stateIndex: tile.index });
+}
+
 function launchHit(attack: AttackOverview): void {
   if (!props.entityKey) return;
   if (props.processSessions?.[props.entityKey]) return;
+  if (committedSessions.value[props.entityKey]) return;
   emit('launch-hit', { attackerKey: props.entityKey, attack });
 }
 
@@ -704,8 +755,9 @@ async function afterStateSideEffects(
   const send = (content: string, attachments: ChatAttachment[], chatId: number, speaker: ChatSpeaker) =>
     sendChat(content, attachments, chatId, speaker);
   if (code === BLOOD_LOSS_STATE_CODE && bloodDelta > 0) {
-    const overlay = await bloodLossService.applyBloodLossTick({
+    const nextOverlay = await bloodLossService.applyBloodLossTick({
       version,
+      overlay: overlay.value,
       delta: bloodDelta,
       endurance: overview.value ? attackDamageService.enduranceOf(overview.value, props.rules) : 1,
       rules: props.rules,
@@ -716,14 +768,16 @@ async function afterStateSideEffects(
       chatId: props.chatId,
       speaker: cardSpeaker(),
       sendMessage: send,
+      askTokenSpend,
     });
-    if (overlay) applyOverlay(overlay);
+    if (nextOverlay) applyOverlay(nextOverlay);
 
     return;
   }
   if (code === EXHAUSTION_STATE_CODE) {
     const exhaustion = await exhaustionCheckService.applyExhaustionCheck({
       version,
+      overlay: overlay.value,
       rules: props.rules,
       mechanics: props.mechanics,
       gameId: props.gameId,
@@ -733,12 +787,18 @@ async function afterStateSideEffects(
       speaker: cardSpeaker(),
       change: exhaustionChange,
       sendMessage: send,
+      askTokenSpend,
     });
     if (exhaustion.overlay) applyOverlay(exhaustion.overlay);
   }
 }
 
 async function applyStateTile(tile: CombatStateTileModel, next: number): Promise<void> {
+  if (tile.code === WOUND_STATE_CODE) {
+    await applyWoundTile(tile, { value: next, internal: tile.woundInternal });
+
+    return;
+  }
   const version = effectiveVersion.value;
   const current = version?.states[tile.index]?.value ?? 0;
   let value = Math.max(0, Math.floor(next));
@@ -794,6 +854,27 @@ async function applyPoisonTile(tile: CombatStateTileModel, next: CharacterPoison
   const prev = version?.states[tile.index];
   if (!prev) return;
   await replaceStateAt(tile.index, { ...prev, poison: next });
+}
+
+async function applyWoundTile(tile: CombatStateTileModel, next: { value: number; internal: boolean }): Promise<void> {
+  const prev = effectiveVersion.value?.states[tile.index];
+  if (!prev) return;
+  await replaceStateAt(
+    tile.index,
+    woundInstanceService.setInternal(woundInstanceService.setStrength(prev, next.value), next.internal),
+  );
+}
+
+async function applyWoundInternal(tile: CombatStateTileModel, internal: boolean): Promise<void> {
+  const prev = effectiveVersion.value?.states[tile.index];
+  if (!prev) return;
+  await replaceStateAt(tile.index, woundInstanceService.setInternal(prev, internal));
+}
+
+async function releaseWoundHold(tile: CombatStateTileModel): Promise<void> {
+  const prev = effectiveVersion.value?.states[tile.index];
+  if (!prev) return;
+  await replaceStateAt(tile.index, woundInstanceService.releaseSqueeze(prev));
 }
 
 async function removeStateTile(tile: CombatStateTileModel): Promise<void> {
@@ -1058,11 +1139,19 @@ function onSheetToggleEquipped(itemId: number): void {
                     :damage-type-items="damageTypeSelectItems"
                     :poison-template="(id) => combatCardModelService.poisonValueFromRule(rules, id)"
                     :action-label="tile.actionLabel"
+                    :wound-internal="tile.woundInternal"
+                    :wound-held="tile.woundHeld"
+                    :is-master="canEdit"
+                    :linked-actions="tile.linkedActions"
                     @apply="(next) => applyStateTile(tile, next)"
                     @apply-dimensional="(next) => applyDimensionalTile(tile, next)"
                     @apply-poison="(next) => applyPoisonTile(tile, next)"
+                    @apply-wound="(next) => applyWoundTile(tile, next)"
+                    @apply-internal="(internal) => applyWoundInternal(tile, internal)"
+                    @release-hold="releaseWoundHold(tile)"
                     @remove="removeStateTile(tile)"
                     @action="tile.sustainId && launchChargeCast(tile.sustainId)"
+                    @launch-action="(code) => launchStateAction(tile, code)"
                   />
                 </div>
 

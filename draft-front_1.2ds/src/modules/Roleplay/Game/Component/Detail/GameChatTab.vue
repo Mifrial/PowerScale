@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useSpaceRevision } from '@/modules/Roleplay/RuleSpace/init';
-import { computed, onUnmounted, ref, watch } from 'vue';
+import { computed, onUnmounted, provide, ref, watch } from 'vue';
 import { useCurrentUser } from '@/modules/Core/User/init';
 import { useGameStore } from '@/modules/Roleplay/Game/Store/games';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
@@ -27,6 +27,7 @@ import InitiativeTrack from '@/modules/Roleplay/Game/Component/InitiativeTrack.v
 import CombatQuickRolls from '@/modules/Roleplay/Game/Component/CombatQuickRolls.vue';
 import CombatCardPanel from '@/modules/Roleplay/Game/Component/Detail/CombatCardPanel.vue';
 import type { SpellCastLaunchContext } from '@/modules/Roleplay/Game/Dto/Spell/SpellCastLaunchContext';
+import type { ActionLaunchHint } from '@/modules/Roleplay/Game/Dto/ActionLaunchHint';
 import CheckLaunchDialog from '@/modules/Roleplay/Game/Component/CheckLaunchDialog.vue';
 import HitLaunchDialog from '@/modules/Roleplay/Game/Component/HitLaunchDialog.vue';
 import ActionLaunchDialog from '@/modules/Roleplay/Game/Component/ActionLaunchDialog.vue';
@@ -42,6 +43,9 @@ import type { ProcessSession } from '@/modules/Roleplay/Game/Dto/ProcessSession'
 import type { AttackAction } from '@/modules/Roleplay/Game/Dto/AttackAction';
 import { CHECK_HIT_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
 import { useCombatChatThread } from '@/modules/Roleplay/Game/Composables/useCombatChatThread';
+import { useConcentrationTokenAsk } from '@/modules/Roleplay/Game/Composables/useConcentrationTokenAsk';
+import ConcentrationTokenAskDialog from '@/modules/Roleplay/Game/Component/ConcentrationTokenAskDialog.vue';
+import { CONCENTRATION_TOKEN_ASK_INJECT_KEY } from '@/modules/Roleplay/Game/Constant/CONCENTRATION_TOKEN_ASK_INJECT_KEY';
 import { combatChatFoldService } from '@/modules/Roleplay/Game/Service/Instance/combatChatFoldService';
 import type { ChatMessage } from '@/modules/Messages/Chat/Dto/ChatMessage';
 import type { ChatFoldChild } from '@/modules/Messages/Chat/Dto/ChatFoldChild';
@@ -60,6 +64,16 @@ const spaceRevision = useSpaceRevision();
 const chatId = computed(() => props.detail.gameChatId);
 const gameId = computed(() => props.detail.game.id);
 const combatThread = useCombatChatThread(gameId);
+const {
+  open: concentrationAskOpen,
+  maxSpend: concentrationAskMax,
+  remaining: concentrationAskRemaining,
+  amount: concentrationAskAmount,
+  askTokenSpend,
+  confirm: confirmConcentrationAsk,
+  skip: skipConcentrationAsk,
+} = useConcentrationTokenAsk();
+provide(CONCENTRATION_TOKEN_ASK_INJECT_KEY, (input) => askTokenSpend(input.maxSpend, input.remaining));
 const messageThread = computed(() => combatThread.stamp());
 const liveFoldIds = combatThread.liveIds;
 
@@ -352,6 +366,7 @@ watch(speakerOptions, () => applySpeakerKey());
 
 const checkOpen = ref(false);
 const actionOpen = ref(false);
+const actionLaunchHint = ref<ActionLaunchHint | null>(null);
 const attackOpen = ref(false);
 const attackActorKey = ref<CombatEntityKey | null>(null);
 const hitOpen = ref(false);
@@ -478,11 +493,18 @@ function openNewCheck(): void {
 }
 
 function openActionLaunch(): void {
+  actionLaunchHint.value = null;
+  actionOpen.value = true;
+}
+
+function onLaunchStateAction(hint: ActionLaunchHint): void {
+  actionLaunchHint.value = hint;
   actionOpen.value = true;
 }
 
 function onActionClosed(open: boolean): void {
   actionOpen.value = open;
+  if (!open) actionLaunchHint.value = null;
 }
 
 function onCheckClosed(open: boolean): void {
@@ -728,6 +750,7 @@ onUnmounted(() => {
       @launch-hit="onLaunchHit"
       @launch-injury="onLaunchInjury"
       @launch-charge-cast="onLaunchChargeCast"
+      @launch-action="onLaunchStateAction"
     />
 
     <CheckLaunchDialog
@@ -759,6 +782,7 @@ onUnmounted(() => {
       :can-edit="canEdit"
       :current-user-id="currentUser?.id ?? null"
       :active-speaker-key="activeSpeakerKey"
+      :launch-hint="actionLaunchHint"
       @launch-process-step="onLaunchProcessStep"
       @update:open="onActionClosed"
       @settled="onOverlayChanged"
@@ -830,6 +854,15 @@ onUnmounted(() => {
       @update:open="spellOpen = $event"
       @overlay-changed="onOverlayChanged"
       @settled="refreshPendingOffers"
+    />
+    <ConcentrationTokenAskDialog
+      :open="concentrationAskOpen"
+      :max-spend="concentrationAskMax"
+      :remaining="concentrationAskRemaining"
+      :amount="concentrationAskAmount"
+      @update:amount="concentrationAskAmount = $event"
+      @confirm="confirmConcentrationAsk"
+      @skip="skipConcentrationAsk"
     />
   </div>
 </template>

@@ -10,6 +10,7 @@ import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
 import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
 import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
 import type { ProcessSession } from '@/modules/Roleplay/Game/Dto/ProcessSession';
+import type { CommittedActionSession } from '@/modules/Roleplay/Game/Dto/CommittedActionSession';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
@@ -49,6 +50,7 @@ const emit = defineEmits<{
 
 const overlays = ref<GameCombatOverlay[]>([]);
 const processSessions = ref<Record<CombatEntityKey, ProcessSession>>({});
+const committedSessions = ref<Record<CombatEntityKey, CommittedActionSession>>({});
 const sourceRuleCode = ref<string | null>(null);
 const processStepCode = ref<string | null>(null);
 const slots = ref<AttackActionSlotDraft[]>([{ profile: null, targetKey: null }]);
@@ -86,6 +88,7 @@ const favoriteAttack = computed(() =>
 const activeProcess = computed(() =>
   actorKey.value && processSessions.value[actorKey.value] ? processSessions.value[actorKey.value] : null,
 );
+const activeCommitted = computed(() => (actorKey.value ? (committedSessions.value[actorKey.value] ?? null) : null));
 const sources = computed(() => {
   const available = attackActionSourceService.list(props.rules, actorOverview.value);
   if (!activeProcess.value) return available;
@@ -228,14 +231,16 @@ function removeTarget(index: number): void {
 
 async function hydrate(): Promise<void> {
   const api = getGameApi();
-  const [nextOverlays, nextPending, nextProcesses] = await Promise.all([
+  const [nextOverlays, nextPending, nextProcesses, nextCommitted] = await Promise.all([
     api.getCombatOverlays(props.gameId).catch(() => []),
     api.getPendingActionEffects(props.gameId).catch(() => ({})),
     api.getProcessSessions(props.gameId).catch(() => ({})),
+    api.getCommittedActionSessions(props.gameId).catch(() => ({})),
   ]);
   overlays.value = nextOverlays;
   pendingEffects.value = nextPending;
   processSessions.value = nextProcesses;
+  committedSessions.value = nextCommitted;
   sourceRuleCode.value = sources.value[0]?.code ?? null;
   slots.value = [{ profile: null, targetKey: targetOptions.value[0]?.value ?? null }];
 }
@@ -288,6 +293,7 @@ async function submit(): Promise<void> {
   const source = selectedSource.value;
   const initiator = actorKey.value;
   if (!source || !initiator) throw new Error('Выберите атакующего и атаку');
+  if (activeCommitted.value) throw new Error('Сначала закончи или сорви текущее действие');
   const selectedStepCode =
     selectedProcessStep.value?.code ??
     processStepCode.value ??
@@ -380,6 +386,9 @@ watch(selectedProcessStep, () => {
     <v-card>
       <v-card-title>Атака</v-card-title>
       <v-card-text>
+        <v-alert v-if="activeCommitted" type="warning" variant="tonal" density="compact" class="mb-3">
+          Сначала закончи или сорви незавершённое действие.
+        </v-alert>
         <v-autocomplete
           v-model="sourceRuleCode"
           :items="sources"

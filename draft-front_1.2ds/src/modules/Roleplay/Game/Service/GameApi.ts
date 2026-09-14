@@ -35,6 +35,7 @@ import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/Chara
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
 import type { ProcessSession } from '@/modules/Roleplay/Game/Dto/ProcessSession';
+import type { CommittedActionSession } from '@/modules/Roleplay/Game/Dto/CommittedActionSession';
 import type { ActiveSpell } from '@/modules/Roleplay/Game/Dto/Spell/ActiveSpell';
 import type { CurrentSpeed } from '@/modules/Roleplay/Game/Dto/CurrentSpeed';
 
@@ -429,6 +430,34 @@ export class GameApi implements IGameApi {
     return res.data ?? null;
   }
 
+  async getCommittedActionSessions(
+    gameId: number,
+    signal?: AbortSignal,
+  ): Promise<Record<CombatEntityKey, CommittedActionSession>> {
+    const res = await this.engine.runAction<Record<CombatEntityKey, CommittedActionSession>>(
+      'game.getCommittedActionSessions',
+      { gameId },
+      signal,
+    );
+
+    return res.data ?? {};
+  }
+
+  async setCommittedActionSession(
+    gameId: number,
+    entityKey: CombatEntityKey,
+    session: CommittedActionSession | null,
+    signal?: AbortSignal,
+  ): Promise<CommittedActionSession | null> {
+    const res = await this.engine.runAction<CommittedActionSession | null>(
+      'game.setCommittedActionSession',
+      { gameId, entityKey, session },
+      signal,
+    );
+
+    return res.data ?? null;
+  }
+
   async getActiveSpells(gameId: number, signal?: AbortSignal): Promise<ActiveSpell[]> {
     const res = await this.engine.runAction<ActiveSpell[]>('game.getActiveSpells', { gameId }, signal);
 
@@ -486,6 +515,38 @@ export class GameApi implements IGameApi {
       signal,
     );
     if (!res.data) throw new Error('Set combat resource failed');
+
+    return res.data;
+  }
+
+  async setCombatConcentrationUsedInCycle(
+    gameId: number,
+    entityKey: CombatEntityKey,
+    used: boolean,
+    signal?: AbortSignal,
+  ): Promise<GameCombatOverlay> {
+    const res = await this.engine.runAction<GameCombatOverlay>(
+      'game.setCombatConcentrationUsedInCycle',
+      { gameId, entityKey, used },
+      signal,
+    );
+    if (!res.data) throw new Error('Set concentration cycle failed');
+
+    return res.data;
+  }
+
+  async setCombatWoundBandagedOnce(
+    gameId: number,
+    entityKey: CombatEntityKey,
+    bandaged: boolean,
+    signal?: AbortSignal,
+  ): Promise<GameCombatOverlay> {
+    const res = await this.engine.runAction<GameCombatOverlay>(
+      'game.setCombatWoundBandagedOnce',
+      { gameId, entityKey, bandaged },
+      signal,
+    );
+    if (!res.data) throw new Error('Set wound bandaged failed');
 
     return res.data;
   }

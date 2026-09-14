@@ -60,12 +60,15 @@ export class SpellCastExecutionService {
   }
 
   private castAdvantages(input: SpellCastExecutionInput) {
-    return spellCastUpgradeService.advantageModifiers(
-      spellCastUpgradeService.selectedOf(
-        spellCastUpgradeService.listApplicable(input.casterAbilities, input.pathCode, input.spellCode, input.rules),
-        input.appliedUpgradeCodes,
+    return [
+      ...spellCastUpgradeService.advantageModifiers(
+        spellCastUpgradeService.selectedOf(
+          spellCastUpgradeService.listApplicable(input.casterAbilities, input.pathCode, input.spellCode, input.rules),
+          input.appliedUpgradeCodes,
+        ),
       ),
-    );
+      ...(input.extraCheckAdvantages ?? []),
+    ];
   }
 
   execute(input: SpellCastExecutionInput): SpellCastExecutionResult {

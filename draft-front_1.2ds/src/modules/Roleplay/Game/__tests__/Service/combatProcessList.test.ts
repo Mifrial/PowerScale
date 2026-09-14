@@ -140,6 +140,7 @@ describe('CombatProcessListService', () => {
     const rows = combatProcessListService.listRows({
       entityKey: 'character:1',
       processSession: session('movement'),
+      committedAction: null,
       activeSpells: [spell('inventory:9'), spell('inventory:10'), spell('inventory:9', 'character:2')],
       version: {
         inventory: [
@@ -160,10 +161,46 @@ describe('CombatProcessListService', () => {
     expect(rows.filter((row) => row.kind === 'sustained-spell')).toHaveLength(2);
   });
 
+  it('кладёт долг ОД рядом с процессом', () => {
+    const rows = combatProcessListService.listRows({
+      entityKey: 'character:1',
+      processSession: null,
+      committedAction: {
+        gameId: 1,
+        entityKey: 'character:1',
+        actionRuleCode: 'perevyazat',
+        remainingOd: 5,
+        totalOd: 8,
+        targetKey: 'character:2',
+        stateIndices: [0],
+        startedAt: 't1',
+        updatedAt: 't1',
+      },
+      activeSpells: [],
+      version: null,
+      states: [],
+      rules: [
+        abilityRule('perevyazat', 'Перевязать', {
+          type: 'action',
+          zones: {},
+          requirements: [],
+          grants: [],
+          parent_ability_code: null,
+          action_components: [],
+        }),
+      ],
+    });
+
+    expect(rows[0]?.kind).toBe('committed-action');
+    expect(rows[0]?.canAbort).toBe(true);
+    expect(rows[0]?.valueLabel).toBe('ещё 5 ОД');
+  });
+
   it('не даёт оборвать процесс с emergency-шагом', () => {
     const rows = combatProcessListService.listRows({
       entityKey: 'character:1',
       processSession: session('locked-process'),
+      committedAction: null,
       activeSpells: [],
       version: null,
       states: [],

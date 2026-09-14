@@ -8,6 +8,7 @@ import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { SpellCastResolveInput } from '@/modules/Roleplay/Game/Dto/Spell/SpellCastResolveInput';
+import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
 
 export interface SpellCastExecutionInput {
   spellCode: string;
@@ -36,5 +37,6 @@ export interface SpellCastExecutionInput {
   sourceKey: string;
   pathCode: string | null;
   appliedUpgradeCodes: string[];
+  extraCheckAdvantages?: AdvantageModifier[];
   chargeSpendCost?: number;
 }

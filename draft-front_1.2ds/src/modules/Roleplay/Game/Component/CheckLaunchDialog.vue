@@ -18,6 +18,7 @@ import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec';
+import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
 import { checkRollService } from '@/modules/Roleplay/Game/Service/Instance/checkRollService';
 
 import { stateRuntimeEffectsService } from '@/modules/Roleplay/Character/init';
@@ -28,7 +29,12 @@ import { SIMPLE_CHECK_ZERO_DIFFICULTY } from '@/modules/Roleplay/Game/Constant/C
 import { initiativeCharacteristics } from '@/modules/Roleplay/Game/Utils/initiativeCharacteristic';
 import type { InitiativeCharacteristicView } from '@/modules/Roleplay/Game/Utils/initiativeCharacteristic';
 import CombatEntitySelect from '@/modules/Roleplay/Game/Component/CombatEntitySelect.vue';
+import ConcentrationTokenOption from '@/modules/Roleplay/Game/Component/ConcentrationTokenOption.vue';
 import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
+import { concentrationTokenService } from '@/modules/Roleplay/Game/Service/Instance/concentrationTokenService';
+import { knowledgeCheckLaunchService } from '@/modules/Roleplay/Game/Service/Instance/knowledgeCheckLaunchService';
+import KnowledgeCheckLaunchFields from '@/modules/Roleplay/Game/Component/KnowledgeCheckLaunchFields.vue';
+import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
 
 import { checkResolutionService } from '@/modules/Roleplay/Rule/init';
 import { checkLaunchService } from '@/modules/Roleplay/Rule/init';
@@ -75,6 +81,7 @@ const opponentKey = ref<CombatEntityKey | null>(null);
 const initiatorCharacteristic = ref<string | null>(null);
 const opponentCharacteristic = ref<string | null>(null);
 const initiatorAdv = ref(0);
+const spendConcentration = ref(0);
 const opponentAdv = ref(0);
 const initiatorUseFree = ref(false);
 const opponentUseFree = ref(false);
@@ -86,6 +93,9 @@ const opponentFreeSize = ref(0);
 const opponentFreeEfficiency = ref(3);
 const askBase = ref(0);
 const askSize = ref(0);
+const knowledgeFieldCode = ref('');
+const knowledgeSlotText = ref('');
+const knowledgeBand = ref(1);
 const opponentTouched = ref(false);
 const offer = ref<CheckOffer | null>(null);
 const initiatorChars = ref<Map<string, InitiativeCharacteristicView>>(new Map());
@@ -150,6 +160,37 @@ const formLocked = computed(() => lockedParticipants.value && !myTurn.value);
 
 const fromState = computed(() => selectedSpec.value?.difficulty_input.kind === 'from_state');
 const askDifficulty = computed(() => selectedSpec.value?.difficulty_input.kind === 'ask');
+
+const isKnowledgeCheck = computed(() => knowledgeCheckLaunchService.isKnowledgeCheck(checkCode.value));
+
+const knowledgeSituation = computed(() =>
+  knowledgeCheckLaunchService.composeSituation(
+    knowledgeFieldCode.value,
+    knowledgeSlotText.value,
+    knowledgeBand.value,
+    props.rules,
+  ),
+);
+
+const knowledgeAbilities = computed(() => modelOf(initiatorKey.value)?.effectiveVersion?.abilities ?? []);
+
+const knowledgeHint = computed(() =>
+  knowledgeCheckLaunchService.hint(
+    knowledgeAbilities.value,
+    knowledgeSituation.value,
+    { base: askBase.value, size: askSize.value },
+    props.rules,
+  ),
+);
+
+const knowledgeHintText = computed(() => {
+  const hint = knowledgeHint.value;
+  if (!hint) return null;
+  const raised = new DimensionalNumber(hint.raised).toString();
+  const defense = hint.lawDefenseDelta > 0 ? ` · защита +${hint.lawDefenseDelta}` : '';
+
+  return `уровень ${hint.level} · нехватка ${hint.shortage} · сложность ${raised}${defense}`;
+});
 
 function actorRole(current: CheckOffer): 'initiator' | 'opponent' | null {
   if (speakerEntity.value === current.initiator) return 'initiator';
@@ -232,6 +273,15 @@ function applyCheckKind(): void {
   else if (canSolo.value && !canPair.value) launchKind.value = 'solo';
 }
 
+function applyKnowledgeSuggestion(): void {
+  if (!isKnowledgeCheck.value) return;
+  if (knowledgeFieldCode.value || knowledgeSlotText.value) return;
+  const suggestion = knowledgeCheckLaunchService.suggestSoleInstance(knowledgeAbilities.value);
+  if (!suggestion) return;
+  knowledgeFieldCode.value = suggestion.fieldCode;
+  knowledgeSlotText.value = suggestion.slotText;
+}
+
 function proposal(): CheckOfferProposal {
   return {
     initiatorCharacteristic: initiatorUseFree.value ? null : initiatorCharacteristic.value,
@@ -252,6 +302,7 @@ function proposal(): CheckOfferProposal {
           efficiency: opponentFreeEfficiency.value,
         }
       : null,
+    initiatorSpendConcentration: spendConcentration.value,
   };
 }
 
@@ -273,6 +324,7 @@ function applyProposal(data: CheckOfferProposal): void {
     opponentFreeEfficiency.value = data.opponentFree.efficiency;
   }
   opponentTouched.value = data.opponentCharacteristic !== data.initiatorCharacteristic;
+  spendConcentration.value = concentrationTokenService.parseSpendAmount(data.initiatorSpendConcentration);
 }
 
 async function hydrateNew(): Promise<void> {
@@ -281,8 +333,12 @@ async function hydrateNew(): Promise<void> {
   opponentTouched.value = false;
   initiatorAdv.value = 0;
   opponentAdv.value = 0;
+  spendConcentration.value = 0;
   askBase.value = 0;
   askSize.value = 0;
+  knowledgeFieldCode.value = '';
+  knowledgeSlotText.value = '';
+  knowledgeBand.value = 1;
   const defaults = rollPoolDefaults(props.rules);
   initiatorFreeDice.value = defaults.freeDiceCount;
   opponentFreeDice.value = defaults.freeDiceCount;
@@ -301,6 +357,7 @@ async function hydrateNew(): Promise<void> {
   await loadChars(opponentKey.value, opponentChars);
   opponentUseFree.value = opponentChars.value.size === 0;
   if (!opponentTouched.value) opponentCharacteristic.value = initiatorCharacteristic.value;
+  applyKnowledgeSuggestion();
 }
 
 async function hydrateOffer(current: CheckOffer): Promise<void> {
@@ -340,6 +397,7 @@ watch(checkCode, () => {
   applyCheckKind();
   initiatorCharacteristic.value = defaultCharacteristic(initiatorChars.value);
   if (!opponentTouched.value) opponentCharacteristic.value = initiatorCharacteristic.value;
+  applyKnowledgeSuggestion();
 });
 
 watch(initiatorKey, async (key) => {
@@ -349,6 +407,11 @@ watch(initiatorKey, async (key) => {
   initiatorCharacteristic.value = defaultCharacteristic(initiatorChars.value);
   if (!opponentTouched.value) opponentCharacteristic.value = initiatorCharacteristic.value;
   if (opponentKey.value === key) opponentKey.value = opponentOptions.value[0]?.value ?? null;
+  applyKnowledgeSuggestion();
+});
+
+watch(knowledgeAbilities, () => {
+  applyKnowledgeSuggestion();
 });
 
 watch(opponentKey, async (key) => {
@@ -367,6 +430,7 @@ function poolSpec(
   map: Map<string, InitiativeCharacteristicView>,
   useFree: boolean,
   free: { diceCount: number; dieSize: number; efficiency: number },
+  extraAdvantages: AdvantageModifier[] = [],
 ): DiceRollSpec {
   const query = checkCode.value
     ? ({ kind: 'check', code: checkCode.value } as const)
@@ -384,7 +448,13 @@ function poolSpec(
       diceCount: Math.max(ROLL_DICE_COUNT_MIN, free.diceCount),
       dieFaces: defaults.dieFaces,
       efficiency: free.efficiency,
-      advantages: [...aggregateSourceDeltasService.advantageEntries(adv), ...stateAdv, ...itemAdv, ...abilityAdv],
+      advantages: [
+        ...aggregateSourceDeltasService.advantageEntries(adv),
+        ...stateAdv,
+        ...itemAdv,
+        ...abilityAdv,
+        ...extraAdvantages,
+      ],
       dieSize: free.dieSize,
       poolSize: free.dieSize,
       efficiencySize: 0,
@@ -413,7 +483,7 @@ function poolSpec(
     key ?? undefined,
   );
 
-  return { ...spec, advantages: [...spec.advantages, ...stateAdv, ...itemAdv, ...abilityAdv] };
+  return { ...spec, advantages: [...spec.advantages, ...stateAdv, ...itemAdv, ...abilityAdv, ...extraAdvantages] };
 }
 
 function soloDifficulty(): DimensionalNumberValue {
@@ -424,9 +494,19 @@ function soloDifficulty(): DimensionalNumberValue {
 
     return { base: value ?? 0, size: 0 };
   }
-  if (input?.kind === 'ask' && props.canEdit) return { base: askBase.value, size: askSize.value };
+  const asked =
+    input?.kind === 'ask' && props.canEdit
+      ? { base: askBase.value, size: askSize.value }
+      : SIMPLE_CHECK_ZERO_DIFFICULTY;
+  if (!isKnowledgeCheck.value) return asked;
 
-  return SIMPLE_CHECK_ZERO_DIFFICULTY;
+  return knowledgeCheckLaunchService.raisedDifficulty(
+    knowledgeAbilities.value,
+    knowledgeSituation.value,
+    asked,
+    props.rules,
+    knowledgeBand.value,
+  );
 }
 
 const fromStateLabel = computed(() => {
@@ -458,8 +538,40 @@ function close(): void {
   emit('update:open', false);
 }
 
+async function applyConcentrationSpend(
+  key: CombatEntityKey | null,
+  characteristic: string | null,
+  requested: unknown,
+): Promise<number> {
+  const amount = concentrationTokenService.parseSpendAmount(requested);
+  if (amount < 1 || !key) return 0;
+  const version = modelOf(key)?.effectiveVersion ?? null;
+  const overlay = overlayOf(key);
+  const cap = concentrationTokenService.maxSpend(version, overlay, props.rules, checkCode.value, characteristic);
+  const spent = Math.min(amount, cap);
+  if (!version || spent < 1) return 0;
+  const next = await concentrationTokenService.spendToken(getGameApi(), props.gameId, key, version, overlay, spent);
+  overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, next);
+  spendConcentration.value = 0;
+
+  return spent;
+}
+
 async function runSolo(): Promise<void> {
   if (!initiatorKey.value) throw new Error('Выберите, кто бросает');
+  const spent = await applyConcentrationSpend(
+    initiatorKey.value,
+    initiatorUseFree.value ? null : initiatorCharacteristic.value,
+    spendConcentration.value,
+  );
+  const extra = [
+    ...(spent > 0 ? [concentrationTokenService.tokenAdvantage(spent)] : []),
+    ...knowledgeCheckLaunchService.lawDefenseAdvantages(
+      knowledgeAbilities.value,
+      isKnowledgeCheck.value ? knowledgeSituation.value : null,
+      props.rules,
+    ),
+  ];
   const spec = poolSpec(
     initiatorKey.value,
     initiatorCharacteristic.value,
@@ -471,6 +583,7 @@ async function runSolo(): Promise<void> {
       dieSize: initiatorFreeSize.value,
       efficiency: initiatorFreeEfficiency.value,
     },
+    extra,
   );
   const result = checkRollService.rollNamedCheck(
     spec,
@@ -480,7 +593,17 @@ async function runSolo(): Promise<void> {
     props.rules,
     props.mechanics,
   );
-  await postRolls(selectedCheck.value?.name ?? 'Проверка', [result]);
+  const completeness = isKnowledgeCheck.value
+    ? knowledgeCheckLaunchService.completenessOf(
+        knowledgeAbilities.value,
+        knowledgeSituation.value,
+        Boolean(result.check?.passed),
+        props.rules,
+      )
+    : null;
+  await postRolls(knowledgeCheckLaunchService.chatText(selectedCheck.value?.name ?? 'Проверка', completeness), [
+    result,
+  ]);
 }
 
 async function sendOffer(): Promise<void> {
@@ -504,6 +627,11 @@ async function accept(): Promise<void> {
   if (!current) throw new Error('Нет оферты');
   const actor = speakerEntity.value ?? current.opponent;
   const accepted = await getGameApi().acceptCheckOffer(current.id, actor);
+  const initiatorSpent = await applyConcentrationSpend(
+    accepted.initiator,
+    accepted.proposal.initiatorCharacteristic,
+    accepted.proposal.initiatorSpendConcentration,
+  );
   const left = poolSpec(
     accepted.initiator,
     accepted.proposal.initiatorCharacteristic,
@@ -515,6 +643,7 @@ async function accept(): Promise<void> {
       dieSize: initiatorFreeSize.value,
       efficiency: initiatorFreeEfficiency.value,
     },
+    initiatorSpent > 0 ? [concentrationTokenService.tokenAdvantage(initiatorSpent)] : [],
   );
   const right = poolSpec(
     accepted.opponent,
@@ -740,6 +869,24 @@ const statusHint = computed(() => {
             :disabled="formLocked"
           />
         </div>
+        <ConcentrationTokenOption
+          v-model="spendConcentration"
+          :version="modelOf(initiatorKey)?.effectiveVersion ?? null"
+          :overlay="overlayOf(initiatorKey)"
+          :rules="rules"
+          :check-code="checkCode"
+          :characteristic-code="initiatorUseFree ? null : initiatorCharacteristic"
+        />
+
+        <KnowledgeCheckLaunchFields
+          v-if="isKnowledgeCheck && launchKind === 'solo'"
+          v-model:field-code="knowledgeFieldCode"
+          v-model:slot-text="knowledgeSlotText"
+          v-model:band="knowledgeBand"
+          :rules="rules"
+          :abilities="knowledgeAbilities"
+          :hint-text="knowledgeHintText"
+        />
 
         <template v-if="launchKind === 'solo'">
           <div v-if="fromState" class="text-caption text-medium-emphasis mt-3">Сложность: {{ fromStateLabel }}</div>

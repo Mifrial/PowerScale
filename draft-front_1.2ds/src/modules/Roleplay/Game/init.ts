@@ -141,6 +141,7 @@ export function registerGameModule(): void {
   registerProfileSection({ id: 'macros', component: MacrosSection });
 }
 
+export { knowledgeCheckLaunchService } from '@/modules/Roleplay/Game/Service/Instance/knowledgeCheckLaunchService';
 export { gameAccessService } from '@/modules/Roleplay/Game/Service/Instance/gameAccessService';
 export { gameStatusTransitionsService } from '@/modules/Roleplay/Game/Service/Instance/gameStatusTransitionsService';
 export { hitRollService } from '@/modules/Roleplay/Game/Service/Instance/hitRollService';

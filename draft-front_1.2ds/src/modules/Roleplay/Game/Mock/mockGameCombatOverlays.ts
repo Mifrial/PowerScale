@@ -229,6 +229,39 @@ export async function setCombatResource(
   return snapshot(overlay);
 }
 
+/** Флаг цикла жетонов концентрации (тратили ли с конца предыдущего своего хода). */
+export async function setCombatConcentrationUsedInCycle(
+  gameId: number,
+  entityKey: CombatEntityKey,
+  used: boolean,
+  _signal?: AbortSignal,
+): Promise<GameCombatOverlay> {
+  await delay(50);
+  const version = entityVersion(gameId, entityKey);
+  if (!version) throw new Error('Лист участника не заполнен');
+  const overlay = ensureOverlay(gameId, entityKey, version);
+  overlay.concentrationUsedInCycle = used;
+  overlay.updatedAt = new Date().toISOString();
+
+  return snapshot(overlay);
+}
+
+export async function setCombatWoundBandagedOnce(
+  gameId: number,
+  entityKey: CombatEntityKey,
+  bandaged: boolean,
+  _signal?: AbortSignal,
+): Promise<GameCombatOverlay> {
+  await delay(80);
+  const version = entityVersion(gameId, entityKey);
+  if (!version) throw new Error('Лист участника не заполнен');
+  const overlay = ensureOverlay(gameId, entityKey, version);
+  overlay.woundBandagedOnce = bandaged;
+  overlay.updatedAt = new Date().toISOString();
+
+  return snapshot(overlay);
+}
+
 /** Добавление состояния в бою. Персонажи — в оверлей; НПС — сразу в версию. */
 export async function addCombatState(
   gameId: number,

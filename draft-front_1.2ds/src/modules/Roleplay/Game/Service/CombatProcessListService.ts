@@ -4,6 +4,7 @@ import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { CombatProcessRow } from '@/modules/Roleplay/Game/Dto/CombatProcessRow';
 import type { ProcessSession } from '@/modules/Roleplay/Game/Dto/ProcessSession';
+import type { CommittedActionSession } from '@/modules/Roleplay/Game/Dto/CommittedActionSession';
 import type { ActiveSpell } from '@/modules/Roleplay/Game/Dto/Spell/ActiveSpell';
 import { electrochargeService } from '@/modules/Roleplay/Game/Service/Instance/electrochargeService';
 import { processSessionService } from '@/modules/Roleplay/Game/Service/Instance/processSessionService';
@@ -16,6 +17,7 @@ export class CombatProcessListService {
   listRows(input: {
     entityKey: CombatEntityKey;
     processSession: ProcessSession | null;
+    committedAction: CommittedActionSession | null;
     activeSpells: ActiveSpell[];
     version: CharacterVersion | null;
     states: CharacterStateValue[];
@@ -24,6 +26,9 @@ export class CombatProcessListService {
     const rows: CombatProcessRow[] = [];
     if (input.processSession) {
       rows.push(this.processRow(input.processSession, input.rules));
+    }
+    if (input.committedAction) {
+      rows.push(this.committedRow(input.committedAction, input.rules));
     }
     for (const spell of input.activeSpells) {
       if (spell.casterKey !== input.entityKey) {
@@ -56,6 +61,28 @@ export class CombatProcessListService {
       ],
       canAbort,
       abortLabel: 'Оборвать',
+      canChargeCast: false,
+      chargeCastLabel: 'Сотворить',
+    };
+  }
+
+  private committedRow(session: CommittedActionSession, rules: Rule[]): CombatProcessRow {
+    const rule = findRuleByRef(rules, session.actionRuleCode);
+    const name = rule?.name ?? session.actionRuleCode;
+
+    return {
+      id: `committed:${session.entityKey}`,
+      kind: 'committed-action',
+      name,
+      leftLabel: name,
+      valueLabel: `ещё ${session.remainingOd} ОД`,
+      iconCode: 'mdi-progress-clock',
+      details: [
+        { label: 'Всего', value: `${session.totalOd} ОД` },
+        { label: 'Осталось', value: `${session.remainingOd} ОД` },
+      ],
+      canAbort: true,
+      abortLabel: 'Сорвать',
       canChargeCast: false,
       chargeCastLabel: 'Сотворить',
     };

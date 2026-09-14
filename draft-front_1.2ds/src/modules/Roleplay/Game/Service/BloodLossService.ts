@@ -1,25 +1,26 @@
 import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
-import {
-  BLOOD_LOSS_STATE_CODE,
-  EXHAUSTION_STATE_CODE,
-  WOUND_STATE_CODE,
-} from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
+import { BLOOD_LOSS_STATE_CODE, EXHAUSTION_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
+import { BLOOD_CLOTTING_RULE_CODE } from '@/modules/Roleplay/Rule/Constant/Ability/BLOOD_CLOTTING_RULE_CODE';
+import { CHECK_BLOOD_CLOTTING_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
+import { ROLL_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ATTACHMENT_TYPE';
 import type { IGameApi } from '@/modules/Roleplay/Game/Interface/IGameApi';
 import { injuryCheckService } from '@/modules/Roleplay/Game/Service/Instance/injuryCheckService';
 import { exhaustionCheckService } from '@/modules/Roleplay/Game/Service/Instance/exhaustionCheckService';
-
 import { injuryRollService } from '@/modules/Roleplay/Game/Service/Instance/injuryRollService';
-
+import { woundInstanceService } from '@/modules/Roleplay/Game/Service/Instance/woundInstanceService';
+import { checkRollService } from '@/modules/Roleplay/Game/Service/Instance/checkRollService';
 import { resolveInjuryProcedure } from '@/modules/Roleplay/Game/Utils/resolveInjuryProcedure';
 import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
-
 import { formatBloodLossTickMessage } from '@/modules/Roleplay/Game/Utils/bloodLossMessage';
+import { formatBloodClottingMessage } from '@/modules/Roleplay/Game/Utils/bloodClottingMessage';
+import { rollPoolDefaults } from '@/modules/Roleplay/Game/Utils/initiativeRoll';
+import { SIMPLE_CHECK_ZERO_DIFFICULTY } from '@/modules/Roleplay/Game/Constant/Check/SIMPLE_CHECK_ZERO_DIFFICULTY';
 import { setNumericState } from '@/modules/Roleplay/Game/Utils/combatStateWrite';
 import { endOfTurnDotsService } from '@/modules/Roleplay/Game/Service/Instance/endOfTurnDotsService';
-
 import { applyBloodLossGain, bloodLossInjuryDifficulty } from '@/modules/Roleplay/Game/Utils/bloodLossMath';
-
 import type { ApplyBloodLossArgs } from '@/modules/Roleplay/Game/Dto/ApplyBloodLossArgs';
+import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/CharacterStateValue';
+import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 
 export class BloodLossService {
   constructor(private readonly resolveGameApi: () => IGameApi) {}
@@ -75,6 +76,8 @@ export class BloodLossService {
         speaker: args.speaker,
         change: 'increase',
         sendMessage: args.sendMessage,
+        askTokenSpend: args.askTokenSpend,
+        overlay: args.overlay ?? overlay,
       });
       if (checked.overlay) {
         overlay = checked.overlay;
@@ -128,11 +131,74 @@ export class BloodLossService {
   }
 
   async applyTurnWoundBleed(args: Omit<ApplyBloodLossArgs, 'delta'>): Promise<GameCombatOverlay | null> {
-    const delta = injuryCheckService.overlayStateTotal(args.version, args.rules, WOUND_STATE_CODE);
-    const blood = await this.applyBloodLossTick({ ...args, delta });
-    const version = blood ? combatOverlayService.mergeCombatOverlay(args.version, blood) : args.version;
+    let version = args.version;
+    let overlay: GameCombatOverlay | null = args.overlay ?? null;
+    if (args.rules.some((rule) => rule.code === BLOOD_CLOTTING_RULE_CODE)) {
+      const clotted = await this.applyBloodClotting(args, version);
+      if (clotted.overlay) overlay = clotted.overlay;
+      version = clotted.version;
+    }
+    const delta = woundInstanceService.bleedTotal(version.states);
+    const blood = await this.applyBloodLossTick({ ...args, version, overlay, delta });
+    if (blood) {
+      overlay = blood;
+      version = combatOverlayService.mergeCombatOverlay(version, blood);
+    }
     const dots = await endOfTurnDotsService.applyEndOfTurnDots({ ...args, version });
 
-    return dots ?? blood;
+    return dots ?? overlay;
+  }
+
+  private async applyBloodClotting(
+    args: Omit<ApplyBloodLossArgs, 'delta'>,
+    version: CharacterVersion,
+  ): Promise<{ version: CharacterVersion; overlay: GameCombatOverlay | null }> {
+    let overlay: GameCombatOverlay | null = null;
+    const defaults = rollPoolDefaults(args.rules);
+    const checkName = args.rules.find((rule) => rule.code === CHECK_BLOOD_CLOTTING_CODE)?.name ?? 'Свёртывание крови';
+    for (let index = 0; index < version.states.length; index += 1) {
+      const state = version.states[index];
+      if (!state || !woundInstanceService.isWound(state)) continue;
+      const migrated: CharacterStateValue = woundInstanceService.migrate(state);
+      const rolled = checkRollService.rollNamedCheck(
+        {
+          diceCount: 1,
+          dieFaces: defaults.dieFaces,
+          efficiency: defaults.efficiency,
+          advantages: [],
+          dieSize: 0,
+          poolSize: 0,
+          efficiencySize: 0,
+          label: checkName,
+          actorKey: args.targetKey,
+        },
+        CHECK_BLOOD_CLOTTING_CODE,
+        SIMPLE_CHECK_ZERO_DIFFICULTY,
+        args.rng ?? Math.random,
+        args.rules,
+        args.mechanics,
+      );
+      const rating = rolled.check?.passed ? (rolled.check.rating ?? 0) : 0;
+      const next = woundInstanceService.applyClotting(migrated, rating);
+      overlay = await this.resolveGameApi().replaceCombatState(args.gameId, args.targetKey, index, next);
+      version = combatOverlayService.mergeCombatOverlay(version, overlay);
+      if (args.chatId !== null) {
+        const sent = await args.sendMessage(
+          formatBloodClottingMessage(
+            args.targetName,
+            args.targetKey,
+            woundInstanceService.strength(next),
+            rating,
+            rolled.check?.passed === true,
+          ),
+          [{ type: ROLL_ATTACHMENT_TYPE, payload: rolled }],
+          args.chatId,
+          args.speaker,
+        );
+        if (!sent) throw new Error('Не удалось отправить сообщение о свёртывании');
+      }
+    }
+
+    return { version, overlay };
   }
 }

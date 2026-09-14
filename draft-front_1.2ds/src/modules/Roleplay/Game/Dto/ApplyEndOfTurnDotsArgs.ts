@@ -5,8 +5,10 @@ import type { DiceRng } from '@/modules/Roleplay/Game/Dto/DiceRng';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
 export interface ApplyEndOfTurnDotsArgs {
   version: CharacterVersion;
+  overlay?: GameCombatOverlay | null;
   endurance: number;
   rng?: DiceRng;
   rules: Rule[];
@@ -16,6 +18,7 @@ export interface ApplyEndOfTurnDotsArgs {
   targetName: string;
   chatId: number | null;
   speaker: ChatSpeaker;
+  askTokenSpend?: (input: { maxSpend: number; remaining: number }) => Promise<number>;
   sendMessage: (
     content: string,
     attachments: ChatAttachment[],

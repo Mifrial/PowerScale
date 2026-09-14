@@ -18,6 +18,7 @@ import type { CurrentSpeed } from '@/modules/Roleplay/Game/Dto/CurrentSpeed';
 import type { Requirement } from '@/modules/Roleplay/Rule/Dto/Ability/Requirement';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { CombatActionOption } from '@/modules/Roleplay/Game/Utils/combatActions';
+import type { ActionLaunchHint } from '@/modules/Roleplay/Game/Dto/ActionLaunchHint';
 import { actionOperationResolutionService, getGameApi } from '@/modules/Roleplay/Game/init';
 import { characterOverviewService, movementContextService } from '@/modules/Roleplay/Character/init';
 import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
@@ -40,8 +41,14 @@ import { combatChatSendService } from '@/modules/Roleplay/Game/Service/Instance/
 import { formatProcessEffect } from '@/modules/Roleplay/Game/Utils/processMessage';
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
 import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue';
+import WoundActionLaunchFields from '@/modules/Roleplay/Game/Component/WoundActionLaunchFields.vue';
 import { MOVEMENT_DIRECTION_LABELS } from '@/modules/Roleplay/Game/Constant/Movement/MOVEMENT_DIRECTION_LABELS';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
+import { woundActionLaunchService } from '@/modules/Roleplay/Game/Service/Instance/woundActionLaunchService';
+import { woundInstanceService } from '@/modules/Roleplay/Game/Service/Instance/woundInstanceService';
+import { committedActionService } from '@/modules/Roleplay/Game/Service/Instance/committedActionService';
+import { committedActionFlowService } from '@/modules/Roleplay/Game/Service/Instance/committedActionFlowService';
+import type { CommittedActionSession } from '@/modules/Roleplay/Game/Dto/CommittedActionSession';
 
 const props = defineProps<{
   open: boolean;
@@ -54,6 +61,7 @@ const props = defineProps<{
   canEdit: boolean;
   currentUserId: number | null;
   activeSpeakerKey: string | null;
+  launchHint?: ActionLaunchHint | null;
 }>();
 
 const emit = defineEmits<{
@@ -66,6 +74,9 @@ const emit = defineEmits<{
 const overlays = ref<GameCombatOverlay[]>([]);
 const pendingEffectsByEntity = ref<Record<CombatEntityKey, PendingActionEffect[]>>({});
 const processSessionsByEntity = ref<Record<CombatEntityKey, ProcessSession>>({});
+const committedSessionsByEntity = ref<Record<CombatEntityKey, CommittedActionSession>>({});
+const stretchConfirmOpen = ref(false);
+const stretchAccepted = ref(false);
 const selectedRuleId = ref<string | null>(null);
 const selectedProcessStepCode = ref<string | null>(null);
 const selectedProcessAttackKey = ref<string | null>(null);
@@ -77,6 +88,8 @@ const selectedHorizontalDirection = ref<HorizontalMovementDirection | null>(null
 const selectedVerticalDirection = ref<VerticalMovementDirection | null>(null);
 const horizontalDistance = ref<DimensionalNumberValue | null>(null);
 const verticalDistance = ref<DimensionalNumberValue | null>(null);
+const woundTargetKey = ref<CombatEntityKey | null>(null);
+const woundIndices = ref<number[]>([]);
 const currentSpeed = ref<CurrentSpeed>({
   horizontal: { stepsPerActionPoint: 0, direction: null },
   vertical: { stepsPerActionPoint: 0, direction: null },
@@ -124,11 +137,17 @@ const actions = computed<CombatActionOption[]>(() => {
     if (process && !requirementsSatisfied(requirements)) return [];
     if (!owned.has(rule.code) && (!spec || !Object.values(spec.zones ?? {}).some((zone) => zone?.kind === 'automatic')))
       return [];
+    const overlay = overlays.value.find((item) => item.entityKey === woundTargetKey.value) ?? null;
+    const odCost = woundActionLaunchService.isBandage(rule.code)
+      ? woundActionLaunchService.bandageOd(actorVersion.value, overlay)
+      : spec
+        ? actionOdCost(spec.action_components)
+        : 0;
     const option: CombatActionOption = {
       ruleCode: rule.code,
       code: rule.code,
       name: rule.name,
-      odCost: spec ? actionOdCost(spec.action_components) : 0,
+      odCost,
       isVariableCost: spec ? actionUsesChosenCost(spec.action_components) : false,
       effects: spec ? actionEffectService.effectsOf(rule) : [],
       isAttack: false,
@@ -164,11 +183,17 @@ function requirementsSatisfied(entries: { level: number; requirements: Requireme
 
 const visibleActions = computed(() => actions.value.filter((action) => action.isReaction === showReactions.value));
 const activeProcess = computed(() => (actorKey.value ? processSessionsByEntity.value[actorKey.value] : undefined));
+const activeCommitted = computed(() =>
+  actorKey.value ? (committedSessionsByEntity.value[actorKey.value] ?? null) : null,
+);
 const processRule = computed(() =>
   activeProcess.value ? (findRuleByRef(props.rules, activeProcess.value.processRuleCode) ?? null) : null,
 );
 const processRuleSpec = computed(() => (processRule.value ? asProcessAbilitySpec(processRule.value) : null));
 const selectableActions = computed(() => {
+  if (activeCommitted.value) {
+    return visibleActions.value.filter((action) => action.code === WAIT_ACTION_CODE);
+  }
   if (!activeProcess.value) return visibleActions.value;
 
   return visibleActions.value.filter(
@@ -183,9 +208,34 @@ const selectedAction = computed(
       (action) => action.ruleCode === selectedRuleId.value || action.code === selectedRuleId.value,
     ) ?? null,
 );
-const selectedActionOdCost = computed(() =>
-  selectedAction.value?.isVariableCost ? chosenActionOdCost.value : (selectedAction.value?.odCost ?? 0),
-);
+function isActionItemDisabled(item: CombatActionOption): boolean {
+  if (item.isVariableCost) return false;
+  if (item.odCost <= actionPoints.value) return false;
+
+  return !committedActionService.canStretch(item);
+}
+
+const selectedActionOdCost = computed(() => {
+  const action = selectedAction.value;
+  if (!action) return 0;
+  if (woundActionLaunchService.isBandage(action.code)) {
+    const overlay = overlays.value.find((item) => item.entityKey === woundTargetKey.value) ?? null;
+
+    return woundActionLaunchService.bandageOd(actorVersion.value, overlay);
+  }
+  if (woundActionLaunchService.isSqueeze(action.code)) {
+    return woundActionLaunchService.squeezeOd(woundIndices.value.length);
+  }
+  if (action.isVariableCost) return chosenActionOdCost.value;
+
+  return action.odCost;
+});
+const stretchWarnText = computed(() => {
+  const action = selectedAction.value;
+  if (!action) return '';
+
+  return committedActionService.warnText(action.name, selectedActionOdCost.value, actionPoints.value);
+});
 const processSteps = computed(() => {
   if (!selectedAction.value?.process) return [];
   const currentStep =
@@ -322,6 +372,8 @@ function versionOf(key: CombatEntityKey): typeof actorVersion.value {
   ).effectiveVersion;
 }
 
+const woundTargetVersion = computed(() => (woundTargetKey.value ? versionOf(woundTargetKey.value) : null));
+
 function speakerFor(key: CombatEntityKey): ChatSpeaker {
   if (key.startsWith('npc:')) {
     const id = Number(key.slice(4));
@@ -344,10 +396,11 @@ async function hydrate(): Promise<void> {
     keyForHydrate(api),
   ]);
   processSessionsByEntity.value = await api.getProcessSessions(props.gameId).catch(() => ({}));
+  committedSessionsByEntity.value = await api.getCommittedActionSessions(props.gameId).catch(() => ({}));
   overlays.value = nextOverlays;
   pendingEffectsByEntity.value = nextPending;
   if (nextSpeed) currentSpeed.value = nextSpeed;
-  selectedRuleId.value = selectableActions.value[0]?.code ?? null;
+  selectedRuleId.value = props.launchHint?.actionCode ?? selectableActions.value[0]?.code ?? null;
   selectedProcessStepCode.value = null;
   selectedProcessAttackKey.value = null;
 }
@@ -384,6 +437,9 @@ async function submit(): Promise<void> {
   const speaker = speakerFor(key);
   const operationRequests = operationRequestsOf();
   if (movementInputError.value) throw new Error(movementInputError.value);
+  if (woundActionLaunchService.isWoundAction(action.code)) {
+    assertWoundActionReady(action.code);
+  }
   if (action.isProcess) {
     const stepCode = selectedProcessStepCode.value;
     const attack = selectedProcessAttack.value;
@@ -442,7 +498,46 @@ async function submit(): Promise<void> {
   }
   const actionOd = selectedActionOdCost.value;
   if (actionOd <= 0) throw new Error('Укажите количество ОД');
-  if (actionOd > actionPoints.value) throw new Error('Недостаточно ОД для действия');
+  if (activeCommitted.value && action.code !== WAIT_ACTION_CODE) {
+    throw new Error('Сначала закончи или сорви текущее действие');
+  }
+  if (actionOd > actionPoints.value) {
+    if (!committedActionService.canStretch(action) || actionPoints.value <= 0) {
+      throw new Error('Недостаточно ОД для действия');
+    }
+    if (!stretchAccepted.value) {
+      stretchConfirmOpen.value = true;
+
+      return;
+    }
+    stretchAccepted.value = false;
+    stretchConfirmOpen.value = false;
+    if (woundActionLaunchService.isWoundAction(action.code)) {
+      assertWoundActionReady(action.code);
+    }
+    const version = versionOf(key);
+    if (!version) throw new Error('Лист участника не найден');
+    await committedActionFlowService.begin({
+      gameId: props.gameId,
+      actorKey: key,
+      version,
+      rules: props.rules,
+      action,
+      totalOd: actionOd,
+      available: actionPoints.value,
+      targetKey: woundActionLaunchService.isWoundAction(action.code) ? woundTargetKey.value : key,
+      stateIndices: [...woundIndices.value],
+      chatId: props.chatId,
+      speaker,
+      sendChat,
+    });
+    committedSessionsByEntity.value = await getGameApi()
+      .getCommittedActionSessions(props.gameId)
+      .catch(() => ({}));
+    emit('overlay-changed');
+
+    return;
+  }
   const version = versionOf(key);
   if (!version) throw new Error('Лист участника не найден');
   const actionRule = findRuleByRef(props.rules, action.code);
@@ -471,6 +566,19 @@ async function submit(): Promise<void> {
     const nextSessions = { ...processSessionsByEntity.value };
     delete nextSessions[key];
     processSessionsByEntity.value = nextSessions;
+  }
+  if (action.code === WAIT_ACTION_CODE && activeCommitted.value) {
+    await committedActionFlowService.abort(
+      props.gameId,
+      activeCommitted.value,
+      props.rules,
+      props.chatId,
+      speaker,
+      sendChat,
+    );
+    const nextCommitted = { ...committedSessionsByEntity.value };
+    delete nextCommitted[key];
+    committedSessionsByEntity.value = nextCommitted;
   }
 
   const execution = await actionExecutionService.execute({
@@ -504,6 +612,78 @@ async function submit(): Promise<void> {
   pendingEffectsByEntity.value = { ...pendingEffectsByEntity.value, [key]: effects };
   currentSpeed.value = await getGameApi().getCurrentSpeed(props.gameId, key);
   emit('overlay-changed');
+  if (woundActionLaunchService.isWoundAction(action.code)) {
+    await applyWoundAction(action.code);
+  }
+}
+
+function assertWoundActionReady(code: string): void {
+  const target = woundTargetKey.value;
+  if (!target) throw new Error('Выберите цель');
+  const version = versionOf(target);
+  if (!version) throw new Error('Лист цели не найден');
+  const actor = actorKey.value;
+  if (!actor) throw new Error('Нет исполнителя');
+  if (woundActionLaunchService.isBandage(code)) {
+    const index = woundIndices.value[0];
+    const state = index != null ? version.states[index] : undefined;
+    if (
+      state == null ||
+      !woundInstanceService.canBandage(state, woundInstanceService.medicHasAid(actorVersion.value))
+    ) {
+      throw new Error('Эту рану сейчас нельзя перевязать');
+    }
+
+    return;
+  }
+  const indices = woundIndices.value;
+  if (indices.length < 1 || indices.length > 2) throw new Error('Выберите одну или две раны');
+  if (woundInstanceService.freeHands(actor, overlays.value) < indices.length) {
+    throw new Error('Нет свободных рук для зажима');
+  }
+  for (const index of indices) {
+    const state = version.states[index];
+    if (!state || !woundInstanceService.canSqueeze(state)) throw new Error('Эту рану сейчас нельзя зажать');
+  }
+}
+
+async function applyWoundAction(code: string): Promise<void> {
+  const target = woundTargetKey.value;
+  if (!target) return;
+  const version = versionOf(target);
+  if (!version) return;
+  const actor = actorKey.value;
+  if (!actor) return;
+  if (woundActionLaunchService.isBandage(code)) {
+    const index = woundIndices.value[0];
+    const state = index != null ? version.states[index] : undefined;
+    if (state == null) return;
+    const overlay = await getGameApi().replaceCombatState(
+      props.gameId,
+      target,
+      index,
+      woundInstanceService.applyBandage(state, woundInstanceService.medicHasAid(actorVersion.value)),
+    );
+    overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, overlay);
+    const targetOverlay = overlays.value.find((item) => item.entityKey === target);
+    if (!targetOverlay?.woundBandagedOnce) {
+      const flagged = await getGameApi().setCombatWoundBandagedOnce(props.gameId, target, true);
+      overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, flagged);
+    }
+
+    return;
+  }
+  for (const index of woundIndices.value) {
+    const state = versionOf(target)?.states[index];
+    if (!state) continue;
+    const overlay = await getGameApi().replaceCombatState(
+      props.gameId,
+      target,
+      index,
+      woundInstanceService.applySqueeze(state, actor),
+    );
+    overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, overlay);
+  }
 }
 
 function actionRuleOf(ruleCode: string): Rule {
@@ -518,6 +698,7 @@ async function submitSafe(): Promise<void> {
   error.value = null;
   try {
     await submit();
+    if (stretchConfirmOpen.value) return;
     emit('settled');
     emit('update:open', false);
   } catch (cause) {
@@ -525,6 +706,12 @@ async function submitSafe(): Promise<void> {
   } finally {
     busy.value = false;
   }
+}
+
+function confirmStretch(): void {
+  stretchAccepted.value = true;
+  stretchConfirmOpen.value = false;
+  void submitSafe();
 }
 
 async function stopProcess(): Promise<void> {
@@ -579,7 +766,17 @@ watch(showReactions, () => {
 });
 
 watch(selectedAction, (action) => {
+  stretchAccepted.value = false;
+  stretchConfirmOpen.value = false;
   chosenActionOdCost.value = action?.isVariableCost ? actionPoints.value : 0;
+  const hint = props.launchHint;
+  if (hint && action?.code === hint.actionCode) {
+    woundTargetKey.value = hint.targetKey;
+    woundIndices.value = [hint.stateIndex];
+  } else {
+    woundTargetKey.value = actorKey.value;
+    woundIndices.value = [];
+  }
   if (!action?.isProcess || !action.process) {
     selectedProcessStepCode.value = null;
     selectedProcessAttackKey.value = null;
@@ -637,7 +834,7 @@ watch(
           no-data-text="Действия не найдены"
           clearable
           :disabled="busy || !actorKey"
-          :item-props="(item) => ({ disabled: !item.isVariableCost && item.odCost > actionPoints })"
+          :item-props="(item) => ({ disabled: isActionItemDisabled(item) })"
         >
           <template #item="{ props: itemProps, item }">
             <v-list-item
@@ -650,6 +847,22 @@ watch(
             />
           </template>
         </v-autocomplete>
+        <div v-if="activeCommitted" class="text-body-2 text-medium-emphasis mb-2">
+          Незавершённое действие: осталось {{ activeCommitted.remainingOd }} ОД. Другие действия недоступны, кроме
+          ожидания (срыв).
+        </div>
+        <WoundActionLaunchFields
+          :action-code="selectedAction?.code ?? null"
+          :target-key="woundTargetKey"
+          :wound-indices="woundIndices"
+          :actor-version="actorVersion"
+          :target-version="woundTargetVersion"
+          :characters="characters"
+          :npcs="npcs"
+          :disabled="busy"
+          @update:target-key="woundTargetKey = $event"
+          @update:wound-indices="woundIndices = $event"
+        />
         <div v-if="activeProcess" class="text-body-2 text-medium-emphasis mb-2">
           Активный процесс: <strong>{{ processRule?.name ?? activeProcess.processRuleCode }}</strong
           >, текущий шаг — {{ activeProcess.currentStepCode }}
@@ -772,6 +985,17 @@ watch(
         >
           Выполнить
         </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
+  <v-dialog v-model="stretchConfirmOpen" max-width="420" persistent>
+    <v-card>
+      <v-card-title>Не хватает ОД</v-card-title>
+      <v-card-text>{{ stretchWarnText }}</v-card-text>
+      <v-card-actions>
+        <v-spacer />
+        <v-btn variant="text" :disabled="busy" @click="stretchConfirmOpen = false">Отмена</v-btn>
+        <v-btn color="primary" :loading="busy" @click="confirmStretch">Начать</v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>

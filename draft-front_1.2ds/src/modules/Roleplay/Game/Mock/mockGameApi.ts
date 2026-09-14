@@ -9,6 +9,7 @@ import * as mockInitiative from '@/modules/Roleplay/Game/Mock/mockGameInitiative
 import * as mockCombatOverlays from '@/modules/Roleplay/Game/Mock/mockGameCombatOverlays';
 import * as mockPendingActionEffects from '@/modules/Roleplay/Game/Mock/mockGamePendingActionEffects';
 import * as mockProcessSessions from '@/modules/Roleplay/Game/Mock/mockGameProcessSessions';
+import * as mockCommittedActions from '@/modules/Roleplay/Game/Mock/mockGameCommittedActions';
 import * as mockActiveSpells from '@/modules/Roleplay/Game/Mock/mockGameActiveSpells';
 import * as mockQuickRolls from '@/modules/Roleplay/Game/Mock/mockGameQuickRolls';
 import * as mockCheckOffers from '@/modules/Roleplay/Game/Mock/mockCheckOffers';
@@ -60,12 +61,16 @@ export const mockGameApi: IGameApi = {
   setCombatActionEffects: mockPendingActionEffects.setPendingActionEffects,
   getProcessSessions: mockProcessSessions.fetchProcessSessions,
   setProcessSession: mockProcessSessions.setProcessSession,
+  getCommittedActionSessions: mockCommittedActions.fetchCommittedActionSessions,
+  setCommittedActionSession: mockCommittedActions.setCommittedActionSession,
   getActiveSpells: mockActiveSpells.fetchActiveSpells,
   upsertActiveSpell: mockActiveSpells.upsertActiveSpell,
   dropActiveSpell: mockActiveSpells.dropActiveSpell,
   getCurrentSpeed: mockMovementState.getCurrentSpeed,
   setCurrentSpeed: mockMovementState.setCurrentSpeed,
   setCombatResource: mockCombatOverlays.setCombatResource,
+  setCombatConcentrationUsedInCycle: mockCombatOverlays.setCombatConcentrationUsedInCycle,
+  setCombatWoundBandagedOnce: mockCombatOverlays.setCombatWoundBandagedOnce,
   addCombatState: mockCombatOverlays.addCombatState,
   replaceCombatState: mockCombatOverlays.replaceCombatState,
   setCombatStateValue: mockCombatOverlays.setCombatStateValue,

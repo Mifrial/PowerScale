@@ -21,6 +21,7 @@ import type { IGameApi } from '@/modules/Roleplay/Game/Interface/IGameApi';
 import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
 
 import { damageTypeHooksService } from '@/modules/Roleplay/Game/Service/Instance/damageTypeHooksService';
+import { woundInstanceService } from '@/modules/Roleplay/Game/Service/Instance/woundInstanceService';
 
 import { damageTypeSpecService } from '@/modules/Roleplay/Rule/init';
 import { ACCUMULATED_DAMAGE_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
@@ -57,6 +58,12 @@ export class EndOfTurnDotsService {
     if (amount <= 0) return null;
     const rule = args.rules.find((item) => item.code === code && item.type === 'state');
     if (!rule) return null;
+    if (code === WOUND_STATE_CODE) {
+      const added = woundInstanceService.addWound(amount);
+      if (!added) return null;
+
+      return this.resolveGameApi().addCombatState(args.gameId, args.targetKey, added);
+    }
     const independent = (rule.spec as StateSpec | undefined)?.aggregation === 'independent';
     const index = version.states.findIndex((state) => state.stateRuleCode === rule.code);
     if (!independent && index >= 0) {
@@ -178,6 +185,8 @@ export class EndOfTurnDotsService {
           speaker: args.speaker,
           change: 'increase',
           sendMessage: args.sendMessage,
+          askTokenSpend: args.askTokenSpend,
+          overlay: args.overlay ?? overlay,
         });
         if (checked.overlay) {
           overlay = checked.overlay;

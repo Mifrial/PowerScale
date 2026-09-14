@@ -3,6 +3,7 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
 import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
+import { woundInstanceService } from '@/modules/Roleplay/Game/Service/Instance/woundInstanceService';
 
 import type { StateAggregation, StateValueType } from '@/modules/Roleplay/Rule/Dto/State/StateSpec';
 import { versions } from '@/modules/Roleplay/Character/Mock/mockCharacters';
@@ -360,7 +361,7 @@ describe('combatStateRows', () => {
 
     expect(exhaustion?.summary).toBe('2');
     expect(exhaustion?.indices).toEqual([0]);
-    expect(wound?.summary).toBe('4, 1');
+    expect(wound?.summary).toBe('сила 4 · тик 4; сила 1 · тик 1');
     expect(wound?.indices).toEqual([1, 2]);
     expect(burning?.summary).toBe('3↑');
     expect(poisoning?.summary).toBe('Отравление, Отравление');
@@ -372,6 +373,34 @@ describe('combatStateRows', () => {
     expect(rows[0].name).toBe('rule-unknown');
     expect(rows[0].valueType).toBe('flag');
     expect(rows[0].summary).toBeNull();
+    expect(rows[0].linkedActions).toEqual([]);
+  });
+
+  it('подставляет действия из спеки состояния', () => {
+    const rules: Rule[] = [
+      {
+        ...stateRule(60, 'wound', 'Рана', 'number', 'independent'),
+        spec: {
+          icon_code: 'mdi-knife',
+          value_type: 'number',
+          aggregation: 'independent',
+          action_codes: ['perevyazat', 'missing'],
+        },
+      },
+      {
+        id: 246,
+        code: 'perevyazat',
+        type: 'ability',
+        name: 'Перевязать',
+        description: '',
+        spaceId: 1,
+        keywordIds: [],
+        mechanicId: null,
+        createdAt: 1,
+      },
+    ];
+    const rows = combatCardModelService.combatStateRows([{ stateRuleCode: 'wound', value: 2 }], rules);
+    expect(rows[0].linkedActions).toEqual([{ code: 'perevyazat', name: 'Перевязать' }]);
   });
 });
 
@@ -471,7 +500,7 @@ describe('combatStatePicker', () => {
         valueType: 'number',
         aggregation: 'independent',
       }),
-    ).toEqual({ value: 1 });
+    ).toEqual({ value: 1, wound: woundInstanceService.emptyWound() });
     expect(
       combatCardModelService.defaultStateEntry({
         ruleCode: 'r',

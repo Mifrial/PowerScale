@@ -1,4 +1,5 @@
 import type { StateAggregation, StateValueType } from '@/modules/Roleplay/Rule/Dto/State/StateSpec';
+import type { CombatStateLinkedAction } from '@/modules/Roleplay/Game/Dto/CombatStateLinkedAction';
 /** Строка состояния боевой карточки: правило + записи (индексы в списке боя) для правок. */
 export interface CombatStateRow {
   ruleCode: string;
@@ -13,4 +14,5 @@ export interface CombatStateRow {
   poison: boolean;
   /** Человекочитаемое значение (flag → null): «3», «4, 1», «3с1». */
   summary: string | null;
+  linkedActions: CombatStateLinkedAction[];
 }

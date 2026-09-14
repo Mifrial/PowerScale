@@ -33,6 +33,7 @@ import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/Chara
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
 import type { ProcessSession } from '@/modules/Roleplay/Game/Dto/ProcessSession';
+import type { CommittedActionSession } from '@/modules/Roleplay/Game/Dto/CommittedActionSession';
 import type { ActiveSpell } from '@/modules/Roleplay/Game/Dto/Spell/ActiveSpell';
 import type { CurrentSpeed } from '@/modules/Roleplay/Game/Dto/CurrentSpeed';
 
@@ -128,6 +129,16 @@ export interface IGameApi {
     session: ProcessSession | null,
     signal?: AbortSignal,
   ): Promise<ProcessSession | null>;
+  getCommittedActionSessions(
+    gameId: number,
+    signal?: AbortSignal,
+  ): Promise<Record<CombatEntityKey, CommittedActionSession>>;
+  setCommittedActionSession(
+    gameId: number,
+    entityKey: CombatEntityKey,
+    session: CommittedActionSession | null,
+    signal?: AbortSignal,
+  ): Promise<CommittedActionSession | null>;
   getActiveSpells(gameId: number, signal?: AbortSignal): Promise<ActiveSpell[]>;
   upsertActiveSpell(gameId: number, spell: ActiveSpell, signal?: AbortSignal): Promise<ActiveSpell>;
   dropActiveSpell(gameId: number, id: string, signal?: AbortSignal): Promise<void>;
@@ -143,6 +154,18 @@ export interface IGameApi {
     entityKey: CombatEntityKey,
     ruleCode: string,
     current: DimensionalNumberValue,
+    signal?: AbortSignal,
+  ): Promise<GameCombatOverlay>;
+  setCombatConcentrationUsedInCycle(
+    gameId: number,
+    entityKey: CombatEntityKey,
+    used: boolean,
+    signal?: AbortSignal,
+  ): Promise<GameCombatOverlay>;
+  setCombatWoundBandagedOnce(
+    gameId: number,
+    entityKey: CombatEntityKey,
+    bandaged: boolean,
     signal?: AbortSignal,
   ): Promise<GameCombatOverlay>;
   addCombatState(

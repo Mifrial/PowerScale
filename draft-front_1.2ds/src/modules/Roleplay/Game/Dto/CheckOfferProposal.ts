@@ -9,6 +9,10 @@ export interface CheckOfferProposal {
   opponentCharacteristic: string | null;
   initiatorAdv: number;
   opponentAdv: number;
+  /** Сколько жетонов концентрации тратит атакующий. Защитник поле не видит и не меняет. */
+  initiatorSpendConcentration?: number;
+  /** Сколько жетонов концентрации тратит защитник. */
+  opponentSpendConcentration?: number;
   /** Свободный пул, если нет листа / характеристика не выбрана. */
   initiatorFree?: { diceCount: number; dieSize: number; efficiency: number } | null;
   opponentFree?: { diceCount: number; dieSize: number; efficiency: number } | null;

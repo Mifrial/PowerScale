@@ -1,6 +1,7 @@
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
+import type { CombatStateOption } from '@/modules/Roleplay/Game/Dto/CombatStateOption';
 import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { CharacterPoisonValue } from '@/modules/Roleplay/Character/Dto/CharacterPoisonValue';
@@ -11,6 +12,7 @@ import type { StateSpec } from '@/modules/Roleplay/Rule/Dto/State/StateSpec';
 import {
   ACCUMULATED_DAMAGE_STATE_CODE,
   POISONING_STATE_CODE,
+  WOUND_STATE_CODE,
 } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
 import type { CharacterOverview } from '@/modules/Roleplay/Character/Dto/Overview/CharacterOverview';
 import type { CombatMasterySection } from '@/modules/Roleplay/Character/Dto/Overview/CombatMasterySection';
@@ -23,12 +25,13 @@ import { ACTION_POINTS_CODE } from '@/modules/Roleplay/Game/Constant/Combat/ACTI
 
 import { stateRuntimeEffectsService } from '@/modules/Roleplay/Character/init';
 import { liveActionPointsLimitService } from '@/modules/Roleplay/Character/init';
+import { woundInstanceService } from '@/modules/Roleplay/Game/Service/Instance/woundInstanceService';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 
 import type { CombatEntityKind } from '@/modules/Roleplay/Game/Enum/CombatEntityKind';
 import type { CombatCardModel } from '@/modules/Roleplay/Game/Dto/CombatCardModel';
 import type { CombatStateRow } from '@/modules/Roleplay/Game/Dto/CombatStateRow';
-import type { CombatStateOption } from '@/modules/Roleplay/Game/Dto/CombatStateOption';
+import type { CombatStateLinkedAction } from '@/modules/Roleplay/Game/Dto/CombatStateLinkedAction';
 import type { QuickRollRecord } from '@/modules/Roleplay/Game/Dto/QuickRollRecord';
 export class CombatCardModelService {
   parseCombatEntityKey(key: CombatEntityKey): { kind: CombatEntityKind; id: number } {
@@ -148,6 +151,9 @@ export class CombatCardModelService {
     if (entries.some((entry) => entry.maim)) {
       return entries.map((entry) => this.maimStateLabel(entry)).join('; ');
     }
+    if (entries.some((entry) => woundInstanceService.isWound(entry))) {
+      return entries.map((entry) => woundInstanceService.summaryLabel(entry)).join('; ');
+    }
     if (spec.value_type === 'number') {
       const values = entries.map((entry) => entry.value ?? 0);
       if (spec.aggregation === 'sum') return String(values.reduce((acc, value) => acc + value, 0));
@@ -197,6 +203,7 @@ export class CombatCardModelService {
         indices: group.indices,
         poison: group.entries.some((entry) => entry.poison),
         summary: this.stateSummary(group.entries, spec, rules),
+        linkedActions: this.linkedStateActions(spec, rules),
       };
     });
   }
@@ -354,9 +361,20 @@ export class CombatCardModelService {
 
       return { poison: this.poisonValueFromRule(rules, first?.ruleCode ?? null) };
     }
-    if (option.valueType === 'number') return { value: 1 };
+    if (option.code === WOUND_STATE_CODE) {
+      return { value: 1, wound: woundInstanceService.emptyWound() };
+    }
     if (option.valueType === 'dimensional') return { dimensionalValue: { base: 1, size: 0 } };
 
     return {};
+  }
+
+  /** Действия из спеки состояния: коды, которые ещё есть в ревизии. */
+  linkedStateActions(spec: StateSpec | null | undefined, rules: Rule[]): CombatStateLinkedAction[] {
+    return (spec?.action_codes ?? []).flatMap((code) => {
+      const rule = rules.find((candidate) => candidate.code === code && candidate.type === 'ability');
+
+      return rule ? [{ code: rule.code, name: rule.name }] : [];
+    });
   }
 }
