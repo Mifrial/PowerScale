@@ -273,10 +273,22 @@ onMounted(() => {
       <div class="editor-content">
         <Teleport v-if="actionsReady" :to="props.actionsTarget">
           <div class="d-flex align-center ga-2">
-            <v-btn variant="outlined" prepend-icon="mdi-content-save" :disabled="!draft.dirty" @click="saveDraft">
+            <v-btn
+              variant="outlined"
+              size="small"
+              prepend-icon="mdi-content-save"
+              :disabled="!draft.dirty"
+              @click="saveDraft"
+            >
               Черновик
             </v-btn>
-            <v-btn color="primary" prepend-icon="mdi-check" :disabled="!saveReady || saving" @click="finish">
+            <v-btn
+              color="primary"
+              size="small"
+              prepend-icon="mdi-check"
+              :disabled="!saveReady || saving"
+              @click="finish"
+            >
               {{ saving ? 'Сохранение…' : 'Сохранить' }}
             </v-btn>
           </div>
