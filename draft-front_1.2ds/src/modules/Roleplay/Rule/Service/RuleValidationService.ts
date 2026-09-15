@@ -21,6 +21,11 @@ import type { StateSpec } from '@/modules/Roleplay/Rule/Dto/State/StateSpec';
 import type { PoisonSpec } from '@/modules/Roleplay/Rule/Dto/Poison/PoisonSpec';
 import type { AgeSpec } from '@/modules/Roleplay/Rule/Dto/Age/AgeSpec';
 import type { SenseSpec } from '@/modules/Roleplay/Rule/Dto/SenseSpec';
+import type { LanguageSpec } from '@/modules/Roleplay/Rule/Dto/LanguageSpec';
+import { languageSpecService } from '@/modules/Roleplay/Rule/Service/Instance/languageSpecService';
+import { languageRelatednessService } from '@/modules/Roleplay/Rule/Service/Instance/languageRelatednessService';
+import { ethnicitySpecService } from '@/modules/Roleplay/Rule/Service/Instance/ethnicitySpecService';
+import { ethnicityTreeService } from '@/modules/Roleplay/Rule/Service/Instance/ethnicityTreeService';
 import type { SenseStatus } from '@/modules/Roleplay/Rule/Enum/SenseStatus';
 import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { CatalogValidationResult } from '@/modules/Roleplay/Rule/Dto/CatalogValidationResult';
@@ -69,12 +74,20 @@ export class RuleValidationService {
       ...this.validateDamageTypeStructure(effective),
       ...this.validateAgeStructure(effective),
       ...this.validateSenseStructure(effective),
+      ...this.validateLanguageStructure(effective),
+      ...this.validateEthnicityStructure(effective),
     ];
-    const cycle = this.findSpeciesCycle(effective);
+    const spaceErrors: string[] = [];
+    const speciesCycle = this.findSpeciesCycle(effective);
+    if (speciesCycle) spaceErrors.push(this.formatSpeciesCycle(speciesCycle));
+    const languageCycle = languageRelatednessService.findCycle(effective);
+    if (languageCycle) spaceErrors.push(this.formatLanguageCycle(languageCycle));
+    const ethnicityCycle = ethnicityTreeService.findCycle(effective);
+    if (ethnicityCycle) spaceErrors.push(this.formatEthnicityCycle(ethnicityCycle));
 
     return {
       items,
-      spaceErrors: cycle ? [this.formatSpeciesCycle(cycle)] : [],
+      spaceErrors,
     };
   }
 
@@ -606,6 +619,83 @@ export class RuleValidationService {
     return errors;
   }
 
+  validateLanguageStructure(rules: Rule[]): { ruleCode: string; ruleName: string; message: string }[] {
+    const errors: { ruleCode: string; ruleName: string; message: string }[] = [];
+    const byCode = new Map(rules.filter((rule) => rule.type === 'language').map((rule) => [rule.code, rule]));
+
+    for (const rule of rules) {
+      if (rule.type !== 'language') continue;
+      const spec = languageSpecService.resolve(rule.spec);
+      if (spec.role !== 'stock' && spec.role !== 'language') {
+        errors.push({
+          ruleCode: rule.code,
+          ruleName: rule.name,
+          message: 'язык должен иметь роль stock или language',
+        });
+      }
+      if (!spec.parent_code) continue;
+      const parent = byCode.get(spec.parent_code);
+      if (!parent) continue;
+      const parentSpec = languageSpecService.resolve(parent.spec);
+      if (spec.role === 'stock' && parentSpec.role !== 'stock') {
+        errors.push({
+          ruleCode: rule.code,
+          ruleName: rule.name,
+          message: 'сток может иметь родителем только сток',
+        });
+      }
+    }
+
+    return errors;
+  }
+
+  validateEthnicityStructure(rules: Rule[]): { ruleCode: string; ruleName: string; message: string }[] {
+    const errors: { ruleCode: string; ruleName: string; message: string }[] = [];
+    const byCode = new Map(rules.filter((rule) => rule.type === 'ethnicity').map((rule) => [rule.code, rule]));
+    const languages = new Map(rules.filter((rule) => rule.type === 'language').map((rule) => [rule.code, rule]));
+
+    for (const rule of rules) {
+      if (rule.type !== 'ethnicity') continue;
+      const spec = ethnicitySpecService.resolve(rule.spec);
+      if (spec.parent_code) {
+        const parent = byCode.get(spec.parent_code);
+        if (parent) {
+          const parentSpec = ethnicitySpecService.resolve(parent.spec);
+          if (spec.role === 'stock' && parentSpec.role !== 'stock') {
+            errors.push({
+              ruleCode: rule.code,
+              ruleName: rule.name,
+              message: 'сток народности может иметь родителем только сток',
+            });
+          }
+        }
+      }
+      for (const usage of spec.usages) {
+        if (!spec.language_codes.includes(usage.language_code)) {
+          errors.push({
+            ruleCode: rule.code,
+            ruleName: rule.name,
+            message: `письмо языка ${usage.language_code} без этого языка в списке`,
+          });
+        }
+        const language = languages.get(usage.language_code);
+        if (!language) continue;
+        const allowed = new Set(languageSpecService.resolve(language.spec).script_codes);
+        for (const scriptCode of usage.script_codes) {
+          if (!allowed.has(scriptCode)) {
+            errors.push({
+              ruleCode: rule.code,
+              ruleName: rule.name,
+              message: `письменность ${scriptCode} не из script_codes языка ${usage.language_code}`,
+            });
+          }
+        }
+      }
+    }
+
+    return errors;
+  }
+
   /** Структурная валидация модификатора предмета: цена и применимость консистентны. */
   validateItemModifierStructure(rules: Rule[]): { ruleCode: string; ruleName: string; message: string }[] {
     const errors: { ruleCode: string; ruleName: string; message: string }[] = [];
@@ -831,6 +921,14 @@ export class RuleValidationService {
 
   formatSpeciesCycle(cycle: string): string {
     return `Цикл в цепочке видов: ${cycle}`;
+  }
+
+  formatLanguageCycle(cycle: string): string {
+    return `Цикл в дереве языков: ${cycle}`;
+  }
+
+  formatEthnicityCycle(cycle: string): string {
+    return `Цикл в дереве народностей: ${cycle}`;
   }
 
   private abilityTypeFromRule(rule: Rule, keywords: { id: number; code: string }[]): AbilityType | null {
@@ -1119,6 +1217,36 @@ export class RuleValidationService {
         break;
       }
 
+      case 'language': {
+        const language = spec as LanguageSpec;
+        if (language.parent_code) {
+          collect({ code: language.parent_code, type: 'language' });
+        }
+        for (const scriptCode of language.script_codes ?? []) {
+          collect({ code: scriptCode, type: 'script' });
+        }
+        break;
+      }
+
+      case 'ethnicity': {
+        const ethnicity = ethnicitySpecService.resolve(spec);
+        if (ethnicity.parent_code) {
+          collect({ code: ethnicity.parent_code, type: 'ethnicity' });
+        }
+        for (const raceCode of ethnicity.race_codes) {
+          collect({ code: raceCode, type: 'race' });
+        }
+        for (const languageCode of ethnicity.language_codes) {
+          collect({ code: languageCode, type: 'language' });
+        }
+        for (const usage of ethnicity.usages) {
+          for (const scriptCode of usage.script_codes) {
+            collect({ code: scriptCode, type: 'script' });
+          }
+        }
+        break;
+      }
+
       default:
         break;
     }
@@ -1243,6 +1371,11 @@ export class RuleValidationService {
     }
     if (grant.type === 'magic_study' && grant.path_code) {
       collect({ code: grant.path_code, type: 'magic_path' });
+    }
+    if (grant.type === 'skill_study') {
+      for (const abilityCode of grant.ability_codes) {
+        collect({ code: abilityCode, type: 'ability' });
+      }
     }
     if (grant.type === 'resistance' && grant.damage_type_code) {
       collect({ code: grant.damage_type_code, type: 'damage_type' });

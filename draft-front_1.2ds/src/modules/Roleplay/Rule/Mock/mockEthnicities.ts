@@ -1,0 +1,182 @@
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import type { EthnicityRole } from '@/modules/Roleplay/Rule/Enum/EthnicityRole';
+import type { EthnicityUsage } from '@/modules/Roleplay/Rule/Dto/EthnicityUsage';
+
+function ethnicityRule(
+  id: number,
+  code: string,
+  name: string,
+  description: string,
+  role: EthnicityRole,
+  parentCode: string | null,
+  languageCodes: string[] = [],
+  usages: EthnicityUsage[] = [],
+): Rule {
+  return {
+    id,
+    code,
+    type: 'ethnicity',
+    name,
+    description,
+    spaceId: 1,
+    spec: {
+      type: 'ethnicity',
+      role,
+      parent_code: parentCode,
+      race_codes: [],
+      language_codes: languageCodes,
+      usages,
+    },
+    keywordIds: [],
+    mechanicId: null,
+    mechanicPayload: null,
+    createdAt: 1786356000,
+  };
+}
+
+function spoken(languageCode: string, scriptCodes: string[]): EthnicityUsage {
+  return { language_code: languageCode, script_codes: scriptCodes };
+}
+
+/**
+ * Народности сеттинга. Сток — государство/кластер, на листе не выбирается.
+ * Расы пока пустые. Алиерцы, дюарийцы и прочие раденские культуры — не этот срез.
+ */
+export const mockEthnicities: Rule[] = [
+  ethnicityRule(
+    2421,
+    'raden',
+    'Раден',
+    '<p>Не народ, а три больших государства с общим языком Радос. На листе не выбирается.</p><p>Живые узлы — Священная империя, Бессмертная империя и султанат. Алиерцы, дюарийцы, когиры, анеиты, ахтары и прочие культуры внутри них появятся отдельными картами.</p>',
+    'stock',
+    null,
+  ),
+  ethnicityRule(
+    2422,
+    'sri',
+    'Священная Империя Раден',
+    '<p>Одно из трёх раденских государств. Для листа это упрощённый узел, не «народ Раден».</p><p>По большей части алиерцы и дюарийцы, также когиры, анеиты и ахтары. Культур внутри много; вера и Радос общие, единого этноса нет.</p>',
+    'people',
+    'raden',
+    ['rados'],
+    [spoken('rados', ['raden-alphabet'])],
+  ),
+  ethnicityRule(
+    2423,
+    'bri',
+    'Бессмертная Империя Раден',
+    '<p>Второе раденское государство. На листе — отдельный узел под стоком Раден.</p><p>По большей части анеиты со своей культурой. Общий с соседями Радос, не общий народ «раденцы».</p>',
+    'people',
+    'raden',
+    ['rados'],
+    [spoken('rados', ['raden-alphabet'])],
+  ),
+  ethnicityRule(
+    2424,
+    'rs',
+    'Раденский султанат',
+    '<p>Третье раденское государство. На листе — отдельный узел под стоком Раден.</p><p>По большей части ахтары. Культурная раздробленность сильная; Радос общий, единого этноса нет.</p>',
+    'people',
+    'raden',
+    ['rados'],
+    [spoken('rados', ['raden-alphabet'])],
+  ),
+  ethnicityRule(
+    2425,
+    'evs',
+    'Эльфийское Всенародное Содружество',
+    '<p>Большое раздробленное государство. На листе не выбирается: общего народа нет, общей веры тоже.</p><p>Живые народности вешают сюда по городам и провинциям. Первый пример — форнийцы.</p>',
+    'stock',
+    null,
+  ),
+  ethnicityRule(
+    2426,
+    'forn',
+    'Форнийцы',
+    '<p>Жители крупного города Форн и одноимённой небольшой провинции во Всенародном Содружестве.</p><p>Речь — сомнорил. Это не «народ Содружества», а одна местность из многих.</p>',
+    'people',
+    'evs',
+    ['somnoril'],
+    [spoken('somnoril', ['somnaril-alphabet'])],
+  ),
+  ethnicityRule(
+    2427,
+    'ulay',
+    'Улай',
+    "<p>Народ долины десяти тысяч рек. Родная речь — улай'тиль; ар'тиль — общий язык долины, не отдельное племя.</p>",
+    'people',
+    null,
+    ['ulay-til', 'ar-til'],
+    [spoken('ulay-til', ['ishkhet-alphabet']), spoken('ar-til', ['ishkhet-alphabet'])],
+  ),
+  ethnicityRule(
+    2428,
+    'shyim',
+    'Шыим',
+    "<p>Народ той же долины. Родная речь — шыим'тиль, на пристанях — ар'тиль.</p>",
+    'people',
+    null,
+    ['shyim-til', 'ar-til'],
+    [spoken('shyim-til', ['ishkhet-alphabet']), spoken('ar-til', ['ishkhet-alphabet'])],
+  ),
+  ethnicityRule(
+    2429,
+    'chur',
+    'Чур',
+    "<p>Народ долины. Родная речь — чур'тиль, общий долинный — ар'тиль.</p>",
+    'people',
+    null,
+    ['chur-til', 'ar-til'],
+    [spoken('chur-til', ['ishkhet-alphabet']), spoken('ar-til', ['ishkhet-alphabet'])],
+  ),
+  ethnicityRule(
+    2430,
+    'groghar',
+    'Грогхар',
+    '<p>Клан драконидов. Язык — гаргат, не Даргр как народ.</p>',
+    'people',
+    null,
+    ['gargat'],
+    [spoken('gargat', ['gargat-alphabet'])],
+  ),
+  ethnicityRule(
+    2431,
+    'oula',
+    'Оула',
+    '<p>Народ королевства Оула. Язык — калами.</p>',
+    'people',
+    null,
+    ['kalami'],
+    [spoken('kalami', ['kalami-alphabet'])],
+  ),
+  ethnicityRule(
+    2432,
+    'yaryn-folk',
+    'Ярын',
+    '<p>Нагорные дворфы. Язык — ярын, письмо — казарские иероглифы. Код карты не совпадает с языком: код глобально уникален.</p>',
+    'people',
+    null,
+    ['yaryn'],
+    [spoken('yaryn', ['kazar-glyphs'])],
+  ),
+  ethnicityRule(
+    2433,
+    'khas-folk',
+    'Хас',
+    '<p>Нагорные дворфы той же казарской ветки. Язык — хас.</p>',
+    'people',
+    null,
+    ['khas'],
+    [spoken('khas', ['kazar-glyphs'])],
+  ),
+  ethnicityRule(
+    2434,
+    'aynyr-folk',
+    'Айныр',
+    '<p>Третий живой народ Казара. Язык — айныр.</p>',
+    'people',
+    null,
+    ['aynyr'],
+    [spoken('aynyr', ['kazar-glyphs'])],
+  ),
+];

@@ -2,7 +2,6 @@
 import { computed, watch } from 'vue';
 import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec';
 import type { SenseSpec } from '@/modules/Roleplay/Rule/Dto/SenseSpec';
-import type { LanguageSpec } from '@/modules/Roleplay/Rule/Dto/LanguageSpec';
 import RuleEditorBase from '@/modules/Roleplay/Rule/Component/Editors/RuleEditorBase.vue';
 
 const props = defineProps<{
@@ -13,7 +12,6 @@ const props = defineProps<{
   mechanicId: number | null;
   keywordIds: number[];
   spec: RuleSpec | null;
-  specType: 'sense' | 'language';
   mechanicOptions: { title: string; value: number }[];
   keywordOptions: { title: string; value: number }[];
 }>();
@@ -24,17 +22,13 @@ const emit = defineEmits<{
   'update:description': [value: string];
   'update:mechanicId': [value: number | null];
   'update:keywordIds': [value: number[]];
-  'update:spec': [value: SenseSpec | LanguageSpec];
+  'update:spec': [value: SenseSpec];
 }>();
 
-const specToEmit = computed<SenseSpec | LanguageSpec>(() => {
-  if (props.specType === 'sense') {
-    if (props.spec && 'type' in props.spec && props.spec.type === 'sense') return props.spec;
+const specToEmit = computed<SenseSpec>(() => {
+  if (props.spec && 'type' in props.spec && props.spec.type === 'sense') return props.spec;
 
-    return { type: 'sense', status: 'precise', radius: { base: 30, size: 0 } };
-  }
-
-  return { type: 'language' };
+  return { type: 'sense', status: 'precise', radius: { base: 30, size: 0 } };
 });
 watch(specToEmit, (value) => emit('update:spec', value), { immediate: true });
 </script>
@@ -57,11 +51,7 @@ watch(specToEmit, (value) => emit('update:spec', value), { immediate: true });
   >
     <template #spec>
       <div class="text-body-2 text-medium-emphasis mt-2">
-        {{
-          specType === 'sense'
-            ? 'Чувство — метка для даров «модификатор чувства». Значение на персонаже складывается из даров.'
-            : 'Язык — словарная статья домена навыка «Владение языком». Спеки нет.'
-        }}
+        Чувство — метка для даров «модификатор чувства». Значение на персонаже складывается из даров.
       </div>
     </template>
   </RuleEditorBase>

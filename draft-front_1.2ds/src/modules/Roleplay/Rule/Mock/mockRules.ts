@@ -3,6 +3,9 @@ import type { CreateRuleData } from '@/modules/Roleplay/Rule/Dto/CreateRuleData'
 import type { UpdateRuleData } from '@/modules/Roleplay/Rule/Dto/UpdateRuleData';
 import type { RuleVersion } from '@/modules/Roleplay/Rule/Dto/RuleVersion';
 import { slugify } from '@/modules/Roleplay/Rule/Utils/Text/slugify';
+import { mockLanguages } from '@/modules/Roleplay/Rule/Mock/mockLanguages';
+import { mockScripts } from '@/modules/Roleplay/Rule/Mock/mockScripts';
+import { mockEthnicities } from '@/modules/Roleplay/Rule/Mock/mockEthnicities';
 import { mockRuleImport } from '@/modules/Roleplay/Rule/Mock/mockRuleImport';
 import { mockRaceImport } from '@/modules/Roleplay/Rule/Mock/mockRaceImport';
 import { mockSpellImport } from '@/modules/Roleplay/Rule/Mock/mockSpellImport';
@@ -45,76 +48,9 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
     ...mockRaceImport,
     ...mockDevelopmentImport,
     ...mockSpellImport,
-    // --- Справочник языков (type 'language'): домены множественного навыка «Владение языком» ---
-    {
-      id: 394,
-      code: 'language-common',
-      type: 'language',
-      name: 'Общий язык',
-      description: 'Распространённый язык межнационального общения.',
-      spaceId: 1,
-      spec: { type: 'language' },
-      keywordIds: [],
-      mechanicId: null,
-      mechanicPayload: null,
-      createdAt: 1786356000,
-    },
-    {
-      id: 395,
-      code: 'language-elf',
-      type: 'language',
-      name: 'Эльфийский',
-      description: 'Язык эльфов.',
-      spaceId: 1,
-      spec: { type: 'language' },
-      keywordIds: [],
-      mechanicId: null,
-      mechanicPayload: null,
-      createdAt: 1786356000,
-    },
-    {
-      id: 396,
-      code: 'language-dwarf',
-      type: 'language',
-      name: 'Дварфийский',
-      description: 'Язык дварфов.',
-      spaceId: 1,
-      spec: { type: 'language' },
-      keywordIds: [],
-      mechanicId: null,
-      mechanicPayload: null,
-      createdAt: 1786356000,
-    },
-    {
-      id: 397,
-      code: 'language-orc',
-      type: 'language',
-      name: 'Орочий',
-      description: 'Язык орков.',
-      spaceId: 1,
-      spec: { type: 'language' },
-      keywordIds: [],
-      mechanicId: null,
-      mechanicPayload: null,
-      createdAt: 1786356000,
-    },
-    {
-      id: 398,
-      code: 'language-native',
-      type: 'language',
-      name: 'Родной язык',
-      description:
-        'Заглушка родного языка персонажа. Канон: каждый получает Владение языком 2 из 3 с этим доменом автоматически. Редактор экземпляр пока не выдаёт.',
-      spaceId: 1,
-      spec: { type: 'language' },
-      keywordIds: [],
-      mechanicId: null,
-      mechanicPayload: null,
-      createdAt: 1786356000,
-      catalogSection: 'abilities-acquired-mental-intellect',
-      contentNote:
-        'Заглушка. Нужно: автоэкземпляр vladenie-yazykom level 2, domain «Родной язык», domainCode language-native.',
-    },
+    ...mockLanguages,
+    ...mockScripts,
+    ...mockEthnicities,
     {
       id: 905,
       code: 'wait',

@@ -396,21 +396,21 @@ describe('CharacterBuildService', () => {
     let build = makeBuild();
 
     // Добавление экземпляра: уровень 1, домен + код словаря, зона.
-    build = service.addAbilityInstance(build, 'language', 'Драконий', rulesLocal, {
+    build = service.addAbilityInstance(build, 'language', 'Гаргат', rulesLocal, {
       zone: 'or',
-      domainCode: 'language-dragon',
+      domainCode: 'gargat',
     });
     expect(build.abilities).toEqual([
-      { ruleCode: 'language', level: 1, domain: 'Драконий', zone: 'or', domainCode: 'language-dragon' },
+      { ruleCode: 'language', level: 1, domain: 'Гаргат', zone: 'or', domainCode: 'gargat' },
     ]);
 
     // Второй экземпляр — независимый домен.
-    build = service.addAbilityInstance(build, 'language', 'Эльфийский', rulesLocal, { zone: 'or' });
+    build = service.addAbilityInstance(build, 'language', 'Сомнорил', rulesLocal, { zone: 'or' });
     expect(build.abilities).toHaveLength(2);
-    expect(build.abilities.map((a) => a.domain)).toEqual(['Драконий', 'Эльфийский']);
+    expect(build.abilities.map((a) => a.domain)).toEqual(['Гаргат', 'Сомнорил']);
 
     // Дубль домена отклоняется.
-    const dup = service.addAbilityInstance(build, 'language', 'Драконий', rulesLocal, { zone: 'or' });
+    const dup = service.addAbilityInstance(build, 'language', 'Гаргат', rulesLocal, { zone: 'or' });
     expect(dup).toBe(build);
 
     // Пустое значение отклоняется.
@@ -431,21 +431,21 @@ describe('CharacterBuildService', () => {
     const rulesLocal = [...rules, multiple];
     let build = makeBuild();
 
-    build = service.addAbilityInstance(build, 'language', 'Драконий', rulesLocal, { zone: 'or' });
-    build = service.addAbilityInstance(build, 'language', 'Эльфийский', rulesLocal, { zone: 'or' });
+    build = service.addAbilityInstance(build, 'language', 'Гаргат', rulesLocal, { zone: 'or' });
+    build = service.addAbilityInstance(build, 'language', 'Сомнорил', rulesLocal, { zone: 'or' });
 
     // Повышаем уровень одного экземпляра — другой не меняется.
-    build = service.setAbilityInstanceLevel(build, 'language', 'Драконий', 3, rulesLocal);
-    expect(build.abilities.find((a) => a.domain === 'Драконий')?.level).toBe(3);
-    expect(build.abilities.find((a) => a.domain === 'Эльфийский')?.level).toBe(1);
+    build = service.setAbilityInstanceLevel(build, 'language', 'Гаргат', 3, rulesLocal);
+    expect(build.abilities.find((a) => a.domain === 'Гаргат')?.level).toBe(3);
+    expect(build.abilities.find((a) => a.domain === 'Сомнорил')?.level).toBe(1);
 
     // Потолок (3) не пробивается.
-    const over = service.setAbilityInstanceLevel(build, 'language', 'Драконий', 4, rulesLocal);
+    const over = service.setAbilityInstanceLevel(build, 'language', 'Гаргат', 4, rulesLocal);
     expect(over).toBe(build);
 
     // Уровень 0 снимает экземпляр.
-    build = service.setAbilityInstanceLevel(build, 'language', 'Драконий', 0, rulesLocal);
-    expect(build.abilities.map((a) => a.domain)).toEqual(['Эльфийский']);
+    build = service.setAbilityInstanceLevel(build, 'language', 'Гаргат', 0, rulesLocal);
+    expect(build.abilities.map((a) => a.domain)).toEqual(['Сомнорил']);
   });
 
   it('множественный навык: переименование домена и удаление экземпляра', () => {
@@ -461,21 +461,21 @@ describe('CharacterBuildService', () => {
     const rulesLocal = [...rules, multiple];
     let build = makeBuild();
 
-    build = service.addAbilityInstance(build, 'language', 'Драконий', rulesLocal, { zone: 'or' });
-    build = service.addAbilityInstance(build, 'language', 'Эльфийский', rulesLocal, { zone: 'or' });
+    build = service.addAbilityInstance(build, 'language', 'Гаргат', rulesLocal, { zone: 'or' });
+    build = service.addAbilityInstance(build, 'language', 'Сомнорил', rulesLocal, { zone: 'or' });
 
     // Переименование домена с кодом словаря; дубль отклоняется.
-    build = service.setAbilityInstanceDomain(build, 'language', 'Драконий', 'Орочий', {
-      domainCode: 'language-orc',
+    build = service.setAbilityInstanceDomain(build, 'language', 'Гаргат', 'Ярын', {
+      domainCode: 'yaryn',
     });
-    expect(build.abilities.find((a) => a.domain === 'Орочий')).toMatchObject({ domainCode: 'language-orc' });
+    expect(build.abilities.find((a) => a.domain === 'Ярын')).toMatchObject({ domainCode: 'yaryn' });
 
-    const dup = service.setAbilityInstanceDomain(build, 'language', 'Орочий', 'Эльфийский', {});
+    const dup = service.setAbilityInstanceDomain(build, 'language', 'Ярын', 'Сомнорил', {});
     expect(dup).toBe(build);
 
     // Удаление экземпляра.
-    build = service.removeAbilityInstance(build, 'language', 'Эльфийский');
-    expect(build.abilities.map((a) => a.domain)).toEqual(['Орочий']);
+    build = service.removeAbilityInstance(build, 'language', 'Сомнорил');
+    expect(build.abilities.map((a) => a.domain)).toEqual(['Ярын']);
   });
 
   it('снимает экземпляр без domain (кривая запись) и не трогает соседний путь', () => {
@@ -524,7 +524,7 @@ describe('CharacterBuildService', () => {
     const rulesLocal = [...rules, multiple];
     let build = makeBuild();
 
-    build = service.addAbilityInstance(build, 'language', 'Драконий', rulesLocal, { zone: 'or' });
+    build = service.addAbilityInstance(build, 'language', 'Гаргат', rulesLocal, { zone: 'or' });
 
     const next = service.setAbilityLevel(build, 'language', 2, rulesLocal, { zone: 'or' });
     expect(next).toBe(build);

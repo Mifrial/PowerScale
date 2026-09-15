@@ -16,6 +16,8 @@ export const RULE_TYPES: { title: string; value: RuleType }[] = [
   { title: 'Чувство', value: 'sense' },
   { title: 'Возраст', value: 'age' },
   { title: 'Язык', value: 'language' },
+  { title: 'Письменность', value: 'script' },
+  { title: 'Народность', value: 'ethnicity' },
   { title: 'Семья оружия', value: 'weapon_family' },
   { title: 'Модификатор предмета', value: 'item_modifier' },
   { title: 'Тип модификатора предмета', value: 'item_modifier_type' },

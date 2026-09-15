@@ -822,7 +822,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     mechanicId: null,
     createdAt: 1786269600,
     contentNote:
-      'Нужен автоэкземпляр «Родной язык» 2 из 3 и проверка требований 3-го уровня в домене того же языка; редактор этого пока не делает.',
+      'Нужен автоэкземпляр родного языка 2 из 3. Уровень 3: грамотность того же языка и письменность из script_codes языка, не любая.',
   },
   {
     id: 227,
@@ -855,7 +855,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     code: 'pismennost',
     type: 'ability',
     name: 'Письменность',
-    description: 'Даёт возможность писать на выбранном вами языке.',
+    description:
+      'Навык знаков выбранной письменности, не языка. Алфавит — один уровень 1 ОР; иероглифы — 1/1/1. Речь для покупки не нужна.',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -865,27 +866,17 @@ const mockDevelopmentImportRaw: Rule[] = [
           levels_cost: [1],
         },
       },
-      requirements: [
-        {
-          level: 1,
-          requirements: [
-            {
-              type: 'has_ability',
-              ability_code: 'vladenie-yazykom',
-              min_level: 1,
-            },
-          ],
-        },
-      ],
+      requirements: [],
       grants: [],
-      parent_ability_code: 'vladenie-yazykom',
+      parent_ability_code: null,
       multiple: true,
-      domain_ref: 'language',
+      domain_ref: 'script',
     },
     keywordIds: [13, 57],
     mechanicId: null,
     createdAt: 1786269600,
-    contentNote: 'Книжный червь должен бесплатно выдавать это улучшение для выбранного домена языка; гранта пока нет.',
+    contentNote:
+      'Лестница с kind карты script. Читать язык = речь + эта письменность в script_codes. Книжный червь — отдельный грант.',
   },
   {
     id: 229,
@@ -960,7 +951,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     mechanicId: null,
     createdAt: 1786269600,
     contentNote:
-      'Книжный червь должен бесплатно выдавать Грамотность или навык с признаком knowledge для выбранного домена; гранта пока нет.',
+      'Домен — тот же язык, что у купленной речи. Нужна письменность из script_codes этого языка, не любой алфавит. Книжный червь грамотность не выдаёт.',
   },
   {
     id: 231,

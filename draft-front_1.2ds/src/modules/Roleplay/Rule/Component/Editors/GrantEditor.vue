@@ -354,6 +354,30 @@ function patch(key: string, value: unknown) {
         />
       </template>
 
+      <template v-else-if="inner.type === 'skill_study'">
+        <v-autocomplete
+          :model-value="inner.ability_codes"
+          @update:model-value="patch('ability_codes', $event ?? [])"
+          :items="abilities"
+          item-title="name"
+          item-value="code"
+          label="Навыки"
+          density="compact"
+          multiple
+          chips
+          closable-chips
+          hide-details
+        />
+        <ClampedNumberField
+          :model-value="inner.max_level"
+          :min="1"
+          @update:model-value="patch('max_level', $event)"
+          label="Бесплатных уровней"
+          density="compact"
+          hide-details
+        />
+      </template>
+
       <template v-else-if="inner.type === 'resistance'">
         <v-autocomplete
           :model-value="inner.damage_type_code"

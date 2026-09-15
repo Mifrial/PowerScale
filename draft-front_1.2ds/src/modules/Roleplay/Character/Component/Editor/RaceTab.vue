@@ -265,6 +265,7 @@ function applyRace(ruleCode: string): void {
 </script>
 
 <template>
+  <div>
   <div class="race-layout">
     <div class="race-tree-column">
       <v-alert v-if="selectedRaceUnavailable" type="warning" variant="tonal" density="compact" class="mb-2">
@@ -381,6 +382,7 @@ function applyRace(ruleCode: string): void {
         </v-card-actions>
       </v-card>
     </v-dialog>
+  </div>
   </div>
 </template>
 

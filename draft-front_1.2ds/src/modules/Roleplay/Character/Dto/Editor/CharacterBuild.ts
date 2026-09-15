@@ -24,8 +24,10 @@ export interface CharacterBuild {
   inventory: InventoryItem[];
   states: CharacterStateValue[];
   money: number;
-  /** Годы персонажа (тип правила 'age'); null — возраст не выбран. */
   ageYears: number | null;
-  /** Итог ОЛ (из возраста; сохраняется при копировании как фолбэк для старых версий). */
   olTotal: number;
+  ethnicityCode?: string | null;
+  ethnicityText?: string | null;
+  nativeLanguageCode?: string | null;
+  nativeLanguageText?: string | null;
 }

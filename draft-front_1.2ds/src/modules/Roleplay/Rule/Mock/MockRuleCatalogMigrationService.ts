@@ -48,7 +48,9 @@ export class MockRuleCatalogMigrationService {
       return rule.code === 'shock' || rule.code === 'electrocharge' ? 'magic-rules-states' : 'scenes-states';
     }
     if (rule.type === 'poison') return 'scenes-poisons';
-    if (rule.type === 'language') return 'abilities-acquired-mental-intellect';
+    if (rule.type === 'language' || rule.type === 'script' || rule.type === 'ethnicity') {
+      return 'abilities-acquired-mental-intellect';
+    }
     if (rule.type === 'age') return 'races';
     if (rule.type === 'weapon_family') return 'items-equipment-weapons-melee';
     if (rule.type === 'item_modifier' || rule.type === 'item_modifier_type') return 'items-other';

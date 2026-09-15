@@ -42,6 +42,14 @@ export type Grant =
       permanent?: boolean;
     }
   | {
+      type: 'skill_study';
+      ability_codes: string[];
+      max_level: number;
+      paid_cost: number;
+      max_instances?: number;
+      permanent?: boolean;
+    }
+  | {
       type: 'resistance';
       damage_type_code: string;
       /**

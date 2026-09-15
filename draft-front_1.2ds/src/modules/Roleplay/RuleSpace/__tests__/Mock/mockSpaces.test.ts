@@ -9,6 +9,15 @@ import { DT_PAY_SR_VS_RELIABILITY_CODE } from '@/modules/Roleplay/Rule/Constant/
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
 describe('mockSpaces: публикация черновика собирает ревизию из каталога', () => {
+  it('ревизия Разработки включает народности и языки каталога', () => {
+    const rules = generateRevisionRules(1, 5);
+    const codes = new Set(rules.map((rule) => rule.code));
+    expect(codes.has('sri')).toBe(true);
+    expect(codes.has('ulay')).toBe(true);
+    expect(codes.has('rados')).toBe(true);
+    expect(codes.has('ulay-til')).toBe(true);
+  });
+
   it('новая ревизия = все правила предыдущей + закоммиченное правило', async () => {
     const before = await fetchRevision(2, 12);
     const draftRule: Rule = {

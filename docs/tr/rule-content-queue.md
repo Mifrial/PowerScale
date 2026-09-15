@@ -14,8 +14,8 @@
 | alcoholism | От алкоголизма | Нет стадий, проверок отрезвления и снятия стадии | еда / зависимость | Слот источника для штрафов есть; `contentNote` на карточке. |
 | sense-hearing | Слух | Радиус чувства не читается; Game не в этом релизе | освещение / чувства | Спека `radius` есть; `contentNote` на карточке. |
 | sense-vision | Зрение | Радиус чувства не читается; Game не в этом релизе | освещение / чувства | Спека `radius` есть; `contentNote` на карточке. |
-| language-native / vladenie-yazykom / language improvements | Языки | Нет автоэкземпляра Владение языком 2 с доменом «Родной язык» и доменных грантов улучшений | множественный навык + domain | `pravilnoe-proiznoshenie`, `pismennost`, `chtenie-po-gubam`, `gramotnost` должны работать внутри выбранного языка. |
-| bookworm | Книжный червь | Нет гранта «навык + произвольный домен за 0» (как `magic_study`) | грант изучения навыка | Канон: `pismennost` языка **или** экземпляр `znanie` любого типа (план-04). Грантов на карточке нет. |
+| vladenie-yazykom / language improvements | Языки | Лист народности/родного и авто-2 в Vue; Game речь не этот срез | языки (план-07) | Канон: [`rule-content-plan-07-languages.md`](rule-content-plan-07-languages.md). |
+| bookworm | Книжный червь | Грант `skill_study` в каталоге; Game стресс нет | грант изучения навыка | `znanie` или `pismennost` за 0, не речь. |
 | kontsentratsiya hold | Концентрация: hold | Hold, Боль, срыв поддержания нигде не стартуются | runtime концентрации (hold) | Срез жетонов и детей закрыт 2026-09-13. |
 | znanie + шаблоны + zaschita-ot-zakona | Знания | Каталог/лист и соло check-knowledge (5.1–5.2) закрыты. Медицина/раны и книжный червь — свои строки | знания (план-05) | Канон: [`rule-content-plan-04-knowledge.md`](rule-content-plan-04-knowledge.md). Game: [`rule-content-plan-05-knowledge-game.md`](rule-content-plan-05-knowledge-game.md). |
 | wound + clotting + bandage | Раны | Срез 5.3 в Game: экземпляр, тик, свёртывание, зажим, перевязка. Сутки −2 и хирургия — нет | раны (план-06) | Канон §4.2 плана-04. Game: [`rule-content-plan-06-wounds.md`](rule-content-plan-06-wounds.md). |

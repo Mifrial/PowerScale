@@ -3,12 +3,13 @@ import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/Dimension
 import type { Requirement } from '@/modules/Roleplay/Rule/Dto/Ability/Requirement';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import { CharacteristicNumber } from '@/modules/Roleplay/Rule/Value/CharacteristicNumber';
+import { PISMENNOST_ABILITY_CODE } from '@/modules/Roleplay/Rule/Constant/Ability/PISMENNOST_ABILITY_CODE';
 
 /**
  * Оценивает требования способностей (Requirement) против снимка персонажа.
  * Список требований = неявное И; явная логика — рекурсивные группы and/or.
  * domainContext — домен экземпляра множественного навыка: has_ability-требования тогда ищут
- * экземпляр с тем же доменом («Письменность того же языка»), а не максимальный уровень.
+ * экземпляр с тем же доменом. Письменность: экземпляр script из script_codes языка, не «тот же код языка».
  */
 export class RequirementEvaluator {
   /** Все требования списка выполняются (неявное И). */
@@ -53,7 +54,7 @@ export class RequirementEvaluator {
         const label = `«${this.abilityName(requirement.ability_code, snapshot)}» уровня ${minLevel}`;
         if (domainContext !== undefined) {
           const instances = snapshot.abilityInstances?.get(requirement.ability_code) ?? [];
-          if (instances.some((instance) => this.instanceMeetsDomain(instance, domainContext, snapshot, minLevel))) {
+          if (instances.some((instance) => this.instanceMeetsDomain(instance, domainContext, snapshot, minLevel, requirement.ability_code))) {
             return null;
           }
 
@@ -180,8 +181,15 @@ export class RequirementEvaluator {
     domainContext: string,
     snapshot: CharacterSnapshot,
     minLevel: number,
+    abilityCode: string,
   ): boolean {
     if (instance.level < minLevel) return false;
+    if (abilityCode === PISMENNOST_ABILITY_CODE) {
+      const scripts = snapshot.languageScripts?.get(domainContext);
+      const scriptCode = instance.domainCode ?? instance.domain;
+
+      return scripts != null && scripts.has(scriptCode);
+    }
     if (instance.domain === domainContext || instance.domainCode === domainContext) return true;
     const ownerPath = this.pathCodeOfDomain(domainContext, snapshot);
     const learnedPath = instance.domainCode;

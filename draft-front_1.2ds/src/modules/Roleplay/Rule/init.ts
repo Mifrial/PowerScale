@@ -20,6 +20,13 @@ export { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/Service/In
 export { advantageDropService } from '@/modules/Roleplay/Rule/Service/Instance/advantageDropService';
 export { formatStateEffectsService } from '@/modules/Roleplay/Rule/Service/Instance/formatStateEffectsService';
 export { raceSpecService } from '@/modules/Roleplay/Rule/Service/Instance/raceSpecService';
+export { languageSpecService } from '@/modules/Roleplay/Rule/Service/Instance/languageSpecService';
+export { languageRelatednessService } from '@/modules/Roleplay/Rule/Service/Instance/languageRelatednessService';
+export { scriptSpecService } from '@/modules/Roleplay/Rule/Service/Instance/scriptSpecService';
+export { scriptLiteracyService } from '@/modules/Roleplay/Rule/Service/Instance/scriptLiteracyService';
+export { ethnicitySpecService } from '@/modules/Roleplay/Rule/Service/Instance/ethnicitySpecService';
+export { ethnicityTreeService } from '@/modules/Roleplay/Rule/Service/Instance/ethnicityTreeService';
+export { ethnicityPickService } from '@/modules/Roleplay/Rule/Service/Instance/ethnicityPickService';
 export { RaceSpecService } from '@/modules/Roleplay/Rule/Service/Spec/RaceSpecService';
 export { ruleReferenceService } from '@/modules/Roleplay/Rule/Service/Instance/ruleReferenceService';
 export { actionEffectLabelService } from '@/modules/Roleplay/Rule/Service/Instance/actionEffectLabelService';

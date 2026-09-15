@@ -7,8 +7,8 @@ export interface CharacterSnapshot {
   /** Признаки (ключевые слова) каждой способности по её коду (для has_ability_keyword). */
   abilityKeywords: Map<string, Set<string>>;
   /**
-   * Экземпляры множественных навыков по кодам правил (для домен-скоупированных has_ability
-   * требований: «Письменность того же языка»). Пусто, если экземпляров нет.
+   * Экземпляры множественных навыков по кодам правил (для домен-скоупированных has_ability).
+   * Пусто, если экземпляров нет.
    */
   abilityInstances?: Map<string, { domain: string; domainCode: string | null; level: number }[]>;
   /**
@@ -43,6 +43,8 @@ export interface CharacterSnapshot {
    * Для шамана: {shaman, psionic}.
    */
   magicPathCovers?: Map<string, Set<string>>;
+  /** Код или имя языка → письменности, которыми его пишут. Для грамотности и 3-го уровня владения. */
+  languageScripts?: Map<string, Set<string>>;
   currentSpeed?: {
     horizontal: { stepsPerActionPoint: number; direction: string | null };
     vertical: { stepsPerActionPoint: number; direction: string | null };

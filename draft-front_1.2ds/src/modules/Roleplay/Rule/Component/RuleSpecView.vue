@@ -9,6 +9,9 @@ import DamageTypeCard from '@/modules/Roleplay/Rule/Component/Cards/DamageTypeCa
 import ItemCard from '@/modules/Roleplay/Rule/Component/Cards/ItemCard.vue';
 import ItemModifierTypeCard from '@/modules/Roleplay/Rule/Component/Cards/ItemModifierTypeCard.vue';
 import MarkerCard from '@/modules/Roleplay/Rule/Component/Cards/MarkerCard.vue';
+import LanguageCard from '@/modules/Roleplay/Rule/Component/Cards/LanguageCard.vue';
+import ScriptCard from '@/modules/Roleplay/Rule/Component/Cards/ScriptCard.vue';
+import EthnicityCard from '@/modules/Roleplay/Rule/Component/Cards/EthnicityCard.vue';
 import MagicPathCard from '@/modules/Roleplay/Rule/Component/Cards/MagicPathCard.vue';
 import ModifierCard from '@/modules/Roleplay/Rule/Component/Cards/ModifierCard.vue';
 import PointsCard from '@/modules/Roleplay/Rule/Component/Cards/PointsCard.vue';
@@ -43,5 +46,8 @@ defineProps<{
   <AgeCard v-else-if="rule.type === 'age'" :rule="rule" :rules="rules" />
   <WeaponFamilyCard v-else-if="rule.type === 'weapon_family'" :rule="rule" />
   <ItemModifierTypeCard v-else-if="rule.type === 'item_modifier_type'" :rule="rule" />
-  <MarkerCard v-else-if="rule.type === 'sense' || rule.type === 'language' || rule.type === 'source'" :rule="rule" />
+  <LanguageCard v-else-if="rule.type === 'language'" :rule="rule" :rules="rules" />
+  <ScriptCard v-else-if="rule.type === 'script'" :rule="rule" />
+  <EthnicityCard v-else-if="rule.type === 'ethnicity'" :rule="rule" :rules="rules" />
+  <MarkerCard v-else-if="rule.type === 'sense' || rule.type === 'source'" :rule="rule" />
 </template>

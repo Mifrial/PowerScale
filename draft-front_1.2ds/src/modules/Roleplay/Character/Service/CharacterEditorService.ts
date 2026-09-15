@@ -50,6 +50,8 @@ import {
   checkResolutionService,
   derivedCharacteristicService,
   RaceSpecService,
+  languageRelatednessService,
+  scriptLiteracyService,
 } from '@/modules/Roleplay/Rule/init';
 import {
   ATTRACTIVENESS_MAX,
@@ -75,6 +77,8 @@ import { magicPathStudyCostService } from '@/modules/Roleplay/Character/Service/
 import { magicStudyUnlockService } from '@/modules/Roleplay/Character/Service/Instance/magicStudyUnlockService';
 import { keywordExperienceService } from '@/modules/Roleplay/Character/Service/Instance/keywordExperienceService';
 import { knowledgeInstanceService } from '@/modules/Roleplay/Character/Service/Instance/knowledgeInstanceService';
+import { nativeLanguageService } from '@/modules/Roleplay/Character/Service/Instance/nativeLanguageService';
+import { skillStudyUnlockService } from '@/modules/Roleplay/Character/Service/Instance/skillStudyUnlockService';
 import type { MagicStudyLearned } from '@/modules/Roleplay/Character/Dto/Editor/MagicStudyLearned';
 import type { MechanicState } from '@/modules/Roleplay/Mechanic/Dto/MechanicState';
 import type { CharacterMechanicContext } from '@/modules/Roleplay/Mechanic/Dto/CharacterMechanicContext';
@@ -99,6 +103,8 @@ export class CharacterEditorService {
     private readonly magicStudyUnlock = magicStudyUnlockService,
     private readonly keywordExperience = keywordExperienceService,
     private readonly knowledge = knowledgeInstanceService,
+    private readonly nativeLanguage = nativeLanguageService,
+    private readonly skillStudyUnlock = skillStudyUnlockService,
   ) {}
 
   build(
@@ -109,12 +115,17 @@ export class CharacterEditorService {
     mechanics: Mechanic[] = [],
   ): CharacterEditorModel {
     const reference = new CharacterReferenceService(rules, build.spaceCode, build.rulesRevision);
-    const race = this.buildRace(build, reference);
-    const senses = this.buildSenses(build, reference);
-    const characteristics = this.buildCharacteristics(build, reference, senses, keywords);
-    const resources = this.buildResources(build, reference, characteristics, keywords);
-    const budgets = this.buildBudgets(build, config, race, reference, keywords, mechanics);
-    const abilities = this.buildAbilities(build, race, characteristics, resources, reference, keywords, rules);
+    const geared = this.racialInnateGear.applyRacialInnateGear(build, rules);
+    const synced = this.nativeLanguage.syncNativeSpeech(
+      { ...build, abilities: geared.abilities, inventory: geared.inventory },
+      rules,
+    );
+    const race = this.buildRace(synced, reference);
+    const senses = this.buildSenses(synced, reference);
+    const characteristics = this.buildCharacteristics(synced, reference, senses, keywords);
+    const resources = this.buildResources(synced, reference, characteristics, keywords);
+    const budgets = this.buildBudgets(synced, config, race, reference, keywords, mechanics);
+    const abilities = this.buildAbilities(synced, race, characteristics, resources, reference, keywords, rules);
 
     return {
       race,
@@ -124,7 +135,7 @@ export class CharacterEditorService {
       abilities,
       groups: this.buildGroups(rules, abilities),
       budgets,
-      personality: this.buildPersonality(build, reference, keywords),
+      personality: this.buildPersonality(synced, reference, keywords),
     };
   }
 
@@ -136,7 +147,11 @@ export class CharacterEditorService {
     keywords: Keyword[] = [],
     mechanics: Mechanic[] = [],
   ): CharacterVersion {
-    const synced = this.racialInnateGear.applyRacialInnateGear(build, rules);
+    const geared = this.racialInnateGear.applyRacialInnateGear(build, rules);
+    const synced = this.nativeLanguage.syncNativeSpeech(
+      { ...build, abilities: geared.abilities, inventory: geared.inventory },
+      rules,
+    );
     const reference = new CharacterReferenceService(rules, build.spaceCode, build.rulesRevision);
     const race = this.buildRace(synced, reference);
     const senses = this.buildSenses(synced, reference);
@@ -178,6 +193,10 @@ export class CharacterEditorService {
         treatAsGoodDownTo: value.treatAsGoodDownTo,
       })),
       budgets: { osTotal: config.osTotal, moneyBudget: config.moneyBudget },
+      ethnicityCode: synced.ethnicityCode ?? null,
+      ethnicityText: synced.ethnicityText ?? null,
+      nativeLanguageCode: synced.nativeLanguageCode ?? null,
+      nativeLanguageText: synced.nativeLanguageText ?? null,
     };
   }
 
@@ -759,6 +778,7 @@ export class CharacterEditorService {
     const keywordCodeById = new Map(keywords.map((keyword) => [keyword.id, keyword.code]));
     const studyUnlocks = this.magicStudyUnlock.unlocksOf(build.abilities, rules, keywordCodeById);
     const learnedStudy = this.magicStudyUnlock.learnedEntries(build.abilities, rules);
+    const skillUnlocks = this.skillStudyUnlock.unlocksOf(build.abilities, rules);
     for (const ability of build.abilities) {
       const rule = reference.ruleByCode(ability.ruleCode);
       const spec = rule?.type === 'ability' ? (rule.spec as AbilitySpec | undefined) : undefined;
@@ -766,15 +786,27 @@ export class CharacterEditorService {
       if (spec.type === 'group') continue;
       const zoneCode = ability.zone ?? this.purchasableZoneOf(spec);
       if (!zoneCode) continue;
-      const cost = this.weaponFamilyCostOf(rule, ability, reference) ?? spec.zones[zoneCode];
+      const cost =
+        this.scriptCostOf(rule, ability, reference) ??
+        this.weaponFamilyCostOf(rule, ability, reference) ??
+        spec.zones[zoneCode];
       if (!cost) continue;
       const resolveParameter = (code: string) =>
         this.parameterCostValue(build, rule, spec, code, parameterAutoValues, raceFixedBases);
       const total = this.totalCostAtLevel(cost, ability.level, resolveParameter);
-      const giftedLevel = ability.gifted ? 1 : spec.multiple === true ? 0 : (giftedLevels.get(rule.code) ?? 0);
+      const giftedLevel = ability.gifted
+        ? this.nativeLanguage.giftedFloor(ability)
+        : spec.multiple === true
+          ? 0
+          : (giftedLevels.get(rule.code) ?? 0);
       let paid = total;
       if (giftedLevel > 0) {
         paid = ability.level > giftedLevel ? total - this.totalCostAtLevel(cost, giftedLevel, resolveParameter) : 0;
+      }
+      const freeRungs = this.skillStudyUnlock.paidRungsFree(ability, skillUnlocks, build.abilities);
+      if (freeRungs > 0) {
+        const freeCost = this.totalCostAtLevel(cost, Math.min(ability.level, freeRungs), resolveParameter);
+        paid = Math.max(0, paid - freeCost);
       }
       if (this.magicPathStudyCost.usesPathStudyCost(spec, rules)) {
         const firstLevelCost = this.totalCostAtLevel(cost, 1, resolveParameter);
@@ -1069,6 +1101,7 @@ export class CharacterEditorService {
     const derivedLevels = this.derivedAbilityLevels(build, reference, keywords);
     const studyUnlocks = this.magicStudyUnlock.unlocksOf(build.abilities, rules, keywordCodes);
     const learnedStudy = this.magicStudyUnlock.learnedEntries(build.abilities, rules);
+    const skillUnlocks = this.skillStudyUnlock.unlocksOf(build.abilities, rules);
 
     const result: EditorAbility[] = [];
     for (const rule of rules) {
@@ -1214,7 +1247,39 @@ export class CharacterEditorService {
         instances: multiple
           ? instances.map((instance) => {
               const zone = zones.find((entry) => entry.levelCosts.length > 0) ?? zones[0];
-              const rawPaid = (zone?.levelCosts ?? []).slice(0, instance.level).reduce((sum, cost) => sum + cost, 0);
+              const costs = zone?.levelCosts ?? [];
+              const giftedFloor = instance.gifted ? this.nativeLanguage.giftedFloor(instance) : 0;
+              const rawPaid = costs.slice(giftedFloor, instance.level).reduce((sum, cost) => sum + cost, 0);
+              let paidCost =
+                this.magicStudyUnlock.paidCostOverride(
+                  spec,
+                  studyUnlocks,
+                  learnedStudy,
+                  instance.domainCode ?? null,
+                  { ruleCode: rule.code, domainCode: instance.domainCode ?? null },
+                ) ??
+                this.magicPathStudyCost.instancePaid(
+                  build,
+                  rules,
+                  {
+                    ruleCode: rule.code,
+                    level: instance.level,
+                    domain: instance.domain,
+                    domainCode: instance.domainCode,
+                  },
+                  rawPaid,
+                  firstLevelCost,
+                  skipGrantPaid,
+                );
+              const freeRungs = this.skillStudyUnlock.paidRungsFree(
+                { ...instance, ruleCode: rule.code },
+                skillUnlocks,
+                build.abilities,
+              );
+              if (freeRungs > 0) {
+                const freeCost = costs.slice(0, Math.min(instance.level, freeRungs)).reduce((sum, cost) => sum + cost, 0);
+                paidCost = Math.max(0, paidCost - freeCost);
+              }
 
               return {
                 domain: instance.domain ?? '',
@@ -1223,27 +1288,8 @@ export class CharacterEditorService {
                 slots: instance.slots,
                 level: instance.level,
                 levels: instanceLevelsOf(instance.domain ?? '', instance.domainCode ?? null),
-                paidCost:
-                  this.magicStudyUnlock.paidCostOverride(
-                    spec,
-                    studyUnlocks,
-                    learnedStudy,
-                    instance.domainCode ?? null,
-                    { ruleCode: rule.code, domainCode: instance.domainCode ?? null },
-                  ) ??
-                  this.magicPathStudyCost.instancePaid(
-                    build,
-                    rules,
-                    {
-                      ruleCode: rule.code,
-                      level: instance.level,
-                      domain: instance.domain,
-                      domainCode: instance.domainCode,
-                    },
-                    rawPaid,
-                    firstLevelCost,
-                    skipGrantPaid,
-                  ),
+                paidCost,
+                gifted: instance.gifted,
                 bound: this.magicStudyUnlock.isBound(
                   studyUnlocks,
                   learnedStudy,
@@ -1666,6 +1712,7 @@ export class CharacterEditorService {
       magicPaths,
       magicPathExperience,
       magicPathCovers,
+      languageScripts: scriptLiteracyService.languageScriptIndex(reference.rules()),
     };
   }
 
@@ -2139,6 +2186,24 @@ export class CharacterEditorService {
   }
 
   /**
+   * Лестница «Письменности»: алфавит [1], иероглифы [1,1,1] с kind выбранной карты script.
+   * Свой текст без карты — как алфавит.
+   */
+  private scriptCostOf(
+    rule: Rule,
+    ability: CharacterBuild['abilities'][number],
+    reference: CharacterReferenceService,
+  ): AbilityCost | null {
+    if (rule.type !== 'ability') return null;
+    const spec = rule.spec as AbilitySpec | undefined;
+    if (!spec || spec.type === 'group') return null;
+    if (spec.domain_ref !== 'script') return null;
+    const ladder = scriptLiteracyService.ladderForDomain(reference.rules(), ability.domainCode ?? ability.domain);
+
+    return { kind: 'array', levels_cost: ladder };
+  }
+
+  /**
    * Опции словаря домена множественного навыка: правила ревизии типов, соответствующих domain_ref
    * (виды → type 'species', языки → type 'language'). Пусто — словаря нет, домен вводится текстом.
    */
@@ -2153,7 +2218,12 @@ export class CharacterEditorService {
     const types = DOMAIN_REF_RULE_TYPES[domainRef];
     if (!types) return [];
 
-    return rules.filter((rule) => types.includes(rule.type)).map((rule) => ({ code: rule.code, name: rule.name }));
+    const matched = rules.filter((rule) => types.includes(rule.type));
+    if (domainRef === 'language') {
+      return languageRelatednessService.speakableOptions(matched);
+    }
+
+    return matched.map((rule) => ({ code: rule.code, name: rule.name }));
   }
 
   /**
@@ -2295,7 +2365,10 @@ export class CharacterEditorService {
         (ability, rule, spec) => {
           const zoneCode = ability.zone ?? this.keywordExperience.purchasableZoneOf(spec);
           if (!zoneCode) return 0;
-          const cost = this.weaponFamilyCostOf(rule, ability, reference) ?? spec.zones[zoneCode];
+          const cost =
+            this.scriptCostOf(rule, ability, reference) ??
+            this.weaponFamilyCostOf(rule, ability, reference) ??
+            spec.zones[zoneCode];
           if (!cost) return 0;
 
           return this.keywordExperience.totalCostAtLevel(cost, ability.level, (code) =>

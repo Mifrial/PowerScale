@@ -3,14 +3,14 @@ import type { EditorAbility } from '@/modules/Roleplay/Character/Dto/Editor/Edit
 import type { EditorAbilityInstance } from '@/modules/Roleplay/Character/Dto/Editor/EditorAbilityInstance';
 
 /**
- * Разворачивает множественные заклинания в строку каталога и отдельные строки экземпляров,
- * чтобы улучшения могли висеть на конкретном пути, как модификаторы на экземпляре предмета.
+ * Разворачивает любой multiple-навык в строку каталога и отдельные строки экземпляров,
+ * чтобы улучшения висели на конкретном языке, знании или пути, как модификаторы на предмете.
  */
 export class DevelopmentListService {
   expand(abilities: EditorAbility[]): DevelopmentAbilityRow[] {
     const rows: DevelopmentAbilityRow[] = [];
     for (const ability of abilities) {
-      if (ability.multiple && (ability.type === 'spell' || ability.parentCode || ability.domainRef === 'magic-path')) {
+      if (ability.multiple) {
         rows.push(this.catalogRow(ability));
         ability.instances.forEach((instance, index) => {
           rows.push(this.instanceRow(ability, instance, index));
@@ -53,7 +53,7 @@ export class DevelopmentListService {
   private catalogRow(ability: EditorAbility): DevelopmentAbilityRow {
     return {
       key: `${ability.ruleCode}:catalog`,
-      ability: { ...ability, level: 0 },
+      ability: { ...ability, level: 0, gifted: false },
       spellRowKind: 'catalog',
       instance: null,
     };
@@ -68,6 +68,7 @@ export class DevelopmentListService {
         instances: [instance],
         domain: instance.domain,
         domainCode: instance.domainCode,
+        gifted: instance.gifted === true,
       },
       spellRowKind: 'instance',
       instance,

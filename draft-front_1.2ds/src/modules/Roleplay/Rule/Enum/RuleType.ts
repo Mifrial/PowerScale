@@ -14,6 +14,8 @@ export type RuleType =
   | 'sense'
   | 'age'
   | 'language'
+  | 'script'
+  | 'ethnicity'
   | 'weapon_family'
   | 'item_modifier'
   | 'item_modifier_type'

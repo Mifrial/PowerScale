@@ -1196,8 +1196,8 @@ describe('CharacterEditorService с каталогом правил (интег�
     const model = service.build(
       makeBuild({
         abilities: [
-          { ruleCode: language?.code ?? '', level: 3, domain: 'Эльфийский', zone: 'or', domainCode: 'language-elf' },
-          { ruleCode: language?.code ?? '', level: 1, domain: 'Орочий', zone: 'or', domainCode: 'language-orc' },
+          { ruleCode: language?.code ?? '', level: 3, domain: 'Сомнорил', zone: 'or', domainCode: 'somnoril' },
+          { ruleCode: language?.code ?? '', level: 1, domain: 'Гаргат', zone: 'or', domainCode: 'gargat' },
         ],
       }),
       ruleCatalog,
@@ -1210,8 +1210,8 @@ describe('CharacterEditorService с каталогом правил (интег�
     // level = max по экземплярам; instances со своими уровнями, кодами словаря и пер-экземплярными уровнями.
     expect(ability?.level).toBe(3);
     expect(ability?.instances.map(({ domain, domainCode, level }) => ({ domain, domainCode, level }))).toEqual([
-      { domain: 'Эльфийский', domainCode: 'language-elf', level: 3 },
-      { domain: 'Орочий', domainCode: 'language-orc', level: 1 },
+      { domain: 'Сомнорил', domainCode: 'somnoril', level: 3 },
+      { domain: 'Гаргат', domainCode: 'gargat', level: 1 },
     ]);
     expect(ability?.instances.every((instance) => Array.isArray(instance.levels) && instance.levels.length === 3)).toBe(
       true,
@@ -1219,8 +1219,9 @@ describe('CharacterEditorService с каталогом правил (интег�
     expect(model.budgets.or.spent).toBe(8);
 
     // Словарь языков резолвится из правил ревизии (type 'language').
-    expect(ability?.domainOptions.some((option) => option.code === 'language-elf')).toBe(true);
-    expect(ability?.domainOptions.some((option) => option.code === 'language-dwarf')).toBe(true);
+    expect(ability?.domainOptions.some((option) => option.code === 'somnoril')).toBe(true);
+    expect(ability?.domainOptions.some((option) => option.code === 'yaryn')).toBe(true);
+    expect(ability?.domainOptions.some((option) => option.code === 'locx')).toBe(false);
   });
 
   it('множественный навык: уровень экземпляра для требований = max (has_ability)', () => {
@@ -1231,7 +1232,7 @@ describe('CharacterEditorService с каталогом правил (интег�
     expect(pronunciation?.levels[0]?.met).toBe(false);
 
     const withLanguage = service.build(
-      makeBuild({ abilities: [{ ruleCode: language?.code ?? '', level: 1, domain: 'Эльфийский', zone: 'or' }] }),
+      makeBuild({ abilities: [{ ruleCode: language?.code ?? '', level: 1, domain: 'Сомнорил', zone: 'or' }] }),
       ruleCatalog,
       config,
       keywords,

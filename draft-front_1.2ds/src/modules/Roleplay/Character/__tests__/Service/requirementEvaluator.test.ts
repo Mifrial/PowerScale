@@ -256,4 +256,25 @@ describe('RequirementEvaluator', () => {
       evaluator.evaluate({ type: 'has_ability', ability_code: 'discharge', min_level: 1 }, reverse, 'Псионик'),
     ).toBe(false);
   });
+
+  it('грамотность: письменность из script_codes языка, не любой алфавит', () => {
+    const literate: CharacterSnapshot = {
+      ...snapshot,
+      abilityLevels: new Map([['pismennost', 1]]),
+      abilityInstances: new Map([
+        ['pismennost', [{ domain: 'Раденский алфавит', domainCode: 'raden-alphabet', level: 1 }]],
+      ]),
+      languageScripts: new Map([
+        ['rados', new Set(['raden-alphabet', 'raden-glyphs'])],
+        ['Радос', new Set(['raden-alphabet', 'raden-glyphs'])],
+        ['yaryn', new Set(['kazar-glyphs'])],
+      ]),
+    };
+    expect(
+      evaluator.evaluate({ type: 'has_ability', ability_code: 'pismennost', min_level: 1 }, literate, 'rados'),
+    ).toBe(true);
+    expect(
+      evaluator.evaluate({ type: 'has_ability', ability_code: 'pismennost', min_level: 1 }, literate, 'yaryn'),
+    ).toBe(false);
+  });
 });

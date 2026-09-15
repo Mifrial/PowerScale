@@ -40,7 +40,7 @@ function isAlwaysIncluded(rule: Rule): boolean {
   // ссылаются персонажи (предметы/расы) и другие правила (requirements, action_components,
   // grants, зоны способностей), поэтому их отсутствие ломает «в наличии». Источники (source)
   // тоже всегда: слоты защит/сопротивлений ссылаются на них кодом, и карточка персонажа
-  // выводит имя источника. Срез по count применяется к остальным (simple и прочие).
+  // выводит имя источника. Языки, письменности и народности — справочник листа персонажа.
   return (
     rule.type === 'characteristic' ||
     rule.type === 'resource' ||
@@ -58,6 +58,9 @@ function isAlwaysIncluded(rule: Rule): boolean {
     rule.type === 'check' ||
     rule.type === 'magic_path' ||
     rule.type === 'damage_type' ||
+    rule.type === 'language' ||
+    rule.type === 'script' ||
+    rule.type === 'ethnicity' ||
     // Правило «Бросок» (дефолты бросков чата) присутствует в любой ревизии игры.
     rule.mechanicPayload?.type === 'roll' ||
     rule.code === 'strike-procedure' ||

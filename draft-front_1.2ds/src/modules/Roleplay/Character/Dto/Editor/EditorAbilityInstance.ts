@@ -18,6 +18,7 @@ export interface EditorAbilityInstance {
   levels: EditorAbilityLevel[];
   /** Фактически списанная цена экземпляра с учётом скидки пути. */
   paidCost?: number;
+  gifted?: boolean;
   /** Экземпляр занимает слот гранта с max_instances — снять можно только вместе с грантом. */
   bound?: boolean;
 }

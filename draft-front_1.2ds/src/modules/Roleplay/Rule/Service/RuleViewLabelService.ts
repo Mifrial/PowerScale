@@ -145,6 +145,11 @@ export class RuleViewLabelService {
 
         return parts.join('; ');
       }
+      case 'skill_study': {
+        const names = grant.ability_codes.map((code) => this.ruleName(rules, code)).join(' / ');
+
+        return `Изучение «${names}» до уровня ${grant.max_level} за ${grant.paid_cost} ОР`;
+      }
       case 'resistance':
         return `Сопротивление «${this.ruleName(rules, grant.damage_type_code)}»: ${this.amount(grant.value, rules)} (${this.ruleName(rules, grant.source_code)})`;
       case 'sense_modify': {

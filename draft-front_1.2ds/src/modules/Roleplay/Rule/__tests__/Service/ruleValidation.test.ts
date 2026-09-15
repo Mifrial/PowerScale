@@ -1329,6 +1329,49 @@ describe('validateAgeStructure', () => {
   });
 });
 
+describe('validateLanguageStructure', () => {
+  it('сток не может висеть на изучаемом языке', () => {
+    const errors = ruleValidationService.validateLanguageStructure([
+      baseRule(null, 'rados', 'language', {
+        type: 'language',
+        role: 'language',
+        parent_code: null,
+        script_codes: [],
+      }),
+      baseRule(null, 'bad-stock', 'language', {
+        type: 'language',
+        role: 'stock',
+        parent_code: 'rados',
+        script_codes: [],
+      }),
+    ]);
+    expect(errors.some((error) => error.ruleCode === 'bad-stock')).toBe(true);
+  });
+});
+
+describe('language parent cycle', () => {
+  it('detects a two-node cycle', () => {
+    const rules: Rule[] = [
+      baseRule(null, 'a', 'language', { type: 'language', role: 'stock', parent_code: 'b', script_codes: [] }),
+      baseRule(null, 'b', 'language', { type: 'language', role: 'stock', parent_code: 'a', script_codes: [] }),
+    ];
+    const result = ruleValidationService.validateCatalog(rules, []);
+    expect(result.spaceErrors.some((message) => message.includes('языков'))).toBe(true);
+  });
+});
+
+describe('ethnicity parent cycle', () => {
+  it('detects a two-node cycle', () => {
+    const empty = { race_codes: [] as string[], language_codes: [] as string[], usages: [] };
+    const rules: Rule[] = [
+      baseRule(null, 'a', 'ethnicity', { type: 'ethnicity', role: 'stock', parent_code: 'b', ...empty }),
+      baseRule(null, 'b', 'ethnicity', { type: 'ethnicity', role: 'stock', parent_code: 'a', ...empty }),
+    ];
+    const result = ruleValidationService.validateCatalog(rules, []);
+    expect(result.spaceErrors.some((message) => message.includes('народностей'))).toBe(true);
+  });
+});
+
 describe('validateSenseStructure', () => {
   it('требует статус и точную неотрицательную дальность', () => {
     const errors = ruleValidationService.validateSenseStructure([

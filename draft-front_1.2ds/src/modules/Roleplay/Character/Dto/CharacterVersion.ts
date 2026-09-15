@@ -35,4 +35,8 @@ export interface CharacterVersion {
    * бюджеты ОС/денег (ОЛ — из возраста, ОР — points.orTotal). Старые версии — без поля.
    */
   budgets?: { osTotal: number | null; moneyBudget: number | null };
+  ethnicityCode?: string | null;
+  ethnicityText?: string | null;
+  nativeLanguageCode?: string | null;
+  nativeLanguageText?: string | null;
 }

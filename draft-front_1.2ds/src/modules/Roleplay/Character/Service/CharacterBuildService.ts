@@ -14,12 +14,15 @@ import type { AbilityCost } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityCos
 import type { CharacterAbility } from '@/modules/Roleplay/Character/Dto/CharacterAbility';
 import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpec';
 import { characterEditorService } from '@/modules/Roleplay/Character/Service/Instance/characterEditorService';
-import { itemModifierService } from '@/modules/Roleplay/Rule/init';
+import { ethnicityTreeService, itemModifierService, scriptLiteracyService } from '@/modules/Roleplay/Rule/init';
 import { weaponProficiencyService } from '@/modules/Roleplay/Character/Service/Instance/weaponProficiencyService';
 import { racialInnateGearService } from '@/modules/Roleplay/Character/Service/Instance/racialInnateGearService';
 import { magicStudyUnlockService } from '@/modules/Roleplay/Character/Service/Instance/magicStudyUnlockService';
 import { magicPathStudyCostService } from '@/modules/Roleplay/Character/Service/Instance/magicPathStudyCostService';
 import { knowledgeInstanceService } from '@/modules/Roleplay/Character/Service/Instance/knowledgeInstanceService';
+import { nativeLanguageService } from '@/modules/Roleplay/Character/Service/Instance/nativeLanguageService';
+import { NATIVE_LANGUAGE_GIFTED_LEVEL } from '@/modules/Roleplay/Character/Constant/Language/NATIVE_LANGUAGE_GIFTED_LEVEL';
+import { VLADENIE_YAZYKOM_ABILITY_CODE } from '@/modules/Roleplay/Rule/Constant/Ability/VLADENIE_YAZYKOM_ABILITY_CODE';
 
 /**
  * Иммутабельные переходы выборов редактора (CharacterBuild). Компоненты не мутируют build
@@ -34,6 +37,8 @@ export class CharacterBuildService {
     private readonly magicStudyUnlock = magicStudyUnlockService,
     private readonly magicPathStudyCost = magicPathStudyCostService,
     private readonly knowledge = knowledgeInstanceService,
+    private readonly nativeLanguage = nativeLanguageService,
+    private readonly ethnicities = ethnicityTreeService,
   ) {}
 
   /**
@@ -222,6 +227,13 @@ export class CharacterBuildService {
     if (level > 0 && level > this.maxInstanceLevelOf(rules, ruleCode, domain)) return build;
 
     if (level <= 0 && this.isStudyBound(build, rules, existing)) return build;
+    if (
+      existing.gifted &&
+      existing.ruleCode === VLADENIE_YAZYKOM_ABILITY_CODE &&
+      level < NATIVE_LANGUAGE_GIFTED_LEVEL
+    ) {
+      return build;
+    }
 
     const others = build.abilities.filter((ability) => !(ability.ruleCode === ruleCode && ability.domain === domain));
     const abilities =
@@ -476,6 +488,9 @@ export class CharacterBuildService {
     // «Владение оружием»: максимум экземпляра = длина лестницы выбранной семьи.
     if (spec?.domain_ref === 'weapon-family') {
       return this.weaponProficiency.weaponFamilyLadder(rules, domain)?.length ?? 1;
+    }
+    if (spec?.domain_ref === 'script') {
+      return scriptLiteracyService.ladderForDomain(rules, domain).length;
     }
     let max = 1;
     for (const cost of Object.values(spec?.zones ?? {})) {
@@ -895,6 +910,10 @@ export class CharacterBuildService {
         money: version.money,
         ageYears: version.ageYears ?? null,
         olTotal: version.points.olTotal,
+        ethnicityCode: version.ethnicityCode ?? null,
+        ethnicityText: version.ethnicityText ?? null,
+        nativeLanguageCode: version.nativeLanguageCode ?? null,
+        nativeLanguageText: version.nativeLanguageText ?? null,
       },
       rules,
     );
@@ -1072,9 +1091,49 @@ export class CharacterBuildService {
     return abilities;
   }
 
+  setEthnicity(build: CharacterBuild, code: string | null, text: string | null, rules: Rule[]): CharacterBuild {
+    return { ...build, ...this.sanitizeEthnicity({ ethnicityCode: code, ethnicityText: text }, rules) };
+  }
+
+  setNativeLanguage(build: CharacterBuild, code: string | null, text: string | null, rules: Rule[]): CharacterBuild {
+    const ethnicity = this.sanitizeEthnicity(build, rules);
+    const withNative = {
+      ...build,
+      ...ethnicity,
+      nativeLanguageCode: code,
+      nativeLanguageText: text,
+    };
+
+    return this.nativeLanguage.syncNativeSpeech(withNative, rules);
+  }
+
   private applyInnateGear(build: CharacterBuild, rules: Rule[]): CharacterBuild {
     const next = this.racialInnateGear.applyRacialInnateGear(build, rules);
+    const ethnicity = this.sanitizeEthnicity(build, rules);
+    const withGear = {
+      ...build,
+      ...ethnicity,
+      inventory: next.inventory,
+      abilities: next.abilities,
+    };
 
-    return { ...build, inventory: next.inventory, abilities: next.abilities };
+    return this.nativeLanguage.syncNativeSpeech(withGear, rules);
+  }
+
+  private sanitizeEthnicity(
+    build: Pick<CharacterBuild, 'ethnicityCode' | 'ethnicityText'>,
+    rules: Rule[],
+  ): Pick<CharacterBuild, 'ethnicityCode' | 'ethnicityText'> {
+    const code = build.ethnicityCode?.trim() || null;
+    if (code) {
+      const rule = rules.find((entry) => entry.type === 'ethnicity' && entry.code === code);
+      if (rule && this.ethnicities.isPickable(rule)) {
+        return { ethnicityCode: code, ethnicityText: null };
+      }
+
+      return { ethnicityCode: null, ethnicityText: rule?.name ?? code };
+    }
+
+    return { ethnicityCode: null, ethnicityText: build.ethnicityText?.trim() || null };
   }
 }

@@ -24,6 +24,9 @@ import ItemModifierTypeEditor from '@/modules/Roleplay/Rule/Component/Editors/It
 import CheckEditor from '@/modules/Roleplay/Rule/Component/Editors/CheckEditor.vue';
 import MagicPathEditor from '@/modules/Roleplay/Rule/Component/Editors/MagicPathEditor.vue';
 import MarkerRuleEditor from '@/modules/Roleplay/Rule/Component/Editors/MarkerRuleEditor.vue';
+import LanguageEditor from '@/modules/Roleplay/Rule/Component/Editors/LanguageEditor.vue';
+import ScriptEditor from '@/modules/Roleplay/Rule/Component/Editors/ScriptEditor.vue';
+import EthnicityEditor from '@/modules/Roleplay/Rule/Component/Editors/EthnicityEditor.vue';
 import AgeEditor from '@/modules/Roleplay/Rule/Component/Editors/AgeEditor.vue';
 import RuleConflictDialog from '@/modules/Roleplay/Rule/Component/RuleConflictDialog.vue';
 import { RULE_TYPES } from '@/modules/Roleplay/Rule/Constant/RULE_TYPES';
@@ -535,7 +538,7 @@ async function save() {
           />
 
           <MarkerRuleEditor
-            v-else-if="type === 'sense' || type === 'language'"
+            v-else-if="type === 'sense'"
             :key="routeKey"
             v-model:name="name"
             v-model:code="ruleCode"
@@ -544,9 +547,52 @@ async function save() {
             v-model:mechanicId="mechanicId"
             v-model:keywordIds="keywordIds"
             v-model:spec="spec"
-            :spec-type="type"
             :mechanic-options="mechanicOptions"
             :keyword-options="keywordOptions"
+          />
+
+          <LanguageEditor
+            v-else-if="type === 'language'"
+            :key="routeKey"
+            v-model:name="name"
+            v-model:code="ruleCode"
+            :code-disabled="isEdit"
+            v-model:description="description"
+            v-model:mechanicId="mechanicId"
+            v-model:keywordIds="keywordIds"
+            v-model:spec="spec"
+            :mechanic-options="mechanicOptions"
+            :keyword-options="keywordOptions"
+            :rules="ruleHost.effectiveRules"
+          />
+
+          <ScriptEditor
+            v-else-if="type === 'script'"
+            :key="routeKey"
+            v-model:name="name"
+            v-model:code="ruleCode"
+            :code-disabled="isEdit"
+            v-model:description="description"
+            v-model:mechanicId="mechanicId"
+            v-model:keywordIds="keywordIds"
+            v-model:spec="spec"
+            :mechanic-options="mechanicOptions"
+            :keyword-options="keywordOptions"
+          />
+
+          <EthnicityEditor
+            v-else-if="type === 'ethnicity'"
+            :key="routeKey"
+            v-model:name="name"
+            v-model:code="ruleCode"
+            :code-disabled="isEdit"
+            v-model:description="description"
+            v-model:mechanicId="mechanicId"
+            v-model:keywordIds="keywordIds"
+            v-model:spec="spec"
+            :mechanic-options="mechanicOptions"
+            :keyword-options="keywordOptions"
+            :rules="ruleHost.effectiveRules"
           />
 
           <AgeEditor

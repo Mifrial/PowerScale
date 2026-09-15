@@ -6,6 +6,8 @@ export class CharacterVersionIntegrityService {
   invalidBuildRuleIds(build: CharacterBuild, rules: Rule[]): string[] {
     const referencedRuleIds = new Set<string>();
     if (build.raceRuleCode) referencedRuleIds.add(build.raceRuleCode);
+    if (build.ethnicityCode) referencedRuleIds.add(build.ethnicityCode);
+    if (build.nativeLanguageCode) referencedRuleIds.add(build.nativeLanguageCode);
     build.resources.forEach((entry) => referencedRuleIds.add(entry.ruleCode));
     build.abilities.forEach((entry) => referencedRuleIds.add(entry.ruleCode));
     build.inventory.forEach((entry) => {
@@ -26,6 +28,9 @@ export class CharacterVersionIntegrityService {
     return {
       ...build,
       raceRuleCode: build.raceRuleCode && unsupported.has(build.raceRuleCode) ? null : build.raceRuleCode,
+      ethnicityCode: build.ethnicityCode && unsupported.has(build.ethnicityCode) ? null : build.ethnicityCode,
+      nativeLanguageCode:
+        build.nativeLanguageCode && unsupported.has(build.nativeLanguageCode) ? null : build.nativeLanguageCode,
       resources: build.resources.filter((entry) => !unsupported.has(entry.ruleCode)),
       abilities: build.abilities.filter((entry) => !unsupported.has(entry.ruleCode)),
       inventory: build.inventory
@@ -49,6 +54,8 @@ export class CharacterVersionIntegrityService {
   invalidRuleIds(version: CharacterVersion, rules: Rule[]): string[] {
     const referencedRuleIds = new Set<string>();
     if (version.raceRuleCode) referencedRuleIds.add(version.raceRuleCode);
+    if (version.ethnicityCode) referencedRuleIds.add(version.ethnicityCode);
+    if (version.nativeLanguageCode) referencedRuleIds.add(version.nativeLanguageCode);
     version.characteristics.forEach((entry) => {
       referencedRuleIds.add(entry.ruleCode);
       entry.modifiers.forEach((modifier) => {

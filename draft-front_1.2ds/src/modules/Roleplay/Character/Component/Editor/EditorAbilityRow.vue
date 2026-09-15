@@ -248,15 +248,20 @@ function addInstance(): void {
 
 function isSpellCatalogRow(): boolean {
   return (
-    props.ability.multiple === true &&
-    props.spellRowKind !== 'instance' &&
+    isCatalogRow() &&
     (props.ability.type === 'spell' || props.ability.domainRef === 'magic-path')
   );
 }
 
-function isSpellInstanceRow(): boolean {
+function isCatalogRow(): boolean {
+  return props.spellRowKind === 'catalog';
+}
+
+function isInstanceRow(): boolean {
   return props.spellRowKind === 'instance';
 }
+
+const rowInstance = computed(() => props.ability.instances[0] ?? null);
 
 const spellParams = computed(() => {
   const spec = props.rules?.find((rule) => rule.code === props.ability.ruleCode)?.spec as AbilitySpec | undefined;
@@ -368,7 +373,7 @@ function displayLevel(ability: EditorAbility): number {
 
 // Выбранная способность (уровень > 0 или бесплатная) подсвечивается бледно-голубым.
 function isChosen(ability: EditorAbility): boolean {
-  if (isSpellCatalogRow()) return false;
+  if (isCatalogRow()) return false;
 
   return ability.automatic || ability.level > 0;
 }
@@ -525,8 +530,10 @@ function stepUpTitle(ability: EditorAbility, param: EditorAbilityParameter): str
 }
 
 function levelChipLabel(ability: EditorAbility): string {
-  if (isSpellCatalogRow()) return '';
-  if (isSpellInstanceRow()) return `${displayLevel(ability)} из ${maxLevel(ability)}`;
+  if (isCatalogRow()) {
+    return ability.instances.length > 0 ? `${ability.instances.length} экземпляров` : '';
+  }
+  if (isInstanceRow()) return `${displayLevel(ability)} из ${maxLevel(ability)}`;
   if (ability.multiple) return `${ability.instances.length} экземпляров`;
   if (ability.parameters.length > 1) {
     const used = ability.parameters.reduce((sum, param) => sum + paramValue(param), 0);
@@ -625,16 +632,16 @@ function stepLabel(param: EditorAbilityParameter): string {
           <i class="mdi mdi-open-in-new" aria-hidden="true" />
         </LightButton>
         <span class="font-weight-medium">{{ displayName(ability) }}</span>
-        <LightChip v-if="isSpellInstanceRow()">{{ ability.domain || 'Путь не выбран' }}</LightChip>
+        <LightChip v-if="isInstanceRow()">{{ ability.domain || 'Домен не выбран' }}</LightChip>
         <LightChip v-if="typeLabel(ability)">{{ typeLabel(ability) }}</LightChip>
         <LightChip v-if="actionOdCostLabel(ability)">{{ actionOdCostLabel(ability) }}</LightChip>
         <LightChip v-if="ability.racial" color="primary">расовая</LightChip>
         <LightChip v-if="ability.automatic" color="secondary">авто</LightChip>
         <LightChip v-if="ability.gifted" color="secondary">дар</LightChip>
-        <LightChip v-if="ability.multiple && !isSpellCatalogRow() && !isSpellInstanceRow()" variant="outlined">
+        <LightChip v-if="ability.multiple && !isCatalogRow() && !isInstanceRow()" variant="outlined">
           множественный
         </LightChip>
-        <LightChip v-if="!isSpellCatalogRow()" variant="outlined">{{ spentOf(ability) }} {{ zoneLabelOf() }}</LightChip>
+        <LightChip v-if="!isCatalogRow()" variant="outlined">{{ spentOf(ability) }} {{ zoneLabelOf() }}</LightChip>
 
         <div class="ability-row__spacer" />
         <LightChip v-if="zoneOf(ability) && levelChipLabel(ability)">{{ levelChipLabel(ability) }}</LightChip>
@@ -693,7 +700,22 @@ function stepLabel(param: EditorAbilityParameter): string {
             <i class="mdi mdi-plus" aria-hidden="true" /> {{ nextAddCost(ability) }} {{ zoneLabelOf() }}
           </LightButton>
         </div>
-        <div v-else-if="isSpellInstanceRow()" class="d-flex align-center ga-1">
+        <div v-else-if="isInstanceRow() && rowInstance" class="d-flex align-center ga-1">
+          <LightButton
+            :disabled="!canLowerInstance(rowInstance)"
+            title="Понизить уровень"
+            @click.stop="setInstanceLevel(rowInstance, rowInstance.level - 1)"
+          >
+            <i class="mdi mdi-minus" aria-hidden="true" />
+          </LightButton>
+          <LightButton
+            :disabled="!canRaiseInstance(ability, rowInstance)"
+            :title="`Уровень ${rowInstance.level + 1}: ${instanceNextCost(ability, rowInstance)} ${zoneLabelOf()}`"
+            @click.stop="setInstanceLevel(rowInstance, rowInstance.level + 1)"
+          >
+            <i class="mdi mdi-plus" aria-hidden="true" /> {{ instanceNextCost(ability, rowInstance) }}
+            {{ zoneLabelOf() }}
+          </LightButton>
           <LightButton
             class="ability-row__slider-btn"
             :disabled="props.ability.instances[0]?.bound === true"
@@ -798,50 +820,9 @@ function stepLabel(param: EditorAbilityParameter): string {
         </ol>
       </div>
       <div
-        v-if="ability.multiple && open && !isSpellCatalogRow() && !isSpellInstanceRow()"
+        v-if="ability.multiple && open && isCatalogRow() && !isSpellCatalogRow()"
         class="ability-row__instances"
       >
-        <div v-for="(instance, index) in ability.instances" :key="index" class="ability-instance">
-          <div class="ability-instance__controls">
-            <span v-if="ability.knowledge" class="ability-instance__field text-body-2">{{ instance.domain }}</span>
-            <v-combobox
-              v-else
-              :model-value="instance.domain"
-              :items="domainNames"
-              :label="`${domainBaseLabel(ability)} ${index + 1}`"
-              class="ability-instance__field"
-              density="compact"
-              hide-details
-              hide-no-data
-              clearable
-              placeholder="Значение по справочнику или свой текст"
-              @update:model-value="onInstanceDomainEdit(instance, $event)"
-            />
-            <LightButton
-              :disabled="!canLowerInstance(instance)"
-              title="Понизить уровень"
-              @click.stop="setInstanceLevel(instance, instance.level - 1)"
-            >
-              <i class="mdi mdi-minus" aria-hidden="true" />
-            </LightButton>
-            <LightChip>{{ instance.level }} из {{ maxLevel(ability) }}</LightChip>
-            <LightButton
-              :disabled="!canRaiseInstance(ability, instance)"
-              :title="`Уровень ${instance.level + 1}: ${instanceNextCost(ability, instance)} ${zoneLabelOf()}`"
-              @click.stop="setInstanceLevel(instance, instance.level + 1)"
-            >
-              <i class="mdi mdi-plus" aria-hidden="true" /> {{ instanceNextCost(ability, instance) }}
-              {{ zoneLabelOf() }}
-            </LightButton>
-            <LightButton title="Удалить экземпляр" @click.stop="removeInstance(instance)">
-              <i class="mdi mdi-close" aria-hidden="true" />
-            </LightButton>
-          </div>
-          <div v-if="instanceBlockedReason(instance)" class="text-caption text-medium-emphasis ability-instance__note">
-            Требования: {{ instanceBlockedReason(instance) }}
-          </div>
-        </div>
-
         <div class="ability-instance ability-instance--add">
           <template v-if="ability.knowledge">
             <v-select

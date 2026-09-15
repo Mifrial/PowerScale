@@ -372,6 +372,7 @@ onMounted(() => {
             :build="draft.build"
             :draft-key="draftKey"
             :model="model"
+            :rules="rules"
           />
         </template>
 

@@ -1,0 +1,1 @@
+export const OPTION_BRIEF_MAX_LENGTH = 160;

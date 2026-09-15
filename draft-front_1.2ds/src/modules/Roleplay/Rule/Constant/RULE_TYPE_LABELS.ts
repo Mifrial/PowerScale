@@ -16,6 +16,8 @@ export const RULE_TYPE_LABELS: Record<RuleType, string> = {
   sense: 'Чувство',
   age: 'Возраст',
   language: 'Язык',
+  script: 'Письменность',
+  ethnicity: 'Народность',
   weapon_family: 'Семья оружия',
   item_modifier: 'Модификатор предмета',
   item_modifier_type: 'Тип модификатора предмета',

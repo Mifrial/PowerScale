@@ -95,4 +95,35 @@ describe('DevelopmentListService', () => {
     expect(rows.map((row) => row.spellRowKind)).toEqual(['catalog', 'instance']);
     expect(rows[1]?.ability.domain).toBe('Арканист');
   });
+
+  it('язык разворачивается в каталог и экземпляры, улучшение — на том же языке', () => {
+    const parent = ability({
+      ruleCode: 'vladenie-yazykom',
+      code: 'vladenie-yazykom',
+      name: 'Владение языком',
+      type: 'skill',
+      domainRef: 'language',
+      instances: [{ domain: 'Радос', domainCode: 'rados', level: 2, levels: [] }],
+    });
+    const child = ability({
+      ruleCode: 'gramotnost',
+      code: 'gramotnost',
+      name: 'Грамотность',
+      type: 'skill',
+      parentCode: 'vladenie-yazykom',
+      domainRef: 'language',
+      instances: [{ domain: 'Радос', domainCode: 'rados', level: 1, levels: [] }],
+    });
+    const rows = service.expand([parent, child]);
+    expect(rows.filter((row) => row.ability.ruleCode === 'vladenie-yazykom').map((row) => row.spellRowKind)).toEqual([
+      'catalog',
+      'instance',
+    ]);
+    const byParent = service.childrenByParentKey(rows);
+    const parentInstance = rows.find(
+      (row) => row.spellRowKind === 'instance' && row.ability.ruleCode === 'vladenie-yazykom',
+    );
+    const nested = parentInstance ? (byParent.get(parentInstance.key) ?? []) : [];
+    expect(nested.some((row) => row.ability.ruleCode === 'gramotnost' && row.spellRowKind === 'instance')).toBe(true);
+  });
 });

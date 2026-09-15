@@ -136,6 +136,7 @@ export { itemCheckAdvantagesService } from '@/modules/Roleplay/Character/Service
 export { abilityCheckAdvantagesService } from '@/modules/Roleplay/Character/Service/Instance/abilityCheckAdvantagesService';
 export { liveActionPointsLimitService } from '@/modules/Roleplay/Character/Service/Instance/liveActionPointsLimitService';
 export { racialInnateGearService } from '@/modules/Roleplay/Character/Service/Instance/racialInnateGearService';
+export { nativeLanguageService } from '@/modules/Roleplay/Character/Service/Instance/nativeLanguageService';
 export { weaponProficiencyService } from '@/modules/Roleplay/Character/Service/Instance/weaponProficiencyService';
 export { editorStatViewsService } from '@/modules/Roleplay/Character/Service/Instance/editorStatViewsService';
 export { keywordExperienceService } from '@/modules/Roleplay/Character/Service/Instance/keywordExperienceService';

@@ -41,6 +41,10 @@ describe('mockDevelopmentImport (S14)', () => {
     const trade = abilitySpec('torgovlya');
     expect(trade?.multiple).toBe(true);
     expect(trade?.domain_ref).toBe('region');
+    const writing = abilitySpec('pismennost');
+    expect(writing?.multiple).toBe(true);
+    expect(writing?.domain_ref).toBe('script');
+    expect(writing?.parent_ability_code).toBeNull();
   });
 
   it('«Стоимость N, Трудность M» = progression; поуровневые — array', () => {

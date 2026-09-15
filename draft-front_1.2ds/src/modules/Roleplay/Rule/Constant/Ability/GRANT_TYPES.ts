@@ -11,6 +11,7 @@ export const GRANT_TYPES: { label: string; value: Grant['type'] }[] = [
   { label: 'Даёт предмет', value: 'item' },
   { label: 'Даёт путь волшебства', value: 'magic_path' },
   { label: 'Открывает изучение волшебства', value: 'magic_study' },
+  { label: 'Изучение навыка (знание/письменность)', value: 'skill_study' },
   { label: 'Сопротивление урону', value: 'resistance' },
   { label: 'Модификатор чувства', value: 'sense_modify' },
   { label: 'Множитель дистанции процесса', value: 'process_distance_multiplier' },

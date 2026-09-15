@@ -9,6 +9,8 @@ import type { PoisonSpec } from '@/modules/Roleplay/Rule/Dto/Poison/PoisonSpec';
 import type { SenseSpec } from '@/modules/Roleplay/Rule/Dto/SenseSpec';
 import type { AgeSpec } from '@/modules/Roleplay/Rule/Dto/Age/AgeSpec';
 import type { LanguageSpec } from '@/modules/Roleplay/Rule/Dto/LanguageSpec';
+import type { ScriptSpec } from '@/modules/Roleplay/Rule/Dto/ScriptSpec';
+import type { EthnicitySpec } from '@/modules/Roleplay/Rule/Dto/EthnicitySpec';
 import type { WeaponFamilySpec } from '@/modules/Roleplay/Rule/Dto/Item/WeaponFamilySpec';
 import type { ItemModifierSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierSpec';
 import type { ItemModifierTypeSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierTypeSpec';
@@ -29,6 +31,8 @@ export type RuleSpec =
   | SenseSpec
   | AgeSpec
   | LanguageSpec
+  | ScriptSpec
+  | EthnicitySpec
   | WeaponFamilySpec
   | ItemModifierSpec
   | ItemModifierTypeSpec

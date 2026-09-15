@@ -2,13 +2,16 @@
 import { computed } from 'vue';
 import { useCharacterDraftStore } from '@/modules/Roleplay/Character/Store/characterDraft';
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
+import EthnicityNativeFields from '@/modules/Roleplay/Character/Component/Editor/EthnicityNativeFields.vue';
 import type { CharacterBuild } from '@/modules/Roleplay/Character/Dto/Editor/CharacterBuild';
 import type { CharacterEditorModel } from '@/modules/Roleplay/Character/Dto/Editor/CharacterEditorModel';
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
 const props = defineProps<{
   build: CharacterBuild;
   draftKey: string | null;
   model: CharacterEditorModel | null;
+  rules: Rule[];
 }>();
 
 const draftStore = useCharacterDraftStore();
@@ -64,6 +67,7 @@ function patch(patch: Partial<CharacterBuild>): void {
         </div>
       </div>
       <div v-if="!ageStep" class="text-body-2 text-medium-emphasis mb-4">Выберите возраст на этапе «Личность».</div>
+      <EthnicityNativeFields class="mb-4" :build="build" :rules="rules" :draft-key="draftKey" />
       <v-text-field
         :model-value="build.shortDescription"
         label="Краткое описание"

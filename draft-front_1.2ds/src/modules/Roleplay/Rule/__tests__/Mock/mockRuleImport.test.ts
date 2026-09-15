@@ -345,8 +345,15 @@ describe('mockRuleImport (S2)', () => {
       characteristic_code: 'communication',
       amount: { type: 'ability_level', ability_code: 'razvitie-obscheniya', offset: -3 },
     });
-    expect(abilitySpec('bookworm')?.grants).toEqual([]);
-    expect(byCode.get('bookworm')?.contentNote).toMatch(/magic_study/);
+    expect(abilitySpec('bookworm')?.grants?.[0]?.grants).toEqual([
+      expect.objectContaining({
+        type: 'skill_study',
+        ability_codes: ['znanie', 'pismennost'],
+        max_level: 1,
+        paid_cost: 0,
+        max_instances: 1,
+      }),
+    ]);
     expect(abilitySpec('empathic')?.grants?.[0]?.grants).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ type: 'ability', ability_code: 'pronitsatelnost' }),

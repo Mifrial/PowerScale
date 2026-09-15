@@ -1,0 +1,1 @@
+export const SCRIPT_ALPHABETIC_LADDER = [1];
