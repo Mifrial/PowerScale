@@ -52,6 +52,7 @@ import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/c
 
 import type { HitCheckRoll } from '@/modules/Roleplay/Game/Dto/HitCheckRoll';
 import type { HitRollInput } from '@/modules/Roleplay/Game/Dto/HitRollInput';
+import type { InjuryRollInput } from '@/modules/Roleplay/Game/Dto/InjuryRollInput';
 import { hitRollService } from '@/modules/Roleplay/Game/Service/Instance/hitRollService';
 
 import { resolveHitProcedure } from '@/modules/Roleplay/Game/Utils/resolveStrikeProcedure';
@@ -90,6 +91,8 @@ import { damageTypeSpecService } from '@/modules/Roleplay/Rule/init';
 import { DAMAGE_TYPE_FORMS } from '@/modules/Roleplay/Rule/Constant/DAMAGE_TYPE_FORMS';
 import { injuryCheckService } from '@/modules/Roleplay/Game/Service/Instance/injuryCheckService';
 import { injuryPackageService } from '@/modules/Roleplay/Game/Service/Instance/injuryPackageService';
+import { strikeUpgradeService } from '@/modules/Roleplay/Game/Service/Instance/strikeUpgradeService';
+import HitStrikeUpgradeList from '@/modules/Roleplay/Game/Component/HitStrikeUpgradeList.vue';
 
 import { exhaustionCheckService } from '@/modules/Roleplay/Game/Service/Instance/exhaustionCheckService';
 
@@ -168,6 +171,7 @@ const agreedCover = ref(0);
 const busy = ref(false);
 const error = ref<string | null>(null);
 const burstOpen = ref(false);
+const appliedStrikeUpgradeCodes = ref<string[]>([]);
 let burstWait: ((value: SpellBurstTarget[]) => void) | null = null;
 
 const procedure = computed(() =>
@@ -282,6 +286,16 @@ function versionOf(key: CombatEntityKey | null): CharacterVersion | null {
     props.currentUserId,
     overlay,
   ).effectiveVersion;
+}
+
+function injuryInputForTarget(input: InjuryRollInput, targetKey: CombatEntityKey): InjuryRollInput {
+  return strikeUpgradeService.withInjuryAdvantages(
+    input,
+    versionOf(resolvedAttackerKey.value)?.abilities ?? [],
+    versionOf(targetKey),
+    appliedStrikeUpgradeCodes.value,
+    props.rules,
+  );
 }
 
 async function applyConcentrationSpend(key: CombatEntityKey | null, requested: unknown): Promise<number> {
@@ -642,6 +656,7 @@ watch(blockItemRuleCode, (id) => {
 
 async function hydrate(): Promise<void> {
   error.value = null;
+  appliedStrikeUpgradeCodes.value = props.resumeOffer?.proposal.appliedStrikeUpgradeCodes ?? [];
   const api = getGameApi();
   const [nextOverlays, nextPendingEffects, nextCommitted] = await Promise.all([
     api.getCombatOverlays(props.gameId).catch(() => []),
@@ -776,6 +791,7 @@ async function sendOffer(): Promise<void> {
       initiatorAdv: attackerAdv.value,
       opponentAdv: 0,
       initiatorSpendConcentration: spendAttackerConcentration.value,
+      appliedStrikeUpgradeCodes: appliedStrikeUpgradeCodes.value,
       attackAction: resolvedAttackAction.value,
       hit: hitProposal(attack, null),
     },
@@ -1411,7 +1427,7 @@ async function announceArcaneBurst(
   }
   for (const input of planned) {
     const applied = await injuryCheckService.applyInjuryCheck({
-      input,
+      input: injuryInputForTarget(input, key),
       rules: props.rules,
       mechanics: props.mechanics,
       gameId: props.gameId,
@@ -1725,7 +1741,7 @@ async function finishSpellAfterHit(
   }
   for (const input of planned) {
     const applied = await injuryCheckService.applyInjuryCheck({
-      input,
+      input: injuryInputForTarget(input, accepted.opponent),
       rules: props.rules,
       mechanics: props.mechanics,
       gameId: props.gameId,
@@ -1836,16 +1852,19 @@ async function applyAttackConsequences(
   const defenderVersion = versionOf(accepted.opponent);
   const defenderOverview = overviewOf(accepted.opponent);
   const applied = await injuryCheckService.applyInjuryCheck({
-    input: injuryCheckService.injuryInputFromAttack({
-      hpDamage: result.hpDamage,
-      cuttingWound: result.cuttingWound,
-      woundFromHit: result.wound,
-      overlayExhaustion: injuryCheckService.overlayStateTotal(defenderVersion, props.rules, EXHAUSTION_STATE_CODE),
-      endurance: defenderOverview ? attackDamageService.enduranceOf(defenderOverview, props.rules) : 1,
-      remainingSr: result.remainingSr,
-      damageTypeCode: attack.damageTypeCode,
-      actorKey: accepted.opponent,
-    }),
+    input: injuryInputForTarget(
+      injuryCheckService.injuryInputFromAttack({
+        hpDamage: result.hpDamage,
+        cuttingWound: result.cuttingWound,
+        woundFromHit: result.wound,
+        overlayExhaustion: injuryCheckService.overlayStateTotal(defenderVersion, props.rules, EXHAUSTION_STATE_CODE),
+        endurance: defenderOverview ? attackDamageService.enduranceOf(defenderOverview, props.rules) : 1,
+        remainingSr: result.remainingSr,
+        damageTypeCode: attack.damageTypeCode,
+        actorKey: accepted.opponent,
+      }),
+      accepted.opponent,
+    ),
     rules: props.rules,
     mechanics: props.mechanics,
     gameId: props.gameId,
@@ -2113,6 +2132,28 @@ const damageTypeLabel = computed(() => {
   return DAMAGE_TYPE_FORMS[code]?.genitive ?? findRuleByRef(props.rules, code)?.name ?? code;
 });
 
+const strikeUpgradePreviewTargets = computed(() => {
+  const keys = selectedTargetKeys.value.length
+    ? selectedTargetKeys.value
+    : opponentKey.value
+      ? [opponentKey.value]
+      : [];
+
+  return keys.map((key) => versionOf(key));
+});
+
+const strikeUpgradeOptions = computed(() =>
+  strikeUpgradeService.listApplicableUnion(
+    versionOf(resolvedAttackerKey.value)?.abilities ?? [],
+    strikeUpgradePreviewTargets.value,
+    props.rules,
+  ),
+);
+
+watch(strikeUpgradeOptions, (options) => {
+  appliedStrikeUpgradeCodes.value = strikeUpgradeService.pruneSelected(options, appliedStrikeUpgradeCodes.value);
+});
+
 const canSubmit = computed(() => {
   if (isCompose.value) {
     if (isPreparationAction.value) {
@@ -2248,6 +2289,12 @@ const canSubmit = computed(() => {
           :initiative-keys="initiativeKeys"
           :exclude="resolvedAttackerKey ? [resolvedAttackerKey] : []"
           :disabled="!isCompose"
+        />
+        <HitStrikeUpgradeList
+          v-if="isCompose && !isPreparationAction"
+          v-model="appliedStrikeUpgradeCodes"
+          :options="strikeUpgradeOptions"
+          class="mt-2"
         />
         <ClampedNumberField
           v-if="isCompose && !isPreparationAction"

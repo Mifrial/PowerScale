@@ -214,6 +214,45 @@ function patchSpellUpgradeAdvantage(amount: number) {
   });
 }
 
+function setHasStrikeUpgrade(enabled: boolean) {
+  innerSpec.value = abilitySpecService.setStrikeUpgrade(
+    innerSpec.value,
+    enabled ? abilitySpecService.createEmptyStrikeUpgrade() : null,
+  );
+}
+
+function patchStrikeUpgradeGroup(value: string) {
+  innerSpec.value = abilitySpecService.patchStrikeUpgrade(innerSpec.value, { exclusive_group: value });
+}
+
+function setStrikeRequiresPhysiology(enabled: boolean) {
+  innerSpec.value = abilitySpecService.patchStrikeUpgrade(innerSpec.value, {
+    requires_physiology: enabled ? true : undefined,
+  });
+}
+
+function patchStrikeModeCode(index: number, value: string) {
+  innerSpec.value = abilitySpecService.patchStrikeUpgradeMode(innerSpec.value, index, { code: value });
+}
+
+function patchStrikeModeLabel(index: number, value: string) {
+  innerSpec.value = abilitySpecService.patchStrikeUpgradeMode(innerSpec.value, index, { label: value });
+}
+
+function patchStrikeModeAdvantage(index: number, value: number) {
+  innerSpec.value = abilitySpecService.patchStrikeUpgradeMode(innerSpec.value, index, {
+    injury_check_advantage: value,
+  });
+}
+
+function addStrikeUpgradeMode() {
+  innerSpec.value = abilitySpecService.addStrikeUpgradeMode(innerSpec.value);
+}
+
+function removeStrikeUpgradeMode(index: number) {
+  innerSpec.value = abilitySpecService.removeStrikeUpgradeMode(innerSpec.value, index);
+}
+
 function setType(value: string | null) {
   const type = (value as AbilityType | null) ?? null;
   let next: AbilitySpecDraft = { ...innerSpec.value, type: type ?? undefined };
@@ -571,6 +610,68 @@ function hasActionPointCost(): boolean {
               style="max-width: 220px"
               @update:model-value="patchSpellUpgradeAdvantage"
             />
+          </div>
+          <v-checkbox
+            :model-value="!!innerSpec.strike_upgrade"
+            label="Модификатор удара"
+            density="compact"
+            hide-details
+            class="mt-2"
+            @update:model-value="(v) => setHasStrikeUpgrade(!!v)"
+          />
+          <div v-if="innerSpec.strike_upgrade" class="d-flex flex-column ga-2 mt-2">
+            <v-text-field
+              :model-value="innerSpec.strike_upgrade.exclusive_group"
+              label="Группа взаимоисключения"
+              density="compact"
+              hide-details
+              @update:model-value="patchStrikeUpgradeGroup"
+            />
+            <v-checkbox
+              :model-value="innerSpec.strike_upgrade.requires_physiology === true"
+              label="Нужна физиология цели"
+              density="compact"
+              hide-details
+              @update:model-value="(v) => setStrikeRequiresPhysiology(!!v)"
+            />
+            <div
+              v-for="(mode, index) in innerSpec.strike_upgrade.modes"
+              :key="index"
+              class="d-flex ga-2 flex-wrap align-center"
+            >
+              <v-text-field
+                :model-value="mode.code"
+                label="Код режима"
+                density="compact"
+                hide-details
+                style="max-width: 160px"
+                @update:model-value="(v) => patchStrikeModeCode(index, String(v ?? ''))"
+              />
+              <v-text-field
+                :model-value="mode.label"
+                label="Подпись"
+                density="compact"
+                hide-details
+                style="max-width: 180px"
+                @update:model-value="(v) => patchStrikeModeLabel(index, String(v ?? ''))"
+              />
+              <ClampedNumberField
+                :model-value="mode.injury_check_advantage"
+                label="Преим. увечья"
+                density="compact"
+                hide-details
+                style="max-width: 160px"
+                @update:model-value="(v) => patchStrikeModeAdvantage(index, v)"
+              />
+              <v-btn
+                icon="mdi-delete-outline"
+                variant="text"
+                size="small"
+                :disabled="innerSpec.strike_upgrade.modes.length < 2"
+                @click="removeStrikeUpgradeMode(index)"
+              />
+            </div>
+            <v-btn variant="text" size="small" class="align-self-start" @click="addStrikeUpgradeMode"> Режим </v-btn>
           </div>
         </v-expansion-panel-text>
       </v-expansion-panel>

@@ -8,6 +8,8 @@ import type { Grant } from '@/modules/Roleplay/Rule/Dto/Ability/Grant';
 import type { ActionComponent } from '@/modules/Roleplay/Rule/Dto/Ability/ActionComponent';
 import type { SpellDamage } from '@/modules/Roleplay/Rule/Dto/Ability/SpellDamage';
 import type { SpellUpgrade } from '@/modules/Roleplay/Rule/Dto/Ability/SpellUpgrade';
+import type { StrikeUpgrade } from '@/modules/Roleplay/Rule/Dto/Ability/StrikeUpgrade';
+import type { StrikeUpgradeMode } from '@/modules/Roleplay/Rule/Dto/Ability/StrikeUpgradeMode';
 import type { SpellDuration } from '@/modules/Roleplay/Rule/Dto/Ability/SpellDuration';
 import type { HitResolution } from '@/modules/Roleplay/Rule/Dto/Ability/HitResolution';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
@@ -478,5 +480,66 @@ export class AbilitySpecService {
     }
 
     return { ...spec, spell_upgrade: next };
+  }
+
+  createEmptyStrikeUpgrade(): StrikeUpgrade {
+    return {
+      exclusive_group: '',
+      modes: [{ code: '', label: '', injury_check_advantage: 0 }],
+    };
+  }
+
+  setStrikeUpgrade(spec: AbilitySpecDraft, upgrade: StrikeUpgrade | null): AbilitySpecDraft {
+    if (!upgrade) {
+      const next = { ...spec };
+      delete next.strike_upgrade;
+
+      return next;
+    }
+
+    return { ...spec, strike_upgrade: upgrade };
+  }
+
+  patchStrikeUpgrade(spec: AbilitySpecDraft, patch: Partial<StrikeUpgrade>): AbilitySpecDraft {
+    const current = spec.strike_upgrade ?? this.createEmptyStrikeUpgrade();
+    const next: StrikeUpgrade = { ...current, ...patch };
+    if (next.requires_physiology !== true) {
+      delete next.requires_physiology;
+    }
+
+    return { ...spec, strike_upgrade: next };
+  }
+
+  patchStrikeUpgradeMode(spec: AbilitySpecDraft, index: number, patch: Partial<StrikeUpgradeMode>): AbilitySpecDraft {
+    const current = spec.strike_upgrade ?? this.createEmptyStrikeUpgrade();
+    const modes = current.modes.map((mode, modeIndex) => (modeIndex === index ? { ...mode, ...patch } : mode));
+
+    return { ...spec, strike_upgrade: { ...current, modes } };
+  }
+
+  addStrikeUpgradeMode(spec: AbilitySpecDraft): AbilitySpecDraft {
+    const current = spec.strike_upgrade ?? this.createEmptyStrikeUpgrade();
+
+    return {
+      ...spec,
+      strike_upgrade: {
+        ...current,
+        modes: [...current.modes, { code: '', label: '', injury_check_advantage: 0 }],
+      },
+    };
+  }
+
+  removeStrikeUpgradeMode(spec: AbilitySpecDraft, index: number): AbilitySpecDraft {
+    const current = spec.strike_upgrade;
+    if (!current) return spec;
+    const modes = current.modes.filter((_, modeIndex) => modeIndex !== index);
+    if (modes.length === 0) {
+      const next = { ...spec };
+      delete next.strike_upgrade;
+
+      return next;
+    }
+
+    return { ...spec, strike_upgrade: { ...current, modes } };
   }
 }

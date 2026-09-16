@@ -6,6 +6,7 @@ import type { AbilityParameter } from '@/modules/Roleplay/Rule/Dto/Ability/Abili
 import type { ActionEffect } from '@/modules/Roleplay/Rule/Dto/Ability/ActionEffect';
 import type { HitResolution } from '@/modules/Roleplay/Rule/Dto/Ability/HitResolution';
 import type { SpellUpgrade } from '@/modules/Roleplay/Rule/Dto/Ability/SpellUpgrade';
+import type { StrikeUpgrade } from '@/modules/Roleplay/Rule/Dto/Ability/StrikeUpgrade';
 
 /** Общие поля способности (не типоспецифичные). */
 export interface AbilitySpecBase {
@@ -22,6 +23,8 @@ export interface AbilitySpecBase {
   parent_ability_code: string | null;
   /** Модификатор каста (дельта ОД, преимущество сотворения, цепь). С родителем — на то заклинание; без — на выбранный каст. */
   spell_upgrade?: SpellUpgrade;
+  /** Модификатор запуска удара (режимы на проверку увечья). Родитель карточки — только покупка. */
+  strike_upgrade?: StrikeUpgrade;
   /** Для способностей владения оружием — код предмета-оружия (напр. «sword»). */
   weapon_item_code?: string | null;
   /** Параметры «X»: подстановка `{code}` в цене/дарах/описании (Дискуссия 2). */

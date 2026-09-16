@@ -367,6 +367,7 @@ export class RuleValidationService {
       }
       if (spec.type !== 'group') {
         errors.push(...this.validateSpellUpgrade(rule, spec, rules));
+        errors.push(...this.validateStrikeUpgrade(rule, spec));
       }
 
       for (const component of components) {
@@ -1610,6 +1611,60 @@ export class RuleValidationService {
         ruleName: rule.name,
         ruleCode: rule.code,
         message: 'цепь бьёт ту же цель только через другую',
+      });
+    }
+
+    return errors;
+  }
+
+  private validateStrikeUpgrade(rule: Rule, spec: AbilitySpec): AbilityStructureError[] {
+    if (spec.type === 'group' || !spec.strike_upgrade) return [];
+    const errors: AbilityStructureError[] = [];
+    const upgrade = spec.strike_upgrade;
+    if (!upgrade.exclusive_group.trim()) {
+      errors.push({
+        ruleName: rule.name,
+        ruleCode: rule.code,
+        message: 'улучшение удара требует группу взаимоисключения',
+      });
+    }
+    if (!upgrade.modes.length) {
+      errors.push({
+        ruleName: rule.name,
+        ruleCode: rule.code,
+        message: 'улучшение удара требует хотя бы один режим',
+      });
+    }
+    const seen = new Set<string>();
+    for (const mode of upgrade.modes) {
+      if (!mode.code.trim() || !mode.label.trim()) {
+        errors.push({
+          ruleName: rule.name,
+          ruleCode: rule.code,
+          message: 'режим улучшения удара требует код и подпись',
+        });
+      }
+      if (seen.has(mode.code)) {
+        errors.push({
+          ruleName: rule.name,
+          ruleCode: rule.code,
+          message: `код режима улучшения удара «${mode.code}» повторяется`,
+        });
+      }
+      seen.add(mode.code);
+      if (!Number.isInteger(mode.injury_check_advantage)) {
+        errors.push({
+          ruleName: rule.name,
+          ruleCode: rule.code,
+          message: 'преимущество режима улучшения удара должно быть целым',
+        });
+      }
+    }
+    if (upgrade.requires_physiology !== undefined && upgrade.requires_physiology !== true) {
+      errors.push({
+        ruleName: rule.name,
+        ruleCode: rule.code,
+        message: 'ворота физиологии улучшения удара — только true',
       });
     }
 

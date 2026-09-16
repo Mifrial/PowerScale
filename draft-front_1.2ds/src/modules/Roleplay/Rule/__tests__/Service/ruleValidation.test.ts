@@ -729,6 +729,40 @@ describe('validateAbilityStructure', () => {
     expect(ruleValidationService.validateAbilityStructure(rules, keywords)).toEqual([]);
   });
 
+  it('strike_upgrade требует группу и целые режимы', () => {
+    const broken: Rule[] = [
+      baseRule(null, 'smertonosnye-udary', 'ability', {
+        type: 'skill',
+        zones: { or: { kind: 'array', levels_cost: [1] } },
+        grants: [],
+        requirements: [],
+        parent_ability_code: null,
+        strike_upgrade: { exclusive_group: '', modes: [] },
+      }),
+    ];
+    const errors = ruleValidationService.validateAbilityStructure(broken, keywords);
+    expect(errors.some((error) => error.message.includes('группу взаимоисключения'))).toBe(true);
+    expect(errors.some((error) => error.message.includes('хотя бы один режим'))).toBe(true);
+    const ok: Rule[] = [
+      baseRule(null, 'smertonosnye-udary', 'ability', {
+        type: 'skill',
+        zones: { or: { kind: 'array', levels_cost: [1] } },
+        grants: [],
+        requirements: [],
+        parent_ability_code: 'khirurgiya',
+        strike_upgrade: {
+          exclusive_group: 'smertonosnye-udary',
+          requires_physiology: true,
+          modes: [
+            { code: 'cripple', label: 'Калечить', injury_check_advantage: 1 },
+            { code: 'spare', label: 'Щадить', injury_check_advantage: -1 },
+          ],
+        },
+      }),
+    ];
+    expect(ruleValidationService.validateAbilityStructure(ok, keywords)).toEqual([]);
+  });
+
   it('rejects leftover cast difficulty and allows apply_state on a spell', () => {
     const rules: Rule[] = [
       baseRule(null, 'haste', 'state'),

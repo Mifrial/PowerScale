@@ -87,6 +87,52 @@ describe('KnowledgeCheckService', () => {
     ).toBe(0);
   });
 
+  it('раса цели сводится к виду: дворфы 3 vs человек-раса → 2; vs дворф-раса → 3', () => {
+    const catalog: Rule[] = [
+      species('human', 'Люди', [17]),
+      species('dwarves', 'Дворфы', [17]),
+      {
+        id: null,
+        code: 'kogir',
+        type: 'race',
+        name: 'Когир',
+        description: '',
+        spaceId: 1,
+        spec: { parent_race_code: 'human', cost_os: 0, characteristics: [], abilities: [] },
+        keywordIds: [17, 21, 27],
+        createdAt: 1,
+      },
+      {
+        id: null,
+        code: 'turim',
+        type: 'race',
+        name: 'Турим',
+        description: '',
+        spaceId: 1,
+        spec: { parent_race_code: 'dwarves', cost_os: 0, characteristics: [], abilities: [] },
+        keywordIds: [17, 32, 34],
+        createdAt: 1,
+      },
+    ];
+    const abilities = [knowledge('physiology', 3, { species: { code: 'dwarves', text: 'Дворфы' } })];
+    expect(
+      knowledgeCheckService.effectiveLevel(
+        abilities,
+        'physiology',
+        { species: { code: 'kogir', text: 'Когир' } },
+        catalog,
+      ),
+    ).toBe(2);
+    expect(
+      knowledgeCheckService.effectiveLevel(
+        abilities,
+        'physiology',
+        { species: { code: 'turim', text: 'Турим' } },
+        catalog,
+      ),
+    ).toBe(3);
+  });
+
   it('{2|0} + нехватка 1 → {2|1}', () => {
     expect(knowledgeCheckService.raisedDifficulty({ base: 2, size: 0 }, 1)).toEqual({ base: 2, size: 1 });
   });
@@ -161,6 +207,14 @@ describe('KnowledgeCheckService', () => {
     expect(
       knowledgeCheckService.practiceApplies(
         'pervaya-pomosch',
+        physiologyOnly,
+        { targetSpecies: { code: 'human', text: 'Люди' } },
+        rules,
+      ),
+    ).toBe(false);
+    expect(
+      knowledgeCheckService.practiceApplies(
+        'smertonosnye-udary',
         physiologyOnly,
         { targetSpecies: { code: 'human', text: 'Люди' } },
         rules,

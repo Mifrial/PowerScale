@@ -1612,11 +1612,19 @@ const mockDevelopmentImportRaw: Rule[] = [
       requirements: [],
       grants: [],
       parent_ability_code: 'khirurgiya',
+      strike_upgrade: {
+        exclusive_group: 'smertonosnye-udary',
+        requires_physiology: true,
+        modes: [
+          { code: 'cripple', label: 'Калечить', injury_check_advantage: 1 },
+          { code: 'spare', label: 'Щадить', injury_check_advantage: -1 },
+        ],
+      },
     },
     keywordIds: [13, 59],
     mechanicId: null,
     createdAt: 1786269600,
-    contentNote: 'Преимущество или помеха на проверку получения увечья пока не исполняются Game.',
+    contentNote: 'Ручное увечье и кровь без удара это поле не читают.',
   },
   {
     id: 254,

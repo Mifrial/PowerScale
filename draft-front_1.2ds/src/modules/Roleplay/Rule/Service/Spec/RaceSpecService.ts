@@ -171,4 +171,23 @@ export class RaceSpecService {
 
     return [...own, ...this.collectInheritedAbilities(parent, rulesByCode, seen)];
   }
+
+  /** Код вида: сам `species` или предок расы по `parent_race_code`. */
+  speciesCodeOf(code: string | null | undefined, rules: readonly Rule[]): string | null {
+    if (!code) return null;
+    const seen = new Set<string>();
+    let current: string | null = code;
+    while (current) {
+      if (seen.has(current)) return null;
+      seen.add(current);
+      const rule = rules.find((entry) => entry.code === current);
+      if (!rule) return null;
+      if (rule.type === 'species') return current;
+      if (rule.type !== 'race' || !rule.spec || typeof rule.spec !== 'object') return null;
+      const parent = 'parent_race_code' in rule.spec ? rule.spec.parent_race_code : null;
+      current = typeof parent === 'string' && parent ? parent : null;
+    }
+
+    return null;
+  }
 }

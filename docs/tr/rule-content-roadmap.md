@@ -40,7 +40,7 @@
 | --- | --- | --- | --- | --- |
 | C0 | `DONE` | Статусы `broken \| needs_work \| ready`, `contentNote`, FilterBar, рамки | коммит `36d4719` | — |
 | C1 | `DONE` | Редакционный проход пачками по 10 | [`rule-content-plan-01-editorial.md`](rule-content-plan-01-editorial.md); хвосты не в текущей работе: дальний бой 382–393, оружейные навыки, расы | C0 |
-| C2 | `IN_PROGRESS` | Runtime из очереди группами 3–5 | концентрация `DONE`; знания Game 5.2 `DONE`; раны 5.3 `DONE` — [`rule-content-plan-06-wounds.md`](rule-content-plan-06-wounds.md); языки/червь — [`rule-content-plan-07-languages.md`](rule-content-plan-07-languages.md); чувства **не в релизе** — [`rule-content-plan-03-senses.md`](rule-content-plan-03-senses.md); канон знаний — [`rule-content-plan-04-knowledge.md`](rule-content-plan-04-knowledge.md) | C1, очередь |
+| C2 | `IN_PROGRESS` | Runtime из очереди группами 3–5 | концентрация `DONE`; знания 5.2 `DONE`; раны 5.3 `DONE`; языки/червь Vue — [`rule-content-plan-07-languages.md`](rule-content-plan-07-languages.md); ударные улучшения — [`rule-content-plan-08-strike-upgrades.md`](rule-content-plan-08-strike-upgrades.md); чувства **не в релизе** | C1, очередь |
 | C3 | `DEFERRED` | PHP/бэкенд заморозки контракта Game | не открывать ради «про запас» | C2 по факту |
 
 ## 3. Гейт пачки C1
@@ -62,3 +62,4 @@
 | 2026-09-13 | C2 Game ран (5.3): экземпляр, тик крови, свёртывание, зажим, перевязка. |
 | 2026-09-14 | C1 закрыт по выгрузке (пачки 1–23 + очередь). Хвосты: дальний бой, оружие, расы — не текущие пачки. Чувства: Game не читает, срез не в текущем релизе. |
 | 2026-09-15 | C2 языки: дерево семей (`parent_code`), письменность и народность — [`rule-content-plan-07-languages.md`](rule-content-plan-07-languages.md). |
+| 2026-09-15 | C2 ударные улучшения: галки на запуске удара, первая карточка Смертоносные удары — [`rule-content-plan-08-strike-upgrades.md`](rule-content-plan-08-strike-upgrades.md). Долгая медицина отложена. |

@@ -5,7 +5,7 @@
 **Родитель:** [`rule-content-roadmap.md`](rule-content-roadmap.md).  
 **Очередь:** [`rule-content-queue.md`](rule-content-queue.md).  
 **Правило:** `rule-blood-clotting`. Навыки-модификаторы: `pervaya-pomosch`, `sporaya-perevyazka`.  
-**Не карточки этого среза:** `ukhod`, `khirurgiya`, `farmatsiya`, `poisk-trav`, `pitanie`, `smertonosnye-udary`.
+**Не карточки этого среза:** `ukhod`, `khirurgiya`, `farmatsiya`, `poisk-trav`, `pitanie`. Смертоносные удары — [`rule-content-plan-08-strike-upgrades.md`](rule-content-plan-08-strike-upgrades.md), не раны.
 
 Канон плана-04 не переписывать. Здесь — посадка в текущий Game. Знания 5.2 уже есть; рана их **не** читает (перевязка/зажим без вида).
 

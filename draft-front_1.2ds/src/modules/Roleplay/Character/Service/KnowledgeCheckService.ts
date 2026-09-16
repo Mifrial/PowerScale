@@ -11,6 +11,7 @@ import { LAW_DEFENSE_ABILITY_CODE } from '@/modules/Roleplay/Rule/Constant/Abili
 import { BODY_TYPE_KNOWLEDGE_KEYWORD_IDS } from '@/modules/Roleplay/Rule/Constant/Keyword/BODY_TYPE_KNOWLEDGE_KEYWORD_IDS';
 import { knowledgeInstanceService } from '@/modules/Roleplay/Character/Service/Instance/knowledgeInstanceService';
 import type { KnowledgeInstanceService } from '@/modules/Roleplay/Character/Service/KnowledgeInstanceService';
+import { raceSpecService } from '@/modules/Roleplay/Rule/init';
 
 /**
  * Эффективный уровень знания, нехватка, сложность', полнота ответа и ворота практики.
@@ -24,14 +25,16 @@ export class KnowledgeCheckService {
     slots: Record<string, CharacterKnowledgeSlot>,
     rules: readonly Rule[],
   ): number {
+    const asked = this.withSpeciesCodes(slots, rules);
     let best = 0;
     for (const ability of abilities) {
       if (ability.ruleCode !== KNOWLEDGE_ABILITY_CODE || ability.fieldCode !== fieldCode) continue;
-      if (this.knowledge.sameSlots(ability.slots, slots)) {
+      const known = this.withSpeciesCodes(ability.slots, rules);
+      if (this.knowledge.sameSlots(known, asked)) {
         best = Math.max(best, ability.level);
         continue;
       }
-      best = Math.max(best, this.closeSpeciesLevel(ability, slots, rules));
+      best = Math.max(best, this.closeSpeciesLevel(ability, asked, rules));
     }
 
     return Math.max(0, Math.min(3, best));
@@ -116,8 +119,8 @@ export class KnowledgeCheckService {
   ): number {
     const field = this.knowledge.fieldOf(ability.fieldCode);
     if (!field?.slots.some((slot) => slot.key === 'species')) return 0;
-    const known = ability.slots?.species;
-    const asked = slots.species;
+    const known = this.withSpeciesCodes(ability.slots, rules)?.species;
+    const asked = this.withSpeciesCodes(slots, rules)?.species;
     const knownCode = known?.code ?? null;
     const askedCode = asked?.code ?? null;
     if (!knownCode || !askedCode || knownCode === askedCode) return 0;
@@ -134,5 +137,18 @@ export class KnowledgeCheckService {
     const leftIds = (left.keywordIds ?? []).filter((id) => bodyIds.has(id));
 
     return leftIds.some((id) => (right.keywordIds ?? []).includes(id));
+  }
+
+  private withSpeciesCodes(
+    slots: Record<string, CharacterKnowledgeSlot> | undefined,
+    rules: readonly Rule[],
+  ): Record<string, CharacterKnowledgeSlot> | undefined {
+    if (!slots) return slots;
+    const species = slots.species;
+    if (!species) return slots;
+    const code = raceSpecService.speciesCodeOf(species.code, rules);
+    if (!code || code === species.code) return slots;
+
+    return { ...slots, species: { ...species, code } };
   }
 }

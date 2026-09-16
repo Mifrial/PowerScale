@@ -227,6 +227,20 @@ describe('mockDevelopmentImport (S14)', () => {
     }
   });
 
+  it('Смертоносные удары — strike_upgrade с калечить/щадить', () => {
+    const rule = mockDevelopmentImport.find((item) => item.code === 'smertonosnye-udary');
+    const spec = rule?.type === 'ability' ? (rule.spec as AbilitySpecBase) : undefined;
+    expect(spec?.parent_ability_code).toBe('khirurgiya');
+    expect(spec?.strike_upgrade).toEqual({
+      exclusive_group: 'smertonosnye-udary',
+      requires_physiology: true,
+      modes: [
+        { code: 'cripple', label: 'Калечить', injury_check_advantage: 1 },
+        { code: 'spare', label: 'Щадить', injury_check_advantage: -1 },
+      ],
+    });
+  });
+
   it('Серия ударов описана как процесс с входом, повтором и эффектом завершения', () => {
     const rule = mockDevelopmentImport.find((item) => item.code === 'seriya-udarov');
     const spec =

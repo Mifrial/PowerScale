@@ -45,4 +45,6 @@ export interface CheckOfferProposal {
   } | null;
   /** Касание из сотворения: ОД уже списаны, каст после удара. */
   spellCast?: SpellCastOfferContext | null;
+  /** Режимы `strike_upgrade` этого удара (`ruleCode:mode`). Не на листе персонажа. */
+  appliedStrikeUpgradeCodes?: string[];
 }
