@@ -13,4 +13,6 @@ export interface ProcessSession {
   lastResolution?: ActionResolution;
   /** Накопленное Комбо; только сессия процесса, не лист. */
   comboCount?: number;
+  /** Цель Комбо; все шаги и закрытие только по ней. */
+  comboTargetKey?: CombatEntityKey;
 }

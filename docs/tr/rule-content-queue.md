@@ -1,6 +1,6 @@
 # Очередь правил: runtime и зависимости
 
-**Статус:** живой список, 2026-09-11. Родитель — [`rule-content-roadmap.md`](rule-content-roadmap.md). Не дублировать сюда правки описания.
+**Статус:** живой список, 2026-09-16. Родитель — [`rule-content-roadmap.md`](rule-content-roadmap.md). Не дублировать сюда правки описания.
 
 Строка появляется в C1, когда карточку нельзя закрыть `ready` без работы Game или без другого правила. Группировать перед C2 по смыслу (3–5 за заход).
 
@@ -8,6 +8,7 @@
 | --- | --- | --- | --- | --- |
 | mute | Немой | Нет действий с вербальным компонентом | вербальный компонент | Спека блока речи отложена; `contentNote` на карточке. |
 | fast-footed | Быстроногий | Процесс «Бег» не читает `process_distance_multiplier` | `run` | Грант в спеке есть; `contentNote` на карточке. |
+| bystryy-udar + stremitelnyy-udar + seriya-udarov | Скорость: первая аудиторская пачка | Посажено: атака/процесс в окне «Атака»; подготовка в «Действие»; completion Серии на `check-hit` | runtime action/process | Канон: [`rule-content-plan-09-melee-speed.md`](rule-content-plan-09-melee-speed.md). Комбо — следующая подзадача. `fast-footed` сюда не входит. |
 | dark-vision | Ночное зрение | Game чувства/освещение не читает (не релиз) | освещение | Грант `treat_as_good_down_to: minimal`; полная тьма (`none`) не покрывается. Срез отложен. |
 | beerborn | Пиворождённый | Нет еды/яда/алкоголя | еда | `contentNote` на карточке. |
 | cold | Холод | Нет эффектов типа урона | хуки урона | `defense_ignored`; `contentNote` на карточке. |
@@ -33,7 +34,7 @@
 | akterskoe-masterstvo + igra-po-zhizni + menyaya-maski + otvlech-vnimanie + prikinutsya-mertvym | Социальные действия | Нет исполнения преимуществ, Манер, совместных проверок и временных помех | социальные действия | Секции и описания уточнены, action spec сохранён. |
 | blizhniy-boy + boevye-refleksy + otstuplenie + zaschita-znaniem + adaptatsiya-k-protivniku | Ближний бой | Нет автоматического опыта боя, реакций, памяти известных атак и боевых преимуществ/помех | runtime ближнего боя | `otstuplenie` размещено в `abilities-acquired-melee-combat`; notes фиксируют отложенные эффекты. |
 | podavlenie-ponimaniem + podderzhka + fekhtovanie + vedenie-boya + bezoruzhnyy-boy + borba + perekhvat + kontrudar + brosok-protivnikom + kontrmery | Захваты и боевые улучшения | Нет runtime преимуществ, реакций, захватов, бросков и эффектов свободных рук | runtime ближнего боя | Добавлены требования Ближнего боя 1 и Восприятия; «Борьба» отображается без хвостового параметра в имени. |
-| podgotovka + kombinatsiya-udarov + raskrytie + neotvratimaya-kombinatsiya + oboerukaya-ataka | Атаки и комбинации | Обязательная реализация подготовки, Комбо, замены частей процесса, обмена точности и двухударной атаки | runtime атак / процессов | Все карточки явно размещены в Ближнем бою; `contentNote` помечает обязательные эффекты. |
+| kombinatsiya-udarov + raskrytie | Скорость: Комбо | Посажено: три шага, Комбо на сессии, пакет закрытия от действия; Раскрытие закрывает чужой атакой. Неотвратимая удалена | runtime action/process | [`rule-content-plan-09-melee-speed.md`](rule-content-plan-09-melee-speed.md) §9–10. `podgotovka` / `oboerukaya-ataka` не открывать. |
 | sinkhronnaya-ataka + sdvoennyy-udar + mnozhestvo-ruk + yarostnyy-ryvok + udvoennaya-mosch + tolkayuschiy-udar + silovoy-udar + shirokiy-udar | Многорукие и силовые атаки | Обязательная реализация нескольких ударов, помех, внутренних повреждений, толчка и атак по нескольким целям | runtime атак | «Множество ударов» описано по текущему process spec; «Размашистый удар» оставлен с редактурой без нового note. |
 | tochnyy-udar + masterstvo-v-tochnosti + napravlennyy-udar + protivodeystvuyuschiy-udar + udar-v-sochlenenie + smertelnyy-udar + kriticheskiy-udar + vypad + vyverennyy-udar + riskovannyy-udar | Точные и специальные атаки | Обязательная реализация бонусов Точности, проверок, условий оружия, брони, критических результатов и дальности | runtime атак | У `tochnyy-udar` отдельно зафиксирован текущий неисправный бонус +1; доменные требования владения оружием не выдумывались. |
 | raschetlivaya-ataka + obezoruzhivanie + udar-v-padenii + kontrudar-2 + prikrytie + perestanovka + podderzhka-v-boyu + koordinatsiya + obmannyy-manevr + sovmestnaya-ataka | Тактика и реакции | Обязательная реализация концентрации в атаке, обезоруживания, прикрытия, поддержки, обманного манёвра и совместных атак | runtime ближнего боя | Карточки переразложены в `Сражение → Прочее`; доменные требования не выдумывались. |

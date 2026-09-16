@@ -138,7 +138,13 @@ describe('ComboProcessService', () => {
     const live = session(2);
     expect(
       comboProcessService
-        .listSources([processOption, other], live, comboSpec, overview, [closerRule('combo-process')])
+        .listSources(
+          [processOption, other, { ...other, code: 'wide-attack', ruleCode: 'wide-attack', attackMode: 'wide' }],
+          live,
+          comboSpec,
+          overview,
+          [closerRule('combo-process')],
+        )
         .map((entry) => entry.code),
     ).toEqual(['combo-process', 'other-attack']);
     expect(
@@ -146,5 +152,26 @@ describe('ComboProcessService', () => {
         .listSources([processOption, other], live, comboSpec, overview, [closerRule('someone-else')])
         .map((entry) => entry.code),
     ).toEqual(['combo-process']);
+  });
+
+  it('locks combo to a single target and rejects a different one', () => {
+    const started = processSessionService.start(1, 'character:1', 'combo-process', comboSpec);
+    expect(comboProcessService.singleTargetError(started, ['npc:1', 'npc:2'])).toBe(
+      'Комбо можно вести только по одной цели',
+    );
+    const bound = comboProcessService.bindTarget(started, 'npc:1');
+    expect(bound.comboTargetKey).toBe('npc:1');
+    expect(comboProcessService.singleTargetError(bound, ['npc:2'])).toBe('Комбо уже ведётся по другой цели');
+    expect(comboProcessService.prepareStrike(bound, comboSpec, ['npc:1']).comboTargetKey).toBe('npc:1');
+    expect(() => comboProcessService.prepareStrike(bound, comboSpec, ['npc:2'])).toThrow(
+      'Комбо уже ведётся по другой цели',
+    );
+    const afterStart = comboProcessService.resolveAfterStrike(
+      bound,
+      comboSpec,
+      COMBO_STEP_CODES.start,
+      true,
+    );
+    expect(afterStart?.comboTargetKey).toBe('npc:1');
   });
 });

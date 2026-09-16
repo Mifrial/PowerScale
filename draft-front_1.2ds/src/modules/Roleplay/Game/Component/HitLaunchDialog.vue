@@ -897,6 +897,13 @@ async function acceptWideAttack(
     if (targetProposals.some((target) => target.hit.profileType !== 'strike')) {
       throw new Error('Широкий удар доступен только для ближнего боя');
     }
+    if (effectiveProcessContext.value && processSpec.value) {
+      comboProcessService.prepareStrike(
+        effectiveProcessContext.value.session,
+        processSpec.value,
+        targetProposals.map((target) => target.targetKey),
+      );
+    }
 
     const attackStrikes = accepted.proposal.attackAction?.strikes ?? [];
     const pendingResolution = actionEffectService.resolveForNextAction(attackerPendingEffects.value, {
@@ -964,10 +971,18 @@ async function acceptWideAttack(
     const rolled = hitRollService.rollMeleeWideHit(inputs, Math.random, props.rules, props.mechanics);
     const successful = rolled.targetResults.every((target) => (target.attacker.check?.rating ?? 0) > 0);
     const processContext = effectiveProcessContext.value;
-    const nextProcessSession =
+    const comboSession =
       processContext && processSpec.value
-        ? comboProcessService.resolveAfterStrike(
+        ? comboProcessService.prepareStrike(
             processContext.session,
+            processSpec.value,
+            targetProposals.map((target) => target.targetKey),
+          )
+        : processContext?.session ?? null;
+    const nextProcessSession =
+      processContext && processSpec.value && comboSession
+        ? comboProcessService.resolveAfterStrike(
+            comboSession,
             processSpec.value,
             processContext.stepCode,
             successful,
@@ -1168,6 +1183,18 @@ async function acceptAndRoll(): Promise<void> {
     turn: hit.turn,
   };
   const attackStrikes = accepted.proposal.attackAction?.strikes ?? [];
+  const comboSession =
+    effectiveProcessContext.value && processSpec.value
+      ? comboProcessService.prepareStrike(
+          effectiveProcessContext.value.session,
+          processSpec.value,
+          attackStrikes.length
+            ? attackStrikes.map((strike) => strike.targetKey)
+            : accepted.opponent
+              ? [accepted.opponent]
+              : [],
+        )
+      : null;
   const rollInputs = (attackStrikes.length > 0 ? attackStrikes : [{ profile: attack }]).map((strike, index) => ({
     ...commonHitInput,
     extraSuccessCount: index === 0 ? comboStrike.value.extraSuccessCount : 0,
@@ -1182,9 +1209,9 @@ async function acceptAndRoll(): Promise<void> {
   const simultaneous = hitRollService.rollSimultaneousHits(rollInputs, Math.random, props.rules, props.mechanics);
   const rolled = { attacker: simultaneous.attackers[0], defender: simultaneous.defender };
   const nextProcessSession =
-    effectiveProcessContext.value && processSpec.value
+    effectiveProcessContext.value && processSpec.value && comboSession
       ? comboProcessService.resolveAfterStrike(
-          effectiveProcessContext.value.session,
+          comboSession,
           processSpec.value,
           effectiveProcessContext.value.stepCode,
           simultaneous.attackers.every((attacker) => (attacker.check?.rating ?? 0) > 0),

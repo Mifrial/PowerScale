@@ -1,3 +1,4 @@
+import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { CharacterOverview } from '@/modules/Roleplay/Character/Dto/Overview/CharacterOverview';
 import type { CombatActionOption } from '@/modules/Roleplay/Game/Utils/combatActions';
 import type { ProcessSession } from '@/modules/Roleplay/Game/Dto/ProcessSession';
@@ -83,8 +84,12 @@ export class ComboProcessService {
     }
     const next = processSessionService.resolveStep(session, spec, stepCode, successful);
     if (!next || !this.isComboSpec(spec)) return next;
-    if (stepCode === COMBO_STEP_CODES.start) return { ...next, comboCount: 1 };
-    if (stepCode === COMBO_STEP_CODES.build) return { ...next, comboCount: this.comboCount(session) + 1 };
+    if (stepCode === COMBO_STEP_CODES.start) {
+      return { ...next, comboCount: 1, comboTargetKey: session.comboTargetKey };
+    }
+    if (stepCode === COMBO_STEP_CODES.build) {
+      return { ...next, comboCount: this.comboCount(session) + 1, comboTargetKey: session.comboTargetKey };
+    }
 
     return next;
   }
@@ -125,7 +130,37 @@ export class ComboProcessService {
 
     return [
       ...processSources,
-      ...available.filter((source) => !actionRefEquals(source, session.processRuleCode, rules)),
+      ...available.filter(
+        (source) =>
+          !actionRefEquals(source, session.processRuleCode, rules) && source.attackMode !== 'wide',
+      ),
     ];
+  }
+
+  singleTargetError(session: ProcessSession | null, targetKeys: CombatEntityKey[]): string | null {
+    const unique = [...new Set(targetKeys)];
+    if (unique.length !== 1 || !unique[0]) {
+      return 'Комбо можно вести только по одной цели';
+    }
+    if (session?.comboTargetKey && session.comboTargetKey !== unique[0]) {
+      return 'Комбо уже ведётся по другой цели';
+    }
+
+    return null;
+  }
+
+  bindTarget(session: ProcessSession, targetKey: CombatEntityKey): ProcessSession {
+    const mismatch = this.singleTargetError(session, [targetKey]);
+    if (mismatch) throw new Error(mismatch);
+
+    return { ...session, comboTargetKey: targetKey };
+  }
+
+  prepareStrike(session: ProcessSession, spec: ProcessSpec, targetKeys: CombatEntityKey[]): ProcessSession {
+    if (!this.isComboSpec(spec)) return session;
+    const mismatch = this.singleTargetError(session, targetKeys);
+    if (mismatch) throw new Error(mismatch);
+
+    return this.bindTarget(session, targetKeys[0]);
   }
 }

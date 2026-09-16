@@ -104,8 +104,24 @@ const selectedSource = computed<CombatActionOption | null>(
     sources.value.find((source) => source.code === sourceRuleCode.value || source.ruleCode === sourceRuleCode.value) ??
     null,
 );
-const isWideAttack = computed(() => selectedSource.value?.attackMode === 'wide');
 const selectedSourceRule = computed(() => findRuleByRef(props.rules, selectedSource.value?.code) ?? null);
+const activeComboSpec = computed(() => {
+  const session = activeProcess.value;
+  const processRule = session ? findRuleByRef(props.rules, session.processRuleCode) : null;
+  const liveSpec = processRule ? asProcessAbilitySpec(processRule) : null;
+  if (comboProcessService.isComboSpec(liveSpec)) return liveSpec;
+  if (comboProcessService.isComboSpec(selectedSource.value?.process ?? null)) {
+    return selectedSource.value?.process ?? null;
+  }
+
+  return null;
+});
+const comboLockedTarget = computed(() =>
+  activeComboSpec.value ? (activeProcess.value?.comboTargetKey ?? null) : null,
+);
+const isWideAttack = computed(
+  () => selectedSource.value?.attackMode === 'wide' && !activeComboSpec.value,
+);
 const processSteps = computed(() => {
   const process = selectedSource.value?.process;
   if (!process) return [];
@@ -210,6 +226,14 @@ function selectProfile(slotIndex: number, profile: AttackOverview): void {
   profileMenuSlot.value = null;
 }
 
+function defaultSlotTarget(): CombatEntityKey | null {
+  return comboLockedTarget.value ?? targetOptions.value[0]?.value ?? null;
+}
+
+function resetSlots(profile: AttackOverview | null): void {
+  slots.value = [{ profile, targetKey: defaultSlotTarget() }];
+}
+
 function addTarget(): void {
   if (!isWideAttack.value || slots.value.length >= attackActionSourceService.maxTargets(selectedSourceRule.value))
     return;
@@ -234,7 +258,7 @@ async function hydrate(): Promise<void> {
   processSessions.value = nextProcesses;
   committedSessions.value = nextCommitted;
   sourceRuleCode.value = sources.value[0]?.code ?? null;
-  slots.value = [{ profile: null, targetKey: targetOptions.value[0]?.value ?? null }];
+  resetSlots(null);
 }
 
 async function stopProcess(): Promise<void> {
@@ -315,26 +339,29 @@ async function submit(): Promise<void> {
     activeProcess.value ??
     (source.process ? processSessionService.start(props.gameId, initiator, source.code, source.process) : null);
   if (source.isProcess && !processSession) throw new Error('Не удалось создать сессию процесса');
+  const processRule = activeProcess.value ? findRuleByRef(props.rules, activeProcess.value.processRuleCode) : null;
+  const comboSpec =
+    (processRule ? asProcessAbilitySpec(processRule) : null) ??
+    (comboProcessService.isComboSpec(source.process) ? source.process : null) ??
+    null;
+  const boundSession =
+    processSession && comboSpec
+      ? comboProcessService.prepareStrike(
+          processSession,
+          comboSpec,
+          attackStrikes.map((strike) => strike.targetKey),
+        )
+      : processSession;
   const processSource =
-    source.isProcess && processSession && selectedStepCode
-      ? { kind: 'process' as const, process: { session: processSession, stepCode: selectedStepCode } }
+    source.isProcess && boundSession && selectedStepCode
+      ? { kind: 'process' as const, process: { session: boundSession, stepCode: selectedStepCode } }
       : null;
   if (source.isProcess && !processSource) throw new Error('Не удалось определить шаг процесса');
-  const processRule = activeProcess.value ? findRuleByRef(props.rules, activeProcess.value.processRuleCode) : null;
   const comboClose =
     !source.isProcess &&
-    activeProcess.value &&
-    comboProcessService.canCloseWithOtherAttack(
-      activeProcess.value,
-      processRule ? asProcessAbilitySpec(processRule) : null,
-      actorOverview.value,
-      props.rules,
-    )
-      ? {
-          session: activeProcess.value,
-          stepCode: COMBO_STEP_CODES.finish,
-          comboClose: true,
-        }
+    boundSession &&
+    comboProcessService.canCloseWithOtherAttack(boundSession, comboSpec, actorOverview.value, props.rules)
+      ? { session: boundSession, stepCode: COMBO_STEP_CODES.finish, comboClose: true }
       : undefined;
 
   emit('launch-attack', {
@@ -371,7 +398,7 @@ watch(selectedSource, (source) => {
   processStepCode.value = source?.process?.start_step_code ?? source?.process?.steps[0]?.code ?? null;
   const preferred = favoriteAttack.value;
   const profile = attackActionSourceService.isProfileAvailable(preferred, compatibleProfiles.value) ? preferred : null;
-  slots.value = [{ profile, targetKey: targetOptions.value[0]?.value ?? null }];
+  resetSlots(profile);
 });
 watch(
   processSteps,
@@ -388,6 +415,14 @@ watch(selectedProcessStep, () => {
 
   slots.value = slots.value.map((slot, index) => ({ ...slot, profile: index === 0 ? profile : null }));
 });
+watch(
+  comboLockedTarget,
+  (targetKey) => {
+    if (!targetKey) return;
+    slots.value = [{ ...slots.value[0], targetKey, profile: slots.value[0]?.profile ?? null }];
+  },
+  { immediate: true },
+);
 </script>
 
 <template>
@@ -506,7 +541,7 @@ watch(selectedProcessStep, () => {
             :npcs="npcs"
             :initiative-keys="initiativeKeys"
             :exclude="actorKey ? [actorKey] : []"
-            :disabled="busy"
+            :disabled="busy || Boolean(comboLockedTarget)"
           />
         </div>
         <v-btn

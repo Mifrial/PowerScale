@@ -49,7 +49,7 @@ const items = computed(() =>
     :label="label"
     density="compact"
     hide-details
-    auto-select-first
+    :auto-select-first="!disabled"
     :disabled="disabled"
     @update:model-value="emit('update:modelValue', $event)"
   />
