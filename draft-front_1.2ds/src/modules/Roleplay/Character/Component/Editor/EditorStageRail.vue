@@ -72,11 +72,14 @@ function selectStage(stageKey: string): void {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  height: calc(100dvh - 66px);
-  max-height: calc(100dvh - 66px);
+  height: 100%;
+  min-height: calc(100dvh - var(--v-layout-top));
+  max-height: none;
   min-width: 196px;
   padding: 8px;
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-right: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
   background: rgb(var(--v-theme-surface));
   overflow-y: auto;
 }

@@ -5,14 +5,12 @@ import type { AbilityInstanceAddPayload } from '@/modules/Roleplay/Character/Dto
 import { characterBuildService } from '@/modules/Roleplay/Character/Service/Instance/characterBuildService';
 import { useFilteredRows } from '@/modules/Core/UI/Composables/useFilteredRows';
 import FilterBar from '@/modules/Core/UI/Component/FilterBar.vue';
+import TreeSelectFilter from '@/modules/Core/UI/Component/FilterBar/handlers/TreeSelectFilter.vue';
 import VirtualList from '@/modules/Core/UI/Component/VirtualList.vue';
 import DevelopmentAbilityNode from '@/modules/Roleplay/Character/Component/Editor/DevelopmentAbilityNode.vue';
-import {
-  isAcquiredAbility,
-  isAttackAbility,
-  isPhysicalDevelopmentAbility,
-} from '@/modules/Roleplay/Character/Utils/developmentCategory';
+import { isAcquiredAbility } from '@/modules/Roleplay/Character/Utils/developmentCategory';
 import type { FilterField } from '@/modules/Core/UI/Dto/Filter/Field';
+import type { FilterOptionValue } from '@/modules/Core/UI/Dto/Filter/Values/FilterOptionValue';
 import type { CharacterBuild } from '@/modules/Roleplay/Character/Dto/Editor/CharacterBuild';
 import type { CharacterEditorModel } from '@/modules/Roleplay/Character/Dto/Editor/CharacterEditorModel';
 import type { EditorAbility } from '@/modules/Roleplay/Character/Dto/Editor/EditorAbility';
@@ -35,9 +33,6 @@ const props = defineProps<{
 
 const draftStore = useCharacterDraftStore();
 
-type DevelopmentCategory = 'all' | 'attack' | 'physical' | 'weapons' | 'shields';
-
-const categoryFilter = ref<DevelopmentCategory>('all');
 const availableOnly = ref(false);
 const acquiredOnly = ref(false);
 /** Раскрытые панели навыков (переживают ремаунты строк виртуализации). */
@@ -72,21 +67,20 @@ const devAbilities = computed<(EditorAbility & { section: string | null })[]>(()
   return result;
 });
 
-const abilityFilterFields: FilterField[] = [
-  { key: 'name', label: 'Название', type: 'string' },
-  {
-    key: 'section',
-    label: 'Раздел',
-    type: 'tree-select',
-    treeOptions: sectionTreeOptions.map((section) => ({
-      label: section.name,
-      value: section.code,
-      path: section.path,
-      depth: section.depth,
-      parentValue: section.parentCode,
-    })),
-  },
-];
+const sectionFilterField: FilterField = {
+  key: 'section',
+  label: 'Раздел',
+  type: 'tree-select',
+  treeOptions: sectionTreeOptions.map((section) => ({
+    label: section.name,
+    value: section.code,
+    path: section.path,
+    depth: section.depth,
+    parentValue: section.parentCode,
+  })),
+};
+const abilityFilterFields: FilterField[] = [{ key: 'name', label: 'Название', type: 'string' }];
+const filterFields: FilterField[] = [...abilityFilterFields, sectionFilterField];
 
 const {
   filteredRows: abilityRows,
@@ -94,9 +88,21 @@ const {
   onFilterChange,
 } = useFilteredRows({
   getItems: () => devAbilities.value as unknown as Record<string, unknown>[],
-  fields: abilityFilterFields,
+  fields: filterFields,
   searchFields: ['name'],
 });
+const sectionFilterValue = computed<FilterOptionValue | null>(() => {
+  const value = appliedFilters.value.section;
+
+  return typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' ? value : null;
+});
+
+function onSectionFilterChange(value: FilterOptionValue | null | undefined): void {
+  const nextFilters = { ...appliedFilters.value };
+  if (value === null || value === undefined || value === '') delete nextFilters.section;
+  else nextFilters.section = value;
+  onFilterChange(nextFilters);
+}
 
 /**
  * Строки после фильтра поиска/раздела. При поиске улучшения в результат включаются и его
@@ -126,10 +132,7 @@ const abilitiesByName = computed<(EditorAbility & { section: string | null })[]>
   return result;
 });
 
-/** Фильтр по категории (Все/Атаки/Физич./Оружие/Щиты) и чипам; раздел — в фильтр-баре. */
 function passesFilters(ability: EditorAbility): boolean {
-  if (categoryFilter.value === 'attack' && !isAttackAbility(ability)) return false;
-  if (categoryFilter.value === 'physical' && !isPhysicalDevelopmentAbility(ability)) return false;
   if (availableOnly.value && !(ability.levels[0]?.met ?? false)) return false;
   if (acquiredOnly.value && !isAcquiredAbility(ability)) return false;
 
@@ -200,14 +203,13 @@ const resetKey = computed(() =>
   JSON.stringify([
     appliedFilters.value.section ?? '',
     appliedFilters.value.q ?? '',
-    categoryFilter.value,
     availableOnly.value,
     acquiredOnly.value,
   ]),
 );
 
 /** Высота скролл-области каталога: почти весь вьюпорт под шапкой/фильтрами. */
-const catalogHeight = 'calc(100vh - 295px)';
+const catalogHeight = 'calc(100dvh - 220px)';
 
 function setOpen(ruleCode: string, open: boolean): void {
   if (open) openSet.value.add(ruleCode);
@@ -280,7 +282,7 @@ function setAbilityDomain(ruleCode: string, domain: string, domainCode: string |
 <template>
   <div>
     <FilterBar
-      :fields="abilityFilterFields"
+      :fields="filterFields"
       :model-value="appliedFilters"
       placeholder="Фильтр по навыкам"
       settings-key="character-editor-development"
@@ -288,15 +290,18 @@ function setAbilityDomain(ruleCode: string, domain: string, domainCode: string |
       @update:model-value="onFilterChange"
     />
 
-    <div class="d-flex align-center ga-2 mb-3 flex-wrap">
-      <v-tabs v-model="categoryFilter" density="compact" class="category-tabs">
-        <v-tab value="all">Все</v-tab>
-        <v-tab value="attack">Атаки</v-tab>
-        <v-tab value="physical">Физическое развитие</v-tab>
-      </v-tabs>
+    <div class="development-filter-row d-flex align-center mb-3">
+      <TreeSelectFilter
+        :field="sectionFilterField"
+        :model-value="sectionFilterValue"
+        eager
+        class="section-filter"
+        @update:model-value="onSectionFilterChange"
+      />
       <v-chip
         size="small"
         variant="tonal"
+        class="status-filter-chip status-filter-chip--first"
         :color="availableOnly ? 'primary' : undefined"
         @click="availableOnly = !availableOnly"
       >
@@ -305,6 +310,7 @@ function setAbilityDomain(ruleCode: string, domain: string, domainCode: string |
       <v-chip
         size="small"
         variant="tonal"
+        class="status-filter-chip"
         :color="acquiredOnly ? 'primary' : undefined"
         @click="acquiredOnly = !acquiredOnly"
       >
@@ -358,18 +364,20 @@ function setAbilityDomain(ruleCode: string, domain: string, domainCode: string |
 </template>
 
 <style scoped>
-.category-tabs {
-  max-width: 100%;
-  overflow-x: auto;
+.section-filter {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.development-filter-row {
+  gap: 10px;
+}
+
+.status-filter-chip--first {
+  margin-left: auto;
 }
 
 :deep(.virtual-list .v-expansion-panel-title) {
   min-height: 48px;
-}
-
-@media (max-width: 960px) {
-  .category-tabs {
-    width: 100%;
-  }
 }
 </style>

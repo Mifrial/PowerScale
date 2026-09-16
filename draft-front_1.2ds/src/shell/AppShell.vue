@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Shell — composition root приложения: собирает app-level UI из компонентов модулей
 // напрямую (по аналогии с main.ts, регистрирующим модули). Исключение из правила 28.
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useChatStore } from '@/modules/Messages/Chat/Store/chat';
 import { useNotificationStore } from '@/modules/Messages/Notifications/Store/notifications';
@@ -19,6 +19,15 @@ const isMessenger = computed(() => route.path === '/messenger');
 const sidebarCollapsed = ref(false);
 const notificationOpen = ref(false);
 const chatOpen = ref(false);
+const isCharacterEditor = computed(() => route.name === 'CharacterEdit' || route.name === 'CharacterNewEditor');
+
+watch(
+  isCharacterEditor,
+  (isEditor) => {
+    if (isEditor) sidebarCollapsed.value = true;
+  },
+  { immediate: true },
+);
 
 onMounted(async () => {
   if (chatStore.chats.length === 0) {
@@ -39,7 +48,7 @@ onMounted(async () => {
     <NotificationSlider v-model="notificationOpen" />
     <ChatSlider v-model="chatOpen" />
 
-    <v-main :class="{ 'messenger-main': isMessenger }">
+    <v-main :class="{ 'messenger-main': isMessenger, 'character-editor-main': isCharacterEditor }">
       <!-- Гаттер страницы — на самих страницах (свой v-container), чтобы не было контейнера в контейнере -->
       <router-view />
     </v-main>
@@ -55,5 +64,9 @@ onMounted(async () => {
 .messenger-main.v-main {
   padding-top: var(--v-layout-top);
   padding-left: var(--v-layout-left);
+}
+
+.character-editor-main {
+  background: rgb(var(--v-theme-surface));
 }
 </style>

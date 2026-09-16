@@ -127,8 +127,10 @@ onMounted(() => {
 <style scoped>
 .editor-stage-nav {
   display: flex;
-  align-items: flex-start;
+  align-items: stretch;
+  min-height: calc(100dvh - var(--v-layout-top));
   min-width: 0;
+  background: rgb(var(--v-theme-surface));
 }
 
 .editor-stage-main {

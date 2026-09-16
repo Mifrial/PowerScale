@@ -2,7 +2,9 @@
 import { computed, ref, watch } from 'vue';
 import type { AbilitySection } from '@/modules/Roleplay/RuleSpace/Dto/AbilitySection';
 import type { SectionDropPlacement } from '@/modules/Roleplay/RuleSpace/Enum/SectionDropPlacement';
-import SectionTreeRow from '@/modules/Roleplay/RuleSpace/Component/Section/SectionTreeRow.vue';
+import type { TreeDropPlacement } from '@/modules/Core/UI/Enum/TreeDropPlacement';
+import TreeView from '@/modules/Core/UI/Component/Tree/TreeView.vue';
+import { treeNodeService } from '@/modules/Core/UI/Service/Instance/treeNodeService';
 
 const props = defineProps<{
   sections: AbilitySection[];
@@ -15,77 +17,107 @@ const emit = defineEmits<{
   drop: [sourceCode: string, targetCode: string, placement: SectionDropPlacement];
 }>();
 
-const expandedCodes = ref<string[]>([]);
-const dragCode = ref<string | null>(null);
-const dropCode = ref<string | null>(null);
-const dropPlacement = ref<SectionDropPlacement | null>(null);
+const expandedIds = ref<string[]>([]);
+const dragId = ref<string | null>(null);
+const dropId = ref<string | null>(null);
+const dropPlacement = ref<TreeDropPlacement | null>(null);
 
-const roots = computed(() =>
-  props.sections
-    .filter((section) => section.parentCode === null)
-    .sort((left, right) => left.sortOrder - right.sortOrder || left.code.localeCompare(right.code)),
+const nodes = computed(() =>
+  treeNodeService.nest(
+    props.sections.map((section) => ({
+      id: section.code,
+      label: section.name,
+      parentId: section.parentCode,
+      sortOrder: section.sortOrder,
+    })),
+  ),
 );
 
 watch(
-  () => props.sections.map((section) => section.code).join(','),
-  () => {
-    const codes = new Set(
-      props.sections.filter((section) => section.parentCode === null).map((section) => section.code),
-    );
-    if (expandedCodes.value.length === 0) {
-      expandedCodes.value = [...codes];
+  nodes,
+  (tree) => {
+    const rootIds = tree.map((node) => node.id);
+    if (expandedIds.value.length === 0) {
+      expandedIds.value = rootIds;
 
       return;
     }
-    expandedCodes.value = expandedCodes.value.filter((code) => props.sections.some((section) => section.code === code));
+    const known = new Set(treeNodeService.parentIds(tree).concat(rootIds));
+    expandedIds.value = expandedIds.value.filter((id) => known.has(id) || rootIds.includes(id));
   },
   { immediate: true },
 );
 
-function toggle(code: string): void {
-  expandedCodes.value = expandedCodes.value.includes(code)
-    ? expandedCodes.value.filter((item) => item !== code)
-    : [...expandedCodes.value, code];
+function onActivate(id: string): void {
+  const node = treeNodeService.find(nodes.value, id);
+  if (node && node.children.length > 0) {
+    expandedIds.value = expandedIds.value.includes(id)
+      ? expandedIds.value.filter((item) => item !== id)
+      : [...expandedIds.value, id];
+  }
 }
 
-function onDragStart(code: string): void {
-  dragCode.value = code;
+function onDragStart(id: string): void {
+  dragId.value = id;
 }
 
-function onDragOver(code: string, placement: SectionDropPlacement): void {
-  dropCode.value = code;
+function onDragOver(id: string, placement: TreeDropPlacement): void {
+  dropId.value = id;
   dropPlacement.value = placement;
 }
 
-function onDrop(targetCode: string): void {
-  if (!dragCode.value || !dropPlacement.value) return;
-  emit('drop', dragCode.value, targetCode, dropPlacement.value);
-  dragCode.value = null;
-  dropCode.value = null;
+function onDrop(targetId: string): void {
+  if (!dragId.value || !dropPlacement.value) return;
+  emit('drop', dragId.value, targetId, dropPlacement.value);
+  dragId.value = null;
+  dropId.value = null;
   dropPlacement.value = null;
 }
 </script>
 
 <template>
-  <div>
-    <div v-if="roots.length === 0" class="text-body-2 text-medium-emphasis pa-4">Секций пока нет</div>
-    <SectionTreeRow
-      v-for="(root, index) in roots"
-      :key="root.code"
-      :section="root"
-      :sections="sections"
-      :depth="0"
-      :is-last="index === roots.length - 1"
-      :expanded-codes="expandedCodes"
-      :readonly="readonly"
-      :drop-code="dropCode"
-      :drop-placement="dropPlacement"
-      @toggle="toggle"
-      @edit="emit('edit', $event)"
-      @add-child="emit('addChild', $event)"
-      @dragstart="onDragStart"
-      @dragover="onDragOver"
-      @drop="onDrop"
-    />
-  </div>
+  <TreeView
+    :nodes="nodes"
+    v-model:expanded-ids="expandedIds"
+    empty-text="Секций пока нет"
+    :draggable="!readonly"
+    :drop-id="dropId"
+    :drop-placement="dropPlacement"
+    @activate="onActivate"
+    @dragstart="onDragStart"
+    @dragover="onDragOver"
+    @drop="onDrop"
+    @dragend="dragId = null"
+  >
+    <template v-if="!readonly" #prepend="{ node }">
+      <v-btn
+        icon
+        variant="text"
+        size="x-small"
+        class="section-tree__icon"
+        aria-label="Редактировать секцию"
+        @click.stop="emit('edit', node.id)"
+      >
+        <v-icon size="16">mdi-pencil-outline</v-icon>
+      </v-btn>
+      <v-btn
+        icon
+        variant="text"
+        size="x-small"
+        class="section-tree__icon"
+        aria-label="Добавить дочернюю секцию"
+        @click.stop="emit('addChild', node.id)"
+      >
+        <v-icon size="16">mdi-plus</v-icon>
+      </v-btn>
+    </template>
+  </TreeView>
 </template>
+
+<style scoped>
+.section-tree__icon {
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+}
+</style>

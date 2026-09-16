@@ -2,19 +2,29 @@
 import { computed, ref, watch } from 'vue';
 import type { FilterField } from '@/modules/Core/UI/Dto/Filter/Field';
 import type { FilterOptionValue } from '@/modules/Core/UI/Dto/Filter/Values/FilterOptionValue';
+import TreeView from '@/modules/Core/UI/Component/Tree/TreeView.vue';
+import { treeNodeService } from '@/modules/Core/UI/Service/Instance/treeNodeService';
 
-const props = defineProps<{
-  field: FilterField;
-  modelValue?: FilterOptionValue | null;
-}>();
+const props = withDefaults(
+  defineProps<{
+    field: FilterField;
+    modelValue?: FilterOptionValue | null;
+    eager?: boolean;
+  }>(),
+  { eager: false },
+);
 
 const emit = defineEmits<{
   'update:modelValue': [value: FilterOptionValue | null | undefined];
 }>();
 
 const searchText = ref('');
-const openedValues = ref<FilterOptionValue[]>([]);
 const menuOpen = ref(false);
+const expandedIds = ref<string[]>([]);
+
+const selectedId = computed(() =>
+  props.modelValue === null || props.modelValue === undefined ? null : String(props.modelValue),
+);
 
 const selectedLabel = computed(() => {
   const selected = (props.field.treeOptions ?? []).find((option) => option.value === props.modelValue);
@@ -22,96 +32,38 @@ const selectedLabel = computed(() => {
   return selected?.path ?? '';
 });
 
-const treeItems = computed(() => {
-  const options = props.field.treeOptions ?? [];
-  const query = searchText.value.trim().toLocaleLowerCase();
-  const visibleValues = new Set<FilterOptionValue>();
+const treeNodes = computed(() =>
+  treeNodeService.nest(
+    (props.field.treeOptions ?? []).map((option, index) => ({
+      id: String(option.value),
+      label: option.label,
+      parentId: option.parentValue === null || option.parentValue === undefined ? null : String(option.parentValue),
+      sortOrder: index,
+    })),
+  ),
+);
 
-  if (!query) {
-    options.forEach((option) => visibleValues.add(option.value));
-  } else {
-    for (const option of options) {
-      if (!`${option.label} ${option.path}`.toLocaleLowerCase().includes(query)) continue;
-      visibleValues.add(option.value);
-      let parentValue = option.parentValue;
-      while (parentValue !== null && parentValue !== undefined) {
-        visibleValues.add(parentValue);
-        parentValue = options.find((candidate) => candidate.value === parentValue)?.parentValue;
-      }
-    }
-  }
+const visibleNodes = computed(() => treeNodeService.filter(treeNodes.value, searchText.value));
 
-  const buildChildren = (parentValue: FilterOptionValue | null): unknown[] =>
-    options
-      .filter((option) => (option.parentValue ?? null) === parentValue && visibleValues.has(option.value))
-      .map((option) => {
-        const children = buildChildren(option.value);
+function defaultExpandedIds(): string[] {
+  if (searchText.value.trim()) return treeNodeService.parentIds(visibleNodes.value);
+  if (!selectedId.value) return [];
 
-        return children.length > 0
-          ? { label: option.label, value: option.value, children }
-          : { label: option.label, value: option.value };
-      });
+  return treeNodeService.ancestorIds(treeNodes.value, selectedId.value);
+}
 
-  return buildChildren(null);
+watch(menuOpen, (open) => {
+  if (open) expandedIds.value = defaultExpandedIds();
 });
 
-function parentValues(value: FilterOptionValue | null | undefined): FilterOptionValue[] {
-  const options = props.field.treeOptions ?? [];
-  const values: FilterOptionValue[] = [];
-  let parentValue = options.find((option) => option.value === value)?.parentValue;
-  while (parentValue !== null && parentValue !== undefined) {
-    values.unshift(parentValue);
-    parentValue = options.find((option) => option.value === parentValue)?.parentValue;
-  }
+watch(searchText, () => {
+  expandedIds.value = defaultExpandedIds();
+});
 
-  return values;
-}
-
-function synchronizeOpenedValues(): void {
-  const options = props.field.treeOptions ?? [];
-  const query = searchText.value.trim().toLocaleLowerCase();
-  const values = new Set<FilterOptionValue>();
-  if (query) {
-    for (const option of options) {
-      if (`${option.label} ${option.path}`.toLocaleLowerCase().includes(query)) {
-        parentValues(option.value).forEach((value) => values.add(value));
-      }
-    }
-  } else {
-    parentValues(props.modelValue).forEach((value) => values.add(value));
-  }
-  const nextValues = [...values];
-  if (sameValues(openedValues.value, nextValues)) return;
-  openedValues.value = nextValues;
-}
-
-function updateOpened(values: unknown[]): void {
-  const nextValues = [
-    ...new Set(
-      values.filter(
-        (value): value is FilterOptionValue =>
-          typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean',
-      ),
-    ),
-  ];
-  if (sameValues(openedValues.value, nextValues)) return;
-  openedValues.value = nextValues;
-}
-
-function sameValues(left: FilterOptionValue[], right: FilterOptionValue[]): boolean {
-  return left.length === right.length && left.every((value) => right.includes(value));
-}
-
-watch([searchText, () => props.field.treeOptions], synchronizeOpenedValues, { immediate: true });
-
-function updateSelection(selectedValues: unknown[]): void {
-  const selectedValue = selectedValues[0];
-  emit(
-    'update:modelValue',
-    typeof selectedValue === 'string' || typeof selectedValue === 'number' || typeof selectedValue === 'boolean'
-      ? selectedValue
-      : null,
-  );
+function selectOption(id: string): void {
+  const option = (props.field.treeOptions ?? []).find((item) => String(item.value) === id);
+  emit('update:modelValue', option?.value ?? id);
+  menuOpen.value = false;
 }
 
 function clearSelection(): void {
@@ -125,6 +77,9 @@ function clearSelection(): void {
     <v-menu
       v-model="menuOpen"
       :close-on-content-click="false"
+      :eager="eager"
+      :scrim="false"
+      scroll-strategy="none"
       location="bottom start"
       :min-width="360"
       :max-width="420"
@@ -154,18 +109,12 @@ function clearSelection(): void {
           class="mb-3"
         />
         <div class="tree-select-tree">
-          <v-treeview
-            :items="treeItems"
-            item-title="label"
-            item-value="value"
-            selectable
-            select-strategy="single-independent"
-            :selected="modelValue === null || modelValue === undefined ? [] : [modelValue]"
-            :opened="openedValues"
-            density="compact"
-            open-on-click
-            @update:opened="updateOpened"
-            @update:selected="updateSelection"
+          <TreeView
+            :nodes="visibleNodes"
+            v-model:expanded-ids="expandedIds"
+            :selected-id="selectedId"
+            empty-text="Секции не найдены"
+            @activate="selectOption"
           />
         </div>
         <v-btn

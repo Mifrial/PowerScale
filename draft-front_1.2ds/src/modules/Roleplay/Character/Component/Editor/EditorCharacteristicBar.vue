@@ -153,7 +153,8 @@ watch([stats, allStats], recalculateVisibleStats, { deep: true });
   position: relative;
   min-width: 0;
   padding: 4px 8px;
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
   background: rgb(var(--v-theme-surface));
 }
 
