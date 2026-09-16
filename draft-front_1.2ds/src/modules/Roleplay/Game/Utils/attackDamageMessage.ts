@@ -276,6 +276,7 @@ export function buildAttackCalcPayload(input: {
     damage: input.weaponDamage,
     damageTypeName: typeName,
     resistance: input.result.resistance,
+    penetration: input.result.penetration,
     endurance: input.endurance,
     defenseIgnored: input.defenseIgnored,
     attackSrLabel: formatAttackSrLabel(input.sr),

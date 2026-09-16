@@ -40,6 +40,10 @@ const damageLabel = computed(() => new DimensionalNumber(calc.value.damage).toSt
           <span class="text-medium-emphasis">Урон</span>
           <span class="font-weight-medium">{{ damageLabel }} {{ calc.damageTypeName }}</span>
         </div>
+        <div v-if="(calc.penetration ?? 0) > 0" class="d-flex align-center justify-space-between py-1 text-body-2">
+          <span class="text-medium-emphasis">Пробитие</span>
+          <span class="font-weight-medium">{{ calc.penetration }}</span>
+        </div>
         <div class="d-flex align-center justify-space-between py-1 text-body-2">
           <span class="text-medium-emphasis">Сопротивление</span>
           <span class="font-weight-medium">

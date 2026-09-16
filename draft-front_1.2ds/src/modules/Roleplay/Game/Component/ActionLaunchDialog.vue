@@ -36,6 +36,7 @@ import {
   actionRefEquals,
 } from '@/modules/Roleplay/Game/Utils/combatActions';
 import { processSessionService } from '@/modules/Roleplay/Game/Service/Instance/processSessionService';
+import { comboProcessService } from '@/modules/Roleplay/Game/Service/Instance/comboProcessService';
 import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
 import { combatChatSendService } from '@/modules/Roleplay/Game/Service/Instance/combatChatSendService';
 import { formatProcessEffect } from '@/modules/Roleplay/Game/Utils/processMessage';
@@ -238,22 +239,12 @@ const stretchWarnText = computed(() => {
 });
 const processSteps = computed(() => {
   if (!selectedAction.value?.process) return [];
-  const currentStep =
+  const session =
     activeProcess.value && actionRefEquals(selectedAction.value, activeProcess.value.processRuleCode, props.rules)
-      ? activeProcess.value.currentStepCode
-      : (selectedAction.value.process.start_step_code ?? selectedAction.value.process.steps[0]?.code);
-  if (!currentStep) return [];
+      ? activeProcess.value
+      : null;
 
-  if (!activeProcess.value) return selectedAction.value.process.steps.filter((step) => step.code === currentStep);
-
-  const availableSteps = processSessionService.availableSteps(selectedAction.value.process, currentStep);
-  if (activeProcess.value.currentStepStatus !== 'pending') return availableSteps;
-
-  const currentStepItem = selectedAction.value.process.steps.find((step) => step.code === currentStep);
-
-  return currentStepItem && !availableSteps.some((step) => step.code === currentStepItem.code)
-    ? [currentStepItem, ...availableSteps]
-    : availableSteps;
+  return comboProcessService.visibleSteps(selectedAction.value.process, session);
 });
 const processAttacks = computed(() => {
   const action = selectedAction.value;
@@ -470,7 +461,7 @@ async function submit(): Promise<void> {
         operationRequests,
         currentMovementStep: actorMovementStep.value,
       });
-      const resolvedSession = processSessionService.resolveStep(
+      const resolvedSession = comboProcessService.resolveAfterStrike(
         session,
         action.process,
         stepCode,

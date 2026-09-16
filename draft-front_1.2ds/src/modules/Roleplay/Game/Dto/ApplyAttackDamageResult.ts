@@ -5,7 +5,9 @@ export interface ApplyAttackDamageResult {
   appliedSr: number;
   /** Потолок множителя РУ типа урона; null — без капа. */
   srCap: number | null;
+  /** Сумма учтённых слоёв до пробития (то, что видно в отчёте). */
   resistance: number;
+  penetration: number;
   raw: number;
   hpDamage: number;
   exhaustion: number;

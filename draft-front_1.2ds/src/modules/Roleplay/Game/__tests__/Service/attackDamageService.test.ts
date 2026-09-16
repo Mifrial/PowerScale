@@ -330,6 +330,90 @@ describe('applyAttackDamage', () => {
     expect(ignored.resistance).toBe(1);
   });
 
+  it('пробитие снимает защиту, но не типированное сопротивление', () => {
+    const leather = line({ kind: 'defense', value: 3, durability: 6, sourceCode: 'leather' });
+    const mail = line({ kind: 'resistance', value: 1, durability: 4, sourceCode: 'mail', damageTypeCode: 'piercing' });
+    const result = attackDamageService.applyAttackDamage({
+      weaponDamage: { base: 1, size: 0 },
+      sr: 4,
+      damageTypeCode: 'piercing',
+      penetration: { base: 3, size: 0 },
+      defense: {
+        armor: [{ itemRuleCode: 'leather', itemName: 'Кожаный доспех', href: '', lines: [leather, mail], tiers: [] }],
+        constantDefense: 3,
+        tiers: [],
+        shield: null,
+      },
+      endurance: { base: 4, size: 1 },
+      hooks: [],
+    });
+    expect(result.penetration).toBe(3);
+    expect(result.resistance).toBe(4);
+    expect(result.hpDamage).toBe(0);
+    expect(result.layers).toEqual([
+      expect.objectContaining({ kind: 'defense', value: 3, ignored: false, reason: 'kept' }),
+      expect.objectContaining({ kind: 'resistance', value: 1, ignored: false, reason: 'kept' }),
+    ]);
+  });
+
+  it('пробитие 3 при уроне 1 и защите 3 пропускает весь урон', () => {
+    const result = attackDamageService.applyAttackDamage({
+      weaponDamage: { base: 1, size: 0 },
+      sr: 4,
+      damageTypeCode: 'piercing',
+      penetration: { base: 3, size: 0 },
+      defense: {
+        armor: [
+          {
+            itemRuleCode: 'leather',
+            itemName: 'Кожаный доспех',
+            href: '',
+            lines: [line({ kind: 'defense', value: 3, durability: 6, sourceCode: 'leather' })],
+            tiers: [],
+          },
+        ],
+        constantDefense: 3,
+        tiers: [],
+        shield: null,
+      },
+      endurance: { base: 4, size: 1 },
+      hooks: [],
+    });
+    expect(result.resistance).toBe(3);
+    expect(result.raw).toBe(4);
+    expect(result.hpDamage).toBe(4);
+    expect(result.layers[0]).toMatchObject({ kind: 'defense', value: 3, ignored: false, reason: 'kept' });
+  });
+
+  it('частичное пробитие оставляет исходные защиту и сопротивление в отчёте', () => {
+    const result = attackDamageService.applyAttackDamage({
+      weaponDamage: { base: 1, size: 0 },
+      sr: 2,
+      damageTypeCode: 'piercing',
+      penetration: { base: 2, size: 0 },
+      defense: {
+        armor: [
+          {
+            itemRuleCode: 'leather',
+            itemName: 'Кожаный доспех',
+            href: '',
+            lines: [line({ kind: 'defense', value: 3, durability: 6, sourceCode: 'leather' })],
+            tiers: [],
+          },
+        ],
+        constantDefense: 3,
+        tiers: [],
+        shield: null,
+      },
+      endurance: { base: 4, size: 1 },
+      hooks: [],
+    });
+    expect(result.penetration).toBe(2);
+    expect(result.resistance).toBe(3);
+    expect(result.raw).toBe(0);
+    expect(result.layers[0]).toMatchObject({ kind: 'defense', value: 3, ignored: false, reason: 'kept' });
+  });
+
   it('сообщения атаки и подпись РУ', () => {
     const action = {
       ruleCode: 'simple-melee-attack',
@@ -698,6 +782,7 @@ describe('applyAttackDamage', () => {
         appliedSr: 4,
         srCap: null,
         resistance: 0,
+        penetration: 0,
         raw: 16,
         hpDamage: 16,
         exhaustion: 4,

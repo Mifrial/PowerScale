@@ -609,13 +609,12 @@ describe('mockDevelopmentImport (S14)', () => {
       'seriya-udarov',
       'kombinatsiya-udarov',
       'raskrytie',
-      'neotvratimaya-kombinatsiya',
       'oboerukaya-ataka',
     ]) {
       expect(byCode.get(code)?.catalogSection, code).toBe(
         ['boy-s-oruzhiem-v-neskolkikh-rukakh', 'balans', 'oboerukaya-ataka'].includes(code)
           ? 'abilities-acquired-melee-combat-quantity'
-          : ['bystryy-udar', 'stremitelnyy-udar', 'seriya-udarov', 'kombinatsiya-udarov'].includes(code)
+          : ['bystryy-udar', 'stremitelnyy-udar', 'seriya-udarov', 'kombinatsiya-udarov', 'raskrytie'].includes(code)
             ? 'abilities-acquired-melee-combat-speed'
             : 'abilities-acquired-melee-combat-other',
       );
@@ -626,7 +625,7 @@ describe('mockDevelopmentImport (S14)', () => {
       min: { base: 3, size: 1 },
     });
     expect(byCode.get('seriya-udarov')?.description).not.toContain('внутреннее повреждение');
-    expect(byCode.get('kombinatsiya-udarov')?.contentNote).toContain('обязательна');
+    expect(byCode.get('kombinatsiya-udarov')?.contentNote).toContain('Game');
     expect(byCode.get('oboerukaya-ataka')?.contentNote).toContain('обязательны');
   });
 

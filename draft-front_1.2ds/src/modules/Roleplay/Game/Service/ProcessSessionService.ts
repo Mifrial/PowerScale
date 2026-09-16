@@ -21,6 +21,7 @@ export class ProcessSessionService {
       status: 'active',
       startedAt: now,
       updatedAt: now,
+      comboCount: 0,
     };
   }
 

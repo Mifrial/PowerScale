@@ -15,7 +15,10 @@ export interface AttackCalcPayload {
   raw: number;
   damage: DimensionalNumberValue;
   damageTypeName: string;
+  /** Сумма учтённых слоёв до пробития. */
   resistance: number;
+  /** Пробитие оружия; в расчёте уменьшает защиту, не ниже 0. */
+  penetration?: number;
   endurance: DimensionalNumberValue;
   defenseIgnored: boolean;
   attackSrLabel: string;

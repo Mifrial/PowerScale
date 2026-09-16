@@ -149,6 +149,12 @@ export class AttackDamageService {
     return sum;
   }
 
+  private penetrationOf(input: ApplyAttackDamageInput): number {
+    if (!input.penetration) return 0;
+
+    return Math.max(0, new DimensionalNumber(input.penetration).toNumber());
+  }
+
   applyAttackDamage(input: ApplyAttackDamageInput): ApplyAttackDamageResult {
     const remainingSr = Math.max(0, Math.floor(input.sr));
     const cap = input.maxSuccessRating;
@@ -156,11 +162,17 @@ export class AttackDamageService {
       cap == null || !Number.isFinite(cap) ? remainingSr : Math.min(remainingSr, Math.max(0, Math.floor(cap)));
     const ignoreAtMost = this.hasPaySrHook(input.hooks) ? remainingSr : 0;
     const includeDefense = !input.defenseIgnored;
+    const penetration = includeDefense ? this.penetrationOf(input) : 0;
     const layers = this.resistanceLayersOf(input.defense, input.damageTypeCode, ignoreAtMost, includeDefense);
-    const lines = input.defense?.armor.flatMap((armor) => armor.lines) ?? [];
-    const resistance = this.stackedResistance(lines, input.damageTypeCode, ignoreAtMost, includeDefense);
+    const kept = layers.filter((layer) => !layer.ignored);
+    const resistance = kept.reduce((sum, layer) => sum + layer.value, 0);
+    const defenseValue = kept.filter((layer) => layer.kind === 'defense').reduce((sum, layer) => sum + layer.value, 0);
+    const typedResistance = kept
+      .filter((layer) => layer.kind === 'resistance')
+      .reduce((sum, layer) => sum + layer.value, 0);
+    const effectiveResistance = typedResistance + Math.max(0, defenseValue - penetration);
     const weapon = new DimensionalNumber(input.weaponDamage).toNumber();
-    const raw = Math.max(0, weapon - resistance) * injurySr;
+    const raw = Math.max(0, weapon - effectiveResistance) * injurySr;
     const apply = damageTypeHooksService.applyHooksOf(input.hooks);
     const cutting = apply.some((hook) => hook.mechanicCode === DAMAGE_TYPE_HOOK_MECHANIC_CUTTING_WOUNDS);
     const hpDamage = cutting ? 0 : raw;
@@ -195,6 +207,7 @@ export class AttackDamageService {
       appliedSr: injurySr,
       srCap: cap == null || !Number.isFinite(cap) ? null : Math.max(0, Math.floor(cap)),
       resistance,
+      penetration,
       raw,
       hpDamage,
       exhaustion,

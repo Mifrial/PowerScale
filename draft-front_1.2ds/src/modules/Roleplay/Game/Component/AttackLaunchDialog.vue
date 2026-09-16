@@ -22,6 +22,8 @@ import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/at
 import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/actionEffectService';
 import { attackActionSourceService } from '@/modules/Roleplay/Game/Service/Instance/attackActionSourceService';
 import { processSessionService } from '@/modules/Roleplay/Game/Service/Instance/processSessionService';
+import { comboProcessService } from '@/modules/Roleplay/Game/Service/Instance/comboProcessService';
+import { COMBO_STEP_CODES } from '@/modules/Roleplay/Game/Constant/Process/COMBO_STEP_CODES';
 import { asProcessAbilitySpec, actionRefEquals, findRuleByRef } from '@/modules/Roleplay/Game/Utils/combatActions';
 import { ACTION_POINTS_CODE } from '@/modules/Roleplay/Game/Constant/Combat/ACTION_POINTS_CODE';
 import { AttackProfileOption } from '@/modules/Roleplay/Character/init';
@@ -91,11 +93,11 @@ const activeProcess = computed(() =>
 const activeCommitted = computed(() => (actorKey.value ? (committedSessions.value[actorKey.value] ?? null) : null));
 const sources = computed(() => {
   const available = attackActionSourceService.list(props.rules, actorOverview.value);
-  if (!activeProcess.value) return available;
+  const session = activeProcess.value;
+  const processRule = session ? findRuleByRef(props.rules, session.processRuleCode) : null;
+  const spec = processRule ? asProcessAbilitySpec(processRule) : null;
 
-  return available.filter(
-    (source) => source.isProcess && actionRefEquals(source, activeProcess.value?.processRuleCode, props.rules),
-  );
+  return comboProcessService.listSources(available, session, spec, actorOverview.value, props.rules);
 });
 const selectedSource = computed<CombatActionOption | null>(
   () =>
@@ -107,22 +109,12 @@ const selectedSourceRule = computed(() => findRuleByRef(props.rules, selectedSou
 const processSteps = computed(() => {
   const process = selectedSource.value?.process;
   if (!process) return [];
-  const currentStepCode =
+  const session =
     activeProcess.value && actionRefEquals(selectedSource.value, activeProcess.value.processRuleCode, props.rules)
-      ? activeProcess.value.currentStepCode
-      : (process.start_step_code ?? process.steps[0]?.code);
-  if (!currentStepCode) return [];
+      ? activeProcess.value
+      : null;
 
-  if (!activeProcess.value) return process.steps.filter((step) => step.code === currentStepCode);
-
-  const availableSteps = processSessionService.availableSteps(process, currentStepCode);
-  if (activeProcess.value.currentStepStatus !== 'pending') return availableSteps;
-
-  const currentStep = process.steps.find((step) => step.code === currentStepCode);
-
-  return currentStep && !availableSteps.some((step) => step.code === currentStep.code)
-    ? [currentStep, ...availableSteps]
-    : availableSteps;
+  return comboProcessService.visibleSteps(process, session);
 });
 const selectedProcessStep = computed(
   () => processSteps.value.find((step) => step.code === processStepCode.value) ?? null,
@@ -328,6 +320,22 @@ async function submit(): Promise<void> {
       ? { kind: 'process' as const, process: { session: processSession, stepCode: selectedStepCode } }
       : null;
   if (source.isProcess && !processSource) throw new Error('Не удалось определить шаг процесса');
+  const processRule = activeProcess.value ? findRuleByRef(props.rules, activeProcess.value.processRuleCode) : null;
+  const comboClose =
+    !source.isProcess &&
+    activeProcess.value &&
+    comboProcessService.canCloseWithOtherAttack(
+      activeProcess.value,
+      processRule ? asProcessAbilitySpec(processRule) : null,
+      actorOverview.value,
+      props.rules,
+    )
+      ? {
+          session: activeProcess.value,
+          stepCode: COMBO_STEP_CODES.finish,
+          comboClose: true,
+        }
+      : undefined;
 
   emit('launch-attack', {
     initiator,
@@ -336,6 +344,7 @@ async function submit(): Promise<void> {
     mode: isWideAttack.value ? 'wide' : 'single',
     reactionMode: 'simultaneous',
     totalOdCost: finalCost.value,
+    ...(comboClose ? { comboClose } : {}),
   });
   emit('update:open', false);
 }

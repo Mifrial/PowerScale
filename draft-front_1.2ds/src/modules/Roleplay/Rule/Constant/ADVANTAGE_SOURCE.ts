@@ -4,3 +4,4 @@ export const ADVANTAGE_SOURCE_TOOL = 'tool';
 export const ADVANTAGE_SOURCE_STATE = 'state';
 export const ADVANTAGE_SOURCE_APPEARANCE = 'appearance';
 export const ADVANTAGE_SOURCE_CIRCUMSTANCES = 'circumstances';
+export const ADVANTAGE_SOURCE_ACTION = 'action';

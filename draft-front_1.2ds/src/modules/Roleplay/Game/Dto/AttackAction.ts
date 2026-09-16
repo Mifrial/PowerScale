@@ -10,4 +10,6 @@ export interface AttackAction {
   mode?: 'single' | 'wide';
   reactionMode: 'simultaneous';
   totalOdCost: number;
+  /** Живой процесс Комбо закрывается этой атакой, не шагом Завершения. */
+  comboClose?: ProcessActionContext;
 }

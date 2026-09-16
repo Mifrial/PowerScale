@@ -101,6 +101,7 @@ import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/ac
 import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/init';
 import { ADVANTAGE_SOURCE_MANUAL } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
 import { processSessionService } from '@/modules/Roleplay/Game/Service/Instance/processSessionService';
+import { comboProcessService } from '@/modules/Roleplay/Game/Service/Instance/comboProcessService';
 import { committedActionFlowService } from '@/modules/Roleplay/Game/Service/Instance/committedActionFlowService';
 import { asProcessAbilitySpec } from '@/modules/Roleplay/Game/Utils/combatActions';
 import { ACTION_POINTS_CODE } from '@/modules/Roleplay/Game/Constant/Combat/ACTION_POINTS_CODE';
@@ -439,6 +440,7 @@ const attackerHitAdvantageSummary = computed(() => {
       selectedAction.value ? findRuleByRef(props.rules, selectedAction.value.code) : null,
       CHECK_HIT_CODE,
     ),
+    ...comboStrike.value.modifiers,
     { source_code: ADVANTAGE_SOURCE_MANUAL, source_label: 'Игрок', delta: attackerAdv.value },
   ];
 
@@ -475,7 +477,9 @@ const isPreparationAction = computed(() => selectedAction.value?.isAttack === fa
 const effectiveProcessContext = computed(
   () =>
     props.processContext ??
-    (resolvedAttackAction.value?.source.kind === 'process' ? resolvedAttackAction.value.source.process : null),
+    (resolvedAttackAction.value?.source.kind === 'process' ? resolvedAttackAction.value.source.process : null) ??
+    resolvedAttackAction.value?.comboClose ??
+    null,
 );
 const processSpec = computed(() => {
   const rule = effectiveProcessContext.value
@@ -492,6 +496,17 @@ const processStep = computed(() =>
 const processStepCost = computed(() =>
   processStep.value ? processSessionService.stepCost(processStep.value, ACTION_POINTS_CODE) : null,
 );
+const comboStrike = computed(() => {
+  const context = effectiveProcessContext.value;
+  if (!context || !processSpec.value) return { modifiers: [], extraSuccessCount: 0 };
+
+  return comboProcessService.strikePackage(
+    context.session,
+    processSpec.value,
+    context.stepCode,
+    Boolean(context.comboClose),
+  );
+});
 
 const attackerPendingEffects = computed(
   () => (resolvedAttackerKey.value ? pendingEffectsByEntity.value[resolvedAttackerKey.value] : undefined) ?? [],
@@ -899,7 +914,7 @@ async function acceptWideAttack(
         kind: 'hit',
       }) +
       Math.max(0, targetProposals.length - 1);
-    const inputs = targetProposals.map((target) => {
+    const inputs = targetProposals.map((target, index) => {
       const profile = attackStrikes.find((strike) => strike.targetKey === target.targetKey)?.profile ?? attack;
       const defender = overviewOf(target.targetKey);
 
@@ -916,6 +931,7 @@ async function acceptWideAttack(
         attackerAdvantageModifiers: actionEffectService
           .checkAdvantageModifiers(attackerPendingEffects.value, CHECK_HIT_CODE)
           .concat(actionEffectService.currentActionCheckModifiers(actionRule, CHECK_HIT_CODE))
+          .concat(comboStrike.value.modifiers)
           .concat(attackerSpent > 0 ? [concentrationTokenService.tokenAdvantage(attackerSpent)] : []),
         defenderAdv:
           accepted.proposal.opponentAdv +
@@ -935,6 +951,7 @@ async function acceptWideAttack(
         })),
         flank: target.hit.flank,
         turn: target.hit.turn,
+        extraSuccessCount: index === 0 ? comboStrike.value.extraSuccessCount : 0,
         attack: {
           itemName: profile.itemName,
           profileType: profile.profileType,
@@ -949,11 +966,12 @@ async function acceptWideAttack(
     const processContext = effectiveProcessContext.value;
     const nextProcessSession =
       processContext && processSpec.value
-        ? processSessionService.resolveStep(
+        ? comboProcessService.resolveAfterStrike(
             processContext.session,
             processSpec.value,
             processContext.stepCode,
             successful,
+            Boolean(processContext.comboClose),
           )
         : null;
     if (processContext) await getGameApi().setProcessSession(props.gameId, accepted.initiator, nextProcessSession);
@@ -1129,6 +1147,7 @@ async function acceptAndRoll(): Promise<void> {
     attackerAdvantageModifiers: actionEffectService
       .checkAdvantageModifiers(attackerPendingEffects.value, CHECK_HIT_CODE)
       .concat(actionEffectService.currentActionCheckModifiers(actionRule, CHECK_HIT_CODE))
+      .concat(comboStrike.value.modifiers)
       .concat(attackerSpent > 0 ? [concentrationTokenService.tokenAdvantage(attackerSpent)] : []),
     defenderAdv:
       accepted.proposal.opponentAdv +
@@ -1149,8 +1168,9 @@ async function acceptAndRoll(): Promise<void> {
     turn: hit.turn,
   };
   const attackStrikes = accepted.proposal.attackAction?.strikes ?? [];
-  const rollInputs = (attackStrikes.length > 0 ? attackStrikes : [{ profile: attack }]).map((strike) => ({
+  const rollInputs = (attackStrikes.length > 0 ? attackStrikes : [{ profile: attack }]).map((strike, index) => ({
     ...commonHitInput,
+    extraSuccessCount: index === 0 ? comboStrike.value.extraSuccessCount : 0,
     attack: {
       itemName: strike.profile.itemName,
       profileType: strike.profile.profileType,
@@ -1163,11 +1183,12 @@ async function acceptAndRoll(): Promise<void> {
   const rolled = { attacker: simultaneous.attackers[0], defender: simultaneous.defender };
   const nextProcessSession =
     effectiveProcessContext.value && processSpec.value
-      ? processSessionService.resolveStep(
+      ? comboProcessService.resolveAfterStrike(
           effectiveProcessContext.value.session,
           processSpec.value,
           effectiveProcessContext.value.stepCode,
           simultaneous.attackers.every((attacker) => (attacker.check?.rating ?? 0) > 0),
+          Boolean(effectiveProcessContext.value.comboClose),
         )
       : null;
   if (effectiveProcessContext.value) {
@@ -1912,6 +1933,7 @@ async function applyClickAttack(
     weaponDamage: attack.damage,
     sr: weaponSr,
     damageTypeCode: attack.damageTypeCode,
+    penetration: attack.penetration,
     defense: defenderOverview?.defense ?? null,
     endurance: defenderOverview
       ? attackDamageService.enduranceValueOf(defenderOverview, props.rules)

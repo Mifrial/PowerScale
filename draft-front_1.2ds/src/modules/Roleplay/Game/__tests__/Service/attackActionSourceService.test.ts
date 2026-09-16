@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { AttackOverview } from '@/modules/Roleplay/Character/Dto/Overview/AttackOverview';
+import type { CharacterOverview } from '@/modules/Roleplay/Character/Dto/Overview/CharacterOverview';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { attackActionSourceService } from '@/modules/Roleplay/Game/Service/Instance/attackActionSourceService';
 
@@ -112,5 +113,27 @@ describe('AttackActionSourceService', () => {
     expect(attackActionSourceService.validateTargetCount(rule([64, 71], 'wide'), ['a', 'b', 'c'])).toBeNull();
     expect(attackActionSourceService.validateTargetCount(rule([64, 71], 'wide'), ['a', 'b', 'c', 'd'])).toContain('3');
     expect(attackActionSourceService.validateTargetCount(rule([64, 71]), ['a', 'a'])).toContain('1');
+  });
+
+  it('не ставит подготовку в список атак даже при владении', () => {
+    const strike = {
+      ...rule([64, 71]),
+      spec: {
+        ...rule([64, 71]).spec,
+        zones: { os: { kind: 'automatic' as const } },
+      },
+    };
+    const preparation = {
+      ...rule([226]),
+      code: 'prep',
+      name: 'Подготовка',
+    };
+    const overview = {
+      abilities: [{ ruleCode: 'prep' }, { ruleCode: 'attack' }],
+    } as CharacterOverview;
+
+    expect(attackActionSourceService.list([strike, preparation], overview).map((source) => source.code)).toEqual([
+      'attack',
+    ]);
   });
 });

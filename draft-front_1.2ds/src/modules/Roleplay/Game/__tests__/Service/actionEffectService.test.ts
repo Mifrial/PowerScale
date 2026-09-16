@@ -184,6 +184,7 @@ describe('ActionEffectService', () => {
     expect(actionEffectService.checkAdvantageModifiers(pending, 'check-hit')).toEqual([
       { source_code: 'circumstances', source_label: 'Обстоятельства', delta: -2 },
     ]);
+    expect(actionEffectService.checkAdvantageModifiers(pending, 'hit')).toEqual([]);
   });
 
   it('consumes a duration effect by spending its resource', () => {

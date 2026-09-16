@@ -124,6 +124,10 @@ export class HitRollService {
   }
 
   rollHit(input: HitRollInput, rng: DiceRng, rules: Rule[], mechanics: Mechanic[]): HitCheckRoll {
+    return this.withExtraSuccesses(this.rollHitRaw(input, rng, rules, mechanics), input.extraSuccessCount ?? 0);
+  }
+
+  private rollHitRaw(input: HitRollInput, rng: DiceRng, rules: Rule[], mechanics: Mechanic[]): HitCheckRoll {
     const ranged = input.attack.profileType === 'throw' || input.attack.profileType === 'shoot';
     const procedure = resolveHitProcedure(input.attack.profileType, rules, mechanics);
     const attackMods = strikeCharacteristicMods(input.attackerOverview, rules);
@@ -290,6 +294,34 @@ export class HitRollService {
   /** Совместимость со старыми тестами. */
   rollMeleeHit(input: HitRollInput, rng: DiceRng, rules: Rule[], mechanics: Mechanic[]): HitCheckRoll {
     return this.rollHit(input, rng, rules, mechanics);
+  }
+
+  private withExtraSuccesses(rolled: HitCheckRoll, extraSuccessCount: number): HitCheckRoll {
+    if (extraSuccessCount <= 0) return rolled;
+    const attackerRolled = {
+      ...rolled.attacker,
+      totalSuccesses: rolled.attacker.totalSuccesses + extraSuccessCount,
+    };
+    const defenderDifficulty = rolled.defender
+      ? checkRollService.successesOf(rolled.defender)
+      : rolled.attacker.check?.difficulty;
+    if (!defenderDifficulty) return { ...rolled, attacker: attackerRolled };
+    const attacker = checkRollService.withCheckOutcome(
+      attackerRolled,
+      CHECK_HIT_CODE,
+      defenderDifficulty,
+      attackerRolled.check?.check_name,
+    );
+    const defender = rolled.defender?.check
+      ? checkRollService.withCheckOutcome(
+          rolled.defender,
+          CHECK_HIT_CODE,
+          checkRollService.successesOf(attackerRolled),
+          rolled.defender.check.check_name,
+        )
+      : rolled.defender;
+
+    return { attacker, defender };
   }
 
   rollSimultaneousHits(

@@ -58,6 +58,7 @@ export class CombatProcessListService {
       details: [
         { label: 'Шаг', value: stepLabel },
         { label: 'Статус шага', value: session.currentStepStatus === 'pending' ? 'ожидает' : 'выполнен' },
+        ...(session.comboCount ? [{ label: 'Комбо', value: String(session.comboCount) }] : []),
       ],
       canAbort,
       abortLabel: 'Оборвать',

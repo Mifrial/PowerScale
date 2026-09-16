@@ -11,4 +11,6 @@ export interface ProcessSession {
   startedAt: string;
   updatedAt: string;
   lastResolution?: ActionResolution;
+  /** Накопленное Комбо; только сессия процесса, не лист. */
+  comboCount?: number;
 }

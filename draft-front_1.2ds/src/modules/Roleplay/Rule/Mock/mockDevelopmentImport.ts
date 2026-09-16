@@ -4110,7 +4110,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Быстрый удар',
     description:
       'Совершите один удар с уменьшенной на 1 точностью. Если следующее действие - атака, то она будет стоить на 1ОД больше.',
-    catalogSection: 'abilities-acquired-melee-combat',
+    catalogSection: 'abilities-acquired-melee-combat-speed',
     spaceId: 1,
     spec: {
       type: 'action',
@@ -4155,7 +4155,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Стремительный удар',
     description:
       'Вы подготавливаетесь к совершению стремительного удара. Если ваше следующее действие — атака, на совершение которой вы тратите не более 2 ОД с учётом всех временных модификаторов, то у цели её первого удара модификатор к Мастерству боя от Ловкости уменьшится на 3 (вплоть до 0).',
-    catalogSection: 'abilities-acquired-melee-combat',
+    catalogSection: 'abilities-acquired-melee-combat-speed',
     spaceId: 1,
     spec: {
       type: 'action',
@@ -4215,7 +4215,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Серия ударов',
     description:
       'Первый удар в процессе стоит 3 ОД, каждый следующий — 2 ОД. Процесс можно прервать в любой момент, а любой промах его прерывает. После окончания процесса вы получаете одну помеху от обстоятельств на любые проверки попадания, пока не потратите 1 ОД.',
-    catalogSection: 'abilities-acquired-melee-combat',
+    catalogSection: 'abilities-acquired-melee-combat-speed',
     spaceId: 1,
     spec: {
       type: 'process',
@@ -4270,7 +4270,7 @@ const mockDevelopmentImportRaw: Rule[] = [
             type: 'after_action_until_resource_spent_check_modifier',
             resource_code: 'action-points',
             amount: 1,
-            check_codes: ['hit'],
+            check_codes: ['check-hit'],
             delta: -1,
           },
         ],
@@ -4287,8 +4287,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Комбинация ударов',
     description:
-      'Процесс состоит из подготовительной части за 2 ОД и части окончания за 2 ОД. Подготовительная часть даёт 1 Комбо; часть окончания использует его для бонуса точности и может уменьшить стоимость следующей атаки.',
-    catalogSection: 'abilities-acquired-melee-combat',
+      'Процесс из трёх шагов. Начало (3 ОД): удар с одной помехой на попадание от действия; попадание даёт Комбо 1, промах заканчивает процесс. Набор (2 ОД): помех от действия столько, сколько текущее Комбо; попадание увеличивает Комбо на 1, промах заканчивает процесс. Завершение (2 ОД, при Комбо не меньше 2): +[Комбо] преимуществ от действия (потолок 3) и +⌊Комбо/2⌋ успехов размера броска (потолок 3) поверх правила 6 и 1; процесс заканчивается и при попадании, и при промахе. Комбо живёт только в этом процессе.',
+    catalogSection: 'abilities-acquired-melee-combat-speed',
     spaceId: 1,
     spec: {
       type: 'process',
@@ -4323,27 +4323,38 @@ const mockDevelopmentImportRaw: Rule[] = [
       grants: [],
       parent_ability_code: null,
       process: {
-        start_step_code: 'prep',
+        start_step_code: 'combo-start',
         transition: {
-          mode: 'chain',
-          max_shift: 1,
-          direction: 'both',
+          mode: 'custom',
+          edges: [
+            { from: 'combo-start', to: 'combo-build' },
+            { from: 'combo-build', to: 'combo-build' },
+            { from: 'combo-build', to: 'combo-finish' },
+          ],
         },
         failure: 'end_action',
         steps: [
           {
-            code: 'prep',
-            name: 'Подготовительная часть',
+            code: 'combo-start',
+            name: 'Начало комбо',
             description:
-              'Совершите удар с уменьшенной на размер силой и помехой на попадание от обстоятельств . Получите 1 Комбо до окончания процесса. В случае промаха процесс завершается.',
+              'Совершите удар с одной помехой на попадание от действия. При попадании Комбо становится 1. При промахе процесс заканчивается.',
+            interruption: { mode: 'normal' },
+            costs: [{ resource_code: 'action-points', amount: 3 }],
+          },
+          {
+            code: 'combo-build',
+            name: 'Набор комбо',
+            description:
+              'Совершите удар с числом помех на попадание от действия, равным текущему Комбо. При попадании Комбо увеличивается на 1. При промахе процесс заканчивается.',
             interruption: { mode: 'normal' },
             costs: [{ resource_code: 'action-points', amount: 2 }],
           },
           {
-            code: 'finish',
-            name: 'Часть окончания',
+            code: 'combo-finish',
+            name: 'Завершение комбо',
             description:
-              'Эта часть может быть использована только если вы использовали своим предыдущим действием Подготовительную часть этого процесса. Совершите один удар с увеличенной на [Комбо] точностью от обстоятельств , вплоть до +3. После чего процесс оканчивается. Если вы попали этим ударом и ваше следующее действие - атака ближнего боя, она будет стоить на 1ОД меньше, вплоть до 2ОД.',
+              'Доступно при Комбо не меньше 2. Удар получает +[Комбо] преимуществ от действия (потолок 3) и +⌊Комбо/2⌋ успехов размера броска (потолок 3) поверх правила 6 и 1. Процесс заканчивается.',
             interruption: { mode: 'normal' },
             costs: [{ resource_code: 'action-points', amount: 2 }],
           },
@@ -4353,8 +4364,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 14, 15, 64, 71],
     mechanicId: null,
     createdAt: 1786269600,
-    contentNote:
-      'Реализация Комбо, условий частей процесса и временных модификаторов обязательна; пока не исполняется Game.',
+    contentNote: 'Game: три шага Комбо на сессии, пакет закрытия от действия.',
   },
   {
     id: 341,
@@ -4362,8 +4372,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Раскрытие',
     description:
-      'Вы можете вместо Части окончания совершить любую атаку. Её первый удар или бросок получит +[Комбо] к точности от обстоятельств . После чего процесс оканчивается.',
-    catalogSection: 'abilities-acquired-melee-combat',
+      'При Комбо не меньше 2 вместо Завершения комбо можно объявить другое своё атакующее действие. На его первый удар садится пакет Завершения: преимущества и доп. успехи размера броска. Стоимость — ОД той атаки. Процесс заканчивается при попадании и при промахе.',
+    catalogSection: 'abilities-acquired-melee-combat-speed',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -4380,34 +4390,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 64],
     mechanicId: null,
     createdAt: 1786269600,
-    contentNote:
-      'Замена части окончания атакой/броском и бонус Комбо обязательны к реализации; пока не исполняются Game.',
-  },
-  {
-    id: 342,
-    code: 'neotvratimaya-kombinatsiya',
-    type: 'ability',
-    name: 'Неотвратимая комбинация',
-    description:
-      'Вы можете заменить бонус к точности Части окончания или её замены полностью или частично. Каждая обмененная 1 точности даёт одно преимущество на попадание от обстоятельств и даёт цели удара одну помеху на получение увечий от обстоятельств .',
-    catalogSection: 'abilities-acquired-melee-combat',
-    spaceId: 1,
-    spec: {
-      type: 'skill',
-      zones: {
-        or: {
-          kind: 'array',
-          levels_cost: [1],
-        },
-      },
-      requirements: [],
-      grants: [],
-      parent_ability_code: 'kombinatsiya-udarov',
-    },
-    keywordIds: [13, 64],
-    mechanicId: null,
-    createdAt: 1786269600,
-    contentNote: 'Обмен точности на преимущества и помехи обязателен к реализации; пока не исполняется Game.',
+    contentNote: 'Game: закрытие Комбо чужой атакой с пакетом Завершения на первый удар.',
   },
   {
     id: 343,
