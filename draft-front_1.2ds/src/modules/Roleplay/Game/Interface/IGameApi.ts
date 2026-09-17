@@ -201,6 +201,13 @@ export interface IGameApi {
     equipped: boolean,
     signal?: AbortSignal,
   ): Promise<GameCombatOverlay>;
+  setCombatItemOccupyHands(
+    gameId: number,
+    entityKey: CombatEntityKey,
+    itemId: number,
+    occupyHands: number,
+    signal?: AbortSignal,
+  ): Promise<GameCombatOverlay>;
   getQuickRolls(gameId: number, signal?: AbortSignal): Promise<Record<CombatEntityKey, string[]>>;
   addQuickRoll(gameId: number, entityKey: CombatEntityKey, ruleCode: string, signal?: AbortSignal): Promise<string[]>;
   removeQuickRoll(

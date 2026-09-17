@@ -141,6 +141,7 @@ export { weaponProficiencyService } from '@/modules/Roleplay/Character/Service/I
 export { editorStatViewsService } from '@/modules/Roleplay/Character/Service/Instance/editorStatViewsService';
 export { keywordExperienceService } from '@/modules/Roleplay/Character/Service/Instance/keywordExperienceService';
 export { itemWeaponProfilesService } from '@/modules/Roleplay/Character/Service/Instance/itemWeaponProfilesService';
+export { characterHandsService } from '@/modules/Roleplay/Character/Service/Instance/characterHandsService';
 export { itemMasteryService } from '@/modules/Roleplay/Character/Service/Instance/itemMasteryService';
 export { weaponAttackRangeService } from '@/modules/Roleplay/Character/Service/Instance/weaponAttackRangeService';
 export { characterChatRulesContextService } from '@/modules/Roleplay/Character/Service/Instance/characterChatRulesContextService';

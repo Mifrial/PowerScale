@@ -30,6 +30,9 @@ export class ComboProcessService {
     if (!session) {
       return spec.steps.filter((step) => step.code === startCode);
     }
+    if (session.currentStepStatus === 'pending') {
+      return spec.steps.filter((step) => step.code === session.currentStepCode);
+    }
     const available = processSessionService.availableSteps(spec, session.currentStepCode);
     const pending =
       session.currentStepStatus === 'pending'

@@ -645,16 +645,56 @@ describe('mockDevelopmentImport (S14)', () => {
       expect(byCode.get(code)?.catalogSection, code).toBe(
         ['sinkhronnaya-ataka', 'sdvoennyy-udar', 'mnozhestvo-ruk', 'mnozhestvo-udarov'].includes(code)
           ? 'abilities-acquired-melee-combat-quantity'
-          : ['razmashistyy-udar', 'tolkayuschiy-udar', 'silovoy-udar', 'shirokiy-udar'].includes(code)
+          : [
+                'razmashistyy-udar',
+                'yarostnyy-ryvok',
+                'udvoennaya-mosch',
+                'tolkayuschiy-udar',
+                'silovoy-udar',
+                'shirokiy-udar',
+              ].includes(code)
             ? 'abilities-acquired-melee-combat-power'
             : 'abilities-acquired-melee-combat-other',
       );
     }
     expect(byCode.get('mnozhestvo-udarov')?.description).toContain('3 ОД');
     expect(byCode.get('mnozhestvo-udarov')?.description).toContain('2 ОД');
-    expect(byCode.get('razmashistyy-udar')?.description).not.toContain(' *');
+    expect(byCode.get('razmashistyy-udar')?.catalogSection).toBe('abilities-acquired-melee-combat-power');
+    expect(byCode.get('yarostnyy-ryvok')?.catalogSection).toBe('abilities-acquired-melee-combat-power');
+    expect(byCode.get('udvoennaya-mosch')?.catalogSection).toBe('abilities-acquired-melee-combat-power');
     expect(byCode.get('sinkhronnaya-ataka')?.contentNote).toContain('обязательны');
-    expect(byCode.get('shirokiy-udar')?.contentNote).toContain('обязательны');
+    expect(byCode.get('silovoy-udar')?.spec).toMatchObject({
+      type: 'action',
+      action_effects: [{ type: 'current_action_attack_characteristic_from_success_rating', floor_div: 2, cap: 3 }],
+    });
+    expect(abilitySpec('udvoennaya-mosch')?.action_effects).toEqual([
+      {
+        type: 'current_action_attack_characteristic_modifier',
+        delta: 1,
+        scope: { components: ['strike'], hit_count: 1 },
+        min_occupy_hands: 2,
+        damage_type_codes: ['slashing', 'blunt'],
+      },
+    ]);
+    expect(abilitySpec('yarostnyy-ryvok')?.action_effects).toEqual([
+      {
+        type: 'optional_after_strike_check',
+        check_code: 'check-willpower',
+        difficulty: 3,
+        skip_parent_pending: true,
+        self_damage: { size_delta: -1, damage_type_code: 'blunt', internal: true },
+      },
+    ]);
+    expect(byCode.get('tolkayuschiy-udar')?.spec).toMatchObject({
+      type: 'action',
+      push: {
+        pool: 'weapon_damage',
+        damage: 'weapon_times_sr',
+        profiles: 'slashing_or_blunt_strike',
+        posture_rating_divisor_by_damage_type: { slashing: 2 },
+      },
+    });
+    expect(byCode.get('tolkayuschiy-udar')?.contentNote).toBeUndefined();
   });
 
   it('Пачка 21 размещена в ближнем бою и отмечает обязательный runtime', () => {

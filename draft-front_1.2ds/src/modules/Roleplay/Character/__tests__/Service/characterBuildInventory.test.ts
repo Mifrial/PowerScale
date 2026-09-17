@@ -203,6 +203,23 @@ describe('CharacterBuildService · инвентарь', () => {
 
       expect(service.toggleItemEquipped(current, 1, rules)).toBe(current);
     });
+
+    it('не экипирует второй двуручник, если руки заняты', () => {
+      const great = itemRule('great-sword', 'Двуруч', 10, {
+        occupy_hands: { min: 2, max: 2 },
+        weapon: { min_strength: null, block_profile: null, weapon_profiles: [] },
+      });
+      const catalog = [...rules, great];
+      const current = {
+        ...build(100),
+        inventory: [
+          { id: 1, ruleCode: great.code, quantity: 1, equipped: true, occupyHands: 2 },
+          { id: 2, ruleCode: great.code, quantity: 1, equipped: false },
+        ],
+      };
+
+      expect(service.toggleItemEquipped(current, 2, catalog)).toBe(current);
+    });
   });
 
   describe('resetInventory (R2)', () => {

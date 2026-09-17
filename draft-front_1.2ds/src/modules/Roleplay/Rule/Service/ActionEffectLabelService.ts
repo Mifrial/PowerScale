@@ -1,7 +1,15 @@
 import type { ActionEffect } from '@/modules/Roleplay/Rule/Dto/Ability/ActionEffect';
+import { DAMAGE_TYPE_FORMS } from '@/modules/Roleplay/Rule/Constant/DAMAGE_TYPE_FORMS';
 
 export class ActionEffectLabelService {
-  describe(effect: ActionEffect): string {
+  describe(effect: ActionEffect, sourceLabel?: string): string {
+    const body = this.body(effect);
+    const source = sourceLabel ?? this.defaultSource(effect);
+
+    return source ? `${body} (${source})` : body;
+  }
+
+  private body(effect: ActionEffect): string {
     if (effect.type === 'current_action_attack_accuracy') {
       return `${effect.delta > 0 ? '+' : ''}${effect.delta} к точности текущего удара`;
     }
@@ -12,8 +20,16 @@ export class ActionEffectLabelService {
           : effect.scope.hit_count === 1
             ? 'удара'
             : `первых ${effect.scope.hit_count} ударов`;
+      const hands = effect.min_occupy_hands === undefined ? '' : `, если оружие в ${effect.min_occupy_hands}+ руках`;
+      const types =
+        effect.damage_type_codes && effect.damage_type_codes.length > 0
+          ? ` (${effect.damage_type_codes.map((code) => this.damageTypeLabel(code)).join(', ')})`
+          : '';
 
-      return `${effect.delta > 0 ? '+' : ''}${effect.delta} к силе текущего ${hitCount}`;
+      return `${effect.delta > 0 ? '+' : ''}${effect.delta} к силе текущего ${hitCount}${hands}${types}`;
+    }
+    if (effect.type === 'current_action_attack_characteristic_from_success_rating') {
+      return `+⌊РУ/${effect.floor_div}⌋ к силе удара от действия, вплоть до +${effect.cap}`;
     }
     if (effect.type === 'current_action_check_modifier') {
       return `${this.deltaLabel(effect.delta)} к текущим ${effect.check_codes.map((code) => this.checkLabel(code)).join(', ')}`;
@@ -42,12 +58,39 @@ export class ActionEffectLabelService {
         ? `накладывает состояние «${effect.state_code}» (${effect.amount})`
         : `накладывает состояние «${effect.state_code}»`;
     }
+    if (effect.type === 'optional_after_strike_check') {
+      const skip = effect.skip_parent_pending ? ', без помехи действия' : '';
+      const internal = effect.self_damage.internal ? 'внутреннего ' : '';
+
+      return `после удара проверка ${this.checkName(effect.check_code)} против ${effect.difficulty}: успех — ${internal}${this.damageTypeLabel(effect.self_damage.damage_type_code)} [сила удара]${effect.self_damage.size_delta < 0 ? '↓' : ''}${skip}`;
+    }
 
     return `${this.deltaLabel(effect.delta)} к ${effect.check_codes.map((code) => this.checkLabel(code)).join(', ')} до траты ${effect.amount} ${this.resourceLabel(effect.resource_code)}`;
   }
 
+  private defaultSource(effect: ActionEffect): string | null {
+    if (effect.type === 'apply_state') return null;
+    if (effect.type === 'optional_after_strike_check') return 'опция';
+    if (
+      effect.type === 'current_action_check_modifier' ||
+      effect.type === 'after_action_until_resource_spent_check_modifier'
+    ) {
+      return 'обстоятельства';
+    }
+
+    return 'действие';
+  }
+
+  private damageTypeLabel(code: string): string {
+    return DAMAGE_TYPE_FORMS[code]?.genitive ?? code;
+  }
+
   private deltaLabel(delta: number): string {
     return delta < 0 ? `${Math.abs(delta)} помехи` : `${delta} преимущества`;
+  }
+
+  private checkName(code: string): string {
+    return { 'check-willpower': 'Волю', 'check-hit': 'попадание' }[code] ?? code;
   }
 
   private checkLabel(code: string): string {

@@ -96,6 +96,7 @@ describe('itemParamsView (параметры предмета)', () => {
       resistanceLabels: [],
       maxAgilityLabel: null,
       strengthPenaltyLabel: null,
+      occupyHandsLabel: '1',
       defenseLines: [],
     });
   });

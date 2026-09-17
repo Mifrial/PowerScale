@@ -1387,7 +1387,7 @@ const mockDevelopmentImportRaw: Rule[] = [
       action_components: [{ type: 'resource', resource_code: 'action-points', amount: 8, label: 'Действие' }],
       parent_ability_code: null,
     },
-    keywordIds: [14, 59],
+    keywordIds: [13, 14, 59],
     mechanicId: null,
     createdAt: 1786269600,
   },
@@ -1459,7 +1459,7 @@ const mockDevelopmentImportRaw: Rule[] = [
       action_components: [{ type: 'resource', resource_code: 'action-points', amount: 2, label: 'Действие' }],
       parent_ability_code: null,
     },
-    keywordIds: [14],
+    keywordIds: [13, 14],
     mechanicId: null,
     createdAt: 1786269600,
   },
@@ -4594,7 +4594,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Размашистый удар',
     description:
       'Совершите удар с увеличенной на 2 Силой и помехой на попадание от обстоятельств. Помеха сохраняется для всех проверок на попадание, включая проверки по вам, пока вы не потратите 2 ОД.',
-    catalogSection: 'abilities-acquired-melee-combat',
+    catalogSection: 'abilities-acquired-melee-combat-power',
     spaceId: 1,
     spec: {
       type: 'action',
@@ -4646,7 +4646,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     name: 'Яростный рывок',
     description:
       'Вы можете после этого удара пройти проверку на Силу воли со сложностью 3, в случае успеха вы получаете [Сила удара]↓ внутреннего дробящего урона и не получаете помеху после удара.',
-    catalogSection: 'abilities-acquired-melee-combat',
+    catalogSection: 'abilities-acquired-melee-combat-power',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -4659,12 +4659,19 @@ const mockDevelopmentImportRaw: Rule[] = [
       requirements: [],
       grants: [],
       parent_ability_code: 'razmashistyy-udar',
+      action_effects: [
+        {
+          type: 'optional_after_strike_check',
+          check_code: 'check-willpower',
+          difficulty: 3,
+          skip_parent_pending: true,
+          self_damage: { size_delta: -1, damage_type_code: 'blunt', internal: true },
+        },
+      ],
     },
     keywordIds: [13, 64],
     mechanicId: null,
     createdAt: 1786269600,
-    contentNote:
-      'Проверка Воли, внутренний дробящий урон и снятие помехи обязательны к реализации; пока не исполняются Game.',
   },
   {
     id: 351,
@@ -4672,8 +4679,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Удвоенная мощь',
     description:
-      'Если при рубящем или дробящем ударе действием Силовой удар вы держите оружие в двух или более руках, то ваша Сила для этого удара увеличена ещё на 1.',
-    catalogSection: 'abilities-acquired-melee-combat',
+      'Если при рубящем или дробящем ударе действием Размашистый удар вы держите оружие в двух или более руках, то ваша Сила для этого удара увеличена ещё на 1.',
+    catalogSection: 'abilities-acquired-melee-combat-power',
     spaceId: 1,
     spec: {
       type: 'skill',
@@ -4686,12 +4693,19 @@ const mockDevelopmentImportRaw: Rule[] = [
       requirements: [],
       grants: [],
       parent_ability_code: 'razmashistyy-udar',
+      action_effects: [
+        {
+          type: 'current_action_attack_characteristic_modifier',
+          delta: 1,
+          scope: { components: ['strike'], hit_count: 1 },
+          min_occupy_hands: 2,
+          damage_type_codes: ['slashing', 'blunt'],
+        },
+      ],
     },
     keywordIds: [13, 64],
     mechanicId: null,
     createdAt: 1786269600,
-    contentNote:
-      'Дополнительная Сила при Силовом ударе и оружии в нескольких руках обязательна к реализации; пока не исполняется Game.',
   },
   {
     id: 352,
@@ -4699,7 +4713,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Толкающий удар',
     description:
-      'Совершите Толчок по цели своим оружием, выбрав рубящий или дробящий урон. РУ вашей проверки на толчок снижена на 1, однако такой толчок наносит урон как обычный удар: [Урон * РУ].',
+      'Совершите Толчок по цели своим оружием, выбрав рубящий или дробящий урон. Проверка толчка идёт от чистого урона оружия, не от Силы. Такой толчок наносит урон как обычный удар: [Урон × РУ]. Для отброса и Неустойчивости рубящий удар берёт половину РУ; дробящий — полный РУ.',
     catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
@@ -4728,22 +4742,27 @@ const mockDevelopmentImportRaw: Rule[] = [
         {
           type: 'resource',
           resource_code: 'action-points',
-          amount: 3,
+          amount: 4,
           label: 'Действие',
         },
       ],
+      push: {
+        pool: 'weapon_damage',
+        damage: 'weapon_times_sr',
+        profiles: 'slashing_or_blunt_strike',
+        posture_rating_divisor_by_damage_type: { slashing: 2 },
+      },
     },
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,
     createdAt: 1786269600,
-    contentNote: 'Толчок оружием, снижение РУ и урон обязательны к реализации; пока не исполняются Game.',
   },
   {
     id: 353,
     code: 'silovoy-udar',
     type: 'ability',
     name: 'Силовой удар',
-    description: 'Совершите один удар по цели с +[РУ атаки]↓ к силе удара от обстоятельств, вплоть до +3.',
+    description: 'Совершите один удар по цели. Сила урона +⌊РУ атаки / 2⌋ от действия, вплоть до +3.',
     catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
@@ -4786,11 +4805,18 @@ const mockDevelopmentImportRaw: Rule[] = [
           label: 'Действие',
         },
       ],
+      action_effects: [
+        {
+          type: 'current_action_attack_characteristic_from_success_rating',
+          floor_div: 2,
+          cap: 3,
+          scope: { components: ['strike'], hit_count: 1 },
+        },
+      ],
     },
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,
     createdAt: 1786269600,
-    contentNote: 'Расчёт бонуса к Силе удара от РУ атаки обязателен к реализации; пока не исполняется Game.',
   },
   {
     id: 354,
@@ -4847,8 +4873,6 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,
     createdAt: 1786269600,
-    contentNote:
-      'Атака по нескольким целям и помехи за дополнительные цели обязательны к реализации; пока не исполняются Game.',
   },
   {
     id: 355,

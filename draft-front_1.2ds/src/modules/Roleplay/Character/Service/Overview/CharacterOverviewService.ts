@@ -50,7 +50,9 @@ import { stateRuntimeEffectsService } from '@/modules/Roleplay/Character/Service
 import { liveActionPointsLimitService } from '@/modules/Roleplay/Character/Service/Instance/liveActionPointsLimitService';
 import { racialInnateGearService } from '@/modules/Roleplay/Character/Service/Instance/racialInnateGearService';
 import { weaponAttackRangeService } from '@/modules/Roleplay/Character/Service/Instance/weaponAttackRangeService';
+import { characterHandsService } from '@/modules/Roleplay/Character/Service/Instance/characterHandsService';
 import { DEFAULT_FALLOFF } from '@/modules/Roleplay/Character/Constant/Weapon/DEFAULT_FALLOFF';
+import { CHARACTERISTIC_STRENGTH_CODE } from '@/modules/Roleplay/Rule/Constant/Characteristic/CHARACTERISTIC_STRENGTH_CODE';
 import { WEAPON_PROFILE_LABELS } from '@/modules/Roleplay/Character/Constant/WEAPON_PROFILE_LABELS';
 import { formulaLabel } from '@/modules/Roleplay/Character/Utils/formulaLabel';
 import type { InventoryItem } from '@/modules/Roleplay/Character/Dto/InventoryItem';
@@ -79,6 +81,7 @@ export class CharacterOverviewService {
     private readonly liveActionPoints = liveActionPointsLimitService,
     private readonly racialInnateGear = racialInnateGearService,
     private readonly weaponAttackRange = weaponAttackRangeService,
+    private readonly hands = characterHandsService,
   ) {}
 
   build(version: CharacterVersion, rules: Rule[]): CharacterOverview {
@@ -1135,13 +1138,15 @@ export class CharacterOverviewService {
           (atDistance.profileIndex === undefined || atDistance.profileIndex === profileIndex)
             ? atDistance.distanceIpari
             : null;
+        const occupyHands =
+          profile.type === 'shoot' ? this.hands.actionOccupy(item, spec) : this.hands.restOccupy(item, spec);
         attacks.push(
           this.buildAttack(
             item.ruleCode,
             rule?.name ?? item.ruleCode,
             profile,
             reference,
-            context,
+            this.withGripStrength(context, this.hands.gripBonus(occupyHands)),
             distanceIpari,
             profileIndex,
             atDistance?.actionCharacteristicModifier ?? 0,
@@ -1253,5 +1258,18 @@ export class CharacterOverviewService {
 
   private isCharacteristicSpec(spec: RuleSpec | undefined): spec is CharacteristicSpec {
     return spec !== undefined && 'type' in spec && spec.type === 'characteristic';
+  }
+
+  private withGripStrength(context: FormulaContext, grip: number): FormulaContext {
+    if (!grip) return context;
+    const strength = context.characteristicValues.get(CHARACTERISTIC_STRENGTH_CODE);
+    if (!strength) return context;
+    const characteristicValues = new Map(context.characteristicValues);
+    characteristicValues.set(
+      CHARACTERISTIC_STRENGTH_CODE,
+      new DimensionalNumber(strength).modify(grip, CHARACTERISTIC_BASE_RANGE).value,
+    );
+
+    return { ...context, characteristicValues };
   }
 }

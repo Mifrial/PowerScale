@@ -18,7 +18,11 @@ import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/Dimension
 import type { ISpatialResolver } from '@/modules/Roleplay/Game/Interface/ISpatialResolver';
 import { ActionOperationResolutionService } from '@/modules/Roleplay/Game/Service/ActionOperationResolutionService';
 import { MovementStateService } from '@/modules/Roleplay/Game/Service/MovementStateService';
+import { postureStateService } from '@/modules/Roleplay/Game/Service/Instance/postureStateService';
+import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
 import { characterOverviewService } from '@/modules/Roleplay/Character/init';
+import { LYING_STATE_CODE, UNSTABLE_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
+import { addFlagState, removeStatesByCodes } from '@/modules/Roleplay/Game/Utils/combatStateWrite';
 import { movementContextService } from '@/modules/Roleplay/Character/init';
 import type { IGameApi } from '@/modules/Roleplay/Game/Interface/IGameApi';
 import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
@@ -86,7 +90,7 @@ export class ActionExecutionService {
       baseCost: input.actionPointCost,
     });
     const nextResource = attackDamageService.spendActionPoints(resource.current, input.actionPointCost);
-    const overlay = await this.resolveGameApi().setCombatResource(
+    let overlay = await this.resolveGameApi().setCombatResource(
       input.gameId,
       input.entityKey,
       resource.ruleCode,
@@ -129,6 +133,7 @@ export class ActionExecutionService {
       nextSpeed = mechanicContext.currentSpeed as CurrentSpeed;
     }
     await this.resolveGameApi().setCurrentSpeed(input.gameId, input.entityKey, nextSpeed);
+    overlay = await this.applyPostureAndStability(input, overlay);
     if (input.chatId !== null) {
       await input.sendChat(
         formatAttackActionMessage({
@@ -145,5 +150,62 @@ export class ActionExecutionService {
     }
 
     return { overlay, effects, spent: input.actionPointCost, resolution };
+  }
+
+  private async applyPostureAndStability(
+    input: {
+      gameId: number;
+      entityKey: CombatEntityKey;
+      version: CharacterVersion;
+      rule: Rule;
+      action: CombatActionOption;
+      rules: Rule[];
+      operations?: ActionOperation[];
+    },
+    overlay: GameCombatOverlay,
+  ): Promise<GameCombatOverlay> {
+    let version = combatOverlayService.mergeCombatOverlay(input.version, overlay);
+    let nextOverlay = overlay;
+    if (postureStateService.shouldToggleLying(input.operations ?? input.action.operations)) {
+      const next = postureStateService.nextAfterStandUp(version);
+      const removed = await removeStatesByCodes(
+        this.resolveGameApi(),
+        input.gameId,
+        input.entityKey,
+        version,
+        input.rules,
+        next.removeCodes,
+      );
+      if (removed) {
+        nextOverlay = removed;
+        version = combatOverlayService.mergeCombatOverlay(version, removed);
+      }
+      if (next.addLying) {
+        const added = await addFlagState(
+          this.resolveGameApi(),
+          input.gameId,
+          input.entityKey,
+          input.rules,
+          LYING_STATE_CODE,
+        );
+        if (added) {
+          nextOverlay = added;
+          version = combatOverlayService.mergeCombatOverlay(version, added);
+        }
+      }
+    }
+    if (postureStateService.isRecoverStability(input.rule.code)) {
+      const removed = await removeStatesByCodes(
+        this.resolveGameApi(),
+        input.gameId,
+        input.entityKey,
+        version,
+        input.rules,
+        [UNSTABLE_STATE_CODE],
+      );
+      if (removed) nextOverlay = removed;
+    }
+
+    return nextOverlay;
   }
 }

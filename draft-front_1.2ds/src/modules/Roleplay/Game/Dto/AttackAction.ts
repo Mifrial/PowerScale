@@ -11,5 +11,5 @@ export interface AttackAction {
   reactionMode: 'simultaneous';
   totalOdCost: number;
   /** Живой процесс Комбо закрывается этой атакой, не шагом Завершения. */
-  comboClose?: ProcessActionContext;
+  optionalChildAbilityCodes?: string[];
 }

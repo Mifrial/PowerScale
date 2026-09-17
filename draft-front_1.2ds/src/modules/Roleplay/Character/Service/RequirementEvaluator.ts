@@ -54,7 +54,11 @@ export class RequirementEvaluator {
         const label = `«${this.abilityName(requirement.ability_code, snapshot)}» уровня ${minLevel}`;
         if (domainContext !== undefined) {
           const instances = snapshot.abilityInstances?.get(requirement.ability_code) ?? [];
-          if (instances.some((instance) => this.instanceMeetsDomain(instance, domainContext, snapshot, minLevel, requirement.ability_code))) {
+          if (
+            instances.some((instance) =>
+              this.instanceMeetsDomain(instance, domainContext, snapshot, minLevel, requirement.ability_code),
+            )
+          ) {
             return null;
           }
 

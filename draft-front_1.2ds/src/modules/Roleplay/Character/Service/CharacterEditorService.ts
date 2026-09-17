@@ -1251,13 +1251,10 @@ export class CharacterEditorService {
               const giftedFloor = instance.gifted ? this.nativeLanguage.giftedFloor(instance) : 0;
               const rawPaid = costs.slice(giftedFloor, instance.level).reduce((sum, cost) => sum + cost, 0);
               let paidCost =
-                this.magicStudyUnlock.paidCostOverride(
-                  spec,
-                  studyUnlocks,
-                  learnedStudy,
-                  instance.domainCode ?? null,
-                  { ruleCode: rule.code, domainCode: instance.domainCode ?? null },
-                ) ??
+                this.magicStudyUnlock.paidCostOverride(spec, studyUnlocks, learnedStudy, instance.domainCode ?? null, {
+                  ruleCode: rule.code,
+                  domainCode: instance.domainCode ?? null,
+                }) ??
                 this.magicPathStudyCost.instancePaid(
                   build,
                   rules,
@@ -1277,7 +1274,9 @@ export class CharacterEditorService {
                 build.abilities,
               );
               if (freeRungs > 0) {
-                const freeCost = costs.slice(0, Math.min(instance.level, freeRungs)).reduce((sum, cost) => sum + cost, 0);
+                const freeCost = costs
+                  .slice(0, Math.min(instance.level, freeRungs))
+                  .reduce((sum, cost) => sum + cost, 0);
                 paidCost = Math.max(0, paidCost - freeCost);
               }
 

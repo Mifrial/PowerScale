@@ -76,6 +76,7 @@ export const mockGameApi: IGameApi = {
   setCombatStateValue: mockCombatOverlays.setCombatStateValue,
   removeCombatState: mockCombatOverlays.removeCombatState,
   setCombatItemEquipped: mockCombatOverlays.setCombatItemEquipped,
+  setCombatItemOccupyHands: mockCombatOverlays.setCombatItemOccupyHands,
   getQuickRolls: mockQuickRolls.fetchQuickRolls,
   addQuickRoll: mockQuickRolls.addQuickRoll,
   removeQuickRoll: mockQuickRolls.removeQuickRoll,

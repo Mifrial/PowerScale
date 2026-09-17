@@ -7,6 +7,7 @@ import {
   setCombatStateValue,
   removeCombatState,
   setCombatItemEquipped,
+  setCombatItemOccupyHands,
   combatKey,
   combatOverlayHasChanges,
   getStoredCombatOverlay,
@@ -174,5 +175,17 @@ describe('mockGameCombatOverlays: экипировка', () => {
     const overlay = await setCombatItemEquipped(2, combatKey('npc', 5), item.id, false);
     expect(overlay.updatedAt).not.toBe('');
     expect(npc.version.inventory.find((entry) => entry.id === item.id)?.equipped).toBe(false);
+  });
+
+  it('setCombatItemOccupyHands для персонажа пишет occupyHands в overlay.sheet', async () => {
+    const version = getStoredCombatOverlay(2, charKey)?.sheet ?? versionOf()!;
+    const item = version.inventory[0];
+    expect(item).toBeDefined();
+    item.ruleCode = 'boevoy-posokh';
+    item.occupyHands = 1;
+    item.equipped = true;
+
+    const overlay = await setCombatItemOccupyHands(2, charKey, item.id, 2);
+    expect(overlay.sheet?.inventory.find((entry) => entry.id === item.id)?.occupyHands).toBe(2);
   });
 });

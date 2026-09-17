@@ -17,6 +17,16 @@ export type ActionEffect =
       type: 'current_action_attack_characteristic_modifier';
       delta: number;
       scope: AttackScope;
+      /** Минимум слотов рук на оружии; нет — без фильтра. */
+      min_occupy_hands?: number;
+      /** Типы урона профиля; нет или пусто — любой. */
+      damage_type_codes?: string[];
+    }
+  | {
+      type: 'current_action_attack_characteristic_from_success_rating';
+      floor_div: number;
+      cap: number;
+      scope: AttackScope;
     }
   | {
       type: 'current_action_check_modifier';
@@ -48,4 +58,16 @@ export type ActionEffect =
       type: 'apply_state';
       state_code: string;
       amount?: DimensionalNumberValue | number;
+    }
+  | {
+      /** Опция после удара: проверка, себе урон, снять pending родителя. */
+      type: 'optional_after_strike_check';
+      check_code: string;
+      difficulty: number;
+      skip_parent_pending: boolean;
+      self_damage: {
+        size_delta: number;
+        damage_type_code: string;
+        internal: boolean;
+      };
     };

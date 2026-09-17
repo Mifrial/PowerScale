@@ -23,6 +23,7 @@ import type { ItemSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpec';
 import type { ItemModifierSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierSpec';
 import type { InventoryItem } from '@/modules/Roleplay/Character/Dto/InventoryItem';
 import { itemModifierService } from '@/modules/Roleplay/Rule/init';
+import { characterHandsService } from '@/modules/Roleplay/Character/Service/Instance/characterHandsService';
 
 const props = withDefaults(
   defineProps<{
@@ -38,6 +39,7 @@ const props = withDefaults(
     ensureDraft?: () => void;
     /** Боевая карточка: экип через оверлей, без черновика редактора. */
     onToggleEquipped?: (itemId: number) => void;
+    onSetOccupyHands?: (itemId: number, occupyHands: number) => void;
     listHeight?: string;
   }>(),
   { variant: 'editor', canEdit: true, listHeight: 'calc(100vh - 300px)' },
@@ -451,6 +453,20 @@ function toggleEquipped(itemId: number): void {
   mutateBuild({ inventory: next.inventory });
 }
 
+function remainingHandsFor(itemId: number): number {
+  return characterHandsService.remainingHands(currentBuild().inventory, props.rules, itemId);
+}
+
+function setOccupyHands(itemId: number, occupyHands: number): void {
+  if (props.onSetOccupyHands) {
+    props.onSetOccupyHands(itemId, occupyHands);
+
+    return;
+  }
+  const next = characterBuildService.setItemOccupyHands(currentBuild(), itemId, occupyHands, props.rules);
+  mutateBuild({ inventory: next.inventory });
+}
+
 function applyOwnedModifiers(itemId: number, modifierRuleCodes: string[]): void {
   const next = characterBuildService.applyItemModifiers(
     currentBuild(),
@@ -634,11 +650,15 @@ watch(showWeaponSkills, (val) => {
           :show-purchase="variant === 'editor'"
           :allow-equip="variant === 'editor' || canEdit"
           :allow-ability-edit="variant === 'editor'"
+          :occupy-hands="ownedOf(item)?.occupyHands"
+          :available-hands="item.inventoryId !== null ? remainingHandsFor(item.inventoryId) : undefined"
+          :can-adjust-hands="(variant === 'editor' || canEdit) && item.rowKind === 'owned'"
           @update:open="(open) => setOpen(itemKey(item), open)"
           @buy="buy"
           @cancel="cancel"
           @cancel-instance="item.inventoryId !== null && cancelInstance(item.inventoryId)"
           @toggle-equipped="item.inventoryId !== null && toggleEquipped(item.inventoryId)"
+          @set-occupy-hands="(hands) => item.inventoryId !== null && setOccupyHands(item.inventoryId, hands)"
           @train="train"
           @open-skills="openWeaponSkills"
           @open-modifiers="item.inventoryId !== null && openModifiers(item.inventoryId)"

@@ -115,6 +115,14 @@ describe('AttackActionSourceService', () => {
     expect(attackActionSourceService.validateTargetCount(rule([64, 71]), ['a', 'a'])).toContain('1');
   });
 
+  it('wide даёт помеху за каждую цель после первой', () => {
+    expect(attackActionSourceService.extraTargetHitAdvantage(1)).toBe(0);
+    expect(attackActionSourceService.extraTargetHitAdvantage(3)).toBe(-2);
+    expect(attackActionSourceService.extraTargetHitModifiers(3)).toEqual([
+      { source_code: 'circumstances', source_label: 'Обстоятельства', delta: -2 },
+    ]);
+  });
+
   it('не ставит подготовку в список атак даже при владении', () => {
     const strike = {
       ...rule([64, 71]),

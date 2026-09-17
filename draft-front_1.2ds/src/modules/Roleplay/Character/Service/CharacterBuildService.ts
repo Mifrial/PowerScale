@@ -17,6 +17,7 @@ import { characterEditorService } from '@/modules/Roleplay/Character/Service/Ins
 import { ethnicityTreeService, itemModifierService, scriptLiteracyService } from '@/modules/Roleplay/Rule/init';
 import { weaponProficiencyService } from '@/modules/Roleplay/Character/Service/Instance/weaponProficiencyService';
 import { racialInnateGearService } from '@/modules/Roleplay/Character/Service/Instance/racialInnateGearService';
+import { characterHandsService } from '@/modules/Roleplay/Character/Service/Instance/characterHandsService';
 import { magicStudyUnlockService } from '@/modules/Roleplay/Character/Service/Instance/magicStudyUnlockService';
 import { magicPathStudyCostService } from '@/modules/Roleplay/Character/Service/Instance/magicPathStudyCostService';
 import { knowledgeInstanceService } from '@/modules/Roleplay/Character/Service/Instance/knowledgeInstanceService';
@@ -39,6 +40,7 @@ export class CharacterBuildService {
     private readonly knowledge = knowledgeInstanceService,
     private readonly nativeLanguage = nativeLanguageService,
     private readonly ethnicities = ethnicityTreeService,
+    private readonly hands = characterHandsService,
   ) {}
 
   /**
@@ -746,17 +748,20 @@ export class CharacterBuildService {
     return { ...build, inventory, money: build.money - (newCost - oldCost) };
   }
 
-  /** Тумблер экипировки предмета (R3): без жёстких слотов. */
+  /** Тумблер экипировки предмета: слоты рук, innate не снимается. */
   toggleItemEquipped(build: CharacterBuild, itemId: number, rules: Rule[] = []): CharacterBuild {
     const target = build.inventory.find((item) => item.id === itemId);
-    if (target?.ruleCode) {
-      const rule = rules.find((entry) => entry.code === target.ruleCode);
-      const spec = rule?.type === 'item' ? (rule.spec as ItemSpec | undefined) : undefined;
-      if (spec?.innate) return build;
-    }
-    const inventory = build.inventory.map((item) =>
-      item.id === itemId ? { ...item, equipped: !item.equipped } : item,
-    );
+    if (!target) return build;
+    const inventory = this.hands.withSetEquipped(build.inventory, itemId, !target.equipped, rules);
+    if (inventory === build.inventory) return build;
+
+    return { ...build, inventory };
+  }
+
+  /** Число слотов рук на предмете (в диапазоне min–max спеки). */
+  setItemOccupyHands(build: CharacterBuild, itemId: number, occupyHands: number, rules: Rule[] = []): CharacterBuild {
+    const inventory = this.hands.withOccupyHands(build.inventory, itemId, occupyHands, rules);
+    if (inventory === build.inventory) return build;
 
     return { ...build, inventory };
   }

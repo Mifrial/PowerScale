@@ -901,6 +901,22 @@ async function toggleEquipped(item: InventoryItemOverview): Promise<void> {
   }
 }
 
+async function setOccupyHands(itemId: number, occupyHands: number): Promise<void> {
+  if (!model.value || !model.value.canEdit) return;
+  error.value = null;
+  try {
+    const result = await getGameApi().setCombatItemOccupyHands(
+      props.gameId,
+      model.value.entityKey,
+      itemId,
+      occupyHands,
+    );
+    applyOverlay(result);
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'Не удалось изменить занятость рук';
+  }
+}
+
 function onSheetToggleEquipped(itemId: number): void {
   const item = overview.value?.inventory.find((entry) => entry.id === itemId);
   if (item) void toggleEquipped(item);
@@ -1225,6 +1241,7 @@ function onSheetToggleEquipped(itemId: number): void {
               @toggle-attacks="toggleSection('attacks')"
               @launch="launchHit"
               @toggle-equipped="onSheetToggleEquipped"
+              @set-occupy-hands="setOccupyHands"
             />
           </div>
         </v-window-item>
@@ -1266,6 +1283,7 @@ function onSheetToggleEquipped(itemId: number): void {
               :space-id="spaceId"
               :rules-revision="rulesRevision"
               @toggle-equipped="onSheetToggleEquipped"
+              @set-occupy-hands="setOccupyHands"
             />
           </div>
         </v-window-item>

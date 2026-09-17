@@ -41,6 +41,132 @@ describe('ActionEffectService', () => {
     ).toEqual({ base: 4, size: 1 });
   });
 
+  it('добавляет силу ребёнка при руках и типе урона', () => {
+    const parent = {
+      id: null,
+      code: 'parent-sweep',
+      type: 'ability',
+      name: 'Размах',
+      description: '',
+      spaceId: 1,
+      keywordIds: [],
+      mechanicId: null,
+      createdAt: 1767225600,
+      spec: {
+        type: 'action',
+        zones: {},
+        requirements: [],
+        grants: [],
+        parent_ability_code: null,
+        action_components: [],
+        action_effects: [
+          {
+            type: 'current_action_attack_characteristic_modifier',
+            delta: 2,
+            scope: { components: ['strike'], hit_count: 1 },
+          },
+        ],
+      },
+    } as Rule;
+    const child = {
+      id: null,
+      code: 'child-power',
+      type: 'ability',
+      name: 'Мощь',
+      description: '',
+      spaceId: 1,
+      keywordIds: [],
+      mechanicId: null,
+      createdAt: 1767225600,
+      spec: {
+        type: 'skill',
+        zones: {},
+        requirements: [],
+        grants: [],
+        parent_ability_code: 'parent-sweep',
+        action_effects: [
+          {
+            type: 'current_action_attack_characteristic_modifier',
+            delta: 1,
+            scope: { components: ['strike'], hit_count: 1 },
+            min_occupy_hands: 2,
+            damage_type_codes: ['slashing', 'blunt'],
+          },
+        ],
+      },
+    } as Rule;
+    const extra = actionEffectService.childActionEffects('parent-sweep', ['child-power'], [parent, child]);
+
+    expect(
+      actionEffectService.currentAttackActionCharacteristicModifier(parent, 'strike', 1, {
+        occupyHands: 1,
+        damageTypeCode: 'slashing',
+        extraEffects: extra,
+      }),
+    ).toBe(2);
+    expect(
+      actionEffectService.currentAttackActionCharacteristicModifier(parent, 'strike', 1, {
+        occupyHands: 2,
+        damageTypeCode: 'piercing',
+        extraEffects: extra,
+      }),
+    ).toBe(2);
+    expect(
+      actionEffectService.currentAttackActionCharacteristicModifier(parent, 'strike', 1, {
+        occupyHands: 2,
+        damageTypeCode: 'slashing',
+        extraEffects: extra,
+      }),
+    ).toBe(3);
+    expect(actionEffectService.childActionEffects('parent-sweep', [], [parent, child])).toEqual([]);
+
+    const actor = {
+      abilities: [{ ruleCode: 'child-power', level: 1 }],
+      inventory: [{ id: 1, ruleCode: 'staff', quantity: 1, equipped: true, occupyHands: 2 }],
+    };
+    const staff = {
+      id: null,
+      code: 'staff',
+      type: 'item',
+      name: 'staff',
+      description: '',
+      spaceId: 1,
+      keywordIds: [],
+      mechanicId: null,
+      createdAt: 1767225600,
+      spec: {
+        category: 'equipment',
+        cost_gm: 1,
+        weight: null,
+        special_rule_codes: [],
+        occupy_hands: { min: 1, max: 2 },
+        weapon: { min_strength: null, block_profile: null, weapon_profiles: [] },
+      },
+    } as Rule;
+    expect(
+      actionEffectService.describeForLaunch(
+        parent,
+        actor,
+        { itemRuleCode: 'staff', profileType: 'strike', damageTypeCode: 'slashing' },
+        [parent, child, staff],
+      ),
+    ).toEqual([
+      '+2 к силе текущего удара (действие)',
+      '+1 к силе текущего удара, если оружие в 2+ руках (рубящего урона, дробящего урона) (Мощь)',
+      '+2 к силе удара (удержание)',
+    ]);
+    expect(
+      actionEffectService.effectsChatSuffix(
+        parent,
+        actor,
+        { itemRuleCode: 'staff', profileType: 'strike', damageTypeCode: 'slashing' },
+        [parent, child, staff],
+      ),
+    ).toBe(
+      '\nЭффекты: +2 к силе текущего удара (действие); +1 к силе текущего удара, если оружие в 2+ руках (рубящего урона, дробящего урона) (Мощь); +2 к силе удара (удержание)',
+    );
+  });
+
   it('applies next-action cost and consumes the effect on an attack', () => {
     const pending: PendingActionEffect[] = [
       {
@@ -141,7 +267,7 @@ describe('ActionEffectService', () => {
         scope: { components: ['strike'], hit_count: 1 },
       }),
     ).toBe(
-      '-3 к Ближнему бою от Ловкости(вплоть до 0 от Ловкости) у цели для первого удара следующей атаки, если итоговая стоимость атаки не более 2 ОД',
+      '-3 к Ближнему бою от Ловкости(вплоть до 0 от Ловкости) у цели для первого удара следующей атаки, если итоговая стоимость атаки не более 2 ОД (действие)',
     );
   });
 
@@ -185,6 +311,40 @@ describe('ActionEffectService', () => {
       { source_code: 'circumstances', source_label: 'Обстоятельства', delta: -2 },
     ]);
     expect(actionEffectService.checkAdvantageModifiers(pending, 'hit')).toEqual([]);
+  });
+
+  it('считает бонус Силы урона от РУ с потолком', () => {
+    const rule = {
+      id: null,
+      code: 'power-strike',
+      type: 'ability',
+      name: 'Силовой',
+      description: '',
+      spaceId: 1,
+      keywordIds: [],
+      mechanicId: null,
+      createdAt: 1767225600,
+      spec: {
+        type: 'action',
+        zones: {},
+        requirements: [],
+        grants: [],
+        parent_ability_code: null,
+        action_components: [],
+        action_effects: [
+          {
+            type: 'current_action_attack_characteristic_from_success_rating',
+            floor_div: 2,
+            cap: 3,
+            scope: { components: ['strike'], hit_count: 1 },
+          },
+        ],
+      },
+    } as Rule;
+
+    expect(actionEffectService.successRatingAttackCharacteristicModifier(rule, 5, 'strike')).toBe(2);
+    expect(actionEffectService.successRatingAttackCharacteristicModifier(rule, 8, 'strike')).toBe(3);
+    expect(actionEffectService.successRatingAttackCharacteristicModifier(rule, 1, 'strike')).toBe(0);
   });
 
   it('consumes a duration effect by spending its resource', () => {

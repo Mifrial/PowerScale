@@ -217,12 +217,52 @@ export class RuleValidationService {
         });
       }
       const actionEffects = 'action_effects' in spec ? (spec.action_effects ?? []) : [];
-      if (actionEffects.length > 0 && type !== 'action' && type !== 'spell') {
+      if (actionEffects.length > 0 && type !== 'action' && type !== 'spell' && type !== 'skill') {
         errors.push({
           ruleName: rule.name,
           ruleCode: rule.code,
-          message: 'временные эффекты действия доступны для действия, включая заклинание',
+          message: 'временные эффекты действия доступны действию, заклинанию и навыку',
         });
+      }
+      const push = 'push' in spec ? spec.push : undefined;
+      if (push) {
+        if (type !== 'action') {
+          errors.push({
+            ruleName: rule.name,
+            ruleCode: rule.code,
+            message: 'спека толчка доступна только действию',
+          });
+        }
+        if (push.pool !== 'strength' && push.pool !== 'weapon_damage') {
+          errors.push({
+            ruleName: rule.name,
+            ruleCode: rule.code,
+            message: 'пул толчка должен быть «strength» или «weapon_damage»',
+          });
+        }
+        if (push.damage !== 'crush_from_strength' && push.damage !== 'weapon_times_sr') {
+          errors.push({
+            ruleName: rule.name,
+            ruleCode: rule.code,
+            message: 'урон толчка должен быть «crush_from_strength» или «weapon_times_sr»',
+          });
+        }
+        if (push.profiles !== 'hands_or_shield' && push.profiles !== 'slashing_or_blunt_strike') {
+          errors.push({
+            ruleName: rule.name,
+            ruleCode: rule.code,
+            message: 'профили толчка должны быть «hands_or_shield» или «slashing_or_blunt_strike»',
+          });
+        }
+        for (const divisor of Object.values(push.posture_rating_divisor_by_damage_type ?? {})) {
+          if (!Number.isInteger(divisor) || divisor < 2) {
+            errors.push({
+              ruleName: rule.name,
+              ruleCode: rule.code,
+              message: 'делитель РУ позы толчка должен быть целым числом ≥ 2',
+            });
+          }
+        }
       }
       for (const effect of actionEffects) {
         if ('scope' in effect) {
@@ -240,6 +280,16 @@ export class RuleValidationService {
               message: 'количество элементов атаки в эффекте должно быть положительным или «all»',
             });
           }
+        }
+        if (
+          effect.type === 'current_action_attack_characteristic_from_success_rating' &&
+          (!Number.isFinite(effect.floor_div) || effect.floor_div < 1 || !Number.isFinite(effect.cap) || effect.cap < 1)
+        ) {
+          errors.push({
+            ruleName: rule.name,
+            ruleCode: rule.code,
+            message: 'бонус силы от РУ должен иметь floor_div ≥ 1 и cap ≥ 1',
+          });
         }
         if (
           effect.type === 'current_action_attack_characteristic_modifier' &&
@@ -263,6 +313,29 @@ export class RuleValidationService {
               ruleName: rule.name,
               ruleCode: rule.code,
               message: `эффект ссылается на отсутствующее состояние «${effect.state_code}»`,
+            });
+          }
+        }
+        if (effect.type === 'optional_after_strike_check') {
+          if (!effect.check_code) {
+            errors.push({
+              ruleName: rule.name,
+              ruleCode: rule.code,
+              message: 'опция после удара должна указывать проверку',
+            });
+          }
+          if (!Number.isInteger(effect.difficulty) || effect.difficulty < 1) {
+            errors.push({
+              ruleName: rule.name,
+              ruleCode: rule.code,
+              message: 'сложность опции после удара должна быть целым ≥ 1',
+            });
+          }
+          if (!effect.self_damage.damage_type_code) {
+            errors.push({
+              ruleName: rule.name,
+              ruleCode: rule.code,
+              message: 'опция после удара должна указывать тип урона себе',
             });
           }
         }
@@ -1057,6 +1130,10 @@ export class RuleValidationService {
         for (const effect of 'action_effects' in ability ? (ability.action_effects ?? []) : []) {
           if (effect.type === 'apply_state' && effect.state_code) {
             collect({ code: effect.state_code, type: 'state' });
+          }
+          if (effect.type === 'optional_after_strike_check') {
+            collect({ code: effect.check_code, type: 'check' });
+            collect({ code: effect.self_damage.damage_type_code, type: 'damage_type' });
           }
         }
         if ('process' in ability) {

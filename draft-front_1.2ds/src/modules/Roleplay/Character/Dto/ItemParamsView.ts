@@ -16,4 +16,6 @@ export interface ItemParamsView {
   strengthPenaltyLabel: string | null;
   /** Слои защиты доспеха. */
   defenseLines: DefenseLineView[];
+  /** Слоты рук: «1», «1–2», «1–2, действие 2». */
+  occupyHandsLabel: string | null;
 }

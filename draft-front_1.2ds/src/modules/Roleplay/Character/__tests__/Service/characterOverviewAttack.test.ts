@@ -104,6 +104,27 @@ describe('CharacterOverviewService: формулы атак', () => {
     expect(overview.attacks[0].falloff).toEqual({ base: 5, size: 0 });
   });
 
+  it('две руки на оружии дают +2 к Силе удара', () => {
+    const version = versionWith({
+      characteristics: [{ ruleCode: 'strength', base: dim(5), modifiers: [] }],
+      inventory: [{ id: 1, ruleCode: 'alebarda', quantity: 1, equipped: true, occupyHands: 2 }],
+    });
+    const twoHand: Rule[] = [
+      ...rules.slice(0, 1),
+      {
+        ...rules[1]!,
+        spec: {
+          ...(rules[1]!.spec as object),
+          occupy_hands: { min: 1, max: 2 },
+        },
+      },
+    ];
+
+    const overview = service.build(version, twoHand);
+
+    expect(overview.attacks[0].damageLabel).toBe('3↑ рубящего урона');
+  });
+
   it('без модификаторов база равна итогу (регрессия: не падает)', () => {
     const version = versionWith({
       characteristics: [{ ruleCode: 'strength', base: dim(5), modifiers: [] }],

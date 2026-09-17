@@ -107,4 +107,18 @@ export class ItemSpecService {
 
     return out;
   }
+
+  patchOccupyHands(spec: ItemSpecDraft, field: 'min' | 'max' | 'action', value: number): void {
+    const current = spec.occupy_hands;
+    const min = field === 'min' ? value : (current?.min ?? 0);
+    const maxRaw = field === 'max' ? value : (current?.max ?? 0);
+    const actionRaw = field === 'action' ? value : (current?.action ?? 0);
+    const max = Math.max(min, maxRaw);
+    if (min === 0 && max === 0 && actionRaw === 0) {
+      delete spec.occupy_hands;
+
+      return;
+    }
+    spec.occupy_hands = actionRaw > 0 ? { min, max, action: actionRaw } : { min, max };
+  }
 }

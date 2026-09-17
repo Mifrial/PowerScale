@@ -266,123 +266,128 @@ function applyRace(ruleCode: string): void {
 
 <template>
   <div>
-  <div class="race-layout">
-    <div class="race-tree-column">
-      <v-alert v-if="selectedRaceUnavailable" type="warning" variant="tonal" density="compact" class="mb-2">
-        Выбранная раса недоступна в списке — выберите другую.
-      </v-alert>
-      <FilterBar
-        :fields="raceFilterFields"
-        :model-value="appliedFilters"
-        placeholder="Фильтр рас"
-        settings-key="character-editor-race"
-        :menu-width="'min(700px, calc(100vw - 200px))'"
-        @update:model-value="onFilterChange"
-      />
+    <div class="race-layout">
+      <div class="race-tree-column">
+        <v-alert v-if="selectedRaceUnavailable" type="warning" variant="tonal" density="compact" class="mb-2">
+          Выбранная раса недоступна в списке — выберите другую.
+        </v-alert>
+        <FilterBar
+          :fields="raceFilterFields"
+          :model-value="appliedFilters"
+          placeholder="Фильтр рас"
+          settings-key="character-editor-race"
+          :menu-width="'min(700px, calc(100vw - 200px))'"
+          @update:model-value="onFilterChange"
+        />
 
-      <div class="race-tree">
-        <div v-if="treeRows.length === 0" class="text-medium-emphasis pa-3">Расы не найдены.</div>
-        <template v-for="row in treeRows" :key="row.key">
-          <button
-            v-if="row.kind === 'species'"
-            class="tree-species"
-            :style="{ paddingLeft: `${row.depth * 16 + 8}px` }"
-            type="button"
-            @click="toggleCollapse(row.key)"
-          >
-            <v-icon
-              :icon="collapsedKeys.has(row.key) ? 'mdi-chevron-right' : 'mdi-chevron-down'"
-              size="small"
-              class="mr-1"
-            />
-            {{ row.name }}
-          </button>
-          <button
-            v-else
-            class="tree-race"
-            :class="{ chosen: build.raceRuleCode === row.ruleCode, selected: selectedRaceId === row.ruleCode }"
-            :style="{ paddingLeft: `${row.depth * 16 + 8}px` }"
-            type="button"
-            @click="selectedRaceId = row.ruleCode"
-          >
-            {{ row.name }}
-          </button>
-        </template>
-      </div>
-    </div>
-
-    <div class="race-card-column">
-      <v-card v-if="selectedRule" class="race-card">
-        <v-card-text>
-          <div class="d-flex align-center ga-3 mb-2">
-            <h2 class="text-h6">{{ selectedRule.name }}</h2>
-            <v-chip size="x-small" variant="tonal">{{ selectedSpec?.cost_os ?? 0 }} ОС</v-chip>
-            <v-spacer />
-            <v-btn color="primary" :disabled="isSelected" :variant="isSelected ? 'tonal' : 'flat'" @click="chooseRace">
-              {{ isSelected ? 'Выбрана' : 'Выбрать расу' }}
-            </v-btn>
-          </div>
-
-          <DescriptionHtml :html="selectedRule.description" class="text-body-2 mb-3" />
-
-          <template v-if="selectedCharacteristics.length">
-            <div class="text-caption muted-text mb-1">Характеристики</div>
-            <div class="d-flex ga-2 flex-wrap mb-3">
-              <v-chip
-                v-for="characteristic in selectedCharacteristics"
-                :key="characteristic.name"
+        <div class="race-tree">
+          <div v-if="treeRows.length === 0" class="text-medium-emphasis pa-3">Расы не найдены.</div>
+          <template v-for="row in treeRows" :key="row.key">
+            <button
+              v-if="row.kind === 'species'"
+              class="tree-species"
+              :style="{ paddingLeft: `${row.depth * 16 + 8}px` }"
+              type="button"
+              @click="toggleCollapse(row.key)"
+            >
+              <v-icon
+                :icon="collapsedKeys.has(row.key) ? 'mdi-chevron-right' : 'mdi-chevron-down'"
                 size="small"
-                variant="outlined"
+                class="mr-1"
+              />
+              {{ row.name }}
+            </button>
+            <button
+              v-else
+              class="tree-race"
+              :class="{ chosen: build.raceRuleCode === row.ruleCode, selected: selectedRaceId === row.ruleCode }"
+              :style="{ paddingLeft: `${row.depth * 16 + 8}px` }"
+              type="button"
+              @click="selectedRaceId = row.ruleCode"
+            >
+              {{ row.name }}
+            </button>
+          </template>
+        </div>
+      </div>
+
+      <div class="race-card-column">
+        <v-card v-if="selectedRule" class="race-card">
+          <v-card-text>
+            <div class="d-flex align-center ga-3 mb-2">
+              <h2 class="text-h6">{{ selectedRule.name }}</h2>
+              <v-chip size="x-small" variant="tonal">{{ selectedSpec?.cost_os ?? 0 }} ОС</v-chip>
+              <v-spacer />
+              <v-btn
+                color="primary"
+                :disabled="isSelected"
+                :variant="isSelected ? 'tonal' : 'flat'"
+                @click="chooseRace"
               >
-                {{ characteristic.name }} {{ characteristic.label }}
-              </v-chip>
+                {{ isSelected ? 'Выбрана' : 'Выбрать расу' }}
+              </v-btn>
             </div>
-          </template>
 
-          <template v-if="selectedFreeAbilities.length">
-            <div class="text-caption muted-text mb-1">Даёт способности</div>
-            <div class="d-flex ga-2 flex-wrap mb-3">
-              <v-chip v-for="ability in selectedFreeAbilities" :key="ability.name" size="small" variant="outlined">
-                {{ ability.name }}<template v-if="ability.inheritedFrom"> (от {{ ability.inheritedFrom }})</template>
-              </v-chip>
-            </div>
-          </template>
+            <DescriptionHtml :html="selectedRule.description" class="text-body-2 mb-3" />
 
-          <template v-if="selectedAccessAbilities.length">
-            <div class="text-caption muted-text mb-1">Даёт приобрести способности</div>
-            <div class="d-flex ga-2 flex-wrap mb-3">
-              <v-chip v-for="ability in selectedAccessAbilities" :key="ability.name" size="small" variant="outlined">
-                {{ ability.name }}<template v-if="ability.inheritedFrom"> (от {{ ability.inheritedFrom }})</template>
-              </v-chip>
-            </div>
-          </template>
+            <template v-if="selectedCharacteristics.length">
+              <div class="text-caption muted-text mb-1">Характеристики</div>
+              <div class="d-flex ga-2 flex-wrap mb-3">
+                <v-chip
+                  v-for="characteristic in selectedCharacteristics"
+                  :key="characteristic.name"
+                  size="small"
+                  variant="outlined"
+                >
+                  {{ characteristic.name }} {{ characteristic.label }}
+                </v-chip>
+              </div>
+            </template>
 
-          <template v-if="selectedKeywords.length">
-            <div class="text-caption muted-text mb-1">Признаки</div>
-            <div class="d-flex ga-2 flex-wrap">
-              <v-chip v-for="keyword in selectedKeywords" :key="keyword.id" size="small" variant="outlined">
-                {{ keyword.name }}
-              </v-chip>
-            </div>
-          </template>
-        </v-card-text>
-      </v-card>
+            <template v-if="selectedFreeAbilities.length">
+              <div class="text-caption muted-text mb-1">Даёт способности</div>
+              <div class="d-flex ga-2 flex-wrap mb-3">
+                <v-chip v-for="ability in selectedFreeAbilities" :key="ability.name" size="small" variant="outlined">
+                  {{ ability.name }}<template v-if="ability.inheritedFrom"> (от {{ ability.inheritedFrom }})</template>
+                </v-chip>
+              </div>
+            </template>
+
+            <template v-if="selectedAccessAbilities.length">
+              <div class="text-caption muted-text mb-1">Даёт приобрести способности</div>
+              <div class="d-flex ga-2 flex-wrap mb-3">
+                <v-chip v-for="ability in selectedAccessAbilities" :key="ability.name" size="small" variant="outlined">
+                  {{ ability.name }}<template v-if="ability.inheritedFrom"> (от {{ ability.inheritedFrom }})</template>
+                </v-chip>
+              </div>
+            </template>
+
+            <template v-if="selectedKeywords.length">
+              <div class="text-caption muted-text mb-1">Признаки</div>
+              <div class="d-flex ga-2 flex-wrap">
+                <v-chip v-for="keyword in selectedKeywords" :key="keyword.id" size="small" variant="outlined">
+                  {{ keyword.name }}
+                </v-chip>
+              </div>
+            </template>
+          </v-card-text>
+        </v-card>
+      </div>
+
+      <v-dialog v-model="confirmDialog" max-width="420">
+        <v-card>
+          <v-card-title>Смена расы</v-card-title>
+          <v-card-text>
+            При смене расы будут сброшены несовместимые покупки характеристик и способности. Продолжить?
+          </v-card-text>
+          <v-card-actions>
+            <v-spacer />
+            <v-btn variant="text" @click="confirmDialog = false">Отмена</v-btn>
+            <v-btn color="primary" @click="confirmRaceChange">Продолжить</v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-dialog>
     </div>
-
-    <v-dialog v-model="confirmDialog" max-width="420">
-      <v-card>
-        <v-card-title>Смена расы</v-card-title>
-        <v-card-text>
-          При смене расы будут сброшены несовместимые покупки характеристик и способности. Продолжить?
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="confirmDialog = false">Отмена</v-btn>
-          <v-btn color="primary" @click="confirmRaceChange">Продолжить</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-  </div>
   </div>
 </template>
 

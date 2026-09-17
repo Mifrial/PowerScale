@@ -176,5 +176,6 @@ export { spellCastUpgradeService } from '@/modules/Roleplay/Game/Service/Instanc
 export { activeSpellService } from '@/modules/Roleplay/Game/Service/Instance/activeSpellService';
 export { spellChainHopService } from '@/modules/Roleplay/Game/Service/Instance/spellChainHopService';
 export { SIMPLE_TOUCH_CODE } from '@/modules/Roleplay/Game/Constant/Combat/SIMPLE_TOUCH_CODE';
+export { SIMPLE_PUSH_CODE } from '@/modules/Roleplay/Game/Constant/Combat/SIMPLE_PUSH_CODE';
 export { GAME_STARTABLE_STATUSES } from '@/modules/Roleplay/Game/Constant/Game/GAME_STARTABLE_STATUSES';
 export { GAME_STOPPABLE_STATUSES } from '@/modules/Roleplay/Game/Constant/Game/GAME_STOPPABLE_STATUSES';

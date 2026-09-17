@@ -4,6 +4,7 @@ import { DAMAGE_TYPE_FORMS } from '@/modules/Roleplay/Rule/Constant/DAMAGE_TYPE_
 import { WEAPON_PROFILE_LABELS } from '@/modules/Roleplay/Character/Constant/WEAPON_PROFILE_LABELS';
 import { formulaLabel } from '@/modules/Roleplay/Character/Utils/formulaLabel';
 import { weaponAttackRangeService } from '@/modules/Roleplay/Character/Service/Instance/weaponAttackRangeService';
+import { characterHandsService } from '@/modules/Roleplay/Character/Service/Instance/characterHandsService';
 import type { FormulaContext } from '@/modules/Roleplay/Character/Dto/FormulaContext';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { ItemSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpec';
@@ -21,7 +22,10 @@ const DEFENSE_SOURCE_LABELS: Record<string, string> = {
 };
 
 export class ItemWeaponProfilesService {
-  private readonly formula = new FormulaEvaluationService();
+  constructor(
+    private readonly formula = new FormulaEvaluationService(),
+    private readonly hands = characterHandsService,
+  ) {}
 
   /** Параметры оружия/щита/доспеха; null для не-снаряжения. */
   itemParamsView(
@@ -99,6 +103,7 @@ export class ItemWeaponProfilesService {
       maxAgilityLabel,
       strengthPenaltyLabel,
       defenseLines,
+      occupyHandsLabel: this.hands.occupyHandsLabel(spec),
     };
   }
 

@@ -39,6 +39,13 @@ export class CombatChatFoldService {
     return `${target} получает ${adj}увечье силой ${match[2]}.`;
   }
 
+  private rushSummary(text: string): string | null {
+    if (text.includes('Успех: без помехи действия')) return 'Помехи после удара нет.';
+    if (text.includes('Провал: помеха действия остаётся')) return 'Помеха после удара остаётся.';
+
+    return null;
+  }
+
   private declineSummary(text: string): string | null {
     const match = text.match(/^(.*) не выдерживает истощение[^\n]*— (Слабость|Обессилен|Потеря сознания)\./m);
     if (!match) return null;
@@ -130,6 +137,8 @@ export class CombatChatFoldService {
     if (injury) bits.push(injury);
     const decline = this.declineSummary(joined);
     if (decline) bits.push(decline);
+    const rush = this.rushSummary(joined);
+    if (rush) bits.push(rush);
     if (bits.length === 0) return 'Атака';
 
     return bits.join(' ');

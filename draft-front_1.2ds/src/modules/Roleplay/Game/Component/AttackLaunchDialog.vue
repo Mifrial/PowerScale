@@ -20,7 +20,9 @@ import { characterOverviewService, useAttackFavorites } from '@/modules/Roleplay
 import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
 import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
 import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/actionEffectService';
+import { furiousRushService } from '@/modules/Roleplay/Game/Service/Instance/furiousRushService';
 import { attackActionSourceService } from '@/modules/Roleplay/Game/Service/Instance/attackActionSourceService';
+import { pushProfileService } from '@/modules/Roleplay/Game/Service/Instance/pushProfileService';
 import { processSessionService } from '@/modules/Roleplay/Game/Service/Instance/processSessionService';
 import { comboProcessService } from '@/modules/Roleplay/Game/Service/Instance/comboProcessService';
 import { COMBO_STEP_CODES } from '@/modules/Roleplay/Game/Constant/Process/COMBO_STEP_CODES';
@@ -59,6 +61,7 @@ const slots = ref<AttackActionSlotDraft[]>([{ profile: null, targetKey: null }])
 const profileMenuSlot = ref<number | null>(null);
 const busy = ref(false);
 const error = ref<string | null>(null);
+const selectedOptionalChildCodes = ref<string[]>([]);
 const sendChat = combatChatSendService.sendCombatChat(props.gameId);
 const attackFavorites = useAttackFavorites();
 
@@ -105,6 +108,20 @@ const selectedSource = computed<CombatActionOption | null>(
     null,
 );
 const selectedSourceRule = computed(() => findRuleByRef(props.rules, selectedSource.value?.code) ?? null);
+const launchEffectLines = computed(() =>
+  actionEffectService.describeForLaunch(
+    selectedSourceRule.value,
+    actorVersion.value,
+    slots.value[0]?.profile ?? null,
+    props.rules,
+    selectedOptionalChildCodes.value,
+  ),
+);
+const afterStrikeOptions = computed(() =>
+  actorVersion.value
+    ? furiousRushService.optionsOf(selectedSourceRule.value?.code, actorVersion.value.abilities, props.rules)
+    : [],
+);
 const activeComboSpec = computed(() => {
   const session = activeProcess.value;
   const processRule = session ? findRuleByRef(props.rules, session.processRuleCode) : null;
@@ -119,9 +136,7 @@ const activeComboSpec = computed(() => {
 const comboLockedTarget = computed(() =>
   activeComboSpec.value ? (activeProcess.value?.comboTargetKey ?? null) : null,
 );
-const isWideAttack = computed(
-  () => selectedSource.value?.attackMode === 'wide' && !activeComboSpec.value,
-);
+const isWideAttack = computed(() => selectedSource.value?.attackMode === 'wide' && !activeComboSpec.value);
 const processSteps = computed(() => {
   const process = selectedSource.value?.process;
   if (!process) return [];
@@ -136,7 +151,11 @@ const selectedProcessStep = computed(
   () => processSteps.value.find((step) => step.code === processStepCode.value) ?? null,
 );
 const compatibleProfiles = computed(() =>
-  attackActionSourceService.compatibleProfiles(selectedSourceRule.value, actorOverview.value?.attacks ?? []),
+  attackActionSourceService.compatibleProfiles(
+    selectedSourceRule.value,
+    actorOverview.value?.attacks ?? [],
+    props.rules,
+  ),
 );
 const pendingEffects = ref<Record<CombatEntityKey, PendingActionEffect[]>>({});
 const targetOptions = computed(() => [
@@ -208,6 +227,31 @@ function profileKey(profile: AttackOverview): string {
   return `${profile.itemRuleCode}:${profile.profileType}:${profile.profileIndex ?? 'legacy'}`;
 }
 
+function attackPreview(profile: AttackOverview): AttackOverview {
+  const version = actorVersion.value;
+  if (!version) return profile;
+  const delta = actionEffectService.currentAttackActionCharacteristicModifierForActor(
+    selectedSourceRule.value,
+    profile.profileType,
+    version,
+    profile,
+    props.rules,
+  );
+  if (!delta) return profile;
+
+  return (
+    characterOverviewService.attackAtDistance(
+      version,
+      props.rules,
+      profile.itemRuleCode,
+      profile.profileType,
+      0,
+      profile.profileIndex,
+      delta,
+    ) ?? profile
+  );
+}
+
 function selectProfile(slotIndex: number, profile: AttackOverview): void {
   const nextSlots = [...slots.value];
   if (isWideAttack.value) {
@@ -228,6 +272,13 @@ function selectProfile(slotIndex: number, profile: AttackOverview): void {
 
 function defaultSlotTarget(): CombatEntityKey | null {
   return comboLockedTarget.value ?? targetOptions.value[0]?.value ?? null;
+}
+
+function defaultProfile(): AttackOverview | null {
+  const favorite = favoriteAttack.value;
+  if (attackActionSourceService.isProfileAvailable(favorite, compatibleProfiles.value)) return favorite;
+
+  return pushProfileService.preferredProfile(compatibleProfiles.value);
 }
 
 function resetSlots(profile: AttackOverview | null): void {
@@ -372,6 +423,9 @@ async function submit(): Promise<void> {
     reactionMode: 'simultaneous',
     totalOdCost: finalCost.value,
     ...(comboClose ? { comboClose } : {}),
+    ...(selectedOptionalChildCodes.value.length
+      ? { optionalChildAbilityCodes: [...selectedOptionalChildCodes.value] }
+      : {}),
   });
   emit('update:open', false);
 }
@@ -396,9 +450,8 @@ watch(
 );
 watch(selectedSource, (source) => {
   processStepCode.value = source?.process?.start_step_code ?? source?.process?.steps[0]?.code ?? null;
-  const preferred = favoriteAttack.value;
-  const profile = attackActionSourceService.isProfileAvailable(preferred, compatibleProfiles.value) ? preferred : null;
-  resetSlots(profile);
+  selectedOptionalChildCodes.value = [];
+  resetSlots(defaultProfile());
 });
 watch(
   processSteps,
@@ -410,8 +463,7 @@ watch(
   { immediate: true },
 );
 watch(selectedProcessStep, () => {
-  const preferred = favoriteAttack.value;
-  const profile = attackActionSourceService.isProfileAvailable(preferred, compatibleProfiles.value) ? preferred : null;
+  const profile = defaultProfile();
 
   slots.value = slots.value.map((slot, index) => ({ ...slot, profile: index === 0 ? profile : null }));
 });
@@ -513,8 +565,8 @@ watch(
                   <v-icon size="18">mdi-chevron-down</v-icon>
                 </div>
                 <div v-if="slot.profile" class="text-caption text-medium-emphasis">
-                  {{ slot.profile.accuracyLabel }} · {{ slot.profile.damageLabel }} ·
-                  {{ slot.profile.penetrationLabel }}
+                  {{ attackPreview(slot.profile).accuracyLabel }} · {{ attackPreview(slot.profile).damageLabel }} ·
+                  {{ attackPreview(slot.profile).penetrationLabel }}
                 </div>
               </v-sheet>
             </template>
@@ -523,9 +575,9 @@ watch(
                 <AttackProfileOption
                   v-for="profile in compatibleProfiles"
                   :key="profileKey(profile)"
-                  :attack="profile"
+                  :attack="attackPreview(profile)"
                   :selected="slot.profile ? profileKey(slot.profile) === profileKey(profile) : false"
-                  @select="selectProfile(index, $event)"
+                  @select="selectProfile(index, profile)"
                 />
                 <v-list-item v-if="compatibleProfiles.length === 0" title="Подходящих профилей нет" />
               </v-list>
@@ -555,9 +607,24 @@ watch(
           + Цель
         </v-btn>
 
-        <div v-if="selectedSource?.effects?.length" class="text-body-2 text-medium-emphasis mt-2">
-          <div v-for="(effect, index) in selectedSource.effects" :key="index">
-            {{ actionEffectService.describe(effect) }}
+        <v-checkbox
+          v-for="option in afterStrikeOptions"
+          :key="option.rule.code"
+          :model-value="selectedOptionalChildCodes.includes(option.rule.code)"
+          :label="option.rule.name"
+          density="compact"
+          hide-details
+          class="mt-1"
+          @update:model-value="
+            (on) =>
+              (selectedOptionalChildCodes = on
+                ? [...selectedOptionalChildCodes, option.rule.code]
+                : selectedOptionalChildCodes.filter((code) => code !== option.rule.code))
+          "
+        />
+        <div v-if="launchEffectLines.length" class="text-body-2 text-medium-emphasis mt-2">
+          <div v-for="(line, index) in launchEffectLines" :key="index">
+            {{ line }}
           </div>
         </div>
         <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mt-3">{{ error }}</v-alert>

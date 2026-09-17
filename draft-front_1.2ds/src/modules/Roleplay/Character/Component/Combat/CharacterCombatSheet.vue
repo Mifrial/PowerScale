@@ -44,12 +44,17 @@ const emit = defineEmits<{
   'toggle-attacks': [];
   launch: [attack: AttackOverview];
   'toggle-equipped': [itemId: number];
+  'set-occupy-hands': [itemId: number, occupyHands: number];
 }>();
 
 const ruleSlider = useRuleDetailSlider();
 
 function onToggleEquipped(itemId: number): void {
   emit('toggle-equipped', itemId);
+}
+
+function onSetOccupyHands(itemId: number, occupyHands: number): void {
+  emit('set-occupy-hands', itemId, occupyHands);
 }
 </script>
 
@@ -122,6 +127,7 @@ function onToggleEquipped(itemId: number): void {
     :keywords="keywords"
     :can-edit="canEdit"
     :on-toggle-equipped="onToggleEquipped"
+    :on-set-occupy-hands="onSetOccupyHands"
     list-height="calc(100vh - 160px)"
   />
   <div v-else-if="pane === 'inventory'" class="text-medium-emphasis text-body-2 pa-4">Инвентарь недоступен</div>

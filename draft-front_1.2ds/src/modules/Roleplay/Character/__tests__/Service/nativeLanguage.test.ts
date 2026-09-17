@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { mockLanguages } from '@/modules/Roleplay/Rule/Mock/mockLanguages';
 import { mockEthnicities } from '@/modules/Roleplay/Rule/Mock/mockEthnicities';
-import { ethnicityPickService } from '@/modules/Roleplay/Rule/Service/Instance/ethnicityPickService';
+import { ethnicityPickService } from '@/modules/Roleplay/Rule/init';
 import { nativeLanguageService } from '@/modules/Roleplay/Character/Service/Instance/nativeLanguageService';
 import { skillStudyUnlockService } from '@/modules/Roleplay/Character/Service/Instance/skillStudyUnlockService';
 import type { CharacterBuild } from '@/modules/Roleplay/Character/Dto/Editor/CharacterBuild';
@@ -39,7 +39,7 @@ describe('EthnicityPickService', () => {
     expect(options.some((option) => option.code === 'evs')).toBe(false);
   });
 
-  it('у улаев родной улай\'тиль сверху', () => {
+  it("у улаев родной улай'тиль сверху", () => {
     const options = ethnicityPickService.nativeLanguageOptions(rules, 'ulay');
     expect(options[0]?.code).toBe('ulay-til');
     expect(options.some((option) => option.code === 'ar-til' && option.preferred)).toBe(true);
@@ -66,7 +66,7 @@ describe('EthnicityPickService', () => {
 
   it('рекомендуемые отделены чертой, остальные остаются в списке', () => {
     const items = ethnicityPickService.comboItems([
-      { code: 'ulay', name: "Улай", preferred: true },
+      { code: 'ulay', name: 'Улай', preferred: true },
       { code: 'sri', name: 'Священная Империя Раден', preferred: false },
     ]);
     expect(items.map((item) => item.type ?? item.value)).toEqual(['ulay', 'divider', 'sri']);
@@ -86,10 +86,7 @@ describe('NativeLanguageService', () => {
         gifted: true,
       }),
     ]);
-    const moved = nativeLanguageService.syncNativeSpeech(
-      { ...first, nativeLanguageCode: 'ulay-til' },
-      rules,
-    );
+    const moved = nativeLanguageService.syncNativeSpeech({ ...first, nativeLanguageCode: 'ulay-til' }, rules);
     expect(moved.abilities).toHaveLength(1);
     expect(moved.abilities[0]?.domainCode).toBe('ulay-til');
     expect(moved.abilities[0]?.level).toBe(2);
@@ -98,9 +95,7 @@ describe('NativeLanguageService', () => {
   it('свой текст не перехватывает чужой экземпляр без domainCode', () => {
     const sheet = build({
       nativeLanguageText: 'Домашний',
-      abilities: [
-        { ruleCode: 'vladenie-yazykom', level: 3, domain: 'Чужой', gifted: false },
-      ],
+      abilities: [{ ruleCode: 'vladenie-yazykom', level: 3, domain: 'Чужой', gifted: false }],
     });
     const next = nativeLanguageService.syncNativeSpeech(sheet, rules);
     expect(next.abilities).toHaveLength(2);
@@ -122,7 +117,13 @@ describe('NativeLanguageService', () => {
 describe('SkillStudyUnlockService', () => {
   it('первый экземпляр письменности бесплатен при гранте червя', () => {
     const unlocks = [
-      { type: 'skill_study' as const, ability_codes: ['znanie', 'pismennost'], max_level: 1, paid_cost: 0, max_instances: 1 },
+      {
+        type: 'skill_study' as const,
+        ability_codes: ['znanie', 'pismennost'],
+        max_level: 1,
+        paid_cost: 0,
+        max_instances: 1,
+      },
     ];
     const writing: CharacterAbility = {
       ruleCode: 'pismennost',

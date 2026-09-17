@@ -1,6 +1,7 @@
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
 import type { ItemCheckAdvantage } from '@/modules/Roleplay/Rule/Dto/Item/ItemCheckAdvantage';
+import type { ItemHandsSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemHandsSpec';
 
 /** Общие поля предмета (не подтип-специфичные). */
 export interface ItemSpecBase {
@@ -19,4 +20,6 @@ export interface ItemSpecBase {
   advantages?: AdvantageModifier[];
   /** Помехи на проверки характеристик (шлем → внимательность); источник — сам предмет. */
   check_advantages?: ItemCheckAdvantage[];
+  /** Слоты рук: min/max покоя и опционально занятость на действии. */
+  occupy_hands?: ItemHandsSpec;
 }

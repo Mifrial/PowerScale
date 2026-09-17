@@ -122,7 +122,7 @@ export class StateRuntimeEffectsService {
       for (const effect of spec.effects ?? []) {
         if (effect.type !== 'check_advantage') continue;
         if (!this.checkAdvantageMatchesQuery(effect, query, rules)) continue;
-        const delta = this.scaledAmount(effect, magnitude);
+        const delta = this.clampedAmount(effect, this.scaledAmount(effect, magnitude));
         if (!delta) continue;
         const sourceCode =
           spec.aggregation === 'independent' ? `${rule.code}#${index}` : (effect.source_code ?? ADVANTAGE_SOURCE_STATE);
@@ -183,6 +183,12 @@ export class StateRuntimeEffectsService {
     if (effect.per_unit) return effect.amount * magnitude;
 
     return effect.amount;
+  }
+
+  private clampedAmount(effect: { max_abs?: number }, delta: number): number {
+    if (effect.max_abs === undefined) return delta;
+
+    return Math.max(-effect.max_abs, Math.min(effect.max_abs, delta));
   }
 
   private applyEffect(

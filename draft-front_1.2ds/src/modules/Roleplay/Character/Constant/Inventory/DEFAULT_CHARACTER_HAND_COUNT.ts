@@ -1,0 +1,1 @@
+export const DEFAULT_CHARACTER_HAND_COUNT = 2;

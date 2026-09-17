@@ -84,7 +84,7 @@ export class MockRuleCatalogMigrationService {
   ): string {
     const spec = rule.spec as { type?: string; parent_ability_code?: string | null } | undefined;
     if (rule.code === 'dodge' || rule.code === 'block' || rule.code === 'turn') return 'scenes-combat-defense';
-    if (rule.code === 'simple-melee-attack' || rule.code === 'simple-ranged-attack' || rule.code === 'simple-touch') {
+    if (rule.code === 'simple-melee-attack' || rule.code === 'simple-ranged-attack' || rule.code === 'simple-touch' || rule.code === 'simple-push') {
       return 'scenes-combat-basic-attacks';
     }
     if (this.isWeaponSkill(rule)) return 'abilities-acquired-melee-weapon-skills';

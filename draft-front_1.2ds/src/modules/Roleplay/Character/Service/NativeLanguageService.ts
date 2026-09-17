@@ -10,10 +10,7 @@ type NativeSpeechSheet = Pick<CharacterBuild, 'abilities' | 'nativeLanguageCode'
 export class NativeLanguageService {
   constructor(private readonly languages: { isSpeakable(rule: Rule): boolean }) {}
 
-  sanitize<T extends Pick<CharacterBuild, 'nativeLanguageCode' | 'nativeLanguageText'>>(
-    sheet: T,
-    rules: Rule[],
-  ): T {
+  sanitize<T extends Pick<CharacterBuild, 'nativeLanguageCode' | 'nativeLanguageText'>>(sheet: T, rules: Rule[]): T {
     const code = sheet.nativeLanguageCode?.trim() || null;
     if (code) {
       const rule = rules.find((entry) => entry.type === 'language' && entry.code === code);
@@ -32,9 +29,7 @@ export class NativeLanguageService {
     const sanitized = this.sanitize(sheet, rules);
     const native = this.nativeDomain(sanitized, rules);
     let abilities = sanitized.abilities.map((ability) => ({ ...ability }));
-    const gifted = abilities.filter(
-      (ability) => ability.ruleCode === VLADENIE_YAZYKOM_ABILITY_CODE && ability.gifted,
-    );
+    const gifted = abilities.filter((ability) => ability.ruleCode === VLADENIE_YAZYKOM_ABILITY_CODE && ability.gifted);
     if (!native) {
       abilities = abilities.filter((ability) => {
         if (ability.ruleCode !== VLADENIE_YAZYKOM_ABILITY_CODE || !ability.gifted) return true;
@@ -89,10 +84,7 @@ export class NativeLanguageService {
     return { ...sanitized, abilities };
   }
 
-  private matchesNative(
-    ability: CharacterAbility,
-    native: { code: string | null; name: string },
-  ): boolean {
+  private matchesNative(ability: CharacterAbility, native: { code: string | null; name: string }): boolean {
     if (ability.ruleCode !== VLADENIE_YAZYKOM_ABILITY_CODE) return false;
     if (native.code) return ability.domainCode === native.code;
 

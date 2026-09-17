@@ -138,6 +138,10 @@ function updateArmor(value: ArmorBlock) {
 function updateShield(value: ShieldBlock) {
   draft.value.shield = value;
 }
+
+function patchOccupyHands(field: 'min' | 'max' | 'action', value: number) {
+  itemSpecService.patchOccupyHands(draft.value, field, value);
+}
 </script>
 
 <template>
@@ -217,6 +221,35 @@ function updateShield(value: ShieldBlock) {
           />
 
           <template v-if="draft.category === 'equipment'">
+            <div class="d-flex gap-2 mb-2">
+              <ClampedNumberField
+                :model-value="draft.occupy_hands?.min ?? 0"
+                @update:model-value="(v: number) => patchOccupyHands('min', v)"
+                label="Руки min"
+                :min="0"
+                density="compact"
+                hide-details
+                style="flex: 1 1 auto"
+              />
+              <ClampedNumberField
+                :model-value="draft.occupy_hands?.max ?? 0"
+                @update:model-value="(v: number) => patchOccupyHands('max', v)"
+                label="Руки max"
+                :min="0"
+                density="compact"
+                hide-details
+                style="flex: 1 1 auto"
+              />
+              <ClampedNumberField
+                :model-value="draft.occupy_hands?.action ?? 0"
+                @update:model-value="(v: number) => patchOccupyHands('action', v)"
+                label="Руки на действии"
+                :min="0"
+                density="compact"
+                hide-details
+                style="flex: 1 1 auto"
+              />
+            </div>
             <ItemEquipmentEditor
               v-model:subtypes="subtypes"
               :weapon="draft.weapon ?? null"

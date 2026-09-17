@@ -9,6 +9,8 @@ import { resourceLimitBase, statesEqual } from '@/modules/Roleplay/Game/Utils/co
 import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
 import { sessionCharacterService } from '@/modules/Roleplay/Game/Service/Instance/sessionCharacterService';
 import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
+import { characterHandsService } from '@/modules/Roleplay/Character/init';
+import { ruleCatalog } from '@/modules/Roleplay/Rule/Mock/mockRules';
 
 const delay = (ms = 100) => new Promise((r) => setTimeout(r, ms));
 
@@ -411,6 +413,44 @@ export async function setCombatItemEquipped(
   overlay.sheet = {
     ...(JSON.parse(JSON.stringify(base)) as CharacterVersion),
     inventory: base.inventory.map((item) => (item.id === itemId ? { ...item, equipped } : item)),
+  };
+  overlay.updatedAt = new Date().toISOString();
+
+  return snapshot(overlay);
+}
+
+/** Занятость слотов рук предмета в бою: персонаж — оверлей, НПС — версия. */
+export async function setCombatItemOccupyHands(
+  gameId: number,
+  entityKey: CombatEntityKey,
+  itemId: number,
+  occupyHands: number,
+  _signal?: AbortSignal,
+): Promise<GameCombatOverlay> {
+  await delay(150);
+  const version = entityVersion(gameId, entityKey);
+  if (!version) throw new Error('Лист участника не заполнен');
+  if (!version.inventory.some((item) => item.id === itemId)) throw new Error('Предмет не найден');
+  const inventory = characterHandsService.withOccupyHands(version.inventory, itemId, occupyHands, ruleCatalog);
+
+  const npc = npcOf(gameId, entityKey);
+  if (npc) {
+    if (!npc.version) throw new Error('Лист НПС не заполнен');
+    npc.version.inventory = inventory;
+    npc.updatedAt = new Date().toISOString();
+
+    return overlayFromNpcVersion(gameId, entityKey, npc.version);
+  }
+
+  const overlay = ensureOverlay(gameId, entityKey, version);
+  const base = overlay.sheet
+    ? overlay.sheet
+    : overlay.updatedAt !== ''
+      ? combatOverlayService.mergeCombatOverlay(version, overlay)
+      : version;
+  overlay.sheet = {
+    ...(JSON.parse(JSON.stringify(base)) as CharacterVersion),
+    inventory,
   };
   overlay.updatedAt = new Date().toISOString();
 

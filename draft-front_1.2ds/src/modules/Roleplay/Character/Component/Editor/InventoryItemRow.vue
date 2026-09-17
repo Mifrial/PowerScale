@@ -5,6 +5,7 @@ import LightChip from '@/modules/Core/UI/Component/light/LightChip.vue';
 import LightButton from '@/modules/Core/UI/Component/light/LightButton.vue';
 import { useRuleDetailSlider } from '@/modules/Roleplay/Character/Composables/useRuleDetailSlider';
 import { itemWeaponProfilesService } from '@/modules/Roleplay/Character/Service/Instance/itemWeaponProfilesService';
+import { characterHandsService } from '@/modules/Roleplay/Character/Service/Instance/characterHandsService';
 import { itemMasteryService } from '@/modules/Roleplay/Character/Service/Instance/itemMasteryService';
 import { splitParagraphs } from '@/modules/Core/UI/Utils/textParagraphs';
 import type { WeaponProfileView } from '@/modules/Roleplay/Character/Dto/WeaponProfileView';
@@ -43,6 +44,9 @@ const props = defineProps<{
   keywordCodes: string[];
   /** shop — каталог; owned — экземпляр снаряжения. */
   mode: InventoryRowMode;
+  occupyHands?: number;
+  availableHands?: number;
+  canAdjustHands?: boolean;
   /** Кнопки покупки/отмены. На карточке персонажа — выкл. */
   showPurchase?: boolean;
   /** Кнопка «Экип.» (владелец на карточке / редактор). */
@@ -57,6 +61,7 @@ const emit = defineEmits<{
   cancel: [ruleCode: string, quantity: number];
   'cancel-instance': [];
   'toggle-equipped': [];
+  'set-occupy-hands': [occupyHands: number];
   train: [mastery: ItemMasteryView, level: number];
   'open-skills': [familyCode: string, keywordCode: string | null];
   'open-modifiers': [];
@@ -93,6 +98,12 @@ const canCancel = computed(() => showPurchase.value && props.ownedQty > props.ba
 /** Параметры оружия/щита/доспеха (вес, мин. сила, прочность, блок, защита…) — над профилями. */
 const params = computed(() =>
   itemWeaponProfilesService.itemParamsView(effectiveSpec.value, props.characteristicValues, props.rules),
+);
+
+const occupySpec = computed(() => characterHandsService.occupyHandsSpec(effectiveSpec.value));
+const currentOccupyHands = computed(() => props.occupyHands ?? occupySpec.value?.min ?? 0);
+const showHandsStepper = computed(
+  () => Boolean(props.canAdjustHands) && occupySpec.value !== null && occupySpec.value.max > occupySpec.value.min,
 );
 
 /** Имя правила по коду — для человекочитаемых формул профилей. */
@@ -231,6 +242,33 @@ const open = computed({
         </div>
         <div v-if="params.minStrengthLabel" class="param-cell">
           <span class="param-cell__label">Минимальная сила:</span> {{ params.minStrengthLabel }}
+        </div>
+        <div v-if="params.occupyHandsLabel" class="param-cell">
+          <span class="param-cell__label">Руки:</span> {{ params.occupyHandsLabel }}
+        </div>
+        <div v-if="showHandsStepper && occupySpec" class="param-cell param-cell--hands">
+          <span class="param-cell__label">Занято рук:</span>
+          <LightButton
+            class="param-cell__step"
+            title="Меньше рук"
+            aria-label="Меньше рук"
+            :disabled="currentOccupyHands <= occupySpec.min"
+            @click.stop="emit('set-occupy-hands', currentOccupyHands - 1)"
+          >
+            <i class="mdi mdi-minus" aria-hidden="true" />
+          </LightButton>
+          <span>{{ currentOccupyHands }}</span>
+          <LightButton
+            class="param-cell__step"
+            title="Больше рук"
+            aria-label="Больше рук"
+            :disabled="
+              currentOccupyHands >= occupySpec.max || currentOccupyHands >= (props.availableHands ?? occupySpec.max)
+            "
+            @click.stop="emit('set-occupy-hands', currentOccupyHands + 1)"
+          >
+            <i class="mdi mdi-plus" aria-hidden="true" />
+          </LightButton>
         </div>
         <div v-if="params.characteristicLimitsLabel" class="param-cell">{{ params.characteristicLimitsLabel }}</div>
         <div v-if="params.maxAgilityLabel" class="param-cell">
@@ -391,10 +429,28 @@ const open = computed({
 }
 
 .param-cell {
-  padding: 4px 10px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 2px 10px;
   border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
   border-radius: 6px;
   white-space: nowrap;
+  line-height: 1.2;
+}
+
+.param-cell--hands {
+  gap: 2px;
+}
+
+.param-cell--hands > .param-cell__step {
+  height: 16px;
+  min-height: 16px;
+  padding: 0 2px;
+}
+
+.param-cell__step :deep(.mdi) {
+  font-size: 12px;
 }
 
 .param-cell__label {

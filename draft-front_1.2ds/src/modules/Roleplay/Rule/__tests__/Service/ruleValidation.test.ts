@@ -887,12 +887,17 @@ describe('pruneAbilitySpecForType', () => {
     expect(out.process).toBeUndefined();
   });
 
-  it('drops all type-specific fields for skill', () => {
-    const out = abilitySpecService.prune({ ...draft }, 'skill') as any;
+  it('drops action_components for skill, but keeps action_effects', () => {
+    const extra = {
+      ...draft,
+      action_effects: [{ type: 'apply_state' as const, state_code: 'haste' }],
+    };
+    const out = abilitySpecService.prune({ ...extra }, 'skill') as any;
     expect(out.type).toBe('skill');
     expect(out.action_components).toBeUndefined();
     expect(out.process).toBeUndefined();
     expect(out.spell).toBeUndefined();
+    expect(out.action_effects).toEqual([{ type: 'apply_state', state_code: 'haste' }]);
   });
 
   it('keeps shared fields (zones, requirements, grants) always', () => {

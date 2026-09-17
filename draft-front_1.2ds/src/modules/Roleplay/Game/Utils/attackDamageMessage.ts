@@ -7,6 +7,8 @@ import type { ApplyAttackDamageResult } from '@/modules/Roleplay/Game/Dto/ApplyA
 import { findRuleByRef, type CombatActionOption } from '@/modules/Roleplay/Game/Utils/combatActions';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
+import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
+
 function entityToken(key: CombatEntityKey, name: string): string {
   if (key.startsWith('npc:')) return `[[npc:${key.slice(4)},${name}]]`;
 
@@ -99,6 +101,9 @@ export function formatAttackResultMessage(input: {
   remainingSr: number;
   exhaustion: number;
   wound?: number;
+  knockbackIpari?: DimensionalNumberValue | null;
+  unstableAmount?: number | null;
+  unstableSkippedBecauseLying?: boolean;
 }): string {
   const attacker = entityToken(input.attackerKey, input.attackerName);
   const defender = entityToken(input.defenderKey, input.defenderName);
@@ -108,8 +113,17 @@ export function formatAttackResultMessage(input: {
   const bits = [`${input.exhaustion} истощения`];
   const wound = Math.max(0, input.wound ?? 0);
   if (wound > 0) bits.push(`${wound} рану`);
+  let text = `${attacker} попадает по ${defender} с ${input.remainingSr} РУ и наносит ${bits.join(' и ')}!`;
+  if (input.knockbackIpari) {
+    text += ` Отбрасывает на ${new DimensionalNumber(input.knockbackIpari).toString()} ипари.`;
+  }
+  if (input.unstableAmount && input.unstableAmount > 0) {
+    text += ` Неустойчивость +${input.unstableAmount}.`;
+  } else if (input.unstableSkippedBecauseLying) {
+    text += ' Неустойчивости нет: цель лежит.';
+  }
 
-  return `${attacker} попадает по ${defender} с ${input.remainingSr} РУ и наносит ${bits.join(' и ')}!`;
+  return text;
 }
 
 export function formatTouchConnectMessage(input: {

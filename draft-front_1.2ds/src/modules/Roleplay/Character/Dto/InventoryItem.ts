@@ -20,4 +20,6 @@ export interface InventoryItem {
    * Пусто/отсутствует — немодифицированная копия. Identity строки = (ruleCode, sorted ids).
    */
   modifierRuleCodes?: string[];
+  /** Сколько слотов рук занимает в покое (в диапазоне occupy_hands предмета). */
+  occupyHands?: number;
 }

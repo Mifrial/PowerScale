@@ -5,8 +5,8 @@ import type { AbilitySpecDraft } from '@/modules/Roleplay/Rule/Dto/Ability/Abili
 export const ABILITY_SPEC_FIELDS: Record<AbilityType, readonly (keyof AbilitySpecDraft)[]> = {
   trait: [],
   feature: [],
-  skill: [],
-  action: ['action_components', 'action_effects', 'attack_mode', 'max_targets'],
+  skill: ['action_effects'],
+  action: ['action_components', 'action_effects', 'attack_mode', 'max_targets', 'push'],
   process: ['process'],
   spell: ['action_components', 'action_effects', 'attack_mode', 'max_targets', 'spell'],
   group: [],

@@ -7,6 +7,7 @@ import type { ActionEffect } from '@/modules/Roleplay/Rule/Dto/Ability/ActionEff
 import type { HitResolution } from '@/modules/Roleplay/Rule/Dto/Ability/HitResolution';
 import type { SpellUpgrade } from '@/modules/Roleplay/Rule/Dto/Ability/SpellUpgrade';
 import type { StrikeUpgrade } from '@/modules/Roleplay/Rule/Dto/Ability/StrikeUpgrade';
+import type { PushSpec } from '@/modules/Roleplay/Rule/Dto/Ability/PushSpec';
 
 /** Общие поля способности (не типоспецифичные). */
 export interface AbilitySpecBase {
@@ -19,6 +20,8 @@ export interface AbilitySpecBase {
   hit_resolution?: HitResolution;
   /** Режим выбора целей для атакующего действия. */
   attack_mode?: 'single' | 'wide';
+  /** Толчок: контест Силы или урона оружия вместо обычного попадания. */
+  push?: PushSpec;
   max_targets?: number;
   parent_ability_code: string | null;
   /** Модификатор каста (дельта ОД, преимущество сотворения, цепь). С родителем — на то заклинание; без — на выбранный каст. */

@@ -213,4 +213,30 @@ describe('buildCombatChatFolds', () => {
     if (initiative?.type !== 'fold') return;
     expect(initiative.fold.summary).toBe('Порядок инициативы: А (5), Б (2).');
   });
+
+  it('сводка атаки включает итог рывка по помехе', () => {
+    const forest = combatChatFoldService.buildCombatChatFolds([
+      msg(1, 'Ходит Осведомитель', { kind: 'default', thread: { id: 't1', kind: COMBAT_CHAT_TURN } }),
+      msg(
+        2,
+        'Осведомитель совершает Размах.\nЭффекты: после удара проверка Волю против 3: успех — внутреннего дробящего [сила удара]↓, без помехи действия (опция)',
+        { thread: { id: 'a1', parentId: 't1', kind: COMBAT_CHAT_ATTACK } },
+      ),
+      msg(3, 'Осведомитель промахивается по Старый Бородач!', {
+        thread: { id: 'a1', parentId: 't1', kind: COMBAT_CHAT_ATTACK },
+        attachments: [{ type: ATTACK_CALC_ATTACHMENT_TYPE, payload: {} }],
+      }),
+      msg(4, 'Осведомитель проходит проверку на Яростный рывок против 3. Провал: помеха действия остаётся.', {
+        thread: { id: 'a1', parentId: 't1', kind: COMBAT_CHAT_ATTACK },
+      }),
+    ]);
+    const turn = forest[0];
+    expect(turn?.type).toBe('fold');
+    if (turn?.type !== 'fold') return;
+    const attack = turn.fold.children[0];
+    if (attack?.type !== 'fold') return;
+    expect(attack.fold.summary).toBe(
+      'Осведомитель промахивается по Старый Бородач! Помеха после удара остаётся.',
+    );
+  });
 });

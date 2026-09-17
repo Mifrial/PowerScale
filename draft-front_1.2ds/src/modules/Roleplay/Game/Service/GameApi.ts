@@ -634,6 +634,23 @@ export class GameApi implements IGameApi {
     return res.data;
   }
 
+  async setCombatItemOccupyHands(
+    gameId: number,
+    entityKey: CombatEntityKey,
+    itemId: number,
+    occupyHands: number,
+    signal?: AbortSignal,
+  ): Promise<GameCombatOverlay> {
+    const res = await this.engine.runAction<GameCombatOverlay>(
+      'game.setCombatItemOccupyHands',
+      { gameId, entityKey, itemId, occupyHands },
+      signal,
+    );
+    if (!res.data) throw new Error('Set combat item occupy hands failed');
+
+    return res.data;
+  }
+
   async getQuickRolls(gameId: number, signal?: AbortSignal): Promise<Record<CombatEntityKey, string[]>> {
     const res = await this.engine.runAction<Record<CombatEntityKey, string[]>>(
       'game.getQuickRolls',

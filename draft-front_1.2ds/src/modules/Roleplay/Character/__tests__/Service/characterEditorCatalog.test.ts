@@ -1486,7 +1486,7 @@ describe('«Владение оружием» — мастерство оруж�
 
   it('основные боевые действия — зона or и явная секция каталога', () => {
     const model = service.build(makeBuild(), ruleCatalog, config, keywords);
-    for (const code of ['dodge', 'block', 'simple-melee-attack', 'simple-ranged-attack', 'simple-touch', 'turn']) {
+    for (const code of ['dodge', 'block', 'simple-melee-attack', 'simple-ranged-attack', 'simple-touch', 'simple-push', 'turn']) {
       const ability = model.abilities.find((entry) => entry.code === code);
       expect(
         ability?.zones.map((zone) => zone.zoneCode),
@@ -1496,7 +1496,7 @@ describe('«Владение оружием» — мастерство оруж�
       expect(ability?.visible, code).toBe(false);
       const rule = ruleCatalog.find((entry) => entry.code === code);
       expect(rule?.catalogSection).toBe(
-        code === 'simple-melee-attack' || code === 'simple-ranged-attack' || code === 'simple-touch'
+        code === 'simple-melee-attack' || code === 'simple-ranged-attack' || code === 'simple-touch' || code === 'simple-push'
           ? 'scenes-combat-basic-attacks'
           : 'scenes-combat-defense',
       );

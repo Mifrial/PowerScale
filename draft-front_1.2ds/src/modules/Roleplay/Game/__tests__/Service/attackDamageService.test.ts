@@ -598,6 +598,32 @@ describe('applyAttackDamage', () => {
         attackerName: 'Гарик',
         defenderKey: 'npc:2',
         defenderName: 'Бородач',
+        remainingSr: 1,
+        exhaustion: 0,
+        knockbackIpari: { base: 3, size: -2 },
+        unstableAmount: 3,
+      }),
+    ).toBe(
+      '[[character:1,Гарик]] попадает по [[npc:2,Бородач]] с 1 РУ и наносит 0 истощения! Отбрасывает на 3↓² ипари. Неустойчивость +3.',
+    );
+    expect(
+      formatAttackResultMessage({
+        attackerKey: 'character:1',
+        attackerName: 'Гарик',
+        defenderKey: 'npc:2',
+        defenderName: 'Бородач',
+        remainingSr: 1,
+        exhaustion: 0,
+        knockbackIpari: { base: 8, size: -1 },
+        unstableSkippedBecauseLying: true,
+      }),
+    ).toContain('Неустойчивости нет: цель лежит');
+    expect(
+      formatAttackResultMessage({
+        attackerKey: 'character:1',
+        attackerName: 'Гарик',
+        defenderKey: 'npc:2',
+        defenderName: 'Бородач',
         remainingSr: 2,
         exhaustion: 2,
         wound: 4,

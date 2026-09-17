@@ -21,6 +21,7 @@ export const mockItemImport: Rule[] = [
       weight: { base: 1.0, size: 0 },
       special_rule_codes: [],
       proficiency_family_code: 'fam-posokh',
+      occupy_hands: { min: 1, max: 2 },
       weapon: {
         min_strength: { base: 4, size: 1 },
         durability: { base: 5, size: 2 },
@@ -676,6 +677,7 @@ export const mockItemImport: Rule[] = [
       weight: { base: 3.0, size: 0 },
       special_rule_codes: [],
       proficiency_family_code: 'fam-dlinnyy-mech',
+      occupy_hands: { min: 1, max: 2 },
       weapon: {
         min_strength: { base: 4, size: 2 },
         durability: { base: 5, size: 4 },
@@ -744,6 +746,7 @@ export const mockItemImport: Rule[] = [
       weight: { base: 4.0, size: 0 },
       special_rule_codes: [],
       proficiency_family_code: 'fam-dlinnyy-mech',
+      occupy_hands: { min: 2, max: 2 },
       weapon: {
         min_strength: { base: 5, size: 2 },
         durability: { base: 5, size: 4 },
@@ -1268,6 +1271,7 @@ export const mockItemImport: Rule[] = [
       weight: { base: 3.5, size: 0 },
       special_rule_codes: [],
       proficiency_family_code: 'fam-alebardy',
+      occupy_hands: { min: 2, max: 2 },
       weapon: {
         min_strength: { base: 3, size: 2 },
         durability: { base: 5, size: 3 },
@@ -1565,6 +1569,7 @@ export const mockItemImport: Rule[] = [
       weight: { base: 0.9, size: 0 },
       special_rule_codes: [],
       proficiency_family_code: 'fam-luk',
+      occupy_hands: { min: 1, max: 2, action: 2 },
       weapon: {
         min_strength: { base: 4, size: 1 },
         durability: { base: 5, size: 1 },
@@ -1613,6 +1618,7 @@ export const mockItemImport: Rule[] = [
       weight: { base: 1.2, size: 0 },
       special_rule_codes: [],
       proficiency_family_code: 'fam-luk',
+      occupy_hands: { min: 1, max: 2, action: 2 },
       weapon: {
         min_strength: { base: 3, size: 2 },
         durability: { base: 5, size: 1 },
@@ -1662,6 +1668,7 @@ export const mockItemImport: Rule[] = [
       weight: { base: 1.0, size: 0 },
       special_rule_codes: [],
       proficiency_family_code: 'fam-luk',
+      occupy_hands: { min: 1, max: 2, action: 2 },
       weapon: {
         min_strength: { base: 5, size: 1 },
         durability: { base: 5, size: 1 },
@@ -1711,6 +1718,7 @@ export const mockItemImport: Rule[] = [
       weight: { base: 1.0, size: 0 },
       special_rule_codes: [],
       proficiency_family_code: 'fam-luk',
+      occupy_hands: { min: 1, max: 2, action: 2 },
       weapon: {
         min_strength: { base: 4, size: 1 },
         durability: { base: 5, size: 1 },

@@ -247,10 +247,7 @@ function addInstance(): void {
 }
 
 function isSpellCatalogRow(): boolean {
-  return (
-    isCatalogRow() &&
-    (props.ability.type === 'spell' || props.ability.domainRef === 'magic-path')
-  );
+  return isCatalogRow() && (props.ability.type === 'spell' || props.ability.domainRef === 'magic-path');
 }
 
 function isCatalogRow(): boolean {
@@ -339,16 +336,6 @@ function canLowerInstance(instance: EditorAbilityInstance): boolean {
 
 function setInstanceLevel(instance: EditorAbilityInstance, level: number): void {
   emit('set-instance-level', props.ability.ruleCode, instance.domain, level);
-}
-
-/** VCombobox при очистке отдаёт null — приводим к пустой строке (сервис отклоняет пустые). */
-function onInstanceDomainEdit(instance: EditorAbilityInstance, value: string | null): void {
-  const next = value ?? '';
-  emit('set-instance-domain', props.ability.ruleCode, instance.domain, next, domainCodeFor(next));
-}
-
-function removeInstance(instance: EditorAbilityInstance): void {
-  emit('remove-instance', props.ability.ruleCode, instance.domain, instance.domainCode);
 }
 
 function forgetSpellInstance(): void {
@@ -710,7 +697,10 @@ function stepLabel(param: EditorAbilityParameter): string {
           </LightButton>
           <LightButton
             :disabled="!canRaiseInstance(ability, rowInstance)"
-            :title="`Уровень ${rowInstance.level + 1}: ${instanceNextCost(ability, rowInstance)} ${zoneLabelOf()}`"
+            :title="
+              instanceBlockedReason(rowInstance) ??
+              `Уровень ${rowInstance.level + 1}: ${instanceNextCost(ability, rowInstance)} ${zoneLabelOf()}`
+            "
             @click.stop="setInstanceLevel(rowInstance, rowInstance.level + 1)"
           >
             <i class="mdi mdi-plus" aria-hidden="true" /> {{ instanceNextCost(ability, rowInstance) }}
@@ -819,10 +809,7 @@ function stepLabel(param: EditorAbilityParameter): string {
           </li>
         </ol>
       </div>
-      <div
-        v-if="ability.multiple && open && isCatalogRow() && !isSpellCatalogRow()"
-        class="ability-row__instances"
-      >
+      <div v-if="ability.multiple && open && isCatalogRow() && !isSpellCatalogRow()" class="ability-row__instances">
         <div class="ability-instance ability-instance--add">
           <template v-if="ability.knowledge">
             <v-select
