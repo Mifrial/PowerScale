@@ -27,6 +27,8 @@ import { movementContextService } from '@/modules/Roleplay/Character/init';
 import type { IGameApi } from '@/modules/Roleplay/Game/Interface/IGameApi';
 import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
 import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/actionEffectService';
+import { lastStrikeService } from '@/modules/Roleplay/Game/Service/Instance/lastStrikeService';
+import { defenseCounterService } from '@/modules/Roleplay/Game/Service/Instance/defenseCounterService';
 import { formatAttackActionMessage } from '@/modules/Roleplay/Game/Utils/attackDamageMessage';
 
 registerMechanicHandler(new MovementStateMechanic());
@@ -47,6 +49,7 @@ export class ActionExecutionService {
     rules: Rule[];
     pendingEffects: PendingActionEffect[];
     actionPointCost: number;
+    followUpTargetKey?: CombatEntityKey | null;
     attackerName: string;
     chatId: number | null;
     speaker: ChatSpeaker;
@@ -73,6 +76,19 @@ export class ActionExecutionService {
     if (!resource) throw new Error('ОД не найдено');
     if (input.actionPointCost <= 0) throw new Error('Укажите количество ОД');
     if (input.actionPointCost > resource.current.base) throw new Error('Недостаточно ОД для действия');
+    let preparedDefense: { targetKey: string; reaction: string } | null = null;
+    if (actionEffectService.requiresPreviousAttack(input.rule)) {
+      const snapshot = lastStrikeService.snapshotOf(input.pendingEffects);
+      const targetKey = input.followUpTargetKey ?? null;
+      if (!lastStrikeService.canFollowUp(input.rule, snapshot, targetKey)) {
+        throw new Error('Противодействовать защите можно только сразу после атаки по этой цели');
+      }
+      const reaction = lastStrikeService.reactionOf(snapshot, targetKey);
+      if (!targetKey || !reaction) {
+        throw new Error('Противодействовать защите можно только сразу после атаки по этой цели');
+      }
+      preparedDefense = { targetKey, reaction };
+    }
     const movementStep = movementContextService.resolveMovementStep(
       input.version,
       input.rules,
@@ -100,7 +116,10 @@ export class ActionExecutionService {
       ...actionEffectService.consumeResource(resolved.remainingEffects, 'action-points', input.actionPointCost),
       ...actionEffectService.effectsAfterAction(input.rule),
     ];
-    await this.resolveGameApi().setCombatActionEffects(input.gameId, input.entityKey, effects);
+    const nextEffects = preparedDefense
+      ? defenseCounterService.replaceOnPending(effects, preparedDefense, input.rule.code)
+      : effects;
+    await this.resolveGameApi().setCombatActionEffects(input.gameId, input.entityKey, nextEffects);
     const operationResolutionService = input.spatialResolver
       ? new ActionOperationResolutionService(undefined, input.spatialResolver)
       : this.operationResolutionService;
@@ -149,7 +168,7 @@ export class ActionExecutionService {
       );
     }
 
-    return { overlay, effects, spent: input.actionPointCost, resolution };
+    return { overlay, effects: nextEffects, spent: input.actionPointCost, resolution };
   }
 
   private async applyPostureAndStability(

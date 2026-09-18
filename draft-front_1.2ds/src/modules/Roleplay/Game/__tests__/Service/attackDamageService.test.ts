@@ -74,6 +74,21 @@ describe('applyAttackDamage', () => {
     });
     expect(result.hpDamage).toBe(9);
     expect(result.exhaustion).toBe(3);
+    expect(result.dodgeSoak).toBe(0);
+  });
+
+  it('смягчение уклона вычитается после ×РУ', () => {
+    const result = attackDamageService.applyAttackDamage({
+      weaponDamage: { base: 4, size: 0 },
+      sr: 2,
+      damageTypeCode: 'blunt',
+      defense: { armor: [], constantDefense: 0, tiers: [], shield: null },
+      endurance: 10,
+      hooks: [],
+      dodgeSoak: 3,
+    });
+    expect(result.raw).toBe(5);
+    expect(result.dodgeSoak).toBe(3);
   });
 
   it('считает истощение в размерных единицах и сохраняет остаток повреждений', () => {
@@ -172,6 +187,32 @@ describe('applyAttackDamage', () => {
       ignored: true,
       reason: 'sr',
     });
+  });
+
+  it('слои одного источника не суммируются: сильнейший бонус', () => {
+    const lines = [
+      line({ kind: 'defense', value: 12, durability: 3, sourceCode: 'armor' }),
+      line({ kind: 'defense', value: 3, durability: 6, sourceCode: 'armor' }),
+    ];
+    const result = attackDamageService.applyAttackDamage({
+      weaponDamage: { base: 5, size: 0 },
+      sr: 2,
+      damageTypeCode: 'piercing',
+      defense: {
+        armor: [{ itemRuleCode: 'plate', itemName: 'Латный доспех', href: '', lines, tiers: [] }],
+        constantDefense: 12,
+        tiers: [],
+        shield: null,
+      },
+      endurance: 5,
+      hooks: [hook(DAMAGE_TYPE_HOOK_MECHANIC_PAY_SR, 'attack')],
+    });
+    expect(result.resistance).toBe(12);
+    expect(result.hpDamage).toBe(0);
+    expect(result.layers).toEqual([
+      expect.objectContaining({ value: 12, ignored: false, reason: 'kept' }),
+      expect.objectContaining({ value: 3, ignored: true, reason: 'source' }),
+    ]);
   });
 
   it('без хука атаки слои по РУ не режутся', () => {
@@ -809,6 +850,7 @@ describe('applyAttackDamage', () => {
         srCap: null,
         resistance: 0,
         penetration: 0,
+        dodgeSoak: 0,
         raw: 16,
         hpDamage: 16,
         exhaustion: 4,
@@ -824,6 +866,7 @@ describe('applyAttackDamage', () => {
     expect(calc.damage).toEqual({ base: 4, size: 1 });
     expect(calc.damageTypeName).toBe('дробящий');
     expect(calc.raw).toBe(16);
+    expect(calc.dodgeSoak).toBe(0);
     expect(
       formatSpellEffectMessage({
         spellRuleCode: 'discharge',

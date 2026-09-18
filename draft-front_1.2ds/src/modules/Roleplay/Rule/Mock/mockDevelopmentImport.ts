@@ -4154,7 +4154,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Стремительный удар',
     description:
-      'Вы подготавливаетесь к совершению стремительного удара. Если ваше следующее действие — атака, на совершение которой вы тратите не более 2 ОД с учётом всех временных модификаторов, то у цели её первого удара модификатор к Мастерству боя от Ловкости уменьшится на 3 (вплоть до 0).',
+      'Вы подготавливаетесь к совершению стремительного удара. Если ваше следующее действие — атака, на совершение которой вы тратите не более 2 ОД с учётом всех временных модификаторов, то у цели её первого удара смягчение урона от Ловкости будет снижено на значение вашей Реакции.',
     catalogSection: 'abilities-acquired-melee-combat-speed',
     spaceId: 1,
     spec: {
@@ -4194,11 +4194,7 @@ const mockDevelopmentImportRaw: Rule[] = [
       ],
       action_effects: [
         {
-          type: 'next_action_attack_target_characteristic_modifier',
-          check_code: 'melee-combat',
-          characteristic_code: 'dexterity',
-          delta: -3,
-          min: 0,
+          type: 'next_action_attack_dodge_soak_from_reaction',
           max_total_action_cost: 2,
           scope: { components: ['strike'], hit_count: 1 },
         },
@@ -4901,38 +4897,17 @@ const mockDevelopmentImportRaw: Rule[] = [
           label: 'Действие',
         },
       ],
+      action_effects: [
+        {
+          type: 'current_action_attack_accuracy',
+          delta: 1,
+          scope: { components: ['strike'], hit_count: 1 },
+        },
+      ],
     },
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,
     createdAt: 1786269600,
-    contentNote: 'Бонус +1 к Точности от обстоятельств сейчас не отрабатывает; обязательная доработка runtime.',
-  },
-  {
-    id: 356,
-    code: 'masterstvo-v-tochnosti',
-    type: 'ability',
-    name: 'Мастерство в точности',
-    description:
-      'Если вы имеете понимание (2) во владении оружием, то вы можете уменьшить его для любого удара на 1, чтобы получить +2 к Точности оружия от обстоятельств вместо бонуса +1.',
-    catalogSection: 'abilities-acquired-melee-combat',
-    spaceId: 1,
-    spec: {
-      type: 'skill',
-      zones: {
-        or: {
-          kind: 'array',
-          levels_cost: [1],
-        },
-      },
-      requirements: [],
-      grants: [],
-      parent_ability_code: 'tochnyy-udar',
-    },
-    keywordIds: [13, 64],
-    mechanicId: null,
-    createdAt: 1786269600,
-    contentNote:
-      'Требование понимания во владении оружием и обмен бонуса Точности обязательны к реализации; пока не исполняются Game.',
   },
   {
     id: 357,
@@ -4940,7 +4915,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Направленный удар',
     description:
-      'Совершите удар с уменьшенной на 1 силой. Бонус к Мастерству боя цели от Восприятия для этого удара будет снижен на 3, вплоть до 0.',
+      'Совершите удар с одной помехой на попадание от действия. Смягчение урона от ловкости для этого удара будет снижено на размер. При минимум 3РУ Атаки - проигнорировано полностью.',
     catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
@@ -4948,7 +4923,7 @@ const mockDevelopmentImportRaw: Rule[] = [
       zones: {
         or: {
           kind: 'array',
-          levels_cost: [2],
+          levels_cost: [1],
         },
       },
       requirements: [
@@ -4973,19 +4948,32 @@ const mockDevelopmentImportRaw: Rule[] = [
           label: 'Действие',
         },
       ],
+      action_effects: [
+        {
+          type: 'current_action_check_modifier',
+          check_codes: ['check-hit'],
+          delta: -1,
+          source_code: 'action',
+        },
+        {
+          type: 'current_action_attack_dodge_soak',
+          size_delta: -3,
+          ignore_at_sr: 3,
+          scope: { components: ['strike'], hit_count: 1 },
+        },
+      ],
     },
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,
     createdAt: 1786269600,
-    contentNote: 'Снижение Силы удара и бонуса Мастерства боя цели обязательны к реализации; пока не исполняются Game.',
   },
   {
     id: 358,
     code: 'protivodeystvuyuschiy-udar',
     type: 'ability',
-    name: 'Противодействующий удар',
+    name: 'Противодействовать защите',
     description:
-      'Объявите реакцию (блокирование, уклонение) , которой вы будете противодействовать и совершите удар. Если цель удара совершила эту реакцию в ответ на удар - вы получаете преимущество. Если она не проигнорировала удар и совершила другую реакцию - помеху.',
+      'Это действие можно совершить только сразу после атаки. Запомните защиту цели этой атаки. Повторное применение этого действия заменяет предыдущий эффект. Пока эффект действует, при ударе по этой цели вы получаете преимущество от подготовки, если она использует ту же защиту, и помеху от подготовки, если использует другую.',
     catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
@@ -5024,15 +5012,15 @@ const mockDevelopmentImportRaw: Rule[] = [
         {
           type: 'resource',
           resource_code: 'action-points',
-          amount: 3,
+          amount: 1,
           label: 'Действие',
         },
       ],
+      action_effects: [{ type: 'require_previous_attack', same_target: true }],
     },
-    keywordIds: [13, 14, 64, 71],
+    keywordIds: [13, 14, 226],
     mechanicId: null,
     createdAt: 1786269600,
-    contentNote: 'Выбор реакции и выдача преимущества/помехи обязательны к реализации; пока не исполняются Game.',
   },
   {
     id: 359,
@@ -5040,7 +5028,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Удар в сочленение',
     description:
-      'Совершите колющий, рубящий или режущий удар с помехой от обстоятельств за каждую единицу надёжности доспеха цели. Вы получаете на одну помеху меньше, если используете короткое оружие. Вы получаете на одну помеху меньше, если наносите колющий удар. В случае попадания с минимум 1РУ этот удар игнорирует защиту от доспеха.',
+      'Совершите режущий, рубящий или колющий удар. Если удар попал, каждая единица на броске попадания для этого удара дополнительно снижает надёжность доспехов цели на 1 для проверки пробития этим ударом. Если оружие короткое, первая единица на этом броске снижает надёжность ещё на 1.',
     catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
@@ -5083,12 +5071,18 @@ const mockDevelopmentImportRaw: Rule[] = [
           label: 'Действие',
         },
       ],
+      action_effects: [
+        {
+          type: 'current_action_durability_shave',
+          short_extra_on_first_one: true,
+          scope: { components: ['strike'], hit_count: 1 },
+          damage_type_codes: ['cutting', 'slashing', 'piercing'],
+        },
+      ],
     },
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,
     createdAt: 1786269600,
-    contentNote:
-      'Зависимость помех от Надёжности доспеха, скидки помех и игнорирование защиты обязательны к реализации; пока не исполняются Game.',
   },
   {
     id: 360,
@@ -5096,7 +5090,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Смертельный удар',
     description:
-      'Совершите удар. Каждая единица и шестёрка при вашем броске на попадание для этого удара добавляют и убирают х дополнительных успехов соответственно.\nЕсли удар был колющим, то каждая 6 при броске на увечье добавляет дополнительный провал.',
+      'Это действие можно совершить только сразу после другого удара, который не был Смертельным ударом и имел не менее 4 РУ атаки. Совершите удар по той же цели. РУ атаки этого удара увеличивается на половину РУ атаки предыдущего удара по этой цели, но не больше чем до удвоения РУ этого удара.',
     catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
@@ -5104,7 +5098,7 @@ const mockDevelopmentImportRaw: Rule[] = [
       zones: {
         or: {
           kind: 'array',
-          levels_cost: [2, 2],
+          levels_cost: [3],
         },
       },
       requirements: [
@@ -5129,12 +5123,23 @@ const mockDevelopmentImportRaw: Rule[] = [
           label: 'Действие',
         },
       ],
+      action_effects: [
+        {
+          type: 'require_previous_strike',
+          min_sr: 4,
+          not_kind: 'lethal',
+          same_target: true,
+        },
+        {
+          type: 'attack_sr_from_previous',
+          floor_div: 2,
+          cap: 'double_this',
+        },
+      ],
     },
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,
     createdAt: 1786269600,
-    contentNote:
-      'Применение параметра X к успехам, колющий удар и дополнительные провалы обязательны к реализации; доменное требование владения оружием пока не поддержано.',
   },
   {
     id: 361,
@@ -5197,7 +5202,8 @@ const mockDevelopmentImportRaw: Rule[] = [
     code: 'vypad',
     type: 'ability',
     name: 'Выпад',
-    description: 'Совершите удар с дальностью действия оружия, увеличенной на полшага. Обычно это ½ ипари.',
+    description:
+      'Совершите удар с дальностью действия оружия, увеличенной на полшага персонажа.',
     catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
@@ -5219,11 +5225,17 @@ const mockDevelopmentImportRaw: Rule[] = [
           label: 'Действие',
         },
       ],
+      action_effects: [
+        {
+          type: 'current_action_attack_reach',
+          step_fraction: 0.5,
+          scope: { components: ['strike'], hit_count: 1 },
+        },
+      ],
     },
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,
     createdAt: 1786269600,
-    contentNote: 'Увеличение дальности действия оружия обязательна к реализации; пока не исполняется Game.',
   },
   {
     id: 363,
@@ -5266,7 +5278,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Рискованный удар',
     description:
-      'Совершите атаку из оз одного удара по выбранной вами цели с вдвое меньшей точностью. В случае успеха удара вы получите в два раза больше РУ атаки.',
+      'Совершите удар. Для броска попадания этого удара правило 6 и 1 усилено: каждая единица даёт ещё один успех, каждая шестёрка убирает ещё один успех. После этого действия вы получаете две помехи от действия на все свои проверки попадания при нанесении ударов (не на защиты), пока не потратите 2ОД.',
     catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
@@ -5284,16 +5296,31 @@ const mockDevelopmentImportRaw: Rule[] = [
         {
           type: 'resource',
           resource_code: 'action-points',
-          amount: 4,
+          amount: 3,
           label: 'Действие',
+        },
+      ],
+      action_effects: [
+        {
+          type: 'current_action_roll_score_adjust',
+          oneDelta: 1,
+          faceDelta: -1,
+          scope: { components: ['strike'], hit_count: 1 },
+        },
+        {
+          type: 'after_action_until_resource_spent_check_modifier',
+          resource_code: 'action-points',
+          amount: 2,
+          check_codes: ['check-hit'],
+          delta: -2,
+          source_code: 'action',
+          applies_to: 'attacker_hit',
         },
       ],
     },
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,
     createdAt: 1786269600,
-    contentNote:
-      'Половина Точности, удвоение РУ и требование понимания во владении оружием обязательны к реализации; пока не исполняются Game.',
   },
   {
     id: 365,

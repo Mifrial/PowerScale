@@ -8,6 +8,8 @@ export interface ApplyAttackDamageResult {
   /** Сумма учтённых слоёв до пробития (то, что видно в отчёте). */
   resistance: number;
   penetration: number;
+  dodgeSoak: number;
+  durabilityShave: number;
   raw: number;
   hpDamage: number;
   exhaustion: number;

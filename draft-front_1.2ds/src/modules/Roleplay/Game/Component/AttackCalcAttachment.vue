@@ -61,6 +61,7 @@ const damageLabel = computed(() => new DimensionalNumber(calc.value.damage).toSt
             <span class="text-medium-emphasis"> · надёжность {{ layer.durability }}</span>
             <span v-if="layer.ignored && layer.reason === 'sr'"> — игнор</span>
             <span v-else-if="layer.ignored && layer.reason === 'defense_flag'"> — игнор (тип не считает защиту)</span>
+            <span v-else-if="layer.ignored && layer.reason === 'source'"> — слабее того же источника</span>
             <span v-else> — учтено</span>
           </div>
         </div>
@@ -68,6 +69,14 @@ const damageLabel = computed(() => new DimensionalNumber(calc.value.damage).toSt
         <div class="d-flex align-center justify-space-between py-1 text-body-2">
           <span class="text-medium-emphasis">РУ атаки</span>
           <span class="font-weight-medium">{{ calc.attackSrLabel }}</span>
+        </div>
+        <div v-if="(calc.durabilityShave ?? 0) > 0" class="d-flex align-center justify-space-between py-1 text-body-2">
+          <span class="text-medium-emphasis">Срез надёжности</span>
+          <span class="font-weight-medium">{{ calc.durabilityShave }}</span>
+        </div>
+        <div v-if="(calc.dodgeSoak ?? 0) > 0" class="d-flex align-center justify-space-between py-1 text-body-2">
+          <span class="text-medium-emphasis">Смягчение уклона</span>
+          <span class="font-weight-medium">{{ calc.dodgeSoak }}</span>
         </div>
         <div v-if="calc.srCap != null" class="d-flex align-center justify-space-between py-1 text-body-2">
           <span class="text-medium-emphasis">Кап РУ типа</span>

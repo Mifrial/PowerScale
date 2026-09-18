@@ -255,6 +255,33 @@ describe('ActionEffectService', () => {
     expect(result.targetDexterityMasteryAdjustments).toEqual([{ sourceRuleCode: 'rule-swift-strike', delta: -1 }]);
   });
 
+  it('Стремительный: soak от Реакции только при атаке ≤2 ОД и первом ударе', () => {
+    const pending: PendingActionEffect[] = [
+      {
+        sourceRuleCode: 'stremitelnyy-udar',
+        effect: {
+          type: 'next_action_attack_dodge_soak_from_reaction',
+          max_total_action_cost: 2,
+          scope: { components: ['strike'], hit_count: 1 },
+        },
+      },
+    ];
+    expect(
+      actionEffectService.resolveForNextAction(pending, { isAttack: true, component: 'strike', baseCost: 2 }).dodgeSoakFromReaction,
+    ).toBe(true);
+    expect(
+      actionEffectService.resolveForNextAction(pending, { isAttack: true, component: 'strike', baseCost: 3 }).dodgeSoakFromReaction,
+    ).toBe(false);
+    expect(
+      actionEffectService.resolveForNextAction(pending, {
+        isAttack: true,
+        component: 'strike',
+        baseCost: 2,
+        hitNumber: 2,
+      }).dodgeSoakFromReaction,
+    ).toBe(false);
+  });
+
   it('describes target effects in player-facing language', () => {
     expect(
       actionEffectService.describe({
@@ -366,6 +393,44 @@ describe('ActionEffectService', () => {
     expect(actionEffectService.consumeResource(remaining, 'action-points', 1)).toEqual([]);
   });
 
+  it('не-атака снимает снимок прошлого удара и оставляет налог 6 и 1', () => {
+    const pending: PendingActionEffect[] = [
+      {
+        sourceRuleCode: 'tochnyy-udar',
+        effect: {
+          type: 'last_strike_snapshot',
+          kind: 'other',
+          hits: [{ targetKey: 'character:1', attackSr: 5 }],
+        },
+      },
+      {
+        sourceRuleCode: 'riskovannyy-udar',
+        effect: {
+          type: 'after_action_until_resource_spent_check_modifier',
+          resource_code: 'action-points',
+          amount: 2,
+          check_codes: ['check-hit'],
+          delta: -2,
+          source_code: 'action',
+          applies_to: 'attacker_hit',
+        },
+      },
+    ];
+
+    expect(
+      actionEffectService.afterDeclaredAction(pending, 1, { isAttack: false, component: 'strike', baseCost: 1 }),
+    ).toEqual([
+      {
+        sourceRuleCode: 'riskovannyy-udar',
+        effect: expect.objectContaining({ type: 'after_action_until_resource_spent_check_modifier', amount: 1 }),
+      },
+    ]);
+    expect(
+      actionEffectService.resolveForNextAction(pending, { isAttack: true, component: 'strike', baseCost: 3 })
+        .remainingEffects,
+    ).toHaveLength(2);
+  });
+
   it('трата ОД не-атакой снимает надбавку следующего удара', () => {
     const pending: PendingActionEffect[] = [
       {
@@ -377,5 +442,50 @@ describe('ActionEffectService', () => {
     expect(
       actionEffectService.afterDeclaredAction(pending, 2, { isAttack: false, component: 'strike', baseCost: 2 }),
     ).toEqual([]);
+  });
+
+  it('точность текущего удара суммируется по strike', () => {
+    const rule = {
+      spec: {
+        type: 'action',
+        action_effects: [
+          {
+            type: 'current_action_attack_accuracy',
+            delta: 1,
+            scope: { components: ['strike'], hit_count: 1 },
+          },
+        ],
+      },
+    } as Rule;
+
+    expect(actionEffectService.currentAttackAccuracy(rule, 'strike')).toBe(1);
+    expect(actionEffectService.currentAttackAccuracy(rule, 'throw')).toBe(0);
+  });
+
+  it('режет бонус мастерства цели от Восприятия текущего удара до 0', () => {
+    const rule = {
+      id: null,
+      code: 'directed-strike',
+      spec: {
+        type: 'action',
+        action_effects: [
+          {
+            type: 'current_action_attack_target_characteristic_modifier',
+            check_code: 'melee-combat',
+            characteristic_code: 'perception',
+            delta: -3,
+            min: 0,
+            scope: { components: ['strike'], hit_count: 1 },
+          },
+        ],
+      },
+    } as Rule;
+
+    expect(actionEffectService.currentAttackTargetCharacteristicModifier(rule, 'strike', 'perception', 1)).toEqual({
+      delta: -1,
+      adjustments: [{ sourceRuleCode: 'directed-strike', delta: -1 }],
+    });
+    expect(actionEffectService.currentAttackTargetCharacteristicModifier(rule, 'strike', 'perception', 0).delta).toBe(0);
+    expect(actionEffectService.currentAttackTargetCharacteristicModifier(rule, 'throw', 'perception', 4).delta).toBe(0);
   });
 });

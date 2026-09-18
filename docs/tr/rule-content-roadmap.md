@@ -40,7 +40,7 @@
 | --- | --- | --- | --- | --- |
 | C0 | `DONE` | Статусы `broken \| needs_work \| ready`, `contentNote`, FilterBar, рамки | коммит `36d4719` | — |
 | C1 | `DONE` | Редакционный проход пачками по 10 | [`rule-content-plan-01-editorial.md`](rule-content-plan-01-editorial.md); хвосты не в текущей работе: дальний бой 382–393, оружейные навыки, расы | C0 |
-| C2 | `IN_PROGRESS` | Runtime из очереди группами 3–5 | концентрация `DONE`; знания 5.2 `DONE`; раны 5.3 `DONE`; языки/червь Vue — [`rule-content-plan-07-languages.md`](rule-content-plan-07-languages.md); ударные улучшения — [`rule-content-plan-08-strike-upgrades.md`](rule-content-plan-08-strike-upgrades.md); аудит ветки ближнего боя «Скорость» — [`rule-content-plan-09-melee-speed.md`](rule-content-plan-09-melee-speed.md); чувства **не в релизе** | C1, очередь |
+| C2 | `IN_PROGRESS` | Runtime из очереди группами 3–5 | концентрация `DONE`; знания 5.2 `DONE`; раны 5.3 `DONE`; языки/червь Vue — [`rule-content-plan-07-languages.md`](rule-content-plan-07-languages.md); ударные улучшения — [`rule-content-plan-08-strike-upgrades.md`](rule-content-plan-08-strike-upgrades.md); Скорость — [`rule-content-plan-09-melee-speed.md`](rule-content-plan-09-melee-speed.md); Сила — [`rule-content-plan-10-melee-power.md`](rule-content-plan-10-melee-power.md); аудит «Точность» — [`rule-content-plan-11-melee-accuracy.md`](rule-content-plan-11-melee-accuracy.md); чувства **не в релизе** | C1, очередь |
 | C3 | `DEFERRED` | PHP/бэкенд заморозки контракта Game | не открывать ради «про запас» | C2 по факту |
 
 ## 3. Гейт пачки C1
@@ -65,3 +65,5 @@
 | 2026-09-15 | C2 ударные улучшения: галки на запуске удара, первая карточка Смертоносные удары — [`rule-content-plan-08-strike-upgrades.md`](rule-content-plan-08-strike-upgrades.md). Долгая медицина отложена. |
 | 2026-09-16 | C2 посадка Комбо: три шага на сессии, пакет закрытия от действия, Раскрытие чужой атакой, Неотвратимая снята — [`rule-content-plan-09-melee-speed.md`](rule-content-plan-09-melee-speed.md) §9–10. |
 | 2026-09-16 | C2 первая пачка ветки «Скорость»: completion процесса на `check-hit`; подготовка не смешивается со списком атак — [`rule-content-plan-09-melee-speed.md`](rule-content-plan-09-melee-speed.md). |
+| 2026-09-17 | C2 Точность: план-11. Канон §2 (без тела в пуле, S0, Направленный/Стремительный). Точный в коде; soak и новые тексты — нет. |
+| 2026-09-17 | C2 Точность пачка §2.3: сочленение / смертельный / рискованный переписаны; посадка — план-11 §10. |

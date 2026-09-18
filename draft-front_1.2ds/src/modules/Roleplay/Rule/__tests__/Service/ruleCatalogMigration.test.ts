@@ -107,7 +107,6 @@ describe('RuleCatalogMigrationService', () => {
     const precisionCodes = [
       'tochnyy-udar',
       'napravlennyy-udar',
-      'protivodeystvuyuschiy-udar',
       'udar-v-sochlenenie',
       'smertelnyy-udar',
       'kriticheskiy-udar',

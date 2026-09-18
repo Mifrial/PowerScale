@@ -6,7 +6,10 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
 import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
 import { actionEffectLabelService } from '@/modules/Roleplay/Rule/init';
-import { ADVANTAGE_SOURCE_CIRCUMSTANCES } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
+import {
+  ADVANTAGE_SOURCE_ACTION,
+  ADVANTAGE_SOURCE_CIRCUMSTANCES,
+} from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
 import { characterHandsService } from '@/modules/Roleplay/Character/init';
 import type { InventoryItem } from '@/modules/Roleplay/Character/Dto/InventoryItem';
 import type { CharacterAbility } from '@/modules/Roleplay/Character/Dto/CharacterAbility';
@@ -106,6 +109,61 @@ export class ActionEffectService {
           this.scopeIncludesHit(effect.scope, 1),
       )
       .reduce((total, effect) => total + effect.delta, 0);
+  }
+
+  currentAttackReach(
+    rule: Rule | null | undefined,
+    component: 'strike' | 'throw' | 'shoot',
+    hitNumber = 1,
+    movementStep: DimensionalNumberValue = { base: 1, size: 0 },
+  ): number {
+    const fraction = this.effectsOf(rule)
+      .filter(
+        (effect): effect is Extract<ActionEffect, { type: 'current_action_attack_reach' }> =>
+          effect.type === 'current_action_attack_reach' &&
+          effect.scope.components.includes(component) &&
+          this.scopeIncludesHit(effect.scope, hitNumber),
+      )
+      .reduce((total, effect) => total + effect.step_fraction, 0);
+    if (!fraction) return 0;
+
+    return movementStep.base * 2 ** movementStep.size * fraction;
+  }
+
+  requiresPreviousAttack(rule: Rule | null | undefined): boolean {
+    return this.effectsOf(rule).some((effect) => effect.type === 'require_previous_attack');
+  }
+
+  currentAttackTargetCharacteristicModifier(
+    rule: Rule | null | undefined,
+    component: 'strike' | 'throw' | 'shoot',
+    characteristicCode: string,
+    currentSize: number,
+    hitNumber = 1,
+  ): { delta: number; adjustments: { sourceRuleCode: string; delta: number }[] } {
+    const adjustments: { sourceRuleCode: string; delta: number }[] = [];
+    let delta = 0;
+    for (const effect of this.effectsOf(rule)) {
+      if (
+        effect.type !== 'current_action_attack_target_characteristic_modifier' ||
+        !effect.scope.components.includes(component) ||
+        !this.scopeIncludesHit(effect.scope, hitNumber) ||
+        effect.characteristic_code !== characteristicCode
+      ) {
+        continue;
+      }
+      const applied = this.clampedCharacteristicDelta(effect.delta, effect.min, currentSize + delta);
+      delta += applied;
+      adjustments.push({ sourceRuleCode: rule?.code ?? '', delta: applied });
+    }
+
+    return { delta, adjustments };
+  }
+
+  private clampedCharacteristicDelta(delta: number, min: number | undefined, current: number): number {
+    if (min === undefined) return delta;
+
+    return Math.max(min - current, delta);
   }
 
   currentAttackActionCharacteristicModifier(
@@ -234,10 +292,93 @@ export class ActionEffectService {
   }
 
   currentActionCheckModifiers(rule: Rule | null | undefined, checkCode: string): AdvantageModifier[] {
-    const delta = this.currentActionCheckModifier(rule, checkCode);
-    if (!delta) return [];
+    return this.effectsOf(rule)
+      .filter(
+        (effect): effect is Extract<ActionEffect, { type: 'current_action_check_modifier' }> =>
+          effect.type === 'current_action_check_modifier' && effect.check_codes.includes(checkCode),
+      )
+      .filter((effect) => effect.delta !== 0)
+      .map((effect) => ({
+        source_code: effect.source_code ?? ADVANTAGE_SOURCE_CIRCUMSTANCES,
+        source_label: effect.source_code === ADVANTAGE_SOURCE_ACTION ? 'Действие' : 'Обстоятельства',
+        delta: effect.delta,
+      }));
+  }
 
-    return [{ source_code: ADVANTAGE_SOURCE_CIRCUMSTANCES, source_label: 'Обстоятельства', delta }];
+  currentDodgeSoakCuts(
+    rule: Rule | null | undefined,
+    component: 'strike' | 'throw' | 'shoot',
+    hitNumber = 1,
+  ): { sizeDelta: number; ignoreAtSr: number | null } {
+    let sizeDelta = 0;
+    let ignoreAtSr: number | null = null;
+    for (const effect of this.effectsOf(rule)) {
+      if (
+        effect.type !== 'current_action_attack_dodge_soak' ||
+        !effect.scope.components.includes(component) ||
+        !this.scopeIncludesHit(effect.scope, hitNumber)
+      ) {
+        continue;
+      }
+      sizeDelta += effect.size_delta;
+      if (effect.ignore_at_sr != null) {
+        ignoreAtSr = ignoreAtSr == null ? effect.ignore_at_sr : Math.min(ignoreAtSr, effect.ignore_at_sr);
+      }
+    }
+
+    return { sizeDelta, ignoreAtSr };
+  }
+
+  currentRollScoreAdjust(
+    rule: Rule | null | undefined,
+    component: 'strike' | 'throw' | 'shoot',
+    hitNumber = 1,
+  ): { oneDelta: number; faceDelta: number } {
+    return this.effectsOf(rule)
+      .filter(
+        (effect): effect is Extract<ActionEffect, { type: 'current_action_roll_score_adjust' }> =>
+          effect.type === 'current_action_roll_score_adjust' &&
+          effect.scope.components.includes(component) &&
+          this.scopeIncludesHit(effect.scope, hitNumber),
+      )
+      .reduce(
+        (total, effect) => ({
+          oneDelta: total.oneDelta + effect.oneDelta,
+          faceDelta: total.faceDelta + effect.faceDelta,
+        }),
+        { oneDelta: 0, faceDelta: 0 },
+      );
+  }
+
+  currentDurabilityShave(
+    rule: Rule | null | undefined,
+    component: 'strike' | 'throw' | 'shoot',
+    hitNumber = 1,
+    damageTypeCode: string | null = null,
+  ): { enabled: boolean; shortExtraOnFirstOne: boolean } {
+    const effect = this.effectsOf(rule).find(
+      (item): item is Extract<ActionEffect, { type: 'current_action_durability_shave' }> =>
+        item.type === 'current_action_durability_shave' &&
+        item.scope.components.includes(component) &&
+        this.scopeIncludesHit(item.scope, hitNumber),
+    );
+    if (!effect) return { enabled: false, shortExtraOnFirstOne: false };
+    const types = effect.damage_type_codes ?? [];
+    if (types.length > 0 && (damageTypeCode === null || !types.includes(damageTypeCode))) {
+      return { enabled: false, shortExtraOnFirstOne: false };
+    }
+
+    return { enabled: true, shortExtraOnFirstOne: effect.short_extra_on_first_one };
+  }
+
+  requiredDamageTypeCodes(rule: Rule | null | undefined): string[] {
+    const codes = new Set<string>();
+    for (const effect of this.effectsOf(rule)) {
+      if (effect.type !== 'current_action_durability_shave') continue;
+      for (const code of effect.damage_type_codes ?? []) codes.add(code);
+    }
+
+    return [...codes];
   }
 
   applyCurrentAttackActionCharacteristicModifier(
@@ -257,6 +398,7 @@ export class ActionEffectService {
         (effect) =>
           effect.type === 'next_action_attack_cost' ||
           effect.type === 'next_action_attack_target_characteristic_modifier' ||
+          effect.type === 'next_action_attack_dodge_soak_from_reaction' ||
           effect.type === 'after_action_until_resource_spent_check_modifier',
       )
       .map((effect) => ({ sourceRuleCode: rule?.code ?? '', effect }));
@@ -279,11 +421,13 @@ export class ActionEffectService {
       component: 'strike' | 'throw' | 'shoot';
       baseCost: number;
       targetDexterityMastery?: number;
+      hitNumber?: number;
     },
   ): {
     actionCostDelta: number;
     targetDexterityMasteryDelta: number;
     targetDexterityMasteryAdjustments: { sourceRuleCode: string; delta: number }[];
+    dodgeSoakFromReaction: boolean;
     remainingEffects: PendingActionEffect[];
   } {
     const costDelta = pendingEffects
@@ -298,28 +442,48 @@ export class ActionEffectService {
     const finalCost = action.baseCost + costDelta;
     let targetDexterityMasteryDelta = 0;
     const targetDexterityMasteryAdjustments: { sourceRuleCode: string; delta: number }[] = [];
+    let dodgeSoakFromReaction = false;
     const remainingEffects: PendingActionEffect[] = [];
+    const hitNumber = action.hitNumber ?? 1;
 
     for (const pending of pendingEffects) {
       const effect = pending.effect;
-      if (effect.type === 'after_action_until_resource_spent_check_modifier') {
+      if (
+        effect.type === 'after_action_until_resource_spent_check_modifier' ||
+        effect.type === 'prepared_defense_counter'
+      ) {
         remainingEffects.push(pending);
+        continue;
+      }
+      if (effect.type === 'last_strike_snapshot') {
+        if (action.isAttack) remainingEffects.push(pending);
         continue;
       }
       if (effect.type === 'next_action_attack_cost') continue;
       if (
         action.isAttack &&
+        effect.type === 'next_action_attack_dodge_soak_from_reaction' &&
+        effect.scope.components.includes(action.component) &&
+        this.scopeIncludesHit(effect.scope, hitNumber) &&
+        (effect.max_total_action_cost === undefined || finalCost <= effect.max_total_action_cost)
+      ) {
+        dodgeSoakFromReaction = true;
+        continue;
+      }
+      if (
+        action.isAttack &&
         effect.type === 'next_action_attack_target_characteristic_modifier' &&
         effect.scope.components.includes(action.component) &&
-        this.scopeIncludesHit(effect.scope, 1) &&
+        this.scopeIncludesHit(effect.scope, hitNumber) &&
         (effect.max_total_action_cost === undefined || finalCost <= effect.max_total_action_cost) &&
         effect.check_code === 'melee-combat' &&
         effect.characteristic_code === 'dexterity'
       ) {
-        const appliedDelta =
-          effect.min === undefined
-            ? effect.delta
-            : Math.max(effect.min - ((action.targetDexterityMastery ?? 0) + targetDexterityMasteryDelta), effect.delta);
+        const appliedDelta = this.clampedCharacteristicDelta(
+          effect.delta,
+          effect.min,
+          (action.targetDexterityMastery ?? 0) + targetDexterityMasteryDelta,
+        );
         targetDexterityMasteryDelta += appliedDelta;
         targetDexterityMasteryAdjustments.push({ sourceRuleCode: pending.sourceRuleCode, delta: appliedDelta });
       }
@@ -329,6 +493,7 @@ export class ActionEffectService {
       actionCostDelta: costDelta,
       targetDexterityMasteryDelta,
       targetDexterityMasteryAdjustments,
+      dodgeSoakFromReaction,
       remainingEffects,
     };
   }
@@ -347,7 +512,11 @@ export class ActionEffectService {
       .reduce((total, pending) => total + pending.effect.delta, 0);
   }
 
-  checkAdvantageModifiers(pendingEffects: PendingActionEffect[], checkCode: string): AdvantageModifier[] {
+  checkAdvantageModifiers(
+    pendingEffects: PendingActionEffect[],
+    checkCode: string,
+    side: 'attacker' | 'defender' = 'attacker',
+  ): AdvantageModifier[] {
     return pendingEffects
       .filter(
         (
@@ -358,9 +527,14 @@ export class ActionEffectService {
           pending.effect.type === 'after_action_until_resource_spent_check_modifier' &&
           pending.effect.check_codes.includes(checkCode),
       )
+      .filter((pending) => {
+        if (side === 'defender' && pending.effect.applies_to === 'attacker_hit') return false;
+
+        return true;
+      })
       .map((pending) => ({
-        source_code: ADVANTAGE_SOURCE_CIRCUMSTANCES,
-        source_label: 'Обстоятельства',
+        source_code: pending.effect.source_code ?? ADVANTAGE_SOURCE_CIRCUMSTANCES,
+        source_label: pending.effect.source_code === ADVANTAGE_SOURCE_ACTION ? 'Действие' : 'Обстоятельства',
         delta: pending.effect.delta,
       }));
   }

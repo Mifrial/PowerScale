@@ -6,9 +6,11 @@ export interface AttackResistanceLayer {
   value: number;
   durability: number;
   sourceLabel: string | null;
+  /** Источник слоя: source_code линии или код предмета. */
+  sourceKey?: string;
   ignored: boolean;
-  /** sr — надёжность ≤ РУ; defense_flag — тип игнорирует защиту; kept — вошло в сумму. */
-  reason: 'sr' | 'defense_flag' | 'kept';
+  /** sr — надёжность ≤ РУ; defense_flag — тип игнорирует защиту; source — слабее того же источника; kept — вошло в сумму. */
+  reason: 'sr' | 'defense_flag' | 'source' | 'kept';
 }
 
 export interface AttackCalcPayload {
@@ -19,6 +21,9 @@ export interface AttackCalcPayload {
   resistance: number;
   /** Пробитие оружия; в расчёте уменьшает защиту, не ниже 0. */
   penetration?: number;
+  /** Смягчение уклона после (урон − сопротивление) × РУ. */
+  dodgeSoak?: number;
+  durabilityShave?: number;
   endurance: DimensionalNumberValue;
   defenseIgnored: boolean;
   attackSrLabel: string;

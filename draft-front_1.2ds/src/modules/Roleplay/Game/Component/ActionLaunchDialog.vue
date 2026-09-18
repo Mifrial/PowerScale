@@ -25,6 +25,7 @@ import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance
 import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
 import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
 import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/actionEffectService';
+import { lastStrikeService } from '@/modules/Roleplay/Game/Service/Instance/lastStrikeService';
 import { actionExecutionService } from '@/modules/Roleplay/Game/Service/Instance/actionExecutionService';
 import {
   actionOdCost,
@@ -43,6 +44,7 @@ import { formatProcessEffect } from '@/modules/Roleplay/Game/Utils/processMessag
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
 import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue';
 import WoundActionLaunchFields from '@/modules/Roleplay/Game/Component/WoundActionLaunchFields.vue';
+import CombatEntitySelect from '@/modules/Roleplay/Game/Component/CombatEntitySelect.vue';
 import { MOVEMENT_DIRECTION_LABELS } from '@/modules/Roleplay/Game/Constant/Movement/MOVEMENT_DIRECTION_LABELS';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import { woundActionLaunchService } from '@/modules/Roleplay/Game/Service/Instance/woundActionLaunchService';
@@ -209,7 +211,21 @@ const selectedAction = computed(
       (action) => action.ruleCode === selectedRuleId.value || action.code === selectedRuleId.value,
     ) ?? null,
 );
+const selectedActionRule = computed(() => findRuleByRef(props.rules, selectedAction.value?.code) ?? null);
+const actorSnapshot = computed(() =>
+  lastStrikeService.snapshotOf(actorKey.value ? (pendingEffectsByEntity.value[actorKey.value] ?? []) : []),
+);
+const followUpTargetKey = ref<CombatEntityKey | null>(null);
+const needsFollowUpTarget = computed(() => actionEffectService.requiresPreviousAttack(selectedActionRule.value));
+const followUpExclude = computed(() =>
+  lastStrikeService.excludeForSelect(selectedActionRule.value, actorSnapshot.value, actorKey.value, [
+    ...props.characters.map((membership) => `character:${membership.characterId}`),
+    ...props.npcs.map((npc) => `npc:${npc.id}`),
+  ]),
+);
 function isActionItemDisabled(item: CombatActionOption): boolean {
+  const allowed = lastStrikeService.followUpTargetKeys(findRuleByRef(props.rules, item.code), actorSnapshot.value);
+  if (allowed !== null && allowed.length === 0) return true;
   if (item.isVariableCost) return false;
   if (item.odCost <= actionPoints.value) return false;
 
@@ -489,6 +505,12 @@ async function submit(): Promise<void> {
   }
   const actionOd = selectedActionOdCost.value;
   if (actionOd <= 0) throw new Error('Укажите количество ОД');
+  if (
+    actionEffectService.requiresPreviousAttack(actionRuleOf(action.ruleCode)) &&
+    !lastStrikeService.canFollowUp(actionRuleOf(action.ruleCode), actorSnapshot.value, followUpTargetKey.value)
+  ) {
+    throw new Error('Противодействовать защите можно только сразу после атаки по этой цели');
+  }
   if (activeCommitted.value && action.code !== WAIT_ACTION_CODE) {
     throw new Error('Сначала закончи или сорви текущее действие');
   }
@@ -581,6 +603,7 @@ async function submit(): Promise<void> {
     rules: props.rules,
     pendingEffects,
     actionPointCost: actionOd,
+    followUpTargetKey: followUpTargetKey.value,
     attackerName:
       speaker.kind === 'character' ? speaker.characterName : speaker.kind === 'npc' ? speaker.npcName : 'Персонаж',
     chatId: props.chatId,
@@ -760,6 +783,8 @@ watch(selectedAction, (action) => {
   stretchAccepted.value = false;
   stretchConfirmOpen.value = false;
   chosenActionOdCost.value = action?.isVariableCost ? actionPoints.value : 0;
+  const allowed = lastStrikeService.followUpTargetKeys(findRuleByRef(props.rules, action?.code), actorSnapshot.value);
+  followUpTargetKey.value = allowed && allowed.length > 0 ? (allowed[0] as CombatEntityKey) : null;
   const hint = props.launchHint;
   if (hint && action?.code === hint.actionCode) {
     woundTargetKey.value = hint.targetKey;
@@ -853,6 +878,15 @@ watch(
           :disabled="busy"
           @update:target-key="woundTargetKey = $event"
           @update:wound-indices="woundIndices = $event"
+        />
+        <CombatEntitySelect
+          v-if="needsFollowUpTarget"
+          v-model="followUpTargetKey"
+          label="Цель прошлой атаки"
+          :characters="characters"
+          :npcs="npcs"
+          :exclude="followUpExclude"
+          :disabled="busy"
         />
         <div v-if="activeProcess" class="text-body-2 text-medium-emphasis mb-2">
           Активный процесс: <strong>{{ processRule?.name ?? activeProcess.processRuleCode }}</strong
@@ -971,7 +1005,13 @@ watch(
         <v-btn
           color="primary"
           :loading="busy"
-          :disabled="!selectedAction || !actorKey || !!movementInputError"
+          :disabled="
+            !selectedAction ||
+            !actorKey ||
+            !!movementInputError ||
+            (needsFollowUpTarget &&
+              !lastStrikeService.canFollowUp(selectedActionRule, actorSnapshot, followUpTargetKey))
+          "
           @click="submitSafe"
         >
           Выполнить

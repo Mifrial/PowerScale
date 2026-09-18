@@ -16,12 +16,13 @@ import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
 import type { CombatActionOption } from '@/modules/Roleplay/Game/Utils/combatActions';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
-import { characterOverviewService, useAttackFavorites } from '@/modules/Roleplay/Character/init';
+import { characterOverviewService, movementContextService, useAttackFavorites } from '@/modules/Roleplay/Character/init';
 import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
 import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
 import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/actionEffectService';
 import { furiousRushService } from '@/modules/Roleplay/Game/Service/Instance/furiousRushService';
 import { attackActionSourceService } from '@/modules/Roleplay/Game/Service/Instance/attackActionSourceService';
+import { lastStrikeService } from '@/modules/Roleplay/Game/Service/Instance/lastStrikeService';
 import { pushProfileService } from '@/modules/Roleplay/Game/Service/Instance/pushProfileService';
 import { processSessionService } from '@/modules/Roleplay/Game/Service/Instance/processSessionService';
 import { comboProcessService } from '@/modules/Roleplay/Game/Service/Instance/comboProcessService';
@@ -158,6 +159,32 @@ const compatibleProfiles = computed(() =>
   ),
 );
 const pendingEffects = ref<Record<CombatEntityKey, PendingActionEffect[]>>({});
+const actorSnapshot = computed(() =>
+  lastStrikeService.snapshotOf(actorKey.value ? (pendingEffects.value[actorKey.value] ?? []) : []),
+);
+const followUpTargetKeys = computed(() =>
+  lastStrikeService.followUpTargetKeys(selectedSourceRule.value, actorSnapshot.value),
+);
+const followUpExclude = computed(() =>
+  lastStrikeService.excludeForSelect(selectedSourceRule.value, actorSnapshot.value, actorKey.value, [
+    ...props.characters.map((membership) => `character:${membership.characterId}`),
+    ...props.npcs.map((npc) => `npc:${npc.id}`),
+  ]),
+);
+const canContinue = computed(() => {
+  if (!selectedSource.value || !actorKey.value) return false;
+
+  return slots.value.every((slot) =>
+    lastStrikeService.canFollowUp(selectedSourceRule.value, actorSnapshot.value, slot.targetKey),
+  );
+});
+const sourceItems = computed(() =>
+  sources.value.map((source) => {
+    const allowed = lastStrikeService.followUpTargetKeys(findRuleByRef(props.rules, source.code), actorSnapshot.value);
+
+    return { ...source, disabled: allowed !== null && allowed.length === 0 };
+  }),
+);
 const targetOptions = computed(() => [
   ...props.characters
     .filter(
@@ -229,27 +256,37 @@ function profileKey(profile: AttackOverview): string {
 
 function attackPreview(profile: AttackOverview): AttackOverview {
   const version = actorVersion.value;
-  if (!version) return profile;
-  const delta = actionEffectService.currentAttackActionCharacteristicModifierForActor(
+  const reachDelta = actionEffectService.currentAttackReach(
     selectedSourceRule.value,
     profile.profileType,
-    version,
-    profile,
-    props.rules,
+    1,
+    movementContextService.resolveMovementStep(version ?? undefined, props.rules),
   );
-  if (!delta) return profile;
-
-  return (
-    characterOverviewService.attackAtDistance(
-      version,
-      props.rules,
-      profile.itemRuleCode,
+  let next = profile;
+  if (version) {
+    const delta = actionEffectService.currentAttackActionCharacteristicModifierForActor(
+      selectedSourceRule.value,
       profile.profileType,
-      0,
-      profile.profileIndex,
-      delta,
-    ) ?? profile
-  );
+      version,
+      profile,
+      props.rules,
+    );
+    if (delta) {
+      next =
+        characterOverviewService.attackAtDistance(
+          version,
+          props.rules,
+          profile.itemRuleCode,
+          profile.profileType,
+          0,
+          profile.profileIndex,
+          delta,
+        ) ?? profile;
+    }
+  }
+  if (!reachDelta) return next;
+
+  return { ...next, reach: next.reach + reachDelta, distanceLabel: String(next.reach + reachDelta) };
 }
 
 function selectProfile(slotIndex: number, profile: AttackOverview): void {
@@ -271,7 +308,11 @@ function selectProfile(slotIndex: number, profile: AttackOverview): void {
 }
 
 function defaultSlotTarget(): CombatEntityKey | null {
-  return comboLockedTarget.value ?? targetOptions.value[0]?.value ?? null;
+  if (comboLockedTarget.value) return comboLockedTarget.value;
+  const allowed = followUpTargetKeys.value;
+  if (allowed !== null) return (allowed[0] as CombatEntityKey | undefined) ?? null;
+
+  return targetOptions.value[0]?.value ?? null;
 }
 
 function defaultProfile(): AttackOverview | null {
@@ -386,6 +427,13 @@ async function submit(): Promise<void> {
   );
   if (attackStrikes.length !== slots.value.length) throw new Error('Не удалось собрать удары атаки');
   if (finalCost.value > actionPoints.value) throw new Error('Недостаточно ОД для атаки');
+  if (
+    attackStrikes.some(
+      (strike) => !lastStrikeService.canFollowUp(selectedSourceRule.value, actorSnapshot.value, strike.targetKey),
+    )
+  ) {
+    throw new Error('Смертельный удар можно совершить только сразу после другого удара с РУ ≥ 4 по той же цели');
+  }
   const processSession =
     activeProcess.value ??
     (source.process ? processSessionService.start(props.gameId, initiator, source.code, source.process) : null);
@@ -475,6 +523,14 @@ watch(
   },
   { immediate: true },
 );
+watch(followUpTargetKeys, (allowed) => {
+  if (allowed === null) return;
+  const next = (allowed[0] as CombatEntityKey | undefined) ?? null;
+  slots.value = slots.value.map((slot) => ({
+    ...slot,
+    targetKey: slot.targetKey && allowed.includes(slot.targetKey) ? slot.targetKey : next,
+  }));
+});
 </script>
 
 <template>
@@ -487,14 +543,14 @@ watch(
         </v-alert>
         <v-autocomplete
           v-model="sourceRuleCode"
-          :items="sources"
+          :items="sourceItems"
           :item-title="sourceTitle"
           item-value="code"
           label="Атака или процесс"
           :disabled="busy || !actorKey"
         >
           <template #item="{ props: itemProps, item }">
-            <v-list-item v-bind="itemProps" :title="sourceTitle(item.raw)" />
+            <v-list-item v-bind="itemProps" :title="sourceTitle(item.raw)" :disabled="item.raw.disabled" />
           </template>
         </v-autocomplete>
         <div class="text-body-2 text-medium-emphasis mb-3">
@@ -592,8 +648,10 @@ watch(
             :characters="characters"
             :npcs="npcs"
             :initiative-keys="initiativeKeys"
-            :exclude="actorKey ? [actorKey] : []"
-            :disabled="busy || Boolean(comboLockedTarget)"
+            :exclude="followUpExclude"
+            :disabled="
+              busy || Boolean(comboLockedTarget) || (followUpTargetKeys !== null && followUpTargetKeys.length <= 1)
+            "
           />
         </div>
         <v-btn
@@ -632,9 +690,7 @@ watch(
       <v-card-actions>
         <v-spacer />
         <v-btn variant="text" :disabled="busy" @click="emit('update:open', false)">Отмена</v-btn>
-        <v-btn color="primary" :loading="busy" :disabled="!selectedSource || !actorKey" @click="submitSafe">
-          Продолжить
-        </v-btn>
+        <v-btn color="primary" :loading="busy" :disabled="!canContinue" @click="submitSafe"> Продолжить </v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>

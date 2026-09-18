@@ -63,8 +63,13 @@ export class AttackActionSourceService {
         : attacks.filter(
             (attack) => (melee && attack.profileType === 'strike') || (ranged && attack.profileType !== 'strike'),
           );
+    const typeCodes = actionEffectService.requiredDamageTypeCodes(rule);
+    const byType =
+      typeCodes.length === 0
+        ? byRange
+        : byRange.filter((attack) => attack.damageTypeCode !== null && typeCodes.includes(attack.damageTypeCode));
 
-    return pushProfileService.compatibleProfiles(rule, byRange, rules);
+    return pushProfileService.compatibleProfiles(rule, byType, rules);
   }
 
   isProfileAvailable(profile: AttackOverview | null, availableProfiles: AttackOverview[]): boolean {

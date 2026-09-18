@@ -20,16 +20,8 @@ import { itemModifierService } from '@/modules/Roleplay/Rule/init';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { HitDefenseReaction } from '@/modules/Roleplay/Game/Enum/HitDefenseReaction';
 import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
-import {
-  ADVANTAGE_SOURCE_CIRCUMSTANCES,
-  ADVANTAGE_SOURCE_STATE,
-} from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
-import {
-  applyStrikeMastery,
-  bestCombatMastery,
-  strikeCharacteristicMods,
-  STRIKE_STAT_LABEL,
-} from '@/modules/Roleplay/Game/Utils/strikeCharacteristicMods';
+import { ADVANTAGE_SOURCE_CIRCUMSTANCES } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
+import { bestCombatMastery } from '@/modules/Roleplay/Game/Utils/strikeCharacteristicMods';
 import { DEFAULT_FALLOFF } from '@/modules/Roleplay/Character/init';
 import { weaponAttackRangeService } from '@/modules/Roleplay/Character/init';
 import { withRangedHitBreakdown } from '@/modules/Roleplay/Game/Utils/rangedHitDifficultyRows';
@@ -117,37 +109,44 @@ export class HitRollService {
     return profiles;
   }
 
-  private strikeMasteryAdjustments(delta: number): AdvantageModifier[] {
-    if (!delta) return [];
-
-    return [{ source_code: ADVANTAGE_SOURCE_STATE, source_label: STRIKE_STAT_LABEL, delta }];
+  rollHit(input: HitRollInput, rng: DiceRng, rules: Rule[], mechanics: Mechanic[]): HitCheckRoll {
+    return this.withExtraSuccesses(
+      this.withScoreAdjust(this.rollHitRaw(input, rng, rules, mechanics), input),
+      input.extraSuccessCount ?? 0,
+    );
   }
 
-  rollHit(input: HitRollInput, rng: DiceRng, rules: Rule[], mechanics: Mechanic[]): HitCheckRoll {
-    return this.withExtraSuccesses(this.rollHitRaw(input, rng, rules, mechanics), input.extraSuccessCount ?? 0);
+  private withScoreAdjust(rolled: HitCheckRoll, input: HitRollInput): HitCheckRoll {
+    const adjust = input.scoreAdjust;
+    if (!adjust || (adjust.oneDelta === 0 && adjust.faceDelta === 0)) return rolled;
+    const attacker = checkRollService.applyScoreAdjust(rolled.attacker, adjust.oneDelta, adjust.faceDelta);
+    if (!rolled.defender?.check) return { attacker, defender: rolled.defender };
+    const defender = checkRollService.withCheckOutcome(
+      rolled.defender,
+      rolled.defender.check.check_code,
+      checkRollService.successesOf(attacker),
+      rolled.defender.check.check_name,
+    );
+
+    return { attacker, defender };
   }
 
   private rollHitRaw(input: HitRollInput, rng: DiceRng, rules: Rule[], mechanics: Mechanic[]): HitCheckRoll {
     const ranged = input.attack.profileType === 'throw' || input.attack.profileType === 'shoot';
     const procedure = resolveHitProcedure(input.attack.profileType, rules, mechanics);
-    const attackMods = strikeCharacteristicMods(input.attackerOverview, rules);
     const attackAccuracy =
       input.accuracyDelta === undefined
         ? input.attack.accuracy
         : CharacteristicNumber.from(input.attack.accuracy).modifyWith(input.accuracyDelta).value;
-    const attackMastery = applyStrikeMastery(
-      this.weaponMasteryForAttack(input.attackerOverview, input.attack),
-      attackMods.masteryDelta,
-    );
+    const attackMastery = this.weaponMasteryForAttack(input.attackerOverview, input.attack);
     const attackSpec = this.poolSpec(
       input.attackerLabel,
       attackMastery,
       attackAccuracy,
       input.attackerAdv ?? 0,
       rules,
-      [...attackMods.advantages, ...(input.attackerAdvantageModifiers ?? [])],
+      input.attackerAdvantageModifiers ?? [],
       input.attackerKey,
-      this.strikeMasteryAdjustments(attackMods.masteryDelta),
     );
     const distance = input.distanceIpari ?? 0;
     const falloff = input.attack.falloff ?? DEFAULT_FALLOFF;
@@ -177,14 +176,7 @@ export class HitRollService {
         defender: null,
       };
     }
-    const baseDefenseMods = strikeCharacteristicMods(input.defenderOverview, rules);
-    const defenseMods = strikeCharacteristicMods(input.defenderOverview, rules, {
-      dexterityMasteryDelta: input.defenderDexterityMasteryDelta,
-    });
-    const defenseMastery = applyStrikeMastery(
-      bestCombatMastery(input.defenderOverview, ranged),
-      defenseMods.masteryDelta,
-    );
+    const defenseMastery = bestCombatMastery(input.defenderOverview, ranged);
     const chosen = input.defenseEfficiency ?? procedure.dodgeEfficiency;
     const efficiency = input.reaction === 'block' ? this.maxDimensional(chosen, procedure.minBlockEfficiency) : chosen;
     const flankAdv =
@@ -197,9 +189,8 @@ export class HitRollService {
       efficiency,
       input.defenderAdv ?? 0,
       rules,
-      [...defenseMods.advantages, ...flankAdv, ...(input.defenderAdvantageModifiers ?? [])],
+      [...flankAdv, ...(input.defenderAdvantageModifiers ?? [])],
       input.defenderKey,
-      [...this.strikeMasteryAdjustments(baseDefenseMods.masteryDelta), ...(input.defenderMasteryAdjustments ?? [])],
     );
     if (ranged) {
       const attached = checkResolutionService.resolveCheckAttachedRuleCodes(CHECK_HIT_CODE, rules);
@@ -261,14 +252,7 @@ export class HitRollService {
 
     const procedure = resolveHitProcedure(input.attack.profileType, rules, mechanics);
     const ranged = input.attack.profileType === 'throw' || input.attack.profileType === 'shoot';
-    const baseDefenseMods = strikeCharacteristicMods(input.defenderOverview, rules);
-    const defenseMods = strikeCharacteristicMods(input.defenderOverview, rules, {
-      dexterityMasteryDelta: input.defenderDexterityMasteryDelta,
-    });
-    const defenseMastery = applyStrikeMastery(
-      bestCombatMastery(input.defenderOverview, ranged),
-      defenseMods.masteryDelta,
-    );
+    const defenseMastery = bestCombatMastery(input.defenderOverview, ranged);
     const chosen = input.defenseEfficiency ?? procedure.dodgeEfficiency;
     const efficiency = input.reaction === 'block' ? this.maxDimensional(chosen, procedure.minBlockEfficiency) : chosen;
     const flankAdv =
@@ -281,9 +265,8 @@ export class HitRollService {
       efficiency,
       input.defenderAdv ?? 0,
       rules,
-      [...defenseMods.advantages, ...flankAdv, ...(input.defenderAdvantageModifiers ?? [])],
+      [...flankAdv, ...(input.defenderAdvantageModifiers ?? [])],
       input.defenderKey,
-      [...this.strikeMasteryAdjustments(baseDefenseMods.masteryDelta), ...(input.defenderMasteryAdjustments ?? [])],
     );
     const attached = checkResolutionService.resolveCheckAttachedRuleCodes(CHECK_HIT_CODE, rules);
     const defender = rollEngine.roll(defenseSpec, rng, rules, mechanics, attached, []);

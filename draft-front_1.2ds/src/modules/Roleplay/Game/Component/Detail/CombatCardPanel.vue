@@ -76,6 +76,8 @@ import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber
 import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue';
 import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
 import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/actionEffectService';
+import { lastStrikeService } from '@/modules/Roleplay/Game/Service/Instance/lastStrikeService';
+import { defenseCounterService } from '@/modules/Roleplay/Game/Service/Instance/defenseCounterService';
 import { woundInstanceService } from '@/modules/Roleplay/Game/Service/Instance/woundInstanceService';
 import { ACTION_POINTS_CODE } from '@/modules/Roleplay/Game/Constant/Combat/ACTION_POINTS_CODE';
 import { ruleReferenceService } from '@/modules/Roleplay/Rule/init';
@@ -149,9 +151,26 @@ const { keywords, fetchTags } = useKeywords();
 const activeProcess = computed(() =>
   props.entityKey && props.processSessions ? (props.processSessions[props.entityKey] ?? null) : null,
 );
+function entityName(key: string): string {
+  if (key.startsWith('npc:')) {
+    const id = Number(key.slice(4));
+
+    return props.npcs.find((npc) => npc.id === id)?.name ?? key;
+  }
+  const id = Number(key.slice(10));
+
+  return props.memberships.find((membership) => membership.characterId === id)?.characterName ?? key;
+}
+
 const activeEffectLabels = computed(() =>
   pendingEffects.value.map((pending) => {
     const source = props.rules.find((rule) => rule.code === pending.sourceRuleCode)?.name ?? 'Временный эффект';
+    if (pending.effect.type === 'last_strike_snapshot') {
+      return `${source}: ${lastStrikeService.describe(pending.effect, entityName)}`;
+    }
+    if (pending.effect.type === 'prepared_defense_counter') {
+      return `${source}: ${defenseCounterService.describe(pending.effect, entityName)}`;
+    }
 
     return `${source}: ${actionEffectService.describe(pending.effect)}`;
   }),

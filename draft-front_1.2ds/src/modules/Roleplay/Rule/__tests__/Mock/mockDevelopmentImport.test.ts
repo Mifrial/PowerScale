@@ -135,10 +135,8 @@ describe('mockDevelopmentImport (S14)', () => {
       },
     ]);
     expect(swift?.action_effects?.[0]).toMatchObject({
-      type: 'next_action_attack_target_characteristic_modifier',
+      type: 'next_action_attack_dodge_soak_from_reaction',
       max_total_action_cost: 2,
-      delta: -3,
-      min: 0,
     });
     expect(swift?.requirements?.[0]?.requirements).toContainEqual({
       type: 'has_ability',
@@ -187,7 +185,7 @@ describe('mockDevelopmentImport (S14)', () => {
     expect(attack('otstuplenie')).toBe(false);
     // Счёт: 20 атакующих карточек (все — раздел ближнего боя). «Продолжение атаки» удалена из каталога.
     const withAttack = mockDevelopmentImport.filter((r) => (r.keywordIds ?? []).includes(71)).map((r) => r.code);
-    expect(withAttack).toHaveLength(19);
+    expect(withAttack).toHaveLength(18);
   });
 
   it('«Эффект», «Группа навыков», «Черта развития» не импортируются', () => {
@@ -700,7 +698,6 @@ describe('mockDevelopmentImport (S14)', () => {
   it('Пачка 21 размещена в ближнем бою и отмечает обязательный runtime', () => {
     for (const code of [
       'tochnyy-udar',
-      'masterstvo-v-tochnosti',
       'napravlennyy-udar',
       'protivodeystvuyuschiy-udar',
       'udar-v-sochlenenie',
@@ -711,22 +708,85 @@ describe('mockDevelopmentImport (S14)', () => {
       'riskovannyy-udar',
     ]) {
       expect(byCode.get(code)?.catalogSection, code).toBe(
-        [
-          'tochnyy-udar',
-          'masterstvo-v-tochnosti',
-          'napravlennyy-udar',
-          'protivodeystvuyuschiy-udar',
-          'udar-v-sochlenenie',
-          'smertelnyy-udar',
-          'kriticheskiy-udar',
-        ].includes(code)
+        ['tochnyy-udar', 'napravlennyy-udar', 'udar-v-sochlenenie', 'smertelnyy-udar', 'kriticheskiy-udar'].includes(
+          code,
+        )
           ? 'abilities-acquired-melee-combat-accuracy'
-          : 'abilities-acquired-melee-combat-other',
+          : code === 'riskovannyy-udar'
+            ? 'abilities-acquired-melee-combat-risk'
+            : code === 'vypad'
+              ? 'abilities-acquired-melee-combat-distance'
+              : 'abilities-acquired-melee-combat-other',
       );
+    }
+    expect(byCode.get('masterstvo-v-tochnosti')).toBeUndefined();
+    expect(byCode.get('tochnyy-udar')?.contentNote).toBeUndefined();
+    expect(abilitySpec('tochnyy-udar')?.action_effects).toEqual([
+      {
+        type: 'current_action_attack_accuracy',
+        delta: 1,
+        scope: { components: ['strike'], hit_count: 1 },
+      },
+    ]);
+    expect(abilitySpec('napravlennyy-udar')?.zones).toMatchObject({ or: { levels_cost: [1] } });
+    expect(abilitySpec('napravlennyy-udar')?.action_effects).toEqual([
+      {
+        type: 'current_action_check_modifier',
+        check_codes: ['check-hit'],
+        delta: -1,
+        source_code: 'action',
+      },
+      {
+        type: 'current_action_attack_dodge_soak',
+        size_delta: -3,
+        ignore_at_sr: 3,
+        scope: { components: ['strike'], hit_count: 1 },
+      },
+    ]);
+    expect(byCode.get('napravlennyy-udar')?.contentNote).toBeUndefined();
+    expect(byCode.get('smertelnyy-udar')?.name).toBe('Смертельный удар');
+    expect(abilitySpec('udar-v-sochlenenie')?.action_effects).toEqual([
+      {
+        type: 'current_action_durability_shave',
+        short_extra_on_first_one: true,
+        scope: { components: ['strike'], hit_count: 1 },
+        damage_type_codes: ['cutting', 'slashing', 'piercing'],
+      },
+    ]);
+    expect(abilitySpec('smertelnyy-udar')?.zones).toMatchObject({ or: { levels_cost: [3] } });
+    expect(abilitySpec('smertelnyy-udar')?.action_effects).toEqual([
+      { type: 'require_previous_strike', min_sr: 4, not_kind: 'lethal', same_target: true },
+      { type: 'attack_sr_from_previous', floor_div: 2, cap: 'double_this' },
+    ]);
+    expect(abilitySpec('riskovannyy-udar')?.action_components).toEqual([
+      { type: 'resource', resource_code: 'action-points', amount: 3, label: 'Действие' },
+    ]);
+    for (const code of [
+      'udar-v-sochlenenie',
+      'smertelnyy-udar',
+      'riskovannyy-udar',
+      'vypad',
+      'protivodeystvuyuschiy-udar',
+    ]) {
+      expect(byCode.get(code)?.contentNote, code).toBeUndefined();
+    }
+    expect(byCode.get('protivodeystvuyuschiy-udar')?.name).toBe('Противодействовать защите');
+    expect(abilitySpec('protivodeystvuyuschiy-udar')?.action_components).toEqual([
+      { type: 'resource', resource_code: 'action-points', amount: 1, label: 'Действие' },
+    ]);
+    expect(abilitySpec('protivodeystvuyuschiy-udar')?.action_effects).toEqual([
+      { type: 'require_previous_attack', same_target: true },
+    ]);
+    expect(abilitySpec('vypad')?.action_effects).toEqual([
+      {
+        type: 'current_action_attack_reach',
+        step_fraction: 0.5,
+        scope: { components: ['strike'], hit_count: 1 },
+      },
+    ]);
+    for (const code of ['kriticheskiy-udar', 'vyverennyy-udar']) {
       expect(byCode.get(code)?.contentNote, code).toContain('обязатель');
     }
-    expect(byCode.get('smertelnyy-udar')?.name).toBe('Смертельный удар');
-    expect(byCode.get('tochnyy-udar')?.contentNote).toContain('не отрабатывает');
   });
 
   it('Пачка 22 и карта боевых секций раскладывают прочее сражение отдельно', () => {

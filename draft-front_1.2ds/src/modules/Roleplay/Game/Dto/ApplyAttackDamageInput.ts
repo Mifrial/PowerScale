@@ -14,6 +14,10 @@ export interface ApplyAttackDamageInput {
   defenseIgnored?: boolean;
   /** Пробитие оружия: уменьшает суммарную Защиту, но не типированное сопротивление. */
   penetration?: DimensionalNumberValue;
+  /** Срез надёжности с единиц попадания (к порогу РУ). */
+  durabilityShave?: number;
   /** Потолок РУ как множителя повреждений. */
   maxSuccessRating?: number | null;
+  /** Смягчение уклона после (урон−сопротивление)×РУ. */
+  dodgeSoak?: number;
 }

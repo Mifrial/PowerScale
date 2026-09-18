@@ -152,7 +152,7 @@ describe('rollMeleeHit', () => {
     expect(rolled.defender?.spec.actorKey).toBe('character:1');
   });
 
-  it('уклон: лучшее оружие ББ и помеха Ловкость/Восприятие', () => {
+  it('уклон: лучшее оружие ББ, без тела в мастерстве', () => {
     const defender = {
       characteristics: [
         { ruleCode: 'dexterity', value: { base: 4, size: -2 } },
@@ -190,14 +190,12 @@ describe('rollMeleeHit', () => {
       [checkSimple, checkHit, ...statRules],
       [],
     );
-    expect(rolled.defender?.spec.diceCount).toBe(5);
-    expect(rolled.defender?.spec.dieSize).toBe(-2);
-    expect(rolled.defender?.spec.poolSize).toBe(-1);
+    expect(rolled.defender?.spec.diceCount).toBe(4);
+    expect(rolled.defender?.spec.dieSize).toBe(-1);
+    expect(rolled.defender?.spec.poolSize).toBe(0);
     expect(rolled.defender?.spec.efficiencySize).toBe(-1);
     expect(rolled.defender?.spec.advantages).toEqual([]);
-    expect(rolled.defender?.spec.masteryAdjustments).toEqual([
-      { source_code: 'state', source_label: 'Ловкость/Восприятие', delta: -2 },
-    ]);
+    expect(rolled.defender?.spec.masteryAdjustments).toEqual([]);
   });
 
   it('throw: игнор vs 1↓, полоса дальнобойности поднимает размер', () => {

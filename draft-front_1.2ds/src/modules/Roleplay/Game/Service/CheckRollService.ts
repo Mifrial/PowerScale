@@ -13,6 +13,8 @@ import { HIT_MIN_SUCCESS_SIZE } from '@/modules/Roleplay/Rule/Constant/Check/HIT
 import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/init';
 import { rollEngine } from '@/modules/Roleplay/Game/Service/Roll/Instance/rollEngine';
 import { rollPoolDefaults } from '@/modules/Roleplay/Game/Utils/initiativeRoll';
+import { rollScoreAdjustService } from '@/modules/Roleplay/Game/Service/Instance/rollScoreAdjustService';
+import type { RollMechanicContext } from '@/modules/Roleplay/Game/Dto/RollMechanicContext';
 
 import type { JointCheckRoll } from '@/modules/Roleplay/Game/Dto/JointCheckRoll';
 export class CheckRollService {
@@ -81,6 +83,39 @@ export class CheckRollService {
     const checkName = rules.find((rule) => rule.code === checkCode)?.name;
 
     return this.withCheckOutcome(rolled, checkCode, difficulty, checkName);
+  }
+
+  applyScoreAdjust(
+    result: DiceRollResult,
+    oneDelta: number,
+    faceDelta: number,
+  ): DiceRollResult {
+    if (oneDelta === 0 && faceDelta === 0) return result;
+    const context: RollMechanicContext = {
+      diceCount: result.spec.diceCount,
+      dieFaces: result.spec.dieFaces,
+      efficiency: result.spec.efficiency,
+      advantages: result.spec.advantages,
+      poolSize: result.spec.diceCount,
+      rolls: [...result.rolls],
+      adjustedRolls: [...result.adjustedRolls],
+      droppedRolls: [...result.droppedRolls],
+      successes: [...result.successes],
+      totalSuccesses: result.totalSuccesses,
+      applied: [...(result.appliedMechanics ?? [])],
+    };
+    const changed = rollScoreAdjustService.apply(context, oneDelta, faceDelta, true);
+    if (!changed) return result;
+    context.totalSuccesses = context.successes.reduce((sum, value) => sum + value, 0);
+    const next: DiceRollResult = {
+      ...result,
+      successes: context.successes,
+      totalSuccesses: context.totalSuccesses,
+      appliedMechanics: context.applied,
+    };
+    if (!result.check) return next;
+
+    return this.withCheckOutcome(next, result.check.check_code, result.check.difficulty, result.check.check_name);
   }
 
   /**

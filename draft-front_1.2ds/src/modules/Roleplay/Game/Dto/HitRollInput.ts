@@ -22,14 +22,11 @@ export interface HitRollInput {
   defenderAdvantageModifiers?: AdvantageModifier[];
   /** Временный штраф/бонус точности от текущего действия. */
   accuracyDelta?: number;
-  /** Временный модификатор вклада Ловкости в мастерство цели. */
-  defenderDexterityMasteryDelta?: number;
-  /** Отдельные строки расшифровки временных модификаторов мастерства цели. */
-  defenderMasteryAdjustments?: AdvantageModifier[];
   distanceIpari?: number | null;
   cover?: number;
   flank?: boolean;
   turn?: boolean;
   /** Доп. успехи размера броска к итогу попадания (пакет закрытия Комбо). */
   extraSuccessCount?: number;
+  scoreAdjust?: { oneDelta: number; faceDelta: number };
 }

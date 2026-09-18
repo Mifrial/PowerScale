@@ -22,6 +22,7 @@ import { ACCUMULATED_DAMAGE_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/
 import type { ApplyAttackDamageInput } from '@/modules/Roleplay/Game/Dto/ApplyAttackDamageInput';
 import type { ApplyAttackDamageResult } from '@/modules/Roleplay/Game/Dto/ApplyAttackDamageResult';
 import { ACTION_POINTS_CODE } from '@/modules/Roleplay/Game/Constant/Combat/ACTION_POINTS_CODE';
+import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/init';
 export class AttackDamageService {
   defenseApCost(reaction: HitDefenseReaction | null): number {
     if (reaction === 'dodge') return 1;
@@ -99,6 +100,7 @@ export class AttackDamageService {
           value: line.value,
           durability: line.durability,
           sourceLabel: line.sourceLabel,
+          sourceKey: line.sourceCode ?? armor.itemRuleCode,
         };
         if (line.kind === 'defense' && !includeDefense) {
           layers.push({ ...base, ignored: true, reason: 'defense_flag' });
@@ -117,7 +119,8 @@ export class AttackDamageService {
 
   /**
    * Сопротивление типу урона: линии resistance (и defense, если includeDefense),
-   * надёжность > ignoreAtMostDurability, нетипированные — ко всем; из одного sourceCode — максимум, затем сумма.
+   * надёжность > ignoreAtMostDurability, нетипированные — ко всем; из одного источника —
+   * сильнейший бонус и сильнейший штраф, затем сумма источников.
    */
   stackedResistance(
     lines: DefenseLineOverview[],
@@ -134,19 +137,30 @@ export class AttackDamageService {
 
       return damageTypeCode !== null && line.damageTypeCode === damageTypeCode;
     });
-    const bySource = new Map<string, number>();
-    let ungrouped = 0;
-    for (const line of kept) {
-      if (!line.sourceCode) {
-        ungrouped += line.value;
-        continue;
-      }
-      bySource.set(line.sourceCode, Math.max(bySource.get(line.sourceCode) ?? 0, line.value));
-    }
-    let sum = ungrouped;
-    for (const value of bySource.values()) sum += value;
 
-    return sum;
+    return aggregateSourceDeltasService.netSourceDelta(
+      kept.map((line) => ({ source_code: line.sourceCode, delta: line.value })),
+    );
+  }
+
+  private collapseSameSource(layers: AttackResistanceLayer[]): AttackResistanceLayer[] {
+    const winners = new Set(
+      aggregateSourceDeltasService
+        .aggregateSourceDeltas(
+          layers.flatMap((layer, index) =>
+            layer.ignored
+              ? []
+              : [{ source_code: layer.sourceKey ?? null, delta: layer.value, index }],
+          ),
+        )
+        .map((entry) => entry.index),
+    );
+
+    return layers.map((layer, index) => {
+      if (layer.ignored || winners.has(index)) return layer;
+
+      return { ...layer, ignored: true, reason: 'source' };
+    });
   }
 
   private penetrationOf(input: ApplyAttackDamageInput): number {
@@ -160,10 +174,13 @@ export class AttackDamageService {
     const cap = input.maxSuccessRating;
     const injurySr =
       cap == null || !Number.isFinite(cap) ? remainingSr : Math.min(remainingSr, Math.max(0, Math.floor(cap)));
-    const ignoreAtMost = this.hasPaySrHook(input.hooks) ? remainingSr : 0;
+    const ignoreAtMost =
+      (this.hasPaySrHook(input.hooks) ? remainingSr : 0) + Math.max(0, input.durabilityShave ?? 0);
     const includeDefense = !input.defenseIgnored;
     const penetration = includeDefense ? this.penetrationOf(input) : 0;
-    const layers = this.resistanceLayersOf(input.defense, input.damageTypeCode, ignoreAtMost, includeDefense);
+    const layers = this.collapseSameSource(
+      this.resistanceLayersOf(input.defense, input.damageTypeCode, ignoreAtMost, includeDefense),
+    );
     const kept = layers.filter((layer) => !layer.ignored);
     const resistance = kept.reduce((sum, layer) => sum + layer.value, 0);
     const defenseValue = kept.filter((layer) => layer.kind === 'defense').reduce((sum, layer) => sum + layer.value, 0);
@@ -172,7 +189,9 @@ export class AttackDamageService {
       .reduce((sum, layer) => sum + layer.value, 0);
     const effectiveResistance = typedResistance + Math.max(0, defenseValue - penetration);
     const weapon = new DimensionalNumber(input.weaponDamage).toNumber();
-    const raw = Math.max(0, weapon - effectiveResistance) * injurySr;
+    const product = Math.max(0, weapon - effectiveResistance) * injurySr;
+    const dodgeSoak = Math.max(0, input.dodgeSoak ?? 0);
+    const raw = Math.max(0, product - dodgeSoak);
     const apply = damageTypeHooksService.applyHooksOf(input.hooks);
     const cutting = apply.some((hook) => hook.mechanicCode === DAMAGE_TYPE_HOOK_MECHANIC_CUTTING_WOUNDS);
     const hpDamage = cutting ? 0 : raw;
@@ -208,6 +227,8 @@ export class AttackDamageService {
       srCap: cap == null || !Number.isFinite(cap) ? null : Math.max(0, Math.floor(cap)),
       resistance,
       penetration,
+      dodgeSoak,
+      durabilityShave: Math.max(0, input.durabilityShave ?? 0),
       raw,
       hpDamage,
       exhaustion,

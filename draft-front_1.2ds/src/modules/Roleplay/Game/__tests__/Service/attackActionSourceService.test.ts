@@ -48,6 +48,30 @@ const rule = (keywordIds: number[], attackMode?: 'single' | 'wide'): Rule => ({
 });
 
 describe('AttackActionSourceService', () => {
+  it('limits strike profiles to required damage types', () => {
+    const joint = {
+      ...rule([1, 71]),
+      spec: {
+        ...rule([1, 71]).spec,
+        action_effects: [
+          {
+            type: 'current_action_durability_shave' as const,
+            short_extra_on_first_one: true,
+            scope: { components: ['strike' as const], hit_count: 1 as const },
+            damage_type_codes: ['cutting', 'slashing', 'piercing'],
+          },
+        ],
+      },
+    };
+
+    expect(
+      attackActionSourceService.compatibleProfiles(joint, [
+        { ...profile('strike'), damageTypeCode: 'blunt' },
+        { ...profile('strike'), damageTypeCode: 'piercing', itemRuleCode: 'pike' },
+      ]),
+    ).toEqual([expect.objectContaining({ itemRuleCode: 'pike', damageTypeCode: 'piercing' })]);
+  });
+
   it('does not offer throw profiles for a melee attack', () => {
     expect(
       attackActionSourceService.compatibleProfiles(rule([64, 71]), [

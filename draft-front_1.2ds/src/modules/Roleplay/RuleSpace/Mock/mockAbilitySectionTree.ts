@@ -118,6 +118,18 @@ export const mockAbilitySectionTree: AbilitySection[] = [
     sortOrder: 20,
   },
   {
+    code: 'abilities-acquired-melee-combat-risk',
+    name: 'Риск',
+    parentCode: 'abilities-acquired-melee-combat',
+    sortOrder: 25,
+  },
+  {
+    code: 'abilities-acquired-melee-combat-distance',
+    name: 'Дистанция',
+    parentCode: 'abilities-acquired-melee-combat',
+    sortOrder: 27,
+  },
+  {
     code: 'abilities-acquired-melee-combat-power',
     name: 'Сила',
     parentCode: 'abilities-acquired-melee-combat',
