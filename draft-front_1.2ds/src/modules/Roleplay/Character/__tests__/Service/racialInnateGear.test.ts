@@ -45,6 +45,7 @@ const innateWeapon = (id: number | null, code: string, name: string, family: str
           damage: { formula: { type: 'fixed', value: 1 }, damage_type_code: 'blunt' },
           penetration: { type: 'fixed', value: 0 },
           accuracy: dim(5),
+          dodge_benefit: -6,
         },
       ],
     },

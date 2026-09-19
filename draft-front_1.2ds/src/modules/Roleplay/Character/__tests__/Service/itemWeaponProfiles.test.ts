@@ -44,12 +44,14 @@ describe('weaponProfileViews (панель предмета редактора)'
     expect(rubyashchiy?.accuracyLabel).toBe('4');
     expect(rubyashchiy?.distanceLabel).toBe('1↓');
     expect(rubyashchiy?.falloffLabel).toBeNull();
+    expect(rubyashchiy?.dodgeBenefitLabel).toBe('-6');
 
     // колющий: [Сила − 3] → 5↓ колющего, пробитие [Сила − 2] → 3, точность 3
     expect(kolyushchiy?.damageLabel).toBe('5↓ колющего');
     expect(kolyushchiy?.damageFormula).toBe('Сила − 3');
     expect(kolyushchiy?.penetrationLabel).toBe('3 пробития');
     expect(kolyushchiy?.accuracyLabel).toBe('3');
+    expect(kolyushchiy?.dodgeBenefitLabel).toBe('-4');
   });
 
   it('ручной арбалет: фикс. урон/пробитие (без формулы в скобках), дистанция от базы действия (3×10), дальнобойность', () => {
@@ -74,6 +76,7 @@ describe('weaponProfileViews (панель предмета редактора)'
     expect(strike?.penetrationLabel).toBe('0 пробития');
     expect(strike?.accuracyLabel).toBe('4');
     expect(strike?.distanceLabel).toBe('0');
+    expect(strike?.dodgeBenefitLabel).toBe('-1');
   });
 
   it('не-оружие (доспех) — пусто', () => {

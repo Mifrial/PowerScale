@@ -1,18 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue';
-import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
+import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
 import FormulaInput from '@/modules/Roleplay/Rule/Component/FormulaInput.vue';
 import type { Formula } from '@/modules/Roleplay/Rule/Dto/Ability/Formula';
-
-interface WeaponProfile {
-  type: 'strike' | 'throw' | 'shoot';
-  distance: Formula;
-  range: Formula | null;
-  damage: { formula: Formula; damage_type_code: string | null };
-  penetration: Formula;
-  accuracy: DimensionalNumberValue;
-}
+import type { WeaponProfile } from '@/modules/Roleplay/Rule/Dto/Item/WeaponProfile';
 
 const props = defineProps<{
   modelValue: WeaponProfile;
@@ -41,6 +33,15 @@ function isDefaultDistance(f: Formula): boolean {
     return true;
 
   return false;
+}
+
+function setDodgeBenefit(value: number | null): void {
+  if (value === null) {
+    delete localProfile.value.dodge_benefit;
+
+    return;
+  }
+  localProfile.value.dodge_benefit = value;
 }
 
 watch(
@@ -158,6 +159,14 @@ watch(
     </v-card>
 
     <DimensionalNumberInput v-model="localProfile.accuracy" label="Точность" class="mt-2" />
+
+    <ClampedNumberField
+      class="mt-2"
+      label="Польза уклонения"
+      :model-value="localProfile.dodge_benefit ?? null"
+      nullable
+      @update:model-value="setDodgeBenefit"
+    />
 
     <v-btn color="error" variant="text" @click="emit('remove')" class="mt-2">
       <v-icon start>mdi-delete</v-icon>

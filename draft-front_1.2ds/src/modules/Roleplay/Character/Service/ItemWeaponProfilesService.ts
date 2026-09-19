@@ -152,6 +152,7 @@ export class ItemWeaponProfilesService {
         accuracyLabel: accuracy,
         distanceLabel: range === null ? distance : `${distance}/${range}`,
         falloffLabel: profile.falloff === undefined ? null : new DimensionalNumber(profile.falloff).toString(),
+        dodgeBenefitLabel: profile.dodge_benefit === undefined ? null : String(profile.dodge_benefit),
       };
     });
   }

@@ -70,6 +70,7 @@ export class RuleValidationService {
       ...this.validateRaceStructure(effective),
       ...this.validateSpeciesStructure(effective),
       ...this.validateItemModifierStructure(effective),
+      ...this.validateWeaponDodgeBenefit(effective),
       ...this.validateCheckStructure(effective),
       ...this.validateDamageTypeStructure(effective),
       ...this.validateAgeStructure(effective),
@@ -770,6 +771,29 @@ export class RuleValidationService {
     return errors;
   }
 
+  /** Если польза уклонения задана — целое число. Поле не обязательно. */
+  validateWeaponDodgeBenefit(rules: Rule[]): { ruleCode: string; ruleName: string; message: string }[] {
+    const errors: { ruleCode: string; ruleName: string; message: string }[] = [];
+    for (const rule of rules) {
+      if (rule.type !== 'item') continue;
+      const item = rule.spec as ItemSpec | undefined;
+      if (!item) continue;
+      const profiles = [...(item.weapon?.weapon_profiles ?? []), ...(item.shield?.weapon_profiles ?? [])];
+      for (const profile of profiles) {
+        if (profile.dodge_benefit === undefined) continue;
+        if (!Number.isInteger(profile.dodge_benefit)) {
+          errors.push({
+            ruleCode: rule.code,
+            ruleName: rule.name,
+            message: 'польза уклонения должна быть целым числом',
+          });
+        }
+      }
+    }
+
+    return errors;
+  }
+
   /** Структурная валидация модификатора предмета: цена и применимость консистентны. */
   validateItemModifierStructure(rules: Rule[]): { ruleCode: string; ruleName: string; message: string }[] {
     const errors: { ruleCode: string; ruleName: string; message: string }[] = [];
@@ -1031,6 +1055,15 @@ export class RuleValidationService {
           }
         }
         for (const profile of item.weapon?.weapon_profiles ?? []) {
+          this.walkFormula(profile.damage?.formula, 'characteristic', collect);
+          if (profile.damage?.damage_type_code) {
+            collect({ code: profile.damage.damage_type_code, type: 'damage_type' });
+          }
+          this.walkFormula(profile.penetration, 'characteristic', collect);
+          this.walkFormula(profile.distance, 'characteristic', collect);
+          this.walkFormula(profile.range, 'characteristic', collect);
+        }
+        for (const profile of item.shield?.weapon_profiles ?? []) {
           this.walkFormula(profile.damage?.formula, 'characteristic', collect);
           if (profile.damage?.damage_type_code) {
             collect({ code: profile.damage.damage_type_code, type: 'damage_type' });

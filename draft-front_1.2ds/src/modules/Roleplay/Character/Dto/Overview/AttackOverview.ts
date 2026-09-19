@@ -31,4 +31,6 @@ export interface AttackOverview {
   damage: DimensionalNumberValue;
   /** Посчитанное пробитие профиля. */
   penetration: DimensionalNumberValue;
+  /** Польза уклонения профиля; нет — Game fallback −3. */
+  dodgeBenefit?: number;
 }

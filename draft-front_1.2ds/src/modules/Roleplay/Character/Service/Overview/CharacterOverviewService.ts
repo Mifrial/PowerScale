@@ -1221,6 +1221,7 @@ export class CharacterOverviewService {
       damageTypeCode: profile.damage.damage_type_code,
       damage: damageValue,
       penetration: penetrationValue,
+      dodgeBenefit: profile.dodge_benefit,
     };
   }
   private effectiveSpecOf(item: InventoryItem, reference: CharacterReferenceService): ItemSpec | null {

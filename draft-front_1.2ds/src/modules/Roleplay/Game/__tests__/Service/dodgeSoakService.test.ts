@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { CharacterOverview } from '@/modules/Roleplay/Character/Dto/Overview/CharacterOverview';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { dodgeSoakService } from '@/modules/Roleplay/Game/Service/Instance/dodgeSoakService';
@@ -13,14 +13,56 @@ const rules: Rule[] = [
 ];
 
 describe('DodgeSoakService', () => {
-  it('S0 = Ловкость.modify(−3); не на блоке', () => {
+  it('S = Ловкость.modify(dodgeBenefit); не на блоке', () => {
     const defender = overview('dexterity', { base: 4, size: 1 });
     expect(
-      dodgeSoakService.amount({ reaction: 'dodge', defenderOverview: defender, rules, sr: 1 }),
+      dodgeSoakService.amount({
+        reaction: 'dodge',
+        defenderOverview: defender,
+        rules,
+        sr: 1,
+        dodgeBenefit: -3,
+      }),
     ).toBe(4);
     expect(
-      dodgeSoakService.amount({ reaction: 'block', defenderOverview: defender, rules, sr: 1 }),
+      dodgeSoakService.amount({
+        reaction: 'block',
+        defenderOverview: defender,
+        rules,
+        sr: 1,
+        dodgeBenefit: -3,
+      }),
     ).toBe(0);
+  });
+
+  it('нет dodgeBenefit → fallback −3 и warn', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const defender = overview('dexterity', { base: 4, size: 1 });
+    expect(
+      dodgeSoakService.amount({
+        reaction: 'dodge',
+        defenderOverview: defender,
+        rules,
+        sr: 1,
+        itemRuleCode: 'test-item',
+        profileIndex: 0,
+      }),
+    ).toBe(4);
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it('dodgeBenefit 0 не подменяется fallback', () => {
+    const defender = overview('dexterity', { base: 4, size: 1 });
+    expect(
+      dodgeSoakService.amount({
+        reaction: 'dodge',
+        defenderOverview: defender,
+        rules,
+        sr: 1,
+        dodgeBenefit: 0,
+      }),
+    ).toBe(8);
   });
 
   it('Направленный: −размер, при РУ ≥ 3 soak 0', () => {
@@ -31,6 +73,7 @@ describe('DodgeSoakService', () => {
         defenderOverview: defender,
         rules,
         sr: 2,
+        dodgeBenefit: -3,
         cuts: { sizeDelta: -3 },
       }),
     ).toBe(4);
@@ -40,12 +83,13 @@ describe('DodgeSoakService', () => {
         defenderOverview: defender,
         rules,
         sr: 3,
+        dodgeBenefit: -3,
         cuts: { sizeDelta: -3, ignoreAtSr: 3 },
       }),
     ).toBe(0);
   });
 
-  it('Стремительный: −Реакция.toNumber()', () => {
+  it('Стремительный: −Реакция.toNumber() после базы', () => {
     const defender = overview('dexterity', { base: 4, size: 1 });
     expect(
       dodgeSoakService.amount({
@@ -53,6 +97,7 @@ describe('DodgeSoakService', () => {
         defenderOverview: defender,
         rules,
         sr: 1,
+        dodgeBenefit: -3,
         cuts: { subtract: 8 },
       }),
     ).toBe(0);

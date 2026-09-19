@@ -18,6 +18,7 @@ describe('ItemSpecService', () => {
       characteristic: 'strength',
     });
     expect(profile?.penetration).toMatchObject({ type: 'actionCharacteristic', action: 'strike' });
+    expect(profile?.dodge_benefit).toBeUndefined();
   });
 
   it('innate: prune обнуляет стоимость и вес', () => {

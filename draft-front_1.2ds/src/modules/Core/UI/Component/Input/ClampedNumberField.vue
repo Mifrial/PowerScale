@@ -5,7 +5,7 @@ defineOptions({ inheritAttrs: false });
 
 const props = withDefaults(
   defineProps<{
-    modelValue: number;
+    modelValue: number | null;
     min?: number;
     max?: number;
     minWidth?: string | number;
@@ -19,7 +19,7 @@ const props = withDefaults(
 );
 
 const emit = defineEmits<{
-  'update:modelValue': [value: number];
+  'update:modelValue': [value: number | null];
 }>();
 
 const attrs = useAttrs();

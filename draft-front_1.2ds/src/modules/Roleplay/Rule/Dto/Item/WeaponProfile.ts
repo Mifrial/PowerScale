@@ -13,4 +13,6 @@ export interface WeaponProfile {
   action_characteristics?: ActionCharacteristicValue[];
   /** «Дальнобойность»: шаг (в ипари), за каждые который сила броска/выстрела падает на размер. */
   falloff?: DimensionalNumberValue;
+  /** Польза уклонения: S = Ловкость.modify(dodge_benefit). Нет поля — fallback −3. */
+  dodge_benefit?: number;
 }

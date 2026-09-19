@@ -376,6 +376,7 @@ function attackFromOffer(current: CheckOffer): AttackOverview | null {
     damageTypeCode: hit.damageTypeCode ?? props.attack?.damageTypeCode ?? null,
     damage: hit.damage ?? props.attack?.damage ?? { base: 0, size: 0 },
     penetration: hit.penetration ?? props.attack?.penetration ?? { base: 0, size: 0 },
+    dodgeBenefit: props.attack?.dodgeBenefit,
   };
 }
 
@@ -2216,6 +2217,9 @@ async function applyClickAttack(
     defenderOverview,
     rules: props.rules,
     sr: weaponSr,
+    dodgeBenefit: resolvedAttack.dodgeBenefit,
+    itemRuleCode: resolvedAttack.itemRuleCode,
+    profileIndex: resolvedAttack.profileIndex,
     cuts: {
       sizeDelta: soakCuts.sizeDelta,
       ignoreAtSr: soakCuts.ignoreAtSr,

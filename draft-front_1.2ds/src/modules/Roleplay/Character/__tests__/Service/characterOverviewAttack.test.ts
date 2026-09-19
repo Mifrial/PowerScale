@@ -50,6 +50,7 @@ const rules: Rule[] = [
             modifier: [{ delta: -3, source_code: null, source_label: null }],
           },
           accuracy: dim(3),
+          dodge_benefit: -1,
         },
       ],
     },
@@ -102,6 +103,66 @@ describe('CharacterOverviewService: формулы атак', () => {
     expect(overview.attacks[0].reach).toBe(1);
     expect(overview.attacks[0].minDistance).toBe(1);
     expect(overview.attacks[0].falloff).toEqual({ base: 5, size: 0 });
+    expect(overview.attacks[0].dodgeBenefit).toBe(-1);
+  });
+
+  it('два профиля одного предмета несут разные dodgeBenefit', () => {
+    const dual: Rule[] = [
+      rules[0]!,
+      {
+        ...rules[1]!,
+        spec: {
+          ...(rules[1]!.spec as object),
+          weapon: {
+            min_strength: dim(3, 2),
+            durability: dim(5, 3),
+            block_profile: { efficiency: dim(4), defense: { base: 5, size: 0 }, resistances: [] },
+            weapon_profiles: [
+              {
+                type: 'strike',
+                distance: { type: 'dimensional', base: 1, size: 0 },
+                range: null,
+                damage: {
+                  formula: {
+                    type: 'actionCharacteristic',
+                    action: 'strike',
+                    characteristic: 'strength',
+                    modifier: [{ delta: -1, source_code: null, source_label: null }],
+                  },
+                  damage_type_code: 'slashing',
+                },
+                penetration: { type: 'fixed', value: 0 },
+                accuracy: dim(3),
+                dodge_benefit: -1,
+              },
+              {
+                type: 'strike',
+                distance: { type: 'dimensional', base: 1, size: 0 },
+                range: null,
+                damage: {
+                  formula: {
+                    type: 'actionCharacteristic',
+                    action: 'strike',
+                    characteristic: 'strength',
+                    modifier: [{ delta: -4, source_code: null, source_label: null }],
+                  },
+                  damage_type_code: 'piercing',
+                },
+                penetration: { type: 'fixed', value: 0 },
+                accuracy: dim(4),
+                dodge_benefit: -6,
+              },
+            ],
+          },
+        },
+      },
+    ];
+    const version = versionWith({
+      characteristics: [{ ruleCode: 'strength', base: dim(4, 1), modifiers: [] }],
+      inventory: [{ id: 1, ruleCode: 'alebarda', quantity: 1, equipped: true }],
+    });
+    const overview = service.build(version, dual);
+    expect(overview.attacks.map((attack) => attack.dodgeBenefit)).toEqual([-1, -6]);
   });
 
   it('две руки на оружии дают +2 к Силе удара', () => {

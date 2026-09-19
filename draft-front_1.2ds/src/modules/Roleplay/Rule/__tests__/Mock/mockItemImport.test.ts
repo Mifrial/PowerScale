@@ -55,6 +55,7 @@ describe('mockItemImport (S16, заход «Инвентарь»)', () => {
         expect(profile.distance.type).toBeTruthy();
         expect(profile.damage.formula.type).toBeTruthy();
         expect(profile.accuracy).toHaveProperty('base');
+        expect(typeof profile.dodge_benefit).toBe('number');
       }
     }
   });
@@ -127,6 +128,9 @@ describe('mockItemImport (S16, заход «Инвентарь»)', () => {
       expect(spec.shield!.block).toHaveProperty('defense');
       expect(spec.shield!.block).toHaveProperty('efficiency');
       expect(spec.shield!.weapon_profiles?.length ?? 0).toBeGreaterThan(0);
+      for (const profile of spec.shield!.weapon_profiles ?? []) {
+        expect(typeof profile.dodge_benefit).toBe('number');
+      }
     }
   });
 

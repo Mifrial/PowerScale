@@ -100,6 +100,7 @@ export class RuleViewLabelService {
       `пробитие ${this.formula(profile.penetration, rules)}`,
       `точность ${this.dimensional(profile.accuracy)}`,
       profile.falloff ? `дальнобойность ${this.dimensional(profile.falloff)}` : null,
+      profile.dodge_benefit !== undefined ? `польза уклонения ${profile.dodge_benefit}` : null,
     ];
 
     return parts.filter((part): part is string => part != null).join(' · ');

@@ -17,4 +17,6 @@ export interface WeaponProfileView {
   distanceLabel: string;
   /** «Дальнобойность» профиля (шаг падения силы броска/выстрела); null — отсутствует. */
   falloffLabel: string | null;
+  /** Число пользы уклонения; null — поле не задано. Заголовок колонки — в таблице. */
+  dodgeBenefitLabel: string | null;
 }

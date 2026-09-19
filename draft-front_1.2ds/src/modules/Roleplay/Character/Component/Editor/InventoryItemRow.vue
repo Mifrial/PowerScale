@@ -305,6 +305,7 @@ const open = computed({
           <div class="profile-cell">Пробитие</div>
           <div class="profile-cell">Точность</div>
           <div class="profile-cell">Дальность / Дальнобойность</div>
+          <div class="profile-cell">Польза уклонения</div>
         </div>
         <div v-for="(profile, index) in profiles" :key="index" class="profile-line">
           <div class="profile-cell profile-cell--type">
@@ -329,6 +330,9 @@ const open = computed({
               <span class="profile-cell__sep">/</span>
               <span class="font-weight-medium">{{ profile.falloffLabel }}</span>
             </template>
+          </div>
+          <div class="profile-cell">
+            <span v-if="profile.dodgeBenefitLabel" class="font-weight-medium">{{ profile.dodgeBenefitLabel }}</span>
           </div>
         </div>
       </div>
@@ -495,7 +499,7 @@ const open = computed({
 .profile-line,
 .profile-header {
   display: grid;
-  grid-template-columns: 56px repeat(4, minmax(0, 1fr));
+  grid-template-columns: 56px repeat(5, minmax(0, 1fr));
   font-size: 12px;
 }
 

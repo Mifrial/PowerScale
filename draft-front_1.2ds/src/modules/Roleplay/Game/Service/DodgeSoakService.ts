@@ -8,7 +8,9 @@ import { CHARACTERISTIC_BASE_RANGE } from '@/modules/Roleplay/Character/init';
 import { CHARACTERISTIC_DEXTERITY_CODE } from '@/modules/Roleplay/Rule/Constant/Characteristic/CHARACTERISTIC_DEXTERITY_CODE';
 import { CHARACTERISTIC_REACTION_CODE } from '@/modules/Roleplay/Rule/Constant/Characteristic/CHARACTERISTIC_REACTION_CODE';
 
-/** Смягчение уклона: S0 = Ловкость.modify(−3), карты режут S, не кубы. */
+const FALLBACK_DODGE_BENEFIT = -3;
+
+/** Смягчение уклона: Ловкость.modify(dodge_benefit | −3), карты режут S, не кубы. */
 export class DodgeSoakService {
   characteristicValue(
     overview: CharacterOverview | null | undefined,
@@ -25,10 +27,26 @@ export class DodgeSoakService {
     return null;
   }
 
-  baseSoakValue(dexterity: DimensionalNumberValue | null): DimensionalNumberValue | null {
+  resolvedBenefit(
+    dodgeBenefit: number | undefined,
+    context?: { itemRuleCode?: string; profileIndex?: number },
+  ): number {
+    if (dodgeBenefit !== undefined) return dodgeBenefit;
+    const item = context?.itemRuleCode ?? 'unknown';
+    const profile = context?.profileIndex ?? '?';
+    const message = `Нет dodge_benefit у профиля ${item}[${profile}], fallback ${FALLBACK_DODGE_BENEFIT}`;
+    console.warn(message);
+    if (import.meta.env.DEV && import.meta.env.MODE !== 'test') {
+      alert(message);
+    }
+
+    return FALLBACK_DODGE_BENEFIT;
+  }
+
+  baseSoakValue(dexterity: DimensionalNumberValue | null, dodgeBenefit: number): DimensionalNumberValue | null {
     if (!dexterity) return null;
 
-    return new DimensionalNumber(dexterity).modify(-3, CHARACTERISTIC_BASE_RANGE).value;
+    return new DimensionalNumber(dexterity).modify(dodgeBenefit, CHARACTERISTIC_BASE_RANGE).value;
   }
 
   applyCuts(base: DimensionalNumberValue | null, cuts: DodgeSoakCuts, sr: number): number {
@@ -36,7 +54,7 @@ export class DodgeSoakService {
     let soak = new DimensionalNumber(base);
     const sizeDelta = cuts.sizeDelta ?? 0;
     if (sizeDelta) soak = soak.modify(sizeDelta, CHARACTERISTIC_BASE_RANGE);
-    let amount = Math.max(0, soak.toNumber() - Math.max(0, cuts.subtract ?? 0));
+    const amount = Math.max(0, soak.toNumber() - Math.max(0, cuts.subtract ?? 0));
     const ignoreAtSr = cuts.ignoreAtSr;
     if (ignoreAtSr != null && sr >= ignoreAtSr) return 0;
 
@@ -49,11 +67,18 @@ export class DodgeSoakService {
     rules: Rule[];
     sr: number;
     cuts?: DodgeSoakCuts;
+    dodgeBenefit?: number;
+    itemRuleCode?: string;
+    profileIndex?: number;
   }): number {
     if (input.reaction !== 'dodge') return 0;
     const dexterity = this.characteristicValue(input.defenderOverview, input.rules, CHARACTERISTIC_DEXTERITY_CODE);
+    const benefit = this.resolvedBenefit(input.dodgeBenefit, {
+      itemRuleCode: input.itemRuleCode,
+      profileIndex: input.profileIndex,
+    });
 
-    return this.applyCuts(this.baseSoakValue(dexterity), input.cuts ?? {}, input.sr);
+    return this.applyCuts(this.baseSoakValue(dexterity, benefit), input.cuts ?? {}, input.sr);
   }
 
   reactionToNumber(overview: CharacterOverview | null | undefined, rules: Rule[]): number {
