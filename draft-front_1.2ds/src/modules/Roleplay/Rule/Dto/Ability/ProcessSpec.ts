@@ -9,4 +9,6 @@ export interface ProcessSpec {
   transition: ProcessTransition;
   failure?: 'restart_from_first' | 'end_action' | null;
   completion_effects?: ActionEffect[];
+  /** Помеха обстоятельств = число прошлых ударов этим экземпляром оружия в сессии. */
+  repeat_weapon_circumstance?: boolean;
 }

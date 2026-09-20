@@ -3,6 +3,7 @@ import { durabilityShaveService } from '@/modules/Roleplay/Game/Service/Instance
 import { lastStrikeService } from '@/modules/Roleplay/Game/Service/Instance/lastStrikeService';
 import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/actionEffectService';
 import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
+import { rollScoreAdjustService } from '@/modules/Roleplay/Game/Service/Instance/rollScoreAdjustService';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
 import {
@@ -170,5 +171,117 @@ describe('Точность §2.3', () => {
     expect(
       lastStrikeService.describe({ kind: 'other', hits: [{ targetKey: 'character:1', attackSr: 5 }] }, () => 'Цель'),
     ).toBe('прошлый удар (Цель: попал, РУ 5)');
+  });
+
+  it('критический: гейт по повреждениям, цепочка открыта, один удар', () => {
+    const rule = ability([
+      { type: 'require_previous_attack', same_target: true, all_damaged: true, single_strike: true },
+    ]);
+    const damaged = {
+      kind: 'other' as const,
+      hits: [{ targetKey: 'character:1', attackSr: 2, damaged: true }],
+    };
+    expect(lastStrikeService.canFollowUp(rule, damaged, 'character:1')).toBe(true);
+    expect(lastStrikeService.canFollowUp(rule, { ...damaged, kind: 'lethal' }, 'character:1')).toBe(true);
+    expect(
+      lastStrikeService.canFollowUp(
+        rule,
+        { kind: 'other', hits: [{ targetKey: 'character:1', attackSr: 3, damaged: false }] },
+        'character:1',
+      ),
+    ).toBe(false);
+    expect(
+      lastStrikeService.canFollowUp(
+        rule,
+        {
+          kind: 'other',
+          hits: [
+            { targetKey: 'character:1', attackSr: 2, damaged: true },
+            { targetKey: 'character:2', attackSr: 1, damaged: false },
+          ],
+        },
+        'character:1',
+      ),
+    ).toBe(false);
+    expect(lastStrikeService.requiresSingleStrike(rule)).toBe(true);
+  });
+
+  it('критический: хвост −1 за 1 той же цели и сгорает иначе', () => {
+    const hanging: PendingActionEffect[] = [
+      {
+        sourceRuleCode: 'crit',
+        effect: {
+          type: 'next_action_attack_score_adjust',
+          oneDelta: -1,
+          faceDelta: 0,
+          same_target: true,
+          targetKey: 'character:1',
+        },
+      },
+    ];
+    const same = actionEffectService.resolveForNextAction(hanging, {
+      isAttack: true,
+      component: 'strike',
+      baseCost: 4,
+      targetKeys: ['character:1'],
+    });
+    expect(same.remainingEffects).toEqual([]);
+    expect(actionEffectService.pendingHitScoreAdjust(same.hitScoreAdjusts, 'character:1')).toEqual({
+      oneDelta: -1,
+      faceDelta: 0,
+    });
+    const other = actionEffectService.resolveForNextAction(hanging, {
+      isAttack: true,
+      component: 'strike',
+      baseCost: 4,
+      targetKeys: ['character:2'],
+    });
+    expect(other.remainingEffects).toEqual([]);
+    expect(actionEffectService.pendingHitScoreAdjust(other.hitScoreAdjusts, 'character:2')).toEqual({
+      oneDelta: 0,
+      faceDelta: 0,
+    });
+    expect(
+      actionEffectService.resolveForNextAction(hanging, { isAttack: false, component: 'strike', baseCost: 1 })
+        .remainingEffects,
+    ).toEqual([]);
+  });
+
+  it('критический: ремап 5→6 и 2→1 до правила 6 и 1', () => {
+    const context = {
+      diceCount: 3,
+      dieFaces: 6,
+      efficiency: 3,
+      advantages: [],
+      poolSize: 3,
+      rolls: [5, 2, 4],
+      adjustedRolls: [5, 2, 4],
+      droppedRolls: [],
+      successes: [0, 1, 0],
+      totalSuccesses: 1,
+      applied: ['six_one_rule'],
+    };
+    expect(rollScoreAdjustService.remap(context, [{ from: 5, to: 6 }, { from: 2, to: 1 }])).toBe(true);
+    expect(context.adjustedRolls).toEqual([6, 1, 4]);
+    expect(context.successes).toEqual([-1, 2, 0]);
+  });
+
+  it('критический: ремап накладывает 6 и 1 даже если оно не стреляло на исходных гранях', () => {
+    const context = {
+      diceCount: 2,
+      dieFaces: 6,
+      efficiency: 4,
+      advantages: [],
+      poolSize: 2,
+      rolls: [5, 2],
+      adjustedRolls: [5, 2],
+      droppedRolls: [],
+      successes: [0, 1],
+      totalSuccesses: 1,
+      applied: [],
+    };
+    expect(rollScoreAdjustService.remap(context, [{ from: 5, to: 6 }, { from: 2, to: 1 }])).toBe(true);
+    expect(context.adjustedRolls).toEqual([6, 1]);
+    expect(context.successes).toEqual([-1, 2]);
   });
 });

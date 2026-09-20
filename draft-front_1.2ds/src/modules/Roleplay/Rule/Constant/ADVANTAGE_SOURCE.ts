@@ -5,3 +5,4 @@ export const ADVANTAGE_SOURCE_STATE = 'state';
 export const ADVANTAGE_SOURCE_APPEARANCE = 'appearance';
 export const ADVANTAGE_SOURCE_CIRCUMSTANCES = 'circumstances';
 export const ADVANTAGE_SOURCE_ACTION = 'action';
+export const ADVANTAGE_SOURCE_MULTI_ATTACK = 'multi_attack';

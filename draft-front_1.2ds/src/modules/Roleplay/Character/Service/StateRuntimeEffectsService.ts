@@ -128,13 +128,19 @@ export class StateRuntimeEffectsService {
           spec.aggregation === 'independent' ? `${rule.code}#${index}` : (effect.source_code ?? ADVANTAGE_SOURCE_STATE);
         entries.push({
           source_code: sourceCode,
-          source_label: sourceCode === ADVANTAGE_SOURCE_APPEARANCE ? 'внешность' : rule.name,
+          source_label: this.advantageLabelOf(rule, sourceCode),
           delta,
         });
       }
     }
 
     return this.aggregate.aggregateSourceDeltas(entries);
+  }
+
+  private advantageLabelOf(rule: Rule, sourceCode: string): string {
+    if (sourceCode === ADVANTAGE_SOURCE_APPEARANCE) return 'внешность';
+
+    return `Состояние (${rule.name})`;
   }
 
   private characteristicSpecOf(rule: Rule | undefined): CharacteristicSpec | null {

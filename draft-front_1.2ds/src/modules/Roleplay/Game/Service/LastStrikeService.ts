@@ -47,13 +47,37 @@ export class LastStrikeService {
     const previousAttack = actionEffectService
       .effectsOf(rule)
       .find((effect) => effect.type === 'require_previous_attack');
-    if (previousAttack) return snapshot ? snapshot.hits.map((hit) => hit.targetKey) : [];
+    if (previousAttack) {
+      if (!snapshot || snapshot.hits.length === 0) return [];
+      if (previousAttack.type === 'require_previous_attack' && previousAttack.all_damaged) {
+        if (!snapshot.hits.every((hit) => hit.damaged)) return [];
+      }
+
+      return snapshot.hits.map((hit) => hit.targetKey);
+    }
     const gate = actionEffectService.effectsOf(rule).find((effect) => effect.type === 'require_previous_strike');
     if (!gate || gate.type !== 'require_previous_strike') return null;
     if (!snapshot || snapshot.kind === gate.not_kind) return [];
     const hits = snapshot.hits.filter((hit) => hit.attackSr >= gate.min_sr);
 
     return hits.map((hit) => hit.targetKey);
+  }
+
+  requiresSingleStrike(rule: Rule | null | undefined): boolean {
+    return actionEffectService.effectsOf(rule).some(
+      (effect) => effect.type === 'require_previous_attack' && effect.single_strike,
+    );
+  }
+
+  followUpBlockedMessage(rule: Rule | null | undefined): string {
+    const previousAttack = actionEffectService
+      .effectsOf(rule)
+      .find((effect) => effect.type === 'require_previous_attack');
+    if (previousAttack && previousAttack.type === 'require_previous_attack' && previousAttack.all_damaged) {
+      return 'Критический удар можно совершить только сразу после атаки, каждый удар которой нанёс повреждения, и только по одной из тех целей';
+    }
+
+    return 'Смертельный удар можно совершить только сразу после другого удара с РУ ≥ 4 по той же цели';
   }
 
   reactionOf(snapshot: LastStrikeSnapshot | null, targetKey: string | null): string | null {

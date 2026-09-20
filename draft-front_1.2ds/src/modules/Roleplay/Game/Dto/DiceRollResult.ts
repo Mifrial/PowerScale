@@ -15,6 +15,8 @@ export interface DiceRollResult {
   deviationStrength?: number;
   /** Имена механик, реально повлиявших на бросок (напр. «Правило 6 и 1»). */
   appliedMechanics?: string[];
+  /** Грани до ремапа Критического; та же длина, что adjustedRolls. */
+  priorAdjustedRolls?: number[];
   /** Слой проверки (чат: простая vs {0|0}). Нет — только бросок. */
   check?: DiceRollCheckOutcome;
   /** Исход проверки на увечье (сила = −РУ при провале). */

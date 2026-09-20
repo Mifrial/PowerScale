@@ -8,7 +8,7 @@ export interface AttackAction {
   strikes: AttackActionStrike[];
   /** Групповая атака по нескольким целям (например, Широкий удар). */
   mode?: 'single' | 'wide';
-  reactionMode: 'simultaneous';
+  reactionMode: 'simultaneous' | 'sequential' | 'paired';
   totalOdCost: number;
   /** Живой процесс Комбо закрывается этой атакой, не шагом Завершения. */
   optionalChildAbilityCodes?: string[];

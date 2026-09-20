@@ -4,6 +4,8 @@ import {
   defenseOdCost,
   actionOdCost,
   actionUsesChosenCost,
+  asActionAbilitySpec,
+  asProcessAbilitySpec,
   attackActionById,
   listAttackActions,
   reactionOdCost,
@@ -60,6 +62,11 @@ describe('combatActions', () => {
     expect(attackActionById(rules, SIMPLE_MELEE_ATTACK_CODE)?.name).toBe('Простая атака (ближний бой)');
     expect(attackActionById(rules, '1')).toBeNull();
     expect(attackActionById(rules, SIMPLE_MELEE_ATTACK_CODE)?.ruleCode).toBe(SIMPLE_MELEE_ATTACK_CODE);
+  });
+
+  it('asActionAbilitySpec / asProcessAbilitySpec не падают на пустом правиле', () => {
+    expect(asActionAbilitySpec(null)).toBeNull();
+    expect(asProcessAbilitySpec(undefined)).toBeNull();
   });
 
   it('ОД реакций из спеки действия', () => {

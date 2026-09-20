@@ -2,6 +2,7 @@ import type { CheckOffer } from '@/modules/Roleplay/Game/Dto/CheckOffer';
 import type { CheckOfferProposal } from '@/modules/Roleplay/Game/Dto/CheckOfferProposal';
 import type { CreateCheckOfferData } from '@/modules/Roleplay/Game/Dto/CreateCheckOfferData';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
+import { sequentialStrikeOfferService } from '@/modules/Roleplay/Game/Service/Instance/sequentialStrikeOfferService';
 
 const delay = (ms = 80) => new Promise((r) => setTimeout(r, ms));
 
@@ -30,10 +31,40 @@ function targetProposalsOf(offer: CheckOffer): NonNullable<CheckOfferProposal['t
   return offer.proposal.targetProposals ?? [];
 }
 
+function reactionSlotsOf(offer: CheckOffer): NonNullable<CheckOfferProposal['strikeProposals']> {
+  return sequentialStrikeOfferService.slotsFrom(offer.proposal);
+}
+
 function pendingTargetsOf(offer: CheckOffer): CombatEntityKey[] {
+  const sequentialPending = sequentialStrikeOfferService.pendingTargetKeys(reactionSlotsOf(offer));
+  if (sequentialPending.length) return sequentialPending;
+
   return targetProposalsOf(offer)
     .filter((target) => target.hit.reaction === null)
     .map((target) => target.targetKey);
+}
+
+function applyOpponentProposal(offer: CheckOffer, actorKey: CombatEntityKey, proposal: CheckOfferProposal): void {
+  const sequentialSlots = reactionSlotsOf(offer);
+  if (sequentialSlots.length && proposal.hit) {
+    offer.proposal = {
+      ...offer.proposal,
+      ...proposal,
+      strikeProposals: sequentialStrikeOfferService.fillNextHit(sequentialSlots, actorKey, proposal.hit),
+      targetProposals: offer.proposal.targetProposals,
+    };
+  } else {
+    const target = targetProposalsOf(offer).find((entry) => entry.targetKey === actorKey);
+    if (target && proposal.hit) target.hit = { ...target.hit, ...proposal.hit };
+    offer.proposal = {
+      ...offer.proposal,
+      ...proposal,
+      targetProposals: targetProposalsOf(offer),
+      strikeProposals: offer.proposal.strikeProposals,
+    };
+  }
+  offer.waitingOnTargets = pendingTargetsOf(offer);
+  offer.waitingOn = offer.waitingOnTargets.length > 0 ? 'opponent' : 'initiator';
 }
 
 export async function createCheckOffer(gameId: number, data: CreateCheckOfferData): Promise<CheckOffer> {
@@ -55,15 +86,21 @@ export async function createCheckOffer(gameId: number, data: CreateCheckOfferDat
           hit: { ...hit, reaction: null },
         }))
       : undefined;
+  const strikeProposals =
+    sequentialStrikeOfferService.isMultiStrike(data.proposal) && hit
+      ? sequentialStrikeOfferService.createSlots(data.proposal.attackAction?.strikes ?? [], hit)
+      : undefined;
   const offer: CheckOffer = {
     id: nextId++,
     gameId,
     checkCode: data.checkCode,
     initiator: data.initiator,
     opponent: data.opponent,
-    proposal: { ...data.proposal, targetProposals },
+    proposal: { ...data.proposal, targetProposals, strikeProposals },
     waitingOn: 'opponent',
-    waitingOnTargets: targetProposals?.map((target) => target.targetKey),
+    waitingOnTargets: strikeProposals
+      ? sequentialStrikeOfferService.pendingTargetKeys(strikeProposals)
+      : targetProposals?.map((target) => target.targetKey),
     status: 'pending',
     updatedAt: new Date().toISOString(),
   };
@@ -84,13 +121,13 @@ export async function reviseCheckOffer(
     throw new Error('Сейчас ход другой стороны');
   if (role === 'initiator' && offer.waitingOn !== role) throw new Error('Сейчас ход другой стороны');
   if (role === 'opponent' && offer.waitingOnTargets) {
-    const target = targetProposalsOf(offer).find((entry) => entry.targetKey === actorKey);
-    if (target && proposal.hit) target.hit = { ...target.hit, ...proposal.hit };
-    offer.proposal = { ...offer.proposal, ...proposal, targetProposals: targetProposalsOf(offer) };
-    offer.waitingOnTargets = pendingTargetsOf(offer);
-    offer.waitingOn = offer.waitingOnTargets.length > 0 ? 'opponent' : 'initiator';
+    applyOpponentProposal(offer, actorKey, proposal);
   } else {
-    offer.proposal = { ...proposal, targetProposals: offer.proposal.targetProposals };
+    offer.proposal = {
+      ...proposal,
+      targetProposals: offer.proposal.targetProposals,
+      strikeProposals: offer.proposal.strikeProposals,
+    };
     offer.waitingOn = role === 'initiator' ? 'opponent' : 'initiator';
   }
   offer.updatedAt = new Date().toISOString();
@@ -111,13 +148,13 @@ export async function acceptCheckOffer(
   if (role === 'initiator' && offer.waitingOn !== role) throw new Error('Сейчас ход другой стороны');
   if (proposal) {
     if (role === 'opponent' && offer.waitingOnTargets) {
-      const target = targetProposalsOf(offer).find((entry) => entry.targetKey === actorKey);
-      if (target && proposal.hit) target.hit = { ...target.hit, ...proposal.hit };
-      offer.proposal = { ...offer.proposal, ...proposal, targetProposals: targetProposalsOf(offer) };
-      offer.waitingOnTargets = pendingTargetsOf(offer);
-      offer.waitingOn = offer.waitingOnTargets.length > 0 ? 'opponent' : 'initiator';
+      applyOpponentProposal(offer, actorKey, proposal);
     } else {
-      offer.proposal = { ...proposal, targetProposals: offer.proposal.targetProposals };
+      offer.proposal = {
+        ...proposal,
+        targetProposals: offer.proposal.targetProposals,
+        strikeProposals: offer.proposal.strikeProposals,
+      };
     }
   }
   if (offer.waitingOnTargets?.length) return snapshot(offer);
@@ -165,7 +202,8 @@ export async function getCheckOffersForEntity(gameId: number, entityKey: CombatE
         (offer.initiator === entityKey ||
           offer.opponent === entityKey ||
           offer.waitingOnTargets?.includes(entityKey) ||
-          targetProposalsOf(offer).some((target) => target.targetKey === entityKey)),
+          targetProposalsOf(offer).some((target) => target.targetKey === entityKey) ||
+          reactionSlotsOf(offer).some((slot) => slot.targetKey === entityKey)),
     )
     .map(snapshot);
 }

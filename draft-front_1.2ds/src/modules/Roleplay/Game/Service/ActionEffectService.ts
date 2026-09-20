@@ -9,6 +9,7 @@ import { actionEffectLabelService } from '@/modules/Roleplay/Rule/init';
 import {
   ADVANTAGE_SOURCE_ACTION,
   ADVANTAGE_SOURCE_CIRCUMSTANCES,
+  ADVANTAGE_SOURCE_MULTI_ATTACK,
 } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
 import { characterHandsService } from '@/modules/Roleplay/Character/init';
 import type { InventoryItem } from '@/modules/Roleplay/Character/Dto/InventoryItem';
@@ -59,17 +60,23 @@ export class ActionEffectService {
     for (const effect of this.effectsOf(actionRule)) {
       pushEffect(effect);
     }
-    for (const child of this.childAbilityRules(
-      actionRule?.code,
-      (actor?.abilities ?? []).filter((ability) => ability.level >= 1).map((ability) => ability.ruleCode),
-      rules,
-    )) {
+    const ownedCodes = (actor?.abilities ?? [])
+      .filter((ability) => ability.level >= 1)
+      .map((ability) => ability.ruleCode);
+    for (const child of this.childAbilityRules(actionRule?.code, ownedCodes, rules)) {
       for (const effect of this.effectsOf(child)) {
         if (effect.type === 'optional_after_strike_check') {
           if (selectedChildCodes.includes(child.code)) pushEffect(effect, child.name);
           continue;
         }
         pushEffect(effect, child.name);
+      }
+    }
+    const actionCheckModifiers = this.currentActionCheckModifiers(actionRule, 'check-hit');
+    for (const owned of this.ownedAbilityRules(ownedCodes, rules, actionRule?.code)) {
+      for (const effect of this.effectsOf(owned)) {
+        if (!this.isSourceDisadvantageReduction(effect, 'check-hit', actionCheckModifiers)) continue;
+        pushEffect(effect, owned.name);
       }
     }
     const grip = characterHandsService.gripBonus(occupyHands);
@@ -214,6 +221,41 @@ export class ActionEffectService {
     return children;
   }
 
+  private ownedAbilityRules(ownedAbilityCodes: readonly string[], rules: Rule[], skipCode?: string | null): Rule[] {
+    const owned = new Set(ownedAbilityCodes);
+    const found: Rule[] = [];
+    for (const rule of rules) {
+      if (!owned.has(rule.code) || rule.code === skipCode || rule.type !== 'ability') continue;
+      found.push(rule);
+    }
+
+    return found;
+  }
+
+  private sourceNet(entries: AdvantageModifier[], sourceCode: string | undefined): number {
+    const code = sourceCode ?? ADVANTAGE_SOURCE_CIRCUMSTANCES;
+
+    return entries
+      .filter((entry) => (entry.source_code ?? ADVANTAGE_SOURCE_CIRCUMSTANCES) === code)
+      .reduce((total, entry) => total + entry.delta, 0);
+  }
+
+  private isSourceDisadvantageReduction(
+    effect: ActionEffect,
+    checkCode: string,
+    current: AdvantageModifier[],
+  ): effect is Extract<ActionEffect, { type: 'current_action_check_modifier' }> {
+    if (
+      effect.type !== 'current_action_check_modifier' ||
+      !effect.check_codes.includes(checkCode) ||
+      effect.delta <= 0
+    ) {
+      return false;
+    }
+
+    return this.sourceNet(current, effect.source_code) < 0;
+  }
+
   optionalAfterStrikeOptions(
     parentCode: string | null | undefined,
     ownedAbilityCodes: readonly string[],
@@ -300,9 +342,36 @@ export class ActionEffectService {
       .filter((effect) => effect.delta !== 0)
       .map((effect) => ({
         source_code: effect.source_code ?? ADVANTAGE_SOURCE_CIRCUMSTANCES,
-        source_label: effect.source_code === ADVANTAGE_SOURCE_ACTION ? 'Действие' : 'Обстоятельства',
+        source_label: this.advantageSourceLabel(effect.source_code),
         delta: effect.delta,
       }));
+  }
+
+  /** Модификаторы действия плюс навыки, которые уменьшают уже висящую помеху того же источника. */
+  currentActionCheckModifiersForActor(
+    actionRule: Rule | null | undefined,
+    actor: { abilities: CharacterAbility[] } | null | undefined,
+    rules: Rule[],
+    checkCode: string,
+    extraModifiers: AdvantageModifier[] = [],
+  ): AdvantageModifier[] {
+    const fromAction = [...this.currentActionCheckModifiers(actionRule, checkCode), ...extraModifiers];
+    const ownedCodes = (actor?.abilities ?? [])
+      .filter((ability) => ability.level >= 1)
+      .map((ability) => ability.ruleCode);
+    const extras: AdvantageModifier[] = [];
+    for (const owned of this.ownedAbilityRules(ownedCodes, rules, actionRule?.code)) {
+      for (const effect of this.effectsOf(owned)) {
+        if (!this.isSourceDisadvantageReduction(effect, checkCode, fromAction.concat(extras))) continue;
+        extras.push({
+          source_code: effect.source_code ?? ADVANTAGE_SOURCE_CIRCUMSTANCES,
+          source_label: this.advantageSourceLabel(effect.source_code),
+          delta: Math.min(effect.delta, -this.sourceNet(fromAction.concat(extras), effect.source_code)),
+        });
+      }
+    }
+
+    return [...fromAction, ...extras];
   }
 
   currentDodgeSoakCuts(
@@ -350,6 +419,43 @@ export class ActionEffectService {
       );
   }
 
+  currentRollFaceRemap(
+    rule: Rule | null | undefined,
+    component: 'strike' | 'throw' | 'shoot',
+    hitNumber = 1,
+  ): { from: number; to: number }[] {
+    return this.effectsOf(rule)
+      .filter(
+        (effect): effect is Extract<ActionEffect, { type: 'current_action_roll_face_remap' }> =>
+          effect.type === 'current_action_roll_face_remap' &&
+          effect.scope.components.includes(component) &&
+          this.scopeIncludesHit(effect.scope, hitNumber),
+      )
+      .map((effect) => ({ from: effect.from, to: effect.to }));
+  }
+
+  pendingHitScoreAdjust(
+    adjusts: readonly { targetKey: string | null; oneDelta: number; faceDelta: number }[],
+    targetKey: string | null,
+  ): { oneDelta: number; faceDelta: number } {
+    return adjusts
+      .filter((adjust) => adjust.targetKey === null || adjust.targetKey === targetKey)
+      .reduce(
+        (total, adjust) => ({
+          oneDelta: total.oneDelta + adjust.oneDelta,
+          faceDelta: total.faceDelta + adjust.faceDelta,
+        }),
+        { oneDelta: 0, faceDelta: 0 },
+      );
+  }
+
+  mergeScoreAdjust(
+    left: { oneDelta: number; faceDelta: number },
+    right: { oneDelta: number; faceDelta: number },
+  ): { oneDelta: number; faceDelta: number } {
+    return { oneDelta: left.oneDelta + right.oneDelta, faceDelta: left.faceDelta + right.faceDelta };
+  }
+
   currentDurabilityShave(
     rule: Rule | null | undefined,
     component: 'strike' | 'throw' | 'shoot',
@@ -392,16 +498,32 @@ export class ActionEffectService {
     return new DimensionalNumber(value).modify(delta, CHARACTERISTIC_BASE_RANGE).value;
   }
 
-  effectsAfterAction(rule: Rule | null | undefined): PendingActionEffect[] {
-    return this.effectsOf(rule)
-      .filter(
-        (effect) =>
-          effect.type === 'next_action_attack_cost' ||
-          effect.type === 'next_action_attack_target_characteristic_modifier' ||
-          effect.type === 'next_action_attack_dodge_soak_from_reaction' ||
-          effect.type === 'after_action_until_resource_spent_check_modifier',
-      )
-      .map((effect) => ({ sourceRuleCode: rule?.code ?? '', effect }));
+  effectsAfterAction(
+    rule: Rule | null | undefined,
+    context: { targetKey?: string | null } = {},
+  ): PendingActionEffect[] {
+    return this.effectsOf(rule).flatMap((effect) => {
+      if (
+        effect.type !== 'next_action_attack_cost' &&
+        effect.type !== 'next_action_attack_target_characteristic_modifier' &&
+        effect.type !== 'next_action_attack_dodge_soak_from_reaction' &&
+        effect.type !== 'after_action_until_resource_spent_check_modifier' &&
+        effect.type !== 'next_action_attack_score_adjust' &&
+        effect.type !== 'next_action_attack_accuracy'
+      ) {
+        return [];
+      }
+      if (
+        (effect.type === 'next_action_attack_score_adjust' || effect.type === 'next_action_attack_accuracy') &&
+        effect.same_target
+      ) {
+        if (!context.targetKey) return [];
+
+        return [{ sourceRuleCode: rule?.code ?? '', effect: { ...effect, targetKey: context.targetKey } }];
+      }
+
+      return [{ sourceRuleCode: rule?.code ?? '', effect }];
+    });
   }
 
   effectsAfterProcess(rule: Rule | null | undefined): PendingActionEffect[] {
@@ -422,12 +544,15 @@ export class ActionEffectService {
       baseCost: number;
       targetDexterityMastery?: number;
       hitNumber?: number;
+      targetKeys?: string[];
     },
   ): {
     actionCostDelta: number;
     targetDexterityMasteryDelta: number;
     targetDexterityMasteryAdjustments: { sourceRuleCode: string; delta: number }[];
     dodgeSoakFromReaction: boolean;
+    hitScoreAdjusts: { targetKey: string | null; oneDelta: number; faceDelta: number }[];
+    accuracyDelta: number;
     remainingEffects: PendingActionEffect[];
   } {
     const costDelta = pendingEffects
@@ -443,8 +568,11 @@ export class ActionEffectService {
     let targetDexterityMasteryDelta = 0;
     const targetDexterityMasteryAdjustments: { sourceRuleCode: string; delta: number }[] = [];
     let dodgeSoakFromReaction = false;
+    let accuracyDelta = 0;
+    const hitScoreAdjusts: { targetKey: string | null; oneDelta: number; faceDelta: number }[] = [];
     const remainingEffects: PendingActionEffect[] = [];
     const hitNumber = action.hitNumber ?? 1;
+    const targetKeys = action.targetKeys ?? [];
 
     for (const pending of pendingEffects) {
       const effect = pending.effect;
@@ -459,7 +587,31 @@ export class ActionEffectService {
         if (action.isAttack) remainingEffects.push(pending);
         continue;
       }
+      if (effect.type === 'next_action_attack_score_adjust') {
+        if (
+          action.isAttack &&
+          (!effect.same_target || (effect.targetKey != null && targetKeys.includes(effect.targetKey)))
+        ) {
+          hitScoreAdjusts.push({
+            targetKey: effect.same_target ? (effect.targetKey ?? null) : null,
+            oneDelta: effect.oneDelta,
+            faceDelta: effect.faceDelta,
+          });
+        }
+        continue;
+      }
       if (effect.type === 'next_action_attack_cost') continue;
+      if (effect.type === 'next_action_attack_accuracy') {
+        if (
+          action.isAttack &&
+          effect.scope.components.includes(action.component) &&
+          this.scopeIncludesHit(effect.scope, hitNumber) &&
+          (!effect.same_target || (effect.targetKey != null && targetKeys.includes(effect.targetKey)))
+        ) {
+          accuracyDelta += effect.delta;
+        }
+        continue;
+      }
       if (
         action.isAttack &&
         effect.type === 'next_action_attack_dodge_soak_from_reaction' &&
@@ -494,6 +646,8 @@ export class ActionEffectService {
       targetDexterityMasteryDelta,
       targetDexterityMasteryAdjustments,
       dodgeSoakFromReaction,
+      hitScoreAdjusts,
+      accuracyDelta,
       remainingEffects,
     };
   }
@@ -534,7 +688,7 @@ export class ActionEffectService {
       })
       .map((pending) => ({
         source_code: pending.effect.source_code ?? ADVANTAGE_SOURCE_CIRCUMSTANCES,
-        source_label: pending.effect.source_code === ADVANTAGE_SOURCE_ACTION ? 'Действие' : 'Обстоятельства',
+        source_label: this.advantageSourceLabel(pending.effect.source_code),
         delta: pending.effect.delta,
       }));
   }
@@ -566,6 +720,13 @@ export class ActionEffectService {
     const resolved = this.resolveForNextAction(pendingEffects, action);
 
     return this.consumeResource(resolved.remainingEffects, 'action-points', spentOd);
+  }
+
+  private advantageSourceLabel(sourceCode: string | undefined): string {
+    if (sourceCode === ADVANTAGE_SOURCE_ACTION) return 'Действие';
+    if (sourceCode === ADVANTAGE_SOURCE_MULTI_ATTACK) return 'множественная атака';
+
+    return 'Обстоятельства';
   }
 
   private scopeIncludesHit(scope: { hit_count: number | 'all' }, hitNumber: number): boolean {

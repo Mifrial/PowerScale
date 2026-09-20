@@ -118,6 +118,38 @@ export class CheckRollService {
     return this.withCheckOutcome(next, result.check.check_code, result.check.difficulty, result.check.check_name);
   }
 
+  applyFaceRemap(result: DiceRollResult, pairs: readonly { from: number; to: number }[]): DiceRollResult {
+    if (pairs.length === 0) return result;
+    const context: RollMechanicContext = {
+      diceCount: result.spec.diceCount,
+      dieFaces: result.spec.dieFaces,
+      efficiency: result.spec.efficiency,
+      advantages: result.spec.advantages,
+      poolSize: result.spec.diceCount,
+      rolls: [...result.rolls],
+      adjustedRolls: [...result.adjustedRolls],
+      droppedRolls: [...result.droppedRolls],
+      successes: [...result.successes],
+      totalSuccesses: result.totalSuccesses,
+      applied: [...(result.appliedMechanics ?? [])],
+    };
+    const priorAdjustedRolls = [...result.adjustedRolls];
+    const changed = rollScoreAdjustService.remap(context, pairs);
+    if (!changed) return result;
+    context.totalSuccesses = context.successes.reduce((sum, value) => sum + value, 0);
+    const next: DiceRollResult = {
+      ...result,
+      adjustedRolls: context.adjustedRolls,
+      successes: context.successes,
+      totalSuccesses: context.totalSuccesses,
+      appliedMechanics: context.applied,
+      priorAdjustedRolls,
+    };
+    if (!result.check) return next;
+
+    return this.withCheckOutcome(next, result.check.check_code, result.check.difficulty, result.check.check_name);
+  }
+
   /**
    * Pairwise: чужой размерный итог = сложность стороны. Identity — один checkCode.
    */

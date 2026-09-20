@@ -16,7 +16,11 @@ import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
 import type { CombatActionOption } from '@/modules/Roleplay/Game/Utils/combatActions';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
-import { characterOverviewService, movementContextService, useAttackFavorites } from '@/modules/Roleplay/Character/init';
+import {
+  characterOverviewService,
+  movementContextService,
+  useAttackFavorites,
+} from '@/modules/Roleplay/Character/init';
 import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
 import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
 import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/actionEffectService';
@@ -27,7 +31,12 @@ import { pushProfileService } from '@/modules/Roleplay/Game/Service/Instance/pus
 import { processSessionService } from '@/modules/Roleplay/Game/Service/Instance/processSessionService';
 import { comboProcessService } from '@/modules/Roleplay/Game/Service/Instance/comboProcessService';
 import { COMBO_STEP_CODES } from '@/modules/Roleplay/Game/Constant/Process/COMBO_STEP_CODES';
-import { asProcessAbilitySpec, actionRefEquals, findRuleByRef } from '@/modules/Roleplay/Game/Utils/combatActions';
+import {
+  asProcessAbilitySpec,
+  asActionAbilitySpec,
+  actionRefEquals,
+  findRuleByRef,
+} from '@/modules/Roleplay/Game/Utils/combatActions';
 import { ACTION_POINTS_CODE } from '@/modules/Roleplay/Game/Constant/Combat/ACTION_POINTS_CODE';
 import { AttackProfileOption } from '@/modules/Roleplay/Character/init';
 import { combatChatSendService } from '@/modules/Roleplay/Game/Service/Instance/combatChatSendService';
@@ -109,15 +118,21 @@ const selectedSource = computed<CombatActionOption | null>(
     null,
 );
 const selectedSourceRule = computed(() => findRuleByRef(props.rules, selectedSource.value?.code) ?? null);
-const launchEffectLines = computed(() =>
-  actionEffectService.describeForLaunch(
+const launchEffectLines = computed(() => {
+  const lines = actionEffectService.describeForLaunch(
     selectedSourceRule.value,
     actorVersion.value,
     slots.value[0]?.profile ?? null,
     props.rules,
     selectedOptionalChildCodes.value,
-  ),
-);
+  );
+  const paired = attackActionSourceService.sameWeaponCheckModifiers(selectedSourceRule.value, slots.value.length);
+  if (paired[0]) {
+    lines.push(`${Math.abs(paired[0].delta)} помехи к текущим проверкам на попадание (множественная атака)`);
+  }
+
+  return lines;
+});
 const afterStrikeOptions = computed(() =>
   actorVersion.value
     ? furiousRushService.optionsOf(selectedSourceRule.value?.code, actorVersion.value.abilities, props.rules)
@@ -138,6 +153,28 @@ const comboLockedTarget = computed(() =>
   activeComboSpec.value ? (activeProcess.value?.comboTargetKey ?? null) : null,
 );
 const isWideAttack = computed(() => selectedSource.value?.attackMode === 'wide' && !activeComboSpec.value);
+const isSequentialStrikes = computed(
+  () => !isWideAttack.value && attackActionSourceService.isSequentialStrikes(selectedSourceRule.value),
+);
+const isSameWeaponStrikes = computed(
+  () => !isWideAttack.value && attackActionSourceService.isSameWeaponStrikes(selectedSourceRule.value),
+);
+const sharesLaunchTarget = computed(() => isSequentialStrikes.value || isSameWeaponStrikes.value);
+const canAddSameWeaponSlot = computed(() => {
+  if (!isSameWeaponStrikes.value) return false;
+  const max = attackActionSourceService.maxWeapons(selectedSourceRule.value, actorVersion.value, props.rules);
+  if (slots.value.length >= max) return false;
+
+  return attackActionSourceService.hasUnusedSameWeaponCopy(
+    compatibleProfiles.value,
+    slots.value.flatMap((slot) => (slot.profile ? [slot.profile] : [])),
+    slots.value[0]?.profile?.itemRuleCode,
+  );
+});
+const canRemoveSameWeaponSlot = computed(
+  () =>
+    isSameWeaponStrikes.value && slots.value.length > attackActionSourceService.minWeapons(selectedSourceRule.value),
+);
 const processSteps = computed(() => {
   const process = selectedSource.value?.process;
   if (!process) return [];
@@ -174,8 +211,10 @@ const followUpExclude = computed(() =>
 const canContinue = computed(() => {
   if (!selectedSource.value || !actorKey.value) return false;
 
-  return slots.value.every((slot) =>
-    lastStrikeService.canFollowUp(selectedSourceRule.value, actorSnapshot.value, slot.targetKey),
+  return slots.value.every(
+    (slot) =>
+      Boolean(slot.profile && slot.targetKey) &&
+      lastStrikeService.canFollowUp(selectedSourceRule.value, actorSnapshot.value, slot.targetKey),
   );
 });
 const sourceItems = computed(() =>
@@ -219,7 +258,10 @@ const finalCost = computed(() => {
     baseCost: baseCost.value,
   });
 
-  return baseCost.value + resolution.actionCostDelta;
+  const raw = baseCost.value + resolution.actionCostDelta;
+  const floor = asActionAbilitySpec(selectedSourceRule.value)?.min_total_action_cost;
+
+  return floor == null ? raw : Math.max(floor, raw);
 });
 const actionPoints = computed(() => {
   if (!actorOverview.value) return 0;
@@ -251,7 +293,7 @@ function profileLabel(profile: AttackOverview | null): string {
 }
 
 function profileKey(profile: AttackOverview): string {
-  return `${profile.itemRuleCode}:${profile.profileType}:${profile.profileIndex ?? 'legacy'}`;
+  return `${profile.inventoryItemId ?? profile.itemRuleCode}:${profile.instanceIndex ?? 0}:${profile.profileType}:${profile.profileIndex ?? 'legacy'}`;
 }
 
 function attackPreview(profile: AttackOverview): AttackOverview {
@@ -281,6 +323,7 @@ function attackPreview(profile: AttackOverview): AttackOverview {
           0,
           profile.profileIndex,
           delta,
+          profile.instanceIndex,
         ) ?? profile;
     }
   }
@@ -290,6 +333,37 @@ function attackPreview(profile: AttackOverview): AttackOverview {
 }
 
 function selectProfile(slotIndex: number, profile: AttackOverview): void {
+  if (isSequentialStrikes.value && attackActionSourceService.requiresDistinctWeapons(selectedSourceRule.value)) {
+    const clash = slots.value.some(
+      (slot, index) =>
+        index !== slotIndex &&
+        slot.profile &&
+        attackActionSourceService.weaponKey(slot.profile) === attackActionSourceService.weaponKey(profile),
+    );
+    if (clash) return;
+  }
+  if (isSameWeaponStrikes.value) {
+    const clash = slots.value.some(
+      (slot, index) =>
+        index !== slotIndex &&
+        slot.profile &&
+        attackActionSourceService.weaponKey(slot.profile) === attackActionSourceService.weaponKey(profile),
+    );
+    if (clash) return;
+    if (slotIndex === 0 && slots.value[0]?.profile?.itemRuleCode !== profile.itemRuleCode) {
+      refillSameWeaponSlots(profile, slots.value.length);
+      if (actorKey.value) {
+        attackFavorites.setFavorite(actorKey.value, {
+          itemRuleCode: profile.itemRuleCode,
+          profileType: profile.profileType,
+          profileIndex: profile.profileIndex ?? 0,
+        });
+      }
+      profileMenuSlot.value = null;
+
+      return;
+    }
+  }
   const nextSlots = [...slots.value];
   if (isWideAttack.value) {
     slots.value = nextSlots.map((slot) => ({ ...slot, profile }));
@@ -311,19 +385,131 @@ function defaultSlotTarget(): CombatEntityKey | null {
   if (comboLockedTarget.value) return comboLockedTarget.value;
   const allowed = followUpTargetKeys.value;
   if (allowed !== null) return (allowed[0] as CombatEntityKey | undefined) ?? null;
+  const last = activeProcess.value?.lastStrikeTargetKey;
+  if (last && targetOptions.value.some((option) => option.value === last)) return last;
 
   return targetOptions.value[0]?.value ?? null;
 }
 
+function slotRepeatHint(profile: AttackOverview | null): string | null {
+  if (!profile || !activeProcess.value) return null;
+  const modifiers = processSessionService.repeatWeaponModifiers(
+    activeProcess.value,
+    selectedSource.value?.process,
+    attackActionSourceService.weaponKey(profile),
+  );
+  const delta = modifiers[0]?.delta ?? 0;
+  if (!delta) return null;
+
+  return `Помеха обстоятельств ${delta}: это оружие уже било в процессе ${-delta} раз`;
+}
+
 function defaultProfile(): AttackOverview | null {
   const favorite = favoriteAttack.value;
+  if (isSameWeaponStrikes.value) {
+    return attackActionSourceService.preferredSameWeaponLead(
+      compatibleProfiles.value,
+      attackActionSourceService.minWeapons(selectedSourceRule.value),
+      attackActionSourceService.isProfileAvailable(favorite, compatibleProfiles.value) ? favorite : null,
+    );
+  }
   if (attackActionSourceService.isProfileAvailable(favorite, compatibleProfiles.value)) return favorite;
 
   return pushProfileService.preferredProfile(compatibleProfiles.value);
 }
 
+function slotProfiles(slotIndex: number): AttackOverview[] {
+  if (isSameWeaponStrikes.value) {
+    const used = slots.value.flatMap((slot, index) => (index === slotIndex || !slot.profile ? [] : [slot.profile]));
+    if (slotIndex === 0) {
+      return attackActionSourceService.profilesForOtherWeapons(
+        compatibleProfiles.value,
+        used,
+        slots.value[0]?.profile ?? null,
+      );
+    }
+    const itemRuleCode = slots.value[0]?.profile?.itemRuleCode;
+    if (!itemRuleCode) return compatibleProfiles.value;
+
+    return attackActionSourceService.profilesForSameWeapon(
+      compatibleProfiles.value,
+      used,
+      slots.value[slotIndex]?.profile ?? null,
+      itemRuleCode,
+    );
+  }
+  if (!isSequentialStrikes.value || !attackActionSourceService.requiresDistinctWeapons(selectedSourceRule.value)) {
+    return compatibleProfiles.value;
+  }
+  const used = slots.value.flatMap((slot, index) => (index === slotIndex || !slot.profile ? [] : [slot.profile]));
+
+  return attackActionSourceService.profilesForOtherWeapons(
+    compatibleProfiles.value,
+    used,
+    slots.value[slotIndex]?.profile ?? null,
+  );
+}
+
 function resetSlots(profile: AttackOverview | null): void {
-  slots.value = [{ profile, targetKey: defaultSlotTarget() }];
+  const target = defaultSlotTarget();
+  if (isWideAttack.value || (!isSequentialStrikes.value && !isSameWeaponStrikes.value)) {
+    slots.value = [{ profile, targetKey: target }];
+
+    return;
+  }
+  if (isSameWeaponStrikes.value) {
+    refillSameWeaponSlots(profile, attackActionSourceService.minWeapons(selectedSourceRule.value));
+
+    return;
+  }
+  const count = attackActionSourceService.strikeCount(selectedSourceRule.value);
+  const used: AttackOverview[] = profile ? [profile] : [];
+  slots.value = Array.from({ length: count }, (_, index) => {
+    const next =
+      index === 0 ? profile : attackActionSourceService.nextDistinctWeaponProfile(compatibleProfiles.value, used);
+    if (index > 0 && next) used.push(next);
+
+    return { profile: next, targetKey: target };
+  });
+}
+
+function refillSameWeaponSlots(profile: AttackOverview | null, count: number): void {
+  const target = defaultSlotTarget();
+  if (!profile) {
+    slots.value = Array.from({ length: count }, () => ({ profile: null, targetKey: target }));
+
+    return;
+  }
+  const used: AttackOverview[] = [profile];
+  slots.value = Array.from({ length: count }, (_, index) => {
+    const next =
+      index === 0
+        ? profile
+        : attackActionSourceService.nextSameWeaponProfile(compatibleProfiles.value, used, profile.itemRuleCode);
+    if (index > 0 && next) used.push(next);
+
+    return { profile: next, targetKey: target };
+  });
+}
+
+function addSameWeaponSlot(): void {
+  const lead = slots.value[0]?.profile;
+  if (!lead || !isSameWeaponStrikes.value) return;
+  const max = attackActionSourceService.maxWeapons(selectedSourceRule.value, actorVersion.value, props.rules);
+  if (slots.value.length >= max) return;
+  const next = attackActionSourceService.nextSameWeaponProfile(
+    compatibleProfiles.value,
+    slots.value.flatMap((slot) => (slot.profile ? [slot.profile] : [])),
+    lead.itemRuleCode,
+  );
+  if (!next) return;
+  slots.value = [...slots.value, { profile: next, targetKey: slots.value[0]?.targetKey ?? defaultSlotTarget() }];
+}
+
+function removeSameWeaponSlot(index: number): void {
+  if (!isSameWeaponStrikes.value || index === 0) return;
+  if (slots.value.length <= attackActionSourceService.minWeapons(selectedSourceRule.value)) return;
+  slots.value = slots.value.filter((_, slotIndex) => slotIndex !== index);
 }
 
 function addTarget(): void {
@@ -417,7 +603,7 @@ async function submit(): Promise<void> {
   );
   if (targetCountError) throw new Error(targetCountError);
   if (!isWideAttack.value && slots.value.some((slot) => slot.targetKey !== slots.value[0]?.targetKey)) {
-    throw new Error('Одновременные удары должны иметь одну общую цель');
+    throw new Error('Удары этой атаки должны иметь одну общую цель');
   }
   if (isWideAttack.value && new Set(slots.value.map((slot) => slot.targetKey)).size !== slots.value.length) {
     throw new Error('Цели Широкого удара должны быть различными');
@@ -426,13 +612,26 @@ async function submit(): Promise<void> {
     slot.profile && slot.targetKey ? [{ profile: slot.profile, targetKey: slot.targetKey }] : [],
   );
   if (attackStrikes.length !== slots.value.length) throw new Error('Не удалось собрать удары атаки');
+  const distinctError = attackActionSourceService.validateDistinctWeapons(
+    selectedSourceRule.value,
+    attackStrikes.map((strike) => strike.profile),
+  );
+  if (distinctError) throw new Error(distinctError);
+  const sameWeaponError = attackActionSourceService.validateSameWeapons(
+    selectedSourceRule.value,
+    attackStrikes.map((strike) => strike.profile),
+  );
+  if (sameWeaponError) throw new Error(sameWeaponError);
+  if (lastStrikeService.requiresSingleStrike(selectedSourceRule.value) && attackStrikes.length !== 1) {
+    throw new Error('Критический удар наносит один удар');
+  }
   if (finalCost.value > actionPoints.value) throw new Error('Недостаточно ОД для атаки');
   if (
     attackStrikes.some(
       (strike) => !lastStrikeService.canFollowUp(selectedSourceRule.value, actorSnapshot.value, strike.targetKey),
     )
   ) {
-    throw new Error('Смертельный удар можно совершить только сразу после другого удара с РУ ≥ 4 по той же цели');
+    throw new Error(lastStrikeService.followUpBlockedMessage(selectedSourceRule.value));
   }
   const processSession =
     activeProcess.value ??
@@ -468,7 +667,7 @@ async function submit(): Promise<void> {
     source: processSource ?? { kind: 'action', actionRuleCode: source.code },
     strikes: attackStrikes,
     mode: isWideAttack.value ? 'wide' : 'single',
-    reactionMode: 'simultaneous',
+    reactionMode: isSequentialStrikes.value ? 'sequential' : isSameWeaponStrikes.value ? 'paired' : 'simultaneous',
     totalOdCost: finalCost.value,
     ...(comboClose ? { comboClose } : {}),
     ...(selectedOptionalChildCodes.value.length
@@ -511,6 +710,7 @@ watch(
   { immediate: true },
 );
 watch(selectedProcessStep, () => {
+  if (isSequentialStrikes.value || isSameWeaponStrikes.value) return;
   const profile = defaultProfile();
 
   slots.value = slots.value.map((slot, index) => ({ ...slot, profile: index === 0 ? profile : null }));
@@ -519,9 +719,16 @@ watch(
   comboLockedTarget,
   (targetKey) => {
     if (!targetKey) return;
-    slots.value = [{ ...slots.value[0], targetKey, profile: slots.value[0]?.profile ?? null }];
+    slots.value = slots.value.map((slot) => ({ ...slot, targetKey }));
   },
   { immediate: true },
+);
+watch(
+  () => slots.value[0]?.targetKey,
+  (targetKey) => {
+    if (!sharesLaunchTarget.value || targetKey == null) return;
+    slots.value = slots.value.map((slot, index) => (index === 0 ? slot : { ...slot, targetKey }));
+  },
 );
 watch(followUpTargetKeys, (allowed) => {
   if (allowed === null) return;
@@ -589,16 +796,18 @@ watch(followUpTargetKeys, (allowed) => {
 
         <div v-for="(slot, index) in slots" :key="index" class="attack-slot mb-3">
           <div class="d-flex align-center ga-2 mb-1">
-            <span class="text-subtitle-2">{{ isWideAttack ? `Цель ${index + 1}` : `Удар ${index + 1}` }}</span>
+            <span class="text-subtitle-2">{{
+              isWideAttack ? `Цель ${index + 1}` : isSameWeaponStrikes ? `Экземпляр ${index + 1}` : `Удар ${index + 1}`
+            }}</span>
             <v-spacer />
             <v-btn
-              v-if="isWideAttack && index > 0"
+              v-if="(isWideAttack && index > 0) || (canRemoveSameWeaponSlot && index > 0)"
               icon="mdi-close"
               size="x-small"
               variant="text"
               :disabled="busy"
-              aria-label="Удалить цель"
-              @click="removeTarget(index)"
+              :aria-label="isWideAttack ? 'Удалить цель' : 'Удалить экземпляр'"
+              @click="isWideAttack ? removeTarget(index) : removeSameWeaponSlot(index)"
             />
           </div>
           <v-menu
@@ -624,18 +833,30 @@ watch(followUpTargetKeys, (allowed) => {
                   {{ attackPreview(slot.profile).accuracyLabel }} · {{ attackPreview(slot.profile).damageLabel }} ·
                   {{ attackPreview(slot.profile).penetrationLabel }}
                 </div>
+                <div v-if="slotRepeatHint(slot.profile)" class="text-caption text-warning">
+                  {{ slotRepeatHint(slot.profile) }}
+                </div>
               </v-sheet>
             </template>
             <v-card min-width="420" max-width="560">
               <v-list density="compact">
                 <AttackProfileOption
-                  v-for="profile in compatibleProfiles"
+                  v-for="profile in slotProfiles(index)"
                   :key="profileKey(profile)"
                   :attack="attackPreview(profile)"
                   :selected="slot.profile ? profileKey(slot.profile) === profileKey(profile) : false"
                   @select="selectProfile(index, profile)"
                 />
-                <v-list-item v-if="compatibleProfiles.length === 0" title="Подходящих профилей нет" />
+                <v-list-item
+                  v-if="slotProfiles(index).length === 0"
+                  :title="
+                    compatibleProfiles.length === 0
+                      ? 'Подходящих профилей нет'
+                      : isSameWeaponStrikes
+                        ? 'Нужен ещё один экземпляр того же оружия'
+                        : 'Нет другого оружия'
+                  "
+                />
               </v-list>
             </v-card>
           </v-menu>
@@ -643,6 +864,7 @@ watch(followUpTargetKeys, (allowed) => {
             Профиль: {{ slot.profile.itemName }} · {{ slot.profile.profileTypeLabel }}
           </div>
           <CombatEntitySelect
+            v-if="!sharesLaunchTarget || index === 0"
             v-model="slot.targetKey"
             label="Цель удара"
             :characters="characters"
@@ -653,6 +875,7 @@ watch(followUpTargetKeys, (allowed) => {
               busy || Boolean(comboLockedTarget) || (followUpTargetKeys !== null && followUpTargetKeys.length <= 1)
             "
           />
+          <div v-else class="text-caption text-medium-emphasis">Та же цель, что у первого удара</div>
         </div>
         <v-btn
           v-if="isWideAttack && slots.length < attackActionSourceService.maxTargets(selectedSourceRule)"
@@ -663,6 +886,16 @@ watch(followUpTargetKeys, (allowed) => {
           @click="addTarget"
         >
           + Цель
+        </v-btn>
+        <v-btn
+          v-if="canAddSameWeaponSlot"
+          variant="outlined"
+          size="small"
+          class="mb-2"
+          :disabled="busy || !slots[0]?.profile"
+          @click="addSameWeaponSlot"
+        >
+          + Экземпляр
         </v-btn>
 
         <v-checkbox

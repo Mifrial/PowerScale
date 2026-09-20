@@ -98,7 +98,7 @@ export class CharacterOverviewService {
       misc: this.buildMisc(synced),
       inventory,
       defense: this.buildDefense(synced, reference),
-      attacks: this.buildAttacks(synced, reference, context),
+      attacks: this.buildAttacks(synced, reference, context, rules),
       states: this.buildStates(synced, reference),
     };
   }
@@ -112,11 +112,12 @@ export class CharacterOverviewService {
     distanceIpari: number,
     profileIndex?: number,
     actionCharacteristicModifier = 0,
+    instanceIndex?: number,
   ): AttackOverview | null {
     const { synced, reference, context } = this.prepared(version, rules);
 
     return (
-      this.buildAttacks(synced, reference, context, {
+      this.buildAttacks(synced, reference, context, rules, {
         itemRuleCode,
         profileType,
         distanceIpari,
@@ -125,7 +126,8 @@ export class CharacterOverviewService {
         (item) =>
           item.itemRuleCode === itemRuleCode &&
           item.profileType === profileType &&
-          (profileIndex === undefined || item.profileIndex === profileIndex),
+          (profileIndex === undefined || item.profileIndex === profileIndex) &&
+          (instanceIndex === undefined || (item.instanceIndex ?? 0) === instanceIndex),
       ) ?? null
     );
   }
@@ -1114,6 +1116,7 @@ export class CharacterOverviewService {
     version: CharacterVersion,
     reference: CharacterReferenceService,
     context: FormulaContext,
+    rules: Rule[],
     atDistance?: {
       itemRuleCode: string;
       profileType: 'strike' | 'throw' | 'shoot';
@@ -1140,18 +1143,23 @@ export class CharacterOverviewService {
             : null;
         const occupyHands =
           profile.type === 'shoot' ? this.hands.actionOccupy(item, spec) : this.hands.restOccupy(item, spec);
-        attacks.push(
-          this.buildAttack(
-            item.ruleCode,
-            rule?.name ?? item.ruleCode,
-            profile,
-            reference,
-            this.withGripStrength(context, this.hands.gripBonus(occupyHands)),
-            distanceIpari,
-            profileIndex,
-            atDistance?.actionCharacteristicModifier ?? 0,
-          ),
-        );
+        const copies = this.hands.attackInstanceCount(item, profile.type, version.inventory, rules);
+        for (let instanceIndex = 0; instanceIndex < copies; instanceIndex += 1) {
+          attacks.push(
+            this.buildAttack(
+              item.ruleCode,
+              copies > 1 ? `${rule?.name ?? item.ruleCode} ${instanceIndex + 1}` : (rule?.name ?? item.ruleCode),
+              profile,
+              reference,
+              this.withGripStrength(context, this.hands.gripBonus(occupyHands)),
+              distanceIpari,
+              profileIndex,
+              atDistance?.actionCharacteristicModifier ?? 0,
+              item.id,
+              copies > 1 ? instanceIndex : undefined,
+            ),
+          );
+        }
       }
     }
 
@@ -1167,6 +1175,8 @@ export class CharacterOverviewService {
     distanceIpari: number | null = null,
     profileIndex?: number,
     actionCharacteristicModifier = 0,
+    inventoryItemId?: number,
+    instanceIndex?: number,
   ): AttackOverview {
     const zeroCtx = this.weaponAttackRange.profileFormulaContext(
       profile,
@@ -1222,6 +1232,8 @@ export class CharacterOverviewService {
       damage: damageValue,
       penetration: penetrationValue,
       dodgeBenefit: profile.dodge_benefit,
+      inventoryItemId,
+      instanceIndex,
     };
   }
   private effectiveSpecOf(item: InventoryItem, reference: CharacterReferenceService): ItemSpec | null {

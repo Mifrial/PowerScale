@@ -3,6 +3,8 @@ import type { ProcessSession } from '@/modules/Roleplay/Game/Dto/ProcessSession'
 import type { ProcessSpec } from '@/modules/Roleplay/Rule/Dto/Ability/ProcessSpec';
 import type { ProcessStep } from '@/modules/Roleplay/Rule/Dto/Ability/ProcessStep';
 import type { ActionResolution } from '@/modules/Roleplay/Game/Dto/ActionResolution';
+import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
+import { ADVANTAGE_SOURCE_CIRCUMSTANCES } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
 
 export class ProcessSessionService {
   start(gameId: number, entityKey: CombatEntityKey, processRuleCode: string, spec: ProcessSpec): ProcessSession {
@@ -115,5 +117,42 @@ export class ProcessSessionService {
       currentStepStatus: 'completed',
       updatedAt: new Date().toISOString(),
     };
+  }
+
+  recordStrikeUses(
+    session: ProcessSession,
+    spec: ProcessSpec | null | undefined,
+    weaponKeys: string[],
+    targetKey: CombatEntityKey | null,
+  ): ProcessSession {
+    const counts = { ...(session.weaponUseCounts ?? {}) };
+    if (spec?.repeat_weapon_circumstance) {
+      for (const weaponKey of weaponKeys) {
+        counts[weaponKey] = (counts[weaponKey] ?? 0) + 1;
+      }
+    }
+
+    return {
+      ...session,
+      weaponUseCounts: spec?.repeat_weapon_circumstance ? counts : session.weaponUseCounts,
+      lastStrikeTargetKey: targetKey ?? session.lastStrikeTargetKey,
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
+  priorWeaponUses(session: ProcessSession | null | undefined, weaponKey: string): number {
+    return session?.weaponUseCounts?.[weaponKey] ?? 0;
+  }
+
+  repeatWeaponModifiers(
+    session: ProcessSession | null | undefined,
+    spec: ProcessSpec | null | undefined,
+    weaponKey: string,
+  ): AdvantageModifier[] {
+    if (!spec?.repeat_weapon_circumstance) return [];
+    const prior = this.priorWeaponUses(session, weaponKey);
+    if (prior <= 0) return [];
+
+    return [{ source_code: ADVANTAGE_SOURCE_CIRCUMSTANCES, source_label: 'Обстоятельства', delta: -prior }];
   }
 }

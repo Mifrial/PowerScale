@@ -29,4 +29,6 @@ export interface HitRollInput {
   /** Доп. успехи размера броска к итогу попадания (пакет закрытия Комбо). */
   extraSuccessCount?: number;
   scoreAdjust?: { oneDelta: number; faceDelta: number };
+  /** Подмена граней до пересчёта 6 и 1. */
+  faceRemap?: { from: number; to: number }[];
 }

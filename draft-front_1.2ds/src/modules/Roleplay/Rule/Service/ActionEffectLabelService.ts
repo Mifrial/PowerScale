@@ -40,6 +40,9 @@ export class ActionEffectLabelService {
     if (effect.type === 'next_action_attack_cost') {
       return `${effect.delta > 0 ? '+' : ''}${effect.delta} ОД к следующей атаке, если она будет следующим действием`;
     }
+    if (effect.type === 'next_action_attack_accuracy') {
+      return `${effect.delta > 0 ? '+' : ''}${effect.delta} к точности первого удара следующей атаки${effect.same_target ? ' по той же цели' : ''}`;
+    }
     if (
       effect.type === 'next_action_attack_target_characteristic_modifier' ||
       effect.type === 'current_action_attack_target_characteristic_modifier'
@@ -80,6 +83,12 @@ export class ActionEffectLabelService {
     if (effect.type === 'current_action_roll_score_adjust') {
       return `усиленное правило 6 и 1: единица ${effect.oneDelta > 0 ? '+' : ''}${effect.oneDelta}, грань ${effect.faceDelta}`;
     }
+    if (effect.type === 'current_action_roll_face_remap') {
+      return `${effect.from} считается за ${effect.to}`;
+    }
+    if (effect.type === 'next_action_attack_score_adjust') {
+      return `следующая атака${effect.same_target ? ' по той же цели' : ''}: единица ${effect.oneDelta > 0 ? '+' : ''}${effect.oneDelta} успеха`;
+    }
     if (effect.type === 'current_action_durability_shave') {
       const extra = effect.short_extra_on_first_one ? '; короткое оружие: первая единица ещё −1' : '';
       const types =
@@ -93,7 +102,9 @@ export class ActionEffectLabelService {
       return `только сразу после удара с РУ ≥ ${effect.min_sr} по той же цели`;
     }
     if (effect.type === 'require_previous_attack') {
-      return 'только сразу после атаки, против той же цели';
+      return effect.all_damaged
+        ? 'только сразу после атаки, каждый удар которой нанёс повреждения'
+        : 'только сразу после атаки, против той же цели';
     }
     if (effect.type === 'prepared_defense_counter') {
       return `подготовка против ${effect.reaction} у цели`;
@@ -128,6 +139,9 @@ export class ActionEffectLabelService {
     if (effect.type === 'optional_after_strike_check') return 'опция';
     if (effect.type === 'current_action_check_modifier' && effect.source_code === 'action') {
       return 'действие';
+    }
+    if (effect.type === 'current_action_check_modifier' && effect.source_code === 'multi_attack') {
+      return 'множественная атака';
     }
     if (
       effect.type === 'current_action_check_modifier' ||

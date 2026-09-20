@@ -196,6 +196,82 @@ describe('CharacterOverviewService: формулы атак', () => {
 
     expect(overview.attacks[0].damageLabel).toBe('4 рубящего урона');
   });
+
+  it('стопка strike quantity 2 даёт два экземпляра оружия', () => {
+    const version = versionWith({
+      characteristics: [{ ruleCode: 'strength', base: dim(5), modifiers: [] }],
+      inventory: [{ id: 7, ruleCode: 'alebarda', quantity: 2, equipped: true }],
+    });
+    const overview = service.build(version, rules);
+
+    expect(overview.attacks.map((attack) => attack.itemName)).toEqual(['Алебарда 1', 'Алебарда 2']);
+    expect(overview.attacks.map((attack) => attack.instanceIndex)).toEqual([0, 1]);
+    expect(overview.attacks.every((attack) => attack.inventoryItemId === 7)).toBe(true);
+    expect(
+      service.attackAtDistance(version, rules, 'alebarda', 'strike', 0, 0, 0, 1)?.itemName,
+    ).toBe('Алебарда 2');
+  });
+
+  it('экипированный кинжал занимает одну врождённую руку как удар', () => {
+    const ruka: Rule = base(null, 'ruka', 'item', 'Рука', {
+      category: 'equipment',
+      cost_gm: null,
+      weight: null,
+      innate: true,
+      special_rule_codes: [],
+      weapon: {
+        min_strength: dim(3),
+        durability: dim(5, 2),
+        block_profile: { efficiency: dim(5), defense: { base: 1, size: 0 }, resistances: [] },
+        weapon_profiles: [
+          {
+            type: 'strike',
+            distance: { type: 'dimensional', base: 0, size: 0 },
+            range: null,
+            damage: { formula: { type: 'fixed', value: 1 }, damage_type_code: 'blunt' },
+            penetration: { type: 'fixed', value: 0 },
+            accuracy: dim(5),
+            dodge_benefit: -3,
+          },
+        ],
+      },
+    });
+    const dagger: Rule = base(null, 'dagger', 'item', 'Кинжал', {
+      category: 'equipment',
+      cost_gm: 1,
+      weight: null,
+      special_rule_codes: [],
+      weapon: {
+        min_strength: dim(3),
+        durability: dim(5),
+        block_profile: null,
+        weapon_profiles: [
+          {
+            type: 'strike',
+            distance: { type: 'dimensional', base: 0, size: 0 },
+            range: null,
+            damage: { formula: { type: 'fixed', value: 1 }, damage_type_code: 'piercing' },
+            penetration: { type: 'fixed', value: 0 },
+            accuracy: dim(4),
+            dodge_benefit: -1,
+          },
+        ],
+      },
+    });
+    const catalog = [rules[0]!, ruka, dagger];
+    const version = versionWith({
+      characteristics: [{ ruleCode: 'strength', base: dim(5), modifiers: [] }],
+      inventory: [
+        { id: 1, ruleCode: 'ruka', quantity: 2, equipped: true },
+        { id: 2, ruleCode: 'dagger', quantity: 1, equipped: true, occupyHands: 1 },
+      ],
+    });
+    const overview = service.build(version, catalog);
+    const names = overview.attacks.map((attack) => attack.itemName);
+
+    expect(names.filter((name) => name.startsWith('Рука'))).toHaveLength(1);
+    expect(names).toContain('Кинжал');
+  });
 });
 
 describe('CharacterOverviewService: потолки экипировки', () => {

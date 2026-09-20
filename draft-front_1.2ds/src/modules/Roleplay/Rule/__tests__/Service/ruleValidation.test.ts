@@ -754,8 +754,8 @@ describe('validateAbilityStructure', () => {
           exclusive_group: 'smertonosnye-udary',
           requires_physiology: true,
           modes: [
-            { code: 'cripple', label: 'Калечить', injury_check_advantage: 1 },
-            { code: 'spare', label: 'Щадить', injury_check_advantage: -1 },
+            { code: 'cripple', label: 'Калечить', injury_check_advantage: -1 },
+            { code: 'spare', label: 'Щадить', injury_check_advantage: 1 },
           ],
         },
       }),

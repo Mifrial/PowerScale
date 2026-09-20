@@ -46,6 +46,13 @@ export type ActionEffect =
       delta: number;
     }
   | {
+      type: 'next_action_attack_accuracy';
+      delta: number;
+      same_target: boolean;
+      targetKey?: string;
+      scope: AttackScope;
+    }
+  | {
       type: 'next_action_attack_target_characteristic_modifier';
       check_code: string;
       characteristic_code: string;
@@ -90,6 +97,19 @@ export type ActionEffect =
       scope: AttackScope;
     }
   | {
+      type: 'current_action_roll_face_remap';
+      from: number;
+      to: number;
+      scope: AttackScope;
+    }
+  | {
+      type: 'next_action_attack_score_adjust';
+      oneDelta: number;
+      faceDelta: number;
+      same_target: boolean;
+      targetKey?: string;
+    }
+  | {
       type: 'current_action_durability_shave';
       short_extra_on_first_one: boolean;
       scope: AttackScope;
@@ -104,6 +124,10 @@ export type ActionEffect =
   | {
       type: 'require_previous_attack';
       same_target: boolean;
+      /** Все удары прошлого снимка должны были нанести повреждения. */
+      all_damaged?: boolean;
+      /** Само действие — один удар. */
+      single_strike?: boolean;
     }
   | {
       type: 'attack_sr_from_previous';
@@ -113,7 +137,7 @@ export type ActionEffect =
   | {
       type: 'last_strike_snapshot';
       kind: 'lethal' | 'other';
-      hits: { targetKey: string; attackSr: number; reaction?: string }[];
+      hits: { targetKey: string; attackSr: number; reaction?: string; damaged?: boolean }[];
     }
   | {
       type: 'prepared_defense_counter';

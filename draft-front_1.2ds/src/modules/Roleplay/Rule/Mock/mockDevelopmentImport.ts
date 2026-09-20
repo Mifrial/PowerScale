@@ -1616,8 +1616,8 @@ const mockDevelopmentImportRaw: Rule[] = [
         exclusive_group: 'smertonosnye-udary',
         requires_physiology: true,
         modes: [
-          { code: 'cripple', label: 'Калечить', injury_check_advantage: 1 },
-          { code: 'spare', label: 'Щадить', injury_check_advantage: -1 },
+          { code: 'cripple', label: 'Калечить', injury_check_advantage: -1 },
+          { code: 'spare', label: 'Щадить', injury_check_advantage: 1 },
         ],
       },
     },
@@ -4029,8 +4029,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     code: 'boy-s-oruzhiem-v-neskolkikh-rukakh',
     type: 'ability',
     name: 'Бой с оружием в нескольких руках',
-    description:
-      'Если всё оружие, которое вы выбрали для удара одинаковое, то вы получаете на одну помеху меньше за использование дополнительного оружия.',
+    description: 'Вы получаете на одну помеху меньше от множественных атак.',
     catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
@@ -4041,40 +4040,30 @@ const mockDevelopmentImportRaw: Rule[] = [
           levels_cost: [2],
         },
       },
-      requirements: [],
+      requirements: [
+        {
+          level: 1,
+          requirements: [
+            { type: 'has_ability', ability_code: 'blizhniy-boy', min_level: 2 },
+            { type: 'has_ability', ability_code: 'oboerukaya-ataka', min_level: 1 },
+          ],
+        },
+      ],
       grants: [],
       parent_ability_code: null,
-    },
-    keywordIds: [13, 64],
-    mechanicId: null,
-    createdAt: 1786269600,
-    contentNote: 'Снижение помехи за дополнительное оружие пока не исполняется Game.',
-  },
-  {
-    id: 335,
-    code: 'balans',
-    type: 'ability',
-    name: 'Баланс',
-    description:
-      'Если для каждого оружия, выбранного для удара, у вас есть минимум 4 среднего владения, вы получаете на одну помеху меньше за использование дополнительного оружия.',
-    catalogSection: 'abilities-acquired-melee-combat',
-    spaceId: 1,
-    spec: {
-      type: 'skill',
-      zones: {
-        or: {
-          kind: 'array',
-          levels_cost: [2],
+      action_effects: [
+        {
+          type: 'current_action_check_modifier',
+          check_codes: ['check-hit'],
+          delta: 1,
+          source_code: 'multi_attack',
         },
-      },
-      requirements: [],
-      grants: [],
-      parent_ability_code: 'boy-s-oruzhiem-v-neskolkikh-rukakh',
+      ],
     },
     keywordIds: [13, 64],
     mechanicId: null,
     createdAt: 1786269600,
-    contentNote: 'Проверка владения оружием и снижение помехи пока не исполняются Game.',
+    contentNote: 'Game: −1 к источнику multi_attack на любой атаке с этим источником. План-13.',
   },
   {
     id: 336,
@@ -4394,7 +4383,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Обоерукая атака',
     description:
-      'Это действие стоит 4 ОД и не может стоить меньше 3 ОД.\nСовершите два удара с одной помехой от обстоятельств, не используя во втором ударе оружие, использованное в первом. Если следующее действие — атака по той же цели, её первый удар получает +1 к точности.',
+      'Совершите два последовательных удара разным оружием с одной помехой от множественной атаки. Если следующее действие — атака по той же цели, её первый удар получает +1 к точности.',
     catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
@@ -4408,6 +4397,9 @@ const mockDevelopmentImportRaw: Rule[] = [
       requirements: [],
       grants: [],
       parent_ability_code: null,
+      min_total_action_cost: 3,
+      strike_count: 2,
+      distinct_weapons: true,
       action_components: [
         {
           type: 'resource',
@@ -4416,39 +4408,25 @@ const mockDevelopmentImportRaw: Rule[] = [
           label: 'Действие',
         },
       ],
+      action_effects: [
+        {
+          type: 'current_action_check_modifier',
+          check_codes: ['check-hit'],
+          delta: -1,
+          source_code: 'multi_attack',
+        },
+        {
+          type: 'next_action_attack_accuracy',
+          delta: 1,
+          same_target: true,
+          scope: { components: ['strike'], hit_count: 1 },
+        },
+      ],
     },
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,
     createdAt: 1786269600,
-    contentNote:
-      'Два удара, ограничение стоимости и бонус следующей атаки обязательны к реализации; пока не исполняются Game.',
-  },
-  {
-    id: 344,
-    code: 'sinkhronnaya-ataka',
-    type: 'ability',
-    name: 'Синхронная атака',
-    description:
-      'Вы совершаете все удары синхронно по разным местам. Из-за этого вы получаете одну помеху от обстоятельств , а цель вынуждена защищаться одновременно от двух ударов. Это не позволит ей использовать оружие, чтобы блокировать сразу два удара. И она получит помеху на защиту за каждый удар, от которого защищается после первого.',
-    catalogSection: 'abilities-acquired-melee-combat',
-    spaceId: 1,
-    spec: {
-      type: 'skill',
-      zones: {
-        or: {
-          kind: 'array',
-          levels_cost: [1],
-        },
-      },
-      requirements: [],
-      grants: [],
-      parent_ability_code: 'oboerukaya-ataka',
-    },
-    keywordIds: [13, 64],
-    mechanicId: null,
-    createdAt: 1786269600,
-    contentNote:
-      'Синхронная защита от нескольких ударов и дополнительные помехи обязательны к реализации; пока не исполняются Game.',
+    contentNote: 'Game: два последовательных удара, пол 3 ОД, хвост точности. План-13.',
   },
   {
     id: 345,
@@ -4456,7 +4434,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Сдвоенный удар',
     description:
-      'Совершите один удар с двумя помехами на попадания от обстоятельств , используя два оружия . В случае успеха вы попадаете каждым используемым для атаки оружием.\nДля проверки на попадание вы используете наименьшую точность используемых оружий; применяете помехи, которые есть хотя-бы для попадания одним оружием; и используете преимущества, которые распространяются только на каждое используемое оружие.\nВы получаете на одну помеху от обстоятельств больше, если используете голову для удара. Например, для удара рогами.',
+      'Совершите удар в одно место двумя экземплярами одинакового оружия. Одна проверка попадания против одной защиты. При успехе оба экземпляра попадают. Проверка получает столько помех от множественной атаки, сколько экземпляров использовано.',
     catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
@@ -4473,7 +4451,7 @@ const mockDevelopmentImportRaw: Rule[] = [
           requirements: [
             {
               type: 'has_ability',
-              ability_code: 'blizhniy-boy',
+              ability_code: 'oboerukaya-ataka',
               min_level: 1,
             },
           ],
@@ -4481,6 +4459,9 @@ const mockDevelopmentImportRaw: Rule[] = [
       ],
       grants: [],
       parent_ability_code: null,
+      same_weapon: true,
+      min_weapons: 2,
+      max_weapons: 2,
       action_components: [
         {
           type: 'resource',
@@ -4493,15 +4474,15 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,
     createdAt: 1786269600,
-    contentNote: 'Два оружия, общая точность и распределение помех обязательны к реализации; пока не исполняются Game.',
+    contentNote: 'Game: один бросок, одинаковое оружие, N попаданий, −N multi_attack, кап 2. План-13 §3a.',
   },
   {
     id: 346,
     code: 'mnozhestvo-ruk',
     type: 'ability',
-    name: 'Множество рук',
+    name: 'Оружия много — удар один',
     description:
-      'Вы можете использовать больше двух оружий для удара. В таком случае вместо двух помех получаете столько помех от обстоятельств, сколько используете оружия для атаки.',
+      'Снимает ограничение «ровно два экземпляра» у Сдвоенного удара. Можно использовать столько одинаковых экземпляров оружия, сколько есть — руки, ноги, рога и любое другое оружие.',
     catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
@@ -4515,11 +4496,12 @@ const mockDevelopmentImportRaw: Rule[] = [
       requirements: [],
       grants: [],
       parent_ability_code: 'sdvoennyy-udar',
+      lift_parent_max_weapons: true,
     },
     keywordIds: [13, 64],
     mechanicId: null,
     createdAt: 1786269600,
-    contentNote: 'Использование более двух оружий и расчёт помех обязательны к реализации; пока не исполняются Game.',
+    contentNote: 'Game: снимает кап max_weapons Сдвоенного. Не слоты рук. План-13 §3a.',
   },
   {
     id: 347,
@@ -4527,7 +4509,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Множество ударов',
     description:
-      'Процесс начинается ударом за 3 ОД; каждая следующая часть стоит 2 ОД. Промах завершает процесс. Для удара используется столько помех от обстоятельств, сколько раз соответствующее оружие уже использовалось в процессе.',
+      'Процесс начинается ударом за 3 ОД; каждая следующая часть стоит 2 ОД. Промах завершает процесс. Для удара используется столько помех от обстоятельств, сколько раз соответствующее оружие уже использовалось в процессе ранее.',
     catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
@@ -4544,7 +4526,7 @@ const mockDevelopmentImportRaw: Rule[] = [
           requirements: [
             {
               type: 'has_ability',
-              ability_code: 'blizhniy-boy',
+              ability_code: 'oboerukaya-ataka',
               min_level: 1,
             },
           ],
@@ -4555,24 +4537,26 @@ const mockDevelopmentImportRaw: Rule[] = [
       process: {
         start_step_code: 'part-1',
         transition: {
-          mode: 'chain',
-          max_shift: 1,
-          direction: 'both',
+          mode: 'custom',
+          edges: [
+            { from: 'part-1', to: 'part-2' },
+            { from: 'part-2', to: 'part-2' },
+          ],
         },
         failure: 'end_action',
+        repeat_weapon_circumstance: true,
         steps: [
           {
             code: 'part-1',
             name: 'Первая часть',
-            description: 'Совершите один удар. Если он промахнулся - процесс заканчивается.',
+            description: 'Совершите один удар. Промах заканчивает процесс.',
             interruption: { mode: 'normal' },
             costs: [{ resource_code: 'action-points', amount: 3 }],
           },
           {
             code: 'part-2',
             name: 'Часть',
-            description:
-              'Совершите удар оружием с [Количество использований оружия в процессе] помех от обстоятельств . Т.е. если вы наносили удар правой рукой дважды - вы получите две помехи.',
+            description: 'Совершите один удар за 2 ОД. Промах заканчивает процесс.',
             interruption: { mode: 'normal' },
             costs: [{ resource_code: 'action-points', amount: 2 }],
           },
@@ -4582,6 +4566,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 14, 15, 64, 71],
     mechanicId: null,
     createdAt: 1786269600,
+    contentNote: 'Game: счётчик прошлых ударов экземпляра оружия на сессии. План-13.',
   },
   {
     id: 349,
@@ -5147,7 +5132,7 @@ const mockDevelopmentImportRaw: Rule[] = [
     type: 'ability',
     name: 'Критический удар',
     description:
-      'Эту атаку можно применить только сразу после атаки, каждый удар которой нанёс повреждения.\nВыберите одну из целей ударов прошлой атаки и совершите по ней удар. Каждая 4 и 5 будет считаться за 6, а каждая 2 будет считаться за 1.\nЕсли атака нанесла истощение, то если ваше следующее действие - атака ближнего боя, то она получит эффект Критического удара. Включая возможность распространить эффект на следующую атаку',
+      'Это действие можно совершить только сразу после атаки, каждый удар которой нанёс повреждения. Совершите один удар по одной из тех целей. Каждая 5 считается за 6, каждая 2 — за 1. Если ваше следующее действие — атака по той же цели, каждая единица на броске попадания этой атаки даёт на один успех меньше.',
     catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
@@ -5172,7 +5157,7 @@ const mockDevelopmentImportRaw: Rule[] = [
                 },
                 {
                   type: 'has_ability',
-                  ability_code: 'silovoy-udar',
+                  ability_code: 'riskovannyy-udar',
                   min_level: 1,
                 },
               ],
@@ -5190,20 +5175,43 @@ const mockDevelopmentImportRaw: Rule[] = [
           label: 'Действие',
         },
       ],
+      action_effects: [
+        {
+          type: 'require_previous_attack',
+          same_target: true,
+          all_damaged: true,
+          single_strike: true,
+        },
+        {
+          type: 'current_action_roll_face_remap',
+          from: 5,
+          to: 6,
+          scope: { components: ['strike'], hit_count: 1 },
+        },
+        {
+          type: 'current_action_roll_face_remap',
+          from: 2,
+          to: 1,
+          scope: { components: ['strike'], hit_count: 1 },
+        },
+        {
+          type: 'next_action_attack_score_adjust',
+          oneDelta: -1,
+          faceDelta: 0,
+          same_target: true,
+        },
+      ],
     },
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,
     createdAt: 1786269600,
-    contentNote:
-      'Условие предыдущей атаки, преобразование результатов и перенос эффекта обязательны к реализации; пока не исполняются Game.',
   },
   {
     id: 362,
     code: 'vypad',
     type: 'ability',
     name: 'Выпад',
-    description:
-      'Совершите удар с дальностью действия оружия, увеличенной на полшага персонажа.',
+    description: 'Совершите удар с дальностью действия оружия, увеличенной на полшага персонажа.',
     catalogSection: 'abilities-acquired-melee-combat',
     spaceId: 1,
     spec: {
@@ -5236,41 +5244,6 @@ const mockDevelopmentImportRaw: Rule[] = [
     keywordIds: [13, 14, 64, 71],
     mechanicId: null,
     createdAt: 1786269600,
-  },
-  {
-    id: 363,
-    code: 'vyverennyy-udar',
-    type: 'ability',
-    name: 'Выверенный удар',
-    description:
-      'Если предыдущая действие оказывает эффект на следующую за ним атаку, то примените его дважды * . *Так двойной удар даёт +1 к точности для следующей атаки; для выверенного удара это будет +2.',
-    catalogSection: 'abilities-acquired-melee-combat',
-    spaceId: 1,
-    spec: {
-      type: 'action',
-      zones: {
-        or: {
-          kind: 'array',
-          levels_cost: [2],
-        },
-      },
-      requirements: [],
-      grants: [],
-      parent_ability_code: null,
-      action_components: [
-        {
-          type: 'resource',
-          resource_code: 'action-points',
-          amount: 5,
-          label: 'Действие',
-        },
-      ],
-    },
-    keywordIds: [13, 14, 64, 71],
-    mechanicId: null,
-    createdAt: 1786269600,
-    contentNote:
-      'Требование понимания во владении оружием и удвоение эффекта обязательны к реализации; пока не исполняются Game.',
   },
   {
     id: 364,

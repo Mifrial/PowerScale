@@ -161,4 +161,49 @@ describe('mockCheckOffers: handshake pairwise', () => {
     const accepted = await acceptCheckOffer(created.id, initiator);
     expect(accepted.status).toBe('accepted');
   });
+
+  it('последовательные удары ждут отдельную реакцию на каждый', async () => {
+    const strikeHit = {
+      itemRuleCode: 'ruka',
+      itemName: 'Рука',
+      profileType: 'strike' as const,
+      accuracy: { base: 4, size: 0 },
+      reaction: null,
+    };
+    const sequentialProposal = {
+      ...proposal,
+      attackAction: {
+        initiator,
+        source: { kind: 'action', actionRuleCode: 'dual' },
+        strikes: [
+          { targetKey: opponent, profile: { itemRuleCode: 'ruka', itemName: 'Рука' } },
+          { targetKey: opponent, profile: { itemRuleCode: 'dagger', itemName: 'Кинжал' } },
+        ],
+        reactionMode: 'sequential',
+        totalOdCost: 4,
+      },
+      hit: strikeHit,
+    } as unknown as CheckOfferProposal;
+    const created = await createCheckOffer(7, {
+      checkCode: 'check-hit',
+      initiator,
+      opponent,
+      proposal: sequentialProposal,
+    });
+    expect(created.waitingOnTargets).toEqual([opponent]);
+    expect(created.proposal.strikeProposals).toHaveLength(2);
+    const first = await acceptCheckOffer(created.id, opponent, {
+      ...sequentialProposal,
+      hit: { ...strikeHit, reaction: 'dodge' },
+    });
+    expect(first.status).toBe('pending');
+    expect(first.proposal.strikeProposals?.[0]?.hit.reaction).toBe('dodge');
+    expect(first.proposal.strikeProposals?.[1]?.hit.reaction).toBeNull();
+    const second = await acceptCheckOffer(created.id, opponent, {
+      ...sequentialProposal,
+      hit: { ...strikeHit, itemRuleCode: 'dagger', itemName: 'Кинжал', reaction: 'ignore' },
+    });
+    expect(second.status).toBe('accepted');
+    expect(second.proposal.strikeProposals?.map((slot) => slot.hit.reaction)).toEqual(['dodge', 'ignore']);
+  });
 });

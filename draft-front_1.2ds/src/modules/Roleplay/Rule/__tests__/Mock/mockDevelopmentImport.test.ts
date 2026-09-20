@@ -90,7 +90,7 @@ describe('mockDevelopmentImport (S14)', () => {
     const sdvoenny = abilitySpec('sdvoennyy-udar');
     expect(sdvoenny?.requirements?.[0]?.requirements).toContainEqual({
       type: 'has_ability',
-      ability_code: 'blizhniy-boy',
+      ability_code: 'oboerukaya-ataka',
       min_level: 1,
     });
     const neitralizaciya = abilitySpec('neytralizatsiya-pomekh');
@@ -183,9 +183,9 @@ describe('mockDevelopmentImport (S14)', () => {
     expect(attack('oboerukaya-ataka')).toBe(true);
     // Не-атакующая способность раздела ближнего боя (реакция «Отступление»).
     expect(attack('otstuplenie')).toBe(false);
-    // Счёт: 20 атакующих карточек (все — раздел ближнего боя). «Продолжение атаки» удалена из каталога.
+    // Счёт: атакующие карточки раздела ближнего боя. Выверенный вырезан 2026-09-20.
     const withAttack = mockDevelopmentImport.filter((r) => (r.keywordIds ?? []).includes(71)).map((r) => r.code);
-    expect(withAttack).toHaveLength(18);
+    expect(withAttack).toHaveLength(17);
   });
 
   it('«Эффект», «Группа навыков», «Черта развития» не импортируются', () => {
@@ -233,8 +233,8 @@ describe('mockDevelopmentImport (S14)', () => {
       exclusive_group: 'smertonosnye-udary',
       requires_physiology: true,
       modes: [
-        { code: 'cripple', label: 'Калечить', injury_check_advantage: 1 },
-        { code: 'spare', label: 'Щадить', injury_check_advantage: -1 },
+        { code: 'cripple', label: 'Калечить', injury_check_advantage: -1 },
+        { code: 'spare', label: 'Щадить', injury_check_advantage: 1 },
       ],
     });
   });
@@ -600,7 +600,6 @@ describe('mockDevelopmentImport (S14)', () => {
   it('Пачка 19 размещена в ближнем бою и уточняет требование Стремительного удара', () => {
     for (const code of [
       'boy-s-oruzhiem-v-neskolkikh-rukakh',
-      'balans',
       'podgotovka',
       'bystryy-udar',
       'stremitelnyy-udar',
@@ -610,7 +609,7 @@ describe('mockDevelopmentImport (S14)', () => {
       'oboerukaya-ataka',
     ]) {
       expect(byCode.get(code)?.catalogSection, code).toBe(
-        ['boy-s-oruzhiem-v-neskolkikh-rukakh', 'balans', 'oboerukaya-ataka'].includes(code)
+        ['boy-s-oruzhiem-v-neskolkikh-rukakh', 'oboerukaya-ataka'].includes(code)
           ? 'abilities-acquired-melee-combat-quantity'
           : ['bystryy-udar', 'stremitelnyy-udar', 'seriya-udarov', 'kombinatsiya-udarov', 'raskrytie'].includes(code)
             ? 'abilities-acquired-melee-combat-speed'
@@ -624,12 +623,41 @@ describe('mockDevelopmentImport (S14)', () => {
     });
     expect(byCode.get('seriya-udarov')?.description).not.toContain('внутреннее повреждение');
     expect(byCode.get('kombinatsiya-udarov')?.contentNote).toContain('Game');
-    expect(byCode.get('oboerukaya-ataka')?.contentNote).toContain('обязательны');
+    expect(abilitySpec('oboerukaya-ataka')?.min_total_action_cost).toBe(3);
+    expect(abilitySpec('oboerukaya-ataka')?.strike_count).toBe(2);
+    expect(abilitySpec('oboerukaya-ataka')?.distinct_weapons).toBe(true);
+    expect(abilitySpec('oboerukaya-ataka')?.action_effects).toEqual([
+      {
+        type: 'current_action_check_modifier',
+        check_codes: ['check-hit'],
+        delta: -1,
+        source_code: 'multi_attack',
+      },
+      {
+        type: 'next_action_attack_accuracy',
+        delta: 1,
+        same_target: true,
+        scope: { components: ['strike'], hit_count: 1 },
+      },
+    ]);
+    expect(abilitySpec('boy-s-oruzhiem-v-neskolkikh-rukakh')?.parent_ability_code).toBeNull();
+    expect(abilitySpec('boy-s-oruzhiem-v-neskolkikh-rukakh')?.requirements?.[0]?.requirements).toEqual([
+      { type: 'has_ability', ability_code: 'blizhniy-boy', min_level: 2 },
+      { type: 'has_ability', ability_code: 'oboerukaya-ataka', min_level: 1 },
+    ]);
+    expect(abilitySpec('boy-s-oruzhiem-v-neskolkikh-rukakh')?.action_effects).toEqual([
+      {
+        type: 'current_action_check_modifier',
+        check_codes: ['check-hit'],
+        delta: 1,
+        source_code: 'multi_attack',
+      },
+    ]);
+    expect(byCode.get('balans')).toBeUndefined();
   });
 
   it('Пачка 20 размещена в ближнем бою и описывает Множество ударов', () => {
     for (const code of [
-      'sinkhronnaya-ataka',
       'sdvoennyy-udar',
       'mnozhestvo-ruk',
       'mnozhestvo-udarov',
@@ -641,7 +669,7 @@ describe('mockDevelopmentImport (S14)', () => {
       'shirokiy-udar',
     ]) {
       expect(byCode.get(code)?.catalogSection, code).toBe(
-        ['sinkhronnaya-ataka', 'sdvoennyy-udar', 'mnozhestvo-ruk', 'mnozhestvo-udarov'].includes(code)
+        ['sdvoennyy-udar', 'mnozhestvo-ruk', 'mnozhestvo-udarov'].includes(code)
           ? 'abilities-acquired-melee-combat-quantity'
           : [
                 'razmashistyy-udar',
@@ -656,11 +684,31 @@ describe('mockDevelopmentImport (S14)', () => {
       );
     }
     expect(byCode.get('mnozhestvo-udarov')?.description).toContain('3 ОД');
-    expect(byCode.get('mnozhestvo-udarov')?.description).toContain('2 ОД');
+    expect(byCode.get('mnozhestvo-udarov')?.description).toContain('ранее');
+    expect(abilitySpec('mnozhestvo-udarov')?.requirements?.[0]?.requirements).toContainEqual({
+      type: 'has_ability',
+      ability_code: 'oboerukaya-ataka',
+      min_level: 1,
+    });
+    expect(abilitySpec('mnozhestvo-udarov')?.process?.repeat_weapon_circumstance).toBe(true);
+    expect(abilitySpec('mnozhestvo-udarov')?.process?.transition).toMatchObject({
+      mode: 'custom',
+      edges: [
+        { from: 'part-1', to: 'part-2' },
+        { from: 'part-2', to: 'part-2' },
+      ],
+    });
     expect(byCode.get('razmashistyy-udar')?.catalogSection).toBe('abilities-acquired-melee-combat-power');
     expect(byCode.get('yarostnyy-ryvok')?.catalogSection).toBe('abilities-acquired-melee-combat-power');
     expect(byCode.get('udvoennaya-mosch')?.catalogSection).toBe('abilities-acquired-melee-combat-power');
-    expect(byCode.get('sinkhronnaya-ataka')?.contentNote).toContain('обязательны');
+    expect(byCode.get('sinkhronnaya-ataka')).toBeUndefined();
+    expect(abilitySpec('sdvoennyy-udar')?.same_weapon).toBe(true);
+    expect(abilitySpec('sdvoennyy-udar')?.min_weapons).toBe(2);
+    expect(abilitySpec('sdvoennyy-udar')?.max_weapons).toBe(2);
+    expect(byCode.get('sdvoennyy-udar')?.description).toContain('одинакового оружия');
+    expect(byCode.get('mnozhestvo-ruk')?.name).toBe('Оружия много — удар один');
+    expect(abilitySpec('mnozhestvo-ruk')?.lift_parent_max_weapons).toBe(true);
+    expect(abilitySpec('mnozhestvo-ruk')?.parent_ability_code).toBe('sdvoennyy-udar');
     expect(byCode.get('silovoy-udar')?.spec).toMatchObject({
       type: 'action',
       action_effects: [{ type: 'current_action_attack_characteristic_from_success_rating', floor_div: 2, cap: 3 }],
@@ -704,15 +752,12 @@ describe('mockDevelopmentImport (S14)', () => {
       'smertelnyy-udar',
       'kriticheskiy-udar',
       'vypad',
-      'vyverennyy-udar',
       'riskovannyy-udar',
     ]) {
       expect(byCode.get(code)?.catalogSection, code).toBe(
-        ['tochnyy-udar', 'napravlennyy-udar', 'udar-v-sochlenenie', 'smertelnyy-udar', 'kriticheskiy-udar'].includes(
-          code,
-        )
+        ['tochnyy-udar', 'napravlennyy-udar', 'udar-v-sochlenenie', 'smertelnyy-udar'].includes(code)
           ? 'abilities-acquired-melee-combat-accuracy'
-          : code === 'riskovannyy-udar'
+          : code === 'riskovannyy-udar' || code === 'kriticheskiy-udar'
             ? 'abilities-acquired-melee-combat-risk'
             : code === 'vypad'
               ? 'abilities-acquired-melee-combat-distance'
@@ -720,7 +765,9 @@ describe('mockDevelopmentImport (S14)', () => {
       );
     }
     expect(byCode.get('masterstvo-v-tochnosti')).toBeUndefined();
+    expect(byCode.get('vyverennyy-udar')).toBeUndefined();
     expect(byCode.get('tochnyy-udar')?.contentNote).toBeUndefined();
+    expect(byCode.get('kriticheskiy-udar')?.contentNote).toBeUndefined();
     expect(abilitySpec('tochnyy-udar')?.action_effects).toEqual([
       {
         type: 'current_action_attack_accuracy',
@@ -767,6 +814,7 @@ describe('mockDevelopmentImport (S14)', () => {
       'riskovannyy-udar',
       'vypad',
       'protivodeystvuyuschiy-udar',
+      'kriticheskiy-udar',
     ]) {
       expect(byCode.get(code)?.contentNote, code).toBeUndefined();
     }
@@ -784,9 +832,32 @@ describe('mockDevelopmentImport (S14)', () => {
         scope: { components: ['strike'], hit_count: 1 },
       },
     ]);
-    for (const code of ['kriticheskiy-udar', 'vyverennyy-udar']) {
-      expect(byCode.get(code)?.contentNote, code).toContain('обязатель');
-    }
+    expect(abilitySpec('kriticheskiy-udar')?.action_effects).toEqual([
+      {
+        type: 'require_previous_attack',
+        same_target: true,
+        all_damaged: true,
+        single_strike: true,
+      },
+      {
+        type: 'current_action_roll_face_remap',
+        from: 5,
+        to: 6,
+        scope: { components: ['strike'], hit_count: 1 },
+      },
+      {
+        type: 'current_action_roll_face_remap',
+        from: 2,
+        to: 1,
+        scope: { components: ['strike'], hit_count: 1 },
+      },
+      {
+        type: 'next_action_attack_score_adjust',
+        oneDelta: -1,
+        faceDelta: 0,
+        same_target: true,
+      },
+    ]);
   });
 
   it('Пачка 22 и карта боевых секций раскладывают прочее сражение отдельно', () => {

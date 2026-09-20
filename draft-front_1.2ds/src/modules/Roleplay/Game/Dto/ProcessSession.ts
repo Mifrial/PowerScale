@@ -15,4 +15,8 @@ export interface ProcessSession {
   comboCount?: number;
   /** Цель Комбо; все шаги и закрытие только по ней. */
   comboTargetKey?: CombatEntityKey;
+  /** Сколько раз экземпляр оружия уже завершил удар в этой сессии. */
+  weaponUseCounts?: Record<string, number>;
+  /** Последняя цель удара процесса; подставляется в следующий шаг. */
+  lastStrikeTargetKey?: CombatEntityKey;
 }

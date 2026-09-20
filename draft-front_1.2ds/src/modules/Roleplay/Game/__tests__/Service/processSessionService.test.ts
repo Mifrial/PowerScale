@@ -102,6 +102,23 @@ describe('ProcessSessionService', () => {
     expect(processSessionService.stepCost(movement.steps[1], 'qi')).toBe(0);
   });
 
+  it('считает помеху обстоятельств за прошлые удары экземпляра', () => {
+    const spec: ProcessSpec = { ...movement, repeat_weapon_circumstance: true };
+    const started = processSessionService.start(1, 'character:1', 'flurry', spec);
+    expect(processSessionService.repeatWeaponModifiers(started, spec, 'id:7:0')).toEqual([]);
+    const afterFirst = processSessionService.recordStrikeUses(started, spec, ['id:7:0'], 'character:2');
+    expect(afterFirst.lastStrikeTargetKey).toBe('character:2');
+    expect(processSessionService.repeatWeaponModifiers(afterFirst, spec, 'id:7:0')).toEqual([
+      { source_code: 'circumstances', source_label: 'Обстоятельства', delta: -1 },
+    ]);
+    expect(processSessionService.repeatWeaponModifiers(afterFirst, spec, 'id:8:0')).toEqual([]);
+    const afterSecond = processSessionService.recordStrikeUses(afterFirst, spec, ['id:7:0'], 'character:3');
+    expect(processSessionService.repeatWeaponModifiers(afterSecond, spec, 'id:7:0')[0]?.delta).toBe(-2);
+    expect(
+      processSessionService.repeatWeaponModifiers(afterFirst, { ...spec, repeat_weapon_circumstance: false }, 'id:7:0'),
+    ).toEqual([]);
+  });
+
   it('distinguishes normal interruption from an emergency-only step', () => {
     expect(processSessionService.canInterruptNormally(movement, 'walk')).toBe(true);
     const emergency = {

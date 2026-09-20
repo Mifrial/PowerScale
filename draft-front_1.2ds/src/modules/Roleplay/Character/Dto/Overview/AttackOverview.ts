@@ -33,4 +33,8 @@ export interface AttackOverview {
   penetration: DimensionalNumberValue;
   /** Польза уклонения профиля; нет — Game fallback −3. */
   dodgeBenefit?: number;
+  /** Id экземпляра в инвентаре; различает два одинаковых предмета. */
+  inventoryItemId?: number;
+  /** Копия в стопке quantity (0-based). Две врождённые руки — 0 и 1. */
+  instanceIndex?: number;
 }

@@ -106,7 +106,11 @@ const droppedNote = computed(() => {
   return `убрано ${n}`;
 });
 const keptFaces = computed(() =>
-  roll.value.adjustedRolls.map((face, i) => ({ face, success: roll.value.successes[i] ?? 0 })),
+  roll.value.adjustedRolls.map((face, index) => ({
+    face,
+    prior: roll.value.priorAdjustedRolls?.[index],
+    success: roll.value.successes[index] ?? 0,
+  })),
 );
 const shownFaces = computed(() => (isFaceSum.value ? roll.value.rolls : roll.value.adjustedRolls));
 const appliedMechanicNames = computed(() => resolveAppliedMechanicNames(roll.value));
@@ -116,6 +120,13 @@ const injuryDifficultyRows = computed(() =>
 const rangedHitDifficultyRows = computed(() =>
   roll.value.check?.ranged_hit ? rangedHitDifficultyDetailRows(roll.value.check.ranged_hit) : [],
 );
+
+function dieFaceLabel(face: number, index: number): string {
+  const prior = roll.value.priorAdjustedRolls?.[index];
+  if (prior != null && prior !== face) return `${prior}→${face}`;
+
+  return String(face);
+}
 
 function signed(n: number): string {
   return n > 0 ? `+${n}` : String(n);
@@ -225,7 +236,10 @@ function dieFaceClass(success: number): string {
               <div class="chat-roll-faces">
                 <span v-for="(die, i) in keptFaces" :key="i">
                   <template v-if="isFaceSum">{{ die.face }}</template>
-                  <template v-else> {{ die.face }} → {{ signed(die.success) }}</template>
+                  <template v-else>
+                    {{ die.prior != null && die.prior !== die.face ? `${die.prior}→${die.face}` : die.face }} →
+                    {{ signed(die.success) }}
+                  </template>
                 </span>
               </div>
               <div v-if="droppedNote" class="mt-1">{{ droppedNote }}: {{ roll.droppedRolls.join(', ') }}</div>
@@ -247,7 +261,7 @@ function dieFaceClass(success: number): string {
         class="roll-die"
         :class="isFaceSum ? '' : dieFaceClass(roll.successes[si] ?? 0)"
       >
-        {{ face }}
+        {{ isFaceSum ? face : dieFaceLabel(face, si) }}
       </span>
       <span
         v-for="(d, di) in roll.droppedRolls"

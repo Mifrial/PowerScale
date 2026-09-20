@@ -35,15 +35,23 @@ export interface CombatActionOption {
   attackMode?: 'single' | 'wide';
 }
 
-export function asActionAbilitySpec(rule: Rule): Extract<AbilitySpec, { type: 'action' }> | null {
-  if (rule.type !== 'ability' || !rule.spec || typeof rule.spec !== 'object' || !('type' in rule.spec)) return null;
+export function asActionAbilitySpec(
+  rule: Rule | null | undefined,
+): Extract<AbilitySpec, { type: 'action' }> | null {
+  if (!rule || rule.type !== 'ability' || !rule.spec || typeof rule.spec !== 'object' || !('type' in rule.spec)) {
+    return null;
+  }
   if (rule.spec.type !== 'action') return null;
 
   return rule.spec;
 }
 
-export function asProcessAbilitySpec(rule: Rule): Extract<AbilitySpec, { type: 'process' }>['process'] | null {
-  if (rule.type !== 'ability' || !rule.spec || typeof rule.spec !== 'object' || !('type' in rule.spec)) return null;
+export function asProcessAbilitySpec(
+  rule: Rule | null | undefined,
+): Extract<AbilitySpec, { type: 'process' }>['process'] | null {
+  if (!rule || rule.type !== 'ability' || !rule.spec || typeof rule.spec !== 'object' || !('type' in rule.spec)) {
+    return null;
+  }
   if (rule.spec.type !== 'process') return null;
 
   return rule.spec.process;

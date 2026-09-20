@@ -2,6 +2,7 @@ import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/Dimension
 import type { HitDefenseReaction } from '@/modules/Roleplay/Game/Enum/HitDefenseReaction';
 import type { AttackAction } from '@/modules/Roleplay/Game/Dto/AttackAction';
 import type { CheckOfferTargetProposal } from '@/modules/Roleplay/Game/Dto/CheckOfferTargetProposal';
+import type { CheckOfferStrikeProposal } from '@/modules/Roleplay/Game/Dto/CheckOfferStrikeProposal';
 import type { SpellCastOfferContext } from '@/modules/Roleplay/Game/Dto/Spell/SpellCastOfferContext';
 
 export interface CheckOfferProposal {
@@ -20,6 +21,8 @@ export interface CheckOfferProposal {
   attackAction?: AttackAction | null;
   /** Независимые ответы целей для групповой атаки. */
   targetProposals?: CheckOfferTargetProposal[];
+  /** Независимые реакции на каждый последовательный удар. */
+  strikeProposals?: CheckOfferStrikeProposal[];
   /** Попадание: профиль оружия; реакцию и эффективность защиты пишет защитник. */
   hit?: {
     itemRuleCode: string;

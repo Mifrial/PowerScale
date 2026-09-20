@@ -20,6 +20,20 @@ export interface AbilitySpecBase {
   hit_resolution?: HitResolution;
   /** Режим выбора целей для атакующего действия. */
   attack_mode?: 'single' | 'wide';
+  /** Нижняя граница итоговой стоимости действия в ОД после pending. */
+  min_total_action_cost?: number;
+  /** Сколько последовательных ударов в одном запуске; нет — один. Не для Сдвоенного. */
+  strike_count?: number;
+  /** Удары должны быть разным экземпляром оружия. */
+  distinct_weapons?: boolean;
+  /** Несколько экземпляров одного оружия, один бросок, N попаданий. */
+  same_weapon?: boolean;
+  /** Минимум экземпляров для same_weapon. */
+  min_weapons?: number;
+  /** Максимум экземпляров для same_weapon; навык-ребёнок может снять. */
+  max_weapons?: number;
+  /** У улучшения родителя same_weapon: снять max_weapons. */
+  lift_parent_max_weapons?: boolean;
   /** Толчок: контест Силы или урона оружия вместо обычного попадания. */
   push?: PushSpec;
   max_targets?: number;

@@ -136,7 +136,8 @@ describe('AttackActionSourceService', () => {
     expect(attackActionSourceService.maxTargets(rule([64, 71], 'wide'))).toBe(3);
     expect(attackActionSourceService.validateTargetCount(rule([64, 71], 'wide'), ['a', 'b', 'c'])).toBeNull();
     expect(attackActionSourceService.validateTargetCount(rule([64, 71], 'wide'), ['a', 'b', 'c', 'd'])).toContain('3');
-    expect(attackActionSourceService.validateTargetCount(rule([64, 71]), ['a', 'a'])).toContain('1');
+    expect(attackActionSourceService.validateTargetCount(rule([64, 71]), ['a', 'a'])).toBeNull();
+    expect(attackActionSourceService.validateTargetCount(rule([64, 71]), ['a', 'b'])).toContain('1');
   });
 
   it('wide даёт помеху за каждую цель после первой', () => {
@@ -145,6 +146,113 @@ describe('AttackActionSourceService', () => {
     expect(attackActionSourceService.extraTargetHitModifiers(3)).toEqual([
       { source_code: 'circumstances', source_label: 'Обстоятельства', delta: -2 },
     ]);
+  });
+
+  it('ключ оружия различает экземпляр и код правила без id', () => {
+    expect(attackActionSourceService.weaponKey({ ...profile('strike'), inventoryItemId: 7, instanceIndex: 0 })).toBe(
+      'id:7:0',
+    );
+    expect(attackActionSourceService.weaponKey({ ...profile('strike'), itemRuleCode: 'kindzhal' })).toBe(
+      'code:kindzhal:0',
+    );
+  });
+
+  it('последовательные удары требуют разный экземпляр оружия', () => {
+    const sequential = {
+      ...rule([64, 71]),
+      spec: {
+        ...rule([64, 71]).spec,
+        strike_count: 2,
+        distinct_weapons: true,
+      },
+    };
+    expect(attackActionSourceService.strikeCount(sequential)).toBe(2);
+    expect(attackActionSourceService.isSequentialStrikes(sequential)).toBe(true);
+    expect(
+      attackActionSourceService.validateDistinctWeapons(sequential, [
+        { ...profile('strike'), inventoryItemId: 1 },
+        { ...profile('strike'), inventoryItemId: 1 },
+      ]),
+    ).toContain('другое оружие');
+    expect(
+      attackActionSourceService.validateDistinctWeapons(sequential, [
+        { ...profile('strike'), inventoryItemId: 1 },
+        { ...profile('strike'), inventoryItemId: 2, itemRuleCode: 'other' },
+      ]),
+    ).toBeNull();
+    expect(
+      attackActionSourceService.validateDistinctWeapons(sequential, [
+        { ...profile('strike'), inventoryItemId: 1, instanceIndex: 0 },
+        { ...profile('strike'), inventoryItemId: 1, instanceIndex: 1 },
+      ]),
+    ).toBeNull();
+    expect(
+      attackActionSourceService.nextDistinctWeaponProfile(
+        [
+          { ...profile('strike'), inventoryItemId: 1 },
+          { ...profile('strike'), inventoryItemId: 2, itemName: 'second' },
+        ],
+        [{ ...profile('strike'), inventoryItemId: 1 }],
+      )?.itemName,
+    ).toBe('second');
+    expect(
+      attackActionSourceService
+        .profilesForOtherWeapons(
+          [
+            { ...profile('strike'), inventoryItemId: 1 },
+            { ...profile('strike'), inventoryItemId: 2, itemName: 'second' },
+          ],
+          [{ ...profile('strike'), inventoryItemId: 1 }],
+          null,
+        )
+        .map((entry) => entry.itemName),
+    ).toEqual(['second']);
+  });
+
+  it('сдвоенный удар требует одинаковые экземпляры и кап 2, навык снимает кап', () => {
+    const paired = {
+      ...rule([64, 71]),
+      code: 'paired',
+      spec: {
+        ...rule([64, 71]).spec,
+        same_weapon: true,
+        min_weapons: 2,
+        max_weapons: 2,
+      },
+    };
+    const lift = {
+      ...rule([]),
+      code: 'lift',
+      spec: {
+        type: 'skill' as const,
+        zones: {},
+        requirements: [],
+        grants: [],
+        parent_ability_code: 'paired',
+        lift_parent_max_weapons: true,
+      },
+    };
+    const copies = [
+      { ...profile('strike'), inventoryItemId: 1, instanceIndex: 0, itemRuleCode: 'ruka' },
+      { ...profile('strike'), inventoryItemId: 1, instanceIndex: 1, itemRuleCode: 'ruka' },
+      { ...profile('strike'), inventoryItemId: 2, instanceIndex: 0, itemRuleCode: 'noga' },
+    ];
+    expect(attackActionSourceService.isSameWeaponStrikes(paired)).toBe(true);
+    expect(attackActionSourceService.isSequentialStrikes(paired)).toBe(false);
+    expect(attackActionSourceService.maxWeapons(paired, { abilities: [] }, [paired, lift])).toBe(2);
+    expect(
+      attackActionSourceService.maxWeapons(paired, { abilities: [{ ruleCode: 'lift', level: 1 }] }, [paired, lift]),
+    ).toBe(Number.POSITIVE_INFINITY);
+    expect(attackActionSourceService.validateSameWeapons(paired, [copies[0], copies[2]])).toContain('одним оружием');
+    expect(attackActionSourceService.validateSameWeapons(paired, [copies[0], copies[1]])).toBeNull();
+    expect(attackActionSourceService.sameWeaponCheckModifiers(paired, 2)).toEqual([
+      { source_code: 'multi_attack', source_label: 'множественная атака', delta: -2 },
+    ]);
+    expect(attackActionSourceService.preferredSameWeaponLead(copies, 2, copies[2])).toMatchObject({
+      itemRuleCode: 'ruka',
+    });
+    expect(attackActionSourceService.hasUnusedSameWeaponCopy(copies, [copies[0]], 'ruka')).toBe(true);
+    expect(attackActionSourceService.hasUnusedSameWeaponCopy(copies, [copies[2]], 'noga')).toBe(false);
   });
 
   it('не ставит подготовку в список атак даже при владении', () => {

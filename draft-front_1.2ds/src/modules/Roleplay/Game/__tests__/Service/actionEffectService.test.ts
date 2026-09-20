@@ -180,6 +180,38 @@ describe('ActionEffectService', () => {
     ).toMatchObject({ actionCostDelta: 1, remainingEffects: [] });
   });
 
+  it('adds pending accuracy on the next attack against the same target', () => {
+    const pending: PendingActionEffect[] = [
+      {
+        sourceRuleCode,
+        effect: {
+          type: 'next_action_attack_accuracy',
+          delta: 1,
+          same_target: true,
+          targetKey: 'npc:1',
+          scope: { components: ['strike'], hit_count: 1 },
+        },
+      },
+    ];
+
+    expect(
+      actionEffectService.resolveForNextAction(pending, {
+        isAttack: true,
+        component: 'strike',
+        baseCost: 3,
+        targetKeys: ['npc:1'],
+      }).accuracyDelta,
+    ).toBe(1);
+    expect(
+      actionEffectService.resolveForNextAction(pending, {
+        isAttack: true,
+        component: 'strike',
+        baseCost: 3,
+        targetKeys: ['npc:2'],
+      }).accuracyDelta,
+    ).toBe(0);
+  });
+
   it('loses a next-action effect when the next action is not an attack', () => {
     const pending: PendingActionEffect[] = [
       {
@@ -267,10 +299,12 @@ describe('ActionEffectService', () => {
       },
     ];
     expect(
-      actionEffectService.resolveForNextAction(pending, { isAttack: true, component: 'strike', baseCost: 2 }).dodgeSoakFromReaction,
+      actionEffectService.resolveForNextAction(pending, { isAttack: true, component: 'strike', baseCost: 2 })
+        .dodgeSoakFromReaction,
     ).toBe(true);
     expect(
-      actionEffectService.resolveForNextAction(pending, { isAttack: true, component: 'strike', baseCost: 3 }).dodgeSoakFromReaction,
+      actionEffectService.resolveForNextAction(pending, { isAttack: true, component: 'strike', baseCost: 3 })
+        .dodgeSoakFromReaction,
     ).toBe(false);
     expect(
       actionEffectService.resolveForNextAction(pending, {
@@ -338,6 +372,101 @@ describe('ActionEffectService', () => {
       { source_code: 'circumstances', source_label: 'Обстоятельства', delta: -2 },
     ]);
     expect(actionEffectService.checkAdvantageModifiers(pending, 'hit')).toEqual([]);
+  });
+
+  it('навык уменьшает помеху источника множественной атаки и не трогает прочие атаки', () => {
+    const attack = {
+      id: null,
+      code: 'dual-strike',
+      type: 'ability',
+      name: 'Обоерукая',
+      description: '',
+      spaceId: 1,
+      keywordIds: [],
+      mechanicId: null,
+      createdAt: 1767225600,
+      spec: {
+        type: 'action',
+        zones: {},
+        requirements: [],
+        grants: [],
+        parent_ability_code: null,
+        action_components: [],
+        action_effects: [
+          {
+            type: 'current_action_check_modifier',
+            check_codes: ['check-hit'],
+            delta: -1,
+            source_code: 'multi_attack',
+          },
+        ],
+      },
+    } as Rule;
+    const skill = {
+      id: null,
+      code: 'multi-hand-fight',
+      type: 'ability',
+      name: 'Бой в нескольких руках',
+      description: '',
+      spaceId: 1,
+      keywordIds: [],
+      mechanicId: null,
+      createdAt: 1767225600,
+      spec: {
+        type: 'skill',
+        zones: {},
+        requirements: [],
+        grants: [],
+        parent_ability_code: null,
+        action_effects: [
+          {
+            type: 'current_action_check_modifier',
+            check_codes: ['check-hit'],
+            delta: 1,
+            source_code: 'multi_attack',
+          },
+        ],
+      },
+    } as Rule;
+    const plain = {
+      ...attack,
+      code: 'plain-strike',
+      spec: {
+        type: 'action',
+        zones: {},
+        requirements: [],
+        grants: [],
+        parent_ability_code: null,
+        action_components: [],
+        action_effects: [{ type: 'current_action_check_modifier', check_codes: ['check-hit'], delta: -2 }],
+      },
+    } as Rule;
+    const actor = { abilities: [{ ruleCode: 'multi-hand-fight', level: 1 }] };
+
+    expect(
+      actionEffectService.currentActionCheckModifiersForActor(attack, actor, [attack, skill], 'check-hit'),
+    ).toEqual([
+      { source_code: 'multi_attack', source_label: 'множественная атака', delta: -1 },
+      { source_code: 'multi_attack', source_label: 'множественная атака', delta: 1 },
+    ]);
+    expect(actionEffectService.currentActionCheckModifiersForActor(plain, actor, [plain, skill], 'check-hit')).toEqual([
+      { source_code: 'circumstances', source_label: 'Обстоятельства', delta: -2 },
+    ]);
+    expect(
+      actionEffectService.currentActionCheckModifiersForActor(attack, { abilities: [] }, [attack, skill], 'check-hit'),
+    ).toEqual([{ source_code: 'multi_attack', source_label: 'множественная атака', delta: -1 }]);
+    expect(
+      actionEffectService.currentActionCheckModifiersForActor(
+        { ...attack, spec: { ...attack.spec, action_effects: [] } } as Rule,
+        actor,
+        [attack, skill],
+        'check-hit',
+        [{ source_code: 'multi_attack', source_label: 'множественная атака', delta: -2 }],
+      ),
+    ).toEqual([
+      { source_code: 'multi_attack', source_label: 'множественная атака', delta: -2 },
+      { source_code: 'multi_attack', source_label: 'множественная атака', delta: 1 },
+    ]);
   });
 
   it('считает бонус Силы урона от РУ с потолком', () => {
@@ -485,7 +614,9 @@ describe('ActionEffectService', () => {
       delta: -1,
       adjustments: [{ sourceRuleCode: 'directed-strike', delta: -1 }],
     });
-    expect(actionEffectService.currentAttackTargetCharacteristicModifier(rule, 'strike', 'perception', 0).delta).toBe(0);
+    expect(actionEffectService.currentAttackTargetCharacteristicModifier(rule, 'strike', 'perception', 0).delta).toBe(
+      0,
+    );
     expect(actionEffectService.currentAttackTargetCharacteristicModifier(rule, 'throw', 'perception', 4).delta).toBe(0);
   });
 });

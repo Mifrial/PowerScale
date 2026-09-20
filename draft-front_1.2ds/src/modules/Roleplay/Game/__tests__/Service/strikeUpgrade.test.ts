@@ -23,8 +23,8 @@ const deadly: Rule = {
       exclusive_group: 'smertonosnye-udary',
       requires_physiology: true,
       modes: [
-        { code: 'cripple', label: 'Калечить', injury_check_advantage: 1 },
-        { code: 'spare', label: 'Щадить', injury_check_advantage: -1 },
+        { code: 'cripple', label: 'Калечить', injury_check_advantage: -1 },
+        { code: 'spare', label: 'Щадить', injury_check_advantage: 1 },
       ],
     },
   },
@@ -128,7 +128,7 @@ describe('StrikeUpgradeService', () => {
     ).toEqual(['smertonosnye-udary:cripple', 'smertonosnye-udary:spare']);
   });
 
-  it('калечить +1, щадить −1; оба после prune — один; ноль допустим', () => {
+  it('калечить −1, щадить +1; оба после prune — один; ноль допустим', () => {
     const abilities = actorAbilities('elf');
     const applicable = strikeUpgradeService.listApplicable(abilities, version('elf', []), rules);
     expect(strikeUpgradeService.pruneSelected(applicable, [])).toEqual([]);
@@ -137,11 +137,11 @@ describe('StrikeUpgradeService', () => {
     ).toEqual(['smertonosnye-udary:cripple']);
     const cripple = strikeUpgradeService.selectedOf(applicable, ['smertonosnye-udary:cripple']);
     expect(strikeUpgradeService.injuryAdvantageModifiers(cripple)).toEqual([
-      { source_code: 'smertonosnye-udary:cripple', source_label: 'Смертоносные удары · Калечить', delta: 1 },
+      { source_code: 'smertonosnye-udary:cripple', source_label: 'Смертоносные удары · Калечить', delta: -1 },
     ]);
     const spare = strikeUpgradeService.selectedOf(applicable, ['smertonosnye-udary:spare']);
     expect(strikeUpgradeService.injuryAdvantageModifiers(spare)).toEqual([
-      { source_code: 'smertonosnye-udary:spare', source_label: 'Смертоносные удары · Щадить', delta: -1 },
+      { source_code: 'smertonosnye-udary:spare', source_label: 'Смертоносные удары · Щадить', delta: 1 },
     ]);
     const mixed = strikeUpgradeService.withInjuryAdvantages(
       { leftoverDamage: 2, woundStrength: 1, endurance: 4, exhaustion: 0, attackSr: 0 },
@@ -151,7 +151,7 @@ describe('StrikeUpgradeService', () => {
       rules,
     );
     expect(mixed.advantages).toEqual([
-      { source_code: 'smertonosnye-udary:cripple', source_label: 'Смертоносные удары · Калечить', delta: 1 },
+      { source_code: 'smertonosnye-udary:cripple', source_label: 'Смертоносные удары · Калечить', delta: -1 },
     ]);
   });
 });

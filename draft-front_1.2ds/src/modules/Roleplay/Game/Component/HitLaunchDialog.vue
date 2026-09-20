@@ -54,6 +54,7 @@ import type { HitCheckRoll } from '@/modules/Roleplay/Game/Dto/HitCheckRoll';
 import type { HitRollInput } from '@/modules/Roleplay/Game/Dto/HitRollInput';
 import type { InjuryRollInput } from '@/modules/Roleplay/Game/Dto/InjuryRollInput';
 import { hitRollService } from '@/modules/Roleplay/Game/Service/Instance/hitRollService';
+import { sequentialStrikeOfferService } from '@/modules/Roleplay/Game/Service/Instance/sequentialStrikeOfferService';
 
 import { resolveHitProcedure } from '@/modules/Roleplay/Game/Utils/resolveStrikeProcedure';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
@@ -215,6 +216,21 @@ const resolvedActionRuleCode = computed(() => {
   return offer.value?.proposal.hit?.actionRuleCode ?? selectedActionRuleCode.value;
 });
 const targetProposals = computed(() => offer.value?.proposal.targetProposals ?? []);
+const sequentialStrikeSlots = computed(() => sequentialStrikeOfferService.slotsFrom(offer.value?.proposal ?? {}));
+const pendingSequentialSlot = computed(() =>
+  sequentialStrikeOfferService.nextPending(sequentialStrikeSlots.value, opponentKey.value),
+);
+const sequentialStrikeCaption = computed(() => {
+  const slots = sequentialStrikeSlots.value;
+  if (!slots.length) return null;
+  const slot = pendingSequentialSlot.value ?? slots[slots.length - 1];
+  if (!slot) return null;
+
+  return `Удар ${slot.strikeIndex + 1} из ${slots.length} · ${slot.hit.itemName}`;
+});
+const reservedDefenseOd = computed(() =>
+  sequentialStrikeOfferService.committedReactionOd(sequentialStrikeSlots.value, props.rules),
+);
 const selectedTargetKeys = computed(() => {
   if (targetProposals.value.length) return targetProposals.value.map((target) => target.targetKey);
 
@@ -349,11 +365,37 @@ async function persistChargeSpendFromOffer(casterKey: CombatEntityKey, ctx: Spel
   emit('overlay-changed');
 }
 
+function strikeProfileOf(
+  current: { proposal: CheckOffer['proposal'] } | null | undefined,
+  hit: NonNullable<CheckOfferProposal['hit']> | null | undefined,
+  strikeIndex?: number,
+): AttackOverview | null {
+  const strikes = current?.proposal.attackAction?.strikes ?? resolvedAttackAction.value?.strikes ?? [];
+  if (strikeIndex !== undefined) return strikes[strikeIndex]?.profile ?? null;
+  if (!hit) return strikes[0]?.profile ?? props.attack;
+
+  return (
+    strikes.find(
+      (strike) =>
+        strike.profile.itemRuleCode === hit.itemRuleCode &&
+        (hit.profileIndex === undefined || (strike.profile.profileIndex ?? 0) === hit.profileIndex),
+    )?.profile ??
+    strikes[0]?.profile ??
+    props.attack
+  );
+}
+
 function attackFromOffer(current: CheckOffer): AttackOverview | null {
+  const pending = sequentialStrikeOfferService.nextPending(
+    sequentialStrikeOfferService.slotsFrom(current.proposal),
+    targetKeyOf(current),
+  );
   const hit =
+    pending?.hit ??
     current.proposal.targetProposals?.find((target) => target.targetKey === targetKeyOf(current))?.hit ??
     current.proposal.hit;
   if (!hit) return props.attack;
+  const strikeProfile = strikeProfileOf(current, hit, pending?.strikeIndex);
 
   return {
     itemRuleCode: hit.itemRuleCode,
@@ -376,7 +418,9 @@ function attackFromOffer(current: CheckOffer): AttackOverview | null {
     damageTypeCode: hit.damageTypeCode ?? props.attack?.damageTypeCode ?? null,
     damage: hit.damage ?? props.attack?.damage ?? { base: 0, size: 0 },
     penetration: hit.penetration ?? props.attack?.penetration ?? { base: 0, size: 0 },
-    dodgeBenefit: props.attack?.dodgeBenefit,
+    dodgeBenefit: strikeProfile?.dodgeBenefit ?? props.attack?.dodgeBenefit,
+    inventoryItemId: strikeProfile?.inventoryItemId ?? props.attack?.inventoryItemId,
+    instanceIndex: strikeProfile?.instanceIndex ?? props.attack?.instanceIndex,
   };
 }
 
@@ -404,6 +448,7 @@ const resolvedAttack = computed(() => {
       isRanged.value ? distanceIpari.value : 0,
       attack.profileIndex,
       currentActionCharacteristicModifier.value,
+      attack.instanceIndex,
     ) ?? attack
   );
 });
@@ -445,17 +490,33 @@ function advantageSummary(label: string, entries: AdvantageModifier[]): string {
   return `${label}: ${totalLabel}${sources.length ? ` · ${sources.join(', ')}` : ''}`;
 }
 
+function actionCheckModifiers(
+  actionRule: Rule | null | undefined,
+  actor: ReturnType<typeof versionOf>,
+  weaponCount: number,
+) {
+  return actionEffectService.currentActionCheckModifiersForActor(
+    actionRule,
+    actor,
+    props.rules,
+    CHECK_HIT_CODE,
+    attackActionSourceService.sameWeaponCheckModifiers(actionRule ?? null, weaponCount),
+  );
+}
+
 const attackerHitAdvantageSummary = computed(() => {
   const entries = [
     ...stateRuntimeEffectsService.checkAdvantageModifiers(versionOf(resolvedAttackerKey.value), props.rules, {
       kind: 'hit',
     }),
     ...actionEffectService.checkAdvantageModifiers(attackerPendingEffects.value, CHECK_HIT_CODE),
-    ...actionEffectService.currentActionCheckModifiers(
+    ...actionCheckModifiers(
       selectedAction.value ? findRuleByRef(props.rules, selectedAction.value.code) : null,
-      CHECK_HIT_CODE,
+      versionOf(resolvedAttackerKey.value),
+      resolvedAttackAction.value?.strikes.length ?? 1,
     ),
     ...comboStrike.value.modifiers,
+    ...processWeaponModifiers.value,
     ...defensePrepModifiers(opponentKey.value, reaction.value),
     { source_code: ADVANTAGE_SOURCE_MANUAL, source_label: 'Игрок', delta: attackerAdv.value },
   ];
@@ -522,6 +583,16 @@ const comboStrike = computed(() => {
     processSpec.value,
     context.stepCode,
     Boolean(context.comboClose),
+  );
+});
+const processWeaponModifiers = computed(() => {
+  const profile = resolvedAttackAction.value?.strikes[0]?.profile ?? currentAttack.value;
+  if (!profile || !processSpec.value) return [];
+
+  return processSessionService.repeatWeaponModifiers(
+    effectiveProcessContext.value?.session,
+    processSpec.value,
+    attackActionSourceService.weaponKey(profile),
   );
 });
 
@@ -599,13 +670,15 @@ const reactionCostLimit = computed(
 
 const dodgeAffordable = computed(() => {
   const extra = flank.value && turn.value ? turnAbility.value.odCost : 0;
+  const available = Math.min(Math.max(0, defenderAp.value - reservedDefenseOd.value), reactionCostLimit.value);
 
-  return (dodgeAction.value?.odCost ?? 1) + extra <= Math.min(defenderAp.value, reactionCostLimit.value);
+  return (dodgeAction.value?.odCost ?? 1) + extra <= available;
 });
 const blockAffordable = computed(() => {
   const extra = flank.value && turn.value ? turnAbility.value.odCost : 0;
+  const available = Math.min(Math.max(0, defenderAp.value - reservedDefenseOd.value), reactionCostLimit.value);
 
-  return (blockAction.value?.odCost ?? 2) + extra <= Math.min(defenderAp.value, reactionCostLimit.value);
+  return (blockAction.value?.odCost ?? 2) + extra <= available;
 });
 const defenderCommitted = computed(() => {
   const key = opponentKey.value;
@@ -720,7 +793,11 @@ async function hydrate(): Promise<void> {
       )?.targetKey ??
       props.resumeOffer.proposal.targetProposals?.find((target) => target.hit.reaction === null)?.targetKey ??
       props.resumeOffer.opponent;
-    const hit = props.resumeOffer.proposal.hit;
+    const pending = sequentialStrikeOfferService.nextPending(
+      sequentialStrikeOfferService.slotsFrom(props.resumeOffer.proposal),
+      opponentKey.value,
+    );
+    const hit = pending?.hit ?? props.resumeOffer.proposal.hit;
     reaction.value = hit?.reaction ?? null;
     attackerAdv.value = props.resumeOffer.proposal.initiatorAdv;
     defenderAdv.value = props.resumeOffer.proposal.opponentAdv;
@@ -831,7 +908,7 @@ async function sendOffer(): Promise<void> {
       opponentKey.value,
     )
   ) {
-    throw new Error('Смертельный удар можно совершить только сразу после другого удара с РУ ≥ 4 по той же цели');
+    throw new Error(lastStrikeService.followUpBlockedMessage(findRuleByRef(props.rules, selectedAction.value.code)));
   }
   offer.value = await getGameApi().createCheckOffer(props.gameId, {
     checkCode: CHECK_HIT_CODE,
@@ -902,7 +979,7 @@ function defenderProposal(): CheckOfferProposal {
   const turned = Boolean(flank.value && turn.value && reaction.value !== 'ignore');
   const reactionCost = defenseOdCost(reaction.value, turned, props.rules);
   const targetKey = targetKeyOf(current);
-  if (reactionCost > remainingAp(targetKey)) throw new Error('Недостаточно ОД для реакции');
+  if (reactionCost > remainingAp(targetKey) - reservedDefenseOd.value) throw new Error('Недостаточно ОД для реакции');
   if (reactionCost > reactionCostLimit.value) throw new Error('Реакция не может стоить дороже атаки');
 
   return {
@@ -952,16 +1029,12 @@ async function acceptWideAttack(
       isAttack: true,
       component: 'strike',
       baseCost: resolvedSelectedAction.value?.odCost ?? DEFAULT_ATTACK_AP,
+      targetKeys: targetProposals.map((target) => target.targetKey),
     });
     const attackerSpent = await applyConcentrationSpend(
       accepted.initiator,
       accepted.proposal.initiatorSpendConcentration,
     );
-    const attackerAdvantage =
-      accepted.proposal.initiatorAdv +
-      stateRuntimeEffectsService.checkAdvantageFromStates(versionOf(accepted.initiator), props.rules, {
-        kind: 'hit',
-      });
     const inputs = targetProposals.map((target, index) => {
       const profile = attackStrikes.find((strike) => strike.targetKey === target.targetKey)?.profile ?? attack;
       const defender = overviewOf(target.targetKey);
@@ -975,26 +1048,40 @@ async function acceptWideAttack(
         defenderOverview: defender,
         reaction: target.hit.reaction as HitDefenseReaction,
         defenseEfficiency: target.hit.defenseEfficiency,
-        attackerAdv: attackerAdvantage,
+        attackerAdv: accepted.proposal.initiatorAdv,
         attackerAdvantageModifiers: actionEffectService
           .checkAdvantageModifiers(attackerPendingEffects.value, CHECK_HIT_CODE)
-          .concat(actionEffectService.currentActionCheckModifiers(actionRule, CHECK_HIT_CODE))
+          .concat(
+            stateRuntimeEffectsService.checkAdvantageModifiers(versionOf(accepted.initiator), props.rules, {
+              kind: 'hit',
+            }),
+          )
+          .concat(actionCheckModifiers(actionRule, versionOf(accepted.initiator), attackStrikes.length))
           .concat(comboStrike.value.modifiers)
+          .concat(
+            processSessionService.repeatWeaponModifiers(
+              effectiveProcessContext.value?.session,
+              processSpec.value,
+              attackActionSourceService.weaponKey(profile),
+            ),
+          )
           .concat(attackerSpent > 0 ? [concentrationTokenService.tokenAdvantage(attackerSpent)] : [])
           .concat(attackActionSourceService.extraTargetHitModifiers(targetProposals.length))
           .concat(defensePrepModifiers(target.targetKey, target.hit.reaction)),
-        defenderAdv:
-          accepted.proposal.opponentAdv +
-          stateRuntimeEffectsService.checkAdvantageFromStates(versionOf(target.targetKey), props.rules, {
-            kind: 'hit',
-          }),
-        defenderAdvantageModifiers: actionEffectService.checkAdvantageModifiers(
-          pendingEffectsByEntity.value[target.targetKey] ?? [],
-          CHECK_HIT_CODE,
-          'defender',
-        ),
+        defenderAdv: accepted.proposal.opponentAdv,
+        defenderAdvantageModifiers: actionEffectService
+          .checkAdvantageModifiers(pendingEffectsByEntity.value[target.targetKey] ?? [], CHECK_HIT_CODE, 'defender')
+          .concat(
+            stateRuntimeEffectsService.checkAdvantageModifiers(versionOf(target.targetKey), props.rules, {
+              kind: 'hit',
+            }),
+          ),
         accuracyDelta: actionEffectService.currentAttackAccuracy(actionRule, profile.profileType),
-        scoreAdjust: actionEffectService.currentRollScoreAdjust(actionRule, profile.profileType, index + 1),
+        scoreAdjust: actionEffectService.mergeScoreAdjust(
+          actionEffectService.currentRollScoreAdjust(actionRule, profile.profileType, index + 1),
+          actionEffectService.pendingHitScoreAdjust(pendingResolution.hitScoreAdjusts, target.targetKey),
+        ),
+        faceRemap: actionEffectService.currentRollFaceRemap(actionRule, profile.profileType, index + 1),
         flank: target.hit.flank,
         turn: target.hit.turn,
         extraSuccessCount: index === 0 ? comboStrike.value.extraSuccessCount : 0,
@@ -1025,16 +1112,26 @@ async function acceptWideAttack(
             targetProposals.map((target) => target.targetKey),
           )
         : (processContext?.session ?? null);
-    const nextProcessSession =
-      processContext && processSpec.value && comboSession
-        ? comboProcessService.resolveAfterStrike(
-            comboSession,
-            processSpec.value,
-            processContext.stepCode,
-            successful,
-            Boolean(processContext.comboClose),
-          )
-        : null;
+    const nextProcessSession = (() => {
+      const resolved =
+        processContext && processSpec.value && comboSession
+          ? comboProcessService.resolveAfterStrike(
+              comboSession,
+              processSpec.value,
+              processContext.stepCode,
+              successful,
+              Boolean(processContext.comboClose),
+            )
+          : null;
+      if (!resolved || !successful) return resolved;
+
+      return processSessionService.recordStrikeUses(
+        resolved,
+        processSpec.value,
+        attackStrikes.map((strike) => attackActionSourceService.weaponKey(strike.profile)),
+        targetProposals[0]?.targetKey ?? accepted.opponent,
+      );
+    })();
     if (processContext) await getGameApi().setProcessSession(props.gameId, accepted.initiator, nextProcessSession);
 
     const deferredConsequences: {
@@ -1075,6 +1172,7 @@ async function acceptWideAttack(
             ? targetResult.remainingSr
             : 0,
         reaction: target.hit.reaction ?? 'ignore',
+        damaged: targetResult.raw > 0,
       });
       if (props.chatId !== null && index > 0) {
         await sendChat(
@@ -1139,7 +1237,9 @@ async function acceptWideAttack(
     const nextEffects = lastStrikeService.replaceOnPending(
       [
         ...actionEffectService.consumeResource(pendingResolution.remainingEffects, ACTION_POINTS_CODE, actionCost),
-        ...(skipParentPending ? [] : actionEffectService.effectsAfterAction(actionRule)),
+        ...(skipParentPending
+          ? []
+          : actionEffectService.effectsAfterAction(actionRule, { targetKey: strikeHits[0]?.targetKey })),
         ...(nextProcessSession ? [] : actionEffectService.effectsAfterProcess(processRule)),
       ],
       { kind: lastStrikeService.kindOf(actionRule), hits: strikeHits },
@@ -1163,8 +1263,9 @@ async function acceptAndRoll(): Promise<void> {
   const accepted = await getGameApi().acceptCheckOffer(current.id, actor, proposal);
   if (accepted.status === 'pending') {
     offer.value = accepted;
-    opponentKey.value = accepted.waitingOnTargets?.[0] ?? accepted.initiator;
+    opponentKey.value = accepted.waitingOnTargets?.[0] ?? accepted.opponent;
     reaction.value = null;
+    applyReactionDefaults(null);
 
     return;
   }
@@ -1174,8 +1275,10 @@ async function acceptAndRoll(): Promise<void> {
 
     return;
   }
-  const hit = accepted.proposal.hit;
+  const strikeSlots = sequentialStrikeOfferService.slotsFrom(accepted.proposal);
+  const hit = strikeSlots[0]?.hit ?? accepted.proposal.hit;
   if (!hit?.reaction) throw new Error('Защитник ещё не выбрал реакцию');
+  if (strikeSlots.some((slot) => slot.hit.reaction === null)) throw new Error('Защитник ещё не выбрал реакцию');
   const actionRuleCode = resolvedActionRuleCode.value ?? hit.actionRuleCode;
   const actionRule = findRuleByRef(props.rules, actionRuleCode);
   const attackerVersion = versionOf(accepted.initiator);
@@ -1195,6 +1298,7 @@ async function acceptAndRoll(): Promise<void> {
         hit.distanceIpari ?? 0,
         attack.profileIndex,
         actionCharacteristicModifier,
+        attack.instanceIndex,
       ) ?? attack)
     : attack;
   const rawAction = attackActionById(props.rules, actionRuleCode);
@@ -1202,12 +1306,14 @@ async function acceptAndRoll(): Promise<void> {
     isAttack: true,
     component: hit.profileType,
     baseCost: rawAction?.odCost ?? hit.actionOd ?? DEFAULT_ATTACK_AP,
+    targetKeys: [accepted.opponent],
   });
   const attackerSpent = await applyConcentrationSpend(
     accepted.initiator,
     accepted.proposal.initiatorSpendConcentration,
   );
   const defenderSpent = await applyConcentrationSpend(accepted.opponent, accepted.proposal.opponentSpendConcentration);
+  const attackStrikes = accepted.proposal.attackAction?.strikes ?? [];
   const commonHitInput: Omit<HitRollInput, 'attack'> = {
     attackerLabel: nameOf(accepted.initiator),
     defenderLabel: nameOf(accepted.opponent),
@@ -1217,31 +1323,37 @@ async function acceptAndRoll(): Promise<void> {
     defenderOverview: overviewOf(accepted.opponent),
     reaction: hit.reaction,
     defenseEfficiency: hit.defenseEfficiency,
-    attackerAdv:
-      accepted.proposal.initiatorAdv +
-      stateRuntimeEffectsService.checkAdvantageFromStates(versionOf(accepted.initiator), props.rules, {
-        kind: 'hit',
-      }),
+    attackerAdv: accepted.proposal.initiatorAdv,
     attackerAdvantageModifiers: actionEffectService
       .checkAdvantageModifiers(attackerPendingEffects.value, CHECK_HIT_CODE)
-      .concat(actionEffectService.currentActionCheckModifiers(actionRule, CHECK_HIT_CODE))
+      .concat(
+        stateRuntimeEffectsService.checkAdvantageModifiers(versionOf(accepted.initiator), props.rules, {
+          kind: 'hit',
+        }),
+      )
+      .concat(actionCheckModifiers(actionRule, versionOf(accepted.initiator), attackStrikes.length))
       .concat(comboStrike.value.modifiers)
       .concat(attackerSpent > 0 ? [concentrationTokenService.tokenAdvantage(attackerSpent)] : [])
       .concat(defensePrepModifiers(accepted.opponent, hit.reaction)),
-    defenderAdv:
-      accepted.proposal.opponentAdv +
-      stateRuntimeEffectsService.checkAdvantageFromStates(versionOf(accepted.opponent), props.rules, { kind: 'hit' }),
+    defenderAdv: accepted.proposal.opponentAdv,
     defenderAdvantageModifiers: actionEffectService
       .checkAdvantageModifiers(pendingEffectsByEntity.value[accepted.opponent] ?? [], CHECK_HIT_CODE, 'defender')
-      .concat(defenderSpent > 0 ? [concentrationTokenService.tokenAdvantage(defenderSpent)] : []),
-    accuracyDelta: actionEffectService.currentAttackAccuracy(actionRule, hit.profileType),
-    scoreAdjust: actionEffectService.currentRollScoreAdjust(actionRule, hit.profileType),
+      .concat(defenderSpent > 0 ? [concentrationTokenService.tokenAdvantage(defenderSpent)] : [])
+      .concat(
+        stateRuntimeEffectsService.checkAdvantageModifiers(versionOf(accepted.opponent), props.rules, { kind: 'hit' }),
+      ),
+    accuracyDelta:
+      actionEffectService.currentAttackAccuracy(actionRule, hit.profileType) + pendingResolution.accuracyDelta,
+    scoreAdjust: actionEffectService.mergeScoreAdjust(
+      actionEffectService.currentRollScoreAdjust(actionRule, hit.profileType),
+      actionEffectService.pendingHitScoreAdjust(pendingResolution.hitScoreAdjusts, accepted.opponent),
+    ),
+    faceRemap: actionEffectService.currentRollFaceRemap(actionRule, hit.profileType),
     distanceIpari: hit.distanceIpari,
     cover: hit.cover,
     flank: hit.flank,
     turn: hit.turn,
   };
-  const attackStrikes = accepted.proposal.attackAction?.strikes ?? [];
   const needsHitRoll = !pushProfileService.isPushAction(actionRule) || hit.reaction === 'dodge';
   const comboSession =
     needsHitRoll && effectiveProcessContext.value && processSpec.value
@@ -1255,40 +1367,80 @@ async function acceptAndRoll(): Promise<void> {
               : [],
         )
       : null;
-  const rollInputs = (attackStrikes.length > 0 ? attackStrikes : [{ profile: attack }]).map((strike, index) => ({
-    ...commonHitInput,
-    extraSuccessCount: index === 0 ? comboStrike.value.extraSuccessCount : 0,
-    attack: {
-      itemName: strike.profile.itemName,
-      profileType: strike.profile.profileType,
-      accuracy: strike.profile.accuracy,
-      reach:
-        strike.profile.reach +
-        actionEffectService.currentAttackReach(
-          actionRule,
-          strike.profile.profileType,
-          1,
-          movementContextService.resolveMovementStep(attackerVersion ?? undefined, props.rules),
-        ),
-      falloff: strike.profile.falloff,
-    },
-  }));
-  const simultaneous = needsHitRoll
-    ? hitRollService.rollSimultaneousHits(rollInputs, Math.random, props.rules, props.mechanics)
-    : { attackers: [], defender: null };
-  const rolled = simultaneous.attackers[0]
-    ? { attacker: simultaneous.attackers[0], defender: simultaneous.defender }
-    : null;
-  const nextProcessSession =
-    effectiveProcessContext.value && processSpec.value && comboSession
-      ? comboProcessService.resolveAfterStrike(
-          comboSession,
+  const rollInputs = (attackStrikes.length > 0 ? attackStrikes : [{ profile: attack }]).map((strike, index) => {
+    const slotHit = strikeSlots[index]?.hit;
+
+    return {
+      ...commonHitInput,
+      reaction: slotHit?.reaction ?? hit.reaction,
+      defenseEfficiency: slotHit?.defenseEfficiency ?? hit.defenseEfficiency,
+      extraSuccessCount: index === 0 ? comboStrike.value.extraSuccessCount : 0,
+      attackerAdvantageModifiers: commonHitInput.attackerAdvantageModifiers.concat(
+        processSessionService.repeatWeaponModifiers(
+          effectiveProcessContext.value?.session,
           processSpec.value,
-          effectiveProcessContext.value.stepCode,
-          simultaneous.attackers.every((attacker) => (attacker.check?.rating ?? 0) > 0),
-          Boolean(effectiveProcessContext.value.comboClose),
-        )
-      : null;
+          attackActionSourceService.weaponKey(strike.profile),
+        ),
+      ),
+      accuracyDelta:
+        actionEffectService.currentAttackAccuracy(actionRule, strike.profile.profileType) +
+        (index === 0 ? pendingResolution.accuracyDelta : 0),
+      attack: {
+        itemName: strike.profile.itemName,
+        profileType: strike.profile.profileType,
+        accuracy: strike.profile.accuracy,
+        reach:
+          strike.profile.reach +
+          actionEffectService.currentAttackReach(
+            actionRule,
+            strike.profile.profileType,
+            1,
+            movementContextService.resolveMovementStep(attackerVersion ?? undefined, props.rules),
+          ),
+        falloff: strike.profile.falloff,
+      },
+    };
+  });
+  const sequential = accepted.proposal.attackAction?.reactionMode === 'sequential';
+  const paired = accepted.proposal.attackAction?.reactionMode === 'paired';
+  const rolledHits = needsHitRoll
+    ? sequential
+      ? hitRollService.rollSequentialHits(rollInputs, Math.random, props.rules, props.mechanics)
+      : paired
+        ? hitRollService.rollPairedHits(rollInputs, Math.random, props.rules, props.mechanics)
+        : hitRollService.rollSimultaneousHits(rollInputs, Math.random, props.rules, props.mechanics)
+    : { attackers: [], defender: null };
+  const rolled = rolledHits.attackers[0]
+    ? {
+        attacker: rolledHits.attackers[0],
+        defender: rolledHits.defenders?.[0] ?? rolledHits.defender,
+      }
+    : null;
+  const nextProcessSession = (() => {
+    const resolved =
+      effectiveProcessContext.value && processSpec.value && comboSession
+        ? comboProcessService.resolveAfterStrike(
+            comboSession,
+            processSpec.value,
+            effectiveProcessContext.value.stepCode,
+            rolledHits.attackers.every((attacker) => (attacker.check?.rating ?? 0) > 0),
+            Boolean(effectiveProcessContext.value.comboClose),
+          )
+        : null;
+    if (!resolved) return resolved;
+    const used = attackStrikes.flatMap((strike, index) =>
+      (rolledHits.attackers[index]?.check?.rating ?? 0) > 0
+        ? [attackActionSourceService.weaponKey(strike.profile)]
+        : [],
+    );
+
+    return processSessionService.recordStrikeUses(
+      resolved,
+      processSpec.value,
+      used,
+      attackStrikes[0]?.targetKey ?? accepted.opponent,
+    );
+  })();
   if (effectiveProcessContext.value && needsHitRoll) {
     await getGameApi().setProcessSession(props.gameId, accepted.initiator, nextProcessSession);
   }
@@ -1356,37 +1508,47 @@ async function acceptAndRoll(): Promise<void> {
         targetKey: accepted.opponent,
         attackSr: rolled.attacker.check?.passed && weaponResult.remainingSr > 0 ? weaponResult.remainingSr : 0,
         reaction: hit.reaction ?? 'ignore',
+        damaged: weaponResult.raw > 0,
       });
       for (const [index, strike] of attackStrikes.entries()) {
         if (index === 0) continue;
-        const strikeHit = {
-          ...hit,
-          itemRuleCode: strike.profile.itemRuleCode,
-          itemName: strike.profile.itemName,
-          profileType: strike.profile.profileType,
-          accuracy: strike.profile.accuracy,
-          damage: strike.profile.damage,
-          damageTypeCode: strike.profile.damageTypeCode,
-          reach: strike.profile.reach,
-          falloff: strike.profile.falloff,
-        };
         const extraResult = await applyClickAttack(
           accepted,
-          strikeHit,
-          simultaneous.attackers[index].check?.rating ?? 0,
+          strikeSlots[index]?.hit ?? {
+            ...hit,
+            itemRuleCode: strike.profile.itemRuleCode,
+            itemName: strike.profile.itemName,
+            profileType: strike.profile.profileType,
+            accuracy: strike.profile.accuracy,
+            damage: strike.profile.damage,
+            damageTypeCode: strike.profile.damageTypeCode,
+            reach: strike.profile.reach,
+            falloff: strike.profile.falloff,
+          },
+          rolledHits.attackers[index].check?.rating ?? 0,
           strike.profile,
-          { attacker: simultaneous.attackers[index], defender: null },
-          { spendResources: false, announce: false },
+          {
+            attacker: rolledHits.attackers[index],
+            defender: rolledHits.defenders?.[index] ?? null,
+          },
+          {
+            spendResources: false,
+            spendAttackerAp: false,
+            spendDefenderAp: sequential,
+            announce: sequential || paired,
+            hitNumber: index + 1,
+          },
         );
         strikeHits.push({
           targetKey: strike.targetKey,
           attackSr:
-            simultaneous.attackers[index]?.check?.passed && extraResult.remainingSr > 0 ? extraResult.remainingSr : 0,
-          reaction: hit.reaction ?? 'ignore',
+            rolledHits.attackers[index]?.check?.passed && extraResult.remainingSr > 0 ? extraResult.remainingSr : 0,
+          reaction: strikeSlots[index]?.hit.reaction ?? hit.reaction ?? 'ignore',
+          damaged: extraResult.raw > 0,
         });
       }
       const touchAttacker =
-        simultaneous.attackers.find((item) => item.check?.passed) ?? simultaneous.attackers[0] ?? rolled.attacker;
+        rolledHits.attackers.find((item) => item.check?.passed) ?? rolledHits.attackers[0] ?? rolled.attacker;
       await finishSpellAfterHit(
         accepted,
         { attacker: touchAttacker, defender: rolled.defender },
@@ -1411,7 +1573,9 @@ async function acceptAndRoll(): Promise<void> {
       ...(spellPaid
         ? pendingResolution.remainingEffects
         : actionEffectService.consumeResource(pendingResolution.remainingEffects, ACTION_POINTS_CODE, finalAttackCost)),
-      ...(skipParentPending ? [] : actionEffectService.effectsAfterAction(actionRule)),
+      ...(skipParentPending
+        ? []
+        : actionEffectService.effectsAfterAction(actionRule, { targetKey: accepted.opponent })),
       ...processCompletionEffects,
     ],
     { kind: lastStrikeService.kindOf(actionRule), hits: strikeHits },
@@ -2171,6 +2335,7 @@ async function applyClickAttack(
             attack,
             props.rules,
           ) + ratingBonus,
+          attack.instanceIndex,
         ) ?? attack)
       : attack;
   const hooks = damageTypeHooksService.resolveDamageTypeHooks(
@@ -2544,7 +2709,11 @@ const canSubmit = computed(() => {
   >
     <v-card class="hit-dialog">
       <v-card-title class="text-subtitle-1 py-2 px-4">
-        {{ hitDialogTitle }}<template v-if="resolvedAttack"> оружием «{{ resolvedAttack.itemName }}»</template>
+        {{ hitDialogTitle
+        }}<template v-if="resolvedAttackAction && resolvedAttackAction.strikes.length > 1">
+          оружием «{{ resolvedAttackAction.strikes.map((strike) => strike.profile.itemName).join('» и «') }}»
+        </template>
+        <template v-else-if="resolvedAttack"> оружием «{{ resolvedAttack.itemName }}»</template>
       </v-card-title>
       <v-card-text class="hit-dialog-body px-4 py-2">
         <v-select
@@ -2560,13 +2729,25 @@ const canSubmit = computed(() => {
         />
         <div v-else class="text-body-2">
           <template v-if="resolvedAttackAction?.source.kind === 'process'">
-            {{ processStep?.name ?? 'Шаг процесса' }} · {{ resolvedAttackAction.strikes.length }} одновременных ударов
+            {{ processStep?.name ?? 'Шаг процесса' }} · {{ resolvedAttackAction.strikes.length }}
+            {{
+              resolvedAttackAction.reactionMode === 'sequential'
+                ? 'последовательных'
+                : resolvedAttackAction.reactionMode === 'paired'
+                  ? 'сдвоенных'
+                  : 'одновременных'
+            }}
+            ударов
           </template>
           <template v-else-if="isGroupAttack">
             {{ selectedAction?.name ?? 'Групповая атака' }} · {{ targetProposals.length }} цели
           </template>
           <template v-else>
             {{ selectedAction?.name ?? 'Действие атаки' }}
+            <template v-if="(resolvedAttackAction?.strikes.length ?? 0) > 1">
+              ·
+              {{ resolvedAttackAction?.strikes.map((strike) => strike.profile.itemName).join(' и ') }}
+            </template>
           </template>
         </div>
         <v-alert
@@ -2699,6 +2880,7 @@ const canSubmit = computed(() => {
             :check-code="CHECK_HIT_CODE"
           />
           <div class="text-caption text-medium-emphasis">Реакция защиты</div>
+          <div v-if="sequentialStrikeCaption" class="text-body-2 mb-1">{{ sequentialStrikeCaption }}</div>
           <p v-if="defenderReactionAbortsCommitted" class="text-warning text-body-2 mb-2">
             Уклон или блок сорвут незавершённое действие, потраченные ОД не вернутся.
           </p>

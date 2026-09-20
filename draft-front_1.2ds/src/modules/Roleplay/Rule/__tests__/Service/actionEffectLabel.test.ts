@@ -57,6 +57,22 @@ describe('ActionEffectLabelService', () => {
     ).toBe('1 помехи к текущим проверкам на попадание (действие)');
     expect(
       actionEffectLabelService.describe({
+        type: 'current_action_check_modifier',
+        check_codes: ['check-hit'],
+        delta: -1,
+        source_code: 'multi_attack',
+      }),
+    ).toBe('1 помехи к текущим проверкам на попадание (множественная атака)');
+    expect(
+      actionEffectLabelService.describe({
+        type: 'next_action_attack_accuracy',
+        delta: 1,
+        same_target: true,
+        scope: { components: ['strike'], hit_count: 1 },
+      }),
+    ).toContain('точности первого удара следующей атаки по той же цели');
+    expect(
+      actionEffectLabelService.describe({
         type: 'optional_after_strike_check',
         check_code: 'check-willpower',
         difficulty: 3,

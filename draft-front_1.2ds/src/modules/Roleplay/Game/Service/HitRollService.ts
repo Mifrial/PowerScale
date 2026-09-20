@@ -111,9 +111,24 @@ export class HitRollService {
 
   rollHit(input: HitRollInput, rng: DiceRng, rules: Rule[], mechanics: Mechanic[]): HitCheckRoll {
     return this.withExtraSuccesses(
-      this.withScoreAdjust(this.rollHitRaw(input, rng, rules, mechanics), input),
+      this.withScoreAdjust(this.withFaceRemap(this.rollHitRaw(input, rng, rules, mechanics), input), input),
       input.extraSuccessCount ?? 0,
     );
+  }
+
+  private withFaceRemap(rolled: HitCheckRoll, input: HitRollInput): HitCheckRoll {
+    const pairs = input.faceRemap ?? [];
+    if (pairs.length === 0) return rolled;
+    const attacker = checkRollService.applyFaceRemap(rolled.attacker, pairs);
+    if (!rolled.defender?.check) return { attacker, defender: rolled.defender };
+    const defender = checkRollService.withCheckOutcome(
+      rolled.defender,
+      rolled.defender.check.check_code,
+      checkRollService.successesOf(attacker),
+      rolled.defender.check.check_name,
+    );
+
+    return { attacker, defender };
   }
 
   private withScoreAdjust(rolled: HitCheckRoll, input: HitRollInput): HitCheckRoll {
@@ -320,7 +335,28 @@ export class HitRollService {
       ...inputs.slice(1).map((input) => this.rollHit({ ...input, reaction: 'ignore' }, rng, rules, mechanics).attacker),
     ];
 
-    return { attackers, defender: first.defender };
+    return { attackers, defender: first.defender, defenders: [first.defender, ...attackers.slice(1).map(() => null)] };
+  }
+
+  /** Один бросок попадания и одна защита; все экземпляры получают тот же исход. */
+  rollPairedHits(inputs: HitRollInput[], rng: DiceRng, rules: Rule[], mechanics: Mechanic[]): SimultaneousHitRoll {
+    if (inputs.length === 0) throw new Error('Сдвоенный удар должен содержать хотя бы один экземпляр');
+    const first = this.rollHit(inputs[0], rng, rules, mechanics);
+    const attackers = inputs.map(() => first.attacker);
+    const defenders = inputs.map(() => first.defender);
+
+    return { attackers, defender: first.defender, defenders };
+  }
+
+  rollSequentialHits(inputs: HitRollInput[], rng: DiceRng, rules: Rule[], mechanics: Mechanic[]): SimultaneousHitRoll {
+    if (inputs.length === 0) throw new Error('Последовательная атака должна содержать хотя бы один удар');
+    const rolled = inputs.map((input) => this.rollHit(input, rng, rules, mechanics));
+
+    return {
+      attackers: rolled.map((entry) => entry.attacker),
+      defender: rolled[0]?.defender ?? null,
+      defenders: rolled.map((entry) => entry.defender),
+    };
   }
 
   hitHasDefenseRoll(reaction: HitDefenseReaction): boolean {

@@ -109,7 +109,6 @@ describe('RuleCatalogMigrationService', () => {
       'napravlennyy-udar',
       'udar-v-sochlenenie',
       'smertelnyy-udar',
-      'kriticheskiy-udar',
     ];
     const migrated = ruleCatalogMigrationService.migrateRules(
       precisionCodes.map((code) => rule({ code, type: 'ability' })),
@@ -118,6 +117,16 @@ describe('RuleCatalogMigrationService', () => {
     );
 
     expect(migrated.every((entry) => entry.catalogSection === 'abilities-acquired-melee-combat-accuracy')).toBe(true);
+  });
+
+  it('puts risk strikes into the risk section', () => {
+    const migrated = ruleCatalogMigrationService.migrateRules(
+      [rule({ code: 'riskovannyy-udar', type: 'ability' }), rule({ code: 'kriticheskiy-udar', type: 'ability' })],
+      new Map(),
+      mockCombatAbilitySectionByCode,
+    );
+
+    expect(migrated.every((entry) => entry.catalogSection === 'abilities-acquired-melee-combat-risk')).toBe(true);
   });
 
   it('places magic slice abilities into magic catalog sections', () => {

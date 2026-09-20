@@ -26,5 +26,8 @@ describe('StateRuntimeEffectsService hindrance cap', () => {
     const version = { states: [{ stateRuleCode: 'wobble', value: 8 }] } as CharacterVersion;
 
     expect(stateRuntimeEffectsService.checkAdvantageFromStates(version, rules, { kind: 'hit' })).toBe(-3);
+    expect(stateRuntimeEffectsService.checkAdvantageModifiers(version, rules, { kind: 'hit' })[0]?.source_label).toBe(
+      'Состояние (Качка)',
+    );
   });
 });

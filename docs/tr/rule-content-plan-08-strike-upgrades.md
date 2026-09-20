@@ -78,8 +78,8 @@ UI: дочерний блок на теле `HitLaunchDialog`, не второй
 
 | mode | label | `injury_check_advantage` |
 | --- | --- | --- |
-| `cripple` | Калечить | `1` |
-| `spare` | Щадить | `-1` |
+| `cripple` | Калечить | `-1` |
+| `spare` | Щадить | `1` |
 
 `exclusive_group: 'smertonosnye-udary'`. `requires_physiology: true`. Родитель хирургии на покупку не трогать. `contentNote` снять или сузить до «ручное увечье / кровь без удара не читают».
 
@@ -90,7 +90,7 @@ UI: дочерний блок на теле `HitLaunchDialog`, не второй
 1. DTO `StrikeUpgrade` + поле на `AbilitySpecBase`; валидация; сосед в AbilityEditor.
 2. Мок `smertonosnye-udary`; unit: гейт по `raceRuleCode` и близкому виду; без кода расы пусто; exclusive + ноль выбранных; `practiceApplies('smertonosnye-udary')` по-прежнему false.
 3. `StrikeUpgradeService` + дочерний блок на HitLaunch; выбранное → `input.advantages` во всех трёх `applyInjuryCheck`.
-4. Тест: без физиологии галок нет; «калечить» → `delta: 1` в advantages броска увечья; «щадить» → `-1`; оба сразу после prune — один.
+4. Тест: без физиологии галок нет; «калечить» → `delta: -1` в advantages броска увечья; «щадить» → `+1`; оба сразу после prune — один.
 
 ## 6. Не входят
 

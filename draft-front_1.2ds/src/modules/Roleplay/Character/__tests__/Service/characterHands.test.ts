@@ -98,4 +98,19 @@ describe('CharacterHandsService', () => {
     const next = service.withOccupyHands(inventory, 1, 2, rules);
     expect(next[0]?.occupyHands).toBe(1);
   });
+
+  it('врождённые руки не дают ударов сверх свободных слотов', () => {
+    const handRules: Rule[] = [
+      itemRule('ruka', { innate: true, weapon: emptyWeapon }),
+      itemRule('dagger', { weapon: emptyWeapon }),
+    ];
+    const free = [row(1, 'ruka', true)];
+    free[0]!.quantity = 2;
+    expect(service.attackInstanceCount(free[0]!, 'strike', free, handRules)).toBe(2);
+
+    const withDagger = [row(1, 'ruka', true), row(2, 'dagger', true, 1)];
+    withDagger[0]!.quantity = 2;
+    expect(service.attackInstanceCount(withDagger[0]!, 'strike', withDagger, handRules)).toBe(1);
+    expect(service.attackInstanceCount(withDagger[1]!, 'strike', withDagger, handRules)).toBe(1);
+  });
 });

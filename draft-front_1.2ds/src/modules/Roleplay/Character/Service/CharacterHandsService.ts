@@ -4,6 +4,7 @@ import type { ItemSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpec';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { DEFAULT_CHARACTER_HAND_COUNT } from '@/modules/Roleplay/Character/Constant/Inventory/DEFAULT_CHARACTER_HAND_COUNT';
 import { GRIP_STRENGTH_BONUS } from '@/modules/Roleplay/Character/Constant/Inventory/GRIP_STRENGTH_BONUS';
+import { INNATE_HAND_ITEM_CODE } from '@/modules/Roleplay/Character/Constant/Inventory/INNATE_HAND_ITEM_CODE';
 
 /**
  * Слоты рук экипировки: занятость покоя, занятость действия, бонус удержания, лимит экипа.
@@ -146,6 +147,20 @@ export class CharacterHandsService {
     const spec = this.specOf(item, rules);
 
     return profileType === 'shoot' ? this.actionOccupy(item, spec) : this.restOccupy(item, spec);
+  }
+
+  /** Сколько копий профиля показать. Врождённые руки — только свободные слоты. */
+  attackInstanceCount(
+    item: InventoryItem,
+    profileType: 'strike' | 'throw' | 'shoot',
+    inventory: readonly InventoryItem[],
+    rules: Rule[],
+  ): number {
+    if (profileType === 'shoot') return 1;
+    const copies = Math.max(1, Math.floor(item.quantity) || 1);
+    if (item.ruleCode !== INNATE_HAND_ITEM_CODE) return copies;
+
+    return Math.min(copies, this.remainingHands(inventory, rules));
   }
 
   private clampOccupy(value: number, occupy: ItemHandsSpec): number {
