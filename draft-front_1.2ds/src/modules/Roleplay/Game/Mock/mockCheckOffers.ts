@@ -3,6 +3,7 @@ import type { CheckOfferProposal } from '@/modules/Roleplay/Game/Dto/CheckOfferP
 import type { CreateCheckOfferData } from '@/modules/Roleplay/Game/Dto/CreateCheckOfferData';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import { sequentialStrikeOfferService } from '@/modules/Roleplay/Game/Service/Instance/sequentialStrikeOfferService';
+import { coveringService } from '@/modules/Roleplay/Game/Service/Instance/coveringService';
 
 const delay = (ms = 80) => new Promise((r) => setTimeout(r, ms));
 
@@ -21,10 +22,39 @@ function requirePending(id: number): CheckOffer {
   return offer;
 }
 
-function actorRole(offer: CheckOffer, actorKey: CombatEntityKey): 'initiator' | 'opponent' {
+function actorRole(offer: CheckOffer, actorKey: CombatEntityKey): 'initiator' | 'opponent' | 'covering' {
   if (actorKey === offer.initiator) return 'initiator';
+  if (offer.waitingOn === 'covering' && offer.waitingOnCoverers?.includes(actorKey)) return 'covering';
   if (actorKey === offer.opponent || offer.waitingOnTargets?.includes(actorKey)) return 'opponent';
   throw new Error('Вы не участник этой проверки');
+}
+
+function pendingCoverersOf(offer: CheckOffer): CombatEntityKey[] {
+  return coveringService.pendingInvites(offer.proposal.coverInvites).map((invite) => invite.coveringKey);
+}
+
+function refreshWait(offer: CheckOffer): void {
+  const coverers = pendingCoverersOf(offer);
+  if (coverers.length) {
+    offer.waitingOn = 'covering';
+    offer.waitingOnCoverers = coverers;
+    offer.waitingOnTargets = [];
+
+    return;
+  }
+  offer.waitingOnCoverers = [];
+  offer.waitingOnTargets = pendingTargetsOf(offer);
+  offer.waitingOn = offer.waitingOnTargets.length > 0 ? 'opponent' : 'initiator';
+}
+
+function applyCoverProposal(offer: CheckOffer, actorKey: CombatEntityKey, proposal: CheckOfferProposal): void {
+  const invites = offer.proposal.coverInvites ?? [];
+  const nextInvite = proposal.coverInvites?.find((invite) => invite.coveringKey === actorKey);
+  offer.proposal = {
+    ...offer.proposal,
+    coverInvites: invites.map((invite) => (invite.coveringKey === actorKey && nextInvite ? nextInvite : invite)),
+  };
+  refreshWait(offer);
 }
 
 function targetProposalsOf(offer: CheckOffer): NonNullable<CheckOfferProposal['targetProposals']> {
@@ -38,10 +68,13 @@ function reactionSlotsOf(offer: CheckOffer): NonNullable<CheckOfferProposal['str
 function pendingTargetsOf(offer: CheckOffer): CombatEntityKey[] {
   const sequentialPending = sequentialStrikeOfferService.pendingTargetKeys(reactionSlotsOf(offer));
   if (sequentialPending.length) return sequentialPending;
-
-  return targetProposalsOf(offer)
+  const wide = targetProposalsOf(offer)
     .filter((target) => target.hit.reaction === null)
     .map((target) => target.targetKey);
+  if (wide.length) return wide;
+  if (offer.proposal.hit && offer.proposal.hit.reaction === null) return [offer.opponent];
+
+  return [];
 }
 
 function applyOpponentProposal(offer: CheckOffer, actorKey: CombatEntityKey, proposal: CheckOfferProposal): void {
@@ -52,6 +85,7 @@ function applyOpponentProposal(offer: CheckOffer, actorKey: CombatEntityKey, pro
       ...proposal,
       strikeProposals: sequentialStrikeOfferService.fillNextHit(sequentialSlots, actorKey, proposal.hit),
       targetProposals: offer.proposal.targetProposals,
+      coverInvites: offer.proposal.coverInvites,
     };
   } else {
     const target = targetProposalsOf(offer).find((entry) => entry.targetKey === actorKey);
@@ -61,10 +95,10 @@ function applyOpponentProposal(offer: CheckOffer, actorKey: CombatEntityKey, pro
       ...proposal,
       targetProposals: targetProposalsOf(offer),
       strikeProposals: offer.proposal.strikeProposals,
+      coverInvites: offer.proposal.coverInvites,
     };
   }
-  offer.waitingOnTargets = pendingTargetsOf(offer);
-  offer.waitingOn = offer.waitingOnTargets.length > 0 ? 'opponent' : 'initiator';
+  refreshWait(offer);
 }
 
 export async function createCheckOffer(gameId: number, data: CreateCheckOfferData): Promise<CheckOffer> {
@@ -90,17 +124,22 @@ export async function createCheckOffer(gameId: number, data: CreateCheckOfferDat
     sequentialStrikeOfferService.isMultiStrike(data.proposal) && hit
       ? sequentialStrikeOfferService.createSlots(data.proposal.attackAction?.strikes ?? [], hit)
       : undefined;
+  const coverInvites = data.proposal.coverInvites ?? [];
+  const pendingCoverers = coveringService.pendingInvites(coverInvites).map((invite) => invite.coveringKey);
   const offer: CheckOffer = {
     id: nextId++,
     gameId,
     checkCode: data.checkCode,
     initiator: data.initiator,
     opponent: data.opponent,
-    proposal: { ...data.proposal, targetProposals, strikeProposals },
-    waitingOn: 'opponent',
-    waitingOnTargets: strikeProposals
-      ? sequentialStrikeOfferService.pendingTargetKeys(strikeProposals)
-      : targetProposals?.map((target) => target.targetKey),
+    proposal: { ...data.proposal, targetProposals, strikeProposals, coverInvites },
+    waitingOn: pendingCoverers.length ? 'covering' : 'opponent',
+    waitingOnCoverers: pendingCoverers,
+    waitingOnTargets: pendingCoverers.length
+      ? []
+      : strikeProposals
+        ? sequentialStrikeOfferService.pendingTargetKeys(strikeProposals)
+        : targetProposals?.map((target) => target.targetKey),
     status: 'pending',
     updatedAt: new Date().toISOString(),
   };
@@ -117,10 +156,16 @@ export async function reviseCheckOffer(
   await delay();
   const offer = requirePending(offerId);
   const role = actorRole(offer, actorKey);
+  if (role === 'covering' && offer.waitingOn !== 'covering') throw new Error('Сейчас ход другой стороны');
   if (role === 'opponent' && offer.waitingOnTargets && !offer.waitingOnTargets.includes(actorKey))
     throw new Error('Сейчас ход другой стороны');
   if (role === 'initiator' && offer.waitingOn !== role) throw new Error('Сейчас ход другой стороны');
-  if (role === 'opponent' && offer.waitingOnTargets) {
+  if (role === 'covering') {
+    applyCoverProposal(offer, actorKey, proposal);
+    offer.waitingOn = 'initiator';
+    offer.waitingOnCoverers = pendingCoverersOf(offer);
+    offer.waitingOnTargets = [];
+  } else if (role === 'opponent' && offer.waitingOnTargets) {
     applyOpponentProposal(offer, actorKey, proposal);
   } else {
     offer.proposal = {
@@ -128,7 +173,8 @@ export async function reviseCheckOffer(
       targetProposals: offer.proposal.targetProposals,
       strikeProposals: offer.proposal.strikeProposals,
     };
-    offer.waitingOn = role === 'initiator' ? 'opponent' : 'initiator';
+    offer.waitingOn = role === 'initiator' ? (pendingCoverersOf(offer).length ? 'covering' : 'opponent') : 'initiator';
+    if (offer.waitingOn === 'covering') offer.waitingOnCoverers = pendingCoverersOf(offer);
   }
   offer.updatedAt = new Date().toISOString();
 
@@ -143,21 +189,26 @@ export async function acceptCheckOffer(
   await delay();
   const offer = requirePending(offerId);
   const role = actorRole(offer, actorKey);
+  if (role === 'covering' && offer.waitingOn !== 'covering') throw new Error('Сейчас ход другой стороны');
   if (role === 'opponent' && offer.waitingOnTargets && !offer.waitingOnTargets.includes(actorKey))
     throw new Error('Сейчас ход другой стороны');
   if (role === 'initiator' && offer.waitingOn !== role) throw new Error('Сейчас ход другой стороны');
   if (proposal) {
-    if (role === 'opponent' && offer.waitingOnTargets) {
+    if (role === 'covering') {
+      applyCoverProposal(offer, actorKey, proposal);
+    } else if (role === 'opponent' && offer.waitingOnTargets) {
       applyOpponentProposal(offer, actorKey, proposal);
     } else {
       offer.proposal = {
         ...proposal,
         targetProposals: offer.proposal.targetProposals,
         strikeProposals: offer.proposal.strikeProposals,
+        coverInvites: proposal.coverInvites ?? offer.proposal.coverInvites,
       };
     }
   }
-  if (offer.waitingOnTargets?.length) return snapshot(offer);
+  refreshWait(offer);
+  if (pendingCoverersOf(offer).length || offer.waitingOnTargets?.length) return snapshot(offer);
   offer.status = 'accepted';
   offer.updatedAt = new Date().toISOString();
 
@@ -183,8 +234,9 @@ export async function getPendingCheckOffers(gameId: number, entityKey: CombatEnt
       (offer) =>
         offer.gameId === gameId &&
         offer.status === 'pending' &&
-        ((offer.waitingOn === 'opponent' &&
-          (offer.opponent === entityKey || offer.waitingOnTargets?.includes(entityKey))) ||
+        ((offer.waitingOn === 'covering' && offer.waitingOnCoverers?.includes(entityKey)) ||
+          (offer.waitingOn === 'opponent' &&
+            (offer.opponent === entityKey || offer.waitingOnTargets?.includes(entityKey))) ||
           (offer.waitingOn === 'initiator' && offer.initiator === entityKey)),
     )
     .map(snapshot);
@@ -201,6 +253,7 @@ export async function getCheckOffersForEntity(gameId: number, entityKey: CombatE
         offer.status === 'pending' &&
         (offer.initiator === entityKey ||
           offer.opponent === entityKey ||
+          offer.waitingOnCoverers?.includes(entityKey) ||
           offer.waitingOnTargets?.includes(entityKey) ||
           targetProposalsOf(offer).some((target) => target.targetKey === entityKey) ||
           reactionSlotsOf(offer).some((slot) => slot.targetKey === entityKey)),

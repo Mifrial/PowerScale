@@ -74,6 +74,12 @@ export function formatStrikeNarrativeMessage(input: {
   reaction: HitDefenseReaction;
   reactionAction: CombatActionOption | null;
   reactionAp: number;
+  coverers?: {
+    coveringKey: CombatEntityKey;
+    coveringName: string;
+    blockItemRuleCode: string | null;
+    coveringAp: number;
+  }[];
   rules: Rule[];
 }): string {
   const attacker = entityToken(input.attackerKey, input.attackerName);
@@ -84,6 +90,22 @@ export function formatStrikeNarrativeMessage(input: {
   const kind = input.profileType === 'throw' ? 'бросок' : input.profileType === 'shoot' ? 'выстрел' : 'удар';
   const flankBit = input.flank ? 'с фланга ' : '';
   const strike = `${attacker} наносит ${flankBit}${typeBit} ${kind} оружием ${weapon} по ${defender}.`;
+  const coverers = input.coverers ?? [];
+  if (coverers.length) {
+    const primary =
+      input.reaction === 'ignore' || !input.reactionAction
+        ? `${defender} не реагирует`
+        : `${defender} пытается совершить ${ruleTokenByCode(input.reactionAction.code, input.reactionAction.name, input.rules)}${input.turn ? ' с Поворотом' : ''} за ${input.reactionAp}ОД`;
+    const covering = coverers
+      .map((coverer) => {
+        const item = ruleTokenById(coverer.blockItemRuleCode, 'щит', input.rules);
+
+        return `${entityToken(coverer.coveringKey, coverer.coveringName)} прикрывает ${item} за ${coverer.coveringAp}ОД`;
+      })
+      .join(', а ');
+
+    return `${strike} ${primary}, а ${covering}.`;
+  }
   if (input.reaction === 'ignore' || !input.reactionAction) {
     return `${strike} Тот не реагирует.`;
   }

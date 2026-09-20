@@ -50,10 +50,15 @@ import { concentrationTokenService } from '@/modules/Roleplay/Game/Service/Insta
 
 import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
 
+import type { CoverChoicePending } from '@/modules/Roleplay/Game/Dto/CoverChoicePending';
+import type { CoveredHitRoll } from '@/modules/Roleplay/Game/Dto/CoveredHitRoll';
 import type { HitCheckRoll } from '@/modules/Roleplay/Game/Dto/HitCheckRoll';
 import type { HitRollInput } from '@/modules/Roleplay/Game/Dto/HitRollInput';
 import type { InjuryRollInput } from '@/modules/Roleplay/Game/Dto/InjuryRollInput';
 import { hitRollService } from '@/modules/Roleplay/Game/Service/Instance/hitRollService';
+import { knowledgeDefenseService } from '@/modules/Roleplay/Game/Service/Instance/knowledgeDefenseService';
+import { coveringService } from '@/modules/Roleplay/Game/Service/Instance/coveringService';
+import { blockHitService } from '@/modules/Roleplay/Game/Service/Instance/blockHitService';
 import { sequentialStrikeOfferService } from '@/modules/Roleplay/Game/Service/Instance/sequentialStrikeOfferService';
 
 import { resolveHitProcedure } from '@/modules/Roleplay/Game/Utils/resolveStrikeProcedure';
@@ -175,6 +180,10 @@ const distanceIpari = ref(1);
 const cover = ref(0);
 const flank = ref(false);
 const turn = ref(false);
+const coveringBlockItemRuleCode = ref<string | null>(null);
+const coveringAdv = ref(0);
+const agreedCoveringAdv = ref(0);
+const coverChoicePending = ref<CoverChoicePending | null>(null);
 const agreedInitiatorAdv = ref(0);
 const agreedOpponentAdv = ref(0);
 const agreedCover = ref(0);
@@ -249,6 +258,7 @@ const speakerEntity = computed<CombatEntityKey | null>(() => {
 
 function actingEntity(current: CheckOffer): CombatEntityKey | null {
   if (props.canEdit) {
+    if (current.waitingOn === 'covering' && current.waitingOnCoverers?.length) return current.waitingOnCoverers[0];
     if (current.waitingOn === 'opponent' && current.waitingOnTargets?.length) return current.waitingOnTargets[0];
 
     return current.waitingOn === 'opponent' ? current.opponent : current.initiator;
@@ -258,9 +268,10 @@ function actingEntity(current: CheckOffer): CombatEntityKey | null {
   return null;
 }
 
-function actorRole(current: CheckOffer): 'initiator' | 'opponent' | null {
+function actorRole(current: CheckOffer): 'initiator' | 'opponent' | 'covering' | null {
   const actor = actingEntity(current);
   if (actor === current.initiator) return 'initiator';
+  if (current.waitingOn === 'covering' && actor !== null && current.waitingOnCoverers?.includes(actor)) return 'covering';
   if (actor === current.opponent || (actor !== null && current.waitingOnTargets?.includes(actor))) return 'opponent';
 
   return null;
@@ -275,6 +286,7 @@ const myTurn = computed(() => {
 });
 
 const isDefenderStep = computed(() => offer.value !== null && offer.value.waitingOn === 'opponent' && myTurn.value);
+const isCoveringStep = computed(() => offer.value !== null && offer.value.waitingOn === 'covering' && myTurn.value);
 
 const isWaiting = computed(() => offer.value !== null && offer.value.status === 'pending' && !myTurn.value);
 
@@ -312,6 +324,31 @@ function versionOf(key: CombatEntityKey | null): CharacterVersion | null {
     overlay,
   ).effectiveVersion;
 }
+
+function knowledgeDefenseModifiers(
+  key: CombatEntityKey | null,
+  actionRuleCode: string | null | undefined,
+): AdvantageModifier[] {
+  const modifier = knowledgeDefenseService.modifier(versionOf(key)?.abilities, actionRuleCode);
+
+  return modifier ? [modifier] : [];
+}
+
+const coveringCandidates = computed(() =>
+  coveringService.eligibleKeys(
+    entityOptions.value.map((item) => item.value),
+    resolvedAttackerKey.value,
+    [opponentKey.value, ...selectedTargetKeys.value].filter((key): key is CombatEntityKey => Boolean(key)),
+    (key) => versionOf(key)?.abilities,
+  ),
+);
+
+const acceptedCoverInvites = computed(() => coveringService.acceptedInvites(offer.value?.proposal.coverInvites));
+
+const coveringBlockProfiles = computed(() => {
+  const key = isCoveringStep.value && offer.value ? actingEntity(offer.value) : null;
+  return key ? hitRollService.listBlockProfiles(versionOf(key), props.rules) : [];
+});
 
 function injuryInputForTarget(input: InjuryRollInput, targetKey: CombatEntityKey): InjuryRollInput {
   return strikeUpgradeService.withInjuryAdvantages(
@@ -651,6 +688,7 @@ const attackSelectItems = computed(() =>
 
 const advantageDirty = computed(() => {
   if (!offer.value) return false;
+  if (isCoveringStep.value) return coveringAdv.value !== agreedCoveringAdv.value;
   if (attackerAdv.value !== agreedInitiatorAdv.value || defenderAdv.value !== agreedOpponentAdv.value) return true;
   if (isRanged.value && cover.value !== agreedCover.value) return true;
 
@@ -816,6 +854,11 @@ async function hydrate(): Promise<void> {
     cover.value = Math.max(0, hit?.cover ?? 0);
     flank.value = hit?.flank ?? false;
     turn.value = hit?.turn ?? false;
+    coveringBlockItemRuleCode.value = coveringBlockProfiles.value[0]?.itemRuleCode ?? null;
+    const coverer = actingEntity(props.resumeOffer);
+    const invite = props.resumeOffer.proposal.coverInvites?.find((item) => item.coveringKey === coverer);
+    coveringAdv.value = invite?.coveringAdv ?? 0;
+    agreedCoveringAdv.value = invite?.coveringAdv ?? 0;
     if (hit?.defenseEfficiency) {
       defenseEfficiency.value = { ...hit.defenseEfficiency };
     } else {
@@ -839,6 +882,8 @@ async function hydrate(): Promise<void> {
   cover.value = 0;
   flank.value = false;
   turn.value = false;
+  coveringAdv.value = 0;
+  agreedCoveringAdv.value = 0;
   defenseEfficiency.value = { ...procedure.value.dodgeEfficiency };
 }
 
@@ -922,11 +967,17 @@ async function sendOffer(): Promise<void> {
       initiatorSpendConcentration: spendAttackerConcentration.value,
       appliedStrikeUpgradeCodes: appliedStrikeUpgradeCodes.value,
       attackAction: resolvedAttackAction.value,
+      coverInvites: coveringCandidates.value.map((coveringKey) => ({ coveringKey, decision: 'pending' as const })),
       hit: hitProposal(attack, null),
     },
   });
   opponentKey.value = offer.value.waitingOnTargets?.[0] ?? offer.value.opponent;
   reaction.value = null;
+  agreedInitiatorAdv.value = offer.value.proposal.initiatorAdv;
+  agreedOpponentAdv.value = offer.value.proposal.opponentAdv;
+  agreedCover.value = Math.max(0, offer.value.proposal.hit?.cover ?? 0);
+  coveringAdv.value = 0;
+  agreedCoveringAdv.value = 0;
 }
 
 async function performPreparation(): Promise<void> {
@@ -992,10 +1043,73 @@ function defenderProposal(): CheckOfferProposal {
   };
 }
 
+function coveringInviteProposal(decision: 'cover' | 'decline' | 'pending'): CheckOfferProposal {
+  const current = offer.value;
+  const actor = current ? actingEntity(current) : null;
+  if (!current || !actor) throw new Error('Нет оферты');
+  const invites = current.proposal.coverInvites ?? [];
+  const efficiency =
+    coveringBlockProfiles.value.find((profile) => profile.itemRuleCode === coveringBlockItemRuleCode.value)
+      ?.efficiency ?? coveringBlockProfiles.value[0]?.efficiency ?? null;
+  if (decision === 'cover') {
+    if (!coveringBlockItemRuleCode.value) throw new Error('Выберите профиль блока');
+    if (coveringService.cost() > remainingAp(actor)) throw new Error('Недостаточно ОД для Прикрытия');
+  }
+
+  return {
+    ...current.proposal,
+    coverInvites: invites.map((invite) =>
+      invite.coveringKey === actor
+        ? {
+            coveringKey: actor,
+            decision,
+            coveringAdv: coveringAdv.value,
+            reaction: decision === 'cover' ? ('block' as const) : invite.reaction,
+            defenseEfficiency: decision === 'cover' ? efficiency : invite.defenseEfficiency,
+            blockItemRuleCode: decision === 'cover' ? coveringBlockItemRuleCode.value : invite.blockItemRuleCode,
+          }
+        : invite,
+    ),
+  };
+}
+
+async function acceptCoverInvite(decision: 'cover' | 'decline'): Promise<void> {
+  const current = offer.value;
+  const actor = current ? actingEntity(current) : null;
+  if (!current || !actor) throw new Error('Нет оферты');
+  offer.value = await getGameApi().acceptCheckOffer(current.id, actor, coveringInviteProposal(decision));
+  const nextCoverer = offer.value.waitingOnCoverers?.[0];
+  const invite = offer.value.proposal.coverInvites?.find((item) => item.coveringKey === nextCoverer);
+  coveringAdv.value = invite?.coveringAdv ?? coveringAdv.value;
+  agreedCoveringAdv.value = invite?.coveringAdv ?? coveringAdv.value;
+  coveringBlockItemRuleCode.value = coveringBlockProfiles.value[0]?.itemRuleCode ?? coveringBlockItemRuleCode.value;
+}
+
+async function submitCoverDecline(): Promise<void> {
+  busy.value = true;
+  error.value = null;
+  try {
+    await acceptCoverInvite('decline');
+    emit('settled');
+    if (offer.value?.waitingOn === 'covering' || offer.value?.waitingOn === 'opponent') return;
+    close();
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'Не удалось ответить на прикрытие';
+  } finally {
+    busy.value = false;
+  }
+}
+
 async function revise(): Promise<void> {
   const current = offer.value;
   const actor = current ? actingEntity(current) : null;
   if (!current || !actor) throw new Error('Нет оферты');
+  if (isCoveringStep.value) {
+    offer.value = await getGameApi().reviseCheckOffer(current.id, actor, coveringInviteProposal('pending'));
+    agreedCoveringAdv.value = coveringAdv.value;
+
+    return;
+  }
   const proposal = defenderProposal();
   await abortCommittedOnDefense(targetKeyOf(current), proposal.hit?.reaction ?? null);
   offer.value = await getGameApi().reviseCheckOffer(current.id, actor, proposal);
@@ -1075,7 +1189,8 @@ async function acceptWideAttack(
             stateRuntimeEffectsService.checkAdvantageModifiers(versionOf(target.targetKey), props.rules, {
               kind: 'hit',
             }),
-          ),
+          )
+          .concat(knowledgeDefenseModifiers(target.targetKey, target.hit.actionRuleCode)),
         accuracyDelta: actionEffectService.currentAttackAccuracy(actionRule, profile.profileType),
         scoreAdjust: actionEffectService.mergeScoreAdjust(
           actionEffectService.currentRollScoreAdjust(actionRule, profile.profileType, index + 1),
@@ -1258,9 +1373,22 @@ async function acceptAndRoll(): Promise<void> {
   const attack = resolvedAttack.value;
   const actor = current ? actingEntity(current) : null;
   if (!current || !attack || !actor) throw new Error('Нет оферты');
+  if (current.waitingOn === 'initiator' && current.proposal.hit?.reaction === null) {
+    offer.value = await getGameApi().acceptCheckOffer(current.id, actor, {
+      ...current.proposal,
+      initiatorAdv: attackerAdv.value,
+      opponentAdv: defenderAdv.value,
+    });
+    const nextCoverer = offer.value.waitingOnCoverers?.[0];
+    const invite = offer.value.proposal.coverInvites?.find((item) => item.coveringKey === nextCoverer);
+    coveringAdv.value = invite?.coveringAdv ?? 0;
+    agreedCoveringAdv.value = invite?.coveringAdv ?? 0;
+
+    return;
+  }
   const proposal = defenderProposal();
   await abortCommittedOnDefense(targetKeyOf(current), proposal.hit?.reaction ?? null);
-  const accepted = await getGameApi().acceptCheckOffer(current.id, actor, proposal);
+  let accepted = await getGameApi().acceptCheckOffer(current.id, actor, proposal);
   if (accepted.status === 'pending') {
     offer.value = accepted;
     opponentKey.value = accepted.waitingOnTargets?.[0] ?? accepted.opponent;
@@ -1341,7 +1469,8 @@ async function acceptAndRoll(): Promise<void> {
       .concat(defenderSpent > 0 ? [concentrationTokenService.tokenAdvantage(defenderSpent)] : [])
       .concat(
         stateRuntimeEffectsService.checkAdvantageModifiers(versionOf(accepted.opponent), props.rules, { kind: 'hit' }),
-      ),
+      )
+      .concat(knowledgeDefenseModifiers(accepted.opponent, hit.actionRuleCode)),
     accuracyDelta:
       actionEffectService.currentAttackAccuracy(actionRule, hit.profileType) + pendingResolution.accuracyDelta,
     scoreAdjust: actionEffectService.mergeScoreAdjust(
@@ -1403,13 +1532,74 @@ async function acceptAndRoll(): Promise<void> {
   });
   const sequential = accepted.proposal.attackAction?.reactionMode === 'sequential';
   const paired = accepted.proposal.attackAction?.reactionMode === 'paired';
-  const rolledHits = needsHitRoll
+  let rolledHits = needsHitRoll
     ? sequential
       ? hitRollService.rollSequentialHits(rollInputs, Math.random, props.rules, props.mechanics)
       : paired
         ? hitRollService.rollPairedHits(rollInputs, Math.random, props.rules, props.mechanics)
         : hitRollService.rollSimultaneousHits(rollInputs, Math.random, props.rules, props.mechanics)
     : { attackers: [], defender: null };
+  const acceptedCovers = coveringService.acceptedInvites(accepted.proposal.coverInvites);
+  let coverDamageKey: CombatEntityKey | undefined;
+  let coveredRoll: CoveredHitRoll | undefined;
+  if (acceptedCovers.length && needsHitRoll && rollInputs[0]) {
+    const coveredPrimary: HitRollInput = {
+      ...rollInputs[0],
+      reaction: rollInputs[0].reaction ?? hit.reaction ?? 'ignore',
+    };
+    const coveringInputs: HitRollInput[] = acceptedCovers.map((invite) => ({
+      ...commonHitInput,
+      ...rollInputs[0],
+      defenderKey: invite.coveringKey,
+      defenderLabel: nameOf(invite.coveringKey),
+      defenderOverview: overviewOf(invite.coveringKey),
+      reaction: invite.reaction ?? 'block',
+      defenseEfficiency: invite.defenseEfficiency ?? commonHitInput.defenseEfficiency,
+      defenderAdv: invite.coveringAdv ?? 0,
+      defenderAdvantageModifiers: knowledgeDefenseModifiers(invite.coveringKey, hit.actionRuleCode).concat(
+        coveringService.circumstanceModifier(),
+      ),
+    }));
+    const covered = hitRollService.rollCoveredHit(
+      coveredPrimary,
+      coveringInputs,
+      Math.random,
+      props.rules,
+      props.mechanics,
+    );
+    const results = covered.coveringDefenders.map((entry) => ({
+      key: entry.key,
+      passed: Boolean(entry.result?.check?.passed),
+      rating: entry.result?.check?.rating ?? 0,
+    }));
+    const actual = coveringService.actualTarget({
+      results,
+      primaryKey: accepted.opponent,
+      attackerChoice: null,
+    });
+    if (!actual) {
+      coverChoicePending.value = {
+        accepted,
+        attack,
+        covered,
+        choiceKeys: coveringService.failChoiceKeys(
+          accepted.opponent,
+          acceptedCovers.map((invite) => invite.coveringKey),
+        ),
+      };
+      offer.value = accepted;
+
+      return;
+    }
+    const bound = hitRollService.bindCoveredHit(covered, actual, accepted.opponent);
+    coveredRoll = covered;
+    rolledHits = {
+      attackers: [bound.attacker, ...rolledHits.attackers.slice(1)],
+      defender: bound.defender,
+      defenders: [bound.defender, ...(rolledHits.defenders ?? []).slice(1)],
+    };
+    coverDamageKey = actual;
+  }
   const rolled = rolledHits.attackers[0]
     ? {
         attacker: rolledHits.attackers[0],
@@ -1502,10 +1692,12 @@ async function acceptAndRoll(): Promise<void> {
           deferConsequences: spellPaid,
           manageThread: !spellPaid,
           beforeEndThread: applyRush,
+          damageTargetKey: coverDamageKey,
+          coveredRoll,
         },
       );
       strikeHits.push({
-        targetKey: accepted.opponent,
+        targetKey: coverDamageKey ?? accepted.opponent,
         attackSr: rolled.attacker.check?.passed && weaponResult.remainingSr > 0 ? weaponResult.remainingSr : 0,
         reaction: hit.reaction ?? 'ignore',
         damaged: weaponResult.raw > 0,
@@ -1596,6 +1788,31 @@ async function acceptAndRoll(): Promise<void> {
     await sendChat(processMessage, [], props.chatId, speakerFor(accepted.initiator));
   }
   offer.value = accepted;
+}
+
+async function finishCoverChoice(choiceKey: CombatEntityKey): Promise<void> {
+  const pending = coverChoicePending.value;
+  if (!pending) return;
+  const results = pending.covered.coveringDefenders.map((entry) => ({
+    key: entry.key,
+    passed: Boolean(entry.result?.check?.passed),
+    rating: entry.result?.check?.rating ?? 0,
+  }));
+  const actual = coveringService.actualTarget({
+    results,
+    primaryKey: pending.accepted.opponent,
+    attackerChoice: choiceKey,
+  });
+  if (!actual) return;
+  const bound = hitRollService.bindCoveredHit(pending.covered, actual, pending.accepted.opponent);
+  const hit = pending.accepted.proposal.hit;
+  if (!hit?.reaction) return;
+  coverChoicePending.value = null;
+  await applyClickAttack(pending.accepted, hit, bound.attacker.check?.rating ?? 0, pending.attack, bound, {
+    damageTargetKey: actual,
+    coveredRoll: pending.covered,
+  });
+  offer.value = pending.accepted;
 }
 
 async function spendAp(key: CombatEntityKey, cost: number): Promise<number> {
@@ -2156,27 +2373,28 @@ async function applyAttackConsequences(
   accepted: CheckOffer,
   attack: AttackOverview,
   result: ReturnType<typeof attackDamageService.applyAttackDamage>,
+  targetKey: CombatEntityKey = accepted.opponent,
 ): Promise<void> {
-  await writeAccumulatedDamage(accepted.opponent, result.remainingHpDamage);
-  await applyCombatState(accepted.opponent, EXHAUSTION_STATE_CODE, result.exhaustion);
-  await applyCombatState(accepted.opponent, WOUND_STATE_CODE, (result.wound ?? 0) + (result.cuttingWound ?? 0));
-  await applyCombatState(accepted.opponent, STUNNED_STATE_CODE, result.stun ?? 0);
-  await applyCombatState(accepted.opponent, SHOCK_STATE_CODE, result.shock ?? 0);
+  await writeAccumulatedDamage(targetKey, result.remainingHpDamage);
+  await applyCombatState(targetKey, EXHAUSTION_STATE_CODE, result.exhaustion);
+  await applyCombatState(targetKey, WOUND_STATE_CODE, (result.wound ?? 0) + (result.cuttingWound ?? 0));
+  await applyCombatState(targetKey, STUNNED_STATE_CODE, result.stun ?? 0);
+  await applyCombatState(targetKey, SHOCK_STATE_CODE, result.shock ?? 0);
   emit('overlay-changed');
 
   if (result.exhaustion > 0) {
-    const afterHit = versionOf(accepted.opponent);
+    const afterHit = versionOf(targetKey);
     if (afterHit) {
       const exhaustion = await exhaustionCheckService.applyExhaustionCheck({
         version: afterHit,
-        overlay: overlays.value.find((item) => item.entityKey === accepted.opponent) ?? null,
+        overlay: overlays.value.find((item) => item.entityKey === targetKey) ?? null,
         rules: props.rules,
         mechanics: props.mechanics,
         gameId: props.gameId,
-        targetKey: accepted.opponent,
-        targetName: nameOf(accepted.opponent),
+        targetKey,
+        targetName: nameOf(targetKey),
         chatId: props.chatId,
-        speaker: speakerFor(accepted.opponent),
+        speaker: speakerFor(targetKey),
         change: 'increase',
         sendMessage: (content, attachments, chatId, speaker) => sendChat(content, attachments, chatId, speaker),
         askTokenSpend,
@@ -2198,8 +2416,8 @@ async function applyAttackConsequences(
     return;
   }
 
-  const defenderVersion = versionOf(accepted.opponent);
-  const defenderOverview = overviewOf(accepted.opponent);
+  const defenderVersion = versionOf(targetKey);
+  const defenderOverview = overviewOf(targetKey);
   const applied = await injuryCheckService.applyInjuryCheck({
     input: injuryInputForTarget(
       injuryCheckService.injuryInputFromAttack({
@@ -2210,17 +2428,17 @@ async function applyAttackConsequences(
         endurance: defenderOverview ? attackDamageService.enduranceOf(defenderOverview, props.rules) : 1,
         remainingSr: result.remainingSr,
         damageTypeCode: attack.damageTypeCode,
-        actorKey: accepted.opponent,
+        actorKey: targetKey,
       }),
-      accepted.opponent,
+      targetKey,
     ),
     rules: props.rules,
     mechanics: props.mechanics,
     gameId: props.gameId,
-    targetKey: accepted.opponent,
-    targetName: nameOf(accepted.opponent),
+    targetKey,
+    targetName: nameOf(targetKey),
     chatId: props.chatId,
-    speaker: speakerFor(accepted.opponent),
+    speaker: speakerFor(targetKey),
     skipIfNoRoll: true,
     targetVersion: defenderVersion ?? undefined,
     sendMessage: (content, attachments, chatId, speaker) => sendChat(content, attachments, chatId, speaker),
@@ -2314,11 +2532,14 @@ async function applyClickAttack(
     afterAnnounce?: () => Promise<void>;
     beforeEndThread?: () => Promise<void>;
     hitNumber?: number;
+    damageTargetKey?: CombatEntityKey;
+    coveredRoll?: CoveredHitRoll;
   } = {},
 ): Promise<ReturnType<typeof attackDamageService.applyAttackDamage>> {
   const actionRule = findRuleByRef(props.rules, hit.actionRuleCode);
   const ratingBonus = actionEffectService.successRatingAttackCharacteristicModifier(actionRule, sr, hit.profileType);
   const attackerVersion = versionOf(accepted.initiator);
+  const defenderKey = options.damageTargetKey ?? accepted.opponent;
   const resolvedAttack =
     ratingBonus && attackerVersion
       ? (characterOverviewService.attackAtDistance(
@@ -2343,19 +2564,33 @@ async function applyClickAttack(
     props.rules,
     props.mechanics,
   );
-  const defenderOverview = overviewOf(accepted.opponent);
+  const defenderOverview = overviewOf(defenderKey);
+  const acceptedCovers = coveringService.acceptedInvites(accepted.proposal.coverInvites);
+  const coveringInvite = acceptedCovers.find((invite) => invite.coveringKey === defenderKey);
+  const resolvedReaction: HitDefenseReaction =
+    coveringInvite?.reaction ??
+    (options.damageTargetKey && options.damageTargetKey !== accepted.opponent
+      ? 'block'
+      : (hit.reaction ?? 'ignore'));
+  const blockItemRuleCode = coveringInvite?.blockItemRuleCode ?? hit.blockItemRuleCode ?? null;
+  const blockProfile = hitRollService
+    .listBlockProfiles(versionOf(defenderKey), props.rules)
+    .find((profile) => profile.itemRuleCode === blockItemRuleCode) ??
+    hitRollService.listBlockProfiles(versionOf(defenderKey), props.rules)[0] ??
+    null;
+  const rolledSr = options.skipDamageApply ? 0 : sr;
+  const blockSucceeded = !options.skipDamageApply && resolvedReaction === 'block' && rolledSr <= 0;
   const typeRule = resolvedAttack.damageTypeCode
     ? props.rules.find((rule) => rule.code === resolvedAttack.damageTypeCode && rule.type === 'damage_type')
     : undefined;
   const defenseIgnored = damageTypeSpecService.asDamageTypeSpec(typeRule)?.defense_ignored === true;
   const maxSuccessRating = damageTypeSpecService.asDamageTypeSpec(typeRule)?.max_success_rating ?? null;
   const hitNumber = options.hitNumber ?? 1;
-  const rolledSr = options.skipDamageApply ? 0 : Math.max(0, sr);
-  const previousSr = lastStrikeService.previousSr(
-    lastStrikeService.snapshotOf(attackerPendingEffects.value),
-    accepted.opponent,
+  const weaponSr = lastStrikeService.boostedSr(
+    options.skipDamageApply ? 0 : blockHitService.attackSr(resolvedReaction, rolledSr),
+    lastStrikeService.previousSr(lastStrikeService.snapshotOf(attackerPendingEffects.value), defenderKey),
+    actionRule,
   );
-  const weaponSr = lastStrikeService.boostedSr(rolledSr, previousSr, actionRule);
   const soakPending = actionEffectService.resolveForNextAction(attackerPendingEffects.value, {
     isAttack: true,
     component: hit.profileType,
@@ -2378,7 +2613,7 @@ async function applyClickAttack(
       )
     : 0;
   const dodgeSoak = dodgeSoakService.amount({
-    reaction: hit.reaction ?? 'ignore',
+    reaction: resolvedReaction,
     defenderOverview,
     rules: props.rules,
     sr: weaponSr,
@@ -2398,11 +2633,13 @@ async function applyClickAttack(
     sr: weaponSr,
     damageTypeCode: resolvedAttack.damageTypeCode,
     penetration: resolvedAttack.penetration,
-    defense: defenderOverview?.defense ?? null,
+    defense: blockSucceeded
+      ? blockHitService.withBlockLayers(defenderOverview?.defense ?? null, blockProfile)
+      : (defenderOverview?.defense ?? null),
     endurance: defenderOverview
       ? attackDamageService.enduranceValueOf(defenderOverview, props.rules)
       : { base: 1, size: 0 },
-    accumulatedDamage: attackDamageService.accumulatedDamageOf(versionOf(accepted.opponent)?.states ?? [], props.rules),
+    accumulatedDamage: attackDamageService.accumulatedDamageOf(versionOf(defenderKey)?.states ?? [], props.rules),
     hooks,
     defenseIgnored,
     maxSuccessRating,
@@ -2445,6 +2682,11 @@ async function applyClickAttack(
       : 0;
   await abortCommittedOnDefense(accepted.opponent, hit.reaction ?? null);
   const spentDefense = shouldSpendDefender ? await spendAp(accepted.opponent, defenderAp) : 0;
+  if (shouldSpendDefender) {
+    for (const invite of coveringService.acceptedInvites(accepted.proposal.coverInvites)) {
+      await spendAp(invite.coveringKey, coveringService.cost());
+    }
+  }
   const speaker = speakerFor(accepted.initiator);
   if (props.chatId !== null && shouldAnnounce && options.manageThread !== false) combatThread.beginAttack();
   try {
@@ -2484,13 +2726,26 @@ async function applyClickAttack(
           reaction: hit.reaction ?? 'ignore',
           reactionAction: reactionAction(props.rules, hit.reaction),
           reactionAp: spentDefense,
+          coverers: acceptedCovers.map((invite) => ({
+            coveringKey: invite.coveringKey,
+            coveringName: nameOf(invite.coveringKey),
+            blockItemRuleCode: invite.blockItemRuleCode ?? null,
+            coveringAp: coveringService.cost(),
+          })),
           rules: props.rules,
         }),
         [],
         props.chatId,
         speaker,
       );
-      const payloads = rolled.defender ? [rolled.attacker, rolled.defender] : [rolled.attacker];
+      const covered = options.coveredRoll;
+      const payloads = covered
+        ? [covered.attacker, covered.primaryDefender, ...covered.coveringDefenders.map((entry) => entry.result)].filter(
+            (payload): payload is NonNullable<typeof payload> => payload !== null,
+          )
+        : rolled.defender
+          ? [rolled.attacker, rolled.defender]
+          : [rolled.attacker];
       await sendChat(
         '',
         payloads.map((payload) => ({ type: ROLL_ATTACHMENT_TYPE, payload })),
@@ -2502,9 +2757,9 @@ async function applyClickAttack(
           formatTouchConnectMessage({
             attackerKey: accepted.initiator,
             attackerName: nameOf(accepted.initiator),
-            defenderKey: accepted.opponent,
-            defenderName: nameOf(accepted.opponent),
-            passed: Boolean(rolled.attacker.check?.passed),
+            defenderKey,
+            defenderName: nameOf(defenderKey),
+            passed: Boolean(rolled.attacker.check?.passed) || blockSucceeded,
           }),
           [],
           props.chatId,
@@ -2515,8 +2770,8 @@ async function applyClickAttack(
           formatAttackResultMessage({
             attackerKey: accepted.initiator,
             attackerName: nameOf(accepted.initiator),
-            defenderKey: accepted.opponent,
-            defenderName: nameOf(accepted.opponent),
+            defenderKey,
+            defenderName: nameOf(defenderKey),
             remainingSr: result.remainingSr,
             exhaustion: result.exhaustion,
             wound: (result.wound ?? 0) + (result.cuttingWound ?? 0),
@@ -2547,7 +2802,9 @@ async function applyClickAttack(
     }
 
     if (options.afterAnnounce) await options.afterAnnounce();
-    if (!options.deferConsequences && !options.skipDamageApply) await applyAttackConsequences(accepted, attack, result);
+    if (!options.deferConsequences && !options.skipDamageApply) {
+      await applyAttackConsequences(accepted, attack, result, defenderKey);
+    }
     if (shouldAnnounce && options.manageThread !== false && options.beforeEndThread) {
       await options.beforeEndThread();
     }
@@ -2573,20 +2830,42 @@ async function submit(): Promise<void> {
       await sendOffer();
       emit('offered');
       emit('settled');
+      if (offer.value?.waitingOn === 'covering' || offer.value?.waitingOn === 'opponent') {
+        coveringBlockItemRuleCode.value = coveringBlockProfiles.value[0]?.itemRuleCode ?? null;
+
+        return;
+      }
       close();
 
       return;
     }
     if (myTurn.value) {
+      if (isCoveringStep.value) {
+        if (advantageDirty.value) {
+          await revise();
+          emit('settled');
+
+          return;
+        }
+        await acceptCoverInvite('cover');
+        emit('settled');
+        coveringBlockItemRuleCode.value = coveringBlockProfiles.value[0]?.itemRuleCode ?? null;
+        if (offer.value?.waitingOn === 'covering' || offer.value?.waitingOn === 'opponent') return;
+        close();
+
+        return;
+      }
       if (advantageDirty.value) {
         await revise();
         emit('settled');
+        if (offer.value?.waitingOn === 'covering' || offer.value?.waitingOn === 'opponent') return;
         close();
 
         return;
       }
       await acceptAndRoll();
       emit('settled');
+      if (offer.value?.status === 'pending' || coverChoicePending.value) return;
       close();
     }
   } catch (e) {
@@ -2613,9 +2892,14 @@ async function submitRevise(): Promise<void> {
 const primaryLabel = computed(() => {
   if (!offer.value) return 'На одобрение';
   if (myTurn.value && advantageDirty.value) return 'На одобрение';
+  if (myTurn.value && offer.value.waitingOn === 'covering') return 'Прикрыть';
+  if (myTurn.value && offer.value.waitingOn === 'initiator' && offer.value.proposal.hit?.reaction === null) {
+    return 'Принять';
+  }
   if (myTurn.value && offer.value.waitingOn === 'opponent') return 'Принять и бросить';
   if (myTurn.value) return 'Принять и бросить';
 
+  if (offer.value.waitingOn === 'covering') return 'Ждём прикрывающих';
   return offer.value.waitingOn === 'opponent' ? 'Ждём защитника' : 'Ждём атакующего';
 });
 
@@ -2694,6 +2978,14 @@ const canSubmit = computed(() => {
 
     return true;
   }
+  if (isCoveringStep.value) {
+    if (advantageDirty.value) return true;
+    const actor = offer.value ? actingEntity(offer.value) : null;
+    if (!actor || coveringService.cost() > remainingAp(actor)) return false;
+    if (!coveringBlockItemRuleCode.value) return false;
+
+    return coveringBlockProfiles.value.length > 0;
+  }
 
   return true;
 });
@@ -2716,6 +3008,7 @@ const canSubmit = computed(() => {
         <template v-else-if="resolvedAttack"> оружием «{{ resolvedAttack.itemName }}»</template>
       </v-card-title>
       <v-card-text class="hit-dialog-body px-4 py-2">
+        <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mb-2">{{ error }}</v-alert>
         <v-select
           v-if="isCompose && !attackAction"
           v-model="selectedActionRuleCode"
@@ -2853,7 +3146,7 @@ const canSubmit = computed(() => {
           :rules="rules"
           :check-code="CHECK_HIT_CODE"
         />
-        <div v-if="offer && myTurn" class="d-flex ga-2">
+        <div v-if="offer && myTurn && !isCoveringStep" class="d-flex ga-2">
           <ClampedNumberField
             v-model="attackerAdv"
             label="Преим. атака"
@@ -2871,6 +3164,33 @@ const canSubmit = computed(() => {
             hide-details
           />
         </div>
+        <template v-if="isCoveringStep">
+          <div class="text-body-2">
+            Прикрыть {{ nameOf(opponentKey) }} от атаки? Это реакция за 2 ОД, без уклонения.
+          </div>
+          <div class="text-caption text-medium-emphasis">
+            Преимущества атакующего: {{ attackerAdv }}. Помехи прикрывающего задайте ниже и при необходимости верните
+            на одобрение.
+          </div>
+          <ClampedNumberField
+            v-model="coveringAdv"
+            label="Преим. блока"
+            :min="-ROLL_ADV_MAX"
+            :max="ROLL_ADV_MAX"
+            density="compact"
+            hide-details
+          />
+          <v-select
+            v-model="coveringBlockItemRuleCode"
+            :items="coveringBlockProfiles"
+            item-title="itemName"
+            item-value="itemRuleCode"
+            density="compact"
+            variant="outlined"
+            hide-details
+            label="Блок прикрывающего"
+          />
+        </template>
         <template v-if="isDefenderStep">
           <ConcentrationTokenOption
             v-model="spendDefenderConcentration"
@@ -2879,6 +3199,10 @@ const canSubmit = computed(() => {
             :rules="rules"
             :check-code="CHECK_HIT_CODE"
           />
+          <div v-if="acceptedCoverInvites.length" class="text-body-2">
+            Вас попытается прикрыть
+            {{ acceptedCoverInvites.map((invite) => nameOf(invite.coveringKey)).join(', ') }}
+          </div>
           <div class="text-caption text-medium-emphasis">Реакция защиты</div>
           <div v-if="sequentialStrikeCaption" class="text-body-2 mb-1">{{ sequentialStrikeCaption }}</div>
           <p v-if="defenderReactionAbortsCommitted" class="text-warning text-body-2 mb-2">
@@ -2928,15 +3252,46 @@ const canSubmit = computed(() => {
           />
         </template>
         <v-alert v-if="isWaiting" type="info" variant="tonal" density="compact" class="mb-0">
-          Ждём {{ offer?.waitingOn === 'opponent' ? 'защитника' : 'атакующего' }}.
+          Ждём
+          {{
+            offer?.waitingOn === 'covering'
+              ? 'прикрывающих'
+              : offer?.waitingOn === 'opponent'
+                ? 'защитника'
+                : 'атакующего'
+          }}.
         </v-alert>
-        <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mb-0">{{ error }}</v-alert>
+        <v-alert v-if="coverChoicePending" type="info" variant="tonal" density="compact" class="mb-0">
+          Все прикрытия провалены. Выберите фактическую цель.
+        </v-alert>
       </v-card-text>
       <v-card-actions class="py-2 px-4">
         <v-spacer />
         <v-btn variant="text" size="small" :disabled="busy" @click="close">Закрыть</v-btn>
         <v-btn v-if="offer && myTurn" variant="text" size="small" :disabled="busy" @click="submitRevise">Вернуть</v-btn>
-        <v-btn color="primary" size="small" :loading="busy" :disabled="!canSubmit" @click="submit">
+        <v-btn
+          v-if="isCoveringStep"
+          variant="text"
+          size="small"
+          :disabled="busy"
+          @click="submitCoverDecline"
+        >
+          Не прикрывать
+        </v-btn>
+        <template v-if="coverChoicePending">
+          <v-btn
+            v-for="choiceKey in coverChoicePending.choiceKeys"
+            :key="choiceKey"
+            color="primary"
+            size="small"
+            variant="tonal"
+            :loading="busy"
+            @click="finishCoverChoice(choiceKey)"
+          >
+            {{ nameOf(choiceKey) }}
+          </v-btn>
+        </template>
+        <v-btn v-else color="primary" size="small" :loading="busy" :disabled="!canSubmit" @click="submit">
           {{ primaryLabel }}
         </v-btn>
       </v-card-actions>

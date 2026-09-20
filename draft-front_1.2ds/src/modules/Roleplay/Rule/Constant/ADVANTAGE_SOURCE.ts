@@ -6,3 +6,4 @@ export const ADVANTAGE_SOURCE_APPEARANCE = 'appearance';
 export const ADVANTAGE_SOURCE_CIRCUMSTANCES = 'circumstances';
 export const ADVANTAGE_SOURCE_ACTION = 'action';
 export const ADVANTAGE_SOURCE_MULTI_ATTACK = 'multi_attack';
+export const ADVANTAGE_SOURCE_TRAINING = 'training';

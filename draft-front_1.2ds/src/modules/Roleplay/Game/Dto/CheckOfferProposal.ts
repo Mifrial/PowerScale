@@ -4,6 +4,7 @@ import type { AttackAction } from '@/modules/Roleplay/Game/Dto/AttackAction';
 import type { CheckOfferTargetProposal } from '@/modules/Roleplay/Game/Dto/CheckOfferTargetProposal';
 import type { CheckOfferStrikeProposal } from '@/modules/Roleplay/Game/Dto/CheckOfferStrikeProposal';
 import type { SpellCastOfferContext } from '@/modules/Roleplay/Game/Dto/Spell/SpellCastOfferContext';
+import type { CoverInvite } from '@/modules/Roleplay/Game/Dto/CoverInvite';
 
 export interface CheckOfferProposal {
   initiatorCharacteristic: string | null;
@@ -46,6 +47,8 @@ export interface CheckOfferProposal {
     flank?: boolean;
     turn?: boolean;
   } | null;
+  /** Кандидаты Прикрытия отвечают до реакции цели. */
+  coverInvites?: CoverInvite[];
   /** Касание из сотворения: ОД уже списаны, каст после удара. */
   spellCast?: SpellCastOfferContext | null;
   /** Режимы `strike_upgrade` этого удара (`ruleCode:mode`). Не на листе персонажа. */

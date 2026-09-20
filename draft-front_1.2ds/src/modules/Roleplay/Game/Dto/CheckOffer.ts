@@ -12,9 +12,11 @@ export interface CheckOffer {
   initiator: CombatEntityKey;
   opponent: CombatEntityKey;
   proposal: CheckOfferProposal;
-  waitingOn: 'opponent' | 'initiator';
+  waitingOn: 'opponent' | 'initiator' | 'covering';
   /** Для групповой атаки: оферта остаётся pending, пока не ответят все цели. */
   waitingOnTargets?: CombatEntityKey[];
+  /** Кандидаты Прикрытия, пока waitingOn === 'covering'. */
+  waitingOnCoverers?: CombatEntityKey[];
   status: 'pending' | 'accepted' | 'cancelled';
   updatedAt: string;
 }

@@ -397,7 +397,9 @@ function isWaitingOnSpeaker(offer: CheckOffer, key: CombatEntityKey | null, asGm
   if (key === null) return false;
 
   return (
-    (offer.waitingOn === 'opponent' && offer.opponent === key) ||
+    (offer.waitingOn === 'covering' && Boolean(offer.waitingOnCoverers?.includes(key))) ||
+    (offer.waitingOn === 'opponent' &&
+      (offer.opponent === key || Boolean(offer.waitingOnTargets?.includes(key)))) ||
     (offer.waitingOn === 'initiator' && offer.initiator === key)
   );
 }
@@ -412,7 +414,9 @@ function isWaitingOnYou(offer: CheckOffer, key: CombatEntityKey | null): boolean
   if (offer.status !== 'pending' || key === null) return false;
 
   return (
-    (offer.waitingOn === 'opponent' && offer.opponent === key) ||
+    (offer.waitingOn === 'covering' && Boolean(offer.waitingOnCoverers?.includes(key))) ||
+    (offer.waitingOn === 'opponent' &&
+      (offer.opponent === key || Boolean(offer.waitingOnTargets?.includes(key)))) ||
     (offer.waitingOn === 'initiator' && offer.initiator === key)
   );
 }
@@ -449,7 +453,11 @@ async function refreshPendingOffers(): Promise<void> {
   }
   const actionable = pendingOffers.value.filter((offer) => isActionableOffer(offer, key, asGm));
   const first =
-    actionable.find((offer) => offer.checkCode === CHECK_HIT_CODE && offer.waitingOn === 'opponent') ?? actionable[0];
+    actionable.find(
+      (offer) =>
+        offer.checkCode === CHECK_HIT_CODE &&
+        (offer.waitingOn === 'covering' || offer.waitingOn === 'opponent'),
+    ) ?? actionable[0];
   if (!checkOpen.value && !hitOpen.value && first) {
     if (first.checkCode === CHECK_HIT_CODE) {
       hitResumeOffer.value = first;
@@ -521,9 +529,11 @@ function onHitClosed(open: boolean): void {
   const key = speakerEntityKey.value;
   const waitingKey =
     current && current.status === 'pending'
-      ? current.waitingOn === 'opponent'
-        ? current.opponent
-        : current.initiator
+      ? current.waitingOn === 'covering'
+        ? (current.waitingOnCoverers?.[0] ?? null)
+        : current.waitingOn === 'opponent'
+          ? current.opponent
+          : current.initiator
       : null;
   if (current && (props.canEdit || (key !== null && key === waitingKey))) {
     dismissedOfferIds.value = new Set([...dismissedOfferIds.value, current.id]);

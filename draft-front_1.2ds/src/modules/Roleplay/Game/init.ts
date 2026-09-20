@@ -141,6 +141,9 @@ export function registerGameModule(): void {
   registerProfileSection({ id: 'macros', component: MacrosSection });
 }
 
+export { knowledgeDefenseService } from '@/modules/Roleplay/Game/Service/Instance/knowledgeDefenseService';
+export { coveringService } from '@/modules/Roleplay/Game/Service/Instance/coveringService';
+export { blockHitService } from '@/modules/Roleplay/Game/Service/Instance/blockHitService';
 export { knowledgeCheckLaunchService } from '@/modules/Roleplay/Game/Service/Instance/knowledgeCheckLaunchService';
 export { gameAccessService } from '@/modules/Roleplay/Game/Service/Instance/gameAccessService';
 export { gameStatusTransitionsService } from '@/modules/Roleplay/Game/Service/Instance/gameStatusTransitionsService';

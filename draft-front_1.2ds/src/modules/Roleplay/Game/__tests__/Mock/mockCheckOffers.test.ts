@@ -206,4 +206,36 @@ describe('mockCheckOffers: handshake pairwise', () => {
     expect(second.status).toBe('accepted');
     expect(second.proposal.strikeProposals?.map((slot) => slot.hit.reaction)).toEqual(['dodge', 'ignore']);
   });
+
+  it('прикрывающий отправляет преимущества атакующему и не закрывает оферту', async () => {
+    const coverer = 'character:3' as const;
+    const hitProposal: CheckOfferProposal = {
+      ...proposal,
+      coverInvites: [{ coveringKey: coverer, decision: 'pending' }],
+      hit: {
+        itemRuleCode: 'dagger',
+        itemName: 'Кинжал',
+        profileType: 'strike',
+        accuracy: { base: 5, size: 0 },
+        reaction: null,
+      },
+    };
+    const created = await createCheckOffer(7, {
+      checkCode: 'check-hit',
+      initiator,
+      opponent,
+      proposal: hitProposal,
+    });
+    expect(created.waitingOn).toBe('covering');
+    const revised = await reviseCheckOffer(created.id, coverer, {
+      ...hitProposal,
+      coverInvites: [{ coveringKey: coverer, decision: 'pending', coveringAdv: 2 }],
+    });
+    expect(revised.status).toBe('pending');
+    expect(revised.waitingOn).toBe('initiator');
+    expect(revised.proposal.coverInvites?.[0]?.coveringAdv).toBe(2);
+    const confirmed = await acceptCheckOffer(created.id, initiator, revised.proposal);
+    expect(confirmed.status).toBe('pending');
+    expect(confirmed.waitingOn).toBe('covering');
+  });
 });

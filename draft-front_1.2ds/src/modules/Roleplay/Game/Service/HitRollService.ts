@@ -28,6 +28,7 @@ import { withRangedHitBreakdown } from '@/modules/Roleplay/Game/Utils/rangedHitD
 
 import type { HitBlockProfile } from '@/modules/Roleplay/Game/Dto/HitBlockProfile';
 import type { HitRollInput } from '@/modules/Roleplay/Game/Dto/HitRollInput';
+import type { CoveredHitRoll } from '@/modules/Roleplay/Game/Dto/CoveredHitRoll';
 import type { SimultaneousHitRoll } from '@/modules/Roleplay/Game/Dto/SimultaneousHitRoll';
 import type { HitCheckRoll } from '@/modules/Roleplay/Game/Dto/HitCheckRoll';
 import type { WideHitRoll } from '@/modules/Roleplay/Game/Dto/WideHitRoll';
@@ -103,7 +104,13 @@ export class HitRollService {
         ? stacked.shield?.block
         : (stacked.shield?.block ?? stacked.weapon?.block_profile);
       if (!block) continue;
-      profiles.push({ itemRuleCode: item.ruleCode, itemName: rule.name, efficiency: block.efficiency });
+      profiles.push({
+        itemRuleCode: item.ruleCode,
+        itemName: rule.name,
+        efficiency: block.efficiency,
+        defense: block.defense,
+        resistances: block.resistances,
+      });
     }
 
     return profiles;
@@ -287,6 +294,41 @@ export class HitRollService {
     const defender = rollEngine.roll(defenseSpec, rng, rules, mechanics, attached, []);
 
     return checkRollService.withCheckOutcome(defender, CHECK_HIT_CODE, checkRollService.successesOf(attacker));
+  }
+
+  /** Один бросок атакующего, независимые защиты цели и прикрывающих. */
+  rollCoveredHit(
+    primary: HitRollInput,
+    coverings: HitRollInput[],
+    rng: DiceRng,
+    rules: Rule[],
+    mechanics: Mechanic[],
+  ): CoveredHitRoll {
+    const attacker = this.rollHit({ ...primary, reaction: 'ignore' }, rng, rules, mechanics).attacker;
+
+    return {
+      attacker,
+      primaryDefender: this.rollWideDefender(primary, attacker, rng, rules, mechanics),
+      coveringDefenders: coverings.map((covering) => ({
+        key: covering.defenderKey as CombatEntityKey,
+        result: this.rollWideDefender(covering, attacker, rng, rules, mechanics),
+      })),
+    };
+  }
+
+  bindCoveredHit(rolled: CoveredHitRoll, actualKey: CombatEntityKey, primaryKey: CombatEntityKey): HitCheckRoll {
+    const covering = rolled.coveringDefenders.find((entry) => entry.key === actualKey);
+    const defender =
+      actualKey === primaryKey ? rolled.primaryDefender : (covering?.result ?? rolled.primaryDefender);
+    const difficulty = defender ? checkRollService.successesOf(defender) : { base: 0, size: 0 };
+    const attacker = checkRollService.withCheckOutcome(
+      rolled.attacker,
+      CHECK_HIT_CODE,
+      difficulty,
+      rolled.attacker.check?.check_name,
+    );
+
+    return { attacker, defender };
   }
 
   /** Совместимость со старыми тестами. */
