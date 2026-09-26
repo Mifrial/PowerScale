@@ -3,6 +3,8 @@ import type { EditorMagicPathView } from '@/modules/Roleplay/Character/Dto/Edito
 import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { Grant } from '@/modules/Roleplay/Rule/Dto/Ability/Grant';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import type { CharacterSnapshot } from '@/modules/Roleplay/Character/Dto/Editor/CharacterSnapshot';
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import { magicStudyUnlockService } from '@/modules/Roleplay/Character/Service/Instance/magicStudyUnlockService';
 
 type MagicStudyGrant = Extract<Grant, { type: 'magic_study' }>;
@@ -13,7 +15,13 @@ type MagicStudyGrant = Extract<Grant, { type: 'magic_study' }>;
 export class EditorMagicPathViewsService {
   constructor(private readonly unlocks = magicStudyUnlockService) {}
 
-  build(build: CharacterBuild, rules: Rule[], keywords: Keyword[] = []): EditorMagicPathView[] {
+  build(
+    build: CharacterBuild,
+    rules: Rule[],
+    keywords: Keyword[] = [],
+    snapshot?: CharacterSnapshot,
+    characteristicValues?: Map<string, DimensionalNumberValue>,
+  ): EditorMagicPathView[] {
     const studyUnlocks = this.unlocks.unlocksOf(build.abilities, rules);
     const granted = this.unlocks.grantedPathCodes(build.abilities, rules);
     const pathCodes = this.pathCodes(granted, studyUnlocks);
@@ -23,7 +31,7 @@ export class EditorMagicPathViewsService {
       .map((pathCode) => {
         const rule = rules.find((entry) => entry.code === pathCode && entry.type === 'magic_path');
         if (!rule) return null;
-        const limits = this.limitsOf(pathCode, studyUnlocks);
+        const limits = this.limitsOf(pathCode, studyUnlocks, snapshot, characteristicValues);
 
         return {
           pathCode,
@@ -50,12 +58,18 @@ export class EditorMagicPathViewsService {
   private limitsOf(
     pathCode: string,
     unlocks: readonly MagicStudyGrant[],
+    snapshot?: CharacterSnapshot,
+    characteristicValues?: Map<string, DimensionalNumberValue>,
   ): { scope: MagicStudyGrant['scope']; maxCost: number }[] {
     const byScope = new Map<MagicStudyGrant['scope'], number>();
     for (const grant of unlocks) {
       if (grant.path_code !== pathCode) continue;
       const current = byScope.get(grant.scope);
-      if (current === undefined || grant.max_cost > current) byScope.set(grant.scope, grant.max_cost);
+      const maxCost =
+        characteristicValues === undefined
+          ? this.unlocks.resolvedMaxCost(grant, snapshot)
+          : this.unlocks.resolvedMaxCostFromCharacteristics(grant, characteristicValues);
+      if (current === undefined || maxCost > current) byScope.set(grant.scope, maxCost);
     }
 
     return [...byScope.entries()].map(([scope, maxCost]) => ({ scope, maxCost }));

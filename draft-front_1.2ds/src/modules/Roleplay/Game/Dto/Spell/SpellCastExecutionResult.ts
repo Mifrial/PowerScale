@@ -4,7 +4,11 @@ import type { HitCheckRoll } from '@/modules/Roleplay/Game/Dto/HitCheckRoll';
 import type { SpellCastRollOutcome } from '@/modules/Roleplay/Game/Dto/Spell/SpellCastRollOutcome';
 import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
 
-export type SpellCastRefuseReason = 'not_enough_ap' | 'needs_hit_offer' | 'invalid_saturation';
+export type SpellCastRefuseReason =
+  | 'not_enough_ap'
+  | 'needs_hit_offer'
+  | 'invalid_saturation'
+  | 'unavailable_spell';
 
 export type SpellCastDelivery = 'hit' | 'milk' | 'auto' | 'none';
 

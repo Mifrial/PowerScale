@@ -133,10 +133,12 @@ export class RuleViewLabelService {
       case 'magic_path':
         return `Даёт путь волшебства «${this.ruleName(rules, grant.path_code)}»`;
       case 'magic_study': {
+        const maxCostLabel =
+          typeof grant.max_cost === 'number' ? String(grant.max_cost) : 'значения характеристики';
         const scopeLabel =
           grant.scope === 'spell'
-            ? `заклинаний со стоимостью ${grant.max_cost} и меньше`
-            : `навыков волшебства (не заклинаний) со стоимостью ${grant.max_cost} и меньше`;
+            ? `заклинаний со стоимостью ${maxCostLabel} и меньше`
+            : `навыков волшебства (не заклинаний) со стоимостью ${maxCostLabel} и меньше`;
         const parts = [`Открывает изучение ${scopeLabel}`];
         if (grant.path_code) parts.push(`путь «${this.ruleName(rules, grant.path_code)}»`);
         if (grant.max_instances != null) {

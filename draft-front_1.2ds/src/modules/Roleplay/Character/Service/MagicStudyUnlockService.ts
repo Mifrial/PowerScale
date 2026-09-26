@@ -4,6 +4,9 @@ import type { MagicPathSpec } from '@/modules/Roleplay/Rule/Dto/MagicPath/MagicP
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { CharacterAbility } from '@/modules/Roleplay/Character/Dto/CharacterAbility';
 import type { MagicStudyLearned } from '@/modules/Roleplay/Character/Dto/Editor/MagicStudyLearned';
+import type { CharacterSnapshot } from '@/modules/Roleplay/Character/Dto/Editor/CharacterSnapshot';
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
+import { FormulaEvaluationService } from '@/modules/Roleplay/Character/Service/FormulaEvaluationService';
 
 type MagicStudyGrant = Extract<Grant, { type: 'magic_study' }>;
 
@@ -13,6 +16,43 @@ type MagicStudyGrant = Extract<Grant, { type: 'magic_study' }>;
  * Навыки, сами дающие путь или такое открытие, не требуют чужого гранта.
  */
 export class MagicStudyUnlockService {
+  private readonly formula = new FormulaEvaluationService();
+
+  resolvedMaxCost(grant: MagicStudyGrant, snapshot?: CharacterSnapshot): number {
+    return this.maxCostOf(grant, snapshot);
+  }
+
+  resolvedMaxCostFromCharacteristics(
+    grant: MagicStudyGrant,
+    characteristicValues: Map<string, DimensionalNumberValue>,
+  ): number {
+    if (typeof grant.max_cost === 'number') return grant.max_cost;
+
+    return this.formula.evaluate(grant.max_cost, {
+      characteristicValues,
+      abilityLevels: new Map(),
+    });
+  }
+
+  isAvailableForUse(
+    spec: AbilitySpec,
+    domainCode: string | null,
+    abilities: readonly CharacterAbility[],
+    rules: Rule[],
+    characteristicValues: Map<string, DimensionalNumberValue>,
+  ): boolean {
+    if (!this.hasMagicStudyGrants(rules)) return true;
+    const snapshot: CharacterSnapshot = {
+      abilityLevels: new Map(abilities.map((ability) => [ability.ruleCode, ability.level])),
+      abilityKeywords: new Map(),
+      characteristicValues,
+      resourceLimits: new Map(),
+      keywordCodes: new Set(),
+    };
+
+    return this.isJustified(spec, domainCode, this.unlocksOf(abilities, rules), [], rules, snapshot);
+  }
+
   isGated(spec: AbilitySpec, keywordCodes: ReadonlySet<string>): boolean {
     if (spec.type === 'group' || spec.type === 'trait') return false;
     if (!keywordCodes.has('magic')) return false;
@@ -102,6 +142,7 @@ export class MagicStudyUnlockService {
     grantedPathCodes: readonly string[],
     learned: readonly MagicStudyLearned[],
     occupying: { ruleCode: string; domainCode: string | null } | null = null,
+    snapshot?: CharacterSnapshot,
   ): string[] {
     const cost = this.firstLevelCost(spec);
     const scope = spec.type === 'spell' ? 'spell' : 'non_spell';
@@ -113,7 +154,7 @@ export class MagicStudyUnlockService {
       codes.push(code);
     };
     for (const grant of unlocks) {
-      if (grant.scope !== scope || cost > grant.max_cost) continue;
+      if (grant.scope !== scope || !this.costWithinLimit(grant, cost, snapshot)) continue;
       if (grant.max_instances != null) {
         const used = this.usedByGrant(grant, learned).filter((entry) => !this.sameOccupying(entry, occupying));
         if (used.length >= grant.max_instances) continue;
@@ -130,12 +171,13 @@ export class MagicStudyUnlockService {
     unlocks: readonly MagicStudyGrant[],
     _grantedPathCodes: readonly string[] = [],
     rules: Rule[] = [],
+    snapshot?: CharacterSnapshot,
   ): boolean {
     const cost = this.firstLevelCost(spec);
     const scope = spec.type === 'spell' ? 'spell' : 'non_spell';
 
     return unlocks.some((grant) => {
-      if (grant.scope !== scope || cost > grant.max_cost) return false;
+      if (grant.scope !== scope || !this.costWithinLimit(grant, cost, snapshot)) return false;
       if (!grant.path_code) return spec.type !== 'group';
 
       return grant.path_code === domainCode || this.pathCovers(rules, grant.path_code, domainCode);
@@ -163,12 +205,13 @@ export class MagicStudyUnlockService {
     unlocks: readonly MagicStudyGrant[],
     learned: readonly MagicStudyLearned[] = [],
     currentRuleCode?: string,
+    snapshot?: CharacterSnapshot,
   ): string | null {
     if (!this.isGated(spec, keywordCodes)) return null;
     if (currentRuleCode && learned.some((entry) => entry.ruleCode === currentRuleCode)) return null;
     const cost = this.firstLevelCost(spec);
     const scope = spec.type === 'spell' ? 'spell' : 'non_spell';
-    const open = unlocks.some((grant) => this.grantOpens(grant, spec, cost, scope, learned));
+    const open = unlocks.some((grant) => this.grantOpens(grant, spec, cost, scope, learned, snapshot));
     if (open) return null;
 
     return scope === 'spell'
@@ -182,12 +225,13 @@ export class MagicStudyUnlockService {
     learned: readonly MagicStudyLearned[],
     domainCode: string | null,
     occupying: { ruleCode: string; domainCode: string | null } | null = null,
+    snapshot?: CharacterSnapshot,
   ): number | null {
     const cost = this.firstLevelCost(spec);
     const scope = spec.type === 'spell' ? 'spell' : 'non_spell';
     for (const grant of unlocks) {
       if (grant.paid_cost == null) continue;
-      if (!this.matchesGrant(grant, spec, cost, scope, domainCode)) continue;
+      if (!this.matchesGrant(grant, spec, cost, scope, domainCode, snapshot)) continue;
       if (grant.max_instances == null) return grant.paid_cost;
       const used = this.usedByGrant(grant, learned).filter((entry) => !this.sameOccupying(entry, occupying));
       if (used.length < grant.max_instances) return grant.paid_cost;
@@ -338,8 +382,9 @@ export class MagicStudyUnlockService {
     cost: number,
     scope: MagicStudyGrant['scope'],
     learned: readonly MagicStudyLearned[],
+    snapshot?: CharacterSnapshot,
   ): boolean {
-    if (grant.scope !== scope || cost > grant.max_cost) return false;
+    if (grant.scope !== scope || !this.costWithinLimit(grant, cost, snapshot)) return false;
     if (grant.max_instances == null) return true;
 
     return this.usedByGrant(grant, learned).length < grant.max_instances;
@@ -351,8 +396,9 @@ export class MagicStudyUnlockService {
     cost: number,
     scope: MagicStudyGrant['scope'],
     domainCode: string | null,
+    snapshot?: CharacterSnapshot,
   ): boolean {
-    if (grant.scope !== scope || cost > grant.max_cost) return false;
+    if (grant.scope !== scope || !this.costWithinLimit(grant, cost, snapshot)) return false;
     if (grant.path_code) return grant.path_code === domainCode;
 
     return spec.type !== 'group';
@@ -364,6 +410,32 @@ export class MagicStudyUnlockService {
       const scope = entry.spec.type === 'spell' ? 'spell' : 'non_spell';
 
       return this.matchesGrant(grant, entry.spec, cost, scope, entry.domainCode);
+    });
+  }
+
+  private maxCostOf(grant: MagicStudyGrant, snapshot?: CharacterSnapshot): number {
+    if (typeof grant.max_cost === 'number') return grant.max_cost;
+    if (!snapshot) return 0;
+
+    return this.formula.evaluate(grant.max_cost, {
+      characteristicValues: snapshot.characteristicValues,
+      abilityLevels: snapshot.abilityLevels,
+    });
+  }
+
+  private costWithinLimit(grant: MagicStudyGrant, cost: number, snapshot?: CharacterSnapshot): boolean {
+    if (typeof grant.max_cost !== 'number' && !snapshot) return true;
+
+    return cost <= this.maxCostOf(grant, snapshot);
+  }
+
+  private hasMagicStudyGrants(rules: Rule[]): boolean {
+    return rules.some((rule) => {
+      if (rule.type !== 'ability' || !rule.spec || !('type' in rule.spec)) return false;
+      const spec = rule.spec as AbilitySpec;
+      if (spec.type === 'group') return false;
+
+      return spec.grants.some((entry) => entry.grants.some((grant) => grant.type === 'magic_study'));
     });
   }
 

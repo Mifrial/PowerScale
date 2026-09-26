@@ -25,6 +25,7 @@ export function getCharacterApi(): ICharacterApi {
 
 export { characterEditorService } from '@/modules/Roleplay/Character/Service/Instance/characterEditorService';
 export { characterBuildService } from '@/modules/Roleplay/Character/Service/Instance/characterBuildService';
+export { magicStudyUnlockService } from '@/modules/Roleplay/Character/Service/Instance/magicStudyUnlockService';
 export { useAttackFavorites } from '@/modules/Roleplay/Character/Composables/useAttackFavorites';
 export { useCharacterDraft } from '@/modules/Roleplay/Character/Composables/useCharacterDraft';
 export { useCharacterCatalog } from '@/modules/Roleplay/Character/Composables/useCharacterCatalog';

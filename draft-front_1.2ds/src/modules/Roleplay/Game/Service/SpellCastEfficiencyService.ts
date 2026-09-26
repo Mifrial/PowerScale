@@ -11,11 +11,15 @@ export class SpellCastEfficiencyService {
     sourceCode: string;
     delta: number;
   }[] {
-    if (!abilities.some((ability) => ability.ruleCode === 'basic-element-properties' && ability.level > 0)) {
-      return [];
+    const deltas: { sourceCode: string; delta: number }[] = [];
+    if (abilities.some((ability) => ability.ruleCode === 'basic-element-properties' && ability.level > 0)) {
+      deltas.push({ sourceCode: 'mastery', delta: 1 });
+    }
+    if (abilities.some((ability) => ability.ruleCode === 'magic-structure-interaction' && ability.level > 0)) {
+      deltas.push({ sourceCode: 'mastery', delta: 2 });
     }
 
-    return [{ sourceCode: 'mastery', delta: 1 }];
+    return deltas;
   }
 
   apply(

@@ -42,6 +42,8 @@ const SLICE_CODES = [
   'magic-structure-analysis',
   'dynamic-energy-saturation',
   'basic-element-properties',
+  'magic-structure-construction',
+  'magic-structure-interaction',
 ] as const;
 
 const byCode = new Map(ruleCatalog.map((rule) => [rule.code, rule]));
@@ -400,6 +402,29 @@ describe('mockSpellImport (M4)', () => {
     const analysis = abilitySpec('magic-structure-analysis');
     expect(analysis && 'zones' in analysis ? analysis.zones : null).toEqual({});
     expect(byCode.get('magic-structure-analysis')?.description).toContain('description-expanded-block');
+    const high = 'abilities-acquired-magic-paths-arcanist-education-high';
+    expect(byCode.get('magic-structure-construction')?.catalogSection).toBe(high);
+    expect(byCode.get('magic-structure-interaction')?.catalogSection).toBe(high);
+    expect(byCode.get('magic-structure-construction')?.keywordIds).toEqual([13, 3, 57, 228, 229]);
+    expect(byCode.get('magic-structure-interaction')?.keywordIds).toEqual([13, 3, 57, 228, 229]);
+    const construction = abilitySpec('magic-structure-construction');
+    const constructionGrants =
+      construction && 'grants' in construction ? (construction.grants[0]?.grants ?? []) : [];
+    expect(constructionGrants).toEqual([
+      {
+        type: 'magic_study',
+        scope: 'spell',
+        max_cost: { type: 'characteristic', characteristic_code: 'intellect', modifier: 0 },
+        path_code: 'arcanist',
+      },
+      {
+        type: 'magic_study',
+        scope: 'non_spell',
+        max_cost: { type: 'characteristic', characteristic_code: 'intellect', modifier: 0 },
+        path_code: 'arcanist',
+      },
+    ]);
+    expect(byCode.get('magic-structure-interaction')?.description).toContain('бонус +2');
     expect(byCode.get('check-magic-analysis')?.catalogSection).toBe('magic-rules-checks');
     expect(byCode.get('check-spell-cast')?.catalogSection).toBe('magic-rules-checks');
     const piercing = abilitySpec('piercing-magic');

@@ -60,8 +60,17 @@ const resourceViews = computed<EditorResourceView[]>(() =>
 );
 
 const checkBonuses = computed<EditorCheckBonus[]>(() => editorCheckBonusesService.build(props.build, props.rules));
+const characteristicValues = computed(
+  () => new Map(props.stats.map((entry) => [entry.characteristic.ruleCode, entry.characteristic.value])),
+);
 const magicPaths = computed<EditorMagicPathView[]>(() =>
-  editorMagicPathViewsService.build(props.build, props.rules, props.keywords ?? []),
+  editorMagicPathViewsService.build(
+    props.build,
+    props.rules,
+    props.keywords ?? [],
+    undefined,
+    characteristicValues.value,
+  ),
 );
 const checksExpanded = ref(false);
 

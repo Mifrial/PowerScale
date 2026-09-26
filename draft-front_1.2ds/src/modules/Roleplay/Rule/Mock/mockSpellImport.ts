@@ -30,6 +30,7 @@ const SHAMAN_KEYWORD = 231;
 const METHOD_INTELLECT_KEYWORD = 57;
 const ACTIVITY_KEYWORD = 234;
 const ARCANIST_ADVANCED_SECTION = 'abilities-acquired-magic-paths-arcanist-education-advanced';
+const ARCANIST_HIGH_SECTION = 'abilities-acquired-magic-paths-arcanist-education-high';
 const METHOD_COMMUNICATION_KEYWORD = 141;
 const SECTION_WILLPOWER_KEYWORD = 60;
 
@@ -864,6 +865,75 @@ export const mockSpellImport: Rule[] = [
       parent_ability_code: null,
     },
     catalogSection: ARCANIST_ADVANCED_SECTION,
+    keywordIds: [SKILL_KEYWORD, MAGIC_KEYWORD, METHOD_INTELLECT_KEYWORD, MAGIC_PATH_KEYWORD, ARCANIST_KEYWORD],
+  }),
+  rule({
+    id: nextId++,
+    code: 'magic-structure-construction',
+    type: 'ability',
+    name: 'Конструирование магических структур',
+    description:
+      '<p>Вы открываете возможность изучать заклинания и навыки волшебства пути Арканиста с базовой стоимостью не более текущего значения вашего Интеллекта.</p>',
+    spec: {
+      type: 'skill',
+      zones: orCost(2),
+      requirements: [
+        {
+          level: 1,
+          requirements: [
+            { type: 'has_ability', ability_code: 'magic-structure-overview', min_level: 1 },
+            { type: 'has_ability', ability_code: 'fizika', min_level: 1 },
+            { type: 'has_ability', ability_code: 'basic-element-properties', min_level: 1 },
+          ],
+        },
+      ],
+      grants: [
+        {
+          level: 1,
+          grants: [
+            {
+              type: 'magic_study',
+              scope: 'spell',
+              max_cost: { type: 'characteristic', characteristic_code: 'intellect', modifier: 0 },
+              path_code: 'arcanist',
+            },
+            {
+              type: 'magic_study',
+              scope: 'non_spell',
+              max_cost: { type: 'characteristic', characteristic_code: 'intellect', modifier: 0 },
+              path_code: 'arcanist',
+            },
+          ],
+        },
+      ],
+      parent_ability_code: null,
+    },
+    catalogSection: ARCANIST_HIGH_SECTION,
+    keywordIds: [SKILL_KEYWORD, MAGIC_KEYWORD, METHOD_INTELLECT_KEYWORD, MAGIC_PATH_KEYWORD, ARCANIST_KEYWORD],
+  }),
+  rule({
+    id: nextId++,
+    code: 'magic-structure-interaction',
+    type: 'ability',
+    name: 'Взаимодействие структур волшебства',
+    description:
+      '<p>Вы получаете бонус +2 к эффективности проверок на Сотворение волшебства от Мастерства для любого пути волшебства.</p><p><span class="description-hint">Эффективность — это грань кубика, до которой результат считается успехом. Бонус от одного источника не складывается с другим бонусом того же источника.</span></p>',
+    spec: {
+      type: 'skill',
+      zones: orCost(3),
+      requirements: [
+        {
+          level: 1,
+          requirements: [
+            { type: 'has_ability', ability_code: 'magic-structure-construction', min_level: 1 },
+            { type: 'magic_path_experience', path_code: 'arcanist', min: 40 },
+          ],
+        },
+      ],
+      grants: [],
+      parent_ability_code: null,
+    },
+    catalogSection: ARCANIST_HIGH_SECTION,
     keywordIds: [SKILL_KEYWORD, MAGIC_KEYWORD, METHOD_INTELLECT_KEYWORD, MAGIC_PATH_KEYWORD, ARCANIST_KEYWORD],
   }),
 ];

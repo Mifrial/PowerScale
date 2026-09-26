@@ -2136,6 +2136,9 @@ async function finishSpellAfterHit(
     pathCode: ctx.pathCode ?? null,
     appliedUpgradeCodes: ctx.appliedUpgradeCodes ?? [],
   };
+  if (!spellCastExecutionService.isSpellAvailableForUse(executionInput)) {
+    throw new Error('Заклинание временно недоступно при текущем Интеллекте');
+  }
   const spent = await spendAp(accepted.initiator, ctx.spentAp);
   if (spent !== ctx.spentAp) {
     throw new Error('Недостаточно ОД для завершения сотворения');

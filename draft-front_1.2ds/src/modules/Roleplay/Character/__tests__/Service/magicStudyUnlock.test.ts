@@ -131,6 +131,70 @@ describe('MagicStudyUnlockService', () => {
     expect(service.failureReason(spell(1), new Set(['magic']), unlocks)).not.toBeNull();
   });
 
+  it('разрешает формульный потолок из текущего Интеллекта', () => {
+    const unlocks = [
+      {
+        type: 'magic_study' as const,
+        scope: 'spell' as const,
+        max_cost: { type: 'characteristic' as const, characteristic_code: 'intellect', modifier: 0 },
+        path_code: 'arcanist',
+      },
+    ];
+    const snapshot = {
+      abilityLevels: new Map<string, number>(),
+      abilityKeywords: new Map<string, Set<string>>(),
+      characteristicValues: new Map([['intellect', { base: 4, size: 0 }]]),
+      resourceLimits: new Map<string, number | { base: number; size: number }>(),
+      keywordCodes: new Set<string>(),
+    };
+
+    expect(service.failureReason(spell(4), new Set(['magic']), unlocks, [], undefined, snapshot)).toBeNull();
+    expect(service.failureReason(spell(5), new Set(['magic']), unlocks, [], undefined, snapshot)).not.toBeNull();
+  });
+
+  it('runtime-доступность заклинания следует текущему Интеллекту', () => {
+    const construction = skill(2, [
+      {
+        level: 1,
+        grants: [
+          {
+            type: 'magic_study' as const,
+            scope: 'spell' as const,
+            max_cost: {
+              type: 'characteristic' as const,
+              characteristic_code: 'intellect',
+              modifier: 0,
+            },
+            path_code: 'arcanist',
+          },
+        ],
+      },
+    ]);
+    const rules = [
+      { code: 'magic-structure-construction', type: 'ability' as const, spec: construction },
+    ] as never;
+    const abilities = [{ ruleCode: 'magic-structure-construction', level: 1 }];
+
+    expect(
+      service.isAvailableForUse(
+        spell(4),
+        'arcanist',
+        abilities,
+        rules,
+        new Map([['intellect', { base: 4, size: 0 }]]),
+      ),
+    ).toBe(true);
+    expect(
+      service.isAvailableForUse(
+        spell(5),
+        'arcanist',
+        abilities,
+        rules,
+        new Map([['intellect', { base: 4, size: 0 }]]),
+      ),
+    ).toBe(false);
+  });
+
   it('опыт пути суммирует стоимость способностей с доменом или признаком пути', () => {
     const rules = [
       {

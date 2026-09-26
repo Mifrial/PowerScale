@@ -320,6 +320,7 @@ function patch(key: string, value: unknown) {
           hide-details
         />
         <ClampedNumberField
+          v-if="typeof inner.max_cost === 'number'"
           :model-value="inner.max_cost"
           :min="0"
           @update:model-value="patch('max_cost', $event)"
@@ -327,6 +328,9 @@ function patch(key: string, value: unknown) {
           density="compact"
           hide-details
         />
+        <div v-else class="text-caption text-medium-emphasis">
+          Максимальная стоимость определяется характеристикой
+        </div>
         <v-autocomplete
           :model-value="inner.path_code ?? null"
           @update:model-value="patch('path_code', $event || undefined)"

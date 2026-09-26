@@ -32,7 +32,7 @@ export type Grant =
   | {
       type: 'magic_study';
       scope: MagicStudyScope;
-      max_cost: number;
+      max_cost: number | Formula;
       /** Путь как домен изучения, без гранта самого пути (каст этим путём не открывается). */
       path_code?: string;
       /** Сколько способностей этот грант может открыть; без поля — без лимита. */

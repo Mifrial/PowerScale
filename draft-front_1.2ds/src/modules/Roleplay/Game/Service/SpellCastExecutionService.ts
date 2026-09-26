@@ -10,7 +10,7 @@ import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber
 import type { SpellCastRollOutcome } from '@/modules/Roleplay/Game/Dto/Spell/SpellCastRollOutcome';
 import { spellCastEfficiencyService } from '@/modules/Roleplay/Game/Service/Instance/spellCastEfficiencyService';
 import { CHARACTERISTIC_BASE_RANGE } from '@/modules/Roleplay/Rule/Value/CharacteristicNumber';
-import { keywordExperienceService } from '@/modules/Roleplay/Character/init';
+import { keywordExperienceService, magicStudyUnlockService } from '@/modules/Roleplay/Character/init';
 import { spellDamageService, damageTypeSpecService } from '@/modules/Roleplay/Rule/init';
 import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
 import { damageTypeHooksService } from '@/modules/Roleplay/Game/Service/Instance/damageTypeHooksService';
@@ -71,6 +71,21 @@ export class SpellCastExecutionService {
     return Math.max(spellOd + spellCastUpgradeService.actionPointDelta(selected), touchOd);
   }
 
+  isSpellAvailableForUse(
+    input: Pick<SpellCastExecutionInput, 'spellCode' | 'pathCode' | 'casterOverview' | 'casterAbilities' | 'rules'>,
+  ): boolean {
+    const spellSpec = this.spellSpec(input.spellCode, input.rules);
+    if (!spellSpec) return true;
+
+    return magicStudyUnlockService.isAvailableForUse(
+      spellSpec,
+      input.pathCode,
+      input.casterAbilities,
+      input.rules,
+      new Map(input.casterOverview.characteristics.map((characteristic) => [characteristic.ruleCode, characteristic.value])),
+    );
+  }
+
   private castAdvantages(input: SpellCastExecutionInput) {
     return [
       ...spellCastUpgradeService.advantageModifiers(
@@ -118,12 +133,16 @@ export class SpellCastExecutionService {
   }
 
   execute(input: SpellCastExecutionInput, preparedCast?: SpellCastRollOutcome): SpellCastExecutionResult {
+    const spellSpec = this.spellSpec(input.spellCode, input.rules);
+    if (!this.isSpellAvailableForUse(input)) {
+      return this.refused('unavailable_spell');
+    }
     const cost = this.actionPointCost(input);
     if (cost > input.currentActionPoints.base) {
       return this.refused('not_enough_ap');
     }
     const remaining = attackDamageService.spendActionPoints(input.currentActionPoints, cost);
-    const spec = this.spellSpec(input.spellCode, input.rules);
+    const spec = spellSpec;
     const resolution = spec?.hit_resolution ?? { type: 'none' };
     const autoFail = resolution.type === 'auto' && !input.resolve.hasTarget;
     let hit: SpellCastExecutionResult['hit'] = null;
@@ -218,6 +237,9 @@ export class SpellCastExecutionService {
     preparedCast?: SpellCastRollOutcome,
   ): SpellCastExecutionResult {
     const spec = this.spellSpec(input.spellCode, input.rules);
+    if (!this.isSpellAvailableForUse(input)) {
+      return this.refused('unavailable_spell');
+    }
     const resolution = spec?.hit_resolution ?? { type: 'none' };
     const spentBase: Omit<SpellCastExecutionResult, 'cast' | 'spellApply' | 'spellSr' | 'autoFail'> = {
       started: true,

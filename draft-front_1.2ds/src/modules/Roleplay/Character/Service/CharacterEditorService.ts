@@ -1168,7 +1168,7 @@ export class CharacterEditorService {
         });
       }
       this.applyParentKnowledgeField(levels, spec, build);
-      this.applyMagicStudyGate(levels, spec, rule, keywordCodes, studyUnlocks, learnedStudy, rule.code);
+      this.applyMagicStudyGate(levels, spec, rule, keywordCodes, studyUnlocks, learnedStudy, rule.code, snapshot);
 
       // Пер-экземплярные требования множественного навыка: has_ability проверяется по экземплярам
       // с тем же доменом («Письменность того же языка», требование родителя-улучшения — тоже).
@@ -1187,7 +1187,7 @@ export class CharacterEditorService {
             reason: hasRequirements ? evaluator.failureSummary(all, snapshot, domainContext) : null,
           });
         }
-        this.applyMagicStudyGate(result, spec, rule, keywordCodes, studyUnlocks, learnedStudy, rule.code);
+        this.applyMagicStudyGate(result, spec, rule, keywordCodes, studyUnlocks, learnedStudy, rule.code, snapshot);
 
         return result;
       };
@@ -1202,11 +1202,11 @@ export class CharacterEditorService {
         rule.code,
       );
       const firstLevelCost = zones.find((zone) => zone.levelCosts.length > 0)?.levelCosts[0] ?? 0;
-      const skipGrantPaid = this.skipGrantPaid(build, rules, studyUnlocks, learnedStudy);
+      const skipGrantPaid = this.skipGrantPaid(build, rules, studyUnlocks, learnedStudy, snapshot);
       const pathCosts = domainOptions.map((option) => ({
         ...option,
         cost:
-          this.magicStudyUnlock.paidCostOverride(spec, studyUnlocks, learnedStudy, option.code, null) ??
+          this.magicStudyUnlock.paidCostOverride(spec, studyUnlocks, learnedStudy, option.code, null, snapshot) ??
           this.magicPathStudyCost.nextInstanceCost(build, rules, option.code, firstLevelCost, skipGrantPaid),
       }));
       const unusedPathCosts = pathCosts.filter(
@@ -1255,7 +1255,7 @@ export class CharacterEditorService {
                 this.magicStudyUnlock.paidCostOverride(spec, studyUnlocks, learnedStudy, instance.domainCode ?? null, {
                   ruleCode: rule.code,
                   domainCode: instance.domainCode ?? null,
-                }) ??
+                }, snapshot) ??
                 this.magicPathStudyCost.instancePaid(
                   build,
                   rules,
@@ -1348,9 +1348,10 @@ export class CharacterEditorService {
     unlocks: Extract<Grant, { type: 'magic_study' }>[],
     learned: readonly MagicStudyLearned[],
     currentRuleCode: string,
+    snapshot: CharacterSnapshot,
   ): void {
     const codes = this.magicStudyUnlock.keywordCodesOf(rule, keywordCodes);
-    const reason = this.magicStudyUnlock.failureReason(spec, codes, unlocks, learned, currentRuleCode);
+    const reason = this.magicStudyUnlock.failureReason(spec, codes, unlocks, learned, currentRuleCode, snapshot);
     if (!reason) return;
     for (const level of levels) {
       if (level.met) {
@@ -2267,7 +2268,7 @@ export class CharacterEditorService {
     ruleCode: string,
   ): { code: string; name: string }[] {
     const granted = this.magicStudyUnlock.grantedPathCodes(build.abilities, rules);
-    const codes = this.magicStudyUnlock.openPathCodes(spec, unlocks, granted, learned, null);
+    const codes = this.magicStudyUnlock.openPathCodes(spec, unlocks, granted, learned, null, snapshot);
     const options: { code: string; name: string }[] = [];
     const seen = new Set<string>();
     const evaluator = new RequirementEvaluator();
@@ -2300,6 +2301,7 @@ export class CharacterEditorService {
     rules: Rule[],
     unlocks: Extract<Grant, { type: 'magic_study' }>[],
     learned: readonly MagicStudyLearned[],
+    snapshot?: CharacterSnapshot,
   ): (ability: CharacterAbility) => boolean {
     return (ability) => {
       const rule = rules.find((entry) => entry.code === ability.ruleCode);
@@ -2310,7 +2312,7 @@ export class CharacterEditorService {
         this.magicStudyUnlock.paidCostOverride(spec, unlocks, learned, ability.domainCode ?? null, {
           ruleCode: ability.ruleCode,
           domainCode: ability.domainCode ?? null,
-        }) != null
+        }, snapshot) != null
       );
     };
   }

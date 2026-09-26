@@ -52,4 +52,21 @@ describe('SpellCastEfficiencyService', () => {
       { sourceCode: 'mastery', delta: 1 },
     ]);
   });
+
+  it('взаимодействие даёт +2 мастерства', () => {
+    expect(service.deltasForAbilities([{ ruleCode: 'magic-structure-interaction', level: 1 }])).toEqual([
+      { sourceCode: 'mastery', delta: 2 },
+    ]);
+  });
+
+  it('взаимодействие и свойства базовых элементов дают лучший бонус источника', () => {
+    const deltas = service.deltasForAbilities([
+      { ruleCode: 'basic-element-properties', level: 1 },
+      { ruleCode: 'magic-structure-interaction', level: 1 },
+    ]);
+    const next = service.apply(spec(), CHECK_SPELL_CAST_CODE, deltas);
+
+    expect(next.efficiency).toBe(5);
+    expect(next.efficiencySize).toBe(0);
+  });
 });

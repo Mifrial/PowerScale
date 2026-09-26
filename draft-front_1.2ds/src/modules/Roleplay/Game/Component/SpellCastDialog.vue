@@ -229,6 +229,15 @@ const spellItems = computed(() =>
     ...spell,
     powerLabel: spellCastDifficultyService.formatSpellRequirement(spell.requiredPower),
     controlLabel: spellCastDifficultyService.formatSpellRequirement(spell.requiredControl),
+    disabled:
+      !overview.value ||
+      !spellCastExecutionService.isSpellAvailableForUse({
+        spellCode: spell.ruleCode,
+        pathCode: pathCode.value || null,
+        casterOverview: overview.value,
+        casterAbilities: casterVersion.value?.abilities ?? [],
+        rules: props.rules,
+      }),
   })),
 );
 const sourceItems = computed(() =>
@@ -244,6 +253,17 @@ const pathItems = computed(() => paths.value.map((path) => ({ value: path.pathCo
 const selectedPath = computed(() => paths.value.find((path) => path.pathCode === pathCode.value) ?? null);
 const selectedSpell = computed(() => props.rules.find((rule) => rule.code === spellCode.value));
 const spellSpec = computed(() => spellCastDifficultyService.asSpellAbilitySpec(selectedSpell.value));
+const spellAvailable = computed(() => {
+  if (!overview.value || !spellCode.value) return false;
+
+  return spellCastExecutionService.isSpellAvailableForUse({
+    spellCode: spellCode.value,
+    pathCode: pathCode.value || null,
+    casterOverview: overview.value,
+    casterAbilities: casterVersion.value?.abilities ?? [],
+    rules: props.rules,
+  });
+});
 const needsTouchAttack = computed(() => spellSpec.value?.hit_resolution?.type === 'attack');
 const spellTargeting = computed(() => {
   const targeting = spellSpec.value?.spell.targeting;
@@ -546,6 +566,11 @@ async function runCast(): Promise<void> {
   lastMilk.value = false;
   lastAutoFail.value = false;
   try {
+    if (!spellAvailable.value) {
+      error.value = 'Заклинание временно недоступно при текущем Интеллекте';
+
+      return;
+    }
     if (resolvedCasterKey.value && committedSessions.value[resolvedCasterKey.value]) {
       error.value = 'Сначала закончи или сорви текущее действие';
 
@@ -578,6 +603,11 @@ async function runCast(): Promise<void> {
       }
       const pendingEffects = (await getGameApi().getPendingActionEffects(props.gameId))[resolvedCasterKey.value] ?? [];
       const pendingResolution = actionEffectService.resolveForSpellCast(pendingEffects, cost);
+      if (!spellAvailable.value) {
+        error.value = 'Заклинание временно недоступно при текущем Интеллекте';
+
+        return;
+      }
       await offerTouchHit(
         resolvedCasterKey.value,
         touchKey,
@@ -678,6 +708,11 @@ async function runCast(): Promise<void> {
 
       return;
     }
+    if (!spellCastExecutionService.isSpellAvailableForUse(executionInput)) {
+      error.value = 'Заклинание временно недоступно при текущем Интеллекте';
+
+      return;
+    }
     await persistSpentAp(resolvedCasterKey.value, executionCost, pendingResolution.remainingEffects);
     const preparedCast = spellCastExecutionService.rollCast(executionInput);
     if (spellCastExecutionService.needsSaturationChoice(executionInput, preparedCast)) {
@@ -711,7 +746,9 @@ async function settleCast(
     error.value =
       outcome.refuseReason === 'invalid_saturation'
         ? 'Нельзя потратить больше РУ, чем дала проверка'
-        : 'Недостаточно ОД для сотворения';
+        : outcome.refuseReason === 'unavailable_spell'
+          ? 'Способность временно недоступна при текущем Интеллекте'
+          : 'Недостаточно ОД для сотворения';
 
     return;
   }
@@ -1624,6 +1661,9 @@ async function runChainHops(outcome: SpellCastExecutionResult, firstKey: CombatE
             Без цели заклинания сотворение автоматически провалится
           </div>
           <div class="text-body-2 mt-4">{{ castCheckLine }}</div>
+          <div v-if="!spellAvailable" class="text-caption text-warning mt-1">
+            Заклинание недоступно при текущем Интеллекте
+          </div>
           <ConcentrationTokenOption
             v-model="spendConcentration"
             :version="casterVersion"
@@ -1644,7 +1684,12 @@ async function runChainHops(outcome: SpellCastExecutionResult, firstKey: CombatE
         </v-btn>
         <template v-else>
           <v-btn variant="text" @click="close">Закрыть</v-btn>
-          <v-btn color="primary" :loading="busy" :disabled="!canEdit || !spellCode || !preview" @click="runCast">
+          <v-btn
+            color="primary"
+            :loading="busy"
+            :disabled="!canEdit || !spellCode || !preview || !spellAvailable"
+            @click="runCast"
+          >
             Сотворить
           </v-btn>
         </template>
