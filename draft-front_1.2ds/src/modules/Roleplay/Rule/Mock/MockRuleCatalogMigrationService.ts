@@ -99,8 +99,7 @@ export class MockRuleCatalogMigrationService {
       return 'scenes-other';
     }
     if (keywords.has('electromancy')) return 'abilities-acquired-magic-spells-electromancy';
-    if (spec?.type === 'spell' && keywords.has('psionic')) return 'abilities-acquired-magic-spells-psionic';
-    if (spec?.type === 'spell') return 'abilities-acquired-magic-spells-electromancy';
+    if (spec?.type === 'spell') return 'abilities-acquired-magic-spells-other';
     if (keywords.has('shaman') || rule.code === 'otherworldly-contact') {
       return 'abilities-acquired-magic-paths-shaman';
     }

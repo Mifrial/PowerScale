@@ -70,9 +70,14 @@ export class RequirementEvaluator {
         return `требуется способность ${label}`;
       }
       case 'has_ability_keyword': {
+        const excluded = new Set(requirement.exclude_keyword_codes ?? []);
         let count = 0;
         for (const [code, level] of snapshot.abilityLevels) {
-          if (level > 0 && snapshot.abilityKeywords.get(code)?.has(requirement.keyword_code)) count++;
+          if (level <= 0) continue;
+          const keywords = snapshot.abilityKeywords.get(code);
+          if (!keywords?.has(requirement.keyword_code)) continue;
+          if ([...excluded].some((keywordCode) => keywords.has(keywordCode))) continue;
+          count++;
         }
         if (count >= requirement.min_count) return null;
 

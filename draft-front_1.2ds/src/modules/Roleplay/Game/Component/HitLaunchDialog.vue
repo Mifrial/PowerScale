@@ -188,6 +188,17 @@ const agreedInitiatorAdv = ref(0);
 const agreedOpponentAdv = ref(0);
 const agreedCover = ref(0);
 const busy = ref(false);
+const saturationOpen = ref(false);
+const saturationSteps = ref(0);
+const saturationRating = ref(0);
+const saturationPower = ref<DimensionalNumberValue>({ base: 0, size: 0 });
+const saturationMaxSteps = computed(() => Math.floor(saturationRating.value / 2));
+const saturationCurrentRating = computed(() => saturationRating.value - saturationSteps.value * 2);
+const saturationCurrentPowerLabel = computed(() =>
+  DimensionalNumber.from(saturationPower.value).modify(saturationSteps.value, CHARACTERISTIC_BASE_RANGE).toString(),
+);
+let saturationResolve: ((steps: number) => void) | null = null;
+
 const error = ref<string | null>(null);
 const burstOpen = ref(false);
 const appliedStrikeUpgradeCodes = ref<string[]>([]);
@@ -271,7 +282,8 @@ function actingEntity(current: CheckOffer): CombatEntityKey | null {
 function actorRole(current: CheckOffer): 'initiator' | 'opponent' | 'covering' | null {
   const actor = actingEntity(current);
   if (actor === current.initiator) return 'initiator';
-  if (current.waitingOn === 'covering' && actor !== null && current.waitingOnCoverers?.includes(actor)) return 'covering';
+  if (current.waitingOn === 'covering' && actor !== null && current.waitingOnCoverers?.includes(actor))
+    return 'covering';
   if (actor === current.opponent || (actor !== null && current.waitingOnTargets?.includes(actor))) return 'opponent';
 
   return null;
@@ -347,6 +359,7 @@ const acceptedCoverInvites = computed(() => coveringService.acceptedInvites(offe
 
 const coveringBlockProfiles = computed(() => {
   const key = isCoveringStep.value && offer.value ? actingEntity(offer.value) : null;
+
   return key ? hitRollService.listBlockProfiles(versionOf(key), props.rules) : [];
 });
 
@@ -1050,7 +1063,9 @@ function coveringInviteProposal(decision: 'cover' | 'decline' | 'pending'): Chec
   const invites = current.proposal.coverInvites ?? [];
   const efficiency =
     coveringBlockProfiles.value.find((profile) => profile.itemRuleCode === coveringBlockItemRuleCode.value)
-      ?.efficiency ?? coveringBlockProfiles.value[0]?.efficiency ?? null;
+      ?.efficiency ??
+    coveringBlockProfiles.value[0]?.efficiency ??
+    null;
   if (decision === 'cover') {
     if (!coveringBlockItemRuleCode.value) throw new Error('Выберите профиль блока');
     if (coveringService.cost() > remainingAp(actor)) throw new Error('Недостаточно ОД для Прикрытия');
@@ -1643,6 +1658,7 @@ async function acceptAndRoll(): Promise<void> {
   let skipParentPending = false;
   let rushApplied = false;
   const strikeHits: { targetKey: string; attackSr: number }[] = [];
+  let spellPendingEffects: PendingActionEffect[] | null = null;
   const applyRush = async () => {
     if (rushApplied) return;
     rushApplied = true;
@@ -1741,7 +1757,7 @@ async function acceptAndRoll(): Promise<void> {
       }
       const touchAttacker =
         rolledHits.attackers.find((item) => item.check?.passed) ?? rolledHits.attackers[0] ?? rolled.attacker;
-      await finishSpellAfterHit(
+      spellPendingEffects = await finishSpellAfterHit(
         accepted,
         { attacker: touchAttacker, defender: rolled.defender },
         {
@@ -1763,7 +1779,7 @@ async function acceptAndRoll(): Promise<void> {
   const nextEffects = lastStrikeService.replaceOnPending(
     [
       ...(spellPaid
-        ? pendingResolution.remainingEffects
+        ? (spellPendingEffects ?? pendingResolution.remainingEffects)
         : actionEffectService.consumeResource(pendingResolution.remainingEffects, ACTION_POINTS_CODE, finalAttackCost)),
       ...(skipParentPending
         ? []
@@ -2034,6 +2050,28 @@ async function runSpellDeviationFromHit(
   }
 }
 
+function askSaturationSteps(rating: number, power: DimensionalNumberValue): Promise<number> {
+  saturationRating.value = rating;
+  saturationPower.value = power;
+  saturationSteps.value = 0;
+  saturationOpen.value = true;
+
+  return new Promise((resolve) => {
+    saturationResolve = resolve;
+  });
+}
+
+function confirmSaturationSteps(): void {
+  const steps = Math.min(saturationMaxSteps.value, Math.max(0, Math.trunc(saturationSteps.value)));
+  saturationOpen.value = false;
+  saturationResolve?.(steps);
+  saturationResolve = null;
+}
+
+function onSaturationStepsChange(value: number | null): void {
+  saturationSteps.value = value ?? 0;
+}
+
 async function finishSpellAfterHit(
   accepted: CheckOffer,
   rolled: HitCheckRoll,
@@ -2041,11 +2079,11 @@ async function finishSpellAfterHit(
     weaponResult: ReturnType<typeof attackDamageService.applyAttackDamage> | null;
     weaponAttack: AttackOverview;
   },
-): Promise<void> {
+): Promise<PendingActionEffect[]> {
   const ctx = accepted.proposal.spellCast;
   const casterOverview = overviewOf(accepted.initiator);
   if (!ctx || !casterOverview) {
-    return;
+    return [];
   }
   const passed = Boolean(rolled.attacker?.check?.passed);
   let attackSr = rolled.attacker?.check?.rating ?? 0;
@@ -2056,42 +2094,66 @@ async function finishSpellAfterHit(
     attackSr += 1;
   }
   const milk = !passed;
-  const outcome = spellCastExecutionService.completeAfterHit(
-    {
+  const pendingEffects = (await getGameApi().getPendingActionEffects(props.gameId))[accepted.initiator] ?? [];
+  const pendingResolution = actionEffectService.resolveForSpellCast(pendingEffects, ctx.spentAp);
+  const pendingSignature = actionEffectService.spellCastPendingSignature(pendingEffects, ctx.spentAp);
+  if (pendingSignature !== (ctx.pendingSignature ?? null)) {
+    throw new Error('Предложение сотворения устарело: изменился pending-бонус');
+  }
+  if (pendingResolution.difficultyDelta !== (ctx.trainingDifficultyDelta ?? 0)) {
+    throw new Error('Предложение сотворения устарело: изменился бонус тренировки');
+  }
+  const executionInput = {
+    spellCode: ctx.spellCode,
+    casterKey: accepted.initiator,
+    casterOverview,
+    casterAbilities: versionOf(accepted.initiator)?.abilities ?? [],
+    currentActionPoints: { base: 0, size: 0 },
+    resolve: {
       spellCode: ctx.spellCode,
-      casterKey: accepted.initiator,
-      casterOverview,
-      casterAbilities: versionOf(accepted.initiator)?.abilities ?? [],
-      currentActionPoints: { base: 0, size: 0 },
-      resolve: {
-        spellCode: ctx.spellCode,
-        usedPower: ctx.usedPower,
-        availableControl: ctx.availableControl,
-        parameterValues: ctx.parameterValues,
-        hasTarget: ctx.hasSpellTarget,
-        targetResistanceAmount: ctx.targetResistanceAmount,
-      },
-      checkCode: ctx.checkCode,
-      characteristicValue: ctx.characteristicValue,
-      characteristicName: ctx.characteristicName,
-      parameterPower: ctx.parameterPower,
-      keywords: keywords.value,
-      rules: props.rules,
-      mechanics: props.mechanics,
-      rng: Math.random,
-      touchActionCode: ctx.touchActionCode,
-      touchProfile: resolvedAttack.value,
-      touchTargetKey: accepted.opponent,
-      touchTargetOverview: overviewOf(accepted.opponent),
-      effectTargetOverview: overviewOf(accepted.opponent),
-      distanceIpari: accepted.proposal.hit?.distanceIpari ?? 0,
-      sourceKey: ctx.sourceKey ?? '',
-      pathCode: ctx.pathCode ?? null,
-      appliedUpgradeCodes: ctx.appliedUpgradeCodes ?? [],
+      usedPower: ctx.usedPower,
+      availableControl: ctx.availableControl,
+      parameterValues: ctx.parameterValues,
+      hasTarget: ctx.hasSpellTarget,
+      targetResistanceAmount: ctx.targetResistanceAmount,
+      trainingDifficultyDelta: ctx.trainingDifficultyDelta,
     },
+    checkCode: ctx.checkCode,
+    characteristicValue: ctx.characteristicValue,
+    characteristicName: ctx.characteristicName,
+    parameterPower: ctx.parameterPower,
+    keywords: keywords.value,
+    rules: props.rules,
+    mechanics: props.mechanics,
+    rng: Math.random,
+    touchActionCode: ctx.touchActionCode,
+    touchProfile: resolvedAttack.value,
+    touchTargetKey: accepted.opponent,
+    touchTargetOverview: overviewOf(accepted.opponent),
+    effectTargetOverview: overviewOf(accepted.opponent),
+    distanceIpari: accepted.proposal.hit?.distanceIpari ?? 0,
+    sourceKey: ctx.sourceKey ?? '',
+    pathCode: ctx.pathCode ?? null,
+    appliedUpgradeCodes: ctx.appliedUpgradeCodes ?? [],
+  };
+  const spent = await spendAp(accepted.initiator, ctx.spentAp);
+  if (spent !== ctx.spentAp) {
+    throw new Error('Недостаточно ОД для завершения сотворения');
+  }
+  const preparedCast = spellCastExecutionService.rollCast(executionInput);
+  const saturationStepsChosen = spellCastExecutionService.needsSaturationChoice(executionInput, preparedCast)
+    ? await askSaturationSteps(preparedCast.roll?.check?.rating ?? 0, executionInput.parameterPower)
+    : 0;
+  const outcome = spellCastExecutionService.completeAfterHit(
+    { ...executionInput, saturationSteps: saturationStepsChosen },
     { milk, attackSr: passed ? attackSr : 0 },
+    preparedCast,
   );
+  if (!outcome.started) {
+    throw new Error('Нельзя потратить больше РУ, чем дала проверка');
+  }
   await persistChargeSpendFromOffer(accepted.initiator, ctx);
+  const nextPending = [...pendingResolution.remainingEffects, ...(outcome.pendingEffectsAfterCast ?? [])];
   const spellRule = findRuleByRef(props.rules, ctx.spellCode);
   const spellSpec = spellCastDifficultyService.asSpellAbilitySpec(spellRule);
   const damageTypeCode = spellSpec?.spell.damage?.damage_type_code ?? null;
@@ -2113,6 +2175,14 @@ async function finishSpellAfterHit(
     if (outcome.cast?.roll) {
       await sendChat('', [{ type: ROLL_ATTACHMENT_TYPE, payload: outcome.cast.roll }], props.chatId, speaker);
     }
+    if (saturationStepsChosen > 0) {
+      await sendChat(
+        `Энергонасыщение: потрачено ${saturationStepsChosen * 2} РУ, Мощь заклинания увеличена на ${saturationStepsChosen}.`,
+        [],
+        props.chatId,
+        speaker,
+      );
+    }
     const outcomeText = formatSpellCastOutcomeMessage({
       milk,
       castFailed,
@@ -2132,7 +2202,7 @@ async function finishSpellAfterHit(
       await applyAttackConsequences(accepted, touchWeapon.weaponAttack, weaponLayer);
     }
 
-    return;
+    return pendingResolution.remainingEffects;
   }
   const defenderOverview = overviewOf(accepted.opponent);
   if (props.chatId !== null && weaponLayer) {
@@ -2203,7 +2273,7 @@ async function finishSpellAfterHit(
     (item): item is NonNullable<typeof outcome.spellApply> => item != null,
   );
   if (results.length === 0) {
-    return;
+    return nextPending;
   }
   await writeAccumulatedDamage(
     accepted.opponent,
@@ -2290,6 +2360,8 @@ async function finishSpellAfterHit(
       emit('overlay-changed');
     }
   }
+
+  return nextPending;
 }
 
 async function applyAfterStrikeOption(
@@ -2569,13 +2641,12 @@ async function applyClickAttack(
   const coveringInvite = acceptedCovers.find((invite) => invite.coveringKey === defenderKey);
   const resolvedReaction: HitDefenseReaction =
     coveringInvite?.reaction ??
-    (options.damageTargetKey && options.damageTargetKey !== accepted.opponent
-      ? 'block'
-      : (hit.reaction ?? 'ignore'));
+    (options.damageTargetKey && options.damageTargetKey !== accepted.opponent ? 'block' : (hit.reaction ?? 'ignore'));
   const blockItemRuleCode = coveringInvite?.blockItemRuleCode ?? hit.blockItemRuleCode ?? null;
-  const blockProfile = hitRollService
-    .listBlockProfiles(versionOf(defenderKey), props.rules)
-    .find((profile) => profile.itemRuleCode === blockItemRuleCode) ??
+  const blockProfile =
+    hitRollService
+      .listBlockProfiles(versionOf(defenderKey), props.rules)
+      .find((profile) => profile.itemRuleCode === blockItemRuleCode) ??
     hitRollService.listBlockProfiles(versionOf(defenderKey), props.rules)[0] ??
     null;
   const rolledSr = options.skipDamageApply ? 0 : sr;
@@ -2900,6 +2971,7 @@ const primaryLabel = computed(() => {
   if (myTurn.value) return 'Принять и бросить';
 
   if (offer.value.waitingOn === 'covering') return 'Ждём прикрывающих';
+
   return offer.value.waitingOn === 'opponent' ? 'Ждём защитника' : 'Ждём атакующего';
 });
 
@@ -3169,8 +3241,8 @@ const canSubmit = computed(() => {
             Прикрыть {{ nameOf(opponentKey) }} от атаки? Это реакция за 2 ОД, без уклонения.
           </div>
           <div class="text-caption text-medium-emphasis">
-            Преимущества атакующего: {{ attackerAdv }}. Помехи прикрывающего задайте ниже и при необходимости верните
-            на одобрение.
+            Преимущества атакующего: {{ attackerAdv }}. Помехи прикрывающего задайте ниже и при необходимости верните на
+            одобрение.
           </div>
           <ClampedNumberField
             v-model="coveringAdv"
@@ -3269,13 +3341,7 @@ const canSubmit = computed(() => {
         <v-spacer />
         <v-btn variant="text" size="small" :disabled="busy" @click="close">Закрыть</v-btn>
         <v-btn v-if="offer && myTurn" variant="text" size="small" :disabled="busy" @click="submitRevise">Вернуть</v-btn>
-        <v-btn
-          v-if="isCoveringStep"
-          variant="text"
-          size="small"
-          :disabled="busy"
-          @click="submitCoverDecline"
-        >
+        <v-btn v-if="isCoveringStep" variant="text" size="small" :disabled="busy" @click="submitCoverDecline">
           Не прикрывать
         </v-btn>
         <template v-if="coverChoicePending">
@@ -3294,6 +3360,30 @@ const canSubmit = computed(() => {
         <v-btn v-else color="primary" size="small" :loading="busy" :disabled="!canSubmit" @click="submit">
           {{ primaryLabel }}
         </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
+  <v-dialog :model-value="saturationOpen" persistent max-width="420">
+    <v-card>
+      <v-card-title>Динамическое энергонасыщение</v-card-title>
+      <v-card-text>
+        <div class="text-body-2 mb-2">
+          Сейчас: {{ saturationCurrentRating }} РУ, Мощь {{ saturationCurrentPowerLabel }}.
+        </div>
+        <div class="text-body-2 mb-3">Каждый шаг стоит 2 РУ и увеличивает Мощь заклинания на 1.</div>
+        <ClampedNumberField
+          :model-value="saturationSteps"
+          :min="0"
+          :max="saturationMaxSteps"
+          label="Шаги энергонасыщения"
+          density="compact"
+          hide-details
+          @update:model-value="onSaturationStepsChange"
+        />
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer />
+        <v-btn color="primary" @click="confirmSaturationSteps">Применить</v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>

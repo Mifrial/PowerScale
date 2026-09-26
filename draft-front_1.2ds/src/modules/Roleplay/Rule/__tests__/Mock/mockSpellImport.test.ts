@@ -19,6 +19,8 @@ const SLICE_CODES = [
   'spell-sustaining',
   'becoming-arcanist',
   'structure-substitution',
+  'interstructure-energy-transfer',
+  'piercing-magic',
   'psionic',
   'psionic-awakening',
   'psionic-control',
@@ -34,6 +36,12 @@ const SLICE_CODES = [
   'lightning-generator',
   'chain-lightning',
   'charge-accumulation',
+  'composite-magic-structures',
+  'magic-perception',
+  'magic-structure-overview',
+  'magic-structure-analysis',
+  'dynamic-energy-saturation',
+  'basic-element-properties',
 ] as const;
 
 const byCode = new Map(ruleCatalog.map((rule) => [rule.code, rule]));
@@ -82,7 +90,15 @@ describe('mockSpellImport (M4)', () => {
     expect(byCode.get('electrocharge')?.catalogSection).toBe('magic-rules-states');
     expect(byCode.get('core-magic-deviation')?.catalogSection).toBe('magic-rules-states');
     expect(byCode.get('spirituality')?.catalogSection).toBe('magic-rules-characteristics');
-    expect(byCode.get('structure-substitution')?.catalogSection).toBe('abilities-acquired-magic-paths-arcanist');
+    expect(byCode.get('structure-substitution')?.catalogSection).toBe(
+      'abilities-acquired-magic-paths-arcanist-education-basic',
+    );
+    expect(byCode.get('interstructure-energy-transfer')?.catalogSection).toBe(
+      'abilities-acquired-magic-paths-arcanist-education-basic',
+    );
+    expect(byCode.get('interstructure-energy-transfer')?.description).toContain('description-hint');
+    expect(byCode.get('interstructure-energy-transfer')?.description).not.toContain('#Подсказка:');
+    expect(byCode.get('piercing-magic')?.catalogSection).toBe('abilities-acquired-magic-paths-arcanist-skills');
     expect(byCode.get('psionic')?.catalogSection).toBe('magic-rules-paths');
     expect(byCode.get('psionic-awakening')?.catalogSection).toBe('abilities-acquired-magic-paths-psionic');
     expect(byCode.get('psionic-control')?.catalogSection).toBe('abilities-acquired-magic-paths-psionic');
@@ -91,7 +107,9 @@ describe('mockSpellImport (M4)', () => {
     expect(byCode.get('careful-magic')?.catalogSection).toBe('abilities-acquired-magic-common');
     expect(byCode.get('spell-sustaining')?.type).toBe('simple');
     expect(byCode.get('spell-sustaining')?.catalogSection).toBe('magic-rules-casting');
-    expect(byCode.get('becoming-arcanist')?.catalogSection).toBe('abilities-acquired-magic-paths-arcanist');
+    expect(byCode.get('becoming-arcanist')?.catalogSection).toBe(
+      'abilities-acquired-magic-paths-arcanist-education-basic',
+    );
     expect(byCode.get('discharge')?.catalogSection).toBe('abilities-acquired-magic-spells-electromancy');
     expect(byCode.get('lightning-strike')?.catalogSection).toBe('abilities-acquired-magic-spells-electromancy');
     expect(byCode.get('lightning-generator')?.catalogSection).toBe('abilities-acquired-magic-spells-electromancy');
@@ -129,6 +147,13 @@ describe('mockSpellImport (M4)', () => {
         expect.objectContaining({ type: 'magic_study', scope: 'non_spell', max_cost: 2, path_code: 'arcanist' }),
       ]),
     );
+    const transfer = abilitySpec('interstructure-energy-transfer');
+    expect(transfer && 'requirements' in transfer ? transfer.requirements : null).toEqual([
+      {
+        level: 1,
+        requirements: [{ type: 'has_ability', ability_code: 'structure-substitution', min_level: 1 }],
+      },
+    ]);
     const awakening = abilitySpec('psionic-awakening');
     expect(awakening && 'requirements' in awakening ? awakening.requirements : null).toEqual([
       {
@@ -344,6 +369,45 @@ describe('mockSpellImport (M4)', () => {
     expect(byCode.get('magic')?.type).toBeUndefined();
     expect(byCode.get('magic-potential')?.type).toBeUndefined();
     expect(byCode.get('magic-damage')?.type).toBe('damage_type');
+  });
+
+  it('углублённое образование Арканиста: секции, гранты и проверка анализа', () => {
+    const advanced = 'abilities-acquired-magic-paths-arcanist-education-advanced';
+    expect(byCode.get('composite-magic-structures')?.catalogSection).toBe(advanced);
+    expect(byCode.get('magic-structure-overview')?.catalogSection).toBe(advanced);
+    expect(byCode.get('dynamic-energy-saturation')?.catalogSection).toBe(advanced);
+    expect(byCode.get('basic-element-properties')?.catalogSection).toBe(advanced);
+    expect(byCode.get('magic-perception')?.catalogSection).toBe('abilities-acquired-magic-spells-other');
+    const perception = abilitySpec('magic-perception');
+    expect(perception && perception.type === 'spell' ? perception.spell.targeting : null).toBe('self');
+    const lightning = abilitySpec('lightning-strike');
+    expect(lightning && lightning.type === 'spell' ? lightning.spell.targeting : null).toBe('entity');
+    const discharge = abilitySpec('discharge');
+    expect(discharge && discharge.type === 'spell' ? discharge.spell.targeting : null).toBe('none');
+    const sensation = byCode.get('magic-sensation');
+    expect(sensation?.catalogSection).toBe('basic-senses');
+    expect(sensation?.spec && 'status' in sensation.spec ? sensation.spec.status : null).toBe('imprecise');
+    const composite = abilitySpec('composite-magic-structures');
+    const study = composite && 'grants' in composite ? (composite.grants[0]?.grants ?? []) : [];
+    expect(study.filter((grant) => grant.type === 'magic_study')).toEqual([
+      { type: 'magic_study', scope: 'spell', max_cost: 4, path_code: 'arcanist' },
+      { type: 'magic_study', scope: 'non_spell', max_cost: 4, path_code: 'arcanist' },
+    ]);
+    const overview = abilitySpec('magic-structure-overview');
+    expect(overview && 'grants' in overview ? overview.grants[0]?.grants : []).toEqual([
+      { type: 'ability', ability_code: 'magic-structure-analysis', level: 1 },
+    ]);
+    const analysis = abilitySpec('magic-structure-analysis');
+    expect(analysis && 'zones' in analysis ? analysis.zones : null).toEqual({});
+    expect(byCode.get('magic-structure-analysis')?.description).toContain('description-expanded-block');
+    expect(byCode.get('check-magic-analysis')?.catalogSection).toBe('magic-rules-checks');
+    expect(byCode.get('check-spell-cast')?.catalogSection).toBe('magic-rules-checks');
+    const piercing = abilitySpec('piercing-magic');
+    expect(piercing && 'spell_upgrade' in piercing ? piercing.spell_upgrade : null).toEqual({
+      action_point_delta: 0,
+      any_path: true,
+      resistance_penetration_per_step: 2,
+    });
   });
 
   it('validateCatalog не ругает коды среза', () => {

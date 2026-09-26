@@ -49,6 +49,8 @@ export interface DefenseTierOverview {
 
 export interface DefenseOverview {
   armor: DefenseArmorOverview[];
+  /** Сопротивления из способностей и других неэкипировочных источников. */
+  resistances?: DefenseLineOverview[];
   /** Итог защит: из группы одного источника берётся максимум, группы суммируются. */
   constantDefense: number;
   /** Ступени защиты по надёжности, отсортированы по возрастанию threshold. */

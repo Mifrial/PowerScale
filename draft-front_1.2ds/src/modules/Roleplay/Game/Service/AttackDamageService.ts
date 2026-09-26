@@ -113,6 +113,19 @@ export class AttackDamageService {
         layers.push({ ...base, ignored: false, reason: 'kept' });
       }
     }
+    for (const line of defense?.resistances ?? []) {
+      if (!this.lineMatchesType(line, damageTypeCode)) continue;
+      layers.push({
+        itemName: line.sourceLabel ?? 'Сопротивление',
+        kind: line.kind,
+        value: line.value,
+        durability: line.durability,
+        sourceLabel: line.sourceLabel,
+        sourceKey: line.sourceCode,
+        ignored: false,
+        reason: 'kept',
+      });
+    }
 
     return layers;
   }
@@ -148,9 +161,7 @@ export class AttackDamageService {
       aggregateSourceDeltasService
         .aggregateSourceDeltas(
           layers.flatMap((layer, index) =>
-            layer.ignored
-              ? []
-              : [{ source_code: layer.sourceKey ?? null, delta: layer.value, index }],
+            layer.ignored ? [] : [{ source_code: layer.sourceKey ?? null, delta: layer.value, index }],
           ),
         )
         .map((entry) => entry.index),
@@ -174,8 +185,7 @@ export class AttackDamageService {
     const cap = input.maxSuccessRating;
     const injurySr =
       cap == null || !Number.isFinite(cap) ? remainingSr : Math.min(remainingSr, Math.max(0, Math.floor(cap)));
-    const ignoreAtMost =
-      (this.hasPaySrHook(input.hooks) ? remainingSr : 0) + Math.max(0, input.durabilityShave ?? 0);
+    const ignoreAtMost = (this.hasPaySrHook(input.hooks) ? remainingSr : 0) + Math.max(0, input.durabilityShave ?? 0);
     const includeDefense = !input.defenseIgnored;
     const penetration = includeDefense ? this.penetrationOf(input) : 0;
     const layers = this.collapseSameSource(

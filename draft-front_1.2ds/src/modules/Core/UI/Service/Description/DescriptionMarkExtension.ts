@@ -16,10 +16,16 @@ export const descriptionMarkExtension = Mark.create({
     return [
       { tag: 'span.description-example', getAttrs: () => ({ variant: 'example' }) },
       { tag: 'span.description-flavor', getAttrs: () => ({ variant: 'flavor' }) },
+      { tag: 'span.description-hint', getAttrs: () => ({ variant: 'hint' }) },
     ];
   },
   renderHTML({ mark, HTMLAttributes }) {
-    const className = mark.attrs.variant === 'flavor' ? 'description-flavor' : 'description-example';
+    const className =
+      mark.attrs.variant === 'flavor'
+        ? 'description-flavor'
+        : mark.attrs.variant === 'hint'
+          ? 'description-hint'
+          : 'description-example';
 
     return ['span', { ...HTMLAttributes, class: className }, 0];
   },

@@ -2,7 +2,7 @@ import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/Dimension
 
 export type Requirement =
   | { type: 'has_ability'; ability_code: string; min_level?: number }
-  | { type: 'has_ability_keyword'; keyword_code: string; min_count: number }
+  | { type: 'has_ability_keyword'; keyword_code: string; min_count: number; exclude_keyword_codes?: string[] }
   | { type: 'has_keyword'; keyword_code: string }
   | { type: 'min_weapon_mastery'; keyword_code: string; min_level: number }
   | { type: 'characteristic_value'; characteristic_code: string; min: DimensionalNumberValue }

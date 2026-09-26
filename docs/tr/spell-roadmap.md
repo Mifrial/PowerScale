@@ -331,7 +331,7 @@ flowchart TD
 | M8 | `DONE` | Duration, применение `spell_upgrade` к касту, параметры активации | [`spell-plan-08-runtime-expansion.md`](spell-plan-08-runtime-expansion.md) | M7 |
 | M9 | `DONE` | Провал каста: отклонение, арканный взрыв; стабильность; мана не на ядре | [`spell-plan-09-magic-runtime.md`](spell-plan-09-magic-runtime.md) | M8 |
 | M10 | `TODO` | Backend Rule contract, publish и revision round-trip | [`spell-plan-10-backend.md`](spell-plan-10-backend.md) | M4, M7 |
-| M11 | `DEFERRED` | Полный каталог магии после первых срезов и новых решений | [`spell-plan-11-catalog-expansion.md`](spell-plan-11-catalog-expansion.md) | M1–M10 |
+| M11 | `IN_PROGRESS` | Контентный проход магии по смысловым веткам, начиная с последовательного развития Арканиста | [`magic-content-design-01-arcanist-progression.md`](magic-content-design-01-arcanist-progression.md) | M1–M10 |
 
 Правило ведения: перед началом пункта создаётся и заполняется его plan-файл; после завершения в Todo обновляются статус, ссылка на evidence и обнаруженные зависимости. Если пункт дробится, в roadmap добавляются дочерние IDs, а исходный пункт остаётся агрегирующим.
 
@@ -373,9 +373,14 @@ UI редактора: попап «Пути волшебства» (огран�
 
 Дальнейшие навыки Арканиста (`composite-magic-structures` и т.д.) и Псионика (`will-incarnation`) поднимают потолок тем же грантом. Не импортировать их, пока M6 не закрыт.
 
-### Следующий импорт (после M6)
+### Следующий импорт после runtime-среза
 
-Каркас: `will-incarnation`, `composite-magic-structures`, школы псионика/шамана, динамический потолок духовности. Это M11/контент, не замена runtime.
+Первый контентный заход: последовательное развитие Арканиста — от
+`magic-theory-basic` и `becoming-arcanist` к углублённой теории и составным
+структурам. Дизайн и границы зафиксированы в
+[`magic-content-design-01-arcanist-progression.md`](magic-content-design-01-arcanist-progression.md).
+`will-incarnation`, школы Псионика/Шамана и динамический потолок Духовности
+останутся следующими ветками. Это контентный проход, не замена runtime.
 
 ## 13. Журнал изменений roadmap
 
@@ -405,4 +410,5 @@ UI редактора: попап «Пути волшебства» (огран�
 | 2026-09-10 | M8 план перепроверен: два канала каста, sourceKey, occupy per caster, hop по raw. |
 | 2026-09-11 | M8 `DONE`. M9 `IN_PROGRESS`: план — [`spell-plan-09-magic-runtime.md`](spell-plan-09-magic-runtime.md). |
 | 2026-09-11 | M9 `DONE`: отклонение, состояние на ядре, аркан, стабильность. Каталог — [`rule-content-roadmap.md`](rule-content-roadmap.md); Game — по очереди, не по сырому моку. |
+| 2026-09-20 | M11 открыт с дизайн-пачки последовательного развития Арканиста; первая реализационная группа — базовая теория, вход в путь и Подмена структур. |
 

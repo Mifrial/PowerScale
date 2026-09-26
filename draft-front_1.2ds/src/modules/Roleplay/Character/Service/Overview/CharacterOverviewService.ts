@@ -4,6 +4,8 @@ import type { CharacteristicSpec } from '@/modules/Roleplay/Rule/Dto/Characteris
 import type { ResourceSpec } from '@/modules/Roleplay/Rule/Dto/ResourceSpec';
 import type { ItemSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpec';
 import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpec';
+import type { Grant } from '@/modules/Roleplay/Rule/Dto/Ability/Grant';
+import type { RaceSpec } from '@/modules/Roleplay/Rule/Dto/Race/RaceSpec';
 import type { ActionComponent } from '@/modules/Roleplay/Rule/Dto/Ability/ActionComponent';
 import type { SpellDuration } from '@/modules/Roleplay/Rule/Dto/Ability/SpellDuration';
 import type { SpellValue } from '@/modules/Roleplay/Rule/Dto/Ability/SpellValue';
@@ -41,6 +43,7 @@ import {
   itemModifierService,
   formatStateEffectsService,
   spellDurationLabelService,
+  raceSpecService,
 } from '@/modules/Roleplay/Rule/init';
 import { ACTION_POINTS_RESOURCE_CODE } from '@/modules/Roleplay/Rule/Constant/Ability/ACTION_POINTS_RESOURCE_CODE';
 import { DAMAGE_TYPE_FORMS } from '@/modules/Roleplay/Rule/Constant/DAMAGE_TYPE_FORMS';
@@ -175,6 +178,7 @@ export class CharacterOverviewService {
 
     return { synced, reference, withStates, context: this.buildFormulaContext(withStates, synced, reference) };
   }
+
 
   private buildFormulaContext(
     coreList: CharacteristicOverview[],
@@ -986,6 +990,7 @@ export class CharacterOverviewService {
 
   private buildDefense(version: CharacterVersion, reference: CharacterReferenceService): DefenseOverview | null {
     const armor: DefenseArmorOverview[] = [];
+    const resistances: DefenseLineOverview[] = [];
     let shield: DefenseShieldOverview | null = null;
 
     for (const item of version.inventory) {
@@ -1048,16 +1053,90 @@ export class CharacterOverviewService {
       }
     }
 
-    if (armor.length === 0 && shield === null) return null;
+    for (const ability of version.abilities) {
+      if (ability.level < 1) continue;
+      const rule = reference.ruleByCode(ability.ruleCode);
+      const spec = rule?.spec;
+      if (!spec || typeof spec !== 'object' || !('grants' in spec) || !Array.isArray(spec.grants)) continue;
+      for (const levelGrant of spec.grants as { level: number; grants: Grant[] }[]) {
+        if (levelGrant.level > ability.level) continue;
+        for (const grant of levelGrant.grants) {
+          if (grant.type !== 'resistance') continue;
+          const value = this.resistanceGrantValue(grant, ability.parameters ?? {});
+          if (value === null) continue;
+          const damageType = reference.ruleByCode(grant.damage_type_code);
+          resistances.push({
+            kind: 'resistance',
+            value,
+            valueLabel: String(value),
+            durability: Number.MAX_SAFE_INTEGER,
+            sourceCode: grant.source_code,
+            sourceLabel: rule?.name ?? grant.source_code,
+            damageTypeLabel: damageType?.name ?? null,
+            damageTypeDative: DAMAGE_TYPE_FORMS[grant.damage_type_code]?.dative ?? null,
+            damageTypeCode: grant.damage_type_code,
+          });
+        }
+      }
+    }
+    const raceRule = version.raceRuleCode ? reference.ruleByCode(version.raceRuleCode) : null;
+    if (raceRule?.type === 'race') {
+      const raceSpec = raceRule.spec as RaceSpec;
+      const rulesByCode = new Map(reference.rules().map((rule) => [rule.code, rule]));
+      const racialRefs = [
+        ...(raceSpec.abilities ?? []),
+        ...raceSpecService.collectInheritedAbilities(raceSpec.parent_race_code, rulesByCode),
+      ].filter((ref) => ref.automatic);
+      for (const ref of racialRefs) {
+        const abilityRule = reference.ruleByCode(ref.ability_code);
+        const abilitySpec = abilityRule?.spec;
+        if (!abilitySpec || typeof abilitySpec !== 'object' || !('grants' in abilitySpec)) continue;
+        for (const levelGrant of abilitySpec.grants as { level: number; grants: Grant[] }[]) {
+          for (const grant of levelGrant.grants) {
+            if (grant.type !== 'resistance') continue;
+            const value = this.resistanceGrantValue(grant, ref.parameters ?? {});
+            if (value === null) continue;
+            const damageType = reference.ruleByCode(grant.damage_type_code);
+            resistances.push({
+              kind: 'resistance',
+              value,
+              valueLabel: String(value),
+              durability: Number.MAX_SAFE_INTEGER,
+              sourceCode: grant.source_code,
+              sourceLabel: abilityRule?.name ?? grant.source_code,
+              damageTypeLabel: damageType?.name ?? null,
+              damageTypeDative: DAMAGE_TYPE_FORMS[grant.damage_type_code]?.dative ?? null,
+              damageTypeCode: grant.damage_type_code,
+            });
+          }
+        }
+      }
+    }
+
+    if (armor.length === 0 && shield === null && resistances.length === 0) return null;
 
     const tiers = this.defenseTiersOf(armor);
-
     return {
       armor,
+      resistances,
       constantDefense: this.constantDefenseOf(armor),
       tiers,
       shield,
     };
+  }
+
+  private resistanceGrantValue(
+    grant: Extract<Grant, { type: 'resistance' }>,
+    parameters: Record<string, DimensionalNumberValue | number>,
+  ): number | null {
+    if ('base' in grant.value) {
+      return new DimensionalNumber(grant.value).toNumber();
+    }
+    const parameter = parameters[grant.value.parameter_code];
+    if (parameter === undefined) return null;
+    const units = typeof parameter === 'number' ? parameter : new DimensionalNumber(parameter).toNumber();
+
+    return units * grant.value.per_unit;
   }
 
   /**

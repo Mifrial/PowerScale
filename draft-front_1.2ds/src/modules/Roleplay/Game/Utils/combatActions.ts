@@ -57,12 +57,17 @@ export function asProcessAbilitySpec(
   return rule.spec.process;
 }
 
-export function actionOdCost(components: ActionComponent[] | undefined): number {
+export function actionOdCost(components: ActionComponent[] | undefined, chosenAmount = 0): number {
   if (!components) return 0;
   let total = 0;
   for (const component of components) {
     if (component.type !== 'resource' || component.resource_code !== ACTION_POINTS_CODE) continue;
-    if (typeof component.amount === 'object' && 'type' in component.amount) continue;
+    if (typeof component.amount === 'object' && 'type' in component.amount) {
+      if (component.amount.type === 'chosen') {
+        total += chosenAmount;
+      }
+      continue;
+    }
     total += typeof component.amount === 'number' ? component.amount : component.amount.base;
   }
 

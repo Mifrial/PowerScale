@@ -129,6 +129,11 @@ export class ActionEffectLabelService {
 
       return `после удара проверка ${this.checkName(effect.check_code)} против ${effect.difficulty}: успех — ${internal}${this.damageTypeLabel(effect.self_damage.damage_type_code)} [сила удара]${effect.self_damage.size_delta < 0 ? '↓' : ''}${skip}`;
     }
+    if (effect.type === 'next_spell_cast_difficulty') {
+      const delta = effect.delta > 0 ? `+${effect.delta}` : `${effect.delta}`;
+
+      return `${delta} к Сложности следующего сотворения волшебства, если стоимость не более ${effect.max_total_action_cost} ОД`;
+    }
 
     return `${this.deltaLabel(effect.delta)} к ${effect.check_codes.map((code) => this.checkLabel(code)).join(', ')} до траты ${effect.amount} ${this.resourceLabel(effect.resource_code)}`;
   }
@@ -137,6 +142,7 @@ export class ActionEffectLabelService {
     if (effect.type === 'apply_state') return null;
     if (effect.type === 'last_strike_snapshot' || effect.type === 'prepared_defense_counter') return null;
     if (effect.type === 'optional_after_strike_check') return 'опция';
+    if (effect.type === 'next_spell_cast_difficulty' && effect.source_code === 'training') return 'тренировки';
     if (effect.type === 'current_action_check_modifier' && effect.source_code === 'action') {
       return 'действие';
     }

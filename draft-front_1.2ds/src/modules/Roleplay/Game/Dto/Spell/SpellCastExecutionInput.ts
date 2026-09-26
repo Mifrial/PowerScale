@@ -37,6 +37,10 @@ export interface SpellCastExecutionInput {
   sourceKey: string;
   pathCode: string | null;
   appliedUpgradeCodes: string[];
+  /** Значения параметров выбранных модификаторов каста по коду способности. */
+  appliedUpgradeValues?: Record<string, number>;
   extraCheckAdvantages?: AdvantageModifier[];
   chargeSpendCost?: number;
+  /** Шаги динамического энергонасыщения. Нет поля — 0. */
+  saturationSteps?: number;
 }

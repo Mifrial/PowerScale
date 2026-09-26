@@ -8,6 +8,7 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { characteristicRollService } from '@/modules/Roleplay/Game/Service/Instance/characteristicRollService';
 import { checkRollService } from '@/modules/Roleplay/Game/Service/Instance/checkRollService';
 import { spellCastDifficultyService } from '@/modules/Roleplay/Game/Service/Instance/spellCastDifficultyService';
+import { spellCastEfficiencyService } from '@/modules/Roleplay/Game/Service/Instance/spellCastEfficiencyService';
 import { CHECK_SPELL_CAST_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
 import { checkResolutionService } from '@/modules/Roleplay/Rule/init';
 import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
@@ -24,12 +25,13 @@ export class SpellCastService {
     rules: Rule[],
     mechanics: Mechanic[],
     advantages: AdvantageModifier[] = [],
+    efficiencyDeltas: readonly { sourceCode: string; delta: number }[] = [],
   ): SpellCastRollOutcome {
     const computed = spellCastDifficultyService.computeForSpell(input, rules);
     if (!computed.needsCheck || !checkCode) {
       return { difficulty: computed.difficulty, needsCheck: false, roll: null };
     }
-    const spec = characteristicRollService.characteristicRollSpec(
+    const baseSpec = characteristicRollService.characteristicRollSpec(
       {
         name: characteristicName,
         value: characteristicValue,
@@ -38,6 +40,7 @@ export class SpellCastService {
       },
       rules,
     );
+    const spec = spellCastEfficiencyService.apply(baseSpec, CHECK_SPELL_CAST_CODE, efficiencyDeltas);
     const roll = checkRollService.rollNamedCheck(
       spec,
       CHECK_SPELL_CAST_CODE,

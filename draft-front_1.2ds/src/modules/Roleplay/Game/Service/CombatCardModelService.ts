@@ -85,7 +85,6 @@ export class CombatCardModelService {
           : hasChanges && overlay
             ? combatOverlayService.mergeCombatOverlay(overlay.sheet ?? baseVersion, overlay)
             : baseVersion;
-
     return {
       kind,
       entityId: id,

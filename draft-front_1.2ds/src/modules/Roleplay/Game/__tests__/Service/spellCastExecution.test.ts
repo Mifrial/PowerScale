@@ -7,6 +7,7 @@ import { CHECK_SIMPLE_CODE, CHECK_SPELL_CAST_CODE } from '@/modules/Roleplay/Rul
 import { spellCastExecutionService } from '@/modules/Roleplay/Game/Service/Instance/spellCastExecutionService';
 import { SIMPLE_TOUCH_CODE } from '@/modules/Roleplay/Game/Constant/Combat/SIMPLE_TOUCH_CODE';
 import type { SpellCastExecutionInput } from '@/modules/Roleplay/Game/Dto/Spell/SpellCastExecutionInput';
+import type { SpellCastRollOutcome } from '@/modules/Roleplay/Game/Dto/Spell/SpellCastRollOutcome';
 import type { HitResolution } from '@/modules/Roleplay/Rule/Dto/Ability/HitResolution';
 import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpec';
 
@@ -300,5 +301,92 @@ describe('SpellCastExecutionService', () => {
     expect(result.spellSr).toBe(1);
     expect(result.spellApply).not.toBeNull();
     expect(result.weaponApply).toBeNull();
+  });
+
+  function passedCast(rating: number, passed = true): SpellCastRollOutcome {
+    return {
+      difficulty: { base: 3, size: 0 },
+      needsCheck: true,
+      roll: {
+        spec: { diceCount: 1, dieSize: 0, dieFaces: 6, efficiency: 3, advantages: [] },
+        rolls: [6],
+        successes: [],
+        adjustedRolls: [6],
+        droppedRolls: [],
+        totalSuccesses: rating,
+        check: { check_code: CHECK_SPELL_CAST_CODE, difficulty: { base: 3, size: 0 }, passed, rating },
+      },
+    };
+  }
+
+  function saturatedInput(steps: number, abilities: { ruleCode: string; level: number; zone: 'or' }[]) {
+    return baseInput({
+      spellCode: 'discharge',
+      saturationSteps: steps,
+      casterAbilities: abilities,
+      touchTargetKey: 'character:2',
+      touchTargetOverview: OVERVIEW,
+      effectTargetOverview: OVERVIEW,
+      rules: [...ROLL_RULES, discharge, SIMPLE_TOUCH, ELECTRICITY],
+    });
+  }
+
+  const saturationAbilities = [
+    { ruleCode: 'dynamic-energy-saturation', level: 1, zone: 'or' as const },
+    { ruleCode: 'interstructure-energy-transfer', level: 1, zone: 'or' as const },
+  ];
+
+  it('4 РУ и один шаг сдвигают мощь и оставляют порог энергоперехода', () => {
+    const result = spellCastExecutionService.completeAfterHit(
+      saturatedInput(1, saturationAbilities),
+      { milk: false, attackSr: 1 },
+      passedCast(4),
+    );
+    expect(result.started).toBe(true);
+    expect(result.spellDamage).toEqual({ base: 5, size: 1 });
+    expect(result.pendingEffectsAfterCast).toEqual([
+      expect.objectContaining({ sourceRuleCode: 'interstructure-energy-transfer' }),
+    ]);
+  });
+
+  it('4 РУ и два шага не оставляют порог энергоперехода', () => {
+    const result = spellCastExecutionService.completeAfterHit(
+      saturatedInput(2, saturationAbilities),
+      { milk: false, attackSr: 1 },
+      passedCast(4),
+    );
+    expect(result.spellDamage).toEqual({ base: 3, size: 2 });
+    expect(result.pendingEffectsAfterCast).toEqual([]);
+  });
+
+  it('шаг сверх РУ не наносит урон', () => {
+    const result = spellCastExecutionService.completeAfterHit(
+      saturatedInput(3, saturationAbilities),
+      { milk: false, attackSr: 1 },
+      passedCast(4),
+    );
+    expect(result.started).toBe(false);
+    expect(result.refuseReason).toBe('invalid_saturation');
+    expect(result.spellApply).toBeNull();
+  });
+
+  it('провал проверки не принимает насыщение', () => {
+    const result = spellCastExecutionService.completeAfterHit(
+      saturatedInput(1, saturationAbilities),
+      { milk: false, attackSr: 1 },
+      passedCast(4, false),
+    );
+    expect(result.refuseReason).toBe('invalid_saturation');
+    expect(result.spellApply).toBeNull();
+  });
+
+  it('без способности насыщение отвергается', () => {
+    const result = spellCastExecutionService.completeAfterHit(
+      saturatedInput(1, [{ ruleCode: 'discharge', level: 1, zone: 'or' }]),
+      { milk: false, attackSr: 1 },
+      passedCast(4),
+    );
+    expect(result.refuseReason).toBe('invalid_saturation');
+    expect(result.spellApply).toBeNull();
   });
 });

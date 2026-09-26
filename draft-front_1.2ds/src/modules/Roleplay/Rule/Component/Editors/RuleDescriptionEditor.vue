@@ -4,6 +4,7 @@ import { EditorContent, useEditor } from '@tiptap/vue-3';
 import StarterKit from '@tiptap/starter-kit';
 import { TableKit } from '@tiptap/extension-table';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import { descriptionExpandedBlockExtension } from '@/modules/Core/UI/Service/Description/DescriptionExpandedBlockExtension';
 import { descriptionMarkExtension } from '@/modules/Core/UI/Service/Description/DescriptionMarkExtension';
 import { ruleLinkExtension } from '@/modules/Core/UI/Service/Description/RuleLinkExtension';
 
@@ -43,6 +44,7 @@ const editor = useEditor({
     StarterKit,
     ruleLinkExtension.configure({ openOnClick: false }),
     descriptionMarkExtension,
+    descriptionExpandedBlockExtension,
     TableKit.configure({ table: { resizable: true } }),
   ],
   editorProps: {
@@ -79,6 +81,18 @@ function insertRule(rule: Rule): void {
 
 function insertTable(): void {
   editor.value?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+}
+
+function insertExpandedBlock(): void {
+  editor.value
+    ?.chain()
+    .focus()
+    .insertContent({
+      type: 'descriptionExpandedBlock',
+      attrs: { title: 'Вопрос', difficulty: 'Базовая Сложность' },
+      content: [{ type: 'paragraph' }],
+    })
+    .run();
 }
 
 onBeforeUnmount(() => editor.value?.destroy());
@@ -141,6 +155,7 @@ onBeforeUnmount(() => editor.value?.destroy());
       <v-btn size="small" prepend-icon="mdi-format-quote-close" variant="text" @click="toggleExample">Пример</v-btn>
       <v-btn size="small" prepend-icon="mdi-format-quote-open" variant="text" @click="toggleFlavor">Flavor</v-btn>
       <v-btn size="small" prepend-icon="mdi-table" variant="text" @click="insertTable">Таблица</v-btn>
+      <v-btn size="small" prepend-icon="mdi-chevron-down" variant="text" @click="insertExpandedBlock">Блок</v-btn>
       <v-spacer />
       <v-btn
         size="small"

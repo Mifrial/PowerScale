@@ -1109,6 +1109,7 @@ export class CharacterEditorService {
       const spec = rule.spec as AbilitySpec | undefined;
       if (!spec) continue;
       if (spec.type === 'group') continue;
+      if (spec.zones && Object.keys(spec.zones).length === 0) continue;
       if (spec.knowledge_template_field || this.knowledge.isKnowledgeTemplate(rule.code)) continue;
 
       const zones: EditorAbilityZone[] = [];

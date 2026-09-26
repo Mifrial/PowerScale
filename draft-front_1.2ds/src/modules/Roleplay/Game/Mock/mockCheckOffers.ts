@@ -77,6 +77,25 @@ function pendingTargetsOf(offer: CheckOffer): CombatEntityKey[] {
   return [];
 }
 
+function syncSpellCastReservation(offer: CheckOffer): void {
+  const context = offer.proposal.spellCast;
+  if (!context) {
+    delete offer.spellCastReservation;
+
+    return;
+  }
+  const current = offer.spellCastReservation;
+  offer.spellCastReservation = {
+    reservationId: current?.reservationId ?? `spell-cast:${offer.id}`,
+    offerId: offer.id,
+    casterKey: offer.initiator,
+    reservedActionCost: context.spentAp,
+    trainingDifficultyDelta: context.trainingDifficultyDelta ?? 0,
+    reservedPendingSignature: context.pendingSignature ?? null,
+    status: current?.status ?? 'reserved',
+  };
+}
+
 function applyOpponentProposal(offer: CheckOffer, actorKey: CombatEntityKey, proposal: CheckOfferProposal): void {
   const sequentialSlots = reactionSlotsOf(offer);
   if (sequentialSlots.length && proposal.hit) {
@@ -104,6 +123,18 @@ function applyOpponentProposal(offer: CheckOffer, actorKey: CombatEntityKey, pro
 export async function createCheckOffer(gameId: number, data: CreateCheckOfferData): Promise<CheckOffer> {
   await delay();
   if (data.initiator === data.opponent) throw new Error('Нужен другой участник');
+  if (
+    data.proposal.spellCast &&
+    [...offers.values()].some(
+      (offer) =>
+        offer.gameId === gameId &&
+        offer.status === 'pending' &&
+        offer.initiator === data.initiator &&
+        offer.spellCastReservation?.status === 'reserved',
+    )
+  ) {
+    throw new Error('У персонажа уже есть незавершённое предложение сотворения');
+  }
   const attackTargets = [...new Set(data.proposal.attackAction?.strikes.map((strike) => strike.targetKey) ?? [])];
   const hit = data.proposal.hit;
   const isWide = data.proposal.attackAction?.mode === 'wide';
@@ -143,6 +174,7 @@ export async function createCheckOffer(gameId: number, data: CreateCheckOfferDat
     status: 'pending',
     updatedAt: new Date().toISOString(),
   };
+  syncSpellCastReservation(offer);
   offers.set(offer.id, offer);
 
   return snapshot(offer);
@@ -176,6 +208,7 @@ export async function reviseCheckOffer(
     offer.waitingOn = role === 'initiator' ? (pendingCoverersOf(offer).length ? 'covering' : 'opponent') : 'initiator';
     if (offer.waitingOn === 'covering') offer.waitingOnCoverers = pendingCoverersOf(offer);
   }
+  syncSpellCastReservation(offer);
   offer.updatedAt = new Date().toISOString();
 
   return snapshot(offer);
@@ -207,9 +240,11 @@ export async function acceptCheckOffer(
       };
     }
   }
+  syncSpellCastReservation(offer);
   refreshWait(offer);
   if (pendingCoverersOf(offer).length || offer.waitingOnTargets?.length) return snapshot(offer);
   offer.status = 'accepted';
+  if (offer.spellCastReservation) offer.spellCastReservation.status = 'committed';
   offer.updatedAt = new Date().toISOString();
 
   return snapshot(offer);
@@ -220,6 +255,7 @@ export async function cancelCheckOffer(offerId: number, actorKey: CombatEntityKe
   const offer = requirePending(offerId);
   actorRole(offer, actorKey);
   offer.status = 'cancelled';
+  if (offer.spellCastReservation) offer.spellCastReservation.status = 'released';
   offer.updatedAt = new Date().toISOString();
 
   return snapshot(offer);

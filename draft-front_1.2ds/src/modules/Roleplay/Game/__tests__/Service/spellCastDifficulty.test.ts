@@ -198,7 +198,27 @@ describe('SpellCastDifficultyService', () => {
     expect(without.difficulty).toEqual({ base: 5, size: 0 });
   });
 
-  it('без флага resistance не влияет', () => {
+  it('пробивание увеличивает Требуемую мощь и уменьшает resistance', () => {
+    const spell = spellRule('piercing-bolt', 'arcane', { base: 3, size: 0 }, { base: 3, size: 0 });
+    const result = spellCastDifficultyService.computeForSpell(
+      {
+        spellCode: 'piercing-bolt',
+        usedPower: { base: 3, size: 0 },
+        availableControl: { base: 3, size: 0 },
+        parameterValues: {},
+        hasTarget: true,
+        targetResistanceAmount: 3,
+        requiredPowerDelta: 1,
+        resistancePenetration: 2,
+      },
+      [spell, ARCANE],
+    );
+
+    expect(result.powerShortage).toBe(1);
+    expect(result.difficulty).toEqual({ base: 5, size: 0 });
+  });
+
+  it('сопротивление цели влияет на сложность любого целевого заклинания', () => {
     const spell = spellRule('discharge', 'electricity', { base: 3, size: 0 }, { base: 3, size: 0 });
     const result = spellCastDifficultyService.computeForSpell(
       {
@@ -211,7 +231,25 @@ describe('SpellCastDifficultyService', () => {
       },
       [spell, ELECTRICITY],
     );
+    expect(result.difficulty).toEqual({ base: 3, size: 3 });
+  });
+
+  it('применяет тренировочный бонус после сопротивления', () => {
+    const spell = spellRule('trained-bolt', 'arcane', { base: 3, size: 0 }, { base: 3, size: 0 });
+    const result = spellCastDifficultyService.computeForSpell(
+      {
+        spellCode: 'trained-bolt',
+        usedPower: { base: 3, size: 0 },
+        availableControl: { base: 3, size: 0 },
+        parameterValues: {},
+        hasTarget: true,
+        targetResistanceAmount: 1,
+        trainingDifficultyDelta: -1,
+      },
+      [spell, ARCANE],
+    );
     expect(result.difficulty).toEqual({ base: 3, size: 0 });
+    expect(result.needsCheck).toBe(true);
   });
 });
 

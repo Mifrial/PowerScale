@@ -537,6 +537,39 @@ export class ActionEffectService {
     }));
   }
 
+  resolveForSpellCast(
+    pendingEffects: PendingActionEffect[],
+    actionCost: number,
+  ): {
+    difficultyDelta: number;
+    remainingEffects: PendingActionEffect[];
+  } {
+    let difficultyDelta = 0;
+    const remainingEffects: PendingActionEffect[] = [];
+
+    for (const pending of pendingEffects) {
+      const effect = pending.effect;
+      if (effect.type !== 'next_spell_cast_difficulty') {
+        remainingEffects.push(pending);
+        continue;
+      }
+      if (actionCost <= effect.max_total_action_cost) {
+        difficultyDelta += effect.delta;
+      }
+    }
+
+    return { difficultyDelta, remainingEffects };
+  }
+
+  spellCastPendingSignature(pendingEffects: PendingActionEffect[], actionCost: number): string | null {
+    const pending = pendingEffects.find(
+      (item) => item.effect.type === 'next_spell_cast_difficulty' && actionCost <= item.effect.max_total_action_cost,
+    );
+    if (!pending || pending.effect.type !== 'next_spell_cast_difficulty') return null;
+
+    return `${pending.sourceRuleCode}:${pending.effect.delta}:${pending.effect.max_total_action_cost}`;
+  }
+
   resolveForNextAction(
     pendingEffects: PendingActionEffect[],
     action: {

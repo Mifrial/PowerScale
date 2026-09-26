@@ -2,14 +2,17 @@
 import { computed, ref } from 'vue';
 import type { SpellCastUpgradeOption } from '@/modules/Roleplay/Game/Dto/Spell/SpellCastUpgradeOption';
 import { spellCastUpgradeService } from '@/modules/Roleplay/Game/Service/Instance/spellCastUpgradeService';
+import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
 
 const props = defineProps<{
   options: SpellCastUpgradeOption[];
   modelValue: string[];
+  parameterValues: Record<string, number>;
 }>();
 
 const emit = defineEmits<{
   'update:modelValue': [value: string[]];
+  'update:parameterValues': [value: Record<string, number>];
 }>();
 
 const open = ref(false);
@@ -27,6 +30,21 @@ function toggle(code: string, on: boolean | null): void {
   emit('update:modelValue', next);
 }
 
+function parameterValue(code: string): number {
+  return Math.max(0, Math.floor(props.parameterValues[code] ?? 1));
+}
+
+function setParameterValue(code: string, value: number | null): void {
+  emit('update:parameterValues', {
+    ...props.parameterValues,
+    [code]: parameterValueFromInput(value),
+  });
+}
+
+function parameterValueFromInput(value: number | null): number {
+  return Math.max(0, Math.floor(value ?? 0));
+}
+
 function remove(code: string): void {
   emit(
     'update:modelValue',
@@ -35,7 +53,7 @@ function remove(code: string): void {
 }
 
 function chipLabel(option: SpellCastUpgradeOption): string {
-  return spellCastUpgradeService.chipLabel(option);
+  return spellCastUpgradeService.chipLabel(option, parameterValue(option.ruleCode));
 }
 </script>
 
@@ -74,15 +92,26 @@ function chipLabel(option: SpellCastUpgradeOption): string {
       <v-card>
         <v-card-title class="text-body-1">Модификаторы каста</v-card-title>
         <v-card-text>
-          <v-checkbox
-            v-for="option in options"
-            :key="option.ruleCode"
-            :model-value="isOn(option.ruleCode)"
-            :label="chipLabel(option)"
-            hide-details
-            density="compact"
-            @update:model-value="toggle(option.ruleCode, $event)"
-          />
+          <template v-for="option in options" :key="option.ruleCode">
+            <v-checkbox
+              :model-value="isOn(option.ruleCode)"
+              :label="chipLabel(option)"
+              hide-details
+              density="compact"
+              @update:model-value="toggle(option.ruleCode, $event)"
+            />
+            <ClampedNumberField
+              v-if="option.upgrade.resistance_penetration_per_step && isOn(option.ruleCode)"
+              :model-value="parameterValue(option.ruleCode)"
+              label="х"
+              :min="0"
+              :max="999"
+              density="compact"
+              hide-details
+              class="mb-2 ms-8"
+              @update:model-value="setParameterValue(option.ruleCode, $event)"
+            />
+          </template>
         </v-card-text>
         <v-card-actions>
           <v-spacer />

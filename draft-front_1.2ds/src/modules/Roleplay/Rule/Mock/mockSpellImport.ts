@@ -1,6 +1,7 @@
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpec';
 import type { SpellSpec } from '@/modules/Roleplay/Rule/Dto/Ability/SpellSpec';
+import type { SpellTargeting } from '@/modules/Roleplay/Rule/Enum/SpellTargeting';
 import type { SpellValue } from '@/modules/Roleplay/Rule/Dto/Ability/SpellValue';
 import type { AbilityParameter } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityParameter';
 import type { HitResolution } from '@/modules/Roleplay/Rule/Dto/Ability/HitResolution';
@@ -27,6 +28,8 @@ const ARCANIST_KEYWORD = 229;
 const PSIONIC_KEYWORD = 230;
 const SHAMAN_KEYWORD = 231;
 const METHOD_INTELLECT_KEYWORD = 57;
+const ACTIVITY_KEYWORD = 234;
+const ARCANIST_ADVANCED_SECTION = 'abilities-acquired-magic-paths-arcanist-education-advanced';
 const METHOD_COMMUNICATION_KEYWORD = 141;
 const SECTION_WILLPOWER_KEYWORD = 60;
 
@@ -93,8 +96,9 @@ function spellSpec(
   control: SpellValue,
   duration: SpellSpec['duration'],
   damage?: SpellSpec['damage'],
+  targeting: SpellTargeting = 'none',
 ): SpellSpec {
-  return damage ? { power, control, duration, damage } : { power, control, duration };
+  return damage ? { power, control, duration, damage, targeting } : { power, control, duration, targeting };
 }
 
 const touchComponent = { type: 'somatic' as const, note: 'Касание цели' };
@@ -249,7 +253,7 @@ export const mockSpellImport: Rule[] = [
       ],
       parent_ability_code: null,
     },
-    catalogSection: 'abilities-acquired-magic-paths-arcanist',
+    catalogSection: 'abilities-acquired-magic-paths-arcanist-education-basic',
     keywordIds: [SKILL_KEYWORD, MAGIC_KEYWORD, METHOD_INTELLECT_KEYWORD, MAGIC_PATH_KEYWORD, ARCANIST_KEYWORD],
   }),
   rule({
@@ -270,8 +274,54 @@ export const mockSpellImport: Rule[] = [
       grants: [{ level: 1, grants: [{ type: 'magic_study', scope: 'non_spell', max_cost: 2, path_code: 'arcanist' }] }],
       parent_ability_code: null,
     },
-    catalogSection: 'abilities-acquired-magic-paths-arcanist',
+    catalogSection: 'abilities-acquired-magic-paths-arcanist-education-basic',
     keywordIds: [SKILL_KEYWORD, MAGIC_KEYWORD, METHOD_INTELLECT_KEYWORD, MAGIC_PATH_KEYWORD, ARCANIST_KEYWORD],
+  }),
+  rule({
+    id: nextId++,
+    code: 'interstructure-energy-transfer',
+    type: 'ability',
+    name: 'Межструктурные энергопереходы',
+    description:
+      'Если вы успешно прошли проверку сотворения волшебства с результатом не менее 2 РУ, то Сложность следующего сотворения волшебства уменьшается на 1 от тренировок.<br><span class="description-hint">Это волшебство должно быть вашим следующим действием и иметь итоговую стоимость в ОД, не превышающую стоимость предыдущего сотворения. После применения бонус исчезает. Если следующее сотворение также проходит с результатом не менее 2 РУ, вы снова получаете этот бонус.</span>',
+    spec: {
+      type: 'skill',
+      zones: orCost(2),
+      requirements: [
+        {
+          level: 1,
+          requirements: [{ type: 'has_ability', ability_code: 'structure-substitution', min_level: 1 }],
+        },
+      ],
+      grants: [],
+      parent_ability_code: null,
+    },
+    catalogSection: 'abilities-acquired-magic-paths-arcanist-education-basic',
+    keywordIds: [SKILL_KEYWORD, MAGIC_KEYWORD, METHOD_INTELLECT_KEYWORD, MAGIC_PATH_KEYWORD, ARCANIST_KEYWORD],
+  }),
+  rule({
+    id: nextId++,
+    code: 'piercing-magic',
+    type: 'ability',
+    name: 'Пронзающее волшебство',
+    description:
+      '<p>Вы можете применить этот навык к заклинанию любого пути при его объявлении. Такое заклинание получит +х к Требуемой мощи, но проигнорирует [2 × х] Сопротивления магии цели.</p><p><span class="description-hint">х может быть любым целым неотрицательным числом. Увеличенная Требуемая мощь участвует в обычной проверке Сложности сотворения.</span></p><p><span class="description-example">При х = 1 заклинание с Требуемой мощью 5 увеличит её до 3↑. Если оно столкнётся с Сопротивлением магии 3, то посчитает его за 1.</span></p>',
+    spec: {
+      type: 'skill',
+      zones: orCost(2),
+      requirements: [],
+      grants: [],
+      parent_ability_code: null,
+      multiple: true,
+      domain_ref: 'magic-path',
+      spell_upgrade: {
+        action_point_delta: 0,
+        any_path: true,
+        resistance_penetration_per_step: 2,
+      },
+    },
+    catalogSection: 'abilities-acquired-magic-paths-arcanist-skills',
+    keywordIds: [SKILL_KEYWORD, MAGIC_KEYWORD, MAGIC_PATH_KEYWORD, ARCANIST_KEYWORD],
   }),
   rule({
     id: nextId++,
@@ -560,6 +610,7 @@ export const mockSpellImport: Rule[] = [
           ],
           falloff: { free_ipari: 2, size_per_extra_ipari: 1, min: dim(3, -1) },
         },
+        'entity',
       ),
     },
   ),
@@ -653,5 +704,166 @@ export const mockSpellImport: Rule[] = [
     },
     catalogSection: 'abilities-acquired-magic-spells-electromancy',
     keywordIds: [SKILL_KEYWORD, MAGIC_KEYWORD, ELECTROMANCY_KEYWORD],
+  }),
+  rule({
+    id: nextId++,
+    code: 'composite-magic-structures',
+    type: 'ability',
+    name: 'Составные структуры волшебства',
+    description:
+      '<p>Вы можете изучать навыки Арканиста с изначальной стоимостью до 4 включительно.</p><p><span class="description-hint">Заклинания — такие же навыки. Любое волшебство изучается в рамках конкретного пути. То есть навык относится ко всему волшебству.</span></p>',
+    spec: {
+      type: 'skill',
+      zones: orCost(2),
+      requirements: [
+        {
+          level: 1,
+          requirements: [
+            { type: 'has_ability', ability_code: 'structure-substitution', min_level: 1 },
+            { type: 'magic_path_experience', path_code: 'arcanist', min: 10 },
+            {
+              type: 'has_ability_keyword',
+              keyword_code: 'magic',
+              min_count: 1,
+              exclude_keyword_codes: ['spell', 'magic-path'],
+            },
+          ],
+        },
+      ],
+      grants: [
+        {
+          level: 1,
+          grants: [
+            { type: 'magic_study', scope: 'spell', max_cost: 4, path_code: 'arcanist' },
+            { type: 'magic_study', scope: 'non_spell', max_cost: 4, path_code: 'arcanist' },
+          ],
+        },
+      ],
+      parent_ability_code: null,
+    },
+    catalogSection: ARCANIST_ADVANCED_SECTION,
+    keywordIds: [SKILL_KEYWORD, MAGIC_KEYWORD, METHOD_INTELLECT_KEYWORD, MAGIC_PATH_KEYWORD, ARCANIST_KEYWORD],
+  }),
+  rule({
+    id: nextId++,
+    code: 'magic-perception',
+    type: 'ability',
+    name: 'Восприятие магии',
+    description:
+      '<p>Вы получаете на время поддержания заклинания <a data-rule-code="magic-sensation">Ощущение магии</a>, позволяющее обнаруживать магические конструкты, формы магической энергии и предметы, взаимодействующие с магией. Оно не заменяет обычные чувства, а дополняет их магическим восприятием.</p><p>Значение получаемого чувства, являющееся его модификатором к Внимательности, равно модификатору, который нужно применить к 4↑, чтобы получить Х.</p><p>Радиус получаемого чувства равен М ипари, а его Предел постижения магии равен М.</p>',
+    contentNote:
+      'Текст описывает сотворение как 1 ход, равный лимиту ОД персонажа. Стоимость runtime берётся как весь доступный лимит ОД. Минимум Контроля поддержания остаётся в описании, отдельного поля спеки нет.',
+    spec: {
+      type: 'spell',
+      zones: orCost(2),
+      requirements: [],
+      grants: [],
+      parent_ability_code: null,
+      ...spellStudyFields(null),
+      action_components: [
+        {
+          type: 'resource',
+          resource_code: ACTION_POINTS_RESOURCE_CODE,
+          amount: { type: 'chosen', max: 'available' },
+          label: 'Сотворение',
+        },
+      ],
+      hit_resolution: { type: 'none' },
+      spell: spellSpec(dim(4, -1), dim(4, 0), { type: 'sustained', power: dim(4, -1) }, undefined, 'self'),
+    },
+    catalogSection: 'abilities-acquired-magic-spells-other',
+    keywordIds: [SKILL_KEYWORD, MAGIC_KEYWORD, ACTION_KEYWORD, SPELL_KEYWORD],
+  }),
+  rule({
+    id: nextId++,
+    code: 'magic-structure-overview',
+    type: 'ability',
+    name: 'Обзор магических структур',
+    description:
+      '<p>Навык позволяет с помощью чувства <a data-rule-code="magic-sensation">Ощущение магии</a> распознавать знакомое волшебство без дополнительных действий. Даже если волшебство вам не знакомо, вы можете определить, является ли оно поддерживаемым.</p><p>Чтобы получить дополнительную информацию о волшебстве, вы можете использовать занятие <a data-rule-code="magic-structure-analysis">Анализ магических структур</a>, которое этот навык предоставляет бесплатно.</p><p><span class="description-hint">Навык без признака волшебство, применённый к заклинанию, не распознаётся с помощью этого правила. Без дополнительных действий вы можете распознать знакомое вам заклинание и знакомый вам навык волшебства, применённый к заклинанию. Улучшения являются навыками. Если улучшение имеет признак волшебство, оно распознаётся по этим же правилам. Например, если вы знаете применённый навык волшебства, но не знаете заклинание, вы распознаёте применённый навык, но не заклинание.</span></p>',
+    spec: {
+      type: 'skill',
+      zones: orCost(2),
+      requirements: [
+        {
+          level: 1,
+          requirements: [
+            { type: 'has_ability', ability_code: 'composite-magic-structures', min_level: 1 },
+            { type: 'has_ability', ability_code: 'matematika', min_level: 1 },
+            { type: 'has_ability', ability_code: 'magic-perception', min_level: 1 },
+          ],
+        },
+      ],
+      grants: [{ level: 1, grants: [{ type: 'ability', ability_code: 'magic-structure-analysis', level: 1 }] }],
+      parent_ability_code: null,
+    },
+    catalogSection: ARCANIST_ADVANCED_SECTION,
+    keywordIds: [SKILL_KEYWORD, MAGIC_KEYWORD, ARCANIST_KEYWORD],
+  }),
+  rule({
+    id: nextId++,
+    code: 'magic-structure-analysis',
+    type: 'ability',
+    name: 'Анализ магических структур',
+    description: `<p>Навык позволяет исследовать волшебство, наблюдаемое с помощью чувства <a data-rule-code="magic-sensation">Ощущение магии</a>, чтобы получить дополнительную информацию о нём.</p><p>Для исследования выберите:</p><ul><li><strong>Целевое волшебство</strong> — волшебство, которое вы можете наблюдать с помощью Ощущения магии и будете исследовать;</li><li><strong>Исследуемый вопрос</strong> — информацию, которую хотите получить о целевом волшебстве.</li></ul><p>Исследование проводится поэтапно. Каждый этап является волшебным действием, которое вызывает проверку Анализа волшебства через Интеллект.</p><ul><li><strong>Осмотр</strong> — 5 ОД. Даёт возможность провести проверку со Сложностью, увеличенной на 2 размера.</li><li><strong>Поверхностный анализ</strong> — 1 минута. Даёт возможность провести проверку со Сложностью, увеличенной на 1 размер.</li><li><strong>Анализ</strong> — 1 час. Этот этап можно выполнять неоднократно, накапливая потраченное на исследование время. При накоплении 1 часа вы можете провести проверку со стандартной Сложностью. При накоплении 10 часов вы можете провести ещё одну проверку со Сложностью, уменьшенной на 1 размер. При накоплении 100 часов и каждых последующих 100 часов вы можете провести ещё одну проверку со Сложностью, уменьшенной на 2 размера.</li></ul><h3>Исследуемые вопросы</h3><details class="description-expanded-block"><summary class="description-expanded-block__header"><span class="description-expanded-block__title">Контроль волшебства</span><span class="description-expanded-block__difficulty">Базовая Сложность: 2↑</span></summary><div class="description-expanded-block__body"><p>Вы можете определить значение Контроля волшебства. Если оно превышает Предел постижения магии, вы можете определить только то, что оно выше вашего Предела постижения магии.</p></div></details><details class="description-expanded-block"><summary class="description-expanded-block__header"><span class="description-expanded-block__title">Признаки волшебства</span><span class="description-expanded-block__difficulty">Базовая Сложность: 1</span></summary><div class="description-expanded-block__body"><p>Вы можете определить признаки заклинания и применённых к нему навыков волшебства, если эти признаки вам знакомы: они присутствуют среди признаков известных вам навыков.</p><p>При результате проверки не менее 6 РУ вы можете определить также незнакомые признаки.</p></div></details><details class="description-expanded-block"><summary class="description-expanded-block__header"><span class="description-expanded-block__title">Цели волшебства</span><span class="description-expanded-block__difficulty">Базовая Сложность: 1</span></summary><div class="description-expanded-block__body"><p>Вы можете определить цели волшебства, находящиеся в пределах радиуса Ощущения магии.</p><p>Если у волшебства нет целей, вы также можете это определить.</p></div></details><details class="description-expanded-block"><summary class="description-expanded-block__header"><span class="description-expanded-block__title">Зона волшебства</span><span class="description-expanded-block__difficulty">Базовая Сложность: 1</span></summary><div class="description-expanded-block__body"><p>Вы можете определить зону действия волшебства в пределах радиуса Ощущения магии.</p><p>Если у волшебства нет зоны действия, вы также можете это определить.</p></div></details><details class="description-expanded-block"><summary class="description-expanded-block__header"><span class="description-expanded-block__title">Время действия волшебства</span><span class="description-expanded-block__difficulty">Базовая Сложность: 2↑</span></summary><div class="description-expanded-block__body"><p>Вы можете определить оставшееся время действия длительного волшебства.</p><p>При результате проверки не менее 2 РУ вы можете дополнительно определить общее время действия волшебства. Сравнив его с оставшимся временем, вы можете определить, сколько времени прошло с момента создания волшебства.</p><p>Этот вопрос не применяется к мгновенному, обновляемому или поддерживаемому волшебству.</p></div></details><details class="description-expanded-block"><summary class="description-expanded-block__header"><span class="description-expanded-block__title">Источник волшебства</span><span class="description-expanded-block__difficulty">Базовая Сложность: 3↑</span></summary><div class="description-expanded-block__body"><p>Если волшебство использует один источник, вы можете определить его тип, если этот тип вам знаком. Например, вы можете распознать магическое ядро или магический кристалл, если уже знакомы с такими источниками.</p><p>Если волшебство использует несколько источников, например внешний магический кристалл для усиления заклинания через магическое ядро, для определения каждого источника требуется результат не менее 2 РУ.</p></div></details><details class="description-expanded-block"><summary class="description-expanded-block__header"><span class="description-expanded-block__title">Эффект незнакомого волшебства</span><span class="description-expanded-block__difficulty">Базовая Сложность: сумма стоимостей↑²</span></summary><div class="description-expanded-block__body"><p>Вы можете определить эффект незнакомого волшебства.</p><p>Базовая Сложность равна сумме изначальной стоимости заклинания и изначальных стоимостей всех применённых к нему навыков волшебства. Размерность базовой Сложности равна 2.</p></div></details><details class="description-expanded-block"><summary class="description-expanded-block__header"><span class="description-expanded-block__title">Собственный вопрос</span><span class="description-expanded-block__difficulty">Сложность определяется Мастером</span></summary><div class="description-expanded-block__body"><p>Вы можете задать собственный вопрос об исследуемом волшебстве. Например: «Может ли это волшебство создавать огонь?»</p><p>Мастер может признать вопрос некорректным или разрешить проверку, не называя её базовой Сложности.</p></div></details>`,
+    spec: {
+      type: 'skill',
+      zones: {},
+      requirements: [],
+      grants: [],
+      parent_ability_code: null,
+    },
+    catalogSection: ARCANIST_ADVANCED_SECTION,
+    keywordIds: [SKILL_KEYWORD, MAGIC_KEYWORD, ARCANIST_KEYWORD, ACTIVITY_KEYWORD],
+  }),
+  rule({
+    id: nextId++,
+    code: 'dynamic-energy-saturation',
+    type: 'ability',
+    name: 'Динамическое энергонасыщение',
+    description:
+      '<p>Если вы успешно прошли проверку сотворения волшебства, после определения её РУ и до разрешения эффекта заклинания вы можете потратить РУ этой проверки. За каждые 2 потраченных РУ увеличьте Мощь заклинания на 1.</p><p><span class="description-hint">Вы не можете потратить больше РУ, чем получили за проверку. После этого выбора применяются способности, зависящие от результата проверки сотворения волшебства.</span></p>',
+    spec: {
+      type: 'skill',
+      zones: orCost(2),
+      requirements: [
+        {
+          level: 1,
+          requirements: [
+            { type: 'has_ability', ability_code: 'composite-magic-structures', min_level: 1 },
+            { type: 'magic_path_experience', path_code: 'arcanist', min: 15 },
+          ],
+        },
+      ],
+      grants: [],
+      parent_ability_code: null,
+    },
+    catalogSection: ARCANIST_ADVANCED_SECTION,
+    keywordIds: [SKILL_KEYWORD, MAGIC_KEYWORD, METHOD_INTELLECT_KEYWORD, MAGIC_PATH_KEYWORD, ARCANIST_KEYWORD],
+  }),
+  rule({
+    id: nextId++,
+    code: 'basic-element-properties',
+    type: 'ability',
+    name: 'Свойства базовых элементов',
+    description:
+      '<p>Вы получаете бонус +1 к эффективности проверок на Сотворение волшебства от Мастерства для любого пути волшебства.</p><p><span class="description-hint">Эффективность — это грань кубика, до которой результат считается успехом. Бонус от одного источника не складывается с другим бонусом того же источника.</span></p>',
+    spec: {
+      type: 'skill',
+      zones: orCost(3),
+      requirements: [
+        {
+          level: 1,
+          requirements: [
+            { type: 'has_ability', ability_code: 'composite-magic-structures', min_level: 1 },
+            { type: 'magic_path_experience', path_code: 'arcanist', min: 20 },
+          ],
+        },
+      ],
+      grants: [],
+      parent_ability_code: null,
+    },
+    catalogSection: ARCANIST_ADVANCED_SECTION,
+    keywordIds: [SKILL_KEYWORD, MAGIC_KEYWORD, METHOD_INTELLECT_KEYWORD, MAGIC_PATH_KEYWORD, ARCANIST_KEYWORD],
   }),
 ];

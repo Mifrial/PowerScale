@@ -874,8 +874,11 @@ describe('mockDevelopmentImport (S14)', () => {
       'sovmestnaya-ataka',
     ]) {
       expect(byCode.get(code)?.catalogSection, code).toBe('abilities-acquired-melee-combat-other');
-      expect(byCode.get(code)?.contentNote, code).toContain('обязатель');
+      expect(byCode.get(code)?.contentNote, code).toBeTruthy();
     }
+    expect(byCode.get('prikrytie')?.contentNote).toBe(
+      'Альтернативный защитник одной реакции; один бросок атакующего; перенос цели после бросков.',
+    );
     expect(byCode.get('raschetlivaya-ataka')?.catalogSection).toBe('abilities-acquired-melee-combat-other');
     expect(byCode.get('tochnyy-udar')?.catalogSection).toBe('abilities-acquired-melee-combat-accuracy');
     expect(byCode.get('razmashistyy-udar')?.catalogSection).toBe('abilities-acquired-melee-combat-power');

@@ -37,6 +37,37 @@ function openRule(event: MouseEvent): void {
   font-style: italic;
 }
 
+.description-html :deep(.description-hint) {
+  color: rgba(var(--v-theme-primary), 0.9);
+}
+
+.description-html :deep(.description-expanded-block) {
+  margin: 8px 0;
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-radius: 4px;
+}
+
+.description-html :deep(.description-expanded-block__header) {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.description-html :deep(.description-expanded-block__title) {
+  text-align: left;
+}
+
+.description-html :deep(.description-expanded-block__difficulty) {
+  text-align: right;
+  color: rgba(var(--v-theme-on-surface), 0.7);
+}
+
+.description-html :deep(.description-expanded-block__body) {
+  padding: 0 12px 8px;
+}
+
 .description-html :deep([data-rule-code]) {
   color: rgba(var(--v-theme-on-surface), 0.72);
   cursor: pointer;

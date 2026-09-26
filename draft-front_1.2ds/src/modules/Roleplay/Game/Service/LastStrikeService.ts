@@ -110,6 +110,7 @@ export class LastStrikeService {
     const hits = snapshot.hits
       .map((hit) => {
         const name = nameOf(hit.targetKey);
+
         return hit.attackSr > 0 ? `${name}: попал, РУ ${hit.attackSr}` : `${name}: промах`;
       })
       .join('; ');

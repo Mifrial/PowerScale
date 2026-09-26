@@ -57,6 +57,16 @@ function makeBuild(overrides: Partial<CharacterBuild> = {}): CharacterBuild {
 }
 
 describe('CharacterEditorService с каталогом правил (интеграция)', () => {
+  it('каталог содержит углублённое образование Арканиста', () => {
+    const model = service.build(makeBuild(), ruleCatalog, config, keywords);
+    const codes = new Set(model.abilities.map((ability) => ability.code));
+
+    expect(codes.has('composite-magic-structures')).toBe(true);
+    expect(codes.has('magic-structure-overview')).toBe(true);
+    expect(codes.has('dynamic-energy-saturation')).toBe(true);
+    expect(codes.has('basic-element-properties')).toBe(true);
+  });
+
   it('вид human: расы-дети несут cost_os и характеристики', () => {
     const human = ruleCatalog.find((r) => r.code === 'human');
     expect(human?.type).toBe('species');
@@ -156,13 +166,13 @@ describe('CharacterEditorService с каталогом правил (интег�
     expect(keen?.automatic).toBe(true);
   });
 
-  it('двойной удар требует «Навыки боя»: недоступен без опыта ближнего боя, доступен с ним', () => {
+  it('сдвоенный удар требует способность «Обоерукая атака»: недоступен без неё, доступен с ней', () => {
     const without = service.build(makeBuild(), ruleCatalog, config, keywords);
     const strike = without.abilities.find((a) => a.code === 'sdvoennyy-udar');
     expect(strike?.levels[0].met).toBe(false);
 
     const withSkill = service.build(
-      makeBuild({ abilities: [{ ruleCode: 'borba', level: 1 }] }),
+      makeBuild({ abilities: [{ ruleCode: 'oboerukaya-ataka', level: 1 }] }),
       ruleCatalog,
       config,
       keywords,
@@ -1486,7 +1496,15 @@ describe('«Владение оружием» — мастерство оруж�
 
   it('основные боевые действия — зона or и явная секция каталога', () => {
     const model = service.build(makeBuild(), ruleCatalog, config, keywords);
-    for (const code of ['dodge', 'block', 'simple-melee-attack', 'simple-ranged-attack', 'simple-touch', 'simple-push', 'turn']) {
+    for (const code of [
+      'dodge',
+      'block',
+      'simple-melee-attack',
+      'simple-ranged-attack',
+      'simple-touch',
+      'simple-push',
+      'turn',
+    ]) {
       const ability = model.abilities.find((entry) => entry.code === code);
       expect(
         ability?.zones.map((zone) => zone.zoneCode),
@@ -1496,7 +1514,10 @@ describe('«Владение оружием» — мастерство оруж�
       expect(ability?.visible, code).toBe(false);
       const rule = ruleCatalog.find((entry) => entry.code === code);
       expect(rule?.catalogSection).toBe(
-        code === 'simple-melee-attack' || code === 'simple-ranged-attack' || code === 'simple-touch' || code === 'simple-push'
+        code === 'simple-melee-attack' ||
+          code === 'simple-ranged-attack' ||
+          code === 'simple-touch' ||
+          code === 'simple-push'
           ? 'scenes-combat-basic-attacks'
           : 'scenes-combat-defense',
       );

@@ -619,4 +619,27 @@ describe('ActionEffectService', () => {
     );
     expect(actionEffectService.currentAttackTargetCharacteristicModifier(rule, 'throw', 'perception', 4).delta).toBe(0);
   });
+
+  it('разрешает бонус межструктурных энергопереходов только для допустимой стоимости каста', () => {
+    const pending: PendingActionEffect[] = [
+      {
+        sourceRuleCode: 'interstructure-energy-transfer',
+        effect: {
+          type: 'next_spell_cast_difficulty',
+          delta: -1,
+          source_code: 'training',
+          max_total_action_cost: 3,
+        },
+      },
+    ];
+
+    expect(actionEffectService.resolveForSpellCast(pending, 3)).toEqual({
+      difficultyDelta: -1,
+      remainingEffects: [],
+    });
+    expect(actionEffectService.resolveForSpellCast(pending, 4)).toEqual({
+      difficultyDelta: 0,
+      remainingEffects: [],
+    });
+  });
 });

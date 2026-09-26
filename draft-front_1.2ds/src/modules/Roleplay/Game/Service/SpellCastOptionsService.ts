@@ -1,7 +1,6 @@
 import type { CharacterOverview } from '@/modules/Roleplay/Character/Dto/Overview/CharacterOverview';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
-import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import type { SpellCastPathOption } from '@/modules/Roleplay/Game/Dto/Spell/SpellCastPathOption';
 import type { SpellCastSourceOption } from '@/modules/Roleplay/Game/Dto/Spell/SpellCastSourceOption';
 import type { SpellCastSpellOption } from '@/modules/Roleplay/Game/Dto/Spell/SpellCastSpellOption';
@@ -11,10 +10,10 @@ import { MAGIC_POWER_CODE } from '@/modules/Roleplay/Game/Constant/Spell/MAGIC_P
 import type { Grant } from '@/modules/Roleplay/Rule/Dto/Ability/Grant';
 import type { MagicPathSpec } from '@/modules/Roleplay/Rule/Dto/MagicPath/MagicPathSpec';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import type { Formula } from '@/modules/Roleplay/Rule/Dto/Ability/Formula';
 import { spellCastDifficultyService } from '@/modules/Roleplay/Game/Service/Instance/spellCastDifficultyService';
 import { spellDeviationService } from '@/modules/Roleplay/Game/Service/Instance/spellDeviationService';
 import type { SpellValue } from '@/modules/Roleplay/Rule/Dto/Ability/SpellValue';
+import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/init';
 
 /** Источники, пути и изученные заклинания для диалога сотворения. */
 export class SpellCastOptionsService {
@@ -99,7 +98,13 @@ export class SpellCastOptionsService {
     const codes = new Set<string>();
     for (const ability of version.abilities) {
       const rule = rules.find((entry) => entry.code === ability.ruleCode);
-      if (!rule || rule.type !== 'ability' || !rule.spec || typeof rule.spec !== 'object' || !('grants' in rule.spec)) {
+      if (
+        !rule ||
+        !['ability', 'trait'].includes(rule.type) ||
+        !rule.spec ||
+        typeof rule.spec !== 'object' ||
+        !('grants' in rule.spec)
+      ) {
         continue;
       }
       const rows = this.grantRows(rule.spec);
@@ -148,36 +153,16 @@ export class SpellCastOptionsService {
     return this.characteristicValue(overview, MAGIC_CONTROL_CODE);
   }
 
-  targetResistanceAmount(
-    target: CharacterVersion | null,
-    rules: Rule[],
-    damageTypeCode: string,
-    parameterValues: Record<string, DimensionalNumberValue>,
-  ): number {
-    if (!target) {
-      return 0;
-    }
-    let best = 0;
-    for (const ability of target.abilities) {
-      const rule = rules.find((entry) => entry.code === ability.ruleCode);
-      if (!rule || rule.type !== 'ability' || !rule.spec || typeof rule.spec !== 'object' || !('grants' in rule.spec)) {
-        continue;
-      }
-      const rows = this.grantRows(rule.spec);
-      for (const levelGrant of rows) {
-        if (levelGrant.level > ability.level) {
-          continue;
-        }
-        for (const grant of levelGrant.grants) {
-          const amount = this.resistanceAmount(grant, damageTypeCode, ability.parameters ?? {}, parameterValues);
-          if (amount > best) {
-            best = amount;
-          }
-        }
-      }
-    }
-
-    return best;
+  targetResistanceFromOverview(target: CharacterOverview | null, damageTypeCode: string): number {
+    if (!target?.defense) return 0;
+    const lines = [
+      ...(target.defense.resistances ?? []),
+      ...target.defense.armor.flatMap((armor) => armor.lines),
+    ].filter((line) => line.kind === 'resistance' && line.damageTypeCode === damageTypeCode);
+    const result = aggregateSourceDeltasService.netSourceDelta(
+      lines.map((line) => ({ source_code: line.sourceCode, delta: line.value })),
+    );
+    return result;
   }
 
   private grantRows(spec: object): { level: number; grants: Grant[] }[] {
@@ -186,34 +171,6 @@ export class SpellCastOptionsService {
     }
 
     return spec.grants as { level: number; grants: Grant[] }[];
-  }
-
-  private resistanceAmount(
-    grant: Grant,
-    damageTypeCode: string,
-    abilityParameters: Record<string, DimensionalNumberValue | number>,
-    castParameters: Record<string, DimensionalNumberValue>,
-  ): number {
-    if (grant.type !== 'resistance' || grant.damage_type_code !== damageTypeCode) {
-      return 0;
-    }
-    const value = grant.value;
-    if (this.isFormula(value)) {
-      if (value.type === 'parameter') {
-        const raw = abilityParameters[value.parameter_code] ?? castParameters[value.parameter_code];
-        const units = typeof raw === 'number' ? raw : raw ? DimensionalNumber.from(raw).toNumber() : 0;
-
-        return units * value.per_unit;
-      }
-
-      return 0;
-    }
-
-    return DimensionalNumber.from(value).toNumber();
-  }
-
-  private isFormula(value: DimensionalNumberValue | Formula): value is Formula {
-    return typeof value === 'object' && 'type' in value;
   }
 
   private fixedSpellValue(value: SpellValue): DimensionalNumberValue | null {

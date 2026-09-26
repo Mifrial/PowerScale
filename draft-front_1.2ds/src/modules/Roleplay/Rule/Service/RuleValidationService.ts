@@ -1693,6 +1693,17 @@ export class RuleValidationService {
         message: 'преимущество сотворения должно быть целым',
       });
     }
+    if (
+      spec.spell_upgrade.resistance_penetration_per_step !== undefined &&
+      (!Number.isInteger(spec.spell_upgrade.resistance_penetration_per_step) ||
+        spec.spell_upgrade.resistance_penetration_per_step <= 0)
+    ) {
+      errors.push({
+        ruleName: rule.name,
+        ruleCode: rule.code,
+        message: 'пробивание сопротивления за шаг должно быть целым числом больше нуля',
+      });
+    }
     const chain = spec.spell_upgrade.chain;
     if (!chain) return errors;
     if (!Number.isInteger(chain.damage_size_per_hop) || chain.damage_size_per_hop < 1) {

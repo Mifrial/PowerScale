@@ -113,6 +113,30 @@ describe('Точность §2.3', () => {
     ).toBe('прошлый удар (Гоблин: промах)');
   });
 
+  it('замена снимка прошлого удара сохраняет pending-эффекты заклинания', () => {
+    const pending: PendingActionEffect[] = [
+      {
+        sourceRuleCode: 'interstructure-energy-transfer',
+        effect: {
+          type: 'next_spell_cast_difficulty',
+          delta: -1,
+          source_code: 'training',
+          max_total_action_cost: 5,
+        },
+      },
+    ];
+
+    const next = lastStrikeService.replaceOnPending(
+      pending,
+      { kind: 'other', hits: [{ targetKey: 'character:1', attackSr: 2 }] },
+      'simple-touch',
+    );
+
+    expect(next).toHaveLength(2);
+    expect(next.some((item) => item.effect.type === 'next_spell_cast_difficulty')).toBe(true);
+    expect(next.some((item) => item.effect.type === 'last_strike_snapshot')).toBe(true);
+  });
+
   it('срез только на режущем, рубящем и колющем', () => {
     const rule = ability([
       {

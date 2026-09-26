@@ -238,4 +238,56 @@ describe('mockCheckOffers: handshake pairwise', () => {
     expect(confirmed.status).toBe('pending');
     expect(confirmed.waitingOn).toBe('covering');
   });
+
+  it('создаёт reservation для touch-offer и меняет её статус при commit/cancel', async () => {
+    const spellProposal: CheckOfferProposal = {
+      ...proposal,
+      spellCast: {
+        spellCode: 'discharge',
+        usedPower: { base: 4, size: 0 },
+        availableControl: { base: 3, size: 0 },
+        parameterValues: {},
+        hasSpellTarget: true,
+        spellTargetKey: opponent,
+        targetResistanceAmount: 0,
+        parameterPower: { base: 4, size: 0 },
+        checkCode: 'check-intellect',
+        characteristicValue: { base: 5, size: 0 },
+        characteristicName: 'Интеллект',
+        touchActionCode: 'simple-touch',
+        touchActionName: 'Простое касание',
+        spellOd: 2,
+        touchOd: 3,
+        spentAp: 5,
+        trainingDifficultyDelta: -1,
+        pendingSignature: 'interstructure-energy-transfer:-1:5',
+      },
+    };
+    const created = await createCheckOffer(7, {
+      checkCode: 'check-hit',
+      initiator,
+      opponent,
+      proposal: spellProposal,
+    });
+
+    expect(created.spellCastReservation).toMatchObject({
+      offerId: created.id,
+      casterKey: initiator,
+      reservedActionCost: 5,
+      trainingDifficultyDelta: -1,
+      reservedPendingSignature: 'interstructure-energy-transfer:-1:5',
+      status: 'reserved',
+    });
+    const accepted = await acceptCheckOffer(created.id, opponent);
+    expect(accepted.spellCastReservation?.status).toBe('committed');
+
+    const second = await createCheckOffer(7, {
+      checkCode: 'check-hit',
+      initiator,
+      opponent,
+      proposal: spellProposal,
+    });
+    const cancelled = await cancelCheckOffer(second.id, initiator);
+    expect(cancelled.spellCastReservation?.status).toBe('released');
+  });
 });

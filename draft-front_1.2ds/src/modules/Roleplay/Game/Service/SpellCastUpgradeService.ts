@@ -23,11 +23,19 @@ export class SpellCastUpgradeService {
       const parent = spec.parent_ability_code;
       const matchesParent = parent === spellCode;
       const matchesPath =
-        !parent && spec.domain_ref === 'magic-path' && Boolean(pathCode) && ability.domainCode === pathCode;
+        !parent &&
+        spec.domain_ref === 'magic-path' &&
+        Boolean(pathCode) &&
+        (spec.spell_upgrade.any_path === true || ability.domainCode === pathCode);
       if (!matchesParent && !matchesPath) {
         continue;
       }
-      if (!spec.spell_upgrade.action_point_delta && !spec.spell_upgrade.check_advantage && !spec.spell_upgrade.chain) {
+      if (
+        !spec.spell_upgrade.action_point_delta &&
+        !spec.spell_upgrade.check_advantage &&
+        !spec.spell_upgrade.resistance_penetration_per_step &&
+        !spec.spell_upgrade.chain
+      ) {
         continue;
       }
       if (seen.has(rule.code)) {
@@ -52,7 +60,7 @@ export class SpellCastUpgradeService {
     return codes.filter((code) => allowed.has(code));
   }
 
-  chipLabel(option: SpellCastUpgradeOption): string {
+  chipLabel(option: SpellCastUpgradeOption, parameterValue = 0): string {
     const bits: string[] = [];
     if (option.upgrade.action_point_delta) {
       bits.push(`+${option.upgrade.action_point_delta} ОД`);
@@ -62,6 +70,9 @@ export class SpellCastUpgradeService {
     }
     if (option.upgrade.chain) {
       bits.push('цепь');
+    }
+    if (option.upgrade.resistance_penetration_per_step) {
+      bits.push(`х = ${parameterValue}`);
     }
     if (bits.length === 0) {
       return option.name;
@@ -82,6 +93,26 @@ export class SpellCastUpgradeService {
         source_label: option.name,
         delta: option.upgrade.check_advantage ?? 0,
       }));
+  }
+
+  requiredPowerDelta(selected: SpellCastUpgradeOption[], values: Readonly<Record<string, number>>): number {
+    return selected.reduce((sum, option) => sum + this.parameterValue(option, values), 0);
+  }
+
+  resistancePenetration(selected: SpellCastUpgradeOption[], values: Readonly<Record<string, number>>): number {
+    return selected.reduce(
+      (sum, option) =>
+        sum + this.parameterValue(option, values) * (option.upgrade.resistance_penetration_per_step ?? 0),
+      0,
+    );
+  }
+
+  private parameterValue(option: SpellCastUpgradeOption, values: Readonly<Record<string, number>>): number {
+    if (!option.upgrade.resistance_penetration_per_step) {
+      return 0;
+    }
+
+    return Math.max(0, Math.floor(values[option.ruleCode] ?? 1));
   }
 
   private upgradeSpec(rule: Rule | undefined): {

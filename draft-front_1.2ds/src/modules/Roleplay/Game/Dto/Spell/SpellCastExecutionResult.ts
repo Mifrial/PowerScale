@@ -2,8 +2,9 @@ import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/Dimension
 import type { ApplyAttackDamageResult } from '@/modules/Roleplay/Game/Dto/ApplyAttackDamageResult';
 import type { HitCheckRoll } from '@/modules/Roleplay/Game/Dto/HitCheckRoll';
 import type { SpellCastRollOutcome } from '@/modules/Roleplay/Game/Dto/Spell/SpellCastRollOutcome';
+import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
 
-export type SpellCastRefuseReason = 'not_enough_ap' | 'needs_hit_offer';
+export type SpellCastRefuseReason = 'not_enough_ap' | 'needs_hit_offer' | 'invalid_saturation';
 
 export type SpellCastDelivery = 'hit' | 'milk' | 'auto' | 'none';
 
@@ -21,5 +22,6 @@ export interface SpellCastExecutionResult {
   spellDamage: DimensionalNumberValue | null;
   weaponApply: ApplyAttackDamageResult | null;
   spellApply: ApplyAttackDamageResult | null;
+  pendingEffectsAfterCast?: PendingActionEffect[];
   cast: SpellCastRollOutcome | null;
 }

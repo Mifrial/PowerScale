@@ -303,12 +303,12 @@ describe('естественное оружие в каталоге и обзо�
     });
   });
 
-  it('обзор без купленного оружия даёт атаки Рука и Нога', () => {
+  it('обзор без купленного оружия даёт атаки экземпляров Рука и Нога', () => {
     const card = overview.build(versionOf(), ruleCatalog);
     const names = card.attacks.map((attack) => attack.itemName);
 
-    expect(names).toEqual(expect.arrayContaining(['Рука', 'Нога']));
-    expect(names.filter((name) => name === 'Рука')).toHaveLength(1);
-    expect(names.filter((name) => name === 'Нога')).toHaveLength(1);
+    expect(names).toEqual(expect.arrayContaining(['Рука 1', 'Рука 2', 'Нога 1', 'Нога 2']));
+    expect(names.filter((name) => name.startsWith('Рука '))).toHaveLength(2);
+    expect(names.filter((name) => name.startsWith('Нога '))).toHaveLength(2);
   });
 });

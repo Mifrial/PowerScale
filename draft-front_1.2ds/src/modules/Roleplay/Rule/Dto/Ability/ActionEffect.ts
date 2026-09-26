@@ -160,4 +160,10 @@ export type ActionEffect =
         damage_type_code: string;
         internal: boolean;
       };
+    }
+  | {
+      type: 'next_spell_cast_difficulty';
+      delta: number;
+      source_code?: string;
+      max_total_action_cost: number;
     };

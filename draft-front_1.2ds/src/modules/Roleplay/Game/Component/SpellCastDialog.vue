@@ -2,6 +2,7 @@
 import { computed, inject, nextTick, ref, watch } from 'vue';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue';
+import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
 import { ROLL_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ATTACHMENT_TYPE';
@@ -64,7 +65,10 @@ import type { StateSpec } from '@/modules/Roleplay/Rule/Dto/State/StateSpec';
 import type { ApplyAttackDamageResult } from '@/modules/Roleplay/Game/Dto/ApplyAttackDamageResult';
 import type { CheckOffer } from '@/modules/Roleplay/Game/Dto/CheckOffer';
 import type { SpellCastLaunchContext } from '@/modules/Roleplay/Game/Dto/Spell/SpellCastLaunchContext';
+import type { SpellCastExecutionInput } from '@/modules/Roleplay/Game/Dto/Spell/SpellCastExecutionInput';
 import type { SpellCastExecutionResult } from '@/modules/Roleplay/Game/Dto/Spell/SpellCastExecutionResult';
+import type { SpellCastRollOutcome } from '@/modules/Roleplay/Game/Dto/Spell/SpellCastRollOutcome';
+import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
 import type { SpellBurstTarget } from '@/modules/Roleplay/Game/Dto/Spell/SpellBurstTarget';
 import type { SpellDeviationOutcome } from '@/modules/Roleplay/Game/Dto/Spell/SpellDeviationOutcome';
 import { ARCANE_DAMAGE_TYPE_CODE } from '@/modules/Roleplay/Game/Constant/Spell/ARCANE_DAMAGE_TYPE_CODE';
@@ -108,6 +112,7 @@ const spellCode = ref('');
 const sourceKey = ref('');
 const pathCode = ref('');
 const appliedUpgradeCodes = ref<string[]>([]);
+const appliedUpgradeValues = ref<Record<string, number>>({});
 const activeSpells = ref<ActiveSpell[]>([]);
 const hopOpen = ref(false);
 const hopLastKey = ref<CombatEntityKey | null>(null);
@@ -123,6 +128,25 @@ const error = ref<string | null>(null);
 const lastSkip = ref(false);
 const lastMilk = ref(false);
 const lastAutoFail = ref(false);
+const saturationSteps = ref(0);
+const pendingSaturation = ref<{
+  input: SpellCastExecutionInput;
+  cast: SpellCastRollOutcome;
+  remainingEffects: PendingActionEffect[];
+  effectKey: CombatEntityKey | null;
+} | null>(null);
+const saturationMaxSteps = computed(() => Math.floor((pendingSaturation.value?.cast.roll?.check?.rating ?? 0) / 2));
+const saturationRating = computed(
+  () => (pendingSaturation.value?.cast.roll?.check?.rating ?? 0) - saturationSteps.value * 2,
+);
+const saturationPowerLabel = computed(() =>
+  pendingSaturation.value
+    ? DimensionalNumber.from(pendingSaturation.value.input.parameterPower)
+        .modify(saturationSteps.value, CHARACTERISTIC_BASE_RANGE)
+        .toString()
+    : '—',
+);
+
 const showCastOptions = ref(false);
 const touchActionCode = ref(SIMPLE_TOUCH_CODE);
 const touchTargetKey = ref<CombatEntityKey | ''>('');
@@ -221,7 +245,16 @@ const selectedPath = computed(() => paths.value.find((path) => path.pathCode ===
 const selectedSpell = computed(() => props.rules.find((rule) => rule.code === spellCode.value));
 const spellSpec = computed(() => spellCastDifficultyService.asSpellAbilitySpec(selectedSpell.value));
 const needsTouchAttack = computed(() => spellSpec.value?.hit_resolution?.type === 'attack');
-const needsSpellTarget = computed(() => spellSpec.value?.hit_resolution?.type === 'auto');
+const spellTargeting = computed(() => {
+  const targeting = spellSpec.value?.spell.targeting;
+  if (targeting) {
+    return targeting;
+  }
+
+  return spellSpec.value?.hit_resolution?.type === 'auto' ? 'entity' : 'none';
+});
+const needsSpellTarget = computed(() => spellTargeting.value === 'entity');
+const targetsSelf = computed(() => spellTargeting.value === 'self');
 const touchActions = computed(() =>
   listAttackActions(props.rules, overview.value, 'strike').map((action) => ({
     value: action.code,
@@ -242,9 +275,11 @@ const selectedTouchProfile = computed(() => {
 
   return index >= 0 ? strikeProfiles.value[index] : (strikeProfiles.value[0] ?? null);
 });
+const pendingSpellEffects = ref<PendingActionEffect[]>([]);
 const actionPointCost = computed(() =>
   spellCastExecutionService.actionPointCost({
     spellCode: spellCode.value,
+    casterOverview: overview.value ?? undefined,
     touchActionCode: needsTouchAttack.value ? touchActionCode.value : null,
     rules: props.rules,
     casterAbilities: casterVersion.value?.abilities ?? [],
@@ -261,6 +296,15 @@ const upgradeOptions = computed(() =>
     props.rules,
   ),
 );
+const selectedUpgradeOptions = computed(() =>
+  spellCastUpgradeService.selectedOf(upgradeOptions.value, appliedUpgradeCodes.value),
+);
+const requiredPowerDelta = computed(() =>
+  spellCastUpgradeService.requiredPowerDelta(selectedUpgradeOptions.value, appliedUpgradeValues.value),
+);
+const resistancePenetration = computed(() =>
+  spellCastUpgradeService.resistancePenetration(selectedUpgradeOptions.value, appliedUpgradeValues.value),
+);
 const casterAp = computed(() => {
   if (!overview.value) {
     return { base: 0, size: 0 };
@@ -271,24 +315,6 @@ const casterAp = computed(() => {
 const powerIsParameter = computed(() =>
   Boolean(spellSpec.value && 'type' in spellSpec.value.spell.power && spellSpec.value.spell.power.type === 'parameter'),
 );
-
-const targetVersion = computed(() => {
-  if (!hasTarget.value || !targetKey.value) {
-    return null;
-  }
-  const overlay = overlays.value.find((item) => item.entityKey === targetKey.value) ?? null;
-
-  return (
-    combatCardModelService.combatCardModel(
-      targetKey.value,
-      props.characters,
-      props.npcs,
-      props.canEdit,
-      props.currentUserId,
-      overlay,
-    ).effectiveVersion ?? null
-  );
-});
 
 const entityItems = computed(() => {
   const characters = props.characters
@@ -341,12 +367,9 @@ const targetResistance = computed(() => {
     return 0;
   }
 
-  return spellCastOptionsService.targetResistanceAmount(
-    targetVersion.value,
-    props.rules,
-    damageTypeCode.value,
-    parameterValues.value,
-  );
+  const targetOverview = targetsSelf.value ? overview.value : targetKey.value ? overviewOf(targetKey.value) : null;
+  const result = spellCastOptionsService.targetResistanceFromOverview(targetOverview, ARCANE_DAMAGE_TYPE_CODE);
+  return result;
 });
 
 const preview = computed(() => {
@@ -362,6 +385,10 @@ const preview = computed(() => {
       parameterValues: parameterValues.value,
       hasTarget: hasTarget.value,
       targetResistanceAmount: targetResistance.value,
+      requiredPowerDelta: requiredPowerDelta.value,
+      resistancePenetration: resistancePenetration.value,
+      trainingDifficultyDelta: actionEffectService.resolveForSpellCast(pendingSpellEffects.value, actionPointCost.value)
+        .difficultyDelta,
     },
     props.rules,
   );
@@ -389,12 +416,13 @@ const castCheckLine = computed(() => {
     return '—';
   }
 
-  return spellCastDifficultyService.formatCastCheckLine(
+  const line = spellCastDifficultyService.formatCastCheckLine(
     preview.value.needsCheck,
     preview.value.difficulty,
     checkCharacteristic.value?.name ?? null,
     checkCharacteristic.value?.value ?? null,
   );
+  return line;
 });
 
 watch(
@@ -416,7 +444,10 @@ watch(
       .getCommittedActionSessions(props.gameId)
       .catch(() => ({}));
     activeSpells.value = await getGameApi().getActiveSpells(props.gameId);
+    pendingSpellEffects.value =
+      (await getGameApi().getPendingActionEffects(props.gameId))[resolvedCasterKey.value] ?? [];
     appliedUpgradeCodes.value = [];
+    appliedUpgradeValues.value = {};
     await nextTick();
     const sustain = chargeSustain.value;
     if (sustain) {
@@ -444,6 +475,9 @@ watch(
 
 watch(spellCode, () => {
   hasTarget.value = needsSpellTarget.value;
+  if (!needsSpellTarget.value) {
+    targetKey.value = null;
+  }
 });
 
 watch(sourceKey, () => {
@@ -455,7 +489,17 @@ watch(upgradeOptions, (options) => {
 });
 
 function close(): void {
+  if (pendingSaturation.value) {
+    saturationSteps.value = 0;
+    void confirmSaturation();
+
+    return;
+  }
   emit('update:open', false);
+}
+
+function onSaturationStepsChange(value: number | null): void {
+  saturationSteps.value = value ?? 0;
 }
 
 function setUsedPower(value: DimensionalNumberValue | null): void {
@@ -532,14 +576,28 @@ async function runCast(): Promise<void> {
 
         return;
       }
-      await offerTouchHit(resolvedCasterKey.value, touchKey, profile, cost, characteristic ?? undefined);
-      await persistSpentAp(resolvedCasterKey.value, cost);
+      const pendingEffects = (await getGameApi().getPendingActionEffects(props.gameId))[resolvedCasterKey.value] ?? [];
+      const pendingResolution = actionEffectService.resolveForSpellCast(pendingEffects, cost);
+      await offerTouchHit(
+        resolvedCasterKey.value,
+        touchKey,
+        profile,
+        cost,
+        characteristic ?? undefined,
+        pendingResolution.difficultyDelta,
+        actionEffectService.spellCastPendingSignature(pendingEffects, cost),
+      );
       emit('settled');
       close();
 
       return;
     }
     const effectKey = needsTouchAttack.value ? touchKey : hasTarget.value ? targetKey.value : null;
+    if (actionPointCost.value > casterAp.value.base) {
+      error.value = 'Недостаточно ОД для сотворения';
+
+      return;
+    }
     if (
       !chargeSustain.value &&
       sourceKey.value &&
@@ -549,6 +607,8 @@ async function runCast(): Promise<void> {
 
       return;
     }
+    const pendingEffects = (await getGameApi().getPendingActionEffects(props.gameId))[resolvedCasterKey.value] ?? [];
+    const pendingResolution = actionEffectService.resolveForSpellCast(pendingEffects, actionPointCost.value);
     const extraCheckAdvantages: AdvantageModifier[] = [];
     if (spendConcentration.value > 0 && resolvedCasterKey.value && casterVersion.value) {
       const overlay = overlays.value.find((item) => item.entityKey === resolvedCasterKey.value) ?? null;
@@ -574,7 +634,7 @@ async function runCast(): Promise<void> {
         spendConcentration.value = 0;
       }
     }
-    const outcome = spellCastExecutionService.execute({
+    const executionInput: SpellCastExecutionInput = {
       spellCode: spellCode.value,
       casterKey: resolvedCasterKey.value,
       casterOverview: overview.value,
@@ -587,6 +647,9 @@ async function runCast(): Promise<void> {
         parameterValues: parameterValues.value,
         hasTarget: hasTarget.value,
         targetResistanceAmount: targetResistance.value,
+        requiredPowerDelta: requiredPowerDelta.value,
+        resistancePenetration: resistancePenetration.value,
+        trainingDifficultyDelta: pendingResolution.difficultyDelta,
       },
       checkCode: selectedPath.value?.checkCode ?? null,
       characteristicValue: characteristic?.value ?? { base: 3, size: 0 },
@@ -605,23 +668,76 @@ async function runCast(): Promise<void> {
       sourceKey: sourceKey.value,
       pathCode: pathCode.value || null,
       appliedUpgradeCodes: appliedUpgradeCodes.value,
+      appliedUpgradeValues: appliedUpgradeValues.value,
       extraCheckAdvantages,
       chargeSpendCost: chargeSpendCost.value,
-    });
-    if (!outcome.started) {
+    };
+    const executionCost = spellCastExecutionService.actionPointCost(executionInput);
+    if (executionCost > executionInput.currentActionPoints.base) {
       error.value = 'Недостаточно ОД для сотворения';
 
       return;
     }
-    await persistSpentAp(resolvedCasterKey.value, outcome.spentAp);
-    await persistChargeSpendIfNeeded();
-    lastSkip.value = Boolean(outcome.cast && !outcome.cast.needsCheck);
-    lastMilk.value = outcome.milk;
-    lastAutoFail.value = outcome.autoFail;
-    await resolveTargetedCast(outcome, effectKey);
-    await persistGeneratorIfNeeded(outcome);
-    emit('settled');
-    close();
+    await persistSpentAp(resolvedCasterKey.value, executionCost, pendingResolution.remainingEffects);
+    const preparedCast = spellCastExecutionService.rollCast(executionInput);
+    if (spellCastExecutionService.needsSaturationChoice(executionInput, preparedCast)) {
+      saturationSteps.value = 0;
+      pendingSaturation.value = {
+        input: executionInput,
+        cast: preparedCast,
+        remainingEffects: pendingResolution.remainingEffects,
+        effectKey,
+      };
+
+      return;
+    }
+    await settleCast(executionInput, preparedCast, 0, pendingResolution.remainingEffects, effectKey);
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Не удалось сотворить заклинание';
+  } finally {
+    busy.value = false;
+  }
+}
+
+async function settleCast(
+  input: SpellCastExecutionInput,
+  preparedCast: SpellCastRollOutcome,
+  steps: number,
+  remainingEffects: PendingActionEffect[],
+  effectKey: CombatEntityKey | null,
+): Promise<void> {
+  const outcome = spellCastExecutionService.execute({ ...input, saturationSteps: steps }, preparedCast);
+  if (!outcome.started || !resolvedCasterKey.value) {
+    error.value =
+      outcome.refuseReason === 'invalid_saturation'
+        ? 'Нельзя потратить больше РУ, чем дала проверка'
+        : 'Недостаточно ОД для сотворения';
+
+    return;
+  }
+  await persistPendingEffects(resolvedCasterKey.value, [
+    ...remainingEffects,
+    ...(outcome.pendingEffectsAfterCast ?? []),
+  ]);
+  await persistChargeSpendIfNeeded();
+  lastSkip.value = Boolean(outcome.cast && !outcome.cast.needsCheck);
+  lastMilk.value = outcome.milk;
+  lastAutoFail.value = outcome.autoFail;
+  await resolveTargetedCast(outcome, effectKey, steps);
+  await persistGeneratorIfNeeded(outcome);
+  emit('settled');
+  emit('update:open', false);
+}
+
+async function confirmSaturation(): Promise<void> {
+  const pending = pendingSaturation.value;
+  if (!pending || busy.value) return;
+  const steps = Math.min(saturationMaxSteps.value, Math.max(0, Math.trunc(saturationSteps.value)));
+  pendingSaturation.value = null;
+  busy.value = true;
+  error.value = null;
+  try {
+    await settleCast(pending.input, pending.cast, steps, pending.remainingEffects, pending.effectKey);
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'Не удалось сотворить заклинание';
   } finally {
@@ -635,6 +751,8 @@ async function offerTouchHit(
   profile: NonNullable<typeof selectedTouchProfile.value>,
   cost: number,
   characteristic: { name: string; value: DimensionalNumberValue } | undefined,
+  trainingDifficultyDelta: number,
+  pendingSignature: string | null,
 ): Promise<CheckOffer> {
   const action = listAttackActions(props.rules, overview.value, 'strike').find(
     (item) => item.code === touchActionCode.value,
@@ -692,6 +810,8 @@ async function offerTouchHit(
         spellOd: actionOdCost(spellSpec.value?.action_components),
         touchOd: action?.odCost ?? 0,
         spentAp: cost,
+        trainingDifficultyDelta,
+        pendingSignature,
         sourceKey: sourceKey.value,
         pathCode: pathCode.value || null,
         appliedUpgradeCodes: appliedUpgradeCodes.value,
@@ -718,7 +838,11 @@ function overviewOf(key: CombatEntityKey) {
   return characterOverviewService.build(version, props.rules);
 }
 
-async function persistSpentAp(key: CombatEntityKey, cost: number): Promise<void> {
+async function persistSpentAp(
+  key: CombatEntityKey,
+  cost: number,
+  pendingEffects?: PendingActionEffect[],
+): Promise<void> {
   if (cost <= 0 || !overview.value) {
     return;
   }
@@ -729,14 +853,23 @@ async function persistSpentAp(key: CombatEntityKey, cost: number): Promise<void>
   const next = attackDamageService.spendActionPoints(resource.current, cost);
   const overlay = await getGameApi().setCombatResource(props.gameId, key, resource.ruleCode, next);
   overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, overlay);
-  const pending = (await getGameApi().getPendingActionEffects(props.gameId))[key] ?? [];
-  const nextEffects = actionEffectService.afterDeclaredAction(pending, cost, {
-    isAttack: false,
-    component: 'strike',
-    baseCost: cost,
-  });
-  await getGameApi().setCombatActionEffects(props.gameId, key, nextEffects);
+  const nextEffects =
+    pendingEffects ??
+    actionEffectService.afterDeclaredAction(
+      (await getGameApi().getPendingActionEffects(props.gameId))[key] ?? [],
+      cost,
+      {
+        isAttack: false,
+        component: 'strike',
+        baseCost: cost,
+      },
+    );
+  await persistPendingEffects(key, nextEffects);
   emit('overlay-changed');
+}
+
+async function persistPendingEffects(key: CombatEntityKey, effects: PendingActionEffect[]): Promise<void> {
+  await getGameApi().setCombatActionEffects(props.gameId, key, effects);
 }
 
 async function persistChargeSpendIfNeeded(): Promise<void> {
@@ -881,6 +1014,7 @@ async function writeAccumulatedDamage(key: CombatEntityKey, amount: number): Pro
 async function resolveTargetedCast(
   outcome: SpellCastExecutionResult,
   effectKey: CombatEntityKey | null,
+  saturationSteps = 0,
 ): Promise<void> {
   const chatId = props.chatId;
   if (chatId !== null) {
@@ -888,7 +1022,7 @@ async function resolveTargetedCast(
   }
   try {
     if (chatId !== null) {
-      await announceTargetedCast(outcome, effectKey, chatId);
+      await announceTargetedCast(outcome, effectKey, chatId, saturationSteps);
     }
     await runDeviationAftermath(outcome, chatId);
     if (effectKey && outcome.spellApply) {
@@ -909,6 +1043,7 @@ async function announceTargetedCast(
   outcome: SpellCastExecutionResult,
   effectKey: CombatEntityKey | null,
   chatId: number,
+  saturationSteps: number,
 ): Promise<void> {
   const casterKey = resolvedCasterKey.value;
   const casterName = casterModel.value?.name ?? '';
@@ -952,6 +1087,14 @@ async function announceTargetedCast(
   }
   if (outcome.cast?.roll) {
     await sendChat('', [{ type: ROLL_ATTACHMENT_TYPE, payload: outcome.cast.roll }], chatId, speakerRef);
+  }
+  if (saturationSteps > 0) {
+    await sendChat(
+      `Энергонасыщение: потрачено ${saturationSteps * 2} РУ, Мощь заклинания увеличена на ${saturationSteps}.`,
+      [],
+      chatId,
+      speakerRef,
+    );
   }
   const outcomeText = formatSpellCastOutcomeMessage({
     milk: outcome.milk,
@@ -1168,10 +1311,8 @@ async function applyArcaneBurst(
   deviation: SpellDeviationOutcome,
   chatId: number | null,
 ): Promise<void> {
-  const version = versionOf(target.key);
-  const grant = version
-    ? spellCastOptionsService.targetResistanceAmount(version, props.rules, ARCANE_DAMAGE_TYPE_CODE, {})
-    : 0;
+  const targetOverview = overviewOf(target.key);
+  const grant = spellCastOptionsService.targetResistanceFromOverview(targetOverview, ARCANE_DAMAGE_TYPE_CODE);
   const amount = spellDeviationService.explosionAmount(
     usedPower.value,
     target.distanceIpari,
@@ -1183,7 +1324,7 @@ async function applyArcaneBurst(
     weapon,
     1,
     ARCANE_DAMAGE_TYPE_CODE,
-    overviewOf(target.key),
+    targetOverview,
     props.rules,
     props.mechanics,
   );
@@ -1319,7 +1460,8 @@ async function runChainHops(outcome: SpellCastExecutionResult, firstKey: CombatE
 <template>
   <v-dialog :model-value="open" max-width="520" @update:model-value="emit('update:open', $event)">
     <v-card>
-      <v-card-title class="text-body-1 d-flex align-center justify-space-between ga-2">
+      <v-card-title v-if="pendingSaturation" class="text-body-1">Динамическое энергонасыщение</v-card-title>
+      <v-card-title v-else class="text-body-1 d-flex align-center justify-space-between ga-2">
         <span>Сотворение</span>
         <v-btn
           :variant="showCastOptions ? 'tonal' : 'text'"
@@ -1337,149 +1479,175 @@ async function runChainHops(outcome: SpellCastExecutionResult, firstKey: CombatE
         </v-btn>
       </v-card-title>
       <v-card-text>
-        <v-alert v-if="chargeSustain" type="info" variant="tonal" density="compact" class="mb-3">
-          Каст через электрозаряд
-        </v-alert>
-        <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mb-3">{{ error }}</v-alert>
-        <SpellCastUpgradeList v-model="appliedUpgradeCodes" :options="upgradeOptions" class="mb-3">
-          <v-autocomplete
-            v-model="spellCode"
-            :items="spellItems"
-            item-title="name"
-            item-value="ruleCode"
-            label="Заклинание"
+        <template v-if="pendingSaturation">
+          <div class="text-body-2 mb-3">Каждый шаг стоит 2 РУ и увеличивает Мощь заклинания на 1.</div>
+          <div class="text-body-2 mb-3">Сейчас: {{ saturationRating }} РУ, Мощь {{ saturationPowerLabel }}.</div>
+          <ClampedNumberField
+            :model-value="saturationSteps"
+            label="Шаги энергонасыщения"
+            :min="0"
+            :max="saturationMaxSteps"
             density="compact"
             hide-details
-            single-line
-            auto-select-first
+            @update:model-value="onSaturationStepsChange"
+          />
+        </template>
+        <template v-else>
+          <v-alert v-if="chargeSustain" type="info" variant="tonal" density="compact" class="mb-3">
+            Каст через электрозаряд
+          </v-alert>
+          <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mb-3">{{ error }}</v-alert>
+          <SpellCastUpgradeList
+            v-model="appliedUpgradeCodes"
+            v-model:parameter-values="appliedUpgradeValues"
+            :options="upgradeOptions"
+            class="mb-3"
           >
-            <template #item="{ props: itemProps, item }">
-              <v-list-item v-bind="itemProps">
-                <template #append>
-                  <SpellCastSpellRequirementMarks
-                    :power-label="item.raw.powerLabel"
-                    :control-label="item.raw.controlLabel"
-                  />
-                </template>
-              </v-list-item>
-            </template>
-            <template #append-inner>
-              <SpellCastSpellRequirementMarks
-                v-if="selectedSpellItem"
-                :power-label="selectedSpellItem.powerLabel"
-                :control-label="selectedSpellItem.controlLabel"
-              />
-            </template>
-          </v-autocomplete>
-        </SpellCastUpgradeList>
-        <div v-if="showCastOptions" class="d-flex ga-2 mb-3">
-          <v-select
-            v-model="sourceKey"
-            :items="sourceItems"
-            label="Источник"
-            density="compact"
-            hide-details
-            class="flex-grow-1"
-            :disabled="Boolean(chargeSustain)"
+            <v-autocomplete
+              v-model="spellCode"
+              :items="spellItems"
+              item-title="name"
+              item-value="ruleCode"
+              label="Заклинание"
+              density="compact"
+              hide-details
+              single-line
+              auto-select-first
+            >
+              <template #item="{ props: itemProps, item }">
+                <v-list-item v-bind="itemProps">
+                  <template #append>
+                    <SpellCastSpellRequirementMarks
+                      :power-label="item.raw.powerLabel"
+                      :control-label="item.raw.controlLabel"
+                    />
+                  </template>
+                </v-list-item>
+              </template>
+              <template #append-inner>
+                <SpellCastSpellRequirementMarks
+                  v-if="selectedSpellItem"
+                  :power-label="selectedSpellItem.powerLabel"
+                  :control-label="selectedSpellItem.controlLabel"
+                />
+              </template>
+            </v-autocomplete>
+          </SpellCastUpgradeList>
+          <div v-if="showCastOptions" class="d-flex ga-2 mb-3">
+            <v-select
+              v-model="sourceKey"
+              :items="sourceItems"
+              label="Источник"
+              density="compact"
+              hide-details
+              class="flex-grow-1"
+              :disabled="Boolean(chargeSustain)"
+            />
+            <v-select
+              v-model="pathCode"
+              :items="pathItems"
+              label="Путь"
+              density="compact"
+              hide-details
+              class="flex-grow-1"
+              :disabled="Boolean(chargeSustain)"
+            />
+          </div>
+          <DimensionalNumberInput
+            v-if="showCastOptions"
+            :model-value="usedPower"
+            label="Используемая мощь"
+            :min="CHARACTERISTIC_BASE_RANGE.min"
+            :max="CHARACTERISTIC_BASE_RANGE.max"
+            class="mb-3"
+            @update:model-value="setUsedPower"
           />
-          <v-select
-            v-model="pathCode"
-            :items="pathItems"
-            label="Путь"
-            density="compact"
-            hide-details
-            class="flex-grow-1"
-            :disabled="Boolean(chargeSustain)"
+          <DimensionalNumberInput
+            v-if="powerIsParameter"
+            v-model="parameterPower"
+            label="Мощь заклинания"
+            :min="CHARACTERISTIC_BASE_RANGE.min"
+            :max="CHARACTERISTIC_BASE_RANGE.max"
+            class="mb-3"
           />
-        </div>
-        <DimensionalNumberInput
-          v-if="showCastOptions"
-          :model-value="usedPower"
-          label="Используемая мощь"
-          :min="CHARACTERISTIC_BASE_RANGE.min"
-          :max="CHARACTERISTIC_BASE_RANGE.max"
-          class="mb-3"
-          @update:model-value="setUsedPower"
-        />
-        <DimensionalNumberInput
-          v-if="powerIsParameter"
-          v-model="parameterPower"
-          label="Мощь заклинания"
-          :min="CHARACTERISTIC_BASE_RANGE.min"
-          :max="CHARACTERISTIC_BASE_RANGE.max"
-          class="mb-3"
-        />
-        <div v-else-if="fixedSpellPower" class="text-caption text-medium-emphasis mb-3">
-          Мощь заклинания: {{ fixedSpellPowerLabel }}
-        </div>
-        <v-checkbox
-          v-if="showCastOptions"
-          v-model="hasTarget"
-          label="Направлен на цель"
-          hide-details
-          density="compact"
-        />
-        <CombatEntitySelect
-          v-if="hasTarget"
-          v-model="targetKey"
-          label="Цель заклинания"
-          :characters="characters"
-          :npcs="npcs"
-          :initiative-keys="initiativeKeys"
-          :exclude="resolvedCasterKey ? [resolvedCasterKey] : []"
-          class="mt-2"
-        />
-        <template v-if="needsTouchAttack">
-          <v-select
-            v-model="touchActionCode"
-            :items="touchActions"
-            label="Атака касания"
-            density="compact"
+          <div v-else-if="fixedSpellPower" class="text-caption text-medium-emphasis mb-3">
+            Мощь заклинания: {{ fixedSpellPowerLabel }}
+          </div>
+          <v-checkbox
+            v-if="showCastOptions && !targetsSelf"
+            v-model="hasTarget"
+            label="Направлен на цель"
             hide-details
-            class="mt-3"
-          />
-          <v-select
-            v-model="touchProfileItem"
-            :items="strikeProfileItems"
-            label="Оружие касания"
             density="compact"
-            hide-details
-            class="mt-2"
           />
+          <div v-else-if="showCastOptions && targetsSelf" class="text-caption text-medium-emphasis mb-2">Цель: вы</div>
           <CombatEntitySelect
-            v-model="touchTargetKey"
-            label="Цель касания"
+            v-if="hasTarget"
+            v-model="targetKey"
+            label="Цель заклинания"
             :characters="characters"
             :npcs="npcs"
             :initiative-keys="initiativeKeys"
             :exclude="resolvedCasterKey ? [resolvedCasterKey] : []"
-            :leading="[{ title: 'Воздух', value: '' }]"
             class="mt-2"
           />
+          <template v-if="needsTouchAttack">
+            <v-select
+              v-model="touchActionCode"
+              :items="touchActions"
+              label="Атака касания"
+              density="compact"
+              hide-details
+              class="mt-3"
+            />
+            <v-select
+              v-model="touchProfileItem"
+              :items="strikeProfileItems"
+              label="Оружие касания"
+              density="compact"
+              hide-details
+              class="mt-2"
+            />
+            <CombatEntitySelect
+              v-model="touchTargetKey"
+              label="Цель касания"
+              :characters="characters"
+              :npcs="npcs"
+              :initiative-keys="initiativeKeys"
+              :exclude="resolvedCasterKey ? [resolvedCasterKey] : []"
+              :leading="[{ title: 'Воздух', value: '' }]"
+              class="mt-2"
+            />
+          </template>
+          <div class="text-caption text-medium-emphasis mt-2">Стоимость: {{ actionPointCost }} ОД</div>
+          <div v-if="needsSpellTarget && !hasTarget" class="text-caption text-warning mt-1">
+            Без цели заклинания сотворение автоматически провалится
+          </div>
+          <div class="text-body-2 mt-4">{{ castCheckLine }}</div>
+          <ConcentrationTokenOption
+            v-model="spendConcentration"
+            :version="casterVersion"
+            :overlay="overlays.find((item) => item.entityKey === resolvedCasterKey) ?? null"
+            :rules="rules"
+            :check-code="selectedPath?.checkCode ?? ''"
+            :characteristic-code="checkCharacteristicCode"
+          />
+          <div v-if="lastSkip" class="text-caption mt-1">Бросок не выполнялся</div>
+          <div v-if="lastMilk" class="text-caption mt-1">Эффект в молоко</div>
+          <div v-if="lastAutoFail" class="text-caption mt-1">Автопровал сотворения</div>
         </template>
-        <div class="text-caption text-medium-emphasis mt-2">Стоимость: {{ actionPointCost }} ОД</div>
-        <div v-if="needsSpellTarget && !hasTarget" class="text-caption text-warning mt-1">
-          Без цели заклинания сотворение автоматически провалится
-        </div>
-        <div class="text-body-2 mt-4">{{ castCheckLine }}</div>
-        <ConcentrationTokenOption
-          v-model="spendConcentration"
-          :version="casterVersion"
-          :overlay="overlays.find((item) => item.entityKey === resolvedCasterKey) ?? null"
-          :rules="rules"
-          :check-code="selectedPath?.checkCode ?? ''"
-          :characteristic-code="checkCharacteristicCode"
-        />
-        <div v-if="lastSkip" class="text-caption mt-1">Бросок не выполнялся</div>
-        <div v-if="lastMilk" class="text-caption mt-1">Эффект в молоко</div>
-        <div v-if="lastAutoFail" class="text-caption mt-1">Автопровал сотворения</div>
       </v-card-text>
       <v-card-actions>
         <v-spacer />
-        <v-btn variant="text" @click="close">Закрыть</v-btn>
-        <v-btn color="primary" :loading="busy" :disabled="!canEdit || !spellCode || !preview" @click="runCast">
-          Сотворить
+        <v-btn v-if="pendingSaturation" color="primary" :loading="busy" :disabled="!canEdit" @click="confirmSaturation">
+          Применить
         </v-btn>
+        <template v-else>
+          <v-btn variant="text" @click="close">Закрыть</v-btn>
+          <v-btn color="primary" :loading="busy" :disabled="!canEdit || !spellCode || !preview" @click="runCast">
+            Сотворить
+          </v-btn>
+        </template>
       </v-card-actions>
     </v-card>
   </v-dialog>

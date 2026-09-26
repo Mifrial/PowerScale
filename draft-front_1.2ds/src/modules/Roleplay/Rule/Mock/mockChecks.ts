@@ -4,6 +4,7 @@ import {
   CHECK_SIMPLE_CODE,
   CHECK_HIT_CODE,
   CHECK_SPELL_CAST_CODE,
+  CHECK_MAGIC_ANALYSIS_CODE,
   CHECK_EXHAUSTION_CODE,
   CHECK_INITIATIVE_CODE,
   CHECK_INJURY_CODE,
@@ -19,7 +20,14 @@ import {
   CHECK_INJURY_ATTACHED_RULE_CODES,
 } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
 
-function checkRule(id: number, code: string, name: string, description: string, spec: CheckSpec): Rule {
+function checkRule(
+  id: number,
+  code: string,
+  name: string,
+  description: string,
+  spec: CheckSpec,
+  catalogSection?: string,
+): Rule {
   return {
     id,
     code,
@@ -31,6 +39,7 @@ function checkRule(id: number, code: string, name: string, description: string, 
     keywordIds: [],
     mechanicId: null,
     createdAt: 1787400000,
+    ...(catalogSection ? { catalogSection } : {}),
   };
 }
 
@@ -86,6 +95,21 @@ export const mockChecks: Rule[] = [
       allow_characteristic_override: true,
       ...askBoth,
     },
+    'magic-rules-checks',
+  ),
+  checkRule(
+    9042,
+    CHECK_MAGIC_ANALYSIS_CODE,
+    'Проверка анализа волшебства',
+    'Проверка Интеллекта для занятия «Анализ магических структур». Сложность на первом этапе вводит мастер.',
+    {
+      type: 'check',
+      parent_check_code: CHECK_SIMPLE_CODE,
+      characteristic_code: 'intellect',
+      difficulty_input: { kind: 'ask' },
+      allowed_modes: 'solo',
+    },
+    'magic-rules-checks',
   ),
   checkRule(
     9003,

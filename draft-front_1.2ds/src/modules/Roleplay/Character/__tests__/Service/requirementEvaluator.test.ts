@@ -64,6 +64,32 @@ describe('RequirementEvaluator', () => {
     expect(evaluator.evaluate({ type: 'has_keyword', keyword_code: 'stealth' }, snapshot)).toBe(false);
   });
 
+  it('has_ability_keyword: исключает способности с запрещёнными признаками', () => {
+    const mixed: CharacterSnapshot = {
+      ...snapshot,
+      abilityLevels: new Map([
+        ['arcane-skill', 1],
+        ['known-spell', 1],
+      ]),
+      abilityKeywords: new Map([
+        ['arcane-skill', new Set(['magic'])],
+        ['known-spell', new Set(['magic', 'spell'])],
+      ]),
+    };
+    const requirement: Requirement = {
+      type: 'has_ability_keyword',
+      keyword_code: 'magic',
+      min_count: 1,
+      exclude_keyword_codes: ['spell', 'magic-path'],
+    };
+    expect(evaluator.evaluate(requirement, mixed)).toBe(true);
+    const onlySpell: CharacterSnapshot = {
+      ...mixed,
+      abilityLevels: new Map([['known-spell', 1]]),
+    };
+    expect(evaluator.evaluate(requirement, onlySpell)).toBe(false);
+  });
+
   it('has_ability_keyword: N взятых способностей с признаком', () => {
     expect(evaluator.evaluate({ type: 'has_ability_keyword', keyword_code: 'combat', min_count: 1 }, snapshot)).toBe(
       true,

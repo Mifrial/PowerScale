@@ -10,9 +10,8 @@ import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpe
 import type { SpellValue } from '@/modules/Roleplay/Rule/Dto/Ability/SpellValue';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { CharacteristicNumber } from '@/modules/Roleplay/Rule/Value/CharacteristicNumber';
-import { damageTypeSpecService } from '@/modules/Roleplay/Rule/init';
 
-/** Сложность сотворения: шкала характеристик, skip ниже живого минимума, resistance с флагом. */
+/** Сложность сотворения: дефицит ресурсов и сопротивление магии выбранной цели. */
 export class SpellCastDifficultyService {
   asSpellAbilitySpec(rule: Rule | undefined): Extract<AbilitySpec, { type: 'spell' }> | null {
     if (!rule || rule.type !== 'ability' || !rule.spec || typeof rule.spec !== 'object') {
@@ -37,7 +36,7 @@ export class SpellCastDifficultyService {
   }
 
   compute(input: SpellCastDifficultyInput): SpellCastDifficultyResult {
-    const requiredPower = CharacteristicNumber.from(input.requiredPower);
+    const requiredPower = CharacteristicNumber.from(input.requiredPower).modifyWith(input.requiredPowerDelta ?? 0);
     const usedPower = CharacteristicNumber.from(input.usedPower);
     const requiredControl = CharacteristicNumber.from(input.requiredControl);
     const availableControl = CharacteristicNumber.from(input.availableControl);
@@ -63,9 +62,21 @@ export class SpellCastDifficultyService {
         controlShortage,
       };
     }
-    const resistance = input.resistanceModify ?? 0;
+    const resistance = Math.max(0, (input.resistanceModify ?? 0) - (input.resistancePenetration ?? 0));
     if (resistance !== 0) {
       difficulty = difficulty.modifyWith(resistance);
+    }
+    const trainingDelta = input.trainingDifficultyDelta ?? 0;
+    if (trainingDelta !== 0) {
+      difficulty = difficulty.modifyWith(trainingDelta);
+    }
+    if (difficulty.modifyDiffTo(minLive) < 0) {
+      return {
+        difficulty: SPELL_CAST_SKIP_DIFFICULTY,
+        needsCheck: false,
+        powerShortage,
+        controlShortage,
+      };
     }
 
     return {
@@ -89,22 +100,16 @@ export class SpellCastDifficultyService {
     }
     const requiredPower = this.resolveSpellValue(spec.spell.power, input.parameterValues);
     const requiredControl = this.resolveSpellValue(spec.spell.control, input.parameterValues);
-    const damageTypeCode = input.damageTypeCode ?? spec.spell.damage?.damage_type_code ?? null;
-    let resistanceModify = 0;
-    if (input.hasTarget && damageTypeCode) {
-      const damageRule = rules.find((entry) => entry.code === damageTypeCode);
-      const damageSpec = damageTypeSpecService.asDamageTypeSpec(damageRule);
-      if (damageSpec?.modifies_spell_difficulty) {
-        resistanceModify = input.targetResistanceAmount ?? 0;
-      }
-    }
-
+    const resistanceModify = input.hasTarget ? (input.targetResistanceAmount ?? 0) : 0;
     return this.compute({
       requiredPower,
       usedPower: input.usedPower,
       requiredControl,
       availableControl: input.availableControl,
       resistanceModify,
+      requiredPowerDelta: input.requiredPowerDelta,
+      resistancePenetration: input.resistancePenetration,
+      trainingDifficultyDelta: input.trainingDifficultyDelta,
     });
   }
 

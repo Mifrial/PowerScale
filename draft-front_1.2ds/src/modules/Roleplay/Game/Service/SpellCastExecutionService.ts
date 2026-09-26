@@ -2,9 +2,14 @@ import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpe
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { SpellCastExecutionInput } from '@/modules/Roleplay/Game/Dto/Spell/SpellCastExecutionInput';
 import type { SpellCastExecutionResult } from '@/modules/Roleplay/Game/Dto/Spell/SpellCastExecutionResult';
+import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
 import type { ApplyAttackDamageInput } from '@/modules/Roleplay/Game/Dto/ApplyAttackDamageInput';
 import type { ApplyAttackDamageResult } from '@/modules/Roleplay/Game/Dto/ApplyAttackDamageResult';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
+import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
+import type { SpellCastRollOutcome } from '@/modules/Roleplay/Game/Dto/Spell/SpellCastRollOutcome';
+import { spellCastEfficiencyService } from '@/modules/Roleplay/Game/Service/Instance/spellCastEfficiencyService';
+import { CHARACTERISTIC_BASE_RANGE } from '@/modules/Roleplay/Rule/Value/CharacteristicNumber';
 import { keywordExperienceService } from '@/modules/Roleplay/Character/init';
 import { spellDamageService, damageTypeSpecService } from '@/modules/Roleplay/Rule/init';
 import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
@@ -28,12 +33,19 @@ export class SpellCastExecutionService {
       | 'casterAbilities'
       | 'pathCode'
       | 'chargeSpendCost'
-    >,
+    > & {
+      casterOverview?: SpellCastExecutionInput['casterOverview'];
+    },
   ): number {
     if (input.chargeSpendCost != null) {
       return input.chargeSpendCost;
     }
-    const spellOd = actionOdCost(this.spellSpec(input.spellCode, input.rules)?.action_components);
+    const actionPointLimit =
+      input.casterOverview?.resources.find((resource) => resource.ruleCode === 'action-points')?.max.base ?? 0;
+    const spellOd = actionOdCost(
+      this.spellSpec(input.spellCode, input.rules)?.action_components,
+      actionPointLimit,
+    );
     const touchRule = input.touchActionCode
       ? input.rules.find((rule) => rule.code === input.touchActionCode)
       : undefined;
@@ -71,7 +83,41 @@ export class SpellCastExecutionService {
     ];
   }
 
-  execute(input: SpellCastExecutionInput): SpellCastExecutionResult {
+  rollCast(input: SpellCastExecutionInput): SpellCastRollOutcome {
+    const selectedUpgrades = spellCastUpgradeService.selectedOf(
+      spellCastUpgradeService.listApplicable(input.casterAbilities, input.pathCode, input.spellCode, input.rules),
+      input.appliedUpgradeCodes,
+    );
+    const upgradeValues = input.appliedUpgradeValues ?? {};
+
+    return spellCastService.rollForSpell(
+      {
+        ...input.resolve,
+        requiredPowerDelta: spellCastUpgradeService.requiredPowerDelta(selectedUpgrades, upgradeValues),
+        resistancePenetration: spellCastUpgradeService.resistancePenetration(selectedUpgrades, upgradeValues),
+      },
+      input.checkCode,
+      input.characteristicValue,
+      input.characteristicName,
+      input.casterKey,
+      input.rng,
+      input.rules,
+      input.mechanics,
+      this.castAdvantages(input),
+      spellCastEfficiencyService.deltasForAbilities(input.casterAbilities),
+    );
+  }
+
+  needsSaturationChoice(input: SpellCastExecutionInput, cast: SpellCastRollOutcome): boolean {
+    if (!cast.needsCheck || !cast.roll?.check?.passed) return false;
+    if ((cast.roll.check.rating ?? 0) < 2) return false;
+
+    return input.casterAbilities.some(
+      (ability) => ability.ruleCode === 'dynamic-energy-saturation' && ability.level > 0,
+    );
+  }
+
+  execute(input: SpellCastExecutionInput, preparedCast?: SpellCastRollOutcome): SpellCastExecutionResult {
     const cost = this.actionPointCost(input);
     if (cost > input.currentActionPoints.base) {
       return this.refused('not_enough_ap');
@@ -125,23 +171,17 @@ export class SpellCastExecutionService {
       };
     }
 
-    const cast = spellCastService.rollForSpell(
-      input.resolve,
-      input.checkCode,
-      input.characteristicValue,
-      input.characteristicName,
-      input.casterKey,
-      input.rng,
-      input.rules,
-      input.mechanics,
-      this.castAdvantages(input),
-    );
+    const cast = preparedCast ?? this.rollCast(input);
+    const saturation = this.applySaturation(input, cast);
+    if (!saturation.ok) {
+      return this.refused('invalid_saturation');
+    }
     const castOk = !cast.needsCheck || Boolean(cast.roll?.check?.passed);
     const spellSr = this.spellSuccessRating(resolution.type, attackSr, milk, castOk);
     let spellApply: ApplyAttackDamageResult | null = null;
     let spellDamage: DimensionalNumberValue | null = null;
     if (castOk && spellSr !== null && spec?.spell.damage) {
-      const amount = this.spellDamageAmount(spec, input);
+      const amount = this.spellDamageAmount(spec, input, saturation.power);
       if (amount) {
         spellDamage = amount;
         spellApply = this.applyTypedDamage(
@@ -161,6 +201,13 @@ export class SpellCastExecutionService {
       spellSr,
       spellDamage,
       spellApply,
+      pendingEffectsAfterCast: this.pendingEffectsAfterSuccessfulCast(
+        input,
+        castOk,
+        cast,
+        cost,
+        saturation.remainingRating,
+      ),
       cast,
     };
   }
@@ -168,6 +215,7 @@ export class SpellCastExecutionService {
   completeAfterHit(
     input: SpellCastExecutionInput,
     delivery: { milk: boolean; attackSr: number },
+    preparedCast?: SpellCastRollOutcome,
   ): SpellCastExecutionResult {
     const spec = this.spellSpec(input.spellCode, input.rules);
     const resolution = spec?.hit_resolution ?? { type: 'none' };
@@ -183,23 +231,17 @@ export class SpellCastExecutionService {
       spellDamage: null,
       weaponApply: null,
     };
-    const cast = spellCastService.rollForSpell(
-      input.resolve,
-      input.checkCode,
-      input.characteristicValue,
-      input.characteristicName,
-      input.casterKey,
-      input.rng,
-      input.rules,
-      input.mechanics,
-      this.castAdvantages(input),
-    );
+    const cast = preparedCast ?? this.rollCast(input);
+    const saturation = this.applySaturation(input, cast);
+    if (!saturation.ok) {
+      return this.refused('invalid_saturation');
+    }
     const castOk = !cast.needsCheck || Boolean(cast.roll?.check?.passed);
     const spellSr = this.spellSuccessRating(resolution.type, delivery.attackSr, delivery.milk, castOk);
     let spellApply: ApplyAttackDamageResult | null = null;
     let spellDamage: DimensionalNumberValue | null = null;
     if (castOk && spellSr !== null && spec?.spell.damage) {
-      const amount = this.spellDamageAmount(spec, input);
+      const amount = this.spellDamageAmount(spec, input, saturation.power);
       if (amount) {
         spellDamage = amount;
         spellApply = this.applyTypedDamage(
@@ -219,13 +261,79 @@ export class SpellCastExecutionService {
       spellSr,
       spellDamage,
       spellApply,
+      pendingEffectsAfterCast: this.pendingEffectsAfterSuccessfulCast(
+        input,
+        castOk,
+        cast,
+        this.actionPointCost(input),
+        saturation.remainingRating,
+      ),
       cast,
+    };
+  }
+
+  private pendingEffectsAfterSuccessfulCast(
+    input: SpellCastExecutionInput,
+    castOk: boolean,
+    cast: SpellCastExecutionResult['cast'],
+    actionCost: number,
+    remainingRating: number,
+  ): PendingActionEffect[] {
+    if (
+      !castOk ||
+      !cast?.roll?.check ||
+      remainingRating < 2 ||
+      !input.casterAbilities.some(
+        (ability) => ability.ruleCode === 'interstructure-energy-transfer' && ability.level > 0,
+      )
+    ) {
+      return [];
+    }
+
+    return [
+      {
+        sourceRuleCode: 'interstructure-energy-transfer',
+        effect: {
+          type: 'next_spell_cast_difficulty',
+          delta: -1,
+          source_code: 'training',
+          max_total_action_cost: actionCost,
+        },
+      },
+    ];
+  }
+
+  private applySaturation(
+    input: SpellCastExecutionInput,
+    cast: SpellCastRollOutcome,
+  ): { ok: true; power: DimensionalNumberValue; remainingRating: number } | { ok: false } {
+    const steps = input.saturationSteps ?? 0;
+    if (!Number.isInteger(steps) || steps < 0) {
+      return { ok: false };
+    }
+    const rating = cast.roll?.check?.rating ?? 0;
+    if (steps === 0) {
+      return { ok: true, power: input.parameterPower, remainingRating: rating };
+    }
+    const owns = input.casterAbilities.some(
+      (ability) => ability.ruleCode === 'dynamic-energy-saturation' && ability.level > 0,
+    );
+    const passed = Boolean(cast.needsCheck && cast.roll?.check?.passed);
+    if (!owns || !passed || 2 * steps > rating) {
+      return { ok: false };
+    }
+
+    return {
+      ok: true,
+      power: new DimensionalNumber(input.parameterPower).modify(steps, CHARACTERISTIC_BASE_RANGE).value,
+      remainingRating: rating - 2 * steps,
     };
   }
 
   private spellDamageAmount(
     spec: Extract<AbilitySpec, { type: 'spell' }>,
     input: SpellCastExecutionInput,
+    power: DimensionalNumberValue,
   ): DimensionalNumberValue | null {
     const damage = spec.spell.damage;
     if (!damage) {
@@ -239,7 +347,7 @@ export class SpellCastExecutionService {
       (ability, _rule, priced) => keywordExperienceService.zoneLadderCost(ability, priced),
     );
     const modify = spellDamageService.modifyForExperience(damage, experience);
-    const amount = spellDamageService.amountFromPower(input.parameterPower, modify);
+    const amount = spellDamageService.amountFromPower(power, modify);
     if (damage.falloff) {
       return spellDamageService.applyFalloff(amount, input.distanceIpari, damage.falloff);
     }

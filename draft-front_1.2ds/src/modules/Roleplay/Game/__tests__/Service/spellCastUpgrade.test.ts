@@ -49,6 +49,26 @@ const chain: Rule = {
   createdAt: 1,
 };
 
+const piercing: Rule = {
+  id: null,
+  code: 'piercing-magic',
+  type: 'ability',
+  name: 'Пронзающее волшебство',
+  description: '',
+  spaceId: 1,
+  spec: {
+    type: 'skill',
+    zones: { or: { kind: 'array', levels_cost: [2] } },
+    requirements: [],
+    grants: [],
+    parent_ability_code: null,
+    multiple: true,
+    domain_ref: 'magic-path',
+    spell_upgrade: { action_point_delta: 0, any_path: true, resistance_penetration_per_step: 2 },
+  },
+  createdAt: 1,
+};
+
 describe('SpellCastUpgradeService', () => {
   it('Аккуратное только на выбранный путь', () => {
     const abilities = [
@@ -89,5 +109,18 @@ describe('SpellCastUpgradeService', () => {
     expect(spellCastUpgradeService.pruneSelected(applicable, ['careful-magic', 'chain-lightning'])).toEqual([
       'careful-magic',
     ]);
+  });
+
+  it('Пронзающее волшебство доступно арканисту для любого выбранного пути', () => {
+    const abilities = [{ ruleCode: 'piercing-magic', level: 1, domainCode: 'arcanist' }];
+    const selected = spellCastUpgradeService.selectedOf(
+      spellCastUpgradeService.listApplicable(abilities, 'shaman', 'discharge', [piercing]),
+      ['piercing-magic'],
+    );
+
+    expect(selected).toHaveLength(1);
+    expect(spellCastUpgradeService.requiredPowerDelta(selected, { 'piercing-magic': 2 })).toBe(2);
+    expect(spellCastUpgradeService.resistancePenetration(selected, { 'piercing-magic': 2 })).toBe(4);
+    expect(spellCastUpgradeService.chipLabel(selected[0]!, 2)).toContain('х = 2');
   });
 });

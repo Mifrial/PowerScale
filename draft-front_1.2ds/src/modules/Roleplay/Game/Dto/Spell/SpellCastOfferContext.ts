@@ -19,6 +19,10 @@ export interface SpellCastOfferContext {
   spellOd: number;
   touchOd: number;
   spentAp: number;
+  /** Preview-модификатор сложности, зарезервированный для этого каста. */
+  trainingDifficultyDelta?: number;
+  /** Подпись pending-состояния на момент создания offer. */
+  pendingSignature?: string | null;
   sourceKey?: string;
   pathCode?: string | null;
   appliedUpgradeCodes?: string[];
