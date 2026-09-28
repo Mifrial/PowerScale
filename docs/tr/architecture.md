@@ -104,15 +104,28 @@ SmartTable — единственная серверная абстракция 
 
 Журнал сервера — таблица SmartTable; файл/`error_log` — запасной путь. Basic принят: прикладные модули ходят только через порты SmartTable.
 
-## Дополнения сервера (требование, реализация OPEN)
+## EventManager (sync MVP реализован, async DEFERRED)
 
-Наследие §2 / волна 1 описывает серверные контракты, которых нет в текущем фронтовом evidence. Они сохранены как серверное требование, не как реализованное на фронте или на сервере:
+`Core/Event` — отдельный backend Core-модуль для process-local runtime delivery:
 
-- EventManager: `fire`/`on`/`off`, синхронные слушатели, очередь для асинхронных;
+- публичный порт `IEventManager` предоставляет `on`/`off`/`fire`;
+- listeners выполняются синхронно, с priority/FIFO и token subscription;
+- payload проходит через read-only `IEventPayload`;
+- `EventResult` агрегирует errors, warnings и output payloads;
+- event identity использует полный формат
+  `ModuleGroup\ModuleName.Subject::LifecycleOperation`;
+- модуль не знает SmartTable, Mail, Agent, Logger, HTTP или SSE;
+- persistent async queue, `afterCommit`, outbox и DB-driven registrations —
+  `DEFERRED`, не часть sync MVP.
+
+Канонический implementation plan:
+[`../specs/event-manager-backend-plan.md`](../specs/event-manager-backend-plan.md).
+
+Остальные контракты из наследия §2 / волны 1, для которых нет реализации,
+остаются отдельными требованиями:
+
 - детальная иерархия доменных ошибок поверх `ActionException` (базовый контракт — DEC-075);
 - SmartTable fluent `query()` для сложных случаев (не v1).
-
-Код фронта их не реализует. Оставить или выкинуть — только явным решением; молча выкидывать нельзя.
 
 ## Границы модулей
 
@@ -210,7 +223,36 @@ Auth зависит от User: после входа и выхода Auth выз
 
 Наличие DTO и API на фронте не доказывает реализацию на сервере. Физическая схема таблиц экономических операций и точные endpoint — задача проектирования сервера; доменные инварианты экономики — в [`game-system.md`](game-system.md), сцены — в [`battleground-system.md`](battleground-system.md). PHP battleground не начинать до серверного Core.
 
-PHP-инфраструктура (не фронтовое дерево): **`Core/Agent`** — расписание тиков, CLI `bin/agent.php`, обработчики в памяти (не PHP в БД). **`Core/Mail`** — каталог событий, шаблоны, очередь jobs; агент `mail.flush`. **`Core/Logger`** — таблица `log`, адаптер `ILogger` (class-string в site config — [`logger-plan-03.md`](logger-plan-03.md); ключ `logger` в module.config плана 1 — хвост); просмотр HTTP+Vue — [`logger-plan-04-view.md`](logger-plan-04-view.md). **`Core/Cache`** — `ICacheStore` (file/redis, TTL ≤ 30 суток); не теги списков ST. **`Messages/Chat`** (ленивый) — хост сообщений, HTTP actions + SSE `/api/chat/sync`; не Roleplay. **`Versioning/Space`** (ленивый) — кластер identity/экземпляр/space/revision + состав; не Core, не Rule. **`Roleplay/Keyword`**, **`Roleplay/Mechanic`**, **`Roleplay/Rule`**, **`Roleplay/RuleSpace`** — ленивые; Keyword → SmartTable + User (`IUserAccess`); Rule → Versioning + Keyword + Mechanic; RuleSpace → Rule + SmartTable + User (`IUserAccess`). Рёбра: Agent → SmartTable + `ILogger` (Kernel); Mail → SmartTable + Agent (`IAgents`) + `ILogger` (Kernel); Logger → SmartTable + User (`IUserAccess`); Cache никого; SmartTable → Cache; Auth → User и (Auth 3) Mail (`IMail`); Chat → SmartTable + User (публично); Versioning/Space → SmartTable + Cache; Keyword → SmartTable; Mechanic → SmartTable + User (`IUserAccess`); Rule → SmartTable + Versioning + Keyword + Mechanic; RuleSpace → SmartTable + Rule + User. Kernel не шлёт почту и не импортирует Logger. Vue Engine агентов не настраивает. Нарезка почты — [`mail-roadmap.md`](mail-roadmap.md). Планы логера — [`logger-plan-01.md`](logger-plan-01.md), [`logger-plan-02.md`](logger-plan-02.md), [`logger-plan-03.md`](logger-plan-03.md), [`logger-plan-04-view.md`](logger-plan-04-view.md). Нарезка чата — [`chat-roadmap.md`](chat-roadmap.md). Нарезка Versioning — [`versioning-roadmap.md`](versioning-roadmap.md). План кэша — [`cache-plan-01.md`](cache-plan-01.md). План сброса через очередь — [`auth-plan-03-mail-reset.md`](auth-plan-03-mail-reset.md).
+PHP-инфраструктура (не фронтовое дерево): **`Core/Event`** — process-local
+синхронная доставка runtime events; async queue — DEFERRED. **`Core/Agent`** —
+расписание тиков, CLI `bin/agent.php`, обработчики в памяти (не PHP в БД).
+**`Core/Mail`** — каталог событий, шаблоны, очередь jobs; агент `mail.flush`.
+**`Core/Logger`** — таблица `log`, адаптер `ILogger` (class-string в site
+config — [`logger-plan-03.md`](logger-plan-03.md); ключ `logger` в
+module.config плана 1 — хвост); просмотр HTTP+Vue —
+[`logger-plan-04-view.md`](logger-plan-04-view.md). **`Core/Cache`** —
+`ICacheStore` (file/redis, TTL ≤ 30 суток); не теги списков ST.
+**`Messages/Chat`** (ленивый) — хост сообщений, HTTP actions + SSE
+`/api/chat/sync`; не Roleplay. **`Versioning/Space`** (ленивый) — кластер
+identity/экземпляр/space/revision + состав; не Core, не Rule.
+**`Roleplay/Keyword`**, **`Roleplay/Mechanic`**, **`Roleplay/Rule`**,
+**`Roleplay/RuleSpace`** — ленивые; Keyword → SmartTable + User
+(`IUserAccess`); Rule → Versioning + Keyword + Mechanic; RuleSpace → Rule +
+SmartTable + User (`IUserAccess`). Рёбра: Core/Event → нет зависимостей; Agent →
+SmartTable + `ILogger` (Kernel); Mail → SmartTable + Agent (`IAgents`) +
+`ILogger` (Kernel); Logger → SmartTable + User (`IUserAccess`); Cache никого;
+SmartTable → Cache; Auth → User и (Auth 3) Mail (`IMail`); Chat → SmartTable
+и User (публично); Versioning/Space → SmartTable + Cache; Keyword →
+SmartTable; Mechanic → SmartTable + User (`IUserAccess`); Rule → SmartTable +
+Versioning + Keyword + Mechanic; RuleSpace → SmartTable + Rule + User. Kernel
+не шлёт почту и не импортирует Logger. Vue Engine агентов не настраивает.
+Нарезка почты — [`mail-roadmap.md`](mail-roadmap.md). Планы логера —
+[`logger-plan-01.md`](logger-plan-01.md), [`logger-plan-02.md`](logger-plan-02.md),
+[`logger-plan-03.md`](logger-plan-03.md), [`logger-plan-04-view.md`](logger-plan-04-view.md).
+Нарезка чата — [`chat-roadmap.md`](chat-roadmap.md). Нарезка Versioning —
+[`versioning-roadmap.md`](versioning-roadmap.md). План кэша —
+[`cache-plan-01.md`](cache-plan-01.md). План сброса через очередь —
+[`auth-plan-03-mail-reset.md`](auth-plan-03-mail-reset.md).
 
 Battleground живёт в `Roleplay/Game` (библиотека шаблонов — UI того же модуля). Новых DAG-рёбер в Chat нет. SSE сцены — отдельный entrypoint, не кадры `/api/chat/sync`. Нарезка чата — [`chat-roadmap.md`](chat-roadmap.md).
 

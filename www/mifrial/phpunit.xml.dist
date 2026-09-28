@@ -13,6 +13,9 @@
         <testsuite name="agent">
             <directory>modules/Core/Agent/tests</directory>
         </testsuite>
+        <testsuite name="event">
+            <directory>modules/Core/Event/tests</directory>
+        </testsuite>
         <testsuite name="user">
             <directory>modules/Core/User/tests</directory>
         </testsuite>
