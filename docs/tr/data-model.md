@@ -346,7 +346,9 @@ game_loot_interest(
 
 ### Characters и inventory
 
-Целевой backend-контракт хранит одно актуальное состояние персонажа (`actualCharacter`) и не создаёт историю CharacterVersion. `CharacterVersion` остаётся формой полного листа/snapshot в frontend и membership, но не означает таблицу исторических версий персонажа. Точная физическая схема хранения — `CODE_GAP / implementation OPEN`.
+Целевой backend-контракт хранит одно актуальное состояние персонажа (`actualCharacter`) и не создаёт историю CharacterVersion. `CharacterVersion` остаётся формой полного листа/snapshot в frontend и membership baseline, но не означает таблицу исторических версий персонажа. `character.actual_version` — технический optimistic-lock counter, а не отдельный лист. Точная физическая схема хранения — `CODE_GAP / implementation OPEN`.
+
+Следующий SQL-блок сохраняет форму legacy/candidate storage для трассировки полей и не является утверждённой физической схемой. В target-модели actual payload и `actual_version` принадлежат одному актуальному состоянию; отдельная история `CharacterVersion` и `draft_of` не являются обязательными или публичными контрактами. Если backend выберет несколько физических таблиц, это остаётся внутренней storage implementation detail.
 
 ```sql
 characters(
@@ -364,7 +366,7 @@ characters(
 )
 INDEX (owner_id), (status)
 
-character_versions( -- target: snapshot payload, не history персонажа
+character_versions( -- legacy/candidate snapshot storage, не canonical history contract
   id,
   character_id → characters.id NOT NULL,
   created_at TIMESTAMP NOT NULL,
@@ -391,7 +393,7 @@ character_inventory(
 INDEX (character_version_id)
 ```
 
-Старая `game_characters` JSON-модель, `character_moderation`, timestamp storage и A/L/O/P не являются текущей целевой моделью membership; они сохранены в `history.md`. Целевой membership хранит `characterId`, статус `submitted | active | left`, immutable `approvedCharacterVersion`, `gameOverlay` и review metadata; физическая backend-схема — `CODE_GAP / implementation OPEN`.
+Старая `game_characters` JSON-модель, `character_moderation`, timestamp storage и A/L/O/P не являются текущей целевой моделью membership; они сохранены в `history.md`. Целевой membership хранит `characterId`, статус `submitted | active | left`, immutable `approvedCharacterVersion`, `membershipRevision`, review metadata и ссылку на Game session state. Полный player sheet в membership overlay не дублируется; `gameOverlay/gameState` хранит только session/battle/process data. Физическая backend-схема — `CODE_GAP / implementation OPEN`.
 
 ### Notifications, Chat и chronicle
 
@@ -500,13 +502,15 @@ Current frontend/domain state is represented by DTOs, game overlays, typed opera
 
 Legacy `game_characters.active_json`, `pending_json` и `draft_json` не являются текущим трёхслойным контрактом. Их disposition:
 
-- `active_json` → immutable `approvedCharacterVersion` membership snapshot;
+- `active_json` → immutable `approvedCharacterVersion` membership baseline;
 - `pending_json` → не отдельное хранимое состояние; moderation определяется diff approved snapshot и `actualCharacter`;
-- `draft_json` → browser draft или session `gameOverlay` в зависимости от контекста;
+- `draft_json` → browser draft; Game session state не является Character draft и хранится в Game-owned `gameOverlay/gameState`;
 - `latestVersion` не является частью целевой модели; актуальным состоянием является `actualCharacter`;
-- approve/reject, session commit и optimistic version checks описаны в `character-system.md`, а backend persistence остаётся `OPEN`.
+- approve/reject, actual CAS, membership revision и session predicates описаны в `character-system.md`, а backend persistence остаётся `OPEN`.
 
 Legacy `character_moderation` как отдельная таблица также не является владельцем moderation state: moderation принадлежит membership Game и его version/concurrency contract.
+
+NPC не получает `approvedCharacterVersion`, draft или moderation baseline. Его persisted sheet — `npc.version`, а `npc.actual_version` — технический optimistic-lock counter. Game session state, battle/process state, command idempotency/result records и outbox records являются отдельными backend concepts; их физические таблицы остаются `OPEN`.
 
 `dice_result` — legacy field; текущая модель сообщения использует `ChatAttachment[]`. `event_time`/`sort_order` — legacy storage; frontend использует `GameTime`. SSE, unread, visibility, notification generation и ownership constraints требуют backend-подтверждения (`OPEN`).
 

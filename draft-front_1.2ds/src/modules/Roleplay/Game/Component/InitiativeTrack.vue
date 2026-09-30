@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { computed, inject, onMounted, ref, watch } from 'vue';
+import { computed, inject, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useCurrentUser } from '@/modules/Core/User/init';
 import { useChatChannel } from '@/modules/Messages/Chat/init';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 import type { GameStatus } from '@/modules/Roleplay/Game/Enum/GameStatus';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
+import type { GameParticipantCandidate } from '@/modules/Roleplay/Game/Dto/GameParticipantCandidate';
+import type { GameRuntimeEntityProjection } from '@/modules/Roleplay/Game/Dto/GameRuntimeEntityProjection';
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { GameInitiative, GameInitiativeParticipant } from '@/modules/Roleplay/Game/Dto/GameInitiative';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
@@ -27,7 +29,6 @@ import { bloodLossService } from '@/modules/Roleplay/Game/Service/Instance/blood
 import { ACCUMULATED_DAMAGE_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
 
 import { stateRuntimeEffectsService } from '@/modules/Roleplay/Character/init';
-import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
 
 import { useCombatChatThread } from '@/modules/Roleplay/Game/Composables/useCombatChatThread';
 import { combatChatSendService } from '@/modules/Roleplay/Game/Service/Instance/combatChatSendService';
@@ -79,14 +80,17 @@ const props = defineProps<{
   characters: GameCharacterMembership[];
   /** Активные НПС игры. */
   npcs: GameNpc[];
+  runtimeProjections?: Record<CombatEntityKey, GameRuntimeEntityProjection>;
   /** Правила ревизии игры (характеристики + дефолты «Бросок»). */
   rules: Rule[];
   /** Механики ревизии (броски инициативы через RollEngine). */
   mechanics: Mechanic[];
   /** Счётчик мутаций боевых оверлеев: при изменении — перечитать оверлеи (Истощение). */
   overlayRevision: number;
-  /** Начать сессию, если ещё не playing (бросок инициативы = старт сцены). */
-  ensurePlaying?: () => Promise<void>;
+  /** Создать session admission перед первым броском инициативы. */
+  ensureSession?: () => Promise<void>;
+  /** Загрузить full projections выбранных новых участников одним batch-запросом. */
+  ensureRuntimeProjections?: (entityKeys: string[]) => Promise<void>;
   gameStatus: GameStatus;
 }>();
 
@@ -96,6 +100,7 @@ const emit = defineEmits<{
   'open-card': [entityKey: string];
   'overlay-changed': [];
   participants: [keys: string[]];
+  'runtime-projections': [projections: GameRuntimeEntityProjection[]];
 }>();
 
 const { currentUser } = useCurrentUser();
@@ -111,6 +116,15 @@ const error = ref<string | null>(null);
 
 const dialogOpen = ref(false);
 const addMenuOpen = ref(false);
+const addCandidateQuery = ref('');
+const addCandidates = ref<GameParticipantCandidate[]>([]);
+const addCandidateNextCursor = ref<string | null>(null);
+const addCandidateLoading = ref(false);
+const selectedAddEntityKeys = ref<string[]>([]);
+const addCandidateError = ref<string | null>(null);
+const addProjectionLoading = ref(false);
+let addSearchTimer: ReturnType<typeof setTimeout> | null = null;
+let addSearchSequence = 0;
 const waitDialogOpen = ref(false);
 const waitBusy = ref(false);
 const waitError = ref<string | null>(null);
@@ -121,6 +135,9 @@ onMounted(() => {
   if (keywords.value.length === 0) {
     void fetchTags();
   }
+});
+onUnmounted(() => {
+  if (addSearchTimer) clearTimeout(addSearchTimer);
 });
 const processSessions = ref<Record<CombatEntityKey, ProcessSession>>({});
 const committedSessions = ref<Record<CombatEntityKey, CommittedActionSession>>({});
@@ -133,6 +150,10 @@ const committedContinueActorName = ref('');
 
 // Оверлеи боевых изменений участников: для текущего Истощения (сумма состояния 'exhaustion').
 const overlays = ref<GameCombatOverlay[]>([]);
+
+function runtimeProjectionOf(key: CombatEntityKey): GameRuntimeEntityProjection | null {
+  return props.runtimeProjections?.[key] ?? null;
+}
 
 const activeParticipant = computed(() => {
   const data = initiative.value;
@@ -179,19 +200,63 @@ const canPass = computed(() => {
 
 const addOptions = computed(() => {
   const existing = new Set(initiative.value?.participants.map((participant) => participant.id) ?? []);
-  const characters = props.characters
-    .filter((membership) => membership.membershipStatus === 'active')
-    .map((membership) => ({
-      id: `character:${membership.characterId}`,
-      name: membership.characterName,
-      kind: 'character' as const,
-      entityId: membership.characterId,
-    }));
-  const npcs = props.npcs
-    .filter((npc) => npc.status === 'active')
-    .map((npc) => ({ id: `npc:${npc.id}`, name: npc.name, kind: 'npc' as const, entityId: npc.id }));
 
-  return [...characters, ...npcs].filter((option) => !existing.has(option.id));
+  return addCandidates.value
+    .filter((candidate) => !existing.has(candidate.entityKey))
+    .map((candidate) => ({
+      id: candidate.entityKey,
+      name: candidate.name,
+      kind: candidate.kind,
+      entityId: candidate.id,
+    }));
+});
+
+async function loadAddCandidates(query = '', append = false): Promise<void> {
+  const sequence = ++addSearchSequence;
+  addCandidateLoading.value = true;
+  addCandidateError.value = null;
+  try {
+    const result = await getGameApi().getParticipantCandidates({
+      gameId: props.gameId,
+      query,
+      cursor: append ? (addCandidateNextCursor.value ?? undefined) : undefined,
+      limit: 50,
+    });
+    if (sequence !== addSearchSequence) return;
+    const selectedKeys = new Set(selectedAddEntityKeys.value);
+    const retained = append
+      ? [...addCandidates.value]
+      : addCandidates.value.filter((candidate) => selectedKeys.has(candidate.entityKey));
+    addCandidates.value = [
+      ...retained,
+      ...result.items.filter((candidate) => !retained.some((item) => item.entityKey === candidate.entityKey)),
+    ];
+    addCandidateNextCursor.value = result.nextCursor;
+  } catch (caught) {
+    if (sequence === addSearchSequence) {
+      addCandidateError.value = caught instanceof Error ? caught.message : 'Не удалось загрузить участников';
+    }
+  } finally {
+    if (sequence === addSearchSequence) addCandidateLoading.value = false;
+  }
+}
+
+function onAddCandidateQueryChange(query: string): void {
+  addCandidateQuery.value = query;
+  addCandidateNextCursor.value = null;
+  if (addSearchTimer) clearTimeout(addSearchTimer);
+  addSearchTimer = setTimeout(() => {
+    void loadAddCandidates(query);
+  }, 250);
+}
+
+watch(addMenuOpen, (isOpen) => {
+  if (isOpen) {
+    addCandidateNextCursor.value = null;
+    void loadAddCandidates(addCandidateQuery.value);
+  } else {
+    selectedAddEntityKeys.value = [];
+  }
 });
 
 async function load(): Promise<void> {
@@ -252,6 +317,7 @@ const exhaustionByEntity = computed<Map<string, number>>(() => {
       false,
       null,
       overlay,
+      runtimeProjectionOf(participant.id as CombatEntityKey),
     );
     if (!model.effectiveVersion) continue;
     const value = combatCardModelService.combatExhaustion(model.effectiveVersion.states, props.rules);
@@ -273,6 +339,7 @@ const maimByEntity = computed<Map<string, number>>(() => {
       false,
       null,
       overlay,
+      runtimeProjectionOf(participant.id as CombatEntityKey),
     );
     if (!model.effectiveVersion) continue;
     const value = combatCardModelService.combatMaim(model.effectiveVersion.states, props.rules);
@@ -316,6 +383,7 @@ const actionPointsByEntity = computed<Map<string, number>>(() => {
       false,
       null,
       overlay,
+      runtimeProjectionOf(participant.id as CombatEntityKey),
     );
     if (!model.effectiveVersion) continue;
     const ap = combatCardModelService.combatActionPoints(model.effectiveVersion, props.rules);
@@ -336,7 +404,15 @@ function canInspect(participant: { id: string }): boolean {
 
 async function refillActionPoints(entityKey: CombatEntityKey): Promise<void> {
   const overlay = overlays.value.find((item) => item.entityKey === entityKey) ?? null;
-  const model = combatCardModelService.combatCardModel(entityKey, props.characters, props.npcs, true, null, overlay);
+  const model = combatCardModelService.combatCardModel(
+    entityKey,
+    props.characters,
+    props.npcs,
+    true,
+    null,
+    overlay,
+    runtimeProjectionOf(entityKey),
+  );
   const version = model.effectiveVersion;
   if (!version) return;
   const ap = combatCardModelService.combatActionPoints(version, props.rules);
@@ -355,7 +431,15 @@ async function refillActionPoints(entityKey: CombatEntityKey): Promise<void> {
 
 async function refillConcentration(entityKey: CombatEntityKey): Promise<void> {
   const overlay = overlays.value.find((item) => item.entityKey === entityKey) ?? null;
-  const model = combatCardModelService.combatCardModel(entityKey, props.characters, props.npcs, true, null, overlay);
+  const model = combatCardModelService.combatCardModel(
+    entityKey,
+    props.characters,
+    props.npcs,
+    true,
+    null,
+    overlay,
+    runtimeProjectionOf(entityKey),
+  );
   const version = model.effectiveVersion;
   if (!version) return;
   await concentrationTokenService.refillIfUnused(getGameApi(), props.gameId, entityKey, version, overlay);
@@ -379,14 +463,15 @@ async function refillParticipants(keys: string[]): Promise<void> {
   emit('overlay-changed');
 }
 
-async function onInitiativeSaved(): Promise<void> {
+async function onInitiativeSaved(projections: GameRuntimeEntityProjection[]): Promise<void> {
+  emit('runtime-projections', projections);
   await load();
-  if (props.ensurePlaying) await props.ensurePlaying();
   const keys = initiative.value?.participants.map((participant) => participant.id) ?? [];
+  await props.ensureRuntimeProjections?.(keys);
   await refillParticipants(keys);
 }
 
-async function save(next: GameInitiative): Promise<void> {
+async function save(next: GameInitiative): Promise<boolean> {
   saving.value = true;
   error.value = null;
   try {
@@ -395,15 +480,20 @@ async function save(next: GameInitiative): Promise<void> {
       'participants',
       (initiative.value.active ? initiative.value.participants : []).map((participant) => participant.id),
     );
+
+    return true;
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Не удалось сохранить шкалу';
+
+    return false;
   } finally {
     saving.value = false;
   }
 }
 
 function saveAndNotify(next: GameInitiative, notifications: SystemNotification[]): void {
-  void save(next).then(() => {
+  void save(next).then((saved) => {
+    if (!saved) return;
     if (props.chatId !== null) {
       for (const notification of notifications) {
         void chatStore.postSystemMessage(notification.content, props.chatId, notification.kind, notification.thread);
@@ -497,6 +587,7 @@ async function confirmWaitAndPass(): Promise<void> {
       true,
       null,
       overlays.value.find((item) => item.entityKey === key) ?? null,
+      runtimeProjectionOf(key),
     );
     if (!model.effectiveVersion) throw new Error('Лист участника не найден');
     const execution = await actionExecutionService.execute({
@@ -513,7 +604,6 @@ async function confirmWaitAndPass(): Promise<void> {
       speaker: speakerFor(participant),
       sendChat,
     });
-    overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, execution.overlay);
     pendingEffectsByEntity.value = { ...pendingEffectsByEntity.value, [key]: execution.effects };
     waitDialogOpen.value = false;
     emit('overlay-changed');
@@ -537,6 +627,7 @@ async function bleedCurrentTurn(entityKey: string): Promise<void> {
     true,
     null,
     overlay,
+    runtimeProjectionOf(entityKey as CombatEntityKey),
   );
   const version = model.effectiveVersion;
   if (!version) return;
@@ -556,16 +647,21 @@ async function bleedCurrentTurn(entityKey: string): Promise<void> {
     sendMessage: (content, attachments, chatId, speaker) => sendChat(content, attachments, chatId, speaker),
     askTokenSpend,
   });
-  if (next) {
-    overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, next);
-    emit('overlay-changed');
-  }
+  if (next) emit('overlay-changed');
   await decayCoreDeviation(entityKey as CombatEntityKey);
 }
 
 async function decayCoreDeviation(entityKey: CombatEntityKey): Promise<void> {
   const overlay = overlays.value.find((item) => item.entityKey === entityKey) ?? null;
-  const model = combatCardModelService.combatCardModel(entityKey, props.characters, props.npcs, true, null, overlay);
+  const model = combatCardModelService.combatCardModel(
+    entityKey,
+    props.characters,
+    props.npcs,
+    true,
+    null,
+    overlay,
+    runtimeProjectionOf(entityKey),
+  );
   const version = model.effectiveVersion;
   if (!version) {
     return;
@@ -575,11 +671,11 @@ async function decayCoreDeviation(entityKey: CombatEntityKey): Promise<void> {
     return;
   }
   for (const patch of [...patches].reverse()) {
-    const nextOverlay =
-      patch.next == null
-        ? await getGameApi().removeCombatState(props.gameId, entityKey, patch.index)
-        : await getGameApi().replaceCombatState(props.gameId, entityKey, patch.index, patch.next);
-    overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, nextOverlay);
+    if (patch.next == null) {
+      await getGameApi().removeCombatState(props.gameId, entityKey, patch.index);
+    } else {
+      await getGameApi().replaceCombatState(props.gameId, entityKey, patch.index, patch.next);
+    }
   }
   emit('overlay-changed');
 }
@@ -628,6 +724,7 @@ async function promptSustains(participantId: CombatEntityKey, round: number): Pr
       props.canEdit,
       currentUser.value?.id ?? null,
       overlay,
+      runtimeProjectionOf(spell.casterKey),
     ).effectiveVersion;
     if (!activeSpellService.isSourceAvailable(spell.sourceKey, version ?? null)) {
       await dropSustain(spell, true);
@@ -700,6 +797,7 @@ async function continueCommittedTurn(): Promise<void> {
       true,
       null,
       overlay,
+      runtimeProjectionOf(session.entityKey),
     );
     if (!model.effectiveVersion) throw new Error('Лист участника не найден');
     const available = combatCardModelService.combatActionPoints(model.effectiveVersion, props.rules)?.current ?? 0;
@@ -754,7 +852,7 @@ async function abortCommittedTurn(): Promise<void> {
 
 async function dropSustain(spell: ActiveSpell, lostSource: boolean): Promise<void> {
   const states =
-    overlays.value.find((item) => item.entityKey === spell.casterKey)?.states ??
+    runtimeProjectionOf(spell.casterKey)?.version?.states ??
     combatCardModelService.combatCardModel(
       spell.casterKey,
       props.characters,
@@ -762,12 +860,13 @@ async function dropSustain(spell: ActiveSpell, lostSource: boolean): Promise<voi
       props.canEdit,
       currentUser.value?.id ?? null,
       overlays.value.find((item) => item.entityKey === spell.casterKey) ?? null,
+      runtimeProjectionOf(spell.casterKey),
     ).effectiveVersion?.states ??
     [];
   for (const index of electrochargeService.boundIndices(states, spell.id)) {
-    const overlay = await getGameApi().removeCombatState(props.gameId, spell.casterKey, index);
-    overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, overlay);
+    await getGameApi().removeCombatState(props.gameId, spell.casterKey, index);
   }
+  emit('overlay-changed');
   await getGameApi().dropActiveSpell(props.gameId, spell.id);
   sustainOpen.value = false;
   sustainSpell.value = null;
@@ -782,6 +881,7 @@ async function dropSustain(spell: ActiveSpell, lostSource: boolean): Promise<voi
     props.canEdit,
     currentUser.value?.id ?? null,
     overlays.value.find((item) => item.entityKey === spell.casterKey) ?? null,
+    runtimeProjectionOf(spell.casterKey),
   );
   await sendChat(
     formatSustainDropMessage({
@@ -811,6 +911,7 @@ async function continueSustain(power: DimensionalNumberValue): Promise<void> {
     props.canEdit,
     currentUser.value?.id ?? null,
     overlay,
+    runtimeProjectionOf(spell.casterKey),
   ).effectiveVersion;
   const overview = version ? characterOverviewService.build(version, props.rules) : null;
   const maxPower = spellCastOptionsService.defaultUsedPower(overview, version?.states ?? [], spell.sourceKey);
@@ -828,11 +929,11 @@ async function continueSustain(power: DimensionalNumberValue): Promise<void> {
     const cap = electrochargeService.cap(spell.spellCode, version.abilities, props.rules, keywords.value);
     const next = electrochargeService.grant(version.states, spell.id, chargeSpec, cap);
     const index = electrochargeService.boundIndex(version.states, chargeSpec.state_code, spell.id);
-    const overlay =
-      index >= 0
-        ? await getGameApi().replaceCombatState(props.gameId, spell.casterKey, index, next)
-        : await getGameApi().addCombatState(props.gameId, spell.casterKey, next);
-    overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, overlay);
+    if (index >= 0) {
+      await getGameApi().replaceCombatState(props.gameId, spell.casterKey, index, next);
+    } else {
+      await getGameApi().addCombatState(props.gameId, spell.casterKey, next);
+    }
     emit('overlay-changed');
   }
   sustainOpen.value = false;
@@ -840,16 +941,15 @@ async function continueSustain(power: DimensionalNumberValue): Promise<void> {
 }
 
 async function clearAccumulatedDamage(entityKey: string): Promise<void> {
-  const overlay = overlays.value.find((item) => item.entityKey === entityKey);
-  const index = overlay?.states.findIndex((state) => {
+  const states = runtimeProjectionOf(entityKey as CombatEntityKey)?.version?.states ?? [];
+  const index = states.findIndex((state) => {
     const rule = props.rules.find((candidate) => candidate.code === state.stateRuleCode);
 
     return rule?.type === 'state' && rule.code === ACCUMULATED_DAMAGE_STATE_CODE;
   });
   if (index == null || index < 0) return;
 
-  const next = await getGameApi().removeCombatState(props.gameId, entityKey as CombatEntityKey, index);
-  overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, next);
+  await getGameApi().removeCombatState(props.gameId, entityKey as CombatEntityKey, index);
   emit('overlay-changed');
 }
 
@@ -868,29 +968,59 @@ function continueScale(): void {
   });
 }
 
-function addToBattle(id: string): void {
+async function addToBattle(): Promise<void> {
   const data = initiative.value;
-  if (!data) return;
-  const option = addOptions.value.find((item) => item.id === id);
-  if (!option) return;
-  addMenuOpen.value = false;
-  void save({
-    ...data,
-    participants: [
-      ...data.participants,
-      { id: option.id, name: option.name, kind: option.kind, entityId: option.entityId },
-    ],
-  }).then(() => {
-    void refillParticipants([option.id]);
-    if (props.chatId !== null) {
-      void chatStore.postSystemMessage(
-        `${option.name} присоединяется к шкале инициативы.`,
-        props.chatId,
-        'default',
-        combatThread.stamp(),
-      );
-    }
+  const options = selectedAddEntityKeys.value.flatMap((entityKey) => {
+    const option = addOptions.value.find((candidate) => candidate.id === entityKey);
+
+    return option ? [option] : [];
   });
+  if (!data || options.length === 0) return;
+
+  addProjectionLoading.value = true;
+  error.value = null;
+  try {
+    await props.ensureRuntimeProjections?.(options.map((option) => option.id));
+    const unresolved = options.filter(
+      (option) => runtimeProjectionOf(option.id as CombatEntityKey)?.projectionLevel !== 'full',
+    );
+    if (unresolved.length > 0) {
+      throw new Error(`Не удалось загрузить листы: ${unresolved.map((option) => option.name).join(', ')}`);
+    }
+
+    const saved = await save({
+      ...data,
+      participants: [
+        ...data.participants,
+        ...options.map((option) => ({
+          id: option.id,
+          name: option.name,
+          kind: option.kind,
+          entityId: option.entityId,
+        })),
+      ],
+    });
+    if (!saved) return;
+
+    const addedKeys = options.map((option) => option.id);
+    await refillParticipants(addedKeys);
+    if (props.chatId !== null) {
+      for (const option of options) {
+        await chatStore.postSystemMessage(
+          `${option.name} присоединяется к шкале инициативы.`,
+          props.chatId,
+          'default',
+          combatThread.stamp(),
+        );
+      }
+    }
+    selectedAddEntityKeys.value = [];
+    addMenuOpen.value = false;
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Не удалось добавить участников';
+  } finally {
+    addProjectionLoading.value = false;
+  }
 }
 
 watch(
@@ -1026,19 +1156,56 @@ function kindIcon(kind: 'character' | 'npc'): string {
               </template>
               <v-card min-width="240" max-width="300" elevation="8" border>
                 <v-card-text class="pa-2">
-                  <v-list dense max-height="240">
-                    <v-list-item
-                      v-for="option in addOptions"
-                      :key="option.id"
-                      density="compact"
-                      :prepend-icon="kindIcon(option.kind)"
-                      :title="option.name"
-                      @click="addToBattle(option.id)"
-                    />
-                    <div v-if="!addOptions.length" class="text-caption text-medium-emphasis pa-2 text-center">
-                      Некого добавить
+                  <v-autocomplete
+                    v-model="selectedAddEntityKeys"
+                    v-model:search="addCandidateQuery"
+                    :items="addOptions"
+                    item-title="name"
+                    item-value="id"
+                    label="Участник"
+                    multiple
+                    chips
+                    closable-chips
+                    density="compact"
+                    variant="outlined"
+                    hide-details
+                    clearable
+                    :loading="addCandidateLoading"
+                    no-data-text="Некого добавить"
+                    @update:search="onAddCandidateQueryChange"
+                  />
+                  <v-btn
+                    v-if="addCandidateNextCursor"
+                    size="small"
+                    variant="text"
+                    :loading="addCandidateLoading"
+                    :disabled="addCandidateLoading"
+                    @click="loadAddCandidates(addCandidateQuery, true)"
+                  >
+                    Загрузить ещё участников
+                  </v-btn>
+                  <v-alert v-if="addCandidateError" type="error" variant="tonal" density="compact" class="mt-2">
+                    <div class="d-flex align-center ga-2">
+                      <span>{{ addCandidateError }}</span>
+                      <v-btn size="small" variant="text" @click="loadAddCandidates(addCandidateQuery)">
+                        Повторить
+                      </v-btn>
                     </div>
-                  </v-list>
+                  </v-alert>
+                  <v-btn
+                    class="mt-2"
+                    size="small"
+                    color="success"
+                    variant="tonal"
+                    block
+                    :disabled="
+                      selectedAddEntityKeys.length === 0 || addCandidateLoading || addProjectionLoading || saving
+                    "
+                    :loading="addProjectionLoading"
+                    @click="addToBattle"
+                  >
+                    Добавить выбранных
+                  </v-btn>
                 </v-card-text>
               </v-card>
             </v-menu>
@@ -1082,11 +1249,11 @@ function kindIcon(kind: 'character' | 'npc'): string {
     v-model:open="dialogOpen"
     :game-id="gameId"
     :space-id="spaceId"
-    :characters="characters"
-    :npcs="npcs"
     :rules="rules"
     :mechanics="mechanics"
     :chat-id="chatId"
+    :ensure-session="ensureSession"
+    :cached-projections="runtimeProjections"
     @saved="onInitiativeSaved"
   />
 

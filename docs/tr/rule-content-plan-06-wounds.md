@@ -60,7 +60,7 @@
 
 Успех: вклад свёртывания этой раны **+РУ** (`check.rating`), не выше силы, **без** капа +4.
 
-Порядок «сначала свёртывание, потом Σ тик» — решение посадки. После `replaceCombatState` по ранам — **смержить оверлей в version**, потом `bleedTotal`. Свёртывание гонять **даже если** все раны уже закрыты: `applyBloodLossTick` при Δ≤0 вернёт null, но вклады могли вырасти. Полностью закрытая рана **остаётся** записью (тик 0). `applyTurnWoundBleed` по-прежнему после крови зовёт DOT.
+Порядок «сначала свёртывание, потом Σ тик» — решение посадки. После authoritative mutation раны в actual Character/NPC projection вычисляется `bleedTotal` с учётом battle state. Свёртывание гонять **даже если** все раны уже закрыты: `applyBloodLossTick` при Δ≤0 вернёт null, но вклады могли вырасти. Полностью закрытая рана **остаётся** записью (тик 0). `applyTurnWoundBleed` по-прежнему после крови зовёт DOT.
 
 ### 1.2 Зажать
 
@@ -70,9 +70,13 @@
 
 Пока держит: закрытость' минимум 1. Отпустил — минимум пропадает, вклады на месте. `heldActive` = `heldBy != null`. Держащий выбыл — **держится, пока не отпустил** (OPEN на автосброс).
 
-Счётчик рук: `heldBy === актор` **во всех оверлеях боя**, максимум 2. Хост передаёт оверлеи. Инвентарь не читаем. Отпустить — 0 ОД.
+Счётчик рук: `heldBy === актор` **во всём battle state**, максимум 2. Хост передаёт battle state. Инвентарь не читаем. Отпустить — 0 ОД.
 
-`heldBy` **сессионный**: в actual / вне боя при commit оверлея — сбросить в `null`. Вклады и `internal`/`aided` оставлять.
+`heldBy` **battle-scoped operational marker**: предпочтительно хранить в Game battle state и очищать при `endBattle`; compatibility fallback внутри actual допускается только с исключением из semantic `getCharacterDiff` и с очисткой marker без удаления или отката самой раны. Вклады и `internal`/`aided` остаются частью persistent `actualCharacter.states`.
+
+В R3-FE этот battle state получает typed namespace в `GameBattleState`;
+получение и сохранение authoritative wound effect на Character/NPC остаётся
+последующим backend/Game transaction workstream.
 
 ### 1.3 Перевязать
 
@@ -120,13 +124,13 @@ wound?: {
   clotting: number               // вклад свёртывания
   internal: boolean
   aided: boolean                 // кап +4 снят (перевязка с первой помощью)
-  heldBy: string | null          // opaque entity key; Character ↛ Game CombatEntityKey
+  heldBy?: string | null         // compatibility fallback only; semantic diff excludes it
 }
 ```
 
-Нет `wound` — миграция при чтении тика/карточки/записи (не отдельный PHP): сила = `value`, вклады 0, флаги false, `heldBy` null. Любой `addCombatState({ value })` без sidecar тоже через `addWound`.
+Нет `wound` — миграция при чтении тика/карточки/записи (не отдельный PHP): сила = `value`, вклады 0, флаги false. Если compatibility fallback используется, `heldBy` восстанавливается как `null`. Любой `addCombatState({ value })` без sidecar тоже через `addWound`.
 
-Sidecar — отдельный DTO `CharacterWound` (один экспорт на файл), поле на `CharacterStateValue` как `poison`/`maim`.
+Persistent sidecar — отдельный DTO `CharacterWound` (один экспорт на файл), поле на `CharacterStateValue` как `poison`/`maim`. Operational `heldBy` предпочтительно находится в Game battle state; вложенное поле допускается только для compatibility migration/runtime.
 
 На `GameCombatOverlay` цели:
 
@@ -134,25 +138,25 @@ Sidecar — отдельный DTO `CharacterWound` (один экспорт н�
 woundBandagedOnce?: boolean      // уже была перевязка этой цели в бою
 ```
 
-Только сессия (мок оверлея). PHP не этот срез: живой `GameApi` неизвестные поля может выкинуть — в моке поле копировать при persist. `mergeCombatOverlay` в actual **не** тащит флаг на лист.
+Только battle state. PHP не этот срез: живой `GameApi` неизвестные поля может выкинуть — в моке поле копировать при persist. `mergeCombatOverlay` не является способом записи Character state; `woundBandagedOnce` никогда не попадает в actual.
 
-Индексы `states` как сейчас. Правка раны — **`replaceCombatState`**, не `setCombatStateValue`. `setNumericState` для `independent` **добавляет голую** `{ value }` — для `wound` не звать; мастер/карточка/удар/каст/DOT/добавление состояния — только `addWound`.
+Индексы `states` как сейчас. Правка раны в будущем authoritative path — typed Character mutation, не запись Game overlay. `replaceCombatState` допустим только как frontend/mock adapter до появления этого path. `setNumericState` для `independent` **добавляет голую** `{ value }` — для `wound` не звать; мастер/карточка/удар/каст/DOT/добавление состояния — только `addWound`.
 
-`overlayStateTotal(wound)` = сумма сил (увечье с **этого** удара — ок). Кровопотеря — только `bleedTotal`.
+`stateTotal(wound)` over authoritative actual projection = сумма сил (увечье с **этого** удара — ок). Кровопотеря — только `bleedTotal`.
 
-Два ключа на действии: ОД писать в оверлей **исполнителя** (`spendActionPoints` + `setCombatResource`), рану — в оверлей **цели**.
+Два authoritative targets на действии: ОД писать в Game battle state исполнителя (`spendActionPoints` + `setCombatResource`), persistent рану — в actual Character/NPC target через Game-owned transaction.
 
 ## 4. Этапы
 
 ### A — модель и чистая арифметика (Character или Game)
 
-Класс `WoundInstanceService` (хозяин — **Game**: бой и оверлей; DTO `wound` на `CharacterStateValue`, потому что состояние листа). Сигнатуры в духе:
+Класс `WoundInstanceService` (хозяин — **Game**: бой и battle state; DTO `wound` на `CharacterStateValue`, потому что состояние листа). Сигнатуры в духе:
 
 - `migrate(state)` / `migrateVersion(states)`;
 - `closure(state, heldActive)`;
 - `tick(state, heldActive)`;
-- `bleedTotal(states)` — `heldActive` из sidecar `heldBy`;
-- `heldCount(actorKey, overlays)`;
+- `bleedTotal(states, battleState)` — `heldActive` из battle state, а при compatibility fallback — из `heldBy`;
+- `heldCount(actorKey, battleState)`;
 - `clampToStrength(state)`;
 - `canSqueeze` / `canBandage(state, medicHasAid)`;
 - `bandageOd({ medicHasAid, medicHasQuick, targetBandagedOnce })` → 8 | 4 | 2 (спорая без помощи не даёт 2);

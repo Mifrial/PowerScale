@@ -19,7 +19,7 @@ import {
   combatKey,
 } from '@/modules/Roleplay/Game/Mock/mockGameCombatOverlays';
 import { gameDetails, stopGameSession } from '@/modules/Roleplay/Game/Mock/mockGames';
-import '@/modules/Roleplay/Game/Mock/mockCharacterSessionOverlay';
+import '@/modules/Roleplay/Game/Mock/mockCharacterSessionRuntimePort';
 
 const initialVersion1 = JSON.parse(JSON.stringify(versions[1])) as CharacterVersion;
 const initialVersion3 = JSON.parse(JSON.stringify(versions[3])) as CharacterVersion;
@@ -54,19 +54,18 @@ beforeEach(() => {
 });
 
 describe('mockCharacterUpdate: роутер версий (DEC-059)', () => {
-  it('с явным gameId активной сессии пишет в оверлей, actual не трогает', async () => {
+  it('с явным gameId активной сессии пишет в actual', async () => {
     const before = versions[1].money;
     const version = { ...versions[1], money: before + 100 };
 
     const detail = await updateCharacter(1, { version, status: 'ready', gameId: 2 });
 
-    expect(detail.version.money).toBe(before);
-    const stored = getStoredCombatOverlay(2, combatKey('character', 1));
-    expect(stored?.sheet?.money).toBe(before + 100);
+    expect(detail.version.money).toBe(before + 100);
+    expect(getStoredCombatOverlay(2, combatKey('character', 1))).toBeNull();
 
     const membership = (await fetchGameCharacters(2)).find((m) => m.characterId === 1)!;
     expect(membership.membershipStatus).toBe('active');
-    expect(membership.overlay?.sheet?.money).toBe(before + 100);
+    expect(membership.overlay).toBeNull();
   });
 
   it('без gameId во время сессии запрещает save actual', async () => {
@@ -96,10 +95,10 @@ describe('mockCharacterUpdate: роутер версий (DEC-059)', () => {
     ).rejects.toThrow('сессии');
   });
 
-  it('addCustomRule во время сессии → оверлей; вне сессии → actual', async () => {
+  it('addCustomRule во время сессии и вне её → actual', async () => {
     const detail = await addCustomRule(1, { kind: 'item', name: 'Амулет', description: '' });
-    expect(detail.version.customRules?.[0]).toBeUndefined();
-    expect(getStoredCombatOverlay(2, combatKey('character', 1))?.sheet?.customRules?.[0]?.name).toBe('Амулет');
+    expect(detail.version.customRules?.[0]?.name).toBe('Амулет');
+    expect(getStoredCombatOverlay(2, combatKey('character', 1))).toBeNull();
 
     const detail2 = await addCustomRule(3, { kind: 'item', name: 'Лаваш', description: '' });
     expect(detail2.version.customRules?.[0]?.name).toBe('Лаваш');
@@ -108,24 +107,23 @@ describe('mockCharacterUpdate: роутер версий (DEC-059)', () => {
     expect(garrick.reviewState).toBe('changes_pending');
   });
 
-  it('updateCustomRule во время сессии правит запись в оверлее', async () => {
+  it('updateCustomRule во время сессии правит actual', async () => {
     await addCustomRule(1, { kind: 'item', name: 'Амулет', description: '' });
-    const stored = getStoredCombatOverlay(2, combatKey('character', 1));
-    const entryId = stored!.sheet!.customRules![0].id;
+    const entryId = versions[1].customRules![0].id;
 
     await updateCustomRule(1, entryId, { status: 'deprecated' });
 
-    const updated = getStoredCombatOverlay(2, combatKey('character', 1))?.sheet?.customRules?.[0];
+    const updated = versions[1].customRules?.[0];
     expect(updated?.status).toBe('deprecated');
-    expect(versions[1].customRules?.[0]).toBeUndefined();
+    expect(getStoredCombatOverlay(2, combatKey('character', 1))).toBeNull();
   });
 });
 
-describe('mockCharacterUpdate: полный цикл in-game редактора → commit', () => {
-  it('правки из игры проходят через оверлей в actual после остановки сессии', async () => {
+describe('mockCharacterUpdate: actual survives session stop', () => {
+  it('правки из игры сохраняются до остановки сессии', async () => {
     const before = versions[1].money;
     await updateCharacter(1, { version: { ...versions[1], money: before + 100 }, status: 'ready', gameId: 2 });
-    expect(versions[1].money).toBe(before);
+    expect(versions[1].money).toBe(before + 100);
 
     await stopGameSession(2, 'in_process');
     expect(versions[1].money).toBe(before + 100);

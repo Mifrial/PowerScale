@@ -61,6 +61,15 @@ const sections = computed(() => props.diff.sections);
 
 <template>
   <div class="d-flex flex-column ga-3">
+    <v-alert
+      v-if="diff.availability === 'missingActual' || diff.availability === 'missingBoth'"
+      type="warning"
+      variant="tonal"
+      density="compact"
+    >
+      Актуальная версия персонажа недоступна, поэтому diff нельзя построить.
+    </v-alert>
+
     <div v-if="diff.scalars.length > 0" class="diff-block">
       <div class="diff-block-title">Основное</div>
       <div v-for="change in diff.scalars" :key="change.key" class="diff-row">

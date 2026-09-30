@@ -492,7 +492,7 @@ export class CharacterBuildService {
       return this.weaponProficiency.weaponFamilyLadder(rules, domain)?.length ?? 1;
     }
     if (spec?.domain_ref === 'script') {
-      return scriptLiteracyService.ladderForDomain(rules, domain).length;
+      return scriptLiteracyService.ladderForDomain(rules, domain)?.length ?? 1;
     }
     let max = 1;
     for (const cost of Object.values(spec?.zones ?? {})) {

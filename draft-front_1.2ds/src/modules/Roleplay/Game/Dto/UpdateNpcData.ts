@@ -3,6 +3,7 @@ import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/Characte
 
 /** Редактирование НПС ведущим: имя, описания, теги, видимость, полный лист (version). */
 export interface UpdateNpcData {
+  expectedNpcActualVersion: number;
   name: string;
   shortDescription: string | null;
   fullDescription: string | null;

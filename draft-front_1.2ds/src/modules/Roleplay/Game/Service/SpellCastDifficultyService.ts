@@ -98,9 +98,11 @@ export class SpellCastDifficultyService {
         controlShortage: 0,
       };
     }
+
     const requiredPower = this.resolveSpellValue(spec.spell.power, input.parameterValues);
     const requiredControl = this.resolveSpellValue(spec.spell.control, input.parameterValues);
     const resistanceModify = input.hasTarget ? (input.targetResistanceAmount ?? 0) : 0;
+
     return this.compute({
       requiredPower,
       usedPower: input.usedPower,

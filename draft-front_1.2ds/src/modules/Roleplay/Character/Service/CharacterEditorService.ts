@@ -2200,6 +2200,7 @@ export class CharacterEditorService {
     if (!spec || spec.type === 'group') return null;
     if (spec.domain_ref !== 'script') return null;
     const ladder = scriptLiteracyService.ladderForDomain(reference.rules(), ability.domainCode ?? ability.domain);
+    if (!ladder) return null;
 
     return { kind: 'array', levels_cost: ladder };
   }

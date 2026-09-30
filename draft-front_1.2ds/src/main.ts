@@ -16,7 +16,12 @@ import { registerRuleApi } from '@/modules/Roleplay/Rule/init';
 import { registerChatApi, registerChatModule } from '@/modules/Messages/Chat/init';
 import { registerNotificationApi } from '@/modules/Messages/Notifications/init';
 import { registerCsrfApi, getCsrfApi } from '@/modules/Core/Engine/init';
-import { registerMacroApi, registerGameApi, registerGameModule } from '@/modules/Roleplay/Game/init';
+import {
+  registerMacroApi,
+  registerGameApi,
+  registerGameModule,
+  registerGameRealtimePort,
+} from '@/modules/Roleplay/Game/init';
 import { registerUserModule } from '@/modules/Core/User/init';
 import { registerRuleModule } from '@/modules/Roleplay/Rule/init';
 import { registerRuleSpaceModule } from '@/modules/Roleplay/RuleSpace/init';
@@ -45,6 +50,7 @@ async function registerApiLayer(): Promise<void> {
     const { mockRuleApi } = await import('@/modules/Roleplay/Rule/Mock/mockRuleApi');
     const { mockMacroApi } = await import('@/modules/Roleplay/Game/Mock/mockMacroApi');
     const { mockGameApi } = await import('@/modules/Roleplay/Game/Mock/mockGameApi');
+    const { mockGameRealtimePort } = await import('@/modules/Roleplay/Game/Mock/mockGameRealtimePort');
     const { mockCharacterApi } = await import('@/modules/Roleplay/Character/Mock/mockCharacterApi');
 
     registerAuthApi(mockAuthApi);
@@ -60,6 +66,7 @@ async function registerApiLayer(): Promise<void> {
     registerRuleApi(mockRuleApi);
     registerMacroApi(mockMacroApi);
     registerGameApi(mockGameApi);
+    registerGameRealtimePort(mockGameRealtimePort);
     registerCharacterApi(mockCharacterApi);
     registerCsrfApi(mockCsrfApi);
   } else {
@@ -79,6 +86,7 @@ async function registerApiLayer(): Promise<void> {
     const { RuleApi } = await import('@/modules/Roleplay/Rule/Service/RuleApi');
     const { MacroApi } = await import('@/modules/Roleplay/Game/Service/MacroApi');
     const { GameApi } = await import('@/modules/Roleplay/Game/Service/GameApi');
+    const { GameRealtimeApi } = await import('@/modules/Roleplay/Game/Service/GameRealtimeApi');
     const { CharacterApi } = await import('@/modules/Roleplay/Character/Service/CharacterApi');
 
     const csrfApi = new CsrfApi();
@@ -101,6 +109,7 @@ async function registerApiLayer(): Promise<void> {
     registerRuleApi(new RuleApi(engine));
     registerMacroApi(new MacroApi(engine));
     registerGameApi(new GameApi(engine));
+    registerGameRealtimePort(new GameRealtimeApi(engine));
     registerCharacterApi(new CharacterApi(engine));
   }
 }

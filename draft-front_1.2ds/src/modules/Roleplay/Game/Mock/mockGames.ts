@@ -18,6 +18,15 @@ import {
 } from '@/modules/Messages/Chat/Mock/mockChat';
 import { gameAccessService } from '@/modules/Roleplay/Game/Service/Instance/gameAccessService';
 import { endInitiative, snapshotInitiative, restoreInitiative } from '@/modules/Roleplay/Game/Mock/mockGameInitiative';
+import {
+  getGameStateSnapshot,
+  hasActiveGameSession,
+  restoreGameStateSnapshot,
+  serializeGameStateSnapshot,
+  stopGameStateSession,
+  withMockGameStateLock,
+} from '@/modules/Roleplay/Game/Mock/mockGameState';
+import { createRandomId } from '@/modules/Core/Engine/Utils/createRandomId';
 
 const delay = (ms = 100) => new Promise((r) => setTimeout(r, ms));
 
@@ -351,38 +360,48 @@ export async function createGame(data: CreateGameData, _signal?: AbortSignal): P
 
 export async function updateGame(id: number, data: CreateGameData, _signal?: AbortSignal): Promise<GameDetail> {
   await delay(200);
-  const idx = gameDetails.findIndex((d) => d.game.id === id);
-  if (idx === -1) throw new Error('Игра не найдена');
-  const current = gameDetails[idx];
-  if (current.game.status === 'playing' && data.status !== 'playing') {
-    throw new Error('Сначала остановите сессию');
-  }
-  const updated: GameDetail = {
-    ...current,
-    game: {
-      ...current.game,
-      name: data.name,
-      shortDescription: data.shortDescription,
-      status: data.status,
-      visibility: data.visibility,
-      joinPolicy: data.joinPolicy,
-      spaceId: data.spaceId,
-      spaceCode: data.spaceCode,
-      rulesRevision: data.rulesRevision,
-      tags: [...(data.tags ?? [])],
-    },
-    description: data.description,
-    osPointsLimit: data.osPointsLimit,
-    olPointsLimit: data.olPointsLimit,
-    orPointsLimit: data.orPointsLimit,
-    moneyLimit: data.moneyLimit,
-    forbiddenTags: [...(data.forbiddenTags ?? [])],
-    // Копия members: current мог накопить reactive-объекты (permissions из UI) — сохраняем plain.
-    members: JSON.parse(JSON.stringify(current.members)) as GameDetail['members'],
-  };
-  gameDetails[idx] = updated;
 
-  return toViewerGameDetail(updated);
+  return withMockGameStateLock(id, async () => {
+    const idx = gameDetails.findIndex((d) => d.game.id === id);
+    if (idx === -1) throw new Error('Игра не найдена');
+    const current = gameDetails[idx];
+    const rulesContextChanged =
+      current.game.spaceId !== data.spaceId ||
+      current.game.spaceCode !== data.spaceCode ||
+      current.game.rulesRevision !== data.rulesRevision;
+    if (current.game.status === 'playing' && data.status !== 'playing') {
+      throw new Error('Сначала остановите сессию');
+    }
+    if ((current.game.status === 'playing' || hasActiveGameSession(id)) && rulesContextChanged) {
+      throw new Error('Нельзя менять пространство или ревизию во время активной сессии');
+    }
+    const updated: GameDetail = {
+      ...current,
+      game: {
+        ...current.game,
+        name: data.name,
+        shortDescription: data.shortDescription,
+        status: data.status,
+        visibility: data.visibility,
+        joinPolicy: data.joinPolicy,
+        spaceId: data.spaceId,
+        spaceCode: data.spaceCode,
+        rulesRevision: data.rulesRevision,
+        tags: [...(data.tags ?? [])],
+      },
+      description: data.description,
+      osPointsLimit: data.osPointsLimit,
+      olPointsLimit: data.olPointsLimit,
+      orPointsLimit: data.orPointsLimit,
+      moneyLimit: data.moneyLimit,
+      forbiddenTags: [...(data.forbiddenTags ?? [])],
+      // Копия members: current мог накопить reactive-объекты (permissions из UI) — сохраняем plain.
+      members: JSON.parse(JSON.stringify(current.members)) as GameDetail['members'],
+    };
+    gameDetails[idx] = updated;
+
+    return toViewerGameDetail(updated);
+  });
 }
 
 export async function stopGameSession(
@@ -404,16 +423,30 @@ export async function stopGameSession(
   const actuals = memberships.snapshotSessionActuals(id);
   const overlaySnapshot = overlays.snapshotCombatOverlayStore(id);
   const initiativeSnapshot = snapshotInitiative(id);
+  const gameStateSnapshot = await getGameStateSnapshot(id);
+  const serializedGameState = serializeGameStateSnapshot(id);
   const statusSnapshot = current.game.status;
   try {
-    await memberships.commitSessionOverlays(id);
     endInitiative(id);
+    if (gameStateSnapshot.session) {
+      const stateResult = await stopGameStateSession({
+        commandId: createRandomId(),
+        commandType: 'stopSession',
+        gameId: id,
+        sessionId: gameStateSnapshot.session.sessionId,
+        battleId: null,
+        expectedSessionStateVersion: gameStateSnapshot.session.sessionStateVersion,
+        payload: {},
+      });
+      if (stateResult.kind === 'conflict') throw new Error(stateResult.conflict.code);
+    }
     current.game.status = targetStatus;
     gameDetails[idx] = current;
   } catch (error) {
     memberships.restoreSessionActuals(actuals);
     overlays.restoreCombatOverlayStore(id, overlaySnapshot);
     restoreInitiative(id, initiativeSnapshot);
+    if (gameStateSnapshot.session) restoreGameStateSnapshot(JSON.parse(serializedGameState));
     current.game.status = statusSnapshot;
     gameDetails[idx] = current;
     throw error;

@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
+import type { GameRuntimeEntityProjection } from '@/modules/Roleplay/Game/Dto/GameRuntimeEntityProjection';
 import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
 import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
 import type { ProcessSession } from '@/modules/Roleplay/Game/Dto/ProcessSession';
@@ -22,7 +23,6 @@ import type { ActionLaunchHint } from '@/modules/Roleplay/Game/Dto/ActionLaunchH
 import { actionOperationResolutionService, getGameApi } from '@/modules/Roleplay/Game/init';
 import { characterOverviewService, movementContextService } from '@/modules/Roleplay/Character/init';
 import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
-import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
 import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
 import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/actionEffectService';
 import { lastStrikeService } from '@/modules/Roleplay/Game/Service/Instance/lastStrikeService';
@@ -65,6 +65,7 @@ const props = defineProps<{
   currentUserId: number | null;
   activeSpeakerKey: string | null;
   launchHint?: ActionLaunchHint | null;
+  runtimeProjections?: Record<CombatEntityKey, GameRuntimeEntityProjection>;
 }>();
 
 const emit = defineEmits<{
@@ -116,6 +117,7 @@ const actorVersion = computed(() => {
     props.canEdit,
     props.currentUserId,
     overlay,
+    props.runtimeProjections?.[actorKey.value] ?? null,
   ).effectiveVersion;
 });
 
@@ -376,6 +378,7 @@ function versionOf(key: CombatEntityKey): typeof actorVersion.value {
     props.canEdit,
     props.currentUserId,
     overlay,
+    props.runtimeProjections?.[key] ?? null,
   ).effectiveVersion;
 }
 
@@ -487,7 +490,6 @@ async function submit(): Promise<void> {
         ? processSessionService.recordResolution(resolvedSession, resolution.resolution)
         : null;
       await getGameApi().setProcessSession(props.gameId, key, nextSession);
-      overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, resolution.overlay);
       pendingEffectsByEntity.value = {
         ...pendingEffectsByEntity.value,
         [key]: resolution.effects,
@@ -621,7 +623,6 @@ async function submit(): Promise<void> {
     ),
     mechanics: props.mechanics,
   });
-  overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, execution.overlay);
   const effects = execution.effects;
   pendingEffectsByEntity.value = { ...pendingEffectsByEntity.value, [key]: effects };
   currentSpeed.value = await getGameApi().getCurrentSpeed(props.gameId, key);
@@ -652,7 +653,7 @@ function assertWoundActionReady(code: string): void {
   }
   const indices = woundIndices.value;
   if (indices.length < 1 || indices.length > 2) throw new Error('Выберите одну или две раны');
-  if (woundInstanceService.freeHands(actor, overlays.value) < indices.length) {
+  if (woundInstanceService.freeHands(actor, versionOf(actor)?.states ?? []) < indices.length) {
     throw new Error('Нет свободных рук для зажима');
   }
   for (const index of indices) {
@@ -672,31 +673,22 @@ async function applyWoundAction(code: string): Promise<void> {
     const index = woundIndices.value[0];
     const state = index != null ? version.states[index] : undefined;
     if (state == null) return;
-    const overlay = await getGameApi().replaceCombatState(
+    await getGameApi().replaceCombatState(
       props.gameId,
       target,
       index,
       woundInstanceService.applyBandage(state, woundInstanceService.medicHasAid(actorVersion.value)),
     );
-    overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, overlay);
-    const targetOverlay = overlays.value.find((item) => item.entityKey === target);
-    if (!targetOverlay?.woundBandagedOnce) {
-      const flagged = await getGameApi().setCombatWoundBandagedOnce(props.gameId, target, true);
-      overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, flagged);
-    }
+    await getGameApi().setCombatWoundBandagedOnce(props.gameId, target, true);
+    emit('overlay-changed');
 
     return;
   }
   for (const index of woundIndices.value) {
     const state = versionOf(target)?.states[index];
     if (!state) continue;
-    const overlay = await getGameApi().replaceCombatState(
-      props.gameId,
-      target,
-      index,
-      woundInstanceService.applySqueeze(state, actor),
-    );
-    overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, overlay);
+    await getGameApi().replaceCombatState(props.gameId, target, index, woundInstanceService.applySqueeze(state, actor));
+    emit('overlay-changed');
   }
 }
 
@@ -917,7 +909,7 @@ watch(
           density="compact"
           class="mb-2"
           :disabled="busy"
-          @update:model-value="chosenActionOdCost = $event"
+          @update:model-value="chosenActionOdCost = $event ?? 0"
         />
         <template v-if="selectedMovementOperations.length">
           <v-select

@@ -4,6 +4,8 @@
 
 Parent summary вычисляется по atomic children: для `implementationStatus` и `documentStatus` выбирается наиболее слабый статус по фиксированной шкале. `NOT_IMPLEMENTED`/`DEFERRED` ниже `BACKEND_OPEN`/`REQUIREMENT`/`OPEN`/`BACKLOG`, а `PARTIAL` ниже `IMPLEMENTED`/`CURRENT`; parent не может быть `IMPLEMENTED + CURRENT`, если хотя бы один child требует backend, остаётся partial, deferred или не реализован. Parent summary не заменяет atomic truth.
 
+`CLM-031-MEMBERSHIP` сохраняет статус `DECISION_CONFIRMED + PARTIAL + REQUIREMENT`, но его current meaning — immutable approved baseline, actual-as-session-source и Game-owned session state по `DEC-084`; старое A/L/O/P mapping имеет только historical disposition.
+
 ## Parent summary
 
 | Claim | sourceStatus | implementationStatus | documentStatus |

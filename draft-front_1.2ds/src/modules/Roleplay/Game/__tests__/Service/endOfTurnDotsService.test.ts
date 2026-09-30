@@ -92,13 +92,11 @@ function versionOf(states: CharacterStateValue[]): CharacterVersion {
   };
 }
 
-function overlayOf(states: CharacterStateValue[]): GameCombatOverlay {
+function overlayOf(_states: CharacterStateValue[]): GameCombatOverlay {
   return {
     gameId: 1,
     entityKey: 'character:1',
     kind: 'character',
-    resources: [],
-    states: states.map((state) => ({ ...state })),
     updatedAt: 't',
   };
 }

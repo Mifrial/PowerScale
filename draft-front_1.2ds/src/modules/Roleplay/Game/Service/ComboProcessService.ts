@@ -34,16 +34,10 @@ export class ComboProcessService {
       return spec.steps.filter((step) => step.code === session.currentStepCode);
     }
     const available = processSessionService.availableSteps(spec, session.currentStepCode);
-    const pending =
-      session.currentStepStatus === 'pending'
-        ? spec.steps.find((step) => step.code === session.currentStepCode)
-        : undefined;
-    const merged =
-      pending && !available.some((step) => step.code === pending.code) ? [pending, ...available] : available;
     const combo = this.comboCount(session);
-    if (!this.isComboSpec(spec) || combo >= 2) return merged;
+    if (!this.isComboSpec(spec) || combo >= 2) return available;
 
-    return merged.filter((step) => step.code !== COMBO_STEP_CODES.finish);
+    return available.filter((step) => step.code !== COMBO_STEP_CODES.finish);
   }
 
   strikePackage(

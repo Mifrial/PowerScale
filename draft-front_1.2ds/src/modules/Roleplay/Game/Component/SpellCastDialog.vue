@@ -12,6 +12,7 @@ import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCh
 import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
 import type { CommittedActionSession } from '@/modules/Roleplay/Game/Dto/CommittedActionSession';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
+import type { GameRuntimeEntityProjection } from '@/modules/Roleplay/Game/Dto/GameRuntimeEntityProjection';
 import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
 import CombatEntitySelect from '@/modules/Roleplay/Game/Component/CombatEntitySelect.vue';
 import ConcentrationTokenOption from '@/modules/Roleplay/Game/Component/ConcentrationTokenOption.vue';
@@ -94,6 +95,8 @@ const props = defineProps<{
   currentUserId: number | null;
   launchContext?: SpellCastLaunchContext | null;
   initiativeKeys?: string[];
+  runtimeProjections?: Record<CombatEntityKey, GameRuntimeEntityProjection>;
+  ensureRuntimeProjection?: (entityKey: CombatEntityKey) => Promise<void>;
 }>();
 
 const emit = defineEmits<{
@@ -162,6 +165,22 @@ const resolvedCasterKey = computed<CombatEntityKey | null>(() => {
   return key && key !== 'gm' ? (key as CombatEntityKey) : null;
 });
 
+function runtimeProjectionOf(key: CombatEntityKey): GameRuntimeEntityProjection | null {
+  return props.runtimeProjections?.[key] ?? null;
+}
+
+function requestRuntimeProjection(key: CombatEntityKey | '' | null): void {
+  if (key) void props.ensureRuntimeProjection?.(key);
+}
+
+async function ensureSelectedRuntimeProjections(): Promise<void> {
+  if (targetKey.value) await props.ensureRuntimeProjection?.(targetKey.value);
+  if (touchTargetKey.value) await props.ensureRuntimeProjection?.(touchTargetKey.value);
+}
+
+watch(targetKey, requestRuntimeProjection);
+watch(touchTargetKey, requestRuntimeProjection);
+
 const casterModel = computed(() => {
   if (!resolvedCasterKey.value) {
     return null;
@@ -174,6 +193,7 @@ const casterModel = computed(() => {
     props.canEdit,
     props.currentUserId,
     overlays.value.find((item) => item.entityKey === resolvedCasterKey.value) ?? null,
+    runtimeProjectionOf(resolvedCasterKey.value),
   );
 });
 
@@ -388,7 +408,9 @@ const targetResistance = computed(() => {
   }
 
   const targetOverview = targetsSelf.value ? overview.value : targetKey.value ? overviewOf(targetKey.value) : null;
+
   const result = spellCastOptionsService.targetResistanceFromOverview(targetOverview, ARCANE_DAMAGE_TYPE_CODE);
+
   return result;
 });
 
@@ -442,6 +464,7 @@ const castCheckLine = computed(() => {
     checkCharacteristic.value?.name ?? null,
     checkCharacteristic.value?.value ?? null,
   );
+
   return line;
 });
 
@@ -464,8 +487,8 @@ watch(
       .getCommittedActionSessions(props.gameId)
       .catch(() => ({}));
     activeSpells.value = await getGameApi().getActiveSpells(props.gameId);
-    pendingSpellEffects.value =
-      (await getGameApi().getPendingActionEffects(props.gameId))[resolvedCasterKey.value] ?? [];
+    const pendingEffectsByCaster = await getGameApi().getPendingActionEffects(props.gameId);
+    pendingSpellEffects.value = resolvedCasterKey.value ? pendingEffectsByCaster[resolvedCasterKey.value] ?? [] : [];
     appliedUpgradeCodes.value = [];
     appliedUpgradeValues.value = {};
     await nextTick();
@@ -553,19 +576,24 @@ function versionOf(key: CombatEntityKey) {
     props.canEdit,
     props.currentUserId,
     overlays.value.find((item) => item.entityKey === key) ?? null,
+    runtimeProjectionOf(key),
   ).effectiveVersion;
 }
 
 async function runCast(): Promise<void> {
-  if (!props.canEdit || !preview.value || !spellCode.value || !overview.value || !resolvedCasterKey.value) {
+  if (!props.canEdit || !spellCode.value || !resolvedCasterKey.value) {
     return;
   }
+  if (busy.value) return;
   busy.value = true;
   error.value = null;
   lastSkip.value = false;
   lastMilk.value = false;
   lastAutoFail.value = false;
   try {
+    await props.ensureRuntimeProjection?.(resolvedCasterKey.value);
+    await ensureSelectedRuntimeProjections();
+    if (!preview.value || !overview.value) return;
     if (!spellAvailable.value) {
       error.value = 'Заклинание временно недоступно при текущем Интеллекте';
 
@@ -867,6 +895,7 @@ function overviewOf(key: CombatEntityKey) {
     props.canEdit,
     props.currentUserId,
     overlay,
+    runtimeProjectionOf(key),
   ).effectiveVersion;
   if (!version) {
     return null;
@@ -888,8 +917,7 @@ async function persistSpentAp(
     return;
   }
   const next = attackDamageService.spendActionPoints(resource.current, cost);
-  const overlay = await getGameApi().setCombatResource(props.gameId, key, resource.ruleCode, next);
-  overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, overlay);
+  await getGameApi().setCombatResource(props.gameId, key, resource.ruleCode, next);
   const nextEffects =
     pendingEffects ??
     actionEffectService.afterDeclaredAction(
@@ -925,8 +953,7 @@ async function persistChargeSpendIfNeeded(): Promise<void> {
   if (!next || index < 0) {
     return;
   }
-  const overlay = await getGameApi().replaceCombatState(props.gameId, casterKey, index, next);
-  overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, overlay);
+  await getGameApi().replaceCombatState(props.gameId, casterKey, index, next);
   emit('overlay-changed');
 }
 
@@ -944,11 +971,11 @@ async function persistChargeGrant(casterKey: CombatEntityKey, sustain: ActiveSpe
   );
   const next = electrochargeService.grant(states, sustain.id, spec, cap);
   const index = electrochargeService.boundIndex(states, spec.state_code, sustain.id);
-  const overlay =
-    index >= 0
-      ? await getGameApi().replaceCombatState(props.gameId, casterKey, index, next)
-      : await getGameApi().addCombatState(props.gameId, casterKey, next);
-  overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, overlay);
+  if (index >= 0) {
+    await getGameApi().replaceCombatState(props.gameId, casterKey, index, next);
+  } else {
+    await getGameApi().addCombatState(props.gameId, casterKey, next);
+  }
   emit('overlay-changed');
 }
 
@@ -966,11 +993,11 @@ async function persistCoreDeviation(
     return;
   }
   const index = spellDeviationService.boundIndex(states, sourceKeyValue);
-  const overlay =
-    index >= 0
-      ? await getGameApi().replaceCombatState(props.gameId, casterKey, index, next)
-      : await getGameApi().addCombatState(props.gameId, casterKey, next);
-  overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, overlay);
+  if (index >= 0) {
+    await getGameApi().replaceCombatState(props.gameId, casterKey, index, next);
+  } else {
+    await getGameApi().addCombatState(props.gameId, casterKey, next);
+  }
   emit('overlay-changed');
 }
 
@@ -999,20 +1026,22 @@ async function applyCombatState(key: CombatEntityKey, code: string, amount: numb
     props.canEdit,
     props.currentUserId,
     overlays.value.find((item) => item.entityKey === key) ?? null,
+    runtimeProjectionOf(key),
   ).effectiveVersion;
   const states = version?.states ?? [];
   const index = states.findIndex((state) => state.stateRuleCode === rule.code);
   const addedWound = code === WOUND_STATE_CODE ? woundInstanceService.addWound(amount) : null;
   if (code === WOUND_STATE_CODE && !addedWound) return;
-  const overlay = addedWound
-    ? await getGameApi().addCombatState(props.gameId, key, addedWound)
-    : !independent && index >= 0
-      ? await getGameApi().setCombatStateValue(props.gameId, key, index, (states[index]?.value ?? 0) + amount)
-      : await getGameApi().addCombatState(props.gameId, key, {
-          stateRuleCode: rule.code,
-          value: amount,
-        } as CharacterStateValue);
-  overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, overlay);
+  if (addedWound) {
+    await getGameApi().addCombatState(props.gameId, key, addedWound);
+  } else if (!independent && index >= 0) {
+    await getGameApi().setCombatStateValue(props.gameId, key, index, (states[index]?.value ?? 0) + amount);
+  } else {
+    await getGameApi().addCombatState(props.gameId, key, {
+      stateRuleCode: rule.code,
+      value: amount,
+    } as CharacterStateValue);
+  }
 }
 
 async function writeAccumulatedDamage(key: CombatEntityKey, amount: number): Promise<void> {
@@ -1027,6 +1056,7 @@ async function writeAccumulatedDamage(key: CombatEntityKey, amount: number): Pro
     props.canEdit,
     props.currentUserId,
     overlays.value.find((item) => item.entityKey === key) ?? null,
+    runtimeProjectionOf(key),
   ).effectiveVersion;
   if (!version) {
     return;
@@ -1034,18 +1064,17 @@ async function writeAccumulatedDamage(key: CombatEntityKey, amount: number): Pro
   const index = version.states.findIndex((state) => state.stateRuleCode === rule.code);
   if (amount <= 0) {
     if (index >= 0) {
-      const overlay = await getGameApi().removeCombatState(props.gameId, key, index);
-      overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, overlay);
+      await getGameApi().removeCombatState(props.gameId, key, index);
     }
 
     return;
   }
   const state: CharacterStateValue = { stateRuleCode: rule.code, dimensionalValue: { base: amount, size: 0 } };
-  const overlay =
-    index >= 0
-      ? await getGameApi().replaceCombatState(props.gameId, key, index, state)
-      : await getGameApi().addCombatState(props.gameId, key, state);
-  overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, overlay);
+  if (index >= 0) {
+    await getGameApi().replaceCombatState(props.gameId, key, index, state);
+  } else {
+    await getGameApi().addCombatState(props.gameId, key, state);
+  }
 }
 
 async function resolveTargetedCast(
@@ -1252,10 +1281,7 @@ async function announceSpellApply(
       sendMessage: (content, attachments, nextChatId, nextSpeaker) =>
         sendChat(content, attachments, nextChatId, nextSpeaker),
     });
-    if (applied.overlay) {
-      overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, applied.overlay);
-      emit('overlay-changed');
-    }
+    if (applied.overlay) emit('overlay-changed');
   }
 }
 

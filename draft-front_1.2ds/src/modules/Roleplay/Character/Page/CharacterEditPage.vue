@@ -7,13 +7,16 @@ import { useCharacterStore } from '@/modules/Roleplay/Character/Store/characters
 import { useCurrentUser } from '@/modules/Core/User/init';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { characterBuildService } from '@/modules/Roleplay/Character/Service/Instance/characterBuildService';
-import { getCharacterApi, getInGameSheetSource } from '@/modules/Roleplay/Character/init';
+import {
+  characterPatchService,
+  CharacterApiError,
+  getCharacterApi,
+} from '@/modules/Roleplay/Character/init';
 import { characterAccessService } from '@/modules/Roleplay/Character/Service/Instance/characterAccessService';
-import { missingInGameSheetMessage } from '@/modules/Roleplay/Character/Utils/missingInGameSheetMessage';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
+import type { CharacterBuild } from '@/modules/Roleplay/Character/Dto/Editor/CharacterBuild';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import type { CreateCharacterData } from '@/modules/Roleplay/Character/Dto/Editor/CreateCharacterData';
-import type { UpdateCharacterData } from '@/modules/Roleplay/Character/Dto/Editor/UpdateCharacterData';
+import type { CharacterSaveAttempt } from '@/modules/Roleplay/Character/Dto/Editor/CharacterSaveAttempt';
 import CharacterSheetEditor from '@/modules/Roleplay/Character/Component/Editor/CharacterSheetEditor.vue';
 
 const route = useRoute();
@@ -34,7 +37,7 @@ const characterId = computed<number | null>(() => {
   return Number.isFinite(id) && id > 0 ? id : null;
 });
 
-/** Контекст in-game редактора (`?gameId=`): правки идут в сессионный оверлей (модель версий — Баг 1). */
+/** Контекст маршрута in-game editor; не является выбором Character storage path. */
 const gameId = computed<number | null>(() => {
   const raw = route.query.gameId;
   const id = typeof raw === 'string' ? Number(raw) : Number.NaN;
@@ -53,6 +56,11 @@ const draftKey = computed<string | null>(() => {
 
 const loading = ref(false);
 const loadError = ref<string | null>(null);
+const saveError = ref<string | null>(null);
+const saveConflict = ref(false);
+const saving = ref(false);
+
+const pendingSave = ref<CharacterSaveAttempt | null>(null);
 
 const draft = computed(() => draftStore.draftOf(draftKey.value));
 
@@ -65,6 +73,9 @@ async function loadRules(spaceId: number, revision: number): Promise<Rule[]> {
 async function load(): Promise<void> {
   loading.value = true;
   loadError.value = null;
+  saveError.value = null;
+  saveConflict.value = false;
+  pendingSave.value = null;
 
   try {
     if (isNew.value) return;
@@ -84,21 +95,8 @@ async function load(): Promise<void> {
     }
 
     if (!draftStore.hasDraft(draftKey.value)) {
-      // База черновика: in-game — эффективная версия игры; standalone — latest.
-      let baseVersion = detail.version;
-      if (gameId.value !== null) {
-        const source = getInGameSheetSource();
-        const sheet = source ? await source.getEffectiveSheet(gameId.value, id, signal.value) : null;
-        const sheetError = missingInGameSheetMessage(source, sheet);
-        if (sheetError || !sheet) {
-          loadError.value = sheetError ?? 'Не удалось загрузить версию листа в этой игре';
-
-          return;
-        }
-        baseVersion = sheet;
-      }
-      const rules = await loadRules(detail.character.spaceId, baseVersion.rulesRevision);
-      const build = characterBuildService.fromVersion(baseVersion, detail.character.spaceId, rules);
+      const rules = await loadRules(detail.character.spaceId, detail.version.rulesRevision);
+      const build = characterBuildService.fromVersion(detail.version, detail.character.spaceId, rules);
       const baseline = {
         inventory: build.inventory.map((item) => ({ ...item })),
         money: build.money,
@@ -107,9 +105,9 @@ async function load(): Promise<void> {
         draftKey.value,
         build,
         {
-          osTotal: baseVersion.budgets?.osTotal ?? null,
-          orTotal: baseVersion.points.orTotal ?? null,
-          moneyBudget: baseVersion.budgets?.moneyBudget ?? null,
+          osTotal: detail.version.budgets?.osTotal ?? null,
+          orTotal: detail.version.points.orTotal ?? null,
+          moneyBudget: detail.version.budgets?.moneyBudget ?? null,
         },
         baseline,
       );
@@ -122,36 +120,112 @@ async function load(): Promise<void> {
   }
 }
 
-/** Сохранение через character API (лист персонажа); ошибка пробрасывается в редактор. */
-async function handleSave(version: CharacterVersion): Promise<void> {
-  const current = draft.value;
-  if (!current) return;
-  try {
-    if (isNew.value) {
-      const data: CreateCharacterData = {
-        spaceId: current.build.spaceId,
-        spaceCode: current.build.spaceCode,
-        rulesRevision: current.build.rulesRevision,
-        version,
-        // Редактор вне игры — финализация: статус листа «Готов». (В игре модерацию несёт членство.)
-        status: 'ready',
-      };
-      const created = await getCharacterApi().createCharacter(data, signal.value);
-      // Сначала уходим с роута редактора, потом чистим черновик: иначе на кадре перехода
-      // редактор отрисует пустой черновик («Сначала задайте правила и лимиты»).
-      await router.push(`/characters/${created.character.id}`);
-      draftStore.discard(null);
-    } else if (characterId.value !== null) {
-      const data: UpdateCharacterData = { version, status: 'ready' };
-      if (gameId.value !== null) data.gameId = gameId.value;
-      await getCharacterApi().updateCharacter(characterId.value, data, signal.value);
-      // In-game редактор возвращает в игру; standalone — на страницу персонажа.
-      await router.push(gameId.value !== null ? `/games/${gameId.value}` : `/characters/${characterId.value}`);
-      draftStore.discard(draftKey.value);
+async function executeSave(attempt: CharacterSaveAttempt): Promise<void> {
+  if (attempt.kind === 'create') {
+    const validation = await getCharacterApi().validateCharacter(
+      {
+        mode: 'create',
+        choices: attempt.request.choices,
+        creationConfig: attempt.request.creationConfig,
+      },
+      signal.value,
+    );
+    if (!validation.valid) {
+      throw new CharacterApiError('CHARACTER_VALIDATION_FAILED', 'Персонаж не прошёл проверку', {
+        kind: 'validation',
+        problems: validation.problems,
+      });
     }
-  } catch (e) {
-    throw e instanceof Error ? e : new Error('Не удалось сохранить персонажа');
+    const created = await getCharacterApi().createCharacter(attempt.request, signal.value);
+    await router.push(`/characters/${created.character.id}`);
+    draftStore.discard(null);
+    pendingSave.value = null;
+
+    return;
   }
+
+  const validation = await getCharacterApi().validateCharacter(
+    { mode: 'update', characterId: attempt.characterId, patch: attempt.patch },
+    signal.value,
+  );
+  if (!validation.valid) {
+    throw new CharacterApiError('CHARACTER_VALIDATION_FAILED', 'Персонаж не прошёл проверку', {
+      kind: 'validation',
+      problems: validation.problems,
+    });
+  }
+  const updated = await getCharacterApi().updateCharacter(attempt.characterId, { patch: attempt.patch }, signal.value);
+  characterStore.applyDetail(updated);
+  await router.push(gameId.value !== null ? `/games/${gameId.value}` : `/characters/${attempt.characterId}`);
+  draftStore.discard(draftKey.value);
+  pendingSave.value = null;
+}
+
+/** Сохранение choices через typed Character contract; preview используется только для построения patch. */
+async function handleSaveChoices(build: CharacterBuild, preview: CharacterVersion): Promise<void> {
+  const current = draft.value;
+  if (!current || saving.value) return;
+  saveError.value = null;
+  saveConflict.value = false;
+  let attempt: CharacterSaveAttempt;
+  if (isNew.value) {
+    attempt = {
+      kind: 'create',
+      request: {
+        commandId: crypto.randomUUID(),
+        choices: structuredClone(build),
+        creationConfig: structuredClone(current.config),
+      },
+    };
+  } else {
+    const detail = characterStore.currentCharacter;
+    if (characterId.value === null || !detail) {
+      saveError.value = 'Актуальный персонаж не загружен';
+
+      return;
+    }
+    attempt = {
+      kind: 'update',
+      characterId: characterId.value,
+      patch: characterPatchService.createPatch(detail.version, preview, crypto.randomUUID(), detail.actualVersion),
+    };
+  }
+
+  pendingSave.value = attempt;
+  saving.value = true;
+
+  try {
+    await executeSave(attempt);
+  } catch (e) {
+    saveError.value = e instanceof Error ? e.message : 'Не удалось сохранить персонажа';
+    saveConflict.value = e instanceof CharacterApiError && e.code === 'CHARACTER_ACTUAL_CONFLICT';
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function retrySave(): Promise<void> {
+  const attempt = pendingSave.value;
+  if (!attempt || saving.value || saveConflict.value) return;
+  saveError.value = null;
+  saving.value = true;
+  try {
+    await executeSave(attempt);
+  } catch (e) {
+    saveError.value = e instanceof Error ? e.message : 'Не удалось сохранить персонажа';
+    saveConflict.value = e instanceof CharacterApiError && e.code === 'CHARACTER_ACTUAL_CONFLICT';
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function reloadAfterConflict(): Promise<void> {
+  if (saving.value || characterId.value === null) return;
+  pendingSave.value = null;
+  saveError.value = null;
+  saveConflict.value = false;
+  draftStore.discard(draftKey.value);
+  await load();
 }
 
 async function handleIntegrityCancel(): Promise<void> {
@@ -196,8 +270,16 @@ watch(() => [route.name, route.params.id, gameId.value], load, { immediate: true
       v-else
       :draft-key="draftKey"
       :require-race="true"
-      @save="handleSave"
+      @save-choices="handleSaveChoices"
       @cancel="handleIntegrityCancel"
     />
+    <v-alert v-if="saveError" type="error" variant="tonal" class="ma-4">
+      <div class="d-flex align-center justify-space-between ga-3">
+        <span>{{ saveError }}</span>
+        <v-btn variant="text" :loading="saving" @click="saveConflict ? reloadAfterConflict() : retrySave()">
+          {{ saveConflict ? 'Загрузить актуальный лист' : 'Повторить' }}
+        </v-btn>
+      </div>
+    </v-alert>
   </v-container>
 </template>

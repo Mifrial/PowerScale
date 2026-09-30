@@ -9,7 +9,10 @@ import { gameAccessService } from '@/modules/Roleplay/Game/Service/Instance/game
 
 import { toCreateGameData } from '@/modules/Roleplay/Game/Utils/toCreateGameData';
 import type { CreateGameData } from '@/modules/Roleplay/Game/Dto/CreateGameData';
+import type { GameLifecycleResult } from '@/modules/Roleplay/Game/Dto/GameLifecycleResult';
+import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import GameForm from '@/modules/Roleplay/Game/Component/GameForm.vue';
+import { createRandomId } from '@/modules/Core/Engine/Utils/createRandomId';
 
 const route = useRoute();
 const router = useRouter();
@@ -58,12 +61,59 @@ async function handleSubmit(data: CreateGameData): Promise<void> {
   saveError.value = null;
   try {
     const current = detail.value;
+    const previousStatus = current?.game.status;
     if (current?.game.status === 'playing' && data.status !== 'playing') {
       const target = data.status === 'completed' ? 'completed' : 'in_process';
       const stopped = await getGameApi().stopGameSession(gameId.value, target, signal.value);
       store.applyGameUpdate(stopped);
     }
-    await getGameApi().updateGame(gameId.value, data, signal.value);
+    const updated = await getGameApi().updateGame(gameId.value, data, signal.value);
+    store.applyGameUpdate(updated);
+    if (data.status === 'playing' && current?.game.status !== 'playing') {
+      const rollbackStatus = async (): Promise<void> => {
+        if (!previousStatus) return;
+
+        const rolledBack = await getGameApi().updateGame(
+          gameId.value,
+          { ...data, status: previousStatus },
+          signal.value,
+        );
+        store.applyGameUpdate(rolledBack);
+      };
+
+      let lifecycleResult: GameLifecycleResult;
+      try {
+        const [memberships, npcResult] = await Promise.all([
+          getGameApi().getGameCharacters(gameId.value, signal.value),
+          getGameApi().getNpcSummaries({ gameId: gameId.value, status: 'active', limit: 100 }, signal.value),
+        ]);
+        const participantEntityKeys: CombatEntityKey[] = [
+          ...memberships
+            .filter((membership) => membership.membershipStatus === 'active')
+            .map((membership) => `character:${membership.characterId}` as CombatEntityKey),
+          ...npcResult.items.map((npc) => `npc:${npc.id}` as CombatEntityKey),
+        ];
+        lifecycleResult = await getGameApi().startGameSession(
+          {
+            commandId: createRandomId(),
+            commandType: 'startSession',
+            gameId: gameId.value,
+            sessionId: null,
+            battleId: null,
+            participantEntityKeys,
+            payload: {},
+          },
+          signal.value,
+        );
+      } catch (error) {
+        await rollbackStatus();
+        throw error;
+      }
+      if (lifecycleResult.kind === 'conflict') {
+        await rollbackStatus();
+        throw new Error(lifecycleResult.conflict.code);
+      }
+    }
     void router.push(`/games/${gameId.value}`);
   } catch (e) {
     saveError.value = e instanceof Error ? e.message : 'Не удалось сохранить игру';

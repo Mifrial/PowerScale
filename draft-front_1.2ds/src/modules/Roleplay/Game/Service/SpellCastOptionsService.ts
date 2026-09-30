@@ -159,9 +159,11 @@ export class SpellCastOptionsService {
       ...(target.defense.resistances ?? []),
       ...target.defense.armor.flatMap((armor) => armor.lines),
     ].filter((line) => line.kind === 'resistance' && line.damageTypeCode === damageTypeCode);
+
     const result = aggregateSourceDeltasService.netSourceDelta(
       lines.map((line) => ({ source_code: line.sourceCode, delta: line.value })),
     );
+
     return result;
   }
 

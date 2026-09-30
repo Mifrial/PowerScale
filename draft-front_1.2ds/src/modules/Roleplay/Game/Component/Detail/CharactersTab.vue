@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, onUnmounted, ref, watch } from 'vue';
 import { useCurrentUser } from '@/modules/Core/User/init';
 import { getCharacterApi } from '@/modules/Roleplay/Character/init';
-import { getGameApi } from '@/modules/Roleplay/Game/init';
+import { getGameApi, getGameRealtimePort } from '@/modules/Roleplay/Game/init';
 import { GAME_MEMBERSHIP_STATUS_LABEL } from '@/modules/Roleplay/Game/Constant/GameMembershipStatus/GAME_MEMBERSHIP_STATUS';
 import { GAME_MEMBERSHIP_STATUS_COLOR } from '@/modules/Roleplay/Game/Constant/GameMembershipStatus/GAME_MEMBERSHIP_STATUS';
 import { CHARACTER_STATUS_OPTIONS } from '@/modules/Roleplay/Character/init';
@@ -17,12 +17,13 @@ import type { GameStatus } from '@/modules/Roleplay/Game/Enum/GameStatus';
 import type { CharacterStatus } from '@/modules/Roleplay/Character/Enum/CharacterStatus';
 import type { Character } from '@/modules/Roleplay/Character/Dto/Character';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
+import type { GameRuntimeEntityProjection } from '@/modules/Roleplay/Game/Dto/GameRuntimeEntityProjection';
+import type { GameRealtimeEvent } from '@/modules/Roleplay/Game/Dto/GameRealtimeEvent';
 import type { GameMember } from '@/modules/Roleplay/Game/Dto/GameMember';
 import SheetVisibilityDialog from '@/modules/Roleplay/Game/Component/Detail/SheetVisibilityDialog.vue';
 import CharacterMigrationDialog from '@/modules/Roleplay/Game/Component/Detail/CharacterMigrationDialog.vue';
 import { SheetCard } from '@/modules/Roleplay/Character/init';
 import { UniqueRulesTab } from '@/modules/Roleplay/Character/init';
-import { sessionCharacterService } from '@/modules/Roleplay/Game/Service/Instance/sessionCharacterService';
 
 const props = defineProps<{
   /** Активна ли вкладка: перезагрузка при активации (v-window не размонтирует вкладки). */
@@ -46,10 +47,16 @@ const props = defineProps<{
 const { currentUser, userId } = useCurrentUser();
 
 const memberships = ref<GameCharacterMembership[]>([]);
-const actualById = ref<Record<number, CharacterVersion>>({});
 const characterById = ref<Record<number, Character>>({});
+const runtimeById = ref<Record<string, GameRuntimeEntityProjection>>({});
 const loading = ref(false);
 const error = ref<string | null>(null);
+let loadSequence = 0;
+let cardRequestSequence = 0;
+let realtimeRequestSequence = 0;
+let stopRealtimeSubscription: (() => void) | null = null;
+let realtimeCursor = 0;
+let realtimeApplyChain = Promise.resolve();
 
 const submitOpen = ref(false);
 const candidateCharacters = ref<Character[]>([]);
@@ -83,11 +90,13 @@ const migrationTarget = ref<GameCharacterMembership | null>(null);
  * Персонаж требует перехода, если actual на другой ревизии, чем игра.
  */
 function needsMigration(membership: GameCharacterMembership): boolean {
-  const actual = actualById.value[membership.characterId];
-  if (!actual) return false;
   if (membership.membershipStatus === 'left') return false;
 
-  return actual.rulesRevision !== props.gameRulesRevision;
+  const projection = runtimeById.value[`character:${membership.characterId}`];
+  const actualRulesRevision = projection?.actualRulesRevision;
+  if (actualRulesRevision === null || actualRulesRevision === undefined) return false;
+
+  return actualRulesRevision !== props.gameRulesRevision;
 }
 
 function canOwnerAct(membership: GameCharacterMembership): boolean {
@@ -146,45 +155,118 @@ function ctxFor(user: User, membership: GameCharacterMembership): SheetAccessCon
 
 const cardVisibleSections = computed(() => {
   const target = cardTarget.value;
-  const user = currentUser.value;
-  if (!target || !user) return [];
 
-  return sheetAccessService.visibleSheetSections(user, target.visibility, ctxFor(user, target));
+  return target ? runtimeById.value[`character:${target.characterId}`]?.visibleSections ?? [] : [];
 });
 
-// Эффективная версия листа в игре: полный лист оверлея (in-game редактор) или approved + боевые правки.
+// Read projection Game boundary уже содержит actual, а overlay не используется как источник листа.
 const cardVersion = computed<CharacterVersion | null>(() => {
   const target = cardTarget.value;
   if (!target) return null;
 
-  return sessionCharacterService.resolve(target.approvedCharacterVersion, target.overlay);
+  return runtimeById.value[`character:${target.characterId}`]?.version ?? null;
 });
 
+function actualVersionOf(characterId: number): CharacterVersion | null {
+  return runtimeById.value[`character:${characterId}`]?.version ?? null;
+}
+
+const uniqueRulesVersion = computed(() =>
+  uniqueRulesTarget.value ? actualVersionOf(uniqueRulesTarget.value.characterId) : null,
+);
+
 async function load(): Promise<void> {
+  const requestSequence = ++loadSequence;
   loading.value = true;
   error.value = null;
   try {
-    memberships.value = await getGameApi().getGameCharacters(props.gameId);
-    const actuals: Record<number, CharacterVersion> = {};
-    const chars: Record<number, Character> = {};
-    await Promise.all(
-      memberships.value.map(async (membership) => {
-        try {
-          const detail = await getCharacterApi().getCharacter(membership.characterId);
-          actuals[membership.characterId] = detail.version;
-          chars[membership.characterId] = detail.character;
-        } catch {
-          // лист недоступен
-        }
-      }),
+    const membershipResult = await getGameApi().getGameCharacters(props.gameId);
+    if (requestSequence !== loadSequence) return;
+    const entityKeys = membershipResult.map((membership) => `character:${membership.characterId}` as const);
+    const [runtimeResult, characters] = await Promise.all([
+      getGameApi().getRuntimeEntities(props.gameId, { entityKeys, projectionLevel: 'summary' }),
+      getCharacterApi().getCharacters(),
+    ]);
+    if (requestSequence !== loadSequence) return;
+    memberships.value = membershipResult;
+    const chars: Record<number, Character> = Object.fromEntries(
+      characters
+        .filter((character) => membershipResult.some((membership) => membership.characterId === character.id))
+        .map((character) => [character.id, character]),
     );
-    actualById.value = actuals;
+    const runtimeProjections: Record<string, GameRuntimeEntityProjection> = Object.fromEntries(
+      runtimeResult.projections.map((projection) => [projection.entityKey, projection]),
+    );
     characterById.value = chars;
+    runtimeById.value = runtimeProjections;
+    connectRealtime();
   } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Не удалось загрузить персонажей игры';
+    if (requestSequence === loadSequence) {
+      error.value = e instanceof Error ? e.message : 'Не удалось загрузить персонажей игры';
+    }
   } finally {
-    loading.value = false;
+    if (requestSequence === loadSequence) loading.value = false;
   }
+}
+
+async function refreshRealtimeCharacter(characterId: number): Promise<boolean> {
+  const requestSequence = ++realtimeRequestSequence;
+  const entityKey = `character:${characterId}` as const;
+  const [projection, moderation] = await Promise.all([
+    getGameApi().getRuntimeEntity(
+      props.gameId,
+      entityKey,
+      cardTarget.value?.characterId === characterId ? 'full' : 'summary',
+    ),
+    props.canManage
+      ? getGameApi().getCharacterModerationProjections(props.gameId, [characterId])
+      : Promise.resolve([]),
+  ]);
+  if (requestSequence !== realtimeRequestSequence) return false;
+  if (projection) runtimeById.value = { ...runtimeById.value, [entityKey]: projection };
+  const nextModeration = moderation[0];
+  if (nextModeration) {
+    memberships.value = memberships.value.map((membership) =>
+      membership.characterId === characterId && membership.reviewState !== 'returned'
+        ? { ...membership, reviewState: nextModeration.diff?.hasChanges ? 'changes_pending' : 'clean' }
+        : membership,
+    );
+  }
+
+  return projection !== null || nextModeration !== undefined;
+}
+
+function onRealtimeEvent(event: GameRealtimeEvent): void {
+  if (event.gameId !== props.gameId || event.eventKind !== 'character.changed') return;
+  const [kind, rawId] = event.entityKey.split(':');
+  const characterId = Number(rawId);
+  if (kind !== 'character' || !Number.isInteger(characterId)) return;
+  realtimeApplyChain = realtimeApplyChain
+    .then(async () => {
+      if (event.cursor <= realtimeCursor) return;
+      const refreshed = await refreshRealtimeCharacter(characterId);
+      if (!refreshed) {
+        realtimeCursor = 0;
+        await load();
+
+        return;
+      }
+      realtimeCursor = event.cursor;
+    })
+    .catch(async (reason: unknown) => {
+      error.value = reason instanceof Error ? reason.message : 'Не удалось обновить персонажа';
+      realtimeCursor = 0;
+      await load();
+    });
+}
+
+function connectRealtime(): void {
+  stopRealtimeSubscription?.();
+  stopRealtimeSubscription = props.active
+    ? getGameRealtimePort().subscribe(props.gameId, onRealtimeEvent, (realtimeError) => {
+        error.value = realtimeError.message;
+      })
+    : null;
 }
 
 async function openSubmitDialog(): Promise<void> {
@@ -224,9 +306,25 @@ function canConfigureVisibility(membership: GameCharacterMembership): boolean {
   return props.canManage || user.id === membership.characterOwnerId;
 }
 
-function openCard(membership: GameCharacterMembership): void {
+async function openCard(membership: GameCharacterMembership): Promise<void> {
+  const requestSequence = ++cardRequestSequence;
   cardTarget.value = membership;
   cardOpen.value = true;
+  try {
+    const projection = await getGameApi().getRuntimeEntity(
+      props.gameId,
+      `character:${membership.characterId}`,
+      'full',
+    );
+    if (requestSequence !== cardRequestSequence) return;
+    if (projection) {
+      runtimeById.value = { ...runtimeById.value, [projection.entityKey]: projection };
+    }
+  } catch (e) {
+    if (requestSequence === cardRequestSequence) {
+      error.value = e instanceof Error ? e.message : 'Не удалось загрузить лист персонажа';
+    }
+  }
 }
 
 function openVisibility(membership: GameCharacterMembership): void {
@@ -276,7 +374,10 @@ async function saveCustomRule(): Promise<void> {
   customRuleSaving.value = true;
   error.value = null;
   try {
+    const detail = await getCharacterApi().getCharacter(target.characterId);
     await getCharacterApi().addCustomRule(target.characterId, {
+      commandId: crypto.randomUUID(),
+      expectedActualVersion: detail.actualVersion,
       kind: customRuleKind.value,
       name: customRuleName.value.trim(),
       description: customRuleDescription.value.trim() || null,
@@ -331,10 +432,31 @@ function characterStatusColor(status: CharacterStatus): string {
 watch(
   () => props.active,
   (value) => {
-    if (value) void load();
+    if (value) {
+      void load();
+    } else {
+      stopRealtimeSubscription?.();
+      stopRealtimeSubscription = null;
+    }
   },
   { immediate: true },
 );
+
+watch(
+  () => props.gameId,
+  () => {
+    realtimeCursor = 0;
+    realtimeApplyChain = Promise.resolve();
+    stopRealtimeSubscription?.();
+    stopRealtimeSubscription = null;
+    if (props.active) void load();
+  },
+);
+
+onUnmounted(() => {
+  stopRealtimeSubscription?.();
+  stopRealtimeSubscription = null;
+});
 </script>
 
 <template>
@@ -647,8 +769,8 @@ watch(
       </v-card-title>
       <v-card-text>
         <UniqueRulesTab
-          v-if="actualById[uniqueRulesTarget.characterId]"
-          :version="actualById[uniqueRulesTarget.characterId]"
+          v-if="uniqueRulesVersion"
+          :version="uniqueRulesVersion"
           :character-id="uniqueRulesTarget.characterId"
           :can-manage="true"
           :space-id="spaceId ?? undefined"

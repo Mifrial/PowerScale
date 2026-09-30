@@ -4,6 +4,8 @@ import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/Characte
 export interface CharacterDetail {
   character: Character;
   version: CharacterVersion;
+  /** Технический CAS-счётчик actual-строки; не является версией листа. */
+  actualVersion: number;
   /** Дубль `character.discussionChatId` для вкладок карточки; источник истины — поле списка. */
   discussionChatId: number | null;
   /** Предыдущая версия (до последней миграции правил) — для сравнения «до/после». */

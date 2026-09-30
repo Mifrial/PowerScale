@@ -92,15 +92,24 @@ Immutable `(spaceId, revision)` через `IRuleSpaces` (не часы в об�
 
 ### C8. Граница Game membership — `TODO`
 
-План: [`character-plan-09.md`](character-plan-09.md).
+Roadmap: [`docs/specs/character-actual-session-source-roadmap.md`](../specs/character-actual-session-source-roadmap.md). Контракт: [`docs/specs/character-actual-session-source-plan.md`](../specs/character-actual-session-source-plan.md).
 
-После контракта Game: `approvedCharacterVersion`, overlay, moderation diff, запрет actual во время сессии (сессию знает Game). Не таблицы membership внутри Character, если канон оставит их Game.
+После контракта Game: `approvedCharacterVersion` как moderation baseline, `getCharacterDiff`, `canStartSession`/`isActiveSessionParticipant`, Game-owned session/battle state и actual runtime mutation без Character → Game import. Membership tables остаются вне Character, если backend ownership сохранит их за Game. Реализационный порядок: [`docs/specs/character-actual-session-source-roadmap.md`](../specs/character-actual-session-source-roadmap.md).
+
+R3-FE подготавливает только frontend/mock Game session/battle snapshot,
+idempotency и lifecycle seams. Это не закрывает backend Character/Game
+transactions, actual effect mutation, SSE или crash recovery.
+
+R7-FE расширяет эту frontend/mock readiness публичными lifecycle transitions,
+active-participant guards, moderation CAS, terminal cleanup и recovery
+fixtures. C8 backend membership/session transactions, durable process state,
+SSE, outbox и production authorization остаются `BACKEND_OPEN`.
 
 ### C9. Runtime листа вне create — `TODO`
 
-План: [`character-plan-10.md`](character-plan-10.md).
+Roadmap: [`docs/specs/character-actual-session-source-roadmap.md`](../specs/character-actual-session-source-roadmap.md). Контракт: [`docs/specs/character-actual-session-source-plan.md`](../specs/character-actual-session-source-plan.md).
 
-Не дубль C4. Decay, DOT, каст, session overlay — вертикали с Game; Character только если меняется actual вне сессии и снова проходит C5.
+Не дубль C4. Decay, DOT, каст и другие runtime effects являются Game/Character integration verticals: Character mutation pipeline сохраняет actual, Game владеет process/battle state. `changes_pending` не блокирует текущего participant, но блокирует следующую session. Реализационный порядок: [`docs/specs/character-actual-session-source-roadmap.md`](../specs/character-actual-session-source-roadmap.md); отдельные implementation tasks остаются `TODO`.
 
 ## Порядок
 

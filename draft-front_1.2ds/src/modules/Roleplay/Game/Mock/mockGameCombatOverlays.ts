@@ -1,21 +1,24 @@
 import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
+import type { GameAuthoritativeCommandResult } from '@/modules/Roleplay/Game/Dto/GameAuthoritativeCommandResult';
+import type { GameRuntimeMutationCommand } from '@/modules/Roleplay/Game/Dto/GameRuntimeMutationCommand';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/CharacterStateValue';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import { gameCharacterMemberships } from '@/modules/Roleplay/Game/Mock/mockGameMemberships';
 import { gameNpcs } from '@/modules/Roleplay/Game/Mock/mockGameNpcs';
-import { resourceLimitBase, statesEqual } from '@/modules/Roleplay/Game/Utils/combatEffectiveState';
-import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
-import { sessionCharacterService } from '@/modules/Roleplay/Game/Service/Instance/sessionCharacterService';
+import { characterPatchService, characterHandsService } from '@/modules/Roleplay/Character/init';
+import { getCharacterActualVersion, getStoredCharacterVersion } from '@/modules/Roleplay/Character/Mock/mockCharacters';
+import { mockGameRuntimeMutationService } from '@/modules/Roleplay/Game/Service/Instance/mockGameRuntimeMutationService';
+import { resourceLimitBase } from '@/modules/Roleplay/Game/Utils/combatEffectiveState';
 import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
-import { characterHandsService } from '@/modules/Roleplay/Character/init';
 import { ruleCatalog } from '@/modules/Roleplay/Rule/Mock/mockRules';
+import { createRandomId } from '@/modules/Core/Engine/Utils/createRandomId';
 
 const delay = (ms = 100) => new Promise((r) => setTimeout(r, ms));
 
-// Оверлеи боевых изменений per-game (ТР §8 «Боевая карточка»): персонажи — оверлей поверх
-// глобального листа (до модерации), НПС — источник версия (правки пишутся сразу, без оверлея).
+// Оверлеи содержат только transient game/session markers. Листы персонажей и НПС
+// изменяются в actual storage и перечитываются через runtime projection.
 const overlays = new Map<number, Map<CombatEntityKey, GameCombatOverlay>>();
 
 export function combatKey(kind: 'character' | 'npc', id: number): CombatEntityKey {
@@ -30,10 +33,9 @@ function entityVersion(gameId: number, entityKey: CombatEntityKey): CharacterVer
   const membership = gameCharacterMemberships.find(
     (candidate) => candidate.gameId === gameId && candidate.characterId === Number(entityKey.slice(10)),
   );
-  // Эффективная база для оверлея: рабочая копия листа из редактора поверх активной версии.
-  const stored = membership ? getStoredCombatOverlay(gameId, entityKey) : null;
+  if (!membership) return null;
 
-  return stored?.sheet ?? membership?.approvedCharacterVersion ?? null;
+  return getStoredCharacterVersion(membership.characterId);
 }
 
 function emptyOverlay(gameId: number, entityKey: CombatEntityKey): GameCombatOverlay {
@@ -41,24 +43,15 @@ function emptyOverlay(gameId: number, entityKey: CombatEntityKey): GameCombatOve
     gameId,
     entityKey,
     kind: entityKey.startsWith('npc:') ? 'npc' : 'character',
-    resources: [],
-    states: [],
     updatedAt: '',
   };
 }
 
-function ensureOverlay(
-  gameId: number,
-  entityKey: CombatEntityKey,
-  version: CharacterVersion | null,
-): GameCombatOverlay {
+function ensureOverlay(gameId: number, entityKey: CombatEntityKey): GameCombatOverlay {
   const store = overlays.get(gameId) ?? new Map<CombatEntityKey, GameCombatOverlay>();
   let overlay = store.get(entityKey);
   if (!overlay) {
-    overlay = {
-      ...emptyOverlay(gameId, entityKey),
-      states: version ? version.states.map((state) => ({ ...state })) : [],
-    };
+    overlay = emptyOverlay(gameId, entityKey);
     store.set(entityKey, overlay);
     overlays.set(gameId, store);
   }
@@ -72,27 +65,38 @@ function npcOf(gameId: number, entityKey: CombatEntityKey) {
   return gameNpcs.find((npc) => npc.id === Number(entityKey.slice(4)) && npc.gameId === gameId) ?? null;
 }
 
-/** После мутации npc.version — оверлей с updatedAt, чтобы карточка боя получила новый объект версии. */
-function overlayFromNpcVersion(
-  gameId: number,
-  entityKey: CombatEntityKey,
-  version: CharacterVersion,
-): GameCombatOverlay {
-  const overlay = ensureOverlay(gameId, entityKey, version);
-  overlay.resources = version.resources.map((item) => ({ ruleCode: item.ruleCode, current: { ...item.current } }));
-  overlay.states = version.states.map((state) => ({ ...state }));
-  overlay.updatedAt = new Date().toISOString();
-
-  return snapshot(overlay);
+function snapshot(overlay: GameCombatOverlay): GameCombatOverlay {
+  return cloneData(overlay);
 }
 
-function snapshot(overlay: GameCombatOverlay): GameCombatOverlay {
-  return {
-    ...overlay,
-    resources: overlay.resources.map((item) => ({ ...item })),
-    states: overlay.states.map((state) => ({ ...state })),
-    sheet: overlay.sheet ? (JSON.parse(JSON.stringify(overlay.sheet)) as CharacterVersion) : overlay.sheet,
+async function applyVersionMutation(
+  gameId: number,
+  entityKey: CombatEntityKey,
+  before: CharacterVersion,
+  after: CharacterVersion,
+): Promise<GameAuthoritativeCommandResult> {
+  const commandId = createRandomId();
+  const expectedActualVersion = entityKey.startsWith('npc:')
+    ? (npcOf(gameId, entityKey)?.actualVersion ?? 0)
+    : getCharacterActualVersion(Number(entityKey.slice(10)));
+  const command: GameRuntimeMutationCommand = {
+    commandId,
+    gameId,
+    entityKey,
+    patch: characterPatchService.createPatch(before, after, commandId, expectedActualVersion),
   };
+
+  return mockGameRuntimeMutationService.apply(command);
+}
+
+/** Applies one typed actual mutation command in the mock runtime store. */
+export async function mutateRuntimeEntity(
+  command: GameRuntimeMutationCommand,
+  _signal?: AbortSignal,
+): Promise<GameAuthoritativeCommandResult> {
+  await delay(150);
+
+  return mockGameRuntimeMutationService.apply(command);
 }
 
 /** Хранимый оверлей (null — изменений ещё не было). */
@@ -127,50 +131,12 @@ export function restoreCombatOverlayStore(gameId: number, snapshot: Record<Comba
   overlays.set(gameId, next);
 }
 
-/** Есть ли реальные изменения в оверлее (ресурсы, состояния или полная копия листа). */
-export function combatOverlayHasChanges(version: CharacterVersion | null, overlay: GameCombatOverlay | null): boolean {
-  if (!overlay || overlay.updatedAt === '') return false;
-  if (overlay.sheet) return true;
-  if (overlay.resources.length > 0) return true;
-  if (!version) return overlay.states.length > 0;
-
-  return !statesEqual(version.states, overlay.states);
+/** Actual mutations do not require a stop-time overlay commit. */
+export function combatOverlayHasChanges(_version: CharacterVersion | null, overlay: GameCombatOverlay | null): boolean {
+  return Boolean(overlay && overlay.updatedAt !== '');
 }
 
-/**
- * Сохранение полной рабочей копии листа из in-game редактора (модель версий — Баг 1): оверлей
- * несёт произвольные правки листа во время сессии. Боевые правки, сделанные до сохранения,
- * перекрываются содержимым sheet (ресурсы/состояния засеиваются из него).
- */
-export async function writeOverlaySheet(
-  gameId: number,
-  entityKey: CombatEntityKey,
-  sheet: CharacterVersion,
-  _signal?: AbortSignal,
-): Promise<GameCombatOverlay> {
-  await delay(100);
-  const version = entityVersion(gameId, entityKey);
-  if (!version) throw new Error('Лист участника не заполнен');
-  const overlay = ensureOverlay(gameId, entityKey, version);
-  overlay.sheet = sessionCharacterService.stripIdentity(
-    JSON.parse(JSON.stringify(sheet)) as CharacterVersion,
-    entityKey.startsWith('character:')
-      ? (gameCharacterMemberships.find(
-          (membership) => membership.gameId === gameId && membership.characterId === Number(entityKey.slice(10)),
-        )?.approvedCharacterVersion ?? null)
-      : null,
-  );
-  overlay.resources = [];
-  overlay.states = sheet.states.map((state) => ({ ...state }));
-  overlay.updatedAt = new Date().toISOString();
-
-  return snapshot(overlay);
-}
-
-/**
- * Оверлеи всех участников боя (approved-персонажи + активные НПС); без изменений — пустые записи
- * (updatedAt === ''). Эффективное состояние участника = версия листа + оверлей.
- */
+/** Transient marker snapshots for approved participants and active NPCs. */
 export async function fetchCombatOverlays(gameId: number, _signal?: AbortSignal): Promise<GameCombatOverlay[]> {
   await delay(150);
   const keys: CombatEntityKey[] = [
@@ -190,14 +156,14 @@ export async function fetchCombatOverlays(gameId: number, _signal?: AbortSignal)
   });
 }
 
-/** Правка текущего значения ресурса в бою (кламп к лимиту). Персонажи — в оверлей; НПС — сразу в версию. */
+/** Правка текущего значения ресурса в actual-листе. */
 export async function setCombatResource(
   gameId: number,
   entityKey: CombatEntityKey,
   ruleCode: string,
   current: DimensionalNumberValue,
   _signal?: AbortSignal,
-): Promise<GameCombatOverlay> {
+): Promise<GameAuthoritativeCommandResult> {
   await delay(150);
   const version = entityVersion(gameId, entityKey);
   if (!version) throw new Error('Лист участника не заполнен');
@@ -205,30 +171,12 @@ export async function setCombatResource(
   if (!resource) throw new Error('Ресурс не найден в листе участника');
   const clamped = Math.max(0, Math.min(resourceLimitBase(resource), current.base));
 
-  const npc = npcOf(gameId, entityKey);
-  if (npc) {
-    if (!npc.version) throw new Error('Лист НПС не заполнен');
-    npc.version.resources = npc.version.resources.map((item) =>
-      item.ruleCode === ruleCode
-        ? {
-            ...item,
-            current: { base: Math.max(0, Math.min(resourceLimitBase(item), current.base)), size: item.current.size },
-          }
-        : item,
-    );
-    npc.updatedAt = new Date().toISOString();
-
-    return overlayFromNpcVersion(gameId, entityKey, npc.version);
-  }
-
-  const overlay = ensureOverlay(gameId, entityKey, version);
-  const index = overlay.resources.findIndex((item) => item.ruleCode === ruleCode);
-  const override = { ruleCode, current: { base: clamped, size: resource.current.size } };
-  if (index >= 0) overlay.resources[index] = override;
-  else overlay.resources.push(override);
-  overlay.updatedAt = new Date().toISOString();
-
-  return snapshot(overlay);
+  return applyVersionMutation(gameId, entityKey, version, {
+    ...version,
+    resources: version.resources.map((item) =>
+      item.ruleCode === ruleCode ? { ...item, current: { base: clamped, size: item.current.size } } : item,
+    ),
+  });
 }
 
 /** Флаг цикла жетонов концентрации (тратили ли с конца предыдущего своего хода). */
@@ -239,9 +187,8 @@ export async function setCombatConcentrationUsedInCycle(
   _signal?: AbortSignal,
 ): Promise<GameCombatOverlay> {
   await delay(50);
-  const version = entityVersion(gameId, entityKey);
-  if (!version) throw new Error('Лист участника не заполнен');
-  const overlay = ensureOverlay(gameId, entityKey, version);
+  if (!entityVersion(gameId, entityKey)) throw new Error('Лист участника не заполнен');
+  const overlay = ensureOverlay(gameId, entityKey);
   overlay.concentrationUsedInCycle = used;
   overlay.updatedAt = new Date().toISOString();
 
@@ -257,202 +204,127 @@ export async function setCombatWoundBandagedOnce(
   await delay(80);
   const version = entityVersion(gameId, entityKey);
   if (!version) throw new Error('Лист участника не заполнен');
-  const overlay = ensureOverlay(gameId, entityKey, version);
+  const overlay = ensureOverlay(gameId, entityKey);
   overlay.woundBandagedOnce = bandaged;
   overlay.updatedAt = new Date().toISOString();
 
   return snapshot(overlay);
 }
 
-/** Добавление состояния в бою. Персонажи — в оверлей; НПС — сразу в версию. */
+/** Добавление состояния в actual-лист. */
 export async function addCombatState(
   gameId: number,
   entityKey: CombatEntityKey,
   state: CharacterStateValue,
   _signal?: AbortSignal,
-): Promise<GameCombatOverlay> {
+): Promise<GameAuthoritativeCommandResult> {
   await delay(150);
   const version = entityVersion(gameId, entityKey);
   if (!version) throw new Error('Лист участника не заполнен');
 
-  const npc = npcOf(gameId, entityKey);
-  if (npc) {
-    if (!npc.version) throw new Error('Лист НПС не заполнен');
-    npc.version.states = [...npc.version.states, { ...state }];
-    npc.updatedAt = new Date().toISOString();
-
-    return overlayFromNpcVersion(gameId, entityKey, npc.version);
-  }
-
-  const overlay = ensureOverlay(gameId, entityKey, version);
-  overlay.states.push({ ...state });
-  overlay.updatedAt = new Date().toISOString();
-
-  return snapshot(overlay);
+  return applyVersionMutation(gameId, entityKey, version, {
+    ...version,
+    states: [...version.states, { ...state }],
+  });
 }
 
-/** Полная замена записи состояния (счётчик DOT, сила яда). Персонажи — в оверлей; НПС — сразу в версию. */
+/** Полная замена записи состояния (счётчик DOT, сила яда). */
 export async function replaceCombatState(
   gameId: number,
   entityKey: CombatEntityKey,
   index: number,
   state: CharacterStateValue,
   _signal?: AbortSignal,
-): Promise<GameCombatOverlay> {
+): Promise<GameAuthoritativeCommandResult> {
   await delay(150);
   const version = entityVersion(gameId, entityKey);
   if (!version) throw new Error('Лист участника не заполнен');
 
-  const npc = npcOf(gameId, entityKey);
-  if (npc) {
-    if (!npc.version) throw new Error('Лист НПС не заполнен');
-    if (!npc.version.states[index]) throw new Error('Состояние не найдено');
-    npc.version.states[index] = { ...state };
-    npc.updatedAt = new Date().toISOString();
+  if (!version.states[index]) throw new Error('Состояние не найдено');
 
-    return overlayFromNpcVersion(gameId, entityKey, npc.version);
-  }
-
-  const overlay = ensureOverlay(gameId, entityKey, version);
-  if (!overlay.states[index]) throw new Error('Состояние не найдено');
-  overlay.states[index] = { ...state };
-  overlay.updatedAt = new Date().toISOString();
-
-  return snapshot(overlay);
+  return applyVersionMutation(gameId, entityKey, version, {
+    ...version,
+    states: version.states.map((item, stateIndex) => (stateIndex === index ? { ...state } : item)),
+  });
 }
 
-/** Изменение значения состояния (по индексу в списке боя). Персонажи — в оверлей; НПС — сразу в версию. */
+/** Изменение значения состояния (по индексу в списке боя). */
 export async function setCombatStateValue(
   gameId: number,
   entityKey: CombatEntityKey,
   index: number,
   value?: number,
   _signal?: AbortSignal,
-): Promise<GameCombatOverlay> {
+): Promise<GameAuthoritativeCommandResult> {
   await delay(150);
   const version = entityVersion(gameId, entityKey);
   if (!version) throw new Error('Лист участника не заполнен');
 
-  const npc = npcOf(gameId, entityKey);
-  if (npc) {
-    if (!npc.version) throw new Error('Лист НПС не заполнен');
-    const state = npc.version.states[index];
-    if (!state) throw new Error('Состояние не найдено');
-    npc.version.states[index] = value === undefined ? { ...state, value: undefined } : { ...state, value };
-    npc.updatedAt = new Date().toISOString();
-
-    return overlayFromNpcVersion(gameId, entityKey, npc.version);
-  }
-
-  const overlay = ensureOverlay(gameId, entityKey, version);
-  const state = overlay.states[index];
+  const state = version.states[index];
   if (!state) throw new Error('Состояние не найдено');
-  overlay.states[index] = value === undefined ? { ...state, value: undefined } : { ...state, value };
-  overlay.updatedAt = new Date().toISOString();
 
-  return snapshot(overlay);
+  return applyVersionMutation(gameId, entityKey, version, {
+    ...version,
+    states: version.states.map((item, stateIndex) =>
+      stateIndex === index ? (value === undefined ? { ...item, value: undefined } : { ...item, value }) : item,
+    ),
+  });
 }
 
-/** Удаление состояния (по индексу в списке боя). Персонажи — в оверлей; НПС — сразу в версию. */
+/** Удаление состояния (по индексу в списке боя). */
 export async function removeCombatState(
   gameId: number,
   entityKey: CombatEntityKey,
   index: number,
   _signal?: AbortSignal,
-): Promise<GameCombatOverlay> {
+): Promise<GameAuthoritativeCommandResult> {
   await delay(150);
   const version = entityVersion(gameId, entityKey);
   if (!version) throw new Error('Лист участника не заполнен');
 
-  const npc = npcOf(gameId, entityKey);
-  if (npc) {
-    if (!npc.version) throw new Error('Лист НПС не заполнен');
-    if (!npc.version.states[index]) throw new Error('Состояние не найдено');
-    npc.version.states = npc.version.states.filter((_, i) => i !== index);
-    npc.updatedAt = new Date().toISOString();
+  if (!version.states[index]) throw new Error('Состояние не найдено');
 
-    return overlayFromNpcVersion(gameId, entityKey, npc.version);
-  }
-
-  const overlay = ensureOverlay(gameId, entityKey, version);
-  if (!overlay.states[index]) throw new Error('Состояние не найдено');
-  overlay.states = overlay.states.filter((_, i) => i !== index);
-  overlay.updatedAt = new Date().toISOString();
-
-  return snapshot(overlay);
+  return applyVersionMutation(gameId, entityKey, version, {
+    ...version,
+    states: version.states.filter((_, stateIndex) => stateIndex !== index),
+  });
 }
 
-/** Экипировка предмета в бою: персонаж — в оверлей (sheet), НПС — сразу в версию. */
+/** Экипировка предмета в бою в actual-листе. */
 export async function setCombatItemEquipped(
   gameId: number,
   entityKey: CombatEntityKey,
   itemId: number,
   equipped: boolean,
   _signal?: AbortSignal,
-): Promise<GameCombatOverlay> {
+): Promise<GameAuthoritativeCommandResult> {
   await delay(150);
   const version = entityVersion(gameId, entityKey);
   if (!version) throw new Error('Лист участника не заполнен');
   if (!version.inventory.some((item) => item.id === itemId)) throw new Error('Предмет не найден');
 
-  const npc = npcOf(gameId, entityKey);
-  if (npc) {
-    if (!npc.version) throw new Error('Лист НПС не заполнен');
-    npc.version.inventory = npc.version.inventory.map((item) => (item.id === itemId ? { ...item, equipped } : item));
-    npc.updatedAt = new Date().toISOString();
-
-    return overlayFromNpcVersion(gameId, entityKey, npc.version);
-  }
-
-  const overlay = ensureOverlay(gameId, entityKey, version);
-  const base = overlay.sheet
-    ? overlay.sheet
-    : overlay.updatedAt !== ''
-      ? combatOverlayService.mergeCombatOverlay(version, overlay)
-      : version;
-  overlay.sheet = {
-    ...(JSON.parse(JSON.stringify(base)) as CharacterVersion),
-    inventory: base.inventory.map((item) => (item.id === itemId ? { ...item, equipped } : item)),
-  };
-  overlay.updatedAt = new Date().toISOString();
-
-  return snapshot(overlay);
+  return applyVersionMutation(gameId, entityKey, version, {
+    ...version,
+    inventory: version.inventory.map((item) => (item.id === itemId ? { ...item, equipped } : item)),
+  });
 }
 
-/** Занятость слотов рук предмета в бою: персонаж — оверлей, НПС — версия. */
+/** Занятость слотов рук предмета в actual-листе. */
 export async function setCombatItemOccupyHands(
   gameId: number,
   entityKey: CombatEntityKey,
   itemId: number,
   occupyHands: number,
   _signal?: AbortSignal,
-): Promise<GameCombatOverlay> {
+): Promise<GameAuthoritativeCommandResult> {
   await delay(150);
   const version = entityVersion(gameId, entityKey);
   if (!version) throw new Error('Лист участника не заполнен');
   if (!version.inventory.some((item) => item.id === itemId)) throw new Error('Предмет не найден');
   const inventory = characterHandsService.withOccupyHands(version.inventory, itemId, occupyHands, ruleCatalog);
 
-  const npc = npcOf(gameId, entityKey);
-  if (npc) {
-    if (!npc.version) throw new Error('Лист НПС не заполнен');
-    npc.version.inventory = inventory;
-    npc.updatedAt = new Date().toISOString();
-
-    return overlayFromNpcVersion(gameId, entityKey, npc.version);
-  }
-
-  const overlay = ensureOverlay(gameId, entityKey, version);
-  const base = overlay.sheet
-    ? overlay.sheet
-    : overlay.updatedAt !== ''
-      ? combatOverlayService.mergeCombatOverlay(version, overlay)
-      : version;
-  overlay.sheet = {
-    ...(JSON.parse(JSON.stringify(base)) as CharacterVersion),
+  return applyVersionMutation(gameId, entityKey, version, {
+    ...version,
     inventory,
-  };
-  overlay.updatedAt = new Date().toISOString();
-
-  return snapshot(overlay);
+  });
 }

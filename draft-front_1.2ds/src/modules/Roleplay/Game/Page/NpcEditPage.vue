@@ -121,9 +121,10 @@ async function load(): Promise<void> {
 
     return;
   }
-  const npcs = await getGameApi().getNpcs(gid);
-  const found = npcs.find((npc) => npc.id === nid);
-  if (!found) {
+  let found: GameNpc;
+  try {
+    found = await getGameApi().getNpc(gid, nid);
+  } catch {
     router.replace({ name: 'NotFound' });
 
     return;
@@ -146,9 +147,12 @@ async function onMigrated(): Promise<void> {
   const nid = npcId.value;
   const gameDetail = gameDetailRef.value;
   if (!Number.isFinite(gid) || !Number.isFinite(nid) || !gameDetail || !draftKey.value) return;
-  const npcs = await getGameApi().getNpcs(gid);
-  const found = npcs.find((npc) => npc.id === nid);
-  if (!found) return;
+  let found: GameNpc;
+  try {
+    found = await getGameApi().getNpc(gid, nid);
+  } catch {
+    return;
+  }
   draftStore.discard(draftKey.value);
   if (
     !needsNpcMigration(found, { rulesRevision: gameDetail.game.rulesRevision, spaceCode: gameDetail.game.spaceCode })
@@ -170,6 +174,7 @@ async function handleSave(version: CharacterVersion): Promise<void> {
       tags: npc.tags,
       visibility: npc.visibility,
       version,
+      expectedNpcActualVersion: npc.actualVersion,
     });
     await router.push(`/games/${gameId.value}`);
     draftStore.discard(draftKey.value);

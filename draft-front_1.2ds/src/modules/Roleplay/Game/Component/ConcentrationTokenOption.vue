@@ -55,6 +55,6 @@ watch(
     density="compact"
     hide-details="auto"
     class="mt-2"
-    @update:model-value="emit('update:modelValue', $event)"
+    @update:model-value="emit('update:modelValue', $event ?? 0)"
   />
 </template>

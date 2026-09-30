@@ -4,12 +4,15 @@ import { computed, ref, watch } from 'vue';
 import { useCurrentUser } from '@/modules/Core/User/init';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
+import { createRandomId } from '@/modules/Core/Engine/Utils/createRandomId';
 import { GAME_LOOT_STATUS_LABEL, GAME_LOOT_STATUS_COLOR } from '@/modules/Roleplay/Game/Constant/Loot/GAME_LOOT_STATUS';
 import type { GameLoot, GameLootDistribution } from '@/modules/Roleplay/Game/Dto/GameLoot';
 import type { GameLootStatus } from '@/modules/Roleplay/Game/Enum/GameLootStatus';
 import type { CreateLootData } from '@/modules/Roleplay/Game/Dto/CreateLootData';
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
+import type { GameNpcSummary } from '@/modules/Roleplay/Game/Dto/GameNpcSummary';
+import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import LootFormDialog from '@/modules/Roleplay/Game/Component/Detail/LootFormDialog.vue';
 import LootDistributeDialog from '@/modules/Roleplay/Game/Component/Detail/LootDistributeDialog.vue';
@@ -147,13 +150,13 @@ async function load(): Promise<void> {
   loading.value = true;
   error.value = null;
   try {
-    const [lootList, npcList, characterList] = await Promise.all([
+    const [lootList, npcSummaryResult, characterList] = await Promise.all([
       getGameApi().getLoot(props.gameId),
-      getGameApi().getNpcs(props.gameId),
+      getGameApi().getNpcSummaries({ gameId: props.gameId, status: 'active', limit: 100 }),
       getGameApi().getGameCharacters(props.gameId),
     ]);
     loots.value = lootList;
-    npcs.value = npcList;
+    npcs.value = npcSummaryResult.items.map(toLegacyNpc);
     characters.value = characterList;
     await loadRules();
   } catch (e) {
@@ -161,6 +164,12 @@ async function load(): Promise<void> {
   } finally {
     loading.value = false;
   }
+}
+
+function toLegacyNpc(summary: GameNpcSummary): GameNpc {
+  const { actualSpaceCode: _actualSpaceCode, actualRulesRevision: _actualRulesRevision, ...npc } = summary;
+
+  return { ...npc, version: null };
 }
 
 async function run(action: () => Promise<void>): Promise<void> {
@@ -231,7 +240,31 @@ async function distribute(distribution: GameLootDistribution[]): Promise<void> {
   const target = distributeTarget.value;
   if (!target) return;
   await run(async () => {
-    await getGameApi().distributeLoot(target.id, { distribution });
+    const entityKeys = distribution
+      .map((entry): CombatEntityKey | null => {
+        if (entry.type === 'character' && entry.characterId !== undefined) {
+          return `character:${entry.characterId}`;
+        }
+        if (entry.type === 'npc' && entry.npcId !== undefined) return `npc:${entry.npcId}`;
+
+        return null;
+      })
+      .filter((entityKey): entityKey is CombatEntityKey => entityKey !== null);
+    const projections = await getGameApi().getRuntimeEntities(props.gameId, {
+      entityKeys: [...new Set(entityKeys)],
+      projectionLevel: 'summary',
+    });
+    const expectedActualVersions: Record<string, number> = {};
+    for (const entityKey of entityKeys) {
+      const projection = projections.projections.find((item) => item.entityKey === entityKey);
+      if (!projection) throw new Error(`Не удалось загрузить актуальную версию ${entityKey}`);
+      expectedActualVersions[entityKey] = projection.actualVersion;
+    }
+    await getGameApi().distributeLoot(target.id, {
+      commandId: createRandomId(),
+      expectedActualVersions,
+      distribution,
+    });
     distributeTarget.value = null;
     await load();
   });

@@ -16,6 +16,8 @@ export interface GameNpc {
   /** Описательные теги НПС (роль/тип: торговец, наёмник...) — для поиска по списку НПС. */
   tags: string[];
   version: CharacterVersion | null;
+  /** Технический CAS-счётчик authoritative NPC sheet; не является второй версией листа. */
+  actualVersion: number;
   status: GameNpcStatus;
   proposedBy: { userId: number; userName: string } | null;
   visibility: SheetVisibility;

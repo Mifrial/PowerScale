@@ -12,7 +12,7 @@
 - `DEC-038` и `DEC-051` уточняют moderation concurrency, owner `character-system.md`.
 - `DEC-040` уточняет validation envelope, owner `rule-system.md`/`character-system.md`.
 - `DEC-052` — `HISTORICAL/SUPERSEDED` решением `DEC-059`: projection token A/L/O/P больше не является целевым контрактом.
-- `DEC-059` supersedes A/L/O/P в части Character/Game membership: канон — `actualCharacter` + `approvedCharacterVersion` + `gameOverlay`; owner `character-system.md`/`game-system.md`.
+- `DEC-059` остаётся действующим в части membership и approved snapshot; его утверждения о полном Character sheet в `gameOverlay`, immutable actual во время session и stop-time commit superseded решением `DEC-084`. A/L/O/P mapping остаётся исторически superseded. Канон: `actualCharacter` + `approvedCharacterVersion` + Game-owned `gameOverlay/gameState`; owner `character-system.md`/`game-system.md`.
 
 Эти записи фиксируют связь решения и canonical owner; явно помеченные `HISTORICAL/SUPERSEDED` решения заменены указанным новым решением.
 
@@ -30,7 +30,7 @@
 - `DEC-064` — чужой модуль видит `init`, Dto, Interface, Enum (и с `DEC-082` — Constant, Value, Mock, routes); чужие Store/Service/Utils нельзя; статический чужой Component нельзя; Pinia не в локаторе; `useXxxStore` из `init` не реэкспортировать; локатор только в корне сборки и в `init.ts`; доменные `Service/` получают порты в конструктор.
 - `DEC-065` — `DEC-064` для всех прикладных модулей, включая Auth и User; исключения — Core/Engine, Core/UI и регистрация плагина через публичный API хоста. Таблица рёбер — [`architecture.md`](architecture.md).
 - `DEC-066` — UI использует adapter boundaries, batch lookup и необязательный `AbortSignal` для отмены устаревших async-запросов.
-- `DEC-067` — в Game-ТР фиксируются только минимальные combat/session contract cards; старая A/L/O/P-модерация и three-way reconcile исключены.
+- `DEC-067` — в Game-ТР фиксируются только минимальные combat/session contract cards; исключение A/L/O/P-модерации и three-way reconcile сохраняется, а его прежнее описание full-sheet overlay superseded `DEC-084`.
 - `DEC-068` — `EconomyOperation` остаётся backend/domain requirement; frontend economy `NOT IMPLEMENTED`, а `distributeLoot` — отдельный loot flow.
 - `DEC-006` — scoped numeric `revision`, пара `(spaceId, revision)`, immutable `publishedAt`.
 - `DEC-007` — разделение state, poison, feelings и age.
@@ -59,7 +59,7 @@
 - `DEC-081` — драйвер кэша `Core/Cache` (`ICacheStore`); TTL 1..30 суток, без «навсегда». ST `TableCache` и Versioning — политики ключей/тегов. Owner [`cache-plan-01.md`](cache-plan-01.md).
 - `DEC-082` — на фронте `Constant/` и `Value/` публичны как Dto (прямой путь, не баррель `init`); `DEC-064` в части «не Constant» сужен, не отменён. Динамический чужой `Component/*.vue` разрешён. Owner [`architecture.md`](architecture.md), [`rule-plan-02-init-surface.md`](rule-plan-02-init-surface.md).
 - `DEC-079` — PHP Record: геттеры смысла; New/Patch — карта ключей; JSON-вид отдельно. Owner [`php-coding-standards.md`](php-coding-standards.md) / [`user.md`](user.md).
-- `DEC-083` — backend EventManager живёт в отдельном `Core/Event`; публичный порт — `IEventManager` с синхронными `on`/`off`/`fire`, process-local token subscriptions, priority/FIFO и read-only `IEventPayload`. Event identity — полный проверяемый формат `ModuleGroup\ModuleName.Subject::LifecycleOperation`; `EventResult` агрегирует errors, warnings, output payloads и explicit stop/failure status custom result. Token ownership — process-local API-инвариант, не security boundary. Sync MVP transaction-agnostic и не владеет Mail, Agent, Logger, SmartTable или queue. Async queue, afterCommit, outbox и DB-driven subscriptions — `DEFERRED`. Owner [`architecture.md`](architecture.md), [`../specs/event-manager-backend-plan.md`](../specs/event-manager-backend-plan.md).
+- `DEC-083` — backend EventManager живёт в отдельном `Core/Event`; публичный порт — `IEventManager` с синхронными `on`/`off`/`fire`, process-local token subscriptions, priority/FIFO и read-only `IEventPayload`. Event identity — полный проверяемый формат `ModuleGroup\ModuleName.Subject::LifecycleOperation`; `EventResult` агрегирует errors, warnings, output payloads и explicit stop/failure status custom result. Token ownership — process-local API-инвариант, не security boundary. Sync MVP transaction-agnostic и не владеет Mail, Agent, Logger, SmartTable или queue. Async queue, afterCommit, outbox и DB-driven subscriptions — `DEFERRED`. Owner [`architecture.md`](architecture.md), [`../specs/event-manager-backend-plan.md`](../specs/event-manager-backend-plan.md). Character/Game outbox integration не входит в sync MVP.
 - `DEC-027` — старый план Chat → Game перенесён в историю.
 - `DEC-028` — готовность RuleType оценивается независимо по доменной модели, frontend, backend и контенту.
 
@@ -69,7 +69,7 @@
 - `DEC-012` — wide attack `1 → N` реализована; `N → 1` остаётся backlog.
 - `DEC-013` — прямые импорты внутренних Game-файлов в Rule/Character исправляются архитектурным рефакторингом.
 - `DEC-014` — JSON-клонирование заменяется на `structuredClone`, где возможно.
-- `DEC-016` — игровые изменения идут в единый Game overlay; модель слоя уточнена решением `DEC-059`.
+- `DEC-016` — session/battle/process изменения идут в единый Game overlay; часть о полном Character sheet внутри overlay и его commit в actual superseded `DEC-084`.
 - `DEC-024` — validation структурированная и вычисляемая, не lifecycle-статус.
 - `DEC-025` — инвентарь является обязательным игровым контуром.
 - `DEC-029` — `ActionEffect` является рабочим частичным каноном.
@@ -78,7 +78,7 @@
 - `DEC-037` — `HISTORICAL/SUPERSEDED` решением `DEC-059`: approved snapshot хранится в новой membership-модели.
 - `DEC-038` — `HISTORICAL/SUPERSEDED` решением `DEC-059`: moderation использует diff approved/actual и атомарный optimistic guard.
 - `DEC-040` — validation использует `valid` и структурированный `problems[]`.
-- `DEC-041` — экономика player во время игры идёт в overlay, NPC — в `npc.version`.
+- `DEC-041` — `npc.version` остаётся authoritative для NPC; player money/inventory/loot mutations во время игры идут в actual при применении authoritative effect, а Game overlay хранит только process/battle state. Уточнено `DEC-084`.
 - `DEC-043` — ActionEffect и проверки фиксируются как рабочая частичная реализация.
 - `DEC-051` — `HISTORICAL/SUPERSEDED` решением `DEC-059`: optimistic guard применяется к approved/actual.
 - `DEC-052` — `HISTORICAL/SUPERSEDED` решением `DEC-059`: отдельный projection token A/L/O/P не является целевым контрактом.
@@ -105,10 +105,14 @@
 - `DEC-044` — базовая цена берётся из `ItemSpec.cost_gm`, валюта хранится в минимальных единицах.
 - `DEC-045` — ведущий настраивает права/режимы; разрешённые операции не требуют ручного approve.
 - `DEC-047` — все экономические действия журналируются immutable append-only журналом.
-- `DEC-048` — overlay authoritative для gameplay, журнал не является полным event-sourcing источником.
+- `DEC-048` — Game state/overlay authoritative для gameplay state, а actual Character/NPC authoritative для persisted sheet effects; журнал не является полным event-sourcing источником. Уточнено `DEC-084`.
 - `DEC-049` — операции используют DB-транзакцию и optimistic version check.
 - `DEC-050` — каноничен typed `EconomyOperation` с idempotency key и ожидаемыми версиями.
 - `DEC-058` — числовые `DEC-001`—`DEC-057` каноничны; тематические ID из `DEC-019` — только дополнительные alias.
+
+- `DEC-084` — `actualCharacter` является единственным persisted player sheet и изменяется authoritative Character/Game effects; `approvedCharacterVersion` остаётся immutable moderation baseline, а Game overlay ограничен session/battle/process state. `states`, wounds, injuries, poison, resources, inventory, equipment, money и loot являются частью actual; NPC имеет только `npc.version` и технический `npc.actual_version`. `changes_pending` блокирует следующую session, но не активного participant; `canStartSession` и `isActiveSessionParticipant` разделены. Approve допускается во время active session через CAS actual + membership revision. `endBattle` не завершает session и не запускает approve; stop очищает transient state без полного Character commit. Multi-entity Game commands владеют outer transaction, Character/NPC storage вызывается через transaction-bound ports. Command response и SSE разделены; idempotency records принадлежат владельцу команды. R3-FE может добавить opt-in typed snapshot/mock lifecycle boundary, но не объявляет backend durable state, transaction, SSE или recovery готовыми. Полная запись — [`../review/tr-decisions-2026-08.md`](../review/tr-decisions-2026-08.md).
+- `DEC-084` implementation note — R4-FE может подготовить opt-in `IGameApi.submitCombatCommand` для single-target attack/defense mock vertical slice. Он принимает только decisions и expected Game/entity versions, применяет Character/NPC actual только при authoritative effect, хранит idempotency/process fixtures и не переводит backend transactions, SSE, Chat delivery, read projections или legacy `GameCombatOverlay` в готовую реализацию.
+- `DEC-085` — R6-FE является frontend/mock readiness boundary: standalone и in-game Character editor используют один typed patch/CAS/idempotency flow; `CharacterChanged` публикуется только после успешной mutation; Game realtime использует numeric cursor и `eventId = <gameId>.<cursor>`, targeted projections и bounded snapshot fallback. Это не подтверждает production EventManager/outbox/SSE, backend visibility/authorization или удаление `GameCombatOverlay`. Owner [`character-system.md`](character-system.md) / [`game-system.md`](game-system.md).
 
 ## Статусы
 

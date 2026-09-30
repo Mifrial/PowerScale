@@ -26,7 +26,10 @@ const profile = (profileType: AttackOverview['profileType']): AttackOverview => 
   penetration: { base: 0, size: 0 },
 });
 
-const rule = (keywordIds: number[], attackMode?: 'single' | 'wide'): Rule => ({
+const rule = (
+  keywordIds: number[],
+  attackMode?: 'single' | 'wide',
+): Omit<Rule, 'spec'> & { spec: Extract<NonNullable<Rule['spec']>, { type: 'action' }> } => ({
   id: null,
   code: 'attack',
   type: 'ability',

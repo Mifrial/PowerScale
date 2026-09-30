@@ -18,7 +18,6 @@ import { dotTickMathService } from '@/modules/Roleplay/Game/Service/Instance/dot
 
 import { formatDotTickMessage, buildDotTickAttachment } from '@/modules/Roleplay/Game/Utils/dotTickMessage';
 import type { IGameApi } from '@/modules/Roleplay/Game/Interface/IGameApi';
-import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
 
 import { damageTypeHooksService } from '@/modules/Roleplay/Game/Service/Instance/damageTypeHooksService';
 import { woundInstanceService } from '@/modules/Roleplay/Game/Service/Instance/woundInstanceService';
@@ -34,19 +33,23 @@ export class EndOfTurnDotsService {
     args: ApplyEndOfTurnDotsArgs,
     version: CharacterVersion,
     amount: number,
-  ): Promise<GameCombatOverlay | null> {
+  ): Promise<void> {
     const rule = args.rules.find((item) => item.code === ACCUMULATED_DAMAGE_STATE_CODE && item.type === 'state');
-    if (!rule) return null;
+    if (!rule) return;
     const index = version.states.findIndex((state) => state.stateRuleCode === rule.code);
     if (amount <= 0) {
-      return index >= 0 ? this.resolveGameApi().removeCombatState(args.gameId, args.targetKey, index) : null;
+      if (index >= 0) await this.resolveGameApi().removeCombatState(args.gameId, args.targetKey, index);
+
+      return;
     }
 
     const state = { stateRuleCode: rule.code, dimensionalValue: { base: amount, size: 0 } };
 
-    return index >= 0
-      ? this.resolveGameApi().replaceCombatState(args.gameId, args.targetKey, index, state)
-      : this.resolveGameApi().addCombatState(args.gameId, args.targetKey, state);
+    if (index >= 0) {
+      await this.resolveGameApi().replaceCombatState(args.gameId, args.targetKey, index, state);
+    } else {
+      await this.resolveGameApi().addCombatState(args.gameId, args.targetKey, state);
+    }
   }
 
   private async addNumericState(
@@ -54,48 +57,51 @@ export class EndOfTurnDotsService {
     version: CharacterVersion,
     code: string,
     amount: number,
-  ): Promise<GameCombatOverlay | null> {
-    if (amount <= 0) return null;
+  ): Promise<void> {
+    if (amount <= 0) return;
     const rule = args.rules.find((item) => item.code === code && item.type === 'state');
-    if (!rule) return null;
+    if (!rule) return;
     if (code === WOUND_STATE_CODE) {
       const added = woundInstanceService.addWound(amount);
-      if (!added) return null;
+      if (!added) return;
 
-      return this.resolveGameApi().addCombatState(args.gameId, args.targetKey, added);
+      await this.resolveGameApi().addCombatState(args.gameId, args.targetKey, added);
+
+      return;
     }
     const independent = (rule.spec as StateSpec | undefined)?.aggregation === 'independent';
     const index = version.states.findIndex((state) => state.stateRuleCode === rule.code);
     if (!independent && index >= 0) {
-      return this.resolveGameApi().setCombatStateValue(
+      await this.resolveGameApi().setCombatStateValue(
         args.gameId,
         args.targetKey,
         index,
         (version.states[index]?.value ?? 0) + amount,
       );
+
+      return;
     }
 
-    return this.resolveGameApi().addCombatState(args.gameId, args.targetKey, {
+    await this.resolveGameApi().addCombatState(args.gameId, args.targetKey, {
       stateRuleCode: rule.code,
       value: amount,
     });
   }
 
   async applyEndOfTurnDots(args: ApplyEndOfTurnDotsArgs): Promise<GameCombatOverlay | null> {
-    let version = args.version;
+    const version = args.version;
     let overlay: GameCombatOverlay | null = null;
     const advances = version.states.map((state) => dotTickMathService.advanceDotState(state, args.rules));
     for (let index = advances.length - 1; index >= 0; index -= 1) {
       const step = advances[index];
       if (step.kind === 'skip') continue;
       if (step.kind === 'wait') {
-        overlay = await this.resolveGameApi().replaceCombatState(args.gameId, args.targetKey, index, step.next);
+        await this.resolveGameApi().replaceCombatState(args.gameId, args.targetKey, index, step.next);
       } else if (step.next) {
-        overlay = await this.resolveGameApi().replaceCombatState(args.gameId, args.targetKey, index, step.next);
+        await this.resolveGameApi().replaceCombatState(args.gameId, args.targetKey, index, step.next);
       } else {
-        overlay = await this.resolveGameApi().removeCombatState(args.gameId, args.targetKey, index);
+        await this.resolveGameApi().removeCombatState(args.gameId, args.targetKey, index);
       }
-      if (overlay) version = combatOverlayService.mergeCombatOverlay(version, overlay);
     }
     const fires = advances.filter((step) => step.kind === 'tick');
     for (const step of fires) {
@@ -142,36 +148,16 @@ export class EndOfTurnDotsService {
         );
         if (!sent) throw new Error('Не удалось отправить сообщение о тике');
       }
-      const damageOverlay = await this.writeAccumulatedDamage(args, version, result.remainingHpDamage);
-      if (damageOverlay) {
-        overlay = damageOverlay;
-        version = combatOverlayService.mergeCombatOverlay(version, damageOverlay);
-      }
-      const exh = await this.addNumericState(args, version, EXHAUSTION_STATE_CODE, result.exhaustion);
-      if (exh) {
-        overlay = exh;
-        version = combatOverlayService.mergeCombatOverlay(version, exh);
-      }
-      const wound = await this.addNumericState(
+      await this.writeAccumulatedDamage(args, version, result.remainingHpDamage);
+      await this.addNumericState(args, version, EXHAUSTION_STATE_CODE, result.exhaustion);
+      await this.addNumericState(
         args,
         version,
         WOUND_STATE_CODE,
         (result.wound ?? 0) + (result.cuttingWound ?? 0),
       );
-      if (wound) {
-        overlay = wound;
-        version = combatOverlayService.mergeCombatOverlay(version, wound);
-      }
-      const stun = await this.addNumericState(args, version, STUNNED_STATE_CODE, result.stun ?? 0);
-      if (stun) {
-        overlay = stun;
-        version = combatOverlayService.mergeCombatOverlay(version, stun);
-      }
-      const shock = await this.addNumericState(args, version, SHOCK_STATE_CODE, result.shock ?? 0);
-      if (shock) {
-        overlay = shock;
-        version = combatOverlayService.mergeCombatOverlay(version, shock);
-      }
+      await this.addNumericState(args, version, STUNNED_STATE_CODE, result.stun ?? 0);
+      await this.addNumericState(args, version, SHOCK_STATE_CODE, result.shock ?? 0);
       if (result.exhaustion > 0) {
         const checked = await exhaustionCheckService.applyExhaustionCheck({
           version,
@@ -190,7 +176,6 @@ export class EndOfTurnDotsService {
         });
         if (checked.overlay) {
           overlay = checked.overlay;
-          version = combatOverlayService.mergeCombatOverlay(version, checked.overlay);
         }
       }
       if (
@@ -225,7 +210,6 @@ export class EndOfTurnDotsService {
         });
         if (applied.overlay) {
           overlay = applied.overlay;
-          version = combatOverlayService.mergeCombatOverlay(version, applied.overlay);
         }
       }
     }

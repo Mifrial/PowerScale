@@ -27,7 +27,7 @@
 
 ## Редактирование и состояние
 
-После создания персонаж может редактироваться владельцем с учётом прав и выбранной ревизии. Backend сохраняет actual character только после успешной проверки. Между сессиями изменение actual character разрешено и автоматически создаёт расхождение с approved snapshot в игре. В игре изменения идут через membership overlay и не изменяют actual character или approved snapshot напрямую.
+После создания персонаж может редактироваться владельцем с учётом прав и выбранной ревизии. Backend сохраняет actual character только после успешной проверки. Изменение actual character разрешено и между сессиями, и во время активной сессии: оно проходит общий Character mutation pipeline, optimistic guard и validation. В активной сессии Game получает факт успешного изменения через integration boundary; Character не импортирует Game и не отвечает за доставку в SSE или Chat.
 
 На персонаже могут присутствовать состояния, включая раны, истощение и отравление. Poison — контент правила, а отравление в персонаже — `state`. Состояния могут иметь decay/periodicity и влиять на проверки, характеристики или бой.
 
@@ -66,7 +66,7 @@ Frontend ранее использовал `draft | ready | moderation | needs_f
 
 ## Membership персонажа в игре
 
-Персонаж может находиться не более чем в одной игре одновременно. Membership хранит ссылку на `characterId`, полную immutable-копию принятого состояния `approvedCharacterVersion` и сессионный `gameOverlay`. Отдельной истории версий Character нет.
+Персонаж может находиться не более чем в одной игре одновременно. Membership хранит ссылку на `characterId`, полную immutable-копию принятого состояния `approvedCharacterVersion`, review metadata, техническую revision для concurrency guard и сессионный `gameOverlay`. Overlay хранит только состояние Game/session, а не второй полный лист Character. Отдельной истории версий Character нет.
 
 ```text
 GameCharacterEntry
@@ -76,6 +76,7 @@ GameCharacterEntry
 ├── approvedCharacterVersion: full snapshot copy | null
 ├── reviewState: clean | changes_pending | returned
 ├── returnedAt / returnReason / returnMessageId
+├── membershipRevision: technical CAS counter
 └── gameOverlay
 ```
 
@@ -83,34 +84,61 @@ GameCharacterEntry
 
 ## Session и overlay
 
-```text
-sessionCharacterVersion = resolve(approvedCharacterVersion, gameOverlay)
-```
+Во время активной сессии `actualCharacter` остаётся единственным persisted листом персонажа. Игровое действие изменяет его только в момент применения authoritative effect; решение игрока может до этого изменить только Game process/offer state. `gameOverlay/gameState` хранит initiative, battle/process state, offers, pending effects и transient markers, но не полный `CharacterVersion`.
 
-Во время сессии actual character и approved snapshot неизменяемы. Overlay действует только для игрового персонажа и не может менять владельца, `characterId`, `spaceId`, `rulesRevision`, права или `visibility`. Изменения actual character во время активной сессии запрещены.
+`approvedCharacterVersion` остаётся immutable baseline для moderation и допуска следующей сессии. Он не является источником текущего листа внутри уже начатой сессии. После успешной semantic mutation actual membership получает `reviewState = changes_pending`; это не прерывает текущего участника, но блокирует следующую сессию до approve.
 
-При завершении сессии все изменения коммитятся одной атомарной транзакцией: resolve overlays, validate results, update actual characters, clear overlays и отметить изменённые memberships для модерации. Ошибка одного участника откатывает весь commit. Optimistic guard должен отклонять commit при устаревшем actual state.
+Одна `playing` session может содержать несколько независимых battles. `endBattle` закрывает только текущий battle и отменяет его unresolved processes/offers; `stopGameSession` завершает всю session и очищает оставшееся transient Game state. Ни один из переходов не выполняет полный character commit, не откатывает применённые effects и не запускает approve. Если продолжается тот же battle, сохраняются его `battleId` и process state; новый battle получает новый identity.
+
+Frontend/mock R3 может подготовить typed `GameSessionState`,
+`GameBattleState` и `GameStateSnapshot`, но эта boundary не является доказательством
+backend durable state. NPC использует `npc.version` как authoritative sheet и
+`npc.actual_version` как единственный технический CAS counter, без approved
+snapshot или player moderation lifecycle.
+
+R4-FE может подготовить opt-in `GameCombatCommand` через Game API boundary для
+решений атаки/защиты и mock authoritative effect. Decision command изменяет
+только Game process/offer state; actual Character/NPC меняется только при
+applied authoritative effect. Новый mock path использует Character actual и
+`npc.version`/`npc.actual_version`, возвращает versions и changed entity keys,
+но не переключает legacy `GameCombatOverlay`, не загружает read projections и
+не является backend transaction/SSE implementation. `changes_pending` не
+удаляет active participant; membership review metadata обновляется в той же
+authoritative boundary.
+
+R7-FE добавляет публичную mock/frontend lifecycle boundary для нескольких
+battles в одной session, active-participant guards, approve/return CAS,
+terminal process cleanup и recovery/idempotency fixtures. Новый
+authoritative path не выполняет повторный full-sheet commit при stop.
+Оставшиеся legacy `GameCombatOverlay` mutators могут временно использовать
+compatibility commit до R8; это не меняет канонический actualCharacter и не
+является новым источником листа.
 
 ## Модерация
 
-Персонаж требует модерации, если `approvedCharacterVersion == null` или diff между approved snapshot и actual character показывает изменения. Используется существующая функция сравнения; история версий и отдельный review snapshot/diff не нужны.
+Персонаж требует модерации, если `approvedCharacterVersion == null` или `getCharacterDiff(approvedCharacterVersion, actualCharacter).hasChanges` равно `true`. `getCharacterDiff` — единый semantic comparator для moderation tab, `needsModeration`, `reviewState`, changed sections и допуска следующей сессии. `isCharacterChanged` допустима только как тонкий helper над его `hasChanges`; отдельного алгоритма сравнения нет. История версий и отдельный review snapshot не нужны.
+
+Diff сравнивает все semantic поля листа, включая `states`, resources, inventory/equipment и persistent fields состояний. Operational battle markers, например compatibility-поле `wound.heldBy`, в semantic diff не входят.
 
 - approve для submitted создаёт active membership и сохраняет approved snapshot;
 - approve для active обновляет approved snapshot копией actual character;
 - return for rework не удаляет membership, сохраняет причину и отправляет сообщение в обсуждение персонажа;
 - reject удаляет только ещё не принятую submitted-заявку;
 - active-персонажа нельзя reject;
-- новая сессия блокируется, пока approved snapshot отличается от actual character или actual имеет `needs_fix`.
+- `canStartSession` проверяет membership, approved/actual, `getCharacterDiff`, совместимость revision, validation и отсутствие блокирующего repair state;
+- `isActiveSessionParticipant` проверяет уже начатое участие и не требует `actualCharacter == approvedCharacterVersion`; membership в `returned` не принимает новые session/battle commands;
+- `needsModeration` и `reviewState` не заменяют active-participant predicate;
+- новая сессия блокируется, пока есть semantic diff, `changes_pending`, `returned`, несовместимая revision или repair state.
 
-Approve запрещён при активном overlay до остановки сессии. Backend должен повторно выполнить validation и применить optimistic guard в атомарной операции.
+Approve разрешён во время active session. Backend атомарно проверяет ожидаемые `actual_version` и `membershipRevision`, повторно выполняет validation и сохраняет snapshot actual. Approve не изменяет actual и не прерывает сессию; если одна из версий устарела, операция получает conflict и не меняет ни одну сторону. Следующая actual mutation снова создаёт diff и `changes_pending`.
 
 ## Миграция
 
 При смене ревизии игры все несовместимые персонажи должны пройти миграцию. Миграцию выполняет владелец персонажа; после неё персонаж снова проходит модерацию. До миграции и повторного approve следующая сессия этого персонажа заблокирована. Смена ревизии блокирует запуск следующей сессии только для несовместимых персонажей, а не игру целиком.
 
-Миграция сохраняет actual character до успешного результата, переносит выбранные правила, способности, ресурсы, inventory и ссылки по `code`, валидирует результат и переводит персонажа в moderation flow. Владелец может переводить персонажа на разрешённую ревизию вне игры. Source и target revision при repair для `needs_fix` совпадают.
+Миграция сохраняет actual character до успешного результата, переносит выбранные правила, способности, ресурсы, inventory и ссылки по `code`, валидирует результат и переводит персонажа в moderation flow. Владелец может переводить персонажа на разрешённую ревизию вне игры. Source и target revision при repair для `needs_fix` совпадают. Migration во время active session запрещена session guard-ом. `spaceCode` и `rulesRevision` игры нельзя менять при `status = playing`; изменение ревизии не является допустимым способом продолжить текущую сессию.
 
-Физическая схема membership, backend storage, optimistic locking, удаление browser draft и полная модель NPC требуют отдельной реализации (`OPEN`); они не должны возвращать A/L/O/P или историю CharacterVersion.
+Физическая схема membership, backend storage, optimistic locking, удаление browser draft и полная модель NPC требуют отдельной реализации (`OPEN`); они не должны возвращать A/L/O/P или историю CharacterVersion. NPC не получает approved snapshot, draft или moderation baseline: его persisted sheet — `npc.version`, а `npc.actual_version` — только технический optimistic-lock counter.
 
 ## Подробный frontend-контракт
 
@@ -147,7 +175,14 @@ Approve запрещён при активном overlay до остановки
 
 «Сохранить черновик» допускает перерасход лимитов и невыполненные требования. «Готово» требует имени, расы, лимитов и требований. При смене расы значения и способности, несовместимые с новой моделью, сбрасываются только после предупреждения и подтверждения.
 
-Вне игры редактирование готового персонажа обновляет `actualCharacter` только после успешной проверки; локальный editor draft является только UI-состоянием. Если персонаж состоит в игре, изменение actual между сессиями создаёт расхождение с `approvedCharacterVersion` и требует модерации. Во время сессии игрок изменяет автосохраняемый `gameOverlay`, а approved snapshot и actual character не изменяются. Ведущий с `game.edit_inventory` может напрямую редактировать инвентарь игры только с соблюдением этих границ.
+Редактирование готового персонажа обновляет `actualCharacter` только после успешной проверки; локальный editor draft является только UI-состоянием. Вход из Game UI не создаёт отдельную Character storage path: обычный editor и in-game editor используют общий Character mutation service, typed patch с `expectedActualVersion` и whole-operation CAS без merge/rebase. Разрешённое редактирование во время active session публикует `CharacterChanged` после commit; Game сам проверяет active memberships, visibility и policy доставки. Ведущий с `game.edit_inventory` может редактировать инвентарь при соблюдении этих же mutation и authorization boundaries.
+
+Frontend/mock R6-FE реализует этот boundary с `commandId`, повтором того же
+patch после transport failure, сохранением dirty local draft при внешнем
+изменении и явным reload/discard для stale conflict. `CharacterChanged` —
+только post-commit integration fact: production persistence, outbox,
+after-commit delivery и server-side authorization остаются backend
+требованием. Character не импортирует Game.
 
 ### Сессионные детали
 

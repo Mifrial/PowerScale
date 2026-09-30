@@ -10,7 +10,6 @@ import { injuryRollService } from '@/modules/Roleplay/Game/Service/Instance/inju
 import { woundInstanceService } from '@/modules/Roleplay/Game/Service/Instance/woundInstanceService';
 import { checkRollService } from '@/modules/Roleplay/Game/Service/Instance/checkRollService';
 import { resolveInjuryProcedure } from '@/modules/Roleplay/Game/Utils/resolveInjuryProcedure';
-import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
 import { formatBloodLossTickMessage } from '@/modules/Roleplay/Game/Utils/bloodLossMessage';
 import { formatBloodClottingMessage } from '@/modules/Roleplay/Game/Utils/bloodClottingMessage';
 import { rollPoolDefaults } from '@/modules/Roleplay/Game/Utils/initiativeRoll';
@@ -27,11 +26,12 @@ export class BloodLossService {
 
   async applyBloodLossTick(args: ApplyBloodLossArgs): Promise<GameCombatOverlay | null> {
     if (args.delta <= 0) return null;
-    let version = args.version;
+    const version = args.version;
     const oldBlood = injuryCheckService.overlayStateTotal(version, args.rules, BLOOD_LOSS_STATE_CODE);
     const oldExh = injuryCheckService.overlayStateTotal(version, args.rules, EXHAUSTION_STATE_CODE);
     const next = applyBloodLossGain(oldBlood, args.delta, oldExh);
-    let overlay = await setNumericState(
+    let overlay = args.overlay ?? null;
+    await setNumericState(
       this.resolveGameApi(),
       args.gameId,
       args.targetKey,
@@ -40,7 +40,6 @@ export class BloodLossService {
       BLOOD_LOSS_STATE_CODE,
       next.bloodLoss,
     );
-    if (overlay) version = combatOverlayService.mergeCombatOverlay(version, overlay);
     if (args.chatId !== null) {
       const sent = await args.sendMessage(
         formatBloodLossTickMessage(args.targetName, args.delta, next.bloodLoss, args.targetKey),
@@ -51,17 +50,15 @@ export class BloodLossService {
       if (!sent) throw new Error('Не удалось отправить сообщение о кровопотере');
     }
     if (next.exhaustion !== oldExh) {
-      overlay =
-        (await setNumericState(
-          this.resolveGameApi(),
-          args.gameId,
-          args.targetKey,
-          version,
-          args.rules,
-          EXHAUSTION_STATE_CODE,
-          next.exhaustion,
-        )) ?? overlay;
-      if (overlay) version = combatOverlayService.mergeCombatOverlay(version, overlay);
+      await setNumericState(
+        this.resolveGameApi(),
+        args.gameId,
+        args.targetKey,
+        version,
+        args.rules,
+        EXHAUSTION_STATE_CODE,
+        next.exhaustion,
+      );
     }
     if (next.addedExhaustion > 0) {
       const checked = await exhaustionCheckService.applyExhaustionCheck({
@@ -81,7 +78,6 @@ export class BloodLossService {
       });
       if (checked.overlay) {
         overlay = checked.overlay;
-        version = combatOverlayService.mergeCombatOverlay(version, checked.overlay);
       }
     }
     const bloodDc = bloodLossInjuryDifficulty(next.reserved);
@@ -142,7 +138,6 @@ export class BloodLossService {
     const blood = await this.applyBloodLossTick({ ...args, version, overlay, delta });
     if (blood) {
       overlay = blood;
-      version = combatOverlayService.mergeCombatOverlay(version, blood);
     }
     const dots = await endOfTurnDotsService.applyEndOfTurnDots({ ...args, version });
 
@@ -180,8 +175,7 @@ export class BloodLossService {
       );
       const rating = rolled.check?.passed ? (rolled.check.rating ?? 0) : 0;
       const next = woundInstanceService.applyClotting(migrated, rating);
-      overlay = await this.resolveGameApi().replaceCombatState(args.gameId, args.targetKey, index, next);
-      version = combatOverlayService.mergeCombatOverlay(version, overlay);
+      await this.resolveGameApi().replaceCombatState(args.gameId, args.targetKey, index, next);
       if (args.chatId !== null) {
         const sent = await args.sendMessage(
           formatBloodClottingMessage(

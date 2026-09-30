@@ -3,10 +3,9 @@ import { useSpaceRevision } from '@/modules/Roleplay/RuleSpace/init';
 import { computed, onUnmounted, provide, ref, watch } from 'vue';
 import { useCurrentUser } from '@/modules/Core/User/init';
 import { useGameStore } from '@/modules/Roleplay/Game/Store/games';
-import { getGameApi } from '@/modules/Roleplay/Game/init';
-import { getCharacterApi } from '@/modules/Roleplay/Character/init';
+import { getGameApi, getGameRealtimePort } from '@/modules/Roleplay/Game/init';
 import { getMechanicApi } from '@/modules/Roleplay/Mechanic/init';
-import { sessionCharacterService } from '@/modules/Roleplay/Game/Service/Instance/sessionCharacterService';
+import { gameMembershipEligibilityService } from '@/modules/Roleplay/Game/Service/Instance/gameMembershipEligibilityService';
 import { gameChatRulesContextService } from '@/modules/Roleplay/Game/Service/Instance/gameChatRulesContextService';
 
 import { gameStatusTransitionsService } from '@/modules/Roleplay/Game/Service/Instance/gameStatusTransitionsService';
@@ -14,10 +13,15 @@ import { gameStatusTransitionsService } from '@/modules/Roleplay/Game/Service/In
 import { toCreateGameData } from '@/modules/Roleplay/Game/Utils/toCreateGameData';
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
+import type { GameStateSnapshot } from '@/modules/Roleplay/Game/Dto/GameStateSnapshot';
+import type { GameLifecycleResult } from '@/modules/Roleplay/Game/Dto/GameLifecycleResult';
 import type { GameStatus } from '@/modules/Roleplay/Game/Enum/GameStatus';
 import type { ChatSpeakerOption } from '@/modules/Messages/Chat/Dto/ChatSpeakerOption';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { GameDetail } from '@/modules/Roleplay/Game/Dto/GameDetail';
+import type { GameNpcSummary } from '@/modules/Roleplay/Game/Dto/GameNpcSummary';
+import type { GameRuntimeEntityProjection } from '@/modules/Roleplay/Game/Dto/GameRuntimeEntityProjection';
+import type { GameRealtimeEvent } from '@/modules/Roleplay/Game/Dto/GameRealtimeEvent';
 import type { ITokenSource } from '@/modules/Messages/Chat/Interface/ITokenSource';
 import type { ChatAttachment } from '@/modules/Messages/Chat/Dto/ChatAttachment';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
@@ -47,6 +51,7 @@ import { useConcentrationTokenAsk } from '@/modules/Roleplay/Game/Composables/us
 import ConcentrationTokenAskDialog from '@/modules/Roleplay/Game/Component/ConcentrationTokenAskDialog.vue';
 import { CONCENTRATION_TOKEN_ASK_INJECT_KEY } from '@/modules/Roleplay/Game/Constant/CONCENTRATION_TOKEN_ASK_INJECT_KEY';
 import { combatChatFoldService } from '@/modules/Roleplay/Game/Service/Instance/combatChatFoldService';
+import { createRandomId } from '@/modules/Core/Engine/Utils/createRandomId';
 import type { ChatMessage } from '@/modules/Messages/Chat/Dto/ChatMessage';
 import type { ChatFoldChild } from '@/modules/Messages/Chat/Dto/ChatFoldChild';
 
@@ -84,6 +89,7 @@ function buildCombatChatFolds(messages: ChatMessage[]): ChatFoldChild[] {
 // Кнопки статуса — в глобальный топбар (#editor-actions), видны только на этой вкладке.
 const statusUpdating = ref(false);
 const statusError = ref<string | null>(null);
+const statusNotice = ref<string | null>(null);
 
 const showStartGame = computed(
   () => props.canEdit && gameStatusTransitionsService.canStartGame(props.detail.game.status),
@@ -92,18 +98,90 @@ const showStopSession = computed(
   () => props.canEdit && gameStatusTransitionsService.canStopSession(props.detail.game.status),
 );
 
-// «Начать сессию» → playing, «Остановить сессию» → in_process (межсессионный период). Сессия не
-// трогает терминальный статус игры (completed ставится отдельно — селектором в форме игры).
-// При остановке сессии overlay PC атомарно коммитится в actual (DEC-059).
-async function ensurePlaying(): Promise<void> {
-  if (!gameStatusTransitionsService.canStartGame(props.detail.game.status)) return;
-  await changeStatus('playing');
+async function ensureSessionForInitiative(): Promise<void> {
+  if (!props.canEdit) throw new Error('Только ведущий может запустить игровую сессию');
+
+  if (!gameStateSnapshot.value?.session && gameStatusTransitionsService.canStartGame(props.detail.game.status)) {
+    await changeStatus('playing');
+    if (statusError.value) throw new Error(statusError.value);
+  }
+
+  if (!gameStateSnapshot.value?.session) {
+    const lifecycleResult = await getGameApi().startGameSession({
+      commandId: createRandomId(),
+      commandType: 'startSession',
+      gameId: gameId.value,
+      sessionId: null,
+      battleId: null,
+      participantAdmission: 'currentEligible',
+      payload: {},
+    });
+    if (lifecycleResult.kind === 'conflict') {
+      throw new Error(lifecycleResult.conflict.code);
+    }
+    gameStateSnapshot.value = lifecycleResult.snapshot;
+  }
+  if (!gameStateSnapshot.value.session) throw new Error('Игровая session не создана');
+  if (gameStateSnapshot.value.battle) return;
+
+  const battleResult = await getGameApi().startGameBattle({
+    commandId: createRandomId(),
+    commandType: 'startBattle',
+    gameId: gameId.value,
+    sessionId: gameStateSnapshot.value.session.sessionId,
+    battleId: null,
+    expectedSessionStateVersion: gameStateSnapshot.value.session.sessionStateVersion,
+    payload: {},
+  });
+  if (battleResult.kind === 'conflict') throw new Error(battleResult.conflict.code);
+  gameStateSnapshot.value = battleResult.snapshot;
 }
 
 async function changeStatus(target: GameStatus): Promise<void> {
   statusUpdating.value = true;
   statusError.value = null;
+  statusNotice.value = null;
   try {
+    if (target === 'playing') {
+      const previousGameData = toCreateGameData(props.detail);
+      const updated = await getGameApi().updateGame(gameId.value, {
+        ...previousGameData,
+        status: target,
+      });
+      store.applyGameUpdate(updated);
+      let lifecycleResult: GameLifecycleResult;
+      try {
+        lifecycleResult = await getGameApi().startGameSession({
+          commandId: createRandomId(),
+          commandType: 'startSession',
+          gameId: gameId.value,
+          sessionId: null,
+          battleId: null,
+          participantAdmission: 'currentEligible',
+          payload: {},
+        });
+      } catch (error) {
+        const rolledBack = await getGameApi().updateGame(gameId.value, {
+          ...previousGameData,
+        });
+        store.applyGameUpdate(rolledBack);
+        throw error;
+      }
+      if (lifecycleResult.kind === 'conflict') {
+        const rolledBack = await getGameApi().updateGame(gameId.value, {
+          ...previousGameData,
+        });
+        store.applyGameUpdate(rolledBack);
+        throw new Error(lifecycleResult.conflict.code);
+      }
+      if (lifecycleResult.status === 'already_active') {
+        statusNotice.value = 'Сессия уже была запущена. Используется существующее состояние сессии.';
+      }
+      gameStateSnapshot.value = lifecycleResult.snapshot;
+
+      return;
+    }
+
     const updated =
       target === 'in_process' || target === 'completed'
         ? await getGameApi().stopGameSession(gameId.value, target)
@@ -153,12 +231,14 @@ const tokenSources = computed<ITokenSource[]>(() => [
     label: 'НПС',
     icon: 'mdi-account-cowboy-hat',
     search: async (query) => {
-      const q = query.toLowerCase();
+      const result = await getGameApi().getNpcSummaries({
+        gameId: gameId.value,
+        query,
+        status: 'active',
+        limit: 50,
+      });
 
-      return npcs.value
-        .filter((npc) => npc.status === 'active')
-        .filter((npc) => !q || npc.name.toLowerCase().includes(q))
-        .map((npc) => ({ value: `${npc.id},${npc.name}`, label: npc.name }));
+      return result.items.map((npc) => ({ value: `${npc.id},${npc.name}`, label: npc.name }));
     },
   },
 ]);
@@ -171,20 +251,49 @@ const processAttachments = (attachments: ChatAttachment[]): ChatAttachment[] =>
 const memberships = ref<GameCharacterMembership[]>([]);
 const actualById = ref<Record<number, CharacterVersion>>({});
 const npcs = ref<GameNpc[]>([]);
+const runtimeByKey = ref<Record<CombatEntityKey, GameRuntimeEntityProjection>>({});
+const gameStateSnapshot = ref<GameStateSnapshot | null>(null);
 const loading = ref(false);
 const loadError = ref<string | null>(null);
+let loadSequence = 0;
+const projectionSequences = new Map<CombatEntityKey, number>();
+const staleNpcProjectionKeys = new Set<CombatEntityKey>();
+const pendingNpcProjectionKeys = new Set<CombatEntityKey>();
+let projectionEpoch = 0;
+let realtimeCursor = 0;
+let stopRealtimeSubscription: (() => void) | null = null;
+let realtimeApplyChain = Promise.resolve();
+let realtimeSyncRequired = false;
+let realtimeRecoveryPromise: Promise<void> | null = null;
 
-const eligibleMemberships = computed(() =>
-  memberships.value.filter((membership) =>
-    sessionCharacterService.isEligibleForSession({
+const runtimeParticipantKeys = computed(() => new Set(gameStateSnapshot.value?.session?.participantEntityKeys ?? []));
+
+const eligibleMemberships = computed(() => {
+  const isPlaying = props.detail.game.status === 'playing';
+  const hasRuntimeSession = Boolean(gameStateSnapshot.value?.session);
+
+  return memberships.value.filter((membership) => {
+    if (isPlaying) {
+      return gameMembershipEligibilityService.isActiveSessionParticipant({
+        membershipStatus: membership.membershipStatus,
+        sessionParticipant: hasRuntimeSession
+          ? runtimeParticipantKeys.value.has(`character:${membership.characterId}`)
+          : false,
+        returned: membership.reviewState === 'returned',
+      });
+    }
+
+    return gameMembershipEligibilityService.canStartSession({
       membershipStatus: membership.membershipStatus,
+      returned: membership.reviewState === 'returned',
       approved: membership.approvedCharacterVersion,
       actual: actualById.value[membership.characterId] ?? null,
+      gameSpaceCode: props.detail.game.spaceCode,
       gameRulesRevision: props.detail.game.rulesRevision,
       needsFix: false,
-    }),
-  ),
-);
+    });
+  });
+});
 
 // Макросы быстрых бросков per entityKey (CD-8): звёздочка в карточке и блок в сайдбаре.
 const quickRolls = ref<Record<string, string[]>>({});
@@ -218,48 +327,397 @@ const speakerOptions = computed<ChatSpeakerOption[]>(() => {
 });
 
 async function load(): Promise<void> {
+  const requestSequence = ++loadSequence;
+  const requestGameId = gameId.value;
+  const requestGameStatus = props.detail.game.status;
+  const requestSpaceId = props.detail.game.spaceId;
+  const requestRulesRevision = props.detail.game.rulesRevision;
   loading.value = true;
   loadError.value = null;
   try {
-    memberships.value = await getGameApi().getGameCharacters(gameId.value);
-    const actuals: Record<number, CharacterVersion> = {};
-    await Promise.all(
-      memberships.value.map(async (membership) => {
-        try {
-          const detail = await getCharacterApi().getCharacter(membership.characterId);
-          actuals[membership.characterId] = detail.version;
-        } catch {
-          // лист недоступен
-        }
-      }),
+    let snapshot: GameStateSnapshot | null = null;
+    try {
+      snapshot = await getGameApi().getGameStateSnapshot(requestGameId);
+    } catch {
+      // Legacy Game API не имеет snapshot boundary; сохраняем совместимость до его подключения.
+      snapshot = null;
+    }
+    const membershipsResult = await getGameApi().getGameCharacters(requestGameId);
+    if (requestSequence !== loadSequence || requestGameId !== gameId.value) return;
+    const characterKeys = membershipsResult.map(
+      (membership) => `character:${membership.characterId}` as CombatEntityKey,
     );
+    const projectionLevel = 'summary';
+    const [runtimeResult, npcResult] = await Promise.all([
+      getGameApi().getRuntimeEntities(requestGameId, { entityKeys: characterKeys, projectionLevel }),
+      getGameApi().getNpcSummaries({ gameId: requestGameId, status: 'active', limit: 100 }),
+    ]);
+    if (requestSequence !== loadSequence || requestGameId !== gameId.value) return;
+    gameStateSnapshot.value = snapshot;
+    memberships.value = membershipsResult;
+    const actuals: Record<number, CharacterVersion> = { ...actualById.value };
+    const nextRuntimeProjections: Record<CombatEntityKey, GameRuntimeEntityProjection> = {
+      ...runtimeByKey.value,
+    };
+    for (const projection of runtimeResult.projections) {
+      const currentProjection = nextRuntimeProjections[projection.entityKey];
+      if (
+        currentProjection?.projectionLevel === 'full' &&
+        projection.projectionLevel === 'summary' &&
+        projection.actualVersion <= currentProjection.actualVersion
+      ) {
+        continue;
+      }
+      nextRuntimeProjections[projection.entityKey] = projection;
+      if (projection.kind === 'character') {
+        if (projection.version) actuals[projection.id] = projection.version;
+        else delete actuals[projection.id];
+      }
+    }
     actualById.value = actuals;
-    npcs.value = await getGameApi().getNpcs(gameId.value);
-    quickRolls.value = await getGameApi().getQuickRolls(gameId.value);
-    await refreshProcessSessions();
-    mechanics.value = await getMechanicApi().getMechanics();
-    await loadRevision();
+    runtimeByKey.value = nextRuntimeProjections;
+    npcs.value = npcResult.items.map(toLegacyNpc);
+    void loadRuntimeProjections(
+      snapshot?.battle?.initiative?.participants.map((participant) => participant.id) ?? [],
+      requestGameId,
+    );
+    const nextQuickRolls = await getGameApi().getQuickRolls(requestGameId);
+    if (requestSequence !== loadSequence || requestGameId !== gameId.value) return;
+    quickRolls.value = nextQuickRolls;
+    await refreshProcessSessions(requestGameId, requestSequence);
+    if (requestSequence !== loadSequence || requestGameId !== gameId.value) return;
+    const nextMechanics = await getMechanicApi().getMechanics();
+    if (requestSequence !== loadSequence || requestGameId !== gameId.value) return;
+    mechanics.value = nextMechanics;
+    await loadRevision(requestSpaceId, requestRulesRevision, requestGameId, requestSequence);
+    connectRealtime(requestGameId);
+    try {
+      await syncRealtime(requestGameId, characterKeys, requestGameStatus, requestSequence);
+    } catch {
+      // Основной snapshot уже загружен; sync transport подключится при следующем reload/reconnect.
+    }
   } catch (e) {
-    loadError.value = e instanceof Error ? e.message : 'Не удалось загрузить данные чата';
+    if (requestSequence === loadSequence) {
+      loadError.value = e instanceof Error ? e.message : 'Не удалось загрузить данные чата';
+    }
   } finally {
-    loading.value = false;
+    if (requestSequence === loadSequence) loading.value = false;
   }
 }
 
+function toLegacyNpc(summary: GameNpcSummary): GameNpc {
+  const { actualSpaceCode: _actualSpaceCode, actualRulesRevision: _actualRulesRevision, ...npc } = summary;
+
+  return { ...npc, version: null };
+}
+
+function disconnectRealtime(): void {
+  stopRealtimeSubscription?.();
+  stopRealtimeSubscription = null;
+}
+
+function isKnownRealtimeEntity(entityKey: CombatEntityKey): boolean {
+  if (runtimeByKey.value[entityKey] || runtimeParticipantKeys.value.has(entityKey)) return true;
+  if (!entityKey.startsWith('npc:')) return false;
+  const npcId = Number(entityKey.slice('npc:'.length));
+
+  return npcs.value.some((npc) => npc.id === npcId);
+}
+
+async function applyRealtimeEvent(event: GameRealtimeEvent): Promise<boolean> {
+  if (event.gameId !== gameId.value || event.cursor <= realtimeCursor) return true;
+  if (!isKnownRealtimeEntity(event.entityKey)) {
+    realtimeCursor = event.cursor;
+
+    return true;
+  }
+  const knownProjection = runtimeByKey.value[event.entityKey];
+  const projection = await getGameApi().getRuntimeEntity(
+    event.gameId,
+    event.entityKey,
+    knownProjection?.projectionLevel === 'full' || initiativeKeys.value.includes(event.entityKey) ? 'full' : 'summary',
+  );
+  if (!projection || projection.actualVersion < event.actualVersion) return false;
+
+  applyRuntimeProjection(projection);
+  realtimeCursor = event.cursor;
+
+  return true;
+}
+
+function enqueueRealtimeEvent(event: GameRealtimeEvent): void {
+  realtimeApplyChain = realtimeApplyChain
+    .then(async () => {
+      if (realtimeSyncRequired) return;
+      if (await applyRealtimeEvent(event)) return;
+
+      realtimeSyncRequired = true;
+      await recoverRealtime();
+    })
+    .catch(() => {
+      realtimeSyncRequired = true;
+      void recoverRealtime();
+    });
+}
+
+function realtimeEntityKeys(): CombatEntityKey[] {
+  return [
+    ...new Set([
+      ...memberships.value.map((membership) => `character:${membership.characterId}` as CombatEntityKey),
+      ...npcs.value.map((npc) => `npc:${npc.id}` as CombatEntityKey),
+      ...(Object.keys(runtimeByKey.value) as CombatEntityKey[]),
+    ]),
+  ];
+}
+
+async function syncRealtime(
+  requestGameId: number,
+  entityKeys: readonly CombatEntityKey[],
+  requestStatus: GameStatus,
+  requestSequence: number,
+): Promise<boolean> {
+  const result = await getGameRealtimePort().sync(requestGameId, {
+    lastCursor: realtimeCursor === 0 ? null : realtimeCursor,
+    entityKeys: [...entityKeys],
+    projectionLevel: requestStatus === 'playing' ? 'summary' : 'full',
+  });
+  if (requestSequence !== loadSequence || requestGameId !== gameId.value) return false;
+
+  if (result.kind === 'snapshot') {
+    realtimeCursor = result.currentCursor;
+    gameStateSnapshot.value = result.snapshot;
+    for (const projection of result.projections) applyRuntimeProjection(projection);
+    const projectionsRecovered = await loadRuntimeProjections(
+      result.snapshot.battle?.initiative?.participants.map((participant) => participant.id) ?? [],
+      requestGameId,
+    );
+
+    return projectionsRecovered;
+  }
+
+  for (const event of result.events) {
+    if (!(await applyRealtimeEvent(event))) return false;
+  }
+  realtimeCursor = Math.max(realtimeCursor, result.currentCursor);
+
+  return true;
+}
+
+async function recoverRealtime(): Promise<void> {
+  if (realtimeRecoveryPromise) return realtimeRecoveryPromise;
+
+  realtimeRecoveryPromise = syncRealtime(gameId.value, realtimeEntityKeys(), props.detail.game.status, loadSequence)
+    .then((recovered) => {
+      if (recovered) realtimeSyncRequired = false;
+    })
+    .catch(() => undefined)
+    .finally(() => {
+      realtimeRecoveryPromise = null;
+    });
+
+  return realtimeRecoveryPromise;
+}
+
+function connectRealtime(requestGameId: number): void {
+  disconnectRealtime();
+  if (!props.active) return;
+  realtimeSyncRequired = false;
+  stopRealtimeSubscription = getGameRealtimePort().subscribe(
+    requestGameId,
+    (event) => {
+      enqueueRealtimeEvent(event);
+    },
+    (realtimeError) => {
+      loadError.value = realtimeError.message;
+    },
+  );
+}
+
+async function loadRuntimeProjection(entityKey: CombatEntityKey): Promise<void> {
+  const requestSequence = (projectionSequences.get(entityKey) ?? 0) + 1;
+  const requestGameId = gameId.value;
+  const requestLoadSequence = loadSequence;
+  const requestProjectionEpoch = projectionEpoch;
+  projectionSequences.set(entityKey, requestSequence);
+  if (entityKey.startsWith('npc:')) pendingNpcProjectionKeys.add(entityKey);
+  try {
+    const projection = await getGameApi().getRuntimeEntity(requestGameId, entityKey, 'full');
+    if (
+      requestGameId !== gameId.value ||
+      requestLoadSequence !== loadSequence ||
+      requestProjectionEpoch !== projectionEpoch
+    )
+      return;
+    if (projectionSequences.get(entityKey) !== requestSequence) return;
+    if (!projection) return;
+
+    applyRuntimeProjection(projection);
+  } finally {
+    if (projectionSequences.get(entityKey) === requestSequence) {
+      pendingNpcProjectionKeys.delete(entityKey);
+    }
+  }
+}
+
+async function ensureRuntimeProjection(entityKey: CombatEntityKey): Promise<void> {
+  if (!entityKey.startsWith('npc:')) return;
+  const projection = runtimeByKey.value[entityKey];
+  if (projection?.kind === 'npc' && projection.projectionLevel === 'full' && !staleNpcProjectionKeys.has(entityKey)) {
+    return;
+  }
+
+  try {
+    await loadRuntimeProjection(entityKey);
+  } catch {
+    // The dialog keeps its summary fallback when a full projection is unavailable.
+  }
+}
+
+function applyRuntimeProjection(projection: GameRuntimeEntityProjection): void {
+  const current = runtimeByKey.value[projection.entityKey];
+  if (
+    current?.projectionLevel === 'full' &&
+    projection.projectionLevel === 'summary' &&
+    projection.actualVersion <= current.actualVersion
+  ) {
+    return;
+  }
+  runtimeByKey.value = { ...runtimeByKey.value, [projection.entityKey]: projection };
+  if (projection.kind === 'character' && projection.version) {
+    actualById.value = { ...actualById.value, [projection.id]: projection.version };
+  }
+  if (projection.kind !== 'npc' || projection.projectionLevel !== 'full') return;
+  staleNpcProjectionKeys.delete(projection.entityKey);
+
+  npcs.value = npcs.value.map((npc) =>
+    npc.id === projection.id ? { ...npc, version: projection.version, actualVersion: projection.actualVersion } : npc,
+  );
+}
+
+async function loadRuntimeProjections(
+  entityKeys: readonly string[],
+  targetGameId: number = gameId.value,
+  force = false,
+): Promise<boolean> {
+  const projectionKeys = [
+    ...new Set(
+      entityKeys
+        .filter((key) => {
+          const candidateKey = key as CombatEntityKey;
+          const projection = runtimeByKey.value[candidateKey];
+
+          return (
+            projection?.projectionLevel !== 'full' ||
+            force ||
+            (candidateKey.startsWith('npc:') && staleNpcProjectionKeys.has(candidateKey))
+          );
+        })
+        .map((key) => key as CombatEntityKey),
+    ),
+  ];
+  if (projectionKeys.length === 0) return true;
+
+  const requestSequences = new Map<CombatEntityKey, number>();
+  for (const key of projectionKeys) {
+    const requestSequence = (projectionSequences.get(key) ?? 0) + 1;
+    projectionSequences.set(key, requestSequence);
+    requestSequences.set(key, requestSequence);
+    if (key.startsWith('npc:')) pendingNpcProjectionKeys.add(key);
+  }
+
+  try {
+    const requestGameId = targetGameId;
+    const requestLoadSequence = loadSequence;
+    const requestProjectionEpoch = projectionEpoch;
+    const result = await getGameApi().getRuntimeEntities(requestGameId, {
+      entityKeys: projectionKeys,
+      projectionLevel: 'full',
+    });
+    if (
+      requestGameId !== gameId.value ||
+      requestLoadSequence !== loadSequence ||
+      requestProjectionEpoch !== projectionEpoch
+    )
+      return false;
+    for (const projection of result.projections) {
+      if (projectionSequences.get(projection.entityKey) === requestSequences.get(projection.entityKey)) {
+        applyRuntimeProjection(projection);
+      }
+    }
+
+    return result.missingEntityKeys.length === 0;
+  } catch {
+    // A projection is best-effort; the summary remains usable when the full read is unavailable.
+    return false;
+  } finally {
+    for (const key of projectionKeys) {
+      if (projectionSequences.get(key) === requestSequences.get(key)) {
+        if (key.startsWith('npc:')) pendingNpcProjectionKeys.delete(key);
+      }
+    }
+  }
+}
+
+async function ensureRuntimeProjectionsForInitiative(entityKeys: string[]): Promise<void> {
+  const loaded = await loadRuntimeProjections(entityKeys);
+  if (!loaded) throw new Error('Не удалось загрузить полные листы выбранных участников');
+}
+
+function invalidateRuntimeProjections(): void {
+  projectionEpoch += 1;
+  const fullProjectionEntries = Object.entries(runtimeByKey.value).filter(
+    ([, projection]) => projection.projectionLevel === 'full',
+  );
+
+  const staleKeys: CombatEntityKey[] = [];
+  for (const [entityKey] of fullProjectionEntries) {
+    const combatEntityKey = entityKey as CombatEntityKey;
+    if (combatEntityKey.startsWith('npc:')) staleNpcProjectionKeys.add(combatEntityKey);
+    projectionSequences.set(combatEntityKey, (projectionSequences.get(combatEntityKey) ?? 0) + 1);
+    staleKeys.push(combatEntityKey);
+  }
+  for (const pendingKey of pendingNpcProjectionKeys) {
+    if (!staleKeys.includes(pendingKey)) {
+      staleNpcProjectionKeys.add(pendingKey);
+      projectionSequences.set(pendingKey, (projectionSequences.get(pendingKey) ?? 0) + 1);
+      staleKeys.push(pendingKey);
+    }
+  }
+  if (staleKeys.length === 0) return;
+  void loadRuntimeProjections(staleKeys, gameId.value, true);
+}
+
 // Правила ревизии игры: чипы и источники «Вставить ссылку» резолвятся из неё (D72).
-async function loadRevision(): Promise<void> {
-  const detail = props.detail;
-  const revision = await spaceRevision.fetchRevision(detail.game.spaceId, detail.game.rulesRevision);
+async function loadRevision(
+  spaceId: number = props.detail.game.spaceId,
+  rulesRevision: number = props.detail.game.rulesRevision,
+  targetGameId: number = gameId.value,
+  targetLoadSequence: number = loadSequence,
+): Promise<void> {
+  const revision = await spaceRevision.fetchRevision(spaceId, rulesRevision);
+  if (targetGameId !== gameId.value || targetLoadSequence !== loadSequence) return;
   revisionRules.value = revision.rules;
 }
 
 watch(
   () => props.active,
   (value) => {
-    if (value) void load();
+    if (value) {
+      void load();
+    } else {
+      disconnectRealtime();
+    }
   },
   { immediate: true },
 );
+
+watch(gameId, () => {
+  realtimeCursor = 0;
+  disconnectRealtime();
+  runtimeByKey.value = {};
+  actualById.value = {};
+  if (props.active) void load();
+});
 
 // Авто-переключение селектора «от лица кого» на активного персонажа инициативы:
 // только если этот источник речи доступен текущему пользователю (его персонаж/НПС/роль).
@@ -289,6 +747,11 @@ const initiativeKeys = ref<string[]>([]);
 
 function onInitiativeParticipants(keys: string[]): void {
   initiativeKeys.value = keys;
+  void loadRuntimeProjections(keys);
+}
+
+function onInitiativeRuntimeProjections(projections: GameRuntimeEntityProjection[]): void {
+  for (const projection of projections) applyRuntimeProjection(projection);
 }
 
 // Боевая карточка: слайд-овер по клику на участника шкалы инициативы (CD-5).
@@ -302,16 +765,22 @@ const processSessionsByEntity = ref<Record<CombatEntityKey, ProcessSession>>({})
 
 function onOverlayChanged(): void {
   overlayRevision.value += 1;
+  invalidateRuntimeProjections();
   void refreshProcessSessions();
 }
 
-async function refreshProcessSessions(): Promise<void> {
-  processSessionsByEntity.value = await getGameApi()
-    .getProcessSessions(gameId.value)
+async function refreshProcessSessions(
+  targetGameId: number = gameId.value,
+  targetLoadSequence: number = loadSequence,
+): Promise<void> {
+  const processSessions = await getGameApi()
+    .getProcessSessions(targetGameId)
     .catch(() => ({}));
+  if (targetGameId !== gameId.value || targetLoadSequence !== loadSequence) return;
+  processSessionsByEntity.value = processSessions;
 }
 
-function onOpenCard(entityKey: string): void {
+async function onOpenCard(entityKey: string): Promise<void> {
   if (entityKey.startsWith('process:continue:')) {
     const processEntityKey = entityKey.slice('process:continue:'.length) as CombatEntityKey;
     if (
@@ -333,6 +802,11 @@ function onOpenCard(entityKey: string): void {
     return;
   cardKey.value = key;
   cardOpen.value = true;
+  try {
+    await loadRuntimeProjection(key);
+  } catch {
+    // Legacy card remains available if the on-demand projection is unavailable.
+  }
 }
 
 function onCloseCard(): void {
@@ -363,6 +837,9 @@ async function toggleQuickRoll(entityKey: string, ruleCode: string): Promise<voi
 }
 
 watch(speakerOptions, () => applySpeakerKey());
+watch(activeSpeakerKey, (key) => {
+  if (key && key !== 'gm') void loadRuntimeProjections([key]);
+});
 
 const checkOpen = ref(false);
 const actionOpen = ref(false);
@@ -398,8 +875,7 @@ function isWaitingOnSpeaker(offer: CheckOffer, key: CombatEntityKey | null, asGm
 
   return (
     (offer.waitingOn === 'covering' && Boolean(offer.waitingOnCoverers?.includes(key))) ||
-    (offer.waitingOn === 'opponent' &&
-      (offer.opponent === key || Boolean(offer.waitingOnTargets?.includes(key)))) ||
+    (offer.waitingOn === 'opponent' && (offer.opponent === key || Boolean(offer.waitingOnTargets?.includes(key)))) ||
     (offer.waitingOn === 'initiator' && offer.initiator === key)
   );
 }
@@ -415,8 +891,7 @@ function isWaitingOnYou(offer: CheckOffer, key: CombatEntityKey | null): boolean
 
   return (
     (offer.waitingOn === 'covering' && Boolean(offer.waitingOnCoverers?.includes(key))) ||
-    (offer.waitingOn === 'opponent' &&
-      (offer.opponent === key || Boolean(offer.waitingOnTargets?.includes(key)))) ||
+    (offer.waitingOn === 'opponent' && (offer.opponent === key || Boolean(offer.waitingOnTargets?.includes(key)))) ||
     (offer.waitingOn === 'initiator' && offer.initiator === key)
   );
 }
@@ -455,10 +930,10 @@ async function refreshPendingOffers(): Promise<void> {
   const first =
     actionable.find(
       (offer) =>
-        offer.checkCode === CHECK_HIT_CODE &&
-        (offer.waitingOn === 'covering' || offer.waitingOn === 'opponent'),
+        offer.checkCode === CHECK_HIT_CODE && (offer.waitingOn === 'covering' || offer.waitingOn === 'opponent'),
     ) ?? actionable[0];
   if (!checkOpen.value && !hitOpen.value && first) {
+    await loadRuntimeProjections([first.initiator, first.opponent]);
     if (first.checkCode === CHECK_HIT_CODE) {
       hitResumeOffer.value = first;
       hitAttackerKey.value = first.initiator;
@@ -485,7 +960,8 @@ function reopenOffer(offer: CheckOffer): void {
   checkOpen.value = true;
 }
 
-function openCheckLaunch(): void {
+async function openCheckLaunch(): Promise<void> {
+  if (speakerEntityKey.value) await loadRuntimeProjections([speakerEntityKey.value]);
   const existing = pendingToResume();
   if (existing) {
     reopenOffer(existing);
@@ -500,12 +976,16 @@ function openNewCheck(): void {
   checkOpen.value = true;
 }
 
-function openActionLaunch(): void {
+async function openActionLaunch(): Promise<void> {
+  if (speakerEntityKey.value) await loadRuntimeProjections([speakerEntityKey.value]);
   actionLaunchHint.value = null;
   actionOpen.value = true;
 }
 
-function onLaunchStateAction(hint: ActionLaunchHint): void {
+async function onLaunchStateAction(hint: ActionLaunchHint): Promise<void> {
+  await loadRuntimeProjections(
+    [speakerEntityKey.value, hint.targetKey].filter((key): key is CombatEntityKey => key !== null),
+  );
   actionLaunchHint.value = hint;
   actionOpen.value = true;
 }
@@ -547,7 +1027,8 @@ function onHitClosed(open: boolean): void {
   void refreshPendingOffers();
 }
 
-function onLaunchHit(payload: { attackerKey: CombatEntityKey; attack: AttackOverview }): void {
+async function onLaunchHit(payload: { attackerKey: CombatEntityKey; attack: AttackOverview }): Promise<void> {
+  await loadRuntimeProjections([payload.attackerKey]);
   hitResumeOffer.value = null;
   attackAction.value = null;
   hitAttackerKey.value = payload.attackerKey;
@@ -555,7 +1036,8 @@ function onLaunchHit(payload: { attackerKey: CombatEntityKey; attack: AttackOver
   hitOpen.value = true;
 }
 
-function onLaunchProcessStep(payload: ProcessActionContext & { attack: AttackOverview }): void {
+async function onLaunchProcessStep(payload: ProcessActionContext & { attack: AttackOverview }): Promise<void> {
+  await loadRuntimeProjections([payload.session.entityKey]);
   hitResumeOffer.value = null;
   attackAction.value = null;
   hitAttackerKey.value = payload.session.entityKey;
@@ -564,8 +1046,13 @@ function onLaunchProcessStep(payload: ProcessActionContext & { attack: AttackOve
   hitOpen.value = true;
 }
 
-function openAttackLaunch(): void {
-  attackActorKey.value = null;
+async function openAttackLaunch(): Promise<void> {
+  const initiativeActorKey =
+    props.canEdit && lastTurnId.value && lastTurnId.value !== 'gm'
+      ? (lastTurnId.value as CombatEntityKey)
+      : speakerEntityKey.value;
+  if (initiativeActorKey) await loadRuntimeProjections([initiativeActorKey]);
+  attackActorKey.value = initiativeActorKey;
   attackOpen.value = true;
 }
 
@@ -574,7 +1061,8 @@ function onAttackClosed(open: boolean): void {
   if (!open) attackActorKey.value = null;
 }
 
-function onLaunchAttack(payload: AttackAction): void {
+async function onLaunchAttack(payload: AttackAction): Promise<void> {
+  await loadRuntimeProjections([payload.initiator, ...payload.strikes.map((strike) => strike.targetKey)]);
   attackAction.value = payload;
   hitAttackerKey.value = payload.initiator;
   hitAttack.value = payload.strikes[0]?.profile ?? null;
@@ -587,13 +1075,15 @@ function onLaunchInjury(): void {
   injuryOpen.value = true;
 }
 
-function openSpellLaunch(): void {
+async function openSpellLaunch(): Promise<void> {
+  if (speakerEntityKey.value) await loadRuntimeProjections([speakerEntityKey.value]);
   spellCasterKey.value = null;
   spellLaunchContext.value = { kind: 'free' };
   spellOpen.value = true;
 }
 
-function onLaunchChargeCast(payload: { casterKey: CombatEntityKey; sustainId: string }): void {
+async function onLaunchChargeCast(payload: { casterKey: CombatEntityKey; sustainId: string }): Promise<void> {
+  await loadRuntimeProjections([payload.casterKey]);
   spellCasterKey.value = payload.casterKey;
   spellLaunchContext.value = { kind: 'charge_spend', sustainId: payload.sustainId };
   spellOpen.value = true;
@@ -614,6 +1104,7 @@ watch(
 );
 
 onUnmounted(() => {
+  disconnectRealtime();
   if (pendingPoll) clearInterval(pendingPoll);
 });
 </script>
@@ -670,6 +1161,9 @@ onUnmounted(() => {
   </Teleport>
 
   <div class="game-chat-tab">
+    <v-alert v-if="statusNotice" type="info" variant="tonal" density="compact" class="mb-3">
+      {{ statusNotice }}
+    </v-alert>
     <v-alert v-if="statusError" type="error" variant="tonal" density="compact" class="mb-3">{{ statusError }}</v-alert>
     <v-alert v-if="loadError" type="error" variant="tonal" density="compact" class="mb-3">
       <div class="d-flex align-center ga-2">
@@ -686,16 +1180,19 @@ onUnmounted(() => {
           :can-edit="canEdit"
           :characters="eligibleMemberships"
           :npcs="npcs"
+          :runtime-projections="runtimeByKey"
           :rules="revisionRules"
           :mechanics="mechanics"
           :overlay-revision="overlayRevision"
-          :ensure-playing="ensurePlaying"
+          :ensure-session="ensureSessionForInitiative"
+          :ensure-runtime-projections="ensureRuntimeProjectionsForInitiative"
           :game-status="detail.game.status"
           class="game-chat-sidebar__initiative"
           @turn="onTurn"
           @open-card="onOpenCard"
           @overlay-changed="onOverlayChanged"
           @participants="onInitiativeParticipants"
+          @runtime-projections="onInitiativeRuntimeProjections"
         />
 
         <CombatQuickRolls
@@ -705,6 +1202,7 @@ onUnmounted(() => {
           :current-user-id="currentUser?.id ?? null"
           :memberships="eligibleMemberships"
           :npcs="npcs"
+          :runtime-projections="runtimeByKey"
           :rules="revisionRules"
           :mechanics="mechanics"
           :quick-rolls="quickRolls"
@@ -754,6 +1252,7 @@ onUnmounted(() => {
       :rules-revision="detail.game.rulesRevision"
       :overlay-revision="overlayRevision"
       :process-sessions="processSessionsByEntity"
+      :runtime-projection="cardKey ? (runtimeByKey[cardKey] ?? null) : null"
       @update:open="onCloseCard"
       @toggle-quick-roll="toggleQuickRoll"
       @overlay-changed="onOverlayChanged"
@@ -777,6 +1276,8 @@ onUnmounted(() => {
       :active-speaker-key="activeSpeakerKey"
       :initiative-keys="initiativeKeys"
       :resume-offer="resumeOffer"
+      :runtime-projections="runtimeByKey"
+      :ensure-runtime-projection="ensureRuntimeProjection"
       @update:open="onCheckClosed"
       @settled="refreshPendingOffers"
     />
@@ -793,6 +1294,7 @@ onUnmounted(() => {
       :current-user-id="currentUser?.id ?? null"
       :active-speaker-key="activeSpeakerKey"
       :launch-hint="actionLaunchHint"
+      :runtime-projections="runtimeByKey"
       @launch-process-step="onLaunchProcessStep"
       @update:open="onActionClosed"
       @settled="onOverlayChanged"
@@ -810,6 +1312,7 @@ onUnmounted(() => {
       :active-speaker-key="activeSpeakerKey"
       :actor-key="attackActorKey"
       :initiative-keys="initiativeKeys"
+      :runtime-projections="runtimeByKey"
       @update:open="onAttackClosed"
       @launch-attack="onLaunchAttack"
     />
@@ -831,6 +1334,7 @@ onUnmounted(() => {
       :resume-offer="hitResumeOffer"
       :process-context="processActionContext"
       :initiative-keys="initiativeKeys"
+      :runtime-projections="runtimeByKey"
       @update:open="onHitClosed"
       @settled="refreshPendingOffers"
       @overlay-changed="onOverlayChanged"
@@ -861,6 +1365,8 @@ onUnmounted(() => {
       :can-edit="canEdit"
       :current-user-id="currentUser?.id ?? null"
       :initiative-keys="initiativeKeys"
+      :runtime-projections="runtimeByKey"
+      :ensure-runtime-projection="ensureRuntimeProjection"
       @update:open="spellOpen = $event"
       @overlay-changed="onOverlayChanged"
       @settled="refreshPendingOffers"

@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, onUnmounted, ref, watch } from 'vue';
+import { debounce } from '@/modules/Core/UI/Utils/debounce';
 import { useCurrentUser } from '@/modules/Core/User/init';
-import { getGameApi } from '@/modules/Roleplay/Game/init';
+import { getGameApi, getGameRealtimePort } from '@/modules/Roleplay/Game/init';
 import { sheetAccessService } from '@/modules/Roleplay/Character/init';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
+import type { GameNpcSummary } from '@/modules/Roleplay/Game/Dto/GameNpcSummary';
 import type { SheetVisibility } from '@/modules/Roleplay/Character/Dto/SheetVisibility';
 import type { SheetAccessContext } from '@/modules/Roleplay/Character/Interface/SheetAccessContext';
 import type { GameMember } from '@/modules/Roleplay/Game/Dto/GameMember';
@@ -12,6 +14,7 @@ import NpcCard, { type NpcCardData } from '@/modules/Roleplay/Game/Component/Det
 import SheetVisibilityDialog from '@/modules/Roleplay/Game/Component/Detail/SheetVisibilityDialog.vue';
 import NpcMigrationDialog from '@/modules/Roleplay/Game/Component/Detail/NpcMigrationDialog.vue';
 import { needsNpcMigration } from '@/modules/Roleplay/Game/Utils/npcRevision';
+import type { GameRealtimeEvent } from '@/modules/Roleplay/Game/Dto/GameRealtimeEvent';
 
 const props = defineProps<{
   /** Активна ли вкладка: перезагрузка при активации (v-window не размонтирует вкладки). */
@@ -27,10 +30,17 @@ const props = defineProps<{
 
 const { currentUser } = useCurrentUser();
 
-const npcs = ref<GameNpc[]>([]);
+const npcs = ref<GameNpcSummary[]>([]);
+const nextCursor = ref<string | null>(null);
 const loading = ref(false);
+const loadingMore = ref(false);
 const error = ref<string | null>(null);
 const actionError = ref<string | null>(null);
+let loadSequence = 0;
+let realtimeRequestSequence = 0;
+let stopRealtimeSubscription: (() => void) | null = null;
+let realtimeCursor = 0;
+let realtimeApplyChain = Promise.resolve();
 const query = ref('');
 
 const adding = ref(false);
@@ -44,7 +54,7 @@ const cardOpen = ref(false);
 const selectedNpc = ref<GameNpc | null>(null);
 
 const visibilityOpen = ref(false);
-const visibilityTarget = ref<GameNpc | null>(null);
+const visibilityTarget = ref<GameNpcSummary | null>(null);
 
 const migrationOpen = ref(false);
 const migrationTarget = ref<GameNpc | null>(null);
@@ -53,7 +63,7 @@ const activeNpcs = computed(() => npcs.value.filter((npc) => npc.status === 'act
 const proposedNpcs = computed(() => npcs.value.filter((npc) => npc.status === 'proposed'));
 
 // У НПС нет владельца (ownerId null); видимость для игроков — по зонам, ведущие — через роль 'gm'.
-function ctxFor(user: User, npc: GameNpc): SheetAccessContext {
+function ctxFor(user: User, npc: GameNpcSummary): SheetAccessContext {
   return { user, ownerId: null, characterId: npc.id, gameId: props.gameId };
 }
 
@@ -73,31 +83,23 @@ const myProposals = computed(() => {
 
 const moderationQueue = computed(() => (props.canManage ? proposedNpcs.value : []));
 
-// Поиск по имени и описательным тегам НПС.
-const filteredNpcs = computed(() => {
-  const q = query.value.trim().toLowerCase();
-  if (!q) return visibleNpcs.value;
+// Поиск выполняется на Game read boundary; client-side filter оставлен только для visibility policy.
+const filteredNpcs = computed(() => visibleNpcs.value);
+const filteredMyProposals = computed(() => myProposals.value);
 
-  return visibleNpcs.value.filter(
-    (npc) => npc.name.toLowerCase().includes(q) || npc.tags.some((tag) => tag.toLowerCase().includes(q)),
-  );
-});
+function npcNeedsMigration(npc: GameNpcSummary | GameNpc): boolean {
+  if ('version' in npc) {
+    return needsNpcMigration(npc, { rulesRevision: props.rulesRevision, spaceCode: props.spaceCode });
+  }
+  if (npc.actualRulesRevision === null || props.rulesRevision === null || props.spaceCode === null) return false;
 
-const filteredMyProposals = computed(() => {
-  const q = query.value.trim().toLowerCase();
-  if (!q) return myProposals.value;
-
-  return myProposals.value.filter(
-    (npc) => npc.name.toLowerCase().includes(q) || npc.tags.some((tag) => tag.toLowerCase().includes(q)),
-  );
-});
-
-function npcNeedsMigration(npc: GameNpc): boolean {
-  return needsNpcMigration(npc, { rulesRevision: props.rulesRevision, spaceCode: props.spaceCode });
+  return npc.actualRulesRevision !== props.rulesRevision || npc.actualSpaceCode !== props.spaceCode;
 }
 
-function openMigration(npc: GameNpc): void {
-  migrationTarget.value = npc;
+async function openMigration(npc: GameNpcSummary | GameNpc): Promise<void> {
+  await run(async () => {
+    migrationTarget.value = await getGameApi().getNpc(props.gameId, npc.id);
+  });
   cardOpen.value = false;
   migrationOpen.value = true;
 }
@@ -111,20 +113,112 @@ function briefVisibility(): SheetVisibility {
 }
 
 /** Виден ли НПС всем участникам (есть зона all). */
-function isVisibleToAll(npc: GameNpc): boolean {
+function isVisibleToAll(npc: GameNpcSummary | GameNpc): boolean {
   return npc.visibility.some((rule) => rule.audience === 'all');
 }
 
-async function load(): Promise<void> {
-  loading.value = true;
+async function load(append = false): Promise<void> {
+  const requestSequence = ++loadSequence;
+  if (append) loadingMore.value = true;
+  else loading.value = true;
   error.value = null;
   try {
-    npcs.value = await getGameApi().getNpcs(props.gameId);
+    const result = await getGameApi().getNpcSummaries({
+      gameId: props.gameId,
+      query: query.value.trim() || undefined,
+      limit: 50,
+      cursor: append ? nextCursor.value ?? undefined : undefined,
+    });
+    if (requestSequence !== loadSequence) return;
+    npcs.value = append ? [...npcs.value, ...result.items] : result.items;
+    nextCursor.value = result.nextCursor;
+    connectRealtime();
   } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Не удалось загрузить НПС';
+    if (requestSequence === loadSequence) error.value = e instanceof Error ? e.message : 'Не удалось загрузить НПС';
   } finally {
-    loading.value = false;
+    if (requestSequence === loadSequence) {
+      loading.value = false;
+      loadingMore.value = false;
+    }
   }
+}
+
+async function refreshRealtimeNpc(npcId: number): Promise<boolean> {
+  const requestSequence = ++realtimeRequestSequence;
+  if (selectedNpc.value?.id === npcId) {
+    const updated = await getGameApi().getNpc(props.gameId, npcId);
+    if (requestSequence !== realtimeRequestSequence) return false;
+
+    npcs.value = npcs.value.map((npc) =>
+      npc.id === npcId
+        ? {
+            ...npc,
+            name: updated.name,
+            shortDescription: updated.shortDescription,
+            actualVersion: updated.actualVersion,
+            actualSpaceCode: updated.version?.spaceCode ?? npc.actualSpaceCode,
+            actualRulesRevision: updated.version?.rulesRevision ?? npc.actualRulesRevision,
+          }
+        : npc,
+    );
+    selectedNpc.value = updated;
+
+    return true;
+  }
+
+  const projection = await getGameApi().getRuntimeEntity(props.gameId, `npc:${npcId}`, 'summary');
+  if (requestSequence !== realtimeRequestSequence || !projection) return false;
+
+  npcs.value = npcs.value.map((npc) =>
+    npc.id === npcId
+      ? {
+          ...npc,
+          name: projection.summary.name,
+          shortDescription: projection.summary.shortDescription,
+          actualSpaceCode: projection.actualSpaceCode,
+          actualRulesRevision: projection.actualRulesRevision,
+        }
+      : npc,
+  );
+
+  return true;
+}
+
+function onRealtimeEvent(event: GameRealtimeEvent): void {
+  if (event.gameId !== props.gameId || event.eventKind !== 'npc.changed') return;
+  const [kind, rawId] = event.entityKey.split(':');
+  const npcId = Number(rawId);
+  if (kind !== 'npc' || !Number.isInteger(npcId)) return;
+  realtimeApplyChain = realtimeApplyChain
+    .then(async () => {
+      if (event.cursor <= realtimeCursor) return;
+      const refreshed = await refreshRealtimeNpc(npcId);
+      if (!refreshed) {
+        realtimeCursor = 0;
+        await load();
+
+        return;
+      }
+      realtimeCursor = event.cursor;
+    })
+    .catch(async (reason: unknown) => {
+      actionError.value = reason instanceof Error ? reason.message : 'Не удалось обновить НПС';
+      realtimeCursor = 0;
+      await load();
+    });
+}
+
+function connectRealtime(): void {
+  stopRealtimeSubscription?.();
+  stopRealtimeSubscription = props.active
+    ? getGameRealtimePort().subscribe(props.gameId, onRealtimeEvent, (realtimeError) => {
+        error.value = realtimeError.message;
+      })
+    : null;
+}
+
+function loadMore(): void {
+  if (nextCursor.value && !loadingMore.value) void load(true);
 }
 
 async function run(action: () => Promise<void>): Promise<void> {
@@ -190,18 +284,27 @@ async function moderate(npcId: number, action: 'approve' | 'reject'): Promise<vo
   });
 }
 
-function openCard(npc: GameNpc): void {
-  selectedNpc.value = npc;
-  cardOpen.value = true;
+async function openCard(npc: GameNpcSummary): Promise<void> {
+  await run(async () => {
+    selectedNpc.value = await getGameApi().getNpc(props.gameId, npc.id);
+    cardOpen.value = true;
+  });
 }
 
 async function handleSave(npcId: number, data: NpcCardData): Promise<void> {
-  const target = npcs.value.find((npc) => npc.id === npcId);
   await run(async () => {
-    await getGameApi().updateNpc(npcId, { ...data, version: target?.version ?? null });
+    const target =
+      selectedNpc.value?.id === npcId
+        ? selectedNpc.value
+        : await getGameApi().getNpc(props.gameId, npcId);
+    const updated = await getGameApi().updateNpc(npcId, {
+      ...data,
+      version: target.version,
+      expectedNpcActualVersion: target.actualVersion,
+    });
     await load();
     if (selectedNpc.value?.id === npcId) {
-      selectedNpc.value = npcs.value.find((npc) => npc.id === npcId) ?? null;
+      selectedNpc.value = updated;
     }
   });
 }
@@ -214,7 +317,7 @@ async function handleDelete(npcId: number): Promise<void> {
   });
 }
 
-function openVisibility(npc: GameNpc): void {
+function openVisibility(npc: GameNpcSummary): void {
   visibilityTarget.value = npc;
   visibilityOpen.value = true;
 }
@@ -223,18 +326,20 @@ async function saveVisibility(visibility: SheetVisibility): Promise<void> {
   const target = visibilityTarget.value;
   if (!target) return;
   await run(async () => {
-    await getGameApi().updateNpc(target.id, {
+    const current = await getGameApi().getNpc(props.gameId, target.id);
+    const updated = await getGameApi().updateNpc(target.id, {
       name: target.name,
       shortDescription: target.shortDescription,
       fullDescription: target.fullDescription,
       tags: target.tags,
       visibility,
-      version: target.version,
+      version: current.version,
+      expectedNpcActualVersion: current.actualVersion,
     });
     visibilityOpen.value = false;
     await load();
     if (selectedNpc.value?.id === target.id) {
-      selectedNpc.value = npcs.value.find((npc) => npc.id === target.id) ?? null;
+      selectedNpc.value = updated;
     }
   });
 }
@@ -243,10 +348,37 @@ async function saveVisibility(visibility: SheetVisibility): Promise<void> {
 watch(
   () => props.active,
   (value) => {
-    if (value) void load();
+    if (value) {
+      void load();
+    } else {
+      stopRealtimeSubscription?.();
+      stopRealtimeSubscription = null;
+    }
   },
   { immediate: true },
 );
+
+watch(
+  () => props.gameId,
+  () => {
+    realtimeCursor = 0;
+    realtimeApplyChain = Promise.resolve();
+    stopRealtimeSubscription?.();
+    stopRealtimeSubscription = null;
+    if (props.active) void load();
+  },
+);
+
+const reloadDebounced = debounce(() => void load(), 250);
+
+watch(query, () => {
+  if (props.active) reloadDebounced();
+});
+
+onUnmounted(() => {
+  stopRealtimeSubscription?.();
+  stopRealtimeSubscription = null;
+});
 </script>
 
 <template>
@@ -362,6 +494,9 @@ watch(
             </div>
           </v-list-item>
         </v-list>
+        <div v-if="nextCursor && !loading" class="d-flex justify-center pa-3">
+          <v-btn variant="text" size="small" :loading="loadingMore" @click="loadMore">Загрузить ещё</v-btn>
+        </div>
 
         <div
           v-if="!loading && filteredNpcs.length === 0 && filteredMyProposals.length === 0"

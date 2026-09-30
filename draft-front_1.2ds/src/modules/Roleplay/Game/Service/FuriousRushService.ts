@@ -178,7 +178,7 @@ export class FuriousRushService {
         state = woundInstanceService.setInternal(state, true);
       }
       if (state) {
-        overlay = await this.resolveGameApi().addCombatState(input.gameId, input.actorKey, state);
+        await this.resolveGameApi().addCombatState(input.gameId, input.actorKey, state);
       }
     }
 

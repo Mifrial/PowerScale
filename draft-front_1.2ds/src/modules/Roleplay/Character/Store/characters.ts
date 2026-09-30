@@ -11,6 +11,7 @@ export const useCharacterStore = defineStore('characters', () => {
   const error = ref<string | null>(null);
   const detailLoading = ref(false);
   const detailError = ref<string | null>(null);
+  let detailRequestSequence = 0;
 
   async function fetchCharacters(signal?: AbortSignal) {
     loading.value = true;
@@ -26,28 +27,31 @@ export const useCharacterStore = defineStore('characters', () => {
   }
 
   async function fetchCharacter(id: number, signal?: AbortSignal): Promise<CharacterDetail | null> {
+    const requestSequence = ++detailRequestSequence;
     detailLoading.value = true;
     detailError.value = null;
     try {
       const detail = await getCharacterApi().getCharacter(id, signal);
-      currentCharacter.value = detail;
+      if (requestSequence === detailRequestSequence) currentCharacter.value = detail;
 
       return detail;
     } catch (e) {
       if (e instanceof DOMException && e.name === 'AbortError') return null;
-      detailError.value = 'Не удалось загрузить персонажа';
+      if (requestSequence === detailRequestSequence) detailError.value = 'Не удалось загрузить персонажа';
 
       return null;
     } finally {
-      detailLoading.value = false;
+      if (requestSequence === detailRequestSequence) detailLoading.value = false;
     }
   }
 
   function clearCurrent() {
+    detailRequestSequence += 1;
     currentCharacter.value = null;
   }
 
   function applyDetail(detail: CharacterDetail) {
+    detailRequestSequence += 1;
     currentCharacter.value = detail;
   }
 

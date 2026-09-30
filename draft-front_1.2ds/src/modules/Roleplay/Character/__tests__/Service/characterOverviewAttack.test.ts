@@ -113,6 +113,10 @@ describe('CharacterOverviewService: формулы атак', () => {
         ...rules[1]!,
         spec: {
           ...(rules[1]!.spec as object),
+          category: 'equipment',
+          cost_gm: null,
+          weight: null,
+          special_rule_codes: [],
           weapon: {
             min_strength: dim(3, 2),
             durability: dim(5, 3),
@@ -176,6 +180,10 @@ describe('CharacterOverviewService: формулы атак', () => {
         ...rules[1]!,
         spec: {
           ...(rules[1]!.spec as object),
+          category: 'equipment',
+          cost_gm: null,
+          weight: null,
+          special_rule_codes: [],
           occupy_hands: { min: 1, max: 2 },
         },
       },

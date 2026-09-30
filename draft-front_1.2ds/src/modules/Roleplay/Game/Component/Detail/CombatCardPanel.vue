@@ -67,6 +67,7 @@ import type { CommittedActionSession } from '@/modules/Roleplay/Game/Dto/Committ
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
+import type { GameRuntimeEntityProjection } from '@/modules/Roleplay/Game/Dto/GameRuntimeEntityProjection';
 import type { AttackOverview } from '@/modules/Roleplay/Character/Dto/Overview/AttackOverview';
 import type { CharacteristicOverview } from '@/modules/Roleplay/Character/Dto/Overview/CharacteristicOverview';
 import type { ResourceOverview } from '@/modules/Roleplay/Character/Dto/Overview/ResourceOverview';
@@ -103,6 +104,8 @@ const props = defineProps<{
   /** Счётчик боевых мутаций снаружи (удар, истощение) — перечитать оверлеи. */
   overlayRevision?: number;
   processSessions?: Record<CombatEntityKey, ProcessSession>;
+  /** Full actual projection для NPC, загруженный по запросу; Character остаётся compatibility path до R6. */
+  runtimeProjection?: GameRuntimeEntityProjection | null;
 }>();
 
 const emit = defineEmits<{
@@ -196,6 +199,7 @@ const model = computed(() => {
     props.canEdit,
     props.currentUserId,
     overlay.value,
+    props.runtimeProjection ?? null,
   );
 });
 
@@ -582,8 +586,7 @@ function launchHit(attack: AttackOverview): void {
   emit('launch-hit', { attackerKey: props.entityKey, attack });
 }
 
-function applyOverlay(result: GameCombatOverlay): void {
-  overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, result);
+function notifyMutation(): void {
   viewEpoch.value += 1;
   emit('overlay-changed');
 }
@@ -642,12 +645,7 @@ async function changeResource(resource: ResourceOverview, delta: number): Promis
       base: clampResource(resource.current.base + delta, 0, resource.max.base),
       size: resource.current.size,
     };
-    const result = await getGameApi().setCombatResource(
-      props.gameId,
-      model.value.entityKey,
-      resource.ruleCode,
-      current,
-    );
+    await getGameApi().setCombatResource(props.gameId, model.value.entityKey, resource.ruleCode, current);
     const spentAp = resource.ruleCode === ACTION_POINTS_CODE ? resource.current.base - current.base : 0;
     if (spentAp > 0) {
       const nextEffects = actionEffectService.afterDeclaredAction(pendingEffects.value, spentAp, {
@@ -658,7 +656,7 @@ async function changeResource(resource: ResourceOverview, delta: number): Promis
       pendingEffects.value = nextEffects;
       await getGameApi().setCombatActionEffects(props.gameId, model.value.entityKey, nextEffects);
     }
-    applyOverlay(result);
+    notifyMutation();
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Не удалось изменить ресурс';
   }
@@ -681,8 +679,8 @@ async function addState(option: CombatStateOption): Promise<void> {
       stateRuleCode: option.ruleCode,
       ...combatCardModelService.defaultStateEntry(option, props.rules),
     };
-    const result = await getGameApi().addCombatState(props.gameId, model.value.entityKey, state);
-    applyOverlay(result);
+    await getGameApi().addCombatState(props.gameId, model.value.entityKey, state);
+    notifyMutation();
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Не удалось добавить состояние';
   }
@@ -715,11 +713,11 @@ async function confirmPoisonAdd(): Promise<void> {
       periodicity: poisonDraft.value?.periodicity,
       decay: poisonDraft.value?.decay,
     };
-    const result = await getGameApi().addCombatState(props.gameId, model.value.entityKey, {
+    await getGameApi().addCombatState(props.gameId, model.value.entityKey, {
       stateRuleCode: option.ruleCode,
       poison,
     });
-    applyOverlay(result);
+    notifyMutation();
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Не удалось добавить состояние';
   }
@@ -729,8 +727,8 @@ async function setStateValue(index: number, value?: number): Promise<void> {
   if (!model.value) return;
   error.value = null;
   try {
-    const result = await getGameApi().setCombatStateValue(props.gameId, model.value.entityKey, index, value);
-    applyOverlay(result);
+    await getGameApi().setCombatStateValue(props.gameId, model.value.entityKey, index, value);
+    notifyMutation();
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Не удалось изменить состояние';
   }
@@ -740,8 +738,8 @@ async function removeState(index: number): Promise<void> {
   if (!model.value) return;
   error.value = null;
   try {
-    const result = await getGameApi().removeCombatState(props.gameId, model.value.entityKey, index);
-    applyOverlay(result);
+    await getGameApi().removeCombatState(props.gameId, model.value.entityKey, index);
+    notifyMutation();
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Не удалось убрать состояние';
   }
@@ -789,7 +787,7 @@ async function afterStateSideEffects(
       sendMessage: send,
       askTokenSpend,
     });
-    if (nextOverlay) applyOverlay(nextOverlay);
+    if (nextOverlay) notifyMutation();
 
     return;
   }
@@ -808,7 +806,7 @@ async function afterStateSideEffects(
       sendMessage: send,
       askTokenSpend,
     });
-    if (exhaustion.overlay) applyOverlay(exhaustion.overlay);
+    if (exhaustion.overlay) notifyMutation();
   }
 }
 
@@ -849,8 +847,8 @@ async function replaceStateAt(index: number, state: CharacterStateValue): Promis
   if (!model.value) return;
   error.value = null;
   try {
-    const result = await getGameApi().replaceCombatState(props.gameId, model.value.entityKey, index, state);
-    applyOverlay(result);
+    await getGameApi().replaceCombatState(props.gameId, model.value.entityKey, index, state);
+    notifyMutation();
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Не удалось изменить состояние';
   }
@@ -908,13 +906,8 @@ async function toggleEquipped(item: InventoryItemOverview): Promise<void> {
   if (!model.value || !model.value.canEdit) return;
   error.value = null;
   try {
-    const result = await getGameApi().setCombatItemEquipped(
-      props.gameId,
-      model.value.entityKey,
-      item.id,
-      !item.equipped,
-    );
-    applyOverlay(result);
+    await getGameApi().setCombatItemEquipped(props.gameId, model.value.entityKey, item.id, !item.equipped);
+    notifyMutation();
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Не удалось изменить экипировку';
   }
@@ -924,13 +917,8 @@ async function setOccupyHands(itemId: number, occupyHands: number): Promise<void
   if (!model.value || !model.value.canEdit) return;
   error.value = null;
   try {
-    const result = await getGameApi().setCombatItemOccupyHands(
-      props.gameId,
-      model.value.entityKey,
-      itemId,
-      occupyHands,
-    );
-    applyOverlay(result);
+    await getGameApi().setCombatItemOccupyHands(props.gameId, model.value.entityKey, itemId, occupyHands);
+    notifyMutation();
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Не удалось изменить занятость рук';
   }

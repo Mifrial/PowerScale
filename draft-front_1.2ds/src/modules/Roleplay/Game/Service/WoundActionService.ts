@@ -1,7 +1,7 @@
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
-import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
+import type { GameAuthoritativeCommandResult } from '@/modules/Roleplay/Game/Dto/GameAuthoritativeCommandResult';
 import type { IGameApi } from '@/modules/Roleplay/Game/Interface/IGameApi';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { CommittedActionSession } from '@/modules/Roleplay/Game/Dto/CommittedActionSession';
@@ -32,7 +32,7 @@ export class WoundActionService {
     version: CharacterVersion,
     rules: Rule[],
     cost: number,
-  ): Promise<GameCombatOverlay> {
+  ): Promise<GameAuthoritativeCommandResult> {
     const ap = combatCardModelService.combatActionPoints(version, rules);
     if (!ap || ap.current < cost) throw new Error('Недостаточно ОД');
     const resource = version.resources.find((item) => item.ruleCode === ACTION_POINTS_CODE);
@@ -64,10 +64,12 @@ export class WoundActionService {
     if (!target || !woundActionLaunchService.isWoundAction(session.actionRuleCode)) return;
     const overlays = await this.resolveGameApi().getCombatOverlays(gameId);
     const overlay = overlays.find((item) => item.entityKey === target);
-    if (!overlay) return;
+    const projection = await this.resolveGameApi().getRuntimeEntity(gameId, target, 'full');
+    const version = projection?.version;
+    if (!overlay || !version) return;
     if (woundActionLaunchService.isBandage(session.actionRuleCode)) {
       const index = session.stateIndices[0];
-      const state = index != null ? overlay.states[index] : undefined;
+      const state = index != null ? version.states[index] : undefined;
       if (state == null) return;
       await this.resolveGameApi().replaceCombatState(
         gameId,
@@ -82,8 +84,8 @@ export class WoundActionService {
       return;
     }
     for (const index of session.stateIndices) {
-      const latest = (await this.resolveGameApi().getCombatOverlays(gameId)).find((item) => item.entityKey === target);
-      const state = latest?.states[index];
+      const latest = await this.resolveGameApi().getRuntimeEntity(gameId, target, 'full');
+      const state = latest?.version?.states[index];
       if (!state) continue;
       await this.resolveGameApi().replaceCombatState(
         gameId,

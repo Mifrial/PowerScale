@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { useSpaceRevision } from '@/modules/Roleplay/RuleSpace/init';
-import { computed, defineAsyncComponent, ref, watch } from 'vue';
+import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useCharacterStore } from '@/modules/Roleplay/Character/Store/characters';
+import { useCharacterDraftStore } from '@/modules/Roleplay/Character/Store/characterDraft';
 import { useCurrentUser } from '@/modules/Core/User/init';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { characterAccessService } from '@/modules/Roleplay/Character/Service/Instance/characterAccessService';
@@ -17,7 +18,7 @@ import InventoryTab from '@/modules/Roleplay/Character/Component/Editor/Inventor
 import DiscussionTab from '@/modules/Roleplay/Character/Component/Detail/DiscussionTab.vue';
 import { useRuleDetailSlider } from '@/modules/Roleplay/Character/Composables/useRuleDetailSlider';
 import { useCharacterCardDraft } from '@/modules/Roleplay/Character/Composables/useCharacterCardDraft';
-import { getCharacterApi, getCharacterCardExtensions } from '@/modules/Roleplay/Character/init';
+import { characterChangePort, getCharacterApi, getCharacterCardExtensions } from '@/modules/Roleplay/Character/init';
 import { sheetAccessService } from '@/modules/Roleplay/Character/Service/Instance/sheetAccessService';
 import { SHEET_VISIBLE_SECTIONS } from '@/modules/Roleplay/Character/Constant/Sheet/SHEET_SECTIONS';
 import type { SheetAccessContext } from '@/modules/Roleplay/Character/Interface/SheetAccessContext';
@@ -30,6 +31,7 @@ const RuleSlider = defineAsyncComponent(() => import('@/modules/Roleplay/Rule/Co
 const route = useRoute();
 const router = useRouter();
 const store = useCharacterStore();
+const draftStore = useCharacterDraftStore();
 const { currentUser } = useCurrentUser();
 const spaceRevision = useSpaceRevision();
 const { signal } = useAbortable();
@@ -67,6 +69,8 @@ const canEdit = computed(() => {
   return characterAccessService.canEditCharacter(currentUser.value, current.character);
 });
 
+const externalChangePending = ref(false);
+
 const {
   draftKey: sheetDraftKey,
   draft: sheetDraft,
@@ -76,10 +80,13 @@ const {
   validationIssues,
   saving: sheetSaving,
   saveError: sheetSaveError,
+  saveConflict: sheetSaveConflict,
   catalogError: sheetCatalogError,
   keywords: sheetKeywords,
   ensureDraft,
   save: saveSheet,
+  retrySave: retrySheetSave,
+  reloadAfterConflict: reloadSheetAfterConflict,
   retryCatalog: retrySheetCatalog,
 } = useCharacterCardDraft(detail, rules, canEdit, signal);
 
@@ -157,6 +164,7 @@ async function load(): Promise<void> {
 
     return;
   }
+  externalChangePending.value = false;
   store.clearCurrent();
   const loaded = await store.fetchCharacter(id, signal.value);
   if (loaded && !characterAccessService.canViewCharacter(currentUser.value, loaded.character)) {
@@ -186,7 +194,38 @@ function retry(): void {
   void load();
 }
 
+let stopCharacterChangeSubscription: (() => void) | null = null;
+
+onMounted(() => {
+  stopCharacterChangeSubscription = characterChangePort.subscribe((change) => {
+    if (change.characterId !== characterId.value) return;
+    const current = detail.value;
+    if (sheetSaving.value && current && change.actualVersion <= current.actualVersion + 1) return;
+    if (sheetDraft.value?.dirty) {
+      externalChangePending.value = true;
+
+      return;
+    }
+    draftStore.discard(sheetDraftKey.value);
+    void store.fetchCharacter(change.characterId, signal.value);
+  });
+});
+
+onUnmounted(() => {
+  stopCharacterChangeSubscription?.();
+  stopCharacterChangeSubscription = null;
+});
+
 watch(() => route.params.id, load, { immediate: true });
+
+async function reloadAfterExternalChange(): Promise<void> {
+  await reloadSheetAfterConflict();
+  if (!sheetSaveError.value) externalChangePending.value = false;
+}
+
+function keepLocalDraft(): void {
+  externalChangePending.value = false;
+}
 
 watch(detail, (value) => {
   if (!value) {
@@ -292,9 +331,28 @@ watch(detail, (value) => {
           <v-btn size="small" variant="tonal" @click="retrySheetCatalog">Попробовать снова</v-btn>
         </template>
       </v-alert>
-      <v-alert v-if="sheetSaveError" type="error" variant="tonal" density="compact" class="mb-4">{{
-        sheetSaveError
-      }}</v-alert>
+      <v-alert v-if="sheetSaveError" type="error" variant="tonal" density="compact" class="mb-4">
+        {{ sheetSaveError }}
+        <template #append>
+          <v-btn
+            size="small"
+            variant="tonal"
+            :loading="sheetSaving"
+            @click="sheetSaveConflict ? reloadSheetAfterConflict() : retrySheetSave()"
+          >
+            {{ sheetSaveConflict ? 'Загрузить актуальный лист' : 'Повторить' }}
+          </v-btn>
+        </template>
+      </v-alert>
+      <v-alert v-if="externalChangePending" type="warning" variant="tonal" density="compact" class="mb-4">
+        Актуальный лист изменился в другой вкладке или во время игры. Локальный черновик сохранён.
+        <template #append>
+          <div class="d-flex ga-2">
+            <v-btn size="small" variant="tonal" @click="reloadAfterExternalChange">Загрузить актуальный лист</v-btn>
+            <v-btn size="small" variant="text" @click="keepLocalDraft">Оставить черновик</v-btn>
+          </div>
+        </template>
+      </v-alert>
       <v-alert
         v-if="sheetDraft?.dirty && validationIssues.length > 0 && !sheetSaveError"
         type="warning"

@@ -15,22 +15,42 @@
 ## CharacterBuild → GameMembership
 
 **Input:** validated character version and game context.  
-**Output:** membership with `characterId`, immutable `approvedCharacterVersion`, optional `gameOverlay` and review metadata.
+**Output:** membership with `characterId`, immutable `approvedCharacterVersion`, review/concurrency metadata and Game-owned session state.
 **Owner:** `character-system.md`.  
 **Visibility:** membership is filtered by game role and sheet audience before serialization.  
-**Version invariant:** `approvedCharacterVersion` и `actualCharacter` immutable during a running session; session commit uses an optimistic guard, while moderation compares approved snapshot with actual state.
+**Version invariant:** `approvedCharacterVersion` остаётся immutable baseline, а `actualCharacter` может изменяться authoritative game effects и разрешённым Character edit во время running session. `canStartSession` использует `getCharacterDiff`; active participant определяется отдельно и не требует `actualCharacter == approvedCharacterVersion`.
 **Error/concurrency:** version mismatch is a retriable conflict, not validation success.  
 **Backend boundary:** membership persistence and moderation authorization remain `OPEN`.
 
-## GameMembership → GameOverlay → ChatAttachment
+## GameMembership → GameState → ChatAttachment
 
-**Input:** effective `sessionCharacterVersion = resolve(approvedCharacterVersion, gameOverlay)` combat state.
+**Input:** authoritative Character/NPC projection из actual storage плюс Game-owned `gameOverlay/gameState` для initiative, battle/process/offers/effects и transient markers.
 **Output:** generic Chat `Attachment` with domain type and opaque payload.  
 **Owner:** Game owns payload; Chat owns transport and render registries.  
 **Visibility:** Game filters payload visibility before handing it to Chat; rendering cannot widen access.  
-**Version invariant:** overlay mutations require the expected game/member version.  
-**Error/concurrency:** conflicting overlay versions return `currentVersion` for a retriable read.  
+**Version invariant:** battle/process mutations require `battleId` and expected Game/process version; Character/NPC mutations require their expected actual version. Applied authoritative effects обновляют actual в той же transaction, что и затронутый Game state.
+**Error/concurrency:** conflicting Game/process or Character/NPC actual versions return `currentVersion` for a retriable read.
+
+R3-FE может предоставить frontend/mock `GameStateSnapshot` и internal lifecycle
+contract для session/battle fixtures. Эти DTO не заменяют backend Game command,
+transaction или SSE boundary; legacy `stopGameSession` и granular overlay API
+остаются compatibility path до последующих этапов.
+R4-FE добавляет только opt-in Game command contract для решений attack/defense:
+`IGameApi.submitCombatCommand` принимает decisions и expected versions, а
+authoritative mock effect возвращает process transition, typed effects,
+changed entity keys и актуальные tokens. Actual Character/NPC mutation
+происходит только в applied transition; новый path не вызывает Character API,
+legacy overlay mutators, Chat API или read projections. Это frontend/mock
+readiness, не backend transaction или SSE implementation.
 **Backend boundary:** delivery, persistence and SSE are backend `OPEN`; frontend mock/polling is not SSE implementation.
+
+R6-FE реализует только client/mock seam поверх этой границы: Character
+publishes post-commit `CharacterChanged`, Game сопоставляет его с active
+membership и создаёт affected entity event, а consumers делают targeted
+projection refresh. `eventId` имеет формат `<gameId>.<cursor>`; command
+response, realtime event и Chat message не являются взаимозаменяемыми.
+Production after-commit/outbox, SSE delivery, authorization и visibility
+filtering остаются backend requirements.
 
 ## GameScene → spatial combat / PlayerSceneProjection
 
@@ -52,13 +72,13 @@
 **Ошибки:** сбой продюсера не оставляет частично показанное уведомление; доставка идемпотентна.  
 **Граница backend:** хранение событий, генерация и дедупликация — `OPEN`.
 
-## Economy → Overlay
+## Economy → Actual/GameState
 
 **Input:** `EconomyOperation` with actor, source, target, quantity, balance, idempotency key and expected versions.  
-**Output:** validated overlay mutation (during session) or actual-state mutation (outside session) and operation result; journal entry is append-only evidence. Frontend Economy API is `NOT IMPLEMENTED`.
-**Owner:** `game-system.md` owns gameplay economy and overlay semantics.  
+**Output:** validated actual-state mutation and operation result; operation record is the typed idempotency/concurrency boundary. Frontend Economy API is `NOT IMPLEMENTED`.
+**Owner:** `game-system.md` owns gameplay economy; Character/NPC own their persisted sheet mutation ports.
 **Visibility:** only authorized actor and visible source/target are eligible.  
-**Version invariant:** balance and overlay versions must match the expected versions atomically.  
+**Version invariant:** balance, Character/NPC actual versions and Game state versions must match expected versions atomically.
 **Error/concurrency:** insufficient balance, duplicate idempotency key or stale version returns typed error without partial mutation.  
 **Backend boundary:** transaction, journal and idempotency persistence remain `OPEN`; existing frontend `distributeLoot` is a separate loot flow, not the complete `EconomyOperation` API.
 

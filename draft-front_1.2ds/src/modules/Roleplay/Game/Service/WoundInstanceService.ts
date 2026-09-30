@@ -2,7 +2,6 @@ import type { CharacterAbility } from '@/modules/Roleplay/Character/Dto/Characte
 import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/CharacterStateValue';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { CharacterWound } from '@/modules/Roleplay/Character/Dto/CharacterWound';
-import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
 import type { BandageOdArgs } from '@/modules/Roleplay/Game/Dto/BandageOdArgs';
 import { BANDAGE_CONTRIBUTION_CAP } from '@/modules/Roleplay/Game/Constant/Wound/BANDAGE_CONTRIBUTION_CAP';
 import { BANDAGE_CONTRIBUTION_STEP } from '@/modules/Roleplay/Game/Constant/Wound/BANDAGE_CONTRIBUTION_STEP';
@@ -83,19 +82,12 @@ export class WoundInstanceService {
     return states.filter((state) => this.isWound(state)).reduce((sum, state) => sum + this.tick(state), 0);
   }
 
-  heldCount(actorKey: string, overlays: readonly GameCombatOverlay[]): number {
-    let count = 0;
-    for (const overlay of overlays) {
-      for (const state of overlay.states) {
-        if (this.isWound(state) && this.payload(state).heldBy === actorKey) count += 1;
-      }
-    }
-
-    return count;
+  heldCount(actorKey: string, states: readonly CharacterStateValue[]): number {
+    return states.filter((state) => this.isWound(state) && this.payload(state).heldBy === actorKey).length;
   }
 
-  freeHands(actorKey: string, overlays: readonly GameCombatOverlay[]): number {
-    return Math.max(0, WOUND_HAND_SLOT_MAX - this.heldCount(actorKey, overlays));
+  freeHands(actorKey: string, states: readonly CharacterStateValue[]): number {
+    return Math.max(0, WOUND_HAND_SLOT_MAX - this.heldCount(actorKey, states));
   }
 
   clampToStrength(state: CharacterStateValue): CharacterStateValue {

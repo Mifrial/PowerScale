@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/CharacterStateValue';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
-import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
-import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import { woundInstanceService } from '@/modules/Roleplay/Game/Service/Instance/woundInstanceService';
 import { WOUND_ACTION_OD } from '@/modules/Roleplay/Game/Constant/Wound/WOUND_ACTION_OD';
 import { WOUND_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
@@ -20,10 +18,6 @@ function wound(value: number, extra: Partial<CharacterStateValue['wound']> = {})
       ...extra,
     },
   };
-}
-
-function overlay(states: CharacterStateValue[], entityKey: CombatEntityKey = 'character:1'): GameCombatOverlay {
-  return { gameId: 1, entityKey, kind: 'character', resources: [], states, updatedAt: 't' };
 }
 
 describe('woundInstance', () => {
@@ -98,14 +92,15 @@ describe('woundInstance', () => {
     expect(woundInstanceService.tick(state)).toBe(0);
   });
 
-  it('heldCount по всем оверлеям, максимум две руки', () => {
-    const overlays = [
-      overlay([wound(2, { heldBy: 'character:9' }), wound(1, { heldBy: 'character:9' })]),
-      overlay([wound(4, { heldBy: 'character:8' })], 'character:2'),
+  it('heldCount читает actual states, максимум две руки', () => {
+    const states = [
+      wound(2, { heldBy: 'character:9' }),
+      wound(1, { heldBy: 'character:9' }),
+      wound(4, { heldBy: 'character:8' }),
     ];
-    expect(woundInstanceService.heldCount('character:9', overlays)).toBe(2);
-    expect(woundInstanceService.freeHands('character:9', overlays)).toBe(0);
-    expect(woundInstanceService.freeHands('character:8', overlays)).toBe(1);
+    expect(woundInstanceService.heldCount('character:9', states)).toBe(2);
+    expect(woundInstanceService.freeHands('character:9', states)).toBe(0);
+    expect(woundInstanceService.freeHands('character:8', states)).toBe(1);
   });
 
   it('неполный sidecar не даёт NaN во вкладах', () => {

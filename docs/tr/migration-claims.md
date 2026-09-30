@@ -58,7 +58,7 @@
 - `CLM-028` [1729–1754] — save draft, ready state, post-creation and in-game editing; canonicalOwner `character-system.md`; destination `character-system.md`; evidence Character status/store/page code; status semantics partly `OPEN`.
 - `CLM-029` [1755–1770] — modifiers and character states; canonicalOwner `character-system.md`; destination `character-system.md`; evidence overview/state services; `CURRENT`.
 - `CLM-030` [1784–1837] — calculations, filters, copy-on-write, points, attack values and weapon ownership; canonicalOwner `character-system.md`; destination `character-system.md`; evidence decisions and domain services; `DECISION`/`CURRENT`/`BACKLOG`.
-- `CLM-031` [623–696] — character versions, inventory, membership fields and history; canonicalOwner `character-system.md`; destination `character-system.md`/`data-model.md`; old JSON fields `HISTORICAL`, A/L/O/P `DECISION`.
+- `CLM-031` [623–696] — character actual sheet, inventory, membership baseline and history; canonicalOwner `character-system.md`; destination `character-system.md`/`data-model.md`; old JSON fields and A/L/O/P `HISTORICAL`, actual-as-session-source and Game-owned session state `DECISION` via `DEC-084`.
 - `CLM-032` [1838–1851] — character routes, visibility, versions, migration and deactivate actions; canonicalOwner `character-system.md`; destination `character-system.md`; evidence current routes; `CURRENT`/`OPEN`.
 
 ## Game and combat
@@ -74,8 +74,8 @@
 ## Inventory and economy
 
 - `CLM-040` [1517–1595, 1721–1728] — item cost, start budget, equipment and modifiers; canonicalOwner `character-system.md`; destination `character-system.md`; evidence Item DTOs and creation flow; `DECISION`/`CURRENT`.
-- `CLM-041` [1947–1980] — loot, inventory operations, discard, trade and GM permissions; canonicalOwner `game-system.md`; destination `game-system.md`; evidence Game overlay/inventory code; `REQUIREMENT`/`BACKLOG`.
-- `CLM-042` [313–380, 549–696] — money fields, game store and membership economy state; canonicalOwner `game-system.md`; destination `game-system.md`/`data-model.md`; old `moneyLimit` historical, balance requirement `DECISION`.
+- `CLM-041` [1947–1980] — loot, inventory operations, discard, trade and GM permissions; canonicalOwner `game-system.md`; destination `game-system.md`; evidence Game inventory/loot code; gameplay process state may be Game-owned, while money/inventory/loot effects update actual through `EconomyOperation`; `REQUIREMENT`/`BACKLOG`.
+- `CLM-042` [313–380, 549–696] — money fields, game store and membership economy state; canonicalOwner `game-system.md`; destination `game-system.md`/`data-model.md`; old `moneyLimit` historical, actual balance plus typed `EconomyOperation` requirement `DECISION`.
 - `CLM-043` [313–380, 1947–1980] — shop positions, buy/sell price, stock and game-scoped stores; canonicalOwner `game-system.md`; destination `game-system.md`; evidence ItemSpec/Game DTOs and decisions; `DECISION`.
 - `CLM-044` source `DECISION` (`DEC-047`—`DEC-050`), **не** legacy 1947–1980 (chronicle/bug notes). Parent range EXTRA; destination `game-system.md`; `REQUIREMENT`/`OPEN` backend.
 
@@ -125,7 +125,7 @@ Parent-записи выше сохраняются для legacy traceability. 
 - `CLM-050-EVENTS` [697–722, 2236–2250] — event producers and deduplication; canonicalOwner `ui-system.md`; destination `ui-system.md`; evidence legacy schema only; `LEGACY_ONLY + BACKEND_OPEN + OPEN`.
 - `CLM-050-STORAGE` [697–722, 2236–2250] — notification storage and indexes; canonicalOwner `data-model.md`; destination `data-model.md`; evidence legacy schema only; `LEGACY_ONLY + BACKEND_OPEN + REQUIREMENT`.
 - `CLM-031-VERSION` [623–696] — character version and history identity; canonicalOwner `character-system.md`; destination `character-system.md`; evidence draft-front_1.2ds/src/modules/Roleplay/Character/Dto/CharacterVersion.ts:10–38 (symbols: CharacterVersion); `CODE_CONFIRMED + IMPLEMENTED + CURRENT`.
-- `CLM-031-MEMBERSHIP` [623–696] — game membership storage and A/L/O/P mapping; canonicalOwner `character-system.md`; destination `character-system.md`; evidence draft-front_1.2ds/src/modules/Roleplay/Character/Dto/CharacterSessionTarget.ts:3–7 (symbols: CharacterSessionTarget); `DECISION_CONFIRMED + PARTIAL + REQUIREMENT`.
+- `CLM-031-MEMBERSHIP` [623–696] — game membership storage with immutable approved baseline, actual-as-session-source, review metadata and Game-owned session state; canonicalOwner `character-system.md`; destination `character-system.md`; evidence draft-front_1.2ds/src/modules/Roleplay/Character/Dto/CharacterSessionTarget.ts:3–7 (symbols: CharacterSessionTarget), docs/review/tr-decisions-2026-08.md (DEC-084); old A/L/O/P mapping is historical; `DECISION_CONFIRMED + PARTIAL + REQUIREMENT`.
 - `CLM-037-INITIATIVE` [1929–1980] — initiative methods and persisted order; canonicalOwner `game-system.md`; destination `game-system.md`; evidence draft-front_1.2ds/src/modules/Roleplay/Game/Utils/initiativeRoll.ts:110–181 (rollInitiative); `CODE_CONFIRMED + IMPLEMENTED + CURRENT`.
 - `CLM-037-COMBAT` [1929–1980] — action/check combat flow; canonicalOwner `game-system.md`; destination `game-system.md`; evidence draft-front_1.2ds/src/modules/Roleplay/Game/Service/HitRollService.ts:44–314 (symbols: HitRollService); `CODE_CONFIRMED + PARTIAL + CURRENT`.
 - `CLM-037-BACKLOG` [1929–1980] — unfinished reactions and matrix branches; canonicalOwner `history.md`; destination `history.md`; evidence legacy range only; `LEGACY_ONLY + NOT_IMPLEMENTED + BACKLOG`.

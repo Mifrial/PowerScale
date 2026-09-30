@@ -1,20 +1,21 @@
 <script setup lang="ts">
 import { useSpaceRevision } from '@/modules/Roleplay/RuleSpace/init';
-import { computed, ref, watch } from 'vue';
-import { getGameApi } from '@/modules/Roleplay/Game/init';
-import { getCharacterApi } from '@/modules/Roleplay/Character/init';
+import { computed, onUnmounted, ref, watch } from 'vue';
+import { getGameApi, getGameRealtimePort } from '@/modules/Roleplay/Game/init';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { GAME_MEMBERSHIP_STATUS_LABEL } from '@/modules/Roleplay/Game/Constant/GameMembershipStatus/GAME_MEMBERSHIP_STATUS';
 import { GAME_MEMBERSHIP_STATUS_COLOR } from '@/modules/Roleplay/Game/Constant/GameMembershipStatus/GAME_MEMBERSHIP_STATUS';
 import { membershipDiff } from '@/modules/Roleplay/Game/Utils/membershipDiff';
 import { membershipMatchesGameRevision } from '@/modules/Roleplay/Game/Utils/membershipRevision';
-import { sessionCharacterService } from '@/modules/Roleplay/Game/Service/Instance/sessionCharacterService';
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
+import type { CharacterModerationProjection } from '@/modules/Roleplay/Game/Dto/CharacterModerationProjection';
 import type { GameCharacterModerationAction } from '@/modules/Roleplay/Game/Enum/GameCharacterModerationAction';
 import type { GameMembershipStatus } from '@/modules/Roleplay/Game/Enum/GameMembershipStatus';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
+import type { GameRealtimeEvent } from '@/modules/Roleplay/Game/Dto/GameRealtimeEvent';
 import MembershipDiffView from '@/modules/Roleplay/Game/Component/Detail/MembershipDiffView.vue';
 import CharacterSubmissionSlider from '@/modules/Roleplay/Game/Component/Detail/CharacterSubmissionSlider.vue';
+import { createRandomId } from '@/modules/Core/Engine/Utils/createRandomId';
 
 const props = defineProps<{
   /** Активна ли вкладка: перезагрузка при активации (v-window не размонтирует вкладки). */
@@ -29,8 +30,13 @@ const { signal } = useAbortable();
 
 const allMemberships = ref<GameCharacterMembership[]>([]);
 const actualById = ref<Record<number, CharacterVersion>>({});
+const moderationById = ref<Record<number, CharacterModerationProjection>>({});
 const loading = ref(false);
 const error = ref<string | null>(null);
+let loadSequence = 0;
+let stopRealtimeSubscription: (() => void) | null = null;
+let realtimeCursor = 0;
+let realtimeApplyChain = Promise.resolve();
 
 const names = ref<Map<string, string>>(new Map());
 
@@ -45,10 +51,7 @@ const queueMemberships = computed(() =>
     if (membership.membershipStatus !== 'active') return false;
     if (membership.reviewState === 'returned') return true;
 
-    return sessionCharacterService.needsModeration(
-      membership.approvedCharacterVersion,
-      actualById.value[membership.characterId] ?? null,
-    );
+    return moderationById.value[membership.characterId]?.diff?.hasChanges ?? false;
   }),
 );
 
@@ -86,38 +89,114 @@ async function loadRules(): Promise<void> {
 }
 
 async function load(): Promise<void> {
+  const requestSequence = ++loadSequence;
   loading.value = true;
   error.value = null;
   try {
-    allMemberships.value = await getGameApi().getGameCharacters(props.gameId);
-    const actuals: Record<number, CharacterVersion> = {};
-    await Promise.all(
-      allMemberships.value.map(async (membership) => {
-        try {
-          const detail = await getCharacterApi().getCharacter(membership.characterId, signal.value);
-          actuals[membership.characterId] = detail.version;
-        } catch {
-          // лист недоступен
-        }
-      }),
+    const membershipResult = await getGameApi().getGameCharacters(props.gameId);
+    if (requestSequence !== loadSequence) return;
+    const moderationProjections = await getGameApi().getCharacterModerationProjections(
+      props.gameId,
+      membershipResult.map((membership) => membership.characterId),
+      signal.value,
+    );
+    if (requestSequence !== loadSequence) return;
+    allMemberships.value = membershipResult;
+    const actuals: Record<number, CharacterVersion> = Object.fromEntries(
+      moderationProjections
+        .filter((projection): projection is CharacterModerationProjection & { actualCharacterVersion: CharacterVersion } =>
+          projection.actualCharacterVersion !== null,
+        )
+        .map((projection) => [projection.characterId, projection.actualCharacterVersion]),
     );
     actualById.value = actuals;
+    moderationById.value = Object.fromEntries(
+      moderationProjections.map((projection) => [projection.characterId, projection]),
+    );
     await loadRules();
+    connectRealtime();
   } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Не удалось загрузить модерацию';
+    if (requestSequence === loadSequence) {
+      error.value = e instanceof Error ? e.message : 'Не удалось загрузить модерацию';
+    }
   } finally {
-    loading.value = false;
+    if (requestSequence === loadSequence) loading.value = false;
   }
 }
 
 async function moderate(membership: GameCharacterMembership, action: GameCharacterModerationAction): Promise<void> {
   error.value = null;
   try {
-    await getGameApi().moderateCharacter(props.gameId, membership.characterId, action);
+    const actualVersion = moderationById.value[membership.characterId]?.actualVersion;
+    if (actualVersion === null || actualVersion === undefined) {
+      throw new Error('Не удалось определить актуальную версию персонажа');
+    }
+    const result = await getGameApi().moderateCharacterCommand({
+      commandId: createRandomId(),
+      gameId: props.gameId,
+      characterId: membership.characterId,
+      action,
+      expectedActualVersion: actualVersion,
+      expectedMembershipRevision: membership.membershipRevision,
+    });
+    if (result.kind === 'conflict') {
+      throw new Error(`Модерация не применена: ${result.conflict.code}`);
+    }
     await load();
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Не удалось применить решение';
   }
+}
+
+async function refreshModerationProjection(characterId: number): Promise<boolean> {
+  const projections = await getGameApi().getCharacterModerationProjections(props.gameId, [characterId], signal.value);
+  const projection = projections[0];
+  if (!projection) return false;
+
+  moderationById.value = { ...moderationById.value, [characterId]: projection };
+  if (projection.actualCharacterVersion) {
+    actualById.value = { ...actualById.value, [characterId]: projection.actualCharacterVersion };
+  }
+  allMemberships.value = allMemberships.value.map((membership) =>
+    membership.characterId === characterId && membership.reviewState !== 'returned'
+      ? { ...membership, reviewState: projection.diff?.hasChanges ? 'changes_pending' : 'clean' }
+      : membership,
+  );
+
+  return true;
+}
+
+function onRealtimeEvent(event: GameRealtimeEvent): void {
+  if (event.gameId !== props.gameId || event.eventKind !== 'character.changed') return;
+  const [kind, rawId] = event.entityKey.split(':');
+  const characterId = Number(rawId);
+  if (kind !== 'character' || !Number.isInteger(characterId)) return;
+  realtimeApplyChain = realtimeApplyChain
+    .then(async () => {
+      if (event.cursor <= realtimeCursor) return;
+      const refreshed = await refreshModerationProjection(characterId);
+      if (!refreshed) {
+        realtimeCursor = 0;
+        await load();
+
+        return;
+      }
+      realtimeCursor = event.cursor;
+    })
+    .catch(async (reason: unknown) => {
+      error.value = reason instanceof Error ? reason.message : 'Не удалось обновить модерацию персонажа';
+      realtimeCursor = 0;
+      await load();
+    });
+}
+
+function connectRealtime(): void {
+  stopRealtimeSubscription?.();
+  stopRealtimeSubscription = props.active
+    ? getGameRealtimePort().subscribe(props.gameId, onRealtimeEvent, (realtimeError) => {
+        error.value = realtimeError.message;
+      })
+    : null;
 }
 
 function membershipStatusLabel(status: GameMembershipStatus): string {
@@ -147,10 +226,31 @@ function openSlider(membership: GameCharacterMembership): void {
 watch(
   () => props.active,
   (value) => {
-    if (value) void load();
+    if (value) {
+      void load();
+    } else {
+      stopRealtimeSubscription?.();
+      stopRealtimeSubscription = null;
+    }
   },
   { immediate: true },
 );
+
+watch(
+  () => props.gameId,
+  () => {
+    realtimeCursor = 0;
+    realtimeApplyChain = Promise.resolve();
+    stopRealtimeSubscription?.();
+    stopRealtimeSubscription = null;
+    if (props.active) void load();
+  },
+);
+
+onUnmounted(() => {
+  stopRealtimeSubscription?.();
+  stopRealtimeSubscription = null;
+});
 </script>
 
 <template>

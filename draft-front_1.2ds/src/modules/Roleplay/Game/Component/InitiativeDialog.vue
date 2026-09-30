@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
 import { useChatChannel } from '@/modules/Messages/Chat/init';
 import { useCombatChatThread } from '@/modules/Roleplay/Game/Composables/useCombatChatThread';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
@@ -20,14 +20,14 @@ import { ROLL_EFFICIENCY_MIN } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_
 import { ROLL_ADV_MAX } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ADV_MAX';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
-import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
-import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
 import type { GameInitiativeParticipant } from '@/modules/Roleplay/Game/Dto/GameInitiative';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
+import type { GameParticipantCandidate } from '@/modules/Roleplay/Game/Dto/GameParticipantCandidate';
+import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
+import type { GameRuntimeEntityProjection } from '@/modules/Roleplay/Game/Dto/GameRuntimeEntityProjection';
 import { combatChatSendService } from '@/modules/Roleplay/Game/Service/Instance/combatChatSendService';
-import { sessionCharacterService } from '@/modules/Roleplay/Game/Service/Instance/sessionCharacterService';
 
 /**
  * Окно проверки на инициативу (ТР §8 «Чат игры»): выбор участников (персонажи + НПС),
@@ -39,17 +39,17 @@ const props = defineProps<{
   open: boolean;
   gameId: number;
   spaceId: number;
-  characters: GameCharacterMembership[];
-  npcs: GameNpc[];
   rules: Rule[];
   /** Механики ревизии (для бросков инициативы через RollEngine). */
   mechanics: Mechanic[];
   chatId: number | null;
+  ensureSession?: () => Promise<void>;
+  cachedProjections?: Record<CombatEntityKey, GameRuntimeEntityProjection>;
 }>();
 
 const emit = defineEmits<{
   'update:open': [value: boolean];
-  saved: [];
+  saved: [projections: GameRuntimeEntityProjection[]];
 }>();
 
 const chatStore = useChatChannel();
@@ -81,54 +81,110 @@ interface CandidateOption {
 
 const entries = ref<DialogEntry[]>([]);
 const selectedIds = ref<string[]>([]);
+const candidateSummaries = ref<GameParticipantCandidate[]>([]);
+const candidateQuery = ref('');
+const candidateNextCursor = ref<string | null>(null);
+const candidateLoading = ref(false);
+const candidateError = ref<string | null>(null);
+const runtimeProjections = new Map<CombatEntityKey, GameRuntimeEntityProjection>();
+const projectionLoading = new Set<CombatEntityKey>();
+const projectionLoadingCount = ref(0);
+const searchSequence = ref(0);
+let searchTimer: ReturnType<typeof setTimeout> | null = null;
+let projectionRequest: Promise<void> | null = null;
 const rolling = ref(false);
 const error = ref<string | null>(null);
 
 const poolDefaults = computed(() => rollPoolDefaults(props.rules));
 
-const candidates = computed<CandidateOption[]>(() => {
-  const characters: CandidateOption[] = props.characters
-    .filter((membership) => membership.membershipStatus === 'active')
-    .map((membership) => ({
+const candidates = computed<CandidateOption[]>(() =>
+  candidateSummaries.value.map((candidate) => {
+    const projection = runtimeProjections.get(candidate.entityKey);
+
+    return {
       participant: {
-        id: `character:${membership.characterId}`,
-        name: membership.characterName,
-        kind: 'character',
-        entityId: membership.characterId,
+        id: candidate.entityKey,
+        name: candidate.name,
+        kind: candidate.kind,
+        entityId: candidate.id,
       },
-      version: sessionCharacterService.resolve(membership.approvedCharacterVersion, membership.overlay),
-    }));
-  const npcs: CandidateOption[] = props.npcs
-    .filter((npc) => npc.status === 'active')
-    .map((npc) => ({
-      participant: { id: `npc:${npc.id}`, name: npc.name, kind: 'npc', entityId: npc.id },
-      version: npc.version,
-    }));
-
-  return [...characters, ...npcs];
-});
-
-const candidateSelectItems = computed(() =>
-  candidates.value.map((candidate) => ({ value: candidate.participant.id, title: candidate.participant.name })),
+      version: projection?.projectionLevel === 'full' ? projection.version : null,
+    };
+  }),
 );
+
+const candidateSelectItems = computed(() => {
+  const characterItems = candidates.value
+    .filter((candidate) => candidate.participant.kind === 'character')
+    .map((candidate) => ({
+      value: candidate.participant.id,
+      title: candidate.participant.name,
+      kind: candidate.participant.kind,
+    }));
+  const npcItems = candidates.value
+    .filter((candidate) => candidate.participant.kind === 'npc')
+    .map((candidate) => ({
+      value: candidate.participant.id,
+      title: candidate.participant.name,
+      kind: candidate.participant.kind,
+    }));
+
+  return [
+    ...characterItems,
+    ...(characterItems.length > 0 && npcItems.length > 0
+      ? [
+          {
+            value: '__initiative-npc-divider__',
+            title: 'НПС',
+            kind: 'divider' as const,
+            props: { disabled: true },
+          },
+        ]
+      : []),
+    ...npcItems,
+  ];
+});
 
 watch(
   () => props.open,
   (open) => {
-    if (open) reset();
+    if (open) {
+      reset();
+      void loadCandidates('');
+    }
   },
 );
+onUnmounted(() => {
+  if (searchTimer) clearTimeout(searchTimer);
+});
 
-/** По умолчанию — все approved-персонажи; НПС добавляют вручную. */
+/** По умолчанию выбираются только найденные eligible-персонажи; НПС добавляются вручную. */
 function defaultSelectedIds(): string[] {
-  return candidates.value
-    .filter((candidate) => candidate.participant.kind === 'character')
-    .map((candidate) => candidate.participant.id);
+  return candidateSummaries.value
+    .filter((candidate) => candidate.kind === 'character')
+    .map((candidate) => candidate.entityKey);
 }
 
 function reset(): void {
   entries.value = [];
-  selectedIds.value = defaultSelectedIds();
+  selectedIds.value = [];
+  candidateSummaries.value = [];
+  candidateQuery.value = '';
+  candidateNextCursor.value = null;
+  candidateLoading.value = false;
+  candidateError.value = null;
+  runtimeProjections.clear();
+  for (const [entityKey, projection] of Object.entries(props.cachedProjections ?? {})) {
+    if (projection.projectionLevel === 'full') {
+      runtimeProjections.set(entityKey as CombatEntityKey, projection);
+    }
+  }
+  projectionLoading.clear();
+  projectionLoadingCount.value = 0;
+  if (searchTimer) {
+    clearTimeout(searchTimer);
+    searchTimer = null;
+  }
   rolling.value = false;
   error.value = null;
 }
@@ -137,11 +193,59 @@ function candidateOf(id: string): CandidateOption | null {
   return candidates.value.find((candidate) => candidate.participant.id === id) ?? null;
 }
 
+async function loadCandidates(query: string, append = false): Promise<void> {
+  const sequence = searchSequence.value + 1;
+  searchSequence.value = sequence;
+  candidateLoading.value = true;
+  candidateError.value = null;
+  try {
+    const result = await getGameApi().getParticipantCandidates({
+      gameId: props.gameId,
+      query,
+      cursor: append ? (candidateNextCursor.value ?? undefined) : undefined,
+      limit: 50,
+    });
+    if (searchSequence.value !== sequence) return;
+    const selectedKeys = new Set(selectedIds.value);
+    const next = append
+      ? [...candidateSummaries.value]
+      : candidateSummaries.value.filter((candidate) => selectedKeys.has(candidate.entityKey));
+    for (const candidate of result.items) {
+      if (!next.some((item) => item.entityKey === candidate.entityKey)) next.push(candidate);
+    }
+    candidateSummaries.value = next;
+    candidateNextCursor.value = result.nextCursor;
+    if (!append && entries.value.length === 0) {
+      selectedIds.value = defaultSelectedIds();
+      await nextTick();
+      await hydrateSelectedEntries();
+    }
+  } catch (caught) {
+    if (searchSequence.value === sequence) {
+      candidateError.value = caught instanceof Error ? caught.message : 'Не удалось загрузить участников';
+    }
+  } finally {
+    if (searchSequence.value === sequence) candidateLoading.value = false;
+  }
+}
+
+function onCandidateQueryChange(query: string): void {
+  candidateQuery.value = query;
+  if (searchTimer) clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    void loadCandidates(query);
+  }, 250);
+}
+
+function onCandidateMenuChange(isOpen: boolean): void {
+  if (!isOpen) void hydrateSelectedEntries();
+}
+
 function addEntry(id: string): void {
   const candidate = candidateOf(id);
   if (!candidate || entries.value.some((entry) => entry.participant.id === id)) return;
   const hasSheet = candidate.version !== null;
-  entries.value.push({
+  const entry: DialogEntry = {
     participant: { ...candidate.participant },
     version: candidate.version,
     method: hasSheet ? 'characteristic' : 'free',
@@ -153,8 +257,9 @@ function addEntry(id: string): void {
     freeEfficiency: poolDefaults.value.efficiency,
     characteristicValues: new Map(),
     characteristicsReady: !hasSheet,
-  });
-  if (hasSheet) void ensureCharacteristics(entries.value[entries.value.length - 1]);
+  };
+  entries.value.push(entry);
+  if (hasSheet) void ensureCharacteristics(entry);
 }
 
 function removeEntry(id: string): void {
@@ -170,6 +275,62 @@ watch(selectedIds, (ids) => {
     if (!kept.some((entry) => entry.participant.id === id)) addEntry(id);
   }
 });
+
+async function hydrateSelectedEntries(): Promise<void> {
+  if (projectionRequest) {
+    await projectionRequest;
+
+    return;
+  }
+  const requestedKeys = selectedIds.value.filter((id): id is CombatEntityKey => id.includes(':'));
+  const missingKeys = requestedKeys.filter(
+    (key) => runtimeProjections.get(key)?.projectionLevel !== 'full' && !projectionLoading.has(key),
+  );
+  if (missingKeys.length === 0) return;
+
+  for (const key of missingKeys) projectionLoading.add(key);
+  projectionLoadingCount.value = missingKeys.length;
+  error.value = null;
+  projectionRequest = (async () => {
+    try {
+      const result = await getGameApi().getRuntimeEntities(props.gameId, {
+        entityKeys: missingKeys,
+        projectionLevel: 'full',
+      });
+      for (const projection of result.projections) {
+        runtimeProjections.set(projection.entityKey, projection);
+        const entry = entries.value.find((candidate) => candidate.participant.id === projection.entityKey);
+        if (!entry) continue;
+        entry.version = projection.version;
+        entry.characteristicsReady = projection.version === null;
+        if (projection.version !== null) {
+          entry.method = 'characteristic';
+          await ensureCharacteristics(entry);
+        }
+      }
+      if (result.missingEntityKeys.length > 0) {
+        const missingNames = result.missingEntityKeys
+          .map((key) => candidateSummaries.value.find((candidate) => candidate.entityKey === key)?.name ?? key)
+          .join(', ');
+        error.value = `Не удалось загрузить листы: ${missingNames}`;
+      }
+    } catch (caught) {
+      error.value = caught instanceof Error ? caught.message : 'Не удалось загрузить выбранные листы';
+    } finally {
+      for (const key of missingKeys) projectionLoading.delete(key);
+      projectionLoadingCount.value = 0;
+    }
+  })();
+  try {
+    await projectionRequest;
+  } finally {
+    projectionRequest = null;
+  }
+}
+
+function isProjectionLoading(entry: DialogEntry): boolean {
+  return projectionLoading.has(entry.participant.id as CombatEntityKey);
+}
 
 async function ensureCharacteristics(entry: DialogEntry): Promise<void> {
   if (!entry.version || entry.characteristicsReady) return;
@@ -217,6 +378,15 @@ async function roll(): Promise<void> {
 
     return;
   }
+  await hydrateSelectedEntries();
+  const unresolvedEntries = entries.value.filter(
+    (entry) => runtimeProjections.get(entry.participant.id as CombatEntityKey)?.projectionLevel !== 'full',
+  );
+  if (unresolvedEntries.length > 0) {
+    error.value = `Не удалось загрузить листы: ${unresolvedEntries.map((entry) => entry.participant.name).join(', ')}`;
+
+    return;
+  }
   for (const entry of entries.value) {
     if (entry.method === 'characteristic' && !entry.characteristicValues.get(entry.characteristicCode)) {
       error.value = `Нет значения «${entry.characteristicCode}» у ${entry.participant.name}`;
@@ -257,6 +427,7 @@ async function roll(): Promise<void> {
     const results = rollInitiative(rollEntries, undefined, props.rules, props.mechanics);
     const ordered = orderInitiative(results);
 
+    await props.ensureSession?.();
     await getGameApi().saveInitiative(props.gameId, {
       gameId: props.gameId,
       active: true,
@@ -288,7 +459,7 @@ async function roll(): Promise<void> {
       }
     }
 
-    emit('saved');
+    emit('saved', [...runtimeProjections.values()]);
     emit('update:open', false);
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Не удалось провести проверку на инициативу';
@@ -306,20 +477,47 @@ async function roll(): Promise<void> {
         Проверка на инициативу
       </v-card-title>
       <v-card-text>
-        <v-select
+        <v-autocomplete
           v-model="selectedIds"
           :items="candidateSelectItems"
           item-title="title"
           item-value="value"
+          v-model:search="candidateQuery"
           multiple
           chips
           closable-chips
+          clearable
+          hide-no-data
           density="compact"
           variant="outlined"
-          hide-details
           label="Участники"
           class="mb-3"
-        />
+          :loading="candidateLoading"
+          @update:search="onCandidateQueryChange"
+          @update:menu="onCandidateMenuChange"
+        >
+          <template #item="{ props: itemProps, item }">
+            <template v-if="item.raw.kind === 'divider'">
+              <v-divider />
+              <v-list-subheader>{{ item.raw.title }}</v-list-subheader>
+            </template>
+            <v-list-item v-else v-bind="itemProps" />
+          </template>
+        </v-autocomplete>
+        <v-btn
+          v-if="candidateNextCursor"
+          size="small"
+          variant="text"
+          :loading="candidateLoading"
+          :disabled="candidateLoading"
+          @click="loadCandidates(candidateQuery, true)"
+        >
+          Загрузить ещё участников
+        </v-btn>
+        <v-alert v-if="candidateError" type="error" variant="tonal" density="compact" class="mb-3">
+          {{ candidateError }}
+          <v-btn size="small" variant="text" @click="loadCandidates(candidateQuery)">Повторить</v-btn>
+        </v-alert>
 
         <div v-for="entry in entries" :key="entry.participant.id" class="initiative-dialog-entry">
           <div class="d-flex align-center ga-2 mb-1">
@@ -342,7 +540,8 @@ async function roll(): Promise<void> {
           </div>
 
           <div v-if="!entry.version" class="text-caption text-medium-emphasis mb-1">
-            Нет листа персонажа с характеристиками. Заполните профиль, чтобы они появились.
+            <span v-if="isProjectionLoading(entry)">Загрузка листа участника…</span>
+            <span v-else>Нет листа участника с характеристиками. Доступны свободный и фиксированный броски.</span>
           </div>
 
           <div v-if="entry.method === 'characteristic'" class="initiative-dialog-config">
@@ -417,7 +616,12 @@ async function roll(): Promise<void> {
           </div>
         </div>
 
-        <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mt-3">{{ error }}</v-alert>
+        <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mt-3">
+          <div class="d-flex align-center ga-2">
+            <span>{{ error }}</span>
+            <v-btn size="small" variant="text" @click="hydrateSelectedEntries">Повторить</v-btn>
+          </div>
+        </v-alert>
       </v-card-text>
       <v-card-actions>
         <v-spacer />
@@ -426,7 +630,7 @@ async function roll(): Promise<void> {
           variant="tonal"
           prepend-icon="mdi-dice-d6"
           :loading="rolling"
-          :disabled="entries.length === 0"
+          :disabled="entries.length === 0 || candidateLoading || projectionLoadingCount > 0"
           @click="roll"
         >
           Бросить инициативу

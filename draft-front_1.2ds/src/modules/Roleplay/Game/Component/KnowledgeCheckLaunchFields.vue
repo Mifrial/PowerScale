@@ -85,7 +85,7 @@ function onCustomSlot(value: string): void {
       density="compact"
       hide-details
       label="Полоса"
-      @update:model-value="emit('update:band', $event)"
+      @update:model-value="emit('update:band', $event ?? 1)"
     />
     <div v-if="hintText" class="text-caption text-medium-emphasis knowledge-check-fields__hint">{{ hintText }}</div>
   </div>

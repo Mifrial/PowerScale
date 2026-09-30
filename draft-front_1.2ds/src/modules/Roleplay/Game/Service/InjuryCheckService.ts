@@ -1,6 +1,5 @@
 import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/CharacterStateValue';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
-import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
 import type { InjuryRollInput } from '@/modules/Roleplay/Game/Dto/InjuryRollInput';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { INJURY_DETAILS_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Injury/INJURY_DETAILS_ATTACHMENT_TYPE';
@@ -57,11 +56,10 @@ export class InjuryCheckService {
     if (args.skipIfNoRoll && roll.rolls.length === 0) {
       return { roll, overlay: null, skipped: true };
     }
-    let overlay: GameCombatOverlay | null = null;
     if (injury.strength > 0) {
       const maimRule = args.rules.find((rule) => rule.code === MAIM_STATE_CODE && rule.type === 'state');
       if (maimRule) {
-        overlay = await this.resolveGameApi().addCombatState(args.gameId, args.targetKey, {
+        await this.resolveGameApi().addCombatState(args.gameId, args.targetKey, {
           stateRuleCode: maimRule.code,
           value: injury.strength,
           maim: {
@@ -106,6 +104,6 @@ export class InjuryCheckService {
       if (!sent) throw new Error('Не удалось отправить проверку на увечье');
     }
 
-    return { roll, overlay, skipped: false };
+    return { roll, overlay: null, skipped: false };
   }
 }

@@ -5,6 +5,7 @@ import {
   submitCharacter,
   createGameCharacter,
   moderateCharacter,
+  moderateCharacterCommand,
   leaveGame,
   updateMembershipVisibility,
   updateCharacterGrants,
@@ -12,24 +13,23 @@ import {
   fetchCharacterGameContexts,
 } from '@/modules/Roleplay/Game/Mock/mockGameMemberships';
 import { gameDetails, stopGameSession } from '@/modules/Roleplay/Game/Mock/mockGames';
-import { characters, versions } from '@/modules/Roleplay/Character/Mock/mockCharacters';
+import { characters, getCharacterActualVersion, versions } from '@/modules/Roleplay/Character/Mock/mockCharacters';
 import { addCustomRule } from '@/modules/Roleplay/Character/Mock/mockCharacterUpdate';
-import '@/modules/Roleplay/Game/Mock/mockCharacterSessionOverlay';
+import '@/modules/Roleplay/Game/Mock/mockCharacterSessionRuntimePort';
 import {
   setCombatResource,
   combatKey,
   getStoredCombatOverlay,
-  snapshotCombatOverlayStore,
-  restoreCombatOverlayStore,
-  writeOverlaySheet,
-  clearCombatOverlay,
 } from '@/modules/Roleplay/Game/Mock/mockGameCombatOverlays';
-import { saveInitiative, fetchInitiative } from '@/modules/Roleplay/Game/Mock/mockGameInitiative';
 import { mockLogin, mockLogout } from '@/modules/Core/Auth/Mock/mockAuth';
 import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
 import type { CreateCharacterData } from '@/modules/Roleplay/Character/Dto/Editor/CreateCharacterData';
-import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
 import { reactive } from 'vue';
+import {
+  clearMockGameState,
+  configureMockGameState,
+  startGameSession,
+} from '@/modules/Roleplay/Game/Mock/mockGameState';
 
 const gameIds = new Set(gameDetails.map((detail) => detail.game.id));
 const characterIds = new Set(characters.map((character) => character.id));
@@ -243,13 +243,13 @@ describe('mockGameMemberships: leave и миграция', () => {
 });
 
 describe('mockGameMemberships: кастомное правило', () => {
-  it('во время активной сессии правило уходит в оверлей', async () => {
+  it('во время активной сессии правило пишется в actual', async () => {
     const detail = await addCustomRule(1, { kind: 'item', name: 'Амулет дракона', description: 'Жаркое дыхание.' });
-    expect(detail.version.customRules?.[0]).toBeUndefined();
+    expect(detail.version.customRules?.[0]?.name).toBe('Амулет дракона');
     const chars = await fetchGameCharacters(2);
     const torvin = chars.find((membership) => membership.characterId === 1)!;
     expect(torvin.membershipStatus).toBe('active');
-    expect(torvin.overlay?.sheet?.customRules?.[0]?.name).toBe('Амулет дракона');
+    expect(versions[1].customRules?.[0]?.name).toBe('Амулет дракона');
   });
 
   it('вне сессии правило идёт в actual; approved заморожен', async () => {
@@ -264,9 +264,10 @@ describe('mockGameMemberships: кастомное правило', () => {
 });
 
 describe('mockGameMemberships: остановка сессии', () => {
-  it('после stop overlay коммитится в actual; approved не меняется до approve', async () => {
+  it('после stop actual уже сохранён; approved не меняется до approve', async () => {
     const detail = gameDetails.find((d) => d.game.id === 2)!;
     const charKey = combatKey('character', 1);
+    const beforeOverlay = getStoredCombatOverlay(2, charKey);
     const beforeApproved = (await fetchGameCharacters(2)).find((m) => m.characterId === 1)!.approvedCharacterVersion!;
 
     detail.game.status = 'playing';
@@ -279,7 +280,7 @@ describe('mockGameMemberships: остановка сессии', () => {
     expect(membership.approvedCharacterVersion).toEqual(beforeApproved);
     expect(versions[1].resources.find((r) => r.ruleCode === 'action-points')?.current).toEqual({ base: 1, size: 0 });
     expect(membership.reviewState).toBe('changes_pending');
-    expect(getStoredCombatOverlay(2, charKey)).toBeNull();
+    expect(getStoredCombatOverlay(2, charKey)).toEqual(beforeOverlay);
 
     const approved = await moderateCharacter(2, 1, 'approve');
     expect(approved.reviewState).toBe('clean');
@@ -293,75 +294,61 @@ describe('mockGameMemberships: остановка сессии', () => {
     await expect(stopGameSession(1, 'in_process')).rejects.toThrow('Сессия не активна');
   });
 
-  it('ошибка integrity на втором PC не мутирует actual, overlay, инициативу и playing', async () => {
+  it('stop не выполняет повторный full-sheet commit', async () => {
     const detail = gameDetails.find((d) => d.game.id === 2)!;
     detail.game.status = 'playing';
     const charKey = combatKey('character', 1);
-    const npcKey = combatKey('npc', 5);
-    const beforeActual = cloneData(versions[1]);
+    const beforeOverlay = getStoredCombatOverlay(2, charKey);
     await setCombatResource(2, charKey, 'action-points', { base: 1, size: 0 });
-    const npcOverlay: GameCombatOverlay = {
-      gameId: 2,
-      entityKey: npcKey,
-      kind: 'npc',
-      resources: [{ ruleCode: 'action-points', current: { base: 2, size: 0 } }],
-      states: [],
-      updatedAt: '2026-08-30T12:00:00.000Z',
-    };
-    restoreCombatOverlayStore(2, { ...snapshotCombatOverlayStore(2), [npcKey]: npcOverlay });
-    await saveInitiative(2, {
-      gameId: 2,
-      active: true,
-      participants: [{ id: 'character:1', name: 'Торвин', kind: 'character', entityId: 1 }],
-      activeIndex: 0,
-      round: 2,
-      updatedAt: '',
-    });
+    await stopGameSession(2, 'in_process');
+    expect(versions[1].resources.find((r) => r.ruleCode === 'action-points')?.current).toEqual({ base: 1, size: 0 });
+    expect(getStoredCombatOverlay(2, charKey)).toEqual(beforeOverlay);
+  });
+});
 
-    const second = await createGameCharacter(2, {
-      spaceId: 1,
-      spaceCode: 'razrabotka',
-      rulesRevision: 5,
-      version: {
-        name: 'Второй ПК',
-        shortDescription: 'Краткое описание',
-        fullDescription: null,
-        spaceCode: 'razrabotka',
-        rulesRevision: 5,
-        raceRuleCode: null,
-        characteristics: [],
-        resources: [],
-        abilities: [],
-        points: { osSpent: 0, olSpent: 0, olTotal: 0, orSpent: 0, orTotal: null },
-        money: 0,
-        ageYears: null,
-        inventory: [],
-        states: [],
-        senses: [],
-      },
-      status: 'ready',
+describe('mockGameMemberships: approve во время active session', () => {
+  it('одобряет active membership через CAS и replay-ит тот же command', async () => {
+    const detail = gameDetails.find((entry) => entry.game.id === 1)!;
+    const previousStatus = detail.game.status;
+    const created = await createGameCharacter(1, makeCreateData('Approve в сессии'));
+    await moderateCharacter(1, created.characterId, 'approve');
+    detail.game.status = 'playing';
+    configureMockGameState({
+      getGame: (gameId) => gameDetails.find((entry) => entry.game.id === gameId)?.game ?? null,
     });
-    await moderateCharacter(2, second.characterId, 'approve');
-    await writeOverlaySheet(2, combatKey('character', second.characterId), {
-      ...versions[second.characterId],
-      raceRuleCode: 'missing-rule-xyz',
-    });
+    try {
+      const session = await startGameSession({
+        commandId: 'approve-session',
+        commandType: 'startSession',
+        gameId: 1,
+        sessionId: null,
+        battleId: null,
+        participantEntityKeys: [`character:${created.characterId}`],
+        payload: {},
+      });
+      if (session.kind !== 'transition') throw new Error('Session was not created');
+      const membership = gameCharacterMemberships.find(
+        (entry) => entry.gameId === 1 && entry.characterId === created.characterId,
+      );
+      if (!membership) throw new Error('Membership was not created');
+      const command = {
+        commandId: 'approve-active',
+        gameId: 1,
+        characterId: created.characterId,
+        action: 'approve' as const,
+        expectedActualVersion: getCharacterActualVersion(created.characterId),
+        expectedMembershipRevision: membership.membershipRevision,
+      };
 
-    await expect(stopGameSession(2, 'in_process')).rejects.toThrow('отсутствующие в ревизии');
-    expect(gameDetails.find((d) => d.game.id === 2)?.game.status).toBe('playing');
-    expect(versions[1]).toEqual(beforeActual);
-    expect(getStoredCombatOverlay(2, charKey)?.resources.find((r) => r.ruleCode === 'action-points')?.current).toEqual({
-      base: 1,
-      size: 0,
-    });
-    expect(getStoredCombatOverlay(2, npcKey)?.resources[0]?.current).toEqual({ base: 2, size: 0 });
-    const initiative = await fetchInitiative(2);
-    expect(initiative.active).toBe(true);
-    expect(initiative.round).toBe(2);
-    clearCombatOverlay(2, combatKey('character', second.characterId));
-    const extraIndex = gameCharacterMemberships.findIndex(
-      (membership) => membership.characterId === second.characterId,
-    );
-    if (extraIndex >= 0) gameCharacterMemberships.splice(extraIndex, 1);
+      const approved = await moderateCharacterCommand(command);
+      const replay = await moderateCharacterCommand(command);
+
+      expect(approved.kind).toBe('transition');
+      expect(replay).toEqual(approved);
+      if (approved.kind === 'transition') expect(approved.membership.reviewState).toBe('clean');
+    } finally {
+      detail.game.status = previousStatus;
+      clearMockGameState();
+    }
   });
 });

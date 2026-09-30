@@ -12,13 +12,13 @@
 
 ## Membership, NPC и overlay
 
-Игровой персонаж может состоять только в одной игре одновременно. Membership хранит ссылку на персонажа, `approvedCharacterVersion` как полную immutable-копию принятого actual character и `gameOverlay` как сессионные изменения. `sessionCharacterVersion` вычисляется как `resolve(approvedCharacterVersion, gameOverlay)`. Истории CharacterVersion нет.
+Игровой персонаж может состоять только в одной игре одновременно. Membership хранит ссылку на персонажа, `approvedCharacterVersion` как immutable baseline moderation и технические review/concurrency metadata. `actualCharacter` остаётся единственным persisted листом; `gameOverlay/gameState` хранит только session/battle/process state, а не второй полный `CharacterVersion`. Истории CharacterVersion нет.
 
-NPC имеют игровую версию и могут участвовать в игровых действиях. Полная модель хранения, истории и модерации NPC — `OPEN`; операции с NPC применяются сразу к `npc.version`, в отличие от player overlay.
+NPC имеют актуальный `npc.version` и могут участвовать в игровых действиях. NPC не получает approved snapshot, draft или player moderation baseline; `npc.actual_version` используется для optimistic concurrency. Его authoritative state изменяется тем же Game backend path, что и player effects, с отличающейся только moderation/ownership policy.
 
 При смене `rulesRevision` игры все несовместимые player characters проходят migration. Миграцию выполняет владелец персонажа; после успешной миграции membership снова требует moderation. До migration и approve запуск следующей сессии такого персонажа запрещён. Игра целиком не блокируется: ограничение применяется только к несовместимым персонажам.
 
-Combat overlay является частью общего игрового состояния. `GameCombatOverlay.sheet` может содержать полный лист, поэтому combat fields не следует описывать как независимую persisted модель без отдельного решения.
+Game overlay является частью общего игрового состояния. В нём остаются initiative, `battleId`, process/action state, offers, pending effects и transient markers. Полный player/NPC sheet, `states`, resources, money, inventory и equipment не являются его authoritative storage; они читаются из Character/NPC actual projection.
 
 ## Session и летопись
 
@@ -83,7 +83,7 @@ Loot может требовать модерации согласно прав�
 
 Ведущий настраивает права и режимы магазина. Обычная разрешённая операция не требует ручного approve.
 
-Каждая backend-операция записывается в immutable append-only `EconomyOperation`. Во время сессии player-мутация направляется в `gameOverlay` и становится частью `sessionCharacterVersion`; вне сессии после проверки меняется `actualCharacter`. Для NPC authoritative state — `npc.version`. Состояние и журнал меняются атомарно в одной DB-транзакции.
+Каждая backend-операция, меняющая money, inventory, item quantity или loot, проходит через typed `EconomyOperation` с idempotency key и expected versions. Во время сессии player-мутация меняет actual Character в момент authoritative effect; Game overlay хранит только связанный process/battle state. Для NPC authoritative state — `npc.version`. Состояние операции и затронутые authoritative records меняются атомарно в одной DB-транзакции. Общий immutable combat action log не является обязательным контрактом.
 
 Typed operation содержит игру, инициатора, источники, цели, предметы/деньги, `idempotencyKey` и ожидаемые версии. Backend проверяет права, баланс, количество, остаток и все версии; конфликт optimistic version check отклоняет операцию. Физические таблицы и endpoint — `OPEN`.
 
@@ -109,11 +109,11 @@ Wide attack requires at least one target and a defender key for every target. Ea
 
 ### ActionEffect and states
 
-`ActionEffect` is a partial runtime contract for resource changes, states, damage and process transitions. Effects may be immediate or remain for a defined turn/session lifetime. State aggregation follows the rule (`sum`, `max`, `independent`); DOT consumes turns and updates the effective overlay, not the global active snapshot.
+`ActionEffect` is a partial runtime contract for resource changes, states, damage and process transitions. Effects may be immediate or remain for a defined turn/session lifetime. State aggregation follows the rule (`sum`, `max`, `independent`); DOT consumes turns and, when it applies an authoritative effect, updates actual Character/NPC state. Only process/turn markers remain in Game state.
 
 ### Movement
 
-Movement is resolved through `ISpatialResolver` and typed horizontal/vertical directions. A movement operation must validate direction, distance, current speed and action-point cost before mutating the session overlay. When a current `GameScene` exists, path, collision and portal crossing follow [`battleground-system.md`](battleground-system.md); that domain is not implemented yet.
+Movement is resolved through `ISpatialResolver` and typed horizontal/vertical directions. A movement operation must validate direction, distance, current speed and action-point cost before mutating Game session state. When a current `GameScene` exists, path, collision and portal crossing follow [`battleground-system.md`](battleground-system.md); that domain is not implemented yet.
 
 ### Loot and stores
 
@@ -123,19 +123,39 @@ Loot changes state from prepared/available to distributed. An item has one recip
 
 `IGameApi` предоставляет публичные операции для контекста игры, membership, сессии, проверок, боя, loot и typed action/process flow. Точные TypeScript unions остаются в `Dto/` и `Interface/`; этот документ фиксирует только границы и инварианты.
 
-Во время сессии combat читает `sessionCharacterVersion = resolve(approvedCharacterVersion, gameOverlay)`. `GameCombatOverlay.sheet` может быть полной рабочей копией листа для редактора, но при записи применяется allowlist игровых полей: владелец, `characterId`, `spaceId`, `rulesRevision`, права и `visibility` неизменяемы.
+Во время сессии combat читает authoritative Character/NPC projection из actual storage и накладывает только transient Game state. `approvedCharacterVersion` используется для moderation и следующего `canStartSession`, но не заменяет actual внутри уже начатой session. Полный лист не хранится в `GameCombatOverlay`.
 
 Session transitions:
 
 ```text
-start  → resolve approvedCharacterVersion + gameOverlay
-action → validate permission, target, version and effect
-stop   → atomic resolve → validate → update actualCharacter → clear gameOverlay
+start       → validate canStartSession against current Game.spaceId/spaceCode/rulesRevision
+startBattle → create battleId and battle/process namespace
+action      → validate participant, process, target, versions and effect
+effect      → atomically update actual Character/NPC plus Game state
+endBattle   → cancel unresolved battle processes/offers and clear battle markers
+stopSession → cancel remaining session processes and clear transient Game state
 ```
 
 Остановка сессии — один action `stopSession` (`IGameApi.stopGameSession`); `updateGame` не снимает статус `playing`.
 
-Combat resources, states, ActionEffect, movement, initiative, checks, chronicle and loot остаются отдельными capability-контрактами. Ошибка или stale version не приводит к частичной мутации. Модерация запускается только после stop/session commit и использует diff `approvedCharacterVersion` ↔ `actualCharacter`; старые A/L/O/P и three-way reconcile в этот контракт не входят.
+Во время `playing` `Game.spaceId`, `Game.spaceCode` и `Game.rulesRevision`
+неизменяемы. Это invariant самого Game aggregate, а не отдельный
+`gameRevision` или runtime CAS token. R3-FE добавляет только opt-in
+frontend/mock snapshot boundary; его internal lifecycle fixtures не меняют
+`Game.status` и не заменяют `stopGameSession`.
+
+R4-FE может добавить opt-in `IGameApi.submitCombatCommand` для узкого
+single-target attack/defense vertical slice. Frontend отправляет только
+decisions, `sessionId`/`battleId`/process identity и expected entity versions;
+damage, resource spend и state outcome вычисляет authoritative mock/backend.
+Decision commands меняют Game process/offer state, а Character/NPC actual
+изменяется только в applied transition. Result и будущая SSE delivery остаются
+разными boundaries. R4-FE расширяет mock command records, CAS и rollback
+fixtures, но не реализует backend transaction, SSE, outbox, Chat delivery или
+read projections; `GameCombatOverlay` и текущие combat controls остаются
+compatibility path.
+
+Одна `playing` session может содержать несколько независимых battles. Продолжение текущего battle сохраняет его `battleId` и process state; новый battle получает новый identity. `endBattle` не завершает session и не запускает approve. Applied authoritative effects не откатываются при endBattle/stopSession. Combat resources, states, ActionEffect, movement, initiative, checks, chronicle and loot остаются отдельными capability-контрактами. Ошибка или stale version не приводит к частичной мутации. Модерация использует diff `approvedCharacterVersion` ↔ `actualCharacter`; `changes_pending` не блокирует уже активного participant, но блокирует следующую session. Старые A/L/O/P и three-way reconcile в этот контракт не входят.
 
 ## Backlog и release blockers
 
@@ -163,25 +183,49 @@ draft → recruiting → in_process → paused → playing → completed
 
 ### NPC и листы
 
-NPC — персонаж игры без владельца-игрока. Ведущий может добавить NPC inline; игрок создаёт предложение на модерацию. Видимость задаётся scope (`all`, `gm`, selected players) и секциями листа. Имя видно при доступности NPC, а характеристики, ресурсы, способности и inventory могут быть скрыты.
+NPC — персонаж игры без владельца-игрока. Ведущий может добавить NPC inline; дальнейшие editor/runtime mutations выполняются участниками с соответствующим Game permission и применяются к `npc.version` без player moderation flow. Видимость задаётся scope (`all`, `gm`, selected players) и секциями листа. Имя видно при доступности NPC, а характеристики, ресурсы, способности и inventory могут быть скрыты.
 
-NPC использует переиспользуемый `CharacterSheetEditor` без обязательной расы и лимитов; версия NPC применяется сразу. Перевод NPC на новую ревизию использует тот же migration engine и применяется к `npc.version`.
+NPC использует переиспользуемый `CharacterSheetEditor` без обязательной расы и лимитов; версия NPC применяется сразу. Перевод NPC на новую ревизию использует тот же migration engine и применяется к `npc.version` с `expectedNpcActualVersion`. NPC не проходит player approve и не имеет второй moderation version.
 
 ### Session, initiative и checks
 
-Game Chat — общий чат live-сессии. Автор сообщения выбирается из персонажей, NPC или ведущего. GM запускает/останавливает сессию; боевые изменения при остановке коммитятся в actual character одной транзакцией и могут отправить membership на модерацию. Остановка сессии сбрасывает шкалу инициативы; ту же шкалу после stop продолжить нельзя — только новый бросок в новой сессии.
+Game Chat — общий чат live-сессии. Автор сообщения выбирается из персонажей, NPC или ведущего. GM запускает/останавливает сессию; authoritative combat effects записываются в actual в момент их применения и могут перевести player membership в `changes_pending`. Остановка сессии не выполняет character commit и сбрасывает transient session/battle state; ту же шкалу после stop продолжить нельзя — только новый бросок в новой сессии.
 
 Initiative использует тот же RollEngine и может быть характеристикой с дефолтом, свободным броском или фиксированным значением. Результат нужен для порядка и не хранится как отдельный листовой показатель. Шкала поддерживает передачу хода, добавление участника и сохранение/продолжение данных.
 
 Check имеет solo и pairwise flow. В pairwise flow offer ждёт ответов целей; броски строятся после согласия. Wide attack расширяет это до нескольких target proposals и per-target results.
 
-### Game overlay и reconciliation
+### Game state и Character actual
 
-Во время `playing` approved membership читает эффективный лист `approvedCharacterVersion + gameOverlay`. Overlay может менять только игровые поля и не может менять владельца, `characterId`, `spaceId`, `rulesRevision`, права или `visibility`. Actual character и approved snapshot неизменяемы до завершения сессии.
+Во время `playing` Game state содержит только session/battle/process data. Player/NPC projections читаются через соответствующие authoritative boundaries; Game не пишет Character storage напрямую. Любая multi-entity game action открывает outer transaction в Game и вызывает Character/NPC mutation ports на том же transaction-bound gateway.
 
-Session commit атомарно разрешает все overlays, валидирует результаты, обновляет actual characters, очищает overlays и отмечает изменённые memberships для модерации. Ошибка одного участника откатывает весь commit; optimistic guard отклоняет устаревшее состояние.
+Многошаговая атака может состоять из нескольких command requests: decision, offer/defense, process transition и authoritative resolution. Frontend отправляет решения, backend сам проверяет актуальные версии, права и допустимость перехода. Command response и SSE delivery являются разными границами; SSE доставляет authoritative updates, но не заменяет response и не является источником authority.
 
-Модерация требуется, если approved snapshot отсутствует или отличается от actual character. Return for rework сохраняет membership и отправляет сообщение в обсуждение. Reject удаляет только submitted-заявку; active-персонажа reject нельзя. Новая сессия блокируется при расхождении approved/actual или `needs_fix`.
+`GameStateSnapshot` не содержит полный roster или sheets. Participant keys и
+runtime projections читаются отдельными capability boundaries; roster должен
+использовать summaries, batch lookup и lazy/paged detail без N+1.
+
+R6-FE добавляет mock/frontend realtime boundary для этих projections:
+изменение доставляется как affected `entityKey`/version/invalidation, а не
+как Chat message или полный roster. Cursor монотонен в пределах Game stream,
+`eventId = <gameId>.<cursor>`, reconnect использует `lastCursor`, а stale
+cursor получает bounded snapshot. Game Chat, Characters, Moderation и NPC UI
+перечитывают только затронутые projections; full projection загружается
+только для открытой карточки или активного combat subset. Это frontend/mock
+контракт и не означает готовность production SSE, outbox, EventManager
+listener или visibility enforcement.
+
+R7-FE добавляет frontend/mock readiness для публичных session/battle
+transitions, разделения admission и active participation, moderation CAS,
+terminal cleanup и recovery/idempotency fixtures. `changes_pending` не
+блокирует следующий battle уже начатой session; approve active membership
+не меняет actual и не останавливает session. Новый authoritative path не
+выполняет stop-time full-sheet commit. Legacy overlay mutators и их
+compatibility commit сохраняются до R8 и не являются canonical Character
+source; production Game transactions, durable process state, SSE, outbox и
+EventManager delivery остаются backend scope.
+
+Модерация требуется, если approved snapshot отсутствует или `getCharacterDiff(approvedCharacterVersion, actualCharacter).hasChanges` равно `true`. Return for rework сохраняет membership и переводит participant-owned unresolved processes в `cancelled`; applied effects не откатываются. Reject удаляет только submitted-заявку; active-персонажа reject нельзя. Новая сессия блокируется при semantic diff, `changes_pending`, `returned`, несовместимой revision или repair state.
 
 ### Loot
 

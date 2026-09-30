@@ -8,8 +8,8 @@ import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOv
 /**
  * Членство персонажа в игре. Персонаж — не более чем в одной игре (кроме `left`).
  * `approvedCharacterVersion` — immutable-копия actual на момент approve.
- * Сессия: `resolve(approvedCharacterVersion, overlay)`.
- * Модерация: approved == null или diff(approved, actual); `reviewState` кроме `returned` вычисляется.
+ * Модерация: approved == null или semantic diff(approved, actual); `reviewState` кроме `returned` вычисляется.
+ * `overlay` хранит только transient Game/session state и не является актуальным листом персонажа.
  */
 export interface GameCharacterMembership {
   gameId: number;
@@ -21,6 +21,8 @@ export interface GameCharacterMembership {
   membershipStatus: GameMembershipStatus;
   approvedCharacterVersion: CharacterVersion | null;
   reviewState: GameMembershipReviewState;
+  /** Технический CAS-счётчик membership/review metadata; не является версией Character. */
+  membershipRevision: number;
   returnedAt: string | null;
   returnReason: string | null;
   returnMessageId: number | null;

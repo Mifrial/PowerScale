@@ -95,6 +95,7 @@ async function applyVersion(version: CharacterVersion): Promise<void> {
     tags: npc.tags,
     visibility: npc.visibility,
     version,
+    expectedNpcActualVersion: npc.actualVersion,
   });
   if (draftKey.value) draftStore.discard(draftKey.value);
   open.value = false;

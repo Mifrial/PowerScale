@@ -17,9 +17,6 @@ import {
 import type { CharacterOverview } from '@/modules/Roleplay/Character/Dto/Overview/CharacterOverview';
 import type { CombatMasterySection } from '@/modules/Roleplay/Character/Dto/Overview/CombatMasterySection';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
-import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
-import { sessionCharacterService } from '@/modules/Roleplay/Game/Service/Instance/sessionCharacterService';
-
 import { resourceLimitBase } from '@/modules/Roleplay/Game/Utils/combatEffectiveState';
 import { ACTION_POINTS_CODE } from '@/modules/Roleplay/Game/Constant/Combat/ACTION_POINTS_CODE';
 
@@ -30,6 +27,7 @@ import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber
 
 import type { CombatEntityKind } from '@/modules/Roleplay/Game/Enum/CombatEntityKind';
 import type { CombatCardModel } from '@/modules/Roleplay/Game/Dto/CombatCardModel';
+import type { GameRuntimeEntityProjection } from '@/modules/Roleplay/Game/Dto/GameRuntimeEntityProjection';
 import type { CombatStateRow } from '@/modules/Roleplay/Game/Dto/CombatStateRow';
 import type { CombatStateLinkedAction } from '@/modules/Roleplay/Game/Dto/CombatStateLinkedAction';
 import type { QuickRollRecord } from '@/modules/Roleplay/Game/Dto/QuickRollRecord';
@@ -69,22 +67,32 @@ export class CombatCardModelService {
     canEdit: boolean,
     currentUserId: number | null,
     overlay: GameCombatOverlay | null,
+    runtimeProjection: GameRuntimeEntityProjection | null = null,
   ): CombatCardModel {
     const { kind, id } = this.parseCombatEntityKey(key);
     const membership = kind === 'character' ? memberships.find((item) => item.characterId === id) : undefined;
+    const projectedCharacterVersion =
+      kind === 'character' &&
+      runtimeProjection?.kind === 'character' &&
+      runtimeProjection.projectionLevel === 'full'
+        ? runtimeProjection.version
+        : null;
+    const hasProjectedCharacter =
+      kind === 'character' && runtimeProjection?.kind === 'character' && runtimeProjection.projectionLevel === 'full';
+    const hasProjectedNpc =
+      kind === 'npc' && runtimeProjection?.kind === 'npc' && runtimeProjection.projectionLevel === 'full';
+    const projectedNpcVersion =
+      kind === 'npc' &&
+      runtimeProjection?.kind === 'npc' &&
+      runtimeProjection.projectionLevel === 'full'
+        ? runtimeProjection.version
+        : null;
     const baseVersion =
       kind === 'npc'
-        ? (npcs.find((npc) => npc.id === id)?.version ?? null)
-        : (membership?.approvedCharacterVersion ?? null);
-    const hasChanges = overlay !== null && overlay.updatedAt !== '' && baseVersion !== null;
-    const effectiveVersion =
-      kind === 'character'
-        ? sessionCharacterService.resolve(membership?.approvedCharacterVersion ?? null, overlay)
-        : baseVersion === null
-          ? null
-          : hasChanges && overlay
-            ? combatOverlayService.mergeCombatOverlay(overlay.sheet ?? baseVersion, overlay)
-            : baseVersion;
+        ? (hasProjectedNpc ? projectedNpcVersion : (npcs.find((npc) => npc.id === id)?.version ?? null))
+        : (hasProjectedCharacter ? projectedCharacterVersion : (membership?.approvedCharacterVersion ?? null));
+    const effectiveVersion = baseVersion;
+
     return {
       kind,
       entityId: id,

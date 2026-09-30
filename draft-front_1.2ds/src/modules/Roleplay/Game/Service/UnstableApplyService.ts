@@ -8,12 +8,10 @@ import type { ChatAttachment } from '@/modules/Messages/Chat/Dto/ChatAttachment'
 import { CHECK_DEXTERITY_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
 import { LYING_STATE_CODE, UNSTABLE_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
 import { checkRollService } from '@/modules/Roleplay/Game/Service/Instance/checkRollService';
-import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
 import { stateRuntimeEffectsService } from '@/modules/Roleplay/Character/init';
 import { addFlagState, removeStatesByCodes, setNumericState } from '@/modules/Roleplay/Game/Utils/combatStateWrite';
 import type { IGameApi } from '@/modules/Roleplay/Game/Interface/IGameApi';
 import { ROLL_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ATTACHMENT_TYPE';
-import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
 
 /** Прирост Неустойчивости и проверка Ловкости на падение. */
 export class UnstableApplyService {
@@ -42,11 +40,11 @@ export class UnstableApplyService {
       chatId: number,
       speaker: ChatSpeaker,
     ) => Promise<unknown>;
-  }): Promise<GameCombatOverlay | null> {
+  }): Promise<null> {
     if (input.amount <= 0) return null;
     if (input.version.states.some((state) => state.stateRuleCode === LYING_STATE_CODE)) return null;
     const next = this.current(input.version) + input.amount;
-    let overlay = await setNumericState(
+    await setNumericState(
       this.resolveGameApi(),
       input.gameId,
       input.targetKey,
@@ -55,12 +53,13 @@ export class UnstableApplyService {
       UNSTABLE_STATE_CODE,
       next,
     );
-    const version = overlay ? combatOverlayService.mergeCombatOverlay(input.version, overlay) : input.version;
-    const dexterity =
-      stateRuntimeEffectsService.effectiveCharacteristicValues(version, input.rules).get('dexterity') ?? {
-        base: 3,
-        size: 0,
-      };
+    const version = input.version;
+    const dexterity = stateRuntimeEffectsService
+      .effectiveCharacteristicValues(version, input.rules)
+      .get('dexterity') ?? {
+      base: 3,
+      size: 0,
+    };
     const adv = stateRuntimeEffectsService.checkAdvantageFromStates(version, input.rules, {
       kind: 'characteristic',
       code: 'dexterity',
@@ -81,20 +80,12 @@ export class UnstableApplyService {
         input.speaker,
       );
     }
-    if ((roll.check?.rating ?? 0) > 0) return overlay;
-    overlay =
-      (await removeStatesByCodes(
-        this.resolveGameApi(),
-        input.gameId,
-        input.targetKey,
-        version,
-        input.rules,
-        [UNSTABLE_STATE_CODE],
-      )) ?? overlay;
-    overlay =
-      (await addFlagState(this.resolveGameApi(), input.gameId, input.targetKey, input.rules, LYING_STATE_CODE)) ??
-      overlay;
+    if ((roll.check?.rating ?? 0) > 0) return null;
+    await removeStatesByCodes(this.resolveGameApi(), input.gameId, input.targetKey, version, input.rules, [
+      UNSTABLE_STATE_CODE,
+    ]);
+    await addFlagState(this.resolveGameApi(), input.gameId, input.targetKey, input.rules, LYING_STATE_CODE);
 
-    return overlay;
+    return null;
   }
 }

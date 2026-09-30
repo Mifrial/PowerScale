@@ -1,7 +1,7 @@
 import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
 import type { ChatAttachment } from '@/modules/Messages/Chat/Dto/ChatAttachment';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
-import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
+import type { GameAuthoritativeCommandResult } from '@/modules/Roleplay/Game/Dto/GameAuthoritativeCommandResult';
 import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
@@ -19,7 +19,6 @@ import type { ISpatialResolver } from '@/modules/Roleplay/Game/Interface/ISpatia
 import { ActionOperationResolutionService } from '@/modules/Roleplay/Game/Service/ActionOperationResolutionService';
 import { MovementStateService } from '@/modules/Roleplay/Game/Service/MovementStateService';
 import { postureStateService } from '@/modules/Roleplay/Game/Service/Instance/postureStateService';
-import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
 import { characterOverviewService } from '@/modules/Roleplay/Character/init';
 import { LYING_STATE_CODE, UNSTABLE_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
 import { addFlagState, removeStatesByCodes } from '@/modules/Roleplay/Game/Utils/combatStateWrite';
@@ -66,7 +65,7 @@ export class ActionExecutionService {
     spatialResolver?: ISpatialResolver;
     mechanics?: Mechanic[];
   }): Promise<{
-    overlay: GameCombatOverlay;
+    commandResult: GameAuthoritativeCommandResult;
     effects: PendingActionEffect[];
     spent: number;
     resolution: ReturnType<ActionOperationResolutionService['resolve']>;
@@ -106,7 +105,7 @@ export class ActionExecutionService {
       baseCost: input.actionPointCost,
     });
     const nextResource = attackDamageService.spendActionPoints(resource.current, input.actionPointCost);
-    let overlay = await this.resolveGameApi().setCombatResource(
+    let commandResult = await this.resolveGameApi().setCombatResource(
       input.gameId,
       input.entityKey,
       resource.ruleCode,
@@ -152,7 +151,7 @@ export class ActionExecutionService {
       nextSpeed = mechanicContext.currentSpeed as CurrentSpeed;
     }
     await this.resolveGameApi().setCurrentSpeed(input.gameId, input.entityKey, nextSpeed);
-    overlay = await this.applyPostureAndStability(input, overlay);
+    commandResult = await this.applyPostureAndStability(input, commandResult);
     if (input.chatId !== null) {
       await input.sendChat(
         formatAttackActionMessage({
@@ -168,7 +167,7 @@ export class ActionExecutionService {
       );
     }
 
-    return { overlay, effects: nextEffects, spent: input.actionPointCost, resolution };
+    return { commandResult, effects: nextEffects, spent: input.actionPointCost, resolution };
   }
 
   private async applyPostureAndStability(
@@ -181,10 +180,10 @@ export class ActionExecutionService {
       rules: Rule[];
       operations?: ActionOperation[];
     },
-    overlay: GameCombatOverlay,
-  ): Promise<GameCombatOverlay> {
-    let version = combatOverlayService.mergeCombatOverlay(input.version, overlay);
-    let nextOverlay = overlay;
+    commandResult: GameAuthoritativeCommandResult,
+  ): Promise<GameAuthoritativeCommandResult> {
+    const version = input.version;
+    let nextCommandResult = commandResult;
     if (postureStateService.shouldToggleLying(input.operations ?? input.action.operations)) {
       const next = postureStateService.nextAfterStandUp(version);
       const removed = await removeStatesByCodes(
@@ -196,8 +195,7 @@ export class ActionExecutionService {
         next.removeCodes,
       );
       if (removed) {
-        nextOverlay = removed;
-        version = combatOverlayService.mergeCombatOverlay(version, removed);
+        nextCommandResult = removed;
       }
       if (next.addLying) {
         const added = await addFlagState(
@@ -208,8 +206,7 @@ export class ActionExecutionService {
           LYING_STATE_CODE,
         );
         if (added) {
-          nextOverlay = added;
-          version = combatOverlayService.mergeCombatOverlay(version, added);
+          nextCommandResult = added;
         }
       }
     }
@@ -222,9 +219,9 @@ export class ActionExecutionService {
         input.rules,
         [UNSTABLE_STATE_CODE],
       );
-      if (removed) nextOverlay = removed;
+      if (removed) nextCommandResult = removed;
     }
 
-    return nextOverlay;
+    return nextCommandResult;
   }
 }

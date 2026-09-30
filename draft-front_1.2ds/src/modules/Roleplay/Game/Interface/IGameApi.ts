@@ -1,5 +1,11 @@
 import type { Game } from '@/modules/Roleplay/Game/Dto/Game';
 import type { GameDetail } from '@/modules/Roleplay/Game/Dto/GameDetail';
+import type { GameStateSnapshot } from '@/modules/Roleplay/Game/Dto/GameStateSnapshot';
+import type { GameLifecycleCommand } from '@/modules/Roleplay/Game/Dto/GameLifecycleCommand';
+import type { GameLifecycleResult } from '@/modules/Roleplay/Game/Dto/GameLifecycleResult';
+import type { GameCombatCommand } from '@/modules/Roleplay/Game/Dto/GameCombatCommand';
+import type { GameAuthoritativeCommandResult } from '@/modules/Roleplay/Game/Dto/GameAuthoritativeCommandResult';
+import type { GameRuntimeMutationCommand } from '@/modules/Roleplay/Game/Dto/GameRuntimeMutationCommand';
 import type { GameMember } from '@/modules/Roleplay/Game/Dto/GameMember';
 import type { CreateGameData } from '@/modules/Roleplay/Game/Dto/CreateGameData';
 import type { UpdateGameMemberData } from '@/modules/Roleplay/Game/Dto/UpdateGameMemberData';
@@ -36,13 +42,49 @@ import type { ProcessSession } from '@/modules/Roleplay/Game/Dto/ProcessSession'
 import type { CommittedActionSession } from '@/modules/Roleplay/Game/Dto/CommittedActionSession';
 import type { ActiveSpell } from '@/modules/Roleplay/Game/Dto/Spell/ActiveSpell';
 import type { CurrentSpeed } from '@/modules/Roleplay/Game/Dto/CurrentSpeed';
+import type { GameRuntimeEntityBatchRequest } from '@/modules/Roleplay/Game/Dto/GameRuntimeEntityBatchRequest';
+import type { GameRuntimeEntityBatchResult } from '@/modules/Roleplay/Game/Dto/GameRuntimeEntityBatchResult';
+import type { GameRuntimeEntityProjection } from '@/modules/Roleplay/Game/Dto/GameRuntimeEntityProjection';
+import type { GameNpcListQuery } from '@/modules/Roleplay/Game/Dto/GameNpcListQuery';
+import type { GameNpcListResult } from '@/modules/Roleplay/Game/Dto/GameNpcListResult';
+import type { GameParticipantCandidateQuery } from '@/modules/Roleplay/Game/Dto/GameParticipantCandidateQuery';
+import type { GameParticipantCandidateResult } from '@/modules/Roleplay/Game/Dto/GameParticipantCandidateResult';
+import type { CharacterModerationProjection } from '@/modules/Roleplay/Game/Dto/CharacterModerationProjection';
+import type { GameCharacterModerationCommand } from '@/modules/Roleplay/Game/Dto/GameCharacterModerationCommand';
+import type { GameCharacterModerationResult } from '@/modules/Roleplay/Game/Dto/GameCharacterModerationResult';
 
 export interface IGameApi {
   getGames(signal?: AbortSignal): Promise<Game[]>;
   getGame(id: number, signal?: AbortSignal): Promise<GameDetail>;
   createGame(data: CreateGameData, signal?: AbortSignal): Promise<GameDetail>;
   updateGame(id: number, data: CreateGameData, signal?: AbortSignal): Promise<GameDetail>;
+  startGameSession(command: GameLifecycleCommand, signal?: AbortSignal): Promise<GameLifecycleResult>;
+  startGameBattle(command: GameLifecycleCommand, signal?: AbortSignal): Promise<GameLifecycleResult>;
+  endGameBattle(command: GameLifecycleCommand, signal?: AbortSignal): Promise<GameLifecycleResult>;
+  stopGameStateSession(command: GameLifecycleCommand, signal?: AbortSignal): Promise<GameLifecycleResult>;
   stopGameSession(gameId: number, targetStatus: 'in_process' | 'completed', signal?: AbortSignal): Promise<GameDetail>;
+  getGameStateSnapshot(gameId: number, signal?: AbortSignal): Promise<GameStateSnapshot>;
+  submitCombatCommand(command: GameCombatCommand, signal?: AbortSignal): Promise<GameAuthoritativeCommandResult>;
+  mutateRuntimeEntity(
+    command: GameRuntimeMutationCommand,
+    signal?: AbortSignal,
+  ): Promise<GameAuthoritativeCommandResult>;
+  getRuntimeEntity(
+    gameId: number,
+    entityKey: CombatEntityKey,
+    projectionLevel: 'summary' | 'full',
+    signal?: AbortSignal,
+  ): Promise<GameRuntimeEntityProjection | null>;
+  getRuntimeEntities(
+    gameId: number,
+    request: GameRuntimeEntityBatchRequest,
+    signal?: AbortSignal,
+  ): Promise<GameRuntimeEntityBatchResult>;
+  getCharacterModerationProjections(
+    gameId: number,
+    characterIds: number[],
+    signal?: AbortSignal,
+  ): Promise<CharacterModerationProjection[]>;
   getGameCharacters(gameId: number, signal?: AbortSignal): Promise<GameCharacterMembership[]>;
   createGameCharacter(
     gameId: number,
@@ -56,6 +98,10 @@ export interface IGameApi {
     action: GameCharacterModerationAction,
     signal?: AbortSignal,
   ): Promise<GameCharacterMembership>;
+  moderateCharacterCommand(
+    command: GameCharacterModerationCommand,
+    signal?: AbortSignal,
+  ): Promise<GameCharacterModerationResult>;
   leaveGame(gameId: number, characterId: number, signal?: AbortSignal): Promise<GameCharacterMembership>;
   updateMembershipVisibility(
     gameId: number,
@@ -96,7 +142,12 @@ export interface IGameApi {
     action: 'accept' | 'decline',
     signal?: AbortSignal,
   ): Promise<GameJoinRequest>;
-  getNpcs(gameId: number, signal?: AbortSignal): Promise<GameNpc[]>;
+  getNpcSummaries(query: GameNpcListQuery, signal?: AbortSignal): Promise<GameNpcListResult>;
+  getParticipantCandidates(
+    query: GameParticipantCandidateQuery,
+    signal?: AbortSignal,
+  ): Promise<GameParticipantCandidateResult>;
+  getNpc(gameId: number, npcId: number, signal?: AbortSignal): Promise<GameNpc>;
   createNpc(gameId: number, data: CreateNpcData, signal?: AbortSignal): Promise<GameNpc>;
   proposeNpc(gameId: number, data: CreateNpcData, signal?: AbortSignal): Promise<GameNpc>;
   updateNpc(npcId: number, data: UpdateNpcData, signal?: AbortSignal): Promise<GameNpc>;
@@ -155,7 +206,7 @@ export interface IGameApi {
     ruleCode: string,
     current: DimensionalNumberValue,
     signal?: AbortSignal,
-  ): Promise<GameCombatOverlay>;
+  ): Promise<GameAuthoritativeCommandResult>;
   setCombatConcentrationUsedInCycle(
     gameId: number,
     entityKey: CombatEntityKey,
@@ -173,41 +224,41 @@ export interface IGameApi {
     entityKey: CombatEntityKey,
     state: CharacterStateValue,
     signal?: AbortSignal,
-  ): Promise<GameCombatOverlay>;
+  ): Promise<GameAuthoritativeCommandResult>;
   replaceCombatState(
     gameId: number,
     entityKey: CombatEntityKey,
     index: number,
     state: CharacterStateValue,
     signal?: AbortSignal,
-  ): Promise<GameCombatOverlay>;
+  ): Promise<GameAuthoritativeCommandResult>;
   setCombatStateValue(
     gameId: number,
     entityKey: CombatEntityKey,
     index: number,
     value?: number,
     signal?: AbortSignal,
-  ): Promise<GameCombatOverlay>;
+  ): Promise<GameAuthoritativeCommandResult>;
   removeCombatState(
     gameId: number,
     entityKey: CombatEntityKey,
     index: number,
     signal?: AbortSignal,
-  ): Promise<GameCombatOverlay>;
+  ): Promise<GameAuthoritativeCommandResult>;
   setCombatItemEquipped(
     gameId: number,
     entityKey: CombatEntityKey,
     itemId: number,
     equipped: boolean,
     signal?: AbortSignal,
-  ): Promise<GameCombatOverlay>;
+  ): Promise<GameAuthoritativeCommandResult>;
   setCombatItemOccupyHands(
     gameId: number,
     entityKey: CombatEntityKey,
     itemId: number,
     occupyHands: number,
     signal?: AbortSignal,
-  ): Promise<GameCombatOverlay>;
+  ): Promise<GameAuthoritativeCommandResult>;
   getQuickRolls(gameId: number, signal?: AbortSignal): Promise<Record<CombatEntityKey, string[]>>;
   addQuickRoll(gameId: number, entityKey: CombatEntityKey, ruleCode: string, signal?: AbortSignal): Promise<string[]>;
   removeQuickRoll(

@@ -209,6 +209,52 @@ describe('membershipDiff: секции списков', () => {
     });
   });
 
+  it('операционный heldBy не отображается как moderation change', () => {
+    const active = makeVersion({
+      states: [
+        {
+          stateRuleCode: 'rule-wound',
+          wound: { bandage: 1, clotting: 2, internal: false, aided: false, heldBy: 'character:1' },
+        },
+      ],
+    });
+    const pending = makeVersion({
+      states: [
+        {
+          stateRuleCode: 'rule-wound',
+          wound: { bandage: 1, clotting: 2, internal: false, aided: false, heldBy: 'character:2' },
+        },
+      ],
+    });
+
+    expect(isEmptyMembershipDiff(membershipDiff(active, pending))).toBe(true);
+  });
+
+  it('persistent wound field отображается даже если стандартный renderer его не показывает', () => {
+    const active = makeVersion({
+      states: [
+        {
+          stateRuleCode: 'rule-wound',
+          wound: { bandage: 0, clotting: 2, internal: false, aided: false, heldBy: null },
+        },
+      ],
+    });
+    const pending = makeVersion({
+      states: [
+        {
+          stateRuleCode: 'rule-wound',
+          wound: { bandage: 1, clotting: 2, internal: false, aided: false, heldBy: null },
+        },
+      ],
+    });
+
+    const changes = sectionChanges(membershipDiff(active, pending), 'states');
+
+    expect(changes[0]).toMatchObject({ kind: 'changed' });
+    expect(changes[0]?.before).not.toBe('активно');
+    expect(changes[0]?.after).not.toBe('активно');
+  });
+
   it('изменение статуса или дальности чувства попадает в diff', () => {
     const active = makeVersion({ senses: [sense('rule-vision', 0)] });
     const pending = makeVersion({
@@ -256,6 +302,13 @@ describe('isEmptyMembershipDiff', () => {
   it('первая подача — не пустая', () => {
     expect(isEmptyMembershipDiff(membershipDiff(null, makeVersion()))).toBe(false);
   });
+
+  it('недоступный actual не маскируется под пустой diff', () => {
+    const diff = membershipDiff(makeVersion(), null);
+
+    expect(diff.availability).toBe('missingActual');
+    expect(isEmptyMembershipDiff(diff)).toBe(false);
+  });
 });
 
 describe('membershipDiff: первая подача', () => {
@@ -267,7 +320,7 @@ describe('membershipDiff: первая подача', () => {
     });
     const diff = membershipDiff(null, pending);
     expect(diff.scalars.every((change) => change.kind === 'added' && change.before === '—')).toBe(true);
-    expect(diff.scalars).toHaveLength(7);
+    expect(diff.scalars).toHaveLength(12);
     expect(sectionChanges(diff, 'characteristics')[0]).toMatchObject({ kind: 'added', before: '—', after: '4' });
     expect(sectionChanges(diff, 'abilities')[0]).toMatchObject({ kind: 'added' });
   });

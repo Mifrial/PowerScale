@@ -30,7 +30,7 @@ const emit = defineEmits<{
           persistent-hint
           density="compact"
           hide-details="auto"
-          @update:model-value="emit('update:amount', $event)"
+          @update:model-value="emit('update:amount', $event ?? 0)"
         />
       </v-card-text>
       <v-card-actions>

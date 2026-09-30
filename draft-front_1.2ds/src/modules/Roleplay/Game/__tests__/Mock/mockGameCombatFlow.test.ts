@@ -6,9 +6,15 @@ import {
   combatKey,
   getStoredCombatOverlay,
 } from '@/modules/Roleplay/Game/Mock/mockGameCombatOverlays';
-import { versions } from '@/modules/Roleplay/Character/Mock/mockCharacters';
+import {
+  getCharacterActualVersion,
+  getStoredCharacterVersion,
+  versions,
+} from '@/modules/Roleplay/Character/Mock/mockCharacters';
 import { gameDetails, stopGameSession } from '@/modules/Roleplay/Game/Mock/mockGames';
-import { sessionCharacterService } from '@/modules/Roleplay/Game/Service/Instance/sessionCharacterService';
+import { characterPatchService } from '@/modules/Roleplay/Character/init';
+import { createRandomId } from '@/modules/Core/Engine/Utils/createRandomId';
+import { mockGameRuntimeMutationService } from '@/modules/Roleplay/Game/Service/Instance/mockGameRuntimeMutationService';
 
 const charKey = combatKey('character', 1);
 
@@ -22,19 +28,17 @@ describe('mockGameMemberships: поток боевых изменений (DEC-0
     if (detail) detail.game.status = 'playing';
   });
 
-  it('боевые правки живут в оверлее; после stop — в actual', async () => {
+  it('боевые правки сразу живут в actual и переживают stop', async () => {
     const detail = gameDetails.find((d) => d.game.id === 2);
     if (detail) detail.game.status = 'playing';
     await setCombatResource(2, charKey, 'action-points', { base: 1, size: 0 });
     await addCombatState(2, charKey, { stateRuleCode: 'stunned', value: 5 });
 
-    let membership = (await fetchGameCharacters(2)).find((m) => m.characterId === 1)!;
-    const effective = sessionCharacterService.resolve(membership.approvedCharacterVersion, membership.overlay);
-    expect(effective?.resources.find((r) => r.ruleCode === 'action-points')?.current).toEqual({ base: 1, size: 0 });
-    expect(effective?.states).toContainEqual({ stateRuleCode: 'stunned', value: 5 });
+    expect(versions[1].resources.find((r) => r.ruleCode === 'action-points')?.current).toEqual({ base: 1, size: 0 });
+    expect(versions[1].states).toContainEqual({ stateRuleCode: 'stunned', value: 5 });
 
     await stopGameSession(2, 'in_process');
-    membership = (await fetchGameCharacters(2)).find((m) => m.characterId === 1)!;
+    let membership = (await fetchGameCharacters(2)).find((m) => m.characterId === 1)!;
     expect(membership.membershipStatus).toBe('active');
     expect(versions[1].resources.find((r) => r.ruleCode === 'action-points')?.current).toEqual({ base: 1, size: 0 });
     expect(versions[1].states).toContainEqual({ stateRuleCode: 'stunned', value: 5 });
@@ -44,5 +48,34 @@ describe('mockGameMemberships: поток боевых изменений (DEC-0
     membership = (await fetchGameCharacters(2)).find((m) => m.characterId === 1)!;
     expect(membership.reviewState).toBe('clean');
     expect(getStoredCombatOverlay(2, charKey)).toBeNull();
+  });
+
+  it('typed runtime command поддерживает CAS и idempotent replay', () => {
+    const before = getStoredCharacterVersion(1);
+    const expectedActualVersion = getCharacterActualVersion(1);
+    const commandId = createRandomId();
+    const command = {
+      commandId,
+      gameId: 2,
+      entityKey: charKey,
+      patch: characterPatchService.createPatch(
+        before,
+        { ...before, money: before.money + 1 },
+        commandId,
+        expectedActualVersion,
+      ),
+    };
+
+    const first = mockGameRuntimeMutationService.apply(command);
+    const replay = mockGameRuntimeMutationService.apply(command);
+
+    expect(replay).toEqual(first);
+    expect(getStoredCharacterVersion(1).money).toBe(before.money + 1);
+    expect(() =>
+      mockGameRuntimeMutationService.apply({
+        ...command,
+        commandId: createRandomId(),
+      }),
+    ).toThrow('Актуальное состояние персонажа уже изменилось');
   });
 });

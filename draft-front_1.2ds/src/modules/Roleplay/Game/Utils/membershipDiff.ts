@@ -10,6 +10,8 @@ import type { CustomRuleEntry } from '@/modules/Roleplay/Character/Dto/CustomRul
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import { CharacteristicNumber } from '@/modules/Roleplay/Rule/Value/CharacteristicNumber';
+import type { CharacterDiff } from '@/modules/Roleplay/Character/Dto/CharacterDiff';
+import { characterDiffService } from '@/modules/Roleplay/Character/init';
 
 export type DiffKind = 'added' | 'removed' | 'changed';
 
@@ -50,6 +52,8 @@ export interface DiffSection {
 }
 
 export interface MembershipDiff {
+  /** Доступность baseline/actual для UI; отсутствующий actual не является пустым diff. */
+  availability?: CharacterDiff['availability'];
   /** Скалярные поля (имя, раса, возраст, очки, деньги, описания). */
   scalars: DiffChange[];
   /** Списки листа: характеристики/ресурсы/способности/инвентарь/состояния/чувства. */
@@ -174,6 +178,12 @@ function moneyLabel(version: CharacterVersion | null): string {
   return version ? `${version.money} гм` : '—';
 }
 
+function budgetsLabel(version: CharacterVersion | null): string {
+  if (!version?.budgets) return '—';
+
+  return `ОС ${version.budgets.osTotal ?? '—'} · Деньги ${version.budgets.moneyBudget ?? '—'}`;
+}
+
 function inventoryKey(item: InventoryItem): string {
   return `${item.ruleCode}|${item.id}`;
 }
@@ -238,6 +248,8 @@ function diffList<T>(
   labelOf: (item: T) => string,
   renderOf: (item: T) => string,
   detailOf?: (item: T) => unknown,
+  semanticSection: CharacterDiff['changes'][number]['section'] = 'states',
+  semanticChanges: CharacterDiff['changes'] = [],
 ): DiffChange[] {
   const activeMap = new Map(active.map((item, index) => [keyOf(item, index), item]));
   const pendingMap = new Map(pending.map((item, index) => [keyOf(item, index), item]));
@@ -247,6 +259,7 @@ function diffList<T>(
     const activeItem = activeMap.get(key);
     const pendingItem = pendingMap.get(key);
     if (activeItem === undefined && pendingItem !== undefined) {
+      if (!semanticChangeExists(semanticChanges, semanticSection, key)) continue;
       changes.push({
         key,
         label: labelOf(pendingItem),
@@ -256,6 +269,7 @@ function diffList<T>(
         detail: detailOf?.(pendingItem),
       });
     } else if (activeItem !== undefined && pendingItem === undefined) {
+      if (!semanticChangeExists(semanticChanges, semanticSection, key)) continue;
       changes.push({
         key,
         label: labelOf(activeItem),
@@ -267,15 +281,18 @@ function diffList<T>(
     } else if (activeItem !== undefined && pendingItem !== undefined) {
       const before = renderOf(activeItem);
       const after = renderOf(pendingItem);
-      if (before !== after)
+      const semanticItemChanges = semanticChangesFor(semanticChanges, semanticSection, key);
+      if (semanticItemChanges.length > 0) {
+        const semanticChange = semanticItemChanges[0];
         changes.push({
           key,
           label: labelOf(pendingItem),
           kind: 'changed',
-          before,
-          after,
+          before: before === after ? semanticValueLabel(semanticChange.before) : before,
+          after: before === after ? semanticValueLabel(semanticChange.after) : after,
           detail: detailOf?.(pendingItem),
         });
+      }
     }
   }
 
@@ -290,18 +307,58 @@ const SCALARS: { key: string; label: string; render: (version: CharacterVersion 
   { key: 'age', label: 'Возраст', render: (version) => (version?.ageYears == null ? '—' : String(version.ageYears)) },
   { key: 'points', label: 'Очки', render: pointsLabel },
   { key: 'money', label: 'Деньги', render: moneyLabel },
+  { key: 'budgets', label: 'Лимиты создания', render: budgetsLabel },
+  { key: 'ethnicityCode', label: 'Код этничности', render: (version) => version?.ethnicityCode ?? '—' },
+  { key: 'ethnicityText', label: 'Этничность', render: (version) => version?.ethnicityText ?? '—' },
+  { key: 'nativeLanguageCode', label: 'Код родного языка', render: (version) => version?.nativeLanguageCode ?? '—' },
+  { key: 'nativeLanguageText', label: 'Родной язык', render: (version) => version?.nativeLanguageText ?? '—' },
 ];
 
-function scalarChanges(active: CharacterVersion | null, pending: CharacterVersion | null): DiffChange[] {
+function semanticChangeExists(
+  changes: CharacterDiff['changes'],
+  section: CharacterDiff['changes'][number]['section'],
+  key: string,
+): boolean {
+  return semanticChangesFor(changes, section, key).length > 0;
+}
+
+function semanticChangesFor(
+  changes: CharacterDiff['changes'],
+  section: CharacterDiff['changes'][number]['section'],
+  key: string,
+): CharacterDiff['changes'] {
+  const semanticKey = section === 'states' ? key.split('|')[0] : key;
+
+  return changes.filter(
+    (change) => change.section === section && (change.key === semanticKey || change.key.startsWith(`${semanticKey}#`)),
+  );
+}
+
+function semanticValueLabel(value: unknown): string {
+  if (value === null) return '—';
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
+
+  return JSON.stringify(value) ?? '—';
+}
+
+function scalarChanges(
+  active: CharacterVersion | null,
+  pending: CharacterVersion | null,
+  semanticChanges: CharacterDiff['changes'],
+): DiffChange[] {
   const result: (DiffChange | null)[] = SCALARS.map((field) => {
-    if (active === null) {
-      return { key: field.key, label: field.label, kind: 'added', before: '—', after: field.render(pending) };
-    }
     const before = field.render(active);
     const after = field.render(pending);
-    if (before === after) return null;
+    const semanticKey = field.key === 'race' ? 'raceRuleCode' : field.key === 'age' ? 'ageYears' : field.key;
+    if (!semanticChangeExists(semanticChanges, 'scalars', semanticKey)) return null;
 
-    return { key: field.key, label: field.label, kind: 'changed', before, after };
+    return {
+      key: field.key,
+      label: field.label,
+      kind: active === null ? 'added' : 'changed',
+      before,
+      after,
+    };
   });
 
   return result.filter((change): change is DiffChange => change !== null);
@@ -317,6 +374,7 @@ export function membershipDiff(
   pending: CharacterVersion | null,
   resolve: (ruleCode: string) => string = (ruleCode) => ruleCode,
 ): MembershipDiff {
+  const characterDiff = characterDiffService.getCharacterDiff(active, pending);
   const sections: DiffSection[] = [
     {
       key: 'characteristics',
@@ -328,6 +386,8 @@ export function membershipDiff(
         characteristicLabel,
         characteristicRender,
         (item) => characteristicDetail(item, resolve),
+        'characteristics',
+        characterDiff.changes,
       ),
     },
     {
@@ -340,12 +400,23 @@ export function membershipDiff(
         resourceLabel,
         resourceRender,
         (item) => resourceDetail(item, resolve),
+        'resources',
+        characterDiff.changes,
       ),
     },
     {
       key: 'abilities',
       label: 'Способности',
-      changes: diffList(active?.abilities ?? [], pending?.abilities ?? [], abilityKey, abilityLabel, abilityRender),
+      changes: diffList(
+        active?.abilities ?? [],
+        pending?.abilities ?? [],
+        abilityKey,
+        abilityLabel,
+        abilityRender,
+        undefined,
+        'abilities',
+        characterDiff.changes,
+      ),
     },
     {
       key: 'inventory',
@@ -356,17 +427,38 @@ export function membershipDiff(
         inventoryKey,
         inventoryLabel,
         inventoryRender,
+        undefined,
+        'inventory',
+        characterDiff.changes,
       ),
     },
     {
       key: 'states',
       label: 'Состояния',
-      changes: diffList(active?.states ?? [], pending?.states ?? [], stateKey, stateLabel, stateRender),
+      changes: diffList(
+        active?.states ?? [],
+        pending?.states ?? [],
+        stateKey,
+        stateLabel,
+        stateRender,
+        undefined,
+        'states',
+        characterDiff.changes,
+      ),
     },
     {
       key: 'senses',
       label: 'Чувства',
-      changes: diffList(active?.senses ?? [], pending?.senses ?? [], (item) => item.ruleCode, senseLabel, senseRender),
+      changes: diffList(
+        active?.senses ?? [],
+        pending?.senses ?? [],
+        (item) => item.ruleCode,
+        senseLabel,
+        senseRender,
+        undefined,
+        'senses',
+        characterDiff.changes,
+      ),
     },
     {
       key: 'customRules',
@@ -377,17 +469,23 @@ export function membershipDiff(
         customRuleKey,
         customRuleLabel,
         customRuleRender,
+        undefined,
+        'customRules',
+        characterDiff.changes,
       ),
     },
   ];
 
   return {
-    scalars: scalarChanges(active, pending),
+    availability: characterDiff.availability,
+    scalars: scalarChanges(active, pending, characterDiff.changes),
     sections: sections.filter((section) => section.changes.length > 0),
   };
 }
 
 /** Нет видимых изменений листа (ревизия/spaceCode в diff не входят). Первая подача — не пустая. */
 export function isEmptyMembershipDiff(diff: MembershipDiff): boolean {
+  if (diff.availability === 'missingActual' || diff.availability === 'missingBoth') return false;
+
   return diff.scalars.length === 0 && diff.sections.length === 0;
 }

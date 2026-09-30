@@ -25,11 +25,11 @@ export class KnowledgeCheckService {
     slots: Record<string, CharacterKnowledgeSlot>,
     rules: readonly Rule[],
   ): number {
-    const asked = this.withSpeciesCodes(slots, rules);
+    const asked = this.withSpeciesCodes(slots, rules) ?? {};
     let best = 0;
     for (const ability of abilities) {
       if (ability.ruleCode !== KNOWLEDGE_ABILITY_CODE || ability.fieldCode !== fieldCode) continue;
-      const known = this.withSpeciesCodes(ability.slots, rules);
+      const known = this.withSpeciesCodes(ability.slots ?? {}, rules);
       if (this.knowledge.sameSlots(known, asked)) {
         best = Math.max(best, ability.level);
         continue;
@@ -119,7 +119,7 @@ export class KnowledgeCheckService {
   ): number {
     const field = this.knowledge.fieldOf(ability.fieldCode);
     if (!field?.slots.some((slot) => slot.key === 'species')) return 0;
-    const known = this.withSpeciesCodes(ability.slots, rules)?.species;
+    const known = this.withSpeciesCodes(ability.slots ?? {}, rules)?.species;
     const asked = this.withSpeciesCodes(slots, rules)?.species;
     const knownCode = known?.code ?? null;
     const askedCode = asked?.code ?? null;

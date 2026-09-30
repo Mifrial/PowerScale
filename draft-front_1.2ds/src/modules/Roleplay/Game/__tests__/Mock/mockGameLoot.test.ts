@@ -13,7 +13,9 @@ import { gameNpcs } from '@/modules/Roleplay/Game/Mock/mockGameNpcs';
 import { gameDetails, stopGameSession } from '@/modules/Roleplay/Game/Mock/mockGames';
 import { gameCharacterMemberships, moderateCharacter } from '@/modules/Roleplay/Game/Mock/mockGameMemberships';
 import { getStoredCombatOverlay, combatKey } from '@/modules/Roleplay/Game/Mock/mockGameCombatOverlays';
-import { versions } from '@/modules/Roleplay/Character/Mock/mockCharacters';
+import { getCharacterActualVersion, versions } from '@/modules/Roleplay/Character/Mock/mockCharacters';
+import { createRandomId } from '@/modules/Core/Engine/Utils/createRandomId';
+import type { GameLootDistribution } from '@/modules/Roleplay/Game/Dto/GameLoot';
 import type { CreateLootData } from '@/modules/Roleplay/Game/Dto/CreateLootData';
 
 const gameIds = new Set(gameDetails.map((detail) => detail.game.id));
@@ -38,6 +40,20 @@ function itemData(itemRuleCode: string, quantity = 1): CreateLootData {
 
 function moneyData(moneyAmount: number): CreateLootData {
   return { group: null, itemRuleCode: null, quantity: 0, moneyAmount, notes: null };
+}
+
+function distributionData(distribution: GameLootDistribution[]) {
+  const expectedActualVersions: Record<string, number> = {};
+  for (const entry of distribution) {
+    if (entry.type === 'character' && entry.characterId !== undefined) {
+      expectedActualVersions[`character:${entry.characterId}`] = getCharacterActualVersion(entry.characterId);
+    }
+    if (entry.type === 'npc' && entry.npcId !== undefined) {
+      expectedActualVersions[`npc:${entry.npcId}`] = gameNpcs.find((npc) => npc.id === entry.npcId)?.actualVersion ?? 0;
+    }
+  }
+
+  return { commandId: createRandomId(), expectedActualVersions, distribution };
 }
 
 describe('mockGameLoot: согласованность фикстур', () => {
@@ -140,7 +156,7 @@ describe('mockGameLoot: раздача', () => {
 
   it('предмет раздаётся одному получателю — персонажу игры', async () => {
     const id = await availableItem();
-    const distributed = await distributeLoot(id, { distribution: [{ type: 'character', characterId: 4 }] });
+    const distributed = await distributeLoot(id, distributionData([{ type: 'character', characterId: 4 }]));
     expect(distributed.status).toBe('distributed');
     expect(distributed.distribution).toEqual([
       { type: 'character', characterId: 4, characterName: expect.any(String), amount: null },
@@ -149,44 +165,67 @@ describe('mockGameLoot: раздача', () => {
 
   it('предмет можно отдать НПС игры', async () => {
     const id = await availableItem();
-    const distributed = await distributeLoot(id, { distribution: [{ type: 'npc', npcId: 1 }] });
+    const distributed = await distributeLoot(id, distributionData([{ type: 'npc', npcId: 1 }]));
     expect(distributed.distribution[0]).toMatchObject({ type: 'npc', npcId: 1, npcName: expect.any(String) });
   });
 
   it('предмет можно отдать «вникуда»', async () => {
     const id = await availableItem();
-    const distributed = await distributeLoot(id, { distribution: [{ type: 'nowhere' }] });
+    const distributed = await distributeLoot(id, distributionData([{ type: 'nowhere' }]));
     expect(distributed.distribution).toEqual([{ type: 'nowhere', amount: null }]);
+  });
+
+  it('требует expected actual version для каждого реального получателя', async () => {
+    const id = await availableItem();
+
+    await expect(
+      distributeLoot(id, {
+        commandId: createRandomId(),
+        expectedActualVersions: {},
+        distribution: [{ type: 'character', characterId: 4 }],
+      }),
+    ).rejects.toThrow('Не передана версия получателя character:4');
+  });
+
+  it('повтор distribution command идемпотентно возвращает сохранённый результат', async () => {
+    const id = await availableItem();
+    const data = distributionData([{ type: 'character', characterId: 4 }]);
+    const first = await distributeLoot(id, data);
+    const replay = await distributeLoot(id, data);
+
+    expect(replay).toEqual(first);
   });
 
   it('предмет нельзя раздать нескольким получателям', async () => {
     const id = await availableItem();
     await expect(
-      distributeLoot(id, {
-        distribution: [
+      distributeLoot(
+        id,
+        distributionData([
           { type: 'character', characterId: 4 },
           { type: 'npc', npcId: 1 },
-        ],
-      }),
+        ]),
+      ),
     ).rejects.toThrow('одному получателю');
   });
 
   it('нельзя раздать персонажу не из этой игры или НПС другой игры', async () => {
     const id = await availableItem();
-    await expect(distributeLoot(id, { distribution: [{ type: 'character', characterId: 1 }] })).rejects.toThrow(
+    await expect(distributeLoot(id, distributionData([{ type: 'character', characterId: 1 }]))).rejects.toThrow(
       'не персонаж этой игры',
     );
-    await expect(distributeLoot(id, { distribution: [{ type: 'npc', npcId: 5 }] })).rejects.toThrow('НПС не найден');
+    await expect(distributeLoot(id, distributionData([{ type: 'npc', npcId: 5 }]))).rejects.toThrow('НПС не найден');
   });
 
   it('деньги делятся долями, остаток уходит «вникуда»', async () => {
     const id = await availableMoney(100);
-    const distributed = await distributeLoot(id, {
-      distribution: [
+    const distributed = await distributeLoot(
+      id,
+      distributionData([
         { type: 'character', characterId: 4, amount: 40 },
         { type: 'npc', npcId: 1, amount: 25 },
-      ],
-    });
+      ]),
+    );
     expect(distributed.status).toBe('distributed');
     const total = distributed.distribution.reduce((sum, entry) => sum + (entry.amount ?? 0), 0);
     expect(total).toBe(100);
@@ -196,52 +235,48 @@ describe('mockGameLoot: раздача', () => {
   it('сумма долей не может превышать сумму добычи', async () => {
     const id = await availableMoney(50);
     await expect(
-      distributeLoot(id, { distribution: [{ type: 'character', characterId: 4, amount: 60 }] }),
+      distributeLoot(id, distributionData([{ type: 'character', characterId: 4, amount: 60 }])),
     ).rejects.toThrow('превышает');
   });
 
   it('деньги записываются в лист персонажа', async () => {
     const before = versions[3].money;
     const id = await availableMoney(100);
-    await distributeLoot(id, { distribution: [{ type: 'character', characterId: 3, amount: 50 }] });
+    await distributeLoot(id, distributionData([{ type: 'character', characterId: 3, amount: 50 }]));
     expect(versions[3].money).toBe(before + 50);
   });
 
   it('предмет записывается в инвентарь персонажа', async () => {
     const beforeCount = versions[4].inventory.length;
     const id = await availableItem();
-    await distributeLoot(id, { distribution: [{ type: 'character', characterId: 4 }] });
+    await distributeLoot(id, distributionData([{ type: 'character', characterId: 4 }]));
     expect(versions[4].inventory.length).toBe(beforeCount + 1);
     expect(versions[4].inventory.at(-1)).toMatchObject({ ruleCode: 'boevoy-posokh', quantity: 1, equipped: false });
   });
 
-  it('во время активной сессии добыча пишется в оверлей (approved заморожен, latest чист)', async () => {
-    // Торвин (игра 2 — играется) approved; членство несёт замороженную approved-версию.
+  it('во время активной сессии добыча сразу пишется в actual (approved заморожен)', async () => {
     const membership = gameCharacterMemberships.find((m) => m.gameId === 2 && m.characterId === 1)!;
     expect(membership.membershipStatus).toBe('active');
     const beforeLatest = versions[1].money;
 
     const loot = await addLoot(2, moneyData(100));
     await handoutLoot([loot.id]);
-    await distributeLoot(loot.id, { distribution: [{ type: 'character', characterId: 1, amount: 60 }] });
+    await distributeLoot(loot.id, distributionData([{ type: 'character', characterId: 1, amount: 60 }]));
 
-    // Latest не тронут, approved заморожен, деньги ушли в сессионный оверлей.
-    expect(versions[1].money).toBe(beforeLatest);
-    const stored = getStoredCombatOverlay(2, combatKey('character', 1));
-    expect(stored?.sheet?.money).toBe(membership.approvedCharacterVersion!.money + 60);
+    expect(versions[1].money).toBe(beforeLatest + 60);
+    expect(getStoredCombatOverlay(2, combatKey('character', 1))).toBeNull();
 
     // После остановки сессии и approve деньги переходят в latest/approved.
     await stopGameSession(2, 'in_process');
     await moderateCharacter(2, 1, 'approve');
     expect(versions[1].money).toBe(beforeLatest + 60);
-    expect(getStoredCombatOverlay(2, combatKey('character', 1))).toBeNull();
   });
 
   it('раздача НПС лениво инициализирует полный лист (Н1 → Н2)', async () => {
     const npc = gameNpcs.find((n) => n.id === 4);
     expect(npc?.version).toBeNull();
     const id = await availableMoney(50);
-    await distributeLoot(id, { distribution: [{ type: 'npc', npcId: 4, amount: 25 }] });
+    await distributeLoot(id, distributionData([{ type: 'npc', npcId: 4, amount: 25 }]));
     expect(npc?.version).not.toBeNull();
     expect(npc?.version?.money).toBe(25);
     expect(npc?.version?.spaceCode).toBe(gameDetails.find((d) => d.game.id === 1)?.game.spaceCode);
@@ -250,7 +285,7 @@ describe('mockGameLoot: раздача', () => {
   it('предмет НПС записывается в инвентарь его листа', async () => {
     const npc = gameNpcs.find((n) => n.id === 1);
     const id = await availableItem();
-    await distributeLoot(id, { distribution: [{ type: 'npc', npcId: 1 }] });
+    await distributeLoot(id, distributionData([{ type: 'npc', npcId: 1 }]));
     expect(npc?.version).not.toBeNull();
     expect(npc?.version?.inventory).toContainEqual(
       expect.objectContaining({ ruleCode: 'boevoy-posokh', quantity: 1, equipped: false }),

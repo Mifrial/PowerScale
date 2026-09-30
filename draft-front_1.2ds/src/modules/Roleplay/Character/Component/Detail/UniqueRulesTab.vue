@@ -60,7 +60,10 @@ async function confirmReplace(): Promise<void> {
   if (!entry || !replaceRuleId.value) return;
   replacing.value = true;
   try {
+    const detail = await getCharacterApi().getCharacter(props.characterId);
     await getCharacterApi().updateCustomRule(props.characterId, entry.id, {
+      commandId: crypto.randomUUID(),
+      expectedActualVersion: detail.actualVersion,
       status: 'deprecated',
       replacedWithRuleCode: replaceRuleId.value,
     });

@@ -13,6 +13,7 @@ import { users as realUsers } from '@/modules/Core/User/Mock/mockUsers';
 import { fetchRevision, fetchSpaceByCode } from '@/modules/Roleplay/RuleSpace/Mock/mockSpaces';
 import { characterMigrationService } from '@/modules/Roleplay/Character/init';
 import type { CreateNpcData } from '@/modules/Roleplay/Game/Dto/CreateNpcData';
+import type { UpdateNpcData } from '@/modules/Roleplay/Game/Dto/UpdateNpcData';
 
 const gameIds = new Set(gameDetails.map((detail) => detail.game.id));
 const userIds = new Set(realUsers.map((user) => user.id));
@@ -53,7 +54,18 @@ describe('mockGameNpcs: создание, предложение, модерац
 
   it('updateNpc меняет теги', async () => {
     const created = await createNpc(1, makeData('С тегами'));
+    const staleData: UpdateNpcData = {
+      expectedNpcActualVersion: created.actualVersion - 1,
+      name: 'С устаревшим токеном',
+      shortDescription: null,
+      fullDescription: null,
+      tags: ['устарело'],
+      visibility: [{ audience: 'all' as const, sections: ['shortDescription'] }],
+      version: null,
+    };
+    await expect(updateNpc(created.id, staleData)).rejects.toThrow('НПС изменился');
     const updated = await updateNpc(created.id, {
+      expectedNpcActualVersion: created.actualVersion,
       name: 'С новыми тегами',
       shortDescription: null,
       fullDescription: null,
@@ -73,6 +85,7 @@ describe('mockGameNpcs: создание, предложение, модерац
   it('updateNpc меняет поля и видимость', async () => {
     const created = await createNpc(1, makeData('До правки'));
     const updated = await updateNpc(created.id, {
+      expectedNpcActualVersion: created.actualVersion,
       name: 'После правки',
       shortDescription: 'Новое описание',
       fullDescription: null,
@@ -105,6 +118,7 @@ describe('mockGameNpcs: создание, предложение, модерац
       senses: [],
     };
     const updated = await updateNpc(created.id, {
+      expectedNpcActualVersion: created.actualVersion,
       name: version.name,
       shortDescription: version.shortDescription,
       fullDescription: version.fullDescription,
@@ -139,6 +153,7 @@ describe('mockGameNpcs: создание, предложение, модерац
       expect(migrated.version.rulesRevision).toBe(game.rulesRevision);
       expect(migrated.version.abilities.some((ability) => ability.ruleCode === 'rule-26')).toBe(false);
       const updated = await updateNpc(2, {
+        expectedNpcActualVersion: npc!.actualVersion,
         name: migrated.version.name,
         shortDescription: migrated.version.shortDescription,
         fullDescription: migrated.version.fullDescription,
@@ -149,6 +164,7 @@ describe('mockGameNpcs: создание, предложение, модерац
       expect(updated.version?.rulesRevision).toBe(game.rulesRevision);
     } finally {
       await updateNpc(2, {
+        expectedNpcActualVersion: (await fetchNpcs(1)).find((entry) => entry.id === 2)!.actualVersion,
         name: npc!.name,
         shortDescription: npc!.shortDescription,
         fullDescription: npc!.fullDescription,

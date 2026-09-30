@@ -57,7 +57,12 @@ describe('PushProfileService', () => {
         description: '',
         spaceId: 1,
         createdAt: 0,
-        spec: {},
+        spec: {
+          category: 'equipment',
+          cost_gm: null,
+          weight: null,
+          special_rule_codes: [],
+        },
       },
       {
         id: 2,
@@ -67,7 +72,20 @@ describe('PushProfileService', () => {
         description: '',
         spaceId: 1,
         createdAt: 0,
-        spec: { shield: {} },
+        spec: {
+          category: 'equipment',
+          cost_gm: null,
+          weight: null,
+          special_rule_codes: [],
+          shield: {
+            min_strength: null,
+            block: {
+              efficiency: { base: 3, size: 0 },
+              defense: { base: 3, size: 0 },
+              resistances: [],
+            },
+          },
+        },
       },
     ];
     const attacks = [

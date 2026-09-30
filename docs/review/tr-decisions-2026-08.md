@@ -701,4 +701,52 @@
 - **Решение:** `*Record` отдаёт смысл свойств геттерами (`getId`, `isActive`, `isBypass`, `getPermissionKeys`). `fromNormalized` принимает карту строки SmartTable на границе репозитория. Публичного `values()` нет. `New*` / `*Patch` остаются набором присутствующих ключей (`fields()`): отсутствие ключа = не трогать колонку. JSON action/view — отдельный маппинг, не Record и не колонки. Инварианты на фасаде, не в репозитории. Optional-лес на Patch не заводить, пока единственный сток — ST; HTTP input — `IActionInput` (`DEC-074`).
 - **Последствие:** сервис не пишет `$record->values()['bypass']`. Имена колонок живут в Table, `fromNormalized` и в `fields()` New/Patch.
 
+## DEC-080 — Versioning/Space как отдельный модуль
+
+- **Дата:** 2026-09-05
+- **Связанный пункт:** версия пространства и состав ревизии правил.
+- **Решение:** версионность живёт в ленивом модуле `Versioning/Space`, а не в Core и не в оболочке SmartTable. Один repository владеет своим пространством-временем; состав ревизии материализуется, чтение среза не делает новый SQL-запрос. `Roleplay/RuleSpace` выступает продуктовым оператором, а связи нескольких repositories решаются выше.
+- **Последствие:** SmartTable остаётся Basic; Character/Game получают immutable `(spaceId, revision)` через domain ports и не обходят revision provider.
+
+## DEC-081 — Core/Cache и TTL cache policy
+
+- **Дата:** 2026-09-05
+- **Связанный пункт:** общий драйвер кэша для SmartTable и Versioning.
+- **Решение:** драйвер кэша находится в `Core/Cache` и предоставляет `ICacheStore`. TTL ограничен политикой 1–30 суток; бессрочное хранение не является контрактом. SmartTable и Versioning владеют своими ключами, тегами и invalidation policy.
+- **Последствие:** потребители не создают собственные cache drivers и не смешивают storage TTL с доменной версионностью.
+
+## DEC-082 — публичная frontend-поверхность Constant/Value
+
+- **Дата:** 2026-09-07
+- **Связанный пункт:** межмодульные frontend imports и Rule/init surface.
+- **Решение:** `Constant/` и `Value/` являются публичной DTO-поверхностью с прямым импортом; `DEC-064` в части запрета Constant сужен, но не отменён целиком. Динамический импорт чужих `Component/**/*.vue` разрешён, статический импорт компонентов и импорт внутренних Store/Service/Utils запрещён.
+- **Последствие:** модульные consumers используют публичные фасады и DTO boundaries; `init.ts` не становится баррелем для Pinia stores.
+
+## DEC-083 — синхронный backend EventManager MVP
+
+- **Дата:** 2026-09-28
+- **Связанный пункт:** backend EventManager и generic process-local integration boundary.
+- **Решение:** `Core/Event` предоставляет `IEventManager` с синхронными `on`/`off`/`fire`, token subscriptions, priority/FIFO и read-only `IEventPayload`. Event identity использует полный формат `ModuleGroup\ModuleName.Subject::LifecycleOperation`; `EventResult` агрегирует errors, warnings, output payloads и explicit stop/failure status. Token ownership является process-local API invariant, а не security boundary.
+- **Границы:** sync MVP transaction-agnostic и не владеет Mail, Agent, Logger, SmartTable, HTTP, SSE или queue. Async queue, afterCommit, outbox и DB-driven subscriptions — `DEFERRED`. Character/Game outbox integration является отдельным scope.
+- **Последствие:** EventManager может доставлять post-commit integration fast path, но не решает persistence, authorization, SSE delivery или Chat policy.
+
+## DEC-084 — actual Character как источник листа во время session
+
+- **Дата:** 2026-09-28
+- **Связанный пункт:** переход от полного Character sheet overlay к actual-as-session-source.
+- **Решение:** `actualCharacter` — единственный persisted player sheet. `approvedCharacterVersion` остаётся immutable membership baseline для moderation и допуска следующей session. `gameOverlay/gameState` ограничен initiative, battle/process state, offers, pending effects и transient markers. `states`, wounds, injuries, poison, resources, inventory, equipment, money и loot являются частью actual; NPC имеет только `npc.version` и технический `npc.actual_version`.
+- **Session/moderation:** authoritative effect изменяет actual в момент применения. `changes_pending` блокирует следующую session, но не текущего participant. `canStartSession` и `isActiveSessionParticipant` разделены. `needsModeration`/`reviewState` используют единый `getCharacterDiff`; `approve` разрешён во время active session через CAS actual + membership revision.
+- **Lifecycle:** одна `playing` session содержит несколько battles. `endBattle` не завершает session и не запускает approve; stop очищает transient state без полного Character commit. Applied effects не откатываются. Game revision нельзя менять при `status = playing`.
+- **Boundaries:** multi-entity Game command владеет outer transaction и вызывает Character/NPC mutation ports через тот же transaction-bound gateway. Command response и SSE — разные boundaries. Idempotency records принадлежат command owner; повторный command возвращает прежний result, fingerprint mismatch — conflict. Outbox не создаёт Chat messages автоматически.
+- **Статус реализации:** это согласованный domain/backend requirement, а не утверждение о готовом Game backend, SSE, outbox, Character runtime mutation или физической схеме.
+
+## DEC-085 — R6-FE editor и realtime readiness
+
+- **Дата:** 2026-09-29
+- **Связанный пункт:** frontend/mock подготовка единого Character actual mutation flow и Game projection delivery.
+- **Решение:** standalone и in-game editor используют один typed patch с `commandId`, `expectedActualVersion`, CAS и idempotent retry. `CharacterChanged` публикуется только после успешной mutation и не содержит Game/Chat delivery fields. Game realtime использует отдельный numeric cursor и `eventId = <gameId>.<cursor>`, affected entity keys, targeted projections и bounded snapshot fallback.
+- **UI:** Character detail сохраняет dirty local draft при внешнем изменении и предлагает явно загрузить actual или оставить черновик. Game Chat, Characters, Moderation и NPC UI обновляют только затронутые projections; полный roster и automatic Chat spam не используются.
+- **Границы:** R6-FE не реализует production EventManager after-commit, outbox worker, SSE broker, backend visibility/authorization, schema migration или удаление `GameCombatOverlay`. Legacy overlay producers остаются compatibility paths до R7/R8.
+- **Статус реализации:** frontend/mock boundary реализована частично/подготовительно; production backend delivery и durable recovery остаются open requirements.
+
 

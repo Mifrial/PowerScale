@@ -1116,6 +1116,7 @@ export class CharacterOverviewService {
     if (armor.length === 0 && shield === null && resistances.length === 0) return null;
 
     const tiers = this.defenseTiersOf(armor);
+
     return {
       armor,
       resistances,
@@ -1132,6 +1133,7 @@ export class CharacterOverviewService {
     if ('base' in grant.value) {
       return new DimensionalNumber(grant.value).toNumber();
     }
+    if (grant.value.type !== 'parameter') return null;
     const parameter = parameters[grant.value.parameter_code];
     if (parameter === undefined) return null;
     const units = typeof parameter === 'number' ? parameter : new DimensionalNumber(parameter).toNumber();

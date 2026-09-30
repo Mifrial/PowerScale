@@ -2,7 +2,7 @@ import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/Chara
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
-import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
+import type { GameAuthoritativeCommandResult } from '@/modules/Roleplay/Game/Dto/GameAuthoritativeCommandResult';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { StateSpec } from '@/modules/Roleplay/Rule/Dto/State/StateSpec';
 import type { IGameApi } from '@/modules/Roleplay/Game/Interface/IGameApi';
@@ -30,18 +30,18 @@ export async function removeStatesByCodes(
   version: CharacterVersion,
   rules: Rule[],
   codes: readonly string[],
-): Promise<GameCombatOverlay | null> {
+): Promise<GameAuthoritativeCommandResult | null> {
   const wanted = new Set(codes);
   const indices = version.states
     .map((state, index) => (wanted.has(state.stateRuleCode) ? index : -1))
     .filter((index) => index >= 0)
     .sort((a, b) => b - a);
-  let overlay: GameCombatOverlay | null = null;
+  let result: GameAuthoritativeCommandResult | null = null;
   for (const index of indices) {
-    overlay = await gameApi.removeCombatState(gameId, key, index);
+    result = await gameApi.removeCombatState(gameId, key, index);
   }
 
-  return overlay;
+  return result;
 }
 
 export async function addFlagState(
@@ -50,7 +50,7 @@ export async function addFlagState(
   key: CombatEntityKey,
   rules: Rule[],
   code: string,
-): Promise<GameCombatOverlay | null> {
+): Promise<GameAuthoritativeCommandResult | null> {
   const rule = stateRuleOf(rules, code);
   if (!rule) return null;
 
@@ -65,7 +65,7 @@ export async function setNumericState(
   rules: Rule[],
   code: string,
   value: number,
-): Promise<GameCombatOverlay | null> {
+): Promise<GameAuthoritativeCommandResult | null> {
   const rule = stateRuleOf(rules, code);
   if (!rule) return null;
   const spec = rule.spec as StateSpec | undefined;
@@ -94,7 +94,7 @@ export async function clampCombatActionPoints(
   key: CombatEntityKey,
   version: CharacterVersion,
   rules: Rule[],
-): Promise<GameCombatOverlay | null> {
+): Promise<GameAuthoritativeCommandResult | null> {
   const ap = combatCardModelService.combatActionPoints(version, rules);
   if (!ap) return null;
   const rule = rules.find((item) => item.code === ACTION_POINTS_CODE && item.type === 'resource');

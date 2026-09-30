@@ -171,9 +171,19 @@ async function runMigration(): Promise<void> {
 async function applyVersion(version: CharacterVersion): Promise<void> {
   const id = characterId.value;
   if (id === null) return;
+  const detail = characterStore.currentCharacter;
+  if (!detail) {
+    loadError.value = 'Актуальный персонаж не загружен';
+
+    return;
+  }
   running.value = true;
   try {
-    await getCharacterApi().applyMigration(id, version);
+    await getCharacterApi().applyMigration(id, {
+      commandId: crypto.randomUUID(),
+      expectedActualVersion: detail.actualVersion,
+      version,
+    });
     await router.push(`/characters/${id}`);
   } catch (e) {
     loadError.value = e instanceof Error ? e.message : 'Не удалось применить миграцию';

@@ -121,7 +121,7 @@ export class AttackDamageService {
         value: line.value,
         durability: line.durability,
         sourceLabel: line.sourceLabel,
-        sourceKey: line.sourceCode,
+        sourceKey: line.sourceCode ?? undefined,
         ignored: false,
         reason: 'kept',
       });

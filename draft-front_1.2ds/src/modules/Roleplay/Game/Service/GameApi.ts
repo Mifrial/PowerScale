@@ -2,6 +2,12 @@ import type { Engine } from '@/modules/Core/Engine/Service/Engine';
 import type { IGameApi } from '@/modules/Roleplay/Game/Interface/IGameApi';
 import type { Game } from '@/modules/Roleplay/Game/Dto/Game';
 import type { GameDetail } from '@/modules/Roleplay/Game/Dto/GameDetail';
+import type { GameStateSnapshot } from '@/modules/Roleplay/Game/Dto/GameStateSnapshot';
+import type { GameLifecycleCommand } from '@/modules/Roleplay/Game/Dto/GameLifecycleCommand';
+import type { GameLifecycleResult } from '@/modules/Roleplay/Game/Dto/GameLifecycleResult';
+import type { GameCombatCommand } from '@/modules/Roleplay/Game/Dto/GameCombatCommand';
+import type { GameAuthoritativeCommandResult } from '@/modules/Roleplay/Game/Dto/GameAuthoritativeCommandResult';
+import type { GameRuntimeMutationCommand } from '@/modules/Roleplay/Game/Dto/GameRuntimeMutationCommand';
 import type { GameMember } from '@/modules/Roleplay/Game/Dto/GameMember';
 import type { CreateGameData } from '@/modules/Roleplay/Game/Dto/CreateGameData';
 import type { UpdateGameMemberData } from '@/modules/Roleplay/Game/Dto/UpdateGameMemberData';
@@ -38,6 +44,16 @@ import type { ProcessSession } from '@/modules/Roleplay/Game/Dto/ProcessSession'
 import type { CommittedActionSession } from '@/modules/Roleplay/Game/Dto/CommittedActionSession';
 import type { ActiveSpell } from '@/modules/Roleplay/Game/Dto/Spell/ActiveSpell';
 import type { CurrentSpeed } from '@/modules/Roleplay/Game/Dto/CurrentSpeed';
+import type { GameRuntimeEntityBatchRequest } from '@/modules/Roleplay/Game/Dto/GameRuntimeEntityBatchRequest';
+import type { GameRuntimeEntityBatchResult } from '@/modules/Roleplay/Game/Dto/GameRuntimeEntityBatchResult';
+import type { GameRuntimeEntityProjection } from '@/modules/Roleplay/Game/Dto/GameRuntimeEntityProjection';
+import type { GameNpcListQuery } from '@/modules/Roleplay/Game/Dto/GameNpcListQuery';
+import type { GameNpcListResult } from '@/modules/Roleplay/Game/Dto/GameNpcListResult';
+import type { GameParticipantCandidateQuery } from '@/modules/Roleplay/Game/Dto/GameParticipantCandidateQuery';
+import type { GameParticipantCandidateResult } from '@/modules/Roleplay/Game/Dto/GameParticipantCandidateResult';
+import type { CharacterModerationProjection } from '@/modules/Roleplay/Game/Dto/CharacterModerationProjection';
+import type { GameCharacterModerationCommand } from '@/modules/Roleplay/Game/Dto/GameCharacterModerationCommand';
+import type { GameCharacterModerationResult } from '@/modules/Roleplay/Game/Dto/GameCharacterModerationResult';
 
 export class GameApi implements IGameApi {
   constructor(private readonly engine: Engine) {}
@@ -69,6 +85,34 @@ export class GameApi implements IGameApi {
     return res.data;
   }
 
+  async startGameSession(command: GameLifecycleCommand, signal?: AbortSignal): Promise<GameLifecycleResult> {
+    const res = await this.engine.runAction<GameLifecycleResult>('game.startSession', command, signal);
+    if (!res.data) throw new Error('Game session start failed');
+
+    return res.data;
+  }
+
+  async startGameBattle(command: GameLifecycleCommand, signal?: AbortSignal): Promise<GameLifecycleResult> {
+    const res = await this.engine.runAction<GameLifecycleResult>('game.startBattle', command, signal);
+    if (!res.data) throw new Error('Game battle start failed');
+
+    return res.data;
+  }
+
+  async endGameBattle(command: GameLifecycleCommand, signal?: AbortSignal): Promise<GameLifecycleResult> {
+    const res = await this.engine.runAction<GameLifecycleResult>('game.endBattle', command, signal);
+    if (!res.data) throw new Error('Game battle end failed');
+
+    return res.data;
+  }
+
+  async stopGameStateSession(command: GameLifecycleCommand, signal?: AbortSignal): Promise<GameLifecycleResult> {
+    const res = await this.engine.runAction<GameLifecycleResult>('game.stopStateSession', command, signal);
+    if (!res.data) throw new Error('Game state session stop failed');
+
+    return res.data;
+  }
+
   async stopGameSession(
     gameId: number,
     targetStatus: 'in_process' | 'completed',
@@ -78,6 +122,82 @@ export class GameApi implements IGameApi {
     if (!res.data) throw new Error('Game stop session failed');
 
     return res.data;
+  }
+
+  async getGameStateSnapshot(gameId: number, signal?: AbortSignal): Promise<GameStateSnapshot> {
+    const res = await this.engine.runAction<GameStateSnapshot>('game.getGameStateSnapshot', { gameId }, signal);
+    if (!res.data) throw new Error('Game state snapshot failed');
+
+    return res.data;
+  }
+
+  async submitCombatCommand(command: GameCombatCommand, signal?: AbortSignal): Promise<GameAuthoritativeCommandResult> {
+    const res = await this.engine.runAction<GameAuthoritativeCommandResult>(
+      'game.submitCombatCommand',
+      command,
+      signal,
+    );
+    if (!res.data) throw new Error('Combat command failed');
+
+    return res.data;
+  }
+
+  async mutateRuntimeEntity(
+    command: GameRuntimeMutationCommand,
+    signal?: AbortSignal,
+  ): Promise<GameAuthoritativeCommandResult> {
+    const res = await this.engine.runAction<GameAuthoritativeCommandResult>(
+      'game.mutateRuntimeEntity',
+      command,
+      signal,
+    );
+    if (!res.data) throw new Error('Runtime mutation failed');
+
+    return res.data;
+  }
+
+  async getRuntimeEntity(
+    gameId: number,
+    entityKey: CombatEntityKey,
+    projectionLevel: 'summary' | 'full',
+    signal?: AbortSignal,
+  ): Promise<GameRuntimeEntityProjection | null> {
+    const res = await this.engine.runAction<GameRuntimeEntityProjection | null>(
+      'game.getRuntimeEntity',
+      { gameId, entityKey, projectionLevel },
+      signal,
+    );
+
+    return res.data ?? null;
+  }
+
+  async getRuntimeEntities(
+    gameId: number,
+    request: GameRuntimeEntityBatchRequest,
+    signal?: AbortSignal,
+  ): Promise<GameRuntimeEntityBatchResult> {
+    const res = await this.engine.runAction<GameRuntimeEntityBatchResult>(
+      'game.getRuntimeEntities',
+      { gameId, ...request },
+      signal,
+    );
+    if (!res.data) throw new Error('Runtime entity projection failed');
+
+    return res.data;
+  }
+
+  async getCharacterModerationProjections(
+    gameId: number,
+    characterIds: number[],
+    signal?: AbortSignal,
+  ): Promise<CharacterModerationProjection[]> {
+    const res = await this.engine.runAction<CharacterModerationProjection[]>(
+      'game.getCharacterModerationProjections',
+      { gameId, characterIds },
+      signal,
+    );
+
+    return res.data ?? [];
   }
 
   async getGameCharacters(gameId: number, signal?: AbortSignal): Promise<GameCharacterMembership[]> {
@@ -128,6 +248,20 @@ export class GameApi implements IGameApi {
       signal,
     );
     if (!res.data) throw new Error('Moderate character failed');
+
+    return res.data;
+  }
+
+  async moderateCharacterCommand(
+    command: GameCharacterModerationCommand,
+    signal?: AbortSignal,
+  ): Promise<GameCharacterModerationResult> {
+    const res = await this.engine.runAction<GameCharacterModerationResult>(
+      'game.moderateCharacterCommand',
+      command,
+      signal,
+    );
+    if (!res.data) throw new Error('Moderate character command failed');
 
     return res.data;
   }
@@ -274,10 +408,32 @@ export class GameApi implements IGameApi {
     return res.data;
   }
 
-  async getNpcs(gameId: number, signal?: AbortSignal): Promise<GameNpc[]> {
-    const res = await this.engine.runAction<GameNpc[]>('game.getNpcs', { gameId }, signal);
+  async getNpcSummaries(query: GameNpcListQuery, signal?: AbortSignal): Promise<GameNpcListResult> {
+    const res = await this.engine.runAction<GameNpcListResult>('game.getNpcSummaries', query, signal);
+    if (!res.data) throw new Error('NPC summary list failed');
 
-    return res.data ?? [];
+    return res.data;
+  }
+
+  async getParticipantCandidates(
+    query: GameParticipantCandidateQuery,
+    signal?: AbortSignal,
+  ): Promise<GameParticipantCandidateResult> {
+    const res = await this.engine.runAction<GameParticipantCandidateResult>(
+      'game.getParticipantCandidates',
+      query,
+      signal,
+    );
+    if (!res.data) throw new Error('Participant candidate list failed');
+
+    return res.data;
+  }
+
+  async getNpc(gameId: number, npcId: number, signal?: AbortSignal): Promise<GameNpc> {
+    const res = await this.engine.runAction<GameNpc>('game.getNpc', { gameId, npcId }, signal);
+    if (!res.data) throw new Error('NPC not found');
+
+    return res.data;
   }
 
   async createNpc(gameId: number, data: CreateNpcData, signal?: AbortSignal): Promise<GameNpc> {
@@ -508,8 +664,8 @@ export class GameApi implements IGameApi {
     ruleCode: string,
     current: DimensionalNumberValue,
     signal?: AbortSignal,
-  ): Promise<GameCombatOverlay> {
-    const res = await this.engine.runAction<GameCombatOverlay>(
+  ): Promise<GameAuthoritativeCommandResult> {
+    const res = await this.engine.runAction<GameAuthoritativeCommandResult>(
       'game.setCombatResource',
       { gameId, entityKey, ruleCode, current },
       signal,
@@ -556,8 +712,8 @@ export class GameApi implements IGameApi {
     entityKey: CombatEntityKey,
     state: CharacterStateValue,
     signal?: AbortSignal,
-  ): Promise<GameCombatOverlay> {
-    const res = await this.engine.runAction<GameCombatOverlay>(
+  ): Promise<GameAuthoritativeCommandResult> {
+    const res = await this.engine.runAction<GameAuthoritativeCommandResult>(
       'game.addCombatState',
       { gameId, entityKey, state },
       signal,
@@ -573,8 +729,8 @@ export class GameApi implements IGameApi {
     index: number,
     state: CharacterStateValue,
     signal?: AbortSignal,
-  ): Promise<GameCombatOverlay> {
-    const res = await this.engine.runAction<GameCombatOverlay>(
+  ): Promise<GameAuthoritativeCommandResult> {
+    const res = await this.engine.runAction<GameAuthoritativeCommandResult>(
       'game.replaceCombatState',
       { gameId, entityKey, index, state },
       signal,
@@ -590,8 +746,8 @@ export class GameApi implements IGameApi {
     index: number,
     value?: number,
     signal?: AbortSignal,
-  ): Promise<GameCombatOverlay> {
-    const res = await this.engine.runAction<GameCombatOverlay>(
+  ): Promise<GameAuthoritativeCommandResult> {
+    const res = await this.engine.runAction<GameAuthoritativeCommandResult>(
       'game.setCombatStateValue',
       { gameId, entityKey, index, value },
       signal,
@@ -606,8 +762,8 @@ export class GameApi implements IGameApi {
     entityKey: CombatEntityKey,
     index: number,
     signal?: AbortSignal,
-  ): Promise<GameCombatOverlay> {
-    const res = await this.engine.runAction<GameCombatOverlay>(
+  ): Promise<GameAuthoritativeCommandResult> {
+    const res = await this.engine.runAction<GameAuthoritativeCommandResult>(
       'game.removeCombatState',
       { gameId, entityKey, index },
       signal,
@@ -623,8 +779,8 @@ export class GameApi implements IGameApi {
     itemId: number,
     equipped: boolean,
     signal?: AbortSignal,
-  ): Promise<GameCombatOverlay> {
-    const res = await this.engine.runAction<GameCombatOverlay>(
+  ): Promise<GameAuthoritativeCommandResult> {
+    const res = await this.engine.runAction<GameAuthoritativeCommandResult>(
       'game.setCombatItemEquipped',
       { gameId, entityKey, itemId, equipped },
       signal,
@@ -640,8 +796,8 @@ export class GameApi implements IGameApi {
     itemId: number,
     occupyHands: number,
     signal?: AbortSignal,
-  ): Promise<GameCombatOverlay> {
-    const res = await this.engine.runAction<GameCombatOverlay>(
+  ): Promise<GameAuthoritativeCommandResult> {
+    const res = await this.engine.runAction<GameAuthoritativeCommandResult>(
       'game.setCombatItemOccupyHands',
       { gameId, entityKey, itemId, occupyHands },
       signal,

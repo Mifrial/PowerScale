@@ -8,6 +8,8 @@ import { woundInstanceService } from '@/modules/Roleplay/Game/Service/Instance/w
 import type { StateAggregation, StateValueType } from '@/modules/Roleplay/Rule/Dto/State/StateSpec';
 import { versions } from '@/modules/Roleplay/Character/Mock/mockCharacters';
 import type { CharacterOverview } from '@/modules/Roleplay/Character/Dto/Overview/CharacterOverview';
+import type { GameRuntimeEntityProjection } from '@/modules/Roleplay/Game/Dto/GameRuntimeEntityProjection';
+import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
 
 function membership(partial: Partial<GameCharacterMembership>): GameCharacterMembership {
   return {
@@ -20,6 +22,7 @@ function membership(partial: Partial<GameCharacterMembership>): GameCharacterMem
     membershipStatus: 'active',
     approvedCharacterVersion: versions[1],
     reviewState: 'clean',
+    membershipRevision: 1,
     returnedAt: null,
     returnReason: null,
     returnMessageId: null,
@@ -54,6 +57,7 @@ const npcs: GameNpc[] = [
     fullDescription: null,
     tags: [],
     version: versions[5],
+    actualVersion: 1,
     status: 'active',
     proposedBy: null,
     visibility: [],
@@ -129,21 +133,19 @@ describe('combatActionPoints', () => {
   });
 });
 
-describe('combatCardModel: версия + оверлей', () => {
-  it('собирает effectiveVersion = версия + оверлей (при изменениях)', () => {
+describe('combatCardModel: actual + transient overlay', () => {
+  it('не мержит transient overlay в effectiveVersion', () => {
     const model = combatCardModelService.combatCardModel('character:1', memberships, npcs, true, 1, {
       gameId: 2,
       entityKey: 'character:1',
       kind: 'character',
-      resources: [{ ruleCode: 'action-points', current: { base: 1, size: 0 } }],
-      states: [{ stateRuleCode: 'exhaustion', value: 5 }],
       updatedAt: '2026-08-19T12:00:00',
     });
     expect(model.kind).toBe('character');
     expect(model.entityId).toBe(1);
     expect(model.name).toBe('Торвин');
     expect(model.canEdit).toBe(true);
-    expect(model.effectiveVersion?.states).toEqual([{ stateRuleCode: 'exhaustion', value: 5 }]);
+    expect(model.effectiveVersion?.states).toEqual(versions[1].states);
   });
 
   it('пустая запись оверлея (updatedAt === "") — версия как есть', () => {
@@ -151,11 +153,128 @@ describe('combatCardModel: версия + оверлей', () => {
       gameId: 2,
       entityKey: 'character:1',
       kind: 'character',
-      resources: [],
-      states: [],
       updatedAt: '',
     });
     expect(model.effectiveVersion?.states).toEqual(versions[1].states);
+  });
+
+  it('использует full actual projection персонажа вместо approved snapshot', () => {
+    const actual = { ...versions[1], money: versions[1].money + 17 };
+    const projection: GameRuntimeEntityProjection = {
+      entityKey: 'character:1',
+      kind: 'character',
+      id: 1,
+      actualVersion: 8,
+      actualSpaceCode: actual.spaceCode,
+      actualRulesRevision: actual.rulesRevision,
+      source: 'characterActual',
+      projectionLevel: 'full',
+      summary: { name: 'Торвин', shortDescription: actual.shortDescription },
+      version: actual,
+      visibleSections: ['shortDescription', 'resources', 'states', 'inventory'],
+    };
+
+    const model = combatCardModelService.combatCardModel('character:1', memberships, npcs, true, 1, null, projection);
+
+    expect(model.version).toBe(actual);
+    expect(model.effectiveVersion?.money).toBe(versions[1].money + 17);
+  });
+
+  it('не раскрывает approved snapshot при full projection без доступного листа', () => {
+    const projection: GameRuntimeEntityProjection = {
+      entityKey: 'character:1',
+      kind: 'character',
+      id: 1,
+      actualVersion: 8,
+      actualSpaceCode: versions[1].spaceCode,
+      actualRulesRevision: versions[1].rulesRevision,
+      source: 'characterActual',
+      projectionLevel: 'full',
+      summary: { name: 'Торвин', shortDescription: null },
+      version: null,
+      visibleSections: ['shortDescription'],
+    };
+
+    const model = combatCardModelService.combatCardModel('character:1', memberships, npcs, false, null, null, projection);
+
+    expect(model.version).toBeNull();
+    expect(model.effectiveVersion).toBeNull();
+  });
+
+  it('использует full actual projection независимо от transient overlay', () => {
+    const projection: GameRuntimeEntityProjection = {
+      entityKey: 'character:1',
+      kind: 'character',
+      id: 1,
+      actualVersion: 8,
+      actualSpaceCode: versions[1].spaceCode,
+      actualRulesRevision: versions[1].rulesRevision,
+      source: 'characterActual',
+      projectionLevel: 'full',
+      summary: { name: 'Торвин', shortDescription: versions[1].shortDescription },
+      version: { ...versions[1], money: versions[1].money + 17 },
+      visibleSections: ['shortDescription', 'resources', 'states', 'inventory'],
+    };
+    const overlay: GameCombatOverlay = {
+      gameId: 2,
+      entityKey: 'character:1',
+      kind: 'character',
+      updatedAt: '2026-08-19T12:00:00',
+    };
+
+    const model = combatCardModelService.combatCardModel('character:1', memberships, npcs, true, 1, overlay, projection);
+
+    expect(model.effectiveVersion?.money).toBe(versions[1].money + 17);
+    expect(model.effectiveVersion?.states).toEqual(projection.version?.states);
+  });
+
+  it('использует on-demand actual projection для НПС', () => {
+    const projection: GameRuntimeEntityProjection = {
+      entityKey: 'npc:5',
+      kind: 'npc',
+      id: 5,
+      actualVersion: 4,
+      actualSpaceCode: versions[5].spaceCode,
+      actualRulesRevision: versions[5].rulesRevision,
+      source: 'npcActual',
+      projectionLevel: 'full',
+      summary: { name: 'Гоблин-страж', shortDescription: null },
+      version: versions[5],
+      visibleSections: [
+        'shortDescription',
+        'fullDescription',
+        'race',
+        'states',
+        'characteristics',
+        'resources',
+        'abilities',
+        'inventory',
+      ],
+    };
+    const model = combatCardModelService.combatCardModel('npc:5', memberships, [], true, 1, null, projection);
+
+    expect(model.version).toBe(versions[5]);
+    expect(model.effectiveVersion).toBe(versions[5]);
+  });
+
+  it('не затирает доступный лист НПС summary-проекцией без версии', () => {
+    const summaryProjection: GameRuntimeEntityProjection = {
+      entityKey: 'npc:5',
+      kind: 'npc',
+      id: 5,
+      actualVersion: 4,
+      actualSpaceCode: versions[5].spaceCode,
+      actualRulesRevision: versions[5].rulesRevision,
+      source: 'npcActual',
+      projectionLevel: 'summary',
+      summary: { name: 'Гоблин-страж', shortDescription: null },
+      version: null,
+      visibleSections: ['shortDescription'],
+    };
+    const model = combatCardModelService.combatCardModel('npc:5', memberships, npcs, true, 1, null, summaryProjection);
+
+    expect(model.version).toBe(versions[5]);
+    expect(model.effectiveVersion).toBe(versions[5]);
   });
 
   it('без листа (approvedCharacterVersion null) — effectiveVersion null', () => {
@@ -167,26 +286,16 @@ describe('combatCardModel: версия + оверлей', () => {
     expect(model.effectiveVersion).toBeNull();
   });
 
-  it('ресурсы оверлея видны поверх overlay.sheet (списание ОД после правки экипировки)', () => {
-    const sheet = JSON.parse(JSON.stringify(versions[1])) as (typeof versions)[1];
-    sheet.resources = sheet.resources.map((resource) =>
-      resource.ruleCode === 'action-points' ? { ...resource, current: { base: 3, size: 0 } } : resource,
-    );
+  it('transient overlay не подменяет actual-лист', () => {
     const model = combatCardModelService.combatCardModel('character:1', memberships, npcs, true, 1, {
       gameId: 2,
       entityKey: 'character:1',
       kind: 'character',
-      sheet,
-      resources: [{ ruleCode: 'action-points', current: { base: 1, size: 0 } }],
-      states: sheet.states,
       updatedAt: '2026-08-23T12:00:00',
     });
     expect(
       model.effectiveVersion?.resources.find((resource) => resource.ruleCode === 'action-points')?.current,
-    ).toEqual({
-      base: 1,
-      size: 0,
-    });
+    ).toEqual(versions[1].resources.find((resource) => resource.ruleCode === 'action-points')?.current);
   });
 });
 

@@ -8,6 +8,7 @@ import { clampAgeYears } from '@/modules/Roleplay/Character/Utils/clampAgeYears'
 import { getMechanicApi } from '@/modules/Roleplay/Mechanic/init';
 import { useKeywords } from '@/modules/Roleplay/Keyword/init';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
+import type { CharacterBuild } from '@/modules/Roleplay/Character/Dto/Editor/CharacterBuild';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import EditorStageNav from '@/modules/Roleplay/Character/Component/Editor/EditorStageNav.vue';
@@ -28,8 +29,8 @@ const RuleSlider = defineAsyncComponent(() => import('@/modules/Roleplay/Rule/Co
 /**
  * Редактор листа персонажа/НПС (переиспользуемый, ТР §7): владеет черновиком (по `draftKey`
  * в сторе characterDraft), загрузкой правил/механик, моделью (build), валидацией «Готов»
- * и рендером табов. «Сохранить» — после валидации собирает версию и эмитит `save(version)`
- * (awaitable): сохранение/навигацию делает хост (CharacterEditPage / NpcEditPage).
+ * и рендером табов. «Сохранить» — после валидации собирает preview-версию и эмитит choices
+ * вместе с preview; legacy `save(version)` остаётся для migration/NPC compatibility hosts.
  */
 const props = withDefaults(
   defineProps<{
@@ -44,6 +45,7 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   save: [version: CharacterVersion];
+  saveChoices: [build: CharacterBuild, preview: CharacterVersion];
   cancel: [];
 }>();
 
@@ -197,7 +199,8 @@ async function finish(): Promise<void> {
       keywords.value,
       mechanics.value,
     );
-    await emit('save', version);
+    emit('saveChoices', draft.value.build, version);
+    emit('save', version);
   } catch (e) {
     saveError.value = e instanceof Error ? e.message : 'Не удалось сохранить';
   } finally {

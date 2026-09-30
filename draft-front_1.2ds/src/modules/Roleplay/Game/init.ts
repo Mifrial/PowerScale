@@ -2,6 +2,7 @@ import { serviceLocator } from '@/modules/Core/Engine/Service/ServiceLocator';
 import { defineAsyncComponent } from 'vue';
 import type { IMacroApi } from '@/modules/Roleplay/Game/Interface/IMacroApi';
 import type { IGameApi } from '@/modules/Roleplay/Game/Interface/IGameApi';
+import type { IGameRealtimePort } from '@/modules/Roleplay/Game/Interface/IGameRealtimePort';
 import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec';
 import type { DiceRollResult } from '@/modules/Roleplay/Game/Dto/DiceRollResult';
 import { rollService } from '@/modules/Roleplay/Game/Service/Instance/rollService';
@@ -64,6 +65,14 @@ export function registerGameApi(api: IGameApi): void {
 
 export function getGameApi(): IGameApi {
   return serviceLocator.get('Roleplay.Game.Service.GameApi');
+}
+
+export function registerGameRealtimePort(port: IGameRealtimePort): void {
+  serviceLocator.set('Roleplay.Game.Service.GameRealtimePort', port);
+}
+
+export function getGameRealtimePort(): IGameRealtimePort {
+  return serviceLocator.get('Roleplay.Game.Service.GameRealtimePort');
 }
 
 export function registerGameModule(): void {
@@ -178,6 +187,7 @@ export { spellCastExecutionService } from '@/modules/Roleplay/Game/Service/Insta
 export { spellCastUpgradeService } from '@/modules/Roleplay/Game/Service/Instance/spellCastUpgradeService';
 export { activeSpellService } from '@/modules/Roleplay/Game/Service/Instance/activeSpellService';
 export { spellChainHopService } from '@/modules/Roleplay/Game/Service/Instance/spellChainHopService';
+export { gameCombatCommandAdapter } from '@/modules/Roleplay/Game/Service/Instance/gameCombatCommandAdapter';
 export { SIMPLE_TOUCH_CODE } from '@/modules/Roleplay/Game/Constant/Combat/SIMPLE_TOUCH_CODE';
 export { SIMPLE_PUSH_CODE } from '@/modules/Roleplay/Game/Constant/Combat/SIMPLE_PUSH_CODE';
 export { GAME_STARTABLE_STATUSES } from '@/modules/Roleplay/Game/Constant/Game/GAME_STARTABLE_STATUSES';

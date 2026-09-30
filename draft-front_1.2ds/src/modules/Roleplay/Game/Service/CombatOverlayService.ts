@@ -1,31 +1,6 @@
-import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
-import { resourceLimitBase } from '@/modules/Roleplay/Game/Utils/combatEffectiveState';
 
 export class CombatOverlayService {
-  /**
-   * Применяет поля оверлея боя на версию листа (CD-4): current ресурсов (кламп к лимиту актуальной
-   * версии) и список состояний. Возвращает новую версию, исходную не мутирует. Используется при
-   * «Остановить сессию» (commit overlay в actual) и при чтении сессии (approved + overlay).
-   */
-  mergeCombatOverlay(version: CharacterVersion, overlay: GameCombatOverlay): CharacterVersion {
-    const resources = version.resources.map((resource) => {
-      const override = overlay.resources.find((item) => item.ruleCode === resource.ruleCode);
-      const limit = Math.max(0, resourceLimitBase(resource));
-      const sourceBase = override?.current.base ?? resource.current.base;
-      const clamped = Math.max(0, Math.min(limit, sourceBase));
-      if (!override && clamped === resource.current.base) return resource;
-
-      return { ...resource, current: { base: clamped, size: resource.current.size } };
-    });
-
-    return {
-      ...version,
-      resources,
-      states: overlay.states.map((state) => ({ ...state })),
-    };
-  }
-
   /** Более новый снимок оверлея по `updatedAt` (пустая метка — ещё не трогали, проигрывает любой записи). */
   newerCombatOverlay(current: GameCombatOverlay, incoming: GameCombatOverlay): GameCombatOverlay {
     if (!incoming.updatedAt) return current;

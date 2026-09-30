@@ -5,7 +5,8 @@ import type { CharacterStatus } from '@/modules/Roleplay/Character/Enum/Characte
  * Данные обновления персонажа: собранная версия (copy-on-write — черновик подменяет оригинал).
  * `status` — статус ЛИСТА, решает вызывающий контекст (редактор вне игры — 'ready').
  * `gameId` — контекст игры (in-game редактор): при активной сессии (approved + playing) роутер
- * пишет изменение в сессионный оверлей, иначе — в latest + автоподача (модель версий — Баг 1).
+ * пишет изменение в actual runtime, иначе — в latest + автоподача (модель версий — Баг 1).
+ * @deprecated Compatibility DTO for the pre-patch editor path. New Character API uses CharacterPatch.
  */
 export interface UpdateCharacterData {
   version: CharacterVersion;

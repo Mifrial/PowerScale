@@ -4,7 +4,7 @@ import type { ICharacterApi } from '@/modules/Roleplay/Character/Interface/IChar
 import type { SheetRole } from '@/modules/Roleplay/Character/Interface/SheetRole';
 import type { CharacterCardExtension } from '@/modules/Roleplay/Character/Interface/CharacterCardExtension';
 import type { IInGameSheetSource } from '@/modules/Roleplay/Character/Interface/IInGameSheetSource';
-import type { ICharacterSessionOverlay } from '@/modules/Roleplay/Character/Interface/ICharacterSessionOverlay';
+import type { ICharacterSessionRuntimePort } from '@/modules/Roleplay/Character/Interface/ICharacterSessionRuntimePort';
 import { registerPermissionCategory } from '@/modules/Core/User/init';
 import { registerMenuItem } from '@/modules/Core/UI/init';
 import { CHARACTERS_MENU_ITEM } from '@/modules/Roleplay/Character/Constant/Navigation/CHARACTERS_MENU_ITEM';
@@ -24,7 +24,11 @@ export function getCharacterApi(): ICharacterApi {
 }
 
 export { characterEditorService } from '@/modules/Roleplay/Character/Service/Instance/characterEditorService';
+export { characterDiffService } from '@/modules/Roleplay/Character/Service/Instance/characterDiffService';
 export { characterBuildService } from '@/modules/Roleplay/Character/Service/Instance/characterBuildService';
+export { characterPatchService } from '@/modules/Roleplay/Character/Service/Instance/characterPatchService';
+export { characterChangePort } from '@/modules/Roleplay/Character/Service/Instance/characterChangePort';
+export { CharacterApiError } from '@/modules/Roleplay/Character/Service/CharacterApiError';
 export { magicStudyUnlockService } from '@/modules/Roleplay/Character/Service/Instance/magicStudyUnlockService';
 export { useAttackFavorites } from '@/modules/Roleplay/Character/Composables/useAttackFavorites';
 export { useCharacterDraft } from '@/modules/Roleplay/Character/Composables/useCharacterDraft';
@@ -108,14 +112,14 @@ export function getInGameSheetSource(): IInGameSheetSource | null {
   return inGameSheetSource;
 }
 
-let characterSessionOverlay: ICharacterSessionOverlay | null = null;
+let characterSessionRuntimePort: ICharacterSessionRuntimePort | null = null;
 
-export function registerCharacterSessionOverlay(overlay: ICharacterSessionOverlay): void {
-  characterSessionOverlay = overlay;
+export function registerCharacterSessionRuntimePort(runtimePort: ICharacterSessionRuntimePort): void {
+  characterSessionRuntimePort = runtimePort;
 }
 
-export function getCharacterSessionOverlay(): ICharacterSessionOverlay | null {
-  return characterSessionOverlay;
+export function getCharacterSessionRuntimePort(): ICharacterSessionRuntimePort | null {
+  return characterSessionRuntimePort;
 }
 
 export function registerCharacterModule(): void {

@@ -3,17 +3,20 @@ import type { CreateLootData } from '@/modules/Roleplay/Game/Dto/CreateLootData'
 import type { DistributeLootData } from '@/modules/Roleplay/Game/Dto/DistributeLootData';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
+import type { GameRuntimeMutationCommand } from '@/modules/Roleplay/Game/Dto/GameRuntimeMutationCommand';
+import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import { getCurrentUserId } from '@/modules/Core/Auth/Mock/mockAuth';
-import { versions, syncCharacterVersion } from '@/modules/Roleplay/Character/Mock/mockCharacters';
+import { getStoredCharacterVersion } from '@/modules/Roleplay/Character/Mock/mockCharacters';
 import { gameDetails } from '@/modules/Roleplay/Game/Mock/mockGames';
-import { gameNpcs } from '@/modules/Roleplay/Game/Mock/mockGameNpcs';
 import {
-  gameCharacterMemberships,
-  syncCharacterVersionToMemberships,
-} from '@/modules/Roleplay/Game/Mock/mockGameMemberships';
-import { sessionTarget, overlaySheetBase } from '@/modules/Roleplay/Character/Mock/mockCharacterUpdate';
-import { combatKey, writeOverlaySheet } from '@/modules/Roleplay/Game/Mock/mockGameCombatOverlays';
-import '@/modules/Roleplay/Game/Mock/mockCharacterSessionOverlay';
+  captureNpcRuntimeState,
+  gameNpcs,
+  initializeNpcRuntimeVersion,
+  restoreNpcRuntimeState,
+} from '@/modules/Roleplay/Game/Mock/mockGameNpcs';
+import { gameCharacterMemberships } from '@/modules/Roleplay/Game/Mock/mockGameMemberships';
+import { characterPatchService } from '@/modules/Roleplay/Character/init';
+import { mockGameRuntimeMutationService } from '@/modules/Roleplay/Game/Service/Instance/mockGameRuntimeMutationService';
 
 const delay = (ms = 100) => new Promise((r) => setTimeout(r, ms));
 
@@ -24,7 +27,8 @@ let nextInventoryItemId = 1000;
 function ensureNpcVersion(npc: GameNpc): CharacterVersion {
   if (npc.version) return npc.version;
   const game = gameDetails.find((detail) => detail.game.id === npc.gameId)?.game;
-  npc.version = {
+
+  const initialized = initializeNpcRuntimeVersion(npc.id, {
     name: npc.name,
     shortDescription: npc.shortDescription,
     fullDescription: npc.fullDescription,
@@ -40,9 +44,10 @@ function ensureNpcVersion(npc: GameNpc): CharacterVersion {
     inventory: [],
     states: [],
     senses: [],
-  };
+  });
+  if (!initialized.version) throw new Error('Не удалось инициализировать лист НПС');
 
-  return npc.version;
+  return initialized.version;
 }
 
 // Добыча игр (ТР §8 «Добыча»). Инварианты: gameId — из mockGames, интересы — участники игры,
@@ -135,6 +140,7 @@ export const gameLoot: GameLoot[] = [
 ];
 
 let nextLootId = Math.max(0, ...gameLoot.map((loot) => loot.id)) + 1;
+const distributionCommandResults = new Map<string, GameLoot>();
 
 export async function fetchLoot(gameId: number, _signal?: AbortSignal): Promise<GameLoot[]> {
   await delay(150);
@@ -234,6 +240,10 @@ export async function distributeLoot(
   _signal?: AbortSignal,
 ): Promise<GameLoot> {
   await delay(200);
+  const commandId = data.commandId;
+  const expectedActualVersions = data.expectedActualVersions;
+  const replay = distributionCommandResults.get(commandId);
+  if (replay) return { ...replay, distribution: replay.distribution.map((entry) => ({ ...entry })) };
   const idx = gameLoot.findIndex((loot) => loot.id === lootId);
   if (idx === -1) throw new Error('Добыча не найдена');
   const loot = gameLoot[idx];
@@ -273,57 +283,96 @@ export async function distributeLoot(
     if (total < loot.moneyAmount) resolved.push({ type: 'nowhere', amount: loot.moneyAmount - total });
   }
 
-  // Запись добычи в лист получателя. Во время активной сессии персонажа (approved + playing) —
-  // в сессионный оверлей (игра читает approved + overlay), иначе — в latest с автоподачей.
   for (const entry of resolved) {
-    const amount = entry.amount ?? null;
-    if (entry.type === 'character') {
-      const target = sessionTarget(entry.characterId ?? -1, loot.gameId);
-      if (target) {
-        const sheet = await overlaySheetBase(target, entry.characterId ?? -1);
-        if (amount !== null) sheet.money += amount;
-        if (loot.itemRuleCode !== null) {
-          sheet.inventory.push({
-            id: nextInventoryItemId++,
-            ruleCode: loot.itemRuleCode,
-            quantity: loot.quantity,
-            equipped: false,
-          });
-        }
-        await writeOverlaySheet(target.gameId, combatKey('character', entry.characterId ?? -1), sheet);
-        continue;
-      }
-      const version = versions[entry.characterId ?? -1];
-      if (version) {
-        if (amount !== null) version.money += amount;
-        if (loot.itemRuleCode !== null) {
-          version.inventory.push({
-            id: nextInventoryItemId++,
-            ruleCode: loot.itemRuleCode,
-            quantity: loot.quantity,
-            equipped: false,
-          });
-        }
-        syncCharacterVersion(entry.characterId ?? -1);
-        syncCharacterVersionToMemberships(entry.characterId ?? -1);
-      }
-    } else if (entry.type === 'npc' && entry.npcId !== undefined) {
-      const npc = npcs.find((n) => n.id === entry.npcId);
-      if (!npc) continue;
-      const version = ensureNpcVersion(npc);
-      if (amount !== null) version.money += amount;
-      if (loot.itemRuleCode !== null) {
-        version.inventory.push({
-          id: nextInventoryItemId++,
-          ruleCode: loot.itemRuleCode,
-          quantity: loot.quantity,
-          equipped: false,
-        });
-      }
+    const key =
+      entry.type === 'character'
+        ? `character:${entry.characterId}`
+        : entry.type === 'npc'
+          ? `npc:${entry.npcId}`
+          : null;
+    if (!key) continue;
+    if (expectedActualVersions[key] === undefined) {
+      throw new Error(`Не передана версия получателя ${key}`);
     }
   }
 
+  const commands: GameRuntimeMutationCommand[] = [];
+  const npcSnapshots = new Map<number, GameNpc>();
+  for (const entry of resolved) {
+    const amount = entry.amount ?? null;
+    if (entry.type === 'character') {
+      if (entry.characterId === undefined) continue;
+      const entityKey = `character:${entry.characterId}` as CombatEntityKey;
+      const expectedActualVersion = expectedActualVersions[entityKey];
+      if (expectedActualVersion === undefined) throw new Error(`Не передана версия получателя ${entityKey}`);
+      const version = getStoredCharacterVersion(entry.characterId);
+      const next = {
+        ...version,
+        money: amount === null ? version.money : version.money + amount,
+        inventory:
+          loot.itemRuleCode === null
+            ? version.inventory
+            : [
+                ...version.inventory,
+                {
+                  id: nextInventoryItemId++,
+                  ruleCode: loot.itemRuleCode,
+                  quantity: loot.quantity,
+                  equipped: false,
+                },
+              ],
+      };
+      commands.push({
+        commandId: `${commandId}:${entityKey}`,
+        gameId: loot.gameId,
+        entityKey,
+        patch: characterPatchService.createPatch(version, next, `${commandId}:${entityKey}`, expectedActualVersion),
+      });
+    } else if (entry.type === 'npc' && entry.npcId !== undefined) {
+      const npc = npcs.find((n) => n.id === entry.npcId);
+      if (!npc) continue;
+      if (!npcSnapshots.has(npc.id)) npcSnapshots.set(npc.id, captureNpcRuntimeState(npc.id));
+      const version = ensureNpcVersion(npc);
+      const entityKey = `npc:${npc.id}` as CombatEntityKey;
+      const expectedActualVersion = expectedActualVersions[entityKey];
+      if (expectedActualVersion === undefined) throw new Error(`Не передана версия получателя ${entityKey}`);
+      const next = {
+        ...version,
+        money: amount === null ? version.money : version.money + amount,
+        inventory:
+          loot.itemRuleCode === null
+            ? version.inventory
+            : [
+                ...version.inventory,
+                {
+                  id: nextInventoryItemId++,
+                  ruleCode: loot.itemRuleCode,
+                  quantity: loot.quantity,
+                  equipped: false,
+                },
+              ],
+      };
+      commands.push({
+        commandId: `${commandId}:${entityKey}`,
+        gameId: loot.gameId,
+        entityKey,
+        patch: characterPatchService.createPatch(version, next, `${commandId}:${entityKey}`, expectedActualVersion),
+      });
+    }
+  }
+  try {
+    mockGameRuntimeMutationService.applyBatch(commands);
+  } catch (error) {
+    for (const [npcId, snapshot] of npcSnapshots) restoreNpcRuntimeState(npcId, snapshot);
+
+    throw error;
+  }
+
   gameLoot[idx] = { ...loot, status: 'distributed', distribution: resolved, updatedAt: new Date().toISOString() };
+  distributionCommandResults.set(commandId, {
+    ...gameLoot[idx],
+    distribution: resolved.map((entry) => ({ ...entry })),
+  });
 
   return { ...gameLoot[idx] };
 }

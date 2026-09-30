@@ -16,8 +16,6 @@ function makeOverlay(partial: Partial<GameCombatOverlay> = {}): GameCombatOverla
     gameId: 2,
     entityKey: 'character:1',
     kind: 'character',
-    resources: [],
-    states: [],
     updatedAt: '2026-08-19T12:00:00',
     ...partial,
   };
@@ -47,18 +45,18 @@ describe('combatEffectiveState: ресурсы', () => {
     ).toBe(8);
   });
 
-  it('effectiveResources применяет переопределения current из оверлея, остальное берёт из версии', () => {
-    const overlay = makeOverlay({ resources: [{ ruleCode: 'action-points', current: { base: 1, size: 0 } }] });
+  it('effectiveResources всегда читает actual-версию', () => {
+    const overlay = makeOverlay();
     const effective = effectiveResources(version, overlay);
 
-    expect(effective.find((r) => r.ruleCode === 'action-points')?.current).toEqual({ base: 1, size: 0 });
+    expect(effective.find((r) => r.ruleCode === 'action-points')?.current).toEqual(version.resources[0].current);
     expect(effective.find((r) => r.ruleCode === 'spirit-energy')?.current).toEqual(version.resources[1].current);
     // Оверлей не мутирует версию.
     expect(version.resources[0].current).toEqual({ base: 4, size: 0 });
   });
 
   it('без оверлея эффективные ресурсы = ресурсы версии', () => {
-    expect(effectiveResources(version, null)).toBe(version.resources);
+    expect(effectiveResources(version, null)).toEqual(version.resources);
   });
 });
 
@@ -74,9 +72,9 @@ describe('combatEffectiveState: состояния', () => {
     expect(effectiveStates(version, overlay)).toEqual(version.states);
   });
 
-  it('реальный оверлей — авторитетный список состояний', () => {
-    const overlay = makeOverlay({ states: [{ stateRuleCode: 'stunned', value: 5 }] });
-    expect(effectiveStates(version, overlay)).toEqual([{ stateRuleCode: 'stunned', value: 5 }]);
+  it('transient overlay не подменяет states actual-версии', () => {
+    const overlay = makeOverlay();
+    expect(effectiveStates(version, overlay)).toEqual(version.states);
   });
 });
 

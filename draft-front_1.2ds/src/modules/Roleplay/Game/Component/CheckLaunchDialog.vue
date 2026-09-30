@@ -12,6 +12,7 @@ import type { CheckOfferProposal } from '@/modules/Roleplay/Game/Dto/CheckOfferP
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
+import type { GameRuntimeEntityProjection } from '@/modules/Roleplay/Game/Dto/GameRuntimeEntityProjection';
 import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
@@ -64,6 +65,8 @@ const props = defineProps<{
   activeSpeakerKey: string | null;
   resumeOffer: CheckOffer | null;
   initiativeKeys?: string[];
+  runtimeProjections?: Record<CombatEntityKey, GameRuntimeEntityProjection>;
+  ensureRuntimeProjection?: (entityKey: CombatEntityKey) => Promise<void>;
 }>();
 
 const emit = defineEmits<{
@@ -215,6 +218,7 @@ function modelOf(key: CombatEntityKey | null) {
     props.canEdit,
     props.currentUserId,
     overlayOf(key),
+    props.runtimeProjections?.[key] ?? null,
   );
 }
 
@@ -247,6 +251,7 @@ const initiatorCharItems = computed(() => charItems(initiatorChars.value));
 const opponentCharItems = computed(() => charItems(opponentChars.value));
 
 async function loadChars(key: CombatEntityKey | null, target: typeof initiatorChars): Promise<void> {
+  if (key) await props.ensureRuntimeProjection?.(key);
   const version = modelOf(key)?.effectiveVersion ?? null;
   if (!version) {
     target.value = new Map();

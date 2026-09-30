@@ -15,8 +15,6 @@ import { concentrationTokenService } from '@/modules/Roleplay/Game/Service/Insta
 
 import { injuryCheckService } from '@/modules/Roleplay/Game/Service/Instance/injuryCheckService';
 
-import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/combatOverlayService';
-
 import type { IGameApi } from '@/modules/Roleplay/Game/Interface/IGameApi';
 import { stateRuntimeEffectsService } from '@/modules/Roleplay/Character/init';
 import {
@@ -52,8 +50,9 @@ export class ExhaustionCheckService {
     if (shouldSkipExhaustionCheck(this.hasUnconscious(args.version, args.rules), args.change)) {
       return { roll: null, overlay: null, outcome: 'unconscious', skipped: true };
     }
-    let version = args.version;
-    let overlay = await removeStatesByCodes(
+    const version = args.version;
+    let overlay = args.overlay ?? null;
+    await removeStatesByCodes(
       this.resolveGameApi(),
       args.gameId,
       args.targetKey,
@@ -61,8 +60,6 @@ export class ExhaustionCheckService {
       args.rules,
       DECLINE_STATE_CODES,
     );
-    if (overlay) version = combatOverlayService.mergeCombatOverlay(version, overlay);
-    else overlay = args.overlay ?? null;
 
     const exhaustion = injuryCheckService.overlayStateTotal(version, args.rules, EXHAUSTION_STATE_CODE);
     const adv = stateRuntimeEffectsService.checkAdvantageFromStates(version, args.rules);
@@ -87,7 +84,6 @@ export class ExhaustionCheckService {
           overlay,
           spent,
         );
-        version = combatOverlayService.mergeCombatOverlay(version, overlay);
       }
     }
     const spec = checkRollService.namedCheckSpec(
@@ -119,17 +115,9 @@ export class ExhaustionCheckService {
             ? UNCONSCIOUS_STATE_CODE
             : null;
     if (code) {
-      overlay = (await addFlagState(this.resolveGameApi(), args.gameId, args.targetKey, args.rules, code)) ?? overlay;
-      if (overlay) version = combatOverlayService.mergeCombatOverlay(version, overlay);
+      await addFlagState(this.resolveGameApi(), args.gameId, args.targetKey, args.rules, code);
     }
-    const clamped = await clampCombatActionPoints(
-      this.resolveGameApi(),
-      args.gameId,
-      args.targetKey,
-      version,
-      args.rules,
-    );
-    if (clamped) overlay = clamped;
+    await clampCombatActionPoints(this.resolveGameApi(), args.gameId, args.targetKey, version, args.rules);
     if (args.chatId !== null) {
       const sentRoll = await args.sendMessage(
         '',

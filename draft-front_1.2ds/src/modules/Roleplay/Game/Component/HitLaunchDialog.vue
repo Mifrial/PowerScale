@@ -17,6 +17,7 @@ import type { HitDefenseReaction } from '@/modules/Roleplay/Game/Enum/HitDefense
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
+import type { GameRuntimeEntityProjection } from '@/modules/Roleplay/Game/Dto/GameRuntimeEntityProjection';
 import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
 import type { CommittedActionSession } from '@/modules/Roleplay/Game/Dto/CommittedActionSession';
 import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
@@ -150,6 +151,7 @@ const props = defineProps<{
   attackAction?: AttackAction | null;
   spatialResolver?: ISpatialResolver | null;
   initiativeKeys?: string[];
+  runtimeProjections?: Record<CombatEntityKey, GameRuntimeEntityProjection>;
 }>();
 
 const emit = defineEmits<{
@@ -334,6 +336,7 @@ function versionOf(key: CombatEntityKey | null): CharacterVersion | null {
     props.canEdit,
     props.currentUserId,
     overlay,
+    props.runtimeProjections?.[key] ?? null,
   ).effectiveVersion;
 }
 
@@ -410,8 +413,7 @@ async function persistChargeSpendFromOffer(casterKey: CombatEntityKey, ctx: Spel
   if (!next || index < 0) {
     return;
   }
-  const overlay = await getGameApi().replaceCombatState(props.gameId, casterKey, index, next);
-  overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, overlay);
+  await getGameApi().replaceCombatState(props.gameId, casterKey, index, next);
   emit('overlay-changed');
 }
 
@@ -943,7 +945,7 @@ function hitProposal(attack: AttackOverview, nextReaction: HitDefenseReaction | 
   };
 }
 
-async function sendOffer(): Promise<void> {
+async function sendOffer(): Promise<CheckOffer> {
   const attack = resolvedAttack.value;
   const initiator = resolvedAttackerKey.value;
   if (!attack || !initiator || !opponentKey.value) throw new Error('Выберите цель');
@@ -991,6 +993,8 @@ async function sendOffer(): Promise<void> {
   agreedCover.value = Math.max(0, offer.value.proposal.hit?.cover ?? 0);
   coveringAdv.value = 0;
   agreedCoveringAdv.value = 0;
+
+  return offer.value;
 }
 
 async function performPreparation(): Promise<void> {
@@ -1269,7 +1273,7 @@ async function acceptWideAttack(
       attack: AttackOverview;
       result: ReturnType<typeof attackDamageService.applyAttackDamage>;
     }[] = [];
-    const strikeHits: { targetKey: string; attackSr: number }[] = [];
+    const strikeHits: { targetKey: string; attackSr: number; reaction?: string; damaged?: boolean }[] = [];
     for (const [index, target] of targetProposals.entries()) {
       const profile = attackStrikes.find((strike) => strike.targetKey === target.targetKey)?.profile ?? attack;
       const targetOverview = overviewOf(target.targetKey);
@@ -1464,7 +1468,7 @@ async function acceptAndRoll(): Promise<void> {
     defenderKey: accepted.opponent,
     attackerOverview: overviewOf(accepted.initiator),
     defenderOverview: overviewOf(accepted.opponent),
-    reaction: hit.reaction,
+    reaction: hit.reaction ?? 'ignore',
     defenseEfficiency: hit.defenseEfficiency,
     attackerAdv: accepted.proposal.initiatorAdv,
     attackerAdvantageModifiers: actionEffectService
@@ -1516,10 +1520,10 @@ async function acceptAndRoll(): Promise<void> {
 
     return {
       ...commonHitInput,
-      reaction: slotHit?.reaction ?? hit.reaction,
+      reaction: slotHit?.reaction ?? hit.reaction ?? 'ignore',
       defenseEfficiency: slotHit?.defenseEfficiency ?? hit.defenseEfficiency,
       extraSuccessCount: index === 0 ? comboStrike.value.extraSuccessCount : 0,
-      attackerAdvantageModifiers: commonHitInput.attackerAdvantageModifiers.concat(
+      attackerAdvantageModifiers: (commonHitInput.attackerAdvantageModifiers ?? []).concat(
         processSessionService.repeatWeaponModifiers(
           effectiveProcessContext.value?.session,
           processSpec.value,
@@ -1657,7 +1661,7 @@ async function acceptAndRoll(): Promise<void> {
   const spellThread = spellPaid && props.chatId !== null;
   let skipParentPending = false;
   let rushApplied = false;
-  const strikeHits: { targetKey: string; attackSr: number }[] = [];
+  const strikeHits: { targetKey: string; attackSr: number; reaction?: string; damaged?: boolean }[] = [];
   let spellPendingEffects: PendingActionEffect[] | null = null;
   const applyRush = async () => {
     if (rushApplied) return;
@@ -1839,8 +1843,7 @@ async function spendAp(key: CombatEntityKey, cost: number): Promise<number> {
   if (!resource) return 0;
   const spent = Math.min(cost, Math.max(0, resource.current.base));
   const next = attackDamageService.spendActionPoints(resource.current, spent);
-  const overlay = await getGameApi().setCombatResource(props.gameId, key, resource.ruleCode, next);
-  overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, overlay);
+  await getGameApi().setCombatResource(props.gameId, key, resource.ruleCode, next);
   await getGameApi().setCurrentSpeed(props.gameId, key, {
     horizontal: { stepsPerActionPoint: 0, direction: null },
     vertical: { stepsPerActionPoint: 0, direction: null },
@@ -1874,11 +1877,11 @@ async function persistCoreDeviation(
     return;
   }
   const index = spellDeviationService.boundIndex(states, sourceKeyValue);
-  const overlay =
-    index >= 0
-      ? await getGameApi().replaceCombatState(props.gameId, casterKey, index, next)
-      : await getGameApi().addCombatState(props.gameId, casterKey, next);
-  overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, overlay);
+  if (index >= 0) {
+    await getGameApi().replaceCombatState(props.gameId, casterKey, index, next);
+  } else {
+    await getGameApi().addCombatState(props.gameId, casterKey, next);
+  }
   emit('overlay-changed');
 }
 
@@ -1987,10 +1990,7 @@ async function announceArcaneBurst(
       targetVersion: versionOf(key) ?? undefined,
       sendMessage: (content, attachments, chatId, nextSpeaker) => sendChat(content, attachments, chatId, nextSpeaker),
     });
-    if (applied.overlay) {
-      overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, applied.overlay);
-      emit('overlay-changed');
-    }
+    if (applied.overlay) emit('overlay-changed');
   }
 }
 
@@ -2002,7 +2002,10 @@ async function applyArcaneBurstFromHit(
 ): Promise<void> {
   const version = versionOf(target.key);
   const grant = version
-    ? spellCastOptionsService.targetResistanceAmount(version, props.rules, ARCANE_DAMAGE_TYPE_CODE, {})
+    ? spellCastOptionsService.targetResistanceFromOverview(
+        overviewOf(target.key),
+        ARCANE_DAMAGE_TYPE_CODE,
+      )
     : 0;
   const amount = spellDeviationService.explosionAmount(ctx.usedPower, target.distanceIpari, deviation.dieDigit, grant);
   const weapon = spellDeviationService.explosionWeaponDamage(amount);
@@ -2358,10 +2361,7 @@ async function finishSpellAfterHit(
       targetVersion: versionOf(accepted.opponent) ?? undefined,
       sendMessage: (content, attachments, chatId, speaker) => sendChat(content, attachments, chatId, speaker),
     });
-    if (applied.overlay) {
-      overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, applied.overlay);
-      emit('overlay-changed');
-    }
+    if (applied.overlay) emit('overlay-changed');
   }
 
   return nextPending;
@@ -2393,10 +2393,6 @@ async function applyAfterStrikeOption(
     speaker: speakerFor(initiator),
     sendMessage: (content, attachments, chatId, speaker) => sendChat(content, attachments, chatId, speaker),
   });
-  if (result.overlay) {
-    overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, result.overlay);
-    emit('overlay-changed');
-  }
 
   return result.skipPending;
 }
@@ -2410,15 +2406,16 @@ async function applyCombatState(key: CombatEntityKey, code: string, amount: numb
   const index = states.findIndex((state) => state.stateRuleCode === rule.code);
   const addedWound = code === WOUND_STATE_CODE ? woundInstanceService.addWound(amount) : null;
   if (code === WOUND_STATE_CODE && !addedWound) return;
-  const overlay = addedWound
-    ? await getGameApi().addCombatState(props.gameId, key, addedWound)
-    : !independent && index >= 0
-      ? await getGameApi().setCombatStateValue(props.gameId, key, index, (states[index]?.value ?? 0) + amount)
-      : await getGameApi().addCombatState(props.gameId, key, {
-          stateRuleCode: rule.code,
-          value: amount,
-        } as CharacterStateValue);
-  overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, overlay);
+  if (addedWound) {
+    await getGameApi().addCombatState(props.gameId, key, addedWound);
+  } else if (!independent && index >= 0) {
+    await getGameApi().setCombatStateValue(props.gameId, key, index, (states[index]?.value ?? 0) + amount);
+  } else {
+    await getGameApi().addCombatState(props.gameId, key, {
+      stateRuleCode: rule.code,
+      value: amount,
+    } as CharacterStateValue);
+  }
 }
 
 async function writeAccumulatedDamage(key: CombatEntityKey, amount: number): Promise<void> {
@@ -2429,19 +2426,18 @@ async function writeAccumulatedDamage(key: CombatEntityKey, amount: number): Pro
   const index = version.states.findIndex((state) => state.stateRuleCode === rule.code);
   if (amount <= 0) {
     if (index >= 0) {
-      const overlay = await getGameApi().removeCombatState(props.gameId, key, index);
-      overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, overlay);
+      await getGameApi().removeCombatState(props.gameId, key, index);
     }
 
     return;
   }
 
   const state: CharacterStateValue = { stateRuleCode: rule.code, dimensionalValue: { base: amount, size: 0 } };
-  const overlay =
-    index >= 0
-      ? await getGameApi().replaceCombatState(props.gameId, key, index, state)
-      : await getGameApi().addCombatState(props.gameId, key, state);
-  overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, overlay);
+  if (index >= 0) {
+    await getGameApi().replaceCombatState(props.gameId, key, index, state);
+  } else {
+    await getGameApi().addCombatState(props.gameId, key, state);
+  }
 }
 
 async function applyAttackConsequences(
@@ -2518,10 +2514,7 @@ async function applyAttackConsequences(
     targetVersion: defenderVersion ?? undefined,
     sendMessage: (content, attachments, chatId, speaker) => sendChat(content, attachments, chatId, speaker),
   });
-  if (applied.overlay) {
-    overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, applied.overlay);
-    emit('overlay-changed');
-  }
+  if (applied.overlay) emit('overlay-changed');
 }
 
 async function resolvePushAccepted(
@@ -2577,10 +2570,7 @@ async function resolvePushAccepted(
         speaker: speakerFor(accepted.opponent),
         sendMessage: (content, attachments, chatId, speaker) => sendChat(content, attachments, chatId, speaker),
       });
-      if (overlay) {
-        overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, overlay);
-        emit('overlay-changed');
-      }
+      if (overlay) emit('overlay-changed');
     },
   });
 }
@@ -2901,10 +2891,10 @@ async function submit(): Promise<void> {
 
         return;
       }
-      await sendOffer();
+      const submittedOffer = await sendOffer();
       emit('offered');
       emit('settled');
-      if (offer.value?.waitingOn === 'covering' || offer.value?.waitingOn === 'opponent') {
+      if (submittedOffer.waitingOn === 'covering' || submittedOffer.waitingOn === 'opponent') {
         coveringBlockItemRuleCode.value = coveringBlockProfiles.value[0]?.itemRuleCode ?? null;
 
         return;

@@ -919,6 +919,7 @@ describe('applyAttackDamage', () => {
         resistance: 0,
         penetration: 0,
         dodgeSoak: 0,
+        durabilityShave: 0,
         raw: 16,
         hpDamage: 16,
         exhaustion: 4,

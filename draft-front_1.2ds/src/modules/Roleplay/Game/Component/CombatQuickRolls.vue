@@ -17,6 +17,7 @@ import { attackActionSourceService } from '@/modules/Roleplay/Game/Service/Insta
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
+import type { GameRuntimeEntityProjection } from '@/modules/Roleplay/Game/Dto/GameRuntimeEntityProjection';
 import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
@@ -34,6 +35,7 @@ const props = defineProps<{
   currentUserId: number | null;
   memberships: GameCharacterMembership[];
   npcs: GameNpc[];
+  runtimeProjections?: Record<CombatEntityKey, GameRuntimeEntityProjection>;
   rules: Rule[];
   mechanics: Mechanic[];
   /** Макросы быстрых бросков per entityKey. */
@@ -93,6 +95,7 @@ const model = computed(() =>
         props.canEdit,
         props.currentUserId,
         selectedOverlay.value,
+        props.runtimeProjections?.[selectedKey.value] ?? null,
       ),
 );
 

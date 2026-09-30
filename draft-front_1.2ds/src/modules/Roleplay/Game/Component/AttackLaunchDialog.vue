@@ -7,6 +7,7 @@ import type { AttackActionSlotDraft } from '@/modules/Roleplay/Game/Dto/AttackAc
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
+import type { GameRuntimeEntityProjection } from '@/modules/Roleplay/Game/Dto/GameRuntimeEntityProjection';
 import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
 import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
 import type { ProcessSession } from '@/modules/Roleplay/Game/Dto/ProcessSession';
@@ -54,6 +55,7 @@ const props = defineProps<{
   activeSpeakerKey: string | null;
   actorKey?: CombatEntityKey | null;
   initiativeKeys?: string[];
+  runtimeProjections?: Record<CombatEntityKey, GameRuntimeEntityProjection>;
 }>();
 
 const emit = defineEmits<{
@@ -86,7 +88,16 @@ const actorVersion = computed(() => {
   if (!actorKey.value) return null;
   const overlay = overlays.value.find((item) => item.entityKey === actorKey.value) ?? null;
 
-  return combatCardModelService.combatCardModel(actorKey.value, props.characters, props.npcs, true, null, overlay)
+  return combatCardModelService
+    .combatCardModel(
+      actorKey.value,
+      props.characters,
+      props.npcs,
+      true,
+      null,
+      overlay,
+      props.runtimeProjections?.[actorKey.value] ?? null,
+    )
     .effectiveVersion;
 });
 

@@ -150,11 +150,11 @@ function onNativeBlur(): void {
 function filterCombo(
   _value: string,
   query: string,
-  item: { raw?: { title?: string; subtitle?: string; type?: string } },
+  item: { raw?: { title?: string; subtitle?: string; type?: string } } | undefined,
 ): boolean {
-  if (item.raw?.type === 'divider') return true;
+  if (item?.raw?.type === 'divider') return true;
 
-  return ethnicityPickService.matchesQuery(item.raw ?? {}, query);
+  return ethnicityPickService.matchesQuery(item?.raw ?? {}, query);
 }
 </script>
 

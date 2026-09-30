@@ -22,7 +22,7 @@ function version(overrides: Partial<CharacterVersion> = {}): CharacterVersion {
       { ruleCode: 'perception', base: dim(3), modifiers: [] },
       { ruleCode: 'willpower', base: dim(5), modifiers: [] },
     ],
-    resources: [{ ruleCode: 'concentration', current: dim(2), base: dim(2), bonuses: [] }],
+    resources: [{ ruleCode: 'concentration', current: dim(3), base: dim(3), bonuses: [] }],
     abilities: [{ ruleCode: 'kontsentratsiya', level: 1 }],
     inventory: [],
     states: [],
@@ -34,12 +34,10 @@ function version(overrides: Partial<CharacterVersion> = {}): CharacterVersion {
   } as CharacterVersion;
 }
 
-const overlay = (used: boolean, current = 1): GameCombatOverlay => ({
+const overlay = (used: boolean, _current = 1): GameCombatOverlay => ({
   gameId: 1,
   entityKey: 'character:1',
   kind: 'character',
-  resources: [{ ruleCode: 'concentration', current: dim(current) }],
-  states: [],
   updatedAt: '2026-09-13T12:00:00',
   concentrationUsedInCycle: used,
 });
@@ -95,7 +93,7 @@ describe('ConcentrationTokenService', () => {
     } as unknown as IGameApi;
 
     await concentrationTokenService.refillIfUnused(api, 1, 'character:1', version(), overlay(false, 0));
-    expect(calls).toEqual([{ resource: 2 }, { used: false }]);
+    expect(calls).toEqual([{ resource: 3 }, { used: false }]);
 
     calls.length = 0;
     await concentrationTokenService.refillIfUnused(api, 1, 'character:1', version(), overlay(true, 0));

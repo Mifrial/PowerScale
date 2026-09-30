@@ -4,6 +4,7 @@ import type { CharacterStatus } from '@/modules/Roleplay/Character/Enum/Characte
 /**
  * Данные создания персонажа (свободное создание): привязка к ревизии + собранная версия.
  * `status` — статус ЛИСТА (draft|ready), решает вызывающий контекст. Модуль персонажа не знает об играх.
+ * @deprecated Compatibility DTO for legacy Game/migration mock paths. New Character API uses CharacterBuild choices.
  */
 export interface CreateCharacterData {
   spaceId: number;

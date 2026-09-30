@@ -1,29 +1,16 @@
-import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
-import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/CharacterStateValue';
-import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 
-/** Переопределение текущего значения ресурса в бою (по ruleCode версии листа). */
-export interface CombatResourceOverride {
-  ruleCode: string;
-  current: DimensionalNumberValue;
-}
-
 /**
- * Сессионные изменения листа (игра `playing`): оверлей; иначе — actual.
- * Применение к actual на stop: `resolve(approved, overlay)`.
+ * Transient Game state for one runtime entity.
+ * Character/NPC sheet sections are authoritative in actual storage.
  */
 export interface GameCombatOverlay {
   gameId: number;
   entityKey: CombatEntityKey;
   kind: 'character' | 'npc';
-  resources: CombatResourceOverride[];
-  states: CharacterStateValue[];
   updatedAt: string;
   /** Потрачен ли жетон концентрации с конца предыдущего своего хода. */
   concentrationUsedInCycle?: boolean;
   /** Была ли перевязка этой цели в текущей сессии боя. */
   woundBandagedOnce?: boolean;
-  /** Полная рабочая копия листа из in-game редактора (см. writeOverlaySheet). */
-  sheet?: CharacterVersion | null;
 }

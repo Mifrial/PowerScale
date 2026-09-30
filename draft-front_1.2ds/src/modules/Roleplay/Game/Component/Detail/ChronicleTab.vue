@@ -11,6 +11,8 @@ import type { ChronicleRef } from '@/modules/Roleplay/Game/Dto/ChronicleRef';
 import type { CreateChronicleEntryData } from '@/modules/Roleplay/Game/Dto/CreateChronicleEntryData';
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
+import type { GameNpcSummary } from '@/modules/Roleplay/Game/Dto/GameNpcSummary';
+import type { GameRuntimeEntityProjection } from '@/modules/Roleplay/Game/Dto/GameRuntimeEntityProjection';
 import type { SheetAccessContext } from '@/modules/Roleplay/Character/Interface/SheetAccessContext';
 import type { SheetSection } from '@/modules/Roleplay/Character/Enum/SheetSection';
 import type { User } from '@/modules/Core/User/Dto/User';
@@ -18,7 +20,6 @@ import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/Characte
 import ChronicleEntryDialog from '@/modules/Roleplay/Game/Component/Detail/ChronicleEntryDialog.vue';
 import ChronicleEntryContent from '@/modules/Roleplay/Game/Component/Detail/ChronicleEntryContent.vue';
 import { SheetCard } from '@/modules/Roleplay/Character/init';
-import { sessionCharacterService } from '@/modules/Roleplay/Game/Service/Instance/sessionCharacterService';
 
 const props = defineProps<{
   /** Активна ли вкладка: перезагрузка при активации (v-window не размонтирует вкладки). */
@@ -35,9 +36,13 @@ const chronicle = ref<Chronicle | null>(null);
 const entries = ref<ChronicleEntry[]>([]);
 const memberships = ref<GameCharacterMembership[]>([]);
 const npcs = ref<GameNpc[]>([]);
+const refCharacterProjection = ref<GameRuntimeEntityProjection | null>(null);
+const refNpc = ref<GameNpc | null>(null);
 const loading = ref(false);
 const error = ref<string | null>(null);
 const actionError = ref<string | null>(null);
+let loadSequence = 0;
+let referenceSequence = 0;
 
 const formOpen = ref(false);
 const formInitial = ref<ChronicleEntry | null>(null);
@@ -67,15 +72,6 @@ function epochLabel(): string {
 
 function offsetLabel(entry: ChronicleEntry): string {
   return `${gameTimeLabel(entry.offset)} ${epochLabel()}`;
-}
-
-function characterCtx(user: User, membership: GameCharacterMembership): SheetAccessContext {
-  return {
-    user,
-    ownerId: membership.characterOwnerId,
-    characterId: membership.characterId,
-    gameId: props.gameId,
-  };
 }
 
 function npcCtx(user: User, npc: GameNpc): SheetAccessContext {
@@ -110,17 +106,13 @@ const refCard = computed<{
 
     return {
       name: membership.characterName,
-      version: sessionCharacterService.resolve(membership.approvedCharacterVersion, membership.overlay),
-      visibleSections: sheetAccessService.visibleSheetSections(
-        user,
-        membership.visibility,
-        characterCtx(user, membership),
-      ),
-      shortDescription: null,
+      version: refCharacterProjection.value?.version ?? null,
+      visibleSections: refCharacterProjection.value?.visibleSections ?? [],
+      shortDescription: refCharacterProjection.value?.summary.shortDescription ?? null,
       fullDescription: null,
     };
   }
-  const npc = npcs.value.find((candidate) => candidate.id === ref.id && candidate.status === 'active');
+  const npc = refNpc.value;
   if (!npc) return null;
 
   return {
@@ -133,23 +125,27 @@ const refCard = computed<{
 });
 
 async function load(): Promise<void> {
+  const requestSequence = ++loadSequence;
   loading.value = true;
   error.value = null;
   try {
-    const [chronicleResult, entryList, membershipList, npcList] = await Promise.all([
+    const [chronicleResult, entryList, membershipList, npcSummaryResult] = await Promise.all([
       getGameApi().getChronicle(props.gameId),
       getGameApi().getChronicleEntries(props.gameId),
       getGameApi().getGameCharacters(props.gameId),
-      getGameApi().getNpcs(props.gameId),
+      getGameApi().getNpcSummaries({ gameId: props.gameId, status: 'active', limit: 100 }),
     ]);
+    if (requestSequence !== loadSequence) return;
     chronicle.value = chronicleResult;
     entries.value = entryList;
     memberships.value = membershipList;
-    npcs.value = npcList;
+    npcs.value = npcSummaryResult.items.map(toLegacyNpc);
   } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Не удалось загрузить летопись';
+    if (requestSequence === loadSequence) {
+      error.value = e instanceof Error ? e.message : 'Не удалось загрузить летопись';
+    }
   } finally {
-    loading.value = false;
+    if (requestSequence === loadSequence) loading.value = false;
   }
 }
 
@@ -172,8 +168,34 @@ function openEdit(entry: ChronicleEntry): void {
   formOpen.value = true;
 }
 
-function openRef(ref: ChronicleRef): void {
+async function openRef(ref: ChronicleRef): Promise<void> {
+  const requestSequence = ++referenceSequence;
   refView.value = ref;
+  refCharacterProjection.value = null;
+  refNpc.value = null;
+  try {
+    if (ref.kind === 'character') {
+      const projection = await getGameApi().getRuntimeEntity(
+        props.gameId,
+        `character:${ref.id}`,
+        'full',
+      );
+      if (requestSequence !== referenceSequence) return;
+      refCharacterProjection.value = projection;
+    } else {
+      const npc = await getGameApi().getNpc(props.gameId, ref.id);
+      if (requestSequence !== referenceSequence) return;
+      refNpc.value = npc;
+    }
+  } catch {
+    if (requestSequence === referenceSequence) refView.value = null;
+  }
+}
+
+function toLegacyNpc(summary: GameNpcSummary): GameNpc {
+  const { actualSpaceCode: _actualSpaceCode, actualRulesRevision: _actualRulesRevision, ...npc } = summary;
+
+  return { ...npc, version: null };
 }
 
 async function saveForm(data: CreateChronicleEntryData): Promise<void> {

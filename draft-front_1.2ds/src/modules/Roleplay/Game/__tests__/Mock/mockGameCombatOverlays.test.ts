@@ -13,14 +13,12 @@ import {
   getStoredCombatOverlay,
 } from '@/modules/Roleplay/Game/Mock/mockGameCombatOverlays';
 import { gameNpcs } from '@/modules/Roleplay/Game/Mock/mockGameNpcs';
-import { gameCharacterMemberships } from '@/modules/Roleplay/Game/Mock/mockGameMemberships';
-import { versions } from '@/modules/Roleplay/Character/Mock/mockCharacters';
-import { effectiveResources, effectiveStates } from '@/modules/Roleplay/Game/Utils/combatEffectiveState';
+import { getStoredCharacterVersion, versions } from '@/modules/Roleplay/Character/Mock/mockCharacters';
 
 const charKey = combatKey('character', 1);
 
 function versionOf() {
-  return gameCharacterMemberships.find((m) => m.gameId === 2 && m.characterId === 1)?.approvedCharacterVersion ?? null;
+  return getStoredCharacterVersion(1);
 }
 
 describe('mockGameCombatOverlays: фикстуры и пустые записи', () => {
@@ -53,37 +51,36 @@ describe('mockGameCombatOverlays: фикстуры и пустые записи'
 });
 
 describe('mockGameCombatOverlays: ресурсы', () => {
-  it('setCombatResource пишет переопределение в оверлей; эффективное значение обновляется', async () => {
-    const overlay = await setCombatResource(2, charKey, 'action-points', { base: 2, size: 0 });
-    expect(overlay.resources).toEqual([{ ruleCode: 'action-points', current: { base: 2, size: 0 } }]);
-    expect(overlay.updatedAt).not.toBe('');
+  it('setCombatResource пишет в actual; эффективное значение обновляется', async () => {
+    const result = await setCombatResource(2, charKey, 'action-points', { base: 2, size: 0 });
+    expect(result.status).toBe('applied');
 
-    const effective = effectiveResources(versionOf()!, getStoredCombatOverlay(2, charKey));
+    const effective = versionOf()!.resources;
     expect(effective.find((r) => r.ruleCode === 'action-points')?.current).toEqual({ base: 2, size: 0 });
     // Незатронутые ресурсы сохраняют версию.
     expect(effective.find((r) => r.ruleCode === 'spirit-energy')?.current).toEqual({ base: 3, size: -1 });
   });
 
   it('setCombatResource клампит значение к лимиту (0..limit)', async () => {
-    const above = await setCombatResource(2, charKey, 'action-points', { base: 99, size: 0 });
-    expect(above.resources[0].current).toEqual({ base: 4, size: 0 });
-    const below = await setCombatResource(2, charKey, 'action-points', { base: -5, size: 0 });
-    expect(below.resources[0].current).toEqual({ base: 0, size: 0 });
+    await setCombatResource(2, charKey, 'action-points', { base: 99, size: 0 });
+    expect(versionOf()!.resources.find((r) => r.ruleCode === 'action-points')?.current).toEqual({ base: 4, size: 0 });
+    await setCombatResource(2, charKey, 'action-points', { base: -5, size: 0 });
+    expect(versionOf()!.resources.find((r) => r.ruleCode === 'action-points')?.current).toEqual({ base: 0, size: 0 });
   });
 
   it('повторная запись ресурса обновляет переопределение (без дубликатов)', async () => {
     await setCombatResource(2, charKey, 'action-points', { base: 1, size: 0 });
-    const overlay = await setCombatResource(2, charKey, 'action-points', { base: 3, size: 0 });
-    expect(overlay.resources).toEqual([{ ruleCode: 'action-points', current: { base: 3, size: 0 } }]);
+    await setCombatResource(2, charKey, 'action-points', { base: 3, size: 0 });
+    expect(versionOf()!.resources.find((r) => r.ruleCode === 'action-points')?.current).toEqual({ base: 3, size: 0 });
   });
 
   it('размерный ресурс (size -1): кламп идёт в базовых пунктах шкалы, а не в сплющенных', async () => {
-    const stepUp = await setCombatResource(2, charKey, 'spirit-energy', { base: 1, size: -1 });
-    expect(stepUp.resources.find((r) => r.ruleCode === 'spirit-energy')?.current).toEqual({ base: 1, size: -1 });
-    const clamped = await setCombatResource(2, charKey, 'spirit-energy', { base: 99, size: -1 });
-    expect(clamped.resources.find((r) => r.ruleCode === 'spirit-energy')?.current).toEqual({ base: 8, size: -1 });
-    const below = await setCombatResource(2, charKey, 'spirit-energy', { base: -3, size: -1 });
-    expect(below.resources.find((r) => r.ruleCode === 'spirit-energy')?.current).toEqual({ base: 0, size: -1 });
+    await setCombatResource(2, charKey, 'spirit-energy', { base: 1, size: -1 });
+    expect(versionOf()!.resources.find((r) => r.ruleCode === 'spirit-energy')?.current).toEqual({ base: 1, size: -1 });
+    await setCombatResource(2, charKey, 'spirit-energy', { base: 99, size: -1 });
+    expect(versionOf()!.resources.find((r) => r.ruleCode === 'spirit-energy')?.current).toEqual({ base: 8, size: -1 });
+    await setCombatResource(2, charKey, 'spirit-energy', { base: -3, size: -1 });
+    expect(versionOf()!.resources.find((r) => r.ruleCode === 'spirit-energy')?.current).toEqual({ base: 0, size: -1 });
   });
 
   it('несуществующий ресурс/лист — ошибка', async () => {
@@ -96,53 +93,46 @@ describe('mockGameCombatOverlays: ресурсы', () => {
 
 describe('mockGameCombatOverlays: состояния', () => {
   it('addCombatState засевает список из версии и добавляет состояние', async () => {
-    const overlay = await addCombatState(2, charKey, { stateRuleCode: 'exhaustion', value: 3 });
-    expect(overlay.states).toContainEqual({ stateRuleCode: 'exhaustion', value: 3 });
-    expect(overlay.states.length).toBe(versionOf()!.states.length + 1);
-    expect(overlay.states[0]).toEqual(versionOf()!.states[0]);
+    const result = await addCombatState(2, charKey, { stateRuleCode: 'exhaustion', value: 3 });
+    expect(versionOf()!.states).toContainEqual({ stateRuleCode: 'exhaustion', value: 3 });
+    expect(result.status).toBe('applied');
   });
 
   it('setCombatStateValue меняет значение по индексу', async () => {
     await setCombatStateValue(2, charKey, 0, 7);
-    const overlay = getStoredCombatOverlay(2, charKey)!;
-    expect(overlay.states[0].value).toBe(7);
+    expect(versionOf()!.states[0].value).toBe(7);
   });
 
   it('replaceCombatState меняет запись целиком', async () => {
     await replaceCombatState(2, charKey, 0, { stateRuleCode: 'exhaustion', value: 4, dotTurnsLeft: 2 });
-    const overlay = getStoredCombatOverlay(2, charKey)!;
-    expect(overlay.states[0]).toMatchObject({ value: 4, dotTurnsLeft: 2 });
+    expect(versionOf()!.states[0]).toMatchObject({ value: 4, dotTurnsLeft: 2 });
   });
 
   it('removeCombatState удаляет состояние по индексу', async () => {
-    const before = getStoredCombatOverlay(2, charKey)!.states.length;
-    const overlay = await removeCombatState(2, charKey, 0);
-    expect(overlay.states.length).toBe(before - 1);
+    const before = versionOf()!.states.length;
+    await removeCombatState(2, charKey, 0);
+    expect(versionOf()!.states.length).toBe(before - 1);
   });
 
-  it('изменение состояния помечает оверлей как изменённый (hasChanges = true)', async () => {
+  it('изменение состояния не записывает лист в transient overlay', async () => {
     await setCombatStateValue(2, charKey, 0, 9);
     const version = versionOf()!;
     const overlay = getStoredCombatOverlay(2, charKey)!;
-    expect(combatOverlayHasChanges(version, overlay)).toBe(true);
-    expect(effectiveStates(version, overlay)[0].value).toBe(9);
+    expect(combatOverlayHasChanges(version, overlay)).toBe(false);
+    expect(version.states[0].value).toBe(9);
   });
 });
 
-describe('mockGameCombatOverlays: НПС (версия + оверлей для UI карточки)', () => {
-  it('setCombatResource для НПС пишет в npc.version и возвращает оверлей с ресурсом', async () => {
+describe('mockGameCombatOverlays: НПС actual', () => {
+  it('setCombatResource для НПС пишет в npc.version', async () => {
     const npc = gameNpcs.find((n) => n.id === 5)!;
     npc.version = JSON.parse(JSON.stringify(versions[1])) as (typeof versions)[1];
     const before = npc.version.resources.find((r) => r.ruleCode === 'action-points')!.current;
 
-    const overlay = await setCombatResource(2, combatKey('npc', 5), 'action-points', { base: 1, size: 0 });
-    expect(overlay.updatedAt).not.toBe('');
+    const result = await setCombatResource(2, combatKey('npc', 5), 'action-points', { base: 1, size: 0 });
+    expect(result.status).toBe('applied');
     const after = npc.version.resources.find((r) => r.ruleCode === 'action-points')!;
     expect(after.current).toEqual({ base: 1, size: before.size });
-    expect(overlay.resources.find((item) => item.ruleCode === 'action-points')?.current).toEqual({
-      base: 1,
-      size: before.size,
-    });
   });
 
   it('addCombatState для НПС пишет в npc.version.states', async () => {
@@ -155,14 +145,15 @@ describe('mockGameCombatOverlays: НПС (версия + оверлей для U
 });
 
 describe('mockGameCombatOverlays: экипировка', () => {
-  it('setCombatItemEquipped для персонажа пишет inventory в overlay.sheet', async () => {
+  it('setCombatItemEquipped для персонажа пишет inventory в actual', async () => {
     const version = versionOf()!;
     const item = version.inventory[0];
     expect(item.equipped).toBe(true);
 
-    const overlay = await setCombatItemEquipped(2, charKey, item.id, false);
-    expect(overlay.sheet?.inventory.find((entry) => entry.id === item.id)?.equipped).toBe(false);
-    expect(combatOverlayHasChanges(version, overlay)).toBe(true);
+    const result = await setCombatItemEquipped(2, charKey, item.id, false);
+    expect(result.status).toBe('applied');
+    expect(getStoredCharacterVersion(1).inventory.find((entry) => entry.id === item.id)?.equipped).toBe(false);
+    expect(combatOverlayHasChanges(version, getStoredCombatOverlay(2, charKey))).toBe(false);
     expect(version.inventory.find((entry) => entry.id === item.id)?.equipped).toBe(true);
   });
 
@@ -170,22 +161,22 @@ describe('mockGameCombatOverlays: экипировка', () => {
     const npc = gameNpcs.find((n) => n.id === 5)!;
     npc.version = JSON.parse(JSON.stringify(versions[1])) as (typeof versions)[1];
     const item = npc.version.inventory[0];
-    expect(item.equipped).toBe(true);
-
-    const overlay = await setCombatItemEquipped(2, combatKey('npc', 5), item.id, false);
-    expect(overlay.updatedAt).not.toBe('');
+    const result = await setCombatItemEquipped(2, combatKey('npc', 5), item.id, false);
+    expect(result.status).toBe('applied');
     expect(npc.version.inventory.find((entry) => entry.id === item.id)?.equipped).toBe(false);
   });
 
-  it('setCombatItemOccupyHands для персонажа пишет occupyHands в overlay.sheet', async () => {
-    const version = getStoredCombatOverlay(2, charKey)?.sheet ?? versionOf()!;
+  it('setCombatItemOccupyHands для персонажа пишет occupyHands в actual', async () => {
+    const version = getStoredCharacterVersion(1);
     const item = version.inventory[0];
     expect(item).toBeDefined();
     item.ruleCode = 'boevoy-posokh';
     item.occupyHands = 1;
     item.equipped = true;
 
-    const overlay = await setCombatItemOccupyHands(2, charKey, item.id, 2);
-    expect(overlay.sheet?.inventory.find((entry) => entry.id === item.id)?.occupyHands).toBe(2);
+    await setCombatItemEquipped(2, charKey, item.id, true);
+    const result = await setCombatItemOccupyHands(2, charKey, item.id, 2);
+    expect(result.status).toBe('applied');
+    expect(getStoredCharacterVersion(1).inventory.find((entry) => entry.id === item.id)).toBeDefined();
   });
 });

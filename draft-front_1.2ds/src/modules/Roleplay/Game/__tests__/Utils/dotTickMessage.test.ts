@@ -41,6 +41,7 @@ describe('formatDotTickMessage', () => {
         resistance: 0,
         penetration: 0,
         dodgeSoak: 0,
+        durabilityShave: 0,
         raw: 3,
         hpDamage: 3,
         exhaustion: 1,

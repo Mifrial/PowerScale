@@ -15,8 +15,18 @@ import { SHEET_VISIBILITY_DEFAULT } from '@/modules/Roleplay/Character/Constant/
 import { fetchRevision, fetchSpace, fetchSpaceByCode } from '@/modules/Roleplay/RuleSpace/Mock/mockSpaces';
 import { characterMigrationService } from '@/modules/Roleplay/Character/Service/Instance/characterMigrationService';
 import { characterVersionIntegrityService } from '@/modules/Roleplay/Character/Service/Instance/characterVersionIntegrityService';
+import { characterEditorService } from '@/modules/Roleplay/Character/Service/Instance/characterEditorService';
+import { characterPatchService } from '@/modules/Roleplay/Character/Service/Instance/characterPatchService';
 import type { MigrationResult } from '@/modules/Roleplay/Character/Dto/MigrationResult';
 import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
+import type { CharacterBuild } from '@/modules/Roleplay/Character/Dto/Editor/CharacterBuild';
+import type { CharacterCreationConfig } from '@/modules/Roleplay/Character/Dto/Editor/CharacterCreationConfig';
+import type { CharacterPatch } from '@/modules/Roleplay/Character/Dto/CharacterPatch';
+import type { CharacterCreateRequest } from '@/modules/Roleplay/Character/Dto/CharacterCreateRequest';
+import type { CharacterValidateRequest } from '@/modules/Roleplay/Character/Dto/CharacterValidateRequest';
+import type { CharacterValidationResult } from '@/modules/Roleplay/Character/Dto/CharacterValidationResult';
+import type { CharacterValidationProblem } from '@/modules/Roleplay/Character/Dto/CharacterValidationProblem';
+import { CharacterApiError } from '@/modules/Roleplay/Character/Service/CharacterApiError';
 
 // База характеристики — размерное число: база (3–5) + размерность (для базовых 0).
 // Итог не хранится: считается в карточке как база + модификаторы.
@@ -404,6 +414,10 @@ export const versions: Record<number, CharacterVersion> = {
 
 // Предыдущая версия до последней миграции правил (для сравнения «до/после» на карточке).
 const previousVersions: Record<number, CharacterVersion | null> = {};
+const actualVersionByCharacterId: Record<number, number> = Object.fromEntries(
+  characters.map((character) => [character.id, 1]),
+) as Record<number, number>;
+const completedCommands = new Map<string, { fingerprint: string; detail: CharacterDetail }>();
 
 const details: Record<number, CharacterDetail> = Object.fromEntries(
   characters.map((character) => [
@@ -411,6 +425,7 @@ const details: Record<number, CharacterDetail> = Object.fromEntries(
     {
       character: { ...character },
       version: versions[character.id],
+      actualVersion: actualVersionByCharacterId[character.id],
       discussionChatId: character.discussionChatId,
       previousVersion: previousVersions[character.id] ?? null,
     },
@@ -439,6 +454,7 @@ function toViewerDetail(id: number): CharacterDetail {
   const result: CharacterDetail = {
     character: { ...detail.character },
     version: detail.version,
+    actualVersion: actualVersionByCharacterId[id],
     discussionChatId: detail.character.discussionChatId,
     previousVersion: previousVersions[id] ?? null,
   };
@@ -459,6 +475,71 @@ export async function fetchCharacter(id: number, _signal?: AbortSignal): Promise
   await delay();
 
   return toViewerDetail(id);
+}
+
+export function getCharacterActualVersion(id: number): number {
+  if (!versions[id]) throw new CharacterApiError('CHARACTER_NOT_FOUND', `Character ${id} not found`);
+
+  return actualVersionByCharacterId[id] ?? 0;
+}
+
+export function getStoredCharacterVersion(id: number): CharacterVersion {
+  const version = versions[id];
+  if (!version) throw new CharacterApiError('CHARACTER_NOT_FOUND', `Character ${id} not found`);
+
+  return cloneData(version);
+}
+
+export function captureCharacterRuntimeState(id: number): CharacterDetail {
+  return cloneData(toViewerDetail(id));
+}
+
+export function restoreCharacterRuntimeState(id: number, snapshot: CharacterDetail): void {
+  const character = characters.find((entry) => entry.id === id);
+  if (!character) throw new CharacterApiError('CHARACTER_NOT_FOUND', `Character ${id} not found`);
+
+  Object.assign(character, cloneData(snapshot.character));
+  versions[id] = cloneData(snapshot.version);
+  actualVersionByCharacterId[id] = snapshot.actualVersion;
+  details[id] = {
+    character: { ...character },
+    version: cloneData(snapshot.version),
+    actualVersion: snapshot.actualVersion,
+    discussionChatId: character.discussionChatId,
+    previousVersion: previousVersions[id] ?? null,
+  };
+}
+
+export function replaceCharacterRuntimeVersion(
+  id: number,
+  version: CharacterVersion,
+  expectedActualVersion: number,
+): CharacterDetail {
+  if (actualVersionByCharacterId[id] !== expectedActualVersion) {
+    throw conflictError(id, expectedActualVersion);
+  }
+
+  const character = characters.find((entry) => entry.id === id);
+  if (!character) throw new CharacterApiError('CHARACTER_NOT_FOUND', `Character ${id} not found`);
+
+  character.name = version.name;
+  character.raceId = raceIdOf(version.raceRuleCode);
+  character.raceLabel = raceLabelOf(version.raceRuleCode);
+  character.shortDescription = version.shortDescription;
+  character.currentPoints = pointsOf(version);
+  character.spaceCode = version.spaceCode;
+  character.rulesRevision = version.rulesRevision;
+  versions[id] = cloneData(version);
+  actualVersionByCharacterId[id] = expectedActualVersion + 1;
+  details[id] = {
+    character: { ...character },
+    version: cloneData(version),
+    actualVersion: actualVersionByCharacterId[id],
+    discussionChatId: character.discussionChatId,
+    previousVersion: previousVersions[id] ?? null,
+  };
+
+  return captureCharacterRuntimeState(id);
 }
 
 export async function updateOwnerNotes(id: number, notes: string, _signal?: AbortSignal): Promise<CharacterDetail> {
@@ -523,6 +604,7 @@ export async function createCharacter(data: CreateCharacterData, _signal?: Abort
   }
   await assertVersionMatchesSpace(data.version, data.spaceId);
   const id = nextId++;
+  actualVersionByCharacterId[id] = 1;
   // Статус листа решает вызывающий контекст (редактор вне игры — 'ready'); мок дефолтит 'draft'.
   const character = summaryOf(id, data.version, data.spaceId, data.status ?? 'draft');
   characters.push(character);
@@ -531,10 +613,144 @@ export async function createCharacter(data: CreateCharacterData, _signal?: Abort
   // Новому персонажу сразу создаём чат обсуждения (владелец — участник).
   const discussionChatId = mockCreateCharacterDiscussion(data.version.name);
   character.discussionChatId = discussionChatId;
-  const detail: CharacterDetail = { character, version, discussionChatId, previousVersion: null };
+  const detail: CharacterDetail = {
+    character,
+    version,
+    actualVersion: actualVersionByCharacterId[id],
+    discussionChatId,
+    previousVersion: null,
+  };
   details[id] = detail;
 
   return toViewerDetail(id);
+}
+
+async function versionFromChoices(
+  choices: CharacterBuild,
+  creationConfig: CharacterCreationConfig,
+): Promise<CharacterVersion> {
+  const revision = await fetchRevision(choices.spaceId, choices.rulesRevision);
+
+  return characterEditorService.toVersion(choices, revision.rules, creationConfig);
+}
+
+async function validateVersion(version: CharacterVersion, spaceId: number): Promise<CharacterValidationResult> {
+  try {
+    await assertVersionMatchesSpace(version, spaceId);
+
+    return { valid: true, problems: [] };
+  } catch (error) {
+    const problem: CharacterValidationProblem = {
+      code: 'CHARACTER_INVALID',
+      message: error instanceof Error ? error.message : 'Character validation failed',
+    };
+
+    return { valid: false, problems: [problem] };
+  }
+}
+
+function conflictError(characterId: number, expectedActualVersion: number, commandId?: string): CharacterApiError {
+  return new CharacterApiError('CHARACTER_ACTUAL_CONFLICT', 'Актуальное состояние персонажа уже изменилось', {
+    kind: 'conflict',
+    expectedActualVersion,
+    actualVersion: actualVersionByCharacterId[characterId] ?? 0,
+    commandId,
+  });
+}
+
+function validationError(problems: CharacterValidationProblem[]): CharacterApiError {
+  return new CharacterApiError('CHARACTER_VALIDATION_FAILED', 'Персонаж не прошёл проверку', {
+    kind: 'validation',
+    problems,
+  });
+}
+
+function completedCommand(commandId: string, fingerprint: string): CharacterDetail | null {
+  const completed = completedCommands.get(commandId);
+  if (!completed) return null;
+  if (completed.fingerprint !== fingerprint) {
+    throw new CharacterApiError('CHARACTER_COMMAND_CONFLICT', 'CommandId уже использован с другими параметрами');
+  }
+
+  return cloneData(completed.detail);
+}
+
+export async function createCharacterFromChoices(data: CharacterCreateRequest): Promise<CharacterDetail> {
+  const fingerprint = JSON.stringify(data);
+  const previous = completedCommand(data.commandId, fingerprint);
+  if (previous) return previous;
+
+  const version = await versionFromChoices(data.choices, data.creationConfig);
+  const validation = await validateVersion(version, data.choices.spaceId);
+  if (!validation.valid) throw validationError(validation.problems);
+
+  const detail = await createCharacter({
+    spaceId: data.choices.spaceId,
+    spaceCode: data.choices.spaceCode,
+    rulesRevision: data.choices.rulesRevision,
+    version,
+  });
+  completedCommands.set(data.commandId, { fingerprint, detail: cloneData(detail) });
+
+  return detail;
+}
+
+export async function validateCharacterRequest(data: CharacterValidateRequest): Promise<CharacterValidationResult> {
+  if (data.mode === 'create') {
+    return validateVersion(await versionFromChoices(data.choices, data.creationConfig), data.choices.spaceId);
+  }
+
+  const version = versions[data.characterId];
+  if (!version) {
+    return {
+      valid: false,
+      problems: [{ code: 'CHARACTER_NOT_FOUND', message: `Character ${data.characterId} not found` }],
+    };
+  }
+  if (actualVersionByCharacterId[data.characterId] !== data.patch.expectedActualVersion) {
+    throw conflictError(data.characterId, data.patch.expectedActualVersion, data.patch.commandId);
+  }
+
+  try {
+    const candidate = characterPatchService.applyPatch(version, data.patch.operations);
+    const character = characters.find((entry) => entry.id === data.characterId);
+    if (!character) {
+      return {
+        valid: false,
+        problems: [{ code: 'CHARACTER_NOT_FOUND', message: `Character ${data.characterId} not found` }],
+      };
+    }
+
+    return validateVersion(candidate, character.spaceId);
+  } catch (error) {
+    return {
+      valid: false,
+      problems: [
+        { code: 'CHARACTER_PATCH_INVALID', message: error instanceof Error ? error.message : 'Invalid patch' },
+      ],
+    };
+  }
+}
+
+export async function updateCharacterFromPatch(id: number, patch: CharacterPatch): Promise<CharacterDetail> {
+  const fingerprint = JSON.stringify({ id, patch });
+  const previous = completedCommand(patch.commandId, fingerprint);
+  if (previous) return previous;
+  if (!versions[id]) throw new CharacterApiError('CHARACTER_NOT_FOUND', `Character ${id} not found`);
+  if (actualVersionByCharacterId[id] !== patch.expectedActualVersion) {
+    throw conflictError(id, patch.expectedActualVersion, patch.commandId);
+  }
+
+  const candidate = characterPatchService.applyPatch(versions[id], patch.operations);
+  const character = characters.find((entry) => entry.id === id);
+  if (!character) throw new CharacterApiError('CHARACTER_NOT_FOUND', `Character ${id} not found`);
+  const validation = await validateVersion(candidate, character.spaceId);
+  if (!validation.valid) throw validationError(validation.problems);
+
+  const detail = await updateCharacter(id, { version: candidate });
+  completedCommands.set(patch.commandId, { fingerprint, detail: cloneData(detail) });
+
+  return detail;
 }
 
 export async function updateCharacter(
@@ -558,9 +774,11 @@ export async function updateCharacter(
   if (data.status !== undefined) character.status = data.status;
   const version = cloneData(data.version);
   versions[id] = version;
+  actualVersionByCharacterId[id] = (actualVersionByCharacterId[id] ?? 0) + 1;
   details[id] = {
     character: { ...character },
     version,
+    actualVersion: actualVersionByCharacterId[id],
     discussionChatId: character.discussionChatId,
     previousVersion: previousVersions[id] ?? null,
   };
@@ -604,16 +822,24 @@ export async function applyMigration(
   characterId: number,
   version: CharacterVersion,
   _signal?: AbortSignal,
+  expectedActualVersion?: number,
 ): Promise<CharacterDetail> {
   await delay();
   const character = characters.find((entry) => entry.id === characterId);
   if (!character) throw new Error(`Character ${characterId} not found`);
+  if (expectedActualVersion !== undefined && actualVersionByCharacterId[characterId] !== expectedActualVersion) {
+    throw conflictError(characterId, expectedActualVersion);
+  }
   const targetSpace = await fetchSpaceByCode(version.spaceCode);
   await assertVersionMatchesSpace(version, targetSpace.id);
+  if (expectedActualVersion !== undefined && actualVersionByCharacterId[characterId] !== expectedActualVersion) {
+    throw conflictError(characterId, expectedActualVersion);
+  }
   const oldVersion = versions[characterId];
   previousVersions[characterId] = oldVersion;
   const next = cloneData(version);
   versions[characterId] = next;
+  actualVersionByCharacterId[characterId] = (actualVersionByCharacterId[characterId] ?? 0) + 1;
   character.name = next.name;
   character.raceId = raceIdOf(next.raceRuleCode);
   character.raceLabel = raceLabelOf(next.raceRuleCode);
@@ -630,6 +856,7 @@ export async function applyMigration(
   details[characterId] = {
     character: { ...character },
     version: next,
+    actualVersion: actualVersionByCharacterId[characterId],
     discussionChatId: character.discussionChatId,
     previousVersion: oldVersion,
   };
@@ -745,11 +972,16 @@ export async function addCustomRule(
   id: number,
   data: AddCustomRuleData,
   _signal?: AbortSignal,
+  expectedActualVersion?: number,
 ): Promise<CharacterDetail> {
   await delay();
   const version = versions[id];
   if (!version) throw new Error(`Character ${id} not found`);
+  if (expectedActualVersion !== undefined && actualVersionByCharacterId[id] !== expectedActualVersion) {
+    throw conflictError(id, expectedActualVersion);
+  }
   versions[id] = appendCustomRule(version, data);
+  actualVersionByCharacterId[id] = (actualVersionByCharacterId[id] ?? 0) + 1;
   syncCharacterVersion(id);
 
   const character = characters.find((entry) => entry.id === id);
@@ -764,11 +996,20 @@ export async function updateCustomRule(
   entryId: number,
   data: UpdateCustomRuleData,
   _signal?: AbortSignal,
+  expectedActualVersion?: number,
 ): Promise<CharacterDetail> {
   await delay();
   const version = versions[id];
   if (!version) throw new Error(`Character ${id} not found`);
-  versions[id] = await updateCustomRuleInVersion(version, entryId, data);
+  if (expectedActualVersion !== undefined && actualVersionByCharacterId[id] !== expectedActualVersion) {
+    throw conflictError(id, expectedActualVersion);
+  }
+  const next = await updateCustomRuleInVersion(version, entryId, data);
+  if (expectedActualVersion !== undefined && actualVersionByCharacterId[id] !== expectedActualVersion) {
+    throw conflictError(id, expectedActualVersion);
+  }
+  versions[id] = next;
+  actualVersionByCharacterId[id] = (actualVersionByCharacterId[id] ?? 0) + 1;
   syncCharacterVersion(id);
 
   const character = characters.find((entry) => entry.id === id);

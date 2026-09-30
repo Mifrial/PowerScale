@@ -10,26 +10,14 @@ export function resourceLimitBase(resource: ResourceValue): number {
   return resource.base.base + bonuses;
 }
 
-/** Ресурсы листа с применёнными переопределениями current из оверлея. */
-export function effectiveResources(version: CharacterVersion, overlay: GameCombatOverlay | null): ResourceValue[] {
-  if (!overlay || overlay.resources.length === 0) return version.resources;
-
-  return version.resources.map((resource) => {
-    const override = overlay.resources.find((item) => item.ruleCode === resource.ruleCode);
-    if (!override) return resource;
-
-    return { ...resource, current: { ...override.current } };
-  });
+/** Ресурсы actual-листа; overlay больше не содержит sheet overrides. */
+export function effectiveResources(version: CharacterVersion, _overlay: GameCombatOverlay | null): ResourceValue[] {
+  return version.resources.map((resource) => ({ ...resource, current: { ...resource.current } }));
 }
 
-/**
- * Эффективные состояния в бою: оверлей (авторитетный список, засеян из версии при первой мутации)
- * или версия. `updatedAt === ''` — реального оверлея нет (пустая запись), берём версию.
- */
-export function effectiveStates(version: CharacterVersion, overlay: GameCombatOverlay | null): CharacterStateValue[] {
-  if (!overlay || overlay.updatedAt === '') return version.states.map((state) => ({ ...state }));
-
-  return overlay.states.map((state) => ({ ...state }));
+/** Состояния actual-листа. */
+export function effectiveStates(version: CharacterVersion, _overlay: GameCombatOverlay | null): CharacterStateValue[] {
+  return version.states.map((state) => ({ ...state }));
 }
 
 /** Сравнение списков состояний по содержимому (для «есть ли изменения»). */

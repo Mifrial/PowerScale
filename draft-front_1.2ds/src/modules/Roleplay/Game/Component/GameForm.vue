@@ -88,8 +88,8 @@ async function onSpaceSelect(): Promise<void> {
   await loadRevisions(space.id, null);
 }
 
-function setLimit(field: 'os' | 'ol' | 'or' | 'money', value: number): void {
-  const next = value as number | null;
+function setLimit(field: 'os' | 'ol' | 'or' | 'money', value: number | null): void {
+  const next = value;
   if (field === 'os') osPointsLimit.value = next;
   else if (field === 'ol') olPointsLimit.value = next;
   else if (field === 'or') orPointsLimit.value = next;
