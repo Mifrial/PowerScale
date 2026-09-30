@@ -54,9 +54,7 @@ export class RuleViewLabelService {
       return `ур. ${name}${extra}${offset}`;
     }
     if (node.type === 'dimensional') return this.dimensional(node);
-    if (node.type === 'parameter') {
-      return 'per_unit' in node ? `${node.parameter_code} × ${node.per_unit}` : node.parameter_code;
-    }
+    if (node.type === 'parameter') return `${node.parameter_code} × ${node.per_unit}`;
     if (node.type === 'parameter_floor_div') return `⌊${node.parameter_code} / ${node.divisor}⌋`;
     if (node.type === 'to_scalar') return `база (${this.formula(node.value, rules)}) в среднем размере`;
     if (node.type === 'characteristic_size') return `размер «${this.ruleName(rules, node.characteristic_code)}»`;
@@ -136,8 +134,7 @@ export class RuleViewLabelService {
       case 'magic_path':
         return `Даёт путь волшебства «${this.ruleName(rules, grant.path_code)}»`;
       case 'magic_study': {
-        const maxCostLabel =
-          typeof grant.max_cost === 'number' ? String(grant.max_cost) : 'значения характеристики';
+        const maxCostLabel = typeof grant.max_cost === 'number' ? String(grant.max_cost) : 'значения характеристики';
         const scopeLabel =
           grant.scope === 'spell'
             ? `заклинаний со стоимостью ${maxCostLabel} и меньше`

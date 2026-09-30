@@ -99,6 +99,10 @@ export class EditorCheckBonusesService {
       if (code) abilityLevels.set(code, ability.level);
     }
 
+    if (this.formula.readsCharacteristics(formula)) {
+      throw new Error('Формула размера характеристики недоступна в контексте проверки');
+    }
+
     return this.formula.evaluate(formula, {
       characteristicValues: new Map(),
       abilityLevels,
@@ -108,7 +112,8 @@ export class EditorCheckBonusesService {
 
   private parameterScalar(raw: number | DimensionalNumberValue | undefined): number | undefined {
     if (typeof raw === 'number') return raw;
-    if (raw) return raw.base;
+    if (raw?.size === 0) return raw.base;
+    if (raw) throw new Error('Размерный параметр не входит в скалярную формулу');
 
     return undefined;
   }

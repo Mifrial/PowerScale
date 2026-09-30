@@ -70,8 +70,12 @@ export class FormulaValidationService {
       const problem = this.scalarProblem(grant.max_cost, parameters);
       if (problem) errors.push(this.error(rule, problem));
     }
-    if (grant.type === 'resistance' && this.nodeType(grant.value) === 'parameter') {
-      const problem = this.scalarProblem(grant.value, parameters);
+    if (grant.type === 'resistance' && grant.value && typeof grant.value === 'object' && 'type' in grant.value) {
+      const type = this.nodeType(grant.value);
+      const problem =
+        type === 'parameter' && 'per_unit' in grant.value
+          ? this.scalarProblem(grant.value, parameters)
+          : 'сопротивление допускает только скалярный параметр';
       if (problem) errors.push(this.error(rule, problem));
     }
   }
@@ -137,7 +141,12 @@ export class FormulaValidationService {
         return 'делитель parameter_floor_div должен быть ненулевым числом';
       }
     }
-    if (type === 'to_scalar') return this.dimensionalProblem(this.record(node).value);
+    if (type === 'to_scalar') {
+      const inner = this.record(node).value;
+      if (this.nodeType(inner) === 'to_scalar') return 'повторный to_scalar внутри to_scalar';
+
+      return this.dimensionalProblem(inner);
+    }
     if (type === 'parameter' || type === 'parameter_floor_div') {
       return this.parameterProblem(node, 'scalar', parameters);
     }
@@ -151,9 +160,7 @@ export class FormulaValidationService {
   private dimensionalProblem(node: unknown): string | null {
     const type = this.nodeType(node);
     if (!type || !DIMENSIONAL_TYPES.has(type)) return 'размерное поле содержит неразмерную формулу';
-    if (type === 'parameter' && 'per_unit' in this.record(node)) {
-      return 'per_unit допустим только у скалярного параметра';
-    }
+    if (type === 'parameter') return 'размерный параметр в формуле недопустим';
 
     return type === 'actionCharacteristic' ? this.multiplierProblem(node) : null;
   }

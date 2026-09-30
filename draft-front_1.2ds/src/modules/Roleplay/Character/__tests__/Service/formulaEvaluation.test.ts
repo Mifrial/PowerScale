@@ -158,8 +158,13 @@ describe('FormulaEvaluationService', () => {
     );
   });
 
-  it('characteristic_size для отсутствующей/безразмерной характеристики — 0', () => {
+  it('characteristic_size для отсутствующей характеристики — 0, размер 0 остаётся нулём', () => {
     expect(service.evaluate({ type: 'characteristic_size', characteristic_code: 'magic' }, context)).toBe(0);
+    const sized: FormulaContext = {
+      ...context,
+      characteristicValues: new Map([['magic', { base: 4, size: 0 }]]),
+    };
+    expect(service.evaluate({ type: 'characteristic_size', characteristic_code: 'magic' }, sized)).toBe(0);
   });
 
   it('characteristic_size_gap — число полных размеров, на которое from выше to', () => {

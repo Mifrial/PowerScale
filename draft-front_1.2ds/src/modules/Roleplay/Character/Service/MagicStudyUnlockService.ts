@@ -416,7 +416,7 @@ export class MagicStudyUnlockService {
 
   private maxCostOf(grant: MagicStudyGrant, snapshot?: CharacterSnapshot): number {
     if (typeof grant.max_cost === 'number') return grant.max_cost;
-    if (!snapshot) return 0;
+    if (!snapshot) throw new Error('Нет характеристики для потолка изучения');
 
     return this.studyCostLimit(grant.max_cost, {
       characteristicValues: snapshot.characteristicValues,

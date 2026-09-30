@@ -1,7 +1,7 @@
 import type { DimensionalFormula } from '@/modules/Roleplay/Rule/Dto/Ability/DimensionalFormula';
 
-/** Узлы размерного поля без параметра способности. Параметр добавляется, когда он объявлен. */
-export const DIMENSIONAL_FORMULA_MODES: Exclude<DimensionalFormula['type'], 'parameter'>[] = [
+/** Узлы размерного поля. Параметр способности в этот каталог не входит. */
+export const DIMENSIONAL_FORMULA_MODES: DimensionalFormula['type'][] = [
   'fixed',
   'characteristic',
   'dimensional',

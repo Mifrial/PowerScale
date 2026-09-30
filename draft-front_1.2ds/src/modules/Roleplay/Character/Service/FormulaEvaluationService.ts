@@ -34,6 +34,7 @@ export class FormulaEvaluationService {
       case 'to_scalar':
         return this.mediumSizeBase(this.evaluateDimensional(formula.value, context));
       case 'characteristic_size':
+        // Нет характеристики — размер 0: лимит ОД считается и без неё. Это не подмена неизвестного узла.
         return context.characteristicValues.get(formula.characteristic_code)?.size ?? 0;
       case 'characteristic_size_positive':
         return Math.max(0, context.characteristicValues.get(formula.characteristic_code)?.size ?? 0);
@@ -60,8 +61,6 @@ export class FormulaEvaluationService {
 
         return new DimensionalNumber(value).modify(formula.modifier, CHARACTERISTIC_BASE_RANGE).value;
       }
-      case 'parameter':
-        throw new Error(`Размерный параметр «${formula.parameter_code}» вычисляется отдельным контрактом`);
       case 'actionCharacteristic': {
         const base =
           context.actionCharacteristicValue?.(formula.action, formula.characteristic) ??
@@ -79,6 +78,16 @@ export class FormulaEvaluationService {
   /** Скалярная формула. Размерная формула сюда не приводится. */
   evaluate(formula: ScalarFormula, context: FormulaContext): number {
     return this.evaluateScalar(formula, context);
+  }
+
+  /** Узел читает значения характеристик. Пустой контекст проверки для него — ошибка вызывающего. */
+  readsCharacteristics(formula: ScalarFormula): boolean {
+    return (
+      formula.type === 'characteristic_size' ||
+      formula.type === 'characteristic_size_positive' ||
+      formula.type === 'characteristic_size_gap' ||
+      formula.type === 'to_scalar'
+    );
   }
 
   evaluateDimensionalValue(value: DimensionalNumberValue): number {

@@ -29,9 +29,7 @@ export function formulaLabel(
     case 'dimensional':
       return `число ${new DimensionalNumber({ base: formula.base, size: formula.size }).toString()}`;
     case 'parameter':
-      return 'per_unit' in formula
-        ? `параметр «${formula.parameter_code}» × ${formula.per_unit}`
-        : `параметр «${formula.parameter_code}»`;
+      return `параметр «${formula.parameter_code}» × ${formula.per_unit}`;
     case 'parameter_floor_div':
       return `⌊параметр «${formula.parameter_code}» / ${formula.divisor}⌋`;
     case 'to_scalar':

@@ -240,9 +240,12 @@ function updateDivisor(val: string) {
 }
 
 function isDimensionalFormula(value: Formula): value is DimensionalFormula {
-  if (value.type === 'parameter') return !('per_unit' in value);
-
-  return value.type === 'fixed' || value.type === 'dimensional' || value.type === 'characteristic' || value.type === 'actionCharacteristic';
+  return (
+    value.type === 'fixed' ||
+    value.type === 'dimensional' ||
+    value.type === 'characteristic' ||
+    value.type === 'actionCharacteristic'
+  );
 }
 
 function updateToScalar(value: Formula | null) {

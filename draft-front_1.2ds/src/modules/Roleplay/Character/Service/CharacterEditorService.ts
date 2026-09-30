@@ -281,9 +281,12 @@ export class CharacterEditorService {
       string,
       { role: string | null; sourceRuleCode: string | null; delta: number; scope: string }[]
     >();
-    this.forEachActiveGrant(build, reference, (grant) => {
+    this.forEachActiveGrant(build, reference, (grant, _rule, parameterSource) => {
       if (grant.type !== 'characteristic_modify') return;
-      const delta = this.formula.evaluate(grant.amount, this.formulaContext(build, bases, reference, keywords));
+      const delta = this.formula.evaluate(
+        grant.amount,
+        this.grantFormulaContext(build, bases, reference, keywords, parameterSource),
+      );
       const source = grant.source_code === null ? null : reference.ruleByCode(grant.source_code);
       const entry = {
         role: source === null ? null : this.sourceRoleOf(source.type),
@@ -542,9 +545,12 @@ export class CharacterEditorService {
     const deltas = new Map<string, { role: string | null; sourceRuleCode: string | null; delta: number }[]>();
     const statusOverrides = new Map<string, SenseStatus>();
     const lightingBySense = new Map<string, LightingLevel>();
-    this.forEachActiveGrant(build, reference, (grant) => {
+    this.forEachActiveGrant(build, reference, (grant, _rule, parameterSource) => {
       if (grant.type !== 'sense_modify') return;
-      const delta = this.formula.evaluate(grant.amount, this.formulaContext(build, new Map(), reference));
+      const delta = this.formula.evaluate(
+        grant.amount,
+        this.grantFormulaContext(build, new Map(), reference, [], parameterSource),
+      );
       const source = grant.source_code === null ? null : reference.ruleByCode(grant.source_code);
       const entry = {
         role: source === null ? null : this.sourceRoleOf(source.type),
@@ -609,7 +615,7 @@ export class CharacterEditorService {
     this.forEachActiveGrant(
       build,
       reference,
-      (grant) => {
+      (grant, _rule, parameterSource) => {
         if (grant.type === 'resource') {
           const resourceRule = reference.ruleByCode(grant.resource_code);
           if (!resourceRule || grantedResources.has(resourceRule.code)) return;
@@ -626,7 +632,7 @@ export class CharacterEditorService {
         granted.bonuses.push({
           sourceRuleCode: grant.source_code,
           sourceLabel: null,
-          delta: this.formula.evaluate(grant.amount, context),
+          delta: this.formula.evaluate(grant.amount, this.withGrantParameters(context, parameterSource)),
         });
       },
       skipAbilityCodes,
@@ -653,11 +659,11 @@ export class CharacterEditorService {
         });
       }
       // Дары resource_limit_change (например «+2 ОД от Человек») — бонусы к лимиту.
-      this.forEachActiveGrant(build, reference, (grant) => {
+      this.forEachActiveGrant(build, reference, (grant, _rule, parameterSource) => {
         if (grant.type !== 'resource_limit_change') return;
         const resourceRule = reference.ruleByCode(grant.resource_code);
         if (resourceRule?.code !== rule.code) return;
-        const amount = this.formula.evaluate(grant.amount, context);
+        const amount = this.formula.evaluate(grant.amount, this.withGrantParameters(context, parameterSource));
         const source = grant.source_code === null ? null : reference.ruleByCode(grant.source_code);
         delta += amount;
         bonuses.push({ sourceRuleCode: source?.code ?? null, sourceLabel: null, delta: amount });
@@ -1252,10 +1258,17 @@ export class CharacterEditorService {
               const giftedFloor = instance.gifted ? this.nativeLanguage.giftedFloor(instance) : 0;
               const rawPaid = costs.slice(giftedFloor, instance.level).reduce((sum, cost) => sum + cost, 0);
               let paidCost =
-                this.magicStudyUnlock.paidCostOverride(spec, studyUnlocks, learnedStudy, instance.domainCode ?? null, {
-                  ruleCode: rule.code,
-                  domainCode: instance.domainCode ?? null,
-                }, snapshot) ??
+                this.magicStudyUnlock.paidCostOverride(
+                  spec,
+                  studyUnlocks,
+                  learnedStudy,
+                  instance.domainCode ?? null,
+                  {
+                    ruleCode: rule.code,
+                    domainCode: instance.domainCode ?? null,
+                  },
+                  snapshot,
+                ) ??
                 this.magicPathStudyCost.instancePaid(
                   build,
                   rules,
@@ -1653,7 +1666,7 @@ export class CharacterEditorService {
       resourceLimits.set(code, { base: Math.max(0, resource.base.base + delta), size: resource.base.size });
     }
     // Дары ресурсов, которых в ревизии нет (или не-авто): лимит из грантов (как раньше).
-    this.forEachActiveGrant(build, reference, (grant) => {
+    this.forEachActiveGrant(build, reference, (grant, _rule, parameterSource) => {
       if (grant.type === 'resource' || grant.type === 'resource_limit_change') {
         if (resourceLimits.has(grant.resource_code)) return;
       }
@@ -1662,7 +1675,7 @@ export class CharacterEditorService {
       } else if (grant.type === 'resource_limit_change') {
         const delta = this.formula.evaluate(
           grant.amount,
-          this.formulaContext(build, characteristicValues, reference, keywords),
+          this.grantFormulaContext(build, characteristicValues, reference, keywords, parameterSource),
         );
         const existing = resourceLimits.get(grant.resource_code);
         resourceLimits.set(grant.resource_code, (existing === undefined ? 0 : this.toNumber(existing)) + delta);
@@ -1841,9 +1854,12 @@ export class CharacterEditorService {
     const rule = reference.ruleByCode(ATTRACTIVENESS_STATE_CODE);
     if (!rule || rule.type !== 'state') return build.states;
     let total = 0;
-    this.forEachActiveGrant(build, reference, (grant) => {
+    this.forEachActiveGrant(build, reference, (grant, _rule, parameterSource) => {
       if (grant.type !== 'state_modify' || grant.state_code !== ATTRACTIVENESS_STATE_CODE) return;
-      total += this.formula.evaluate(grant.amount, this.formulaContext(build, new Map(), reference, keywords));
+      total += this.formula.evaluate(
+        grant.amount,
+        this.grantFormulaContext(build, new Map(), reference, keywords, parameterSource),
+      );
     });
     const value = Math.min(ATTRACTIVENESS_MAX, Math.max(ATTRACTIVENESS_MIN, total));
 
@@ -1871,7 +1887,11 @@ export class CharacterEditorService {
   private forEachActiveGrant(
     build: CharacterBuild,
     reference: CharacterReferenceService,
-    callback: (grant: Grant, rule: Rule) => void,
+    callback: (
+      grant: Grant,
+      rule: Rule,
+      parameterSource: { spec: AbilitySpec; parameters: CharacterAbility['parameters'] | undefined },
+    ) => void,
     skipAbilityCodes: ReadonlySet<string> = new Set(),
   ): void {
     for (const ability of build.abilities) {
@@ -1887,7 +1907,7 @@ export class CharacterEditorService {
         for (const grant of entry.grants) {
           const permanent = grant.permanent !== false;
           if (!permanent && entry.level !== ability.level) continue;
-          callback(this.resolveGrant(grant, ability, spec), rule);
+          callback(this.resolveGrant(grant, ability, spec), rule, { spec, parameters: ability.parameters });
         }
       }
     }
@@ -1909,7 +1929,10 @@ export class CharacterEditorService {
         for (const grant of entry.grants) {
           const permanent = grant.permanent !== false;
           if (!permanent && entry.level !== 1) continue;
-          callback(this.resolveGrant(grant, { parameters: ref.parameters }, spec), rule);
+          callback(this.resolveGrant(grant, { parameters: ref.parameters }, spec), rule, {
+            spec,
+            parameters: ref.parameters,
+          });
         }
       }
     }
@@ -1958,24 +1981,6 @@ export class CharacterEditorService {
       const x = this.parameterValueOf(spec, ability.parameters, value.parameter_code);
 
       return { ...grant, value: { base: x * value.per_unit, size: 0 } };
-    }
-
-    if (grant.type === 'characteristic_modify') {
-      const amount = grant.amount;
-      if (typeof amount !== 'object' || !('type' in amount)) return grant;
-      if (amount.type === 'parameter') {
-        const x = this.parameterValueOf(spec, ability.parameters, amount.parameter_code);
-
-        return { ...grant, amount: { type: 'fixed', value: x * amount.per_unit } };
-      }
-      if (amount.type === 'parameter_floor_div') {
-        const x = this.parameterValueOf(spec, ability.parameters, amount.parameter_code);
-        const divisor = amount.divisor === 0 ? 1 : amount.divisor;
-
-        return { ...grant, amount: { type: 'fixed', value: Math.floor(x / divisor) } };
-      }
-
-      return grant;
     }
 
     if (grant.type === 'characteristic_parameter') {
@@ -2124,6 +2129,52 @@ export class CharacterEditorService {
     }
 
     return { characteristicValues, abilityLevels };
+  }
+
+  private grantFormulaContext(
+    build: CharacterBuild,
+    characteristicValues: Map<string, DimensionalNumberValue>,
+    reference: CharacterReferenceService,
+    keywords: Keyword[],
+    parameterSource: { spec: AbilitySpec; parameters: CharacterAbility['parameters'] | undefined } | undefined,
+  ): FormulaContext {
+    return this.withGrantParameters(
+      this.formulaContext(build, characteristicValues, reference, keywords),
+      parameterSource,
+    );
+  }
+
+  private withGrantParameters(
+    context: FormulaContext,
+    parameterSource: { spec: AbilitySpec; parameters: CharacterAbility['parameters'] | undefined } | undefined,
+  ): FormulaContext {
+    if (!parameterSource) return context;
+
+    return {
+      ...context,
+      parameterValues: this.scalarParameterValues(parameterSource.spec, parameterSource.parameters),
+    };
+  }
+
+  /** Скаляр параметра. `{ base, size: 0 }` — форма хранения скаляра в моках, не проекция размера. */
+  private scalarParameterValues(
+    spec: AbilitySpec,
+    parameters: CharacterAbility['parameters'] | undefined,
+  ): (code: string) => number | undefined {
+    return (code) => {
+      if (spec.type === 'group') return undefined;
+      const declared = spec.parameters?.find((parameter) => parameter.code === code);
+      if (declared?.kind === 'dimensional') {
+        throw new Error(`Параметр «${code}» размерный и не входит в скалярную формулу`);
+      }
+      const chosen = parameters?.[code];
+      const raw = chosen !== undefined ? chosen : declared?.default;
+      if (typeof raw === 'number') return raw;
+      if (raw && raw.size === 0) return raw.base;
+      if (raw) throw new Error(`Параметр «${code}» размерный и не входит в скалярную формулу`);
+
+      return undefined;
+    };
   }
 
   private ruleIdOfCode(reference: CharacterReferenceService, code: string): string {
@@ -2312,10 +2363,17 @@ export class CharacterEditorService {
       if (!spec || spec.type === 'group') return false;
 
       return (
-        this.magicStudyUnlock.paidCostOverride(spec, unlocks, learned, ability.domainCode ?? null, {
-          ruleCode: ability.ruleCode,
-          domainCode: ability.domainCode ?? null,
-        }, snapshot) != null
+        this.magicStudyUnlock.paidCostOverride(
+          spec,
+          unlocks,
+          learned,
+          ability.domainCode ?? null,
+          {
+            ruleCode: ability.ruleCode,
+            domainCode: ability.domainCode ?? null,
+          },
+          snapshot,
+        ) != null
       );
     };
   }

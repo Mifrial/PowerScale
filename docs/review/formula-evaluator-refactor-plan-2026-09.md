@@ -1,14 +1,14 @@
 # План переработки Formula и единого FormulaEvaluator
 
-**Статус:** семантика и границы зафиксированы; можно переходить к реализации  
+**Статус:** готов к билду по §10. Разделы 3 и 5 — история обследования, не очередь работ.  
 **Дата:** 2026-09-30  
 **Ограничение:** этот документ описывает будущую реализацию. Сам по себе он не
 разрешает менять production code, tests, schema или canonical docs.
 
-Семантика записана в §7. Разделы 1–6 описывают ту же модель. Текущий код с ней
-расходится в нескольких местах: silent fallback, `toNumber()` у множителя,
-скалярная проекция дистанции в обзоре атаки, неполный validator и локальные
-`formulaValue()`. Это дефекты текущей реализации, а не открытые решения.
+Семантика записана в §7 и поправлена в §10. Раздельный evaluator, kind поля,
+множитель силы действия с сохранением размера и размерные дистанция/дальность
+в коде уже есть. Не закрыты тихие подмены вне `switch`, дыра размерного
+`parameter` и неполная validation.
 
 ## 1. Цель
 
@@ -20,8 +20,8 @@
 
 - иметь один владелец вычисления Formula;
 - различать scalar и dimensional result по контракту поля;
-- использовать уже существующие узлы, без общего вложенного `modify` и без
-  скалярной подформулы внутри размерной Formula;
+- использовать каталог узлов без общего `modify`/`add` и без скалярной
+  подформулы внутри размерной Formula; единственное вложение — `to_scalar`;
 - ограничивать не наборы правил вручную в каждом сервисе, а только
   математически несовместимые result kinds;
 - валидировать Formula при сохранении;
@@ -41,9 +41,9 @@
 - `dimensional` — `DimensionalNumberValue`.
 
 Старый `{ type: "fixed", value: N }` читается по контракту поля (§7.5).
-Дистанция и дальность размерные. `CharacterOverviewService` сейчас считает их
-через `evaluate()` и получает скаляр; при переносе оба потребителя дистанции и
-дальности используют размерный результат.
+Дистанция и дальность размерные: обзор и карточка оружия вызывают
+`evaluateDimensional`. Обзор затем переводит результат в число через
+`toNumber()` для досягаемости и штрафа дистанции.
 
 ### 2.2 Modifier
 
@@ -59,10 +59,14 @@
 
 ### 2.3 Композиция
 
-Вложенной Formula в текущих спеках нет, и общий механизм вложения не
-добавляется. Сложение размерных значений остаётся в movement AST. Явной
-проекции размерного значения в скаляр в спеках нет; неявный `toNumber()`
-запрещён.
+Общего вложения нет. Единственное допустимое вложение — скалярный узел
+`to_scalar`, внутри которого лежит `DimensionalFormula`. Он нужен скалярным
+полям, которым нужна база характеристики в среднем размере, а не `toNumber()`.
+Подтверждённый consumer — `magic_study.max_cost` у
+`magic-structure-construction`: база Интеллекта.
+
+Скаляр внутри размерной Formula не добавляется. Сложение размерных значений
+остаётся в movement AST. Неявный `toNumber()` запрещён.
 
 ### 2.4 Fixed
 
@@ -81,7 +85,7 @@
 момент выбора: purchase или activation.
 
 - scalar Formula ссылается только на scalar parameter;
-- dimensional Formula ссылается только на dimensional parameter;
+- dimensional Formula на parameter не ссылается (§4.2, §10.3);
 - `per_unit` есть только у скалярного параметра;
 - несовместимая ссылка — ошибка спеки.
 
@@ -94,8 +98,7 @@
 Поле `multiplier` есть в спеках дистанции и дальности: ручной арбалет
 умножает силу выстрела на 10, луки — на 2, 3 или 5. Умножение размерного
 значения меняет только базу и сохраняет размер: `{4|2} * 5 = {20|2}`.
-Текущий evaluator делает `toNumber() * multiplier` и записывает `size: 0`;
-это расходится с правилом и подлежит замене (§7.6).
+Evaluator уже считает так. В этом билде множитель не переписывать.
 
 ### 2.7 Resources
 
@@ -208,19 +211,38 @@ expression/value contract:
 
 ### 3.5 Подтверждённые current-state gaps
 
-- `FormulaEvaluationService.ts:16-87` возвращает dimensional wrapper для всех
-  nodes, а `evaluate()` делает caller-controlled projection.
-- `AbilityCheckAdvantagesService.ts:82-110` и
-  `EditorCheckBonusesService.ts:86-108` возвращают `0` для unsupported nodes.
-- `RuleValidationService.ts:1366-1388` проверяет только часть references и не
-  проверяет result kind, node shape, divisor, multiplier или parameter refs.
-- `FormulaInput.vue:50-72,184-320` не умеет создавать/редактировать все
-  текущие Formula nodes и имеет dimensional fallback для неизвестного типа.
-- `RuleVersionBody.php` и `RuleVersionTable.php` хранят `spec` как JSON без
-  Formula semantics; PHP Rule module не имеет подтверждённых routes.
-- `RevisionFileService.ts:190-235` материализует `external.spec` без Formula
-  migration, а `RuleDiffService.ts:20-77` сравнивает representation
-  структурно.
+Сверено с кодом 2026-09-30. Закрыто и не является оставшейся работой:
+
+- `FormulaEvaluationService` разделяет `evaluateScalar` и `evaluateDimensional`;
+  `evaluate()` больше не проецирует размерный результат;
+- `actionCharacteristic.multiplier` умножает `base` и сохраняет `size`;
+- локальные `formulaValue()` вызывают `evaluate()` и не содержат собственного
+  `switch`;
+- `DIMENSIONAL_FORMULA_MODES` уже не предлагает узел `parameter`;
+- `RuleValidationService.walkFormula` собирает ссылки характеристик,
+  `characteristic_size*`, `ability_level`, `actionCharacteristic` и обходит
+  `to_scalar`.
+
+Остаётся:
+
+- `DimensionalFormula` всё ещё содержит `{ type: "parameter" }`, а evaluator
+  на нём только бросает ошибку «отдельный контракт»;
+- `resolveGrant` заранее заменяет `characteristic_modify` с `parameter` и
+  `parameter_floor_div` на `fixed`; делитель `0` становится `1`;
+  отсутствующий параметр становится `1` через `toNumber()`;
+- check-адаптеры читают `.base` размерного параметра и передают пустую карту
+  характеристик, поэтому `characteristic_size` там даёт `0`;
+- `characteristic_size`, `characteristic_size_positive` и
+  `characteristic_size_gap` при отсутствии характеристики возвращают `0`;
+- `formulaContext` сборки персонажа не передаёт `parameterValues`: параметры
+  живут на экземпляре способности и подставляются в `resolveGrant` до
+  callback;
+- `MagicStudyUnlockService.maxCostOf` без snapshot возвращает `0` для
+  формульного `max_cost`;
+- `FormulaValidationService` проверяет kind поля, делитель и kind скалярного
+  параметра, но не ссылки; ссылки проверяет `RuleValidationService`, без
+  structured Formula error;
+- PHP Rule по-прежнему хранит `spec` как JSON без Formula semantics.
 
 ## 4. Целевая архитектура
 
@@ -243,6 +265,7 @@ ScalarFormula:
   parameter
   parameter_floor_div
   ability_level
+  to_scalar          # value: DimensionalFormula
   characteristic_size
   characteristic_size_positive
   characteristic_size_gap
@@ -251,13 +274,18 @@ DimensionalFormula:
   fixed
   dimensional
   characteristic
-  parameter
   actionCharacteristic
 ```
 
-Общий узел `modify` не входит в каталог (§7.7). `actionCharacteristic.multiplier`
-умножает базу размерного результата и сохраняет размер (§7.6). Отдельный
-оператор умножения для этого не нужен.
+Общий узел `modify` не входит в каталог (§7.7). `to_scalar` входит (§2.3).
+`actionCharacteristic.multiplier` умножает базу и сохраняет размер (§7.6).
+Отдельный оператор умножения для этого не нужен.
+
+Узел `{ type: "parameter" }` в размерной Formula не вычисляется: мощь
+заклинания остаётся на `SpellValue`, а «дать характеристику параметром» —
+грант `characteristic_parameter`, не Formula. Пока нет потребителя Formula
+с размерным параметром, узел в каталог не входит. Добавление его позже
+требует evaluator, validation и editor вместе.
 
 Если текущие игровые операции требуют сложения размерных значений,
 пересмотра размера или другого действия, добавить их только после
@@ -299,16 +327,10 @@ DimensionalFormula:
 - корректны ли divisor, multiplier и другие числовые ограничения;
 - не образует ли Formula циклическую ссылку, если такие ссылки возможны.
 
-Ошибка должна быть структурированной:
-
-```text
-code
-path
-stage
-formulaType
-expectedResultKind
-actualResultKind
-```
+Ошибка сохранения остаётся записью `{ ruleCode, ruleName, message }`,
+которую уже возвращает `FormulaValidationService`. Отдельный объект с
+`stage` и `actualResultKind` в этом билде не вводится. Runtime по-прежнему
+бросает `Error` с текстом; тесты узлов проверяют текст, не новый класс.
 
 Runtime может повторять защитную проверку, но не должен быть единственным
 местом обнаружения ошибки.
@@ -327,6 +349,10 @@ Runtime может повторять защитную проверку, но н
 общему Formula contract.
 
 ## 5. Поэтапный план реализации
+
+Фазы 0–7 описывают обследование, которое уже сделано. Типы, kind параметра,
+раздельный evaluator, множитель с сохранением размера и режимы редактора
+в коде есть. Билд выполняет только §10 и не повторяет эти фазы.
 
 ### Phase 0 — contract inventory
 
@@ -359,8 +385,8 @@ Deliverable: consumer matrix и список fixtures.
 - добавить в объявление параметра явное поле kind `scalar | dimensional`;
 - типизировать поля потребителей;
 - описать чтение старого `fixed` по контракту поля;
-- не добавлять `modify`, вложенную Formula, сложение размерных значений и
-  отдельную проекцию.
+- оставить `to_scalar`; не добавлять `modify`, скаляр внутри размерной Formula
+  и сложение размерных значений.
 
 Deliverable: типы Formula и объявление kind параметра.
 
@@ -523,8 +549,8 @@ Evidence:
 его не заменяет: activation-параметр может получить значение только при
 исполнении. `resolution` задаёт момент выбора и kind не меняет. Утверждение
 «стоимость равна Интеллекту» при размерном Интеллекте является ошибкой спеки:
-нужна явная проекция, например база Интеллекта при `size = 0`, а такой операции
-в текущих спеках нет.
+нужна явная проекция. Для базы характеристики в среднем размере это
+`to_scalar` (§2.3). `toNumber()` ею не является.
 
 Текущий DTO хранит и scalar, и dimensional параметры как
 `number | DimensionalNumberValue`. В моках scalar-параметры часто записаны
@@ -547,11 +573,12 @@ runtime results.
 
 ### 7.3 Parameter в Formula — решение
 
-Scalar Formula ссылается только на scalar parameter. Dimensional Formula
-ссылается только на dimensional parameter. Несовместимая ссылка — ошибка
-спеки, а не повод для неявного `toNumber()` или отбрасывания `size`. Явная проекция размерного значения в скаляр — отдельная операция, и её нет в
-текущих спеках. `per_unit` подтверждён только у скалярных параметров; для
-размерного параметра он не вводится.
+Scalar Formula ссылается только на scalar parameter. Несовместимая ссылка —
+ошибка спеки, а не повод для неявного `toNumber()` или отбрасывания `size`.
+Явная проекция размерной величины в скаляр — узел `to_scalar`: база после
+переноса на средний размер. Он есть в спеке изучения магии и не заменяется
+`toNumber()`. Размерный parameter в Formula не входит в каталог (§4.2).
+`per_unit` подтверждён только у скалярных параметров.
 
 Evidence:
 
@@ -686,7 +713,7 @@ AST и validated AST не требуется.
 - нет production local evaluator-ов с неполным `switch`;
 - Formula result kind известен по контракту поля до evaluation;
 - consumer contract не разрешает математически несовместимые Formula;
-- вложенная Formula и общий узел `modify` отсутствуют;
+- вложение Formula ограничено узлом `to_scalar`; общего `modify` нет;
 - база ресурса следует `is_dimensional`, поправки остаются скалярными дельтами;
 - `actionCharacteristic.multiplier` сохраняет размер;
 - kind параметра объявлен явно и проверяется по ссылке;
@@ -704,7 +731,8 @@ AST и validated AST не требуется.
 
 ## 9. Ограничения scope
 
-В рамках подготовки этого плана не выполнять:
+Ниже — ограничение подготовки плана, не запрет на билд §10. При подготовке
+плана не выполнять:
 
 - изменения production code;
 - изменения tests;
@@ -715,3 +743,109 @@ AST и validated AST не требуется.
 
 Все findings и решения сначала должны пройти отдельное обсуждение и
 evidence-backed implementation planning.
+
+## 10. Оставшаяся работа
+
+Разбор `REV-FE-004` подтвердил модель §2–§7 с правками §2.3 и §4.2.
+Локальные `formulaValue()` уже делегируют в `FormulaEvaluationService`.
+Дальше убираются обходные пути, которые подменяют отсутствующий вход и размер
+вне `switch`.
+
+### 10.1 Политика отсутствующего входа
+
+| Узел | Нет входа |
+| --- | --- |
+| `fixed`, `dimensional` | входа нет |
+| `parameter`, `parameter_floor_div` | ошибка, не `0` и не `1` |
+| `parameter_floor_div` с делителем `0` | ошибка, не подмена единицей |
+| `ability_level` | уровень `0`, если способность не взята |
+| `characteristic` | ошибка |
+| `characteristic_size`, `characteristic_size_positive` | размер `0`, если характеристики нет у персонажа; размер `0` — и настоящее значение |
+| `characteristic_size_gap` | `0`, если нет одной из характеристик |
+| `actionCharacteristic` | ошибка, если нет базы |
+| `to_scalar` | ошибка вложенной размерной формулы |
+
+Настоящий нуль остаётся нулём: уровень 0, размер 0, дельта 0.
+
+### 10.2 Один путь параметра
+
+`FormulaContext.parameterValues` возвращает скаляр только для параметра
+`kind: scalar`. Размерное значение в скалярный контекст не проецируется.
+
+Удалить предрасчёт в `CharacterEditorService.resolveGrant` для
+`characteristic_modify` (`parameter` и `parameter_floor_div`): эти узлы
+считает evaluator. Сейчас `divisor === 0` там становится `1`, а
+`parameterValueOf` при отсутствии параметра возвращает `1` и вызывает
+`toNumber()`.
+
+Параметры принадлежат экземпляру способности, а `formulaContext` один на
+сборку и не знает «текущую» способность. `parameterValues` передаётся в
+вызов `evaluate` из `forEachActiveGrant`, где уже есть `ability` и `spec`,
+а не в общий контекст персонажа. Иначе гранты разных способностей смешают
+одноимённые коды.
+
+`AbilityCheckAdvantagesService` и `EditorCheckBonusesService` передают в
+контекст число скалярного параметра. Ветку `raw.base` убрать. Контекст
+характеристик у проверок пустой: формула размера характеристики в этом
+адаптере — ошибка контекста, не `0`.
+
+`resistance` со скалярным `parameter` и грант `characteristic_parameter`
+остаются политикой гранта, не узлами Formula. `resistance` по-прежнему
+записывает `{ base: x * per_unit, size: 0 }` только для скалярного параметра.
+Размерный параметр в этом поле — ошибка спеки. Их предрасчёт в
+`resolveGrant` не переносится в Formula.
+
+`costWithinLimit` без snapshot уже не считает формулу и считает грант
+открытым. `maxCostOf` / `resolvedMaxCost` при формульном `max_cost` и без
+snapshot всё ещё возвращают `0`. Этот ноль убрать: без снимка метод не
+вызывается, либо бросает ту же ошибку, что evaluator при отсутствии
+характеристики. Политику гейта `costWithinLimit` не менять.
+
+### 10.3 Каталог
+
+Убрать `{ type: "parameter" }` из `DimensionalFormula` и ветку evaluator,
+которая бросает «отдельный контракт». `DIMENSIONAL_FORMULA_MODES` этот узел
+уже не показывает; менять список режимов не нужно.
+
+`to_scalar` остаётся. Существующий тест: Интеллект `{ base: 4, size: 1 }`
+даёт `4`. На шкале 3–5 целый размер базу не меняет. `toNumber()` того же
+значения — `8`. Новый пример с другим числом не добавлять.
+
+### 10.4 Validation
+
+Ссылки характеристик, размеров, `ability_level` и `actionCharacteristic`
+уже собирает `RuleValidationService.walkFormula`. В
+`FormulaValidationService` их не дублировать.
+
+`FormulaValidationService` дополнить:
+
+- размерный `parameter` в любом поле — ошибка, пока узла нет в каталоге;
+- `resistance.value`, если это Formula, — только скалярный `parameter`;
+- `magic_study.max_cost` — число или `ScalarFormula`, без размерного узла
+  снаружи `to_scalar`;
+- structured-ошибку там, где `walkFormula` сейчас только копит ссылку, а
+  kind поля не проверен.
+
+Новые проверки пишут в тот же `{ ruleCode, ruleName, message }`. Поля
+`code` / `path` / `stage` не добавлять.
+
+Повторный `to_scalar` внутри `to_scalar` — ошибка сообщения. Циклы `linked`
+и повтор `actionCharacteristic` через профиль оружия в этот билд не входят:
+отдельного подтверждающего payload нет.
+
+### 10.5 Порядок
+
+1. Политика отсутствующего входа и тесты узлов, включая `to_scalar`.
+2. Контекст параметров в сборке персонажа; удаление предрасчёта
+   `characteristic_modify` и подмены делителя.
+3. Убрать `.base` в check-адаптерах.
+4. Удалить размерный `parameter` из каталога Formula.
+5. Дополнить save-time validation и негативные тесты.
+6. Прогнать mock → editor → runtime для изучения магии, физического
+   развития (`parameter_floor_div`), оружия с `multiplier` и лимита ОД.
+
+Не делать в этих шагах: фазы 0–7 заново, общий `modify`, сложение размерных
+Formula, `Formula<T>`, перенос `SpellValue` и movement AST, переписывание
+`multiplier`, снятие `toNumber()` у досягаемости в обзоре атаки, проекцию
+лимита в снимке требований (`toNumber(existing) + delta`). Это не баги
+каталога Formula.

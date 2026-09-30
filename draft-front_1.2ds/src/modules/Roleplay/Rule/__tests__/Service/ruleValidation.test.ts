@@ -1437,6 +1437,61 @@ describe('formula validation', () => {
     expect(messages).toContain('нескалярную');
   });
 
+  it('отклоняет размерный parameter, повторный to_scalar и чужую формулу сопротивления', () => {
+    const rules: Rule[] = [
+      baseRule(null, 'training', 'ability', {
+        type: 'skill',
+        requirements: [],
+        grants: [
+          {
+            level: 1,
+            grants: [
+              {
+                type: 'resistance',
+                damage_type_code: 'fire',
+                value: { type: 'fixed', value: 1 },
+                source_code: 'training',
+              },
+              {
+                type: 'magic_study',
+                scope: 'spell',
+                max_cost: {
+                  type: 'to_scalar',
+                  value: {
+                    type: 'to_scalar',
+                    value: { type: 'characteristic', characteristic_code: 'intellect', modifier: 0 },
+                  },
+                },
+              },
+            ],
+          },
+        ],
+        action_components: [],
+        parent_ability_code: null,
+        parameters: [],
+      }),
+      baseRule(null, 'bow', 'item', {
+        weapon: {
+          weapon_profiles: [
+            {
+              distance: { type: 'parameter', parameter_code: 'x' },
+              range: null,
+              damage: { formula: { type: 'fixed', value: 1 }, damage_type_code: null },
+              penetration: { type: 'fixed', value: 0 },
+            },
+          ],
+        },
+      }),
+    ];
+    const messages = ruleValidationService
+      .validateCatalog(rules, [])
+      .items.map((item) => item.message)
+      .join('\n');
+    expect(messages).toContain('скалярный параметр');
+    expect(messages).toContain('повторный to_scalar');
+    expect(messages).toContain('размерный параметр');
+  });
+
   it('отклоняет затухание, которое runtime не считает', () => {
     const rules: Rule[] = [
       baseRule(null, 'poison-a', 'poison', {
