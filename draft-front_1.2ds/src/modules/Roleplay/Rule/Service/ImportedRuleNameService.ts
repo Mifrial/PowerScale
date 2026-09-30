@@ -114,6 +114,7 @@ export class ImportedRuleNameService {
     return {
       code,
       label: code.toUpperCase(),
+      kind: 'scalar',
       resolution: 'purchase',
       default: 1,
       min: 1,

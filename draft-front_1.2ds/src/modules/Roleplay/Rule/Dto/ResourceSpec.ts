@@ -1,12 +1,12 @@
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
-import type { Formula } from '@/modules/Roleplay/Rule/Dto/Ability/Formula';
+import type { ScalarFormula } from '@/modules/Roleplay/Rule/Dto/Ability/ScalarFormula';
 
 /**
  * Условие изменения лимита авто-ресурса: вычисленное значение + источник (для попапа ресурса).
  * Значения складываются/вычитаются напрямую (без размерных переходов, как у характеристик).
  */
 export interface ResourceLimitAdjustment {
-  value: Formula;
+  value: ScalarFormula;
   /** Ссылка на правило-источник (type='source'), которому атрибутируется вклад. */
   source_code: string;
 }

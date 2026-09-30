@@ -29,9 +29,13 @@ export function formulaLabel(
     case 'dimensional':
       return `число ${new DimensionalNumber({ base: formula.base, size: formula.size }).toString()}`;
     case 'parameter':
-      return `параметр «${formula.parameter_code}» × ${formula.per_unit}`;
+      return 'per_unit' in formula
+        ? `параметр «${formula.parameter_code}» × ${formula.per_unit}`
+        : `параметр «${formula.parameter_code}»`;
     case 'parameter_floor_div':
       return `⌊параметр «${formula.parameter_code}» / ${formula.divisor}⌋`;
+    case 'to_scalar':
+      return `база (${formulaLabel(formula.value, resolveName)}) в среднем размере`;
     case 'characteristic_size':
       return resolveName(formula.characteristic_code) ?? formula.characteristic_code;
     case 'characteristic_size_positive': {

@@ -55,6 +55,7 @@ const orCost = (cost: number) => ({ or: { kind: 'array' as const, levels_cost: [
 const activationPower: AbilityParameter = {
   code: 'x',
   label: 'X',
+  kind: 'dimensional',
   resolution: 'activation',
   default: dim(3, 0),
   min: dim(3, -1),
@@ -188,6 +189,7 @@ export const mockSpellImport: Rule[] = [
         {
           code: 'x',
           label: 'Базовая магическая мощь',
+          kind: 'dimensional',
           resolution: 'purchase',
           default: dim(3, 0),
           min: dim(3, -1),
@@ -894,13 +896,19 @@ export const mockSpellImport: Rule[] = [
             {
               type: 'magic_study',
               scope: 'spell',
-              max_cost: { type: 'characteristic', characteristic_code: 'intellect', modifier: 0 },
+              max_cost: {
+                type: 'to_scalar',
+                value: { type: 'characteristic', characteristic_code: 'intellect', modifier: 0 },
+              },
               path_code: 'arcanist',
             },
             {
               type: 'magic_study',
               scope: 'non_spell',
-              max_cost: { type: 'characteristic', characteristic_code: 'intellect', modifier: 0 },
+              max_cost: {
+                type: 'to_scalar',
+                value: { type: 'characteristic', characteristic_code: 'intellect', modifier: 0 },
+              },
               path_code: 'arcanist',
             },
           ],

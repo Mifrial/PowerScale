@@ -1952,7 +1952,9 @@ export class CharacterEditorService {
   private resolveGrant(grant: Grant, ability: Pick<CharacterAbility, 'parameters'>, spec: AbilitySpec): Grant {
     if (grant.type === 'resistance') {
       const value = grant.value;
-      if (typeof value !== 'object' || !('type' in value) || value.type !== 'parameter') return grant;
+      if (typeof value !== 'object' || !('type' in value) || value.type !== 'parameter' || !('per_unit' in value)) {
+        return grant;
+      }
       const x = this.parameterValueOf(spec, ability.parameters, value.parameter_code);
 
       return { ...grant, value: { base: x * value.per_unit, size: 0 } };

@@ -2,6 +2,7 @@
 import FormulaInput from '@/modules/Roleplay/Rule/Component/FormulaInput.vue';
 import { useVModelSync } from '@/modules/Core/UI/Composables/useVModelSync';
 import type { Formula } from '@/modules/Roleplay/Rule/Dto/Ability/Formula';
+import { DIMENSIONAL_FORMULA_MODES } from '@/modules/Roleplay/Rule/Constant/Ability/DIMENSIONAL_FORMULA_MODES';
 
 interface CharacteristicLimit {
   characteristic_code: string;
@@ -50,7 +51,12 @@ function removeLimit(index: number) {
         hide-details
         class="flex-grow-1"
       />
-      <FormulaInput v-model="limit.limit" :characteristics="characteristics" class="flex-grow-1" />
+      <FormulaInput
+        v-model="limit.limit"
+        :characteristics="characteristics"
+        :modes="[...DIMENSIONAL_FORMULA_MODES]"
+        class="flex-grow-1"
+      />
       <v-btn icon size="small" color="error" @click="removeLimit(index)">
         <v-icon>mdi-delete</v-icon>
       </v-btn>

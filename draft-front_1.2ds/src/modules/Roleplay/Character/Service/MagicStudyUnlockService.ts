@@ -7,6 +7,7 @@ import type { MagicStudyLearned } from '@/modules/Roleplay/Character/Dto/Editor/
 import type { CharacterSnapshot } from '@/modules/Roleplay/Character/Dto/Editor/CharacterSnapshot';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import { FormulaEvaluationService } from '@/modules/Roleplay/Character/Service/FormulaEvaluationService';
+import type { FormulaContext } from '@/modules/Roleplay/Character/Dto/FormulaContext';
 
 type MagicStudyGrant = Extract<Grant, { type: 'magic_study' }>;
 
@@ -28,7 +29,7 @@ export class MagicStudyUnlockService {
   ): number {
     if (typeof grant.max_cost === 'number') return grant.max_cost;
 
-    return this.formula.evaluate(grant.max_cost, {
+    return this.studyCostLimit(grant.max_cost, {
       characteristicValues,
       abilityLevels: new Map(),
     });
@@ -417,10 +418,14 @@ export class MagicStudyUnlockService {
     if (typeof grant.max_cost === 'number') return grant.max_cost;
     if (!snapshot) return 0;
 
-    return this.formula.evaluate(grant.max_cost, {
+    return this.studyCostLimit(grant.max_cost, {
       characteristicValues: snapshot.characteristicValues,
       abilityLevels: snapshot.abilityLevels,
     });
+  }
+
+  private studyCostLimit(formula: Exclude<MagicStudyGrant['max_cost'], number>, context: FormulaContext): number {
+    return this.formula.evaluate(formula, context);
   }
 
   private costWithinLimit(grant: MagicStudyGrant, cost: number, snapshot?: CharacterSnapshot): boolean {

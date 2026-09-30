@@ -136,14 +136,17 @@ describe('MagicStudyUnlockService', () => {
       {
         type: 'magic_study' as const,
         scope: 'spell' as const,
-        max_cost: { type: 'characteristic' as const, characteristic_code: 'intellect', modifier: 0 },
+        max_cost: {
+          type: 'to_scalar' as const,
+          value: { type: 'characteristic' as const, characteristic_code: 'intellect', modifier: 0 },
+        },
         path_code: 'arcanist',
       },
     ];
     const snapshot = {
       abilityLevels: new Map<string, number>(),
       abilityKeywords: new Map<string, Set<string>>(),
-      characteristicValues: new Map([['intellect', { base: 4, size: 0 }]]),
+      characteristicValues: new Map([['intellect', { base: 4, size: 1 }]]),
       resourceLimits: new Map<string, number | { base: number; size: number }>(),
       keywordCodes: new Set<string>(),
     };
@@ -161,37 +164,22 @@ describe('MagicStudyUnlockService', () => {
             type: 'magic_study' as const,
             scope: 'spell' as const,
             max_cost: {
-              type: 'characteristic' as const,
-              characteristic_code: 'intellect',
-              modifier: 0,
+              type: 'to_scalar' as const,
+              value: { type: 'characteristic' as const, characteristic_code: 'intellect', modifier: 0 },
             },
             path_code: 'arcanist',
           },
         ],
       },
     ]);
-    const rules = [
-      { code: 'magic-structure-construction', type: 'ability' as const, spec: construction },
-    ] as never;
+    const rules = [{ code: 'magic-structure-construction', type: 'ability' as const, spec: construction }] as never;
     const abilities = [{ ruleCode: 'magic-structure-construction', level: 1 }];
 
     expect(
-      service.isAvailableForUse(
-        spell(4),
-        'arcanist',
-        abilities,
-        rules,
-        new Map([['intellect', { base: 4, size: 0 }]]),
-      ),
+      service.isAvailableForUse(spell(4), 'arcanist', abilities, rules, new Map([['intellect', { base: 4, size: 0 }]])),
     ).toBe(true);
     expect(
-      service.isAvailableForUse(
-        spell(5),
-        'arcanist',
-        abilities,
-        rules,
-        new Map([['intellect', { base: 4, size: 0 }]]),
-      ),
+      service.isAvailableForUse(spell(5), 'arcanist', abilities, rules, new Map([['intellect', { base: 4, size: 0 }]])),
     ).toBe(false);
   });
 

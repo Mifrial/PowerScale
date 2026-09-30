@@ -16,6 +16,8 @@ import type { AbilityRef } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityRef'
 import type { KeywordRef } from '@/modules/Roleplay/Rule/Dto/Ability/KeywordRef';
 import type { SourceRef } from '@/modules/Roleplay/Rule/Dto/Ability/SourceRef';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
+import type { AbilityParameter } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityParameter';
+import { SCALAR_FORMULA_MODES } from '@/modules/Roleplay/Rule/Constant/Ability/SCALAR_FORMULA_MODES';
 
 const props = defineProps<{
   modelValue: Grant;
@@ -29,6 +31,7 @@ const props = defineProps<{
   damageTypes: { code: string; name: string }[];
   senses: { code: string; name: string }[];
   states: { code: string; name: string }[];
+  parameters?: AbilityParameter[];
 }>();
 
 const emit = defineEmits<{
@@ -162,7 +165,8 @@ function patch(key: string, value: unknown) {
           @update:model-value="patch('amount', $event)"
           :characteristics="characteristics"
           :abilities="abilities"
-          :modes="['fixed', 'ability_level']"
+          :modes="SCALAR_FORMULA_MODES"
+          :parameters="parameters"
         />
         <v-select
           :model-value="inner.source_code || null"
@@ -223,6 +227,8 @@ function patch(key: string, value: unknown) {
           @update:model-value="patch('amount', $event)"
           :characteristics="characteristics"
           :abilities="abilities"
+          :modes="SCALAR_FORMULA_MODES"
+          :parameters="parameters"
         />
         <v-select
           :model-value="inner.source_code || null"
@@ -328,9 +334,7 @@ function patch(key: string, value: unknown) {
           density="compact"
           hide-details
         />
-        <div v-else class="text-caption text-medium-emphasis">
-          Максимальная стоимость определяется характеристикой
-        </div>
+        <div v-else class="text-caption text-medium-emphasis">Максимальная стоимость определяется характеристикой</div>
         <v-autocomplete
           :model-value="inner.path_code ?? null"
           @update:model-value="patch('path_code', $event || undefined)"
@@ -431,7 +435,8 @@ function patch(key: string, value: unknown) {
           @update:model-value="patch('amount', $event)"
           :characteristics="characteristics"
           :abilities="abilities"
-          :modes="['fixed', 'ability_level']"
+          :modes="SCALAR_FORMULA_MODES"
+          :parameters="parameters"
         />
         <v-select
           :model-value="inner.status ?? null"
@@ -507,6 +512,8 @@ function patch(key: string, value: unknown) {
           @update:model-value="patch('amount', $event)"
           :characteristics="characteristics"
           :abilities="abilities"
+          :modes="SCALAR_FORMULA_MODES"
+          :parameters="parameters"
         />
         <v-select
           :model-value="inner.source_code || null"

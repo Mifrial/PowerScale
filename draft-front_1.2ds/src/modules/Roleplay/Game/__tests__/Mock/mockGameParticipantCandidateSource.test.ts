@@ -48,6 +48,12 @@ describe('MockGameParticipantCandidateSource', () => {
     expect(result.items.map((candidate) => candidate.entityKey).sort()).toEqual(['character:1', 'npc:5']);
   });
 
+  it('ставит персонажа текущей ревизии раньше NPC', async () => {
+    const result = await new MockGameParticipantCandidateSource().search({ gameId: 2, limit: 50 });
+
+    expect(result.items.map((candidate) => candidate.kind)).toEqual(['character', 'npc']);
+  });
+
   it('supports cursor pagination for the bounded candidate search', async () => {
     const source = new MockGameParticipantCandidateSource();
 
@@ -64,7 +70,7 @@ describe('MockGameParticipantCandidateSource', () => {
     expect(secondPage.nextCursor).toBeNull();
   });
 
-  it('keeps characters before NPCs and does not repeat candidates across pages', async () => {
+  it('не берёт персонажа чужой ревизии и не повторяет NPC по страницам', async () => {
     const source = new MockGameParticipantCandidateSource();
     const candidates: GameParticipantCandidate[] = [];
     let cursor: string | undefined;
@@ -75,7 +81,9 @@ describe('MockGameParticipantCandidateSource', () => {
       cursor = page.nextCursor ?? undefined;
     } while (cursor);
 
-    expect(candidates.map((candidate) => candidate.kind)).toEqual(['character', 'npc', 'npc', 'npc']);
+    // Гаррик на ревизии 6, «Забытые земли» на ревизии 12.
+    expect(candidates.map((candidate) => candidate.entityKey)).not.toContain('character:3');
+    expect(candidates.map((candidate) => candidate.kind)).toEqual(['npc', 'npc', 'npc']);
     expect(new Set(candidates.map((candidate) => candidate.entityKey)).size).toBe(candidates.length);
   });
 });

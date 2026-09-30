@@ -1,4 +1,5 @@
-import type { Formula } from '@/modules/Roleplay/Rule/Dto/Ability/Formula';
+import type { DimensionalFormula } from '@/modules/Roleplay/Rule/Dto/Ability/DimensionalFormula';
+import type { ScalarFormula } from '@/modules/Roleplay/Rule/Dto/Ability/ScalarFormula';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { FormulaContext } from '@/modules/Roleplay/Character/Dto/FormulaContext';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
@@ -14,76 +15,87 @@ import { CharacteristicNumber } from '@/modules/Roleplay/Rule/Value/Characterist
  * (маленькие), а не 2.
  */
 export class FormulaEvaluationService {
-  evaluateDimensional(formula: Formula, context: FormulaContext): DimensionalNumberValue {
+  evaluateScalar(formula: ScalarFormula, context: FormulaContext): number {
     switch (formula.type) {
       case 'fixed':
-        return { base: formula.value, size: 0 };
-      case 'characteristic': {
-        const value = context.characteristicValues.get(formula.characteristic_code);
-        if (!value) return { base: formula.modifier, size: 0 };
+        return formula.value;
+      case 'parameter':
+        return this.parameterValue(context, formula.parameter_code) * formula.per_unit;
+      case 'parameter_floor_div': {
+        if (formula.divisor === 0) throw new Error('Делитель parameter_floor_div равен 0');
 
-        return new DimensionalNumber(value).modify(formula.modifier, CHARACTERISTIC_BASE_RANGE).value;
+        return Math.floor(this.parameterValue(context, formula.parameter_code) / formula.divisor);
       }
       case 'ability_level': {
         const level = context.abilityLevels.get(formula.ability_code) ?? 0;
 
-        return { base: level * (formula.multiplier ?? 1) + (formula.offset ?? 0), size: 0 };
+        return level * (formula.multiplier ?? 1) + (formula.offset ?? 0);
       }
-      case 'dimensional':
-        return { base: formula.base, size: formula.size };
-      case 'parameter': {
-        const value = context.parameterValues?.(formula.parameter_code) ?? 1;
-
-        return { base: value * formula.per_unit, size: 0 };
-      }
-      case 'parameter_floor_div': {
-        const value = context.parameterValues?.(formula.parameter_code) ?? 0;
-        const divisor = formula.divisor === 0 ? 1 : formula.divisor;
-
-        return { base: Math.floor(value / divisor), size: 0 };
-      }
-      case 'actionCharacteristic': {
-        const base = context.actionCharacteristicValue?.(formula.action, formula.characteristic) ??
-          context.characteristicValues.get(formula.characteristic) ?? { base: 0, size: 0 };
-        // Модификаторы действия (сильный удар +2 и т.п.) появятся позже; пока — модификаторы формулы оружия.
-        const totalDelta = formula.modifier.reduce((sum, entry) => sum + entry.delta, 0);
-        const modified = new DimensionalNumber(base).modify(totalDelta, CHARACTERISTIC_BASE_RANGE);
-        // Без множителя — размерное значение («Сила − 3» при Силе 5 → 5↓, D49). Множитель
-        // («[Сила выстрела × 10]» — дистанция) — плоское число: результат вне шкалы характеристик.
-        if (formula.multiplier) return { base: modified.toNumber() * formula.multiplier, size: 0 };
-
-        return modified.value;
-      }
-      case 'characteristic_size': {
-        // Размер характеристики (простое число): {3|-1} → −1; {5|1} → 1.
-        const value = context.characteristicValues.get(formula.characteristic_code);
-
-        return { base: value?.size ?? 0, size: 0 };
-      }
-      case 'characteristic_size_positive': {
-        const value = context.characteristicValues.get(formula.characteristic_code);
-
-        return { base: Math.max(0, value?.size ?? 0), size: 0 };
-      }
+      case 'to_scalar':
+        return this.mediumSizeBase(this.evaluateDimensional(formula.value, context));
+      case 'characteristic_size':
+        return context.characteristicValues.get(formula.characteristic_code)?.size ?? 0;
+      case 'characteristic_size_positive':
+        return Math.max(0, context.characteristicValues.get(formula.characteristic_code)?.size ?? 0);
       case 'characteristic_size_gap': {
-        // Число полных размеров, на которое from выше to: trunc(modifyDiffTo(from, to) / 3).
         const from = context.characteristicValues.get(formula.characteristic_code_from);
         const to = context.characteristicValues.get(formula.characteristic_code_to);
-        if (!from || !to) return { base: 0, size: 0 };
+        if (!from || !to) return 0;
         const delta = CharacteristicNumber.from(from).modifyDiffTo(new DimensionalNumber(to));
-        // || 0 нормализует −0 → 0.
-        const gap = Math.trunc(delta / 3) || 0;
 
-        return { base: gap, size: 0 };
+        return Math.trunc(delta / 3) || 0;
       }
     }
   }
 
-  evaluate(formula: Formula, context: FormulaContext): number {
-    return new DimensionalNumber(this.evaluateDimensional(formula, context)).toNumber();
+  evaluateDimensional(formula: DimensionalFormula, context: FormulaContext): DimensionalNumberValue {
+    switch (formula.type) {
+      case 'fixed':
+        return { base: formula.value, size: 0 };
+      case 'dimensional':
+        return { base: formula.base, size: formula.size };
+      case 'characteristic': {
+        const value = context.characteristicValues.get(formula.characteristic_code);
+        if (!value) throw new Error(`Нет характеристики «${formula.characteristic_code}»`);
+
+        return new DimensionalNumber(value).modify(formula.modifier, CHARACTERISTIC_BASE_RANGE).value;
+      }
+      case 'parameter':
+        throw new Error(`Размерный параметр «${formula.parameter_code}» вычисляется отдельным контрактом`);
+      case 'actionCharacteristic': {
+        const base =
+          context.actionCharacteristicValue?.(formula.action, formula.characteristic) ??
+          context.characteristicValues.get(formula.characteristic);
+        if (!base) throw new Error(`Нет характеристики «${formula.characteristic}» для ${formula.action}`);
+        const totalDelta = formula.modifier.reduce((sum, entry) => sum + entry.delta, 0);
+        const modified = new DimensionalNumber(base).modify(totalDelta, CHARACTERISTIC_BASE_RANGE).value;
+        if (!formula.multiplier) return modified;
+
+        return { base: modified.base * formula.multiplier, size: modified.size };
+      }
+    }
+  }
+
+  /** Скалярная формула. Размерная формула сюда не приводится. */
+  evaluate(formula: ScalarFormula, context: FormulaContext): number {
+    return this.evaluateScalar(formula, context);
   }
 
   evaluateDimensionalValue(value: DimensionalNumberValue): number {
     return new DimensionalNumber(value).toNumber();
+  }
+
+  /** База значения, перенесённого на средний размер. Целые размеры базу шкалы 3–5 не меняют. */
+  private mediumSizeBase(value: DimensionalNumberValue): number {
+    const step = CHARACTERISTIC_BASE_RANGE.max - CHARACTERISTIC_BASE_RANGE.min + 1;
+
+    return new DimensionalNumber(value).modify(-value.size * step, CHARACTERISTIC_BASE_RANGE).value.base;
+  }
+
+  private parameterValue(context: FormulaContext, code: string): number {
+    const value = context.parameterValues?.(code);
+    if (value === undefined) throw new Error(`Нет параметра «${code}»`);
+
+    return value;
   }
 }

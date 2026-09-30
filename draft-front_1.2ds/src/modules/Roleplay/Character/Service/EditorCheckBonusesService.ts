@@ -2,13 +2,17 @@ import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/Characte
 import type { EditorCheckBonus } from '@/modules/Roleplay/Character/Dto/Editor/EditorCheckBonus';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpec';
-import type { Formula } from '@/modules/Roleplay/Rule/Dto/Ability/Formula';
+import type { ScalarFormula } from '@/modules/Roleplay/Rule/Dto/Ability/ScalarFormula';
+import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
+import { FormulaEvaluationService } from '@/modules/Roleplay/Character/Service/FormulaEvaluationService';
 import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
 import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/init';
 import { abilityCheckAdvantagesService } from '@/modules/Roleplay/Character/Service/Instance/abilityCheckAdvantagesService';
 import { itemCheckAdvantagesService } from '@/modules/Roleplay/Character/Service/Instance/itemCheckAdvantagesService';
 
 export class EditorCheckBonusesService {
+  private readonly formula = new FormulaEvaluationService();
+
   constructor(
     private readonly aggregate = aggregateSourceDeltasService,
     private readonly abilityChecks = abilityCheckAdvantagesService,
@@ -84,27 +88,28 @@ export class EditorCheckBonusesService {
   }
 
   private formulaValue(
-    formula: Formula,
+    formula: ScalarFormula,
     parameters: CharacterVersion['abilities'][number]['parameters'],
     abilities: CharacterVersion['abilities'],
     rules: Rule[],
   ): number {
-    if (formula.type === 'fixed') return formula.value;
-    if (formula.type === 'parameter' || formula.type === 'parameter_floor_div') {
-      const raw = parameters?.[formula.parameter_code];
-      const value = typeof raw === 'number' ? raw : (raw?.base ?? 0);
-      if (formula.type === 'parameter') return value * formula.per_unit;
-
-      return Math.floor(value / (formula.divisor || 1));
-    }
-    if (formula.type === 'ability_level') {
-      const target = abilities.find(
-        (ability) => rules.find((rule) => rule.code === ability.ruleCode)?.code === formula.ability_code,
-      );
-
-      return (target?.level ?? 0) * (formula.multiplier ?? 1) + (formula.offset ?? 0);
+    const abilityLevels = new Map<string, number>();
+    for (const ability of abilities) {
+      const code = rules.find((rule) => rule.code === ability.ruleCode)?.code;
+      if (code) abilityLevels.set(code, ability.level);
     }
 
-    return 0;
+    return this.formula.evaluate(formula, {
+      characteristicValues: new Map(),
+      abilityLevels,
+      parameterValues: (code) => this.parameterScalar(parameters?.[code]),
+    });
+  }
+
+  private parameterScalar(raw: number | DimensionalNumberValue | undefined): number | undefined {
+    if (typeof raw === 'number') return raw;
+    if (raw) return raw.base;
+
+    return undefined;
   }
 }

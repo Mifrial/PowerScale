@@ -179,7 +179,6 @@ export class CharacterOverviewService {
     return { synced, reference, withStates, context: this.buildFormulaContext(withStates, synced, reference) };
   }
 
-
   private buildFormulaContext(
     coreList: CharacteristicOverview[],
     version: CharacterVersion,
@@ -1133,7 +1132,7 @@ export class CharacterOverviewService {
     if ('base' in grant.value) {
       return new DimensionalNumber(grant.value).toNumber();
     }
-    if (grant.value.type !== 'parameter') return null;
+    if (grant.value.type !== 'parameter' || !('per_unit' in grant.value)) return null;
     const parameter = parameters[grant.value.parameter_code];
     if (parameter === undefined) return null;
     const units = typeof parameter === 'number' ? parameter : new DimensionalNumber(parameter).toNumber();
@@ -1266,8 +1265,10 @@ export class CharacterOverviewService {
       0,
       actionCharacteristicModifier,
     );
-    const minDistance = this.formula.evaluate(profile.distance, zeroCtx);
-    const range = profile.range === null ? null : this.formula.evaluate(profile.range, zeroCtx);
+    const minDistanceValue = this.formula.evaluateDimensional(profile.distance, zeroCtx);
+    const rangeValue = profile.range === null ? null : this.formula.evaluateDimensional(profile.range, zeroCtx);
+    const minDistance = new DimensionalNumber(minDistanceValue).toNumber();
+    const range = rangeValue === null ? null : new DimensionalNumber(rangeValue).toNumber();
     const reach = range ?? minDistance;
     const falloff = profile.falloff ?? DEFAULT_FALLOFF;
     const ranged = profile.type === 'throw' || profile.type === 'shoot';
@@ -1298,7 +1299,10 @@ export class CharacterOverviewService {
       profileType: profile.type,
       profileIndex,
       profileTypeLabel: WEAPON_PROFILE_LABELS[profile.type],
-      distanceLabel: range === null ? String(minDistance) : `${minDistance}/${range}`,
+      distanceLabel:
+        rangeValue === null
+          ? new DimensionalNumber(minDistanceValue).toString()
+          : `${new DimensionalNumber(minDistanceValue).toString()}/${new DimensionalNumber(rangeValue).toString()}`,
       minDistance,
       reach,
       falloff,

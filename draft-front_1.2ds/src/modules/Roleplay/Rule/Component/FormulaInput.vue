@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import type { DimensionalFormula } from '@/modules/Roleplay/Rule/Dto/Ability/DimensionalFormula';
 import type { Formula } from '@/modules/Roleplay/Rule/Dto/Ability/Formula';
+import type { ParameterValueKind } from '@/modules/Roleplay/Rule/Enum/Ability/ParameterValueKind';
+import { DIMENSIONAL_FORMULA_MODES } from '@/modules/Roleplay/Rule/Constant/Ability/DIMENSIONAL_FORMULA_MODES';
 import { formulaTypeItemsService } from '@/modules/Roleplay/Rule/Service/Instance/formulaTypeItemsService';
 
 const props = withDefaults(
@@ -8,6 +11,7 @@ const props = withDefaults(
     modelValue: Formula | null;
     characteristics: { code: string; name: string }[];
     abilities?: { code: string; name: string }[];
+    parameters?: { code: string; label: string; kind: ParameterValueKind }[];
     modes?: Formula['type'][];
     /** Действие для новой формулы actionCharacteristic (профили оружия). */
     action?: 'strike' | 'throw' | 'shoot';
@@ -33,6 +37,18 @@ const sizePositiveModel = computed(() =>
   props.modelValue?.type === 'characteristic_size_positive' ? props.modelValue : null,
 );
 
+const toScalarModel = computed(() => (props.modelValue?.type === 'to_scalar' ? props.modelValue : null));
+
+const sizeModel = computed(() => (props.modelValue?.type === 'characteristic_size' ? props.modelValue : null));
+
+const sizeGapModel = computed(() => (props.modelValue?.type === 'characteristic_size_gap' ? props.modelValue : null));
+
+const parameterModel = computed(() => (props.modelValue?.type === 'parameter' ? props.modelValue : null));
+
+const floorDivModel = computed(() => (props.modelValue?.type === 'parameter_floor_div' ? props.modelValue : null));
+
+const scalarParameters = computed(() => (props.parameters ?? []).filter((parameter) => parameter.kind === 'scalar'));
+
 const actionCharacteristicModel = computed(() =>
   props.modelValue?.type === 'actionCharacteristic' ? props.modelValue : null,
 );
@@ -57,18 +73,31 @@ function emptyActionCharacteristic(): Formula {
 }
 
 function updateType(type: string) {
-  if (type === 'fixed') {
-    emit('update:modelValue', { type: 'fixed', value: 0 });
-  } else if (type === 'characteristic') {
+  if (type === 'fixed') emit('update:modelValue', { type: 'fixed', value: 0 });
+  else if (type === 'characteristic') {
     emit('update:modelValue', { type: 'characteristic', characteristic_code: '', modifier: 0 });
-  } else if (type === 'actionCharacteristic') {
-    emit('update:modelValue', emptyActionCharacteristic());
-  } else if (type === 'ability_level') {
+  } else if (type === 'actionCharacteristic') emit('update:modelValue', emptyActionCharacteristic());
+  else if (type === 'ability_level') {
     emit('update:modelValue', { type: 'ability_level', ability_code: '', multiplier: 1, offset: 0 });
+  } else if (type === 'dimensional') emit('update:modelValue', { type: 'dimensional', base: 3, size: 0 });
+  else if (type === 'parameter') emit('update:modelValue', { type: 'parameter', parameter_code: '', per_unit: 1 });
+  else if (type === 'parameter_floor_div') {
+    emit('update:modelValue', { type: 'parameter_floor_div', parameter_code: '', divisor: 2 });
+  } else if (type === 'to_scalar') {
+    emit('update:modelValue', {
+      type: 'to_scalar',
+      value: { type: 'characteristic', characteristic_code: '', modifier: 0 },
+    });
+  } else if (type === 'characteristic_size') {
+    emit('update:modelValue', { type: 'characteristic_size', characteristic_code: '' });
   } else if (type === 'characteristic_size_positive') {
     emit('update:modelValue', { type: 'characteristic_size_positive', characteristic_code: '' });
-  } else {
-    emit('update:modelValue', { type: 'dimensional', base: 3, size: 0 });
+  } else if (type === 'characteristic_size_gap') {
+    emit('update:modelValue', {
+      type: 'characteristic_size_gap',
+      characteristic_code_from: '',
+      characteristic_code_to: '',
+    });
   }
 }
 
@@ -177,6 +206,59 @@ function updateActionCharacteristicDelta(val: string) {
     modifier: [{ delta: Number(val) || 0, source_code: null, source_label: null }],
   });
 }
+
+function updateActionCharacteristicMultiplier(val: string) {
+  const current = props.modelValue;
+  if (current?.type !== 'actionCharacteristic') return;
+  const multiplier = Number(val);
+  emit('update:modelValue', {
+    ...current,
+    multiplier: Number.isFinite(multiplier) && multiplier !== 0 ? multiplier : undefined,
+  });
+}
+
+function updateParameterCode(parameter_code: string | null) {
+  const current = props.modelValue;
+  if (current?.type === 'parameter' && 'per_unit' in current) {
+    emit('update:modelValue', { ...current, parameter_code: parameter_code ?? '' });
+  }
+  if (current?.type === 'parameter_floor_div') {
+    emit('update:modelValue', { ...current, parameter_code: parameter_code ?? '' });
+  }
+}
+
+function updatePerUnit(val: string) {
+  const current = props.modelValue;
+  if (current?.type !== 'parameter' || !('per_unit' in current)) return;
+  emit('update:modelValue', { ...current, per_unit: Number(val) || 0 });
+}
+
+function updateDivisor(val: string) {
+  const current = props.modelValue;
+  if (current?.type !== 'parameter_floor_div') return;
+  emit('update:modelValue', { ...current, divisor: Number(val) || 0 });
+}
+
+function isDimensionalFormula(value: Formula): value is DimensionalFormula {
+  if (value.type === 'parameter') return !('per_unit' in value);
+
+  return value.type === 'fixed' || value.type === 'dimensional' || value.type === 'characteristic' || value.type === 'actionCharacteristic';
+}
+
+function updateToScalar(value: Formula | null) {
+  if (!value || !isDimensionalFormula(value)) return;
+  emit('update:modelValue', { type: 'to_scalar', value });
+}
+
+function updateSizeCode(characteristic_code: string | null) {
+  emit('update:modelValue', { type: 'characteristic_size', characteristic_code: characteristic_code ?? '' });
+}
+
+function updateSizeGap(side: 'characteristic_code_from' | 'characteristic_code_to', code: string | null) {
+  const current = props.modelValue;
+  if (current?.type !== 'characteristic_size_gap') return;
+  emit('update:modelValue', { ...current, [side]: code ?? '' });
+}
 </script>
 
 <template>
@@ -248,6 +330,15 @@ function updateActionCharacteristicDelta(val: string) {
         hide-details
         style="max-width: 80px"
       />
+      <v-text-field
+        :model-value="actionCharacteristicModel?.multiplier ?? ''"
+        label="Множитель базы"
+        type="number"
+        density="compact"
+        hide-details
+        style="max-width: 90px"
+        @update:model-value="updateActionCharacteristicMultiplier"
+      />
     </template>
 
     <template v-if="currentType === 'ability_level'">
@@ -293,6 +384,102 @@ function updateActionCharacteristicDelta(val: string) {
         hide-details
         style="flex: 1 1 auto"
         @update:model-value="updateSizePositiveCode"
+      />
+    </template>
+
+    <template v-if="currentType === 'parameter' && parameterModel && 'per_unit' in parameterModel">
+      <v-autocomplete
+        :model-value="parameterModel.parameter_code"
+        :items="scalarParameters"
+        item-title="label"
+        item-value="code"
+        label="Параметр"
+        density="compact"
+        hide-details
+        style="flex: 1 1 auto"
+        @update:model-value="updateParameterCode"
+      />
+      <v-text-field
+        :model-value="parameterModel.per_unit"
+        label="На единицу"
+        type="number"
+        density="compact"
+        hide-details
+        style="max-width: 90px"
+        @update:model-value="updatePerUnit"
+      />
+    </template>
+
+    <template v-if="currentType === 'parameter_floor_div' && floorDivModel">
+      <v-autocomplete
+        :model-value="floorDivModel.parameter_code"
+        :items="scalarParameters"
+        item-title="label"
+        item-value="code"
+        label="Параметр"
+        density="compact"
+        hide-details
+        style="flex: 1 1 auto"
+        @update:model-value="updateParameterCode"
+      />
+      <v-text-field
+        :model-value="floorDivModel.divisor"
+        label="Делитель"
+        type="number"
+        density="compact"
+        hide-details
+        style="max-width: 90px"
+        @update:model-value="updateDivisor"
+      />
+    </template>
+
+    <FormulaInput
+      v-if="toScalarModel"
+      :model-value="toScalarModel.value"
+      :characteristics="characteristics"
+      :abilities="abilities"
+      :parameters="parameters"
+      :modes="[...DIMENSIONAL_FORMULA_MODES]"
+      :action="action"
+      @update:model-value="updateToScalar"
+    />
+
+    <template v-if="currentType === 'characteristic_size'">
+      <v-autocomplete
+        :model-value="sizeModel?.characteristic_code"
+        :items="characteristics"
+        item-title="name"
+        item-value="code"
+        label="Характеристика"
+        density="compact"
+        hide-details
+        style="flex: 1 1 auto"
+        @update:model-value="updateSizeCode"
+      />
+    </template>
+
+    <template v-if="currentType === 'characteristic_size_gap' && sizeGapModel">
+      <v-autocomplete
+        :model-value="sizeGapModel.characteristic_code_from"
+        :items="characteristics"
+        item-title="name"
+        item-value="code"
+        label="Выше"
+        density="compact"
+        hide-details
+        style="flex: 1 1 auto"
+        @update:model-value="updateSizeGap('characteristic_code_from', $event)"
+      />
+      <v-autocomplete
+        :model-value="sizeGapModel.characteristic_code_to"
+        :items="characteristics"
+        item-title="name"
+        item-value="code"
+        label="Ниже"
+        density="compact"
+        hide-details
+        style="flex: 1 1 auto"
+        @update:model-value="updateSizeGap('characteristic_code_to', $event)"
       />
     </template>
 

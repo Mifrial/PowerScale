@@ -112,7 +112,7 @@ describe('CharacterOverviewService: вкладка способностей', ()
           parent_ability_code: null,
           action_components: [{ type: 'resource', resource_code: 'action-points', amount: 4, label: 'Сотворение' }],
           hit_resolution: { type: 'attack' },
-          parameters: [{ code: 'x', label: 'X', resolution: 'activation', default: { base: 3, size: 0 } }],
+          parameters: [{ code: 'x', label: 'X', kind: 'dimensional', resolution: 'activation', default: { base: 3, size: 0 } }],
           spell: {
             power: { type: 'parameter', parameter_code: 'x' },
             control: { base: 3, size: -1 },

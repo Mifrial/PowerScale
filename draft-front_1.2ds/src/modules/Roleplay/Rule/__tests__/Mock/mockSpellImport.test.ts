@@ -408,19 +408,24 @@ describe('mockSpellImport (M4)', () => {
     expect(byCode.get('magic-structure-construction')?.keywordIds).toEqual([13, 3, 57, 228, 229]);
     expect(byCode.get('magic-structure-interaction')?.keywordIds).toEqual([13, 3, 57, 228, 229]);
     const construction = abilitySpec('magic-structure-construction');
-    const constructionGrants =
-      construction && 'grants' in construction ? (construction.grants[0]?.grants ?? []) : [];
+    const constructionGrants = construction && 'grants' in construction ? (construction.grants[0]?.grants ?? []) : [];
     expect(constructionGrants).toEqual([
       {
         type: 'magic_study',
         scope: 'spell',
-        max_cost: { type: 'characteristic', characteristic_code: 'intellect', modifier: 0 },
+        max_cost: {
+          type: 'to_scalar',
+          value: { type: 'characteristic', characteristic_code: 'intellect', modifier: 0 },
+        },
         path_code: 'arcanist',
       },
       {
         type: 'magic_study',
         scope: 'non_spell',
-        max_cost: { type: 'characteristic', characteristic_code: 'intellect', modifier: 0 },
+        max_cost: {
+          type: 'to_scalar',
+          value: { type: 'characteristic', characteristic_code: 'intellect', modifier: 0 },
+        },
         path_code: 'arcanist',
       },
     ]);

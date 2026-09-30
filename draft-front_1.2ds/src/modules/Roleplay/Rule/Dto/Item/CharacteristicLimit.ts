@@ -1,6 +1,6 @@
-import type { Formula } from '@/modules/Roleplay/Rule/Dto/Ability/Formula';
+import type { DimensionalFormula } from '@/modules/Roleplay/Rule/Dto/Ability/DimensionalFormula';
 
 export interface CharacteristicLimit {
   characteristic_code: string;
-  limit: Formula;
+  limit: DimensionalFormula;
 }

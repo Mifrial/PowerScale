@@ -3,7 +3,7 @@ import { ref, computed, watch } from 'vue';
 import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue';
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
 import FormulaInput from '@/modules/Roleplay/Rule/Component/FormulaInput.vue';
-import type { Formula } from '@/modules/Roleplay/Rule/Dto/Ability/Formula';
+import type { DimensionalFormula } from '@/modules/Roleplay/Rule/Dto/Ability/DimensionalFormula';
 import type { WeaponProfile } from '@/modules/Roleplay/Rule/Dto/Item/WeaponProfile';
 
 const props = defineProps<{
@@ -25,7 +25,7 @@ const strengthCode = computed(() => {
   return found ? found.code : '';
 });
 
-function isDefaultDistance(f: Formula): boolean {
+function isDefaultDistance(f: DimensionalFormula): boolean {
   if (f.type === 'fixed' && f.value === 0) return true;
   if (f.type === 'characteristic' && (!f.characteristic_code || f.characteristic_code === '') && f.modifier === 0)
     return true;
@@ -83,7 +83,7 @@ watch(
       }
       profile.range = null;
     }
-    const withAction = (formula: Formula): Formula =>
+    const withAction = (formula: DimensionalFormula): DimensionalFormula =>
       formula.type === 'actionCharacteristic' && formula.action !== newType ? { ...formula, action: newType } : formula;
     profile.distance = withAction(profile.distance);
     if (profile.range) profile.range = withAction(profile.range);

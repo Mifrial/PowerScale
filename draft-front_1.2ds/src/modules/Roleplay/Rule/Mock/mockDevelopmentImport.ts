@@ -1815,6 +1815,7 @@ const mockDevelopmentImportRaw: Rule[] = [
         {
           code: 'strength',
           label: 'Сила',
+          kind: 'scalar',
           description: 'от тренировки. Каждые 2 пункта дают +1 к Весу от тренировки.',
           resolution: 'purchase',
           default: { base: 0, size: 0 },
@@ -1824,6 +1825,7 @@ const mockDevelopmentImportRaw: Rule[] = [
         {
           code: 'endurance',
           label: 'Стойкость',
+          kind: 'scalar',
           description: 'от тренировки.',
           resolution: 'purchase',
           default: { base: 0, size: 0 },
@@ -1833,6 +1835,7 @@ const mockDevelopmentImportRaw: Rule[] = [
         {
           code: 'dexterity',
           label: 'Ловкость',
+          kind: 'scalar',
           description: 'от тренировки.',
           resolution: 'purchase',
           default: { base: 0, size: 0 },

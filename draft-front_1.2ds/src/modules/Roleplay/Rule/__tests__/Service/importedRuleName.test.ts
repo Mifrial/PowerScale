@@ -93,7 +93,7 @@ describe('ImportedRuleNameService', () => {
       createdAt: 0,
     });
     expect((withParam.spec as AbilitySpecBase).parameters).toEqual([
-      { code: 'n', label: 'N', resolution: 'purchase', default: 1, min: 1, max: 5 },
+      { code: 'n', label: 'N', kind: 'scalar', resolution: 'purchase', default: 1, min: 1, max: 5 },
     ]);
 
     const levels = service.sanitizeRule({

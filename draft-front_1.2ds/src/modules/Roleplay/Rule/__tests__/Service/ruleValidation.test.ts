@@ -1399,6 +1399,59 @@ describe('language parent cycle', () => {
   });
 });
 
+describe('formula validation', () => {
+  it('отклоняет нулевой делитель и нескалярную формулу в скалярном поле', () => {
+    const rules: Rule[] = [
+      baseRule(null, 'training', 'ability', {
+        type: 'skill',
+        requirements: [],
+        grants: [
+          {
+            level: 1,
+            grants: [
+              {
+                type: 'characteristic_modify',
+                characteristic_code: 'strength',
+                amount: { type: 'parameter_floor_div', parameter_code: 'strength', divisor: 0 },
+                source_code: 'training',
+              },
+              {
+                type: 'sense_modify',
+                sense_code: 'vision',
+                amount: { type: 'characteristic', characteristic_code: 'strength', modifier: 0 },
+                source_code: 'training',
+              },
+            ],
+          },
+        ],
+        action_components: [],
+        parent_ability_code: null,
+        parameters: [{ code: 'strength', label: 'Сила', kind: 'scalar', resolution: 'purchase', default: 0 }],
+      }),
+    ];
+    const messages = ruleValidationService
+      .validateCatalog(rules, [])
+      .items.map((item) => item.message)
+      .join('\n');
+    expect(messages).toContain('делитель');
+    expect(messages).toContain('нескалярную');
+  });
+
+  it('отклоняет затухание, которое runtime не считает', () => {
+    const rules: Rule[] = [
+      baseRule(null, 'poison-a', 'poison', {
+        type: 'poison',
+        default_decay: { kind: 'check', characteristic_code: 'strength' },
+      }),
+    ];
+    const messages = ruleValidationService
+      .validateCatalog(rules, [])
+      .items.map((item) => item.message)
+      .join('\n');
+    expect(messages).toContain('затухание');
+  });
+});
+
 describe('ethnicity parent cycle', () => {
   it('detects a two-node cycle', () => {
     const empty = { race_codes: [] as string[], language_codes: [] as string[], usages: [] };

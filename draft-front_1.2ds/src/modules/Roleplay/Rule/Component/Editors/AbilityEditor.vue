@@ -21,6 +21,7 @@ import { ruleReferenceService } from '@/modules/Roleplay/Rule/Service/Instance/r
 import RuleEditorBase from '@/modules/Roleplay/Rule/Component/Editors/RuleEditorBase.vue';
 import RequirementListEditor from '@/modules/Roleplay/Rule/Component/Editors/RequirementListEditor.vue';
 import GrantEditor from '@/modules/Roleplay/Rule/Component/Editors/GrantEditor.vue';
+import AbilityParametersEditor from '@/modules/Roleplay/Rule/Component/Editors/AbilityParametersEditor.vue';
 import ProcessEditor from '@/modules/Roleplay/Rule/Component/Editors/ProcessEditor.vue';
 import SpellEditor from '@/modules/Roleplay/Rule/Component/Editors/SpellEditor.vue';
 import ZoneCostsEditor from '@/modules/Roleplay/Rule/Component/Editors/ZoneCostsEditor.vue';
@@ -433,7 +434,7 @@ function hasActionPointCost(): boolean {
               <div class="d-flex align-center mb-1">
                 <ClampedNumberField
                   :model-value="entry.level"
-                  @update:model-value="updateReqLevel(levelIndex, $event)"
+                  @update:model-value="updateReqLevel(levelIndex, $event ?? entry.level)"
                   label="Уровень"
                   :min="1"
                   density="compact"
@@ -484,7 +485,7 @@ function hasActionPointCost(): boolean {
               <div class="d-flex align-center mb-1">
                 <ClampedNumberField
                   :model-value="entry.level"
-                  @update:model-value="updateGrantLevel(levelIndex, $event)"
+                  @update:model-value="updateGrantLevel(levelIndex, $event ?? entry.level)"
                   label="Уровень"
                   :min="1"
                   density="compact"
@@ -512,6 +513,7 @@ function hasActionPointCost(): boolean {
                   :damage-types="damageTypes"
                   :senses="senses"
                   :states="states"
+                  :parameters="innerSpec.parameters ?? []"
                   @update:model-value="(v) => updateGrant(levelIndex, grantIndex, v)"
                   @remove="removeGrant(levelIndex, grantIndex)"
                 />
@@ -550,6 +552,16 @@ function hasActionPointCost(): boolean {
             :model-value="innerSpec.process ?? null"
             @update:model-value="(v) => patchSpec('process', v)"
             :resources="resources"
+          />
+        </v-expansion-panel-text>
+      </v-expansion-panel>
+
+      <v-expansion-panel v-if="!isGroup" value="parameters">
+        <v-expansion-panel-title>Параметры</v-expansion-panel-title>
+        <v-expansion-panel-text>
+          <AbilityParametersEditor
+            :model-value="innerSpec.parameters ?? []"
+            @update:model-value="(parameters) => patchSpec('parameters', parameters)"
           />
         </v-expansion-panel-text>
       </v-expansion-panel>
@@ -600,7 +612,7 @@ function hasActionPointCost(): boolean {
               density="compact"
               hide-details
               style="max-width: 180px"
-              @update:model-value="patchSpellUpgradeDelta"
+              @update:model-value="patchSpellUpgradeDelta($event ?? 0)"
             />
             <ClampedNumberField
               :model-value="innerSpec.spell_upgrade.check_advantage ?? 0"
@@ -608,7 +620,7 @@ function hasActionPointCost(): boolean {
               density="compact"
               hide-details
               style="max-width: 220px"
-              @update:model-value="patchSpellUpgradeAdvantage"
+              @update:model-value="patchSpellUpgradeAdvantage($event ?? 0)"
             />
           </div>
           <v-checkbox
@@ -661,7 +673,7 @@ function hasActionPointCost(): boolean {
                 density="compact"
                 hide-details
                 style="max-width: 160px"
-                @update:model-value="(v) => patchStrikeModeAdvantage(index, v)"
+                @update:model-value="(v) => patchStrikeModeAdvantage(index, v ?? 0)"
               />
               <v-btn
                 icon="mdi-delete-outline"

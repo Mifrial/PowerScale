@@ -54,10 +54,6 @@ const innerSpec = ref<PoisonSpec>(poisonFromSpec(props.spec));
 const damageTypeOptions = computed(() =>
   ruleReferenceService.damageTypeOptions(props.rules).map((c) => ({ title: c.name, value: c.code })),
 );
-const characteristicOptions = computed(() =>
-  ruleReferenceService.characteristicOptions(props.rules, props.spaceId).map((c) => ({ title: c.name, value: c.code })),
-);
-
 const specToEmit = computed<PoisonSpec>(() => ({
   icon_code: innerSpec.value.icon_code,
   damage_type_code: innerSpec.value.damage_type_code,
@@ -134,7 +130,7 @@ function setStrength(value: DimensionalNumberValue | null): void {
           <PeriodicityEditor v-model="innerSpec.default_periodicity" />
 
           <div class="text-body-2 font-weight-medium mt-3 mb-1">Затухание по умолчанию</div>
-          <DecayEditor v-model="innerSpec.default_decay" :characteristics="characteristicOptions" />
+          <DecayEditor v-model="innerSpec.default_decay" />
         </v-expansion-panel-text>
       </v-expansion-panel>
     </v-expansion-panels>

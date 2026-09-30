@@ -42,9 +42,13 @@ import type { SpellDamage } from '@/modules/Roleplay/Rule/Dto/Ability/SpellDamag
 import type { SpellValue } from '@/modules/Roleplay/Rule/Dto/Ability/SpellValue';
 import type { HitResolution } from '@/modules/Roleplay/Rule/Dto/Ability/HitResolution';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
+import { FormulaValidationService } from '@/modules/Roleplay/Rule/Service/FormulaValidationService';
 
 export class RuleValidationService {
-  constructor(private readonly abilitySpec: AbilitySpecService) {}
+  constructor(
+    private readonly abilitySpec: AbilitySpecService,
+    private readonly formulaValidation = new FormulaValidationService(),
+  ) {}
 
   expectedTypeLabel(type: ReferenceTargetType): string {
     if (type === 'keyword') return 'Признак';
@@ -77,6 +81,7 @@ export class RuleValidationService {
       ...this.validateSenseStructure(effective),
       ...this.validateLanguageStructure(effective),
       ...this.validateEthnicityStructure(effective),
+      ...this.formulaValidation.validate(effective),
     ];
     const spaceErrors: string[] = [];
     const speciesCycle = this.findSpeciesCycle(effective);
@@ -1372,6 +1377,7 @@ export class RuleValidationService {
     if (node.type === 'characteristic' && node.characteristic_code) {
       collect({ code: node.characteristic_code, type: 'characteristic' });
     }
+    if (node.type === 'to_scalar') this.walkFormula(node.value, _expected, collect);
     if (node.type === 'characteristic_size' && node.characteristic_code) {
       collect({ code: node.characteristic_code, type: 'characteristic' });
     }
@@ -1384,6 +1390,9 @@ export class RuleValidationService {
     }
     if (node.type === 'ability_level' && node.ability_code) {
       collect({ code: node.ability_code, type: 'ability' });
+    }
+    if (node.type === 'actionCharacteristic' && node.characteristic) {
+      collect({ code: node.characteristic, type: 'characteristic' });
     }
   }
 

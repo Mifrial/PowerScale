@@ -1,5 +1,6 @@
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { Formula } from '@/modules/Roleplay/Rule/Dto/Ability/Formula';
+import type { ScalarFormula } from '@/modules/Roleplay/Rule/Dto/Ability/ScalarFormula';
 import type { MagicStudyScope } from '@/modules/Roleplay/Rule/Enum/Ability/MagicStudyScope';
 import type { SenseStatus } from '@/modules/Roleplay/Rule/Enum/SenseStatus';
 import type { LightingLevel } from '@/modules/Roleplay/Rule/Enum/LightingLevel';
@@ -17,14 +18,20 @@ export type Grant =
   | {
       type: 'characteristic_modify';
       characteristic_code: string;
-      amount: Formula;
+      amount: ScalarFormula;
       source_code: string;
       /** Ограничивает модификатор указанными кодами проверок вместо обычного значения характеристики. */
       check_codes?: string[];
       permanent?: boolean;
     }
   | { type: 'resource'; resource_code: string; limit: DimensionalNumberValue | number; permanent?: boolean }
-  | { type: 'resource_limit_change'; resource_code: string; amount: Formula; source_code: string; permanent?: boolean }
+  | {
+      type: 'resource_limit_change';
+      resource_code: string;
+      amount: ScalarFormula;
+      source_code: string;
+      permanent?: boolean;
+    }
   | { type: 'ability'; ability_code: string; level?: number; permanent?: boolean }
   | { type: 'keyword'; keyword_code: string; remove?: boolean; permanent?: boolean }
   | { type: 'item'; item_code: string; quantity?: number; permanent?: boolean }
@@ -32,7 +39,7 @@ export type Grant =
   | {
       type: 'magic_study';
       scope: MagicStudyScope;
-      max_cost: number | Formula;
+      max_cost: number | ScalarFormula;
       /** Путь как домен изучения, без гранта самого пути (каст этим путём не открывается). */
       path_code?: string;
       /** Сколько способностей этот грант может открыть; без поля — без лимита. */
@@ -64,7 +71,7 @@ export type Grant =
       /** Модификатор чувства: добавляет вклад к значению чувства (модификатор к Внимательности). */
       type: 'sense_modify';
       sense_code: string;
-      amount: Formula;
+      amount: ScalarFormula;
       source_code: string;
       /** Если задан — перекрывает статус из спеки чувства (глухота: absent). */
       status?: SenseStatus;
@@ -85,7 +92,7 @@ export type Grant =
   | {
       type: 'state_modify';
       state_code: string;
-      amount: Formula;
+      amount: ScalarFormula;
       source_code: string;
       permanent?: boolean;
     }

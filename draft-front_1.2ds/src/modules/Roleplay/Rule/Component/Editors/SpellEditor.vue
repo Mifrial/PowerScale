@@ -31,7 +31,9 @@ const emit = defineEmits<{
 const inner = ref<SpellSpec>(abilitySpecService.createEmptySpellSpec());
 
 const parameterItems = computed(() =>
-  props.parameters.map((parameter) => ({ title: parameter.label || parameter.code, value: parameter.code })),
+  props.parameters
+    .filter((parameter) => parameter.kind === 'dimensional')
+    .map((parameter) => ({ title: parameter.label || parameter.code, value: parameter.code })),
 );
 
 const damageTypeItems = computed(() =>
@@ -376,7 +378,7 @@ onMounted(() => {
     <ClampedNumberField
       v-if="hitResolutionType === 'auto'"
       :model-value="autoRating"
-      @update:model-value="updateAutoRating"
+      @update:model-value="updateAutoRating($event ?? autoRating)"
       label="РУ атаки"
       :min="1"
       density="compact"
@@ -408,7 +410,7 @@ onMounted(() => {
               ? inner.duration.action_cost
               : (inner.duration.action_cost?.base ?? 0)
           "
-          @update:model-value="setRefreshableCost"
+          @update:model-value="setRefreshableCost($event ?? 0)"
           label="ОД на обновление"
           :min="0"
           density="compact"
@@ -522,7 +524,7 @@ onMounted(() => {
         <div v-for="(step, index) in inner.damage.power_modify_steps" :key="index" class="d-flex gap-2 flex-wrap mt-2">
           <ClampedNumberField
             :model-value="step.min_experience"
-            @update:model-value="(v) => patchDamageStep(index, { min_experience: v })"
+            @update:model-value="(v) => patchDamageStep(index, { min_experience: v ?? step.min_experience })"
             label="Опыт от"
             :min="0"
             density="compact"
@@ -531,7 +533,7 @@ onMounted(() => {
           />
           <ClampedNumberField
             :model-value="step.modify"
-            @update:model-value="(v) => patchDamageStep(index, { modify: v })"
+            @update:model-value="(v) => patchDamageStep(index, { modify: v ?? step.modify })"
             label="Сдвиг мощи"
             density="compact"
             hide-details
@@ -557,7 +559,8 @@ onMounted(() => {
         <div v-if="inner.damage.falloff" class="d-flex gap-2 flex-wrap mt-2">
           <ClampedNumberField
             :model-value="inner.damage.falloff.free_ipari"
-            @update:model-value="(v) => patchFalloff({ free_ipari: v })"
+            @update:model-value="(v) =>
+              patchFalloff({ free_ipari: v ?? inner.damage?.falloff?.free_ipari ?? 0 })"
             label="Бесплатных ипари"
             :min="0"
             density="compact"
@@ -566,7 +569,8 @@ onMounted(() => {
           />
           <ClampedNumberField
             :model-value="inner.damage.falloff.size_per_extra_ipari"
-            @update:model-value="(v) => patchFalloff({ size_per_extra_ipari: v })"
+            @update:model-value="(v) =>
+              patchFalloff({ size_per_extra_ipari: v ?? inner.damage?.falloff?.size_per_extra_ipari ?? 1 })"
             label="Размеров за ипари"
             :min="1"
             density="compact"

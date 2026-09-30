@@ -317,11 +317,7 @@ function effectTitle(effect: StateEffect): string {
                   />
                 </v-col>
                 <v-col cols="6">
-                  <DecayEditor
-                    :model-value="effect.decay"
-                    :characteristics="characteristicOptions"
-                    @update:model-value="effect.decay = $event"
-                  />
+                  <DecayEditor :model-value="effect.decay" @update:model-value="effect.decay = $event" />
                 </v-col>
               </v-row>
             </template>

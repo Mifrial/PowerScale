@@ -1,4 +1,5 @@
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
+import type { ParameterValueKind } from '@/modules/Roleplay/Rule/Enum/Ability/ParameterValueKind';
 
 /**
  * Параметр способности (Дискуссия 2). Значение — размерная величина
@@ -13,6 +14,8 @@ export interface AbilityParameter {
   /** Подпись параметра в редакторе способности. */
   description?: string;
   resolution: 'purchase' | 'activation';
+  /** Скаляр или размерное значение. Задаётся явно, не выводится из default. */
+  kind: ParameterValueKind;
   default: DimensionalNumberValue | number;
   /** Пределы опциональны. */
   min?: DimensionalNumberValue | number;

@@ -148,7 +148,7 @@ const rules: Rule[] = [
     requirements: [],
     grants: [],
     parent_ability_code: null,
-    parameters: [{ code: 'x', label: 'X', resolution: 'purchase', default: dim(1) }],
+    parameters: [{ code: 'x', label: 'X', kind: 'scalar', resolution: 'purchase', default: dim(1) }],
   }),
   base(null, 'mobility', 'ability', 'Манёвренность', {
     type: 'skill',
