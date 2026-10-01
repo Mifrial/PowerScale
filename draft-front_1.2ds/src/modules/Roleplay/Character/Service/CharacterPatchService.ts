@@ -1,13 +1,14 @@
 import type { CharacterPatch } from '@/modules/Roleplay/Character/Dto/CharacterPatch';
 import type { CharacterPatchOperation } from '@/modules/Roleplay/Character/Dto/CharacterPatchOperation';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
+import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
 
 /**
  * Применяет и строит ограниченный typed patch для CharacterVersion без произвольного JSON merge.
  */
 export class CharacterPatchService {
   applyPatch(version: CharacterVersion, operations: CharacterPatchOperation[]): CharacterVersion {
-    let next = structuredClone(version);
+    let next = cloneData(version);
 
     for (const operation of operations) {
       next = this.applyOperation(next, operation);
@@ -45,7 +46,7 @@ export class CharacterPatchService {
           ...version,
           resources: version.resources.map((resource) =>
             resource.ruleCode === operation.ruleCode
-              ? { ...resource, current: structuredClone(operation.current) }
+              ? { ...resource, current: cloneData(operation.current) }
               : resource,
           ),
         };
@@ -111,21 +112,21 @@ export class CharacterPatchService {
   ): CharacterVersion {
     switch (operation.section) {
       case 'characteristics':
-        return { ...version, characteristics: structuredClone(operation.value) };
+        return { ...version, characteristics: cloneData(operation.value) };
       case 'resources':
-        return { ...version, resources: structuredClone(operation.value) };
+        return { ...version, resources: cloneData(operation.value) };
       case 'abilities':
-        return { ...version, abilities: structuredClone(operation.value) };
+        return { ...version, abilities: cloneData(operation.value) };
       case 'points':
-        return { ...version, points: structuredClone(operation.value) };
+        return { ...version, points: cloneData(operation.value) };
       case 'inventory':
-        return { ...version, inventory: structuredClone(operation.value) };
+        return { ...version, inventory: cloneData(operation.value) };
       case 'states':
-        return { ...version, states: structuredClone(operation.value) };
+        return { ...version, states: cloneData(operation.value) };
       case 'senses':
-        return { ...version, senses: structuredClone(operation.value) };
+        return { ...version, senses: cloneData(operation.value) };
       case 'customRules':
-        return { ...version, customRules: structuredClone(operation.value) };
+        return { ...version, customRules: cloneData(operation.value) };
     }
   }
 
@@ -171,32 +172,32 @@ export class CharacterPatchService {
       operations.push({
         kind: 'replaceSection',
         section: 'characteristics',
-        value: structuredClone(after.characteristics),
+        value: cloneData(after.characteristics),
       });
     }
     if (this.isDifferent(before.resources, after.resources)) {
-      operations.push({ kind: 'replaceSection', section: 'resources', value: structuredClone(after.resources) });
+      operations.push({ kind: 'replaceSection', section: 'resources', value: cloneData(after.resources) });
     }
     if (this.isDifferent(before.abilities, after.abilities)) {
-      operations.push({ kind: 'replaceSection', section: 'abilities', value: structuredClone(after.abilities) });
+      operations.push({ kind: 'replaceSection', section: 'abilities', value: cloneData(after.abilities) });
     }
     if (this.isDifferent(before.points, after.points)) {
-      operations.push({ kind: 'replaceSection', section: 'points', value: structuredClone(after.points) });
+      operations.push({ kind: 'replaceSection', section: 'points', value: cloneData(after.points) });
     }
     if (this.isDifferent(before.inventory, after.inventory)) {
-      operations.push({ kind: 'replaceSection', section: 'inventory', value: structuredClone(after.inventory) });
+      operations.push({ kind: 'replaceSection', section: 'inventory', value: cloneData(after.inventory) });
     }
     if (this.isDifferent(before.states, after.states)) {
-      operations.push({ kind: 'replaceSection', section: 'states', value: structuredClone(after.states) });
+      operations.push({ kind: 'replaceSection', section: 'states', value: cloneData(after.states) });
     }
     if (this.isDifferent(before.senses, after.senses)) {
-      operations.push({ kind: 'replaceSection', section: 'senses', value: structuredClone(after.senses) });
+      operations.push({ kind: 'replaceSection', section: 'senses', value: cloneData(after.senses) });
     }
     if (this.isDifferent(before.customRules ?? [], after.customRules ?? [])) {
       operations.push({
         kind: 'replaceSection',
         section: 'customRules',
-        value: structuredClone(after.customRules ?? []),
+        value: cloneData(after.customRules ?? []),
       });
     }
   }
