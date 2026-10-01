@@ -66,6 +66,28 @@ describe('canViewCharacter', () => {
   });
 });
 
+describe('canViewStandaloneSheet', () => {
+  it('разрешает владельцу и отказывает чужому без character.view', () => {
+    const sheet = {
+      id: 1,
+      ownerId: 7,
+      visibility: SHEET_VISIBILITY_DEFAULT,
+    };
+
+    expect(characterAccessService.canViewStandaloneSheet(makeUser({ id: 7 }), sheet)).toBe(true);
+    expect(characterAccessService.canViewStandaloneSheet(makeUser(), sheet)).toBe(false);
+  });
+
+  it('совпадает с canViewCharacter для того же листа', () => {
+    const character = makeCharacter(7);
+    const user = makeUser({ permissions: ['character.view'] });
+
+    expect(characterAccessService.canViewStandaloneSheet(user, character)).toBe(
+      characterAccessService.canViewCharacter(user, character),
+    );
+  });
+});
+
 describe('canEditCharacter', () => {
   it('разрешает только владельцу', () => {
     expect(characterAccessService.canEditCharacter(makeUser({ id: 7 }), makeCharacter(7))).toBe(true);

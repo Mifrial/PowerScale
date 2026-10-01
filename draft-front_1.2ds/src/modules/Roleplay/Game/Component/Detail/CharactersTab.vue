@@ -7,7 +7,7 @@ import { GAME_MEMBERSHIP_STATUS_LABEL } from '@/modules/Roleplay/Game/Constant/G
 import { GAME_MEMBERSHIP_STATUS_COLOR } from '@/modules/Roleplay/Game/Constant/GameMembershipStatus/GAME_MEMBERSHIP_STATUS';
 import { CHARACTER_STATUS_OPTIONS } from '@/modules/Roleplay/Character/init';
 import { CHARACTER_STATUS_COLOR } from '@/modules/Roleplay/Character/init';
-import { sheetAccessService } from '@/modules/Roleplay/Character/init';
+import { characterAccessService, sheetAccessService } from '@/modules/Roleplay/Character/init';
 import type { SheetVisibility } from '@/modules/Roleplay/Character/Dto/SheetVisibility';
 import type { SheetAccessContext } from '@/modules/Roleplay/Character/Interface/SheetAccessContext';
 import type { User } from '@/modules/Core/User/Dto/User';
@@ -103,6 +103,14 @@ function canOwnerAct(membership: GameCharacterMembership): boolean {
   return currentUser.value?.id === membership.characterOwnerId;
 }
 
+function canOpenInGameEditor(membership: GameCharacterMembership): boolean {
+  return characterAccessService.canViewStandaloneSheet(currentUser.value, {
+    id: membership.characterId,
+    ownerId: membership.characterOwnerId,
+    visibility: membership.visibility,
+  });
+}
+
 async function leave(membership: GameCharacterMembership): Promise<void> {
   error.value = null;
   try {
@@ -156,7 +164,7 @@ function ctxFor(user: User, membership: GameCharacterMembership): SheetAccessCon
 const cardVisibleSections = computed(() => {
   const target = cardTarget.value;
 
-  return target ? runtimeById.value[`character:${target.characterId}`]?.visibleSections ?? [] : [];
+  return target ? (runtimeById.value[`character:${target.characterId}`]?.visibleSections ?? []) : [];
 });
 
 // Read projection Game boundary уже содержит actual, а overlay не используется как источник листа.
@@ -218,9 +226,7 @@ async function refreshRealtimeCharacter(characterId: number): Promise<boolean> {
       entityKey,
       cardTarget.value?.characterId === characterId ? 'full' : 'summary',
     ),
-    props.canManage
-      ? getGameApi().getCharacterModerationProjections(props.gameId, [characterId])
-      : Promise.resolve([]),
+    props.canManage ? getGameApi().getCharacterModerationProjections(props.gameId, [characterId]) : Promise.resolve([]),
   ]);
   if (requestSequence !== realtimeRequestSequence) return false;
   if (projection) runtimeById.value = { ...runtimeById.value, [entityKey]: projection };
@@ -311,11 +317,7 @@ async function openCard(membership: GameCharacterMembership): Promise<void> {
   cardTarget.value = membership;
   cardOpen.value = true;
   try {
-    const projection = await getGameApi().getRuntimeEntity(
-      props.gameId,
-      `character:${membership.characterId}`,
-      'full',
-    );
+    const projection = await getGameApi().getRuntimeEntity(props.gameId, `character:${membership.characterId}`, 'full');
     if (requestSequence !== cardRequestSequence) return;
     if (projection) {
       runtimeById.value = { ...runtimeById.value, [projection.entityKey]: projection };
@@ -652,7 +654,7 @@ onUnmounted(() => {
         />
         <div class="text-center mt-3 d-flex justify-center ga-2">
           <v-btn
-            v-if="cardTarget?.membershipStatus === 'active'"
+            v-if="cardTarget?.membershipStatus === 'active' && canOpenInGameEditor(cardTarget)"
             variant="tonal"
             color="primary"
             size="small"
