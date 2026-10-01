@@ -9,6 +9,7 @@ export function ruleToForm(rule: Rule): RuleFormState {
     loadedCode: rule.code,
     description: rule.description,
     mechanicId: rule.mechanicId ?? null,
+    mechanicPayload: rule.mechanicPayload == null ? rule.mechanicPayload : structuredClone(rule.mechanicPayload),
     keywordIds: rule.keywordIds ?? [],
     spec: rule.spec ?? null,
     catalogSection: rule.catalogSection ?? null,

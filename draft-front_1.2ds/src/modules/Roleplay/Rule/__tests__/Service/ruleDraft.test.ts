@@ -55,6 +55,48 @@ describe('RuleDraftService.createDraft', () => {
     expect(ruleDraftService.createDraft(baseParams({ contentStatus: 'ready' })).contentStatus).toBe('ready');
   });
 
+  it('тот же mechanicId сохраняет payload отдельной копией', () => {
+    const mechanicPayload = {
+      type: 'roll' as const,
+      data: { diceCount: 3, dieFaces: 6, efficiency: 3, adv: 0, sub_mechanics: ['advantage_disadvantage'] },
+      futureField: { nested: [1] },
+    } as unknown as CreateDraftParams['mechanicPayload'];
+    const draft = ruleDraftService.createDraft(baseParams({
+      isEdit: true,
+      mechanicId: 5,
+      loadedMechanicId: 5,
+      mechanicPayload,
+    }));
+    expect(draft.mechanicPayload).toEqual(mechanicPayload);
+    expect(draft.mechanicPayload).not.toBe(mechanicPayload);
+  });
+
+  it('смена и очистка mechanicId сбрасывают payload в null', () => {
+    const mechanicPayload = { type: 'injury_efficiency' as const, delta: -1 };
+    expect(ruleDraftService.createDraft(baseParams({
+      mechanicId: 6,
+      loadedMechanicId: 5,
+      mechanicPayload,
+    })).mechanicPayload).toBeNull();
+    expect(ruleDraftService.createDraft(baseParams({
+      mechanicId: null,
+      loadedMechanicId: 5,
+      mechanicPayload,
+    })).mechanicPayload).toBeNull();
+  });
+
+  it('без смены id сохраняет null и undefined payload', () => {
+    expect(ruleDraftService.createDraft(baseParams({
+      mechanicId: 5,
+      loadedMechanicId: 5,
+      mechanicPayload: null,
+    })).mechanicPayload).toBeNull();
+    expect(ruleDraftService.createDraft(baseParams({
+      mechanicId: null,
+      loadedMechanicId: null,
+    })).mechanicPayload).toBeUndefined();
+  });
+
   it('прокидывает contentNote, иначе пустую строку', () => {
     expect(ruleDraftService.createDraft(baseParams()).contentNote).toBe('');
     expect(ruleDraftService.createDraft(baseParams({ contentNote: 'ждёт удар' })).contentNote).toBe('ждёт удар');

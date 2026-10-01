@@ -37,6 +37,7 @@ import { ruleToForm } from '@/modules/Roleplay/Rule/Utils/Rule/ruleToForm';
 import type { RuleType } from '@/modules/Roleplay/Rule/Enum/RuleType';
 import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec';
 import type { RuleFormState } from '@/modules/Roleplay/Rule/Dto/RuleFormState';
+import type { MechanicPayload } from '@/modules/Roleplay/Mechanic/Dto/MechanicPayload';
 import { getMechanicApi } from '@/modules/Roleplay/Mechanic/init';
 
 const route = useRoute();
@@ -61,6 +62,8 @@ const ruleCode = ref('');
 const loadedCode = ref('');
 const description = ref('');
 const mechanicId = ref<number | null>(null);
+const loadedMechanicId = ref<number | null>(null);
+const mechanicPayload = ref<MechanicPayload | null | undefined>(undefined);
 const keywordIds = ref<number[]>([]);
 
 const spec = ref<RuleSpec | null>(null);
@@ -103,6 +106,8 @@ function applyForm(form: RuleFormState) {
   loadedCode.value = form.loadedCode;
   description.value = form.description;
   mechanicId.value = form.mechanicId;
+  loadedMechanicId.value = form.mechanicId;
+  mechanicPayload.value = form.mechanicPayload;
   keywordIds.value = form.keywordIds;
   spec.value = form.spec;
   catalogSection.value = form.catalogSection;
@@ -148,6 +153,9 @@ async function resolveRoute(): Promise<void> {
       if (typeof q.name === 'string') name.value = q.name;
       if (typeof q.description === 'string') description.value = q.description;
       if (typeof q.type === 'string' && isRuleType(q.type)) type.value = q.type;
+      mechanicId.value = null;
+      loadedMechanicId.value = null;
+      mechanicPayload.value = undefined;
       catalogSection.value = null;
       catalogSortOrder.value = 100;
       contentStatus.value = 'needs_work';
@@ -216,6 +224,8 @@ async function save() {
       spec: spec.value,
       keywordIds: keywordIds.value,
       mechanicId: mechanicId.value,
+      loadedMechanicId: loadedMechanicId.value,
+      mechanicPayload: mechanicPayload.value,
       catalogSection: catalogSection.value,
       catalogSortOrder: catalogSortOrder.value,
       contentStatus: contentStatus.value,
