@@ -1,5 +1,7 @@
+import type { ActionError } from '@/modules/Core/Engine/Dto/ActionError';
 import type { Engine } from '@/modules/Core/Engine/Service/Engine';
 import { ActionFailure } from '@/modules/Core/Engine/Service/ActionFailure';
+import type { RuleSpaceConflictDetails } from '@/modules/Roleplay/RuleSpace/Dto/RuleSpaceConflictDetails';
 import type { IRuleSpaceApi } from '@/modules/Roleplay/RuleSpace/Interface/IRuleSpaceApi';
 import type { Space } from '@/modules/Roleplay/RuleSpace/Dto/Space';
 import type { SpaceCreateData } from '@/modules/Roleplay/RuleSpace/Dto/SpaceCreateData';
@@ -94,11 +96,26 @@ export class RuleSpaceApi implements IRuleSpaceApi {
       throw new ActionFailure(
         error?.code ?? 'RULESPACE_INVALID',
         error?.message ?? 'Не удалось опубликовать черновик',
-        error?.details,
+        this.conflictDetails(error),
       );
     }
 
     return res.data;
+  }
+
+  /**
+   * Backend кладёт expectedRevision и actualRevision в корень error, не в error.details.
+   */
+  private conflictDetails(error: ActionError | undefined): RuleSpaceConflictDetails | undefined {
+    if (!error) return undefined;
+    const wire = error as ActionError & Record<string, unknown>;
+    const expectedRevision = wire.expectedRevision;
+    const actualRevision = wire.actualRevision;
+    if (typeof expectedRevision !== 'number' || typeof actualRevision !== 'number') {
+      return undefined;
+    }
+
+    return { expectedRevision, actualRevision };
   }
 
   /**
