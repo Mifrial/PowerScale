@@ -1,86 +1,26 @@
 <script setup lang="ts">
-import { computed, provide, ref, watch } from 'vue';
+import { computed, provide } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { useSpaceStore } from '@/modules/Roleplay/RuleSpace/Store/spaces';
-import { useSpaceRevisionStore } from '@/modules/Roleplay/RuleSpace/Store/spaceRevision';
-import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
+import { useSpaceContextResolve } from '@/modules/Roleplay/RuleSpace/Composables/useSpaceContextResolve';
 import { spaceContextKey } from '@/modules/Roleplay/RuleSpace/Constant/spaceContextKey';
 import type { ISpaceContext } from '@/modules/Roleplay/RuleSpace/Interface/ISpaceContext';
 import { ruleHostContextKey } from '@/modules/Roleplay/Rule/Constant/ruleHostContextKey';
 import type { IRuleHostContext } from '@/modules/Roleplay/Rule/Interface/IRuleHostContext';
+import { useSpaceStore } from '@/modules/Roleplay/RuleSpace/Store/spaces';
+import { useSpaceRevisionStore } from '@/modules/Roleplay/RuleSpace/Store/spaceRevision';
 
 const route = useRoute();
 const router = useRouter();
 const spaceStore = useSpaceStore();
 const revisionStore = useSpaceRevisionStore();
-const { signal } = useAbortable();
-
-const loading = ref(true);
-const error = ref<string | null>(null);
-const loadedCode = ref('');
 
 const code = computed(() => route.params.code as string | undefined);
 const ctx = computed(() => route.params.ctx as string | undefined);
 const isDraftContext = computed(() => ctx.value === 'draft');
 const isRevisionContext = computed(() => !!ctx.value && ctx.value !== 'draft');
-
-async function loadSpace(): Promise<void> {
-  if (!code.value) return;
-  const space = await spaceStore.fetchSpaceByCode(code.value, signal.value);
-  loadedCode.value = code.value;
-  await revisionStore.fetchRevisionsMeta(space.id, signal.value);
-}
-
-async function syncContext(): Promise<void> {
-  const space = spaceStore.currentSpace;
-  if (!space) return;
-  if (isDraftContext.value) {
-    await revisionStore.syncFromContext(space.id, 'draft', space.revision, signal.value);
-  } else if (/^\d+$/.test(ctx.value ?? '')) {
-    await revisionStore.syncFromContext(space.id, 'rev', Number(ctx.value), signal.value);
-  }
-}
-
-async function resolve(): Promise<void> {
-  loading.value = true;
-  error.value = null;
-  try {
-    if (code.value !== loadedCode.value) {
-      await loadSpace();
-    }
-    const space = spaceStore.currentSpace;
-    if (!space) return;
-
-    if (ctx.value === undefined) {
-      revisionStore.clearContext();
-
-      return;
-    }
-    if (ctx.value !== 'draft' && !/^\d+$/.test(ctx.value)) {
-      router.replace(`/space/${code.value}`);
-
-      return;
-    }
-    if (ctx.value === '0') {
-      router.replace(`/space/${code.value}/draft`);
-
-      return;
-    }
-    await syncContext();
-  } catch (e) {
-    if (e instanceof DOMException && e.name === 'AbortError') return;
-    error.value = e instanceof Error ? e.message : 'Ошибка загрузки пространства';
-  } finally {
-    loading.value = false;
-  }
-}
-
-function retry() {
-  loadedCode.value = '';
-  resolve();
-}
-
-watch(() => [route.params.code, route.params.ctx], resolve, { immediate: true });
+const { loading, error, retry } = useSpaceContextResolve(code, ctx, (path) => {
+  void router.replace(path);
+});
 
 const context = computed<ISpaceContext>(() => ({
   space: spaceStore.currentSpace,

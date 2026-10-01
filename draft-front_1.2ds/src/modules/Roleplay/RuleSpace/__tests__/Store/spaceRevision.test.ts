@@ -122,6 +122,33 @@ describe('syncFromContext', () => {
 
     expect(store.activeContext).toEqual({ spaceId: 1, revision: 3, kind: 'rev' });
   });
+
+  it('успешный ответ после abort не меняет activeContext', async () => {
+    const store = useSpaceRevisionStore();
+    const controller = new AbortController();
+    let release: (value: Awaited<ReturnType<typeof mockRuleSpaceApi.getRevision>>) => void = () => undefined;
+    registerRuleSpaceApi({
+      ...mockRuleSpaceApi,
+      getRevision: () =>
+        new Promise((resolve) => {
+          release = resolve;
+        }),
+    });
+
+    const pending = store.syncFromContext(1, 'rev', 5, controller.signal);
+    controller.abort();
+    release({
+      revision: 5,
+      publishedAt: 1,
+      spaceCode: 'razrabotka',
+      spaceName: 'Разработка',
+      rules: [],
+      sections: [],
+    });
+
+    await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+    expect(store.activeContext).toEqual({ spaceId: null, revision: null, kind: 'rev' });
+  });
 });
 
 describe('commitDraft', () => {

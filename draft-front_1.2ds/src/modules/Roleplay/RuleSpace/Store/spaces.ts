@@ -6,6 +6,10 @@ import type { SpaceCreateData } from '@/modules/Roleplay/RuleSpace/Dto/SpaceCrea
 import type { SpaceUpdateData } from '@/modules/Roleplay/RuleSpace/Dto/SpaceUpdateData';
 import { getRuleSpaceApi } from '@/modules/Roleplay/RuleSpace/init';
 
+function throwIfAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+}
+
 export const useSpaceStore = defineStore('spaces', () => {
   const spaces = ref<Space[]>([]);
   const currentSpace = ref<Space | null>(null);
@@ -28,6 +32,8 @@ export const useSpaceStore = defineStore('spaces', () => {
 
   async function fetchSpace(id: number, signal?: AbortSignal): Promise<Space> {
     const space = await getRuleSpaceApi().getSpace(id, signal);
+    throwIfAborted(signal);
+    if (space.id !== id) throw new Error('Ответ не соответствует запрошенному пространству');
     currentSpace.value = space;
 
     return space;
@@ -35,6 +41,8 @@ export const useSpaceStore = defineStore('spaces', () => {
 
   async function fetchSpaceByCode(code: string, signal?: AbortSignal): Promise<Space> {
     const space = await getRuleSpaceApi().getSpaceByCode(code, signal);
+    throwIfAborted(signal);
+    if (space.code !== code) throw new Error('Ответ не соответствует запрошенному пространству');
     currentSpace.value = space;
 
     return space;

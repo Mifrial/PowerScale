@@ -11,6 +11,10 @@ import { useRuleDrafts } from '@/modules/Roleplay/Rule/init';
 import { useSectionCatalogStore } from '@/modules/Roleplay/RuleSpace/Store/sectionCatalog';
 import { useSpaceStore } from '@/modules/Roleplay/RuleSpace/Store/spaces';
 
+function throwIfAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+}
+
 export const useSpaceRevisionStore = defineStore('spaceRevision', () => {
   const drafts = useRuleDrafts();
   const sectionCatalog = useSectionCatalogStore();
@@ -113,15 +117,11 @@ export const useSpaceRevisionStore = defineStore('spaceRevision', () => {
     revision?: number,
     signal?: AbortSignal,
   ): Promise<void> {
-    if (kind === 'draft') {
-      const latest = revision ?? (await resolveLatestRevision(spaceId, signal));
-      await fetchRevision(spaceId, latest, signal);
-      activeContext.value = { spaceId, revision: latest, kind: 'draft' };
-    } else {
-      const rev = revision ?? (await resolveLatestRevision(spaceId, signal));
-      await fetchRevision(spaceId, rev, signal);
-      activeContext.value = { spaceId, revision: rev, kind: 'rev' };
-    }
+    const resolved = revision ?? (await resolveLatestRevision(spaceId, signal));
+    throwIfAborted(signal);
+    await fetchRevision(spaceId, resolved, signal);
+    throwIfAborted(signal);
+    activeContext.value = { spaceId, revision: resolved, kind };
   }
 
   function clearContext() {
