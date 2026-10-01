@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { reactive } from 'vue';
 import { ruleToForm } from '@/modules/Roleplay/Rule/Utils/Rule/ruleToForm';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
@@ -26,5 +27,10 @@ describe('ruleToForm mechanicPayload', () => {
 
   it('оставляет null', () => {
     expect(ruleToForm(rule(null)).mechanics[0]?.mechanicPayload).toBeNull();
+  });
+
+  it('клонирует реактивный payload', () => {
+    const source = reactive(rule({ type: 'injury_efficiency', delta: -1 }));
+    expect(ruleToForm(source).mechanics[0]?.mechanicPayload).toEqual({ type: 'injury_efficiency', delta: -1 });
   });
 });

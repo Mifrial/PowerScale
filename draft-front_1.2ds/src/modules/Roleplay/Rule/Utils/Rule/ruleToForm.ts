@@ -1,3 +1,4 @@
+import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { RuleFormState } from '@/modules/Roleplay/Rule/Dto/RuleFormState';
 
@@ -10,7 +11,7 @@ export function ruleToForm(rule: Rule): RuleFormState {
     description: rule.description,
     mechanics: rule.mechanics.map((row) => ({
       mechanicId: row.mechanicId,
-      mechanicPayload: row.mechanicPayload == null ? row.mechanicPayload : structuredClone(row.mechanicPayload),
+      mechanicPayload: row.mechanicPayload == null ? row.mechanicPayload : cloneData(row.mechanicPayload),
     })),
     keywordIds: rule.keywordIds ?? [],
     spec: rule.spec ?? null,

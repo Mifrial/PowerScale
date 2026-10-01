@@ -1,3 +1,4 @@
+import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { CreateDraftParams } from '@/modules/Roleplay/Rule/Dto/CreateDraftParams';
 import { slugify } from '@/modules/Roleplay/Rule/Utils/Text/slugify';
@@ -37,7 +38,7 @@ export class RuleDraftService {
       const payload = row.mechanicPayload;
       if (payload == null) return { mechanicId: row.mechanicId, mechanicPayload: payload ?? null };
 
-      return { mechanicId: row.mechanicId, mechanicPayload: structuredClone(payload) };
+      return { mechanicId: row.mechanicId, mechanicPayload: cloneData(payload) };
     });
   }
 }
