@@ -68,20 +68,50 @@ final class AuthSessionRuntime
      * Пишет строку сессии и cookie.
      *
      * @param int|null $userId Учётка или null у гостя.
-     * @param string $kind `user` или `guest`.
+     * @param string $kind Вид user или guest.
      * @param int $ttlSeconds TTL cookie.
      *
      * @return void
      */
     public function issue(?int $userId, string $kind, int $ttlSeconds): void
     {
-        $rawToken = bin2hex(random_bytes(32));
+        $rawToken = $this->persist($userId, $kind, $ttlSeconds);
+        $this->bindCookie($rawToken, $ttlSeconds);
+    }
+
+    /**
+     * Пишет строку сессии без cookie.
+     *
+     * @param int|null $userId Учётка или null у гостя.
+     * @param string $kind Вид user или guest.
+     * @param int $ttlSeconds TTL.
+     * @param string|null $rawToken Сырой токен или null, чтобы выпустить новый.
+     *
+     * @return string Сырой токен.
+     */
+    public function persist(?int $userId, string $kind, int $ttlSeconds, ?string $rawToken = null): string
+    {
+        $sessionToken = $rawToken ?? bin2hex(random_bytes(32));
         $this->sessionRepository->add(
             $userId,
-            hash('sha256', $rawToken),
+            hash('sha256', $sessionToken),
             DateTime::fromUnix(time() + $ttlSeconds),
             $kind,
         );
+
+        return $sessionToken;
+    }
+
+    /**
+     * Кладёт cookie сессии и новый CSRF.
+     *
+     * @param string $rawToken Сырой токен сессии.
+     * @param int $ttlSeconds TTL.
+     *
+     * @return void
+     */
+    public function bindCookie(string $rawToken, int $ttlSeconds): void
+    {
         $this->cookieIssuer->issue($rawToken, bin2hex(random_bytes(32)), $ttlSeconds);
     }
 

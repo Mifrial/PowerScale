@@ -36,15 +36,27 @@ final class MailPasswordResetNotifier implements IPasswordResetNotifier
      * @param string $rawToken Сырой токен.
      * @param string $email Почта.
      *
-     * @return void
+     * @return int Id job.
      */
-    public function notify(string $login, string $rawToken, string $email): void
+    public function enqueue(string $login, string $rawToken, string $email): int
     {
-        $this->mail->trigger(self::EVENT_CODE, [
+        return $this->mail->enqueue(self::EVENT_CODE, [
             'login' => $login,
             'token' => $rawToken,
             'email' => $email,
         ]);
+    }
+
+    /**
+     * Отправляет job, если mail включил inline flush.
+     *
+     * @param int $jobId Id job.
+     *
+     * @return void
+     */
+    public function deliver(int $jobId): void
+    {
+        $this->mail->flush($jobId);
     }
 
     /**

@@ -18,4 +18,23 @@ interface IMail
      * @return void
      */
     public function trigger(string $eventCode, array $payload): void;
+
+    /**
+     * Пишет job без отправки.
+     *
+     * @param string $eventCode Код `mail_event`.
+     * @param array<string, mixed> $payload Поля подстановки.
+     *
+     * @return int Id job.
+     */
+    public function enqueue(string $eventCode, array $payload): int;
+
+    /**
+     * Отправляет job, если включён inline flush.
+     *
+     * @param int $jobId Id job.
+     *
+     * @return void
+     */
+    public function flush(int $jobId): void;
 }

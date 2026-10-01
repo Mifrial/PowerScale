@@ -18,6 +18,10 @@ final class RecordingMail implements IMail
      */
     public array $payload = [];
 
+    public int $nextJobId = 7;
+
+    public ?int $flushedJobId = null;
+
     /**
      * Запоминает вызов.
      *
@@ -28,7 +32,34 @@ final class RecordingMail implements IMail
      */
     public function trigger(string $eventCode, array $payload): void
     {
+        $this->flush($this->enqueue($eventCode, $payload));
+    }
+
+    /**
+     * Запоминает постановку.
+     *
+     * @param string $eventCode Код.
+     * @param array<string, mixed> $payload Поля.
+     *
+     * @return int Id job.
+     */
+    public function enqueue(string $eventCode, array $payload): int
+    {
         $this->eventCode = $eventCode;
         $this->payload = $payload;
+
+        return $this->nextJobId;
+    }
+
+    /**
+     * Запоминает flush.
+     *
+     * @param int $jobId Id job.
+     *
+     * @return void
+     */
+    public function flush(int $jobId): void
+    {
+        $this->flushedJobId = $jobId;
     }
 }

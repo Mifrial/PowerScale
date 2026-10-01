@@ -45,16 +45,44 @@ final class MailService implements IMail
      */
     public function trigger(string $eventCode, array $payload): void
     {
+        $this->flush($this->enqueue($eventCode, $payload));
+    }
+
+    /**
+     * Пишет pending job без отправки.
+     *
+     * @param string $eventCode Код события.
+     * @param array<string, mixed> $payload Поля.
+     *
+     * @return int Id job.
+     *
+     * @throws MailException Если код или payload недопустимы.
+     */
+    public function enqueue(string $eventCode, array $payload): int
+    {
         $code = trim($eventCode);
         $eventRow = $code === '' ? null : $this->eventRepository->findByCode($code);
         if ($eventRow === null) {
             throw new MailException('MAIL_INVALID', 'Mail event is unknown');
         }
 
-        $jobId = $this->jobRepository->addPending((int) $eventRow['id'], $this->stringifyPayload($payload));
-        if ($this->mailSettings->flushInline()) {
-            $this->mailFlushService->flushJob($jobId);
+        return $this->jobRepository->addPending((int) $eventRow['id'], $this->stringifyPayload($payload));
+    }
+
+    /**
+     * Отправляет job, если включён inline flush.
+     *
+     * @param int $jobId Id job.
+     *
+     * @return void
+     */
+    public function flush(int $jobId): void
+    {
+        if (!$this->mailSettings->flushInline()) {
+            return;
         }
+
+        $this->mailFlushService->flushJob($jobId);
     }
 
     /**

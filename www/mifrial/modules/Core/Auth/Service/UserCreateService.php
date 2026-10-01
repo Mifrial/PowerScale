@@ -8,12 +8,15 @@ use Mifrial\Core\Auth\Dto\Action\UserCreateInput;
 use Mifrial\Core\Auth\Exception\AuthDuplicateException;
 use Mifrial\Core\Auth\Exception\AuthInvalidException;
 use Mifrial\Core\Auth\Repository\UserIdentityRepository;
+use Mifrial\Core\Kernel\Interface\Service\ITransactionRunner;
 use Mifrial\Core\User\Exception\UserDuplicateException;
 use Mifrial\Core\User\Exception\UserInvalidException;
 use Mifrial\Core\User\Interface\Service\IUserAccess;
 use Mifrial\Core\User\Interface\Service\IUserAccounts;
 use Mifrial\Core\User\Interface\Service\IUserGroups;
 use Mifrial\Core\User\Interface\Service\IUserViews;
+
+// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.TooManyConstructorDependencies
 
 /**
  * Admin-создание учётки с паролем, без сессии созданного.
@@ -29,6 +32,7 @@ final class UserCreateService
      * @param IUserGroups $userGroups Группы.
      * @param UserIdentityRepository $identityRepository Identity.
      * @param PasswordPolicyService $passwordPolicyService Политика.
+     * @param ITransactionRunner $transactionRunner Единица работы.
      *
      * @return void
      */
@@ -39,6 +43,7 @@ final class UserCreateService
         private readonly IUserGroups $userGroups,
         private readonly UserIdentityRepository $identityRepository,
         private readonly PasswordPolicyService $passwordPolicyService,
+        private readonly ITransactionRunner $transactionRunner,
     ) {
     }
 
@@ -54,21 +59,40 @@ final class UserCreateService
         $this->userAccess->requireKey('user.create');
         $groupIds = $this->resolvedGroupIds($input->groups);
         $this->passwordPolicyService->assertPasswordForGroupIds($groupIds, $input->password);
-        $userId = $this->addProfile(
-            $input->name,
-            $input->login,
-            $input->email,
-            $input->surname,
-            $input->nickname,
-        );
-        $this->identityRepository->addPassword($userId, password_hash($input->password, PASSWORD_DEFAULT));
+        $this->assertMembershipsAllowed($groupIds);
+        $secretHash = password_hash($input->password, PASSWORD_DEFAULT);
+        $userId = $this->transactionRunner->run(function () use ($input, $secretHash, $groupIds): int {
+            $createdUserId = $this->addProfile(
+                $input->name,
+                $input->login,
+                $input->email,
+                $input->surname,
+                $input->nickname,
+            );
+            $this->identityRepository->addPassword($createdUserId, $secretHash);
+            foreach ($groupIds as $groupId) {
+                $this->userGroups->addMember($createdUserId, $groupId);
+            }
+
+            return $createdUserId;
+        });
+
+        return $this->userViews->assemble($this->userAccounts->getById($userId), null);
+    }
+
+    /**
+     * Проверяет право назначить каждую группу до записи.
+     *
+     * @param array<int, int> $groupIds Id групп.
+     *
+     * @return void
+     */
+    private function assertMembershipsAllowed(array $groupIds): void
+    {
         foreach ($groupIds as $groupId) {
             $groupRecord = $this->userGroups->getById($groupId);
             $this->userAccess->assertCanAssignBypassMembership($groupRecord->isBypass());
-            $this->userGroups->addMember($userId, $groupId);
         }
-
-        return $this->userViews->assemble($this->userAccounts->getById($userId), null);
     }
 
     /**

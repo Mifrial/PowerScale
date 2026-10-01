@@ -9,6 +9,7 @@ use Mifrial\Core\Auth\Exception\AuthInvalidException;
 use Mifrial\Core\Auth\Exception\AuthPolicyException;
 use Mifrial\Core\Auth\Repository\UserIdentityRepository;
 use Mifrial\Core\Kernel\Dto\RequestActor;
+use Mifrial\Core\Kernel\Interface\Service\ITransactionRunner;
 use Mifrial\Core\Kernel\Value\DateTime;
 use Mifrial\Core\User\Dto\UserRecord;
 use Mifrial\Core\User\Exception\UserDuplicateException;
@@ -24,7 +25,7 @@ use Mifrial\Core\User\Interface\Service\IUserViews;
 /**
  * Вход, регистрация, сессия и «кто я».
  *
- * resolveActor делит поиск сессии с getCurrentUser; сложность чуть выше лимита класса.
+ * ResolveActor делит поиск сессии с getCurrentUser; сложность чуть выше лимита класса.
  */
 final class AuthService
 {
@@ -41,6 +42,7 @@ final class AuthService
      * @param AuthSessionRuntime $sessionRuntime Cookie и строки сессии.
      * @param IUserViews $userAssembler JSON User.
      * @param PasswordPolicyService $passwordPolicyService Политика пароля.
+     * @param ITransactionRunner $transactionRunner Единица работы.
      *
      * @return void
      */
@@ -51,6 +53,7 @@ final class AuthService
         private readonly AuthSessionRuntime $sessionRuntime,
         private readonly IUserViews $userAssembler,
         private readonly PasswordPolicyService $passwordPolicyService,
+        private readonly ITransactionRunner $transactionRunner,
     ) {
     }
 
@@ -91,11 +94,31 @@ final class AuthService
     {
         $this->passwordPolicyService->assertPassword($password);
         $assignGroupIds = $this->assignOnRegisterIds();
-        $userId = $this->createRegisteredUser($login, $email);
-        $this->identityRepository->addPassword($userId, password_hash($password, PASSWORD_DEFAULT));
-        $this->addMembershipsById($userId, $assignGroupIds);
+        $secretHash = password_hash($password, PASSWORD_DEFAULT);
+        $rawToken = bin2hex(random_bytes(32));
+        $ttlSeconds = self::DEFAULT_TTL;
+        $userId = $this->transactionRunner->run(function () use (
+            $login,
+            $email,
+            $secretHash,
+            $assignGroupIds,
+            $rawToken,
+            $ttlSeconds,
+        ): int {
+            $registeredUserId = $this->createRegisteredUser($login, $email);
+            $identityId = $this->identityRepository->addPassword($registeredUserId, $secretHash);
+            $this->addMembershipsById($registeredUserId, $assignGroupIds);
+            $this->sessionRuntime->dropIncoming();
+            $this->sessionRuntime->persist($registeredUserId, 'user', $ttlSeconds, $rawToken);
+            $this->identityRepository->markUsed($identityId, DateTime::now());
 
-        return $this->login($login, $password, false);
+            return $registeredUserId;
+        });
+        $this->sessionRuntime->bindCookie($rawToken, $ttlSeconds);
+
+        return [
+            'user' => $this->userAssembler->assemble($this->userAccounts->getById($userId), DateTime::now()),
+        ];
     }
 
     /**
@@ -309,8 +332,9 @@ final class AuthService
     {
         $this->sessionRuntime->dropIncoming();
         $ttlSeconds = $remember ? self::REMEMBER_TTL : self::DEFAULT_TTL;
-        $this->sessionRuntime->issue($userRecord->getId(), 'user', $ttlSeconds);
+        $rawToken = $this->sessionRuntime->persist($userRecord->getId(), 'user', $ttlSeconds);
         $this->identityRepository->markUsed((int) $identityRow['id'], DateTime::now());
+        $this->sessionRuntime->bindCookie($rawToken, $ttlSeconds);
     }
 
     /**

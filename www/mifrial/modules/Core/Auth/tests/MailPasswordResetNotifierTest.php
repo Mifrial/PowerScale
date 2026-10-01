@@ -22,7 +22,9 @@ final class MailPasswordResetNotifierTest extends TestCase
             $mail,
             AuthSettings::fromSection(['expose_reset_token' => true]),
         );
-        $notifier->notify('alice', 'raw-token', 'alice@x.test');
+        $jobId = $notifier->enqueue('alice', 'raw-token', 'alice@x.test');
+        $notifier->deliver($jobId);
+        self::assertSame(7, $mail->flushedJobId);
         self::assertSame('auth.password_reset', $mail->eventCode);
         self::assertSame(
             ['login' => 'alice', 'token' => 'raw-token', 'email' => 'alice@x.test'],

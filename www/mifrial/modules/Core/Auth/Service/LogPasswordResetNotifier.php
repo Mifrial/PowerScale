@@ -12,6 +12,12 @@ use Mifrial\Core\Auth\Interface\Service\IPasswordResetNotifier;
  */
 final class LogPasswordResetNotifier implements IPasswordResetNotifier
 {
+    private string $pendingLogin = '';
+
+    private string $pendingToken = '';
+
+    private string $pendingEmail = '';
+
     /**
      * Создаёт notifier.
      *
@@ -25,18 +31,37 @@ final class LogPasswordResetNotifier implements IPasswordResetNotifier
     }
 
     /**
-     * Пишет логин и сырой токен в error_log.
+     * Запоминает токен до commit.
      *
      * @param string $login Логин учётки.
      * @param string $rawToken Сырой токен.
      * @param string $email Почта.
      *
+     * @return int Всегда 0: очереди нет.
+     */
+    public function enqueue(string $login, string $rawToken, string $email): int
+    {
+        $this->pendingLogin = $login;
+        $this->pendingToken = $rawToken;
+        $this->pendingEmail = $email;
+
+        return 0;
+    }
+
+    /**
+     * Пишет отложенный токен в error_log после commit.
+     *
+     * @param int $jobId Id job; у лога 0.
+     *
      * @return void
      */
-    public function notify(string $login, string $rawToken, string $email): void
+    public function deliver(int $jobId): void
     {
         error_log(
-            'auth.startPasswordReset login=' . $login . ' email=' . $email . ' token=' . $rawToken,
+            'auth.startPasswordReset login=' . $this->pendingLogin
+            . ' email=' . $this->pendingEmail
+            . ' token=' . $this->pendingToken
+            . ' job=' . $jobId,
         );
     }
 

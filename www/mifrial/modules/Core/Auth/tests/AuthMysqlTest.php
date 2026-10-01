@@ -45,7 +45,9 @@ use Mifrial\Core\SmartTable\Exception\Database\DbConfigInvalidException;
 use Mifrial\Core\SmartTable\Interface\Container\ISmartTableContainer;
 use Mifrial\Core\SmartTable\Interface\Service\IDatabaseConnection;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
+use Mifrial\Core\Kernel\Interface\Service\ITransactionRunner;
 use Mifrial\Core\SmartTable\Service\Connection\IlluminateConnectionFactory;
+use Mifrial\Core\SmartTable\Service\SmartTableTransactionRunner;
 use Mifrial\Core\SmartTable\Service\Connection\IlluminateDatabaseConnection;
 use Mifrial\Core\SmartTable\Tests\GatewayHarness;
 use Mifrial\Core\User\Dto\NewGroup;
@@ -638,9 +640,13 @@ final class AuthMysqlTest extends TestCase
         $this->seedPlayerGroup();
         $aliceId = $this->createPasswordUser('alice', 'secret', 'alice@x.test');
         $notifier = new class () implements IPasswordResetNotifier {
-            public function notify(string $login, string $rawToken, string $email): void
+            public function enqueue(string $login, string $rawToken, string $email): int
             {
                 throw new RuntimeException('mail down');
+            }
+
+            public function deliver(int $jobId): void
+            {
             }
 
             public function shouldExposeRawToken(): bool
@@ -655,6 +661,7 @@ final class AuthMysqlTest extends TestCase
             $this->sessionRepository(),
             $this->passwordPolicyService(),
             $notifier,
+            $this->transactionRunner(),
         );
         try {
             $resetService->startPasswordReset('alice');
@@ -850,6 +857,7 @@ final class AuthMysqlTest extends TestCase
             $sessionRepository,
             $passwordPolicyService,
             new LogPasswordResetNotifier(AuthSettings::fromSection(['expose_reset_token' => true])),
+            new SmartTableTransactionRunner($smartTableGateway),
         );
         $cookieIssuer = new AuthCookieIssuer($requestContext, $settings);
         $this->setPasswordService = new SetPasswordService(
@@ -859,6 +867,7 @@ final class AuthMysqlTest extends TestCase
             $sessionRepository,
             $passwordPolicyService,
             $cookieIssuer,
+            new SmartTableTransactionRunner($smartTableGateway),
         );
         $this->authService = new AuthService(
             $userAccounts,
@@ -867,6 +876,7 @@ final class AuthMysqlTest extends TestCase
             new AuthSessionRuntime($sessionRepository, $cookieIssuer),
             $this->userViewAssembler($smartTableGateway),
             $passwordPolicyService,
+            new SmartTableTransactionRunner($smartTableGateway),
         );
     }
 
@@ -1094,7 +1104,16 @@ final class AuthMysqlTest extends TestCase
             $this->userGroups(),
             $this->identityRepository(),
             $this->passwordPolicyService(),
+            $this->transactionRunner(),
         );
+    }
+
+    /**
+     * @return ITransactionRunner Единица работы тестового шлюза.
+     */
+    private function transactionRunner(): ITransactionRunner
+    {
+        return new SmartTableTransactionRunner($this->smartTableGateway());
     }
 
     /**

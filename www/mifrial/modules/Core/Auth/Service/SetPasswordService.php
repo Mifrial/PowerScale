@@ -10,9 +10,12 @@ use Mifrial\Core\Auth\Repository\AuthSessionRepository;
 use Mifrial\Core\Auth\Repository\UserIdentityRepository;
 use Mifrial\Core\Kernel\Dto\RequestActor;
 use Mifrial\Core\Kernel\Exception\ActionException;
+use Mifrial\Core\Kernel\Interface\Service\ITransactionRunner;
 use Mifrial\Core\User\Exception\UserNotFoundException;
 use Mifrial\Core\User\Interface\Service\IUserAccess;
 use Mifrial\Core\User\Interface\Service\IUserAccounts;
+
+// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.TooManyConstructorDependencies
 
 /**
  * Смена пароля своей или чужой учётки.
@@ -28,6 +31,7 @@ final class SetPasswordService
      * @param AuthSessionRepository $sessionRepository Сессии.
      * @param PasswordPolicyService $passwordPolicyService Политика.
      * @param AuthCookieIssuer $cookieIssuer Входящая cookie.
+     * @param ITransactionRunner $transactionRunner Единица работы.
      *
      * @return void
      */
@@ -38,6 +42,7 @@ final class SetPasswordService
         private readonly AuthSessionRepository $sessionRepository,
         private readonly PasswordPolicyService $passwordPolicyService,
         private readonly AuthCookieIssuer $cookieIssuer,
+        private readonly ITransactionRunner $transactionRunner,
     ) {
     }
 
@@ -72,11 +77,15 @@ final class SetPasswordService
             $currentPassword,
             (string) $identityRow['secret_hash'],
         );
-        $this->identityRepository->updateSecretHash(
-            (int) $identityRow['id'],
-            password_hash($newPassword, PASSWORD_DEFAULT),
-        );
-        $this->sessionRepository->deleteByUserId($userId, $this->keepSessionId($requestActor, $userId));
+        $secretHash = password_hash($newPassword, PASSWORD_DEFAULT);
+        $identityId = (int) $identityRow['id'];
+        $keepSessionId = $this->keepSessionId($requestActor, $userId);
+        $this->transactionRunner->run(function () use ($identityId, $secretHash, $userId, $keepSessionId): mixed {
+            $this->identityRepository->updateSecretHash($identityId, $secretHash);
+            $this->sessionRepository->deleteByUserId($userId, $keepSessionId);
+
+            return null;
+        });
 
         return true;
     }

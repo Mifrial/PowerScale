@@ -22,6 +22,8 @@ use Mifrial\Core\Kernel\Interface\Container\IKernelContainer;
 use Mifrial\Core\Kernel\Interface\Http\IRequestContext;
 use Mifrial\Core\Kernel\Interface\Service\IRuntimeConfig;
 use Mifrial\Core\Kernel\Interface\Service\IServiceLocator;
+use Mifrial\Core\Kernel\Interface\Service\ITransactionRunner;
+use Mifrial\Core\SmartTable\Service\SmartTableTransactionRunner;
 use Mifrial\Core\Mail\Interface\Container\IMailContainer;
 use Mifrial\Core\Mail\Interface\Service\IMail;
 use Mifrial\Core\SmartTable\Interface\Container\ISmartTableContainer;
@@ -67,6 +69,7 @@ final class AuthServiceFactory
             ),
             $ports['views'],
             $passwordPolicyService,
+            $this->createTransactionRunner($ports['gateway']),
         );
     }
 
@@ -131,6 +134,7 @@ final class AuthServiceFactory
             $ports['groups'],
             new UserIdentityRepository($ports['gateway']->open(UserIdentityTable::class)->records()),
             $this->passwordPolicyService($ports['gateway'], $ports['groups']),
+            $this->createTransactionRunner($ports['gateway']),
         );
     }
 
@@ -187,6 +191,7 @@ final class AuthServiceFactory
             new AuthSessionRepository($gateway->open(AuthSessionTable::class)->records()),
             $this->passwordPolicyService($gateway, $ports['groups']),
             new MailPasswordResetNotifier($this->mail($serviceLocator), $ports['settings']),
+            $this->createTransactionRunner($gateway),
         );
     }
 
@@ -229,6 +234,7 @@ final class AuthServiceFactory
             new AuthSessionRepository($gateway->open(AuthSessionTable::class)->records()),
             $this->passwordPolicyService($gateway, $ports['groups']),
             new AuthCookieIssuer($ports['context'], $ports['settings']),
+            $this->createTransactionRunner($gateway),
         );
     }
 
@@ -296,6 +302,18 @@ final class AuthServiceFactory
             'context' => $requestContext,
             'settings' => AuthSettings::fromSection($runtimeConfig->section('auth')),
         ];
+    }
+
+    /**
+     * Runner на шлюзе соседей.
+     *
+     * @param ISmartTableGateway $smartTableGateway Шлюз.
+     *
+     * @return ITransactionRunner Единица работы.
+     */
+    private function createTransactionRunner(ISmartTableGateway $smartTableGateway): ITransactionRunner
+    {
+        return new SmartTableTransactionRunner($smartTableGateway);
     }
 
     /**

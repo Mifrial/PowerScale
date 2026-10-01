@@ -10,9 +10,12 @@ use Mifrial\Core\Auth\Interface\Service\IPasswordResetNotifier;
 use Mifrial\Core\Auth\Repository\AuthSessionRepository;
 use Mifrial\Core\Auth\Repository\PasswordResetRepository;
 use Mifrial\Core\Auth\Repository\UserIdentityRepository;
+use Mifrial\Core\Kernel\Interface\Service\ITransactionRunner;
 use Mifrial\Core\Kernel\Value\DateTime;
 use Mifrial\Core\User\Dto\UserRecord;
 use Mifrial\Core\User\Interface\Service\IUserAccounts;
+
+// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.TooManyConstructorDependencies
 
 /**
  * Старт и завершение сброса пароля.
@@ -30,6 +33,7 @@ final class PasswordResetService
      * @param AuthSessionRepository $sessionRepository Сессии.
      * @param PasswordPolicyService $passwordPolicyService Политика.
      * @param IPasswordResetNotifier $resetNotifier Доставка токена.
+     * @param ITransactionRunner $transactionRunner Единица работы.
      *
      * @return void
      */
@@ -40,6 +44,7 @@ final class PasswordResetService
         private readonly AuthSessionRepository $sessionRepository,
         private readonly PasswordPolicyService $passwordPolicyService,
         private readonly IPasswordResetNotifier $resetNotifier,
+        private readonly ITransactionRunner $transactionRunner,
     ) {
     }
 
@@ -69,12 +74,15 @@ final class PasswordResetService
         }
 
         $rawToken = $this->newRawToken();
-        $this->resetNotifier->notify(
-            $userRecord->getLogin(),
-            $rawToken,
-            (string) $userRecord->getEmail(),
-        );
-        $this->storeToken($userRecord->getId(), $rawToken);
+        $login = $userRecord->getLogin();
+        $email = (string) $userRecord->getEmail();
+        $userId = $userRecord->getId();
+        $jobId = $this->transactionRunner->run(function () use ($userId, $rawToken, $login, $email): int {
+            $this->storeToken($userId, $rawToken);
+
+            return $this->resetNotifier->enqueue($login, $rawToken, $email);
+        });
+        $this->resetNotifier->deliver($jobId);
         $payload = ['status' => 'sent', 'login' => $userRecord->getLogin()];
         if ($this->resetNotifier->shouldExposeRawToken()) {
             $payload['resetToken'] = $rawToken;
@@ -107,9 +115,17 @@ final class PasswordResetService
             throw new AuthInvalidException();
         }
 
-        $this->resetRepository->consume((int) $resetRow['id']);
-        $this->identityRepository->updateSecretHash((int) $identityRow['id'], password_hash($newPassword, PASSWORD_DEFAULT));
-        $this->sessionRepository->deleteByUserId($userRecord->getId());
+        $secretHash = password_hash($newPassword, PASSWORD_DEFAULT);
+        $resetId = (int) $resetRow['id'];
+        $identityId = (int) $identityRow['id'];
+        $userId = $userRecord->getId();
+        $this->transactionRunner->run(function () use ($resetId, $identityId, $secretHash, $userId): mixed {
+            $this->resetRepository->consume($resetId);
+            $this->identityRepository->updateSecretHash($identityId, $secretHash);
+            $this->sessionRepository->deleteByUserId($userId);
+
+            return null;
+        });
 
         return true;
     }

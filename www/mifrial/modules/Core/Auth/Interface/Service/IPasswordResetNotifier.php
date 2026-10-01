@@ -10,15 +10,24 @@ namespace Mifrial\Core\Auth\Interface\Service;
 interface IPasswordResetNotifier
 {
     /**
-     * Сообщает логин, сырой токен и почту.
+     * Ставит доставку без отправки наружу.
      *
      * @param string $login Логин учётки.
      * @param string $rawToken Сырой токен.
      * @param string $email Почта.
      *
+     * @return int Id job или 0, если очереди нет.
+     */
+    public function enqueue(string $login, string $rawToken, string $email): int;
+
+    /**
+     * Отправляет уже поставленную доставку.
+     *
+     * @param int $jobId Id job.
+     *
      * @return void
      */
-    public function notify(string $login, string $rawToken, string $email): void;
+    public function deliver(int $jobId): void;
 
     /**
      * Нужно ли отдать сырой токен в JSON (dev).
