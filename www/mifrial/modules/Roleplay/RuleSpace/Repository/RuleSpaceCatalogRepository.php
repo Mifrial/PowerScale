@@ -225,15 +225,10 @@ final class RuleSpaceCatalogRepository
             return [];
         }
 
+        $rowsBySectionId = $this->itemRowsBySectionId($sectionIds, $codeById);
         $placements = [];
         foreach ($sectionIds as $sectionId) {
-            foreach (
-                $this->itemRecords->getList(ListQuery::fromOptions([
-                    'filter' => ['=section_id' => $sectionId],
-                    'sort' => ['sort_order' => 'asc', 'rule_code' => 'asc'],
-                    'limit' => ListQuery::MAX_LIMIT,
-                ]))->rows() as $itemRow
-            ) {
+            foreach ($rowsBySectionId[$sectionId] ?? [] as $itemRow) {
                 $placements[] = new RuleSpaceCatalogPlacement(
                     (string) $itemRow['rule_code'],
                     $codeById[$sectionId],
@@ -243,6 +238,35 @@ final class RuleSpaceCatalogRepository
         }
 
         return $placements;
+    }
+
+    /**
+     * Строки карточек одним запросом, без чужих секций.
+     *
+     * @param array<int, int> $sectionIds PK узлов.
+     * @param array<int, string> $codeById code по id.
+     *
+     * @return array<int, array<int, array<string, mixed>>> Строки по id узла.
+     */
+    private function itemRowsBySectionId(array $sectionIds, array $codeById): array
+    {
+        $rowsBySectionId = [];
+        foreach (
+            $this->itemRecords->getList(ListQuery::fromOptions([
+                'filter' => ['=section_id' => array_values($sectionIds)],
+                'sort' => ['sort_order' => 'asc', 'rule_code' => 'asc'],
+                'limit' => ListQuery::MAX_LIMIT,
+            ]))->rows() as $itemRow
+        ) {
+            $sectionId = (int) $itemRow['section_id'];
+            if (!isset($codeById[$sectionId])) {
+                continue;
+            }
+
+            $rowsBySectionId[$sectionId][] = $itemRow;
+        }
+
+        return $rowsBySectionId;
     }
 
     /**
