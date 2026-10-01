@@ -12,17 +12,22 @@ export const useCharacterStore = defineStore('characters', () => {
   const detailLoading = ref(false);
   const detailError = ref<string | null>(null);
   let detailRequestSequence = 0;
+  let listRequestSequence = 0;
 
   async function fetchCharacters(signal?: AbortSignal) {
+    const requestSequence = ++listRequestSequence;
     loading.value = true;
     error.value = null;
     try {
-      characters.value = await getCharacterApi().getCharacters(signal);
+      const list = await getCharacterApi().getCharacters(signal);
+      if (requestSequence !== listRequestSequence) return;
+      characters.value = list;
     } catch (e) {
+      if (requestSequence !== listRequestSequence) return;
       if (e instanceof DOMException && e.name === 'AbortError') return;
       error.value = 'Не удалось загрузить персонажей';
     } finally {
-      loading.value = false;
+      if (requestSequence === listRequestSequence) loading.value = false;
     }
   }
 

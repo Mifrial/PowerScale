@@ -29,8 +29,7 @@ const RuleSlider = defineAsyncComponent(() => import('@/modules/Roleplay/Rule/Co
 /**
  * Редактор листа персонажа/НПС (переиспользуемый, ТР §7): владеет черновиком (по `draftKey`
  * в сторе characterDraft), загрузкой правил/механик, моделью (build), валидацией «Готов»
- * и рендером табов. «Сохранить» — после валидации собирает preview-версию и эмитит choices
- * вместе с preview; legacy `save(version)` остаётся для migration/NPC compatibility hosts.
+ * и рендером табов. «Сохранить» ждёт `onSaveChoices` или `onSave` и снимает `saving` после settle.
  */
 const props = withDefaults(
   defineProps<{
@@ -39,13 +38,13 @@ const props = withDefaults(
     requireRace?: boolean;
     /** Цель телепорта кнопок «Черновик»/«Сохранить». Дефолт — топбар; внутри слайдера — локальный контейнер. */
     actionsTarget?: string;
+    onSave?: (version: CharacterVersion) => Promise<void> | void;
+    onSaveChoices?: (build: CharacterBuild, preview: CharacterVersion) => Promise<void> | void;
   }>(),
   { requireRace: true, actionsTarget: '#editor-actions' },
 );
 
 const emit = defineEmits<{
-  save: [version: CharacterVersion];
-  saveChoices: [build: CharacterBuild, preview: CharacterVersion];
   cancel: [];
 }>();
 
@@ -191,6 +190,7 @@ async function finish(): Promise<void> {
   }
 
   saving.value = true;
+  const reportSaveError = !props.onSaveChoices;
   try {
     const version = characterEditorService.toVersion(
       draft.value.build,
@@ -199,10 +199,13 @@ async function finish(): Promise<void> {
       keywords.value,
       mechanics.value,
     );
-    emit('saveChoices', draft.value.build, version);
-    emit('save', version);
+    if (props.onSaveChoices) {
+      await props.onSaveChoices(draft.value.build, version);
+    } else {
+      await props.onSave?.(version);
+    }
   } catch (e) {
-    saveError.value = e instanceof Error ? e.message : 'Не удалось сохранить';
+    if (reportSaveError) saveError.value = e instanceof Error ? e.message : 'Не удалось сохранить';
   } finally {
     saving.value = false;
   }

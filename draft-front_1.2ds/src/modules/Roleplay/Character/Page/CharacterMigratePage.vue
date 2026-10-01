@@ -168,14 +168,14 @@ async function runMigration(): Promise<void> {
   }
 }
 
-async function applyVersion(version: CharacterVersion): Promise<void> {
+async function applyVersion(version: CharacterVersion): Promise<boolean> {
   const id = characterId.value;
-  if (id === null) return;
+  if (id === null) return false;
   const detail = characterStore.currentCharacter;
   if (!detail) {
     loadError.value = 'Актуальный персонаж не загружен';
 
-    return;
+    return false;
   }
   running.value = true;
   try {
@@ -185,8 +185,12 @@ async function applyVersion(version: CharacterVersion): Promise<void> {
       version,
     });
     await router.push(`/characters/${id}`);
+
+    return true;
   } catch (e) {
     loadError.value = e instanceof Error ? e.message : 'Не удалось применить миграцию';
+
+    return false;
   } finally {
     running.value = false;
   }
@@ -204,8 +208,8 @@ function openConflictEditor(): void {
 
 /** Сохранение из конфликт-редактора: применённая (исправленная) версия миграции. */
 async function handleEditorSave(version: CharacterVersion): Promise<void> {
-  await applyVersion(version);
-  if (migrationDraftKey.value) draftStore.discard(migrationDraftKey.value);
+  const applied = await applyVersion(version);
+  if (applied && migrationDraftKey.value) draftStore.discard(migrationDraftKey.value);
 }
 
 watch(selectedSpaceId, (value) => {

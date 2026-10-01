@@ -29,6 +29,7 @@ const spaceRevision = useSpaceRevision();
 const { signal } = useAbortable();
 
 const loading = ref(false);
+const loadError = ref<string | null>(null);
 const npcRef = ref<GameNpc | null>(null);
 const gameDetailRef = ref<GameDetail | null>(null);
 const migrationOpen = ref(false);
@@ -114,32 +115,32 @@ async function load(): Promise<void> {
     return;
   }
   loading.value = true;
+  loadError.value = null;
   gameStore.clearCurrent();
-  const gameDetail = await gameStore.fetchGame(gid, signal.value);
-  if (!gameDetail || !gameAccessService.canEditGame(currentUser.value, gameDetail)) {
-    router.replace({ name: 'NotFound' });
-
-    return;
-  }
-  let found: GameNpc;
   try {
-    found = await getGameApi().getNpc(gid, nid);
-  } catch {
-    router.replace({ name: 'NotFound' });
+    const gameDetail = await gameStore.fetchGame(gid, signal.value);
+    if (!gameDetail || !gameAccessService.canEditGame(currentUser.value, gameDetail)) {
+      router.replace({ name: 'NotFound' });
 
-    return;
-  }
-  npcRef.value = found;
-  gameDetailRef.value = gameDetail;
+      return;
+    }
+    const found = await getGameApi().getNpc(gid, nid);
+    npcRef.value = found;
+    gameDetailRef.value = gameDetail;
 
-  if (
-    needsNpcMigration(found, { rulesRevision: gameDetail.game.rulesRevision, spaceCode: gameDetail.game.spaceCode })
-  ) {
-    if (draftKey.value) draftStore.discard(draftKey.value);
-  } else if (!draftStore.hasDraft(draftKey.value)) {
-    await initDraft(found, gameDetail);
+    if (
+      needsNpcMigration(found, { rulesRevision: gameDetail.game.rulesRevision, spaceCode: gameDetail.game.spaceCode })
+    ) {
+      if (draftKey.value) draftStore.discard(draftKey.value);
+    } else if (!draftStore.hasDraft(draftKey.value)) {
+      await initDraft(found, gameDetail);
+    }
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'AbortError') return;
+    loadError.value = e instanceof Error ? e.message : 'Не удалось загрузить лист НПС';
+  } finally {
+    loading.value = false;
   }
-  loading.value = false;
 }
 
 async function onMigrated(): Promise<void> {
@@ -150,7 +151,10 @@ async function onMigrated(): Promise<void> {
   let found: GameNpc;
   try {
     found = await getGameApi().getNpc(gid, nid);
-  } catch {
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'AbortError') return;
+    loadError.value = e instanceof Error ? e.message : 'Не удалось загрузить лист НПС';
+
     return;
   }
   draftStore.discard(draftKey.value);
@@ -192,6 +196,11 @@ onMounted(load);
       <v-progress-circular indeterminate width="2" size="28" color="primary" />
     </div>
 
+    <div v-else-if="loadError" class="text-center pa-8">
+      <p class="text-body-1 mb-4">{{ loadError }}</p>
+      <v-btn color="primary" @click="load">Повторить</v-btn>
+    </div>
+
     <div v-else-if="stale" class="pa-6 d-flex flex-column ga-3" style="max-width: 560px">
       <v-alert type="warning" variant="tonal">
         Лист НПС на другой ревизии правил. Сначала переведите его на ревизию игры — иначе правки запекут сломанный
@@ -203,7 +212,12 @@ onMounted(load);
       </div>
     </div>
 
-    <CharacterSheetEditor v-else-if="draftKey" :draft-key="draftKey" :require-race="false" @save="handleSave" />
+    <CharacterSheetEditor
+      v-else-if="npcRef && draftKey"
+      :draft-key="draftKey"
+      :require-race="false"
+      @save="handleSave"
+    />
 
     <NpcMigrationDialog
       v-if="gameDetailRef"
