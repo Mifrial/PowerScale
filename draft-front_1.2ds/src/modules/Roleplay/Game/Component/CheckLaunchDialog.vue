@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue';
 import { combatChatSendService } from '@/modules/Roleplay/Game/Service/Instance/combatChatSendService';
 
 import { getGameApi } from '@/modules/Roleplay/Game/init';
+import { resolveLaunchLoad } from '@/modules/Roleplay/Game/Utils/launchLoadState';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
 import { ROLL_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ATTACHMENT_TYPE';
@@ -77,6 +78,10 @@ const emit = defineEmits<{
 const sendChat = combatChatSendService.sendCombatChat(props.gameId);
 
 const overlays = ref<GameCombatOverlay[]>([]);
+const loadPhase = ref<'loading' | 'error' | 'incomplete' | 'ready'>('loading');
+const loadError = ref<string | null>(null);
+let loadGeneration = 0;
+let loadAbort: AbortController | null = null;
 const checkCode = ref('');
 const launchKind = ref<'solo' | 'pairwise'>('solo');
 const initiatorKey = ref<CombatEntityKey | null>(null);
@@ -332,7 +337,7 @@ function applyProposal(data: CheckOfferProposal): void {
   spendConcentration.value = concentrationTokenService.parseSpendAmount(data.initiatorSpendConcentration);
 }
 
-async function hydrateNew(): Promise<void> {
+async function hydrateNew(generation: number): Promise<void> {
   offer.value = null;
   error.value = null;
   opponentTouched.value = false;
@@ -356,16 +361,18 @@ async function hydrateNew(): Promise<void> {
   opponentKey.value = opponentOptions.value[0]?.value ?? null;
   applyCheckKind();
   await loadChars(initiatorKey.value, initiatorChars);
+  if (generation !== loadGeneration) return;
   initiatorUseFree.value = initiatorChars.value.size === 0;
   initiatorCharacteristic.value = defaultCharacteristic(initiatorChars.value);
   opponentCharacteristic.value = initiatorCharacteristic.value;
   await loadChars(opponentKey.value, opponentChars);
+  if (generation !== loadGeneration) return;
   opponentUseFree.value = opponentChars.value.size === 0;
   if (!opponentTouched.value) opponentCharacteristic.value = initiatorCharacteristic.value;
   applyKnowledgeSuggestion();
 }
 
-async function hydrateOffer(current: CheckOffer): Promise<void> {
+async function hydrateOffer(current: CheckOffer, generation?: number): Promise<void> {
   offer.value = current;
   error.value = null;
   checkCode.value = current.checkCode;
@@ -374,18 +381,53 @@ async function hydrateOffer(current: CheckOffer): Promise<void> {
   opponentKey.value = current.opponent;
   applyProposal(current.proposal);
   await loadChars(initiatorKey.value, initiatorChars);
+  if (generation !== undefined && generation !== loadGeneration) return;
   await loadChars(opponentKey.value, opponentChars);
+}
+
+function isAbortError(cause: unknown): boolean {
+  return cause instanceof Error && cause.name === 'AbortError';
+}
+
+async function hydrateContext(): Promise<void> {
+  loadAbort?.abort();
+  const controller = new AbortController();
+  loadAbort = controller;
+  const generation = ++loadGeneration;
+  loadPhase.value = 'loading';
+  loadError.value = null;
+  try {
+    const nextOverlays = await getGameApi().getCombatOverlays(props.gameId, controller.signal);
+    if (generation !== loadGeneration) return;
+    const outcome = resolveLaunchLoad({ overlays: { ok: true as const, value: nextOverlays } });
+    if (outcome.status === 'error') {
+      loadPhase.value = 'error';
+      loadError.value = outcome.message;
+
+      return;
+    }
+    overlays.value = outcome.values.overlays;
+    if (props.resumeOffer) await hydrateOffer(props.resumeOffer, generation);
+    else await hydrateNew(generation);
+    if (generation !== loadGeneration) return;
+    const initiator = initiatorKey.value;
+    const missingSheet = initiator !== null && modelOf(initiator)?.effectiveVersion == null;
+    loadPhase.value = entityOptions.value.length === 0 || missingSheet ? 'incomplete' : 'ready';
+  } catch (cause) {
+    if (generation !== loadGeneration || isAbortError(cause)) return;
+    const outcome = resolveLaunchLoad({ overlays: { ok: false as const, cause } });
+    if (outcome.status === 'error') {
+      loadPhase.value = 'error';
+      loadError.value = outcome.message;
+    }
+  }
 }
 
 watch(
   () => props.open,
   async (open) => {
     if (!open) return;
-    overlays.value = await getGameApi()
-      .getCombatOverlays(props.gameId)
-      .catch(() => []);
-    if (props.resumeOffer) await hydrateOffer(props.resumeOffer);
-    else await hydrateNew();
+    await hydrateContext();
   },
 );
 
@@ -762,190 +804,83 @@ const statusHint = computed(() => {
         Проверка
       </v-card-title>
       <v-card-text>
-        <v-autocomplete
-          v-model="checkCode"
-          :items="checkItems"
-          item-title="title"
-          item-value="value"
-          density="compact"
-          variant="outlined"
-          hide-details
-          label="Проверка"
-          class="mb-3"
-          auto-select-first
-          :disabled="lockedParticipants"
-        />
-        <v-btn-toggle
-          v-if="canSolo && canPair && !lockedParticipants"
-          v-model="launchKind"
-          mandatory
-          density="compact"
-          color="primary"
-          variant="outlined"
-          class="mb-3"
-        >
-          <v-btn value="solo">Соло</v-btn>
-          <v-btn value="pairwise">Совместная</v-btn>
-        </v-btn-toggle>
-
-        <CombatEntitySelect
-          v-model="initiatorKey"
-          label="Кто бросает"
-          :characters="characters"
-          :npcs="npcs"
-          :initiative-keys="initiativeKeys"
-          :disabled="lockedParticipants"
-          class="mb-3"
-        />
-
-        <div class="check-launch-row">
-          <v-btn-toggle
-            :model-value="initiatorUseFree ? 'free' : 'characteristic'"
-            density="compact"
-            variant="outlined"
-            color="primary"
-            class="mb-0"
-            mandatory
-            :disabled="formLocked"
-            @update:model-value="initiatorUseFree = $event === 'free' || initiatorChars.size === 0"
-          >
-            <v-btn value="characteristic" :disabled="initiatorChars.size === 0">Характеристика</v-btn>
-            <v-btn value="free">Свободный пул</v-btn>
-          </v-btn-toggle>
+        <div v-if="loadPhase === 'loading'" class="d-flex justify-center py-6">
+          <v-progress-circular indeterminate />
         </div>
-        <div v-if="!initiatorUseFree" class="check-launch-row mt-2">
-          <v-select
-            v-model="initiatorCharacteristic"
-            :items="initiatorCharItems"
-            item-title="name"
-            item-subtitle="valueLabel"
-            item-value="code"
-            density="compact"
-            variant="outlined"
-            hide-details
-            label="Характеристика"
-            :disabled="formLocked || (!overrideAllowed && !!selectedSpec?.characteristic_code)"
-          />
-          <ClampedNumberField
-            v-model="initiatorAdv"
-            :min="-ROLL_ADV_MAX"
-            :max="ROLL_ADV_MAX"
-            density="compact"
-            hide-details
-            label="Преим./помехи"
-            :disabled="formLocked"
-          />
-        </div>
-        <div v-else class="check-launch-row mt-2">
-          <ClampedNumberField
-            v-model="initiatorFreeDice"
-            :min="ROLL_DICE_COUNT_MIN"
-            :max="ROLL_DICE_COUNT_MAX"
-            density="compact"
-            hide-details
-            label="Кубы"
-            :disabled="formLocked"
-          />
-          <ClampedNumberField
-            v-model="initiatorFreeEfficiency"
-            :min="ROLL_EFFICIENCY_MIN"
-            :max="ROLL_EFFICIENCY_MAX"
-            density="compact"
-            hide-details
-            label="Эффективность"
-            :disabled="formLocked"
-          />
-          <ClampedNumberField
-            v-model="initiatorFreeSize"
-            :min="-3"
-            :max="3"
-            density="compact"
-            hide-details
-            label="Размер"
-            :disabled="formLocked"
-          />
-          <ClampedNumberField
-            v-model="initiatorAdv"
-            :min="-ROLL_ADV_MAX"
-            :max="ROLL_ADV_MAX"
-            density="compact"
-            hide-details
-            label="Преим./помехи"
-            :disabled="formLocked"
-          />
-        </div>
-        <ConcentrationTokenOption
-          v-model="spendConcentration"
-          :version="modelOf(initiatorKey)?.effectiveVersion ?? null"
-          :overlay="overlayOf(initiatorKey)"
-          :rules="rules"
-          :check-code="checkCode"
-          :characteristic-code="initiatorUseFree ? null : initiatorCharacteristic"
-        />
-
-        <KnowledgeCheckLaunchFields
-          v-if="isKnowledgeCheck && launchKind === 'solo'"
-          v-model:field-code="knowledgeFieldCode"
-          v-model:slot-text="knowledgeSlotText"
-          v-model:band="knowledgeBand"
-          :rules="rules"
-          :abilities="knowledgeAbilities"
-          :hint-text="knowledgeHintText"
-        />
-
-        <template v-if="launchKind === 'solo'">
-          <div v-if="fromState" class="text-caption text-medium-emphasis mt-3">Сложность: {{ fromStateLabel }}</div>
-          <div v-else-if="askDifficulty && canEdit" class="check-launch-row mt-3">
-            <ClampedNumberField v-model="askBase" :min="0" :max="40" density="compact" hide-details label="Сложность" />
-            <ClampedNumberField v-model="askSize" :min="-3" :max="3" density="compact" hide-details label="Размер" />
-          </div>
-          <div v-else class="text-caption text-medium-emphasis mt-3">Сложность {0|0}</div>
+        <template v-else-if="loadPhase === 'error'">
+          <v-alert type="error" variant="tonal" density="compact" class="mb-3">{{ loadError }}</v-alert>
+          <v-btn variant="text" @click="hydrateContext">Повторить</v-btn>
         </template>
-
+        <v-alert v-else-if="loadPhase === 'incomplete'" type="warning" variant="tonal" density="compact">
+          Нет листа участника для этого действия.
+        </v-alert>
         <template v-else>
+          <v-autocomplete
+            v-model="checkCode"
+            :items="checkItems"
+            item-title="title"
+            item-value="value"
+            density="compact"
+            variant="outlined"
+            hide-details
+            label="Проверка"
+            class="mb-3"
+            auto-select-first
+            :disabled="lockedParticipants"
+          />
+          <v-btn-toggle
+            v-if="canSolo && canPair && !lockedParticipants"
+            v-model="launchKind"
+            mandatory
+            density="compact"
+            color="primary"
+            variant="outlined"
+            class="mb-3"
+          >
+            <v-btn value="solo">Соло</v-btn>
+            <v-btn value="pairwise">Совместная</v-btn>
+          </v-btn-toggle>
+
           <CombatEntitySelect
-            v-model="opponentKey"
-            label="Оппонент"
+            v-model="initiatorKey"
+            label="Кто бросает"
             :characters="characters"
             :npcs="npcs"
             :initiative-keys="initiativeKeys"
-            :exclude="initiatorKey ? [initiatorKey] : []"
             :disabled="lockedParticipants"
-            class="mt-3 mb-3"
+            class="mb-3"
           />
+
           <div class="check-launch-row">
             <v-btn-toggle
-              :model-value="opponentUseFree ? 'free' : 'characteristic'"
+              :model-value="initiatorUseFree ? 'free' : 'characteristic'"
               density="compact"
               variant="outlined"
               color="primary"
+              class="mb-0"
               mandatory
               :disabled="formLocked"
-              @update:model-value="opponentUseFree = $event === 'free' || opponentChars.size === 0"
+              @update:model-value="initiatorUseFree = $event === 'free' || initiatorChars.size === 0"
             >
-              <v-btn value="characteristic" :disabled="opponentChars.size === 0">Характеристика</v-btn>
+              <v-btn value="characteristic" :disabled="initiatorChars.size === 0">Характеристика</v-btn>
               <v-btn value="free">Свободный пул</v-btn>
             </v-btn-toggle>
           </div>
-          <div v-if="!opponentUseFree" class="check-launch-row mt-2">
+          <div v-if="!initiatorUseFree" class="check-launch-row mt-2">
             <v-select
-              :model-value="opponentCharacteristic"
-              :items="opponentCharItems"
+              v-model="initiatorCharacteristic"
+              :items="initiatorCharItems"
               item-title="name"
               item-subtitle="valueLabel"
               item-value="code"
               density="compact"
               variant="outlined"
               hide-details
-              label="Характеристика оппонента"
+              label="Характеристика"
               :disabled="formLocked || (!overrideAllowed && !!selectedSpec?.characteristic_code)"
-              @update:model-value="
-                opponentTouched = true;
-                opponentCharacteristic = $event as string;
-              "
             />
             <ClampedNumberField
-              v-model="opponentAdv"
+              v-model="initiatorAdv"
               :min="-ROLL_ADV_MAX"
               :max="ROLL_ADV_MAX"
               density="compact"
@@ -956,7 +891,7 @@ const statusHint = computed(() => {
           </div>
           <div v-else class="check-launch-row mt-2">
             <ClampedNumberField
-              v-model="opponentFreeDice"
+              v-model="initiatorFreeDice"
               :min="ROLL_DICE_COUNT_MIN"
               :max="ROLL_DICE_COUNT_MAX"
               density="compact"
@@ -965,7 +900,7 @@ const statusHint = computed(() => {
               :disabled="formLocked"
             />
             <ClampedNumberField
-              v-model="opponentFreeEfficiency"
+              v-model="initiatorFreeEfficiency"
               :min="ROLL_EFFICIENCY_MIN"
               :max="ROLL_EFFICIENCY_MAX"
               density="compact"
@@ -974,7 +909,7 @@ const statusHint = computed(() => {
               :disabled="formLocked"
             />
             <ClampedNumberField
-              v-model="opponentFreeSize"
+              v-model="initiatorFreeSize"
               :min="-3"
               :max="3"
               density="compact"
@@ -983,7 +918,7 @@ const statusHint = computed(() => {
               :disabled="formLocked"
             />
             <ClampedNumberField
-              v-model="opponentAdv"
+              v-model="initiatorAdv"
               :min="-ROLL_ADV_MAX"
               :max="ROLL_ADV_MAX"
               density="compact"
@@ -992,10 +927,138 @@ const statusHint = computed(() => {
               :disabled="formLocked"
             />
           </div>
-        </template>
+          <ConcentrationTokenOption
+            v-model="spendConcentration"
+            :version="modelOf(initiatorKey)?.effectiveVersion ?? null"
+            :overlay="overlayOf(initiatorKey)"
+            :rules="rules"
+            :check-code="checkCode"
+            :characteristic-code="initiatorUseFree ? null : initiatorCharacteristic"
+          />
 
-        <v-alert v-if="statusHint" type="info" variant="tonal" density="compact" class="mt-3">{{ statusHint }}</v-alert>
-        <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mt-3">{{ error }}</v-alert>
+          <KnowledgeCheckLaunchFields
+            v-if="isKnowledgeCheck && launchKind === 'solo'"
+            v-model:field-code="knowledgeFieldCode"
+            v-model:slot-text="knowledgeSlotText"
+            v-model:band="knowledgeBand"
+            :rules="rules"
+            :abilities="knowledgeAbilities"
+            :hint-text="knowledgeHintText"
+          />
+
+          <template v-if="launchKind === 'solo'">
+            <div v-if="fromState" class="text-caption text-medium-emphasis mt-3">Сложность: {{ fromStateLabel }}</div>
+            <div v-else-if="askDifficulty && canEdit" class="check-launch-row mt-3">
+              <ClampedNumberField
+                v-model="askBase"
+                :min="0"
+                :max="40"
+                density="compact"
+                hide-details
+                label="Сложность"
+              />
+              <ClampedNumberField v-model="askSize" :min="-3" :max="3" density="compact" hide-details label="Размер" />
+            </div>
+            <div v-else class="text-caption text-medium-emphasis mt-3">Сложность {0|0}</div>
+          </template>
+
+          <template v-else>
+            <CombatEntitySelect
+              v-model="opponentKey"
+              label="Оппонент"
+              :characters="characters"
+              :npcs="npcs"
+              :initiative-keys="initiativeKeys"
+              :exclude="initiatorKey ? [initiatorKey] : []"
+              :disabled="lockedParticipants"
+              class="mt-3 mb-3"
+            />
+            <div class="check-launch-row">
+              <v-btn-toggle
+                :model-value="opponentUseFree ? 'free' : 'characteristic'"
+                density="compact"
+                variant="outlined"
+                color="primary"
+                mandatory
+                :disabled="formLocked"
+                @update:model-value="opponentUseFree = $event === 'free' || opponentChars.size === 0"
+              >
+                <v-btn value="characteristic" :disabled="opponentChars.size === 0">Характеристика</v-btn>
+                <v-btn value="free">Свободный пул</v-btn>
+              </v-btn-toggle>
+            </div>
+            <div v-if="!opponentUseFree" class="check-launch-row mt-2">
+              <v-select
+                :model-value="opponentCharacteristic"
+                :items="opponentCharItems"
+                item-title="name"
+                item-subtitle="valueLabel"
+                item-value="code"
+                density="compact"
+                variant="outlined"
+                hide-details
+                label="Характеристика оппонента"
+                :disabled="formLocked || (!overrideAllowed && !!selectedSpec?.characteristic_code)"
+                @update:model-value="
+                  opponentTouched = true;
+                  opponentCharacteristic = $event as string;
+                "
+              />
+              <ClampedNumberField
+                v-model="opponentAdv"
+                :min="-ROLL_ADV_MAX"
+                :max="ROLL_ADV_MAX"
+                density="compact"
+                hide-details
+                label="Преим./помехи"
+                :disabled="formLocked"
+              />
+            </div>
+            <div v-else class="check-launch-row mt-2">
+              <ClampedNumberField
+                v-model="opponentFreeDice"
+                :min="ROLL_DICE_COUNT_MIN"
+                :max="ROLL_DICE_COUNT_MAX"
+                density="compact"
+                hide-details
+                label="Кубы"
+                :disabled="formLocked"
+              />
+              <ClampedNumberField
+                v-model="opponentFreeEfficiency"
+                :min="ROLL_EFFICIENCY_MIN"
+                :max="ROLL_EFFICIENCY_MAX"
+                density="compact"
+                hide-details
+                label="Эффективность"
+                :disabled="formLocked"
+              />
+              <ClampedNumberField
+                v-model="opponentFreeSize"
+                :min="-3"
+                :max="3"
+                density="compact"
+                hide-details
+                label="Размер"
+                :disabled="formLocked"
+              />
+              <ClampedNumberField
+                v-model="opponentAdv"
+                :min="-ROLL_ADV_MAX"
+                :max="ROLL_ADV_MAX"
+                density="compact"
+                hide-details
+                label="Преим./помехи"
+                :disabled="formLocked"
+              />
+            </div>
+          </template>
+
+          <v-alert v-if="statusHint" type="info" variant="tonal" density="compact" class="mt-3">{{
+            statusHint
+          }}</v-alert>
+          <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mt-3">{{ error }}</v-alert>
+        </template>
       </v-card-text>
       <v-card-actions>
         <v-btn
@@ -1003,11 +1066,18 @@ const statusHint = computed(() => {
           variant="text"
           color="error"
           :loading="busy"
+          :disabled="loadPhase !== 'ready'"
           @click="submitCancel"
           >Игнорировать</v-btn
         >
         <v-spacer />
-        <v-btn v-if="myTurn" variant="tonal" :loading="busy" :disabled="formLocked" @click="submitRevise">
+        <v-btn
+          v-if="myTurn"
+          variant="tonal"
+          :loading="busy"
+          :disabled="loadPhase !== 'ready' || formLocked"
+          @click="submitRevise"
+        >
           Вернуть правку
         </v-btn>
         <v-btn
@@ -1015,7 +1085,9 @@ const statusHint = computed(() => {
           variant="tonal"
           prepend-icon="mdi-dice-d6"
           :loading="busy"
-          :disabled="waitingOnOther || (launchKind === 'pairwise' && !opponentKey) || !initiatorKey"
+          :disabled="
+            loadPhase !== 'ready' || waitingOnOther || (launchKind === 'pairwise' && !opponentKey) || !initiatorKey
+          "
           @click="submit"
         >
           {{ primaryLabel }}

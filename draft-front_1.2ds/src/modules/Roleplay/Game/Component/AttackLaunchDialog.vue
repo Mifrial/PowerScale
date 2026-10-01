@@ -17,6 +17,7 @@ import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
 import type { CombatActionOption } from '@/modules/Roleplay/Game/Utils/combatActions';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
+import { resolveLaunchLoad } from '@/modules/Roleplay/Game/Utils/launchLoadState';
 import {
   characterOverviewService,
   movementContextService,
@@ -73,6 +74,10 @@ const slots = ref<AttackActionSlotDraft[]>([{ profile: null, targetKey: null }])
 const profileMenuSlot = ref<number | null>(null);
 const busy = ref(false);
 const error = ref<string | null>(null);
+const loadPhase = ref<'loading' | 'error' | 'incomplete' | 'ready'>('loading');
+const loadError = ref<string | null>(null);
+let loadGeneration = 0;
+let loadAbort: AbortController | null = null;
 const selectedOptionalChildCodes = ref<string[]>([]);
 const sendChat = combatChatSendService.sendCombatChat(props.gameId);
 const attackFavorites = useAttackFavorites();
@@ -88,17 +93,15 @@ const actorVersion = computed(() => {
   if (!actorKey.value) return null;
   const overlay = overlays.value.find((item) => item.entityKey === actorKey.value) ?? null;
 
-  return combatCardModelService
-    .combatCardModel(
-      actorKey.value,
-      props.characters,
-      props.npcs,
-      true,
-      null,
-      overlay,
-      props.runtimeProjections?.[actorKey.value] ?? null,
-    )
-    .effectiveVersion;
+  return combatCardModelService.combatCardModel(
+    actorKey.value,
+    props.characters,
+    props.npcs,
+    true,
+    null,
+    overlay,
+    props.runtimeProjections?.[actorKey.value] ?? null,
+  ).effectiveVersion;
 });
 
 const actorOverview = computed(() =>
@@ -534,20 +537,54 @@ function removeTarget(index: number): void {
   slots.value = slots.value.filter((_, slotIndex) => slotIndex !== index);
 }
 
+function isAbortError(cause: unknown): boolean {
+  return cause instanceof Error && cause.name === 'AbortError';
+}
+
 async function hydrate(): Promise<void> {
+  loadAbort?.abort();
+  const controller = new AbortController();
+  loadAbort = controller;
+  const generation = ++loadGeneration;
+  loadPhase.value = 'loading';
+  loadError.value = null;
   const api = getGameApi();
-  const [nextOverlays, nextPending, nextProcesses, nextCommitted] = await Promise.all([
-    api.getCombatOverlays(props.gameId).catch(() => []),
-    api.getPendingActionEffects(props.gameId).catch(() => ({})),
-    api.getProcessSessions(props.gameId).catch(() => ({})),
-    api.getCommittedActionSessions(props.gameId).catch(() => ({})),
-  ]);
-  overlays.value = nextOverlays;
-  pendingEffects.value = nextPending;
-  processSessions.value = nextProcesses;
-  committedSessions.value = nextCommitted;
-  sourceRuleCode.value = sources.value[0]?.code ?? null;
-  resetSlots(null);
+  const signal = controller.signal;
+  try {
+    const [nextOverlays, nextPending, nextProcesses, nextCommitted] = await Promise.all([
+      api.getCombatOverlays(props.gameId, signal),
+      api.getPendingActionEffects(props.gameId, signal),
+      api.getProcessSessions(props.gameId, signal),
+      api.getCommittedActionSessions(props.gameId, signal),
+    ]);
+    if (generation !== loadGeneration) return;
+    const outcome = resolveLaunchLoad({
+      overlays: { ok: true as const, value: nextOverlays },
+      pending: { ok: true as const, value: nextPending },
+      processes: { ok: true as const, value: nextProcesses },
+      committed: { ok: true as const, value: nextCommitted },
+    });
+    if (outcome.status === 'error') {
+      loadPhase.value = 'error';
+      loadError.value = outcome.message;
+
+      return;
+    }
+    overlays.value = outcome.values.overlays;
+    pendingEffects.value = outcome.values.pending;
+    processSessions.value = outcome.values.processes;
+    committedSessions.value = outcome.values.committed;
+    sourceRuleCode.value = sources.value[0]?.code ?? null;
+    resetSlots(null);
+    loadPhase.value = !actorKey.value || !actorVersion.value ? 'incomplete' : 'ready';
+  } catch (cause) {
+    if (generation !== loadGeneration || isAbortError(cause)) return;
+    const outcome = resolveLaunchLoad({ overlays: { ok: false as const, cause } });
+    if (outcome.status === 'error') {
+      loadPhase.value = 'error';
+      loadError.value = outcome.message;
+    }
+  }
 }
 
 async function stopProcess(): Promise<void> {
@@ -756,185 +793,203 @@ watch(followUpTargetKeys, (allowed) => {
     <v-card>
       <v-card-title>Атака</v-card-title>
       <v-card-text>
-        <v-alert v-if="activeCommitted" type="warning" variant="tonal" density="compact" class="mb-3">
-          Сначала закончи или сорви незавершённое действие.
-        </v-alert>
-        <v-autocomplete
-          v-model="sourceRuleCode"
-          :items="sourceItems"
-          :item-title="sourceTitle"
-          item-value="code"
-          label="Атака или процесс"
-          :disabled="busy || !actorKey"
-        >
-          <template #item="{ props: itemProps, item }">
-            <v-list-item v-bind="itemProps" :title="sourceTitle(item.raw)" :disabled="item.raw.disabled" />
-          </template>
-        </v-autocomplete>
-        <div class="text-body-2 text-medium-emphasis mb-3">
-          Итоговая стоимость атаки: <strong>{{ finalCost }} ОД</strong>
-          <v-btn
-            v-if="activeProcess"
-            size="x-small"
-            variant="text"
-            color="warning"
-            class="ml-1"
-            :disabled="busy"
-            @click="stopProcess"
-          >
-            Прекратить процесс
-          </v-btn>
+        <div v-if="loadPhase === 'loading'" class="d-flex justify-center py-6">
+          <v-progress-circular indeterminate />
         </div>
-
-        <template v-if="selectedSource?.isProcess">
+        <template v-else-if="loadPhase === 'error'">
+          <v-alert type="error" variant="tonal" density="compact" class="mb-3">{{ loadError }}</v-alert>
+          <v-btn variant="text" @click="hydrate">Повторить</v-btn>
+        </template>
+        <v-alert v-else-if="loadPhase === 'incomplete'" type="warning" variant="tonal" density="compact">
+          Нет листа участника для этого действия.
+        </v-alert>
+        <template v-else>
+          <v-alert v-if="activeCommitted" type="warning" variant="tonal" density="compact" class="mb-3">
+            Сначала закончи или сорви незавершённое действие.
+          </v-alert>
           <v-autocomplete
-            v-model="processStepCode"
-            :items="processSteps"
-            item-title="name"
+            v-model="sourceRuleCode"
+            :items="sourceItems"
+            :item-title="sourceTitle"
             item-value="code"
-            label="Шаг процесса"
-            :disabled="busy"
+            label="Атака или процесс"
+            :disabled="busy || !actorKey"
           >
             <template #item="{ props: itemProps, item }">
-              <v-list-item
-                v-bind="itemProps"
-                :title="`${item.raw.name} · ${processSessionService.stepCost(item.raw, ACTION_POINTS_CODE)} ОД`"
-                :subtitle="item.raw.description"
-              />
+              <v-list-item v-bind="itemProps" :title="sourceTitle(item.raw)" :disabled="item.raw.disabled" />
             </template>
           </v-autocomplete>
-        </template>
-
-        <div v-for="(slot, index) in slots" :key="index" class="attack-slot mb-3">
-          <div class="d-flex align-center ga-2 mb-1">
-            <span class="text-subtitle-2">{{
-              isWideAttack ? `Цель ${index + 1}` : isSameWeaponStrikes ? `Экземпляр ${index + 1}` : `Удар ${index + 1}`
-            }}</span>
-            <v-spacer />
+          <div class="text-body-2 text-medium-emphasis mb-3">
+            Итоговая стоимость атаки: <strong>{{ finalCost }} ОД</strong>
             <v-btn
-              v-if="(isWideAttack && index > 0) || (canRemoveSameWeaponSlot && index > 0)"
-              icon="mdi-close"
+              v-if="activeProcess"
               size="x-small"
               variant="text"
+              color="warning"
+              class="ml-1"
               :disabled="busy"
-              :aria-label="isWideAttack ? 'Удалить цель' : 'Удалить экземпляр'"
-              @click="isWideAttack ? removeTarget(index) : removeSameWeaponSlot(index)"
-            />
+              @click="stopProcess"
+            >
+              Прекратить процесс
+            </v-btn>
           </div>
-          <v-menu
-            v-if="!isWideAttack || index === 0"
-            :model-value="profileMenuSlot === index"
-            :close-on-content-click="false"
-            location="bottom"
-            @update:model-value="(open) => (profileMenuSlot = open ? index : null)"
-          >
-            <template #activator="{ props: menuProps }">
-              <v-sheet v-bind="menuProps" class="profile-choice rounded border pa-2 mb-2">
-                <div class="d-flex align-center justify-space-between ga-2">
-                  <span class="text-body-2 font-weight-medium text-truncate">
-                    <template v-if="slot.profile">
-                      {{ slot.profile.itemName }} · {{ slot.profile.profileTypeLabel }} · Дистанция
-                      {{ slot.profile.distanceLabel }}
-                    </template>
-                    <template v-else>{{ profileLabel(slot.profile) }}</template>
-                  </span>
-                  <v-icon size="18">mdi-chevron-down</v-icon>
-                </div>
-                <div v-if="slot.profile" class="text-caption text-medium-emphasis">
-                  {{ attackPreview(slot.profile).accuracyLabel }} · {{ attackPreview(slot.profile).damageLabel }} ·
-                  {{ attackPreview(slot.profile).penetrationLabel }}
-                </div>
-                <div v-if="slotRepeatHint(slot.profile)" class="text-caption text-warning">
-                  {{ slotRepeatHint(slot.profile) }}
-                </div>
-              </v-sheet>
-            </template>
-            <v-card min-width="420" max-width="560">
-              <v-list density="compact">
-                <AttackProfileOption
-                  v-for="profile in slotProfiles(index)"
-                  :key="profileKey(profile)"
-                  :attack="attackPreview(profile)"
-                  :selected="slot.profile ? profileKey(slot.profile) === profileKey(profile) : false"
-                  @select="selectProfile(index, profile)"
-                />
+
+          <template v-if="selectedSource?.isProcess">
+            <v-autocomplete
+              v-model="processStepCode"
+              :items="processSteps"
+              item-title="name"
+              item-value="code"
+              label="Шаг процесса"
+              :disabled="busy"
+            >
+              <template #item="{ props: itemProps, item }">
                 <v-list-item
-                  v-if="slotProfiles(index).length === 0"
-                  :title="
-                    compatibleProfiles.length === 0
-                      ? 'Подходящих профилей нет'
-                      : isSameWeaponStrikes
-                        ? 'Нужен ещё один экземпляр того же оружия'
-                        : 'Нет другого оружия'
-                  "
+                  v-bind="itemProps"
+                  :title="`${item.raw.name} · ${processSessionService.stepCost(item.raw, ACTION_POINTS_CODE)} ОД`"
+                  :subtitle="item.raw.description"
                 />
-              </v-list>
-            </v-card>
-          </v-menu>
-          <div v-else-if="slot.profile" class="text-body-2 text-medium-emphasis mb-2">
-            Профиль: {{ slot.profile.itemName }} · {{ slot.profile.profileTypeLabel }}
+              </template>
+            </v-autocomplete>
+          </template>
+
+          <div v-for="(slot, index) in slots" :key="index" class="attack-slot mb-3">
+            <div class="d-flex align-center ga-2 mb-1">
+              <span class="text-subtitle-2">{{
+                isWideAttack
+                  ? `Цель ${index + 1}`
+                  : isSameWeaponStrikes
+                    ? `Экземпляр ${index + 1}`
+                    : `Удар ${index + 1}`
+              }}</span>
+              <v-spacer />
+              <v-btn
+                v-if="(isWideAttack && index > 0) || (canRemoveSameWeaponSlot && index > 0)"
+                icon="mdi-close"
+                size="x-small"
+                variant="text"
+                :disabled="busy"
+                :aria-label="isWideAttack ? 'Удалить цель' : 'Удалить экземпляр'"
+                @click="isWideAttack ? removeTarget(index) : removeSameWeaponSlot(index)"
+              />
+            </div>
+            <v-menu
+              v-if="!isWideAttack || index === 0"
+              :model-value="profileMenuSlot === index"
+              :close-on-content-click="false"
+              location="bottom"
+              @update:model-value="(open) => (profileMenuSlot = open ? index : null)"
+            >
+              <template #activator="{ props: menuProps }">
+                <v-sheet v-bind="menuProps" class="profile-choice rounded border pa-2 mb-2">
+                  <div class="d-flex align-center justify-space-between ga-2">
+                    <span class="text-body-2 font-weight-medium text-truncate">
+                      <template v-if="slot.profile">
+                        {{ slot.profile.itemName }} · {{ slot.profile.profileTypeLabel }} · Дистанция
+                        {{ slot.profile.distanceLabel }}
+                      </template>
+                      <template v-else>{{ profileLabel(slot.profile) }}</template>
+                    </span>
+                    <v-icon size="18">mdi-chevron-down</v-icon>
+                  </div>
+                  <div v-if="slot.profile" class="text-caption text-medium-emphasis">
+                    {{ attackPreview(slot.profile).accuracyLabel }} · {{ attackPreview(slot.profile).damageLabel }} ·
+                    {{ attackPreview(slot.profile).penetrationLabel }}
+                  </div>
+                  <div v-if="slotRepeatHint(slot.profile)" class="text-caption text-warning">
+                    {{ slotRepeatHint(slot.profile) }}
+                  </div>
+                </v-sheet>
+              </template>
+              <v-card min-width="420" max-width="560">
+                <v-list density="compact">
+                  <AttackProfileOption
+                    v-for="profile in slotProfiles(index)"
+                    :key="profileKey(profile)"
+                    :attack="attackPreview(profile)"
+                    :selected="slot.profile ? profileKey(slot.profile) === profileKey(profile) : false"
+                    @select="selectProfile(index, profile)"
+                  />
+                  <v-list-item
+                    v-if="slotProfiles(index).length === 0"
+                    :title="
+                      compatibleProfiles.length === 0
+                        ? 'Подходящих профилей нет'
+                        : isSameWeaponStrikes
+                          ? 'Нужен ещё один экземпляр того же оружия'
+                          : 'Нет другого оружия'
+                    "
+                  />
+                </v-list>
+              </v-card>
+            </v-menu>
+            <div v-else-if="slot.profile" class="text-body-2 text-medium-emphasis mb-2">
+              Профиль: {{ slot.profile.itemName }} · {{ slot.profile.profileTypeLabel }}
+            </div>
+            <CombatEntitySelect
+              v-if="!sharesLaunchTarget || index === 0"
+              v-model="slot.targetKey"
+              label="Цель удара"
+              :characters="characters"
+              :npcs="npcs"
+              :initiative-keys="initiativeKeys"
+              :exclude="followUpExclude"
+              :disabled="
+                busy || Boolean(comboLockedTarget) || (followUpTargetKeys !== null && followUpTargetKeys.length <= 1)
+              "
+            />
+            <div v-else class="text-caption text-medium-emphasis">Та же цель, что у первого удара</div>
           </div>
-          <CombatEntitySelect
-            v-if="!sharesLaunchTarget || index === 0"
-            v-model="slot.targetKey"
-            label="Цель удара"
-            :characters="characters"
-            :npcs="npcs"
-            :initiative-keys="initiativeKeys"
-            :exclude="followUpExclude"
-            :disabled="
-              busy || Boolean(comboLockedTarget) || (followUpTargetKeys !== null && followUpTargetKeys.length <= 1)
+          <v-btn
+            v-if="isWideAttack && slots.length < attackActionSourceService.maxTargets(selectedSourceRule)"
+            variant="outlined"
+            size="small"
+            class="mb-2"
+            :disabled="busy || !slots[0]?.profile"
+            @click="addTarget"
+          >
+            + Цель
+          </v-btn>
+          <v-btn
+            v-if="canAddSameWeaponSlot"
+            variant="outlined"
+            size="small"
+            class="mb-2"
+            :disabled="busy || !slots[0]?.profile"
+            @click="addSameWeaponSlot"
+          >
+            + Экземпляр
+          </v-btn>
+
+          <v-checkbox
+            v-for="option in afterStrikeOptions"
+            :key="option.rule.code"
+            :model-value="selectedOptionalChildCodes.includes(option.rule.code)"
+            :label="option.rule.name"
+            density="compact"
+            hide-details
+            class="mt-1"
+            @update:model-value="
+              (on) =>
+                (selectedOptionalChildCodes = on
+                  ? [...selectedOptionalChildCodes, option.rule.code]
+                  : selectedOptionalChildCodes.filter((code) => code !== option.rule.code))
             "
           />
-          <div v-else class="text-caption text-medium-emphasis">Та же цель, что у первого удара</div>
-        </div>
-        <v-btn
-          v-if="isWideAttack && slots.length < attackActionSourceService.maxTargets(selectedSourceRule)"
-          variant="outlined"
-          size="small"
-          class="mb-2"
-          :disabled="busy || !slots[0]?.profile"
-          @click="addTarget"
-        >
-          + Цель
-        </v-btn>
-        <v-btn
-          v-if="canAddSameWeaponSlot"
-          variant="outlined"
-          size="small"
-          class="mb-2"
-          :disabled="busy || !slots[0]?.profile"
-          @click="addSameWeaponSlot"
-        >
-          + Экземпляр
-        </v-btn>
-
-        <v-checkbox
-          v-for="option in afterStrikeOptions"
-          :key="option.rule.code"
-          :model-value="selectedOptionalChildCodes.includes(option.rule.code)"
-          :label="option.rule.name"
-          density="compact"
-          hide-details
-          class="mt-1"
-          @update:model-value="
-            (on) =>
-              (selectedOptionalChildCodes = on
-                ? [...selectedOptionalChildCodes, option.rule.code]
-                : selectedOptionalChildCodes.filter((code) => code !== option.rule.code))
-          "
-        />
-        <div v-if="launchEffectLines.length" class="text-body-2 text-medium-emphasis mt-2">
-          <div v-for="(line, index) in launchEffectLines" :key="index">
-            {{ line }}
+          <div v-if="launchEffectLines.length" class="text-body-2 text-medium-emphasis mt-2">
+            <div v-for="(line, index) in launchEffectLines" :key="index">
+              {{ line }}
+            </div>
           </div>
-        </div>
-        <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mt-3">{{ error }}</v-alert>
+          <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mt-3">{{ error }}</v-alert>
+        </template>
       </v-card-text>
       <v-card-actions>
         <v-spacer />
         <v-btn variant="text" :disabled="busy" @click="emit('update:open', false)">Отмена</v-btn>
-        <v-btn color="primary" :loading="busy" :disabled="!canContinue" @click="submitSafe"> Продолжить </v-btn>
+        <v-btn color="primary" :loading="busy" :disabled="loadPhase !== 'ready' || !canContinue" @click="submitSafe">
+          Продолжить
+        </v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>

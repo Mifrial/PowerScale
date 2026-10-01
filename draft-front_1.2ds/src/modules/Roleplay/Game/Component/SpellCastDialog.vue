@@ -19,6 +19,7 @@ import ConcentrationTokenOption from '@/modules/Roleplay/Game/Component/Concentr
 import { CONCENTRATION_TOKEN_ASK_INJECT_KEY } from '@/modules/Roleplay/Game/Constant/CONCENTRATION_TOKEN_ASK_INJECT_KEY';
 import { combatChatSendService } from '@/modules/Roleplay/Game/Service/Instance/combatChatSendService';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
+import { resolveLaunchLoad } from '@/modules/Roleplay/Game/Utils/launchLoadState';
 import { CHECK_HIT_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
 import { spellCastDifficultyService } from '@/modules/Roleplay/Game/Service/Instance/spellCastDifficultyService';
 import { spellCastOptionsService } from '@/modules/Roleplay/Game/Service/Instance/spellCastOptionsService';
@@ -110,6 +111,10 @@ const askTokenSpend = inject(CONCENTRATION_TOKEN_ASK_INJECT_KEY, undefined);
 const combatThread = useCombatChatThread(() => props.gameId);
 const overlays = ref<GameCombatOverlay[]>([]);
 const committedSessions = ref<Record<CombatEntityKey, CommittedActionSession>>({});
+const loadPhase = ref<'loading' | 'error' | 'incomplete' | 'ready'>('loading');
+const loadError = ref<string | null>(null);
+let loadGeneration = 0;
+let loadAbort: AbortController | null = null;
 const spendConcentration = ref(0);
 const spellCode = ref('');
 const sourceKey = ref('');
@@ -468,51 +473,99 @@ const castCheckLine = computed(() => {
   return line;
 });
 
-watch(
-  () => props.open,
-  async (open) => {
-    if (!open) {
+async function loadCastContext(open: boolean): Promise<void> {
+  if (!open) {
+    loadAbort?.abort();
+
+    return;
+  }
+  loadAbort?.abort();
+  const controller = new AbortController();
+  loadAbort = controller;
+  const generation = ++loadGeneration;
+  loadPhase.value = 'loading';
+  loadError.value = null;
+  error.value = null;
+  lastSkip.value = false;
+  lastMilk.value = false;
+  lastAutoFail.value = false;
+  showCastOptions.value = false;
+  if (keywords.value.length === 0) {
+    void fetchTags();
+  }
+  const signal = controller.signal;
+  try {
+    const [nextOverlays, nextCommitted, nextSpells, pendingEffectsByCaster] = await Promise.all([
+      getGameApi().getCombatOverlays(props.gameId, signal),
+      getGameApi().getCommittedActionSessions(props.gameId, signal),
+      getGameApi().getActiveSpells(props.gameId, signal),
+      getGameApi().getPendingActionEffects(props.gameId, signal),
+    ]);
+    if (generation !== loadGeneration) return;
+    const outcome = resolveLaunchLoad({
+      overlays: { ok: true as const, value: nextOverlays },
+      committed: { ok: true as const, value: nextCommitted },
+      spells: { ok: true as const, value: nextSpells },
+      pending: { ok: true as const, value: pendingEffectsByCaster },
+    });
+    if (outcome.status === 'error') {
+      loadPhase.value = 'error';
+      loadError.value = outcome.message;
+
       return;
     }
-    error.value = null;
-    lastSkip.value = false;
-    lastMilk.value = false;
-    lastAutoFail.value = false;
-    showCastOptions.value = false;
-    if (keywords.value.length === 0) {
-      void fetchTags();
+    overlays.value = outcome.values.overlays;
+    committedSessions.value = outcome.values.committed;
+    activeSpells.value = outcome.values.spells;
+    pendingSpellEffects.value = resolvedCasterKey.value ? (outcome.values.pending[resolvedCasterKey.value] ?? []) : [];
+    if (!resolvedCasterKey.value || !casterVersion.value) {
+      loadPhase.value = 'incomplete';
+
+      return;
     }
-    overlays.value = await getGameApi().getCombatOverlays(props.gameId);
-    committedSessions.value = await getGameApi()
-      .getCommittedActionSessions(props.gameId)
-      .catch(() => ({}));
-    activeSpells.value = await getGameApi().getActiveSpells(props.gameId);
-    const pendingEffectsByCaster = await getGameApi().getPendingActionEffects(props.gameId);
-    pendingSpellEffects.value = resolvedCasterKey.value ? pendingEffectsByCaster[resolvedCasterKey.value] ?? [] : [];
-    appliedUpgradeCodes.value = [];
-    appliedUpgradeValues.value = {};
-    await nextTick();
-    const sustain = chargeSustain.value;
-    if (sustain) {
-      sourceKey.value = sustain.sourceKey;
-      pathCode.value = sustain.pathCode ?? '';
-    } else {
-      sourceKey.value = sources.value[0]?.key ?? '';
-      pathCode.value = paths.value[0]?.pathCode ?? '';
+  } catch (cause) {
+    if (generation !== loadGeneration || (cause instanceof Error && cause.name === 'AbortError')) return;
+    const outcome = resolveLaunchLoad({ overlays: { ok: false as const, cause } });
+    if (outcome.status === 'error') {
+      loadPhase.value = 'error';
+      loadError.value = outcome.message;
     }
-    usedPower.value = spellCastOptionsService.defaultUsedPower(
-      overview.value,
-      casterVersion.value?.states ?? [],
-      sourceKey.value,
-    );
-    if (sustain && DimensionalNumber.from(usedPower.value).compare(DimensionalNumber.from(sustain.sustainPower)) > 0) {
-      usedPower.value = { ...sustain.sustainPower };
-    }
-    parameterPower.value = { ...usedPower.value };
-    spellCode.value = spells.value[0]?.ruleCode ?? '';
-    touchActionCode.value = SIMPLE_TOUCH_CODE;
-    touchTargetKey.value = '';
-    touchProfileItem.value = strikeProfileItems.value[0]?.value ?? '';
+
+    return;
+  }
+  if (generation !== loadGeneration) return;
+  appliedUpgradeCodes.value = [];
+  appliedUpgradeValues.value = {};
+  await nextTick();
+  if (generation !== loadGeneration) return;
+  const sustain = chargeSustain.value;
+  if (sustain) {
+    sourceKey.value = sustain.sourceKey;
+    pathCode.value = sustain.pathCode ?? '';
+  } else {
+    sourceKey.value = sources.value[0]?.key ?? '';
+    pathCode.value = paths.value[0]?.pathCode ?? '';
+  }
+  usedPower.value = spellCastOptionsService.defaultUsedPower(
+    overview.value,
+    casterVersion.value?.states ?? [],
+    sourceKey.value,
+  );
+  if (sustain && DimensionalNumber.from(usedPower.value).compare(DimensionalNumber.from(sustain.sustainPower)) > 0) {
+    usedPower.value = { ...sustain.sustainPower };
+  }
+  parameterPower.value = { ...usedPower.value };
+  spellCode.value = spells.value[0]?.ruleCode ?? '';
+  touchActionCode.value = SIMPLE_TOUCH_CODE;
+  touchTargetKey.value = '';
+  touchProfileItem.value = strikeProfileItems.value[0]?.value ?? '';
+  loadPhase.value = 'ready';
+}
+
+watch(
+  () => props.open,
+  (open) => {
+    void loadCastContext(open);
   },
 );
 
@@ -1542,170 +1595,190 @@ async function runChainHops(outcome: SpellCastExecutionResult, firstKey: CombatE
         </v-btn>
       </v-card-title>
       <v-card-text>
-        <template v-if="pendingSaturation">
-          <div class="text-body-2 mb-3">Каждый шаг стоит 2 РУ и увеличивает Мощь заклинания на 1.</div>
-          <div class="text-body-2 mb-3">Сейчас: {{ saturationRating }} РУ, Мощь {{ saturationPowerLabel }}.</div>
-          <ClampedNumberField
-            :model-value="saturationSteps"
-            label="Шаги энергонасыщения"
-            :min="0"
-            :max="saturationMaxSteps"
-            density="compact"
-            hide-details
-            @update:model-value="onSaturationStepsChange"
-          />
+        <div v-if="loadPhase === 'loading'" class="d-flex justify-center py-6">
+          <v-progress-circular indeterminate />
+        </div>
+        <template v-else-if="loadPhase === 'error'">
+          <v-alert type="error" variant="tonal" density="compact" class="mb-3">{{ loadError }}</v-alert>
+          <v-btn variant="text" @click="loadCastContext(true)">Повторить</v-btn>
         </template>
+        <v-alert v-else-if="loadPhase === 'incomplete'" type="warning" variant="tonal" density="compact">
+          Нет листа участника для этого действия.
+        </v-alert>
         <template v-else>
-          <v-alert v-if="chargeSustain" type="info" variant="tonal" density="compact" class="mb-3">
-            Каст через электрозаряд
-          </v-alert>
-          <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mb-3">{{ error }}</v-alert>
-          <SpellCastUpgradeList
-            v-model="appliedUpgradeCodes"
-            v-model:parameter-values="appliedUpgradeValues"
-            :options="upgradeOptions"
-            class="mb-3"
-          >
-            <v-autocomplete
-              v-model="spellCode"
-              :items="spellItems"
-              item-title="name"
-              item-value="ruleCode"
-              label="Заклинание"
+          <template v-if="pendingSaturation">
+            <div class="text-body-2 mb-3">Каждый шаг стоит 2 РУ и увеличивает Мощь заклинания на 1.</div>
+            <div class="text-body-2 mb-3">Сейчас: {{ saturationRating }} РУ, Мощь {{ saturationPowerLabel }}.</div>
+            <ClampedNumberField
+              :model-value="saturationSteps"
+              label="Шаги энергонасыщения"
+              :min="0"
+              :max="saturationMaxSteps"
               density="compact"
               hide-details
-              single-line
-              auto-select-first
+              @update:model-value="onSaturationStepsChange"
+            />
+          </template>
+          <template v-else>
+            <v-alert v-if="chargeSustain" type="info" variant="tonal" density="compact" class="mb-3">
+              Каст через электрозаряд
+            </v-alert>
+            <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mb-3">{{ error }}</v-alert>
+            <SpellCastUpgradeList
+              v-model="appliedUpgradeCodes"
+              v-model:parameter-values="appliedUpgradeValues"
+              :options="upgradeOptions"
+              class="mb-3"
             >
-              <template #item="{ props: itemProps, item }">
-                <v-list-item v-bind="itemProps">
-                  <template #append>
-                    <SpellCastSpellRequirementMarks
-                      :power-label="item.raw.powerLabel"
-                      :control-label="item.raw.controlLabel"
-                    />
-                  </template>
-                </v-list-item>
-              </template>
-              <template #append-inner>
-                <SpellCastSpellRequirementMarks
-                  v-if="selectedSpellItem"
-                  :power-label="selectedSpellItem.powerLabel"
-                  :control-label="selectedSpellItem.controlLabel"
-                />
-              </template>
-            </v-autocomplete>
-          </SpellCastUpgradeList>
-          <div v-if="showCastOptions" class="d-flex ga-2 mb-3">
-            <v-select
-              v-model="sourceKey"
-              :items="sourceItems"
-              label="Источник"
-              density="compact"
-              hide-details
-              class="flex-grow-1"
-              :disabled="Boolean(chargeSustain)"
+              <v-autocomplete
+                v-model="spellCode"
+                :items="spellItems"
+                item-title="name"
+                item-value="ruleCode"
+                label="Заклинание"
+                density="compact"
+                hide-details
+                single-line
+                auto-select-first
+              >
+                <template #item="{ props: itemProps, item }">
+                  <v-list-item v-bind="itemProps">
+                    <template #append>
+                      <SpellCastSpellRequirementMarks
+                        :power-label="item.raw.powerLabel"
+                        :control-label="item.raw.controlLabel"
+                      />
+                    </template>
+                  </v-list-item>
+                </template>
+                <template #append-inner>
+                  <SpellCastSpellRequirementMarks
+                    v-if="selectedSpellItem"
+                    :power-label="selectedSpellItem.powerLabel"
+                    :control-label="selectedSpellItem.controlLabel"
+                  />
+                </template>
+              </v-autocomplete>
+            </SpellCastUpgradeList>
+            <div v-if="showCastOptions" class="d-flex ga-2 mb-3">
+              <v-select
+                v-model="sourceKey"
+                :items="sourceItems"
+                label="Источник"
+                density="compact"
+                hide-details
+                class="flex-grow-1"
+                :disabled="Boolean(chargeSustain)"
+              />
+              <v-select
+                v-model="pathCode"
+                :items="pathItems"
+                label="Путь"
+                density="compact"
+                hide-details
+                class="flex-grow-1"
+                :disabled="Boolean(chargeSustain)"
+              />
+            </div>
+            <DimensionalNumberInput
+              v-if="showCastOptions"
+              :model-value="usedPower"
+              label="Используемая мощь"
+              :min="CHARACTERISTIC_BASE_RANGE.min"
+              :max="CHARACTERISTIC_BASE_RANGE.max"
+              class="mb-3"
+              @update:model-value="setUsedPower"
             />
-            <v-select
-              v-model="pathCode"
-              :items="pathItems"
-              label="Путь"
-              density="compact"
-              hide-details
-              class="flex-grow-1"
-              :disabled="Boolean(chargeSustain)"
+            <DimensionalNumberInput
+              v-if="powerIsParameter"
+              v-model="parameterPower"
+              label="Мощь заклинания"
+              :min="CHARACTERISTIC_BASE_RANGE.min"
+              :max="CHARACTERISTIC_BASE_RANGE.max"
+              class="mb-3"
             />
-          </div>
-          <DimensionalNumberInput
-            v-if="showCastOptions"
-            :model-value="usedPower"
-            label="Используемая мощь"
-            :min="CHARACTERISTIC_BASE_RANGE.min"
-            :max="CHARACTERISTIC_BASE_RANGE.max"
-            class="mb-3"
-            @update:model-value="setUsedPower"
-          />
-          <DimensionalNumberInput
-            v-if="powerIsParameter"
-            v-model="parameterPower"
-            label="Мощь заклинания"
-            :min="CHARACTERISTIC_BASE_RANGE.min"
-            :max="CHARACTERISTIC_BASE_RANGE.max"
-            class="mb-3"
-          />
-          <div v-else-if="fixedSpellPower" class="text-caption text-medium-emphasis mb-3">
-            Мощь заклинания: {{ fixedSpellPowerLabel }}
-          </div>
-          <v-checkbox
-            v-if="showCastOptions && !targetsSelf"
-            v-model="hasTarget"
-            label="Направлен на цель"
-            hide-details
-            density="compact"
-          />
-          <div v-else-if="showCastOptions && targetsSelf" class="text-caption text-medium-emphasis mb-2">Цель: вы</div>
-          <CombatEntitySelect
-            v-if="hasTarget"
-            v-model="targetKey"
-            label="Цель заклинания"
-            :characters="characters"
-            :npcs="npcs"
-            :initiative-keys="initiativeKeys"
-            :exclude="resolvedCasterKey ? [resolvedCasterKey] : []"
-            class="mt-2"
-          />
-          <template v-if="needsTouchAttack">
-            <v-select
-              v-model="touchActionCode"
-              :items="touchActions"
-              label="Атака касания"
-              density="compact"
+            <div v-else-if="fixedSpellPower" class="text-caption text-medium-emphasis mb-3">
+              Мощь заклинания: {{ fixedSpellPowerLabel }}
+            </div>
+            <v-checkbox
+              v-if="showCastOptions && !targetsSelf"
+              v-model="hasTarget"
+              label="Направлен на цель"
               hide-details
-              class="mt-3"
-            />
-            <v-select
-              v-model="touchProfileItem"
-              :items="strikeProfileItems"
-              label="Оружие касания"
               density="compact"
-              hide-details
-              class="mt-2"
             />
+            <div v-else-if="showCastOptions && targetsSelf" class="text-caption text-medium-emphasis mb-2">
+              Цель: вы
+            </div>
             <CombatEntitySelect
-              v-model="touchTargetKey"
-              label="Цель касания"
+              v-if="hasTarget"
+              v-model="targetKey"
+              label="Цель заклинания"
               :characters="characters"
               :npcs="npcs"
               :initiative-keys="initiativeKeys"
               :exclude="resolvedCasterKey ? [resolvedCasterKey] : []"
-              :leading="[{ title: 'Воздух', value: '' }]"
               class="mt-2"
             />
+            <template v-if="needsTouchAttack">
+              <v-select
+                v-model="touchActionCode"
+                :items="touchActions"
+                label="Атака касания"
+                density="compact"
+                hide-details
+                class="mt-3"
+              />
+              <v-select
+                v-model="touchProfileItem"
+                :items="strikeProfileItems"
+                label="Оружие касания"
+                density="compact"
+                hide-details
+                class="mt-2"
+              />
+              <CombatEntitySelect
+                v-model="touchTargetKey"
+                label="Цель касания"
+                :characters="characters"
+                :npcs="npcs"
+                :initiative-keys="initiativeKeys"
+                :exclude="resolvedCasterKey ? [resolvedCasterKey] : []"
+                :leading="[{ title: 'Воздух', value: '' }]"
+                class="mt-2"
+              />
+            </template>
+            <div class="text-caption text-medium-emphasis mt-2">Стоимость: {{ actionPointCost }} ОД</div>
+            <div v-if="needsSpellTarget && !hasTarget" class="text-caption text-warning mt-1">
+              Без цели заклинания сотворение автоматически провалится
+            </div>
+            <div class="text-body-2 mt-4">{{ castCheckLine }}</div>
+            <div v-if="!spellAvailable" class="text-caption text-warning mt-1">
+              Заклинание недоступно при текущем Интеллекте
+            </div>
+            <ConcentrationTokenOption
+              v-model="spendConcentration"
+              :version="casterVersion"
+              :overlay="overlays.find((item) => item.entityKey === resolvedCasterKey) ?? null"
+              :rules="rules"
+              :check-code="selectedPath?.checkCode ?? ''"
+              :characteristic-code="checkCharacteristicCode"
+            />
+            <div v-if="lastSkip" class="text-caption mt-1">Бросок не выполнялся</div>
+            <div v-if="lastMilk" class="text-caption mt-1">Эффект в молоко</div>
+            <div v-if="lastAutoFail" class="text-caption mt-1">Автопровал сотворения</div>
           </template>
-          <div class="text-caption text-medium-emphasis mt-2">Стоимость: {{ actionPointCost }} ОД</div>
-          <div v-if="needsSpellTarget && !hasTarget" class="text-caption text-warning mt-1">
-            Без цели заклинания сотворение автоматически провалится
-          </div>
-          <div class="text-body-2 mt-4">{{ castCheckLine }}</div>
-          <div v-if="!spellAvailable" class="text-caption text-warning mt-1">
-            Заклинание недоступно при текущем Интеллекте
-          </div>
-          <ConcentrationTokenOption
-            v-model="spendConcentration"
-            :version="casterVersion"
-            :overlay="overlays.find((item) => item.entityKey === resolvedCasterKey) ?? null"
-            :rules="rules"
-            :check-code="selectedPath?.checkCode ?? ''"
-            :characteristic-code="checkCharacteristicCode"
-          />
-          <div v-if="lastSkip" class="text-caption mt-1">Бросок не выполнялся</div>
-          <div v-if="lastMilk" class="text-caption mt-1">Эффект в молоко</div>
-          <div v-if="lastAutoFail" class="text-caption mt-1">Автопровал сотворения</div>
         </template>
       </v-card-text>
       <v-card-actions>
         <v-spacer />
-        <v-btn v-if="pendingSaturation" color="primary" :loading="busy" :disabled="!canEdit" @click="confirmSaturation">
+        <v-btn
+          v-if="pendingSaturation"
+          color="primary"
+          :loading="busy"
+          :disabled="loadPhase !== 'ready' || !canEdit"
+          @click="confirmSaturation"
+        >
           Применить
         </v-btn>
         <template v-else>
@@ -1713,7 +1786,7 @@ async function runChainHops(outcome: SpellCastExecutionResult, firstKey: CombatE
           <v-btn
             color="primary"
             :loading="busy"
-            :disabled="!canEdit || !spellCode || !preview || !spellAvailable"
+            :disabled="loadPhase !== 'ready' || !canEdit || !spellCode || !preview || !spellAvailable"
             @click="runCast"
           >
             Сотворить

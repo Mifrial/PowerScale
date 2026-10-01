@@ -4,6 +4,7 @@ import { useCombatChatThread } from '@/modules/Roleplay/Game/Composables/useComb
 import { combatChatSendService } from '@/modules/Roleplay/Game/Service/Instance/combatChatSendService';
 
 import { getGameApi } from '@/modules/Roleplay/Game/init';
+import { resolveLaunchLoad } from '@/modules/Roleplay/Game/Utils/launchLoadState';
 import { characterOverviewService, movementContextService } from '@/modules/Roleplay/Character/init';
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
 import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue';
@@ -168,6 +169,10 @@ const { keywords, fetchTags } = useKeywords();
 const overlays = ref<GameCombatOverlay[]>([]);
 const pendingEffectsByEntity = ref<Record<CombatEntityKey, PendingActionEffect[]>>({});
 const committedSessions = ref<Record<CombatEntityKey, CommittedActionSession>>({});
+const loadPhase = ref<'loading' | 'error' | 'incomplete' | 'ready'>('loading');
+const loadError = ref<string | null>(null);
+let loadGeneration = 0;
+let loadAbort: AbortController | null = null;
 const offer = ref<CheckOffer | null>(null);
 const opponentKey = ref<CombatEntityKey | null>(null);
 const reaction = ref<HitDefenseReaction | null>(null);
@@ -823,83 +828,116 @@ watch(blockItemRuleCode, (id) => {
   if (profile) defenseEfficiency.value = { ...profile.efficiency };
 });
 
+function isAbortError(cause: unknown): boolean {
+  return cause instanceof Error && cause.name === 'AbortError';
+}
+
 async function hydrate(): Promise<void> {
+  loadAbort?.abort();
+  const controller = new AbortController();
+  loadAbort = controller;
+  const generation = ++loadGeneration;
+  loadPhase.value = 'loading';
+  loadError.value = null;
   error.value = null;
   appliedStrikeUpgradeCodes.value = props.resumeOffer?.proposal.appliedStrikeUpgradeCodes ?? [];
   const api = getGameApi();
-  const [nextOverlays, nextPendingEffects, nextCommitted] = await Promise.all([
-    api.getCombatOverlays(props.gameId).catch(() => []),
-    api.getPendingActionEffects(props.gameId).catch(() => ({})),
-    api.getCommittedActionSessions(props.gameId).catch(() => ({})),
-  ]);
-  overlays.value = nextOverlays;
-  pendingEffectsByEntity.value = nextPendingEffects;
-  committedSessions.value = nextCommitted;
-  if (keywords.value.length === 0) {
-    void fetchTags();
-  }
-  if (props.resumeOffer) {
-    offer.value = props.resumeOffer;
-    opponentKey.value =
-      props.resumeOffer.proposal.targetProposals?.find(
-        (target) => target.targetKey === speakerEntity.value && target.hit.reaction === null,
-      )?.targetKey ??
-      props.resumeOffer.proposal.targetProposals?.find((target) => target.hit.reaction === null)?.targetKey ??
-      props.resumeOffer.opponent;
-    const pending = sequentialStrikeOfferService.nextPending(
-      sequentialStrikeOfferService.slotsFrom(props.resumeOffer.proposal),
-      opponentKey.value,
-    );
-    const hit = pending?.hit ?? props.resumeOffer.proposal.hit;
-    reaction.value = hit?.reaction ?? null;
-    attackerAdv.value = props.resumeOffer.proposal.initiatorAdv;
-    defenderAdv.value = props.resumeOffer.proposal.opponentAdv;
-    spendAttackerConcentration.value = concentrationTokenService.parseSpendAmount(
-      props.resumeOffer.proposal.initiatorSpendConcentration,
-    );
-    spendDefenderConcentration.value = concentrationTokenService.parseSpendAmount(
-      props.resumeOffer.proposal.opponentSpendConcentration,
-    );
-    agreedInitiatorAdv.value = props.resumeOffer.proposal.initiatorAdv;
-    agreedOpponentAdv.value = props.resumeOffer.proposal.opponentAdv;
-    agreedCover.value = Math.max(0, hit?.cover ?? 0);
-    blockItemRuleCode.value = hit?.blockItemRuleCode ?? null;
-    selectedActionRuleCode.value = hit?.actionRuleCode ?? fixedActionRuleCode.value ?? selectedActionRuleCode.value;
-    distanceIpari.value = hit?.distanceIpari ?? props.attack?.minDistance ?? 1;
-    cover.value = Math.max(0, hit?.cover ?? 0);
-    flank.value = hit?.flank ?? false;
-    turn.value = hit?.turn ?? false;
-    coveringBlockItemRuleCode.value = coveringBlockProfiles.value[0]?.itemRuleCode ?? null;
-    const coverer = actingEntity(props.resumeOffer);
-    const invite = props.resumeOffer.proposal.coverInvites?.find((item) => item.coveringKey === coverer);
-    coveringAdv.value = invite?.coveringAdv ?? 0;
-    agreedCoveringAdv.value = invite?.coveringAdv ?? 0;
-    if (hit?.defenseEfficiency) {
-      defenseEfficiency.value = { ...hit.defenseEfficiency };
-    } else {
-      applyReactionDefaults(reaction.value);
-    }
+  const signal = controller.signal;
+  try {
+    const [nextOverlays, nextPendingEffects, nextCommitted] = await Promise.all([
+      api.getCombatOverlays(props.gameId, signal),
+      api.getPendingActionEffects(props.gameId, signal),
+      api.getCommittedActionSessions(props.gameId, signal),
+    ]);
+    if (generation !== loadGeneration) return;
+    const outcome = resolveLaunchLoad({
+      overlays: { ok: true as const, value: nextOverlays },
+      pending: { ok: true as const, value: nextPendingEffects },
+      committed: { ok: true as const, value: nextCommitted },
+    });
+    if (outcome.status === 'error') {
+      loadPhase.value = 'error';
+      loadError.value = outcome.message;
 
-    return;
+      return;
+    }
+    overlays.value = outcome.values.overlays;
+    pendingEffectsByEntity.value = outcome.values.pending;
+    committedSessions.value = outcome.values.committed;
+    if (keywords.value.length === 0) {
+      void fetchTags();
+    }
+    if (props.resumeOffer) {
+      offer.value = props.resumeOffer;
+      opponentKey.value =
+        props.resumeOffer.proposal.targetProposals?.find(
+          (target) => target.targetKey === speakerEntity.value && target.hit.reaction === null,
+        )?.targetKey ??
+        props.resumeOffer.proposal.targetProposals?.find((target) => target.hit.reaction === null)?.targetKey ??
+        props.resumeOffer.opponent;
+      const pending = sequentialStrikeOfferService.nextPending(
+        sequentialStrikeOfferService.slotsFrom(props.resumeOffer.proposal),
+        opponentKey.value,
+      );
+      const hit = pending?.hit ?? props.resumeOffer.proposal.hit;
+      reaction.value = hit?.reaction ?? null;
+      attackerAdv.value = props.resumeOffer.proposal.initiatorAdv;
+      defenderAdv.value = props.resumeOffer.proposal.opponentAdv;
+      spendAttackerConcentration.value = concentrationTokenService.parseSpendAmount(
+        props.resumeOffer.proposal.initiatorSpendConcentration,
+      );
+      spendDefenderConcentration.value = concentrationTokenService.parseSpendAmount(
+        props.resumeOffer.proposal.opponentSpendConcentration,
+      );
+      agreedInitiatorAdv.value = props.resumeOffer.proposal.initiatorAdv;
+      agreedOpponentAdv.value = props.resumeOffer.proposal.opponentAdv;
+      agreedCover.value = Math.max(0, hit?.cover ?? 0);
+      blockItemRuleCode.value = hit?.blockItemRuleCode ?? null;
+      selectedActionRuleCode.value = hit?.actionRuleCode ?? fixedActionRuleCode.value ?? selectedActionRuleCode.value;
+      distanceIpari.value = hit?.distanceIpari ?? props.attack?.minDistance ?? 1;
+      cover.value = Math.max(0, hit?.cover ?? 0);
+      flank.value = hit?.flank ?? false;
+      turn.value = hit?.turn ?? false;
+      coveringBlockItemRuleCode.value = coveringBlockProfiles.value[0]?.itemRuleCode ?? null;
+      const coverer = actingEntity(props.resumeOffer);
+      const invite = props.resumeOffer.proposal.coverInvites?.find((item) => item.coveringKey === coverer);
+      coveringAdv.value = invite?.coveringAdv ?? 0;
+      agreedCoveringAdv.value = invite?.coveringAdv ?? 0;
+      if (hit?.defenseEfficiency) {
+        defenseEfficiency.value = { ...hit.defenseEfficiency };
+      } else {
+        applyReactionDefaults(reaction.value);
+      }
+    } else {
+      offer.value = null;
+      opponentKey.value = resolvedAttackAction.value?.strikes[0]?.targetKey ?? opponentOptions.value[0]?.value ?? null;
+      reaction.value = null;
+      attackerAdv.value = 0;
+      spendAttackerConcentration.value = 0;
+      spendDefenderConcentration.value = 0;
+      defenderAdv.value = 0;
+      agreedInitiatorAdv.value = 0;
+      agreedOpponentAdv.value = 0;
+      agreedCover.value = 0;
+      blockItemRuleCode.value = null;
+      distanceIpari.value = Math.max(1, props.attack?.minDistance ?? 1);
+      cover.value = 0;
+      flank.value = false;
+      turn.value = false;
+      coveringAdv.value = 0;
+      agreedCoveringAdv.value = 0;
+      defenseEfficiency.value = { ...procedure.value.dodgeEfficiency };
+    }
+    const attacker = resolvedAttackerKey.value;
+    loadPhase.value = !attacker || !versionOf(attacker) ? 'incomplete' : 'ready';
+  } catch (cause) {
+    if (generation !== loadGeneration || isAbortError(cause)) return;
+    const outcome = resolveLaunchLoad({ overlays: { ok: false as const, cause } });
+    if (outcome.status === 'error') {
+      loadPhase.value = 'error';
+      loadError.value = outcome.message;
+    }
   }
-  offer.value = null;
-  opponentKey.value = resolvedAttackAction.value?.strikes[0]?.targetKey ?? opponentOptions.value[0]?.value ?? null;
-  reaction.value = null;
-  attackerAdv.value = 0;
-  spendAttackerConcentration.value = 0;
-  spendDefenderConcentration.value = 0;
-  defenderAdv.value = 0;
-  agreedInitiatorAdv.value = 0;
-  agreedOpponentAdv.value = 0;
-  agreedCover.value = 0;
-  blockItemRuleCode.value = null;
-  distanceIpari.value = Math.max(1, props.attack?.minDistance ?? 1);
-  cover.value = 0;
-  flank.value = false;
-  turn.value = false;
-  coveringAdv.value = 0;
-  agreedCoveringAdv.value = 0;
-  defenseEfficiency.value = { ...procedure.value.dodgeEfficiency };
 }
 
 watch(
@@ -2002,10 +2040,7 @@ async function applyArcaneBurstFromHit(
 ): Promise<void> {
   const version = versionOf(target.key);
   const grant = version
-    ? spellCastOptionsService.targetResistanceFromOverview(
-        overviewOf(target.key),
-        ARCANE_DAMAGE_TYPE_CODE,
-      )
+    ? spellCastOptionsService.targetResistanceFromOverview(overviewOf(target.key), ARCANE_DAMAGE_TYPE_CODE)
     : 0;
   const amount = spellDeviationService.explosionAmount(ctx.usedPower, target.distanceIpari, deviation.dieDigit, grant);
   const weapon = spellDeviationService.explosionWeaponDamage(amount);
@@ -3073,146 +3108,140 @@ const canSubmit = computed(() => {
         <template v-else-if="resolvedAttack"> оружием «{{ resolvedAttack.itemName }}»</template>
       </v-card-title>
       <v-card-text class="hit-dialog-body px-4 py-2">
-        <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mb-2">{{ error }}</v-alert>
-        <v-select
-          v-if="isCompose && !attackAction"
-          v-model="selectedActionRuleCode"
-          :items="attackSelectItems"
-          item-title="title"
-          item-value="code"
-          density="compact"
-          variant="outlined"
-          hide-details
-          label="Действие атаки"
-        />
-        <div v-else class="text-body-2">
-          <template v-if="resolvedAttackAction?.source.kind === 'process'">
-            {{ processStep?.name ?? 'Шаг процесса' }} · {{ resolvedAttackAction.strikes.length }}
-            {{
-              resolvedAttackAction.reactionMode === 'sequential'
-                ? 'последовательных'
-                : resolvedAttackAction.reactionMode === 'paired'
-                  ? 'сдвоенных'
-                  : 'одновременных'
-            }}
-            ударов
-          </template>
-          <template v-else-if="isGroupAttack">
-            {{ selectedAction?.name ?? 'Групповая атака' }} · {{ targetProposals.length }} цели
-          </template>
-          <template v-else>
-            {{ selectedAction?.name ?? 'Действие атаки' }}
-            <template v-if="(resolvedAttackAction?.strikes.length ?? 0) > 1">
-              ·
-              {{ resolvedAttackAction?.strikes.map((strike) => strike.profile.itemName).join(' и ') }}
+        <div v-if="loadPhase === 'loading'" class="d-flex justify-center py-6">
+          <v-progress-circular indeterminate />
+        </div>
+        <template v-else-if="loadPhase === 'error'">
+          <v-alert type="error" variant="tonal" density="compact" class="mb-3">{{ loadError }}</v-alert>
+          <v-btn variant="text" @click="hydrate">Повторить</v-btn>
+        </template>
+        <v-alert v-else-if="loadPhase === 'incomplete'" type="warning" variant="tonal" density="compact">
+          Нет листа участника для этого действия.
+        </v-alert>
+        <template v-else>
+          <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mb-2">{{ error }}</v-alert>
+          <v-select
+            v-if="isCompose && !attackAction"
+            v-model="selectedActionRuleCode"
+            :items="attackSelectItems"
+            item-title="title"
+            item-value="code"
+            density="compact"
+            variant="outlined"
+            hide-details
+            label="Действие атаки"
+          />
+          <div v-else class="text-body-2">
+            <template v-if="resolvedAttackAction?.source.kind === 'process'">
+              {{ processStep?.name ?? 'Шаг процесса' }} · {{ resolvedAttackAction.strikes.length }}
+              {{
+                resolvedAttackAction.reactionMode === 'sequential'
+                  ? 'последовательных'
+                  : resolvedAttackAction.reactionMode === 'paired'
+                    ? 'сдвоенных'
+                    : 'одновременных'
+              }}
+              ударов
             </template>
-          </template>
-        </div>
-        <v-alert
-          v-if="offer && myTurn && isDefenderStep"
-          type="info"
-          variant="tonal"
-          density="compact"
-          class="mt-2 mb-1"
-        >
-          Вы отвечаете за защиту цели: <strong>{{ nameOf(opponentKey) }}</strong>
-        </v-alert>
-        <v-alert v-else-if="offer && isWaiting" type="info" variant="tonal" density="compact" class="mt-2 mb-1">
-          Ожидаем одобрения:
-          {{
-            offer.waitingOnTargets?.length
-              ? offer.waitingOnTargets.map((target) => nameOf(target)).join(', ')
-              : nameOf(offer.waitingOn === 'opponent' ? offer.opponent : offer.initiator)
-          }}
-        </v-alert>
-        <div v-if="resolvedAttack && !isPreparationAction" class="text-caption text-medium-emphasis mt-1">
-          Точность: {{ new DimensionalNumber(resolvedAttack.accuracy).toString() }} · Урон:
-          {{ new DimensionalNumber(resolvedAttack.damage).toString() }}
-          {{ damageTypeLabel }} · Пробитие: {{ new DimensionalNumber(resolvedAttack.penetration).toString() }} ·
-          {{ attackActionCost }} ОД
-        </div>
-        <div v-if="!isPreparationAction" class="text-caption text-medium-emphasis mt-1">
-          {{ attackerHitAdvantageSummary }}
-        </div>
-        <div v-if="!isPreparationAction && defenderHitAdvantageIsNonZero" class="text-caption text-medium-emphasis">
-          {{ defenderHitAdvantageSummary }}
-        </div>
-        <div class="d-flex align-center ga-2 flex-wrap">
-          <ClampedNumberField
-            v-if="isRanged && !isPreparationAction"
-            v-model="distanceIpari"
-            label="Дистанция, ипари"
-            :min="1"
-            :max="400"
-            density="compact"
-            hide-details
-            min-width="140px"
-            class="flex-grow-1"
-            :disabled="!isCompose"
-          />
-          <ClampedNumberField
-            v-if="isRanged && !isPreparationAction"
-            v-model="cover"
-            label="Укрытие"
-            :min="0"
-            :max="20"
-            density="compact"
-            hide-details
-            min-width="110px"
-            class="flex-grow-1"
-            :disabled="!canEditCover"
-          />
-          <v-checkbox
-            v-if="!isPreparationAction"
-            v-model="flank"
-            label="Фланг"
-            density="compact"
-            hide-details
-            class="hit-check flex-grow-0"
-            :disabled="!isCompose"
-          />
-        </div>
-        <div v-if="hasFixedTargets" class="text-body-2">Цели: {{ targetNamesLabel }}</div>
-        <div v-if="isGroupAttack" class="text-caption text-medium-emphasis">
-          <div v-for="target in targetProposals" :key="target.targetKey">
-            {{ nameOf(target.targetKey) }}: {{ reactionLabel(target) }}
+            <template v-else-if="isGroupAttack">
+              {{ selectedAction?.name ?? 'Групповая атака' }} · {{ targetProposals.length }} цели
+            </template>
+            <template v-else>
+              {{ selectedAction?.name ?? 'Действие атаки' }}
+              <template v-if="(resolvedAttackAction?.strikes.length ?? 0) > 1">
+                ·
+                {{ resolvedAttackAction?.strikes.map((strike) => strike.profile.itemName).join(' и ') }}
+              </template>
+            </template>
           </div>
-        </div>
-        <CombatEntitySelect
-          v-else-if="!isPreparationAction && !hasFixedTargets"
-          v-model="opponentKey"
-          label="Цель"
-          :characters="characters"
-          :npcs="npcs"
-          :initiative-keys="initiativeKeys"
-          :exclude="followUpExclude"
-          :disabled="!isCompose"
-        />
-        <HitStrikeUpgradeList
-          v-if="isCompose && !isPreparationAction"
-          v-model="appliedStrikeUpgradeCodes"
-          :options="strikeUpgradeOptions"
-          class="mt-2"
-        />
-        <ClampedNumberField
-          v-if="isCompose && !isPreparationAction"
-          v-model="attackerAdv"
-          label="Преим. атака"
-          :min="-ROLL_ADV_MAX"
-          :max="ROLL_ADV_MAX"
-          density="compact"
-          hide-details
-        />
-        <ConcentrationTokenOption
-          v-if="isCompose && !isPreparationAction"
-          v-model="spendAttackerConcentration"
-          :version="versionOf(resolvedAttackerKey)"
-          :overlay="overlays.find((item) => item.entityKey === resolvedAttackerKey) ?? null"
-          :rules="rules"
-          :check-code="CHECK_HIT_CODE"
-        />
-        <div v-if="offer && myTurn && !isCoveringStep" class="d-flex ga-2">
+          <v-alert
+            v-if="offer && myTurn && isDefenderStep"
+            type="info"
+            variant="tonal"
+            density="compact"
+            class="mt-2 mb-1"
+          >
+            Вы отвечаете за защиту цели: <strong>{{ nameOf(opponentKey) }}</strong>
+          </v-alert>
+          <v-alert v-else-if="offer && isWaiting" type="info" variant="tonal" density="compact" class="mt-2 mb-1">
+            Ожидаем одобрения:
+            {{
+              offer.waitingOnTargets?.length
+                ? offer.waitingOnTargets.map((target) => nameOf(target)).join(', ')
+                : nameOf(offer.waitingOn === 'opponent' ? offer.opponent : offer.initiator)
+            }}
+          </v-alert>
+          <div v-if="resolvedAttack && !isPreparationAction" class="text-caption text-medium-emphasis mt-1">
+            Точность: {{ new DimensionalNumber(resolvedAttack.accuracy).toString() }} · Урон:
+            {{ new DimensionalNumber(resolvedAttack.damage).toString() }}
+            {{ damageTypeLabel }} · Пробитие: {{ new DimensionalNumber(resolvedAttack.penetration).toString() }} ·
+            {{ attackActionCost }} ОД
+          </div>
+          <div v-if="!isPreparationAction" class="text-caption text-medium-emphasis mt-1">
+            {{ attackerHitAdvantageSummary }}
+          </div>
+          <div v-if="!isPreparationAction && defenderHitAdvantageIsNonZero" class="text-caption text-medium-emphasis">
+            {{ defenderHitAdvantageSummary }}
+          </div>
+          <div class="d-flex align-center ga-2 flex-wrap">
+            <ClampedNumberField
+              v-if="isRanged && !isPreparationAction"
+              v-model="distanceIpari"
+              label="Дистанция, ипари"
+              :min="1"
+              :max="400"
+              density="compact"
+              hide-details
+              min-width="140px"
+              class="flex-grow-1"
+              :disabled="!isCompose"
+            />
+            <ClampedNumberField
+              v-if="isRanged && !isPreparationAction"
+              v-model="cover"
+              label="Укрытие"
+              :min="0"
+              :max="20"
+              density="compact"
+              hide-details
+              min-width="110px"
+              class="flex-grow-1"
+              :disabled="!canEditCover"
+            />
+            <v-checkbox
+              v-if="!isPreparationAction"
+              v-model="flank"
+              label="Фланг"
+              density="compact"
+              hide-details
+              class="hit-check flex-grow-0"
+              :disabled="!isCompose"
+            />
+          </div>
+          <div v-if="hasFixedTargets" class="text-body-2">Цели: {{ targetNamesLabel }}</div>
+          <div v-if="isGroupAttack" class="text-caption text-medium-emphasis">
+            <div v-for="target in targetProposals" :key="target.targetKey">
+              {{ nameOf(target.targetKey) }}: {{ reactionLabel(target) }}
+            </div>
+          </div>
+          <CombatEntitySelect
+            v-else-if="!isPreparationAction && !hasFixedTargets"
+            v-model="opponentKey"
+            label="Цель"
+            :characters="characters"
+            :npcs="npcs"
+            :initiative-keys="initiativeKeys"
+            :exclude="followUpExclude"
+            :disabled="!isCompose"
+          />
+          <HitStrikeUpgradeList
+            v-if="isCompose && !isPreparationAction"
+            v-model="appliedStrikeUpgradeCodes"
+            :options="strikeUpgradeOptions"
+            class="mt-2"
+          />
           <ClampedNumberField
+            v-if="isCompose && !isPreparationAction"
             v-model="attackerAdv"
             label="Преим. атака"
             :min="-ROLL_ADV_MAX"
@@ -3220,121 +3249,152 @@ const canSubmit = computed(() => {
             density="compact"
             hide-details
           />
-          <ClampedNumberField
-            v-model="defenderAdv"
-            label="Преим. защита"
-            :min="-ROLL_ADV_MAX"
-            :max="ROLL_ADV_MAX"
-            density="compact"
-            hide-details
-          />
-        </div>
-        <template v-if="isCoveringStep">
-          <div class="text-body-2">
-            Прикрыть {{ nameOf(opponentKey) }} от атаки? Это реакция за 2 ОД, без уклонения.
-          </div>
-          <div class="text-caption text-medium-emphasis">
-            Преимущества атакующего: {{ attackerAdv }}. Помехи прикрывающего задайте ниже и при необходимости верните на
-            одобрение.
-          </div>
-          <ClampedNumberField
-            v-model="coveringAdv"
-            label="Преим. блока"
-            :min="-ROLL_ADV_MAX"
-            :max="ROLL_ADV_MAX"
-            density="compact"
-            hide-details
-          />
-          <v-select
-            v-model="coveringBlockItemRuleCode"
-            :items="coveringBlockProfiles"
-            item-title="itemName"
-            item-value="itemRuleCode"
-            density="compact"
-            variant="outlined"
-            hide-details
-            label="Блок прикрывающего"
-          />
-        </template>
-        <template v-if="isDefenderStep">
           <ConcentrationTokenOption
-            v-model="spendDefenderConcentration"
-            :version="versionOf(opponentKey)"
-            :overlay="overlays.find((item) => item.entityKey === opponentKey) ?? null"
+            v-if="isCompose && !isPreparationAction"
+            v-model="spendAttackerConcentration"
+            :version="versionOf(resolvedAttackerKey)"
+            :overlay="overlays.find((item) => item.entityKey === resolvedAttackerKey) ?? null"
             :rules="rules"
             :check-code="CHECK_HIT_CODE"
           />
-          <div v-if="acceptedCoverInvites.length" class="text-body-2">
-            Вас попытается прикрыть
-            {{ acceptedCoverInvites.map((invite) => nameOf(invite.coveringKey)).join(', ') }}
+          <div v-if="offer && myTurn && !isCoveringStep" class="d-flex ga-2">
+            <ClampedNumberField
+              v-model="attackerAdv"
+              label="Преим. атака"
+              :min="-ROLL_ADV_MAX"
+              :max="ROLL_ADV_MAX"
+              density="compact"
+              hide-details
+            />
+            <ClampedNumberField
+              v-model="defenderAdv"
+              label="Преим. защита"
+              :min="-ROLL_ADV_MAX"
+              :max="ROLL_ADV_MAX"
+              density="compact"
+              hide-details
+            />
           </div>
-          <div class="text-caption text-medium-emphasis">Реакция защиты</div>
-          <div v-if="sequentialStrikeCaption" class="text-body-2 mb-1">{{ sequentialStrikeCaption }}</div>
-          <p v-if="defenderReactionAbortsCommitted" class="text-warning text-body-2 mb-2">
-            Уклон или блок сорвут незавершённое действие, потраченные ОД не вернутся.
-          </p>
-          <v-btn-toggle
-            v-model="reaction"
-            density="compact"
-            color="primary"
-            variant="outlined"
-            divided
-            class="hit-reaction-toggle"
-          >
-            <v-btn value="ignore" size="small">Игнор</v-btn>
-            <v-btn value="dodge" size="small" :disabled="!dodgeAffordable">
-              Уклон · {{ dodgeAction?.odCost ?? 1 }} ОД
-            </v-btn>
-            <v-btn value="block" size="small" :disabled="!canBlock || !blockAffordable">
-              Блок · {{ blockAction?.odCost ?? 2 }} ОД
-            </v-btn>
-          </v-btn-toggle>
-          <v-checkbox
-            v-if="flank && reaction !== 'ignore'"
-            v-model="turn"
-            :label="`Поворот · ${turnAbility.odCost} ОД`"
-            density="compact"
-            hide-details
-            class="hit-check"
-          />
-          <v-select
-            v-if="reaction === 'block'"
-            v-model="blockItemRuleCode"
-            :items="blockProfiles"
-            item-title="itemName"
-            item-value="itemRuleCode"
-            density="compact"
-            variant="outlined"
-            hide-details
-            label="Профиль блока"
-          />
-          <DimensionalNumberInput
-            v-if="reaction === 'dodge' || reaction === 'block'"
-            v-model="defenseEfficiency"
-            label="Эффективность защиты"
-            :min="CHARACTERISTIC_BASE_RANGE.min"
-            :max="CHARACTERISTIC_BASE_RANGE.max"
-          />
+          <template v-if="isCoveringStep">
+            <div class="text-body-2">
+              Прикрыть {{ nameOf(opponentKey) }} от атаки? Это реакция за 2 ОД, без уклонения.
+            </div>
+            <div class="text-caption text-medium-emphasis">
+              Преимущества атакующего: {{ attackerAdv }}. Помехи прикрывающего задайте ниже и при необходимости верните
+              на одобрение.
+            </div>
+            <ClampedNumberField
+              v-model="coveringAdv"
+              label="Преим. блока"
+              :min="-ROLL_ADV_MAX"
+              :max="ROLL_ADV_MAX"
+              density="compact"
+              hide-details
+            />
+            <v-select
+              v-model="coveringBlockItemRuleCode"
+              :items="coveringBlockProfiles"
+              item-title="itemName"
+              item-value="itemRuleCode"
+              density="compact"
+              variant="outlined"
+              hide-details
+              label="Блок прикрывающего"
+            />
+          </template>
+          <template v-if="isDefenderStep">
+            <ConcentrationTokenOption
+              v-model="spendDefenderConcentration"
+              :version="versionOf(opponentKey)"
+              :overlay="overlays.find((item) => item.entityKey === opponentKey) ?? null"
+              :rules="rules"
+              :check-code="CHECK_HIT_CODE"
+            />
+            <div v-if="acceptedCoverInvites.length" class="text-body-2">
+              Вас попытается прикрыть
+              {{ acceptedCoverInvites.map((invite) => nameOf(invite.coveringKey)).join(', ') }}
+            </div>
+            <div class="text-caption text-medium-emphasis">Реакция защиты</div>
+            <div v-if="sequentialStrikeCaption" class="text-body-2 mb-1">{{ sequentialStrikeCaption }}</div>
+            <p v-if="defenderReactionAbortsCommitted" class="text-warning text-body-2 mb-2">
+              Уклон или блок сорвут незавершённое действие, потраченные ОД не вернутся.
+            </p>
+            <v-btn-toggle
+              v-model="reaction"
+              density="compact"
+              color="primary"
+              variant="outlined"
+              divided
+              class="hit-reaction-toggle"
+            >
+              <v-btn value="ignore" size="small">Игнор</v-btn>
+              <v-btn value="dodge" size="small" :disabled="!dodgeAffordable">
+                Уклон · {{ dodgeAction?.odCost ?? 1 }} ОД
+              </v-btn>
+              <v-btn value="block" size="small" :disabled="!canBlock || !blockAffordable">
+                Блок · {{ blockAction?.odCost ?? 2 }} ОД
+              </v-btn>
+            </v-btn-toggle>
+            <v-checkbox
+              v-if="flank && reaction !== 'ignore'"
+              v-model="turn"
+              :label="`Поворот · ${turnAbility.odCost} ОД`"
+              density="compact"
+              hide-details
+              class="hit-check"
+            />
+            <v-select
+              v-if="reaction === 'block'"
+              v-model="blockItemRuleCode"
+              :items="blockProfiles"
+              item-title="itemName"
+              item-value="itemRuleCode"
+              density="compact"
+              variant="outlined"
+              hide-details
+              label="Профиль блока"
+            />
+            <DimensionalNumberInput
+              v-if="reaction === 'dodge' || reaction === 'block'"
+              v-model="defenseEfficiency"
+              label="Эффективность защиты"
+              :min="CHARACTERISTIC_BASE_RANGE.min"
+              :max="CHARACTERISTIC_BASE_RANGE.max"
+            />
+          </template>
+          <v-alert v-if="isWaiting" type="info" variant="tonal" density="compact" class="mb-0">
+            Ждём
+            {{
+              offer?.waitingOn === 'covering'
+                ? 'прикрывающих'
+                : offer?.waitingOn === 'opponent'
+                  ? 'защитника'
+                  : 'атакующего'
+            }}.
+          </v-alert>
+          <v-alert v-if="coverChoicePending" type="info" variant="tonal" density="compact" class="mb-0">
+            Все прикрытия провалены. Выберите фактическую цель.
+          </v-alert>
         </template>
-        <v-alert v-if="isWaiting" type="info" variant="tonal" density="compact" class="mb-0">
-          Ждём
-          {{
-            offer?.waitingOn === 'covering'
-              ? 'прикрывающих'
-              : offer?.waitingOn === 'opponent'
-                ? 'защитника'
-                : 'атакующего'
-          }}.
-        </v-alert>
-        <v-alert v-if="coverChoicePending" type="info" variant="tonal" density="compact" class="mb-0">
-          Все прикрытия провалены. Выберите фактическую цель.
-        </v-alert>
       </v-card-text>
       <v-card-actions class="py-2 px-4">
         <v-spacer />
         <v-btn variant="text" size="small" :disabled="busy" @click="close">Закрыть</v-btn>
-        <v-btn v-if="offer && myTurn" variant="text" size="small" :disabled="busy" @click="submitRevise">Вернуть</v-btn>
-        <v-btn v-if="isCoveringStep" variant="text" size="small" :disabled="busy" @click="submitCoverDecline">
+        <v-btn
+          v-if="offer && myTurn"
+          variant="text"
+          size="small"
+          :disabled="busy || loadPhase !== 'ready'"
+          @click="submitRevise"
+          >Вернуть</v-btn
+        >
+        <v-btn
+          v-if="isCoveringStep"
+          variant="text"
+          size="small"
+          :disabled="busy || loadPhase !== 'ready'"
+          @click="submitCoverDecline"
+        >
           Не прикрывать
         </v-btn>
         <template v-if="coverChoicePending">
@@ -3345,12 +3405,20 @@ const canSubmit = computed(() => {
             size="small"
             variant="tonal"
             :loading="busy"
+            :disabled="loadPhase !== 'ready'"
             @click="finishCoverChoice(choiceKey)"
           >
             {{ nameOf(choiceKey) }}
           </v-btn>
         </template>
-        <v-btn v-else color="primary" size="small" :loading="busy" :disabled="!canSubmit" @click="submit">
+        <v-btn
+          v-else
+          color="primary"
+          size="small"
+          :loading="busy"
+          :disabled="loadPhase !== 'ready' || !canSubmit"
+          @click="submit"
+        >
           {{ primaryLabel }}
         </v-btn>
       </v-card-actions>

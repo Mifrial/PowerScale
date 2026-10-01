@@ -21,6 +21,7 @@ import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/Dimension
 import type { CombatActionOption } from '@/modules/Roleplay/Game/Utils/combatActions';
 import type { ActionLaunchHint } from '@/modules/Roleplay/Game/Dto/ActionLaunchHint';
 import { actionOperationResolutionService, getGameApi } from '@/modules/Roleplay/Game/init';
+import { resolveLaunchLoad } from '@/modules/Roleplay/Game/Utils/launchLoadState';
 import { characterOverviewService, movementContextService } from '@/modules/Roleplay/Character/init';
 import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
 import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
@@ -88,6 +89,11 @@ const chosenActionOdCost = ref(0);
 const showReactions = ref(false);
 const busy = ref(false);
 const error = ref<string | null>(null);
+const loadPhase = ref<'loading' | 'error' | 'incomplete' | 'ready'>('loading');
+const loadError = ref<string | null>(null);
+const stretchReloadPending = ref(false);
+let loadGeneration = 0;
+let loadAbort: AbortController | null = null;
 const selectedHorizontalDirection = ref<HorizontalMovementDirection | null>(null);
 const selectedVerticalDirection = ref<VerticalMovementDirection | null>(null);
 const horizontalDistance = ref<DimensionalNumberValue | null>(null);
@@ -397,28 +403,67 @@ function speakerFor(key: CombatEntityKey): ChatSpeaker {
   return { kind: 'character', characterId: id, characterName: character?.characterName ?? 'Персонаж' };
 }
 
-async function hydrate(): Promise<void> {
-  error.value = null;
-  const api = getGameApi();
-  const [nextOverlays, nextPending, nextSpeed] = await Promise.all([
-    api.getCombatOverlays(props.gameId).catch(() => []),
-    api.getPendingActionEffects(props.gameId).catch(() => ({})),
-    keyForHydrate(api),
-  ]);
-  processSessionsByEntity.value = await api.getProcessSessions(props.gameId).catch(() => ({}));
-  committedSessionsByEntity.value = await api.getCommittedActionSessions(props.gameId).catch(() => ({}));
-  overlays.value = nextOverlays;
-  pendingEffectsByEntity.value = nextPending;
-  if (nextSpeed) currentSpeed.value = nextSpeed;
-  selectedRuleId.value = props.launchHint?.actionCode ?? selectableActions.value[0]?.code ?? null;
-  selectedProcessStepCode.value = null;
-  selectedProcessAttackKey.value = null;
+function isAbortError(cause: unknown): boolean {
+  return cause instanceof Error && cause.name === 'AbortError';
 }
 
-async function keyForHydrate(api: ReturnType<typeof getGameApi>): Promise<CurrentSpeed | null> {
-  const key = actorKey.value;
+async function hydrate(): Promise<void> {
+  loadAbort?.abort();
+  const controller = new AbortController();
+  loadAbort = controller;
+  const generation = ++loadGeneration;
+  loadPhase.value = 'loading';
+  loadError.value = null;
+  stretchReloadPending.value = false;
+  const api = getGameApi();
+  const signal = controller.signal;
+  const actor = actorKey.value;
+  try {
+    const reads: [
+      Promise<GameCombatOverlay[]>,
+      Promise<Record<CombatEntityKey, PendingActionEffect[]>>,
+      Promise<Record<CombatEntityKey, ProcessSession>>,
+      Promise<Record<CombatEntityKey, CommittedActionSession>>,
+      Promise<CurrentSpeed | null>,
+    ] = [
+      api.getCombatOverlays(props.gameId, signal),
+      api.getPendingActionEffects(props.gameId, signal),
+      api.getProcessSessions(props.gameId, signal),
+      api.getCommittedActionSessions(props.gameId, signal),
+      actor ? api.getCurrentSpeed(props.gameId, actor, signal) : Promise.resolve(null),
+    ];
+    const [nextOverlays, nextPending, nextProcesses, nextCommitted, nextSpeed] = await Promise.all(reads);
+    if (generation !== loadGeneration) return;
+    const outcome = resolveLaunchLoad({
+      overlays: { ok: true as const, value: nextOverlays },
+      pending: { ok: true as const, value: nextPending },
+      processes: { ok: true as const, value: nextProcesses },
+      committed: { ok: true as const, value: nextCommitted },
+      ...(nextSpeed ? { speed: { ok: true as const, value: nextSpeed } } : {}),
+    });
+    if (outcome.status === 'error') {
+      loadPhase.value = 'error';
+      loadError.value = outcome.message;
 
-  return key ? api.getCurrentSpeed(props.gameId, key).catch(() => null) : null;
+      return;
+    }
+    overlays.value = outcome.values.overlays;
+    pendingEffectsByEntity.value = outcome.values.pending;
+    processSessionsByEntity.value = outcome.values.processes;
+    committedSessionsByEntity.value = outcome.values.committed;
+    if (nextSpeed) currentSpeed.value = nextSpeed;
+    selectedRuleId.value = props.launchHint?.actionCode ?? selectableActions.value[0]?.code ?? null;
+    selectedProcessStepCode.value = null;
+    selectedProcessAttackKey.value = null;
+    loadPhase.value = !actorKey.value || !actorVersion.value ? 'incomplete' : 'ready';
+  } catch (cause) {
+    if (generation !== loadGeneration || isAbortError(cause)) return;
+    const outcome = resolveLaunchLoad({ overlays: { ok: false as const, cause } });
+    if (outcome.status === 'error') {
+      loadPhase.value = 'error';
+      loadError.value = outcome.message;
+    }
+  }
 }
 
 function operationRequestsOf(): ActionOperationRequest[] {
@@ -546,9 +591,12 @@ async function submit(): Promise<void> {
       speaker,
       sendChat,
     });
-    committedSessionsByEntity.value = await getGameApi()
-      .getCommittedActionSessions(props.gameId)
-      .catch(() => ({}));
+    try {
+      committedSessionsByEntity.value = await getGameApi().getCommittedActionSessions(props.gameId);
+    } catch (cause) {
+      stretchReloadPending.value = true;
+      throw cause instanceof Error ? cause : new Error('Не удалось обновить сессию действия');
+    }
     emit('overlay-changed');
 
     return;
@@ -699,6 +747,22 @@ function actionRuleOf(ruleCode: string): Rule {
   return rule;
 }
 
+async function reloadStretchSession(): Promise<void> {
+  busy.value = true;
+  error.value = null;
+  try {
+    committedSessionsByEntity.value = await getGameApi().getCommittedActionSessions(props.gameId);
+    stretchReloadPending.value = false;
+    emit('overlay-changed');
+    emit('settled');
+    emit('update:open', false);
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : 'Не удалось обновить сессию действия';
+  } finally {
+    busy.value = false;
+  }
+}
+
 async function submitSafe(): Promise<void> {
   busy.value = true;
   error.value = null;
@@ -831,165 +895,177 @@ watch(
     <v-card>
       <v-card-title>Действие</v-card-title>
       <v-card-text>
-        <v-switch v-model="showReactions" label="Показывать реакции" density="compact" hide-details class="mb-2" />
-        <v-autocomplete
-          v-model="selectedRuleId"
-          :items="selectableActions"
-          item-title="name"
-          item-value="ruleCode"
-          label="Выберите действие"
-          placeholder="Начните вводить название"
-          no-data-text="Действия не найдены"
-          clearable
-          :disabled="busy || !actorKey"
-          :item-props="(item) => ({ disabled: isActionItemDisabled(item) })"
-        >
-          <template #item="{ props: itemProps, item }">
-            <v-list-item
-              v-bind="itemProps"
-              :title="
-                item.raw.isProcess
-                  ? `${item.raw.name} · процесс`
-                  : `${item.raw.name} · ${item.raw.isVariableCost ? 'выберите ОД' : `${item.raw.odCost} ОД`}`
-              "
-            />
-          </template>
-        </v-autocomplete>
-        <div v-if="activeCommitted" class="text-body-2 text-medium-emphasis mb-2">
-          Незавершённое действие: осталось {{ activeCommitted.remainingOd }} ОД. Другие действия недоступны, кроме
-          ожидания (срыв).
+        <div v-if="loadPhase === 'loading'" class="d-flex justify-center py-6">
+          <v-progress-circular indeterminate />
         </div>
-        <WoundActionLaunchFields
-          :action-code="selectedAction?.code ?? null"
-          :target-key="woundTargetKey"
-          :wound-indices="woundIndices"
-          :actor-version="actorVersion"
-          :target-version="woundTargetVersion"
-          :characters="characters"
-          :npcs="npcs"
-          :disabled="busy"
-          @update:target-key="woundTargetKey = $event"
-          @update:wound-indices="woundIndices = $event"
-        />
-        <CombatEntitySelect
-          v-if="needsFollowUpTarget"
-          v-model="followUpTargetKey"
-          label="Цель прошлой атаки"
-          :characters="characters"
-          :npcs="npcs"
-          :exclude="followUpExclude"
-          :disabled="busy"
-        />
-        <div v-if="activeProcess" class="text-body-2 text-medium-emphasis mb-2">
-          Активный процесс: <strong>{{ processRule?.name ?? activeProcess.processRuleCode }}</strong
-          >, текущий шаг — {{ activeProcess.currentStepCode }}
-          <v-btn
-            v-if="
-              processRuleSpec &&
-              processSessionService.canInterruptNormally(processRuleSpec, activeProcess.currentStepCode)
-            "
-            size="x-small"
-            variant="text"
-            color="warning"
-            class="ml-1"
-            :disabled="busy"
-            @click="stopProcess"
-          >
-            Прекратить
-          </v-btn>
-        </div>
-        <ClampedNumberField
-          v-if="selectedAction?.isVariableCost"
-          :model-value="chosenActionOdCost"
-          :min="1"
-          :max="actionPoints"
-          label="Количество ОД"
-          hint="Можно потратить любое доступное количество ОД"
-          persistent-hint
-          density="compact"
-          class="mb-2"
-          :disabled="busy"
-          @update:model-value="chosenActionOdCost = $event ?? 0"
-        />
-        <template v-if="selectedMovementOperations.length">
-          <v-select
-            v-if="horizontalDirectionOptions.length"
-            v-model="selectedHorizontalDirection"
-            :items="horizontalDirectionOptions"
-            item-title="title"
-            item-value="value"
-            label="Горизонтальное направление"
-            density="compact"
-            class="mb-2"
-          />
-          <DimensionalNumberInput
-            v-if="selectedHorizontalDirection"
-            v-model="horizontalDistance"
-            label="Горизонтальная дистанция"
-            density="compact"
-            class="mb-2"
-          />
-          <div v-if="horizontalMovementMaxLabel" class="text-caption text-medium-emphasis mb-2">
-            Максимум: {{ horizontalMovementMaxLabel }}
-          </div>
-          <v-select
-            v-if="verticalDirectionOptions.length"
-            v-model="selectedVerticalDirection"
-            :items="verticalDirectionOptions"
-            item-title="title"
-            item-value="value"
-            label="Вертикальное направление"
-            density="compact"
-            class="mb-2"
-          />
-          <DimensionalNumberInput
-            v-if="selectedVerticalDirection"
-            v-model="verticalDistance"
-            label="Вертикальная дистанция"
-            density="compact"
-            class="mb-2"
-          />
-          <div v-if="verticalMovementMaxLabel" class="text-caption text-medium-emphasis mb-2">
-            Максимум: {{ verticalMovementMaxLabel }}
-          </div>
+        <template v-else-if="loadPhase === 'error'">
+          <v-alert type="error" variant="tonal" density="compact" class="mb-3">{{ loadError }}</v-alert>
+          <v-btn variant="text" @click="hydrate">Повторить</v-btn>
         </template>
-        <template v-if="selectedAction?.isProcess">
+        <v-alert v-else-if="loadPhase === 'incomplete'" type="warning" variant="tonal" density="compact">
+          Нет листа участника для этого действия.
+        </v-alert>
+        <template v-else>
+          <v-switch v-model="showReactions" label="Показывать реакции" density="compact" hide-details class="mb-2" />
           <v-autocomplete
-            v-model="selectedProcessStepCode"
-            :items="processSteps"
+            v-model="selectedRuleId"
+            :items="selectableActions"
             item-title="name"
-            item-value="code"
-            label="Следующий шаг"
-            :disabled="busy"
-            class="mb-2"
+            item-value="ruleCode"
+            label="Выберите действие"
+            placeholder="Начните вводить название"
+            no-data-text="Действия не найдены"
+            clearable
+            :disabled="busy || !actorKey"
+            :item-props="(item) => ({ disabled: isActionItemDisabled(item) })"
           >
             <template #item="{ props: itemProps, item }">
               <v-list-item
                 v-bind="itemProps"
-                :title="`${item.raw.name} · ${processSessionService.stepCost(item.raw, 'action-points')} ОД`"
+                :title="
+                  item.raw.isProcess
+                    ? `${item.raw.name} · процесс`
+                    : `${item.raw.name} · ${item.raw.isVariableCost ? 'выберите ОД' : `${item.raw.odCost} ОД`}`
+                "
               />
             </template>
           </v-autocomplete>
-          <v-autocomplete
-            v-if="!isMovementProcess"
-            v-model="selectedProcessAttackKey"
-            :items="processAttacks"
-            :item-title="(item) => `${item.itemName} · ${item.profileTypeLabel}`"
-            :item-value="(item) => `${item.itemRuleCode}:${item.profileType}`"
-            label="Профиль атаки"
+          <div v-if="activeCommitted" class="text-body-2 text-medium-emphasis mb-2">
+            Незавершённое действие: осталось {{ activeCommitted.remainingOd }} ОД. Другие действия недоступны, кроме
+            ожидания (срыв).
+          </div>
+          <WoundActionLaunchFields
+            :action-code="selectedAction?.code ?? null"
+            :target-key="woundTargetKey"
+            :wound-indices="woundIndices"
+            :actor-version="actorVersion"
+            :target-version="woundTargetVersion"
+            :characters="characters"
+            :npcs="npcs"
+            :disabled="busy"
+            @update:target-key="woundTargetKey = $event"
+            @update:wound-indices="woundIndices = $event"
+          />
+          <CombatEntitySelect
+            v-if="needsFollowUpTarget"
+            v-model="followUpTargetKey"
+            label="Цель прошлой атаки"
+            :characters="characters"
+            :npcs="npcs"
+            :exclude="followUpExclude"
             :disabled="busy"
           />
-          <div class="text-body-2 text-medium-emphasis mb-2">Стоимость шага: {{ processStepApCost }} ОД</div>
-        </template>
-        <div v-if="selectedAction?.effects?.length" class="text-body-2 text-medium-emphasis">
-          <div v-for="(effect, index) in selectedAction.effects" :key="index">
-            {{ actionEffectService.describe(effect) }}
+          <div v-if="activeProcess" class="text-body-2 text-medium-emphasis mb-2">
+            Активный процесс: <strong>{{ processRule?.name ?? activeProcess.processRuleCode }}</strong
+            >, текущий шаг — {{ activeProcess.currentStepCode }}
+            <v-btn
+              v-if="
+                processRuleSpec &&
+                processSessionService.canInterruptNormally(processRuleSpec, activeProcess.currentStepCode)
+              "
+              size="x-small"
+              variant="text"
+              color="warning"
+              class="ml-1"
+              :disabled="busy"
+              @click="stopProcess"
+            >
+              Прекратить
+            </v-btn>
           </div>
-        </div>
-        <v-alert v-if="movementInputError" type="error" variant="tonal" density="compact" class="mt-3">
-          {{ movementInputError }}
-        </v-alert>
-        <v-alert v-else-if="error" type="error" variant="tonal" density="compact" class="mt-3">{{ error }}</v-alert>
+          <ClampedNumberField
+            v-if="selectedAction?.isVariableCost"
+            :model-value="chosenActionOdCost"
+            :min="1"
+            :max="actionPoints"
+            label="Количество ОД"
+            hint="Можно потратить любое доступное количество ОД"
+            persistent-hint
+            density="compact"
+            class="mb-2"
+            :disabled="busy"
+            @update:model-value="chosenActionOdCost = $event ?? 0"
+          />
+          <template v-if="selectedMovementOperations.length">
+            <v-select
+              v-if="horizontalDirectionOptions.length"
+              v-model="selectedHorizontalDirection"
+              :items="horizontalDirectionOptions"
+              item-title="title"
+              item-value="value"
+              label="Горизонтальное направление"
+              density="compact"
+              class="mb-2"
+            />
+            <DimensionalNumberInput
+              v-if="selectedHorizontalDirection"
+              v-model="horizontalDistance"
+              label="Горизонтальная дистанция"
+              density="compact"
+              class="mb-2"
+            />
+            <div v-if="horizontalMovementMaxLabel" class="text-caption text-medium-emphasis mb-2">
+              Максимум: {{ horizontalMovementMaxLabel }}
+            </div>
+            <v-select
+              v-if="verticalDirectionOptions.length"
+              v-model="selectedVerticalDirection"
+              :items="verticalDirectionOptions"
+              item-title="title"
+              item-value="value"
+              label="Вертикальное направление"
+              density="compact"
+              class="mb-2"
+            />
+            <DimensionalNumberInput
+              v-if="selectedVerticalDirection"
+              v-model="verticalDistance"
+              label="Вертикальная дистанция"
+              density="compact"
+              class="mb-2"
+            />
+            <div v-if="verticalMovementMaxLabel" class="text-caption text-medium-emphasis mb-2">
+              Максимум: {{ verticalMovementMaxLabel }}
+            </div>
+          </template>
+          <template v-if="selectedAction?.isProcess">
+            <v-autocomplete
+              v-model="selectedProcessStepCode"
+              :items="processSteps"
+              item-title="name"
+              item-value="code"
+              label="Следующий шаг"
+              :disabled="busy"
+              class="mb-2"
+            >
+              <template #item="{ props: itemProps, item }">
+                <v-list-item
+                  v-bind="itemProps"
+                  :title="`${item.raw.name} · ${processSessionService.stepCost(item.raw, 'action-points')} ОД`"
+                />
+              </template>
+            </v-autocomplete>
+            <v-autocomplete
+              v-if="!isMovementProcess"
+              v-model="selectedProcessAttackKey"
+              :items="processAttacks"
+              :item-title="(item) => `${item.itemName} · ${item.profileTypeLabel}`"
+              :item-value="(item) => `${item.itemRuleCode}:${item.profileType}`"
+              label="Профиль атаки"
+              :disabled="busy"
+            />
+            <div class="text-body-2 text-medium-emphasis mb-2">Стоимость шага: {{ processStepApCost }} ОД</div>
+          </template>
+          <div v-if="selectedAction?.effects?.length" class="text-body-2 text-medium-emphasis">
+            <div v-for="(effect, index) in selectedAction.effects" :key="index">
+              {{ actionEffectService.describe(effect) }}
+            </div>
+          </div>
+          <v-alert v-if="movementInputError" type="error" variant="tonal" density="compact" class="mt-3">
+            {{ movementInputError }}
+          </v-alert>
+          <v-alert v-else-if="error" type="error" variant="tonal" density="compact" class="mt-3">{{ error }}</v-alert>
+        </template>
       </v-card-text>
       <v-card-actions>
         <v-spacer />
@@ -998,15 +1074,17 @@ watch(
           color="primary"
           :loading="busy"
           :disabled="
-            !selectedAction ||
-            !actorKey ||
-            !!movementInputError ||
-            (needsFollowUpTarget &&
-              !lastStrikeService.canFollowUp(selectedActionRule, actorSnapshot, followUpTargetKey))
+            loadPhase !== 'ready' ||
+            (!stretchReloadPending &&
+              (!selectedAction ||
+                !actorKey ||
+                !!movementInputError ||
+                (needsFollowUpTarget &&
+                  !lastStrikeService.canFollowUp(selectedActionRule, actorSnapshot, followUpTargetKey))))
           "
-          @click="submitSafe"
+          @click="stretchReloadPending ? reloadStretchSession() : submitSafe()"
         >
-          Выполнить
+          {{ stretchReloadPending ? 'Обновить сессию' : 'Выполнить' }}
         </v-btn>
       </v-card-actions>
     </v-card>
