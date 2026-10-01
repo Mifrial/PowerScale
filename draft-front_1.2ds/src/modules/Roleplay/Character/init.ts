@@ -42,6 +42,10 @@ export const CharacterSheetEditor = defineAsyncComponent(
 
 export const SheetCard = defineAsyncComponent(() => import('@/modules/Roleplay/Character/Component/SheetCard.vue'));
 
+export const CharacterSheetBody = defineAsyncComponent(
+  () => import('@/modules/Roleplay/Character/Component/Detail/CharacterSheetBody.vue'),
+);
+
 export const CharacterCombatSheet = defineAsyncComponent(
   () => import('@/modules/Roleplay/Character/Component/Combat/CharacterCombatSheet.vue'),
 );

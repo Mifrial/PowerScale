@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useSpaceRevision } from '@/modules/Roleplay/RuleSpace/init';
-import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useCharacterStore } from '@/modules/Roleplay/Character/Store/characters';
 import { useCharacterDraftStore } from '@/modules/Roleplay/Character/Store/characterDraft';
@@ -11,22 +11,13 @@ import { CHARACTER_STATUS_OPTIONS } from '@/modules/Roleplay/Character/Constant/
 import { CHARACTER_STATUS_COLOR } from '@/modules/Roleplay/Character/Constant/CHARACTER_STATUS_COLOR';
 import type { CharacterStatus } from '@/modules/Roleplay/Character/Enum/CharacterStatus';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import OverviewTab from '@/modules/Roleplay/Character/Component/Detail/OverviewTab.vue';
-import DescriptionTab from '@/modules/Roleplay/Character/Component/Detail/DescriptionTab.vue';
-import AbilityTab from '@/modules/Roleplay/Character/Component/Detail/AbilityTab.vue';
-import InventoryTab from '@/modules/Roleplay/Character/Component/Editor/InventoryTab.vue';
-import DiscussionTab from '@/modules/Roleplay/Character/Component/Detail/DiscussionTab.vue';
-import { useRuleDetailSlider } from '@/modules/Roleplay/Character/Composables/useRuleDetailSlider';
 import { useCharacterCardDraft } from '@/modules/Roleplay/Character/Composables/useCharacterCardDraft';
 import { characterChangePort, getCharacterApi, getCharacterCardExtensions } from '@/modules/Roleplay/Character/init';
 import { sheetAccessService } from '@/modules/Roleplay/Character/Service/Instance/sheetAccessService';
 import { SHEET_VISIBLE_SECTIONS } from '@/modules/Roleplay/Character/Constant/Sheet/SHEET_SECTIONS';
 import type { SheetAccessContext } from '@/modules/Roleplay/Character/Interface/SheetAccessContext';
-import SheetCard from '@/modules/Roleplay/Character/Component/SheetCard.vue';
-import UniqueRulesTab from '@/modules/Roleplay/Character/Component/Detail/UniqueRulesTab.vue';
+import CharacterSheetBody from '@/modules/Roleplay/Character/Component/Detail/CharacterSheetBody.vue';
 import OwnerNotesDialog from '@/modules/Roleplay/Character/Component/OwnerNotesDialog.vue';
-
-const RuleSlider = defineAsyncComponent(() => import('@/modules/Roleplay/Rule/Component/RuleSlider.vue'));
 
 const route = useRoute();
 const router = useRouter();
@@ -35,10 +26,6 @@ const draftStore = useCharacterDraftStore();
 const { currentUser } = useCurrentUser();
 const spaceRevision = useSpaceRevision();
 const { signal } = useAbortable();
-const ruleSlider = useRuleDetailSlider();
-
-const activeTab = ref('overview');
-
 const detail = computed(() => store.currentCharacter);
 const detailError = computed(() => store.detailError);
 const detailLoading = computed(() => store.detailLoading);
@@ -371,87 +358,27 @@ watch(detail, (value) => {
         <component :is="extension.component" :character-id="detail.character.id" />
       </div>
 
-      <template v-if="hasFullView">
-        <v-tabs v-model="activeTab" color="primary" class="mb-4">
-          <v-tab value="overview">Обзор</v-tab>
-          <v-tab value="description">Описание</v-tab>
-          <v-tab value="abilities">Способности</v-tab>
-          <v-tab value="inventory">Инвентарь</v-tab>
-          <v-tab value="unique-rules">Уникальные правила</v-tab>
-          <v-tab value="discussion">Обсуждение</v-tab>
-        </v-tabs>
-
-        <v-window v-model="activeTab">
-          <v-window-item value="overview">
-            <OverviewTab
-              :version="displayVersion ?? detail.version"
-              :rules="rules"
-              :rules-loading="rulesLoading"
-              :rules-error="rulesError"
-            />
-          </v-window-item>
-          <v-window-item value="description">
-            <DescriptionTab :version="displayVersion ?? detail.version" />
-          </v-window-item>
-          <v-window-item value="abilities">
-            <AbilityTab
-              :version="displayVersion ?? detail.version"
-              :rules="rules"
-              :rules-loading="rulesLoading"
-              :character-id="detail.character.id"
-            />
-          </v-window-item>
-          <v-window-item value="inventory">
-            <InventoryTab
-              v-if="sheetBuild && sheetModel"
-              variant="sheet"
-              :build="sheetBuild"
-              :model="sheetModel"
-              :draft-key="sheetDraftKey"
-              :rules="rules"
-              :keywords="sheetKeywords"
-              :can-edit="canEdit"
-              :ensure-draft="ensureDraft"
-            />
-            <div v-else-if="rulesLoading" class="d-flex justify-center pa-8">
-              <v-progress-circular indeterminate width="2" size="28" color="primary" />
-            </div>
-            <div v-else class="text-medium-emphasis pa-4">{{ rulesError || 'Инвентарь недоступен' }}</div>
-          </v-window-item>
-          <v-window-item value="unique-rules">
-            <UniqueRulesTab
-              :version="detail.version"
-              :character-id="detail.character.id"
-              :space-id="detail.character.spaceId"
-              :rules-revision="detail.version.rulesRevision"
-              @updated="load()"
-            />
-          </v-window-item>
-          <v-window-item value="discussion">
-            <!-- Чат живёт в глобальном чат-сторе; монтируем вкладку только при открытии, чтобы освобождать чат при уходе -->
-            <DiscussionTab
-              v-if="activeTab === 'discussion'"
-              :discussion-chat-id="detail.discussionChatId"
-              :space-id="detail.character.spaceId"
-              :rules-revision="detail.version.rulesRevision"
-            />
-          </v-window-item>
-        </v-window>
-      </template>
-
-      <!-- Ограниченный доступ: показываем только видимые секции листа -->
-      <v-card v-else>
-        <v-card-text>
-          <SheetCard
-            :name="detail.character.name"
-            :version="detail.version"
-            :visible-sections="visibleSections"
-            :space-id="detail.character.spaceId"
-            :rules-revision="detail.version.rulesRevision"
-            :short-description="detail.character.shortDescription"
-          />
-        </v-card-text>
-      </v-card>
+      <CharacterSheetBody
+        :name="detail.character.name"
+        :version="displayVersion ?? detail.version"
+        :space-id="detail.character.spaceId"
+        :visible-sections="visibleSections"
+        :short-description="detail.character.shortDescription"
+        :supplied-rules="rules"
+        :supplied-rules-loading="rulesLoading"
+        :supplied-rules-error="rulesError"
+        :supplied-build="sheetBuild"
+        :supplied-model="sheetModel"
+        :supplied-keywords="sheetKeywords"
+        :can-edit="canEdit"
+        :draft-key="sheetDraftKey"
+        :ensure-draft="ensureDraft"
+        :character-id="detail.character.id"
+        :show-favorites="true"
+        :discussion-chat-id="detail.discussionChatId"
+        :show-discussion="hasFullView"
+        @updated="load()"
+      />
     </template>
   </v-container>
 
@@ -461,14 +388,5 @@ watch(detail, (value) => {
     :saving="notesSaving"
     :error="notesError"
     @save="saveOwnerNotes"
-  />
-
-  <RuleSlider
-    v-model:open="ruleSlider.state.open"
-    :rule-code="ruleSlider.state.ruleCode"
-    :space-id="detail?.character.spaceId ?? null"
-    :rules-revision="detail?.version.rulesRevision ?? null"
-    :rules="rules"
-    :keywords="sheetKeywords"
   />
 </template>

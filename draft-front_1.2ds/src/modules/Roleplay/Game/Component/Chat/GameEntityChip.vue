@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import type { InlineSegment } from '@/modules/Messages/Chat/Dto/InlineSegment';
 
 const props = defineProps<{
@@ -8,6 +8,7 @@ const props = defineProps<{
   context?: { openEntity?: (key: string) => void };
 }>();
 
+const route = useRoute();
 const router = useRouter();
 
 const entityId = computed(() => Number(props.segment.params[0]));
@@ -32,6 +33,14 @@ function open(): void {
   }
   if (props.segment.type === 'character') {
     void router.push({ name: 'CharacterDetail', params: { id: String(entityId.value) } });
+
+    return;
+  }
+  if (props.segment.type === 'npc') {
+    const gameRaw = route.params.id;
+    const gameId = typeof gameRaw === 'string' ? gameRaw : '';
+    if (!gameId) return;
+    void router.push({ name: 'NpcDetail', params: { id: gameId, npcId: String(entityId.value) } });
   }
 }
 </script>

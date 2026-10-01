@@ -50,6 +50,13 @@ export const routes: RouteRecordRaw[] = [
     meta: { title: 'Настройки игры', crumb: (to) => gameCrumb(to, 'Настройки') },
   },
   {
+    path: 'games/:id/npcs/:npcId',
+    name: 'NpcDetail',
+    component: () => import('@/modules/Roleplay/Game/Page/NpcDetailPage.vue'),
+    // Без route-perm: игра и зоны листа проверяются внутри страницы после загрузки.
+    meta: { title: 'НПС', crumb: (to) => gameCrumb(to, 'НПС') },
+  },
+  {
     path: 'games/:id/npcs/:npcId/edit',
     name: 'NpcEdit',
     component: () => import('@/modules/Roleplay/Game/Page/NpcEditPage.vue'),

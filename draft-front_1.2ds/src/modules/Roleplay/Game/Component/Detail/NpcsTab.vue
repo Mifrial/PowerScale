@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import { debounce } from '@/modules/Core/UI/Utils/debounce';
 import { useCurrentUser } from '@/modules/Core/User/init';
 import { getGameApi, getGameRealtimePort } from '@/modules/Roleplay/Game/init';
@@ -29,6 +30,7 @@ const props = defineProps<{
 }>();
 
 const { currentUser } = useCurrentUser();
+const router = useRouter();
 
 const npcs = ref<GameNpcSummary[]>([]);
 const nextCursor = ref<string | null>(null);
@@ -127,7 +129,7 @@ async function load(append = false): Promise<void> {
       gameId: props.gameId,
       query: query.value.trim() || undefined,
       limit: 50,
-      cursor: append ? nextCursor.value ?? undefined : undefined,
+      cursor: append ? (nextCursor.value ?? undefined) : undefined,
     });
     if (requestSequence !== loadSequence) return;
     npcs.value = append ? [...npcs.value, ...result.items] : result.items;
@@ -291,12 +293,13 @@ async function openCard(npc: GameNpcSummary): Promise<void> {
   });
 }
 
+function openDetail(npc: GameNpcSummary): void {
+  void router.push({ name: 'NpcDetail', params: { id: String(props.gameId), npcId: String(npc.id) } });
+}
+
 async function handleSave(npcId: number, data: NpcCardData): Promise<void> {
   await run(async () => {
-    const target =
-      selectedNpc.value?.id === npcId
-        ? selectedNpc.value
-        : await getGameApi().getNpc(props.gameId, npcId);
+    const target = selectedNpc.value?.id === npcId ? selectedNpc.value : await getGameApi().getNpc(props.gameId, npcId);
     const updated = await getGameApi().updateNpc(npcId, {
       ...data,
       version: target.version,
@@ -445,7 +448,7 @@ onUnmounted(() => {
         </div>
 
         <v-list v-else density="compact" lines="two">
-          <v-list-item v-for="npc in filteredNpcs" :key="npc.id" @click="openCard(npc)">
+          <v-list-item v-for="npc in filteredNpcs" :key="npc.id" @click="openDetail(npc)">
             <div class="d-flex align-center ga-2 py-1">
               <v-avatar color="primary" size="28" variant="tonal" class="flex-shrink-0">
                 <v-icon size="small">mdi-account-question</v-icon>
@@ -481,6 +484,9 @@ onUnmounted(() => {
               <span v-if="npc.shortDescription" class="text-caption text-medium-emphasis npc-brief">
                 {{ npc.shortDescription }}
               </span>
+              <v-btn v-if="canManage" icon variant="text" size="x-small" title="Поля НПС" @click.stop="openCard(npc)">
+                <v-icon>mdi-card-text-outline</v-icon>
+              </v-btn>
               <v-btn
                 v-if="canManage"
                 icon
@@ -509,7 +515,7 @@ onUnmounted(() => {
         <div v-if="filteredMyProposals.length > 0" class="border-t">
           <div class="text-caption text-medium-emphasis px-3 pt-3">Ваши предложения</div>
           <v-list density="compact">
-            <v-list-item v-for="npc in filteredMyProposals" :key="npc.id" @click="openCard(npc)">
+            <v-list-item v-for="npc in filteredMyProposals" :key="npc.id" @click="openDetail(npc)">
               <div class="d-flex align-center ga-2 py-1">
                 <span class="text-body-2">{{ npc.name }}</span>
                 <v-chip color="warning" variant="tonal" size="x-small">На модерации</v-chip>
