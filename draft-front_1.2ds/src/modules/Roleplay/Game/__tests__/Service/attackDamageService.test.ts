@@ -333,6 +333,15 @@ describe('applyAttackDamage', () => {
     expect(attackDamageService.spendActionPoints({ base: 1, size: 0 }, 3).base).toBe(0);
   });
 
+  it('пустой source слота — предмет: один доспех схлопывается, два разных суммируются', () => {
+    const slot = (value: number, itemRuleCode: string) => ({
+      ...line({ kind: 'resistance' as const, value, durability: 1, damageTypeCode: 'piercing' }),
+      itemRuleCode,
+    });
+    expect(attackDamageService.stackedResistance([slot(2, 'plate'), slot(6, 'plate')], 'piercing', 0)).toBe(6);
+    expect(attackDamageService.stackedResistance([slot(2, 'plate'), slot(3, 'gambeson')], 'piercing', 0)).toBe(5);
+  });
+
   it('защита складывается в сопротивление, если тип не игнорирует защиту', () => {
     const lines = [
       line({ kind: 'defense', value: 2, durability: 1, sourceCode: 'armor' }),

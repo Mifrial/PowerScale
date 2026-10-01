@@ -22,6 +22,25 @@ describe('aggregateSourceDeltas', () => {
     ).toBe(0);
   });
 
+  it('два плюса без source не схлопываются', () => {
+    expect(
+      aggregateSourceDeltasService.netSourceDelta([
+        { source_code: null, delta: 1 },
+        { source_code: null, delta: 1 },
+      ]),
+    ).toBe(2);
+  });
+
+  it('нулевой delta не выбирается', () => {
+    expect(
+      aggregateSourceDeltasService.aggregateSourceDeltas([
+        { source_code: 'tool', delta: 0 },
+        { source_code: 'tool', delta: 2 },
+        { source_code: null, delta: 0 },
+      ]),
+    ).toEqual([{ source_code: 'tool', delta: 2 }]);
+  });
+
   it('два бонуса разных источников складываются; дубль слабее отбрасывается', () => {
     expect(
       aggregateSourceDeltasService.aggregateSourceDeltas([

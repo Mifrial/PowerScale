@@ -41,6 +41,7 @@ import { CharacterReferenceService } from '@/modules/Roleplay/Character/Service/
 import {
   derivedCharacteristicService,
   itemModifierService,
+  aggregateSourceDeltasService,
   formatStateEffectsService,
   spellDurationLabelService,
   raceSpecService,
@@ -85,6 +86,7 @@ export class CharacterOverviewService {
     private readonly racialInnateGear = racialInnateGearService,
     private readonly weaponAttackRange = weaponAttackRangeService,
     private readonly hands = characterHandsService,
+    private readonly sourceDeltas = aggregateSourceDeltasService,
   ) {}
 
   build(version: CharacterVersion, rules: Rule[]): CharacterOverview {
@@ -348,32 +350,18 @@ export class CharacterOverviewService {
   }
 
   /**
-   * Модификаторы одного источника не складываются: из группы берётся один с наибольшим плюсом
-   * и один с наибольшим минусом. Группа — конкретный источник (sourceRuleCode); модификаторы
-   * от разных источников суммируются.
+   * Выжившие модификаторы листа. Пустой source не склеивается; отбор delta — у AggregateSourceDeltasService.
+   * Потолок с нулевым delta в сумму не входит, но остаётся: им режется значение.
    */
   private aggregateModifiers(modifiers: OverviewModifier[]): OverviewModifier[] {
-    const groups = new Map<string, OverviewModifier[]>();
-    for (const modifier of modifiers) {
-      const key = modifier.sourceRuleCode ?? 'прочее';
-      const group = groups.get(key);
-      if (group) group.push(modifier);
-      else groups.set(key, [modifier]);
-    }
+    const limits = modifiers.filter((modifier) => modifier.delta === 0 && modifier.limit != null);
+    const selected = this.sourceDeltas
+      .aggregateSourceDeltas(
+        modifiers.map((modifier) => ({ source_code: modifier.sourceRuleCode, delta: modifier.delta, modifier })),
+      )
+      .map((entry) => entry.modifier);
 
-    const result: OverviewModifier[] = [];
-    for (const group of groups.values()) {
-      let maxPositive = group[0];
-      let maxNegative = group[0];
-      for (const modifier of group) {
-        if (modifier.delta >= maxPositive.delta) maxPositive = modifier;
-        if (modifier.delta < maxNegative.delta) maxNegative = modifier;
-      }
-      if (!result.includes(maxPositive)) result.push(maxPositive);
-      if (maxNegative !== maxPositive && !result.includes(maxNegative)) result.push(maxNegative);
-    }
-
-    return result;
+    return [...selected, ...limits];
   }
 
   private buildCombat(
@@ -1166,30 +1154,24 @@ export class CharacterOverviewService {
   }
 
   /**
-   * Защиты от одного источника не суммируются: из группы (source_code) берётся максимум,
-   * группы разных источников складываются. Без source_code источник — сам предмет доспеха.
+   * Защиты одного источника не суммируются. Без source_code слота источник — предмет доспеха.
    */
   private constantDefenseOf(armor: DefenseArmorOverview[]): number {
     return this.defenseValueAt(armor, 0);
   }
 
-  /** Совокупная защита по слоям с надёжностью ≥ minDurability (максимум по источнику, суммы по источникам). */
+  /** Совокупная защита по слоям с надёжностью ≥ minDurability. */
   private defenseValueAt(armor: DefenseArmorOverview[], minDurability: number): number {
-    const groups = new Map<string, number>();
+    const entries: { source_code: string | null; delta: number }[] = [];
     for (const item of armor) {
       for (const line of item.lines) {
         if (line.kind !== 'defense') continue;
         if (line.durability < minDurability) continue;
-        const key = line.sourceCode ?? item.itemRuleCode;
-        const current = groups.get(key) ?? 0;
-        if (line.value > current) groups.set(key, line.value);
+        entries.push({ source_code: line.sourceCode ?? item.itemRuleCode, delta: line.value });
       }
     }
 
-    let total = 0;
-    for (const value of groups.values()) total += value;
-
-    return total;
+    return this.sourceDeltas.netSourceDelta(entries);
   }
 
   private buildAttacks(

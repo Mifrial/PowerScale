@@ -136,7 +136,7 @@ export class AttackDamageService {
    * сильнейший бонус и сильнейший штраф, затем сумма источников.
    */
   stackedResistance(
-    lines: DefenseLineOverview[],
+    lines: readonly (DefenseLineOverview & { itemRuleCode?: string | null })[],
     damageTypeCode: string | null,
     ignoreAtMostDurability: number,
     includeDefense = false,
@@ -152,7 +152,10 @@ export class AttackDamageService {
     });
 
     return aggregateSourceDeltasService.netSourceDelta(
-      kept.map((line) => ({ source_code: line.sourceCode, delta: line.value })),
+      kept.map((line) => ({
+        source_code: line.sourceCode ?? line.itemRuleCode ?? null,
+        delta: line.value,
+      })),
     );
   }
 

@@ -155,14 +155,16 @@ export class SpellCastOptionsService {
 
   targetResistanceFromOverview(target: CharacterOverview | null, damageTypeCode: string): number {
     if (!target?.defense) return 0;
-    const lines = [
-      ...(target.defense.resistances ?? []),
-      ...target.defense.armor.flatMap((armor) => armor.lines),
-    ].filter((line) => line.kind === 'resistance' && line.damageTypeCode === damageTypeCode);
-
-    const result = aggregateSourceDeltasService.netSourceDelta(
-      lines.map((line) => ({ source_code: line.sourceCode, delta: line.value })),
+    const fromArmor = target.defense.armor.flatMap((armor) =>
+      armor.lines
+        .filter((line) => line.kind === 'resistance' && line.damageTypeCode === damageTypeCode)
+        .map((line) => ({ source_code: line.sourceCode ?? armor.itemRuleCode, delta: line.value })),
     );
+    const fromGrants = (target.defense.resistances ?? [])
+      .filter((line) => line.kind === 'resistance' && line.damageTypeCode === damageTypeCode)
+      .map((line) => ({ source_code: line.sourceCode, delta: line.value }));
+
+    const result = aggregateSourceDeltasService.netSourceDelta([...fromGrants, ...fromArmor]);
 
     return result;
   }

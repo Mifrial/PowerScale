@@ -3,16 +3,18 @@ import { ADVANTAGE_SOURCE_MANUAL } from '@/modules/Roleplay/Rule/Constant/ADVANT
 
 export class AggregateSourceDeltasService {
   /**
-   * К одной цели от одного источника — самый сильный бонус и самый сильный штраф (ТР §7).
+   * К одной цели от одного указанного источника — самый сильный бонус и самый сильный штраф.
+   * Запись без source — отдельный источник: две такие не схлопываются. Нулевой delta не входит.
    */
   aggregateSourceDeltas<T extends { source_code: string | null; delta: number }>(entries: readonly T[]): T[] {
-    const groups = new Map<string | null, T[]>();
-    for (const entry of entries) {
-      if (entry.delta === 0) continue;
-      const group = groups.get(entry.source_code);
+    const groups = new Map<string, T[]>();
+    entries.forEach((entry, index) => {
+      if (entry.delta === 0) return;
+      const key = entry.source_code === null ? `\0${index}` : entry.source_code;
+      const group = groups.get(key);
       if (group) group.push(entry);
-      else groups.set(entry.source_code, [entry]);
-    }
+      else groups.set(key, [entry]);
+    });
 
     const result: T[] = [];
     for (const group of groups.values()) {

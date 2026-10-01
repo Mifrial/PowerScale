@@ -47,6 +47,7 @@ import { SENSE_STATUS_RANK } from '@/modules/Roleplay/Rule/Constant/Sense/SENSE_
 import { LIGHTING_LEVEL_RANK } from '@/modules/Roleplay/Rule/Constant/Lighting/LIGHTING_LEVEL_RANK';
 import {
   itemModifierService,
+  aggregateSourceDeltasService,
   checkResolutionService,
   derivedCharacteristicService,
   RaceSpecService,
@@ -105,6 +106,7 @@ export class CharacterEditorService {
     private readonly knowledge = knowledgeInstanceService,
     private readonly nativeLanguage = nativeLanguageService,
     private readonly skillStudyUnlock = skillStudyUnlockService,
+    private readonly sourceDeltas = aggregateSourceDeltasService,
   ) {}
 
   build(
@@ -2028,35 +2030,14 @@ export class CharacterEditorService {
     return { base: 1, size: 0 };
   }
 
-  /**
-   * Модификаторы одного источника не складываются: применяется самый сильный бонус (макс.
-   * положительный) и самый сильный штраф (мин. отрицательный) — по ТР §7 «Модификаторы».
-   * Группа — конкретный источник (sourceRuleCode): модификаторы от разных источников суммируются.
-   */
+  /** Выжившие по источнику вклады характеристики. Сам отбор — у AggregateSourceDeltasService. */
   private aggregateModifiers(
     targetCode: string,
     entries: { role: string | null; sourceRuleCode: string | null; delta: number }[],
   ): CharacteristicModifier[] {
-    const groups = new Map<string | null, typeof entries>();
-    for (const entry of entries) {
-      const group = groups.get(entry.sourceRuleCode);
-      if (group) group.push(entry);
-      else groups.set(entry.sourceRuleCode, [entry]);
-    }
-
-    const result: CharacteristicModifier[] = [];
-    for (const group of groups.values()) {
-      let bestBonus: (typeof group)[number] | null = null;
-      let worstPenalty: (typeof group)[number] | null = null;
-      for (const entry of group) {
-        if (entry.delta > 0 && (bestBonus === null || entry.delta > bestBonus.delta)) bestBonus = entry;
-        if (entry.delta < 0 && (worstPenalty === null || entry.delta < worstPenalty.delta)) worstPenalty = entry;
-      }
-      if (bestBonus) result.push(this.modifierOf(bestBonus, targetCode));
-      if (worstPenalty) result.push(this.modifierOf(worstPenalty, targetCode));
-    }
-
-    return result;
+    return this.sourceDeltas
+      .aggregateSourceDeltas(entries.map((entry) => ({ ...entry, source_code: entry.sourceRuleCode })))
+      .map((entry) => this.modifierOf(entry, targetCode));
   }
 
   private modifierOf(
