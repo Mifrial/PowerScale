@@ -11,6 +11,7 @@ function rule(code: string, name: string, overrides: Partial<Rule> = {}): Rule {
     name,
     description: `Описание ${name}`,
     spaceId: 1,
+    mechanics: [],
     createdAt: 1767225600,
     ...overrides,
   };

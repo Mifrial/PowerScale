@@ -27,8 +27,7 @@ function rule(overrides: Partial<Rule>): Rule {
     description: '',
     spaceId: 1,
     keywordIds: [],
-    mechanicId: null,
-    mechanicPayload: null,
+    mechanics: [],
     createdAt: 1768471200,
     ...overrides,
   };
@@ -44,7 +43,7 @@ function rollRule(
     sub_mechanics: string[];
   }>,
 ): Rule {
-  return rule({ id: null, code: 'roll', mechanicId: 5, mechanicPayload: { type: 'roll', data } });
+  return rule({ id: null, code: 'roll', mechanics: [{ mechanicId: 5, mechanicPayload: { type: 'roll', data } }], });
 }
 
 const ROLL_SUB_MECHANICS = ['six_one_rule', 'advantage_disadvantage'];
@@ -91,8 +90,8 @@ describe('RollEngine: без механик', () => {
 describe('RollEngine: механики ревизии', () => {
   const rules = [
     rollRule({ efficiency: 3, sub_mechanics: ROLL_SUB_MECHANICS }),
-    rule({ id: 1, code: 'rule-6-and-1', mechanicId: 1 }),
-    rule({ id: 2, code: 'advantages', mechanicId: 2 }),
+    rule({ id: 1, code: 'rule-6-and-1', mechanics: [{ mechanicId: 1, mechanicPayload: null }] }),
+    rule({ id: 2, code: 'advantages', mechanics: [{ mechanicId: 2, mechanicPayload: null }] }),
   ];
 
   it('преимущества и «6 и 1» меняют бросок и попадают в appliedMechanics', () => {
@@ -142,13 +141,12 @@ describe('RollEngine: механики ревизии', () => {
 describe('RollEngine: пер-ролл механики (Критический удар)', () => {
   const rules = [
     rollRule({ efficiency: 3, sub_mechanics: ROLL_SUB_MECHANICS }),
-    rule({ id: 1, code: 'rule-6-and-1', mechanicId: 1 }),
+    rule({ id: 1, code: 'rule-6-and-1', mechanics: [{ mechanicId: 1, mechanicPayload: null }] }),
     rule({
       id: null,
       code: 'critical-strike',
       type: 'ability',
-      mechanicId: 6,
-      mechanicPayload: { type: 'roll_score_adjust', data: { oneDelta: 1, faceDelta: -1 } },
+      mechanics: [{ mechanicId: 6, mechanicPayload: { type: 'roll_score_adjust', data: { oneDelta: 1, faceDelta: -1 } } }],
     }),
   ];
 
@@ -198,7 +196,7 @@ describe('RollEngine: дефолты из правила «Бросок»', () =
   it('помехи/преимущества разных источников суммируются, одного — max+/min−', () => {
     const rules = [
       rollRule({ sub_mechanics: ['advantage_disadvantage'] }),
-      rule({ id: 2, code: 'advantages', mechanicId: 2 }),
+      rule({ id: 2, code: 'advantages', mechanics: [{ mechanicId: 2, mechanicPayload: null }] }),
     ];
     const stacked = createEngine().roll(
       spec({

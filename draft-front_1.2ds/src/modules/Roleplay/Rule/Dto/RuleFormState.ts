@@ -1,4 +1,4 @@
-import type { MechanicPayload } from '@/modules/Roleplay/Mechanic/Dto/MechanicPayload';
+import type { RuleMechanicRef } from '@/modules/Roleplay/Rule/Dto/RuleMechanicRef';
 import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec';
 import type { RuleType } from '@/modules/Roleplay/Rule/Enum/RuleType';
 
@@ -8,8 +8,7 @@ export interface RuleFormState {
   code: string;
   loadedCode: string;
   description: string;
-  mechanicId: number | null;
-  mechanicPayload?: MechanicPayload | null;
+  mechanics: RuleMechanicRef[];
   keywordIds: number[];
   spec: RuleSpec | null;
   catalogSection: string | null;

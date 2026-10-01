@@ -6,7 +6,7 @@ import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingAct
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
-import type { MechanicBinding } from '@/modules/Roleplay/Mechanic/Dto/MechanicBinding';
+import { MechanicBindingList } from '@/modules/Roleplay/Mechanic/Dto/MechanicBindingList';
 import { mechanicEngine, registerMechanicHandler } from '@/modules/Roleplay/Mechanic/init';
 import type { MovementStateMechanicContext } from '@/modules/Roleplay/Game/Dto/MovementStateMechanicContext';
 import { MovementStateMechanic } from '@/modules/Roleplay/Game/Service/Handler/MovementStateMechanic';
@@ -139,11 +139,7 @@ export class ActionExecutionService {
             step,
           ),
       };
-      const bindings: MechanicBinding[] = input.rules.map((rule) => ({
-        ruleCode: rule.code,
-        mechanicId: rule.mechanicId ?? null,
-        mechanicPayload: rule.mechanicPayload ?? null,
-      }));
+      const bindings = MechanicBindingList.fromRules(input.rules);
       const activeMechanics = mechanicEngine.resolveActive(bindings, input.mechanics, {
         extraRuleCodes: ['movement-state'],
       });

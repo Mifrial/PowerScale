@@ -29,8 +29,7 @@ final class RuleVersionRecord
      * @param string $description Текст.
      * @param array<string|int, mixed> $spec Spec.
      * @param array<int, int> $keywordIds Признаки.
-     * @param int|null $mechanicId Механика.
-     * @param array<string|int, mixed> $mechanicPayload Payload.
+     * @param array<int, array<string, mixed>> $mechanics Список механик.
      * @param string $contentStatus Статус.
      * @param string $contentNote Комментарий разработки.
      * @param DateTime $createdAt Создание.
@@ -47,8 +46,7 @@ final class RuleVersionRecord
         private readonly string $description,
         private readonly array $spec,
         private readonly array $keywordIds,
-        private readonly ?int $mechanicId,
-        private readonly array $mechanicPayload,
+        private readonly array $mechanics,
         private readonly string $contentStatus,
         private readonly string $contentNote,
         private readonly DateTime $createdAt,
@@ -79,8 +77,7 @@ final class RuleVersionRecord
             self::requireString($fields, 'description'),
             self::requireArray($fields, 'spec'),
             self::requireIntList($fields, 'keywords'),
-            self::optionalInt($fields, 'mechanic_id'),
-            self::requireArray($fields, 'mechanic_payload'),
+            self::requireMechanicList($fields),
             self::requireString($fields, 'content_status'),
             self::stringOrEmpty($fields, 'content_note'),
             $versionRecord->getCreatedAt(),
@@ -178,23 +175,13 @@ final class RuleVersionRecord
     }
 
     /**
-     * Механика.
+     * Список механик снимка.
      *
-     * @return int|null Id.
+     * @return array<int, array<string, mixed>> Строки mechanic_id и mechanic_payload.
      */
-    public function getMechanicId(): ?int
+    public function getMechanics(): array
     {
-        return $this->mechanicId;
-    }
-
-    /**
-     * Payload механики.
-     *
-     * @return array<string|int, mixed> JSON.
-     */
-    public function getMechanicPayload(): array
-    {
-        return $this->mechanicPayload;
+        return $this->mechanics;
     }
 
     /**
@@ -321,23 +308,22 @@ final class RuleVersionRecord
     }
 
     /**
-     * Необязательное целое поле.
+     * Список механик колонки mechanics. null — пустой список.
      *
      * @param array<string, mixed> $fields Карта.
-     * @param string $fieldName Ключ.
      *
-     * @return int|null Значение.
+     * @return array<int, array<string, mixed>> Строки.
      *
-     * @throws RuleInvalidException Если не int и не null.
+     * @throws RuleInvalidException Если не список.
      */
-    private static function optionalInt(array $fields, string $fieldName): ?int
+    private static function requireMechanicList(array $fields): array
     {
-        if (!array_key_exists($fieldName, $fields) || $fields[$fieldName] === null) {
-            return null;
+        if (!array_key_exists('mechanics', $fields) || $fields['mechanics'] === null) {
+            return [];
         }
 
-        $value = $fields[$fieldName];
-        if (!is_int($value)) {
+        $value = $fields['mechanics'];
+        if (!is_array($value) || !array_is_list($value)) {
             throw new RuleInvalidException('Rule version record is incomplete');
         }
 

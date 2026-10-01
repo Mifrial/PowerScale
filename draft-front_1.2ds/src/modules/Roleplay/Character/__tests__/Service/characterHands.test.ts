@@ -14,7 +14,7 @@ const itemRule = (code: string, extra: Partial<ItemSpec>): Rule => ({
   description: '',
   spaceId: 1,
   keywordIds: [],
-  mechanicId: null,
+  mechanics: [],
   createdAt: 1767225600,
   spec: {
     category: 'equipment',

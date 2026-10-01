@@ -99,7 +99,6 @@ final class RuleSpaceCommitAssemblerTest extends TestCase
             '',
             [],
             [],
-            null,
             [],
             'needs_work',
             '',
@@ -116,6 +115,6 @@ final class RuleSpaceCommitAssemblerTest extends TestCase
      */
     private function body(string $name): RuleVersionBody
     {
-        return new RuleVersionBody('ability', $name, '', [], [], null, [], 'needs_work');
+        return new RuleVersionBody('ability', $name, '', [], [], [], 'needs_work');
     }
 }

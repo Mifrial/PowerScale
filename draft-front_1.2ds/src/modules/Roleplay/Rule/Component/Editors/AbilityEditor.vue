@@ -35,10 +35,8 @@ const props = defineProps<{
   code: string;
   codeDisabled?: boolean;
   description: string;
-  mechanicId: number | null;
   keywordIds: number[];
   spec: RuleSpec | null;
-  mechanicOptions: { title: string; value: number }[];
   keywordOptions: { title: string; value: number }[];
   spaceId: number;
   rules: Rule[];
@@ -51,7 +49,6 @@ const emit = defineEmits<{
   'update:name': [value: string];
   'update:code': [value: string];
   'update:description': [value: string];
-  'update:mechanicId': [value: number | null];
   'update:keywordIds': [value: number[]];
   'update:spec': [value: AbilitySpec];
   'update:catalogSection': [value: string | null];
@@ -344,11 +341,8 @@ function hasActionPointCost(): boolean {
             :code-disabled="codeDisabled"
             :description="description"
             @update:description="(v) => emit('update:description', v)"
-            :mechanic-id="mechanicId"
-            @update:mechanic-id="(v) => emit('update:mechanicId', v)"
             :keyword-ids="keywordIds"
             @update:keyword-ids="(v) => emit('update:keywordIds', v)"
-            :mechanic-options="mechanicOptions"
             :keyword-options="keywordOptions"
             :rules="rules"
           >

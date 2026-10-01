@@ -10,6 +10,7 @@ import { checkResolutionService } from '@/modules/Roleplay/Rule/Service/Instance
 
 function checkRule(code: string, spec: CheckSpec): Rule {
   return {
+    mechanics: [],
     id: null,
     code,
     type: 'check',
@@ -29,10 +30,13 @@ const catalog: Rule[] = [
     name: 'Бросок',
     description: '',
     spaceId: 1,
-    mechanicPayload: {
-      type: 'roll',
-      data: { sub_mechanics: ['advantage_disadvantage'], efficiency: 3 },
-    },
+    mechanics: [{
+      mechanicId: 5,
+      mechanicPayload: {
+        type: 'roll',
+        data: { sub_mechanics: ['advantage_disadvantage'], efficiency: 3 },
+      },
+    }],
     createdAt: 1787400000,
   },
   checkRule(CHECK_SIMPLE_CODE, {

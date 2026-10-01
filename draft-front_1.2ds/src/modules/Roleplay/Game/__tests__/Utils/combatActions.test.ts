@@ -30,7 +30,7 @@ function ability(id: number, code: string, name: string, keywordIds: number[], o
       parent_ability_code: null,
     },
     keywordIds,
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1767225600,
   };
 }

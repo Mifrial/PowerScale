@@ -37,10 +37,9 @@ import { ruleToForm } from '@/modules/Roleplay/Rule/Utils/Rule/ruleToForm';
 import type { RuleType } from '@/modules/Roleplay/Rule/Enum/RuleType';
 import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec';
 import type { RuleFormState } from '@/modules/Roleplay/Rule/Dto/RuleFormState';
-import type { MechanicPayload } from '@/modules/Roleplay/Mechanic/Dto/MechanicPayload';
+import type { RuleMechanicRef } from '@/modules/Roleplay/Rule/Dto/RuleMechanicRef';
+import RuleMechanicsEditor from '@/modules/Roleplay/Rule/Component/Editors/RuleMechanicsEditor.vue';
 import { getMechanicApi } from '@/modules/Roleplay/Mechanic/init';
-import MechanicPayloadInspector from '@/modules/Roleplay/Rule/Component/MechanicPayloadInspector.vue';
-import { mechanicPayloadInspectorService } from '@/modules/Roleplay/Rule/Service/Instance/mechanicPayloadInspectorService';
 
 const route = useRoute();
 const router = useRouter();
@@ -63,9 +62,8 @@ const name = ref('');
 const ruleCode = ref('');
 const loadedCode = ref('');
 const description = ref('');
-const mechanicId = ref<number | null>(null);
-const loadedMechanicId = ref<number | null>(null);
-const mechanicPayload = ref<MechanicPayload | null | undefined>(undefined);
+const mechanics = ref<RuleMechanicRef[]>([]);
+const loadedMechanics = ref<RuleMechanicRef[]>([]);
 const keywordIds = ref<number[]>([]);
 
 const spec = ref<RuleSpec | null>(null);
@@ -78,7 +76,7 @@ const loading = ref(true);
 const error = ref<string | null>(null);
 const saveError = ref<string | null>(null);
 const formRef = ref<{ validate: () => Promise<{ valid: boolean }> } | null>(null);
-const payloadInspectorRef = ref<{ readText: () => string; isEditing: () => boolean } | null>(null);
+const mechanicsEditorRef = ref<{ commitPayloads: () => boolean } | null>(null);
 const payloadError = ref<string | null>(null);
 const storageToast = ref(false);
 
@@ -88,7 +86,6 @@ const loadedStorageId = ref<number | null>(null);
 const baseLoaded = ref<string | null>(null);
 
 const mechanicOptions = ref<{ title: string; value: number }[]>([]);
-const mechanicChanged = computed(() => (mechanicId.value ?? null) !== (loadedMechanicId.value ?? null));
 const keywordOptions = computed(() => keywords.value.map((t) => ({ title: t.name, value: t.id })));
 const keywordCodeById = computed(() => new Map(keywords.value.map((k) => [k.id, k.code])));
 const modifierTypeOptions = computed(() =>
@@ -110,9 +107,8 @@ function applyForm(form: RuleFormState) {
   ruleCode.value = form.code;
   loadedCode.value = form.loadedCode;
   description.value = form.description;
-  mechanicId.value = form.mechanicId;
-  loadedMechanicId.value = form.mechanicId;
-  mechanicPayload.value = form.mechanicPayload;
+  mechanics.value = form.mechanics;
+  loadedMechanics.value = form.mechanics.map((row) => ({ ...row }));
   keywordIds.value = form.keywordIds;
   spec.value = form.spec;
   catalogSection.value = form.catalogSection;
@@ -131,8 +127,8 @@ async function resolveRoute(): Promise<void> {
   loadedStorageId.value = null;
 
   try {
-    const mechanics = await getMechanicApi().getMechanics(signal.value);
-    mechanicOptions.value = mechanics.map((m) => ({ title: `${m.name} (v${m.version})`, value: m.id }));
+    const catalog = await getMechanicApi().getMechanics(signal.value);
+    mechanicOptions.value = catalog.map((m) => ({ title: `${m.name} (v${m.version})`, value: m.id }));
 
     await fetchTags(signal.value);
 
@@ -158,9 +154,8 @@ async function resolveRoute(): Promise<void> {
       if (typeof q.name === 'string') name.value = q.name;
       if (typeof q.description === 'string') description.value = q.description;
       if (typeof q.type === 'string' && isRuleType(q.type)) type.value = q.type;
-      mechanicId.value = null;
-      loadedMechanicId.value = null;
-      mechanicPayload.value = undefined;
+      mechanics.value = [];
+      loadedMechanics.value = [];
       catalogSection.value = null;
       catalogSortOrder.value = 100;
       contentStatus.value = 'needs_work';
@@ -210,20 +205,14 @@ onMounted(() => {
 });
 watch(() => [route.params.code, route.params.ctx, route.params.ruleCode], resolveRoute);
 
-function commitPayloadText(): boolean {
-  if (!payloadInspectorRef.value?.isEditing()) {
-    payloadError.value = null;
-
-    return true;
-  }
+function commitPayloads(): boolean {
+  payloadError.value = null;
   try {
-    const parsed = mechanicPayloadInspectorService.parse(payloadInspectorRef.value.readText());
-    mechanicPayload.value = structuredClone(parsed) as MechanicPayload;
-    payloadError.value = null;
+    mechanicsEditorRef.value?.commitPayloads();
 
     return true;
-  } catch (e) {
-    payloadError.value = e instanceof Error ? e.message : 'Некорректный JSON payload механики';
+  } catch (caught) {
+    payloadError.value = caught instanceof Error ? caught.message : 'Некорректный JSON payload механики';
 
     return false;
   }
@@ -233,7 +222,7 @@ async function save() {
   if (!name.value.trim()) return;
   const formCheck = await formRef.value?.validate();
   if (formCheck && !formCheck.valid) return;
-  if (!commitPayloadText()) return;
+  if (!commitPayloads()) return;
   saving.value = true;
   saveError.value = null;
   try {
@@ -248,9 +237,8 @@ async function save() {
       spaceId: spaceId.value,
       spec: spec.value,
       keywordIds: keywordIds.value,
-      mechanicId: mechanicId.value,
-      loadedMechanicId: loadedMechanicId.value,
-      mechanicPayload: mechanicPayload.value,
+      mechanics: mechanics.value,
+      loadedMechanics: loadedMechanics.value,
       catalogSection: catalogSection.value,
       catalogSortOrder: catalogSortOrder.value,
       contentStatus: contentStatus.value,
@@ -328,7 +316,6 @@ async function save() {
             v-model:code="ruleCode"
             :code-disabled="isEdit"
             v-model:description="description"
-            v-model:mechanicId="mechanicId"
             v-model:keywordIds="keywordIds"
             :mechanic-options="mechanicOptions"
             :keyword-options="keywordOptions"
@@ -342,7 +329,6 @@ async function save() {
             v-model:code="ruleCode"
             :code-disabled="isEdit"
             v-model:description="description"
-            v-model:mechanicId="mechanicId"
             v-model:keywordIds="keywordIds"
             v-model:spec="spec"
             :mechanic-options="mechanicOptions"
@@ -358,7 +344,6 @@ async function save() {
             v-model:code="ruleCode"
             :code-disabled="isEdit"
             v-model:description="description"
-            v-model:mechanicId="mechanicId"
             v-model:keywordIds="keywordIds"
             v-model:spec="spec"
             :mechanic-options="mechanicOptions"
@@ -373,7 +358,6 @@ async function save() {
             v-model:code="ruleCode"
             :code-disabled="isEdit"
             v-model:description="description"
-            v-model:mechanicId="mechanicId"
             v-model:keywordIds="keywordIds"
             v-model:spec="spec"
             :mechanic-options="mechanicOptions"
@@ -394,7 +378,6 @@ async function save() {
             v-model:code="ruleCode"
             :code-disabled="isEdit"
             v-model:description="description"
-            v-model:mechanicId="mechanicId"
             v-model:keywordIds="keywordIds"
             v-model:spec="spec"
             :mechanic-options="mechanicOptions"
@@ -410,7 +393,6 @@ async function save() {
             v-model:code="ruleCode"
             :code-disabled="isEdit"
             v-model:description="description"
-            v-model:mechanicId="mechanicId"
             v-model:keywordIds="keywordIds"
             v-model:spec="spec"
             :mechanic-options="mechanicOptions"
@@ -427,7 +409,6 @@ async function save() {
             v-model:code="ruleCode"
             :code-disabled="isEdit"
             v-model:description="description"
-            v-model:mechanicId="mechanicId"
             v-model:keywordIds="keywordIds"
             v-model:spec="spec"
             :mechanic-options="mechanicOptions"
@@ -444,7 +425,6 @@ async function save() {
             v-model:code="ruleCode"
             :code-disabled="isEdit"
             v-model:description="description"
-            v-model:mechanicId="mechanicId"
             v-model:keywordIds="keywordIds"
             :mechanic-options="mechanicOptions"
             :keyword-options="keywordOptions"
@@ -457,7 +437,6 @@ async function save() {
             v-model:code="ruleCode"
             :code-disabled="isEdit"
             v-model:description="description"
-            v-model:mechanicId="mechanicId"
             v-model:keywordIds="keywordIds"
             v-model:spec="spec"
             :mechanic-options="mechanicOptions"
@@ -472,7 +451,6 @@ async function save() {
             v-model:code="ruleCode"
             :code-disabled="isEdit"
             v-model:description="description"
-            v-model:mechanicId="mechanicId"
             v-model:keywordIds="keywordIds"
             v-model:spec="spec"
             :mechanic-options="mechanicOptions"
@@ -488,7 +466,6 @@ async function save() {
             v-model:code="ruleCode"
             :code-disabled="isEdit"
             v-model:description="description"
-            v-model:mechanicId="mechanicId"
             v-model:keywordIds="keywordIds"
             v-model:spec="spec"
             :mechanic-options="mechanicOptions"
@@ -504,7 +481,6 @@ async function save() {
             v-model:code="ruleCode"
             :code-disabled="isEdit"
             v-model:description="description"
-            v-model:mechanicId="mechanicId"
             v-model:keywordIds="keywordIds"
             :spec="{ costs: weaponFamilySpec }"
             @update:spec="(s) => (spec = s)"
@@ -519,7 +495,6 @@ async function save() {
             v-model:code="ruleCode"
             :code-disabled="isEdit"
             v-model:description="description"
-            v-model:mechanicId="mechanicId"
             v-model:keywordIds="keywordIds"
             v-model:spec="spec"
             :mechanic-options="mechanicOptions"
@@ -535,7 +510,6 @@ async function save() {
             v-model:code="ruleCode"
             :code-disabled="isEdit"
             v-model:description="description"
-            v-model:mechanicId="mechanicId"
             v-model:keywordIds="keywordIds"
             v-model:spec="spec"
             :mechanic-options="mechanicOptions"
@@ -549,7 +523,6 @@ async function save() {
             v-model:code="ruleCode"
             :code-disabled="isEdit"
             v-model:description="description"
-            v-model:mechanicId="mechanicId"
             v-model:keywordIds="keywordIds"
             v-model:spec="spec"
             :mechanic-options="mechanicOptions"
@@ -564,7 +537,6 @@ async function save() {
             v-model:code="ruleCode"
             :code-disabled="isEdit"
             v-model:description="description"
-            v-model:mechanicId="mechanicId"
             v-model:keywordIds="keywordIds"
             v-model:spec="spec"
             :mechanic-options="mechanicOptions"
@@ -579,7 +551,6 @@ async function save() {
             v-model:code="ruleCode"
             :code-disabled="isEdit"
             v-model:description="description"
-            v-model:mechanicId="mechanicId"
             v-model:keywordIds="keywordIds"
             v-model:spec="spec"
             :mechanic-options="mechanicOptions"
@@ -593,7 +564,6 @@ async function save() {
             v-model:code="ruleCode"
             :code-disabled="isEdit"
             v-model:description="description"
-            v-model:mechanicId="mechanicId"
             v-model:keywordIds="keywordIds"
             v-model:spec="spec"
             :mechanic-options="mechanicOptions"
@@ -608,7 +578,6 @@ async function save() {
             v-model:code="ruleCode"
             :code-disabled="isEdit"
             v-model:description="description"
-            v-model:mechanicId="mechanicId"
             v-model:keywordIds="keywordIds"
             v-model:spec="spec"
             :mechanic-options="mechanicOptions"
@@ -622,7 +591,6 @@ async function save() {
             v-model:code="ruleCode"
             :code-disabled="isEdit"
             v-model:description="description"
-            v-model:mechanicId="mechanicId"
             v-model:keywordIds="keywordIds"
             v-model:spec="spec"
             :mechanic-options="mechanicOptions"
@@ -637,7 +605,6 @@ async function save() {
             v-model:code="ruleCode"
             :code-disabled="isEdit"
             v-model:description="description"
-            v-model:mechanicId="mechanicId"
             v-model:keywordIds="keywordIds"
             v-model:spec="spec"
             :mechanic-options="mechanicOptions"
@@ -650,13 +617,13 @@ async function save() {
             Редактор для типа "{{ type }}" будет реализован позже
           </div>
 
-          <MechanicPayloadInspector
-            ref="payloadInspectorRef"
-            :payload="mechanicPayload"
+          <RuleMechanicsEditor
+            ref="mechanicsEditorRef"
+            v-model:mechanics="mechanics"
+            :loaded-mechanics="loadedMechanics"
+            :mechanic-options="mechanicOptions"
             :is-new="!isEdit"
-            :mechanic-changed="mechanicChanged"
             :error="payloadError"
-            @commit="commitPayloadText"
           />
 
           <v-expansion-panels v-if="type !== 'ability'" multiple>

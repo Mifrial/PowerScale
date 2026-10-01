@@ -28,6 +28,7 @@ const profile = (overrides: Partial<AttackOverview> = {}): AttackOverview => ({
 });
 
 const pushRule = (push: PushSpec): Rule => ({
+  mechanics: [],
   id: null,
   code: 'push-action',
   type: 'ability',
@@ -50,6 +51,7 @@ describe('PushProfileService', () => {
   it('руки и щит — только strike рук или щита', () => {
     const rules: Rule[] = [
       {
+        mechanics: [],
         id: 1,
         code: 'ruka',
         type: 'item',
@@ -65,6 +67,7 @@ describe('PushProfileService', () => {
         },
       },
       {
+        mechanics: [],
         id: 2,
         code: 'round-shield',
         type: 'item',

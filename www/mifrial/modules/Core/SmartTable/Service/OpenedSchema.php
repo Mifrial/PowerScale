@@ -74,6 +74,17 @@ final class OpenedSchema implements IOpenedSchema
     }
 
     /**
+     * Переносит legacy-пару механики в колонку mechanics и удаляет старые колонки.
+     *
+     * @return void
+     */
+    public function foldLegacyMechanicColumns(): void
+    {
+        $this->tableSchema->foldLegacyMechanicColumns($this->tableDefinition->getName());
+        $this->tableCache->noteDdl($this->tableDefinition->getName());
+    }
+
+    /**
      * Удаляет физическую таблицу и mfv полей карты.
      *
      * @return void

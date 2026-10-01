@@ -13,7 +13,7 @@ function typeRule(index: number, code: string, name: string, description: string
     spaceId: 1,
     spec,
     keywordIds: [],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1787392800,
   };
 }

@@ -14,8 +14,7 @@ const RULES: Rule[] = [
     description: '',
     spaceId: 1,
     keywordIds: [],
-    mechanicId: 5,
-    mechanicPayload: { type: 'roll', data: { sub_mechanics: ['advantage_disadvantage'] } },
+    mechanics: [{ mechanicId: 5, mechanicPayload: { type: 'roll', data: { sub_mechanics: ['advantage_disadvantage'] } } }],
     createdAt: 1768471200,
   },
   {
@@ -26,11 +25,11 @@ const RULES: Rule[] = [
     description: '',
     spaceId: 1,
     keywordIds: [],
-    mechanicId: 1,
-    mechanicPayload: null,
+    mechanics: [{ mechanicId: 1, mechanicPayload: null }],
     createdAt: 1768471200,
   },
   {
+    mechanics: [],
     id: null,
     code: 'check-simple',
     type: 'check',

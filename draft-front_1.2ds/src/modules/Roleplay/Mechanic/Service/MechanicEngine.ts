@@ -17,7 +17,12 @@ export class MechanicEngine {
     options: ResolveActiveOptions = {},
   ): ResolvedMechanic[] {
     const byId = new Map(mechanics.map((mechanic) => [mechanic.id, mechanic]));
-    const poolByCode = new Map(bindings.map((binding) => [binding.ruleCode, binding]));
+    const poolByCode = new Map<string, MechanicBinding[]>();
+    for (const binding of bindings) {
+      const rows = poolByCode.get(binding.ruleCode) ?? [];
+      rows.push(binding);
+      poolByCode.set(binding.ruleCode, rows);
+    }
 
     const resolved: ResolvedMechanic[] = [];
     const pushBinding = (binding: MechanicBinding, force: boolean): void => {
@@ -32,8 +37,7 @@ export class MechanicEngine {
 
     for (const binding of bindings) pushBinding(binding, false);
     for (const code of options.extraRuleCodes ?? []) {
-      const binding = poolByCode.get(code);
-      if (binding) pushBinding(binding, true);
+      for (const binding of poolByCode.get(code) ?? []) pushBinding(binding, true);
     }
 
     return resolved;

@@ -112,7 +112,6 @@ final class CharacterRuleSlicesMysqlTest extends TestCase
                 '',
                 ['power' => 1],
                 [$keywordId],
-                null,
                 [],
                 'needs_work',
             )),
@@ -305,7 +304,7 @@ final class CharacterRuleSlicesMysqlTest extends TestCase
      */
     private function emptyBody(string $name): RuleVersionBody
     {
-        return new RuleVersionBody('ability', $name, '', [], [], null, [], 'needs_work');
+        return new RuleVersionBody('ability', $name, '', [], [], [], 'needs_work');
     }
 
     /**

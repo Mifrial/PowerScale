@@ -3,6 +3,7 @@ import { ruleReferenceService } from '@/modules/Roleplay/Rule/Service/Instance/r
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
 const baseRule = (id: number | null, code: string, type: Rule['type'], spec?: any, spaceId = 1): Rule => ({
+  mechanics: [],
   id,
   code,
   type,

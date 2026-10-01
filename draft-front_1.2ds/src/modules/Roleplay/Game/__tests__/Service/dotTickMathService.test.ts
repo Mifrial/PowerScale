@@ -18,7 +18,7 @@ const burning: Rule = {
     ],
   },
   keywordIds: [],
-  mechanicId: null,
+  mechanics: [],
   createdAt: 1767225600,
 };
 
@@ -31,7 +31,7 @@ const poisoning: Rule = {
   spaceId: 1,
   spec: { value_type: 'flag', aggregation: 'independent', effects: [] },
   keywordIds: [],
-  mechanicId: null,
+  mechanics: [],
   createdAt: 1767225600,
 };
 
@@ -49,7 +49,7 @@ const scorpion: Rule = {
     default_decay: { kind: 'fixed', value: 1 },
   },
   keywordIds: [],
-  mechanicId: null,
+  mechanics: [],
   createdAt: 1767225600,
 };
 

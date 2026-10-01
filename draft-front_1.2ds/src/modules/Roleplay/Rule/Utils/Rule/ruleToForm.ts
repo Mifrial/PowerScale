@@ -8,8 +8,10 @@ export function ruleToForm(rule: Rule): RuleFormState {
     code: rule.code,
     loadedCode: rule.code,
     description: rule.description,
-    mechanicId: rule.mechanicId ?? null,
-    mechanicPayload: rule.mechanicPayload == null ? rule.mechanicPayload : structuredClone(rule.mechanicPayload),
+    mechanics: rule.mechanics.map((row) => ({
+      mechanicId: row.mechanicId,
+      mechanicPayload: row.mechanicPayload == null ? row.mechanicPayload : structuredClone(row.mechanicPayload),
+    })),
     keywordIds: rule.keywordIds ?? [],
     spec: rule.spec ?? null,
     catalogSection: rule.catalogSection ?? null,

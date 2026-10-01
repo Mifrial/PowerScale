@@ -11,6 +11,7 @@ function armorRule(
   defenseSlots: { defense: { base: number; size: number }; durability: number; source_code: string | null }[],
 ): Rule {
   return {
+    mechanics: [],
     id,
     code,
     type: 'item',

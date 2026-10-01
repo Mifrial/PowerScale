@@ -14,7 +14,7 @@ function ability(effects: object[]): Rule {
     description: '',
     spaceId: 1,
     keywordIds: [],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1,
     spec: {
       type: 'action',

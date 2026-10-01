@@ -33,8 +33,7 @@ function fileOf(overrides: Partial<RevisionFile> = {}): RevisionFile {
         description: '',
         spec: {},
         keywordCodes: ['k1'],
-        mechanic: { code: 'm1', version: '1' },
-        mechanicPayload: [],
+        mechanics: [{ mechanic: { code: 'm1', version: '1' }, mechanicPayload: [] }],
         contentStatus: 'needs_work',
         contentNote: '',
         active: true,
@@ -81,7 +80,7 @@ describe('RevisionFileCatalogSyncService', () => {
         }) as IMechanicApi,
     );
     const snapshot = fileOf({ mechanics: [] });
-    snapshot.rules[0].mechanic = null;
+    snapshot.rules[0].mechanics = [];
     const first = service.plan(snapshot, keywords, []);
     expect(first.keywordCreates.map((item) => item.code)).toEqual(['k1']);
     await service.apply(first);
@@ -220,7 +219,7 @@ describe('RevisionFileCatalogSyncService', () => {
         }) as IMechanicApi,
     );
     const snapshot = fileOf({ mechanics: [] });
-    snapshot.rules[0].mechanic = null;
+    snapshot.rules[0].mechanics = [];
     const merged = service.merge(snapshot, [], []);
     expect(merged.keywords[0]?.id).toBeLessThan(0);
     await service.apply(service.plan(snapshot, [], []));

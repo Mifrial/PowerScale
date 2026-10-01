@@ -13,7 +13,7 @@ const base = (id: number | null, code: string, type: Rule['type'], name: string,
   description: '',
   spaceId: 1,
   keywordIds: [],
-  mechanicId: null,
+  mechanics: [],
   createdAt: 1767225600,
   spec,
 });
@@ -215,9 +215,7 @@ describe('CharacterOverviewService: формулы атак', () => {
     expect(overview.attacks.map((attack) => attack.itemName)).toEqual(['Алебарда 1', 'Алебарда 2']);
     expect(overview.attacks.map((attack) => attack.instanceIndex)).toEqual([0, 1]);
     expect(overview.attacks.every((attack) => attack.inventoryItemId === 7)).toBe(true);
-    expect(
-      service.attackAtDistance(version, rules, 'alebarda', 'strike', 0, 0, 0, 1)?.itemName,
-    ).toBe('Алебарда 2');
+    expect(service.attackAtDistance(version, rules, 'alebarda', 'strike', 0, 0, 0, 1)?.itemName).toBe('Алебарда 2');
   });
 
   it('экипированный кинжал занимает одну врождённую руку как удар', () => {

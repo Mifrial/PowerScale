@@ -7,6 +7,7 @@ import { LAW_DEFENSE_ABILITY_CODE } from '@/modules/Roleplay/Rule/Constant/Abili
 
 function species(code: string, name: string, keywordIds: number[]): Rule {
   return {
+    mechanics: [],
     id: null,
     code,
     type: 'species',
@@ -92,6 +93,7 @@ describe('KnowledgeCheckService', () => {
       species('human', 'Люди', [17]),
       species('dwarves', 'Дворфы', [17]),
       {
+        mechanics: [],
         id: null,
         code: 'kogir',
         type: 'race',
@@ -103,6 +105,7 @@ describe('KnowledgeCheckService', () => {
         createdAt: 1,
       },
       {
+        mechanics: [],
         id: null,
         code: 'turim',
         type: 'race',

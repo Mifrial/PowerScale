@@ -72,25 +72,7 @@ export class RevisionFileService {
           active: keyword.active,
         });
       }
-      let mechanic: RevisionFileMechanicRef | null = null;
-      if (rule.mechanicId != null) {
-        const row = mechanicsById.get(rule.mechanicId);
-        if (!row) {
-          this.fail(
-            REVISION_FILE_PROBLEM_CODE.unresolved,
-            `${path}/mechanic`,
-            `Нет механики id=${rule.mechanicId} для правила ${rule.code}`,
-          );
-        }
-        mechanic = { code: row.code, version: row.version };
-        usedMechanics.set(`${row.code}\0${row.version}`, {
-          code: row.code,
-          name: row.name,
-          description: row.description,
-          version: row.version,
-        });
-      }
-      const mechanicPayload = this.payloadForAssemble(rule, mechanic, path);
+      const externalMechanics = this.assembleMechanics(rule, mechanicsById, usedMechanics, path);
       const external: RuleExternal = {
         code: rule.code,
         type: rule.type,
@@ -98,8 +80,7 @@ export class RevisionFileService {
         description: rule.description,
         spec: (rule.spec ?? {}) as object,
         keywordCodes,
-        mechanic,
-        mechanicPayload,
+        mechanics: externalMechanics,
         contentStatus: rule.contentStatus ?? 'needs_work',
         contentNote: rule.contentNote ?? '',
         active: rule.active !== false,
@@ -197,18 +178,21 @@ export class RevisionFileService {
         }
         keywordIds.push(keyword.id);
       }
-      let mechanicId: number | null = null;
-      if (external.mechanic) {
-        const mechanic = mechanicsByKey.get(`${external.mechanic.code}\0${external.mechanic.version}`);
+      const ruleMechanics = external.mechanics.map((row, rowIndex) => {
+        const mechanic = mechanicsByKey.get(`${row.mechanic.code}\0${row.mechanic.version}`);
         if (!mechanic) {
           this.fail(
             REVISION_FILE_PROBLEM_CODE.unresolved,
-            `${path}/mechanic`,
-            `Нет механики ${external.mechanic.code}@${external.mechanic.version}`,
+            `${path}/mechanics/${rowIndex}/mechanic`,
+            `Нет механики ${row.mechanic.code}@${row.mechanic.version}`,
           );
         }
-        mechanicId = mechanic.id;
-      }
+
+        return {
+          mechanicId: mechanic.id,
+          mechanicPayload: this.asMechanicPayload(row.mechanicPayload),
+        };
+      });
       const rule: Rule = {
         id: null,
         code: external.code,
@@ -218,8 +202,7 @@ export class RevisionFileService {
         spaceId,
         spec: external.spec as RuleSpec,
         keywordIds,
-        mechanicId,
-        mechanicPayload: this.asMechanicPayload(external.mechanicPayload) ?? undefined,
+        mechanics: ruleMechanics,
         contentStatus: external.contentStatus,
         contentNote: external.contentNote,
         active: external.active,
@@ -337,8 +320,10 @@ export class RevisionFileService {
       description: rule.description,
       spec: rule.spec,
       keywordCodes: [...rule.keywordCodes].sort((left, right) => this.compareText(left, right)),
-      mechanic: rule.mechanic ? { code: rule.mechanic.code, version: rule.mechanic.version } : null,
-      mechanicPayload: rule.mechanicPayload,
+      mechanics: rule.mechanics.map((row) => ({
+        mechanic: { code: row.mechanic.code, version: row.mechanic.version },
+        mechanicPayload: row.mechanicPayload,
+      })),
       contentStatus: rule.contentStatus,
       contentNote: rule.contentNote,
       active: rule.active,
@@ -519,17 +504,7 @@ export class RevisionFileService {
       this.fail(REVISION_FILE_PROBLEM_CODE.format, `${path}/spec`, 'Некорректное правило в файле');
     }
     const keywordCodes = this.parseStringList(value.keywordCodes, `${path}/keywordCodes`);
-    const mechanic = this.parseMechanicRef(value.mechanic, `${path}/mechanic`);
-    if (!this.isObjectOrArray(value.mechanicPayload)) {
-      this.fail(REVISION_FILE_PROBLEM_CODE.format, `${path}/mechanicPayload`, 'Некорректное правило в файле');
-    }
-    if (mechanic === null && !this.isEmptyArray(value.mechanicPayload)) {
-      this.fail(
-        REVISION_FILE_PROBLEM_CODE.format,
-        `${path}/mechanicPayload`,
-        'Без механики payload должен быть пустым списком',
-      );
-    }
+    const mechanics = this.parseRuleMechanics(value.mechanics, `${path}/mechanics`);
     if (typeof value.contentStatus !== 'string' || value.contentStatus.trim() === '') {
       this.fail(REVISION_FILE_PROBLEM_CODE.format, `${path}/contentStatus`, 'Некорректное правило в файле');
     }
@@ -546,8 +521,7 @@ export class RevisionFileService {
       description: value.description,
       spec: value.spec,
       keywordCodes,
-      mechanic,
-      mechanicPayload: value.mechanicPayload,
+      mechanics,
       contentStatus: value.contentStatus.trim(),
       contentNote: typeof value.contentNote === 'string' ? value.contentNote : '',
       active: value.active,
@@ -595,19 +569,59 @@ export class RevisionFileService {
     return codes;
   }
 
-  private payloadForAssemble(rule: Rule, mechanic: RevisionFileMechanicRef | null, path: string): object {
-    if (mechanic === null) {
-      return [];
-    }
-    const payload = rule.mechanicPayload;
-    if (payload == null) {
-      return [];
-    }
-    if (!this.isObjectOrArray(payload)) {
-      this.fail(REVISION_FILE_PROBLEM_CODE.format, `${path}/mechanicPayload`, 'Некорректный payload механики');
+  private assembleMechanics(
+    rule: Rule,
+    mechanicsById: ReadonlyMap<number, Mechanic>,
+    usedMechanics: Map<string, RevisionFile['mechanics'][number]>,
+    path: string,
+  ): RuleExternal['mechanics'] {
+    return rule.mechanics.map((row, index) => {
+      const mechanic = mechanicsById.get(row.mechanicId);
+      if (!mechanic) {
+        this.fail(
+          REVISION_FILE_PROBLEM_CODE.unresolved,
+          `${path}/mechanics/${index}`,
+          `Нет механики id=${row.mechanicId} для правила ${rule.code}`,
+        );
+      }
+      usedMechanics.set(`${mechanic.code}\0${mechanic.version}`, {
+        code: mechanic.code,
+        name: mechanic.name,
+        description: mechanic.description,
+        version: mechanic.version,
+      });
+      const payload = row.mechanicPayload;
+      if (payload != null && !this.isObjectOrArray(payload)) {
+        this.fail(REVISION_FILE_PROBLEM_CODE.format, `${path}/mechanics/${index}/mechanicPayload`, 'Некорректный payload механики');
+      }
+
+      return {
+        mechanic: { code: mechanic.code, version: mechanic.version },
+        mechanicPayload: payload == null ? [] : payload,
+      };
+    });
+  }
+
+  private parseRuleMechanics(value: unknown, path: string): RuleExternal['mechanics'] {
+    const list = this.requireList(value, path);
+    const rows: RuleExternal['mechanics'] = [];
+    for (let index = 0; index < list.length; index += 1) {
+      const item = list[index];
+      const itemPath = `${path}/${index}`;
+      if (!this.isPlainObject(item)) {
+        this.fail(REVISION_FILE_PROBLEM_CODE.format, itemPath, 'Некорректная механика правила');
+      }
+      const mechanic = this.parseMechanicRef(item.mechanic, `${itemPath}/mechanic`);
+      if (!mechanic) {
+        this.fail(REVISION_FILE_PROBLEM_CODE.format, `${itemPath}/mechanic`, 'Механика строки обязательна');
+      }
+      if (!this.isObjectOrArray(item.mechanicPayload)) {
+        this.fail(REVISION_FILE_PROBLEM_CODE.format, `${itemPath}/mechanicPayload`, 'Некорректный payload механики');
+      }
+      rows.push({ mechanic, mechanicPayload: item.mechanicPayload });
     }
 
-    return payload;
+    return rows;
   }
 
   private asMechanicPayload(value: object): MechanicPayload | null {

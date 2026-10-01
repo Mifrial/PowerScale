@@ -71,7 +71,7 @@ export class CheckResolutionService {
   isCheckAttachableRule(rule: Rule): boolean {
     if (rule.type === 'check' || rule.code === ROLL_RULE_CODE) return false;
 
-    return rule.mechanicId != null;
+    return rule.mechanics.length > 0;
   }
 
   /** Код проверки по характеристике (`check-strength`) или корень простой проверки. */
@@ -101,7 +101,7 @@ export class CheckResolutionService {
       if (value != null) return value;
     }
     const roll = rules.find((rule) => rule.code === ROLL_RULE_CODE);
-    const payload = roll?.mechanicPayload;
+    const payload = roll?.mechanics.find((row) => row.mechanicPayload?.type === 'roll')?.mechanicPayload;
     if (payload?.type === 'roll' && payload.data.efficiency != null) {
       return payload.data.efficiency;
     }

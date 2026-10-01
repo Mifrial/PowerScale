@@ -6,9 +6,7 @@ defineProps<{
   name: string;
   code: string;
   description: string;
-  mechanicId: number | null;
   keywordIds: number[];
-  mechanicOptions: { title: string; value: number }[];
   keywordOptions: { title: string; value: number }[];
   rules?: Rule[];
   /** Код неизменяем после создания — поле блокируется при редактировании. */
@@ -19,7 +17,6 @@ const emit = defineEmits<{
   'update:name': [value: string];
   'update:code': [value: string];
   'update:description': [value: string];
-  'update:mechanicId': [value: number | null];
   'update:keywordIds': [value: number[]];
 }>();
 </script>
@@ -46,17 +43,6 @@ const emit = defineEmits<{
       :model-value="description"
       :rules="rules ?? []"
       @update:model-value="emit('update:description', $event)"
-    />
-
-    <v-select
-      :model-value="mechanicId"
-      :items="mechanicOptions"
-      item-title="title"
-      item-value="value"
-      label="Механика"
-      clearable
-      class="mt-4"
-      @update:model-value="emit('update:mechanicId', $event)"
     />
 
     <v-select

@@ -97,7 +97,7 @@ function splitCodes(value: string): string[] {
           density="compact"
           hide-details
           style="flex: 1 1 120px"
-          @update:model-value="(v: number) => patch(index, { factor: v !== 0 ? v : undefined })"
+          @update:model-value="(v) => patch(index, { factor: v != null && v !== 0 ? v : undefined })"
         />
         <ClampedNumberField
           :model-value="op.add_kg ?? 0"
@@ -106,7 +106,7 @@ function splitCodes(value: string): string[] {
           density="compact"
           hide-details
           style="flex: 1 1 100px"
-          @update:model-value="(v: number) => patch(index, { add_kg: v !== 0 ? v : undefined })"
+          @update:model-value="(v) => patch(index, { add_kg: v != null && v !== 0 ? v : undefined })"
         />
       </template>
       <template v-else-if="op.type === 'min_strength' || op.type === 'action_strength'">
@@ -116,7 +116,7 @@ function splitCodes(value: string): string[] {
           density="compact"
           hide-details
           style="flex: 1 1 100px"
-          @update:model-value="(v: number) => patch(index, { delta: v })"
+          @update:model-value="(v) => patch(index, { delta: v ?? 0 })"
         />
         <v-select
           v-if="op.type === 'action_strength'"
@@ -141,7 +141,7 @@ function splitCodes(value: string): string[] {
           density="compact"
           hide-details
           style="flex: 1 1 100px"
-          @update:model-value="(v: number) => patch(index, { delta: v !== 0 ? v : undefined })"
+          @update:model-value="(v) => patch(index, { delta: v != null && v !== 0 ? v : undefined })"
         />
         <ClampedNumberField
           :model-value="op.add_size ?? 0"
@@ -149,7 +149,7 @@ function splitCodes(value: string): string[] {
           density="compact"
           hide-details
           style="flex: 1 1 100px"
-          @update:model-value="(v: number) => patch(index, { add_size: v !== 0 ? v : undefined })"
+          @update:model-value="(v) => patch(index, { add_size: v != null && v !== 0 ? v : undefined })"
         />
       </template>
       <template v-else-if="op.type === 'block' || op.type === 'defense'">
@@ -161,7 +161,7 @@ function splitCodes(value: string): string[] {
           density="compact"
           hide-details
           style="flex: 1 1 100px"
-          @update:model-value="(v: number) => patch(index, { factor: v !== 0 ? v : undefined })"
+          @update:model-value="(v) => patch(index, { factor: v != null && v !== 0 ? v : undefined })"
         />
         <ClampedNumberField
           :model-value="op.add ?? 0"
@@ -169,7 +169,7 @@ function splitCodes(value: string): string[] {
           density="compact"
           hide-details
           style="flex: 1 1 80px"
-          @update:model-value="(v: number) => patch(index, { add: v !== 0 ? v : undefined })"
+          @update:model-value="(v) => patch(index, { add: v != null && v !== 0 ? v : undefined })"
         />
         <ClampedNumberField
           :model-value="op.add_size ?? 0"
@@ -177,7 +177,7 @@ function splitCodes(value: string): string[] {
           density="compact"
           hide-details
           style="flex: 1 1 80px"
-          @update:model-value="(v: number) => patch(index, { add_size: v !== 0 ? v : undefined })"
+          @update:model-value="(v) => patch(index, { add_size: v != null && v !== 0 ? v : undefined })"
         />
       </template>
       <template v-else-if="op.type === 'armor_reliability' || op.type === 'strength_penalty'">
@@ -187,7 +187,7 @@ function splitCodes(value: string): string[] {
           density="compact"
           hide-details
           style="flex: 1 1 100px"
-          @update:model-value="(v: number) => patch(index, { set: v !== 0 ? v : undefined })"
+          @update:model-value="(v) => patch(index, { set: v != null && v !== 0 ? v : undefined })"
         />
         <ClampedNumberField
           :model-value="op.add ?? 0"
@@ -195,7 +195,7 @@ function splitCodes(value: string): string[] {
           density="compact"
           hide-details
           style="flex: 1 1 100px"
-          @update:model-value="(v: number) => patch(index, { add: v !== 0 ? v : undefined })"
+          @update:model-value="(v) => patch(index, { add: v != null && v !== 0 ? v : undefined })"
         />
       </template>
       <template v-else-if="op.type === 'resistance'">
@@ -228,7 +228,7 @@ function splitCodes(value: string): string[] {
           density="compact"
           hide-details
           style="flex: 1 1 100px"
-          @update:model-value="(v: number) => patch(index, { value: v })"
+          @update:model-value="(v) => patch(index, { value: v ?? 0 })"
         />
       </template>
       <template v-else-if="op.type === 'keyword'">
@@ -257,7 +257,7 @@ function splitCodes(value: string): string[] {
           density="compact"
           hide-details
           style="flex: 1 1 100px"
-          @update:model-value="(v: number) => patch(index, { min: v })"
+          @update:model-value="(v) => patch(index, { min: v ?? op.min })"
         />
       </template>
       <template v-else-if="op.type === 'magic_conductor'">
@@ -268,7 +268,7 @@ function splitCodes(value: string): string[] {
           density="compact"
           hide-details
           style="flex: 1 1 100px"
-          @update:model-value="(v: number) => patch(index, { value: v })"
+          @update:model-value="(v) => patch(index, { value: v ?? 0 })"
         />
       </template>
       <template v-else-if="op.type === 'advantage'">
@@ -278,7 +278,7 @@ function splitCodes(value: string): string[] {
           density="compact"
           hide-details
           style="flex: 1 1 100px"
-          @update:model-value="(v: number) => patch(index, { delta: v })"
+          @update:model-value="(v) => patch(index, { delta: v ?? 0 })"
         />
         <v-text-field
           :model-value="op.source_code"
@@ -296,7 +296,7 @@ function splitCodes(value: string): string[] {
           density="compact"
           hide-details
           style="flex: 1 1 100px"
-          @update:model-value="(v: number) => patch(index, { delta: v })"
+          @update:model-value="(v) => patch(index, { delta: v ?? 0 })"
         />
         <v-text-field
           :model-value="op.characteristic_codes.join(', ')"

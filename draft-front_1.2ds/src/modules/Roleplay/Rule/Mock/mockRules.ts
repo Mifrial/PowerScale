@@ -18,26 +18,20 @@ import { mockDamageTypeHooks } from '@/modules/Roleplay/Rule/Mock/mockDamageType
 import { BLOOD_CLOTTING_RULE_CODE } from '@/modules/Roleplay/Rule/Constant/Ability/BLOOD_CLOTTING_RULE_CODE';
 import { DAMAGE_TYPE_FORMS } from '@/modules/Roleplay/Rule/Constant/DAMAGE_TYPE_FORMS';
 import type { DamageTypeSpec } from '@/modules/Roleplay/Rule/Dto/Damage/DamageTypeSpec';
-import {
-  DT_BLUNT_KO_CODE,
-  DT_CUTTING_AS_WOUNDS_CODE,
-  DT_EXHAUSTION_TO_STUN_CODE,
-  DT_EXHAUSTION_TO_SHOCK_CODE,
-  DT_EXHAUSTION_TO_WOUND_CODE,
-  DT_EXHAUSTION_TO_WOUND_X2_CODE,
-  DT_INJURY_EFFICIENCY_CODE,
-  DT_INJURY_EXTRA_DICE_SR_CODE,
-  DT_PAY_SR_VS_RELIABILITY_CODE,
-} from '@/modules/Roleplay/Rule/Constant/Damage/DAMAGE_TYPE_HOOKS';
+import type { RuleMechanicRef } from '@/modules/Roleplay/Rule/Dto/RuleMechanicRef';
 import { importedRuleNameService } from '@/modules/Roleplay/Rule/Service/Instance/importedRuleNameService';
 import { MockRuleCatalogMigrationService } from '@/modules/Roleplay/Rule/Mock/MockRuleCatalogMigrationService';
 import { keywords } from '@/modules/Roleplay/Keyword/Mock/mockKeywords';
 import { mockCombatAbilitySectionByCode } from '@/modules/Roleplay/Rule/Mock/mockCombatAbilitySectionByCode';
 
-function damageTypeSpec(code: string, attached: string[] = []): DamageTypeSpec {
+function damageTypeSpec(code: string): DamageTypeSpec {
   const forms = DAMAGE_TYPE_FORMS[code] ?? { genitive: '', dative: '' };
 
-  return { type: 'damage_type', forms, attached_rule_codes: attached };
+  return { type: 'damage_type', forms };
+}
+
+function mechanic(mechanicId: number, mechanicPayload: RuleMechanicRef['mechanicPayload'] = null): RuleMechanicRef {
+  return { mechanicId, mechanicPayload };
 }
 
 let nextVersionId = 10;
@@ -74,7 +68,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         parent_ability_code: null,
       },
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       catalogSection: 'scenes-combat-other',
       catalogSortOrder: 100,
       createdAt: 1787479200,
@@ -95,7 +89,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         parent_ability_code: null,
       },
       keywordIds: [14, 71, 1],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1787479200,
     },
     {
@@ -114,7 +108,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         parent_ability_code: null,
       },
       keywordIds: [14, 71, 1],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1787479200,
     },
     {
@@ -133,7 +127,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         parent_ability_code: null,
       },
       keywordIds: [14, 71, 2],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1787479200,
     },
     {
@@ -153,7 +147,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         parent_ability_code: null,
       },
       keywordIds: [14, 53],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1787479200,
     },
     {
@@ -172,7 +166,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         parent_ability_code: null,
       },
       keywordIds: [14, 53],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1787479200,
     },
     {
@@ -192,7 +186,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         parent_ability_code: null,
       },
       keywordIds: [14, 53, 222],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1787673600,
     },
     {
@@ -226,7 +220,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         parent_ability_code: null,
       },
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1787911200,
     },
     {
@@ -260,7 +254,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         parent_ability_code: null,
       },
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1787911200,
     },
     {
@@ -303,7 +297,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         parent_ability_code: null,
       },
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1787911200,
     },
     {
@@ -323,7 +317,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         parent_ability_code: null,
       },
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1787911200,
     },
     {
@@ -342,7 +336,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         parent_ability_code: null,
       },
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1787911200,
     },
     {
@@ -350,8 +344,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       code: 'simple-push',
       type: 'ability',
       name: 'Толчок',
-      description:
-        'Базовый толчок. 3 ОД. Есть у каждого персонажа автоматически. По умолчанию руками, можно щитом.',
+      description: 'Базовый толчок. 3 ОД. Есть у каждого персонажа автоматически. По умолчанию руками, можно щитом.',
       spaceId: 1,
       spec: {
         type: 'action',
@@ -367,7 +360,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         },
       },
       keywordIds: [14, 71, 1],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1787911200,
     },
     {
@@ -425,7 +418,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         },
       },
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1787911200,
     },
     {
@@ -490,7 +483,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         },
       },
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1787911200,
     },
     {
@@ -501,8 +494,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       description: 'Системное правило обновления текущей скорости после действия.',
       spaceId: 1,
       keywordIds: [],
-      mechanicId: 18,
-      mechanicPayload: null,
+      mechanics: [{ mechanicId: 18, mechanicPayload: null }],
       createdAt: 1787911200,
     },
     {
@@ -513,7 +505,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       description: 'При броске кубика: 1 даёт дополнительный успех, 6 убирает один успех.',
       spaceId: 1,
       keywordIds: [1, 2],
-      mechanicId: 1,
+      mechanics: [{ mechanicId: 1, mechanicPayload: null }],
       createdAt: 1768471200,
     },
     {
@@ -525,7 +517,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         'В конце хода раненого по каждой ране (включая внутреннюю) проверка [1] против 0. Успех: вклад свёртывания этой раны +РУ, не выше силы, без капа перевязки. Нет правила в ревизии — свёртывания нет.',
       spaceId: 1,
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1787911200,
     },
     {
@@ -537,8 +529,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         'Базовые параметры броска кубиков: дефолтные кубы, грани, эффективность. Скоринг «6 и 1» — у простой проверки, не здесь.',
       spaceId: 1,
       keywordIds: [],
-      mechanicId: 5,
-      mechanicPayload: {
+      mechanics: [{ mechanicId: 5, mechanicPayload: {
         type: 'roll',
         data: {
           diceCount: 3,
@@ -547,7 +538,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
           adv: 0,
           sub_mechanics: ['advantage_disadvantage'],
         },
-      },
+      } }],
       createdAt: 1768471200,
     },
     {
@@ -559,8 +550,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         'Выберите оружие и профиль удара. К мастерству боя: +1 за каждый размер Ловкости или Восприятия выше среднего, −1 за каждый размер меньшей из них ниже среднего. Цель игнорирует удар (сложность 0↓) либо уклоняется (1 ОД) / блокирует (2 ОД, щит или оружие). Попадание: мастерство боя против РУ защиты, эффективность — точность. Урон (оружие − сопротивление) × РУ атаки.',
       spaceId: 1,
       keywordIds: [],
-      mechanicId: 7,
-      mechanicPayload: null,
+      mechanics: [{ mechanicId: 7, mechanicPayload: null }],
       createdAt: 1787432400,
     },
     {
@@ -572,8 +562,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         'Выберите оружие и профиль броска. Мастерство дальнего боя; Ловкость/Восприятие как у удара. Дистанция в ипари обязательна. Сложность попадания: [max(1, результат защиты)+укрытие]↓; игнор — результат 0. Размер сложности растёт, если дистанция не укладывается в дальнобойность, затем в дальнобойность↑ и далее. Уклон и блок щитом подставляют успехи своей проверки. Сила броска падает на размер за каждые [дальнобойность] ипари сверх дистанции оружия; урон и пробитие считаются от этой силы.',
       spaceId: 1,
       keywordIds: [],
-      mechanicId: 16,
-      mechanicPayload: null,
+      mechanics: [{ mechanicId: 16, mechanicPayload: null }],
       createdAt: 1787673600,
     },
     {
@@ -585,8 +574,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         'Выберите оружие и профиль выстрела. Мастерство дальнего боя; Ловкость/Восприятие как у удара. Дистанция в ипари обязательна. Сложность попадания: [max(1, результат защиты)+укрытие]↓; игнор — результат 0. Размер сложности растёт, если дистанция не укладывается в дальнобойность, затем в дальнобойность↑ и далее. Уклон и блок щитом подставляют успехи своей проверки. Сила выстрела падает на размер за каждые [дальнобойность] ипари сверх дистанции оружия; урон и пробитие считаются от этой силы.',
       spaceId: 1,
       keywordIds: [],
-      mechanicId: 17,
-      mechanicPayload: null,
+      mechanics: [{ mechanicId: 17, mechanicPayload: null }],
       createdAt: 1787673600,
     },
     {
@@ -598,8 +586,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         'Удар, бросок или выстрел во фланг или тыл: защищающийся получает 2 помехи от обстоятельств на уклон или блок. На игнор не действует. Поворот (реакция с признаком движение, 1 ОД сверх защиты) снимает эти помехи.',
       spaceId: 1,
       keywordIds: [],
-      mechanicId: null,
-      mechanicPayload: null,
+      mechanics: [],
       createdAt: 1787673600,
     },
     {
@@ -611,7 +598,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         'Преимущество добавляет кубик и убирает худший результат. Помеха добавляет кубик и убирает лучший результат.',
       spaceId: 1,
       keywordIds: [1, 3],
-      mechanicId: 2,
+      mechanics: [{ mechanicId: 2, mechanicPayload: null }],
       createdAt: 1768557600,
     },
     {
@@ -623,7 +610,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       spec: { type: 'characteristic', group: 'primary' },
       keywordIds: [4],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1768644000,
     },
     {
@@ -635,7 +622,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       spec: { type: 'characteristic', group: 'primary' },
       keywordIds: [4],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1768644000,
     },
     {
@@ -647,7 +634,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       spec: { type: 'characteristic', group: 'base', automatic: true },
       keywordIds: [4],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1768644000,
     },
     {
@@ -659,7 +646,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       spec: { type: 'characteristic', group: 'base', automatic: true },
       keywordIds: [4],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1768644000,
     },
     {
@@ -671,7 +658,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       spec: { type: 'characteristic', formula: 'min(memory, reasoning)', group: 'primary' },
       keywordIds: [4],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1768644000,
     },
     {
@@ -696,7 +683,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         ],
       },
       keywordIds: [17, 21],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1768903200,
     },
     {
@@ -707,13 +694,13 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       description:
         'Проверка на увечье с помехой. Истощение → раны силой [истощение × 2]. РУ атаки игнорируют надёжность ≤ РУ.',
       spaceId: 1,
-      spec: damageTypeSpec('slashing', [
-        DT_INJURY_EFFICIENCY_CODE,
-        DT_EXHAUSTION_TO_WOUND_X2_CODE,
-        DT_PAY_SR_VS_RELIABILITY_CODE,
-      ]),
+      spec: damageTypeSpec('slashing'),
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [
+        mechanic(9, { type: 'injury_efficiency', delta: -1 }),
+        mechanic(12, { type: 'exhaustion_wound', multiplier: 2 }),
+        mechanic(10),
+      ],
       createdAt: 1768989600,
     },
     {
@@ -724,13 +711,13 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       description:
         'На проверке увечья +⌊РУ / 2⌋ к сложности. Истощение → раны силой [истощение]. РУ атаки игнорируют надёжность ≤ РУ.',
       spaceId: 1,
-      spec: damageTypeSpec('piercing', [
-        DT_INJURY_EXTRA_DICE_SR_CODE,
-        DT_EXHAUSTION_TO_WOUND_CODE,
-        DT_PAY_SR_VS_RELIABILITY_CODE,
-      ]),
+      spec: damageTypeSpec('piercing'),
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [
+        mechanic(8),
+        mechanic(12, { type: 'exhaustion_wound', multiplier: 1 }),
+        mechanic(10),
+      ],
       createdAt: 1769076000,
     },
     {
@@ -741,9 +728,9 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       description:
         'Истощение → оглушение силой [истощение]. При РУ ≥ 6 или дробящих повреждениях ≥ Стойкости — потеря сознания.',
       spaceId: 1,
-      spec: damageTypeSpec('blunt', [DT_EXHAUSTION_TO_STUN_CODE, DT_BLUNT_KO_CODE]),
+      spec: damageTypeSpec('blunt'),
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [mechanic(11), mechanic(14)],
       createdAt: 1769162400,
     },
     {
@@ -753,9 +740,9 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       name: 'Режущий',
       description: 'Не HP: размер урона привести к размеру цели → рана этой силы. РУ атаки игнорируют надёжность ≤ РУ.',
       spaceId: 1,
-      spec: damageTypeSpec('cutting', [DT_CUTTING_AS_WOUNDS_CODE, DT_PAY_SR_VS_RELIABILITY_CODE]),
+      spec: damageTypeSpec('cutting'),
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [mechanic(13), mechanic(10)],
       createdAt: 1769248800,
     },
     {
@@ -767,7 +754,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       spec: damageTypeSpec('fire'),
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1769335200,
     },
     {
@@ -779,12 +766,12 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         'Игнорирует защиту. Множитель повреждений по РУ не больше 3. Истощение от этого типа накладывает Шок.',
       spaceId: 1,
       spec: {
-        ...damageTypeSpec('electricity', [DT_EXHAUSTION_TO_SHOCK_CODE]),
+        ...damageTypeSpec('electricity'),
         defense_ignored: true,
         max_success_rating: 3,
       },
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [mechanic(19)],
       createdAt: 1769421600,
     },
     {
@@ -796,7 +783,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       spec: damageTypeSpec('light'),
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1769508000,
     },
     {
@@ -808,7 +795,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       spec: damageTypeSpec('poison-1'),
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786010400,
     },
     {
@@ -820,7 +807,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       spec: damageTypeSpec('poison-2'),
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786010400,
     },
     {
@@ -832,7 +819,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       spec: damageTypeSpec('poison-3'),
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786010400,
     },
     {
@@ -844,7 +831,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       spec: damageTypeSpec('spirit-1'),
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786010400,
     },
     {
@@ -881,7 +868,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         },
       },
       keywordIds: [1],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1769594400,
     },
     {
@@ -893,7 +880,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       spec: { is_dimensional: true, limit: { base: { base: 8, size: -1 }, adjustments: [] } },
       keywordIds: [3],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1769594400,
     },
     {
@@ -906,7 +893,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       spec: { is_dimensional: false, auto_add: false, limit: { base: 0, adjustments: [] } },
       keywordIds: [3],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1769594400,
     },
     {
@@ -917,7 +904,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       description: 'Очки, используемые на этапе «Создание» (врождённые черты, расы).',
       spaceId: 1,
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1769594400,
     },
     {
@@ -928,7 +915,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       description: 'Очки, используемые на этапе «Личность» (особенности личности).',
       spaceId: 1,
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1769594400,
     },
     {
@@ -939,7 +926,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       description: 'Очки, используемые на этапе «Развитие» (навыки и черты).',
       spaceId: 1,
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1769594400,
     },
     {
@@ -957,7 +944,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         parent_ability_code: null,
       },
       keywordIds: [8, 11],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1769594400,
     },
     {
@@ -975,7 +962,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         parent_ability_code: null,
       },
       keywordIds: [8, 11],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1769594400,
     },
     {
@@ -1003,7 +990,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         ],
       },
       keywordIds: [17, 18],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1769680800,
     },
     {
@@ -1018,7 +1005,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         abilities: [],
       },
       keywordIds: [17, 18, 19],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1769680800,
     },
     {
@@ -1029,7 +1016,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       description: 'Источник модификаторов: броня и доспехи.',
       spaceId: 1,
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1769767200,
     },
     {
@@ -1040,7 +1027,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       description: 'Источник модификаторов: щит.',
       spaceId: 1,
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1769767200,
     },
     {
@@ -1051,7 +1038,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       description: 'Источник модификаторов: заклинание.',
       spaceId: 1,
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1769767200,
     },
     {
@@ -1062,7 +1049,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       description: 'Источник модификаторов: тренировка и развитие.',
       spaceId: 1,
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1769767200,
     },
     {
@@ -1073,7 +1060,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       description: 'Источник модификаторов: врождённые свойства.',
       spaceId: 1,
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1769767200,
     },
     {
@@ -1084,7 +1071,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       description: 'Источник модификаторов от мастерства.',
       spaceId: 1,
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1769767200,
     },
     {
@@ -1096,7 +1083,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       spec: { type: 'characteristic', group: 'primary' },
       keywordIds: [4],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1768644000,
     },
     {
@@ -1108,7 +1095,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       spec: { type: 'characteristic', group: 'base', automatic: true },
       keywordIds: [4],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1768644000,
     },
     {
@@ -1120,7 +1107,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       spec: { type: 'characteristic', group: 'base', automatic: true },
       keywordIds: [4],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1768644000,
     },
     {
@@ -1132,7 +1119,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       spec: { type: 'characteristic', formula: 'min(attention, reaction)', group: 'primary' },
       keywordIds: [4],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1768644000,
     },
     {
@@ -1144,7 +1131,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       spec: { type: 'characteristic', group: 'important', automatic: true },
       keywordIds: [4],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1768644000,
     },
     {
@@ -1156,7 +1143,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       spec: { type: 'characteristic', group: 'important', automatic: true },
       keywordIds: [4],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1768644000,
     },
     {
@@ -1168,7 +1155,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       spec: { type: 'characteristic', group: 'combat', automatic: { value: { base: 3, size: -1 } } },
       keywordIds: [4, 5],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1768644000,
     },
     {
@@ -1180,7 +1167,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       spec: { type: 'characteristic', group: 'combat', automatic: { value: { base: 3, size: -1 } } },
       keywordIds: [4, 5],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786442400,
     },
     {
@@ -1192,7 +1179,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       spec: { type: 'characteristic', group: 'secondary' },
       keywordIds: [4],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1768644000,
     },
     {
@@ -1204,7 +1191,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       spec: { type: 'characteristic', group: 'secondary' },
       keywordIds: [4],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1768644000,
     },
     {
@@ -1216,7 +1203,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       spec: { type: 'characteristic', group: 'base' },
       keywordIds: [4],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786269600,
     },
     {
@@ -1229,7 +1216,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       spec: { type: 'characteristic', group: 'combat' },
       keywordIds: [4],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786269600,
     },
     {
@@ -1240,7 +1227,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       description: 'Источник защиты: стёганый поддоспешник и подкладка.',
       spaceId: 1,
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1769853600,
     },
     {
@@ -1252,7 +1239,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       spaceId: 1,
       spec: { is_dimensional: false, limit: { base: 10, adjustments: [] } },
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786010400,
     },
     {
@@ -1270,7 +1257,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         effects: [],
       },
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786010400,
     },
     {
@@ -1287,7 +1274,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         effects: [],
       },
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1787997600,
     },
     {
@@ -1305,7 +1292,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         effects: [{ type: 'resource_limit_modify', resource_code: 'action-points', amount: -1 }],
       },
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786010400,
     },
     {
@@ -1326,7 +1313,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         ],
       },
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786010400,
     },
     {
@@ -1343,7 +1330,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         effects: [{ type: 'resource_limit_set', resource_code: 'action-points', value: 0 }],
       },
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786010400,
     },
     {
@@ -1362,7 +1349,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         effects: [],
       },
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786010400,
     },
     {
@@ -1389,7 +1376,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         ],
       },
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786010400,
     },
     {
@@ -1407,7 +1394,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         effects: [],
       },
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1787565600,
     },
     {
@@ -1430,7 +1417,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         ],
       },
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786010400,
     },
     {
@@ -1449,7 +1436,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         default_decay: { kind: 'fixed', value: 1 },
       },
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786010400,
     },
     {
@@ -1469,7 +1456,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         ],
       },
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786010400,
     },
     {
@@ -1487,7 +1474,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         effects: [{ type: 'characteristic_modify', characteristic_code: 'dexterity', amount: -6 }],
       },
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1787911200,
     },
     {
@@ -1506,7 +1493,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         effects: [{ type: 'check_advantage', amount: -1, per_unit: true, includes_hit: true, max_abs: 3 }],
       },
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1787911200,
     },
     {
@@ -1525,7 +1512,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         default_decay: { kind: 'fixed', value: 2 },
       },
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786010400,
     },
     {
@@ -1543,7 +1530,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         effects: [],
       },
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786010400,
     },
     {
@@ -1565,7 +1552,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         domain_ref: 'weapon-family',
       },
       keywordIds: [13],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786442400,
     },
     {
@@ -1583,7 +1570,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         base_from: { characteristic_code: 'strength', source_codes: ['innate'] },
       },
       keywordIds: [4],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786615200,
     },
     {
@@ -1594,7 +1581,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       description: 'Источник вклада в лимит ОД от размера Ловкости.',
       spaceId: 1,
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786615200,
     },
     {
@@ -1605,7 +1592,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       description: 'Источник вклада в лимит ОД от размера Восприятия.',
       spaceId: 1,
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786615200,
     },
     {
@@ -1616,7 +1603,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
       description: 'Источник вклада в лимит ОД от разницы Силы и Веса (полные размеры).',
       spaceId: 1,
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786615200,
     },
     {
@@ -1642,7 +1629,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         parent_ability_code: null,
       },
       keywordIds: [31, 44, 11],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1787652000,
     },
     {
@@ -1675,7 +1662,7 @@ const rules: Rule[] = new MockRuleCatalogMigrationService().migrateRules(
         ],
       },
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1787824800,
     },
   ]),
@@ -1707,7 +1694,7 @@ const ruleVersions: RuleVersion[] = rules.map((r, idx) => ({
   description: r.description,
   spec: r.spec,
   keywordIds: r.keywordIds,
-  mechanicId: r.mechanicId,
+  mechanics: r.mechanics,
   createdAt: r.createdAt,
 }));
 
@@ -1753,8 +1740,7 @@ export async function createRule(spaceId: number, data: CreateRuleData, _signal?
     spaceId,
     spec: data.spec,
     keywordIds: data.keywordIds,
-    mechanicId: data.mechanicId,
-    mechanicPayload: data.mechanicPayload,
+    mechanics: data.mechanics ?? [],
     createdAt: Math.floor(Date.now() / 1000),
   };
   rules.push(rule);
@@ -1770,8 +1756,7 @@ export async function createRule(spaceId: number, data: CreateRuleData, _signal?
     description: rule.description,
     spec: rule.spec,
     keywordIds: rule.keywordIds,
-    mechanicId: rule.mechanicId,
-    mechanicPayload: rule.mechanicPayload,
+    mechanics: rule.mechanics,
     createdAt: rule.createdAt,
   });
 
@@ -1786,8 +1771,7 @@ export async function updateRule(code: string, data: UpdateRuleData, _signal?: A
   if (data.description !== undefined) rule.description = data.description;
   if (data.spec !== undefined) rule.spec = data.spec;
   if (data.keywordIds !== undefined) rule.keywordIds = data.keywordIds;
-  if (data.mechanicId !== undefined) rule.mechanicId = data.mechanicId;
-  if (data.mechanicPayload !== undefined) rule.mechanicPayload = data.mechanicPayload;
+  if (data.mechanics !== undefined) rule.mechanics = data.mechanics;
 
   return { ...rule };
 }

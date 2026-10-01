@@ -4,6 +4,7 @@ import { CharacterReferenceService } from '@/modules/Roleplay/Character/Service/
 
 function rule(id: number | null, code: string, name: string): Rule {
   return {
+    mechanics: [],
     id,
     code,
     type: 'simple',

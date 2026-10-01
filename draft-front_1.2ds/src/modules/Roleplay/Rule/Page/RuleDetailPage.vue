@@ -37,11 +37,12 @@ const error = ref<string | null>(null);
 const inlineRuleId = ref<string | null>(null);
 const inlineRuleOpen = ref(false);
 
-const mechanic = computed(() => {
-  if (!rule.value?.mechanicId) return null;
-
-  return mechanics.value.find((m) => m.id === rule.value?.mechanicId) ?? null;
-});
+const mechanicRows = computed(() =>
+  (rule.value?.mechanics ?? []).map((row) => ({
+    row,
+    mechanic: mechanics.value.find((item) => item.id === row.mechanicId) ?? null,
+  })),
+);
 
 const ruleTags = computed(() => {
   const keywordIds = rule.value?.keywordIds;
@@ -132,18 +133,21 @@ watch(() => [route.params.code, route.params.ctx, route.params.ruleCode], resolv
     <RuleSpecView :rule="rule" :rules="ruleHost.effectiveRules" :keywords="keywords" class="mb-4" />
     <RuleSlider v-model:open="inlineRuleOpen" :rule-code="inlineRuleId" :rules="ruleHost.effectiveRules" />
 
-    <v-card v-if="mechanic" class="mb-4">
-      <v-card-title>Механика</v-card-title>
+    <v-card v-if="mechanicRows.length" class="mb-4">
+      <v-card-title>Механики</v-card-title>
       <v-card-text>
-        <div class="d-flex align-center">
-          <strong>{{ mechanic.name }}</strong>
-          <v-chip class="ml-2" size="x-small" variant="tonal"> v{{ mechanic.version }} </v-chip>
+        <div v-for="(entry, index) in mechanicRows" :key="index" class="mb-3">
+          <div class="d-flex align-center">
+            <strong>{{ entry.mechanic?.name ?? entry.row.mechanicId }}</strong>
+            <v-chip v-if="entry.mechanic" class="ml-2" size="x-small" variant="tonal">
+              v{{ entry.mechanic.version }}
+            </v-chip>
+          </div>
+          <div v-if="entry.mechanic" class="text-body-2 mt-2">{{ entry.mechanic.description }}</div>
+          <MechanicPayloadInspector readonly :payload="entry.row.mechanicPayload" />
         </div>
-        <div class="text-body-2 mt-2">{{ mechanic.description }}</div>
       </v-card-text>
     </v-card>
-
-    <MechanicPayloadInspector readonly :payload="rule.mechanicPayload" />
 
     <v-card v-if="ruleTags.length > 0" class="mb-4">
       <v-card-title>Признаки</v-card-title>

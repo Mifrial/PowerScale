@@ -6,9 +6,7 @@ defineProps<{
   code: string;
   codeDisabled?: boolean;
   description: string;
-  mechanicId: number | null;
   keywordIds: number[];
-  mechanicOptions: { title: string; value: number }[];
   keywordOptions: { title: string; value: number }[];
 }>();
 
@@ -16,7 +14,6 @@ const emit = defineEmits<{
   'update:name': [value: string];
   'update:code': [value: string];
   'update:description': [value: string];
-  'update:mechanicId': [value: number | null];
   'update:keywordIds': [value: number[]];
 }>();
 </script>
@@ -30,11 +27,8 @@ const emit = defineEmits<{
     :code-disabled="codeDisabled"
     :description="description"
     @update:description="(v) => emit('update:description', v)"
-    :mechanic-id="mechanicId"
-    @update:mechanic-id="(v) => emit('update:mechanicId', v)"
     :keyword-ids="keywordIds"
     @update:keyword-ids="(v) => emit('update:keywordIds', v)"
-    :mechanic-options="mechanicOptions"
     :keyword-options="keywordOptions"
   >
     <template #spec>

@@ -16,6 +16,7 @@ beforeEach(() => {
 
 function freshRule(id: number | null): Rule {
   return {
+    mechanics: [],
     id,
     code: `code-${id}`,
     type: 'simple',
@@ -181,6 +182,7 @@ describe('unpublished space', () => {
       name: 'Из файла',
       description: '',
       spaceId: space.id,
+      mechanics: [],
       createdAt: 1767225600,
     });
     await store.syncFromContext(space.id, 'draft', 0);

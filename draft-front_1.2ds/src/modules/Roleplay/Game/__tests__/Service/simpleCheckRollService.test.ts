@@ -14,8 +14,7 @@ const RULES: Rule[] = [
     name: 'Бросок',
     description: '',
     spaceId: 1,
-    mechanicId: 5,
-    mechanicPayload: { type: 'roll', data: { efficiency: 3, sub_mechanics: ['advantage_disadvantage'] } },
+    mechanics: [{ mechanicId: 5, mechanicPayload: { type: 'roll', data: { efficiency: 3, sub_mechanics: ['advantage_disadvantage'] } } }],
     createdAt: 1787400000,
   },
   {
@@ -25,10 +24,11 @@ const RULES: Rule[] = [
     name: 'Правило 6 и 1',
     description: '',
     spaceId: 1,
-    mechanicId: 1,
+    mechanics: [{ mechanicId: 1, mechanicPayload: null }],
     createdAt: 1787400000,
   },
   {
+    mechanics: [],
     id: null,
     code: CHECK_SIMPLE_CODE,
     type: 'check',

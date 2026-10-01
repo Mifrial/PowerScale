@@ -36,6 +36,7 @@ const rule = (
   name: 'Атака',
   description: '',
   spaceId: 1,
+  mechanics: [],
   keywordIds,
   createdAt: 0,
   spec: {
@@ -108,6 +109,7 @@ describe('AttackActionSourceService', () => {
     const strike = { ...profile('strike'), itemRuleCode: 'ruka', profileIndex: 0 };
     const rules: Rule[] = [
       {
+        mechanics: [],
         id: 520,
         code: 'ruka',
         type: 'item',

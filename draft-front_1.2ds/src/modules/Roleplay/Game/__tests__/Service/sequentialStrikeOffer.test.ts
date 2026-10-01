@@ -54,6 +54,7 @@ describe('SequentialStrikeOfferService', () => {
   it('резервирует ОД уже выбранных реакций', () => {
     const rules: Rule[] = [
       {
+        mechanics: [],
         id: null,
         code: 'dodge',
         type: 'ability',

@@ -7,6 +7,7 @@ import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpe
 const keywords: Keyword[] = [{ id: 227, code: 'electromancy', name: 'Электромансия', description: '', active: true }];
 
 const discharge: Rule = {
+  mechanics: [],
   id: null,
   code: 'discharge',
   type: 'ability',

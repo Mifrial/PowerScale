@@ -51,6 +51,7 @@ function session(comboCount: number, current = COMBO_STEP_CODES.build): ProcessS
 
 function closerRule(parent: string): Rule {
   return {
+    mechanics: [],
     id: null,
     code: 'combo-closer',
     type: 'ability',
@@ -166,12 +167,7 @@ describe('ComboProcessService', () => {
     expect(() => comboProcessService.prepareStrike(bound, comboSpec, ['npc:2'])).toThrow(
       'Комбо уже ведётся по другой цели',
     );
-    const afterStart = comboProcessService.resolveAfterStrike(
-      bound,
-      comboSpec,
-      COMBO_STEP_CODES.start,
-      true,
-    );
+    const afterStart = comboProcessService.resolveAfterStrike(bound, comboSpec, COMBO_STEP_CODES.start, true);
     expect(afterStart?.comboTargetKey).toBe('npc:1');
   });
 });

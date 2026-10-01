@@ -84,6 +84,7 @@ import type { MagicStudyLearned } from '@/modules/Roleplay/Character/Dto/Editor/
 import type { MechanicState } from '@/modules/Roleplay/Mechanic/Dto/MechanicState';
 import type { CharacterMechanicContext } from '@/modules/Roleplay/Mechanic/Dto/CharacterMechanicContext';
 import type { MechanicBinding } from '@/modules/Roleplay/Mechanic/Dto/MechanicBinding';
+import { MechanicBindingList } from '@/modules/Roleplay/Mechanic/Dto/MechanicBindingList';
 
 /**
  * Расчётное ядро редактора персонажа: из выборов (CharacterBuild) и правил ревизии строит
@@ -1037,11 +1038,7 @@ export class CharacterEditorService {
 
   /** Срез правил для Engine: Mechanic не видит Rule. */
   private mechanicBindingsOf(rules: Rule[]): MechanicBinding[] {
-    return rules.map((rule) => ({
-      ruleCode: rule.code,
-      mechanicId: rule.mechanicId ?? null,
-      mechanicPayload: rule.mechanicPayload ?? null,
-    }));
+    return MechanicBindingList.fromRules(rules);
   }
 
   /** Read-only снимок для механик: уровни способностей, признаки, расовые способности. */

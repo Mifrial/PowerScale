@@ -50,8 +50,7 @@ function sampleFile(overrides: Partial<RevisionFile> = {}): RevisionFile {
         description: 'Описание А',
         spec: { extra: true },
         keywordCodes: ['common'],
-        mechanic: null,
-        mechanicPayload: [],
+        mechanics: [],
         contentStatus: 'needs_work',
         contentNote: '',
         active: true,
@@ -69,6 +68,7 @@ function rule(code: string, name: string, overrides: Partial<Rule> = {}): Rule {
     name,
     description: `Описание ${name}`,
     spaceId: 1,
+    mechanics: [],
     createdAt: FIXED_UNIX,
     ...overrides,
   };
@@ -132,8 +132,7 @@ describe('RevisionFileService', () => {
       rules: [
         {
           ...sampleFile().rules[0],
-          mechanic: { code: 'test', version: '1' },
-          mechanicPayload: [],
+          mechanics: [{ mechanic: { code: 'test', version: '1' }, mechanicPayload: [] }],
         },
       ],
     });
@@ -143,9 +142,8 @@ describe('RevisionFileService', () => {
       [{ id: 1, code: 'common', name: 'Общая', description: '', active: true }],
       [{ id: 2, code: 'test', name: 'М', description: '', version: '1' }],
     );
-    expect(rules[0]?.mechanicId).toBe(2);
-    expect(rules[0]?.mechanicPayload).toBeUndefined();
-    expect(JSON.stringify(rules[0])).not.toContain('mechanicPayload');
+    expect(rules[0]?.mechanics[0]?.mechanicId).toBe(2);
+    expect(rules[0]?.mechanics[0]?.mechanicPayload).toBeNull();
   });
 
   it('запрещает keywordIds и handlerVersion', () => {
@@ -167,11 +165,14 @@ describe('RevisionFileService', () => {
         revisionFileService.parse(
           JSON.stringify({
             ...withIds,
-            rules: [{ ...withIds.rules[0], mechanic: { code: 'roll', version: '1', handlerVersion: '1' } }],
+            rules: [{
+              ...withIds.rules[0],
+              mechanics: [{ mechanic: { code: 'roll', version: '1', handlerVersion: '1' }, mechanicPayload: [] }],
+            }],
           }),
         ),
       REVISION_FILE_PROBLEM_CODE.forbiddenField,
-      '/rules/0/mechanic/handlerVersion',
+      '/rules/0/mechanics/0/mechanic/handlerVersion',
       'format',
     );
   });
@@ -183,11 +184,11 @@ describe('RevisionFileService', () => {
         revisionFileService.parse(
           JSON.stringify({
             ...base,
-            rules: [{ ...base.rules[0], mechanic: null, mechanicPayload: { type: 'roll' } }],
+            rules: [{ ...base.rules[0], mechanics: [{ mechanicPayload: { type: 'roll' } }] }],
           }),
         ),
       REVISION_FILE_PROBLEM_CODE.format,
-      '/rules/0/mechanicPayload',
+      '/rules/0/mechanics/0/mechanic',
       'format',
     );
     expectProblem(
@@ -238,8 +239,7 @@ describe('RevisionFileService', () => {
         rule('beta', 'Бета', { keywordIds: [20], id: 9, spaceId: 3 }),
         rule('alpha', 'Альфа', {
           keywordIds: [7, 20],
-          mechanicId: 4,
-          mechanicPayload: { type: 'purchase_surcharge', filter: {}, free_count: 2, surcharge: 1 },
+          mechanics: [{ mechanicId: 4, mechanicPayload: { type: 'purchase_surcharge', filter: {}, free_count: 2, surcharge: 1 } }],
         }),
       ],
     };
@@ -248,7 +248,7 @@ describe('RevisionFileService', () => {
     expect(file.exportedAt).toBe(FIXED_UNIX);
     expect(file.rules.map((item) => item.code)).toEqual(['alpha', 'beta']);
     expect(file.rules[0]?.keywordCodes).toEqual(['a-tag', 'z-tag']);
-    expect(file.rules[0]?.mechanic).toEqual({ code: 'purchase_surcharge', version: '1.0.0' });
+    expect(file.rules[0]?.mechanics[0]?.mechanic).toEqual({ code: 'purchase_surcharge', version: '1.0.0' });
     expect(file.keywords.map((item) => item.code)).toEqual(['a-tag', 'z-tag']);
     expect(file.sections.map((item) => item.code)).toEqual(['a', 'b']);
     const dumped = JSON.stringify(file);
@@ -257,7 +257,7 @@ describe('RevisionFileService', () => {
 
     const back = service.materializeRules(file, 8, keywords, mechanics);
     expect(back[0]?.keywordIds).toEqual([7, 20]);
-    expect(back[0]?.mechanicId).toBe(4);
+    expect(back[0]?.mechanics[0]?.mechanicId).toBe(4);
     expect(back[0]?.spaceId).toBe(8);
     expect(back[0]?.id).toBeNull();
     expect(JSON.stringify(back[0])).not.toContain('"mechanicPayload":null');
@@ -296,7 +296,7 @@ describe('RevisionFileService', () => {
             catalogSection: 'root',
             catalogSortOrder: 2,
           }),
-          rule('live', 'Живое', { mechanicId: 8, mechanicPayload: null }),
+          rule('live', 'Живое', { mechanics: [{ mechanicId: 8, mechanicPayload: null }], }),
         ],
       },
       keywords,
@@ -336,10 +336,10 @@ describe('RevisionFileService', () => {
       for (const keywordCode of item.keywordCodes) {
         expect(parsed.keywords.some((keyword) => keyword.code === keywordCode)).toBe(true);
       }
-      if (item.mechanic) {
+      for (const row of item.mechanics) {
         expect(
           parsed.mechanics.some(
-            (mechanic) => mechanic.code === item.mechanic?.code && mechanic.version === item.mechanic.version,
+            (mechanic) => mechanic.code === row.mechanic.code && mechanic.version === row.mechanic.version,
           ),
         ).toBe(true);
       }
@@ -399,7 +399,7 @@ describe('срез ревизии: spec ссылается по code, не по 
     for (const item of rules) {
       const strings: string[] = [];
       collectStrings(item.spec, strings);
-      collectStrings(item.mechanicPayload, strings);
+      for (const row of item.mechanics) collectStrings(row.mechanicPayload, strings);
       for (const text of strings) {
         if (idTexts.has(text) && text !== String(item.id)) {
           throw new Error(`${item.code} ссылается на id ${text}`);

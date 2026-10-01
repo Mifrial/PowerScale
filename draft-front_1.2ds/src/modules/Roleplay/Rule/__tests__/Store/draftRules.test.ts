@@ -7,6 +7,7 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
 function makeRule(n: number): Rule {
   return {
+    mechanics: [],
     id: n,
     code: `code-${n}`,
     type: 'simple',

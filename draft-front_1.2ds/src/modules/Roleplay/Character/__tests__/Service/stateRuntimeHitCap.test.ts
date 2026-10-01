@@ -14,7 +14,7 @@ describe('StateRuntimeEffectsService hindrance cap', () => {
         description: '',
         spaceId: 1,
         keywordIds: [],
-        mechanicId: null,
+        mechanics: [],
         createdAt: 0,
         spec: {
           value_type: 'number',

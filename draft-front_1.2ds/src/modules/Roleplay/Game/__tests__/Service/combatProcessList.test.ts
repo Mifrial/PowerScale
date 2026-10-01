@@ -43,6 +43,7 @@ const emergencySpec: ProcessSpec = {
 
 function abilityRule(code: string, name: string, spec: Rule['spec']): Rule {
   return {
+    mechanics: [],
     id: null,
     code,
     type: 'ability',
@@ -88,6 +89,7 @@ const generatorRule = abilityRule('lightning-generator', 'Генератор м�
 });
 
 const pathRule: Rule = {
+  mechanics: [],
   id: null,
   code: 'arcanist',
   type: 'magic_path',
@@ -98,6 +100,7 @@ const pathRule: Rule = {
 };
 
 const coreRule: Rule = {
+  mechanics: [],
   id: null,
   code: 'magic-core',
   type: 'item',

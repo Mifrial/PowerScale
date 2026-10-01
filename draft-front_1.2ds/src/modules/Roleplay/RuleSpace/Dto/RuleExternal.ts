@@ -7,8 +7,7 @@ export interface RuleExternal {
   description: string;
   spec: object;
   keywordCodes: string[];
-  mechanic: RevisionFileMechanicRef | null;
-  mechanicPayload: object;
+  mechanics: { mechanic: RevisionFileMechanicRef; mechanicPayload: object }[];
   contentStatus: string;
   contentNote: string;
   active: boolean;

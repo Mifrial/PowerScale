@@ -6,6 +6,7 @@ import { raceSpecService } from '@/modules/Roleplay/Rule/Service/Instance/raceSp
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
 const baseRule = (id: number | null, code: string, type: Rule['type'], spec?: any): Rule => ({
+  mechanics: [],
   id,
   code,
   type,

@@ -20,7 +20,7 @@ function ability(effects: object[]): Rule {
     description: '',
     spaceId: 1,
     keywordIds: [],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1,
     spec: {
       type: 'action',
@@ -285,7 +285,12 @@ describe('Точность §2.3', () => {
       totalSuccesses: 1,
       applied: ['six_one_rule'],
     };
-    expect(rollScoreAdjustService.remap(context, [{ from: 5, to: 6 }, { from: 2, to: 1 }])).toBe(true);
+    expect(
+      rollScoreAdjustService.remap(context, [
+        { from: 5, to: 6 },
+        { from: 2, to: 1 },
+      ]),
+    ).toBe(true);
     expect(context.adjustedRolls).toEqual([6, 1, 4]);
     expect(context.successes).toEqual([-1, 2, 0]);
   });
@@ -304,7 +309,12 @@ describe('Точность §2.3', () => {
       totalSuccesses: 1,
       applied: [],
     };
-    expect(rollScoreAdjustService.remap(context, [{ from: 5, to: 6 }, { from: 2, to: 1 }])).toBe(true);
+    expect(
+      rollScoreAdjustService.remap(context, [
+        { from: 5, to: 6 },
+        { from: 2, to: 1 },
+      ]),
+    ).toBe(true);
     expect(context.adjustedRolls).toEqual([6, 1]);
     expect(context.successes).toEqual([-1, 2]);
   });

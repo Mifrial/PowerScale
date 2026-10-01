@@ -19,8 +19,7 @@ function languageRule(
     spaceId: 1,
     spec: { type: 'language', role, parent_code: parentCode, script_codes: scriptCodes },
     keywordIds: [],
-    mechanicId: null,
-    mechanicPayload: null,
+    mechanics: [],
     createdAt: 1786356000,
   };
 }

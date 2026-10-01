@@ -37,7 +37,7 @@ function checkRule(
     spaceId: 1,
     spec,
     keywordIds: [],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1787400000,
     ...(catalogSection ? { catalogSection } : {}),
   };

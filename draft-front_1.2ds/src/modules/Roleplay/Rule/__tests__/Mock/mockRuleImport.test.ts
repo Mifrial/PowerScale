@@ -389,8 +389,8 @@ describe('mockRuleImport (S2)', () => {
 
   it('механика «Общие черты»: purchase_surcharge с filter keyword common', () => {
     const mechanicRule = byCode.get('common-traits-surcharge');
-    expect(mechanicRule?.mechanicId).toBe(4);
-    expect(mechanicRule?.mechanicPayload).toEqual({
+    expect(mechanicRule?.mechanics[0]?.mechanicId).toBe(4);
+    expect(mechanicRule?.mechanics[0]?.mechanicPayload).toEqual({
       type: 'purchase_surcharge',
       filter: { keyword_code: 'common' },
       free_count: 2,

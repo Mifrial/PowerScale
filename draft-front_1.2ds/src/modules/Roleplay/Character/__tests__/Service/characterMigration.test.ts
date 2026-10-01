@@ -18,7 +18,7 @@ const base = (id: number | null, code: string, type: Rule['type'], name: string,
   description: `Описание ${name}`,
   spaceId: 1,
   keywordIds: [],
-  mechanicId: null,
+  mechanics: [],
   createdAt: 1767225600,
   spec,
 });

@@ -125,9 +125,6 @@ export class RuleSpaceApi implements IRuleSpaceApi {
    */
   private commitRulePayload(rule: Rule): Rule {
     const payload = { ...rule };
-    if (payload.mechanicPayload == null) {
-      delete payload.mechanicPayload;
-    }
     if (payload.spec == null) {
       delete payload.spec;
     }

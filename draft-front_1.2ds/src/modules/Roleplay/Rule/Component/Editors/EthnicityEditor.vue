@@ -16,10 +16,8 @@ const props = defineProps<{
   code: string;
   codeDisabled?: boolean;
   description: string;
-  mechanicId: number | null;
   keywordIds: number[];
   spec: RuleSpec | null;
-  mechanicOptions: { title: string; value: number }[];
   keywordOptions: { title: string; value: number }[];
   rules: Rule[];
 }>();
@@ -28,7 +26,6 @@ const emit = defineEmits<{
   'update:name': [value: string];
   'update:code': [value: string];
   'update:description': [value: string];
-  'update:mechanicId': [value: number | null];
   'update:keywordIds': [value: number[]];
   'update:spec': [value: EthnicitySpec];
 }>();
@@ -107,11 +104,8 @@ function patchUsageScripts(languageCode: string, scriptCodes: string[]): void {
     :code-disabled="codeDisabled"
     :description="description"
     @update:description="(value) => emit('update:description', value)"
-    :mechanic-id="mechanicId"
-    @update:mechanic-id="(value) => emit('update:mechanicId', value)"
     :keyword-ids="keywordIds"
     @update:keyword-ids="(value) => emit('update:keywordIds', value)"
-    :mechanic-options="mechanicOptions"
     :keyword-options="keywordOptions"
   >
     <template #spec>

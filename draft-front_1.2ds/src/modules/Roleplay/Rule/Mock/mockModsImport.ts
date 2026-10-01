@@ -31,7 +31,7 @@ function modifier(
     spaceId: 1,
     spec,
     keywordIds: [],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1787306400,
   };
 }

@@ -7,6 +7,7 @@ import { strikeUpgradeService } from '@/modules/Roleplay/Game/Service/Instance/s
 import { knowledgeCheckService } from '@/modules/Roleplay/Character/init';
 
 const deadly: Rule = {
+  mechanics: [],
   id: null,
   code: 'smertonosnye-udary',
   type: 'ability',
@@ -33,6 +34,7 @@ const deadly: Rule = {
 
 function species(code: string, keywordIds: number[]): Rule {
   return {
+    mechanics: [],
     id: null,
     code,
     type: 'species',
@@ -51,6 +53,7 @@ const rules: Rule[] = [
   species('elf', [17]),
   species('wolf', [99]),
   {
+    mechanics: [],
     id: null,
     code: 'kogir',
     type: 'race',

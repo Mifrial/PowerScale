@@ -103,7 +103,7 @@ describe('ItemModifierService', () => {
         description: '',
         spaceId: 1,
         keywordIds: [],
-        mechanicId: null,
+        mechanics: [],
         createdAt: 1767225600,
         spec: { exclusive: true },
       };

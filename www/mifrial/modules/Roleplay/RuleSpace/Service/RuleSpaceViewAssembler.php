@@ -116,8 +116,7 @@ final class RuleSpaceViewAssembler
             'spaceId' => $spaceId,
             'spec' => $versionRecord->getSpec(),
             'keywordIds' => $versionRecord->getKeywordIds(),
-            'mechanicId' => $versionRecord->getMechanicId(),
-            'mechanicPayload' => $versionRecord->getMechanicPayload(),
+            'mechanics' => $this->assembleMechanics($versionRecord->getMechanics()),
             'contentStatus' => $versionRecord->getContentStatus(),
             'contentNote' => $versionRecord->getContentNote(),
             'active' => $versionRecord->isActive(),
@@ -129,5 +128,30 @@ final class RuleSpaceViewAssembler
         }
 
         return $view;
+    }
+
+    /**
+     * Строки механик для JSON правила.
+     *
+     * @param array<int, array<string, mixed>> $mechanics Колонка снимка.
+     *
+     * @return array<int, array<string, mixed>> mechanicId и mechanicPayload.
+     */
+    private function assembleMechanics(array $mechanics): array
+    {
+        $rows = [];
+        foreach ($mechanics as $row) {
+            if (!is_array($row) || !isset($row['mechanic_id']) || !is_int($row['mechanic_id'])) {
+                continue;
+            }
+
+            $payload = $row['mechanic_payload'] ?? [];
+            $rows[] = [
+                'mechanicId' => $row['mechanic_id'],
+                'mechanicPayload' => $payload === [] ? null : $payload,
+            ];
+        }
+
+        return $rows;
     }
 }

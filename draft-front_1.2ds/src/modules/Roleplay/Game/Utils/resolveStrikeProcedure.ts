@@ -23,7 +23,8 @@ function resolveByCard(
   mechanics: Mechanic[],
 ): StrikeProcedure {
   const rule = rules.find((candidate) => candidate.code === ruleCode);
-  const mechanic = rule?.mechanicId != null ? mechanics.find((entry) => entry.id === rule.mechanicId) : undefined;
+  const row = rule?.mechanics.find((entry) => mechanics.find((mechanic) => mechanic.id === entry.mechanicId)?.code === mechanicCode);
+  const mechanic = row ? mechanics.find((entry) => entry.id === row.mechanicId) : undefined;
   const code = mechanic?.code ?? mechanicCode;
   const version = mechanic?.version ?? HIT_PROCEDURE_VERSION_1;
 

@@ -25,6 +25,7 @@ const version: CharacterVersion = {
 describe('CharacterVersionIntegrityService', () => {
   it('finds every rule reference absent from the exact revision', () => {
     const rules = ['race', 'characteristic', 'ability', 'item', 'state', 'sense'].map<Rule>((code) => ({
+      mechanics: [],
       id: null,
       code,
       name: code,
@@ -40,6 +41,7 @@ describe('CharacterVersionIntegrityService', () => {
   it('accepts a version when all references resolve', () => {
     const rules = ['race', 'characteristic', 'ability', 'item', 'modifier', 'state', 'poison', 'sense'].map<Rule>(
       (code) => ({
+        mechanics: [],
         id: null,
         code,
         name: code,

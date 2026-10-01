@@ -93,8 +93,7 @@ const humanRace = (
     spaceId: 1,
     spec,
     keywordIds: HUMAN_RACE_KEYWORDS[code] ?? [17, 21],
-    mechanicId: null,
-    mechanicPayload: null,
+    mechanics: [],
     createdAt: 1786096800,
   };
 };
@@ -121,8 +120,7 @@ const speciesRule = (
     ...(ageYears ? { age_years: ageYears } : {}),
   },
   keywordIds,
-  mechanicId: null,
-  mechanicPayload: null,
+  mechanics: [],
   createdAt: 1786096800,
 });
 
@@ -153,8 +151,7 @@ const raceRule = (
     spaceId: 1,
     spec,
     keywordIds,
-    mechanicId: null,
-    mechanicPayload: null,
+    mechanics: [],
     createdAt: 1786096800,
   };
 };

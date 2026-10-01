@@ -62,12 +62,11 @@ const activationPower: AbilityParameter = {
   max: dim(5, 1),
 };
 
-function rule(partial: Omit<Rule, 'spaceId' | 'createdAt' | 'mechanicId' | 'mechanicPayload'>): Rule {
+function rule(partial: Omit<Rule, 'spaceId' | 'createdAt' | 'mechanics'>): Rule {
   return {
     ...partial,
     spaceId: 1,
-    mechanicId: null,
-    mechanicPayload: null,
+    mechanics: [],
     createdAt: CREATED_AT,
   };
 }
@@ -863,7 +862,19 @@ export const mockSpellImport: Rule[] = [
           ],
         },
       ],
-      grants: [],
+      grants: [
+        {
+          level: 1,
+          grants: [
+            {
+              type: 'check_efficiency',
+              amount: 1,
+              check_codes: ['check-spell-cast'],
+              source_code: 'mastery',
+            },
+          ],
+        },
+      ],
       parent_ability_code: null,
     },
     catalogSection: ARCANIST_ADVANCED_SECTION,
@@ -938,7 +949,19 @@ export const mockSpellImport: Rule[] = [
           ],
         },
       ],
-      grants: [],
+      grants: [
+        {
+          level: 1,
+          grants: [
+            {
+              type: 'check_efficiency',
+              amount: 2,
+              check_codes: ['check-spell-cast'],
+              source_code: 'mastery',
+            },
+          ],
+        },
+      ],
       parent_ability_code: null,
     },
     catalogSection: ARCANIST_HIGH_SECTION,

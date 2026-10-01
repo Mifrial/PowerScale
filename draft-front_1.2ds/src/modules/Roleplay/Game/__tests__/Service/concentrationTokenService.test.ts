@@ -49,6 +49,7 @@ const intellect = {
   name: 'Интеллект',
   description: '',
   spaceId: 1,
+  mechanics: [],
   createdAt: 0,
 };
 
@@ -59,6 +60,7 @@ const willpower = {
   name: 'Сила воли',
   description: '',
   spaceId: 1,
+  mechanics: [],
   createdAt: 0,
 };
 

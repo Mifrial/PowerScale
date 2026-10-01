@@ -18,11 +18,11 @@ const ROLL_RULES: Rule[] = [
     name: 'Бросок',
     description: '',
     spaceId: 1,
-    mechanicId: 5,
-    mechanicPayload: { type: 'roll', data: { efficiency: 3, sub_mechanics: ['advantage_disadvantage'] } },
+    mechanics: [{ mechanicId: 5, mechanicPayload: { type: 'roll', data: { efficiency: 3, sub_mechanics: ['advantage_disadvantage'] } } }],
     createdAt: 1,
   },
   {
+    mechanics: [],
     id: null,
     code: CHECK_SIMPLE_CODE,
     type: 'check',
@@ -38,6 +38,7 @@ const ROLL_RULES: Rule[] = [
     createdAt: 1,
   },
   {
+    mechanics: [],
     id: null,
     code: 'check-intellect',
     type: 'check',
@@ -54,6 +55,7 @@ const ROLL_RULES: Rule[] = [
     createdAt: 1,
   },
   {
+    mechanics: [],
     id: null,
     code: CHECK_SPELL_CAST_CODE,
     type: 'check',
@@ -79,6 +81,7 @@ function spellRule(
   control = { base: 3, size: -1 },
 ): Rule {
   return {
+    mechanics: [],
     id: null,
     code,
     type: 'ability',
@@ -110,10 +113,10 @@ const ARCANE: Rule = {
   name: 'Арканный',
   description: '',
   spaceId: 1,
+  mechanics: [],
   spec: {
     type: 'damage_type',
     forms: { genitive: '', dative: '' },
-    attached_rule_codes: [],
     modifies_spell_difficulty: true,
   },
   createdAt: 1,
@@ -126,10 +129,10 @@ const ELECTRICITY: Rule = {
   name: 'Электричество',
   description: '',
   spaceId: 1,
+  mechanics: [],
   spec: {
     type: 'damage_type',
     forms: { genitive: '', dative: '' },
-    attached_rule_codes: [],
     modifies_spell_difficulty: false,
   },
   createdAt: 1,
@@ -333,6 +336,7 @@ describe('SpellCastOptionsService', () => {
 
   it('пути из гранта magic_path', () => {
     const becoming: Rule = {
+      mechanics: [],
       id: null,
       code: 'becoming-arcanist',
       type: 'ability',
@@ -349,6 +353,7 @@ describe('SpellCastOptionsService', () => {
       createdAt: 1,
     };
     const path: Rule = {
+      mechanics: [],
       id: null,
       code: 'arcanist',
       type: 'magic_path',
@@ -372,6 +377,7 @@ describe('SpellCastOptionsService', () => {
 
   it('источник из гранта, если ядра нет в инвентаре', () => {
     const trait: Rule = {
+      mechanics: [],
       id: null,
       code: 'magic-core-capacity',
       type: 'ability',
@@ -388,6 +394,7 @@ describe('SpellCastOptionsService', () => {
       createdAt: 1,
     };
     const item: Rule = {
+      mechanics: [],
       id: null,
       code: 'magic-core',
       type: 'item',

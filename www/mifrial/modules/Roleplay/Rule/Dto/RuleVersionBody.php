@@ -35,14 +35,13 @@ final class RuleVersionBody
      * @param string $description Текст.
      * @param array<string|int, mixed> $spec Type-specific JSON.
      * @param array<int, int> $keywordIds Id признаков.
-     * @param int|null $mechanicId Поставка механики.
-     * @param array<string|int, mixed> $mechanicPayload Payload механики.
+     * @param array<int, array<string, mixed>> $mechanics Список механик.
      * @param string $contentStatus Редакционный статус.
      * @param string $contentNote Комментарий разработки.
      *
      * @return void
      *
-     * @throws RuleInvalidException Если поля пусты, дубль id или payload без механики.
+     * @throws RuleInvalidException Если поля пусты или строка механики без id.
      */
     public function __construct(
         string $type,
@@ -50,8 +49,7 @@ final class RuleVersionBody
         private readonly string $description,
         private readonly array $spec,
         array $keywordIds,
-        private readonly ?int $mechanicId,
-        private readonly array $mechanicPayload,
+        private readonly array $mechanics,
         string $contentStatus,
         string $contentNote = '',
     ) {
@@ -64,9 +62,7 @@ final class RuleVersionBody
             throw new RuleInvalidException('Rule body fields must not be empty');
         }
 
-        if ($this->mechanicId === null && $this->mechanicPayload !== []) {
-            throw new RuleInvalidException('Mechanic payload requires mechanic id');
-        }
+        $this->assertMechanics($this->mechanics);
     }
 
     /**
@@ -120,23 +116,13 @@ final class RuleVersionBody
     }
 
     /**
-     * Поставка механики.
+     * Список механик снимка.
      *
-     * @return int|null Id или null.
+     * @return array<int, array<string, mixed>> Строки mechanic_id и mechanic_payload.
      */
-    public function getMechanicId(): ?int
+    public function getMechanics(): array
     {
-        return $this->mechanicId;
-    }
-
-    /**
-     * Payload механики.
-     *
-     * @return array<string|int, mixed> JSON.
-     */
-    public function getMechanicPayload(): array
-    {
-        return $this->mechanicPayload;
+        return $this->mechanics;
     }
 
     /**
@@ -184,5 +170,31 @@ final class RuleVersionBody
         }
 
         return $keywordIds;
+    }
+
+    /**
+     * Проверяет список пар механика и payload.
+     *
+     * @param array<int, mixed> $mechanics Вход.
+     *
+     * @return void
+     *
+     * @throws RuleInvalidException Если форма строки неверна.
+     */
+    private function assertMechanics(array $mechanics): void
+    {
+        if (!array_is_list($mechanics)) {
+            throw new RuleInvalidException('Mechanics must be a list');
+        }
+
+        foreach ($mechanics as $row) {
+            if (!is_array($row) || !isset($row['mechanic_id']) || !is_int($row['mechanic_id']) || $row['mechanic_id'] < 1) {
+                throw new RuleInvalidException('Mechanic id is invalid');
+            }
+
+            if (!isset($row['mechanic_payload']) || !is_array($row['mechanic_payload'])) {
+                throw new RuleInvalidException('Mechanic payload requires mechanic id');
+            }
+        }
     }
 }

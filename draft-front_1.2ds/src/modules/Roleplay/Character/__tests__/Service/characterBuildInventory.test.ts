@@ -16,7 +16,7 @@ function itemRule(code: string, name: string, cost_gm: number | null, extra?: Pa
     description: '',
     spaceId: 1,
     keywordIds: [],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1767225600,
     spec: {
       category: 'equipment',
@@ -255,7 +255,7 @@ describe('CharacterBuildService · инвентарь', () => {
       description: '',
       spaceId: 1,
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1767225600,
       spec: { exclusive: true },
     };
@@ -267,7 +267,7 @@ describe('CharacterBuildService · инвентарь', () => {
       description: '',
       spaceId: 1,
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1767225600,
       spec: { exclusive: true },
     };
@@ -279,7 +279,7 @@ describe('CharacterBuildService · инвентарь', () => {
       description: '',
       spaceId: 1,
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1767225600,
       spec: {
         type_code: 'coating',
@@ -296,7 +296,7 @@ describe('CharacterBuildService · инвентарь', () => {
       description: '',
       spaceId: 1,
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1767225600,
       spec: {
         type_code: 'craft-quality',
@@ -313,7 +313,7 @@ describe('CharacterBuildService · инвентарь', () => {
       description: '',
       spaceId: 1,
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1767225600,
       spec: {
         type_code: 'craft-quality',
@@ -330,7 +330,7 @@ describe('CharacterBuildService · инвентарь', () => {
       description: '',
       spaceId: 1,
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1767225600,
       spec: {
         type_code: 'ferrule',

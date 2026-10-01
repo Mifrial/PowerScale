@@ -39,6 +39,7 @@ describe('ImportedRuleNameService', () => {
       name: 'Владение музыкальным инструментом ( x из 3, инструмент )',
       description: '',
       spaceId: 1,
+      mechanics: [],
       spec: {
         type: 'skill',
         zones: { or: { kind: 'array', levels_cost: [1, 1, 2] } },
@@ -61,6 +62,7 @@ describe('ImportedRuleNameService', () => {
       name: 'Чтение по губам( Вид )',
       description: '',
       spaceId: 1,
+      mechanics: [],
       spec: {
         type: 'skill',
         zones: { or: { kind: 'array', levels_cost: [1] } },
@@ -83,6 +85,7 @@ describe('ImportedRuleNameService', () => {
       name: 'Длительное напряжение( n из 5)',
       description: '',
       spaceId: 1,
+      mechanics: [],
       spec: {
         type: 'skill',
         zones: { or: { kind: 'progression', max_level: 1, base_cost: 3, step: 0 } },
@@ -103,6 +106,7 @@ describe('ImportedRuleNameService', () => {
       name: 'Развитие внимательности( х из 3)',
       description: '',
       spaceId: 1,
+      mechanics: [],
       spec: {
         type: 'skill',
         zones: { or: { kind: 'array', levels_cost: [1, 1, 2] } },

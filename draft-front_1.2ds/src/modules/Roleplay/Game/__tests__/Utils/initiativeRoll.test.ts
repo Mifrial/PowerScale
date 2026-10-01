@@ -85,6 +85,7 @@ describe('rollInitiative', () => {
   it('механики броска — с проверки выбранной характеристики, не с check-initiative', () => {
     const rules: Rule[] = [
       {
+        mechanics: [],
         id: null,
         code: 'check-simple',
         type: 'check',
@@ -100,6 +101,7 @@ describe('rollInitiative', () => {
         createdAt: 1787400000,
       },
       {
+        mechanics: [],
         id: null,
         code: 'check-initiative',
         type: 'check',
@@ -117,6 +119,7 @@ describe('rollInitiative', () => {
         createdAt: 1787400000,
       },
       {
+        mechanics: [],
         id: null,
         code: 'check-perception',
         type: 'check',
@@ -134,6 +137,7 @@ describe('rollInitiative', () => {
         createdAt: 1787400000,
       },
       {
+        mechanics: [],
         id: null,
         code: 'check-attention',
         type: 'check',
@@ -158,8 +162,7 @@ describe('rollInitiative', () => {
         description: '',
         spaceId: 1,
         keywordIds: [],
-        mechanicId: 1,
-        mechanicPayload: null,
+        mechanics: [{ mechanicId: 1, mechanicPayload: null }],
         createdAt: 1787400000,
       },
     ];

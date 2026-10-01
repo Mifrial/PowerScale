@@ -9,6 +9,7 @@ const service = new EditorStatViewsService();
 
 function characteristicRule(code: string, group: 'primary' | 'secondary' | 'magic', formula?: string): Rule {
   return {
+    mechanics: [],
     id: null,
     code,
     type: 'characteristic',

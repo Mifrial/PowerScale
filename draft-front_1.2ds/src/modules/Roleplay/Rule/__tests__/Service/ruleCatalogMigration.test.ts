@@ -11,6 +11,7 @@ function rule(overrides: Partial<Rule>): Rule {
     name: overrides.name ?? 'Правило',
     description: '',
     spaceId: 1,
+    mechanics: [],
     createdAt: 1767225600,
     ...overrides,
   };
@@ -104,12 +105,7 @@ describe('RuleCatalogMigrationService', () => {
   });
 
   it('puts the listed precision strikes into the precision section', () => {
-    const precisionCodes = [
-      'tochnyy-udar',
-      'napravlennyy-udar',
-      'udar-v-sochlenenie',
-      'smertelnyy-udar',
-    ];
+    const precisionCodes = ['tochnyy-udar', 'napravlennyy-udar', 'udar-v-sochlenenie', 'smertelnyy-udar'];
     const migrated = ruleCatalogMigrationService.migrateRules(
       precisionCodes.map((code) => rule({ code, type: 'ability' })),
       new Map(),

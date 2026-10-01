@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Rule\Service;
 
+use Mifrial\Roleplay\Mechanic\Exception\MechanicNotFoundException;
+use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanics;
 use Mifrial\Roleplay\Rule\Dto\RuleCommitEntry;
 use Mifrial\Roleplay\Rule\Dto\RuleRevisionRecord;
 use Mifrial\Roleplay\Rule\Dto\RuleRevisionSlice;
 use Mifrial\Roleplay\Rule\Dto\RuleRevisionSummary;
+use Mifrial\Roleplay\Rule\Dto\RuleVersionBody;
 use Mifrial\Roleplay\Rule\Dto\RuleVersionRecord;
 use Mifrial\Roleplay\Rule\Exception\RuleConflictException;
 use Mifrial\Roleplay\Rule\Exception\RuleInvalidException;
@@ -28,12 +31,14 @@ final class Rules implements IRules
      *
      * @param IVersionedRepository $versionedRepository Часы кластера.
      * @param RuleClockMapper $ruleClockMapper Карты.
+     * @param IMechanics $mechanics Каталог механик.
      *
      * @return void
      */
     public function __construct(
         private readonly IVersionedRepository $versionedRepository,
         private readonly RuleClockMapper $ruleClockMapper,
+        private readonly IMechanics $mechanics,
     ) {
     }
 
@@ -111,6 +116,7 @@ final class Rules implements IRules
         ?int $expectedRevision = null,
     ): RuleRevisionRecord {
         $parsedEntries = $this->parseEntries($entries);
+        $this->assertKnownMechanics($parsedEntries);
         $revisionRecord = (new RuleGuard())->run(
             function () use ($spaceId, $parsedEntries, $allowUnchangedComposition, $expectedRevision): mixed {
                 $clockEntries = $this->ruleClockMapper->toClockEntries($parsedEntries);
@@ -264,5 +270,37 @@ final class Rules implements IRules
         }
 
         return $entries;
+    }
+
+    /**
+     * Проверяет, что каждый id механики есть в каталоге.
+     *
+     * @param array<int, RuleCommitEntry> $entries Состав.
+     *
+     * @return void
+     *
+     * @throws RuleInvalidException Если id неизвестен.
+     */
+    private function assertKnownMechanics(array $entries): void
+    {
+        foreach ($entries as $entry) {
+            $body = $entry->getBody();
+            if (!$body instanceof RuleVersionBody) {
+                continue;
+            }
+
+            foreach ($body->getMechanics() as $row) {
+                $mechanicId = $row['mechanic_id'] ?? null;
+                if (!is_int($mechanicId)) {
+                    throw new RuleInvalidException('Mechanic id is invalid');
+                }
+
+                try {
+                    $this->mechanics->get($mechanicId);
+                } catch (MechanicNotFoundException) {
+                    throw new RuleInvalidException('Mechanic id is unknown');
+                }
+            }
+        }
     }
 }

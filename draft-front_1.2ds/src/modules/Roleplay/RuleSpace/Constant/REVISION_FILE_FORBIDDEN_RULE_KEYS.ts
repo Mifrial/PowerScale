@@ -3,6 +3,8 @@ export const REVISION_FILE_FORBIDDEN_RULE_KEYS = [
   'spaceId',
   'keywordIds',
   'mechanicId',
+  'mechanic',
+  'mechanicPayload',
   'createdAt',
   'updatedAt',
   'mechanic_payload',

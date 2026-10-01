@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Mifrial\Core\SmartTable\Service\Schema;
 
+use Illuminate\Database\Schema\Blueprint;
+use JsonException;
 use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
 use Mifrial\Core\SmartTable\Exception\Schema\DdlFailedException;
 use Mifrial\Core\SmartTable\Exception\Schema\SchemaMismatchException;
@@ -249,6 +251,81 @@ final class TableSchema
         $columnNames = $schemaBuilder->getColumnListing($tableName);
         if (!in_array('id', $columnNames, true)) {
             throw new SchemaMismatchException('Existing table has no id column');
+        }
+    }
+
+    /**
+     * Копирует пару mechanic_id и mechanic_payload в mechanics и снимает старые колонки.
+     *
+     * @param string $tableName Таблица снимка.
+     *
+     * @return void
+     *
+     * @throws DdlFailedException Если драйвер отклонил DDL.
+     * @throws JsonException Если payload не кодируется.
+     */
+    public function foldLegacyMechanicColumns(string $tableName): void
+    {
+        $connection = $this->databaseConnection->illuminateConnection();
+        $schemaBuilder = $connection->getSchemaBuilder();
+        if (!$schemaBuilder->hasTable($tableName) || !$schemaBuilder->hasColumn($tableName, 'mechanic_id')) {
+            return;
+        }
+
+        if (!$schemaBuilder->hasColumn($tableName, 'mechanics')) {
+            return;
+        }
+
+        $rows = $connection->table($tableName)->get(['id', 'mechanic_id', 'mechanic_payload', 'mechanics']);
+        foreach ($rows as $row) {
+            if ($row->mechanics !== null) {
+                continue;
+            }
+
+            $payload = $row->mechanic_payload;
+            if (is_string($payload)) {
+                $decodedPayload = json_decode($payload, true);
+                $payload = is_array($decodedPayload) ? $decodedPayload : [];
+            }
+
+            if (!is_array($payload)) {
+                $payload = [];
+            }
+
+            $list = $row->mechanic_id === null ? [] : [[
+                'mechanic_id' => (int) $row->mechanic_id,
+                'mechanic_payload' => $payload,
+            ]];
+            $connection->table($tableName)->where('id', $row->id)->update([
+                'mechanics' => json_encode($list, JSON_THROW_ON_ERROR),
+            ]);
+        }
+
+        try {
+            $foreignKeys = $schemaBuilder->getForeignKeys($tableName);
+            foreach ($foreignKeys as $foreignKey) {
+                $columns = $foreignKey['columns'] ?? [];
+                if (!is_array($columns) || !in_array('mechanic_id', $columns, true)) {
+                    continue;
+                }
+
+                $constraintName = $foreignKey['name'] ?? null;
+                if (!is_string($constraintName)) {
+                    continue;
+                }
+
+                $schemaBuilder->table($tableName, function (Blueprint $blueprint) use ($constraintName): void {
+                    $blueprint->dropForeign($constraintName);
+                });
+            }
+
+            $schemaBuilder->table($tableName, function (Blueprint $blueprint): void {
+                $blueprint->dropColumn(['mechanic_id', 'mechanic_payload']);
+            });
+        } catch (SmartTableException $exception) {
+            throw $exception;
+        } catch (Throwable $throwable) {
+            throw new DdlFailedException($throwable);
         }
     }
 }

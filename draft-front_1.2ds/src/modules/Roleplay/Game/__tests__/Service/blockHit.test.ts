@@ -17,7 +17,9 @@ describe('BlockHitService', () => {
         itemName: 'Классический щит',
         efficiency: { base: 5, size: 0 },
         defense: { base: 6, size: 0 },
-        resistances: [{ damage_type_code: 'slashing', value: { base: 2, size: 0 }, durability: 4, source_code: 'shield' }],
+        resistances: [
+          { damage_type_code: 'slashing', value: { base: 2, size: 0 }, durability: 4, source_code: 'shield' },
+        ],
       },
     );
     expect(next?.armor[0]?.lines).toEqual(

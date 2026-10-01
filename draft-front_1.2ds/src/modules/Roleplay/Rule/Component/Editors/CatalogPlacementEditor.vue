@@ -62,7 +62,7 @@ const panelTitle = computed(() => {
         density="compact"
         hide-details
         class="mb-4"
-        @update:model-value="emit('update:catalogSortOrder', $event)"
+        @update:model-value="emit('update:catalogSortOrder', $event ?? catalogSortOrder)"
       />
       <TreeSelectFilter
         :field="sectionField"

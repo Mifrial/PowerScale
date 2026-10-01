@@ -5,6 +5,7 @@ import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 
 const rules: Rule[] = [
   {
+    mechanics: [],
     id: null,
     code: 'strength',
     type: 'characteristic',
@@ -14,6 +15,7 @@ const rules: Rule[] = [
     createdAt: 1767225600,
   },
   {
+    mechanics: [],
     id: null,
     code: 'fire',
     type: 'damage_type',
@@ -23,6 +25,7 @@ const rules: Rule[] = [
     createdAt: 1767225600,
   },
   {
+    mechanics: [],
     id: null,
     code: 'sense-hearing',
     type: 'sense',
@@ -32,6 +35,7 @@ const rules: Rule[] = [
     createdAt: 1767225600,
   },
   {
+    mechanics: [],
     id: null,
     code: 'innate',
     type: 'source',

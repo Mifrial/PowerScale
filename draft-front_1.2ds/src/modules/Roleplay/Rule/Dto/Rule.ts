@@ -1,6 +1,6 @@
 import type { RuleType } from '@/modules/Roleplay/Rule/Enum/RuleType';
 import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec';
-import type { MechanicPayload } from '@/modules/Roleplay/Mechanic/Dto/MechanicPayload';
+import type { RuleMechanicRef } from '@/modules/Roleplay/Rule/Dto/RuleMechanicRef';
 
 export interface Rule {
   /** Ключ строки каталога; `null` — черновик / импорт, ещё не в БД. */
@@ -18,9 +18,7 @@ export interface Rule {
   catalogSortOrder?: number;
   spec?: RuleSpec;
   keywordIds?: number[];
-  mechanicId?: number | null;
-  /** Контекст инстанции механики (см. MechanicPayload); есть только при mechanicId. */
-  mechanicPayload?: MechanicPayload | null;
+  mechanics: RuleMechanicRef[];
   contentStatus?: string;
   /** Комментарий разработки; не игровой текст. */
   contentNote?: string;

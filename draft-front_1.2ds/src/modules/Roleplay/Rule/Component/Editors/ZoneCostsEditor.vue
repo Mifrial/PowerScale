@@ -115,7 +115,7 @@ function removeArrayCost(zone: ZoneId) {
               v-for="(cost, levelIndex) in arrayCosts(zone.value)"
               :key="levelIndex"
               :model-value="cost"
-              @update:model-value="updateArrayCost(zone.value, levelIndex, $event)"
+              @update:model-value="updateArrayCost(zone.value, levelIndex, $event ?? cost)"
               :label="`Ур. ${levelIndex + 1}`"
               density="compact"
               hide-details

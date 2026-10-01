@@ -48,7 +48,7 @@ export const mockItemImport: Rule[] = [
       },
     },
     keywordIds: [72, 84, 99, 97, 116, 131, 210, 212],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -109,7 +109,7 @@ export const mockItemImport: Rule[] = [
       },
     },
     keywordIds: [72, 84, 93, 101, 96, 98, 132, 213],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -196,7 +196,7 @@ export const mockItemImport: Rule[] = [
       },
     },
     keywordIds: [72, 84, 93, 96, 98, 126, 125, 127],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -239,7 +239,7 @@ export const mockItemImport: Rule[] = [
       },
     },
     keywordIds: [72, 100, 84, 93, 97, 95, 115, 215],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -333,7 +333,7 @@ export const mockItemImport: Rule[] = [
       },
     },
     keywordIds: [73, 84, 93, 96, 98, 107, 108],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -388,7 +388,7 @@ export const mockItemImport: Rule[] = [
       },
     },
     keywordIds: [73, 84, 93, 96, 98, 107, 108, 110],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -474,7 +474,7 @@ export const mockItemImport: Rule[] = [
       },
     },
     keywordIds: [73, 84, 93, 96, 98, 107, 109, 184],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -544,7 +544,7 @@ export const mockItemImport: Rule[] = [
       },
     },
     keywordIds: [73, 98, 84, 96, 93, 107, 111, 134, 213],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -613,7 +613,7 @@ export const mockItemImport: Rule[] = [
       },
     },
     keywordIds: [73, 98, 84, 96, 93, 107, 112, 213],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -683,7 +683,7 @@ export const mockItemImport: Rule[] = [
       },
     },
     keywordIds: [73, 98, 84, 107, 111, 135, 213],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -754,7 +754,7 @@ export const mockItemImport: Rule[] = [
       },
     },
     keywordIds: [73, 98, 84, 97, 107, 111, 136, 213],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -825,7 +825,7 @@ export const mockItemImport: Rule[] = [
       },
     },
     keywordIds: [73, 98, 84, 97, 107, 111, 137, 214],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -865,7 +865,7 @@ export const mockItemImport: Rule[] = [
       },
     },
     keywordIds: [73, 98, 84, 93, 97, 107, 95, 133, 213],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -905,7 +905,7 @@ export const mockItemImport: Rule[] = [
       },
     },
     keywordIds: [73, 98, 84, 93, 97, 107, 95, 115, 114, 213],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -975,7 +975,7 @@ export const mockItemImport: Rule[] = [
       },
     },
     keywordIds: [73, 98, 84, 96, 93, 107, 113, 213],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -1046,7 +1046,7 @@ export const mockItemImport: Rule[] = [
       },
     },
     keywordIds: [74, 84, 117, 139, 138, 98],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -1117,7 +1117,7 @@ export const mockItemImport: Rule[] = [
       },
     },
     keywordIds: [74, 84, 117, 106, 139, 140, 98],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -1165,7 +1165,7 @@ export const mockItemImport: Rule[] = [
       },
     },
     keywordIds: [74, 84, 117, 139, 138, 98, 118],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -1223,7 +1223,7 @@ export const mockItemImport: Rule[] = [
       },
     },
     keywordIds: [84, 75, 122, 99, 98, 211],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -1294,7 +1294,7 @@ export const mockItemImport: Rule[] = [
       },
     },
     keywordIds: [84, 75, 122, 99, 98, 141, 211],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -1365,7 +1365,7 @@ export const mockItemImport: Rule[] = [
       },
     },
     keywordIds: [84, 75, 117, 124, 99, 98, 211],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -1435,7 +1435,7 @@ export const mockItemImport: Rule[] = [
       },
     },
     keywordIds: [84, 75, 123, 99, 98, 142, 211],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -1477,7 +1477,7 @@ export const mockItemImport: Rule[] = [
       },
     },
     keywordIds: [84, 76, 121, 98, 120],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -1520,7 +1520,7 @@ export const mockItemImport: Rule[] = [
       },
     },
     keywordIds: [84, 76, 143, 98],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -1557,7 +1557,7 @@ export const mockItemImport: Rule[] = [
       },
     },
     keywordIds: [77, 98, 84, 104, 102, 144],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -1600,7 +1600,7 @@ export const mockItemImport: Rule[] = [
       },
     },
     keywordIds: [77, 99, 84, 103, 102, 128, 145],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -1651,7 +1651,7 @@ export const mockItemImport: Rule[] = [
       },
     },
     keywordIds: [77, 99, 84, 103, 102, 128, 96, 146],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -1703,7 +1703,7 @@ export const mockItemImport: Rule[] = [
       },
     },
     keywordIds: [77, 99, 84, 103, 102, 128, 97, 147],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -1755,7 +1755,7 @@ export const mockItemImport: Rule[] = [
       },
     },
     keywordIds: [77, 99, 84, 103, 102, 128, 96, 148],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -1807,7 +1807,7 @@ export const mockItemImport: Rule[] = [
       },
     },
     keywordIds: [77, 99, 84, 103, 102, 128, 96, 149],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -1860,7 +1860,7 @@ export const mockItemImport: Rule[] = [
       },
     },
     keywordIds: [78, 84, 85, 153, 105, 98, 99, 150],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -1913,7 +1913,7 @@ export const mockItemImport: Rule[] = [
       },
     },
     keywordIds: [78, 84, 85, 154, 105, 98, 99, 151],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -1966,7 +1966,7 @@ export const mockItemImport: Rule[] = [
       },
     },
     keywordIds: [78, 84, 85, 155, 105, 98, 99, 152],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -1989,7 +1989,7 @@ export const mockItemImport: Rule[] = [
       },
     },
     keywordIds: [79, 86, 100, 160],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2012,7 +2012,7 @@ export const mockItemImport: Rule[] = [
       },
     },
     keywordIds: [79, 86, 156, 160],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2040,7 +2040,7 @@ export const mockItemImport: Rule[] = [
       },
     },
     keywordIds: [79, 86, 157, 161],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2068,7 +2068,7 @@ export const mockItemImport: Rule[] = [
       },
     },
     keywordIds: [79, 86, 158, 161],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2096,7 +2096,7 @@ export const mockItemImport: Rule[] = [
       },
     },
     keywordIds: [79, 86, 159, 162, 218],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2115,7 +2115,7 @@ export const mockItemImport: Rule[] = [
       group_code: 'crystal-reversal',
     },
     keywordIds: [80, 88, 177, 89],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2134,7 +2134,7 @@ export const mockItemImport: Rule[] = [
       group_code: 'crystal-reversal',
     },
     keywordIds: [80, 88, 177, 89],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2153,7 +2153,7 @@ export const mockItemImport: Rule[] = [
       group_code: 'crystal-reversal',
     },
     keywordIds: [80, 88, 177, 89],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2172,7 +2172,7 @@ export const mockItemImport: Rule[] = [
       group_code: 'crystal-dome',
     },
     keywordIds: [80, 88, 177, 89],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2191,7 +2191,7 @@ export const mockItemImport: Rule[] = [
       group_code: 'crystal-dome',
     },
     keywordIds: [80, 88, 177, 89],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2210,7 +2210,7 @@ export const mockItemImport: Rule[] = [
       group_code: 'crystal-dome',
     },
     keywordIds: [80, 88, 177, 89],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2229,7 +2229,7 @@ export const mockItemImport: Rule[] = [
       group_code: 'crystal-magnetic-shield',
     },
     keywordIds: [80, 88, 177, 89],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2248,7 +2248,7 @@ export const mockItemImport: Rule[] = [
       group_code: 'crystal-magnetic-shield',
     },
     keywordIds: [80, 88, 177, 89],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2267,7 +2267,7 @@ export const mockItemImport: Rule[] = [
       group_code: 'crystal-magnetic-shield',
     },
     keywordIds: [80, 88, 177, 89],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2286,7 +2286,7 @@ export const mockItemImport: Rule[] = [
       group_code: 'steam-bomb',
     },
     keywordIds: [80, 88, 178, 91],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2305,7 +2305,7 @@ export const mockItemImport: Rule[] = [
       group_code: 'steam-bomb',
     },
     keywordIds: [80, 88, 178, 91],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2324,7 +2324,7 @@ export const mockItemImport: Rule[] = [
       group_code: 'steam-bomb',
     },
     keywordIds: [80, 88, 178, 91],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2342,7 +2342,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [81, 87, 163, 172],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2360,7 +2360,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [81, 87, 164, 170],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2378,7 +2378,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [81, 87, 164, 169],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2396,7 +2396,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [81, 87, 165, 171],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2414,7 +2414,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [81, 87, 176, 175],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2432,7 +2432,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [81, 87, 176, 175],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2450,7 +2450,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [81, 87, 166, 168],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2468,7 +2468,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [81, 87, 167, 168],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2485,7 +2485,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [81, 92, 87, 173, 174],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2502,7 +2502,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [81, 87],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2519,7 +2519,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [82, 90, 98],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2536,7 +2536,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [82, 90, 98],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2553,7 +2553,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [82, 90, 98],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2570,7 +2570,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [82, 90, 179],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2587,7 +2587,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [82, 90, 179],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2604,7 +2604,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [82, 90, 179],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2621,7 +2621,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [82, 90, 179],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2638,7 +2638,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [82, 90, 179],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2655,7 +2655,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [82, 90, 179],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2673,7 +2673,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [82, 90, 180],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2691,7 +2691,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [82, 90, 180],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2709,7 +2709,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [82, 90, 180],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2726,7 +2726,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [82, 90, 180],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2743,7 +2743,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [82, 90, 180],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2760,7 +2760,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [82, 90, 180],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2777,7 +2777,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [82, 90, 181],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2794,7 +2794,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [82, 90, 181],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2811,7 +2811,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [82, 90, 182],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2828,7 +2828,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [82, 90, 182],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2845,7 +2845,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [82, 90, 182],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2862,7 +2862,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [82, 90, 182],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2879,7 +2879,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [82, 90, 182],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2896,7 +2896,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [82, 90, 182],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2913,7 +2913,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [82, 90, 183],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2930,7 +2930,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [82, 90, 183],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2947,7 +2947,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [82, 90, 183],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2964,7 +2964,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [82, 90, 183],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2981,7 +2981,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [83, 89, 176],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -2998,7 +2998,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [83, 89, 176],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -3015,7 +3015,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [83, 89, 176],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -3032,7 +3032,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [83, 89, 176],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -3049,7 +3049,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [83, 89, 176],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -3066,7 +3066,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [83, 89, 176],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -3083,7 +3083,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [83, 89, 176],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -3100,7 +3100,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [83, 89, 176],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -3117,7 +3117,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [83, 89, 176],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -3134,7 +3134,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [83, 89, 176],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -3151,7 +3151,7 @@ export const mockItemImport: Rule[] = [
       special_rule_codes: [],
     },
     keywordIds: [83, 89, 176],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -3165,7 +3165,7 @@ export const mockItemImport: Rule[] = [
       costs: [1, 3, 5],
     },
     keywordIds: [],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -3179,7 +3179,7 @@ export const mockItemImport: Rule[] = [
       costs: [2, 4, 6],
     },
     keywordIds: [],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -3193,7 +3193,7 @@ export const mockItemImport: Rule[] = [
       costs: [2, 4, 6],
     },
     keywordIds: [],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -3207,7 +3207,7 @@ export const mockItemImport: Rule[] = [
       costs: [2, 4, 6],
     },
     keywordIds: [],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -3221,7 +3221,7 @@ export const mockItemImport: Rule[] = [
       costs: [2, 4, 6],
     },
     keywordIds: [],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -3235,7 +3235,7 @@ export const mockItemImport: Rule[] = [
       costs: [2, 4, 6],
     },
     keywordIds: [],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -3249,7 +3249,7 @@ export const mockItemImport: Rule[] = [
       costs: [3, 5, 7],
     },
     keywordIds: [],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -3263,7 +3263,7 @@ export const mockItemImport: Rule[] = [
       costs: [1, 3, 5],
     },
     keywordIds: [],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -3277,7 +3277,7 @@ export const mockItemImport: Rule[] = [
       costs: [2, 4, 6],
     },
     keywordIds: [],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -3291,7 +3291,7 @@ export const mockItemImport: Rule[] = [
       costs: [2, 4, 6],
     },
     keywordIds: [],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -3305,7 +3305,7 @@ export const mockItemImport: Rule[] = [
       costs: [1, 3, 6],
     },
     keywordIds: [],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -3319,7 +3319,7 @@ export const mockItemImport: Rule[] = [
       costs: [1, 2, 4],
     },
     keywordIds: [],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -3333,7 +3333,7 @@ export const mockItemImport: Rule[] = [
       costs: [1, 2, 4],
     },
     keywordIds: [],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -3347,7 +3347,7 @@ export const mockItemImport: Rule[] = [
       costs: [2, 4, 5],
     },
     keywordIds: [],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -3361,7 +3361,7 @@ export const mockItemImport: Rule[] = [
       costs: [1, 3, 5],
     },
     keywordIds: [],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -3375,7 +3375,7 @@ export const mockItemImport: Rule[] = [
       costs: [1, 2, 4],
     },
     keywordIds: [],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -3389,7 +3389,7 @@ export const mockItemImport: Rule[] = [
       costs: [3, 4, 5],
     },
     keywordIds: [],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -3403,7 +3403,7 @@ export const mockItemImport: Rule[] = [
       costs: [1, 3, 6],
     },
     keywordIds: [],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -3417,7 +3417,7 @@ export const mockItemImport: Rule[] = [
       costs: [2, 2, 3, 3, 3],
     },
     keywordIds: [],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -3431,7 +3431,7 @@ export const mockItemImport: Rule[] = [
       costs: [1, 1],
     },
     keywordIds: [],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -3445,7 +3445,7 @@ export const mockItemImport: Rule[] = [
       costs: [1, 1],
     },
     keywordIds: [],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -3459,7 +3459,7 @@ export const mockItemImport: Rule[] = [
       costs: [1, 2, 4],
     },
     keywordIds: [],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1786442400,
   },
   {
@@ -3503,7 +3503,7 @@ export const mockItemImport: Rule[] = [
       },
     },
     keywordIds: [221, 84, 186, 93],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1787652000,
   },
   {
@@ -3547,7 +3547,7 @@ export const mockItemImport: Rule[] = [
       },
     },
     keywordIds: [221, 84, 187, 93],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1787652000,
   },
   {
@@ -3561,7 +3561,7 @@ export const mockItemImport: Rule[] = [
       costs: [1, 2, 4],
     },
     keywordIds: [],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1787652000,
   },
 ];

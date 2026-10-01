@@ -235,8 +235,6 @@ describe('buildCombatChatFolds', () => {
     if (turn?.type !== 'fold') return;
     const attack = turn.fold.children[0];
     if (attack?.type !== 'fold') return;
-    expect(attack.fold.summary).toBe(
-      'Осведомитель промахивается по Старый Бородач! Помеха после удара остаётся.',
-    );
+    expect(attack.fold.summary).toBe('Осведомитель промахивается по Старый Бородач! Помеха после удара остаётся.');
   });
 });

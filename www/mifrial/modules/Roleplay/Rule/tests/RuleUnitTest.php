@@ -45,7 +45,7 @@ final class RuleUnitTest extends TestCase
     public function testEmptyNameIsInvalid(): void
     {
         try {
-            new RuleVersionBody('ability', '  ', '', [], [], null, [], 'needs_work');
+            new RuleVersionBody('ability', '  ', '', [], [], [], 'needs_work');
             self::fail('empty name must fail');
         } catch (RuleInvalidException $exception) {
             self::assertSame('RULE_INVALID', $exception->getErrorCode());
@@ -59,6 +59,6 @@ final class RuleUnitTest extends TestCase
      */
     private function body(): RuleVersionBody
     {
-        return new RuleVersionBody('ability', 'Human', '', [], [], null, [], 'needs_work');
+        return new RuleVersionBody('ability', 'Human', '', [], [], [], 'needs_work');
     }
 }

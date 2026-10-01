@@ -11,7 +11,7 @@ const rule = (id: number | null, code: string, name: string): Rule => ({
   description: '',
   spaceId: 1,
   keywordIds: [],
-  mechanicId: null,
+  mechanics: [],
   createdAt: 1767225600,
 });
 

@@ -22,6 +22,7 @@ beforeEach(() => {
 
 function rule(id: number | null, code: string): Rule {
   return {
+    mechanics: [],
     id,
     code,
     type: 'simple',

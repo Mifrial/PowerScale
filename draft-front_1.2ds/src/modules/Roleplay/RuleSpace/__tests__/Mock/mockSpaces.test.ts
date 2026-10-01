@@ -6,7 +6,6 @@ import {
   commitDraft,
   generateRevisionRules,
 } from '@/modules/Roleplay/RuleSpace/Mock/mockSpaces';
-import { DT_PAY_SR_VS_RELIABILITY_CODE } from '@/modules/Roleplay/Rule/Constant/Damage/DAMAGE_TYPE_HOOKS';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
 describe('mockSpaces: публикация черновика собирает ревизию из каталога', () => {
@@ -22,6 +21,7 @@ describe('mockSpaces: публикация черновика собирает �
   it('новая ревизия = все правила предыдущей + закоммиченное правило', async () => {
     const before = await fetchRevision(2, 12);
     const draftRule: Rule = {
+      mechanics: [],
       id: null,
       code: 'lavash',
       type: 'item',
@@ -50,6 +50,7 @@ describe('mockSpaces: публикация черновика собирает �
       2,
       [
         {
+          mechanics: [],
           id: null,
           code: 'zavtrak-gm',
           type: 'simple',
@@ -71,6 +72,7 @@ describe('mockSpaces: публикация черновика собирает �
       2,
       [
         {
+          mechanics: [],
           id: null,
           code: 'lavash-2',
           type: 'item',
@@ -89,6 +91,7 @@ describe('mockSpaces: публикация черновика собирает �
       2,
       [
         {
+          mechanics: [],
           id: firstId ?? null,
           code: 'lavash-2',
           type: 'item',
@@ -106,10 +109,10 @@ describe('mockSpaces: публикация черновика собирает �
     expect(secondLavash?.description).toBe('новое описание');
   });
 
-  it('срез ревизии держит типы урона и хук РУ vs надёжность', () => {
-    const codes = new Set(generateRevisionRules(2, 12).map((rule) => rule.code));
-    expect(codes.has('piercing')).toBe(true);
-    expect(codes.has(DT_PAY_SR_VS_RELIABILITY_CODE)).toBe(true);
+  it('срез ревизии держит колющий с механикой РУ против надёжности', () => {
+    const rules = generateRevisionRules(2, 12);
+    const piercing = rules.find((rule) => rule.code === 'piercing');
+    expect(piercing?.mechanics.some((row) => row.mechanicId === 10)).toBe(true);
   });
 
   it('удаление — маркер новой ревизии, старый срез из кеша не меняется', async () => {
@@ -140,6 +143,7 @@ describe('mockSpaces: публикация черновика собирает �
     const space = await createSpace({ name: 'Пустое', description: '' });
     const published = await commitDraft(space.id, [
       {
+        mechanics: [],
         id: null,
         code: 'from-file',
         type: 'simple',

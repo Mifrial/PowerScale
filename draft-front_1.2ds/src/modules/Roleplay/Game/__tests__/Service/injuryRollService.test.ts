@@ -258,16 +258,17 @@ describe('типы урона и увечье', () => {
         name: 'Дробящий',
         description: '',
         spaceId: 1,
-        spec: { type: 'damage_type', forms: { genitive: 'а', dative: 'б' }, attached_rule_codes: ['missing'] },
+        spec: { type: 'damage_type', forms: { genitive: 'а', dative: 'б' } },
+        mechanics: [],
         createdAt: 1767225600,
       },
     ];
     const errors = ruleValidationService.validateDamageTypeStructure(rules);
-    expect(errors.some((error) => error.message.includes('не найден'))).toBe(true);
+    expect(errors).toEqual([]);
   });
 
   it('каталог четырёх физических типов со спекой', () => {
     const piercing = ruleCatalog.find((rule) => rule.code === 'piercing');
-    expect(piercing?.spec && 'attached_rule_codes' in piercing.spec).toBe(true);
+    expect(piercing?.mechanics.length).toBeGreaterThan(0);
   });
 });

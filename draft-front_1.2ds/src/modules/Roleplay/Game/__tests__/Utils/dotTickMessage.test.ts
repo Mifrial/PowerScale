@@ -10,9 +10,9 @@ const fire: Rule = {
   name: 'Огонь',
   description: '',
   spaceId: 1,
-  spec: { type: 'damage_type', forms: { genitive: 'огня', dative: 'огню' }, attached_rule_codes: [] },
+  spec: { type: 'damage_type', forms: { genitive: 'огня', dative: 'огню' } },
   keywordIds: [],
-  mechanicId: null,
+  mechanics: [],
   createdAt: 1767225600,
 };
 

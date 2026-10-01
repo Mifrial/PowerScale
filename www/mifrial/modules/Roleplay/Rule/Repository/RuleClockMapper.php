@@ -137,8 +137,7 @@ final class RuleClockMapper
             'description' => $body->getDescription(),
             'spec' => $body->getSpec(),
             'keywords' => $body->getKeywordIds(),
-            'mechanic_id' => $body->getMechanicId(),
-            'mechanic_payload' => $body->getMechanicPayload(),
+            'mechanics' => $body->getMechanics(),
             'content_status' => $body->getContentStatus(),
             'content_note' => $body->getContentNote(),
         ];

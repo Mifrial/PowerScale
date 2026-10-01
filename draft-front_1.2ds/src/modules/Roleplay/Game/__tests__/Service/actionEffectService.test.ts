@@ -15,7 +15,7 @@ describe('ActionEffectService', () => {
       description: '',
       spaceId: 1,
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1767225600,
       spec: {
         type: 'action',
@@ -50,7 +50,7 @@ describe('ActionEffectService', () => {
       description: '',
       spaceId: 1,
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1767225600,
       spec: {
         type: 'action',
@@ -76,7 +76,7 @@ describe('ActionEffectService', () => {
       description: '',
       spaceId: 1,
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1767225600,
       spec: {
         type: 'skill',
@@ -132,7 +132,7 @@ describe('ActionEffectService', () => {
       description: '',
       spaceId: 1,
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1767225600,
       spec: {
         category: 'equipment',
@@ -383,7 +383,7 @@ describe('ActionEffectService', () => {
       description: '',
       spaceId: 1,
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1767225600,
       spec: {
         type: 'action',
@@ -410,7 +410,7 @@ describe('ActionEffectService', () => {
       description: '',
       spaceId: 1,
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1767225600,
       spec: {
         type: 'skill',
@@ -478,7 +478,7 @@ describe('ActionEffectService', () => {
       description: '',
       spaceId: 1,
       keywordIds: [],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1767225600,
       spec: {
         type: 'action',

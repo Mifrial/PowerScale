@@ -5,6 +5,7 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
 function extra(code: string, parent: string, role: 'stock' | 'language' = 'language'): Rule {
   return {
+    mechanics: [],
     id: null,
     code,
     type: 'language',
@@ -74,6 +75,7 @@ describe('LanguageRelatednessService', () => {
   it('изолят и его диалект родственны без стока', () => {
     const isolate: Rule[] = [
       {
+        mechanics: [],
         id: 1,
         code: 'wood-speech',
         type: 'language',

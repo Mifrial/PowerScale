@@ -14,7 +14,7 @@ const base = (id: number | null, code: string, type: Rule['type'], name: string,
   description: '',
   spaceId: 1,
   keywordIds: [],
-  mechanicId: null,
+  mechanics: [],
   createdAt: 1767225600,
   spec,
 });
@@ -75,7 +75,9 @@ const rules: Rule[] = [
     requirements: [],
     grants: [],
     parent_ability_code: null,
-    parameters: [{ code: 'x', label: 'X', kind: 'scalar', resolution: 'purchase', default: dim(1), min: dim(0), max: dim(10) }],
+    parameters: [
+      { code: 'x', label: 'X', kind: 'scalar', resolution: 'purchase', default: dim(1), min: dim(0), max: dim(10) },
+    ],
   }),
 ];
 

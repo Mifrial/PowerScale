@@ -19,11 +19,11 @@ const ROLL_RULES: Rule[] = [
     name: 'Бросок',
     description: '',
     spaceId: 1,
-    mechanicId: 5,
-    mechanicPayload: { type: 'roll', data: { efficiency: 3, sub_mechanics: ['advantage_disadvantage'] } },
+    mechanics: [{ mechanicId: 5, mechanicPayload: { type: 'roll', data: { efficiency: 3, sub_mechanics: ['advantage_disadvantage'] } } }],
     createdAt: 1,
   },
   {
+    mechanics: [],
     id: null,
     code: CHECK_SIMPLE_CODE,
     type: 'check',
@@ -39,6 +39,7 @@ const ROLL_RULES: Rule[] = [
     createdAt: 1,
   },
   {
+    mechanics: [],
     id: null,
     code: CHECK_SPELL_CAST_CODE,
     type: 'check',
@@ -83,6 +84,7 @@ function spellSpec(hit: HitResolution, od: number): Extract<AbilitySpec, { type:
 
 function spellRule(code: string, spec: Extract<AbilitySpec, { type: 'spell' }>): Rule {
   return {
+    mechanics: [],
     id: null,
     code,
     type: 'ability',
@@ -96,6 +98,7 @@ function spellRule(code: string, spec: Extract<AbilitySpec, { type: 'spell' }>):
 }
 
 const SIMPLE_TOUCH: Rule = {
+  mechanics: [],
   id: null,
   code: SIMPLE_TOUCH_CODE,
   type: 'ability',
@@ -135,10 +138,10 @@ const ELECTRICITY: Rule = {
   name: 'Электричество',
   description: '',
   spaceId: 1,
+  mechanics: [],
   spec: {
     type: 'damage_type',
     forms: { genitive: '', dative: '' },
-    attached_rule_codes: [],
     defense_ignored: true,
     max_success_rating: 3,
   },

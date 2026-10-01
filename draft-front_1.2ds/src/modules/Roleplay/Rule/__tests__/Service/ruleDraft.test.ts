@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { ruleDraftService } from '@/modules/Roleplay/Rule/Service/Instance/ruleDraftService';
 import type { CreateDraftParams } from '@/modules/Roleplay/Rule/Dto/CreateDraftParams';
+import type { RuleMechanicRef } from '@/modules/Roleplay/Rule/Dto/RuleMechanicRef';
 
 const baseParams = (overrides: Partial<CreateDraftParams> = {}): CreateDraftParams => ({
   isEdit: false,
@@ -12,7 +13,7 @@ const baseParams = (overrides: Partial<CreateDraftParams> = {}): CreateDraftPara
   description: '',
   spaceId: 1,
   keywordIds: [],
-  mechanicId: null,
+  mechanics: [],
   ...overrides,
 });
 
@@ -36,10 +37,12 @@ describe('RuleDraftService.createDraft', () => {
     expect(draft.code).toBe('old-code');
   });
 
-  it('прокидывает keywordIds/mechanicId и unix createdAt', () => {
-    const draft = ruleDraftService.createDraft(baseParams({ keywordIds: [7, 9], mechanicId: 3 }));
+  it('прокидывает keywordIds и список механик', () => {
+    const draft = ruleDraftService.createDraft(
+      baseParams({ keywordIds: [7, 9], mechanics: [{ mechanicId: 3, mechanicPayload: null }] }),
+    );
     expect(draft.keywordIds).toEqual([7, 9]);
-    expect(draft.mechanicId).toBe(3);
+    expect(draft.mechanics).toEqual([{ mechanicId: 3, mechanicPayload: null }]);
     expect(typeof draft.createdAt).toBe('number');
     expect(draft.createdAt).toBeGreaterThan(1_700_000_000);
   });
@@ -60,41 +63,29 @@ describe('RuleDraftService.createDraft', () => {
       type: 'roll' as const,
       data: { diceCount: 3, dieFaces: 6, efficiency: 3, adv: 0, sub_mechanics: ['advantage_disadvantage'] },
       futureField: { nested: [1] },
-    } as unknown as CreateDraftParams['mechanicPayload'];
+    } as unknown as RuleMechanicRef['mechanicPayload'];
     const draft = ruleDraftService.createDraft(baseParams({
       isEdit: true,
-      mechanicId: 5,
-      loadedMechanicId: 5,
-      mechanicPayload,
+      mechanics: [{ mechanicId: 5, mechanicPayload }],
+      loadedMechanics: [{ mechanicId: 5, mechanicPayload: null }],
     }));
-    expect(draft.mechanicPayload).toEqual(mechanicPayload);
-    expect(draft.mechanicPayload).not.toBe(mechanicPayload);
+    expect(draft.mechanics[0]?.mechanicPayload).toEqual(mechanicPayload);
+    expect(draft.mechanics[0]?.mechanicPayload).not.toBe(mechanicPayload);
   });
 
-  it('смена и очистка mechanicId сбрасывают payload в null', () => {
+  it('смена mechanicId строки сбрасывает её payload', () => {
     const mechanicPayload = { type: 'injury_efficiency' as const, delta: -1 };
     expect(ruleDraftService.createDraft(baseParams({
-      mechanicId: 6,
-      loadedMechanicId: 5,
-      mechanicPayload,
-    })).mechanicPayload).toBeNull();
-    expect(ruleDraftService.createDraft(baseParams({
-      mechanicId: null,
-      loadedMechanicId: 5,
-      mechanicPayload,
-    })).mechanicPayload).toBeNull();
+      mechanics: [{ mechanicId: 6, mechanicPayload }],
+      loadedMechanics: [{ mechanicId: 5, mechanicPayload }],
+    })).mechanics[0]?.mechanicPayload).toBeNull();
   });
 
-  it('без смены id сохраняет null и undefined payload', () => {
+  it('без смены id сохраняет null payload', () => {
     expect(ruleDraftService.createDraft(baseParams({
-      mechanicId: 5,
-      loadedMechanicId: 5,
-      mechanicPayload: null,
-    })).mechanicPayload).toBeNull();
-    expect(ruleDraftService.createDraft(baseParams({
-      mechanicId: null,
-      loadedMechanicId: null,
-    })).mechanicPayload).toBeUndefined();
+      mechanics: [{ mechanicId: 5, mechanicPayload: null }],
+      loadedMechanics: [{ mechanicId: 5, mechanicPayload: null }],
+    })).mechanics[0]?.mechanicPayload).toBeNull();
   });
 
   it('прокидывает contentNote, иначе пустую строку', () => {

@@ -69,6 +69,7 @@ describe('characteristicDependsOn', () => {
   it('видит производную min/max', () => {
     const derived: Rule[] = [
       {
+        mechanics: [],
         id: null,
         code: 'strength',
         type: 'characteristic',
@@ -79,6 +80,7 @@ describe('characteristicDependsOn', () => {
         createdAt: 0,
       },
       {
+        mechanics: [],
         id: null,
         code: 'dexterity',
         type: 'characteristic',
@@ -89,6 +91,7 @@ describe('characteristicDependsOn', () => {
         createdAt: 0,
       },
       {
+        mechanics: [],
         id: null,
         code: 'might',
         type: 'characteristic',

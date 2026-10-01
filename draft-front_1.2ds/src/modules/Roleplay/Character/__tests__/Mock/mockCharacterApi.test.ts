@@ -269,6 +269,7 @@ describe('mockCharacterApi: custom rules («Уникальные правила�
       2,
       [
         {
+          mechanics: [],
           id: null,
           code: 'palochka',
           type: 'item',

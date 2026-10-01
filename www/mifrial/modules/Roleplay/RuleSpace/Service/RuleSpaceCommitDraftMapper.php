@@ -125,8 +125,7 @@ final class RuleSpaceCommitDraftMapper
             $this->optionalString($ruleRow, 'description', '', $ruleCode),
             $this->optionalArray($ruleRow, 'spec', $ruleCode),
             $this->optionalIntList($ruleRow, 'keywordIds', $ruleCode),
-            $this->optionalMechanicId($ruleRow, $ruleCode),
-            $this->optionalArray($ruleRow, 'mechanicPayload', $ruleCode),
+            $this->optionalMechanics($ruleRow, $ruleCode),
             $this->optionalString($ruleRow, 'contentStatus', 'needs_work', $ruleCode),
             $this->optionalString($ruleRow, 'contentNote', '', $ruleCode),
         );
@@ -222,27 +221,48 @@ final class RuleSpaceCommitDraftMapper
     }
 
     /**
-     * Читает необязательный mechanicId.
+     * Список механик черновика в колонки снимка.
      *
      * @param array<string|int, mixed> $ruleRow JSON.
      * @param string $ruleCode Код правила.
      *
-     * @return int|null Id.
+     * @return array<int, array<string, mixed>> Строки mechanic_id и mechanic_payload.
      *
-     * @throws RuleSpaceInvalidException Если не int|null.
+     * @throws RuleSpaceInvalidException Если форма списка неверна.
      */
-    private function optionalMechanicId(array $ruleRow, string $ruleCode): ?int
+    private function optionalMechanics(array $ruleRow, string $ruleCode): array
     {
-        if (!array_key_exists('mechanicId', $ruleRow) || $ruleRow['mechanicId'] === null) {
-            return null;
+        if (!array_key_exists('mechanics', $ruleRow) || $ruleRow['mechanics'] === null) {
+            return [];
         }
 
-        $value = $ruleRow['mechanicId'];
-        if (!is_int($value)) {
-            $this->rejectField($ruleCode, 'mechanicId');
+        $value = $ruleRow['mechanics'];
+        if (!is_array($value) || !array_is_list($value)) {
+            $this->rejectField($ruleCode, 'mechanics');
         }
 
-        return $value;
+        $rows = [];
+        foreach ($value as $row) {
+            if (!is_array($row) || !isset($row['mechanicId']) || !is_int($row['mechanicId'])) {
+                $this->rejectField($ruleCode, 'mechanics');
+            }
+
+            $payload = $row['mechanicPayload'] ?? [];
+            if ($payload === null) {
+                $payload = [];
+            }
+
+            if (!is_array($payload)) {
+                $this->rejectField($ruleCode, 'mechanics');
+            }
+
+            $rows[] = [
+                'mechanic_id' => $row['mechanicId'],
+                'mechanic_payload' => $payload,
+            ];
+        }
+
+        return $rows;
     }
 
     /**

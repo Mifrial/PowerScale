@@ -2,15 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { ruleToForm } from '@/modules/Roleplay/Rule/Utils/Rule/ruleToForm';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
-const rule = (mechanicPayload: Rule['mechanicPayload']): Rule => ({
+const rule = (mechanicPayload: Rule['mechanics'][number]['mechanicPayload']): Rule => ({
   id: 1,
   code: 'roll',
   type: 'simple',
   name: 'Бросок',
   description: '',
   spaceId: 1,
-  mechanicId: 5,
-  mechanicPayload,
+  mechanics: [{ mechanicId: 5, mechanicPayload }],
   createdAt: 1,
 });
 
@@ -21,12 +20,11 @@ describe('ruleToForm mechanicPayload', () => {
       data: { sub_mechanics: ['advantage_disadvantage'] },
     });
     const form = ruleToForm(source);
-    expect(form.mechanicPayload).toEqual(source.mechanicPayload);
-    expect(form.mechanicPayload).not.toBe(source.mechanicPayload);
+    expect(form.mechanics[0]?.mechanicPayload).toEqual(source.mechanics[0]?.mechanicPayload);
+    expect(form.mechanics[0]?.mechanicPayload).not.toBe(source.mechanics[0]?.mechanicPayload);
   });
 
-  it('оставляет null и отсутствие поля', () => {
-    expect(ruleToForm(rule(null)).mechanicPayload).toBeNull();
-    expect(ruleToForm(rule(undefined)).mechanicPayload).toBeUndefined();
+  it('оставляет null', () => {
+    expect(ruleToForm(rule(null)).mechanics[0]?.mechanicPayload).toBeNull();
   });
 });

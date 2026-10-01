@@ -3,6 +3,7 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { spellCastUpgradeService } from '@/modules/Roleplay/Game/Service/Instance/spellCastUpgradeService';
 
 const careful: Rule = {
+  mechanics: [],
   id: null,
   code: 'careful-magic',
   type: 'ability',
@@ -23,6 +24,7 @@ const careful: Rule = {
 };
 
 const chain: Rule = {
+  mechanics: [],
   id: null,
   code: 'chain-lightning',
   type: 'ability',
@@ -50,6 +52,7 @@ const chain: Rule = {
 };
 
 const piercing: Rule = {
+  mechanics: [],
   id: null,
   code: 'piercing-magic',
   type: 'ability',

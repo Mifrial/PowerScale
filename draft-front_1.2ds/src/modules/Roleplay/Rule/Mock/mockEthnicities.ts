@@ -28,8 +28,7 @@ function ethnicityRule(
       usages,
     },
     keywordIds: [],
-    mechanicId: null,
-    mechanicPayload: null,
+    mechanics: [],
     createdAt: 1786356000,
   };
 }

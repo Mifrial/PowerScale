@@ -520,7 +520,7 @@ export class RuleValidationService {
             });
             continue;
           }
-          if (attached.type === 'check' || attached.mechanicId == null) {
+          if (attached.type === 'check' || attached.mechanics.length === 0) {
             errors.push({
               ruleCode: rule.code,
               ruleName: rule.name,
@@ -549,10 +549,9 @@ export class RuleValidationService {
     return errors;
   }
 
-  /** Карточки на типе урона существуют и несут механику. */
+  /** Склонения и потолок РУ типа урона. */
   validateDamageTypeStructure(rules: Rule[]): { ruleCode: string; ruleName: string; message: string }[] {
     const errors: { ruleCode: string; ruleName: string; message: string }[] = [];
-    const byCode = new Map(rules.map((rule) => [rule.code, rule]));
 
     for (const rule of rules) {
       if (rule.type !== 'damage_type') continue;
@@ -571,24 +570,6 @@ export class RuleValidationService {
           ruleName: rule.name,
           message: 'у типа урона должны быть заполнены родительный и дательный',
         });
-      }
-      for (const code of spec.attached_rule_codes) {
-        const attached = byCode.get(code);
-        if (!attached) {
-          errors.push({
-            ruleCode: rule.code,
-            ruleName: rule.name,
-            message: `хук «${code}» не найден`,
-          });
-          continue;
-        }
-        if (attached.type === 'damage_type' || attached.type === 'check' || attached.mechanicId == null) {
-          errors.push({
-            ruleCode: rule.code,
-            ruleName: rule.name,
-            message: `«${code}» нельзя повесить на тип урона`,
-          });
-        }
       }
       const cap = spec.max_success_rating;
       if (cap != null && (!Number.isInteger(cap) || cap < 1)) {
@@ -1513,6 +1494,14 @@ export class RuleValidationService {
     if (grant.type === 'state_modify' && grant.state_code) {
       collect({ code: grant.state_code, type: 'state' });
       this.walkFormula(grant.amount, 'characteristic', collect);
+      if (grant.source_code) {
+        collect({ code: grant.source_code, type: 'source' });
+      }
+    }
+    if (grant.type === 'check_efficiency') {
+      for (const checkCode of grant.check_codes) {
+        collect({ code: checkCode, type: 'check' });
+      }
       if (grant.source_code) {
         collect({ code: grant.source_code, type: 'source' });
       }

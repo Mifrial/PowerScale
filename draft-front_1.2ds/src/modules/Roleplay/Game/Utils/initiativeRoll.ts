@@ -27,7 +27,8 @@ export interface InitiativeRollPoolDefaults {
 
 export function rollPoolDefaults(rules: Rule[]): InitiativeRollPoolDefaults {
   const rule = rules.find((candidate) => candidate.code === ROLL_RULE_CODE);
-  const data = rule?.mechanicPayload?.type === 'roll' ? rule.mechanicPayload.data : undefined;
+  const rollPayload = rule?.mechanics.find((row) => row.mechanicPayload?.type === 'roll')?.mechanicPayload;
+  const data = rollPayload?.type === 'roll' ? rollPayload.data : undefined;
 
   return {
     dieFaces: data?.dieFaces ?? 6,

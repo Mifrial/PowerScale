@@ -39,7 +39,7 @@ defineProps<{
   <ModifierCard v-else-if="rule.type === 'item_modifier'" :rule="rule" :keywords="keywords" :rules="rules" />
   <CheckCard v-else-if="rule.type === 'check'" :rule="rule" :rules="rules" />
   <MagicPathCard v-else-if="rule.type === 'magic_path'" :rule="rule" :rules="rules" />
-  <DamageTypeCard v-else-if="rule.type === 'damage_type'" :rule="rule" :rules="rules" />
+  <DamageTypeCard v-else-if="rule.type === 'damage_type'" :rule="rule" />
   <ItemCard v-else-if="rule.type === 'item'" :rule="rule" :rules="rules" />
   <CharacteristicCard v-else-if="rule.type === 'characteristic'" :rule="rule" :rules="rules" />
   <ResourceCard v-else-if="rule.type === 'resource'" :rule="rule" :rules="rules" />

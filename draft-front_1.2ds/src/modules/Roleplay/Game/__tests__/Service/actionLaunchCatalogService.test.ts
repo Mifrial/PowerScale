@@ -11,6 +11,7 @@ const stopped: CurrentSpeed = {
 
 function actionRule(code: string, requirements: Requirement[]): Rule {
   return {
+    mechanics: [],
     id: null,
     code,
     type: 'ability',

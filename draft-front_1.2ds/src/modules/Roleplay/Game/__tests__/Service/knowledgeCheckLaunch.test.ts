@@ -56,6 +56,7 @@ describe('KnowledgeCheckLaunchService', () => {
         name: 'Человек',
         description: '',
         spaceId: 1,
+        mechanics: [],
         createdAt: 1,
       },
     ];

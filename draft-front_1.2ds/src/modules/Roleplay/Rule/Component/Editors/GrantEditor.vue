@@ -528,11 +528,11 @@ function patch(key: string, value: unknown) {
         />
       </template>
 
-      <template v-else-if="inner.type === 'check_advantage'">
+      <template v-else-if="inner.type === 'check_advantage' || inner.type === 'check_efficiency'">
         <ClampedNumberField
           :model-value="inner.amount"
           @update:model-value="patch('amount', $event)"
-          label="Преимущества"
+          :label="inner.type === 'check_efficiency' ? 'Эффективность' : 'Преимущества'"
           density="compact"
           hide-details
         />

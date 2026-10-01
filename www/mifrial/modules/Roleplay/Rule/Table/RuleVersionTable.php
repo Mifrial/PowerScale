@@ -16,7 +16,6 @@ use Mifrial\Core\SmartTable\Field\TextField;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
 use Mifrial\Core\SmartTable\Value\DateTimeNow;
 use Mifrial\Roleplay\Keyword\Table\KeywordTable;
-use Mifrial\Roleplay\Mechanic\Table\MechanicTable;
 
 /**
  * Экземпляр правила `rule_version`.
@@ -71,17 +70,12 @@ final class RuleVersionTable extends SmartTableDefinition
             new StringField('name', FieldSettings::fromOptions(['required' => true])),
             new TextField('description', FieldSettings::fromOptions(['required' => true])),
             new JsonField('spec', FieldSettings::fromOptions(['required' => true])),
-            new ReferenceField(
-                'mechanic_id',
-                FieldSettings::fromOptions([]),
-                MechanicTable::class,
-            ),
             new LinkSetField(
                 'keywords',
                 FieldSettings::fromOptions([]),
                 KeywordTable::class,
             ),
-            new JsonField('mechanic_payload', FieldSettings::fromOptions(['required' => true])),
+            new JsonField('mechanics', FieldSettings::fromOptions([])),
             new StringField(
                 'content_status',
                 FieldSettings::fromOptions(['required' => true, 'default' => 'needs_work']),

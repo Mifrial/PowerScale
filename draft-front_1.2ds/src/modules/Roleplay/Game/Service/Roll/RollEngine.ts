@@ -2,7 +2,7 @@ import type { DiceRng } from '@/modules/Roleplay/Game/Dto/DiceRng';
 import type { DiceRollResult } from '@/modules/Roleplay/Game/Dto/DiceRollResult';
 import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec';
 import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
-import type { MechanicBinding } from '@/modules/Roleplay/Mechanic/Dto/MechanicBinding';
+import { MechanicBindingList } from '@/modules/Roleplay/Mechanic/Dto/MechanicBindingList';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { RollMechanicContext } from '@/modules/Roleplay/Game/Dto/RollMechanicContext';
 import type { MechanicEngine } from '@/modules/Roleplay/Mechanic/init';
@@ -28,7 +28,7 @@ export class RollEngine {
   /** Дефолты спеки из правила «Бросок» ревизии (нейтральные параметры — как в прежнем resolveFromRevision). */
   resolveDefaults(rules: Rule[], spec: DiceRollSpec): DiceRollSpec {
     const rule = rules.find((candidate) => candidate.code === ROLL_RULE_CODE);
-    const payload = rule?.mechanicPayload;
+    const payload = rule?.mechanics.find((row) => row.mechanicPayload?.type === 'roll')?.mechanicPayload;
     if (!rule || !payload || payload.type !== 'roll') return spec;
     const data = payload.data;
 
@@ -72,13 +72,14 @@ export class RollEngine {
     // «Всегда в силе» у голого броска — sub_mechanics правила «Бросок» (помехи/преимущества).
     // Проверка передаёт коды привязанных правил в extraRuleCodes и пустой includeCodes.
     const rollRule = rules.find((candidate) => candidate.code === ROLL_RULE_CODE);
+    const rollPayload = rollRule?.mechanics.find((row) => row.mechanicPayload?.type === 'roll')?.mechanicPayload;
     const includeCodes =
       subMechanicCodes !== undefined
         ? subMechanicCodes
-        : rollRule?.mechanicPayload?.type === 'roll'
-          ? rollRule.mechanicPayload.data.sub_mechanics
+        : rollPayload?.type === 'roll'
+          ? rollPayload.data.sub_mechanics
           : undefined;
-    const active = this.engine.resolveActive(this.mechanicBindingsOf(rules), mechanics, {
+    const active = this.engine.resolveActive(MechanicBindingList.fromRules(rules), mechanics, {
       includeCodes,
       extraRuleCodes: activeRuleCodes,
     });
@@ -105,14 +106,6 @@ export class RollEngine {
       totalSuccesses: context.totalSuccesses,
       appliedMechanics: appliedMechanics.length > 0 ? appliedMechanics : undefined,
     };
-  }
-
-  private mechanicBindingsOf(rules: Rule[]): MechanicBinding[] {
-    return rules.map((rule) => ({
-      ruleCode: rule.code,
-      mechanicId: rule.mechanicId ?? null,
-      mechanicPayload: rule.mechanicPayload ?? null,
-    }));
   }
 
   private appliedNames(codes: string[], mechanics: Mechanic[]): string[] {

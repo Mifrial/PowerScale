@@ -140,17 +140,12 @@ describe('MockGameCombatCommandService', () => {
   it('replays a committed command when response delivery fails after commit', async () => {
     const { sessionId, battleId } = await setupBattle();
     let failResponse = true;
-    const service = new MockGameCombatCommandService(
-      undefined,
-      undefined,
-      undefined,
-      () => {
-        if (failResponse) {
-          failResponse = false;
-          throw new Error('response delivery failed');
-        }
-      },
-    );
+    const service = new MockGameCombatCommandService(undefined, undefined, undefined, () => {
+      if (failResponse) {
+        failResponse = false;
+        throw new Error('response delivery failed');
+      }
+    });
     const command = attackCommand(sessionId, battleId, 'timeout-after-commit');
 
     await expect(service.submit(command)).rejects.toThrow('response delivery failed');

@@ -12,7 +12,8 @@ import {
 /** Карточка `injury-procedure` → mechanic code@version; иначе v1. */
 export function resolveInjuryProcedure(rules: Rule[], mechanics: Mechanic[]): InjuryProcedure {
   const rule = rules.find((candidate) => candidate.code === INJURY_PROCEDURE_RULE_CODE);
-  const mechanic = rule?.mechanicId != null ? mechanics.find((entry) => entry.id === rule.mechanicId) : undefined;
+  const row = rule?.mechanics.find((entry) => mechanics.find((mechanic) => mechanic.id === entry.mechanicId)?.code === INJURY_PROCEDURE_MECHANIC_CODE);
+  const mechanic = row ? mechanics.find((entry) => entry.id === row.mechanicId) : undefined;
   const code = mechanic?.code ?? INJURY_PROCEDURE_MECHANIC_CODE;
   const version = mechanic?.version ?? INJURY_PROCEDURE_VERSION_1;
 

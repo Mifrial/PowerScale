@@ -12,7 +12,7 @@ function check(code: string, extra: Partial<Rule> = {}): Rule {
     spaceId: 1,
     spec: { type: 'check', difficulty_input: { kind: 'ask' }, allowed_modes: 'both' },
     keywordIds: [],
-    mechanicId: null,
+    mechanics: [],
     createdAt: 1787400000,
     ...extra,
   };
@@ -55,6 +55,7 @@ describe('checkLaunch', () => {
     const rules: Rule[] = [
       exhaustion,
       {
+        mechanics: [],
         id: null,
         code: 'willpower',
         type: 'characteristic',
@@ -64,6 +65,7 @@ describe('checkLaunch', () => {
         createdAt: 0,
       },
       {
+        mechanics: [],
         id: null,
         code: 'exhaustion',
         type: 'state',

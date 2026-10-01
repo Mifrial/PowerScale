@@ -56,13 +56,14 @@ final class RuleSpaceHttpUnitTest extends TestCase
                 'code' => 'test',
                 'type' => 'simple',
                 'name' => 'Тест',
-                'mechanicId' => 3,
-                'mechanicPayload' => null,
+                'mechanics' => [['mechanicId' => 3, 'mechanicPayload' => null]],
                 'spec' => [],
             ],
         ]);
-        self::assertSame([], $nullPayload[0]->getBody()?->getMechanicPayload());
-        self::assertSame(3, $nullPayload[0]->getBody()?->getMechanicId());
+        self::assertSame(
+            [['mechanic_id' => 3, 'mechanic_payload' => []]],
+            $nullPayload[0]->getBody()?->getMechanics(),
+        );
         try {
             $mapper->mapPuts([
                 [

@@ -1,21 +1,18 @@
 <script setup lang="ts">
+import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { damageTypeSpecService } from '@/modules/Roleplay/Rule/Service/Instance/damageTypeSpecService';
 import { computed } from 'vue';
 
 const props = defineProps<{
   rule: Rule;
-  rules: Rule[];
+  mechanics?: Mechanic[];
 }>();
 
 const spec = computed(() => damageTypeSpecService.asDamageTypeSpec(props.rule));
-const attached = computed(() => {
-  const codes = spec.value?.attached_rule_codes ?? [];
-
-  return codes
-    .map((code) => props.rules.find((candidate) => candidate.code === code))
-    .filter((rule): rule is Rule => rule !== undefined);
-});
+const mechanicNames = computed(() =>
+  props.rule.mechanics.map((row) => props.mechanics?.find((mechanic) => mechanic.id === row.mechanicId)?.name ?? String(row.mechanicId)),
+);
 </script>
 
 <template>
@@ -38,9 +35,9 @@ const attached = computed(() => {
       <div v-if="spec.modifies_spell_difficulty" class="text-body-2 mt-1">
         Сопротивление этому типу увеличивает Сложность сотворения
       </div>
-      <div v-if="attached.length" class="text-body-2 mt-1">
+      <div v-if="mechanicNames.length" class="text-body-2 mt-1">
         Механики:
-        <strong>{{ attached.map((item) => item.name).join(', ') }}</strong>
+        <strong>{{ mechanicNames.join(', ') }}</strong>
       </div>
       <div v-else class="text-body-2 mt-1">Механики не подвешены</div>
     </v-card-text>

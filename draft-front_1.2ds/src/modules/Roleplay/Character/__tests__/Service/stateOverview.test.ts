@@ -12,6 +12,7 @@ function stateRule(
   spec: { value_type: 'flag' | 'number' | 'dimensional'; aggregation: 'sum' | 'max' | 'independent' },
 ): Rule {
   return {
+    mechanics: [],
     id,
     code,
     type: 'state',
@@ -25,6 +26,7 @@ function stateRule(
 
 function poisonRule(id: number | null, code: string, name: string, spec: Partial<PoisonSpec>): Rule {
   return {
+    mechanics: [],
     id,
     code,
     type: 'poison',
@@ -44,6 +46,7 @@ function poisonRule(id: number | null, code: string, name: string, spec: Partial
 
 function damageTypeRule(id: number | null, code: string, name: string): Rule {
   return {
+    mechanics: [],
     id,
     code,
     type: 'damage_type',

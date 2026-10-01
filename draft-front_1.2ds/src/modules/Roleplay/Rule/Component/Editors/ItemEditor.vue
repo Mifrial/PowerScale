@@ -21,10 +21,8 @@ const props = defineProps<{
   code: string;
   codeDisabled?: boolean;
   description: string;
-  mechanicId: number | null;
   keywordIds: number[];
   spec: RuleSpec | null;
-  mechanicOptions: { title: string; value: number }[];
   keywordOptions: { title: string; value: number }[];
   spaceId: number;
   rules: Rule[];
@@ -34,7 +32,6 @@ const emit = defineEmits<{
   'update:name': [value: string];
   'update:code': [value: string];
   'update:description': [value: string];
-  'update:mechanicId': [value: number | null];
   'update:keywordIds': [value: number[]];
   'update:spec': [value: ItemSpec];
 }>();
@@ -158,11 +155,8 @@ function patchOccupyHands(field: 'min' | 'max' | 'action', value: number) {
             :code-disabled="codeDisabled"
             :description="description"
             @update:description="(v) => emit('update:description', v)"
-            :mechanic-id="mechanicId"
-            @update:mechanic-id="(v) => emit('update:mechanicId', v)"
             :keyword-ids="keywordIds"
             @update:keyword-ids="(v) => emit('update:keywordIds', v)"
-            :mechanic-options="mechanicOptions"
             :keyword-options="keywordOptions"
           >
             <template #spec></template>
@@ -198,7 +192,7 @@ function patchOccupyHands(field: 'min' | 'max' | 'action', value: number) {
           <div v-if="!draft.innate" class="d-flex gap-2 mb-2">
             <ClampedNumberField
               :model-value="draft.cost_gm ?? 0"
-              @update:model-value="(v: number) => (draft.cost_gm = v)"
+              @update:model-value="(v) => (draft.cost_gm = v ?? 0)"
               label="Стоимость (gm)"
               :min="0"
               density="compact"
@@ -224,7 +218,7 @@ function patchOccupyHands(field: 'min' | 'max' | 'action', value: number) {
             <div class="d-flex gap-2 mb-2">
               <ClampedNumberField
                 :model-value="draft.occupy_hands?.min ?? 0"
-                @update:model-value="(v: number) => patchOccupyHands('min', v)"
+                @update:model-value="(v) => patchOccupyHands('min', v ?? draft.occupy_hands?.min ?? 0)"
                 label="Руки min"
                 :min="0"
                 density="compact"
@@ -233,7 +227,7 @@ function patchOccupyHands(field: 'min' | 'max' | 'action', value: number) {
               />
               <ClampedNumberField
                 :model-value="draft.occupy_hands?.max ?? 0"
-                @update:model-value="(v: number) => patchOccupyHands('max', v)"
+                @update:model-value="(v) => patchOccupyHands('max', v ?? draft.occupy_hands?.max ?? 0)"
                 label="Руки max"
                 :min="0"
                 density="compact"
@@ -242,7 +236,7 @@ function patchOccupyHands(field: 'min' | 'max' | 'action', value: number) {
               />
               <ClampedNumberField
                 :model-value="draft.occupy_hands?.action ?? 0"
-                @update:model-value="(v: number) => patchOccupyHands('action', v)"
+                @update:model-value="(v) => patchOccupyHands('action', v ?? draft.occupy_hands?.action ?? 0)"
                 label="Руки на действии"
                 :min="0"
                 density="compact"

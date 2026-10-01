@@ -68,4 +68,13 @@ interface IOpenedSchema
      * @throws DdlFailedException Если драйвер отклонил DDL.
      */
     public function deleteTable(): void;
+
+    /**
+     * Переносит legacy-пару механики в колонку mechanics и удаляет старые колонки.
+     *
+     * @return void
+     *
+     * @throws DdlFailedException Если драйвер отклонил DDL.
+     */
+    public function foldLegacyMechanicColumns(): void;
 }

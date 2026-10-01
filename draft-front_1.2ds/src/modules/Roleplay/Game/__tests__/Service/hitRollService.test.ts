@@ -32,7 +32,7 @@ const checkSimple: Rule = {
     attached_rule_codes: [],
   },
   keywordIds: [],
-  mechanicId: null,
+  mechanics: [],
   createdAt: 1767225600,
 };
 
@@ -57,7 +57,7 @@ const strikeRule = (mechanicId: number): Rule => ({
   description: '',
   spaceId: 1,
   keywordIds: [],
-  mechanicId,
+  mechanics: [{ mechanicId, mechanicPayload: null }],
   createdAt: 1767225600,
 });
 
@@ -463,7 +463,7 @@ describe('listBlockProfiles', () => {
           },
         },
         keywordIds: [],
-        mechanicId: null,
+        mechanics: [],
         createdAt: 1767225600,
       },
     ];
@@ -503,7 +503,7 @@ describe('listBlockProfiles', () => {
           },
         },
         keywordIds: [],
-        mechanicId: null,
+        mechanics: [],
         createdAt: 1767225600,
       },
     ];

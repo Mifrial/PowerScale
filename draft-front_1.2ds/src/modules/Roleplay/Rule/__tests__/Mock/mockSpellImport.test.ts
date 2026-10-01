@@ -353,7 +353,7 @@ describe('mockSpellImport (M4)', () => {
     const electricity = byCode.get('electricity')?.spec as DamageTypeSpec;
     expect(electricity.defense_ignored).toBe(true);
     expect(electricity.max_success_rating).toBe(3);
-    expect(electricity.attached_rule_codes).toContain('dt-exhaustion-to-shock');
+    expect(byCode.get('electricity')?.mechanics.some((row) => row.mechanicId === 19)).toBe(true);
     const shock = byCode.get('shock')?.spec as StateSpec;
     expect(shock.value_type).toBe('number');
     expect(shock.effects?.[0]).toMatchObject({

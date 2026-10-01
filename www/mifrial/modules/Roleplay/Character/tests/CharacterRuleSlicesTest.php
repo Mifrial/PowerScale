@@ -72,7 +72,7 @@ final class CharacterRuleSlicesTest extends TestCase
         self::assertSame('ability', $slice->findLive('beta')->getType());
         self::assertSame(['k' => 1], $slice->findLive('beta')->getSpec());
         self::assertSame('needs_work', $slice->findLive('beta')->getContentStatus());
-        self::assertNull($slice->findLive('beta')->getMechanicId());
+        self::assertSame([], $slice->findLive('beta')->getMechanics());
     }
 
     /**
@@ -326,7 +326,6 @@ final class CharacterRuleSlicesTest extends TestCase
             '',
             ['k' => 1],
             $keywordIds,
-            null,
             [],
             'needs_work',
             '',

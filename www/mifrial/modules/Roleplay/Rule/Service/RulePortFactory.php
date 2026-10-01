@@ -8,6 +8,8 @@ use Mifrial\Core\Kernel\Exception\KernelException;
 use Mifrial\Core\Kernel\Interface\Service\IServiceLocator;
 use Mifrial\Core\SmartTable\Interface\Container\ISmartTableContainer;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
+use Mifrial\Roleplay\Mechanic\Interface\Container\IMechanicContainer;
+use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanics;
 use Mifrial\Roleplay\Rule\Interface\Service\IRules;
 use Mifrial\Roleplay\Rule\Repository\RuleClockMapper;
 use Mifrial\Roleplay\Rule\Repository\RuleIdentityRepository;
@@ -50,6 +52,11 @@ final class RulePortFactory
             $smartTableGateway->open(RuleTable::class)->records(),
         );
 
+        $mechanics = $serviceLocator->get(IMechanicContainer::class)->get(IMechanics::class);
+        if (!$mechanics instanceof IMechanics) {
+            throw new KernelException('PORT_TYPE', 'Rule requires IMechanics');
+        }
+
         return new Rules(
             $catalog->openCluster(new ClusterSpec(
                 RuleTable::class,
@@ -59,6 +66,7 @@ final class RulePortFactory
                 RuleRevisionItemTable::class,
             )),
             new RuleClockMapper($identityRepository),
+            $mechanics,
         );
     }
 }

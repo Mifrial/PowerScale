@@ -37,8 +37,10 @@ export class RuleDiffService {
       description: rule.description,
       spec: rule.spec ?? {},
       keywordIds: rule.keywordIds ?? [],
-      mechanicId: rule.mechanicId ?? null,
-      mechanicPayload: RuleDiffService.normalizePayload(rule.mechanicPayload),
+      mechanics: rule.mechanics.map((row) => ({
+        mechanicId: row.mechanicId,
+        mechanicPayload: RuleDiffService.normalizePayload(row.mechanicPayload),
+      })),
       active: rule.active !== false,
       contentStatus: rule.contentStatus ?? 'needs_work',
       contentNote: rule.contentNote ?? '',

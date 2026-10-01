@@ -80,8 +80,7 @@ function stateRule(
     description: '',
     spaceId: 1,
     keywordIds: [],
-    mechanicId: null,
-    mechanicPayload: null,
+    mechanics: [],
     spec: { icon_code: 'mdi-star', value_type: valueType, aggregation },
     createdAt: 1786010400,
   };
@@ -195,7 +194,15 @@ describe('combatCardModel: actual + transient overlay', () => {
       visibleSections: ['shortDescription'],
     };
 
-    const model = combatCardModelService.combatCardModel('character:1', memberships, npcs, false, null, null, projection);
+    const model = combatCardModelService.combatCardModel(
+      'character:1',
+      memberships,
+      npcs,
+      false,
+      null,
+      null,
+      projection,
+    );
 
     expect(model.version).toBeNull();
     expect(model.effectiveVersion).toBeNull();
@@ -222,7 +229,15 @@ describe('combatCardModel: actual + transient overlay', () => {
       updatedAt: '2026-08-19T12:00:00',
     };
 
-    const model = combatCardModelService.combatCardModel('character:1', memberships, npcs, true, 1, overlay, projection);
+    const model = combatCardModelService.combatCardModel(
+      'character:1',
+      memberships,
+      npcs,
+      true,
+      1,
+      overlay,
+      projection,
+    );
 
     expect(model.effectiveVersion?.money).toBe(versions[1].money + 17);
     expect(model.effectiveVersion?.states).toEqual(projection.version?.states);
@@ -504,7 +519,7 @@ describe('combatStateRows', () => {
         description: '',
         spaceId: 1,
         keywordIds: [],
-        mechanicId: null,
+        mechanics: [],
         createdAt: 1,
       },
     ];
@@ -654,7 +669,7 @@ describe('combatStatePicker', () => {
               default_periodicity: { kind: 'literal', value: 2, step: 'turn' },
             },
             keywordIds: [],
-            mechanicId: null,
+            mechanics: [],
             createdAt: 1767225600,
           },
         ],

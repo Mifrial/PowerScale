@@ -12,6 +12,7 @@ const sections: AbilitySection[] = [
 
 function rule(code: string, catalogSection: string): Rule {
   return {
+    mechanics: [],
     id: 1,
     code,
     type: 'simple',

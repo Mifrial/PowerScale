@@ -11,8 +11,7 @@ function scriptRule(id: number, code: string, name: string, description: string,
     spaceId: 1,
     spec: { type: 'script', kind },
     keywordIds: [],
-    mechanicId: null,
-    mechanicPayload: null,
+    mechanics: [],
     createdAt: 1786356000,
   };
 }

@@ -7,9 +7,7 @@ const props = defineProps<{
   name: string;
   code: string;
   description: string;
-  mechanicId: number | null;
   keywordIds: number[];
-  mechanicOptions: { title: string; value: number }[];
   keywordOptions: { title: string; value: number }[];
   rules?: Rule[];
   /** Код неизменяем после создания — поле блокируется при редактировании. */
@@ -20,7 +18,6 @@ const emit = defineEmits<{
   'update:name': [value: string];
   'update:code': [value: string];
   'update:description': [value: string];
-  'update:mechanicId': [value: number | null];
   'update:keywordIds': [value: number[]];
 }>();
 
@@ -39,11 +36,6 @@ const { inner: localDescription } = useVModelSync({
   onCommit: (value) => emit('update:description', value),
   clone: false,
 });
-const { inner: localMechanicId } = useVModelSync({
-  modelValue: () => props.mechanicId,
-  onCommit: (value) => emit('update:mechanicId', value),
-  clone: false,
-});
 const { inner: localTagIds } = useVModelSync({
   modelValue: () => props.keywordIds,
   onCommit: (value) => emit('update:keywordIds', value),
@@ -57,9 +49,7 @@ const { inner: localTagIds } = useVModelSync({
       v-model:name="localName"
       v-model:code="localCode"
       v-model:description="localDescription"
-      v-model:mechanicId="localMechanicId"
       v-model:keywordIds="localTagIds"
-      :mechanic-options="mechanicOptions"
       :keyword-options="keywordOptions"
       :rules="rules"
       :code-disabled="codeDisabled"

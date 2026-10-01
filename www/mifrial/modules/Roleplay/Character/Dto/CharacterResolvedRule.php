@@ -89,23 +89,13 @@ final class CharacterResolvedRule
     }
 
     /**
-     * Механика.
+     * Список механик среза.
      *
-     * @return int|null Id.
+     * @return array<int, array<string, mixed>> Строки mechanic_id и mechanic_payload.
      */
-    public function getMechanicId(): ?int
+    public function getMechanics(): array
     {
-        return $this->ruleVersionRecord->getMechanicId();
-    }
-
-    /**
-     * Payload механики.
-     *
-     * @return array<string|int, mixed> JSON.
-     */
-    public function getMechanicPayload(): array
-    {
-        return $this->ruleVersionRecord->getMechanicPayload();
+        return $this->ruleVersionRecord->getMechanics();
     }
 
     /**

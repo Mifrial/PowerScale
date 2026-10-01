@@ -13,8 +13,7 @@ export class RuleDraftService {
       spaceId: params.spaceId,
       spec: params.spec ?? undefined,
       keywordIds: params.keywordIds,
-      mechanicId: params.mechanicId,
-      mechanicPayload: this.payloadForDraft(params),
+      mechanics: this.mechanicsForDraft(params),
       catalogSection: params.catalogSection ?? null,
       catalogSortOrder: params.catalogSortOrder ?? 100,
       contentStatus: params.contentStatus ?? 'needs_work',
@@ -24,16 +23,21 @@ export class RuleDraftService {
   }
 
   /**
-   * Тот же mechanicId — исходный payload. Смена или очистка id сбрасывает его:
-   * чужой контекст механики в черновик не переносится.
+   * Смена mechanicId строки сбрасывает её payload. Чужой контекст в черновик не переносится.
    */
-  private payloadForDraft(params: CreateDraftParams): Rule['mechanicPayload'] {
-    const mechanicId = params.mechanicId ?? null;
-    const loadedMechanicId = params.loadedMechanicId ?? null;
-    if (mechanicId !== loadedMechanicId) return null;
-    const payload = params.mechanicPayload;
-    if (payload == null) return payload;
+  private mechanicsForDraft(params: CreateDraftParams): Rule['mechanics'] {
+    const loaded = params.loadedMechanics ?? [];
 
-    return structuredClone(payload);
+    return params.mechanics.map((row, index) => {
+      const previous = loaded[index];
+      if (previous && previous.mechanicId !== row.mechanicId) {
+        return { mechanicId: row.mechanicId, mechanicPayload: null };
+      }
+
+      const payload = row.mechanicPayload;
+      if (payload == null) return { mechanicId: row.mechanicId, mechanicPayload: payload ?? null };
+
+      return { mechanicId: row.mechanicId, mechanicPayload: structuredClone(payload) };
+    });
   }
 }

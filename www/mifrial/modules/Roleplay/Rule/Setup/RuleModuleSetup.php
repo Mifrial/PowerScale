@@ -6,6 +6,7 @@ namespace Mifrial\Roleplay\Rule\Setup;
 
 use Mifrial\Core\Kernel\Interface\Service\IModuleSetup;
 use Mifrial\Core\Kernel\Interface\Service\ISetupStep;
+use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Core\SmartTable\Table\SmartTableDefinition;
 use Mifrial\Roleplay\Rule\Schema\RuleSchema;
 
@@ -14,6 +15,18 @@ use Mifrial\Roleplay\Rule\Schema\RuleSchema;
  */
 final class RuleModuleSetup implements IModuleSetup
 {
+    /**
+     * Создаёт setup.
+     *
+     * @param ISmartTableGateway $smartTableGateway Шлюз таблиц.
+     *
+     * @return void
+     */
+    public function __construct(
+        private readonly ISmartTableGateway $smartTableGateway,
+    ) {
+    }
+
     /**
      * Возвращает карты модуля.
      *
@@ -31,6 +44,6 @@ final class RuleModuleSetup implements IModuleSetup
      */
     public function getDataSteps(): array
     {
-        return [];
+        return [new FoldRuleMechanicColumnsStep($this->smartTableGateway)];
     }
 }

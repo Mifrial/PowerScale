@@ -13,10 +13,8 @@ const props = defineProps<{
   code: string;
   codeDisabled?: boolean;
   description: string;
-  mechanicId: number | null;
   keywordIds: number[];
   spec: RuleSpec | null;
-  mechanicOptions: { title: string; value: number }[];
   keywordOptions: { title: string; value: number }[];
   /** Код правила типа `item_modifier_type`. */
   typeOptions: { title: string; value: string }[];
@@ -28,7 +26,6 @@ const emit = defineEmits<{
   'update:name': [value: string];
   'update:code': [value: string];
   'update:description': [value: string];
-  'update:mechanicId': [value: number | null];
   'update:keywordIds': [value: number[]];
   'update:spec': [value: ItemModifierSpec];
 }>();
@@ -95,11 +92,8 @@ function updateEffectOps(index: number, ops: ItemModifierOp[]): void {
     :code-disabled="codeDisabled"
     :description="description"
     @update:description="(v) => emit('update:description', v)"
-    :mechanic-id="mechanicId"
-    @update:mechanic-id="(v) => emit('update:mechanicId', v)"
     :keyword-ids="keywordIds"
     @update:keyword-ids="(v) => emit('update:keywordIds', v)"
-    :mechanic-options="mechanicOptions"
     :keyword-options="keywordOptions"
   >
     <template #spec>
@@ -170,7 +164,7 @@ function updateEffectOps(index: number, ops: ItemModifierOp[]): void {
             <div class="d-flex gap-2 flex-wrap">
               <ClampedNumberField
                 :model-value="draft.price.factor ?? 0"
-                @update:model-value="(v: number) => (draft.price.factor = v !== 0 ? v : null)"
+                @update:model-value="(v) => (draft.price.factor = v != null && v !== 0 ? v : null)"
                 label="Множитель (×)"
                 :min="0"
                 step="0.1"
@@ -180,7 +174,7 @@ function updateEffectOps(index: number, ops: ItemModifierOp[]): void {
               />
               <ClampedNumberField
                 :model-value="draft.price.add_gm ?? 0"
-                @update:model-value="(v: number) => (draft.price.add_gm = v !== 0 ? v : null)"
+                @update:model-value="(v) => (draft.price.add_gm = v != null && v !== 0 ? v : null)"
                 label="Слагаемое (гм)"
                 density="compact"
                 hide-details
@@ -188,7 +182,7 @@ function updateEffectOps(index: number, ops: ItemModifierOp[]): void {
               />
               <ClampedNumberField
                 :model-value="draft.price.add_gm_per_100g ?? 0"
-                @update:model-value="(v: number) => (draft.price.add_gm_per_100g = v !== 0 ? v : null)"
+                @update:model-value="(v) => (draft.price.add_gm_per_100g = v != null && v !== 0 ? v : null)"
                 label="На 100 г веса (гм)"
                 density="compact"
                 hide-details
@@ -196,7 +190,7 @@ function updateEffectOps(index: number, ops: ItemModifierOp[]): void {
               />
               <ClampedNumberField
                 :model-value="draft.price.min_final_gm ?? 0"
-                @update:model-value="(v: number) => (draft.price.min_final_gm = v !== 0 ? v : null)"
+                @update:model-value="(v) => (draft.price.min_final_gm = v != null && v !== 0 ? v : null)"
                 label="Мин. итог (гм)"
                 density="compact"
                 hide-details

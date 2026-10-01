@@ -16,7 +16,7 @@ const base = (id: number | null, code: string, type: Rule['type'], name: string,
   description: '',
   spaceId: 1,
   keywordIds: [],
-  mechanicId: null,
+  mechanics: [],
   createdAt: 1767225600,
   spec,
 });
@@ -396,13 +396,12 @@ describe('CharacterEditorService.build', () => {
         description: '',
         spaceId: 1,
         keywordIds: [20],
-        mechanicId: 4,
-        mechanicPayload: {
+        mechanics: [{ mechanicId: 4, mechanicPayload: {
           type: 'purchase_surcharge',
           filter: { keyword_code: 'common' },
           free_count: 2,
           surcharge: 2,
-        },
+        } }],
         createdAt: 1767225600,
       },
     ];
@@ -614,7 +613,7 @@ describe('CharacterEditorService: возраст и деньги (заход C)'
       description: '',
       spaceId: 1,
       keywordIds: [50],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1767225600,
       spec: {
         type: 'feature',

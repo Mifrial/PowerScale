@@ -29,7 +29,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -54,7 +54,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -80,7 +80,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -105,7 +105,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -131,7 +131,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -157,7 +157,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -182,7 +182,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 116],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -208,7 +208,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 116],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -234,7 +234,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 116],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -260,7 +260,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 116],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -286,7 +286,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 116],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -312,7 +312,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 116],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -338,7 +338,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 116],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -364,7 +364,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 111, 134, 135, 136],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -390,7 +390,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 111, 134, 135, 136],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -416,7 +416,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 111, 134, 135, 136],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -442,7 +442,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 111, 134, 135, 136],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -468,7 +468,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 111, 134, 135, 136],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -494,7 +494,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 111, 134, 135, 136],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -520,7 +520,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 111, 134, 135, 136],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -546,7 +546,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 122, 141],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -572,7 +572,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 122, 141],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -598,7 +598,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 122, 141],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -623,7 +623,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 122, 141],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -649,7 +649,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 122, 141],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -675,7 +675,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 122, 141],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -701,7 +701,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 115],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -727,7 +727,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 115],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -753,7 +753,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 115],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -779,7 +779,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 115],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -805,7 +805,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 115],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -831,7 +831,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 139],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -857,7 +857,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 139],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -883,7 +883,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 139],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -909,7 +909,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 139],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -935,7 +935,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 139],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -961,7 +961,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -987,7 +987,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -1013,7 +1013,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -1039,7 +1039,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -1065,7 +1065,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -1091,7 +1091,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -1117,7 +1117,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -1143,7 +1143,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -1169,7 +1169,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -1194,7 +1194,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -1220,7 +1220,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -1246,7 +1246,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 108, 109, 184],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -1272,7 +1272,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 108, 109, 184],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -1298,7 +1298,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 108, 109, 184],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -1324,7 +1324,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 108, 109, 184],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -1350,7 +1350,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 135],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -1375,7 +1375,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 135],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -1401,7 +1401,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 135],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -1427,7 +1427,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 135],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -1453,7 +1453,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 118],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -1479,7 +1479,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 118],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -1505,7 +1505,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 118],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -1531,7 +1531,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 118],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -1556,7 +1556,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 143],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -1582,7 +1582,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 143],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -1608,7 +1608,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 143],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -1634,7 +1634,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 143],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -1660,7 +1660,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -1686,7 +1686,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -1712,7 +1712,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -1738,7 +1738,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 113],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -1764,7 +1764,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 113],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -1790,7 +1790,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 113],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -1814,7 +1814,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 128, 146, 147, 148, 149, 129, 145],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -1838,7 +1838,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 128, 146, 147, 148, 149, 129, 145],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -1862,7 +1862,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 128, 146, 147, 148, 149, 129, 145],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -1888,7 +1888,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -1914,7 +1914,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -1940,7 +1940,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -1966,7 +1966,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -1992,7 +1992,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -2017,7 +2017,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -2043,7 +2043,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 121, 120],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -2068,7 +2068,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 121, 120],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -2094,7 +2094,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -2120,7 +2120,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -2145,7 +2145,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -2171,7 +2171,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -2197,7 +2197,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -2223,7 +2223,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -2248,7 +2248,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -2274,7 +2274,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -2300,7 +2300,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -2325,7 +2325,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 150],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -2351,7 +2351,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 151],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
     {
@@ -2377,7 +2377,7 @@ export const mockWeaponSkillsImport: Rule[] = (
         parent_ability_code: null,
       },
       keywordIds: [13, 152],
-      mechanicId: null,
+      mechanics: [],
       createdAt: 1786960800,
     },
   ] as Rule[]

@@ -227,7 +227,7 @@ function patchMaterialTags(index: number, codes: string[]) {
           <ClampedNumberField
             v-if="component.type === 'somatic'"
             :model-value="component.occupy_hands ?? 0"
-            @update:model-value="(v) => patch(index, 'occupy_hands', v > 0 ? v : undefined)"
+            @update:model-value="(v) => patch(index, 'occupy_hands', v != null && v > 0 ? v : undefined)"
             label="Занимает рук на каст"
             :min="0"
             :max="2"

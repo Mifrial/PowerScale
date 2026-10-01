@@ -5,13 +5,12 @@ import { DAMAGE_TYPE_FORMS } from '@/modules/Roleplay/Rule/Constant/DAMAGE_TYPE_
 import type { DamageTypeForms } from '@/modules/Roleplay/Rule/Dto/DamageTypeForms';
 
 export class DamageTypeSpecService {
-  createEmpty(code = '', attached: string[] = []): DamageTypeSpec {
+  createEmpty(code = ''): DamageTypeSpec {
     const forms = DAMAGE_TYPE_FORMS[code] ?? { genitive: '', dative: '' };
 
     return {
       type: 'damage_type',
       forms: { genitive: forms.genitive, dative: forms.dative },
-      attached_rule_codes: [...attached],
       defense_ignored: false,
       modifies_spell_difficulty: false,
       max_success_rating: null,
@@ -32,13 +31,6 @@ export class DamageTypeSpecService {
     if (!spec || typeof spec !== 'object' || !('type' in spec) || spec.type !== 'damage_type') return null;
 
     return spec;
-  }
-
-  /** Карточка с механикой, не сам тип урона и не проверка. */
-  isDamageTypeAttachableRule(rule: Rule): boolean {
-    if (rule.type === 'damage_type' || rule.type === 'check') return false;
-
-    return rule.mechanicId != null;
   }
 
   damageTypeForms(code: string, rules: Rule[] = []): DamageTypeForms | undefined {

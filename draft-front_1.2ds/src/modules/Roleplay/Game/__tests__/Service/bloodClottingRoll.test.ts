@@ -15,8 +15,7 @@ const RULES: Rule[] = [
     name: 'Бросок',
     description: '',
     spaceId: 1,
-    mechanicId: 5,
-    mechanicPayload: { type: 'roll', data: { dieFaces: 6, efficiency: 3, diceCount: 3, sub_mechanics: [] } },
+    mechanics: [{ mechanicId: 5, mechanicPayload: { type: 'roll', data: { dieFaces: 6, efficiency: 3, diceCount: 3, sub_mechanics: [] } } }],
     createdAt: 0,
   },
   {
@@ -26,10 +25,11 @@ const RULES: Rule[] = [
     name: 'Правило 6 и 1',
     description: '',
     spaceId: 1,
-    mechanicId: 1,
+    mechanics: [{ mechanicId: 1, mechanicPayload: null }],
     createdAt: 0,
   },
   {
+    mechanics: [],
     id: null,
     code: CHECK_SIMPLE_CODE,
     type: 'check',
@@ -45,6 +45,7 @@ const RULES: Rule[] = [
     createdAt: 0,
   },
   {
+    mechanics: [],
     id: null,
     code: CHECK_BLOOD_CLOTTING_CODE,
     type: 'check',

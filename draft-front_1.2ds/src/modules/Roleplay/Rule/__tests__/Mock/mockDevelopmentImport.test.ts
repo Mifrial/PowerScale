@@ -2,14 +2,20 @@ import { describe, it, expect } from 'vitest';
 import { ruleCatalog } from '@/modules/Roleplay/Rule/Mock/mockRules';
 import { mockDevelopmentImport } from '@/modules/Roleplay/Rule/Mock/mockDevelopmentImport';
 import type { AbilitySpecBase } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpecBase';
+import type { ActionComponent } from '@/modules/Roleplay/Rule/Dto/Ability/ActionComponent';
+import type { ProcessSpec } from '@/modules/Roleplay/Rule/Dto/Ability/ProcessSpec';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
 const byCode = new Map(ruleCatalog.map((r) => [r.code, r]));
 
-const abilitySpec = (code: string): AbilitySpecBase | undefined => {
+const abilitySpec = (
+  code: string,
+): (AbilitySpecBase & { process?: ProcessSpec; action_components?: ActionComponent[] }) | undefined => {
   const rule = byCode.get(code);
 
-  return rule?.type === 'ability' ? (rule.spec as AbilitySpecBase | undefined) : undefined;
+  return rule?.type === 'ability'
+    ? (rule.spec as (AbilitySpecBase & { process?: ProcessSpec; action_components?: ActionComponent[] }) | undefined)
+    : undefined;
 };
 
 describe('mockDevelopmentImport (S14)', () => {

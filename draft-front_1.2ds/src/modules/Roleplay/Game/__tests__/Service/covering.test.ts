@@ -39,9 +39,11 @@ describe('CoveringService', () => {
   });
 
   it('все провалились — ждёт выбор среди цели и прикрывавших', () => {
-    expect(
-      coveringService.failChoiceKeys('character:1', ['character:2', 'character:3']),
-    ).toEqual(['character:1', 'character:2', 'character:3']);
+    expect(coveringService.failChoiceKeys('character:1', ['character:2', 'character:3'])).toEqual([
+      'character:1',
+      'character:2',
+      'character:3',
+    ]);
     expect(
       coveringService.actualTarget({
         primaryKey: 'character:1',

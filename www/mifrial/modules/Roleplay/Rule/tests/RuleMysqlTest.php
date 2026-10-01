@@ -88,8 +88,10 @@ final class RuleMysqlTest extends TestCase
         $item = $rules->getRevision($spaceId, 1)->getItems()[0];
         self::assertSame('human', $item->getCode());
         self::assertSame([$keywordId], $item->getKeywordIds());
-        self::assertSame($mechanicId, $item->getMechanicId());
-        self::assertSame(['dice' => 6], $item->getMechanicPayload());
+        self::assertSame(
+            [['mechanic_id' => $mechanicId, 'mechanic_payload' => ['dice' => 6]]],
+            $item->getMechanics(),
+        );
     }
 
     /**
@@ -412,7 +414,7 @@ final class RuleMysqlTest extends TestCase
      *
      * @param string $name Подпись.
      * @param array<int, int> $keywordIds Признаки.
-     * @param int|null $mechanicId Механика.
+     * @param int|null $mechanicId Механика или null.
      * @param array<string, mixed> $mechanicPayload Payload.
      *
      * @return RuleVersionBody Снимок.
@@ -423,14 +425,18 @@ final class RuleMysqlTest extends TestCase
         ?int $mechanicId = null,
         array $mechanicPayload = [],
     ): RuleVersionBody {
+        $mechanics = $mechanicId === null ? [] : [[
+            'mechanic_id' => $mechanicId,
+            'mechanic_payload' => $mechanicPayload,
+        ]];
+
         return new RuleVersionBody(
             'ability',
             $name,
             '',
             [],
             $keywordIds,
-            $mechanicId,
-            $mechanicPayload,
+            $mechanics,
             'needs_work',
         );
     }

@@ -559,8 +559,7 @@ onMounted(() => {
         <div v-if="inner.damage.falloff" class="d-flex gap-2 flex-wrap mt-2">
           <ClampedNumberField
             :model-value="inner.damage.falloff.free_ipari"
-            @update:model-value="(v) =>
-              patchFalloff({ free_ipari: v ?? inner.damage?.falloff?.free_ipari ?? 0 })"
+            @update:model-value="(v) => patchFalloff({ free_ipari: v ?? inner.damage?.falloff?.free_ipari ?? 0 })"
             label="Бесплатных ипари"
             :min="0"
             density="compact"
@@ -569,8 +568,9 @@ onMounted(() => {
           />
           <ClampedNumberField
             :model-value="inner.damage.falloff.size_per_extra_ipari"
-            @update:model-value="(v) =>
-              patchFalloff({ size_per_extra_ipari: v ?? inner.damage?.falloff?.size_per_extra_ipari ?? 1 })"
+            @update:model-value="
+              (v) => patchFalloff({ size_per_extra_ipari: v ?? inner.damage?.falloff?.size_per_extra_ipari ?? 1 })
+            "
             label="Размеров за ипари"
             :min="1"
             density="compact"
