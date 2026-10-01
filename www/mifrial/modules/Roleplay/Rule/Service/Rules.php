@@ -9,6 +9,7 @@ use Mifrial\Roleplay\Rule\Dto\RuleRevisionRecord;
 use Mifrial\Roleplay\Rule\Dto\RuleRevisionSlice;
 use Mifrial\Roleplay\Rule\Dto\RuleRevisionSummary;
 use Mifrial\Roleplay\Rule\Dto\RuleVersionRecord;
+use Mifrial\Roleplay\Rule\Exception\RuleConflictException;
 use Mifrial\Roleplay\Rule\Exception\RuleInvalidException;
 use Mifrial\Roleplay\Rule\Exception\RuleNotFoundException;
 use Mifrial\Roleplay\Rule\Interface\Service\IRules;
@@ -95,26 +96,30 @@ final class Rules implements IRules
      * @param int $spaceId Пространство.
      * @param array<int, RuleCommitEntry> $entries Keep/put.
      * @param bool $allowUnchangedComposition Разрешить тот же набор version_id.
+     * @param int|null $expectedRevision Голова, от которой собран состав.
      *
      * @return RuleRevisionRecord Ревизия.
      *
      * @throws RuleInvalidException Если состав недопустим.
      * @throws RuleNotFoundException Если пространства нет.
+     * @throws RuleConflictException Если голова уже другая.
      */
     public function commit(
         int $spaceId,
         array $entries,
         bool $allowUnchangedComposition = false,
+        ?int $expectedRevision = null,
     ): RuleRevisionRecord {
         $parsedEntries = $this->parseEntries($entries);
         $revisionRecord = (new RuleGuard())->run(
-            function () use ($spaceId, $parsedEntries, $allowUnchangedComposition): mixed {
+            function () use ($spaceId, $parsedEntries, $allowUnchangedComposition, $expectedRevision): mixed {
                 $clockEntries = $this->ruleClockMapper->toClockEntries($parsedEntries);
 
                 return $this->versionedRepository->commit(
                     $spaceId,
                     $clockEntries,
                     $allowUnchangedComposition,
+                    $expectedRevision,
                 );
             },
         );

@@ -82,12 +82,12 @@ RuleSpace **не** импортирует Auth. Guard: `IUserContainer` → `IUs
 
 ### 6. `commitDraft`
 
-`spaceId`, `rules` (list объектов), `removedCodes` default `[]`. Нет `baseRevision`.
+`spaceId`, `rules` (list объектов), `removedCodes` default `[]`, `expectedRevision` (номер среза, от которого собран черновик; `0`, если ревизий ещё нет).
 
-Накат **всегда на последнюю** ревизию мира (лента DESC `[0]`). Клиент не выбирает ctx как базу: черновик кладётся поверх latest. Откат к старому срезу через HTTP не этот заход (`commitSelected` с чужим base остаётся на фасаде/тестах).
+Накат идёт поверх текущей головы. Если `expectedRevision` не равен ей, новая ревизия не создаётся: ответ `RULESPACE_CONFLICT` с `expectedRevision` и `actualRevision`. Клиент перечитывает актуальный срез и заново проверяет черновик. Сравнение головы и insert номера `expectedRevision + 1` — внутри транзакции публикации; повторный unique этого номера тоже конфликт, без перехода на следующий номер. Откат к старому срезу через HTTP не этот заход (`commitSelected` без expected остаётся на фасаде/тестах).
 
-- Ревизий нет: только `commit(puts)`. Непустой `removedCodes` → `INVALID` (tombstone не к чему). Пустой `rules` → `INVALID`.
-- Ревизии есть: `commitSelected(latest, puts, removed)` — omit-keep с latest, removed — tombstone телом latest.
+- `expectedRevision = 0`: только `commit(puts)`. Непустой `removedCodes` → `INVALID` (tombstone не к чему). Пустой `rules` → `INVALID`. Если голова уже не 0 → `CONFLICT`.
+- Иначе: `commitSelected(expectedRevision, puts, removed)` — omit-keep с этой ревизии, removed — tombstone её телом. Голова к моменту записи должна остаться той же.
 
 Элемент `rules` → `RuleCommitEntry::put`. Нет keep во входе. `contentStatus` нет ключа → `'needs_work'`. `active` нет ключа → `true`. `put(..., false)` допустим. Вложенный неизвестный ключ **игнорируем** (`id`/`spaceId` Vue). `mechanic_payload` не принимаем.
 

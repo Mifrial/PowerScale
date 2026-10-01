@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\RuleSpace\Service;
 
 use Mifrial\Roleplay\Rule\Dto\RuleCommitEntry;
+use Mifrial\Roleplay\Rule\Exception\RuleConflictException;
 use Mifrial\Roleplay\Rule\Dto\RuleRevisionRecord;
 use Mifrial\Roleplay\Rule\Dto\RuleRevisionSlice;
 use Mifrial\Roleplay\Rule\Interface\Service\IRules;
@@ -73,18 +74,23 @@ final class RuleSpaceWorldWriter
      * @param int $spaceId Мир.
      * @param array<int, RuleCommitEntry> $entries Keep/put.
      * @param RuleSpaceCatalog|null $catalog Снимок.
+     * @param int|null $expectedRevision Голова, от которой собран состав.
      *
      * @return RuleRevisionRecord Ревизия.
+     *
+     * @throws RuleConflictException Если голова уже другая.
      */
     public function publishWithCatalog(
         int $spaceId,
         array $entries,
         ?RuleSpaceCatalog $catalog,
+        ?int $expectedRevision = null,
     ): RuleRevisionRecord {
         $revisionRecord = $this->rules->commit(
             $spaceId,
             $entries,
             $this->allowUnchangedComposition($spaceId, $entries, $catalog),
+            $expectedRevision,
         );
         $this->catalogBinder->bindAfterCommit(
             $spaceId,

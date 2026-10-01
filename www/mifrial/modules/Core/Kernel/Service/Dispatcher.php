@@ -173,6 +173,7 @@ final class Dispatcher implements IDispatcher
             return ActionResponse::fail(
                 $actionException->getErrorCode(),
                 $actionException->getMessage(),
+                $actionException->getErrorDetails(),
             );
         }
     }

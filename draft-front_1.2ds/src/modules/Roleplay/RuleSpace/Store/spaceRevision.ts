@@ -131,11 +131,19 @@ export const useSpaceRevisionStore = defineStore('spaceRevision', () => {
   async function commitDraft(
     spaceId: number,
     rules: Rule[],
+    expectedRevision: number,
     signal?: AbortSignal,
     removedCodes?: string[],
     sections?: AbilitySection[],
   ): Promise<SpaceRevision<Rule>> {
-    const result = await getRuleSpaceApi().commitDraft(spaceId, rules, signal, removedCodes, sections);
+    const result = await getRuleSpaceApi().commitDraft(
+      spaceId,
+      rules,
+      expectedRevision,
+      signal,
+      removedCodes,
+      sections,
+    );
     cachedRevisions.value.set(cacheKey(spaceId, result.revision), result);
     activeContext.value = { spaceId, revision: result.revision, kind: 'rev' };
     await fetchRevisionsMeta(spaceId, signal);

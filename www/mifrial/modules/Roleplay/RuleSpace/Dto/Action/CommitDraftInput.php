@@ -18,6 +18,7 @@ final class CommitDraftInput implements IActionInput
      * @param int $spaceId Мир.
      * @param array<int, mixed> $rules Выбранные тела.
      * @param OptionalArray $sections Дерево или absent.
+     * @param int $expectedRevision Ревизия, от которой собран черновик. 0 — ревизий ещё нет.
      * @param array<int, mixed> $removedCodes Tombstone.
      *
      * @return void
@@ -26,6 +27,7 @@ final class CommitDraftInput implements IActionInput
         public readonly int $spaceId,
         public readonly array $rules,
         public readonly OptionalArray $sections,
+        public readonly int $expectedRevision,
         public readonly array $removedCodes = [],
     ) {
     }

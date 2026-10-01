@@ -13,6 +13,7 @@ use Mifrial\Versioning\Space\Dto\RevisionRecord;
 use Mifrial\Versioning\Space\Dto\RevisionSlice;
 use Mifrial\Versioning\Space\Dto\VersionRecord;
 use Mifrial\Versioning\Space\Dto\WrittenRevision;
+use Mifrial\Versioning\Space\Exception\SpaceConflictException;
 use Mifrial\Versioning\Space\Exception\SpaceInvalidException;
 
 /**
@@ -41,18 +42,27 @@ final class RevisionPublisher
      *
      * @return WrittenRevision Ревизия и срез.
      *
+     * @param int|null $expectedRevision Голова, от которой собран состав. null — прежняя нумерация MAX+1.
+     *
      * @throws SpaceInvalidException Если состав не изменился или гонка номера.
+     * @throws SpaceConflictException Если голова уже не expectedRevision.
      */
     public function publish(
         int $spaceId,
         PreparedComposition $preparedComposition,
         bool $allowUnchangedComposition = false,
+        ?int $expectedRevision = null,
     ): WrittenRevision {
         $versionIds = $preparedComposition->getVersionIds();
         if (!$allowUnchangedComposition) {
             $this->assertCompositionChanged($spaceId, $versionIds);
         }
-        $revisionRow = $this->insertRevision($spaceId);
+        if ($expectedRevision !== null) {
+            $this->assertExpectedHead($spaceId, $expectedRevision);
+        }
+        $revisionRow = $expectedRevision === null
+            ? $this->insertRevision($spaceId)
+            : $this->insertExpectedRevision($spaceId, $expectedRevision);
         $this->insertItems($revisionRow['id'], $versionIds);
         $revisionRecord = RevisionRecord::fromNormalized($revisionRow);
 
@@ -118,6 +128,60 @@ final class RevisionPublisher
         if ($previousSet === $nextSet) {
             throw new SpaceInvalidException('Composition is unchanged');
         }
+    }
+
+    /**
+     * Отказывает, если голова уже не ожидаемая.
+     *
+     * @param int $spaceId Пространство.
+     * @param int $expectedRevision Номер базы.
+     *
+     * @return void
+     *
+     * @throws SpaceConflictException Если MAX не совпал.
+     */
+    private function assertExpectedHead(int $spaceId, int $expectedRevision): void
+    {
+        $actualRevision = $this->currentHead($spaceId);
+        if ($actualRevision !== $expectedRevision) {
+            throw new SpaceConflictException($expectedRevision, $actualRevision);
+        }
+    }
+
+    /**
+     * Insert ровно expected+1. Unique — конфликт, без перехода на следующий номер.
+     *
+     * @param int $spaceId Пространство.
+     * @param int $expectedRevision Номер базы.
+     *
+     * @return array<string, mixed> Строка ревизии.
+     *
+     * @throws SpaceConflictException Если номер уже занят.
+     */
+    private function insertExpectedRevision(int $spaceId, int $expectedRevision): array
+    {
+        try {
+            return $this->addRevisionRow($spaceId, $expectedRevision + 1);
+        } catch (UniqueConstraintException $exception) {
+            $actualRevision = $this->currentHead($spaceId);
+            if ($actualRevision === $expectedRevision) {
+                $actualRevision = $expectedRevision + 1;
+            }
+
+            throw new SpaceConflictException($expectedRevision, $actualRevision, $exception);
+        }
+    }
+
+    /**
+     * Текущая голова или 0.
+     *
+     * @param int $spaceId Пространство.
+     *
+     * @return int Номер.
+     */
+    private function currentHead(int $spaceId): int
+    {
+        return $this->nextRevision($spaceId) - 1;
     }
 
     /**

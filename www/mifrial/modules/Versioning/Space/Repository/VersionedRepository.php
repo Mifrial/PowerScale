@@ -13,6 +13,7 @@ use Mifrial\Versioning\Space\Dto\RevisionRecord;
 use Mifrial\Versioning\Space\Dto\RevisionSlice;
 use Mifrial\Versioning\Space\Dto\RevisionSummary;
 use Mifrial\Versioning\Space\Dto\SpaceRecord;
+use Mifrial\Versioning\Space\Exception\SpaceConflictException;
 use Mifrial\Versioning\Space\Exception\SpaceInvalidException;
 use Mifrial\Versioning\Space\Exception\SpaceNotFoundException;
 use Mifrial\Versioning\Space\Interface\Service\IVersionedRepository;
@@ -124,30 +125,34 @@ final class VersionedRepository implements IVersionedRepository
      * @param int $spaceId Пространство.
      * @param array<int, CommitEntry> $entries List keep/create/change.
      * @param bool $allowUnchangedComposition Разрешить тот же набор version_id.
+     * @param int|null $expectedRevision Голова, от которой собран состав.
      *
      * @return RevisionRecord Новая ревизия.
      *
      * @throws SpaceNotFoundException Если пространства нет.
      * @throws SpaceInvalidException Если вход или состав недопустимы.
+     * @throws SpaceConflictException Если голова уже другая.
      */
     public function commit(
         int $spaceId,
         array $entries,
         bool $allowUnchangedComposition = false,
+        ?int $expectedRevision = null,
     ): RevisionRecord {
         $spaceGuard = new SpaceGuard();
 
-        return $spaceGuard->run(function () use ($spaceId, $entries, $allowUnchangedComposition): RevisionRecord {
+        return $spaceGuard->run(function () use ($spaceId, $entries, $allowUnchangedComposition, $expectedRevision): RevisionRecord {
             $this->assertSpaceExists($spaceId);
             $parsedEntries = $this->commitComposition->parseEntries($entries);
             $writtenRevision = $this->smartTableGateway->transaction(
-                function () use ($spaceId, $parsedEntries, $allowUnchangedComposition) {
+                function () use ($spaceId, $parsedEntries, $allowUnchangedComposition, $expectedRevision) {
                     $preparedComposition = $this->commitComposition->assemble($parsedEntries);
 
                     return $this->revisionPublisher->publish(
                         $spaceId,
                         $preparedComposition,
                         $allowUnchangedComposition,
+                        $expectedRevision,
                     );
                 },
             );

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   fetchRevision,
   fetchRevisions,
+  fetchSpace,
   commitDraft,
   generateRevisionRules,
 } from '@/modules/Roleplay/RuleSpace/Mock/mockSpaces';
@@ -30,7 +31,7 @@ describe('mockSpaces: публикация черновика собирает �
       createdAt: Math.floor(Date.now() / 1000),
     };
 
-    const after = await commitDraft(2, [draftRule]);
+    const after = await commitDraft(2, [draftRule], (await fetchSpace(2)).revision);
 
     expect(after.revision).toBe(13);
     const afterCodes = new Set(after.rules.map((r) => r.code));
@@ -45,48 +46,60 @@ describe('mockSpaces: публикация черновика собирает �
   });
 
   it('опубликованное правило вне alwaysIncluded попадает в срез ревизии', async () => {
-    const after = await commitDraft(2, [
-      {
-        id: null,
-        code: 'zavtrak-gm',
-        type: 'simple',
-        name: 'Завтрак мастера',
-        description: 'Появляется после публикации',
-        spaceId: 2,
-        createdAt: Math.floor(Date.now() / 1000),
-      },
-    ]);
+    const after = await commitDraft(
+      2,
+      [
+        {
+          id: null,
+          code: 'zavtrak-gm',
+          type: 'simple',
+          name: 'Завтрак мастера',
+          description: 'Появляется после публикации',
+          spaceId: 2,
+          createdAt: Math.floor(Date.now() / 1000),
+        },
+      ],
+      (await fetchSpace(2)).revision,
+    );
 
     expect(after.rules.find((rule) => rule.code === 'zavtrak-gm')?.name).toBe('Завтрак мастера');
     expect(typeof after.rules.find((rule) => rule.code === 'zavtrak-gm')?.id).toBe('number');
   });
 
   it('правило из черновика сохраняет id при повторном коммите (перезапись по code)', async () => {
-    const first = await commitDraft(2, [
-      {
-        id: null,
-        code: 'lavash-2',
-        type: 'item',
-        name: 'Лаваш 2',
-        description: '',
-        spaceId: 2,
-        createdAt: Math.floor(Date.now() / 1000),
-      },
-    ]);
+    const first = await commitDraft(
+      2,
+      [
+        {
+          id: null,
+          code: 'lavash-2',
+          type: 'item',
+          name: 'Лаваш 2',
+          description: '',
+          spaceId: 2,
+          createdAt: Math.floor(Date.now() / 1000),
+        },
+      ],
+      (await fetchSpace(2)).revision,
+    );
     const firstLavash = first.rules.find((r) => r.code === 'lavash-2');
     const firstId = firstLavash?.id;
 
-    const second = await commitDraft(2, [
-      {
-        id: firstId ?? null,
-        code: 'lavash-2',
-        type: 'item',
-        name: 'Лаваш 2 (обновлён)',
-        description: 'новое описание',
-        spaceId: 2,
-        createdAt: Math.floor(Date.now() / 1000),
-      },
-    ]);
+    const second = await commitDraft(
+      2,
+      [
+        {
+          id: firstId ?? null,
+          code: 'lavash-2',
+          type: 'item',
+          name: 'Лаваш 2 (обновлён)',
+          description: 'новое описание',
+          spaceId: 2,
+          createdAt: Math.floor(Date.now() / 1000),
+        },
+      ],
+      (await fetchSpace(2)).revision,
+    );
     const secondLavash = second.rules.find((r) => r.code === 'lavash-2');
     expect(secondLavash?.id).toBe(firstId);
     expect(secondLavash?.name).toBe('Лаваш 2 (обновлён)');
@@ -103,7 +116,7 @@ describe('mockSpaces: публикация черновика собирает �
     const before = await fetchRevision(2, 12);
     const gone = before.rules.find((rule) => rule.type === 'simple') ?? before.rules[0];
     expect(gone).toBeDefined();
-    const after = await commitDraft(2, [], undefined, [gone.code]);
+    const after = await commitDraft(2, [], (await fetchSpace(2)).revision, undefined, [gone.code]);
     expect(after.revision).toBeGreaterThan(before.revision);
     expect(after.rules.some((rule) => rule.code === gone.code)).toBe(false);
     const oldAgain = await fetchRevision(2, before.revision);
@@ -135,7 +148,7 @@ describe('mockSpaces: публикация черновика собирает �
         spaceId: space.id,
         createdAt: 1767225600,
       },
-    ]);
+    ], 0);
     expect(published.revision).toBe(1);
     expect(published.rules.map((rule) => rule.code)).toEqual(['from-file']);
     const meta = await fetchRevisions(space.id);

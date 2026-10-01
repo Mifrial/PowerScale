@@ -19,6 +19,7 @@ export interface IRuleSpaceApi {
   commitDraft(
     spaceId: number,
     rules: Rule[],
+    expectedRevision: number,
     signal?: AbortSignal,
     removedCodes?: string[],
     sections?: AbilitySection[],

@@ -38,4 +38,14 @@ class MifrialException extends RuntimeException
     {
         return $this->errorCode;
     }
+
+    /**
+     * Дополнительные поля конверта ошибки.
+     *
+     * @return array<string, mixed> Пусто, если уточнений нет.
+     */
+    public function getErrorDetails(): array
+    {
+        return [];
+    }
 }

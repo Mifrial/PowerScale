@@ -10,6 +10,7 @@ import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec';
 import { ruleCatalog } from '@/modules/Roleplay/Rule/Mock/mockRules';
 import { slugify } from '@/modules/Roleplay/Rule/init';
 import { mockAbilitySectionTree } from '@/modules/Roleplay/RuleSpace/Mock/mockAbilitySectionTree';
+import { ActionFailure } from '@/modules/Core/Engine/Service/ActionFailure';
 
 let nextId = 3;
 
@@ -327,6 +328,7 @@ export async function fetchRevision(
 export async function commitDraft(
   spaceId: number,
   rules: Rule[],
+  expectedRevision: number,
   _signal?: AbortSignal,
   removedCodes: string[] = [],
   sections?: AbilitySection[],
@@ -334,6 +336,13 @@ export async function commitDraft(
   await delay(500);
   const space = spaces.find((s) => s.id === spaceId);
   if (!space) throw new Error(`Space ${spaceId} not found`);
+  if (space.revision !== expectedRevision) {
+    throw new ActionFailure(
+      'RULESPACE_CONFLICT',
+      'Ревизия устарела. Перечитайте срез и проверьте черновик.',
+      { expectedRevision, actualRevision: space.revision },
+    );
+  }
   const catalog = abilitySectionTreeService.normalize(sections ?? mockAbilitySectionTree);
   const sectionErrors = abilitySectionTreeService.validateRuleSections(rules, catalog);
   if (sectionErrors.length > 0) throw new Error(sectionErrors.join('; '));

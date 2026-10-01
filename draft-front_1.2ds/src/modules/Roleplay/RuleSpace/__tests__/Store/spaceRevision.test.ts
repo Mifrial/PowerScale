@@ -129,7 +129,7 @@ describe('commitDraft', () => {
     const store = useSpaceRevisionStore();
     const rev = await store.fetchRevision(1, 5);
 
-    const result = await store.commitDraft(1, rev.rules);
+    const result = await store.commitDraft(1, rev.rules, 5);
 
     expect(result.revision).toBe(6);
     expect(store.activeContext).toEqual({ spaceId: 1, revision: 6, kind: 'rev' });

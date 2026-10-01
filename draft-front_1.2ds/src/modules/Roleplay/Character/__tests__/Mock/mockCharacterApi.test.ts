@@ -12,7 +12,7 @@ import {
 } from '@/modules/Roleplay/Character/Mock/mockCharacters';
 import { mockLogin, mockLogout } from '@/modules/Core/Auth/Mock/mockAuth';
 import { mockGetChats } from '@/modules/Messages/Chat/Mock/mockChat';
-import { commitDraft } from '@/modules/Roleplay/RuleSpace/Mock/mockSpaces';
+import { commitDraft, fetchSpace } from '@/modules/Roleplay/RuleSpace/Mock/mockSpaces';
 
 const version: CharacterVersion = {
   name: 'Новичок',
@@ -265,17 +265,21 @@ describe('mockCharacterApi: custom rules («Уникальные правила�
     const entryId = detail.version.customRules![0].id;
 
     // Коммитим «Палку» в space 2 → появляется в ревизии 13 (id rule-N, вне ruleCatalog).
-    const rev = await commitDraft(2, [
-      {
-        id: null,
-        code: 'palochka',
-        type: 'item',
-        name: 'Палка',
-        description: 'Копалка',
-        spaceId: 2,
-        createdAt: Math.floor(Date.now() / 1000),
-      },
-    ]);
+    const rev = await commitDraft(
+      2,
+      [
+        {
+          id: null,
+          code: 'palochka',
+          type: 'item',
+          name: 'Палка',
+          description: 'Копалка',
+          spaceId: 2,
+          createdAt: Math.floor(Date.now() / 1000),
+        },
+      ],
+      (await fetchSpace(2)).revision,
+    );
     const palka = rev.rules.find((r) => r.code === 'palochka');
     expect(palka).toBeDefined();
     const palkaCode = palka!.code;
@@ -284,7 +288,7 @@ describe('mockCharacterApi: custom rules («Уникальные правила�
     // чтобы updateCustomRule резолвил тип из ревизии 13. Черновик редактора несёт кастом-записи
     // (копия версии), поэтому bump сохраняет customRules.
     await updateCharacter(created.character.id, {
-      version: { ...version13, rulesRevision: 13, customRules: detail.version.customRules },
+      version: { ...version13, rulesRevision: rev.revision, customRules: detail.version.customRules },
     });
 
     const updated = await updateCustomRule(created.character.id, entryId, {

@@ -18,6 +18,7 @@ use Mifrial\Roleplay\RuleSpace\Dto\RuleSpaceCatalog;
 use Mifrial\Roleplay\RuleSpace\Dto\RuleSpacePatch;
 use Mifrial\Roleplay\RuleSpace\Dto\RuleSpaceRecord;
 use Mifrial\Roleplay\RuleSpace\Dto\RuleSpaceSelection;
+use Mifrial\Roleplay\RuleSpace\Exception\RuleSpaceConflictException;
 use Mifrial\Roleplay\RuleSpace\Exception\RuleSpaceInvalidException;
 use Mifrial\Roleplay\RuleSpace\Exception\RuleSpaceNotFoundException;
 use Mifrial\Roleplay\RuleSpace\Interface\Service\IRuleSpaces;
@@ -268,23 +269,31 @@ final class RuleSpaces implements IRuleSpaces
      * @param int $spaceId Мир.
      * @param array<int, RuleCommitEntry> $entries Keep/put.
      * @param RuleSpaceCatalog|null $catalog Явный снимок или шаринг.
+     * @param int|null $expectedRevision Голова, от которой собран состав.
      *
      * @return RuleRevisionRecord Ревизия.
      *
      * @throws RuleSpaceInvalidException Если состав недопустим.
      * @throws RuleSpaceNotFoundException Если мира нет.
+     * @throws RuleSpaceConflictException Если голова уже другая.
      */
     public function commit(
         int $spaceId,
         array $entries,
         ?RuleSpaceCatalog $catalog = null,
+        ?int $expectedRevision = null,
     ): RuleRevisionRecord {
         $this->requireWorld($spaceId);
         $revisionRecord = (new RuleSpaceGuard())->run(
-            function () use ($spaceId, $entries, $catalog): mixed {
+            function () use ($spaceId, $entries, $catalog, $expectedRevision): mixed {
                 return $this->smartTableGateway->transaction(
-                    function () use ($spaceId, $entries, $catalog): RuleRevisionRecord {
-                        return $this->worldWriter->publishWithCatalog($spaceId, $entries, $catalog);
+                    function () use ($spaceId, $entries, $catalog, $expectedRevision): RuleRevisionRecord {
+                        return $this->worldWriter->publishWithCatalog(
+                            $spaceId,
+                            $entries,
+                            $catalog,
+                            $expectedRevision,
+                        );
                     },
                 );
             },
@@ -302,16 +311,19 @@ final class RuleSpaces implements IRuleSpaces
      * @param int $spaceId Мир.
      * @param RuleSpaceSelection $selection База и выбор.
      * @param RuleSpaceCatalog|null $catalog Явный снимок или шаринг.
+     * @param int|null $expectedRevision Голова, от которой собран выбор.
      *
      * @return RuleRevisionRecord Ревизия.
      *
      * @throws RuleSpaceInvalidException Если выбор или состав недопустимы.
      * @throws RuleSpaceNotFoundException Если мира или базы нет.
+     * @throws RuleSpaceConflictException Если голова уже другая.
      */
     public function commitSelected(
         int $spaceId,
         RuleSpaceSelection $selection,
         ?RuleSpaceCatalog $catalog = null,
+        ?int $expectedRevision = null,
     ): RuleRevisionRecord {
         $this->requireWorld($spaceId);
         $revisionSlice = $this->getRevision($spaceId, $selection->getBaseRevision());
@@ -320,6 +332,7 @@ final class RuleSpaces implements IRuleSpaces
             $spaceId,
             (new RuleSpaceCommitAssembler())->assemble($revisionSlice, $selection),
             $catalog,
+            $expectedRevision,
         );
     }
 

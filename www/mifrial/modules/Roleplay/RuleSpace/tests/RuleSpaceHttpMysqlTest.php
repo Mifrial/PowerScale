@@ -175,6 +175,7 @@ final class RuleSpaceHttpMysqlTest extends TestCase
                 ['code' => 'human', 'type' => 'ability', 'name' => 'Human'],
                 ['code' => 'orc', 'type' => 'ability', 'name' => 'Orc'],
             ],
+            'expectedRevision' => 0,
         ]);
         self::assertTrue($first['success']);
         self::assertSame(1, $first['data']['revision']);
@@ -199,11 +200,24 @@ final class RuleSpaceHttpMysqlTest extends TestCase
             'spaceId' => $spaceId,
             'rules' => [],
             'removedCodes' => ['human'],
+            'expectedRevision' => 1,
         ]);
         self::assertTrue($second['success']);
         self::assertSame(2, $second['data']['revision']);
         self::assertFalse($second['data']['rules'][0]['active']);
         self::assertSame('orc', $second['data']['rules'][1]['code']);
+
+        $stale = $this->dispatch('ruleSpace.commitDraft', [
+            'spaceId' => $spaceId,
+            'rules' => [['code' => 'elf', 'type' => 'ability', 'name' => 'Elf']],
+            'expectedRevision' => 1,
+        ]);
+        self::assertFalse($stale['success']);
+        self::assertSame('RULESPACE_CONFLICT', $stale['error']['code']);
+        self::assertSame(1, $stale['error']['expectedRevision']);
+        self::assertSame(2, $stale['error']['actualRevision']);
+        $feedAfterConflict = $this->dispatch('ruleSpace.getRevisions', ['spaceId' => $spaceId]);
+        self::assertCount(2, $feedAfterConflict['data']);
 
         $missing = $this->dispatch('ruleSpace.get', ['id' => 999]);
         self::assertFalse($missing['success']);
@@ -229,6 +243,7 @@ final class RuleSpaceHttpMysqlTest extends TestCase
                 'catalogSortOrder' => 1,
             ]],
             'sections' => [['code' => 'combat', 'name' => 'Бой', 'sortOrder' => 0]],
+            'expectedRevision' => 0,
         ]);
         self::assertTrue($first['success']);
         self::assertSame('combat', $first['data']['sections'][0]['code']);
@@ -238,6 +253,7 @@ final class RuleSpaceHttpMysqlTest extends TestCase
         $shared = $this->dispatch('ruleSpace.commitDraft', [
             'spaceId' => $spaceId,
             'rules' => [['code' => 'orc', 'type' => 'ability', 'name' => 'Orc']],
+            'expectedRevision' => 1,
         ]);
         self::assertTrue($shared['success']);
         self::assertSame(2, $shared['data']['revision']);
@@ -248,6 +264,7 @@ final class RuleSpaceHttpMysqlTest extends TestCase
             'spaceId' => $spaceId,
             'rules' => [],
             'sections' => [['code' => 'magic', 'name' => 'Магия', 'sortOrder' => 0]],
+            'expectedRevision' => 2,
         ]);
         self::assertTrue($only['success']);
         self::assertSame(3, $only['data']['revision']);
@@ -258,6 +275,7 @@ final class RuleSpaceHttpMysqlTest extends TestCase
             'spaceId' => $spaceId,
             'rules' => [],
             'sections' => [['code' => 'magic', 'name' => 'Магия', 'sortOrder' => 0]],
+            'expectedRevision' => 3,
         ]);
         self::assertFalse($noop['success']);
         self::assertSame('RULESPACE_INVALID', $noop['error']['code']);

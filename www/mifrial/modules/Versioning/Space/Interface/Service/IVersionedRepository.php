@@ -9,6 +9,7 @@ use Mifrial\Versioning\Space\Dto\RevisionRecord;
 use Mifrial\Versioning\Space\Dto\RevisionSlice;
 use Mifrial\Versioning\Space\Dto\RevisionSummary;
 use Mifrial\Versioning\Space\Dto\SpaceRecord;
+use Mifrial\Versioning\Space\Exception\SpaceConflictException;
 use Mifrial\Versioning\Space\Exception\SpaceInvalidException;
 use Mifrial\Versioning\Space\Exception\SpaceNotFoundException;
 
@@ -58,16 +59,19 @@ interface IVersionedRepository
      * @param int $spaceId Пространство.
      * @param array<int, CommitEntry> $entries List keep/create/change.
      * @param bool $allowUnchangedComposition Разрешить тот же набор version_id.
+     * @param int|null $expectedRevision Голова, от которой собран состав.
      *
      * @return RevisionRecord Новая ревизия.
      *
      * @throws SpaceNotFoundException Если пространства нет.
      * @throws SpaceInvalidException Если вход или состав недопустимы.
+     * @throws SpaceConflictException Если голова уже другая.
      */
     public function commit(
         int $spaceId,
         array $entries,
         bool $allowUnchangedComposition = false,
+        ?int $expectedRevision = null,
     ): RevisionRecord;
 
     /**

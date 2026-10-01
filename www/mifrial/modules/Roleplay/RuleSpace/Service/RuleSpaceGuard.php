@@ -6,8 +6,10 @@ namespace Mifrial\Roleplay\RuleSpace\Service;
 
 use Closure;
 use Mifrial\Core\SmartTable\Exception\SmartTableException;
+use Mifrial\Roleplay\Rule\Exception\RuleConflictException;
 use Mifrial\Roleplay\Rule\Exception\RuleException;
 use Mifrial\Roleplay\Rule\Exception\RuleNotFoundException;
+use Mifrial\Roleplay\RuleSpace\Exception\RuleSpaceConflictException;
 use Mifrial\Roleplay\RuleSpace\Exception\RuleSpaceException;
 use Mifrial\Roleplay\RuleSpace\Exception\RuleSpaceInvalidException;
 use Mifrial\Roleplay\RuleSpace\Exception\RuleSpaceNotFoundException;
@@ -34,6 +36,12 @@ final class RuleSpaceGuard
             return $work();
         } catch (RuleSpaceException $exception) {
             throw $exception;
+        } catch (RuleConflictException $exception) {
+            throw new RuleSpaceConflictException(
+                $exception->getExpectedRevision(),
+                $exception->getActualRevision(),
+                $exception,
+            );
         } catch (RuleNotFoundException $exception) {
             throw new RuleSpaceNotFoundException($exception->getMessage(), $exception);
         } catch (RuleException | SmartTableException $exception) {

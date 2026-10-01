@@ -8,6 +8,7 @@ import { RULE_TYPE_LABELS } from '@/modules/Roleplay/Rule/Constant/RULE_TYPE_LAB
 import { useKeywords } from '@/modules/Roleplay/Keyword/init';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { publishService } from '@/modules/Roleplay/RuleSpace/Service/Instance/publishService';
+import { ActionFailure } from '@/modules/Core/Engine/Service/ActionFailure';
 import type { PublishSummary } from '@/modules/Roleplay/RuleSpace/Dto/PublishSummary';
 
 const props = defineProps<{
@@ -36,6 +37,16 @@ const publishing = ref(false);
 const preparing = ref(false);
 const summary = ref<PublishSummary | null>(null);
 const publishError = ref<string | null>(null);
+const publishConflict = ref(false);
+
+const baseRevision = computed(() => {
+  const space = props.space;
+  if (!space) return 0;
+  const context = revisionStore.activeContext;
+  if (context.spaceId === space.id && context.revision !== null) return context.revision;
+
+  return space.revision;
+});
 
 const publishAdded = computed(() => summary.value?.added ?? []);
 const publishChanged = computed(() => summary.value?.changed ?? []);
@@ -65,6 +76,7 @@ async function prepare() {
   preparing.value = true;
   summary.value = null;
   publishError.value = null;
+  publishConflict.value = false;
   try {
     if (keywords.value.length === 0) {
       await fetchTags(signal.value);
@@ -85,11 +97,19 @@ async function prepare() {
   }
 }
 
+async function reloadBase() {
+  const space = props.space;
+  if (!space) return;
+  await revisionStore.syncFromContext(space.id, 'draft', undefined, signal.value);
+  await prepare();
+}
+
 async function publishDraft() {
   const space = props.space;
   if (!space || hasPublishProblems.value) return;
   publishing.value = true;
   publishError.value = null;
+  publishConflict.value = false;
   try {
     const rules = drafts.getDraftRules(space.id);
     const catalogDirty = sectionCatalog.isDirty(space.id, revisionStore.activeRevision?.sections ?? []);
@@ -97,6 +117,7 @@ async function publishDraft() {
     const result = await revisionStore.commitDraft(
       space.id,
       rules,
+      baseRevision.value,
       undefined,
       drafts.getRemovedCodes(space.id),
       sections,
@@ -106,6 +127,7 @@ async function publishDraft() {
     emit('published', result.revision);
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') return;
+    publishConflict.value = e instanceof ActionFailure && e.code === 'RULESPACE_CONFLICT';
     const message = e instanceof Error ? e.message : 'Ошибка публикации';
     publishError.value = message;
     emit('error', message);
@@ -131,7 +153,7 @@ async function publishDraft() {
         </v-alert>
         <template v-else>
           <div class="text-body-2 mb-4">
-            Будут опубликованы {{ publishCount }} изменений поверх версии {{ space?.revision }}.
+            Будут опубликованы {{ publishCount }} изменений поверх версии {{ baseRevision }}.
           </div>
 
           <div v-if="summary?.catalogDirty" class="mb-3 text-body-2">Изменено дерево секций каталога.</div>
@@ -174,6 +196,9 @@ async function publishDraft() {
 
           <v-alert v-if="publishError" type="error" class="mb-4" closable @click:close="publishError = null">
             {{ publishError }}
+            <template v-if="publishConflict" #append>
+              <v-btn size="small" variant="tonal" @click="reloadBase">Перечитать срез</v-btn>
+            </template>
           </v-alert>
 
           <div v-if="hasPublishProblems">

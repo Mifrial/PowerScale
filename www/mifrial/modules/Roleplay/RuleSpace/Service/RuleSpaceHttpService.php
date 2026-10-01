@@ -211,14 +211,30 @@ final class RuleSpaceHttpService
      * @return array<string, mixed> SpaceRevision.
      *
      * @throws ActionException AUTH_REQUIRED.
+     * @throws RuleSpaceInvalidException Если номер базы недопустим.
      */
     public function commitDraft(CommitDraftInput $input): array
     {
         $this->requireEditableWorld($this->loadedWorld($input->spaceId));
         $puts = $this->commitDraftMapper->mapPuts($input->rules);
         $removedCodes = $this->commitDraftMapper->mapRemovedCodes($input->removedCodes);
-        $catalog = $this->draftCatalog($input->spaceId, $input->sections, $input->rules, $puts);
-        $revision = $this->publishDraft($input->spaceId, $puts, $removedCodes, $catalog);
+        if ($input->expectedRevision < 0) {
+            throw new RuleSpaceInvalidException('Expected revision is invalid');
+        }
+        $catalog = $this->draftCatalog(
+            $input->spaceId,
+            $input->sections,
+            $input->rules,
+            $puts,
+            $input->expectedRevision,
+        );
+        $revision = $this->publishDraft(
+            $input->spaceId,
+            $puts,
+            $removedCodes,
+            $catalog,
+            $input->expectedRevision,
+        );
 
         return $this->revisionView($input->spaceId, $revision);
     }
@@ -293,37 +309,41 @@ final class RuleSpaceHttpService
      * @param array<int, RuleCommitEntry> $puts Put.
      * @param array<int, string> $removedCodes Tombstone.
      * @param RuleSpaceCatalog|null $catalog Снимок.
+     * @param int $expectedRevision Ревизия черновика.
      *
      * @return int Номер новой ревизии.
      *
      * @throws RuleSpaceInvalidException Если состав недопустим.
+     * @throws RuleSpaceConflictException Если голова уже другая.
+     * @throws RuleSpaceNotFoundException Если базы нет.
      */
     private function publishDraft(
         int $spaceId,
         array $puts,
         array $removedCodes,
         ?RuleSpaceCatalog $catalog,
+        int $expectedRevision,
     ): int {
-        $summaries = $this->ruleSpaces->getRevisionList($spaceId);
-        $latest = $summaries[0] ?? null;
-        if ($latest === null) {
-            return $this->publishFirstDraft($spaceId, $puts, $removedCodes, $catalog);
+        if ($expectedRevision === 0) {
+            return $this->publishFirstDraft($spaceId, $puts, $removedCodes, $catalog, $expectedRevision);
         }
 
         if ($puts === [] && $removedCodes === [] && $catalog instanceof RuleSpaceCatalog) {
-            $slice = $this->ruleSpaces->getRevision($spaceId, $latest->getRevision());
+            $slice = $this->ruleSpaces->getRevision($spaceId, $expectedRevision);
 
             return $this->ruleSpaces->commit(
                 $spaceId,
                 $this->keepEntries($slice),
                 $catalog,
+                $expectedRevision,
             )->getRevision();
         }
 
         return $this->ruleSpaces->commitSelected(
             $spaceId,
-            RuleSpaceSelection::fromParts($latest->getRevision(), $puts, $removedCodes),
+            RuleSpaceSelection::fromParts($expectedRevision, $puts, $removedCodes),
             $catalog,
+            $expectedRevision,
         )->getRevision();
     }
 
@@ -334,16 +354,19 @@ final class RuleSpaceHttpService
      * @param array<int, RuleCommitEntry> $puts Put.
      * @param array<int, string> $removedCodes Tombstone.
      * @param RuleSpaceCatalog|null $catalog Снимок.
+     * @param int $expectedRevision Ноль, если ревизий ещё нет.
      *
      * @return int Номер.
      *
      * @throws RuleSpaceInvalidException Если removed или пустой состав.
+     * @throws RuleSpaceConflictException Если голова уже есть.
      */
     private function publishFirstDraft(
         int $spaceId,
         array $puts,
         array $removedCodes,
         ?RuleSpaceCatalog $catalog,
+        int $expectedRevision,
     ): int {
         if ($removedCodes !== []) {
             throw new RuleSpaceInvalidException('Removed codes need a published revision');
@@ -353,7 +376,7 @@ final class RuleSpaceHttpService
             throw new RuleSpaceInvalidException('Catalog-only needs a published revision');
         }
 
-        return $this->ruleSpaces->commit($spaceId, $puts, $catalog)->getRevision();
+        return $this->ruleSpaces->commit($spaceId, $puts, $catalog, $expectedRevision)->getRevision();
     }
 
     /**
@@ -363,16 +386,19 @@ final class RuleSpaceHttpService
      * @param OptionalArray $sections Ключ JSON.
      * @param array<int, mixed> $putRows JSON rules.
      * @param array<int, RuleCommitEntry> $puts Put.
+     * @param int $expectedRevision Ревизия черновика.
      *
      * @return RuleSpaceCatalog|null Снимок.
      *
      * @throws RuleSpaceInvalidException Если дерево.
+     * @throws RuleSpaceNotFoundException Если базы нет.
      */
     private function draftCatalog(
         int $spaceId,
         OptionalArray $sections,
         array $putRows,
         array $puts,
+        int $expectedRevision,
     ): ?RuleSpaceCatalog {
         if (!$sections->isPresent()) {
             return null;
@@ -380,13 +406,11 @@ final class RuleSpaceHttpService
 
         $jsonMapper = new RuleSpaceCatalogJsonMapper();
         $mappedSections = $jsonMapper->mapSections($sections->getValue());
-        $summaries = $this->ruleSpaces->getRevisionList($spaceId);
-        $latest = $summaries[0] ?? null;
-        $latestCatalog = RuleSpaceCatalog::empty();
+        $baseCatalog = RuleSpaceCatalog::empty();
         $omitKeepCodes = [];
-        if ($latest !== null) {
-            $slice = $this->ruleSpaces->getRevision($spaceId, $latest->getRevision());
-            $latestCatalog = $this->ruleSpaces->getCatalog($spaceId, $latest->getRevision());
+        if ($expectedRevision > 0) {
+            $slice = $this->ruleSpaces->getRevision($spaceId, $expectedRevision);
+            $baseCatalog = $this->ruleSpaces->getCatalog($spaceId, $expectedRevision);
             $omitKeepCodes = $this->omitKeepCodes($slice, $puts);
         }
 
@@ -394,7 +418,7 @@ final class RuleSpaceHttpService
             $mappedSections,
             $puts,
             $putRows,
-            $latestCatalog,
+            $baseCatalog,
             $omitKeepCodes,
         );
     }

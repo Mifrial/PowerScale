@@ -1,4 +1,5 @@
 import type { Engine } from '@/modules/Core/Engine/Service/Engine';
+import { ActionFailure } from '@/modules/Core/Engine/Service/ActionFailure';
 import type { IRuleSpaceApi } from '@/modules/Roleplay/RuleSpace/Interface/IRuleSpaceApi';
 import type { Space } from '@/modules/Roleplay/RuleSpace/Dto/Space';
 import type { SpaceCreateData } from '@/modules/Roleplay/RuleSpace/Dto/SpaceCreateData';
@@ -72,6 +73,7 @@ export class RuleSpaceApi implements IRuleSpaceApi {
   async commitDraft(
     spaceId: number,
     rules: Rule[],
+    expectedRevision: number,
     signal?: AbortSignal,
     removedCodes?: string[],
     sections?: AbilitySection[],
@@ -83,11 +85,17 @@ export class RuleSpaceApi implements IRuleSpaceApi {
         rules: rules.map((rule) => this.commitRulePayload(rule)),
         removedCodes,
         sections,
+        expectedRevision,
       },
       signal,
     );
     if (!res.success || res.data === null) {
-      throw new Error(res.error?.message ?? 'Не удалось опубликовать черновик');
+      const error = res.error;
+      throw new ActionFailure(
+        error?.code ?? 'RULESPACE_INVALID',
+        error?.message ?? 'Не удалось опубликовать черновик',
+        error?.details,
+      );
     }
 
     return res.data;
