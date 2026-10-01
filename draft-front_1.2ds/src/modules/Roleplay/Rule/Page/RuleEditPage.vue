@@ -39,6 +39,8 @@ import type { RuleSpec } from '@/modules/Roleplay/Rule/Dto/RuleSpec';
 import type { RuleFormState } from '@/modules/Roleplay/Rule/Dto/RuleFormState';
 import type { MechanicPayload } from '@/modules/Roleplay/Mechanic/Dto/MechanicPayload';
 import { getMechanicApi } from '@/modules/Roleplay/Mechanic/init';
+import MechanicPayloadInspector from '@/modules/Roleplay/Rule/Component/MechanicPayloadInspector.vue';
+import { mechanicPayloadInspectorService } from '@/modules/Roleplay/Rule/Service/Instance/mechanicPayloadInspectorService';
 
 const route = useRoute();
 const router = useRouter();
@@ -76,6 +78,8 @@ const loading = ref(true);
 const error = ref<string | null>(null);
 const saveError = ref<string | null>(null);
 const formRef = ref<{ validate: () => Promise<{ valid: boolean }> } | null>(null);
+const payloadInspectorRef = ref<{ readText: () => string; isEditing: () => boolean } | null>(null);
+const payloadError = ref<string | null>(null);
 const storageToast = ref(false);
 
 const showConflictDialog = ref(false);
@@ -84,6 +88,7 @@ const loadedStorageId = ref<number | null>(null);
 const baseLoaded = ref<string | null>(null);
 
 const mechanicOptions = ref<{ title: string; value: number }[]>([]);
+const mechanicChanged = computed(() => (mechanicId.value ?? null) !== (loadedMechanicId.value ?? null));
 const keywordOptions = computed(() => keywords.value.map((t) => ({ title: t.name, value: t.id })));
 const keywordCodeById = computed(() => new Map(keywords.value.map((k) => [k.id, k.code])));
 const modifierTypeOptions = computed(() =>
@@ -205,10 +210,30 @@ onMounted(() => {
 });
 watch(() => [route.params.code, route.params.ctx, route.params.ruleCode], resolveRoute);
 
+function commitPayloadText(): boolean {
+  if (!payloadInspectorRef.value?.isEditing()) {
+    payloadError.value = null;
+
+    return true;
+  }
+  try {
+    const parsed = mechanicPayloadInspectorService.parse(payloadInspectorRef.value.readText());
+    mechanicPayload.value = structuredClone(parsed) as MechanicPayload;
+    payloadError.value = null;
+
+    return true;
+  } catch (e) {
+    payloadError.value = e instanceof Error ? e.message : 'Некорректный JSON payload механики';
+
+    return false;
+  }
+}
+
 async function save() {
   if (!name.value.trim()) return;
   const formCheck = await formRef.value?.validate();
   if (formCheck && !formCheck.valid) return;
+  if (!commitPayloadText()) return;
   saving.value = true;
   saveError.value = null;
   try {
@@ -624,6 +649,15 @@ async function save() {
           <div v-else class="text-body-2 text-medium-emphasis text-center pa-8">
             Редактор для типа "{{ type }}" будет реализован позже
           </div>
+
+          <MechanicPayloadInspector
+            ref="payloadInspectorRef"
+            :payload="mechanicPayload"
+            :is-new="!isEdit"
+            :mechanic-changed="mechanicChanged"
+            :error="payloadError"
+            @commit="commitPayloadText"
+          />
 
           <v-expansion-panels v-if="type !== 'ability'" multiple>
             <CatalogPlacementEditor

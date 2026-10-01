@@ -11,6 +11,7 @@ import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import { getMechanicApi } from '@/modules/Roleplay/Mechanic/init';
 import { RULE_TYPE_LABELS } from '@/modules/Roleplay/Rule/Constant/RULE_TYPE_LABELS';
 import { ruleContentStatusService } from '@/modules/Roleplay/Rule/Service/Instance/ruleContentStatusService';
+import MechanicPayloadInspector from '@/modules/Roleplay/Rule/Component/MechanicPayloadInspector.vue';
 import RuleSpecView from '@/modules/Roleplay/Rule/Component/RuleSpecView.vue';
 import DescriptionHtml from '@/modules/Core/UI/Component/DescriptionHtml.vue';
 import RuleSlider from '@/modules/Roleplay/Rule/Component/RuleSlider.vue';
@@ -141,6 +142,8 @@ watch(() => [route.params.code, route.params.ctx, route.params.ruleCode], resolv
         <div class="text-body-2 mt-2">{{ mechanic.description }}</div>
       </v-card-text>
     </v-card>
+
+    <MechanicPayloadInspector readonly :payload="rule.mechanicPayload" />
 
     <v-card v-if="ruleTags.length > 0" class="mb-4">
       <v-card-title>Признаки</v-card-title>
