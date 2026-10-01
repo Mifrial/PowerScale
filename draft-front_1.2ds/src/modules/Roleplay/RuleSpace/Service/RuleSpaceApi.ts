@@ -104,13 +104,15 @@ export class RuleSpaceApi implements IRuleSpaceApi {
   }
 
   /**
-   * Backend кладёт expectedRevision и actualRevision в корень error, не в error.details.
+   * Извлекает typed conflict details из общего action error envelope.
    */
   private conflictDetails(error: ActionError | undefined): RuleSpaceConflictDetails | undefined {
     if (!error) return undefined;
-    const wire = error as ActionError & Record<string, unknown>;
-    const expectedRevision = wire.expectedRevision;
-    const actualRevision = wire.actualRevision;
+    const details = error.details;
+    if (details === null || typeof details !== 'object') return undefined;
+
+    const expectedRevision = 'expectedRevision' in details ? details.expectedRevision : undefined;
+    const actualRevision = 'actualRevision' in details ? details.actualRevision : undefined;
     if (typeof expectedRevision !== 'number' || typeof actualRevision !== 'number') {
       return undefined;
     }

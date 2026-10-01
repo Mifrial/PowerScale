@@ -66,6 +66,29 @@ final class KernelGuardTest extends TestCase
     }
 
     /**
+     * Проверяет единый вложенный envelope дополнительных error details.
+     *
+     * @return void
+     */
+    public function testActionErrorDetailsAreNested(): void
+    {
+        $payload = ActionResponse::fail(
+            'CONFLICT',
+            'Conflict',
+            ['expectedVersion' => 2, 'actualVersion' => 3],
+        )->toArray();
+
+        self::assertSame(
+            [
+                'code' => 'CONFLICT',
+                'message' => 'Conflict',
+                'details' => ['expectedVersion' => 2, 'actualVersion' => 3],
+            ],
+            $payload['error'],
+        );
+    }
+
+    /**
      * Проверяет debug INTERNAL с trace.
      *
      * @return void
@@ -77,7 +100,8 @@ final class KernelGuardTest extends TestCase
 
         self::assertSame('INTERNAL', $payload['error']['code']);
         self::assertStringContainsString('RuntimeException', $payload['error']['message']);
-        self::assertArrayHasKey('trace', $payload['error']);
+        self::assertArrayHasKey('details', $payload['error']);
+        self::assertArrayHasKey('trace', $payload['error']['details']);
     }
 
     /**

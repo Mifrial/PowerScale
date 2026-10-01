@@ -16,8 +16,10 @@ describe('RuleSpaceApi.commitDraft', () => {
         error: {
           code: 'RULESPACE_CONFLICT',
           message: 'Ревизия устарела',
-          expectedRevision: 1,
-          actualRevision: 2,
+          details: {
+            expectedRevision: 1,
+            actualRevision: 2,
+          },
         },
       }),
     );

@@ -67,6 +67,14 @@ final class ActionResponse
      */
     public static function fail(string $errorCode, string $message, array $details = []): self
     {
-        return new self(false, null, array_merge(['code' => $errorCode, 'message' => $message], $details));
+        $error = [
+            'code' => $errorCode,
+            'message' => $message,
+        ];
+        if ($details !== []) {
+            $error['details'] = $details;
+        }
+
+        return new self(false, null, $error);
     }
 }
