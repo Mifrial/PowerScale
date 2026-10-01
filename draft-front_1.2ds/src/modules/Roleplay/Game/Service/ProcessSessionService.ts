@@ -4,7 +4,10 @@ import type { ProcessSpec } from '@/modules/Roleplay/Rule/Dto/Ability/ProcessSpe
 import type { ProcessStep } from '@/modules/Roleplay/Rule/Dto/Ability/ProcessStep';
 import type { ActionResolution } from '@/modules/Roleplay/Game/Dto/ActionResolution';
 import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
 import { ADVANTAGE_SOURCE_CIRCUMSTANCES } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
+import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/actionEffectService';
 
 export class ProcessSessionService {
   start(gameId: number, entityKey: CombatEntityKey, processRuleCode: string, spec: ProcessSpec): ProcessSession {
@@ -59,6 +62,17 @@ export class ProcessSessionService {
 
   canInterruptNormally(spec: ProcessSpec, currentStepCode: string): boolean {
     return this.interruptionFor(spec, currentStepCode)?.mode === 'normal';
+  }
+
+  /** Обычное прерывание: отказ или эффекты завершения. Текст чата задаёт вызывающий. */
+  planNormalInterrupt(
+    spec: ProcessSpec | null,
+    currentStepCode: string,
+    rule: Rule | null,
+  ): { allowed: false } | { allowed: true; completionEffects: PendingActionEffect[] } {
+    if (!spec || !rule || !this.canInterruptNormally(spec, currentStepCode)) return { allowed: false };
+
+    return { allowed: true, completionEffects: actionEffectService.effectsAfterProcess(rule) };
   }
 
   canInterruptEmergency(spec: ProcessSpec, currentStepCode: string): boolean {

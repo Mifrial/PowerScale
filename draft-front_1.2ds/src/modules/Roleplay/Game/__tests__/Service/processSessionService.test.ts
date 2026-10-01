@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ProcessSpec } from '@/modules/Roleplay/Rule/Dto/Ability/ProcessSpec';
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { processSessionService } from '@/modules/Roleplay/Game/Service/Instance/processSessionService';
 
 const movement: ProcessSpec = {
@@ -144,5 +145,23 @@ describe('ProcessSessionService', () => {
     };
 
     expect(processSessionService.canInterruptNormally(emergency, 'walk')).toBe(false);
+    expect(processSessionService.planNormalInterrupt(emergency, 'walk', null).allowed).toBe(false);
+  });
+
+  it('planNormalInterrupt отдаёт эффекты завершения и не подменяет отказ', () => {
+    const rule = {
+      id: null,
+      code: 'movement',
+      type: 'ability',
+      name: 'Движение',
+      description: '',
+      spaceId: 1,
+      createdAt: 1,
+      spec: { type: 'process', process: movement },
+    } as Rule;
+    const allowed = processSessionService.planNormalInterrupt(movement, 'walk', rule);
+    expect(allowed.allowed).toBe(true);
+    if (allowed.allowed) expect(allowed.completionEffects).toEqual([]);
+    expect(processSessionService.planNormalInterrupt(null, 'walk', rule).allowed).toBe(false);
   });
 });

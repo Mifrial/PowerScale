@@ -115,6 +115,71 @@ describe('GameMembershipEligibilityService', () => {
     ).toBe(true);
   });
 
+  it('sheetNeedsModeration совпадает с needsModeration и не смотрит identity', () => {
+    const sheet = version();
+    expect(gameMembershipEligibilityService.sheetNeedsModeration(sheet, sheet)).toBe(false);
+    expect(gameMembershipEligibilityService.sheetNeedsModeration(sheet, version({ money: 11 }))).toBe(true);
+    expect(gameMembershipEligibilityService.sheetNeedsModeration(null, sheet)).toBe(true);
+    expect(
+      gameMembershipEligibilityService.sheetNeedsModeration(
+        version({ spaceCode: 'old', rulesRevision: 1 }),
+        version({ spaceCode: 'new', rulesRevision: 2 }),
+      ),
+    ).toBe(false);
+  });
+
+  it('canSpeakAsCharacter требует своего active и лист без модерации', () => {
+    const sheet = version();
+    expect(
+      gameMembershipEligibilityService.canSpeakAsCharacter({
+        membershipStatus: 'active',
+        characterOwnerId: 4,
+        currentUserId: 4,
+        approved: sheet,
+        actual: sheet,
+      }),
+    ).toBe(true);
+    expect(
+      gameMembershipEligibilityService.canSpeakAsCharacter({
+        membershipStatus: 'active',
+        characterOwnerId: 4,
+        currentUserId: 9,
+        approved: sheet,
+        actual: sheet,
+      }),
+    ).toBe(false);
+    expect(
+      gameMembershipEligibilityService.canSpeakAsCharacter({
+        membershipStatus: 'active',
+        characterOwnerId: 4,
+        currentUserId: 4,
+        approved: sheet,
+        actual: version({ money: 11 }),
+      }),
+    ).toBe(false);
+    expect(
+      gameMembershipEligibilityService.canSpeakAsCharacter({
+        membershipStatus: 'submitted',
+        characterOwnerId: 4,
+        currentUserId: 4,
+        approved: sheet,
+        actual: sheet,
+      }),
+    ).toBe(false);
+  });
+
+  it('playing не заменяет проверку листа участием в сессии', () => {
+    const sheet = version();
+    const inSession = gameMembershipEligibilityService.isActiveSessionParticipant({
+      membershipStatus: 'active',
+      sessionParticipant: true,
+      returned: false,
+    });
+
+    expect(inSession).toBe(true);
+    expect(gameMembershipEligibilityService.sheetNeedsModeration(sheet, version({ money: 11 }))).toBe(true);
+  });
+
   it('isActiveSessionParticipant не выводит участие из membershipStatus и блокирует returned', () => {
     expect(
       gameMembershipEligibilityService.isActiveSessionParticipant({

@@ -593,11 +593,12 @@ async function stopProcess(): Promise<void> {
   if (!key || !session) return;
   const processRule = findRuleByRef(props.rules, session.processRuleCode);
   const processSpec = processRule ? asProcessAbilitySpec(processRule) : null;
-  if (
-    !processRule ||
-    !processSpec ||
-    !processSessionService.canInterruptNormally(processSpec, session.currentStepCode)
-  ) {
+  const interrupt = processSessionService.planNormalInterrupt(
+    processSpec,
+    session.currentStepCode,
+    processRule ?? null,
+  );
+  if (!interrupt.allowed) {
     error.value = 'Текущий процесс нельзя прервать обычным способом';
 
     return;
@@ -607,7 +608,7 @@ async function stopProcess(): Promise<void> {
   error.value = null;
   try {
     await getGameApi().setProcessSession(props.gameId, key, null);
-    const completionEffects = actionEffectService.effectsAfterProcess(processRule);
+    const completionEffects = interrupt.completionEffects;
     const currentEffects = pendingEffects.value[key] ?? [];
     const nextEffects = [...currentEffects, ...completionEffects];
     pendingEffects.value = { ...pendingEffects.value, [key]: nextEffects };

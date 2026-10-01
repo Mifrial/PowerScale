@@ -6,6 +6,7 @@ import { useCurrentUser } from '@/modules/Core/User/init';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 import { gameAccessService } from '@/modules/Roleplay/Game/Service/Instance/gameAccessService';
+import { gameMembershipEligibilityService } from '@/modules/Roleplay/Game/Service/Instance/gameMembershipEligibilityService';
 
 import { toCreateGameData } from '@/modules/Roleplay/Game/Utils/toCreateGameData';
 import type { CreateGameData } from '@/modules/Roleplay/Game/Dto/CreateGameData';
@@ -87,9 +88,28 @@ async function handleSubmit(data: CreateGameData): Promise<void> {
           getGameApi().getGameCharacters(gameId.value, signal.value),
           getGameApi().getNpcSummaries({ gameId: gameId.value, status: 'active', limit: 100 }, signal.value),
         ]);
+        const moderationProjections = await getGameApi().getCharacterModerationProjections(
+          gameId.value,
+          memberships.map((membership) => membership.characterId),
+          signal.value,
+        );
+        const actualByCharacterId = new Map(
+          moderationProjections.map((projection) => [projection.characterId, projection.actualCharacterVersion]),
+        );
+        const game = updated.game;
         const participantEntityKeys: CombatEntityKey[] = [
           ...memberships
-            .filter((membership) => membership.membershipStatus === 'active')
+            .filter((membership) =>
+              gameMembershipEligibilityService.canStartSession({
+                membershipStatus: membership.membershipStatus,
+                returned: membership.reviewState === 'returned',
+                approved: membership.approvedCharacterVersion,
+                actual: actualByCharacterId.get(membership.characterId) ?? null,
+                gameSpaceCode: game.spaceCode,
+                gameRulesRevision: game.rulesRevision,
+                needsFix: false,
+              }),
+            )
             .map((membership) => `character:${membership.characterId}` as CombatEntityKey),
           ...npcResult.items.map((npc) => `npc:${npc.id}` as CombatEntityKey),
         ];

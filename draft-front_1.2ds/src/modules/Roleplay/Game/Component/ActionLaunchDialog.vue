@@ -16,7 +16,6 @@ import type {
 } from '@/modules/Roleplay/Rule/Dto/Ability/MovementOperation';
 import type { ActionOperationRequest } from '@/modules/Roleplay/Game/Dto/ActionOperationRequest';
 import type { CurrentSpeed } from '@/modules/Roleplay/Game/Dto/CurrentSpeed';
-import type { Requirement } from '@/modules/Roleplay/Rule/Dto/Ability/Requirement';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { CombatActionOption } from '@/modules/Roleplay/Game/Utils/combatActions';
 import type { ActionLaunchHint } from '@/modules/Roleplay/Game/Dto/ActionLaunchHint';
@@ -29,9 +28,6 @@ import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/ac
 import { lastStrikeService } from '@/modules/Roleplay/Game/Service/Instance/lastStrikeService';
 import { actionExecutionService } from '@/modules/Roleplay/Game/Service/Instance/actionExecutionService';
 import {
-  actionOdCost,
-  actionUsesChosenCost,
-  asActionAbilitySpec,
   asProcessAbilitySpec,
   WAIT_ACTION_CODE,
   findRuleByRef,
@@ -49,6 +45,7 @@ import CombatEntitySelect from '@/modules/Roleplay/Game/Component/CombatEntitySe
 import { MOVEMENT_DIRECTION_LABELS } from '@/modules/Roleplay/Game/Constant/Movement/MOVEMENT_DIRECTION_LABELS';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import { woundActionLaunchService } from '@/modules/Roleplay/Game/Service/Instance/woundActionLaunchService';
+import { actionLaunchCatalogService } from '@/modules/Roleplay/Game/Service/Instance/actionLaunchCatalogService';
 import { woundInstanceService } from '@/modules/Roleplay/Game/Service/Instance/woundInstanceService';
 import { committedActionService } from '@/modules/Roleplay/Game/Service/Instance/committedActionService';
 import { committedActionFlowService } from '@/modules/Roleplay/Game/Service/Instance/committedActionFlowService';
@@ -134,63 +131,14 @@ const actorMovementStep = computed(() =>
   movementContextService.resolveMovementStep(actorVersion.value ?? undefined, props.rules),
 );
 
-const actions = computed<CombatActionOption[]>(() => {
-  const owned = new Set(actorOverview.value?.abilities.map((ability) => ability.ruleCode) ?? []);
-
-  return props.rules.flatMap((rule) => {
-    const spec = asActionAbilitySpec(rule);
-    const process = asProcessAbilitySpec(rule);
-    const requirements =
-      rule.spec && typeof rule.spec === 'object' && 'requirements' in rule.spec ? rule.spec.requirements : [];
-    if (rule.keywordIds?.includes(71)) return [];
-    if (!spec && !process) return [];
-    if (spec && !requirementsSatisfied(spec.requirements)) return [];
-    if (process && !requirementsSatisfied(requirements)) return [];
-    if (!owned.has(rule.code) && (!spec || !Object.values(spec.zones ?? {}).some((zone) => zone?.kind === 'automatic')))
-      return [];
-    const overlay = overlays.value.find((item) => item.entityKey === woundTargetKey.value) ?? null;
-    const odCost = woundActionLaunchService.isBandage(rule.code)
-      ? woundActionLaunchService.bandageOd(actorVersion.value, overlay)
-      : spec
-        ? actionOdCost(spec.action_components)
-        : 0;
-    const option: CombatActionOption = {
-      ruleCode: rule.code,
-      code: rule.code,
-      name: rule.name,
-      odCost,
-      isVariableCost: spec ? actionUsesChosenCost(spec.action_components) : false,
-      effects: spec ? actionEffectService.effectsOf(rule) : [],
-      isAttack: false,
-      isReaction: rule.keywordIds?.includes(53) ?? false,
-      isProcess: process !== null,
-      process: process ?? undefined,
-      operations: spec?.operations,
-    };
-
-    return [option];
-  });
-});
-
-function requirementsSatisfied(entries: { level: number; requirements: Requirement[] }[]): boolean {
-  return entries.every((entry) =>
-    entry.requirements.every((requirement) => {
-      if (requirement.type === 'current_speed') {
-        const component = currentSpeed.value[requirement.axis];
-
-        return (
-          component.direction === requirement.direction &&
-          component.stepsPerActionPoint >= requirement.min_steps_per_action_point
-        );
-      }
-      if (requirement.type === 'and') return requirementsSatisfied([{ level: 1, requirements: requirement.children }]);
-      if (requirement.type === 'or')
-        return requirement.children.some((child) => requirementsSatisfied([{ level: 1, requirements: [child] }]));
-
-      return true;
-    }),
-  );
-}
+const actions = computed<CombatActionOption[]>(() =>
+  actionLaunchCatalogService.listOptions({
+    rules: props.rules,
+    currentSpeed: currentSpeed.value,
+    actorVersion: actorVersion.value,
+    woundOverlay: overlays.value.find((item) => item.entityKey === woundTargetKey.value) ?? null,
+  }),
+);
 
 const visibleActions = computed(() => actions.value.filter((action) => action.isReaction === showReactions.value));
 const activeProcess = computed(() => (actorKey.value ? processSessionsByEntity.value[actorKey.value] : undefined));
@@ -201,6 +149,13 @@ const processRule = computed(() =>
   activeProcess.value ? (findRuleByRef(props.rules, activeProcess.value.processRuleCode) ?? null) : null,
 );
 const processRuleSpec = computed(() => (processRule.value ? asProcessAbilitySpec(processRule.value) : null));
+const canStopActiveProcess = computed(() => {
+  const session = activeProcess.value;
+  if (!session) return false;
+
+  return processSessionService.planNormalInterrupt(processRuleSpec.value, session.currentStepCode, processRule.value)
+    .allowed;
+});
 const selectableActions = computed(() => {
   if (activeCommitted.value) {
     return visibleActions.value.filter((action) => action.code === WAIT_ACTION_CODE);
@@ -610,15 +565,16 @@ async function submit(): Promise<void> {
   if (processSession) {
     const processRule = findRuleByRef(props.rules, processSession.processRuleCode);
     const processSpec = processRule ? asProcessAbilitySpec(processRule) : null;
-    if (
-      !processRule ||
-      !processSpec ||
-      !processSessionService.canInterruptNormally(processSpec, processSession.currentStepCode)
-    ) {
+    const interrupt = processSessionService.planNormalInterrupt(
+      processSpec,
+      processSession.currentStepCode,
+      processRule ?? null,
+    );
+    if (!interrupt.allowed) {
       throw new Error('Текущий процесс нельзя прервать обычным способом');
     }
     await getGameApi().setProcessSession(props.gameId, key, null);
-    const completionEffects = actionEffectService.effectsAfterProcess(processRule);
+    const completionEffects = interrupt.completionEffects;
     pendingEffects = [...pendingEffects, ...completionEffects];
     if (props.chatId !== null) {
       const effectText = completionEffects.length
@@ -789,13 +745,19 @@ async function stopProcess(): Promise<void> {
   const process = activeProcess.value;
   if (!key || !process) return;
   const rule = processRule.value;
-  if (!rule || !processRuleSpec.value) return;
+  if (!rule) return;
+  const interrupt = processSessionService.planNormalInterrupt(processRuleSpec.value, process.currentStepCode, rule);
+  if (!interrupt.allowed) {
+    error.value = 'Текущий процесс нельзя прервать обычным способом';
+
+    return;
+  }
 
   busy.value = true;
   error.value = null;
   try {
     await getGameApi().setProcessSession(props.gameId, key, null);
-    const completionEffects = actionEffectService.effectsAfterProcess(rule);
+    const completionEffects = interrupt.completionEffects;
     const pendingEffects = pendingEffectsByEntity.value[key] ?? [];
     const nextEffects = [...pendingEffects, ...completionEffects];
     pendingEffectsByEntity.value = { ...pendingEffectsByEntity.value, [key]: nextEffects };
@@ -959,10 +921,7 @@ watch(
             Активный процесс: <strong>{{ processRule?.name ?? activeProcess.processRuleCode }}</strong
             >, текущий шаг — {{ activeProcess.currentStepCode }}
             <v-btn
-              v-if="
-                processRuleSpec &&
-                processSessionService.canInterruptNormally(processRuleSpec, activeProcess.currentStepCode)
-              "
+              v-if="canStopActiveProcess"
               size="x-small"
               variant="text"
               color="warning"

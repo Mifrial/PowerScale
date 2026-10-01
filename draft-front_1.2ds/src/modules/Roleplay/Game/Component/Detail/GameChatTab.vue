@@ -18,6 +18,7 @@ import type { GameLifecycleResult } from '@/modules/Roleplay/Game/Dto/GameLifecy
 import type { GameStatus } from '@/modules/Roleplay/Game/Enum/GameStatus';
 import type { ChatSpeakerOption } from '@/modules/Messages/Chat/Dto/ChatSpeakerOption';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
+import type { CharacterModerationProjection } from '@/modules/Roleplay/Game/Dto/CharacterModerationProjection';
 import type { GameDetail } from '@/modules/Roleplay/Game/Dto/GameDetail';
 import type { GameNpcSummary } from '@/modules/Roleplay/Game/Dto/GameNpcSummary';
 import type { GameRuntimeEntityProjection } from '@/modules/Roleplay/Game/Dto/GameRuntimeEntityProjection';
@@ -218,7 +219,14 @@ const tokenSources = computed<ITokenSource[]>(() => [
       const q = query.toLowerCase();
 
       return memberships.value
-        .filter((membership) => membership.membershipStatus === 'active')
+        .filter(
+          (membership) =>
+            membership.membershipStatus === 'active' &&
+            !gameMembershipEligibilityService.sheetNeedsModeration(
+              membership.approvedCharacterVersion,
+              moderationByCharacterId.value[membership.characterId]?.actualCharacterVersion ?? null,
+            ),
+        )
         .filter((membership) => !q || membership.characterName.toLowerCase().includes(q))
         .map((membership) => ({
           value: `${membership.characterId},${membership.characterName}`,
@@ -250,6 +258,7 @@ const processAttachments = (attachments: ChatAttachment[]): ChatAttachment[] =>
 
 const memberships = ref<GameCharacterMembership[]>([]);
 const actualById = ref<Record<number, CharacterVersion>>({});
+const moderationByCharacterId = ref<Record<number, CharacterModerationProjection>>({});
 const npcs = ref<GameNpc[]>([]);
 const runtimeByKey = ref<Record<CombatEntityKey, GameRuntimeEntityProjection>>({});
 const gameStateSnapshot = ref<GameStateSnapshot | null>(null);
@@ -273,21 +282,24 @@ const eligibleMemberships = computed(() => {
   const hasRuntimeSession = Boolean(gameStateSnapshot.value?.session);
 
   return memberships.value.filter((membership) => {
+    const actual = moderationByCharacterId.value[membership.characterId]?.actualCharacterVersion ?? null;
     if (isPlaying) {
-      return gameMembershipEligibilityService.isActiveSessionParticipant({
-        membershipStatus: membership.membershipStatus,
-        sessionParticipant: hasRuntimeSession
-          ? runtimeParticipantKeys.value.has(`character:${membership.characterId}`)
-          : false,
-        returned: membership.reviewState === 'returned',
-      });
+      return (
+        gameMembershipEligibilityService.isActiveSessionParticipant({
+          membershipStatus: membership.membershipStatus,
+          sessionParticipant: hasRuntimeSession
+            ? runtimeParticipantKeys.value.has(`character:${membership.characterId}`)
+            : false,
+          returned: membership.reviewState === 'returned',
+        }) && !gameMembershipEligibilityService.sheetNeedsModeration(membership.approvedCharacterVersion, actual)
+      );
     }
 
     return gameMembershipEligibilityService.canStartSession({
       membershipStatus: membership.membershipStatus,
       returned: membership.reviewState === 'returned',
       approved: membership.approvedCharacterVersion,
-      actual: actualById.value[membership.characterId] ?? null,
+      actual,
       gameSpaceCode: props.detail.game.spaceCode,
       gameRulesRevision: props.detail.game.rulesRevision,
       needsFix: false,
@@ -304,7 +316,15 @@ const speakerOptions = computed<ChatSpeakerOption[]>(() => {
   const user = currentUser.value;
   if (!user) return [];
   const ownCharacters = memberships.value
-    .filter((membership) => membership.membershipStatus === 'active' && membership.characterOwnerId === user.id)
+    .filter((membership) =>
+      gameMembershipEligibilityService.canSpeakAsCharacter({
+        membershipStatus: membership.membershipStatus,
+        characterOwnerId: membership.characterOwnerId,
+        currentUserId: user.id,
+        approved: membership.approvedCharacterVersion,
+        actual: moderationByCharacterId.value[membership.characterId]?.actualCharacterVersion ?? null,
+      }),
+    )
     .map<ChatSpeakerOption>((membership) => ({
       key: `character:${membership.characterId}`,
       label: membership.characterName,
@@ -348,9 +368,13 @@ async function load(): Promise<void> {
       (membership) => `character:${membership.characterId}` as CombatEntityKey,
     );
     const projectionLevel = 'summary';
-    const [runtimeResult, npcResult] = await Promise.all([
+    const [runtimeResult, npcResult, moderationProjections] = await Promise.all([
       getGameApi().getRuntimeEntities(requestGameId, { entityKeys: characterKeys, projectionLevel }),
       getGameApi().getNpcSummaries({ gameId: requestGameId, status: 'active', limit: 100 }),
+      getGameApi().getCharacterModerationProjections(
+        requestGameId,
+        membershipsResult.map((membership) => membership.characterId),
+      ),
     ]);
     if (requestSequence !== loadSequence || requestGameId !== gameId.value) return;
     gameStateSnapshot.value = snapshot;
@@ -375,6 +399,9 @@ async function load(): Promise<void> {
       }
     }
     actualById.value = actuals;
+    moderationByCharacterId.value = Object.fromEntries(
+      moderationProjections.map((projection) => [projection.characterId, projection]),
+    );
     runtimeByKey.value = nextRuntimeProjections;
     npcs.value = npcResult.items.map(toLegacyNpc);
     void loadRuntimeProjections(
@@ -716,6 +743,7 @@ watch(gameId, () => {
   disconnectRealtime();
   runtimeByKey.value = {};
   actualById.value = {};
+  moderationByCharacterId.value = {};
   if (props.active) void load();
 });
 
