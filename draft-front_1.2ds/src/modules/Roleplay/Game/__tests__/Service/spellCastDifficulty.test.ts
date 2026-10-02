@@ -268,6 +268,7 @@ describe('SpellCastService', () => {
         hasTarget: false,
       },
       'check-intellect',
+      CHECK_SPELL_CAST_CODE,
       { base: 3, size: 0 },
       'Интеллект',
       undefined,
@@ -292,6 +293,7 @@ describe('SpellCastService', () => {
         hasTarget: false,
       },
       'check-willpower',
+      CHECK_SPELL_CAST_CODE,
       { base: 4, size: 1 },
       'Сила воли',
       undefined,
@@ -360,7 +362,15 @@ describe('SpellCastOptionsService', () => {
       name: 'Арканист',
       description: '',
       spaceId: 1,
-      spec: { type: 'magic_path', check_code: 'check-intellect', study_cost: null, includes_path_codes: [] },
+      spec: {
+        type: 'magic_path',
+        check_code: 'check-intellect',
+        cast_check_code: 'check-spell-cast',
+        power_characteristic_code: 'magic-power',
+        control_characteristic_code: 'magic-control',
+        study_cost: null,
+        includes_path_codes: [],
+      },
       createdAt: 1,
     };
     const version = {
@@ -368,7 +378,14 @@ describe('SpellCastOptionsService', () => {
       inventory: [{ id: 3, ruleCode: 'magic-core', quantity: 1, equipped: true }],
     } as CharacterVersion;
     expect(spellCastOptionsService.listPaths(version, [becoming, path])).toEqual([
-      { pathCode: 'arcanist', name: 'Арканист', checkCode: 'check-intellect' },
+      {
+        pathCode: 'arcanist',
+        name: 'Арканист',
+        checkCode: 'check-intellect',
+        castCheckCode: 'check-spell-cast',
+        powerCharacteristicCode: 'magic-power',
+        controlCharacteristicCode: 'magic-control',
+      },
     ]);
     expect(
       spellCastOptionsService.listSources(version, [{ ...path, code: 'magic-core', type: 'item', name: 'Ядро' }]),

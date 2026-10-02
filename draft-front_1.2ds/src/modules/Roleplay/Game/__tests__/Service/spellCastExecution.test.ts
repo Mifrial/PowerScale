@@ -5,13 +5,25 @@ import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { CHECK_SIMPLE_CODE, CHECK_SPELL_CAST_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
 import { spellCastExecutionService } from '@/modules/Roleplay/Game/Service/Instance/spellCastExecutionService';
-import { SIMPLE_TOUCH_CODE } from '@/modules/Roleplay/Game/Constant/Combat/SIMPLE_TOUCH_CODE';
 import type { SpellCastExecutionInput } from '@/modules/Roleplay/Game/Dto/Spell/SpellCastExecutionInput';
 import type { SpellCastRollOutcome } from '@/modules/Roleplay/Game/Dto/Spell/SpellCastRollOutcome';
 import type { HitResolution } from '@/modules/Roleplay/Rule/Dto/Ability/HitResolution';
 import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpec';
 
+const ACTION_POOL: Rule = {
+  id: null,
+  code: 'action-points',
+  type: 'resource',
+  name: 'Очки действий',
+  description: '',
+  spaceId: 1,
+  mechanics: [],
+  createdAt: 1,
+  spec: { is_dimensional: false, auto_add: true },
+};
+
 const ROLL_RULES: Rule[] = [
+  ACTION_POOL,
   {
     id: null,
     code: 'roll',
@@ -100,7 +112,7 @@ function spellRule(code: string, spec: Extract<AbilitySpec, { type: 'spell' }>):
 const SIMPLE_TOUCH: Rule = {
   mechanics: [],
   id: null,
-  code: SIMPLE_TOUCH_CODE,
+  code: 'simple-touch',
   type: 'ability',
   name: 'Простое касание',
   description: '',
@@ -112,6 +124,7 @@ const SIMPLE_TOUCH: Rule = {
     grants: [],
     action_components: [{ type: 'resource', resource_code: 'action-points', amount: 3, label: 'Действие' }],
     parent_ability_code: null,
+    spell_touch: { weapon_damage: false, attack_sr_bonus: 1 },
   },
   keywordIds: [14, 71, 1],
   createdAt: 1,
@@ -176,13 +189,14 @@ function baseInput(
       hasTarget: false,
     },
     checkCode: CHECK_SPELL_CAST_CODE,
+    castCheckCode: CHECK_SPELL_CAST_CODE,
     characteristicValue: { base: 4, size: 0 },
     characteristicName: 'Сила воли',
     parameterPower: { base: 4, size: 0 },
     keywords: KEYWORDS,
     mechanics: MECHANICS,
     rng: () => 0.5,
-    touchActionCode: SIMPLE_TOUCH_CODE,
+    touchActionCode: 'simple-touch',
     touchProfile: {
       itemName: 'Рука',
       profileType: 'strike',
@@ -225,7 +239,7 @@ describe('SpellCastExecutionService', () => {
       spellCastExecutionService.actionPointCost({
         spellCode: 'cheap',
         touchActionCode: 'heavy-strike',
-        rules: [cheap, HEAVY_STRIKE],
+        rules: [ACTION_POOL, cheap, HEAVY_STRIKE],
         casterAbilities: [],
         pathCode: null,
         appliedUpgradeCodes: [],
@@ -234,8 +248,8 @@ describe('SpellCastExecutionService', () => {
     expect(
       spellCastExecutionService.actionPointCost({
         spellCode: 'discharge',
-        touchActionCode: SIMPLE_TOUCH_CODE,
-        rules: [discharge, SIMPLE_TOUCH],
+        touchActionCode: 'simple-touch',
+        rules: [ACTION_POOL, discharge, SIMPLE_TOUCH],
         casterAbilities: [],
         pathCode: null,
         appliedUpgradeCodes: [],
@@ -322,7 +336,59 @@ describe('SpellCastExecutionService', () => {
     };
   }
 
-  function saturatedInput(steps: number, abilities: { ruleCode: string; level: number; zone: 'or' }[]) {
+  const SATURATION: Rule = {
+    mechanics: [],
+    id: null,
+    code: 'dynamic-energy-saturation',
+    type: 'ability',
+    name: 'Динамическое энергонасыщение',
+    description: '',
+    spaceId: 1,
+    spec: {
+      type: 'skill',
+      zones: {},
+      requirements: [],
+      grants: [],
+      parent_ability_code: null,
+      spell_saturation: { min_rating: 2, rating_per_step: 2, power_per_step: 1 },
+    },
+    createdAt: 1,
+  };
+  const TRANSFER: Rule = {
+    mechanics: [],
+    id: null,
+    code: 'interstructure-energy-transfer',
+    type: 'ability',
+    name: 'Межструктурные энергопереходы',
+    description: '',
+    spaceId: 1,
+    spec: {
+      type: 'skill',
+      zones: {},
+      requirements: [],
+      grants: [],
+      parent_ability_code: null,
+      next_cast_difficulty: { min_remaining_rating: 2, delta: -1, source_code: 'training' },
+    },
+    createdAt: 1,
+  };
+  const BARE_SATURATION: Rule = {
+    ...SATURATION,
+    code: 'bare-saturation',
+    spec: {
+      type: 'skill',
+      zones: {},
+      requirements: [],
+      grants: [],
+      parent_ability_code: null,
+    },
+  };
+
+  function saturatedInput(
+    steps: number,
+    abilities: { ruleCode: string; level: number; zone: 'or' }[],
+    extraRules: Rule[] = [SATURATION, TRANSFER],
+  ) {
     return baseInput({
       spellCode: 'discharge',
       saturationSteps: steps,
@@ -330,7 +396,7 @@ describe('SpellCastExecutionService', () => {
       touchTargetKey: 'character:2',
       touchTargetOverview: OVERVIEW,
       effectTargetOverview: OVERVIEW,
-      rules: [...ROLL_RULES, discharge, SIMPLE_TOUCH, ELECTRICITY],
+      rules: [...ROLL_RULES, discharge, SIMPLE_TOUCH, ELECTRICITY, ...extraRules],
     });
   }
 
@@ -381,6 +447,16 @@ describe('SpellCastExecutionService', () => {
     );
     expect(result.refuseReason).toBe('invalid_saturation');
     expect(result.spellApply).toBeNull();
+  });
+
+  it('способность без поля насыщения отвергается', () => {
+    const result = spellCastExecutionService.completeAfterHit(
+      saturatedInput(1, [{ ruleCode: 'bare-saturation', level: 1, zone: 'or' }], [BARE_SATURATION]),
+      { milk: false, attackSr: 1 },
+      passedCast(4),
+    );
+    expect(result.refuseReason).toBe('invalid_saturation');
+    expect(result.pendingEffectsAfterCast ?? []).toEqual([]);
   });
 
   it('без способности насыщение отвергается', () => {

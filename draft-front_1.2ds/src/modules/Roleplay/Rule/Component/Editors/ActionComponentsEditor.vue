@@ -7,7 +7,6 @@ import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/Dimension
 import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue';
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
 import { useVModelSync } from '@/modules/Core/UI/Composables/useVModelSync';
-import { ACTION_POINTS_RESOURCE_CODE } from '@/modules/Roleplay/Rule/Constant/Ability/ACTION_POINTS_RESOURCE_CODE';
 import { abilitySpecService } from '@/modules/Roleplay/Rule/Service/Instance/abilitySpecService';
 
 const props = defineProps<{
@@ -16,6 +15,7 @@ const props = defineProps<{
   items: { code: string; name: string }[];
   keywords: KeywordRef[];
   isSpell: boolean;
+  turnResourceCode: string;
 }>();
 
 const emit = defineEmits<{
@@ -35,9 +35,11 @@ const typeOptions = [
   { label: 'Материальный', value: 'material' },
 ];
 
-const actionPointIndex = computed(() =>
-  inner.value.findIndex((c) => c.type === 'resource' && c.resource_code === ACTION_POINTS_RESOURCE_CODE),
-);
+const actionPointIndex = computed(() => {
+  if (!props.turnResourceCode) return -1;
+
+  return inner.value.findIndex((c) => c.type === 'resource' && c.resource_code === props.turnResourceCode);
+});
 
 function isMandatory(index: number): boolean {
   return index === actionPointIndex.value;
@@ -56,7 +58,7 @@ function patch(index: number, key: string, value: unknown) {
 }
 
 function remove(index: number) {
-  inner.value = abilitySpecService.removeActionComponent(inner.value, index);
+  inner.value = abilitySpecService.removeActionComponent(inner.value, index, props.turnResourceCode);
 }
 
 function add(type: string) {
@@ -94,7 +96,7 @@ function updateResource(index: number, key: 'resource_code' | 'amount', value: u
     ) {
       comp = { ...comp, amount: comp.amount.base };
     }
-    if (code === ACTION_POINTS_RESOURCE_CODE && props.isSpell) {
+    if (props.turnResourceCode && code === props.turnResourceCode && props.isSpell) {
       comp = { ...comp, label: 'Сотворение' };
     }
   }

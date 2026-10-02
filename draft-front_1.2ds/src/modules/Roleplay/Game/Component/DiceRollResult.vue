@@ -4,9 +4,7 @@ import type { ChatAttachment } from '@/modules/Messages/Chat/Dto/ChatAttachment'
 import type { InlineSegment } from '@/modules/Messages/Chat/Dto/InlineSegment';
 import type { DiceRollResult } from '@/modules/Roleplay/Game/Dto/DiceRollResult';
 import { rollService } from '@/modules/Roleplay/Game/Service/Instance/rollService';
-import { CHECK_HIT_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
 import { checkSuccessRatingService } from '@/modules/Roleplay/Rule/init';
-import { HIT_MIN_SUCCESS_SIZE } from '@/modules/Roleplay/Rule/Constant/Check/HIT_MIN_SUCCESS_SIZE';
 import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/init';
 import { resolveAppliedMechanicNames } from '@/modules/Roleplay/Game/Utils/appliedRollMechanics';
 import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
@@ -26,7 +24,7 @@ const isFaceSum = computed(() => roll.value.spec.scoring === 'face_sum');
 const sizeSuffix = computed(() => rollService.formatRollSize(roll.value.spec.dieSize || 0));
 const netAdv = computed(() => aggregateSourceDeltasService.netSourceDelta(roll.value.spec.advantages));
 const check = computed(() => roll.value.check);
-const checkMinSize = computed(() => (check.value?.check_code === CHECK_HIT_CODE ? HIT_MIN_SUCCESS_SIZE : undefined));
+const checkMinSize = computed(() => check.value?.min_success_size);
 const successesLabel = computed(() =>
   checkSuccessRatingService.formatPreparedMagnitude(
     { base: roll.value.totalSuccesses, size: roll.value.spec.dieSize || 0 },

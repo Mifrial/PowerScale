@@ -46,7 +46,7 @@ import type { AttackOverview } from '@/modules/Roleplay/Character/Dto/Overview/A
 import type { ProcessActionContext } from '@/modules/Roleplay/Game/Dto/ProcessActionContext';
 import type { ProcessSession } from '@/modules/Roleplay/Game/Dto/ProcessSession';
 import type { AttackAction } from '@/modules/Roleplay/Game/Dto/AttackAction';
-import { CHECK_HIT_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
+import { checkResolutionService } from '@/modules/Roleplay/Rule/init';
 import { useCombatChatThread } from '@/modules/Roleplay/Game/Composables/useCombatChatThread';
 import { useConcentrationTokenAsk } from '@/modules/Roleplay/Game/Composables/useConcentrationTokenAsk';
 import ConcentrationTokenAskDialog from '@/modules/Roleplay/Game/Component/ConcentrationTokenAskDialog.vue';
@@ -198,6 +198,7 @@ async function changeStatus(target: GameStatus): Promise<void> {
 // Ревизия игры: правила и механики → контекст чата (чипы [[rule:...]], «Вставить ссылку»,
 // броски через RollEngine). Собирается общим buildChatRulesContext.
 const revisionRules = ref<Rule[]>([]);
+const hitCheckCode = computed(() => checkResolutionService.firstCheckCode(revisionRules.value, 'hit_check'));
 const mechanics = ref<Mechanic[]>([]);
 
 const rulesContext = computed(() =>
@@ -931,12 +932,19 @@ const actionableOfferCount = computed(
     ).length,
 );
 
+function isHitOffer(offer: CheckOffer): boolean {
+  const code = hitCheckCode.value;
+
+  return code !== '' && offer.checkCode === code;
+}
+
 function pendingToResume(): CheckOffer | undefined {
+  if (revisionRules.value.length === 0) return undefined;
   const key = speakerEntityKey.value;
   const asGm = props.canEdit;
   const mine = pendingOffers.value.filter((offer) => isWaitingOnSpeaker(offer, key, asGm));
 
-  return mine.find((offer) => offer.checkCode === CHECK_HIT_CODE) ?? mine[0];
+  return mine.find((offer) => isHitOffer(offer)) ?? mine[0];
 }
 
 async function refreshPendingOffers(): Promise<void> {
@@ -954,15 +962,15 @@ async function refreshPendingOffers(): Promise<void> {
   } catch {
     pendingOffers.value = [];
   }
+  if (revisionRules.value.length === 0) return;
   const actionable = pendingOffers.value.filter((offer) => isActionableOffer(offer, key, asGm));
   const first =
     actionable.find(
-      (offer) =>
-        offer.checkCode === CHECK_HIT_CODE && (offer.waitingOn === 'covering' || offer.waitingOn === 'opponent'),
+      (offer) => isHitOffer(offer) && (offer.waitingOn === 'covering' || offer.waitingOn === 'opponent'),
     ) ?? actionable[0];
   if (!checkOpen.value && !hitOpen.value && first) {
     await loadRuntimeProjections([first.initiator, first.opponent]);
-    if (first.checkCode === CHECK_HIT_CODE) {
+    if (isHitOffer(first)) {
       hitResumeOffer.value = first;
       hitAttackerKey.value = first.initiator;
       hitAttack.value = null;
@@ -975,8 +983,9 @@ async function refreshPendingOffers(): Promise<void> {
 }
 
 function reopenOffer(offer: CheckOffer): void {
+  if (revisionRules.value.length === 0) return;
   dismissedOfferIds.value = new Set([...dismissedOfferIds.value].filter((id) => id !== offer.id));
-  if (offer.checkCode === CHECK_HIT_CODE) {
+  if (isHitOffer(offer)) {
     hitResumeOffer.value = offer;
     hitAttackerKey.value = offer.initiator;
     hitAttack.value = null;
@@ -989,6 +998,7 @@ function reopenOffer(offer: CheckOffer): void {
 }
 
 async function openCheckLaunch(): Promise<void> {
+  if (revisionRules.value.length === 0) return;
   if (speakerEntityKey.value) await loadRuntimeProjections([speakerEntityKey.value]);
   const existing = pendingToResume();
   if (existing) {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { woundInstanceService } from '@/modules/Roleplay/Game/Service/Instance/woundInstanceService';
 import { checkRollService } from '@/modules/Roleplay/Game/Service/Instance/checkRollService';
-import { CHECK_BLOOD_CLOTTING_CODE, CHECK_SIMPLE_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
+import { CHECK_SIMPLE_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
 import { SIMPLE_CHECK_ZERO_DIFFICULTY } from '@/modules/Roleplay/Game/Constant/Check/SIMPLE_CHECK_ZERO_DIFFICULTY';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
@@ -47,7 +47,7 @@ const RULES: Rule[] = [
   {
     mechanics: [],
     id: null,
-    code: CHECK_BLOOD_CLOTTING_CODE,
+    code: 'check-blood-clotting',
     type: 'check',
     name: 'Свёртывание крови',
     description: '',
@@ -71,14 +71,14 @@ describe('blood clotting roll', () => {
   it('один куб vs {0|0}, 6 и 1 с предка', () => {
     const result = checkRollService.rollNamedCheck(
       { diceCount: 1, dieFaces: 6, efficiency: 3, advantages: [], dieSize: 0 },
-      CHECK_BLOOD_CLOTTING_CODE,
+      'check-blood-clotting',
       SIMPLE_CHECK_ZERO_DIFFICULTY,
       () => 0,
       RULES,
       MECHANICS,
     );
     expect(result.rolls).toEqual([1]);
-    expect(result.check?.check_code).toBe(CHECK_BLOOD_CLOTTING_CODE);
+    expect(result.check?.check_code).toBe('check-blood-clotting');
     expect(result.check?.passed).toBe(true);
     expect(result.check?.rating).toBe(2);
     const next = woundInstanceService.applyClotting(

@@ -9,19 +9,16 @@ import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/Chara
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { PoisonSpec } from '@/modules/Roleplay/Rule/Dto/Poison/PoisonSpec';
 import type { StateSpec } from '@/modules/Roleplay/Rule/Dto/State/StateSpec';
-import {
-  ACCUMULATED_DAMAGE_STATE_CODE,
-  POISONING_STATE_CODE,
-  WOUND_STATE_CODE,
-} from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
+import { WOUND_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
 import type { CharacterOverview } from '@/modules/Roleplay/Character/Dto/Overview/CharacterOverview';
 import type { CombatMasterySection } from '@/modules/Roleplay/Character/Dto/Overview/CombatMasterySection';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import { resourceLimitBase } from '@/modules/Roleplay/Game/Utils/combatEffectiveState';
-import { ACTION_POINTS_CODE } from '@/modules/Roleplay/Game/Constant/Combat/ACTION_POINTS_CODE';
+import type { ResourceSpec } from '@/modules/Roleplay/Rule/Dto/ResourceSpec';
 
 import { stateRuntimeEffectsService } from '@/modules/Roleplay/Character/init';
 import { liveActionPointsLimitService } from '@/modules/Roleplay/Character/init';
+import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
 import { woundInstanceService } from '@/modules/Roleplay/Game/Service/Instance/woundInstanceService';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 
@@ -72,9 +69,7 @@ export class CombatCardModelService {
     const { kind, id } = this.parseCombatEntityKey(key);
     const membership = kind === 'character' ? memberships.find((item) => item.characterId === id) : undefined;
     const projectedCharacterVersion =
-      kind === 'character' &&
-      runtimeProjection?.kind === 'character' &&
-      runtimeProjection.projectionLevel === 'full'
+      kind === 'character' && runtimeProjection?.kind === 'character' && runtimeProjection.projectionLevel === 'full'
         ? runtimeProjection.version
         : null;
     const hasProjectedCharacter =
@@ -82,15 +77,17 @@ export class CombatCardModelService {
     const hasProjectedNpc =
       kind === 'npc' && runtimeProjection?.kind === 'npc' && runtimeProjection.projectionLevel === 'full';
     const projectedNpcVersion =
-      kind === 'npc' &&
-      runtimeProjection?.kind === 'npc' &&
-      runtimeProjection.projectionLevel === 'full'
+      kind === 'npc' && runtimeProjection?.kind === 'npc' && runtimeProjection.projectionLevel === 'full'
         ? runtimeProjection.version
         : null;
     const baseVersion =
       kind === 'npc'
-        ? (hasProjectedNpc ? projectedNpcVersion : (npcs.find((npc) => npc.id === id)?.version ?? null))
-        : (hasProjectedCharacter ? projectedCharacterVersion : (membership?.approvedCharacterVersion ?? null));
+        ? hasProjectedNpc
+          ? projectedNpcVersion
+          : (npcs.find((npc) => npc.id === id)?.version ?? null)
+        : hasProjectedCharacter
+          ? projectedCharacterVersion
+          : (membership?.approvedCharacterVersion ?? null);
     const effectiveVersion = baseVersion;
 
     return {
@@ -151,7 +148,6 @@ export class CombatCardModelService {
 
   private stateSummary(entries: CharacterStateValue[], spec: StateSpec | null, rules: Rule[]): string | null {
     if (spec === null) return null;
-    const stateCode = rules.find((rule) => rule.code === entries[0]?.stateRuleCode)?.code;
     if (entries.some((entry) => entry.poison)) {
       return entries.map((entry) => this.poisonName(entry, rules)).join(', ');
     }
@@ -168,7 +164,7 @@ export class CombatCardModelService {
       return values.join(', ');
     }
     if (spec.value_type === 'dimensional') {
-      if (spec.aggregation === 'sum' && stateCode === ACCUMULATED_DAMAGE_STATE_CODE) {
+      if (spec.damage_remainder === true) {
         return entries
           .reduce(
             (total, entry) => total.add(new DimensionalNumber(entry.dimensionalValue ?? { base: 0, size: 0 })),
@@ -221,7 +217,7 @@ export class CombatCardModelService {
    * только при итоге > 0 («есть истощение»).
    */
   combatExhaustion(states: CharacterStateValue[], rules: Rule[]): number | null {
-    const rule = rules.find((candidate) => candidate.code === 'exhaustion' && candidate.type === 'state');
+    const rule = attackDamageService.exhaustionRule(rules);
     if (!rule) return null;
     const entries = states.filter((state) => state.stateRuleCode === rule.code);
     if (entries.length === 0) return null;
@@ -231,11 +227,11 @@ export class CombatCardModelService {
   }
 
   /**
-   * Суммарная сила увечий участника. Правило ищется по коду 'maim'; суммируются все записи.
+   * Суммарная сила увечий участника. Правило ищется по флагу maim; суммируются все записи.
    * Показывается только при итоге > 0.
    */
   combatMaim(states: CharacterStateValue[], rules: Rule[]): number | null {
-    const rule = rules.find((candidate) => candidate.code === 'maim' && candidate.type === 'state');
+    const rule = attackDamageService.maimRule(rules);
     if (!rule) return null;
     const entries = states.filter((state) => state.stateRuleCode === rule.code);
     if (entries.length === 0) return null;
@@ -244,17 +240,31 @@ export class CombatCardModelService {
     return total > 0 ? total : null;
   }
 
-  /** Текущие ОД и лимит (базовые пункты). Нет ресурса action-points — null. */
+  /** Первый ресурс с auto_add. Нет такого — пула действий нет. */
+  turnResourceRule(rules: Rule[]): Rule | null {
+    return (
+      rules.find((candidate) => {
+        if (candidate.type !== 'resource') return false;
+        const spec = candidate.spec as ResourceSpec | undefined;
+
+        return spec?.auto_add === true;
+      }) ?? null
+    );
+  }
+
+  /** Текущие ОД и лимит (базовые пункты). Нет авто-ресурса — null. */
   combatActionPoints(version: CharacterVersion, rules: Rule[]): { current: number; max: number } | null {
-    const rule = rules.find((candidate) => candidate.code === ACTION_POINTS_CODE && candidate.type === 'resource');
+    const rule = this.turnResourceRule(rules);
     if (!rule) return null;
     const resource = version.resources.find((item) => item.ruleCode === rule.code);
     if (!resource) return null;
 
-    const live = liveActionPointsLimitService.liveActionPointsLimit(
+    const live = liveActionPointsLimitService.liveAutoResourceLimit(
+      resource,
       version,
       rules,
       stateRuntimeEffectsService.effectiveCharacteristicValues(version, rules),
+      rule.code,
     );
     const max = live ?? Math.max(0, resourceLimitBase(resource));
 
@@ -363,7 +373,7 @@ export class CombatCardModelService {
 
   /** Значение по умолчанию для нового состояния из пикера (number → 1, dimensional → 1с0). */
   defaultStateEntry(option: CombatStateOption, rules: Rule[] = []): Omit<CharacterStateValue, 'stateRuleCode'> {
-    if (option.code === POISONING_STATE_CODE) {
+    if (option.code === attackDamageService.poisoningRule(rules)?.code) {
       const first = this.poisonRuleOptions(rules)[0];
 
       return { poison: this.poisonValueFromRule(rules, first?.ruleCode ?? null) };

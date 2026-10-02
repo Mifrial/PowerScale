@@ -1,26 +1,32 @@
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
-import { LYING_STATE_CODE, UNSTABLE_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
-import { RECOVER_STABILITY_CODE } from '@/modules/Roleplay/Game/Constant/Combat/RECOVER_STABILITY_CODE';
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
+import { asActionAbilitySpec } from '@/modules/Roleplay/Game/Utils/combatActions';
 
 /** Переключение лежачего положения и снятие неустойчивости. */
 export class PostureStateService {
-  hasLying(version: CharacterVersion): boolean {
-    return version.states.some((state) => state.stateRuleCode === LYING_STATE_CODE);
+  hasLying(version: CharacterVersion, rules: Rule[]): boolean {
+    const code = attackDamageService.lyingRule(rules)?.code;
+    if (!code) return false;
+
+    return version.states.some((state) => state.stateRuleCode === code);
   }
 
   shouldToggleLying(operations: { type: string }[] | undefined): boolean {
     return operations?.some((operation) => operation.type === 'posture') ?? false;
   }
 
-  isRecoverStability(ruleCode: string): boolean {
-    return ruleCode === RECOVER_STABILITY_CODE;
+  isRecoverStability(rule: Rule): boolean {
+    return asActionAbilitySpec(rule)?.combat_action === 'recover-stability';
   }
 
-  nextAfterStandUp(version: CharacterVersion): { addLying: boolean; removeCodes: string[] } {
-    if (this.hasLying(version)) {
-      return { addLying: false, removeCodes: [LYING_STATE_CODE] };
+  nextAfterStandUp(version: CharacterVersion, rules: Rule[]): { addCode: string | null; removeCodes: string[] } {
+    const lyingCode = attackDamageService.lyingRule(rules)?.code ?? null;
+    const unstableCode = attackDamageService.unstableRule(rules)?.code ?? null;
+    if (this.hasLying(version, rules)) {
+      return { addCode: null, removeCodes: lyingCode ? [lyingCode] : [] };
     }
 
-    return { addLying: true, removeCodes: [UNSTABLE_STATE_CODE] };
+    return { addCode: lyingCode, removeCodes: unstableCode ? [unstableCode] : [] };
   }
 }

@@ -14,7 +14,6 @@ import type { SpellDuration } from '@/modules/Roleplay/Rule/Dto/Ability/SpellDur
 import type { HitResolution } from '@/modules/Roleplay/Rule/Dto/Ability/HitResolution';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { ResourceRef } from '@/modules/Roleplay/Rule/Dto/Ability/ResourceRef';
-import { ACTION_POINTS_RESOURCE_CODE } from '@/modules/Roleplay/Rule/Constant/Ability/ACTION_POINTS_RESOURCE_CODE';
 import { GROUP_DOMAIN_KEYWORD_CODES } from '@/modules/Roleplay/Rule/Constant/Ability/GROUP_DOMAIN_KEYWORD_CODES';
 
 export class AbilitySpecService {
@@ -128,10 +127,11 @@ export class AbilitySpecService {
     return { ...spec, grants: [...spec.grants, { level: 1, grants: [] }] };
   }
 
-  ensureActionPointCost(spec: AbilitySpecDraft, isSpell: boolean): AbilitySpecDraft {
+  ensureActionPointCost(spec: AbilitySpecDraft, isSpell: boolean, resourceCode: string): AbilitySpecDraft {
+    if (!resourceCode) return spec;
     const hasOd = spec.action_components.some(
       (c): c is Extract<ActionComponent, { type: 'resource' }> =>
-        c.type === 'resource' && c.resource_code === ACTION_POINTS_RESOURCE_CODE,
+        c.type === 'resource' && c.resource_code === resourceCode,
     );
     if (hasOd) return spec;
 
@@ -141,7 +141,7 @@ export class AbilitySpecService {
         ...spec.action_components,
         {
           type: 'resource',
-          resource_code: ACTION_POINTS_RESOURCE_CODE,
+          resource_code: resourceCode,
           amount: 1,
           label: isSpell ? 'Сотворение' : undefined,
         },
@@ -245,6 +245,8 @@ export class AbilitySpecService {
         };
       case 'check_advantage':
         return { type: 'check_advantage', amount: 1, check_codes: [] };
+      case 'check_efficiency':
+        return { type: 'check_efficiency', amount: 1, check_codes: [] };
       case 'money':
         return { type: 'money', fixed: 50, percent: 50, apply: 'max' };
     }
@@ -333,9 +335,9 @@ export class AbilitySpecService {
     return components.map((c, i) => (i === index ? ({ ...c, [key]: value } as ActionComponent) : c));
   }
 
-  removeActionComponent(components: ActionComponent[], index: number): ActionComponent[] {
+  removeActionComponent(components: ActionComponent[], index: number, resourceCode: string): ActionComponent[] {
     const target = components[index];
-    if (target?.type === 'resource' && target.resource_code === ACTION_POINTS_RESOURCE_CODE) return components;
+    if (resourceCode && target?.type === 'resource' && target.resource_code === resourceCode) return components;
 
     return components.filter((_, i) => i !== index);
   }

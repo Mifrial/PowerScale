@@ -47,6 +47,7 @@ const rules: Rule[] = [
     type: 'characteristic',
     formula: 'min(attention, reaction)',
     group: 'primary',
+    concentration_threshold: true,
   }),
   base(null, 'weight', 'characteristic', 'Вес', {
     type: 'characteristic',
@@ -306,8 +307,13 @@ describe('Жетоны концентрации', () => {
       type: 'characteristic',
       formula: 'min(memory, reasoning)',
       group: 'primary',
+      concentration_threshold: true,
     }),
-    base(null, 'concentration', 'resource', 'Жетоны концентрации', { is_dimensional: false, auto_add: false }),
+    base(null, 'concentration', 'resource', 'Жетоны концентрации', {
+      is_dimensional: false,
+      auto_add: false,
+      check_token: true,
+    }),
     concentrationSkill,
   ];
 

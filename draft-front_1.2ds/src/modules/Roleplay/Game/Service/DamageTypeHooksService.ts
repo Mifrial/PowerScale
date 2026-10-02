@@ -30,6 +30,8 @@ export class DamageTypeHooksService {
       const woundMultiplier =
         payload?.type === 'exhaustion_wound' ? payload.multiplier : handler.defaultWoundMultiplier;
       const efficiencyDelta = payload?.type === 'injury_efficiency' ? payload.delta : handler.efficiencyDelta;
+      const stateCode =
+        payload?.type === 'exhaustion_wound' || payload?.type === 'state_write' ? payload.state_code : undefined;
 
       hooks.push({
         ruleCode: typeRule.code,
@@ -39,6 +41,7 @@ export class DamageTypeHooksService {
         extraDiceFromSrDivisor: handler.extraDiceFromSrDivisor,
         efficiencyDelta,
         woundMultiplier,
+        stateCode,
       });
     }
 

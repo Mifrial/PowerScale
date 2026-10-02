@@ -5,7 +5,6 @@ import type { GameAuthoritativeCommandResult } from '@/modules/Roleplay/Game/Dto
 import type { IGameApi } from '@/modules/Roleplay/Game/Interface/IGameApi';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { CommittedActionSession } from '@/modules/Roleplay/Game/Dto/CommittedActionSession';
-import { ACTION_POINTS_CODE } from '@/modules/Roleplay/Game/Constant/Combat/ACTION_POINTS_CODE';
 import { WOUND_ACTION_OD } from '@/modules/Roleplay/Game/Constant/Wound/WOUND_ACTION_OD';
 import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
 import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
@@ -33,15 +32,16 @@ export class WoundActionService {
     rules: Rule[],
     cost: number,
   ): Promise<GameAuthoritativeCommandResult> {
+    const rule = combatCardModelService.turnResourceRule(rules);
     const ap = combatCardModelService.combatActionPoints(version, rules);
-    if (!ap || ap.current < cost) throw new Error('Недостаточно ОД');
-    const resource = version.resources.find((item) => item.ruleCode === ACTION_POINTS_CODE);
+    if (!rule || !ap || ap.current < cost) throw new Error('Недостаточно ОД');
+    const resource = version.resources.find((item) => item.ruleCode === rule.code);
     if (!resource) throw new Error('Нет ресурса ОД');
 
     return this.resolveGameApi().setCombatResource(
       gameId,
       actorKey,
-      ACTION_POINTS_CODE,
+      rule.code,
       this.spendCost(resource.current, cost),
     );
   }

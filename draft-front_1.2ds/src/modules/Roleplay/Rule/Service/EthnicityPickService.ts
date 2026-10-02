@@ -56,7 +56,7 @@ export class EthnicityPickService {
 
   comboItems(
     options: readonly { code: string; name: string; preferred: boolean; subtitle?: string }[],
-  ): { title: string; value?: string; subtitle?: string; type?: 'divider' }[] {
+  ): { title?: string; value?: string; subtitle?: string; type?: 'divider' }[] {
     const toItem = (option: { code: string; name: string; subtitle?: string }) => ({
       title: option.name,
       value: option.code,

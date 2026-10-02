@@ -50,6 +50,7 @@ describe('formatDotTickMessage', () => {
         shock: null,
         wound: null,
         knockout: false,
+        stateWrites: [],
         cuttingWound: null,
         layers: [],
       },

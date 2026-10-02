@@ -13,8 +13,14 @@ const burning: Rule = {
   spec: {
     value_type: 'dimensional',
     aggregation: 'sum',
+    burning: true,
     effects: [
-      { type: 'damage_over_time', damage: { kind: 'value' }, periodicity: { kind: 'literal', value: 1, step: 'turn' } },
+      {
+        type: 'damage_over_time',
+        damage: { kind: 'value' },
+        damage_type_code: 'heat',
+        periodicity: { kind: 'literal', value: 1, step: 'turn' },
+      },
     ],
   },
   keywordIds: [],
@@ -29,7 +35,7 @@ const poisoning: Rule = {
   name: 'Отравление',
   description: '',
   spaceId: 1,
-  spec: { value_type: 'flag', aggregation: 'independent', effects: [] },
+  spec: { value_type: 'flag', aggregation: 'independent', poisoning: true, effects: [] },
   keywordIds: [],
   mechanics: [],
   createdAt: 1767225600,
@@ -87,7 +93,7 @@ describe('dotTickMath', () => {
     const first = dotTickMathService.advanceDotState(state, [burning]);
     expect(first.kind).toBe('tick');
     if (first.kind !== 'tick') return;
-    expect(first.damageTypeCode).toBe('fire');
+    expect(first.damageTypeCode).toBe('heat');
     expect(first.next?.dotTurnsLeft).toBe(1);
     expect(first.next?.dimensionalValue).toEqual({ base: 3, size: 1 });
   });
@@ -108,6 +114,47 @@ describe('dotTickMath', () => {
     expect(second.strength).toEqual({ base: 3, size: 1 });
     expect(second.next?.poison?.strength).toEqual({ base: 2, size: 1 });
     expect(second.next?.dotTurnsLeft).toBe(2);
+  });
+
+  it('без флага код каталога не тикает, флаг на другом коде тикает', () => {
+    const named: Rule = { ...burning, spec: { value_type: 'dimensional', aggregation: 'sum', effects: [] } };
+    const flagged: Rule = {
+      ...burning,
+      code: 'ablaze',
+      spec: {
+        value_type: 'dimensional',
+        aggregation: 'sum',
+        burning: true,
+        effects: [
+          {
+            type: 'damage_over_time',
+            damage: { kind: 'value' },
+            damage_type_code: 'heat',
+            periodicity: { kind: 'literal', value: 1, step: 'turn' },
+          },
+        ],
+      },
+    };
+    const plain: CharacterStateValue = { stateRuleCode: 'burning', dimensionalValue: { base: 2, size: 0 } };
+    const other: CharacterStateValue = { stateRuleCode: 'ablaze', dimensionalValue: { base: 2, size: 0 } };
+    expect(dotTickMathService.advanceDotState(plain, [named]).kind).toBe('skip');
+    expect(dotTickMathService.advanceDotState(other, [flagged]).kind).toBe('tick');
+    const untyped: Rule = {
+      ...flagged,
+      spec: {
+        value_type: 'dimensional',
+        aggregation: 'sum',
+        burning: true,
+        effects: [
+          {
+            type: 'damage_over_time',
+            damage: { kind: 'value' },
+            periodicity: { kind: 'literal', value: 1, step: 'turn' },
+          },
+        ],
+      },
+    };
+    expect(dotTickMathService.advanceDotState(other, [untyped]).kind).toBe('skip');
   });
 
   it('step не turn — skip', () => {

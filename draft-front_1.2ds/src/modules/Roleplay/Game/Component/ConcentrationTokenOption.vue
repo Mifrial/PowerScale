@@ -30,7 +30,7 @@ const maxSpend = computed(() =>
 );
 
 const remaining = computed(() =>
-  props.version ? concentrationTokenService.tokenCurrent(props.version, props.overlay) : 0,
+  props.version ? concentrationTokenService.tokenCurrent(props.version, props.overlay, props.rules) : 0,
 );
 
 watch(

@@ -16,31 +16,19 @@ export class MockGameParticipantCandidateSource {
     const limit = Math.min(Math.max(query.limit ?? 20, 1), 50);
     const offsets = this.parseCursor(query.cursor);
     const [characterPage, npcPage] = await Promise.all([
-      fetchGameCharacterCandidatePage(
-        query.gameId,
-        query.query,
-        offsets.characterOffset,
-        limit,
-        (membership) => {
-          const entityKey = `character:${membership.characterId}` as const;
-          const isParticipant = hasSession && sessionKeys.has(entityKey);
+      fetchGameCharacterCandidatePage(query.gameId, query.query, offsets.characterOffset, limit, (membership) => {
+        const entityKey = `character:${membership.characterId}` as const;
+        const isParticipant = hasSession && sessionKeys.has(entityKey);
 
-          return isParticipant || (!hasSession && isMembershipEligibleForSession(membership, query.gameId));
-        },
-      ),
-      fetchNpcCandidatePage(
-        query.gameId,
-        query.query,
-        offsets.npcOffset,
-        limit,
-        (npc) => {
-          if (npc.status !== 'active') return false;
+        return isParticipant || (!hasSession && isMembershipEligibleForSession(membership, query.gameId));
+      }),
+      fetchNpcCandidatePage(query.gameId, query.query, offsets.npcOffset, limit, (npc) => {
+        if (npc.status !== 'active') return false;
 
-          const entityKey = `npc:${npc.id}` as const;
+        const entityKey = `npc:${npc.id}` as const;
 
-          return !hasSession || isGameSessionParticipant(query.gameId, entityKey);
-        },
-      ),
+        return !hasSession || isGameSessionParticipant(query.gameId, entityKey);
+      }),
     ]);
     const candidates = [
       ...characterPage.items.map((membership) => {
@@ -96,9 +84,7 @@ export class MockGameParticipantCandidateSource {
     return {
       items,
       nextCursor:
-        hasUnconsumedPageItems || hasMoreSourceItems
-          ? this.createCursor(nextCharacterOffset, nextNpcOffset)
-          : null,
+        hasUnconsumedPageItems || hasMoreSourceItems ? this.createCursor(nextCharacterOffset, nextNpcOffset) : null,
     };
   }
 

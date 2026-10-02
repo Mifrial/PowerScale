@@ -35,14 +35,8 @@ import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/Chara
 import type { ISpatialResolver } from '@/modules/Roleplay/Game/Interface/ISpatialResolver';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { StateSpec } from '@/modules/Roleplay/Rule/Dto/State/StateSpec';
-import { CHECK_HIT_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
-import {
-  ACCUMULATED_DAMAGE_STATE_CODE,
-  EXHAUSTION_STATE_CODE,
-  STUNNED_STATE_CODE,
-  SHOCK_STATE_CODE,
-  WOUND_STATE_CODE,
-} from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
+import { checkResolutionService } from '@/modules/Roleplay/Rule/init';
+import { WOUND_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
 import { CHARACTERISTIC_BASE_RANGE } from '@/modules/Roleplay/Character/init';
 import CombatEntitySelect from '@/modules/Roleplay/Game/Component/CombatEntitySelect.vue';
 import ConcentrationTokenOption from '@/modules/Roleplay/Game/Component/ConcentrationTokenOption.vue';
@@ -116,8 +110,7 @@ import { processSessionService } from '@/modules/Roleplay/Game/Service/Instance/
 import { comboProcessService } from '@/modules/Roleplay/Game/Service/Instance/comboProcessService';
 import { committedActionFlowService } from '@/modules/Roleplay/Game/Service/Instance/committedActionFlowService';
 import { asProcessAbilitySpec } from '@/modules/Roleplay/Game/Utils/combatActions';
-import { ACTION_POINTS_CODE } from '@/modules/Roleplay/Game/Constant/Combat/ACTION_POINTS_CODE';
-import { SIMPLE_TOUCH_CODE } from '@/modules/Roleplay/Game/Constant/Combat/SIMPLE_TOUCH_CODE';
+import { turnResourceCode } from '@/modules/Roleplay/Game/Utils/combatActions';
 import { attackActionSourceService } from '@/modules/Roleplay/Game/Service/Instance/attackActionSourceService';
 import { pushProfileService } from '@/modules/Roleplay/Game/Service/Instance/pushProfileService';
 import { pushResolutionService } from '@/modules/Roleplay/Game/Service/Instance/pushResolutionService';
@@ -154,6 +147,8 @@ const props = defineProps<{
   initiativeKeys?: string[];
   runtimeProjections?: Record<CombatEntityKey, GameRuntimeEntityProjection>;
 }>();
+
+const hitCheckCode = computed(() => checkResolutionService.firstCheckCode(props.rules, 'hit_check'));
 
 const emit = defineEmits<{
   'update:open': [value: boolean];
@@ -199,10 +194,20 @@ const saturationOpen = ref(false);
 const saturationSteps = ref(0);
 const saturationRating = ref(0);
 const saturationPower = ref<DimensionalNumberValue>({ base: 0, size: 0 });
-const saturationMaxSteps = computed(() => Math.floor(saturationRating.value / 2));
-const saturationCurrentRating = computed(() => saturationRating.value - saturationSteps.value * 2);
+const saturationSpec = ref<{ rating_per_step: number; power_per_step: number } | null>(null);
+const saturationMaxSteps = computed(() => {
+  const perStep = saturationSpec.value?.rating_per_step ?? 0;
+  if (perStep <= 0) return 0;
+
+  return Math.floor(saturationRating.value / perStep);
+});
+const saturationCurrentRating = computed(
+  () => saturationRating.value - saturationSteps.value * (saturationSpec.value?.rating_per_step ?? 0),
+);
 const saturationCurrentPowerLabel = computed(() =>
-  DimensionalNumber.from(saturationPower.value).modify(saturationSteps.value, CHARACTERISTIC_BASE_RANGE).toString(),
+  DimensionalNumber.from(saturationPower.value)
+    .modify(saturationSteps.value * (saturationSpec.value?.power_per_step ?? 0), CHARACTERISTIC_BASE_RANGE)
+    .toString(),
 );
 let saturationResolve: ((steps: number) => void) | null = null;
 
@@ -349,7 +354,7 @@ function knowledgeDefenseModifiers(
   key: CombatEntityKey | null,
   actionRuleCode: string | null | undefined,
 ): AdvantageModifier[] {
-  const modifier = knowledgeDefenseService.modifier(versionOf(key)?.abilities, actionRuleCode);
+  const modifier = knowledgeDefenseService.modifier(versionOf(key)?.abilities, actionRuleCode, props.rules);
 
   return modifier ? [modifier] : [];
 }
@@ -360,6 +365,7 @@ const coveringCandidates = computed(() =>
     resolvedAttackerKey.value,
     [opponentKey.value, ...selectedTargetKeys.value].filter((key): key is CombatEntityKey => Boolean(key)),
     (key) => versionOf(key)?.abilities,
+    props.rules,
   ),
 );
 
@@ -386,10 +392,18 @@ async function applyConcentrationSpend(key: CombatEntityKey | null, requested: u
   if (amount < 1 || !key) return 0;
   const version = versionOf(key);
   const overlay = overlays.value.find((item) => item.entityKey === key) ?? null;
-  const cap = concentrationTokenService.maxSpend(version, overlay, props.rules, CHECK_HIT_CODE);
+  const cap = concentrationTokenService.maxSpend(version, overlay, props.rules, hitCheckCode.value);
   const spent = Math.min(amount, cap);
   if (!version || spent < 1) return 0;
-  const next = await concentrationTokenService.spendToken(getGameApi(), props.gameId, key, version, overlay, spent);
+  const next = await concentrationTokenService.spendToken(
+    getGameApi(),
+    props.gameId,
+    key,
+    version,
+    overlay,
+    props.rules,
+    spent,
+  );
   overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, next);
 
   return spent;
@@ -556,7 +570,7 @@ function actionCheckModifiers(
     actionRule,
     actor,
     props.rules,
-    CHECK_HIT_CODE,
+    hitCheckCode.value,
     attackActionSourceService.sameWeaponCheckModifiers(actionRule ?? null, weaponCount),
   );
 }
@@ -566,7 +580,7 @@ const attackerHitAdvantageSummary = computed(() => {
     ...stateRuntimeEffectsService.checkAdvantageModifiers(versionOf(resolvedAttackerKey.value), props.rules, {
       kind: 'hit',
     }),
-    ...actionEffectService.checkAdvantageModifiers(attackerPendingEffects.value, CHECK_HIT_CODE),
+    ...actionEffectService.checkAdvantageModifiers(attackerPendingEffects.value, hitCheckCode.value),
     ...actionCheckModifiers(
       selectedAction.value ? findRuleByRef(props.rules, selectedAction.value.code) : null,
       versionOf(resolvedAttackerKey.value),
@@ -587,7 +601,7 @@ const defenderHitAdvantageEntries = computed<AdvantageModifier[]>(() => {
     ...stateRuntimeEffectsService.checkAdvantageModifiers(versionOf(opponentKey.value), props.rules, { kind: 'hit' }),
     ...actionEffectService.checkAdvantageModifiers(
       pendingEffectsByEntity.value[opponentKey.value] ?? [],
-      CHECK_HIT_CODE,
+      hitCheckCode.value,
       'defender',
     ),
     { source_code: ADVANTAGE_SOURCE_MANUAL, source_label: 'Игрок', delta: defenderAdv.value },
@@ -629,7 +643,7 @@ const processStep = computed(() =>
     : null,
 );
 const processStepCost = computed(() =>
-  processStep.value ? processSessionService.stepCost(processStep.value, ACTION_POINTS_CODE) : null,
+  processStep.value ? processSessionService.stepCost(processStep.value, turnResourceCode(props.rules)) : null,
 );
 const comboStrike = computed(() => {
   const context = effectiveProcessContext.value;
@@ -1009,7 +1023,7 @@ async function sendOffer(): Promise<CheckOffer> {
     throw new Error(lastStrikeService.followUpBlockedMessage(findRuleByRef(props.rules, selectedAction.value.code)));
   }
   offer.value = await getGameApi().createCheckOffer(props.gameId, {
-    checkCode: CHECK_HIT_CODE,
+    checkCode: hitCheckCode.value,
     initiator,
     opponent: opponentKey.value,
     proposal: {
@@ -1049,7 +1063,11 @@ async function performPreparation(): Promise<void> {
   if (spent < action.odCost) throw new Error('Недостаточно ОД для действия');
 
   const nextEffects = [
-    ...actionEffectService.consumeResource(pendingResolution.remainingEffects, ACTION_POINTS_CODE, action.odCost),
+    ...actionEffectService.consumeResource(
+      pendingResolution.remainingEffects,
+      turnResourceCode(props.rules),
+      action.odCost,
+    ),
     ...actionEffectService.effectsAfterAction(findRuleByRef(props.rules, action.code)),
   ];
   pendingEffectsByEntity.value = { ...pendingEffectsByEntity.value, [initiator]: nextEffects };
@@ -1110,7 +1128,7 @@ function coveringInviteProposal(decision: 'cover' | 'decline' | 'pending'): Chec
     null;
   if (decision === 'cover') {
     if (!coveringBlockItemRuleCode.value) throw new Error('Выберите профиль блока');
-    if (coveringService.cost() > remainingAp(actor)) throw new Error('Недостаточно ОД для Прикрытия');
+    if (coveringService.cost(props.rules) > remainingAp(actor)) throw new Error('Недостаточно ОД для Прикрытия');
   }
 
   return {
@@ -1221,7 +1239,7 @@ async function acceptWideAttack(
         defenseEfficiency: target.hit.defenseEfficiency,
         attackerAdv: accepted.proposal.initiatorAdv,
         attackerAdvantageModifiers: actionEffectService
-          .checkAdvantageModifiers(attackerPendingEffects.value, CHECK_HIT_CODE)
+          .checkAdvantageModifiers(attackerPendingEffects.value, hitCheckCode.value)
           .concat(
             stateRuntimeEffectsService.checkAdvantageModifiers(versionOf(accepted.initiator), props.rules, {
               kind: 'hit',
@@ -1241,7 +1259,7 @@ async function acceptWideAttack(
           .concat(defensePrepModifiers(target.targetKey, target.hit.reaction)),
         defenderAdv: accepted.proposal.opponentAdv,
         defenderAdvantageModifiers: actionEffectService
-          .checkAdvantageModifiers(pendingEffectsByEntity.value[target.targetKey] ?? [], CHECK_HIT_CODE, 'defender')
+          .checkAdvantageModifiers(pendingEffectsByEntity.value[target.targetKey] ?? [], hitCheckCode.value, 'defender')
           .concat(
             stateRuntimeEffectsService.checkAdvantageModifiers(versionOf(target.targetKey), props.rules, {
               kind: 'hit',
@@ -1408,7 +1426,11 @@ async function acceptWideAttack(
     const processRule = processContext ? findRuleByRef(props.rules, processContext.session.processRuleCode) : null;
     const nextEffects = lastStrikeService.replaceOnPending(
       [
-        ...actionEffectService.consumeResource(pendingResolution.remainingEffects, ACTION_POINTS_CODE, actionCost),
+        ...actionEffectService.consumeResource(
+          pendingResolution.remainingEffects,
+          turnResourceCode(props.rules),
+          actionCost,
+        ),
         ...(skipParentPending
           ? []
           : actionEffectService.effectsAfterAction(actionRule, { targetKey: strikeHits[0]?.targetKey })),
@@ -1510,7 +1532,7 @@ async function acceptAndRoll(): Promise<void> {
     defenseEfficiency: hit.defenseEfficiency,
     attackerAdv: accepted.proposal.initiatorAdv,
     attackerAdvantageModifiers: actionEffectService
-      .checkAdvantageModifiers(attackerPendingEffects.value, CHECK_HIT_CODE)
+      .checkAdvantageModifiers(attackerPendingEffects.value, hitCheckCode.value)
       .concat(
         stateRuntimeEffectsService.checkAdvantageModifiers(versionOf(accepted.initiator), props.rules, {
           kind: 'hit',
@@ -1522,7 +1544,7 @@ async function acceptAndRoll(): Promise<void> {
       .concat(defensePrepModifiers(accepted.opponent, hit.reaction)),
     defenderAdv: accepted.proposal.opponentAdv,
     defenderAdvantageModifiers: actionEffectService
-      .checkAdvantageModifiers(pendingEffectsByEntity.value[accepted.opponent] ?? [], CHECK_HIT_CODE, 'defender')
+      .checkAdvantageModifiers(pendingEffectsByEntity.value[accepted.opponent] ?? [], hitCheckCode.value, 'defender')
       .concat(defenderSpent > 0 ? [concentrationTokenService.tokenAdvantage(defenderSpent)] : [])
       .concat(
         stateRuntimeEffectsService.checkAdvantageModifiers(versionOf(accepted.opponent), props.rules, { kind: 'hit' }),
@@ -1614,7 +1636,7 @@ async function acceptAndRoll(): Promise<void> {
       defenseEfficiency: invite.defenseEfficiency ?? commonHitInput.defenseEfficiency,
       defenderAdv: invite.coveringAdv ?? 0,
       defenderAdvantageModifiers: knowledgeDefenseModifiers(invite.coveringKey, hit.actionRuleCode).concat(
-        coveringService.circumstanceModifier(),
+        coveringService.circumstanceModifier(props.rules),
       ),
     }));
     const covered = hitRollService.rollCoveredHit(
@@ -1648,7 +1670,7 @@ async function acceptAndRoll(): Promise<void> {
 
       return;
     }
-    const bound = hitRollService.bindCoveredHit(covered, actual, accepted.opponent);
+    const bound = hitRollService.bindCoveredHit(covered, actual, accepted.opponent, props.rules);
     coveredRoll = covered;
     rolledHits = {
       attackers: [bound.attacker, ...rolledHits.attackers.slice(1)],
@@ -1744,7 +1766,8 @@ async function acceptAndRoll(): Promise<void> {
         rolled,
         {
           spendAttackerAp: !spellPaid,
-          skipDamageApply: hit.actionRuleCode === SIMPLE_TOUCH_CODE,
+          skipDamageApply:
+            spellCastExecutionService.spellTouchOf(hit.actionRuleCode, props.rules)?.weapon_damage === false,
           skipActionMessage: spellPaid,
           contactOnly: spellPaid,
           deferConsequences: spellPaid,
@@ -1803,7 +1826,10 @@ async function acceptAndRoll(): Promise<void> {
         accepted,
         { attacker: touchAttacker, defender: rolled.defender },
         {
-          weaponResult: hit.actionRuleCode === SIMPLE_TOUCH_CODE ? null : weaponResult,
+          weaponResult:
+            spellCastExecutionService.spellTouchOf(hit.actionRuleCode, props.rules)?.weapon_damage === false
+              ? null
+              : weaponResult,
           weaponAttack: effectiveAttack,
         },
       );
@@ -1822,7 +1848,11 @@ async function acceptAndRoll(): Promise<void> {
     [
       ...(spellPaid
         ? (spellPendingEffects ?? pendingResolution.remainingEffects)
-        : actionEffectService.consumeResource(pendingResolution.remainingEffects, ACTION_POINTS_CODE, finalAttackCost)),
+        : actionEffectService.consumeResource(
+            pendingResolution.remainingEffects,
+            turnResourceCode(props.rules),
+            finalAttackCost,
+          )),
       ...(skipParentPending
         ? []
         : actionEffectService.effectsAfterAction(actionRule, { targetKey: accepted.opponent })),
@@ -1862,7 +1892,7 @@ async function finishCoverChoice(choiceKey: CombatEntityKey): Promise<void> {
     attackerChoice: choiceKey,
   });
   if (!actual) return;
-  const bound = hitRollService.bindCoveredHit(pending.covered, actual, pending.accepted.opponent);
+  const bound = hitRollService.bindCoveredHit(pending.covered, actual, pending.accepted.opponent, props.rules);
   const hit = pending.accepted.proposal.hit;
   if (!hit?.reaction) return;
   coverChoicePending.value = null;
@@ -1910,11 +1940,11 @@ async function persistCoreDeviation(
   strength: number,
 ): Promise<void> {
   const states = versionOf(casterKey)?.states ?? [];
-  const next = spellDeviationService.grant(states, sourceKeyValue, strength);
+  const next = spellDeviationService.grant(states, sourceKeyValue, strength, props.rules);
   if (!next) {
     return;
   }
-  const index = spellDeviationService.boundIndex(states, sourceKeyValue);
+  const index = spellDeviationService.boundIndex(states, sourceKeyValue, props.rules);
   if (index >= 0) {
     await getGameApi().replaceCombatState(props.gameId, casterKey, index, next);
   } else {
@@ -1925,10 +1955,9 @@ async function persistCoreDeviation(
 
 async function persistBurstDamage(key: CombatEntityKey, result: ApplyAttackDamageResult): Promise<void> {
   await writeAccumulatedDamage(key, result.remainingHpDamage);
-  await applyCombatState(key, EXHAUSTION_STATE_CODE, result.exhaustion);
-  await applyCombatState(key, WOUND_STATE_CODE, (result.wound ?? 0) + (result.cuttingWound ?? 0));
-  await applyCombatState(key, STUNNED_STATE_CODE, result.stun ?? 0);
-  await applyCombatState(key, SHOCK_STATE_CODE, result.shock ?? 0);
+  const exhaustionCode = attackDamageService.exhaustionRule(props.rules)?.code;
+  if (exhaustionCode) await applyCombatState(key, exhaustionCode, result.exhaustion);
+  await writeHookStates(key, result.stateWrites);
   emit('overlay-changed');
 }
 
@@ -2007,7 +2036,11 @@ async function announceArcaneBurst(
       },
     ],
     defenderOverview ? attackDamageService.enduranceOf(defenderOverview, props.rules) : 1,
-    injuryCheckService.overlayStateTotal(versionOf(key), props.rules, EXHAUSTION_STATE_CODE),
+    injuryCheckService.overlayStateTotal(
+      versionOf(key),
+      props.rules,
+      attackDamageService.exhaustionRule(props.rules)?.code ?? '',
+    ),
     key,
   );
   const injuryPreview = injuryPackageService.describePlan(planned, props.rules);
@@ -2088,9 +2121,14 @@ async function runSpellDeviationFromHit(
   }
 }
 
-function askSaturationSteps(rating: number, power: DimensionalNumberValue): Promise<number> {
+function askSaturationSteps(
+  rating: number,
+  power: DimensionalNumberValue,
+  spec: { rating_per_step: number; power_per_step: number },
+): Promise<number> {
   saturationRating.value = rating;
   saturationPower.value = power;
+  saturationSpec.value = spec;
   saturationSteps.value = 0;
   saturationOpen.value = true;
 
@@ -2124,12 +2162,13 @@ async function finishSpellAfterHit(
     return [];
   }
   const passed = Boolean(rolled.attacker?.check?.passed);
-  let attackSr = rolled.attacker?.check?.rating ?? 0;
-  if (passed && attackSr === 0) {
+  const rolledSr = rolled.attacker?.check?.rating ?? 0;
+  const touchBonus = spellCastExecutionService.spellTouchOf(ctx.touchActionCode, props.rules)?.attack_sr_bonus ?? 0;
+  let attackSr = rolledSr;
+  if (passed && rolledSr >= 1) {
+    attackSr = rolledSr + touchBonus;
+  } else if (passed && rolledSr === 0) {
     attackSr = 1;
-  }
-  if (ctx.touchActionCode === SIMPLE_TOUCH_CODE && passed) {
-    attackSr += 1;
   }
   const milk = !passed;
   const pendingEffects = (await getGameApi().getPendingActionEffects(props.gameId))[accepted.initiator] ?? [];
@@ -2157,6 +2196,7 @@ async function finishSpellAfterHit(
       trainingDifficultyDelta: ctx.trainingDifficultyDelta,
     },
     checkCode: ctx.checkCode,
+    castCheckCode: ctx.castCheckCode,
     characteristicValue: ctx.characteristicValue,
     characteristicName: ctx.characteristicName,
     parameterPower: ctx.parameterPower,
@@ -2182,9 +2222,11 @@ async function finishSpellAfterHit(
     throw new Error('Недостаточно ОД для завершения сотворения');
   }
   const preparedCast = spellCastExecutionService.rollCast(executionInput);
-  const saturationStepsChosen = spellCastExecutionService.needsSaturationChoice(executionInput, preparedCast)
-    ? await askSaturationSteps(preparedCast.roll?.check?.rating ?? 0, executionInput.parameterPower)
-    : 0;
+  const saturation = spellCastExecutionService.saturationOf(executionInput);
+  const saturationStepsChosen =
+    saturation && spellCastExecutionService.needsSaturationChoice(executionInput, preparedCast)
+      ? await askSaturationSteps(preparedCast.roll?.check?.rating ?? 0, executionInput.parameterPower, saturation)
+      : 0;
   const outcome = spellCastExecutionService.completeAfterHit(
     { ...executionInput, saturationSteps: saturationStepsChosen },
     { milk, attackSr: passed ? attackSr : 0 },
@@ -2218,7 +2260,7 @@ async function finishSpellAfterHit(
     }
     if (saturationStepsChosen > 0) {
       await sendChat(
-        `Энергонасыщение: потрачено ${saturationStepsChosen * 2} РУ, Мощь заклинания увеличена на ${saturationStepsChosen}.`,
+        `Энергонасыщение: потрачено ${saturationStepsChosen * (saturation?.rating_per_step ?? 0)} РУ, Мощь заклинания увеличена на ${saturationStepsChosen * (saturation?.power_per_step ?? 0)}.`,
         [],
         props.chatId,
         speaker,
@@ -2321,10 +2363,9 @@ async function finishSpellAfterHit(
     results.reduce((sum, item) => sum + item.remainingHpDamage, 0),
   );
   for (const result of results) {
-    await applyCombatState(accepted.opponent, EXHAUSTION_STATE_CODE, result.exhaustion);
-    await applyCombatState(accepted.opponent, WOUND_STATE_CODE, (result.wound ?? 0) + (result.cuttingWound ?? 0));
-    await applyCombatState(accepted.opponent, STUNNED_STATE_CODE, result.stun ?? 0);
-    await applyCombatState(accepted.opponent, SHOCK_STATE_CODE, result.shock ?? 0);
+    const exhaustionCode = attackDamageService.exhaustionRule(props.rules)?.code;
+    if (exhaustionCode) await applyCombatState(accepted.opponent, exhaustionCode, result.exhaustion);
+    await writeHookStates(accepted.opponent, result.stateWrites);
   }
   emit('overlay-changed');
   const totalExhaustion = results.reduce((sum, item) => sum + item.exhaustion, 0);
@@ -2375,7 +2416,11 @@ async function finishSpellAfterHit(
   const planned = injuryPackageService.planFromLayers(
     layers,
     defenderOverview ? attackDamageService.enduranceOf(defenderOverview, props.rules) : 1,
-    injuryCheckService.overlayStateTotal(defenderVersion, props.rules, EXHAUSTION_STATE_CODE),
+    injuryCheckService.overlayStateTotal(
+      defenderVersion,
+      props.rules,
+      attackDamageService.exhaustionRule(props.rules)?.code ?? '',
+    ),
     accepted.opponent,
   );
   const injuryPreview = injuryPackageService.describePlan(planned, props.rules);
@@ -2432,6 +2477,16 @@ async function applyAfterStrikeOption(
   return result.skipPending;
 }
 
+async function writeHookStates(key: CombatEntityKey, writes: ApplyAttackDamageResult['stateWrites']): Promise<void> {
+  const totals = new Map<string, number>();
+  for (const write of writes) {
+    totals.set(write.stateCode, (totals.get(write.stateCode) ?? 0) + write.amount);
+  }
+  for (const [code, amount] of totals) {
+    await applyCombatState(key, code, amount);
+  }
+}
+
 async function applyCombatState(key: CombatEntityKey, code: string, amount: number): Promise<void> {
   if (amount <= 0) return;
   const rule = props.rules.find((item) => item.code === code && item.type === 'state');
@@ -2454,7 +2509,7 @@ async function applyCombatState(key: CombatEntityKey, code: string, amount: numb
 }
 
 async function writeAccumulatedDamage(key: CombatEntityKey, amount: number): Promise<void> {
-  const rule = props.rules.find((item) => item.code === ACCUMULATED_DAMAGE_STATE_CODE && item.type === 'state');
+  const rule = attackDamageService.accumulatedDamageRule(props.rules);
   if (!rule) return;
   const version = versionOf(key);
   if (!version) return;
@@ -2482,10 +2537,9 @@ async function applyAttackConsequences(
   targetKey: CombatEntityKey = accepted.opponent,
 ): Promise<void> {
   await writeAccumulatedDamage(targetKey, result.remainingHpDamage);
-  await applyCombatState(targetKey, EXHAUSTION_STATE_CODE, result.exhaustion);
-  await applyCombatState(targetKey, WOUND_STATE_CODE, (result.wound ?? 0) + (result.cuttingWound ?? 0));
-  await applyCombatState(targetKey, STUNNED_STATE_CODE, result.stun ?? 0);
-  await applyCombatState(targetKey, SHOCK_STATE_CODE, result.shock ?? 0);
+  const exhaustionCode = attackDamageService.exhaustionRule(props.rules)?.code;
+  if (exhaustionCode) await applyCombatState(targetKey, exhaustionCode, result.exhaustion);
+  await writeHookStates(targetKey, result.stateWrites);
   emit('overlay-changed');
 
   if (result.exhaustion > 0) {
@@ -2530,7 +2584,11 @@ async function applyAttackConsequences(
         hpDamage: result.hpDamage,
         cuttingWound: result.cuttingWound,
         woundFromHit: result.wound,
-        overlayExhaustion: injuryCheckService.overlayStateTotal(defenderVersion, props.rules, EXHAUSTION_STATE_CODE),
+        overlayExhaustion: injuryCheckService.overlayStateTotal(
+          defenderVersion,
+          props.rules,
+          attackDamageService.exhaustionRule(props.rules)?.code ?? '',
+        ),
         endurance: defenderOverview ? attackDamageService.enduranceOf(defenderOverview, props.rules) : 1,
         remainingSr: result.remainingSr,
         damageTypeCode: attack.damageTypeCode,
@@ -2783,7 +2841,7 @@ async function applyClickAttack(
   const spentDefense = shouldSpendDefender ? await spendAp(accepted.opponent, defenderAp) : 0;
   if (shouldSpendDefender) {
     for (const invite of coveringService.acceptedInvites(accepted.proposal.coverInvites)) {
-      await spendAp(invite.coveringKey, coveringService.cost());
+      await spendAp(invite.coveringKey, coveringService.cost(props.rules));
     }
   }
   const speaker = speakerFor(accepted.initiator);
@@ -2829,7 +2887,7 @@ async function applyClickAttack(
             coveringKey: invite.coveringKey,
             coveringName: nameOf(invite.coveringKey),
             blockItemRuleCode: invite.blockItemRuleCode ?? null,
-            coveringAp: coveringService.cost(),
+            coveringAp: coveringService.cost(props.rules),
           })),
           rules: props.rules,
         }),
@@ -3081,7 +3139,7 @@ const canSubmit = computed(() => {
   if (isCoveringStep.value) {
     if (advantageDirty.value) return true;
     const actor = offer.value ? actingEntity(offer.value) : null;
-    if (!actor || coveringService.cost() > remainingAp(actor)) return false;
+    if (!actor || coveringService.cost(props.rules) > remainingAp(actor)) return false;
     if (!coveringBlockItemRuleCode.value) return false;
 
     return coveringBlockProfiles.value.length > 0;
@@ -3255,7 +3313,7 @@ const canSubmit = computed(() => {
             :version="versionOf(resolvedAttackerKey)"
             :overlay="overlays.find((item) => item.entityKey === resolvedAttackerKey) ?? null"
             :rules="rules"
-            :check-code="CHECK_HIT_CODE"
+            :check-code="hitCheckCode"
           />
           <div v-if="offer && myTurn && !isCoveringStep" class="d-flex ga-2">
             <ClampedNumberField
@@ -3308,7 +3366,7 @@ const canSubmit = computed(() => {
               :version="versionOf(opponentKey)"
               :overlay="overlays.find((item) => item.entityKey === opponentKey) ?? null"
               :rules="rules"
-              :check-code="CHECK_HIT_CODE"
+              :check-code="hitCheckCode"
             />
             <div v-if="acceptedCoverInvites.length" class="text-body-2">
               Вас попытается прикрыть
@@ -3431,7 +3489,10 @@ const canSubmit = computed(() => {
         <div class="text-body-2 mb-2">
           Сейчас: {{ saturationCurrentRating }} РУ, Мощь {{ saturationCurrentPowerLabel }}.
         </div>
-        <div class="text-body-2 mb-3">Каждый шаг стоит 2 РУ и увеличивает Мощь заклинания на 1.</div>
+        <div class="text-body-2 mb-3">
+          Каждый шаг стоит {{ saturationSpec?.rating_per_step ?? 0 }} РУ и увеличивает Мощь заклинания на
+          {{ saturationSpec?.power_per_step ?? 0 }}.
+        </div>
         <ClampedNumberField
           :model-value="saturationSteps"
           :min="0"

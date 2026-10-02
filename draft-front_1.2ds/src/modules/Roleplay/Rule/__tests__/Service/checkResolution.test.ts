@@ -8,6 +8,20 @@ import {
 } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
 import { checkResolutionService } from '@/modules/Roleplay/Rule/Service/Instance/checkResolutionService';
 
+function characteristicRule(code: string, concentrationToken = true): Rule {
+  return {
+    mechanics: [],
+    id: null,
+    code,
+    type: 'characteristic',
+    name: code,
+    description: '',
+    spaceId: 1,
+    spec: { type: 'characteristic', ...(concentrationToken ? { concentration_token: true } : {}) },
+    createdAt: 1787400000,
+  };
+}
+
 function checkRule(code: string, spec: CheckSpec): Rule {
   return {
     mechanics: [],
@@ -43,12 +57,14 @@ const catalog: Rule[] = [
     type: 'check',
     difficulty_input: { kind: 'ask' },
     allowed_modes: 'both',
+    ordinary_root: true,
     attached_rule_codes: ['rule-6-and-1', 'advantages'],
   }),
   checkRule(CHECK_COMMUNICATION_CODE, {
     type: 'check',
     parent_check_code: CHECK_SIMPLE_CODE,
     characteristic_code: 'communication',
+    concentration_token: true,
     difficulty_input: { kind: 'ask' },
     allowed_modes: 'both',
   }),
@@ -115,6 +131,32 @@ describe('checkResolution', () => {
     expect(checkResolutionService.resolveCheckCodeForCharacteristic('strength', withStrength)).toBe('check-strength');
     expect(checkResolutionService.resolveCheckCodeForCharacteristic('unknown', withStrength)).toBe(CHECK_SIMPLE_CODE);
   });
+
+  it('эффективность с карточки броска по payload, не по коду правила', () => {
+    const foreignCode: Rule = {
+      id: null,
+      code: 'dice-defaults',
+      type: 'simple',
+      name: 'Бросок',
+      description: '',
+      spaceId: 1,
+      mechanics: [{
+        mechanicId: 5,
+        mechanicPayload: {
+          type: 'roll',
+          data: { sub_mechanics: [], efficiency: 4 },
+        },
+      }],
+      createdAt: 1787400000,
+    };
+    const check = checkRule('plain', {
+      type: 'check',
+      difficulty_input: { kind: 'ask' },
+      allowed_modes: 'both',
+    });
+    expect(checkResolutionService.resolveCheckEfficiency('plain', [foreignCode, check], 9)).toBe(4);
+    expect(checkResolutionService.resolveCheckEfficiency('plain', [check], 9)).toBe(9);
+  });
 });
 
 describe('жетон концентрации: матчинг проверки', () => {
@@ -122,6 +164,7 @@ describe('жетон концентрации: матчинг проверки',
     ...catalog,
     checkRule('check-hit', {
       type: 'check',
+      concentration_token: true,
       difficulty_input: { kind: 'none' },
       allowed_modes: 'joint',
     }),
@@ -129,6 +172,7 @@ describe('жетон концентрации: матчинг проверки',
       type: 'check',
       parent_check_code: CHECK_SIMPLE_CODE,
       characteristic_code: 'intellect',
+      concentration_token: true,
       difficulty_input: { kind: 'ask' },
       allowed_modes: 'both',
     }),
@@ -136,6 +180,7 @@ describe('жетон концентрации: матчинг проверки',
       type: 'check',
       parent_check_code: CHECK_SIMPLE_CODE,
       characteristic_code: 'perception',
+      concentration_token: true,
       difficulty_input: { kind: 'ask' },
       allowed_modes: 'both',
     }),
@@ -143,6 +188,7 @@ describe('жетон концентрации: матчинг проверки',
       type: 'check',
       parent_check_code: CHECK_SIMPLE_CODE,
       characteristic_code: 'attention',
+      concentration_token: true,
       difficulty_input: { kind: 'ask' },
       allowed_modes: 'both',
     }),
@@ -173,6 +219,9 @@ describe('жетон концентрации: матчинг проверки',
       difficulty_input: { kind: 'ask' },
       allowed_modes: 'solo',
     }),
+    characteristicRule('intellect'),
+    characteristicRule('perception'),
+    characteristicRule('attention'),
     checkRule('stealth', {
       type: 'check',
       parent_check_code: CHECK_SIMPLE_CODE,
@@ -202,5 +251,22 @@ describe('жетон концентрации: матчинг проверки',
     expect(checkResolutionService.isConcentrationTokenCheck('check-dexterity', tokenCatalog)).toBe(false);
     expect(checkResolutionService.isConcentrationTokenCheck('stealth', tokenCatalog)).toBe(false);
     expect(checkResolutionService.isConcentrationTokenCheck('check-willpower', tokenCatalog)).toBe(false);
+    const unflaggedHit = tokenCatalog.map((rule) =>
+      rule.code === 'check-hit' ? checkRule('check-hit', {
+        type: 'check',
+        difficulty_input: { kind: 'none' },
+        allowed_modes: 'joint',
+      }) : rule,
+    );
+    expect(checkResolutionService.isConcentrationTokenCheck('check-hit', unflaggedHit)).toBe(false);
+    const plain = tokenCatalog.map((rule) =>
+      rule.code === 'intellect' ? characteristicRule('intellect', false) : rule,
+    );
+    expect(checkResolutionService.isConcentrationTokenCheck('check-spell-cast', plain, 'intellect')).toBe(false);
+    const other = [
+      ...tokenCatalog.filter((rule) => rule.code !== 'intellect'),
+      characteristicRule('resolve'),
+    ];
+    expect(checkResolutionService.isConcentrationTokenCheck('check-spell-cast', other, 'resolve')).toBe(true);
   });
 });

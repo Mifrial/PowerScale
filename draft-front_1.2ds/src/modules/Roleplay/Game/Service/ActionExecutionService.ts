@@ -20,7 +20,6 @@ import { ActionOperationResolutionService } from '@/modules/Roleplay/Game/Servic
 import { MovementStateService } from '@/modules/Roleplay/Game/Service/MovementStateService';
 import { postureStateService } from '@/modules/Roleplay/Game/Service/Instance/postureStateService';
 import { characterOverviewService } from '@/modules/Roleplay/Character/init';
-import { LYING_STATE_CODE, UNSTABLE_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
 import { addFlagState, removeStatesByCodes } from '@/modules/Roleplay/Game/Utils/combatStateWrite';
 import { movementContextService } from '@/modules/Roleplay/Character/init';
 import type { IGameApi } from '@/modules/Roleplay/Game/Interface/IGameApi';
@@ -112,7 +111,7 @@ export class ActionExecutionService {
       nextResource,
     );
     const effects = [
-      ...actionEffectService.consumeResource(resolved.remainingEffects, 'action-points', input.actionPointCost),
+      ...actionEffectService.consumeResource(resolved.remainingEffects, resource.ruleCode, input.actionPointCost),
       ...actionEffectService.effectsAfterAction(input.rule),
     ];
     const nextEffects = preparedDefense
@@ -181,7 +180,7 @@ export class ActionExecutionService {
     const version = input.version;
     let nextCommandResult = commandResult;
     if (postureStateService.shouldToggleLying(input.operations ?? input.action.operations)) {
-      const next = postureStateService.nextAfterStandUp(version);
+      const next = postureStateService.nextAfterStandUp(version, input.rules);
       const removed = await removeStatesByCodes(
         this.resolveGameApi(),
         input.gameId,
@@ -193,27 +192,28 @@ export class ActionExecutionService {
       if (removed) {
         nextCommandResult = removed;
       }
-      if (next.addLying) {
+      if (next.addCode) {
         const added = await addFlagState(
           this.resolveGameApi(),
           input.gameId,
           input.entityKey,
           input.rules,
-          LYING_STATE_CODE,
+          next.addCode,
         );
         if (added) {
           nextCommandResult = added;
         }
       }
     }
-    if (postureStateService.isRecoverStability(input.rule.code)) {
+    const unstableCode = attackDamageService.unstableRule(input.rules)?.code;
+    if (postureStateService.isRecoverStability(input.rule) && unstableCode) {
       const removed = await removeStatesByCodes(
         this.resolveGameApi(),
         input.gameId,
         input.entityKey,
         version,
         input.rules,
-        [UNSTABLE_STATE_CODE],
+        [unstableCode],
       );
       if (removed) nextCommandResult = removed;
     }

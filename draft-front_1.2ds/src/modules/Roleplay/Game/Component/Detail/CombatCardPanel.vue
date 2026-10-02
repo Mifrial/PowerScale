@@ -14,12 +14,7 @@ import { injuryCheckService } from '@/modules/Roleplay/Game/Service/Instance/inj
 import { reservedExhaustion } from '@/modules/Roleplay/Game/Utils/bloodLossMath';
 import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
 
-import {
-  BLOOD_LOSS_STATE_CODE,
-  EXHAUSTION_STATE_CODE,
-  POISONING_STATE_CODE,
-  WOUND_STATE_CODE,
-} from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
+import { WOUND_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 import {
   characterOverviewService,
@@ -80,7 +75,7 @@ import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/ac
 import { lastStrikeService } from '@/modules/Roleplay/Game/Service/Instance/lastStrikeService';
 import { defenseCounterService } from '@/modules/Roleplay/Game/Service/Instance/defenseCounterService';
 import { woundInstanceService } from '@/modules/Roleplay/Game/Service/Instance/woundInstanceService';
-import { ACTION_POINTS_CODE } from '@/modules/Roleplay/Game/Constant/Combat/ACTION_POINTS_CODE';
+import { turnResourceCode } from '@/modules/Roleplay/Game/Utils/combatActions';
 import { ruleReferenceService } from '@/modules/Roleplay/Rule/init';
 
 const props = defineProps<{
@@ -290,6 +285,8 @@ type CombatStateTileModel = {
   linkedActions: CombatStateLinkedAction[];
 };
 
+const poisoningCode = computed(() => attackDamageService.poisoningRule(props.rules)?.code ?? '');
+
 function stateTileDetails(state: CharacterStateValue, row: CombatStateRow): CombatStateDetailRow[] {
   const rows: CombatStateDetailRow[] = [];
   if (row.code === WOUND_STATE_CODE) {
@@ -334,7 +331,7 @@ function stateTileDetails(state: CharacterStateValue, row: CombatStateRow): Comb
         .listSources(effectiveVersion.value, props.rules)
         .find((entry) => entry.key === state.boundSourceKey)?.name ?? state.boundSourceKey;
     rows.push({ label: 'Ядро', value: sourceName });
-  } else if (row.code !== POISONING_STATE_CODE && row.valueType !== 'dimensional' && row.summary) {
+  } else if (row.code !== poisoningCode.value && row.valueType !== 'dimensional' && row.summary) {
     rows.push({ label: 'Сводка', value: row.summary });
   }
 
@@ -343,7 +340,7 @@ function stateTileDetails(state: CharacterStateValue, row: CombatStateRow): Comb
 
 function stateTileValue(state: CharacterStateValue | undefined, row: CombatStateRow): string {
   if (!state) return row.valueType === 'flag' ? '•' : '0';
-  if (row.code === POISONING_STATE_CODE) {
+  if (row.code === poisoningCode.value) {
     const strength = combatCardModelService.resolvedPoisonStrength(state, props.rules);
 
     return strength ? new DimensionalNumber(strength).toString() : '—';
@@ -357,25 +354,28 @@ function stateTileValue(state: CharacterStateValue | undefined, row: CombatState
 
 function tileEditKind(row: CombatStateRow): CombatStateEditKind {
   if (row.code === WOUND_STATE_CODE) return 'wound';
-  if (row.code === POISONING_STATE_CODE) return 'poison';
+  if (row.code === poisoningCode.value) return 'poison';
   if (row.valueType === 'dimensional') return 'dimensional';
   if (row.valueType === 'number') return 'numeric';
 
   return 'none';
 }
 
+const bloodLossCode = computed(() => attackDamageService.bloodLossRule(props.rules)?.code ?? '');
+const exhaustionCode = computed(() => attackDamageService.exhaustionRule(props.rules)?.code ?? '');
+
 const stateTiles = computed((): CombatStateTileModel[] => {
   const states = effectiveVersion.value?.states ?? [];
   const version = effectiveVersion.value;
   const reserved = version
-    ? reservedExhaustion(injuryCheckService.overlayStateTotal(version, props.rules, BLOOD_LOSS_STATE_CODE))
+    ? reservedExhaustion(injuryCheckService.overlayStateTotal(version, props.rules, bloodLossCode.value))
     : 0;
   const tiles: CombatStateTileModel[] = [];
   for (const row of stateRows.value) {
     for (const index of row.indices) {
       const state = states[index];
       const timeLabel = state ? combatCardModelService.maimTotalDurationLabel(state) : '';
-      const isPoison = row.code === POISONING_STATE_CODE;
+      const isPoison = row.code === poisoningCode.value;
       const name = isPoison && state ? combatCardModelService.poisonName(state, props.rules) : row.name;
       const current = row.valueType === 'number' ? (state?.value ?? 0) : 0;
       tiles.push({
@@ -386,7 +386,7 @@ const stateTiles = computed((): CombatStateTileModel[] => {
         valueLabel: stateTileValue(state, row),
         editKind: tileEditKind(row),
         current,
-        minValue: row.code === EXHAUSTION_STATE_CODE ? reserved : 0,
+        minValue: exhaustionCode.value !== '' && row.code === exhaustionCode.value ? reserved : 0,
         details: state ? stateTileDetails(state, row) : [],
         index,
         code: row.code,
@@ -646,13 +646,19 @@ async function changeResource(resource: ResourceOverview, delta: number): Promis
       size: resource.current.size,
     };
     await getGameApi().setCombatResource(props.gameId, model.value.entityKey, resource.ruleCode, current);
-    const spentAp = resource.ruleCode === ACTION_POINTS_CODE ? resource.current.base - current.base : 0;
+    const pool = turnResourceCode(props.rules);
+    const spentAp = pool && resource.ruleCode === pool ? resource.current.base - current.base : 0;
     if (spentAp > 0) {
-      const nextEffects = actionEffectService.afterDeclaredAction(pendingEffects.value, spentAp, {
-        isAttack: false,
-        component: 'strike',
-        baseCost: spentAp,
-      });
+      const nextEffects = actionEffectService.afterDeclaredAction(
+        pendingEffects.value,
+        spentAp,
+        {
+          isAttack: false,
+          component: 'strike',
+          baseCost: spentAp,
+        },
+        pool,
+      );
       pendingEffects.value = nextEffects;
       await getGameApi().setCombatActionEffects(props.gameId, model.value.entityKey, nextEffects);
     }
@@ -664,7 +670,7 @@ async function changeResource(resource: ResourceOverview, delta: number): Promis
 
 async function addState(option: CombatStateOption): Promise<void> {
   if (!model.value) return;
-  if (option.code === POISONING_STATE_CODE) {
+  if (option.code === poisoningCode.value) {
     pickerOpen.value = false;
     const first = combatCardModelService.poisonRuleOptions(props.rules)[0];
     fillPoisonDraft(combatCardModelService.poisonValueFromRule(props.rules, first?.ruleCode ?? null));
@@ -701,7 +707,7 @@ function onPoisonAddRuleChange(next: unknown): void {
 
 async function confirmPoisonAdd(): Promise<void> {
   if (!model.value) return;
-  const option = stateOptions.value.find((item) => item.code === POISONING_STATE_CODE);
+  const option = stateOptions.value.find((item) => item.code === poisoningCode.value);
   if (!option) return;
   error.value = null;
   poisonAddOpen.value = false;
@@ -771,7 +777,7 @@ async function afterStateSideEffects(
   if (!version || !card) return;
   const send = (content: string, attachments: ChatAttachment[], chatId: number, speaker: ChatSpeaker) =>
     sendChat(content, attachments, chatId, speaker);
-  if (code === BLOOD_LOSS_STATE_CODE && bloodDelta > 0) {
+  if (bloodLossCode.value !== '' && code === bloodLossCode.value && bloodDelta > 0) {
     const nextOverlay = await bloodLossService.applyBloodLossTick({
       version,
       overlay: overlay.value,
@@ -791,7 +797,7 @@ async function afterStateSideEffects(
 
     return;
   }
-  if (code === EXHAUSTION_STATE_CODE) {
+  if (exhaustionCode.value !== '' && code === exhaustionCode.value) {
     const exhaustion = await exhaustionCheckService.applyExhaustionCheck({
       version,
       overlay: overlay.value,
@@ -819,26 +825,28 @@ async function applyStateTile(tile: CombatStateTileModel, next: number): Promise
   const version = effectiveVersion.value;
   const current = version?.states[tile.index]?.value ?? 0;
   let value = Math.max(0, Math.floor(next));
-  if (tile.code === EXHAUSTION_STATE_CODE && version) {
+  if (exhaustionCode.value !== '' && tile.code === exhaustionCode.value && version) {
     const reserved = reservedExhaustion(
-      injuryCheckService.overlayStateTotal(version, props.rules, BLOOD_LOSS_STATE_CODE),
+      injuryCheckService.overlayStateTotal(version, props.rules, bloodLossCode.value),
     );
     value = Math.max(value, reserved);
   }
   if (value === current) return;
-  if (tile.code === BLOOD_LOSS_STATE_CODE && value > current) {
+  if (bloodLossCode.value !== '' && tile.code === bloodLossCode.value && value > current) {
     await afterStateSideEffects(tile.code, value - current);
 
     return;
   }
   if (value <= 0) {
     await removeState(tile.index);
-    if (tile.code === EXHAUSTION_STATE_CODE) await afterStateSideEffects(tile.code, 0, 'decrease');
+    if (exhaustionCode.value !== '' && tile.code === exhaustionCode.value) {
+      await afterStateSideEffects(tile.code, 0, 'decrease');
+    }
 
     return;
   }
   await setStateValue(tile.index, value);
-  if (tile.code === EXHAUSTION_STATE_CODE) {
+  if (exhaustionCode.value !== '' && tile.code === exhaustionCode.value) {
     await afterStateSideEffects(tile.code, 0, value > current ? 'increase' : 'decrease');
   }
 }

@@ -43,30 +43,6 @@ export class ActionEffectLabelService {
     if (effect.type === 'next_action_attack_accuracy') {
       return `${effect.delta > 0 ? '+' : ''}${effect.delta} к точности первого удара следующей атаки${effect.same_target ? ' по той же цели' : ''}`;
     }
-    if (
-      effect.type === 'next_action_attack_target_characteristic_modifier' ||
-      effect.type === 'current_action_attack_target_characteristic_modifier'
-    ) {
-      const hitCount =
-        effect.scope.hit_count === 'all'
-          ? 'всех ударов'
-          : effect.scope.hit_count === 1
-            ? effect.type === 'current_action_attack_target_characteristic_modifier'
-              ? 'удара'
-              : 'первого удара'
-            : `первых ${effect.scope.hit_count} ударов`;
-      const limit =
-        effect.type === 'next_action_attack_target_characteristic_modifier' &&
-        effect.max_total_action_cost !== undefined
-          ? `, если итоговая стоимость атаки не более ${effect.max_total_action_cost} ОД`
-          : '';
-      const characteristic = this.characteristicLabel(effect.characteristic_code);
-      const floor = effect.min === undefined ? '' : `(вплоть до ${effect.min} от ${characteristic})`;
-      const when =
-        effect.type === 'current_action_attack_target_characteristic_modifier' ? 'текущего' : 'следующей атаки';
-
-      return `${effect.delta > 0 ? '+' : ''}${effect.delta} к ${this.characteristicLabel(effect.check_code)} от ${characteristic}${floor} у цели для ${hitCount} ${when}${limit}`;
-    }
     if (effect.type === 'current_action_attack_dodge_soak') {
       const ignore = effect.ignore_at_sr != null ? `; при РУ ≥ ${effect.ignore_at_sr} смягчение игнорируется` : '';
 
@@ -180,10 +156,6 @@ export class ActionEffectLabelService {
 
   private resourceLabel(code: string): string {
     return { 'action-points': 'ОД' }[code] ?? code;
-  }
-
-  private characteristicLabel(code: string): string {
-    return { 'melee-combat': 'Ближнему бою', dexterity: 'Ловкости', perception: 'Восприятия' }[code] ?? code;
   }
 
   private stepFractionLabel(fraction: number): string {

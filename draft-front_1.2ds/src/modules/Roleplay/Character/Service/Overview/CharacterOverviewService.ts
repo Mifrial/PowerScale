@@ -46,7 +46,6 @@ import {
   spellDurationLabelService,
   raceSpecService,
 } from '@/modules/Roleplay/Rule/init';
-import { ACTION_POINTS_RESOURCE_CODE } from '@/modules/Roleplay/Rule/Constant/Ability/ACTION_POINTS_RESOURCE_CODE';
 import { DAMAGE_TYPE_FORMS } from '@/modules/Roleplay/Rule/Constant/DAMAGE_TYPE_FORMS';
 import type { ItemLabels } from '@/modules/Roleplay/Character/Constant/ITEM_LABELS';
 import { ITEM_LABELS } from '@/modules/Roleplay/Character/Constant/ITEM_LABELS';
@@ -369,22 +368,35 @@ export class CharacterOverviewService {
     allCharacteristics: CharacteristicOverview[],
     reference: CharacterReferenceService,
   ): CombatOverview | null {
-    const statOf = (code: string): CharacteristicOverview | undefined =>
-      allCharacteristics.find((overview) => reference.ruleByCode(overview.ruleCode)?.code === code);
-    const meleeStat = statOf('melee-combat');
-    const rangedStat = statOf('ranged-combat');
+    const profilesOf = (overview: CharacteristicOverview): ('strike' | 'throw' | 'shoot')[] => {
+      const spec = reference.ruleByCode(overview.ruleCode)?.spec;
+      if (!spec || typeof spec !== 'object' || !('weapon_mastery' in spec)) return [];
+
+      return spec.weapon_mastery?.profiles ?? [];
+    };
+    const meleeStat = allCharacteristics.find((overview) => profilesOf(overview).includes('strike'));
+    const rangedStat = allCharacteristics.find((overview) =>
+      profilesOf(overview).some((profile) => profile === 'throw' || profile === 'shoot'),
+    );
     const proficiencyLevels = this.proficiencyLevelsOf(version, reference);
 
     const melee = meleeStat
       ? {
           stat: { ...meleeStat, shortName: 'Общее' },
-          weapons: this.combatWeaponTiles(version, meleeStat, reference, 'melee', proficiencyLevels),
+          weapons: this.combatWeaponTiles(version, meleeStat, reference, 'melee', profilesOf(meleeStat), proficiencyLevels),
         }
       : null;
     const ranged = rangedStat
       ? {
           stat: { ...rangedStat, shortName: 'Общее' },
-          weapons: this.combatWeaponTiles(version, rangedStat, reference, 'ranged', proficiencyLevels),
+          weapons: this.combatWeaponTiles(
+            version,
+            rangedStat,
+            reference,
+            'ranged',
+            profilesOf(rangedStat),
+            proficiencyLevels,
+          ),
         }
       : null;
     if (!melee && !ranged) return null;
@@ -417,6 +429,7 @@ export class CharacterOverviewService {
     stat: CharacteristicOverview,
     reference: CharacterReferenceService,
     combat: 'melee' | 'ranged',
+    profiles: ('strike' | 'throw' | 'shoot')[],
     proficiencyLevels: Map<string, number>,
   ): CharacteristicOverview[] {
     const result: CharacteristicOverview[] = [];
@@ -425,13 +438,7 @@ export class CharacterOverviewService {
       const rule = reference.ruleByCode(item.ruleCode);
       const spec = this.effectiveSpecOf(item, reference);
       if (!spec?.weapon) continue;
-      // Ближний бой — удары; дальний бой — метание и выстрелы (R14).
-      const hasMelee = spec.weapon.weapon_profiles.some((profile) => profile.type === 'strike');
-      const hasRanged = spec.weapon.weapon_profiles.some(
-        (profile) => profile.type === 'throw' || profile.type === 'shoot',
-      );
-      if (combat === 'melee' && !hasMelee) continue;
-      if (combat === 'ranged' && !hasRanged) continue;
+      if (!spec.weapon.weapon_profiles.some((profile) => profiles.includes(profile.type))) continue;
 
       const familyCode = spec.proficiency_family_code ?? null;
       const bonus = familyCode === null ? 0 : (proficiencyLevels.get(familyCode) ?? 0);
@@ -496,8 +503,9 @@ export class CharacterOverviewService {
 
     for (const resource of version.resources) {
       const rule = reference.ruleByCode(resource.ruleCode);
+      const autoAdd = rule?.type === 'resource' && (rule.spec as ResourceSpec | undefined)?.auto_add === true;
       let max = this.resourceMax(resource);
-      if (rule?.code === ACTION_POINTS_RESOURCE_CODE) {
+      if (autoAdd) {
         const values = new Map<string, DimensionalNumberValue>();
         for (const characteristic of characteristics) {
           const characteristicRule = reference.ruleByCode(characteristic.ruleCode);
@@ -506,7 +514,6 @@ export class CharacterOverviewService {
         const live = this.liveActionPoints.liveActionPointsLimit(version, rules, values);
         if (live !== null) max = { base: live, size: resource.base.size };
       }
-      const autoAdd = rule?.type === 'resource' && (rule.spec as ResourceSpec | undefined)?.auto_add === true;
       // Лимит 0: авто-ресурс (ОД) рендерится всегда (персонаж не может действовать, но ресурс есть);
       // не-авто ресурс с лимитом 0 — у персонажа отсутствует (D38), не показываем.
       if (max.base === 0 && !autoAdd) continue;
@@ -591,9 +598,9 @@ export class CharacterOverviewService {
       let spellControlLabel: string | null = null;
 
       if (spec?.type === 'action') {
-        actionOdCost = this.actionPointsCost(spec.action_components);
+        actionOdCost = this.actionPointsCost(spec.action_components, this.turnResourceCode(reference.rules()));
       } else if (spec?.type === 'spell') {
-        spellCastCost = this.actionPointsCost(spec.action_components);
+        spellCastCost = this.actionPointsCost(spec.action_components, this.turnResourceCode(reference.rules()));
         spellDurationLabel =
           spec.spell.duration.type === 'sustained'
             ? spellDurationLabelService.action(spec.spell.duration)
@@ -660,11 +667,23 @@ export class CharacterOverviewService {
     return reference.ruleByCode(ability.domainCode)?.name ?? ability.domainCode;
   }
 
-  /** Сумма стоимости в ОД по компонентам действия (resource_code action-points). */
-  private actionPointsCost(components: ActionComponent[]): DimensionalNumberValue | number | null {
+  /** Сумма стоимости в очках авто-ресурса по компонентам действия. */
+  private turnResourceCode(rules: Rule[]): string {
+    return (
+      rules.find((item) => {
+        if (item.type !== 'resource') return false;
+        const spec = item.spec as ResourceSpec | undefined;
+
+        return spec?.auto_add === true;
+      })?.code ?? ''
+    );
+  }
+
+  private actionPointsCost(components: ActionComponent[], resourceCode: string): DimensionalNumberValue | number | null {
+    if (!resourceCode) return null;
     const actionPoints = components.filter(
       (component): component is Extract<ActionComponent, { type: 'resource' }> =>
-        component.type === 'resource' && component.resource_code === 'action-points',
+        component.type === 'resource' && component.resource_code === resourceCode,
     );
     if (actionPoints.length === 0) return null;
     if (actionPoints.length === 1) {

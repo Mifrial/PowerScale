@@ -190,7 +190,7 @@ describe('Точность §2.3', () => {
         .remainingEffects,
     ).toHaveLength(1);
     expect(
-      actionEffectService.afterDeclaredAction(pending, 1, { isAttack: false, component: 'strike', baseCost: 1 }),
+      actionEffectService.afterDeclaredAction(pending, 1, { isAttack: false, component: 'strike', baseCost: 1 }, 'action-points'),
     ).toEqual([]);
     expect(
       lastStrikeService.describe({ kind: 'other', hits: [{ targetKey: 'character:1', attackSr: 5 }] }, () => 'Цель'),

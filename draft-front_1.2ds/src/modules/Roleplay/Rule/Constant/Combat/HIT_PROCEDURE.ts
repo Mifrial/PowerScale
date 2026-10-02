@@ -1,6 +1,3 @@
-export const STRIKE_PROCEDURE_RULE_CODE = 'strike-procedure';
-export const THROW_PROCEDURE_RULE_CODE = 'throw-procedure';
-export const SHOOT_PROCEDURE_RULE_CODE = 'shoot-procedure';
 export const FLANKING_ATTACK_RULE_CODE = 'flanking-attack';
 export const TURN_ABILITY_CODE = 'turn';
 

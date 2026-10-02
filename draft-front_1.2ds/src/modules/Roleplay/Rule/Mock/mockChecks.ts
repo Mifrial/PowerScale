@@ -5,7 +5,6 @@ import {
   CHECK_HIT_CODE,
   CHECK_SPELL_CAST_CODE,
   CHECK_MAGIC_ANALYSIS_CODE,
-  CHECK_EXHAUSTION_CODE,
   CHECK_INITIATIVE_CODE,
   CHECK_INJURY_CODE,
   CHECK_COMMUNICATION_CODE,
@@ -15,7 +14,6 @@ import {
   CHECK_FINE_MOTOR_CODE,
   CHECK_INSIGHT_CODE,
   CHECK_KNOWLEDGE_CODE,
-  CHECK_BLOOD_CLOTTING_CODE,
   CHECK_SIMPLE_ATTACHED_RULE_CODES,
   CHECK_INJURY_ATTACHED_RULE_CODES,
 } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
@@ -48,12 +46,23 @@ const askBoth: Pick<CheckSpec, 'difficulty_input' | 'allowed_modes'> = {
   allowed_modes: 'both',
 };
 
+const CONCENTRATION_TOKEN_CHARACTERISTICS = new Set([
+  'perception',
+  'attention',
+  'reaction',
+  'intellect',
+  'memory',
+  'reasoning',
+]);
+
 function characteristicCheck(idSuffix: number, characteristicCode: string, name: string): Rule {
   return checkRule(9000 + idSuffix, `check-${characteristicCode}`, `Проверка на ${name}`, `Проверка на ${name}.`, {
     type: 'check',
     parent_check_code: CHECK_SIMPLE_CODE,
     characteristic_code: characteristicCode,
     ...askBoth,
+    ...(CONCENTRATION_TOKEN_CHARACTERISTICS.has(characteristicCode) ? { concentration_token: true } : {}),
+    ...(characteristicCode === 'willpower' ? { willpower: true } : {}),
   });
 }
 
@@ -69,6 +78,7 @@ export const mockChecks: Rule[] = [
     {
       type: 'check',
       ...askBoth,
+      ordinary_root: true,
       attached_rule_codes: CHECK_SIMPLE_ATTACHED_RULE_CODES,
     },
   ),
@@ -119,12 +129,14 @@ export const mockChecks: Rule[] = [
     {
       type: 'check',
       parent_check_code: CHECK_SIMPLE_CODE,
+      concentration_token: true,
+      hit_check: true,
       ...askBoth,
     },
   ),
   checkRule(
     9004,
-    CHECK_EXHAUSTION_CODE,
+    'check-exhaustion',
     'Проверка на истощение',
     'Сила воли против Истощения. Пул — характеристика, сложность — значение состояния.',
     {
@@ -153,6 +165,7 @@ export const mockChecks: Rule[] = [
       parent_check_code: CHECK_SIMPLE_CODE,
       characteristic_code: 'communication',
       allow_characteristic_override: true,
+      concentration_token: true,
       ...askBoth,
     },
   ),
@@ -210,6 +223,7 @@ export const mockChecks: Rule[] = [
     type: 'check',
     parent_check_code: CHECK_SIMPLE_CODE,
     characteristic_code: 'dexterity',
+    unstable_check: true,
     ...askBoth,
   }),
   characteristicCheck(22, 'memory', 'Память'),
@@ -257,7 +271,7 @@ export const mockChecks: Rule[] = [
   ),
   checkRule(
     9041,
-    CHECK_BLOOD_CLOTTING_CODE,
+    'check-blood-clotting',
     'Свёртывание крови',
     'Один куб против {0|0} в конце хода раненого. Не запускается из диалога проверки.',
     {
@@ -265,6 +279,7 @@ export const mockChecks: Rule[] = [
       parent_check_code: CHECK_SIMPLE_CODE,
       difficulty_input: { kind: 'none' },
       allowed_modes: 'solo',
+      dialog_launch: false,
     },
   ),
 ];

@@ -112,19 +112,24 @@ export class FuriousRushService {
     );
     if (!option) return { skipPending: false, overlay: null };
 
-    const characteristicCode =
-      checkResolutionService.resolveCheckCharacteristicCode(option.effect.check_code, input.rules, 'willpower') ??
-      'willpower';
-    const value = stateRuntimeEffectsService
-      .effectiveCharacteristicValues(input.version, input.rules)
-      .get(characteristicCode) ?? {
-      base: 3,
-      size: 0,
-    };
-    const adv = stateRuntimeEffectsService.checkAdvantageFromStates(input.version, input.rules, {
-      kind: 'characteristic',
-      code: characteristicCode,
-    });
+    const willpowerCode = attackDamageService.willpowerRule(input.rules)?.code ?? null;
+    const characteristicCode = checkResolutionService.resolveCheckCharacteristicCode(
+      option.effect.check_code,
+      input.rules,
+      willpowerCode,
+    );
+    const value = characteristicCode
+      ? (stateRuntimeEffectsService.effectiveCharacteristicValues(input.version, input.rules).get(characteristicCode) ?? {
+          base: 3,
+          size: 0,
+        })
+      : { base: 3, size: 0 };
+    const adv = characteristicCode
+      ? stateRuntimeEffectsService.checkAdvantageFromStates(input.version, input.rules, {
+          kind: 'characteristic',
+          code: characteristicCode,
+        })
+      : 0;
     const roll = checkRollService.rollNamedCheck(
       checkRollService.namedCheckSpec(option.rule.name, value, adv, input.rules, input.actorKey),
       option.effect.check_code,
@@ -135,12 +140,7 @@ export class FuriousRushService {
     );
     const passed = roll.check?.passed === true;
     if (input.chatId !== null) {
-      await input.sendMessage(
-        '',
-        [{ type: ROLL_ATTACHMENT_TYPE, payload: roll }],
-        input.chatId,
-        input.speaker,
-      );
+      await input.sendMessage('', [{ type: ROLL_ATTACHMENT_TYPE, payload: roll }], input.chatId, input.speaker);
       await input.sendMessage(
         `${input.actorName} проходит проверку на ${option.rule.name} против ${option.effect.difficulty}.${
           passed ? ' Успех: без помехи действия.' : ' Провал: помеха действия остаётся.'
@@ -171,7 +171,7 @@ export class FuriousRushService {
       defenseIgnored: true,
     });
     const woundStrength = Math.max(result.wound ?? 0, result.hpDamage);
-    let overlay: GameCombatOverlay | null = null;
+    const overlay: GameCombatOverlay | null = null;
     if (woundStrength > 0) {
       let state = woundInstanceService.addWound(woundStrength);
       if (state && option.effect.self_damage.internal) {

@@ -5,7 +5,7 @@ import { CHARACTERISTIC_BASE_RANGE } from '@/modules/Roleplay/Character/init';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingActionEffect';
 import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
-import { actionEffectLabelService } from '@/modules/Roleplay/Rule/init';
+import { actionEffectLabelService, checkResolutionService } from '@/modules/Roleplay/Rule/init';
 import {
   ADVANTAGE_SOURCE_ACTION,
   ADVANTAGE_SOURCE_CIRCUMSTANCES,
@@ -73,10 +73,11 @@ export class ActionEffectService {
         pushEffect(effect, child.name);
       }
     }
-    const actionCheckModifiers = this.currentActionCheckModifiers(actionRule, 'check-hit');
-    for (const owned of this.ownedAbilityRules(ownedCodes, rules, actionRule?.code)) {
+    const hitCheckCode = checkResolutionService.firstCheckCode(rules, 'hit_check');
+    const actionCheckModifiers = hitCheckCode ? this.currentActionCheckModifiers(actionRule, hitCheckCode) : [];
+    for (const owned of hitCheckCode ? this.ownedAbilityRules(ownedCodes, rules, actionRule?.code) : []) {
       for (const effect of this.effectsOf(owned)) {
-        if (!this.isSourceDisadvantageReduction(effect, 'check-hit', actionCheckModifiers)) continue;
+        if (!this.isSourceDisadvantageReduction(effect, hitCheckCode, actionCheckModifiers)) continue;
         pushEffect(effect, owned.name);
       }
     }
@@ -140,38 +141,6 @@ export class ActionEffectService {
 
   requiresPreviousAttack(rule: Rule | null | undefined): boolean {
     return this.effectsOf(rule).some((effect) => effect.type === 'require_previous_attack');
-  }
-
-  currentAttackTargetCharacteristicModifier(
-    rule: Rule | null | undefined,
-    component: 'strike' | 'throw' | 'shoot',
-    characteristicCode: string,
-    currentSize: number,
-    hitNumber = 1,
-  ): { delta: number; adjustments: { sourceRuleCode: string; delta: number }[] } {
-    const adjustments: { sourceRuleCode: string; delta: number }[] = [];
-    let delta = 0;
-    for (const effect of this.effectsOf(rule)) {
-      if (
-        effect.type !== 'current_action_attack_target_characteristic_modifier' ||
-        !effect.scope.components.includes(component) ||
-        !this.scopeIncludesHit(effect.scope, hitNumber) ||
-        effect.characteristic_code !== characteristicCode
-      ) {
-        continue;
-      }
-      const applied = this.clampedCharacteristicDelta(effect.delta, effect.min, currentSize + delta);
-      delta += applied;
-      adjustments.push({ sourceRuleCode: rule?.code ?? '', delta: applied });
-    }
-
-    return { delta, adjustments };
-  }
-
-  private clampedCharacteristicDelta(delta: number, min: number | undefined, current: number): number {
-    if (min === undefined) return delta;
-
-    return Math.max(min - current, delta);
   }
 
   currentAttackActionCharacteristicModifier(
@@ -506,7 +475,6 @@ export class ActionEffectService {
     return this.effectsOf(rule).flatMap((effect) => {
       if (
         effect.type !== 'next_action_attack_cost' &&
-        effect.type !== 'next_action_attack_target_characteristic_modifier' &&
         effect.type !== 'next_action_attack_dodge_soak_from_reaction' &&
         effect.type !== 'after_action_until_resource_spent_check_modifier' &&
         effect.type !== 'next_action_attack_score_adjust' &&
@@ -576,14 +544,11 @@ export class ActionEffectService {
       isAttack: boolean;
       component: 'strike' | 'throw' | 'shoot';
       baseCost: number;
-      targetDexterityMastery?: number;
       hitNumber?: number;
       targetKeys?: string[];
     },
   ): {
     actionCostDelta: number;
-    targetDexterityMasteryDelta: number;
-    targetDexterityMasteryAdjustments: { sourceRuleCode: string; delta: number }[];
     dodgeSoakFromReaction: boolean;
     hitScoreAdjusts: { targetKey: string | null; oneDelta: number; faceDelta: number }[];
     accuracyDelta: number;
@@ -599,8 +564,6 @@ export class ActionEffectService {
       )
       .reduce((total, pending) => total + pending.effect.delta, 0);
     const finalCost = action.baseCost + costDelta;
-    let targetDexterityMasteryDelta = 0;
-    const targetDexterityMasteryAdjustments: { sourceRuleCode: string; delta: number }[] = [];
     let dodgeSoakFromReaction = false;
     let accuracyDelta = 0;
     const hitScoreAdjusts: { targetKey: string | null; oneDelta: number; faceDelta: number }[] = [];
@@ -656,29 +619,10 @@ export class ActionEffectService {
         dodgeSoakFromReaction = true;
         continue;
       }
-      if (
-        action.isAttack &&
-        effect.type === 'next_action_attack_target_characteristic_modifier' &&
-        effect.scope.components.includes(action.component) &&
-        this.scopeIncludesHit(effect.scope, hitNumber) &&
-        (effect.max_total_action_cost === undefined || finalCost <= effect.max_total_action_cost) &&
-        effect.check_code === 'melee-combat' &&
-        effect.characteristic_code === 'dexterity'
-      ) {
-        const appliedDelta = this.clampedCharacteristicDelta(
-          effect.delta,
-          effect.min,
-          (action.targetDexterityMastery ?? 0) + targetDexterityMasteryDelta,
-        );
-        targetDexterityMasteryDelta += appliedDelta;
-        targetDexterityMasteryAdjustments.push({ sourceRuleCode: pending.sourceRuleCode, delta: appliedDelta });
-      }
     }
 
     return {
       actionCostDelta: costDelta,
-      targetDexterityMasteryDelta,
-      targetDexterityMasteryAdjustments,
       dodgeSoakFromReaction,
       hitScoreAdjusts,
       accuracyDelta,
@@ -750,10 +694,11 @@ export class ActionEffectService {
       component: 'strike' | 'throw' | 'shoot';
       baseCost: number;
     },
+    resourceCode: string,
   ): PendingActionEffect[] {
     const resolved = this.resolveForNextAction(pendingEffects, action);
 
-    return this.consumeResource(resolved.remainingEffects, 'action-points', spentOd);
+    return this.consumeResource(resolved.remainingEffects, resourceCode, spentOd);
   }
 
   private advantageSourceLabel(sourceCode: string | undefined): string {

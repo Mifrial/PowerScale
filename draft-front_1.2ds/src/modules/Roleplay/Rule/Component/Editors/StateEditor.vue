@@ -43,6 +43,19 @@ function stateFromSpec(value: RuleSpec | null): StateSpec {
     aggregation: existing.aggregation ?? 'sum',
     icon_code: existing.icon_code ?? null,
     action_codes: existing.action_codes ?? [],
+    check_code: existing.check_code ?? null,
+    damage_remainder: existing.damage_remainder === true,
+    damage_exhaustion: existing.damage_exhaustion === true,
+    blood_loss: existing.blood_loss === true,
+    decline_weakness: existing.decline_weakness === true,
+    decline_disabled: existing.decline_disabled === true,
+    decline_unconscious: existing.decline_unconscious === true,
+    maim: existing.maim === true,
+    burning: existing.burning === true,
+    poisoning: existing.poisoning === true,
+    lying: existing.lying === true,
+    unstable: existing.unstable === true,
+    magic_deviation: existing.magic_deviation === true,
     effects: existing.effects ?? [],
   };
 }
@@ -55,6 +68,9 @@ const characteristicOptions = computed(() =>
 const resourceOptions = computed(() =>
   ruleReferenceService.resourceOptions(props.rules).map((r) => ({ title: r.name, value: r.code })),
 );
+const damageTypeOptions = computed(() =>
+  ruleReferenceService.damageTypeOptions(props.rules).map((item) => ({ title: item.name, value: item.code })),
+);
 const valueTypeOptions: { title: string; value: StateValueType }[] = [
   { title: 'Флаг (есть/нет)', value: 'flag' },
   { title: 'Целое число', value: 'number' },
@@ -65,6 +81,9 @@ const aggregationOptions: { title: string; value: StateAggregation }[] = [
   { title: 'Берётся наибольшее', value: 'max' },
   { title: 'Каждая отдельно', value: 'independent' },
 ];
+const checkOptions = computed(() =>
+  props.rules.filter((rule) => rule.type === 'check').map((rule) => ({ title: rule.name, value: rule.code })),
+);
 const actionRuleOptions = computed(() =>
   props.rules
     .filter((rule) => {
@@ -86,7 +105,20 @@ const specToEmit = computed<StateSpec>(() => ({
   aggregation: innerSpec.value.aggregation,
   icon_code: innerSpec.value.icon_code,
   ...(innerSpec.value.action_codes?.length ? { action_codes: innerSpec.value.action_codes } : {}),
-  effects: innerSpec.value.effects ?? [],
+  ...(innerSpec.value.check_code ? { check_code: innerSpec.value.check_code } : {}),
+  ...(innerSpec.value.damage_remainder ? { damage_remainder: true } : {}),
+  ...(innerSpec.value.damage_exhaustion ? { damage_exhaustion: true } : {}),
+  ...(innerSpec.value.blood_loss ? { blood_loss: true } : {}),
+  ...(innerSpec.value.decline_weakness ? { decline_weakness: true } : {}),
+  ...(innerSpec.value.decline_disabled ? { decline_disabled: true } : {}),
+  ...(innerSpec.value.decline_unconscious ? { decline_unconscious: true } : {}),
+  ...(innerSpec.value.maim ? { maim: true } : {}),
+  ...(innerSpec.value.burning ? { burning: true } : {}),
+  ...(innerSpec.value.poisoning ? { poisoning: true } : {}),
+  ...(innerSpec.value.lying ? { lying: true } : {}),
+  ...(innerSpec.value.unstable ? { unstable: true } : {}),
+  ...(innerSpec.value.magic_deviation ? { magic_deviation: true } : {}),
+  effects: (innerSpec.value.effects ?? []).map(effectWithoutEmptyDamageType),
 }));
 
 watch(specToEmit, (value) => emit('update:spec', value), { deep: true, immediate: true });
@@ -138,6 +170,13 @@ function isModifyEffect(effect: StateEffect): effect is Extract<StateEffect, { t
 
 function isDotEffect(effect: StateEffect): effect is Extract<StateEffect, { type: 'damage_over_time' }> {
   return effect.type === 'damage_over_time';
+}
+
+function effectWithoutEmptyDamageType(effect: StateEffect): StateEffect {
+  if (effect.type !== 'damage_over_time' || effect.damage_type_code) return effect;
+  const { damage_type_code: _dropped, ...rest } = effect;
+
+  return rest;
 }
 
 function isLimitModifyEffect(effect: StateEffect): effect is Extract<StateEffect, { type: 'resource_limit_modify' }> {
@@ -211,10 +250,73 @@ function effectTitle(effect: StateEffect): string {
             density="compact"
             class="mt-3"
           />
+          <v-switch
+            v-model="innerSpec.damage_remainder"
+            label="Остаток повреждений"
+            color="primary"
+            hide-details
+            class="mt-2"
+          />
+          <v-switch
+            v-model="innerSpec.damage_exhaustion"
+            label="Истощение от повреждений"
+            color="primary"
+            hide-details
+            class="mt-2"
+          />
+          <v-switch
+            v-model="innerSpec.blood_loss"
+            label="Кровопотеря"
+            color="primary"
+            hide-details
+            class="mt-2"
+          />
+          <v-switch
+            v-model="innerSpec.decline_weakness"
+            label="Слабость"
+            color="primary"
+            hide-details
+            class="mt-2"
+          />
+          <v-switch
+            v-model="innerSpec.decline_disabled"
+            label="Обессилен"
+            color="primary"
+            hide-details
+            class="mt-2"
+          />
+          <v-switch
+            v-model="innerSpec.decline_unconscious"
+            label="Потеря сознания"
+            color="primary"
+            hide-details
+            class="mt-2"
+          />
+          <v-switch v-model="innerSpec.maim" label="Увечье" color="primary" hide-details class="mt-2" />
+          <v-switch v-model="innerSpec.burning" label="Горение" color="primary" hide-details class="mt-2" />
+          <v-switch v-model="innerSpec.poisoning" label="Отравление" color="primary" hide-details class="mt-2" />
+          <v-switch v-model="innerSpec.lying" label="Лежачее положение" color="primary" hide-details class="mt-2" />
+          <v-switch v-model="innerSpec.unstable" label="Неустойчивость" color="primary" hide-details class="mt-2" />
+          <v-switch
+            v-model="innerSpec.magic_deviation"
+            label="Малое магическое отклонение"
+            color="primary"
+            hide-details
+            class="mt-2"
+          />
           <div class="text-caption text-medium-emphasis mt-1">
             Повторы правила в списке состояний персонажа: суммируются, берётся наибольшее или действуют отдельно
             (например, каждая Рана со своим значением).
           </div>
+
+          <v-autocomplete
+            v-model="innerSpec.check_code"
+            class="mt-3"
+            :items="checkOptions"
+            label="Проверка"
+            density="compact"
+            clearable
+          />
 
           <v-autocomplete
             v-model="innerSpec.action_codes"
@@ -288,6 +390,16 @@ function effectTitle(effect: StateEffect): string {
                     density="compact"
                     hide-details
                     @update:model-value="(v) => setDamageSource(effect, v)"
+                  />
+                </v-col>
+                <v-col cols="6">
+                  <v-select
+                    v-model="effect.damage_type_code"
+                    :items="damageTypeOptions"
+                    label="Тип урона"
+                    clearable
+                    density="compact"
+                    hide-details
                   />
                 </v-col>
               </v-row>

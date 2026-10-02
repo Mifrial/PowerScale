@@ -40,7 +40,6 @@ import { combatOverlayService } from '@/modules/Roleplay/Game/Service/Instance/c
 
 import { checkResolutionService } from '@/modules/Roleplay/Rule/init';
 import { checkLaunchService } from '@/modules/Roleplay/Rule/init';
-import { CHECK_SIMPLE_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
 import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/init';
 import { rollPoolDefaults } from '@/modules/Roleplay/Game/Utils/initiativeRoll';
 import { ROLL_DICE_COUNT_MAX } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_DICE_COUNT_MAX';
@@ -356,7 +355,8 @@ async function hydrateNew(generation: number): Promise<void> {
   opponentFreeEfficiency.value = defaults.efficiency;
   initiatorFreeSize.value = 0;
   opponentFreeSize.value = 0;
-  checkCode.value = checks.value.find((rule) => rule.code === CHECK_SIMPLE_CODE)?.code ?? checks.value[0]?.code ?? '';
+  const root = checks.value.find((rule) => checkResolutionService.asCheckSpec(rule)?.ordinary_root === true);
+  checkCode.value = root?.code ?? checks.value[0]?.code ?? '';
   initiatorKey.value = speakerEntity.value ?? entityOptions.value[0]?.value ?? null;
   opponentKey.value = opponentOptions.value[0]?.value ?? null;
   applyCheckKind();
@@ -597,7 +597,15 @@ async function applyConcentrationSpend(
   const cap = concentrationTokenService.maxSpend(version, overlay, props.rules, checkCode.value, characteristic);
   const spent = Math.min(amount, cap);
   if (!version || spent < 1) return 0;
-  const next = await concentrationTokenService.spendToken(getGameApi(), props.gameId, key, version, overlay, spent);
+  const next = await concentrationTokenService.spendToken(
+    getGameApi(),
+    props.gameId,
+    key,
+    version,
+    overlay,
+    props.rules,
+    spent,
+  );
   overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, next);
   spendConcentration.value = 0;
 

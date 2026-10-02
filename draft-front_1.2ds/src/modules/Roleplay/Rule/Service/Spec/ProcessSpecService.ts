@@ -2,7 +2,6 @@ import type { ProcessSpec } from '@/modules/Roleplay/Rule/Dto/Ability/ProcessSpe
 import type { ProcessTransition } from '@/modules/Roleplay/Rule/Dto/Ability/ProcessTransition';
 import type { ActionCost } from '@/modules/Roleplay/Rule/Dto/Ability/ActionCost';
 import type { ResourceRef } from '@/modules/Roleplay/Rule/Dto/Ability/ResourceRef';
-import { ACTION_POINTS_RESOURCE_CODE } from '@/modules/Roleplay/Rule/Constant/Ability/ACTION_POINTS_RESOURCE_CODE';
 
 export class ProcessSpecService {
   createEmpty(): ProcessSpec {
@@ -30,7 +29,7 @@ export class ProcessSpecService {
     };
   }
 
-  addStep(spec: ProcessSpec): ProcessSpec {
+  addStep(spec: ProcessSpec, resourceCode: string): ProcessSpec {
     return {
       ...spec,
       steps: [
@@ -40,7 +39,7 @@ export class ProcessSpecService {
           name: '',
           description: '',
           interruption: { mode: 'normal' },
-          costs: [{ resource_code: ACTION_POINTS_RESOURCE_CODE, amount: 1 }],
+          costs: resourceCode ? [{ resource_code: resourceCode, amount: 1 }] : [],
         },
       ],
     };
@@ -56,10 +55,11 @@ export class ProcessSpecService {
     return { ...spec, steps };
   }
 
-  addStepCost(spec: ProcessSpec, stepIndex: number): ProcessSpec {
-    const steps = spec.steps.map((s, i) =>
-      i === stepIndex ? { ...s, costs: [...s.costs, { resource_code: ACTION_POINTS_RESOURCE_CODE, amount: 1 }] } : s,
-    );
+  addStepCost(spec: ProcessSpec, stepIndex: number, resourceCode: string): ProcessSpec {
+    const cost = resourceCode
+      ? { resource_code: resourceCode, amount: 1 }
+      : { resource_code: '', amount: 1 };
+    const steps = spec.steps.map((s, i) => (i === stepIndex ? { ...s, costs: [...s.costs, cost] } : s));
 
     return { ...spec, steps };
   }
@@ -75,8 +75,8 @@ export class ProcessSpecService {
     return { ...spec, steps };
   }
 
-  removeStepCost(spec: ProcessSpec, stepIndex: number, costIndex: number): ProcessSpec {
-    if (this.isMandatoryCost(spec.steps[stepIndex]?.costs ?? [], costIndex)) return spec;
+  removeStepCost(spec: ProcessSpec, stepIndex: number, costIndex: number, resourceCode: string): ProcessSpec {
+    if (this.isMandatoryCost(spec.steps[stepIndex]?.costs ?? [], costIndex, resourceCode)) return spec;
     const steps = spec.steps.map((s, i) => {
       if (i !== stepIndex) return s;
       const costs = s.costs.filter((_, j) => j !== costIndex);
@@ -140,9 +140,10 @@ export class ProcessSpecService {
     return resources.find((r) => r.code === cost.resource_code)?.isDimensional ?? false;
   }
 
-  isMandatoryCost(costs: ActionCost[], costIndex: number): boolean {
-    const odIndex = costs.findIndex((c) => c.resource_code === ACTION_POINTS_RESOURCE_CODE);
+  isMandatoryCost(costs: ActionCost[], costIndex: number, resourceCode: string): boolean {
+    if (!resourceCode) return false;
+    const turnIndex = costs.findIndex((cost) => cost.resource_code === resourceCode);
 
-    return odIndex === costIndex;
+    return turnIndex === costIndex;
   }
 }

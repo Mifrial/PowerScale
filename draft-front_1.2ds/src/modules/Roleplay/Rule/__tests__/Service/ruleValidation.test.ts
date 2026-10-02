@@ -474,6 +474,7 @@ describe('validateAbilityStructure', () => {
 
   it('requires an action point cost for action type', () => {
     const rules: Rule[] = [
+      baseRule(null, 'action-points', 'resource', { is_dimensional: false, auto_add: true }),
       baseRule(null, 'strike', 'ability', {
         type: 'action',
         action_components: [],
@@ -490,6 +491,7 @@ describe('validateAbilityStructure', () => {
 
   it('passes action type with an action point cost', () => {
     const rules: Rule[] = [
+      baseRule(null, 'action-points', 'resource', { is_dimensional: false, auto_add: true }),
       baseRule(null, 'strike', 'ability', {
         type: 'action',
         action_components: [{ type: 'resource', resource_code: 'action-points', amount: 1 }],
@@ -518,6 +520,7 @@ describe('validateAbilityStructure', () => {
 
   it('validates process steps have action point cost and existing start step', () => {
     const rules: Rule[] = [
+      baseRule(null, 'action-points', 'resource', { is_dimensional: false, auto_add: true }),
       baseRule(null, 'movement', 'ability', {
         type: 'process',
         action_components: [],
@@ -553,6 +556,7 @@ describe('validateAbilityStructure', () => {
 
   it('flags a process step without an action point cost', () => {
     const rules: Rule[] = [
+      baseRule(null, 'action-points', 'resource', { is_dimensional: false, auto_add: true }),
       baseRule(null, 'movement', 'ability', {
         type: 'process',
         action_components: [],
@@ -833,6 +837,7 @@ describe('validateAbilityStructure', () => {
 
   it('derives type from keywords when spec.type is absent', () => {
     const rules: Rule[] = [
+      baseRule(null, 'action-points', 'resource', { is_dimensional: false, auto_add: true }),
       {
         ...baseRule(null, 'strike', 'ability', {
           action_components: [],

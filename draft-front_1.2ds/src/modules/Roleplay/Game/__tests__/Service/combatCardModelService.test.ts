@@ -87,7 +87,15 @@ function stateRule(
 }
 
 const STATE_RULES: Rule[] = [
-  stateRule(56, 'exhaustion', 'Истощение', 'number', 'sum'),
+  {
+    ...stateRule(56, 'exhaustion', 'Истощение', 'number', 'sum'),
+    spec: {
+      icon_code: 'mdi-star',
+      value_type: 'number',
+      aggregation: 'sum',
+      damage_exhaustion: true,
+    },
+  },
   stateRule(60, 'wound', 'Рана', 'number', 'independent'),
   stateRule(61, 'burning', 'Горение', 'dimensional', 'sum'),
   stateRule(63, 'stunned', 'Оглушение', 'number', 'sum'),
@@ -127,7 +135,14 @@ describe('combatCardModel: права (CD-6)', () => {
 
 describe('combatActionPoints', () => {
   it('читает текущие ОД и лимит с ресурса action-points', () => {
-    const rules = [{ id: 18, code: 'action-points', type: 'resource' }] as Rule[];
+    const rules = [
+      {
+        id: 18,
+        code: 'action-points',
+        type: 'resource',
+        spec: { is_dimensional: false, auto_add: true },
+      },
+    ] as Rule[];
     expect(combatCardModelService.combatActionPoints(versions[1], rules)).toEqual({ current: 4, max: 4 });
   });
 });
@@ -562,7 +577,13 @@ describe('combatExhaustion', () => {
 });
 
 describe('combatMaim', () => {
-  const maimRules = [...STATE_RULES, stateRule(606, 'maim', 'Увечье', 'number', 'independent')];
+  const maimRules = [
+    ...STATE_RULES,
+    {
+      ...stateRule(606, 'maim', 'Увечье', 'number', 'independent'),
+      spec: { icon_code: 'mdi-star', value_type: 'number' as const, aggregation: 'independent' as const, maim: true },
+    },
+  ];
 
   it('суммирует силу всех записей увечья', () => {
     expect(
@@ -579,6 +600,11 @@ describe('combatMaim', () => {
 
   it('null при отсутствии правила увечья в ревизии', () => {
     expect(combatCardModelService.combatMaim([{ stateRuleCode: 'maim', value: 2 }], STATE_RULES)).toBeNull();
+  });
+
+  it('null, если код maim без флага', () => {
+    const named = stateRule(606, 'maim', 'Увечье', 'number', 'independent');
+    expect(combatCardModelService.combatMaim([{ stateRuleCode: 'maim', value: 2 }], [named])).toBeNull();
   });
 
   it('null при отсутствии записей или нулевом итоге', () => {
@@ -635,15 +661,30 @@ describe('combatStatePicker', () => {
         aggregation: 'sum',
       }),
     ).toEqual({ dimensionalValue: { base: 1, size: 0 } });
+    const poisoningState = {
+      id: null,
+      code: 'poisoning',
+      type: 'state' as const,
+      name: 'Отравление',
+      description: '',
+      spaceId: 1,
+      spec: { value_type: 'flag' as const, aggregation: 'independent' as const, poisoning: true, effects: [] },
+      keywordIds: [],
+      mechanics: [],
+      createdAt: 1767225600,
+    };
     expect(
-      combatCardModelService.defaultStateEntry({
-        ruleCode: 'r',
-        code: 'poisoning',
-        name: 'Отравление',
-        iconCode: null,
-        valueType: 'flag',
-        aggregation: 'independent',
-      }),
+      combatCardModelService.defaultStateEntry(
+        {
+          ruleCode: 'r',
+          code: 'poisoning',
+          name: 'Отравление',
+          iconCode: null,
+          valueType: 'flag',
+          aggregation: 'independent',
+        },
+        [poisoningState],
+      ),
     ).toEqual({ poison: { poisonRuleCode: null, strength: { base: 1, size: 0 } } });
     expect(
       combatCardModelService.defaultStateEntry(
@@ -656,6 +697,7 @@ describe('combatStatePicker', () => {
           aggregation: 'independent',
         },
         [
+          poisoningState,
           {
             id: null,
             code: 'poison-scorpion',

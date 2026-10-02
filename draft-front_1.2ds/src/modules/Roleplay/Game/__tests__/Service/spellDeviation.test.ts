@@ -3,6 +3,22 @@ import { spellDeviationService } from '@/modules/Roleplay/Game/Service/Instance/
 import type { SpellCastRollOutcome } from '@/modules/Roleplay/Game/Dto/Spell/SpellCastRollOutcome';
 import { SPELL_CAST_SKIP_DIFFICULTY } from '@/modules/Roleplay/Game/Constant/Spell/SPELL_CAST_SKIP_DIFFICULTY';
 import { SPELL_CAST_BASE_DIFFICULTY } from '@/modules/Roleplay/Game/Constant/Spell/SPELL_CAST_BASE_DIFFICULTY';
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+
+function deviationRule(code: string, flagged: boolean): Rule {
+  return {
+    code,
+    type: 'state',
+    spec: {
+      value_type: 'number',
+      aggregation: 'independent',
+      effects: [],
+      ...(flagged ? { magic_deviation: true } : {}),
+    },
+  } as Rule;
+}
+
+const rules = [deviationRule('core-magic-deviation', true)];
 
 function rngFaces(...faces: number[]): () => number {
   let index = 0;
@@ -93,23 +109,31 @@ describe('SpellDeviationService', () => {
   });
 
   it('состояние на одном источнике суммируется; другой источник отдельно', () => {
-    const first = spellDeviationService.grant([], 'inventory:9', 2);
+    const first = spellDeviationService.grant([], 'inventory:9', 2, rules);
     expect(first).toEqual({
       stateRuleCode: 'core-magic-deviation',
       value: 2,
       boundSourceKey: 'inventory:9',
     });
-    const stacked = spellDeviationService.grant([first!], 'inventory:9', 1);
+    const stacked = spellDeviationService.grant([first!], 'inventory:9', 1, rules);
     expect(stacked?.value).toBe(3);
-    expect(spellDeviationService.grant([first!], 'inventory:8', 1)?.boundSourceKey).toBe('inventory:8');
-    expect(spellDeviationService.grant([], '', 2)).toBeNull();
-    expect(spellDeviationService.grant([], 'inventory:9', 0)).toBeNull();
+    expect(spellDeviationService.grant([first!], 'inventory:8', 1, rules)?.boundSourceKey).toBe('inventory:8');
+    expect(spellDeviationService.grant([], '', 2, rules)).toBeNull();
+    expect(spellDeviationService.grant([], 'inventory:9', 0, rules)).toBeNull();
+  });
+
+  it('без флага не пишется; флаг на другом коде пишет его', () => {
+    const named = [deviationRule('core-magic-deviation', false)];
+    const other = [deviationRule('warp', true)];
+    expect(spellDeviationService.grant([], 'inventory:9', 2, named)).toBeNull();
+    expect(spellDeviationService.grant([], 'inventory:9', 2, other)?.stateRuleCode).toBe('warp');
   });
 
   it('decay −1 за ход, на 0 снимается', () => {
     const state = { stateRuleCode: 'core-magic-deviation', value: 2, boundSourceKey: 'inventory:9' };
-    expect(spellDeviationService.decay(state)).toEqual({ ...state, value: 1 });
-    expect(spellDeviationService.decay({ ...state, value: 1 })).toBeNull();
+    expect(spellDeviationService.decay(state, rules)).toEqual({ ...state, value: 1 });
+    expect(spellDeviationService.decay({ ...state, value: 1 }, rules)).toBeNull();
+    expect(spellDeviationService.decay(state, [deviationRule('core-magic-deviation', false)])).toEqual(state);
   });
 
   it('штраф к мощи ядра; ниже маленького размера — 0', () => {

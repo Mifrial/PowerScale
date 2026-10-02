@@ -52,7 +52,11 @@ export async function updateCharacter(
     const target = sessionTarget(id, data.gameId);
     if (target && runtimePort) {
       const current = await actualVersionBase(target, id);
-      await runtimePort.applyActualPatch(target.gameId, target.characterId, createRuntimePatch(id, current, data.version));
+      await runtimePort.applyActualPatch(
+        target.gameId,
+        target.characterId,
+        createRuntimePatch(id, current, data.version),
+      );
 
       return fetchCharacter(id);
     }
@@ -119,7 +123,10 @@ export async function updateCustomRule(
 }
 
 /** База actual-листа для правок активной сессии. */
-export async function actualVersionBase(target: CharacterSessionTarget, characterId: number): Promise<CharacterVersion> {
+export async function actualVersionBase(
+  target: CharacterSessionTarget,
+  characterId: number,
+): Promise<CharacterVersion> {
   const stored = getCharacterSessionRuntimePort()?.readActual(target.gameId, characterId);
   if (stored) return stored;
   const approved = target.approvedCharacterVersion ?? versions[characterId];
@@ -129,10 +136,5 @@ export async function actualVersionBase(target: CharacterSessionTarget, characte
 }
 
 function createRuntimePatch(characterId: number, before: CharacterVersion, after: CharacterVersion): CharacterPatch {
-  return characterPatchService.createPatch(
-    before,
-    after,
-    createRandomId(),
-    getCharacterActualVersion(characterId),
-  );
+  return characterPatchService.createPatch(before, after, createRandomId(), getCharacterActualVersion(characterId));
 }

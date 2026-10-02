@@ -7,7 +7,8 @@ import type { SpellCastRollOutcome } from '@/modules/Roleplay/Game/Dto/Spell/Spe
 import type { SpellDeviationOutcome } from '@/modules/Roleplay/Game/Dto/Spell/SpellDeviationOutcome';
 import { SPELL_DEVIATION_NEUTRAL_SUM } from '@/modules/Roleplay/Game/Constant/Spell/SPELL_DEVIATION_NEUTRAL_SUM';
 import { MAGIC_POWER_SMALL_SIZE } from '@/modules/Roleplay/Game/Constant/Spell/MAGIC_POWER_SMALL_SIZE';
-import { CORE_MAGIC_DEVIATION_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
 import { CharacteristicNumber } from '@/modules/Roleplay/Rule/Value/CharacteristicNumber';
 
 /** 2d6 после провала check, состояние на ядре и урон арканного взрыва. */
@@ -53,23 +54,23 @@ export class SpellDeviationService {
     };
   }
 
-  boundIndex(states: CharacterStateValue[], sourceKey: string): number {
-    if (!sourceKey) {
+  boundIndex(states: CharacterStateValue[], sourceKey: string, rules: Rule[]): number {
+    const code = attackDamageService.magicDeviationRule(rules)?.code;
+    if (!sourceKey || !code) {
       return -1;
     }
 
-    return states.findIndex(
-      (state) => state.stateRuleCode === CORE_MAGIC_DEVIATION_STATE_CODE && state.boundSourceKey === sourceKey,
-    );
+    return states.findIndex((state) => state.stateRuleCode === code && state.boundSourceKey === sourceKey);
   }
 
-  strengthOnSource(states: CharacterStateValue[], sourceKey: string): number {
-    if (!sourceKey) {
+  strengthOnSource(states: CharacterStateValue[], sourceKey: string, rules: Rule[]): number {
+    const code = attackDamageService.magicDeviationRule(rules)?.code;
+    if (!sourceKey || !code) {
       return 0;
     }
 
     return states.reduce((sum, state) => {
-      if (state.stateRuleCode !== CORE_MAGIC_DEVIATION_STATE_CODE || state.boundSourceKey !== sourceKey) {
+      if (state.stateRuleCode !== code || state.boundSourceKey !== sourceKey) {
         return sum;
       }
 
@@ -77,22 +78,24 @@ export class SpellDeviationService {
     }, 0);
   }
 
-  grant(states: CharacterStateValue[], sourceKey: string, strength: number): CharacterStateValue | null {
-    if (!sourceKey || strength <= 0) {
+  grant(states: CharacterStateValue[], sourceKey: string, strength: number, rules: Rule[]): CharacterStateValue | null {
+    const code = attackDamageService.magicDeviationRule(rules)?.code;
+    if (!sourceKey || strength <= 0 || !code) {
       return null;
     }
-    const index = this.boundIndex(states, sourceKey);
+    const index = this.boundIndex(states, sourceKey, rules);
     const current = index >= 0 ? (states[index]?.value ?? 0) : 0;
 
     return {
-      stateRuleCode: CORE_MAGIC_DEVIATION_STATE_CODE,
+      stateRuleCode: code,
       value: current + strength,
       boundSourceKey: sourceKey,
     };
   }
 
-  decay(state: CharacterStateValue): CharacterStateValue | null {
-    if (state.stateRuleCode !== CORE_MAGIC_DEVIATION_STATE_CODE) {
+  decay(state: CharacterStateValue, rules: Rule[]): CharacterStateValue | null {
+    const code = attackDamageService.magicDeviationRule(rules)?.code;
+    if (!code || state.stateRuleCode !== code) {
       return state;
     }
     const next = Math.max(0, (state.value ?? 0) - 1);
@@ -103,13 +106,15 @@ export class SpellDeviationService {
     return { ...state, value: next };
   }
 
-  decayPatches(states: CharacterStateValue[]): { index: number; next: CharacterStateValue | null }[] {
+  decayPatches(states: CharacterStateValue[], rules: Rule[]): { index: number; next: CharacterStateValue | null }[] {
+    const code = attackDamageService.magicDeviationRule(rules)?.code;
+    if (!code) return [];
     const patches: { index: number; next: CharacterStateValue | null }[] = [];
     for (const [index, state] of states.entries()) {
-      if (state.stateRuleCode !== CORE_MAGIC_DEVIATION_STATE_CODE) {
+      if (state.stateRuleCode !== code) {
         continue;
       }
-      patches.push({ index, next: this.decay(state) });
+      patches.push({ index, next: this.decay(state, rules) });
     }
 
     return patches;

@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/CharacterStateValue';
+import type { CharacterOverview } from '@/modules/Roleplay/Character/Dto/Overview/CharacterOverview';
 import type { DefenseLineOverview } from '@/modules/Roleplay/Character/Dto/Overview/DefenseOverview';
 import type { DamageTypeHook } from '@/modules/Roleplay/Game/Dto/DamageTypeHook';
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
 
 import {
@@ -242,7 +245,7 @@ describe('applyAttackDamage', () => {
       damageTypeCode: 'cutting',
       defense: null,
       endurance: 4,
-      hooks: [hook(DAMAGE_TYPE_HOOK_MECHANIC_CUTTING_WOUNDS, 'apply')],
+      hooks: [hook(DAMAGE_TYPE_HOOK_MECHANIC_CUTTING_WOUNDS, 'apply', { stateCode: 'wound' })],
     });
     expect(cutting.hpDamage).toBe(0);
     expect(cutting.cuttingWound).toBe(6);
@@ -270,13 +273,37 @@ describe('applyAttackDamage', () => {
       defense: null,
       endurance: 3,
       hooks: [
-        hook(DAMAGE_TYPE_HOOK_MECHANIC_EXHAUSTION_STUN, 'apply'),
-        hook(DAMAGE_TYPE_HOOK_MECHANIC_EXHAUSTION_WOUND, 'apply', { woundMultiplier: 2 }),
+        hook(DAMAGE_TYPE_HOOK_MECHANIC_EXHAUSTION_STUN, 'apply', { stateCode: 'stunned' }),
+        hook(DAMAGE_TYPE_HOOK_MECHANIC_EXHAUSTION_WOUND, 'apply', { woundMultiplier: 2, stateCode: 'wound' }),
       ],
     });
     expect(result.exhaustion).toBe(2);
     expect(result.stun).toBe(2);
     expect(result.wound).toBe(4);
+    expect(result.stateWrites).toEqual([
+      { stateCode: 'stunned', amount: 2 },
+      { stateCode: 'wound', amount: 4 },
+    ]);
+  });
+
+  it('без кода состояния apply-хук не пишет число', () => {
+    const result = attackDamageService.applyAttackDamage({
+      weaponDamage: { base: 6, size: 0 },
+      sr: 1,
+      damageTypeCode: 'slashing',
+      defense: null,
+      endurance: 3,
+      hooks: [
+        hook(DAMAGE_TYPE_HOOK_MECHANIC_EXHAUSTION_STUN, 'apply'),
+        hook(DAMAGE_TYPE_HOOK_MECHANIC_EXHAUSTION_WOUND, 'apply', { woundMultiplier: 2 }),
+        hook(DAMAGE_TYPE_HOOK_MECHANIC_CUTTING_WOUNDS, 'apply'),
+      ],
+    });
+    expect(result.stun).toBeNull();
+    expect(result.wound).toBeNull();
+    expect(result.cuttingWound).toBeNull();
+    expect(result.hpDamage).toBe(0);
+    expect(result.stateWrites).toEqual([]);
   });
 
   it('потолок множителя РУ режет повреждения, но не сам РУ', () => {
@@ -318,7 +345,7 @@ describe('applyAttackDamage', () => {
       damageTypeCode: 'electricity',
       defense: null,
       endurance: 3,
-      hooks: [hook(DAMAGE_TYPE_HOOK_MECHANIC_EXHAUSTION_SHOCK, 'apply')],
+      hooks: [hook(DAMAGE_TYPE_HOOK_MECHANIC_EXHAUSTION_SHOCK, 'apply', { stateCode: 'shock' })],
     });
     expect(result.exhaustion).toBe(2);
     expect(result.shock).toBe(2);
@@ -326,9 +353,6 @@ describe('applyAttackDamage', () => {
   });
 
   it('ОД защиты и списание ресурса', () => {
-    expect(attackDamageService.defenseApCost('ignore')).toBe(0);
-    expect(attackDamageService.defenseApCost('dodge')).toBe(1);
-    expect(attackDamageService.defenseApCost('block')).toBe(2);
     expect(attackDamageService.spendActionPoints({ base: 5, size: 0 }, 3)).toEqual({ base: 2, size: 0 });
     expect(attackDamageService.spendActionPoints({ base: 1, size: 0 }, 3).base).toBe(0);
   });
@@ -937,6 +961,7 @@ describe('applyAttackDamage', () => {
         shock: null,
         wound: null,
         knockout: false,
+        stateWrites: [],
         cuttingWound: null,
         layers: [],
       },
@@ -988,5 +1013,138 @@ describe('applyAttackDamage', () => {
         ],
       }),
     ).toBe('[[rule:chain-lightning]] бьёт по [[character:2,Гарик из Тени]] и наносит 2 повреждения!');
+  });
+
+  it('единица повреждений берётся по флагу характеристики', () => {
+    const named = {
+      code: 'endurance',
+      type: 'characteristic',
+      spec: { type: 'characteristic' },
+    } as Rule;
+    const flagged = {
+      code: 'grit',
+      type: 'characteristic',
+      spec: { type: 'characteristic', damage_endurance: true },
+    } as Rule;
+
+    expect(
+      attackDamageService.enduranceValueOf(
+        { characteristics: [{ ruleCode: 'endurance', value: { base: 3, size: 0 } }] } as CharacterOverview,
+        [named],
+      ),
+    ).toEqual({ base: 1, size: 0 });
+    expect(
+      attackDamageService.enduranceValueOf(
+        { characteristics: [{ ruleCode: 'grit', value: { base: 4, size: 1 } }] } as CharacterOverview,
+        [flagged],
+      ),
+    ).toEqual({ base: 4, size: 1 });
+  });
+
+  it('остаток повреждений читается по флагу состояния', () => {
+    const states: CharacterStateValue[] = [
+      { stateRuleCode: 'accumulated-damage', dimensionalValue: { base: 1, size: 0 } },
+      { stateRuleCode: 'bruise', dimensionalValue: { base: 2, size: 0 } },
+    ];
+    const named = {
+      code: 'accumulated-damage',
+      type: 'state',
+      spec: { value_type: 'dimensional', aggregation: 'sum', effects: [] },
+    } as Rule;
+    const flagged = {
+      code: 'bruise',
+      type: 'state',
+      spec: { value_type: 'dimensional', aggregation: 'sum', damage_remainder: true, effects: [] },
+    } as Rule;
+
+    expect(attackDamageService.accumulatedDamageOf(states, [named])).toEqual({ base: 0, size: 0 });
+    expect(attackDamageService.accumulatedDamageOf(states, [flagged])).toEqual({ base: 2, size: 0 });
+  });
+
+  it('истощение от повреждений ищется по флагу состояния', () => {
+    const named = {
+      code: 'exhaustion',
+      type: 'state',
+      spec: { value_type: 'number', aggregation: 'sum', effects: [] },
+    } as Rule;
+    const flagged = {
+      code: 'fatigue',
+      type: 'state',
+      spec: { value_type: 'number', aggregation: 'sum', damage_exhaustion: true, effects: [] },
+    } as Rule;
+
+    expect(attackDamageService.exhaustionRule([named])).toBeNull();
+    expect(attackDamageService.exhaustionRule([flagged])?.code).toBe('fatigue');
+  });
+
+  it('воля ищется по флагу характеристики', () => {
+    const named = {
+      code: 'willpower',
+      type: 'characteristic',
+      spec: { type: 'characteristic' },
+    } as Rule;
+    const flagged = {
+      code: 'resolve',
+      type: 'characteristic',
+      spec: { type: 'characteristic', willpower: true },
+    } as Rule;
+
+    expect(attackDamageService.willpowerRule([named])).toBeNull();
+    expect(attackDamageService.willpowerRule([flagged])?.code).toBe('resolve');
+  });
+
+  it('ловкость неустойчивости и запасная инициатива ищутся по флагу', () => {
+    const named = {
+      code: 'dexterity',
+      type: 'characteristic',
+      spec: { type: 'characteristic' },
+    } as Rule;
+    const unstable = {
+      code: 'agility',
+      type: 'characteristic',
+      spec: { type: 'characteristic', unstable_roll: true },
+    } as Rule;
+    const initiative = {
+      code: 'awareness',
+      type: 'characteristic',
+      spec: { type: 'characteristic', initiative: true },
+    } as Rule;
+
+    expect(attackDamageService.unstableRollRule([named])).toBeNull();
+    expect(attackDamageService.unstableRollRule([unstable])?.code).toBe('agility');
+    expect(attackDamageService.initiativeRule([named])).toBeNull();
+    expect(attackDamageService.initiativeRule([initiative])?.code).toBe('awareness');
+  });
+
+  it('увечье ищется по флагу состояния', () => {
+    const named = {
+      code: 'maim',
+      type: 'state',
+      spec: { value_type: 'number', aggregation: 'independent', effects: [] },
+    } as Rule;
+    const flagged = {
+      code: 'crippled',
+      type: 'state',
+      spec: { value_type: 'number', aggregation: 'independent', maim: true, effects: [] },
+    } as Rule;
+
+    expect(attackDamageService.maimRule([named])).toBeNull();
+    expect(attackDamageService.maimRule([flagged])?.code).toBe('crippled');
+  });
+
+  it('кровопотеря ищется по флагу состояния', () => {
+    const named = {
+      code: 'blood-loss',
+      type: 'state',
+      spec: { value_type: 'number', aggregation: 'sum', effects: [] },
+    } as Rule;
+    const flagged = {
+      code: 'bleed',
+      type: 'state',
+      spec: { value_type: 'number', aggregation: 'sum', blood_loss: true, effects: [] },
+    } as Rule;
+
+    expect(attackDamageService.bloodLossRule([named])).toBeNull();
+    expect(attackDamageService.bloodLossRule([flagged])?.code).toBe('bleed');
   });
 });

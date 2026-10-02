@@ -5,8 +5,8 @@ import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
 import type { ChatAttachment } from '@/modules/Messages/Chat/Dto/ChatAttachment';
-import { CHECK_DEXTERITY_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
-import { LYING_STATE_CODE, UNSTABLE_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
+import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
+import { checkResolutionService } from '@/modules/Roleplay/Rule/init';
 import { checkRollService } from '@/modules/Roleplay/Game/Service/Instance/checkRollService';
 import { stateRuntimeEffectsService } from '@/modules/Roleplay/Character/init';
 import { addFlagState, removeStatesByCodes, setNumericState } from '@/modules/Roleplay/Game/Utils/combatStateWrite';
@@ -17,9 +17,12 @@ import { ROLL_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL
 export class UnstableApplyService {
   constructor(private readonly resolveGameApi: () => IGameApi) {}
 
-  current(version: CharacterVersion): number {
+  current(version: CharacterVersion, rules: Rule[]): number {
+    const code = attackDamageService.unstableRule(rules)?.code;
+    if (!code) return 0;
+
     return version.states
-      .filter((state) => state.stateRuleCode === UNSTABLE_STATE_CODE)
+      .filter((state) => state.stateRuleCode === code)
       .reduce((sum, state) => sum + (state.value ?? 0), 0);
   }
 
@@ -42,31 +45,43 @@ export class UnstableApplyService {
     ) => Promise<unknown>;
   }): Promise<null> {
     if (input.amount <= 0) return null;
-    if (input.version.states.some((state) => state.stateRuleCode === LYING_STATE_CODE)) return null;
-    const next = this.current(input.version) + input.amount;
+    const lyingCode = attackDamageService.lyingRule(input.rules)?.code;
+    if (lyingCode && input.version.states.some((state) => state.stateRuleCode === lyingCode)) return null;
+    const unstableCode = attackDamageService.unstableRule(input.rules)?.code;
+    if (!unstableCode) return null;
+    const next = this.current(input.version, input.rules) + input.amount;
     await setNumericState(
       this.resolveGameApi(),
       input.gameId,
       input.targetKey,
       input.version,
       input.rules,
-      UNSTABLE_STATE_CODE,
+      unstableCode,
       next,
     );
     const version = input.version;
-    const dexterity = stateRuntimeEffectsService
+    const checkCode = checkResolutionService.firstCheckCode(input.rules, 'unstable_check');
+    const characteristic = attackDamageService.unstableRollRule(input.rules);
+    if (!checkCode || !characteristic) return null;
+    const characteristicValue = stateRuntimeEffectsService
       .effectiveCharacteristicValues(version, input.rules)
-      .get('dexterity') ?? {
+      .get(characteristic.code) ?? {
       base: 3,
       size: 0,
     };
     const adv = stateRuntimeEffectsService.checkAdvantageFromStates(version, input.rules, {
       kind: 'characteristic',
-      code: 'dexterity',
+      code: characteristic.code,
     });
     const roll = checkRollService.rollNamedCheck(
-      checkRollService.namedCheckSpec('Ловкость (неустойчивость)', dexterity, adv, input.rules, input.targetKey),
-      CHECK_DEXTERITY_CODE,
+      checkRollService.namedCheckSpec(
+        `${characteristic.name} (неустойчивость)`,
+        characteristicValue,
+        adv,
+        input.rules,
+        input.targetKey,
+      ),
+      checkCode,
       { base: next, size: 0 },
       input.rng ?? Math.random,
       input.rules,
@@ -74,7 +89,7 @@ export class UnstableApplyService {
     );
     if (input.chatId !== null) {
       await input.sendMessage(
-        `${input.targetName} проходит проверку на Ловкость против Неустойчивости ${next}.`,
+        `${input.targetName} проходит проверку на ${characteristic.name} против Неустойчивости ${next}.`,
         [{ type: ROLL_ATTACHMENT_TYPE, payload: roll }],
         input.chatId,
         input.speaker,
@@ -82,9 +97,11 @@ export class UnstableApplyService {
     }
     if ((roll.check?.rating ?? 0) > 0) return null;
     await removeStatesByCodes(this.resolveGameApi(), input.gameId, input.targetKey, version, input.rules, [
-      UNSTABLE_STATE_CODE,
+      unstableCode,
     ]);
-    await addFlagState(this.resolveGameApi(), input.gameId, input.targetKey, input.rules, LYING_STATE_CODE);
+    if (lyingCode) {
+      await addFlagState(this.resolveGameApi(), input.gameId, input.targetKey, input.rules, lyingCode);
+    }
 
     return null;
   }

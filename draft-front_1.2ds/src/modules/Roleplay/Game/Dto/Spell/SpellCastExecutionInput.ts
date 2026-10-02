@@ -18,6 +18,7 @@ export interface SpellCastExecutionInput {
   currentActionPoints: DimensionalNumberValue;
   resolve: SpellCastResolveInput;
   checkCode: string | null;
+  castCheckCode: string | null;
   characteristicValue: DimensionalNumberValue;
   characteristicName: string;
   parameterPower: DimensionalNumberValue;

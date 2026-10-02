@@ -7,7 +7,6 @@ import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec';
 import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { checkResolutionService } from '@/modules/Roleplay/Rule/init';
-import { CHECK_HIT_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
 import { checkSuccessRatingService } from '@/modules/Roleplay/Rule/init';
 import { HIT_MIN_SUCCESS_SIZE } from '@/modules/Roleplay/Rule/Constant/Check/HIT_MIN_SUCCESS_SIZE';
 import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/init';
@@ -51,10 +50,13 @@ export class CheckRollService {
     result: DiceRollResult,
     checkCode: string,
     difficulty: DimensionalNumberValue,
-    checkName?: string,
+    checkName: string | undefined,
+    rules: Rule[],
   ): DiceRollResult {
+    const hitCheckCode = checkResolutionService.firstCheckCode(rules, 'hit_check');
+    const minSize = hitCheckCode !== '' && checkCode === hitCheckCode ? HIT_MIN_SUCCESS_SIZE : undefined;
     const outcome = checkSuccessRatingService.checkSuccessRating(this.successesOf(result), difficulty, {
-      minSize: checkCode === CHECK_HIT_CODE ? HIT_MIN_SUCCESS_SIZE : undefined,
+      minSize,
     });
 
     return {
@@ -65,6 +67,7 @@ export class CheckRollService {
         difficulty,
         passed: outcome.passed,
         rating: outcome.rating,
+        ...(minSize !== undefined ? { min_success_size: minSize } : {}),
       },
     };
   }
@@ -82,14 +85,10 @@ export class CheckRollService {
     const rolled = rollEngine.roll(spec, rng, rules, mechanics, attachedRuleCodes, []);
     const checkName = rules.find((rule) => rule.code === checkCode)?.name;
 
-    return this.withCheckOutcome(rolled, checkCode, difficulty, checkName);
+    return this.withCheckOutcome(rolled, checkCode, difficulty, checkName, rules);
   }
 
-  applyScoreAdjust(
-    result: DiceRollResult,
-    oneDelta: number,
-    faceDelta: number,
-  ): DiceRollResult {
+  applyScoreAdjust(result: DiceRollResult, oneDelta: number, faceDelta: number, rules: Rule[]): DiceRollResult {
     if (oneDelta === 0 && faceDelta === 0) return result;
     const context: RollMechanicContext = {
       diceCount: result.spec.diceCount,
@@ -115,10 +114,20 @@ export class CheckRollService {
     };
     if (!result.check) return next;
 
-    return this.withCheckOutcome(next, result.check.check_code, result.check.difficulty, result.check.check_name);
+    return this.withCheckOutcome(
+      next,
+      result.check.check_code,
+      result.check.difficulty,
+      result.check.check_name,
+      rules,
+    );
   }
 
-  applyFaceRemap(result: DiceRollResult, pairs: readonly { from: number; to: number }[]): DiceRollResult {
+  applyFaceRemap(
+    result: DiceRollResult,
+    pairs: readonly { from: number; to: number }[],
+    rules: Rule[],
+  ): DiceRollResult {
     if (pairs.length === 0) return result;
     const context: RollMechanicContext = {
       diceCount: result.spec.diceCount,
@@ -147,7 +156,13 @@ export class CheckRollService {
     };
     if (!result.check) return next;
 
-    return this.withCheckOutcome(next, result.check.check_code, result.check.difficulty, result.check.check_name);
+    return this.withCheckOutcome(
+      next,
+      result.check.check_code,
+      result.check.difficulty,
+      result.check.check_name,
+      rules,
+    );
   }
 
   /**
@@ -168,8 +183,8 @@ export class CheckRollService {
     const checkName = rules.find((rule) => rule.code === checkCode)?.name;
 
     return {
-      left: this.withCheckOutcome(leftRolled, checkCode, this.successesOf(rightRolled), checkName),
-      right: this.withCheckOutcome(rightRolled, checkCode, this.successesOf(leftRolled), checkName),
+      left: this.withCheckOutcome(leftRolled, checkCode, this.successesOf(rightRolled), checkName, rules),
+      right: this.withCheckOutcome(rightRolled, checkCode, this.successesOf(leftRolled), checkName, rules),
     };
   }
 }

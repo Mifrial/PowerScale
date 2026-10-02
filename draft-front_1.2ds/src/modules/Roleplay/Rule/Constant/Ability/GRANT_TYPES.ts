@@ -17,5 +17,6 @@ export const GRANT_TYPES: { label: string; value: Grant['type'] }[] = [
   { label: 'Множитель дистанции процесса', value: 'process_distance_multiplier' },
   { label: 'Модификатор состояния', value: 'state_modify' },
   { label: 'Преимущество на проверку', value: 'check_advantage' },
+  { label: 'Эффективность проверки', value: 'check_efficiency' },
   { label: 'Стартовый капитал (деньги)', value: 'money' },
 ];

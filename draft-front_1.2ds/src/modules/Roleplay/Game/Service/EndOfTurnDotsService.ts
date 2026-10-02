@@ -2,12 +2,7 @@ import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/Characte
 import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
 import type { StateSpec } from '@/modules/Roleplay/Rule/Dto/State/StateSpec';
 import { characterOverviewService } from '@/modules/Roleplay/Character/init';
-import {
-  EXHAUSTION_STATE_CODE,
-  STUNNED_STATE_CODE,
-  SHOCK_STATE_CODE,
-  WOUND_STATE_CODE,
-} from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
+import { WOUND_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
 import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
 
 import { exhaustionCheckService } from '@/modules/Roleplay/Game/Service/Instance/exhaustionCheckService';
@@ -23,7 +18,6 @@ import { damageTypeHooksService } from '@/modules/Roleplay/Game/Service/Instance
 import { woundInstanceService } from '@/modules/Roleplay/Game/Service/Instance/woundInstanceService';
 
 import { damageTypeSpecService } from '@/modules/Roleplay/Rule/init';
-import { ACCUMULATED_DAMAGE_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
 
 import type { ApplyEndOfTurnDotsArgs } from '@/modules/Roleplay/Game/Dto/ApplyEndOfTurnDotsArgs';
 export class EndOfTurnDotsService {
@@ -34,7 +28,7 @@ export class EndOfTurnDotsService {
     version: CharacterVersion,
     amount: number,
   ): Promise<void> {
-    const rule = args.rules.find((item) => item.code === ACCUMULATED_DAMAGE_STATE_CODE && item.type === 'state');
+    const rule = attackDamageService.accumulatedDamageRule(args.rules);
     if (!rule) return;
     const index = version.states.findIndex((state) => state.stateRuleCode === rule.code);
     if (amount <= 0) {
@@ -49,6 +43,20 @@ export class EndOfTurnDotsService {
       await this.resolveGameApi().replaceCombatState(args.gameId, args.targetKey, index, state);
     } else {
       await this.resolveGameApi().addCombatState(args.gameId, args.targetKey, state);
+    }
+  }
+
+  private async writeHookStates(
+    args: ApplyEndOfTurnDotsArgs,
+    version: CharacterVersion,
+    writes: { stateCode: string; amount: number }[],
+  ): Promise<void> {
+    const totals = new Map<string, number>();
+    for (const write of writes) {
+      totals.set(write.stateCode, (totals.get(write.stateCode) ?? 0) + write.amount);
+    }
+    for (const [code, amount] of totals) {
+      await this.addNumericState(args, version, code, amount);
     }
   }
 
@@ -149,15 +157,9 @@ export class EndOfTurnDotsService {
         if (!sent) throw new Error('Не удалось отправить сообщение о тике');
       }
       await this.writeAccumulatedDamage(args, version, result.remainingHpDamage);
-      await this.addNumericState(args, version, EXHAUSTION_STATE_CODE, result.exhaustion);
-      await this.addNumericState(
-        args,
-        version,
-        WOUND_STATE_CODE,
-        (result.wound ?? 0) + (result.cuttingWound ?? 0),
-      );
-      await this.addNumericState(args, version, STUNNED_STATE_CODE, result.stun ?? 0);
-      await this.addNumericState(args, version, SHOCK_STATE_CODE, result.shock ?? 0);
+      const exhaustionCode = attackDamageService.exhaustionRule(args.rules)?.code;
+      if (exhaustionCode) await this.addNumericState(args, version, exhaustionCode, result.exhaustion);
+      await this.writeHookStates(args, version, result.stateWrites);
       if (result.exhaustion > 0) {
         const checked = await exhaustionCheckService.applyExhaustionCheck({
           version,
@@ -190,7 +192,11 @@ export class EndOfTurnDotsService {
             hpDamage: result.hpDamage,
             cuttingWound: result.cuttingWound,
             woundFromHit: result.wound,
-            overlayExhaustion: injuryCheckService.overlayStateTotal(version, args.rules, EXHAUSTION_STATE_CODE),
+            overlayExhaustion: injuryCheckService.overlayStateTotal(
+              version,
+              args.rules,
+              attackDamageService.exhaustionRule(args.rules)?.code ?? '',
+            ),
             endurance: Math.max(1, args.endurance),
             remainingSr: result.remainingSr,
             damageTypeCode: step.damageTypeCode,

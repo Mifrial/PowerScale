@@ -54,7 +54,7 @@ describe('Выпад и противодействие защите', () => {
     expect(defenseCounterService.hitModifier(pending, 'npc:1', 'block')?.delta).toBe(-1);
     expect(defenseCounterService.hitModifier(pending, 'npc:2', 'dodge')).toBeNull();
     expect(
-      actionEffectService.afterDeclaredAction(pending, 1, { isAttack: false, component: 'strike', baseCost: 1 }),
+      actionEffectService.afterDeclaredAction(pending, 1, { isAttack: false, component: 'strike', baseCost: 1 }, 'action-points'),
     ).toEqual(pending);
   });
 

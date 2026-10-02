@@ -66,6 +66,13 @@ function fromSpec(value: RuleSpec | null): {
   useBaseFrom: boolean;
   baseFromCode: string | null;
   baseFromSources: string[];
+  damageEndurance: boolean;
+  willpower: boolean;
+  concentrationThreshold: boolean;
+  concentrationToken: boolean;
+  unstableRoll: boolean;
+  initiative: boolean;
+  dodgeSoak: boolean;
 } {
   const spec = value && 'type' in value && value.type === 'characteristic' ? (value as CharacteristicSpec) : null;
   const parsed = parseFormula(spec?.formula);
@@ -81,6 +88,13 @@ function fromSpec(value: RuleSpec | null): {
     useBaseFrom: Boolean(spec?.base_from?.characteristic_code),
     baseFromCode: spec?.base_from?.characteristic_code ?? null,
     baseFromSources: spec?.base_from?.source_codes ?? [],
+    damageEndurance: spec?.damage_endurance === true,
+    willpower: spec?.willpower === true,
+    concentrationThreshold: spec?.concentration_threshold === true,
+    concentrationToken: spec?.concentration_token === true,
+    unstableRoll: spec?.unstable_roll === true,
+    initiative: spec?.initiative === true,
+    dodgeSoak: spec?.dodge_soak === true,
   };
 }
 
@@ -96,6 +110,13 @@ const automaticValue = ref(loaded.automaticValue);
 const useBaseFrom = ref(loaded.useBaseFrom);
 const baseFromCode = ref(loaded.baseFromCode);
 const baseFromSources = ref(loaded.baseFromSources);
+const damageEndurance = ref(loaded.damageEndurance);
+const willpower = ref(loaded.willpower);
+const concentrationThreshold = ref(loaded.concentrationThreshold);
+const concentrationToken = ref(loaded.concentrationToken);
+const unstableRoll = ref(loaded.unstableRoll);
+const initiative = ref(loaded.initiative);
+const dodgeSoak = ref(loaded.dodgeSoak);
 
 const availableCharacteristics = computed(() => {
   return props.rules.filter(
@@ -130,6 +151,13 @@ const specToEmit = computed<CharacteristicSpec>(() => {
   if (useBaseFrom.value && baseFromCode.value) {
     spec.base_from = { characteristic_code: baseFromCode.value, source_codes: [...baseFromSources.value] };
   }
+  if (damageEndurance.value) spec.damage_endurance = true;
+  if (willpower.value) spec.willpower = true;
+  if (concentrationThreshold.value) spec.concentration_threshold = true;
+  if (concentrationToken.value) spec.concentration_token = true;
+  if (unstableRoll.value) spec.unstable_roll = true;
+  if (initiative.value) spec.initiative = true;
+  if (dodgeSoak.value) spec.dodge_soak = true;
 
   return spec;
 });
@@ -167,6 +195,25 @@ watch(specToEmit, (value) => emit('update:spec', cloneData(value)), { deep: true
           />
           <v-switch v-model="hasFormula" label="Производная характеристика" color="primary" hide-details class="mt-2" />
           <v-switch v-model="automatic" label="Автоматическое получение" color="primary" hide-details class="mt-2" />
+          <v-switch v-model="damageEndurance" label="Единица повреждений" color="primary" hide-details class="mt-2" />
+          <v-switch v-model="willpower" label="Сила воли" color="primary" hide-details class="mt-2" />
+          <v-switch
+            v-model="concentrationThreshold"
+            label="Порог концентрации"
+            color="primary"
+            hide-details
+            class="mt-2"
+          />
+          <v-switch
+            v-model="concentrationToken"
+            label="Жетон концентрации"
+            color="primary"
+            hide-details
+            class="mt-2"
+          />
+          <v-switch v-model="unstableRoll" label="Бросок при неустойчивости" color="primary" hide-details class="mt-2" />
+          <v-switch v-model="initiative" label="Запасная инициатива" color="primary" hide-details class="mt-2" />
+          <v-switch v-model="dodgeSoak" label="Поглощение уклонения" color="primary" hide-details class="mt-2" />
           <v-switch
             v-if="automatic"
             v-model="customAutomatic"

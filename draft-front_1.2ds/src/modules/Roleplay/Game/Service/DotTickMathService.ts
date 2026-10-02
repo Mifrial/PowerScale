@@ -6,7 +6,7 @@ import type { PoisonSpec } from '@/modules/Roleplay/Rule/Dto/Poison/PoisonSpec';
 import type { StateSpec } from '@/modules/Roleplay/Rule/Dto/State/StateSpec';
 import type { StateDecay } from '@/modules/Roleplay/Rule/Dto/State/StateDecay';
 import type { StatePeriodicity } from '@/modules/Roleplay/Rule/Dto/State/Periodicity';
-import { BURNING_STATE_CODE, POISONING_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
+import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
 
 import type { DotAdvance } from '@/modules/Roleplay/Game/Dto/DotAdvance';
 export class DotTickMathService {
@@ -64,6 +64,8 @@ export class DotTickMathService {
   private burningDot(state: CharacterStateValue, rule: Rule, spec: StateSpec): DotAdvance {
     const effect = spec.effects?.find((item) => item.type === 'damage_over_time');
     if (!effect) return { kind: 'skip' };
+    const damageTypeCode = effect.damage_type_code;
+    if (!damageTypeCode) return { kind: 'skip' };
     const period = this.turnPeriod(effect.periodicity ?? { kind: 'literal', value: 1, step: 'turn' });
     if (period == null) return { kind: 'skip' };
     const strength = state.dimensionalValue;
@@ -78,7 +80,7 @@ export class DotTickMathService {
       kind: 'tick',
       next: remaining,
       strength,
-      damageTypeCode: 'fire',
+      damageTypeCode,
       label: rule.name,
     };
   }
@@ -114,13 +116,13 @@ export class DotTickMathService {
   advanceDotState(state: CharacterStateValue, rules: Rule[]): DotAdvance {
     const rule = rules.find((item) => item.code === state.stateRuleCode && item.type === 'state');
     if (!rule) return { kind: 'skip' };
-    if (rule.code === BURNING_STATE_CODE) {
+    if (rule.code === attackDamageService.burningRule(rules)?.code) {
       const spec = this.asStateSpec(rule);
       if (!spec) return { kind: 'skip' };
 
       return this.burningDot(state, rule, spec);
     }
-    if (rule.code === POISONING_STATE_CODE) return this.poisoningDot(state, rule, rules);
+    if (rule.code === attackDamageService.poisoningRule(rules)?.code) return this.poisoningDot(state, rule, rules);
 
     return { kind: 'skip' };
   }

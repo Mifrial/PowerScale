@@ -9,16 +9,8 @@ import { GameRealtimeApiError } from '@/modules/Roleplay/Game/Service/GameRealti
 export class GameRealtimeApi implements IGameRealtimePort {
   constructor(private readonly engine: Engine) {}
 
-  async sync(
-    gameId: number,
-    request: GameRealtimeSyncRequest,
-    signal?: AbortSignal,
-  ): Promise<GameRealtimeSyncResult> {
-    const response = await this.engine.runAction<GameRealtimeSyncResult>(
-      'game.sync',
-      { gameId, ...request },
-      signal,
-    );
+  async sync(gameId: number, request: GameRealtimeSyncRequest, signal?: AbortSignal): Promise<GameRealtimeSyncResult> {
+    const response = await this.engine.runAction<GameRealtimeSyncResult>('game.sync', { gameId, ...request }, signal);
     if (!response.success || response.data === null) {
       if (response.error) throw GameRealtimeApiError.fromActionError(response.error);
 

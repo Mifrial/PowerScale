@@ -19,5 +19,7 @@ export interface ApplyAttackDamageResult {
   wound: number | null;
   knockout: boolean;
   cuttingWound: number | null;
+  /** Куда записать числа apply-хуков. Одинаковый код складывается перед записью. */
+  stateWrites: { stateCode: string; amount: number }[];
   layers: AttackResistanceLayer[];
 }

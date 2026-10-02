@@ -12,6 +12,7 @@ import {
   asActionAbilitySpec,
   asProcessAbilitySpec,
   actionOdCost,
+  turnResourceCode,
   findRuleByRef,
 } from '@/modules/Roleplay/Game/Utils/combatActions';
 import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/actionEffectService';
@@ -34,7 +35,7 @@ export class AttackActionSourceService {
           ruleCode: rule.code,
           code: rule.code,
           name: rule.name,
-          odCost: actionSpec ? actionOdCost(actionSpec.action_components) : 0,
+          odCost: actionSpec ? actionOdCost(actionSpec.action_components, 0, turnResourceCode(rules)) : 0,
           effects: actionEffectService.effectsOf(rule),
           isAttack: true,
           isProcess: processSpec !== null,

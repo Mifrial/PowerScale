@@ -104,6 +104,14 @@ export type Grant =
       permanent?: boolean;
     }
   | {
+      /** Сдвиг эффективности проверки (грань успеха), не преимущество куба. */
+      type: 'check_efficiency';
+      amount: number;
+      check_codes: string[];
+      source_code?: string;
+      permanent?: boolean;
+    }
+  | {
       /**
        * Стартовый капитал от особенности богатства: значение = apply(fixed, percent% от лимита денег игры).
        * max — берётся больший из двух (Обеспеченный/Преуспевающий/Богатый), min — меньший (Нищий).

@@ -29,6 +29,4 @@ interface GameRuntimeEntityFullProjection extends GameRuntimeEntityProjectionBas
 }
 
 /** Visibility-safe Game projection; summary никогда не содержит полный лист. */
-export type GameRuntimeEntityProjection =
-  | GameRuntimeEntitySummaryProjection
-  | GameRuntimeEntityFullProjection;
+export type GameRuntimeEntityProjection = GameRuntimeEntitySummaryProjection | GameRuntimeEntityFullProjection;

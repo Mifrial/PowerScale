@@ -7,4 +7,6 @@ export const KNOWN_MECHANIC_PAYLOAD_TYPES = {
   roll_score_adjust: true,
   injury_efficiency: true,
   exhaustion_wound: true,
+  state_write: true,
+  blood_clotting: true,
 } as const satisfies Record<MechanicPayload['type'], true>;

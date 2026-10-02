@@ -8,7 +8,6 @@ import type { RollMechanicContext } from '@/modules/Roleplay/Game/Dto/RollMechan
 import type { MechanicEngine } from '@/modules/Roleplay/Mechanic/init';
 import { ROLL_EVENTS } from '@/modules/Roleplay/Mechanic/init';
 import {
-  ROLL_RULE_CODE,
   ROLL_DEFAULT_EFFICIENCY,
   ROLL_DEFAULT_DIE_SIZE,
 } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_RULE_CODE';
@@ -27,9 +26,10 @@ export class RollEngine {
 
   /** Дефолты спеки из правила «Бросок» ревизии (нейтральные параметры — как в прежнем resolveFromRevision). */
   resolveDefaults(rules: Rule[], spec: DiceRollSpec): DiceRollSpec {
-    const rule = rules.find((candidate) => candidate.code === ROLL_RULE_CODE);
-    const payload = rule?.mechanics.find((row) => row.mechanicPayload?.type === 'roll')?.mechanicPayload;
-    if (!rule || !payload || payload.type !== 'roll') return spec;
+    const payload = rules
+      .flatMap((candidate) => candidate.mechanics)
+      .find((row) => row.mechanicPayload?.type === 'roll')?.mechanicPayload;
+    if (!payload || payload.type !== 'roll') return spec;
     const data = payload.data;
 
     return {
@@ -71,8 +71,9 @@ export class RollEngine {
 
     // «Всегда в силе» у голого броска — sub_mechanics правила «Бросок» (помехи/преимущества).
     // Проверка передаёт коды привязанных правил в extraRuleCodes и пустой includeCodes.
-    const rollRule = rules.find((candidate) => candidate.code === ROLL_RULE_CODE);
-    const rollPayload = rollRule?.mechanics.find((row) => row.mechanicPayload?.type === 'roll')?.mechanicPayload;
+    const rollPayload = rules
+      .flatMap((candidate) => candidate.mechanics)
+      .find((row) => row.mechanicPayload?.type === 'roll')?.mechanicPayload;
     const includeCodes =
       subMechanicCodes !== undefined
         ? subMechanicCodes

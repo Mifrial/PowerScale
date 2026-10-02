@@ -4,6 +4,7 @@ import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOv
 import type { CombatActionOption } from '@/modules/Roleplay/Game/Utils/combatActions';
 import {
   actionOdCost,
+  turnResourceCode,
   actionUsesChosenCost,
   asActionAbilitySpec,
   asProcessAbilitySpec,
@@ -43,7 +44,7 @@ export class ActionLaunchCatalogService {
       const odCost = woundActionLaunchService.isBandage(rule.code)
         ? woundActionLaunchService.bandageOd(input.actorVersion, input.woundOverlay)
         : spec
-          ? actionOdCost(spec.action_components)
+          ? actionOdCost(spec.action_components, 0, turnResourceCode(input.rules))
           : 0;
       const option: CombatActionOption = {
         ruleCode: rule.code,
@@ -57,6 +58,7 @@ export class ActionLaunchCatalogService {
         isProcess: process !== null,
         process: process ?? undefined,
         operations: spec?.operations,
+        combatAction: spec?.combat_action,
       };
 
       return [option];

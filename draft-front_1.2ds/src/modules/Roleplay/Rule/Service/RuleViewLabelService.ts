@@ -169,6 +169,8 @@ export class RuleViewLabelService {
         return `Состояние «${this.ruleName(rules, grant.state_code)}»: ${this.formula(grant.amount, rules)} (${this.ruleName(rules, grant.source_code)})`;
       case 'check_advantage':
         return `Преимущество на проверки (${grant.check_codes.join(', ') || '—'}): ${grant.amount >= 0 ? '+' : ''}${grant.amount}`;
+      case 'check_efficiency':
+        return `Эффективность проверок (${grant.check_codes.join(', ') || '—'}): ${grant.amount >= 0 ? '+' : ''}${grant.amount}`;
       case 'money':
         return `Стартовый капитал: ${grant.fixed} гз или ${grant.percent}% от лимита (${grant.apply === 'max' ? 'большее' : 'меньшее'})`;
     }

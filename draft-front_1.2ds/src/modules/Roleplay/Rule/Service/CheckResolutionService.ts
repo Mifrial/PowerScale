@@ -1,18 +1,10 @@
+import type { CharacteristicSpec } from '@/modules/Roleplay/Rule/Dto/CharacteristicSpec';
 import type { CheckSpec } from '@/modules/Roleplay/Rule/Dto/Check/CheckSpec';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import {
   COMMUNICATION_CHECK_DOMAIN_REF,
   CHECK_COMMUNICATION_CODE,
-  CHECK_HIT_CODE,
-  CHECK_SIMPLE_CODE,
 } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
-import {
-  CONCENTRATION_TOKEN_ANCESTOR_CODES,
-  CONCENTRATION_TOKEN_CHARACTERISTIC_CODES,
-} from '@/modules/Roleplay/Rule/Constant/Check/CONCENTRATION_TOKEN_CODES';
-
-/** Код правила «Бросок» (тот же, что Game ROLL_RULE_CODE) — без импорта Game. */
-const ROLL_RULE_CODE = 'roll';
 
 export class CheckResolutionService {
   asCheckSpec(rule: Rule | undefined): CheckSpec | null {
@@ -69,9 +61,30 @@ export class CheckResolutionService {
 
   /** Правило можно повесить на проверку: есть механика, это не сама проверка и не «Бросок». */
   isCheckAttachableRule(rule: Rule): boolean {
-    if (rule.type === 'check' || rule.code === ROLL_RULE_CODE) return false;
+    if (rule.type === 'check' || rule.mechanics.some((row) => row.mechanicPayload?.type === 'roll')) return false;
 
     return rule.mechanics.length > 0;
+  }
+
+  /** Первая проверка с флагом, иначе пустая строка. */
+  firstCheckCode(rules: Rule[], flag: 'ordinary_root' | 'unstable_check' | 'hit_check'): string {
+    const found = rules.find((rule) => this.asCheckSpec(rule)?.[flag] === true);
+
+    return found?.code ?? '';
+  }
+
+  /** Первая проверка с ordinary_root, иначе пустая строка. */
+  ordinaryRootCode(rules: Rule[]): string {
+    return this.firstCheckCode(rules, 'ordinary_root');
+  }
+
+  /** У проверки или предка включён флаг. */
+  ancestorHasFlag(checkCode: string, rules: Rule[], flag: 'concentration_token' | 'willpower'): boolean {
+    const byCode = new Map(rules.map((rule) => [rule.code, rule]));
+
+    return this.checkAncestorCodes(checkCode, rules).some(
+      (code) => this.asCheckSpec(byCode.get(code))?.[flag] === true,
+    );
   }
 
   /** Код проверки по характеристике (`check-strength`) или корень простой проверки. */
@@ -81,17 +94,17 @@ export class CheckResolutionService {
       if (rules.some((rule) => rule.type === 'check' && rule.code === checkCode)) return checkCode;
     }
 
-    return CHECK_SIMPLE_CODE;
+    return this.ordinaryRootCode(rules);
   }
 
   resolveCheckCodeFromRuleCode(ruleCode: string | null | undefined, rules: Rule[]): string {
-    if (!ruleCode) return CHECK_SIMPLE_CODE;
+    if (!ruleCode) return this.ordinaryRootCode(rules);
     const rule = rules.find((candidate) => candidate.code === ruleCode);
-    if (!rule) return CHECK_SIMPLE_CODE;
+    if (!rule) return this.ordinaryRootCode(rules);
     if (rule.type === 'check') return rule.code;
     if (rule.type === 'characteristic') return this.resolveCheckCodeForCharacteristic(rule.code, rules);
 
-    return CHECK_SIMPLE_CODE;
+    return this.ordinaryRootCode(rules);
   }
 
   resolveCheckEfficiency(checkCode: string, rules: Rule[], fallback: number): number {
@@ -100,8 +113,9 @@ export class CheckResolutionService {
       const value = this.asCheckSpec(byCode.get(code))?.default_efficiency;
       if (value != null) return value;
     }
-    const roll = rules.find((rule) => rule.code === ROLL_RULE_CODE);
-    const payload = roll?.mechanics.find((row) => row.mechanicPayload?.type === 'roll')?.mechanicPayload;
+    const payload = rules
+      .flatMap((rule) => rule.mechanics)
+      .find((row) => row.mechanicPayload?.type === 'roll')?.mechanicPayload;
     if (payload?.type === 'roll' && payload.data.efficiency != null) {
       return payload.data.efficiency;
     }
@@ -124,16 +138,16 @@ export class CheckResolutionService {
   }
 
   /**
-   * Жетон концентрации: попадание (включая предков), семейство восприятия/интеллекта/общения
+   * Жетон концентрации: предок с concentration_token
    * или фактическая характеристика после override.
    */
   isConcentrationTokenCheck(checkCode: string, rules: Rule[], characteristicOverride?: string | null): boolean {
-    const ancestors = this.checkAncestorCodes(checkCode, rules);
-    if (ancestors.includes(CHECK_HIT_CODE)) return true;
-    if (CONCENTRATION_TOKEN_ANCESTOR_CODES.some((code) => ancestors.includes(code))) return true;
+    if (this.ancestorHasFlag(checkCode, rules, 'concentration_token')) return true;
     const characteristic = this.resolveCheckCharacteristicCode(checkCode, rules, characteristicOverride);
     if (!characteristic) return false;
+    const rule = rules.find((item) => item.code === characteristic && item.type === 'characteristic');
+    const spec = rule?.spec as CharacteristicSpec | undefined;
 
-    return (CONCENTRATION_TOKEN_CHARACTERISTIC_CODES as readonly string[]).includes(characteristic);
+    return spec?.concentration_token === true;
   }
 }

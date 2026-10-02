@@ -4,7 +4,7 @@ import type { InjuryRollInput } from '@/modules/Roleplay/Game/Dto/InjuryRollInpu
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { INJURY_DETAILS_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Injury/INJURY_DETAILS_ATTACHMENT_TYPE';
 import { ROLL_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ATTACHMENT_TYPE';
-import { MAIM_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
+import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
 import type { IGameApi } from '@/modules/Roleplay/Game/Interface/IGameApi';
 import { formatInjuryReceivedMessage } from '@/modules/Roleplay/Game/Utils/injuryCheckMessage';
 import { injuryRollService } from '@/modules/Roleplay/Game/Service/Instance/injuryRollService';
@@ -57,7 +57,7 @@ export class InjuryCheckService {
       return { roll, overlay: null, skipped: true };
     }
     if (injury.strength > 0) {
-      const maimRule = args.rules.find((rule) => rule.code === MAIM_STATE_CODE && rule.type === 'state');
+      const maimRule = attackDamageService.maimRule(args.rules);
       if (maimRule) {
         await this.resolveGameApi().addCombatState(args.gameId, args.targetKey, {
           stateRuleCode: maimRule.code,

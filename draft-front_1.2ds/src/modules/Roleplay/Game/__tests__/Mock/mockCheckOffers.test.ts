@@ -252,6 +252,7 @@ describe('mockCheckOffers: handshake pairwise', () => {
         targetResistanceAmount: 0,
         parameterPower: { base: 4, size: 0 },
         checkCode: 'check-intellect',
+        castCheckCode: 'check-spell-cast',
         characteristicValue: { base: 5, size: 0 },
         characteristicName: 'Интеллект',
         touchActionCode: 'simple-touch',

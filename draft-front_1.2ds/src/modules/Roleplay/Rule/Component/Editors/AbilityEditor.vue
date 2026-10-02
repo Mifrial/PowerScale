@@ -15,7 +15,7 @@ import type { KeywordRef } from '@/modules/Roleplay/Rule/Dto/Ability/KeywordRef'
 import type { SourceRef } from '@/modules/Roleplay/Rule/Dto/Ability/SourceRef';
 import { ABILITY_TYPE_LABELS } from '@/modules/Roleplay/Rule/Constant/Ability/ABILITY_TYPE_LABELS';
 import { ABILITY_SPEC_FIELDS } from '@/modules/Roleplay/Rule/Constant/Ability/ABILITY_SPEC_FIELDS';
-import { ACTION_POINTS_RESOURCE_CODE } from '@/modules/Roleplay/Rule/Constant/Ability/ACTION_POINTS_RESOURCE_CODE';
+import type { ResourceSpec } from '@/modules/Roleplay/Rule/Dto/ResourceSpec';
 import { abilitySpecService } from '@/modules/Roleplay/Rule/Service/Instance/abilitySpecService';
 import { ruleReferenceService } from '@/modules/Roleplay/Rule/Service/Instance/ruleReferenceService';
 import RuleEditorBase from '@/modules/Roleplay/Rule/Component/Editors/RuleEditorBase.vue';
@@ -265,7 +265,11 @@ function setType(value: string | null) {
     emit('update:keywordIds', abilitySpecService.syncTypeTags(type, props.keywordIds, catalogKeywords.value));
   }
   if (type === 'spell' || type === 'action') {
-    innerSpec.value = abilitySpecService.ensureActionPointCost(innerSpec.value, type === 'spell');
+    innerSpec.value = abilitySpecService.ensureActionPointCost(
+      innerSpec.value,
+      type === 'spell',
+      turnResourceCode.value,
+    );
   }
 }
 
@@ -296,14 +300,29 @@ onMounted(async () => {
     });
   }
   if ((innerSpec.value.type === 'spell' || innerSpec.value.type === 'action') && !hasActionPointCost()) {
-    innerSpec.value = abilitySpecService.ensureActionPointCost(innerSpec.value, innerSpec.value.type === 'spell');
+    innerSpec.value = abilitySpecService.ensureActionPointCost(
+      innerSpec.value,
+      innerSpec.value.type === 'spell',
+      turnResourceCode.value,
+    );
   }
+});
+
+const turnResourceCode = computed(() => {
+  const rule = props.rules.find((candidate) => {
+    if (candidate.type !== 'resource') return false;
+    const spec = candidate.spec as ResourceSpec | undefined;
+
+    return spec?.auto_add === true;
+  });
+
+  return rule?.code ?? '';
 });
 
 function hasActionPointCost(): boolean {
   return innerSpec.value.action_components.some(
     (c): c is Extract<AbilitySpecDraft['action_components'][number], { type: 'resource' }> =>
-      c.type === 'resource' && c.resource_code === ACTION_POINTS_RESOURCE_CODE,
+      c.type === 'resource' && c.resource_code === turnResourceCode.value,
   );
 }
 </script>
@@ -535,6 +554,7 @@ function hasActionPointCost(): boolean {
             :items="items"
             :keywords="keywords"
             :is-spell="isSpell"
+            :turn-resource-code="turnResourceCode"
           />
         </v-expansion-panel-text>
       </v-expansion-panel>
@@ -546,6 +566,7 @@ function hasActionPointCost(): boolean {
             :model-value="innerSpec.process ?? null"
             @update:model-value="(v) => patchSpec('process', v)"
             :resources="resources"
+            :turn-resource-code="turnResourceCode"
           />
         </v-expansion-panel-text>
       </v-expansion-panel>

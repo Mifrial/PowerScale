@@ -10,6 +10,7 @@ import type { GameRuntimeEntityProjection } from '@/modules/Roleplay/Game/Dto/Ga
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { GameInitiative, GameInitiativeParticipant } from '@/modules/Roleplay/Game/Dto/GameInitiative';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
+import type { MagicPathSpec } from '@/modules/Roleplay/Rule/Dto/MagicPath/MagicPathSpec';
 import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import InitiativeDialog from '@/modules/Roleplay/Game/Component/InitiativeDialog.vue';
 import type { ChatMessage } from '@/modules/Messages/Chat/Dto/ChatMessage';
@@ -23,10 +24,8 @@ import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance
 import { concentrationTokenService } from '@/modules/Roleplay/Game/Service/Instance/concentrationTokenService';
 import { CONCENTRATION_TOKEN_ASK_INJECT_KEY } from '@/modules/Roleplay/Game/Constant/CONCENTRATION_TOKEN_ASK_INJECT_KEY';
 
-import { ACTION_POINTS_CODE } from '@/modules/Roleplay/Game/Constant/Combat/ACTION_POINTS_CODE';
-
+import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
 import { bloodLossService } from '@/modules/Roleplay/Game/Service/Instance/bloodLossService';
-import { ACCUMULATED_DAMAGE_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
 
 import { stateRuntimeEffectsService } from '@/modules/Roleplay/Character/init';
 
@@ -39,7 +38,7 @@ import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/ac
 import {
   asActionAbilitySpec,
   asProcessAbilitySpec,
-  WAIT_ACTION_CODE,
+  combatActionRule,
   findRuleByRef,
 } from '@/modules/Roleplay/Game/Utils/combatActions';
 import type { CombatActionOption } from '@/modules/Roleplay/Game/Utils/combatActions';
@@ -170,7 +169,7 @@ const activeActionPoints = computed(() =>
   activeParticipantKey.value ? (actionPointsByEntity.value.get(activeParticipantKey.value) ?? 0) : 0,
 );
 const waitRule = computed(
-  () => props.rules.find((rule) => rule.code === WAIT_ACTION_CODE && rule.type === 'ability') ?? null,
+  () => combatActionRule(props.rules, 'wait') ?? null,
 );
 const waitAction = computed(() => {
   const rule = waitRule.value;
@@ -417,11 +416,9 @@ async function refillActionPoints(entityKey: CombatEntityKey): Promise<void> {
   if (!version) return;
   const ap = combatCardModelService.combatActionPoints(version, props.rules);
   if (!ap) return;
-  const resource = version.resources.find((item) => {
-    const rule = props.rules.find((candidate) => candidate.code === item.ruleCode);
-
-    return rule?.code === ACTION_POINTS_CODE;
-  });
+  const rule = combatCardModelService.turnResourceRule(props.rules);
+  if (!rule) return;
+  const resource = version.resources.find((item) => item.ruleCode === rule.code);
   if (!resource) return;
   await getGameApi().setCombatResource(props.gameId, entityKey, resource.ruleCode, {
     base: ap.max,
@@ -442,7 +439,7 @@ async function refillConcentration(entityKey: CombatEntityKey): Promise<void> {
   );
   const version = model.effectiveVersion;
   if (!version) return;
-  await concentrationTokenService.refillIfUnused(getGameApi(), props.gameId, entityKey, version, overlay);
+  await concentrationTokenService.refillIfUnused(getGameApi(), props.gameId, entityKey, version, overlay, props.rules);
 }
 
 async function refillParticipants(keys: string[]): Promise<void> {
@@ -666,7 +663,7 @@ async function decayCoreDeviation(entityKey: CombatEntityKey): Promise<void> {
   if (!version) {
     return;
   }
-  const patches = spellDeviationService.decayPatches(version.states);
+  const patches = spellDeviationService.decayPatches(version.states, props.rules);
   if (patches.length === 0) {
     return;
   }
@@ -914,7 +911,15 @@ async function continueSustain(power: DimensionalNumberValue): Promise<void> {
     runtimeProjectionOf(spell.casterKey),
   ).effectiveVersion;
   const overview = version ? characterOverviewService.build(version, props.rules) : null;
-  const maxPower = spellCastOptionsService.defaultUsedPower(overview, version?.states ?? [], spell.sourceKey);
+  const pathRule = spell.pathCode ? findRuleByRef(props.rules, spell.pathCode) : null;
+  const pathSpec = pathRule?.spec?.type === 'magic_path' ? (pathRule.spec as MagicPathSpec) : null;
+  const maxPower = spellCastOptionsService.defaultUsedPower(
+    overview,
+    version?.states ?? [],
+    spell.sourceKey,
+    pathSpec?.power_characteristic_code ?? null,
+    props.rules,
+  );
   const clamped = spellCastDifficultyService.clampToAtMost(power, maxPower);
   const spec = spellCastDifficultyService.asSpellAbilitySpec(findRuleByRef(props.rules, spell.spellCode));
   const requiredPower = spec
@@ -942,11 +947,8 @@ async function continueSustain(power: DimensionalNumberValue): Promise<void> {
 
 async function clearAccumulatedDamage(entityKey: string): Promise<void> {
   const states = runtimeProjectionOf(entityKey as CombatEntityKey)?.version?.states ?? [];
-  const index = states.findIndex((state) => {
-    const rule = props.rules.find((candidate) => candidate.code === state.stateRuleCode);
-
-    return rule?.type === 'state' && rule.code === ACCUMULATED_DAMAGE_STATE_CODE;
-  });
+  const rule = attackDamageService.accumulatedDamageRule(props.rules);
+  const index = rule ? states.findIndex((state) => state.stateRuleCode === rule.code) : -1;
   if (index == null || index < 0) return;
 
   await getGameApi().removeCombatState(props.gameId, entityKey as CombatEntityKey, index);

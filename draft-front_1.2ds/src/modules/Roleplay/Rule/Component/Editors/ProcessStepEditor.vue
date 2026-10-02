@@ -12,6 +12,7 @@ const props = defineProps<{
   step: ProcessStep;
   stepIndex: number;
   resources: ResourceRef[];
+  turnResourceCode: string;
 }>();
 
 const emit = defineEmits<{
@@ -33,7 +34,7 @@ function patchStep(key: string, value: unknown) {
 }
 
 function addStepCost() {
-  inner.value = processSpecService.addStepCost(stepSpec(inner.value), 0).steps[0];
+  inner.value = processSpecService.addStepCost(stepSpec(inner.value), 0, props.turnResourceCode).steps[0];
 }
 
 function patchStepCost(costIndex: number, key: string, value: unknown) {
@@ -41,7 +42,7 @@ function patchStepCost(costIndex: number, key: string, value: unknown) {
 }
 
 function removeStepCost(costIndex: number) {
-  inner.value = processSpecService.removeStepCost(stepSpec(inner.value), 0, costIndex).steps[0];
+  inner.value = processSpecService.removeStepCost(stepSpec(inner.value), 0, costIndex, props.turnResourceCode).steps[0];
 }
 
 function isDimensionalCost(costIndex: number): boolean {
@@ -52,7 +53,7 @@ function isDimensionalCost(costIndex: number): boolean {
 }
 
 function isMandatoryCost(costIndex: number): boolean {
-  return processSpecService.isMandatoryCost(inner.value.costs, costIndex);
+  return processSpecService.isMandatoryCost(inner.value.costs, costIndex, props.turnResourceCode);
 }
 </script>
 

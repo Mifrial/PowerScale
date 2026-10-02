@@ -46,7 +46,9 @@ let participantValidator: (
   gameId: number,
   participantEntityKeys: readonly CombatEntityKey[],
 ) => boolean | Promise<boolean> = async () => true;
-let participantResolver: (gameId: number) => readonly CombatEntityKey[] | Promise<readonly CombatEntityKey[]> = async () => [];
+let participantResolver: (
+  gameId: number,
+) => readonly CombatEntityKey[] | Promise<readonly CombatEntityKey[]> = async () => [];
 
 function emptyInitiative(gameId: number): GameInitiative {
   return { gameId, active: false, participants: [], activeIndex: null, round: 1, updatedAt: '' };
@@ -73,9 +75,7 @@ export function configureMockGameState(options: {
     gameId: number,
     participantEntityKeys: readonly CombatEntityKey[],
   ) => boolean | Promise<boolean>;
-  resolveParticipants?: (
-    gameId: number,
-  ) => readonly CombatEntityKey[] | Promise<readonly CombatEntityKey[]>;
+  resolveParticipants?: (gameId: number) => readonly CombatEntityKey[] | Promise<readonly CombatEntityKey[]>;
 }): void {
   gameReader = options.getGame;
   participantValidator = options.validateParticipants ?? (async () => true);
@@ -128,7 +128,9 @@ export async function cancelGameParticipantProcesses(
       .map((process) => process.processId);
     for (const processId of cancelledProcessIds) delete battle.combatProcesses[processId];
 
-    const cancelledProcessEntityKeys = Object.keys(battle.processSessions).filter((key) => key === entityKey) as CombatEntityKey[];
+    const cancelledProcessEntityKeys = Object.keys(battle.processSessions).filter(
+      (key) => key === entityKey,
+    ) as CombatEntityKey[];
     for (const processEntityKey of cancelledProcessEntityKeys) delete battle.processSessions[processEntityKey];
 
     const cancelledOffers = battle.checkOffers.filter(
@@ -142,10 +144,7 @@ export async function cancelGameParticipantProcesses(
     const cancelledOfferIds = cancelledOffers.map((offer) => offer.id);
     battle.checkOffers = battle.checkOffers.filter((offer) => !cancelledOfferIds.includes(offer.id));
 
-    const clearedPendingEffectEntityKeys = Object.prototype.hasOwnProperty.call(
-      battle.pendingActionEffects,
-      entityKey,
-    )
+    const clearedPendingEffectEntityKeys = Object.prototype.hasOwnProperty.call(battle.pendingActionEffects, entityKey)
       ? [entityKey]
       : [];
     delete battle.pendingActionEffects[entityKey];
@@ -503,7 +502,7 @@ export function getMockGameStateVersions(gameId: number): {
 } {
   const snapshot = stateStores.has(gameId)
     ? snapshotOf(stateStores.get(gameId), gameId)
-    : terminalSnapshots.get(gameId) ?? emptySnapshot(gameId);
+    : (terminalSnapshots.get(gameId) ?? emptySnapshot(gameId));
 
   return {
     sessionStateVersion: snapshot.session?.sessionStateVersion ?? null,

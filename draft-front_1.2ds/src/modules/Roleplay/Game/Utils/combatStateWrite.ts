@@ -8,8 +8,6 @@ import type { StateSpec } from '@/modules/Roleplay/Rule/Dto/State/StateSpec';
 import type { IGameApi } from '@/modules/Roleplay/Game/Interface/IGameApi';
 import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
 
-import { ACTION_POINTS_CODE } from '@/modules/Roleplay/Game/Constant/Combat/ACTION_POINTS_CODE';
-
 export function stateRuleOf(rules: Rule[], code: string): Rule | undefined {
   return rules.find((rule) => rule.code === code && rule.type === 'state');
 }
@@ -97,7 +95,7 @@ export async function clampCombatActionPoints(
 ): Promise<GameAuthoritativeCommandResult | null> {
   const ap = combatCardModelService.combatActionPoints(version, rules);
   if (!ap) return null;
-  const rule = rules.find((item) => item.code === ACTION_POINTS_CODE && item.type === 'resource');
+  const rule = combatCardModelService.turnResourceRule(rules);
   if (!rule) return null;
   const resource = version.resources.find((item) => item.ruleCode === rule.code);
   if (!resource) return null;

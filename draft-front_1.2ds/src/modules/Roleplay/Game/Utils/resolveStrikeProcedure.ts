@@ -7,33 +7,34 @@ import { strikeV1 } from '@/modules/Roleplay/Game/Service/Strike/strikeV1';
 import { throwV1 } from '@/modules/Roleplay/Game/Service/Strike/throwV1';
 import {
   SHOOT_PROCEDURE_MECHANIC_CODE,
-  SHOOT_PROCEDURE_RULE_CODE,
   STRIKE_PROCEDURE_MECHANIC_CODE,
-  STRIKE_PROCEDURE_RULE_CODE,
   THROW_PROCEDURE_MECHANIC_CODE,
-  THROW_PROCEDURE_RULE_CODE,
-  HIT_PROCEDURE_VERSION_1,
 } from '@/modules/Roleplay/Rule/Constant/Combat/HIT_PROCEDURE';
 
-function resolveByCard(
-  ruleCode: string,
+function resolveByMechanic(
   mechanicCode: string,
   fallback: StrikeProcedure,
   rules: Rule[],
   mechanics: Mechanic[],
 ): StrikeProcedure {
-  const rule = rules.find((candidate) => candidate.code === ruleCode);
-  const row = rule?.mechanics.find((entry) => mechanics.find((mechanic) => mechanic.id === entry.mechanicId)?.code === mechanicCode);
+  const rule = rules.find((candidate) =>
+    candidate.mechanics.some(
+      (entry) => mechanics.find((mechanic) => mechanic.id === entry.mechanicId)?.code === mechanicCode,
+    ),
+  );
+  if (!rule) return fallback;
+  const row = rule.mechanics.find(
+    (entry) => mechanics.find((mechanic) => mechanic.id === entry.mechanicId)?.code === mechanicCode,
+  );
   const mechanic = row ? mechanics.find((entry) => entry.id === row.mechanicId) : undefined;
-  const code = mechanic?.code ?? mechanicCode;
-  const version = mechanic?.version ?? HIT_PROCEDURE_VERSION_1;
+  if (!mechanic) return fallback;
 
-  return strikeProcedureRegistry.resolve(code, version) ?? fallback;
+  return strikeProcedureRegistry.resolve(mechanic.code, mechanic.version) ?? fallback;
 }
 
-/** Процедура удара из среза ревизии: карточка `strike-procedure` → mechanic strike@version. */
+/** Процедура удара: первая карточка ревизии с механикой `strike`, иначе v1. */
 export function resolveStrikeProcedure(rules: Rule[], mechanics: Mechanic[]): StrikeProcedure {
-  return resolveByCard(STRIKE_PROCEDURE_RULE_CODE, STRIKE_PROCEDURE_MECHANIC_CODE, strikeV1, rules, mechanics);
+  return resolveByMechanic(STRIKE_PROCEDURE_MECHANIC_CODE, strikeV1, rules, mechanics);
 }
 
 export function resolveHitProcedure(
@@ -42,10 +43,10 @@ export function resolveHitProcedure(
   mechanics: Mechanic[],
 ): StrikeProcedure {
   if (profileType === 'throw') {
-    return resolveByCard(THROW_PROCEDURE_RULE_CODE, THROW_PROCEDURE_MECHANIC_CODE, throwV1, rules, mechanics);
+    return resolveByMechanic(THROW_PROCEDURE_MECHANIC_CODE, throwV1, rules, mechanics);
   }
   if (profileType === 'shoot') {
-    return resolveByCard(SHOOT_PROCEDURE_RULE_CODE, SHOOT_PROCEDURE_MECHANIC_CODE, shootV1, rules, mechanics);
+    return resolveByMechanic(SHOOT_PROCEDURE_MECHANIC_CODE, shootV1, rules, mechanics);
   }
 
   return resolveStrikeProcedure(rules, mechanics);

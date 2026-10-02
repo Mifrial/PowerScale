@@ -28,10 +28,12 @@ import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/ac
 import { lastStrikeService } from '@/modules/Roleplay/Game/Service/Instance/lastStrikeService';
 import { actionExecutionService } from '@/modules/Roleplay/Game/Service/Instance/actionExecutionService';
 import {
+  asActionAbilitySpec,
   asProcessAbilitySpec,
-  WAIT_ACTION_CODE,
   findRuleByRef,
   actionRefEquals,
+  resourceCosts,
+  turnResourceCode,
 } from '@/modules/Roleplay/Game/Utils/combatActions';
 import { processSessionService } from '@/modules/Roleplay/Game/Service/Instance/processSessionService';
 import { comboProcessService } from '@/modules/Roleplay/Game/Service/Instance/comboProcessService';
@@ -158,14 +160,14 @@ const canStopActiveProcess = computed(() => {
 });
 const selectableActions = computed(() => {
   if (activeCommitted.value) {
-    return visibleActions.value.filter((action) => action.code === WAIT_ACTION_CODE);
+    return visibleActions.value.filter((action) => action.combatAction === 'wait');
   }
   if (!activeProcess.value) return visibleActions.value;
 
   return visibleActions.value.filter(
     (action) =>
       (action.isProcess && actionRefEquals(action, activeProcess.value?.processRuleCode, props.rules)) ||
-      action.code === WAIT_ACTION_CODE,
+      action.combatAction === 'wait',
   );
 });
 const selectedAction = computed(
@@ -320,7 +322,7 @@ const verticalDirectionOptions = computed(
     })) ?? [],
 );
 const processStepApCost = computed(() =>
-  selectedProcessStep.value ? processSessionService.stepCost(selectedProcessStep.value, 'action-points') : 0,
+  selectedProcessStep.value ? processSessionService.stepCost(selectedProcessStep.value, turnResourceCode(props.rules)) : 0,
 );
 const actionPoints = computed(() => {
   if (!actorOverview.value) return 0;
@@ -440,6 +442,46 @@ function operationRequestsOf(): ActionOperationRequest[] {
   return [{ movement: request }];
 }
 
+function otherResourceCosts() {
+  const action = selectedAction.value;
+  if (!action) return [];
+  const spec = asActionAbilitySpec(findRuleByRef(props.rules, action.ruleCode));
+
+  const pool = turnResourceCode(props.rules);
+
+  return resourceCosts(spec?.action_components, action.isVariableCost ? chosenActionOdCost.value : 0, pool).filter(
+    (cost) => cost.resourceCode !== pool && cost.amount > 0,
+  );
+}
+
+function assertOtherResourceCosts(): void {
+  const overview = actorOverview.value;
+  for (const cost of otherResourceCosts()) {
+    const resource = overview?.resources.find((item) => item.ruleCode === cost.resourceCode);
+    const name = findRuleByRef(props.rules, cost.resourceCode)?.name ?? cost.resourceCode;
+    if (!resource || resource.current.base < cost.amount) {
+      throw new Error(`Недостаточно ${name}`);
+    }
+  }
+}
+
+async function payOtherResourceCosts(key: CombatEntityKey): Promise<void> {
+  const overview = actorOverview.value;
+  let pending = pendingEffectsByEntity.value[key] ?? [];
+  let changed = false;
+  for (const cost of otherResourceCosts()) {
+    const resource = overview?.resources.find((item) => item.ruleCode === cost.resourceCode);
+    if (!resource) continue;
+    const next = attackDamageService.spendActionPoints(resource.current, cost.amount);
+    await getGameApi().setCombatResource(props.gameId, key, resource.ruleCode, next);
+    pending = actionEffectService.consumeResource(pending, cost.resourceCode, cost.amount);
+    changed = true;
+  }
+  if (!changed) return;
+  pendingEffectsByEntity.value = { ...pendingEffectsByEntity.value, [key]: pending };
+  await getGameApi().setCombatActionEffects(props.gameId, key, pending);
+}
+
 async function submit(): Promise<void> {
   const key = actorKey.value;
   const action = selectedAction.value;
@@ -513,9 +555,10 @@ async function submit(): Promise<void> {
   ) {
     throw new Error('Противодействовать защите можно только сразу после атаки по этой цели');
   }
-  if (activeCommitted.value && action.code !== WAIT_ACTION_CODE) {
+  if (activeCommitted.value && action.combatAction !== 'wait') {
     throw new Error('Сначала закончи или сорви текущее действие');
   }
+  assertOtherResourceCosts();
   if (actionOd > actionPoints.value) {
     if (!committedActionService.canStretch(action) || actionPoints.value <= 0) {
       throw new Error('Недостаточно ОД для действия');
@@ -532,6 +575,7 @@ async function submit(): Promise<void> {
     }
     const version = versionOf(key);
     if (!version) throw new Error('Лист участника не найден');
+    await payOtherResourceCosts(key);
     await committedActionFlowService.begin({
       gameId: props.gameId,
       actorKey: key,
@@ -558,6 +602,7 @@ async function submit(): Promise<void> {
   }
   const version = versionOf(key);
   if (!version) throw new Error('Лист участника не найден');
+  await payOtherResourceCosts(key);
   const actionRule = findRuleByRef(props.rules, action.code);
   if (!actionRule) throw new Error('Правило действия не найдено в текущей ревизии');
   let pendingEffects = pendingEffectsByEntity.value[key] ?? [];
@@ -586,7 +631,7 @@ async function submit(): Promise<void> {
     delete nextSessions[key];
     processSessionsByEntity.value = nextSessions;
   }
-  if (action.code === WAIT_ACTION_CODE && activeCommitted.value) {
+  if (action.combatAction === 'wait' && activeCommitted.value) {
     await committedActionFlowService.abort(
       props.gameId,
       activeCommitted.value,
@@ -1000,7 +1045,7 @@ watch(
               <template #item="{ props: itemProps, item }">
                 <v-list-item
                   v-bind="itemProps"
-                  :title="`${item.raw.name} · ${processSessionService.stepCost(item.raw, 'action-points')} ОД`"
+                  :title="`${item.raw.name} · ${processSessionService.stepCost(item.raw, turnResourceCode(props.rules))} ОД`"
                 />
               </template>
             </v-autocomplete>

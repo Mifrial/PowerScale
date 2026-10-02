@@ -26,20 +26,40 @@ describe('checkLaunch', () => {
       check('check-injury', {
         spec: { type: 'check', difficulty_input: { kind: 'ask' }, allowed_modes: 'solo' },
       }),
-      check('check-hit'),
+      check('check-hit', {
+        spec: {
+          type: 'check',
+          difficulty_input: { kind: 'ask' },
+          allowed_modes: 'both',
+          hit_check: true,
+        },
+      }),
       { id: null, code: 'roll', type: 'simple', name: 'Бросок', description: '', spaceId: 1, createdAt: 0 } as Rule,
     ];
     expect(checkLaunchService.launchableChecks(rules).map((rule) => rule.code)).toEqual(['check-simple']);
-    expect(checkLaunchService.isLaunchableCheck(rules[1]!)).toBe(false);
+    expect(checkLaunchService.isLaunchableCheck(rules[1]!, rules)).toBe(false);
+    const unflaggedHit = check('check-hit');
+    expect(checkLaunchService.isLaunchableCheck(unflaggedHit, [unflaggedHit])).toBe(true);
   });
 
   it('скрывает свёртывание крови', () => {
-    const rules = [check('check-simple'), check('check-blood-clotting')];
-    expect(checkLaunchService.isLaunchableCheck(rules[1]!)).toBe(false);
+    const rules = [
+      check('check-simple'),
+      check('check-blood-clotting', {
+        spec: { type: 'check', difficulty_input: { kind: 'none' }, allowed_modes: 'solo', dialog_launch: false },
+      }),
+    ];
+    expect(checkLaunchService.isLaunchableCheck(rules[1]!, rules)).toBe(false);
   });
 
   it('простая проверка первая в списке запуска', () => {
-    const rules = [check('check-strength'), check('check-simple'), check('check-communication')];
+    const rules = [
+      check('check-strength'),
+      check('check-simple', {
+        spec: { type: 'check', difficulty_input: { kind: 'ask' }, allowed_modes: 'both', ordinary_root: true },
+      }),
+      check('check-communication'),
+    ];
     expect(checkLaunchService.launchableChecks(rules).map((rule) => rule.code)[0]).toBe('check-simple');
   });
 

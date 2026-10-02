@@ -4,16 +4,14 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { IGameApi } from '@/modules/Roleplay/Game/Interface/IGameApi';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
+import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpec';
 import { CONCENTRATION_ABILITY_CODE } from '@/modules/Roleplay/Rule/Constant/Ability/CONCENTRATION_ABILITY_CODE';
 import { CONCENTRATION_ADVANTAGE_LABEL } from '@/modules/Roleplay/Rule/Constant/Ability/CONCENTRATION_ADVANTAGE_LABEL';
-import { PREDELNAYA_CONCENTRATION_ABILITY_CODE } from '@/modules/Roleplay/Rule/Constant/Ability/PREDELNAYA_CONCENTRATION_ABILITY_CODE';
-import { SOSREDOTOCHENIE_VOLI_ABILITY_CODE } from '@/modules/Roleplay/Rule/Constant/Ability/SOSREDOTOCHENIE_VOLI_ABILITY_CODE';
-import { DLITELNOE_NAPRYAZHENIE_ABILITY_CODE } from '@/modules/Roleplay/Rule/Constant/Ability/DLITELNOE_NAPRYAZHENIE_ABILITY_CODE';
 import { CONCENTRATION_DEFAULT_ACTION_TURNS } from '@/modules/Roleplay/Rule/Constant/Ability/CONCENTRATION_DEFAULT_ACTION_TURNS';
 import { DLITELNOE_NAPRYAZHENIE_ACTION_TURNS } from '@/modules/Roleplay/Rule/Constant/Ability/DLITELNOE_NAPRYAZHENIE_ACTION_TURNS';
-import { CONCENTRATION_RESOURCE_CODE } from '@/modules/Roleplay/Rule/Constant/Resource/CONCENTRATION_RESOURCE_CODE';
-import { CHECK_EXHAUSTION_CODE, CHECK_WILLPOWER_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
+import type { ResourceSpec } from '@/modules/Roleplay/Rule/Dto/ResourceSpec';
 import { checkResolutionService } from '@/modules/Roleplay/Rule/init';
+import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
 import { stateRuntimeEffectsService } from '@/modules/Roleplay/Character/init';
 import { CharacteristicNumber } from '@/modules/Roleplay/Rule/Value/CharacteristicNumber';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
@@ -29,24 +27,35 @@ export class ConcentrationTokenService {
 
   isAbilityLive(version: CharacterVersion | null | undefined, rules: Rule[]): boolean {
     if (!version || !this.isAbilityOwned(version)) return false;
-    const values = stateRuntimeEffectsService.effectiveCharacteristicValues(version, rules);
-    const minimum = new DimensionalNumber({ base: 5, size: 0 });
-    for (const code of ['intellect', 'perception'] as const) {
-      const value = values.get(code);
-      if (value && CharacteristicNumber.from(value).compare(minimum) >= 0) return true;
-    }
-
-    return false;
+    return this.meetsMinimum(version, rules, attackDamageService.concentrationThresholdCodes(rules), {
+      base: 5,
+      size: 0,
+    });
   }
 
-  tokenCurrent(version: CharacterVersion, overlay: GameCombatOverlay | null): number {
-    const resource = effectiveResources(version, overlay).find((item) => item.ruleCode === CONCENTRATION_RESOURCE_CODE);
+  private tokenRule(rules: Rule[]): Rule | null {
+    return (
+      rules.find((item) => {
+        if (item.type !== 'resource') return false;
+        const spec = item.spec as ResourceSpec | undefined;
+
+        return spec?.check_token === true;
+      }) ?? null
+    );
+  }
+
+  tokenCurrent(version: CharacterVersion, overlay: GameCombatOverlay | null, rules: Rule[]): number {
+    const rule = this.tokenRule(rules);
+    const resource = rule
+      ? effectiveResources(version, overlay).find((item) => item.ruleCode === rule.code)
+      : undefined;
 
     return resource?.current.base ?? 0;
   }
 
-  tokenLimit(version: CharacterVersion): number {
-    const resource = version.resources.find((item) => item.ruleCode === CONCENTRATION_RESOURCE_CODE);
+  tokenLimit(version: CharacterVersion, rules: Rule[]): number {
+    const rule = this.tokenRule(rules);
+    const resource = rule ? version.resources.find((item) => item.ruleCode === rule.code) : undefined;
 
     return resource ? Math.max(0, resourceLimitBase(resource)) : 0;
   }
@@ -60,7 +69,7 @@ export class ConcentrationTokenService {
     actionTurns = CONCENTRATION_DEFAULT_ACTION_TURNS,
   ): boolean {
     if (!version || !this.isAbilityLive(version, rules)) return false;
-    if (this.tokenCurrent(version, overlay) < 1) return false;
+    if (this.tokenCurrent(version, overlay, rules) < 1) return false;
     if (actionTurns > this.maxActionTurns(version, rules)) return false;
     if (checkResolutionService.isConcentrationTokenCheck(checkCode, rules, characteristicOverride)) return true;
 
@@ -86,7 +95,7 @@ export class ConcentrationTokenService {
       return 0;
     }
 
-    return Math.min(this.tokenCurrent(version, overlay), 1 + this.livePeakLevel(version, rules));
+    return Math.min(this.tokenCurrent(version, overlay, rules), 1 + this.livePeakLevel(version, rules));
   }
 
   tokenAdvantage(amount = 1): AdvantageModifier {
@@ -111,13 +120,17 @@ export class ConcentrationTokenService {
     entityKey: CombatEntityKey,
     version: CharacterVersion,
     overlay: GameCombatOverlay | null,
+    rules: Rule[],
     amount = 1,
   ): Promise<GameCombatOverlay> {
-    const resource = effectiveResources(version, overlay).find((item) => item.ruleCode === CONCENTRATION_RESOURCE_CODE);
-    if (!resource) throw new Error('Нет жетонов концентрации');
+    const rule = this.tokenRule(rules);
+    const resource = rule
+      ? effectiveResources(version, overlay).find((item) => item.ruleCode === rule.code)
+      : undefined;
+    if (!rule || !resource) throw new Error('Нет жетонов концентрации');
     const spent = Math.max(0, Math.min(Math.floor(amount), resource.current.base));
     if (spent < 1) throw new Error('Нет жетонов концентрации');
-    await api.setCombatResource(gameId, entityKey, CONCENTRATION_RESOURCE_CODE, {
+    await api.setCombatResource(gameId, entityKey, rule.code, {
       base: resource.current.base - spent,
       size: resource.current.size,
     });
@@ -131,14 +144,16 @@ export class ConcentrationTokenService {
     entityKey: CombatEntityKey,
     version: CharacterVersion,
     overlay: GameCombatOverlay | null,
+    rules: Rule[],
   ): Promise<GameCombatOverlay | null> {
     if (!this.isAbilityOwned(version)) return overlay;
     const used = overlay?.concentrationUsedInCycle === true;
-    const resource = version.resources.find((item) => item.ruleCode === CONCENTRATION_RESOURCE_CODE);
-    if (!resource) return overlay;
+    const rule = this.tokenRule(rules);
+    const resource = rule ? version.resources.find((item) => item.ruleCode === rule.code) : undefined;
+    if (!rule || !resource) return overlay;
     if (!used) {
       const limit = Math.max(0, resourceLimitBase(resource));
-      await api.setCombatResource(gameId, entityKey, CONCENTRATION_RESOURCE_CODE, {
+      await api.setCombatResource(gameId, entityKey, rule.code, {
         base: limit,
         size: resource.current.size,
       });
@@ -148,8 +163,7 @@ export class ConcentrationTokenService {
   }
 
   private livePeakLevel(version: CharacterVersion, rules: Rule[]): number {
-    const purchased =
-      version.abilities.find((ability) => ability.ruleCode === PREDELNAYA_CONCENTRATION_ABILITY_CODE)?.level ?? 0;
+    const purchased = this.purchasedLevel(version, rules, 'peak_concentration');
     if (purchased >= 2 && this.hasIntellectOrPerception(version, rules, { base: 5, size: 2 })) return 2;
     if (purchased >= 1 && this.hasIntellectOrPerception(version, rules, { base: 5, size: 1 })) return 1;
 
@@ -157,28 +171,44 @@ export class ConcentrationTokenService {
   }
 
   private isWillFocusLive(version: CharacterVersion, rules: Rule[]): boolean {
-    const purchased =
-      version.abilities.find((ability) => ability.ruleCode === SOSREDOTOCHENIE_VOLI_ABILITY_CODE)?.level ?? 0;
+    const purchased = this.purchasedLevel(version, rules, 'will_focus');
     if (purchased < 1) return false;
 
-    return this.meetsMinimum(version, rules, ['willpower'], { base: 5, size: 0 });
+    const code = attackDamageService.willpowerRule(rules)?.code;
+
+    return this.meetsMinimum(version, rules, code ? [code] : [], { base: 5, size: 0 });
   }
 
   private isLongTensionLive(version: CharacterVersion, rules: Rule[]): boolean {
-    const purchased =
-      version.abilities.find((ability) => ability.ruleCode === DLITELNOE_NAPRYAZHENIE_ABILITY_CODE)?.level ?? 0;
+    const purchased = this.purchasedLevel(version, rules, 'long_tension');
     if (purchased < 1) return false;
 
     return this.hasIntellectOrPerception(version, rules, { base: 4, size: 1 });
   }
 
   private isWillpowerCheck(checkCode: string, rules: Rule[], characteristicOverride?: string | null): boolean {
-    if (checkCode === CHECK_EXHAUSTION_CODE) return true;
-    if (checkResolutionService.checkAncestorCodes(checkCode, rules).includes(CHECK_WILLPOWER_CODE)) return true;
+    if (checkResolutionService.ancestorHasFlag(checkCode, rules, 'willpower')) return true;
 
-    return (
-      checkResolutionService.resolveCheckCharacteristicCode(checkCode, rules, characteristicOverride) === 'willpower'
-    );
+    const code = attackDamageService.willpowerRule(rules)?.code;
+    if (!code) return false;
+
+    return checkResolutionService.resolveCheckCharacteristicCode(checkCode, rules, characteristicOverride) === code;
+  }
+
+  private purchasedLevel(
+    version: CharacterVersion,
+    rules: Rule[],
+    flag: 'peak_concentration' | 'will_focus' | 'long_tension',
+  ): number {
+    const rule = rules.find((item) => {
+      if (item.type !== 'ability') return false;
+      const spec = item.spec as AbilitySpec | undefined;
+
+      return spec?.[flag] === true;
+    });
+    if (!rule) return 0;
+
+    return version.abilities.find((ability) => ability.ruleCode === rule.code)?.level ?? 0;
   }
 
   private hasIntellectOrPerception(
@@ -186,7 +216,7 @@ export class ConcentrationTokenService {
     rules: Rule[],
     minimum: { base: number; size: number },
   ): boolean {
-    return this.meetsMinimum(version, rules, ['intellect', 'perception'], minimum);
+    return this.meetsMinimum(version, rules, attackDamageService.concentrationThresholdCodes(rules), minimum);
   }
 
   private meetsMinimum(

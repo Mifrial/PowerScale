@@ -8,7 +8,7 @@ import type { ApplyAttackDamageResult } from '@/modules/Roleplay/Game/Dto/ApplyA
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import type { SpellCastRollOutcome } from '@/modules/Roleplay/Game/Dto/Spell/SpellCastRollOutcome';
-import { spellCastEfficiencyService } from '@/modules/Roleplay/Game/Service/Instance/spellCastEfficiencyService';
+import { abilityCheckAdvantagesService } from '@/modules/Roleplay/Character/init';
 import { CHARACTERISTIC_BASE_RANGE } from '@/modules/Roleplay/Rule/Value/CharacteristicNumber';
 import { keywordExperienceService, magicStudyUnlockService } from '@/modules/Roleplay/Character/init';
 import { spellDamageService, damageTypeSpecService } from '@/modules/Roleplay/Rule/init';
@@ -16,8 +16,7 @@ import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/at
 import { damageTypeHooksService } from '@/modules/Roleplay/Game/Service/Instance/damageTypeHooksService';
 import { spellCastDifficultyService } from '@/modules/Roleplay/Game/Service/Instance/spellCastDifficultyService';
 import { spellCastService } from '@/modules/Roleplay/Game/Service/Instance/spellCastService';
-import { actionOdCost } from '@/modules/Roleplay/Game/Utils/combatActions';
-import { SIMPLE_TOUCH_CODE } from '@/modules/Roleplay/Game/Constant/Combat/SIMPLE_TOUCH_CODE';
+import { actionOdCost, turnResourceCode } from '@/modules/Roleplay/Game/Utils/combatActions';
 import { SPELL_CAST_SKIP_DIFFICULTY } from '@/modules/Roleplay/Game/Constant/Spell/SPELL_CAST_SKIP_DIFFICULTY';
 import { spellCastUpgradeService } from '@/modules/Roleplay/Game/Service/Instance/spellCastUpgradeService';
 
@@ -40,11 +39,13 @@ export class SpellCastExecutionService {
     if (input.chargeSpendCost != null) {
       return input.chargeSpendCost;
     }
+    const pool = turnResourceCode(input.rules);
     const actionPointLimit =
-      input.casterOverview?.resources.find((resource) => resource.ruleCode === 'action-points')?.max.base ?? 0;
+      input.casterOverview?.resources.find((resource) => resource.ruleCode === pool)?.max.base ?? 0;
     const spellOd = actionOdCost(
       this.spellSpec(input.spellCode, input.rules)?.action_components,
       actionPointLimit,
+      pool,
     );
     const touchRule = input.touchActionCode
       ? input.rules.find((rule) => rule.code === input.touchActionCode)
@@ -57,7 +58,9 @@ export class SpellCastExecutionService {
       touchSpec && touchSpec.type !== 'group' && 'action_components' in touchSpec
         ? touchSpec.action_components
         : undefined;
-    const touchOd = this.needsTouchAttack(input.spellCode, input.rules) ? actionOdCost(touchComponents) : 0;
+    const touchOd = this.needsTouchAttack(input.spellCode, input.rules)
+      ? actionOdCost(touchComponents, 0, pool)
+      : 0;
     const selected = spellCastUpgradeService.selectedOf(
       spellCastUpgradeService.listApplicable(
         input.casterAbilities ?? [],
@@ -82,7 +85,9 @@ export class SpellCastExecutionService {
       input.pathCode,
       input.casterAbilities,
       input.rules,
-      new Map(input.casterOverview.characteristics.map((characteristic) => [characteristic.ruleCode, characteristic.value])),
+      new Map(
+        input.casterOverview.characteristics.map((characteristic) => [characteristic.ruleCode, characteristic.value]),
+      ),
     );
   }
 
@@ -112,6 +117,7 @@ export class SpellCastExecutionService {
         resistancePenetration: spellCastUpgradeService.resistancePenetration(selectedUpgrades, upgradeValues),
       },
       input.checkCode,
+      input.castCheckCode,
       input.characteristicValue,
       input.characteristicName,
       input.casterKey,
@@ -119,17 +125,36 @@ export class SpellCastExecutionService {
       input.rules,
       input.mechanics,
       this.castAdvantages(input),
-      spellCastEfficiencyService.deltasForAbilities(input.casterAbilities),
+      input.castCheckCode
+        ? abilityCheckAdvantagesService.checkEfficiencyDeltasFromAbilities(
+            { abilities: input.casterAbilities },
+            input.rules,
+            input.castCheckCode,
+          )
+        : [],
     );
   }
 
-  needsSaturationChoice(input: SpellCastExecutionInput, cast: SpellCastRollOutcome): boolean {
-    if (!cast.needsCheck || !cast.roll?.check?.passed) return false;
-    if ((cast.roll.check.rating ?? 0) < 2) return false;
+  saturationOf(
+    input: Pick<SpellCastExecutionInput, 'casterAbilities' | 'rules'>,
+  ): NonNullable<Extract<AbilitySpec, { spell_saturation?: unknown }>['spell_saturation']> | null {
+    for (const ability of input.casterAbilities) {
+      if (ability.level <= 0) continue;
+      const spec = this.abilitySpecOf(ability.ruleCode, input.rules);
+      const field = spec && 'spell_saturation' in spec ? spec.spell_saturation : undefined;
+      if (!field || field.rating_per_step <= 0) continue;
 
-    return input.casterAbilities.some(
-      (ability) => ability.ruleCode === 'dynamic-energy-saturation' && ability.level > 0,
-    );
+      return field;
+    }
+
+    return null;
+  }
+
+  needsSaturationChoice(input: SpellCastExecutionInput, cast: SpellCastRollOutcome): boolean {
+    const saturation = this.saturationOf(input);
+    if (!saturation || !cast.needsCheck || !cast.roll?.check?.passed) return false;
+
+    return (cast.roll.check.rating ?? 0) >= saturation.min_rating;
   }
 
   execute(input: SpellCastExecutionInput, preparedCast?: SpellCastRollOutcome): SpellCastExecutionResult {
@@ -155,7 +180,7 @@ export class SpellCastExecutionService {
       if (input.touchTargetKey) {
         return this.refused('needs_hit_offer');
       }
-      const touch = this.resolveAirTouch(input.touchActionCode === SIMPLE_TOUCH_CODE);
+      const touch = this.resolveAirTouch();
       hit = touch.hit;
       attackSr = touch.attackSr;
       milk = touch.milk;
@@ -301,28 +326,28 @@ export class SpellCastExecutionService {
     actionCost: number,
     remainingRating: number,
   ): PendingActionEffect[] {
-    if (
-      !castOk ||
-      !cast?.roll?.check ||
-      remainingRating < 2 ||
-      !input.casterAbilities.some(
-        (ability) => ability.ruleCode === 'interstructure-energy-transfer' && ability.level > 0,
-      )
-    ) {
+    if (!castOk || !cast?.roll?.check) {
       return [];
     }
 
-    return [
-      {
-        sourceRuleCode: 'interstructure-energy-transfer',
+    const effects: PendingActionEffect[] = [];
+    for (const ability of input.casterAbilities) {
+      if (ability.level <= 0) continue;
+      const spec = this.abilitySpecOf(ability.ruleCode, input.rules);
+      const field = spec && 'next_cast_difficulty' in spec ? spec.next_cast_difficulty : undefined;
+      if (!field || remainingRating < field.min_remaining_rating) continue;
+      effects.push({
+        sourceRuleCode: ability.ruleCode,
         effect: {
           type: 'next_spell_cast_difficulty',
-          delta: -1,
-          source_code: 'training',
+          delta: field.delta,
+          source_code: field.source_code,
           max_total_action_cost: actionCost,
         },
-      },
-    ];
+      });
+    }
+
+    return effects;
   }
 
   private applySaturation(
@@ -337,19 +362,28 @@ export class SpellCastExecutionService {
     if (steps === 0) {
       return { ok: true, power: input.parameterPower, remainingRating: rating };
     }
-    const owns = input.casterAbilities.some(
-      (ability) => ability.ruleCode === 'dynamic-energy-saturation' && ability.level > 0,
-    );
+    const saturation = this.saturationOf(input);
     const passed = Boolean(cast.needsCheck && cast.roll?.check?.passed);
-    if (!owns || !passed || 2 * steps > rating) {
+    if (!saturation || !passed || saturation.rating_per_step * steps > rating) {
       return { ok: false };
     }
 
     return {
       ok: true,
-      power: new DimensionalNumber(input.parameterPower).modify(steps, CHARACTERISTIC_BASE_RANGE).value,
-      remainingRating: rating - 2 * steps,
+      power: new DimensionalNumber(input.parameterPower)
+        .modify(steps * saturation.power_per_step, CHARACTERISTIC_BASE_RANGE)
+        .value,
+      remainingRating: rating - saturation.rating_per_step * steps,
     };
+  }
+
+  private abilitySpecOf(ruleCode: string, rules: Rule[]): AbilitySpec | null {
+    const rule = rules.find((entry) => entry.code === ruleCode && entry.type === 'ability');
+    if (!rule?.spec || typeof rule.spec !== 'object' || !('type' in rule.spec) || rule.spec.type === 'group') {
+      return null;
+    }
+
+    return rule.spec;
   }
 
   private spellDamageAmount(
@@ -396,12 +430,23 @@ export class SpellCastExecutionService {
     return attackSr === 0 ? 1 : attackSr;
   }
 
-  private resolveAirTouch(isSimpleTouch: boolean): {
+  spellTouchOf(
+    actionCode: string | null,
+    rules: Rule[],
+  ): NonNullable<Extract<AbilitySpec, { spell_touch?: unknown }>['spell_touch']> | null {
+    if (!actionCode) return null;
+    const spec = this.abilitySpecOf(actionCode, rules);
+    if (!spec || !('spell_touch' in spec) || !spec.spell_touch) return null;
+
+    return spec.spell_touch;
+  }
+
+  private resolveAirTouch(): {
     hit: SpellCastExecutionResult['hit'];
     attackSr: number;
     milk: boolean;
   } {
-    return { hit: null, attackSr: isSimpleTouch ? 1 : 0, milk: true };
+    return { hit: null, attackSr: 0, milk: true };
   }
 
   applySpellDamage(

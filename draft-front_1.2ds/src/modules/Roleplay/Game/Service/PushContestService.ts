@@ -56,7 +56,8 @@ export class PushContestService {
       this.characteristicOf(input.defenderOverview, input.rules, 'weight', input.defenderVersion),
     );
     const attackerPool =
-      input.attackerPool ?? this.characteristicOf(input.attackerOverview, input.rules, 'strength', input.attackerVersion);
+      input.attackerPool ??
+      this.characteristicOf(input.attackerOverview, input.rules, 'strength', input.attackerVersion);
     const attackerSpec = checkRollService.namedCheckSpec(
       input.attackerPool ? 'Урон (толчок)' : 'Сила (толчок)',
       attackerPool,
@@ -114,7 +115,10 @@ export class PushContestService {
       input.mechanics,
     );
     const attackerSuccesses = checkRollService.successesOf(attacker);
-    const successRating = Math.max(0, attacker.check?.rating ?? pushMathService.successRating(attackerSuccesses, floor));
+    const successRating = Math.max(
+      0,
+      attacker.check?.rating ?? pushMathService.successRating(attackerSuccesses, floor),
+    );
     const strengthCheck = attacker.check;
 
     return {

@@ -28,6 +28,7 @@ import type { GameParticipantCandidate } from '@/modules/Roleplay/Game/Dto/GameP
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { GameRuntimeEntityProjection } from '@/modules/Roleplay/Game/Dto/GameRuntimeEntityProjection';
 import { combatChatSendService } from '@/modules/Roleplay/Game/Service/Instance/combatChatSendService';
+import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
 
 /**
  * Окно проверки на инициативу (ТР §8 «Чат игры»): выбор участников (персонажи + НПС),
@@ -55,8 +56,6 @@ const emit = defineEmits<{
 const chatStore = useChatChannel();
 const combatThread = useCombatChatThread(() => props.gameId);
 const sendChat = combatChatSendService.sendCombatChat(props.gameId);
-
-const DEFAULT_CHARACTERISTIC_CODE = 'perception';
 
 interface DialogEntry {
   participant: GameInitiativeParticipant;
@@ -96,6 +95,7 @@ const rolling = ref(false);
 const error = ref<string | null>(null);
 
 const poolDefaults = computed(() => rollPoolDefaults(props.rules));
+const defaultCharacteristicCode = computed(() => attackDamageService.initiativeRule(props.rules)?.code ?? '');
 
 const candidates = computed<CandidateOption[]>(() =>
   candidateSummaries.value.map((candidate) => {
@@ -249,7 +249,7 @@ function addEntry(id: string): void {
     participant: { ...candidate.participant },
     version: candidate.version,
     method: hasSheet ? 'characteristic' : 'free',
-    characteristicCode: DEFAULT_CHARACTERISTIC_CODE,
+    characteristicCode: defaultCharacteristicCode.value,
     modifier: 0,
     adv: 0,
     fixedValue: null,
@@ -337,7 +337,7 @@ async function ensureCharacteristics(entry: DialogEntry): Promise<void> {
   try {
     const map = await initiativeCharacteristics(entry.version, props.spaceId, props.rules);
     entry.characteristicValues = map;
-    if (!map.has(entry.characteristicCode)) {
+    if (entry.characteristicCode !== '' && !map.has(entry.characteristicCode)) {
       entry.characteristicCode = map.keys().next().value ?? '';
     }
   } catch {

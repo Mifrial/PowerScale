@@ -128,8 +128,7 @@ export class ComboProcessService {
     return [
       ...processSources,
       ...available.filter(
-        (source) =>
-          !actionRefEquals(source, session.processRuleCode, rules) && source.attackMode !== 'wide',
+        (source) => !actionRefEquals(source, session.processRuleCode, rules) && source.attackMode !== 'wide',
       ),
     ];
   }

@@ -34,4 +34,16 @@ export type MechanicPayload =
       type: 'exhaustion_wound';
       /** Множитель силы раны от истощения (1 колющий, 2 рубящий). */
       multiplier: number;
+      /** Куда записать силу раны. */
+      state_code: string;
+    }
+  | {
+      /** Куда записать число, которое считает механика хука (оглушение, шок, режущий). */
+      type: 'state_write';
+      state_code: string;
+    }
+  | {
+      /** Проверка свёртывания в конце хода раненого. Пустой check_code — броска нет. */
+      type: 'blood_clotting';
+      check_code: string;
     };

@@ -20,7 +20,7 @@ import { CONCENTRATION_TOKEN_ASK_INJECT_KEY } from '@/modules/Roleplay/Game/Cons
 import { combatChatSendService } from '@/modules/Roleplay/Game/Service/Instance/combatChatSendService';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 import { resolveLaunchLoad } from '@/modules/Roleplay/Game/Utils/launchLoadState';
-import { CHECK_HIT_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
+import { checkResolutionService } from '@/modules/Roleplay/Rule/init';
 import { spellCastDifficultyService } from '@/modules/Roleplay/Game/Service/Instance/spellCastDifficultyService';
 import { spellCastOptionsService } from '@/modules/Roleplay/Game/Service/Instance/spellCastOptionsService';
 import { spellCastService } from '@/modules/Roleplay/Game/Service/Instance/spellCastService';
@@ -34,10 +34,13 @@ import { exhaustionCheckService } from '@/modules/Roleplay/Game/Service/Instance
 import { injuryCheckService } from '@/modules/Roleplay/Game/Service/Instance/injuryCheckService';
 import { injuryPackageService } from '@/modules/Roleplay/Game/Service/Instance/injuryPackageService';
 import { CHARACTERISTIC_BASE_RANGE, characterOverviewService } from '@/modules/Roleplay/Character/init';
-import { MAGIC_CONTROL_CODE } from '@/modules/Roleplay/Game/Constant/Spell/MAGIC_CONTROL_CODE';
-import { MAGIC_POWER_CODE } from '@/modules/Roleplay/Game/Constant/Spell/MAGIC_POWER_CODE';
-import { SIMPLE_TOUCH_CODE } from '@/modules/Roleplay/Game/Constant/Combat/SIMPLE_TOUCH_CODE';
-import { actionOdCost, findRuleByRef, listAttackActions } from '@/modules/Roleplay/Game/Utils/combatActions';
+import {
+  actionOdCost,
+  defaultTouchAction,
+  findRuleByRef,
+  listAttackActions,
+  turnResourceCode,
+} from '@/modules/Roleplay/Game/Utils/combatActions';
 import { useCombatChatThread } from '@/modules/Roleplay/Game/Composables/useCombatChatThread';
 import { useKeywords } from '@/modules/Roleplay/Keyword/init';
 import SpellCastSpellRequirementMarks from '@/modules/Roleplay/Game/Component/SpellCastSpellRequirementMarks.vue';
@@ -74,13 +77,7 @@ import type { PendingActionEffect } from '@/modules/Roleplay/Game/Dto/PendingAct
 import type { SpellBurstTarget } from '@/modules/Roleplay/Game/Dto/Spell/SpellBurstTarget';
 import type { SpellDeviationOutcome } from '@/modules/Roleplay/Game/Dto/Spell/SpellDeviationOutcome';
 import { ARCANE_DAMAGE_TYPE_CODE } from '@/modules/Roleplay/Game/Constant/Spell/ARCANE_DAMAGE_TYPE_CODE';
-import {
-  ACCUMULATED_DAMAGE_STATE_CODE,
-  EXHAUSTION_STATE_CODE,
-  SHOCK_STATE_CODE,
-  STUNNED_STATE_CODE,
-  WOUND_STATE_CODE,
-} from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
+import { WOUND_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
 
 const props = defineProps<{
   open: boolean;
@@ -143,20 +140,30 @@ const pendingSaturation = ref<{
   remainingEffects: PendingActionEffect[];
   effectKey: CombatEntityKey | null;
 } | null>(null);
-const saturationMaxSteps = computed(() => Math.floor((pendingSaturation.value?.cast.roll?.check?.rating ?? 0) / 2));
-const saturationRating = computed(
-  () => (pendingSaturation.value?.cast.roll?.check?.rating ?? 0) - saturationSteps.value * 2,
+const saturationSpec = computed(() =>
+  pendingSaturation.value ? spellCastExecutionService.saturationOf(pendingSaturation.value.input) : null,
 );
+const saturationMaxSteps = computed(() => {
+  const perStep = saturationSpec.value?.rating_per_step ?? 0;
+  if (perStep <= 0) return 0;
+
+  return Math.floor((pendingSaturation.value?.cast.roll?.check?.rating ?? 0) / perStep);
+});
+const saturationRating = computed(() => {
+  const perStep = saturationSpec.value?.rating_per_step ?? 0;
+
+  return (pendingSaturation.value?.cast.roll?.check?.rating ?? 0) - saturationSteps.value * perStep;
+});
 const saturationPowerLabel = computed(() =>
   pendingSaturation.value
     ? DimensionalNumber.from(pendingSaturation.value.input.parameterPower)
-        .modify(saturationSteps.value, CHARACTERISTIC_BASE_RANGE)
+        .modify(saturationSteps.value * (saturationSpec.value?.power_per_step ?? 0), CHARACTERISTIC_BASE_RANGE)
         .toString()
     : '—',
 );
 
 const showCastOptions = ref(false);
-const touchActionCode = ref(SIMPLE_TOUCH_CODE);
+const touchActionCode = ref('');
 const touchTargetKey = ref<CombatEntityKey | ''>('');
 const touchProfileItem = ref('');
 const { keywords, fetchTags } = useKeywords();
@@ -231,6 +238,12 @@ const overview = computed(() => {
   return characterOverviewService.build(version, props.rules);
 });
 
+function defaultTouchActionCode(): string {
+  return defaultTouchAction(props.rules, overview.value)?.code ?? '';
+}
+
+touchActionCode.value = defaultTouchActionCode();
+
 const spells = computed(() => {
   const owned = spellCastOptionsService.listOwnedSpells(overview.value, props.rules);
   const sustain = chargeSustain.value;
@@ -243,7 +256,7 @@ const spells = computed(() => {
     owned,
     props.rules,
     keywords.value,
-    electrochargeService.turnApMax(overview.value),
+    electrochargeService.turnApMax(overview.value, props.rules),
     spec,
   );
 });
@@ -375,16 +388,30 @@ const entityItems = computed(() => {
   return [...characters, ...npcs];
 });
 
-const availableControl = computed(() => spellCastOptionsService.defaultControl(overview.value));
+const availableControl = computed(() =>
+  spellCastOptionsService.defaultControl(overview.value, selectedPath.value?.controlCharacteristicCode ?? null),
+);
 const casterMaxPower = computed(() =>
-  spellCastOptionsService.defaultUsedPower(overview.value, casterVersion.value?.states ?? [], sourceKey.value),
+  spellCastOptionsService.defaultUsedPower(
+    overview.value,
+    casterVersion.value?.states ?? [],
+    sourceKey.value,
+    selectedPath.value?.powerCharacteristicCode ?? null,
+    props.rules,
+  ),
 );
-const powerStatName = computed(
-  () => overview.value?.characteristics.find((entry) => entry.ruleCode === MAGIC_POWER_CODE)?.name ?? 'Мощь',
-);
-const controlStatName = computed(
-  () => overview.value?.characteristics.find((entry) => entry.ruleCode === MAGIC_CONTROL_CODE)?.name ?? 'Контроль',
-);
+const powerStatName = computed(() => {
+  const code = selectedPath.value?.powerCharacteristicCode;
+  if (!code) return 'Мощь';
+
+  return overview.value?.characteristics.find((entry) => entry.ruleCode === code)?.name ?? 'Мощь';
+});
+const controlStatName = computed(() => {
+  const code = selectedPath.value?.controlCharacteristicCode;
+  if (!code) return 'Контроль';
+
+  return overview.value?.characteristics.find((entry) => entry.ruleCode === code)?.name ?? 'Контроль';
+});
 const usedPowerLabel = computed(() => DimensionalNumber.from(usedPower.value).toString());
 const fixedSpellPower = computed(() => {
   if (!spellSpec.value || powerIsParameter.value) {
@@ -550,13 +577,15 @@ async function loadCastContext(open: boolean): Promise<void> {
     overview.value,
     casterVersion.value?.states ?? [],
     sourceKey.value,
+    paths.value.find((path) => path.pathCode === pathCode.value)?.powerCharacteristicCode ?? null,
+    props.rules,
   );
   if (sustain && DimensionalNumber.from(usedPower.value).compare(DimensionalNumber.from(sustain.sustainPower)) > 0) {
     usedPower.value = { ...sustain.sustainPower };
   }
   parameterPower.value = { ...usedPower.value };
   spellCode.value = spells.value[0]?.ruleCode ?? '';
-  touchActionCode.value = SIMPLE_TOUCH_CODE;
+  touchActionCode.value = defaultTouchActionCode();
   touchTargetKey.value = '';
   touchProfileItem.value = strikeProfileItems.value[0]?.value ?? '';
   loadPhase.value = 'ready';
@@ -738,6 +767,7 @@ async function runCast(): Promise<void> {
           resolvedCasterKey.value,
           casterVersion.value,
           overlay,
+          props.rules,
           spent,
         );
         overlays.value = combatOverlayService.replaceCombatOverlay(overlays.value, next);
@@ -763,6 +793,7 @@ async function runCast(): Promise<void> {
         trainingDifficultyDelta: pendingResolution.difficultyDelta,
       },
       checkCode: selectedPath.value?.checkCode ?? null,
+      castCheckCode: selectedPath.value?.castCheckCode ?? null,
       characteristicValue: characteristic?.value ?? { base: 3, size: 0 },
       characteristicName: characteristic?.name ?? selectedPath.value?.name ?? 'Сотворение',
       parameterPower: parameterPower.value,
@@ -877,7 +908,7 @@ async function offerTouchHit(
   );
 
   return getGameApi().createCheckOffer(props.gameId, {
-    checkCode: CHECK_HIT_CODE,
+    checkCode: checkResolutionService.firstCheckCode(props.rules, 'hit_check'),
     initiator: casterKey,
     opponent,
     proposal: {
@@ -921,11 +952,12 @@ async function offerTouchHit(
         targetResistanceAmount: targetResistance.value,
         parameterPower: parameterPower.value,
         checkCode: selectedPath.value?.checkCode ?? null,
+        castCheckCode: selectedPath.value?.castCheckCode ?? null,
         characteristicValue: characteristic?.value ?? { base: 3, size: 0 },
         characteristicName: characteristic?.name ?? selectedPath.value?.name ?? 'Сотворение',
         touchActionCode: touchActionCode.value,
         touchActionName: action?.name ?? 'Касание',
-        spellOd: actionOdCost(spellSpec.value?.action_components),
+        spellOd: actionOdCost(spellSpec.value?.action_components, 0, turnResourceCode(props.rules)),
         touchOd: action?.odCost ?? 0,
         spentAp: cost,
         trainingDifficultyDelta,
@@ -981,6 +1013,7 @@ async function persistSpentAp(
         component: 'strike',
         baseCost: cost,
       },
+      resource.ruleCode,
     );
   await persistPendingEffects(key, nextEffects);
   emit('overlay-changed');
@@ -1041,11 +1074,11 @@ async function persistCoreDeviation(
     return;
   }
   const states = versionOf(casterKey)?.states ?? [];
-  const next = spellDeviationService.grant(states, sourceKeyValue, strength);
+  const next = spellDeviationService.grant(states, sourceKeyValue, strength, props.rules);
   if (!next) {
     return;
   }
-  const index = spellDeviationService.boundIndex(states, sourceKeyValue);
+  const index = spellDeviationService.boundIndex(states, sourceKeyValue, props.rules);
   if (index >= 0) {
     await getGameApi().replaceCombatState(props.gameId, casterKey, index, next);
   } else {
@@ -1056,11 +1089,20 @@ async function persistCoreDeviation(
 
 async function persistDamage(key: CombatEntityKey, result: ApplyAttackDamageResult): Promise<void> {
   await writeAccumulatedDamage(key, result.remainingHpDamage);
-  await applyCombatState(key, EXHAUSTION_STATE_CODE, result.exhaustion);
-  await applyCombatState(key, WOUND_STATE_CODE, (result.wound ?? 0) + (result.cuttingWound ?? 0));
-  await applyCombatState(key, STUNNED_STATE_CODE, result.stun ?? 0);
-  await applyCombatState(key, SHOCK_STATE_CODE, result.shock ?? 0);
+  const exhaustionCode = attackDamageService.exhaustionRule(props.rules)?.code;
+  if (exhaustionCode) await applyCombatState(key, exhaustionCode, result.exhaustion);
+  await writeHookStates(key, result.stateWrites);
   emit('overlay-changed');
+}
+
+async function writeHookStates(key: CombatEntityKey, writes: ApplyAttackDamageResult['stateWrites']): Promise<void> {
+  const totals = new Map<string, number>();
+  for (const write of writes) {
+    totals.set(write.stateCode, (totals.get(write.stateCode) ?? 0) + write.amount);
+  }
+  for (const [code, amount] of totals) {
+    await applyCombatState(key, code, amount);
+  }
 }
 
 async function applyCombatState(key: CombatEntityKey, code: string, amount: number): Promise<void> {
@@ -1098,7 +1140,7 @@ async function applyCombatState(key: CombatEntityKey, code: string, amount: numb
 }
 
 async function writeAccumulatedDamage(key: CombatEntityKey, amount: number): Promise<void> {
-  const rule = props.rules.find((item) => item.code === ACCUMULATED_DAMAGE_STATE_CODE && item.type === 'state');
+  const rule = attackDamageService.accumulatedDamageRule(props.rules);
   if (!rule) {
     return;
   }
@@ -1177,7 +1219,7 @@ async function announceTargetedCast(
       casterName,
       spellRuleCode: spellCode.value,
       spellName: spellRule?.name ?? spellCode.value,
-      spellOd: actionOdCost(spellSpec.value?.action_components),
+      spellOd: actionOdCost(spellSpec.value?.action_components, 0, turnResourceCode(props.rules)),
       touchActionCode: null,
       touchActionName: '',
       touchOd: 0,
@@ -1209,7 +1251,7 @@ async function announceTargetedCast(
   }
   if (saturationSteps > 0) {
     await sendChat(
-      `Энергонасыщение: потрачено ${saturationSteps * 2} РУ, Мощь заклинания увеличена на ${saturationSteps}.`,
+      `Энергонасыщение: потрачено ${saturationSteps * (saturationSpec.value?.rating_per_step ?? 0)} РУ, Мощь заклинания увеличена на ${saturationSteps * (saturationSpec.value?.power_per_step ?? 0)}.`,
       [],
       chatId,
       speakerRef,
@@ -1312,7 +1354,11 @@ async function announceSpellApply(
       },
     ],
     defenderOverview ? attackDamageService.enduranceOf(defenderOverview, props.rules) : 1,
-    injuryCheckService.overlayStateTotal(versionOf(effectKey), props.rules, EXHAUSTION_STATE_CODE),
+    injuryCheckService.overlayStateTotal(
+      versionOf(effectKey),
+      props.rules,
+      attackDamageService.exhaustionRule(props.rules)?.code ?? '',
+    ),
     effectKey,
   );
   const injuryPreview = injuryPackageService.describePlan(planned, props.rules);
@@ -1607,7 +1653,10 @@ async function runChainHops(outcome: SpellCastExecutionResult, firstKey: CombatE
         </v-alert>
         <template v-else>
           <template v-if="pendingSaturation">
-            <div class="text-body-2 mb-3">Каждый шаг стоит 2 РУ и увеличивает Мощь заклинания на 1.</div>
+            <div class="text-body-2 mb-3">
+              Каждый шаг стоит {{ saturationSpec?.rating_per_step ?? 0 }} РУ и увеличивает Мощь заклинания на
+              {{ saturationSpec?.power_per_step ?? 0 }}.
+            </div>
             <div class="text-body-2 mb-3">Сейчас: {{ saturationRating }} РУ, Мощь {{ saturationPowerLabel }}.</div>
             <ClampedNumberField
               :model-value="saturationSteps"

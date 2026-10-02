@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { DiceRng } from '@/modules/Roleplay/Game/Dto/DiceRng';
+import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { ruleCatalog } from '@/modules/Roleplay/Rule/Mock/mockRules';
 import { fetchMechanics } from '@/modules/Roleplay/Mechanic/Mock/mockMechanics';
@@ -7,6 +8,8 @@ import { damageTypeHooksService } from '@/modules/Roleplay/Game/Service/Instance
 
 import { injuryRollService } from '@/modules/Roleplay/Game/Service/Instance/injuryRollService';
 
+import { injuryProcedureRegistry } from '@/modules/Roleplay/Game/Service/Injury/Instance/injuryProcedureRegistry';
+import { injuryV1 } from '@/modules/Roleplay/Game/Service/Injury/injuryV1';
 import { resolveInjuryProcedure } from '@/modules/Roleplay/Game/Utils/resolveInjuryProcedure';
 import { formatInjuryOutcome, formatInjuryReceivedMessage } from '@/modules/Roleplay/Game/Utils/injuryCheckMessage';
 import { ruleValidationService } from '@/modules/Roleplay/Rule/init';
@@ -21,6 +24,27 @@ function rngFromFaces(faces: number[]): DiceRng {
     return (face - 1) / 6;
   };
 }
+
+describe('resolveInjuryProcedure', () => {
+  it('карточка с другим кодом берёт version механики injury', () => {
+    injuryProcedureRegistry.register({ ...injuryV1, version: '2.0.0' });
+    const mechanics: Mechanic[] = [
+      { id: 15, code: 'injury', name: 'Увечье', description: '', version: '2.0.0' },
+    ];
+    const rule: Rule = {
+      id: null,
+      code: 'injury-card',
+      type: 'simple',
+      name: 'Увечье',
+      description: '',
+      spaceId: 1,
+      keywordIds: [],
+      mechanics: [{ mechanicId: 15, mechanicPayload: null }],
+      createdAt: 0,
+    };
+    expect(resolveInjuryProcedure([rule], mechanics).version).toBe('2.0.0');
+  });
+});
 
 describe('типы урона и увечье', () => {
   it('колющий даёт хук доп. сложности от РУ, рубящий — дельту эффективности (помеха)', async () => {

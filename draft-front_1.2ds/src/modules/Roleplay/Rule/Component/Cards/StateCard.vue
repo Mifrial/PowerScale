@@ -48,6 +48,21 @@ function nameByCode(code: string): string {
         <div class="text-body-2 mt-1">
           Объединение повторов: <strong>{{ aggregationLabels[spec.aggregation] }}</strong>
         </div>
+        <div v-if="spec.damage_remainder" class="text-body-2 mt-1">Остаток повреждений</div>
+        <div v-if="spec.damage_exhaustion" class="text-body-2 mt-1">Истощение от повреждений</div>
+        <div v-if="spec.blood_loss" class="text-body-2 mt-1">Кровопотеря</div>
+        <div v-if="spec.decline_weakness" class="text-body-2 mt-1">Слабость</div>
+        <div v-if="spec.decline_disabled" class="text-body-2 mt-1">Обессилен</div>
+        <div v-if="spec.decline_unconscious" class="text-body-2 mt-1">Потеря сознания</div>
+        <div v-if="spec.maim" class="text-body-2 mt-1">Увечье</div>
+        <div v-if="spec.burning" class="text-body-2 mt-1">Горение</div>
+        <div v-if="spec.poisoning" class="text-body-2 mt-1">Отравление</div>
+        <div v-if="spec.lying" class="text-body-2 mt-1">Лежачее положение</div>
+        <div v-if="spec.unstable" class="text-body-2 mt-1">Неустойчивость</div>
+        <div v-if="spec.magic_deviation" class="text-body-2 mt-1">Малое магическое отклонение</div>
+        <div v-if="spec.check_code" class="text-body-2 mt-1">
+          Проверка: <strong>{{ nameByCode(spec.check_code) }}</strong>
+        </div>
         <div v-if="spec.action_codes?.length" class="text-body-2 mt-1">
           Действия с попапа:
           <strong>{{ spec.action_codes.map(nameByCode).join(', ') }}</strong>

@@ -2,6 +2,7 @@ import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/Characte
 import type { CheckAdvantageQuery } from '@/modules/Roleplay/Character/Dto/CheckAdvantageQuery';
 import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
 import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpec';
+import type { Grant } from '@/modules/Roleplay/Rule/Dto/Ability/Grant';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { ScalarFormula } from '@/modules/Roleplay/Rule/Dto/Ability/ScalarFormula';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
@@ -20,29 +21,33 @@ export class AbilityCheckAdvantagesService {
   ): AdvantageModifier[] {
     if (!version || query?.kind !== 'check') return [];
     const entries: AdvantageModifier[] = [];
-    for (const ability of version.abilities) {
-      if (ability.level < 1) continue;
-      const rule = rules.find((entry) => entry.code === ability.ruleCode);
-      if (!rule || rule.type !== 'ability') continue;
-      const spec = rule.spec as AbilitySpec | undefined;
-      if (!spec || spec.type === 'group') continue;
-      for (const entry of spec.grants ?? []) {
-        if (entry.level > ability.level) continue;
-        for (const grant of entry.grants) {
-          if (grant.type !== 'check_advantage') continue;
-          const permanent = grant.permanent !== false;
-          if (!permanent && entry.level !== ability.level) continue;
-          if (!grant.check_codes.includes(query.code) || grant.amount === 0) continue;
-          entries.push({
-            source_code: grant.source_code ?? rule.code,
-            source_label: rule.name,
-            delta: grant.amount,
-          });
-        }
-      }
-    }
+    this.forEachApplicableGrant(version, rules, (grant, rule) => {
+      if (grant.type !== 'check_advantage') return;
+      if (!grant.check_codes.includes(query.code) || grant.amount === 0) return;
+      entries.push({
+        source_code: grant.source_code ?? rule.code,
+        source_label: rule.name,
+        delta: grant.amount,
+      });
+    });
 
     return this.aggregate.aggregateSourceDeltas(entries);
+  }
+
+  checkEfficiencyDeltasFromAbilities(
+    version: Pick<CharacterVersion, 'abilities'> | null | undefined,
+    rules: Rule[],
+    checkCode: string,
+  ): { sourceCode: string; delta: number }[] {
+    if (!version) return [];
+    const deltas: { sourceCode: string; delta: number }[] = [];
+    this.forEachApplicableGrant(version, rules, (grant, rule) => {
+      if (grant.type !== 'check_efficiency') return;
+      if (!grant.check_codes.includes(checkCode) || grant.amount === 0) return;
+      deltas.push({ sourceCode: grant.source_code ?? rule.code, delta: grant.amount });
+    });
+
+    return deltas;
   }
 
   checkCharacteristicModifiersFromAbilities(
@@ -82,6 +87,28 @@ export class AbilityCheckAdvantagesService {
     }
 
     return this.aggregate.aggregateSourceDeltas(entries);
+  }
+
+  private forEachApplicableGrant(
+    version: Pick<CharacterVersion, 'abilities'>,
+    rules: Rule[],
+    visit: (grant: Grant, rule: Rule) => void,
+  ): void {
+    for (const ability of version.abilities) {
+      if (ability.level < 1) continue;
+      const rule = rules.find((entry) => entry.code === ability.ruleCode);
+      if (!rule || rule.type !== 'ability') continue;
+      const spec = rule.spec as AbilitySpec | undefined;
+      if (!spec || spec.type === 'group') continue;
+      for (const entry of spec.grants ?? []) {
+        if (entry.level > ability.level) continue;
+        for (const grant of entry.grants) {
+          const permanent = grant.permanent !== false;
+          if (!permanent && entry.level !== ability.level) continue;
+          visit(grant, rule);
+        }
+      }
+    }
   }
 
   private formulaValue(

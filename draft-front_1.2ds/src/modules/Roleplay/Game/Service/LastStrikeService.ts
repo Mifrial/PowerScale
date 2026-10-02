@@ -64,9 +64,9 @@ export class LastStrikeService {
   }
 
   requiresSingleStrike(rule: Rule | null | undefined): boolean {
-    return actionEffectService.effectsOf(rule).some(
-      (effect) => effect.type === 'require_previous_attack' && effect.single_strike,
-    );
+    return actionEffectService
+      .effectsOf(rule)
+      .some((effect) => effect.type === 'require_previous_attack' && effect.single_strike);
   }
 
   followUpBlockedMessage(rule: Rule | null | undefined): string {

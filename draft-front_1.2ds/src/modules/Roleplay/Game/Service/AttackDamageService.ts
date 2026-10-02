@@ -6,7 +6,6 @@ import type { DefenseLineOverview, DefenseOverview } from '@/modules/Roleplay/Ch
 import type { ResourceOverview } from '@/modules/Roleplay/Character/Dto/Overview/ResourceOverview';
 import type { DamageTypeHook } from '@/modules/Roleplay/Game/Dto/DamageTypeHook';
 import type { AttackResistanceLayer } from '@/modules/Roleplay/Game/Dto/AttackCalcPayload';
-import type { HitDefenseReaction } from '@/modules/Roleplay/Game/Enum/HitDefenseReaction';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import {
   DAMAGE_TYPE_HOOK_MECHANIC_BLUNT_KO,
@@ -17,20 +16,14 @@ import {
   DAMAGE_TYPE_HOOK_MECHANIC_PAY_SR,
 } from '@/modules/Roleplay/Rule/Constant/Damage/DAMAGE_TYPE_HOOKS';
 import { damageTypeHooksService } from '@/modules/Roleplay/Game/Service/Instance/damageTypeHooksService';
-import { ACCUMULATED_DAMAGE_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
+import type { StateSpec } from '@/modules/Roleplay/Rule/Dto/State/StateSpec';
 
 import type { ApplyAttackDamageInput } from '@/modules/Roleplay/Game/Dto/ApplyAttackDamageInput';
 import type { ApplyAttackDamageResult } from '@/modules/Roleplay/Game/Dto/ApplyAttackDamageResult';
-import { ACTION_POINTS_CODE } from '@/modules/Roleplay/Game/Constant/Combat/ACTION_POINTS_CODE';
+import type { CharacteristicSpec } from '@/modules/Roleplay/Rule/Dto/CharacteristicSpec';
+import type { ResourceSpec } from '@/modules/Roleplay/Rule/Dto/ResourceSpec';
 import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/init';
 export class AttackDamageService {
-  defenseApCost(reaction: HitDefenseReaction | null): number {
-    if (reaction === 'dodge') return 1;
-    if (reaction === 'block') return 2;
-
-    return 0;
-  }
-
   hasPaySrHook(hooks: DamageTypeHook[]): boolean {
     return damageTypeHooksService
       .attackHooksOf(hooks)
@@ -39,17 +32,51 @@ export class AttackDamageService {
 
   actionPointsResource(overview: CharacterOverview, rules: Rule[]): ResourceOverview | null {
     for (const resource of overview.resources) {
-      if (rules.find((rule) => rule.code === resource.ruleCode)?.code === ACTION_POINTS_CODE) return resource;
+      const rule = rules.find((item) => item.code === resource.ruleCode);
+      const spec = rule?.spec as ResourceSpec | undefined;
+      if (rule?.type === 'resource' && spec?.auto_add === true) return resource;
     }
 
     return null;
   }
 
+  willpowerRule(rules: Rule[]): Rule | null {
+    return this.characteristicByFlag(rules, 'willpower');
+  }
+
+  unstableRollRule(rules: Rule[]): Rule | null {
+    return this.characteristicByFlag(rules, 'unstable_roll');
+  }
+
+  initiativeRule(rules: Rule[]): Rule | null {
+    return this.characteristicByFlag(rules, 'initiative');
+  }
+
+  private characteristicByFlag(rules: Rule[], flag: 'willpower' | 'unstable_roll' | 'initiative'): Rule | null {
+    return (
+      rules.find((candidate) => {
+        const spec = candidate.spec as CharacteristicSpec | undefined;
+
+        return candidate.type === 'characteristic' && spec?.[flag] === true;
+      }) ?? null
+    );
+  }
+
+  concentrationThresholdCodes(rules: Rule[]): string[] {
+    return rules
+      .filter((candidate) => {
+        const spec = candidate.spec as CharacteristicSpec | undefined;
+
+        return candidate.type === 'characteristic' && spec?.concentration_threshold === true;
+      })
+      .map((candidate) => candidate.code);
+  }
+
   enduranceValueOf(overview: CharacterOverview, rules: Rule[]): DimensionalNumberValue {
     for (const characteristic of overview.characteristics) {
-      if (rules.find((rule) => rule.code === characteristic.ruleCode)?.code === 'endurance') {
-        return characteristic.value;
-      }
+      const rule = rules.find((item) => item.code === characteristic.ruleCode);
+      const spec = rule?.spec as CharacteristicSpec | undefined;
+      if (rule?.type === 'characteristic' && spec?.damage_endurance === true) return characteristic.value;
     }
 
     return { base: 1, size: 0 };
@@ -59,10 +86,98 @@ export class AttackDamageService {
     return Math.max(1, new DimensionalNumber(this.enduranceValueOf(overview, rules)).toNumber());
   }
 
-  accumulatedDamageOf(states: CharacterStateValue[], rules: Rule[]): DimensionalNumberValue {
-    const rule = rules.find(
-      (candidate) => candidate.code === ACCUMULATED_DAMAGE_STATE_CODE && candidate.type === 'state',
+  burningRule(rules: Rule[]): Rule | null {
+    return (
+      rules.find((candidate) => {
+        const spec = candidate.spec as StateSpec | undefined;
+
+        return candidate.type === 'state' && spec?.burning === true;
+      }) ?? null
     );
+  }
+
+  lyingRule(rules: Rule[]): Rule | null {
+    return (
+      rules.find((candidate) => {
+        const spec = candidate.spec as StateSpec | undefined;
+
+        return candidate.type === 'state' && spec?.lying === true;
+      }) ?? null
+    );
+  }
+
+  magicDeviationRule(rules: Rule[]): Rule | null {
+    return (
+      rules.find((candidate) => {
+        const spec = candidate.spec as StateSpec | undefined;
+
+        return candidate.type === 'state' && spec?.magic_deviation === true;
+      }) ?? null
+    );
+  }
+
+  unstableRule(rules: Rule[]): Rule | null {
+    return (
+      rules.find((candidate) => {
+        const spec = candidate.spec as StateSpec | undefined;
+
+        return candidate.type === 'state' && spec?.unstable === true;
+      }) ?? null
+    );
+  }
+
+  poisoningRule(rules: Rule[]): Rule | null {
+    return (
+      rules.find((candidate) => {
+        const spec = candidate.spec as StateSpec | undefined;
+
+        return candidate.type === 'state' && spec?.poisoning === true;
+      }) ?? null
+    );
+  }
+
+  maimRule(rules: Rule[]): Rule | null {
+    return (
+      rules.find((candidate) => {
+        const spec = candidate.spec as StateSpec | undefined;
+
+        return candidate.type === 'state' && spec?.maim === true;
+      }) ?? null
+    );
+  }
+
+  bloodLossRule(rules: Rule[]): Rule | null {
+    return (
+      rules.find((candidate) => {
+        const spec = candidate.spec as StateSpec | undefined;
+
+        return candidate.type === 'state' && spec?.blood_loss === true;
+      }) ?? null
+    );
+  }
+
+  exhaustionRule(rules: Rule[]): Rule | null {
+    return (
+      rules.find((candidate) => {
+        const spec = candidate.spec as StateSpec | undefined;
+
+        return candidate.type === 'state' && spec?.damage_exhaustion === true;
+      }) ?? null
+    );
+  }
+
+  accumulatedDamageRule(rules: Rule[]): Rule | null {
+    return (
+      rules.find((candidate) => {
+        const spec = candidate.spec as StateSpec | undefined;
+
+        return candidate.type === 'state' && spec?.damage_remainder === true;
+      }) ?? null
+    );
+  }
+
+  accumulatedDamageOf(states: CharacterStateValue[], rules: Rule[]): DimensionalNumberValue {
+    const rule = this.accumulatedDamageRule(rules);
     if (!rule) return { base: 0, size: 0 };
 
     return states
@@ -206,7 +321,8 @@ export class AttackDamageService {
     const dodgeSoak = Math.max(0, input.dodgeSoak ?? 0);
     const raw = Math.max(0, product - dodgeSoak);
     const apply = damageTypeHooksService.applyHooksOf(input.hooks);
-    const cutting = apply.some((hook) => hook.mechanicCode === DAMAGE_TYPE_HOOK_MECHANIC_CUTTING_WOUNDS);
+    const cuttingHook = apply.find((hook) => hook.mechanicCode === DAMAGE_TYPE_HOOK_MECHANIC_CUTTING_WOUNDS);
+    const cutting = Boolean(cuttingHook);
     const hpDamage = cutting ? 0 : raw;
     const enduranceValue =
       typeof input.endurance === 'number'
@@ -223,12 +339,26 @@ export class AttackDamageService {
     let stun: number | null = null;
     let shock: number | null = null;
     let wound: number | null = null;
+    const stateWrites: { stateCode: string; amount: number }[] = [];
     for (const hook of apply) {
-      if (hook.mechanicCode === DAMAGE_TYPE_HOOK_MECHANIC_EXHAUSTION_STUN && exhaustion > 0) stun = exhaustion;
-      if (hook.mechanicCode === DAMAGE_TYPE_HOOK_MECHANIC_EXHAUSTION_SHOCK && exhaustion > 0) shock = exhaustion;
-      if (hook.mechanicCode === DAMAGE_TYPE_HOOK_MECHANIC_EXHAUSTION_WOUND && exhaustion > 0) {
-        wound = exhaustion * (hook.woundMultiplier ?? 1);
+      if (!hook.stateCode) continue;
+      if (hook.mechanicCode === DAMAGE_TYPE_HOOK_MECHANIC_EXHAUSTION_STUN && exhaustion > 0) {
+        stun = exhaustion;
+        stateWrites.push({ stateCode: hook.stateCode, amount: exhaustion });
       }
+      if (hook.mechanicCode === DAMAGE_TYPE_HOOK_MECHANIC_EXHAUSTION_SHOCK && exhaustion > 0) {
+        shock = exhaustion;
+        stateWrites.push({ stateCode: hook.stateCode, amount: exhaustion });
+      }
+      if (hook.mechanicCode === DAMAGE_TYPE_HOOK_MECHANIC_EXHAUSTION_WOUND && exhaustion > 0) {
+        const amount = exhaustion * (hook.woundMultiplier ?? 1);
+        wound = amount;
+        stateWrites.push({ stateCode: hook.stateCode, amount });
+      }
+    }
+    const cuttingWound = cuttingHook?.stateCode ? raw : null;
+    if (cuttingHook?.stateCode && raw > 0) {
+      stateWrites.push({ stateCode: cuttingHook.stateCode, amount: raw });
     }
     const knockout =
       apply.some((hook) => hook.mechanicCode === DAMAGE_TYPE_HOOK_MECHANIC_BLUNT_KO) &&
@@ -250,7 +380,8 @@ export class AttackDamageService {
       shock,
       wound,
       knockout,
-      cuttingWound: cutting ? raw : null,
+      cuttingWound,
+      stateWrites,
       layers,
     };
   }

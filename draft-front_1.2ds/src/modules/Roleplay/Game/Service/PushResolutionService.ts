@@ -10,7 +10,7 @@ import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKe
 import type { PushResolution } from '@/modules/Roleplay/Game/Dto/PushResolution';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import { BLUNT_DAMAGE_TYPE_CODE } from '@/modules/Roleplay/Rule/Constant/DamageType/BLUNT_DAMAGE_TYPE_CODE';
-import { LYING_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
+import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
 import { findRuleByRef } from '@/modules/Roleplay/Game/Utils/combatActions';
 import { pushContestService } from '@/modules/Roleplay/Game/Service/Instance/pushContestService';
 import { pushMathService } from '@/modules/Roleplay/Game/Service/Instance/pushMathService';
@@ -64,7 +64,10 @@ export class PushResolutionService {
       ? (push?.posture_rating_divisor_by_damage_type?.[input.attack.damageTypeCode] ?? 1)
       : 1;
     const postureRating = pushMathService.postureRating(contest.successRating, postureDivisor);
-    const lying = Boolean(input.defenderVersion?.states.some((state) => state.stateRuleCode === LYING_STATE_CODE));
+    const lyingCode = attackDamageService.lyingRule(input.rules)?.code;
+    const lying = Boolean(
+      lyingCode && input.defenderVersion?.states.some((state) => state.stateRuleCode === lyingCode),
+    );
     const meleeRolls =
       input.hit.reaction === 'dodge' && input.meleeRolled
         ? input.meleeRolled.defender

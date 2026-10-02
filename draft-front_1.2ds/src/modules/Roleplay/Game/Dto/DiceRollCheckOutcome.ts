@@ -18,5 +18,7 @@ export interface DiceRollCheckOutcome {
   difficulty: DimensionalNumberValue;
   passed: boolean;
   rating: number;
+  /** Пол размера успеха. Пишет проверка удара; нет поля — подпись без этого пола. */
+  min_success_size?: number;
   ranged_hit?: RangedHitDifficultyBreakdown;
 }

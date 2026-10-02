@@ -115,11 +115,7 @@ export const gameNpcs: GameNpc[] = [
 
 let nextNpcId = Math.max(0, ...gameNpcs.map((npc) => npc.id)) + 1;
 
-export async function fetchNpcs(
-  gameId: number,
-  _signal?: AbortSignal,
-  npcIds?: readonly number[],
-): Promise<GameNpc[]> {
+export async function fetchNpcs(gameId: number, _signal?: AbortSignal, npcIds?: readonly number[]): Promise<GameNpc[]> {
   await delay(150);
   const requestedIds = npcIds ? new Set(npcIds) : null;
 

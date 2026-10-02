@@ -171,7 +171,9 @@ function publishCharacterChanged(
   detail: CharacterDetail,
   mutationKind: 'character_edit' | 'migration',
 ): void {
-  const changedSections = [...new Set(characterDiffService.getCharacterDiff(before, detail.version).changes.map((change) => change.section))];
+  const changedSections = [
+    ...new Set(characterDiffService.getCharacterDiff(before, detail.version).changes.map((change) => change.section)),
+  ];
   characterChangePort.publish({
     characterId,
     actualVersion: detail.actualVersion,

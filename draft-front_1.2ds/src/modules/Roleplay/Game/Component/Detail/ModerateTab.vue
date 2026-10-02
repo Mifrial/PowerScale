@@ -104,8 +104,9 @@ async function load(): Promise<void> {
     allMemberships.value = membershipResult;
     const actuals: Record<number, CharacterVersion> = Object.fromEntries(
       moderationProjections
-        .filter((projection): projection is CharacterModerationProjection & { actualCharacterVersion: CharacterVersion } =>
-          projection.actualCharacterVersion !== null,
+        .filter(
+          (projection): projection is CharacterModerationProjection & { actualCharacterVersion: CharacterVersion } =>
+            projection.actualCharacterVersion !== null,
         )
         .map((projection) => [projection.characterId, projection.actualCharacterVersion]),
     );

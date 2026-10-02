@@ -4,14 +4,6 @@ import type { GameRealtimeSyncResult } from '@/modules/Roleplay/Game/Dto/GameRea
 
 /** Game-owned sync/delivery boundary; it does not accept gameplay mutations. */
 export interface IGameRealtimePort {
-  sync(
-    gameId: number,
-    request: GameRealtimeSyncRequest,
-    signal?: AbortSignal,
-  ): Promise<GameRealtimeSyncResult>;
-  subscribe(
-    gameId: number,
-    listener: (event: GameRealtimeEvent) => void,
-    onError?: (error: Error) => void,
-  ): () => void;
+  sync(gameId: number, request: GameRealtimeSyncRequest, signal?: AbortSignal): Promise<GameRealtimeSyncResult>;
+  subscribe(gameId: number, listener: (event: GameRealtimeEvent) => void, onError?: (error: Error) => void): () => void;
 }

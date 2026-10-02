@@ -49,12 +49,13 @@ export class WeaponProficiencyService {
    * Бонус в базовый стат не суммируется (R15) — показывается на тайле конкретного оружия.
    */
   weaponMasteryEntries(
-    statCode: 'melee-combat' | 'ranged-combat',
+    profiles: ('strike' | 'throw' | 'shoot')[],
     stat: Pick<EditorCharacteristic, 'value'>,
     proficiencyLevels: Map<string, number>,
     rules: Rule[],
   ): EditorWeaponMastery[] {
     const result: EditorWeaponMastery[] = [];
+    if (profiles.length === 0) return result;
     for (const [family, level] of proficiencyLevels) {
       if (level < 1) continue;
       const familyRule = rules.find(
@@ -67,12 +68,10 @@ export class WeaponProficiencyService {
         const spec = item.spec as
           { proficiency_family_code?: string | null; weapon?: { weapon_profiles?: { type: string }[] } } | undefined;
         if (spec?.proficiency_family_code !== familyCode) continue;
-        const profiles = spec.weapon?.weapon_profiles ?? [];
-        // Ближний бой — удары; дальний бой — метание и выстрелы (R14).
-        const hasMelee = profiles.some((profile) => profile.type === 'strike');
-        const hasRanged = profiles.some((profile) => profile.type === 'throw' || profile.type === 'shoot');
-        if (statCode === 'melee-combat' && !hasMelee) continue;
-        if (statCode === 'ranged-combat' && !hasRanged) continue;
+        const weaponProfiles = spec.weapon?.weapon_profiles ?? [];
+        if (!weaponProfiles.some((profile) => profiles.includes(profile.type as 'strike' | 'throw' | 'shoot'))) {
+          continue;
+        }
 
         const value = new DimensionalNumber(stat.value).modify(level, CHARACTERISTIC_BASE_RANGE).value;
         result.push({

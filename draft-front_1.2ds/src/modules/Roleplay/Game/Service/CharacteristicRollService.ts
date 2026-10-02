@@ -55,6 +55,6 @@ export class CharacteristicRollService {
       ? rollEngine.roll(spec, rng, rules, mechanics, attachedRuleCodes, [])
       : rollService.computeRollResult(spec, rng);
 
-    return checkRollService.withCheckOutcome(rolled, checkCode, SIMPLE_CHECK_ZERO_DIFFICULTY);
+    return checkRollService.withCheckOutcome(rolled, checkCode, SIMPLE_CHECK_ZERO_DIFFICULTY, undefined, rules);
   }
 }

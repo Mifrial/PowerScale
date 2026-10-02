@@ -7,11 +7,14 @@ import {
   asActionAbilitySpec,
   asProcessAbilitySpec,
   attackActionById,
+  defaultTouchAction,
   listAttackActions,
   reactionOdCost,
+  resourceCosts,
   SIMPLE_MELEE_ATTACK_CODE,
   SIMPLE_RANGED_ATTACK_CODE,
 } from '@/modules/Roleplay/Game/Utils/combatActions';
+import type { CombatActionRole } from '@/modules/Roleplay/Game/Utils/combatActions';
 
 function ability(id: number, code: string, name: string, keywordIds: number[], od: number, automatic: boolean): Rule {
   return {
@@ -35,13 +38,32 @@ function ability(id: number, code: string, name: string, keywordIds: number[], o
   };
 }
 
+function withRole(rule: Rule, role: CombatActionRole): Rule {
+  const spec = rule.spec;
+  if (!spec || spec.type !== 'action') return rule;
+
+  return { ...rule, spec: { ...spec, combat_action: role } };
+}
+
 describe('combatActions', () => {
   const melee = ability(1, SIMPLE_MELEE_ATTACK_CODE, 'Простая атака (ближний бой)', [14, 71, 1, 20], 3, true);
   const ranged = ability(2, SIMPLE_RANGED_ATTACK_CODE, 'Простая атака (дальний бой)', [14, 71, 2, 20], 3, true);
   const extra = ability(3, 'power-strike', 'Мощный удар', [14, 71, 1], 4, false);
-  const dodge = ability(4, 'dodge', 'Уклонение', [14, 53, 20], 1, true);
-  const block = ability(5, 'block', 'Блок', [14, 53, 20], 2, true);
-  const rules = [melee, ranged, extra, dodge, block];
+  const dodge = withRole(ability(4, 'dodge', 'Уклонение', [14, 53, 20], 1, true), 'dodge');
+  const block = withRole(ability(5, 'block', 'Блок', [14, 53, 20], 2, true), 'block');
+  const turn = withRole(ability(6, 'turn', 'Поворот', [14, 53], 1, true), 'turn');
+  const pool: Rule = {
+    id: 18,
+    code: 'action-points',
+    type: 'resource',
+    name: 'Очки действий',
+    description: '',
+    spaceId: 1,
+    spec: { is_dimensional: false, auto_add: true },
+    mechanics: [],
+    createdAt: 1767225600,
+  };
+  const rules = [pool, melee, ranged, extra, dodge, block, turn];
 
   it('автоматические атаки доступны без записи на листе', () => {
     const strike = listAttackActions(rules, null, 'strike');
@@ -69,6 +91,15 @@ describe('combatActions', () => {
     expect(asProcessAbilitySpec(undefined)).toBeNull();
   });
 
+  it('стартовое касание только у роли simple-touch', () => {
+    const touch = withRole(ability(7, 'poke', 'Касание', [14, 71, 1], 3, true), 'simple-touch');
+    const plain = ability(8, 'simple-touch', 'Простое касание', [14, 71, 1], 3, true);
+
+    expect(defaultTouchAction([pool, melee, touch], null)?.code).toBe('poke');
+    expect(defaultTouchAction([pool, melee, touch], null)?.odCost).toBe(3);
+    expect(defaultTouchAction([pool, melee, plain], null)).toBeNull();
+  });
+
   it('ОД реакций из спеки действия', () => {
     expect(reactionOdCost('ignore', rules)).toBe(0);
     expect(reactionOdCost('dodge', rules)).toBe(1);
@@ -88,5 +119,23 @@ describe('combatActions', () => {
 
     expect(actionUsesChosenCost(components)).toBe(true);
     expect(actionOdCost(components)).toBe(0);
+  });
+
+  it('чужой ресурс не входит в ОД и входит в группы', () => {
+    const components = [
+      { type: 'resource' as const, resource_code: 'action-points', amount: 2 },
+      { type: 'resource' as const, resource_code: 'concentration', amount: 1 },
+      {
+        type: 'resource' as const,
+        resource_code: 'concentration',
+        amount: { type: 'chosen' as const, max: 'available' as const },
+      },
+    ];
+
+    expect(actionOdCost(components, 4, 'action-points')).toBe(2);
+    expect(resourceCosts(components, 4)).toEqual([
+      { resourceCode: 'action-points', amount: 2 },
+      { resourceCode: 'concentration', amount: 1 },
+    ]);
   });
 });

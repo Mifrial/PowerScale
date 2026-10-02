@@ -264,7 +264,7 @@ const spellParams = computed(() => {
   const spec = props.rules?.find((rule) => rule.code === props.ability.ruleCode)?.spec as AbilitySpec | undefined;
   if (spec?.type !== 'spell') return null;
 
-  return spellParamsViewService.view(spec);
+  return spellParamsViewService.view(spec, turnResourceCode());
 });
 
 const pathDialogOpen = ref(false);
@@ -546,6 +546,17 @@ function displayName(ability: EditorAbility): string {
   return ability.name;
 }
 
+function turnResourceCode(): string {
+  return (
+    props.rules?.find((candidate) => {
+      if (candidate.type !== 'resource') return false;
+      const spec = candidate.spec as ResourceSpec | undefined;
+
+      return spec?.auto_add === true;
+    })?.code ?? ''
+  );
+}
+
 function actionOdCostLabel(ability: EditorAbility): string | null {
   if (ability.type !== 'action') return null;
 
@@ -554,7 +565,7 @@ function actionOdCostLabel(ability: EditorAbility): string | null {
 
   const costs = spec.action_components.filter(
     (component): component is Extract<(typeof spec.action_components)[number], { type: 'resource' }> =>
-      component.type === 'resource' && component.resource_code === 'action-points',
+      component.type === 'resource' && turnResourceCode() !== '' && component.resource_code === turnResourceCode(),
   );
   if (costs.length === 0) return null;
   const resourceRule = props.rules?.find((rule) => rule.code === costs[0]?.resource_code && rule.type === 'resource');

@@ -43,9 +43,7 @@ export class BlockHitService {
           durability: Math.max(slot.durability, BLOCK_LAYER_DURABILITY),
           sourceCode: slot.source_code ?? profile.itemRuleCode,
           sourceLabel: profile.itemName,
-          damageTypeLabel: slot.damage_type_code
-            ? (DAMAGE_TYPE_FORMS[slot.damage_type_code]?.dative ?? null)
-            : null,
+          damageTypeLabel: slot.damage_type_code ? (DAMAGE_TYPE_FORMS[slot.damage_type_code]?.dative ?? null) : null,
           damageTypeDative: slot.damage_type_code ? (DAMAGE_TYPE_FORMS[slot.damage_type_code]?.dative ?? null) : null,
           damageTypeCode: slot.damage_type_code,
         };

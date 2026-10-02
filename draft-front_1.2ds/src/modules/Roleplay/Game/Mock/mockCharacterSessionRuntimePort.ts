@@ -6,9 +6,7 @@ import {
   isSessionActive,
   syncCharacterVersionToMemberships,
 } from '@/modules/Roleplay/Game/Mock/mockGameMemberships';
-import {
-  getStoredCharacterVersion,
-} from '@/modules/Roleplay/Character/Mock/mockCharacters';
+import { getStoredCharacterVersion } from '@/modules/Roleplay/Character/Mock/mockCharacters';
 import { MockGameCharacterRuntimeMutationPort } from '@/modules/Roleplay/Game/Mock/MockGameCharacterRuntimeMutationPort';
 
 const runtimePort: ICharacterSessionRuntimePort = {

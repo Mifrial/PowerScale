@@ -11,4 +11,6 @@ export interface DamageTypeHook {
   efficiencyDelta?: number;
   /** Истощение → рана: множитель силы. */
   woundMultiplier?: number;
+  /** Куда записать число apply-хука. Нет кода — хук не пишет состояние. */
+  stateCode?: string;
 }

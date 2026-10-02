@@ -141,11 +141,18 @@ const mechanics: Mechanic[] = [
     description: 'Обновляет текущую скорость участника по агрегированному результату действия.',
     version: '1.0.0',
   },
+  {
+    id: 20,
+    code: 'blood_clotting',
+    name: 'Свёртывание крови',
+    description: 'В конце хода раненого по каждой ране бросает проверку из payload и пишет рейтинг во вклад свёртывания.',
+    version: '1.0.0',
+  },
 ];
 
 const delay = (ms = 300) => new Promise((r) => setTimeout(r, ms));
 
-let nextId = 20;
+let nextId = 21;
 
 export async function fetchMechanics(_signal?: AbortSignal): Promise<Mechanic[]> {
   await delay();

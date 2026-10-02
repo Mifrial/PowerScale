@@ -27,12 +27,13 @@ const showsSenses = computed(() => {
 
 /** Мастерство оружий освоенных семей — только для статов мастерства (ближний/дальний бой). */
 const weaponMastery = computed(() => {
-  const code = props.stat.characteristic.code;
-  if (code !== 'melee-combat' && code !== 'ranged-combat') return [];
-  if (!props.proficiencyLevels) return [];
+  const spec = byCode.value.get(props.stat.characteristic.code)?.spec;
+  const profiles =
+    spec && typeof spec === 'object' && 'weapon_mastery' in spec ? (spec.weapon_mastery?.profiles ?? []) : [];
+  if (profiles.length === 0 || !props.proficiencyLevels) return [];
 
   return weaponProficiencyService.weaponMasteryEntries(
-    code,
+    profiles,
     props.stat.characteristic,
     props.proficiencyLevels,
     props.rules,

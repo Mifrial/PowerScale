@@ -3,14 +3,14 @@ import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/Dimension
 import type { CharacterOverview } from '@/modules/Roleplay/Character/Dto/Overview/CharacterOverview';
 import type { DodgeSoakCuts } from '@/modules/Roleplay/Game/Dto/DodgeSoakCuts';
 import type { HitDefenseReaction } from '@/modules/Roleplay/Game/Enum/HitDefenseReaction';
+import type { CharacteristicSpec } from '@/modules/Roleplay/Rule/Dto/CharacteristicSpec';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { CHARACTERISTIC_BASE_RANGE } from '@/modules/Roleplay/Character/init';
-import { CHARACTERISTIC_DEXTERITY_CODE } from '@/modules/Roleplay/Rule/Constant/Characteristic/CHARACTERISTIC_DEXTERITY_CODE';
 import { CHARACTERISTIC_REACTION_CODE } from '@/modules/Roleplay/Rule/Constant/Characteristic/CHARACTERISTIC_REACTION_CODE';
 
 const FALLBACK_DODGE_BENEFIT = -3;
 
-/** Смягчение уклона: Ловкость.modify(dodge_benefit | −3), карты режут S, не кубы. */
+/** Смягчение уклона: характеристика с dodge_soak.modify(dodge_benefit | −3), карты режут S, не кубы. */
 export class DodgeSoakService {
   characteristicValue(
     overview: CharacterOverview | null | undefined,
@@ -72,13 +72,25 @@ export class DodgeSoakService {
     profileIndex?: number;
   }): number {
     if (input.reaction !== 'dodge') return 0;
-    const dexterity = this.characteristicValue(input.defenderOverview, input.rules, CHARACTERISTIC_DEXTERITY_CODE);
+    const soakRule = this.dodgeSoakRule(input.rules);
+    if (!soakRule) return 0;
+    const dexterity = this.characteristicValue(input.defenderOverview, input.rules, soakRule.code);
     const benefit = this.resolvedBenefit(input.dodgeBenefit, {
       itemRuleCode: input.itemRuleCode,
       profileIndex: input.profileIndex,
     });
 
     return this.applyCuts(this.baseSoakValue(dexterity, benefit), input.cuts ?? {}, input.sr);
+  }
+
+  private dodgeSoakRule(rules: Rule[]): Rule | null {
+    return (
+      rules.find((candidate) => {
+        const spec = candidate.spec as CharacteristicSpec | undefined;
+
+        return candidate.type === 'characteristic' && spec?.dodge_soak === true;
+      }) ?? null
+    );
   }
 
   reactionToNumber(overview: CharacterOverview | null | undefined, rules: Rule[]): number {

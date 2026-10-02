@@ -189,6 +189,54 @@ const versusPreview = computed(() =>
         hide-details="auto"
         class="mb-3"
       />
+      <v-switch
+        :model-value="draft.dialog_launch !== false"
+        label="Запуск из диалога"
+        color="primary"
+        hide-details="auto"
+        class="mb-3"
+        @update:model-value="draft.dialog_launch = $event === true"
+      />
+      <v-switch
+        :model-value="draft.ordinary_root === true"
+        label="Корень обычных проверок"
+        color="primary"
+        hide-details="auto"
+        class="mb-3"
+        @update:model-value="draft.ordinary_root = $event === true"
+      />
+      <v-switch
+        :model-value="draft.concentration_token === true"
+        label="Жетон концентрации"
+        color="primary"
+        hide-details="auto"
+        class="mb-3"
+        @update:model-value="draft.concentration_token = $event === true"
+      />
+      <v-switch
+        :model-value="draft.willpower === true"
+        label="Проверка воли"
+        color="primary"
+        hide-details="auto"
+        class="mb-3"
+        @update:model-value="draft.willpower = $event === true"
+      />
+      <v-switch
+        :model-value="draft.unstable_check === true"
+        label="Проверка ловкости при неустойчивости"
+        color="primary"
+        hide-details="auto"
+        class="mb-3"
+        @update:model-value="draft.unstable_check = $event === true"
+      />
+      <v-switch
+        :model-value="draft.hit_check === true"
+        label="Проверка удара"
+        color="primary"
+        hide-details="auto"
+        class="mb-3"
+        @update:model-value="draft.hit_check = $event === true"
+      />
       <v-select
         v-model="difficultyKind"
         :items="[

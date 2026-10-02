@@ -24,10 +24,8 @@ export class PushMathService {
   }
 
   knockbackIpari(successRating: number): DimensionalNumberValue {
-    return new DimensionalNumber({ base: Math.max(0, successRating), size: 0 }).modify(
-      -6,
-      CHARACTERISTIC_BASE_RANGE,
-    ).value;
+    return new DimensionalNumber({ base: Math.max(0, successRating), size: 0 }).modify(-6, CHARACTERISTIC_BASE_RANGE)
+      .value;
   }
 
   postureRating(successRating: number, divisor = 1): number {

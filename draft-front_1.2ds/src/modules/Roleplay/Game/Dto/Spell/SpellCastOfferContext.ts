@@ -12,6 +12,7 @@ export interface SpellCastOfferContext {
   targetResistanceAmount: number;
   parameterPower: DimensionalNumberValue;
   checkCode: string | null;
+  castCheckCode: string | null;
   characteristicValue: DimensionalNumberValue;
   characteristicName: string;
   touchActionCode: string | null;

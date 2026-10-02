@@ -51,6 +51,61 @@ const intellect = {
   spaceId: 1,
   mechanics: [],
   createdAt: 0,
+  spec: { type: 'characteristic' as const, concentration_threshold: true },
+};
+
+const tokenResource: Rule = {
+  id: null,
+  code: 'concentration',
+  type: 'resource',
+  name: 'Жетоны концентрации',
+  description: '',
+  spaceId: 1,
+  mechanics: [],
+  createdAt: 0,
+  spec: { is_dimensional: false, auto_add: false, check_token: true },
+};
+
+function skill(code: string, flag: 'peak_concentration' | 'will_focus' | 'long_tension'): Rule {
+  return {
+    id: null,
+    code,
+    type: 'ability',
+    name: code,
+    description: '',
+    spaceId: 1,
+    mechanics: [],
+    createdAt: 0,
+    spec: {
+      type: 'skill',
+      zones: {},
+      requirements: [],
+      grants: [],
+      parent_ability_code: 'kontsentratsiya',
+      [flag]: true,
+    },
+  };
+}
+
+const peakSkill = skill('predelnaya-kontsentratsiya', 'peak_concentration');
+const willSkill = skill('sosredotochenie-voli', 'will_focus');
+const tensionSkill = skill('dlitelnoe-napryazhenie', 'long_tension');
+
+const hitCheck: Rule = {
+  id: null,
+  code: 'check-hit',
+  type: 'check',
+  name: 'Попадание',
+  description: '',
+  spaceId: 1,
+  mechanics: [],
+  createdAt: 0,
+  spec: {
+    type: 'check',
+    concentration_token: true,
+    difficulty_input: { kind: 'none' },
+    allowed_modes: 'joint',
+  },
 };
 
 const willpower = {
@@ -62,11 +117,12 @@ const willpower = {
   spaceId: 1,
   mechanics: [],
   createdAt: 0,
+  spec: { type: 'characteristic' as const, willpower: true },
 };
 
 describe('ConcentrationTokenService', () => {
   it('canSpend ложь при current 0 и при выключенной способности', () => {
-    const rules: Rule[] = [intellect];
+    const rules: Rule[] = [intellect, tokenResource];
     const empty = version({ resources: [{ ruleCode: 'concentration', current: dim(0), base: dim(1), bonuses: [] }] });
     expect(concentrationTokenService.canSpend(empty, overlay(false, 0), rules, 'check-intellect')).toBe(false);
     const off = version({
@@ -94,16 +150,17 @@ describe('ConcentrationTokenService', () => {
       },
     } as unknown as IGameApi;
 
-    await concentrationTokenService.refillIfUnused(api, 1, 'character:1', version(), overlay(false, 0));
+    const rules: Rule[] = [tokenResource];
+    await concentrationTokenService.refillIfUnused(api, 1, 'character:1', version(), overlay(false, 0), rules);
     expect(calls).toEqual([{ resource: 3 }, { used: false }]);
 
     calls.length = 0;
-    await concentrationTokenService.refillIfUnused(api, 1, 'character:1', version(), overlay(true, 0));
+    await concentrationTokenService.refillIfUnused(api, 1, 'character:1', version(), overlay(true, 0), rules);
     expect(calls).toEqual([{ used: false }]);
   });
 
   it('maxSpend: без улучшения 1; Предельная 1 при 5↑ — 2; уровень 2 при 5↑↑ — 3', () => {
-    const rules: Rule[] = [intellect];
+    const rules: Rule[] = [intellect, tokenResource, hitCheck, peakSkill];
     const tokens = overlay(false, 3);
     expect(concentrationTokenService.maxSpend(version(), tokens, rules, 'check-hit')).toBe(1);
 
@@ -133,7 +190,7 @@ describe('ConcentrationTokenService', () => {
   });
 
   it('maxSpend снижает live-уровень, если размер характеристики ниже требования', () => {
-    const rules: Rule[] = [intellect];
+    const rules: Rule[] = [intellect, tokenResource, hitCheck, peakSkill];
     const tokens = overlay(false, 3);
     const bought2 = version({
       abilities: [
@@ -154,6 +211,15 @@ describe('ConcentrationTokenService', () => {
       ],
     });
     expect(concentrationTokenService.maxSpend(bought1plain, tokens, rules, 'check-hit')).toBe(1);
+
+    const unflagged: Rule = { ...intellect, spec: { type: 'characteristic' } };
+    expect(concentrationTokenService.maxSpend(bought2, tokens, [unflagged, tokenResource, hitCheck], 'check-hit')).toBe(0);
+    const other: Rule = { ...intellect, code: 'resolve', spec: { type: 'characteristic', concentration_threshold: true } };
+    const flagged = version({
+      abilities: bought2.abilities,
+      characteristics: [{ ruleCode: 'resolve', base: dim(5, 2), modifiers: [] }],
+    });
+    expect(concentrationTokenService.maxSpend(flagged, tokens, [other, tokenResource, hitCheck, peakSkill], 'check-hit')).toBe(3);
   });
 
   it('parseSpendAmount и tokenAdvantage: true → 1, число даёт delta', () => {
@@ -176,12 +242,45 @@ describe('ConcentrationTokenService', () => {
       },
     } as unknown as IGameApi;
 
-    await concentrationTokenService.spendToken(api, 1, 'character:1', version(), overlay(false, 3), 2);
+    await concentrationTokenService.spendToken(api, 1, 'character:1', version(), overlay(false, 3), [tokenResource], 2);
     expect(calls).toEqual([1]);
   });
 
   it('Сосредоточение воли открывает проверки Силы воли и истощения', () => {
-    const rules: Rule[] = [intellect, willpower];
+    const exhaustionCheck: Rule = {
+      id: null,
+      code: 'check-exhaustion',
+      type: 'check',
+      name: 'Проверка на истощение',
+      description: '',
+      spaceId: 1,
+      mechanics: [],
+      createdAt: 0,
+      spec: {
+        type: 'check',
+        characteristic_code: 'willpower',
+        difficulty_input: { kind: 'from_state', state_code: 'exhaustion' },
+        allowed_modes: 'solo',
+      },
+    };
+    const willCheck: Rule = {
+      id: null,
+      code: 'check-willpower',
+      type: 'check',
+      name: 'Воля',
+      description: '',
+      spaceId: 1,
+      mechanics: [],
+      createdAt: 0,
+      spec: {
+        type: 'check',
+        willpower: true,
+        characteristic_code: 'willpower',
+        difficulty_input: { kind: 'ask' },
+        allowed_modes: 'both',
+      },
+    };
+    const rules: Rule[] = [intellect, willpower, exhaustionCheck, willCheck, tokenResource, willSkill];
     const tokens = overlay(false, 2);
     expect(concentrationTokenService.canSpend(version(), tokens, rules, 'check-willpower')).toBe(false);
     expect(concentrationTokenService.canSpend(version(), tokens, rules, 'check-exhaustion')).toBe(false);
@@ -205,7 +304,7 @@ describe('ConcentrationTokenService', () => {
   });
 
   it('длительное напряжение поднимает потолок до 10 ходов', () => {
-    const rules: Rule[] = [intellect, willpower];
+    const rules: Rule[] = [intellect, willpower, tokenResource, hitCheck, tensionSkill];
     const tokens = overlay(false, 2);
     expect(concentrationTokenService.canSpend(version(), tokens, rules, 'check-hit', null, 2)).toBe(false);
     const stretched = version({
@@ -222,5 +321,26 @@ describe('ConcentrationTokenService', () => {
     expect(concentrationTokenService.maxActionTurns(stretched, rules)).toBe(10);
     expect(concentrationTokenService.canSpend(stretched, tokens, rules, 'check-hit', null, 2)).toBe(true);
     expect(concentrationTokenService.canSpend(stretched, tokens, rules, 'check-hit', null, 11)).toBe(false);
+  });
+
+  it('без флага навык не поднимает трату, волю и потолок ходов', () => {
+    const rules: Rule[] = [intellect, willpower, tokenResource, hitCheck];
+    const tokens = overlay(false, 3);
+    const owned = version({
+      abilities: [
+        { ruleCode: 'kontsentratsiya', level: 1 },
+        { ruleCode: 'predelnaya-kontsentratsiya', level: 2 },
+        { ruleCode: 'sosredotochenie-voli', level: 1 },
+        { ruleCode: 'dlitelnoe-napryazhenie', level: 1 },
+      ],
+      characteristics: [
+        { ruleCode: 'intellect', base: dim(5, 2), modifiers: [] },
+        { ruleCode: 'perception', base: dim(3), modifiers: [] },
+        { ruleCode: 'willpower', base: dim(5), modifiers: [] },
+      ],
+    });
+    expect(concentrationTokenService.maxSpend(owned, tokens, rules, 'check-hit')).toBe(1);
+    expect(concentrationTokenService.canSpend(owned, tokens, rules, 'check-willpower')).toBe(false);
+    expect(concentrationTokenService.maxActionTurns(owned, rules)).toBe(1);
   });
 });

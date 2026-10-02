@@ -35,6 +35,7 @@ export class FormatStateEffectsService {
     nameByCode: (code: string) => string,
   ): string {
     const parts = [`Урон: ${this.damageSourceLabel(effect.damage)}`];
+    if (effect.damage_type_code) parts.push(nameByCode(effect.damage_type_code));
     parts.push(this.periodicityLabel(effect.periodicity));
     if (effect.decay) parts.push(`затухание ${this.decayLabel(effect.decay, nameByCode)}`);
 

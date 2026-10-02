@@ -1,4 +1,3 @@
-import { ACTION_POINTS_RESOURCE_CODE } from '@/modules/Roleplay/Rule/Constant/Ability/ACTION_POINTS_RESOURCE_CODE';
 import { RULE_TYPE_LABELS } from '@/modules/Roleplay/Rule/Constant/RULE_TYPE_LABELS';
 import type { AbilitySpecService } from '@/modules/Roleplay/Rule/Service/Spec/AbilitySpecService';
 import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpec';
@@ -174,6 +173,13 @@ export class RuleValidationService {
     keywords: { id: number; code: string; name: string }[],
   ): AbilityStructureError[] {
     const errors: AbilityStructureError[] = [];
+    const turnResource = rules.find((item) => {
+      if (item.type !== 'resource') return false;
+      const spec = item.spec as ResourceSpec | undefined;
+
+      return spec?.auto_add === true;
+    });
+    const turnResourceCode = turnResource?.code ?? '';
 
     for (const rule of rules) {
       if (rule.type !== 'ability') continue;
@@ -361,7 +367,7 @@ export class RuleValidationService {
         const costs = components.filter(
           (c): c is Extract<ActionComponent, { type: 'resource' }> => c.type === 'resource',
         );
-        if (!this.hasActionPointCost(costs)) {
+        if (turnResourceCode && !this.hasActionPointCost(costs, turnResourceCode)) {
           errors.push({
             ruleName: rule.name,
             ruleCode: rule.code,
@@ -395,7 +401,7 @@ export class RuleValidationService {
               message: `экстренное прерывание шага «${step.name || step.code}» требует эффект`,
             });
           }
-          if (!this.hasActionPointCost(step.costs ?? [])) {
+          if (turnResourceCode && !this.hasActionPointCost(step.costs ?? [], turnResourceCode)) {
             errors.push({
               ruleName: rule.name,
               ruleCode: rule.code,
@@ -1226,6 +1232,9 @@ export class RuleValidationService {
         for (const code of state.action_codes ?? []) {
           collect({ code, type: 'ability' });
         }
+        if (state.check_code) {
+          collect({ code: state.check_code, type: 'check' });
+        }
         for (const effect of state.effects ?? []) {
           if (effect.type === 'characteristic_modify' && effect.characteristic_code) {
             collect({ code: effect.characteristic_code, type: 'characteristic' });
@@ -1245,6 +1254,9 @@ export class RuleValidationService {
             }
           }
           if (effect.type === 'damage_over_time') {
+            if (effect.damage_type_code) {
+              collect({ code: effect.damage_type_code, type: 'damage_type' });
+            }
             const decay = effect.decay;
             if (decay && (decay.kind === 'characteristic' || decay.kind === 'check') && decay.characteristic_code) {
               collect({ code: decay.characteristic_code, type: 'characteristic' });
@@ -1295,6 +1307,15 @@ export class RuleValidationService {
         const path = spec as MagicPathSpec;
         if (path.check_code) {
           collect({ code: path.check_code, type: 'check' });
+        }
+        if (path.cast_check_code) {
+          collect({ code: path.cast_check_code, type: 'check' });
+        }
+        if (path.power_characteristic_code) {
+          collect({ code: path.power_characteristic_code, type: 'characteristic' });
+        }
+        if (path.control_characteristic_code) {
+          collect({ code: path.control_characteristic_code, type: 'characteristic' });
         }
         for (const included of path.includes_path_codes ?? []) {
           collect({ code: included, type: 'magic_path' });
@@ -1520,8 +1541,8 @@ export class RuleValidationService {
     return null;
   }
 
-  private hasActionPointCost(costs: { resource_code: string; amount: unknown }[]): boolean {
-    return costs.some((c) => c.resource_code === ACTION_POINTS_RESOURCE_CODE && (this.amountValue(c.amount) ?? 0) >= 1);
+  private hasActionPointCost(costs: { resource_code: string; amount: unknown }[], resourceCode: string): boolean {
+    return costs.some((c) => c.resource_code === resourceCode && (this.amountValue(c.amount) ?? 0) >= 1);
   }
 
   private duplicateCodes(codes: (string | null | undefined)[]): string[] {

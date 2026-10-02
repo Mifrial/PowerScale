@@ -5,8 +5,8 @@ import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/Chara
 import { keywordExperienceService } from '@/modules/Roleplay/Character/init';
 import type { SpellCastSpellOption } from '@/modules/Roleplay/Game/Dto/Spell/SpellCastSpellOption';
 import type { ActiveSpell } from '@/modules/Roleplay/Game/Dto/Spell/ActiveSpell';
-import { ACTION_POINTS_CODE } from '@/modules/Roleplay/Game/Constant/Combat/ACTION_POINTS_CODE';
-import { actionOdCost } from '@/modules/Roleplay/Game/Utils/combatActions';
+import { actionOdCost, turnResourceCode } from '@/modules/Roleplay/Game/Utils/combatActions';
+import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
 import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpec';
 import type { SpellChargeSpec } from '@/modules/Roleplay/Rule/Dto/Ability/SpellChargeSpec';
@@ -126,7 +126,7 @@ export class ElectrochargeService {
       if (spec.spend.exclude_duration_types.includes(duration)) {
         return false;
       }
-      if (spec.spend.creation_max === 'turn_ap' && this.creationCost(ability) > turnApMax) {
+      if (spec.spend.creation_max === 'turn_ap' && this.creationCost(ability, turnResourceCode(rules)) > turnApMax) {
         return false;
       }
 
@@ -134,12 +134,13 @@ export class ElectrochargeService {
     });
   }
 
-  creationCost(spec: Extract<AbilitySpec, { type: 'spell' }>): number {
-    return actionOdCost(spec.action_components);
+  creationCost(spec: Extract<AbilitySpec, { type: 'spell' }>, resourceCode: string): number {
+    return actionOdCost(spec.action_components, 0, resourceCode);
   }
 
-  turnApMax(overview: CharacterOverview | null): number {
-    const resource = overview?.resources.find((entry) => entry.ruleCode === ACTION_POINTS_CODE);
+  turnApMax(overview: CharacterOverview | null, rules: Rule[]): number {
+    const rule = combatCardModelService.turnResourceRule(rules);
+    const resource = overview?.resources.find((entry) => entry.ruleCode === rule?.code);
 
     return resource ? DimensionalNumber.from(resource.max).toNumber() : 0;
   }

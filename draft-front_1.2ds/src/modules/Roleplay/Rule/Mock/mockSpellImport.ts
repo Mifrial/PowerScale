@@ -6,7 +6,6 @@ import type { SpellValue } from '@/modules/Roleplay/Rule/Dto/Ability/SpellValue'
 import type { AbilityParameter } from '@/modules/Roleplay/Rule/Dto/Ability/AbilityParameter';
 import type { HitResolution } from '@/modules/Roleplay/Rule/Dto/Ability/HitResolution';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
-import { ACTION_POINTS_RESOURCE_CODE } from '@/modules/Roleplay/Rule/Constant/Ability/ACTION_POINTS_RESOURCE_CODE';
 import { damageTypeSpecService } from '@/modules/Roleplay/Rule/Service/Instance/damageTypeSpecService';
 
 /**
@@ -14,6 +13,7 @@ import { damageTypeSpecService } from '@/modules/Roleplay/Rule/Service/Instance/
  * канон — spell-plan-02-slice / spell-plan-04-import. Не парсер HTML.
  */
 
+const ACTION_POINTS_RESOURCE_CODE = 'action-points';
 const MAGIC_KEYWORD = 3;
 const SKILL_KEYWORD = 13;
 const ACTION_KEYWORD = 14;
@@ -209,6 +209,9 @@ export const mockSpellImport: Rule[] = [
     spec: {
       type: 'magic_path',
       check_code: 'check-intellect',
+      cast_check_code: 'check-spell-cast',
+      power_characteristic_code: 'magic-power',
+      control_characteristic_code: 'magic-control',
       study_cost: { discount_fraction: 0.5, pair_base_cost: 1 },
       includes_path_codes: [],
     },
@@ -297,6 +300,7 @@ export const mockSpellImport: Rule[] = [
       ],
       grants: [],
       parent_ability_code: null,
+      next_cast_difficulty: { min_remaining_rating: 2, delta: -1, source_code: 'training' },
     },
     catalogSection: 'abilities-acquired-magic-paths-arcanist-education-basic',
     keywordIds: [SKILL_KEYWORD, MAGIC_KEYWORD, METHOD_INTELLECT_KEYWORD, MAGIC_PATH_KEYWORD, ARCANIST_KEYWORD],
@@ -332,7 +336,15 @@ export const mockSpellImport: Rule[] = [
     name: 'Псионик',
     description:
       'Путь волшебства: сотворение — проверка Силы воли. Одновременно можно держать только одно активное волшебство. Отдельной скидки изучения и пары «два за 1 ОР» нет.',
-    spec: { type: 'magic_path', check_code: 'check-willpower', study_cost: null, includes_path_codes: [] },
+    spec: {
+      type: 'magic_path',
+      check_code: 'check-willpower',
+      cast_check_code: 'check-spell-cast',
+      power_characteristic_code: 'magic-power',
+      control_characteristic_code: 'magic-control',
+      study_cost: null,
+      includes_path_codes: [],
+    },
     catalogSection: 'magic-rules-paths',
     keywordIds: [],
   }),
@@ -417,6 +429,9 @@ export const mockSpellImport: Rule[] = [
     spec: {
       type: 'magic_path',
       check_code: 'check-spirituality',
+      cast_check_code: 'check-spell-cast',
+      power_characteristic_code: 'magic-power',
+      control_characteristic_code: 'magic-control',
       study_cost: null,
       includes_path_codes: ['psionic'],
     },
@@ -521,6 +536,7 @@ export const mockSpellImport: Rule[] = [
       icon_code: 'mdi-sine-wave',
       value_type: 'number',
       aggregation: 'independent',
+      magic_deviation: true,
     },
     catalogSection: 'magic-rules-states',
     keywordIds: [],
@@ -839,6 +855,7 @@ export const mockSpellImport: Rule[] = [
       ],
       grants: [],
       parent_ability_code: null,
+      spell_saturation: { min_rating: 2, rating_per_step: 2, power_per_step: 1 },
     },
     catalogSection: ARCANIST_ADVANCED_SECTION,
     keywordIds: [SKILL_KEYWORD, MAGIC_KEYWORD, METHOD_INTELLECT_KEYWORD, MAGIC_PATH_KEYWORD, ARCANIST_KEYWORD],

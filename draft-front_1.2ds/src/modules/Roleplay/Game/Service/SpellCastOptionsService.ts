@@ -4,9 +4,7 @@ import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/Dimension
 import type { SpellCastPathOption } from '@/modules/Roleplay/Game/Dto/Spell/SpellCastPathOption';
 import type { SpellCastSourceOption } from '@/modules/Roleplay/Game/Dto/Spell/SpellCastSourceOption';
 import type { SpellCastSpellOption } from '@/modules/Roleplay/Game/Dto/Spell/SpellCastSpellOption';
-import { MAGIC_CONTROL_CODE } from '@/modules/Roleplay/Game/Constant/Spell/MAGIC_CONTROL_CODE';
 import { MAGIC_CORE_ITEM_CODE } from '@/modules/Roleplay/Game/Constant/Spell/MAGIC_CORE_ITEM_CODE';
-import { MAGIC_POWER_CODE } from '@/modules/Roleplay/Game/Constant/Spell/MAGIC_POWER_CODE';
 import type { Grant } from '@/modules/Roleplay/Rule/Dto/Ability/Grant';
 import type { MagicPathSpec } from '@/modules/Roleplay/Rule/Dto/MagicPath/MagicPathSpec';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
@@ -127,13 +125,17 @@ export class SpellCastOptionsService {
         pathCode,
         name: rule?.name ?? pathCode,
         checkCode: spec?.check_code ?? null,
+        castCheckCode: spec?.cast_check_code ?? null,
+        powerCharacteristicCode: spec?.power_characteristic_code ?? null,
+        controlCharacteristicCode: spec?.control_characteristic_code ?? null,
       });
     }
 
     return options;
   }
 
-  characteristicValue(overview: CharacterOverview | null, ruleCode: string): DimensionalNumberValue {
+  characteristicValue(overview: CharacterOverview | null, ruleCode: string | null): DimensionalNumberValue {
+    if (!ruleCode) return { base: 3, size: 0 };
     const found = overview?.characteristics.find((entry) => entry.ruleCode === ruleCode);
 
     return found?.value ?? { base: 3, size: 0 };
@@ -143,14 +145,19 @@ export class SpellCastOptionsService {
     overview: CharacterOverview | null,
     states: CharacterVersion['states'] = [],
     sourceKey = '',
+    characteristicCode: string | null = null,
+    rules: Rule[] = [],
   ): DimensionalNumberValue {
-    const base = this.characteristicValue(overview, MAGIC_POWER_CODE);
+    const base = this.characteristicValue(overview, characteristicCode);
 
-    return spellDeviationService.penalizeUsedPower(base, spellDeviationService.strengthOnSource(states, sourceKey));
+    return spellDeviationService.penalizeUsedPower(
+      base,
+      spellDeviationService.strengthOnSource(states, sourceKey, rules),
+    );
   }
 
-  defaultControl(overview: CharacterOverview | null): DimensionalNumberValue {
-    return this.characteristicValue(overview, MAGIC_CONTROL_CODE);
+  defaultControl(overview: CharacterOverview | null, characteristicCode: string | null): DimensionalNumberValue {
+    return this.characteristicValue(overview, characteristicCode);
   }
 
   targetResistanceFromOverview(target: CharacterOverview | null, damageTypeCode: string): number {

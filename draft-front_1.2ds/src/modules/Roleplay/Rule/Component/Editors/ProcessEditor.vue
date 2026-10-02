@@ -13,6 +13,7 @@ import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
 const props = defineProps<{
   modelValue: ProcessSpec | null;
   resources: ResourceRef[];
+  turnResourceCode: string;
 }>();
 
 const emit = defineEmits<{
@@ -26,7 +27,7 @@ const stepRefs = computed(() =>
 );
 
 function addStep() {
-  inner.value = processSpecService.addStep(inner.value);
+  inner.value = processSpecService.addStep(inner.value, props.turnResourceCode);
 }
 
 function removeStep(index: number) {
@@ -87,6 +88,7 @@ onMounted(() => {
           :step="step"
           :step-index="index"
           :resources="resources"
+          :turn-resource-code="turnResourceCode"
           @update:step="(v) => updateStep(index, v)"
         />
       </div>

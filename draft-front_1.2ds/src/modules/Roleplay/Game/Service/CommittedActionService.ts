@@ -1,14 +1,13 @@
 import type { CombatActionOption } from '@/modules/Roleplay/Game/Utils/combatActions';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { CommittedActionSession } from '@/modules/Roleplay/Game/Dto/CommittedActionSession';
-import { WAIT_ACTION_CODE } from '@/modules/Roleplay/Game/Utils/combatActions';
 
 /**
  * Долг ОД у действия без атаки/реакции/процесса: оплата с нескольких ходов, эффект в конце.
  */
 export class CommittedActionService {
   canStretch(action: CombatActionOption): boolean {
-    if (action.code === WAIT_ACTION_CODE) return false;
+    if (action.combatAction === 'wait') return false;
     if (action.isAttack || action.isReaction || action.isProcess || action.isVariableCost) return false;
 
     return action.odCost >= 1;

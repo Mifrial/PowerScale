@@ -27,6 +27,8 @@ export interface ResourceSpec {
    * Ресурс рендерится всегда, даже при лимите 0 (персонаж не может действовать).
    */
   auto_add?: boolean;
+  /** Ресурс жетонов на проверку. Ищет ConcentrationTokenService и запас редактора персонажа. */
+  check_token?: boolean;
   /** Базовый лимит ресурса (стартовое значение + условия). У не-авто ресурсов — base, adjustments пустые. */
   limit?: ResourceLimit;
 }

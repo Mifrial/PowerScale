@@ -69,6 +69,12 @@ function modesLabel(): string {
       <div v-if="versusLabel" class="text-body-2 mt-1">{{ versusLabel }}</div>
       <div class="text-body-2 mt-1">Сложность: {{ difficultyLabel() }}</div>
       <div class="text-body-2 mt-1">Режимы: {{ modesLabel() }}</div>
+      <div v-if="spec.dialog_launch === false" class="text-body-2 mt-1">Не запускается из диалога</div>
+      <div v-if="spec.ordinary_root === true" class="text-body-2 mt-1">Корень обычных проверок</div>
+      <div v-if="spec.concentration_token === true" class="text-body-2 mt-1">Жетон концентрации</div>
+      <div v-if="spec.willpower === true" class="text-body-2 mt-1">Проверка воли</div>
+      <div v-if="spec.unstable_check === true" class="text-body-2 mt-1">Проверка ловкости при неустойчивости</div>
+      <div v-if="spec.hit_check === true" class="text-body-2 mt-1">Проверка удара</div>
       <div v-if="spec.default_efficiency != null" class="text-body-2 mt-1">
         Эффективность по умолчанию: <strong>{{ spec.default_efficiency }}</strong>
       </div>

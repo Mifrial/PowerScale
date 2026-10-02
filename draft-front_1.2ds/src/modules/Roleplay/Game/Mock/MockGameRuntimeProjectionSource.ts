@@ -23,11 +23,7 @@ export class MockGameRuntimeProjectionSource implements IGameRuntimeProjectionSo
     projectionLevel: 'summary' | 'full',
     signal?: AbortSignal,
   ): Promise<GameRuntimeEntityProjection | null> {
-    const result = await this.getRuntimeEntities(
-      gameId,
-      { entityKeys: [entityKey], projectionLevel },
-      signal,
-    );
+    const result = await this.getRuntimeEntities(gameId, { entityKeys: [entityKey], projectionLevel }, signal);
 
     return result.projections[0] ?? null;
   }
@@ -49,7 +45,9 @@ export class MockGameRuntimeProjectionSource implements IGameRuntimeProjectionSo
       .map((entityKey) => Number(entityKey.slice('npc:'.length)))
       .filter((id) => Number.isInteger(id));
     const [memberships, npcs, user] = await Promise.all([
-      requestedCharacterIds.length > 0 ? fetchGameCharacters(gameId, signal, requestedCharacterIds) : Promise.resolve([]),
+      requestedCharacterIds.length > 0
+        ? fetchGameCharacters(gameId, signal, requestedCharacterIds)
+        : Promise.resolve([]),
       requestedNpcIds.length > 0 ? fetchNpcs(gameId, signal, requestedNpcIds) : Promise.resolve([]),
       this.getCurrentUser(),
     ]);
@@ -57,14 +55,7 @@ export class MockGameRuntimeProjectionSource implements IGameRuntimeProjectionSo
     const missingEntityKeys: CombatEntityKey[] = [];
 
     for (const entityKey of requestedEntityKeys) {
-      const projection = this.createProjection(
-        gameId,
-        entityKey,
-        request.projectionLevel,
-        memberships,
-        npcs,
-        user,
-      );
+      const projection = this.createProjection(gameId, entityKey, request.projectionLevel, memberships, npcs, user);
       if (projection) projections.push(projection);
       else missingEntityKeys.push(entityKey);
     }
@@ -206,8 +197,7 @@ export class MockGameRuntimeProjectionSource implements IGameRuntimeProjectionSo
     version: CharacterVersion,
     visibleSections: ReturnType<typeof sheetAccessService.visibleSheetSections>,
   ): CharacterVersion {
-    const isVisible = (section: (typeof SHEET_VISIBLE_SECTIONS)[number]): boolean =>
-      visibleSections.includes(section);
+    const isVisible = (section: (typeof SHEET_VISIBLE_SECTIONS)[number]): boolean => visibleSections.includes(section);
 
     return {
       ...version,

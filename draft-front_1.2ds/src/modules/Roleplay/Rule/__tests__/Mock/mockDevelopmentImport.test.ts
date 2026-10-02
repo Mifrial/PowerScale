@@ -943,6 +943,7 @@ describe('mockDevelopmentImport (S14)', () => {
     expect(spec?.parent_ability_code).toBe('kontsentratsiya');
     expect(JSON.stringify(spec?.requirements)).toContain('"size":1');
     expect(JSON.stringify(spec?.requirements)).toContain('"size":2');
+    expect(spec?.peak_concentration).toBe(true);
   });
 
   it('сосредоточение воли и длительное напряжение; дропнутые дети концентрации удалены', () => {
@@ -958,8 +959,10 @@ describe('mockDevelopmentImport (S14)', () => {
     expect(will?.zones.or).toEqual({ kind: 'array', levels_cost: [2] });
     expect(JSON.stringify(will?.requirements)).toContain('willpower');
     expect(byCode.get('sosredotochenie-voli')?.contentNote).toBeUndefined();
+    expect(will?.will_focus).toBe(true);
     const long = abilitySpec('dlitelnoe-napryazhenie');
     expect(long?.zones.or).toEqual({ kind: 'array', levels_cost: [3] });
     expect(JSON.stringify(long?.requirements)).toContain('"size":1');
+    expect(long?.long_tension).toBe(true);
   });
 });

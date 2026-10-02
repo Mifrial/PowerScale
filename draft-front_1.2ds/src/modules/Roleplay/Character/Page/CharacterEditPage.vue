@@ -7,11 +7,7 @@ import { useCharacterStore } from '@/modules/Roleplay/Character/Store/characters
 import { useCurrentUser } from '@/modules/Core/User/init';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { characterBuildService } from '@/modules/Roleplay/Character/Service/Instance/characterBuildService';
-import {
-  characterPatchService,
-  CharacterApiError,
-  getCharacterApi,
-} from '@/modules/Roleplay/Character/init';
+import { characterPatchService, CharacterApiError, getCharacterApi } from '@/modules/Roleplay/Character/init';
 import { characterAccessService } from '@/modules/Roleplay/Character/Service/Instance/characterAccessService';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { CharacterBuild } from '@/modules/Roleplay/Character/Dto/Editor/CharacterBuild';

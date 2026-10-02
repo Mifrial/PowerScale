@@ -9,7 +9,6 @@ import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec';
 import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { ItemSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpec';
-import { CHECK_HIT_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
 import { checkRollService } from '@/modules/Roleplay/Game/Service/Instance/checkRollService';
 
 import { resolveHitProcedure } from '@/modules/Roleplay/Game/Utils/resolveStrikeProcedure';
@@ -118,36 +117,47 @@ export class HitRollService {
 
   rollHit(input: HitRollInput, rng: DiceRng, rules: Rule[], mechanics: Mechanic[]): HitCheckRoll {
     return this.withExtraSuccesses(
-      this.withScoreAdjust(this.withFaceRemap(this.rollHitRaw(input, rng, rules, mechanics), input), input),
+      this.withScoreAdjust(
+        this.withFaceRemap(this.rollHitRaw(input, rng, rules, mechanics), input, rules),
+        input,
+        rules,
+      ),
       input.extraSuccessCount ?? 0,
+      rules,
     );
   }
 
-  private withFaceRemap(rolled: HitCheckRoll, input: HitRollInput): HitCheckRoll {
+  private hitCheckCode(rules: Rule[]): string {
+    return checkResolutionService.firstCheckCode(rules, 'hit_check');
+  }
+
+  private withFaceRemap(rolled: HitCheckRoll, input: HitRollInput, rules: Rule[]): HitCheckRoll {
     const pairs = input.faceRemap ?? [];
     if (pairs.length === 0) return rolled;
-    const attacker = checkRollService.applyFaceRemap(rolled.attacker, pairs);
+    const attacker = checkRollService.applyFaceRemap(rolled.attacker, pairs, rules);
     if (!rolled.defender?.check) return { attacker, defender: rolled.defender };
     const defender = checkRollService.withCheckOutcome(
       rolled.defender,
       rolled.defender.check.check_code,
       checkRollService.successesOf(attacker),
       rolled.defender.check.check_name,
+      rules,
     );
 
     return { attacker, defender };
   }
 
-  private withScoreAdjust(rolled: HitCheckRoll, input: HitRollInput): HitCheckRoll {
+  private withScoreAdjust(rolled: HitCheckRoll, input: HitRollInput, rules: Rule[]): HitCheckRoll {
     const adjust = input.scoreAdjust;
     if (!adjust || (adjust.oneDelta === 0 && adjust.faceDelta === 0)) return rolled;
-    const attacker = checkRollService.applyScoreAdjust(rolled.attacker, adjust.oneDelta, adjust.faceDelta);
+    const attacker = checkRollService.applyScoreAdjust(rolled.attacker, adjust.oneDelta, adjust.faceDelta, rules);
     if (!rolled.defender?.check) return { attacker, defender: rolled.defender };
     const defender = checkRollService.withCheckOutcome(
       rolled.defender,
       rolled.defender.check.check_code,
       checkRollService.successesOf(attacker),
       rolled.defender.check.check_name,
+      rules,
     );
 
     return { attacker, defender };
@@ -178,7 +188,7 @@ export class HitRollService {
         return {
           attacker: checkRollService.rollNamedCheck(
             attackSpec,
-            CHECK_HIT_CODE,
+            this.hitCheckCode(rules),
             procedure.ignoreDefense,
             rng,
             rules,
@@ -191,7 +201,14 @@ export class HitRollService {
 
       return {
         attacker: withRangedHitBreakdown(
-          checkRollService.rollNamedCheck(attackSpec, CHECK_HIT_CODE, parts.difficulty, rng, rules, mechanics),
+          checkRollService.rollNamedCheck(
+            attackSpec,
+            this.hitCheckCode(rules),
+            parts.difficulty,
+            rng,
+            rules,
+            mechanics,
+          ),
           parts,
           'ignore',
         ),
@@ -215,7 +232,7 @@ export class HitRollService {
       input.defenderKey,
     );
     if (ranged) {
-      const attached = checkResolutionService.resolveCheckAttachedRuleCodes(CHECK_HIT_CODE, rules);
+      const attached = checkResolutionService.resolveCheckAttachedRuleCodes(this.hitCheckCode(rules), rules);
       const defenderRolled = rollEngine.roll(defenseSpec, rng, rules, mechanics, attached, []);
       const parts = weaponAttackRangeService.rangedHitDifficultyParts(
         cover,
@@ -226,14 +243,28 @@ export class HitRollService {
 
       return {
         attacker: withRangedHitBreakdown(
-          checkRollService.rollNamedCheck(attackSpec, CHECK_HIT_CODE, parts.difficulty, rng, rules, mechanics),
+          checkRollService.rollNamedCheck(
+            attackSpec,
+            this.hitCheckCode(rules),
+            parts.difficulty,
+            rng,
+            rules,
+            mechanics,
+          ),
           parts,
           input.reaction,
         ),
         defender: defenderRolled,
       };
     }
-    const joint = checkRollService.rollJointCheck(attackSpec, defenseSpec, CHECK_HIT_CODE, rng, rules, mechanics);
+    const joint = checkRollService.rollJointCheck(
+      attackSpec,
+      defenseSpec,
+      this.hitCheckCode(rules),
+      rng,
+      rules,
+      mechanics,
+    );
 
     return { attacker: joint.left, defender: joint.right };
   }
@@ -251,7 +282,7 @@ export class HitRollService {
 
       return {
         targetKey: input.defenderKey as CombatEntityKey,
-        attacker: checkRollService.withCheckOutcome(attacker, CHECK_HIT_CODE, difficulty),
+        attacker: checkRollService.withCheckOutcome(attacker, this.hitCheckCode(rules), difficulty, undefined, rules),
         defender,
       };
     });
@@ -290,10 +321,16 @@ export class HitRollService {
       [...flankAdv, ...(input.defenderAdvantageModifiers ?? [])],
       input.defenderKey,
     );
-    const attached = checkResolutionService.resolveCheckAttachedRuleCodes(CHECK_HIT_CODE, rules);
+    const attached = checkResolutionService.resolveCheckAttachedRuleCodes(this.hitCheckCode(rules), rules);
     const defender = rollEngine.roll(defenseSpec, rng, rules, mechanics, attached, []);
 
-    return checkRollService.withCheckOutcome(defender, CHECK_HIT_CODE, checkRollService.successesOf(attacker));
+    return checkRollService.withCheckOutcome(
+      defender,
+      this.hitCheckCode(rules),
+      checkRollService.successesOf(attacker),
+      undefined,
+      rules,
+    );
   }
 
   /** Один бросок атакующего, независимые защиты цели и прикрывающих. */
@@ -316,16 +353,21 @@ export class HitRollService {
     };
   }
 
-  bindCoveredHit(rolled: CoveredHitRoll, actualKey: CombatEntityKey, primaryKey: CombatEntityKey): HitCheckRoll {
+  bindCoveredHit(
+    rolled: CoveredHitRoll,
+    actualKey: CombatEntityKey,
+    primaryKey: CombatEntityKey,
+    rules: Rule[],
+  ): HitCheckRoll {
     const covering = rolled.coveringDefenders.find((entry) => entry.key === actualKey);
-    const defender =
-      actualKey === primaryKey ? rolled.primaryDefender : (covering?.result ?? rolled.primaryDefender);
+    const defender = actualKey === primaryKey ? rolled.primaryDefender : (covering?.result ?? rolled.primaryDefender);
     const difficulty = defender ? checkRollService.successesOf(defender) : { base: 0, size: 0 };
     const attacker = checkRollService.withCheckOutcome(
       rolled.attacker,
-      CHECK_HIT_CODE,
+      this.hitCheckCode(rules),
       difficulty,
       rolled.attacker.check?.check_name,
+      rules,
     );
 
     return { attacker, defender };
@@ -336,7 +378,7 @@ export class HitRollService {
     return this.rollHit(input, rng, rules, mechanics);
   }
 
-  private withExtraSuccesses(rolled: HitCheckRoll, extraSuccessCount: number): HitCheckRoll {
+  private withExtraSuccesses(rolled: HitCheckRoll, extraSuccessCount: number, rules: Rule[]): HitCheckRoll {
     if (extraSuccessCount <= 0) return rolled;
     const attackerRolled = {
       ...rolled.attacker,
@@ -348,16 +390,18 @@ export class HitRollService {
     if (!defenderDifficulty) return { ...rolled, attacker: attackerRolled };
     const attacker = checkRollService.withCheckOutcome(
       attackerRolled,
-      CHECK_HIT_CODE,
+      this.hitCheckCode(rules),
       defenderDifficulty,
       attackerRolled.check?.check_name,
+      rules,
     );
     const defender = rolled.defender?.check
       ? checkRollService.withCheckOutcome(
           rolled.defender,
-          CHECK_HIT_CODE,
+          this.hitCheckCode(rules),
           checkRollService.successesOf(attackerRolled),
           rolled.defender.check.check_name,
+          rules,
         )
       : rolled.defender;
 

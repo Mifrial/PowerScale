@@ -23,6 +23,7 @@ const adjustments = computed(() => spec.value?.limit?.adjustments ?? []);
         Шкала: <strong>{{ spec.is_dimensional ? 'размерное число' : 'целое' }}</strong>
       </div>
       <div v-if="spec.auto_add" class="text-body-2 mt-1">Добавляется всем персонажам автоматически</div>
+      <div v-if="spec.check_token" class="text-body-2 mt-1">Жетоны на проверку</div>
       <div v-if="spec.limit" class="text-body-2 mt-1">
         Базовый лимит: <strong>{{ ruleViewLabelService.amount(spec.limit.base, rules) }}</strong>
       </div>

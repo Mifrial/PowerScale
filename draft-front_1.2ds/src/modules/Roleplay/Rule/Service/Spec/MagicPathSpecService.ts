@@ -3,7 +3,15 @@ import type { MagicPathSpec } from '@/modules/Roleplay/Rule/Dto/MagicPath/MagicP
 /** Пустая спека пути волшебства для нового правила. */
 export class MagicPathSpecService {
   createEmpty(): MagicPathSpec {
-    return { type: 'magic_path', check_code: null, study_cost: null, includes_path_codes: [] };
+    return {
+      type: 'magic_path',
+      check_code: null,
+      cast_check_code: null,
+      power_characteristic_code: null,
+      control_characteristic_code: null,
+      study_cost: null,
+      includes_path_codes: [],
+    };
   }
 
   resolve(spec: unknown): MagicPathSpec {
@@ -22,6 +30,9 @@ export class MagicPathSpecService {
     return {
       type: 'magic_path',
       check_code: value.check_code ?? null,
+      cast_check_code: value.cast_check_code ?? null,
+      power_characteristic_code: value.power_characteristic_code ?? null,
+      control_characteristic_code: value.control_characteristic_code ?? null,
       study_cost: value.study_cost ?? null,
       includes_path_codes: includes,
     };

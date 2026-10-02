@@ -1,10 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import { simpleCheckRollService } from '@/modules/Roleplay/Game/Service/Instance/simpleCheckRollService';
 
+import type { CheckSpec } from '@/modules/Roleplay/Rule/Dto/Check/CheckSpec';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import type { DiceRollResult } from '@/modules/Roleplay/Game/Dto/DiceRollResult';
 import { CHECK_SIMPLE_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
+
+function rollWithoutCheck(): DiceRollResult {
+  return {
+    spec: { diceCount: 1, dieFaces: 6, efficiency: 3, advantages: [], dieSize: 0 },
+    rolls: [2],
+    successes: [1],
+    adjustedRolls: [2],
+    droppedRolls: [],
+    totalSuccesses: 1,
+  };
+}
 
 const RULES: Rule[] = [
   {
@@ -39,6 +51,7 @@ const RULES: Rule[] = [
       type: 'check',
       difficulty_input: { kind: 'ask' },
       allowed_modes: 'both',
+      ordinary_root: true,
       attached_rule_codes: ['rule-6-and-1', 'advantages'],
     },
     createdAt: 1787400000,
@@ -82,6 +95,27 @@ describe('simpleCheckRoll', () => {
         rating: -1,
       },
     };
-    expect(simpleCheckRollService.withSimpleCheckZero(result).check?.check_code).toBe('check-strength');
+    expect(simpleCheckRollService.withSimpleCheckZero(result, RULES).check?.check_code).toBe('check-strength');
+  });
+
+  it('withSimpleCheckZero берёт код с ordinary_root и вешает {0|0}', () => {
+    const result = rollWithoutCheck();
+
+    const attached = simpleCheckRollService.withSimpleCheckZero(result, RULES);
+
+    expect(attached.check?.check_code).toBe(CHECK_SIMPLE_CODE);
+    expect(attached.check?.difficulty).toEqual({ base: 0, size: 0 });
+  });
+
+  it('withSimpleCheckZero без ordinary_root не подставляет код проверки', () => {
+    const result = rollWithoutCheck();
+    const withoutRoot = RULES.map((rule) => {
+      if (rule.code !== CHECK_SIMPLE_CODE || rule.spec?.type !== 'check') return rule;
+      const spec: CheckSpec = { ...rule.spec, ordinary_root: false };
+
+      return { ...rule, spec };
+    });
+
+    expect(simpleCheckRollService.withSimpleCheckZero(result, withoutRoot).check).toBeUndefined();
   });
 });

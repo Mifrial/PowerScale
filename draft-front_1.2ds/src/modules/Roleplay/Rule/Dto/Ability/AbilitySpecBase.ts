@@ -40,6 +40,43 @@ export interface AbilitySpecBase {
   parent_ability_code: string | null;
   /** Модификатор каста (дельта ОД, преимущество сотворения, цепь). С родителем — на то заклинание; без — на выбранный каст. */
   spell_upgrade?: SpellUpgrade;
+  /** Трата РУ успешного сотворения на шаги мощи. */
+  spell_saturation?: {
+    min_rating: number;
+    rating_per_step: number;
+    power_per_step: number;
+  };
+  /** Бонус сложности следующего сотворения, если после насыщения осталось достаточно РУ. */
+  next_cast_difficulty?: {
+    min_remaining_rating: number;
+    delta: number;
+    source_code?: string;
+  };
+  /**
+   * Доставка заклинания касанием. Нет поля — урон оружия применяется, бонус РУ 0.
+   * Бонус прибавляется к исходному РУ успешного удара, если он уже не меньше 1.
+   */
+  spell_touch?: {
+    weapon_damage: boolean;
+    attack_sr_bonus: number;
+  };
+  /** Роль в бою. Нет роли — действие этим путём не находится. */
+  combat_action?: 'dodge' | 'block' | 'turn' | 'wait' | 'recover-stability' | 'simple-touch';
+  /** Включает трату нескольких жетонов. Пороги и «уровень + 1» остаются в сервисе. */
+  peak_concentration?: boolean;
+  /** Включает трату жетона на проверки воли. Порог воли остаётся в сервисе. */
+  will_focus?: boolean;
+  /** Включает концентрацию длиннее одного хода. Потолок ходов остаётся в сервисе. */
+  long_tension?: boolean;
+  /** Альтернативный защитник одной реакции. Цена — в action_components. */
+  cover_ally?: {
+    circumstance_delta: number;
+  };
+  /** Преимущество на защиту от атаки, которой владеет защитник. */
+  known_attack_defense?: {
+    delta: number;
+    source_code?: string;
+  };
   /** Модификатор запуска удара (режимы на проверку увечья). Родитель карточки — только покупка. */
   strike_upgrade?: StrikeUpgrade;
   /** Для способностей владения оружием — код предмета-оружия (напр. «sword»). */

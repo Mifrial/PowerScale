@@ -17,10 +17,7 @@ export class SequentialStrikeOfferService {
     return proposal?.strikeProposals ?? [];
   }
 
-  createSlots(
-    strikes: AttackActionStrike[],
-    hit: NonNullable<CheckOfferProposal['hit']>,
-  ): CheckOfferStrikeProposal[] {
+  createSlots(strikes: AttackActionStrike[], hit: NonNullable<CheckOfferProposal['hit']>): CheckOfferStrikeProposal[] {
     return strikes.map((strike, strikeIndex) => ({
       strikeIndex,
       targetKey: strike.targetKey,
@@ -42,7 +39,9 @@ export class SequentialStrikeOfferService {
   }
 
   nextPending(slots: CheckOfferStrikeProposal[], actorKey: CombatEntityKey | null): CheckOfferStrikeProposal | null {
-    return slots.find((slot) => slot.hit.reaction === null && (actorKey === null || slot.targetKey === actorKey)) ?? null;
+    return (
+      slots.find((slot) => slot.hit.reaction === null && (actorKey === null || slot.targetKey === actorKey)) ?? null
+    );
   }
 
   pendingTargetKeys(slots: CheckOfferStrikeProposal[]): CombatEntityKey[] {
@@ -63,9 +62,7 @@ export class SequentialStrikeOfferService {
     const index = slots.findIndex((slot) => slot.targetKey === actorKey && slot.hit.reaction === null);
     if (index < 0) return slots;
 
-    return slots.map((slot, slotIndex) =>
-      slotIndex === index ? { ...slot, hit: { ...slot.hit, ...hit } } : slot,
-    );
+    return slots.map((slot, slotIndex) => (slotIndex === index ? { ...slot, hit: { ...slot.hit, ...hit } } : slot));
   }
 
   committedReactionOd(slots: CheckOfferStrikeProposal[], rules: Rule[]): number {

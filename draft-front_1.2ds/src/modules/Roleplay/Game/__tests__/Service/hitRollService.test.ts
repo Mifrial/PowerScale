@@ -7,10 +7,11 @@ import { hitRollService } from '@/modules/Roleplay/Game/Service/Instance/hitRoll
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
-import { resolveStrikeProcedure } from '@/modules/Roleplay/Game/Utils/resolveStrikeProcedure';
+import { resolveHitProcedure, resolveStrikeProcedure } from '@/modules/Roleplay/Game/Utils/resolveStrikeProcedure';
 import { strikeProcedureRegistry } from '@/modules/Roleplay/Game/Service/Strike/Instance/strikeProcedureRegistry';
+import { shootV1 } from '@/modules/Roleplay/Game/Service/Strike/shootV1';
 import { strikeV1 } from '@/modules/Roleplay/Game/Service/Strike/strikeV1';
-import { STRIKE_PROCEDURE_RULE_CODE } from '@/modules/Roleplay/Rule/Constant/Combat/HIT_PROCEDURE';
+import { throwV1 } from '@/modules/Roleplay/Game/Service/Strike/throwV1';
 
 function rngFromDice(values: number[], faces = 6): DiceRng {
   let i = 0;
@@ -46,12 +47,13 @@ const checkHit: Rule = {
     parent_check_code: 'check-simple',
     difficulty_input: { kind: 'ask' },
     allowed_modes: 'both',
+    hit_check: true,
   },
 };
 
 const strikeRule = (mechanicId: number): Rule => ({
   id: null,
-  code: STRIKE_PROCEDURE_RULE_CODE,
+  code: 'strike-card',
   type: 'simple',
   name: 'Удар',
   description: '',
@@ -83,6 +85,45 @@ describe('resolveStrikeProcedure', () => {
     expect(resolved.version).toBe('2.0.0');
     expect(resolved.ignoreDefense).toEqual({ base: 0, size: 0 });
     expect(resolveStrikeProcedure([strikeRule(7)], mechanics).version).toBe('1.0.0');
+  });
+});
+
+describe('resolveHitProcedure throw/shoot', () => {
+  const card = (code: string, mechanicId: number): Rule => ({
+    ...strikeRule(mechanicId),
+    code,
+  });
+  const rangedMechanics: Mechanic[] = [
+    { id: 16, code: 'throw', name: 'Бросок', description: '', version: '1.0.0' },
+    { id: 26, code: 'throw', name: 'Бросок', description: '', version: '2.0.0' },
+    { id: 17, code: 'shoot', name: 'Выстрел', description: '', version: '1.0.0' },
+    { id: 27, code: 'shoot', name: 'Выстрел', description: '', version: '2.0.0' },
+  ];
+
+  it('без карточки — v1', () => {
+    expect(resolveHitProcedure('throw', [], [])).toEqual(throwV1);
+    expect(resolveHitProcedure('shoot', [], [])).toEqual(shootV1);
+  });
+
+  it('карточка с другим кодом выбирает хендлер по version механики', () => {
+    strikeProcedureRegistry.register({
+      code: 'throw',
+      version: '2.0.0',
+      ignoreDefense: { base: 0, size: 0 },
+      dodgeEfficiency: { base: 5, size: 0 },
+      minBlockEfficiency: { base: 4, size: -1 },
+    });
+    strikeProcedureRegistry.register({
+      code: 'shoot',
+      version: '2.0.0',
+      ignoreDefense: { base: 2, size: 0 },
+      dodgeEfficiency: { base: 5, size: 0 },
+      minBlockEfficiency: { base: 4, size: -1 },
+    });
+    expect(resolveHitProcedure('throw', [card('throw-card', 26)], rangedMechanics).version).toBe('2.0.0');
+    expect(resolveHitProcedure('throw', [card('throw-card', 16)], rangedMechanics).version).toBe('1.0.0');
+    expect(resolveHitProcedure('shoot', [card('shoot-card', 27)], rangedMechanics).version).toBe('2.0.0');
+    expect(resolveHitProcedure('shoot', [card('shoot-card', 17)], rangedMechanics).version).toBe('1.0.0');
   });
 });
 

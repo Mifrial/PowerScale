@@ -21,6 +21,8 @@ export type StateEffect =
       type: 'damage_over_time';
       /** Откуда берётся урон за тик: значение состояния или фиксированное число. */
       damage: StateDamageSource;
+      /** Тип урона тика. Нет кода — тик не наносит урон. */
+      damage_type_code?: string;
       /** Периодичность: собственный период (значение + шаг). */
       periodicity?: StatePeriodicity;
       /** Затухание: на сколько урон уменьшается каждый тик. */

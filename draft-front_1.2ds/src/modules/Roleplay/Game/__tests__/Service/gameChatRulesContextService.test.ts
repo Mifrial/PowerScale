@@ -40,6 +40,7 @@ const RULES: Rule[] = [
       type: 'check',
       difficulty_input: { kind: 'ask' },
       allowed_modes: 'both',
+      ordinary_root: true,
       attached_rule_codes: ['rule-6-and-1', 'advantages'],
     },
     createdAt: 1787400000,

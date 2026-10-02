@@ -31,16 +31,6 @@ describe('ActionEffectLabelService', () => {
     ).toBe('+1 к силе текущего удара, если оружие в 2+ руках (рубящего урона, дробящего урона) (Удвоенная мощь)');
     expect(
       actionEffectLabelService.describe({
-        type: 'current_action_attack_target_characteristic_modifier',
-        check_code: 'melee-combat',
-        characteristic_code: 'perception',
-        delta: -3,
-        min: 0,
-        scope: { components: ['strike'], hit_count: 1 },
-      }),
-    ).toBe('-3 к Ближнему бою от Восприятия(вплоть до 0 от Восприятия) у цели для удара текущего (действие)');
-    expect(
-      actionEffectLabelService.describe({
         type: 'current_action_attack_dodge_soak',
         size_delta: -3,
         ignore_at_sr: 3,

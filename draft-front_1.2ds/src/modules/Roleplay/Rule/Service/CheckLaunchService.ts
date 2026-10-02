@@ -1,37 +1,35 @@
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import {
-  CHECK_HIT_CODE,
-  CHECK_INITIATIVE_CODE,
-  CHECK_INJURY_CODE,
-  CHECK_BLOOD_CLOTTING_CODE,
-  CHECK_SIMPLE_CODE,
-} from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
+import { CHECK_INITIATIVE_CODE, CHECK_INJURY_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
 import type { CheckResolutionService } from '@/modules/Roleplay/Rule/Service/CheckResolutionService';
 
 export class CheckLaunchService {
   constructor(private readonly checkResolution: CheckResolutionService) {}
 
   /** Проверки, которые можно запустить из диалога (не инициатива / увечье / удар). */
-  isLaunchableCheck(rule: Rule): boolean {
+  isLaunchableCheck(rule: Rule, rules: Rule[]): boolean {
     if (rule.type !== 'check') return false;
+    const spec = this.checkResolution.asCheckSpec(rule);
+    if (!spec || spec.dialog_launch === false) return false;
+    const hitCheckCode = this.checkResolution.firstCheckCode(rules, 'hit_check');
     if (
       rule.code === CHECK_INITIATIVE_CODE ||
       rule.code === CHECK_INJURY_CODE ||
-      rule.code === CHECK_HIT_CODE ||
-      rule.code === CHECK_BLOOD_CLOTTING_CODE
+      (hitCheckCode !== '' && rule.code === hitCheckCode)
     ) {
       return false;
     }
 
-    return this.checkResolution.asCheckSpec(rule) !== null;
+    return true;
   }
 
   launchableChecks(rules: Rule[]): Rule[] {
     return rules
-      .filter((rule) => this.isLaunchableCheck(rule))
+      .filter((rule) => this.isLaunchableCheck(rule, rules))
       .sort((left, right) => {
-        if (left.code === CHECK_SIMPLE_CODE) return -1;
-        if (right.code === CHECK_SIMPLE_CODE) return 1;
+        const leftRoot = this.checkResolution.asCheckSpec(left)?.ordinary_root === true;
+        const rightRoot = this.checkResolution.asCheckSpec(right)?.ordinary_root === true;
+        if (leftRoot && !rightRoot) return -1;
+        if (rightRoot && !leftRoot) return 1;
 
         return left.name.localeCompare(right.name, 'ru');
       });

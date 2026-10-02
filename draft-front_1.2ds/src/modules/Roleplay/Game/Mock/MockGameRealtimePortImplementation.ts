@@ -30,11 +30,7 @@ export class MockGameRealtimePort implements IGameRealtimePort {
     });
   }
 
-  async sync(
-    gameId: number,
-    request: GameRealtimeSyncRequest,
-    signal?: AbortSignal,
-  ): Promise<GameRealtimeSyncResult> {
+  async sync(gameId: number, request: GameRealtimeSyncRequest, signal?: AbortSignal): Promise<GameRealtimeSyncResult> {
     if (signal?.aborted) throw new DOMException('The operation was aborted', 'AbortError');
 
     const events = this.eventsByGame.get(gameId) ?? [];

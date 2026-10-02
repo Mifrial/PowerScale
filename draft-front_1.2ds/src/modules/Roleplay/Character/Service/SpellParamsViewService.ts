@@ -1,6 +1,5 @@
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import type { SpellParamsView } from '@/modules/Roleplay/Character/Dto/Editor/SpellParamsView';
-import { ACTION_POINTS_RESOURCE_CODE } from '@/modules/Roleplay/Rule/Constant/Ability/ACTION_POINTS_RESOURCE_CODE';
 import { resourceShortName, spellDurationLabelService } from '@/modules/Roleplay/Rule/init';
 import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpec';
 import type { ActionComponent } from '@/modules/Roleplay/Rule/Dto/Ability/ActionComponent';
@@ -13,11 +12,11 @@ type SpellAbilitySpec = Extract<AbilitySpec, { type: 'spell' }>;
  * для развёрнутой строки заклинания в редакторе персонажа.
  */
 export class SpellParamsViewService {
-  view(spec: SpellAbilitySpec): SpellParamsView {
+  view(spec: SpellAbilitySpec, resourceCode: string): SpellParamsView {
     return {
       powerLabel: this.spellValueLabel(spec.spell.power),
       controlLabel: this.spellValueLabel(spec.spell.control),
-      creationLabel: this.creationLabel(spec.action_components),
+      creationLabel: this.creationLabel(spec.action_components, resourceCode),
       durationLabel: spellDurationLabelService.action(spec.spell.duration),
       componentsLabel: this.componentsLabel(spec.action_components),
     };
@@ -29,16 +28,17 @@ export class SpellParamsViewService {
     return new DimensionalNumber(value).toString();
   }
 
-  private creationLabel(components: ActionComponent[]): string | null {
+  private creationLabel(components: ActionComponent[], resourceCode: string): string | null {
+    if (!resourceCode) return null;
     const costs = components.filter(
       (component): component is Extract<ActionComponent, { type: 'resource' }> =>
-        component.type === 'resource' && component.resource_code === ACTION_POINTS_RESOURCE_CODE,
+        component.type === 'resource' && component.resource_code === resourceCode,
     );
     if (costs.length === 0) return null;
     const amount = costs[0].amount;
     if (typeof amount === 'object' && 'type' in amount) return 'макс. доступное ОД';
     const formatted = typeof amount === 'number' ? String(amount) : new DimensionalNumber(amount).toString();
-    const short = resourceShortName(ACTION_POINTS_RESOURCE_CODE) ?? 'ОД';
+    const short = resourceShortName(resourceCode) ?? 'ОД';
 
     return `${formatted} ${short}`;
   }

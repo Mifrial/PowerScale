@@ -5,17 +5,21 @@ import { injuryProcedureRegistry } from '@/modules/Roleplay/Game/Service/Injury/
 import { injuryV1 } from '@/modules/Roleplay/Game/Service/Injury/injuryV1';
 import {
   INJURY_PROCEDURE_MECHANIC_CODE,
-  INJURY_PROCEDURE_RULE_CODE,
-  INJURY_PROCEDURE_VERSION_1,
 } from '@/modules/Roleplay/Rule/Constant/Combat/INJURY_PROCEDURE';
 
-/** Карточка `injury-procedure` → mechanic code@version; иначе v1. */
+/** Первая карточка ревизии с механикой `injury`, иначе v1. */
 export function resolveInjuryProcedure(rules: Rule[], mechanics: Mechanic[]): InjuryProcedure {
-  const rule = rules.find((candidate) => candidate.code === INJURY_PROCEDURE_RULE_CODE);
-  const row = rule?.mechanics.find((entry) => mechanics.find((mechanic) => mechanic.id === entry.mechanicId)?.code === INJURY_PROCEDURE_MECHANIC_CODE);
+  const rule = rules.find((candidate) =>
+    candidate.mechanics.some(
+      (entry) => mechanics.find((mechanic) => mechanic.id === entry.mechanicId)?.code === INJURY_PROCEDURE_MECHANIC_CODE,
+    ),
+  );
+  if (!rule) return injuryV1;
+  const row = rule.mechanics.find(
+    (entry) => mechanics.find((mechanic) => mechanic.id === entry.mechanicId)?.code === INJURY_PROCEDURE_MECHANIC_CODE,
+  );
   const mechanic = row ? mechanics.find((entry) => entry.id === row.mechanicId) : undefined;
-  const code = mechanic?.code ?? INJURY_PROCEDURE_MECHANIC_CODE;
-  const version = mechanic?.version ?? INJURY_PROCEDURE_VERSION_1;
+  if (!mechanic) return injuryV1;
 
-  return injuryProcedureRegistry.resolve(code, version) ?? injuryV1;
+  return injuryProcedureRegistry.resolve(mechanic.code, mechanic.version) ?? injuryV1;
 }

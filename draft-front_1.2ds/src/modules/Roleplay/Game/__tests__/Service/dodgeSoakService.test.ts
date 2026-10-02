@@ -8,11 +8,33 @@ function overview(code: string, value: { base: number; size: number }): Characte
 }
 
 const rules: Rule[] = [
-  { id: null, code: 'dexterity', type: 'characteristic', name: 'Ловкость' } as Rule,
+  {
+    id: null,
+    code: 'dexterity',
+    type: 'characteristic',
+    name: 'Ловкость',
+    spec: { type: 'characteristic', dodge_soak: true },
+  } as Rule,
   { id: null, code: 'reaction', type: 'characteristic', name: 'Реакция' } as Rule,
 ];
 
 describe('DodgeSoakService', () => {
+  it('без dodge_soak характеристика не читается', () => {
+    const defender = overview('dexterity', { base: 4, size: 1 });
+    const unmarked: Rule[] = [
+      { id: null, code: 'dexterity', type: 'characteristic', name: 'Ловкость' } as Rule,
+    ];
+    expect(
+      dodgeSoakService.amount({
+        reaction: 'dodge',
+        defenderOverview: defender,
+        rules: unmarked,
+        sr: 1,
+        dodgeBenefit: -3,
+      }),
+    ).toBe(0);
+  });
+
   it('S = Ловкость.modify(dodgeBenefit); не на блоке', () => {
     const defender = overview('dexterity', { base: 4, size: 1 });
     expect(

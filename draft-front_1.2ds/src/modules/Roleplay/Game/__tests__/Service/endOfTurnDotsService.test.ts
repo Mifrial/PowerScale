@@ -19,8 +19,14 @@ const burning: Rule = {
   spec: {
     value_type: 'dimensional',
     aggregation: 'sum',
+    burning: true,
     effects: [
-      { type: 'damage_over_time', damage: { kind: 'value' }, periodicity: { kind: 'literal', value: 1, step: 'turn' } },
+      {
+        type: 'damage_over_time',
+        damage: { kind: 'value' },
+        damage_type_code: 'fire',
+        periodicity: { kind: 'literal', value: 1, step: 'turn' },
+      },
     ],
   },
   keywordIds: [],
@@ -35,7 +41,7 @@ const poisoning: Rule = {
   name: 'Отравление',
   description: '',
   spaceId: 1,
-  spec: { value_type: 'flag', aggregation: 'independent', effects: [] },
+  spec: { value_type: 'flag', aggregation: 'independent', poisoning: true, effects: [] },
   keywordIds: [],
   mechanics: [],
   createdAt: 1767225600,
@@ -48,7 +54,7 @@ const accumulatedDamage: Rule = {
   name: 'Повреждения',
   description: '',
   spaceId: 1,
-  spec: { value_type: 'dimensional', aggregation: 'sum', effects: [] },
+  spec: { value_type: 'dimensional', aggregation: 'sum', damage_remainder: true, effects: [] },
   keywordIds: [],
   mechanics: [],
   createdAt: 1767225600,

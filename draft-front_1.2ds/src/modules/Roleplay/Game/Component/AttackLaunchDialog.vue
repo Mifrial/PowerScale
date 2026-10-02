@@ -39,7 +39,7 @@ import {
   actionRefEquals,
   findRuleByRef,
 } from '@/modules/Roleplay/Game/Utils/combatActions';
-import { ACTION_POINTS_CODE } from '@/modules/Roleplay/Game/Constant/Combat/ACTION_POINTS_CODE';
+import { turnResourceCode } from '@/modules/Roleplay/Game/Utils/combatActions';
 import { AttackProfileOption } from '@/modules/Roleplay/Character/init';
 import { combatChatSendService } from '@/modules/Roleplay/Game/Service/Instance/combatChatSendService';
 import CombatEntitySelect from '@/modules/Roleplay/Game/Component/CombatEntitySelect.vue';
@@ -258,7 +258,7 @@ const baseCost = computed(() => {
       selectedProcessStep.value ??
       selectedSource.value.process?.steps.find((item) => item.code === processStepCode.value);
 
-    return step ? processSessionService.stepCost(step, ACTION_POINTS_CODE) : 0;
+    return step ? processSessionService.stepCost(step, turnResourceCode(props.rules)) : 0;
   }
 
   return selectedSource.value?.odCost ?? 0;
@@ -847,7 +847,7 @@ watch(followUpTargetKeys, (allowed) => {
               <template #item="{ props: itemProps, item }">
                 <v-list-item
                   v-bind="itemProps"
-                  :title="`${item.raw.name} · ${processSessionService.stepCost(item.raw, ACTION_POINTS_CODE)} ОД`"
+                  :title="`${item.raw.name} · ${processSessionService.stepCost(item.raw, turnResourceCode(props.rules))} ОД`"
                   :subtitle="item.raw.description"
                 />
               </template>

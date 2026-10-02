@@ -28,6 +28,9 @@ function checkName(code: string | null): string {
     <v-card-text>
       <div class="text-subtitle-2 mb-1">Путь волшебства</div>
       <div class="text-body-2">Проверка: {{ checkName(spec.check_code) }}</div>
+      <div class="text-body-2">Проверка сотворения: {{ checkName(spec.cast_check_code) }}</div>
+      <div class="text-body-2">Мощь сотворения: {{ checkName(spec.power_characteristic_code) }}</div>
+      <div class="text-body-2">Контроль сотворения: {{ checkName(spec.control_characteristic_code) }}</div>
       <div v-if="spec.includes_path_codes?.length" class="text-body-2">
         Включает: {{ includeNames(spec.includes_path_codes) }}
       </div>

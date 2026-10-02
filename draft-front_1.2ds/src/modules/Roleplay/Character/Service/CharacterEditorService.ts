@@ -62,7 +62,6 @@ import {
 import { DOMAIN_REF_RULE_TYPES } from '@/modules/Roleplay/Rule/Constant/Ability/DOMAIN_REF_RULE_TYPES';
 import { DOMAIN_STATIC_OPTIONS } from '@/modules/Roleplay/Rule/Constant/Ability/DOMAIN_STATIC_OPTIONS';
 import { CONCENTRATION_ABILITY_CODE } from '@/modules/Roleplay/Rule/Constant/Ability/CONCENTRATION_ABILITY_CODE';
-import { CONCENTRATION_RESOURCE_CODE } from '@/modules/Roleplay/Rule/Constant/Resource/CONCENTRATION_RESOURCE_CODE';
 import { CharacteristicNumber } from '@/modules/Roleplay/Rule/Value/CharacteristicNumber';
 import { mechanicEngine, PURCHASE_SURCHARGE_EVENT } from '@/modules/Roleplay/Mechanic/init';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
@@ -612,7 +611,7 @@ export class CharacterEditorService {
     const result: ResourceValue[] = [];
     const grantedResources = new Map<string, { base: DimensionalNumberValue; bonuses: ResourceLimitBonus[] }>();
     const skipAbilityCodes = new Set<string>();
-    if (this.ownsConcentrationAbility(build) && !this.isConcentrationRequirementMet(characteristics)) {
+    if (this.ownsConcentrationAbility(build) && !this.isConcentrationRequirementMet(characteristics, reference.rules())) {
       skipAbilityCodes.add(CONCENTRATION_ABILITY_CODE);
     }
     this.forEachActiveGrant(
@@ -698,12 +697,19 @@ export class CharacterEditorService {
       });
     }
 
+    const tokenRule = reference.rules().find((item) => {
+      if (item.type !== 'resource') return false;
+      const spec = item.spec as ResourceSpec | undefined;
+
+      return spec?.check_token === true;
+    });
     if (
+      tokenRule &&
       this.ownsConcentrationAbility(build) &&
-      !result.some((entry) => entry.ruleCode === CONCENTRATION_RESOURCE_CODE)
+      !result.some((entry) => entry.ruleCode === tokenRule.code)
     ) {
       result.push({
-        ruleCode: CONCENTRATION_RESOURCE_CODE,
+        ruleCode: tokenRule.code,
         current: { base: 0, size: 0 },
         base: { base: 0, size: 0 },
         bonuses: [],
@@ -1869,13 +1875,22 @@ export class CharacterEditorService {
     return build.abilities.some((ability) => ability.ruleCode === CONCENTRATION_ABILITY_CODE && ability.level >= 1);
   }
 
-  private isConcentrationRequirementMet(characteristics: EditorCharacteristic[]): boolean {
+  private isConcentrationRequirementMet(characteristics: EditorCharacteristic[], rules: Rule[]): boolean {
+    const codes = new Set(
+      rules
+        .filter((candidate) => {
+          const spec = candidate.spec as CharacteristicSpec | undefined;
+
+          return candidate.type === 'characteristic' && spec?.concentration_threshold === true;
+        })
+        .map((candidate) => candidate.code),
+    );
+    if (codes.size === 0) return false;
     const minimum = new DimensionalNumber({ base: 5, size: 0 });
 
     return characteristics.some(
       (characteristic) =>
-        (characteristic.code === 'intellect' || characteristic.code === 'perception') &&
-        CharacteristicNumber.from(characteristic.value).compare(minimum) >= 0,
+        codes.has(characteristic.code) && CharacteristicNumber.from(characteristic.value).compare(minimum) >= 0,
     );
   }
 

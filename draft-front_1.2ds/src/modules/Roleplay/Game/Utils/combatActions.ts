@@ -1,7 +1,7 @@
 import type { CharacterOverview } from '@/modules/Roleplay/Character/Dto/Overview/CharacterOverview';
 import type { HitDefenseReaction } from '@/modules/Roleplay/Game/Enum/HitDefenseReaction';
-import { ACTION_POINTS_CODE } from '@/modules/Roleplay/Game/Constant/Combat/ACTION_POINTS_CODE';
 import { DEFAULT_ATTACK_AP } from '@/modules/Roleplay/Game/Constant/Combat/DEFAULT_ATTACK_AP';
+import type { ResourceSpec } from '@/modules/Roleplay/Rule/Dto/ResourceSpec';
 import { ATTACK_KEYWORD_IDS } from '@/modules/Roleplay/Game/Constant/Combat/ATTACK_KEYWORD_IDS';
 
 import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpec';
@@ -15,10 +15,8 @@ import { actionEffectService } from '@/modules/Roleplay/Game/Service/Instance/ac
 
 export const SIMPLE_MELEE_ATTACK_CODE = 'simple-melee-attack';
 export const SIMPLE_RANGED_ATTACK_CODE = 'simple-ranged-attack';
-export const DODGE_CODE = 'dodge';
-export const BLOCK_CODE = 'block';
-export const TURN_CODE = 'turn';
-export const WAIT_ACTION_CODE = 'wait';
+
+export type CombatActionRole = 'dodge' | 'block' | 'turn' | 'wait' | 'recover-stability' | 'simple-touch';
 
 export interface CombatActionOption {
   ruleCode: string;
@@ -33,11 +31,10 @@ export interface CombatActionOption {
   process?: ProcessSpec;
   operations?: ActionOperation[];
   attackMode?: 'single' | 'wide';
+  combatAction?: CombatActionRole;
 }
 
-export function asActionAbilitySpec(
-  rule: Rule | null | undefined,
-): Extract<AbilitySpec, { type: 'action' }> | null {
+export function asActionAbilitySpec(rule: Rule | null | undefined): Extract<AbilitySpec, { type: 'action' }> | null {
   if (!rule || rule.type !== 'ability' || !rule.spec || typeof rule.spec !== 'object' || !('type' in rule.spec)) {
     return null;
   }
@@ -57,21 +54,54 @@ export function asProcessAbilitySpec(
   return rule.spec.process;
 }
 
-export function actionOdCost(components: ActionComponent[] | undefined, chosenAmount = 0): number {
-  if (!components) return 0;
-  let total = 0;
+export interface ResourceCost {
+  resourceCode: string;
+  amount: number;
+}
+
+export function turnResourceCode(rules: Rule[]): string {
+  return (
+    rules.find((candidate) => {
+      if (candidate.type !== 'resource') return false;
+      const spec = candidate.spec as ResourceSpec | undefined;
+
+      return spec?.auto_add === true;
+    })?.code ?? ''
+  );
+}
+
+export function resourceCosts(
+  components: ActionComponent[] | undefined,
+  chosenAmount = 0,
+  resourceCode = '',
+): ResourceCost[] {
+  if (!components) return [];
+  const totals = new Map<string, number>();
   for (const component of components) {
-    if (component.type !== 'resource' || component.resource_code !== ACTION_POINTS_CODE) continue;
+    if (component.type !== 'resource') continue;
+    let amount = 0;
     if (typeof component.amount === 'object' && 'type' in component.amount) {
-      if (component.amount.type === 'chosen') {
-        total += chosenAmount;
+      if (component.amount.type === 'chosen' && resourceCode && component.resource_code === resourceCode) {
+        amount = chosenAmount;
       }
-      continue;
+    } else {
+      amount = typeof component.amount === 'number' ? component.amount : component.amount.base;
     }
-    total += typeof component.amount === 'number' ? component.amount : component.amount.base;
+    totals.set(component.resource_code, (totals.get(component.resource_code) ?? 0) + amount);
   }
 
-  return total;
+  return [...totals.entries()].map(([code, amount]) => ({ resourceCode: code, amount }));
+}
+
+export function actionOdCost(
+  components: ActionComponent[] | undefined,
+  chosenAmount = 0,
+  resourceCode = '',
+): number {
+  if (!resourceCode) return 0;
+
+  return resourceCosts(components, chosenAmount, resourceCode).find((cost) => cost.resourceCode === resourceCode)
+    ?.amount ?? 0;
 }
 
 export function actionUsesChosenCost(components: ActionComponent[] | undefined): boolean {
@@ -112,12 +142,13 @@ export function actionRefEquals(option: CombatActionOption, ref: string | null |
 function optionFromAttackRule(
   rule: Rule,
   spec: NonNullable<ReturnType<typeof asActionAbilitySpec>>,
+  resourceCode: string,
 ): CombatActionOption {
   return {
     ruleCode: rule.code,
     code: rule.code,
     name: rule.name,
-    odCost: actionOdCost(spec.action_components) || DEFAULT_ATTACK_AP,
+    odCost: actionOdCost(spec.action_components, 0, resourceCode) || DEFAULT_ATTACK_AP,
     effects: actionEffectService.effectsOf(rule),
     operations: spec.operations,
     attackMode: spec.attack_mode,
@@ -142,7 +173,7 @@ export function listAttackActions(
     const ranged = hasKeyword(rule, ATTACK_KEYWORD_IDS.ranged);
     if (profileType === 'strike' && ranged && !melee) continue;
     if ((profileType === 'throw' || profileType === 'shoot') && melee && !ranged) continue;
-    options.push(optionFromAttackRule(rule, spec));
+    options.push(optionFromAttackRule(rule, spec, turnResourceCode(rules)));
   }
 
   return options;
@@ -154,32 +185,27 @@ export function attackActionById(rules: Rule[], ruleCode: string | null | undefi
   const spec = asActionAbilitySpec(rule);
   if (!spec) return null;
 
-  return optionFromAttackRule(rule, spec);
+  return optionFromAttackRule(rule, spec, turnResourceCode(rules));
+}
+
+export function combatActionRule(rules: Rule[], role: CombatActionRole): Rule | undefined {
+  return rules.find((entry) => asActionAbilitySpec(entry)?.combat_action === role);
 }
 
 export function reactionAction(rules: Rule[], reaction: HitDefenseReaction | null): CombatActionOption | null {
   if (reaction !== 'dodge' && reaction !== 'block') return null;
-  const code = reaction === 'dodge' ? DODGE_CODE : BLOCK_CODE;
-  const rule = rules.find((entry) => entry.code === code && entry.type === 'ability');
-  if (!rule) {
-    return {
-      ruleCode: code,
-      code,
-      name: reaction === 'dodge' ? 'Уклонение' : 'Блок',
-      odCost: reaction === 'dodge' ? 1 : 2,
-      effects: [],
-      isAttack: true,
-    };
-  }
+  const rule = combatActionRule(rules, reaction);
+  if (!rule) return null;
   const spec = asActionAbilitySpec(rule);
 
   return {
     ruleCode: rule.code,
     code: rule.code,
     name: rule.name,
-    odCost: actionOdCost(spec?.action_components) || (reaction === 'dodge' ? 1 : 2),
+    odCost: actionOdCost(spec?.action_components, 0, turnResourceCode(rules)),
     effects: [],
     isAttack: true,
+    combatAction: reaction,
   };
 }
 
@@ -190,9 +216,9 @@ export function reactionOdCost(reaction: HitDefenseReaction | null, rules: Rule[
 }
 
 export function turnAction(rules: Rule[]): CombatActionOption {
-  const rule = rules.find((entry) => entry.code === TURN_CODE && entry.type === 'ability');
+  const rule = combatActionRule(rules, 'turn');
   if (!rule) {
-    return { ruleCode: TURN_CODE, code: TURN_CODE, name: 'Поворот', odCost: 1, effects: [], isAttack: true };
+    return { ruleCode: '', code: '', name: '', odCost: 0, effects: [], isAttack: true };
   }
   const spec = asActionAbilitySpec(rule);
 
@@ -200,12 +226,26 @@ export function turnAction(rules: Rule[]): CombatActionOption {
     ruleCode: rule.code,
     code: rule.code,
     name: rule.name,
-    odCost: actionOdCost(spec?.action_components) || 1,
+    odCost: actionOdCost(spec?.action_components, 0, turnResourceCode(rules)),
     effects: [],
     isAttack: true,
+    combatAction: 'turn',
   };
 }
 
 export function defenseOdCost(reaction: HitDefenseReaction | null, turned: boolean, rules: Rule[]): number {
   return reactionOdCost(reaction, rules) + (turned && reaction !== 'ignore' && reaction ? turnAction(rules).odCost : 0);
+}
+
+export function defaultTouchAction(
+  rules: Rule[],
+  overview: CharacterOverview | null,
+): CombatActionOption | null {
+  return (
+    listAttackActions(rules, overview, 'strike').find((action) => {
+      const rule = findRuleByRef(rules, action.code);
+
+      return asActionAbilitySpec(rule)?.combat_action === 'simple-touch';
+    }) ?? null
+  );
 }

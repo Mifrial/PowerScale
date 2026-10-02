@@ -38,6 +38,12 @@ const checkOptions = computed(() =>
   props.rules.filter((rule) => rule.type === 'check').map((rule) => ({ title: rule.name, value: rule.code })),
 );
 
+const characteristicOptions = computed(() =>
+  props.rules
+    .filter((rule) => rule.type === 'characteristic')
+    .map((rule) => ({ title: rule.name, value: rule.code })),
+);
+
 function patch(partial: Partial<MagicPathSpec>): void {
   emit('update:spec', { ...inner.value, ...partial });
 }
@@ -78,6 +84,42 @@ function patchStudyCost(partial: Partial<NonNullable<MagicPathSpec['study_cost']
         clearable
         class="mb-3"
         @update:model-value="patch({ check_code: $event || null })"
+      />
+      <v-autocomplete
+        :model-value="inner.cast_check_code"
+        :items="checkOptions"
+        item-title="title"
+        item-value="value"
+        label="Проверка сотворения"
+        density="compact"
+        hide-details
+        clearable
+        class="mb-3"
+        @update:model-value="patch({ cast_check_code: $event || null })"
+      />
+      <v-autocomplete
+        :model-value="inner.power_characteristic_code"
+        :items="characteristicOptions"
+        item-title="title"
+        item-value="value"
+        label="Мощь сотворения"
+        density="compact"
+        hide-details
+        clearable
+        class="mb-3"
+        @update:model-value="patch({ power_characteristic_code: $event || null })"
+      />
+      <v-autocomplete
+        :model-value="inner.control_characteristic_code"
+        :items="characteristicOptions"
+        item-title="title"
+        item-value="value"
+        label="Контроль сотворения"
+        density="compact"
+        hide-details
+        clearable
+        class="mb-3"
+        @update:model-value="patch({ control_characteristic_code: $event || null })"
       />
       <v-autocomplete
         :model-value="inner.includes_path_codes"

@@ -175,11 +175,7 @@ async function openRef(ref: ChronicleRef): Promise<void> {
   refNpc.value = null;
   try {
     if (ref.kind === 'character') {
-      const projection = await getGameApi().getRuntimeEntity(
-        props.gameId,
-        `character:${ref.id}`,
-        'full',
-      );
+      const projection = await getGameApi().getRuntimeEntity(props.gameId, `character:${ref.id}`, 'full');
       if (requestSequence !== referenceSequence) return;
       refCharacterProjection.value = projection;
     } else {

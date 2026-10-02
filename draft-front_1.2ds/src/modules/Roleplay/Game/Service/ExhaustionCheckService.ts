@@ -1,14 +1,8 @@
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import { CHECK_EXHAUSTION_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
-import {
-  DECLINE_STATE_CODES,
-  DISABLED_STATE_CODE,
-  UNCONSCIOUS_STATE_CODE,
-  WEAKNESS_STATE_CODE,
-  EXHAUSTION_STATE_CODE,
-} from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
+import type { StateSpec } from '@/modules/Roleplay/Rule/Dto/State/StateSpec';
+import { EXHAUSTION_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
 import { ROLL_ATTACHMENT_TYPE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_ATTACHMENT_TYPE';
 import { checkRollService } from '@/modules/Roleplay/Game/Service/Instance/checkRollService';
 import { concentrationTokenService } from '@/modules/Roleplay/Game/Service/Instance/concentrationTokenService';
@@ -17,6 +11,7 @@ import { injuryCheckService } from '@/modules/Roleplay/Game/Service/Instance/inj
 
 import type { IGameApi } from '@/modules/Roleplay/Game/Interface/IGameApi';
 import { stateRuntimeEffectsService } from '@/modules/Roleplay/Character/init';
+import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
 import {
   addFlagState,
   clampCombatActionPoints,
@@ -26,6 +21,7 @@ import {
   declineOutcomeFromRating,
   formatExhaustionCheckMessage,
   shouldSkipExhaustionCheck,
+  type DeclineOutcome,
 } from '@/modules/Roleplay/Game/Utils/exhaustionCheckMessage';
 
 import type { ApplyExhaustionCheckArgs } from '@/modules/Roleplay/Game/Dto/ApplyExhaustionCheckArgs';
@@ -34,21 +30,64 @@ export class ExhaustionCheckService {
   constructor(private readonly resolveGameApi: () => IGameApi) {}
 
   private willpowerOf(version: CharacterVersion, rules: Rule[]): DimensionalNumberValue {
+    const code = attackDamageService.willpowerRule(rules)?.code;
+    if (!code) return { base: 1, size: 0 };
+
+    return stateRuntimeEffectsService.effectiveCharacteristicValues(version, rules).get(code) ?? { base: 1, size: 0 };
+  }
+
+  declineRule(rules: Rule[], outcome: DeclineOutcome): Rule | null {
+    const flag =
+      outcome === 'weakness'
+        ? 'decline_weakness'
+        : outcome === 'disabled'
+          ? 'decline_disabled'
+          : outcome === 'unconscious'
+            ? 'decline_unconscious'
+            : null;
+    if (!flag) return null;
+
     return (
-      stateRuntimeEffectsService.effectiveCharacteristicValues(version, rules).get('willpower') ?? { base: 1, size: 0 }
+      rules.find((candidate) => {
+        const spec = candidate.spec as StateSpec | undefined;
+
+        return candidate.type === 'state' && spec?.[flag] === true;
+      }) ?? null
     );
   }
 
   private hasUnconscious(version: CharacterVersion, rules: Rule[]): boolean {
-    const rule = rules.find((item) => item.code === UNCONSCIOUS_STATE_CODE && item.type === 'state');
+    const rule = this.declineRule(rules, 'unconscious');
     if (!rule) return false;
 
     return version.states.some((state) => state.stateRuleCode === rule.code);
   }
 
+  private declineCodes(rules: Rule[]): string[] {
+    const outcomes: DeclineOutcome[] = ['weakness', 'disabled', 'unconscious'];
+
+    return outcomes.flatMap((outcome) => {
+      const code = this.declineRule(rules, outcome)?.code;
+
+      return code ? [code] : [];
+    });
+  }
+
+  private checkCodeOf(rules: Rule[]): string | null {
+    const rule = rules.find((item) => item.code === EXHAUSTION_STATE_CODE && item.type === 'state');
+    const spec = rule?.spec as StateSpec | undefined;
+    const code = spec?.check_code;
+
+    return code ? code : null;
+  }
+
   async applyExhaustionCheck(args: ApplyExhaustionCheckArgs): Promise<ApplyExhaustionCheckResult> {
     if (shouldSkipExhaustionCheck(this.hasUnconscious(args.version, args.rules), args.change)) {
       return { roll: null, overlay: null, outcome: 'unconscious', skipped: true };
+    }
+    const checkCode = this.checkCodeOf(args.rules);
+    if (!checkCode) {
+      return { roll: null, overlay: args.overlay ?? null, outcome: 'clear', skipped: true };
     }
     const version = args.version;
     let overlay = args.overlay ?? null;
@@ -58,20 +97,20 @@ export class ExhaustionCheckService {
       args.targetKey,
       version,
       args.rules,
-      DECLINE_STATE_CODES,
+      this.declineCodes(args.rules),
     );
 
     const exhaustion = injuryCheckService.overlayStateTotal(version, args.rules, EXHAUSTION_STATE_CODE);
     const adv = stateRuntimeEffectsService.checkAdvantageFromStates(version, args.rules);
     let spent = 0;
-    const maxSpend = concentrationTokenService.maxSpend(version, overlay, args.rules, CHECK_EXHAUSTION_CODE);
+    const maxSpend = concentrationTokenService.maxSpend(version, overlay, args.rules, checkCode);
     if (maxSpend > 0 && args.askTokenSpend) {
       spent = Math.min(
         maxSpend,
         concentrationTokenService.parseSpendAmount(
           await args.askTokenSpend({
             maxSpend,
-            remaining: concentrationTokenService.tokenCurrent(version, overlay),
+            remaining: concentrationTokenService.tokenCurrent(version, overlay, args.rules),
           }),
         ),
       );
@@ -82,6 +121,7 @@ export class ExhaustionCheckService {
           args.targetKey,
           version,
           overlay,
+          args.rules,
           spent,
         );
       }
@@ -98,7 +138,7 @@ export class ExhaustionCheckService {
     }
     const roll = checkRollService.rollNamedCheck(
       spec,
-      CHECK_EXHAUSTION_CODE,
+      checkCode,
       { base: exhaustion, size: 0 },
       args.rng ?? Math.random,
       args.rules,
@@ -106,14 +146,7 @@ export class ExhaustionCheckService {
     );
     const rating = roll.check?.rating ?? 0;
     const outcome = declineOutcomeFromRating(rating);
-    const code =
-      outcome === 'weakness'
-        ? WEAKNESS_STATE_CODE
-        : outcome === 'disabled'
-          ? DISABLED_STATE_CODE
-          : outcome === 'unconscious'
-            ? UNCONSCIOUS_STATE_CODE
-            : null;
+    const code = this.declineRule(args.rules, outcome)?.code ?? null;
     if (code) {
       await addFlagState(this.resolveGameApi(), args.gameId, args.targetKey, args.rules, code);
     }

@@ -1337,7 +1337,7 @@ describe('«Владение оружием» — мастерство оруж�
       [{ ruleCode: skill?.code ?? '', level: 3, domain: 'Кинжал и Нож', domainCode: 'fam-kinzhal-nozh' }],
       ruleCatalog,
     );
-    const entries = weaponProficiencyService.weaponMasteryEntries('melee-combat', melee!, levels, ruleCatalog);
+    const entries = weaponProficiencyService.weaponMasteryEntries(['strike'], melee!, levels, ruleCatalog);
     const names = entries.map((entry) => entry.weaponName).sort();
     expect(names).toContain('Кинжал');
     expect(names).toContain('Стилет');
@@ -1345,7 +1345,7 @@ describe('«Владение оружием» — мастерство оруж�
     expect(entries.every((entry) => entry.bonus === 3)).toBe(true);
     // дальний бой: у семьи «Кинжал и Нож» есть метательные профили → тайл тоже есть
     const ranged = model.characteristics.find((c) => c.code === 'ranged-combat');
-    const rangedEntries = weaponProficiencyService.weaponMasteryEntries('ranged-combat', ranged!, levels, ruleCatalog);
+    const rangedEntries = weaponProficiencyService.weaponMasteryEntries(['throw', 'shoot'], ranged!, levels, ruleCatalog);
     expect(rangedEntries.length).toBeGreaterThan(0);
   });
 

@@ -10,7 +10,6 @@ import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber
 import { CharacteristicNumber } from '@/modules/Roleplay/Rule/Value/CharacteristicNumber';
 import { rollService } from '@/modules/Roleplay/Game/Service/Instance/rollService';
 import { rollEngine } from '@/modules/Roleplay/Game/Service/Roll/Instance/rollEngine';
-import { ROLL_RULE_CODE } from '@/modules/Roleplay/Game/Constant/Roll/ROLL_RULE_CODE';
 import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/init';
 import { CHECK_INITIATIVE_CODE } from '@/modules/Roleplay/Rule/Constant/Check/CHECK_CODES';
 import { checkResolutionService } from '@/modules/Roleplay/Rule/init';
@@ -26,8 +25,9 @@ export interface InitiativeRollPoolDefaults {
 }
 
 export function rollPoolDefaults(rules: Rule[]): InitiativeRollPoolDefaults {
-  const rule = rules.find((candidate) => candidate.code === ROLL_RULE_CODE);
-  const rollPayload = rule?.mechanics.find((row) => row.mechanicPayload?.type === 'roll')?.mechanicPayload;
+  const rollPayload = rules
+    .flatMap((candidate) => candidate.mechanics)
+    .find((row) => row.mechanicPayload?.type === 'roll')?.mechanicPayload;
   const data = rollPayload?.type === 'roll' ? rollPayload.data : undefined;
 
   return {

@@ -12,7 +12,7 @@ describe('CommittedActionService', () => {
     expect(committedActionService.canStretch(action({ isAttack: true }))).toBe(false);
     expect(committedActionService.canStretch(action({ isReaction: true }))).toBe(false);
     expect(committedActionService.canStretch(action({ isProcess: true }))).toBe(false);
-    expect(committedActionService.canStretch(action({ isVariableCost: true, code: 'wait' }))).toBe(false);
+    expect(committedActionService.canStretch(action({ isVariableCost: true, combatAction: 'wait' }))).toBe(false);
   });
 
   it('списывает доступное и оставляет остаток; полный платёж завершает', () => {

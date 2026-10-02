@@ -5,7 +5,6 @@ import type { FormulaContext } from '@/modules/Roleplay/Character/Dto/FormulaCon
 import { FormulaEvaluationService } from '@/modules/Roleplay/Character/Service/FormulaEvaluationService';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { ResourceSpec } from '@/modules/Roleplay/Rule/Dto/ResourceSpec';
-import { ACTION_POINTS_RESOURCE_CODE } from '@/modules/Roleplay/Rule/Constant/Ability/ACTION_POINTS_RESOURCE_CODE';
 import { stateRuntimeEffectsService } from '@/modules/Roleplay/Character/Service/Instance/stateRuntimeEffectsService';
 
 export class LiveActionPointsLimitService {
@@ -54,12 +53,17 @@ export class LiveActionPointsLimitService {
     rules: Rule[],
     characteristicValues: Map<string, DimensionalNumberValue>,
   ): number | null {
-    const rule = rules.find((item) => item.code === ACTION_POINTS_RESOURCE_CODE && item.type === 'resource');
+    const rule = rules.find((item) => {
+      if (item.type !== 'resource') return false;
+      const spec = item.spec as ResourceSpec | undefined;
+
+      return spec?.auto_add === true;
+    });
     if (!rule) return null;
     const resource = version.resources.find((item) => item.ruleCode === rule.code);
     if (!resource) return null;
 
-    return this.liveAutoResourceLimit(resource, version, rules, characteristicValues, ACTION_POINTS_RESOURCE_CODE);
+    return this.liveAutoResourceLimit(resource, version, rules, characteristicValues, rule.code);
   }
 
   private storedResourceLimit(resource: ResourceValue): number {

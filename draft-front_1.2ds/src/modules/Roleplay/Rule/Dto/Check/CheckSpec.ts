@@ -13,6 +13,18 @@ export interface CheckSpec {
   default_efficiency?: number | null;
   difficulty_input: CheckDifficultyInput;
   allowed_modes: CheckAllowedModes;
+  /** Нет поля или true — проверку можно запустить из диалога. */
+  dialog_launch?: boolean;
+  /** Нет поля — карточка не корень обычных проверок. */
+  ordinary_root?: boolean;
+  /** Нет поля — проверка и её потомки не открывают трату жетона концентрации. */
+  concentration_token?: boolean;
+  /** Нет поля — предок не считается проверкой воли. */
+  willpower?: boolean;
+  /** Нет поля — карточка не проверка ловкости при неустойчивости. Берётся первая такая. */
+  unstable_check?: boolean;
+  /** Нет поля — карточка не проверка удара. Берётся первая такая. */
+  hit_check?: boolean;
   /**
    * Коды правил, чьи механики висят на броске этой проверки (напр. `rule-6-and-1`).
    * Задано (в т.ч. []) — не наследовать у предка. Не коды механик.

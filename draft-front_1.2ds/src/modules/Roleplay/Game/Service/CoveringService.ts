@@ -3,18 +3,18 @@ import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKe
 import type { CoverInvite } from '@/modules/Roleplay/Game/Dto/CoverInvite';
 import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
 import type { HitDefenseReaction } from '@/modules/Roleplay/Game/Enum/HitDefenseReaction';
+import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { ADVANTAGE_SOURCE_CIRCUMSTANCES } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
-import { COVERING_ABILITY_CODE } from '@/modules/Roleplay/Game/Constant/Combat/COVERING_ABILITY_CODE';
-import { COVERING_ACTION_COST } from '@/modules/Roleplay/Game/Constant/Combat/COVERING_ACTION_COST';
+import { actionOdCost, asActionAbilitySpec, turnResourceCode } from '@/modules/Roleplay/Game/Utils/combatActions';
 
 /** Альтернативные защитники одной реакции: Прикрытие. */
 export class CoveringService {
-  cost(): number {
-    return COVERING_ACTION_COST;
+  cost(rules: Rule[]): number {
+    return actionOdCost(asActionAbilitySpec(this.coverRule(rules))?.action_components, 0, turnResourceCode(rules));
   }
 
-  hasSkill(abilities: CharacterAbility[] | undefined): boolean {
-    return (abilities?.find((ability) => ability.ruleCode === COVERING_ABILITY_CODE)?.level ?? 0) >= 1;
+  hasSkill(abilities: CharacterAbility[] | undefined, rules: Rule[]): boolean {
+    return (abilities ?? []).some((ability) => ability.level > 0 && this.coverRule(rules, ability.ruleCode));
   }
 
   canUseReaction(reaction: HitDefenseReaction | null | undefined): boolean {
@@ -26,11 +26,12 @@ export class CoveringService {
     attackerKey: CombatEntityKey | null,
     defenderKeys: CombatEntityKey[],
     abilitiesOf: (key: CombatEntityKey) => CharacterAbility[] | undefined,
+    rules: Rule[],
   ): CombatEntityKey[] {
     return keys.filter((key) => {
       if (key === attackerKey || defenderKeys.includes(key)) return false;
 
-      return this.hasSkill(abilitiesOf(key));
+      return this.hasSkill(abilitiesOf(key), rules);
     });
   }
 
@@ -42,17 +43,17 @@ export class CoveringService {
     return (invites ?? []).filter((invite) => invite.decision === 'cover');
   }
 
-  circumstanceModifier(): AdvantageModifier {
+  circumstanceModifier(rules: Rule[]): AdvantageModifier {
+    const spec = this.coverRule(rules)?.spec;
+
     return {
       source_code: ADVANTAGE_SOURCE_CIRCUMSTANCES,
       source_label: 'Обстоятельства',
-      delta: -1,
+      delta: spec && typeof spec === 'object' && 'cover_ally' in spec ? (spec.cover_ally?.circumstance_delta ?? 0) : 0,
     };
   }
 
-  bestPassedKey(
-    results: { key: CombatEntityKey; passed: boolean; rating: number }[],
-  ): CombatEntityKey | null {
+  bestPassedKey(results: { key: CombatEntityKey; passed: boolean; rating: number }[]): CombatEntityKey | null {
     const passed = results.filter((result) => result.passed);
     if (passed.length === 0) return null;
 
@@ -77,5 +78,16 @@ export class CoveringService {
     }
 
     return null;
+  }
+
+  private coverRule(rules: Rule[], ruleCode?: string): Rule | null {
+    return (
+      rules.find((rule) => {
+        if (rule.type !== 'ability' || (ruleCode !== undefined && rule.code !== ruleCode)) return false;
+        const spec = rule.spec;
+
+        return Boolean(spec && typeof spec === 'object' && 'cover_ally' in spec && spec.cover_ally);
+      }) ?? null
+    );
   }
 }

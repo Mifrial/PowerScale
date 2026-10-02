@@ -41,6 +41,7 @@ function resourceFromSpec(value: RuleSpec | null): ResourceSpec {
   return {
     is_dimensional: spec.is_dimensional ?? true,
     auto_add: spec.auto_add ?? false,
+    check_token: spec.check_token ?? false,
     limit: {
       base: base ?? (spec.is_dimensional ? { base: 3, size: 0 } : 0),
       adjustments: spec.limit?.adjustments ?? [],
@@ -82,6 +83,7 @@ const dimensionalBase = computed<DimensionalNumberValue | null>({
 const specToEmit = computed<ResourceSpec>(() => ({
   is_dimensional: innerSpec.value.is_dimensional,
   auto_add: innerSpec.value.auto_add,
+  check_token: innerSpec.value.check_token,
   limit: innerSpec.value.limit
     ? { ...innerSpec.value.limit, adjustments: [...innerSpec.value.limit.adjustments] }
     : undefined,
@@ -160,6 +162,13 @@ function updateAdjustmentKind(index: number, type: Formula['type']): void {
           <v-switch
             v-model="innerSpec.auto_add"
             label="Автодобавление персонажу"
+            color="primary"
+            hide-details
+            class="mt-1"
+          />
+          <v-switch
+            v-model="innerSpec.check_token"
+            label="Жетоны на проверку"
             color="primary"
             hide-details
             class="mt-1"

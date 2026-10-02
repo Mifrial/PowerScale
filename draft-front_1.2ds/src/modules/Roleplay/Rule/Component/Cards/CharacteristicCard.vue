@@ -48,6 +48,13 @@ const baseFromLabel = computed(() => {
         Формула: <strong>{{ spec.formula }}</strong>
       </div>
       <div v-if="automaticLabel" class="text-body-2 mt-1">Автоматическая: {{ automaticLabel }}</div>
+      <div v-if="spec.damage_endurance" class="text-body-2 mt-1">Единица повреждений</div>
+      <div v-if="spec.willpower" class="text-body-2 mt-1">Сила воли</div>
+      <div v-if="spec.concentration_threshold" class="text-body-2 mt-1">Порог концентрации</div>
+      <div v-if="spec.concentration_token" class="text-body-2 mt-1">Жетон концентрации</div>
+      <div v-if="spec.unstable_roll" class="text-body-2 mt-1">Бросок при неустойчивости</div>
+      <div v-if="spec.initiative" class="text-body-2 mt-1">Запасная инициатива</div>
+      <div v-if="spec.dodge_soak" class="text-body-2 mt-1">Поглощение уклонения</div>
       <div v-if="baseFromLabel" class="text-body-2 mt-1">База: {{ baseFromLabel }}</div>
     </v-card-text>
   </v-card>

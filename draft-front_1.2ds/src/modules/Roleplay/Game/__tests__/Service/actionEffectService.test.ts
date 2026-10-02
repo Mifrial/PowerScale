@@ -212,81 +212,6 @@ describe('ActionEffectService', () => {
     ).toBe(0);
   });
 
-  it('loses a next-action effect when the next action is not an attack', () => {
-    const pending: PendingActionEffect[] = [
-      {
-        sourceRuleCode,
-        effect: {
-          type: 'next_action_attack_target_characteristic_modifier',
-          check_code: 'melee-combat',
-          characteristic_code: 'dexterity',
-          delta: -3,
-          min: 0,
-          max_total_action_cost: 2,
-          scope: { components: ['strike'], hit_count: 1 },
-        },
-      },
-    ];
-
-    expect(
-      actionEffectService.resolveForNextAction(pending, { isAttack: false, component: 'strike', baseCost: 1 })
-        .remainingEffects,
-    ).toEqual([]);
-  });
-
-  it('does not apply target modifier when final attack cost exceeds the limit', () => {
-    const pending: PendingActionEffect[] = [
-      {
-        sourceRuleCode,
-        effect: {
-          type: 'next_action_attack_cost',
-          resource_code: 'action-points',
-          delta: 1,
-        },
-      },
-      {
-        sourceRuleCode,
-        effect: {
-          type: 'next_action_attack_target_characteristic_modifier',
-          check_code: 'melee-combat',
-          characteristic_code: 'dexterity',
-          delta: -3,
-          min: 0,
-          max_total_action_cost: 2,
-          scope: { components: ['strike'], hit_count: 1 },
-        },
-      },
-    ];
-
-    expect(
-      actionEffectService.resolveForNextAction(pending, { isAttack: true, component: 'strike', baseCost: 2 })
-        .targetDexterityMasteryDelta,
-    ).toBe(0);
-  });
-
-  it('clamps target modifier and keeps the pending effect source', () => {
-    const result = actionEffectService.resolveForNextAction(
-      [
-        {
-          sourceRuleCode: 'rule-swift-strike',
-          effect: {
-            type: 'next_action_attack_target_characteristic_modifier',
-            check_code: 'melee-combat',
-            characteristic_code: 'dexterity',
-            delta: -3,
-            min: 0,
-            max_total_action_cost: 2,
-            scope: { components: ['strike'], hit_count: 1 },
-          },
-        },
-      ],
-      { isAttack: true, component: 'strike', baseCost: 1, targetDexterityMastery: 1 },
-    );
-
-    expect(result.targetDexterityMasteryDelta).toBe(-1);
-    expect(result.targetDexterityMasteryAdjustments).toEqual([{ sourceRuleCode: 'rule-swift-strike', delta: -1 }]);
-  });
-
   it('Стремительный: soak от Реакции только при атаке ≤2 ОД и первом ударе', () => {
     const pending: PendingActionEffect[] = [
       {
@@ -314,22 +239,6 @@ describe('ActionEffectService', () => {
         hitNumber: 2,
       }).dodgeSoakFromReaction,
     ).toBe(false);
-  });
-
-  it('describes target effects in player-facing language', () => {
-    expect(
-      actionEffectService.describe({
-        type: 'next_action_attack_target_characteristic_modifier',
-        check_code: 'melee-combat',
-        characteristic_code: 'dexterity',
-        delta: -3,
-        min: 0,
-        max_total_action_cost: 2,
-        scope: { components: ['strike'], hit_count: 1 },
-      }),
-    ).toBe(
-      '-3 к Ближнему бою от Ловкости(вплоть до 0 от Ловкости) у цели для первого удара следующей атаки, если итоговая стоимость атаки не более 2 ОД (действие)',
-    );
   });
 
   it('resolves current and pending hit disadvantages with the rule source', () => {
@@ -547,7 +456,7 @@ describe('ActionEffectService', () => {
     ];
 
     expect(
-      actionEffectService.afterDeclaredAction(pending, 1, { isAttack: false, component: 'strike', baseCost: 1 }),
+      actionEffectService.afterDeclaredAction(pending, 1, { isAttack: false, component: 'strike', baseCost: 1 }, 'action-points'),
     ).toEqual([
       {
         sourceRuleCode: 'riskovannyy-udar',
@@ -569,7 +478,7 @@ describe('ActionEffectService', () => {
     ];
 
     expect(
-      actionEffectService.afterDeclaredAction(pending, 2, { isAttack: false, component: 'strike', baseCost: 2 }),
+      actionEffectService.afterDeclaredAction(pending, 2, { isAttack: false, component: 'strike', baseCost: 2 }, 'action-points'),
     ).toEqual([]);
   });
 
@@ -589,35 +498,6 @@ describe('ActionEffectService', () => {
 
     expect(actionEffectService.currentAttackAccuracy(rule, 'strike')).toBe(1);
     expect(actionEffectService.currentAttackAccuracy(rule, 'throw')).toBe(0);
-  });
-
-  it('режет бонус мастерства цели от Восприятия текущего удара до 0', () => {
-    const rule = {
-      id: null,
-      code: 'directed-strike',
-      spec: {
-        type: 'action',
-        action_effects: [
-          {
-            type: 'current_action_attack_target_characteristic_modifier',
-            check_code: 'melee-combat',
-            characteristic_code: 'perception',
-            delta: -3,
-            min: 0,
-            scope: { components: ['strike'], hit_count: 1 },
-          },
-        ],
-      },
-    } as Rule;
-
-    expect(actionEffectService.currentAttackTargetCharacteristicModifier(rule, 'strike', 'perception', 1)).toEqual({
-      delta: -1,
-      adjustments: [{ sourceRuleCode: 'directed-strike', delta: -1 }],
-    });
-    expect(actionEffectService.currentAttackTargetCharacteristicModifier(rule, 'strike', 'perception', 0).delta).toBe(
-      0,
-    );
-    expect(actionEffectService.currentAttackTargetCharacteristicModifier(rule, 'throw', 'perception', 4).delta).toBe(0);
   });
 
   it('разрешает бонус межструктурных энергопереходов только для допустимой стоимости каста', () => {

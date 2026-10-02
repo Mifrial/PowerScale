@@ -53,23 +53,6 @@ export type ActionEffect =
       scope: AttackScope;
     }
   | {
-      type: 'next_action_attack_target_characteristic_modifier';
-      check_code: string;
-      characteristic_code: string;
-      delta: number;
-      min?: number;
-      max_total_action_cost?: number;
-      scope: AttackScope;
-    }
-  | {
-      type: 'current_action_attack_target_characteristic_modifier';
-      check_code: string;
-      characteristic_code: string;
-      delta: number;
-      min?: number;
-      scope: AttackScope;
-    }
-  | {
       type: 'current_action_attack_dodge_soak';
       size_delta: number;
       ignore_at_sr?: number;
