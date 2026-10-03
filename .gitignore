@@ -8,4 +8,5 @@ node_modules/
 draft-front_1.2ds/dist/
 draft-front_1.2ds/package-lock.json
 .opencode/memory.jsonl
+var/review/
 *.zip
