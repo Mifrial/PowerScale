@@ -203,7 +203,7 @@ Draft сохраняется при каждом изменении и пери�
 7. выдаёт `ok`, `resolved` или `conflicts`;
 8. для conflicts открывает resumable editor на новой ревизии.
 
-История версий Character и rollback не являются целевым контрактом. Backend migration endpoint, storage и optimistic locking — `CODE_GAP / implementation OPEN`.
+История версий Character и rollback не являются целевым контрактом. PHP `character.migrate` закрывает пункты 1–5 и 7 для лимитов строки: наличные без повторной закупки, предмет без живого правила — custom item, `conflicts` не пишет actual. Продолжаемый редактор — повтор того же действия с телом листа, не серверный черновик. Бонусы GM и потолки игры в это действие не входят: их считает Game, когда появится membership (C8). Смена мира этой операцией не делается.
 
 ## Custom rules и visibility
 

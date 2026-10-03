@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Mifrial\Roleplay\Character\Service;
+namespace Mifrial\Roleplay\Character\Service\Save;
 
 use Mifrial\Roleplay\Character\Exception\CharacterInvalidException;
 

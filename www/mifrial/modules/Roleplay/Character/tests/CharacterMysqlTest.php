@@ -254,6 +254,65 @@ final class CharacterMysqlTest extends TestCase
     }
 
     /**
+     * replaceSaved пишет имя и active одним bump и не трогает видимость.
+     *
+     * @return void
+     */
+    public function testReplaceSavedBumpsOnceAndKeepsVisibility(): void
+    {
+        $characters = $this->characters();
+        $characterId = $characters->add($this->newCharacter($this->addUser('saved'), $this->addSpace(), [
+            'visibilityFields' => ['inventory'],
+            'ownerNotes' => 'secret',
+        ]));
+        $updated = $characters->replaceSaved($characterId, 'Next', false, ['money' => 1], ['money' => 1], 1);
+        self::assertSame(2, $updated->getActualVersion());
+        self::assertSame('Next', $updated->getName());
+        self::assertFalse($updated->isActive());
+        self::assertSame(['inventory'], $updated->getVisibilityFields());
+        self::assertSame('secret', $updated->getOwnerNotes());
+        try {
+            $characters->replaceSaved($characterId, 'Lost', true, ['lost' => true], [], 1);
+            self::fail('Stale replaceSaved must conflict');
+        } catch (CharacterConflictException $exception) {
+            self::assertSame(2, $exception->getCurrentVersion());
+            self::assertSame(2, $exception->getErrorDetails()['currentVersion']);
+        }
+
+        $kept = $characters->get($characterId);
+        self::assertSame('Next', $kept->getName());
+        self::assertSame(['money' => 1], $kept->getChoices());
+    }
+
+    /**
+     * replaceMigrated пишет ревизию и version одним bump и не трогает заметки.
+     *
+     * @return void
+     */
+    public function testReplaceMigratedBumpsRevisionOnce(): void
+    {
+        $characters = $this->characters();
+        $characterId = $characters->add($this->newCharacter($this->addUser('migrated'), $this->addSpace(), [
+            'ownerNotes' => 'secret',
+            'rulesRevision' => 1,
+        ]));
+        $updated = $characters->replaceMigrated($characterId, 'Hero', true, ['money' => 7], ['money' => 7], 2, 1);
+        self::assertSame(2, $updated->getActualVersion());
+        self::assertSame(2, $updated->getRulesRevision());
+        self::assertSame('secret', $updated->getOwnerNotes());
+        try {
+            $characters->replaceMigrated($characterId, 'Hero', true, ['lost' => true], [], 3, 1);
+            self::fail('Stale replaceMigrated must conflict');
+        } catch (CharacterConflictException $exception) {
+            self::assertSame(2, $exception->getCurrentVersion());
+        }
+
+        $kept = $characters->get($characterId);
+        self::assertSame(2, $kept->getRulesRevision());
+        self::assertSame(['money' => 7], $kept->getChoices());
+    }
+
+    /**
      * Stale replace и setActive.
      *
      * @return void

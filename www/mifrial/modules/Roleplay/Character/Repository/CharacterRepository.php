@@ -125,6 +125,93 @@ final class CharacterRepository
     }
 
     /**
+     * Пишет имя, active, choices и sheet, если version совпал.
+     *
+     * @param int $characterId Идентификатор.
+     * @param string $name Имя.
+     * @param bool $active Флаг.
+     * @param array $choices Build.
+     * @param array $sheet Кэш.
+     * @param int $expectedVersion Lock.
+     * @param DateTime $updatedAt Момент записи.
+     *
+     * @return CharacterRecord После update.
+     *
+     * @throws CharacterNotFoundException Если строки нет.
+     * @throws CharacterConflictException Если version устарел.
+     * @throws CharacterInvalidException Если поле.
+     */
+    public function replaceSaved(
+        int $characterId,
+        string $name,
+        bool $active,
+        array $choices,
+        array $sheet,
+        int $expectedVersion,
+        DateTime $updatedAt,
+    ): CharacterRecord {
+        return $this->writeGuarded(
+            $characterId,
+            $expectedVersion,
+            function (int $nextVersion) use ($characterId, $name, $active, $choices, $sheet, $updatedAt): void {
+                $this->updateRow($characterId, [
+                    'name' => $name,
+                    'active' => $active,
+                    'choices' => $choices,
+                    'sheet' => $sheet,
+                    'actual_version' => $nextVersion,
+                    'updated_at' => $updatedAt,
+                ]);
+            },
+        );
+    }
+
+    /**
+     * Пишет лист и номер ревизии, если version совпал.
+     *
+     * @param int $characterId Идентификатор.
+     * @param string $name Имя.
+     * @param bool $active Флаг.
+     * @param array $choices Build.
+     * @param array $sheet Кэш.
+     * @param int $rulesRevision Номер ревизии.
+     * @param int $expectedVersion Lock.
+     * @param DateTime $updatedAt Момент записи.
+     *
+     * @return CharacterRecord После update.
+     *
+     * @throws CharacterNotFoundException Если строки нет.
+     * @throws CharacterConflictException Если version устарел.
+     * @throws CharacterInvalidException Если поле.
+     */
+    public function replaceMigrated(
+        int $characterId,
+        string $name,
+        bool $active,
+        array $choices,
+        array $sheet,
+        int $rulesRevision,
+        int $expectedVersion,
+        DateTime $updatedAt,
+    ): CharacterRecord {
+        return $this->writeGuarded(
+            $characterId,
+            $expectedVersion,
+            function (int $nextVersion) use ($characterId, $name, $active, $choices, $sheet, $rulesRevision, $updatedAt): void {
+                $this->updateRow($characterId, [
+                    'name' => $name,
+                    'active' => $active,
+                    'choices' => $choices,
+                    'sheet' => $sheet,
+                    'rules_revision' => $rulesRevision,
+                    'actual_version' => $nextVersion,
+                    'updated_at' => $updatedAt,
+                ]);
+            },
+        );
+    }
+
+    /**
      * Пишет active, если version совпал.
      *
      * @param int $characterId Идентификатор.

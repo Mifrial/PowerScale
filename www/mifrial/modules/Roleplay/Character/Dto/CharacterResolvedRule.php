@@ -8,6 +8,7 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Character\Dto;
 
 use Mifrial\Roleplay\Rule\Dto\RuleVersionRecord;
+use Mifrial\Roleplay\Rule\Dto\Spec\RuleSpec;
 
 /**
  * Живое правило среза: признаки уже кодами.
@@ -69,13 +70,23 @@ final class CharacterResolvedRule
     }
 
     /**
-     * JSON spec как в срезе.
+     * Контракт spec, если документ лёг в тип.
      *
-     * @return array<string|int, mixed> Spec.
+     * @return RuleSpec|null DTO или null.
      */
-    public function getSpec(): array
+    public function getSpec(): ?RuleSpec
     {
         return $this->ruleVersionRecord->getSpec();
+    }
+
+    /**
+     * Форма spec известного типа не разобралась.
+     *
+     * @return bool true, если версия битая.
+     */
+    public function isSpecBroken(): bool
+    {
+        return $this->ruleVersionRecord->isSpecBroken();
     }
 
     /**

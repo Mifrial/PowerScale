@@ -70,7 +70,7 @@ final class CharacterRuleSlicesTest extends TestCase
         self::assertTrue($slice->hasTombstone('gone'));
         self::assertFalse($slice->hasTombstone('beta'));
         self::assertSame('ability', $slice->findLive('beta')->getType());
-        self::assertSame(['k' => 1], $slice->findLive('beta')->getSpec());
+        self::assertInstanceOf(\Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilitySpec::class, $slice->findLive('beta')->getSpec());
         self::assertSame('needs_work', $slice->findLive('beta')->getContentStatus());
         self::assertSame([], $slice->findLive('beta')->getMechanics());
     }

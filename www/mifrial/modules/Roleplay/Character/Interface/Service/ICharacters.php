@@ -55,6 +55,58 @@ interface ICharacters
     public function replacePayload(int $id, array $choices, array $sheet, int $expectedVersion): CharacterRecord;
 
     /**
+     * Пишет имя, active, choices и sheet при совпадении expectedVersion.
+     *
+     * @param int $id Идентификатор.
+     * @param string $name Имя.
+     * @param bool $active Флаг листа.
+     * @param array $choices Build.
+     * @param array $sheet Кэш.
+     * @param int $expectedVersion Текущий actual_version.
+     *
+     * @return CharacterRecord После записи.
+     *
+     * @throws CharacterInvalidException Если version меньше 1, имя или JSON.
+     * @throws CharacterNotFoundException Если строки нет.
+     * @throws CharacterConflictException Если version устарел.
+     */
+    public function replaceSaved(
+        int $id,
+        string $name,
+        bool $active,
+        array $choices,
+        array $sheet,
+        int $expectedVersion,
+    ): CharacterRecord;
+
+    /**
+     * Пишет лист и номер ревизии при совпадении expectedVersion.
+     *
+     * @param int $id Идентификатор.
+     * @param string $name Имя.
+     * @param bool $active Флаг листа.
+     * @param array $choices Build.
+     * @param array $sheet Кэш.
+     * @param int $rulesRevision Номер ревизии.
+     * @param int $expectedVersion Текущий actual_version.
+     *
+     * @return CharacterRecord После записи.
+     *
+     * @throws CharacterInvalidException Если version меньше 1, имя, ревизия или JSON.
+     * @throws CharacterNotFoundException Если строки нет.
+     * @throws CharacterConflictException Если version устарел.
+     */
+    public function replaceMigrated(
+        int $id,
+        string $name,
+        bool $active,
+        array $choices,
+        array $sheet,
+        int $rulesRevision,
+        int $expectedVersion,
+    ): CharacterRecord;
+
+    /**
      * Ставит active при совпадении expectedVersion.
      *
      * @param int $id Идентификатор.

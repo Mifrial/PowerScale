@@ -37,4 +37,14 @@ final class CharacterConflictException extends CharacterException
     {
         return $this->currentVersion;
     }
+
+    /**
+     * Текущая версия в конверте ошибки.
+     *
+     * @return array<string, int> Поле currentVersion.
+     */
+    public function getErrorDetails(): array
+    {
+        return ['currentVersion' => $this->currentVersion];
+    }
 }

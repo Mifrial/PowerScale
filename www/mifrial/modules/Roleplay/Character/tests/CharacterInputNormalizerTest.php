@@ -7,7 +7,7 @@ namespace Mifrial\Roleplay\Character\Tests;
 use Mifrial\Roleplay\Character\Dto\NewCharacter;
 use Mifrial\Roleplay\Character\Exception\CharacterConflictException;
 use Mifrial\Roleplay\Character\Exception\CharacterInvalidException;
-use Mifrial\Roleplay\Character\Service\CharacterInputNormalizer;
+use Mifrial\Roleplay\Character\Service\Save\CharacterInputNormalizer;
 use PHPUnit\Framework\TestCase;
 
 final class CharacterInputNormalizerTest extends TestCase

@@ -14,6 +14,7 @@ use Mifrial\Roleplay\Character\Exception\CharacterInvalidException;
 use Mifrial\Roleplay\Character\Exception\CharacterNotFoundException;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
 use Mifrial\Roleplay\Character\Repository\CharacterRepository;
+use Mifrial\Roleplay\Character\Service\Save\CharacterInputNormalizer;
 
 /**
  * Фасад actual-строки персонажа.
@@ -94,6 +95,84 @@ final class Characters implements ICharacters
             $id,
             $this->characterInputNormalizer->normalizePayload($choices),
             $this->characterInputNormalizer->normalizePayload($sheet),
+            $expectedVersion,
+            DateTime::now(),
+        );
+    }
+
+    /**
+     * Пишет имя, active, choices и sheet при совпадении expectedVersion.
+     *
+     * @param int $id Идентификатор.
+     * @param string $name Имя.
+     * @param bool $active Флаг листа.
+     * @param array $choices Build.
+     * @param array $sheet Кэш.
+     * @param int $expectedVersion Текущий actual_version.
+     *
+     * @return CharacterRecord После записи.
+     *
+     * @throws CharacterInvalidException Если version меньше 1, имя или JSON.
+     * @throws CharacterNotFoundException Если строки нет.
+     * @throws CharacterConflictException Если version устарел.
+     */
+    public function replaceSaved(
+        int $id,
+        string $name,
+        bool $active,
+        array $choices,
+        array $sheet,
+        int $expectedVersion,
+    ): CharacterRecord {
+        $this->characterInputNormalizer->requirePositiveInt($expectedVersion, 'Character expected version is invalid');
+
+        return $this->characterRepository->replaceSaved(
+            $id,
+            $this->characterInputNormalizer->normalizeName($name),
+            $active,
+            $this->characterInputNormalizer->normalizePayload($choices),
+            $this->characterInputNormalizer->normalizePayload($sheet),
+            $expectedVersion,
+            DateTime::now(),
+        );
+    }
+
+    /**
+     * Пишет лист и номер ревизии при совпадении expectedVersion.
+     *
+     * @param int $id Идентификатор.
+     * @param string $name Имя.
+     * @param bool $active Флаг листа.
+     * @param array $choices Build.
+     * @param array $sheet Кэш.
+     * @param int $rulesRevision Номер ревизии.
+     * @param int $expectedVersion Текущий actual_version.
+     *
+     * @return CharacterRecord После записи.
+     *
+     * @throws CharacterInvalidException Если version меньше 1, имя, ревизия или JSON.
+     * @throws CharacterNotFoundException Если строки нет.
+     * @throws CharacterConflictException Если version устарел.
+     */
+    public function replaceMigrated(
+        int $id,
+        string $name,
+        bool $active,
+        array $choices,
+        array $sheet,
+        int $rulesRevision,
+        int $expectedVersion,
+    ): CharacterRecord {
+        $this->characterInputNormalizer->requirePositiveInt($expectedVersion, 'Character expected version is invalid');
+        $this->characterInputNormalizer->requirePositiveInt($rulesRevision, 'Character rules revision is invalid');
+
+        return $this->characterRepository->replaceMigrated(
+            $id,
+            $this->characterInputNormalizer->normalizeName($name),
+            $active,
+            $this->characterInputNormalizer->normalizePayload($choices),
+            $this->characterInputNormalizer->normalizePayload($sheet),
+            $rulesRevision,
             $expectedVersion,
             DateTime::now(),
         );

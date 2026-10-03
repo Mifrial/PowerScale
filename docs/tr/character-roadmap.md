@@ -22,8 +22,6 @@ Mechanic не импортирует Character и не импортирует Ru
 
 PHP Character → SmartTable, User, RuleSpace, Rule, Mechanic (порт Engine), Keyword только если без него не резолвятся условия на снимке. **Character ↛ Versioning/Space** (ревизия через RuleSpace). **Character ↛ Game**. Mechanic ↛ Character.
 
-Хендлеры PHP Engine — отдельный план модуля Mechanic (сейчас OPEN). C3 Character без него не начинать.
-
 ## Главный критерий готовности
 
 Create/update считаются `IMPLEMENTED` только если backend:
@@ -60,31 +58,31 @@ Lazy-модуль, `character` + `character_viewer`, `ICharacters` add/get/repla
 
 Immutable `(spaceId, revision)` через `IRuleSpaces` (не часы в обход мира). Резолв `code`, тип, keyword codes (снимок сейчас — ids). Не «latest». Tombstone не живое правило.
 
-### C3. Порт Mechanic Engine — `TODO`
+### C3. Порт Mechanic Engine — `DONE` (`BACKEND_OPEN`)
 
 План: [`character-plan-04.md`](character-plan-04.md).
 
 Зависимость: закрытый (или согласованный к интеграции) PHP Engine в Mechanic. Character собирает Binding, зовёт `runEvent`, не тащит grants/budgets в Mechanic. Цикла Character ↔ Mechanic нет.
 
-### C4. Построение листа и validation — `TODO`
+### C4. Построение листа и validation — `DONE` (`BACKEND_OPEN`)
 
 План: [`character-plan-05.md`](character-plan-05.md).
 
 Серверный build + **тот же** валидатор, что validate-only: раса, лестницы, `grantedBy`, явный `studyPairId` пар пути, `magic_study.path_code` и покрытие `includes_path_codes`, свои caps, `equipped`, customRules, `active`. Спеки Rule **не готовы** без отмашки. Typed hydrator — блокер, не разрешение считать spec закрытым.
 
-### C5. Authoritative create/update — `TODO`
+### C5. Authoritative create/update — `DONE`
 
 План: [`character-plan-06.md`](character-plan-06.md).
 
 Единственный пункт, который может закрыть базовое сохранение. Pipeline целиком. HTTP `character.create` / `character.update` / `character.validate`. Без C3 и C4 не закрывать. Discussion chat — не блокер этого пункта (тип `character_discussion` в Chat — позже).
 
-### C6. Read, visibility, notes — `TODO`
+### C6. Read, visibility, notes — `DONE`
 
 План: [`character-plan-07.md`](character-plan-07.md).
 
 После C1 допустим **owner-only** read тестового aggregate (не выдавать за валидный лист). Публичный list/detail: `is_public` + `character_viewer`, маска секций из JSON-грантов (не Vue-массив `SheetVisibility` как хранение), `ownerNotes`, NotFound без утечки существования — после C5. `customRules` уже во входе create/update (C0/C5), отдельных роутов не плодить без нужды.
 
-### C7. Миграция ревизии — `TODO`
+### C7. Миграция ревизии — `DONE`
 
 План: [`character-plan-08.md`](character-plan-08.md).
 
@@ -117,7 +115,6 @@ Roadmap: [`docs/specs/character-actual-session-source-roadmap.md`](../specs/char
 
 Нельзя закрыть:
 
-- C3 без PHP Engine (план Mechanic);
 - C4 без C2; C4 без fail-closed Engine (C3 или эквивалентный порт);
 - C5 без C3 и без C4;
 - C7 без C4/C5;
