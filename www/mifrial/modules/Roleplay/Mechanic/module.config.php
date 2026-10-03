@@ -9,6 +9,7 @@ use Mifrial\Roleplay\Mechanic\Action\GetMechanicListAction;
 use Mifrial\Roleplay\Mechanic\Action\UpdateMechanicAction;
 use Mifrial\Roleplay\Mechanic\Container\MechanicContainer;
 use Mifrial\Roleplay\Mechanic\Interface\Container\IMechanicContainer;
+use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanicEngine;
 use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanics;
 use Mifrial\Roleplay\Mechanic\Service\MechanicHttpService;
 use Mifrial\Roleplay\Mechanic\Service\MechanicPortFactory;
@@ -21,6 +22,9 @@ return [
     'ports' => [
         IMechanics::class => static function (IServiceLocator $serviceLocator): IMechanics {
             return (new MechanicPortFactory())->create($serviceLocator);
+        },
+        IMechanicEngine::class => static function (): IMechanicEngine {
+            return (new MechanicPortFactory())->createEngine();
         },
         MechanicHttpService::class => static function (IServiceLocator $serviceLocator): MechanicHttpService {
             return (new MechanicPortFactory())->createHttp($serviceLocator);

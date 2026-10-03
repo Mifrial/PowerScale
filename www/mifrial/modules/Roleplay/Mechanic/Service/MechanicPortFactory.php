@@ -11,8 +11,10 @@ use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Core\User\Interface\Container\IUserContainer;
 use Mifrial\Core\User\Interface\Service\IUserAccess;
 use Mifrial\Roleplay\Mechanic\Interface\Container\IMechanicContainer;
+use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanicEngine;
 use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanics;
 use Mifrial\Roleplay\Mechanic\Repository\MechanicRepository;
+use Mifrial\Roleplay\Mechanic\Service\Handler\PurchaseSurchargeHandler;
 use Mifrial\Roleplay\Mechanic\Table\MechanicTable;
 
 /**
@@ -34,6 +36,19 @@ final class MechanicPortFactory
         return new Mechanics(
             new MechanicRepository($this->smartTableGateway($serviceLocator)->open(MechanicTable::class)->records()),
         );
+    }
+
+    /**
+     * Собирает движок с purchase_surcharge в реестре.
+     *
+     * @return IMechanicEngine Движок.
+     */
+    public function createEngine(): IMechanicEngine
+    {
+        $registry = new MechanicHandlerRegistry();
+        $registry->register(new PurchaseSurchargeHandler());
+
+        return new MechanicEngine($registry);
     }
 
     /**

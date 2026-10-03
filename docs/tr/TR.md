@@ -83,6 +83,7 @@
 - [План Mechanic 1](mechanic-plan-01.md) — каркас `Roleplay/Mechanic` под Rule; HTTP — план 2; модуль не закрыт (нет Engine).
 - [План Mechanic 2: HTTP](mechanic-plan-02.md) — публичка `mechanic.*` сделана; Vue-папка — план 3.
 - [План Mechanic 3: Vue-модуль](mechanic-plan-03.md) — папка `Roleplay/Mechanic`, Binding, Engine; URL `/admin/mechanics` без смены.
+- [Нарезка PHP Engine Mechanic](mechanic-roadmap.md) — `runEvent` в процессе, `purchase_surcharge`; без HTTP `mechanic.run`.
 - [План Rule 1: кластер](rule-plan-01.md) — `Roleplay/Rule`; `rule*`; Reference на Keyword/Mechanic; generic body Versioning.
 - [План Rule 2: поверхность init](rule-plan-02-init-surface.md) — Constant/Value публичны (`DEC-082`); `Rule/init` без барреля констант и без SFC/`defineAsyncComponent`; композабл-фасады в `init` по-прежнему тянут vue.
 - [Нарезка магии и заклинаний](spell-roadmap.md) — inventory `AI.html`, representative slice, изучение в редакторе персонажа; полный каталог и runtime каста остаются `DEFERRED` до прохождения срезов.
