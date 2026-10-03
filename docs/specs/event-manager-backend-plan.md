@@ -1,6 +1,6 @@
 # Backend EventManager — implementation plan
 
-**Статус:** аналитический план, 2026-09-28.
+**Статус:** implementation/reconciliation plan, 2026-09-28.
 **Scope:** только общий runtime EventManager backend.
 **Не входит:** Mechanic Engine, Character build/validation, Rule Engine, Game
 events, SSE, mail delivery и persistent event platform.
@@ -9,11 +9,27 @@ events, SSE, mail delivery и persistent event platform.
 
 ### Текущий статус
 
-Готового backend EventManager в репозитории нет. Нет класса, интерфейса,
-контейнера или теста, которые реализуют `fire`/`on`/`off`. Исторический
-`EventManager` есть только в архиве старого ТР
-(`docs/tr/history/TR-legacy-2026-08.md`, разделы около 2437–2553), поэтому это
-не evidence текущего кода.
+Синхронный process-local backend EventManager реализован в `Core/Event` и
+покрыт unit/boot tests:
+
+- `www/mifrial/modules/Core/Event/Service/EventManager.php:20–301`;
+- `www/mifrial/modules/Core/Event/Interface/Service/IEventManager.php:11–48`;
+- `www/mifrial/modules/Core/Event/tests/EventManagerTest.php:20–456`;
+- `www/mifrial/modules/Core/Event/tests/EventModuleBootTest.php:20–66`;
+- `www/mifrial/modules/Core/Event/module.config.php:1–15`.
+
+Не реализованы как часть EventManager и остаются отдельными boundaries:
+
+- Character/Game domain event producers and consumers;
+- after-commit integration;
+- durable event/outbox storage;
+- SSE/realtime delivery;
+- retries and persistent delivery idempotency.
+
+Следовательно, Phase 1 и Phase 2 ниже описывают уже выполненный sync MVP и
+его проверяемые границы, а не список ещё не созданных файлов. Будущая
+интеграция Character/Game начинается только после отдельного решения о
+transactional outbox и post-commit delivery.
 
 Есть несколько event-like механизмов, но они не являются общей шиной:
 
@@ -25,20 +41,17 @@ events, SSE, mail delivery и persistent event platform.
 - `Core/Logger`: технические записи, не события;
 - пустой ключ `'events' => []` во всех текущих `module.config.php`.
 
-### Недостающие компоненты
+### Оставшиеся компоненты
 
-Для sync v1 не хватает:
+Для domain integration нужны:
 
-1. публичного порта EventManager;
-2. registry подписок с deterministic order;
-3. subscription token для безопасного `off`;
-4. typed event payload boundary;
-5. собственных `MifrialException`-ошибок;
-6. контейнерной интеграции Core и unit/integration tests.
-
-Для async не хватает не «ещё одного метода», а queue contract: durable job,
-worker, ownership, retry/failure/idempotency и transaction boundary. В
-текущем коде такого общего контракта нет.
+1. typed Character/Game event payloads;
+2. producer/consumer registration;
+3. explicit post-operation failure policy;
+4. after-commit or outbox boundary, если реакция должна быть надёжной;
+5. SSE/realtime adapter;
+6. queue contract для durable delivery, retry/failure/idempotency и
+   transaction boundary.
 
 ### Минимальный scope v1
 
@@ -87,10 +100,10 @@ runtime delivery. Он не является частью этой реализ�
 
 | Evidence | Подтверждение | Статус |
 |---|---|---|
-| `docs/tr/architecture.md`, раздел «Дополнения сервера» | Требование `fire`/`on`/`off`, sync listeners и queue для async | `CODE_GAP` |
+| `docs/tr/architecture.md`, раздел «Дополнения сервера» | Sync-контракт `fire`/`on`/`off` и listeners; async queue вынесена в deferred | `sync IMPLEMENTED; async DEFERRED` |
 | `docs/tr/smarttable.md`, раздел «Не v1» | CRUD events → EventManager отмечены как `OPEN`, подключать осторожно | `OPEN` |
 | `docs/tr/history/TR-legacy-2026-08.md`, около 2437–2553 | Старый исторический EventManager и `fire/on/off` | `OPEN`, не текущий код |
-| `www/mifrial` по поиску `EventManager`, `IEvent`, `addEventHandler` | Текущих backend типов нет | `CODE_GAP` |
+| `www/mifrial/modules/Core/Event/*` | `EventManager`, `IEventManager`, typed payload/result, container и tests | `IMPLEMENTED` |
 | `www/mifrial/composer.json::require` | Runtime требует `illuminate/database`, но не `illuminate/events`; lock/transitive metadata не является реализацией EventManager | `IMPLEMENTED`, граница проверена |
 
 ### `module.config.php.events`
@@ -412,12 +425,13 @@ state. EventManager не становится transaction manager.
 
 ```text
 Character service
-  → update + validation + commit
+  → transaction: update + validation + outbox event row
+  → commit
   → fire('Roleplay\Character.Character::afterUpdate', CharacterUpdatedPayload)
       → Game listener
           → найти активные session memberships
           → построить нужное обновление projection
-          → передать его Game/Chat/SSE boundary
+          → передать его Game/SSE/projection boundary
 ```
 
 Payload должен быть immutable snapshot факта обновления, например:
@@ -433,18 +447,25 @@ EventManager не должен:
 - сам искать участников сессии;
 - сам рассылать данные каждому участнику;
 - знать про SSE connections;
-- превращать событие в Chat message;
+- превращать каждое событие в Chat message;
 - гарантировать доставку после завершения PHP process.
 
 `Game` — будущий listener и владелец session fan-out policy. Если обновление
 должно быть видно клиентам, следующий слой — Game notification/projection и
-отдельный transport (в текущем scope SSE исключён). Если нужен durable
-delivery, понадобится queue/outbox, которого сейчас нет.
+отдельный transport (в текущем scope SSE исключён). Сам факт
+`CharacterChanged` не должен создавать Chat spam: combat messages идут своим
+combat-chat flow, а системное сообщение о значимом GM edit допускается только
+по отдельной явной policy, при необходимости одной сгруппированной записью
+на операцию. Сам `Core/Event` durable delivery не предоставляет; для
+Character/Game integration используется отдельный outbox boundary.
 
 `Roleplay\Character.Character::afterUpdate` следует трактовать как
-post-operation notification: producer вызывает `fire()` после успешной domain
-operation. Это не означает «после commit»: текущий EventManager не имеет
-`afterCommit` hook и не обещает durable delivery.
+post-commit notification в интеграции Character/Game: обязательная запись
+outbox создаётся в той же transaction, что и mutation, а process-local
+`fire()` вызывается только после успешного commit. EventManager сам не
+предоставляет `afterCommit` hook. Если конкретный producer пока не имеет
+outbox, его `fire()` является best-effort уведомлением и не должен вызываться
+внутри незакоммиченной transaction для listeners, читающих persisted state.
 
 Политика результата зависит от фазы события:
 
@@ -731,7 +752,7 @@ notification events. Отличается не тип результата, а �
   совпадают с `on()` и не выполняют автоматического prefixing.
 - Выполняет listeners синхронно в snapshot порядка текущего dispatch.
 - Возвращает `IEventResult`; стандартная aggregate implementation — mutable
-  `EventResult` с event name, количеством вызванных listeners,
+  `EventResult` с количеством вызванных listeners,
   success/failure status, errors и stopped flag.
 - Listener может вернуть failure result; EventManager агрегирует его и
   прекращает dispatch по fail-fast policy.
@@ -1014,10 +1035,13 @@ Recommended policy:
   уже выполненные listeners остаются side effect-ами sync process и rollback
   им не обещается.
 
-Для post-operation notification producer обязан сам выбрать boundary policy:
-перехватить `EventException` после успешной domain operation и применить свою
-политику доставки/логирования. EventManager не может одновременно
-пробрасывать ошибку и гарантировать, что внешний action не сообщит failure.
+Для post-operation notification producer обязан сам выбрать boundary policy.
+В целевой Character/Game integration запись outbox уже находится в
+закоммиченной transaction, поэтому ошибка local listener не делает mutation
+неуспешной: retry выполняется через outbox. До появления outbox producer
+может перехватить `EventException` после успешной operation и применить
+best-effort policy. EventManager не является transaction manager и не
+гарантирует доставку после завершения PHP process.
 
 HTTP `Dispatcher` не должен переводить EventException в ActionResponse сам по
 себе. Если action вызывает EventManager, action либо обрабатывает доменную
@@ -1034,7 +1058,7 @@ SmartTable имеет transaction exceptions:
 - `docs/tr/smarttable.md` говорит, что при уже открытой TX `transaction()`
   выполняет работу внутри неё без собственного commit/rollback.
 
-Но EventManager не имеет transaction context, `afterCommit`, `afterRollback`,
+Но EventManager MVP не имеет transaction context, `afterCommit`, `afterRollback`,
 outbox или callback registry. SmartTable `IOpenedRecords` сам по себе не
 доказывает, что runtime event должен быть transaction-aware.
 
@@ -1049,10 +1073,11 @@ outbox или callback registry. SmartTable `IOpenedRecords` сам по себ�
 - `afterCommit`, `afterRollback` и transactional outbox — `OPEN/DEFERRED`;
 - их не включать в v1 без отдельного contract decision.
 
-Для будущего Character/Game integration нужно сначала принять transaction
-policy: domain service может вызвать `fire` после успешного update, но это не
-равно гарантии «после commit». Этот plan не разрешает автоматически
-привязывать SmartTable CRUD events к EventManager.
+Для Character/Game integration consumer boundary уже определена отдельно:
+outbox row записывается до commit, а EventManager вызывается после commit как
+fast path. Реализация outbox остаётся отдельным планом и не добавляется в
+Core/Event. Этот plan не разрешает автоматически привязывать SmartTable CRUD
+events к EventManager.
 
 ## 10. Implementation phases
 
@@ -1061,7 +1086,7 @@ policy: domain service может вызвать `fire` после успешн�
 Зафиксировано:
 
 - `Core/Event` против буквального `Core/EventManager`;
-- имя публичного порта (`IEventManager` или другой, с учётом DEC-072);
+- имя публичного порта `IEventManager`;
 - `IEventPayload` read-only boundary and typed consumer payloads;
 - subscription token;
 - priority ordering;
@@ -1075,15 +1100,15 @@ policy: domain service может вызвать `fire` после успешн�
 - sync-only MVP;
 - отсутствие transaction hooks.
 
-**Файлы:** этот plan; перед реализацией решения нужно перенести в
-`docs/tr/architecture.md` и/или `docs/tr/decisions.md`.
-**Tests:** production tests можно писать после переноса решений в canonical
-documentation.
-**Готовность:** решения, меняющие сигнатуру v1, закрыты.
+**Файлы:** решения перенесены в `docs/tr/architecture.md` и
+`docs/tr/decisions.md` (`DEC-083`).
+**Tests:** sync MVP уже имеет unit и boot/container tests.
+**Готовность:** сигнатуры и sync-семантика закрыты; Character/Game outbox
+integration не входит в эту фазу.
 
 ### Phase 1 — synchronous EventManager
 
-**Новые файлы:**
+**Статус: реализовано.** Реализация и тесты находятся в следующих файлах:
 
 - `modules/Core/Event/Interface/Service/IEventManager.php`;
 - `modules/Core/Event/Interface/Service/IEventListener.php`;
@@ -1101,8 +1126,8 @@ documentation.
 **Поведение:** `on/off/fire`, snapshot dispatch, priority + FIFO,
 `IEventPayload`, exception propagation, active-event cycle guard.
 
-**Tests:** unit suite `modules/Core/Event/tests/` на все cases из §11;
-добавить testsuite `event` в `www/mifrial/phpunit.xml.dist`.
+**Tests:** unit suite `modules/Core/Event/tests/` и testsuite `event` в
+`www/mifrial/phpunit.xml.dist`.
 **Готовность:** deterministic tests зелёные, нет locator/service dependency
 в `EventManager`, все PHPDoc/quality rules соблюдены.
 **Не входит:** config registration, async, transaction, logging, domain
@@ -1110,7 +1135,8 @@ consumers.
 
 ### Phase 2 — module/container integration
 
-**Новые/изменяемые файлы:**
+**Статус: реализовано.** Container/config/autoload wiring находится в
+следующих файлах:
 
 - `modules/Core/Event/Container/EventContainer.php`;
 - `modules/Core/Event/Interface/Container/IEventContainer.php`;
@@ -1124,10 +1150,11 @@ consumers.
 freeze behavior, circular guard, no locator call from service. Override tests
 должны использовать прямой test harness `ModuleContainerFactory`/
 `ModuleContainer`, потому что обычный `ApplicationFactory` freeze-ит контейнеры
-до выдачи приложения. После изменения `composer.json` выполнить
-`composer dump-autoload`.
+до выдачи приложения. При будущих изменениях `composer.json` нужно повторно
+выполнить `composer dump-autoload`; для текущего MVP wiring уже применён.
 **Готовность:** `IEventManager` доступен через Core container в обычном boot и
-не требует eager loading прикладных модулей.
+не требует eager loading прикладных модулей. Изменение этих файлов не является
+частью будущей Character/Game integration.
 **Не входит:** listener consumers и активная обработка `module.config.php.events`.
 
 ### Phase 3 — configuration registration
@@ -1274,7 +1301,7 @@ failure и inline mode именно Mail.
 | Guarded validation | тот же `EventResult` с errors и stopped | отдельный validation result был бы лишней типовой границей | Решено |
 | Validation policy | fail-fast по priority | collect all errors требует отдельного aggregate mode и продолжает проверки после invalid | Решено |
 | Listener failure policy | fail-fast для текущего dispatch в любой фазе; post-operation failure не откатывает operation | continue-on-error требует отдельной fan-out policy и наблюдаемости каждого listener-а | Решено |
-| Post-operation notification | best-effort; EventManager propagates, producer boundary handles; уже завершённая operation не откатывается | mandatory delivery requires queue/afterCommit contract; swallowing in EventManager hides failure | Решено |
+| Post-operation notification in Core/Event MVP | best-effort; EventManager propagates, producer boundary handles; уже завершённая operation не откатывается | Character/Game mandatory delivery requires separate outbox/commit contract; swallowing in EventManager hides failure | Решено |
 | Event name ownership | namespaced producer constant | короткие свободные строки создают collision между модулями | Решено |
 | Subscription lifecycle | boot registration до конца process; token хранит owner | dynamic registration требует explicit cleanup через `off` | Решено |
 | Public extensibility | `IEventResult`/`IEventIssue`/`IEventListener`; concrete Value types are defaults; `merge(..., stop)` сохраняет aggregate state | concrete return types make custom result/listener implementations harder | Решено |
@@ -1288,7 +1315,7 @@ failure и inline mode именно Mail.
 | Listener lifecycle | process-local, explicit token | config auto-registration требует lifecycle protocol | Нет для MVP, да для Phase 3 |
 | `events` config | полный producer-owned `eventName` → handler descriptors; не subscription rows | отдельный handler catalog для DB-driven registration; смешение config registrations и DB subscriptions | Решено |
 | Async split | sync-only MVP; отдельный queue adapter deferred | EventManager-owned queue смешивает роли; Mail reuse неверен | Решено |
-| Transaction | transaction-agnostic; producer выбирает место вызова; afterCommit/outbox deferred | Event-owned TX смешивает delivery и storage semantics | Решено |
+| Transaction in Core/Event MVP | transaction-agnostic; producer выбирает место вызова; afterCommit/outbox deferred | Event-owned TX смешивает delivery и storage semantics; Character/Game consumer boundary определяет отдельный outbox | Решено |
 | Logging | не логировать автоматически; producer/application boundary logs | EventManager→Logger dependency creates duplicate records and Core coupling | Решено |
 | Metrics | не добавлять | отдельный metrics port при потребителе | Нет для MVP |
 | Backward compatibility | не имитировать Bitrix API | adapter возможен позже, если будет consumer | Да, если нужен Bitrix-like API |
@@ -1336,9 +1363,7 @@ priority/FIFO dispatch. `EventResult` поддерживает как обычн
 backend Core/Engine отсутствует. `Core\EventManager` допустим как буквальное
 имя модуля, но `Core/Event` лучше соблюдает текущие PHP naming/DI boundaries.
 
-### Файлы первой реализации
-
-Новые:
+### Файлы реализованного sync MVP
 
 - `www/mifrial/modules/Core/Event/module.config.php`;
 - `www/mifrial/modules/Core/Event/Container/EventContainer.php`;
@@ -1356,16 +1381,14 @@ backend Core/Engine отсутствует. `Core\EventManager` допустим
 - `www/mifrial/modules/Core/Event/Value/EventSubscription.php`;
 - `www/mifrial/modules/Core/Event/tests/EventManagerTest.php`;
 - `www/mifrial/modules/Core/Event/tests/EventModuleBootTest.php`.
-- `www/mifrial/composer.json` — PSR-4/autoload-dev entries for the new module.
+- `www/mifrial/composer.json` — PSR-4/autoload-dev entries модуля.
 
-Изменяемые после утверждения решения:
+Canonical-документация для sync MVP уже обновлена:
 
 - `docs/tr/architecture.md`;
 - `docs/tr/decisions.md`;
-- возможно `docs/tr/TR.md` как индекс, если появится отдельный canonical plan.
-
-`config/modules.php` менять для Core/Event не нужно, так как `loadCore()`
-подключает все Core modules. Это нужно подтвердить integration test.
+`config/modules.php` для Core/Event менять не нужно, так как `loadCore()`
+подключает все Core modules; это подтверждено boot integration test.
 
 ### Файлы, которые не нужно менять в первой реализации
 
@@ -1388,7 +1411,7 @@ contract, а не из-за самого факта создания EventManage
 
 ### Что добавить в документацию
 
-После Phase 0:
+Документационный gate для sync MVP пройден:
 
 - canonical owner и namespace EventManager в `architecture.md`;
 - решение по module name/port name;
@@ -1396,9 +1419,9 @@ contract, а не из-за самого факта создания EventManage
 - explicit statement, что `module.config.php.events` в MVP пуст, а в future
   Phase 3 является декларативной картой runtime registrations с полными
   producer-owned event codes; collector не добавляет prefix;
-- explicit deferral of `IEventQueue`, `afterCommit` и outbox;
-- evidence status `IMPLEMENTED` только после кода и тестов; до этого
-  `CODE_GAP/OPEN`.
+- explicit deferral of `IEventQueue` и владения outbox за пределами
+  `Core/Event`;
+- evidence status `IMPLEMENTED` подтверждён кодом и tests.
 
 ### Подтверждённые решения
 
@@ -1432,16 +1455,8 @@ contract, а не из-за самого факта создания EventManage
 К реализации **готов архитектурный scope sync MVP**, но production-level
 async EventManager не готов и в MVP не входит.
 
-Перед началом Phase 1 нужно закрыть следующие build blockers:
-
-1. перенести утверждённые решения в canonical
-   `docs/tr/architecture.md` и `docs/tr/decisions.md`;
-2. добавить `composer.json` PSR-4/autoload-dev wiring и `phpunit.xml.dist`
-   testsuite;
-3. перед Phase 2 добавить `module.config.php` с установленными пустыми
-   `routes` и `events`.
-
-После этого Phase 1/2 можно реализовывать без изменения Kernel, SmartTable,
-Mail, Agent или существующих прикладных модулей. Queue, afterCommit/outbox и
-DB-driven subscriptions остаются future phases и не должны блокировать sync
-MVP.
+Build blockers для sync MVP отсутствуют: Phase 1/2 уже реализованы и
+описаны canonical-документами. Следующий отдельный scope — Character/Game
+integration: ему нужны собственные outbox, SSE и transaction contracts.
+Queue, DB-driven subscriptions и durable delivery не следует добавлять в
+`Core/Event` без отдельного решения.
