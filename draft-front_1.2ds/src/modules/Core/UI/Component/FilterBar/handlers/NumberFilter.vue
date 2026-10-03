@@ -70,20 +70,21 @@ watch(mode, () => {
   emitValue();
 });
 
-function onInnerChange(v: number) {
-  if (mode.value === 'equals') singleValue.value = v;
-  else if (mode.value === 'from') fromValue.value = v;
-  else toValue.value = v;
+function onInnerChange(v: number | null) {
+  const next = v ?? 0;
+  if (mode.value === 'equals') singleValue.value = next;
+  else if (mode.value === 'from') fromValue.value = next;
+  else toValue.value = next;
   emitValue();
 }
 
-function onFromChange(v: number) {
-  fromValue.value = v;
+function onFromChange(v: number | null) {
+  fromValue.value = v ?? 0;
   emitValue();
 }
 
-function onToChange(v: number) {
-  toValue.value = v;
+function onToChange(v: number | null) {
+  toValue.value = v ?? 0;
   emitValue();
 }
 

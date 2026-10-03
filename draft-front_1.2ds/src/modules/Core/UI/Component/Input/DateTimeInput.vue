@@ -59,14 +59,16 @@ function onDateChange(d: Date) {
   emit('update:modelValue', combineIso(d, hoursModel.value, minutesModel.value));
 }
 
-function onHoursChange(v: number) {
-  hoursModel.value = v;
-  emit('update:modelValue', combineIso(dateModel.value, v, minutesModel.value));
+function onHoursChange(v: number | null) {
+  const next = v ?? 0;
+  hoursModel.value = next;
+  emit('update:modelValue', combineIso(dateModel.value, next, minutesModel.value));
 }
 
-function onMinutesChange(v: number) {
-  minutesModel.value = v;
-  emit('update:modelValue', combineIso(dateModel.value, hoursModel.value, v));
+function onMinutesChange(v: number | null) {
+  const next = v ?? 0;
+  minutesModel.value = next;
+  emit('update:modelValue', combineIso(dateModel.value, hoursModel.value, next));
 }
 
 function clear() {

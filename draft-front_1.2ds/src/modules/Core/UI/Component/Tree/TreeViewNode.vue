@@ -126,9 +126,7 @@ function onDrop(event: DragEvent): void {
         @drop="emit('drop', $event)"
         @dragend="emit('dragend')"
       >
-        <template #prepend="slotProps">
-          <slot name="prepend" v-bind="slotProps" />
-        </template>
+        <slot name="prepend" :node="child" :has-children="child.children.length > 0" />
       </TreeViewNode>
     </div>
   </div>

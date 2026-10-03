@@ -23,19 +23,19 @@ const emit = defineEmits<{
   'update:modelValue': [value: DimensionalNumberValue | null];
 }>();
 
-function updateBase(val: number) {
+function updateBase(val: number | null) {
   const current = props.modelValue ?? DEFAULT_VALUE;
   emit('update:modelValue', {
-    base: val,
+    base: val ?? current.base,
     size: current.size,
   });
 }
 
-function updateSize(val: number) {
+function updateSize(val: number | null) {
   const current = props.modelValue ?? DEFAULT_VALUE;
   emit('update:modelValue', {
     base: current.base,
-    size: val,
+    size: val ?? current.size,
   });
 }
 </script>
