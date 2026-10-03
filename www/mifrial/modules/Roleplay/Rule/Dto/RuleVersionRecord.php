@@ -9,6 +9,8 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Rule\Dto;
 
 use Mifrial\Core\Kernel\Value\DateTime;
+use Mifrial\Roleplay\Rule\Dto\Spec\RuleSpec;
+use Mifrial\Roleplay\Rule\Spec\RuleSpecs;
 use Mifrial\Roleplay\Rule\Exception\RuleInvalidException;
 use Mifrial\Versioning\Space\Dto\VersionRecord;
 
@@ -17,6 +19,10 @@ use Mifrial\Versioning\Space\Dto\VersionRecord;
  */
 final class RuleVersionRecord
 {
+    private readonly ?RuleSpec $spec;
+
+    private readonly bool $specBroken;
+
     /**
      * Создаёт запись.
      *
@@ -27,7 +33,7 @@ final class RuleVersionRecord
      * @param string $type Тип.
      * @param string $name Подпись.
      * @param string $description Текст.
-     * @param array<string|int, mixed> $spec Spec.
+     * @param array<string|int, mixed> $specDocument Сырой JSON spec.
      * @param array<int, int> $keywordIds Признаки.
      * @param array<int, array<string, mixed>> $mechanics Список механик.
      * @param string $contentStatus Статус.
@@ -44,13 +50,16 @@ final class RuleVersionRecord
         private readonly string $type,
         private readonly string $name,
         private readonly string $description,
-        private readonly array $spec,
+        private readonly array $specDocument,
         private readonly array $keywordIds,
         private readonly array $mechanics,
         private readonly string $contentStatus,
         private readonly string $contentNote,
         private readonly DateTime $createdAt,
     ) {
+        $read = RuleSpecs::read($this->type, $this->specDocument);
+        $this->spec = $read->getSpec();
+        $this->specBroken = $read->isBroken();
     }
 
     /**
@@ -155,13 +164,33 @@ final class RuleVersionRecord
     }
 
     /**
-     * JSON spec типа правила.
+     * Контракт spec, если документ лёг в тип.
      *
-     * @return array<string|int, mixed> JSON.
+     * @return RuleSpec|null DTO или null.
      */
-    public function getSpec(): array
+    public function getSpec(): ?RuleSpec
     {
         return $this->spec;
+    }
+
+    /**
+     * Сырой JSON spec.
+     *
+     * @return array<string|int, mixed> Документ.
+     */
+    public function getSpecDocument(): array
+    {
+        return $this->specDocument;
+    }
+
+    /**
+     * Форма spec известного типа не разобралась.
+     *
+     * @return bool true, если версия битая.
+     */
+    public function isSpecBroken(): bool
+    {
+        return $this->specBroken;
     }
 
     /**

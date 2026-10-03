@@ -184,7 +184,7 @@ final class RuleSpaceCommitAssembler
                     $versionRecord->getType(),
                     $versionRecord->getName(),
                     $versionRecord->getDescription(),
-                    $versionRecord->getSpec(),
+                    $versionRecord->getSpecDocument(),
                     $versionRecord->getKeywordIds(),
                     $versionRecord->getMechanics(),
                     $versionRecord->getContentStatus(),

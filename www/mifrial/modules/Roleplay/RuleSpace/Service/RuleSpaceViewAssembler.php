@@ -114,7 +114,7 @@ final class RuleSpaceViewAssembler
             'name' => $versionRecord->getName(),
             'description' => $versionRecord->getDescription(),
             'spaceId' => $spaceId,
-            'spec' => $versionRecord->getSpec(),
+            'spec' => $versionRecord->getSpecDocument(),
             'keywordIds' => $versionRecord->getKeywordIds(),
             'mechanics' => $this->assembleMechanics($versionRecord->getMechanics()),
             'contentStatus' => $versionRecord->getContentStatus(),
