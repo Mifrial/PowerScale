@@ -3,6 +3,7 @@ import { SpellParamsViewService } from '@/modules/Roleplay/Character/Service/Spe
 import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpec';
 
 const service = new SpellParamsViewService();
+const actionPoints = 'action-points';
 
 const discharge: Extract<AbilitySpec, { type: 'spell' }> = {
   type: 'spell',
@@ -24,7 +25,7 @@ const discharge: Extract<AbilitySpec, { type: 'spell' }> = {
 
 describe('SpellParamsViewService', () => {
   it('собирает две строки параметров и невременные компоненты', () => {
-    const view = service.view(discharge);
+    const view = service.view(discharge, actionPoints);
     expect(view.powerLabel).toBe('x↑');
     expect(view.controlLabel).toBe('3↓');
     expect(view.creationLabel).toBe('4 ОД');
@@ -42,7 +43,7 @@ describe('SpellParamsViewService', () => {
         control: { base: 5, size: -1 },
         duration: { type: 'sustained', power: { type: 'parameter', parameter_code: 'x' } },
       },
-    });
+    }, actionPoints);
     expect(view.durationLabel).toBe('Поддержание(Мощь: x)');
     expect(view.powerLabel).toBe('4↓');
   });
@@ -51,7 +52,7 @@ describe('SpellParamsViewService', () => {
     const view = service.view({
       ...discharge,
       action_components: [{ type: 'resource', resource_code: 'action-points', amount: 4, label: 'Сотворение' }],
-    });
+    }, actionPoints);
     expect(view.componentsLabel).toBeNull();
   });
 });

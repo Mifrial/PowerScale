@@ -3,6 +3,18 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { coveringService } from '@/modules/Roleplay/Game/Service/Instance/coveringService';
 import { ADVANTAGE_SOURCE_CIRCUMSTANCES } from '@/modules/Roleplay/Rule/Constant/ADVANTAGE_SOURCE';
 
+const ACTION_POINTS: Rule = {
+  mechanics: [],
+  id: null,
+  code: 'action-points',
+  type: 'resource',
+  name: 'Очки действий',
+  description: '',
+  spaceId: 1,
+  spec: { is_dimensional: false, auto_add: true },
+  createdAt: 1,
+};
+
 const COVER_RULE: Rule = {
   mechanics: [],
   id: null,
@@ -40,7 +52,7 @@ describe('CoveringService', () => {
   it('блок допустим, уклон нет; стоимость 2 ОД; помеха обстоятельств', () => {
     expect(coveringService.canUseReaction('block')).toBe(true);
     expect(coveringService.canUseReaction('dodge')).toBe(false);
-    expect(coveringService.cost([COVER_RULE])).toBe(2);
+    expect(coveringService.cost([ACTION_POINTS, COVER_RULE])).toBe(2);
     expect(coveringService.circumstanceModifier([COVER_RULE])).toEqual({
       source_code: ADVANTAGE_SOURCE_CIRCUMSTANCES,
       source_label: 'Обстоятельства',

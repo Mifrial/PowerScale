@@ -103,7 +103,7 @@ describe('CharacterOverviewService: вкладка способностей', ()
       }),
       [
         ...rules,
-        base(null, 'action-points', 'resource', 'Очки Действий'),
+        base(null, 'action-points', 'resource', 'Очки Действий', { is_dimensional: false, auto_add: true }),
         base(null, 'discharge', 'ability', 'Разряд', {
           type: 'spell',
           zones: {},
