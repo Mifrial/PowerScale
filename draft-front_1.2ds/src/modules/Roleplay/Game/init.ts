@@ -190,4 +190,3 @@ export { spellChainHopService } from '@/modules/Roleplay/Game/Service/Instance/s
 export { gameCombatCommandAdapter } from '@/modules/Roleplay/Game/Service/Instance/gameCombatCommandAdapter';
 export { SIMPLE_PUSH_CODE } from '@/modules/Roleplay/Game/Constant/Combat/SIMPLE_PUSH_CODE';
 export { GAME_STARTABLE_STATUSES } from '@/modules/Roleplay/Game/Constant/Game/GAME_STARTABLE_STATUSES';
-export { GAME_STOPPABLE_STATUSES } from '@/modules/Roleplay/Game/Constant/Game/GAME_STOPPABLE_STATUSES';

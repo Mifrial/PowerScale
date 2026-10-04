@@ -24,7 +24,7 @@
 ### Документы
 - `docs/tr/TR.md`:
   - **§8 «Игры»** — целевая функциональность: сущность игры, жизненный цикл статусов
-    (`draft → recruiting → in_process → paused → playing → completed`), видимость, join-policy,
+    (`draft → recruiting → in_process → paused → completed`), видимость, join-policy,
     лимиты ОС/ОР/денег, права, раздел `/games`.
   - **§3 БД** — `games`, `game_members`, `game_member_permissions`, `game_invitations`,
     `game_characters`.

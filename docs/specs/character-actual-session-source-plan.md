@@ -28,8 +28,8 @@ gameOverlay / gameState
 `reviewState = changes_pending`, но текущая сессия продолжается. До approve
 следующая сессия запрещена.
 
-Здесь важно различать игровую сессию и отдельный бой. Одна сессия в статусе
-`playing` может содержать несколько независимых боёв; окончание боя не
+Здесь важно различать игровую сессию и отдельный бой. Одна текущая сессия
+может содержать несколько независимых боёв; окончание боя не
 закрывает сессию, не запускает approve и не является основанием принимать
 персонажа из `changes_pending`. Actual должен продолжать использоваться во
 всех последующих боях той же сессии. Только остановка всей игровой сессии
@@ -205,7 +205,7 @@ Game state должен быть расширяемым по режимам иг
 нужно различать как минимум такие lifecycle:
 
 ```text
-game session (`playing`)
+текущая сессия (`sessionRunning`)
   ├── battle 1
   │     ├── initiative
   │     └── attack/check processes
@@ -238,7 +238,7 @@ identity и его незавершённые process state остаются aut
 В текущем frontend отдельная persisted battle сущность ещё не выделена:
 `GameInitiative` имеет `gameId`, а `mockGameInitiative.endInitiative()` сейчас
 сбрасывает шкалу при остановке всей сессии. Это подтверждает необходимость
-будущего battle boundary, но не означает, что весь `playing` нужно считать
+будущего battle boundary, но не означает, что всю текущую сессию нужно считать
 одним боем. Exploration и последующие режимы являются explicit non-goal
 этого плана; они добавят свои typed namespaces отдельным решением, не
 помещая их в CharacterVersion.
@@ -353,8 +353,8 @@ membership decision: вернуть можно только персонажа, 
 Обычное `changes_pending` само по себе active participant-ом не управляет.
 
 Пункт 13 является жёстким backend-инвариантом: любая попытка изменить
-`spaceCode` или `rulesRevision` игры при `status = playing` отклоняется, даже
-если новый status также равен `playing`. Текущий mock
+`spaceCode` или `rulesRevision` игры, пока запущена текущая сессия, отклоняется, даже
+если новый status тот же. Текущий mock
 `mockGames.updateGame()` это пока позволяет; это текущий gap, который должен
 быть закрыт в Game update/start contract и отрицательным тестом.
 
@@ -1116,7 +1116,7 @@ transient game state.
 - active participant не исчезает из chat/combat после первого action;
 - stale actual version отклоняет mutation;
 - game revision mismatch отклоняет start/action;
-- попытка изменить `rulesRevision`/`spaceCode` во время `playing` отклоняется.
+- попытка изменить `rulesRevision`/`spaceCode`, пока запущена текущая сессия, отклоняется.
 
 ### Errors and retries
 
@@ -1230,7 +1230,7 @@ boundary и narrow game-state overlay.
 
 1. **Battle boundary.** В первом release вводится явная логическая граница
    `startBattle`/`endBattle` (конкретное имя API может отличаться).
-   Battle является дочерним процессом `playing`; его завершение не вызывает
+   Battle является дочерним процессом текущей сессии; его завершение не вызывает
    moderation approve и не разрешает следующую game session. Минимальная
    реализация может быть `battleId`/battle namespace в Game state, без
    отдельного сложного Battle-модуля.

@@ -5,6 +5,5 @@ export const GAME_STATUS_COLOR: Record<GameStatus, string> = {
   recruiting: 'info',
   in_process: 'primary',
   paused: 'warning',
-  playing: 'success',
   completed: 'secondary',
 };

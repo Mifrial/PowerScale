@@ -22,11 +22,11 @@ import {
 /**
  * Одиночный роутер обновлений персонажа (модель версий — Баг 1, 2026-08-20): один
  * `updateCharacter` сам решает, куда писать. Изменения во время активной сессии
- * (approved + игра playing) — в actual runtime; все остальные — в latest (`versions[id]`)
+ * (approved + запущена текущая сессия) — в actual runtime; все остальные — в latest (`versions[id]`)
  * с автоподачей на модерацию. Сессионный слой регистрирует Game mock.
  */
 
-/** Членство-цель активной сессии: approved + игра playing (по явному gameId или «текущей сессии»). */
+/** Членство-цель активной сессии: approved + запущена текущая сессия (по явному gameId или «текущей сессии»). */
 export function sessionTarget(characterId: number, gameId?: number): CharacterSessionTarget | null {
   return getCharacterSessionRuntimePort()?.sessionTarget(characterId, gameId) ?? null;
 }

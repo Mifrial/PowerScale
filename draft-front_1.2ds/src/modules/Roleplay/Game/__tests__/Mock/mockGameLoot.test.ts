@@ -11,6 +11,7 @@ import {
 } from '@/modules/Roleplay/Game/Mock/mockGameLoot';
 import { gameNpcs } from '@/modules/Roleplay/Game/Mock/mockGameNpcs';
 import { gameDetails, stopGameSession } from '@/modules/Roleplay/Game/Mock/mockGames';
+import { startGameSession } from '@/modules/Roleplay/Game/Mock/mockGameState';
 import { gameCharacterMemberships, moderateCharacter } from '@/modules/Roleplay/Game/Mock/mockGameMemberships';
 import { getStoredCombatOverlay, combatKey } from '@/modules/Roleplay/Game/Mock/mockGameCombatOverlays';
 import { getCharacterActualVersion, versions } from '@/modules/Roleplay/Character/Mock/mockCharacters';
@@ -255,6 +256,16 @@ describe('mockGameLoot: раздача', () => {
   });
 
   it('во время активной сессии добыча сразу пишется в actual (approved заморожен)', async () => {
+    const started = await startGameSession({
+      commandId: createRandomId(),
+      commandType: 'startSession',
+      gameId: 2,
+      sessionId: null,
+      battleId: null,
+      participantAdmission: 'currentEligible',
+      payload: {},
+    });
+    expect(started.kind).toBe('transition');
     const membership = gameCharacterMemberships.find((m) => m.gameId === 2 && m.characterId === 1)!;
     expect(membership.membershipStatus).toBe('active');
     const beforeLatest = versions[1].money;
@@ -267,7 +278,7 @@ describe('mockGameLoot: раздача', () => {
     expect(getStoredCombatOverlay(2, combatKey('character', 1))).toBeNull();
 
     // После остановки сессии и approve деньги переходят в latest/approved.
-    await stopGameSession(2, 'in_process');
+    await stopGameSession(2);
     await moderateCharacter(2, 1, 'approve');
     expect(versions[1].money).toBe(beforeLatest + 60);
   });

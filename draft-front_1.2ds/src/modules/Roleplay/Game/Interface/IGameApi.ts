@@ -62,7 +62,7 @@ export interface IGameApi {
   startGameBattle(command: GameLifecycleCommand, signal?: AbortSignal): Promise<GameLifecycleResult>;
   endGameBattle(command: GameLifecycleCommand, signal?: AbortSignal): Promise<GameLifecycleResult>;
   stopGameStateSession(command: GameLifecycleCommand, signal?: AbortSignal): Promise<GameLifecycleResult>;
-  stopGameSession(gameId: number, targetStatus: 'in_process' | 'completed', signal?: AbortSignal): Promise<GameDetail>;
+  stopGameSession(gameId: number, signal?: AbortSignal): Promise<GameDetail>;
   getGameStateSnapshot(gameId: number, signal?: AbortSignal): Promise<GameStateSnapshot>;
   submitCombatCommand(command: GameCombatCommand, signal?: AbortSignal): Promise<GameAuthoritativeCommandResult>;
   mutateRuntimeEntity(

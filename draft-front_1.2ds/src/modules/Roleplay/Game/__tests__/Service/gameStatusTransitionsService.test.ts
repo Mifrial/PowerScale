@@ -3,10 +3,10 @@ import { gameStatusTransitionsService } from '@/modules/Roleplay/Game/Service/In
 
 import type { GameStatus } from '@/modules/Roleplay/Game/Enum/GameStatus';
 
-const all: GameStatus[] = ['draft', 'recruiting', 'in_process', 'paused', 'playing', 'completed'];
+const all: GameStatus[] = ['draft', 'recruiting', 'in_process', 'paused', 'completed'];
 
 describe('gameStatusTransitions', () => {
-  it('начать сессию можно из черновика/набора/в процессе/на паузе (→ playing)', () => {
+  it('начать сессию можно из черновика/набора/в процессе/на паузе, статус при этом не меняется', () => {
     for (const status of all) {
       expect(gameStatusTransitionsService.canStartGame(status), status).toBe(
         status === 'draft' || status === 'recruiting' || status === 'in_process' || status === 'paused',
@@ -14,14 +14,12 @@ describe('gameStatusTransitions', () => {
     }
   });
 
-  it('остановить сессию можно только из playing (→ in_process); completed — отдельный терминальный статус', () => {
-    for (const status of all) {
-      expect(gameStatusTransitionsService.canStopSession(status), status).toBe(status === 'playing');
-    }
+  it('остановить сессию можно только когда она запущена; completed сам по себе сессию не гасит', () => {
+    expect(gameStatusTransitionsService.canStopSession(true)).toBe(true);
+    expect(gameStatusTransitionsService.canStopSession(false)).toBe(false);
   });
 
-  it('завершённая игра read-only: ни начать сессию, ни остановить', () => {
+  it('завершённая игра read-only: сессию начать нельзя', () => {
     expect(gameStatusTransitionsService.canStartGame('completed')).toBe(false);
-    expect(gameStatusTransitionsService.canStopSession('completed')).toBe(false);
   });
 });

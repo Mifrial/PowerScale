@@ -168,7 +168,7 @@ describe('GameMembershipEligibilityService', () => {
     ).toBe(false);
   });
 
-  it('playing не заменяет проверку листа участием в сессии', () => {
+  it('запущенная сессия не заменяет проверку листа участием в сессии', () => {
     const sheet = version();
     const inSession = gameMembershipEligibilityService.isActiveSessionParticipant({
       membershipStatus: 'active',

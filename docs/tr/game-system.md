@@ -136,9 +136,9 @@ endBattle   → cancel unresolved battle processes/offers and clear battle marke
 stopSession → cancel remaining session processes and clear transient Game state
 ```
 
-Остановка сессии — один action `stopSession` (`IGameApi.stopGameSession`); `updateGame` не снимает статус `playing`.
+Остановка сессии — один action `stopSession` (`IGameApi.stopGameSession`); `updateGame` сессию не запускает и не останавливает. Старт и stop статус не меняют. Stop не принимает `targetStatus` и не ставит `completed`.
 
-Во время `playing` `Game.spaceId`, `Game.spaceCode` и `Game.rulesRevision`
+Пока запущена текущая сессия, `Game.spaceId`, `Game.spaceCode` и `Game.rulesRevision`
 неизменяемы. Это invariant самого Game aggregate, а не отдельный
 `gameRevision` или runtime CAS token. R3-FE добавляет только opt-in
 frontend/mock snapshot boundary; его internal lifecycle fixtures не меняют
@@ -155,7 +155,7 @@ fixtures, но не реализует backend transaction, SSE, outbox, Chat de
 read projections; `GameCombatOverlay` и текущие combat controls остаются
 compatibility path.
 
-Одна `playing` session может содержать несколько независимых battles. Продолжение текущего battle сохраняет его `battleId` и process state; новый battle получает новый identity. `endBattle` не завершает session и не запускает approve. Applied authoritative effects не откатываются при endBattle/stopSession. Combat resources, states, ActionEffect, movement, initiative, checks, chronicle and loot остаются отдельными capability-контрактами. Ошибка или stale version не приводит к частичной мутации. Модерация использует diff `approvedCharacterVersion` ↔ `actualCharacter`; `changes_pending` не блокирует уже активного participant, но блокирует следующую session. Старые A/L/O/P и three-way reconcile в этот контракт не входят.
+Одна текущая сессия может содержать несколько независимых battles. Продолжение текущего battle сохраняет его `battleId` и process state; новый battle получает новый identity. `endBattle` не завершает session и не запускает approve. Applied authoritative effects не откатываются при endBattle/stopSession. Combat resources, states, ActionEffect, movement, initiative, checks, chronicle and loot остаются отдельными capability-контрактами. Ошибка или stale version не приводит к частичной мутации. Модерация использует diff `approvedCharacterVersion` ↔ `actualCharacter`; `changes_pending` не блокирует уже активного participant, но блокирует следующую session. Старые A/L/O/P и three-way reconcile в этот контракт не входят.
 
 ## Backlog и release blockers
 
@@ -176,10 +176,10 @@ Frontend-контур включает `/games`, `/games/new`, `/games/:id` и `
 Статусы игры:
 
 ```text
-draft → recruiting → in_process → paused → playing → completed
+draft → recruiting → in_process → paused → completed
 ```
 
-`visibility` и `join_policy` независимы от lifecycle. `completed` терминален и делает данные read-only. Остановка live-сессии возвращает игру в `in_process`, а не ставит `completed`.
+`visibility` и `join_policy` независимы от lifecycle. `in_process` — фаза кампании, не признак живой сессии. `paused` — заморозка кампании, не пауза сессии. `completed` терминален и делает данные read-only. Старт и остановка сессии статус не меняют. Признак ответа `sessionRunning` истинен ровно когда есть текущая сессия; это не значение `status` и не колонка строки игры.
 
 ### NPC и листы
 
@@ -197,7 +197,7 @@ Check имеет solo и pairwise flow. В pairwise flow offer ждёт отве
 
 ### Game state и Character actual
 
-Во время `playing` Game state содержит только session/battle/process data. Player/NPC projections читаются через соответствующие authoritative boundaries; Game не пишет Character storage напрямую. Любая multi-entity game action открывает outer transaction в Game и вызывает Character/NPC mutation ports на том же transaction-bound gateway.
+Пока запущена текущая сессия, Game state содержит только session/battle/process data. Player/NPC projections читаются через соответствующие authoritative boundaries; Game не пишет Character storage напрямую. Любая multi-entity game action открывает outer transaction в Game и вызывает Character/NPC mutation ports на том же transaction-bound gateway.
 
 Многошаговая атака может состоять из нескольких command requests: decision, offer/defense, process transition и authoritative resolution. Frontend отправляет решения, backend сам проверяет актуальные версии, права и допустимость перехода. Command response и SSE delivery являются разными границами; SSE доставляет authoritative updates, но не заменяет response и не является источником authority.
 

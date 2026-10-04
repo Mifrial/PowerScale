@@ -13,7 +13,6 @@ import type { SheetAccessContext } from '@/modules/Roleplay/Character/Interface/
 import type { User } from '@/modules/Core/User/Dto/User';
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { GameMembershipStatus } from '@/modules/Roleplay/Game/Enum/GameMembershipStatus';
-import type { GameStatus } from '@/modules/Roleplay/Game/Enum/GameStatus';
 import type { CharacterStatus } from '@/modules/Roleplay/Character/Enum/CharacterStatus';
 import type { Character } from '@/modules/Roleplay/Character/Dto/Character';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
@@ -41,7 +40,7 @@ const props = defineProps<{
   members: GameMember[];
   spaceId: number | null;
   rulesRevision: number | null;
-  gameStatus: GameStatus;
+  sessionRunning: boolean;
 }>();
 
 const { currentUser, userId } = useCurrentUser();
@@ -122,7 +121,7 @@ async function leave(membership: GameCharacterMembership): Promise<void> {
 }
 
 function canLeave(membership: GameCharacterMembership): boolean {
-  return canOwnerAct(membership) && membership.membershipStatus !== 'left' && props.gameStatus !== 'playing';
+  return canOwnerAct(membership) && membership.membershipStatus !== 'left' && !props.sessionRunning;
 }
 
 function openMigration(membership: GameCharacterMembership): void {

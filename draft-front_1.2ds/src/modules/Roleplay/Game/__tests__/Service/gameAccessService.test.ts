@@ -13,6 +13,7 @@ function makeGame(overrides: Partial<Game> = {}): Game {
     name: 'Тестовая игра',
     shortDescription: null,
     status: 'recruiting',
+    sessionRunning: false,
     visibility: 'all',
     joinPolicy: 'anyone',
     ownerId: 7,

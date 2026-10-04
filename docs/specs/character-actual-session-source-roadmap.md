@@ -23,7 +23,7 @@ gameOverlay / gameState
   = session, battle, process, offer и transient state
 ```
 
-Одна `playing` session может содержать несколько battles. `endBattle` не
+Одна текущая сессия может содержать несколько battles. `endBattle` не
 завершает session и не запускает approve. `stopGameSession` очищает Game state,
 но не выполняет повторный полный commit Character. NPC проходит тот же
 authoritative mutation path без player moderation lifecycle.
@@ -205,7 +205,7 @@ R3-FE вводит opt-in typed `GameSessionState`, `GameBattleState` и
 `GameStateSnapshot` с отдельными `sessionId`/`battleId`. Rules context
 читается из текущих `Game.spaceId`, `Game.spaceCode` и `Game.rulesRevision`;
 отдельный технический `gameRevision` или дублирующий `rulesContext` не
-хранится. Во время `playing` эти три поля Game immutable.
+хранится. Пока запущена текущая сессия, эти три поля Game immutable.
 
 Internal mock lifecycle используется только в contract fixtures и не меняет
 `Game.status`, не заменяет `IGameApi.stopGameSession` и не переключает legacy
@@ -447,7 +447,7 @@ Legacy `GameCombatOverlay` producers и их compatibility stop commit сохр�
 - `stopGameSession` отменяет remaining session processes и чистит transient state;
 - applied Character/NPC effects не откатываются;
 - новый battle не зависит от процессов предыдущего;
-- rules revision update при `playing` отклоняется;
+- rules revision update, пока запущена текущая сессия, отклоняется;
 - migration active participant отклоняется отдельным session guard.
 
 ### Recovery
@@ -533,7 +533,7 @@ offers, pending effects и transient markers.
 7. Character detail и Game projection согласованы;
 8. endBattle/stop/reload/crash/retry имеют проверенные semantics;
 9. SSE/outbox не создают duplicate mutation или Chat spam;
-10. rules revision не меняется во время playing;
+10. rules revision не меняется, пока запущена текущая сессия;
 11. migration и legacy cleanup имеют explicit rollback/conflict policy.
 
 ## Рекомендуемый ближайший work package

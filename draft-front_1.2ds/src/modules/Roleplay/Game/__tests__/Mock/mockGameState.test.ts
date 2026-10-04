@@ -15,7 +15,7 @@ import {
 } from '@/modules/Roleplay/Game/Mock/mockGameState';
 import type { GameLifecycleCommand } from '@/modules/Roleplay/Game/Dto/GameLifecycleCommand';
 
-const playingGame = gameDetails.find((detail) => detail.game.status === 'playing')?.game;
+const sessionGame = gameDetails.find((detail) => detail.game.id === 2)?.game;
 
 function command<T extends GameLifecycleCommand['commandType']>(
   commandType: T,
@@ -24,7 +24,7 @@ function command<T extends GameLifecycleCommand['commandType']>(
   return {
     commandId: `${commandType}-${Math.random()}`,
     commandType,
-    gameId: playingGame?.id ?? 2,
+    gameId: sessionGame?.id ?? 2,
     sessionId: null,
     battleId: null,
     participantEntityKeys: [],
@@ -42,7 +42,7 @@ describe('mockGameState', () => {
     configureMockGameState({
       getGame: (gameId) => gameDetails.find((detail) => detail.game.id === gameId)?.game ?? null,
     });
-    expect((await getGameStateSnapshot(playingGame?.id ?? 2)).gameId).toBe(playingGame?.id ?? 2);
+    expect((await getGameStateSnapshot(sessionGame?.id ?? 2)).gameId).toBe(sessionGame?.id ?? 2);
     const start = command('startSession', { commandId: 'session-1', participantEntityKeys: ['character:1'] });
 
     const created = await startGameSession(start);

@@ -8,6 +8,8 @@ export interface Game {
   name: string;
   shortDescription: string | null;
   status: GameStatus;
+  /** Есть текущая сессия. Не колонка строки игры и не значение `status`: `in_process` — фаза кампании. */
+  sessionRunning: boolean;
   visibility: GameVisibility;
   joinPolicy: GameJoinPolicy;
   ownerId: number;

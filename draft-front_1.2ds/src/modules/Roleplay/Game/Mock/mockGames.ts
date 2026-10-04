@@ -70,8 +70,15 @@ interface GameSeed {
   members: GameMember[];
 }
 
-function seedToDetail(seed: GameSeed): GameDetail {
-  const game: Game = {
+type StoredGame = Omit<Game, 'sessionRunning'>;
+type StoredGameDetail = Omit<GameDetail, 'game'> & { game: StoredGame };
+
+function withSessionRunning(game: StoredGame): Game {
+  return { ...game, sessionRunning: hasActiveGameSession(game.id) };
+}
+
+function seedToDetail(seed: GameSeed): StoredGameDetail {
+  const game: StoredGame = {
     id: seed.id,
     name: seed.name,
     shortDescription: seed.shortDescription,
@@ -134,7 +141,7 @@ const seeds: GameSeed[] = [
     name: 'Школа волшебства',
     shortDescription: 'Академия магии и первые испытания студентов',
     description: 'Первый курс академии: соперничество факультетов, тайные подвалы и выпускной экзамен.',
-    status: 'playing',
+    status: 'in_process',
     visibility: 'all',
     joinPolicy: 'invite_only',
     ownerId: 3,
@@ -231,9 +238,9 @@ const seeds: GameSeed[] = [
   },
 ];
 
-export const gameDetails: GameDetail[] = seeds.map(seedToDetail);
+export const gameDetails: StoredGameDetail[] = seeds.map(seedToDetail);
 
-function assignChatIds(detail: GameDetail, discussionChatId: number | null, gameChatId: number | null): void {
+function assignChatIds(detail: StoredGameDetail, discussionChatId: number | null, gameChatId: number | null): void {
   detail.discussionChatId = discussionChatId;
   detail.gameChatId = gameChatId;
   detail.game.discussionChatId = discussionChatId;
@@ -286,11 +293,11 @@ function personalNotesKey(gameId: number, userId: number): string {
   return `${gameId}:${userId}`;
 }
 
-function toViewerGameDetail(detail: GameDetail): GameDetail {
-  const copy = JSON.parse(JSON.stringify(detail)) as GameDetail;
+function toViewerGameDetail(detail: StoredGameDetail): GameDetail {
+  const copy = JSON.parse(JSON.stringify(detail)) as StoredGameDetail;
   copy.personalNotes = personalNotesByKey[personalNotesKey(copy.game.id, getCurrentUserId())] ?? null;
 
-  return copy;
+  return { ...copy, game: withSessionRunning(copy.game) };
 }
 
 /** Список игр — как бэк: только видимые текущему пользователю (статус/видимость/участие). */
@@ -302,11 +309,11 @@ export async function fetchGames(_signal?: AbortSignal): Promise<Game[]> {
     .filter((detail) =>
       gameAccessService.canViewGame(
         user,
-        detail.game,
+        withSessionRunning(detail.game),
         detail.members.map((m) => m.userId),
       ),
     )
-    .map((detail) => detail.game);
+    .map((detail) => withSessionRunning(detail.game));
 }
 
 export async function fetchGame(id: number, _signal?: AbortSignal): Promise<GameDetail> {
@@ -323,7 +330,7 @@ export async function fetchGame(id: number, _signal?: AbortSignal): Promise<Game
 export async function createGame(data: CreateGameData, _signal?: AbortSignal): Promise<GameDetail> {
   await delay(200);
   const ownerId = getCurrentUserId();
-  const detail: GameDetail = {
+  const detail: StoredGameDetail = {
     game: {
       id: nextGameId++,
       name: data.name,
@@ -369,13 +376,10 @@ export async function updateGame(id: number, data: CreateGameData, _signal?: Abo
       current.game.spaceId !== data.spaceId ||
       current.game.spaceCode !== data.spaceCode ||
       current.game.rulesRevision !== data.rulesRevision;
-    if (current.game.status === 'playing' && data.status !== 'playing') {
-      throw new Error('Сначала остановите сессию');
-    }
-    if ((current.game.status === 'playing' || hasActiveGameSession(id)) && rulesContextChanged) {
+    if (hasActiveGameSession(id) && rulesContextChanged) {
       throw new Error('Нельзя менять пространство или ревизию во время активной сессии');
     }
-    const updated: GameDetail = {
+    const updated: StoredGameDetail = {
       ...current,
       game: {
         ...current.game,
@@ -404,19 +408,12 @@ export async function updateGame(id: number, data: CreateGameData, _signal?: Abo
   });
 }
 
-export async function stopGameSession(
-  id: number,
-  targetStatus: 'in_process' | 'completed',
-  _signal?: AbortSignal,
-): Promise<GameDetail> {
+export async function stopGameSession(id: number, _signal?: AbortSignal): Promise<GameDetail> {
   await delay(200);
   const idx = gameDetails.findIndex((d) => d.game.id === id);
   if (idx === -1) throw new Error('Игра не найдена');
-  if (targetStatus !== 'in_process' && targetStatus !== 'completed') {
-    throw new Error('Недопустимый статус остановки сессии');
-  }
   const current = gameDetails[idx];
-  if (current.game.status !== 'playing') throw new Error('Сессия не активна');
+  if (!hasActiveGameSession(id)) throw new Error('Сессия не активна');
 
   const memberships = await import('@/modules/Roleplay/Game/Mock/mockGameMemberships');
   const overlays = await import('@/modules/Roleplay/Game/Mock/mockGameCombatOverlays');
@@ -425,7 +422,6 @@ export async function stopGameSession(
   const initiativeSnapshot = snapshotInitiative(id);
   const gameStateSnapshot = await getGameStateSnapshot(id);
   const serializedGameState = serializeGameStateSnapshot(id);
-  const statusSnapshot = current.game.status;
   try {
     endInitiative(id);
     if (gameStateSnapshot.session) {
@@ -440,14 +436,12 @@ export async function stopGameSession(
       });
       if (stateResult.kind === 'conflict') throw new Error(stateResult.conflict.code);
     }
-    current.game.status = targetStatus;
     gameDetails[idx] = current;
   } catch (error) {
     memberships.restoreSessionActuals(actuals);
     overlays.restoreCombatOverlayStore(id, overlaySnapshot);
     restoreInitiative(id, initiativeSnapshot);
     if (gameStateSnapshot.session) restoreGameStateSnapshot(JSON.parse(serializedGameState));
-    current.game.status = statusSnapshot;
     gameDetails[idx] = current;
     throw error;
   }
@@ -463,7 +457,7 @@ export async function updatePersonalNotes(gameId: number, notes: string, _signal
   if (
     !gameAccessService.canViewGame(
       user,
-      detail.game,
+      withSessionRunning(detail.game),
       detail.members.map((member) => member.userId),
     )
   ) {

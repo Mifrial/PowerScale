@@ -350,7 +350,7 @@ watch(detail, (value) => {
             :members="detail.members"
             :space-id="detail.game.spaceId"
             :rules-revision="detail.game.rulesRevision"
-            :game-status="detail.game.status"
+            :session-running="detail.game.sessionRunning"
           />
         </v-window-item>
         <v-window-item v-if="canModerate" value="moderate">

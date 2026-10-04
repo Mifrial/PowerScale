@@ -13,6 +13,7 @@ import {
   fetchCharacterGameContexts,
 } from '@/modules/Roleplay/Game/Mock/mockGameMemberships';
 import { gameDetails, stopGameSession } from '@/modules/Roleplay/Game/Mock/mockGames';
+import { createRandomId } from '@/modules/Core/Engine/Utils/createRandomId';
 import { characters, getCharacterActualVersion, versions } from '@/modules/Roleplay/Character/Mock/mockCharacters';
 import { addCustomRule } from '@/modules/Roleplay/Character/Mock/mockCharacterUpdate';
 import '@/modules/Roleplay/Game/Mock/mockCharacterSessionRuntimePort';
@@ -58,6 +59,19 @@ function makeCreateData(name: string): CreateCharacterData {
     },
     status: 'ready',
   };
+}
+
+async function openSession(gameId: number): Promise<void> {
+  const started = await startGameSession({
+    commandId: createRandomId(),
+    commandType: 'startSession',
+    gameId,
+    sessionId: null,
+    battleId: null,
+    participantAdmission: 'currentEligible',
+    payload: {},
+  });
+  if (started.kind === 'conflict') throw new Error(started.conflict.code);
 }
 
 describe('mockGameMemberships: согласованность фикстур', () => {
@@ -184,8 +198,10 @@ describe('mockGameMemberships: бонусные очки от ГМ', () => {
 });
 
 describe('mockGameMemberships: leave и миграция', () => {
-  it('leave запрещён во время playing', async () => {
+  it('leave запрещён, пока запущена сессия', async () => {
+    await openSession(2);
     await expect(leaveGame(2, 1)).rejects.toThrow('сессии');
+    clearMockGameState();
   });
 
   it('submitCharacterMigration пишет actual; статус остаётся active', async () => {
@@ -194,7 +210,9 @@ describe('mockGameMemberships: leave и миграция', () => {
       name: 'Торвин (новая ревизия)',
       rulesRevision: 5,
     };
+    await openSession(2);
     await expect(submitCharacterMigration(2, 1, migrated)).rejects.toThrow('сессии');
+    clearMockGameState();
   });
 
   it('миграция чужого персонажа запрещена', async () => {
@@ -265,15 +283,14 @@ describe('mockGameMemberships: кастомное правило', () => {
 
 describe('mockGameMemberships: остановка сессии', () => {
   it('после stop actual уже сохранён; approved не меняется до approve', async () => {
-    const detail = gameDetails.find((d) => d.game.id === 2)!;
     const charKey = combatKey('character', 1);
     const beforeOverlay = getStoredCombatOverlay(2, charKey);
     const beforeApproved = (await fetchGameCharacters(2)).find((m) => m.characterId === 1)!.approvedCharacterVersion!;
 
-    detail.game.status = 'playing';
+    await openSession(2);
     await setCombatResource(2, charKey, 'action-points', { base: 1, size: 0 });
 
-    await stopGameSession(2, 'in_process');
+    await stopGameSession(2);
 
     const membership = (await fetchGameCharacters(2)).find((m) => m.characterId === 1)!;
     expect(membership.membershipStatus).toBe('active');
@@ -290,17 +307,17 @@ describe('mockGameMemberships: остановка сессии', () => {
     });
   });
 
-  it('stopGameSession на non-playing бросает', async () => {
-    await expect(stopGameSession(1, 'in_process')).rejects.toThrow('Сессия не активна');
+  it('stopGameSession без сессии бросает', async () => {
+    clearMockGameState();
+    await expect(stopGameSession(1)).rejects.toThrow('Сессия не активна');
   });
 
   it('stop не выполняет повторный full-sheet commit', async () => {
-    const detail = gameDetails.find((d) => d.game.id === 2)!;
-    detail.game.status = 'playing';
+    await openSession(2);
     const charKey = combatKey('character', 1);
     const beforeOverlay = getStoredCombatOverlay(2, charKey);
     await setCombatResource(2, charKey, 'action-points', { base: 1, size: 0 });
-    await stopGameSession(2, 'in_process');
+    await stopGameSession(2);
     expect(versions[1].resources.find((r) => r.ruleCode === 'action-points')?.current).toEqual({ base: 1, size: 0 });
     expect(getStoredCombatOverlay(2, charKey)).toEqual(beforeOverlay);
   });
@@ -308,11 +325,8 @@ describe('mockGameMemberships: остановка сессии', () => {
 
 describe('mockGameMemberships: approve во время active session', () => {
   it('одобряет active membership через CAS и replay-ит тот же command', async () => {
-    const detail = gameDetails.find((entry) => entry.game.id === 1)!;
-    const previousStatus = detail.game.status;
     const created = await createGameCharacter(1, makeCreateData('Approve в сессии'));
     await moderateCharacter(1, created.characterId, 'approve');
-    detail.game.status = 'playing';
     configureMockGameState({
       getGame: (gameId) => gameDetails.find((entry) => entry.game.id === gameId)?.game ?? null,
     });
@@ -347,7 +361,6 @@ describe('mockGameMemberships: approve во время active session', () => {
       expect(replay).toEqual(approved);
       if (approved.kind === 'transition') expect(approved.membership.reviewState).toBe('clean');
     } finally {
-      detail.game.status = previousStatus;
       clearMockGameState();
     }
   });

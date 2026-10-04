@@ -10,12 +10,10 @@ import { gameChatRulesContextService } from '@/modules/Roleplay/Game/Service/Ins
 
 import { gameStatusTransitionsService } from '@/modules/Roleplay/Game/Service/Instance/gameStatusTransitionsService';
 
-import { toCreateGameData } from '@/modules/Roleplay/Game/Utils/toCreateGameData';
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
 import type { GameStateSnapshot } from '@/modules/Roleplay/Game/Dto/GameStateSnapshot';
 import type { GameLifecycleResult } from '@/modules/Roleplay/Game/Dto/GameLifecycleResult';
-import type { GameStatus } from '@/modules/Roleplay/Game/Enum/GameStatus';
 import type { ChatSpeakerOption } from '@/modules/Messages/Chat/Dto/ChatSpeakerOption';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { CharacterModerationProjection } from '@/modules/Roleplay/Game/Dto/CharacterModerationProjection';
@@ -93,17 +91,20 @@ const statusError = ref<string | null>(null);
 const statusNotice = ref<string | null>(null);
 
 const showStartGame = computed(
-  () => props.canEdit && gameStatusTransitionsService.canStartGame(props.detail.game.status),
+  () =>
+    props.canEdit &&
+    gameStatusTransitionsService.canStartGame(props.detail.game.status) &&
+    !props.detail.game.sessionRunning,
 );
 const showStopSession = computed(
-  () => props.canEdit && gameStatusTransitionsService.canStopSession(props.detail.game.status),
+  () => props.canEdit && gameStatusTransitionsService.canStopSession(props.detail.game.sessionRunning),
 );
 
 async function ensureSessionForInitiative(): Promise<void> {
   if (!props.canEdit) throw new Error('Только ведущий может запустить игровую сессию');
 
   if (!gameStateSnapshot.value?.session && gameStatusTransitionsService.canStartGame(props.detail.game.status)) {
-    await changeStatus('playing');
+    await startSession();
     if (statusError.value) throw new Error(statusError.value);
   }
 
@@ -138,58 +139,45 @@ async function ensureSessionForInitiative(): Promise<void> {
   gameStateSnapshot.value = battleResult.snapshot;
 }
 
-async function changeStatus(target: GameStatus): Promise<void> {
+async function startSession(): Promise<void> {
   statusUpdating.value = true;
   statusError.value = null;
   statusNotice.value = null;
   try {
-    if (target === 'playing') {
-      const previousGameData = toCreateGameData(props.detail);
-      const updated = await getGameApi().updateGame(gameId.value, {
-        ...previousGameData,
-        status: target,
-      });
-      store.applyGameUpdate(updated);
-      let lifecycleResult: GameLifecycleResult;
-      try {
-        lifecycleResult = await getGameApi().startGameSession({
-          commandId: createRandomId(),
-          commandType: 'startSession',
-          gameId: gameId.value,
-          sessionId: null,
-          battleId: null,
-          participantAdmission: 'currentEligible',
-          payload: {},
-        });
-      } catch (error) {
-        const rolledBack = await getGameApi().updateGame(gameId.value, {
-          ...previousGameData,
-        });
-        store.applyGameUpdate(rolledBack);
-        throw error;
-      }
-      if (lifecycleResult.kind === 'conflict') {
-        const rolledBack = await getGameApi().updateGame(gameId.value, {
-          ...previousGameData,
-        });
-        store.applyGameUpdate(rolledBack);
-        throw new Error(lifecycleResult.conflict.code);
-      }
-      if (lifecycleResult.status === 'already_active') {
-        statusNotice.value = 'Сессия уже была запущена. Используется существующее состояние сессии.';
-      }
-      gameStateSnapshot.value = lifecycleResult.snapshot;
-
-      return;
+    const lifecycleResult: GameLifecycleResult = await getGameApi().startGameSession({
+      commandId: createRandomId(),
+      commandType: 'startSession',
+      gameId: gameId.value,
+      sessionId: null,
+      battleId: null,
+      participantAdmission: 'currentEligible',
+      payload: {},
+    });
+    if (lifecycleResult.kind === 'conflict') {
+      throw new Error(lifecycleResult.conflict.code);
     }
-
-    const updated =
-      target === 'in_process' || target === 'completed'
-        ? await getGameApi().stopGameSession(gameId.value, target)
-        : await getGameApi().updateGame(gameId.value, { ...toCreateGameData(props.detail), status: target });
-    store.applyGameUpdate(updated);
+    if (lifecycleResult.status === 'already_active') {
+      statusNotice.value = 'Сессия уже была запущена. Используется существующее состояние сессии.';
+    }
+    gameStateSnapshot.value = lifecycleResult.snapshot;
+    store.applyGameUpdate(await getGameApi().getGame(gameId.value));
   } catch (e) {
-    statusError.value = e instanceof Error ? e.message : 'Не удалось изменить статус';
+    statusError.value = e instanceof Error ? e.message : 'Не удалось начать сессию';
+  } finally {
+    statusUpdating.value = false;
+  }
+}
+
+async function stopSession(): Promise<void> {
+  statusUpdating.value = true;
+  statusError.value = null;
+  statusNotice.value = null;
+  try {
+    const updated = await getGameApi().stopGameSession(gameId.value);
+    store.applyGameUpdate(updated);
+    gameStateSnapshot.value = await getGameApi().getGameStateSnapshot(gameId.value);
+  } catch (e) {
+    statusError.value = e instanceof Error ? e.message : 'Не удалось остановить сессию';
   } finally {
     statusUpdating.value = false;
   }
@@ -279,7 +267,7 @@ let realtimeRecoveryPromise: Promise<void> | null = null;
 const runtimeParticipantKeys = computed(() => new Set(gameStateSnapshot.value?.session?.participantEntityKeys ?? []));
 
 const eligibleMemberships = computed(() => {
-  const isPlaying = props.detail.game.status === 'playing';
+  const isPlaying = props.detail.game.sessionRunning;
   const hasRuntimeSession = Boolean(gameStateSnapshot.value?.session);
 
   return memberships.value.filter((membership) => {
@@ -350,7 +338,7 @@ const speakerOptions = computed<ChatSpeakerOption[]>(() => {
 async function load(): Promise<void> {
   const requestSequence = ++loadSequence;
   const requestGameId = gameId.value;
-  const requestGameStatus = props.detail.game.status;
+  const requestSessionRunning = props.detail.game.sessionRunning;
   const requestSpaceId = props.detail.game.spaceId;
   const requestRulesRevision = props.detail.game.rulesRevision;
   loading.value = true;
@@ -420,7 +408,7 @@ async function load(): Promise<void> {
     await loadRevision(requestSpaceId, requestRulesRevision, requestGameId, requestSequence);
     connectRealtime(requestGameId);
     try {
-      await syncRealtime(requestGameId, characterKeys, requestGameStatus, requestSequence);
+      await syncRealtime(requestGameId, characterKeys, requestSessionRunning, requestSequence);
     } catch {
       // Основной snapshot уже загружен; sync transport подключится при следующем reload/reconnect.
     }
@@ -501,13 +489,13 @@ function realtimeEntityKeys(): CombatEntityKey[] {
 async function syncRealtime(
   requestGameId: number,
   entityKeys: readonly CombatEntityKey[],
-  requestStatus: GameStatus,
+  requestSessionRunning: boolean,
   requestSequence: number,
 ): Promise<boolean> {
   const result = await getGameRealtimePort().sync(requestGameId, {
     lastCursor: realtimeCursor === 0 ? null : realtimeCursor,
     entityKeys: [...entityKeys],
-    projectionLevel: requestStatus === 'playing' ? 'summary' : 'full',
+    projectionLevel: requestSessionRunning ? 'summary' : 'full',
   });
   if (requestSequence !== loadSequence || requestGameId !== gameId.value) return false;
 
@@ -534,7 +522,7 @@ async function syncRealtime(
 async function recoverRealtime(): Promise<void> {
   if (realtimeRecoveryPromise) return realtimeRecoveryPromise;
 
-  realtimeRecoveryPromise = syncRealtime(gameId.value, realtimeEntityKeys(), props.detail.game.status, loadSequence)
+  realtimeRecoveryPromise = syncRealtime(gameId.value, realtimeEntityKeys(), props.detail.game.sessionRunning, loadSequence)
     .then((recovered) => {
       if (recovered) realtimeSyncRequired = false;
     })
@@ -1156,7 +1144,7 @@ onUnmounted(() => {
       size="small"
       prepend-icon="mdi-play"
       :loading="statusUpdating"
-      @click="changeStatus('playing')"
+      @click="startSession"
     >
       Начать сессию
     </v-btn>
@@ -1167,7 +1155,7 @@ onUnmounted(() => {
       size="small"
       prepend-icon="mdi-stop"
       :loading="statusUpdating"
-      @click="changeStatus('in_process')"
+      @click="stopSession"
     >
       Остановить сессию
     </v-btn>
@@ -1224,7 +1212,7 @@ onUnmounted(() => {
           :overlay-revision="overlayRevision"
           :ensure-session="ensureSessionForInitiative"
           :ensure-runtime-projections="ensureRuntimeProjectionsForInitiative"
-          :game-status="detail.game.status"
+          :session-running="detail.game.sessionRunning"
           class="game-chat-sidebar__initiative"
           @turn="onTurn"
           @open-card="onOpenCard"

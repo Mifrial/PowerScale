@@ -374,7 +374,7 @@
 
 - **Дата:** 2026-08-30
 - **Связанный пункт аудита:** инвентарь/экономика
-- **Решение:** покупки, продажи, discard, обмен и передача денег во время `playing` пишутся в единый Game overlay и затем участвуют в общей модерации.
+- **Решение:** покупки, продажи, discard, обмен и передача денег, пока запущена текущая сессия, пишутся в единый Game overlay и затем участвуют в общей модерации.
 - **НПС:** операции с НПС применяются сразу к `npc.version`.
 
 ## DEC-042 — критерий готовности типов правил
@@ -736,7 +736,7 @@
 - **Связанный пункт:** переход от полного Character sheet overlay к actual-as-session-source.
 - **Решение:** `actualCharacter` — единственный persisted player sheet. `approvedCharacterVersion` остаётся immutable membership baseline для moderation и допуска следующей session. `gameOverlay/gameState` ограничен initiative, battle/process state, offers, pending effects и transient markers. `states`, wounds, injuries, poison, resources, inventory, equipment, money и loot являются частью actual; NPC имеет только `npc.version` и технический `npc.actual_version`.
 - **Session/moderation:** authoritative effect изменяет actual в момент применения. `changes_pending` блокирует следующую session, но не текущего participant. `canStartSession` и `isActiveSessionParticipant` разделены. `needsModeration`/`reviewState` используют единый `getCharacterDiff`; `approve` разрешён во время active session через CAS actual + membership revision.
-- **Lifecycle:** одна `playing` session содержит несколько battles. `endBattle` не завершает session и не запускает approve; stop очищает transient state без полного Character commit. Applied effects не откатываются. Game revision нельзя менять при `status = playing`.
+- **Lifecycle:** одна текущая сессия содержит несколько battles. `endBattle` не завершает session и не запускает approve; stop очищает transient state без полного Character commit и статус не меняет. Applied effects не откатываются. `spaceId`, `spaceCode` и `rulesRevision` нельзя менять, пока запущена текущая сессия.
 - **Boundaries:** multi-entity Game command владеет outer transaction и вызывает Character/NPC mutation ports через тот же transaction-bound gateway. Command response и SSE — разные boundaries. Idempotency records принадлежат command owner; повторный command возвращает прежний result, fingerprint mismatch — conflict. Outbox не создаёт Chat messages автоматически.
 - **Статус реализации:** это согласованный domain/backend requirement, а не утверждение о готовом Game backend, SSE, outbox, Character runtime mutation или физической схеме.
 

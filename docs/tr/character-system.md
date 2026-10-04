@@ -88,7 +88,7 @@ GameCharacterEntry
 
 `approvedCharacterVersion` остаётся immutable baseline для moderation и допуска следующей сессии. Он не является источником текущего листа внутри уже начатой сессии. После успешной semantic mutation actual membership получает `reviewState = changes_pending`; это не прерывает текущего участника, но блокирует следующую сессию до approve.
 
-Одна `playing` session может содержать несколько независимых battles. `endBattle` закрывает только текущий battle и отменяет его unresolved processes/offers; `stopGameSession` завершает всю session и очищает оставшееся transient Game state. Ни один из переходов не выполняет полный character commit, не откатывает применённые effects и не запускает approve. Если продолжается тот же battle, сохраняются его `battleId` и process state; новый battle получает новый identity.
+Одна текущая сессия может содержать несколько независимых battles. `endBattle` закрывает только текущий battle и отменяет его unresolved processes/offers; `stopGameSession` завершает всю session и очищает оставшееся transient Game state. Ни один из переходов не выполняет полный character commit, не откатывает применённые effects и не запускает approve. Если продолжается тот же battle, сохраняются его `battleId` и process state; новый battle получает новый identity.
 
 Frontend/mock R3 может подготовить typed `GameSessionState`,
 `GameBattleState` и `GameStateSnapshot`, но эта boundary не является доказательством
@@ -136,7 +136,7 @@ Approve разрешён во время active session. Backend атомарн�
 
 При смене ревизии игры все несовместимые персонажи должны пройти миграцию. Миграцию выполняет владелец персонажа; после неё персонаж снова проходит модерацию. До миграции и повторного approve следующая сессия этого персонажа заблокирована. Смена ревизии блокирует запуск следующей сессии только для несовместимых персонажей, а не игру целиком.
 
-Миграция сохраняет actual character до успешного результата, переносит выбранные правила, способности, ресурсы, inventory и ссылки по `code`, валидирует результат и переводит персонажа в moderation flow. Владелец может переводить персонажа на разрешённую ревизию вне игры. Source и target revision при repair для `needs_fix` совпадают. Migration во время active session запрещена session guard-ом. `spaceCode` и `rulesRevision` игры нельзя менять при `status = playing`; изменение ревизии не является допустимым способом продолжить текущую сессию.
+Миграция сохраняет actual character до успешного результата, переносит выбранные правила, способности, ресурсы, inventory и ссылки по `code`, валидирует результат и переводит персонажа в moderation flow. Владелец может переводить персонажа на разрешённую ревизию вне игры. Source и target revision при repair для `needs_fix` совпадают. Migration во время active session запрещена session guard-ом. `spaceCode` и `rulesRevision` игры нельзя менять, пока запущена текущая сессия; изменение ревизии не является допустимым способом продолжить текущую сессию.
 
 Физическая схема membership, backend storage, optimistic locking, удаление browser draft и полная модель NPC требуют отдельной реализации (`OPEN`); они не должны возвращать A/L/O/P или историю CharacterVersion. NPC не получает approved snapshot, draft или moderation baseline: его persisted sheet — `npc.version`, а `npc.actual_version` — только технический optimistic-lock counter.
 

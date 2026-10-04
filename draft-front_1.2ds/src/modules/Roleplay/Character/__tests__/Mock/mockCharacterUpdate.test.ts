@@ -18,7 +18,9 @@ import {
   clearCombatOverlay,
   combatKey,
 } from '@/modules/Roleplay/Game/Mock/mockGameCombatOverlays';
-import { gameDetails, stopGameSession } from '@/modules/Roleplay/Game/Mock/mockGames';
+import { stopGameSession } from '@/modules/Roleplay/Game/Mock/mockGames';
+import { clearMockGameState, startGameSession } from '@/modules/Roleplay/Game/Mock/mockGameState';
+import { createRandomId } from '@/modules/Core/Engine/Utils/createRandomId';
 import '@/modules/Roleplay/Game/Mock/mockCharacterSessionRuntimePort';
 
 const initialVersion1 = JSON.parse(JSON.stringify(versions[1])) as CharacterVersion;
@@ -34,7 +36,7 @@ function restoreMembership<T extends object>(membership: T, snapshot: GameCharac
   Object.assign(membership, JSON.parse(JSON.stringify(snapshot)));
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   versions[1] = JSON.parse(JSON.stringify(initialVersion1)) as CharacterVersion;
   versions[3] = JSON.parse(JSON.stringify(initialVersion3)) as CharacterVersion;
   restoreMembership(
@@ -45,8 +47,17 @@ beforeEach(() => {
     gameCharacterMemberships.find((m) => m.gameId === 1 && m.characterId === 3)!,
     initialGarrick,
   );
-  const detail = gameDetails.find((d) => d.game.id === 2);
-  if (detail) detail.game.status = 'playing';
+  clearMockGameState();
+  const started = await startGameSession({
+    commandId: createRandomId(),
+    commandType: 'startSession',
+    gameId: 2,
+    sessionId: null,
+    battleId: null,
+    participantAdmission: 'currentEligible',
+    payload: {},
+  });
+  if (started.kind === 'conflict') throw new Error(started.conflict.code);
   clearCombatOverlay(2, combatKey('character', 1));
   clearCombatOverlay(1, combatKey('character', 3));
   syncCharacterVersion(1);
@@ -125,7 +136,7 @@ describe('mockCharacterUpdate: actual survives session stop', () => {
     await updateCharacter(1, { version: { ...versions[1], money: before + 100 }, status: 'ready', gameId: 2 });
     expect(versions[1].money).toBe(before + 100);
 
-    await stopGameSession(2, 'in_process');
+    await stopGameSession(2);
     expect(versions[1].money).toBe(before + 100);
 
     await moderateCharacter(2, 1, 'approve');

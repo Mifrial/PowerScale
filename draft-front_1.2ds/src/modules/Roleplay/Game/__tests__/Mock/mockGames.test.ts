@@ -13,6 +13,8 @@ import { mockGetChats } from '@/modules/Messages/Chat/Mock/mockChat';
 import { mockLogin, mockLogout } from '@/modules/Core/Auth/Mock/mockAuth';
 import { users as realUsers } from '@/modules/Core/User/Mock/mockUsers';
 import type { CreateGameData } from '@/modules/Roleplay/Game/Dto/CreateGameData';
+import { clearMockGameState, startGameSession } from '@/modules/Roleplay/Game/Mock/mockGameState';
+import { createRandomId } from '@/modules/Core/Engine/Utils/createRandomId';
 
 const userIds = new Set(realUsers.map((user) => user.id));
 
@@ -145,28 +147,43 @@ describe('mockGames: обсуждение и редактирование', () =
     expect(fetched.game.name).toBe('После редактирования');
   });
 
-  it('updateGame не снимает playing', async () => {
-    const playing = gameDetails.find((detail) => detail.game.status === 'playing');
-    expect(playing).toBeDefined();
+  it('updateGame меняет статус и не останавливает сессию; ревизию во время сессии не меняет', async () => {
+    const current = gameDetails.find((detail) => detail.game.id === 2);
+    expect(current).toBeDefined();
+    const previousStatus = current!.game.status;
+    const started = await startGameSession({
+      commandId: createRandomId(),
+      commandType: 'startSession',
+      gameId: 2,
+      sessionId: null,
+      battleId: null,
+      participantAdmission: 'currentEligible',
+      payload: {},
+    });
+    expect(started.kind).toBe('transition');
     const data = {
-      name: playing!.game.name,
-      shortDescription: playing!.game.shortDescription,
-      description: playing!.description,
-      status: 'in_process' as const,
-      visibility: playing!.game.visibility,
-      joinPolicy: playing!.game.joinPolicy,
-      spaceId: playing!.game.spaceId,
-      spaceCode: playing!.game.spaceCode,
-      rulesRevision: playing!.game.rulesRevision,
-      osPointsLimit: playing!.osPointsLimit,
-      olPointsLimit: playing!.olPointsLimit,
-      orPointsLimit: playing!.orPointsLimit,
-      moneyLimit: playing!.moneyLimit,
-      tags: playing!.game.tags,
-      forbiddenTags: playing!.forbiddenTags,
+      name: current!.game.name,
+      shortDescription: current!.game.shortDescription,
+      description: current!.description,
+      status: 'paused' as const,
+      visibility: current!.game.visibility,
+      joinPolicy: current!.game.joinPolicy,
+      spaceId: current!.game.spaceId,
+      spaceCode: current!.game.spaceCode,
+      rulesRevision: current!.game.rulesRevision,
+      osPointsLimit: current!.osPointsLimit,
+      olPointsLimit: current!.olPointsLimit,
+      orPointsLimit: current!.orPointsLimit,
+      moneyLimit: current!.moneyLimit,
+      tags: current!.game.tags,
+      forbiddenTags: current!.forbiddenTags,
     };
-    await expect(updateGame(playing!.game.id, data)).rejects.toThrow('Сначала остановите сессию');
-    expect(playing!.game.status).toBe('playing');
+    const updated = await updateGame(2, data);
+    expect(updated.game.status).toBe('paused');
+    expect(updated.game.sessionRunning).toBe(true);
+    await expect(updateGame(2, { ...data, rulesRevision: data.rulesRevision + 1 })).rejects.toThrow('ревизию');
+    current!.game.status = previousStatus;
+    clearMockGameState();
   });
 
   it('роли игрового чата синхронизированы с ролями участников игры (D103)', async () => {

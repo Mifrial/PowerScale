@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { fetchInitiative, saveInitiative, endInitiative } from '@/modules/Roleplay/Game/Mock/mockGameInitiative';
 import type { GameInitiative } from '@/modules/Roleplay/Game/Dto/GameInitiative';
-import { gameDetails, stopGameSession } from '@/modules/Roleplay/Game/Mock/mockGames';
+import { stopGameSession } from '@/modules/Roleplay/Game/Mock/mockGames';
+import { clearMockGameState, startGameSession } from '@/modules/Roleplay/Game/Mock/mockGameState';
+import { createRandomId } from '@/modules/Core/Engine/Utils/createRandomId';
 
 function makeData(overrides: Partial<GameInitiative> = {}): GameInitiative {
   return {
@@ -97,14 +99,21 @@ describe('mockGameInitiative', () => {
   });
 
   it('остановка сессии сбрасывает шкалу — продолжить нельзя', async () => {
-    const detail = gameDetails.find((entry) => entry.game.id === 2)!;
-    const previous = detail.game.status;
-    detail.game.status = 'playing';
+    const started = await startGameSession({
+      commandId: createRandomId(),
+      commandType: 'startSession',
+      gameId: 2,
+      sessionId: null,
+      battleId: null,
+      participantAdmission: 'currentEligible',
+      payload: {},
+    });
+    expect(started.kind).toBe('transition');
     await saveInitiative(2, makeData({ gameId: 2, active: false }));
-    await stopGameSession(2, 'in_process');
+    await stopGameSession(2);
     const fetched = await fetchInitiative(2);
     expect(fetched.active).toBe(false);
     expect(fetched.participants).toEqual([]);
-    detail.game.status = previous;
+    clearMockGameState();
   });
 });

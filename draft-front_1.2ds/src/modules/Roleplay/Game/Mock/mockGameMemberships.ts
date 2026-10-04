@@ -16,6 +16,7 @@ import {
   syncCharacterVersion,
 } from '@/modules/Roleplay/Character/Mock/mockCharacters';
 import { gameDetails } from '@/modules/Roleplay/Game/Mock/mockGames';
+import { hasActiveGameSession } from '@/modules/Roleplay/Game/Mock/mockGameState';
 import {
   clearCombatOverlay,
   combatKey,
@@ -64,7 +65,7 @@ function snapshotVersion(version: CharacterVersion): CharacterVersion {
 }
 
 export function isSessionActive(gameId: number): boolean {
-  return gameDetails.find((detail) => detail.game.id === gameId)?.game.status === 'playing';
+  return hasActiveGameSession(gameId);
 }
 
 type StoredMembership = Omit<GameCharacterMembership, 'visibility' | 'overlay' | 'reviewState'>;

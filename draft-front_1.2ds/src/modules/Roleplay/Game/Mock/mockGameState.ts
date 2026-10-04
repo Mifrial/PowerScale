@@ -41,7 +41,7 @@ const closedCommandIds = new Map<number, Set<string>>();
 const terminalCommandRecords = new Map<number, Map<string, StoredCommand>>();
 const terminalSnapshots = new Map<number, GameStateSnapshot>();
 const mutationQueues = new Map<number, Promise<unknown>>();
-let gameReader: (gameId: number) => Game | null = () => null;
+let gameReader: (gameId: number) => Omit<Game, 'sessionRunning'> | null = () => null;
 let participantValidator: (
   gameId: number,
   participantEntityKeys: readonly CombatEntityKey[],
@@ -70,7 +70,7 @@ function validateInitiative(data: GameInitiative): void {
 }
 
 export function configureMockGameState(options: {
-  getGame: (gameId: number) => Game | null;
+  getGame: (gameId: number) => Omit<Game, 'sessionRunning'> | null;
   validateParticipants?: (
     gameId: number,
     participantEntityKeys: readonly CombatEntityKey[],
@@ -221,11 +221,6 @@ export async function startGameSession(command: GameLifecycleCommand): Promise<G
 
     if (closedCommandIds.get(command.gameId)?.has(command.commandId)) {
       return conflictResult(command, store, 'closed_session');
-    }
-
-    const game = gameReader(command.gameId);
-    if (!game || game.status !== 'playing') {
-      return rememberResult(command, store, conflictResult(command, store, 'game_not_playing'), 'session');
     }
 
     if (store?.session) {

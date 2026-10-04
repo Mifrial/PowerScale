@@ -113,12 +113,8 @@ export class GameApi implements IGameApi {
     return res.data;
   }
 
-  async stopGameSession(
-    gameId: number,
-    targetStatus: 'in_process' | 'completed',
-    signal?: AbortSignal,
-  ): Promise<GameDetail> {
-    const res = await this.engine.runAction<GameDetail>('game.stopSession', { gameId, targetStatus }, signal);
+  async stopGameSession(gameId: number, signal?: AbortSignal): Promise<GameDetail> {
+    const res = await this.engine.runAction<GameDetail>('game.stopSession', { gameId }, signal);
     if (!res.data) throw new Error('Game stop session failed');
 
     return res.data;

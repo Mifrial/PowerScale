@@ -1841,7 +1841,7 @@ games(
   owner_id → users.id NOT NULL,
   space_id → spaces.id NOT NULL,
   rules_version_at TIMESTAMP NOT NULL,     -- срез версии правил
-  status VARCHAR DEFAULT 'draft' NOT NULL, -- draft | recruiting | in_process | paused | playing | completed
+  status VARCHAR DEFAULT 'draft' NOT NULL, -- draft | recruiting | in_process | paused | completed
   visibility VARCHAR DEFAULT 'all' NOT NULL, -- all | friends | players | invited | whitelist
   join_policy VARCHAR DEFAULT 'anyone' NOT NULL, -- anyone | friends | invite_only | whitelist
   image_file_id → files.id NULL,

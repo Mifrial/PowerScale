@@ -3,7 +3,6 @@ import { computed, inject, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useCurrentUser } from '@/modules/Core/User/init';
 import { useChatChannel } from '@/modules/Messages/Chat/init';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
-import type { GameStatus } from '@/modules/Roleplay/Game/Enum/GameStatus';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
 import type { GameParticipantCandidate } from '@/modules/Roleplay/Game/Dto/GameParticipantCandidate';
 import type { GameRuntimeEntityProjection } from '@/modules/Roleplay/Game/Dto/GameRuntimeEntityProjection';
@@ -62,7 +61,7 @@ type SystemNotification = { content: string; kind: ChatMessage['kind']; thread?:
 
 /**
  * Шкала инициативы (ТР §8 «Чат игры»). Жизненный цикл: «Инициатива» (окно проверки, ГМ) →
- * активная шкала (порядок + «Передать ход»/«Добавить»/«Закончить») → завершена («Продолжить», только `playing`).
+ * активная шкала (порядок + «Передать ход»/«Добавить»/«Закончить») → завершена («Продолжить», только пока сессия запущена).
  * Остановка сессии сбрасывает шкалу.
  * Порядок хода хранится как есть (результат броска не хранится); при передаче хода в чат
  * постится системное уведомление «Ходит Имя». Эмитит `turn` (id активного участника) —
@@ -90,7 +89,7 @@ const props = defineProps<{
   ensureSession?: () => Promise<void>;
   /** Загрузить full projections выбранных новых участников одним batch-запросом. */
   ensureRuntimeProjections?: (entityKeys: string[]) => Promise<void>;
-  gameStatus: GameStatus;
+  sessionRunning: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -964,7 +963,7 @@ function endScale(): void {
 
 function continueScale(): void {
   const data = initiative.value;
-  if (!data || props.gameStatus !== 'playing') return;
+  if (!data || !props.sessionRunning) return;
   void save({ ...data, active: true }).then(() => {
     if (props.chatId != null) combatThread.recoverFromMessages(chatStore.messagesOf(props.chatId));
   });
@@ -1050,7 +1049,7 @@ watch(
 );
 
 watch(
-  () => props.gameStatus,
+  () => props.sessionRunning,
   () => void load(),
 );
 
@@ -1229,7 +1228,7 @@ function kindIcon(kind: 'character' | 'npc'): string {
         <div v-else class="initiative-track__ended">
           <span class="text-caption text-medium-emphasis">Шкала завершена</span>
           <v-btn
-            v-if="canEdit && gameStatus === 'playing'"
+            v-if="canEdit && sessionRunning"
             size="small"
             variant="tonal"
             color="primary"

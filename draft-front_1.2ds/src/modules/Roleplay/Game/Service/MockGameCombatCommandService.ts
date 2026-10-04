@@ -10,7 +10,7 @@ import type { GameCombatProcessState } from '@/modules/Roleplay/Game/Dto/GameCom
 import { createRandomId } from '@/modules/Core/Engine/Utils/createRandomId';
 import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
 import { gameNpcs } from '@/modules/Roleplay/Game/Mock/mockGameNpcs';
-import { gameDetails } from '@/modules/Roleplay/Game/Mock/mockGames';
+import { hasActiveGameSession } from '@/modules/Roleplay/Game/Mock/mockGameState';
 import {
   captureMembershipRuntimeToken,
   isActiveSessionParticipant,
@@ -79,8 +79,7 @@ export class MockGameCombatCommandService {
           return cloneData(previous.result);
         }
 
-        const game = gameDetails.find((detail) => detail.game.id === command.gameId)?.game;
-        if (!game || game.status !== 'playing') {
+        if (!hasActiveGameSession(command.gameId)) {
           return this.conflictResult(command, battle, 'game_not_playing', {}, session.sessionStateVersion);
         }
         if (session.sessionId !== command.sessionId) {

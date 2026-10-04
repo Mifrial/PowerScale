@@ -11,7 +11,8 @@ import {
   getStoredCharacterVersion,
   versions,
 } from '@/modules/Roleplay/Character/Mock/mockCharacters';
-import { gameDetails, stopGameSession } from '@/modules/Roleplay/Game/Mock/mockGames';
+import { stopGameSession } from '@/modules/Roleplay/Game/Mock/mockGames';
+import { clearMockGameState, startGameSession } from '@/modules/Roleplay/Game/Mock/mockGameState';
 import { characterPatchService } from '@/modules/Roleplay/Character/init';
 import { createRandomId } from '@/modules/Core/Engine/Utils/createRandomId';
 import { mockGameRuntimeMutationService } from '@/modules/Roleplay/Game/Service/Instance/mockGameRuntimeMutationService';
@@ -19,25 +20,31 @@ import { mockGameRuntimeMutationService } from '@/modules/Roleplay/Game/Service/
 const charKey = combatKey('character', 1);
 
 describe('mockGameMemberships: поток боевых изменений (DEC-059)', () => {
-  it('stopGameSession на non-playing бросает', async () => {
+  it('stopGameSession без сессии бросает', async () => {
     const before = versions[1].money;
-    const detail = gameDetails.find((d) => d.game.id === 2);
-    if (detail) detail.game.status = 'in_process';
-    await expect(stopGameSession(2, 'in_process')).rejects.toThrow('Сессия не активна');
+    clearMockGameState();
+    await expect(stopGameSession(2)).rejects.toThrow('Сессия не активна');
     expect(versions[1].money).toBe(before);
-    if (detail) detail.game.status = 'playing';
   });
 
   it('боевые правки сразу живут в actual и переживают stop', async () => {
-    const detail = gameDetails.find((d) => d.game.id === 2);
-    if (detail) detail.game.status = 'playing';
+    const started = await startGameSession({
+      commandId: createRandomId(),
+      commandType: 'startSession',
+      gameId: 2,
+      sessionId: null,
+      battleId: null,
+      participantAdmission: 'currentEligible',
+      payload: {},
+    });
+    expect(started.kind).toBe('transition');
     await setCombatResource(2, charKey, 'action-points', { base: 1, size: 0 });
     await addCombatState(2, charKey, { stateRuleCode: 'stunned', value: 5 });
 
     expect(versions[1].resources.find((r) => r.ruleCode === 'action-points')?.current).toEqual({ base: 1, size: 0 });
     expect(versions[1].states).toContainEqual({ stateRuleCode: 'stunned', value: 5 });
 
-    await stopGameSession(2, 'in_process');
+    await stopGameSession(2);
     let membership = (await fetchGameCharacters(2)).find((m) => m.characterId === 1)!;
     expect(membership.membershipStatus).toBe('active');
     expect(versions[1].resources.find((r) => r.ruleCode === 'action-points')?.current).toEqual({ base: 1, size: 0 });
