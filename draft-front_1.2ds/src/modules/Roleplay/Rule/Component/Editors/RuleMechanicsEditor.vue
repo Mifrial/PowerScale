@@ -70,10 +70,6 @@ function commitPayloads(): boolean {
   return true;
 }
 
-function setInspector(index: number, element: unknown): void {
-  inspectorRefs.value[index] = element as { readText: () => string; isEditing: () => boolean };
-}
-
 function bindInspector(index: number, element: unknown): void {
   inspectorRefs.value[index] = element as { readText: () => string; isEditing: () => boolean };
 }

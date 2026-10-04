@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { GameCombatCommand } from '@/modules/Roleplay/Game/Dto/GameCombatCommand';
-import { gameDetails } from '@/modules/Roleplay/Game/Mock/mockGames';
 import {
   captureCharacterRuntimeState,
   getCharacterActualVersion,
@@ -40,9 +39,7 @@ const characterKey = 'character:1' as const;
 const npcKey = 'npc:5' as const;
 
 async function setupBattle(): Promise<{ sessionId: string; battleId: string }> {
-  configureMockGameState({
-    getGame: (currentGameId) => gameDetails.find((detail) => detail.game.id === currentGameId)?.game ?? null,
-  });
+  configureMockGameState();
   const session = await startGameSession({
     commandId: 'combat-session',
     commandType: 'startSession',

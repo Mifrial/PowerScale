@@ -327,9 +327,7 @@ describe('mockGameMemberships: approve во время active session', () => {
   it('одобряет active membership через CAS и replay-ит тот же command', async () => {
     const created = await createGameCharacter(1, makeCreateData('Approve в сессии'));
     await moderateCharacter(1, created.characterId, 'approve');
-    configureMockGameState({
-      getGame: (gameId) => gameDetails.find((entry) => entry.game.id === gameId)?.game ?? null,
-    });
+    configureMockGameState();
     try {
       const session = await startGameSession({
         commandId: 'approve-session',

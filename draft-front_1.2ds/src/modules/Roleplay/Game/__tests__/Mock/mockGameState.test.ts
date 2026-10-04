@@ -39,9 +39,7 @@ describe('mockGameState', () => {
   });
 
   it('creates one session, replays a command and does not replace an active participant set', async () => {
-    configureMockGameState({
-      getGame: (gameId) => gameDetails.find((detail) => detail.game.id === gameId)?.game ?? null,
-    });
+    configureMockGameState();
     expect((await getGameStateSnapshot(sessionGame?.id ?? 2)).gameId).toBe(sessionGame?.id ?? 2);
     const start = command('startSession', { commandId: 'session-1', participantEntityKeys: ['character:1'] });
 
@@ -63,7 +61,6 @@ describe('mockGameState', () => {
 
   it('resolves current eligible participants inside the session boundary', async () => {
     configureMockGameState({
-      getGame: (gameId) => gameDetails.find((detail) => detail.game.id === gameId)?.game ?? null,
       resolveParticipants: async () => ['character:1', 'npc:5'],
       validateParticipants: async (_gameId, participantEntityKeys) =>
         participantEntityKeys.join(',') === 'character:1,npc:5',
@@ -84,9 +81,7 @@ describe('mockGameState', () => {
   });
 
   it('stores initiative inside the active battle and clears it with that battle', async () => {
-    configureMockGameState({
-      getGame: (gameId) => gameDetails.find((detail) => detail.game.id === gameId)?.game ?? null,
-    });
+    configureMockGameState();
     const createdSession = await startGameSession(command('startSession', { commandId: 'initiative-session' }));
     if (createdSession.kind !== 'transition' || !createdSession.snapshot.session) {
       throw new Error('Session was not created');
@@ -127,9 +122,7 @@ describe('mockGameState', () => {
   });
 
   it('separates independent battles and rejects stale battle transitions', async () => {
-    configureMockGameState({
-      getGame: (gameId) => gameDetails.find((detail) => detail.game.id === gameId)?.game ?? null,
-    });
+    configureMockGameState();
     const createdSession = await startGameSession(command('startSession', { commandId: 'session-1' }));
     if (createdSession.kind !== 'transition' || !createdSession.snapshot.session)
       throw new Error('Session was not created');
@@ -196,7 +189,6 @@ describe('mockGameState', () => {
   it('does not re-run session admission before starting a new battle', async () => {
     let participantsEligible = true;
     configureMockGameState({
-      getGame: (gameId) => gameDetails.find((detail) => detail.game.id === gameId)?.game ?? null,
       validateParticipants: async () => participantsEligible,
     });
 
@@ -219,9 +211,7 @@ describe('mockGameState', () => {
   });
 
   it('restores the same IDs and versions through fixture serialization', async () => {
-    configureMockGameState({
-      getGame: (gameId) => gameDetails.find((detail) => detail.game.id === gameId)?.game ?? null,
-    });
+    configureMockGameState();
     const createdSession = await startGameSession(command('startSession', { commandId: 'session-1' }));
     if (createdSession.kind !== 'transition' || !createdSession.snapshot.session)
       throw new Error('Session was not created');
@@ -260,9 +250,7 @@ describe('mockGameState', () => {
   });
 
   it('cleans session state and rejects a command from the closed session', async () => {
-    configureMockGameState({
-      getGame: (gameId) => gameDetails.find((detail) => detail.game.id === gameId)?.game ?? null,
-    });
+    configureMockGameState();
     const createdSession = await startGameSession(command('startSession', { commandId: 'session-1' }));
     if (createdSession.kind !== 'transition' || !createdSession.snapshot.session)
       throw new Error('Session was not created');

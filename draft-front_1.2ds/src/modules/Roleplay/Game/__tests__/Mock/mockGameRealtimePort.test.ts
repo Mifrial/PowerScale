@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MockGameRealtimePort } from '@/modules/Roleplay/Game/Mock/MockGameRealtimePortImplementation';
 import { characterChangePort } from '@/modules/Roleplay/Character/init';
-import { gameDetails } from '@/modules/Roleplay/Game/Mock/mockGames';
 import {
   clearMockGameState,
   startGameSession,
@@ -78,9 +77,7 @@ describe('MockGameRealtimePort', () => {
     const stop = port.subscribe(2, (event) => events.push(event.eventId));
 
     try {
-      configureMockGameState({
-        getGame: (gameId) => gameDetails.find((detail) => detail.game.id === gameId)?.game ?? null,
-      });
+      configureMockGameState();
       const session = await startGameSession({
         commandId: 'realtime-session',
         commandType: 'startSession',

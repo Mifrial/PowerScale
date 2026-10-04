@@ -1,4 +1,3 @@
-import type { Game } from '@/modules/Roleplay/Game/Dto/Game';
 import type { GameBattleState } from '@/modules/Roleplay/Game/Dto/GameBattleState';
 import type { GameCleanupSummary } from '@/modules/Roleplay/Game/Dto/GameCleanupSummary';
 import type { GameLifecycleCommand } from '@/modules/Roleplay/Game/Dto/GameLifecycleCommand';
@@ -41,7 +40,6 @@ const closedCommandIds = new Map<number, Set<string>>();
 const terminalCommandRecords = new Map<number, Map<string, StoredCommand>>();
 const terminalSnapshots = new Map<number, GameStateSnapshot>();
 const mutationQueues = new Map<number, Promise<unknown>>();
-let gameReader: (gameId: number) => Omit<Game, 'sessionRunning'> | null = () => null;
 let participantValidator: (
   gameId: number,
   participantEntityKeys: readonly CombatEntityKey[],
@@ -70,14 +68,12 @@ function validateInitiative(data: GameInitiative): void {
 }
 
 export function configureMockGameState(options: {
-  getGame: (gameId: number) => Omit<Game, 'sessionRunning'> | null;
   validateParticipants?: (
     gameId: number,
     participantEntityKeys: readonly CombatEntityKey[],
   ) => boolean | Promise<boolean>;
   resolveParticipants?: (gameId: number) => readonly CombatEntityKey[] | Promise<readonly CombatEntityKey[]>;
-}): void {
-  gameReader = options.getGame;
+} = {}): void {
   participantValidator = options.validateParticipants ?? (async () => true);
   participantResolver = options.resolveParticipants ?? (async () => []);
 }

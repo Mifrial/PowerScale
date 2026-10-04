@@ -24,7 +24,6 @@ const runtimeProjectionSource = new MockGameRuntimeProjectionSource();
 const participantCandidateSource = new MockGameParticipantCandidateSource();
 
 mockGameState.configureMockGameState({
-  getGame: (gameId) => mock.gameDetails.find((detail) => detail.game.id === gameId)?.game ?? null,
   validateParticipants: async (gameId, participantEntityKeys) => {
     const [memberships, npcs] = await Promise.all([
       mockMemberships.fetchGameCharacters(gameId),

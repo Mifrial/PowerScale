@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import type { GameParticipantCandidate } from '@/modules/Roleplay/Game/Dto/GameParticipantCandidate';
-import { gameDetails } from '@/modules/Roleplay/Game/Mock/mockGames';
 import {
   clearMockGameState,
   configureMockGameState,
@@ -29,9 +28,7 @@ describe('MockGameParticipantCandidateSource', () => {
   });
 
   it('uses the admitted session participant keys after session bootstrap', async () => {
-    configureMockGameState({
-      getGame: (gameId) => gameDetails.find((detail) => detail.game.id === gameId)?.game ?? null,
-    });
+    configureMockGameState();
     const session = await startGameSession({
       commandId: 'candidate-session',
       commandType: 'startSession',
