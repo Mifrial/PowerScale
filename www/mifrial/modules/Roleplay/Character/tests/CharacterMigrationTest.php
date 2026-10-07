@@ -22,6 +22,7 @@ use Mifrial\Roleplay\Character\Exception\CharacterConflictException;
 use Mifrial\Roleplay\Character\Exception\CharacterInvalidException;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterRuleSlices;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
+use Mifrial\Roleplay\Character\Interface\Service\ICharacterSessionParticipants;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
 use Mifrial\Roleplay\Character\Service\CharacterMigration;
 use Mifrial\Roleplay\Character\Service\Save\CharacterSaveAssembly;
@@ -185,6 +186,7 @@ final class CharacterMigrationTest extends TestCase
             $characters,
             $slices,
             new CharacterSaveAssembly($slices, $this->cleanSheets(), new CharacterShopBalance(new CharacterSpecReader(), new CharacterDonorGrants())),
+            $this->idleSessions(),
         );
 
         $this->expectException(CharacterInvalidException::class);
@@ -206,6 +208,7 @@ final class CharacterMigrationTest extends TestCase
             $characters,
             $slices,
             new CharacterSaveAssembly($slices, $this->cleanSheets(), new CharacterShopBalance(new CharacterSpecReader(), new CharacterDonorGrants())),
+            $this->idleSessions(),
         );
 
         $this->expectException(CharacterInvalidException::class);
@@ -285,7 +288,21 @@ final class CharacterMigrationTest extends TestCase
             $characters,
             $slices,
             new CharacterSaveAssembly($slices, $sheets, new CharacterShopBalance(new CharacterSpecReader(), new CharacterDonorGrants())),
+            $this->idleSessions(),
         );
+    }
+
+    /**
+     * Сессии нет.
+     *
+     * @return ICharacterSessionParticipants Порт.
+     */
+    private function idleSessions(): ICharacterSessionParticipants
+    {
+        $participants = $this->createMock(ICharacterSessionParticipants::class);
+        $participants->method('isActiveSessionParticipant')->willReturn(false);
+
+        return $participants;
     }
 
     /**

@@ -6,6 +6,9 @@ namespace Mifrial\Roleplay\Character\Tests;
 
 use Mifrial\Core\Kernel\Service\ApplicationFactory;
 use Mifrial\Roleplay\Character\Interface\Container\ICharacterContainer;
+use Mifrial\Roleplay\Character\Interface\Service\ICharacterActualMutations;
+use Mifrial\Roleplay\Character\Interface\Service\ICharacterCombatLayers;
+use Mifrial\Roleplay\Character\Interface\Service\ICharacterFormulaContexts;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterOsSteps;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterRuleSlices;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
@@ -31,6 +34,12 @@ final class CharacterPortBootTest extends TestCase
         self::assertInstanceOf(ICharacterOsSteps::class, $osSteps);
         $sheets = $characterContainer->get(ICharacterSheets::class);
         self::assertInstanceOf(ICharacterSheets::class, $sheets);
+        $mutations = $characterContainer->get(ICharacterActualMutations::class);
+        self::assertInstanceOf(ICharacterActualMutations::class, $mutations);
+        $formulaContexts = $characterContainer->get(ICharacterFormulaContexts::class);
+        self::assertInstanceOf(ICharacterFormulaContexts::class, $formulaContexts);
+        $combatLayers = $characterContainer->get(ICharacterCombatLayers::class);
+        self::assertInstanceOf(ICharacterCombatLayers::class, $combatLayers);
         $routes = $application->getModuleManager()->getRoutes();
         self::assertArrayHasKey('character.create', $routes);
         self::assertArrayHasKey('character.update', $routes);
@@ -40,6 +49,7 @@ final class CharacterPortBootTest extends TestCase
         self::assertArrayHasKey('character.get', $routes);
         self::assertArrayHasKey('character.updateVisibility', $routes);
         self::assertArrayHasKey('character.updateOwnerNotes', $routes);
+        self::assertArrayHasKey('character.applyActualPatch', $routes);
         $loadedCharacter = false;
         foreach ($application->getModuleManager()->getLoadedModules() as $loadedModule) {
             if ($loadedModule['group'] === 'Roleplay' && $loadedModule['name'] === 'Character') {

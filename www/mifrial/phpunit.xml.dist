@@ -52,6 +52,9 @@
         <testsuite name="character">
             <directory>modules/Roleplay/Character/tests</directory>
         </testsuite>
+        <testsuite name="game">
+            <directory>modules/Roleplay/Game/tests</directory>
+        </testsuite>
     </testsuites>
     <php>
         <env name="MIFRIAL_CONFIG" value="test" force="true"/>

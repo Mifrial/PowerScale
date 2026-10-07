@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Mifrial\Messages\Chat\Interface\Container\IChatContainer;
 use Mifrial\Roleplay\Character\Interface\Container\ICharacterContainer;
+use Mifrial\Roleplay\Game\Interface\Container\IGameContainer;
 use Mifrial\Roleplay\Keyword\Interface\Container\IKeywordContainer;
 use Mifrial\Roleplay\Mechanic\Interface\Container\IMechanicContainer;
 use Mifrial\Roleplay\Rule\Interface\Container\IRuleContainer;
@@ -39,6 +40,10 @@ return [
         ICharacterContainer::class => [
             'group' => 'Roleplay',
             'name' => 'Character',
+        ],
+        IGameContainer::class => [
+            'group' => 'Roleplay',
+            'name' => 'Game',
         ],
     ],
 ];

@@ -40,6 +40,7 @@ final class CharacterSaveKeys
      * @var array<int, string>
      */
     private const INVENTORY = [
+        'id',
         'ruleCode',
         'custom',
         'quantity',

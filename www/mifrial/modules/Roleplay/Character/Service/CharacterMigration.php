@@ -15,6 +15,7 @@ use Mifrial\Roleplay\Character\Exception\CharacterNotFoundException;
 use Mifrial\Roleplay\Character\Exception\CharacterSaveRejectedException;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterRuleSlices;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
+use Mifrial\Roleplay\Character\Interface\Service\ICharacterSessionParticipants;
 use Mifrial\Roleplay\Character\Service\Save\CharacterSaveAssembly;
 use Mifrial\Roleplay\Character\Service\Save\CharacterSaveKeys;
 
@@ -36,6 +37,7 @@ final class CharacterMigration
      * @param ICharacters $characters Строки.
      * @param ICharacterRuleSlices $ruleSlices Срезы мира.
      * @param CharacterSaveAssembly $assembly Тот же прогон, что save.
+     * @param ICharacterSessionParticipants $sessionParticipants Участник сессии.
      *
      * @return void
      */
@@ -44,6 +46,7 @@ final class CharacterMigration
         private readonly ICharacters $characters,
         private readonly ICharacterRuleSlices $ruleSlices,
         private readonly CharacterSaveAssembly $assembly,
+        private readonly ICharacterSessionParticipants $sessionParticipants,
     ) {
         $this->keys = new CharacterSaveKeys();
         $this->remap = new CharacterRevisionRemap();
@@ -65,6 +68,10 @@ final class CharacterMigration
     public function migrate(MigrateCharacterInput $input): array
     {
         $record = $this->owned($input->id, $this->userAccess->requireActor()->getUserId());
+        if ($this->sessionParticipants->isActiveSessionParticipant($record->getId())) {
+            throw new CharacterInvalidException('Active session participant cannot migrate');
+        }
+
         $expectedVersion = $this->requiredVersion($input);
         $this->assertTargetRevision($input->revision, $record);
         $prepared = $this->prepare($input, $record);

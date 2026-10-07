@@ -3,7 +3,9 @@ RewriteBase /
 
 RewriteRule ^api/run$ mifrial/API/action.php [L,QSA]
 RewriteRule ^api/chat/sync$ mifrial/API/chat-sync.php [L,QSA]
+RewriteRule ^api/game/sync$ mifrial/API/game-sync.php [L,QSA]
 
 SetEnvIf Request_URI "^/api/chat/sync$" no-gzip=1
+SetEnvIf Request_URI "^/api/game/sync$" no-gzip=1
 
-RewriteRule ^mifrial/(?!API/(?:action|chat-sync)\.php$) - [F,L,NC]
+RewriteRule ^mifrial/(?!API/(?:action|chat-sync|game-sync)\.php$) - [F,L,NC]

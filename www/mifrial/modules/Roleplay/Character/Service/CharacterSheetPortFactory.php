@@ -8,6 +8,7 @@ use Mifrial\Core\Kernel\Exception\KernelException;
 use Mifrial\Core\Kernel\Interface\Service\IServiceLocator;
 use Mifrial\Roleplay\Character\Interface\Container\ICharacterContainer;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterOsSteps;
+use Mifrial\Roleplay\Character\Interface\Service\ICharacterRuleSlices;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
 use Mifrial\Roleplay\Mechanic\Interface\Container\IMechanicContainer;
 use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanics;
@@ -31,6 +32,7 @@ final class CharacterSheetPortFactory
         return new CharacterSheets(
             $this->osSteps($serviceLocator),
             $this->mechanics($serviceLocator),
+            $this->ruleSlices($serviceLocator),
         );
     }
 
@@ -70,5 +72,24 @@ final class CharacterSheetPortFactory
         }
 
         return $mechanics;
+    }
+
+    /**
+     * Срезы мира.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     *
+     * @return ICharacterRuleSlices Порт.
+     *
+     * @throws KernelException Если тип чужой.
+     */
+    private function ruleSlices(IServiceLocator $serviceLocator): ICharacterRuleSlices
+    {
+        $ruleSlices = $serviceLocator->get(ICharacterContainer::class)->get(ICharacterRuleSlices::class);
+        if (!$ruleSlices instanceof ICharacterRuleSlices) {
+            throw new KernelException('PORT_TYPE', 'Character requires ICharacterRuleSlices');
+        }
+
+        return $ruleSlices;
     }
 }

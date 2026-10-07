@@ -326,7 +326,11 @@ final class CharacterSaveTest extends TestCase
             'handler_version' => '9.0.0',
         ]));
 
-        return new CharacterSheets(new CharacterOsSteps($engine, $mechanics), $mechanics);
+        return new CharacterSheets(
+            new CharacterOsSteps($engine, $mechanics),
+            $mechanics,
+            $this->createMock(ICharacterRuleSlices::class),
+        );
     }
 
     /**

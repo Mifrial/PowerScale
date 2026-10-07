@@ -8,8 +8,12 @@ use Mifrial\Roleplay\Character\Dto\CharacterChoices;
 use Mifrial\Roleplay\Character\Dto\CharacterProblemList;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Dto\CharacterValidation;
+use Mifrial\Roleplay\Character\Exception\CharacterInvalidException;
+use Mifrial\Roleplay\Character\Exception\CharacterNotFoundException;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterOsSteps;
+use Mifrial\Roleplay\Character\Interface\Service\ICharacterRuleSlices;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
+use Mifrial\Roleplay\Character\Service\Save\CharacterChoiceAssembler;
 use Mifrial\Roleplay\Character\Service\Sheet\CharacterActiveInput;
 use Mifrial\Roleplay\Character\Service\Sheet\CharacterCharacteristicPurchases;
 use Mifrial\Roleplay\Character\Service\Sheet\CharacterEquippedItems;
@@ -42,17 +46,21 @@ final class CharacterSheets implements ICharacterSheets
 
     private readonly CharacterCharacteristicPurchases $purchases;
 
+    private readonly CharacterChoiceAssembler $choiceAssembler;
+
     /**
-     * Собирает части сборки. Снаружи только шаг доплаты и каталог механик.
+     * Собирает части сборки. Снаружи шаг доплаты, каталог механик и срез.
      *
      * @param ICharacterOsSteps $osSteps Доплата.
      * @param IMechanics $mechanics Каталог механик.
+     * @param ICharacterRuleSlices $ruleSlices Срезы мира.
      *
      * @return void
      */
     public function __construct(
         private readonly ICharacterOsSteps $osSteps,
         IMechanics $mechanics,
+        private readonly ICharacterRuleSlices $ruleSlices,
     ) {
         $specReader = new CharacterSpecReader();
         $donorGrants = new CharacterDonorGrants();
@@ -63,6 +71,7 @@ final class CharacterSheets implements ICharacterSheets
         $this->studyPairs = new CharacterStudyPairs();
         $this->equippedItems = new CharacterEquippedItems();
         $this->mechanicSupport = new CharacterMechanicSupport($mechanics, new CharacterMechanicBindings());
+        $this->choiceAssembler = new CharacterChoiceAssembler();
     }
 
     /**
@@ -96,6 +105,89 @@ final class CharacterSheets implements ICharacterSheets
             $purchased,
             $choices->isActive(),
         );
+    }
+
+    /**
+     * Пустой validate сохранённого документа choices. Запись не делает.
+     *
+     * @param int $spaceId Мир листа.
+     * @param int $rulesRevision Ревизия листа.
+     * @param array<string, mixed> $choices Документ choices.
+     *
+     * @return bool true, если отказов нет.
+     *
+     * @throws CharacterInvalidException Если срез битый.
+     * @throws CharacterNotFoundException Если ревизии нет.
+     */
+    public function acceptsStoredChoices(int $spaceId, int $rulesRevision, array $choices): bool
+    {
+        $assembled = $this->storedChoices($choices);
+        if ($assembled === null) {
+            return false;
+        }
+
+        $slice = $this->ruleSlices->get($spaceId, $rulesRevision);
+
+        return $this->validate($slice, $assembled)->getProblems() === [];
+    }
+
+    /**
+     * Документ в выборы. Битый код расы или список — null.
+     *
+     * @param array<string, mixed> $choices Документ.
+     *
+     * @return CharacterChoices|null Выборы или null.
+     */
+    private function storedChoices(array $choices): ?CharacterChoices
+    {
+        $name = $choices['name'] ?? '';
+        $raceCode = $choices['raceCode'] ?? null;
+        $abilities = $choices['abilities'] ?? [];
+        $inventory = $choices['inventory'] ?? [];
+        $purchases = $choices['characteristicPurchases'] ?? [];
+        $customRules = $choices['customRules'] ?? [];
+        $active = array_key_exists('active', $choices) ? $choices['active'] : null;
+        if (!$this->storedShape($name, $raceCode, $abilities, $inventory, $purchases, $customRules, $active)) {
+            return null;
+        }
+
+        return $this->choiceAssembler->assemble(
+            $name,
+            $raceCode,
+            $abilities,
+            $inventory,
+            $purchases,
+            $customRules,
+            $active,
+        );
+    }
+
+    /**
+     * Документ годится для assemble.
+     *
+     * @param mixed $name Имя.
+     * @param mixed $raceCode Код расы.
+     * @param mixed $abilities Способности.
+     * @param mixed $inventory Предметы.
+     * @param mixed $purchases Закупки.
+     * @param mixed $customRules Свои правила.
+     * @param mixed $active Признак.
+     *
+     * @return bool true, если типы сходятся.
+     */
+    private function storedShape(
+        mixed $name,
+        mixed $raceCode,
+        mixed $abilities,
+        mixed $inventory,
+        mixed $purchases,
+        mixed $customRules,
+        mixed $active,
+    ): bool {
+        $lists = is_array($abilities) && is_array($inventory) && is_array($purchases) && is_array($customRules);
+        $flag = $active === null || is_bool($active);
+
+        return is_string($name) && is_string($raceCode) && $lists && $flag;
     }
 
     /**

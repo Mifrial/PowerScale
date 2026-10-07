@@ -8,18 +8,19 @@ use Mifrial\Core\Kernel\Service\ApplicationFactory;
 use Mifrial\Core\Kernel\Value\DateTime;
 use Mifrial\Roleplay\Character\Dto\CharacterAbilityChoice;
 use Mifrial\Roleplay\Character\Dto\CharacterCharacteristicPurchase;
-use Mifrial\Roleplay\Character\Dto\CharacterCustomRule;
 use Mifrial\Roleplay\Character\Dto\CharacterChoices;
+use Mifrial\Roleplay\Character\Dto\CharacterCustomRule;
 use Mifrial\Roleplay\Character\Dto\CharacterInventoryChoice;
 use Mifrial\Roleplay\Character\Dto\CharacterProblem;
 use Mifrial\Roleplay\Character\Dto\CharacterProblemList;
 use Mifrial\Roleplay\Character\Dto\CharacterResolvedRule;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Interface\Container\ICharacterContainer;
+use Mifrial\Roleplay\Character\Interface\Service\ICharacterRuleSlices;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
-use Mifrial\Roleplay\Character\Service\Sheet\CharacterActiveInput;
 use Mifrial\Roleplay\Character\Service\CharacterOsSteps;
 use Mifrial\Roleplay\Character\Service\CharacterSheets;
+use Mifrial\Roleplay\Character\Service\Sheet\CharacterActiveInput;
 use Mifrial\Roleplay\Mechanic\Dto\MechanicRecord;
 use Mifrial\Roleplay\Mechanic\Exception\MechanicNotFoundException;
 use Mifrial\Roleplay\Mechanic\Interface\Container\IMechanicContainer;
@@ -331,16 +332,21 @@ final class CharacterSheetsTest extends TestCase
      * Сборщик с движком из контейнера.
      *
      * @param IMechanics $mechanics Каталог.
+     * @param ICharacterRuleSlices|null $ruleSlices Срез или пустой мок.
      *
      * @return CharacterSheets Валидатор.
      */
-    private function sheets(IMechanics $mechanics): CharacterSheets
+    private function sheets(IMechanics $mechanics, ?ICharacterRuleSlices $ruleSlices = null): CharacterSheets
     {
         $application = (new ApplicationFactory())->boot(dirname(__DIR__, 4));
         $engine = $application->getLocator()->get(IMechanicContainer::class)->get(IMechanicEngine::class);
         self::assertInstanceOf(IMechanicEngine::class, $engine);
 
-        return new CharacterSheets(new CharacterOsSteps($engine, $mechanics), $mechanics);
+        return new CharacterSheets(
+            new CharacterOsSteps($engine, $mechanics),
+            $mechanics,
+            $ruleSlices ?? $this->createMock(ICharacterRuleSlices::class),
+        );
     }
 
     /**
@@ -411,6 +417,39 @@ final class CharacterSheetsTest extends TestCase
         ?string $role,
     ): CharacterAbilityChoice {
         return new CharacterAbilityChoice($code, $level, $domain, $domainCode, $grantedBy, $pairId, $role);
+    }
+
+    /**
+     * Цена вне лестницы purchased — отказ. Нулевая цена ступенью не считается.
+     *
+     * @return void
+     */
+    public function testAcceptsStoredChoices(): void
+    {
+        $slice = new CharacterRuleSlice(1, 1, 'world', [
+            $this->rule('human', 'race', ['characteristics' => [[
+                'characteristic_code' => 'strength',
+                'mode' => 'purchased',
+                'base' => ['base' => 3, 'size' => 0],
+                'purchase' => [['cost' => 2, 'value' => ['base' => 4, 'size' => 0]]],
+            ]]]),
+        ], []);
+        $slices = $this->createMock(ICharacterRuleSlices::class);
+        $slices->method('get')->with(1, 1)->willReturn($slice);
+        $sheets = $this->sheets($this->createMock(IMechanics::class), $slices);
+        $stored = [
+            'name' => 'Имя',
+            'raceCode' => 'human',
+            'abilities' => [],
+            'inventory' => [],
+            'characteristicPurchases' => [['characteristicCode' => 'strength', 'cost' => 2]],
+            'customRules' => [],
+            'active' => true,
+        ];
+        self::assertTrue($sheets->acceptsStoredChoices(1, 1, $stored));
+        $stored['characteristicPurchases'] = [['characteristicCode' => 'strength', 'cost' => 9]];
+        self::assertFalse($sheets->acceptsStoredChoices(1, 1, $stored));
+        self::assertFalse($sheets->acceptsStoredChoices(1, 1, ['raceCode' => null]));
     }
 
     /**
