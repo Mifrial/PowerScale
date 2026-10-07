@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 // phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.TooManyPublicMethods
-// 10 методов IChats плюс __construct; отдельный порт не нужен.
+// 11 методов IChats плюс __construct; отдельный порт не нужен.
 
 namespace Mifrial\Messages\Chat\Service;
 
@@ -18,6 +18,7 @@ use Mifrial\Messages\Chat\Exception\ChatDuplicateException;
 use Mifrial\Messages\Chat\Exception\ChatInvalidException;
 use Mifrial\Messages\Chat\Exception\ChatNotFoundException;
 use Mifrial\Messages\Chat\Interface\Service\IChats;
+use Mifrial\Messages\Chat\Interface\Service\IChatTypeRegistry;
 use Mifrial\Messages\Chat\Repository\ChatMemberRepository;
 use Mifrial\Messages\Chat\Repository\ChatMessageRepository;
 use Mifrial\Messages\Chat\Repository\ChatRepository;
@@ -34,6 +35,7 @@ final class Chats implements IChats
      * @param ChatMemberRepository $memberRepository Членство.
      * @param ChatMessageRepository $messageRepository Сообщения.
      * @param IUserAccounts $userAccounts Учётки соседа.
+     * @param IChatTypeRegistry $chatTypeRegistry Строки типов донора.
      * @param ChatInputNormalizer $inputNormalizer Разбор входа.
      *
      * @return void
@@ -43,6 +45,7 @@ final class Chats implements IChats
         private readonly ChatMemberRepository $memberRepository,
         private readonly ChatMessageRepository $messageRepository,
         private readonly IUserAccounts $userAccounts,
+        private readonly IChatTypeRegistry $chatTypeRegistry,
         private readonly ChatInputNormalizer $inputNormalizer = new ChatInputNormalizer(),
     ) {
     }
@@ -96,6 +99,41 @@ final class Chats implements IChats
         }
 
         $chatId = $this->chatRepository->addGroup($name);
+        foreach ($memberIds as $memberId) {
+            $this->memberRepository->add($chatId, $memberId);
+        }
+
+        return $chatId;
+    }
+
+    /**
+     * Создаёт чат зарегистрированного типа донора.
+     *
+     * @param string $type Строка из реестра.
+     * @param NewGroupChat $newGroupChat Имя и члены, как у группы.
+     *
+     * @return int Id чата.
+     *
+     * @throws ChatInvalidException Если тип не зарегистрирован или имя пусто.
+     * @throws ChatNotFoundException Если учётки нет.
+     */
+    public function addTyped(string $type, NewGroupChat $newGroupChat): int
+    {
+        if (!$this->chatTypeRegistry->isRegistered($type)) {
+            throw new ChatInvalidException('Chat type is not registered');
+        }
+
+        $name = trim($newGroupChat->getName());
+        if ($name === '') {
+            throw new ChatInvalidException('Chat name is empty');
+        }
+
+        $memberIds = $this->uniqueMemberIds($newGroupChat);
+        foreach ($memberIds as $memberId) {
+            $this->requireExistingUser($memberId);
+        }
+
+        $chatId = $this->chatRepository->addNamed(trim($type), $name);
         foreach ($memberIds as $memberId) {
             $this->memberRepository->add($chatId, $memberId);
         }
@@ -348,18 +386,19 @@ final class Chats implements IChats
     }
 
     /**
-     * Private нельзя менять состав.
+     * Состав меняется только у group.
      *
      * @param ChatRecord $chatRecord Чат.
      *
      * @return void
      *
-     * @throws ChatInvalidException Если private.
+     * @throws ChatInvalidException Если тип не group.
      */
     private function assertGroupChat(ChatRecord $chatRecord): void
     {
-        if ($chatRecord->getType() === 'private') {
-            throw new ChatInvalidException('Private chat membership is fixed');
+        $type = $chatRecord->getType();
+        if ($type !== 'group' && !$this->chatTypeRegistry->isRegistered($type)) {
+            throw new ChatInvalidException('Only a group chat can change members');
         }
     }
 }

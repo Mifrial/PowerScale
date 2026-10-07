@@ -23,6 +23,7 @@ use Mifrial\Core\User\Table\UserTable;
 use Mifrial\Core\User\Tests\UserMysqlTables;
 use Mifrial\Messages\Chat\Interface\Container\IChatContainer;
 use Mifrial\Messages\Chat\Interface\Service\IChats;
+use Mifrial\Messages\Chat\Interface\Service\IChatTypeRegistry;
 use Mifrial\Messages\Chat\Repository\ChatMemberRepository;
 use Mifrial\Messages\Chat\Schema\ChatSchema;
 use Mifrial\Messages\Chat\Service\ChatInputNormalizer;
@@ -194,6 +195,30 @@ final class ChatHttpMysqlTest extends TestCase
         self::assertTrue($inbox['success']);
         self::assertCount(1, $inbox['data']);
         self::assertSame('private', $inbox['data'][0]['type']);
+    }
+
+    /**
+     * addTyped не попадает в chat.getChats.
+     *
+     * @return void
+     */
+    public function testInboxOmitsRegisteredType(): void
+    {
+        $alice = $this->addUser('alice');
+        $chatContainer = $this->application()->getLocator()->get(IChatContainer::class);
+        self::assertInstanceOf(IChatContainer::class, $chatContainer);
+        $registry = $chatContainer->get(IChatTypeRegistry::class);
+        self::assertInstanceOf(IChatTypeRegistry::class, $registry);
+        $registry->register('donor_probe');
+        $typedId = $this->chats()->addTyped(
+            'donor_probe',
+            (new ChatInputNormalizer())->newGroupChat('Probe', $alice, []),
+        );
+        $this->setActor($alice);
+        $inbox = $this->dispatch('chat.getChats', null);
+        self::assertTrue($inbox['success']);
+        self::assertSame([], $inbox['data']);
+        self::assertSame('donor_probe', $this->chats()->getById($typedId)->getType());
     }
 
     /**

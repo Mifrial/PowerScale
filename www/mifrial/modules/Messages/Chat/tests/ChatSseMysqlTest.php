@@ -28,10 +28,12 @@ use Mifrial\Core\User\Tests\UserMysqlTables;
 use Mifrial\Messages\Chat\Exception\ChatInvalidException;
 use Mifrial\Messages\Chat\Interface\Container\IChatContainer;
 use Mifrial\Messages\Chat\Interface\Service\IChats;
+use Mifrial\Messages\Chat\Interface\Service\IChatTypeRegistry;
 use Mifrial\Messages\Chat\Repository\ChatMemberRepository;
 use Mifrial\Messages\Chat\Repository\ChatMessageRepository;
 use Mifrial\Messages\Chat\Repository\ChatRepository;
 use Mifrial\Messages\Chat\Schema\ChatSchema;
+use Mifrial\Messages\Chat\Service\ChatInputNormalizer;
 use Mifrial\Messages\Chat\Service\ChatSseService;
 use Mifrial\Messages\Chat\Service\ChatViewAssembler;
 use Mifrial\Messages\Chat\Table\ChatMemberTable;
@@ -42,6 +44,8 @@ use PHPUnit\Framework\TestCase;
 final class ChatSseMysqlTest extends TestCase
 {
     private ?IRequestContext $requestContext = null;
+
+    private ?IChatContainer $chatContainer = null;
 
     private ?IChats $chats = null;
 
@@ -212,6 +216,30 @@ final class ChatSseMysqlTest extends TestCase
     }
 
     /**
+     * Сообщение чата донорского типа не входит в кадр.
+     *
+     * @return void
+     */
+    public function testDonorTypeStaysOutOfFrame(): void
+    {
+        $alice = $this->addUser('alice');
+        $registry = $this->chatContainer()->get(IChatTypeRegistry::class);
+        self::assertInstanceOf(IChatTypeRegistry::class, $registry);
+        $registry->register('donor_probe');
+        $typedId = $this->chats()->addTyped(
+            'donor_probe',
+            (new ChatInputNormalizer())->newGroupChat('Probe', $alice, []),
+        );
+        $this->messageRepository()->add($typedId, $alice, 'hidden', [], DateTime::fromUnix(20));
+        $this->setActor($alice);
+        $frames = $this->syncFrames($this->runSse(
+            $this->query(['since' => '0']),
+            new FakeSseClock(20, 1),
+        ));
+        self::assertSame([], $frames);
+    }
+
+    /**
      * ISO в since — до потока.
      *
      * @return void
@@ -356,6 +384,8 @@ final class ChatSseMysqlTest extends TestCase
         self::assertInstanceOf(IRequestContext::class, $requestContext);
         $this->requestContext = $requestContext;
         $chatContainer = $application->getLocator()->get(IChatContainer::class);
+        self::assertInstanceOf(IChatContainer::class, $chatContainer);
+        $this->chatContainer = $chatContainer;
         $chats = $chatContainer->get(IChats::class);
         self::assertInstanceOf(IChats::class, $chats);
         $this->chats = $chats;
@@ -450,6 +480,23 @@ final class ChatSseMysqlTest extends TestCase
         self::assertInstanceOf(IRequestContext::class, $this->requestContext);
 
         return $this->requestContext;
+    }
+
+    /**
+     * Фасад чатов.
+     *
+     * @return IChats Фасад.
+     */
+    /**
+     * Контейнер Chat.
+     *
+     * @return IChatContainer Контейнер.
+     */
+    private function chatContainer(): IChatContainer
+    {
+        self::assertInstanceOf(IChatContainer::class, $this->chatContainer);
+
+        return $this->chatContainer;
     }
 
     /**

@@ -24,6 +24,7 @@ use Mifrial\Messages\Chat\Exception\ChatInvalidException;
 use Mifrial\Messages\Chat\Exception\ChatNotFoundException;
 use Mifrial\Messages\Chat\Interface\Container\IChatContainer;
 use Mifrial\Messages\Chat\Interface\Service\IChats;
+use Mifrial\Messages\Chat\Interface\Service\IChatTypeRegistry;
 use Mifrial\Messages\Chat\Schema\ChatSchema;
 use Mifrial\Messages\Chat\Service\ChatInputNormalizer;
 use Mifrial\Messages\Chat\Table\ChatMemberTable;
@@ -33,6 +34,8 @@ use PHPUnit\Framework\TestCase;
 
 final class ChatMysqlTest extends TestCase
 {
+    private ?IChatContainer $chatContainer = null;
+
     private ?IChats $chats = null;
 
     private ?IUserAccounts $userAccounts = null;
@@ -159,6 +162,48 @@ final class ChatMysqlTest extends TestCase
     }
 
     /**
+     * Зарегистрированный тип создаётся; addMember ему можно; второй вызов — новый id.
+     *
+     * @return void
+     */
+    public function testTypedChat(): void
+    {
+        $alice = $this->addUser('alice');
+        $bob = $this->addUser('bob');
+        $carol = $this->addUser('carol');
+        $registry = $this->chatContainer()->get(IChatTypeRegistry::class);
+        self::assertInstanceOf(IChatTypeRegistry::class, $registry);
+        $registry->register('donor_probe');
+        $chats = $this->chats();
+        $normalizer = new ChatInputNormalizer();
+        $firstId = $chats->addTyped('donor_probe', $normalizer->newGroupChat('Probe', $alice, [$bob]));
+        $secondId = $chats->addTyped(' donor_probe ', $normalizer->newGroupChat('Probe again', $alice, []));
+        self::assertNotSame($firstId, $secondId);
+        self::assertSame('donor_probe', $chats->getById($firstId)->getType());
+        self::assertSame('Probe', $chats->getById($firstId)->getName());
+        $memberIds = $chats->getMemberIds($firstId);
+        sort($memberIds);
+        self::assertSame([$alice, $bob], $memberIds);
+        $chats->addMember($firstId, $carol);
+        $afterJoin = $chats->getMemberIds($firstId);
+        sort($afterJoin);
+        self::assertSame([$alice, $bob, $carol], $afterJoin);
+        try {
+            $chats->addMember($firstId, $bob);
+            self::fail('duplicate member must fail');
+        } catch (ChatDuplicateException $exception) {
+            self::assertSame('CHAT_DUPLICATE', $exception->getErrorCode());
+        }
+
+        try {
+            $chats->addTyped('missing_probe', $normalizer->newGroupChat('No', $alice, []));
+            self::fail('unregistered type must fail');
+        } catch (ChatInvalidException $exception) {
+            self::assertSame('CHAT_INVALID', $exception->getErrorCode());
+        }
+    }
+
+    /**
      * Дубль членства; private addMember INVALID; последний group INVALID.
      *
      * @return void
@@ -274,6 +319,8 @@ final class ChatMysqlTest extends TestCase
         self::assertFalse($moduleManager->hasContainer('Messages', 'Chat'));
         self::assertArrayHasKey('chat.getChats', $moduleManager->getRoutes());
         $chatContainer = $application->getLocator()->get(IChatContainer::class);
+        self::assertInstanceOf(IChatContainer::class, $chatContainer);
+        $this->chatContainer = $chatContainer;
         self::assertTrue($moduleManager->hasContainer('Messages', 'Chat'));
         $chats = $chatContainer->get(IChats::class);
         self::assertInstanceOf(IChats::class, $chats);
@@ -383,6 +430,23 @@ final class ChatMysqlTest extends TestCase
         self::assertIsArray($row);
 
         return $row['last_read_message_id'];
+    }
+
+    /**
+     * Фасад чатов после setUp.
+     *
+     * @return IChats Фасад.
+     */
+    /**
+     * Контейнер Chat после setUp.
+     *
+     * @return IChatContainer Контейнер.
+     */
+    private function chatContainer(): IChatContainer
+    {
+        self::assertInstanceOf(IChatContainer::class, $this->chatContainer);
+
+        return $this->chatContainer;
     }
 
     /**

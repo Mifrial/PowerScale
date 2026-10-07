@@ -13,6 +13,7 @@ use Mifrial\Core\User\Interface\Service\IUserAccess;
 use Mifrial\Core\User\Interface\Service\IUserAccounts;
 use Mifrial\Messages\Chat\Interface\Container\IChatContainer;
 use Mifrial\Messages\Chat\Interface\Service\IChats;
+use Mifrial\Messages\Chat\Interface\Service\IChatTypeRegistry;
 use Mifrial\Messages\Chat\Repository\ChatMemberRepository;
 use Mifrial\Messages\Chat\Repository\ChatMessageRepository;
 use Mifrial\Messages\Chat\Repository\ChatRepository;
@@ -43,6 +44,7 @@ final class ChatPortFactory
             $repositories['member'],
             $repositories['message'],
             $this->userAccounts($serviceLocator),
+            $this->chatTypeRegistry($serviceLocator),
         );
     }
 
@@ -129,6 +131,25 @@ final class ChatPortFactory
         }
 
         return $chatSseService;
+    }
+
+    /**
+     * Реестр типов из контейнера Chat, тот же экземпляр, что порт.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     *
+     * @return IChatTypeRegistry Реестр.
+     *
+     * @throws KernelException Если тип порта чужой.
+     */
+    private function chatTypeRegistry(IServiceLocator $serviceLocator): IChatTypeRegistry
+    {
+        $chatTypeRegistry = $serviceLocator->get(IChatContainer::class)->get(IChatTypeRegistry::class);
+        if (!$chatTypeRegistry instanceof IChatTypeRegistry) {
+            throw new KernelException('PORT_TYPE', 'Chat requires IChatTypeRegistry');
+        }
+
+        return $chatTypeRegistry;
     }
 
     /**

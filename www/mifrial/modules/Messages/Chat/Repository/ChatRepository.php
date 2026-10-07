@@ -77,9 +77,24 @@ final class ChatRepository
      */
     public function addGroup(string $name): int
     {
-        return $this->write(function () use ($name): int {
+        return $this->addNamed('group', $name);
+    }
+
+    /**
+     * Создаёт чат с переданной строкой type. pair_key не пишет.
+     *
+     * @param string $type Уже проверенная строка.
+     * @param string $name Имя.
+     *
+     * @return int Id чата.
+     *
+     * @throws ChatInvalidException Если значения недопустимы.
+     */
+    public function addNamed(string $type, string $name): int
+    {
+        return $this->write(function () use ($type, $name): int {
             return $this->chatRecords->add([
-                'type' => 'group',
+                'type' => $type,
                 'name' => $name,
             ]);
         });

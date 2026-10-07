@@ -13,9 +13,11 @@ use Mifrial\Messages\Chat\Action\UpdateMessageVisibilityAction;
 use Mifrial\Messages\Chat\Container\ChatContainer;
 use Mifrial\Messages\Chat\Interface\Container\IChatContainer;
 use Mifrial\Messages\Chat\Interface\Service\IChats;
+use Mifrial\Messages\Chat\Interface\Service\IChatTypeRegistry;
 use Mifrial\Messages\Chat\Service\ChatHttpService;
 use Mifrial\Messages\Chat\Service\ChatPortFactory;
 use Mifrial\Messages\Chat\Service\ChatSseService;
+use Mifrial\Messages\Chat\Service\ChatTypeRegistry;
 use Mifrial\Messages\Chat\Setup\ChatModuleSetup;
 
 return [
@@ -23,6 +25,9 @@ return [
     'locator' => IChatContainer::class,
     'setup' => ChatModuleSetup::class,
     'ports' => [
+        IChatTypeRegistry::class => static function (): IChatTypeRegistry {
+            return new ChatTypeRegistry();
+        },
         IChats::class => static function (IServiceLocator $serviceLocator): IChats {
             return (new ChatPortFactory())->create($serviceLocator);
         },

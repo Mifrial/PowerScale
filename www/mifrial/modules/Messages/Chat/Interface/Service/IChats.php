@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+// phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.TooManyPublicMethods
+// 11 методов фасада: addTyped рядом с addPrivate/addGroup.
+
 namespace Mifrial\Messages\Chat\Interface\Service;
 
 use Mifrial\Messages\Chat\Dto\ChatRecord;
@@ -41,6 +44,19 @@ interface IChats
      * @throws ChatNotFoundException Если учётки нет.
      */
     public function addGroup(NewGroupChat $newGroupChat): int;
+
+    /**
+     * Создаёт чат зарегистрированного типа донора.
+     *
+     * @param string $type Строка из реестра.
+     * @param NewGroupChat $newGroupChat Имя и члены, как у группы.
+     *
+     * @return int Id чата.
+     *
+     * @throws ChatInvalidException Если тип не зарегистрирован или имя пусто.
+     * @throws ChatNotFoundException Если учётки нет.
+     */
+    public function addTyped(string $type, NewGroupChat $newGroupChat): int;
 
     /**
      * Возвращает чат по id без проверки членства.
