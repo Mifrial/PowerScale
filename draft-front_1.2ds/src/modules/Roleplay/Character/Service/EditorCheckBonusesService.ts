@@ -5,6 +5,7 @@ import type { AbilitySpec } from '@/modules/Roleplay/Rule/Dto/Ability/AbilitySpe
 import type { ScalarFormula } from '@/modules/Roleplay/Rule/Dto/Ability/ScalarFormula';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import { FormulaEvaluationService } from '@/modules/Roleplay/Character/Service/FormulaEvaluationService';
+import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
 import { aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/init';
 import { abilityCheckAdvantagesService } from '@/modules/Roleplay/Character/Service/Instance/abilityCheckAdvantagesService';
@@ -21,6 +22,7 @@ export class EditorCheckBonusesService {
   build(
     version: Pick<CharacterVersion, 'abilities' | 'inventory'> | null | undefined,
     rules: Rule[],
+    keywords: readonly Keyword[] = [],
   ): EditorCheckBonus[] {
     if (!version) return [];
 
@@ -32,10 +34,15 @@ export class EditorCheckBonusesService {
             kind: 'check',
             code: check.code,
           }),
-          ...this.itemChecks.checkAdvantageModifiersFromItems(version, rules, {
-            kind: 'check',
-            code: check.code,
-          }),
+          ...this.itemChecks.checkAdvantageModifiersFromItems(
+            version,
+            rules,
+            {
+              kind: 'check',
+              code: check.code,
+            },
+            keywords,
+          ),
           ...this.characteristicModifiersFromAbilities(version, rules, check.code),
         ];
         const aggregated = this.aggregate.aggregateSourceDeltas(modifiers).map((modifier) => ({

@@ -27,7 +27,6 @@ const itemRule = (code: string, extra: Partial<ItemSpec>): Rule => ({
 
 const emptyWeapon: ItemSpec['weapon'] = {
   min_strength: null,
-  block_profile: null,
   weapon_profiles: [],
 };
 

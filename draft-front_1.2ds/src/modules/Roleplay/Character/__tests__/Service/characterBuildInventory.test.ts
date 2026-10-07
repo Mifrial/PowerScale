@@ -207,7 +207,7 @@ describe('CharacterBuildService · инвентарь', () => {
     it('не экипирует второй двуручник, если руки заняты', () => {
       const great = itemRule('great-sword', 'Двуруч', 10, {
         occupy_hands: { min: 2, max: 2 },
-        weapon: { min_strength: null, block_profile: null, weapon_profiles: [] },
+        weapon: { min_strength: null, weapon_profiles: [] },
       });
       const catalog = [...rules, great];
       const current = {

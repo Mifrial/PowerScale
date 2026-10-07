@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { DefenseArmorOverview } from '@/modules/Roleplay/Character/Dto/Overview/DefenseOverview';
@@ -13,7 +13,7 @@ import MiscTile from '@/modules/Roleplay/Character/Component/Detail/Resources/Mi
 import AttackTile from '@/modules/Roleplay/Character/Component/Detail/Attacks/AttackTile.vue';
 import DefenseValue from '@/modules/Roleplay/Character/Component/Detail/Defense/DefenseValue.vue';
 import ArmorTile from '@/modules/Roleplay/Character/Component/Detail/Defense/ArmorTile.vue';
-import StateTile from '@/modules/Roleplay/Character/Component/Detail/States/StateTile.vue';
+import { useKeywords } from '@/modules/Roleplay/Keyword/init';
 
 const props = defineProps<{
   version: CharacterVersion;
@@ -25,7 +25,13 @@ const props = defineProps<{
 // Секции обзора: раскрыты по умолчанию, пользователь может сворачивать.
 const expanded = ref<string[]>(['characteristics', 'resources', 'misc', 'states', 'defense', 'attacks']);
 
-const overview = computed(() => characterOverviewService.build(props.version, props.rules));
+const { keywords, fetchTags } = useKeywords();
+
+onMounted(() => {
+  void fetchTags();
+});
+
+const overview = computed(() => characterOverviewService.build(props.version, props.rules, keywords.value));
 
 const primarySimple = computed(() => overview.value.characteristics.filter((c) => c.group === 'primary' && !c.derived));
 const primaryDerived = computed(() => overview.value.characteristics.filter((c) => c.group === 'primary' && c.derived));

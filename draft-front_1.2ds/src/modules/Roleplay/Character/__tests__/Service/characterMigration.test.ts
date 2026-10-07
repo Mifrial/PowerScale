@@ -297,10 +297,10 @@ describe('CharacterMigrationService', () => {
         cost_gm: 100,
         weight: null,
         special_rule_codes: [],
+        block_profile: { efficiency: { base: 3, size: 0 }, defense: { base: 4, size: 0 }, resistances: [] },
         shield: {
           min_strength: { base: 3, size: 1 },
           durability: { base: 4, size: 0 },
-          block: { efficiency: { base: 3, size: 0 }, defense: { base: 4, size: 0 }, resistances: [] },
           characteristic_limits: [
             {
               characteristic_code: 'reaction',

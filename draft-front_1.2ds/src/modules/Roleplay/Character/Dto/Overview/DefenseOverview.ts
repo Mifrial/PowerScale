@@ -5,7 +5,8 @@ export interface DefenseLineOverview {
   value: number;
   /** Размерная запись для UI (как прочность). */
   valueLabel: string;
-  durability: number;
+  /** Порог РУ. null — абсолютная применимость. */
+  durability: number | null;
   /** Источник защиты (source_code): защиты одного источника не суммируются. */
   sourceCode: string | null;
   /** Имя источника из каталога (напр. «Доспех», «Поддоспешник»). */

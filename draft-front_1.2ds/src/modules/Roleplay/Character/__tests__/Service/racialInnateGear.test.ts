@@ -33,10 +33,10 @@ const innateWeapon = (id: number | null, code: string, name: string, family: str
     innate: true,
     special_rule_codes: [],
     proficiency_family_code: family,
+    block_profile: { efficiency: dim(5), defense: dim(1), resistances: [] },
     weapon: {
       min_strength: dim(3),
       durability: dim(5, 2),
-      block_profile: { efficiency: dim(5), defense: dim(1), resistances: [] },
       weapon_profiles: [
         {
           type: 'strike',

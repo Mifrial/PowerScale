@@ -25,10 +25,10 @@ const rules: Rule[] = [
     cost_gm: 1500,
     weight: { base: 3.5, size: 0 },
     special_rule_codes: [],
+    block_profile: { efficiency: dim(4), defense: { base: 5, size: 0 }, resistances: [] },
     weapon: {
       min_strength: dim(3, 2),
       durability: dim(5, 3),
-      block_profile: { efficiency: dim(4), defense: { base: 5, size: 0 }, resistances: [] },
       weapon_profiles: [
         {
           type: 'strike',
@@ -117,10 +117,10 @@ describe('CharacterOverviewService: формулы атак', () => {
           cost_gm: null,
           weight: null,
           special_rule_codes: [],
+          block_profile: { efficiency: dim(4), defense: { base: 5, size: 0 }, resistances: [] },
           weapon: {
             min_strength: dim(3, 2),
             durability: dim(5, 3),
-            block_profile: { efficiency: dim(4), defense: { base: 5, size: 0 }, resistances: [] },
             weapon_profiles: [
               {
                 type: 'strike',
@@ -225,10 +225,10 @@ describe('CharacterOverviewService: формулы атак', () => {
       weight: null,
       innate: true,
       special_rule_codes: [],
+      block_profile: { efficiency: dim(5), defense: { base: 1, size: 0 }, resistances: [] },
       weapon: {
         min_strength: dim(3),
         durability: dim(5, 2),
-        block_profile: { efficiency: dim(5), defense: { base: 1, size: 0 }, resistances: [] },
         weapon_profiles: [
           {
             type: 'strike',
@@ -250,7 +250,6 @@ describe('CharacterOverviewService: формулы атак', () => {
       weapon: {
         min_strength: dim(3),
         durability: dim(5),
-        block_profile: null,
         weapon_profiles: [
           {
             type: 'strike',

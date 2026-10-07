@@ -50,7 +50,7 @@ export class ItemWeaponProfilesService {
       minStrength === null || minStrength === undefined ? null : new DimensionalNumber(minStrength).toString();
     const durability = weapon?.durability ?? shield?.durability;
     const durabilityLabel = durability === undefined ? null : new DimensionalNumber(durability).toString();
-    const block = weapon?.block_profile ?? shield?.block ?? null;
+    const block = spec.block_profile ?? null;
     const blockDefenseLabel = block === null ? null : new DimensionalNumber(block.defense).toString();
     const blockEfficiencyLabel = block === null ? null : new DimensionalNumber(block.efficiency).toString();
 

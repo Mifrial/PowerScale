@@ -35,7 +35,7 @@ const { openRule } = useRuleDetailSlider();
 
 const activeTab = ref<'all' | 'favorites' | AbilityType>('all');
 
-const abilities = computed(() => characterOverviewService.build(props.version, props.rules).abilities);
+const abilities = computed(() => characterOverviewService.build(props.version, props.rules, keywords.value).abilities);
 
 const abilityFilterFields: FilterField[] = [
   { key: 'name', label: 'Название', type: 'string' },

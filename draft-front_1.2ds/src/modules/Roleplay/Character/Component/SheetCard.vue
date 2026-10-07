@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { useSpaceRevision } from '@/modules/Roleplay/RuleSpace/init';
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { SHEET_SECTION_LABELS } from '@/modules/Roleplay/Character/Constant/Sheet/SHEET_SECTIONS';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { SheetSection } from '@/modules/Roleplay/Character/Enum/SheetSection';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
-import { characterOverviewService } from '@/modules/Roleplay/Character/Service/Instance/characterOverviewService';
+import { useKeywords } from '@/modules/Roleplay/Keyword/init';
 
 /**
  * Просмотр листа в контексте игры по видимым секциям (общий для персонажей-в-игре и НПС).
@@ -31,16 +31,21 @@ const props = withDefaults(
   },
 );
 
+const { keywords, fetchTags } = useKeywords();
 const spaceRevision = useSpaceRevision();
 const { signal } = useAbortable();
 const rules = ref<Rule[]>([]);
+
+onMounted(() => {
+  void fetchTags();
+});
 
 const rulesByCode = computed(() => new Map(rules.value.map((rule) => [rule.code, rule])));
 
 const sheetAbilities = computed(() => {
   if (!props.version) return [];
 
-  return characterOverviewService.build(props.version, rules.value).abilities;
+  return characterOverviewService.build(props.version, rules.value, keywords.value).abilities;
 });
 
 function ruleName(ruleCode: string | null): string | null {

@@ -59,7 +59,9 @@ const resourceViews = computed<EditorResourceView[]>(() =>
   editorResourceViewsService.build(props.resources, props.rules),
 );
 
-const checkBonuses = computed<EditorCheckBonus[]>(() => editorCheckBonusesService.build(props.build, props.rules));
+const checkBonuses = computed<EditorCheckBonus[]>(() =>
+  editorCheckBonusesService.build(props.build, props.rules, props.keywords ?? []),
+);
 const characteristicValues = computed(
   () => new Map(props.stats.map((entry) => [entry.characteristic.ruleCode, entry.characteristic.value])),
 );

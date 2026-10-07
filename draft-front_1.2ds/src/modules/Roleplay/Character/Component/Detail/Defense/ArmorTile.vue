@@ -47,7 +47,9 @@ function lineKey(line: DefenseLineOverview, index: number): string {
                 <span> сопротивления {{ line.damageTypeDative ?? line.damageTypeLabel }}</span>
               </template>
               <span v-if="line.sourceLabel"> от {{ lowerSource(line.sourceLabel) }}</span>
-              <span class="text-medium-emphasis"> · надёжность {{ line.durability }}</span>
+              <span class="text-medium-emphasis">
+                · надёжность {{ line.durability === null ? 'абсолютная' : line.durability }}
+              </span>
             </div>
           </v-card-text>
         </v-card>

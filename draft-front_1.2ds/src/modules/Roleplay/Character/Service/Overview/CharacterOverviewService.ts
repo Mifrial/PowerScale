@@ -11,6 +11,7 @@ import type { SpellDuration } from '@/modules/Roleplay/Rule/Dto/Ability/SpellDur
 import type { SpellValue } from '@/modules/Roleplay/Rule/Dto/Ability/SpellValue';
 import type { CharacteristicGroup } from '@/modules/Roleplay/Rule/Enum/CharacteristicGroup';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
+import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { CharacteristicValue } from '@/modules/Roleplay/Character/Dto/CharacteristicValue';
 import type { CharacteristicModifier } from '@/modules/Roleplay/Character/Dto/CharacteristicModifier';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
@@ -88,7 +89,7 @@ export class CharacterOverviewService {
     private readonly sourceDeltas = aggregateSourceDeltasService,
   ) {}
 
-  build(version: CharacterVersion, rules: Rule[]): CharacterOverview {
+  build(version: CharacterVersion, rules: Rule[], keywords: readonly Keyword[] = []): CharacterOverview {
     const { synced, reference, withStates, context } = this.prepared(version, rules);
     const resources = this.buildResources(synced, reference, rules, withStates);
     const abilities = this.buildAbilities(synced, reference);
@@ -96,13 +97,13 @@ export class CharacterOverviewService {
 
     return {
       characteristics: withStates.filter((overview) => overview.group !== 'combat' && overview.group !== 'base'),
-      combat: this.buildCombat(synced, withStates, reference),
+      combat: this.buildCombat(synced, withStates, reference, keywords),
       resources,
       abilities,
       misc: this.buildMisc(synced),
       inventory,
-      defense: this.buildDefense(synced, reference),
-      attacks: this.buildAttacks(synced, reference, context, rules),
+      defense: this.buildDefense(synced, reference, keywords),
+      attacks: this.buildAttacks(synced, reference, context, rules, undefined, keywords),
       states: this.buildStates(synced, reference),
     };
   }
@@ -117,16 +118,24 @@ export class CharacterOverviewService {
     profileIndex?: number,
     actionCharacteristicModifier = 0,
     instanceIndex?: number,
+    keywords: readonly Keyword[] = [],
   ): AttackOverview | null {
     const { synced, reference, context } = this.prepared(version, rules);
 
     return (
-      this.buildAttacks(synced, reference, context, rules, {
-        itemRuleCode,
-        profileType,
-        distanceIpari,
-        actionCharacteristicModifier,
-      }).find(
+      this.buildAttacks(
+        synced,
+        reference,
+        context,
+        rules,
+        {
+          itemRuleCode,
+          profileType,
+          distanceIpari,
+          actionCharacteristicModifier,
+        },
+        keywords,
+      ).find(
         (item) =>
           item.itemRuleCode === itemRuleCode &&
           item.profileType === profileType &&
@@ -367,6 +376,7 @@ export class CharacterOverviewService {
     version: CharacterVersion,
     allCharacteristics: CharacteristicOverview[],
     reference: CharacterReferenceService,
+    keywords: readonly Keyword[] = [],
   ): CombatOverview | null {
     const profilesOf = (overview: CharacteristicOverview): ('strike' | 'throw' | 'shoot')[] => {
       const spec = reference.ruleByCode(overview.ruleCode)?.spec;
@@ -383,7 +393,15 @@ export class CharacterOverviewService {
     const melee = meleeStat
       ? {
           stat: { ...meleeStat, shortName: 'Общее' },
-          weapons: this.combatWeaponTiles(version, meleeStat, reference, 'melee', profilesOf(meleeStat), proficiencyLevels),
+          weapons: this.combatWeaponTiles(
+            version,
+            meleeStat,
+            reference,
+            'melee',
+            profilesOf(meleeStat),
+            proficiencyLevels,
+            keywords,
+          ),
         }
       : null;
     const ranged = rangedStat
@@ -396,6 +414,7 @@ export class CharacterOverviewService {
             'ranged',
             profilesOf(rangedStat),
             proficiencyLevels,
+            keywords,
           ),
         }
       : null;
@@ -431,12 +450,13 @@ export class CharacterOverviewService {
     combat: 'melee' | 'ranged',
     profiles: ('strike' | 'throw' | 'shoot')[],
     proficiencyLevels: Map<string, number>,
+    keywords: readonly Keyword[] = [],
   ): CharacteristicOverview[] {
     const result: CharacteristicOverview[] = [];
     for (const item of version.inventory) {
       if (!item.equipped || item.ruleCode === null) continue;
       const rule = reference.ruleByCode(item.ruleCode);
-      const spec = this.effectiveSpecOf(item, reference);
+      const spec = this.effectiveSpecOf(item, reference, keywords);
       if (!spec?.weapon) continue;
       if (!spec.weapon.weapon_profiles.some((profile) => profiles.includes(profile.type))) continue;
 
@@ -994,7 +1014,11 @@ export class CharacterOverviewService {
     return this.stateEffects.dotEffectLabel(dot, (code) => reference.ruleByCode(code)?.name ?? code);
   }
 
-  private buildDefense(version: CharacterVersion, reference: CharacterReferenceService): DefenseOverview | null {
+  private buildDefense(
+    version: CharacterVersion,
+    reference: CharacterReferenceService,
+    keywords: readonly Keyword[] = [],
+  ): DefenseOverview | null {
     const armor: DefenseArmorOverview[] = [];
     const resistances: DefenseLineOverview[] = [];
     let shield: DefenseShieldOverview | null = null;
@@ -1002,7 +1026,7 @@ export class CharacterOverviewService {
     for (const item of version.inventory) {
       if (!item.equipped || item.ruleCode === null) continue;
       const rule = reference.ruleByCode(item.ruleCode);
-      const spec = this.effectiveSpecOf(item, reference);
+      const spec = this.effectiveSpecOf(item, reference, keywords);
       if (!spec) continue;
       if (spec.armor) {
         const lines: DefenseLineOverview[] = [];
@@ -1047,14 +1071,14 @@ export class CharacterOverviewService {
         armor.push(overview);
       }
 
-      if (spec.shield && shield === null) {
+      if (spec.shield && spec.block_profile && shield === null) {
         shield = {
           itemRuleCode: item.ruleCode,
           itemName: rule?.name ?? item.ruleCode,
           href: reference.href(item.ruleCode),
-          defense: new DimensionalNumber(spec.shield.block.defense).toString(),
-          efficiency: new DimensionalNumber(spec.shield.block.efficiency).toString(),
-          efficiencyValue: spec.shield.block.efficiency,
+          defense: new DimensionalNumber(spec.block_profile.defense).toString(),
+          efficiency: new DimensionalNumber(spec.block_profile.efficiency).toString(),
+          efficiencyValue: spec.block_profile.efficiency,
         };
       }
     }
@@ -1156,7 +1180,7 @@ export class CharacterOverviewService {
     const thresholds = new Set<number>();
     for (const item of armor) {
       for (const line of item.lines) {
-        if (line.kind !== 'defense') continue;
+        if (line.kind !== 'defense' || line.durability === null) continue;
         thresholds.add(line.durability);
       }
     }
@@ -1185,7 +1209,7 @@ export class CharacterOverviewService {
     for (const item of armor) {
       for (const line of item.lines) {
         if (line.kind !== 'defense') continue;
-        if (line.durability < minDurability) continue;
+        if (line.durability !== null && line.durability < minDurability) continue;
         entries.push({ source_code: line.sourceCode ?? item.itemRuleCode, delta: line.value });
       }
     }
@@ -1205,13 +1229,14 @@ export class CharacterOverviewService {
       profileIndex?: number;
       actionCharacteristicModifier?: number;
     },
+    keywords: readonly Keyword[] = [],
   ): AttackOverview[] {
     const attacks: AttackOverview[] = [];
 
     for (const item of version.inventory) {
       if (!item.equipped || item.ruleCode === null) continue;
       const rule = reference.ruleByCode(item.ruleCode);
-      const spec = this.effectiveSpecOf(item, reference);
+      const spec = this.effectiveSpecOf(item, reference, keywords);
       if (!spec?.weapon) continue;
 
       for (const [profileIndex, profile] of spec.weapon.weapon_profiles.entries()) {
@@ -1322,15 +1347,20 @@ export class CharacterOverviewService {
       instanceIndex,
     };
   }
-  private effectiveSpecOf(item: InventoryItem, reference: CharacterReferenceService): ItemSpec | null {
+  private effectiveSpecOf(
+    item: InventoryItem,
+    reference: CharacterReferenceService,
+    keywords: readonly Keyword[] = [],
+  ): ItemSpec | null {
     if (item.ruleCode === null) return null;
-    const spec = this.itemSpecOf(reference.ruleByCode(item.ruleCode));
-    if (!spec) return null;
+    const rule = reference.ruleByCode(item.ruleCode);
+    const spec = this.itemSpecOf(rule);
+    if (!rule || !spec) return null;
     const modifiers = (item.modifierRuleCodes ?? [])
       .map((id) => reference.ruleByCode(id))
-      .filter((rule): rule is Rule => rule !== null);
+      .filter((entry): entry is Rule => entry !== null);
 
-    return this.itemModifiers.applyStack(spec, modifiers, []).spec;
+    return this.itemModifiers.applyStack(spec, modifiers, this.itemModifiers.keywordCodes(rule, keywords)).spec;
   }
 
   private itemSpecOf(rule: Rule | null): ItemSpec | null {

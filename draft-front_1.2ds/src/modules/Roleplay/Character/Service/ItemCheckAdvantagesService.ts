@@ -2,6 +2,7 @@ import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/Characte
 import type { AdvantageModifier } from '@/modules/Roleplay/Rule/Dto/AdvantageModifier';
 import type { ItemCheckAdvantage } from '@/modules/Roleplay/Rule/Dto/Item/ItemCheckAdvantage';
 import type { ItemSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpec';
+import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { CheckAdvantageQuery } from '@/modules/Roleplay/Character/Dto/CheckAdvantageQuery';
 import { itemModifierService, aggregateSourceDeltasService } from '@/modules/Roleplay/Rule/init';
@@ -16,6 +17,7 @@ export class ItemCheckAdvantagesService {
     version: Pick<CharacterVersion, 'inventory'> | null | undefined,
     rules: Rule[],
     query?: CheckAdvantageQuery,
+    keywords: readonly Keyword[] = [],
   ): AdvantageModifier[] {
     if (!version) return [];
     const entries: AdvantageModifier[] = [];
@@ -26,7 +28,11 @@ export class ItemCheckAdvantagesService {
       const modifiers = (item.modifierRuleCodes ?? [])
         .map((id) => rules.find((entry) => entry.code === id))
         .filter((entry): entry is Rule => entry != null);
-      const spec = this.itemModifiers.applyStack(rule.spec as ItemSpec, modifiers, []).spec;
+      const spec = this.itemModifiers.applyStack(
+        rule.spec as ItemSpec,
+        modifiers,
+        this.itemModifiers.keywordCodes(rule, keywords),
+      ).spec;
       for (const effect of spec.check_advantages ?? []) {
         if (effect.delta === 0 || !this.matchesQuery(effect, query)) continue;
         entries.push({
