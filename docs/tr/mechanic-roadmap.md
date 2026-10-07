@@ -1,6 +1,18 @@
 # Нарезка PHP Engine Roleplay/Mechanic
 
-**Статус:** план, 2026-10-02. Границы — [`architecture.md`](architecture.md). Стандарты PHP — [`php-coding-standards.md`](php-coding-standards.md). Каталог и HTTP — [`mechanic-plan-02.md`](mechanic-plan-02.md). Vue-контракт Binding и `runEvent` — [`mechanic-plan-03.md`](mechanic-plan-03.md). Потребитель листа — [`character-roadmap.md`](character-roadmap.md), шаг C3.
+**Статус:** план, 2026-10-07. Сессии 1–5 сделаны. Контракт capability
+среза надёжности закрыт как `BACKEND_OPEN`, но production handler/content,
+который её включает, ещё не подтверждён. Инициатива — проверка G18 по
+признаку `CheckSpec` из шага 15 Rule, не новый хендлер. Запись раны и
+истощения в реестр `runEvent` не ставить — поле листа выбирает Character C11.
+Границы — [`architecture.md`](architecture.md). Стандарты PHP —
+[`php-coding-standards.md`](php-coding-standards.md). Каталог и HTTP —
+[`mechanic-plan-02.md`](mechanic-plan-02.md). Vue-контракт Binding и
+`runEvent` — [`mechanic-plan-03.md`](mechanic-plan-03.md). Потребитель листа —
+[`character-roadmap.md`](character-roadmap.md), шаг C3. Потребитель проверки —
+[`game-roadmap.md`](game-roadmap.md), шаг G18, уже сделан. Инициатива G21 идёт
+через эту проверку. Признак, какая карточка ею является, добавляет шаг 15
+[`rule-roadmap.md`](rule-roadmap.md), не эта линия.
 
 Цель линии: PHP Mechanic выполняет `runEvent` в процессе. Публичный фасад. Хендлер `purchase_surcharge` на событии `character.osSteps`. Снимок — `MechanicBinding` и узкий контекст (`abilityLevels`, `abilityKeywords`, `racialAbilityCodes`, `osSurchargeTotal`, `surchargeItems`). Не лист и не `Rule`.
 
@@ -10,11 +22,11 @@
 
 Vue `resolveActive` молча пропускает строку без хендлера. Fail closed на save — критерий Character C4/C5, не этой линии.
 
-Вне линии, в реестр `runEvent` не ставить: `injury_efficiency`, `exhaustion_wound`, `state_write`, `blood_clotting`, `roll`, `roll_score_adjust`; хендлеры `six_one_rule`, `critical_strike`, `advantage_disadvantage`, `movement_state`.
+Вне линии, в реестр `runEvent` не ставить: `injury_efficiency`, `exhaustion_wound`, `state_write`, `blood_clotting`; хендлеры `critical_strike`, `movement_state`.
 
 ## Сессии
 
-План-файл шага пишем, когда шаг начинается. Рабочих сессий две: ядро, затем публичный вызов.
+План-файл шага пишем, когда шаг начинается. Сессии 1–3 закрыли лист. Сессия 4 закрыла бросок до кода G18.
 
 ### 1. Роадмап — `DONE`
 
@@ -39,3 +51,24 @@ Vue `resolveActive` молча пропускает строку без хенд
 Блокируется кодом сессии 2. Разблокирует Character C3 по [`character-roadmap.md`](character-roadmap.md). C3 — не шаг этого файла: Character собирает Binding и зовёт фасад; Mechanic по-прежнему не импортирует Character.
 
 После сессии 3 линия Mechanic для листа закрыта.
+
+### 4. Бросок — `DONE`
+
+[`mechanic-plan-06.md`](mechanic-plan-06.md). Порт `IMechanicRolls` на уже существующем `runEvent`. В реестре payload `roll` и `roll_score_adjust`, хендлеры `six_one_rule` и `advantage_disadvantage`. Сравнение итога — `rate`.
+
+Потребитель — Game G18: он собирает binding и зовёт фасад, свою формулу кубов не пишет. Отдельного HTTP `mechanic.run` нет. Разбор цепочки `parent_check_code` эта сессия не делает.
+
+Capability среза надёжности сессией 4 не закрыта. Контракт вынесен в
+отдельный [`mechanic-plan-07.md`](mechanic-plan-07.md).
+
+Не входит: `critical_strike`, `movement_state`, раны, истощение, свёртывание, запись состояний. Character и Game эта сессия не меняет. Mechanic не начинает импортировать Character, Rule и Game.
+
+Блокируется кодом сессии 3. Разблокирует код G18 по [`game-roadmap.md`](game-roadmap.md). G18 — не шаг этого файла.
+
+### 5. Capability среза надёжности — `DONE` (`BACKEND_OPEN`)
+
+[`mechanic-plan-07.md`](mechanic-plan-07.md). Публичный
+`IMechanicEngine::hasReliabilityCut` и marker `IReliabilityCut` позволяют
+потребителю спрашивать capability без сравнения с кодом механики.
+Production handler и content, которые реализуют этот marker для реального
+типа урона, в этот статус не входят и остаются prerequisite для полного P1.

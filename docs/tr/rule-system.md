@@ -46,6 +46,10 @@ DTO-слой также содержит связанные модели для:
 
 ## Общие контракты
 
+### Экземпляр может отсутствовать
+
+Карточка правила в ревизии может быть, а может не быть. Код потребителя не привязывается к наличию конкретного экземпляра: строка вроде `check-initiative` в Game, Character и Mechanic не зашивается. Поведение выбирается по типу и полям `spec` уже загруженного среза. Нет подходящей карточки — обычный отказ этого среза, не запасной зашитый код.
+
 ### Ссылки
 
 Межправильные ссылки используют семантический `code` (`DEC-060`): в спеках `characteristic_code` и аналогичные `*_code`, в DTO листа и игры — `ruleCode`, `raceRuleCode`, `sourceRuleCode` и те же имена на игровых полях вне листа. URL каталога — `/space/{spaceCode}/{ctx}/rules/{ruleCode}` (`ctx` — `draft` или номер ревизии). `Rule.id` — `number | null`: ключ строки хранения; `null` — черновик или импорт, пока правило не опубликовано. Numeric `id` не принимается на публичных DTO/API и не используется как fallback-резолв. Файл ревизии идентифицирует правила только `code` (без `id`/`spaceId`).
@@ -167,7 +171,7 @@ Item имеет `category` (`money`, `equipment`, `other`), `cost_gm`, optional 
 
 Weapon содержит minimum strength, block profile и `weapon_profiles` для `strike`, `throw`, `shoot`. Профиль включает distance, range, damage/formula, damage type, penetration и accuracy.
 
-Armor содержит defense slots, resistance slots и characteristic limits. Shield содержит minimum strength и block profile. Слоты хранят durability и optional `source_code`.
+Armor содержит defense slots, resistance slots и characteristic limits. Shield содержит minimum strength и block profile. Слоты хранят `durability` или не хранят её, и optional `source_code`. Отсутствие `durability` — абсолютная применимость.
 
 Damage type требует forms `genitive` и `dative`; редактор и publication не пропускают неполную spec. Resistance ссылается на damage type по `code`.
 

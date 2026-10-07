@@ -1,6 +1,6 @@
 # Нарезка Roleplay/Character
 
-**Статус:** план, 2026-09-09. Канон — [`character-system.md`](character-system.md). Границы — [`architecture.md`](architecture.md). Стандарты PHP — [`php-coding-standards.md`](php-coding-standards.md). Engine справочника — [`rule-roadmap.md`](rule-roadmap.md) (блок «Позже»), Vue-контракт Binding — [`mechanic-plan-03.md`](mechanic-plan-03.md).
+**Статус:** план, 2026-10-05. Канон — [`character-system.md`](character-system.md). Границы — [`architecture.md`](architecture.md). Стык Game — [`game-roadmap.md`](game-roadmap.md) (G1–G19 `DONE`, G20 ждёт шаг C10). Стандарты PHP — [`php-coding-standards.md`](php-coding-standards.md). Engine справочника — [`rule-roadmap.md`](rule-roadmap.md) (блок «Позже»), Vue-контракт Binding — [`mechanic-plan-03.md`](mechanic-plan-03.md). Обход формулы — [`rule-plan-03.md`](rule-plan-03.md).
 
 Цель линии: серверный модуль **`Roleplay/Character`**. Create/update actual state — только после серверного построения листа и полной validation. Таблицы, HTTP и mock сами по себе save не закрывают.
 
@@ -88,26 +88,52 @@ Immutable `(spaceId, revision)` через `IRuleSpaces` (не часы в об�
 
 По `code`; actual до успеха не портить; `ok` / `resolved` / `conflicts`; повтор C4+C5 на target revision.
 
-### C8. Граница Game membership — `TODO`
+### C8. Граница Game membership — `PARTIAL`
 
-Roadmap: [`docs/specs/character-actual-session-source-roadmap.md`](../specs/character-actual-session-source-roadmap.md). Контракт: [`docs/specs/character-actual-session-source-plan.md`](../specs/character-actual-session-source-plan.md).
+Character Game не импортирует ([`architecture.md`](architecture.md)). Membership и сессия живут в Game ([`game-roadmap.md`](game-roadmap.md)). Спека [`../specs/character-actual-session-source-roadmap.md`](../specs/character-actual-session-source-roadmap.md) порядок стыка не заменяет.
 
-После контракта Game: `approvedCharacterVersion` как moderation baseline, `getCharacterDiff`, `canStartSession`/`isActiveSessionParticipant`, Game-owned session/battle state и actual runtime mutation без Character → Game import. Membership tables остаются вне Character, если backend ownership сохранит их за Game. Реализационный порядок: [`docs/specs/character-actual-session-source-roadmap.md`](../specs/character-actual-session-source-roadmap.md).
+Уже закрыто Game:
 
-R3-FE подготавливает только frontend/mock Game session/battle snapshot,
-idempotency и lifecycle seams. Это не закрывает backend Character/Game
-transactions, actual effect mutation, SSE или crash recovery.
+- G3–G5: membership, `approvedCharacterVersion`, semantic diff, `canStartSession`, `isActiveSessionParticipant`, запрет migrate активного участника. `character.migrate` зовёт порт «участник в сессии».
+- G10: порт мутации actual — typed patch и ожидаемая `actual_version`.
+- G13: удар `1 → 1` пишет лист через этот порт вместе с версией боя.
+- G15: доставка уже принятого итога — outbox игры `game_delivery` и `/api/game/sync`, не общий хаб. Повтор кадра лист не пишет.
 
-R7-FE расширяет эту frontend/mock readiness публичными lifecycle transitions,
-active-participant guards, moderation CAS, terminal cleanup и recovery
-fixtures. C8 backend membership/session transactions, durable process state,
-SSE, outbox и production authorization остаются `BACKEND_OPEN`.
+TODO, в линии G1–G16 этого нет:
+
+- process: закрыт Game G17.
+- crash recovery: G15 не восстанавливает оборванную команду и не откатывает уже применённый итог. Отдельного шага Game нет.
+- production authorization: каркас прав G2 — `BACKEND_OPEN`, не production-контур C8. Отдельного шага Game нет.
+
+Battleground и `ISpatialResolver` в этот хвост не входят.
 
 ### C9. Runtime листа вне create — `TODO`
 
-Roadmap: [`docs/specs/character-actual-session-source-roadmap.md`](../specs/character-actual-session-source-roadmap.md). Контракт: [`docs/specs/character-actual-session-source-plan.md`](../specs/character-actual-session-source-plan.md).
+Не дубль C4 и не хвост C8. Decay, DOT и каст линия G1–G15 не делает: G10 — порт мутации, G13 — один удар `1 → 1`. `changes_pending` не блокирует текущего participant и блокирует следующую session — это допуск G4, не runtime-эффект. Отдельные implementation tasks остаются `TODO`.
 
-Не дубль C4. Decay, DOT, каст и другие runtime effects являются Game/Character integration verticals: Character mutation pipeline сохраняет actual, Game владеет process/battle state. `changes_pending` не блокирует текущего participant, но блокирует следующую session. Реализационный порядок: [`docs/specs/character-actual-session-source-roadmap.md`](../specs/character-actual-session-source-roadmap.md); отдельные implementation tasks остаются `TODO`.
+### C10. Контекст формулы — `DONE`
+
+Зависимость: C4. Обход узлов уже есть: `IFormulaEvaluations` шага 14 Rule. G20 его ждёт и этим шагом не начинается.
+
+Порт Character по уже записанному листу собирает `FormulaContext`. В листе уже лежат `abilityLevels` и `characteristicPurchases` (`characteristicCode`, `value.base`, `value.size`). Характеристики и уровни способностей берутся оттуда. Параметров и баз характеристик действий в этом документе нет: в контексте они пустые, второй лист под них не строится. `IFormulaEvaluations` этот шаг не вызывает.
+
+Тот же разбор принимает документ листа, не только id персонажа. Game сможет отдать им JSON версии NPC, не заводя в Character чтение `npc`. Character Game не импортирует. HTTP нет. Удар, проверка и урон не считаются.
+
+### C11. Патч исхода удара — `TODO`
+
+Зависимость: порт мутации G10, уже лежащий в Character. Не C9 и не шаг Mechanic.
+
+Порт `ICharacterActualMutations` получает kind, которым удар записывает уже посчитанное число. Какое поле листа меняется, выбирает план этого шага. Game поле не выбирает и kind не заводит. Хендлеры `injury_efficiency`, `exhaustion_wound` и `state_write` в реестр Mechanic не ставятся. DOT и каст не входят.
+
+Пока этот kind не назван, Game G22 не начинается.
+
+### C12. Проекция боевых слоёв — `DONE` (`BACKEND_OPEN`)
+
+План: [`character-plan-12.md`](character-plan-12.md). Чтение листа игрока и
+документа NPC в typed список слоёв на стеке вызова. Проекция включает
+надетые item layers, resistance grants и выбранный надетый block item. Лист и
+бой список не хранят. Это разблокировало базовый resistance path
+`game-plan-28`; полная блокирующая ветка и P1 ещё не закрыты.
 
 ## Порядок
 
@@ -118,8 +144,10 @@ Roadmap: [`docs/specs/character-actual-session-source-roadmap.md`](../specs/char
 - C4 без C2; C4 без fail-closed Engine (C3 или эквивалентный порт);
 - C5 без C3 и без C4;
 - C7 без C4/C5;
-- C8 без Game;
-- C9 как обход C5.
+- C8 целиком, пока открыты process, crash recovery и production authorization;
+- C9 как обход C5 или как закрытие хвостов C8;
+- C10 без C4; C10 как обход формулы в Game или как шаг G20;
+- C11 как хендлер ран в Mechanic или как шаг G22.
 
 ## Гейты
 

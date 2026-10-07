@@ -1,6 +1,6 @@
 # Нарезка Roleplay/Rule
 
-**Статус:** план, 2026-09-05. Канон — [`rule-system.md`](rule-system.md). Часы — [`versioning-roadmap.md`](versioning-roadmap.md), [`versioning-plan-01.md`](versioning-plan-01.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). `DEC-080`, `DEC-060`, `DEC-062`.
+**Статус:** план, 2026-10-05. Канон — [`rule-system.md`](rule-system.md). Часы — [`versioning-roadmap.md`](versioning-roadmap.md), [`versioning-plan-01.md`](versioning-plan-01.md). Стандарты — [`php-coding-standards.md`](php-coding-standards.md). `DEC-080`, `DEC-060`, `DEC-062`.
 
 Цель линии: отдельные PHP-модули **`Roleplay/Keyword`**, **`Roleplay/Mechanic`**, **`Roleplay/Rule`**, затем оператор **`Roleplay/RuleSpace`**. Колонка и `Reference` появляются вместе с целевым модулем. В `OPEN` — только то, без чего persist уже живёт (валидация spec по типам, хендлеры Engine).
 
@@ -70,7 +70,19 @@ Versioning 1 (`vt_note`) сделан. ST 18–20, Cache 1 — закрыты.
 
 [`rulespace-plan-11-sections-vue.md`](rulespace-plan-11-sections-vue.md). **Каркас Vue сделан.** Редактор секций остаётся внутри `Roleplay/RuleSpace`: локальный draft каталога, просмотр snapshot старых ревизий, публикация через существующий `ruleSpace.commitDraft`. Отдельный модуль `Roleplay/RuleSection` и action `updateSections` не вводятся.
 
-## Позже (явный OPEN, не шаги 4–13)
+## 14. Исполнитель формул
+
+[`rule-plan-03.md`](rule-plan-03.md). **Каркас PHP сделан.** Обход узлов `ScalarFormula` и `DimensionalFormula` в `Roleplay/Rule`: узел и узкий контекст вызывающего → число. `to_scalar` внутри того же обхода. Неизвестный узел — `RULE_INVALID`. Лист не читается. Character и Game не импортируются. Удар, проверка, `CheckSpec` и `IMechanicRolls::rate` не входят. HTTP нет. Спеки не заморожены. G20 не начат.
+
+## 15. Признак инициативы на проверке
+
+[`rule-plan-04.md`](rule-plan-04.md). **Каркас PHP сделан.** На `CheckSpec` bool `initiative` (`isInitiative()`): эта проверка задаёт инициативу. Нет ключа — `false`. Код карточки не зашит, каталог не наполнен. Бросок, `IMechanicRolls` и порядок хода не входят. Character и Game не импортируются. Потребитель — Game G21; план G21 этим шагом не написан.
+
+## 16. Боевые слои — стоп
+
+[`rule-plan-07.md`](rule-plan-07.md). **Rule-граница подтверждена, полный бой не закрыт.** Spec слотов, `defense_ignored`, пробития и профиля блока разбирается в Rule, но Rule не собирает список слоёв цели, не выбирает реакцию и не считает полную атаку. `game-plan-28` частично закрыл Character-проекцию и базовый Game resistance path; block check, подключение penetration, ОД и production reliability handler остаются в Game/Mechanic. Nullable `durability` сделан в [`rule-plan-08.md`](rule-plan-08.md): нет ключа — null. Фронт всё ещё шлёт целое. Модификатор предмета — [`rule-plan-09.md`](rule-plan-09.md). Срезы 1–4 сделаны: `operations` в Rule, на фронте и в каталоге. Новый слот сопротивления без порога получает null. Один профиль блока предмета — неначатый [`rule-plan-10.md`](rule-plan-10.md). Не механика.
+
+## Позже (явный OPEN, не шаги 4–16)
 
 - Вынос Vue Keyword и Mechanic из папки Rule — сделан ([`keyword-plan-03.md`](keyword-plan-03.md), [`mechanic-plan-03.md`](mechanic-plan-03.md)).
 - Поверхность Vue `Rule/init` — сделано ([`rule-plan-02-init-surface.md`](rule-plan-02-init-surface.md); Constant/Value публичны; не PHP Engine).
@@ -92,6 +104,7 @@ Versioning 1 (`vt_note`) сделан. ST 18–20, Cache 1 — закрыты.
 - 9 без 4; копирование секций на inherit — после 4, лучше после 6 если секции входят в публикацию.
 - 10 без 7.
 - 11 без 1. 12 без 2. 11 и 12 независимы от RuleSpace; не блокер шага 4.
+- 14 без 3. Не шаг Character и не G20.
 - Часы commit внутри Rule; `Versioned*` в SmartTable; eager `Core/*`.
 - Keyword/Mechanic как кластер Versioning.
 - Карты `keyword`/`mechanic` внутри модуля Rule.

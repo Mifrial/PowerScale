@@ -1,6 +1,6 @@
 # Нарезка Messages/Chat
 
-**Статус:** план, 2026-09-04. Канон UI/DTO — [`chat-system.md`](chat-system.md). Стандарты PHP — [`php-coding-standards.md`](php-coding-standards.md). Конвейер — [`architecture.md`](architecture.md). Setup — [`kernel-plan-01-setup.md`](kernel-plan-01-setup.md). User/Auth закрыты.
+**Статус:** план, 2026-10-04. Шаги 1–7 сделаны. Канон UI/DTO — [`chat-system.md`](chat-system.md). Стандарты PHP — [`php-coding-standards.md`](php-coding-standards.md). Конвейер — [`architecture.md`](architecture.md). Setup — [`kernel-plan-01-setup.md`](kernel-plan-01-setup.md). User/Auth закрыты.
 
 Порядок сверху вниз. PHP-модуль **`Messages/Chat`** (ленивый, не `Core/*`). Хост: не Roleplay, не Auth `Service/`, публично User.
 
@@ -42,11 +42,21 @@ Kernel `action.php`, cookie, актор, CSRF. SmartTable Basic, setup, `powersc
 
 ## 6. Создать host private/group
 
-Подробно: [`chat-plan-06.md`](chat-plan-06.md). **Сделано:** HTTP `chat.addPrivate` / `chat.addGroup` + UI мессенджера. Inbox и SSE — только `private`/`group`. Game / обсуждения — не этот список и не этот create.
+Подробно: [`chat-plan-06.md`](chat-plan-06.md). **Сделано:** HTTP `chat.addPrivate` / `chat.addGroup` + UI мессенджера. Inbox и SSE — только `private`/`group`. Донорский чат — не этот список и не этот create.
+
+## 7. Непрозрачный тип донора
+
+Подробно: [`chat-plan-07.md`](chat-plan-07.md). **Сделано:** порт `IChatTypeRegistry` и `IChats::addTyped`. Inbox и SSE по-прежнему только `private`/`group`. Чат игры этим шагом не создаётся.
+
+Chat не импортирует Game, Character и Rule. Колонки `game_id` нет и в этом шаге не появляется. Имена вроде `game`, `game_discussion`, `character_discussion` — строки донора, не каталог модуля Chat и не знание хоста о чужой таблице.
+
+Хост принимает регистрацию типа: непрозрачная строка и контракт плагина. Донор создаёт чат этого типа через фасад `IChats`, не через `chat.addPrivate` и `chat.addGroup`. Inbox мессенджера и `/api/chat/sync` по-прежнему только `private` и `group`: чужой тип туда не всплывает.
+
+Этот шаг не создаёт чат игры, не пишет `returnMessageId` и не открывает вкладку Discussion. Донор делает это своим следующим шагом, когда хост уже принимает тип. Battleground и его SSE сюда не входят.
 
 ## Позже
 
-`sendSystemMessage` / `thread`; типы `game` / `character_discussion`; Files; macros; хаб Kernel (два `EventSource` на battlemap до хаба); SSE battleground.
+`sendSystemMessage` / `thread`; Files; macros; хаб Kernel (два `EventSource` на battlemap до хаба); SSE battleground.
 
 ## Параллелить нельзя
 
@@ -54,5 +64,6 @@ Kernel `action.php`, cookie, актор, CSRF. SmartTable Basic, setup, `powersc
 - `chat.sync` как action «пока нет SSE».
 - Одно соединение на `userId`.
 - Сцена в chat-sync.
-- FK `game_id` до Game.
+- FK `game_id` и импорт Roleplay из Chat.
+- Шаг 7 как каталог типов `game` / `character_discussion` внутри Chat.
 - 5 без [`smarttable-plan-17-aggregate.md`](smarttable-plan-17-aggregate.md), если в шаге нужны unread/preview пачкой (не копировать `getCountsByGroupIds`).
