@@ -8,6 +8,7 @@ namespace Mifrial\Core\Auth\Tests;
 // phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.ClassTooLong
 // phpcs:disable MifrialCodingStandard.Metrics.ClassQuality.ClassComplexityTooHigh
 
+use Closure;
 use Mifrial\Core\Auth\Dto\Action\UserCreateInput;
 use Mifrial\Core\Auth\Dto\AuthSettings;
 use Mifrial\Core\Auth\Exception\AuthInvalidException;
@@ -76,7 +77,6 @@ use Mifrial\Core\User\Service\UserViewAssembler;
 use Mifrial\Core\User\Table\UserGroupMemberTable;
 use Mifrial\Core\User\Table\UserGroupTable;
 use Mifrial\Core\User\Table\UserTable;
-use Closure;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 
