@@ -16,6 +16,7 @@ export const mockItemImport: Rule[] = [
       'При блокировании двумя руками вы можете считать блокирование равным [Телосложение], вплоть до значения [Прочность].',
     spaceId: 1,
     spec: {
+      block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 4, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 200,
       weight: { base: 1.0, size: 0 },
@@ -25,7 +26,6 @@ export const mockItemImport: Rule[] = [
       weapon: {
         min_strength: { base: 4, size: 1 },
         durability: { base: 5, size: 2 },
-        block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 4, size: 0 }, resistances: [] },
         weapon_profiles: [
           {
             type: 'strike',
@@ -59,6 +59,7 @@ export const mockItemImport: Rule[] = [
     description: 'Кровавое: Оружие наносит раны с силой [Повреждения / 3].',
     spaceId: 1,
     spec: {
+      block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 3, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 2000,
       weight: { base: 0.5, size: 0 },
@@ -67,7 +68,6 @@ export const mockItemImport: Rule[] = [
       weapon: {
         min_strength: { base: 4, size: 0 },
         durability: { base: 3, size: 2 },
-        block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 3, size: 0 }, resistances: [] },
         weapon_profiles: [
           {
             type: 'strike',
@@ -121,6 +121,7 @@ export const mockItemImport: Rule[] = [
       'Длинное для дробящего: получает помеху для дробящего удара, если в дистанции удара занято больше двух сторон(низ, верх, право, лево, спереди, сзади) за каждую после второй сторону.',
     spaceId: 1,
     spec: {
+      block_profile: { efficiency: { base: 3, size: 0 }, defense: { base: 4, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 1000,
       weight: { base: 1.0, size: 0 },
@@ -129,7 +130,6 @@ export const mockItemImport: Rule[] = [
       weapon: {
         min_strength: { base: 4, size: 0 },
         durability: { base: 5, size: 3 },
-        block_profile: { efficiency: { base: 3, size: 0 }, defense: { base: 4, size: 0 }, resistances: [] },
         weapon_profiles: [
           {
             type: 'strike',
@@ -208,6 +208,7 @@ export const mockItemImport: Rule[] = [
       'Гибкое: Попадания с -1РУ атаки и больше игнорируют защиту от блокирования оружием.\nДлинное: получает помеху, если в дистанции удара занято больше двух сторон(низ, верх, право, лево, спереди, сзади) за каждую после второй сторону.\nСила попаданий кнута по целям в радиусе 1 ипари снижена на размер.\nДля блокирования используется обе руки.',
     spaceId: 1,
     spec: {
+      block_profile: { efficiency: { base: 3, size: 0 }, defense: { base: 2, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 100,
       weight: { base: 0.7, size: 0 },
@@ -216,7 +217,6 @@ export const mockItemImport: Rule[] = [
       weapon: {
         min_strength: { base: 5, size: 0 },
         durability: { base: 5, size: 2 },
-        block_profile: { efficiency: { base: 3, size: 0 }, defense: { base: 2, size: 0 }, resistances: [] },
         weapon_profiles: [
           {
             type: 'strike',
@@ -251,6 +251,7 @@ export const mockItemImport: Rule[] = [
       'Оружие не долетает, если сила броска на два размера чем при меньше минимальной.\nКритическое: 1 при проверках на попадание этим оружием дают дополнительный успех.\nУдар этим оружием получает преимущество на попадание по блокирующим этот удар оружием.',
     spaceId: 1,
     spec: {
+      block_profile: { efficiency: { base: 3, size: 0 }, defense: { base: 3, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 800,
       weight: { base: 0.5, size: 0 },
@@ -259,7 +260,6 @@ export const mockItemImport: Rule[] = [
       weapon: {
         min_strength: { base: 4, size: 0 },
         durability: { base: 5, size: 1 },
-        block_profile: { efficiency: { base: 3, size: 0 }, defense: { base: 3, size: 0 }, resistances: [] },
         weapon_profiles: [
           {
             type: 'strike',
@@ -345,6 +345,7 @@ export const mockItemImport: Rule[] = [
       'Оружие не долетает, если сила броска на два размера чем при меньше минимальной.\nКритическое: 1 при проверках на попадание этим оружием дают дополнительный успех.\nУдар этим оружием получает преимущество на попадание по блокирующим этот удар оружием.',
     spaceId: 1,
     spec: {
+      block_profile: { efficiency: { base: 3, size: 0 }, defense: { base: 3, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 800,
       weight: { base: 0.5, size: 0 },
@@ -353,7 +354,6 @@ export const mockItemImport: Rule[] = [
       weapon: {
         min_strength: { base: 4, size: 0 },
         durability: { base: 3, size: 2 },
-        block_profile: { efficiency: { base: 3, size: 0 }, defense: { base: 3, size: 0 }, resistances: [] },
         weapon_profiles: [
           {
             type: 'strike',
@@ -400,6 +400,7 @@ export const mockItemImport: Rule[] = [
       'Если сила броска на размер меньше чем при минимальной силе, урон оружия уменьшен вдвое. Оружие не долетает, если сила броска на два размера меньше, чем при меньше минимальной.\nКритическое: 1 при проверках на попадание этим оружием дают дополнительный успех.\nЗа каждые [Дальнобойность] ипари до цели сила броска уменьшается на размер.\nУдар этим оружием получает преимущество на попадание по блокирующим этот удар оружием.',
     spaceId: 1,
     spec: {
+      block_profile: { efficiency: { base: 3, size: 0 }, defense: { base: 2, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 200,
       weight: { base: 0.2, size: 0 },
@@ -408,7 +409,6 @@ export const mockItemImport: Rule[] = [
       weapon: {
         min_strength: { base: 3, size: 0 },
         durability: { base: 5, size: 3 },
-        block_profile: { efficiency: { base: 3, size: 0 }, defense: { base: 2, size: 0 }, resistances: [] },
         weapon_profiles: [
           {
             type: 'strike',
@@ -486,6 +486,7 @@ export const mockItemImport: Rule[] = [
       'Рубящий удар: урон [Сила − 2] рубящего · пробитие Сила↓↓ · точность 4. Колющий удар: урон [Сила − 4] колющего · пробитие Сила↓ · точность 4. Блок: 4 · эффективность 4.',
     spaceId: 1,
     spec: {
+      block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 4, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 2000,
       weight: { base: 1.0, size: 0 },
@@ -494,7 +495,6 @@ export const mockItemImport: Rule[] = [
       weapon: {
         min_strength: { base: 5, size: 0 },
         durability: { base: 5, size: 4 },
-        block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 4, size: 0 }, resistances: [] },
         weapon_profiles: [
           {
             type: 'strike',
@@ -555,6 +555,7 @@ export const mockItemImport: Rule[] = [
     description: 'Это оружие наносит раны с силой [Нанесённые повреждения / 3], вместо обычных.',
     spaceId: 1,
     spec: {
+      block_profile: { efficiency: { base: 3, size: 0 }, defense: { base: 4, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 1500,
       weight: { base: 1.0, size: 0 },
@@ -563,7 +564,6 @@ export const mockItemImport: Rule[] = [
       weapon: {
         min_strength: { base: 5, size: 0 },
         durability: { base: 5, size: 4 },
-        block_profile: { efficiency: { base: 3, size: 0 }, defense: { base: 4, size: 0 }, resistances: [] },
         weapon_profiles: [
           {
             type: 'strike',
@@ -625,6 +625,7 @@ export const mockItemImport: Rule[] = [
       'Каждый удар полуторным мечом как дополнительным оружием и атака им требуют доплаты ещё 1ОД, если ваша сила не превышает минимальную на размер или больше.',
     spaceId: 1,
     spec: {
+      block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 5, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 3500,
       weight: { base: 1.5, size: 0 },
@@ -633,7 +634,6 @@ export const mockItemImport: Rule[] = [
       weapon: {
         min_strength: { base: 4, size: 1 },
         durability: { base: 5, size: 4 },
-        block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 5, size: 0 }, resistances: [] },
         weapon_profiles: [
           {
             type: 'strike',
@@ -695,6 +695,7 @@ export const mockItemImport: Rule[] = [
       'Каждый удар этим оружием требуют доплаты ещё 1ОД, если только ваша сила не превышает минимальную на размер или больше.\nДлинное: получает помеху, если в дистанции удара занято больше двух сторон(низ, верх, право, лево, спереди, сзади) за каждую после второй сторону.',
     spaceId: 1,
     spec: {
+      block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 6, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 6000,
       weight: { base: 3.0, size: 0 },
@@ -704,7 +705,6 @@ export const mockItemImport: Rule[] = [
       weapon: {
         min_strength: { base: 4, size: 2 },
         durability: { base: 5, size: 4 },
-        block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 6, size: 0 }, resistances: [] },
         weapon_profiles: [
           {
             type: 'strike',
@@ -766,6 +766,7 @@ export const mockItemImport: Rule[] = [
       'Каждый удар этим оружием требуют доплаты ещё 1ОД, если только ваша сила не превышает минимальную на размер или больше.\nДлинное: получает помеху, если в дистанции удара занято больше двух сторон(низ, верх, право, лево, спереди, сзади) за каждую после второй сторону.\nЭто оружие наносит раны с силой [Нанесённые повреждения / 2], вместо обычных.',
     spaceId: 1,
     spec: {
+      block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 6, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 10000,
       weight: { base: 4.0, size: 0 },
@@ -775,7 +776,6 @@ export const mockItemImport: Rule[] = [
       weapon: {
         min_strength: { base: 5, size: 2 },
         durability: { base: 5, size: 4 },
-        block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 6, size: 0 }, resistances: [] },
         weapon_profiles: [
           {
             type: 'strike',
@@ -837,6 +837,7 @@ export const mockItemImport: Rule[] = [
       'Гибкое: Попадания с -1РУ атаки и больше игнорируют защиту от блокирования оружием.\nПри критическом провале проверки на попадание этим оружием вы получаете попадание по себе с РУ, равном количеству 6.\nЭкзотическое - владение этим оружием не увеличивается само собой от тренировок другим оружием. Пока ваше владение этим оружием отсутствует, ваше мастерство боя с ним считается минимальным.\nЭкзотическое(общее) - Если другое оружие даёт вам возможность пользоваться этим оружием на уровне основ - вам нужно доплатить 1 очко навыков, чтобы поднять до основ. Аналогично, чтобы поднять с основ до понимания нужно доплатить ещё 2 очка.',
     spaceId: 1,
     spec: {
+      block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 3, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 4000,
       weight: { base: 0.5, size: 0 },
@@ -845,7 +846,6 @@ export const mockItemImport: Rule[] = [
       weapon: {
         min_strength: { base: 5, size: 0 },
         durability: { base: 5, size: 3 },
-        block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 3, size: 0 }, resistances: [] },
         weapon_profiles: [
           {
             type: 'strike',
@@ -877,6 +877,7 @@ export const mockItemImport: Rule[] = [
       'Гибкое: Попадания с -1РУ атаки и больше игнорируют защиту от блокирования оружием.\nДлинное: получает помеху, если в дистанции удара занято больше двух сторон(низ, верх, право, лево, спереди, сзади) за каждую после второй сторону.\nПри критическом провале проверки на попадание этим оружием вы получаете попадание по себе с РУ, равном удвоенному количеству 6.\nЭкзотическое - владение этим оружием не увеличивается само собой от тренировок другим оружием. Пока ваше владение этим оружием отсутствует, ваше мастерство боя с ним считается минимальным.\nЭкзотическое - Если другое оружие даёт вам возможность пользоваться этим оружием на уровне основ - вам нужно доплатить 1 очко навыков, чтобы поднять до основ. Аналогично, чтобы поднять с основ до понимания нужно доплатить ещё 2 очка.',
     spaceId: 1,
     spec: {
+      block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 3, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 4000,
       weight: { base: 0.7, size: 0 },
@@ -885,7 +886,6 @@ export const mockItemImport: Rule[] = [
       weapon: {
         min_strength: { base: 3, size: 1 },
         durability: { base: 5, size: 3 },
-        block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 3, size: 0 }, resistances: [] },
         weapon_profiles: [
           {
             type: 'strike',
@@ -917,6 +917,7 @@ export const mockItemImport: Rule[] = [
       'Рубящий удар: урон [Сила − 4] рубящего · пробитие Сила↓ · точность 4. Колющий удар: урон Сила↓ колющего · пробитие [Сила − 2] · точность 3. Блок: 5 · эффективность 4.',
     spaceId: 1,
     spec: {
+      block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 5, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 2000,
       weight: { base: 1.0, size: 0 },
@@ -925,7 +926,6 @@ export const mockItemImport: Rule[] = [
       weapon: {
         min_strength: { base: 4, size: 0 },
         durability: { base: 5, size: 4 },
-        block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 5, size: 0 }, resistances: [] },
         weapon_profiles: [
           {
             type: 'strike',
@@ -987,6 +987,7 @@ export const mockItemImport: Rule[] = [
       'За каждый размер, на который сила броска меньше чем при минимальной силе, попадания бросков этого оружия теряют от силы 3 рубящего урона. Размер бонуса и штрафа равен размеру оружия.\nЗа каждые [Дальнобойность] ипари до цели сила броска уменьшается на размер.',
     spaceId: 1,
     spec: {
+      block_profile: { efficiency: { base: 3, size: 0 }, defense: { base: 5, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 1200,
       weight: { base: 1.0, size: 0 },
@@ -995,7 +996,6 @@ export const mockItemImport: Rule[] = [
       weapon: {
         min_strength: { base: 3, size: 1 },
         durability: { base: 5, size: 3 },
-        block_profile: { efficiency: { base: 3, size: 0 }, defense: { base: 5, size: 0 }, resistances: [] },
         weapon_profiles: [
           {
             type: 'strike',
@@ -1058,6 +1058,7 @@ export const mockItemImport: Rule[] = [
       'За каждый размер, на который сила броска меньше чем при минимальной силе, попадания бросков этого оружия теряют от силы 3 рубящего урона. Размер бонуса и штрафа равен размеру оружия.\nЗа каждые [Дальнобойность] ипари до цели сила броска уменьшается на размер.',
     spaceId: 1,
     spec: {
+      block_profile: { efficiency: { base: 3, size: 0 }, defense: { base: 4, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 400,
       weight: { base: 0.0, size: 0 },
@@ -1066,7 +1067,6 @@ export const mockItemImport: Rule[] = [
       weapon: {
         min_strength: { base: 4, size: 0 },
         durability: { base: 5, size: 3 },
-        block_profile: { efficiency: { base: 3, size: 0 }, defense: { base: 4, size: 0 }, resistances: [] },
         weapon_profiles: [
           {
             type: 'strike',
@@ -1129,6 +1129,7 @@ export const mockItemImport: Rule[] = [
       'Если ваша сила не превышает минимальную на полный размер или больше, то каждый удар этим оружием требует дополнительно 1ОД. А после любого действия, содержащего удар этим оружием вы получаете две помехи для всех проверок на попадание ударов по вам пока не потратите 2ОД.\nДлинное: получает помеху, если в дистанции удара занято больше двух сторон(низ, верх, право, лево, спереди, сзади) за каждую после второй сторону.',
     spaceId: 1,
     spec: {
+      block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 6, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 4500,
       weight: { base: 5.0, size: 0 },
@@ -1137,7 +1138,6 @@ export const mockItemImport: Rule[] = [
       weapon: {
         min_strength: { base: 5, size: 2 },
         durability: { base: 5, size: 4 },
-        block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 6, size: 0 }, resistances: [] },
         weapon_profiles: [
           {
             type: 'strike',
@@ -1177,6 +1177,7 @@ export const mockItemImport: Rule[] = [
       'За каждый размер, на который сила броска больше или меньше чем при минимальной силе, попадания бросков этого оружия получают от силы 1 колющего урона или теряют от силы 3 колющего урона. Размер бонуса и штрафа равен размеру оружия.\nЗа каждые [Дальнобойность] ипари до цели сила броска уменьшается на размер.\nУдары копьём в радиусе 1 ипари получают -2 к точности.',
     spaceId: 1,
     spec: {
+      block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 4, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 800,
       weight: { base: 3.0, size: 0 },
@@ -1185,7 +1186,6 @@ export const mockItemImport: Rule[] = [
       weapon: {
         min_strength: { base: 5, size: 1 },
         durability: { base: 5, size: 3 },
-        block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 4, size: 0 }, resistances: [] },
         weapon_profiles: [
           {
             type: 'strike',
@@ -1235,6 +1235,7 @@ export const mockItemImport: Rule[] = [
       'За каждый размер, на который сила броска больше или меньше чем при минимальной силе, попадания бросков этого оружия получают от силы 1 колющего урона или теряют от силы 3 колющего урона. Размер бонуса и штрафа равен размеру оружия.\nЗа каждые [Дальнобойность] ипари до цели сила броска уменьшается на размер.\nУдары Метательным копьём в радиусе 1 ипари получают -1 к точности.',
     spaceId: 1,
     spec: {
+      block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 3, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 300,
       weight: { base: 1.0, size: 0 },
@@ -1243,7 +1244,6 @@ export const mockItemImport: Rule[] = [
       weapon: {
         min_strength: { base: 3, size: 1 },
         durability: { base: 5, size: 2 },
-        block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 3, size: 0 }, resistances: [] },
         weapon_profiles: [
           {
             type: 'strike',
@@ -1306,6 +1306,7 @@ export const mockItemImport: Rule[] = [
       'Длинное: получает помеху для рубящего удара, если в дистанции удара занято больше двух сторон(низ, верх, право, лево, спереди, сзади) за каждую после второй сторону.\nЕсли ваша сила не превышает минимальную на полный размер или больше, то каждый рубящий удар этим оружием требует дополнительно 1ОД. А после любого действия, содержащего рубящий удар этим оружием вы получаете две помехи для всех проверок на попадание ударов по вам пока не потратите 2ОД.\nУдары этим оружием в радиусе 1 ипари получают -1 к точности.',
     spaceId: 1,
     spec: {
+      block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 5, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 1500,
       weight: { base: 3.5, size: 0 },
@@ -1315,7 +1316,6 @@ export const mockItemImport: Rule[] = [
       weapon: {
         min_strength: { base: 3, size: 2 },
         durability: { base: 5, size: 3 },
-        block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 5, size: 0 }, resistances: [] },
         weapon_profiles: [
           {
             type: 'strike',
@@ -1377,6 +1377,7 @@ export const mockItemImport: Rule[] = [
       'Длинное: получает помеху для рубящего удара, если в дистанции удара занято больше двух сторон(низ, верх, право, лево, спереди, сзади) за каждую после второй сторону.\nЕсли ваша сила не превышает минимальную на полный размер или больше, то каждый рубящий удар этим оружием требует дополнительно 1ОД. А после любого действия, содержащего рубящий удар этим оружием вы получаете две помехи для всех проверок на попадание ударов по вам пока не потратите 2ОД.\nУдары этим оружием в радиусе 1 ипари получают -1 к точности.\nЭто оружие наносит раны с силой [Нанесённые повреждения / 3], вместо обычных.',
     spaceId: 1,
     spec: {
+      block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 5, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 6000,
       weight: { base: 3.5, size: 0 },
@@ -1385,7 +1386,6 @@ export const mockItemImport: Rule[] = [
       weapon: {
         min_strength: { base: 3, size: 2 },
         durability: { base: 5, size: 3 },
-        block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 5, size: 0 }, resistances: [] },
         weapon_profiles: [
           {
             type: 'strike',
@@ -1446,6 +1446,7 @@ export const mockItemImport: Rule[] = [
     description: 'Дробящий удар: урон [Сила] дробящего · пробитие 0 · точность 3. Блок: 6 · эффективность 3.',
     spaceId: 1,
     spec: {
+      block_profile: { efficiency: { base: 3, size: 0 }, defense: { base: 6, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 1000,
       weight: { base: 2.0, size: 0 },
@@ -1454,7 +1455,6 @@ export const mockItemImport: Rule[] = [
       weapon: {
         min_strength: { base: 4, size: 1 },
         durability: { base: 5, size: 5 },
-        block_profile: { efficiency: { base: 3, size: 0 }, defense: { base: 6, size: 0 }, resistances: [] },
         weapon_profiles: [
           {
             type: 'strike',
@@ -1489,6 +1489,7 @@ export const mockItemImport: Rule[] = [
       'Если ваша сила не превышает минимальную на полный размер или больше, то каждый удар этим оружием требует дополнительно 1ОД. А после любого действия, содержащего удар этим оружием вы получаете две помехи для всех проверок на попадание ударов по вам пока не потратите 2ОД.\nДлинное: получает помеху, если в дистанции удара занято больше двух сторон(низ, верх, право, лево, спереди, сзади) за каждую после второй сторону.',
     spaceId: 1,
     spec: {
+      block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 8, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 10000,
       weight: { base: 8.0, size: 0 },
@@ -1497,7 +1498,6 @@ export const mockItemImport: Rule[] = [
       weapon: {
         min_strength: { base: 4, size: 3 },
         durability: { base: 5, size: 5 },
-        block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 8, size: 0 }, resistances: [] },
         weapon_profiles: [
           {
             type: 'strike',
@@ -1532,6 +1532,7 @@ export const mockItemImport: Rule[] = [
       'За каждый размер, на который сила выстрела меньше маленькой, его урон снижается на половину от изначального значения.\nСила выстрела снижается на размер за каждые [Дальнобойность] ипари сверх дистанции выстрела.\nОружие может быть в трёх состояниях:1) Незаряженное. Нужно потратить 15ОД, чтобы его зарядить.2) Готовое к бою. Нужно поджечь фитиль и направить оружие на врага. Поджечь фитиль занимает 2ОД, если у вас есть горящий предмет в руках. Выстрел произойдёт через ход после этого. Вам нужно в это время успеть сделать действие выстрела, которое займёт всё время до самого выстрела.3) Отстреленное. Держа в руке оружие и специальный инструмент для очистки необходимо потратить 10ОД, чтобы его очистить и привести к первому состоянию.',
     spaceId: 1,
     spec: {
+      block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 6, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 15000,
       weight: { base: 5.0, size: 0 },
@@ -1540,7 +1541,6 @@ export const mockItemImport: Rule[] = [
       weapon: {
         min_strength: { base: 4, size: 0 },
         durability: { base: 5, size: 3 },
-        block_profile: { efficiency: { base: 4, size: 0 }, defense: { base: 6, size: 0 }, resistances: [] },
         weapon_profiles: [
           {
             type: 'shoot',
@@ -1569,6 +1569,7 @@ export const mockItemImport: Rule[] = [
       'Каждая 1 при проверке на попадание выстрела этого оружия даёт дополнительный успех.\nВы можете выбирать цель, которая находится вне обычной дистанции выстрела этого оружия, вплоть до [Дистанция↑↑] Выстрелы в пределах [Дистанция↑] имеют на размер меньшую силу. В пределах [Дистанция↑↑] выстрелы имеют на 2 размера меньшую силу.\nПробитие колющих попаданий этого оружия увеличено на размер.\nПеред каждый выстрелом необходимо зарядить это оружие. Если у вас есть колчан с зарядами(болтами), перезарядка требует 8ОД. Если ваша сила меньше минимальной, то перезарядка займет на 2ОД больше. Если минимум на размер меньше, вы не сможете сделать это действие.',
     spaceId: 1,
     spec: {
+      block_profile: { efficiency: { base: 3, size: 0 }, defense: { base: 4, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 1000,
       weight: { base: 0.8, size: 0 },
@@ -1577,7 +1578,6 @@ export const mockItemImport: Rule[] = [
       weapon: {
         min_strength: { base: 4, size: 0 },
         durability: { base: 5, size: 2 },
-        block_profile: { efficiency: { base: 3, size: 0 }, defense: { base: 4, size: 0 }, resistances: [] },
         weapon_profiles: [
           {
             type: 'shoot',
@@ -1612,6 +1612,7 @@ export const mockItemImport: Rule[] = [
       'Критическое: 1 при проверках на попадание этим оружием дают дополнительный успех.\nПредельное натяжение: максимальная сила, которую вы можете приложить к оружию не может превышать более чем на размер минимальную силу.\nСтрельба навесом: цель выстрела из этого оружия может быть вне дистанции оружия, но в пределах десятикратной дистанции оружия. В таком случае точность выстрела снизится на 2.\nПерезарядка 2ОД: перед каждый выстрелом необходимо зарядить это оружие. Если у вас есть колчан с зарядами(стрелами), перезарядка требует 2ОД. Если ваша сила меньше минимальной, то перезарядка займет на 2ОД больше. Если минимум на размер меньше, вы не сможете сделать это действие.',
     spaceId: 1,
     spec: {
+      block_profile: { efficiency: { base: 2, size: 0 }, defense: { base: 4, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 600,
       weight: { base: 0.9, size: 0 },
@@ -1621,7 +1622,6 @@ export const mockItemImport: Rule[] = [
       weapon: {
         min_strength: { base: 4, size: 1 },
         durability: { base: 5, size: 1 },
-        block_profile: { efficiency: { base: 2, size: 0 }, defense: { base: 4, size: 0 }, resistances: [] },
         weapon_profiles: [
           {
             type: 'strike',
@@ -1663,6 +1663,7 @@ export const mockItemImport: Rule[] = [
       'Критическое: 1 при проверках на попадание этим оружием дают дополнительный успех.\nПредельное натяжение: максимальная сила, которую вы можете приложить к оружию не может превышать более чем на размер минимальную силу.\nСтрельба навесом: цель выстрела из этого оружия может быть вне дистанции оружия, но в пределах десятикратной дистанции оружия. В таком случае точность выстрела снизится на 2.\nПерезарядка 3ОД: перед каждый выстрелом необходимо зарядить это оружие. Если у вас есть колчан с зарядами(стрелами), перезарядка требует 3ОД. Если ваша сила меньше минимальной, то перезарядка займет на 2ОД больше. Если минимум на размер меньше, вы не сможете сделать это действие.',
     spaceId: 1,
     spec: {
+      block_profile: { efficiency: { base: 2, size: 0 }, defense: { base: 4, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 1000,
       weight: { base: 1.2, size: 0 },
@@ -1672,7 +1673,6 @@ export const mockItemImport: Rule[] = [
       weapon: {
         min_strength: { base: 3, size: 2 },
         durability: { base: 5, size: 1 },
-        block_profile: { efficiency: { base: 2, size: 0 }, defense: { base: 4, size: 0 }, resistances: [] },
         weapon_profiles: [
           {
             type: 'strike',
@@ -1715,6 +1715,7 @@ export const mockItemImport: Rule[] = [
       'Критическое: 1 при проверках на попадание этим оружием дают дополнительный успех.\nПредельное натяжение: максимальная сила, которую вы можете приложить к оружию не может превышать более чем на размер минимальную силу.\nСтрельба навесом: цель выстрела из этого оружия может быть вне дистанции оружия, но в пределах десятикратной дистанции оружия. В таком случае точность выстрела снизится на 2.\nПерезарядка 2ОД: перед каждый выстрелом необходимо зарядить это оружие. Если у вас есть колчан с зарядами(стрелами), перезарядка требует 2ОД. Если ваша сила меньше минимальной, то перезарядка займет на 2ОД больше. Если минимум на размер меньше, вы не сможете сделать это действие.',
     spaceId: 1,
     spec: {
+      block_profile: { efficiency: { base: 2, size: 0 }, defense: { base: 4, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 2000,
       weight: { base: 1.0, size: 0 },
@@ -1724,7 +1725,6 @@ export const mockItemImport: Rule[] = [
       weapon: {
         min_strength: { base: 5, size: 1 },
         durability: { base: 5, size: 1 },
-        block_profile: { efficiency: { base: 2, size: 0 }, defense: { base: 4, size: 0 }, resistances: [] },
         weapon_profiles: [
           {
             type: 'strike',
@@ -1767,6 +1767,7 @@ export const mockItemImport: Rule[] = [
       'Критическое: 1 при проверках на попадание этим оружием дают дополнительный успех.\nПредельное натяжение: максимальная сила, которую вы можете приложить к оружию не может превышать более чем на размер минимальную силу.\nСтрельба навесом: цель выстрела из этого оружия может быть вне дистанции оружия, но в пределах десятикратной дистанции оружия. В таком случае точность выстрела снизится на 2.\nПерезарядка 2ОД: перед каждый выстрелом необходимо зарядить это оружие. Если у вас есть колчан с зарядами(стрелами), перезарядка требует 2ОД. Если ваша сила меньше минимальной, то перезарядка займет на 2ОД больше. Если минимум на размер меньше, вы не сможете сделать это действие.',
     spaceId: 1,
     spec: {
+      block_profile: { efficiency: { base: 2, size: 0 }, defense: { base: 4, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 8000,
       weight: { base: 1.0, size: 0 },
@@ -1776,7 +1777,6 @@ export const mockItemImport: Rule[] = [
       weapon: {
         min_strength: { base: 4, size: 1 },
         durability: { base: 5, size: 1 },
-        block_profile: { efficiency: { base: 2, size: 0 }, defense: { base: 4, size: 0 }, resistances: [] },
         weapon_profiles: [
           {
             type: 'strike',
@@ -1819,6 +1819,7 @@ export const mockItemImport: Rule[] = [
       'Доступен навык Прикрытие щитом 1. / Щит получает повреждения так, как если бы его Прочность была Стойкостью, однако вместо Истощения он получает Повреждение. Каждое повреждение даёт штраф -1 к Прочности. Как только размер Прочности щита станет меньше его размера, щит будет сломан.',
     spaceId: 1,
     spec: {
+      block_profile: { efficiency: { base: 5, size: 0 }, defense: { base: 6, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 400,
       weight: { base: 1.5, size: 0 },
@@ -1827,7 +1828,6 @@ export const mockItemImport: Rule[] = [
       shield: {
         min_strength: { base: 4, size: 0 },
         durability: { base: 3, size: 1 },
-        block: { efficiency: { base: 5, size: 0 }, defense: { base: 6, size: 0 }, resistances: [] },
         weapon_profiles: [
           {
             type: 'strike',
@@ -1872,6 +1872,7 @@ export const mockItemImport: Rule[] = [
       'Доступен навык Прикрытие щитом 2. / Щит получает повреждения так, как если бы его Прочность была Стойкостью, однако вместо Истощения он получает Повреждение. Каждое повреждение даёт штраф -1 к Прочности. Как только размер Прочности щита станет меньше его размера, щит будет сломан. / Если ваша Сила не превышает минимальную на размер или больше: / • Каждое действие, использующее этот щит, включая атаку и блокирование, требует дополнительно 1ОД и получает помеху от Силы на любую проверку. / • Каждое действие движения, включая поворот, требует дополнительно 1ОД.',
     spaceId: 1,
     spec: {
+      block_profile: { efficiency: { base: 3, size: 1 }, defense: { base: 8, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 1000,
       weight: { base: 6.0, size: 0 },
@@ -1880,7 +1881,6 @@ export const mockItemImport: Rule[] = [
       shield: {
         min_strength: { base: 3, size: 1 },
         durability: { base: 4, size: 1 },
-        block: { efficiency: { base: 3, size: 1 }, defense: { base: 8, size: 0 }, resistances: [] },
         weapon_profiles: [
           {
             type: 'strike',
@@ -1925,6 +1925,7 @@ export const mockItemImport: Rule[] = [
       'Доступен навык Прикрытие щитом 4. / Щит получает повреждения так, как если бы его Прочность была Стойкостью, однако вместо Истощения он получает Повреждение. Каждое повреждение даёт штраф -1 к Прочности. Как только размер Прочности щита станет меньше его размера, щит будет сломан. / Если ваша Сила не превышает минимальную на размер или больше: / • Каждое действие, использующее этот щит, включая атаку и блокирование, требует дополнительно 2ОД и получает две помехи от Силы на любую проверку. / • Каждое действие движения, включая поворот, требует дополнительно в 2 раза больше ОД. / Если ваша Сила не превышает минимальную на два размера размера, но превышает на размер: / • Каждое действие, использующее этот щит, включая атаку и блокирование, требует дополнительно 1ОД и получает помеху от Силы на любую проверку. / • Каждое действие движения, включая поворот, требует дополнительно 1ОД.',
     spaceId: 1,
     spec: {
+      block_profile: { efficiency: { base: 4, size: 1 }, defense: { base: 12, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: 2000,
       weight: { base: 15.0, size: 0 },
@@ -1933,7 +1934,6 @@ export const mockItemImport: Rule[] = [
       shield: {
         min_strength: { base: 4, size: 1 },
         durability: { base: 5, size: 1 },
-        block: { efficiency: { base: 4, size: 1 }, defense: { base: 12, size: 0 }, resistances: [] },
         weapon_profiles: [
           {
             type: 'strike',
@@ -3471,6 +3471,7 @@ export const mockItemImport: Rule[] = [
       'Вы можете удерживать предметы в руке при атаке рукой как обычно, однако получите помеху на попадание. Также вам придётся доплатить за удар 1 ОД за каждый 1 килограмм груза в руке. Примените к килограмму размер вашей силы (если сила большая — штраф за 2 кг, огромная — 4 кг и т.д.).\nРазмер прочности увеличивается на 1 от тела при 2 защиты от тела; на 2 при 2↑ защиты, на 3 при 2↑↑ и т.д.',
     spaceId: 1,
     spec: {
+      block_profile: { efficiency: { base: 5, size: 0 }, defense: { base: 1, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: null,
       weight: null,
@@ -3480,7 +3481,6 @@ export const mockItemImport: Rule[] = [
       weapon: {
         min_strength: { base: 3, size: 0 },
         durability: { base: 5, size: 2 },
-        block_profile: { efficiency: { base: 5, size: 0 }, defense: { base: 1, size: 0 }, resistances: [] },
         weapon_profiles: [
           {
             type: 'strike',
@@ -3515,6 +3515,7 @@ export const mockItemImport: Rule[] = [
       'Когда вы используете минимум половину ног в качестве оружия, то получаете эффект Неустойчивость на всё время действия. Действия движения ногами требуют 2 ноги, поэтому при двух ногах вы не сможете передвигаться, используя ногу как оружие.',
     spaceId: 1,
     spec: {
+      block_profile: { efficiency: { base: 2, size: 0 }, defense: { base: 2, size: 0 }, resistances: [] },
       category: 'equipment',
       cost_gm: null,
       weight: null,
@@ -3524,7 +3525,6 @@ export const mockItemImport: Rule[] = [
       weapon: {
         min_strength: { base: 4, size: 0 },
         durability: { base: 5, size: 2 },
-        block_profile: { efficiency: { base: 2, size: 0 }, defense: { base: 2, size: 0 }, resistances: [] },
         weapon_profiles: [
           {
             type: 'strike',

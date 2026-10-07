@@ -1041,7 +1041,7 @@ export class RuleValidationService {
         for (const code of item.special_rule_codes ?? []) {
           collect({ code, type: 'simple' });
         }
-        for (const slot of item.weapon?.block_profile?.resistances ?? []) {
+        for (const slot of item.block_profile?.resistances ?? []) {
           if (slot.source_code) {
             collect({ code: slot.source_code, type: 'source' });
           }

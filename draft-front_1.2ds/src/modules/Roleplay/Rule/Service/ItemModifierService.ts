@@ -10,10 +10,10 @@ import {
 import { ITEM_MODIFIER_PRICE_KEYWORD_PRIORITY } from '@/modules/Roleplay/Rule/Constant/Item/ITEM_MODIFIER_PRICE_KEYWORD_PRIORITY';
 import type { Formula } from '@/modules/Roleplay/Rule/Dto/Ability/Formula';
 import type { ItemModifierApplies } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierApplies';
-import type { ItemModifierEffect } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierEffect';
 import type { ItemModifierPrice } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierPrice';
 import type { ItemModifierSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierSpec';
 import type { ItemModifierOp } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierOp';
+import type { ItemModifierOperation } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierOperation';
 import type { ItemModifierTypeSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierTypeSpec';
 import type { ItemSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpec';
 import type { ResistanceSlot } from '@/modules/Roleplay/Rule/Dto/Item/ResistanceSlot';
@@ -27,6 +27,12 @@ import { CHARACTERISTIC_BASE_RANGE } from '@/modules/Roleplay/Rule/Value/Charact
  * Цена на шаге — после ops этого модификатора (в т.ч. вес).
  */
 export class ItemModifierService {
+  keywordCodes(rule: Rule, keywords: readonly { id: number; code: string }[]): string[] {
+    const byId = new Map(keywords.map((keyword) => [keyword.id, keyword.code]));
+
+    return (rule.keywordIds ?? []).map((id) => byId.get(id)).filter((code): code is string => Boolean(code));
+  }
+
   isApplicable(applies: ItemModifierApplies | undefined, itemKeywordCodes: readonly string[]): boolean {
     if (!applies) return true;
     const codes = new Set(itemKeywordCodes);
@@ -145,21 +151,17 @@ export class ItemModifierService {
     for (const rule of modifiers) {
       if (rule.type !== 'item_modifier') continue;
       const modifier = rule.spec as ItemModifierSpec | undefined;
-      for (const effect of modifier?.effects ?? []) {
-        for (const op of effect.ops ?? []) {
-          if (op.type !== 'keyword') continue;
-          for (const code of op.add ?? []) keywords.add(code);
-        }
+      for (const operation of modifier?.operations ?? []) {
+        if (operation.type !== 'keyword' || !this.operationMatches(operation, itemKeywordCodes)) continue;
+        for (const code of operation.add ?? []) keywords.add(code);
       }
     }
     for (const rule of modifiers) {
       if (rule.type !== 'item_modifier') continue;
       const modifier = rule.spec as ItemModifierSpec | undefined;
-      for (const effect of modifier?.effects ?? []) {
-        for (const op of effect.ops ?? []) {
-          if (op.type !== 'keyword') continue;
-          for (const code of op.remove ?? []) keywords.delete(code);
-        }
+      for (const operation of modifier?.operations ?? []) {
+        if (operation.type !== 'keyword' || !this.operationMatches(operation, itemKeywordCodes)) continue;
+        for (const code of operation.remove ?? []) keywords.delete(code);
       }
     }
 
@@ -172,19 +174,13 @@ export class ItemModifierService {
     itemKeywordCodes: readonly string[],
   ): { spec: ItemSpec; cost: number; keywordCodes: string[] } {
     const spec = cloneData(baseSpec);
-    const keywords = new Set(itemKeywordCodes);
     let cost = spec.cost_gm ?? 0;
     const zeroImprovised = this.isImprovisedZeroPrice(modifiers);
     for (const rule of modifiers) {
       if (rule.type !== 'item_modifier') continue;
       const modifier = rule.spec as ItemModifierSpec | undefined;
       if (!modifier) continue;
-      for (const effect of modifier.effects ?? []) {
-        if (!this.effectMatches(effect, spec)) continue;
-        for (const op of effect.ops ?? []) {
-          this.applyOp(spec, op, this.scopeOf(effect.label), rule, keywords);
-        }
-      }
+      this.applyOperations(spec, modifier.operations ?? [], itemKeywordCodes, rule);
       if (zeroImprovised) continue;
       cost = this.computeScaledPrice(cost, modifier, itemKeywordCodes, spec.weight, modifiers);
     }
@@ -194,30 +190,228 @@ export class ItemModifierService {
     return { spec, cost, keywordCodes: this.effectiveKeywordCodes(itemKeywordCodes, modifiers) };
   }
 
-  private effectMatches(effect: ItemModifierEffect, spec: ItemSpec): boolean {
-    const label = (effect.label ?? '').trim();
-    if (label.length === 0 || label === 'Общее') return true;
-    if (label === 'Оружие') return spec.weapon != null;
-    if (label === 'Щит') return spec.shield != null;
-    if (label === 'Доспех') return spec.armor != null;
-    if (label === 'Оружие/щит' || label === 'Оружие/Щит') return spec.weapon != null || spec.shield != null;
-
-    return false;
+  private applyOperations(
+    spec: ItemSpec,
+    operations: readonly ItemModifierOperation[],
+    itemKeywordCodes: readonly string[],
+    rule: Rule,
+  ): void {
+    const matched = operations.filter((operation) => this.operationMatches(operation, itemKeywordCodes));
+    const collapsed = this.collapseOperations(matched.filter((operation) => this.isCollapsedOperation(operation)));
+    const plain = matched.filter((operation) => !this.isCollapsedOperation(operation));
+    for (const operation of [...collapsed, ...plain]) {
+      this.applyScoped(spec, operation, rule);
+    }
   }
 
-  private scopeOf(label: string | null | undefined): ItemModifierApplyScope {
-    const normalized = (label ?? '').trim();
-    if (normalized === 'Оружие') return 'weapon';
-    if (normalized === 'Щит') return 'shield';
-    if (normalized === 'Доспех') return 'armor';
-    if (normalized === 'Оружие/щит' || normalized === 'Оружие/Щит') return 'all';
+  private operationMatches(operation: ItemModifierOperation, itemKeywordCodes: readonly string[]): boolean {
+    return this.isApplicable(operation.when, itemKeywordCodes);
+  }
 
-    return 'all';
+  private isCollapsedOperation(operation: ItemModifierOperation): boolean {
+    if (operation.type === 'strength_penalty' && operation.set !== undefined) return false;
+
+    return (
+      operation.type === 'weight' ||
+      operation.type === 'block' ||
+      operation.type === 'defense' ||
+      operation.type === 'min_strength' ||
+      operation.type === 'durability' ||
+      operation.type === 'max_agility' ||
+      operation.type === 'strength_penalty' ||
+      operation.type === 'action_strength'
+    );
+  }
+
+  private collapseOperations(operations: readonly ItemModifierOperation[]): ItemModifierOperation[] {
+    const groups = new Map<string, ItemModifierOperation[]>();
+    let unique = 0;
+    for (const operation of operations) {
+      const source = operation.source_code ?? `\0${unique}`;
+      unique += 1;
+      const key = `${this.partKey(operation)}|${operation.type}|${this.actionKey(operation)}|${source}`;
+      const group = groups.get(key) ?? [];
+      group.push(operation);
+      groups.set(key, group);
+    }
+
+    return [...groups.values()].map((group) => this.collapseGroup(group));
+  }
+
+  private partKey(operation: ItemModifierOperation): string {
+    return this.componentScopes(operation).join(',');
+  }
+
+  private actionKey(operation: ItemModifierOperation): string {
+    if (operation.type !== 'action_strength') return '';
+
+    return `${operation.field}|${(operation.profiles ?? []).join(',')}|${(operation.damage_type_codes ?? []).join(',')}`;
+  }
+
+  private collapseGroup(group: ItemModifierOperation[]): ItemModifierOperation {
+    const bySource = new Map<string, ItemModifierOperation[]>();
+    group.forEach((operation, index) => {
+      const source = operation.source_code ?? `\0${index}`;
+      const rows = bySource.get(source) ?? [];
+      rows.push(operation);
+      bySource.set(source, rows);
+    });
+    let factor = 1;
+    let delta = 0;
+    let size = 0;
+    for (const rows of bySource.values()) {
+      const one = this.collapseSource(rows);
+      factor *= one.factor;
+      delta += one.delta;
+      size += one.size;
+    }
+    const first = group[0];
+    if (!first) return group[0];
+
+    return this.withCollapsedNumbers(first, factor, delta, size);
+  }
+
+  private collapseSource(rows: readonly ItemModifierOperation[]): { factor: number; delta: number; size: number } {
+    let bonus: number | null = null;
+    let penalty: number | null = null;
+    let plus: number | null = null;
+    let minus: number | null = null;
+    let sizePlus: number | null = null;
+    let sizeMinus: number | null = null;
+    for (const operation of rows) {
+      bonus = this.strongerBonus(bonus, this.operationFactor(operation));
+      penalty = this.strongerPenalty(penalty, this.operationFactor(operation));
+      plus = this.strongerPlus(plus, this.operationDelta(operation));
+      minus = this.strongerMinus(minus, this.operationDelta(operation));
+      sizePlus = this.strongerPlus(sizePlus, this.operationSize(operation));
+      sizeMinus = this.strongerMinus(sizeMinus, this.operationSize(operation));
+    }
+
+    return {
+      factor: (bonus ?? 1) * (penalty ?? 1),
+      delta: (plus ?? 0) + (minus ?? 0),
+      size: (sizePlus ?? 0) + (sizeMinus ?? 0),
+    };
+  }
+
+  private strongerBonus(current: number | null, factor: number | null): number | null {
+    if (factor === null || factor <= 1) return current;
+    if (current === null || factor > current) return factor;
+
+    return current;
+  }
+
+  private strongerPenalty(current: number | null, factor: number | null): number | null {
+    if (factor === null || factor >= 1) return current;
+    if (current === null || factor < current) return factor;
+
+    return current;
+  }
+
+  private strongerPlus(current: number | null, delta: number): number | null {
+    if (delta <= 0) return current;
+    if (current === null || delta > current) return delta;
+
+    return current;
+  }
+
+  private strongerMinus(current: number | null, delta: number): number | null {
+    if (delta >= 0) return current;
+    if (current === null || delta < current) return delta;
+
+    return current;
+  }
+
+  private operationFactor(operation: ItemModifierOperation): number | null {
+    if (operation.type === 'weight' || operation.type === 'block' || operation.type === 'defense') {
+      return operation.factor ?? null;
+    }
+
+    return null;
+  }
+
+  private operationDelta(operation: ItemModifierOperation): number {
+    if (operation.type === 'weight') return operation.add_kg ?? 0;
+    if (operation.type === 'block' || operation.type === 'defense' || operation.type === 'strength_penalty') {
+      return operation.add ?? 0;
+    }
+    if (operation.type === 'min_strength' || operation.type === 'action_strength') return operation.delta;
+    if (operation.type === 'durability' || operation.type === 'max_agility') return operation.delta ?? 0;
+
+    return 0;
+  }
+
+  private operationSize(operation: ItemModifierOperation): number {
+    if (
+      operation.type === 'block' ||
+      operation.type === 'defense' ||
+      operation.type === 'durability' ||
+      operation.type === 'max_agility'
+    ) {
+      return operation.add_size ?? 0;
+    }
+
+    return 0;
+  }
+
+  private withCollapsedNumbers(
+    operation: ItemModifierOperation,
+    factor: number,
+    delta: number,
+    size: number,
+  ): ItemModifierOperation {
+    if (operation.type === 'weight') {
+      return { ...operation, factor: factor === 1 ? undefined : factor, add_kg: delta === 0 ? undefined : delta };
+    }
+    if (operation.type === 'block' || operation.type === 'defense') {
+      return {
+        ...operation,
+        factor: factor === 1 ? undefined : factor,
+        add: delta === 0 ? undefined : delta,
+        add_size: size === 0 ? undefined : size,
+      };
+    }
+    if (operation.type === 'min_strength' || operation.type === 'action_strength') {
+      return { ...operation, delta };
+    }
+    if (operation.type === 'durability' || operation.type === 'max_agility') {
+      return { ...operation, delta: delta === 0 ? undefined : delta, add_size: size === 0 ? undefined : size };
+    }
+    if (operation.type === 'strength_penalty') {
+      return { ...operation, add: delta === 0 ? undefined : delta };
+    }
+
+    return operation;
+  }
+
+  private componentScopes(operation: ItemModifierOperation): ItemModifierApplyScope[] {
+    if (operation.type === 'weight') return ['all'];
+    const codes = [...(operation.when?.keyword_all ?? []), ...(operation.when?.keyword_any ?? [])];
+    const scopes: ItemModifierApplyScope[] = [];
+    if (codes.includes('weapon')) scopes.push('weapon');
+    if (codes.includes('shield-item')) scopes.push('shield');
+    if (codes.includes('armor-item')) scopes.push('armor');
+    if (scopes.length === 0 || scopes.length === 3) return ['all'];
+
+    return scopes;
+  }
+
+  private applyScoped(spec: ItemSpec, operation: ItemModifierOperation, rule: Rule): void {
+    const scopes = this.componentScopes(operation);
+    const keywords = new Set<string>();
+    if (operation.type === 'weight' || operation.type === 'block' || scopes.length === 1) {
+      this.applyOp(spec, operation, scopes[0] ?? 'all', rule, keywords);
+
+      return;
+    }
+    for (const scope of scopes) {
+      this.applyOp(spec, operation, scope, rule, keywords);
+    }
   }
 
   private applyOp(
     spec: ItemSpec,
-    op: ItemModifierOp,
+    op: ItemModifierOperation,
     scope: ItemModifierApplyScope,
     rule: Rule,
     keywords: Set<string>,
@@ -236,7 +430,7 @@ export class ItemModifierService {
 
         return;
       case 'block':
-        this.applyBlock(spec, op, scope);
+        this.applyBlock(spec, op);
 
         return;
       case 'defense':
@@ -256,7 +450,7 @@ export class ItemModifierService {
 
         return;
       case 'action_strength':
-        this.applyActionStrength(spec, op, scope, rule);
+        this.applyActionStrength(spec, op, scope);
 
         return;
       case 'resistance':
@@ -329,17 +523,9 @@ export class ItemModifierService {
     }
   }
 
-  private applyBlock(
-    spec: ItemSpec,
-    op: Extract<ItemModifierOp, { type: 'block' }>,
-    scope: ItemModifierApplyScope,
-  ): void {
-    if (this.includesWeapon(scope) && spec.weapon?.block_profile) {
-      spec.weapon.block_profile.defense = this.scaleDefense(spec.weapon.block_profile.defense, op);
-    }
-    if (this.includesShield(scope) && spec.shield?.block) {
-      spec.shield.block.defense = this.scaleDefense(spec.shield.block.defense, op);
-    }
+  private applyBlock(spec: ItemSpec, op: Extract<ItemModifierOp, { type: 'block' }>): void {
+    if (!spec.block_profile) return;
+    spec.block_profile.defense = this.scaleDefense(spec.block_profile.defense, op);
   }
 
   private applyDefense(
@@ -393,9 +579,8 @@ export class ItemModifierService {
 
   private applyActionStrength(
     spec: ItemSpec,
-    op: Extract<ItemModifierOp, { type: 'action_strength' }>,
+    op: Extract<ItemModifierOperation, { type: 'action_strength' }>,
     scope: ItemModifierApplyScope,
-    rule: Rule,
   ): void {
     const profiles: WeaponProfile[] = [];
     if (this.includesWeapon(scope)) profiles.push(...(spec.weapon?.weapon_profiles ?? []));
@@ -410,13 +595,13 @@ export class ItemModifierService {
         continue;
       }
       const formula = op.field === 'damage' ? profile.damage.formula : profile.penetration;
-      this.pushActionDelta(formula, op.delta, rule);
+      this.pushActionDelta(formula, op.delta, op.source_code ?? null);
     }
   }
 
-  private pushActionDelta(formula: Formula, delta: number, rule: Rule): void {
+  private pushActionDelta(formula: Formula, delta: number, sourceCode: string | null): void {
     if (formula.type !== 'actionCharacteristic') return;
-    formula.modifier.push({ delta, source_code: rule.code, source_label: rule.name });
+    formula.modifier.push({ delta, source_code: sourceCode, source_label: null });
   }
 
   private applyResistance(
@@ -425,11 +610,8 @@ export class ItemModifierService {
     scope: ItemModifierApplyScope,
   ): void {
     const slots: ResistanceSlot[][] = [];
-    if (this.includesWeapon(scope) && spec.weapon?.block_profile) {
-      slots.push(spec.weapon.block_profile.resistances);
-    }
-    if (this.includesShield(scope) && spec.shield) {
-      slots.push(spec.shield.block.resistances);
+    if ((this.includesWeapon(scope) || this.includesShield(scope)) && spec.block_profile) {
+      slots.push(spec.block_profile.resistances);
     }
     if (this.includesArmor(scope) && spec.armor) {
       slots.push(spec.armor.resistance_slots);
@@ -445,7 +627,7 @@ export class ItemModifierService {
       slot = {
         damage_type_code: op.damage_type_code,
         value: { base: 0, size: 0 },
-        durability: 1,
+        durability: null,
         source_code: null,
       };
       list.push(slot);
@@ -570,7 +752,7 @@ export class ItemModifierService {
     if ((price?.add_gm ?? 0) !== 0) return false;
     if ((price?.add_gm_per_100g ?? 0) !== 0) return false;
     if (price?.min_final_gm != null) return false;
-    const ops = (spec.effects ?? []).flatMap((effect) => effect.ops ?? []);
+    const ops = spec.operations ?? [];
     if (ops.length === 0) return false;
 
     return ops.every((op) => {

@@ -81,7 +81,9 @@ export class RuleViewLabelService {
       .map((slot) => {
         const name = slot.damage_type_code ? this.ruleName(rules, slot.damage_type_code) : 'любой';
 
-        return `${name} ${this.dimensional(slot.value)} (надёжн. ${slot.durability})`;
+        const reliability = slot.durability === null ? 'абсолютная' : String(slot.durability);
+
+        return `${name} ${this.dimensional(slot.value)} (надёжн. ${reliability})`;
       })
       .join(', ');
     const extra = resistances ? `; сопротивления: ${resistances}` : '';

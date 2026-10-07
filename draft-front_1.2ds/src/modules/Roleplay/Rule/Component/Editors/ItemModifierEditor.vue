@@ -5,7 +5,7 @@ import type { ItemModifierSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemModi
 import RuleEditorBase from '@/modules/Roleplay/Rule/Component/Editors/RuleEditorBase.vue';
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
 import ItemModifierOpsEditor from '@/modules/Roleplay/Rule/Component/Editors/ItemModifierOpsEditor.vue';
-import type { ItemModifierOp } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierOp';
+import type { ItemModifierOperation } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierOperation';
 import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
 
 const props = defineProps<{
@@ -36,6 +36,7 @@ function emptySpec(): ItemModifierSpec {
     applies: { keyword_all: [], keyword_any: [], keyword_none: [] },
     price: { factor: null, add_gm: null, add_gm_per_100g: null, min_final_gm: null },
     effects: [],
+    operations: [],
   };
 }
 
@@ -78,8 +79,8 @@ function updateEffectLabel(index: number, label: string): void {
   );
 }
 
-function updateEffectOps(index: number, ops: ItemModifierOp[]): void {
-  draft.value.effects = draft.value.effects.map((effect, i) => (i === index ? { ...effect, ops } : effect));
+function updateOperations(operations: ItemModifierOperation[]): void {
+  draft.value.operations = operations;
 }
 </script>
 
@@ -207,10 +208,7 @@ function updateEffectOps(index: number, ops: ItemModifierOp[]): void {
         <v-expansion-panel>
           <v-expansion-panel-title>Эффекты</v-expansion-panel-title>
           <v-expansion-panel-text>
-            <div class="text-body-2 text-medium-emphasis mb-2">
-              Текстовые описания и структурные операции (вес, прочность, блок, защита…). Метка «Оружие»/«Щит»/«Доспех»
-              ограничивает, к какому блоку спека применяются ops; пустая и «Общее» — ко всему предмету.
-            </div>
+            <div class="text-body-2 text-medium-emphasis mb-2">Текст карточки. Подпись абзаца числа не выбирает.</div>
             <div v-for="(effect, index) in draft.effects" :key="index" class="effect-block mb-3">
               <div class="d-flex gap-2 align-center mb-1">
                 <v-text-field
@@ -233,15 +231,26 @@ function updateEffectOps(index: number, ops: ItemModifierOp[]): void {
                   <v-icon>mdi-delete</v-icon>
                 </v-btn>
               </div>
-              <ItemModifierOpsEditor
-                :model-value="effect.ops ?? []"
-                @update:model-value="(ops: ItemModifierOp[]) => updateEffectOps(index, ops)"
-              />
             </div>
             <v-btn variant="text" color="primary" size="small" @click="addEffect">
               <v-icon start>mdi-plus</v-icon>
               Добавить эффект
             </v-btn>
+          </v-expansion-panel-text>
+        </v-expansion-panel>
+
+        <v-expansion-panel>
+          <v-expansion-panel-title>Операции</v-expansion-panel-title>
+          <v-expansion-panel-text>
+            <div class="text-body-2 text-medium-emphasis mb-2">
+              Каждая операция меняет один стат. Условие — коды признаков. Пустое условие действует всегда. Источник —
+              код правила source, не категория и не подпись абзаца.
+            </div>
+            <ItemModifierOpsEditor
+              :model-value="draft.operations ?? []"
+              :keyword-options="codeOptions"
+              @update:model-value="updateOperations"
+            />
           </v-expansion-panel-text>
         </v-expansion-panel>
       </v-expansion-panels>

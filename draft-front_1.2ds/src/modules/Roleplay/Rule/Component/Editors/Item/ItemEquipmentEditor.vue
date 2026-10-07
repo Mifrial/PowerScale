@@ -1,15 +1,18 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
+import type { BlockProfile } from '@/modules/Roleplay/Rule/Dto/Item/BlockProfile';
 import type { WeaponBlock } from '@/modules/Roleplay/Rule/Dto/Item/WeaponBlock';
 import type { ArmorBlock } from '@/modules/Roleplay/Rule/Dto/Item/ArmorBlock';
 import type { ShieldBlock } from '@/modules/Roleplay/Rule/Dto/Item/ShieldBlock';
 import { ITEM_SUBTYPES } from '@/modules/Roleplay/Rule/Constant/Item/ITEM_SUBTYPES';
+import BlockProfileEditor from '@/modules/Roleplay/Rule/Component/BlockProfileEditor.vue';
 import WeaponEditor from '@/modules/Roleplay/Rule/Component/Editors/Item/WeaponEditor.vue';
 import ArmorEditor from '@/modules/Roleplay/Rule/Component/Editors/Item/ArmorEditor.vue';
 import ShieldEditor from '@/modules/Roleplay/Rule/Component/Editors/Item/ShieldEditor.vue';
 
 const props = defineProps<{
   subtypes: string[];
+  blockProfile: BlockProfile | null;
   weapon: WeaponBlock | null;
   armor: ArmorBlock | null;
   shield: ShieldBlock | null;
@@ -22,6 +25,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:subtypes': [value: string[]];
+  'update:blockProfile': [value: BlockProfile | null];
   'update:weapon': [value: WeaponBlock];
   'update:armor': [value: ArmorBlock];
   'update:shield': [value: ShieldBlock];
@@ -63,6 +67,15 @@ watch(
       />
     </div>
 
+    <BlockProfileEditor
+      class="mt-2"
+      :model-value="blockProfile"
+      @update:model-value="(value: BlockProfile | null) => emit('update:blockProfile', value)"
+      :damage-types="damageTypes"
+      :sources="sources"
+      show-toggle
+    />
+
     <v-expansion-panels v-model="expandedEquipmentPanels" multiple class="mt-2">
       <v-expansion-panel v-if="subtypes.includes('weapon')" value="weapon">
         <v-expansion-panel-title>Оружие</v-expansion-panel-title>
@@ -72,7 +85,6 @@ watch(
             :weapon="weapon"
             @update:weapon="(v: WeaponBlock) => emit('update:weapon', v)"
             :damage-types="damageTypes"
-            :sources="sources"
             :characteristics="characteristics"
             :strength-code="strengthCode"
           />
@@ -101,8 +113,6 @@ watch(
             v-if="shield"
             :shield="shield"
             @update:shield="(v: ShieldBlock) => emit('update:shield', v)"
-            :damage-types="damageTypes"
-            :sources="sources"
           />
         </v-expansion-panel-text>
       </v-expansion-panel>

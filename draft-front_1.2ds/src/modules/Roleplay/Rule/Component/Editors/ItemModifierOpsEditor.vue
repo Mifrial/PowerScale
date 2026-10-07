@@ -1,17 +1,24 @@
 <script setup lang="ts">
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
 import { ITEM_MODIFIER_OP_TYPE_OPTIONS } from '@/modules/Roleplay/Rule/Constant/Item/ITEM_MODIFIER_OP_TYPE_OPTIONS';
+import type { ItemModifierApplies } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierApplies';
+import type { ItemModifierOperation } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierOperation';
 import type { ItemModifierOp } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierOp';
 
 const props = defineProps<{
-  modelValue: ItemModifierOp[];
+  modelValue: ItemModifierOperation[];
+  keywordOptions: { title: string; value: string }[];
 }>();
 
 const emit = defineEmits<{
-  'update:modelValue': [value: ItemModifierOp[]];
+  'update:modelValue': [value: ItemModifierOperation[]];
 }>();
 
-function emptyOp(type: ItemModifierOp['type'] = 'weight'): ItemModifierOp {
+function emptyWhen(): ItemModifierApplies {
+  return { keyword_all: [], keyword_any: [], keyword_none: [] };
+}
+
+function emptyOp(type: ItemModifierOp['type'] = 'weight'): ItemModifierOperation {
   switch (type) {
     case 'min_strength':
       return { type, delta: 0 };
@@ -46,7 +53,7 @@ function emptyOp(type: ItemModifierOp['type'] = 'weight'): ItemModifierOp {
   }
 }
 
-function setOps(ops: ItemModifierOp[]): void {
+function setOps(ops: ItemModifierOperation[]): void {
   emit('update:modelValue', ops);
 }
 
@@ -59,7 +66,12 @@ function removeOp(index: number): void {
 }
 
 function changeType(index: number, type: ItemModifierOp['type']): void {
-  setOps(props.modelValue.map((op, i) => (i === index ? emptyOp(type) : op)));
+  const current = props.modelValue[index];
+  setOps(
+    props.modelValue.map((op, i) =>
+      i === index ? { ...emptyOp(type), when: current?.when ?? emptyWhen(), source_code: current?.source_code } : op,
+    ),
+  );
 }
 
 function patch(index: number, partial: Record<string, unknown>): void {
@@ -307,6 +319,54 @@ function splitCodes(value: string): string[] {
           @update:model-value="(v: string) => patch(index, { characteristic_codes: splitCodes(v) })"
         />
       </template>
+      <v-text-field
+        v-if="op.type !== 'advantage'"
+        :model-value="op.source_code ?? ''"
+        label="Источник"
+        density="compact"
+        hide-details
+        style="flex: 1 1 140px"
+        @update:model-value="(v: string) => patch(index, { source_code: v || null })"
+      />
+      <v-select
+        :model-value="op.when?.keyword_all ?? []"
+        :items="keywordOptions"
+        item-title="title"
+        item-value="value"
+        label="Условие: все"
+        multiple
+        chips
+        density="compact"
+        hide-details
+        style="flex: 1 1 160px"
+        @update:model-value="(v: string[]) => patch(index, { when: { ...(op.when ?? emptyWhen()), keyword_all: v } })"
+      />
+      <v-select
+        :model-value="op.when?.keyword_any ?? []"
+        :items="keywordOptions"
+        item-title="title"
+        item-value="value"
+        label="Условие: любой"
+        multiple
+        chips
+        density="compact"
+        hide-details
+        style="flex: 1 1 160px"
+        @update:model-value="(v: string[]) => patch(index, { when: { ...(op.when ?? emptyWhen()), keyword_any: v } })"
+      />
+      <v-select
+        :model-value="op.when?.keyword_none ?? []"
+        :items="keywordOptions"
+        item-title="title"
+        item-value="value"
+        label="Условие: ни одного"
+        multiple
+        chips
+        density="compact"
+        hide-details
+        style="flex: 1 1 160px"
+        @update:model-value="(v: string[]) => patch(index, { when: { ...(op.when ?? emptyWhen()), keyword_none: v } })"
+      />
       <v-btn icon size="small" color="error" variant="text" @click="removeOp(index)">
         <v-icon>mdi-delete</v-icon>
       </v-btn>

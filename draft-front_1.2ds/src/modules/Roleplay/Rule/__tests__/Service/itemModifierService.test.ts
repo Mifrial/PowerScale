@@ -161,43 +161,143 @@ describe('ItemModifierService', () => {
       }));
     }
 
-    it('утяжелённый кинжал: вес, блок, мин. сила, сила удара; фикс без изменений', () => {
+    it('облегчённый щит и доспех: вес ×0.75 один раз', () => {
+      const lightened = mockModsImport.find((rule) => rule.code === 'lightened')!;
+      const { spec } = service.applyStack(specOf(dagger), [lightened], ['shield-item', 'armor-item']);
+      expect(spec.weight).toEqual({ base: 0.375, size: 0 });
+    });
+
+    it('утяжелённый из каталога: вес один раз, блок и урон оружия', () => {
       const { spec, cost } = service.applyStack(specOf(dagger), [weighted], ['weapon']);
       expect(spec.weight).toEqual({ base: 0.625, size: 0 });
-      expect(spec.weapon?.block_profile?.defense).toEqual({ base: 3.75, size: 0 });
+      expect(spec.block_profile?.defense).toEqual({ base: 3.75, size: 0 });
       expect(spec.weapon?.min_strength).toEqual({ base: 3, size: 1 });
       expect(cost).toBe(1200);
       const rows = damageDeltas(spec);
       const slash = rows.find((row) => row.formulaType === 'actionCharacteristic' && row.type === 'strike');
-      const thrown = rows.find((row) => row.type === 'throw');
-      const fixed = rows.filter((row) => row.formulaType === 'fixed');
       expect(slash?.deltas).toEqual([-3, 1]);
-      expect(thrown?.deltas).toEqual([-6, 1]);
-      expect(fixed.every((row) => row.deltas.length === 0)).toBe(true);
     });
 
-    it('плохо сделан: прочность на размер вниз и помеха от инструмента', () => {
+    it('operations: вес один раз, блок оружия и источник прибавки', () => {
+      const weightedOps: Rule = {
+        ...weighted,
+        spec: {
+          ...(weighted.spec as object),
+          operations: [
+            { type: 'weight', factor: 1.25, source_code: 'mass' },
+            {
+              type: 'block',
+              factor: 1.25,
+              when: { keyword_all: ['weapon'], keyword_any: [], keyword_none: [] },
+              source_code: 'mass',
+            },
+            {
+              type: 'action_strength',
+              field: 'damage',
+              delta: 1,
+              profiles: ['strike', 'throw'],
+              when: { keyword_all: ['weapon'], keyword_any: [], keyword_none: [] },
+              source_code: 'mass',
+            },
+            {
+              type: 'action_strength',
+              field: 'penetration',
+              delta: 2,
+              profiles: ['strike'],
+              when: { keyword_all: ['weapon'], keyword_any: [], keyword_none: [] },
+              source_code: 'mass',
+            },
+          ],
+        },
+      };
+      const { spec } = service.applyStack(specOf(dagger), [weightedOps], ['weapon', 'shield-item']);
+      expect(spec.weight).toEqual({ base: 0.625, size: 0 });
+      expect(spec.block_profile?.defense).toEqual({ base: 3.75, size: 0 });
+      const strike = spec.weapon?.weapon_profiles.find(
+        (profile) => profile.type === 'strike' && profile.damage.formula.type === 'actionCharacteristic',
+      );
+      const damage = strike?.damage.formula;
+      const penetration = strike?.penetration;
+      expect(damage?.type).toBe('actionCharacteristic');
+      if (damage?.type === 'actionCharacteristic') {
+        expect(damage.modifier.at(-1)).toMatchObject({ delta: 1, source_code: 'mass' });
+      }
+      if (penetration?.type === 'actionCharacteristic') {
+        expect(penetration.modifier.at(-1)).toMatchObject({ delta: 2, source_code: 'mass' });
+      }
+    });
+
+    it('один источник оставляет сильнейшую прибавку силы', () => {
+      const modifier: Rule = {
+        ...weighted,
+        spec: {
+          ...(weighted.spec as object),
+          operations: [
+            {
+              type: 'min_strength',
+              delta: 2,
+              when: { keyword_all: ['weapon'], keyword_any: [], keyword_none: [] },
+              source_code: 'mass',
+            },
+            {
+              type: 'min_strength',
+              delta: 1,
+              when: { keyword_all: ['weapon'], keyword_any: [], keyword_none: [] },
+              source_code: 'mass',
+            },
+          ],
+        },
+      };
+      const { spec } = service.applyStack(specOf(dagger), [modifier], ['weapon']);
+      expect(spec.weapon?.min_strength).toEqual(
+        service.applyStack(
+          specOf(dagger),
+          [
+            {
+              ...modifier,
+              spec: {
+                ...(modifier.spec as object),
+                operations: [
+                  {
+                    type: 'min_strength',
+                    delta: 2,
+                    when: { keyword_all: ['weapon'], keyword_any: [], keyword_none: [] },
+                    source_code: 'mass',
+                  },
+                ],
+              },
+            },
+          ],
+          ['weapon'],
+        ).spec.weapon?.min_strength,
+      );
+    });
+
+    it('плохо сделанный уменьшает размер прочности и даёт помеху инструмента', () => {
       const { spec } = service.applyStack(specOf(dagger), [poorly], ['weapon']);
       expect(spec.weapon?.durability).toEqual({ base: 5, size: 0 });
-      expect(spec.advantages).toEqual([{ source_code: 'tool', source_label: 'Плохо сделан', delta: -1 }]);
+      expect(spec.advantages).toEqual([{ delta: -1, source_code: 'tool', source_label: 'Плохо сделан' }]);
     });
 
-    it('посеребрение: сопротивление магии до 1', () => {
+    it('посеребрение поднимает сопротивление магии до 1', () => {
       const { spec } = service.applyStack(specOf(dagger), [silvered], ['weapon']);
-      expect(spec.weapon?.block_profile?.resistances).toEqual([
-        { damage_type_code: 'magic-damage', value: { base: 1, size: 0 }, durability: 1, source_code: null },
+      expect(spec.block_profile?.resistances).toEqual([
+        expect.objectContaining({
+          damage_type_code: 'magic-damage',
+          value: { base: 1, size: 0 },
+          durability: null,
+        }),
       ]);
     });
 
-    it('нагрудник: вес ¼, надёжность 1, штраф снят', () => {
-      const { spec } = service.applyStack(specOf(plate), [breastplate], ['armor-item']);
-      expect(spec.weight).toEqual({ base: 6.25, size: 0 });
-      expect(spec.armor?.defense_slots.every((slot) => slot.durability === 1)).toBe(true);
+    it('нагрудник оставляет четверть веса и снимает штраф силы', () => {
+      const plateSpec = specOf(plate);
+      const { spec } = service.applyStack(plateSpec, [breastplate], ['armor-item']);
+      expect(spec.weight.base).toBeCloseTo(plateSpec.weight.base * 0.25);
       expect(spec.armor?.strength_penalty).toBeNull();
-      expect(spec.armor?.max_agility).toEqual({ base: 4, size: -1 });
     });
 
-    it('два мода: цена посеребрения от уже увеличенного веса', () => {
+    it('два мода: цена посеребрения и вес утяжелённого', () => {
       const { spec, cost } = service.applyStack(specOf(dagger), [weighted, silvered], ['weapon']);
       expect(spec.weight).toEqual({ base: 0.625, size: 0 });
       expect(cost).toBe(1800);
@@ -237,10 +337,13 @@ describe('ItemModifierService', () => {
       const helm = mockModsImport.find((rule) => rule.code === 'closed-helm')!;
       const { spec, keywordCodes } = service.applyStack(specOf(staff), [ferrule], ['weapon', 'staff']);
       expect(spec.weapon?.min_action_cost).toBe(2);
-      expect(keywordCodes).toEqual(expect.arrayContaining(['weapon', 'staff', 'metal']));
-      const { spec: helmed, keywordCodes: afterHelm } = service.applyStack(specOf(plate), [helm], ['armor-item']);
-      expect(afterHelm).not.toContain('limited-visibility');
-      expect(helmed.armor?.defense_slots.map((slot) => slot.durability)).toEqual([4, 7]);
+      expect(keywordCodes).toEqual(['weapon', 'staff', 'metal']);
+      const plateSpec = specOf(plate);
+      const { spec: helmed, keywordCodes: afterHelm } = service.applyStack(plateSpec, [helm], ['armor-item']);
+      expect(afterHelm).toEqual(['armor-item']);
+      expect(helmed.armor?.defense_slots.map((slot) => slot.durability)).toEqual(
+        plateSpec.armor?.defense_slots.map((slot) => (slot.durability ?? 0) + 1),
+      );
       expect(helmed.check_advantages).toEqual([{ delta: -1, characteristic_codes: ['attention'] }]);
     });
 

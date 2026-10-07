@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { ItemModifierSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierSpec';
+import type { ItemModifierApplies } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierApplies';
 import type { ItemModifierOp } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierOp';
 import { ruleViewLabelService } from '@/modules/Roleplay/Rule/Service/Instance/ruleViewLabelService';
 
@@ -20,6 +21,16 @@ const keywordNameByCode = computed(() => new Map(props.keywords.map((k) => [k.co
 
 function names(codes: string[]): string {
   return codes.map((code) => keywordNameByCode.value.get(code) ?? code).join(', ');
+}
+
+function whenLabel(when: ItemModifierApplies | undefined): string {
+  if (!when) return '';
+  const parts: string[] = [];
+  if (when.keyword_all.length) parts.push(`все: ${names(when.keyword_all)}`);
+  if (when.keyword_any.length) parts.push(`любой: ${names(when.keyword_any)}`);
+  if (when.keyword_none.length) parts.push(`без: ${names(when.keyword_none)}`);
+
+  return parts.join(', ');
 }
 
 function opsLabel(ops: ItemModifierOp[]): string {
@@ -93,7 +104,15 @@ const hasEffects = computed(() => (spec.value?.effects ?? []).some((effect) => e
             <strong>{{ effect.label }}:</strong>
           </template>
           {{ effect.text }}
-          <span v-if="effect.ops?.length" class="text-medium-emphasis"> ({{ opsLabel(effect.ops) }})</span>
+        </div>
+      </template>
+
+      <template v-if="spec.operations?.length">
+        <div class="text-body-2 mb-1"><strong>Операции:</strong></div>
+        <div v-for="(operation, index) in spec.operations" :key="index" class="text-body-2 mb-1">
+          {{ opsLabel([operation]) }}
+          <span v-if="operation.source_code" class="text-medium-emphasis"> · {{ operation.source_code }}</span>
+          <span v-if="whenLabel(operation.when)" class="text-medium-emphasis"> · {{ whenLabel(operation.when) }}</span>
         </div>
       </template>
 

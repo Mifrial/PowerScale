@@ -125,8 +125,8 @@ describe('mockItemImport (S16, заход «Инвентарь»)', () => {
     expect(shields.length).toBe(3);
     for (const rule of shields) {
       const spec = itemSpec(rule);
-      expect(spec.shield!.block).toHaveProperty('defense');
-      expect(spec.shield!.block).toHaveProperty('efficiency');
+      expect(spec.block_profile).toHaveProperty('defense');
+      expect(spec.block_profile).toHaveProperty('efficiency');
       expect(spec.shield!.weapon_profiles?.length ?? 0).toBeGreaterThan(0);
       for (const profile of spec.shield!.weapon_profiles ?? []) {
         expect(typeof profile.dodge_benefit).toBe('number');

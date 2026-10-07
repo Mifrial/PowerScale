@@ -75,6 +75,9 @@ const shield = computed(() => spec.value?.shield);
         <div v-if="groupName" class="text-body-2">
           Группа: <strong>{{ groupName }}</strong>
         </div>
+        <div v-if="spec.block_profile" class="text-body-2">
+          Блок: {{ ruleViewLabelService.blockProfile(spec.block_profile, rules) }}
+        </div>
         <div v-if="spec.magic_conductor" class="text-body-2">
           Проводник магии: <strong>{{ spec.magic_conductor }}</strong>
         </div>
@@ -109,9 +112,6 @@ const shield = computed(() => spec.value?.shield);
         <div v-if="weapon.min_action_cost" class="text-body-2">
           Минимум ОД: <strong>{{ weapon.min_action_cost }}</strong>
         </div>
-        <div v-if="weapon.block_profile" class="text-body-2 mt-1">
-          Блок: {{ ruleViewLabelService.blockProfile(weapon.block_profile, rules) }}
-        </div>
         <div v-for="(profile, index) in weapon.weapon_profiles" :key="index" class="text-body-2 mt-1">
           {{ ruleViewLabelService.weaponProfile(profile, rules) }}
         </div>
@@ -134,7 +134,8 @@ const shield = computed(() => spec.value?.shield);
         <div v-for="(slot, index) in armor.resistance_slots" :key="`r-${index}`" class="text-body-2">
           Сопротивление
           {{ slot.damage_type_code ? ruleViewLabelService.ruleName(rules, slot.damage_type_code) : 'любой' }}:
-          {{ ruleViewLabelService.dimensional(slot.value) }}, надёжность {{ slot.durability }}
+          {{ ruleViewLabelService.dimensional(slot.value) }}, надёжность
+          {{ slot.durability === null ? 'абсолютная' : slot.durability }}
         </div>
         <div v-for="(limit, index) in armor.characteristic_limits" :key="`l-${index}`" class="text-body-2">
           Лимит «{{ ruleViewLabelService.ruleName(rules, limit.characteristic_code) }}»:
@@ -152,7 +153,6 @@ const shield = computed(() => spec.value?.shield);
         <div v-if="shield.durability" class="text-body-2">
           Прочность: <strong>{{ ruleViewLabelService.dimensional(shield.durability) }}</strong>
         </div>
-        <div class="text-body-2 mt-1">Блок: {{ ruleViewLabelService.blockProfile(shield.block, rules) }}</div>
         <div v-for="(profile, index) in shield.weapon_profiles ?? []" :key="index" class="text-body-2 mt-1">
           {{ ruleViewLabelService.weaponProfile(profile, rules) }}
         </div>

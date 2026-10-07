@@ -246,6 +246,8 @@ function patchOccupyHands(field: 'min' | 'max' | 'action', value: number) {
             </div>
             <ItemEquipmentEditor
               v-model:subtypes="subtypes"
+              :block-profile="draft.block_profile ?? null"
+              @update:block-profile="(value) => (draft.block_profile = value)"
               :weapon="draft.weapon ?? null"
               @update:weapon="updateWeapon"
               :armor="draft.armor ?? null"

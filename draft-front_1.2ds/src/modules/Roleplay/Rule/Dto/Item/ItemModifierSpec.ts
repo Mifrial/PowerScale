@@ -1,5 +1,6 @@
 import type { ItemModifierApplies } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierApplies';
 import type { ItemModifierEffect } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierEffect';
+import type { ItemModifierOperation } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierOperation';
 import type { ItemModifierPrice } from '@/modules/Roleplay/Rule/Dto/Item/ItemModifierPrice';
 
 /**
@@ -11,6 +12,8 @@ export interface ItemModifierSpec {
   applies: ItemModifierApplies;
   price: ItemModifierPrice;
   effects: ItemModifierEffect[];
+  /** Числа модификатора. Нет ключа — пустой список; `effects` числа не задают. */
+  operations?: ItemModifierOperation[];
   /**
    * Множитель цены других модификаторов (весь стек, не только «после»).
    * `increasing_only` — только если шаг увеличивает стоимость.

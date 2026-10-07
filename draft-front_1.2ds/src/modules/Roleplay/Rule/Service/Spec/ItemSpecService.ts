@@ -15,7 +15,6 @@ export class ItemSpecService {
     if (!spec.weapon) {
       spec.weapon = {
         min_strength: { base: 3, size: 0 },
-        block_profile: null,
         weapon_profiles: [],
       };
     }
@@ -39,11 +38,6 @@ export class ItemSpecService {
     if (!spec.shield) {
       spec.shield = {
         min_strength: { base: 3, size: 0 },
-        block: {
-          efficiency: { base: 3, size: 0 },
-          defense: { base: 0, size: 0 },
-          resistances: [],
-        },
       };
     }
 

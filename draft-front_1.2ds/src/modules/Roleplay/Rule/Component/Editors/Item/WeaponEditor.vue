@@ -2,7 +2,6 @@
 import { ref, watch } from 'vue';
 import type { WeaponBlock } from '@/modules/Roleplay/Rule/Dto/Item/WeaponBlock';
 import DimensionalNumberInput from '@/modules/Core/UI/Component/Input/DimensionalNumberInput.vue';
-import BlockProfileEditor from '@/modules/Roleplay/Rule/Component/BlockProfileEditor.vue';
 import WeaponProfileEditor from '@/modules/Roleplay/Rule/Component/WeaponProfileEditor.vue';
 import { WEAPON_PROFILE_TYPES } from '@/modules/Roleplay/Rule/Constant/Item/WEAPON_PROFILE_TYPES';
 import { itemSpecService } from '@/modules/Roleplay/Rule/Service/Instance/itemSpecService';
@@ -11,7 +10,6 @@ import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
 const props = defineProps<{
   weapon: WeaponBlock;
   damageTypes: { code: string; name: string }[];
-  sources: { code: string; name: string }[];
   characteristics: { code: string; name: string }[];
   strengthCode: string;
 }>();
@@ -59,8 +57,6 @@ function removeProfile(index: number) {
 <template>
   <div>
     <DimensionalNumberInput v-model="inner.min_strength" label="Минимальная сила" :min="3" :max="5" />
-
-    <BlockProfileEditor v-model="inner.block_profile" :damage-types="damageTypes" :sources="sources" />
 
     <v-expansion-panels v-model="expandedProfiles" multiple class="mt-2">
       <v-expansion-panel v-for="(profile, index) in inner.weapon_profiles" :key="index">

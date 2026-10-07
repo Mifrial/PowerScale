@@ -937,11 +937,10 @@ describe('pruneItemSpecBySubtypes', () => {
     weight: { base: 1, size: 0 },
     special_rule_codes: [],
     innate: false,
-    weapon: { min_strength: null, block_profile: null, weapon_profiles: [] },
+    weapon: { min_strength: null, weapon_profiles: [] },
     armor: { defense_slots: [], resistance_slots: [], characteristic_limits: [] },
     shield: {
       min_strength: null,
-      block: { efficiency: { base: 1, size: 0 }, defense: { base: 1, size: 0 }, resistances: [] },
     },
   };
 
