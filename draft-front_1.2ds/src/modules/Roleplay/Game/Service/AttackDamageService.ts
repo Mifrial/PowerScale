@@ -221,7 +221,7 @@ export class AttackDamageService {
           layers.push({ ...base, ignored: true, reason: 'defense_flag' });
           continue;
         }
-        if (line.durability <= ignoreAtMostDurability) {
+        if (line.durability !== null && line.durability <= ignoreAtMostDurability) {
           layers.push({ ...base, ignored: true, reason: 'sr' });
           continue;
         }
@@ -260,7 +260,7 @@ export class AttackDamageService {
       if (line.kind === 'defense') {
         if (!includeDefense) return false;
       } else if (line.kind !== 'resistance') return false;
-      if (line.durability <= ignoreAtMostDurability) return false;
+      if (line.durability !== null && line.durability <= ignoreAtMostDurability) return false;
       if (line.kind === 'defense' || line.damageTypeCode === null || line.damageTypeCode === undefined) return true;
 
       return damageTypeCode !== null && line.damageTypeCode === damageTypeCode;

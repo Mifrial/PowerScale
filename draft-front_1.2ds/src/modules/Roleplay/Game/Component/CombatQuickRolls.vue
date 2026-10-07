@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { combatChatSendService } from '@/modules/Roleplay/Game/Service/Instance/combatChatSendService';
 
 import { getGameApi } from '@/modules/Roleplay/Game/init';
@@ -19,6 +19,7 @@ import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCh
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
 import type { GameRuntimeEntityProjection } from '@/modules/Roleplay/Game/Dto/GameRuntimeEntityProjection';
 import type { GameCombatOverlay } from '@/modules/Roleplay/Game/Dto/GameCombatOverlay';
+import { useKeywords } from '@/modules/Roleplay/Keyword/init';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
@@ -99,10 +100,16 @@ const model = computed(() =>
       ),
 );
 
+const { keywords, fetchTags } = useKeywords();
+
+onMounted(() => {
+  void fetchTags();
+});
+
 const effectiveVersion = computed(() => model.value?.effectiveVersion ?? null);
 
 const overview = computed(() =>
-  effectiveVersion.value ? characterOverviewService.build(effectiveVersion.value, props.rules) : null,
+  effectiveVersion.value ? characterOverviewService.build(effectiveVersion.value, props.rules, keywords.value) : null,
 );
 
 const records = computed<QuickRollRecord[]>(() => {

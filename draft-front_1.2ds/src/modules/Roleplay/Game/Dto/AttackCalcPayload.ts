@@ -4,7 +4,8 @@ export interface AttackResistanceLayer {
   itemName: string;
   kind: 'defense' | 'resistance';
   value: number;
-  durability: number;
+  /** Порог РУ. null — абсолютная применимость. */
+  durability: number | null;
   sourceLabel: string | null;
   /** Источник слоя: source_code линии или код предмета. */
   sourceKey?: string;

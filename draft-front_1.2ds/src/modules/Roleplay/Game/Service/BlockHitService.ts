@@ -40,7 +40,7 @@ export class BlockHitService {
           kind: 'resistance' as const,
           value: value.toNumber(),
           valueLabel: value.toString(),
-          durability: Math.max(slot.durability, BLOCK_LAYER_DURABILITY),
+          durability: slot.durability === null ? null : Math.max(slot.durability, BLOCK_LAYER_DURABILITY),
           sourceCode: slot.source_code ?? profile.itemRuleCode,
           sourceLabel: profile.itemName,
           damageTypeLabel: slot.damage_type_code ? (DAMAGE_TYPE_FORMS[slot.damage_type_code]?.dative ?? null) : null,

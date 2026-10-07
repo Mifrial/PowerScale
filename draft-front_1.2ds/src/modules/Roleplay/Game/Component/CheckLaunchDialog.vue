@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { combatChatSendService } from '@/modules/Roleplay/Game/Service/Instance/combatChatSendService';
 
+import { useKeywords } from '@/modules/Roleplay/Keyword/init';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 import { resolveLaunchLoad } from '@/modules/Roleplay/Game/Utils/launchLoadState';
 import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber';
@@ -73,6 +74,12 @@ const emit = defineEmits<{
   'update:open': [value: boolean];
   settled: [];
 }>();
+
+const { keywords, fetchTags } = useKeywords();
+
+onMounted(() => {
+  void fetchTags();
+});
 
 const sendChat = combatChatSendService.sendCombatChat(props.gameId);
 
@@ -486,7 +493,12 @@ function poolSpec(
       : undefined;
   const version = modelOf(key)?.effectiveVersion;
   const stateAdv = stateRuntimeEffectsService.checkAdvantageModifiers(version, props.rules, query);
-  const itemAdv = itemCheckAdvantagesService.checkAdvantageModifiersFromItems(version, props.rules, query);
+  const itemAdv = itemCheckAdvantagesService.checkAdvantageModifiersFromItems(
+    version,
+    props.rules,
+    query,
+    keywords.value,
+  );
   const abilityAdv = abilityCheckAdvantagesService.checkAdvantageModifiersFromAbilities(version, props.rules, query);
   if (useFree || !code || !map.has(code)) {
     const defaults = rollPoolDefaults(props.rules);

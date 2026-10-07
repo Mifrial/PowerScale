@@ -498,9 +498,9 @@ describe('listBlockProfiles', () => {
           cost_gm: 1,
           weight: { base: 1, size: 0 },
           special_rule_codes: [],
+          block_profile: { efficiency: { base: 5, size: 0 }, defense: { base: 6, size: 0 }, resistances: [] },
           shield: {
             min_strength: null,
-            block: { efficiency: { base: 5, size: 0 }, defense: { base: 6, size: 0 }, resistances: [] },
           },
         },
         keywordIds: [],
@@ -536,10 +536,10 @@ describe('listBlockProfiles', () => {
           cost_gm: 1,
           weight: { base: 1, size: 0 },
           special_rule_codes: [],
+          block_profile: { efficiency: { base: 4, size: -1 }, defense: { base: 4, size: 0 }, resistances: [] },
           weapon: {
             min_strength: null,
             durability: { base: 1, size: 0 },
-            block_profile: { efficiency: { base: 4, size: -1 }, defense: { base: 4, size: 0 }, resistances: [] },
             weapon_profiles: [],
           },
         },

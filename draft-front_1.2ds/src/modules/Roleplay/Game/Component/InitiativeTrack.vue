@@ -909,7 +909,7 @@ async function continueSustain(power: DimensionalNumberValue): Promise<void> {
     overlay,
     runtimeProjectionOf(spell.casterKey),
   ).effectiveVersion;
-  const overview = version ? characterOverviewService.build(version, props.rules) : null;
+  const overview = version ? characterOverviewService.build(version, props.rules, keywords.value) : null;
   const pathRule = spell.pathCode ? findRuleByRef(props.rules, spell.pathCode) : null;
   const pathSpec = pathRule?.spec?.type === 'magic_path' ? (pathRule.spec as MagicPathSpec) : null;
   const maxPower = spellCastOptionsService.defaultUsedPower(

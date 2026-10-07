@@ -7,6 +7,7 @@ import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/Characte
 import type { DiceRng } from '@/modules/Roleplay/Game/Dto/DiceRng';
 import type { DiceRollSpec } from '@/modules/Roleplay/Game/Dto/DiceRollSpec';
 import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
+import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { ItemSpec } from '@/modules/Roleplay/Rule/Dto/Item/ItemSpec';
 import { checkRollService } from '@/modules/Roleplay/Game/Service/Instance/checkRollService';
@@ -87,6 +88,7 @@ export class HitRollService {
     version: CharacterVersion | null,
     rules: Rule[],
     options: { shieldsOnly?: boolean } = {},
+    keywords: readonly Keyword[] = [],
   ): HitBlockProfile[] {
     if (!version) return [];
     const profiles: HitBlockProfile[] = [];
@@ -98,10 +100,12 @@ export class HitRollService {
       const modifiers = (item.modifierRuleCodes ?? [])
         .map((id) => rules.find((entry) => entry.code === id))
         .filter((entry): entry is Rule => entry != null);
-      const stacked = itemModifierService.applyStack(spec, modifiers, []).spec;
-      const block = options.shieldsOnly
-        ? stacked.shield?.block
-        : (stacked.shield?.block ?? stacked.weapon?.block_profile);
+      const stacked = itemModifierService.applyStack(
+        spec,
+        modifiers,
+        itemModifierService.keywordCodes(rule, keywords),
+      ).spec;
+      const block = options.shieldsOnly && !stacked.shield ? undefined : stacked.block_profile;
       if (!block) continue;
       profiles.push({
         itemRuleCode: item.ruleCode,

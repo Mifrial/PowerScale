@@ -235,7 +235,7 @@ const overview = computed(() => {
     return null;
   }
 
-  return characterOverviewService.build(version, props.rules);
+  return characterOverviewService.build(version, props.rules, keywords.value);
 });
 
 function defaultTouchActionCode(): string {
@@ -986,7 +986,7 @@ function overviewOf(key: CombatEntityKey) {
     return null;
   }
 
-  return characterOverviewService.build(version, props.rules);
+  return characterOverviewService.build(version, props.rules, keywords.value);
 }
 
 async function persistSpentAp(

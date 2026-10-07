@@ -366,6 +366,11 @@ describe('applyAttackDamage', () => {
     expect(attackDamageService.stackedResistance([slot(2, 'plate'), slot(3, 'gambeson')], 'piercing', 0)).toBe(5);
   });
 
+  it('слот без порога не снимается расходом успеха', () => {
+    const absolute = line({ kind: 'resistance', value: 4, durability: null, damageTypeCode: 'piercing' });
+    expect(attackDamageService.stackedResistance([absolute], 'piercing', 99)).toBe(4);
+  });
+
   it('защита складывается в сопротивление, если тип не игнорирует защиту', () => {
     const lines = [
       line({ kind: 'defense', value: 2, durability: 1, sourceCode: 'armor' }),

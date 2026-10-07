@@ -140,7 +140,7 @@ describe('ActionEffectService', () => {
         weight: null,
         special_rule_codes: [],
         occupy_hands: { min: 1, max: 2 },
-        weapon: { min_strength: null, block_profile: null, weapon_profiles: [] },
+        weapon: { min_strength: null, weapon_profiles: [] },
       },
     } as Rule;
     expect(

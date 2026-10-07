@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import type { AttackOverview } from '@/modules/Roleplay/Character/Dto/Overview/AttackOverview';
 import type { AttackAction } from '@/modules/Roleplay/Game/Dto/AttackAction';
 import type { AttackActionStrike } from '@/modules/Roleplay/Game/Dto/AttackActionStrike';
@@ -16,7 +16,7 @@ import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
 import type { CombatActionOption } from '@/modules/Roleplay/Game/Utils/combatActions';
-import { getGameApi } from '@/modules/Roleplay/Game/init';
+import { useKeywords } from '@/modules/Roleplay/Keyword/init';
 import { resolveLaunchLoad } from '@/modules/Roleplay/Game/Utils/launchLoadState';
 import {
   characterOverviewService,
@@ -104,8 +104,14 @@ const actorVersion = computed(() => {
   ).effectiveVersion;
 });
 
+const { keywords, fetchTags } = useKeywords();
+
+onMounted(() => {
+  void fetchTags();
+});
+
 const actorOverview = computed(() =>
-  actorVersion.value ? characterOverviewService.build(actorVersion.value, props.rules) : null,
+  actorVersion.value ? characterOverviewService.build(actorVersion.value, props.rules, keywords.value) : null,
 );
 const favoriteAttack = computed(() =>
   attackActionSourceService.favoriteAttack(
@@ -338,6 +344,7 @@ function attackPreview(profile: AttackOverview): AttackOverview {
           profile.profileIndex,
           delta,
           profile.instanceIndex,
+          keywords.value,
         ) ?? profile;
     }
   }

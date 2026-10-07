@@ -27,6 +27,7 @@ export class ConcentrationTokenService {
 
   isAbilityLive(version: CharacterVersion | null | undefined, rules: Rule[]): boolean {
     if (!version || !this.isAbilityOwned(version)) return false;
+
     return this.meetsMinimum(version, rules, attackDamageService.concentrationThresholdCodes(rules), {
       base: 5,
       size: 0,

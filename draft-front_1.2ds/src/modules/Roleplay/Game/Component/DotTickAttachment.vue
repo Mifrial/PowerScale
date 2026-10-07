@@ -46,7 +46,9 @@ const damageLabel = computed(() => new DimensionalNumber(calc.value.damage).toSt
           <div v-for="(layer, index) in calc.layers ?? []" :key="index" class="text-caption py-1">
             <span class="text-medium-emphasis">{{ layer.itemName }} · </span>
             <span>{{ layer.kind === 'defense' ? 'защита' : 'сопротивление' }} {{ layer.value }}</span>
-            <span class="text-medium-emphasis"> · надёжность {{ layer.durability }}</span>
+            <span class="text-medium-emphasis">
+              · надёжность {{ layer.durability === null ? 'абсолютная' : layer.durability }}
+            </span>
             <span v-if="layer.ignored && layer.reason === 'sr'"> — игнор</span>
             <span v-else-if="layer.ignored && layer.reason === 'defense_flag'"> — игнор (тип не считает защиту)</span>
             <span v-else> — учтено</span>

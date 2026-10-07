@@ -374,7 +374,7 @@ const acceptedCoverInvites = computed(() => coveringService.acceptedInvites(offe
 const coveringBlockProfiles = computed(() => {
   const key = isCoveringStep.value && offer.value ? actingEntity(offer.value) : null;
 
-  return key ? hitRollService.listBlockProfiles(versionOf(key), props.rules) : [];
+  return key ? hitRollService.listBlockProfiles(versionOf(key), props.rules, {}, keywords.value) : [];
 });
 
 function injuryInputForTarget(input: InjuryRollInput, targetKey: CombatEntityKey): InjuryRollInput {
@@ -413,7 +413,7 @@ function overviewOf(key: CombatEntityKey | null): CharacterOverview | null {
   const version = versionOf(key);
   if (!version) return null;
 
-  return characterOverviewService.build(version, props.rules);
+  return characterOverviewService.build(version, props.rules, keywords.value);
 }
 
 async function persistChargeSpendFromOffer(casterKey: CombatEntityKey, ctx: SpellCastOfferContext): Promise<void> {
@@ -520,6 +520,7 @@ const resolvedAttack = computed(() => {
       attack.profileIndex,
       currentActionCharacteristicModifier.value,
       attack.instanceIndex,
+      keywords.value,
     ) ?? attack
   );
 });
@@ -794,7 +795,7 @@ watch(attackOptions, (options) => {
 });
 
 const blockProfiles = computed(() =>
-  hitRollService.listBlockProfiles(versionOf(opponentKey.value), props.rules, { shieldsOnly: isRanged.value }),
+  hitRollService.listBlockProfiles(versionOf(opponentKey.value), props.rules, { shieldsOnly: isRanged.value }, keywords.value),
 );
 
 const canBlock = computed(() => blockProfiles.value.length > 0);
@@ -1506,6 +1507,7 @@ async function acceptAndRoll(): Promise<void> {
         attack.profileIndex,
         actionCharacteristicModifier,
         attack.instanceIndex,
+        keywords.value,
       ) ?? attack)
     : attack;
   const rawAction = attackActionById(props.rules, actionRuleCode);
@@ -2715,6 +2717,7 @@ async function applyClickAttack(
             props.rules,
           ) + ratingBonus,
           attack.instanceIndex,
+          keywords.value,
         ) ?? attack)
       : attack;
   const hooks = damageTypeHooksService.resolveDamageTypeHooks(
@@ -2731,9 +2734,9 @@ async function applyClickAttack(
   const blockItemRuleCode = coveringInvite?.blockItemRuleCode ?? hit.blockItemRuleCode ?? null;
   const blockProfile =
     hitRollService
-      .listBlockProfiles(versionOf(defenderKey), props.rules)
+      .listBlockProfiles(versionOf(defenderKey), props.rules, {}, keywords.value)
       .find((profile) => profile.itemRuleCode === blockItemRuleCode) ??
-    hitRollService.listBlockProfiles(versionOf(defenderKey), props.rules)[0] ??
+    hitRollService.listBlockProfiles(versionOf(defenderKey), props.rules, {}, keywords.value)[0] ??
     null;
   const rolledSr = options.skipDamageApply ? 0 : sr;
   const blockSucceeded = !options.skipDamageApply && resolvedReaction === 'block' && rolledSr <= 0;

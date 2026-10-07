@@ -243,7 +243,7 @@ const overview = computed(() => {
       }
     : version;
 
-  return characterOverviewService.build(patched, props.rules);
+  return characterOverviewService.build(patched, props.rules, keywords.value);
 });
 
 const stateRows = computed(() =>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
@@ -19,6 +19,7 @@ import type { CurrentSpeed } from '@/modules/Roleplay/Game/Dto/CurrentSpeed';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
 import type { CombatActionOption } from '@/modules/Roleplay/Game/Utils/combatActions';
 import type { ActionLaunchHint } from '@/modules/Roleplay/Game/Dto/ActionLaunchHint';
+import { useKeywords } from '@/modules/Roleplay/Keyword/init';
 import { actionOperationResolutionService, getGameApi } from '@/modules/Roleplay/Game/init';
 import { resolveLaunchLoad } from '@/modules/Roleplay/Game/Utils/launchLoadState';
 import { characterOverviewService, movementContextService } from '@/modules/Roleplay/Character/init';
@@ -126,8 +127,14 @@ const actorVersion = computed(() => {
   ).effectiveVersion;
 });
 
+const { keywords, fetchTags } = useKeywords();
+
+onMounted(() => {
+  void fetchTags();
+});
+
 const actorOverview = computed(() =>
-  actorVersion.value ? characterOverviewService.build(actorVersion.value, props.rules) : null,
+  actorVersion.value ? characterOverviewService.build(actorVersion.value, props.rules, keywords.value) : null,
 );
 const actorMovementStep = computed(() =>
   movementContextService.resolveMovementStep(actorVersion.value ?? undefined, props.rules),
