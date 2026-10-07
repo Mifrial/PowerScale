@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Mechanic\Interface;
 
-use Mifrial\Roleplay\Mechanic\Dto\PurchaseSurchargePayload;
-
 /**
  * Хендлер механики: подписки события на приоритет и мутация контекста.
  */
@@ -35,11 +33,11 @@ interface IMechanicHandler
     /**
      * Выполняет механику на контексте события.
      *
-     * @param PurchaseSurchargePayload|null $payload Payload binding.
+     * @param MechanicPayload|null $payload Payload binding.
      * @param object $context Контекст шага; хендлер сам проверяет тип.
      * @param string $event Имя события.
      *
      * @return void
      */
-    public function run(?PurchaseSurchargePayload $payload, object $context, string $event): void;
+    public function run(?MechanicPayload $payload, object $context, string $event): void;
 }

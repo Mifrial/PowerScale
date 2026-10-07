@@ -7,7 +7,7 @@ namespace Mifrial\Roleplay\Rule\Dto\Spec\Item;
 use Mifrial\Roleplay\Rule\Dto\Spec\RuleSpec;
 
 /**
- * Spec предмета: цена, врождённость, броня и щит.
+ * Spec предмета: цена, врождённость, профиль блока, броня и щит.
  */
 final class ItemSpec implements RuleSpec
 {
@@ -28,6 +28,7 @@ final class ItemSpec implements RuleSpec
      * @param WeaponBlock|null $weapon Оружие.
      * @param ArmorBlock|null $armor Броня.
      * @param ShieldBlock|null $shield Щит.
+     * @param BlockProfile|null $blockProfile Профиль блока.
      *
      * @return void
      */
@@ -46,6 +47,7 @@ final class ItemSpec implements RuleSpec
         private readonly ?WeaponBlock $weapon,
         private readonly ?ArmorBlock $armor,
         private readonly ?ShieldBlock $shield,
+        private readonly ?BlockProfile $blockProfile,
     ) {
     }
 
@@ -197,5 +199,15 @@ final class ItemSpec implements RuleSpec
     public function getShield(): ?ShieldBlock
     {
         return $this->shield;
+    }
+
+    /**
+     * Профиль блока.
+     *
+     * @return BlockProfile|null Профиль или null.
+     */
+    public function getBlockProfile(): ?BlockProfile
+    {
+        return $this->blockProfile;
     }
 }

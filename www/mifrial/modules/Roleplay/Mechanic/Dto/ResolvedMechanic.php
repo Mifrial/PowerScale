@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Mechanic\Dto;
 
 use Mifrial\Roleplay\Mechanic\Interface\IMechanicHandler;
+use Mifrial\Roleplay\Mechanic\Interface\MechanicPayload;
 
 /**
  * Активная механика: хендлер поставки и payload binding.
@@ -15,13 +16,13 @@ final class ResolvedMechanic
      * Собирает разрешённую механику.
      *
      * @param IMechanicHandler $handler Хендлер code@version.
-     * @param PurchaseSurchargePayload|null $payload Payload binding или null.
+     * @param MechanicPayload|null $payload Payload binding или null.
      *
      * @return void
      */
     public function __construct(
         private readonly IMechanicHandler $handler,
-        private readonly ?PurchaseSurchargePayload $payload,
+        private readonly ?MechanicPayload $payload,
     ) {
     }
 
@@ -36,11 +37,11 @@ final class ResolvedMechanic
     }
 
     /**
-     * Параметры доплаты из среза правила.
+     * Payload из среза правила.
      *
-     * @return PurchaseSurchargePayload|null Payload или null.
+     * @return MechanicPayload|null Payload или null.
      */
-    public function getPayload(): ?PurchaseSurchargePayload
+    public function getPayload(): ?MechanicPayload
     {
         return $this->payload;
     }

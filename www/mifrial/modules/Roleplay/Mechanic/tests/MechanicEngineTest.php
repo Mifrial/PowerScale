@@ -12,7 +12,10 @@ use Mifrial\Roleplay\Mechanic\Dto\MechanicState;
 use Mifrial\Roleplay\Mechanic\Dto\PurchaseSurchargePayload;
 use Mifrial\Roleplay\Mechanic\Dto\ResolveActiveOptions;
 use Mifrial\Roleplay\Mechanic\Dto\SurchargeItem;
+use Mifrial\Roleplay\Mechanic\Exception\MechanicInvalidException;
 use Mifrial\Roleplay\Mechanic\Interface\IMechanicHandler;
+use Mifrial\Roleplay\Mechanic\Interface\IReliabilityCut;
+use Mifrial\Roleplay\Mechanic\Interface\MechanicPayload;
 use Mifrial\Roleplay\Mechanic\Service\Handler\PurchaseSurchargeHandler;
 use Mifrial\Roleplay\Mechanic\Service\MechanicEngine;
 use Mifrial\Roleplay\Mechanic\Service\MechanicHandlerRegistry;
@@ -45,20 +48,46 @@ final class MechanicEngineTest extends TestCase
     }
 
     /**
-     * Строка каталога без хендлера в реестре молча пропускается.
+     * Строка каталога без хендлера в реестре — отказ резолва.
      *
      * @return void
      */
-    public function testResolveActiveSkipsBindingWithoutHandler(): void
+    public function testResolveActiveRejectsBindingWithoutHandler(): void
     {
         $engine = new MechanicEngine(new MechanicHandlerRegistry());
-        $resolved = $engine->resolveActive(
+
+        $this->expectException(MechanicInvalidException::class);
+        $engine->resolveActive(
             [new MechanicBinding('roll', 5, null)],
             [$this->mechanic(5, 'm', '1.0.0')],
             new ResolveActiveOptions(),
         );
+    }
 
-        self::assertSame([], $resolved);
+    /**
+     * Пустой список и хендлер без маркера не включают срез. Маркер включает.
+     *
+     * @return void
+     */
+    public function testHasReliabilityCutReadsMarker(): void
+    {
+        $registry = new MechanicHandlerRegistry();
+        $registry->register($this->handler('plain', '1.0.0', []));
+        $registry->register($this->cuttingHandler());
+        $engine = new MechanicEngine($registry);
+        $catalog = [
+            $this->mechanic(1, 'plain', '1.0.0'),
+            $this->mechanic(2, 'cut', '1.0.0'),
+        ];
+        $options = new ResolveActiveOptions();
+
+        self::assertFalse($engine->hasReliabilityCut([], [], $options));
+        self::assertFalse($engine->hasReliabilityCut([new MechanicBinding('roll', 1, null)], $catalog, $options));
+        self::assertTrue($engine->hasReliabilityCut(
+            [new MechanicBinding('roll', 1, null), new MechanicBinding('roll', 2, null)],
+            $catalog,
+            $options,
+        ));
     }
 
     /**
@@ -276,7 +305,36 @@ final class MechanicEngineTest extends TestCase
                 return $this->subscriptions;
             }
 
-            public function run(?PurchaseSurchargePayload $payload, object $context, string $event): void
+            public function run(?MechanicPayload $payload, object $context, string $event): void
+            {
+            }
+        };
+    }
+
+    /**
+     * Хендлер с маркером среза. Код в проверке не читается.
+     *
+     * @return IMechanicHandler Хендлер.
+     */
+    private function cuttingHandler(): IMechanicHandler
+    {
+        return new class implements IMechanicHandler, IReliabilityCut {
+            public function getCode(): string
+            {
+                return 'cut';
+            }
+
+            public function getVersion(): string
+            {
+                return '1.0.0';
+            }
+
+            public function getSubscriptions(): array
+            {
+                return [];
+            }
+
+            public function run(?MechanicPayload $payload, object $context, string $event): void
             {
             }
         };
@@ -316,7 +374,7 @@ final class MechanicEngineTest extends TestCase
                 return [$this->event => $this->priority];
             }
 
-            public function run(?PurchaseSurchargePayload $payload, object $context, string $event): void
+            public function run(?MechanicPayload $payload, object $context, string $event): void
             {
                 if ($context instanceof MechanicEngineTraceContext) {
                     $context->trace[] = $this->code;

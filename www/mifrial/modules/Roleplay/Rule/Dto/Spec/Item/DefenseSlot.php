@@ -15,14 +15,14 @@ final class DefenseSlot
      * Создаёт слот.
      *
      * @param DimensionalNumber $defense Защита.
-     * @param int $durability Прочность.
+     * @param int|null $durability Прочность или абсолютная применимость.
      * @param string|null $sourceCode Источник.
      *
      * @return void
      */
     public function __construct(
         private readonly DimensionalNumber $defense,
-        private readonly int $durability,
+        private readonly ?int $durability,
         private readonly ?string $sourceCode,
     ) {
     }
@@ -40,9 +40,9 @@ final class DefenseSlot
     /**
      * Прочность.
      *
-     * @return int Число.
+     * @return int|null Число или null.
      */
-    public function getDurability(): int
+    public function getDurability(): ?int
     {
         return $this->durability;
     }

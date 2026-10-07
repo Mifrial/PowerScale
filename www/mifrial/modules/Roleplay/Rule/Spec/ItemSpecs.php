@@ -32,6 +32,8 @@ final class ItemSpecs
      */
     public static function read(array $document): ItemSpec
     {
+        self::rejectSplitProfiles($document);
+
         return new ItemSpec(
             SpecShape::string($document, 'category'),
             SpecShape::optionalInt($document, 'cost_gm'),
@@ -47,6 +49,7 @@ final class ItemSpecs
             ItemWeapons::block($document),
             self::armor($document),
             self::shield($document),
+            self::blockProfile($document),
         );
     }
 
@@ -93,7 +96,6 @@ final class ItemSpecs
 
         return new ShieldBlock(
             DimensionalNumbers::optional($part, 'min_strength'),
-            self::block($part),
             DimensionalNumbers::optional($part, 'durability'),
             ItemWeapons::profiles($part, 'weapon_profiles'),
             self::limits($part),
@@ -176,7 +178,7 @@ final class ItemSpecs
 
         return new DefenseSlot(
             DimensionalNumbers::required($row, 'defense'),
-            SpecShape::int($row, 'durability'),
+            SpecShape::optionalInt($row, 'durability'),
             SpecShape::optionalString($row, 'source_code'),
         );
     }
@@ -218,28 +220,8 @@ final class ItemSpecs
         return new ResistanceSlot(
             SpecShape::optionalString($row, 'damage_type_code'),
             DimensionalNumbers::required($row, 'value'),
-            SpecShape::int($row, 'durability'),
+            SpecShape::optionalInt($row, 'durability'),
             SpecShape::optionalString($row, 'source_code'),
-        );
-    }
-
-    /**
-     * Профиль блока щита.
-     *
-     * @param array<string, mixed> $part Щит.
-     *
-     * @return BlockProfile Профиль.
-     *
-     * @throws RuleSpecShapeException Если форма чужая.
-     */
-    private static function block(array $part): BlockProfile
-    {
-        $block = SpecShape::object($part, 'block') ?? [];
-
-        return new BlockProfile(
-            DimensionalNumbers::required($block, 'efficiency'),
-            DimensionalNumbers::required($block, 'defense'),
-            self::resistances($block, 'resistances'),
         );
     }
 
@@ -367,4 +349,101 @@ final class ItemSpecs
             SpecShape::optionalInt($hands, 'action'),
         );
     }
+
+    /**
+     * Профиль блока предмета. Нет ключа и пустой объект — профиля нет.
+     *
+     * @param array<string|int, mixed> $document Документ.
+     *
+     * @return BlockProfile|null Профиль или null.
+     *
+     * @throws RuleSpecShapeException Если форма чужая.
+     */
+    private static function blockProfile(array $document): ?BlockProfile
+    {
+        if (!array_key_exists('block_profile', $document) || $document['block_profile'] === []) {
+            return null;
+        }
+
+        $block = SpecShape::object($document, 'block_profile');
+
+        return new BlockProfile(
+            DimensionalNumbers::required($block, 'efficiency'),
+            DimensionalNumbers::required($block, 'defense'),
+            self::resistances($block, 'resistances'),
+        );
+    }
+
+    /**
+     * Отказ, если старые профили оружия и щита заполнены и различаются.
+     *
+     * @param array<string|int, mixed> $document Документ.
+     *
+     * @return void
+     *
+     * @throws RuleSpecShapeException Если профили различаются.
+     */
+    private static function rejectSplitProfiles(array $document): void
+    {
+        $weapon = self::filledProfile(SpecShape::object($document, 'weapon'), 'block_profile');
+        $shield = self::filledProfile(SpecShape::object($document, 'shield'), 'block');
+        if ($weapon === null || $shield === null || self::sameProfile($weapon, $shield)) {
+            return;
+        }
+
+        throw new RuleSpecShapeException('block_profile');
+    }
+
+    /**
+     * Непустой старый профиль.
+     *
+     * @param array<string, mixed>|null $part Блок или null.
+     * @param string $key Ключ профиля.
+     *
+     * @return array<string, mixed>|null Объект или null.
+     *
+     * @throws RuleSpecShapeException Если форма чужая.
+     */
+    private static function filledProfile(?array $part, string $key): ?array
+    {
+        if ($part === null || !array_key_exists($key, $part) || $part[$key] === []) {
+            return null;
+        }
+
+        $profile = SpecShape::object($part, $key);
+
+        return $profile === null || $profile === [] ? null : $profile;
+    }
+
+    /**
+     * Защита, эффективность и сопротивления совпадают.
+     *
+     * @param array<string, mixed> $left Первый профиль.
+     * @param array<string, mixed> $right Второй профиль.
+     *
+     * @return bool true, если совпадают.
+     */
+    private static function sameProfile(array $left, array $right): bool
+    {
+        return self::profileStamp($left) === self::profileStamp($right);
+    }
+
+    /**
+     * Слепок защиты, эффективности и сопротивлений.
+     *
+     * @param array<string, mixed> $profile Профиль.
+     *
+     * @return string Слепок.
+     */
+    private static function profileStamp(array $profile): string
+    {
+        $encoded = json_encode([
+            $profile['efficiency'] ?? null,
+            $profile['defense'] ?? null,
+            $profile['resistances'] ?? [],
+        ]);
+
+        return $encoded === false ? '' : $encoded;
+    }
+
 }

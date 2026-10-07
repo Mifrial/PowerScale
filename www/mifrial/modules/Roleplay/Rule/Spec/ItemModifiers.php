@@ -6,6 +6,7 @@ namespace Mifrial\Roleplay\Rule\Spec;
 
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemModifierApplies;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemModifierEffect;
+use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemModifierOperation;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\Op\ActionStrengthOp;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\Op\AdvantageOp;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\Op\ArmorReliabilityOp;
@@ -49,6 +50,7 @@ final class ItemModifiers
             self::applies($document),
             self::price(SpecShape::object($document, 'price') ?? []),
             self::effects($document),
+            self::operations($document),
             self::scale($document),
         );
     }
@@ -165,7 +167,54 @@ final class ItemModifiers
     }
 
     /**
-     * Операция.
+     * Операции чисел.
+     *
+     * @param array<string|int, mixed> $document Документ.
+     *
+     * @return array<int, ItemModifierOperation> Список.
+     *
+     * @throws RuleSpecShapeException Если форма чужая.
+     */
+    private static function operations(array $document): array
+    {
+        $operations = [];
+        foreach (SpecShape::list($document, 'operations') as $row) {
+            $operations[] = self::operation($row);
+        }
+
+        return $operations;
+    }
+
+    /**
+     * Одна операция чисел.
+     *
+     * @param mixed $row Строка.
+     *
+     * @return ItemModifierOperation Операция.
+     *
+     * @throws RuleSpecShapeException Если форма чужая.
+     */
+    private static function operation(mixed $row): ItemModifierOperation
+    {
+        if (!is_array($row) || array_is_list($row)) {
+            throw new RuleSpecShapeException('operations');
+        }
+
+        $when = SpecShape::object($row, 'when') ?? [];
+
+        return new ItemModifierOperation(
+            self::byType(SpecShape::string($row, 'type'), $row),
+            new ItemModifierApplies(
+                SpecShape::stringList($when, 'keyword_all'),
+                SpecShape::stringList($when, 'keyword_any'),
+                SpecShape::stringList($when, 'keyword_none'),
+            ),
+            SpecShape::optionalString($row, 'source_code'),
+        );
+    }
+
+    /**
+     * Операция эффекта.
      *
      * @param mixed $row Строка.
      *

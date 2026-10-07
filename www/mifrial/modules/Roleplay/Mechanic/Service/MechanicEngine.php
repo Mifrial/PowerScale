@@ -8,7 +8,9 @@ use Mifrial\Roleplay\Mechanic\Dto\MechanicBinding;
 use Mifrial\Roleplay\Mechanic\Dto\MechanicRecord;
 use Mifrial\Roleplay\Mechanic\Dto\ResolveActiveOptions;
 use Mifrial\Roleplay\Mechanic\Dto\ResolvedMechanic;
+use Mifrial\Roleplay\Mechanic\Exception\MechanicInvalidException;
 use Mifrial\Roleplay\Mechanic\Interface\IMechanicHandler;
+use Mifrial\Roleplay\Mechanic\Interface\IReliabilityCut;
 use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanicEngine;
 
 /**
@@ -36,6 +38,8 @@ final class MechanicEngine implements IMechanicEngine
      * @param ResolveActiveOptions $options Фильтр семейства и доп. коды правил.
      *
      * @return array<int, ResolvedMechanic> Активные механики, включая повтор extraRuleCodes.
+     *
+     * @throws MechanicInvalidException Если у привязки с id нет каталога или хендлера.
      */
     public function resolveActive(array $bindings, array $mechanics, ResolveActiveOptions $options): array
     {
@@ -48,6 +52,28 @@ final class MechanicEngine implements IMechanicEngine
         $this->pushExtraRuleCodes($resolved, $bindings, $byId, $options);
 
         return $resolved;
+    }
+
+    /**
+     * Есть ли среди резолва хендлер среза надёжности.
+     *
+     * @param array<int, MechanicBinding> $bindings Срезы правил.
+     * @param array<int, MechanicRecord> $mechanics Строки каталога.
+     * @param ResolveActiveOptions $options Фильтр семейства и доп. коды правил.
+     *
+     * @return bool true, если хендлер реализует маркер среза.
+     *
+     * @throws MechanicInvalidException Если у привязки с id нет каталога или хендлера.
+     */
+    public function hasReliabilityCut(array $bindings, array $mechanics, ResolveActiveOptions $options): bool
+    {
+        foreach ($this->resolveActive($bindings, $mechanics, $options) as $resolved) {
+            if ($resolved->getHandler() instanceof IReliabilityCut) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -158,7 +184,9 @@ final class MechanicEngine implements IMechanicEngine
      * @param array<int, string>|null $includeCodes Фильтр семейства.
      * @param bool $force true — не применять includeCodes.
      *
-     * @return IMechanicHandler|null Хендлер или null.
+     * @return IMechanicHandler|null Хендлер или null, если привязки нет или она отфильтрована.
+     *
+     * @throws MechanicInvalidException Если у привязки с id нет каталога или хендлера.
      */
     private function resolveHandler(
         MechanicBinding $binding,
@@ -166,12 +194,55 @@ final class MechanicEngine implements IMechanicEngine
         ?array $includeCodes,
         bool $force,
     ): ?IMechanicHandler {
-        $mechanic = $this->findListedMechanic($binding, $byId);
-        if ($mechanic === null || $this->isFilteredOut($mechanic, $includeCodes, $force)) {
+        if ($binding->getMechanicId() === null) {
             return null;
         }
 
-        return $this->registry->resolve($mechanic->getCode(), $mechanic->getHandlerVersion());
+        $mechanic = $this->listed($binding, $byId);
+        if ($this->isFilteredOut($mechanic, $includeCodes, $force)) {
+            return null;
+        }
+
+        return $this->handlerOf($mechanic);
+    }
+
+    /**
+     * Строка каталога привязки с id.
+     *
+     * @param MechanicBinding $binding Срез.
+     * @param array<int, MechanicRecord> $byId Каталог по id.
+     *
+     * @return MechanicRecord Строка.
+     *
+     * @throws MechanicInvalidException Если строки нет.
+     */
+    private function listed(MechanicBinding $binding, array $byId): MechanicRecord
+    {
+        $mechanic = $this->findListedMechanic($binding, $byId);
+        if ($mechanic === null) {
+            throw new MechanicInvalidException('Mechanic binding is not resolved');
+        }
+
+        return $mechanic;
+    }
+
+    /**
+     * Хендлер найденной строки каталога.
+     *
+     * @param MechanicRecord $mechanic Строка.
+     *
+     * @return IMechanicHandler Хендлер.
+     *
+     * @throws MechanicInvalidException Если хендлера нет.
+     */
+    private function handlerOf(MechanicRecord $mechanic): IMechanicHandler
+    {
+        $handler = $this->registry->resolve($mechanic->getCode(), $mechanic->getHandlerVersion());
+        if ($handler === null) {
+            throw new MechanicInvalidException('Mechanic binding is not resolved');
+        }
+
+        return $handler;
     }
 
     /**

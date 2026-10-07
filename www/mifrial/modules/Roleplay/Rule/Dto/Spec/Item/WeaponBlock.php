@@ -15,7 +15,6 @@ final class WeaponBlock
      * Создаёт блок.
      *
      * @param DimensionalNumber|null $minStrength Минимальная сила.
-     * @param BlockProfile|null $blockProfile Профиль блока.
      * @param array<int, WeaponProfile> $weaponProfiles Профили атаки.
      * @param DimensionalNumber|null $durability Прочность.
      * @param int|null $minActionCost Минимум ОД.
@@ -24,7 +23,6 @@ final class WeaponBlock
      */
     public function __construct(
         private readonly ?DimensionalNumber $minStrength,
-        private readonly ?BlockProfile $blockProfile,
         private readonly array $weaponProfiles,
         private readonly ?DimensionalNumber $durability,
         private readonly ?int $minActionCost,
@@ -39,16 +37,6 @@ final class WeaponBlock
     public function getMinStrength(): ?DimensionalNumber
     {
         return $this->minStrength;
-    }
-
-    /**
-     * Профиль блока.
-     *
-     * @return BlockProfile|null Профиль или null.
-     */
-    public function getBlockProfile(): ?BlockProfile
-    {
-        return $this->blockProfile;
     }
 
     /**

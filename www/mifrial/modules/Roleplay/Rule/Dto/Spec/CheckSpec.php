@@ -24,6 +24,7 @@ final class CheckSpec implements RuleSpec
      * @param bool $willpower Проверка воли.
      * @param bool $unstableCheck Проверка неустойчивости.
      * @param bool $hitCheck Проверка удара.
+     * @param bool $initiative Проверка задаёт инициативу.
      * @param ?array $attachedRuleCodes Коды правил на броске.
      *
      * @return void
@@ -41,6 +42,7 @@ final class CheckSpec implements RuleSpec
         private readonly bool $willpower,
         private readonly bool $unstableCheck,
         private readonly bool $hitCheck,
+        private readonly bool $initiative,
         private readonly ?array $attachedRuleCodes,
     ) {
     }
@@ -162,6 +164,15 @@ final class CheckSpec implements RuleSpec
     public function isHitCheck(): bool
     {
         return $this->hitCheck;
+    }
+    /**
+     * Проверка задаёт инициативу.
+     *
+     * @return bool Значение.
+     */
+    public function isInitiative(): bool
+    {
+        return $this->initiative;
     }
     /**
      * Коды правил на броске.

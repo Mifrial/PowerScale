@@ -6,7 +6,6 @@ namespace Mifrial\Roleplay\Rule\Spec;
 
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\DimensionalFormula;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ActionCharacteristicBase;
-use Mifrial\Roleplay\Rule\Dto\Spec\Item\BlockProfile;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\WeaponBlock;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\WeaponDamage;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\WeaponProfile;
@@ -35,7 +34,6 @@ final class ItemWeapons
 
         return new WeaponBlock(
             DimensionalNumbers::optional($part, 'min_strength'),
-            self::blockProfile($part),
             self::profiles($part, 'weapon_profiles'),
             DimensionalNumbers::optional($part, 'durability'),
             SpecShape::optionalInt($part, 'min_action_cost'),
@@ -163,29 +161,6 @@ final class ItemWeapons
         return new ActionCharacteristicBase(
             SpecShape::string($base, 'characteristic'),
             Formulas::dimensional($base, 'value'),
-        );
-    }
-
-    /**
-     * Профиль блока оружия.
-     *
-     * @param array<string, mixed> $part Оружие.
-     *
-     * @return BlockProfile|null Профиль или null.
-     *
-     * @throws RuleSpecShapeException Если форма чужая.
-     */
-    private static function blockProfile(array $part): ?BlockProfile
-    {
-        $block = SpecShape::object($part, 'block_profile');
-        if ($block === null) {
-            return null;
-        }
-
-        return new BlockProfile(
-            DimensionalNumbers::required($block, 'efficiency'),
-            DimensionalNumbers::required($block, 'defense'),
-            ItemSpecs::resistances($block, 'resistances'),
         );
     }
 }

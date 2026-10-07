@@ -18,6 +18,7 @@ final class ItemModifierSpec implements RuleSpec
      * @param ItemModifierApplies $applies Применимость.
      * @param ItemModifierPrice $price Цена.
      * @param array<int, ItemModifierEffect> $effects Эффекты.
+     * @param array<int, ItemModifierOperation> $operations Операции чисел.
      * @param ItemModifierPriceScale|null $priceScale Множитель чужой цены.
      *
      * @return void
@@ -27,6 +28,7 @@ final class ItemModifierSpec implements RuleSpec
         private readonly ItemModifierApplies $applies,
         private readonly ItemModifierPrice $price,
         private readonly array $effects,
+        private readonly array $operations,
         private readonly ?ItemModifierPriceScale $priceScale,
     ) {
     }
@@ -79,6 +81,16 @@ final class ItemModifierSpec implements RuleSpec
     public function getEffects(): array
     {
         return $this->effects;
+    }
+
+    /**
+     * Операции чисел. Старые эффекты сюда не входят.
+     *
+     * @return array<int, ItemModifierOperation> Список.
+     */
+    public function getOperations(): array
+    {
+        return $this->operations;
     }
 
     /**

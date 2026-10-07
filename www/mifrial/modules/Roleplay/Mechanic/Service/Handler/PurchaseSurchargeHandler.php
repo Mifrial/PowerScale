@@ -8,6 +8,7 @@ use Mifrial\Roleplay\Mechanic\Constant\PurchaseSurchargeEvent;
 use Mifrial\Roleplay\Mechanic\Dto\CharacterMechanicContext;
 use Mifrial\Roleplay\Mechanic\Dto\PurchaseSurchargePayload;
 use Mifrial\Roleplay\Mechanic\Interface\IMechanicHandler;
+use Mifrial\Roleplay\Mechanic\Interface\MechanicPayload;
 
 /**
  * Прогрессивная доплата: каждая способность сверх freeCount доплачивает surcharge ОС.
@@ -47,19 +48,19 @@ final class PurchaseSurchargeHandler implements IMechanicHandler
     /**
      * Пишет доплату в аккумуляторы контекста, если payload задан и контекст — шаг персонажа.
      *
-     * @param PurchaseSurchargePayload|null $payload Payload доплаты.
+     * @param MechanicPayload|null $payload Payload доплаты.
      * @param object $context Контекст события.
      * @param string $event Имя события. Чужое событие не начисляет доплату.
      *
      * @return void
      */
-    public function run(?PurchaseSurchargePayload $payload, object $context, string $event): void
+    public function run(?MechanicPayload $payload, object $context, string $event): void
     {
         if ($event !== PurchaseSurchargeEvent::NAME) {
             return;
         }
 
-        if (!$context instanceof CharacterMechanicContext || $payload === null) {
+        if (!$context instanceof CharacterMechanicContext || !$payload instanceof PurchaseSurchargePayload) {
             return;
         }
 

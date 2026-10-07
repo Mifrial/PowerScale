@@ -16,7 +16,7 @@ final class ResistanceSlot
      *
      * @param string|null $damageTypeCode Тип урона.
      * @param DimensionalNumber $value Значение.
-     * @param int $durability Прочность.
+     * @param int|null $durability Прочность или абсолютная применимость.
      * @param string|null $sourceCode Источник.
      *
      * @return void
@@ -24,7 +24,7 @@ final class ResistanceSlot
     public function __construct(
         private readonly ?string $damageTypeCode,
         private readonly DimensionalNumber $value,
-        private readonly int $durability,
+        private readonly ?int $durability,
         private readonly ?string $sourceCode,
     ) {
     }
@@ -52,9 +52,9 @@ final class ResistanceSlot
     /**
      * Прочность.
      *
-     * @return int Число.
+     * @return int|null Число или null.
      */
-    public function getDurability(): int
+    public function getDurability(): ?int
     {
         return $this->durability;
     }

@@ -12,9 +12,13 @@ use Mifrial\Core\User\Interface\Container\IUserContainer;
 use Mifrial\Core\User\Interface\Service\IUserAccess;
 use Mifrial\Roleplay\Mechanic\Interface\Container\IMechanicContainer;
 use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanicEngine;
+use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanicRolls;
 use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanics;
 use Mifrial\Roleplay\Mechanic\Repository\MechanicRepository;
+use Mifrial\Roleplay\Mechanic\Service\Handler\AdvantageDisadvantageHandler;
+use Mifrial\Roleplay\Mechanic\Service\Handler\PlainRollHandler;
 use Mifrial\Roleplay\Mechanic\Service\Handler\PurchaseSurchargeHandler;
+use Mifrial\Roleplay\Mechanic\Service\Handler\SixOneRuleHandler;
 use Mifrial\Roleplay\Mechanic\Table\MechanicTable;
 
 /**
@@ -39,16 +43,29 @@ final class MechanicPortFactory
     }
 
     /**
-     * Собирает движок с purchase_surcharge в реестре.
+     * Собирает движок с доплатой и хендлерами броска в реестре.
      *
      * @return IMechanicEngine Движок.
      */
     public function createEngine(): IMechanicEngine
     {
         $registry = new MechanicHandlerRegistry();
+        $registry->register(new PlainRollHandler());
         $registry->register(new PurchaseSurchargeHandler());
+        $registry->register(new SixOneRuleHandler());
+        $registry->register(new AdvantageDisadvantageHandler());
 
         return new MechanicEngine($registry);
+    }
+
+    /**
+     * Собирает порт броска на движке с тем же набором хендлеров.
+     *
+     * @return IMechanicRolls Порт.
+     */
+    public function createRolls(): IMechanicRolls
+    {
+        return new MechanicRolls($this->createEngine());
     }
 
     /**

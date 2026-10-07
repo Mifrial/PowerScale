@@ -15,7 +15,6 @@ final class ShieldBlock
      * Создаёт блок.
      *
      * @param DimensionalNumber|null $minStrength Минимальная сила.
-     * @param BlockProfile $block Профиль блока.
      * @param DimensionalNumber|null $durability Прочность.
      * @param array<int, WeaponProfile> $weaponProfiles Профили атаки.
      * @param array<int, CharacteristicLimit> $characteristicLimits Лимиты.
@@ -24,7 +23,6 @@ final class ShieldBlock
      */
     public function __construct(
         private readonly ?DimensionalNumber $minStrength,
-        private readonly BlockProfile $block,
         private readonly ?DimensionalNumber $durability,
         private readonly array $weaponProfiles,
         private readonly array $characteristicLimits,
@@ -39,16 +37,6 @@ final class ShieldBlock
     public function getMinStrength(): ?DimensionalNumber
     {
         return $this->minStrength;
-    }
-
-    /**
-     * Профиль блока.
-     *
-     * @return BlockProfile Профиль.
-     */
-    public function getBlock(): BlockProfile
-    {
-        return $this->block;
     }
 
     /**

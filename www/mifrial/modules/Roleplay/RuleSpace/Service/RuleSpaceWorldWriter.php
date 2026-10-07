@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\RuleSpace\Service;
 
 use Mifrial\Roleplay\Rule\Dto\RuleCommitEntry;
-use Mifrial\Roleplay\Rule\Exception\RuleConflictException;
 use Mifrial\Roleplay\Rule\Dto\RuleRevisionRecord;
 use Mifrial\Roleplay\Rule\Dto\RuleRevisionSlice;
+use Mifrial\Roleplay\Rule\Exception\RuleConflictException;
 use Mifrial\Roleplay\Rule\Interface\Service\IRules;
 use Mifrial\Roleplay\RuleSpace\Dto\RuleSpaceCatalog;
 use Mifrial\Roleplay\RuleSpace\Repository\RuleSpaceRepository;

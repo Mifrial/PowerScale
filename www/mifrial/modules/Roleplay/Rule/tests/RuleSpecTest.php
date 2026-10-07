@@ -9,6 +9,7 @@ use Mifrial\Roleplay\Rule\Dto\RuleVersionRecord;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\AbilityPlainSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\CharacteristicModifyGrant;
 use Mifrial\Roleplay\Rule\Dto\Spec\Ability\MoneyGrant;
+use Mifrial\Roleplay\Rule\Dto\Spec\CheckSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\CharacteristicNode;
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\Scalar\ParameterScalar;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemSpec;
@@ -134,6 +135,75 @@ final class RuleSpecTest extends TestCase
         self::assertInstanceOf(CharacteristicModifyGrant::class, $grant);
         self::assertInstanceOf(ParameterScalar::class, $grant->getAmount());
         self::assertSame(2, $grant->getAmount()->getPerUnit());
+    }
+
+    /**
+     * Нет ключа initiative — проверка без инициативы.
+     *
+     * @return void
+     */
+    public function testCheckWithoutInitiativeKeyIsNotInitiative(): void
+    {
+        $spec = $this->check(['allowed_modes' => 'solo']);
+
+        self::assertFalse($spec->isInitiative());
+    }
+
+    /**
+     * Явный false не задаёт инициативу.
+     *
+     * @return void
+     */
+    public function testCheckInitiativeFalseStaysFalse(): void
+    {
+        $spec = $this->check(['allowed_modes' => 'solo', 'initiative' => false]);
+
+        self::assertFalse($spec->isInitiative());
+    }
+
+    /**
+     * initiative true — эта проверка задаёт инициативу.
+     *
+     * @return void
+     */
+    public function testCheckInitiativeTrueIsInitiative(): void
+    {
+        $spec = $this->check(['allowed_modes' => 'solo', 'initiative' => true]);
+
+        self::assertTrue($spec->isInitiative());
+    }
+
+    /**
+     * Не bool в initiative бьёт только эту версию.
+     *
+     * @return void
+     */
+    public function testCheckInitiativeWrongTypeMarksVersionBroken(): void
+    {
+        $document = ['allowed_modes' => 'solo', 'initiative' => 'yes'];
+        $record = $this->record('check', $document);
+
+        self::assertTrue($record->isSpecBroken());
+        self::assertNull($record->getSpec());
+        self::assertSame($document, $record->getSpecDocument());
+    }
+
+    /**
+     * Целая проверка.
+     *
+     * @param array<string, mixed> $spec Документ.
+     *
+     * @return CheckSpec Spec.
+     */
+    private function check(array $spec): CheckSpec
+    {
+        $record = $this->record('check', $spec);
+        $parsed = $record->getSpec();
+
+        self::assertFalse($record->isSpecBroken());
+        self::assertInstanceOf(CheckSpec::class, $parsed);
+
+        return $parsed;
     }
 
     /**

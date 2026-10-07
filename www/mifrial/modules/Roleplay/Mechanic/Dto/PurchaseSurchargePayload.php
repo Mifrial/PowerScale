@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Mechanic\Dto;
 
+use Mifrial\Roleplay\Mechanic\Interface\MechanicPayload;
+
 /**
  * Параметры доплаты за покупку способностей: фильтр, бесплатный порог, размер доплаты.
  */
-final class PurchaseSurchargePayload
+final class PurchaseSurchargePayload implements MechanicPayload
 {
     /**
      * Собирает payload доплаты.

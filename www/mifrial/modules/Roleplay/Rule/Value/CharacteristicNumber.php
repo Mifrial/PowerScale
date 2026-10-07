@@ -10,6 +10,10 @@ namespace Mifrial\Roleplay\Rule\Value;
  */
 final class CharacteristicNumber
 {
+    public const BASE_MIN = 3;
+
+    public const BASE_MAX = 5;
+
     /**
      * Создаёт число.
      *

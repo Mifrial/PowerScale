@@ -8,7 +8,9 @@ use Mifrial\Core\SmartTable\Interface\Container\ISmartTableContainer;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Roleplay\Rule\Container\RuleContainer;
 use Mifrial\Roleplay\Rule\Interface\Container\IRuleContainer;
+use Mifrial\Roleplay\Rule\Interface\Service\IFormulaEvaluations;
 use Mifrial\Roleplay\Rule\Interface\Service\IRules;
+use Mifrial\Roleplay\Rule\Service\FormulaEvaluations;
 use Mifrial\Roleplay\Rule\Service\RulePortFactory;
 use Mifrial\Roleplay\Rule\Setup\RuleModuleSetup;
 
@@ -26,6 +28,9 @@ return [
     'ports' => [
         IRules::class => static function (IServiceLocator $serviceLocator): IRules {
             return (new RulePortFactory())->create($serviceLocator);
+        },
+        IFormulaEvaluations::class => static function (): IFormulaEvaluations {
+            return new FormulaEvaluations();
         },
     ],
     'routes' => [],
