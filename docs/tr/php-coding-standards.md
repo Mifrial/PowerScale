@@ -163,7 +163,15 @@ PHPDoc:
 
 ## Проверки
 
-Из каталога `www/mifrial/`:
+Проверки выполняются из каталога `www/mifrial/`. Зависимости устанавливаются
+один раз для окружения и повторно после изменения `composer.lock`, удаления
+`vendor/` или смены окружения:
+
+```bash
+composer install
+```
+
+Обычный запуск:
 
 ```bash
 composer cs-fix
@@ -171,6 +179,12 @@ composer cs-check
 composer quality
 vendor/bin/phpunit
 ```
+
+`composer cs-check` и `composer quality` перед запуском проверяют наличие
+проектных PHPCS и PHP CS Fixer, а также стандарта `SlevomatCodingStandard`.
+Если окружение не подготовлено, проверка завершается с ошибкой и сообщает
+запустить `composer install` в `www/mifrial/`. Глобальный `phpcs` не является
+поддерживаемым способом проверки.
 
 Форматтер исправляет безопасные формальные нарушения. Архитектурные и
 complexity-маркеры автоматически не исправляются.

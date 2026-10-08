@@ -18,9 +18,10 @@
     "squizlabs/php_codesniffer": "^4.0"
   },
   "scripts": {
-    "cs-check": "php-cs-fixer fix --dry-run --diff && phpcs",
+    "phpcs-preflight": "@php tools/phpcs/preflight.php",
+    "cs-check": "@php tools/phpcs/preflight.php && php-cs-fixer fix --dry-run --diff && phpcs",
     "cs-fix": "php-cs-fixer fix && phpcbf",
-    "quality": "phpcs --standard=phpcs-quality.xml.dist"
+    "quality": "@php tools/phpcs/preflight.php && phpcs --standard=phpcs-quality.xml.dist"
   },
   "autoload": {
     "psr-4": {

@@ -48,9 +48,21 @@ php bin/setup.php
 php bin/agent.php
 ```
 
-Проверка и исправление PHP-стиля:
+Подготовка PHP-инструментов выполняется один раз для окружения и повторяется
+после изменения `composer.lock`, удаления `vendor/` или смены окружения:
+
+```bash
+cd /home/htea/my/charGen/2026/www/mifrial
+composer install
+```
+
+Проверка и исправление PHP-стиля выполняются из `www/mifrial`:
 
 ```bash
 composer cs-check
+composer quality
 composer cs-fix
 ```
+
+`cs-check` и `quality` сами проверяют готовность проектных инструментов.
+Глобальный `phpcs` и ручной запуск PHPCS вне `vendor/bin` не поддерживаются.
