@@ -87,13 +87,13 @@ final class CharacterSheets implements ICharacterSheets
         $problems = new CharacterProblemList();
         $this->inputChecks->check($slice, $choices, $problems);
         $this->studyPairs->check($choices, $problems);
-        $this->mechanicSupport->check($slice, $problems);
+        $supportedMechanics = $this->mechanicSupport->check($slice, $problems);
         $levels = $this->getAbilityLevels($choices);
         $racialCodes = $this->raceAbilityCodes->getCodes($slice, $choices->getRaceCode());
         $covered = $this->grantCoverage->check($slice, $choices, $problems);
         $equipped = $this->equippedItems->getModifiers($slice, $choices, $problems);
         $purchased = $this->purchases->resolve($slice, $choices, $problems);
-        $context = $this->osSteps->runOsSteps($slice, $levels, $racialCodes);
+        $context = $this->osSteps->runOsSteps($slice, $levels, $racialCodes, $supportedMechanics);
 
         return new CharacterValidation(
             $problems->all(),

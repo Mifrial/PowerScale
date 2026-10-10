@@ -43,6 +43,7 @@ final class CharacterOsSteps implements ICharacterOsSteps
      * @param CharacterRuleSlice $slice Уже загруженный срез.
      * @param array<string, int> $abilityLevels Уровни по коду способности, в порядке вставки.
      * @param array<int, string> $racialAbilityCodes Коды способностей выбранной расы.
+     * @param array<int, MechanicBinding>|null $bindings Поддержанные binding или null для сборки из среза.
      *
      * @return CharacterMechanicContext Контекст с аккумуляторами доплаты.
      */
@@ -50,8 +51,9 @@ final class CharacterOsSteps implements ICharacterOsSteps
         CharacterRuleSlice $slice,
         array $abilityLevels,
         array $racialAbilityCodes,
+        ?array $bindings = null,
     ): CharacterMechanicContext {
-        $bindings = $this->bindings->fromSlice($slice);
+        $bindings ??= $this->bindings->fromSlice($slice);
         $context = new CharacterMechanicContext($this->stateOf($slice, $abilityLevels, $racialAbilityCodes));
         $active = $this->engine->resolveActive($bindings, $this->catalogOf($bindings), new ResolveActiveOptions());
         $this->engine->runEvent(PurchaseSurchargeEvent::NAME, $context, $active);

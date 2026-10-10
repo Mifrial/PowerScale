@@ -6,6 +6,7 @@ namespace Mifrial\Roleplay\Character\Service\Sheet;
 
 use Mifrial\Roleplay\Character\Dto\CharacterProblemList;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
+use Mifrial\Roleplay\Mechanic\Dto\MechanicBinding;
 use Mifrial\Roleplay\Mechanic\Exception\MechanicNotFoundException;
 use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanics;
 
@@ -34,16 +35,21 @@ final class CharacterMechanicSupport
      * @param CharacterRuleSlice $slice Срез.
      * @param CharacterProblemList $problems Накопитель.
      *
-     * @return void
+     * @return array<int, MechanicBinding> Поддержанные binding для движка.
      */
-    public function check(CharacterRuleSlice $slice, CharacterProblemList $problems): void
+    public function check(CharacterRuleSlice $slice, CharacterProblemList $problems): array
     {
+        $supported = [];
         foreach ($this->bindings->fromSlice($slice) as $binding) {
             $mechanicId = $binding->getMechanicId();
             if ($mechanicId !== null) {
-                $this->checkMechanic($binding->getRuleCode(), $mechanicId, $problems);
+                if ($this->isSupported($binding->getRuleCode(), $mechanicId, $problems)) {
+                    $supported[] = $binding;
+                }
             }
         }
+
+        return $supported;
     }
 
     /**
@@ -53,18 +59,18 @@ final class CharacterMechanicSupport
      * @param int $mechanicId Id.
      * @param CharacterProblemList $problems Накопитель.
      *
-     * @return void
+     * @return bool true, если поставка поддержана и должна попасть в engine.
      */
-    private function checkMechanic(string $ruleCode, int $mechanicId, CharacterProblemList $problems): void
+    private function isSupported(string $ruleCode, int $mechanicId, CharacterProblemList $problems): bool
     {
         try {
             $record = $this->mechanics->get($mechanicId);
         } catch (MechanicNotFoundException) {
-            return;
+            return false;
         }
 
         if ($record->getCode() === 'purchase_surcharge' && $record->getHandlerVersion() === '1.0.0') {
-            return;
+            return true;
         }
 
         $problems->add(
@@ -73,5 +79,7 @@ final class CharacterMechanicSupport
             'mechanic',
             $ruleCode,
         );
+
+        return false;
     }
 }
