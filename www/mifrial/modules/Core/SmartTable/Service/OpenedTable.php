@@ -7,6 +7,7 @@ namespace Mifrial\Core\SmartTable\Service;
 use Mifrial\Core\SmartTable\Interface\Service\IOpenedRecords;
 use Mifrial\Core\SmartTable\Interface\Service\IOpenedSchema;
 use Mifrial\Core\SmartTable\Interface\Service\IOpenedTable;
+use Mifrial\Core\SmartTable\Interface\Service\IConditionalOpenedRecords;
 use Mifrial\Core\SmartTable\Service\Cache\TableCache;
 use Mifrial\Core\SmartTable\Service\Query\TableAggregate;
 use Mifrial\Core\SmartTable\Service\Query\TableList;
@@ -24,12 +25,14 @@ final class OpenedTable implements IOpenedTable
      *
      * @param IOpenedSchema $openedSchema DDL.
      * @param IOpenedRecords $openedRecords Строки.
+     * @param IConditionalOpenedRecords $conditionalRecords Условные строки.
      *
      * @return void
      */
     private function __construct(
         private readonly IOpenedSchema $openedSchema,
         private readonly IOpenedRecords $openedRecords,
+        private readonly IConditionalOpenedRecords $conditionalRecords,
     ) {
     }
 
@@ -56,6 +59,7 @@ final class OpenedTable implements IOpenedTable
         return new self(
             new OpenedSchema($tableDefinition, $tableSchema, $tableCache),
             new OpenedRecords($tableDefinition, $tableRows, $tableList, $tableCache, $tableSchema, $tableAggregate),
+            new ConditionalOpenedRecords($tableDefinition, $tableRows->getConditionalRows(), $tableCache),
         );
     }
 
@@ -77,5 +81,15 @@ final class OpenedTable implements IOpenedTable
     public function records(): IOpenedRecords
     {
         return $this->openedRecords;
+    }
+
+    /**
+     * Возвращает узкий порт условных операций строк.
+     *
+     * @return IConditionalOpenedRecords Условные строки.
+     */
+    public function conditionalRecords(): IConditionalOpenedRecords
+    {
+        return $this->conditionalRecords;
     }
 }

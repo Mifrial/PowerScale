@@ -9,6 +9,7 @@ use Mifrial\Core\SmartTable\Service\Cache\TableCache;
 use Mifrial\Core\SmartTable\Service\Catalog\SmartTableCatalog;
 use Mifrial\Core\SmartTable\Service\Connection\IlluminateDatabaseConnection;
 use Mifrial\Core\SmartTable\Service\Query\CatalogDefinitionLookup;
+use Mifrial\Core\SmartTable\Service\Query\ConditionalTableRows;
 use Mifrial\Core\SmartTable\Service\Query\FieldPathWalker;
 use Mifrial\Core\SmartTable\Service\Query\ListFilterBinder;
 use Mifrial\Core\SmartTable\Service\Query\ListQueryCompiler;
@@ -16,6 +17,7 @@ use Mifrial\Core\SmartTable\Service\Query\MfvRows;
 use Mifrial\Core\SmartTable\Service\Query\RowAssembler;
 use Mifrial\Core\SmartTable\Service\Query\TableAggregate;
 use Mifrial\Core\SmartTable\Service\Query\TableList;
+use Mifrial\Core\SmartTable\Service\Query\TableRowOperations;
 use Mifrial\Core\SmartTable\Service\Query\TableRows;
 use Mifrial\Core\SmartTable\Service\Schema\MfvSchema;
 use Mifrial\Core\SmartTable\Service\Schema\TableSchema;
@@ -136,12 +138,25 @@ final class SmartTableSupport
     private function tableRows(): TableRows
     {
         $driverErrors = new DriverErrorTranslator();
-
-        return new TableRows(
+        $mfvRows = new MfvRows($this->databaseConnection, $driverErrors);
+        $rowOperations = new TableRowOperations(
             $this->databaseConnection,
+            $driverErrors,
+            $mfvRows,
+            new ListQueryCompiler(),
+        );
+        $conditionalTableRows = new ConditionalTableRows(
             new RowAssembler(),
             $driverErrors,
-            new MfvRows($this->databaseConnection, $driverErrors),
+            $rowOperations,
+        );
+
+        return new TableRows(
+            new RowAssembler(),
+            $driverErrors,
+            $mfvRows,
+            $rowOperations,
+            $conditionalTableRows,
         );
     }
 

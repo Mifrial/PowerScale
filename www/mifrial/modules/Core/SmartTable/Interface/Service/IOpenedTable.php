@@ -22,4 +22,11 @@ interface IOpenedTable
      * @return IOpenedRecords Строки.
      */
     public function records(): IOpenedRecords;
+
+    /**
+     * Возвращает узкий порт условных операций строк.
+     *
+     * @return IConditionalOpenedRecords Условные строки.
+     */
+    public function conditionalRecords(): IConditionalOpenedRecords;
 }
