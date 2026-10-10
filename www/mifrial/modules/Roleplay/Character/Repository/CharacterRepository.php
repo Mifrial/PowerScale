@@ -6,6 +6,7 @@ namespace Mifrial\Roleplay\Character\Repository;
 
 use Closure;
 use Mifrial\Core\Kernel\Value\DateTime;
+use Mifrial\Core\SmartTable\Dto\ConditionalCas;
 use Mifrial\Core\SmartTable\Exception\Field\FieldInvalidException;
 use Mifrial\Core\SmartTable\Exception\Field\FieldRequiredException;
 use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
@@ -13,6 +14,7 @@ use Mifrial\Core\SmartTable\Exception\Row\ReferenceConstraintException;
 use Mifrial\Core\SmartTable\Exception\Row\RowNotFoundException;
 use Mifrial\Core\SmartTable\Exception\Row\RowWriteFailedException;
 use Mifrial\Core\SmartTable\Exception\Row\UniqueConstraintException;
+use Mifrial\Core\SmartTable\Interface\Service\IConditionalOpenedRecords;
 use Mifrial\Core\SmartTable\Interface\Service\IOpenedRecords;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Roleplay\Character\Dto\CharacterRecord;
@@ -28,6 +30,8 @@ final class CharacterRepository
 {
     private readonly IOpenedRecords $characterRecords;
 
+    private readonly IConditionalOpenedRecords $conditionalCharacterRecords;
+
     /**
      * Создаёт репозиторий.
      *
@@ -38,7 +42,9 @@ final class CharacterRepository
     public function __construct(
         private readonly ISmartTableGateway $smartTableGateway,
     ) {
-        $this->characterRecords = $smartTableGateway->open(CharacterTable::class)->records();
+        $openedTable = $smartTableGateway->open(CharacterTable::class);
+        $this->characterRecords = $openedTable->records();
+        $this->conditionalCharacterRecords = $openedTable->conditionalRecords();
     }
 
     /**
@@ -113,13 +119,12 @@ final class CharacterRepository
         return $this->writeGuarded(
             $characterId,
             $expectedVersion,
-            function (int $nextVersion) use ($characterId, $choices, $sheet, $updatedAt): void {
-                $this->updateRow($characterId, [
+            function () use ($choices, $sheet, $updatedAt): array {
+                return [
                     'choices' => $choices,
                     'sheet' => $sheet,
-                    'actual_version' => $nextVersion,
                     'updated_at' => $updatedAt,
-                ]);
+                ];
             },
         );
     }
@@ -153,15 +158,14 @@ final class CharacterRepository
         return $this->writeGuarded(
             $characterId,
             $expectedVersion,
-            function (int $nextVersion) use ($characterId, $name, $active, $choices, $sheet, $updatedAt): void {
-                $this->updateRow($characterId, [
+            function () use ($name, $active, $choices, $sheet, $updatedAt): array {
+                return [
                     'name' => $name,
                     'active' => $active,
                     'choices' => $choices,
                     'sheet' => $sheet,
-                    'actual_version' => $nextVersion,
                     'updated_at' => $updatedAt,
-                ]);
+                ];
             },
         );
     }
@@ -197,16 +201,15 @@ final class CharacterRepository
         return $this->writeGuarded(
             $characterId,
             $expectedVersion,
-            function (int $nextVersion) use ($characterId, $name, $active, $choices, $sheet, $rulesRevision, $updatedAt): void {
-                $this->updateRow($characterId, [
+            function () use ($name, $active, $choices, $sheet, $rulesRevision, $updatedAt): array {
+                return [
                     'name' => $name,
                     'active' => $active,
                     'choices' => $choices,
                     'sheet' => $sheet,
                     'rules_revision' => $rulesRevision,
-                    'actual_version' => $nextVersion,
                     'updated_at' => $updatedAt,
-                ]);
+                ];
             },
         );
     }
@@ -234,12 +237,11 @@ final class CharacterRepository
         return $this->writeGuarded(
             $characterId,
             $expectedVersion,
-            function (int $nextVersion) use ($characterId, $active, $updatedAt): void {
-                $this->updateRow($characterId, [
+            function () use ($active, $updatedAt): array {
+                return [
                     'active' => $active,
-                    'actual_version' => $nextVersion,
                     'updated_at' => $updatedAt,
-                ]);
+                ];
             },
         );
     }
@@ -249,7 +251,7 @@ final class CharacterRepository
      *
      * @param int $characterId Идентификатор.
      * @param int $expectedVersion Lock.
-     * @param Closure $writer Update с next version.
+     * @param Closure(): array<string, mixed> $writer Поля без actual_version.
      *
      * @return CharacterRecord После записи.
      *
@@ -261,33 +263,44 @@ final class CharacterRepository
     {
         return $this->smartTableGateway->transaction(
             function () use ($characterId, $expectedVersion, $writer): CharacterRecord {
-                $characterRecord = $this->getById($characterId);
-                if ($characterRecord->getActualVersion() !== $expectedVersion) {
-                    throw new CharacterConflictException($characterRecord->getActualVersion());
+                $updated = $this->updateConditional($characterId, $expectedVersion, $writer());
+                if ($updated) {
+                    return $this->getById($characterId);
                 }
 
-                $writer($expectedVersion + 1);
+                $row = $this->conditionalCharacterRecords->getCurrentById($characterId);
+                if ($row === null) {
+                    throw new CharacterNotFoundException('Character was not found');
+                }
 
-                return $this->getById($characterId);
+                throw new CharacterConflictException(
+                    (int) $row['actual_version'],
+                    currentSheet: $this->sheetOf($row),
+                );
             },
         );
     }
 
     /**
-     * Update колонок.
+     * Conditional update колонок.
      *
      * @param int $characterId Идентификатор.
-     * @param array<string, mixed> $fields Колонки.
+     * @param int $expectedVersion Ожидаемый actual_version.
+     * @param array<string, mixed> $fields Колонки без счётчика.
      *
-     * @return void
+     * @return bool true, если строка записана.
      *
      * @throws CharacterNotFoundException Если строки нет.
      * @throws CharacterInvalidException Если поле.
      */
-    private function updateRow(int $characterId, array $fields): void
+    private function updateConditional(int $characterId, int $expectedVersion, array $fields): bool
     {
         try {
-            $this->characterRecords->update($characterId, $fields);
+            return $this->conditionalCharacterRecords->updateConditional(
+                $characterId,
+                new ConditionalCas('actual_version', $expectedVersion),
+                $fields,
+            );
         } catch (RowNotFoundException $exception) {
             throw new CharacterNotFoundException('Character was not found', $exception);
         } catch (
@@ -299,5 +312,23 @@ final class CharacterRepository
         ) {
             throw new CharacterInvalidException('Character field is invalid', $exception);
         }
+    }
+
+    /**
+     * Лист из свежей строки.
+     *
+     * @param array<string, mixed> $row Строка.
+     *
+     * @return array{choices: array<mixed>, sheet: array<mixed>} Лист.
+     */
+    private function sheetOf(array $row): array
+    {
+        $choices = $row['choices'] ?? [];
+        $sheet = $row['sheet'] ?? [];
+
+        return [
+            'choices' => is_array($choices) ? $choices : [],
+            'sheet' => is_array($sheet) ? $sheet : [],
+        ];
     }
 }

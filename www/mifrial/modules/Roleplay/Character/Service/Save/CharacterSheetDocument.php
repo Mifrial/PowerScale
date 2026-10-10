@@ -18,12 +18,13 @@ final class CharacterSheetDocument
      *
      * @param CharacterValidation $validation Результат валидатора.
      * @param int $money Наличные.
+     * @param array<int, array{ruleCode: string, current: int|array{base: int, size: int}}>|null $resources Typed resource rows.
      *
      * @return array<string, mixed> Sheet.
      */
-    public function build(CharacterValidation $validation, int $money): array
+    public function build(CharacterValidation $validation, int $money, ?array $resources = null): array
     {
-        return [
+        $sheet = [
             'abilityLevels' => $validation->getAbilityLevels(),
             'racialAbilityCodes' => $validation->getRacialAbilityCodes(),
             'osSurchargeTotal' => $validation->getOsSurchargeTotal(),
@@ -34,6 +35,12 @@ final class CharacterSheetDocument
             'active' => $validation->isActive(),
             'money' => $money,
         ];
+
+        if ($resources !== null) {
+            $sheet['resources'] = $resources;
+        }
+
+        return $sheet;
     }
 
     /**

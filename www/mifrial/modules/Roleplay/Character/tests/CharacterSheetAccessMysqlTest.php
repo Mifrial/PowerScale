@@ -29,6 +29,7 @@ use Mifrial\Roleplay\Character\Service\Read\CharacterSectionCodes;
 use Mifrial\Roleplay\Character\Service\Read\CharacterViewerParser;
 use Mifrial\Roleplay\Character\Table\CharacterTable;
 use Mifrial\Roleplay\Character\Table\CharacterViewerTable;
+use Mifrial\Roleplay\Game\Table\GameCharacterTable;
 use Mifrial\Roleplay\Rule\Table\RuleSpaceTable;
 use PHPUnit\Framework\TestCase;
 
@@ -258,6 +259,11 @@ final class CharacterSheetAccessMysqlTest extends TestCase
         }
 
         $gateway = $this->smartTableGateway;
+        $gameCharacterSchema = $gateway->open(GameCharacterTable::class)->schema();
+        if ($gameCharacterSchema->exists()) {
+            $gameCharacterSchema->deleteTable();
+        }
+
         foreach ([CharacterViewerTable::class, CharacterTable::class] as $tableClass) {
             $schema = $gateway->open($tableClass)->schema();
             if ($schema->exists()) {

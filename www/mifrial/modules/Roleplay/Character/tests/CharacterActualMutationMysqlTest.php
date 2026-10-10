@@ -6,6 +6,7 @@ namespace Mifrial\Roleplay\Character\Tests;
 
 use Mifrial\Core\Kernel\Dto\RequestActor;
 use Mifrial\Core\Kernel\Service\ApplicationFactory;
+use Mifrial\Core\Kernel\Value\DateTime;
 use Mifrial\Core\SmartTable\Exception\Database\DatabaseException;
 use Mifrial\Core\SmartTable\Interface\Container\ISmartTableContainer;
 use Mifrial\Core\SmartTable\Interface\Service\IDatabaseConnection;
@@ -19,7 +20,6 @@ use Mifrial\Core\User\Table\UserGroupMemberTable;
 use Mifrial\Core\User\Table\UserGroupTable;
 use Mifrial\Core\User\Table\UserTable;
 use Mifrial\Core\User\Tests\UserMysqlTables;
-use Mifrial\Core\Kernel\Value\DateTime;
 use Mifrial\Roleplay\Character\Dto\Action\ApplyCharacterActualPatchInput;
 use Mifrial\Roleplay\Character\Dto\CharacterResolvedRule;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
@@ -40,6 +40,7 @@ use Mifrial\Roleplay\Character\Service\Save\CharacterChoiceAssembler;
 use Mifrial\Roleplay\Character\Service\Save\CharacterSheetDocument;
 use Mifrial\Roleplay\Character\Table\CharacterTable;
 use Mifrial\Roleplay\Character\Table\CharacterViewerTable;
+use Mifrial\Roleplay\Game\Table\GameCharacterTable;
 use Mifrial\Roleplay\Rule\Dto\RuleVersionRecord;
 use Mifrial\Roleplay\Rule\Table\RuleSpaceTable;
 use PHPUnit\Framework\TestCase;
@@ -95,6 +96,29 @@ final class CharacterActualMutationMysqlTest extends TestCase
         self::assertSame(4, $record->getChoices()['money']);
         self::assertSame('stay', $record->getSheet()['marker']);
         self::assertSame($this->sorted($this->expectedSheet()), $this->sorted($this->withoutMarker($record->getSheet())));
+    }
+
+    /**
+     * Backfill инициализирует ресурс, а повторный вызов не поднимает версию.
+     *
+     * @return void
+     */
+    public function testResourceBackfillIsIdempotent(): void
+    {
+        $characterId = $this->addHero();
+        $first = $this->portWithSlice($this->resourceSlice(5))->backfill($characterId, 1);
+
+        self::assertSame('initialized', $first->getStatus());
+        self::assertSame(2, $first->getRecord()->getActualVersion());
+        $resources = $first->getRecord()->getSheet()['resources'];
+        self::assertCount(1, $resources);
+        self::assertSame('action-points', $resources[0]['ruleCode']);
+        self::assertSame(5, $resources[0]['current']);
+
+        $second = $this->portWithSlice($this->resourceSlice(5))->backfill($characterId, 2);
+
+        self::assertSame('noop', $second->getStatus());
+        self::assertSame(2, $second->getRecord()->getActualVersion());
     }
 
     /**
@@ -257,7 +281,10 @@ final class CharacterActualMutationMysqlTest extends TestCase
             self::fail('stale version must conflict');
         } catch (CharacterConflictException $exception) {
             self::assertSame(1, $exception->getCurrentVersion());
-            self::assertSame(['currentVersion' => 1], $exception->getErrorDetails());
+            self::assertSame(1, $exception->getErrorDetails()['currentVersion']);
+            self::assertArrayHasKey('choices', $exception->getErrorDetails());
+            self::assertArrayHasKey('sheet', $exception->getErrorDetails());
+            self::assertArrayNotHasKey('currentSheet', $exception->getErrorDetails());
         }
 
         $record = $this->characters()->get($characterId);
@@ -412,6 +439,49 @@ final class CharacterActualMutationMysqlTest extends TestCase
         return (new CharacterSheetDocument())->build(
             new CharacterValidation([], [], [], 0, [], [], [], true),
             4,
+            [],
+        );
+    }
+
+    /**
+     * Срез с одним scalar resource.
+     *
+     * @param int $limit Effective limit.
+     *
+     * @return CharacterRuleSlice Срез.
+     */
+    private function resourceSlice(int $limit): CharacterRuleSlice
+    {
+        return new CharacterRuleSlice(
+            1,
+            1,
+            'world',
+            [
+                new CharacterResolvedRule(
+                    new RuleVersionRecord(
+                        20,
+                        1,
+                        'action-points',
+                        true,
+                        'resource',
+                        'Action points',
+                        '',
+                        [
+                            'is_dimensional' => false,
+                            'auto_add' => true,
+                            'check_token' => false,
+                            'limit' => ['base' => $limit, 'adjustments' => []],
+                        ],
+                        [],
+                        [],
+                        'published',
+                        '',
+                        DateTime::fromUnix(0),
+                    ),
+                    [],
+                ),
+            ],
+            [],
         );
     }
 
@@ -536,6 +606,11 @@ final class CharacterActualMutationMysqlTest extends TestCase
         }
 
         $gateway = $this->smartTableGateway;
+        $gameCharacterSchema = $gateway->open(GameCharacterTable::class)->schema();
+        if ($gameCharacterSchema->exists()) {
+            $gameCharacterSchema->deleteTable();
+        }
+
         foreach ([CharacterViewerTable::class, CharacterTable::class] as $tableClass) {
             $schema = $gateway->open($tableClass)->schema();
             if ($schema->exists()) {

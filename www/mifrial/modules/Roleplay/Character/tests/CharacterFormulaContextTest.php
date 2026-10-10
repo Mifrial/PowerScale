@@ -7,6 +7,7 @@ namespace Mifrial\Roleplay\Character\Tests;
 use Mifrial\Roleplay\Character\Exception\CharacterInvalidException;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
 use Mifrial\Roleplay\Character\Service\CharacterFormulaContexts;
+use Mifrial\Roleplay\Rule\Value\CharacteristicNumber;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 use PHPUnit\Framework\TestCase;
 
@@ -37,10 +38,12 @@ final class CharacterFormulaContextTest extends TestCase
         self::assertSame(0, $context->findAbilityLevel('guard'));
         self::assertSame(0, $context->findAbilityLevel('missing'));
         $strength = $context->findCharacteristic('strength');
+        self::assertInstanceOf(CharacteristicNumber::class, $strength);
         self::assertInstanceOf(DimensionalNumber::class, $strength);
         self::assertSame(4, $strength->getBase());
         self::assertSame(1, $strength->getSize());
         $agility = $context->findCharacteristic('agility');
+        self::assertInstanceOf(CharacteristicNumber::class, $agility);
         self::assertInstanceOf(DimensionalNumber::class, $agility);
         self::assertSame(3, $agility->getBase());
         self::assertSame(0, $agility->getSize());

@@ -28,7 +28,7 @@ final class CharacterSectionMask
     private const SHEET = [
         'race' => ['racialAbilityCodes'],
         'characteristics' => ['characteristicPurchases', 'characteristicPurchaseOs', 'osSurchargeTotal'],
-        'resources' => ['money'],
+        'resources' => ['money', 'resources'],
         'abilities' => ['abilityLevels', 'coveredPaths'],
         'inventory' => ['equippedModifiers'],
     ];

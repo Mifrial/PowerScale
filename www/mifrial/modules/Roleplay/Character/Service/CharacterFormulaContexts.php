@@ -9,6 +9,7 @@ use Mifrial\Roleplay\Character\Exception\CharacterNotFoundException;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterFormulaContexts;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
 use Mifrial\Roleplay\Rule\Dto\FormulaContext;
+use Mifrial\Roleplay\Rule\Value\CharacteristicNumber;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
@@ -164,7 +165,7 @@ final class CharacterFormulaContexts implements ICharacterFormulaContexts
             $this->reject();
         }
 
-        return new DimensionalNumber($base, $size);
+        return new CharacteristicNumber($base, $size);
     }
 
     /**

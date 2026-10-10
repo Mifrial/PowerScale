@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Character\Service;
 
+use Mifrial\Core\Kernel\Value\DateTime;
 use Mifrial\Roleplay\Character\Dto\CharacterChoices;
 use Mifrial\Roleplay\Character\Dto\CharacterRecord;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
 use Mifrial\Roleplay\Character\Dto\CharacterValidation;
+use Mifrial\Roleplay\Character\Dto\ResourceBackfillResult;
+use Mifrial\Roleplay\Character\Dto\ResourceSpend;
 use Mifrial\Roleplay\Character\Exception\CharacterConflictException;
 use Mifrial\Roleplay\Character\Exception\CharacterInvalidException;
 use Mifrial\Roleplay\Character\Exception\CharacterNotFoundException;
@@ -16,8 +19,14 @@ use Mifrial\Roleplay\Character\Interface\Service\ICharacterActualMutations;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterRuleSlices;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheets;
+use Mifrial\Roleplay\Character\Service\Resource\CharacterResourceArithmetic;
+use Mifrial\Roleplay\Character\Service\Resource\CharacterResourceGrantReader;
+use Mifrial\Roleplay\Character\Service\Resource\CharacterResourceLimits;
+use Mifrial\Roleplay\Character\Service\Resource\CharacterResourceStorage;
 use Mifrial\Roleplay\Character\Service\Save\CharacterChoiceAssembler;
 use Mifrial\Roleplay\Character\Service\Save\CharacterSheetDocument;
+use Mifrial\Roleplay\Character\Service\Sheet\Spec\CharacterDonorGrants;
+use Mifrial\Roleplay\Rule\Service\FormulaEvaluations;
 
 /**
  * Меняет сохранённый actual операцией каталога и ожидаемой версией.
@@ -25,6 +34,11 @@ use Mifrial\Roleplay\Character\Service\Save\CharacterSheetDocument;
 final class CharacterActualMutations implements ICharacterActualMutations
 {
     private readonly CharacterActualStateRows $stateRows;
+
+    private readonly CharacterResourceStorage $resourceStorage;
+
+    private readonly CharacterResourceLimits $resourceLimits;
+
     /**
      * Создаёт порт.
      *
@@ -44,6 +58,12 @@ final class CharacterActualMutations implements ICharacterActualMutations
         private readonly CharacterSheetDocument $sheetDocument,
     ) {
         $this->stateRows = new CharacterActualStateRows();
+        $this->resourceStorage = new CharacterResourceStorage();
+        $this->resourceLimits = new CharacterResourceLimits(
+            new FormulaEvaluations(),
+            new CharacterResourceGrantReader(new CharacterDonorGrants()),
+            new CharacterResourceArithmetic(),
+        );
     }
 
     /**
@@ -80,6 +100,39 @@ final class CharacterActualMutations implements ICharacterActualMutations
     }
 
     /**
+     * Инициализирует или выправляет server-owned resource rows.
+     *
+     * @param int $characterId Персонаж.
+     * @param int $expectedActualVersion Ожидаемая actual_version.
+     *
+     * @return ResourceBackfillResult Результат backfill.
+     *
+     * @throws CharacterConflictException Если версия устарела.
+     * @throws CharacterInvalidException Если лист или resources битые.
+     * @throws CharacterNotFoundException Если строки или ревизии нет.
+     * @throws CharacterSaveRejectedException Если validate вернул problems.
+     */
+    public function backfill(int $characterId, int $expectedActualVersion): ResourceBackfillResult
+    {
+        $record = $this->locked($characterId, $expectedActualVersion);
+        $sheet = $this->nextSheet($record, $record->getChoices());
+        $status = $this->backfillStatus($record->getSheet(), $sheet);
+        if ($status === 'noop') {
+            return new ResourceBackfillResult($record, $status);
+        }
+
+        $saved = $this->characters->replacePayload(
+            $characterId,
+            $record->getChoices(),
+            $sheet,
+            $expectedActualVersion,
+            DateTime::now(),
+        );
+
+        return new ResourceBackfillResult($saved, $status);
+    }
+
+    /**
      * Патчит choices, sheet.money и sheet.states. Строку не пишет и validate не вызывает.
      *
      * @param int $spaceId Мир листа.
@@ -103,6 +156,7 @@ final class CharacterActualMutations implements ICharacterActualMutations
         $choices = $this->patchedChoices($choices, $operations);
         $slice = $this->ruleSlices->get($spaceId, $rulesRevision);
         $this->assertItemsLive($slice, $operations);
+        $sheet = $this->resourceSpends($sheet, $slice, $operations);
 
         return [
             'choices' => $choices,
@@ -129,7 +183,13 @@ final class CharacterActualMutations implements ICharacterActualMutations
     {
         $record = $this->characters->get($characterId);
         if ($record->getActualVersion() !== $expectedActualVersion) {
-            throw new CharacterConflictException($record->getActualVersion());
+            throw new CharacterConflictException(
+                $record->getActualVersion(),
+                currentSheet: [
+                    'choices' => $record->getChoices(),
+                    'sheet' => $record->getSheet(),
+                ],
+            );
         }
 
         return $record;
@@ -171,6 +231,10 @@ final class CharacterActualMutations implements ICharacterActualMutations
     private function applyOperation(array $choices, mixed $operation): array
     {
         $kind = is_array($operation) ? ($operation['kind'] ?? null) : null;
+        if ($kind === 'spendResources') {
+            return $choices;
+        }
+
         if ($kind === 'setInventoryQuantity' || $kind === 'putInventoryQuantity') {
             return $this->applyQuantity($choices, $operation, $kind === 'putInventoryQuantity');
         }
@@ -259,6 +323,61 @@ final class CharacterActualMutations implements ICharacterActualMutations
     }
 
     /**
+     * Применяет все подготовленные resource spends одной мутацией.
+     *
+     * @param array<string, mixed> $sheet Sheet.
+     * @param CharacterRuleSlice $slice Live rules.
+     * @param array<int, mixed> $operations Operations.
+     *
+     * @return array<string, mixed> Sheet.
+     *
+     * @throws CharacterInvalidException If resources or spends are invalid.
+     */
+    private function resourceSpends(
+        array $sheet,
+        CharacterRuleSlice $slice,
+        array $operations,
+    ): array {
+        $spends = [];
+        foreach ($operations as $operation) {
+            if (!is_array($operation) || ($operation['kind'] ?? null) !== 'spendResources') {
+                continue;
+            }
+
+            $operationSpends = $operation['spends'] ?? null;
+            if (!is_array($operationSpends) || !array_is_list($operationSpends)) {
+                throw new CharacterInvalidException('Resource spend operation is invalid');
+            }
+
+            foreach ($operationSpends as $spend) {
+                if (!$spend instanceof ResourceSpend) {
+                    throw new CharacterInvalidException('Resource spend operation is invalid');
+                }
+
+                $spends[] = $spend;
+            }
+        }
+
+        if ($spends === []) {
+            return $sheet;
+        }
+
+        $rows = $sheet['resources'] ?? null;
+        if (!is_array($rows)) {
+            throw new CharacterInvalidException('Character resources are missing');
+        }
+
+        $typedRows = $this->resourceStorage->parseRows($rows, $slice);
+
+        return [
+            ...$sheet,
+            'resources' => $this->resourceStorage->serializeRows(
+                $this->resourceStorage->spendRows($typedRows, $slice, $spends),
+            ),
+        ];
+    }
+
+    /**
      * Пишет choices.money.
      *
      * @param array<string, mixed> $choices Документ.
@@ -291,6 +410,7 @@ final class CharacterActualMutations implements ICharacterActualMutations
      *
      * @param array<string, mixed> $choices Документ.
      * @param mixed $operation Объект операции.
+     * @param bool $createMissing Разрешить создание отсутствующей строки.
      *
      * @return array<string, mixed> Документ.
      *
@@ -321,6 +441,7 @@ final class CharacterActualMutations implements ICharacterActualMutations
      * Код операции setInventoryQuantity.
      *
      * @param mixed $operation Объект.
+     * @param bool $createMissing Разрешить создание отсутствующей строки.
      *
      * @return string Код предмета.
      *
@@ -450,9 +571,98 @@ final class CharacterActualMutations implements ICharacterActualMutations
      */
     private function nextSheet(CharacterRecord $record, array $choices): array
     {
-        $built = $this->sheetDocument->build($this->accepted($record, $choices), $this->moneyOf($choices));
+        $slice = $this->ruleSlices->get($record->getSpaceId(), $record->getRulesRevision());
+        $validation = $this->accepted($record, $choices);
+        $model = $this->modelOf($choices);
+        $built = $this->resourceSheet($record, $slice, $validation, $model, $choices);
 
-        return $this->keepUnknown($record->getSheet(), $built);
+        $sheet = $this->keepUnknown($record->getSheet(), $built);
+        return $sheet;
+    }
+
+    /**
+     * Собирает sheet с server-owned resource rows.
+     *
+     * @param CharacterRecord $record Строка до записи.
+     * @param CharacterRuleSlice $slice Срез ревизии.
+     * @param CharacterValidation $validation Проверенный снимок.
+     * @param CharacterChoices $model Типизированные choices.
+     * @param array<string, mixed> $choices Документ choices.
+     *
+     * @return array<string, mixed> Собранный sheet.
+     *
+     * @throws CharacterInvalidException Если resources или money имеют неверную форму.
+     */
+    private function resourceSheet(
+        CharacterRecord $record,
+        CharacterRuleSlice $slice,
+        CharacterValidation $validation,
+        CharacterChoices $model,
+        array $choices,
+    ): array {
+        $previousRows = [];
+        if (array_key_exists('resources', $record->getSheet())) {
+            $resources = $record->getSheet()['resources'];
+            if (!is_array($resources)) {
+                throw new CharacterInvalidException('Character resources are invalid');
+            }
+
+            $previousRows = $this->resourceStorage->parseRows($resources, $slice);
+        }
+
+        $resourceRows = $this->resourceLimits->buildRows($slice, $validation, $model, $previousRows);
+
+        return $this->sheetDocument->build(
+            $validation,
+            $this->moneyOf($choices),
+            $this->resourceStorage->serializeRows($resourceRows),
+        );
+    }
+
+    /**
+     * Определяет результат явной сборки resources.
+     *
+     * @param array<string, mixed> $previous Старый sheet.
+     * @param array<string, mixed> $next Новый sheet.
+     *
+     * @return string initialized, changed или noop.
+     */
+    private function backfillStatus(array $previous, array $next): string
+    {
+        if ($this->normalizeForComparison($previous) === $this->normalizeForComparison($next)) {
+            return 'noop';
+        }
+
+        if (!array_key_exists('resources', $previous)) {
+            return 'initialized';
+        }
+
+        return 'changed';
+    }
+
+    /**
+     * Нормализует associative keys, не меняя порядок list-элементов.
+     *
+     * @param mixed $value Значение документа.
+     *
+     * @return mixed Нормализованное значение.
+     */
+    private function normalizeForComparison(mixed $value): mixed
+    {
+        if (!is_array($value)) {
+            return $value;
+        }
+
+        if (array_is_list($value)) {
+            return array_map($this->normalizeForComparison(...), $value);
+        }
+
+        ksort($value);
+        foreach ($value as $key => $item) {
+            $value[$key] = $this->normalizeForComparison($item);
+        }
+
+        return $value;
     }
 
     /**
@@ -470,6 +680,10 @@ final class CharacterActualMutations implements ICharacterActualMutations
     private function sheetAfter(CharacterRecord $record, array $patched): array
     {
         $sheet = $this->nextSheet($record, $patched['choices']);
+        if (array_key_exists('resources', $patched['sheet'])) {
+            $sheet['resources'] = $patched['sheet']['resources'];
+        }
+
         if (array_key_exists('states', $patched['sheet'])) {
             $sheet['states'] = $patched['sheet']['states'];
         }

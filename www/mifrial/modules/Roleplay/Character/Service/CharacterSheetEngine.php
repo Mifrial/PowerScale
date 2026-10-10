@@ -46,15 +46,22 @@ final class CharacterSheetEngine implements ICharacterSheetEngines
      * @param int $spaceId Мир.
      * @param int $revision Ревизия.
      * @param array<string, mixed>|null $expectedSheet Сверка или null.
+     * @param array<string, mixed>|null $previousSheet Server-owned previous sheet.
      *
      * @return array<string, mixed> kind, problems, revision, choices, sheet, name.
      *
      * @throws ActionException INVALID_PARAMS.
      * @throws CharacterNotFoundException Если нет ревизии.
      */
-    public function build(array $choices, int $spaceId, int $revision, ?array $expectedSheet): array
+    public function build(
+        array $choices,
+        int $spaceId,
+        int $revision,
+        ?array $expectedSheet,
+        ?array $previousSheet = null,
+    ): array
     {
-        return $this->assembled($choices, $spaceId, $revision, $expectedSheet);
+        return $this->assembled($choices, $spaceId, $revision, $expectedSheet, $previousSheet);
     }
 
     /**
@@ -64,19 +71,26 @@ final class CharacterSheetEngine implements ICharacterSheetEngines
      * @param int $spaceId Мир.
      * @param int $sourceRevision Исходная ревизия.
      * @param int $targetRevision Целевая ревизия.
+     * @param array<string, mixed>|null $previousSheet Server-owned previous sheet.
      *
      * @return array<string, mixed> kind, problems, revision, choices, sheet, name.
      *
      * @throws ActionException INVALID_PARAMS.
      * @throws CharacterNotFoundException Если нет ревизии.
      */
-    public function remap(array $choices, int $spaceId, int $sourceRevision, int $targetRevision): array
+    public function remap(
+        array $choices,
+        int $spaceId,
+        int $sourceRevision,
+        int $targetRevision,
+        ?array $previousSheet = null,
+    ): array
     {
         $source = $this->ruleSlices->get($spaceId, $sourceRevision);
         $target = $this->ruleSlices->get($spaceId, $targetRevision);
         $remapped = $this->remap->remap($choices, $source, $target);
 
-        return $this->assembled($remapped['choices'], $spaceId, $targetRevision, null);
+        return $this->assembled($remapped['choices'], $spaceId, $targetRevision, null, $previousSheet);
     }
 
     /**
@@ -86,13 +100,20 @@ final class CharacterSheetEngine implements ICharacterSheetEngines
      * @param int $spaceId Мир.
      * @param int $revision Ревизия.
      * @param array<string, mixed>|null $expectedSheet Сверка.
+     * @param array<string, mixed>|null $previousSheet Server-owned previous sheet.
      *
      * @return array<string, mixed> kind, problems, revision, choices, sheet, name.
      *
      * @throws ActionException INVALID_PARAMS.
      * @throws CharacterNotFoundException Если нет ревизии.
      */
-    private function assembled(array $choices, int $spaceId, int $revision, ?array $expectedSheet): array
+    private function assembled(
+        array $choices,
+        int $spaceId,
+        int $revision,
+        ?array $expectedSheet,
+        ?array $previousSheet,
+    ): array
     {
         $limits = $this->listOf($choices, 'limits');
         $abilities = $this->listOf($choices, 'abilities');
@@ -118,6 +139,7 @@ final class CharacterSheetEngine implements ICharacterSheetEngines
             false,
             $expectedSheet,
             $choices,
+            $previousSheet,
         );
         $built['problems'] = $this->assembly->withClientCash($built['problems'], $this->clientMoney($choices));
         $problems = $this->withoutEmptyRace($built['problems'], $raceCode);

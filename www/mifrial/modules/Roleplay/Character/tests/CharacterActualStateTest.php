@@ -7,6 +7,8 @@ namespace Mifrial\Roleplay\Character\Tests;
 use Mifrial\Core\Kernel\Value\DateTime;
 use Mifrial\Roleplay\Character\Dto\CharacterResolvedRule;
 use Mifrial\Roleplay\Character\Dto\CharacterRuleSlice;
+use Mifrial\Roleplay\Character\Dto\ResourceSpend;
+use Mifrial\Roleplay\Character\Dto\ScalarResourceValue;
 use Mifrial\Roleplay\Character\Exception\CharacterInvalidException;
 use Mifrial\Roleplay\Character\Exception\CharacterNotFoundException;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterRuleSlices;
@@ -53,6 +55,32 @@ final class CharacterActualStateTest extends TestCase
             ['stateRuleCode' => 'sized', 'value' => ['base' => 1, 'size' => 2]],
             ['stateRuleCode' => 'counted', 'value' => 5],
         ], $patched['sheet']['states']);
+    }
+
+    /**
+     * Resource spend is applied in the same prepared document mutation.
+     *
+     * @return void
+     */
+    public function testSpendResourceChangesOnlyNativeCurrent(): void
+    {
+        $patched = $this->mutations($this->slice([
+            $this->rule('action-points', 'resource', [
+                'is_dimensional' => false,
+                'auto_add' => true,
+                'check_token' => false,
+                'limit' => ['base' => 5, 'adjustments' => []],
+            ]),
+        ]))->applyToDocument(1, 1, ['money' => 4], [
+            'resources' => [['ruleCode' => 'action-points', 'current' => 5]],
+        ], [[
+            'kind' => 'spendResources',
+            'spends' => [new ResourceSpend('action-points', new ScalarResourceValue(2))],
+        ]]);
+
+        self::assertSame([
+            ['ruleCode' => 'action-points', 'current' => 3],
+        ], $patched['sheet']['resources']);
     }
 
     /**

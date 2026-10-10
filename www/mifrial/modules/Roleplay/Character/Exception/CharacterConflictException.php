@@ -17,6 +17,8 @@ final class CharacterConflictException extends CharacterException
      * @param int $currentVersion Актуальный actual_version.
      * @param string $message Уточнение.
      * @param Throwable|null $previous Исходное исключение.
+     * @param array{choices: array<string, mixed>, sheet: array<string, mixed>}|null $currentSheet
+     *     Внутренний снимок или уже разрешённая проекция.
      *
      * @return void
      */
@@ -24,6 +26,7 @@ final class CharacterConflictException extends CharacterException
         private readonly int $currentVersion,
         string $message = 'Character version conflict',
         ?Throwable $previous = null,
+        private readonly ?array $currentSheet = null,
     ) {
         parent::__construct('CHARACTER_CONFLICT', $message, $previous);
     }
@@ -45,6 +48,22 @@ final class CharacterConflictException extends CharacterException
      */
     public function getErrorDetails(): array
     {
-        return ['currentVersion' => $this->currentVersion];
+        $details = ['currentVersion' => $this->currentVersion];
+        if ($this->currentSheet !== null) {
+            $details['choices'] = $this->currentSheet['choices'];
+            $details['sheet'] = $this->currentSheet['sheet'];
+        }
+
+        return $details;
+    }
+
+    /**
+     * Свежий лист, если конфликт относится к строке персонажа.
+     *
+     * @return array{choices: array<string, mixed>, sheet: array<string, mixed>}|null Лист.
+     */
+    public function getCurrentSheet(): ?array
+    {
+        return $this->currentSheet;
     }
 }

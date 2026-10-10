@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Character\Interface\Service;
 
 use Mifrial\Roleplay\Character\Dto\CharacterRecord;
+use Mifrial\Roleplay\Character\Dto\ResourceBackfillResult;
 use Mifrial\Roleplay\Character\Exception\CharacterConflictException;
 use Mifrial\Roleplay\Character\Exception\CharacterInvalidException;
 use Mifrial\Roleplay\Character\Exception\CharacterNotFoundException;
@@ -30,6 +31,21 @@ interface ICharacterActualMutations
      * @throws CharacterSaveRejectedException Если validate вернул problems.
      */
     public function apply(int $characterId, int $expectedActualVersion, array $operations): CharacterRecord;
+
+    /**
+     * Инициализирует или выправляет resource rows через expected version.
+     *
+     * @param int $characterId Персонаж.
+     * @param int $expectedActualVersion Ожидаемая actual_version.
+     *
+     * @return ResourceBackfillResult Результат backfill.
+     *
+     * @throws CharacterConflictException Если версия устарела.
+     * @throws CharacterInvalidException Если лист или resource row битые.
+     * @throws CharacterNotFoundException Если строки или ревизии нет.
+     * @throws CharacterSaveRejectedException Если validate вернул problems.
+     */
+    public function backfill(int $characterId, int $expectedActualVersion): ResourceBackfillResult;
 
     /**
      * Патчит документ без записи строки character.

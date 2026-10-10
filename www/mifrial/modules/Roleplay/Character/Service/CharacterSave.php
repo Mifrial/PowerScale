@@ -168,6 +168,7 @@ final class CharacterSave
             false,
             $input->expectedSheet,
             $this->choiceAssembler->buildDocument($input),
+            $record->getSheet(),
         );
         $built['problems'] = $this->assembly->withClientCash($built['problems'], $input->money);
         $this->guard($built['problems']);
@@ -269,6 +270,7 @@ final class CharacterSave
             false,
             $input->expectedSheet,
             $this->choiceAssembler->buildDocument($input),
+            $record->getSheet(),
         );
         $built['problems'] = $this->assembly->withClientCash($built['problems'], $input->money);
 
