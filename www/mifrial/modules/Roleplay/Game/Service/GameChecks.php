@@ -824,6 +824,7 @@ final class GameChecks implements IGameChecks
             'difficulty' => $thrown['difficulty'] ?? null,
             'roll' => $thrown['roll'] ?? null,
             'success' => $thrown['success'] ?? null,
+            'rating' => $thrown['rating'] ?? null,
             'sheetVersion' => $sheetVersion,
         ];
     }

@@ -66,6 +66,14 @@ final class GameEconomyApply
      */
     private array $touchedShop = [];
 
+    private GameRecord $game;
+
+    private int $actorUserId;
+
+    private bool $editAll;
+
+    private bool $viewAll;
+
     /**
      * Создаёт проход.
      *
@@ -75,6 +83,7 @@ final class GameEconomyApply
      * @param GameMemberRepository $members Люди.
      * @param GameNpcRepository $npcs NPC.
      * @param GameShopPositionRepository $shopPositions Магазин.
+     * @param ConflictSheetProjection $conflictProjection Проекция конфликтов.
      *
      * @return void
      */
@@ -85,6 +94,7 @@ final class GameEconomyApply
         private readonly GameMemberRepository $members,
         private readonly GameNpcRepository $npcs,
         private readonly GameShopPositionRepository $shopPositions,
+        private readonly ConflictSheetProjection $conflictProjection,
     ) {
     }
 
@@ -94,6 +104,7 @@ final class GameEconomyApply
      * @param GameRecord $game Игра.
      * @param int $actorUserId Актор.
      * @param bool $editAll Ключ.
+     * @param bool $viewAll Полный просмотр.
      * @param array $parts Части.
      * @param array $expectedVersions Версии.
      *
@@ -108,9 +119,14 @@ final class GameEconomyApply
         GameRecord $game,
         int $actorUserId,
         bool $editAll,
+        bool $viewAll,
         array $parts,
         array $expectedVersions,
     ): array {
+        $this->game = $game;
+        $this->actorUserId = $actorUserId;
+        $this->editAll = $editAll;
+        $this->viewAll = $viewAll;
         $this->readExpected($expectedVersions);
         foreach ($this->shopPositions->getListByGame($game->getId()) as $row) {
             $this->shop[$row->getRuleCode()] = ['row' => $row, 'quantity' => $row->getQuantity()];
@@ -862,13 +878,27 @@ final class GameEconomyApply
         $operations = $this->operationsOf($holder);
         if ($operations === []) {
             if ($expected !== $holder['version']) {
-                throw new CharacterConflictException($holder['version']);
+                $record = $this->charactersPort->get($characterId);
+                throw $this->characterConflict(
+                    $characterId,
+                    new CharacterConflictException(
+                        $record->getActualVersion(),
+                        currentSheet: [
+                            'choices' => $record->getChoices(),
+                            'sheet' => $record->getSheet(),
+                        ],
+                    ),
+                );
             }
 
             return ['characterId' => $characterId, 'actualVersion' => $expected];
         }
 
-        $record = $this->mutations->apply($characterId, $expected, $operations);
+        try {
+            $record = $this->mutations->apply($characterId, $expected, $operations);
+        } catch (CharacterConflictException $exception) {
+            throw $this->characterConflict($characterId, $exception);
+        }
 
         return ['characterId' => $characterId, 'actualVersion' => $record->getActualVersion()];
     }
@@ -888,20 +918,15 @@ final class GameEconomyApply
     {
         $expected = $this->pullVersion($this->npcVersions, $npcId);
         $document = $holder['document'];
-        $choices = $document['choices'] ?? null;
-        $sheet = $document['sheet'] ?? null;
-        $spaceId = $document['spaceId'] ?? null;
-        $revision = $document['rulesRevision'] ?? null;
-        if (!is_array($choices) || !is_array($sheet) || !is_int($spaceId) || !is_int($revision)) {
-            throw new GameInvalidException('NPC sheet is invalid');
-        }
+        $parts = $this->npcDocumentParts($document);
+        $choices = $parts['choices'];
+        $sheet = $parts['sheet'];
+        $spaceId = $parts['spaceId'];
+        $revision = $parts['revision'];
 
         $operations = $this->operationsOf($holder);
         if ($operations === []) {
-            if ($expected !== $holder['version']) {
-                throw new GameEconomyConflictException($holder['version']);
-            }
-
+            $this->assertNpcNoOpVersion($npcId, $expected, $holder['version']);
             return ['npcId' => $npcId, 'actualVersion' => $expected];
         }
 
@@ -914,9 +939,160 @@ final class GameEconomyApply
         );
         $document['choices'] = $patched['choices'];
         $document['sheet'] = $patched['sheet'];
-        $saved = $this->npcs->replaceVersion($npcId, $document, $expected);
+        try {
+            $saved = $this->npcs->replaceVersion($npcId, $document, $expected);
+        } catch (GameEconomyConflictException $exception) {
+            $this->throwNpcConflict($npcId, $exception);
+        }
 
         return ['npcId' => $npcId, 'actualVersion' => $saved->getActualVersion()];
+    }
+
+    /**
+     * Проверяет версию NPC для операции без изменений.
+     *
+     * @param int $npcId NPC.
+     * @param int $expected Ожидаемая версия.
+     * @param int $actual Переданная версия.
+     *
+     * @return void
+     *
+     * @throws GameEconomyConflictException Если версия устарела.
+     */
+    private function assertNpcNoOpVersion(int $npcId, int $expected, int $actual): void
+    {
+        if ($expected === $actual) {
+            return;
+        }
+
+        $npc = $this->npcs->getById($npcId);
+        $this->throwNpcConflict(
+            $npcId,
+            new GameEconomyConflictException($npc->getActualVersion()),
+        );
+    }
+
+    /**
+     * Проецирует актуальный лист NPC и выбрасывает economy-конфликт.
+     *
+     * @param int $npcId NPC.
+     * @param GameEconomyConflictException $exception Исходный конфликт.
+     *
+     * @return never Не возвращает управление.
+     *
+     * @throws GameNotFoundException Если NPC исчез.
+     * @throws GameEconomyConflictException С проекцией листа.
+     */
+    private function throwNpcConflict(int $npcId, GameEconomyConflictException $exception): never
+    {
+        $npc = $this->npcs->getById($npcId);
+        $full = $this->viewAll
+            || $this->game->getOwnerId() === $this->actorUserId
+            || $this->editAll
+            || $this->isGm($this->game->getId(), $this->actorUserId);
+        $current = $exception->getCurrentSheet() ?? [
+            'choices' => $npc->getVersion()['choices'] ?? [],
+            'sheet' => $npc->getVersion()['sheet'] ?? [],
+        ];
+        $projected = $this->conflictProjection->projectNpc(
+            $current,
+            $npc->getVisibility(),
+            $full,
+        );
+
+        throw new GameEconomyConflictException(
+            $exception->getCurrentVersion(),
+            $exception->getMessage(),
+            $exception,
+            [
+                'choices' => is_array($projected['choices'] ?? null) ? $projected['choices'] : [],
+                'sheet' => is_array($projected['sheet'] ?? null) ? $projected['sheet'] : [],
+            ],
+        );
+    }
+
+    /**
+     * Переводит stale Character в Game projection.
+     *
+     * @param int $characterId Персонаж.
+     * @param CharacterConflictException $exception Исходный конфликт.
+     *
+     * @return GameEconomyConflictException Конфликт Game.
+     *
+     * @throws GameNotFoundException Если membership отсутствует.
+     * @throws GameInvalidException Если snapshot битый.
+     */
+    private function characterConflict(
+        int $characterId,
+        CharacterConflictException $exception,
+    ): GameEconomyConflictException {
+        $membership = $this->memberships->get($this->game->getId(), $characterId);
+        $record = $this->charactersPort->get($characterId);
+        $full = $this->viewAll
+            || $this->game->getOwnerId() === $this->actorUserId
+            || $this->editAll
+            || $membership->getCharacterOwnerId() === $this->actorUserId
+            || $this->isGm($this->game->getId(), $this->actorUserId);
+        $current = $exception->getCurrentSheet();
+        if ($current === null) {
+            $current = ['choices' => $record->getChoices(), 'sheet' => $record->getSheet()];
+        }
+
+        return new GameEconomyConflictException(
+            $exception->getCurrentVersion(),
+            'Game economy character version conflict',
+            $exception,
+            $this->conflictProjection->projectGameCharacter(
+                $current['choices'],
+                $current['sheet'],
+                $membership->getSectionVisibility(),
+                $full,
+            ),
+        );
+    }
+
+    /**
+     * Роль GM.
+     *
+     * @param int $gameId Игра.
+     * @param int $actorUserId Актор.
+     *
+     * @return bool true, если актор GM.
+     */
+    private function isGm(int $gameId, int $actorUserId): bool
+    {
+        try {
+            return $this->members->getByPair($gameId, $actorUserId)->getRole() === 'gm';
+        } catch (GameNotFoundException) {
+            return false;
+        }
+    }
+
+    /**
+     * Проверяет и разбирает document NPC для mutation.
+     *
+     * @param array<string, mixed> $document Документ NPC.
+     *
+     * @return array{choices: array<mixed>, sheet: array<mixed>, spaceId: int, revision: int} Части документа.
+     *
+     * @throws GameInvalidException Если документ без ревизии.
+     */
+    private function npcDocumentParts(array $document): array
+    {
+        $choices = $document['choices'] ?? null;
+        $sheet = $document['sheet'] ?? null;
+        $spaceId = $document['spaceId'] ?? null;
+        $revision = $document['rulesRevision'] ?? null;
+        if (!is_array($choices) || !is_array($sheet) || !is_int($spaceId) || !is_int($revision)) {
+            throw new GameInvalidException('NPC sheet is invalid');
+        }
+
+        return [
+            'choices' => $choices,
+            'sheet' => $sheet,
+            'spaceId' => $spaceId,
+            'revision' => $revision,
+        ];
     }
 
     /**

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Game\Service;
 
+use Mifrial\Core\Event\Interface\Container\IEventContainer;
+use Mifrial\Core\Event\Interface\Service\IEventManager;
 use Mifrial\Core\Kernel\Exception\KernelException;
 use Mifrial\Core\Kernel\Interface\Service\IServiceLocator;
 use Mifrial\Core\SmartTable\Interface\Container\ISmartTableContainer;
@@ -47,10 +49,16 @@ final class GameWideStrikePortFactory
     public function create(IServiceLocator $serviceLocator): IGameWideStrikes
     {
         $gateway = $this->smartTableGateway($serviceLocator);
+        $events = $this->events($serviceLocator);
         $card = new GameCardAccess(
             new GameRepository($gateway),
             new GameMemberRepository($gateway),
             new GameInvitationRepository($gateway),
+        );
+
+        GameDeliveryListener::register(
+            $events,
+            new GameDelivery($gateway, $this->games($serviceLocator), $card),
         );
 
         return new GameWideStrikes(
@@ -67,7 +75,27 @@ final class GameWideStrikePortFactory
                 $this->checkRoll($serviceLocator),
                 $this->layers($serviceLocator),
             ),
+            $events,
         );
+    }
+
+    /**
+     * Менеджер событий.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     *
+     * @return IEventManager Порт событий.
+     *
+     * @throws KernelException Если порта нет.
+     */
+    private function events(IServiceLocator $serviceLocator): IEventManager
+    {
+        $events = $serviceLocator->get(IEventContainer::class)->get(IEventManager::class);
+        if (!$events instanceof IEventManager) {
+            throw new KernelException('PORT_TYPE', 'Game wide strike requires IEventManager');
+        }
+
+        return $events;
     }
 
     /**

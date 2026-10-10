@@ -38,6 +38,8 @@ final class GameWideStrikeTargetTable extends SmartTableDefinition
             new StringField('defender_kind', FieldSettings::fromOptions(['required' => true]), 32),
             new IntField('defender_id', FieldSettings::fromOptions(['required' => true]), 1, null),
             new StringField('reaction', FieldSettings::fromOptions([]), 32),
+            new IntField('block_item_inventory_id', FieldSettings::fromOptions([]), 1, null),
+            new IntField('block_item_profile_index', FieldSettings::fromOptions([]), 0, null),
             new StringField('block_item_rule_code', FieldSettings::fromOptions([]), 255),
         ];
     }

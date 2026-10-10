@@ -8,6 +8,7 @@ use JsonException;
 use Mifrial\Core\Event\Interface\Service\IEventManager;
 use Mifrial\Core\Kernel\Exception\ActionException;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
+use Mifrial\Roleplay\Character\Exception\CharacterConflictException;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterActualMutations;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
@@ -48,6 +49,7 @@ final class GameEconomy implements IGameEconomy
      * @param GameCardAccess $cardAccess Фильтр карточки.
      * @param ICharacterActualMutations $mutations Порт листа.
      * @param ICharacters $characters Строки персонажа.
+     * @param ConflictSheetProjection $conflictProjection Проекция конфликтов.
      * @param IEventManager $events Сигнал доставки.
      *
      * @return void
@@ -60,6 +62,7 @@ final class GameEconomy implements IGameEconomy
         private readonly GameCardAccess $cardAccess,
         private readonly ICharacterActualMutations $mutations,
         private readonly ICharacters $characters,
+        private readonly ConflictSheetProjection $conflictProjection,
         IEventManager $events,
     ) {
         $this->shopPositions = new GameShopPositionRepository($smartTableGateway);
@@ -115,33 +118,51 @@ final class GameEconomy implements IGameEconomy
 
         $this->assertOpen($game);
 
-        $stored = $this->smartTableGateway->transaction(function () use (
-            $game,
-            $actorUserId,
-            $editAll,
-            $idempotencyKey,
-            $parts,
-            $expectedVersions,
-        ): array {
-            $versions = (new GameEconomyApply(
-                $this->mutations,
-                $this->characters,
-                $this->memberships,
-                $this->members,
-                $this->npcs,
-                $this->shopPositions,
-            ))->run($game, $actorUserId, $editAll, $parts, $expectedVersions);
-            $operation = $this->operations->add($game->getId(), $idempotencyKey, [
-                'parts' => $parts,
-                'expectedVersions' => $expectedVersions,
-            ], $versions);
+        try {
+            $stored = $this->smartTableGateway->transaction(function () use (
+                $game,
+                $actorUserId,
+                $editAll,
+                $viewAll,
+                $idempotencyKey,
+                $parts,
+                $expectedVersions,
+            ): array {
+                $versions = (new GameEconomyApply(
+                    $this->mutations,
+                    $this->characters,
+                    $this->memberships,
+                    $this->members,
+                    $this->npcs,
+                    $this->shopPositions,
+                    $this->conflictProjection,
+                ))->run($game, $actorUserId, $editAll, $viewAll, $parts, $expectedVersions);
+                $operation = $this->operations->add($game->getId(), $idempotencyKey, [
+                    'parts' => $parts,
+                    'expectedVersions' => $expectedVersions,
+                ], $versions);
 
-            return [
-                'operationId' => $operation->getId(),
-                'idempotencyKey' => $idempotencyKey,
-                'versions' => $versions,
-            ];
-        });
+                return [
+                    'operationId' => $operation->getId(),
+                    'idempotencyKey' => $idempotencyKey,
+                    'versions' => $versions,
+                ];
+            });
+        } catch (CharacterConflictException $exception) {
+            throw new GameEconomyConflictException(
+                $exception->getCurrentVersion(),
+                'Game economy character version conflict',
+                $exception,
+                $exception->getCurrentSheet(),
+            );
+        } catch (GameEconomyConflictException $exception) {
+            throw new GameEconomyConflictException(
+                $exception->getCurrentVersion(),
+                $exception->getMessage(),
+                $exception,
+                $exception->getCurrentSheet(),
+            );
+        }
         $this->deliverySignal->recorded(
             $game->getId(),
             'economy',

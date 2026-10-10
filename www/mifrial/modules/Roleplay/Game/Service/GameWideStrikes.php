@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Game\Service;
 
+use Mifrial\Core\Event\Interface\Service\IEventManager;
 use Mifrial\Core\Kernel\Exception\ActionException;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterActualMutations;
+use Mifrial\Roleplay\Character\Service\Read\CharacterSectionMask;
 use Mifrial\Roleplay\Game\Dto\GameBattleRecord;
 use Mifrial\Roleplay\Game\Dto\GameRecord;
 use Mifrial\Roleplay\Game\Exception\GameBattleConflictException;
@@ -15,6 +17,7 @@ use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
 use Mifrial\Roleplay\Game\Interface\Service\IGames;
 use Mifrial\Roleplay\Game\Interface\Service\IGameWideStrikes;
 use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
+use Mifrial\Roleplay\Game\Repository\GameCharacterRepository;
 use Mifrial\Roleplay\Game\Repository\GameMemberRepository;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
@@ -38,11 +41,19 @@ final class GameWideStrikes implements IGameWideStrikes
 
     private readonly GameNpcRepository $npcs;
 
+    private readonly GameCharacterRepository $characters;
+
     private readonly GameMemberRepository $members;
 
     private readonly GameWideStrikeBody $body;
 
     private readonly GameWideStrikeResults $results;
+
+    private readonly GameWideStrikeCommit $commit;
+
+    private readonly GameReplayTransaction $replayTransaction;
+
+    private readonly GameDeliverySignal $deliverySignal;
 
     /**
      * Создаёт фасад.
@@ -57,26 +68,26 @@ final class GameWideStrikes implements IGameWideStrikes
      * @return void
      */
     public function __construct(
-        private readonly ISmartTableGateway $smartTableGateway,
+        ISmartTableGateway $smartTableGateway,
         private readonly IGames $games,
         private readonly GameCardAccess $cardAccess,
         private readonly GameSessionRepository $sessions,
         private readonly ICharacterActualMutations $mutations,
         private readonly GameStrikeRules $rules,
+        IEventManager $events,
     ) {
         $this->battles = new GameBattleRepository($smartTableGateway);
         $this->strikes = new GameWideStrikeRepository($smartTableGateway);
         $this->targets = new GameWideStrikeTargetRepository($smartTableGateway);
         $this->commands = new GameWideStrikeCommandRepository($smartTableGateway);
         $this->npcs = new GameNpcRepository($smartTableGateway);
+        $this->characters = new GameCharacterRepository($smartTableGateway);
         $this->members = new GameMemberRepository($smartTableGateway);
         $this->body = new GameWideStrikeBody();
-        $this->results = new GameWideStrikeResults(
-            $rules,
-            $this->battles,
-            $this->npcs,
-            new GameStrikeSheetWrites($mutations, $this->npcs),
-        );
+        $this->results = $this->createResults($rules, $mutations);
+        $this->replayTransaction = new GameReplayTransaction($smartTableGateway);
+        $this->commit = $this->createCommit();
+        $this->deliverySignal = new GameDeliverySignal($events);
     }
 
     /**
@@ -164,6 +175,75 @@ final class GameWideStrikes implements IGameWideStrikes
             $idempotencyKey,
             $expectedBattleVersion,
             $choices,
+            $actorUserId,
+            $viewAll,
+        );
+    }
+
+    /**
+     * Создаёт расчёт wide strike.
+     *
+     * @param GameStrikeRules $rules Правила.
+     * @param ICharacterActualMutations $mutations Записи листа.
+     *
+     * @return GameWideStrikeResults Расчёт результатов.
+     */
+    private function createResults(
+        GameStrikeRules $rules,
+        ICharacterActualMutations $mutations,
+    ): GameWideStrikeResults {
+        return new GameWideStrikeResults(
+            $rules,
+            $this->battles,
+            $this->characters,
+            $this->members,
+            $this->npcs,
+            new GameStrikeSheetWrites($mutations, $this->npcs),
+            new ConflictSheetProjection(
+                new CharacterSectionMask(),
+                new GameCharacterProjectionMask(),
+                new GameNpcVisibility(),
+            ),
+        );
+    }
+
+    /**
+     * Создаёт координатор записи wide strike.
+     *
+     * @return GameWideStrikeCommit Координатор.
+     */
+    private function createCommit(): GameWideStrikeCommit
+    {
+        return new GameWideStrikeCommit(
+            $this->battles,
+            $this->strikes,
+            $this->targets,
+            $this->commands,
+            $this->results,
+            $this->replayTransaction,
+            $this->rules,
+            $this->npcs,
+            new GameStrikeSheetWrites($this->mutations, $this->npcs),
+        );
+    }
+
+    /**
+     * Ищет сохранённый итог команды.
+     *
+     * @param int $gameId Игра.
+     * @param string $idempotencyKey Ключ.
+     * @param array<string, mixed> $requestBody Тело.
+     *
+     * @return array<string, mixed>|null Итог или null.
+     *
+     * @throws GameBattleConflictException Если тело отличается.
+     * @throws GameInvalidException Если тело битое.
+     */
+    private function findReplay(int $gameId, string $idempotencyKey, array $requestBody): ?array
+    {
+        return $this->replayTransaction->find(
+            fn (): ?array => $this->commands->findByKey($gameId, $idempotencyKey),
+            $requestBody,
         );
     }
 
@@ -197,7 +277,7 @@ final class GameWideStrikes implements IGameWideStrikes
             throw new GameNotFoundException('Game was not found');
         }
 
-        $replay = (new GameWideStrikeReplay($this->commands))->find($gameId, $idempotencyKey, $requestBody);
+        $replay = $this->findReplay($gameId, $idempotencyKey, $requestBody);
         if ($replay !== null) {
             return ['game' => $game, 'sessionId' => 0, 'replay' => $replay];
         }
@@ -240,64 +320,17 @@ final class GameWideStrikes implements IGameWideStrikes
         array $choice,
     ): array {
         $battle = $this->battleOf($sessionId, $battleId, $expectedBattleVersion);
-        $opening = new GameWideStrikeOpening($this->battles, $this->targets);
-        $opening->assertRoster($battleId, $choice);
-        if ($this->strikes->findOpen($battleId) !== null) {
-            throw new GameInvalidException('Game wide strike is already open');
-        }
-
-        $this->rules->assertAttack(
-            $game->getSpaceId(),
-            $game->getRulesRevision(),
-            $choice['actionRuleCode'],
-            $choice['itemRuleCode'],
-            $choice['profileType'],
-            $choice['profileIndex'],
+        $opening = $this->openingFor($game, $battleId, $choice);
+        $result = $this->commit->open(
+            $game,
+            $sessionId,
+            $battle,
+            $idempotencyKey,
+            $expectedBattleVersion,
+            $choice,
+            $opening,
         );
-        return $this->commitOpen($game, $sessionId, $battle, $idempotencyKey, $expectedBattleVersion, $choice, $opening);
-    }
-
-    /**
-     * Commit открытого удара.
-     *
-     * @param GameRecord $game Игра.
-     * @param int $sessionId Сессия.
-     * @param GameBattleRecord $battle Бой.
-     * @param string $idempotencyKey Ключ.
-     * @param int $expectedBattleVersion Версия.
-     * @param array $choice Выбор.
-     * @param GameWideStrikeOpening $opening Строки.
-     *
-     * @return array<string, mixed> Итог.
-     *
-     * @throws GameInvalidException Если поле.
-     * @throws GameBattleConflictException Если версия боя другая.
-     */
-    private function commitOpen(
-        GameRecord $game,
-        int $sessionId,
-        GameBattleRecord $battle,
-        string $idempotencyKey,
-        int $expectedBattleVersion,
-        array $choice,
-        GameWideStrikeOpening $opening,
-    ): array {
-        $result = [
-            'battleId' => $battle->getId(),
-            'strikeId' => 0,
-            'version' => $expectedBattleVersion + 1,
-            'targetResults' => [],
-        ];
-        $this->smartTableGateway->transaction(function () use ($game, $sessionId, $battle, $idempotencyKey, $expectedBattleVersion, $choice, $opening, &$result): void {
-            $result['strikeId'] = $this->strikes->add($opening->row($battle, $sessionId, $choice));
-            $opening->addTargets($result['strikeId'], $choice['targets']);
-            $this->battles->advanceVersion($battle->getId(), $expectedBattleVersion);
-            $this->remember($game->getId(), $sessionId, $idempotencyKey, [
-                'attack' => $choice,
-                'battleId' => $battle->getId(),
-                'expectedVersion' => $expectedBattleVersion,
-            ], $result);
-        });
+        $this->announce($game->getId(), $idempotencyKey);
 
         return $result;
     }
@@ -311,6 +344,8 @@ final class GameWideStrikes implements IGameWideStrikes
      * @param string $idempotencyKey Ключ.
      * @param int $expectedBattleVersion Версия боя.
      * @param list<array{reaction: string, blockItemRuleCode: string|null, expectedSheetVersion: int}> $choices Защиты.
+     * @param int $actorUserId Актор.
+     * @param bool $viewAll Полный просмотр.
      *
      * @return array<string, mixed> Итог.
      *
@@ -325,6 +360,8 @@ final class GameWideStrikes implements IGameWideStrikes
         string $idempotencyKey,
         int $expectedBattleVersion,
         array $choices,
+        int $actorUserId,
+        bool $viewAll,
     ): array {
         $battle = $this->battleOf($sessionId, $battleId, $expectedBattleVersion);
         $open = $this->requireOpen($battleId);
@@ -333,95 +370,166 @@ final class GameWideStrikes implements IGameWideStrikes
             throw new GameInvalidException('Game wide strike defense count is invalid');
         }
 
-        $hitCode = $this->rules->findHitCode($game->getSpaceId(), $game->getRulesRevision());
-
-        return $this->commitClose(
+        $context = [
+            'game' => $game,
+            'sessionId' => $sessionId,
+            'battleId' => $battleId,
+            'battle' => $battle,
+            'idempotencyKey' => $idempotencyKey,
+            'expectedBattleVersion' => $expectedBattleVersion,
+            'strikeId' => $open['id'],
+            'choices' => $choices,
+            'requestChoices' => $choices,
+            'rows' => $rows,
+            'open' => $open,
+            'actorUserId' => $actorUserId,
+            'viewAll' => $viewAll,
+        ];
+        $context['refusals'] = $this->results->assertSheets(
             $game,
-            $sessionId,
-            $battle,
-            $idempotencyKey,
-            $expectedBattleVersion,
-            $open['id'],
-            $choices,
+            $battleId,
             $rows,
-            $this->damageOf($game, $open),
-            $this->rateOf($game, $open, $hitCode),
-            $this->profileOf($open),
+            $choices,
+            $actorUserId,
+            $viewAll,
+        );
+        $context['choices'] = $this->results->resolveChoices(
+            $game,
+            $rows,
+            $choices,
+            $context['refusals'],
+        );
+        $context['prepare'] = fn (array $prepared): array => $this->prepareCloseContext($prepared);
+        $result = $this->commit->close($context);
+        $this->announce($game->getId(), $idempotencyKey);
+
+        return $result;
+    }
+
+    /**
+     * Сигнализирует уже сохранённую wide-команду.
+     *
+     * @param int $gameId Игра.
+     * @param string $idempotencyKey Ключ команды.
+     *
+     * @return void
+     */
+    private function announce(int $gameId, string $idempotencyKey): void
+    {
+        $stored = $this->commands->findByKey($gameId, $idempotencyKey);
+        if ($stored === null) {
+            return;
+        }
+
+        $this->deliverySignal->recorded($gameId, 'strike', $stored['id'], []);
+    }
+
+    /**
+     * Считает roll-данные внутри transaction/replay work.
+     *
+     * @param array<string, mixed> $context Контекст закрытия.
+     *
+     * @return array<string, mixed> Контекст с refusal, damage, rating и profile.
+     *
+     * @throws GameBattleConflictException Если stale-лист не совпал.
+     * @throws GameInvalidException Если расчёт или строка невалидны.
+     * @throws GameNotFoundException Если цель или правило не найдены.
+     */
+    private function prepareCloseContext(array $context): array
+    {
+        $context['attackerRoll'] = $this->rollOf($context['game'], $context['open']);
+        $context['damage'] = $this->rules->isHitAutoFail($context['attackerRoll']['roll'])
+            ? (new GameStrikeAmounts())->zero()
+            : $this->damageOf($context['game'], $context['open']);
+        $context['profile'] = $this->profileOf($context['open']);
+        $context['penetration'] = fn (): DimensionalNumber => $this->penetrationOf(
+            $context['game'],
+            $context['open'],
+        );
+
+        return $context;
+    }
+
+    /**
+     * Создаёт lazy authoritative penetration resolver wide strike.
+     *
+     * @param GameRecord $game Игра.
+     * @param array<string, mixed> $open Открытый удар.
+     *
+     * @return DimensionalNumber Проникновение.
+     *
+     * @throws GameInvalidException Если строка или формула битые.
+     * @throws GameNotFoundException Если атакующий отсутствует.
+     */
+    private function penetrationOf(GameRecord $game, array $open): DimensionalNumber
+    {
+        $kind = $open['attacker_kind'] ?? null;
+        $attackerId = $open['attacker_id'] ?? null;
+        $itemRuleCode = $open['item_rule_code'] ?? null;
+        $profileType = $open['profile_type'] ?? null;
+        $profileIndex = $open['profile_index'] ?? null;
+        $inventoryId = $open['item_inventory_id'] ?? null;
+        if (
+            !is_string($kind)
+            || !is_int($attackerId)
+            || !is_string($itemRuleCode)
+            || !is_string($profileType)
+            || !is_int($profileIndex)
+            || !is_int($inventoryId)
+        ) {
+            throw new GameInvalidException('Game wide strike row is invalid');
+        }
+
+        return $this->rules->evaluatePenetration(
+            $game->getSpaceId(),
+            $game->getRulesRevision(),
+            $itemRuleCode,
+            $profileType,
+            $profileIndex,
+            $inventoryId,
+            $kind,
+            $attackerId,
+            $kind === 'npc' ? $this->attackerSheet($game->getId(), $attackerId) : null,
+            $kind === 'npc' ? $this->attackerChoices($game->getId(), $attackerId) : null,
         );
     }
 
     /**
-     * Commit закрытия. Версии целей читаются в той же транзакции.
+     * Проверяет и подготавливает открытие wide strike.
      *
      * @param GameRecord $game Игра.
-     * @param int $sessionId Сессия.
-     * @param GameBattleRecord $battle Бой.
-     * @param string $idempotencyKey Ключ.
-     * @param int $expectedBattleVersion Версия.
-     * @param int $strikeId Удар.
-     * @param list<array{reaction: string, blockItemRuleCode: string|null, expectedSheetVersion: int}> $choices Защиты.
-     * @param list<array<string, mixed>> $rows Цели.
-     * @param DimensionalNumber $damage Пара формулы атакующего.
-     * @param int $rating Рейтинг попадания.
-     * @param array{itemRuleCode: string, profileType: string, profileIndex: int} $profile Профиль удара.
+     * @param int $battleId Бой.
+     * @param array $choice Выбор.
      *
-     * @return array<string, mixed> Итог.
+     * @return GameWideStrikeOpening Построитель строк.
      *
-     * @throws GameInvalidException Если поле или список операций не пуст.
-     * @throws GameBattleConflictException Если версия боя другая.
+     * @throws GameInvalidException Если удар уже открыт или профиль чужой.
+     * @throws GameNotFoundException Если участник не найден.
      */
-    private function commitClose(
-        GameRecord $game,
-        int $sessionId,
-        GameBattleRecord $battle,
-        string $idempotencyKey,
-        int $expectedBattleVersion,
-        int $strikeId,
-        array $choices,
-        array $rows,
-        DimensionalNumber $damage,
-        int $rating,
-        array $profile,
-    ): array {
-        $result = [
-            'battleId' => $battle->getId(),
-            'strikeId' => $strikeId,
-            'version' => $expectedBattleVersion + 1,
-            'targetResults' => [],
-        ];
-        $this->smartTableGateway->transaction(function () use (
-            $game,
-            $sessionId,
-            $battle,
-            $idempotencyKey,
-            $expectedBattleVersion,
-            $choices,
-            $rows,
-            $damage,
-            $rating,
-            $profile,
-            &$result,
-        ): void {
-            $result['targetResults'] = $this->results->build(
-                $game,
-                $battle->getId(),
-                $rows,
-                $choices,
-                $damage,
-                $rating,
-                $profile['itemRuleCode'],
-                $profile['profileType'],
-                $profile['profileIndex'],
-            );
-            $this->storeReactions($rows, $choices, $result['targetResults']);
-            $this->strikes->close($result['strikeId']);
-            $this->battles->advanceVersion($battle->getId(), $expectedBattleVersion);
-            $this->remember($game->getId(), $sessionId, $idempotencyKey, [
-                'battleId' => $battle->getId(), 'defense' => $choices, 'expectedVersion' => $expectedBattleVersion,
-            ], $result);
-        });
+    private function openingFor(GameRecord $game, int $battleId, array $choice): GameWideStrikeOpening
+    {
+        $opening = new GameWideStrikeOpening($this->battles, $this->targets);
+        $opening->assertRoster($battleId, $choice);
+        if ($this->strikes->findOpen($battleId) !== null) {
+            throw new GameInvalidException('Game wide strike is already open');
+        }
 
-        return $result;
+        $this->rules->assertAttack(
+            $game->getSpaceId(),
+            $game->getRulesRevision(),
+            $choice['actionRuleCode'],
+            $choice['itemInventoryId'],
+            $choice['itemRuleCode'],
+            $choice['profileType'],
+            $choice['profileIndex'],
+            $choice['attacker']['type'],
+            $choice['attacker']['id'],
+            $choice['attacker']['type'] === 'npc'
+                ? $this->attackerChoices($game->getId(), $choice['attacker']['id'])
+                : null,
+        );
+
+        return $opening;
     }
 
     /**
@@ -452,6 +560,80 @@ final class GameWideStrikes implements IGameWideStrikes
             $attackerId,
             $kind === 'npc' ? $this->attackerSheet($game->getId(), $attackerId) : null,
         );
+    }
+
+    /**
+     * Рейтинг попадания по карточке игры.
+     *
+     * @param GameRecord $game Игра.
+     * @param array<string, mixed> $open Строка удара.
+     *
+     * @return int Рейтинг.
+     *
+     * @throws GameInvalidException Если строка, карточка или пул битые.
+     * @throws GameNotFoundException Если ревизии или персонажа нет.
+     */
+    private function ratingOf(GameRecord $game, array $open): int
+    {
+        return $this->rateOf($game, $open, $this->hitCode($game));
+    }
+
+    /**
+     * Выполняет authoritative roll атакующего wide strike.
+     *
+     * @param GameRecord $game Игра.
+     * @param array<string, mixed> $open Строка удара.
+     *
+     * @return array{difficulty: array{base: int, size: int}, roll: array{base: int, size: int}, success: bool, rating: int} Roll.
+     *
+     * @throws GameInvalidException Если строка или документ битые.
+     * @throws GameNotFoundException Если лист отсутствует.
+     */
+    private function rollOf(GameRecord $game, array $open): array
+    {
+        $kind = $open['attacker_kind'] ?? null;
+        $attackerId = $open['attacker_id'] ?? null;
+        $itemRuleCode = $open['item_rule_code'] ?? null;
+        $profileType = $open['profile_type'] ?? null;
+        $profileIndex = $open['profile_index'] ?? null;
+        $itemInventoryId = $open['item_inventory_id'] ?? null;
+        if (!is_string($kind)
+            || !is_int($attackerId)
+            || !is_string($itemRuleCode)
+            || !is_string($profileType)
+            || !is_int($profileIndex)
+            || !is_int($itemInventoryId)
+        ) {
+            throw new GameInvalidException('Game wide strike row is invalid');
+        }
+
+        return $this->rules->rollHit(
+            $game->getSpaceId(),
+            $game->getRulesRevision(),
+            $this->hitCode($game),
+            $itemRuleCode,
+            $profileType,
+            $profileIndex,
+            $itemInventoryId,
+            $kind,
+            $attackerId,
+            $kind === 'npc' ? $this->attackerSheet($game->getId(), $attackerId) : null,
+            $kind === 'npc' ? $this->attackerChoices($game->getId(), $attackerId) : null,
+        );
+    }
+
+    /**
+     * Возвращает единственный код проверки попадания.
+     *
+     * @param GameRecord $game Игра.
+     *
+     * @return string Код карточки.
+     *
+     * @throws GameNotFoundException Если ревизии нет.
+     */
+    private function hitCode(GameRecord $game): string
+    {
+        return $this->rules->findHitCode($game->getSpaceId(), $game->getRulesRevision());
     }
 
     /**
@@ -497,13 +679,7 @@ final class GameWideStrikes implements IGameWideStrikes
         $itemRuleCode = $open['item_rule_code'] ?? null;
         $profileType = $open['profile_type'] ?? null;
         $profileIndex = $open['profile_index'] ?? null;
-        if (
-            !is_string($kind)
-            || !is_int($attackerId)
-            || !is_string($itemRuleCode)
-            || !is_string($profileType)
-            || !is_int($profileIndex)
-        ) {
+        if (!$this->isDamageRow($kind, $attackerId, $itemRuleCode, $profileType, $profileIndex)) {
             throw new GameInvalidException('Game wide strike row is invalid');
         }
 
@@ -517,6 +693,31 @@ final class GameWideStrikes implements IGameWideStrikes
             $attackerId,
             $kind === 'npc' ? $this->attackerSheet($game->getId(), $attackerId) : null,
         );
+    }
+
+    /**
+     * Проверяет поля строки расчёта урона.
+     *
+     * @param mixed $kind Вид атакующего.
+     * @param mixed $attackerId Атакующий.
+     * @param mixed $itemRuleCode Код предмета.
+     * @param mixed $profileType Вид профиля.
+     * @param mixed $profileIndex Индекс профиля.
+     *
+     * @return bool true, если строка пригодна.
+     */
+    private function isDamageRow(
+        mixed $kind,
+        mixed $attackerId,
+        mixed $itemRuleCode,
+        mixed $profileType,
+        mixed $profileIndex,
+    ): bool {
+        return is_string($kind)
+            && is_int($attackerId)
+            && is_string($itemRuleCode)
+            && is_string($profileType)
+            && is_int($profileIndex);
     }
 
     /**
@@ -542,23 +743,25 @@ final class GameWideStrikes implements IGameWideStrikes
     }
 
     /**
-     * Пишет команду.
+     * Снимок choices атакующего NPC.
      *
      * @param int $gameId Игра.
-     * @param int $sessionId Сессия.
-     * @param string $idempotencyKey Ключ.
-     * @param array<string, mixed> $body Тело.
-     * @param array<string, mixed> $result Итог.
+     * @param int $npcId NPC.
      *
-     * @return void
+     * @return array<string, mixed> Документ choices.
      *
-     * @throws GameBattleConflictException Если ключ уже есть.
-     * @throws GameNotFoundException Если сессии нет.
-     * @throws GameInvalidException Если поле.
+     * @throws GameInvalidException Если строка чужая или документ повреждён.
+     * @throws GameNotFoundException Если строки нет.
      */
-    private function remember(int $gameId, int $sessionId, string $idempotencyKey, array $body, array $result): void
+    private function attackerChoices(int $gameId, int $npcId): array
     {
-        $this->commands->add($gameId, $sessionId, $idempotencyKey, $body, $result);
+        $npc = $this->npcs->getById($npcId);
+        $choices = $npc->getGameId() === $gameId ? ($npc->getVersion()['choices'] ?? null) : null;
+        if (!is_array($choices)) {
+            throw new GameInvalidException('Game wide strike npc choices are missing');
+        }
+
+        return $choices;
     }
 
     /**
@@ -579,33 +782,6 @@ final class GameWideStrikes implements IGameWideStrikes
         }
 
         return $open;
-    }
-
-    /**
-     * Пишет реакцию только принятой цели.
-     *
-     * @param list<array<string, mixed>> $rows Цели.
-     * @param list<array{reaction: string, blockItemRuleCode: string|null, expectedSheetVersion: int}> $choices Защиты.
-     * @param list<array<string, mixed>> $results Уже посчитанные итоги.
-     *
-     * @return void
-     *
-     * @throws GameInvalidException Если id битый.
-     */
-    private function storeReactions(array $rows, array $choices, array $results): void
-    {
-        foreach ($results as $index => $result) {
-            if (($result['code'] ?? null) !== null) {
-                continue;
-            }
-
-            $targetId = $rows[$index]['id'] ?? null;
-            if (!is_int($targetId)) {
-                throw new GameInvalidException('Game wide strike target row is invalid');
-            }
-
-            $this->targets->close($targetId, $choices[$index]['reaction'], $choices[$index]['blockItemRuleCode']);
-        }
     }
 
     /**

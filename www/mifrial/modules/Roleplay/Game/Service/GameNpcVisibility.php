@@ -34,6 +34,7 @@ final class GameNpcVisibility
         'resources' => [
             'choices.money',
             'sheet.money',
+            'sheet.resources',
         ],
     ];
 

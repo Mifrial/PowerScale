@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\Game\Repository;
 
+use Mifrial\Core\SmartTable\Dto\ConditionalCas;
 use Mifrial\Core\SmartTable\Dto\FilterCondition;
 use Mifrial\Core\SmartTable\Dto\FilterGroup;
 use Mifrial\Core\SmartTable\Dto\ListQuery;
@@ -12,6 +13,7 @@ use Mifrial\Core\SmartTable\Exception\Field\FieldRequiredException;
 use Mifrial\Core\SmartTable\Exception\Map\MapInvalidException;
 use Mifrial\Core\SmartTable\Exception\Row\ReferenceConstraintException;
 use Mifrial\Core\SmartTable\Exception\Row\RowWriteFailedException;
+use Mifrial\Core\SmartTable\Interface\Service\IConditionalOpenedRecords;
 use Mifrial\Core\SmartTable\Interface\Service\IOpenedRecords;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Roleplay\Game\Dto\GameNpcRecord;
@@ -27,6 +29,8 @@ final class GameNpcRepository
 {
     private readonly IOpenedRecords $npcRecords;
 
+    private readonly IConditionalOpenedRecords $conditionalNpcRecords;
+
     /**
      * Создаёт репозиторий.
      *
@@ -37,7 +41,9 @@ final class GameNpcRepository
     public function __construct(
         private readonly ISmartTableGateway $smartTableGateway,
     ) {
-        $this->npcRecords = $smartTableGateway->open(GameNpcTable::class)->records();
+        $openedTable = $smartTableGateway->open(GameNpcTable::class);
+        $this->npcRecords = $openedTable->records();
+        $this->conditionalNpcRecords = $openedTable->conditionalRecords();
     }
 
     /**
@@ -142,12 +148,15 @@ final class GameNpcRepository
     public function save(GameNpcRecord $record, string $name, array $version, array $visibility): GameNpcRecord
     {
         try {
-            $this->npcRecords->update($record->getId(), [
-                'name' => $name,
-                'version' => $version,
-                'actual_version' => $record->getActualVersion() + 1,
-                'visibility' => $visibility,
-            ]);
+            $updated = $this->conditionalNpcRecords->updateConditional(
+                $record->getId(),
+                new ConditionalCas('actual_version', $record->getActualVersion()),
+                [
+                    'name' => $name,
+                    'version' => $version,
+                    'visibility' => $visibility,
+                ],
+            );
         } catch (
             FieldRequiredException
             | FieldInvalidException
@@ -155,6 +164,10 @@ final class GameNpcRepository
             | RowWriteFailedException $exception
         ) {
             throw new GameInvalidException('NPC field is invalid', $exception);
+        }
+
+        if (!$updated) {
+            return $this->conflictAfterCas($record->getId());
         }
 
         return $this->getById($record->getId());
@@ -175,16 +188,12 @@ final class GameNpcRepository
      */
     public function replaceVersion(int $npcId, array $version, int $expectedActualVersion): GameNpcRecord
     {
-        $current = $this->getById($npcId);
-        if ($current->getActualVersion() !== $expectedActualVersion) {
-            throw new GameEconomyConflictException($current->getActualVersion());
-        }
-
         try {
-            $this->npcRecords->update($npcId, [
-                'version' => $version,
-                'actual_version' => $expectedActualVersion + 1,
-            ]);
+            $updated = $this->conditionalNpcRecords->updateConditional(
+                $npcId,
+                new ConditionalCas('actual_version', $expectedActualVersion),
+                ['version' => $version],
+            );
         } catch (
             FieldRequiredException
             | FieldInvalidException
@@ -194,6 +203,56 @@ final class GameNpcRepository
             throw new GameInvalidException('NPC field is invalid', $exception);
         }
 
-        return $this->getById($npcId);
+        if ($updated) {
+            return $this->getById($npcId);
+        }
+
+        return $this->conflictAfterCas($npcId);
+    }
+
+    /**
+     * Преобразует failed CAS NPC в not-found или economy conflict.
+     *
+     * @param int $npcId NPC.
+     *
+     * @return never Не возвращает управление.
+     *
+     * @throws GameEconomyConflictException Если строка существует.
+     * @throws GameNotFoundException Если строки нет.
+     */
+    private function conflictAfterCas(int $npcId): never
+    {
+        $row = $this->conditionalNpcRecords->getCurrentById($npcId);
+        if ($row === null) {
+            throw new GameNotFoundException('Game NPC was not found');
+        }
+
+        throw new GameEconomyConflictException(
+            (int) $row['actual_version'],
+            currentSheet: $this->sheetOf($row),
+        );
+    }
+
+    /**
+     * Лист из документа version.
+     *
+     * @param array<string, mixed> $row Строка.
+     *
+     * @return array{choices: array<mixed>, sheet: array<mixed>} Лист.
+     */
+    private function sheetOf(array $row): array
+    {
+        $version = $row['version'] ?? [];
+        if (!is_array($version)) {
+            return ['choices' => [], 'sheet' => []];
+        }
+
+        $choices = $version['choices'] ?? [];
+        $sheet = $version['sheet'] ?? [];
+
+        return [
+            'choices' => is_array($choices) ? $choices : [],
+            'sheet' => is_array($sheet) ? $sheet : [],
+        ];
     }
 }

@@ -46,7 +46,7 @@ final class GameWideStrikeCommandRepository
      * @param int $gameId Игра.
      * @param string $idempotencyKey Ключ.
      *
-     * @return array{body: array<string, mixed>, result: array<string, mixed>}|null Пара.
+     * @return array{id: int, body: array<string, mixed>, result: array<string, mixed>}|null Пара.
      *
      * @throws GameInvalidException Если строка битая.
      */
@@ -72,34 +72,32 @@ final class GameWideStrikeCommandRepository
     }
 
     /**
-     * Пишет итог. Повторный ключ — конфликт.
+     * Резервирует ключ до записи итогового результата.
      *
      * @param int $gameId Игра.
      * @param int $sessionId Сессия.
      * @param string $idempotencyKey Ключ.
      * @param array<string, mixed> $body Тело.
-     * @param array<string, mixed> $stored Итог.
      *
-     * @return void
+     * @return int Id reservation.
      *
      * @throws GameBattleConflictException Если ключ уже есть.
      * @throws GameNotFoundException Если сессии нет.
      * @throws GameInvalidException Если поле.
      */
-    public function add(
+    public function reserve(
         int $gameId,
         int $sessionId,
         string $idempotencyKey,
         array $body,
-        array $stored,
-    ): void {
+    ): int {
         try {
-            $this->commandRecords->add([
+            return $this->commandRecords->add([
                 'game_id' => $gameId,
                 'session_id' => $sessionId,
                 'idempotency_key' => $idempotencyKey,
                 'body' => $body,
-                'result' => $stored,
+                'result' => [],
             ]);
         } catch (UniqueConstraintException $exception) {
             throw new GameBattleConflictException(null, 'Game wide strike key is already used', $exception);
@@ -108,6 +106,32 @@ final class GameWideStrikeCommandRepository
         } catch (
             FieldRequiredException
             | FieldInvalidException
+            | MapInvalidException
+            | RowWriteFailedException $exception
+        ) {
+            throw new GameInvalidException('Game wide strike command field is invalid', $exception);
+        }
+    }
+
+    /**
+     * Завершает reservation сохранённым итогом.
+     *
+     * @param int $commandId Id reservation.
+     * @param array<string, mixed> $result Итог команды.
+     *
+     * @return void
+     *
+     * @throws GameNotFoundException Если reservation отсутствует.
+     * @throws GameInvalidException Если поле результата невалидно.
+     */
+    public function complete(int $commandId, array $result): void
+    {
+        try {
+            $this->commandRecords->update($commandId, ['result' => $result]);
+        } catch (RowNotFoundException $exception) {
+            throw new GameNotFoundException('Game wide strike command was not found', $exception);
+        } catch (
+            FieldInvalidException
             | MapInvalidException
             | RowWriteFailedException $exception
         ) {
@@ -147,17 +171,22 @@ final class GameWideStrikeCommandRepository
      *
      * @param mixed $row Строка ST.
      *
-     * @return array{body: array<string, mixed>, result: array<string, mixed>} Пара.
+     * @return array{id: int, body: array<string, mixed>, result: array<string, mixed>} Пара.
      *
      * @throws GameInvalidException Если строка битая.
      */
     private function pair(mixed $row): array
     {
-        if (!is_array($row) || !is_array($row['body'] ?? null) || !is_array($row['result'] ?? null)) {
+        if (
+            !is_array($row)
+            || !is_int($row['id'] ?? null)
+            || !is_array($row['body'] ?? null)
+            || !is_array($row['result'] ?? null)
+        ) {
             throw new GameInvalidException('Game wide strike command row is invalid');
         }
 
-        return ['body' => $row['body'], 'result' => $row['result']];
+        return ['id' => $row['id'], 'body' => $row['body'], 'result' => $row['result']];
     }
 
     /**

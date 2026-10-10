@@ -50,8 +50,9 @@ final class GameStrikeLayers
      * @param array<string, mixed> $sheet Лист.
      * @param array<string, mixed> $choices Выборы.
      * @param string $reaction Реакция.
-     * @param string|null $blockItemRuleCode Код предмета блока.
+     * @param int|null $blockItemInventoryId Id предмета блока.
      * @param int $rating Рейтинг попадания.
+     * @param DimensionalNumber|null $penetration Проникновение атакующего.
      *
      * @return DimensionalNumber Сумма.
      *
@@ -63,8 +64,9 @@ final class GameStrikeLayers
         array $sheet,
         array $choices,
         string $reaction,
-        ?string $blockItemRuleCode,
+        ?int $blockItemInventoryId,
         int $rating,
+        ?DimensionalNumber $penetration = null,
     ): DimensionalNumber {
         $type = $this->damageType($slice, $damageType);
         try {
@@ -73,7 +75,7 @@ final class GameStrikeLayers
                 $slice->getRevision(),
                 $sheet,
                 $choices,
-                $this->blockId($choices, $reaction, $blockItemRuleCode),
+                $this->blockId($reaction, $blockItemInventoryId),
             );
             $cut = $this->engine->hasReliabilityCut(
                 $this->bindings($type['rule']),
@@ -84,7 +86,21 @@ final class GameStrikeLayers
             throw new GameInvalidException('Game strike resistance is invalid', $exception);
         }
 
-        return $this->amounts->sum($this->kept($projected, $damageType, $type['ignored'], $cut, $rating));
+        $values = $this->kept($projected, $damageType, $type['ignored'], $cut, $rating);
+        $defense = $this->amounts->sum($values['defense']);
+        $resistance = $this->amounts->sum($values['resistance']);
+        $effectiveDefense = $this->amounts->effectiveDefense(
+            $defense,
+            $penetration ?? $this->amounts->zero(),
+        );
+        if ($effectiveDefense->getBase() === 0) {
+            return $resistance;
+        }
+        if ($resistance->getBase() === 0) {
+            return $effectiveDefense;
+        }
+
+        return $this->amounts->sum([$resistance, $effectiveDefense]);
     }
 
     /**
@@ -111,26 +127,24 @@ final class GameStrikeLayers
     /**
      * Id одной надетой строки блока.
      *
-     * @param array<string, mixed> $choices Выборы.
      * @param string $reaction Реакция.
-     * @param string|null $blockItemRuleCode Код.
+     * @param int|null $blockItemInventoryId Id строки.
      *
      * @return int|null Id или null.
      *
      * @throws GameInvalidException Если строк нет или их несколько.
      */
-    private function blockId(array $choices, string $reaction, ?string $blockItemRuleCode): ?int
+    private function blockId(string $reaction, ?int $blockItemInventoryId): ?int
     {
         if ($reaction !== 'block') {
             return null;
         }
 
-        $found = $this->equippedIds($choices, $blockItemRuleCode);
-        if (count($found) !== 1) {
-            throw new GameInvalidException('Game strike block item is invalid');
+        if ($blockItemInventoryId === null) {
+            return null;
         }
 
-        return $found[0];
+        return $blockItemInventoryId;
     }
 
     /**
@@ -187,9 +201,20 @@ final class GameStrikeLayers
     {
         $bindings = [];
         foreach ($rule->getMechanics() as $row) {
-            if (is_array($row) && is_int($row['mechanic_id'] ?? null)) {
-                $bindings[] = new MechanicBinding($rule->getCode(), $row['mechanic_id'], null);
+            if (
+                !is_array($row)
+                || !array_key_exists('mechanic_id', $row)
+                || !is_int($row['mechanic_id'])
+                || $row['mechanic_id'] < 1
+            ) {
+                throw new MechanicInvalidException('Mechanic binding is invalid');
             }
+
+            if (!array_key_exists('mechanic_payload', $row) || !is_array($row['mechanic_payload'])) {
+                throw new MechanicInvalidException('Mechanic binding payload is invalid');
+            }
+
+            $bindings[] = new MechanicBinding($rule->getCode(), $row['mechanic_id'], null);
         }
 
         return $bindings;
@@ -204,7 +229,7 @@ final class GameStrikeLayers
      * @param bool $cut Срез включён.
      * @param int $rating Рейтинг.
      *
-     * @return list<DimensionalNumber> Пары.
+     * @return array{defense: list<DimensionalNumber>, resistance: list<DimensionalNumber>} Пары по виду.
      */
     private function kept(array $layers, string $damageType, bool $defenseIgnored, bool $cut, int $rating): array
     {
@@ -215,12 +240,30 @@ final class GameStrikeLayers
             }
         }
 
-        $values = [];
-        foreach ($this->collapse($matched) as $layer) {
-            $values[] = $layer->getValue();
+        $values = ['defense' => [], 'resistance' => []];
+        foreach (['defense', 'resistance'] as $kind) {
+            foreach ($this->collapse($this->ofKind($matched, $kind)) as $layer) {
+                $values[$kind][] = $layer->getValue();
+            }
         }
 
         return $values;
+    }
+
+    /**
+     * Отбирает слои одного вида до независимого source collapse.
+     *
+     * @param array<int, CharacterCombatLayer> $layers Слои.
+     * @param string $kind defense или resistance.
+     *
+     * @return array<int, CharacterCombatLayer> Слои вида.
+     */
+    private function ofKind(array $layers, string $kind): array
+    {
+        return array_values(array_filter(
+            $layers,
+            static fn (CharacterCombatLayer $layer): bool => $layer->getKind() === $kind,
+        ));
     }
 
     /**

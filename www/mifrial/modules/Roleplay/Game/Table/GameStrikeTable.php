@@ -47,10 +47,13 @@ final class GameStrikeTable extends SmartTableDefinition
             new StringField('defender_kind', FieldSettings::fromOptions(['required' => true]), 32),
             new IntField('defender_id', FieldSettings::fromOptions(['required' => true]), 1, null),
             new StringField('action_rule_code', FieldSettings::fromOptions(['required' => true]), 255),
+            new IntField('item_inventory_id', FieldSettings::fromOptions(['required' => true]), 1, null),
             new StringField('item_rule_code', FieldSettings::fromOptions(['required' => true]), 255),
             new StringField('profile_type', FieldSettings::fromOptions(['required' => true]), 32),
             new IntField('profile_index', FieldSettings::fromOptions(['required' => true]), 0, null),
             new StringField('reaction', FieldSettings::fromOptions([]), 32),
+            new IntField('block_item_inventory_id', FieldSettings::fromOptions([]), 1, null),
+            new IntField('block_item_profile_index', FieldSettings::fromOptions([]), 0, null),
             new StringField('block_item_rule_code', FieldSettings::fromOptions([]), 255),
             new BoolField('open', FieldSettings::fromOptions(['required' => true])),
         ];

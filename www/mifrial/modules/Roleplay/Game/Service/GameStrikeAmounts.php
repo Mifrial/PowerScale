@@ -64,6 +64,21 @@ final class GameStrikeAmounts
     }
 
     /**
+     * Вычитает penetration из защиты и не допускает отрицательной защиты.
+     *
+     * @param DimensionalNumber $defense Сумма защиты.
+     * @param DimensionalNumber $penetration Проникновение.
+     *
+     * @return DimensionalNumber Эффективная защита.
+     */
+    public function effectiveDefense(
+        DimensionalNumber $defense,
+        DimensionalNumber $penetration,
+    ): DimensionalNumber {
+        return $this->floorAtZero($this->subtract($defense, $penetration));
+    }
+
+    /**
      * Пара для JSON итога.
      *
      * @param DimensionalNumber $number Число.

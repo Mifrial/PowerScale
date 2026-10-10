@@ -136,7 +136,11 @@ final class GameEconomyMysqlTest extends TestCase
             ],
         ]);
         self::assertFalse($stale['success']);
-        self::assertSame('CHARACTER_CONFLICT', $stale['error']['code']);
+        self::assertSame('GAME_CONFLICT', $stale['error']['code']);
+        self::assertArrayHasKey('currentVersion', $stale['error']['details']);
+        self::assertArrayHasKey('choices', $stale['error']['details']);
+        self::assertArrayHasKey('sheet', $stale['error']['details']);
+        self::assertArrayNotHasKey('currentSheet', $stale['error']['details']);
         self::assertSame(80, $this->characterFacade()->get($characterId)->getChoices()['money']);
         self::assertSame(1, $this->dispatch('game.getShop', ['gameId' => $gameId])['data']['positions'][0]['quantity']);
         $replay = $this->dispatch('game.applyEconomy', [
@@ -181,6 +185,31 @@ final class GameEconomyMysqlTest extends TestCase
         $again = $this->dispatch('game.getNpc', ['gameId' => $gameId, 'npcId' => $npc['data']['npcId']]);
         self::assertSame(1, $again['data']['version']['choices']['inventory'][0]['quantity']);
         self::assertSame('', $again['data']['version']['choices']['raceCode']);
+        $npcStale = $this->dispatch('game.applyEconomy', [
+            'gameId' => $gameId,
+            'idempotencyKey' => 'loot-stale',
+            'parts' => [[
+                'kind' => 'loot',
+                'ruleCode' => 'sword',
+                'quantity' => 1,
+                'to' => ['type' => 'npc', 'id' => $npc['data']['npcId']],
+            ]],
+            'expectedVersions' => [
+                'characters' => [],
+                'npcs' => [['npcId' => $npc['data']['npcId'], 'actualVersion' => 1]],
+                'positions' => [],
+            ],
+        ]);
+        self::assertFalse($npcStale['success']);
+        self::assertSame('GAME_CONFLICT', $npcStale['error']['code']);
+        self::assertSame(2, $npcStale['error']['details']['currentVersion']);
+        self::assertArrayHasKey('choices', $npcStale['error']['details']);
+        self::assertArrayHasKey('sheet', $npcStale['error']['details']);
+        self::assertArrayNotHasKey('currentSheet', $npcStale['error']['details']);
+        self::assertSame(1, $this->dispatch('game.getNpc', [
+            'gameId' => $gameId,
+            'npcId' => $npc['data']['npcId'],
+        ])['data']['version']['choices']['inventory'][0]['quantity']);
         $stray = $this->dispatch('game.applyEconomy', [
             'gameId' => $gameId,
             'idempotencyKey' => 'buy-stray',

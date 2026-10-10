@@ -73,6 +73,7 @@ final class GameWideStrikeOpening
             'attacker_kind' => $choice['attacker']['type'],
             'attacker_id' => $choice['attacker']['id'],
             'action_rule_code' => $choice['actionRuleCode'],
+            'item_inventory_id' => $choice['itemInventoryId'],
             'item_rule_code' => $choice['itemRuleCode'],
             'profile_type' => $choice['profileType'],
             'profile_index' => $choice['profileIndex'],
@@ -98,6 +99,8 @@ final class GameWideStrikeOpening
                 'defender_kind' => $target['type'],
                 'defender_id' => $target['id'],
                 'reaction' => null,
+                'block_item_inventory_id' => null,
+                'block_item_profile_index' => null,
                 'block_item_rule_code' => null,
             ]);
         }

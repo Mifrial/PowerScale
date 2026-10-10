@@ -31,6 +31,7 @@ final class GameCharacterProjectionMask
         'resources' => [
             'choices.money',
             'sheet.money',
+            'sheet.resources',
         ],
         'shortDescription' => ['choices.shortDescription'],
         'fullDescription' => ['choices.fullDescription'],

@@ -17,6 +17,9 @@ final class GameBattleConflictException extends GameException
      * @param int|null $currentVersion Текущая версия боя или null для ключа.
      * @param string $message Уточнение.
      * @param Throwable|null $previous Исходное исключение.
+     * @param array{choices: array<string, mixed>, sheet: array<string, mixed>}|null $currentSheet
+     *     Разрешённая проекция листа.
+     * @param array{type: string, id: int}|null $target Конфликтующая wide-цель.
      *
      * @return void
      */
@@ -24,6 +27,8 @@ final class GameBattleConflictException extends GameException
         private readonly ?int $currentVersion,
         string $message = 'Game battle version conflict',
         ?Throwable $previous = null,
+        private readonly ?array $currentSheet = null,
+        private readonly ?array $target = null,
     ) {
         parent::__construct('GAME_CONFLICT', $message, $previous);
     }
@@ -35,10 +40,20 @@ final class GameBattleConflictException extends GameException
      */
     public function getErrorDetails(): array
     {
-        if ($this->currentVersion === null) {
-            return [];
+        $details = [];
+        if ($this->currentVersion !== null) {
+            $details['currentVersion'] = $this->currentVersion;
         }
 
-        return ['currentVersion' => $this->currentVersion];
+        if ($this->currentSheet !== null) {
+            $details['choices'] = $this->currentSheet['choices'];
+            $details['sheet'] = $this->currentSheet['sheet'];
+        }
+
+        if ($this->target !== null) {
+            $details['target'] = $this->target;
+        }
+
+        return $details;
     }
 }

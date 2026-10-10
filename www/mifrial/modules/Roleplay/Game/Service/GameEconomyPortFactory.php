@@ -15,6 +15,7 @@ use Mifrial\Core\User\Interface\Service\IUserAccess;
 use Mifrial\Roleplay\Character\Interface\Container\ICharacterContainer;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterActualMutations;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
+use Mifrial\Roleplay\Character\Service\Read\CharacterSectionMask;
 use Mifrial\Roleplay\Game\Interface\Container\IGameContainer;
 use Mifrial\Roleplay\Game\Interface\Service\IGameEconomy;
 use Mifrial\Roleplay\Game\Interface\Service\IGameMemberships;
@@ -63,6 +64,11 @@ final class GameEconomyPortFactory
             ),
             $this->mutations($serviceLocator),
             $this->characters($serviceLocator),
+            new ConflictSheetProjection(
+                new CharacterSectionMask(),
+                new GameCharacterProjectionMask(),
+                new GameNpcVisibility(),
+            ),
             $events,
         );
     }

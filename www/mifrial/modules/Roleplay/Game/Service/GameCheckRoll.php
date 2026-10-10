@@ -22,13 +22,17 @@ use Mifrial\Roleplay\Mechanic\Dto\RollSpec;
 use Mifrial\Roleplay\Mechanic\Dto\SizedBase;
 use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanicRolls;
 use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanics;
+use Mifrial\Roleplay\Mechanic\Service\DimensionalCheckNormalizer;
 use Mifrial\Roleplay\Rule\Dto\Spec\CheckSpec;
+use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
  * Карточка проверки и вызов порта броска. Формулу кубов не пишет.
  */
 final class GameCheckRoll
 {
+    private readonly DimensionalCheckNormalizer $normalizer;
+
     /**
      * Создаёт расчёт.
      *
@@ -45,6 +49,7 @@ final class GameCheckRoll
         private readonly IMechanics $mechanics,
         private readonly IMechanicRolls $rolls,
     ) {
+        $this->normalizer = new DimensionalCheckNormalizer();
     }
 
     /**
@@ -178,7 +183,80 @@ final class GameCheckRoll
     {
         $slice = $this->slices->get($spaceId, $rulesRevision);
 
-        return $this->thrown($slice, $this->hitSpec($slice, $ruleCode), $ruleCode, 'solo', $sheet, null);
+        return $this->thrown(
+            $slice,
+            $this->hitSpec($slice, $ruleCode),
+            $ruleCode,
+            'solo',
+            $sheet,
+            null,
+            new SizedBase(0, -1),
+        );
+    }
+
+    /**
+     * Бросает попадание с derived mastery и размерной эффективностью.
+     *
+     * @param int $spaceId Мир.
+     * @param int $rulesRevision Ревизия.
+     * @param string $ruleCode Код проверки.
+     * @param array<string, mixed> $sheet Лист участника.
+     * @param DimensionalNumber $mastery Derived mastery.
+     * @param DimensionalNumber|null $efficiency Эффективность профиля или live fallback.
+     * @param array{base: int, size: int} $difficulty Фактическая трудность.
+     *
+     * @return array{difficulty: array{base: int, size: int}, roll: array{base: int, size: int}, success: bool, rating: int} Итог.
+     *
+     * @throws GameInvalidException Если карточка или pool чужие.
+     * @throws GameNotFoundException Если ревизии нет.
+     */
+    public function throwHitWithMastery(
+        int $spaceId,
+        int $rulesRevision,
+        string $ruleCode,
+        array $sheet,
+        DimensionalNumber $mastery,
+        ?DimensionalNumber $efficiency,
+        array $difficulty,
+    ): array {
+        $slice = $this->slices->get($spaceId, $rulesRevision);
+        $check = $this->hitSpec($slice, $ruleCode);
+        $chain = $this->chain($slice, $check, $ruleCode);
+        $bindings = $this->bindings($slice);
+        $payload = $this->rollPayload($bindings);
+        $dieFaces = $payload->getDieFaces();
+        if ($dieFaces === null) {
+            throw new GameInvalidException('Game check roll rule is invalid');
+        }
+        $selectedEfficiency = $efficiency ?? $this->efficiency($check);
+
+        return $this->scored(
+            $difficulty,
+            $this->rollMastery(
+                $mastery,
+                $selectedEfficiency,
+                $efficiency !== null || $this->hasExplicitEfficiency($check),
+                $dieFaces,
+                $bindings,
+                $chain['attached'],
+            ),
+            new SizedBase(0, -1),
+        );
+    }
+
+    /**
+     * Проверяет auto-fail боевого броска по размерному состоянию.
+     *
+     * @param array{base: int, size: int} $roll Размерный бросок.
+     *
+     * @return bool true, если бросок достиг боевого минимума.
+     */
+    public function isCombatAutoFail(array $roll): bool
+    {
+        return $this->normalizer->isMinimum(
+            new SizedBase($roll['base'], $roll['size']),
+            new SizedBase(0, -1),
+        );
     }
 
     /**
@@ -262,19 +340,67 @@ final class GameCheckRoll
      *
      * @return array{difficulty: array{base: int, size: int}, roll: array{base: int, size: int}, success: bool, rating: int} Итог.
      */
-    private function scored(array $difficulty, RollResult $rolled): array
+    private function scored(
+        array $difficulty,
+        RollResult $rolled,
+        ?SizedBase $minimum = null,
+    ): array
     {
+        $roll = new SizedBase($rolled->getTotalSuccesses(), $rolled->getSpec()->getDieSize());
+        if ($minimum !== null) {
+            $roll = $this->normalizer->clamp($roll, $minimum);
+        }
         $rating = $this->rolls->rate(
-            new SizedBase($rolled->getTotalSuccesses(), $rolled->getSpec()->getDieSize()),
+            $roll,
             new SizedBase($difficulty['base'], $difficulty['size']),
         );
 
         return [
             'difficulty' => $difficulty,
-            'roll' => ['base' => $rolled->getTotalSuccesses(), 'size' => $rolled->getSpec()->getDieSize()],
+            'roll' => ['base' => $roll->getBase(), 'size' => $roll->getSize()],
             'success' => $rating->isPassed(),
             'rating' => $rating->getRating(),
         ];
+    }
+
+    /**
+     * Выполняет бросок derived mastery.
+     *
+     * @param DimensionalNumber $mastery Мастерство.
+     * @param DimensionalNumber $efficiency Эффективность.
+     * @param bool $explicitEfficiency Признак явной эффективности.
+     * @param int $dieFaces Число граней.
+     * @param array<int, MechanicBinding> $bindings Срез механик.
+     * @param array<int, string>|null $attached Прикреплённые правила.
+     *
+     * @return RollResult Результат броска.
+     */
+    private function rollMastery(
+        DimensionalNumber $mastery,
+        DimensionalNumber $efficiency,
+        bool $explicitEfficiency,
+        int $dieFaces,
+        array $bindings,
+        ?array $attached,
+    ): RollResult {
+        if ($mastery->getBase() <= 0) {
+            throw new GameInvalidException('Game check mastery pool is invalid');
+        }
+
+        return $this->rolls->roll(
+            new RollSpec(
+                max(1, $mastery->getBase()),
+                $dieFaces,
+                $efficiency->getBase(),
+                $mastery->getSize() + $efficiency->getSize(),
+                [],
+                $explicitEfficiency,
+            ),
+            static fn (): float => mt_rand(0, mt_getrandmax() - 1) / mt_getrandmax(),
+            $bindings,
+            $this->mechanics->getList(),
+            new ResolveActiveOptions(null, $attached),
+        );
     }
 
     /**
@@ -286,6 +412,7 @@ final class GameCheckRoll
      * @param string $flow Поток solo или joint.
      * @param array<string, mixed> $sheet Лист.
      * @param array{base: int, size: int}|null $asked Трудность ask или null.
+     * @param SizedBase|null $minimum Нижняя граница размерного roll.
      *
      * @return array{difficulty: array{base: int, size: int}, roll: array{base: int, size: int}, success: bool, rating: int} Итог.
      *
@@ -298,21 +425,30 @@ final class GameCheckRoll
         string $flow,
         array $sheet,
         ?array $asked,
+        ?SizedBase $minimum = null,
     ): array {
         $this->assertFlow($check, $flow);
         $chain = $this->chain($slice, $check, $ruleCode);
         $bindings = $this->bindings($slice);
         $pool = $this->pool($chain['characteristic'], $sheet, $this->rollPayload($bindings));
         $difficulty = $this->difficulty($check, $asked);
+        $efficiency = $this->efficiency($check);
         $rolled = $this->rolls->roll(
-            new RollSpec($pool['diceCount'], $pool['dieFaces'], 3, 0, []),
+            new RollSpec(
+                $pool['diceCount'],
+                $pool['dieFaces'],
+                $efficiency->getBase(),
+                $efficiency->getSize(),
+                [],
+                $this->hasExplicitEfficiency($check),
+            ),
             static fn (): float => mt_rand(0, mt_getrandmax() - 1) / mt_getrandmax(),
             $bindings,
             $this->mechanics->getList(),
             new ResolveActiveOptions(null, $chain['attached']),
         );
 
-        return $this->scored($difficulty, $rolled);
+        return $this->scored($difficulty, $rolled, $minimum);
     }
 
     /**
@@ -531,6 +667,32 @@ final class GameCheckRoll
         }
 
         throw new GameInvalidException('Game check characteristic is invalid');
+    }
+
+    /**
+     * Возвращает live efficiency проверки или neutral fallback.
+     *
+     * @param CheckSpec $check Карточка проверки.
+     *
+     * @return DimensionalNumber Размерная эффективность.
+     */
+    private function efficiency(CheckSpec $check): DimensionalNumber
+    {
+        $value = $check->getDefaultEfficiency();
+
+        return new DimensionalNumber($value ?? 3, 0);
+    }
+
+    /**
+     * Проверяет наличие efficiency в live CheckSpec.
+     *
+     * @param CheckSpec $check Карточка проверки.
+     *
+     * @return bool true, если значение задано явно.
+     */
+    private function hasExplicitEfficiency(CheckSpec $check): bool
+    {
+        return $check->getDefaultEfficiency() !== null;
     }
 
     /**

@@ -9,7 +9,6 @@ use Mifrial\Roleplay\Character\Exception\CharacterInvalidException;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterFormulaContexts;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Rule\Dto\Spec\CharacteristicSpec;
-use Mifrial\Roleplay\Rule\Value\CharacteristicNumber;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
@@ -46,7 +45,7 @@ final class GameStrikeSoaks
             throw new GameInvalidException('Game strike dodge soak is invalid');
         }
 
-        return $value->shift($benefit, CharacteristicNumber::BASE_MIN, CharacteristicNumber::BASE_MAX);
+        return $value->modify($benefit);
     }
 
     /**

@@ -18,6 +18,7 @@ use Mifrial\Roleplay\Character\Interface\Service\ICharacterCombatLayers;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterFormulaContexts;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterRuleSlices;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
+use Mifrial\Roleplay\Character\Service\Read\CharacterSectionMask;
 use Mifrial\Roleplay\Game\Interface\Container\IGameContainer;
 use Mifrial\Roleplay\Game\Interface\Service\IGames;
 use Mifrial\Roleplay\Game\Interface\Service\IGameStrikes;
@@ -67,6 +68,11 @@ final class GameStrikePortFactory
             new GameSessionRepository($gateway),
             $this->mutations($serviceLocator),
             $this->strikeRules($serviceLocator),
+            new ConflictSheetProjection(
+                new CharacterSectionMask(),
+                new GameCharacterProjectionMask(),
+                new GameNpcVisibility(),
+            ),
             $events,
         );
     }

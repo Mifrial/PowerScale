@@ -89,18 +89,28 @@ final class GameStrikeRepository
      *
      * @param int $strikeId Удар.
      * @param string $reaction Реакция.
-     * @param string|null $blockItemRuleCode Предмет блока.
+     * @param int|null $blockItemInventoryId Строка инвентаря блока.
+     * @param int|null $blockItemProfileIndex Индекс профиля блока.
+     * @param string|null $blockItemRuleCode Код предмета блока.
      *
      * @return void
      *
      * @throws GameNotFoundException Если строки нет.
      * @throws GameInvalidException Если поле.
      */
-    public function close(int $strikeId, string $reaction, ?string $blockItemRuleCode): void
+    public function close(
+        int $strikeId,
+        string $reaction,
+        ?int $blockItemInventoryId,
+        ?int $blockItemProfileIndex,
+        ?string $blockItemRuleCode,
+    ): void
     {
         try {
             $this->strikeRecords->update($strikeId, [
                 'reaction' => $reaction,
+                'block_item_inventory_id' => $blockItemInventoryId,
+                'block_item_profile_index' => $blockItemProfileIndex,
                 'block_item_rule_code' => $blockItemRuleCode,
                 'open' => false,
             ]);

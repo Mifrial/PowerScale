@@ -76,6 +76,7 @@ final class GameCheckMysqlTest extends TestCase
         self::assertTrue($solo['success'], json_encode($solo));
         self::assertSame('resolved', $solo['data']['status']);
         self::assertSame(['base' => 0, 'size' => 0], $solo['data']['difficulty']);
+        self::assertSame(0, $solo['data']['rating']);
         self::assertNull($solo['data']['sheetVersion']);
         self::assertSame($version, $this->characterFacade()->get($characterId)->getActualVersion());
         $again = $this->dispatch('game.declareCheck', [
@@ -273,12 +274,13 @@ final class GameCheckMysqlTest extends TestCase
     {
         $mechanics = $this->gameApplication()->getLocator()->get(IMechanicContainer::class)->get(IMechanics::class);
         self::assertInstanceOf(IMechanics::class, $mechanics);
-        $rollId = $mechanics->add('roll', 'Бросок', '', '1.0.0');
+        $rollId = $mechanics->add('plain_roll', 'Бросок', '', '1.0.0');
         $world = $this->addWorldWithRevision('razrabotka');
         $check = [
             'allow_characteristic_override' => false,
             'allowed_modes' => 'both',
             'ordinary_root' => true,
+            'default_efficiency' => 0,
             'concentration_token' => false,
             'willpower' => false,
             'unstable_check' => false,

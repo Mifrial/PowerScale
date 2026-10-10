@@ -243,6 +243,7 @@ final class GamePortFactory
                 new GameNpcRepository($this->smartTableGateway($serviceLocator)),
                 $this->create($serviceLocator),
                 $this->sheetEngines($serviceLocator),
+                $this->smartTableGateway($serviceLocator),
             ),
             $visibility,
             new GameNpcView($visibility),

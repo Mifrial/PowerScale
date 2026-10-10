@@ -20,31 +20,45 @@ final class GameStrikeBody
      *     attacker: array{type: string, id: int},
      *     defender: array{type: string, id: int},
      *     actionRuleCode: string,
+     *     itemInventoryId: int,
      *     itemRuleCode: string,
      *     profileType: string,
-     *     profileIndex: int
+     *     profileIndex: int,
+     *     chosenAmounts: array<string, mixed>
      * } Выбор.
      *
      * @throws ActionException INVALID_PARAMS.
      */
     public function attack(array $attack): array
     {
-        $this->assertKeys($attack, [
+        $allowed = [
             'actionRuleCode',
             'attacker',
             'defender',
+            'itemInventoryId',
             'itemRuleCode',
             'profileIndex',
             'profileType',
-        ]);
+        ];
+        if (array_key_exists('chosenAmounts', $attack)) {
+            $allowed[] = 'chosenAmounts';
+        }
+        $this->assertKeys($attack, $allowed);
         $attacker = $this->side($attack['attacker'] ?? null);
         $defender = $this->side($attack['defender'] ?? null);
         $profileType = $attack['profileType'] ?? null;
         $profileIndex = $attack['profileIndex'] ?? null;
         $actionRuleCode = $attack['actionRuleCode'] ?? null;
         $itemRuleCode = $attack['itemRuleCode'] ?? null;
+        $itemInventoryId = $attack['itemInventoryId'] ?? null;
+        $chosenAmounts = $attack['chosenAmounts'] ?? [];
         $codes = is_string($actionRuleCode) && is_string($itemRuleCode);
-        if (!is_string($profileType) || !is_int($profileIndex) || !$codes) {
+        if (!is_int($itemInventoryId)
+            || !is_string($profileType)
+            || !is_int($profileIndex)
+            || !$codes
+            || !is_array($chosenAmounts)
+        ) {
             throw new ActionException('INVALID_PARAMS', 'Invalid parameter: attack');
         }
 
@@ -52,9 +66,11 @@ final class GameStrikeBody
             'attacker' => $attacker,
             'defender' => $defender,
             'actionRuleCode' => $actionRuleCode,
+            'itemInventoryId' => $itemInventoryId,
             'itemRuleCode' => $itemRuleCode,
             'profileType' => $profileType,
             'profileIndex' => $profileIndex,
+            'chosenAmounts' => $chosenAmounts,
         ];
     }
 
@@ -63,23 +79,48 @@ final class GameStrikeBody
      *
      * @param array<string, mixed> $defense Тело.
      *
-     * @return array{reaction: string, blockItemRuleCode: string|null} Выбор.
+     * @return array{reaction: string, blockItemInventoryId: int|null, blockItemProfileIndex: int|null, blockItemRuleCode: string|null} Выбор.
      *
      * @throws ActionException INVALID_PARAMS.
      */
     public function defense(array $defense): array
     {
-        $allowed = array_key_exists('blockItemRuleCode', $defense)
-            ? ['blockItemRuleCode', 'reaction']
-            : ['reaction'];
+        $allowed = ['reaction'];
+        if (array_key_exists('blockItemInventoryId', $defense)
+            || array_key_exists('blockItemProfileIndex', $defense)
+        ) {
+            $allowed = [
+                'blockItemInventoryId',
+                'blockItemProfileIndex',
+                'reaction',
+            ];
+            if (array_key_exists('blockItemRuleCode', $defense)) {
+                $allowed[] = 'blockItemRuleCode';
+            }
+        } elseif (array_key_exists('blockItemRuleCode', $defense)) {
+            $allowed = ['blockItemRuleCode', 'reaction'];
+        }
         $this->assertKeys($defense, $allowed);
         $reaction = $defense['reaction'] ?? null;
+        $blockItemInventoryId = $defense['blockItemInventoryId'] ?? null;
+        $blockItemProfileIndex = $defense['blockItemProfileIndex'] ?? null;
         $blockItemRuleCode = $defense['blockItemRuleCode'] ?? null;
-        if (!is_string($reaction) || ($blockItemRuleCode !== null && !is_string($blockItemRuleCode))) {
+        if (!is_string($reaction)
+            || ($blockItemInventoryId !== null && !is_int($blockItemInventoryId))
+            || ($blockItemProfileIndex !== null && !is_int($blockItemProfileIndex))
+            || ($blockItemRuleCode !== null && !is_string($blockItemRuleCode))
+            || ($reaction === 'block'
+                && (!is_int($blockItemInventoryId) || !is_int($blockItemProfileIndex)))
+        ) {
             throw new ActionException('INVALID_PARAMS', 'Invalid parameter: defense');
         }
 
-        return ['reaction' => $reaction, 'blockItemRuleCode' => $blockItemRuleCode];
+        return [
+            'reaction' => $reaction,
+            'blockItemInventoryId' => $blockItemInventoryId,
+            'blockItemProfileIndex' => $blockItemProfileIndex,
+            'blockItemRuleCode' => $blockItemRuleCode,
+        ];
     }
 
     /**

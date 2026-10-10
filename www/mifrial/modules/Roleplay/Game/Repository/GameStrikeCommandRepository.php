@@ -113,34 +113,32 @@ final class GameStrikeCommandRepository
     }
 
     /**
-     * Пишет итог. Повторный ключ — конфликт.
+     * Резервирует ключ до записи итогового результата.
      *
      * @param int $gameId Игра.
      * @param int $sessionId Сессия.
      * @param string $idempotencyKey Ключ.
      * @param array<string, mixed> $body Тело.
-     * @param array<string, mixed> $stored Итог.
      *
-     * @return void
+     * @return int Id reservation.
      *
      * @throws GameBattleConflictException Если ключ уже есть.
      * @throws GameNotFoundException Если сессии нет.
      * @throws GameInvalidException Если поле.
      */
-    public function add(
+    public function reserve(
         int $gameId,
         int $sessionId,
         string $idempotencyKey,
         array $body,
-        array $stored,
-    ): void {
+    ): int {
         try {
-            $this->commandRecords->add([
+            return $this->commandRecords->add([
                 'game_id' => $gameId,
                 'session_id' => $sessionId,
                 'idempotency_key' => $idempotencyKey,
                 'body' => $body,
-                'result' => $stored,
+                'result' => [],
             ]);
         } catch (UniqueConstraintException $exception) {
             throw new GameBattleConflictException(null, 'Game strike key is already used', $exception);
@@ -149,6 +147,32 @@ final class GameStrikeCommandRepository
         } catch (
             FieldRequiredException
             | FieldInvalidException
+            | MapInvalidException
+            | RowWriteFailedException $exception
+        ) {
+            throw new GameInvalidException('Game strike command field is invalid', $exception);
+        }
+    }
+
+    /**
+     * Завершает reservation сохранённым итогом.
+     *
+     * @param int $commandId Id reservation.
+     * @param array<string, mixed> $result Итог команды.
+     *
+     * @return void
+     *
+     * @throws GameNotFoundException Если reservation отсутствует.
+     * @throws GameInvalidException Если поле результата невалидно.
+     */
+    public function complete(int $commandId, array $result): void
+    {
+        try {
+            $this->commandRecords->update($commandId, ['result' => $result]);
+        } catch (RowNotFoundException $exception) {
+            throw new GameNotFoundException('Game strike command was not found', $exception);
+        } catch (
+            FieldInvalidException
             | MapInvalidException
             | RowWriteFailedException $exception
         ) {

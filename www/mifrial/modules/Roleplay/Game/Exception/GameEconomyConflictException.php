@@ -17,6 +17,8 @@ final class GameEconomyConflictException extends GameException
      * @param int|null $currentVersion Текущая версия строки или null для ключа.
      * @param string $message Уточнение.
      * @param Throwable|null $previous Исходное исключение.
+     * @param array{choices: array<string, mixed>, sheet: array<string, mixed>}|null $currentSheet
+     *     Разрешённая проекция листа.
      *
      * @return void
      */
@@ -24,8 +26,29 @@ final class GameEconomyConflictException extends GameException
         private readonly ?int $currentVersion,
         string $message = 'Game economy version conflict',
         ?Throwable $previous = null,
+        private readonly ?array $currentSheet = null,
     ) {
         parent::__construct('GAME_CONFLICT', $message, $previous);
+    }
+
+    /**
+     * Версия строки, если она известна.
+     *
+     * @return int|null actual_version.
+     */
+    public function getCurrentVersion(): ?int
+    {
+        return $this->currentVersion;
+    }
+
+    /**
+     * Свежий лист NPC, если конфликт относится к нему.
+     *
+     * @return array{choices: array<mixed>, sheet: array<mixed>}|null Лист.
+     */
+    public function getCurrentSheet(): ?array
+    {
+        return $this->currentSheet;
     }
 
     /**
@@ -35,10 +58,16 @@ final class GameEconomyConflictException extends GameException
      */
     public function getErrorDetails(): array
     {
-        if ($this->currentVersion === null) {
-            return [];
+        $details = [];
+        if ($this->currentVersion !== null) {
+            $details['currentVersion'] = $this->currentVersion;
         }
 
-        return ['currentVersion' => $this->currentVersion];
+        if ($this->currentSheet !== null) {
+            $details['choices'] = $this->currentSheet['choices'];
+            $details['sheet'] = $this->currentSheet['sheet'];
+        }
+
+        return $details;
     }
 }
