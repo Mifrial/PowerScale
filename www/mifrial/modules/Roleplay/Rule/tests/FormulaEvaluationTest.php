@@ -22,6 +22,7 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Formula\Scalar\ScalarFormula;
 use Mifrial\Roleplay\Rule\Dto\Spec\Formula\Scalar\ToScalar;
 use Mifrial\Roleplay\Rule\Exception\RuleInvalidException;
 use Mifrial\Roleplay\Rule\Service\FormulaEvaluations;
+use Mifrial\Roleplay\Rule\Value\CharacteristicNumber;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 use PHPUnit\Framework\TestCase;
 
@@ -58,8 +59,8 @@ final class FormulaEvaluationTest extends TestCase
     ): FormulaContext {
         return new FormulaContext(
             $characteristics === [] ? [
-                'strength' => new DimensionalNumber(5, 0),
-                'dexterity' => new DimensionalNumber(6, 0),
+                'strength' => new CharacteristicNumber(5, 0),
+                'dexterity' => new CharacteristicNumber(6, 0),
             ] : $characteristics,
             ['melee-fighting' => 3],
             $parameters,
@@ -134,7 +135,7 @@ final class FormulaEvaluationTest extends TestCase
      */
     public function testActionCharacteristicMultiplier(): void
     {
-        $context = $this->context(['strength' => new DimensionalNumber(4, 2)]);
+        $context = $this->context(['strength' => new CharacteristicNumber(4, 2)]);
         $node = new ActionCharacteristicNode('shoot', 'strength', 5, []);
         $this->assertPair($node, $context, 20, 2, 80);
     }
@@ -147,9 +148,9 @@ final class FormulaEvaluationTest extends TestCase
     public function testActionCharacteristicOverride(): void
     {
         $context = $this->context(
-            ['strength' => new DimensionalNumber(5, 0)],
+            ['strength' => new CharacteristicNumber(5, 0)],
             [],
-            ['shoot' => ['strength' => new DimensionalNumber(3, 0)]],
+            ['shoot' => ['strength' => new CharacteristicNumber(3, 0)]],
         );
         $node = new ActionCharacteristicNode('shoot', 'strength', null, [
             new ActionCharacteristicModifier(1, null, null),
@@ -208,7 +209,7 @@ final class FormulaEvaluationTest extends TestCase
      */
     public function testToScalar(): void
     {
-        $context = $this->context(['intellect' => new DimensionalNumber(4, 1)]);
+        $context = $this->context(['intellect' => new CharacteristicNumber(4, 1)]);
         $node = new ToScalar(new CharacteristicNode('intellect', 0));
         self::assertSame(4, $this->evaluations->evaluateScalar($node, $context));
     }
@@ -221,8 +222,8 @@ final class FormulaEvaluationTest extends TestCase
     public function testCharacteristicSize(): void
     {
         $context = $this->context([
-            'dexterity' => new DimensionalNumber(3, -1),
-            'strength' => new DimensionalNumber(5, 1),
+            'dexterity' => new CharacteristicNumber(3, -1),
+            'strength' => new CharacteristicNumber(5, 1),
         ]);
         self::assertSame(-1, $this->evaluations->evaluateScalar(new CharacteristicSizeScalar('dexterity'), $context));
         self::assertSame(1, $this->evaluations->evaluateScalar(new CharacteristicSizeScalar('strength'), $context));
@@ -237,8 +238,8 @@ final class FormulaEvaluationTest extends TestCase
     public function testCharacteristicSizePositive(): void
     {
         $context = $this->context([
-            'intellect' => new DimensionalNumber(3, -1),
-            'perception' => new DimensionalNumber(5, 1),
+            'intellect' => new CharacteristicNumber(3, -1),
+            'perception' => new CharacteristicNumber(5, 1),
         ]);
         self::assertSame(0, $this->evaluations->evaluateScalar(new CharacteristicSizePositiveScalar('intellect'), $context));
         self::assertSame(1, $this->evaluations->evaluateScalar(new CharacteristicSizePositiveScalar('perception'), $context));
@@ -252,21 +253,21 @@ final class FormulaEvaluationTest extends TestCase
     public function testCharacteristicSizeGap(): void
     {
         $context = $this->context([
-            'strength' => new DimensionalNumber(3, 1),
-            'weight' => new DimensionalNumber(5, 0),
+            'strength' => new CharacteristicNumber(3, 1),
+            'weight' => new CharacteristicNumber(5, 0),
         ]);
         $node = new CharacteristicSizeGapScalar('strength', 'weight');
         self::assertSame(0, $this->evaluations->evaluateScalar($node, $context));
         self::assertSame(1, $this->evaluations->evaluateScalar($node, $this->context([
-            'strength' => new DimensionalNumber(3, 1),
-            'weight' => new DimensionalNumber(3, 0),
+            'strength' => new CharacteristicNumber(3, 1),
+            'weight' => new CharacteristicNumber(3, 0),
         ])));
         self::assertSame(-1, $this->evaluations->evaluateScalar($node, $this->context([
-            'strength' => new DimensionalNumber(3, 0),
-            'weight' => new DimensionalNumber(3, 1),
+            'strength' => new CharacteristicNumber(3, 0),
+            'weight' => new CharacteristicNumber(3, 1),
         ])));
         self::assertSame(0, $this->evaluations->evaluateScalar($node, $this->context([
-            'strength' => new DimensionalNumber(3, 0),
+            'strength' => new CharacteristicNumber(3, 0),
         ])));
     }
 

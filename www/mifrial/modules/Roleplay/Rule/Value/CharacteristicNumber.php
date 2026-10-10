@@ -6,9 +6,8 @@ namespace Mifrial\Roleplay\Rule\Value;
 
 /**
  * Размерное число шкалы характеристик. База 3–5, шаг размера 3.
- * Конструктор не отвергает базу вне шкалы.
  */
-final class CharacteristicNumber
+final class CharacteristicNumber extends DimensionalNumber
 {
     public const BASE_MIN = 3;
 
@@ -23,28 +22,14 @@ final class CharacteristicNumber
      * @return void
      */
     public function __construct(
-        private readonly int $base,
-        private readonly int $size,
+        int $base,
+        int $size,
     ) {
+        parent::__construct($base, $size, self::BASE_MIN, self::BASE_MAX);
     }
 
-    /**
-     * База.
-     *
-     * @return int Целое.
-     */
-    public function getBase(): int
+    protected function copyWithBaseSize(int $base, int $size): static
     {
-        return $this->base;
-    }
-
-    /**
-     * Размер.
-     *
-     * @return int Целое.
-     */
-    public function getSize(): int
-    {
-        return $this->size;
+        return new static($base, $size);
     }
 }

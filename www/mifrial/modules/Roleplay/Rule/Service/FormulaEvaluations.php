@@ -188,11 +188,7 @@ final class FormulaEvaluations implements IFormulaEvaluations
     private function mediumBase(DimensionalNumber $number): int
     {
         $step = CharacteristicNumber::BASE_MAX - CharacteristicNumber::BASE_MIN + 1;
-        $shifted = $number->shift(
-            -$number->getSize() * $step,
-            CharacteristicNumber::BASE_MIN,
-            CharacteristicNumber::BASE_MAX,
-        );
+        $shifted = $number->modify(-$number->getSize() * $step);
 
         return $shifted->getBase();
     }
@@ -294,7 +290,7 @@ final class FormulaEvaluations implements IFormulaEvaluations
             throw new RuleInvalidException('Нет характеристики «' . $code . '»');
         }
 
-        return $base->shift($delta, CharacteristicNumber::BASE_MIN, CharacteristicNumber::BASE_MAX);
+        return $base->modify($delta);
     }
 
     /**

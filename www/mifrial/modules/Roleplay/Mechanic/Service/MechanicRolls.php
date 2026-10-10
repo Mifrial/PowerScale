@@ -23,6 +23,8 @@ use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanicRolls;
  */
 final class MechanicRolls implements IMechanicRolls
 {
+    private readonly DimensionalCheckNormalizer $normalizer;
+
     /**
      * Принимает движок.
      *
@@ -33,6 +35,7 @@ final class MechanicRolls implements IMechanicRolls
     public function __construct(
         private readonly IMechanicEngine $engine,
     ) {
+        $this->normalizer = new DimensionalCheckNormalizer();
     }
 
     /**
@@ -87,9 +90,9 @@ final class MechanicRolls implements IMechanicRolls
     {
         $left = $this->prepare($successes, $minSize);
         $right = $this->prepare($difficulty, $minSize);
-        $targetSize = min($left->getSize(), $right->getSize());
-        $leftBase = $this->align($left, $targetSize);
-        $rightBase = $this->align($right, $targetSize);
+        $normalized = $this->normalizer->compare($left, $right);
+        $leftBase = $normalized['successes']->getBase();
+        $rightBase = $normalized['difficulty']->getBase();
 
         return new CheckRating($leftBase >= $rightBase, $leftBase - $rightBase);
     }
@@ -222,16 +225,4 @@ final class MechanicRolls implements IMechanicRolls
         return $folded->raiseToMinSize($minSize);
     }
 
-    /**
-     * База, приведённая к целевому размеру.
-     *
-     * @param SizedBase $value Пара.
-     * @param int $targetSize Общий размер.
-     *
-     * @return int База.
-     */
-    private function align(SizedBase $value, int $targetSize): int
-    {
-        return $value->getBase() * (2 ** ($value->getSize() - $targetSize));
-    }
 }

@@ -91,6 +91,25 @@ final class ItemModifierOperationTest extends TestCase
     }
 
     /**
+     * Minimum resource operation stays outside item numeric collapse.
+     *
+     * @return void
+     */
+    public function testMinResourceCostDoesNotChangeItemSpec(): void
+    {
+        $item = $this->item(true, false, false);
+        $changed = ItemModifierOperations::apply($item, [$this->modifier([
+            [
+                'type' => 'min_resource_cost',
+                'resource_code' => 'action-points',
+                'minimum' => 2,
+            ],
+        ])], ['weapon']);
+
+        self::assertSame($item, $changed);
+    }
+
+    /**
      * Блок оружия не меняется без признака weapon.
      *
      * @return void

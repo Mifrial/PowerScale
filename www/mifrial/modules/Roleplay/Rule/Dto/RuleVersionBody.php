@@ -181,14 +181,19 @@ final class RuleVersionBody
      *
      * @throws RuleInvalidException Если форма строки неверна.
      */
-    private function assertMechanics(array $mechanics): void
+    public static function assertMechanics(array $mechanics): void
     {
         if (!array_is_list($mechanics)) {
             throw new RuleInvalidException('Mechanics must be a list');
         }
 
         foreach ($mechanics as $row) {
-            if (!is_array($row) || !isset($row['mechanic_id']) || !is_int($row['mechanic_id']) || $row['mechanic_id'] < 1) {
+            if (
+                !is_array($row)
+                || !isset($row['mechanic_id'])
+                || !is_int($row['mechanic_id'])
+                || $row['mechanic_id'] < 1
+            ) {
                 throw new RuleInvalidException('Mechanic id is invalid');
             }
 

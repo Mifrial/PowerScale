@@ -27,6 +27,7 @@ final class RollSpec
      * @param int $efficiency Порог успеха грани.
      * @param int $dieSize Размер успехов броска.
      * @param array<int, RollAdvantage> $advantages Преимущества и помехи.
+     * @param bool $explicitEfficiency Признак явно заданной эффективности.
      *
      * @return void
      */
@@ -36,6 +37,7 @@ final class RollSpec
         private readonly int $efficiency,
         private readonly int $dieSize,
         private readonly array $advantages = [],
+        private readonly bool $explicitEfficiency = false,
     ) {
     }
 
@@ -54,6 +56,7 @@ final class RollSpec
             $this->efficiencyFrom($payload),
             $this->dieSizeFrom($payload),
             $this->advantagesFrom($payload),
+            $this->explicitEfficiency,
         );
     }
 
@@ -88,6 +91,16 @@ final class RollSpec
     }
 
     /**
+     * Проверяет явность эффективности.
+     *
+     * @return bool true, если эффективность задана источником.
+     */
+    public function isEfficiencyExplicit(): bool
+    {
+        return $this->explicitEfficiency;
+    }
+
+    /**
      * Размер успехов.
      *
      * @return int Целое.
@@ -116,7 +129,11 @@ final class RollSpec
      */
     private function efficiencyFrom(RollMechanicPayload $payload): int
     {
-        if ($this->efficiency !== self::NEUTRAL_EFFICIENCY || $payload->getEfficiency() === null) {
+        if (
+            $this->explicitEfficiency
+            || $this->efficiency !== self::NEUTRAL_EFFICIENCY
+            || $payload->getEfficiency() === null
+        ) {
             return $this->efficiency;
         }
 

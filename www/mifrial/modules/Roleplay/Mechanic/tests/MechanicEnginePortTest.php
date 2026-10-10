@@ -15,6 +15,7 @@ use Mifrial\Roleplay\Mechanic\Dto\ResolveActiveOptions;
 use Mifrial\Roleplay\Mechanic\Dto\SurchargeItem;
 use Mifrial\Roleplay\Mechanic\Interface\Container\IMechanicContainer;
 use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanicEngine;
+use Mifrial\Roleplay\Mechanic\Service\MechanicPortFactory;
 use PHPUnit\Framework\TestCase;
 
 final class MechanicEnginePortTest extends TestCase
@@ -50,5 +51,28 @@ final class MechanicEnginePortTest extends TestCase
 
         self::assertSame(2, $context->getOsSurchargeTotal());
         self::assertEquals([new SurchargeItem('b', 2)], $context->getSurchargeItems());
+    }
+
+    /**
+     * Production port разрешает reliability_cut через catalog и registry.
+     *
+     * @return void
+     */
+    public function testPortResolvesProductionReliabilityCut(): void
+    {
+        $engine = (new MechanicPortFactory())->createEngine();
+        self::assertInstanceOf(IMechanicEngine::class, $engine);
+
+        self::assertTrue($engine->hasReliabilityCut(
+            [new MechanicBinding('damage-type', 7, null)],
+            [MechanicRecord::fromNormalized([
+                'id' => 7,
+                'code' => 'reliability_cut',
+                'name' => 'Reliability cut',
+                'description' => '',
+                'handler_version' => '1.0.0',
+            ])],
+            new ResolveActiveOptions(),
+        ));
     }
 }

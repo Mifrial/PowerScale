@@ -7,6 +7,10 @@ namespace Mifrial\Roleplay\Rule\Spec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemModifierApplies;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemModifierEffect;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemModifierOperation;
+use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemModifierPrice;
+use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemModifierPriceOverride;
+use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemModifierPriceScale;
+use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemModifierSpec;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\Op\ActionStrengthOp;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\Op\AdvantageOp;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\Op\ArmorReliabilityOp;
@@ -19,15 +23,13 @@ use Mifrial\Roleplay\Rule\Dto\Spec\Item\Op\KeywordOp;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\Op\MagicConductorOp;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\Op\MaxAgilityOp;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\Op\MinActionCostOp;
+use Mifrial\Roleplay\Rule\Dto\Spec\Item\Op\MinResourceCostOp;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\Op\MinStrengthOp;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\Op\ResistanceOp;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\Op\StrengthPenaltyOp;
 use Mifrial\Roleplay\Rule\Dto\Spec\Item\Op\WeightOp;
-use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemModifierPrice;
-use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemModifierPriceOverride;
-use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemModifierPriceScale;
-use Mifrial\Roleplay\Rule\Dto\Spec\Item\ItemModifierSpec;
 use Mifrial\Roleplay\Rule\Exception\RuleSpecShapeException;
+use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 
 /**
  * Модификатор предмета.
@@ -282,6 +284,10 @@ final class ItemModifiers
             ),
             'keyword' => new KeywordOp(SpecShape::stringList($row, 'add'), SpecShape::stringList($row, 'remove')),
             'min_action_cost' => new MinActionCostOp(SpecShape::int($row, 'min')),
+            'min_resource_cost' => new MinResourceCostOp(
+                SpecShape::string($row, 'resource_code'),
+                self::nativeNumber($row, 'minimum'),
+            ),
             'magic_conductor' => new MagicConductorOp(SpecShape::int($row, 'value')),
             'advantage' => new AdvantageOp(SpecShape::int($row, 'delta'), SpecShape::string($row, 'source_code')),
             'check_advantage' => new CheckAdvantageOp(
@@ -333,5 +339,29 @@ final class ItemModifiers
         }
 
         return SpecShape::number($row, $key);
+    }
+
+    /**
+     * Native minimum ресурса.
+     *
+     * @param array<string, mixed> $row Строка операции.
+     * @param string $key Ключ значения.
+     *
+     * @return int|DimensionalNumber Native число.
+     *
+     * @throws RuleSpecShapeException Если значение имеет неверную форму.
+     */
+    private static function nativeNumber(array $row, string $key): int|DimensionalNumber
+    {
+        $value = $row[$key] ?? null;
+        if (is_int($value)) {
+            return $value;
+        }
+
+        if (is_array($value) && !array_is_list($value)) {
+            return DimensionalNumbers::pair($value, $key);
+        }
+
+        throw new RuleSpecShapeException($key);
     }
 }

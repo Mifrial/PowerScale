@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Mifrial\Roleplay\Rule\Tests;
 
 use Mifrial\Roleplay\Rule\Exception\RuleInvalidException;
+use Mifrial\Roleplay\Rule\Value\CharacteristicNumber;
 use Mifrial\Roleplay\Rule\Value\DimensionalNumber;
 use PHPUnit\Framework\TestCase;
 
@@ -91,5 +92,34 @@ final class DimensionalNumberTest extends TestCase
         } catch (RuleInvalidException $exception) {
             self::assertSame('RULE_INVALID', $exception->getErrorCode());
         }
+    }
+
+    /**
+     * Characteristic modification preserves scale and concrete type.
+     *
+     * @return void
+     */
+    public function testCharacteristicModifyPreservesTypeAndScale(): void
+    {
+        $value = new CharacteristicNumber(5, -1);
+        $modified = $value->modify(1);
+
+        self::assertInstanceOf(CharacteristicNumber::class, $modified);
+        self::assertSame(3, $modified->getBase());
+        self::assertSame(0, $modified->getSize());
+        self::assertSame(5, $value->getBase());
+        self::assertSame(-1, $value->getSize());
+    }
+
+    /**
+     * Unbounded modification is invalid.
+     *
+     * @return void
+     */
+    public function testUnboundedModifyIsInvalid(): void
+    {
+        $this->expectException(RuleInvalidException::class);
+
+        (new DimensionalNumber(3, 0))->modify(1);
     }
 }

@@ -17,6 +17,7 @@ use Mifrial\Roleplay\Mechanic\Dto\RollSpec;
 use Mifrial\Roleplay\Mechanic\Dto\SizedBase;
 use Mifrial\Roleplay\Mechanic\Interface\Container\IMechanicContainer;
 use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanicRolls;
+use Mifrial\Roleplay\Mechanic\Service\DimensionalCheckNormalizer;
 use PHPUnit\Framework\TestCase;
 
 final class MechanicRollTest extends TestCase
@@ -163,7 +164,7 @@ final class MechanicRollTest extends TestCase
         $result = $this->rolls->roll(
             $this->spec(4, 8),
             $this->rng([3, 3, 3, 3], 8),
-            [new MechanicBinding('roll', 5, new RollMechanicPayload(efficiency: 2, adv: 1, dieSize: 3))],
+            [new MechanicBinding('plain_roll', 5, new RollMechanicPayload(efficiency: 2, adv: 1, dieSize: 3))],
             $this->catalog(),
             new ResolveActiveOptions(),
         );
@@ -186,13 +187,32 @@ final class MechanicRollTest extends TestCase
         $result = $this->rolls->roll(
             $this->spec(4, efficiency: 5, advantages: [new RollAdvantage('manual', -2)]),
             $this->rng([3, 3, 3, 3]),
-            [new MechanicBinding('roll', 5, new RollMechanicPayload(efficiency: 2, adv: 1))],
+            [new MechanicBinding('plain_roll', 5, new RollMechanicPayload(efficiency: 2, adv: 1))],
             $this->catalog(),
             new ResolveActiveOptions(),
         );
 
         self::assertSame(5, $result->getSpec()->getEfficiency());
         self::assertSame(-2, $result->getSpec()->getAdvantages()[0]->getDelta());
+    }
+
+    /**
+     * Явная нейтральная эффективность не заменяется payload.
+     *
+     * @return void
+     */
+    public function testExplicitNeutralEfficiencyStaysExplicit(): void
+    {
+        $result = $this->rolls->roll(
+            new RollSpec(1, 6, 3, 0, [], true),
+            $this->rng([3]),
+            [new MechanicBinding('plain_roll', 5, new RollMechanicPayload(efficiency: 2))],
+            $this->catalog(),
+            new ResolveActiveOptions(),
+        );
+
+        self::assertSame(3, $result->getSpec()->getEfficiency());
+        self::assertTrue($result->getSpec()->isEfficiencyExplicit());
     }
 
     /**
@@ -236,6 +256,42 @@ final class MechanicRollTest extends TestCase
         self::assertEquals(
             new CheckRating(true, 1),
             $this->rolls->rate(new SizedBase(5, -1), new SizedBase(8, -2), -1),
+        );
+    }
+
+    /**
+     * Нулевая база успехов получает единицу перед приведением к меньшему размеру.
+     *
+     * @return void
+     */
+    public function testRateNormalizesZeroSuccessesBeforeAlignment(): void
+    {
+        self::assertEquals(
+            new CheckRating(true, 6),
+            $this->rolls->rate(new SizedBase(0, 3), new SizedBase(2, -1)),
+        );
+    }
+
+    /**
+     * Боевой минимум отличает нулевые значения от auto-fail.
+     *
+     * @return void
+     */
+    public function testCombatMinimumClampsOnlyBelowNegativeOne(): void
+    {
+        $normalizer = new DimensionalCheckNormalizer();
+        $minimum = new SizedBase(0, -1);
+
+        self::assertFalse($normalizer->isMinimum(new SizedBase(0, 0), $minimum));
+        self::assertFalse($normalizer->isMinimum(new SizedBase(0, 3), $minimum));
+        self::assertTrue($normalizer->isMinimum(new SizedBase(0, -1), $minimum));
+        self::assertTrue($normalizer->isMinimum(new SizedBase(0, -3), $minimum));
+        self::assertSame(
+            ['base' => 0, 'size' => -1],
+            [
+                'base' => $normalizer->clamp(new SizedBase(0, -3), $minimum)->getBase(),
+                'size' => $normalizer->clamp(new SizedBase(0, -3), $minimum)->getSize(),
+            ],
         );
     }
 
@@ -305,7 +361,7 @@ final class MechanicRollTest extends TestCase
     {
         return [
             new MechanicBinding(
-                'roll',
+                'plain_roll',
                 5,
                 new RollMechanicPayload(efficiency: 3, subMechanics: ['six_one_rule', 'advantage_disadvantage']),
             ),
@@ -324,7 +380,7 @@ final class MechanicRollTest extends TestCase
         return [
             $this->record(1, 'six_one_rule', 'Правило 6 и 1', '4.5.0'),
             $this->record(2, 'advantage_disadvantage', 'Помехи и преимущества', '2.1.0'),
-            $this->record(5, 'roll', 'Бросок', '1.0.0'),
+            $this->record(5, 'plain_roll', 'Бросок', '1.0.0'),
         ];
     }
 

@@ -263,12 +263,12 @@ final class ItemModifierOperationItems
      */
     private static function shifted(int $base, int $size, int $delta): DimensionalNumber
     {
-        $scaled = new DimensionalNumber($base, $size);
+        $scaled = new CharacteristicNumber($base, $size);
         if ($delta === 0) {
             return $scaled;
         }
 
-        return $scaled->shift($delta, CharacteristicNumber::BASE_MIN, CharacteristicNumber::BASE_MAX);
+        return $scaled->modify($delta);
     }
 
     /**

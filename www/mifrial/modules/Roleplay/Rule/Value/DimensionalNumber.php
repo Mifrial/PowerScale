@@ -7,22 +7,33 @@ namespace Mifrial\Roleplay\Rule\Value;
 use Mifrial\Roleplay\Rule\Exception\RuleInvalidException;
 
 /**
- * Размерное число: целая база и целый размер.
+ * Размерное число: целая база, размер и необязательная шкала модификации.
  */
-final class DimensionalNumber
+class DimensionalNumber
 {
     /**
      * Создаёт число.
      *
      * @param int $base База.
      * @param int $size Размер.
+     * @param int|null $baseMin Нижняя граница базы или null.
+     * @param int|null $baseMax Верхняя граница базы или null.
      *
      * @return void
+     *
+     * @throws RuleInvalidException Если задана неполная или пустая шкала.
      */
     public function __construct(
         private readonly int $base,
         private readonly int $size,
+        private readonly ?int $baseMin = null,
+        private readonly ?int $baseMax = null,
     ) {
+        if (($baseMin === null) !== ($baseMax === null)
+            || ($baseMin !== null && $baseMax !== null && $baseMin >= $baseMax)
+        ) {
+            throw new RuleInvalidException('Шкала размерного числа невалидна');
+        }
     }
 
     /**
@@ -56,16 +67,22 @@ final class DimensionalNumber
     }
 
     /**
-     * Сдвигает базу по шкале. Шаг размера — (max − min + 1).
+     * Модифицирует базу по собственной шкале. Шаг размера — (max − min + 1).
      *
      * @param int $delta Пункты.
-     * @param int $baseMin Нижняя база.
-     * @param int $baseMax Верхняя база.
      *
-     * @return self Пара.
+     * @return static Модифицированная копия того же класса.
+     *
+     * @throws RuleInvalidException Если у числа нет шкалы.
      */
-    public function shift(int $delta, int $baseMin, int $baseMax): self
+    public function modify(int $delta): static
     {
+        if ($this->baseMin === null || $this->baseMax === null) {
+            throw new RuleInvalidException('У размерного числа отсутствует шкала');
+        }
+
+        $baseMin = $this->baseMin;
+        $baseMax = $this->baseMax;
         $step = $baseMax - $baseMin + 1;
         $sizeDelta = (int) floor($delta / $step);
         $baseDelta = $delta - $sizeDelta * $step;
@@ -79,7 +96,20 @@ final class DimensionalNumber
             $size -= 1;
         }
 
-        return new self($base, $size);
+        return $this->copyWithBaseSize($base, $size);
+    }
+
+    /**
+     * Создаёт immutable-копию с новой базой и размером.
+     *
+     * @param int $base База копии.
+     * @param int $size Размер копии.
+     *
+     * @return static Копия того же фактического класса.
+     */
+    protected function copyWithBaseSize(int $base, int $size): static
+    {
+        return new static($base, $size, $this->baseMin, $this->baseMax);
     }
 
     /**

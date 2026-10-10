@@ -54,6 +54,10 @@ final class ItemModifierOperationWhen
     public static function targets(ItemModifierOperation $operation): array
     {
         $type = $operation->getOp()->getType();
+        if ($type === 'min_action_cost' || $type === 'min_resource_cost') {
+            return [];
+        }
+
         if ($type === 'weight' || $type === 'block' || $type === 'action_strength') {
             return self::itemTarget($type);
         }

@@ -10,8 +10,8 @@ namespace Mifrial\Roleplay\Rule\Dto;
 
 use Mifrial\Core\Kernel\Value\DateTime;
 use Mifrial\Roleplay\Rule\Dto\Spec\RuleSpec;
-use Mifrial\Roleplay\Rule\Spec\RuleSpecs;
 use Mifrial\Roleplay\Rule\Exception\RuleInvalidException;
+use Mifrial\Roleplay\Rule\Spec\RuleSpecs;
 use Mifrial\Versioning\Space\Dto\VersionRecord;
 
 /**
@@ -355,6 +355,8 @@ final class RuleVersionRecord
         if (!is_array($value) || !array_is_list($value)) {
             throw new RuleInvalidException('Rule version record is incomplete');
         }
+
+        RuleVersionBody::assertMechanics($value);
 
         return $value;
     }
