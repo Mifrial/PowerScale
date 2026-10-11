@@ -214,8 +214,8 @@ final class RuleSpaceHttpMysqlTest extends TestCase
         ]);
         self::assertFalse($stale['success']);
         self::assertSame('RULESPACE_CONFLICT', $stale['error']['code']);
-        self::assertSame(1, $stale['error']['expectedRevision']);
-        self::assertSame(2, $stale['error']['actualRevision']);
+        self::assertSame(1, $stale['error']['details']['expectedRevision']);
+        self::assertSame(2, $stale['error']['details']['actualRevision']);
         $feedAfterConflict = $this->dispatch('ruleSpace.getRevisions', ['spaceId' => $spaceId]);
         self::assertCount(2, $feedAfterConflict['data']);
 

@@ -254,7 +254,7 @@ final class GameInitiativeMysqlTest extends TestCase
     {
         $mechanics = $this->gameApplication()->getLocator()->get(IMechanicContainer::class)->get(IMechanics::class);
         self::assertInstanceOf(IMechanics::class, $mechanics);
-        $rollId = $mechanics->add('roll', 'Бросок', '', '1.0.0');
+        $rollId = $mechanics->add('plain_roll', 'Бросок', '', '1.0.0');
         $world = $this->addWorldWithRevision('razrabotka');
         $check = [
             'allow_characteristic_override' => false,

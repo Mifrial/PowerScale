@@ -152,12 +152,13 @@ final class GameDeliveryMysqlTest extends TestCase
     {
         $mechanics = $this->gameApplication()->getLocator()->get(IMechanicContainer::class)->get(IMechanics::class);
         self::assertInstanceOf(IMechanics::class, $mechanics);
-        $rollId = $mechanics->add('roll-delivery', 'Бросок', '', '1.0.0');
+        $rollId = $mechanics->add('plain_roll', 'Бросок', '', '1.0.0');
         $world = $this->addWorldWithRevision('razrabotka');
         $this->gameRuleSpaces()->commit($world->getId(), [
             RuleCommitEntry::put('human', new RuleVersionBody('race', 'Human', '', [
                 'characteristics' => [[
                     'characteristic_code' => 'strength',
+                    'weapon_mastery' => ['profiles' => ['strike']],
                     'mode' => 'purchased',
                     'base' => ['base' => 3, 'size' => 0],
                     'purchase' => [['cost' => 2, 'value' => ['base' => 4, 'size' => 0]]],
@@ -168,7 +169,22 @@ final class GameDeliveryMysqlTest extends TestCase
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('sword', new RuleVersionBody('item', 'Sword', '', [
                 'category' => 'weapon',
-                'weapon' => ['weapon_profiles' => [['type' => 'strike']]],
+                'proficiency_family_code' => 'melee',
+                'weapon' => ['weapon_profiles' => [[
+                    'type' => 'strike',
+                    'damage' => [
+                        'damage_type_code' => 'cut',
+                        'formula' => ['type' => 'fixed', 'value' => 1],
+                    ],
+                ]]],
+            ], [], [], 'needs_work')),
+            RuleCommitEntry::put('cut', new RuleVersionBody('damage_type', 'Cut', '', [
+                'forms' => ['genitive' => 'cut', 'dative' => 'cut'],
+                'defense_ignored' => false,
+                'modifies_spell_difficulty' => false,
+            ], [], [], 'needs_work')),
+            RuleCommitEntry::put('strength', new RuleVersionBody('characteristic', 'Strength', '', [
+                'weapon_mastery' => ['profiles' => ['strike']],
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('stamina', new RuleVersionBody('characteristic', 'Stamina', '', [
                 'damage_endurance' => true,
@@ -226,7 +242,7 @@ final class GameDeliveryMysqlTest extends TestCase
             'name' => 'Hero',
             'raceCode' => 'human',
             'abilities' => [],
-            'inventory' => [],
+            'inventory' => [['id' => 1, 'ruleCode' => 'sword', 'equipped' => true]],
             'characteristicPurchases' => [['characteristicCode' => 'strength', 'cost' => 2]],
             'customRules' => [],
             'money' => 0,
@@ -285,6 +301,7 @@ final class GameDeliveryMysqlTest extends TestCase
                 'attacker' => ['type' => 'character', 'id' => $characterId],
                 'defender' => ['type' => 'npc', 'id' => $npc['data']['npcId']],
                 'actionRuleCode' => 'swing',
+                'itemInventoryId' => 1,
                 'itemRuleCode' => 'sword',
                 'profileType' => 'strike',
                 'profileIndex' => 0,
@@ -317,7 +334,7 @@ final class GameDeliveryMysqlTest extends TestCase
             ]],
             'expectedVersions' => [
                 'characters' => [],
-                'npcs' => [['npcId' => $npc['data']['npcId'], 'actualVersion' => $resolved['data']['sheetVersion']]],
+                'npcs' => [['npcId' => $npc['data']['npcId'], 'actualVersion' => $npc['data']['actualVersion']]],
                 'positions' => [],
             ],
         ]);
