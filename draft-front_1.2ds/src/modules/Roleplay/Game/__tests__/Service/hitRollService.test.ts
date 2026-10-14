@@ -510,6 +510,8 @@ describe('listBlockProfiles', () => {
     ];
     expect(hitRollService.listBlockProfiles(version, rules)).toEqual([
       {
+        inventoryItemId: 1,
+        profileIndex: 0,
         itemRuleCode: 'buckler',
         itemName: 'Баклер',
         efficiency: { base: 5, size: 0 },

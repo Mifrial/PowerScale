@@ -8,7 +8,8 @@ export interface GameJoinRequest {
   id: number;
   gameId: number;
   userId: number;
-  userName: string;
+  /** Мок может положить имя; PHP game.getJoinRequests его не шлёт. UI берёт подпись из каталога User. */
+  userName?: string;
   status: GameJoinRequestStatus;
   createdAt: string;
 }

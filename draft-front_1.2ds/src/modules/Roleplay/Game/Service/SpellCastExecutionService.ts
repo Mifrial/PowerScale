@@ -58,9 +58,7 @@ export class SpellCastExecutionService {
       touchSpec && touchSpec.type !== 'group' && 'action_components' in touchSpec
         ? touchSpec.action_components
         : undefined;
-    const touchOd = this.needsTouchAttack(input.spellCode, input.rules)
-      ? actionOdCost(touchComponents, 0, pool)
-      : 0;
+    const touchOd = this.needsTouchAttack(input.spellCode, input.rules) ? actionOdCost(touchComponents, 0, pool) : 0;
     const selected = spellCastUpgradeService.selectedOf(
       spellCastUpgradeService.listApplicable(
         input.casterAbilities ?? [],
@@ -370,9 +368,10 @@ export class SpellCastExecutionService {
 
     return {
       ok: true,
-      power: new DimensionalNumber(input.parameterPower)
-        .modify(steps * saturation.power_per_step, CHARACTERISTIC_BASE_RANGE)
-        .value,
+      power: new DimensionalNumber(input.parameterPower).modify(
+        steps * saturation.power_per_step,
+        CHARACTERISTIC_BASE_RANGE,
+      ).value,
       remainingRating: rating - saturation.rating_per_step * steps,
     };
   }

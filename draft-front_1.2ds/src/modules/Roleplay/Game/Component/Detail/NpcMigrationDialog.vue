@@ -211,7 +211,7 @@ watch(open, (value) => {
             :draft-key="draftKey"
             :require-race="false"
             actions-target="#npc-migration-editor-actions"
-            @save="handleEditorSave"
+            :save="handleEditorSave"
           />
         </div>
       </template>

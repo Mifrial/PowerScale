@@ -119,7 +119,9 @@ export class FuriousRushService {
       willpowerCode,
     );
     const value = characteristicCode
-      ? (stateRuntimeEffectsService.effectiveCharacteristicValues(input.version, input.rules).get(characteristicCode) ?? {
+      ? (stateRuntimeEffectsService
+          .effectiveCharacteristicValues(input.version, input.rules)
+          .get(characteristicCode) ?? {
           base: 3,
           size: 0,
         })

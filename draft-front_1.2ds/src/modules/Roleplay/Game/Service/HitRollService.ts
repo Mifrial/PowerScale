@@ -108,6 +108,8 @@ export class HitRollService {
       const block = options.shieldsOnly && !stacked.shield ? undefined : stacked.block_profile;
       if (!block) continue;
       profiles.push({
+        inventoryItemId: item.id,
+        profileIndex: 0,
         itemRuleCode: item.ruleCode,
         itemName: rule.name,
         efficiency: block.efficiency,

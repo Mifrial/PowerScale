@@ -41,14 +41,7 @@ export class SpellCastService {
       rules,
     );
     const spec = spellCastEfficiencyService.apply(baseSpec, efficiencyDeltas);
-    const roll = checkRollService.rollNamedCheck(
-      spec,
-      castCheckCode,
-      computed.difficulty,
-      rng,
-      rules,
-      mechanics,
-    );
+    const roll = checkRollService.rollNamedCheck(spec, castCheckCode, computed.difficulty, rng, rules, mechanics);
 
     return { difficulty: computed.difficulty, needsCheck: true, roll };
   }

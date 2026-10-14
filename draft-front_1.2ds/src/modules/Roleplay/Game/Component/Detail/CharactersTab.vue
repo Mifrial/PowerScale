@@ -1,19 +1,18 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from 'vue';
-import { useCurrentUser } from '@/modules/Core/User/init';
+import { useCurrentUser, useUserCatalog } from '@/modules/Core/User/init';
+import { joinRequestCaptionService } from '@/modules/Roleplay/Game/Service/Instance/joinRequestCaptionService';
 import { getCharacterApi } from '@/modules/Roleplay/Character/init';
+import { createRandomId } from '@/modules/Core/Engine/Utils/createRandomId';
 import { getGameApi, getGameRealtimePort } from '@/modules/Roleplay/Game/init';
 import { GAME_MEMBERSHIP_STATUS_LABEL } from '@/modules/Roleplay/Game/Constant/GameMembershipStatus/GAME_MEMBERSHIP_STATUS';
 import { GAME_MEMBERSHIP_STATUS_COLOR } from '@/modules/Roleplay/Game/Constant/GameMembershipStatus/GAME_MEMBERSHIP_STATUS';
-import { CHARACTER_STATUS_OPTIONS } from '@/modules/Roleplay/Character/init';
-import { CHARACTER_STATUS_COLOR } from '@/modules/Roleplay/Character/init';
 import { characterAccessService, sheetAccessService } from '@/modules/Roleplay/Character/init';
 import type { SheetVisibility } from '@/modules/Roleplay/Character/Dto/SheetVisibility';
 import type { SheetAccessContext } from '@/modules/Roleplay/Character/Interface/SheetAccessContext';
 import type { User } from '@/modules/Core/User/Dto/User';
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { GameMembershipStatus } from '@/modules/Roleplay/Game/Enum/GameMembershipStatus';
-import type { CharacterStatus } from '@/modules/Roleplay/Character/Enum/CharacterStatus';
 import type { Character } from '@/modules/Roleplay/Character/Dto/Character';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { GameRuntimeEntityProjection } from '@/modules/Roleplay/Game/Dto/GameRuntimeEntityProjection';
@@ -21,8 +20,10 @@ import type { GameRealtimeEvent } from '@/modules/Roleplay/Game/Dto/GameRealtime
 import type { GameMember } from '@/modules/Roleplay/Game/Dto/GameMember';
 import SheetVisibilityDialog from '@/modules/Roleplay/Game/Component/Detail/SheetVisibilityDialog.vue';
 import CharacterMigrationDialog from '@/modules/Roleplay/Game/Component/Detail/CharacterMigrationDialog.vue';
-import { SheetCard } from '@/modules/Roleplay/Character/init';
+import { SheetCard, characterHttpViewService } from '@/modules/Roleplay/Character/init';
+import { SHEET_VISIBLE_SECTIONS } from '@/modules/Roleplay/Character/Constant/Sheet/SHEET_SECTIONS';
 import { UniqueRulesTab } from '@/modules/Roleplay/Character/init';
+import { gamePhpMode } from '@/modules/Roleplay/Game/Service/Instance/gamePhpMode';
 
 const props = defineProps<{
   /** Активна ли вкладка: перезагрузка при активации (v-window не размонтирует вкладки). */
@@ -44,6 +45,7 @@ const props = defineProps<{
 }>();
 
 const { currentUser, userId } = useCurrentUser();
+const catalog = useUserCatalog();
 
 const memberships = ref<GameCharacterMembership[]>([]);
 const characterById = ref<Record<number, Character>>({});
@@ -120,6 +122,27 @@ async function leave(membership: GameCharacterMembership): Promise<void> {
   await load();
 }
 
+function knownUser(ownerId: number): User | undefined {
+  const current = currentUser.value;
+  if (current?.id === ownerId) return current;
+
+  return catalog.users.value.find((candidate) => candidate.id === ownerId);
+}
+
+function characterCaption(membership: GameCharacterMembership): string {
+  return (
+    characterById.value[membership.characterId]?.name ||
+    membership.characterName ||
+    `Персонаж #${membership.characterId}`
+  );
+}
+
+function ownerCaption(membership: GameCharacterMembership): string {
+  if (membership.characterOwnerName) return membership.characterOwnerName;
+
+  return joinRequestCaptionService.caption(knownUser(membership.characterOwnerId), membership.characterOwnerId).name;
+}
+
 function canLeave(membership: GameCharacterMembership): boolean {
   return canOwnerAct(membership) && membership.membershipStatus !== 'left' && !props.sessionRunning;
 }
@@ -187,11 +210,15 @@ async function load(): Promise<void> {
   loading.value = true;
   error.value = null;
   try {
-    const membershipResult = await getGameApi().getGameCharacters(props.gameId);
+    const membershipResult = gamePhpMode.isEnabled()
+      ? await getGameApi().getCharacterList({ gameId: props.gameId })
+      : await getGameApi().getGameCharacters(props.gameId);
     if (requestSequence !== loadSequence) return;
     const entityKeys = membershipResult.map((membership) => `character:${membership.characterId}` as const);
     const [runtimeResult, characters] = await Promise.all([
-      getGameApi().getRuntimeEntities(props.gameId, { entityKeys, projectionLevel: 'summary' }),
+      gamePhpMode.isEnabled()
+        ? Promise.resolve({ projections: [] as GameRuntimeEntityProjection[] })
+        : getGameApi().getRuntimeEntities(props.gameId, { entityKeys, projectionLevel: 'summary' }),
       getCharacterApi().getCharacters(),
     ]);
     if (requestSequence !== loadSequence) return;
@@ -206,6 +233,7 @@ async function load(): Promise<void> {
     );
     characterById.value = chars;
     runtimeById.value = runtimeProjections;
+    void catalog.ensureUsers(membershipResult.map((membership) => membership.characterOwnerId));
     connectRealtime();
   } catch (e) {
     if (requestSequence === loadSequence) {
@@ -217,6 +245,7 @@ async function load(): Promise<void> {
 }
 
 async function refreshRealtimeCharacter(characterId: number): Promise<boolean> {
+  if (gamePhpMode.isEnabled()) return true;
   const requestSequence = ++realtimeRequestSequence;
   const entityKey = `character:${characterId}` as const;
   const [projection, moderation] = await Promise.all([
@@ -242,7 +271,7 @@ async function refreshRealtimeCharacter(characterId: number): Promise<boolean> {
 }
 
 function onRealtimeEvent(event: GameRealtimeEvent): void {
-  if (event.gameId !== props.gameId || event.eventKind !== 'character.changed') return;
+  if (event.gameId !== props.gameId || event.eventKind !== 'character.changed' || !event.entityKey) return;
   const [kind, rawId] = event.entityKey.split(':');
   const characterId = Number(rawId);
   if (kind !== 'character' || !Number.isInteger(characterId)) return;
@@ -316,6 +345,40 @@ async function openCard(membership: GameCharacterMembership): Promise<void> {
   cardTarget.value = membership;
   cardOpen.value = true;
   try {
+    if (gamePhpMode.isEnabled()) {
+      const pack = await getGameApi().getSheets({
+        gameId: props.gameId,
+        keys: [{ type: 'character', id: membership.characterId }],
+      });
+      const row = pack.sheets[0];
+      if (requestSequence !== cardRequestSequence) return;
+      if (!row) return;
+      const entityKey = `character:${membership.characterId}` as const;
+      runtimeById.value = {
+        ...runtimeById.value,
+        [entityKey]: {
+          entityKey,
+          kind: 'character',
+          id: membership.characterId,
+          actualVersion: row.actualVersion,
+          actualSpaceCode: props.gameSpaceCode,
+          actualRulesRevision: row.rulesRevision ?? props.gameRulesRevision,
+          source: 'characterActual',
+          summary: { name: row.name, shortDescription: null },
+          projectionLevel: 'full',
+          version: characterHttpViewService.versionOf({
+            name: row.name,
+            spaceCode: props.gameSpaceCode,
+            rulesRevision: row.rulesRevision ?? props.gameRulesRevision,
+            choices: row.choices,
+            sheet: row.sheet,
+          }),
+          visibleSections: [...SHEET_VISIBLE_SECTIONS],
+        },
+      };
+
+      return;
+    }
     const projection = await getGameApi().getRuntimeEntity(props.gameId, `character:${membership.characterId}`, 'full');
     if (requestSequence !== cardRequestSequence) return;
     if (projection) {
@@ -377,7 +440,7 @@ async function saveCustomRule(): Promise<void> {
   try {
     const detail = await getCharacterApi().getCharacter(target.characterId);
     await getCharacterApi().addCustomRule(target.characterId, {
-      commandId: crypto.randomUUID(),
+      commandId: createRandomId(),
       expectedActualVersion: detail.actualVersion,
       kind: customRuleKind.value,
       name: customRuleName.value.trim(),
@@ -419,14 +482,6 @@ function membershipStatusLabel(status: GameMembershipStatus): string {
 
 function membershipStatusColor(status: GameMembershipStatus): string {
   return GAME_MEMBERSHIP_STATUS_COLOR[status];
-}
-
-function characterStatusLabel(status: CharacterStatus): string {
-  return CHARACTER_STATUS_OPTIONS.find((option) => option.value === status)?.label ?? status;
-}
-
-function characterStatusColor(status: CharacterStatus): string {
-  return CHARACTER_STATUS_COLOR[status];
 }
 
 // Перезагрузка при активации вкладки: члены меняются в ModerateTab, подача/модерация — здесь же.
@@ -500,24 +555,16 @@ onUnmounted(() => {
         >
           <div class="d-flex align-center ga-2 py-1">
             <v-avatar color="primary" size="28" variant="tonal" class="flex-shrink-0">
-              <span class="text-body-2">{{ membership.characterName.charAt(0) }}</span>
+              <span class="text-body-2">{{ characterCaption(membership).charAt(0) }}</span>
             </v-avatar>
-            <span class="text-body-2">{{ membership.characterName }}</span>
-            <span class="text-caption text-medium-emphasis">владелец: {{ membership.characterOwnerName }}</span>
+            <span class="text-body-2">{{ characterCaption(membership) }}</span>
+            <span class="text-caption text-medium-emphasis">владелец: {{ ownerCaption(membership) }}</span>
             <v-spacer />
-            <v-chip
-              v-if="characterById[membership.characterId]"
-              :color="characterStatusColor(characterById[membership.characterId].status)"
-              variant="tonal"
-              size="x-small"
-            >
-              {{ characterStatusLabel(characterById[membership.characterId].status) }}
-            </v-chip>
             <v-chip v-if="membership.reviewState === 'returned'" color="warning" variant="tonal" size="x-small">
               На доработку
             </v-chip>
             <v-chip
-              v-else-if="membership.reviewState === 'changes_pending'"
+              v-else-if="membership.reviewState === 'changes_pending' && membership.membershipStatus !== 'submitted'"
               color="info"
               variant="tonal"
               size="x-small"
@@ -645,7 +692,7 @@ onUnmounted(() => {
       </v-card-title>
       <v-card-text>
         <SheetCard
-          :name="cardTarget.characterName"
+          :name="characterCaption(cardTarget)"
           :version="cardVersion"
           :visible-sections="cardVisibleSections"
           :space-id="spaceId"

@@ -42,20 +42,24 @@ function abilities(...codes: string[]): CharacterAbility[] {
 describe('KnowledgeDefenseService', () => {
   it('даёт +1 training, если есть навык и известна атака', () => {
     expect(
-      knowledgeDefenseService.modifier(abilities('zaschita-znaniem', 'prostaya-ataka'), 'prostaya-ataka', [DEFENSE_RULE]),
-    ).toEqual(
-      {
-        source_code: ADVANTAGE_SOURCE_TRAINING,
-        source_label: 'тренировки',
-        delta: 1,
-      },
-    );
+      knowledgeDefenseService.modifier(abilities('zaschita-znaniem', 'prostaya-ataka'), 'prostaya-ataka', [
+        DEFENSE_RULE,
+      ]),
+    ).toEqual({
+      source_code: ADVANTAGE_SOURCE_TRAINING,
+      source_label: 'тренировки',
+      delta: 1,
+    });
   });
 
   it('не даёт бонус без навыка, без владения атакой или без кода атаки', () => {
     expect(knowledgeDefenseService.modifier(abilities('prostaya-ataka'), 'prostaya-ataka', [DEFENSE_RULE])).toBeNull();
-    expect(knowledgeDefenseService.modifier(abilities('zaschita-znaniem'), 'prostaya-ataka', [DEFENSE_RULE])).toBeNull();
-    expect(knowledgeDefenseService.modifier(abilities('zaschita-znaniem', 'prostaya-ataka'), null, [DEFENSE_RULE])).toBeNull();
+    expect(
+      knowledgeDefenseService.modifier(abilities('zaschita-znaniem'), 'prostaya-ataka', [DEFENSE_RULE]),
+    ).toBeNull();
+    expect(
+      knowledgeDefenseService.modifier(abilities('zaschita-znaniem', 'prostaya-ataka'), null, [DEFENSE_RULE]),
+    ).toBeNull();
     expect(
       knowledgeDefenseService.modifier(abilities('bare-defense', 'prostaya-ataka'), 'prostaya-ataka', [BARE_DEFENSE]),
     ).toBeNull();
@@ -63,7 +67,9 @@ describe('KnowledgeDefenseService', () => {
 
   it('неизвестный апгрейд не отменяет известную основную атаку', () => {
     expect(
-      knowledgeDefenseService.modifier(abilities('zaschita-znaniem', 'prostaya-ataka'), 'prostaya-ataka', [DEFENSE_RULE]),
+      knowledgeDefenseService.modifier(abilities('zaschita-znaniem', 'prostaya-ataka'), 'prostaya-ataka', [
+        DEFENSE_RULE,
+      ]),
     ).not.toBeNull();
     expect(
       knowledgeDefenseService.knowsAttack(abilities('zaschita-znaniem', 'prostaya-ataka'), 'neizvestnoe-uluchshenie'),

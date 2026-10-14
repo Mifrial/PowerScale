@@ -61,7 +61,14 @@ export class WoundInstanceService {
   }
 
   isHeld(state: CharacterStateValue): boolean {
-    return this.payload(state).heldBy != null;
+    return this.holderKey(this.payload(state).heldBy) != null;
+  }
+
+  holderKey(heldBy: CharacterWound['heldBy']): string | null {
+    if (heldBy == null || heldBy === '') return null;
+    if (typeof heldBy === 'string') return heldBy;
+
+    return `${heldBy.kind}:${heldBy.id}`;
   }
 
   closure(state: CharacterStateValue, heldActive = this.isHeld(state)): number {
@@ -83,7 +90,8 @@ export class WoundInstanceService {
   }
 
   heldCount(actorKey: string, states: readonly CharacterStateValue[]): number {
-    return states.filter((state) => this.isWound(state) && this.payload(state).heldBy === actorKey).length;
+    return states.filter((state) => this.isWound(state) && this.holderKey(this.payload(state).heldBy) === actorKey)
+      .length;
   }
 
   freeHands(actorKey: string, states: readonly CharacterStateValue[]): number {

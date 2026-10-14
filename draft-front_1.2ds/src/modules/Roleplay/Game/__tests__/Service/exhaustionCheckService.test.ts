@@ -18,11 +18,17 @@ function stateRule(code: string, flag?: 'decline_weakness' | 'decline_disabled' 
 describe('ExhaustionCheckService.declineRule', () => {
   it('ищет исход упадка сил по флагу, не по коду каталога', () => {
     expect(exhaustionCheckService.declineRule([stateRule('weakness')], 'weakness')).toBeNull();
-    expect(exhaustionCheckService.declineRule([stateRule('fatigue', 'decline_weakness')], 'weakness')?.code).toBe('fatigue');
+    expect(exhaustionCheckService.declineRule([stateRule('fatigue', 'decline_weakness')], 'weakness')?.code).toBe(
+      'fatigue',
+    );
     expect(exhaustionCheckService.declineRule([stateRule('disabled')], 'disabled')).toBeNull();
-    expect(exhaustionCheckService.declineRule([stateRule('spent', 'decline_disabled')], 'disabled')?.code).toBe('spent');
+    expect(exhaustionCheckService.declineRule([stateRule('spent', 'decline_disabled')], 'disabled')?.code).toBe(
+      'spent',
+    );
     expect(exhaustionCheckService.declineRule([stateRule('unconscious')], 'unconscious')).toBeNull();
-    expect(exhaustionCheckService.declineRule([stateRule('asleep', 'decline_unconscious')], 'unconscious')?.code).toBe('asleep');
+    expect(exhaustionCheckService.declineRule([stateRule('asleep', 'decline_unconscious')], 'unconscious')?.code).toBe(
+      'asleep',
+    );
     expect(exhaustionCheckService.declineRule([stateRule('fatigue', 'decline_weakness')], 'clear')).toBeNull();
   });
 });

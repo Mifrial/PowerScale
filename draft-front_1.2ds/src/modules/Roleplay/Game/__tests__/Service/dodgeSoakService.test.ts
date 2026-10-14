@@ -21,9 +21,7 @@ const rules: Rule[] = [
 describe('DodgeSoakService', () => {
   it('без dodge_soak характеристика не читается', () => {
     const defender = overview('dexterity', { base: 4, size: 1 });
-    const unmarked: Rule[] = [
-      { id: null, code: 'dexterity', type: 'characteristic', name: 'Ловкость' } as Rule,
-    ];
+    const unmarked: Rule[] = [{ id: null, code: 'dexterity', type: 'characteristic', name: 'Ловкость' } as Rule];
     expect(
       dodgeSoakService.amount({
         reaction: 'dodge',

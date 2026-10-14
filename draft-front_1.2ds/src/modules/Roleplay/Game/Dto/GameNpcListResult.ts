@@ -1,6 +1,6 @@
-import type { GameNpcSummary } from '@/modules/Roleplay/Game/Dto/GameNpcSummary';
+import type { GameRosterNpc } from '@/modules/Roleplay/Game/Dto/GameRosterNpc';
 
 export interface GameNpcListResult {
-  items: GameNpcSummary[];
+  items: GameRosterNpc[];
   nextCursor: string | null;
 }

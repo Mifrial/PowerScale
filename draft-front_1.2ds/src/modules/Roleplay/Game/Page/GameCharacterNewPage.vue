@@ -3,14 +3,20 @@ import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useGameStore } from '@/modules/Roleplay/Game/Store/games';
 import { useCurrentUser } from '@/modules/Core/User/init';
-import { useCharacterDraft } from '@/modules/Roleplay/Character/init';
+import {
+  CharacterApiError,
+  CharacterSheetEditor,
+  getCharacterApi,
+  useCharacterDraft,
+} from '@/modules/Roleplay/Character/init';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
-import { CharacterSheetEditor } from '@/modules/Roleplay/Character/init';
-import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
+import { createRandomId } from '@/modules/Core/Engine/Utils/createRandomId';
+import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
 import type { CharacterBuild } from '@/modules/Roleplay/Character/Dto/Editor/CharacterBuild';
 import type { CharacterCreationConfig } from '@/modules/Roleplay/Character/Dto/Editor/CharacterCreationConfig';
-import type { CreateCharacterData } from '@/modules/Roleplay/Character/Dto/Editor/CreateCharacterData';
+import type { CharacterSaveAttempt } from '@/modules/Roleplay/Character/Dto/Editor/CharacterSaveAttempt';
+import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 
 const route = useRoute();
 const router = useRouter();
@@ -19,7 +25,8 @@ const { currentUser } = useCurrentUser();
 const draftStore = useCharacterDraft();
 const { signal } = useAbortable();
 
-const loading = ref(false);
+const loading = ref(true);
+const saveError = ref<string | null>(null);
 
 const gameId = computed(() => {
   const raw = route.params.id;
@@ -79,26 +86,57 @@ async function load(): Promise<void> {
   loading.value = false;
 }
 
-/** Сохранение: персонаж создаётся и сразу подаётся в игру (членство pending на модерацию ГМ). */
-async function handleSave(version: CharacterVersion): Promise<void> {
+async function handleSaveChoices(build: CharacterBuild, _preview: CharacterVersion): Promise<void> {
   const gid = gameId.value;
-  if (!Number.isFinite(gid) || !draftKey.value) return;
-  const current = draftStore.draftOf(draftKey.value);
-  if (!current) return;
+  const key = draftKey.value;
+  if (!Number.isFinite(gid) || !key) {
+    saveError.value = 'Не удалось создать персонажа в игре';
+
+    return;
+  }
+  const current = draftStore.draftOf(key);
+  if (!current) {
+    saveError.value = 'Черновик не загружен';
+
+    return;
+  }
+  saveError.value = null;
   try {
-    const data: CreateCharacterData = {
-      spaceId: current.build.spaceId,
-      spaceCode: current.build.spaceCode,
-      rulesRevision: current.build.rulesRevision,
-      version,
-      // Полный созданный лист; модерацию несёт членство игры (pending).
-      status: 'ready',
+    const attempt: CharacterSaveAttempt = {
+      kind: 'create',
+      request: {
+        commandId: createRandomId(),
+        choices: cloneData(build),
+        creationConfig: cloneData(current.config),
+      },
     };
-    await getGameApi().createGameCharacter(gid, data);
+    const validation = await getCharacterApi().validateCharacter(
+      {
+        mode: 'create',
+        choices: attempt.request.choices,
+        creationConfig: attempt.request.creationConfig,
+      },
+      signal.value,
+    );
+    if (!validation.valid) {
+      throw new CharacterApiError('CHARACTER_VALIDATION_FAILED', 'Персонаж не прошёл проверку', {
+        kind: 'validation',
+        problems: validation.problems,
+      });
+    }
+    const created = await getCharacterApi().createCharacter(attempt.request, signal.value);
+    await getGameApi().submitCharacterToGame(gid, created.character.id, signal.value);
     await router.push(`/games/${gid}`);
     draftStore.discard(draftKey.value);
   } catch (e) {
-    throw e instanceof Error ? e : new Error('Не удалось создать персонажа в игре');
+    const code = e instanceof CharacterApiError ? e.code : '';
+    saveError.value =
+      code === 'AUTH_DENIED'
+        ? 'Нет права создавать персонажа (нужен ключ character.create)'
+        : e instanceof Error
+          ? e.message
+          : 'Не удалось создать персонажа в игре';
+    throw e instanceof Error ? e : new Error(saveError.value);
   }
 }
 
@@ -111,6 +149,12 @@ onMounted(load);
       <v-progress-circular indeterminate width="2" size="28" color="primary" />
     </div>
 
-    <CharacterSheetEditor v-else-if="draftKey" :draft-key="draftKey" :require-race="true" @save="handleSave" />
+    <CharacterSheetEditor
+      v-else-if="draftKey"
+      :draft-key="draftKey"
+      :require-race="true"
+      :save-choices="handleSaveChoices"
+    />
+    <v-alert v-if="saveError" type="error" variant="tonal" class="ma-4">{{ saveError }}</v-alert>
   </v-container>
 </template>

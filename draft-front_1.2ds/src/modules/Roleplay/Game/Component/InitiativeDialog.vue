@@ -27,8 +27,16 @@ import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import type { GameParticipantCandidate } from '@/modules/Roleplay/Game/Dto/GameParticipantCandidate';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { GameRuntimeEntityProjection } from '@/modules/Roleplay/Game/Dto/GameRuntimeEntityProjection';
+import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
+import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
+import type { GameInitiative } from '@/modules/Roleplay/Game/Dto/GameInitiative';
+import type { GameInitiativeRoll } from '@/modules/Roleplay/Game/Dto/GameInitiativeRoll';
 import { combatChatSendService } from '@/modules/Roleplay/Game/Service/Instance/combatChatSendService';
-import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/attackDamageService';
+import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
+import { gamePhpMode } from '@/modules/Roleplay/Game/Service/Instance/gamePhpMode';
+import { gameInitiativeSpecService } from '@/modules/Roleplay/Game/Service/Instance/gameInitiativeSpecService';
+import { gameInitiativeLaunchService } from '@/modules/Roleplay/Game/Service/Instance/gameInitiativeLaunchService';
+import { gameInitiativeSheetPreviewService } from '@/modules/Roleplay/Game/Service/Instance/gameInitiativeSheetPreviewService';
 
 /**
  * Окно проверки на инициативу (ТР §8 «Чат игры»): выбор участников (персонажи + НПС),
@@ -44,13 +52,16 @@ const props = defineProps<{
   /** Механики ревизии (для бросков инициативы через RollEngine). */
   mechanics: Mechanic[];
   chatId: number | null;
-  ensureSession?: () => Promise<void>;
+  ensureSession?: (participantKeys?: CombatEntityKey[]) => Promise<void>;
   cachedProjections?: Record<CombatEntityKey, GameRuntimeEntityProjection>;
+  characters: GameCharacterMembership[];
+  npcs: GameNpc[];
+  sessionRunning: boolean;
 }>();
 
 const emit = defineEmits<{
   'update:open': [value: boolean];
-  saved: [projections: GameRuntimeEntityProjection[]];
+  saved: [projections: GameRuntimeEntityProjection[], scale?: GameInitiative];
 }>();
 
 const chatStore = useChatChannel();
@@ -95,7 +106,7 @@ const rolling = ref(false);
 const error = ref<string | null>(null);
 
 const poolDefaults = computed(() => rollPoolDefaults(props.rules));
-const defaultCharacteristicCode = computed(() => attackDamageService.initiativeRule(props.rules)?.code ?? '');
+const defaultCharacteristicCode = computed(() => gameInitiativeSpecService.defaultCharacteristicCode(props.rules));
 
 const candidates = computed<CandidateOption[]>(() =>
   candidateSummaries.value.map((candidate) => {
@@ -193,18 +204,51 @@ function candidateOf(id: string): CandidateOption | null {
   return candidates.value.find((candidate) => candidate.participant.id === id) ?? null;
 }
 
+function rosterCandidates(query: string): GameParticipantCandidate[] {
+  const needle = query.trim().toLocaleLowerCase();
+  const characters = props.characters
+    .filter((membership) => membership.membershipStatus !== 'left')
+    .filter((membership) => needle === '' || membership.characterName.toLocaleLowerCase().includes(needle))
+    .map((membership) => ({
+      entityKey: `character:${membership.characterId}` as CombatEntityKey,
+      kind: 'character' as const,
+      id: membership.characterId,
+      name: membership.characterName,
+      status: 'active' as const,
+      availability: 'admissible' as const,
+    }));
+  const npcs = props.npcs
+    .filter((npc) => npc.status === 'active')
+    .filter((npc) => needle === '' || npc.name.toLocaleLowerCase().includes(needle))
+    .map((npc) => ({
+      entityKey: `npc:${npc.id}` as CombatEntityKey,
+      kind: 'npc' as const,
+      id: npc.id,
+      name: npc.name,
+      status: 'active' as const,
+      availability: 'admissible' as const,
+    }));
+
+  return [...characters, ...npcs];
+}
+
 async function loadCandidates(query: string, append = false): Promise<void> {
   const sequence = searchSequence.value + 1;
   searchSequence.value = sequence;
   candidateLoading.value = true;
   candidateError.value = null;
   try {
-    const result = await getGameApi().getParticipantCandidates({
-      gameId: props.gameId,
-      query,
-      cursor: append ? (candidateNextCursor.value ?? undefined) : undefined,
-      limit: 50,
-    });
+    const result = gamePhpMode.isEnabled()
+      ? {
+          items: rosterCandidates(query),
+          nextCursor: null as string | null,
+        }
+      : await getGameApi().getParticipantCandidates({
+          gameId: props.gameId,
+          query,
+          cursor: append ? (candidateNextCursor.value ?? undefined) : undefined,
+          limit: 50,
+        });
     if (searchSequence.value !== sequence) return;
     const selectedKeys = new Set(selectedIds.value);
     const next = append
@@ -245,10 +289,11 @@ function addEntry(id: string): void {
   const candidate = candidateOf(id);
   if (!candidate || entries.value.some((entry) => entry.participant.id === id)) return;
   const hasSheet = candidate.version !== null;
+  const canCharacteristic = hasSheet || defaultCharacteristicCode.value !== '';
   const entry: DialogEntry = {
     participant: { ...candidate.participant },
     version: candidate.version,
-    method: hasSheet ? 'characteristic' : 'free',
+    method: canCharacteristic ? 'characteristic' : 'free',
     characteristicCode: defaultCharacteristicCode.value,
     modifier: 0,
     adv: 0,
@@ -293,26 +338,30 @@ async function hydrateSelectedEntries(): Promise<void> {
   error.value = null;
   projectionRequest = (async () => {
     try {
-      const result = await getGameApi().getRuntimeEntities(props.gameId, {
-        entityKeys: missingKeys,
-        projectionLevel: 'full',
-      });
-      for (const projection of result.projections) {
-        runtimeProjections.set(projection.entityKey, projection);
-        const entry = entries.value.find((candidate) => candidate.participant.id === projection.entityKey);
-        if (!entry) continue;
-        entry.version = projection.version;
-        entry.characteristicsReady = projection.version === null;
-        if (projection.version !== null) {
-          entry.method = 'characteristic';
-          await ensureCharacteristics(entry);
+      if (gamePhpMode.isEnabled()) {
+        await hydratePhpSheets(missingKeys);
+      } else {
+        const result = await getGameApi().getRuntimeEntities(props.gameId, {
+          entityKeys: missingKeys,
+          projectionLevel: 'full',
+        });
+        for (const projection of result.projections) {
+          runtimeProjections.set(projection.entityKey, projection);
+          const entry = entries.value.find((candidate) => candidate.participant.id === projection.entityKey);
+          if (!entry) continue;
+          entry.version = projection.version;
+          entry.characteristicsReady = projection.version === null;
+          if (projection.version !== null) {
+            entry.method = 'characteristic';
+            await ensureCharacteristics(entry);
+          }
         }
-      }
-      if (result.missingEntityKeys.length > 0) {
-        const missingNames = result.missingEntityKeys
-          .map((key) => candidateSummaries.value.find((candidate) => candidate.entityKey === key)?.name ?? key)
-          .join(', ');
-        error.value = `Не удалось загрузить листы: ${missingNames}`;
+        if (result.missingEntityKeys.length > 0) {
+          const missingNames = result.missingEntityKeys
+            .map((key) => candidateSummaries.value.find((candidate) => candidate.entityKey === key)?.name ?? key)
+            .join(', ');
+          error.value = `Не удалось загрузить листы: ${missingNames}`;
+        }
       }
     } catch (caught) {
       error.value = caught instanceof Error ? caught.message : 'Не удалось загрузить выбранные листы';
@@ -330,6 +379,40 @@ async function hydrateSelectedEntries(): Promise<void> {
 
 function isProjectionLoading(entry: DialogEntry): boolean {
   return projectionLoading.has(entry.participant.id as CombatEntityKey);
+}
+
+async function hydratePhpSheets(keys: CombatEntityKey[]): Promise<void> {
+  const pack = await getGameApi().getSheets({
+    gameId: props.gameId,
+    keys: keys.map((key) => {
+      const parsed = combatCardModelService.parseCombatEntityKey(key);
+
+      return { type: parsed.kind, id: parsed.id };
+    }),
+  });
+  for (const sheet of pack.sheets) {
+    const key = `${sheet.type}:${sheet.id}` as CombatEntityKey;
+    runtimeProjections.set(key, {
+      entityKey: key,
+      kind: sheet.type,
+      id: sheet.id,
+      actualVersion: sheet.actualVersion,
+      actualSpaceCode: null,
+      actualRulesRevision: sheet.rulesRevision ?? null,
+      source: sheet.type === 'npc' ? 'npcActual' : 'characterActual',
+      summary: { name: sheet.name, shortDescription: null },
+      projectionLevel: 'full',
+      version: null,
+      visibleSections: [],
+    });
+    const entry = entries.value.find((candidate) => candidate.participant.id === key);
+    if (!entry) continue;
+    entry.characteristicValues = gameInitiativeSheetPreviewService.viewsOf(sheet.sheet, props.rules);
+    entry.characteristicsReady = true;
+    if (entry.characteristicCode !== '' && !entry.characteristicValues.has(entry.characteristicCode)) {
+      entry.characteristicCode = entry.characteristicValues.keys().next().value ?? defaultCharacteristicCode.value;
+    }
+  }
 }
 
 async function ensureCharacteristics(entry: DialogEntry): Promise<void> {
@@ -366,9 +449,69 @@ function methodItems(entry: DialogEntry): { value: InitiativeRollMethod; title: 
     { value: 'free', title: 'Свободный бросок' },
     { value: 'fixed', title: 'Фиксированное значение' },
   ];
-  if (entry.version !== null) items.unshift({ value: 'characteristic', title: 'Характеристика' });
+  if (entry.version !== null || entry.characteristicValues.size > 0 || defaultCharacteristicCode.value !== '') {
+    items.unshift({ value: 'characteristic', title: 'Характеристика' });
+  }
 
   return items;
+}
+
+function serverRolls(): GameInitiativeRoll[] {
+  const allowOverride = gameInitiativeSpecService.isCharacteristicOverrideAllowed(props.rules);
+
+  return entries.value.map((entry) => {
+    const parsed = combatCardModelService.parseCombatEntityKey(entry.participant.id as CombatEntityKey);
+    if (entry.method === 'free') {
+      return {
+        type: parsed.kind,
+        id: parsed.id,
+        method: 'free' as const,
+        diceCount: entry.freeDiceCount,
+        ...(entry.adv !== 0 ? { advantage: entry.adv } : {}),
+      };
+    }
+
+    if (entry.method === 'fixed') {
+      return {
+        type: parsed.kind,
+        id: parsed.id,
+        method: 'fixed' as const,
+        value: { base: entry.fixedValue ?? 0, size: 0 },
+      };
+    }
+
+    return {
+      type: parsed.kind,
+      id: parsed.id,
+      method: 'characteristic' as const,
+      ...(allowOverride && entry.characteristicCode !== '' ? { characteristicCode: entry.characteristicCode } : {}),
+    };
+  });
+}
+
+async function rollOnServer(): Promise<void> {
+  const names = new Map(entries.value.map((entry) => [entry.participant.id, entry.participant.name]));
+  const launched = await gameInitiativeLaunchService.launch(
+    getGameApi(),
+    props.gameId,
+    props.sessionRunning,
+    serverRolls(),
+    names,
+  );
+  if (props.chatId !== null) {
+    const round = combatThread.beginRound();
+    await chatStore.postSystemMessage(`Новый раунд: 1`, props.chatId, 'highlighted', round);
+    combatThread.beginInitiative();
+    await sendChat(launched.orderMessage, [], props.chatId, { kind: 'gm' });
+    combatThread.endInitiative();
+    if (launched.firstName) {
+      const turn = combatThread.beginTurn();
+      await chatStore.postSystemMessage(`Ходит ${launched.firstName}`, props.chatId, 'default', turn);
+    }
+  }
+
+  emit('saved', [...runtimeProjections.values()], launched.scale);
+  emit('update:open', false);
 }
 
 async function roll(): Promise<void> {
@@ -379,16 +522,22 @@ async function roll(): Promise<void> {
     return;
   }
   await hydrateSelectedEntries();
-  const unresolvedEntries = entries.value.filter(
-    (entry) => runtimeProjections.get(entry.participant.id as CombatEntityKey)?.projectionLevel !== 'full',
-  );
-  if (unresolvedEntries.length > 0) {
-    error.value = `Не удалось загрузить листы: ${unresolvedEntries.map((entry) => entry.participant.name).join(', ')}`;
+  if (!gamePhpMode.isEnabled()) {
+    const unresolvedEntries = entries.value.filter(
+      (entry) => runtimeProjections.get(entry.participant.id as CombatEntityKey)?.projectionLevel !== 'full',
+    );
+    if (unresolvedEntries.length > 0) {
+      error.value = `Не удалось загрузить листы: ${unresolvedEntries.map((entry) => entry.participant.name).join(', ')}`;
 
-    return;
+      return;
+    }
   }
   for (const entry of entries.value) {
-    if (entry.method === 'characteristic' && !entry.characteristicValues.get(entry.characteristicCode)) {
+    if (
+      entry.method === 'characteristic' &&
+      entry.characteristicValues.size > 0 &&
+      !entry.characteristicValues.get(entry.characteristicCode)
+    ) {
       error.value = `Нет значения «${entry.characteristicCode}» у ${entry.participant.name}`;
       rolling.value = false;
 
@@ -411,6 +560,12 @@ async function roll(): Promise<void> {
   rolling.value = true;
   error.value = null;
   try {
+    if (gamePhpMode.isEnabled()) {
+      await rollOnServer();
+
+      return;
+    }
+
     const rollEntries = entries.value.map((entry) => ({
       participant: entry.participant,
       method: entry.method,
@@ -427,15 +582,19 @@ async function roll(): Promise<void> {
     const results = rollInitiative(rollEntries, undefined, props.rules, props.mechanics);
     const ordered = orderInitiative(results);
 
-    await props.ensureSession?.();
-    await getGameApi().saveInitiative(props.gameId, {
-      gameId: props.gameId,
-      active: true,
-      participants: ordered,
-      activeIndex: 0,
-      round: 1,
-      updatedAt: '',
-    });
+    await props.ensureSession?.(ordered.map((item) => item.id as CombatEntityKey));
+    try {
+      await getGameApi().saveInitiative(props.gameId, {
+        gameId: props.gameId,
+        active: true,
+        participants: ordered,
+        activeIndex: 0,
+        round: 1,
+        updatedAt: '',
+      });
+    } catch {
+      // PHP бой уже открыт startBattle; шкала инициативы на P4 не пишется этим action.
+    }
 
     if (props.chatId !== null) {
       const round = combatThread.beginRound();

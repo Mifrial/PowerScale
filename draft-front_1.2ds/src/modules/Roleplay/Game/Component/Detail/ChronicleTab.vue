@@ -11,7 +11,7 @@ import type { ChronicleRef } from '@/modules/Roleplay/Game/Dto/ChronicleRef';
 import type { CreateChronicleEntryData } from '@/modules/Roleplay/Game/Dto/CreateChronicleEntryData';
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
-import type { GameNpcSummary } from '@/modules/Roleplay/Game/Dto/GameNpcSummary';
+import type { GameRosterNpc } from '@/modules/Roleplay/Game/Dto/GameRosterNpc';
 import type { GameRuntimeEntityProjection } from '@/modules/Roleplay/Game/Dto/GameRuntimeEntityProjection';
 import type { SheetAccessContext } from '@/modules/Roleplay/Character/Interface/SheetAccessContext';
 import type { SheetSection } from '@/modules/Roleplay/Character/Enum/SheetSection';
@@ -188,10 +188,21 @@ async function openRef(ref: ChronicleRef): Promise<void> {
   }
 }
 
-function toLegacyNpc(summary: GameNpcSummary): GameNpc {
-  const { actualSpaceCode: _actualSpaceCode, actualRulesRevision: _actualRulesRevision, ...npc } = summary;
-
-  return { ...npc, version: null };
+function toLegacyNpc(summary: GameRosterNpc): GameNpc {
+  return {
+    id: summary.id,
+    gameId: props.gameId,
+    name: summary.name,
+    shortDescription: null,
+    fullDescription: null,
+    tags: [],
+    version: null,
+    actualVersion: summary.actualVersion,
+    status: 'active',
+    proposedBy: null,
+    visibility: [],
+    updatedAt: '',
+  };
 }
 
 async function saveForm(data: CreateChronicleEntryData): Promise<void> {

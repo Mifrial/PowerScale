@@ -24,7 +24,6 @@ import type { CharacterGameContext } from '@/modules/Roleplay/Game/Dto/Character
 import type { GameLoot } from '@/modules/Roleplay/Game/Dto/GameLoot';
 import type { CreateLootData } from '@/modules/Roleplay/Game/Dto/CreateLootData';
 import type { DistributeLootData } from '@/modules/Roleplay/Game/Dto/DistributeLootData';
-import type { CreateCharacterData } from '@/modules/Roleplay/Character/Dto/Editor/CreateCharacterData';
 import type { GameJoinRequest } from '@/modules/Roleplay/Game/Dto/GameJoinRequest';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { GameInitiative } from '@/modules/Roleplay/Game/Dto/GameInitiative';
@@ -49,54 +48,161 @@ import type { GameRuntimeEntityBatchResult } from '@/modules/Roleplay/Game/Dto/G
 import type { GameRuntimeEntityProjection } from '@/modules/Roleplay/Game/Dto/GameRuntimeEntityProjection';
 import type { GameNpcListQuery } from '@/modules/Roleplay/Game/Dto/GameNpcListQuery';
 import type { GameNpcListResult } from '@/modules/Roleplay/Game/Dto/GameNpcListResult';
+import type { GameRoster } from '@/modules/Roleplay/Game/Dto/GameRoster';
+import type { GameSheets } from '@/modules/Roleplay/Game/Dto/GameSheets';
 import type { GameParticipantCandidateQuery } from '@/modules/Roleplay/Game/Dto/GameParticipantCandidateQuery';
 import type { GameParticipantCandidateResult } from '@/modules/Roleplay/Game/Dto/GameParticipantCandidateResult';
 import type { CharacterModerationProjection } from '@/modules/Roleplay/Game/Dto/CharacterModerationProjection';
 import type { GameCharacterModerationCommand } from '@/modules/Roleplay/Game/Dto/GameCharacterModerationCommand';
 import type { GameCharacterModerationResult } from '@/modules/Roleplay/Game/Dto/GameCharacterModerationResult';
+import type { GameBattleSheets } from '@/modules/Roleplay/Game/Dto/GameBattleSheets';
+import type { GamePhpStrikeAttack } from '@/modules/Roleplay/Game/Dto/GamePhpStrikeAttack';
+import type { GamePhpWideStrikeAttack } from '@/modules/Roleplay/Game/Dto/GamePhpWideStrikeAttack';
+import type { GamePhpStrikeResult } from '@/modules/Roleplay/Game/Dto/GamePhpStrikeResult';
+import type { GamePhpTurnResult } from '@/modules/Roleplay/Game/Dto/GamePhpTurnResult';
+import type { GamePhpWoundParty } from '@/modules/Roleplay/Game/Dto/GamePhpWoundParty';
+import type { GameInitiativeRollRequest } from '@/modules/Roleplay/Game/Dto/GameInitiativeRollRequest';
+import type { GameInitiativeRollResult } from '@/modules/Roleplay/Game/Dto/GameInitiativeRollResult';
+import type { GameInitiativeOrderEntry } from '@/modules/Roleplay/Game/Dto/GameInitiativeOrderEntry';
+import { GameApiError } from '@/modules/Roleplay/Game/Service/GameApiError';
+import { gamePhpBattleContext } from '@/modules/Roleplay/Game/Service/Instance/gamePhpBattleContext';
+import { gamePhpCardService } from '@/modules/Roleplay/Game/Service/Instance/gamePhpCardService';
+import { characterHttpViewService } from '@/modules/Roleplay/Character/init';
 
+/** HTTP-клиент `game.*` для PHP. Action, которых нет в бэке, не уходят в сеть. */
 export class GameApi implements IGameApi {
   constructor(private readonly engine: Engine) {}
 
   async getGames(signal?: AbortSignal): Promise<Game[]> {
-    const res = await this.engine.runAction<Game[]>('game.getList', undefined, signal);
+    const rows = await this.requireData<unknown>('game.getList', undefined, signal);
 
-    return res.data ?? [];
+    return gamePhpCardService.listOf(rows);
   }
 
   async getGame(id: number, signal?: AbortSignal): Promise<GameDetail> {
-    const res = await this.engine.runAction<GameDetail>('game.get', { id }, signal);
-    if (!res.data) throw new Error('Game not found');
+    const row = await this.requireData<unknown>('game.get', { id }, signal);
 
-    return res.data;
+    return this.detailWithMembers(gamePhpCardService.detailOf(row), signal);
   }
 
   async createGame(data: CreateGameData, signal?: AbortSignal): Promise<GameDetail> {
-    const res = await this.engine.runAction<GameDetail>('game.create', data, signal);
-    if (!res.data) throw new Error('Game create failed');
+    const row = await this.requireData<unknown>('game.create', gamePhpCardService.createBody(data), signal);
 
-    return res.data;
+    return this.detailWithMembers(gamePhpCardService.detailOf(row), signal);
   }
 
   async updateGame(id: number, data: CreateGameData, signal?: AbortSignal): Promise<GameDetail> {
-    const res = await this.engine.runAction<GameDetail>('game.update', { id, ...data }, signal);
-    if (!res.data) throw new Error('Game update failed');
+    const row = await this.requireData<unknown>('game.update', gamePhpCardService.updateBody(id, data), signal);
 
-    return res.data;
+    return this.detailWithMembers(gamePhpCardService.detailOf(row), signal);
   }
 
   async startGameSession(command: GameLifecycleCommand, signal?: AbortSignal): Promise<GameLifecycleResult> {
-    const res = await this.engine.runAction<GameLifecycleResult>('game.startSession', command, signal);
-    if (!res.data) throw new Error('Game session start failed');
+    const res = await this.engine.runAction<GameDetail | GameLifecycleResult>(
+      'game.startSession',
+      { gameId: command.gameId },
+      signal,
+    );
+    if (res.error) throw GameApiError.fromActionError(res.error);
+    if (!res.data) throw new GameApiError('GAME_EMPTY_RESPONSE', 'Game session start failed');
+    if ('kind' in res.data) return res.data;
 
-    return res.data;
+    return {
+      kind: 'transition',
+      commandId: command.commandId,
+      status: 'created',
+      snapshot: {
+        gameId: command.gameId,
+        session: {
+          gameId: command.gameId,
+          sessionId: 'php',
+          status: 'active',
+          sessionStateVersion: 1,
+          participantEntityKeys: [],
+          activeBattleId: null,
+          sessionMarkers: {},
+          startedAt: '',
+          updatedAt: '',
+        },
+        battle: null,
+      },
+      transition: {
+        type: 'session_created',
+        sessionId: 'php',
+        battleId: null,
+        endedBattleId: null,
+        cleanup: null,
+      },
+    };
   }
 
   async startGameBattle(command: GameLifecycleCommand, signal?: AbortSignal): Promise<GameLifecycleResult> {
-    const res = await this.engine.runAction<GameLifecycleResult>('game.startBattle', command, signal);
-    if (!res.data) throw new Error('Game battle start failed');
+    if (command.commandType !== 'startBattle') {
+      throw new GameApiError('INVALID_PARAMS', 'startBattle expected');
+    }
+    const participants = command.participants ?? [];
+    const res = await this.engine.runAction<
+      { battleId: number; version: number; ended: boolean } | GameLifecycleResult
+    >(
+      'game.startBattle',
+      {
+        gameId: command.gameId,
+        idempotencyKey: command.commandId,
+        participants,
+      },
+      signal,
+    );
+    if (res.error) throw GameApiError.fromActionError(res.error);
+    if (!res.data) throw new GameApiError('GAME_EMPTY_RESPONSE', 'Game battle start failed');
+    if ('kind' in res.data) return res.data;
+    gamePhpBattleContext.rememberBattle(res.data.battleId, res.data.version);
+    const battleIdText = String(res.data.battleId);
 
-    return res.data;
+    return {
+      kind: 'transition',
+      commandId: command.commandId,
+      status: 'created',
+      snapshot: {
+        gameId: command.gameId,
+        session: {
+          gameId: command.gameId,
+          sessionId: command.sessionId,
+          status: 'active',
+          sessionStateVersion: command.expectedSessionStateVersion,
+          participantEntityKeys: [],
+          activeBattleId: battleIdText,
+          sessionMarkers: {},
+          startedAt: '',
+          updatedAt: '',
+        },
+        battle: {
+          gameId: command.gameId,
+          sessionId: command.sessionId,
+          battleId: battleIdText,
+          status: 'active',
+          battleStateVersion: res.data.version,
+          initiative: null,
+          processSessions: {},
+          combatProcesses: {},
+          checkOffers: [],
+          pendingActionEffects: {},
+          committedActionSessions: {},
+          activeSpells: [],
+          currentSpeed: {},
+          quickRolls: {},
+          battleMarkers: {},
+          startedAt: '',
+          updatedAt: '',
+        },
+      },
+      transition: {
+        type: 'battle_created',
+        sessionId: command.sessionId,
+        battleId: battleIdText,
+        endedBattleId: null,
+        cleanup: null,
+      },
+    };
   }
 
   async endGameBattle(command: GameLifecycleCommand, signal?: AbortSignal): Promise<GameLifecycleResult> {
@@ -106,11 +212,8 @@ export class GameApi implements IGameApi {
     return res.data;
   }
 
-  async stopGameStateSession(command: GameLifecycleCommand, signal?: AbortSignal): Promise<GameLifecycleResult> {
-    const res = await this.engine.runAction<GameLifecycleResult>('game.stopStateSession', command, signal);
-    if (!res.data) throw new Error('Game state session stop failed');
-
-    return res.data;
+  async stopGameStateSession(_command: GameLifecycleCommand, _signal?: AbortSignal): Promise<GameLifecycleResult> {
+    this.throwPhpUnsupported();
   }
 
   async stopGameSession(gameId: number, signal?: AbortSignal): Promise<GameDetail> {
@@ -120,101 +223,51 @@ export class GameApi implements IGameApi {
     return res.data;
   }
 
-  async getGameStateSnapshot(gameId: number, signal?: AbortSignal): Promise<GameStateSnapshot> {
-    const res = await this.engine.runAction<GameStateSnapshot>('game.getGameStateSnapshot', { gameId }, signal);
-    if (!res.data) throw new Error('Game state snapshot failed');
-
-    return res.data;
+  async getGameStateSnapshot(gameId: number, _signal?: AbortSignal): Promise<GameStateSnapshot> {
+    return { gameId, session: null, battle: null };
   }
 
-  async submitCombatCommand(command: GameCombatCommand, signal?: AbortSignal): Promise<GameAuthoritativeCommandResult> {
-    const res = await this.engine.runAction<GameAuthoritativeCommandResult>(
-      'game.submitCombatCommand',
-      command,
-      signal,
-    );
-    if (!res.data) throw new Error('Combat command failed');
-
-    return res.data;
+  async submitCombatCommand(
+    _command: GameCombatCommand,
+    _signal?: AbortSignal,
+  ): Promise<GameAuthoritativeCommandResult> {
+    this.throwPhpUnsupported();
   }
 
   async mutateRuntimeEntity(
-    command: GameRuntimeMutationCommand,
-    signal?: AbortSignal,
+    _command: GameRuntimeMutationCommand,
+    _signal?: AbortSignal,
   ): Promise<GameAuthoritativeCommandResult> {
-    const res = await this.engine.runAction<GameAuthoritativeCommandResult>(
-      'game.mutateRuntimeEntity',
-      command,
-      signal,
-    );
-    if (!res.data) throw new Error('Runtime mutation failed');
-
-    return res.data;
+    this.throwPhpUnsupported();
   }
 
   async getRuntimeEntity(
-    gameId: number,
-    entityKey: CombatEntityKey,
-    projectionLevel: 'summary' | 'full',
-    signal?: AbortSignal,
+    _gameId: number,
+    _entityKey: CombatEntityKey,
+    _projectionLevel: 'summary' | 'full',
+    _signal?: AbortSignal,
   ): Promise<GameRuntimeEntityProjection | null> {
-    const res = await this.engine.runAction<GameRuntimeEntityProjection | null>(
-      'game.getRuntimeEntity',
-      { gameId, entityKey, projectionLevel },
-      signal,
-    );
-
-    return res.data ?? null;
+    return null;
   }
 
   async getRuntimeEntities(
-    gameId: number,
+    _gameId: number,
     request: GameRuntimeEntityBatchRequest,
-    signal?: AbortSignal,
+    _signal?: AbortSignal,
   ): Promise<GameRuntimeEntityBatchResult> {
-    const res = await this.engine.runAction<GameRuntimeEntityBatchResult>(
-      'game.getRuntimeEntities',
-      { gameId, ...request },
-      signal,
-    );
-    if (!res.data) throw new Error('Runtime entity projection failed');
-
-    return res.data;
+    return { projections: [], missingEntityKeys: request.entityKeys };
   }
 
   async getCharacterModerationProjections(
-    gameId: number,
-    characterIds: number[],
-    signal?: AbortSignal,
+    _gameId: number,
+    _characterIds: number[],
+    _signal?: AbortSignal,
   ): Promise<CharacterModerationProjection[]> {
-    const res = await this.engine.runAction<CharacterModerationProjection[]>(
-      'game.getCharacterModerationProjections',
-      { gameId, characterIds },
-      signal,
-    );
-
-    return res.data ?? [];
+    return [];
   }
 
   async getGameCharacters(gameId: number, signal?: AbortSignal): Promise<GameCharacterMembership[]> {
-    const res = await this.engine.runAction<GameCharacterMembership[]>('game.getCharacters', { gameId }, signal);
-
-    return res.data ?? [];
-  }
-
-  async createGameCharacter(
-    gameId: number,
-    data: CreateCharacterData,
-    signal?: AbortSignal,
-  ): Promise<GameCharacterMembership> {
-    const res = await this.engine.runAction<GameCharacterMembership>(
-      'game.createCharacter',
-      { gameId, ...data },
-      signal,
-    );
-    if (!res.data) throw new Error('Create game character failed');
-
-    return res.data;
+    return this.getCharacterList({ gameId }, signal);
   }
 
   async submitCharacterToGame(
@@ -233,99 +286,89 @@ export class GameApi implements IGameApi {
   }
 
   async moderateCharacter(
-    gameId: number,
-    characterId: number,
-    action: GameCharacterModerationAction,
-    signal?: AbortSignal,
+    _gameId: number,
+    _characterId: number,
+    _action: GameCharacterModerationAction,
+    _signal?: AbortSignal,
   ): Promise<GameCharacterMembership> {
-    const res = await this.engine.runAction<GameCharacterMembership>(
-      'game.moderateCharacter',
-      { gameId, characterId, action },
-      signal,
-    );
-    if (!res.data) throw new Error('Moderate character failed');
-
-    return res.data;
+    this.throwPhpUnsupported();
   }
 
   async moderateCharacterCommand(
     command: GameCharacterModerationCommand,
     signal?: AbortSignal,
   ): Promise<GameCharacterModerationResult> {
-    const res = await this.engine.runAction<GameCharacterModerationResult>(
-      'game.moderateCharacterCommand',
-      command,
-      signal,
-    );
-    if (!res.data) throw new Error('Moderate character command failed');
+    const body = {
+      gameId: command.gameId,
+      characterId: command.characterId,
+      membershipRevision: command.expectedMembershipRevision,
+    };
+    const status =
+      command.action === 'approve' ? 'approved' : command.action === 'returnForRework' ? 'returned' : 'rejected';
+    let membershipRow: Record<string, unknown> = {
+      gameId: command.gameId,
+      characterId: command.characterId,
+      characterOwnerId: 0,
+      status: status === 'approved' ? 'active' : status === 'rejected' ? 'left' : 'submitted',
+      membershipRevision: command.expectedMembershipRevision,
+    };
+    if (command.action === 'approve') {
+      membershipRow = await this.requireData(
+        'game.approveCharacter',
+        {
+          ...body,
+          actualVersion: command.expectedActualVersion,
+        },
+        signal,
+      );
+    } else if (command.action === 'returnForRework') {
+      membershipRow = await this.requireData('game.returnCharacter', { ...body, reason: 'Возврат' }, signal);
+    } else {
+      await this.engine.runAction('game.rejectCharacter', body, signal);
+    }
 
-    return res.data;
+    return {
+      kind: 'transition',
+      commandId: command.commandId,
+      status,
+      membership: this.membershipOfPhp(membershipRow),
+    };
   }
 
-  async leaveGame(gameId: number, characterId: number, signal?: AbortSignal): Promise<GameCharacterMembership> {
-    const res = await this.engine.runAction<GameCharacterMembership>('game.leaveGame', { gameId, characterId }, signal);
-    if (!res.data) throw new Error('Leave game failed');
-
-    return res.data;
+  async leaveGame(_gameId: number, _characterId: number, _signal?: AbortSignal): Promise<GameCharacterMembership> {
+    this.throwPhpUnsupported();
   }
 
   async updateMembershipVisibility(
-    gameId: number,
-    characterId: number,
-    visibility: SheetVisibility,
-    signal?: AbortSignal,
+    _gameId: number,
+    _characterId: number,
+    _visibility: SheetVisibility,
+    _signal?: AbortSignal,
   ): Promise<GameCharacterMembership> {
-    const res = await this.engine.runAction<GameCharacterMembership>(
-      'game.updateMembershipVisibility',
-      { gameId, characterId, visibility },
-      signal,
-    );
-    if (!res.data) throw new Error('Update membership visibility failed');
-
-    return res.data;
+    this.throwPhpUnsupported();
   }
 
   async updateCharacterGrants(
-    gameId: number,
-    characterId: number,
-    data: { osBonus: number; orBonus: number; olBonus: number },
-    signal?: AbortSignal,
+    _gameId: number,
+    _characterId: number,
+    _data: { osBonus: number; orBonus: number; olBonus: number },
+    _signal?: AbortSignal,
   ): Promise<GameCharacterMembership> {
-    const res = await this.engine.runAction<GameCharacterMembership>(
-      'game.updateCharacterGrants',
-      { gameId, characterId, ...data },
-      signal,
-    );
-    if (!res.data) throw new Error('Update character grants failed');
-
-    return res.data;
+    this.throwPhpUnsupported();
   }
 
   async submitCharacterMigration(
-    gameId: number,
-    characterId: number,
-    version: CharacterVersion,
-    expectedActualToken?: string,
-    signal?: AbortSignal,
+    _gameId: number,
+    _characterId: number,
+    _version: CharacterVersion,
+    _expectedActualToken?: string,
+    _signal?: AbortSignal,
   ): Promise<GameCharacterMembership> {
-    const res = await this.engine.runAction<GameCharacterMembership>(
-      'game.submitCharacterMigration',
-      { gameId, characterId, version, expectedActualToken },
-      signal,
-    );
-    if (!res.data) throw new Error('Submit character migration failed');
-
-    return res.data;
+    this.throwPhpUnsupported();
   }
 
-  async getCharacterGameContexts(characterId: number, signal?: AbortSignal): Promise<CharacterGameContext[]> {
-    const res = await this.engine.runAction<CharacterGameContext[]>(
-      'game.getCharacterGameContexts',
-      { characterId },
-      signal,
-    );
-
-    return res.data ?? [];
+  async getCharacterGameContexts(_characterId: number, _signal?: AbortSignal): Promise<CharacterGameContext[]> {
+    return [];
   }
 
   async updateGameMember(
@@ -334,17 +377,15 @@ export class GameApi implements IGameApi {
     data: UpdateGameMemberData,
     signal?: AbortSignal,
   ): Promise<GameMember> {
-    const res = await this.engine.runAction<GameMember>('game.updateMember', { gameId, userId, ...data }, signal);
-    if (!res.data) throw new Error('Update member failed');
+    const row = await this.requireData<unknown>('game.updateMember', { gameId, userId, role: data.role }, signal);
 
-    return res.data;
+    return { ...gamePhpCardService.memberOf(row), permissions: data.permissions };
   }
 
   async addGameMember(gameId: number, userId: number, role: GameMemberRole, signal?: AbortSignal): Promise<GameMember> {
-    const res = await this.engine.runAction<GameMember>('game.addMember', { gameId, userId, role }, signal);
-    if (!res.data) throw new Error('Add member failed');
+    const row = await this.requireData<unknown>('game.addMember', { gameId, userId, role }, signal);
 
-    return res.data;
+    return gamePhpCardService.memberOf(row);
   }
 
   async removeGameMember(gameId: number, userId: number, signal?: AbortSignal): Promise<void> {
@@ -352,9 +393,15 @@ export class GameApi implements IGameApi {
   }
 
   async getGameInvitations(gameId: number, signal?: AbortSignal): Promise<GameInvitation[]> {
-    const res = await this.engine.runAction<GameInvitation[]>('game.getInvitations', { gameId }, signal);
+    const res = await this.engine.runAction<unknown[]>('game.getInvitations', { gameId }, signal);
 
-    return res.data ?? [];
+    return (res.data ?? []).map((row) => this.invitationOfPhp(row));
+  }
+
+  async getMyInvitations(signal?: AbortSignal): Promise<GameInvitation[]> {
+    const res = await this.engine.runAction<unknown[]>('game.getMyInvitations', {}, signal);
+
+    return (res.data ?? []).map((row) => this.invitationOfPhp(row));
   }
 
   async createInvitation(gameId: number, inviteeId: number, signal?: AbortSignal): Promise<GameInvitation> {
@@ -405,24 +452,58 @@ export class GameApi implements IGameApi {
   }
 
   async getNpcSummaries(query: GameNpcListQuery, signal?: AbortSignal): Promise<GameNpcListResult> {
-    const res = await this.engine.runAction<GameNpcListResult>('game.getNpcSummaries', query, signal);
-    if (!res.data) throw new Error('NPC summary list failed');
+    const roster = await this.getRoster({ gameId: query.gameId }, signal);
+    const needle = query.query?.trim().toLocaleLowerCase() ?? '';
+    const items = roster.npcs.filter((npc) => needle === '' || npc.name.toLocaleLowerCase().includes(needle));
 
-    return res.data;
+    return { items, nextCursor: null };
+  }
+
+  async getRoster(query: { gameId: number }, signal?: AbortSignal): Promise<GameRoster> {
+    const data = await this.requireData<Record<string, unknown>>('game.getRoster', { gameId: query.gameId }, signal);
+    const characters = Array.isArray(data.characters) ? data.characters : [];
+    const npcs = Array.isArray(data.npcs) ? data.npcs : [];
+
+    return {
+      characters: characters.map((row) => {
+        const record = row && typeof row === 'object' ? (row as Record<string, unknown>) : {};
+
+        return {
+          id: Number(record.id),
+          name: typeof record.name === 'string' ? record.name : '',
+          status: typeof record.status === 'string' ? record.status : '',
+          actualVersion: Number(record.actualVersion ?? 0),
+        };
+      }),
+      npcs: npcs.map((row) => {
+        const record = row && typeof row === 'object' ? (row as Record<string, unknown>) : {};
+
+        return {
+          id: Number(record.id),
+          name: typeof record.name === 'string' ? record.name : '',
+          actualVersion: Number(record.actualVersion ?? 0),
+        };
+      }),
+    };
+  }
+
+  async getSheets(
+    query: { gameId: number; keys: { type: 'character' | 'npc'; id: number }[] },
+    signal?: AbortSignal,
+  ): Promise<GameSheets> {
+    const data = await this.requireData<GameSheets>('game.getSheets', query, signal);
+
+    return {
+      sheets: Array.isArray(data.sheets) ? data.sheets : [],
+      missing: Array.isArray(data.missing) ? data.missing : [],
+    };
   }
 
   async getParticipantCandidates(
-    query: GameParticipantCandidateQuery,
-    signal?: AbortSignal,
+    _query: GameParticipantCandidateQuery,
+    _signal?: AbortSignal,
   ): Promise<GameParticipantCandidateResult> {
-    const res = await this.engine.runAction<GameParticipantCandidateResult>(
-      'game.getParticipantCandidates',
-      query,
-      signal,
-    );
-    if (!res.data) throw new Error('Participant candidate list failed');
-
-    return res.data;
+    return { items: [], nextCursor: null };
   }
 
   async getNpc(gameId: number, npcId: number, signal?: AbortSignal): Promise<GameNpc> {
@@ -439,11 +520,8 @@ export class GameApi implements IGameApi {
     return res.data;
   }
 
-  async proposeNpc(gameId: number, data: CreateNpcData, signal?: AbortSignal): Promise<GameNpc> {
-    const res = await this.engine.runAction<GameNpc>('game.proposeNpc', { gameId, ...data }, signal);
-    if (!res.data) throw new Error('Propose npc failed');
-
-    return res.data;
+  async proposeNpc(_gameId: number, _data: CreateNpcData, _signal?: AbortSignal): Promise<GameNpc> {
+    this.throwPhpUnsupported();
   }
 
   async updateNpc(npcId: number, data: UpdateNpcData, signal?: AbortSignal): Promise<GameNpc> {
@@ -453,388 +531,245 @@ export class GameApi implements IGameApi {
     return res.data;
   }
 
-  async moderateNpc(npcId: number, action: GameModerationAction, signal?: AbortSignal): Promise<GameNpc> {
-    const res = await this.engine.runAction<GameNpc>('game.moderateNpc', { npcId, action }, signal);
-    if (!res.data) throw new Error('Moderate npc failed');
-
-    return res.data;
+  async moderateNpc(_npcId: number, _action: GameModerationAction, _signal?: AbortSignal): Promise<GameNpc> {
+    this.throwPhpUnsupported();
   }
 
-  async deleteNpc(npcId: number, signal?: AbortSignal): Promise<void> {
-    await this.engine.runAction<void>('game.deleteNpc', { npcId }, signal);
+  async deleteNpc(_npcId: number, _signal?: AbortSignal): Promise<void> {
+    this.throwPhpUnsupported();
   }
 
-  async getLoot(gameId: number, signal?: AbortSignal): Promise<GameLoot[]> {
-    const res = await this.engine.runAction<GameLoot[]>('game.getLoot', { gameId }, signal);
-
-    return res.data ?? [];
+  async getLoot(_gameId: number, _signal?: AbortSignal): Promise<GameLoot[]> {
+    return [];
   }
 
-  async addLoot(gameId: number, data: CreateLootData, signal?: AbortSignal): Promise<GameLoot> {
-    const res = await this.engine.runAction<GameLoot>('game.addLoot', { gameId, ...data }, signal);
-    if (!res.data) throw new Error('Add loot failed');
-
-    return res.data;
+  async addLoot(_gameId: number, _data: CreateLootData, _signal?: AbortSignal): Promise<GameLoot> {
+    this.throwPhpUnsupported();
   }
 
-  async updateLoot(lootId: number, data: CreateLootData, signal?: AbortSignal): Promise<GameLoot> {
-    const res = await this.engine.runAction<GameLoot>('game.updateLoot', { lootId, ...data }, signal);
-    if (!res.data) throw new Error('Update loot failed');
-
-    return res.data;
+  async updateLoot(_lootId: number, _data: CreateLootData, _signal?: AbortSignal): Promise<GameLoot> {
+    this.throwPhpUnsupported();
   }
 
-  async handoutLoot(lootIds: number[], signal?: AbortSignal): Promise<GameLoot[]> {
-    const res = await this.engine.runAction<GameLoot[]>('game.handoutLoot', { lootIds }, signal);
-
-    return res.data ?? [];
+  async handoutLoot(_lootIds: number[], _signal?: AbortSignal): Promise<GameLoot[]> {
+    this.throwPhpUnsupported();
   }
 
-  async toggleLootInterest(lootId: number, signal?: AbortSignal): Promise<GameLoot> {
-    const res = await this.engine.runAction<GameLoot>('game.toggleLootInterest', { lootId }, signal);
-    if (!res.data) throw new Error('Toggle loot interest failed');
-
-    return res.data;
+  async toggleLootInterest(_lootId: number, _signal?: AbortSignal): Promise<GameLoot> {
+    this.throwPhpUnsupported();
   }
 
-  async distributeLoot(lootId: number, data: DistributeLootData, signal?: AbortSignal): Promise<GameLoot> {
-    const res = await this.engine.runAction<GameLoot>('game.distributeLoot', { lootId, ...data }, signal);
-    if (!res.data) throw new Error('Distribute loot failed');
-
-    return res.data;
+  async distributeLoot(_lootId: number, _data: DistributeLootData, _signal?: AbortSignal): Promise<GameLoot> {
+    this.throwPhpUnsupported();
   }
 
-  async deleteLoot(lootId: number, signal?: AbortSignal): Promise<void> {
-    await this.engine.runAction<void>('game.deleteLoot', { lootId }, signal);
+  async deleteLoot(_lootId: number, _signal?: AbortSignal): Promise<void> {
+    this.throwPhpUnsupported();
   }
 
-  async getInitiative(gameId: number, signal?: AbortSignal): Promise<GameInitiative> {
-    const res = await this.engine.runAction<GameInitiative>('game.getInitiative', { gameId }, signal);
-    if (!res.data) throw new Error('Get initiative failed');
-
-    return res.data;
+  async getInitiative(gameId: number, _signal?: AbortSignal): Promise<GameInitiative> {
+    return {
+      gameId,
+      active: false,
+      participants: [],
+      activeIndex: null,
+      round: 1,
+      updatedAt: '',
+    };
   }
 
-  async saveInitiative(gameId: number, data: GameInitiative, signal?: AbortSignal): Promise<GameInitiative> {
-    const res = await this.engine.runAction<GameInitiative>('game.saveInitiative', { ...data, gameId }, signal);
-    if (!res.data) throw new Error('Save initiative failed');
-
-    return res.data;
+  async saveInitiative(_gameId: number, _data: GameInitiative, _signal?: AbortSignal): Promise<GameInitiative> {
+    this.throwPhpUnsupported();
   }
 
-  async getCombatOverlays(gameId: number, signal?: AbortSignal): Promise<GameCombatOverlay[]> {
-    const res = await this.engine.runAction<GameCombatOverlay[]>('game.getCombatOverlays', { gameId }, signal);
+  async rollInitiative(body: GameInitiativeRollRequest, signal?: AbortSignal): Promise<GameInitiativeRollResult> {
+    const data = await this.requireData<GameInitiativeRollResult>('game.rollInitiative', body, signal);
+    gamePhpBattleContext.rememberBattle(data.battleId, data.version);
+    const order: GameInitiativeOrderEntry[] = Array.isArray(data.order) ? data.order : [];
 
-    return res.data ?? [];
+    return { battleId: data.battleId, version: data.version, order };
+  }
+
+  async getCombatOverlays(_gameId: number, _signal?: AbortSignal): Promise<GameCombatOverlay[]> {
+    return [];
   }
 
   async getPendingActionEffects(
-    gameId: number,
-    signal?: AbortSignal,
+    _gameId: number,
+    _signal?: AbortSignal,
   ): Promise<Record<CombatEntityKey, PendingActionEffect[]>> {
-    const res = await this.engine.runAction<Record<CombatEntityKey, PendingActionEffect[]>>(
-      'game.getPendingActionEffects',
-      { gameId },
-      signal,
-    );
-
-    return res.data ?? {};
+    return {};
   }
 
   async setCombatActionEffects(
-    gameId: number,
-    entityKey: CombatEntityKey,
-    effects: PendingActionEffect[],
-    signal?: AbortSignal,
+    _gameId: number,
+    _entityKey: CombatEntityKey,
+    _effects: PendingActionEffect[],
+    _signal?: AbortSignal,
   ): Promise<PendingActionEffect[]> {
-    const res = await this.engine.runAction<PendingActionEffect[]>(
-      'game.setCombatActionEffects',
-      { gameId, entityKey, effects },
-      signal,
-    );
-    if (!res.data) throw new Error('Set combat action effects failed');
-
-    return res.data;
+    this.throwPhpUnsupported();
   }
 
-  async getProcessSessions(gameId: number, signal?: AbortSignal): Promise<Record<CombatEntityKey, ProcessSession>> {
-    const res = await this.engine.runAction<Record<CombatEntityKey, ProcessSession>>(
-      'game.getProcessSessions',
-      { gameId },
-      signal,
-    );
-
-    return res.data ?? {};
+  async getProcessSessions(_gameId: number, _signal?: AbortSignal): Promise<Record<CombatEntityKey, ProcessSession>> {
+    return {};
   }
 
   async setProcessSession(
-    gameId: number,
-    entityKey: CombatEntityKey,
-    session: ProcessSession | null,
-    signal?: AbortSignal,
+    _gameId: number,
+    _entityKey: CombatEntityKey,
+    _session: ProcessSession | null,
+    _signal?: AbortSignal,
   ): Promise<ProcessSession | null> {
-    const res = await this.engine.runAction<ProcessSession | null>(
-      'game.setProcessSession',
-      { gameId, entityKey, session },
-      signal,
-    );
-
-    return res.data ?? null;
+    this.throwPhpUnsupported();
   }
 
   async getCommittedActionSessions(
-    gameId: number,
-    signal?: AbortSignal,
+    _gameId: number,
+    _signal?: AbortSignal,
   ): Promise<Record<CombatEntityKey, CommittedActionSession>> {
-    const res = await this.engine.runAction<Record<CombatEntityKey, CommittedActionSession>>(
-      'game.getCommittedActionSessions',
-      { gameId },
-      signal,
-    );
-
-    return res.data ?? {};
+    return {};
   }
 
   async setCommittedActionSession(
-    gameId: number,
-    entityKey: CombatEntityKey,
-    session: CommittedActionSession | null,
-    signal?: AbortSignal,
+    _gameId: number,
+    _entityKey: CombatEntityKey,
+    _session: CommittedActionSession | null,
+    _signal?: AbortSignal,
   ): Promise<CommittedActionSession | null> {
-    const res = await this.engine.runAction<CommittedActionSession | null>(
-      'game.setCommittedActionSession',
-      { gameId, entityKey, session },
-      signal,
-    );
-
-    return res.data ?? null;
+    this.throwPhpUnsupported();
   }
 
-  async getActiveSpells(gameId: number, signal?: AbortSignal): Promise<ActiveSpell[]> {
-    const res = await this.engine.runAction<ActiveSpell[]>('game.getActiveSpells', { gameId }, signal);
-
-    return res.data ?? [];
+  async getActiveSpells(_gameId: number, _signal?: AbortSignal): Promise<ActiveSpell[]> {
+    return [];
   }
 
-  async upsertActiveSpell(gameId: number, spell: ActiveSpell, signal?: AbortSignal): Promise<ActiveSpell> {
-    const res = await this.engine.runAction<ActiveSpell>('game.upsertActiveSpell', { gameId, spell }, signal);
-    if (!res.data) throw new Error('Upsert active spell failed');
-
-    return res.data;
+  async upsertActiveSpell(_gameId: number, _spell: ActiveSpell, _signal?: AbortSignal): Promise<ActiveSpell> {
+    this.throwPhpUnsupported();
   }
 
-  async dropActiveSpell(gameId: number, id: string, signal?: AbortSignal): Promise<void> {
-    await this.engine.runAction('game.dropActiveSpell', { gameId, id }, signal);
+  async dropActiveSpell(_gameId: number, _id: string, _signal?: AbortSignal): Promise<void> {
+    this.throwPhpUnsupported();
   }
 
-  async getCurrentSpeed(gameId: number, entityKey: CombatEntityKey, signal?: AbortSignal): Promise<CurrentSpeed> {
-    const res = await this.engine.runAction<CurrentSpeed>('game.getCurrentSpeed', { gameId, entityKey }, signal);
-
-    return (
-      res.data ?? {
-        horizontal: { stepsPerActionPoint: 0, direction: null },
-        vertical: { stepsPerActionPoint: 0, direction: null },
-      }
-    );
+  async getCurrentSpeed(_gameId: number, _entityKey: CombatEntityKey, _signal?: AbortSignal): Promise<CurrentSpeed> {
+    return this.emptyCurrentSpeed();
   }
 
   async setCurrentSpeed(
-    gameId: number,
-    entityKey: CombatEntityKey,
-    currentSpeed: CurrentSpeed,
-    signal?: AbortSignal,
+    _gameId: number,
+    _entityKey: CombatEntityKey,
+    _currentSpeed: CurrentSpeed,
+    _signal?: AbortSignal,
   ): Promise<CurrentSpeed> {
-    const res = await this.engine.runAction<CurrentSpeed>(
-      'game.setCurrentSpeed',
-      { gameId, entityKey, currentSpeed },
-      signal,
-    );
-    if (!res.data) throw new Error('Set current speed failed');
-
-    return res.data;
+    this.throwPhpUnsupported();
   }
 
   async setCombatResource(
-    gameId: number,
-    entityKey: CombatEntityKey,
-    ruleCode: string,
-    current: DimensionalNumberValue,
-    signal?: AbortSignal,
+    _gameId: number,
+    _entityKey: CombatEntityKey,
+    _ruleCode: string,
+    _current: DimensionalNumberValue,
+    _signal?: AbortSignal,
   ): Promise<GameAuthoritativeCommandResult> {
-    const res = await this.engine.runAction<GameAuthoritativeCommandResult>(
-      'game.setCombatResource',
-      { gameId, entityKey, ruleCode, current },
-      signal,
-    );
-    if (!res.data) throw new Error('Set combat resource failed');
-
-    return res.data;
+    this.throwPhpUnsupported();
   }
 
   async setCombatConcentrationUsedInCycle(
-    gameId: number,
-    entityKey: CombatEntityKey,
-    used: boolean,
-    signal?: AbortSignal,
+    _gameId: number,
+    _entityKey: CombatEntityKey,
+    _used: boolean,
+    _signal?: AbortSignal,
   ): Promise<GameCombatOverlay> {
-    const res = await this.engine.runAction<GameCombatOverlay>(
-      'game.setCombatConcentrationUsedInCycle',
-      { gameId, entityKey, used },
-      signal,
-    );
-    if (!res.data) throw new Error('Set concentration cycle failed');
-
-    return res.data;
+    this.throwPhpUnsupported();
   }
 
   async setCombatWoundBandagedOnce(
-    gameId: number,
-    entityKey: CombatEntityKey,
-    bandaged: boolean,
-    signal?: AbortSignal,
+    _gameId: number,
+    _entityKey: CombatEntityKey,
+    _bandaged: boolean,
+    _signal?: AbortSignal,
   ): Promise<GameCombatOverlay> {
-    const res = await this.engine.runAction<GameCombatOverlay>(
-      'game.setCombatWoundBandagedOnce',
-      { gameId, entityKey, bandaged },
-      signal,
-    );
-    if (!res.data) throw new Error('Set wound bandaged failed');
-
-    return res.data;
+    this.throwPhpUnsupported();
   }
 
   async addCombatState(
-    gameId: number,
-    entityKey: CombatEntityKey,
-    state: CharacterStateValue,
-    signal?: AbortSignal,
+    _gameId: number,
+    _entityKey: CombatEntityKey,
+    _state: CharacterStateValue,
+    _signal?: AbortSignal,
   ): Promise<GameAuthoritativeCommandResult> {
-    const res = await this.engine.runAction<GameAuthoritativeCommandResult>(
-      'game.addCombatState',
-      { gameId, entityKey, state },
-      signal,
-    );
-    if (!res.data) throw new Error('Add combat state failed');
-
-    return res.data;
+    this.throwPhpUnsupported();
   }
 
   async replaceCombatState(
-    gameId: number,
-    entityKey: CombatEntityKey,
-    index: number,
-    state: CharacterStateValue,
-    signal?: AbortSignal,
+    _gameId: number,
+    _entityKey: CombatEntityKey,
+    _index: number,
+    _state: CharacterStateValue,
+    _signal?: AbortSignal,
   ): Promise<GameAuthoritativeCommandResult> {
-    const res = await this.engine.runAction<GameAuthoritativeCommandResult>(
-      'game.replaceCombatState',
-      { gameId, entityKey, index, state },
-      signal,
-    );
-    if (!res.data) throw new Error('Replace combat state failed');
-
-    return res.data;
+    this.throwPhpUnsupported();
   }
 
   async setCombatStateValue(
-    gameId: number,
-    entityKey: CombatEntityKey,
-    index: number,
-    value?: number,
-    signal?: AbortSignal,
+    _gameId: number,
+    _entityKey: CombatEntityKey,
+    _index: number,
+    _value?: number,
+    _signal?: AbortSignal,
   ): Promise<GameAuthoritativeCommandResult> {
-    const res = await this.engine.runAction<GameAuthoritativeCommandResult>(
-      'game.setCombatStateValue',
-      { gameId, entityKey, index, value },
-      signal,
-    );
-    if (!res.data) throw new Error('Set combat state value failed');
-
-    return res.data;
+    this.throwPhpUnsupported();
   }
 
   async removeCombatState(
-    gameId: number,
-    entityKey: CombatEntityKey,
-    index: number,
-    signal?: AbortSignal,
+    _gameId: number,
+    _entityKey: CombatEntityKey,
+    _index: number,
+    _signal?: AbortSignal,
   ): Promise<GameAuthoritativeCommandResult> {
-    const res = await this.engine.runAction<GameAuthoritativeCommandResult>(
-      'game.removeCombatState',
-      { gameId, entityKey, index },
-      signal,
-    );
-    if (!res.data) throw new Error('Remove combat state failed');
-
-    return res.data;
+    this.throwPhpUnsupported();
   }
 
   async setCombatItemEquipped(
-    gameId: number,
-    entityKey: CombatEntityKey,
-    itemId: number,
-    equipped: boolean,
-    signal?: AbortSignal,
+    _gameId: number,
+    _entityKey: CombatEntityKey,
+    _itemId: number,
+    _equipped: boolean,
+    _signal?: AbortSignal,
   ): Promise<GameAuthoritativeCommandResult> {
-    const res = await this.engine.runAction<GameAuthoritativeCommandResult>(
-      'game.setCombatItemEquipped',
-      { gameId, entityKey, itemId, equipped },
-      signal,
-    );
-    if (!res.data) throw new Error('Set combat item equipped failed');
-
-    return res.data;
+    this.throwPhpUnsupported();
   }
 
   async setCombatItemOccupyHands(
-    gameId: number,
-    entityKey: CombatEntityKey,
-    itemId: number,
-    occupyHands: number,
-    signal?: AbortSignal,
+    _gameId: number,
+    _entityKey: CombatEntityKey,
+    _itemId: number,
+    _occupyHands: number,
+    _signal?: AbortSignal,
   ): Promise<GameAuthoritativeCommandResult> {
-    const res = await this.engine.runAction<GameAuthoritativeCommandResult>(
-      'game.setCombatItemOccupyHands',
-      { gameId, entityKey, itemId, occupyHands },
-      signal,
-    );
-    if (!res.data) throw new Error('Set combat item occupy hands failed');
-
-    return res.data;
+    this.throwPhpUnsupported();
   }
 
-  async getQuickRolls(gameId: number, signal?: AbortSignal): Promise<Record<CombatEntityKey, string[]>> {
-    const res = await this.engine.runAction<Record<CombatEntityKey, string[]>>(
-      'game.getQuickRolls',
-      { gameId },
-      signal,
-    );
-
-    return res.data ?? {};
+  async getQuickRolls(_gameId: number, _signal?: AbortSignal): Promise<Record<CombatEntityKey, string[]>> {
+    return {};
   }
 
   async addQuickRoll(
-    gameId: number,
-    entityKey: CombatEntityKey,
-    ruleCode: string,
-    signal?: AbortSignal,
+    _gameId: number,
+    _entityKey: CombatEntityKey,
+    _ruleCode: string,
+    _signal?: AbortSignal,
   ): Promise<string[]> {
-    const res = await this.engine.runAction<string[]>('game.addQuickRoll', { gameId, entityKey, ruleCode }, signal);
-    if (!res.data) throw new Error('Add quick roll failed');
-
-    return res.data;
+    this.throwPhpUnsupported();
   }
 
   async removeQuickRoll(
-    gameId: number,
-    entityKey: CombatEntityKey,
-    ruleCode: string,
-    signal?: AbortSignal,
+    _gameId: number,
+    _entityKey: CombatEntityKey,
+    _ruleCode: string,
+    _signal?: AbortSignal,
   ): Promise<string[]> {
-    const res = await this.engine.runAction<string[]>('game.removeQuickRoll', { gameId, entityKey, ruleCode }, signal);
-    if (!res.data) throw new Error('Remove quick roll failed');
-
-    return res.data;
+    this.throwPhpUnsupported();
   }
 
   async getChronicle(gameId: number, signal?: AbortSignal): Promise<Chronicle> {
@@ -876,82 +811,320 @@ export class GameApi implements IGameApi {
     await this.engine.runAction<void>('game.deleteChronicleEntry', { entryId }, signal);
   }
 
-  async updatePersonalNotes(gameId: number, notes: string, signal?: AbortSignal): Promise<GameDetail> {
-    const res = await this.engine.runAction<GameDetail>('game.updatePersonalNotes', { gameId, notes }, signal);
-    if (!res.data) throw new Error('Game notes update failed');
-
-    return res.data;
+  async updatePersonalNotes(_gameId: number, _notes: string, _signal?: AbortSignal): Promise<GameDetail> {
+    this.throwPhpUnsupported();
   }
 
-  async createCheckOffer(gameId: number, data: CreateCheckOfferData, signal?: AbortSignal): Promise<CheckOffer> {
-    const res = await this.engine.runAction<CheckOffer>('game.createCheckOffer', { gameId, ...data }, signal);
-    if (!res.data) throw new Error('Create check offer failed');
-
-    return res.data;
+  async createCheckOffer(_gameId: number, _data: CreateCheckOfferData, _signal?: AbortSignal): Promise<CheckOffer> {
+    this.throwPhpUnsupported();
   }
 
   async reviseCheckOffer(
-    offerId: number,
-    actorKey: CombatEntityKey,
-    proposal: CheckOfferProposal,
-    signal?: AbortSignal,
+    _offerId: number,
+    _actorKey: CombatEntityKey,
+    _proposal: CheckOfferProposal,
+    _signal?: AbortSignal,
   ): Promise<CheckOffer> {
-    const res = await this.engine.runAction<CheckOffer>(
-      'game.reviseCheckOffer',
-      { offerId, actorKey, proposal },
-      signal,
-    );
-    if (!res.data) throw new Error('Revise check offer failed');
-
-    return res.data;
+    this.throwPhpUnsupported();
   }
 
   async acceptCheckOffer(
-    offerId: number,
-    actorKey: CombatEntityKey,
-    proposal?: CheckOfferProposal,
-    signal?: AbortSignal,
+    _offerId: number,
+    _actorKey: CombatEntityKey,
+    _proposal?: CheckOfferProposal,
+    _signal?: AbortSignal,
   ): Promise<CheckOffer> {
-    const res = await this.engine.runAction<CheckOffer>(
-      'game.acceptCheckOffer',
-      { offerId, actorKey, proposal },
-      signal,
-    );
-    if (!res.data) throw new Error('Accept check offer failed');
-
-    return res.data;
+    this.throwPhpUnsupported();
   }
 
-  async cancelCheckOffer(offerId: number, actorKey: CombatEntityKey, signal?: AbortSignal): Promise<CheckOffer> {
-    const res = await this.engine.runAction<CheckOffer>('game.cancelCheckOffer', { offerId, actorKey }, signal);
-    if (!res.data) throw new Error('Cancel check offer failed');
-
-    return res.data;
+  async cancelCheckOffer(_offerId: number, _actorKey: CombatEntityKey, _signal?: AbortSignal): Promise<CheckOffer> {
+    this.throwPhpUnsupported();
   }
 
-  async getPendingCheckOffers(gameId: number, entityKey: CombatEntityKey, signal?: AbortSignal): Promise<CheckOffer[]> {
-    const res = await this.engine.runAction<CheckOffer[]>('game.getPendingCheckOffers', { gameId, entityKey }, signal);
-
-    return res.data ?? [];
+  async getPendingCheckOffers(
+    _gameId: number,
+    _entityKey: CombatEntityKey,
+    _signal?: AbortSignal,
+  ): Promise<CheckOffer[]> {
+    return [];
   }
 
   async getCheckOffersForEntity(
-    gameId: number,
-    entityKey: CombatEntityKey,
-    signal?: AbortSignal,
+    _gameId: number,
+    _entityKey: CombatEntityKey,
+    _signal?: AbortSignal,
   ): Promise<CheckOffer[]> {
-    const res = await this.engine.runAction<CheckOffer[]>(
-      'game.getCheckOffersForEntity',
-      { gameId, entityKey },
-      signal,
-    );
-
-    return res.data ?? [];
+    return [];
   }
 
-  async getCheckOffersForGame(gameId: number, signal?: AbortSignal): Promise<CheckOffer[]> {
-    const res = await this.engine.runAction<CheckOffer[]>('game.getCheckOffersForGame', { gameId }, signal);
+  async getCheckOffersForGame(_gameId: number, _signal?: AbortSignal): Promise<CheckOffer[]> {
+    return [];
+  }
 
-    return res.data ?? [];
+  async getCharacterList(query: { gameId: number }, signal?: AbortSignal): Promise<GameCharacterMembership[]> {
+    const rows = await this.requireData<Record<string, unknown>[]>(
+      'game.getCharacterList',
+      { gameId: query.gameId },
+      signal,
+    );
+    let names = new Map<number, string>();
+    try {
+      const roster = await this.getRoster({ gameId: query.gameId }, signal);
+      names = new Map(roster.characters.map((entry) => [entry.id, entry.name]));
+    } catch {
+      names = new Map();
+    }
+
+    return rows.map((row) => {
+      const membership = this.membershipOfPhp(row);
+
+      return {
+        ...membership,
+        characterName: names.get(membership.characterId) || membership.characterName,
+      };
+    });
+  }
+
+  async getBattleSheets(query: { gameId: number; battleId: number }, signal?: AbortSignal): Promise<GameBattleSheets> {
+    return this.requireData<GameBattleSheets>('game.getBattleSheets', query, signal);
+  }
+
+  async declareStrike(
+    body: {
+      gameId: number;
+      battleId: number;
+      idempotencyKey: string;
+      expectedVersion: number;
+      attack: GamePhpStrikeAttack;
+    },
+    signal?: AbortSignal,
+  ): Promise<GamePhpStrikeResult> {
+    const result = await this.requireData<GamePhpStrikeResult>('game.declareStrike', body, signal);
+    gamePhpBattleContext.rememberDebt(result.debt === true, result.version);
+
+    return result;
+  }
+
+  async resolveStrike(
+    body: {
+      gameId: number;
+      battleId: number;
+      idempotencyKey: string;
+      expectedVersion: number;
+      expectedSheetVersion: number;
+      defense: {
+        reaction: string;
+        blockItemInventoryId?: number;
+        blockItemProfileIndex?: number;
+      };
+    },
+    signal?: AbortSignal,
+  ): Promise<GamePhpStrikeResult> {
+    const result = await this.requireData<GamePhpStrikeResult>('game.resolveStrike', body, signal);
+    gamePhpBattleContext.rememberBattle(body.battleId, result.version);
+
+    return result;
+  }
+
+  async declareWideStrike(
+    body: {
+      gameId: number;
+      battleId: number;
+      idempotencyKey: string;
+      expectedVersion: number;
+      attack: GamePhpWideStrikeAttack;
+    },
+    signal?: AbortSignal,
+  ): Promise<GamePhpStrikeResult> {
+    const result = await this.requireData<GamePhpStrikeResult>('game.declareWideStrike', body, signal);
+    gamePhpBattleContext.rememberDebt(result.debt === true, result.version);
+
+    return result;
+  }
+
+  async resolveWideStrike(
+    body: {
+      gameId: number;
+      battleId: number;
+      idempotencyKey: string;
+      expectedVersion: number;
+      defense: {
+        defenses: {
+          reaction: string;
+          expectedSheetVersion: number;
+          blockItemInventoryId?: number;
+          blockItemProfileIndex?: number;
+        }[];
+      };
+    },
+    signal?: AbortSignal,
+  ): Promise<GamePhpStrikeResult> {
+    const result = await this.requireData<GamePhpStrikeResult>('game.resolveWideStrike', body, signal);
+    gamePhpBattleContext.rememberBattle(body.battleId, result.version);
+
+    return result;
+  }
+
+  async woundAction(
+    body: {
+      gameId: number;
+      idempotencyKey: string;
+      operation: 'hold' | 'release' | 'bandage';
+      actor: GamePhpWoundParty;
+      target: GamePhpWoundParty;
+      stateId: number;
+      actionRuleCode: string;
+      expectedSheetVersion: number;
+      battleId: number;
+      expectedBattleVersion: number;
+    },
+    signal?: AbortSignal,
+  ): Promise<GamePhpTurnResult> {
+    const result = await this.requireData<GamePhpTurnResult>('game.woundAction', body, signal);
+    gamePhpBattleContext.rememberBattle(body.battleId, result.version ?? body.expectedBattleVersion);
+
+    return result;
+  }
+
+  async endTurn(
+    body: {
+      gameId: number;
+      idempotencyKey: string;
+      battleId: number;
+      expectedBattleVersion: number;
+      expectedSheetVersion: number;
+    },
+    signal?: AbortSignal,
+  ): Promise<GamePhpTurnResult> {
+    return this.turnCommand('game.endTurn', body, signal);
+  }
+
+  async continueAction(
+    body: {
+      gameId: number;
+      idempotencyKey: string;
+      battleId: number;
+      expectedBattleVersion: number;
+      expectedSheetVersion: number;
+    },
+    signal?: AbortSignal,
+  ): Promise<GamePhpTurnResult> {
+    return this.turnCommand('game.continueAction', body, signal);
+  }
+
+  async abortAction(
+    body: {
+      gameId: number;
+      idempotencyKey: string;
+      battleId: number;
+      expectedBattleVersion: number;
+      expectedSheetVersion: number;
+    },
+    signal?: AbortSignal,
+  ): Promise<GamePhpTurnResult> {
+    return this.turnCommand('game.abortAction', body, signal);
+  }
+
+  private async turnCommand(
+    action: string,
+    body: {
+      gameId: number;
+      idempotencyKey: string;
+      battleId: number;
+      expectedBattleVersion: number;
+      expectedSheetVersion: number;
+    },
+    signal?: AbortSignal,
+  ): Promise<GamePhpTurnResult> {
+    const result = await this.requireData<GamePhpTurnResult>(action, body, signal);
+    gamePhpBattleContext.rememberBattle(body.battleId, result.version);
+    gamePhpBattleContext.rememberDebt(false, result.version);
+
+    return result;
+  }
+
+  private async detailWithMembers(detail: GameDetail, signal?: AbortSignal): Promise<GameDetail> {
+    detail.members = await this.readMemberList(detail.game.id, signal);
+
+    return detail;
+  }
+
+  private async readMemberList(gameId: number, signal?: AbortSignal): Promise<GameMember[]> {
+    try {
+      const rows = await this.requireData<unknown>('game.getMemberList', { gameId }, signal);
+
+      return gamePhpCardService.membersOf(rows);
+    } catch (error) {
+      if (error instanceof GameApiError && error.code === 'GAME_NOT_FOUND') return [];
+
+      throw error;
+    }
+  }
+
+  /** Локальный отказ без HTTP: PHP ещё не регистрирует этот action. */
+  private throwPhpUnsupported(): never {
+    throw new GameApiError('GAME_PHP_UNSUPPORTED', 'Действие пока не реализовано на PHP');
+  }
+
+  private emptyCurrentSpeed(): CurrentSpeed {
+    return {
+      horizontal: { stepsPerActionPoint: 0, direction: null },
+      vertical: { stepsPerActionPoint: 0, direction: null },
+    };
+  }
+
+  private async requireData<T>(action: string, payload: unknown, signal?: AbortSignal): Promise<T> {
+    const res = await this.engine.runAction<T>(action, payload, signal);
+    if (res.error) throw GameApiError.fromActionError(res.error);
+    if (!res.success || res.data === null) {
+      throw new GameApiError('GAME_EMPTY_RESPONSE', `${action} failed`);
+    }
+
+    return res.data;
+  }
+
+  private invitationOfPhp(row: unknown): GameInvitation {
+    const record = row && typeof row === 'object' ? (row as Record<string, unknown>) : {};
+    const status = record.status;
+    const invitationStatus =
+      status === 'sent' || status === 'viewed' || status === 'accepted' || status === 'declined' ? status : 'sent';
+
+    return {
+      id: Number(record.id),
+      gameId: Number(record.gameId),
+      inviterId: Number(record.inviterId),
+      inviterName: typeof record.inviterName === 'string' ? record.inviterName : '',
+      inviteeId: Number(record.inviteeId),
+      inviteeName: typeof record.inviteeName === 'string' ? record.inviteeName : '',
+      status: invitationStatus,
+      createdAt: typeof record.createdAt === 'string' ? record.createdAt : '',
+    };
+  }
+
+  private membershipOfPhp(row: Record<string, unknown>): GameCharacterMembership {
+    const status = row.status === 'submitted' || row.status === 'left' ? row.status : 'active';
+    const review = row.reviewState === 'changes_pending' || row.reviewState === 'returned' ? row.reviewState : 'clean';
+
+    return {
+      gameId: Number(row.gameId),
+      characterId: Number(row.characterId),
+      characterName: typeof row.characterName === 'string' ? row.characterName : '',
+      characterOwnerId: Number(row.characterOwnerId),
+      characterOwnerName: '',
+      role: 'player',
+      membershipStatus: status,
+      approvedCharacterVersion: characterHttpViewService.versionFromStored(row.approvedCharacterVersion),
+      reviewState: review,
+      membershipRevision: Number(row.membershipRevision ?? 0),
+      returnedAt: row.returnedAt == null ? null : String(row.returnedAt),
+      returnReason: typeof row.returnReason === 'string' ? row.returnReason : null,
+      returnMessageId: typeof row.returnMessageId === 'number' ? row.returnMessageId : null,
+      overlay: null,
+      visibility: Array.isArray(row.sectionVisibility) ? row.sectionVisibility : [],
+      osBonus: Number(row.osBonus ?? 0),
+      orBonus: Number(row.orBonus ?? 0),
+      olBonus: Number(row.olBonus ?? 0),
+      updatedAt: '',
+    };
   }
 }

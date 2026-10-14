@@ -43,7 +43,7 @@ function rollRule(
     sub_mechanics: string[];
   }>,
 ): Rule {
-  return rule({ id: null, code: 'roll', mechanics: [{ mechanicId: 5, mechanicPayload: { type: 'roll', data } }], });
+  return rule({ id: null, code: 'roll', mechanics: [{ mechanicId: 5, mechanicPayload: { type: 'roll', data } }] });
 }
 
 const ROLL_SUB_MECHANICS = ['six_one_rule', 'advantage_disadvantage'];
@@ -146,7 +146,9 @@ describe('RollEngine: пер-ролл механики (Критический �
       id: null,
       code: 'critical-strike',
       type: 'ability',
-      mechanics: [{ mechanicId: 6, mechanicPayload: { type: 'roll_score_adjust', data: { oneDelta: 1, faceDelta: -1 } } }],
+      mechanics: [
+        { mechanicId: 6, mechanicPayload: { type: 'roll_score_adjust', data: { oneDelta: 1, faceDelta: -1 } } },
+      ],
     }),
   ];
 

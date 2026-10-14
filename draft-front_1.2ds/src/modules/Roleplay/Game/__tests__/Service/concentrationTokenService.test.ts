@@ -213,13 +213,21 @@ describe('ConcentrationTokenService', () => {
     expect(concentrationTokenService.maxSpend(bought1plain, tokens, rules, 'check-hit')).toBe(1);
 
     const unflagged: Rule = { ...intellect, spec: { type: 'characteristic' } };
-    expect(concentrationTokenService.maxSpend(bought2, tokens, [unflagged, tokenResource, hitCheck], 'check-hit')).toBe(0);
-    const other: Rule = { ...intellect, code: 'resolve', spec: { type: 'characteristic', concentration_threshold: true } };
+    expect(concentrationTokenService.maxSpend(bought2, tokens, [unflagged, tokenResource, hitCheck], 'check-hit')).toBe(
+      0,
+    );
+    const other: Rule = {
+      ...intellect,
+      code: 'resolve',
+      spec: { type: 'characteristic', concentration_threshold: true },
+    };
     const flagged = version({
       abilities: bought2.abilities,
       characteristics: [{ ruleCode: 'resolve', base: dim(5, 2), modifiers: [] }],
     });
-    expect(concentrationTokenService.maxSpend(flagged, tokens, [other, tokenResource, hitCheck, peakSkill], 'check-hit')).toBe(3);
+    expect(
+      concentrationTokenService.maxSpend(flagged, tokens, [other, tokenResource, hitCheck, peakSkill], 'check-hit'),
+    ).toBe(3);
   });
 
   it('parseSpendAmount и tokenAdvantage: true → 1, число даёт delta', () => {

@@ -22,7 +22,6 @@ import type { CharacterGameContext } from '@/modules/Roleplay/Game/Dto/Character
 import type { GameLoot } from '@/modules/Roleplay/Game/Dto/GameLoot';
 import type { CreateLootData } from '@/modules/Roleplay/Game/Dto/CreateLootData';
 import type { DistributeLootData } from '@/modules/Roleplay/Game/Dto/DistributeLootData';
-import type { CreateCharacterData } from '@/modules/Roleplay/Character/Dto/Editor/CreateCharacterData';
 import type { GameJoinRequest } from '@/modules/Roleplay/Game/Dto/GameJoinRequest';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { GameInitiative } from '@/modules/Roleplay/Game/Dto/GameInitiative';
@@ -47,11 +46,21 @@ import type { GameRuntimeEntityBatchResult } from '@/modules/Roleplay/Game/Dto/G
 import type { GameRuntimeEntityProjection } from '@/modules/Roleplay/Game/Dto/GameRuntimeEntityProjection';
 import type { GameNpcListQuery } from '@/modules/Roleplay/Game/Dto/GameNpcListQuery';
 import type { GameNpcListResult } from '@/modules/Roleplay/Game/Dto/GameNpcListResult';
+import type { GameRoster } from '@/modules/Roleplay/Game/Dto/GameRoster';
+import type { GameSheets } from '@/modules/Roleplay/Game/Dto/GameSheets';
 import type { GameParticipantCandidateQuery } from '@/modules/Roleplay/Game/Dto/GameParticipantCandidateQuery';
 import type { GameParticipantCandidateResult } from '@/modules/Roleplay/Game/Dto/GameParticipantCandidateResult';
 import type { CharacterModerationProjection } from '@/modules/Roleplay/Game/Dto/CharacterModerationProjection';
 import type { GameCharacterModerationCommand } from '@/modules/Roleplay/Game/Dto/GameCharacterModerationCommand';
 import type { GameCharacterModerationResult } from '@/modules/Roleplay/Game/Dto/GameCharacterModerationResult';
+import type { GameBattleSheets } from '@/modules/Roleplay/Game/Dto/GameBattleSheets';
+import type { GamePhpStrikeAttack } from '@/modules/Roleplay/Game/Dto/GamePhpStrikeAttack';
+import type { GamePhpWideStrikeAttack } from '@/modules/Roleplay/Game/Dto/GamePhpWideStrikeAttack';
+import type { GamePhpStrikeResult } from '@/modules/Roleplay/Game/Dto/GamePhpStrikeResult';
+import type { GamePhpTurnResult } from '@/modules/Roleplay/Game/Dto/GamePhpTurnResult';
+import type { GamePhpWoundParty } from '@/modules/Roleplay/Game/Dto/GamePhpWoundParty';
+import type { GameInitiativeRollRequest } from '@/modules/Roleplay/Game/Dto/GameInitiativeRollRequest';
+import type { GameInitiativeRollResult } from '@/modules/Roleplay/Game/Dto/GameInitiativeRollResult';
 
 export interface IGameApi {
   getGames(signal?: AbortSignal): Promise<Game[]>;
@@ -86,11 +95,6 @@ export interface IGameApi {
     signal?: AbortSignal,
   ): Promise<CharacterModerationProjection[]>;
   getGameCharacters(gameId: number, signal?: AbortSignal): Promise<GameCharacterMembership[]>;
-  createGameCharacter(
-    gameId: number,
-    data: CreateCharacterData,
-    signal?: AbortSignal,
-  ): Promise<GameCharacterMembership>;
   submitCharacterToGame(gameId: number, characterId: number, signal?: AbortSignal): Promise<GameCharacterMembership>;
   moderateCharacter(
     gameId: number,
@@ -132,6 +136,7 @@ export interface IGameApi {
   addGameMember(gameId: number, userId: number, role: GameMemberRole, signal?: AbortSignal): Promise<GameMember>;
   removeGameMember(gameId: number, userId: number, signal?: AbortSignal): Promise<void>;
   getGameInvitations(gameId: number, signal?: AbortSignal): Promise<GameInvitation[]>;
+  getMyInvitations(signal?: AbortSignal): Promise<GameInvitation[]>;
   createInvitation(gameId: number, inviteeId: number, signal?: AbortSignal): Promise<GameInvitation>;
   respondInvitation(invitationId: number, action: 'accept' | 'decline', signal?: AbortSignal): Promise<GameInvitation>;
   getJoinRequests(gameId: number, signal?: AbortSignal): Promise<GameJoinRequest[]>;
@@ -162,6 +167,7 @@ export interface IGameApi {
   deleteLoot(lootId: number, signal?: AbortSignal): Promise<void>;
   getInitiative(gameId: number, signal?: AbortSignal): Promise<GameInitiative>;
   saveInitiative(gameId: number, data: GameInitiative, signal?: AbortSignal): Promise<GameInitiative>;
+  rollInitiative(body: GameInitiativeRollRequest, signal?: AbortSignal): Promise<GameInitiativeRollResult>;
   getCombatOverlays(gameId: number, signal?: AbortSignal): Promise<GameCombatOverlay[]>;
   getPendingActionEffects(
     gameId: number,
@@ -290,4 +296,108 @@ export interface IGameApi {
   getPendingCheckOffers(gameId: number, entityKey: CombatEntityKey, signal?: AbortSignal): Promise<CheckOffer[]>;
   getCheckOffersForEntity(gameId: number, entityKey: CombatEntityKey, signal?: AbortSignal): Promise<CheckOffer[]>;
   getCheckOffersForGame(gameId: number, signal?: AbortSignal): Promise<CheckOffer[]>;
+  getCharacterList(query: { gameId: number }, signal?: AbortSignal): Promise<GameCharacterMembership[]>;
+  getRoster(query: { gameId: number }, signal?: AbortSignal): Promise<GameRoster>;
+  getSheets(
+    query: { gameId: number; keys: { type: 'character' | 'npc'; id: number }[] },
+    signal?: AbortSignal,
+  ): Promise<GameSheets>;
+  getBattleSheets(query: { gameId: number; battleId: number }, signal?: AbortSignal): Promise<GameBattleSheets>;
+  declareStrike(
+    body: {
+      gameId: number;
+      battleId: number;
+      idempotencyKey: string;
+      expectedVersion: number;
+      attack: GamePhpStrikeAttack;
+    },
+    signal?: AbortSignal,
+  ): Promise<GamePhpStrikeResult>;
+  resolveStrike(
+    body: {
+      gameId: number;
+      battleId: number;
+      idempotencyKey: string;
+      expectedVersion: number;
+      expectedSheetVersion: number;
+      defense: {
+        reaction: string;
+        blockItemInventoryId?: number;
+        blockItemProfileIndex?: number;
+      };
+    },
+    signal?: AbortSignal,
+  ): Promise<GamePhpStrikeResult>;
+  declareWideStrike(
+    body: {
+      gameId: number;
+      battleId: number;
+      idempotencyKey: string;
+      expectedVersion: number;
+      attack: GamePhpWideStrikeAttack;
+    },
+    signal?: AbortSignal,
+  ): Promise<GamePhpStrikeResult>;
+  resolveWideStrike(
+    body: {
+      gameId: number;
+      battleId: number;
+      idempotencyKey: string;
+      expectedVersion: number;
+      defense: {
+        defenses: {
+          reaction: string;
+          expectedSheetVersion: number;
+          blockItemInventoryId?: number;
+          blockItemProfileIndex?: number;
+        }[];
+      };
+    },
+    signal?: AbortSignal,
+  ): Promise<GamePhpStrikeResult>;
+  woundAction(
+    body: {
+      gameId: number;
+      idempotencyKey: string;
+      operation: 'hold' | 'release' | 'bandage';
+      actor: GamePhpWoundParty;
+      target: GamePhpWoundParty;
+      stateId: number;
+      actionRuleCode: string;
+      expectedSheetVersion: number;
+      battleId: number;
+      expectedBattleVersion: number;
+    },
+    signal?: AbortSignal,
+  ): Promise<GamePhpTurnResult>;
+  endTurn(
+    body: {
+      gameId: number;
+      idempotencyKey: string;
+      battleId: number;
+      expectedBattleVersion: number;
+      expectedSheetVersion: number;
+    },
+    signal?: AbortSignal,
+  ): Promise<GamePhpTurnResult>;
+  continueAction(
+    body: {
+      gameId: number;
+      idempotencyKey: string;
+      battleId: number;
+      expectedBattleVersion: number;
+      expectedSheetVersion: number;
+    },
+    signal?: AbortSignal,
+  ): Promise<GamePhpTurnResult>;
+  abortAction(
+    body: {
+      gameId: number;
+      idempotencyKey: string;
+      battleId: number;
+      expectedBattleVersion: number;
+      expectedSheetVersion: number;
+    },
+    signal?: AbortSignal,
+  ): Promise<GamePhpTurnResult>;
 }

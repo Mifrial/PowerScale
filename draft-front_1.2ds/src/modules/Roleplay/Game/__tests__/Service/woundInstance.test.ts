@@ -101,6 +101,9 @@ describe('woundInstance', () => {
     expect(woundInstanceService.heldCount('character:9', states)).toBe(2);
     expect(woundInstanceService.freeHands('character:9', states)).toBe(0);
     expect(woundInstanceService.freeHands('character:8', states)).toBe(1);
+    const phpHeld = wound(3, { heldBy: { kind: 'character', id: 9 } });
+    expect(woundInstanceService.isHeld(phpHeld)).toBe(true);
+    expect(woundInstanceService.heldCount('character:9', [phpHeld])).toBe(1);
   });
 
   it('неполный sidecar не даёт NaN во вкладах', () => {

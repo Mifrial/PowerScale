@@ -35,7 +35,6 @@ function limitValue(value: number | null): string {
 
 const limitCells = computed(() => [
   { label: 'ОС', value: limitValue(props.detail.osPointsLimit) },
-  { label: 'ОЛ', value: limitValue(props.detail.olPointsLimit) },
   { label: 'ОР', value: limitValue(props.detail.orPointsLimit) },
   { label: 'Деньги', value: `${limitValue(props.detail.moneyLimit)} гм` },
 ]);

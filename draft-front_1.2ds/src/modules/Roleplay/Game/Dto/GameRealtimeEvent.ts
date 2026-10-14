@@ -5,10 +5,13 @@ export interface GameRealtimeEvent {
   gameId: number;
   eventId: string;
   cursor: number;
-  entityKey: CombatEntityKey;
+  entityKey?: CombatEntityKey;
   actualVersion: number;
   changedSections: string[];
-  eventKind: 'character.changed' | 'npc.changed';
+  eventKind?: 'character.changed' | 'npc.changed';
   sessionId: string | null;
-  battleId: string | null;
+  battleId: string | number | null;
+  source?: string;
+  sourceId?: number;
+  keys?: unknown[];
 }

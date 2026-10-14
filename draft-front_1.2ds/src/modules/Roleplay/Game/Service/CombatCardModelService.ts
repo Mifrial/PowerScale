@@ -65,6 +65,7 @@ export class CombatCardModelService {
     currentUserId: number | null,
     overlay: GameCombatOverlay | null,
     runtimeProjection: GameRuntimeEntityProjection | null = null,
+    liveVersion: CharacterVersion | null = null,
   ): CombatCardModel {
     const { kind, id } = this.parseCombatEntityKey(key);
     const membership = kind === 'character' ? memberships.find((item) => item.characterId === id) : undefined;
@@ -81,13 +82,14 @@ export class CombatCardModelService {
         ? runtimeProjection.version
         : null;
     const baseVersion =
-      kind === 'npc'
+      liveVersion ??
+      (kind === 'npc'
         ? hasProjectedNpc
           ? projectedNpcVersion
           : (npcs.find((npc) => npc.id === id)?.version ?? null)
         : hasProjectedCharacter
           ? projectedCharacterVersion
-          : (membership?.approvedCharacterVersion ?? null);
+          : (membership?.approvedCharacterVersion ?? null));
     const effectiveVersion = baseVersion;
 
     return {

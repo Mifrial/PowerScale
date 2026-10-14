@@ -93,15 +93,13 @@ export function resourceCosts(
   return [...totals.entries()].map(([code, amount]) => ({ resourceCode: code, amount }));
 }
 
-export function actionOdCost(
-  components: ActionComponent[] | undefined,
-  chosenAmount = 0,
-  resourceCode = '',
-): number {
+export function actionOdCost(components: ActionComponent[] | undefined, chosenAmount = 0, resourceCode = ''): number {
   if (!resourceCode) return 0;
 
-  return resourceCosts(components, chosenAmount, resourceCode).find((cost) => cost.resourceCode === resourceCode)
-    ?.amount ?? 0;
+  return (
+    resourceCosts(components, chosenAmount, resourceCode).find((cost) => cost.resourceCode === resourceCode)?.amount ??
+    0
+  );
 }
 
 export function actionUsesChosenCost(components: ActionComponent[] | undefined): boolean {
@@ -237,10 +235,7 @@ export function defenseOdCost(reaction: HitDefenseReaction | null, turned: boole
   return reactionOdCost(reaction, rules) + (turned && reaction !== 'ignore' && reaction ? turnAction(rules).odCost : 0);
 }
 
-export function defaultTouchAction(
-  rules: Rule[],
-  overview: CharacterOverview | null,
-): CombatActionOption | null {
+export function defaultTouchAction(rules: Rule[], overview: CharacterOverview | null): CombatActionOption | null {
   return (
     listAttackActions(rules, overview, 'strike').find((action) => {
       const rule = findRuleByRef(rules, action.code);

@@ -4,13 +4,10 @@ import { useRouter } from 'vue-router';
 import { debounce } from '@/modules/Core/UI/Utils/debounce';
 import { useCurrentUser } from '@/modules/Core/User/init';
 import { getGameApi, getGameRealtimePort } from '@/modules/Roleplay/Game/init';
-import { sheetAccessService } from '@/modules/Roleplay/Character/init';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
-import type { GameNpcSummary } from '@/modules/Roleplay/Game/Dto/GameNpcSummary';
+import type { GameRosterNpc } from '@/modules/Roleplay/Game/Dto/GameRosterNpc';
 import type { SheetVisibility } from '@/modules/Roleplay/Character/Dto/SheetVisibility';
-import type { SheetAccessContext } from '@/modules/Roleplay/Character/Interface/SheetAccessContext';
 import type { GameMember } from '@/modules/Roleplay/Game/Dto/GameMember';
-import type { User } from '@/modules/Core/User/Dto/User';
 import NpcCard, { type NpcCardData } from '@/modules/Roleplay/Game/Component/Detail/NpcCard.vue';
 import SheetVisibilityDialog from '@/modules/Roleplay/Game/Component/Detail/SheetVisibilityDialog.vue';
 import NpcMigrationDialog from '@/modules/Roleplay/Game/Component/Detail/NpcMigrationDialog.vue';
@@ -32,7 +29,7 @@ const props = defineProps<{
 const { currentUser } = useCurrentUser();
 const router = useRouter();
 
-const npcs = ref<GameNpcSummary[]>([]);
+const npcs = ref<GameRosterNpc[]>([]);
 const nextCursor = ref<string | null>(null);
 const loading = ref(false);
 const loadingMore = ref(false);
@@ -56,49 +53,18 @@ const cardOpen = ref(false);
 const selectedNpc = ref<GameNpc | null>(null);
 
 const visibilityOpen = ref(false);
-const visibilityTarget = ref<GameNpcSummary | null>(null);
+const visibilityTarget = ref<GameNpc | null>(null);
 
 const migrationOpen = ref(false);
 const migrationTarget = ref<GameNpc | null>(null);
 
-const activeNpcs = computed(() => npcs.value.filter((npc) => npc.status === 'active'));
-const proposedNpcs = computed(() => npcs.value.filter((npc) => npc.status === 'proposed'));
+const filteredNpcs = computed(() => npcs.value);
 
-// У НПС нет владельца (ownerId null); видимость для игроков — по зонам, ведущие — через роль 'gm'.
-function ctxFor(user: User, npc: GameNpcSummary): SheetAccessContext {
-  return { user, ownerId: null, characterId: npc.id, gameId: props.gameId };
+function npcNeedsMigration(npc: GameNpc): boolean {
+  return needsNpcMigration(npc, { rulesRevision: props.rulesRevision, spaceCode: props.spaceCode });
 }
 
-// Игрок видит только НПС по зонам видимости (+ свои предложения); ведущий — все.
-const visibleNpcs = computed(() => {
-  const user = currentUser.value;
-  if (!user) return [];
-
-  return activeNpcs.value.filter((npc) => sheetAccessService.canSeeSheet(user, npc.visibility, ctxFor(user, npc)));
-});
-
-const myProposals = computed(() => {
-  const user = currentUser.value;
-
-  return proposedNpcs.value.filter((npc) => npc.proposedBy?.userId === user?.id);
-});
-
-const moderationQueue = computed(() => (props.canManage ? proposedNpcs.value : []));
-
-// Поиск выполняется на Game read boundary; client-side filter оставлен только для visibility policy.
-const filteredNpcs = computed(() => visibleNpcs.value);
-const filteredMyProposals = computed(() => myProposals.value);
-
-function npcNeedsMigration(npc: GameNpcSummary | GameNpc): boolean {
-  if ('version' in npc) {
-    return needsNpcMigration(npc, { rulesRevision: props.rulesRevision, spaceCode: props.spaceCode });
-  }
-  if (npc.actualRulesRevision === null || props.rulesRevision === null || props.spaceCode === null) return false;
-
-  return npc.actualRulesRevision !== props.rulesRevision || npc.actualSpaceCode !== props.spaceCode;
-}
-
-async function openMigration(npc: GameNpcSummary | GameNpc): Promise<void> {
+async function openMigration(npc: GameNpc): Promise<void> {
   await run(async () => {
     migrationTarget.value = await getGameApi().getNpc(props.gameId, npc.id);
   });
@@ -112,11 +78,6 @@ function onCardMigrate(): void {
 
 function briefVisibility(): SheetVisibility {
   return [{ audience: 'all', sections: ['shortDescription'] }];
-}
-
-/** Виден ли НПС всем участникам (есть зона all). */
-function isVisibleToAll(npc: GameNpcSummary | GameNpc): boolean {
-  return npc.visibility.some((rule) => rule.audience === 'all');
 }
 
 async function load(append = false): Promise<void> {
@@ -152,16 +113,7 @@ async function refreshRealtimeNpc(npcId: number): Promise<boolean> {
     if (requestSequence !== realtimeRequestSequence) return false;
 
     npcs.value = npcs.value.map((npc) =>
-      npc.id === npcId
-        ? {
-            ...npc,
-            name: updated.name,
-            shortDescription: updated.shortDescription,
-            actualVersion: updated.actualVersion,
-            actualSpaceCode: updated.version?.spaceCode ?? npc.actualSpaceCode,
-            actualRulesRevision: updated.version?.rulesRevision ?? npc.actualRulesRevision,
-          }
-        : npc,
+      npc.id === npcId ? { ...npc, name: updated.name, actualVersion: updated.actualVersion } : npc,
     );
     selectedNpc.value = updated;
 
@@ -172,22 +124,14 @@ async function refreshRealtimeNpc(npcId: number): Promise<boolean> {
   if (requestSequence !== realtimeRequestSequence || !projection) return false;
 
   npcs.value = npcs.value.map((npc) =>
-    npc.id === npcId
-      ? {
-          ...npc,
-          name: projection.summary.name,
-          shortDescription: projection.summary.shortDescription,
-          actualSpaceCode: projection.actualSpaceCode,
-          actualRulesRevision: projection.actualRulesRevision,
-        }
-      : npc,
+    npc.id === npcId ? { ...npc, name: projection.summary.name, actualVersion: npc.actualVersion } : npc,
   );
 
   return true;
 }
 
 function onRealtimeEvent(event: GameRealtimeEvent): void {
-  if (event.gameId !== props.gameId || event.eventKind !== 'npc.changed') return;
+  if (event.gameId !== props.gameId || event.eventKind !== 'npc.changed' || !event.entityKey) return;
   const [kind, rawId] = event.entityKey.split(':');
   const npcId = Number(rawId);
   if (kind !== 'npc' || !Number.isInteger(npcId)) return;
@@ -279,21 +223,14 @@ async function propose(): Promise<void> {
   creating.value = false;
 }
 
-async function moderate(npcId: number, action: 'approve' | 'reject'): Promise<void> {
-  await run(async () => {
-    await getGameApi().moderateNpc(npcId, action);
-    await load();
-  });
-}
-
-async function openCard(npc: GameNpcSummary): Promise<void> {
+async function openCard(npc: GameRosterNpc): Promise<void> {
   await run(async () => {
     selectedNpc.value = await getGameApi().getNpc(props.gameId, npc.id);
     cardOpen.value = true;
   });
 }
 
-function openDetail(npc: GameNpcSummary): void {
+function openDetail(npc: GameRosterNpc): void {
   void router.push({ name: 'NpcDetail', params: { id: String(props.gameId), npcId: String(npc.id) } });
 }
 
@@ -320,9 +257,11 @@ async function handleDelete(npcId: number): Promise<void> {
   });
 }
 
-function openVisibility(npc: GameNpcSummary): void {
-  visibilityTarget.value = npc;
-  visibilityOpen.value = true;
+async function openVisibility(npc: GameRosterNpc): Promise<void> {
+  await run(async () => {
+    visibilityTarget.value = await getGameApi().getNpc(props.gameId, npc.id);
+    visibilityOpen.value = true;
+  });
 }
 
 async function saveVisibility(visibility: SheetVisibility): Promise<void> {
@@ -454,36 +393,6 @@ onUnmounted(() => {
                 <v-icon size="small">mdi-account-question</v-icon>
               </v-avatar>
               <span class="text-body-2">{{ npc.name }}</span>
-              <v-chip
-                v-if="canManage && npcNeedsMigration(npc)"
-                color="warning"
-                variant="tonal"
-                size="x-small"
-                class="flex-shrink-0"
-              >
-                Требует перехода
-              </v-chip>
-              <v-btn
-                v-if="canManage && npcNeedsMigration(npc)"
-                size="x-small"
-                variant="tonal"
-                color="warning"
-                class="flex-shrink-0"
-                @click.stop="openMigration(npc)"
-              >
-                Перевести
-              </v-btn>
-              <v-chip
-                v-if="canManage && !isVisibleToAll(npc)"
-                :color="npc.visibility.length === 0 ? 'grey' : 'info'"
-                variant="tonal"
-                size="x-small"
-              >
-                {{ npc.visibility.length === 0 ? 'Скрыт от игроков' : 'Выборочно' }}
-              </v-chip>
-              <span v-if="npc.shortDescription" class="text-caption text-medium-emphasis npc-brief">
-                {{ npc.shortDescription }}
-              </span>
               <v-btn v-if="canManage" icon variant="text" size="x-small" title="Поля НПС" @click.stop="openCard(npc)">
                 <v-icon>mdi-card-text-outline</v-icon>
               </v-btn>
@@ -504,43 +413,9 @@ onUnmounted(() => {
           <v-btn variant="text" size="small" :loading="loadingMore" @click="loadMore">Загрузить ещё</v-btn>
         </div>
 
-        <div
-          v-if="!loading && filteredNpcs.length === 0 && filteredMyProposals.length === 0"
-          class="text-center text-medium-emphasis pa-6"
-        >
+        <div v-if="!loading && filteredNpcs.length === 0" class="text-center text-medium-emphasis pa-6">
           НПС не найдены
         </div>
-
-        <!-- Свои предложения игрока -->
-        <div v-if="filteredMyProposals.length > 0" class="border-t">
-          <div class="text-caption text-medium-emphasis px-3 pt-3">Ваши предложения</div>
-          <v-list density="compact">
-            <v-list-item v-for="npc in filteredMyProposals" :key="npc.id" @click="openDetail(npc)">
-              <div class="d-flex align-center ga-2 py-1">
-                <span class="text-body-2">{{ npc.name }}</span>
-                <v-chip color="warning" variant="tonal" size="x-small">На модерации</v-chip>
-              </div>
-            </v-list-item>
-          </v-list>
-        </div>
-      </v-card-text>
-    </v-card>
-
-    <!-- Модерация предложений (ведущий) -->
-    <v-card v-if="moderationQueue.length > 0">
-      <v-card-title class="text-subtitle-1">Предложенные НПС</v-card-title>
-      <v-card-text class="pa-0">
-        <v-list density="compact">
-          <v-list-item v-for="npc in moderationQueue" :key="npc.id">
-            <div class="d-flex align-center ga-2 py-1">
-              <span class="text-body-2">{{ npc.name }}</span>
-              <span class="text-caption text-medium-emphasis">от {{ npc.proposedBy?.userName }}</span>
-              <v-spacer />
-              <v-btn size="x-small" color="success" variant="tonal" @click="moderate(npc.id, 'approve')">Принять</v-btn>
-              <v-btn size="x-small" color="error" variant="tonal" @click="moderate(npc.id, 'reject')">Отклонить</v-btn>
-            </div>
-          </v-list-item>
-        </v-list>
       </v-card-text>
     </v-card>
   </div>

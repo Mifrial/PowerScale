@@ -10,6 +10,7 @@ import type { CreateGameData } from '@/modules/Roleplay/Game/Dto/CreateGameData'
 import type { GameStatus } from '@/modules/Roleplay/Game/Enum/GameStatus';
 import type { GameVisibility } from '@/modules/Roleplay/Game/Enum/GameVisibility';
 import type { GameJoinPolicy } from '@/modules/Roleplay/Game/Enum/GameJoinPolicy';
+import { gamePhpMode } from '@/modules/Roleplay/Game/Service/Instance/gamePhpMode';
 
 const props = withDefaults(
   defineProps<{
@@ -45,7 +46,6 @@ const status = ref<GameStatus>('draft');
 const visibility = ref<GameVisibility>('all');
 const joinPolicy = ref<GameJoinPolicy>('anyone');
 const osPointsLimit = ref<number | null>(null);
-const olPointsLimit = ref<number | null>(null);
 const orPointsLimit = ref<number | null>(null);
 const moneyLimit = ref<number | null>(null);
 const tags = ref<string[]>([]);
@@ -88,12 +88,10 @@ async function onSpaceSelect(): Promise<void> {
   await loadRevisions(space.id, null);
 }
 
-function setLimit(field: 'os' | 'ol' | 'or' | 'money', value: number | null): void {
-  const next = value;
-  if (field === 'os') osPointsLimit.value = next;
-  else if (field === 'ol') olPointsLimit.value = next;
-  else if (field === 'or') orPointsLimit.value = next;
-  else moneyLimit.value = next;
+function setLimit(field: 'os' | 'or' | 'money', value: number | null): void {
+  if (field === 'os') osPointsLimit.value = value;
+  else if (field === 'or') orPointsLimit.value = value;
+  else moneyLimit.value = value;
 }
 
 function submit(): void {
@@ -110,7 +108,7 @@ function submit(): void {
     visibility: visibility.value,
     joinPolicy: joinPolicy.value,
     osPointsLimit: osPointsLimit.value,
-    olPointsLimit: olPointsLimit.value,
+    olPointsLimit: null,
     orPointsLimit: orPointsLimit.value,
     moneyLimit: moneyLimit.value,
     tags: tags.value,
@@ -130,7 +128,6 @@ onMounted(async () => {
   visibility.value = initial.visibility;
   joinPolicy.value = initial.joinPolicy;
   osPointsLimit.value = initial.osPointsLimit;
-  olPointsLimit.value = initial.olPointsLimit;
   orPointsLimit.value = initial.orPointsLimit;
   moneyLimit.value = initial.moneyLimit;
   tags.value = [...initial.tags];
@@ -229,15 +226,6 @@ onMounted(async () => {
           class="flex-grow-1"
           @update:model-value="setLimit('os', $event)"
         />
-        <ClampedNumberField
-          :model-value="olPointsLimit as number"
-          label="ОЛ"
-          :min="0"
-          nullable
-          hide-details="auto"
-          class="flex-grow-1"
-          @update:model-value="setLimit('ol', $event)"
-        />
       </div>
       <div class="d-flex ga-4 mb-3">
         <ClampedNumberField
@@ -260,11 +248,13 @@ onMounted(async () => {
         />
       </div>
 
-      <v-divider class="my-4" />
-
-      <div class="text-subtitle-2 mb-2">Теги</div>
-      <v-combobox v-model="tags" label="Теги игры (жанр, сеттинг)" multiple chips small-chips class="mb-2" />
-      <v-combobox v-model="forbiddenTags" label="Запретные теги (ограничения)" multiple chips small-chips />
+      <!-- GAP post-release: теги игры PHP не хранит; не путать с признаками правил. -->
+      <template v-if="!gamePhpMode.isEnabled()">
+        <v-divider class="my-4" />
+        <div class="text-subtitle-2 mb-2">Теги</div>
+        <v-combobox v-model="tags" label="Теги игры (жанр, сеттинг)" multiple chips small-chips class="mb-2" />
+        <v-combobox v-model="forbiddenTags" label="Запретные теги (ограничения)" multiple chips small-chips />
+      </template>
     </v-card-text>
     <v-card-actions class="pa-4">
       <v-btn color="primary" :disabled="!canSubmit || submitLoading" :loading="submitLoading" @click="submit">

@@ -13,7 +13,12 @@ const RULES: Rule[] = [
     name: 'Бросок',
     description: '',
     spaceId: 1,
-    mechanics: [{ mechanicId: 5, mechanicPayload: { type: 'roll', data: { efficiency: 3, sub_mechanics: ['advantage_disadvantage'] } } }],
+    mechanics: [
+      {
+        mechanicId: 5,
+        mechanicPayload: { type: 'roll', data: { efficiency: 3, sub_mechanics: ['advantage_disadvantage'] } },
+      },
+    ],
     createdAt: 1787400000,
   },
   {

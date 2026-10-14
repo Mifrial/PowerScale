@@ -67,13 +67,15 @@ function validateInitiative(data: GameInitiative): void {
   }
 }
 
-export function configureMockGameState(options: {
-  validateParticipants?: (
-    gameId: number,
-    participantEntityKeys: readonly CombatEntityKey[],
-  ) => boolean | Promise<boolean>;
-  resolveParticipants?: (gameId: number) => readonly CombatEntityKey[] | Promise<readonly CombatEntityKey[]>;
-} = {}): void {
+export function configureMockGameState(
+  options: {
+    validateParticipants?: (
+      gameId: number,
+      participantEntityKeys: readonly CombatEntityKey[],
+    ) => boolean | Promise<boolean>;
+    resolveParticipants?: (gameId: number) => readonly CombatEntityKey[] | Promise<readonly CombatEntityKey[]>;
+  } = {},
+): void {
   participantValidator = options.validateParticipants ?? (async () => true);
   participantResolver = options.resolveParticipants ?? (async () => []);
 }

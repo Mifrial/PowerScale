@@ -1,5 +1,4 @@
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
-import type { GameNpcSummary } from '@/modules/Roleplay/Game/Dto/GameNpcSummary';
 import type { GameNpcListQuery } from '@/modules/Roleplay/Game/Dto/GameNpcListQuery';
 import type { GameNpcListResult } from '@/modules/Roleplay/Game/Dto/GameNpcListResult';
 import type { CreateNpcData } from '@/modules/Roleplay/Game/Dto/CreateNpcData';
@@ -179,8 +178,11 @@ export async function fetchNpcSummaries(query: GameNpcListQuery, _signal?: Abort
   const offset = query.cursor ? Number(query.cursor) : 0;
   const start = Number.isInteger(offset) && offset >= 0 ? offset : 0;
   const limit = Math.min(Math.max(query.limit ?? 50, 1), 100);
-  const user = currentUser();
-  const items = filtered.slice(start, start + limit).map((npc) => toNpcSummary(npc, user));
+  const items = filtered.slice(start, start + limit).map((npc) => ({
+    id: npc.id,
+    name: npc.name,
+    actualVersion: npc.actualVersion,
+  }));
   const nextOffset = start + items.length;
 
   return {
@@ -195,17 +197,6 @@ export async function fetchNpc(gameId: number, npcId: number, _signal?: AbortSig
   if (!npc) throw new Error('НПС не найден');
 
   return visibleNpcProjection(npc);
-}
-
-function toNpcSummary(npc: GameNpc, user: User | null): GameNpcSummary {
-  const { version: _version, ...summary } = cloneData(npc);
-
-  return {
-    ...summary,
-    visibility: safeVisibility(npc, user),
-    actualSpaceCode: npc.version?.spaceCode ?? null,
-    actualRulesRevision: npc.version?.rulesRevision ?? null,
-  };
 }
 
 function currentUser(): User | null {

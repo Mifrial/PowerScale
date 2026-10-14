@@ -456,7 +456,12 @@ describe('ActionEffectService', () => {
     ];
 
     expect(
-      actionEffectService.afterDeclaredAction(pending, 1, { isAttack: false, component: 'strike', baseCost: 1 }, 'action-points'),
+      actionEffectService.afterDeclaredAction(
+        pending,
+        1,
+        { isAttack: false, component: 'strike', baseCost: 1 },
+        'action-points',
+      ),
     ).toEqual([
       {
         sourceRuleCode: 'riskovannyy-udar',
@@ -478,7 +483,12 @@ describe('ActionEffectService', () => {
     ];
 
     expect(
-      actionEffectService.afterDeclaredAction(pending, 2, { isAttack: false, component: 'strike', baseCost: 2 }, 'action-points'),
+      actionEffectService.afterDeclaredAction(
+        pending,
+        2,
+        { isAttack: false, component: 'strike', baseCost: 2 },
+        'action-points',
+      ),
     ).toEqual([]);
   });
 

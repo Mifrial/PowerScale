@@ -28,9 +28,7 @@ function rngFromFaces(faces: number[]): DiceRng {
 describe('resolveInjuryProcedure', () => {
   it('карточка с другим кодом берёт version механики injury', () => {
     injuryProcedureRegistry.register({ ...injuryV1, version: '2.0.0' });
-    const mechanics: Mechanic[] = [
-      { id: 15, code: 'injury', name: 'Увечье', description: '', version: '2.0.0' },
-    ];
+    const mechanics: Mechanic[] = [{ id: 15, code: 'injury', name: 'Увечье', description: '', version: '2.0.0' }];
     const rule: Rule = {
       id: null,
       code: 'injury-card',

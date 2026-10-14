@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
+import { useCurrentUser, useUserCatalog } from '@/modules/Core/User/init';
+import type { User } from '@/modules/Core/User/Dto/User';
 import { useGameStore } from '@/modules/Roleplay/Game/Store/games';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
+import { joinRequestCaptionService } from '@/modules/Roleplay/Game/Service/Instance/joinRequestCaptionService';
 import type { GameJoinRequest } from '@/modules/Roleplay/Game/Dto/GameJoinRequest';
 
 const props = defineProps<{
@@ -12,6 +15,8 @@ const props = defineProps<{
 }>();
 
 const store = useGameStore();
+const catalog = useUserCatalog();
+const session = useCurrentUser();
 
 const requests = ref<GameJoinRequest[]>([]);
 const loading = ref(false);
@@ -19,11 +24,28 @@ const error = ref<string | null>(null);
 
 const pendingRequests = computed(() => requests.value.filter((request) => request.status === 'pending'));
 
+function userOf(userId: number): User | undefined {
+  const current = session.currentUser.value;
+  if (current?.id === userId) return current;
+
+  return catalog.users.value.find((user) => user.id === userId);
+}
+
+function requestName(userId: number): string {
+  return joinRequestCaptionService.caption(userOf(userId), userId).name;
+}
+
+function requestInitials(userId: number): string {
+  return joinRequestCaptionService.caption(userOf(userId), userId).initials;
+}
+
 async function load(): Promise<void> {
   loading.value = true;
   error.value = null;
   try {
     requests.value = await getGameApi().getJoinRequests(props.gameId);
+    const pendingIds = [...new Set(pendingRequests.value.map((request) => request.userId))];
+    await catalog.ensureUsers(pendingIds);
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Не удалось загрузить заявки на вступление';
   } finally {
@@ -36,7 +58,12 @@ async function respond(request: GameJoinRequest, action: 'accept' | 'decline'): 
     await getGameApi().respondJoinRequest(props.gameId, request.userId, action);
     // Принятие добавляет участника в gameDetails; синхронизируем открытую карточку (snapshot стора).
     if (action === 'accept') {
-      store.addMember({ userId: request.userId, userName: request.userName, role: 'player', permissions: [] });
+      store.addMember({
+        userId: request.userId,
+        userName: requestName(request.userId),
+        role: 'player',
+        permissions: [],
+      });
     }
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Не удалось применить решение';
@@ -66,9 +93,9 @@ watch(
         <v-list-item v-for="request in pendingRequests" :key="request.userId">
           <div class="d-flex align-center ga-2 py-1">
             <v-avatar color="primary" size="28" variant="tonal" class="flex-shrink-0">
-              <span class="text-body-2">{{ request.userName.charAt(0) }}</span>
+              <span class="text-body-2">{{ requestInitials(request.userId) }}</span>
             </v-avatar>
-            <span class="text-body-2">{{ request.userName }}</span>
+            <span class="text-body-2">{{ requestName(request.userId) }}</span>
             <v-spacer />
             <v-btn size="x-small" color="success" variant="tonal" @click="respond(request, 'accept')">Принять</v-btn>
             <v-btn size="x-small" color="error" variant="tonal" @click="respond(request, 'decline')">Отклонить</v-btn>

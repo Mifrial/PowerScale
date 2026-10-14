@@ -18,7 +18,7 @@ import type { ChatSpeakerOption } from '@/modules/Messages/Chat/Dto/ChatSpeakerO
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { CharacterModerationProjection } from '@/modules/Roleplay/Game/Dto/CharacterModerationProjection';
 import type { GameDetail } from '@/modules/Roleplay/Game/Dto/GameDetail';
-import type { GameNpcSummary } from '@/modules/Roleplay/Game/Dto/GameNpcSummary';
+import type { GameRosterNpc } from '@/modules/Roleplay/Game/Dto/GameRosterNpc';
 import type { GameRuntimeEntityProjection } from '@/modules/Roleplay/Game/Dto/GameRuntimeEntityProjection';
 import type { GameRealtimeEvent } from '@/modules/Roleplay/Game/Dto/GameRealtimeEvent';
 import type { ITokenSource } from '@/modules/Messages/Chat/Interface/ITokenSource';
@@ -38,6 +38,10 @@ import AttackLaunchDialog from '@/modules/Roleplay/Game/Component/AttackLaunchDi
 import SpellCastDialog from '@/modules/Roleplay/Game/Component/SpellCastDialog.vue';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
+import { gamePhpMode } from '@/modules/Roleplay/Game/Service/Instance/gamePhpMode';
+import { gamePhpBattleContext } from '@/modules/Roleplay/Game/Service/Instance/gamePhpBattleContext';
+import { gameBattleSheetVersionService } from '@/modules/Roleplay/Game/Service/Instance/gameBattleSheetVersionService';
+import type { GameBattleSheets } from '@/modules/Roleplay/Game/Dto/GameBattleSheets';
 
 import type { CheckOffer } from '@/modules/Roleplay/Game/Dto/CheckOffer';
 import type { AttackOverview } from '@/modules/Roleplay/Character/Dto/Overview/AttackOverview';
@@ -100,8 +104,11 @@ const showStopSession = computed(
   () => props.canEdit && gameStatusTransitionsService.canStopSession(props.detail.game.sessionRunning),
 );
 
-async function ensureSessionForInitiative(): Promise<void> {
+async function ensureSessionForInitiative(participantKeys: CombatEntityKey[] = []): Promise<void> {
   if (!props.canEdit) throw new Error('Только ведущий может запустить игровую сессию');
+  if (gamePhpMode.isEnabled()) {
+    return;
+  }
 
   if (!gameStateSnapshot.value?.session && gameStatusTransitionsService.canStartGame(props.detail.game.status)) {
     await startSession();
@@ -124,6 +131,9 @@ async function ensureSessionForInitiative(): Promise<void> {
     gameStateSnapshot.value = lifecycleResult.snapshot;
   }
   if (!gameStateSnapshot.value.session) throw new Error('Игровая session не создана');
+  if (participantKeys.length === 0) {
+    throw new Error('Выберите хотя бы одного участника');
+  }
   if (gameStateSnapshot.value.battle) return;
 
   const battleResult = await getGameApi().startGameBattle({
@@ -134,6 +144,11 @@ async function ensureSessionForInitiative(): Promise<void> {
     battleId: null,
     expectedSessionStateVersion: gameStateSnapshot.value.session.sessionStateVersion,
     payload: {},
+    participants: participantKeys.map((key) => {
+      const parsed = combatCardModelService.parseCombatEntityKey(key);
+
+      return { type: parsed.kind, id: parsed.id };
+    }),
   });
   if (battleResult.kind === 'conflict') throw new Error(battleResult.conflict.code);
   gameStateSnapshot.value = battleResult.snapshot;
@@ -298,6 +313,7 @@ const eligibleMemberships = computed(() => {
 
 // Макросы быстрых бросков per entityKey (CD-8): звёздочка в карточке и блок в сайдбаре.
 const quickRolls = ref<Record<string, string[]>>({});
+const liveSheetByKey = ref<Record<string, CharacterVersion>>({});
 
 // «От лица кого» писать: игрок — только свои approved-персонажи; ведущий — роль ведущего,
 // свои approved-персонажи и НПС игры (ТР §8 «Чат игры»).
@@ -351,19 +367,36 @@ async function load(): Promise<void> {
       // Legacy Game API не имеет snapshot boundary; сохраняем совместимость до его подключения.
       snapshot = null;
     }
-    const membershipsResult = await getGameApi().getGameCharacters(requestGameId);
+    const membershipsResult = gamePhpMode.isEnabled()
+      ? await getGameApi().getCharacterList({ gameId: requestGameId })
+      : await getGameApi().getGameCharacters(requestGameId);
     if (requestSequence !== loadSequence || requestGameId !== gameId.value) return;
     const characterKeys = membershipsResult.map(
       (membership) => `character:${membership.characterId}` as CombatEntityKey,
     );
     const projectionLevel = 'summary';
     const [runtimeResult, npcResult, moderationProjections] = await Promise.all([
-      getGameApi().getRuntimeEntities(requestGameId, { entityKeys: characterKeys, projectionLevel }),
-      getGameApi().getNpcSummaries({ gameId: requestGameId, status: 'active', limit: 100 }),
-      getGameApi().getCharacterModerationProjections(
-        requestGameId,
-        membershipsResult.map((membership) => membership.characterId),
-      ),
+      gamePhpMode.isEnabled()
+        ? Promise.resolve({ projections: [] as GameRuntimeEntityProjection[] })
+        : getGameApi().getRuntimeEntities(requestGameId, { entityKeys: characterKeys, projectionLevel }),
+      getGameApi()
+        .getNpcSummaries({ gameId: requestGameId, status: 'active', limit: 100 })
+        .catch(() => ({ items: [] })),
+      gamePhpMode.isEnabled()
+        ? Promise.resolve(
+            membershipsResult.map((membership) => ({
+              characterId: membership.characterId,
+              approvedCharacterVersion: membership.approvedCharacterVersion,
+              actualCharacterVersion: membership.approvedCharacterVersion,
+              actualVersion: null,
+              diff: null,
+              reviewState: membership.reviewState,
+            })),
+          )
+        : getGameApi().getCharacterModerationProjections(
+            requestGameId,
+            membershipsResult.map((membership) => membership.characterId),
+          ),
     ]);
     if (requestSequence !== loadSequence || requestGameId !== gameId.value) return;
     gameStateSnapshot.value = snapshot;
@@ -397,7 +430,9 @@ async function load(): Promise<void> {
       snapshot?.battle?.initiative?.participants.map((participant) => participant.id) ?? [],
       requestGameId,
     );
-    const nextQuickRolls = await getGameApi().getQuickRolls(requestGameId);
+    const nextQuickRolls = await getGameApi()
+      .getQuickRolls(requestGameId)
+      .catch(() => ({}) as Record<string, string[]>);
     if (requestSequence !== loadSequence || requestGameId !== gameId.value) return;
     quickRolls.value = nextQuickRolls;
     await refreshProcessSessions(requestGameId, requestSequence);
@@ -407,10 +442,12 @@ async function load(): Promise<void> {
     mechanics.value = nextMechanics;
     await loadRevision(requestSpaceId, requestRulesRevision, requestGameId, requestSequence);
     connectRealtime(requestGameId);
-    try {
-      await syncRealtime(requestGameId, characterKeys, requestSessionRunning, requestSequence);
-    } catch {
-      // Основной snapshot уже загружен; sync transport подключится при следующем reload/reconnect.
+    if (!gamePhpMode.isEnabled()) {
+      try {
+        await syncRealtime(requestGameId, characterKeys, requestSessionRunning, requestSequence);
+      } catch {
+        // Основной snapshot уже загружен; sync transport подключится при следующем reload/reconnect.
+      }
     }
   } catch (e) {
     if (requestSequence === loadSequence) {
@@ -421,10 +458,21 @@ async function load(): Promise<void> {
   }
 }
 
-function toLegacyNpc(summary: GameNpcSummary): GameNpc {
-  const { actualSpaceCode: _actualSpaceCode, actualRulesRevision: _actualRulesRevision, ...npc } = summary;
-
-  return { ...npc, version: null };
+function toLegacyNpc(summary: GameRosterNpc): GameNpc {
+  return {
+    id: summary.id,
+    gameId: gameId.value,
+    name: summary.name,
+    shortDescription: null,
+    fullDescription: null,
+    tags: [],
+    version: null,
+    actualVersion: summary.actualVersion,
+    status: 'active',
+    proposedBy: null,
+    visibility: [],
+    updatedAt: '',
+  };
 }
 
 function disconnectRealtime(): void {
@@ -442,7 +490,18 @@ function isKnownRealtimeEntity(entityKey: CombatEntityKey): boolean {
 
 async function applyRealtimeEvent(event: GameRealtimeEvent): Promise<boolean> {
   if (event.gameId !== gameId.value || event.cursor <= realtimeCursor) return true;
-  if (!isKnownRealtimeEntity(event.entityKey)) {
+  if (event.source === 'strike' || event.source === 'turn' || event.source === 'wound') {
+    const battleId = typeof event.battleId === 'number' ? event.battleId : Number(event.battleId);
+    if (Number.isInteger(battleId) && battleId > 0) {
+      gamePhpBattleContext.rememberBattle(battleId, gamePhpBattleContext.battleVersion);
+      const sheets = await getGameApi().getBattleSheets({ gameId: event.gameId, battleId });
+      applyBattleSheets(sheets);
+    }
+    realtimeCursor = event.cursor;
+
+    return true;
+  }
+  if (!event.entityKey || !isKnownRealtimeEntity(event.entityKey)) {
     realtimeCursor = event.cursor;
 
     return true;
@@ -522,7 +581,12 @@ async function syncRealtime(
 async function recoverRealtime(): Promise<void> {
   if (realtimeRecoveryPromise) return realtimeRecoveryPromise;
 
-  realtimeRecoveryPromise = syncRealtime(gameId.value, realtimeEntityKeys(), props.detail.game.sessionRunning, loadSequence)
+  realtimeRecoveryPromise = syncRealtime(
+    gameId.value,
+    realtimeEntityKeys(),
+    props.detail.game.sessionRunning,
+    loadSequence,
+  )
     .then((recovered) => {
       if (recovered) realtimeSyncRequired = false;
     })
@@ -587,6 +651,32 @@ async function ensureRuntimeProjection(entityKey: CombatEntityKey): Promise<void
   } catch {
     // The dialog keeps its summary fallback when a full projection is unavailable.
   }
+}
+
+function applyBattleSheets(payload: GameBattleSheets): void {
+  const next: Record<string, CharacterVersion> = { ...liveSheetByKey.value };
+  const nextRuntime: Record<CombatEntityKey, GameRuntimeEntityProjection> = { ...runtimeByKey.value };
+  for (const row of payload.sheets) {
+    const key = `${row.type}:${row.id}` as CombatEntityKey;
+    const version = gameBattleSheetVersionService.toVersion(row);
+    next[key] = version;
+    gamePhpBattleContext.rememberSheet(key, row.actualVersion);
+    nextRuntime[key] = {
+      entityKey: key,
+      kind: row.type,
+      id: row.id,
+      actualVersion: row.actualVersion,
+      actualSpaceCode: null,
+      actualRulesRevision: row.rulesRevision ?? null,
+      source: row.type === 'npc' ? 'npcActual' : 'characterActual',
+      summary: { name: row.name, shortDescription: null },
+      projectionLevel: 'full',
+      version,
+      visibleSections: [],
+    };
+  }
+  liveSheetByKey.value = next;
+  runtimeByKey.value = nextRuntime;
 }
 
 function applyRuntimeProjection(projection: GameRuntimeEntityProjection): void {
@@ -675,6 +765,7 @@ async function loadRuntimeProjections(
 }
 
 async function ensureRuntimeProjectionsForInitiative(entityKeys: string[]): Promise<void> {
+  if (gamePhpMode.isEnabled()) return;
   const loaded = await loadRuntimeProjections(entityKeys);
   if (!loaded) throw new Error('Не удалось загрузить полные листы выбранных участников');
 }
@@ -764,7 +855,7 @@ const initiativeKeys = ref<string[]>([]);
 
 function onInitiativeParticipants(keys: string[]): void {
   initiativeKeys.value = keys;
-  void loadRuntimeProjections(keys);
+  if (!gamePhpMode.isEnabled()) void loadRuntimeProjections(keys);
 }
 
 function onInitiativeRuntimeProjections(projections: GameRuntimeEntityProjection[]): void {
@@ -782,8 +873,10 @@ const processSessionsByEntity = ref<Record<CombatEntityKey, ProcessSession>>({})
 
 function onOverlayChanged(): void {
   overlayRevision.value += 1;
-  invalidateRuntimeProjections();
-  void refreshProcessSessions();
+  if (!gamePhpMode.isEnabled()) {
+    invalidateRuntimeProjections();
+    void refreshProcessSessions();
+  }
 }
 
 async function refreshProcessSessions(
@@ -1204,7 +1297,7 @@ onUnmounted(() => {
           :space-id="detail.game.spaceId"
           :chat-id="chatId"
           :can-edit="canEdit"
-          :characters="eligibleMemberships"
+          :characters="memberships"
           :npcs="npcs"
           :runtime-projections="runtimeByKey"
           :rules="revisionRules"
@@ -1279,6 +1372,7 @@ onUnmounted(() => {
       :overlay-revision="overlayRevision"
       :process-sessions="processSessionsByEntity"
       :runtime-projection="cardKey ? (runtimeByKey[cardKey] ?? null) : null"
+      :live-version="cardKey ? (liveSheetByKey[cardKey] ?? null) : null"
       @update:open="onCloseCard"
       @toggle-quick-roll="toggleQuickRoll"
       @overlay-changed="onOverlayChanged"

@@ -1,4 +1,5 @@
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
+import type { GamePhpParticipant } from '@/modules/Roleplay/Game/Dto/GamePhpParticipant';
 
 interface GameLifecycleCommandBase {
   commandId: string;
@@ -19,6 +20,7 @@ interface StartBattleCommand extends GameLifecycleCommandBase {
   sessionId: string;
   battleId: null;
   expectedSessionStateVersion: number;
+  participants?: GamePhpParticipant[];
 }
 
 interface EndBattleCommand extends GameLifecycleCommandBase {

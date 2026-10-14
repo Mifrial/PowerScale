@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useGameStore } from '@/modules/Roleplay/Game/Store/games';
-import { getUserApi } from '@/modules/Core/User/init';
+import { getUserApi, useCurrentUser, useUserCatalog } from '@/modules/Core/User/init';
+import { joinRequestCaptionService } from '@/modules/Roleplay/Game/Service/Instance/joinRequestCaptionService';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
 import { GAME_MEMBER_ROLE_OPTIONS } from '@/modules/Roleplay/Game/Constant/GameMemberRole/GAME_MEMBER_ROLE_OPTIONS';
 import { GAME_MEMBER_ROLE_COLOR } from '@/modules/Roleplay/Game/Constant/GameMemberRole/GAME_MEMBER_ROLE_COLOR';
@@ -24,6 +25,31 @@ const props = defineProps<{
 }>();
 
 const store = useGameStore();
+const catalog = useUserCatalog();
+const session = useCurrentUser();
+
+function knownUser(userId: number): User | undefined {
+  const current = session.currentUser.value;
+  if (current?.id === userId) return current;
+
+  return catalog.users.value.find((candidate) => candidate.id === userId);
+}
+
+watch(
+  () => props.detail.members.map((member) => member.userId).join(','),
+  () => {
+    void catalog.ensureUsers(props.detail.members.map((member) => member.userId));
+  },
+  { immediate: true },
+);
+
+function memberName(member: GameMember): string {
+  return joinRequestCaptionService.caption(knownUser(member.userId), member.userId).name;
+}
+
+function memberInitials(member: GameMember): string {
+  return joinRequestCaptionService.caption(knownUser(member.userId), member.userId).initials;
+}
 
 const sliderOpen = ref(false);
 const sliderUserId = ref<number | null>(null);
@@ -150,9 +176,9 @@ function confirmRemove(): void {
           >
             <div class="d-flex align-center ga-2 py-1">
               <v-avatar color="primary" size="28" variant="tonal" class="member-avatar">
-                <span class="text-body-2">{{ member.userName.charAt(0) }}</span>
+                <span class="text-body-2">{{ memberInitials(member) }}</span>
               </v-avatar>
-              <span class="text-body-2">{{ member.userName }}</span>
+              <span class="text-body-2">{{ memberName(member) }}</span>
               <v-spacer />
               <v-select
                 v-if="canManage && member.role !== 'owner'"
@@ -252,7 +278,7 @@ function confirmRemove(): void {
   <v-dialog v-model="removeDialogOpen" max-width="400">
     <v-card>
       <v-card-title>Удалить участника</v-card-title>
-      <v-card-text>Убрать {{ removeTarget?.userName }} из участников игры?</v-card-text>
+      <v-card-text>Убрать {{ removeTarget ? memberName(removeTarget) : '' }} из участников игры?</v-card-text>
       <v-card-actions>
         <v-btn color="error" @click="confirmRemove">Удалить</v-btn>
         <v-btn variant="text" @click="removeDialogOpen = false">Отмена</v-btn>

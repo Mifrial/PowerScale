@@ -54,6 +54,13 @@ export async function fetchGameInvitations(gameId: number, _signal?: AbortSignal
   return gameInvitations.filter((invitation) => invitation.gameId === gameId);
 }
 
+export async function fetchMyInvitations(_signal?: AbortSignal): Promise<GameInvitation[]> {
+  await delay(150);
+  const currentId = getCurrentUserId();
+
+  return gameInvitations.filter((invitation) => invitation.inviteeId === currentId);
+}
+
 export async function createInvitation(
   gameId: number,
   inviteeId: number,

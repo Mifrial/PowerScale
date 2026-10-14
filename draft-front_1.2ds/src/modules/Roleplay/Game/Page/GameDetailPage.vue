@@ -190,7 +190,8 @@ async function load(): Promise<void> {
   ) {
     router.replace({ name: 'NotFound' });
   }
-  if (loaded) {
+  // game.getJoinRequests — список для ведущего; игрок получает GAME_NOT_FOUND.
+  if (loaded && gameAccessService.canModerateGame(currentUser.value, loaded)) {
     try {
       joinRequests.value = await getGameApi().getJoinRequests(id);
     } catch {
@@ -256,6 +257,10 @@ watch(activeTab, (tab) => {
   if (tab === 'discussion') void loadDiscussionContext();
 });
 
+watch(isMember, (member) => {
+  if (!member && activeTab.value === 'game-chat') activeTab.value = 'overview';
+});
+
 watch(detail, (value) => {
   if (!value) {
     spaceName.value = null;
@@ -319,7 +324,7 @@ watch(detail, (value) => {
         <v-tab value="npcs">НПС</v-tab>
         <v-tab value="loot">Добыча</v-tab>
         <v-tab value="chronicle">Летопись</v-tab>
-        <v-tab value="game-chat">Чат игры</v-tab>
+        <v-tab v-if="isMember" value="game-chat">Чат игры</v-tab>
         <v-tab value="discussion">Обсуждение</v-tab>
       </v-tabs>
 
@@ -392,7 +397,7 @@ watch(detail, (value) => {
             :rules-revision="detail.game.rulesRevision"
           />
         </v-window-item>
-        <v-window-item value="game-chat">
+        <v-window-item v-if="isMember" value="game-chat">
           <!-- Живой игровой чат; монтируем только при открытой вкладке (D7) -->
           <GameChatTab
             v-if="activeTab === 'game-chat'"

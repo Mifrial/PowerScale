@@ -13,6 +13,8 @@ describe('BlockHitService', () => {
     const next = blockHitService.withBlockLayers(
       { armor: [], constantDefense: 0, tiers: [], shield: null },
       {
+        inventoryItemId: 1,
+        profileIndex: 0,
         itemRuleCode: 'classic-shield',
         itemName: 'Классический щит',
         efficiency: { base: 5, size: 0 },

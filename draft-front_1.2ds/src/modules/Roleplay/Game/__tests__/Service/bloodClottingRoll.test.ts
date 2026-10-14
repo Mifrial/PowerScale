@@ -15,7 +15,12 @@ const RULES: Rule[] = [
     name: 'Бросок',
     description: '',
     spaceId: 1,
-    mechanics: [{ mechanicId: 5, mechanicPayload: { type: 'roll', data: { dieFaces: 6, efficiency: 3, diceCount: 3, sub_mechanics: [] } } }],
+    mechanics: [
+      {
+        mechanicId: 5,
+        mechanicPayload: { type: 'roll', data: { dieFaces: 6, efficiency: 3, diceCount: 3, sub_mechanics: [] } },
+      },
+    ],
     createdAt: 0,
   },
   {

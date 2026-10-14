@@ -10,6 +10,11 @@ import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/at
 import { combatCardModelService } from '@/modules/Roleplay/Game/Service/Instance/combatCardModelService';
 import { woundInstanceService } from '@/modules/Roleplay/Game/Service/Instance/woundInstanceService';
 import { woundActionLaunchService } from '@/modules/Roleplay/Game/Service/Instance/woundActionLaunchService';
+import { gamePhpMode } from '@/modules/Roleplay/Game/Service/Instance/gamePhpMode';
+import { gamePhpBattleContext } from '@/modules/Roleplay/Game/Service/Instance/gamePhpBattleContext';
+import { gamePhpCommandService } from '@/modules/Roleplay/Game/Service/Instance/gamePhpCommandService';
+import { gameBattleSheetVersionService } from '@/modules/Roleplay/Game/Service/Instance/gameBattleSheetVersionService';
+import { createRandomId } from '@/modules/Core/Engine/Utils/createRandomId';
 
 /**
  * Боевые действия по ране: списание ОД исполнителя, зажим и перевязка цели.
@@ -38,12 +43,7 @@ export class WoundActionService {
     const resource = version.resources.find((item) => item.ruleCode === rule.code);
     if (!resource) throw new Error('Нет ресурса ОД');
 
-    return this.resolveGameApi().setCombatResource(
-      gameId,
-      actorKey,
-      rule.code,
-      this.spendCost(resource.current, cost),
-    );
+    return this.resolveGameApi().setCombatResource(gameId, actorKey, rule.code, this.spendCost(resource.current, cost));
   }
 
   squeezeCost(count: number): number {
@@ -62,6 +62,11 @@ export class WoundActionService {
   ): Promise<void> {
     const target = session.targetKey;
     if (!target || !woundActionLaunchService.isWoundAction(session.actionRuleCode)) return;
+    if (gamePhpMode.isEnabled()) {
+      await this.applyPhpCommittedWound(gameId, actorKey, target, session);
+
+      return;
+    }
     const overlays = await this.resolveGameApi().getCombatOverlays(gameId);
     const overlay = overlays.find((item) => item.entityKey === target);
     const projection = await this.resolveGameApi().getRuntimeEntity(gameId, target, 'full');
@@ -93,6 +98,39 @@ export class WoundActionService {
         index,
         woundInstanceService.applySqueeze(state, actorKey),
       );
+    }
+  }
+
+  private async applyPhpCommittedWound(
+    gameId: number,
+    actorKey: CombatEntityKey,
+    target: CombatEntityKey,
+    session: CommittedActionSession,
+  ): Promise<void> {
+    const battleId = gamePhpBattleContext.battleId;
+    if (battleId === null) throw new Error('Бой ещё не известен');
+    const sheets = await this.resolveGameApi().getBattleSheets({ gameId, battleId });
+    const parsed = combatCardModelService.parseCombatEntityKey(target);
+    const row = sheets.sheets.find((sheet) => sheet.type === parsed.kind && sheet.id === parsed.id);
+    if (!row) throw new Error('Лист цели не найден');
+    const version = gameBattleSheetVersionService.toVersion(row);
+    const operation = woundActionLaunchService.isBandage(session.actionRuleCode) ? 'bandage' : 'hold';
+    const indices = operation === 'bandage' ? [session.stateIndices[0]] : session.stateIndices;
+    for (const index of indices) {
+      const state = index != null ? version.states[index] : undefined;
+      if (!state?.id) throw new Error('У раны нет id листа');
+      await this.resolveGameApi().woundAction({
+        gameId,
+        idempotencyKey: createRandomId(),
+        operation,
+        actor: gamePhpCommandService.woundPartyOf(actorKey),
+        target: gamePhpCommandService.woundPartyOf(target),
+        stateId: state.id,
+        actionRuleCode: session.actionRuleCode,
+        expectedSheetVersion: gamePhpBattleContext.sheetVersionByKey[target] ?? row.actualVersion,
+        battleId,
+        expectedBattleVersion: gamePhpBattleContext.battleVersion,
+      });
     }
   }
 }

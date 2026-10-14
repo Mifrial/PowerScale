@@ -11,7 +11,7 @@ import type { GameLootStatus } from '@/modules/Roleplay/Game/Enum/GameLootStatus
 import type { CreateLootData } from '@/modules/Roleplay/Game/Dto/CreateLootData';
 import type { GameCharacterMembership } from '@/modules/Roleplay/Game/Dto/GameCharacterMembership';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
-import type { GameNpcSummary } from '@/modules/Roleplay/Game/Dto/GameNpcSummary';
+import type { GameRosterNpc } from '@/modules/Roleplay/Game/Dto/GameRosterNpc';
 import type { CombatEntityKey } from '@/modules/Roleplay/Game/Dto/CombatEntityKey';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import LootFormDialog from '@/modules/Roleplay/Game/Component/Detail/LootFormDialog.vue';
@@ -166,10 +166,21 @@ async function load(): Promise<void> {
   }
 }
 
-function toLegacyNpc(summary: GameNpcSummary): GameNpc {
-  const { actualSpaceCode: _actualSpaceCode, actualRulesRevision: _actualRulesRevision, ...npc } = summary;
-
-  return { ...npc, version: null };
+function toLegacyNpc(summary: GameRosterNpc): GameNpc {
+  return {
+    id: summary.id,
+    gameId: props.gameId,
+    name: summary.name,
+    shortDescription: null,
+    fullDescription: null,
+    tags: [],
+    version: null,
+    actualVersion: summary.actualVersion,
+    status: 'active',
+    proposedBy: null,
+    visibility: [],
+    updatedAt: '',
+  };
 }
 
 async function run(action: () => Promise<void>): Promise<void> {

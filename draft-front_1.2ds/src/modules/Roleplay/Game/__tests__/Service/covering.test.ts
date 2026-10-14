@@ -74,13 +74,9 @@ describe('CoveringService', () => {
 
   it('способность без поля не прикрывает', () => {
     expect(
-      coveringService.eligibleKeys(
-        ['character:3'],
-        'character:1',
-        [],
-        () => [{ ruleCode: 'bare-cover', level: 1 }],
-        [BARE_COVER],
-      ),
+      coveringService.eligibleKeys(['character:3'], 'character:1', [], () => [{ ruleCode: 'bare-cover', level: 1 }], [
+        BARE_COVER,
+      ]),
     ).toEqual([]);
   });
 

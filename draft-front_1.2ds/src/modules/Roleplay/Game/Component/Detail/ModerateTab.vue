@@ -16,6 +16,8 @@ import type { GameRealtimeEvent } from '@/modules/Roleplay/Game/Dto/GameRealtime
 import MembershipDiffView from '@/modules/Roleplay/Game/Component/Detail/MembershipDiffView.vue';
 import CharacterSubmissionSlider from '@/modules/Roleplay/Game/Component/Detail/CharacterSubmissionSlider.vue';
 import { createRandomId } from '@/modules/Core/Engine/Utils/createRandomId';
+import { gamePhpMode } from '@/modules/Roleplay/Game/Service/Instance/gamePhpMode';
+import { characterHttpViewService } from '@/modules/Roleplay/Character/init';
 
 const props = defineProps<{
   /** Активна ли вкладка: перезагрузка при активации (v-window не размонтирует вкладки). */
@@ -30,6 +32,7 @@ const { signal } = useAbortable();
 
 const allMemberships = ref<GameCharacterMembership[]>([]);
 const actualById = ref<Record<number, CharacterVersion>>({});
+const phpActualVersionById = ref<Record<number, number>>({});
 const moderationById = ref<Record<number, CharacterModerationProjection>>({});
 const loading = ref(false);
 const error = ref<string | null>(null);
@@ -93,23 +96,55 @@ async function load(): Promise<void> {
   loading.value = true;
   error.value = null;
   try {
-    const membershipResult = await getGameApi().getGameCharacters(props.gameId);
+    const membershipResult = gamePhpMode.isEnabled()
+      ? await getGameApi().getCharacterList({ gameId: props.gameId })
+      : await getGameApi().getGameCharacters(props.gameId);
     if (requestSequence !== loadSequence) return;
-    const moderationProjections = await getGameApi().getCharacterModerationProjections(
-      props.gameId,
-      membershipResult.map((membership) => membership.characterId),
-      signal.value,
-    );
+    let actuals: Record<number, CharacterVersion> = {};
+    let moderationProjections: CharacterModerationProjection[] = [];
+    if (gamePhpMode.isEnabled()) {
+      try {
+        const roster = await getGameApi().getRoster({ gameId: props.gameId }, signal.value);
+        phpActualVersionById.value = Object.fromEntries(
+          roster.characters.map((entry) => [entry.id, entry.actualVersion]),
+        );
+      } catch {
+        phpActualVersionById.value = {};
+      }
+      const keys = membershipResult.map((membership) => ({ type: 'character' as const, id: membership.characterId }));
+      if (keys.length > 0) {
+        const pack = await getGameApi().getSheets({ gameId: props.gameId, keys }, signal.value);
+        actuals = Object.fromEntries(
+          pack.sheets.map((row) => [
+            row.id,
+            characterHttpViewService.versionOf({
+              name: row.name,
+              spaceCode: '',
+              rulesRevision: row.rulesRevision ?? props.rulesRevision ?? 0,
+              choices: row.choices,
+              sheet: row.sheet,
+            }),
+          ]),
+        );
+      }
+    } else {
+      moderationProjections = await getGameApi().getCharacterModerationProjections(
+        props.gameId,
+        membershipResult.map((membership) => membership.characterId),
+        signal.value,
+      );
+      if (requestSequence !== loadSequence) return;
+      actuals = Object.fromEntries(
+        moderationProjections
+          .filter(
+            (projection): projection is CharacterModerationProjection & { actualCharacterVersion: CharacterVersion } =>
+              projection.actualCharacterVersion !== null,
+          )
+          .map((projection) => [projection.characterId, projection.actualCharacterVersion]),
+      );
+    }
     if (requestSequence !== loadSequence) return;
     allMemberships.value = membershipResult;
-    const actuals: Record<number, CharacterVersion> = Object.fromEntries(
-      moderationProjections
-        .filter(
-          (projection): projection is CharacterModerationProjection & { actualCharacterVersion: CharacterVersion } =>
-            projection.actualCharacterVersion !== null,
-        )
-        .map((projection) => [projection.characterId, projection.actualCharacterVersion]),
-    );
     actualById.value = actuals;
     moderationById.value = Object.fromEntries(
       moderationProjections.map((projection) => [projection.characterId, projection]),
@@ -128,7 +163,8 @@ async function load(): Promise<void> {
 async function moderate(membership: GameCharacterMembership, action: GameCharacterModerationAction): Promise<void> {
   error.value = null;
   try {
-    const actualVersion = moderationById.value[membership.characterId]?.actualVersion;
+    const actualVersion =
+      moderationById.value[membership.characterId]?.actualVersion ?? phpActualVersionById.value[membership.characterId];
     if (actualVersion === null || actualVersion === undefined) {
       throw new Error('Не удалось определить актуальную версию персонажа');
     }
@@ -168,7 +204,7 @@ async function refreshModerationProjection(characterId: number): Promise<boolean
 }
 
 function onRealtimeEvent(event: GameRealtimeEvent): void {
-  if (event.gameId !== props.gameId || event.eventKind !== 'character.changed') return;
+  if (event.gameId !== props.gameId || event.eventKind !== 'character.changed' || !event.entityKey) return;
   const [kind, rawId] = event.entityKey.split(':');
   const characterId = Number(rawId);
   if (kind !== 'character' || !Number.isInteger(characterId)) return;

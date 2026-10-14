@@ -237,7 +237,7 @@ watch(open, (value) => {
             :draft-key="draftKey"
             :require-race="true"
             actions-target="#migration-editor-actions"
-            @save="handleEditorSave"
+            :save="handleEditorSave"
           />
         </div>
       </template>

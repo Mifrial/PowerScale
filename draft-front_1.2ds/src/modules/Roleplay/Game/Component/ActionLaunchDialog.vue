@@ -50,6 +50,10 @@ import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber
 import { woundActionLaunchService } from '@/modules/Roleplay/Game/Service/Instance/woundActionLaunchService';
 import { actionLaunchCatalogService } from '@/modules/Roleplay/Game/Service/Instance/actionLaunchCatalogService';
 import { woundInstanceService } from '@/modules/Roleplay/Game/Service/Instance/woundInstanceService';
+import { gamePhpMode } from '@/modules/Roleplay/Game/Service/Instance/gamePhpMode';
+import { gamePhpBattleContext } from '@/modules/Roleplay/Game/Service/Instance/gamePhpBattleContext';
+import { gamePhpCommandService } from '@/modules/Roleplay/Game/Service/Instance/gamePhpCommandService';
+import { createRandomId } from '@/modules/Core/Engine/Utils/createRandomId';
 import { committedActionService } from '@/modules/Roleplay/Game/Service/Instance/committedActionService';
 import { committedActionFlowService } from '@/modules/Roleplay/Game/Service/Instance/committedActionFlowService';
 import type { CommittedActionSession } from '@/modules/Roleplay/Game/Dto/CommittedActionSession';
@@ -329,7 +333,9 @@ const verticalDirectionOptions = computed(
     })) ?? [],
 );
 const processStepApCost = computed(() =>
-  selectedProcessStep.value ? processSessionService.stepCost(selectedProcessStep.value, turnResourceCode(props.rules)) : 0,
+  selectedProcessStep.value
+    ? processSessionService.stepCost(selectedProcessStep.value, turnResourceCode(props.rules))
+    : 0,
 );
 const actionPoints = computed(() => {
   if (!actorOverview.value) return 0;
@@ -498,6 +504,11 @@ async function submit(): Promise<void> {
   if (movementInputError.value) throw new Error(movementInputError.value);
   if (woundActionLaunchService.isWoundAction(action.code)) {
     assertWoundActionReady(action.code);
+    if (gamePhpMode.isEnabled()) {
+      await applyWoundAction(action.code);
+
+      return;
+    }
   }
   if (action.isProcess) {
     const stepCode = selectedProcessStepCode.value;
@@ -567,6 +578,9 @@ async function submit(): Promise<void> {
   }
   assertOtherResourceCosts();
   if (actionOd > actionPoints.value) {
+    if (gamePhpMode.isEnabled() && woundActionLaunchService.isWoundAction(action.code)) {
+      throw new Error('Недостаточно ОД для действия');
+    }
     if (!committedActionService.canStretch(action) || actionPoints.value <= 0) {
       throw new Error('Недостаточно ОД для действия');
     }
@@ -725,6 +739,31 @@ async function applyWoundAction(code: string): Promise<void> {
   if (!version) return;
   const actor = actorKey.value;
   if (!actor) return;
+  if (gamePhpMode.isEnabled()) {
+    const battleId = gamePhpBattleContext.battleId;
+    if (battleId === null) throw new Error('Бой ещё не известен');
+    const operation = woundActionLaunchService.isBandage(code) ? 'bandage' : 'hold';
+    const indices = woundActionLaunchService.isBandage(code) ? [woundIndices.value[0]] : woundIndices.value;
+    for (const index of indices) {
+      const state = version.states[index ?? -1];
+      if (!state?.id) throw new Error('У раны нет id листа');
+      await getGameApi().woundAction({
+        gameId: props.gameId,
+        idempotencyKey: createRandomId(),
+        operation,
+        actor: gamePhpCommandService.woundPartyOf(actor),
+        target: gamePhpCommandService.woundPartyOf(target),
+        stateId: state.id,
+        actionRuleCode: code,
+        expectedSheetVersion: gamePhpBattleContext.sheetVersionByKey[target] ?? 1,
+        battleId,
+        expectedBattleVersion: gamePhpBattleContext.battleVersion,
+      });
+    }
+    emit('overlay-changed');
+
+    return;
+  }
   if (woundActionLaunchService.isBandage(code)) {
     const index = woundIndices.value[0];
     const state = index != null ? version.states[index] : undefined;

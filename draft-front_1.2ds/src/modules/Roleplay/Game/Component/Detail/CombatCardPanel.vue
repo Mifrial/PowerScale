@@ -16,6 +16,11 @@ import { attackDamageService } from '@/modules/Roleplay/Game/Service/Instance/at
 
 import { WOUND_STATE_CODE } from '@/modules/Roleplay/Rule/Constant/State/STATE_CODES';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
+import { gamePhpMode } from '@/modules/Roleplay/Game/Service/Instance/gamePhpMode';
+import { gamePhpBattleContext } from '@/modules/Roleplay/Game/Service/Instance/gamePhpBattleContext';
+import { gamePhpCommandService } from '@/modules/Roleplay/Game/Service/Instance/gamePhpCommandService';
+import { createRandomId } from '@/modules/Core/Engine/Utils/createRandomId';
+import { SQUEEZE_ABILITY_CODE } from '@/modules/Roleplay/Rule/Constant/Ability/SQUEEZE_ABILITY_CODE';
 import {
   characterOverviewService,
   weaponProficiencyService,
@@ -64,6 +69,7 @@ import type { Mechanic } from '@/modules/Roleplay/Mechanic/Dto/Mechanic';
 import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
 import type { GameRuntimeEntityProjection } from '@/modules/Roleplay/Game/Dto/GameRuntimeEntityProjection';
 import type { AttackOverview } from '@/modules/Roleplay/Character/Dto/Overview/AttackOverview';
+import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { CharacteristicOverview } from '@/modules/Roleplay/Character/Dto/Overview/CharacteristicOverview';
 import type { ResourceOverview } from '@/modules/Roleplay/Character/Dto/Overview/ResourceOverview';
 import type { DimensionalNumberValue } from '@/modules/Core/Engine/Dto/DimensionalNumberValue';
@@ -101,6 +107,7 @@ const props = defineProps<{
   processSessions?: Record<CombatEntityKey, ProcessSession>;
   /** Full actual projection для NPC, загруженный по запросу; Character остаётся compatibility path до R6. */
   runtimeProjection?: GameRuntimeEntityProjection | null;
+  liveVersion?: CharacterVersion | null;
 }>();
 
 const emit = defineEmits<{
@@ -195,6 +202,7 @@ const model = computed(() => {
     props.currentUserId,
     overlay.value,
     props.runtimeProjection ?? null,
+    props.liveVersion ?? null,
   );
 });
 
@@ -898,7 +906,34 @@ async function applyWoundInternal(tile: CombatStateTileModel, internal: boolean)
 
 async function releaseWoundHold(tile: CombatStateTileModel): Promise<void> {
   const prev = effectiveVersion.value?.states[tile.index];
-  if (!prev) return;
+  if (!prev || !model.value) return;
+  if (gamePhpMode.isEnabled()) {
+    error.value = null;
+    try {
+      const holder = woundInstanceService.payload(prev).heldBy;
+      if (!holder) throw new Error('Рана не зажата');
+      if (!prev.id) throw new Error('У раны нет id листа');
+      const battleId = gamePhpBattleContext.battleId;
+      if (battleId === null) throw new Error('Бой ещё не известен');
+      await getGameApi().woundAction({
+        gameId: props.gameId,
+        idempotencyKey: createRandomId(),
+        operation: 'release',
+        actor: gamePhpCommandService.woundPartyFromHeldBy(holder),
+        target: gamePhpCommandService.woundPartyOf(model.value.entityKey),
+        stateId: prev.id,
+        actionRuleCode: SQUEEZE_ABILITY_CODE,
+        expectedSheetVersion: gamePhpBattleContext.sheetVersionByKey[model.value.entityKey] ?? 1,
+        battleId,
+        expectedBattleVersion: gamePhpBattleContext.battleVersion,
+      });
+      notifyMutation();
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'Не удалось отпустить рану';
+    }
+
+    return;
+  }
   await replaceStateAt(tile.index, woundInstanceService.releaseSqueeze(prev));
 }
 

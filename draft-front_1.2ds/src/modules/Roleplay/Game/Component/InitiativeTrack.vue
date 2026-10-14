@@ -3,6 +3,8 @@ import { computed, inject, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useCurrentUser } from '@/modules/Core/User/init';
 import { useChatChannel } from '@/modules/Messages/Chat/init';
 import { getGameApi } from '@/modules/Roleplay/Game/init';
+import { gamePhpMode } from '@/modules/Roleplay/Game/Service/Instance/gamePhpMode';
+import { gamePhpCommandService } from '@/modules/Roleplay/Game/Service/Instance/gamePhpCommandService';
 import type { GameNpc } from '@/modules/Roleplay/Game/Dto/GameNpc';
 import type { GameParticipantCandidate } from '@/modules/Roleplay/Game/Dto/GameParticipantCandidate';
 import type { GameRuntimeEntityProjection } from '@/modules/Roleplay/Game/Dto/GameRuntimeEntityProjection';
@@ -86,7 +88,7 @@ const props = defineProps<{
   /** Счётчик мутаций боевых оверлеев: при изменении — перечитать оверлеи (Истощение). */
   overlayRevision: number;
   /** Создать session admission перед первым броском инициативы. */
-  ensureSession?: () => Promise<void>;
+  ensureSession?: (participantKeys?: CombatEntityKey[]) => Promise<void>;
   /** Загрузить full projections выбранных новых участников одним batch-запросом. */
   ensureRuntimeProjections?: (entityKeys: string[]) => Promise<void>;
   sessionRunning: boolean;
@@ -167,9 +169,7 @@ const activeParticipantKey = computed<CombatEntityKey | null>(() => {
 const activeActionPoints = computed(() =>
   activeParticipantKey.value ? (actionPointsByEntity.value.get(activeParticipantKey.value) ?? 0) : 0,
 );
-const waitRule = computed(
-  () => combatActionRule(props.rules, 'wait') ?? null,
-);
+const waitRule = computed(() => combatActionRule(props.rules, 'wait') ?? null);
 const waitAction = computed(() => {
   const rule = waitRule.value;
   const spec = rule ? asActionAbilitySpec(rule) : null;
@@ -214,12 +214,46 @@ async function loadAddCandidates(query = '', append = false): Promise<void> {
   addCandidateLoading.value = true;
   addCandidateError.value = null;
   try {
-    const result = await getGameApi().getParticipantCandidates({
-      gameId: props.gameId,
-      query,
-      cursor: append ? (addCandidateNextCursor.value ?? undefined) : undefined,
-      limit: 50,
-    });
+    const result = gamePhpMode.isEnabled()
+      ? {
+          items: [
+            ...props.characters
+              .filter((membership) => membership.membershipStatus !== 'left')
+              .filter(
+                (membership) =>
+                  query.trim() === '' ||
+                  membership.characterName.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
+              )
+              .map((membership) => ({
+                entityKey: `character:${membership.characterId}` as CombatEntityKey,
+                kind: 'character' as const,
+                id: membership.characterId,
+                name: membership.characterName,
+                status: 'active' as const,
+                availability: 'admissible' as const,
+              })),
+            ...props.npcs
+              .filter((npc) => npc.status === 'active')
+              .filter(
+                (npc) => query.trim() === '' || npc.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
+              )
+              .map((npc) => ({
+                entityKey: `npc:${npc.id}` as CombatEntityKey,
+                kind: 'npc' as const,
+                id: npc.id,
+                name: npc.name,
+                status: 'active' as const,
+                availability: 'admissible' as const,
+              })),
+          ],
+          nextCursor: null as string | null,
+        }
+      : await getGameApi().getParticipantCandidates({
+          gameId: props.gameId,
+          query,
+          cursor: append ? (addCandidateNextCursor.value ?? undefined) : undefined,
+          limit: 50,
+        });
     if (sequence !== addSearchSequence) return;
     const selectedKeys = new Set(selectedAddEntityKeys.value);
     const retained = append
@@ -262,7 +296,11 @@ async function load(): Promise<void> {
   error.value = null;
   try {
     const [nextInitiative, nextProcesses, nextPendingEffects, nextCommitted] = await Promise.all([
-      getGameApi().getInitiative(props.gameId),
+      gamePhpMode.isEnabled()
+        ? Promise.resolve(initiative.value)
+        : getGameApi()
+            .getInitiative(props.gameId)
+            .catch(() => null),
       getGameApi()
         .getProcessSessions(props.gameId)
         .catch(() => ({})),
@@ -459,8 +497,18 @@ async function refillParticipants(keys: string[]): Promise<void> {
   emit('overlay-changed');
 }
 
-async function onInitiativeSaved(projections: GameRuntimeEntityProjection[]): Promise<void> {
+async function onInitiativeSaved(projections: GameRuntimeEntityProjection[], scale?: GameInitiative): Promise<void> {
   emit('runtime-projections', projections);
+  if (gamePhpMode.isEnabled() && scale) {
+    initiative.value = scale;
+    const keys = scale.participants.map((participant) => participant.id);
+    emit('participants', keys);
+    await props.ensureRuntimeProjections?.(keys);
+    await refillParticipants(keys);
+
+    return;
+  }
+
   await load();
   const keys = initiative.value?.participants.map((participant) => participant.id) ?? [];
   await props.ensureRuntimeProjections?.(keys);
@@ -505,6 +553,11 @@ function speakerFor(participant: NonNullable<typeof activeParticipant.value>): C
 }
 
 function requestTurnPass(): void {
+  if (gamePhpMode.isEnabled()) {
+    waitDialogOpen.value = true;
+
+    return;
+  }
   if (activeActionPoints.value <= 0) {
     void nextTurn();
 
@@ -517,6 +570,22 @@ function requestTurnPass(): void {
 async function confirmWaitAndPass(): Promise<void> {
   const participant = activeParticipant.value;
   const key = activeParticipantKey.value;
+  if (gamePhpMode.isEnabled()) {
+    if (!key) return;
+    waitBusy.value = true;
+    waitError.value = null;
+    try {
+      await getGameApi().endTurn(gamePhpCommandService.turnBody(props.gameId, key));
+      waitDialogOpen.value = false;
+      emit('overlay-changed');
+    } catch (cause) {
+      waitError.value = cause instanceof Error ? cause.message : 'Не удалось передать ход';
+    } finally {
+      waitBusy.value = false;
+    }
+
+    return;
+  }
   const action = waitAction.value;
   const rule = waitRule.value;
   if (!participant || !key || !action || !rule) {
@@ -677,6 +746,14 @@ async function decayCoreDeviation(entityKey: CombatEntityKey): Promise<void> {
 }
 
 async function nextTurn(): Promise<void> {
+  if (gamePhpMode.isEnabled()) {
+    const key = activeParticipantKey.value;
+    if (!key) return;
+    await getGameApi().endTurn(gamePhpCommandService.turnBody(props.gameId, key));
+    emit('overlay-changed');
+
+    return;
+  }
   const data = initiative.value;
   if (!data || data.participants.length === 0) return;
   const currentIndex = data.activeIndex ?? 0;
@@ -1050,7 +1127,12 @@ watch(
 
 watch(
   () => props.sessionRunning,
-  () => void load(),
+  () => {
+    if (gamePhpMode.isEnabled()) {
+      return;
+    }
+    void load();
+  },
 );
 
 // Текущий ход: эмит для авто-переключения селектора «от лица кого» у владельца хода.
@@ -1255,6 +1337,9 @@ function kindIcon(kind: 'character' | 'npc'): string {
     :chat-id="chatId"
     :ensure-session="ensureSession"
     :cached-projections="runtimeProjections"
+    :characters="characters"
+    :npcs="npcs"
+    :session-running="sessionRunning"
     @saved="onInitiativeSaved"
   />
 

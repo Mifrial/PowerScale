@@ -216,7 +216,7 @@ onMounted(load);
       v-else-if="npcRef && draftKey"
       :draft-key="draftKey"
       :require-race="false"
-      @save="handleSave"
+      :save="handleSave"
     />
 
     <NpcMigrationDialog

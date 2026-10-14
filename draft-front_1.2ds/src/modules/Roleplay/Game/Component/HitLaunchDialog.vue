@@ -4,6 +4,10 @@ import { useCombatChatThread } from '@/modules/Roleplay/Game/Composables/useComb
 import { combatChatSendService } from '@/modules/Roleplay/Game/Service/Instance/combatChatSendService';
 
 import { getGameApi } from '@/modules/Roleplay/Game/init';
+import { gamePhpMode } from '@/modules/Roleplay/Game/Service/Instance/gamePhpMode';
+import { gamePhpBattleContext } from '@/modules/Roleplay/Game/Service/Instance/gamePhpBattleContext';
+import { gamePhpCommandService } from '@/modules/Roleplay/Game/Service/Instance/gamePhpCommandService';
+import { createRandomId } from '@/modules/Core/Engine/Utils/createRandomId';
 import { resolveLaunchLoad } from '@/modules/Roleplay/Game/Utils/launchLoadState';
 import { characterOverviewService, movementContextService } from '@/modules/Roleplay/Character/init';
 import ClampedNumberField from '@/modules/Core/UI/Component/Input/ClampedNumberField.vue';
@@ -183,6 +187,9 @@ const cover = ref(0);
 const flank = ref(false);
 const turn = ref(false);
 const coveringBlockItemRuleCode = ref<string | null>(null);
+const phpDeclared = ref(false);
+const phpDebt = ref(false);
+const phpWideTargets = ref<CombatEntityKey[]>([]);
 const coveringAdv = ref(0);
 const agreedCoveringAdv = ref(0);
 const coverChoicePending = ref<CoverChoicePending | null>(null);
@@ -795,7 +802,12 @@ watch(attackOptions, (options) => {
 });
 
 const blockProfiles = computed(() =>
-  hitRollService.listBlockProfiles(versionOf(opponentKey.value), props.rules, { shieldsOnly: isRanged.value }, keywords.value),
+  hitRollService.listBlockProfiles(
+    versionOf(opponentKey.value),
+    props.rules,
+    { shieldsOnly: isRanged.value },
+    keywords.value,
+  ),
 );
 
 const canBlock = computed(() => blockProfiles.value.length > 0);
@@ -1449,6 +1461,11 @@ async function acceptWideAttack(
 }
 
 async function acceptAndRoll(): Promise<void> {
+  if (gamePhpMode.isEnabled()) {
+    await submitPhpStrike();
+
+    return;
+  }
   const current = offer.value;
   const attack = resolvedAttack.value;
   const actor = current ? actingEntity(current) : null;
@@ -2975,10 +2992,185 @@ async function applyClickAttack(
   return result;
 }
 
+function phpTargetKeys(): CombatEntityKey[] {
+  if (selectedTargetKeys.value.length) return gamePhpCommandService.uniqueTargetKeys(selectedTargetKeys.value);
+
+  return opponentKey.value ? [opponentKey.value] : [];
+}
+
+function phpWeaponFields() {
+  const attack = resolvedAttack.value ?? props.attack;
+  const attacker = props.attackerKey;
+  if (!attack || !attacker) throw new Error('Нет атаки');
+  if (attack.inventoryItemId == null) throw new Error('Нет экземпляра оружия');
+
+  return {
+    attacker: gamePhpCommandService.participantOf(attacker),
+    actionRuleCode: selectedActionRuleCode.value ?? '',
+    itemInventoryId: attack.inventoryItemId,
+    itemRuleCode: attack.itemRuleCode,
+    profileType: attack.profileType,
+    profileIndex: attack.profileIndex ?? 0,
+    ...(attack.profileType === 'shoot' ? { ammunitionInventoryId: attack.inventoryItemId } : {}),
+  };
+}
+
+function phpBattleEnvelope() {
+  const battleId = gamePhpBattleContext.battleId;
+  if (battleId === null) throw new Error('Бой ещё не известен');
+
+  return {
+    gameId: props.gameId,
+    battleId,
+    idempotencyKey: createRandomId(),
+    expectedVersion: gamePhpBattleContext.battleVersion,
+  };
+}
+
+async function phpStrikeAttack() {
+  const defender = opponentKey.value;
+  if (!defender) throw new Error('Нет атаки');
+
+  return {
+    ...phpBattleEnvelope(),
+    attack: {
+      ...phpWeaponFields(),
+      defender: gamePhpCommandService.participantOf(defender),
+      chosenAmounts: {},
+    },
+  };
+}
+
+async function phpDefense() {
+  const defender = opponentKey.value;
+  if (!defender || !reaction.value) throw new Error('Выберите реакцию');
+  const block =
+    reaction.value === 'block'
+      ? blockProfiles.value.find((item) => item.itemRuleCode === blockItemRuleCode.value)
+      : null;
+  if (reaction.value === 'block' && !block) throw new Error('Выберите профиль блока');
+
+  return {
+    ...phpBattleEnvelope(),
+    expectedSheetVersion: gamePhpBattleContext.sheetVersionByKey[defender] ?? 1,
+    defense: {
+      reaction: reaction.value,
+      ...(block ? { blockItemInventoryId: block.inventoryItemId, blockItemProfileIndex: block.profileIndex } : {}),
+    },
+  };
+}
+
+async function phpWideStrikeAttack() {
+  const targets = phpTargetKeys();
+  if (targets.length < 2) throw new Error('Для широкого удара нужны хотя бы две цели');
+  phpWideTargets.value = targets;
+
+  return {
+    ...phpBattleEnvelope(),
+    attack: {
+      ...phpWeaponFields(),
+      targets: targets.map((key) => gamePhpCommandService.participantOf(key)),
+    },
+  };
+}
+
+function phpBlockFor(key: CombatEntityKey) {
+  const profiles = hitRollService.listBlockProfiles(
+    versionOf(key),
+    props.rules,
+    { shieldsOnly: isRanged.value },
+    keywords.value,
+  );
+  const block = profiles.find((item) => item.itemRuleCode === blockItemRuleCode.value) ?? profiles[0];
+  if (!block) throw new Error('Выберите профиль блока');
+
+  return { blockItemInventoryId: block.inventoryItemId, blockItemProfileIndex: block.profileIndex };
+}
+
+async function phpWideDefense() {
+  const chosen = reaction.value;
+  if (!chosen) throw new Error('Выберите реакцию');
+  const keys = phpWideTargets.value.length ? phpWideTargets.value : phpTargetKeys();
+  if (keys.length < 2) throw new Error('Для широкого удара нужны хотя бы две цели');
+
+  return {
+    ...phpBattleEnvelope(),
+    defense: {
+      defenses: keys.map((key) => ({
+        reaction: chosen,
+        expectedSheetVersion: gamePhpBattleContext.sheetVersionByKey[key] ?? 1,
+        ...(chosen === 'block' ? phpBlockFor(key) : {}),
+      })),
+    },
+  };
+}
+
+async function submitPhpStrike(): Promise<boolean> {
+  const wide = gamePhpCommandService.isWideStrike(resolvedAttackAction.value?.mode, phpTargetKeys());
+  if (!phpDeclared.value) {
+    const declared = wide
+      ? await getGameApi().declareWideStrike(await phpWideStrikeAttack())
+      : await getGameApi().declareStrike(await phpStrikeAttack());
+    phpDeclared.value = true;
+    phpDebt.value = declared.debt === true;
+    if (phpDebt.value) return false;
+
+    return false;
+  }
+  if (wide) await getGameApi().resolveWideStrike(await phpWideDefense());
+  else await getGameApi().resolveStrike(await phpDefense());
+  phpDeclared.value = false;
+  phpWideTargets.value = [];
+
+  return true;
+}
+
+async function continuePhpDebt(): Promise<void> {
+  const attacker = props.attackerKey;
+  if (!attacker) return;
+  busy.value = true;
+  error.value = null;
+  try {
+    await gamePhpCommandService.continueOrAbort(getGameApi(), props.gameId, attacker, false);
+    phpDebt.value = false;
+    phpDeclared.value = false;
+    phpWideTargets.value = [];
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'Не удалось продолжить';
+  } finally {
+    busy.value = false;
+  }
+}
+
+async function abortPhpDebt(): Promise<void> {
+  const attacker = props.attackerKey;
+  if (!attacker) return;
+  busy.value = true;
+  error.value = null;
+  try {
+    await gamePhpCommandService.continueOrAbort(getGameApi(), props.gameId, attacker, true);
+    phpDebt.value = false;
+    phpDeclared.value = false;
+    phpWideTargets.value = [];
+    close();
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'Не удалось отменить долг';
+  } finally {
+    busy.value = false;
+  }
+}
+
 async function submit(): Promise<void> {
   busy.value = true;
   error.value = null;
   try {
+    if (gamePhpMode.isEnabled()) {
+      const closed = await submitPhpStrike();
+      emit('settled');
+      if (closed) close();
+
+      return;
+    }
     if (!offer.value) {
       if (isPreparationAction.value) {
         await performPreparation();
@@ -3441,6 +3633,10 @@ const canSubmit = computed(() => {
       <v-card-actions class="py-2 px-4">
         <v-spacer />
         <v-btn variant="text" size="small" :disabled="busy" @click="close">Закрыть</v-btn>
+        <template v-if="phpDebt">
+          <v-btn variant="text" size="small" :disabled="busy" @click="abortPhpDebt">Отменить долг ОД</v-btn>
+          <v-btn color="primary" size="small" :loading="busy" @click="continuePhpDebt">Продолжить</v-btn>
+        </template>
         <v-btn
           v-if="offer && myTurn"
           variant="text"

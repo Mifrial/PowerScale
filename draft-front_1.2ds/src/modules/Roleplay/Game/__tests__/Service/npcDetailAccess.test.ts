@@ -28,6 +28,9 @@ describe('ленивая деталка NPC', () => {
     expect(list).not.toContain('NpcDetailPage');
     expect(gamePage).not.toContain('NpcDetailPage');
     expect(list).toContain('getNpcSummaries');
+    const api = readFileSync(join(gameRoot, 'Service/GameApi.ts'), 'utf8');
+    expect(api).toContain("'game.getRoster'");
+    expect(api).not.toContain('game.getNpcSummaries');
   });
 });
 

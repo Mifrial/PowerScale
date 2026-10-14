@@ -40,7 +40,9 @@ async function load(): Promise<void> {
   loading.value = true;
   error.value = null;
   try {
-    invitations.value = await getGameApi().getGameInvitations(props.gameId);
+    invitations.value = props.canManage
+      ? await getGameApi().getGameInvitations(props.gameId)
+      : (await getGameApi().getMyInvitations()).filter((invitation) => invitation.gameId === props.gameId);
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Не удалось загрузить приглашения';
   } finally {

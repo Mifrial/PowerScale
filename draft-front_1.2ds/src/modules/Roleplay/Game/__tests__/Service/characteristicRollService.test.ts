@@ -12,10 +12,15 @@ const RULES: Rule[] = [
     description: '',
     spaceId: 1,
     keywordIds: [],
-    mechanics: [{ mechanicId: 5, mechanicPayload: {
-      type: 'roll',
-      data: { diceCount: 3, dieFaces: 6, efficiency: 3, adv: 0, sub_mechanics: ['advantage_disadvantage'] },
-    } }],
+    mechanics: [
+      {
+        mechanicId: 5,
+        mechanicPayload: {
+          type: 'roll',
+          data: { diceCount: 3, dieFaces: 6, efficiency: 3, adv: 0, sub_mechanics: ['advantage_disadvantage'] },
+        },
+      },
+    ],
     createdAt: 1768471200,
   },
   {
