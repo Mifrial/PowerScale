@@ -1345,7 +1345,12 @@ describe('«Владение оружием» — мастерство оруж�
     expect(entries.every((entry) => entry.bonus === 3)).toBe(true);
     // дальний бой: у семьи «Кинжал и Нож» есть метательные профили → тайл тоже есть
     const ranged = model.characteristics.find((c) => c.code === 'ranged-combat');
-    const rangedEntries = weaponProficiencyService.weaponMasteryEntries(['throw', 'shoot'], ranged!, levels, ruleCatalog);
+    const rangedEntries = weaponProficiencyService.weaponMasteryEntries(
+      ['throw', 'shoot'],
+      ranged!,
+      levels,
+      ruleCatalog,
+    );
     expect(rangedEntries.length).toBeGreaterThan(0);
   });
 

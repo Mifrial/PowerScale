@@ -611,7 +611,10 @@ export class CharacterEditorService {
     const result: ResourceValue[] = [];
     const grantedResources = new Map<string, { base: DimensionalNumberValue; bonuses: ResourceLimitBonus[] }>();
     const skipAbilityCodes = new Set<string>();
-    if (this.ownsConcentrationAbility(build) && !this.isConcentrationRequirementMet(characteristics, reference.rules())) {
+    if (
+      this.ownsConcentrationAbility(build) &&
+      !this.isConcentrationRequirementMet(characteristics, reference.rules())
+    ) {
       skipAbilityCodes.add(CONCENTRATION_ABILITY_CODE);
     }
     this.forEachActiveGrant(

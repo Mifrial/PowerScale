@@ -396,12 +396,17 @@ describe('CharacterEditorService.build', () => {
         description: '',
         spaceId: 1,
         keywordIds: [20],
-        mechanics: [{ mechanicId: 4, mechanicPayload: {
-          type: 'purchase_surcharge',
-          filter: { keyword_code: 'common' },
-          free_count: 2,
-          surcharge: 2,
-        } }],
+        mechanics: [
+          {
+            mechanicId: 4,
+            mechanicPayload: {
+              type: 'purchase_surcharge',
+              filter: { keyword_code: 'common' },
+              free_count: 2,
+              surcharge: 2,
+            },
+          },
+        ],
         createdAt: 1767225600,
       },
     ];

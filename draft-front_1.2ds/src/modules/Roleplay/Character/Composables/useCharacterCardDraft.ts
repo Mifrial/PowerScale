@@ -14,6 +14,8 @@ import { characterSheetValidationService } from '@/modules/Roleplay/Character/Se
 import { getMechanicApi } from '@/modules/Roleplay/Mechanic/init';
 import { useKeywords } from '@/modules/Roleplay/Keyword/init';
 import { CharacterApiError } from '@/modules/Roleplay/Character/Service/CharacterApiError';
+import { characterHttpViewService } from '@/modules/Roleplay/Character/Service/Instance/characterHttpViewService';
+import { createRandomId } from '@/modules/Core/Engine/Utils/createRandomId';
 
 /**
  * Черновик и быстрое сохранение с карточки персонажа: экип (и дальше другие правки)
@@ -75,9 +77,17 @@ export function useCharacterCardDraft(
   const displayVersion = computed<CharacterVersion | null>(() => {
     const current = detail.value;
     if (!current) return null;
-    if (!draft.value?.dirty || !build.value || rules.value.length === 0) return current.version;
+    if (draft.value?.dirty && build.value && rules.value.length > 0) {
+      return characterEditorService.toVersion(build.value, rules.value, config.value, keywords.value, mechanics.value);
+    }
+    if (rules.value.length === 0) return current.version;
 
-    return characterEditorService.toVersion(build.value, rules.value, config.value, keywords.value, mechanics.value);
+    return characterHttpViewService.materialize(
+      current.version,
+      current.character.spaceId,
+      rules.value,
+      keywords.value,
+    );
   });
 
   const validationIssues = computed(() =>
@@ -109,14 +119,31 @@ export function useCharacterCardDraft(
   }
 
   async function executePatch(characterId: number, patch: CharacterPatch, key: string): Promise<void> {
-    const validation = await getCharacterApi().validateCharacter({ mode: 'update', characterId, patch }, signal.value);
+    const validation = await getCharacterApi().validateCharacter(
+      {
+        mode: 'update',
+        characterId,
+        patch,
+        choices: draftStore.draftOf(key)?.build,
+        creationConfig: draftStore.draftOf(key)?.config,
+      },
+      signal.value,
+    );
     if (!validation.valid) {
       throw new CharacterApiError('CHARACTER_VALIDATION_FAILED', 'Персонаж не прошёл проверку', {
         kind: 'validation',
         problems: validation.problems,
       });
     }
-    const updated = await getCharacterApi().updateCharacter(characterId, { patch }, signal.value);
+    const updated = await getCharacterApi().updateCharacter(
+      characterId,
+      {
+        patch,
+        choices: draftStore.draftOf(key)?.build,
+        creationConfig: draftStore.draftOf(key)?.config,
+      },
+      signal.value,
+    );
     characterStore.applyDetail(updated);
     draftStore.discard(key);
     pendingPatch.value = null;
@@ -149,12 +176,7 @@ export function useCharacterCardDraft(
       keywords.value,
       mechanics.value,
     );
-    const patch = characterPatchService.createPatch(
-      current.version,
-      version,
-      crypto.randomUUID(),
-      current.actualVersion,
-    );
+    const patch = characterPatchService.createPatch(current.version, version, createRandomId(), current.actualVersion);
     pendingPatch.value = patch;
     pendingPatchCharacterId.value = current.character.id;
     pendingPatchDraftKey.value = key;

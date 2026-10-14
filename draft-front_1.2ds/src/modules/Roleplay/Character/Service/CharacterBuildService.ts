@@ -903,7 +903,7 @@ export class CharacterBuildService {
         spaceCode: version.spaceCode,
         rulesRevision: version.rulesRevision,
         raceRuleCode: version.raceRuleCode,
-        characteristicPurchases: this.purchasesFromVersion(version, rules),
+        characteristicPurchases: version.characteristicPurchases ?? this.purchasesFromVersion(version, rules),
         abilities: version.abilities.map((ability) => ({ ...ability })),
         resources: version.resources,
         inventory: version.inventory.map((item) => ({

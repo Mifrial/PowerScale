@@ -29,7 +29,7 @@ const RuleSlider = defineAsyncComponent(() => import('@/modules/Roleplay/Rule/Co
 /**
  * Редактор листа персонажа/НПС (переиспользуемый, ТР §7): владеет черновиком (по `draftKey`
  * в сторе characterDraft), загрузкой правил/механик, моделью (build), валидацией «Готов»
- * и рендером табов. «Сохранить» ждёт `onSaveChoices` или `onSave` и снимает `saving` после settle.
+ * и рендером табов. «Сохранить» ждёт `saveChoices` или `save` и снимает `saving` после settle.
  */
 const props = withDefaults(
   defineProps<{
@@ -38,8 +38,8 @@ const props = withDefaults(
     requireRace?: boolean;
     /** Цель телепорта кнопок «Черновик»/«Сохранить». Дефолт — топбар; внутри слайдера — локальный контейнер. */
     actionsTarget?: string;
-    onSave?: (version: CharacterVersion) => Promise<void> | void;
-    onSaveChoices?: (build: CharacterBuild, preview: CharacterVersion) => Promise<void> | void;
+    save?: (version: CharacterVersion) => Promise<void> | void;
+    saveChoices?: (build: CharacterBuild, preview: CharacterVersion) => Promise<void> | void;
   }>(),
   { requireRace: true, actionsTarget: '#editor-actions' },
 );
@@ -190,7 +190,6 @@ async function finish(): Promise<void> {
   }
 
   saving.value = true;
-  const reportSaveError = !props.onSaveChoices;
   try {
     const version = characterEditorService.toVersion(
       draft.value.build,
@@ -199,13 +198,15 @@ async function finish(): Promise<void> {
       keywords.value,
       mechanics.value,
     );
-    if (props.onSaveChoices) {
-      await props.onSaveChoices(draft.value.build, version);
+    if (props.saveChoices) {
+      await props.saveChoices(draft.value.build, version);
+    } else if (props.save) {
+      await props.save(version);
     } else {
-      await props.onSave?.(version);
+      saveError.value = 'Не удалось сохранить';
     }
   } catch (e) {
-    if (reportSaveError) saveError.value = e instanceof Error ? e.message : 'Не удалось сохранить';
+    saveError.value = e instanceof Error ? e.message : 'Не удалось сохранить';
   } finally {
     saving.value = false;
   }

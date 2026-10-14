@@ -12,37 +12,71 @@ import type { CharacterCustomRuleUpdateRequest } from '@/modules/Roleplay/Charac
 import type { MigrationResult } from '@/modules/Roleplay/Character/Dto/MigrationResult';
 import type { CharacterMigrationApplyRequest } from '@/modules/Roleplay/Character/Dto/CharacterMigrationApplyRequest';
 import { CharacterApiError } from '@/modules/Roleplay/Character/Service/CharacterApiError';
+import { characterHttpSaveService } from '@/modules/Roleplay/Character/Service/Instance/characterHttpSaveService';
+import { characterHttpViewService } from '@/modules/Roleplay/Character/Service/Instance/characterHttpViewService';
 import type { ActionResponse } from '@/modules/Core/Engine/Dto/ActionResponse';
 
 export class CharacterApi implements ICharacterApi {
   constructor(private readonly engine: Engine) {}
 
   async getCharacters(signal?: AbortSignal): Promise<Character[]> {
-    const res = await this.engine.runAction<Character[]>('character.getList', undefined, signal);
+    const res = await this.engine.runAction<unknown[]>('character.getList', undefined, signal);
 
-    return this.requireData(res, 'Failed to fetch characters');
+    return this.requireData(res, 'Failed to fetch characters').map((row) => characterHttpViewService.listItemOf(row));
   }
 
   async getCharacter(id: number, signal?: AbortSignal): Promise<CharacterDetail> {
-    const res = await this.engine.runAction<CharacterDetail>('character.get', { id }, signal);
+    const res = await this.engine.runAction<unknown>('character.get', { id }, signal);
 
-    return this.requireData(res, 'Character not found');
+    return characterHttpViewService.detailOf(this.requireData(res, 'Character not found'));
   }
 
   async createCharacter(data: CharacterCreateRequest, signal?: AbortSignal): Promise<CharacterDetail> {
-    const res = await this.engine.runAction<CharacterDetail>('character.create', data, signal);
+    const res = await this.engine.runAction<unknown>(
+      'character.create',
+      characterHttpSaveService.createBody(data),
+      signal,
+    );
+    const payload = this.requireData(res, 'Character create failed');
+    const id = characterHttpSaveService.readCreatedId(payload);
+    if (
+      payload !== null &&
+      typeof payload === 'object' &&
+      'character' in payload &&
+      payload.character !== null &&
+      typeof payload.character === 'object'
+    ) {
+      return payload as CharacterDetail;
+    }
 
-    return this.requireData(res, 'Character create failed');
+    return {
+      character: { id } as Character,
+      version: {} as CharacterDetail['version'],
+      actualVersion:
+        payload !== null &&
+        typeof payload === 'object' &&
+        'actualVersion' in payload &&
+        typeof payload.actualVersion === 'number'
+          ? payload.actualVersion
+          : 1,
+      discussionChatId: null,
+      previousVersion: null,
+    };
   }
 
   async updateCharacter(id: number, data: CharacterUpdateRequest, signal?: AbortSignal): Promise<CharacterDetail> {
-    const res = await this.engine.runAction<CharacterDetail>('character.update', { id, ...data }, signal);
+    const body =
+      data.choices && data.creationConfig
+        ? characterHttpSaveService.updateBody(id, data.choices, data.creationConfig, data.patch.expectedActualVersion)
+        : { id, ...data };
+    const res = await this.engine.runAction<unknown>('character.update', body, signal);
 
-    return this.requireData(res, 'Character update failed');
+    return characterHttpViewService.detailOf(this.requireData(res, 'Character update failed'));
   }
 
   async validateCharacter(data: CharacterValidateRequest, signal?: AbortSignal): Promise<CharacterValidationResult> {
-    const res = await this.engine.runAction<CharacterValidationResult>('character.validate', data, signal);
+    const body = characterHttpSaveService.validateBody(data);
+    const res = await this.engine.runAction<CharacterValidationResult>('character.validate', body, signal);
 
     return this.requireData(res, 'Character validation failed');
   }
@@ -99,9 +133,9 @@ export class CharacterApi implements ICharacterApi {
   }
 
   async updateOwnerNotes(id: number, notes: string, signal?: AbortSignal): Promise<CharacterDetail> {
-    const res = await this.engine.runAction<CharacterDetail>('character.updateOwnerNotes', { id, notes }, signal);
+    const res = await this.engine.runAction<unknown>('character.updateOwnerNotes', { id, notes }, signal);
 
-    return this.requireData(res, 'Character notes update failed');
+    return characterHttpViewService.detailOf(this.requireData(res, 'Character notes update failed'));
   }
 
   private requireData<T>(response: ActionResponse<T>, fallbackMessage: string): T {

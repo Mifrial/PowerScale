@@ -8,7 +8,7 @@ function rootCrumb(): BreadcrumbItem[] {
 
 function characterCrumb(to: RouteLocationNormalizedLoaded, suffix: string | null): BreadcrumbItem[] {
   const store = useCharacterStore();
-  const name = store.currentCharacter?.character.name || String(to.params.id ?? 'Персонаж');
+  const name = store.currentCharacter?.character?.name || String(to.params.id ?? 'Персонаж');
   const crumbs: BreadcrumbItem[] = [
     { title: 'Персонажи', to: '/characters' },
     { title: name, to: `/characters/${to.params.id}` },

@@ -29,6 +29,7 @@ export { characterBuildService } from '@/modules/Roleplay/Character/Service/Inst
 export { characterPatchService } from '@/modules/Roleplay/Character/Service/Instance/characterPatchService';
 export { characterChangePort } from '@/modules/Roleplay/Character/Service/Instance/characterChangePort';
 export { CharacterApiError } from '@/modules/Roleplay/Character/Service/CharacterApiError';
+export { characterHttpViewService } from '@/modules/Roleplay/Character/Service/Instance/characterHttpViewService';
 export { magicStudyUnlockService } from '@/modules/Roleplay/Character/Service/Instance/magicStudyUnlockService';
 export { useAttackFavorites } from '@/modules/Roleplay/Character/Composables/useAttackFavorites';
 export { useCharacterDraft } from '@/modules/Roleplay/Character/Composables/useCharacterDraft';

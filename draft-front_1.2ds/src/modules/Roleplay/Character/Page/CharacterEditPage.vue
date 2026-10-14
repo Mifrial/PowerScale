@@ -8,6 +8,8 @@ import { useCurrentUser } from '@/modules/Core/User/init';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { characterBuildService } from '@/modules/Roleplay/Character/Service/Instance/characterBuildService';
 import { characterPatchService, CharacterApiError, getCharacterApi } from '@/modules/Roleplay/Character/init';
+import { createRandomId } from '@/modules/Core/Engine/Utils/createRandomId';
+import { cloneData } from '@/modules/Core/UI/Utils/cloneData';
 import { characterAccessService } from '@/modules/Roleplay/Character/Service/Instance/characterAccessService';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { CharacterBuild } from '@/modules/Roleplay/Character/Dto/Editor/CharacterBuild';
@@ -116,6 +118,15 @@ async function load(): Promise<void> {
   }
 }
 
+function validationMessage(problems: { message: string }[]): string {
+  const text = problems
+    .map((problem) => problem.message)
+    .filter((message) => message.length > 0)
+    .join('; ');
+
+  return text || 'Персонаж не прошёл проверку';
+}
+
 async function executeSave(attempt: CharacterSaveAttempt): Promise<void> {
   if (attempt.kind === 'create') {
     const validation = await getCharacterApi().validateCharacter(
@@ -127,7 +138,7 @@ async function executeSave(attempt: CharacterSaveAttempt): Promise<void> {
       signal.value,
     );
     if (!validation.valid) {
-      throw new CharacterApiError('CHARACTER_VALIDATION_FAILED', 'Персонаж не прошёл проверку', {
+      throw new CharacterApiError('CHARACTER_VALIDATION_FAILED', validationMessage(validation.problems), {
         kind: 'validation',
         problems: validation.problems,
       });
@@ -141,16 +152,30 @@ async function executeSave(attempt: CharacterSaveAttempt): Promise<void> {
   }
 
   const validation = await getCharacterApi().validateCharacter(
-    { mode: 'update', characterId: attempt.characterId, patch: attempt.patch },
+    {
+      mode: 'update',
+      characterId: attempt.characterId,
+      patch: attempt.patch,
+      choices: attempt.choices,
+      creationConfig: attempt.creationConfig,
+    },
     signal.value,
   );
   if (!validation.valid) {
-    throw new CharacterApiError('CHARACTER_VALIDATION_FAILED', 'Персонаж не прошёл проверку', {
+    throw new CharacterApiError('CHARACTER_VALIDATION_FAILED', validationMessage(validation.problems), {
       kind: 'validation',
       problems: validation.problems,
     });
   }
-  const updated = await getCharacterApi().updateCharacter(attempt.characterId, { patch: attempt.patch }, signal.value);
+  const updated = await getCharacterApi().updateCharacter(
+    attempt.characterId,
+    {
+      patch: attempt.patch,
+      choices: attempt.choices,
+      creationConfig: attempt.creationConfig,
+    },
+    signal.value,
+  );
   characterStore.applyDetail(updated);
   await router.push(gameId.value !== null ? `/games/${gameId.value}` : `/characters/${attempt.characterId}`);
   draftStore.discard(draftKey.value);
@@ -168,9 +193,9 @@ async function handleSaveChoices(build: CharacterBuild, preview: CharacterVersio
     attempt = {
       kind: 'create',
       request: {
-        commandId: crypto.randomUUID(),
-        choices: structuredClone(build),
-        creationConfig: structuredClone(current.config),
+        commandId: createRandomId(),
+        choices: cloneData(build),
+        creationConfig: cloneData(current.config),
       },
     };
   } else {
@@ -183,7 +208,9 @@ async function handleSaveChoices(build: CharacterBuild, preview: CharacterVersio
     attempt = {
       kind: 'update',
       characterId: characterId.value,
-      patch: characterPatchService.createPatch(detail.version, preview, crypto.randomUUID(), detail.actualVersion),
+      patch: characterPatchService.createPatch(detail.version, preview, createRandomId(), detail.actualVersion),
+      choices: cloneData(build),
+      creationConfig: cloneData(current.config),
     };
   }
 
@@ -195,6 +222,7 @@ async function handleSaveChoices(build: CharacterBuild, preview: CharacterVersio
   } catch (e) {
     saveError.value = e instanceof Error ? e.message : 'Не удалось сохранить персонажа';
     saveConflict.value = e instanceof CharacterApiError && e.code === 'CHARACTER_ACTUAL_CONFLICT';
+    throw e;
   } finally {
     saving.value = false;
   }
@@ -266,7 +294,7 @@ watch(() => [route.name, route.params.id, gameId.value], load, { immediate: true
       v-else
       :draft-key="draftKey"
       :require-race="true"
-      @save-choices="handleSaveChoices"
+      :save-choices="handleSaveChoices"
       @cancel="handleIntegrityCancel"
     />
     <v-alert v-if="saveError" type="error" variant="tonal" class="ma-4">

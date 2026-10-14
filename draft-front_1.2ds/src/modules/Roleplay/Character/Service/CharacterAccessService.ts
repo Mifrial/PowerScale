@@ -11,7 +11,9 @@ import { sheetAccessService } from '@/modules/Roleplay/Character/Service/Instanc
  */
 export class CharacterAccessService {
   constructor(private readonly sheetAccess = sheetAccessService) {}
-  canViewCharacter(user: User | null | undefined, character: Character): boolean {
+  canViewCharacter(user: User | null | undefined, character: Character | undefined): boolean {
+    if (!character) return false;
+
     return this.canViewStandaloneSheet(user, {
       id: character.id,
       ownerId: character.ownerId,

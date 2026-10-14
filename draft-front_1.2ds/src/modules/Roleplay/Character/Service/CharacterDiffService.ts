@@ -60,13 +60,13 @@ export class CharacterDiffService {
     }
 
     changes.push(
-      ...this.diffCollection('characteristics', approved?.characteristics ?? [], actual.characteristics, (value) =>
+      ...this.diffCollection('characteristics', approved?.characteristics, actual.characteristics, (value) =>
         this.stringField(value, 'ruleCode'),
       ),
-      ...this.diffCollection('resources', approved?.resources ?? [], actual.resources, (value) =>
+      ...this.diffCollection('resources', approved?.resources, actual.resources, (value) =>
         this.stringField(value, 'ruleCode'),
       ),
-      ...this.diffCollection('abilities', approved?.abilities ?? [], actual.abilities, (value) => {
+      ...this.diffCollection('abilities', approved?.abilities, actual.abilities, (value) => {
         const ruleCode = this.stringField(value, 'ruleCode');
         const domain = this.stringField(value, 'domain');
 
@@ -74,17 +74,15 @@ export class CharacterDiffService {
       }),
       ...this.diffCollection(
         'inventory',
-        approved?.inventory ?? [],
+        approved?.inventory,
         actual.inventory,
         (value) => `${String(this.field(value, 'ruleCode'))}|${String(this.field(value, 'id') ?? '')}`,
       ),
-      ...this.diffCollection('states', approved?.states ?? [], actual.states, (value) =>
+      ...this.diffCollection('states', approved?.states, actual.states, (value) =>
         this.stringField(value, 'stateRuleCode'),
       ),
-      ...this.diffCollection('senses', approved?.senses ?? [], actual.senses, (value) =>
-        this.stringField(value, 'ruleCode'),
-      ),
-      ...this.diffCollection('customRules', approved?.customRules ?? [], actual.customRules ?? [], (value) =>
+      ...this.diffCollection('senses', approved?.senses, actual.senses, (value) => this.stringField(value, 'ruleCode')),
+      ...this.diffCollection('customRules', approved?.customRules, actual.customRules, (value) =>
         String(this.field(value, 'id') ?? ''),
       ),
     );
@@ -94,8 +92,8 @@ export class CharacterDiffService {
 
   private diffCollection(
     section: CharacterDiff['changes'][number]['section'],
-    approvedValues: unknown[],
-    actualValues: unknown[],
+    approvedValues: unknown,
+    actualValues: unknown,
     keyOf: (value: unknown) => string,
   ): CharacterDiff['changes'] {
     const approvedEntries = this.collectionEntries(approvedValues, keyOf);
@@ -152,9 +150,9 @@ export class CharacterDiffService {
     }, []);
   }
 
-  private collectionEntries(values: unknown[], keyOf: (value: unknown) => string): { key: string; value: unknown }[] {
+  private collectionEntries(values: unknown, keyOf: (value: unknown) => string): { key: string; value: unknown }[] {
     const groupedValues = new Map<string, unknown[]>();
-    for (const value of values) {
+    for (const value of this.collectionList(values)) {
       const key = keyOf(value);
       const group = groupedValues.get(key) ?? [];
       group.push(this.normalizeSemanticValue(value));
@@ -168,6 +166,15 @@ export class CharacterDiffService {
           .sort((left, right) => this.serializeSemanticValue(left).localeCompare(this.serializeSemanticValue(right)))
           .map((value, index) => ({ key: `${key}#${index + 1}`, value })),
       );
+  }
+
+  /** PHP JSON часто отдаёт объект вместо массива; пустое поле — undefined. */
+  private collectionList(values: unknown): unknown[] {
+    if (Array.isArray(values)) return values;
+    if (values === null || values === undefined) return [];
+    if (typeof values === 'object') return Object.values(values);
+
+    return [];
   }
 
   private normalizeSemanticValue(value: unknown, omitHeldBy = false): unknown {

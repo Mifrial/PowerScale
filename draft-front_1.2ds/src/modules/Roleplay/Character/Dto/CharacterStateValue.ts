@@ -7,6 +7,8 @@ import type { CharacterWound } from '@/modules/Roleplay/Character/Dto/CharacterW
  * StateSpec.aggregation правила.
  */
 export interface CharacterStateValue {
+  /** Id строки листа PHP; на mock-пути нет. */
+  id?: number;
   stateRuleCode: string;
   /** flag: не заполняется; number: целое значение. */
   value?: number;

@@ -6,6 +6,7 @@ import type { InventoryItem } from '@/modules/Roleplay/Character/Dto/InventoryIt
 import type { CharacterStateValue } from '@/modules/Roleplay/Character/Dto/CharacterStateValue';
 import type { CharacterSenseValue } from '@/modules/Roleplay/Character/Dto/CharacterSenseValue';
 import type { CustomRuleEntry } from '@/modules/Roleplay/Character/Dto/CustomRuleEntry';
+import type { CharacteristicPurchase } from '@/modules/Roleplay/Character/Dto/Editor/CharacteristicPurchase';
 
 export interface CharacterVersion {
   name: string;
@@ -39,4 +40,6 @@ export interface CharacterVersion {
   ethnicityText?: string | null;
   nativeLanguageCode?: string | null;
   nativeLanguageText?: string | null;
+  /** Закупки PHP-листа; нет в мок-версии. Нужны, чтобы edit не восстанавливал ступени по базе. */
+  characteristicPurchases?: CharacteristicPurchase[];
 }

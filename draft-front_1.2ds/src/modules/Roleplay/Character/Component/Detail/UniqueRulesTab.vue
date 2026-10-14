@@ -4,6 +4,7 @@ import { computed, onMounted, ref } from 'vue';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
 import type { CustomRuleEntry } from '@/modules/Roleplay/Character/Dto/CustomRuleEntry';
 import { getCharacterApi } from '@/modules/Roleplay/Character/init';
+import { createRandomId } from '@/modules/Core/Engine/Utils/createRandomId';
 import { useRouter } from 'vue-router';
 
 const props = defineProps<{
@@ -62,7 +63,7 @@ async function confirmReplace(): Promise<void> {
   try {
     const detail = await getCharacterApi().getCharacter(props.characterId);
     await getCharacterApi().updateCustomRule(props.characterId, entry.id, {
-      commandId: crypto.randomUUID(),
+      commandId: createRandomId(),
       expectedActualVersion: detail.actualVersion,
       status: 'deprecated',
       replacedWithRuleCode: replaceRuleId.value,

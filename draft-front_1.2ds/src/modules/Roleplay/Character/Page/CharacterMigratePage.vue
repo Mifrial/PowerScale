@@ -9,6 +9,7 @@ import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { characterBuildService } from '@/modules/Roleplay/Character/Service/Instance/characterBuildService';
 import { characterMigrationService } from '@/modules/Roleplay/Character/Service/Instance/characterMigrationService';
 import { getCharacterApi } from '@/modules/Roleplay/Character/init';
+import { createRandomId } from '@/modules/Core/Engine/Utils/createRandomId';
 import { CharacterSheetEditor } from '@/modules/Roleplay/Character/init';
 import MigrationReport from '@/modules/Roleplay/Character/Component/MigrationReport.vue';
 import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/CharacterVersion';
@@ -180,7 +181,7 @@ async function applyVersion(version: CharacterVersion): Promise<boolean> {
   running.value = true;
   try {
     await getCharacterApi().applyMigration(id, {
-      commandId: crypto.randomUUID(),
+      commandId: createRandomId(),
       expectedActualVersion: detail.actualVersion,
       version,
     });
@@ -326,7 +327,7 @@ onMounted(load);
             Сравнить до/после
           </v-btn>
         </div>
-        <CharacterSheetEditor :draft-key="migrationDraftKey" :require-race="true" @save="handleEditorSave" />
+        <CharacterSheetEditor :draft-key="migrationDraftKey" :require-race="true" :save="handleEditorSave" />
       </template>
     </template>
 

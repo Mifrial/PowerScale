@@ -8,6 +8,8 @@ import type { CharacterVersion } from '@/modules/Roleplay/Character/Dto/Characte
 import type { SheetSection } from '@/modules/Roleplay/Character/Enum/SheetSection';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 import { useKeywords } from '@/modules/Roleplay/Keyword/init';
+import { characterOverviewService } from '@/modules/Roleplay/Character/Service/Instance/characterOverviewService';
+import { characterHttpViewService } from '@/modules/Roleplay/Character/Service/Instance/characterHttpViewService';
 
 /**
  * Просмотр листа в контексте игры по видимым секциям (общий для персонажей-в-игре и НПС).
@@ -42,11 +44,24 @@ onMounted(() => {
 
 const rulesByCode = computed(() => new Map(rules.value.map((rule) => [rule.code, rule])));
 
-const sheetAbilities = computed(() => {
-  if (!props.version) return [];
+const displayVersion = computed(() => {
+  if (!props.version) return null;
+  if (rules.value.length === 0) return props.version;
 
-  return characterOverviewService.build(props.version, rules.value, keywords.value).abilities;
+  return characterHttpViewService.materialize(props.version, props.spaceId ?? 0, rules.value, keywords.value);
 });
+
+const sheetSummary = computed(() => {
+  const version = displayVersion.value;
+  if (!version || rules.value.length === 0) {
+    return { characteristics: [], abilities: [] };
+  }
+
+  return characterOverviewService.sheetSummary(version, rules.value);
+});
+
+const sheetAbilities = computed(() => sheetSummary.value.abilities);
+const sheetCharacteristics = computed(() => sheetSummary.value.characteristics);
 
 function ruleName(ruleCode: string | null): string | null {
   if (!ruleCode) return null;
@@ -63,13 +78,6 @@ function itemName(item: { ruleCode: string | null; name?: string | null }): stri
 
 function sectionVisible(section: SheetSection): boolean {
   return props.visibleSections.includes(section);
-}
-
-function characteristicValue(ruleCode: string): string {
-  const value = props.version?.characteristics.find((characteristic) => characteristic.ruleCode === ruleCode);
-  if (!value) return '';
-
-  return DimensionalNumber.from(value.base).toString();
 }
 
 watch(
@@ -99,33 +107,33 @@ watch(
 
     <div v-if="sectionVisible('shortDescription')" class="sheet-block">
       <div class="sheet-label">{{ SHEET_SECTION_LABELS.shortDescription }}</div>
-      <div class="text-body-2">{{ version?.shortDescription ?? props.shortDescription }}</div>
+      <div class="text-body-2">{{ displayVersion?.shortDescription ?? props.shortDescription }}</div>
     </div>
     <div v-if="sectionVisible('fullDescription')" class="sheet-block">
       <div class="sheet-label">{{ SHEET_SECTION_LABELS.fullDescription }}</div>
-      <div class="text-body-2">{{ version?.fullDescription ?? props.fullDescription }}</div>
+      <div class="text-body-2">{{ displayVersion?.fullDescription ?? props.fullDescription }}</div>
     </div>
 
-    <div v-if="sectionVisible('race') && version?.raceRuleCode" class="sheet-block">
+    <div v-if="sectionVisible('race') && displayVersion?.raceRuleCode" class="sheet-block">
       <div class="sheet-label">{{ SHEET_SECTION_LABELS.race }}</div>
-      <div class="text-body-2">{{ ruleName(version.raceRuleCode) }}</div>
+      <div class="text-body-2">{{ ruleName(displayVersion.raceRuleCode) }}</div>
     </div>
 
-    <div v-if="sectionVisible('characteristics') && version?.characteristics.length" class="sheet-block">
+    <div v-if="sectionVisible('characteristics') && sheetCharacteristics.length" class="sheet-block">
       <div class="sheet-label">{{ SHEET_SECTION_LABELS.characteristics }}</div>
       <div class="d-flex flex-column">
-        <div v-for="characteristic in version.characteristics" :key="characteristic.ruleCode" class="sheet-row">
-          <span class="text-body-2">{{ ruleName(characteristic.ruleCode) }}</span>
+        <div v-for="characteristic in sheetCharacteristics" :key="characteristic.ruleCode" class="sheet-row">
+          <span class="text-body-2">{{ characteristic.name }}</span>
           <v-spacer />
-          <span class="text-body-2">{{ characteristicValue(characteristic.ruleCode) }}</span>
+          <span class="text-body-2">{{ characteristic.valueLabel }}</span>
         </div>
       </div>
     </div>
 
-    <div v-if="sectionVisible('resources') && version?.resources.length" class="sheet-block">
+    <div v-if="sectionVisible('resources') && displayVersion?.resources.length" class="sheet-block">
       <div class="sheet-label">{{ SHEET_SECTION_LABELS.resources }}</div>
       <div class="d-flex flex-column">
-        <div v-for="resource in version.resources" :key="resource.ruleCode" class="sheet-row">
+        <div v-for="resource in displayVersion.resources" :key="resource.ruleCode" class="sheet-row">
           <span class="text-body-2">{{ ruleName(resource.ruleCode) }}</span>
           <v-spacer />
           <span class="text-body-2">
@@ -150,10 +158,10 @@ watch(
       </div>
     </div>
 
-    <div v-if="sectionVisible('inventory') && version?.inventory.length" class="sheet-block">
+    <div v-if="sectionVisible('inventory') && displayVersion?.inventory.length" class="sheet-block">
       <div class="sheet-label">{{ SHEET_SECTION_LABELS.inventory }}</div>
       <div class="d-flex flex-column">
-        <div v-for="item in version.inventory" :key="item.id" class="sheet-row">
+        <div v-for="item in displayVersion.inventory" :key="item.id" class="sheet-row">
           <span class="text-body-2">{{ itemName(item) }}</span>
           <v-spacer />
           <span class="text-body-2">×{{ item.quantity }}</span>
@@ -161,10 +169,10 @@ watch(
       </div>
     </div>
 
-    <div v-if="sectionVisible('states') && version?.states.length" class="sheet-block">
+    <div v-if="sectionVisible('states') && displayVersion?.states.length" class="sheet-block">
       <div class="sheet-label">{{ SHEET_SECTION_LABELS.states }}</div>
       <div class="d-flex ga-1 flex-wrap">
-        <v-chip v-for="state in version.states" :key="state.stateRuleCode" size="x-small" variant="tonal">
+        <v-chip v-for="state in displayVersion.states" :key="state.stateRuleCode" size="x-small" variant="tonal">
           {{ ruleName(state.stateRuleCode) }}
         </v-chip>
       </div>

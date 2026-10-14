@@ -34,25 +34,31 @@ describe('SpellParamsViewService', () => {
   });
 
   it('поддерживаемое действие показывает мощь', () => {
-    const view = service.view({
-      ...discharge,
-      action_components: [{ type: 'resource', resource_code: 'action-points', amount: 4, label: 'Сотворение' }],
-      hit_resolution: { type: 'none' },
-      spell: {
-        power: { base: 4, size: -1 },
-        control: { base: 5, size: -1 },
-        duration: { type: 'sustained', power: { type: 'parameter', parameter_code: 'x' } },
+    const view = service.view(
+      {
+        ...discharge,
+        action_components: [{ type: 'resource', resource_code: 'action-points', amount: 4, label: 'Сотворение' }],
+        hit_resolution: { type: 'none' },
+        spell: {
+          power: { base: 4, size: -1 },
+          control: { base: 5, size: -1 },
+          duration: { type: 'sustained', power: { type: 'parameter', parameter_code: 'x' } },
+        },
       },
-    }, actionPoints);
+      actionPoints,
+    );
     expect(view.durationLabel).toBe('Поддержание(Мощь: x)');
     expect(view.powerLabel).toBe('4↓');
   });
 
   it('без соматики не показывает строку компонентов', () => {
-    const view = service.view({
-      ...discharge,
-      action_components: [{ type: 'resource', resource_code: 'action-points', amount: 4, label: 'Сотворение' }],
-    }, actionPoints);
+    const view = service.view(
+      {
+        ...discharge,
+        action_components: [{ type: 'resource', resource_code: 'action-points', amount: 4, label: 'Сотворение' }],
+      },
+      actionPoints,
+    );
     expect(view.componentsLabel).toBeNull();
   });
 });

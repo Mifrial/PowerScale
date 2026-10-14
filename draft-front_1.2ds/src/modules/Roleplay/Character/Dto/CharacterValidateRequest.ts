@@ -5,4 +5,10 @@ import type { CharacterPatch } from '@/modules/Roleplay/Character/Dto/CharacterP
 /** Validate-only вход для нового персонажа или existing actual. */
 export type CharacterValidateRequest =
   | { mode: 'create'; choices: CharacterBuild; creationConfig: CharacterCreationConfig }
-  | { mode: 'update'; characterId: number; patch: CharacterPatch };
+  | {
+      mode: 'update';
+      characterId: number;
+      patch: CharacterPatch;
+      choices?: CharacterBuild;
+      creationConfig?: CharacterCreationConfig;
+    };

@@ -142,6 +142,20 @@ describe('CharacterDiffService', () => {
     });
   });
 
+  it('PHP-снимок без массива characteristics не бросает', () => {
+    const snapshot = {
+      name: 'Герой',
+      rulesRevision: 1,
+      choices: { name: 'Герой', raceCode: 'human' },
+      sheet: { characteristicPurchases: [{ characteristicCode: 'strength', cost: 2 }] },
+    } as unknown as CharacterVersion;
+
+    expect(() => characterDiffService.getCharacterDiff(snapshot, snapshot)).not.toThrow();
+    const diff = characterDiffService.getCharacterDiff(snapshot, snapshot);
+    expect(diff.availability).toBe('complete');
+    expect(diff.hasChanges).toBe(false);
+  });
+
   it('выносит identity guards из обычного semantic diff', () => {
     const diff = characterDiffService.getCharacterDiff(
       version({ spaceCode: 'old', rulesRevision: 1 }),

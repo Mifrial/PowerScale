@@ -108,6 +108,19 @@ export class CharacterOverviewService {
     };
   }
 
+  /** Все характеристики с итогом база+модификаторы — для краткой карточки листа. */
+  sheetSummary(
+    version: CharacterVersion,
+    rules: Rule[],
+  ): { characteristics: CharacteristicOverview[]; abilities: AbilityOverview[] } {
+    const { synced, reference, withStates } = this.prepared(version, rules);
+
+    return {
+      characteristics: withStates,
+      abilities: this.buildAbilities(synced, reference),
+    };
+  }
+
   /** Урон/пробитие профиля с силой действия, урезанной за дистанцию. */
   attackAtDistance(
     version: CharacterVersion,
@@ -699,7 +712,10 @@ export class CharacterOverviewService {
     );
   }
 
-  private actionPointsCost(components: ActionComponent[], resourceCode: string): DimensionalNumberValue | number | null {
+  private actionPointsCost(
+    components: ActionComponent[],
+    resourceCode: string,
+  ): DimensionalNumberValue | number | null {
     if (!resourceCode) return null;
     const actionPoints = components.filter(
       (component): component is Extract<ActionComponent, { type: 'resource' }> =>

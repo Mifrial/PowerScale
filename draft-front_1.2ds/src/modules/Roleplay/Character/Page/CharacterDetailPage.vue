@@ -223,6 +223,7 @@ watch(detail, (value) => {
 
     return;
   }
+  if (!value.character || !value.version) return;
   void loadRules(value.character.spaceId, value.version.rulesRevision, signal.value);
 });
 </script>

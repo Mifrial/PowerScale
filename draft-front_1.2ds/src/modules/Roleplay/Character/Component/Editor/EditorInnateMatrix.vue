@@ -4,6 +4,7 @@ import { DimensionalNumber } from '@/modules/Core/Engine/Value/DimensionalNumber
 import type { CharacterEditorModel } from '@/modules/Roleplay/Character/Dto/Editor/CharacterEditorModel';
 import type { EditorAbility } from '@/modules/Roleplay/Character/Dto/Editor/EditorAbility';
 import type { EditorAbilityParameter } from '@/modules/Roleplay/Character/Dto/Editor/EditorAbilityParameter';
+import { innateCharacteristicKindService } from '@/modules/Roleplay/Character/Service/Instance/innateCharacteristicKindService';
 import type { Keyword } from '@/modules/Roleplay/Keyword/Dto/Keyword';
 import type { Rule } from '@/modules/Roleplay/Rule/Dto/Rule';
 
@@ -17,9 +18,6 @@ const emit = defineEmits<{
   'set-parameter': [ruleCode: string, code: string, value: number | { base: number; size: number }];
 }>();
 
-const MODIFIER_KEYWORD_ID = 46;
-const GIFT_KEYWORD_ID = 47;
-
 /** Имя характеристики по коду — из правил ревизии (в модели характеристика может отсутствовать,
  *  если дар её ещё не задал: «Врождённая Магия X» до взятия показывает Магию, а не код magic). */
 const byCode = computed(() => new Map(props.rules.map((rule) => [rule.code, rule])));
@@ -29,15 +27,15 @@ const innateAbilities = computed(() =>
   props.model.abilities.filter((ability) => ability.characteristic && ability.visible),
 );
 
-/** Модификаторы (признак «Модификатор»): модификатор ±X к характеристике. */
-const modifierAbilities = computed(() =>
-  innateAbilities.value.filter((ability) => ability.keywordIds.includes(MODIFIER_KEYWORD_ID)),
+const innateKinds = computed(() =>
+  innateCharacteristicKindService.split(innateAbilities.value, props.keywords, props.rules),
 );
 
-/** Дары (признак «Дар»): значение характеристики (потолок), напр. «Врождённая Магия X». */
-const giftAbilities = computed(() =>
-  innateAbilities.value.filter((ability) => ability.keywordIds.includes(GIFT_KEYWORD_ID)),
-);
+/** Модификаторы: ±X к характеристике. */
+const modifierAbilities = computed(() => innateKinds.value.modifiers);
+
+/** Дары: значение характеристики (потолок), напр. «Врождённая Магия X». */
+const giftAbilities = computed(() => innateKinds.value.gifts);
 
 interface InnateRow {
   ability: EditorAbility;
@@ -106,7 +104,7 @@ function totalOf(ability: EditorAbility, characteristicCode: string | null): str
   return new DimensionalNumber(characteristic.value).toString();
 }
 
-function rowsOf(list: EditorAbility[]): InnateRow[] {
+function rowsOf(list: EditorAbility[], kind: 'modifier' | 'gift'): InnateRow[] {
   return list
     .map((ability) => {
       const parameter = paramOf(ability);
@@ -116,12 +114,13 @@ function rowsOf(list: EditorAbility[]): InnateRow[] {
         ability,
         parameter,
         characteristicCode: ability.characteristicCode,
-        name: ability.keywordIds.includes(GIFT_KEYWORD_ID)
-          ? giftName(ability)
-          : ability.characteristicCode
-            ? characteristicName(ability.characteristicCode)
-            : ability.name,
-        subtitle: ability.keywordIds.includes(GIFT_KEYWORD_ID) ? giftSubtitle(parameter) : null,
+        name:
+          kind === 'gift'
+            ? giftName(ability)
+            : ability.characteristicCode
+              ? characteristicName(ability.characteristicCode)
+              : ability.name,
+        subtitle: kind === 'gift' ? giftSubtitle(parameter) : null,
         total: totalOf(ability, ability.characteristicCode),
         current: paramValue(parameter),
       };
@@ -129,8 +128,8 @@ function rowsOf(list: EditorAbility[]): InnateRow[] {
     .filter((row): row is InnateRow => row !== null);
 }
 
-const modifierRows = computed(() => rowsOf(modifierAbilities.value));
-const giftRows = computed(() => rowsOf(giftAbilities.value));
+const modifierRows = computed(() => rowsOf(modifierAbilities.value, 'modifier'));
+const giftRows = computed(() => rowsOf(giftAbilities.value, 'gift'));
 
 /** Общий набор значений X (ступеней) по всем модификаторам — единая сетка столбцов. */
 const modifierSteps = computed(() => {
