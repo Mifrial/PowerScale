@@ -34,5 +34,19 @@ export function usePermissions() {
     }
   }
 
-  return { isGuest, canInChat };
+  /**
+   * Встроенный тред (чат игры/обсуждение) не лежит в inbox: `chat.getChats` режет donor-типы.
+   * Если страница сообщений открылась — актор уже член на бэке, писать можно.
+   */
+  function canWriteEmbedded(
+    chat: Pick<Chat, 'members' | 'visibility' | 'type'> | null,
+    threadLoaded: boolean,
+  ): boolean {
+    if (canInChat(chat, 'chat.write')) return true;
+    if (!threadLoaded || !userId.value || isGuest.value) return false;
+
+    return true;
+  }
+
+  return { isGuest, canInChat, canWriteEmbedded };
 }

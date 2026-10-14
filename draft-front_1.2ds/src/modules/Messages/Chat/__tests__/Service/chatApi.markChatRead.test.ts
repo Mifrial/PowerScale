@@ -29,13 +29,14 @@ describe('ChatApi.sendMessage', () => {
       },
     });
     const api = new ChatApi({ runAction } as unknown as Engine);
-    await api.sendMessage(1, 'hi', [], { kind: 'gm' }, { all: false }, { id: 't', kind: 'turn' });
+    const sent = await api.sendMessage(1, 'hi', [], { kind: 'gm' }, { all: false }, { id: 't', kind: 'turn' });
     expect(runAction).toHaveBeenCalledWith('chat.sendMessage', {
       chatId: 1,
       content: 'hi',
-      attachments: [],
+      attachments: [{ type: 'chat_speaker', payload: { kind: 'gm' } }],
       visibility: { all: false },
     });
+    expect(sent.speaker).toEqual({ kind: 'gm' });
   });
 
   it('не кладёт visibility, если undefined', async () => {

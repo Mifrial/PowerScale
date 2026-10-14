@@ -296,6 +296,27 @@ describe('chat store', () => {
       expect(store.allMessages.find((m) => m.content === 'sync-msg')).toBeTruthy();
     });
 
+    it('sync поднимает speaker из вложения', async () => {
+      const store = useChatStore();
+      await store.fetchChats();
+      const chatId = store.chats[0].id;
+      store.applySyncResponse({
+        now: 1,
+        afterId: 0,
+        chats: [],
+        newChats: [],
+        messages: {
+          [chatId]: [
+            {
+              ...makeMsg(42, chatId, 'hi'),
+              attachments: [{ type: 'chat_speaker', payload: { kind: 'gm' } }],
+            },
+          ],
+        },
+      });
+      expect(store.messagesOf(chatId).find((item) => item.id === 42)?.speaker).toEqual({ kind: 'gm' });
+    });
+
     it('sync upserts chat from chats when it is not in the list', () => {
       const store = useChatStore();
       store.applySyncResponse({

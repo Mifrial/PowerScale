@@ -8,6 +8,7 @@ import type { ChatAttachment } from '@/modules/Messages/Chat/Dto/ChatAttachment'
 import type { ChatSpeaker } from '@/modules/Messages/Chat/Dto/ChatSpeaker';
 import type { ChatMessageVisibility } from '@/modules/Messages/Chat/Dto/ChatMessageVisibility';
 import type { ChatThreadRef } from '@/modules/Messages/Chat/Dto/ChatThreadRef';
+import { chatSpeakerAttachmentService } from '@/modules/Messages/Chat/Service/Instance/chatSpeakerAttachmentService';
 
 /**
  * Real Chat: action и страница; SSE не через runAction.
@@ -31,7 +32,7 @@ export class ChatApi implements IChatApi {
     const res = await this.engine.runAction<ChatMessagePage>('chat.findMessagePage', { chatId, limit, offset });
     if (!res.success || !res.data) throw new Error(res.error?.message ?? 'Failed to load messages');
 
-    return res.data;
+    return chatSpeakerAttachmentService.pageOf(res.data);
   }
 
   async getMessages(chatId: number, limit: number, offset: number): Promise<ChatMessage[]> {
@@ -50,16 +51,17 @@ export class ChatApi implements IChatApi {
     chatId: number,
     content: string,
     attachments: ChatAttachment[],
-    _speaker?: ChatSpeaker,
+    speaker?: ChatSpeaker,
     visibility?: ChatMessageVisibility,
     _thread?: ChatThreadRef,
   ): Promise<ChatMessage> {
-    const payload: Record<string, unknown> = { chatId, content, attachments };
+    const encoded = chatSpeakerAttachmentService.attachmentsWithSpeaker(attachments, speaker);
+    const payload: Record<string, unknown> = { chatId, content, attachments: encoded };
     if (visibility !== undefined) payload.visibility = visibility;
     const res = await this.engine.runAction<ChatMessage>('chat.sendMessage', payload);
     if (!res.success || !res.data) throw new Error(res.error?.message ?? 'Failed to send message');
 
-    return res.data;
+    return chatSpeakerAttachmentService.messageOf({ ...res.data, speaker: res.data.speaker ?? speaker });
   }
 
   async updateMessageVisibility(

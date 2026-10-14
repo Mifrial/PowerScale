@@ -47,7 +47,7 @@ const metaAttachments = computed(() =>
 const blockAttachments = computed(() =>
   props.msg.attachments
     .map((attachment, index) => ({ attachment, index, renderer: getContentRenderer(attachment.type) }))
-    .filter((item) => getContentRendererEntry(item.attachment.type)?.layout !== 'meta'),
+    .filter((item) => item.renderer !== undefined && getContentRendererEntry(item.attachment.type)?.layout !== 'meta'),
 );
 
 const speaker = computed(() => props.msg.speaker ?? null);
@@ -58,8 +58,9 @@ const userDisplayName = computed(
 );
 
 const authorName = computed(() => {
-  if (speaker.value?.kind === 'character') return `${speaker.value.characterName} (${userDisplayName.value})`;
-  if (speaker.value?.kind === 'npc') return `${speaker.value.npcName} (${userDisplayName.value})`;
+  if (speaker.value?.kind === 'gm') return 'Ведущий';
+  if (speaker.value?.kind === 'character') return speaker.value.characterName;
+  if (speaker.value?.kind === 'npc') return speaker.value.npcName;
 
   return userDisplayName.value;
 });

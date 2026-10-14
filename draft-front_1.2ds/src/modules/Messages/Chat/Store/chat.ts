@@ -13,6 +13,7 @@ import { useCurrentUser } from '@/modules/Core/User/init';
 import { ChatSyncService } from '@/modules/Messages/Chat/Service/ChatSyncService';
 import { ChatReadAckService } from '@/modules/Messages/Chat/Service/ChatReadAckService';
 import { PAGE_SIZE } from '@/modules/Messages/Chat/Constant/Chat/PAGE_SIZE';
+import { chatSpeakerAttachmentService } from '@/modules/Messages/Chat/Service/Instance/chatSpeakerAttachmentService';
 import { MAX_STORED } from '@/modules/Messages/Chat/Constant/Chat/MAX_STORED';
 import { messagePreview } from '@/modules/Messages/Chat/Utils/messagePreview';
 import type { IChatTab } from '@/modules/Messages/Chat/Interface/IChatTab';
@@ -443,7 +444,10 @@ export const useChatStore = defineStore('chat', () => {
         state = createChatState();
         chatStates.value.set(cid, state);
       }
-      state.messages = mergeMessages(state.messages, msgs);
+      state.messages = mergeMessages(
+        state.messages,
+        msgs.map((item) => chatSpeakerAttachmentService.messageOf(item)),
+      );
       if (cid !== activeChatId.value) {
         state.messages = state.messages.slice(-MAX_STORED);
       }

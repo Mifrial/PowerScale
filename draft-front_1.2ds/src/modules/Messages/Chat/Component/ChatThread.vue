@@ -61,7 +61,8 @@ const emit = defineEmits<{
 }>();
 
 const chat = computed(() => store.chats.find((c) => c.id === props.chatId) ?? null);
-const canWrite = computed(() => permissions.canInChat(chat.value, 'chat.write'));
+const threadReady = ref(false);
+const canWrite = computed(() => permissions.canWriteEmbedded(chat.value, threadReady.value));
 const loading = ref(false);
 
 // Опции видимости сообщений выводятся из данных чата (роли типа + участники).
@@ -71,9 +72,10 @@ let attachToken = 0;
 
 async function attachChat(chatId: number): Promise<void> {
   const token = ++attachToken;
+  threadReady.value = false;
   loading.value = true;
   try {
-    if (store.chats.length === 0) {
+    if (store.chats.length === 0 || !store.chats.some((item) => item.id === chatId)) {
       await store.fetchChats();
     }
     if (token !== attachToken) return;
@@ -86,6 +88,8 @@ async function attachChat(chatId: number): Promise<void> {
     if (token !== attachToken) return;
 
     await store.loadChat(chatId);
+    if (token !== attachToken) return;
+    threadReady.value = store.chatError === '';
   } finally {
     if (token === attachToken) loading.value = false;
   }
