@@ -81,7 +81,12 @@ final class GameMemberHttpMysqlTest extends TestCase
         $hidden = $this->dispatch('game.get', ['id' => $gameId]);
         self::assertSame('GAME_NOT_FOUND', $hidden['error']['code']);
         $list = $this->dispatch('game.getMemberList', ['gameId' => $gameId]);
-        self::assertSame('GAME_NOT_FOUND', $list['error']['code']);
+        self::assertTrue($list['success']);
+        self::assertSame('gm', $list['data'][0]['role']);
+        $strangerId = $this->gameUserAccounts()->addFromInput(['login' => 'stranger', 'name' => 'Stranger']);
+        $this->setActor($strangerId, []);
+        $hiddenList = $this->dispatch('game.getMemberList', ['gameId' => $gameId]);
+        self::assertSame('GAME_NOT_FOUND', $hiddenList['error']['code']);
         $this->setActor($playerId, [GamePermissionKeys::VIEW_ALL]);
         $visible = $this->dispatch('game.getMemberList', ['gameId' => $gameId]);
         self::assertTrue($visible['success']);

@@ -127,9 +127,9 @@ final class GameDonorChatMysqlTest extends TestCase
         $inbox = $this->gameApplication()->dispatch('chat.getChats', null)->toArray();
         self::assertTrue($inbox['success']);
         $inboxIds = array_column($inbox['data'], 'id');
-        self::assertNotContains($tableId, $inboxIds);
-        self::assertNotContains($discussionId, $inboxIds);
-        self::assertNotContains($characterChatId, $inboxIds);
+        self::assertContains($tableId, $inboxIds);
+        self::assertContains($discussionId, $inboxIds);
+        self::assertContains($characterChatId, $inboxIds);
         $hostIds = $this->chatView()->hostChatIds($this->chats()->getChatIdsOfUser($this->ownerUserId));
         self::assertNotContains($tableId, $hostIds);
         self::assertNotContains($discussionId, $hostIds);

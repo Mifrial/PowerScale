@@ -160,6 +160,132 @@ final class GameBattleRepository
     }
 
     /**
+     * Пишет карту ожидания и сдвигает версию одним update.
+     *
+     * @param int $battleId Бой.
+     * @param int $expectedVersion Ожидаемая версия.
+     * @param array<string, mixed> $pending Карта.
+     *
+     * @return GameBattleRecord Строка.
+     *
+     * @throws GameBattleConflictException Если версия другая.
+     * @throws GameNotFoundException Если боя нет.
+     * @throws GameInvalidException Если поле.
+     */
+    public function replacePending(int $battleId, int $expectedVersion, array $pending): GameBattleRecord
+    {
+        $current = $this->require($battleId);
+        if ($current->getStateVersion() !== $expectedVersion) {
+            throw new GameBattleConflictException($current->getStateVersion());
+        }
+
+        try {
+            $this->battleRecords->update($battleId, [
+                'pending_action_effects' => $pending,
+                'state_version' => $expectedVersion + 1,
+            ]);
+        } catch (
+            FieldRequiredException
+            | FieldInvalidException
+            | MapInvalidException
+            | RowWriteFailedException $exception
+        ) {
+            throw new GameInvalidException('Game battle field is invalid', $exception);
+        }
+
+        return $this->require($battleId);
+    }
+
+    /**
+     * Пишет курсор, карту долга и ожидание одним CAS.
+     *
+     * @param int $battleId Бой.
+     * @param int $expectedVersion Ожидаемая версия.
+     * @param array<string, mixed>|null $pending Карта ожидания или null, чтобы не трогать.
+     * @param array<string, mixed>|null $debt Карта долга или null.
+     * @param int|null $activeIndex Курсор или null.
+     * @param int|null $round Раунд или null.
+     *
+     * @return GameBattleRecord Строка.
+     *
+     * @throws GameBattleConflictException Если версия другая.
+     * @throws GameNotFoundException Если боя нет.
+     * @throws GameInvalidException Если поле.
+     */
+    public function replaceTracked(
+        int $battleId,
+        int $expectedVersion,
+        ?array $pending,
+        ?array $debt,
+        ?int $activeIndex,
+        ?int $round,
+    ): GameBattleRecord {
+        $current = $this->require($battleId);
+        if ($current->getStateVersion() !== $expectedVersion) {
+            throw new GameBattleConflictException($current->getStateVersion());
+        }
+
+        $fields = ['state_version' => $expectedVersion + 1];
+        if ($pending !== null) {
+            $fields['pending_action_effects'] = $pending;
+        }
+
+        if ($debt !== null) {
+            $fields['action_debt'] = $debt;
+        }
+
+        if ($activeIndex !== null) {
+            $fields['active_index'] = $activeIndex;
+        }
+
+        if ($round !== null) {
+            $fields['round'] = $round;
+        }
+
+        try {
+            $this->battleRecords->update($battleId, $fields);
+        } catch (
+            FieldRequiredException
+            | FieldInvalidException
+            | MapInvalidException
+            | RowWriteFailedException $exception
+        ) {
+            throw new GameInvalidException('Game battle field is invalid', $exception);
+        }
+
+        return $this->require($battleId);
+    }
+
+    /**
+     * Снимает слот долга без сверки версии.
+     *
+     * @param int $battleId Бой.
+     * @param array<string, mixed> $debt Карта.
+     *
+     * @return void
+     *
+     * @throws GameNotFoundException Если боя нет.
+     * @throws GameInvalidException Если поле.
+     */
+    public function replaceActionDebt(int $battleId, array $debt): void
+    {
+        $this->require($battleId);
+
+        try {
+            $this->battleRecords->update($battleId, [
+                'action_debt' => $debt,
+            ]);
+        } catch (
+            FieldRequiredException
+            | FieldInvalidException
+            | MapInvalidException
+            | RowWriteFailedException $exception
+        ) {
+            throw new GameInvalidException('Game battle field is invalid', $exception);
+        }
+    }
+
+    /**
      * Пишет порядок уже открытого боя.
      *
      * @param int $battleId Бой.
@@ -170,14 +296,24 @@ final class GameBattleRepository
      * @throws GameNotFoundException Если боя нет.
      * @throws GameInvalidException Если поле.
      */
-    public function replaceTurnOrder(int $battleId, array $turnOrder): void
-    {
+    public function replaceTurnOrder(
+        int $battleId,
+        array $turnOrder,
+        ?int $activeIndex = null,
+        ?int $round = null,
+    ): void {
         $this->require($battleId);
+        $fields = ['turn_order' => $turnOrder];
+        if ($activeIndex !== null) {
+            $fields['active_index'] = $activeIndex;
+        }
+
+        if ($round !== null) {
+            $fields['round'] = $round;
+        }
 
         try {
-            $this->battleRecords->update($battleId, [
-                'turn_order' => $turnOrder,
-            ]);
+            $this->battleRecords->update($battleId, $fields);
         } catch (
             FieldRequiredException
             | FieldInvalidException

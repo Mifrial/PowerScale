@@ -48,6 +48,7 @@ final class GameBattleInitiativeHttp
             $input->battleId,
             $input->idempotencyKey,
             $input->expectedVersion,
+            $input->rolls,
         );
     }
 }

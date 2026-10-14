@@ -18,6 +18,10 @@ final class GameBattleRecord
      * @param int $sessionId Сессия.
      * @param int $stateVersion Версия CAS.
      * @param array<int, array<string, mixed>>|null $turnOrder Порядок или null.
+     * @param array<string, mixed> $pendingActionEffects Карта ожидания.
+     * @param int $activeIndex Индекс текущего в turn_order.
+     * @param int $round Номер раунда. 0 — курсор ещё не поставлен.
+     * @param array<string, mixed> $actionDebt Карта долга ОД.
      *
      * @return void
      */
@@ -26,6 +30,10 @@ final class GameBattleRecord
         private readonly int $sessionId,
         private readonly int $stateVersion,
         private readonly ?array $turnOrder,
+        private readonly array $pendingActionEffects = [],
+        private readonly int $activeIndex = 0,
+        private readonly int $round = 0,
+        private readonly array $actionDebt = [],
     ) {
     }
 
@@ -44,11 +52,18 @@ final class GameBattleRecord
         $sessionId = $fields['session_id'] ?? null;
         $stateVersion = $fields['state_version'] ?? null;
         $turnOrder = self::turnOrder($fields['turn_order'] ?? null);
-        if (!is_int($id) || !is_int($sessionId) || !is_int($stateVersion)) {
+        $pending = $fields['pending_action_effects'] ?? [];
+        $activeIndex = $fields['active_index'] ?? 0;
+        $round = $fields['round'] ?? 0;
+        $debt = $fields['action_debt'] ?? [];
+        if (
+            !is_int($id) || !is_int($sessionId) || !is_int($stateVersion) || !is_array($pending)
+            || !is_int($activeIndex) || !is_int($round) || !is_array($debt)
+        ) {
             throw new GameInvalidException('Game battle row is invalid');
         }
 
-        return new self($id, $sessionId, $stateVersion, $turnOrder);
+        return new self($id, $sessionId, $stateVersion, $turnOrder, $pending, $activeIndex, $round, $debt);
     }
 
     /**
@@ -89,6 +104,46 @@ final class GameBattleRecord
     public function getTurnOrder(): ?array
     {
         return $this->turnOrder;
+    }
+
+    /**
+     * Карта ожидания. Ключ — character:id или npc:id.
+     *
+     * @return array<string, mixed> Объект.
+     */
+    public function getPendingActionEffects(): array
+    {
+        return $this->pendingActionEffects;
+    }
+
+    /**
+     * Индекс текущего в turn_order.
+     *
+     * @return int Смещение.
+     */
+    public function getActiveIndex(): int
+    {
+        return $this->activeIndex;
+    }
+
+    /**
+     * Номер раунда. 0 — инициатива ещё не ставила курсор.
+     *
+     * @return int Номер.
+     */
+    public function getRound(): int
+    {
+        return $this->round;
+    }
+
+    /**
+     * Карта долга. Ключ — character:id или npc:id.
+     *
+     * @return array<string, mixed> Объект.
+     */
+    public function getActionDebt(): array
+    {
+        return $this->actionDebt;
     }
 
     /**

@@ -20,14 +20,14 @@ use Mifrial\Core\User\Interface\Container\IUserContainer;
 use Mifrial\Core\User\Interface\Service\IUserAccess;
 use Mifrial\Roleplay\Character\Dto\NewCharacter;
 use Mifrial\Roleplay\Game\Dto\NewGame;
-use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Game\Exception\GameInvalidException;
+use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Game\Service\GameDeliveryPortFactory;
-use Mifrial\Roleplay\Mechanic\Interface\Container\IMechanicContainer;
-use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanics;
 use Mifrial\Roleplay\Game\Service\GameDeliverySync;
 use Mifrial\Roleplay\Game\Service\GamePermissionKeys;
 use Mifrial\Roleplay\Game\Table\GameDeliveryTable;
+use Mifrial\Roleplay\Mechanic\Interface\Container\IMechanicContainer;
+use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanics;
 use Mifrial\Roleplay\Rule\Dto\RuleCommitEntry;
 use Mifrial\Roleplay\Rule\Dto\RuleVersionBody;
 use PHPUnit\Framework\TestCase;
@@ -195,9 +195,57 @@ final class GameDeliveryMysqlTest extends TestCase
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('tired', new RuleVersionBody('state', 'Tired', '', [
                 'value_type' => 'number',
+                'aggregation' => 'sum',
                 'damage_exhaustion' => true,
+                'check_code' => 'will-check',
+            ], [], [], 'needs_work')),
+            RuleCommitEntry::put('will', new RuleVersionBody('characteristic', 'Will', '', [
+                'willpower' => true,
+            ], [], [], 'needs_work')),
+            RuleCommitEntry::put('weak', new RuleVersionBody('state', 'Weak', '', [
+                'value_type' => 'flag',
+                'aggregation' => 'independent',
+                'decline_weakness' => true,
+            ], [], [], 'needs_work')),
+            RuleCommitEntry::put('maim', new RuleVersionBody('state', 'Maim', '', [
+                'value_type' => 'number',
+                'aggregation' => 'max',
+                'maim' => true,
+                'check_code' => 'maim-check',
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('roll', new RuleVersionBody('simple', 'Roll', '', [], [], [[
+                'mechanic_id' => $rollId,
+                'mechanic_payload' => ['type' => 'roll', 'data' => ['diceCount' => 1, 'dieFaces' => 1]],
+            ]], 'needs_work')),
+            RuleCommitEntry::put('will-check', new RuleVersionBody('check', 'Will check', '', [
+                'allow_characteristic_override' => false,
+                'allowed_modes' => 'both',
+                'ordinary_root' => false,
+                'concentration_token' => false,
+                'willpower' => true,
+                'unstable_check' => false,
+                'hit_check' => false,
+                'initiative' => false,
+                'difficulty_input' => ['kind' => 'from_state', 'state_code' => 'tired'],
+            ], [], [[
+                'mechanic_id' => $rollId,
+                'mechanic_payload' => [
+                    'type' => 'roll',
+                    'data' => ['diceCount' => 1, 'dieFaces' => 1],
+                    'outcomes' => [['maxRating' => -3, 'stateRuleCode' => 'weak']],
+                ],
+            ]], 'needs_work')),
+            RuleCommitEntry::put('maim-check', new RuleVersionBody('check', 'Maim check', '', [
+                'allow_characteristic_override' => false,
+                'allowed_modes' => 'both',
+                'ordinary_root' => false,
+                'concentration_token' => false,
+                'willpower' => false,
+                'unstable_check' => false,
+                'hit_check' => false,
+                'initiative' => false,
+                'difficulty_input' => ['kind' => 'none', 'state_code' => ''],
+            ], [], [[
                 'mechanic_id' => $rollId,
                 'mechanic_payload' => ['type' => 'roll', 'data' => ['diceCount' => 1, 'dieFaces' => 1]],
             ]], 'needs_work')),
@@ -347,6 +395,18 @@ final class GameDeliveryMysqlTest extends TestCase
         $this->setActor($this->ownerUserId, [GamePermissionKeys::EDIT_ALL]);
         $ownerFrames = $this->frames($this->runSync($gameId, 0, new FakeGameSyncClock(0)));
         self::assertStringContainsString((string) $npc['data']['npcId'], json_encode($ownerFrames));
+        $strikeEvents = [];
+        foreach ($ownerFrames as $frame) {
+            foreach ($frame['events'] ?? [] as $event) {
+                if (is_array($event) && ($event['source'] ?? null) === 'strike') {
+                    $strikeEvents[] = $event;
+                }
+            }
+        }
+        self::assertNotSame([], $strikeEvents);
+        foreach ($strikeEvents as $event) {
+            self::assertSame($battle['data']['battleId'], $event['battleId'] ?? null);
+        }
     }
 
     /**

@@ -12,6 +12,8 @@ use Mifrial\Core\SmartTable\Interface\Container\ISmartTableContainer;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Core\User\Interface\Container\IUserContainer;
 use Mifrial\Core\User\Interface\Service\IUserAccess;
+use Mifrial\Messages\Chat\Interface\Container\IChatContainer;
+use Mifrial\Messages\Chat\Interface\Service\IChats;
 use Mifrial\Roleplay\Character\Interface\Container\ICharacterContainer;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterActualMutations;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterCombatLayers;
@@ -22,8 +24,7 @@ use Mifrial\Roleplay\Character\Service\Read\CharacterSectionMask;
 use Mifrial\Roleplay\Game\Interface\Container\IGameContainer;
 use Mifrial\Roleplay\Game\Interface\Service\IGames;
 use Mifrial\Roleplay\Game\Interface\Service\IGameStrikes;
-use Mifrial\Roleplay\Rule\Interface\Container\IRuleContainer;
-use Mifrial\Roleplay\Rule\Interface\Service\IFormulaEvaluations;
+use Mifrial\Roleplay\Game\Interface\Service\IGameWideStrikes;
 use Mifrial\Roleplay\Game\Repository\GameInvitationRepository;
 use Mifrial\Roleplay\Game\Repository\GameMemberRepository;
 use Mifrial\Roleplay\Game\Repository\GameRepository;
@@ -32,6 +33,8 @@ use Mifrial\Roleplay\Mechanic\Interface\Container\IMechanicContainer;
 use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanicEngine;
 use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanicRolls;
 use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanics;
+use Mifrial\Roleplay\Rule\Interface\Container\IRuleContainer;
+use Mifrial\Roleplay\Rule\Interface\Service\IFormulaEvaluations;
 
 /**
  * Сборка удара. Не метод GamePortFactory.
@@ -60,6 +63,7 @@ final class GameStrikePortFactory
             $events,
             new GameDelivery($gateway, $this->games($serviceLocator), $card),
         );
+        $rules = $this->strikeRules($serviceLocator);
 
         return new GameStrikes(
             $gateway,
@@ -67,13 +71,14 @@ final class GameStrikePortFactory
             $card,
             new GameSessionRepository($gateway),
             $this->mutations($serviceLocator),
-            $this->strikeRules($serviceLocator),
+            $rules,
             new ConflictSheetProjection(
                 new CharacterSectionMask(),
                 new GameCharacterProjectionMask(),
                 new GameNpcVisibility(),
             ),
             $events,
+            $this->consequences($serviceLocator, $rules),
         );
     }
 
@@ -89,6 +94,59 @@ final class GameStrikePortFactory
     public function createHttp(IServiceLocator $serviceLocator): GameStrikeHttp
     {
         return new GameStrikeHttp($this->userAccess($serviceLocator), $this->create($serviceLocator));
+    }
+
+    /**
+     * HTTP конца хода. Тот же состав портов, что у удара.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     *
+     * @return GameTurnHttp Сценарий.
+     *
+     * @throws KernelException Если порт чужой.
+     */
+    public function createTurnHttp(IServiceLocator $serviceLocator): GameTurnHttp
+    {
+        $gateway = $this->smartTableGateway($serviceLocator);
+        $rules = $this->strikeRules($serviceLocator);
+        $wide = $serviceLocator->get(IGameContainer::class)->get(IGameWideStrikes::class);
+        $strikes = $this->create($serviceLocator);
+        if (!$wide instanceof GameWideStrikes || !$strikes instanceof GameStrikes) {
+            throw new KernelException('PORT_TYPE', 'Game turn requires strike services');
+        }
+
+        $chatContainer = $serviceLocator->get(IChatContainer::class);
+        $chats = $chatContainer->get(IChats::class);
+        if (!$chats instanceof IChats) {
+            throw new KernelException('PORT_TYPE', 'Chat service has a wrong type');
+        }
+
+        $card = new GameCardAccess(
+            new GameRepository($gateway),
+            new GameMemberRepository($gateway),
+            new GameInvitationRepository($gateway),
+        );
+        $ticks = new GameTurnTicks(
+            $this->checkRoll($serviceLocator),
+            $this->consequences($serviceLocator, $rules),
+            new GameStrikeSplits(),
+            $this->formulaContexts($serviceLocator),
+            $this->mechanics($serviceLocator),
+            $this->engine($serviceLocator),
+        );
+
+        return new GameTurnHttp($this->userAccess($serviceLocator), new GameTurns(
+            $gateway,
+            $this->games($serviceLocator),
+            $card,
+            $rules,
+            $this->mutations($serviceLocator),
+            $chats,
+            $ticks,
+            $strikes,
+            $wide,
+            $this->events($serviceLocator),
+        ));
     }
 
     /**
@@ -203,6 +261,48 @@ final class GameStrikePortFactory
         }
 
         return $contexts;
+    }
+
+    /**
+     * Правила удара со слоями.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     *
+     * @return GameStrikeRules Правила.
+     *
+     * @throws KernelException Если порта нет.
+     */
+    private function consequences(IServiceLocator $serviceLocator, GameStrikeRules $rules): GameStrikeConsequences
+    {
+        $chatContainer = $serviceLocator->get(IChatContainer::class);
+        $chats = $chatContainer->get(IChats::class);
+        if (!$chats instanceof IChats) {
+            throw new KernelException('PORT_TYPE', 'Chat service has a wrong type');
+        }
+
+        return new GameStrikeConsequences(
+            $rules,
+            $this->checkRoll($serviceLocator),
+            $this->ruleSlices($serviceLocator),
+            $this->formulaContexts($serviceLocator),
+            $this->mechanics($serviceLocator),
+            $this->engine($serviceLocator),
+            $chats,
+        );
+    }
+
+    /**
+     * Правила удара для соседней команды раны.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     *
+     * @return GameStrikeRules Правила.
+     *
+     * @throws KernelException Если порта нет.
+     */
+    public function strikeRulesForWound(IServiceLocator $serviceLocator): GameStrikeRules
+    {
+        return $this->strikeRules($serviceLocator);
     }
 
     /**

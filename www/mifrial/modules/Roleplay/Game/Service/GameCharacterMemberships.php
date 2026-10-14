@@ -11,6 +11,7 @@ use Mifrial\Core\Kernel\Value\DateTime;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Roleplay\Character\Dto\CharacterRecord;
 use Mifrial\Roleplay\Character\Exception\CharacterNotFoundException;
+use Mifrial\Roleplay\Character\Interface\Service\ICharacterActualMutations;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
 use Mifrial\Roleplay\Game\Dto\GameCharacterRecord;
 use Mifrial\Roleplay\Game\Exception\GameConflictException;
@@ -18,7 +19,9 @@ use Mifrial\Roleplay\Game\Exception\GameInvalidException;
 use Mifrial\Roleplay\Game\Exception\GameNotFoundException;
 use Mifrial\Roleplay\Game\Interface\Service\IGameMemberships;
 use Mifrial\Roleplay\Game\Interface\Service\IGames;
+use Mifrial\Roleplay\Game\Repository\GameBattleRepository;
 use Mifrial\Roleplay\Game\Repository\GameCharacterRepository;
+use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Game\Repository\GameProcessRepository;
 use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
 
@@ -36,6 +39,7 @@ final class GameCharacterMemberships implements IGameMemberships
      * @param GameCharacterReview $review Состояние проверки.
      * @param GameDonorChats $donorChats Чат строки.
      * @param ISmartTableGateway $smartTableGateway Транзакция со вставкой чата.
+     * @param ICharacterActualMutations $mutations Запись листа при снятии зажима.
      *
      * @return void
      */
@@ -46,6 +50,7 @@ final class GameCharacterMemberships implements IGameMemberships
         private readonly GameCharacterReview $review,
         private readonly GameDonorChats $donorChats,
         private readonly ISmartTableGateway $smartTableGateway,
+        private readonly ICharacterActualMutations $mutations,
     ) {
     }
 
@@ -263,7 +268,11 @@ final class GameCharacterMemberships implements IGameMemberships
 
         $actual = $this->actual($characterId);
         $this->assertMembership($row, $expectedMembershipRevision, $actual);
-        $this->characterRepository->saveLeft($row->getId(), $row->getMembershipRevision() + 1);
+        $this->smartTableGateway->transaction(function () use ($row, $gameId, $characterId): void {
+            $this->characterRepository->saveLeft($row->getId(), $row->getMembershipRevision() + 1);
+            $this->releaseHolds($gameId, $characterId);
+            $this->releaseDebt($gameId, $characterId);
+        });
 
         return $this->get($gameId, $characterId);
     }
@@ -521,6 +530,96 @@ final class GameCharacterMemberships implements IGameMemberships
             $this->review->canStartSession($this->games->get($row->getGameId()), $row, $actual),
             $this->review->isActiveSessionParticipant($row->getGameId(), $row->getCharacterId()),
         );
+    }
+
+    /**
+     * Снимает зажим уходящего персонажа на листах этой игры.
+     *
+     * @param int $gameId Игра.
+     * @param int $characterId Персонаж.
+     *
+     * @return void
+     *
+     * @throws GameNotFoundException Если листа нет.
+     * @throws GameInvalidException Если строка битая.
+     */
+    private function releaseHolds(int $gameId, int $characterId): void
+    {
+        $holder = ['kind' => 'character', 'id' => $characterId];
+        $game = $this->games->get($gameId);
+        $npcs = new GameNpcRepository($this->smartTableGateway);
+        $writes = new GameStrikeSheetWrites($this->mutations, $npcs);
+        foreach ($this->characterRepository->getListByGame($gameId, null) as $membership) {
+            $actual = $this->characters->get($membership->getCharacterId());
+            $patches = $this->holdPatches($actual->getSheet(), $holder);
+            if ($patches === []) {
+                continue;
+            }
+
+            $this->mutations->apply($membership->getCharacterId(), $actual->getActualVersion(), $patches);
+        }
+
+        foreach ($npcs->getListByGame($gameId) as $npc) {
+            $sheet = $npc->getVersion()['sheet'] ?? [];
+            $patches = is_array($sheet) ? $this->holdPatches($sheet, $holder) : [];
+            if ($patches === []) {
+                continue;
+            }
+
+            $writes->write($game, 'npc', $npc->getId(), $npc->getActualVersion(), $patches);
+        }
+    }
+
+    /**
+     * Снимает слот долга персонажа в боях открытой сессии.
+     */
+    private function releaseDebt(int $gameId, int $characterId): void
+    {
+        $sessions = new GameSessionRepository($this->smartTableGateway);
+        $sessionId = $sessions->findSessionId($gameId);
+        if ($sessionId === null) {
+            return;
+        }
+
+        $battles = new GameBattleRepository($this->smartTableGateway);
+        $key = 'character:' . $characterId;
+        foreach ($battles->findIdsBySession($sessionId) as $battleId) {
+            $battle = $battles->find($battleId);
+            if ($battle === null || !array_key_exists($key, $battle->getActionDebt())) {
+                continue;
+            }
+
+            $debt = $battle->getActionDebt();
+            unset($debt[$key]);
+            $battles->replaceActionDebt($battleId, $debt);
+        }
+    }
+
+    /**
+     * Операции снятия heldBy.
+     *
+     * @param array<string, mixed> $sheet Лист.
+     * @param array{kind: string, id: int} $holder Держатель.
+     *
+     * @return array<int, array<string, mixed>> Операции.
+     */
+    private function holdPatches(array $sheet, array $holder): array
+    {
+        $patches = [];
+        $states = $sheet['states'] ?? [];
+        if (!is_array($states)) {
+            return [];
+        }
+
+        foreach ($states as $row) {
+            if (!is_array($row) || ($row['heldBy'] ?? null) !== $holder || !is_int($row['id'] ?? null)) {
+                continue;
+            }
+
+            $patches[] = ['kind' => 'patchState', 'id' => $row['id'], 'heldBy' => null];
+        }
+
+        return $patches;
     }
 
     /**

@@ -24,6 +24,7 @@ final class GameWideStrikeBody
      *     itemRuleCode: string,
      *     profileType: string,
      *     profileIndex: int,
+     *     ammunitionInventoryId?: int,
      *     chosenAmounts: array<string, mixed>
      * } Выбор.
      *
@@ -43,6 +44,11 @@ final class GameWideStrikeBody
         if (array_key_exists('chosenAmounts', $attack)) {
             $allowed[] = 'chosenAmounts';
         }
+
+        if (array_key_exists('ammunitionInventoryId', $attack)) {
+            $allowed[] = 'ammunitionInventoryId';
+        }
+
         $this->assertKeys($attack, $allowed);
         $targets = $this->targets($attack['targets'] ?? null);
         $profileType = $attack['profileType'] ?? null;
@@ -50,13 +56,18 @@ final class GameWideStrikeBody
         $actionRuleCode = $attack['actionRuleCode'] ?? null;
         $itemInventoryId = $attack['itemInventoryId'] ?? null;
         $itemRuleCode = $attack['itemRuleCode'] ?? null;
+        $ammunitionInventoryId = $attack['ammunitionInventoryId'] ?? null;
         $chosenAmounts = $attack['chosenAmounts'] ?? [];
         $codes = is_string($actionRuleCode) && is_string($itemRuleCode);
-        if (!is_int($itemInventoryId)
+        if (
+            !is_int($itemInventoryId)
             || !is_string($profileType)
             || !is_int($profileIndex)
             || !$codes
             || !is_array($chosenAmounts)
+            || ($profileType === 'shoot'
+                ? !is_int($ammunitionInventoryId)
+                : $ammunitionInventoryId !== null)
         ) {
             throw new ActionException('INVALID_PARAMS', 'Invalid parameter: attack');
         }
@@ -69,6 +80,7 @@ final class GameWideStrikeBody
             'itemRuleCode' => $itemRuleCode,
             'profileType' => $profileType,
             'profileIndex' => $profileIndex,
+            ...($profileType === 'shoot' ? ['ammunitionInventoryId' => $ammunitionInventoryId] : []),
             'chosenAmounts' => $chosenAmounts,
         ];
     }
@@ -114,7 +126,8 @@ final class GameWideStrikeBody
         }
 
         $allowed = ['expectedSheetVersion', 'reaction'];
-        if (array_key_exists('blockItemInventoryId', $row)
+        if (
+            array_key_exists('blockItemInventoryId', $row)
             || array_key_exists('blockItemProfileIndex', $row)
         ) {
             $allowed = [
@@ -129,6 +142,7 @@ final class GameWideStrikeBody
         } elseif (array_key_exists('blockItemRuleCode', $row)) {
             $allowed = ['blockItemRuleCode', 'expectedSheetVersion', 'reaction'];
         }
+
         $this->assertKeys($row, $allowed);
         $reaction = $row['reaction'] ?? null;
         $blockItemInventoryId = $row['blockItemInventoryId'] ?? null;
@@ -138,7 +152,8 @@ final class GameWideStrikeBody
         $block = ($blockItemInventoryId === null || is_int($blockItemInventoryId))
             && ($blockItemProfileIndex === null || is_int($blockItemProfileIndex))
             && ($blockItemRuleCode === null || is_string($blockItemRuleCode));
-        if (!is_string($reaction)
+        if (
+            !is_string($reaction)
             || !is_int($expectedSheetVersion)
             || !$block
             || ($reaction === 'block'

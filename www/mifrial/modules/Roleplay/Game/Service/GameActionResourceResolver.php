@@ -72,6 +72,7 @@ final class GameActionResourceResolver
         if ($action === null || $action->isSpecBroken()) {
             throw new GameInvalidException('Game action rule is invalid');
         }
+
         if (!$spec instanceof AbilityActionSpec) {
             return [];
         }
@@ -82,6 +83,7 @@ final class GameActionResourceResolver
                 $components[] = $component;
             }
         }
+
         $this->assertChosenAmounts($chosenAmounts, $components);
         if ($components === []) {
             return [];
@@ -147,6 +149,7 @@ final class GameActionResourceResolver
         if ($codes === []) {
             return [];
         }
+
         if (count($codes) !== 1) {
             throw new GameInvalidException('Game reaction action is missing or ambiguous');
         }
@@ -224,11 +227,13 @@ final class GameActionResourceResolver
             }
 
             if (!$spec->isDimensional() && is_int($amount)) {
-                if ($component->getAmount() instanceof ChosenAmount
+                if (
+                    $component->getAmount() instanceof ChosenAmount
                     && ($amount < 1 || $current === null || $amount > $current->getValue())
                 ) {
                     throw new GameInvalidException('Game chosen resource amount is out of range');
                 }
+
                 return new ScalarResourceValue($amount);
             }
         } catch (CharacterInvalidException $exception) {
@@ -259,15 +264,18 @@ final class GameActionResourceResolver
         if (!$component->getAmount() instanceof ChosenAmount) {
             return null;
         }
+
         $rows = $sheet['resources'] ?? null;
         if (!is_array($rows)) {
             throw new GameInvalidException('Game action resources require backfill');
         }
+
         try {
             foreach ($this->storage->parseRows($rows, $slice) as $row) {
                 if ($row->getRuleCode() !== $resourceCode) {
                     continue;
                 }
+
                 $current = $row->getCurrent();
 
                 return $current instanceof ScalarResourceValue ? $current : null;
@@ -294,14 +302,17 @@ final class GameActionResourceResolver
         if ($chosenAmounts !== [] && array_is_list($chosenAmounts)) {
             throw new GameInvalidException('Game chosen resource amounts are ambiguous');
         }
+
         $codes = [];
         foreach ($components as $component) {
             if ($component->getAmount() instanceof ChosenAmount) {
                 $codes[$component->getResourceCode()] = true;
             }
         }
+
         foreach ($chosenAmounts as $code => $value) {
-            if (!is_string($code)
+            if (
+                !is_string($code)
                 || $code === ''
                 || !isset($codes[$code])
                 || (!is_int($value) && !is_array($value))
@@ -348,6 +359,7 @@ final class GameActionResourceResolver
         if (count($selectedRows) !== 1) {
             throw new GameInvalidException('Game action inventory item is missing or ambiguous');
         }
+
         $row = $selectedRows[0];
         if (($row['equipped'] ?? false) !== true || ($row['ruleCode'] ?? null) !== $itemRuleCode) {
             throw new GameInvalidException('Game action inventory item is invalid');

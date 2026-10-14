@@ -15,6 +15,8 @@ use Mifrial\Roleplay\Game\Repository\GameDeliveryRepository;
 use Mifrial\Roleplay\Game\Repository\GameEconomyOperationRepository;
 use Mifrial\Roleplay\Game\Repository\GameNpcRepository;
 use Mifrial\Roleplay\Game\Repository\GameStrikeCommandRepository;
+use Mifrial\Roleplay\Game\Repository\GameTurnCommandRepository;
+use Mifrial\Roleplay\Game\Repository\GameWoundCommandRepository;
 
 /**
  * Строка outbox и кадр ключей. Мутацию не повторяет.
@@ -26,6 +28,10 @@ final class GameDelivery implements IGameDelivery
     private readonly GameEconomyOperationRepository $operations;
 
     private readonly GameStrikeCommandRepository $commands;
+
+    private readonly GameTurnCommandRepository $turns;
+
+    private readonly GameWoundCommandRepository $wounds;
 
     private readonly GameNpcRepository $npcs;
 
@@ -48,6 +54,8 @@ final class GameDelivery implements IGameDelivery
         $this->rows = new GameDeliveryRepository($smartTableGateway);
         $this->operations = new GameEconomyOperationRepository($smartTableGateway);
         $this->commands = new GameStrikeCommandRepository($smartTableGateway);
+        $this->turns = new GameTurnCommandRepository($smartTableGateway);
+        $this->wounds = new GameWoundCommandRepository($smartTableGateway);
         $this->npcs = new GameNpcRepository($smartTableGateway);
         $this->keys = new GameDeliveryKeys();
     }
@@ -87,6 +95,14 @@ final class GameDelivery implements IGameDelivery
 
         foreach ($this->commands->getListByGame($gameId) as $command) {
             $this->rows->add($gameId, 'strike', $command['id'], $this->keys->fromStrike($command['result']));
+        }
+
+        foreach ($this->turns->getListByGame($gameId) as $command) {
+            $this->rows->add($gameId, 'turn', $command['id'], []);
+        }
+
+        foreach ($this->wounds->getListByGame($gameId) as $command) {
+            $this->rows->add($gameId, 'wound', $command['id'], []);
         }
     }
 
@@ -159,16 +175,59 @@ final class GameDelivery implements IGameDelivery
                 continue;
             }
 
-            $events[] = [
-                'eventId' => $game->getId() . '.' . $row->getId(),
-                'cursor' => $row->getId(),
-                'source' => $row->getSource(),
-                'sourceId' => $row->getSourceId(),
-                'keys' => $keys,
-            ];
+            $events[] = $this->eventOf($game, $row, $keys);
         }
 
         return $events;
+    }
+
+    /**
+     * Кадр одной строки.
+     *
+     * @param GameRecord $game Игра.
+     * @param GameDeliveryRecord $row Строка.
+     * @param array<int, array<string, mixed>> $keys Видимые ключи.
+     *
+     * @return array<string, mixed> Событие.
+     */
+    private function eventOf(GameRecord $game, GameDeliveryRecord $row, array $keys): array
+    {
+        $event = [
+            'eventId' => $game->getId() . '.' . $row->getId(),
+            'cursor' => $row->getId(),
+            'source' => $row->getSource(),
+            'sourceId' => $row->getSourceId(),
+            'keys' => $keys,
+        ];
+        $battleId = $this->battleIdOf($row->getSource(), $row->getSourceId());
+        if ($battleId !== null) {
+            $event['battleId'] = $battleId;
+        }
+
+        return $event;
+    }
+
+    /**
+     * Id боя журнала strike, turn или wound.
+     *
+     * @param string $source Источник.
+     * @param int $sourceId Id журнала.
+     *
+     * @return int|null Id боя.
+     */
+    private function battleIdOf(string $source, int $sourceId): ?int
+    {
+        $stored = match ($source) {
+            'strike' => $this->commands->find($sourceId),
+            'turn' => $this->turns->find($sourceId),
+            'wound' => $this->wounds->find($sourceId),
+            default => null,
+        };
+        $fromResult = is_array($stored) ? ($stored['result']['battleId'] ?? null) : null;
+        $fromBody = is_array($stored) ? ($stored['body']['battleId'] ?? null) : null;
+        $battleId = is_int($fromResult) ? $fromResult : $fromBody;
+
+        return is_int($battleId) ? $battleId : null;
     }
 
     /**
@@ -211,14 +270,10 @@ final class GameDelivery implements IGameDelivery
     private function isNpcVisible(GameRecord $game, GameNpcRecord $npc, int $actorUserId): bool
     {
         $role = $this->roleOf($game->getId(), $actorUserId);
-        if ($game->getOwnerId() === $actorUserId || $role === 'gm') {
-            return true;
-        }
-
         $visibility = $npc->getVisibility();
         $scope = $visibility['scope'] ?? null;
-        if ($scope === 'all') {
-            return $role !== null;
+        if ($game->getOwnerId() === $actorUserId || $role === 'gm' || ($scope === 'all' && $role !== null)) {
+            return true;
         }
 
         if ($scope !== 'users' || !is_array($visibility['userIds'] ?? null)) {

@@ -103,12 +103,7 @@ final class GameStrikeAmounts
      */
     private function add(DimensionalNumber $left, DimensionalNumber $right): DimensionalNumber
     {
-        $size = min($left->getSize(), $right->getSize());
-
-        return new DimensionalNumber(
-            $this->alignedBase($left, $size) + $this->alignedBase($right, $size),
-            $size,
-        );
+        return $left->add($right);
     }
 
     /**

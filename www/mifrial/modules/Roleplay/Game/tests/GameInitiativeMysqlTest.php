@@ -238,6 +238,150 @@ final class GameInitiativeMysqlTest extends TestCase
     }
 
     /**
+     * Три способа на двух участниках дают разный порядок.
+     *
+     * @return void
+     */
+    public function testRollMethodsStoreDifferentTurnOrder(): void
+    {
+        $world = $this->worldWithInitiativeCharacteristic(true);
+        $gameId = $this->addGame($world->getId());
+        $hero = $this->admitSheet($world->getId(), $gameId, 'Hero');
+        $ally = $this->admitSheet($world->getId(), $gameId, 'Ally');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battleId = $this->battle($gameId, [$hero, $ally]);
+        $freeThenFixed = $this->dispatch('game.rollInitiative', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'methods',
+            'expectedVersion' => 1,
+            'rolls' => [
+                ['type' => 'character', 'id' => $hero, 'method' => 'free', 'diceCount' => 1],
+                [
+                    'type' => 'character',
+                    'id' => $ally,
+                    'method' => 'fixed',
+                    'value' => ['base' => 20, 'size' => 0],
+                ],
+            ],
+        ]);
+        self::assertTrue($freeThenFixed['success'], json_encode($freeThenFixed));
+        self::assertSame($ally, $freeThenFixed['data']['order'][0]['id']);
+        self::assertSame($hero, $freeThenFixed['data']['order'][1]['id']);
+        self::assertNull($freeThenFixed['data']['order'][0]['success']);
+        self::assertSame(20, $freeThenFixed['data']['order'][0]['rating']);
+        $again = $this->dispatch('game.rollInitiative', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'swap',
+            'expectedVersion' => 2,
+            'rolls' => [
+                [
+                    'type' => 'character',
+                    'id' => $hero,
+                    'method' => 'fixed',
+                    'value' => ['base' => 20, 'size' => 0],
+                ],
+                ['type' => 'character', 'id' => $ally, 'method' => 'characteristic'],
+            ],
+        ]);
+        self::assertTrue($again['success'], json_encode($again));
+        self::assertSame($hero, $again['data']['order'][0]['id']);
+    }
+
+    /**
+     * Override характеристики пишет порядок. Без флага и чужой код — отказ.
+     *
+     * @return void
+     */
+    public function testCharacteristicOverrideAndRefusal(): void
+    {
+        $world = $this->worldWithInitiativeCharacteristic(true);
+        $gameId = $this->addGame($world->getId());
+        $hero = $this->admitSheet($world->getId(), $gameId, 'Hero');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battleId = $this->battle($gameId, [$hero]);
+        $ok = $this->dispatch('game.rollInitiative', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'over',
+            'expectedVersion' => 1,
+            'rolls' => [[
+                'type' => 'character',
+                'id' => $hero,
+                'method' => 'characteristic',
+                'characteristicCode' => 'strength',
+            ]],
+        ]);
+        self::assertTrue($ok['success'], json_encode($ok));
+        self::assertSame($hero, $ok['data']['order'][0]['id']);
+        $deniedWorld = $this->worldWithInitiativeCharacteristic(false, 'denied-space');
+        $deniedGame = $this->addGame($deniedWorld->getId());
+        $deniedHero = $this->admitSheet($deniedWorld->getId(), $deniedGame, 'Denied');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $deniedGame])['success']);
+        $deniedBattle = $this->battle($deniedGame, [$deniedHero], 'denied-battle');
+        $flag = $this->dispatch('game.rollInitiative', [
+            'gameId' => $deniedGame,
+            'battleId' => $deniedBattle,
+            'idempotencyKey' => 'flag',
+            'expectedVersion' => 1,
+            'rolls' => [[
+                'type' => 'character',
+                'id' => $deniedHero,
+                'method' => 'characteristic',
+                'characteristicCode' => 'strength',
+            ]],
+        ]);
+        self::assertSame('GAME_INVALID', $flag['error']['code']);
+        self::assertNull($this->turnOrder($deniedBattle));
+        $missing = $this->dispatch('game.rollInitiative', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'missing-code',
+            'expectedVersion' => 2,
+            'rolls' => [[
+                'type' => 'character',
+                'id' => $hero,
+                'method' => 'characteristic',
+                'characteristicCode' => 'absent',
+            ]],
+        ]);
+        self::assertSame('GAME_INVALID', $missing['error']['code']);
+    }
+
+    /**
+     * Без карточки инициативы фиксированное значение порядок не пишет.
+     *
+     * @return void
+     */
+    public function testFixedWithoutInitiativeCardDoesNotStoreOrder(): void
+    {
+        $world = $this->worldWithInitiative(false);
+        $gameId = $this->addGame($world->getId());
+        $hero = $this->admit($world->getId(), $gameId, 'Hero');
+        $this->setActor($this->ownerUserId, [GamePermissionKeys::CREATE]);
+        self::assertTrue($this->dispatch('game.startSession', ['gameId' => $gameId])['success']);
+        $battleId = $this->battle($gameId, [$hero]);
+        $fixed = $this->dispatch('game.rollInitiative', [
+            'gameId' => $gameId,
+            'battleId' => $battleId,
+            'idempotencyKey' => 'fixed',
+            'expectedVersion' => 1,
+            'rolls' => [[
+                'type' => 'character',
+                'id' => $hero,
+                'method' => 'fixed',
+                'value' => ['base' => 5, 'size' => 0],
+            ]],
+        ]);
+        self::assertSame('GAME_INVALID', $fixed['error']['code']);
+        self::assertNull($this->turnOrder($battleId));
+    }
+
+    /**
      * Мир с правилом броска и нулём, одной или двумя карточками инициативы.
      *
      * @param bool $initiative Первая карточка.
@@ -250,8 +394,7 @@ final class GameInitiativeMysqlTest extends TestCase
         bool $initiative,
         bool $second = false,
         bool $hitCheck = false,
-    ): \Mifrial\Roleplay\RuleSpace\Dto\RuleSpaceRecord
-    {
+    ): \Mifrial\Roleplay\RuleSpace\Dto\RuleSpaceRecord {
         $mechanics = $this->gameApplication()->getLocator()->get(IMechanicContainer::class)->get(IMechanics::class);
         self::assertInstanceOf(IMechanics::class, $mechanics);
         $rollId = $mechanics->add('plain_roll', 'Бросок', '', '1.0.0');
@@ -297,6 +440,103 @@ final class GameInitiativeMysqlTest extends TestCase
         $this->gameRuleSpaces()->commit($world->getId(), $entries);
 
         return $world;
+    }
+
+    /**
+     * Мир с карточкой инициативы и характеристикой пула.
+     *
+     * @param bool $allowOverride Смена характеристики.
+     * @param string $spaceCode Код мира.
+     *
+     * @return \Mifrial\Roleplay\RuleSpace\Dto\RuleSpaceRecord Мир.
+     */
+    private function worldWithInitiativeCharacteristic(
+        bool $allowOverride,
+        string $spaceCode = 'razrabotka',
+    ): \Mifrial\Roleplay\RuleSpace\Dto\RuleSpaceRecord {
+        $mechanics = $this->gameApplication()->getLocator()->get(IMechanicContainer::class)->get(IMechanics::class);
+        self::assertInstanceOf(IMechanics::class, $mechanics);
+        $rollId = $mechanics->add('plain_roll', 'Бросок', '', $allowOverride ? '1.0.0' : '1.0.1');
+        $world = $this->addWorldWithRevision($spaceCode);
+        $this->gameRuleSpaces()->commit($world->getId(), [
+            RuleCommitEntry::put('awareness', new RuleVersionBody('characteristic', 'Awareness', '', [
+                'initiative' => true,
+            ], [], [], 'needs_work')),
+            RuleCommitEntry::put('strength', new RuleVersionBody('characteristic', 'Strength', '', [], [], [], 'needs_work')),
+            RuleCommitEntry::put('human', new RuleVersionBody('race', 'Human', '', [
+                'characteristics' => [
+                    [
+                        'characteristic_code' => 'awareness',
+                        'mode' => 'purchased',
+                        'base' => ['base' => 1, 'size' => 0],
+                        'purchase' => [['cost' => 2, 'value' => ['base' => 1, 'size' => 0]]],
+                    ],
+                    [
+                        'characteristic_code' => 'strength',
+                        'mode' => 'purchased',
+                        'base' => ['base' => 3, 'size' => 0],
+                        'purchase' => [['cost' => 2, 'value' => ['base' => 8, 'size' => 0]]],
+                    ],
+                ],
+            ], [], [], 'needs_work')),
+            RuleCommitEntry::put('roll', new RuleVersionBody('simple', 'Roll', '', [], [], [[
+                'mechanic_id' => $rollId,
+                'mechanic_payload' => ['type' => 'roll', 'data' => [
+                    'diceCount' => 1,
+                    'dieFaces' => 6,
+                    'efficiency' => 3,
+                ]],
+            ]], 'needs_work')),
+            RuleCommitEntry::put('watch', new RuleVersionBody('check', 'Watch', '', [
+                'allow_characteristic_override' => $allowOverride,
+                'characteristic_code' => 'awareness',
+                'allowed_modes' => 'both',
+                'ordinary_root' => true,
+                'concentration_token' => false,
+                'willpower' => false,
+                'unstable_check' => false,
+                'hit_check' => false,
+                'initiative' => true,
+                'difficulty_input' => ['kind' => 'none', 'state_code' => ''],
+            ], [], [], 'needs_work')),
+        ]);
+
+        return $world;
+    }
+
+    /**
+     * Допущенный с листом закупок.
+     *
+     * @param int $spaceId Мир.
+     * @param int $gameId Игра.
+     * @param string $name Имя.
+     *
+     * @return int Персонаж.
+     */
+    private function admitSheet(int $spaceId, int $gameId, string $name): int
+    {
+        $characterId = $this->addCharacter($spaceId, $name);
+        $this->characterFacade()->replaceMigrated($characterId, $name, true, [
+            'name' => $name,
+            'raceCode' => 'human',
+            'abilities' => [],
+            'inventory' => [],
+            'characteristicPurchases' => [
+                ['characteristicCode' => 'awareness', 'cost' => 2],
+                ['characteristicCode' => 'strength', 'cost' => 2],
+            ],
+            'customRules' => [],
+            'active' => true,
+        ], [
+            'characteristicPurchases' => [
+                ['characteristicCode' => 'awareness', 'value' => ['base' => 1, 'size' => 0]],
+                ['characteristicCode' => 'strength', 'value' => ['base' => 8, 'size' => 0]],
+            ],
+        ], 2, 1);
+        $this->membershipFacade()->submit($gameId, $characterId, $this->ownerUserId);
+        $this->membershipFacade()->approve($gameId, $characterId, 2, 1);
+
+        return $characterId;
     }
 
     /**

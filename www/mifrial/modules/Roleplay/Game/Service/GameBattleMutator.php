@@ -102,7 +102,9 @@ final class GameBattleMutator
         $battle = $this->battles->advanceVersion($battleId, $expectedVersion);
         $this->battles->replaceParticipants($battleId, $participants);
         if ($turnOrder !== null) {
-            $this->battles->replaceTurnOrder($battleId, $turnOrder);
+            $cursor = $this->keptCursor($current, $turnOrder);
+            $this->battles->replaceTurnOrder($battleId, $turnOrder, $cursor['index'], $cursor['round']);
+            $this->battles->replaceActionDebt($battleId, $this->debtOfRoster($current, $turnOrder));
         }
 
         $result = $this->opened($battle->getId(), $battle->getStateVersion());
@@ -252,6 +254,58 @@ final class GameBattleMutator
         if ($type === 'npc' && $this->npcs->getById($id)->getGameId() !== $gameId) {
             throw new GameNotFoundException('Game NPC was not found');
         }
+    }
+
+    /**
+     * Прежняя пара в новом порядке, иначе индекс 0. Раунд не сдвигает.
+     *
+     * @param GameBattleRecord $current Бой до записи.
+     * @param list<array<string, mixed>> $turnOrder Новый порядок.
+     *
+     * @return array{index: int, round: int} Курсор.
+     */
+    private function keptCursor(GameBattleRecord $current, array $turnOrder): array
+    {
+        $order = $current->getTurnOrder() ?? [];
+        $previous = $order[$current->getActiveIndex()] ?? null;
+        $index = 0;
+        if (is_array($previous)) {
+            foreach ($turnOrder as $offset => $entry) {
+                if (($entry['type'] ?? null) === ($previous['type'] ?? null) && ($entry['id'] ?? null) === ($previous['id'] ?? null)) {
+                    $index = $offset;
+                    break;
+                }
+            }
+        }
+
+        $round = $current->getRound() > 0 ? $current->getRound() : 1;
+
+        return ['index' => $index, 'round' => $round];
+    }
+
+    /**
+     * Снимает слоты акторов, которых нет в новом порядке.
+     *
+     * @param GameBattleRecord $current Бой.
+     * @param list<array<string, mixed>> $turnOrder Новый порядок.
+     *
+     * @return array<string, mixed> Карта.
+     */
+    private function debtOfRoster(GameBattleRecord $current, array $turnOrder): array
+    {
+        $kept = [];
+        foreach ($turnOrder as $entry) {
+            if (!is_array($entry) || !is_string($entry['type'] ?? null) || !is_int($entry['id'] ?? null)) {
+                continue;
+            }
+
+            $key = $entry['type'] . ':' . $entry['id'];
+            if (array_key_exists($key, $current->getActionDebt())) {
+                $kept[$key] = $current->getActionDebt()[$key];
+            }
+        }
+
+        return $kept;
     }
 
     /**

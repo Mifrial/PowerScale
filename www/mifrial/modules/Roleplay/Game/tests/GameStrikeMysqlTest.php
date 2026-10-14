@@ -20,10 +20,10 @@ use Mifrial\Roleplay\Game\Table\GameSessionTable;
 use Mifrial\Roleplay\Game\Table\GameStrikeCommandTable;
 use Mifrial\Roleplay\Game\Table\GameStrikeTable;
 use Mifrial\Roleplay\Mechanic\Dto\MechanicBinding;
+use Mifrial\Roleplay\Mechanic\Dto\ResolveActiveOptions;
 use Mifrial\Roleplay\Mechanic\Exception\MechanicInvalidException;
 use Mifrial\Roleplay\Mechanic\Interface\Container\IMechanicContainer;
 use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanics;
-use Mifrial\Roleplay\Mechanic\Dto\ResolveActiveOptions;
 use Mifrial\Roleplay\Mechanic\Service\MechanicPortFactory;
 use Mifrial\Roleplay\Rule\Dto\RuleCommitEntry;
 use Mifrial\Roleplay\Rule\Dto\RuleVersionBody;
@@ -378,7 +378,7 @@ final class GameStrikeMysqlTest extends TestCase
         self::assertSame($this->pair(2), $closed['data']['resistance']);
         self::assertSame($this->pair(5, -1), $closed['data']['injury']);
         self::assertSame(
-            ['battleId', 'strikeId', 'version', 'attackerRoll', 'success', 'damage', 'resistance', 'sheetVersion', 'S', 'injury'],
+            ['battleId', 'strikeId', 'version', 'attackerRoll', 'success', 'damage', 'resistance', 'sheetVersion', 'S', 'injury', 'wound', 'exhaustionDelta'],
             array_keys($closed['data']),
         );
         self::assertSame($defenderVersion + 1, $this->characterFacade()->get($defenderId)->getActualVersion());
@@ -1051,8 +1051,7 @@ final class GameStrikeMysqlTest extends TestCase
         bool $withPenetration = false,
         ?int $hitEfficiency = null,
         bool $withBlockResource = false,
-    ): RuleSpaceRecord
-    {
+    ): RuleSpaceRecord {
         $mechanics = $this->gameApplication()->getLocator()->get(IMechanicContainer::class)->get(IMechanics::class);
         self::assertInstanceOf(IMechanics::class, $mechanics);
         $rollId = $this->plainRollId($mechanics);
@@ -1244,11 +1243,59 @@ final class GameStrikeMysqlTest extends TestCase
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('tired', new RuleVersionBody('state', 'Tired', '', [
                 'value_type' => 'number',
+                'aggregation' => 'sum',
                 'damage_exhaustion' => true,
+                'check_code' => 'will-check',
+            ], [], [], 'needs_work')),
+            RuleCommitEntry::put('will', new RuleVersionBody('characteristic', 'Will', '', [
+                'willpower' => true,
+            ], [], [], 'needs_work')),
+            RuleCommitEntry::put('weak', new RuleVersionBody('state', 'Weak', '', [
+                'value_type' => 'flag',
+                'aggregation' => 'independent',
+                'decline_weakness' => true,
+            ], [], [], 'needs_work')),
+            RuleCommitEntry::put('maim', new RuleVersionBody('state', 'Maim', '', [
+                'value_type' => 'number',
+                'aggregation' => 'max',
+                'maim' => true,
+                'check_code' => 'maim-check',
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('roll', new RuleVersionBody('simple', 'Roll', '', [], [], [[
                 'mechanic_id' => $rollId,
                 'mechanic_payload' => ['type' => 'roll', 'data' => $payload],
+            ]], 'needs_work')),
+            RuleCommitEntry::put('will-check', new RuleVersionBody('check', 'Will check', '', [
+                'allow_characteristic_override' => false,
+                'allowed_modes' => 'both',
+                'ordinary_root' => false,
+                'concentration_token' => false,
+                'willpower' => true,
+                'unstable_check' => false,
+                'hit_check' => false,
+                'initiative' => false,
+                'difficulty_input' => ['kind' => 'from_state', 'state_code' => 'tired'],
+            ], [], [[
+                'mechanic_id' => $rollId,
+                'mechanic_payload' => [
+                    'type' => 'roll',
+                    'data' => ['diceCount' => 1, 'dieFaces' => 1],
+                    'outcomes' => [['maxRating' => -3, 'stateRuleCode' => 'weak']],
+                ],
+            ]], 'needs_work')),
+            RuleCommitEntry::put('maim-check', new RuleVersionBody('check', 'Maim check', '', [
+                'allow_characteristic_override' => false,
+                'allowed_modes' => 'both',
+                'ordinary_root' => false,
+                'concentration_token' => false,
+                'willpower' => false,
+                'unstable_check' => false,
+                'hit_check' => false,
+                'initiative' => false,
+                'difficulty_input' => ['kind' => 'none', 'state_code' => ''],
+            ], [], [[
+                'mechanic_id' => $rollId,
+                'mechanic_payload' => ['type' => 'roll', 'data' => ['diceCount' => 1, 'dieFaces' => 1]],
             ]], 'needs_work')),
         ];
         if ($soakCards >= 1) {

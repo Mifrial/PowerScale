@@ -96,6 +96,7 @@ final class GameStrikeLayers
         if ($effectiveDefense->getBase() === 0) {
             return $resistance;
         }
+
         if ($resistance->getBase() === 0) {
             return $effectiveDefense;
         }

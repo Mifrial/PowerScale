@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 use Mifrial\Core\Kernel\Interface\Service\IServiceLocator;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterSessionParticipants;
+use Mifrial\Roleplay\Game\Action\AbortGameAction;
 use Mifrial\Roleplay\Game\Action\AddGameMemberAction;
 use Mifrial\Roleplay\Game\Action\AnswerGameCheckAction;
 use Mifrial\Roleplay\Game\Action\ApplyGameEconomyAction;
 use Mifrial\Roleplay\Game\Action\ApproveGameCharacterAction;
+use Mifrial\Roleplay\Game\Action\ContinueGameAction;
 use Mifrial\Roleplay\Game\Action\CreateGameAction;
 use Mifrial\Roleplay\Game\Action\CreateGameChronicleEntryAction;
 use Mifrial\Roleplay\Game\Action\CreateGameNpcAction;
@@ -16,6 +18,8 @@ use Mifrial\Roleplay\Game\Action\DeclareGameStrikeAction;
 use Mifrial\Roleplay\Game\Action\DeclareGameWideStrikeAction;
 use Mifrial\Roleplay\Game\Action\DeleteGameChronicleEntryAction;
 use Mifrial\Roleplay\Game\Action\EndGameBattleAction;
+use Mifrial\Roleplay\Game\Action\EndGameTurnAction;
+use Mifrial\Roleplay\Game\Action\GameWoundAction;
 use Mifrial\Roleplay\Game\Action\GetGameAction;
 use Mifrial\Roleplay\Game\Action\GetGameBattleSheetsAction;
 use Mifrial\Roleplay\Game\Action\GetGameCharacterAction;
@@ -38,7 +42,6 @@ use Mifrial\Roleplay\Game\Action\LeaveGameCharacterAction;
 use Mifrial\Roleplay\Game\Action\ProposeGameCheckAction;
 use Mifrial\Roleplay\Game\Action\RejectGameCharacterAction;
 use Mifrial\Roleplay\Game\Action\RemoveGameMemberAction;
-use Mifrial\Roleplay\Game\Action\RollGameInitiativeAction;
 use Mifrial\Roleplay\Game\Action\ReplaceGameShopAction;
 use Mifrial\Roleplay\Game\Action\RequestGameJoinAction;
 use Mifrial\Roleplay\Game\Action\ResolveGameStrikeAction;
@@ -46,6 +49,7 @@ use Mifrial\Roleplay\Game\Action\ResolveGameWideStrikeAction;
 use Mifrial\Roleplay\Game\Action\RespondGameInvitationAction;
 use Mifrial\Roleplay\Game\Action\RespondGameJoinRequestAction;
 use Mifrial\Roleplay\Game\Action\ReturnGameCharacterAction;
+use Mifrial\Roleplay\Game\Action\RollGameInitiativeAction;
 use Mifrial\Roleplay\Game\Action\SetGameBattleRosterAction;
 use Mifrial\Roleplay\Game\Action\SetGameCharacterBonusAction;
 use Mifrial\Roleplay\Game\Action\SetGameCharacterSectionVisibilityAction;
@@ -81,6 +85,7 @@ use Mifrial\Roleplay\Game\Service\GameProcessPortFactory;
 use Mifrial\Roleplay\Game\Service\GameProjectionPortFactory;
 use Mifrial\Roleplay\Game\Service\GameStrikePortFactory;
 use Mifrial\Roleplay\Game\Service\GameWideStrikePortFactory;
+use Mifrial\Roleplay\Game\Service\GameWoundPortFactory;
 use Mifrial\Roleplay\Game\Setup\GameModuleSetup;
 
 return [
@@ -138,6 +143,18 @@ return [
         },
         AnswerGameCheckAction::class => static function (IServiceLocator $serviceLocator): AnswerGameCheckAction {
             return new AnswerGameCheckAction((new GameCheckPortFactory())->createHttp($serviceLocator));
+        },
+        GameWoundAction::class => static function (IServiceLocator $serviceLocator): GameWoundAction {
+            return new GameWoundAction((new GameWoundPortFactory())->createHttp($serviceLocator));
+        },
+        EndGameTurnAction::class => static function (IServiceLocator $serviceLocator): EndGameTurnAction {
+            return new EndGameTurnAction((new GameStrikePortFactory())->createTurnHttp($serviceLocator));
+        },
+        ContinueGameAction::class => static function (IServiceLocator $serviceLocator): ContinueGameAction {
+            return new ContinueGameAction((new GameStrikePortFactory())->createTurnHttp($serviceLocator));
+        },
+        AbortGameAction::class => static function (IServiceLocator $serviceLocator): AbortGameAction {
+            return new AbortGameAction((new GameStrikePortFactory())->createTurnHttp($serviceLocator));
         },
         DeclareGameStrikeAction::class => static function (IServiceLocator $serviceLocator): DeclareGameStrikeAction {
             return new DeclareGameStrikeAction((new GameStrikePortFactory())->createHttp($serviceLocator));
@@ -489,6 +506,22 @@ return [
         ],
         'game.answerCheck' => [
             'handler' => AnswerGameCheckAction::class,
+            'csrf' => true,
+        ],
+        'game.woundAction' => [
+            'handler' => GameWoundAction::class,
+            'csrf' => true,
+        ],
+        'game.endTurn' => [
+            'handler' => EndGameTurnAction::class,
+            'csrf' => true,
+        ],
+        'game.continueAction' => [
+            'handler' => ContinueGameAction::class,
+            'csrf' => true,
+        ],
+        'game.abortAction' => [
+            'handler' => AbortGameAction::class,
             'csrf' => true,
         ],
         'game.declareStrike' => [

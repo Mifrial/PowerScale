@@ -15,9 +15,11 @@ use Mifrial\Roleplay\Game\Repository\GameProcessRepository;
 use Mifrial\Roleplay\Game\Repository\GameSessionRepository;
 use Mifrial\Roleplay\Game\Repository\GameStrikeCommandRepository;
 use Mifrial\Roleplay\Game\Repository\GameStrikeRepository;
+use Mifrial\Roleplay\Game\Repository\GameTurnCommandRepository;
 use Mifrial\Roleplay\Game\Repository\GameWideStrikeCommandRepository;
 use Mifrial\Roleplay\Game\Repository\GameWideStrikeRepository;
 use Mifrial\Roleplay\Game\Repository\GameWideStrikeTargetRepository;
+use Mifrial\Roleplay\Game\Repository\GameWoundCommandRepository;
 
 /**
  * Снимает бои сессии и затем саму сессию одной транзакцией.
@@ -61,6 +63,8 @@ final class GameBattleCleanup
             (new GameWideStrikeCommandRepository($this->smartTableGateway))->deleteBySession($sessionId);
             (new GameStrikeRepository($this->smartTableGateway))->deleteBySession($sessionId);
             (new GameStrikeCommandRepository($this->smartTableGateway))->deleteBySession($sessionId);
+            (new GameWoundCommandRepository($this->smartTableGateway))->deleteBySession($sessionId);
+            (new GameTurnCommandRepository($this->smartTableGateway))->deleteBySession($sessionId);
             (new GameBattleRepository($this->smartTableGateway))->deleteBySession($sessionId);
             (new GameBattleCommandRepository($this->smartTableGateway))->deleteBySession($sessionId);
             $this->sessionRepository->deleteSession($sessionId);

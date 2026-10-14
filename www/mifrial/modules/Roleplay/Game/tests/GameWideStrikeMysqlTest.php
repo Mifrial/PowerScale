@@ -678,7 +678,7 @@ final class GameWideStrikeMysqlTest extends TestCase
         self::assertSame(['type' => 'character', 'id' => $plateId], $results[0]['target']);
         self::assertSame(['type' => 'character', 'id' => $clothId], $results[1]['target']);
         self::assertSame(
-            ['target', 'success', 'damage', 'resistance', 'injury', 'sheetVersion', 'code', 'S'],
+            ['target', 'success', 'damage', 'resistance', 'injury', 'sheetVersion', 'code', 'S', 'wound', 'exhaustionDelta'],
             array_keys($results[0]),
         );
         self::assertSame($plateVersion + 1, $this->characterFacade()->get($plateId)->getActualVersion());
@@ -1148,8 +1148,56 @@ final class GameWideStrikeMysqlTest extends TestCase
             ], [], [], 'needs_work')),
             RuleCommitEntry::put('tired', new RuleVersionBody('state', 'Tired', '', [
                 'value_type' => 'number',
+                'aggregation' => 'sum',
                 'damage_exhaustion' => true,
+                'check_code' => 'will-check',
             ], [], [], 'needs_work')),
+            RuleCommitEntry::put('will', new RuleVersionBody('characteristic', 'Will', '', [
+                'willpower' => true,
+            ], [], [], 'needs_work')),
+            RuleCommitEntry::put('weak', new RuleVersionBody('state', 'Weak', '', [
+                'value_type' => 'flag',
+                'aggregation' => 'independent',
+                'decline_weakness' => true,
+            ], [], [], 'needs_work')),
+            RuleCommitEntry::put('maim', new RuleVersionBody('state', 'Maim', '', [
+                'value_type' => 'number',
+                'aggregation' => 'max',
+                'maim' => true,
+                'check_code' => 'maim-check',
+            ], [], [], 'needs_work')),
+            RuleCommitEntry::put('will-check', new RuleVersionBody('check', 'Will check', '', [
+                'allow_characteristic_override' => false,
+                'allowed_modes' => 'both',
+                'ordinary_root' => false,
+                'concentration_token' => false,
+                'willpower' => true,
+                'unstable_check' => false,
+                'hit_check' => false,
+                'initiative' => false,
+                'difficulty_input' => ['kind' => 'from_state', 'state_code' => 'tired'],
+            ], [], [[
+                'mechanic_id' => $rollId,
+                'mechanic_payload' => [
+                    'type' => 'roll',
+                    'data' => ['diceCount' => 1, 'dieFaces' => 1],
+                    'outcomes' => [['maxRating' => -3, 'stateRuleCode' => 'weak']],
+                ],
+            ]], 'needs_work')),
+            RuleCommitEntry::put('maim-check', new RuleVersionBody('check', 'Maim check', '', [
+                'allow_characteristic_override' => false,
+                'allowed_modes' => 'both',
+                'ordinary_root' => false,
+                'concentration_token' => false,
+                'willpower' => false,
+                'unstable_check' => false,
+                'hit_check' => false,
+                'initiative' => false,
+                'difficulty_input' => ['kind' => 'none', 'state_code' => ''],
+            ], [], [[
+                'mechanic_id' => $rollId,
+                'mechanic_payload' => ['type' => 'roll', 'data' => ['diceCount' => 1, 'dieFaces' => 1]],
+            ]], 'needs_work')),
             RuleCommitEntry::put('hit', new RuleVersionBody('check', 'Hit', '', [
                 'allow_characteristic_override' => false,
                 'allowed_modes' => 'both',

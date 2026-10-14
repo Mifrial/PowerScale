@@ -44,10 +44,11 @@ final class GameStrikeSheetWrites
      * @param string $kind Character или npc.
      * @param int $id Цель.
      * @param int $expected Версия листа.
-     * @param array{kind: string, remainder: array{base: int, size: int}, quotient: int} $operation Операция.
+     * @param list<array<string, mixed>> $effects Операции цели без spends.
      * @param array{type: string, id: int}|null $target Цель wide-удара.
      * @param Closure(CharacterConflictException|GameEconomyConflictException): array{choices: array<string, mixed>, sheet: array<string, mixed>}|null $projectConflict Проектор entity-stale конфликта.
      * @param array<int, ResourceSpend> $spends Подготовленные resource spends.
+     * @param array{kind: string, inventoryId: int, ruleCode: string}|null $inventorySpend Списание строки инвентаря.
      *
      * @return int Версия после записи.
      *
@@ -60,12 +61,13 @@ final class GameStrikeSheetWrites
         string $kind,
         int $id,
         int $expected,
-        ?array $operation,
+        array $effects,
         ?array $target = null,
         ?Closure $projectConflict = null,
         array $spends = [],
+        ?array $inventorySpend = null,
     ): int {
-        $operations = $this->operations($operation, $spends);
+        $operations = $this->operations($effects, $spends, $inventorySpend);
         try {
             return $kind === 'character'
                 ? $this->mutations->apply($id, $expected, $operations)->getActualVersion()
@@ -92,6 +94,7 @@ final class GameStrikeSheetWrites
      * @param array<int, ResourceSpend> $spends Подготовленные списания.
      * @param array{type: string, id: int}|null $target Цель wide-удара.
      * @param Closure(CharacterConflictException|GameEconomyConflictException): array{choices: array<string, mixed>, sheet: array<string, mixed>}|null $projectConflict Проектор конфликта.
+     * @param array{kind: string, inventoryId: int, ruleCode: string}|null $inventorySpend Списание строки инвентаря.
      *
      * @return int Версия после записи.
      *
@@ -107,16 +110,18 @@ final class GameStrikeSheetWrites
         array $spends,
         ?array $target = null,
         ?Closure $projectConflict = null,
+        ?array $inventorySpend = null,
     ): int {
         return $this->write(
             $game,
             $kind,
             $id,
             $expected,
-            null,
+            [],
             $target,
             $projectConflict,
             $spends,
+            $inventorySpend,
         );
     }
 
@@ -184,20 +189,25 @@ final class GameStrikeSheetWrites
     /**
      * Объединяет effect operation и уже resolved spends.
      *
-     * @param array<string, mixed> $operation Effect operation.
+     * @param list<array<string, mixed>> $effects Effect operations.
      * @param array<int, ResourceSpend> $spends Prepared spends.
+     * @param array{kind: string, inventoryId: int, ruleCode: string}|null $inventorySpend Inventory spend.
      *
      * @return list<array<string, mixed>> Operations for mutation boundary.
      */
-    private function operations(?array $operation, array $spends): array
+    private function operations(array $effects, array $spends, ?array $inventorySpend): array
     {
         $operations = [];
         if ($spends !== []) {
             $operations[] = ['kind' => 'spendResources', 'spends' => $spends];
         }
 
-        if ($operation !== null) {
-            $operations[] = $operation;
+        foreach ($effects as $effect) {
+            $operations[] = $effect;
+        }
+
+        if ($inventorySpend !== null) {
+            $operations[] = $inventorySpend;
         }
 
         return $operations;

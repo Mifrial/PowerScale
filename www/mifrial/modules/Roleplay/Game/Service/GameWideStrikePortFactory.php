@@ -12,6 +12,8 @@ use Mifrial\Core\SmartTable\Interface\Container\ISmartTableContainer;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
 use Mifrial\Core\User\Interface\Container\IUserContainer;
 use Mifrial\Core\User\Interface\Service\IUserAccess;
+use Mifrial\Messages\Chat\Interface\Container\IChatContainer;
+use Mifrial\Messages\Chat\Interface\Service\IChats;
 use Mifrial\Roleplay\Character\Interface\Container\ICharacterContainer;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterActualMutations;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterCombatLayers;
@@ -21,8 +23,6 @@ use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
 use Mifrial\Roleplay\Game\Interface\Container\IGameContainer;
 use Mifrial\Roleplay\Game\Interface\Service\IGames;
 use Mifrial\Roleplay\Game\Interface\Service\IGameWideStrikes;
-use Mifrial\Roleplay\Rule\Interface\Container\IRuleContainer;
-use Mifrial\Roleplay\Rule\Interface\Service\IFormulaEvaluations;
 use Mifrial\Roleplay\Game\Repository\GameInvitationRepository;
 use Mifrial\Roleplay\Game\Repository\GameMemberRepository;
 use Mifrial\Roleplay\Game\Repository\GameRepository;
@@ -31,6 +31,8 @@ use Mifrial\Roleplay\Mechanic\Interface\Container\IMechanicContainer;
 use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanicEngine;
 use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanicRolls;
 use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanics;
+use Mifrial\Roleplay\Rule\Interface\Container\IRuleContainer;
+use Mifrial\Roleplay\Rule\Interface\Service\IFormulaEvaluations;
 
 /**
  * Сборка широкого удара. Слушателя доставки не регистрирует.
@@ -61,21 +63,24 @@ final class GameWideStrikePortFactory
             new GameDelivery($gateway, $this->games($serviceLocator), $card),
         );
 
+        $rules = new GameStrikeRules(
+            $this->ruleSlices($serviceLocator),
+            $this->characters($serviceLocator),
+            $this->formulaContexts($serviceLocator),
+            $this->formulaEvaluations($serviceLocator),
+            $this->checkRoll($serviceLocator),
+            $this->layers($serviceLocator),
+        );
+
         return new GameWideStrikes(
             $gateway,
             $this->games($serviceLocator),
             $card,
             new GameSessionRepository($gateway),
             $this->mutations($serviceLocator),
-            new GameStrikeRules(
-                $this->ruleSlices($serviceLocator),
-                $this->characters($serviceLocator),
-                $this->formulaContexts($serviceLocator),
-                $this->formulaEvaluations($serviceLocator),
-                $this->checkRoll($serviceLocator),
-                $this->layers($serviceLocator),
-            ),
+            $rules,
             $events,
+            $this->consequences($serviceLocator, $rules),
         );
     }
 
@@ -216,6 +221,25 @@ final class GameWideStrikePortFactory
      *
      * @throws KernelException Если порта нет.
      */
+    private function consequences(IServiceLocator $serviceLocator, GameStrikeRules $rules): GameStrikeConsequences
+    {
+        $chatContainer = $serviceLocator->get(IChatContainer::class);
+        $chats = $chatContainer->get(IChats::class);
+        if (!$chats instanceof IChats) {
+            throw new KernelException('PORT_TYPE', 'Chat service has a wrong type');
+        }
+
+        return new GameStrikeConsequences(
+            $rules,
+            $this->checkRoll($serviceLocator),
+            $this->ruleSlices($serviceLocator),
+            $this->formulaContexts($serviceLocator),
+            $this->mechanics($serviceLocator),
+            $this->engine($serviceLocator),
+            $chats,
+        );
+    }
+
     private function formulaContexts(IServiceLocator $serviceLocator): ICharacterFormulaContexts
     {
         $contexts = $serviceLocator->get(ICharacterContainer::class)->get(ICharacterFormulaContexts::class);

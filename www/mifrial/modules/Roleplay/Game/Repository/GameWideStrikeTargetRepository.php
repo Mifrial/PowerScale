@@ -113,8 +113,7 @@ final class GameWideStrikeTargetRepository
         ?int $blockItemInventoryId,
         ?int $blockItemProfileIndex,
         ?string $blockItemRuleCode,
-    ): void
-    {
+    ): void {
         try {
             $this->targetRecords->update($targetId, [
                 'reaction' => $reaction,

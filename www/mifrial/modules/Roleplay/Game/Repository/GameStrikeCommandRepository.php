@@ -113,6 +113,22 @@ final class GameStrikeCommandRepository
     }
 
     /**
+     * Строка id или null.
+     *
+     * @param int $commandId Id.
+     *
+     * @return array{id: int, body: array<string, mixed>, result: array<string, mixed>}|null Пара.
+     *
+     * @throws GameInvalidException Если строка битая.
+     */
+    public function find(int $commandId): ?array
+    {
+        $row = $this->commandRecords->getById($commandId);
+
+        return $row === null ? null : $this->pair($row);
+    }
+
+    /**
      * Резервирует ключ до записи итогового результата.
      *
      * @param int $gameId Игра.

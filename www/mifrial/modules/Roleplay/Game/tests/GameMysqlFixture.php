@@ -42,7 +42,9 @@ use Mifrial\Roleplay\Game\Schema\GameEconomySchema;
 use Mifrial\Roleplay\Game\Schema\GameProcessSchema;
 use Mifrial\Roleplay\Game\Schema\GameSchema;
 use Mifrial\Roleplay\Game\Schema\GameStrikeSchema;
+use Mifrial\Roleplay\Game\Schema\GameTurnSchema;
 use Mifrial\Roleplay\Game\Schema\GameWideStrikeSchema;
+use Mifrial\Roleplay\Game\Schema\GameWoundSchema;
 use Mifrial\Roleplay\Game\Table\GameBattleCommandTable;
 use Mifrial\Roleplay\Game\Table\GameBattleParticipantTable;
 use Mifrial\Roleplay\Game\Table\GameBattleTable;
@@ -63,9 +65,11 @@ use Mifrial\Roleplay\Game\Table\GameShopPositionTable;
 use Mifrial\Roleplay\Game\Table\GameStrikeCommandTable;
 use Mifrial\Roleplay\Game\Table\GameStrikeTable;
 use Mifrial\Roleplay\Game\Table\GameTable;
+use Mifrial\Roleplay\Game\Table\GameTurnCommandTable;
 use Mifrial\Roleplay\Game\Table\GameWideStrikeCommandTable;
 use Mifrial\Roleplay\Game\Table\GameWideStrikeTable;
 use Mifrial\Roleplay\Game\Table\GameWideStrikeTargetTable;
+use Mifrial\Roleplay\Game\Table\GameWoundCommandTable;
 use Mifrial\Roleplay\Keyword\Schema\KeywordSchema;
 use Mifrial\Roleplay\Keyword\Table\KeywordTable;
 use Mifrial\Roleplay\Mechanic\Schema\MechanicSchema;
@@ -152,6 +156,8 @@ trait GameMysqlFixture
         $this->deleteIfExists($gateway->open(GameWideStrikeTable::class));
         $this->deleteIfExists($gateway->open(GameWideStrikeCommandTable::class));
         $this->deleteIfExists($gateway->open(GameStrikeTable::class));
+        $this->deleteIfExists($gateway->open(GameTurnCommandTable::class));
+        $this->deleteIfExists($gateway->open(GameWoundCommandTable::class));
         $this->deleteIfExists($gateway->open(GameStrikeCommandTable::class));
         $this->deleteIfExists($gateway->open(GameBattleParticipantTable::class));
         $this->deleteIfExists($gateway->open(GameBattleTable::class));
@@ -378,6 +384,12 @@ trait GameMysqlFixture
         (new GameCheckSchema(
             $gateway->open(GameCheckTable::class)->schema(),
             $gateway->open(GameCheckCommandTable::class)->schema(),
+        ))->install();
+        (new GameWoundSchema(
+            $gateway->open(GameWoundCommandTable::class)->schema(),
+        ))->install();
+        (new GameTurnSchema(
+            $gateway->open(GameTurnCommandTable::class)->schema(),
         ))->install();
         (new GameStrikeSchema(
             $gateway->open(GameStrikeTable::class)->schema(),

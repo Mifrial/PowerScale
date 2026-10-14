@@ -46,6 +46,7 @@ final class GameWideStrikeResults
         private readonly GameNpcRepository $npcs,
         private readonly GameStrikeSheetWrites $sheetWrites,
         private readonly ConflictSheetProjection $conflictProjection,
+        private readonly GameStrikeConsequences $consequences,
     ) {
         $this->amounts = new GameStrikeAmounts();
     }
@@ -95,6 +96,7 @@ final class GameWideStrikeResults
                     $sharedPenetration = $penetrationFactory();
                     $penetrationEvaluated = true;
                 }
+
                 if (!$sharedPenetration instanceof DimensionalNumber) {
                     throw new GameInvalidException('Game wide strike penetration is invalid');
                 }
@@ -115,6 +117,8 @@ final class GameWideStrikeResults
                 $actorUserId,
                 $viewAll,
                 $sharedPenetrationFactory,
+                $index === 0,
+                'attack-wide-' . ($rows[0]['id'] ?? 0),
             );
         }
 
@@ -239,6 +243,8 @@ final class GameWideStrikeResults
         int $actorUserId,
         bool $viewAll,
         ?Closure $penetrationFactory,
+        bool $announce = false,
+        string $threadId = 'attack',
     ): array {
         $target = $this->defender($row);
         if ($refusalCode !== null) {
@@ -252,12 +258,14 @@ final class GameWideStrikeResults
         }
 
         $spends = $this->resourceSpends($game, $target, $choice);
-        if ($spends !== [] && !$this->rules->hasSufficientResources(
-            $game->getSpaceId(),
-            $game->getRulesRevision(),
-            $this->targetSheet($game, $target),
-            $spends,
-        )) {
+        if (
+            $spends !== [] && !$this->rules->hasSufficientResources(
+                $game->getSpaceId(),
+                $game->getRulesRevision(),
+                $this->targetSheet($game, $target),
+                $spends,
+            )
+        ) {
             $zero = $this->amounts->view($this->amounts->zero());
 
             return $this->row($target, null, null, $zero, $zero, null, $zero);
@@ -277,6 +285,7 @@ final class GameWideStrikeResults
                 $attackerRoll,
             );
         }
+
         $autoFail = $this->rules->isHitAutoFail($attackerRoll['roll']);
         $success = $autoFail || $rating <= 0
             ? 0
@@ -325,32 +334,188 @@ final class GameWideStrikeResults
                         $viewAll,
                     ),
                 )
-                : $this->sheetWrites->write(
+                : $this->writeTarget(
                     $game,
-                    $target['type'],
-                    $target['id'],
-                    $choice['expectedSheetVersion'],
-                    $this->rules->splitInjury(
-                        $game->getSpaceId(),
-                        $game->getRulesRevision(),
-                        $target['type'],
-                        $target['id'],
-                        $target['type'] === 'npc' ? $this->defenderSheet($game->getId(), $target['id']) : null,
-                        $injury,
-                    ),
-                    ['type' => $target['type'], 'id' => $target['id']],
-                    fn (CharacterConflictException|GameEconomyConflictException $exception): array => $this->projectWriteConflict(
-                        $game,
-                        $target,
-                        $exception,
-                        $actorUserId,
-                        $viewAll,
-                    ),
+                    $row,
+                    $target,
+                    $choice,
+                    $itemRuleCode,
+                    $profileType,
+                    $profileIndex,
+                    $injury,
+                    $success,
                     $spends,
+                    $actorUserId,
+                    $viewAll,
+                    $announce,
+                    $threadId,
+                    $record,
+                    $attackerRoll,
                 );
+        } else {
+            $this->postTarget(
+                $game,
+                $row,
+                $target,
+                $choice['reaction'],
+                $itemRuleCode,
+                $profileType,
+                $success,
+                $actorUserId,
+                $announce,
+                $threadId,
+                $record,
+                $attackerRoll,
+            );
         }
 
         return $record;
+    }
+
+    /**
+     * @param array{type: string, id: int} $target Цель.
+     * @param array<string, mixed> $choice Защита.
+     * @param array<string, mixed> $record Итог цели, дополняется бросками.
+     */
+    private function writeTarget(
+        GameRecord $game,
+        array $row,
+        array $target,
+        array $choice,
+        string $itemRuleCode,
+        string $profileType,
+        int $profileIndex,
+        DimensionalNumber $injury,
+        int $success,
+        array $spends,
+        int $actorUserId,
+        bool $viewAll,
+        bool $announce,
+        string $threadId,
+        array &$record,
+        array $attackerRoll,
+    ): int {
+        $sheet = $this->targetSheet($game, $target);
+        $split = $this->rules->splitInjury(
+            $game->getSpaceId(),
+            $game->getRulesRevision(),
+            $target['type'],
+            $target['id'],
+            $target['type'] === 'npc' ? $sheet : null,
+            $injury,
+        );
+        $prepared = $this->consequences->effects(
+            $game,
+            $sheet,
+            $injury,
+            $success,
+            $split,
+            $this->rules->damageTypeCode($game->getSpaceId(), $game->getRulesRevision(), $itemRuleCode, $profileType, $profileIndex),
+        );
+        $record = array_merge($record, $prepared['consequence']);
+        $version = $this->sheetWrites->write(
+            $game,
+            $target['type'],
+            $target['id'],
+            $choice['expectedSheetVersion'],
+            $prepared['operations'],
+            ['type' => $target['type'], 'id' => $target['id']],
+            fn (CharacterConflictException|GameEconomyConflictException $exception): array => $this->projectWriteConflict(
+                $game,
+                $target,
+                $exception,
+                $actorUserId,
+                $viewAll,
+            ),
+            $spends,
+        );
+        $this->postTarget(
+            $game,
+            $row,
+            $target,
+            $choice['reaction'],
+            $itemRuleCode,
+            $profileType,
+            $success,
+            $actorUserId,
+            $announce,
+            $threadId,
+            $record,
+            $attackerRoll,
+        );
+
+        return $version;
+    }
+
+    /**
+     * @param array<string, mixed> $row Строка цели.
+     * @param array{type: string, id: int} $target Цель.
+     * @param array<string, mixed> $record Итог.
+     * @param array<string, mixed> $attackerRoll Бросок попадания.
+     */
+    private function postTarget(
+        GameRecord $game,
+        array $row,
+        array $target,
+        string $reaction,
+        string $itemRuleCode,
+        string $profileType,
+        int $success,
+        int $actorUserId,
+        bool $announce,
+        string $threadId,
+        array $record,
+        array $attackerRoll,
+    ): void {
+        $attacker = ($row['attacker_kind'] ?? '') === 'npc'
+            ? '[[npc:' . ($row['attacker_id'] ?? 0) . ',' . ($row['attacker_id'] ?? 0) . ']]'
+            : '[[character:' . ($row['attacker_id'] ?? 0) . ',' . ($row['attacker_id'] ?? 0) . ']]';
+        $defender = $target['type'] === 'npc'
+            ? '[[npc:' . $target['id'] . ',' . $target['id'] . ']]'
+            : '[[character:' . $target['id'] . ',' . $target['id'] . ']]';
+        $kind = match ($profileType) {
+            'throw' => 'бросок',
+            'shoot' => 'выстрел',
+            default => 'удар',
+        };
+        $narrative = $attacker . ' наносит безымянный ' . $kind . ' оружием [[rule:' . $itemRuleCode . ']] по ' . $defender . '.';
+        $narrative .= $reaction === 'ignore' ? ' Тот не реагирует.' : ' Тот пытается совершить ' . $reaction . ' за 0ОД!';
+        $exhaustion = $record['exhaustionDelta'] ?? 0;
+        $wound = $record['wound'] ?? 0;
+        $will = isset($record['will']) ? [
+            'roll' => $record['will'],
+            'text' => $defender . ' выдерживает истощение (РУ +' . ($record['will']['rating'] ?? 0) . ') — без Упадка сил.',
+        ] : null;
+        if ($will !== null && ($record['willOutcome'] ?? 'clear') !== 'clear') {
+            $will['text'] = $defender . ' не выдерживает истощение (РУ ' . ($record['will']['rating'] ?? 0) . ').';
+        }
+
+        $maim = isset($record['maim']) ? [
+            'roll' => $record['maim'],
+            'text' => ($record['maim']['rating'] ?? 0) > 0
+                ? $defender . ' получает временное увечье с силой ' . $record['maim']['rating'] . '.'
+                : $defender . ' не получает увечье.',
+            'details' => ['strength' => $record['maim']['rating'] ?? 0],
+        ] : null;
+        $this->consequences->post(
+            $game,
+            $actorUserId,
+            $threadId,
+            $announce,
+            $attacker . ' совершает действие Простая атака (ближний бой) за 0ОД.',
+            $narrative,
+            $attackerRoll,
+            $success > 0
+                ? $attacker . ' попадает по ' . $defender . ' с ' . $success . ' РУ и наносит ' . $exhaustion . ' истощения!'
+                : $attacker . ' промахивается по ' . $defender . '!',
+            [
+                'injury' => $record['injury'] ?? null,
+                'exhaustion' => $exhaustion,
+                'wound' => $wound,
+            ],
+            $will,
+            $maim,
+        );
     }
 
     /**
@@ -363,7 +528,8 @@ final class GameWideStrikeResults
      */
     private function resistanceChoice(array $choice, ?array $defenderRoll): array
     {
-        if ($choice['reaction'] === 'block'
+        if (
+            $choice['reaction'] === 'block'
             && ($defenderRoll === null || ($defenderRoll['success'] ?? false) !== true)
         ) {
             $choice['blockItemInventoryId'] = null;
@@ -660,7 +826,8 @@ final class GameWideStrikeResults
             throw new GameInvalidException('Game wide strike reaction is invalid');
         }
 
-        if ($choice['reaction'] === 'block'
+        if (
+            $choice['reaction'] === 'block'
             && (!is_int($choice['blockItemInventoryId'])
                 || !is_int($choice['blockItemProfileIndex']))
         ) {
@@ -719,6 +886,7 @@ final class GameWideStrikeResults
                 'sheet' => $npc->getVersion()['sheet'] ?? [],
             ];
         }
+
         $sheet = $this->projectTargetSheet($game, $target, $currentSheet, $actorUserId, $viewAll);
 
         if ($current !== $expectedSheetVersion) {
@@ -881,6 +1049,7 @@ final class GameWideStrikeResults
         if ($defenderRoll !== null) {
             $record['defenderRoll'] = $defenderRoll;
         }
+
         if ($soak !== null) {
             $record['S'] = $soak;
         }

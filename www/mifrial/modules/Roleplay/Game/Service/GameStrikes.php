@@ -57,6 +57,18 @@ final class GameStrikes implements IGameStrikes
     private readonly ConflictSheetProjection $conflictProjection;
 
     /**
+     * Карта ожидания после списания удара.
+     *
+     * @var array<string, mixed>|null
+     */
+    private ?array $strikePending = null;
+
+    /**
+     * @var array<string, mixed>|null
+     */
+    private ?array $debtHold = null;
+
+    /**
      * Создаёт фасад.
      *
      * @param ISmartTableGateway $smartTableGateway Шлюз.
@@ -67,6 +79,7 @@ final class GameStrikes implements IGameStrikes
      * @param GameStrikeRules $rules Срез и версия персонажа.
      * @param ConflictSheetProjection $conflictProjection Проекция конфликтов.
      * @param IEventManager $events Сигнал доставки.
+     * @param GameStrikeConsequences $consequences Проверки удара.
      *
      * @return void
      */
@@ -79,6 +92,7 @@ final class GameStrikes implements IGameStrikes
         private readonly GameStrikeRules $rules,
         ConflictSheetProjection $conflictProjection,
         IEventManager $events,
+        private readonly GameStrikeConsequences $consequences,
     ) {
         $this->battles = new GameBattleRepository($smartTableGateway);
         $this->strikes = new GameStrikeRepository($smartTableGateway);
@@ -276,6 +290,20 @@ final class GameStrikes implements IGameStrikes
                 ? $this->npcChoices($game->getId(), $choice['attacker']['id'])
                 : null,
         );
+        $this->rules->resolveInventorySpend(
+            $game->getSpaceId(),
+            $game->getRulesRevision(),
+            $choice['itemRuleCode'],
+            $choice['profileType'],
+            $choice['profileIndex'],
+            $choice['itemInventoryId'],
+            $choice['ammunitionInventoryId'] ?? null,
+            $choice['attacker']['type'],
+            $choice['attacker']['id'],
+            $choice['attacker']['type'] === 'npc'
+                ? $this->npcChoices($game->getId(), $choice['attacker']['id'])
+                : null,
+        );
         $body = [
             'attack' => $choice,
             'battleId' => $battleId,
@@ -453,17 +481,108 @@ final class GameStrikes implements IGameStrikes
         int $expectedBattleVersion,
         array $choice,
     ): array {
-        $this->spendAttacker($game, $choice);
+        $this->debtHold = null;
+        $this->spendAttacker($game, $choice, $battle);
         $result = [
             'battleId' => $battle->getId(),
             'strikeId' => 0,
             'version' => $expectedBattleVersion + 1,
             'sheetVersion' => null,
         ];
+        if ($this->debtHold !== null) {
+            $saved = $this->battles->replaceTracked(
+                $battle->getId(),
+                $expectedBattleVersion,
+                $this->strikePending ?? $battle->getPendingActionEffects(),
+                $this->debtHold,
+                null,
+                null,
+            );
+            $result['version'] = $saved->getStateVersion();
+            $result['debt'] = true;
+
+            return $result;
+        }
+
         $result['strikeId'] = $this->strikes->add($this->openRow($battle, $sessionId, $choice));
-        $this->battles->advanceVersion($battle->getId(), $expectedBattleVersion);
+        $this->battles->replacePending(
+            $battle->getId(),
+            $expectedBattleVersion,
+            $this->strikePending ?? $battle->getPendingActionEffects(),
+        );
 
         return $result;
+    }
+
+    /**
+     * Открывает удар, когда F1 уже уплачены. Инвентарь при отказе не коммитит этот вызов.
+     *
+     * @param GameRecord $game Игра.
+     * @param int $sessionId Сессия.
+     * @param GameBattleRecord $battle Бой.
+     * @param int $expectedBattleVersion Версия.
+     * @param array<string, mixed> $choice Тело declare.
+     *
+     * @return array<string, mixed> Итог.
+     */
+    public function openPaid(
+        GameRecord $game,
+        int $sessionId,
+        GameBattleRecord $battle,
+        int $expectedBattleVersion,
+        array $choice,
+    ): array {
+        $kind = $choice['attacker']['type'] ?? null;
+        $id = $choice['attacker']['id'] ?? null;
+        if (!is_string($kind) || !is_int($id)) {
+            throw new GameInvalidException('Game strike attacker is invalid');
+        }
+
+        $snapshot = $kind === 'character'
+            ? $this->characterSheetSnapshot($id)
+            : $this->npcSheetSnapshot($game->getId(), $id);
+        $inventorySpend = $this->rules->resolveInventorySpend(
+            $game->getSpaceId(),
+            $game->getRulesRevision(),
+            $choice['itemRuleCode'],
+            $choice['profileType'],
+            $choice['profileIndex'],
+            $choice['itemInventoryId'],
+            $choice['ammunitionInventoryId'] ?? null,
+            $kind,
+            $id,
+            $kind === 'npc' ? $snapshot['sheet']['choices'] : null,
+        );
+        if ($inventorySpend !== null) {
+            $this->sheetWrites->write(
+                $game,
+                $kind,
+                $id,
+                $snapshot['actualVersion'],
+                [],
+                null,
+                null,
+                [],
+                $inventorySpend,
+            );
+        }
+
+        $debt = $battle->getActionDebt();
+        unset($debt[(new GameActionDebt())->key($kind, $id)]);
+        $saved = $this->battles->replaceTracked(
+            $battle->getId(),
+            $expectedBattleVersion,
+            $battle->getPendingActionEffects(),
+            $debt,
+            null,
+            null,
+        );
+
+        return [
+            'battleId' => $battle->getId(),
+            'strikeId' => $this->strikes->add($this->openRow($battle, $sessionId, $choice)),
+            'version' => $saved->getStateVersion(),
+        ];
     }
 
     /**
@@ -478,7 +597,7 @@ final class GameStrikes implements IGameStrikes
      * @throws GameNotFoundException Если revision или NPC отсутствует.
      * @throws GameBattleConflictException Если CAS атакующего устарел.
      */
-    private function spendAttacker(GameRecord $game, array $choice): void
+    private function spendAttacker(GameRecord $game, array $choice, GameBattleRecord $battle): void
     {
         $kind = $choice['attacker']['type'] ?? null;
         $id = $choice['attacker']['id'] ?? null;
@@ -499,16 +618,60 @@ final class GameStrikes implements IGameStrikes
             $snapshot['sheet']['sheet'],
             $choice['chosenAmounts'],
         );
-        if ($spends === []) {
+        $adjusted = (new GamePendingActionCosts())->adjustSpends(
+            $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision()),
+            $snapshot['sheet']['choices'],
+            $choice['actionRuleCode'],
+            $kind,
+            $id,
+            $battle->getPendingActionEffects(),
+            $spends,
+        );
+        $spends = $adjusted['spends'];
+        $this->strikePending = $adjusted['pending'];
+        $slice = $this->rules->ruleSlice($game->getSpaceId(), $game->getRulesRevision());
+        $debt = new GameActionDebt();
+        $actorKey = $debt->key($kind, $id);
+        $debt->assertFree($battle->getActionDebt(), $actorKey);
+        $planned = $debt->plan(
+            $slice,
+            $snapshot['sheet']['sheet'],
+            $spends,
+            $debt->refillCode($slice),
+            $choice,
+            '1-1',
+        );
+        $spends = $planned['spends'];
+        if (!$planned['open']) {
+            $held = $battle->getActionDebt();
+            $held[$actorKey] = $planned['slot'];
+            $this->debtHold = $held;
+        }
+
+        $inventorySpend = $planned['open'] ? $this->rules->resolveInventorySpend(
+            $game->getSpaceId(),
+            $game->getRulesRevision(),
+            $choice['itemRuleCode'],
+            $choice['profileType'],
+            $choice['profileIndex'],
+            $choice['itemInventoryId'],
+            $choice['ammunitionInventoryId'] ?? null,
+            $kind,
+            $id,
+            $kind === 'npc' ? $snapshot['sheet']['choices'] : null,
+        ) : null;
+        if ($spends === [] && $inventorySpend === null) {
             return;
         }
 
-        if (!$this->rules->hasSufficientResources(
-            $game->getSpaceId(),
-            $game->getRulesRevision(),
-            $snapshot['sheet']['sheet'],
-            $spends,
-        )) {
+        if (
+            $spends !== [] && !$this->rules->hasSufficientResources(
+                $game->getSpaceId(),
+                $game->getRulesRevision(),
+                $snapshot['sheet']['sheet'],
+                $spends,
+            )
+        ) {
             throw new GameInvalidException('Game strike attacker resource is insufficient');
         }
 
@@ -517,10 +680,11 @@ final class GameStrikes implements IGameStrikes
             $kind,
             $id,
             $snapshot['actualVersion'],
-            ['kind' => 'spendResources'],
+            [],
             null,
             null,
             $spends,
+            $inventorySpend,
         );
     }
 
@@ -562,17 +726,20 @@ final class GameStrikes implements IGameStrikes
         if ($choice['reaction'] === 'block') {
             $defenderRoll = $this->blockRollOf($game, $open, $choice, $hitCode, $attackerRoll);
         }
+
         if ($choice['reaction'] === 'ignore') {
             return $this->resourceIgnoredResult($battle, $strikeId, $expectedBattleVersion, $attackerRoll, null);
         }
 
         $spends = $this->defenderResourceSpends($game, $open, $choice);
-        if ($spends !== [] && !$this->rules->hasSufficientResources(
-            $game->getSpaceId(),
-            $game->getRulesRevision(),
-            $this->defenderSheet($game, $open),
-            $spends,
-        )) {
+        if (
+            $spends !== [] && !$this->rules->hasSufficientResources(
+                $game->getSpaceId(),
+                $game->getRulesRevision(),
+                $this->defenderSheet($game, $open),
+                $spends,
+            )
+        ) {
             return $this->resourceIgnoredResult($battle, $strikeId, $expectedBattleVersion, $attackerRoll, $defenderRoll);
         }
 
@@ -607,6 +774,16 @@ final class GameStrikes implements IGameStrikes
         $effectiveDamage = $result['success'] === 0 ? $this->amounts->zero() : $damage;
         $injury = $this->amounts->injury($effectiveDamage, $resistance, $result['success'], $soak);
         $result['injury'] = $this->amounts->view($injury);
+        $prepared = $autoFail ? null : $this->prepareSheet(
+            $game,
+            $open,
+            $injury,
+            $result['success'],
+        );
+        if (is_array($prepared)) {
+            $result = array_merge($result, $prepared['consequence']);
+        }
+
         $result['sheetVersion'] = $autoFail && $spends === []
             ? null
             : ($autoFail
@@ -618,15 +795,16 @@ final class GameStrikes implements IGameStrikes
                     $viewAll,
                     $spends,
                 )
-                : $this->writeSheet(
+                : $this->writePrepared(
                     $game,
                     $open,
                     $expectedSheetVersion,
-                    $injury,
+                    $prepared['operations'] ?? [],
                     $actorUserId,
                     $viewAll,
                     $spends,
                 ));
+        $this->postStrikeChat($game, $open, $actorUserId, $strikeId, $choice['reaction'], $result);
         $this->strikes->close(
             $strikeId,
             $choice['reaction'],
@@ -869,6 +1047,7 @@ final class GameStrikes implements IGameStrikes
         if (!is_int($rating)) {
             throw new GameInvalidException('Game strike attacker roll is invalid');
         }
+
         $autoFail = $this->rules->isHitAutoFail($attackerRoll['roll']);
         $success = $autoFail || $rating <= 0
             ? 0
@@ -908,11 +1087,51 @@ final class GameStrikes implements IGameStrikes
      * @throws GameNotFoundException Если листа нет.
      * @throws GameBattleConflictException Если версия листа другая.
      */
-    private function writeSheet(
+
+    /**
+     * @return array{operations: list<array<string, mixed>>, consequence: array<string, mixed>}
+     */
+    private function prepareSheet(GameRecord $game, array $open, DimensionalNumber $injury, int $success): array
+    {
+        $kind = $open['defender_kind'] ?? null;
+        $defenderId = $open['defender_id'] ?? null;
+        $itemRuleCode = $open['item_rule_code'] ?? null;
+        $profileType = $open['profile_type'] ?? null;
+        $profileIndex = $open['profile_index'] ?? null;
+        if (($kind !== 'character' && $kind !== 'npc') || !is_int($defenderId) || !is_string($itemRuleCode) || !is_string($profileType) || !is_int($profileIndex)) {
+            throw new GameInvalidException('Game strike row is invalid');
+        }
+
+        $sheet = $kind === 'npc'
+            ? $this->npcSheetSnapshot($game->getId(), $defenderId)['sheet']['sheet']
+            : $this->rules->characterSnapshot($defenderId)['sheet'];
+        $split = $this->rules->splitInjury(
+            $game->getSpaceId(),
+            $game->getRulesRevision(),
+            $kind,
+            $defenderId,
+            $kind === 'npc' ? $sheet : null,
+            $injury,
+        );
+
+        return $this->consequences->effects(
+            $game,
+            $sheet,
+            $injury,
+            $success,
+            $split,
+            $this->rules->damageTypeCode($game->getSpaceId(), $game->getRulesRevision(), $itemRuleCode, $profileType, $profileIndex),
+        );
+    }
+
+    /**
+     * @param list<array<string, mixed>> $operations Операции.
+     */
+    private function writePrepared(
         GameRecord $game,
         array $open,
         int $expectedSheetVersion,
-        DimensionalNumber $injury,
+        array $operations,
         int $actorUserId,
         bool $viewAll,
         array $spends = [],
@@ -928,14 +1147,7 @@ final class GameStrikes implements IGameStrikes
             $kind,
             $defenderId,
             $expectedSheetVersion,
-            $this->rules->splitInjury(
-                $game->getSpaceId(),
-                $game->getRulesRevision(),
-                $kind,
-                $defenderId,
-                $kind === 'npc' ? $this->npcSheetSnapshot($game->getId(), $defenderId)['sheet']['sheet'] : null,
-                $injury,
-            ),
+            $operations,
             ['type' => $kind, 'id' => $defenderId],
             fn (CharacterConflictException|GameEconomyConflictException $exception): array => $this->projectWriteConflict(
                 $game,
@@ -947,6 +1159,102 @@ final class GameStrikes implements IGameStrikes
             ),
             $spends,
         );
+    }
+
+    /**
+     * @param array<string, mixed> $result Итог close.
+     */
+    private function postStrikeChat(
+        GameRecord $game,
+        array $open,
+        int $actorUserId,
+        int $strikeId,
+        string $reaction,
+        array $result,
+    ): void {
+        $defender = $this->entityToken($open['defender_kind'] ?? 'character', $open['defender_id'] ?? 0);
+        $attacker = $this->entityToken($open['attacker_kind'] ?? 'character', $open['attacker_id'] ?? 0);
+        $weapon = is_string($open['item_rule_code'] ?? null) ? '[[rule:' . $open['item_rule_code'] . ']]' : 'оружием';
+        $kind = match ($open['profile_type'] ?? 'strike') {
+            'throw' => 'бросок',
+            'shoot' => 'выстрел',
+            default => 'удар',
+        };
+        $narrative = $attacker . ' наносит безымянный ' . $kind . ' оружием ' . $weapon . ' по ' . $defender . '.';
+        $narrative .= $reaction === 'ignore'
+            ? ' Тот не реагирует.'
+            : ' Тот пытается совершить ' . $reaction . ' за 0ОД!';
+        $exhaustion = $result['exhaustionDelta'] ?? 0;
+        $wound = $result['wound'] ?? 0;
+        $success = $result['success'] ?? 0;
+        $bits = [$exhaustion . ' истощения'];
+        if ($wound > 0) {
+            $bits[] = $wound . ' рану';
+        }
+
+        $will = isset($result['will']) ? [
+            'roll' => $result['will'],
+            'text' => $this->exhaustionText($defender, $result['will']['rating'] ?? 0, $result['willOutcome'] ?? 'clear'),
+        ] : null;
+        $maim = isset($result['maim']) ? [
+            'roll' => $result['maim'],
+            'text' => $this->maimText($defender, $result['maim']['rating'] ?? 0),
+            'details' => ['strength' => $result['maim']['rating'] ?? 0],
+        ] : null;
+        $this->consequences->post(
+            $game,
+            $actorUserId,
+            'attack-' . $strikeId,
+            true,
+            $attacker . ' совершает действие Простая атака (ближний бой) за 0ОД.',
+            $narrative,
+            $result['attackerRoll'],
+            $success > 0
+                ? $attacker . ' попадает по ' . $defender . ' с ' . $success . ' РУ и наносит ' . implode(' и ', $bits) . '!'
+                : $attacker . ' промахивается по ' . $defender . '!',
+            [
+                'damage' => $result['damage'] ?? null,
+                'resistance' => $result['resistance'] ?? null,
+                'injury' => $result['injury'] ?? null,
+                'exhaustion' => $exhaustion,
+                'wound' => $wound,
+            ],
+            $will,
+            $maim,
+        );
+    }
+
+    private function entityToken(mixed $kind, mixed $id): string
+    {
+        $prefix = $kind === 'npc' ? 'npc' : 'character';
+
+        return '[[' . $prefix . ':' . $id . ',' . $id . ']]';
+    }
+
+    private function exhaustionText(string $target, int $rating, string $outcome): string
+    {
+        $label = match ($outcome) {
+            'weakness' => 'Слабость',
+            'disabled' => 'Обессилен',
+            'unconscious' => 'Потеря сознания',
+            default => 'без Упадка сил',
+        };
+        if ($outcome === 'clear') {
+            $shown = ($rating >= 0 ? '+' : '') . $rating;
+
+            return $target . ' выдерживает истощение (РУ ' . $shown . ') — ' . $label . '.';
+        }
+
+        return $target . ' не выдерживает истощение (РУ ' . $rating . ') — ' . $label . '.';
+    }
+
+    private function maimText(string $target, int $strength): string
+    {
+        if ($strength <= 0) {
+            return $target . ' не получает увечье.';
+        }
+
+        return $target . ' получает временное увечье с силой ' . $strength . '.';
     }
 
     /**
@@ -998,7 +1306,8 @@ final class GameStrikes implements IGameStrikes
             throw new GameInvalidException('Game strike reaction is invalid');
         }
 
-        if ($choice['reaction'] === 'block'
+        if (
+            $choice['reaction'] === 'block'
             && (!is_int($choice['blockItemInventoryId'])
                 || !is_int($choice['blockItemProfileIndex']))
         ) {
@@ -1250,7 +1559,8 @@ final class GameStrikes implements IGameStrikes
         $profileType = $open['profile_type'] ?? null;
         $profileIndex = $open['profile_index'] ?? null;
         $itemInventoryId = $open['item_inventory_id'] ?? null;
-        if (!is_string($kind)
+        if (
+            !is_string($kind)
             || !is_int($attackerId)
             || !is_string($itemRuleCode)
             || !is_string($profileType)
@@ -1325,7 +1635,8 @@ final class GameStrikes implements IGameStrikes
      */
     private function resistanceChoice(array $choice, ?array $defenderRoll): array
     {
-        if ($choice['reaction'] === 'block'
+        if (
+            $choice['reaction'] === 'block'
             && ($defenderRoll === null || ($defenderRoll['success'] ?? false) !== true)
         ) {
             $choice['blockItemInventoryId'] = null;
@@ -1398,8 +1709,7 @@ final class GameStrikes implements IGameStrikes
         array $choice,
         int $rating,
         DimensionalNumber $penetration,
-    ): DimensionalNumber
-    {
+    ): DimensionalNumber {
         $kind = $open['defender_kind'] ?? null;
         $defenderId = $open['defender_id'] ?? null;
         $itemRuleCode = $open['item_rule_code'] ?? null;
@@ -1507,12 +1817,14 @@ final class GameStrikes implements IGameStrikes
         $itemRuleCode = $open['item_rule_code'] ?? null;
         $profileType = $open['profile_type'] ?? null;
         $profileIndex = $open['profile_index'] ?? null;
+        $itemInventoryId = $open['item_inventory_id'] ?? null;
         if (
             !is_string($kind)
             || !is_int($attackerId)
             || !is_string($itemRuleCode)
             || !is_string($profileType)
             || !is_int($profileIndex)
+            || !is_int($itemInventoryId)
         ) {
             throw new GameInvalidException('Game strike row is invalid');
         }
@@ -1523,9 +1835,11 @@ final class GameStrikes implements IGameStrikes
             $itemRuleCode,
             $profileType,
             $profileIndex,
+            $itemInventoryId,
             $kind,
             $attackerId,
             $kind === 'npc' ? $this->attackerSheet($game->getId(), $attackerId) : null,
+            $kind === 'npc' ? $this->npcChoices($game->getId(), $attackerId) : null,
         );
     }
 

@@ -24,6 +24,7 @@ final class GameStrikeBody
      *     itemRuleCode: string,
      *     profileType: string,
      *     profileIndex: int,
+     *     ammunitionInventoryId?: int,
      *     chosenAmounts: array<string, mixed>
      * } Выбор.
      *
@@ -43,6 +44,11 @@ final class GameStrikeBody
         if (array_key_exists('chosenAmounts', $attack)) {
             $allowed[] = 'chosenAmounts';
         }
+
+        if (array_key_exists('ammunitionInventoryId', $attack)) {
+            $allowed[] = 'ammunitionInventoryId';
+        }
+
         $this->assertKeys($attack, $allowed);
         $attacker = $this->side($attack['attacker'] ?? null);
         $defender = $this->side($attack['defender'] ?? null);
@@ -51,13 +57,18 @@ final class GameStrikeBody
         $actionRuleCode = $attack['actionRuleCode'] ?? null;
         $itemRuleCode = $attack['itemRuleCode'] ?? null;
         $itemInventoryId = $attack['itemInventoryId'] ?? null;
+        $ammunitionInventoryId = $attack['ammunitionInventoryId'] ?? null;
         $chosenAmounts = $attack['chosenAmounts'] ?? [];
         $codes = is_string($actionRuleCode) && is_string($itemRuleCode);
-        if (!is_int($itemInventoryId)
+        if (
+            !is_int($itemInventoryId)
             || !is_string($profileType)
             || !is_int($profileIndex)
             || !$codes
             || !is_array($chosenAmounts)
+            || ($profileType === 'shoot'
+                ? !is_int($ammunitionInventoryId)
+                : $ammunitionInventoryId !== null)
         ) {
             throw new ActionException('INVALID_PARAMS', 'Invalid parameter: attack');
         }
@@ -70,6 +81,7 @@ final class GameStrikeBody
             'itemRuleCode' => $itemRuleCode,
             'profileType' => $profileType,
             'profileIndex' => $profileIndex,
+            ...($profileType === 'shoot' ? ['ammunitionInventoryId' => $ammunitionInventoryId] : []),
             'chosenAmounts' => $chosenAmounts,
         ];
     }
@@ -86,7 +98,8 @@ final class GameStrikeBody
     public function defense(array $defense): array
     {
         $allowed = ['reaction'];
-        if (array_key_exists('blockItemInventoryId', $defense)
+        if (
+            array_key_exists('blockItemInventoryId', $defense)
             || array_key_exists('blockItemProfileIndex', $defense)
         ) {
             $allowed = [
@@ -100,12 +113,14 @@ final class GameStrikeBody
         } elseif (array_key_exists('blockItemRuleCode', $defense)) {
             $allowed = ['blockItemRuleCode', 'reaction'];
         }
+
         $this->assertKeys($defense, $allowed);
         $reaction = $defense['reaction'] ?? null;
         $blockItemInventoryId = $defense['blockItemInventoryId'] ?? null;
         $blockItemProfileIndex = $defense['blockItemProfileIndex'] ?? null;
         $blockItemRuleCode = $defense['blockItemRuleCode'] ?? null;
-        if (!is_string($reaction)
+        if (
+            !is_string($reaction)
             || ($blockItemInventoryId !== null && !is_int($blockItemInventoryId))
             || ($blockItemProfileIndex !== null && !is_int($blockItemProfileIndex))
             || ($blockItemRuleCode !== null && !is_string($blockItemRuleCode))

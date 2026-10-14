@@ -18,6 +18,7 @@ final class RollGameInitiativeInput implements IActionInput
      * @param int $battleId Бой.
      * @param string $idempotencyKey Ключ повтора.
      * @param int $expectedVersion Версия боя.
+     * @param array<mixed>|null $rolls Способы броска или null.
      *
      * @return void
      */
@@ -26,6 +27,7 @@ final class RollGameInitiativeInput implements IActionInput
         public readonly int $battleId,
         public readonly string $idempotencyKey,
         public readonly int $expectedVersion,
+        public readonly ?array $rolls = null,
     ) {
     }
 }

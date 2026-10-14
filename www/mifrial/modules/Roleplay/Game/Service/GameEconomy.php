@@ -163,6 +163,7 @@ final class GameEconomy implements IGameEconomy
                 $exception->getCurrentSheet(),
             );
         }
+
         $this->deliverySignal->recorded(
             $game->getId(),
             'economy',

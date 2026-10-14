@@ -64,6 +64,8 @@ final class GameWideStrikes implements IGameWideStrikes
      * @param GameSessionRepository $sessions Сессия.
      * @param ICharacterActualMutations $mutations Порт листа.
      * @param GameStrikeRules $rules Срез и версия персонажа.
+     * @param IEventManager $events Доставка.
+     * @param GameStrikeConsequences $consequences Проверки удара.
      *
      * @return void
      */
@@ -75,6 +77,7 @@ final class GameWideStrikes implements IGameWideStrikes
         private readonly ICharacterActualMutations $mutations,
         private readonly GameStrikeRules $rules,
         IEventManager $events,
+        private readonly GameStrikeConsequences $consequences,
     ) {
         $this->battles = new GameBattleRepository($smartTableGateway);
         $this->strikes = new GameWideStrikeRepository($smartTableGateway);
@@ -84,7 +87,7 @@ final class GameWideStrikes implements IGameWideStrikes
         $this->characters = new GameCharacterRepository($smartTableGateway);
         $this->members = new GameMemberRepository($smartTableGateway);
         $this->body = new GameWideStrikeBody();
-        $this->results = $this->createResults($rules, $mutations);
+        $this->results = $this->createResults($rules, $mutations, $consequences);
         $this->replayTransaction = new GameReplayTransaction($smartTableGateway);
         $this->commit = $this->createCommit();
         $this->deliverySignal = new GameDeliverySignal($events);
@@ -191,6 +194,7 @@ final class GameWideStrikes implements IGameWideStrikes
     private function createResults(
         GameStrikeRules $rules,
         ICharacterActualMutations $mutations,
+        GameStrikeConsequences $consequences,
     ): GameWideStrikeResults {
         return new GameWideStrikeResults(
             $rules,
@@ -204,6 +208,35 @@ final class GameWideStrikes implements IGameWideStrikes
                 new GameCharacterProjectionMask(),
                 new GameNpcVisibility(),
             ),
+            $consequences,
+        );
+    }
+
+    /**
+     * Открывает отложенный широкий удар.
+     *
+     * @param GameRecord $game Игра.
+     * @param int $sessionId Сессия.
+     * @param GameBattleRecord $battle Бой.
+     * @param int $expectedBattleVersion Версия.
+     * @param array<string, mixed> $choice Тело.
+     *
+     * @return array<string, mixed> Итог.
+     */
+    public function openPaid(
+        GameRecord $game,
+        int $sessionId,
+        GameBattleRecord $battle,
+        int $expectedBattleVersion,
+        array $choice,
+    ): array {
+        return $this->createCommit()->openPaid(
+            $game,
+            $sessionId,
+            $battle,
+            $expectedBattleVersion,
+            $choice,
+            new GameWideStrikeOpening($this->battles, $this->targets),
         );
     }
 
@@ -528,6 +561,20 @@ final class GameWideStrikes implements IGameWideStrikes
                 ? $this->attackerChoices($game->getId(), $choice['attacker']['id'])
                 : null,
         );
+        $this->rules->resolveInventorySpend(
+            $game->getSpaceId(),
+            $game->getRulesRevision(),
+            $choice['itemRuleCode'],
+            $choice['profileType'],
+            $choice['profileIndex'],
+            $choice['itemInventoryId'],
+            $choice['ammunitionInventoryId'] ?? null,
+            $choice['attacker']['type'],
+            $choice['attacker']['id'],
+            $choice['attacker']['type'] === 'npc'
+                ? $this->attackerChoices($game->getId(), $choice['attacker']['id'])
+                : null,
+        );
 
         return $opening;
     }
@@ -597,7 +644,8 @@ final class GameWideStrikes implements IGameWideStrikes
         $profileType = $open['profile_type'] ?? null;
         $profileIndex = $open['profile_index'] ?? null;
         $itemInventoryId = $open['item_inventory_id'] ?? null;
-        if (!is_string($kind)
+        if (
+            !is_string($kind)
             || !is_int($attackerId)
             || !is_string($itemRuleCode)
             || !is_string($profileType)
@@ -679,7 +727,11 @@ final class GameWideStrikes implements IGameWideStrikes
         $itemRuleCode = $open['item_rule_code'] ?? null;
         $profileType = $open['profile_type'] ?? null;
         $profileIndex = $open['profile_index'] ?? null;
-        if (!$this->isDamageRow($kind, $attackerId, $itemRuleCode, $profileType, $profileIndex)) {
+        $itemInventoryId = $open['item_inventory_id'] ?? null;
+        if (
+            !$this->isDamageRow($kind, $attackerId, $itemRuleCode, $profileType, $profileIndex)
+            || !is_int($itemInventoryId)
+        ) {
             throw new GameInvalidException('Game wide strike row is invalid');
         }
 
@@ -689,9 +741,11 @@ final class GameWideStrikes implements IGameWideStrikes
             $itemRuleCode,
             $profileType,
             $profileIndex,
+            $itemInventoryId,
             $kind,
             $attackerId,
             $kind === 'npc' ? $this->attackerSheet($game->getId(), $attackerId) : null,
+            $kind === 'npc' ? $this->attackerChoices($game->getId(), $attackerId) : null,
         );
     }
 

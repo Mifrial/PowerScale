@@ -15,6 +15,7 @@ use Mifrial\Messages\Chat\Interface\Container\IChatContainer;
 use Mifrial\Messages\Chat\Interface\Service\IChats;
 use Mifrial\Messages\Chat\Interface\Service\IChatTypeRegistry;
 use Mifrial\Roleplay\Character\Interface\Container\ICharacterContainer;
+use Mifrial\Roleplay\Character\Interface\Service\ICharacterActualMutations;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterSessionParticipants;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterSheetEngines;
@@ -143,6 +144,7 @@ final class GamePortFactory
             $this->review($serviceLocator),
             $this->donorChats($serviceLocator),
             $gateway,
+            $this->mutations($serviceLocator),
         );
     }
 
@@ -409,6 +411,35 @@ final class GamePortFactory
         }
 
         return $sheetEngines;
+    }
+
+    /**
+     * Строки персонажа.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     *
+     * @return ICharacters Фасад.
+     *
+     * @throws KernelException Если порта нет.
+     */
+
+    /**
+     * Запись листа.
+     *
+     * @param IServiceLocator $serviceLocator Каталог.
+     *
+     * @return ICharacterActualMutations Порт.
+     *
+     * @throws KernelException Если порта нет.
+     */
+    private function mutations(IServiceLocator $serviceLocator): ICharacterActualMutations
+    {
+        $mutations = $serviceLocator->get(ICharacterContainer::class)->get(ICharacterActualMutations::class);
+        if (!$mutations instanceof ICharacterActualMutations) {
+            throw new KernelException('PORT_TYPE', 'Game requires ICharacterActualMutations');
+        }
+
+        return $mutations;
     }
 
     /**

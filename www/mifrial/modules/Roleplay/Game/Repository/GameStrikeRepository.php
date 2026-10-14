@@ -104,8 +104,7 @@ final class GameStrikeRepository
         ?int $blockItemInventoryId,
         ?int $blockItemProfileIndex,
         ?string $blockItemRuleCode,
-    ): void
-    {
+    ): void {
         try {
             $this->strikeRecords->update($strikeId, [
                 'reaction' => $reaction,

@@ -62,6 +62,7 @@ final class GameBattleInitiatives
      * @param int $battleId Бой.
      * @param string $idempotencyKey Ключ.
      * @param int $expectedVersion Версия.
+     * @param array<mixed>|null $rolls Способы или null.
      *
      * @return array<string, mixed> Итог.
      *
@@ -78,20 +79,27 @@ final class GameBattleInitiatives
         int $battleId,
         string $idempotencyKey,
         int $expectedVersion,
+        ?array $rolls = null,
     ): array {
+        $body = ['battleId' => $battleId, 'expectedVersion' => $expectedVersion];
+        if ($rolls !== null) {
+            $body['rolls'] = $rolls;
+        }
+
         return $this->execute(
             $gameId,
             $actorUserId,
             $editAll,
             $viewAll,
             $idempotencyKey,
-            ['battleId' => $battleId, 'expectedVersion' => $expectedVersion],
+            $body,
             fn (int $sessionId, GameRecord $game): array => $this->write(
                 $game,
                 $sessionId,
                 $battleId,
                 $idempotencyKey,
                 $expectedVersion,
+                $rolls,
             ),
         );
     }
@@ -150,6 +158,7 @@ final class GameBattleInitiatives
      * @param int $battleId Бой.
      * @param string $idempotencyKey Ключ.
      * @param int $expectedVersion Версия.
+     * @param array<mixed>|null $rolls Способы или null.
      *
      * @return array<string, mixed> Итог.
      *
@@ -163,6 +172,7 @@ final class GameBattleInitiatives
         int $battleId,
         string $idempotencyKey,
         int $expectedVersion,
+        ?array $rolls,
     ): array {
         $battle = $this->battles->find($battleId);
         if ($battle === null || $battle->getSessionId() !== $sessionId) {
@@ -177,18 +187,24 @@ final class GameBattleInitiatives
             $game->getSpaceId(),
             $game->getRulesRevision(),
             $this->battles->findParticipants($battleId),
+            $rolls,
         );
         $saved = $this->battles->advanceVersion($battleId, $expectedVersion);
-        $this->battles->replaceTurnOrder($battleId, $order);
+        $this->battles->replaceTurnOrder($battleId, $order, 0, 1);
         $result = [
             'battleId' => $battleId,
             'version' => $saved->getStateVersion(),
             'order' => $order,
         ];
-        $this->commands->add($game->getId(), $sessionId, $idempotencyKey, [
+        $body = [
             'battleId' => $battleId,
             'expectedVersion' => $expectedVersion,
-        ], $result);
+        ];
+        if ($rolls !== null) {
+            $body['rolls'] = $rolls;
+        }
+
+        $this->commands->add($game->getId(), $sessionId, $idempotencyKey, $body, $result);
 
         return $result;
     }

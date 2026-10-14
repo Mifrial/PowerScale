@@ -16,7 +16,9 @@ use Mifrial\Roleplay\Game\Schema\GameEconomySchema;
 use Mifrial\Roleplay\Game\Schema\GameProcessSchema;
 use Mifrial\Roleplay\Game\Schema\GameSchema;
 use Mifrial\Roleplay\Game\Schema\GameStrikeSchema;
+use Mifrial\Roleplay\Game\Schema\GameTurnSchema;
 use Mifrial\Roleplay\Game\Schema\GameWideStrikeSchema;
+use Mifrial\Roleplay\Game\Schema\GameWoundSchema;
 
 /**
  * Карта Game для CLI setup.
@@ -38,6 +40,8 @@ final class GameModuleSetup implements IModuleSetup
             GameBattleSchema::getTableClasses(),
             GameProcessSchema::getTableClasses(),
             GameStrikeSchema::getTableClasses(),
+            GameWoundSchema::getTableClasses(),
+            GameTurnSchema::getTableClasses(),
             GameWideStrikeSchema::getTableClasses(),
             GameCheckSchema::getTableClasses(),
             GameDeliverySchema::getTableClasses(),

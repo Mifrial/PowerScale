@@ -321,7 +321,7 @@ final class GameHttp
     }
 
     /**
-     * Читает состав владелец, view_all или edit_all.
+     * Читает состав владелец, участник строки, view_all или edit_all.
      *
      * @param int $gameId Игра.
      *
@@ -329,6 +329,7 @@ final class GameHttp
      *
      * @throws ActionException AUTH_REQUIRED.
      * @throws GameNotFoundException Если чужая.
+     * @throws GameInvalidException Если строка участника битая.
      */
     private function assertMemberReader(int $gameId): void
     {
@@ -341,7 +342,7 @@ final class GameHttp
             return;
         }
 
-        throw new GameNotFoundException();
+        $this->games->getMember($gameId, $actor->getUserId());
     }
 
     /**

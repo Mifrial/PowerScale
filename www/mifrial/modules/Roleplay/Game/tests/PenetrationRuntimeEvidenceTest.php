@@ -6,13 +6,13 @@ namespace Mifrial\Roleplay\Game\Tests;
 
 use Closure;
 use Mifrial\Core\SmartTable\Interface\Service\ISmartTableGateway;
-use Mifrial\Roleplay\Game\Exception\GameBattleConflictException;
-use Mifrial\Roleplay\Game\Service\GameReplayTransaction;
-use Mifrial\Roleplay\Game\Service\GameCheckRoll;
-use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanicRolls;
-use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanics;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacterRuleSlices;
 use Mifrial\Roleplay\Character\Interface\Service\ICharacters;
+use Mifrial\Roleplay\Game\Exception\GameBattleConflictException;
+use Mifrial\Roleplay\Game\Service\GameCheckRoll;
+use Mifrial\Roleplay\Game\Service\GameReplayTransaction;
+use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanicRolls;
+use Mifrial\Roleplay\Mechanic\Interface\Service\IMechanics;
 use PHPUnit\Framework\TestCase;
 
 /**

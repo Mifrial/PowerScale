@@ -54,6 +54,68 @@ final class GameStrikeBodyTest extends TestCase
     }
 
     /**
+     * Shoot transport требует selected ammunition instance.
+     *
+     * @return void
+     */
+    public function testShootRequiresAmmunitionInventoryId(): void
+    {
+        $this->expectException(ActionException::class);
+
+        (new GameStrikeBody())->attack([
+            'attacker' => ['type' => 'character', 'id' => 1],
+            'defender' => ['type' => 'npc', 'id' => 2],
+            'actionRuleCode' => 'shoot',
+            'itemInventoryId' => 7,
+            'itemRuleCode' => 'bow',
+            'profileType' => 'shoot',
+            'profileIndex' => 0,
+        ]);
+    }
+
+    /**
+     * Shoot transport сохраняет selected ammunition instance.
+     *
+     * @return void
+     */
+    public function testShootAcceptsAmmunitionInventoryId(): void
+    {
+        $choice = (new GameStrikeBody())->attack([
+            'attacker' => ['type' => 'character', 'id' => 1],
+            'defender' => ['type' => 'npc', 'id' => 2],
+            'actionRuleCode' => 'shoot',
+            'itemInventoryId' => 7,
+            'itemRuleCode' => 'bow',
+            'profileType' => 'shoot',
+            'profileIndex' => 0,
+            'ammunitionInventoryId' => 8,
+        ]);
+
+        self::assertSame(8, $choice['ammunitionInventoryId']);
+    }
+
+    /**
+     * Strike transport не принимает ranged-only ammunition identity.
+     *
+     * @return void
+     */
+    public function testStrikeRejectsAmmunitionInventoryId(): void
+    {
+        $this->expectException(ActionException::class);
+
+        (new GameStrikeBody())->attack([
+            'attacker' => ['type' => 'character', 'id' => 1],
+            'defender' => ['type' => 'npc', 'id' => 2],
+            'actionRuleCode' => 'swing',
+            'itemInventoryId' => 7,
+            'itemRuleCode' => 'sword',
+            'profileType' => 'strike',
+            'profileIndex' => 0,
+            'ammunitionInventoryId' => 8,
+        ]);
+    }
+
+    /**
      * Block transport сохраняет выбранный instance и profile index.
      *
      * @return void
