@@ -388,7 +388,30 @@ final class RuleSpaces implements IRuleSpaces
             $sidecarFields['description'] = (string) $patchFields['description'];
         }
 
-        return $sidecarFields;
+        return $sidecarFields + $this->publishedReadField($patchFields);
+    }
+
+    /**
+     * Колонка published_read, если ключ есть в patch.
+     *
+     * @param array<string, mixed> $patchFields Patch.
+     *
+     * @return array<string, string> Колонка или пусто.
+     *
+     * @throws RuleSpaceInvalidException Если значение не owner и не all.
+     */
+    private function publishedReadField(array $patchFields): array
+    {
+        if (!array_key_exists('published_read', $patchFields)) {
+            return [];
+        }
+
+        $publishedRead = $patchFields['published_read'];
+        if ($publishedRead !== 'owner' && $publishedRead !== 'all') {
+            throw new RuleSpaceInvalidException('Rule space published read is invalid');
+        }
+
+        return ['published_read' => $publishedRead];
     }
 
     /**

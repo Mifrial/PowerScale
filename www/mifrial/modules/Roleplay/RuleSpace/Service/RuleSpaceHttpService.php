@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace Mifrial\Roleplay\RuleSpace\Service;
 
+use Mifrial\Core\Kernel\Dto\RequestActor;
 use Mifrial\Core\Kernel\Exception\ActionException;
 use Mifrial\Core\Kernel\Value\Optional\OptionalArray;
 use Mifrial\Core\User\Interface\Service\IUserAccess;
@@ -21,6 +22,7 @@ use Mifrial\Roleplay\RuleSpace\Dto\RuleSpacePatch;
 use Mifrial\Roleplay\RuleSpace\Dto\RuleSpaceRecord;
 use Mifrial\Roleplay\RuleSpace\Dto\RuleSpaceSelection;
 use Mifrial\Roleplay\RuleSpace\Exception\RuleSpaceInvalidException;
+use Mifrial\Roleplay\RuleSpace\Exception\RuleSpaceNotFoundException;
 use Mifrial\Roleplay\RuleSpace\Interface\Service\IRuleSpaces;
 use Mifrial\Roleplay\RuleSpace\Repository\RuleSpaceRepository;
 
@@ -57,17 +59,11 @@ final class RuleSpaceHttpService
      * Живые миры.
      *
      * @return array<int, array<string, mixed>> Space[].
-     *
-     * @throws ActionException AUTH_REQUIRED.
      */
     public function getList(): array
     {
-        $actor = $this->userAccess->requireActor();
-        $records = $actor->hasKey(RuleSpacePermissionKeys::VIEW_ALL)
-            ? $this->ruleSpaceRepository->getActiveList(self::LIST_LIMIT)
-            : $this->ruleSpaceRepository->getActiveListByOwner($actor->getUserId(), self::LIST_LIMIT);
         $views = [];
-        foreach ($records as $ruleSpaceRecord) {
+        foreach ($this->listWorlds($this->actorOrNull()) as $ruleSpaceRecord) {
             $views[] = $this->spaceView($ruleSpaceRecord);
         }
 
@@ -99,9 +95,7 @@ final class RuleSpaceHttpService
      */
     public function getByCode(string $code): array
     {
-        $this->userAccess->requireActor();
-
-        return $this->spaceView($this->requireVisibleWorld($this->ruleSpaces->getByCode($code)));
+        return $this->spaceView($this->requireVisibleWorld($this->loadedWorldByCode($code)));
     }
 
     /**
@@ -221,6 +215,7 @@ final class RuleSpaceHttpService
         if ($input->expectedRevision < 0) {
             throw new RuleSpaceInvalidException('Expected revision is invalid');
         }
+
         $catalog = $this->draftCatalog(
             $input->spaceId,
             $input->sections,
@@ -255,23 +250,114 @@ final class RuleSpaceHttpService
     }
 
     /**
-     * Sidecar после актора.
+     * Sidecar. Гостю отсутствующий id — AUTH_REQUIRED.
      *
      * @param int $spaceId Мир.
      *
      * @return RuleSpaceRecord Мир.
      *
      * @throws ActionException AUTH_REQUIRED.
+     * @throws RuleSpaceNotFoundException Если мира нет у актора.
      */
     private function loadedWorld(int $spaceId): RuleSpaceRecord
     {
-        $this->userAccess->requireActor();
+        try {
+            return $this->ruleSpaces->get($spaceId);
+        } catch (RuleSpaceNotFoundException $exception) {
+            $this->userAccess->requireActor();
 
-        return $this->ruleSpaces->get($spaceId);
+            throw $exception;
+        }
     }
 
     /**
-     * Мир виден владельцу, view_all или bypass.
+     * Мир по коду. Гостю отсутствующий код — AUTH_REQUIRED.
+     *
+     * @param string $code Ключ URL.
+     *
+     * @return RuleSpaceRecord Мир.
+     *
+     * @throws ActionException AUTH_REQUIRED.
+     * @throws RuleSpaceInvalidException Если code пуст.
+     * @throws RuleSpaceNotFoundException Если мира нет у актора.
+     */
+    private function loadedWorldByCode(string $code): RuleSpaceRecord
+    {
+        try {
+            return $this->ruleSpaces->getByCode($code);
+        } catch (RuleSpaceNotFoundException $exception) {
+            $this->userAccess->requireActor();
+
+            throw $exception;
+        }
+    }
+
+    /**
+     * Актор или гость.
+     *
+     * @return RequestActor|null null — гость.
+     *
+     * @throws ActionException Если отказ не AUTH_REQUIRED.
+     */
+    private function actorOrNull(): ?RequestActor
+    {
+        try {
+            return $this->userAccess->requireActor();
+        } catch (ActionException $exception) {
+            if ($exception->getErrorCode() !== 'AUTH_REQUIRED') {
+                throw $exception;
+            }
+
+            return null;
+        }
+    }
+
+    /**
+     * view_all — все живые. Иначе свои плюс publishedRead=all. Гость — только all.
+     *
+     * @param RequestActor|null $actor Актор.
+     *
+     * @return array<int, RuleSpaceRecord> Миры.
+     *
+     * @throws RuleSpaceInvalidException Если выборка битая.
+     */
+    private function listWorlds(?RequestActor $actor): array
+    {
+        if ($actor instanceof RequestActor && $actor->hasKey(RuleSpacePermissionKeys::VIEW_ALL)) {
+            return $this->ruleSpaceRepository->getActiveList(self::LIST_LIMIT);
+        }
+
+        $published = $this->ruleSpaceRepository->getActiveListByPublishedRead('all', self::LIST_LIMIT);
+        if (!$actor instanceof RequestActor) {
+            return $published;
+        }
+
+        return $this->mergeWorlds(
+            $this->ruleSpaceRepository->getActiveListByOwner($actor->getUserId(), self::LIST_LIMIT),
+            $published,
+        );
+    }
+
+    /**
+     * Свои миры и публичные без повтора id.
+     *
+     * @param array<int, RuleSpaceRecord> $owned Свои.
+     * @param array<int, RuleSpaceRecord> $published publishedRead=all.
+     *
+     * @return array<int, RuleSpaceRecord> Список.
+     */
+    private function mergeWorlds(array $owned, array $published): array
+    {
+        $worlds = [];
+        foreach ([...$owned, ...$published] as $ruleSpaceRecord) {
+            $worlds[$ruleSpaceRecord->getId()] = $ruleSpaceRecord;
+        }
+
+        return array_values($worlds);
+    }
+
+    /**
+     * publishedRead=all виден всем, включая гостя. Иначе владелец, view_all или bypass.
      *
      * @param RuleSpaceRecord $ruleSpaceRecord Мир.
      *
@@ -281,6 +367,10 @@ final class RuleSpaceHttpService
      */
     private function requireVisibleWorld(RuleSpaceRecord $ruleSpaceRecord): RuleSpaceRecord
     {
+        if ($ruleSpaceRecord->getPublishedRead() === 'all') {
+            return $ruleSpaceRecord;
+        }
+
         $this->userAccess->requireSelfOrKey($ruleSpaceRecord->getOwnerId(), RuleSpacePermissionKeys::VIEW_ALL);
 
         return $ruleSpaceRecord;
@@ -504,6 +594,10 @@ final class RuleSpaceHttpService
 
         if ($input->description->isPresent()) {
             $fields['description'] = $this->presentString($input->description->getValue());
+        }
+
+        if ($input->publishedRead->isPresent()) {
+            $fields['published_read'] = $this->presentString($input->publishedRead->getValue());
         }
 
         return $fields;

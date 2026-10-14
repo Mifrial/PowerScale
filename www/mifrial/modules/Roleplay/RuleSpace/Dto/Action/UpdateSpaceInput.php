@@ -18,6 +18,7 @@ final class UpdateSpaceInput implements IActionInput
      * @param int $id Мир.
      * @param OptionalString $name Подпись.
      * @param OptionalString $description Текст.
+     * @param OptionalString $publishedRead Кто читает срез: owner или all.
      *
      * @return void
      */
@@ -25,6 +26,7 @@ final class UpdateSpaceInput implements IActionInput
         public readonly int $id,
         public readonly OptionalString $name,
         public readonly OptionalString $description,
+        public readonly OptionalString $publishedRead,
     ) {
     }
 }

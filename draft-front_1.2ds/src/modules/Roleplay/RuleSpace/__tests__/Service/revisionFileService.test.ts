@@ -165,10 +165,12 @@ describe('RevisionFileService', () => {
         revisionFileService.parse(
           JSON.stringify({
             ...withIds,
-            rules: [{
-              ...withIds.rules[0],
-              mechanics: [{ mechanic: { code: 'roll', version: '1', handlerVersion: '1' }, mechanicPayload: [] }],
-            }],
+            rules: [
+              {
+                ...withIds.rules[0],
+                mechanics: [{ mechanic: { code: 'roll', version: '1', handlerVersion: '1' }, mechanicPayload: [] }],
+              },
+            ],
           }),
         ),
       REVISION_FILE_PROBLEM_CODE.forbiddenField,
@@ -239,7 +241,9 @@ describe('RevisionFileService', () => {
         rule('beta', 'Бета', { keywordIds: [20], id: 9, spaceId: 3 }),
         rule('alpha', 'Альфа', {
           keywordIds: [7, 20],
-          mechanics: [{ mechanicId: 4, mechanicPayload: { type: 'purchase_surcharge', filter: {}, free_count: 2, surcharge: 1 } }],
+          mechanics: [
+            { mechanicId: 4, mechanicPayload: { type: 'purchase_surcharge', filter: {}, free_count: 2, surcharge: 1 } },
+          ],
         }),
       ],
     };
@@ -296,7 +300,7 @@ describe('RevisionFileService', () => {
             catalogSection: 'root',
             catalogSortOrder: 2,
           }),
-          rule('live', 'Живое', { mechanics: [{ mechanicId: 8, mechanicPayload: null }], }),
+          rule('live', 'Живое', { mechanics: [{ mechanicId: 8, mechanicPayload: null }] }),
         ],
       },
       keywords,

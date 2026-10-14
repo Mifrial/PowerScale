@@ -53,6 +53,10 @@ final class RuleSpaceMetaTable extends SmartTableDefinition
                 UserTable::class,
             ),
             new TextField('description', FieldSettings::fromOptions(['required' => true])),
+            new StringField(
+                'published_read',
+                FieldSettings::fromOptions(['required' => true, 'default' => 'owner']),
+            ),
             new BoolField('active', FieldSettings::fromOptions(['required' => true, 'default' => true])),
             new DateTimeField(
                 'created_at',

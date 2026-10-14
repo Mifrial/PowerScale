@@ -12,6 +12,7 @@ const spaceA: Space = {
   name: 'Разработка',
   description: '',
   ownerId: 1,
+  publishedRead: 'owner',
   revision: 5,
   active: true,
   createdAt: 1,

@@ -18,7 +18,16 @@ final class RuleSpaceRecord
     /**
      * @var array<int, string>
      */
-    private const FIELD_NAMES = ['space_id', 'code', 'name', 'owner_id', 'description', 'active', 'created_at'];
+    private const FIELD_NAMES = [
+        'space_id',
+        'code',
+        'name',
+        'owner_id',
+        'description',
+        'published_read',
+        'active',
+        'created_at',
+    ];
 
     /**
      * Создаёт запись.
@@ -28,6 +37,7 @@ final class RuleSpaceRecord
      * @param string $name Подпись.
      * @param int $ownerId Владелец.
      * @param string $description Текст.
+     * @param string $publishedRead Кто читает опубликованный срез: owner или all.
      * @param bool $active Включён.
      * @param DateTime $createdAt Создание.
      *
@@ -39,6 +49,7 @@ final class RuleSpaceRecord
         private readonly string $name,
         private readonly int $ownerId,
         private readonly string $description,
+        private readonly string $publishedRead,
         private readonly bool $active,
         private readonly DateTime $createdAt,
     ) {
@@ -67,6 +78,7 @@ final class RuleSpaceRecord
             self::requireString($fields['name']),
             self::requireInt($fields['owner_id']),
             self::requireString($fields['description']),
+            self::requireString($fields['published_read']),
             self::requireBool($fields['active']),
             self::requireDateTime($fields['created_at']),
         );
@@ -120,6 +132,16 @@ final class RuleSpaceRecord
     public function getDescription(): string
     {
         return $this->description;
+    }
+
+    /**
+     * Кто читает опубликованный мир по HTTP.
+     *
+     * @return string owner или all.
+     */
+    public function getPublishedRead(): string
+    {
+        return $this->publishedRead;
     }
 
     /**

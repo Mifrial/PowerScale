@@ -91,6 +91,7 @@ const spaces: Space[] = [
     description: 'Рабочее пространство для разработки правил',
     revision: 5,
     ownerId: 1,
+    publishedRead: 'owner',
     active: true,
     createdAt: 1768471200,
     rulesCount: generatedRuleCount(5),
@@ -102,6 +103,7 @@ const spaces: Space[] = [
     description: 'Опубликованные правила для игроков',
     revision: 12,
     ownerId: 1,
+    publishedRead: 'owner',
     active: true,
     createdAt: 1769936400,
     rulesCount: generatedRuleCount(12),
@@ -153,6 +155,7 @@ export async function createSpace(data: SpaceCreateData, _signal?: AbortSignal):
     description: data.description,
     revision: 0,
     ownerId: 1,
+    publishedRead: 'owner',
     active: true,
     createdAt: Math.floor(Date.now() / 1000),
     rulesCount,
@@ -179,6 +182,7 @@ export async function updateSpace(id: number, data: SpaceUpdateData, _signal?: A
   if (!space) throw new Error(`Space ${id} not found`);
   if (data.name !== undefined) space.name = data.name;
   if (data.description !== undefined) space.description = data.description;
+  if (data.publishedRead !== undefined) space.publishedRead = data.publishedRead;
 
   return { ...space };
 }
@@ -337,11 +341,10 @@ export async function commitDraft(
   const space = spaces.find((s) => s.id === spaceId);
   if (!space) throw new Error(`Space ${spaceId} not found`);
   if (space.revision !== expectedRevision) {
-    throw new ActionFailure(
-      'RULESPACE_CONFLICT',
-      'Ревизия устарела. Перечитайте срез и проверьте черновик.',
-      { expectedRevision, actualRevision: space.revision },
-    );
+    throw new ActionFailure('RULESPACE_CONFLICT', 'Ревизия устарела. Перечитайте срез и проверьте черновик.', {
+      expectedRevision,
+      actualRevision: space.revision,
+    });
   }
   const catalog = abilitySectionTreeService.normalize(sections ?? mockAbilitySectionTree);
   const sectionErrors = abilitySectionTreeService.validateRuleSections(rules, catalog);

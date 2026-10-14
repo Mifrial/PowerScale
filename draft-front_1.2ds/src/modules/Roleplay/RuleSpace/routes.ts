@@ -28,6 +28,7 @@ export function createRuleSpaceRoutes(ruleCtxChildren: RouteRecordRaw[]): RouteR
           path: '',
           name: 'Spaces',
           component: () => import('@/modules/Roleplay/RuleSpace/Page/SpacesPage.vue'),
+          meta: { guestAllowed: true },
         },
         {
           path: 'new',
@@ -56,6 +57,7 @@ export function createRuleSpaceRoutes(ruleCtxChildren: RouteRecordRaw[]): RouteR
               path: '',
               name: 'SpaceLanding',
               component: () => import('@/modules/Roleplay/RuleSpace/Page/SpaceLandingPage.vue'),
+              meta: { guestAllowed: true },
             },
             {
               path: ':ctx',
@@ -65,6 +67,7 @@ export function createRuleSpaceRoutes(ruleCtxChildren: RouteRecordRaw[]): RouteR
                   path: '',
                   name: 'SpaceDetail',
                   component: () => import('@/modules/Roleplay/RuleSpace/Page/SpaceDetailPage.vue'),
+                  meta: { guestAllowed: true },
                 },
                 ...ruleCtxChildren,
                 {
@@ -74,6 +77,7 @@ export function createRuleSpaceRoutes(ruleCtxChildren: RouteRecordRaw[]): RouteR
                   meta: {
                     title: 'Секции каталога',
                     crumb: () => [{ title: 'Секции каталога' }],
+                    guestAllowed: true,
                   },
                 },
               ],

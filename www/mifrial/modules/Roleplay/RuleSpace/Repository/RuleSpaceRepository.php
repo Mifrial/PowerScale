@@ -171,6 +171,36 @@ final class RuleSpaceRepository
     }
 
     /**
+     * Живые миры с данным published_read.
+     *
+     * @param string $publishedRead Значение owner или all.
+     * @param int $limit Потолок страницы.
+     *
+     * @return array<int, RuleSpaceRecord> Миры.
+     *
+     * @throws RuleSpaceInvalidException Если выборка битая.
+     */
+    public function getActiveListByPublishedRead(string $publishedRead, int $limit): array
+    {
+        try {
+            $listResult = $this->ruleSpaceRecords->getList(ListQuery::fromOptions([
+                'filter' => ['active' => true, 'published_read' => $publishedRead],
+                'sort' => ['id' => 'asc'],
+                'limit' => $limit,
+            ]));
+        } catch (FieldRequiredException | FieldInvalidException | MapInvalidException $exception) {
+            throw new RuleSpaceInvalidException('Rule space list is invalid', $exception);
+        }
+
+        $records = [];
+        foreach ($listResult->rows() as $row) {
+            $records[] = RuleSpaceRecord::fromNormalized($row);
+        }
+
+        return $records;
+    }
+
+    /**
      * Живые миры владельца, до limit.
      *
      * @param int $ownerUserId Владелец.

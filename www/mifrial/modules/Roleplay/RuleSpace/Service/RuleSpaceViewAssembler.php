@@ -34,6 +34,7 @@ final class RuleSpaceViewAssembler
             'name' => $ruleSpaceRecord->getName(),
             'description' => $ruleSpaceRecord->getDescription(),
             'ownerId' => $ruleSpaceRecord->getOwnerId(),
+            'publishedRead' => $ruleSpaceRecord->getPublishedRead(),
             'revision' => $latest instanceof RuleRevisionSummary ? $latest->getRevision() : 0,
             'active' => $ruleSpaceRecord->isActive(),
             'createdAt' => $ruleSpaceRecord->getCreatedAt()->toUnix(),

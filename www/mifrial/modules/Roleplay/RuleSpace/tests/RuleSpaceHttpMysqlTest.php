@@ -347,6 +347,77 @@ final class RuleSpaceHttpMysqlTest extends TestCase
     }
 
     /**
+     * publishedRead=owner скрывает срез; all открывает чтение актору и не открывает запись.
+     *
+     * @return void
+     */
+    public function testPublishedRead(): void
+    {
+        $bob = $this->addUser('bob');
+        $alice = $this->addUser('alice');
+        $this->setActor($bob, [RuleSpacePermissionKeys::CREATE]);
+        $created = $this->dispatch('ruleSpace.create', ['name' => 'Open World', 'code' => 'open-world']);
+        self::assertTrue($created['success']);
+        self::assertSame('owner', $created['data']['publishedRead']);
+        $spaceId = $created['data']['id'];
+        $committed = $this->dispatch('ruleSpace.commitDraft', [
+            'spaceId' => $spaceId,
+            'rules' => [['code' => 'human', 'type' => 'ability', 'name' => 'Human']],
+            'expectedRevision' => 0,
+        ]);
+        self::assertTrue($committed['success']);
+
+        $this->setActor($alice);
+        $hidden = $this->dispatch('ruleSpace.getRevision', ['spaceId' => $spaceId, 'revision' => 1]);
+        self::assertFalse($hidden['success']);
+        self::assertSame('AUTH_DENIED', $hidden['error']['code']);
+        $hiddenList = $this->dispatch('ruleSpace.getList', null);
+        self::assertSame([], $hiddenList['data']);
+        $this->requestContext()->setActor(null);
+        $guestHidden = $this->dispatch('ruleSpace.get', ['id' => $spaceId]);
+        self::assertSame('AUTH_REQUIRED', $guestHidden['error']['code']);
+        $this->setActor($alice, [RuleSpacePermissionKeys::VIEW_ALL]);
+        $staffList = $this->dispatch('ruleSpace.getList', null);
+        self::assertSame([$spaceId], array_column($staffList['data'], 'id'));
+        $staffSlice = $this->dispatch('ruleSpace.getRevision', ['spaceId' => $spaceId, 'revision' => 1]);
+        self::assertTrue($staffSlice['success']);
+
+        $this->setActor($bob, [RuleSpacePermissionKeys::CREATE]);
+        $opened = $this->dispatch('ruleSpace.update', ['id' => $spaceId, 'publishedRead' => 'all']);
+        self::assertTrue($opened['success']);
+        self::assertSame('all', $opened['data']['publishedRead']);
+        $invalid = $this->dispatch('ruleSpace.update', ['id' => $spaceId, 'publishedRead' => 'friends']);
+        self::assertFalse($invalid['success']);
+        self::assertSame('RULESPACE_INVALID', $invalid['error']['code']);
+
+        $this->setActor($alice);
+        $slice = $this->dispatch('ruleSpace.getRevision', ['spaceId' => $spaceId, 'revision' => 1]);
+        self::assertTrue($slice['success']);
+        $byCode = $this->dispatch('ruleSpace.getByCode', ['code' => 'open-world']);
+        self::assertTrue($byCode['success']);
+        $feed = $this->dispatch('ruleSpace.getRevisions', ['spaceId' => $spaceId]);
+        self::assertTrue($feed['success']);
+        $openedList = $this->dispatch('ruleSpace.getList', null);
+        self::assertSame([$spaceId], array_column($openedList['data'], 'id'));
+        $this->requestContext()->setActor(null);
+        $guestSlice = $this->dispatch('ruleSpace.getRevision', ['spaceId' => $spaceId, 'revision' => 1]);
+        self::assertTrue($guestSlice['success']);
+        $guestList = $this->dispatch('ruleSpace.getList', null);
+        self::assertSame([$spaceId], array_column($guestList['data'], 'id'));
+        $guestPrivate = $this->dispatch('ruleSpace.get', ['id' => 999]);
+        self::assertSame('AUTH_REQUIRED', $guestPrivate['error']['code']);
+        $this->setActor($alice);
+        $edit = $this->dispatch('ruleSpace.update', ['id' => $spaceId, 'name' => 'Hijack']);
+        self::assertSame('AUTH_DENIED', $edit['error']['code']);
+        $draft = $this->dispatch('ruleSpace.commitDraft', [
+            'spaceId' => $spaceId,
+            'rules' => [],
+            'expectedRevision' => 1,
+        ]);
+        self::assertSame('AUTH_DENIED', $draft['error']['code']);
+    }
+
+    /**
      * boot и порты.
      *
      * @return void

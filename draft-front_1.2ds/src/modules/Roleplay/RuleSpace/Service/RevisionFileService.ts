@@ -592,7 +592,11 @@ export class RevisionFileService {
       });
       const payload = row.mechanicPayload;
       if (payload != null && !this.isObjectOrArray(payload)) {
-        this.fail(REVISION_FILE_PROBLEM_CODE.format, `${path}/mechanics/${index}/mechanicPayload`, 'Некорректный payload механики');
+        this.fail(
+          REVISION_FILE_PROBLEM_CODE.format,
+          `${path}/mechanics/${index}/mechanicPayload`,
+          'Некорректный payload механики',
+        );
       }
 
       return {

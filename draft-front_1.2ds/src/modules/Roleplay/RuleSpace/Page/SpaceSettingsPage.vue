@@ -5,6 +5,8 @@ import { useSpaceStore } from '@/modules/Roleplay/RuleSpace/Store/spaces';
 import { useAbortable } from '@/modules/Core/Engine/Composables/useAbortable';
 import { accessService, useCurrentUser } from '@/modules/Core/User/init';
 import type { Space } from '@/modules/Roleplay/RuleSpace/Dto/Space';
+import type { PublishedRead } from '@/modules/Roleplay/RuleSpace/Enum/PublishedRead';
+import { PUBLISHED_READ_OPTIONS } from '@/modules/Roleplay/RuleSpace/Constant/publishedReadOptions';
 
 const router = useRouter();
 const store = useSpaceStore();
@@ -14,6 +16,7 @@ const { signal } = useAbortable();
 const space = ref<Space | null>(null);
 const name = ref('');
 const description = ref('');
+const publishedRead = ref<PublishedRead>('owner');
 const saving = ref(false);
 const showDeactivateDialog = ref(false);
 const deactivating = ref(false);
@@ -32,6 +35,7 @@ onMounted(() => {
   if (space.value) {
     name.value = space.value.name;
     description.value = space.value.description;
+    publishedRead.value = space.value.publishedRead;
   }
 });
 
@@ -45,6 +49,7 @@ async function save() {
       {
         name: name.value,
         description: description.value,
+        publishedRead: publishedRead.value,
       },
       signal.value,
     );
@@ -109,7 +114,14 @@ async function deactivate() {
     <v-card class="mb-4">
       <v-card-title>Права доступа</v-card-title>
       <v-card-text>
-        <div class="text-body-2 text-medium-emphasis">Управление правами доступа будет реализовано позже</div>
+        <v-select
+          v-model="publishedRead"
+          label="Чтение опубликованных ревизий"
+          :items="PUBLISHED_READ_OPTIONS"
+          item-title="title"
+          item-value="value"
+          hide-details
+        />
       </v-card-text>
     </v-card>
 

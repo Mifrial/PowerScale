@@ -14,7 +14,7 @@ final class RuleSpacePatch
     /**
      * @var array<int, string>
      */
-    private const FIELD_NAMES = ['name', 'description'];
+    private const FIELD_NAMES = ['name', 'description', 'published_read'];
 
     /**
      * Создаёт Patch.

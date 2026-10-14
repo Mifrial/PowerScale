@@ -36,6 +36,7 @@ function spaceOf(id: number, code: string, revision: number): Space {
     name: code,
     description: '',
     ownerId: 1,
+    publishedRead: 'owner',
     revision,
     active: true,
     createdAt: 1,

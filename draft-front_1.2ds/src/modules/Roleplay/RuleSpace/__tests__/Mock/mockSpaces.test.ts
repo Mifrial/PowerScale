@@ -141,18 +141,22 @@ describe('mockSpaces: публикация черновика собирает �
   it('первая публикация на пустом пространстве даёт v1 из черновика, не каталог', async () => {
     const { createSpace } = await import('@/modules/Roleplay/RuleSpace/Mock/mockSpaces');
     const space = await createSpace({ name: 'Пустое', description: '' });
-    const published = await commitDraft(space.id, [
-      {
-        mechanics: [],
-        id: null,
-        code: 'from-file',
-        type: 'simple',
-        name: 'Из файла',
-        description: '',
-        spaceId: space.id,
-        createdAt: 1767225600,
-      },
-    ], 0);
+    const published = await commitDraft(
+      space.id,
+      [
+        {
+          mechanics: [],
+          id: null,
+          code: 'from-file',
+          type: 'simple',
+          name: 'Из файла',
+          description: '',
+          spaceId: space.id,
+          createdAt: 1767225600,
+        },
+      ],
+      0,
+    );
     expect(published.revision).toBe(1);
     expect(published.rules.map((rule) => rule.code)).toEqual(['from-file']);
     const meta = await fetchRevisions(space.id);
